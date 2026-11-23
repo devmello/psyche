@@ -2,6 +2,13 @@ import { describe, expect, it } from "vitest";
 import { chunkId, chunkText, estimateTokens, stripComments } from "../src/chunker.ts";
 import { applyDailyWrite, formatEntry, parseDailyNote } from "../src/daily.ts";
 import { blockingKinds, detectSensitive, looksLikeInstruction } from "../src/filters.ts";
+import {
+  canonicalCase,
+  isBootstrapFile,
+  isGraphCard,
+  isProtected,
+  isSkillFile,
+} from "../src/layout.ts";
 import { normalizeWorkspacePath } from "../src/paths.ts";
 import {
   activeDirectives,
@@ -278,8 +285,14 @@ describe("workspace paths", () => {
     expect(normalizeWorkspacePath("memory/2026-10-18.md")).toBe("memory/2026-10-18.md");
   });
 
+  // Built from code points: invisible and bidi characters stay out of the source file.
+  const s = (...parts: (string | number)[]) =>
+    parts.map((p) => (typeof p === "number" ? String.fromCodePoint(p) : p)).join("");
+  const ZWJ = 0x200d;
+  const VS16 = 0xfe0f;
   // Two-way: Finder names the owner really makes must pass; anything that would reach a shell,
-  // hide text (bidi, control, tags), escape the folder or hold a card number must still fail.
+  // hide text (bidi, control, tags, ZWJ off emoji), escape the folder or hold a card number must
+  // still fail.
   const accept = [
     "Trip 🏝️.md",
     "C#.md",
@@ -287,28 +300,39 @@ describe("workspace paths", () => {
     "a;b.md",
     "50% done.md",
     "[draft] plan.md",
-    "👨‍👩‍👧 family.md",
+    s("👨", ZWJ, "👩", ZWJ, "👧 family.md"),
     "a=b ~ {c} ^d !e @f %g.md",
-    "🇧🇷 flag.md",
+    s("🇺", "🇸.md"),
+    s("1", VS16, 0x20e3, ".md"),
     "Café 日本語.md",
+    "a#b?c.md",
+    "[[SOUL]].md",
+    "me@example.com.md",
   ];
   const refuse = [
     "$(touch x).md",
     "`x`.md",
-    "a‮b.md",
-    "a\u0085b.md",
-    "a⁦b.md",
-    "a‎b.md",
-    "a\u{E0041}b.md",
-    "a\u0000b.md",
+    s("a", 0x202e, "b.md"),
+    s("a", 0x85, "b.md"),
+    s("a", 0x2066, "b.md"),
+    s("a", 0x200e, "b.md"),
+    s("a", 0xe0041, "b.md"),
+    s("a", 0, "b.md"),
+    s("a", 0xa0, "b.md"),
+    s("a", 0xad, "b.md"),
+    s("a", 0x200c, "b.md"),
+    s("SO", ZWJ, "UL.md"),
+    s(ZWJ, ".git"),
+    s(ZWJ, ".hidden.md"),
+    s(ZWJ, ".md"),
+    s(ZWJ, ZWJ),
+    s("a", ZWJ, "b.md"),
     "a:b.md",
     "a|b.md",
     "a*b.md",
     'a"b.md',
     "a<b>.md",
     "a\\b.md",
-    "a b.md",
-    "a­b.md",
     ".hidden.md",
     " lead.md",
     "trail .md ",
@@ -324,5 +348,34 @@ describe("workspace paths", () => {
     for (const name of refuse) {
       expect(() => normalizeWorkspacePath(name), JSON.stringify(name)).toThrow();
     }
+  });
+
+  it("folds names the way APFS does, so every spelling is the protected or canonical name", () => {
+    const rows: [string, string][] = [
+      ["soul.md", "SOUL.md"],
+      [s(0x17f, "OUL.md"), "SOUL.md"],
+      [s("U", 0x17f, "ER.md"), "USER.md"],
+      [s("AGENT", 0x17f, ".md"), "AGENTS.md"],
+      [s("BOOT", 0xfb06, "RAP.md"), "BOOTSTRAP.md"],
+      [s("BOOT", 0xfb05, "RAP.md"), "BOOTSTRAP.md"],
+      [s(0x17f, "kills/x/SKILL.md"), "skills/x/SKILL.md"],
+      ["MEMORY/2026-10-18.md", "memory/2026-10-18.md"],
+      ["PEOPLE/Ada.md", "people/Ada.md"],
+      [s("projec", "t", 0x17f, "/Ada.md"), "projects/Ada.md"],
+    ];
+    for (const [input, out] of rows) expect(canonicalCase(input), input).toBe(out);
+  });
+
+  it("policy predicates see the canonical name, and ordinary names stay ordinary", () => {
+    expect(isProtected(s(0x17f, "oul.md"))).toBe(true);
+    expect(isProtected(s("U", 0x17f, "ER.md"))).toBe(true);
+    expect(isProtected("soulmate.md")).toBe(false);
+    expect(isBootstrapFile(s("BOOT", 0xfb06, "RAP.md"))).toBe(true);
+    expect(isBootstrapFile(s("BOOT", 0xfb05, "RAP.md"))).toBe(true);
+    expect(isBootstrapFile("BOOTSTRAP.txt")).toBe(false);
+    expect(isSkillFile(s(0x17f, "kills/x/LESSONS.md"))).toBe(true);
+    expect(isSkillFile("skillsharing/x.md")).toBe(false);
+    expect(isGraphCard(s("projec", "t", 0x17f, "/Ada.md"))).toBe(true);
+    expect(isGraphCard("notes/Ada.md")).toBe(false);
   });
 });

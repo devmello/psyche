@@ -2,7 +2,7 @@ import { existsSync, lstatSync, readdirSync, realpathSync } from "node:fs";
 import { join, relative, sep } from "node:path";
 import { PsycheError } from "@psyche/protocol";
 import { blockingKinds } from "./filters.ts";
-import { canonicalCase } from "./layout.ts";
+import { canonicalCase, foldName } from "./layout.ts";
 
 /**
  * Workspace path confinement. Every path the store accepts is relative to the workspace, uses
@@ -22,7 +22,7 @@ const MAX_SEGMENT = 128;
  * : \ /`. `Emoji_Component` contains `*` and the tag characters, so both are carved out.
  */
 const SEGMENT =
-  /^(?:[\p{L}\p{N}\p{M} ._\-()+,'&#!?@%;=~[\]{}^]|\p{Extended_Pictographic}|(?!\*)(?!\p{Cf})\p{Emoji_Component}|‍|️)+$/u;
+  /^(?:[\p{L}\p{N}\p{M} ._\-()+,'&#!?@%;=~[\]{}^]|\p{Extended_Pictographic}|(?!\*)(?!\p{Cf})\p{Emoji_Component}|(?<=[\p{Extended_Pictographic}\p{Emoji_Modifier}\uFE0F])\u200D(?=\p{Extended_Pictographic})|\uFE0F)+$/u;
 
 export function invalidPath(message: string): never {
   throw new PsycheError("invalid_params", message);
@@ -72,8 +72,9 @@ export function canonicalWorkspacePath(root: string, rel: string): string {
         entries = [];
       }
       if (!entries.includes(part)) {
-        const lower = part.toLowerCase();
-        name = entries.find((e) => e.toLowerCase() === lower) ?? part;
+        // The fold, not toLowerCase: APFS opens `ſOUL.md` as `SOUL.md`.
+        const folded = foldName(part);
+        name = entries.find((e) => foldName(e) === folded) ?? part;
       }
     }
     out.push(name);
