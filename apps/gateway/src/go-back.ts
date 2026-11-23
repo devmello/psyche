@@ -18,7 +18,6 @@ import {
   displacedPath,
   fsyncPath,
   isInside,
-  liveFingerprint,
   planRestore,
   preUpdateDir,
   RESTORE_MARKER_FILE,
@@ -78,10 +77,12 @@ interface GoBackJournal {
   leavingBuild: string;
   leavingVersion: string;
   at: string;
-  /** `restoring` until the restore has returned; then `restored`. */
-  phase: "restoring" | "restored";
-  /** The main database's fingerprint right after the restore. */
-  liveFingerprint?: string;
+  /**
+   * `restoring` until the restore has returned; then `restored`. `undoing` is written, durably,
+   * before the undo's first move and never leaves: from then on the data may be half way back, so
+   * no start may settle it. It is finished, or the Gateway refuses to start.
+   */
+  phase: "restoring" | "restored" | "undoing";
   paths: JournalPath[];
 }
 
@@ -113,7 +114,7 @@ function readJournal(home: string): GoBackJournal | undefined {
       typeof j.snapshot !== "string" ||
       typeof j.displaceTo !== "string" ||
       typeof j.leavingBuild !== "string" ||
-      (j.phase !== "restoring" && j.phase !== "restored") ||
+      (j.phase !== "restoring" && j.phase !== "restored" && j.phase !== "undoing") ||
       !Array.isArray(j.paths)
     )
       throw new Error("not a go-back note");
@@ -228,12 +229,7 @@ export function restoreForGoBack(
       now,
       ...(opts.logger === undefined ? {} : { logger: opts.logger }),
     });
-    const fp = liveFingerprint(opts.dbPath);
-    writeJsonDurable(journalFile(home), {
-      ...journal,
-      phase: "restored",
-      ...(fp === undefined ? {} : { liveFingerprint: fp }),
-    } satisfies GoBackJournal);
+    writeJsonDurable(journalFile(home), { ...journal, phase: "restored" } satisfies GoBackJournal);
   } catch (err) {
     // A restore that stopped halfway must not stay half done: the caller does not call undo for
     // a restore that threw.
@@ -356,6 +352,9 @@ export function undoGoBack(
     rmSync(markerFile, { force: true });
     fsyncPath(join(home, "run"));
   }
+  // From the first move on, a start must never take this folder for finished: see `phase`.
+  if (journal.phase !== "undoing")
+    writeJsonDurable(journalFile(home), { ...journal, phase: "undoing" } satisfies GoBackJournal);
   const asideDir = `${journal.displaceTo}-undone`;
   const failures: string[] = [];
   for (const { p, file } of files) {
@@ -375,6 +374,26 @@ export function undoGoBack(
   fsyncPath(join(home, "run"));
   opts.logger?.log("warn", "a go back that did not happen was undone: the newer data is back");
   return true;
+}
+
+/**
+ * True when some file the restore put back has content that is neither what it was before nor
+ * what the restore left there: something wrote to it afterwards. A `-shm` (rebuildable) and an
+ * empty log (what merely opening a database leaves) say nothing.
+ */
+function usedSince(home: string, journal: GoBackJournal, dbPath: string): boolean {
+  const allowed = [resolve(dbPath)];
+  return journal.paths.some((p) => {
+    const file = pathOf(home, p, allowed);
+    if (file.endsWith("-shm")) return false;
+    try {
+      if (existsSync(file) && lstatSync(file).size === 0 && p.before === null) return false;
+      const cur = shaOrNull(file);
+      return cur !== p.before && cur !== p.expect;
+    } catch {
+      return true;
+    }
+  });
 }
 
 export type PendingGoBack = "none" | "undone" | "settled";
@@ -417,18 +436,25 @@ export function finishPendingGoBack(
     return refuse(errorText(err));
   }
   if (journal === undefined) return "none";
-  // The build being left is starting, so the swap to the older one did not happen; and nothing
-  // has touched the restored data since. Then the data belongs to the newer build again.
-  const notSwapped =
-    journal.leavingBuild === opts.build &&
-    (journal.phase === "restoring" || liveFingerprint(opts.dbPath) === journal.liveFingerprint);
-  if (!notSwapped) {
+  const note: GoBackJournal = journal;
+  // Settled (the go-back happened, or data was used since) only in two cases, and never once an
+  // undo has begun: its moves leave a mix of newer and restored files that must be finished, or
+  // refused, at every start until it is.
+  const settle = (): PendingGoBack => {
     opts.logger?.log("warn", "a go back finished: the newer data is kept aside", {
-      folder: journal.displaceTo,
+      folder: note.displaceTo,
     });
     rmSync(journalFile(home), { force: true });
     fsyncPath(join(home, "run"));
     return "settled";
+  };
+  if (journal.phase !== "undoing") {
+    // Another build is starting: the swap to the older one happened.
+    if (journal.leavingBuild !== opts.build) return settle();
+    // The build being left is starting again, so the swap did not happen. If something has
+    // written to the restored files since (not just opened them), they are in use: keep them
+    // (the newer copies stay in the displaced folder).
+    if (journal.phase === "restored" && usedSince(home, journal, opts.dbPath)) return settle();
   }
   try {
     undoGoBack(home, undefined, opts);

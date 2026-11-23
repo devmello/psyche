@@ -174,8 +174,8 @@ const RELEASE_VERSION = /^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$/;
  * `psyched pre-update go-back <version>` and `go-back-undo <version>` (go-back.ts): the desktop's
  * Linux "Go back". Like `restore` above, with the Gateway lock held; the restore is journalled so
  * the desktop can undo it if the swap of the app does not happen. Exit 0 means the data is as the
- * caller asked (restored, nothing to restore, or put back); anything else changed nothing that
- * was not put back, or says so.
+ * caller asked (restored, or put back). With no snapshot for the version it fails, so the desktop
+ * stops before it swaps the app; anything else changed nothing that was not put back, or says so.
  */
 function goBackCommand(
   verb: "go-back" | "go-back-undo",
@@ -204,8 +204,12 @@ function goBackCommand(
     }
     const snapshot = listSnapshots(home).find((s) => s.manifest.from === version);
     if (snapshot === undefined) {
-      out(`no data snapshot was taken when updating from ${version}: nothing to put back`);
-      return 0;
+      // Fail closed: the older app would start on data the newer one has migrated, which it
+      // cannot read. The desktop stops before it swaps the app.
+      out(
+        `error: there is no copy of your data from before the update from ${version}, so going back to ${version} is not possible`,
+      );
+      return CLI_EXIT.refused;
     }
     const running = serverBuild();
     restoreForGoBack(snapshot.dir, home, version, {

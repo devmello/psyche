@@ -12,7 +12,7 @@ import {
 import { tmpdir } from "node:os";
 import { join, relative } from "node:path";
 import { openDb } from "@psyche/db";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { linuxRollbackHooks } from "../../desktop/src/packaging/linux-rollback.ts";
 import { CLI_EXIT, runCli } from "../src/cli.ts";
 import {
@@ -34,6 +34,32 @@ import {
  * "Go back" on Linux, the data half: restore + undo are one durable pair (go-back.ts). Temp
  * folders only; nothing here touches a real data folder.
  */
+
+/**
+ * A simulated crash: while armed, the file-changing calls count, and from the `limit`-th on every
+ * one throws (the process is gone). Used to cut an undo after each single move.
+ */
+const cut = vi.hoisted(() => ({ armed: false, count: 0, limit: Number.POSITIVE_INFINITY }));
+vi.mock("node:fs", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("node:fs")>();
+  // biome-ignore lint/suspicious/noExplicitAny: wraps functions of several shapes
+  const guard = <F extends (...a: any[]) => any>(f: F): F =>
+    // biome-ignore lint/suspicious/noExplicitAny: same
+    ((...a: any[]) => {
+      if (cut.armed) {
+        if (cut.count >= cut.limit) throw new Error("simulated crash");
+        cut.count++;
+      }
+      return f(...a);
+    }) as F;
+  return {
+    ...actual,
+    renameSync: guard(actual.renameSync),
+    rmSync: guard(actual.rmSync),
+    copyFileSync: guard(actual.copyFileSync),
+    writeFileSync: guard(actual.writeFileSync),
+  };
+});
 
 const roots: string[] = [];
 afterEach(() => {
@@ -401,9 +427,15 @@ describe("psyched pre-update go-back (CLI)", () => {
     expect(existsSync(join(s.home, GO_BACK_JOURNAL_FILE))).toBe(false);
   });
 
-  it("succeeds with nothing to do when no snapshot was taken, and rejects a bad version", async () => {
+  it("fails when no snapshot was taken (nothing is changed), and rejects a bad version", async () => {
     const s = setup();
-    expect((await cli(s, "go-back", "0.4.0")).text).toMatch(/nothing to put back/);
+    useNewerVersion(s);
+    const newer = tree(s.home);
+    const res = await cli(s, "go-back", "0.4.0");
+    expect(res.code).toBe(CLI_EXIT.refused);
+    expect(res.text).toMatch(/no copy of your data from before the update from 0.4.0/);
+    expect(tree(s.home)).toEqual(newer);
+    expect(existsSync(join(s.home, GO_BACK_JOURNAL_FILE))).toBe(false);
     expect((await cli(s, "go-back", "../../x")).code).toBe(CLI_EXIT.usage);
   });
 });
@@ -460,5 +492,106 @@ describe("the desktop's hooks over the real psyched commands", () => {
     expect(readFileSync(join(s.home, "config.json"), "utf8")).toBe('{"theme":"old"}\n');
     // The newer data is kept aside, not deleted.
     expect(displacedFolders(s.home)).toHaveLength(1);
+  });
+  it("with no snapshot the restore hook rejects, so rollbackLinux stops before swapping the app", async () => {
+    const s = setup();
+    useNewerVersion(s);
+    await expect(hooksFor(s).restoreSnapshot("0.4.0")).rejects.toThrow(
+      /no copy of your data from before the update/,
+    );
+  });
+});
+
+describe("go back: a partly undone folder is never settled", () => {
+  /** A go-back that was restored, with the newer tree recorded. */
+  async function restored() {
+    const s = setup();
+    const dir = await snapshotTaken(s);
+    useNewerVersion(s);
+    rmSync(join(s.home, "state", "memory.key.json"));
+    const newer = tree(s.home);
+    restoreForGoBack(dir, s.home, "0.4.0", opts(s));
+    return { s, newer };
+  }
+  const phase = (s: S) =>
+    JSON.parse(readFileSync(join(s.home, GO_BACK_JOURNAL_FILE), "utf8")).phase as string;
+
+  it("keeps refusing at every start after an undo that failed, then finishes once fixed", async () => {
+    const { s, newer } = await restored();
+    const [folder] = displacedFolders(s.home);
+    const lost = join(s.home, "backups", "pre-update", folder as string, "config.json");
+    const kept = readFileSync(lost);
+    rmSync(lost);
+    // The abort path: undo throws, then the Gateway restarts.
+    expect(() => undoGoBack(s.home, "0.4.0", opts(s))).toThrow(/could not be put back/);
+    expect(phase(s)).toBe("undoing");
+    for (const build of [NEWER, NEWER, OLDER]) {
+      expect(() => finishPendingGoBack(s.home, opts(s, build))).toThrow(
+        /could not put your newer data back/,
+      );
+      expect(existsSync(join(s.home, GO_BACK_JOURNAL_FILE))).toBe(true);
+    }
+    writeFileSync(lost, kept);
+    expect(finishPendingGoBack(s.home, opts(s, NEWER))).toBe("undone");
+    expect(tree(s.home)).toEqual(newer);
+  });
+
+  it("undoes to the newer files when the first path was already undone", async () => {
+    const { s, newer } = await restored();
+    const file = join(s.home, GO_BACK_JOURNAL_FILE);
+    const full = JSON.parse(readFileSync(file, "utf8"));
+    // Undo only the first path, as a crash right after it would leave things...
+    writeFileSync(file, JSON.stringify({ ...full, paths: full.paths.slice(0, 1) }));
+    undoGoBack(s.home, "0.4.0", opts(s));
+    // ...with the journal as it was before the undo began.
+    writeFileSync(file, JSON.stringify({ ...full, phase: "restored" }));
+    expect(finishPendingGoBack(s.home, opts(s, NEWER))).toBe("undone");
+    expect(tree(s.home)).toEqual(newer);
+  });
+
+  it("still settles for good reason: the older build starting, or restored files written since", async () => {
+    const a = await restored();
+    expect(finishPendingGoBack(a.s.home, opts(a.s, OLDER))).toBe("settled");
+    const b = await restored();
+    writeFileSync(join(b.s.home, "config.json"), '{"theme":"written after going back"}\n');
+    expect(finishPendingGoBack(b.s.home, opts(b.s, NEWER))).toBe("settled");
+    expect(readFileSync(join(b.s.home, "config.json"), "utf8")).toContain("after going back");
+  });
+
+  it("recovers or refuses after a crash at every single move of the undo, never settles mixed", async () => {
+    // How many file-changing calls a whole undo makes.
+    const probe = await restored();
+    cut.count = 0;
+    cut.limit = Number.POSITIVE_INFINITY;
+    cut.armed = true;
+    try {
+      undoGoBack(probe.s.home, "0.4.0", opts(probe.s));
+    } finally {
+      cut.armed = false;
+    }
+    const total = cut.count;
+    expect(total).toBeGreaterThanOrEqual(8);
+
+    for (let k = 0; k < total; k++) {
+      const { s, newer } = await restored();
+      cut.count = 0;
+      cut.limit = k;
+      cut.armed = true;
+      try {
+        undoGoBack(s.home, "0.4.0", opts(s));
+      } catch {
+        // the simulated crash
+      } finally {
+        cut.armed = false;
+      }
+      let result: string;
+      try {
+        result = finishPendingGoBack(s.home, opts(s, NEWER));
+      } catch {
+        result = "refused";
+      }
+      expect({ k, result: result === "settled" ? "settled" : "ok" }).toEqual({ k, result: "ok" });
+      if (result !== "refused") expect({ k, tree: tree(s.home) }).toEqual({ k, tree: newer });
+    }
   });
 });
