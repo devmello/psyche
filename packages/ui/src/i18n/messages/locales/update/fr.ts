@@ -12,4 +12,6 @@ export const update: Partial<Catalogue> = {
   "settings.updates.ready": "Psyche {version} est prêt",
   "settings.updates.readyRequired": "Psyche {version} est prêt (obligatoire)",
   "settings.updates.refused": "Mise à jour refusée : {reason}",
+  "settings.updates.installFailed":
+    "Psyche n’a pas pu installer la mise à jour. Réessayez plus tard.",
 };

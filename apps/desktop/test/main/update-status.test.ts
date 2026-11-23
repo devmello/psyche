@@ -27,13 +27,14 @@ describe("update status mapping (macOS, Squirrel)", () => {
     ).toEqual({
       state: "refused",
       reason: "bad signature",
+      code: "x",
     });
     expect(updateStatusFromOutcome({ state: "refused", code: "bad_hash" })).toEqual({
       state: "refused",
       reason: "bad_hash",
+      code: "bad_hash",
     });
   });
-
   it("off, unpackaged and keyless runs are idle, never an error", () => {
     expect(updateStatusFromOutcome({ state: "disabled" })).toEqual({ state: "idle" });
     expect(updateStatusFromOutcome({ state: "no_keys" })).toEqual({ state: "idle" });

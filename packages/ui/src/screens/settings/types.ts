@@ -117,7 +117,7 @@ export type UpdateStatusView =
   | { state: "checking" }
   | { state: "none" }
   | { state: "ready"; release: string; mandatory: boolean }
-  | { state: "refused"; reason: string };
+  | { state: "refused"; reason: string; code?: string };
 
 /** The update port the desktop shell provides; absent on the web. */
 export interface UpdatePort {

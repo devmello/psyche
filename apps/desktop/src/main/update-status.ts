@@ -10,7 +10,12 @@ export type UpdateStatus =
   | { state: "checking" } // a verified download is in flight
   | { state: "none" } // up to date, or no manifest published
   | { state: "ready"; release: string; mandatory: boolean } // installs on restart
-  | { state: "refused"; reason: string }; // verification failed; nothing applied
+  // Verification or install failed; nothing applied. `code` is a fixed word the UI translates; `reason`
+  // is a short English fallback that never carries paths or the local feed address.
+  | { state: "refused"; reason: string; code?: string };
+
+/** The code for a Squirrel install failure. The raw error text goes to the log only. */
+export const INSTALL_FAILED = "install_failed";
 
 /** The result of one check, as `runUpdater` reports it. */
 export interface CheckOutcome {
@@ -30,7 +35,11 @@ export function updateStatusFromOutcome(outcome: CheckOutcome): UpdateStatus {
     case "none":
       return { state: "none" };
     case "refused":
-      return { state: "refused", reason: outcome.reason ?? outcome.code ?? "unknown" };
+      return {
+        state: "refused",
+        reason: outcome.reason ?? outcome.code ?? "unknown",
+        ...(outcome.code ? { code: outcome.code } : {}),
+      };
     case "disabled":
     case "no_keys":
       return { state: "idle" };

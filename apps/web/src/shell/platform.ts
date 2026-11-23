@@ -570,7 +570,7 @@ export type UpdateStatusView =
   | { state: "checking" }
   | { state: "none" }
   | { state: "ready"; release: string; mandatory: boolean }
-  | { state: "refused"; reason: string };
+  | { state: "refused"; reason: string; code?: string };
 
 export interface UpdatePort {
   status(): Promise<UpdateStatusView>;

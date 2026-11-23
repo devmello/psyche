@@ -42,6 +42,8 @@ export interface AppWindows {
   mainContents(): WebContents | undefined;
   /** After this, closing the main window really closes it (quit). */
   setQuitting(): void;
+  /** Undoes setQuitting when a quit was abandoned (an update restart that did not go ahead). */
+  cancelQuitting(): void;
   /** Shows the main window, creating it when it was closed. */
   showMain(): BaseWindow;
   /**
@@ -452,6 +454,9 @@ export function createAppWindows(opts: WindowOptions): AppWindows {
       mainView && !mainView.webContents.isDestroyed() ? mainView.webContents : undefined,
     setQuitting() {
       quitting = true;
+    },
+    cancelQuitting() {
+      quitting = false;
     },
     startHidden() {
       if (mainWin === undefined) createMain(true);

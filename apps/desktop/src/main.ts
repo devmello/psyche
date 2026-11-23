@@ -187,7 +187,13 @@ import {
   readBundledPinned,
 } from "./main/update-gate.ts";
 import { getUpdateStatus, onUpdateStatus } from "./main/update-status.ts";
-import { restartToUpdate, setLinuxUpdateHost, startUpdater, stopUpdater } from "./main/updater.ts";
+import {
+  restartToUpdate,
+  setLinuxUpdateHost,
+  setRestartWindowHooks,
+  startUpdater,
+  stopUpdater,
+} from "./main/updater.ts";
 import {
   canvasColor,
   chromeViewBackground,
@@ -2504,6 +2510,15 @@ void app.whenReady().then(async () => {
   // TODO(beta feed): once the pipeline publishes a beta manifest, read `updates.channel` after the
   // Gateway is paired (not here: the connection is not up in this tick) and pass it as `channel`.
   onUpdateStatus((s) => broadcast(IPC.updateChanged, s));
+  // "Restart to update" closes every window before quitting: mark the quit first, or the main
+  // window hides on close and the update never installs (update-restart.ts).
+  setRestartWindowHooks({
+    beginQuit: () => windows?.setQuitting(),
+    cancelQuit: () => {
+      windows?.cancelQuitting();
+      windows?.showMain();
+    },
+  });
   if (perfProbe === undefined) void startUpdater({ stateFile: join(home, "run", "updater.json") });
 
   app.on("activate", () => windows?.showMain());

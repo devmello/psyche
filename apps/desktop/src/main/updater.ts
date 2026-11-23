@@ -41,9 +41,10 @@ import {
   readBundledPinned,
   satisfiesRequirement,
 } from "./update-gate.ts";
+import { abandonRestart, restartToUpdate as restartNow } from "./update-restart.ts";
 import {
   getUpdateStatus,
-  restartRefusal,
+  INSTALL_FAILED,
   setUpdateStatus,
   updateStatusFromOutcome,
 } from "./update-status.ts";
@@ -426,8 +427,15 @@ async function applyMac(result: Ready, log: (m: string) => void): Promise<RunRes
   const served = await serveVerifiedUpdate(result.file, result.release);
   servers.push(served);
   autoUpdater.on("error", (error) => {
+    // The raw text can carry temp paths and the local feed address: it goes to the log only.
     log(error.message);
-    setUpdateStatus({ state: "refused", reason: error.message });
+    // A restart that failed to quit undoes its quitting mark, so the windows hide again.
+    abandonRestart(() => restartWindows?.cancelQuit());
+    setUpdateStatus({
+      state: "refused",
+      code: INSTALL_FAILED,
+      reason: "Psyche could not install the update",
+    });
     void served.close();
   });
   autoUpdater.on("update-downloaded", () => {
@@ -451,10 +459,25 @@ async function applyMac(result: Ready, log: (m: string) => void): Promise<RunRes
  * unsaved-edit prompt can still keep the app open.
  */
 export function restartToUpdate(): string | undefined {
-  const refusal = restartRefusal(hostPlatform(), getUpdateStatus());
-  if (refusal) return refusal;
-  autoUpdater.quitAndInstall();
-  return undefined;
+  return restartNow({
+    platform: hostPlatform(),
+    status: getUpdateStatus(),
+    beginQuit: () => restartWindows?.beginQuit(),
+    cancelQuit: () => restartWindows?.cancelQuit(),
+    quitAndInstall: () => autoUpdater.quitAndInstall(),
+  });
+}
+
+/** The window hooks the restart needs: mark quitting before quitAndInstall, undo it on failure. */
+export interface RestartWindowHooks {
+  beginQuit(): void;
+  cancelQuit(): void;
+}
+
+let restartWindows: RestartWindowHooks | undefined;
+
+export function setRestartWindowHooks(hooks: RestartWindowHooks): void {
+  restartWindows = hooks;
 }
 
 /**

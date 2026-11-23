@@ -12,4 +12,6 @@ export const update: Partial<Catalogue> = {
   "settings.updates.ready": "Psyche {version} 업데이트 준비됨",
   "settings.updates.readyRequired": "Psyche {version} 업데이트 준비됨(필수)",
   "settings.updates.refused": "업데이트가 거부됨: {reason}",
+  "settings.updates.installFailed":
+    "Psyche가 업데이트를 설치하지 못했습니다. 나중에 다시 시도하세요.",
 };

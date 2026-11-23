@@ -57,6 +57,21 @@ describe("About shows the app's real update state", () => {
     expect(screen.queryByRole("button", { name: "Restart to update" })).toBeNull();
   });
 
+  it("shows the translated install failure, never the raw error text", async () => {
+    const raw = "ENOENT /var/folders/x/psyche-update http://127.0.0.1:5555/tok";
+    render(
+      <AboutPanel
+        info={info}
+        showUpdates
+        update={fakePort({ state: "refused", code: "install_failed", reason: raw })}
+      />,
+    );
+    expect(
+      await screen.findByText("Psyche couldn't install the update. Try again later."),
+    ).toBeTruthy();
+    expect(screen.queryByText(/127\.0\.0\.1|psyche-update/)).toBeNull();
+  });
+
   it("shows checking while a verified download is in flight", async () => {
     render(<AboutPanel info={info} showUpdates update={fakePort({ state: "checking" })} />);
     expect(await screen.findByText("Checking for updates…")).toBeTruthy();

@@ -12,4 +12,5 @@ export const update = {
   "settings.updates.ready": "Psyche {version} is ready",
   "settings.updates.readyRequired": "Psyche {version} is ready (required)",
   "settings.updates.refused": "Update refused: {reason}",
+  "settings.updates.installFailed": "Psyche couldn't install the update. Try again later.",
 };

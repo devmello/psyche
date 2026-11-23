@@ -53,6 +53,8 @@ export function UpdateStatusValue({
   if (status.state === "idle") return null;
   if (status.state === "checking") return <span>{t("settings.updates.checking")}</span>;
   if (status.state === "none") return <span>{t("settings.updates.upToDate")}</span>;
+  if (status.state === "refused" && status.code === "install_failed")
+    return <span>{t("settings.updates.installFailed")}</span>;
   if (status.state === "refused")
     return <span>{t("settings.updates.refused", { reason: status.reason })}</span>;
   const restart = (): void => {
