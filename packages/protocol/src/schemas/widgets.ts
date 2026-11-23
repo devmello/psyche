@@ -1,6 +1,7 @@
 import { type Static, type TProperties, Type } from "@sinclair/typebox";
 import { Id, IsoDateTime, Nullable, StringEnum } from "../common.ts";
 import { TaintSource } from "./permissions.ts";
+import { AnswerSource } from "./sources.ts";
 
 /**
  * Generative UI (docs/design/generative-ui-2026.md). A widget spec is DATA: a tree of nodes from a
@@ -324,6 +325,11 @@ export const WidgetSpec = Type.Object(
     title: Type.String({ minLength: 1, maxLength: 80 }),
     fallbackText: Type.String({ minLength: 1, maxLength: 2000 }),
     root: WidgetNode,
+    /**
+     * Citations: the sources behind what the widget shows, as chips under it. Optional, so older
+     * specs stay valid. The Gateway sets them from the run's search results; a model's own are dropped.
+     */
+    sources: Type.Optional(Type.Array(AnswerSource, { maxItems: 20 })),
   },
   { $id: "WidgetSpec", additionalProperties: false },
 );

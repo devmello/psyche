@@ -2,6 +2,7 @@ import type { Widget } from "@psyche/protocol";
 import { Check, Copy, LayoutPanelTop, Pin, PinOff, ShieldAlert } from "lucide-react";
 import { type ReactElement, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
+import { SourceList } from "../blocks/SourceChips.tsx";
 import { useStore } from "../data/index.ts";
 import { put } from "../data/state.ts";
 import { t } from "../i18n/core.ts";
@@ -150,6 +151,7 @@ export default function WidgetView({
           <RenderNode node={widget.spec.root} depth={0} />
         </WidgetContext.Provider>
       </div>
+      <SourceList items={widget.spec.sources} />
       <div className="sr-only" aria-live="polite" role="status" data-testid="widget-live">
         {announcement}
       </div>

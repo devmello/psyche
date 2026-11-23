@@ -1361,6 +1361,7 @@ export interface Artifact {
     nameSlug:      string;
     runId?:        null | string;
     sourceRef?:    null | string;
+    sources?:      AnswerSource[];
     threadId?:     null | string;
     title:         string;
     type:          ArtifactType;
@@ -1368,6 +1369,19 @@ export interface Artifact {
     updatedAt:     string;
     version:       number;
 }
+
+export interface AnswerSource {
+    date:       string;
+    id:         string;
+    kind:       string;
+    provenance: Provenance;
+    route?:     null | string;
+    source:     string;
+    span:       string;
+    title:      string;
+}
+
+export type Provenance = "owner" | "agent" | "untrusted" | "system";
 
 export type ArtifactType = "markdown" | "html" | "react" | "pdf" | "sheet" | "itinerary" | "dashboard" | "doc" | "code" | "table" | "image" | "chart" | "diagram" | "diff" | "map" | "slides" | "workbook";
 
@@ -3038,8 +3052,6 @@ export type GraphProjectType = "project" | "course";
 export type GraphEntityStatus = "active" | "archived" | "merged";
 
 export type GraphWorkStatus = "not_started" | "in_progress" | "submitted" | "done" | "dropped";
-
-export type Provenance = "owner" | "agent" | "untrusted" | "system";
 
 export type GraphReviewState = "pending" | "accepted" | "auto_accepted" | "edited" | "discarded" | "quarantined";
 
@@ -5186,6 +5198,7 @@ export interface FeedWidget {
 export interface WidgetSpec {
     fallbackText: string;
     root:         { [key: string]: unknown };
+    sources?:     AnswerSource[];
     title:        string;
     v:            number;
 }
@@ -11885,17 +11898,6 @@ export interface SourcesBlock {
     cited: string[];
     items: AnswerSource[];
     type:  SourcesBlockType;
-}
-
-export interface AnswerSource {
-    date:       string;
-    id:         string;
-    kind:       string;
-    provenance: Provenance;
-    route?:     null | string;
-    source:     string;
-    span:       string;
-    title:      string;
 }
 
 export type SourcesBlockType = "sources";

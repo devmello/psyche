@@ -8512,6 +8512,13 @@
         "bytes": {
           "minimum": 0,
           "type": "integer"
+        },
+        "sources": {
+          "items": {
+            "$ref": "#/$defs/AnswerSource"
+          },
+          "maxItems": 20,
+          "type": "array"
         }
       },
       "required": [
@@ -54733,6 +54740,13 @@
         },
         "root": {
           "$ref": "#/$defs/WidgetNode"
+        },
+        "sources": {
+          "items": {
+            "$ref": "#/$defs/AnswerSource"
+          },
+          "maxItems": 20,
+          "type": "array"
         }
       },
       "required": [

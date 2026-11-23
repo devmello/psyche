@@ -9,6 +9,7 @@ import {
   searchEverything,
 } from "@psyche/search";
 import { Type } from "@sinclair/typebox";
+import { recordRunSources } from "../run-sources.ts";
 
 /**
  * `search_everything` (docs/design/search-roadmap-2026.md §6): recall questions over the main
@@ -120,6 +121,8 @@ function emitChips(ctx: object, output: SearchEverythingOutput, hits: readonly A
       span: h.span,
     }));
   if (items.length === 0) return;
+  // The same items become the citations of whatever this run writes next (widgets, artifacts).
+  recordRunSources((ctx as { runId?: string }).runId, items);
   (ctx as Partial<TurnToolContext>).turn?.emitBlock({ type: "sources", items, cited });
 }
 

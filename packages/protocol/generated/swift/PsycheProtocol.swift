@@ -5220,6 +5220,7 @@ public struct Artifact: Codable, Sendable {
     public let nameSlug: String
     public let runID: String?
     public let sourceRef: String?
+    public let sources: [AnswerSource]?
     public let threadID: String?
     public let title: String
     public let type: ArtifactType
@@ -5236,6 +5237,7 @@ public struct Artifact: Codable, Sendable {
         case nameSlug = "nameSlug"
         case runID = "runId"
         case sourceRef = "sourceRef"
+        case sources = "sources"
         case threadID = "threadId"
         case title = "title"
         case type = "type"
@@ -5244,7 +5246,7 @@ public struct Artifact: Codable, Sendable {
         case version = "version"
     }
 
-    public init(bytes: Int? = nil, id: String, language: String? = nil, libraryItemID: String, messageID: String? = nil, nameSlug: String, runID: String? = nil, sourceRef: String? = nil, threadID: String? = nil, title: String, type: ArtifactType, untrusted: Bool? = nil, updatedAt: String, version: Int) {
+    public init(bytes: Int? = nil, id: String, language: String? = nil, libraryItemID: String, messageID: String? = nil, nameSlug: String, runID: String? = nil, sourceRef: String? = nil, sources: [AnswerSource]? = nil, threadID: String? = nil, title: String, type: ArtifactType, untrusted: Bool? = nil, updatedAt: String, version: Int) {
         self.bytes = bytes
         self.id = id
         self.language = language
@@ -5253,6 +5255,7 @@ public struct Artifact: Codable, Sendable {
         self.nameSlug = nameSlug
         self.runID = runID
         self.sourceRef = sourceRef
+        self.sources = sources
         self.threadID = threadID
         self.title = title
         self.type = type
@@ -5260,6 +5263,47 @@ public struct Artifact: Codable, Sendable {
         self.updatedAt = updatedAt
         self.version = version
     }
+}
+
+// MARK: - AnswerSource
+public struct AnswerSource: Codable, Sendable {
+    public let date: String
+    public let id: String
+    public let kind: String
+    public let provenance: Provenance
+    public let route: String?
+    public let source: String
+    public let span: String
+    public let title: String
+
+    public enum CodingKeys: String, CodingKey {
+        case date = "date"
+        case id = "id"
+        case kind = "kind"
+        case provenance = "provenance"
+        case route = "route"
+        case source = "source"
+        case span = "span"
+        case title = "title"
+    }
+
+    public init(date: String, id: String, kind: String, provenance: Provenance, route: String? = nil, source: String, span: String, title: String) {
+        self.date = date
+        self.id = id
+        self.kind = kind
+        self.provenance = provenance
+        self.route = route
+        self.source = source
+        self.span = span
+        self.title = title
+    }
+}
+
+public enum Provenance: String, Codable, Sendable {
+    case agent = "agent"
+    case owner = "owner"
+    case system = "system"
+    case untrusted = "untrusted"
 }
 
 public enum ArtifactType: String, Codable, Sendable {
@@ -10185,13 +10229,6 @@ public enum GraphWorkStatus: String, Codable, Sendable {
     case inProgress = "in_progress"
     case notStarted = "not_started"
     case submitted = "submitted"
-}
-
-public enum Provenance: String, Codable, Sendable {
-    case agent = "agent"
-    case owner = "owner"
-    case system = "system"
-    case untrusted = "untrusted"
 }
 
 public enum GraphReviewState: String, Codable, Sendable {
@@ -15953,19 +15990,22 @@ public struct FeedWidget: Codable, Sendable {
 public struct WidgetSpec: Codable, Sendable {
     public let fallbackText: String
     public let root: [String: JSONAny]
+    public let sources: [AnswerSource]?
     public let title: String
     public let v: Double
 
     public enum CodingKeys: String, CodingKey {
         case fallbackText = "fallbackText"
         case root = "root"
+        case sources = "sources"
         case title = "title"
         case v = "v"
     }
 
-    public init(fallbackText: String, root: [String: JSONAny], title: String, v: Double) {
+    public init(fallbackText: String, root: [String: JSONAny], sources: [AnswerSource]? = nil, title: String, v: Double) {
         self.fallbackText = fallbackText
         self.root = root
+        self.sources = sources
         self.title = title
         self.v = v
     }
@@ -33845,40 +33885,6 @@ public struct SourcesBlock: Codable, Sendable {
         self.cited = cited
         self.items = items
         self.type = type
-    }
-}
-
-// MARK: - AnswerSource
-public struct AnswerSource: Codable, Sendable {
-    public let date: String
-    public let id: String
-    public let kind: String
-    public let provenance: Provenance
-    public let route: String?
-    public let source: String
-    public let span: String
-    public let title: String
-
-    public enum CodingKeys: String, CodingKey {
-        case date = "date"
-        case id = "id"
-        case kind = "kind"
-        case provenance = "provenance"
-        case route = "route"
-        case source = "source"
-        case span = "span"
-        case title = "title"
-    }
-
-    public init(date: String, id: String, kind: String, provenance: Provenance, route: String? = nil, source: String, span: String, title: String) {
-        self.date = date
-        self.id = id
-        self.kind = kind
-        self.provenance = provenance
-        self.route = route
-        self.source = source
-        self.span = span
-        self.title = title
     }
 }
 
