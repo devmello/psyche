@@ -1,4 +1,18 @@
-import type { BotAuthStatus } from "@psyche/protocol";
+import type { BotAuthStatus, BrowserAgentSettings } from "@psyche/protocol";
+import {
+  BROWSER_DEV_PREVIEW_PORTS_ENV,
+  BROWSER_DEV_PREVIEW_PORTS_KEY,
+  BROWSER_PARTITION_ENV,
+  BROWSER_PARTITION_KEY,
+  BROWSER_SIGNED_IN_ORIGINS_ENV,
+  BROWSER_SIGNED_IN_ORIGINS_KEY,
+  type BrowserPartitionMode,
+  DEFAULT_BROWSER_PARTITION,
+  normalizeBrowserOrigin,
+  normalizeDevPreviewPort,
+  type OriginRefusal,
+  parseBrowserPartition,
+} from "@psyche/protocol/browser-agent";
 import { ExternalLink, KeyRound } from "lucide-react";
 import { type ReactElement, useCallback, useEffect, useState } from "react";
 import { Button } from "../../components/ui/button.tsx";
@@ -212,7 +226,267 @@ export function SignedInSitesGroup({ api }: { api: SignedInSitesApi }): ReactEle
   );
 }
 
+/** Why an origin was refused, in the owner's words. */
+function refusalText(reason: OriginRefusal): string {
+  switch (reason) {
+    case "wildcard":
+      return t("settings.browser.agent.refuse.wildcard");
+    case "credentials":
+      return t("settings.browser.agent.refuse.credentials");
+    case "path":
+      return t("settings.browser.agent.refuse.path");
+    case "scheme":
+      return t("settings.browser.agent.refuse.scheme");
+    case "port":
+      return t("settings.browser.agent.refuse.port");
+    default:
+      return t("settings.browser.agent.refuse.notUrl");
+  }
+}
+
+const ENV_NAME: Record<string, string> = {
+  partition: BROWSER_PARTITION_ENV,
+  signedInOrigins: BROWSER_SIGNED_IN_ORIGINS_ENV,
+  devPreviewPorts: BROWSER_DEV_PREVIEW_PORTS_ENV,
+};
+
+/**
+ * Settings → Browser "Agent sign-ins": the sign-in mode, the sites the agent may use signed in,
+ * and the loopback dev-preview ports. Each is an admin setting, so a change that widens what the
+ * agent can do asks for presence (the Gateway's `needsPresence`); narrowing applies at once. When
+ * an environment variable sets one (a development override), it shows read-only.
+ */
+export function AgentBrowserGroup({
+  agent,
+  values,
+  onChange,
+}: {
+  agent: BrowserAgentSettings | null | undefined;
+  values: Readonly<Record<string, unknown>>;
+  onChange: (key: string, value: unknown) => void;
+}): ReactElement {
+  const partition = agent?.partition;
+  const origins = agent?.signedInOrigins;
+  const ports = agent?.devPreviewPorts;
+  const modeEnv = partition?.source === "env";
+  const originsEnv = origins?.source === "env";
+  const portsEnv = ports?.source === "env";
+  const mode: BrowserPartitionMode = modeEnv
+    ? partition.value
+    : (parseBrowserPartition(values[BROWSER_PARTITION_KEY]) ?? DEFAULT_BROWSER_PARTITION);
+  const siteList: string[] = originsEnv
+    ? origins.value
+    : Array.isArray(values[BROWSER_SIGNED_IN_ORIGINS_KEY])
+      ? (values[BROWSER_SIGNED_IN_ORIGINS_KEY] as string[])
+      : [];
+  const portList: number[] = portsEnv
+    ? ports.value
+    : Array.isArray(values[BROWSER_DEV_PREVIEW_PORTS_KEY])
+      ? (values[BROWSER_DEV_PREVIEW_PORTS_KEY] as number[])
+      : [];
+  const [siteDraft, setSiteDraft] = useState("");
+  const [siteError, setSiteError] = useState<string | null>(null);
+  const [portDraft, setPortDraft] = useState("");
+  const [portError, setPortError] = useState<string | null>(null);
+
+  const addSite = (): void => {
+    const r = normalizeBrowserOrigin(siteDraft);
+    if (!r.ok) {
+      setSiteError(refusalText(r.reason));
+      return;
+    }
+    setSiteError(null);
+    setSiteDraft("");
+    if (!siteList.includes(r.origin)) {
+      onChange(BROWSER_SIGNED_IN_ORIGINS_KEY, [...siteList, r.origin]);
+    }
+  };
+  const addPort = (): void => {
+    const n = portDraft.trim() === "" ? Number.NaN : Number(portDraft);
+    const r = normalizeDevPreviewPort(n);
+    if (!r.ok) {
+      setPortError(t("settings.browser.agent.refuse.port"));
+      return;
+    }
+    setPortError(null);
+    setPortDraft("");
+    if (!portList.includes(r.port)) {
+      onChange(
+        BROWSER_DEV_PREVIEW_PORTS_KEY,
+        [...portList, r.port].sort((a, b) => a - b),
+      );
+    }
+  };
+
+  const modeOptions: { value: BrowserPartitionMode; label: string }[] = [
+    { value: "clean", label: t("settings.browser.agent.mode.clean") },
+    { value: "auto", label: t("settings.browser.agent.mode.auto") },
+    { value: "profile", label: t("settings.browser.agent.mode.profile") },
+  ];
+
+  return (
+    <Group
+      title={t("settings.browser.agent.title")}
+      description={t("settings.browser.agent.description")}
+    >
+      <div className="flex flex-col gap-2" data-testid="agent-browser-mode">
+        {modeEnv ? (
+          <p className="text-callout" data-testid="agent-browser-mode-env">
+            {t("settings.browser.agent.mode.label")}: {t(`settings.browser.agent.mode.${mode}`)}
+            <span className="block text-muted-foreground">
+              {t("settings.browser.agent.fromEnv", { variable: ENV_NAME.partition ?? "" })}
+            </span>
+          </p>
+        ) : (
+          <RadioField<BrowserPartitionMode>
+            label={t("settings.browser.agent.mode.label")}
+            settingKey={BROWSER_PARTITION_KEY}
+            value={mode}
+            onChange={(v) => onChange(BROWSER_PARTITION_KEY, v)}
+            options={modeOptions}
+          />
+        )}
+        <p className="text-callout text-muted-foreground" data-testid="agent-browser-mode-hint">
+          {t(`settings.browser.agent.mode.${mode}Hint`)}
+        </p>
+      </div>
+
+      <div className="flex flex-col gap-2" data-testid="agent-browser-sites">
+        <p className="font-medium">{t("settings.browser.agent.sites.title")}</p>
+        <p className="text-callout text-muted-foreground">
+          {t("settings.browser.agent.sites.description")}
+        </p>
+        {originsEnv ? (
+          <p className="text-callout text-muted-foreground" data-testid="agent-browser-sites-env">
+            {t("settings.browser.agent.fromEnv", { variable: ENV_NAME.signedInOrigins ?? "" })}
+          </p>
+        ) : null}
+        {siteList.length === 0 ? (
+          <p className="text-muted-foreground">{t("settings.browser.agent.sites.none")}</p>
+        ) : null}
+        <ul className="flex flex-col gap-2">
+          {siteList.map((site) => (
+            <li key={site} className="flex items-center justify-between gap-3">
+              <span className="font-mono">{site}</span>
+              {originsEnv ? null : (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  aria-label={t("settings.browser.agent.sites.remove", { site })}
+                  onClick={() =>
+                    onChange(
+                      BROWSER_SIGNED_IN_ORIGINS_KEY,
+                      siteList.filter((s) => s !== site),
+                    )
+                  }
+                >
+                  {t("settings.browser.agent.sites.removeShort")}
+                </Button>
+              )}
+            </li>
+          ))}
+        </ul>
+        {originsEnv ? null : (
+          <form
+            className="flex flex-wrap items-center gap-2"
+            onSubmit={(e) => {
+              e.preventDefault();
+              addSite();
+            }}
+          >
+            <input
+              className="min-w-0 flex-1 rounded-md border px-2 py-1 font-mono text-callout"
+              aria-label={t("settings.browser.agent.sites.label")}
+              // i18n-ignore: an example URL, not text
+              placeholder="https://example.com"
+              value={siteDraft}
+              onChange={(e) => setSiteDraft(e.target.value)}
+            />
+            <Button type="submit" variant="outline" size="sm">
+              {t("settings.browser.agent.sites.add")}
+            </Button>
+          </form>
+        )}
+        {siteError ? (
+          <p role="alert" className="text-callout">
+            {siteError}
+          </p>
+        ) : null}
+      </div>
+
+      <div className="flex flex-col gap-2" data-testid="agent-browser-ports">
+        <p className="font-medium">{t("settings.browser.agent.ports.title")}</p>
+        <p className="text-callout text-muted-foreground">
+          {t("settings.browser.agent.ports.description")}
+        </p>
+        {portsEnv ? (
+          <p className="text-callout text-muted-foreground" data-testid="agent-browser-ports-env">
+            {t("settings.browser.agent.fromEnv", { variable: ENV_NAME.devPreviewPorts ?? "" })}
+          </p>
+        ) : null}
+        {portList.length === 0 ? (
+          <p className="text-muted-foreground">{t("settings.browser.agent.ports.none")}</p>
+        ) : null}
+        <ul className="flex flex-col gap-2">
+          {portList.map((port) => (
+            <li key={port} className="flex items-center justify-between gap-3">
+              <span className="font-mono">{`localhost:${port}`}</span>
+              {portsEnv ? null : (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  aria-label={t("settings.browser.agent.ports.remove", { port })}
+                  onClick={() =>
+                    onChange(
+                      BROWSER_DEV_PREVIEW_PORTS_KEY,
+                      portList.filter((p) => p !== port),
+                    )
+                  }
+                >
+                  {t("settings.browser.agent.sites.removeShort")}
+                </Button>
+              )}
+            </li>
+          ))}
+        </ul>
+        {portsEnv ? null : (
+          <form
+            className="flex flex-wrap items-center gap-2"
+            onSubmit={(e) => {
+              e.preventDefault();
+              addPort();
+            }}
+          >
+            <input
+              type="number"
+              inputMode="numeric"
+              min={1}
+              max={65535}
+              className="w-28 rounded-md border px-2 py-1 font-mono text-callout"
+              aria-label={t("settings.browser.agent.ports.label")}
+              value={portDraft}
+              onChange={(e) => setPortDraft(e.target.value)}
+            />
+            <Button type="submit" variant="outline" size="sm">
+              {t("settings.browser.agent.ports.add")}
+            </Button>
+          </form>
+        )}
+        {portError ? (
+          <p role="alert" className="text-callout">
+            {portError}
+          </p>
+        ) : null}
+      </div>
+    </Group>
+  );
+}
+
 export interface BrowserPanelProps extends SettingsFormProps, LoadProps {
+  /** The agent browser's sign-in mode, sites and dev ports, with where each comes from. */
+  agentSettings?: BrowserAgentSettings | null;
   /** Web Bot Auth status from the Gateway; null while unknown. */
   botAuth?: BotAuthStatus | null;
   /** Creates or replaces the key; resolves once the Gateway has the new one. */
@@ -231,6 +505,7 @@ export interface BrowserPanelProps extends SettingsFormProps, LoadProps {
 }
 
 export function BrowserPanel({
+  agentSettings,
   values,
   onChange,
   needsApproval,
@@ -342,6 +617,7 @@ export function BrowserPanel({
             )
           ) : null}
         </Group>
+        <AgentBrowserGroup agent={agentSettings} values={values} onChange={onChange} />
         <Group
           title={t("settings.browser.useSignedIn.title")}
           description={t("settings.browser.useSignedIn.description", { persona })}
@@ -481,9 +757,11 @@ export function BrowserSection({
   const named = useSlots().persona?.name;
   const call = useCall();
   const botAuthQ = useGatewayQuery("browser.botAuth.status", {});
+  const agentQ = useGatewayQuery("browser.settings.get", {});
   return (
     <div className="flex flex-col gap-3">
       <BrowserPanel
+        agentSettings={agentQ.data ?? null}
         values={form.values}
         onChange={form.onChange}
         needsApproval={form.needsApproval}

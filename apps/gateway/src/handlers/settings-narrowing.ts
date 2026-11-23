@@ -1,4 +1,12 @@
 import { canonicalPath, compilePolicy } from "@psyche/permissions";
+import {
+  BROWSER_DEV_PREVIEW_PORTS_KEY,
+  BROWSER_PARTITION_KEY,
+  BROWSER_PARTITION_WIDTH,
+  BROWSER_SIGNED_IN_ORIGINS_KEY,
+  DEFAULT_BROWSER_PARTITION,
+  parseBrowserPartition,
+} from "@psyche/protocol";
 
 /**
  * Which security-setting changes may skip the approval card: only those that PROVABLY narrow what
@@ -40,6 +48,13 @@ function noneAdded(stored: Json, next: Json): boolean {
 /** `next` is a superset of `stored` (nothing was dropped). Strings only. */
 function noneDropped(stored: Json, next: Json): boolean {
   return noneAdded(next, stored);
+}
+
+/** `next` is a subset of `stored`, for lists of strings or numbers. Anything else is false. */
+function subsetOf(stored: Json, next: Json): boolean {
+  if (!Array.isArray(stored) || !Array.isArray(next)) return false;
+  const have = new Set<unknown>(stored);
+  return next.every((x) => have.has(x));
 }
 
 const RULE_RANK: Record<string, number> = { allow: 0, ask: 1, deny: 2 };
@@ -245,6 +260,20 @@ export function isNarrowing(key: string, stored: unknown, next: unknown): boolea
     if (key === "computerUse.apps") return computerAppsNarrower(stored, next);
     if (/^permissions\.liftedFloors\.[^.]+$/.test(key)) {
       return noneAdded(stored ?? [], next);
+    }
+    // Agent browser (Settings → Browser). Mode: a narrower mode (or the same one) narrows; the
+    // default is `auto` until one is stored. Signed-in sites and dev-preview ports: a removal only.
+    if (key === BROWSER_PARTITION_KEY) {
+      const was = parseBrowserPartition(stored ?? DEFAULT_BROWSER_PARTITION);
+      const now = parseBrowserPartition(next);
+      return (
+        was !== undefined &&
+        now !== undefined &&
+        BROWSER_PARTITION_WIDTH[now] <= BROWSER_PARTITION_WIDTH[was]
+      );
+    }
+    if (key === BROWSER_SIGNED_IN_ORIGINS_KEY || key === BROWSER_DEV_PREVIEW_PORTS_KEY) {
+      return subsetOf(stored ?? [], next);
     }
     // Connector matrices (a rule equal to its catalogue default is dropped, which exposes the layer
     // under it), channel keys (nothing reads them), devices, vault, gateway, identityLinks,

@@ -56,6 +56,7 @@ import { isIncognito } from "@psyche/search";
 import type { Call, HandlerDef } from "../context.ts";
 import type { PublicRoute } from "../http.ts";
 import type { Gateway } from "../server.ts";
+import { resolveBrowserAgentSettings } from "./browser-agent-settings.ts";
 import {
   createPlaywrightServerDriver,
   NO_CHROMIUM_MESSAGE,
@@ -98,9 +99,14 @@ export interface BrowserSetup {
    * `profile` (the owner's sign-ins) or `auto` (default: the profile only for tabs on
    * `signedInOrigins`, logged out everywhere else). Never remembered per task.
    */
-  partition?: PartitionMode;
+  partition?: PartitionMode | (() => PartitionMode | undefined);
   /** Origins the owner has signed into in the agent profile, for `auto`. */
   signedInOrigins?: string[] | (() => string[]);
+  /**
+   * The owner's dev-preview ports (Settings → Browser), read on every use so an added port
+   * applies at once. Overrides `devPreview.ownerPorts` when given.
+   */
+  ownerDevPorts?: () => number[];
   /**
    * Registrable domains the profile holds a live session for (found from its cookies by the
    * desktop). With "Let Psyche use my signed-in sessions" on (the default), `auto` mode opens
@@ -313,7 +319,19 @@ export function composeBrowser(
     ...services.ownPorts.list(),
     ...(await listeningPorts(process.pid)),
   ];
-  const devServers = new DevServerRegistry({ ...(setup.devPreview ?? {}), reservedPorts });
+  // The partition is read when a session opens (a getter: Settings → Browser applies to the next
+  // session). Absent: the driver's own default.
+  const sessionPartition = (): PartitionMode | undefined =>
+    typeof setup.partition === "function" ? setup.partition() : setup.partition;
+  const devServers = new DevServerRegistry({
+    ...(setup.devPreview ?? {}),
+    // A getter, not a copy: the registry reads `ownerPorts` on each use (gate.ts), so a port the
+    // owner adds in Settings → Browser applies without a restart.
+    get ownerPorts() {
+      return setup.ownerDevPorts?.() ?? setup.devPreview?.ownerPorts;
+    },
+    reservedPorts,
+  });
   const ownProjectRule = createLocalProjectVerifier(
     systemLoopbackProbes({
       roots: () => devServers.spawnedPids(),
@@ -569,7 +587,7 @@ export function composeBrowser(
           ? { policy: { devPreview: true, loopbackPorts: [] }, partition: "clean" }
           : {
               policy: policyFor(key),
-              ...(setup.partition === undefined ? {} : { partition: setup.partition }),
+              ...(sessionPartition() === undefined ? {} : { partition: sessionPartition() }),
               ...(setup.signedInOrigins === undefined
                 ? {}
                 : {
@@ -866,6 +884,10 @@ export function composeBrowser(
       "browser.realChrome.status": {
         // On by the env (PSYCHE_REAL_CHROME=1) or by the `browser.realChrome` setting.
         run: () => ({ enabled: realChromeOn(), ...realChrome.status() }),
+      },
+      // Settings → Browser: the sign-in mode, signed-in sites and dev ports, and their sources.
+      "browser.settings.get": {
+        run: () => resolveBrowserAgentSettings(services.db, process.env),
       },
     },
     attach,
