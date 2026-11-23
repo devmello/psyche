@@ -8875,6 +8875,1142 @@
           }
         }
       }
+    },
+    "notice.apiKey.changed.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{kind, select, brave {{action, select, changed {تم تغيير} other {تمت إزالة}} مفتاح {provider}} other {{action, select, changed {تم تغيير} other {تمت إزالة}} مفتاح API الخاص بـ {provider}}}"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{kind, select, brave {Der {provider}-Schlüssel wurde {action, select, changed {geändert} other {entfernt}}} other {Der {provider}-API-Schlüssel wurde {action, select, changed {geändert} other {entfernt}}}}"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{kind, select, brave {The {provider} key was {action, select, changed {changed} other {removed}}} other {The {provider} API key was {action, select, changed {changed} other {removed}}}}"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{kind, select, brave {La clave de {provider} se {action, select, changed {cambió} other {eliminó}}} other {La clave de API de {provider} se {action, select, changed {cambió} other {eliminó}}}}"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{kind, select, brave {La clé {provider} a été {action, select, changed {modifiée} other {supprimée}}} other {La clé API {provider} a été {action, select, changed {modifiée} other {supprimée}}}}"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{kind, select, brave {{provider} कुंजी {action, select, changed {बदली गई} other {हटाई गई}}} other {{provider} API कुंजी {action, select, changed {बदली गई} other {हटाई गई}}}}"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{kind, select, brave {La chiave {provider} è stata {action, select, changed {modificata} other {rimossa}}} other {La chiave API di {provider} è stata {action, select, changed {modificata} other {rimossa}}}}"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{kind, select, brave {{provider} のキーが{action, select, changed {変更} other {削除}}されました} other {{provider} の API キーが{action, select, changed {変更} other {削除}}されました}}"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{kind, select, brave {{provider} 키가 {action, select, changed {변경} other {삭제}}되었습니다} other {{provider} API 키가 {action, select, changed {변경} other {삭제}}되었습니다}}"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{kind, select, brave {A chave do {provider} foi {action, select, changed {alterada} other {removida}}} other {A chave de API do {provider} foi {action, select, changed {alterada} other {removida}}}}"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{kind, select, brave {{provider} 密钥已{action, select, changed {更改} other {移除}}} other {{provider} API 密钥已{action, select, changed {更改} other {移除}}}}"
+          }
+        }
+      }
+    },
+    "notice.apiKey.changed.body": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{action, select, changed {التغيير} other {الإزالة}} من {device, select, none {جهاز} other {\"{device}\" ({platform}{paired, select, none {} other {، اقترن في {paired}}})}}. إن لم تكن أنت من فعل ذلك، فألغِ الجهاز من الإعدادات ← الأجهزة."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{action, select, changed {Geändert} other {Entfernt}} von {device, select, none {einem Gerät} other {\"{device}\" ({platform}{paired, select, none {} other {, gekoppelt am {paired}}})}}. Wenn du das nicht warst, widerrufe das Gerät unter Einstellungen → Geräte."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{action, select, changed {Changed} other {Removed}} from {device, select, none {a device} other {\"{device}\" ({platform}{paired, select, none {} other {, paired {paired}}})}}. If that was not you, revoke the device in Settings → Devices."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{action, select, changed {Cambiada} other {Eliminada}} desde {device, select, none {un dispositivo} other {\"{device}\" ({platform}{paired, select, none {} other {, vinculado el {paired}}})}}. Si no fuiste tú, revoca el dispositivo en Ajustes → Dispositivos."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{action, select, changed {Modifiée} other {Supprimée}} depuis {device, select, none {un appareil} other {\"{device}\" ({platform}{paired, select, none {} other {, associé le {paired}}})}}. Si ce n’était pas vous, révoquez l’appareil dans Réglages → Appareils."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{action, select, changed {बदलाव} other {हटाना}} इस डिवाइस से हुआ: {device, select, none {एक डिवाइस} other {\"{device}\" ({platform}{paired, select, none {} other {, पेयर किया गया {paired}}})}}। अगर यह आपने नहीं किया, तो सेटिंग → डिवाइस में उस डिवाइस को रद्द करें।"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{action, select, changed {Modificata} other {Rimossa}} da {device, select, none {un dispositivo} other {\"{device}\" ({platform}{paired, select, none {} other {, associato il {paired}}})}}. Se non sei stato tu, revoca il dispositivo in Impostazioni → Dispositivi."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{action, select, changed {変更} other {削除}}元: {device, select, none {デバイス} other {\"{device}\" ({platform}{paired, select, none {} other {、ペアリング日 {paired}}})}}。心当たりがない場合は、設定 → デバイスでこのデバイスを取り消してください。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{action, select, changed {변경} other {삭제}}한 기기: {device, select, none {기기} other {\"{device}\" ({platform}{paired, select, none {} other {, 페어링 날짜 {paired}}})}}. 직접 하신 일이 아니라면 설정 → 기기에서 이 기기를 해제하세요."
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{action, select, changed {Alterada} other {Removida}} por {device, select, none {um dispositivo} other {\"{device}\" ({platform}{paired, select, none {} other {, pareado em {paired}}})}}. Se não foi você, revogue o dispositivo em Ajustes → Dispositivos."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{action, select, changed {更改} other {移除}}来自：{device, select, none {某台设备} other {\"{device}\" ({platform}{paired, select, none {} other {，配对于 {paired}}})}}。如果不是你做的，请在“设置 → 设备”中撤销该设备。"
+          }
+        }
+      }
+    },
+    "notice.approvals.digest.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{count, plural, =1 {إجراء واحد من الأتمتة ينتظر} other {# إجراءات من الأتمتة تنتظر}}"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{count, plural, =1 {# Aktion deiner Automationen wartet} other {# Aktionen deiner Automationen warten}}"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{count, plural, =1 {# action is waiting from your automations} other {# actions are waiting from your automations}}"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{count, plural, =1 {# acción de tus automatizaciones está esperando} other {# acciones de tus automatizaciones están esperando}}"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{count, plural, =1 {# action de vos automatisations attend} other {# actions de vos automatisations attendent}}"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{count, plural, =1 {आपके स्वचालनों की # कार्रवाई इंतज़ार कर रही है} other {आपके स्वचालनों की # कार्रवाइयाँ इंतज़ार कर रही हैं}}"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{count, plural, =1 {# azione delle tue automazioni è in attesa} other {# azioni delle tue automazioni sono in attesa}}"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{count, plural, other {自動化の操作が#件待っています}}"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{count, plural, other {자동화의 작업 #개가 기다리고 있습니다}}"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{count, plural, =1 {# ação das suas automações está aguardando} other {# ações das suas automações estão aguardando}}"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{count, plural, other {有 # 项自动化操作在等待}}"
+          }
+        }
+      }
+    },
+    "notice.approvals.resumeMissed.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{automation, select, none {لم يُنفَّذ إجراء أتمتة تمت الموافقة عليه} other {{automation}: لم يُنفَّذ الإجراء الذي تمت الموافقة عليه}}"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{automation, select, none {Eine genehmigte Aktion einer Automation wurde nicht ausgeführt} other {{automation}: Die genehmigte Aktion wurde nicht ausgeführt}}"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{automation, select, none {An approved automation action was not done} other {{automation}: the approved action was not done}}"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{automation, select, none {No se hizo una acción aprobada de una automatización} other {{automation}: no se hizo la acción aprobada}}"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{automation, select, none {Une action approuvée d'une automatisation n'a pas été faite} other {{automation} : l'action approuvée n'a pas été faite}}"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{automation, select, none {स्वचालन की मंज़ूर की गई कार्रवाई नहीं हुई} other {{automation}: मंज़ूर की गई कार्रवाई नहीं हुई}}"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{automation, select, none {Un'azione approvata di un'automazione non è stata eseguita} other {{automation}: l'azione approvata non è stata eseguita}}"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{automation, select, none {承認した自動化の操作は行われませんでした} other {{automation}：承認した操作は行われませんでした}}"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{automation, select, none {승인한 자동화 작업이 실행되지 않았습니다} other {{automation}: 승인한 작업이 실행되지 않았습니다}}"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{automation, select, none {Uma ação aprovada de uma automação não foi feita} other {{automation}: a ação aprovada não foi feita}}"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{automation, select, none {已批准的自动化操作未执行} other {{automation}：已批准的操作未执行}}"
+          }
+        }
+      }
+    },
+    "notice.approvals.resumeMissed.body": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{why, select, expired {انتهت صلاحية الموافقة قبل أن تصل الأتمتة إلى الإجراء، لذا لم يُنفَّذ شيء. إن كانت لا تزال تحتاجه فستطلبه مرة أخرى.} paused {الأتمتة متوقفة مؤقتًا أو أُزيلت، لذا لم تعمل مرة أخرى ولم يُنفَّذ شيء. إن كانت لا تزال تحتاجه فستطلبه مرة أخرى.} restart {أُعيد تشغيل Psyche قبل أن تعمل الأتمتة مرة أخرى، لذا لم يُنفَّذ شيء. إن كانت لا تزال تحتاجه فستطلبه مرة أخرى.} restart_kept {أُعيد تشغيل Psyche قبل أن تعمل الأتمتة مرة أخرى. يبقى الإذن الذي منحته، لذا سيفعل تشغيلها التالي هذا دون أن يسأل. لسحبه، ألغِه من الأذونات الدائمة في الموافقات.} failed {أعادت الأتمتة تنفيذ الإجراء، لكنه فشل. راجع النشاط لمعرفة ما حدث. إن كانت لا تزال تحتاجه فستطلبه مرة أخرى.} failed_kept {أعادت الأتمتة تنفيذ الإجراء، لكنه فشل. راجع النشاط لمعرفة ما حدث. يبقى الإذن الذي منحته، لذا سيحاول تشغيلها التالي مرة أخرى دون أن يسأل. لسحبه، ألغِه من الأذونات الدائمة في الموافقات.} unknown {أعادت الأتمتة تنفيذ الإجراء، لكن Psyche لا يستطيع معرفة ما إذا كان قد نجح. راجع النشاط لتتأكد.} not_reached_kept {عملت الأتمتة مرة أخرى لكنها لم تصل إلى الإجراء نفسه، لذا لم يُنفَّذ شيء. يبقى الإذن الذي منحته، لذا سيفعل تشغيلها التالي هذا دون أن يسأل. لسحبه، ألغِه من الأذونات الدائمة في الموافقات.} other {عملت الأتمتة مرة أخرى لكنها لم تصل إلى الإجراء نفسه، لذا لم يُنفَّذ شيء. إن كانت لا تزال تحتاجه فستطلبه مرة أخرى.}}"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{why, select, expired {Die Genehmigung ist abgelaufen, bevor die Automation die Aktion erreicht hat, also ist nichts passiert. Braucht sie sie noch, fragt sie erneut.} paused {Die Automation ist pausiert oder wurde entfernt, lief also nicht erneut, und es ist nichts passiert. Braucht sie sie noch, fragt sie erneut.} restart {Psyche wurde neu gestartet, bevor die Automation erneut laufen konnte, also ist nichts passiert. Braucht sie sie noch, fragt sie erneut.} restart_kept {Psyche wurde neu gestartet, bevor die Automation erneut laufen konnte. Deine Berechtigung bleibt bestehen, also tut ihr nächster Lauf das ohne Nachfrage. Zum Zurücknehmen widerrufe sie unter Dauerhafte Berechtigungen in Genehmigungen.} failed {Die Automation hat die Aktion erneut ausgeführt, aber sie ist fehlgeschlagen. Unter Aktivität siehst du, was schiefging. Braucht sie sie noch, fragt sie erneut.} failed_kept {Die Automation hat die Aktion erneut ausgeführt, aber sie ist fehlgeschlagen. Unter Aktivität siehst du, was schiefging. Deine Berechtigung bleibt bestehen, also versucht es ihr nächster Lauf ohne Nachfrage erneut. Zum Zurücknehmen widerrufe sie unter Dauerhafte Berechtigungen in Genehmigungen.} unknown {Die Automation hat die Aktion erneut ausgeführt, aber Psyche kann nicht erkennen, ob sie geklappt hat. Sieh unter Aktivität nach.} not_reached_kept {Die Automation lief erneut, hat aber nicht dieselbe Aktion erreicht, also ist nichts passiert. Deine Berechtigung bleibt bestehen, also tut ihr nächster Lauf das ohne Nachfrage. Zum Zurücknehmen widerrufe sie unter Dauerhafte Berechtigungen in Genehmigungen.} other {Die Automation lief erneut, hat aber nicht dieselbe Aktion erreicht, also ist nichts passiert. Braucht sie sie noch, fragt sie erneut.}}"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{why, select, expired {The approval ran out before the automation reached the action, so nothing was done. If it still needs it, it will ask again.} paused {The automation is paused or was removed, so it did not run again and nothing was done. If it still needs it, it will ask again.} restart {Psyche restarted before the automation could run again, so nothing was done. If it still needs it, it will ask again.} restart_kept {Psyche restarted before the automation could run again. The permission you gave stays, so its next run will do this without asking. To take it back, revoke it under Standing permissions in Approvals.} failed {The automation ran the action again, but it failed. See Activity for what went wrong. If it still needs it, it will ask again.} failed_kept {The automation ran the action again, but it failed. See Activity for what went wrong. The permission you gave stays, so its next run will try again without asking. To take it back, revoke it under Standing permissions in Approvals.} unknown {The automation ran the action again, but Psyche can't tell whether it worked. Check Activity to see.} not_reached_kept {The automation ran again but did not reach the same action, so nothing was done. The permission you gave stays, so its next run will do this without asking. To take it back, revoke it under Standing permissions in Approvals.} other {The automation ran again but did not reach the same action, so nothing was done. If it still needs it, it will ask again.}}"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{why, select, expired {La aprobación caducó antes de que la automatización llegara a la acción, así que no se hizo nada. Si aún la necesita, volverá a preguntar.} paused {La automatización está en pausa o se eliminó, así que no se volvió a ejecutar y no se hizo nada. Si aún la necesita, volverá a preguntar.} restart {Psyche se reinició antes de que la automatización pudiera volver a ejecutarse, así que no se hizo nada. Si aún la necesita, volverá a preguntar.} restart_kept {Psyche se reinició antes de que la automatización pudiera volver a ejecutarse. El permiso que diste se mantiene, así que su próxima ejecución hará esto sin preguntar. Para retirarlo, revócalo en Permisos permanentes, en Aprobaciones.} failed {La automatización volvió a ejecutar la acción, pero falló. Consulta Actividad para ver qué salió mal. Si aún la necesita, volverá a preguntar.} failed_kept {La automatización volvió a ejecutar la acción, pero falló. Consulta Actividad para ver qué salió mal. El permiso que diste se mantiene, así que su próxima ejecución lo volverá a intentar sin preguntar. Para retirarlo, revócalo en Permisos permanentes, en Aprobaciones.} unknown {La automatización volvió a ejecutar la acción, pero Psyche no puede saber si funcionó. Consulta Actividad para comprobarlo.} not_reached_kept {La automatización se volvió a ejecutar pero no llegó a la misma acción, así que no se hizo nada. El permiso que diste se mantiene, así que su próxima ejecución hará esto sin preguntar. Para retirarlo, revócalo en Permisos permanentes, en Aprobaciones.} other {La automatización se volvió a ejecutar pero no llegó a la misma acción, así que no se hizo nada. Si aún la necesita, volverá a preguntar.}}"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{why, select, expired {L'approbation a expiré avant que l'automatisation n'atteigne l'action, donc rien n'a été fait. Si elle en a encore besoin, elle redemandera.} paused {L'automatisation est en pause ou a été supprimée, elle n'a donc pas été relancée et rien n'a été fait. Si elle en a encore besoin, elle redemandera.} restart {Psyche a redémarré avant que l'automatisation puisse être relancée, donc rien n'a été fait. Si elle en a encore besoin, elle redemandera.} restart_kept {Psyche a redémarré avant que l'automatisation puisse être relancée. L'autorisation que vous avez donnée reste en place : sa prochaine exécution fera ceci sans demander. Pour la retirer, révoquez-la dans Autorisations permanentes, sous Approbations.} failed {L'automatisation a relancé l'action, mais elle a échoué. Consultez Activité pour voir ce qui s'est passé. Si elle en a encore besoin, elle redemandera.} failed_kept {L'automatisation a relancé l'action, mais elle a échoué. Consultez Activité pour voir ce qui s'est passé. L'autorisation que vous avez donnée reste en place : sa prochaine exécution réessaiera sans demander. Pour la retirer, révoquez-la dans Autorisations permanentes, sous Approbations.} unknown {L'automatisation a relancé l'action, mais Psyche ne peut pas savoir si elle a réussi. Consultez Activité pour le vérifier.} not_reached_kept {L'automatisation a été relancée mais n'a pas atteint la même action, donc rien n'a été fait. L'autorisation que vous avez donnée reste en place : sa prochaine exécution fera ceci sans demander. Pour la retirer, révoquez-la dans Autorisations permanentes, sous Approbations.} other {L'automatisation a été relancée mais n'a pas atteint la même action, donc rien n'a été fait. Si elle en a encore besoin, elle redemandera.}}"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{why, select, expired {स्वचालन के कार्रवाई तक पहुँचने से पहले मंज़ूरी की अवधि खत्म हो गई, इसलिए कुछ नहीं हुआ। अगर उसे अब भी इसकी ज़रूरत है, तो वह फिर से पूछेगा।} paused {स्वचालन रुका हुआ है या हटा दिया गया, इसलिए वह फिर से नहीं चला और कुछ नहीं हुआ। अगर उसे अब भी इसकी ज़रूरत है, तो वह फिर से पूछेगा।} restart {स्वचालन के फिर से चलने से पहले Psyche फिर से शुरू हो गया, इसलिए कुछ नहीं हुआ। अगर उसे अब भी इसकी ज़रूरत है, तो वह फिर से पूछेगा।} restart_kept {स्वचालन के फिर से चलने से पहले Psyche फिर से शुरू हो गया। आपकी दी हुई अनुमति बनी रहती है, इसलिए उसका अगला रन यह बिना पूछे करेगा। इसे वापस लेने के लिए, मंज़ूरियाँ में स्थायी अनुमतियाँ से रद्द करें।} failed {स्वचालन ने कार्रवाई फिर से की, लेकिन वह विफल रही। क्या गलत हुआ, यह गतिविधि में देखें। अगर उसे अब भी इसकी ज़रूरत है, तो वह फिर से पूछेगा।} failed_kept {स्वचालन ने कार्रवाई फिर से की, लेकिन वह विफल रही। क्या गलत हुआ, यह गतिविधि में देखें। आपकी दी हुई अनुमति बनी रहती है, इसलिए उसका अगला रन बिना पूछे फिर से कोशिश करेगा। इसे वापस लेने के लिए, मंज़ूरियाँ में स्थायी अनुमतियाँ से रद्द करें।} unknown {स्वचालन ने कार्रवाई फिर से की, लेकिन Psyche यह नहीं बता सकता कि वह सफल रही या नहीं। देखने के लिए गतिविधि जाँचें।} not_reached_kept {स्वचालन फिर से चला, लेकिन उसी कार्रवाई तक नहीं पहुँचा, इसलिए कुछ नहीं हुआ। आपकी दी हुई अनुमति बनी रहती है, इसलिए उसका अगला रन यह बिना पूछे करेगा। इसे वापस लेने के लिए, मंज़ूरियाँ में स्थायी अनुमतियाँ से रद्द करें।} other {स्वचालन फिर से चला, लेकिन उसी कार्रवाई तक नहीं पहुँचा, इसलिए कुछ नहीं हुआ। अगर उसे अब भी इसकी ज़रूरत है, तो वह फिर से पूछेगा।}}"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{why, select, expired {L'approvazione è scaduta prima che l'automazione arrivasse all'azione, quindi non è stato fatto nulla. Se ne ha ancora bisogno, chiederà di nuovo.} paused {L'automazione è in pausa o è stata rimossa, quindi non è stata eseguita di nuovo e non è stato fatto nulla. Se ne ha ancora bisogno, chiederà di nuovo.} restart {Psyche si è riavviato prima che l'automazione potesse essere eseguita di nuovo, quindi non è stato fatto nulla. Se ne ha ancora bisogno, chiederà di nuovo.} restart_kept {Psyche si è riavviato prima che l'automazione potesse essere eseguita di nuovo. Il permesso che hai dato resta, quindi la prossima esecuzione farà questo senza chiedere. Per ritirarlo, revocalo in Permessi permanenti, in Approvazioni.} failed {L'automazione ha eseguito di nuovo l'azione, ma non è riuscita. Guarda Attività per capire cosa è andato storto. Se ne ha ancora bisogno, chiederà di nuovo.} failed_kept {L'automazione ha eseguito di nuovo l'azione, ma non è riuscita. Guarda Attività per capire cosa è andato storto. Il permesso che hai dato resta, quindi la prossima esecuzione riproverà senza chiedere. Per ritirarlo, revocalo in Permessi permanenti, in Approvazioni.} unknown {L'automazione ha eseguito di nuovo l'azione, ma Psyche non può sapere se è riuscita. Controlla Attività per verificarlo.} not_reached_kept {L'automazione è stata eseguita di nuovo ma non è arrivata alla stessa azione, quindi non è stato fatto nulla. Il permesso che hai dato resta, quindi la prossima esecuzione farà questo senza chiedere. Per ritirarlo, revocalo in Permessi permanenti, in Approvazioni.} other {L'automazione è stata eseguita di nuovo ma non è arrivata alla stessa azione, quindi non è stato fatto nulla. Se ne ha ancora bisogno, chiederà di nuovo.}}"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{why, select, expired {自動化が操作に到達する前に承認の期限が切れたため、何も行われませんでした。まだ必要な場合は、もう一度確認されます。} paused {自動化が一時停止中か削除されたため、再実行されず、何も行われませんでした。まだ必要な場合は、もう一度確認されます。} restart {自動化が再実行される前にPsycheが再起動したため、何も行われませんでした。まだ必要な場合は、もう一度確認されます。} restart_kept {自動化が再実行される前にPsycheが再起動しました。与えた許可は残るため、次回の実行では確認なしでこれを行います。取り消すには、承認の常時許可から取り消してください。} failed {自動化は操作を再実行しましたが、失敗しました。原因はアクティビティで確認できます。まだ必要な場合は、もう一度確認されます。} failed_kept {自動化は操作を再実行しましたが、失敗しました。原因はアクティビティで確認できます。与えた許可は残るため、次回の実行では確認なしでもう一度試します。取り消すには、承認の常時許可から取り消してください。} unknown {自動化は操作を再実行しましたが、成功したかどうかPsycheには判断できません。アクティビティで確認してください。} not_reached_kept {自動化は再実行されましたが、同じ操作に到達しなかったため何も行われませんでした。与えた許可は残るため、次回の実行では確認なしでこれを行います。取り消すには、承認の常時許可から取り消してください。} other {自動化は再実行されましたが、同じ操作に到達しなかったため何も行われませんでした。まだ必要な場合は、もう一度確認されます。}}"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{why, select, expired {자동화가 작업에 도달하기 전에 승인이 만료되어 아무것도 하지 않았습니다. 여전히 필요하면 다시 요청합니다.} paused {자동화가 일시 중지되었거나 삭제되어 다시 실행되지 않았고 아무것도 하지 않았습니다. 여전히 필요하면 다시 요청합니다.} restart {자동화가 다시 실행되기 전에 Psyche가 다시 시작되어 아무것도 하지 않았습니다. 여전히 필요하면 다시 요청합니다.} restart_kept {자동화가 다시 실행되기 전에 Psyche가 다시 시작되었습니다. 부여한 권한은 그대로이므로 다음 실행에서 묻지 않고 이 작업을 합니다. 되돌리려면 승인의 상시 권한에서 취소하세요.} failed {자동화가 작업을 다시 실행했지만 실패했습니다. 무엇이 잘못되었는지 활동에서 확인하세요. 여전히 필요하면 다시 요청합니다.} failed_kept {자동화가 작업을 다시 실행했지만 실패했습니다. 무엇이 잘못되었는지 활동에서 확인하세요. 부여한 권한은 그대로이므로 다음 실행에서 묻지 않고 다시 시도합니다. 되돌리려면 승인의 상시 권한에서 취소하세요.} unknown {자동화가 작업을 다시 실행했지만 성공했는지 Psyche가 알 수 없습니다. 활동에서 확인하세요.} not_reached_kept {자동화가 다시 실행되었지만 같은 작업에 도달하지 않아 아무것도 하지 않았습니다. 부여한 권한은 그대로이므로 다음 실행에서 묻지 않고 이 작업을 합니다. 되돌리려면 승인의 상시 권한에서 취소하세요.} other {자동화가 다시 실행되었지만 같은 작업에 도달하지 않아 아무것도 하지 않았습니다. 여전히 필요하면 다시 요청합니다.}}"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{why, select, expired {A aprovação expirou antes de a automação chegar à ação, então nada foi feito. Se ainda precisar, ela vai pedir de novo.} paused {A automação está pausada ou foi removida, então não foi executada de novo e nada foi feito. Se ainda precisar, ela vai pedir de novo.} restart {O Psyche reiniciou antes de a automação poder ser executada de novo, então nada foi feito. Se ainda precisar, ela vai pedir de novo.} restart_kept {O Psyche reiniciou antes de a automação poder ser executada de novo. A permissão que você deu continua, então a próxima execução fará isto sem perguntar. Para retirá-la, revogue-a em Permissões permanentes, em Aprovações.} failed {A automação executou a ação de novo, mas ela falhou. Veja em Atividade o que deu errado. Se ainda precisar, ela vai pedir de novo.} failed_kept {A automação executou a ação de novo, mas ela falhou. Veja em Atividade o que deu errado. A permissão que você deu continua, então a próxima execução vai tentar de novo sem perguntar. Para retirá-la, revogue-a em Permissões permanentes, em Aprovações.} unknown {A automação executou a ação de novo, mas o Psyche não consegue saber se funcionou. Confira em Atividade.} not_reached_kept {A automação foi executada de novo, mas não chegou à mesma ação, então nada foi feito. A permissão que você deu continua, então a próxima execução fará isto sem perguntar. Para retirá-la, revogue-a em Permissões permanentes, em Aprovações.} other {A automação foi executada de novo, mas não chegou à mesma ação, então nada foi feito. Se ainda precisar, ela vai pedir de novo.}}"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{why, select, expired {在自动化到达该操作之前，批准已过期，因此什么也没做。如果仍然需要，它会再次请求。} paused {自动化已暂停或已被删除，因此没有再次运行，什么也没做。如果仍然需要，它会再次请求。} restart {在自动化能够再次运行之前，Psyche 已重启，因此什么也没做。如果仍然需要，它会再次请求。} restart_kept {在自动化能够再次运行之前，Psyche 已重启。你给出的权限仍然有效，因此它下次运行时会直接执行此操作而不再询问。如需收回，请在“审批”的长期权限中撤销。} failed {自动化再次执行了该操作，但失败了。请在“活动”中查看出了什么问题。如果仍然需要，它会再次请求。} failed_kept {自动化再次执行了该操作，但失败了。请在“活动”中查看出了什么问题。你给出的权限仍然有效，因此它下次运行时会直接重试而不再询问。如需收回，请在“审批”的长期权限中撤销。} unknown {自动化再次执行了该操作，但 Psyche 无法判断是否成功。请在“活动”中查看。} not_reached_kept {自动化已再次运行，但没有到达相同的操作，因此什么也没做。你给出的权限仍然有效，因此它下次运行时会直接执行此操作而不再询问。如需收回，请在“审批”的长期权限中撤销。} other {自动化已再次运行，但没有到达相同的操作，因此什么也没做。如果仍然需要，它会再次请求。}}"
+          }
+        }
+      }
+    },
+    "notice.connector.changed.body": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{reason, select, account_changed {يسجّل موصّل الدخول الآن إلى حساب مختلف. أُوقف العمل المرتبط بالحساب القديم.} disconnected {فُصل موصّل. أُوقف العمل الذي كان يحتاج إليه.} scope_changed {أصبح موصّل للقراءة فقط. أُوقفت الإجراءات المعلّقة عبره.} other {أُلغي وصول موصّل. سجّل الدخول من جديد لمواصلة استخدامه.}}"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{reason, select, account_changed {Ein Connector meldet sich jetzt bei einem anderen Konto an. Arbeit, die ans alte Konto gebunden war, wurde gestoppt.} disconnected {Ein Connector wurde getrennt. Arbeit, die ihn brauchte, wurde gestoppt.} scope_changed {Ein Connector ist jetzt schreibgeschützt. Ausstehende Aktionen darüber wurden gestoppt.} other {Der Zugriff eines Connectors wurde widerrufen. Melde dich erneut an, um ihn weiter zu nutzen.}}"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{reason, select, account_changed {A connector now signs in to a different account. Work bound to the old account was stopped.} disconnected {A connector was disconnected. Work that needed it was stopped.} scope_changed {A connector is now read-only. Pending actions through it were stopped.} other {A connector's access was revoked. Sign in again to keep using it.}}"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{reason, select, account_changed {Un conector ahora inicia sesión en otra cuenta. Se detuvo el trabajo ligado a la cuenta anterior.} disconnected {Se desconectó un conector. Se detuvo el trabajo que lo necesitaba.} scope_changed {Un conector ahora es de solo lectura. Se detuvieron las acciones pendientes a través de él.} other {Se revocó el acceso de un conector. Inicia sesión de nuevo para seguir usándolo.}}"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{reason, select, account_changed {Un connecteur se connecte maintenant à un autre compte. Le travail lié à l’ancien compte a été arrêté.} disconnected {Un connecteur a été déconnecté. Le travail qui en avait besoin a été arrêté.} scope_changed {Un connecteur est maintenant en lecture seule. Les actions en attente par son intermédiaire ont été arrêtées.} other {L’accès d’un connecteur a été révoqué. Reconnectez-vous pour continuer à l’utiliser.}}"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{reason, select, account_changed {एक कनेक्टर अब किसी दूसरे खाते में साइन इन करता है। पुराने खाते से जुड़ा काम रोक दिया गया।} disconnected {एक कनेक्टर डिस्कनेक्ट हो गया। जिस काम को उसकी ज़रूरत थी वह रोक दिया गया।} scope_changed {एक कनेक्टर अब केवल पढ़ने के लिए है। उसके ज़रिए लंबित कार्रवाइयाँ रोक दी गईं।} other {एक कनेक्टर की पहुँच रद्द कर दी गई। उसका उपयोग जारी रखने के लिए फिर से साइन इन करें।}}"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{reason, select, account_changed {Un connettore ora accede a un altro account. Il lavoro legato al vecchio account è stato fermato.} disconnected {Un connettore è stato disconnesso. Il lavoro che ne aveva bisogno è stato fermato.} scope_changed {Un connettore ora è di sola lettura. Le azioni in sospeso tramite esso sono state fermate.} other {L’accesso di un connettore è stato revocato. Accedi di nuovo per continuare a usarlo.}}"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{reason, select, account_changed {コネクタが別のアカウントでサインインするようになりました。以前のアカウントに紐づく作業は停止しました。} disconnected {コネクタが切断されました。それを必要とする作業は停止しました。} scope_changed {コネクタが読み取り専用になりました。それを通じた保留中の操作は停止しました。} other {コネクタのアクセスが取り消されました。引き続き使うには、もう一度サインインしてください。}}"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{reason, select, account_changed {커넥터가 이제 다른 계정으로 로그인합니다. 이전 계정에 묶인 작업은 중단되었습니다.} disconnected {커넥터 연결이 끊어졌습니다. 해당 커넥터가 필요한 작업은 중단되었습니다.} scope_changed {커넥터가 이제 읽기 전용입니다. 이를 통한 대기 중인 작업은 중단되었습니다.} other {커넥터의 접근 권한이 취소되었습니다. 계속 사용하려면 다시 로그인하세요.}}"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{reason, select, account_changed {Um conector agora entra em outra conta. O trabalho ligado à conta antiga foi interrompido.} disconnected {Um conector foi desconectado. O trabalho que dependia dele foi interrompido.} scope_changed {Um conector agora é somente leitura. As ações pendentes por meio dele foram interrompidas.} other {O acesso de um conector foi revogado. Entre de novo para continuar usando.}}"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{reason, select, account_changed {某个连接器现在登录的是另一个账户。与旧账户绑定的工作已停止。} disconnected {某个连接器已断开。需要它的工作已停止。} scope_changed {某个连接器现在为只读。通过它待处理的操作已停止。} other {某个连接器的访问权限已被撤销。请重新登录以继续使用。}}"
+          }
+        }
+      }
+    },
+    "notice.security.changed.body": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "غيّر برنامج على هذا الـ Mac {count, plural, =1 {سجل أمان واحدًا} other {# من سجلات الأمان}} (الأجهزة أو المفاتيح أو الأذونات أو الإعدادات) دون المرور عبر Psyche{times, plural, =0 {} =1 {} other {، # مرات حتى الآن}}. أعاد Psyche كل شيء كما كان. إن لم تكن أنت من فعل ذلك، فافحص الـ Mac بحثًا عن برامج غير مرغوب فيها."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ein Programm auf diesem Mac hat {count, plural, =1 {# Sicherheitseintrag} other {# Sicherheitseinträge}} (Geräte, Schlüssel, Freigaben oder Einstellungen) geändert, ohne über Psyche zu gehen{times, plural, =0 {} =1 {} other {, bisher # Mal}}. Psyche hat sie wiederhergestellt. Wenn du das nicht warst, prüfe den Mac auf unerwünschte Software."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A program on this Mac changed {count, plural, =1 {# security record} other {# security records}} (devices, keys, grants or settings) without going through Psyche{times, plural, =0 {} =1 {} other {, # times so far}}. Psyche put them back. If you did not do this, check the Mac for unwanted software."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un programa de este Mac cambió {count, plural, =1 {# registro de seguridad} other {# registros de seguridad}} (dispositivos, claves, permisos o ajustes) sin pasar por Psyche{times, plural, =0 {} =1 {} other {, # veces hasta ahora}}. Psyche los restauró. Si no fuiste tú, revisa el Mac por si hay software no deseado."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un programme de ce Mac a modifié {count, plural, =1 {# enregistrement de sécurité} other {# enregistrements de sécurité}} (appareils, clés, autorisations ou réglages) sans passer par Psyche{times, plural, =0 {} =1 {} other {, # fois jusqu’ici}}. Psyche les a rétablis. Si ce n’était pas vous, vérifiez que le Mac n’a pas de logiciel indésirable."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "इस Mac पर किसी प्रोग्राम ने Psyche से गुज़रे बिना {count, plural, =1 {# सुरक्षा रिकॉर्ड} other {# सुरक्षा रिकॉर्ड}} (डिवाइस, कुंजियाँ, अनुमतियाँ या सेटिंग) बदल दिए{times, plural, =0 {} =1 {} other {, अब तक # बार}}। Psyche ने उन्हें वापस ठीक कर दिया। अगर यह आपने नहीं किया, तो Mac में अनचाहे सॉफ़्टवेयर की जाँच करें।"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un programma su questo Mac ha modificato {count, plural, =1 {# registro di sicurezza} other {# registri di sicurezza}} (dispositivi, chiavi, permessi o impostazioni) senza passare da Psyche{times, plural, =0 {} =1 {} other {, finora # volte}}. Psyche li ha ripristinati. Se non sei stato tu, controlla che il Mac non abbia software indesiderato."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "この Mac のプログラムが、Psyche を通さずに {count, plural, =1 {# 件のセキュリティ記録} other {# 件のセキュリティ記録}}（デバイス、キー、許可、設定）を変更しました{times, plural, =0 {} =1 {} other {（これまでに # 回）}}。Psyche は元に戻しました。心当たりがない場合は、Mac に不要なソフトウェアがないか確認してください。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "이 Mac의 프로그램이 Psyche를 거치지 않고 보안 기록 {count, plural, =1 {# 개} other {# 개}}(기기, 키, 권한, 설정)를 변경했습니다{times, plural, =0 {} =1 {} other {(지금까지 # 번)}}. Psyche가 되돌려 놓았습니다. 직접 하신 일이 아니라면 Mac에 원치 않는 소프트웨어가 없는지 확인하세요."
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Um programa neste Mac alterou {count, plural, =1 {# registro de segurança} other {# registros de segurança}} (dispositivos, chaves, permissões ou configurações) sem passar pelo Psyche{times, plural, =0 {} =1 {} other {, # vezes até agora}}. O Psyche os restaurou. Se não foi você, verifique se o Mac tem software indesejado."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "这台 Mac 上有程序绕过 Psyche 更改了 {count, plural, =1 {# 条安全记录} other {# 条安全记录}}（设备、密钥、授权或设置）{times, plural, =0 {} =1 {} other {，目前已发生 # 次}}。Psyche 已将它们恢复。如果不是你做的，请检查 Mac 上是否有不明软件。"
+          }
+        }
+      }
+    },
+    "notice.security.firstAdmin.body": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "أصبح {device}{key, select, none {} other { (المفتاح {key})}} أول جهاز مسؤول على هذا الـ Mac {via, select, desktop {من تطبيق Psyche} other {عبر `psyched`}}. إن لم تكن أنت من فعل ذلك، فألغِه من الإعدادات ← الأجهزة."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{device}{key, select, none {} other { (Schlüssel {key})}} wurde auf diesem Mac {via, select, desktop {über die Psyche-App} other {über `psyched`}} das erste Admin-Gerät. Wenn du das nicht warst, widerrufe es unter Einstellungen → Geräte."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{device}{key, select, none {} other { (key {key})}} became the first admin device {via, select, desktop {from the Psyche app} other {through `psyched`}} on this Mac. If that was not you, revoke it in Settings → Devices."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{device}{key, select, none {} other { (clave {key})}} pasó a ser el primer dispositivo administrador {via, select, desktop {desde la app de Psyche} other {mediante `psyched`}} en este Mac. Si no fuiste tú, revócalo en Ajustes → Dispositivos."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{device}{key, select, none {} other { (clé {key})}} est devenu le premier appareil administrateur {via, select, desktop {depuis l’app Psyche} other {via `psyched`}} sur ce Mac. Si ce n’était pas vous, révoquez-le dans Réglages → Appareils."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{device}{key, select, none {} other { (कुंजी {key})}} इस Mac पर {via, select, desktop {Psyche ऐप से} other {`psyched` के ज़रिए}} पहला एडमिन डिवाइस बन गया। अगर यह आपने नहीं किया, तो इसे सेटिंग → डिवाइस में रद्द करें।"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{device}{key, select, none {} other { (chiave {key})}} è diventato il primo dispositivo amministratore {via, select, desktop {dall’app Psyche} other {tramite `psyched`}} su questo Mac. Se non sei stato tu, revocalo in Impostazioni → Dispositivi."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{device}{key, select, none {} other {（キー {key}）}}が、この Mac で{via, select, desktop {Psyche アプリから} other {`psyched` を通じて}}最初の管理デバイスになりました。心当たりがない場合は、設定 → デバイスで取り消してください。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{device}{key, select, none {} other {(키 {key})}}가 이 Mac에서 {via, select, desktop {Psyche 앱을 통해} other {`psyched`를 통해}} 첫 관리자 기기가 되었습니다. 직접 하신 일이 아니라면 설정 → 기기에서 해제하세요."
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{device}{key, select, none {} other { (chave {key})}} virou o primeiro dispositivo administrador {via, select, desktop {pelo app do Psyche} other {por meio do `psyched`}} neste Mac. Se não foi você, revogue-o em Ajustes → Dispositivos."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{device}{key, select, none {} other {（密钥 {key}）}}已在这台 Mac 上{via, select, desktop {通过 Psyche 应用} other {通过 `psyched`}}成为第一台管理员设备。如果不是你做的，请在“设置 → 设备”中撤销。"
+          }
+        }
+      }
+    },
+    "notice.security.firstSeal.body": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ختم Psyche {devices, plural, =1 {جهازًا مقترنًا واحدًا} other {# أجهزة مقترنة}} وإعدادات الأمان فيه. من الآن، يُلغى أي تغيير يجري خارج Psyche ويظهر هنا. راجع أجهزتك مرة واحدة."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche hat {devices, plural, =1 {# gekoppeltes Gerät} other {# gekoppelte Geräte}} und seine Sicherheitseinstellungen versiegelt. Ab jetzt wird eine Änderung außerhalb von Psyche rückgängig gemacht und hier angezeigt. Prüfe deine Geräte einmal."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche sealed {devices, plural, =1 {# paired device} other {# paired devices}} and its security settings. From now on a change made outside Psyche is undone and shown here. Review your devices once."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche selló {devices, plural, =1 {# dispositivo vinculado} other {# dispositivos vinculados}} y sus ajustes de seguridad. A partir de ahora, un cambio hecho fuera de Psyche se deshace y se muestra aquí. Revisa tus dispositivos una vez."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche a scellé {devices, plural, =1 {# appareil associé} other {# appareils associés}} et ses réglages de sécurité. Désormais, une modification faite en dehors de Psyche est annulée et signalée ici. Vérifiez vos appareils une fois."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche ने {devices, plural, =1 {# पेयर किया गया डिवाइस} other {# पेयर किए गए डिवाइस}} और अपनी सुरक्षा सेटिंग सील कर दीं। अब से Psyche के बाहर किया गया कोई भी बदलाव पलट दिया जाएगा और यहाँ दिखेगा। अपने डिवाइस एक बार देख लें।"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche ha sigillato {devices, plural, =1 {# dispositivo associato} other {# dispositivi associati}} e le sue impostazioni di sicurezza. D’ora in poi una modifica fatta fuori da Psyche viene annullata e mostrata qui. Controlla i tuoi dispositivi una volta."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche は、ペアリング済みの {devices, plural, =1 {# 台のデバイス} other {# 台のデバイス}}とセキュリティ設定を保護しました。今後、Psyche の外で行われた変更は元に戻され、ここに表示されます。デバイスを一度確認してください。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche가 페어링된 기기 {devices, plural, =1 {# 대} other {# 대}}와 보안 설정을 봉인했습니다. 이제부터 Psyche 밖에서 이루어진 변경은 되돌려지고 여기에 표시됩니다. 기기를 한 번 확인하세요."
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O Psyche selou {devices, plural, =1 {# dispositivo pareado} other {# dispositivos pareados}} e suas configurações de segurança. A partir de agora, uma alteração feita fora do Psyche é desfeita e mostrada aqui. Revise seus dispositivos uma vez."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche 已封存 {devices, plural, =1 {# 台已配对设备} other {# 台已配对设备}}及其安全设置。从现在起，在 Psyche 之外所做的更改会被撤销并显示在这里。请检查一次你的设备。"
+          }
+        }
+      }
+    },
+    "notice.security.recovery.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{state, select, requested {طلب أمر على هذا الـ Mac تغييرًا أمنيًا} applied {طُبّق تغيير أمني صادر من هذا الـ Mac} cancelled {أُلغي تغيير أمني صادر من هذا الـ Mac} other {تعذّر تطبيق تغيير أمني صادر من هذا الـ Mac}}"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{state, select, requested {Ein Befehl auf diesem Mac hat eine Sicherheitsänderung angefordert} applied {Eine Sicherheitsänderung von diesem Mac wurde angewendet} cancelled {Eine Sicherheitsänderung von diesem Mac wurde abgebrochen} other {Eine Sicherheitsänderung von diesem Mac konnte nicht angewendet werden}}"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{state, select, requested {A command on this Mac asked for a security change} applied {A security change from this Mac was applied} cancelled {A security change from this Mac was cancelled} other {A security change from this Mac could not be applied}}"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{state, select, requested {Un comando de este Mac pidió un cambio de seguridad} applied {Se aplicó un cambio de seguridad de este Mac} cancelled {Se canceló un cambio de seguridad de este Mac} other {No se pudo aplicar un cambio de seguridad de este Mac}}"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{state, select, requested {Une commande sur ce Mac a demandé une modification de sécurité} applied {Une modification de sécurité venant de ce Mac a été appliquée} cancelled {Une modification de sécurité venant de ce Mac a été annulée} other {Une modification de sécurité venant de ce Mac n’a pas pu être appliquée}}"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{state, select, requested {इस Mac पर एक कमांड ने सुरक्षा बदलाव माँगा} applied {इस Mac से आया सुरक्षा बदलाव लागू हो गया} cancelled {इस Mac से आया सुरक्षा बदलाव रद्द कर दिया गया} other {इस Mac से आया सुरक्षा बदलाव लागू नहीं हो सका}}"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{state, select, requested {Un comando su questo Mac ha chiesto una modifica di sicurezza} applied {Una modifica di sicurezza da questo Mac è stata applicata} cancelled {Una modifica di sicurezza da questo Mac è stata annullata} other {Una modifica di sicurezza da questo Mac non è stata applicata}}"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{state, select, requested {この Mac のコマンドがセキュリティ変更を要求しました} applied {この Mac からのセキュリティ変更を適用しました} cancelled {この Mac からのセキュリティ変更を取り消しました} other {この Mac からのセキュリティ変更を適用できませんでした}}"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{state, select, requested {이 Mac의 명령이 보안 변경을 요청했습니다} applied {이 Mac에서 요청한 보안 변경이 적용되었습니다} cancelled {이 Mac에서 요청한 보안 변경이 취소되었습니다} other {이 Mac에서 요청한 보안 변경을 적용하지 못했습니다}}"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{state, select, requested {Um comando neste Mac pediu uma alteração de segurança} applied {Uma alteração de segurança deste Mac foi aplicada} cancelled {Uma alteração de segurança deste Mac foi cancelada} other {Uma alteração de segurança deste Mac não pôde ser aplicada}}"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{state, select, requested {这台 Mac 上的命令请求了一项安全更改} applied {来自这台 Mac 的安全更改已应用} cancelled {来自这台 Mac 的安全更改已取消} other {来自这台 Mac 的安全更改无法应用}}"
+          }
+        }
+      }
+    },
+    "notice.security.recovery.body": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{op, select, approve {الموافقة على الجهاز {device}{key, select, none {} other { (المفتاح {key})}} بالأذونات {scopes}.} grant {منح {device}{key, select, none {} other { (المفتاح {key})}} الأذونات {scopes}.} presence {إيقاف اشتراط Touch ID ومفتاح المرور للتغييرات الأمنية حتى يُسجَّل مفتاح جديد.} seal {قبول سجلات الأمان الحالية كما هي.} other {تغيير أمني.}}{state, select, requested { سيُطبَّق {when, select, none {بعد 24 ساعة} other {في {when}}} ما لم تلغِه في Psyche.} failed {{reason, select, none {} other { {reason}}}} other {}}"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{op, select, approve {Das Gerät {device}{key, select, none {} other { (Schlüssel {key})}} mit {scopes} freigeben.} grant {{device}{key, select, none {} other { (Schlüssel {key})}} {scopes} geben.} presence {Die Touch-ID- und Passkey-Pflicht für Sicherheitsänderungen ausschalten, bis ein neuer Schlüssel registriert ist.} seal {Die aktuellen Sicherheitsdaten so übernehmen, wie sie sind.} other {Eine Sicherheitsänderung.}}{state, select, requested { Sie gilt {when, select, none {in 24 Stunden} other {ab {when}}}, wenn du sie nicht in Psyche abbrichst.} failed {{reason, select, none {} other { {reason}}}} other {}}"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{op, select, approve {Approve the device {device}{key, select, none {} other { (key {key})}} with {scopes}.} grant {Give {device}{key, select, none {} other { (key {key})}} {scopes}.} presence {Turn off the Touch ID and passkey requirement for security changes until a new key is registered.} seal {Accept the current security records as they are.} other {A security change.}}{state, select, requested { It applies {when, select, none {in 24 hours} other {on {when}}} unless you cancel it in Psyche.} failed {{reason, select, none {} other { {reason}}}} other {}}"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{op, select, approve {Aprobar el dispositivo {device}{key, select, none {} other { (clave {key})}} con {scopes}.} grant {Dar a {device}{key, select, none {} other { (clave {key})}} {scopes}.} presence {Desactivar el requisito de Touch ID y clave de acceso para los cambios de seguridad hasta que se registre una clave nueva.} seal {Aceptar los registros de seguridad actuales tal como están.} other {Un cambio de seguridad.}}{state, select, requested { Se aplica {when, select, none {en 24 horas} other {el {when}}} salvo que lo canceles en Psyche.} failed {{reason, select, none {} other { {reason}}}} other {}}"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{op, select, approve {Approuver l’appareil {device}{key, select, none {} other { (clé {key})}} avec {scopes}.} grant {Donner à {device}{key, select, none {} other { (clé {key})}} {scopes}.} presence {Désactiver l’exigence de Touch ID et de clé d’accès pour les modifications de sécurité jusqu’à l’enregistrement d’une nouvelle clé.} seal {Accepter les enregistrements de sécurité actuels tels quels.} other {Une modification de sécurité.}}{state, select, requested { Elle s’applique {when, select, none {dans 24 heures} other {le {when}}} sauf si vous l’annulez dans Psyche.} failed {{reason, select, none {} other { {reason}}}} other {}}"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{op, select, approve {डिवाइस {device}{key, select, none {} other { (कुंजी {key})}} को {scopes} के साथ मंज़ूरी दें।} grant {{device}{key, select, none {} other { (कुंजी {key})}} को {scopes} दें।} presence {नई कुंजी रजिस्टर होने तक सुरक्षा बदलावों के लिए Touch ID और पासकी की ज़रूरत बंद करें।} seal {मौजूदा सुरक्षा रिकॉर्ड जैसे हैं वैसे ही स्वीकार करें।} other {एक सुरक्षा बदलाव।}}{state, select, requested { यह {when, select, none {24 घंटे में} other {{when} को}} लागू होगा, जब तक आप इसे Psyche में रद्द न करें।} failed {{reason, select, none {} other { {reason}}}} other {}}"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{op, select, approve {Approvare il dispositivo {device}{key, select, none {} other { (chiave {key})}} con {scopes}.} grant {Dare a {device}{key, select, none {} other { (chiave {key})}} {scopes}.} presence {Disattivare l’obbligo di Touch ID e passkey per le modifiche di sicurezza finché non viene registrata una nuova chiave.} seal {Accettare i registri di sicurezza attuali così come sono.} other {Una modifica di sicurezza.}}{state, select, requested { Viene applicata {when, select, none {tra 24 ore} other {il {when}}} se non la annulli in Psyche.} failed {{reason, select, none {} other { {reason}}}} other {}}"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{op, select, approve {デバイス {device}{key, select, none {} other {（キー {key}）}}を {scopes} で承認する。} grant {{device}{key, select, none {} other {（キー {key}）}}に {scopes} を付与する。} presence {新しいキーが登録されるまで、セキュリティ変更に Touch ID やパスキーを求めない。} seal {現在のセキュリティ記録をそのまま受け入れる。} other {セキュリティ変更。}}{state, select, requested {{when, select, none {24 時間後} other {{when}}}に適用されます。Psyche で取り消すこともできます。} failed {{reason, select, none {} other { {reason}}}} other {}}"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{op, select, approve {기기 {device}{key, select, none {} other {(키 {key})}}를 {scopes} 권한으로 승인합니다.} grant {{device}{key, select, none {} other {(키 {key})}}에 {scopes} 권한을 부여합니다.} presence {새 키가 등록될 때까지 보안 변경에 Touch ID와 패스키 요구를 끕니다.} seal {현재 보안 기록을 그대로 받아들입니다.} other {보안 변경입니다.}}{state, select, requested { {when, select, none {24시간 후에} other {{when}에}} 적용됩니다. Psyche에서 취소할 수 있습니다.} failed {{reason, select, none {} other { {reason}}}} other {}}"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{op, select, approve {Aprovar o dispositivo {device}{key, select, none {} other { (chave {key})}} com {scopes}.} grant {Dar a {device}{key, select, none {} other { (chave {key})}} {scopes}.} presence {Desativar a exigência de Touch ID e passkey para alterações de segurança até que uma nova chave seja registrada.} seal {Aceitar os registros de segurança atuais como estão.} other {Uma alteração de segurança.}}{state, select, requested { Ela vale {when, select, none {em 24 horas} other {em {when}}} a menos que você a cancele no Psyche.} failed {{reason, select, none {} other { {reason}}}} other {}}"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{op, select, approve {以 {scopes} 权限批准设备 {device}{key, select, none {} other {（密钥 {key}）}}。} grant {授予 {device}{key, select, none {} other {（密钥 {key}）}} {scopes} 权限。} presence {在注册新密钥之前，关闭安全更改对 Touch ID 和通行密钥的要求。} seal {按现状接受当前的安全记录。} other {一项安全更改。}}{state, select, requested {将{when, select, none {在 24 小时后} other {于 {when}}}生效，除非你在 Psyche 中取消。} failed {{reason, select, none {} other { {reason}}}} other {}}"
+          }
+        }
+      }
+    },
+    "notice.security.resealed.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{restored, select, yes {خُتمت سجلات الأمان بعد الاستعادة} other {خُتمت سجلات الأمان من جديد}}"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{restored, select, yes {Sicherheitsdaten nach einer Wiederherstellung versiegelt} other {Sicherheitsdaten erneut versiegelt}}"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{restored, select, yes {Security records sealed after a restore} other {Security records sealed again}}"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{restored, select, yes {Registros de seguridad sellados tras una restauración} other {Registros de seguridad sellados de nuevo}}"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{restored, select, yes {Enregistrements de sécurité scellés après une restauration} other {Enregistrements de sécurité scellés à nouveau}}"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{restored, select, yes {रिस्टोर के बाद सुरक्षा रिकॉर्ड सील किए गए} other {सुरक्षा रिकॉर्ड फिर से सील किए गए}}"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{restored, select, yes {Registri di sicurezza sigillati dopo un ripristino} other {Registri di sicurezza sigillati di nuovo}}"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{restored, select, yes {復元後にセキュリティ記録を保護しました} other {セキュリティ記録を再び保護しました}}"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{restored, select, yes {복원 후 보안 기록을 봉인했습니다} other {보안 기록을 다시 봉인했습니다}}"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{restored, select, yes {Registros de segurança selados após uma restauração} other {Registros de segurança selados de novo}}"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{restored, select, yes {恢复后已封存安全记录} other {已重新封存安全记录}}"
+          }
+        }
+      }
+    },
+    "notice.security.resealed.body": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{restored, select, yes {بدأ Psyche من نسخة احتياطية مستعادة وختم سجلات الأمان كما هي. إن لم تستعد نسخة احتياطية، فراجع أجهزتك.} other {ختم Psyche سجلات الأمان لديه من جديد بعد فترة الانتظار.}}"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{restored, select, yes {Psyche wurde aus einem wiederhergestellten Backup gestartet und hat seine Sicherheitsdaten so versiegelt, wie sie sind. Wenn du kein Backup wiederhergestellt hast, prüfe deine Geräte.} other {Psyche hat seine Sicherheitsdaten nach der Wartezeit erneut versiegelt.}}"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{restored, select, yes {Psyche started from a restored backup and sealed its security records as they are. If you did not restore a backup, check your devices.} other {Psyche sealed its security records again after the waiting period.}}"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{restored, select, yes {Psyche arrancó desde una copia restaurada y selló sus registros de seguridad tal como están. Si no restauraste ninguna copia, revisa tus dispositivos.} other {Psyche selló de nuevo sus registros de seguridad tras el periodo de espera.}}"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{restored, select, yes {Psyche a démarré depuis une sauvegarde restaurée et a scellé ses enregistrements de sécurité tels quels. Si vous n’avez pas restauré de sauvegarde, vérifiez vos appareils.} other {Psyche a scellé à nouveau ses enregistrements de sécurité après le délai d’attente.}}"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{restored, select, yes {Psyche रिस्टोर किए गए बैकअप से शुरू हुआ और उसने सुरक्षा रिकॉर्ड जैसे हैं वैसे ही सील कर दिए। अगर आपने बैकअप रिस्टोर नहीं किया, तो अपने डिवाइस देखें।} other {प्रतीक्षा अवधि के बाद Psyche ने अपने सुरक्षा रिकॉर्ड फिर से सील कर दिए।}}"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{restored, select, yes {Psyche è partito da un backup ripristinato e ha sigillato i suoi registri di sicurezza così come sono. Se non hai ripristinato un backup, controlla i tuoi dispositivi.} other {Psyche ha sigillato di nuovo i suoi registri di sicurezza dopo il periodo di attesa.}}"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{restored, select, yes {Psyche は復元されたバックアップから起動し、セキュリティ記録をそのまま保護しました。バックアップを復元していない場合は、デバイスを確認してください。} other {Psyche は待機期間の後、セキュリティ記録を再び保護しました。}}"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{restored, select, yes {Psyche가 복원된 백업에서 시작되어 보안 기록을 현재 상태 그대로 봉인했습니다. 백업을 복원하지 않았다면 기기를 확인하세요.} other {Psyche가 대기 기간이 지난 뒤 보안 기록을 다시 봉인했습니다.}}"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{restored, select, yes {O Psyche iniciou a partir de um backup restaurado e selou seus registros de segurança como estão. Se você não restaurou um backup, revise seus dispositivos.} other {O Psyche selou seus registros de segurança de novo após o período de espera.}}"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{restored, select, yes {Psyche 从恢复的备份启动，并按现状封存了安全记录。如果你没有恢复过备份，请检查你的设备。} other {等待期结束后，Psyche 已重新封存安全记录。}}"
+          }
+        }
+      }
+    },
+    "notice.security.tightened.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "تم تشديد إعدادات الأمان من {device, select, none {أحد الأجهزة} other {{device}}}"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sicherheitseinstellungen wurden verschärft von {device, select, none {einem Gerät} other {{device}}}"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Security settings were tightened from {device, select, none {a device} other {{device}}}"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Se reforzaron los ajustes de seguridad desde {device, select, none {un dispositivo} other {{device}}}"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les réglages de sécurité ont été renforcés depuis {device, select, none {un appareil} other {{device}}}"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{device, select, none {किसी डिवाइस} other {{device}}} से सुरक्षा सेटिंग्स सख़्त की गईं"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impostazioni di sicurezza rafforzate da {device, select, none {un dispositivo} other {{device}}}"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{device, select, none {あるデバイス} other {{device}}}からセキュリティ設定が厳しくなりました"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{device, select, none {어떤 기기} other {{device}}}에서 보안 설정이 강화되었습니다"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "As configurações de segurança foram reforçadas a partir de {device, select, none {um dispositivo} other {{device}}}"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "安全设置已从{device, select, none {某台设备} other {{device}}}收紧"
+          }
+        }
+      }
+    },
+    "notice.specialist.result.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{outcome, select, done {{who} أنهى {title}} partial {توقف {who} مبكرًا في {title}} cancelled {تم إيقاف {who} في {title}} other {تعذّر على {who} إنهاء {title}}}"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{outcome, select, done {{who} hat {title} fertiggestellt} partial {{who} hat bei {title} früh aufgehört} cancelled {{who} wurde bei {title} gestoppt} other {{who} konnte {title} nicht abschließen}}"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{outcome, select, done {{who} finished {title}} partial {{who} stopped early on {title}} cancelled {{who} was stopped on {title}} other {{who} couldn't finish {title}}}"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{outcome, select, done {{who} terminó {title}} partial {{who} se detuvo pronto en {title}} cancelled {{who} se detuvo en {title}} other {{who} no pudo terminar {title}}}"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{outcome, select, done {{who} a terminé {title}} partial {{who} s'est arrêté tôt sur {title}} cancelled {{who} a été arrêté sur {title}} other {{who} n'a pas pu terminer {title}}}"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{outcome, select, done {{who} ने {title} पूरा किया} partial {{who} ने {title} पर जल्दी रोक दिया} cancelled {{who} को {title} पर रोका गया} other {{who} {title} पूरा नहीं कर सका}}"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{outcome, select, done {{who} ha finito {title}} partial {{who} si è fermato presto su {title}} cancelled {{who} è stato fermato su {title}} other {{who} non è riuscito a finire {title}}}"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{outcome, select, done {{who}が{title}を終えました} partial {{who}は{title}を途中で止めました} cancelled {{who}は{title}で停止されました} other {{who}は{title}を完了できませんでした}}"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{outcome, select, done {{who}이(가) {title}을(를) 마쳤습니다} partial {{who}이(가) {title}을(를) 일찍 멈췄습니다} cancelled {{who}의 {title} 작업이 중지되었습니다} other {{who}이(가) {title}을(를) 끝내지 못했습니다}}"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{outcome, select, done {{who} terminou {title}} partial {{who} parou cedo em {title}} cancelled {{who} foi interrompido em {title}} other {{who} não conseguiu terminar {title}}}"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{outcome, select, done {{who}完成了{title}} partial {{who}在{title}上提前停止了} cancelled {{who}在{title}上被停止了} other {{who}未能完成{title}}}"
+          }
+        }
+      }
+    },
+    "notice.specialist.result.body": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{outcome, select, done {تم} partial {جزئي} cancelled {أُلغي} other {فشل}}{findings, plural, =0 {} one { · ملاحظة واحدة} two { · ملاحظتان} few { · # ملاحظات} many { · # ملاحظة} other { · # ملاحظة}}{cost, select, none {} other { · {cost}}} · {minutes, plural, =0 {أقل من دقيقة} other {# د}}"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{outcome, select, done {Fertig} partial {Teilweise} cancelled {Abgebrochen} other {Fehlgeschlagen}}{findings, plural, =0 {} one { · # Befund} other { · # Befunde}}{cost, select, none {} other { · {cost}}} · {minutes, plural, =0 {unter 1 Min.} other {# Min.}}"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{outcome, select, done {Done} partial {Partial} cancelled {Cancelled} other {Failed}}{findings, plural, =0 {} one { · # finding} other { · # findings}}{cost, select, none {} other { · {cost}}} · {minutes, plural, =0 {under 1 min} other {# min}}"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{outcome, select, done {Listo} partial {Parcial} cancelled {Cancelado} other {Fallido}}{findings, plural, =0 {} one { · # hallazgo} other { · # hallazgos}}{cost, select, none {} other { · {cost}}} · {minutes, plural, =0 {menos de 1 min} other {# min}}"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{outcome, select, done {Terminé} partial {Partiel} cancelled {Annulé} other {Échec}}{findings, plural, =0 {} one { · # constat} other { · # constats}}{cost, select, none {} other { · {cost}}} · {minutes, plural, =0 {moins d'une min} other {# min}}"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{outcome, select, done {पूरा} partial {आंशिक} cancelled {रद्द} other {विफल}}{findings, plural, =0 {} other { · # निष्कर्ष}}{cost, select, none {} other { · {cost}}} · {minutes, plural, =0 {1 मिनट से कम} other {# मिनट}}"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{outcome, select, done {Fatto} partial {Parziale} cancelled {Annullato} other {Non riuscito}}{findings, plural, =0 {} one { · # risultato} other { · # risultati}}{cost, select, none {} other { · {cost}}} · {minutes, plural, =0 {meno di 1 min} other {# min}}"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{outcome, select, done {完了} partial {一部} cancelled {キャンセル} other {失敗}}{findings, plural, =0 {} other { · # 件の所見}}{cost, select, none {} other { · {cost}}} · {minutes, plural, =0 {1分未満} other {# 分}}"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{outcome, select, done {완료} partial {일부 완료} cancelled {취소됨} other {실패}}{findings, plural, =0 {} other { · 발견 #건}}{cost, select, none {} other { · {cost}}} · {minutes, plural, =0 {1분 미만} other {#분}}"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{outcome, select, done {Concluído} partial {Parcial} cancelled {Cancelado} other {Falhou}}{findings, plural, =0 {} one { · # achado} other { · # achados}}{cost, select, none {} other { · {cost}}} · {minutes, plural, =0 {menos de 1 min} other {# min}}"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{outcome, select, done {已完成} partial {部分完成} cancelled {已取消} other {失败}}{findings, plural, =0 {} other { · # 项发现}}{cost, select, none {} other { · {cost}}} · {minutes, plural, =0 {不到 1 分钟} other {# 分钟}}"
+          }
+        }
+      }
     }
   },
   "version": "1.0"
