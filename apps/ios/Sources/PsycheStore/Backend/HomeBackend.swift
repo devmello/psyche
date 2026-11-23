@@ -236,7 +236,7 @@ public struct ApprovalDetail: Sendable, Equatable {
         public var depth: Int
         /// Code or a command: shown in monospace.
         public var monospaced: Bool
-        /// The row's place in the details ("params.command"), so repeated nested keys stay distinct.
+        /// The row's position at each level of the details ("0/2/1"), so no two rows of a card share an id.
         public var path: String
         public var id: String { path }
         public init(key: String, value: String, depth: Int = 0, monospaced: Bool = false, path: String? = nil) {

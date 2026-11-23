@@ -86,6 +86,9 @@ public struct ChatTurnTracker: Sendable {
             // call can follow); one inferred from text alone is over.
             guard let turn = turns[threadID], !turn.announced else { return touch(threadID, now: now) }
             return end(threadID, .done, now: now)
+        case .queue(let threadID, _):
+            // A queued follow-up is not a turn of its own: it only moves the thread's last-activity time.
+            return touch(threadID, now: now)
         }
     }
 

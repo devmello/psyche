@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   draftEpoch,
   dropDraft,
@@ -41,6 +41,24 @@ describe("file drafts: dropping", () => {
     expect(fire()).toBe(true);
     dropDraft("/n/hidden.md");
     expect(fire()).toBe(false);
+  });
+});
+
+describe("file drafts: the desktop quit check", () => {
+  it("reports a change of unsaved edits to the desktop bridge, and not repeats", () => {
+    const setDirty = vi.fn();
+    (window as { psyche?: unknown }).psyche = { files: { setDirty } };
+    try {
+      putDraft("/n/q.md", { content: "q", etag: "e" }, draftEpoch("/n/q.md"));
+      putDraft("/n/q.md", { content: "q2", etag: "e" }, draftEpoch("/n/q.md"));
+      expect(setDirty).toHaveBeenCalledTimes(1);
+      expect(setDirty).toHaveBeenLastCalledWith(true);
+      dropDraft("/n/q.md");
+      expect(setDirty).toHaveBeenCalledTimes(2);
+      expect(setDirty).toHaveBeenLastCalledWith(false);
+    } finally {
+      delete (window as { psyche?: unknown }).psyche;
+    }
   });
 });
 

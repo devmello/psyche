@@ -20,13 +20,13 @@ const FORMAT_CHARS = /[\p{Cf}\u2028\u2029\u115F\u1160\u3164\uFFA0\u180E]/gu;
 
 export function sanitizeDisplay(value: string, maxLength = 2000): string {
   let s = value
-    .replace(/\r\n|\r|\n/g, "⏎")
+    .replace(/\r\n|\r|\n|\u0085/g, "⏎")
     .replace(
       FORMAT_CHARS,
       (c) => `⟨U+${(c.codePointAt(0) ?? 0).toString(16).toUpperCase().padStart(4, "0")}⟩`,
     )
     // biome-ignore lint/suspicious/noControlCharactersInRegex: stripping control characters is the point
-    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "�");
+    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F]/g, "�");
   if (s.length > maxLength) s = `${s.slice(0, maxLength)}…`;
   return s;
 }
@@ -37,7 +37,7 @@ export function sanitizeDisplay(value: string, maxLength = 2000): string {
  */
 export function sanitizeBlock(value: string): string {
   return value
-    .split(/\r\n|\r|\n/)
+    .split(/\r\n|\r|\n|\u0085/)
     .map((line) => sanitizeDisplay(line, Number.POSITIVE_INFINITY))
     .join("\n");
 }

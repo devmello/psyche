@@ -9,7 +9,8 @@ public enum DisplaySafe {
         var out = ""
         for scalar in value.replacingOccurrences(of: "\r\n", with: "\n").unicodeScalars {
             switch scalar {
-            case "\n", "\r":
+            case "\n", "\r", "\u{85}":
+                // NEL (U+0085) is a line break in iOS text layout, so it gets the same marker as LF and CR.
                 out += "⏎"
             case "\u{2028}", "\u{2029}", "\u{115F}", "\u{1160}", "\u{3164}", "\u{FFA0}", "\u{180E}":
                 out += marker(scalar)
@@ -17,7 +18,7 @@ public enum DisplaySafe {
                 if scalar.properties.generalCategory == .format {
                     out += marker(scalar)
                 } else if scalar.value <= 0x08 || scalar.value == 0x0B || scalar.value == 0x0C
-                    || (0x0E...0x1F).contains(scalar.value) || scalar.value == 0x7F {
+                    || (0x0E...0x1F).contains(scalar.value) || (0x7F...0x9F).contains(scalar.value) {
                     out += "\u{FFFD}"
                 } else {
                     out.unicodeScalars.append(scalar)

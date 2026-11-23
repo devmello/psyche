@@ -27,7 +27,8 @@ extension GatewayBackend {
         // Secure Enclave key (companion §5); the phone has none yet, so these stay on the Mac rather than failing
         // late. Device-only just means "never in chat": the paired phone answers it with a plain tap. Long or nested
         // details are not a reason to refuse: the card shows every field in full, scrollable, before the tap.
-        if approval["requiresAuthentication"]?.bool == true {
+        if approval["requiresAuthentication"]?.bool == true
+            || (decision == .allow && Self.detailsNeedMac(approval["details"])) {
             throw BackendError.refused("This one needs your Mac. Answer it there.")
         }
         guard let token = current["answerToken"]?.string else {
@@ -220,7 +221,7 @@ extension GatewayBackend {
         // The phone has no presence key (companion §5), so it never asks for Face ID on a Gateway card: a payment,
         // a card it can't show in full, or one not sent to this phone (no answer token for it) is answered on the Mac.
         let payment = a["requiresAuthentication"]?.bool == true
-        let needsMac = payment || !holdsAnswer
+        let needsMac = payment || !holdsAnswer || Self.detailsNeedMac(a["details"])
         // Deny needs the phone's own answer token too, and a payment is never answered from the phone.
         let canDeny = holdsAnswer && !payment
         // The lock screen shows only the title and source: it can't say which computer the action is for.
@@ -247,6 +248,37 @@ extension GatewayBackend {
         text.count > inlineScalarLimit || text.contains("⏎") || text.contains(where: \.isNewline)
     }
 
+    /// The largest nested value (as pretty JSON, in characters) the phone draws. Past it the card stays on the Mac:
+    /// a text too big for one layer can't be drawn in full, and the phone never approves what it can't show.
+    static let nestedLimit = 20_000
+
+    /// An array or object detail as pretty, sorted JSON, or nil when it is empty or null.
+    static func nestedText(_ value: JSONValue) -> String? {
+        switch value {
+        case .array, .object:
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
+            guard let data = try? encoder.encode(value), let text = String(data: data, encoding: .utf8) else {
+                return nil
+            }
+            return text
+        default: return nil
+        }
+    }
+
+    /// True when a detail is too large to show in full on the phone: a nested value over `nestedLimit`, or one that
+    /// won't encode. Such a card is answered on the Mac, where the whole thing can be read. Deny stays on the phone.
+    static func detailsNeedMac(_ details: JSONValue?) -> Bool {
+        for (_, value) in details?.object ?? [:] {
+            switch value {
+            case .array, .object:
+                guard let text = nestedText(value), text.count <= nestedLimit else { return true }
+            default: continue
+            }
+        }
+        return false
+    }
+
     /// Keys whose value is code or a command: shown in monospace (and so is everything under them).
     static let codeKeys: Set<String> = ["command", "cmd", "script", "code", "diff", "argv", "args"]
 
@@ -257,20 +289,22 @@ extension GatewayBackend {
     static func detailFields(_ details: JSONValue?) -> (fields: [ApprovalDetail.Field], review: Bool) {
         var fields: [ApprovalDetail.Field] = []
         var review = false
+        // Each row's path is its position at every level (0/2/1), never the raw keys: a key can hold a "." or "/",
+        // so keys alone could repeat (`{"a":{"b":1},"a.b":2}`), and a repeated id breaks the SwiftUI list.
         func add(key: String, value: JSONValue, depth: Int, path: String, monospaced: Bool) {
             let code = monospaced || codeKeys.contains(key)
             switch value {
             case .object(let object) where !object.isEmpty:
                 review = true
                 fields.append(.init(key: Self.humanized(key), value: "", depth: depth, path: path))
-                for (child, childValue) in object.sorted(by: { $0.key < $1.key }) {
-                    add(key: child, value: childValue, depth: depth + 1, path: "\(path).\(child)", monospaced: code)
+                for (position, child) in object.sorted(by: { $0.key < $1.key }).enumerated() {
+                    add(key: child.key, value: child.value, depth: depth + 1, path: "\(path)/\(position)", monospaced: code)
                 }
             case .array(let items) where !items.isEmpty:
                 review = true
                 fields.append(.init(key: Self.humanized(key), value: "", depth: depth, path: path))
                 for (index, item) in items.enumerated() {
-                    add(key: "\(index + 1)", value: item, depth: depth + 1, path: "\(path).\(index)", monospaced: code)
+                    add(key: "\(index + 1)", value: item, depth: depth + 1, path: "\(path)/\(index)", monospaced: code)
                 }
             default:
                 let text = Self.scalarText(value)
@@ -278,8 +312,8 @@ extension GatewayBackend {
                 fields.append(.init(key: Self.humanized(key), value: text, depth: depth, monospaced: code, path: path))
             }
         }
-        for (key, value) in (details?.object ?? [:]).sorted(by: { $0.key < $1.key }) {
-            add(key: key, value: value, depth: 0, path: key, monospaced: false)
+        for (position, entry) in (details?.object ?? [:]).sorted(by: { $0.key < $1.key }).enumerated() {
+            add(key: entry.key, value: entry.value, depth: 0, path: "\(position)", monospaced: false)
         }
         return (fields, review)
     }
@@ -291,7 +325,7 @@ extension GatewayBackend {
         case .bool(let flag): return flag ? "true" : "false"
         case .number(let number):
             return number.rounded() == number && abs(number) < 1e15 ? String(Int(number)) : String(number)
-        case .string(let text): return text
+        case .string(let text): return text.isEmpty ? "—" : text
         case .array: return "[]"
         case .object: return "{}"
         }

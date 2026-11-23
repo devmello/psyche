@@ -23,6 +23,25 @@ const drafts = new Map<string, FileDraft>();
 const drops = new Map<string, number>();
 /** Paths a mounted pane is editing with unsaved changes. */
 const live = new Map<string, number>();
+/** What the desktop app was last told about unsaved edits on this page. */
+let reportedDirty = false;
+
+/**
+ * The desktop app learns whether this page holds unsaved edits (apps/desktop/src/main/unsaved-unload.ts),
+ * so a quit can ask before it throws them away. Sent only when the state changes; the web has no bridge.
+ */
+function reportDirty(): void {
+  const dirty = drafts.size > 0 || live.size > 0;
+  if (dirty === reportedDirty) return;
+  reportedDirty = dirty;
+  try {
+    (
+      globalThis as { psyche?: { files?: { setDirty?: (d: boolean) => void } } }
+    ).psyche?.files?.setDirty?.(dirty);
+  } catch {
+    // The bridge is gone (a page being torn down): nothing to tell.
+  }
+}
 
 export const getDraft = (path: string): FileDraft | undefined => drafts.get(path);
 export const hasDraft = (path: string | undefined): boolean =>
@@ -33,16 +52,20 @@ export const draftEpoch = (path: string): number => drops.get(path) ?? 0;
 export const putDraft = (path: string, draft: FileDraft, epoch = draftEpoch(path)): void => {
   if (epoch !== draftEpoch(path)) return;
   drafts.set(path, draft);
+  reportDirty();
 };
 /** The editor itself has nothing unsaved any more (it went clean). */
 export const clearDraft = (path: string | undefined): void => {
-  if (path !== undefined) drafts.delete(path);
+  if (path === undefined) return;
+  drafts.delete(path);
+  reportDirty();
 };
 /** The owner threw this path's unsaved edits away: forget them, and refuse late reports of them. */
 export const dropDraft = (path: string | undefined): void => {
   if (path === undefined) return;
   drafts.delete(path);
   drops.set(path, draftEpoch(path) + 1);
+  reportDirty();
 };
 
 /** A mounted pane reports (and withdraws) that it is editing `path` with unsaved changes. */
@@ -50,6 +73,7 @@ export function markLiveDirty(path: string, on: boolean): void {
   const n = (live.get(path) ?? 0) + (on ? 1 : -1);
   if (n <= 0) live.delete(path);
   else live.set(path, n);
+  reportDirty();
 }
 
 /** Whether a Files pane now on screen holds unsaved edits. */
@@ -74,6 +98,7 @@ export function resetFileDrafts(): void {
   drafts.clear();
   drops.clear();
   live.clear();
+  reportDirty();
 }
 
 /** Whether any unsaved Files edits are kept, on screen or in a tab that isn't showing. */

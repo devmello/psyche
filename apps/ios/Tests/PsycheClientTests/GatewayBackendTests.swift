@@ -229,13 +229,13 @@ struct GatewayBackendTests {
         #expect(!mine.needsMac && mine.canDeny)
         #expect(macOnly.needsMac && !macOnly.canDeny)
         #expect(!macOnly.needsPresence(for: .allow))
-        // A long nested card the phone holds an answer for is answerable from the phone, Deny included.
-        let huge = String(repeating: "x", count: 20_001)
+        // An over-limit nested card the phone holds an answer for: Allow goes to the Mac, Deny stays on the phone.
+        let huge = String(repeating: "x", count: GatewayBackend.nestedLimit + 1)
         let long = try #require(GatewayBackend.needsYou(approval: .object([
             "id": "ap8", "kind": "skill_install", "summary": "Run", "status": "pending",
             "details": .object(["files": .array([.string(huge)])]),
         ]), holdsAnswer: true)?.approval)
-        #expect(!long.needsMac && long.canDeny)
+        #expect(long.needsMac && long.canDeny)
     }
 
     @Test func anOlderGatewayWithoutTokensInTheListLeavesTheButtonsOn() async throws {
@@ -367,16 +367,16 @@ struct GatewayBackendTests {
         ])])) == nil)
     }
 
-    @Test func aLongNestedApprovalIsShownInFullAndAllowedFromThePhone() async throws {
-        let huge = String(repeating: "x", count: 20_001)
-        let details: JSONValue = .object(["files": .array([.object(["lines": .string(huge)])])])
+    @Test func aNestedCardUnderTheLimitIsShownInFullAndAllowedFromThePhone() async throws {
+        let text = String(repeating: "x", count: 1_000)
+        let details: JSONValue = .object(["files": .array([.object(["lines": .string(text)])])])
         let item = try #require(GatewayBackend.needsYou(approval: .object([
             "id": "ap5", "kind": "skill_install", "summary": "Run a script", "status": "pending", "details": details,
         ])))
         let approval = try #require(item.approval)
         #expect(!approval.needsMac)
         #expect(approval.reviewInApp)
-        #expect(approval.fields.contains { $0.value == huge })
+        #expect(approval.fields.contains { $0.value == text })
         let answered = OutboxTests.Sent()
         let (backend, _) = try await live { g in
             g.on("approvals.get") { _ in .success(.object(["approval": .object(["id": "ap5", "status": "pending", "details": details]), "answerToken": "tok"])) }
@@ -387,6 +387,45 @@ struct GatewayBackendTests {
         }
         try await backend.answerApproval(id: "ap5", decision: .allow)
         #expect(answered.all == ["approve"])
+    }
+
+    @Test func aCardOverTheNestedLimitStaysOnTheMacButDenyStays() async throws {
+        let huge = String(repeating: "x", count: GatewayBackend.nestedLimit + 1)
+        let details: JSONValue = .object(["files": .array([.object(["lines": .string(huge)])])])
+        let item = try #require(GatewayBackend.needsYou(approval: .object([
+            "id": "ap7", "kind": "skill_install", "summary": "Run a script", "status": "pending", "details": details,
+        ])))
+        let approval = try #require(item.approval)
+        #expect(approval.needsMac)
+        #expect(approval.presenceNote == nil)
+        #expect(!approval.needsPresence(for: .allow))
+        #expect(!AlertPolicy.answersInline(item))
+        let answered = OutboxTests.Sent()
+        let (backend, _) = try await live { g in
+            g.on("approvals.get") { _ in .success(.object(["approval": .object(["id": "ap7", "status": "pending", "details": details]), "answerToken": "tok"])) }
+            g.on("approvals.answer") { req in
+                answered.add(req.params?["decision"]?.stringValue ?? "")
+                return .success(.object([:]))
+            }
+        }
+        await #expect(throws: BackendError.refused("This one needs your Mac. Answer it there.")) {
+            try await backend.answerApproval(id: "ap7", decision: .allow)
+        }
+        try await backend.answerApproval(id: "ap7", decision: .deny)
+        #expect(answered.all == ["deny"])
+    }
+
+    @Test func rowIdsStayUniqueWhenKeysContainSeparators() {
+        let (fields, _) = GatewayBackend.detailFields(.object([
+            "a": .object(["b": .number(1)]), "a.b": .number(2), "a/0": .string("c"),
+        ]))
+        #expect(Set(fields.map(\.id)).count == fields.count)
+        #expect(fields.count == 4)
+    }
+
+    @Test func anEmptyStringLeafShowsADashNotAHeading() {
+        let (fields, _) = GatewayBackend.detailFields(.object(["note": .string("")]))
+        #expect(fields.first?.value == "—")
     }
 
     @Test func everyNestedValueOfAnApprovalIsAField() throws {

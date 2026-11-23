@@ -82,6 +82,8 @@ export const IPC = {
   /** Raises a pane's pop-out window; resolves false when it is gone. */
   windowFocusPopOut: "psyche:window:focus-pop-out",
   windowClose: "psyche:window:close",
+  /** The Files pane's unsaved edits on this page (`{dirty}`), so a quit asks before it throws them away. */
+  filesDirty: "psyche:files:dirty",
   windowOpenSettings: "psyche:window:open-settings",
   /** Settings → Connectors "Try it" (#677): fill the main window's composer, without sending. */
   windowPrefillComposer: "psyche:window:prefill-composer",
