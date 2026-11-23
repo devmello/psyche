@@ -247,6 +247,118 @@ struct LibrarySettingsTests {
         #expect(try await backend.libraryFile(id: "big") == nil)
     }
 
+    @Test func downloadReportsProgressAndTheSecondOpenIsServedFromTheCache() async throws {
+        let id = "lib_prog_\(UUID().uuidString.prefix(8))"
+        let part1 = Data(repeating: 3, count: 512 * 1024)
+        let part2 = Data(repeating: 4, count: 512 * 1024)
+        let reads = Requests()
+        let (backend, _) = try await GatewayBackendTests().live { g in
+            g.on("library.get") { _ in .success(.object(["item": Self.wireItem(id, size: 1024 * 1024)])) }
+            g.on("files.read") { req in
+                reads.add(req)
+                let offset = req.params?["offset"]?.int ?? 0
+                let bytes = offset == 0 ? part1 : part2
+                let next: JSONValue = offset == 0 ? .number(Double(part1.count)) : .null
+                return .success(.object(["size": .number(1024 * 1024), "offset": .number(Double(offset)), "etag": "e2", "bytes": .string(bytes.base64EncodedString()), "nextOffset": next]))
+            }
+        }
+        let progress = Progress()
+        let url = try await backend.downloadLibraryFile(id: id) { progress.add($0) }
+        #expect(progress.all.first == 0)
+        #expect(progress.all.last == 1)
+        #expect(progress.all.contains(0.5))
+        #expect(try Data(contentsOf: url) == part1 + part2)
+        // The second open reads nothing from the Gateway: the copy for this hash is already on the phone.
+        let again = try await backend.downloadLibraryFile(id: id) { _ in }
+        #expect(again == url)
+        #expect(reads.frames.count == 2)
+    }
+
+    @Test func aQuarantinedFileIsRefusedWithoutReadingAnyBytes() async throws {
+        let reads = Requests()
+        let (backend, _) = try await GatewayBackendTests().live { g in
+            g.on("library.get") { _ in .success(.object(["item": Self.wireItem("q_held", quarantined: true)])) }
+            g.on("files.read") { req in reads.add(req); return .failure(WireError(code: "internal", message: "no")) }
+        }
+        await #expect(throws: LibraryFileRefusal.quarantined) {
+            try await backend.downloadLibraryFile(id: "q_held") { _ in }
+        }
+        // The page still shows the item, with the reason on it.
+        let item = try await backend.libraryItem(id: "q_held")
+        #expect(item.refusal == .quarantined)
+        #expect(reads.frames.isEmpty)
+    }
+
+    @Test func aFileOverTheDownloadCapIsRefusedBeforeAnyChunk() async throws {
+        let reads = Requests()
+        let (backend, _) = try await GatewayBackendTests().live { g in
+            g.on("library.get") { _ in .success(.object(["item": Self.wireItem("big_one", size: 200 * 1024 * 1024)])) }
+            g.on("files.read") { req in reads.add(req); return .failure(WireError(code: "internal", message: "no")) }
+        }
+        await #expect(throws: LibraryFileRefusal.tooLarge) {
+            try await backend.downloadLibraryFile(id: "big_one") { _ in }
+        }
+        #expect(try await backend.libraryItem(id: "big_one").refusal == .tooLarge)
+        #expect(reads.frames.isEmpty)
+    }
+
+    @Test func aCancelledDownloadLeavesNoPartialFileBehind() async throws {
+        let id = "lib_cancel_\(UUID().uuidString.prefix(8))"
+        let reads = Requests()
+        let (backend, h) = try await GatewayBackendTests().live { g in
+            g.on("library.get") { _ in .success(.object(["item": Self.wireItem(id, size: 2_000_000)])) }
+            g.on("files.read") { req in
+                reads.add(req)
+                return .success(.object(["size": .number(2_000_000), "offset": .number(0), "etag": "e3", "bytes": .string(Data(repeating: 5, count: 512 * 1024).base64EncodedString()), "nextOffset": .number(512 * 1024)]))
+            }
+        }
+        // Cancelled before the first chunk is asked for: the download stops at the chunk boundary.
+        let task = Task { try await backend.downloadLibraryFile(id: id) { _ in } }
+        task.cancel()
+        await #expect(throws: (any Error).self) { try await task.value }
+        #expect(reads.frames.count <= 1)
+        let folder = LibraryDownloads(directory: h.dir.appendingPathComponent("LibraryCache")).folder(id: id)
+        let leftovers = (try? FileManager.default.subpathsOfDirectory(atPath: folder.path)) ?? []
+        #expect(leftovers.allSatisfy { !$0.hasSuffix(".part") })
+    }
+
+    @Test func theDownloadCacheEvictsTheLeastRecentlyOpenedFirst() throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("evict-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let cache = LibraryDownloads(directory: dir)
+        // Each copy is 100 bytes, `secondsAgo` old.
+        func put(_ id: String, secondsAgo: TimeInterval) throws -> URL {
+            let url = cache.url(id: id, version: "abc123", name: "f.pdf")
+            try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try Data(count: 100).write(to: url)
+            try FileManager.default.setAttributes([.modificationDate: Date(timeIntervalSinceNow: -secondsAgo)], ofItemAtPath: url.path)
+            return url
+        }
+        let a = try put("a", secondsAgo: 300)
+        let b = try put("b", secondsAgo: 200)
+        let c = try put("c", secondsAgo: 100)
+        let keep = try put("d", secondsAgo: 50)
+        // Opening "a" again makes it the most recent, so "b" and "c" go first.
+        cache.touch(a)
+        cache.evict(maxBytes: 250, keeping: keep)
+        #expect(!FileManager.default.fileExists(atPath: b.path))
+        #expect(!FileManager.default.fileExists(atPath: c.path))
+        #expect(!FileManager.default.fileExists(atPath: b.deletingLastPathComponent().path))
+        #expect(FileManager.default.fileExists(atPath: a.path))
+        #expect(FileManager.default.fileExists(atPath: keep.path))
+    }
+
+    @Test func theDownloadCacheKeepsEverythingUnderTheCap() throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("evict-small-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let cache = LibraryDownloads(directory: dir)
+        let url = cache.url(id: "x", version: "v1", name: "x.txt")
+        try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try Data(count: 10).write(to: url)
+        cache.evict(maxBytes: 200 * 1024 * 1024, keeping: url)
+        #expect(FileManager.default.fileExists(atPath: url.path))
+    }
+
     // MARK: Settings
 
     @Test func settingsDefaultThenRoundTripOnThePhone() async throws {

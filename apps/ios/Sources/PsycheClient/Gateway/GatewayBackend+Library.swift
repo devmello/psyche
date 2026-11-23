@@ -15,6 +15,8 @@ extension GatewayBackend {
     static let uploadMaxBytes = 25 * 1024 * 1024
     /// Files bigger than this open on the Mac, not on the phone.
     static let downloadMaxBytes = 64 * 1024 * 1024
+    /// Downloaded copies kept on the phone; past this the least recently opened go first.
+    static let cacheMaxBytes = 200 * 1024 * 1024
 
     public func library(section: LibrarySection) async throws -> [LibraryItem] {
         let result = try await call("library.list", .obj(["kind": .string(Self.wireKind(of: section)), "limit": .number(100)]))
@@ -36,19 +38,31 @@ extension GatewayBackend {
         return item
     }
 
-    /// Downloads the file into the caches directory (protected, kept out of backups) and returns where it is.
-    /// Nil when the phone should not open it: quarantined, or bigger than `downloadMaxBytes`.
+    /// A local copy for thumbnails and the share sheet, which stay quiet: nil when the phone can't have one.
     public func libraryFile(id: String) async throws -> URL? {
+        do { return try await downloadLibraryFile(id: id, progress: { _ in }) } catch is LibraryFileRefusal { return nil }
+    }
+
+    /// Downloads the file into the caches directory (protected, kept out of backups) and returns where it is.
+    /// Throws `LibraryFileRefusal` before any byte moves when the file is quarantined or too big, and
+    /// `CancellationError` when the caller cancels between chunks (the partial file is removed). A copy already
+    /// on the phone for this hash is reused; the cache keeps at most `cacheMaxBytes`, least recently used first.
+    public func downloadLibraryFile(id: String, progress: @escaping @Sendable (Double) -> Void) async throws -> URL {
         let result = try await call("library.get", .obj(["itemId": .string(id)]))
         guard let item = result["item"], let path = item["path"]?.string, !path.isEmpty else { throw BackendError.notFound }
-        if item["quarantined"]?.bool == true { return nil }
+        if item["quarantined"]?.bool == true { throw LibraryFileRefusal.quarantined }
         let size = item["size"]?.int ?? 0
-        if size > Self.downloadMaxBytes { return nil }
+        if size > Self.downloadMaxBytes { throw LibraryFileRefusal.tooLarge }
         let name = item["name"]?.string ?? "file"
         let version = String((item["sha256"]?.string ?? "").prefix(12))
         let downloads = LibraryDownloads(directory: client.libraryCache)
         let destination = downloads.url(id: id, version: version, name: name)
-        if FileManager.default.fileExists(atPath: destination.path) { return destination }
+        progress(0)
+        if FileManager.default.fileExists(atPath: destination.path) {
+            downloads.touch(destination)
+            progress(1)
+            return destination
+        }
 
         let temporary = try downloads.beginFile(for: destination)
         var finished = false
@@ -58,6 +72,7 @@ extension GatewayBackend {
         var offset = 0
         var etag: String?
         while true {
+            try Task.checkCancellation()
             let chunk = try await call("files.read", .obj(["libraryPath": .string(path), "offset": .number(Double(offset))]))
             if let etag, let now = chunk["etag"]?.string, now != etag {
                 throw BackendError.refused("This file changed while it downloaded. Try again.")
@@ -68,7 +83,9 @@ extension GatewayBackend {
             }
             try handle.write(contentsOf: bytes)
             offset += bytes.count
-            if offset > Self.downloadMaxBytes { return nil }
+            if offset > Self.downloadMaxBytes { throw LibraryFileRefusal.tooLarge }
+            let total = max(chunk["size"]?.int ?? size, 1)
+            progress(min(Double(offset) / Double(total), 1))
             // nextOffset is null on the last chunk.
             guard let next = chunk["nextOffset"]?.int, !bytes.isEmpty else { break }
             offset = next
@@ -76,6 +93,8 @@ extension GatewayBackend {
         try handle.close()
         try downloads.finish(temporary, as: destination)
         finished = true
+        downloads.evict(maxBytes: Self.cacheMaxBytes, keeping: destination)
+        progress(1)
         return destination
     }
 
@@ -153,10 +172,13 @@ extension GatewayBackend {
         let when = WireFormat.time(item["createdAt"]?.string)
         let detail = [when, size.map { ByteCountFormatter.string(fromByteCount: Int64($0), countStyle: .file) }]
             .compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " \u{00B7} ")
+        // The Mac's own gates, read off the item: a quarantined file is never opened here, nor a file over the download cap.
+        let refusal: LibraryFileRefusal? =
+            item["quarantined"]?.bool == true ? .quarantined : (size ?? 0) > downloadMaxBytes ? .tooLarge : nil
         return LibraryItem(
             id: id, title: name, section: section ?? Self.section(ofKind: item["kind"]?.string),
             fileType: fileType(name: name, mime: item["mime"]?.string), detail: detail,
-            threadID: item["threadId"]?.string, evidence: evidence(of: item, threadTitle: nil))
+            threadID: item["threadId"]?.string, evidence: evidence(of: item, threadTitle: nil), refusal: refusal)
     }
 
     /// "pdf" from `Q3.pdf`; the mime's subtype ("png") when the name has no extension.
@@ -234,6 +256,33 @@ struct LibraryDownloads {
     func finish(_ part: URL, as destination: URL) throws {
         try? FileManager.default.removeItem(at: destination)
         try FileManager.default.moveItem(at: part, to: destination)
+    }
+
+    /// Marks a cached copy as used now, so eviction keeps what the owner opens.
+    func touch(_ file: URL) {
+        try? FileManager.default.setAttributes([.modificationDate: Date()], ofItemAtPath: file.path)
+    }
+
+    /// Deletes the least recently used copies until the cache holds at most `maxBytes`. Never deletes `keeping`
+    /// (the copy just made) or a download still being written (`.part`). Item folders left empty go too.
+    func evict(maxBytes: Int, keeping: URL) {
+        let keys: Set<URLResourceKey> = [.isRegularFileKey, .contentModificationDateKey, .fileSizeKey]
+        guard let walk = FileManager.default.enumerator(at: directory, includingPropertiesForKeys: Array(keys)) else { return }
+        var copies: [(url: URL, date: Date, size: Int)] = []
+        for case let url as URL in walk where url.lastPathComponent != ".part" {
+            guard let values = try? url.resourceValues(forKeys: keys), values.isRegularFile == true else { continue }
+            copies.append((url, values.contentModificationDate ?? .distantPast, values.fileSize ?? 0))
+        }
+        var total = copies.reduce(0) { $0 + $1.size }
+        for copy in copies.sorted(by: { $0.date < $1.date }) where total > maxBytes {
+            guard copy.url != keeping else { continue }
+            try? FileManager.default.removeItem(at: copy.url)
+            total -= copy.size
+            let versionFolder = copy.url.deletingLastPathComponent()
+            if (try? FileManager.default.contentsOfDirectory(atPath: versionFolder.path))?.isEmpty == true {
+                try? FileManager.default.removeItem(at: versionFolder)
+            }
+        }
     }
 
     func remove(id: String) {
