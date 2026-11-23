@@ -21,7 +21,7 @@ import {
   linuxUpdatePaths,
   type RunCommand,
 } from "../packaging/linux-install.ts";
-import { hostPlatform, isLinux } from "../platform/index.ts";
+import { hostPlatform, isLinux, isMac } from "../platform/index.ts";
 import { claimedRequirement } from "./bundle-integrity.ts";
 import { TRUSTED_RELEASE_KEYS } from "./release-keys.ts";
 import {
@@ -346,7 +346,7 @@ async function runLinuxUpdater(opts: UpdaterOptions, log: (m: string) => void): 
 export async function startUpdater(opts: UpdaterOptions = {}): Promise<UpdaterState> {
   // macOS only for now: the status drives the banner and About, and Windows and Linux have no
   // "Restart to update" here yet.
-  const darwin = process.platform === "darwin";
+  const darwin = isMac();
   if (darwin) setUpdateStatus({ state: "checking" });
   const state = await runUpdater(opts);
   if (darwin && getUpdateStatus().state !== "ready") {
@@ -451,7 +451,7 @@ async function applyMac(result: Ready, log: (m: string) => void): Promise<RunRes
  * unsaved-edit prompt can still keep the app open.
  */
 export function restartToUpdate(): string | undefined {
-  const refusal = restartRefusal(process.platform, getUpdateStatus());
+  const refusal = restartRefusal(hostPlatform(), getUpdateStatus());
   if (refusal) return refusal;
   autoUpdater.quitAndInstall();
   return undefined;
