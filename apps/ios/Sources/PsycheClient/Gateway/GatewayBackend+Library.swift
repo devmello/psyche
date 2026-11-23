@@ -55,7 +55,9 @@ extension GatewayBackend {
         let size = item["size"]?.int ?? 0
         if size > Self.downloadMaxBytes { throw LibraryFileRefusal.tooLarge }
         let name = item["name"]?.string ?? "file"
-        let version = String((item["sha256"]?.string ?? "").prefix(12))
+        // The recorded hash without its `sha256:` label; the first 16 hex characters (64 bits) name the copy.
+        let recorded = (item["sha256"]?.string ?? "").replacingOccurrences(of: "sha256:", with: "").lowercased()
+        let version = String(recorded.prefix(16))
         let downloads = LibraryDownloads(directory: client.libraryCache)
         let destination = downloads.url(id: id, version: version, name: name)
         progress(0)
@@ -97,9 +99,8 @@ extension GatewayBackend {
         // The bytes must be the ones the Mac recorded (`sha256:<hex>`). A mismatch removes the copy: nothing is kept
         // or opened from it.
         let actual = hasher.finalize().map { String(format: "%02x", $0) }.joined()
-        let recorded = (item["sha256"]?.string ?? "").replacingOccurrences(of: "sha256:", with: "").lowercased()
-        guard actual == recorded else {
-            downloads.remove(id: id)
+        guard !recorded.isEmpty, actual == recorded else {
+            downloads.discard(destination)
             throw BackendError.refused("This file doesn't match what your Mac has, so it wasn't opened. Try again.")
         }
         try downloads.finish(temporary, as: destination)
@@ -248,10 +249,10 @@ struct LibraryDownloads {
     }
 
     /// Makes the folders and an empty protected file next to `destination` to write into.
+    /// Each download writes its own temporary name (`.part-<uuid>`), so two downloads of one item (a thumbnail
+    /// and Open) never share or clobber a file.
     func beginFile(for destination: URL) throws -> URL {
         let folder = destination.deletingLastPathComponent()
-        // An older version of the same item is stale now.
-        try? FileManager.default.removeItem(at: folder.deletingLastPathComponent())
         try FileManager.default.createDirectory(
             at: folder, withIntermediateDirectories: true,
             attributes: Self.protectedAttributes)
@@ -259,14 +260,31 @@ struct LibraryDownloads {
         var values = URLResourceValues()
         values.isExcludedFromBackup = true
         try? root.setResourceValues(values)
-        let part = folder.appendingPathComponent(".part")
+        let part = folder.appendingPathComponent(".part-\(UUID().uuidString)")
         FileManager.default.createFile(atPath: part.path, contents: nil, attributes: Self.protectedAttributes)
         return part
     }
 
+    /// Moves a finished download into place, then drops the other versions of this item: they are stale now.
     func finish(_ part: URL, as destination: URL) throws {
         try? FileManager.default.removeItem(at: destination)
         try FileManager.default.moveItem(at: part, to: destination)
+        let versionFolder = destination.deletingLastPathComponent()
+        let itemFolder = versionFolder.deletingLastPathComponent()
+        for sibling in (try? FileManager.default.contentsOfDirectory(at: itemFolder, includingPropertiesForKeys: nil)) ?? []
+        where sibling.lastPathComponent != versionFolder.lastPathComponent {
+            try? FileManager.default.removeItem(at: sibling)
+        }
+    }
+
+    /// Removes a copy that must not be kept, and its folders when they are left empty.
+    func discard(_ destination: URL) {
+        let versionFolder = destination.deletingLastPathComponent()
+        try? FileManager.default.removeItem(at: versionFolder)
+        let itemFolder = versionFolder.deletingLastPathComponent()
+        if (try? FileManager.default.contentsOfDirectory(atPath: itemFolder.path))?.isEmpty == true {
+            try? FileManager.default.removeItem(at: itemFolder)
+        }
     }
 
     /// Marks a cached copy as used now, so eviction keeps what the owner opens.
@@ -280,7 +298,7 @@ struct LibraryDownloads {
         let keys: Set<URLResourceKey> = [.isRegularFileKey, .contentModificationDateKey, .fileSizeKey]
         guard let walk = FileManager.default.enumerator(at: directory, includingPropertiesForKeys: Array(keys)) else { return }
         var copies: [(url: URL, date: Date, size: Int)] = []
-        for case let url as URL in walk where url.lastPathComponent != ".part" {
+        for case let url as URL in walk where !url.lastPathComponent.hasPrefix(".part") {
             guard let values = try? url.resourceValues(forKeys: keys), values.isRegularFile == true else { continue }
             copies.append((url, values.contentModificationDate ?? .distantPast, values.fileSize ?? 0))
         }

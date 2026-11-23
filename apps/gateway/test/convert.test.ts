@@ -190,3 +190,66 @@ describe("documents.convert", () => {
     expect(sandboxFileName("../../etc/passwd")).toBe("_.._etc_passwd");
   });
 });
+
+describe("documents.convert and the Library's quarantine gate (#1540 review)", () => {
+  const phone = {
+    identity: { desktopShell: false, deviceId: "dev_phone" },
+    conn: { peer: { remoteLoopback: false } },
+  };
+  const desktop = {
+    identity: { desktopShell: true, deviceId: "dev_desk" },
+    conn: { peer: { remoteLoopback: true } },
+  };
+
+  function composed(
+    runner: Fake,
+    library?: { rows: () => { name: string; path: string; quarantined: boolean }[] },
+  ) {
+    // Composed the way compose/index.ts does: the Library's rows come from the same gate files.read uses.
+    const part = composeConversion({
+      folders: () => [{ path: granted, mode: "ro" }],
+      home,
+      runner: () => runner,
+      ...(library === undefined ? {} : { library }),
+    });
+    const h = part.handlers?.["documents.convert"];
+    if (h === undefined) throw new Error("no handler");
+    return (call: unknown, params: Record<string, unknown>) =>
+      h.run(call as never, params as never) as Promise<Record<string, unknown>>;
+  }
+
+  it("converts a trusted Library document for a phone once the Gateway passes its Library rows", async () => {
+    await mkdir(join(home, "library", "documents"), { recursive: true });
+    await writeFile(join(home, "library", "documents", "plan.docx"), "PK plan");
+    const run = composed(fakeRunner(), { rows: () => [] });
+    const out = await run(phone, { libraryPath: "documents/plan.docx", target: "pdf" });
+    expect(out).toMatchObject({ mime: "application/pdf", nextOffset: null });
+  });
+
+  it("refuses a phone's conversion of a quarantined file, and lets the desktop convert it", async () => {
+    await mkdir(join(home, "library", "quarantine"), { recursive: true });
+    await writeFile(join(home, "library", "quarantine", "01JX-held.docx"), "PK held");
+    const rows = () => [
+      { name: "held.docx", path: "quarantine/01JX-held.docx", quarantined: true },
+    ];
+    const run = composed(fakeRunner(), { rows });
+    await expect(
+      run(phone, { libraryPath: "quarantine/01JX-held.docx", target: "pdf" }),
+    ).rejects.toMatchObject({
+      code: "forbidden",
+    });
+    const out = await run(desktop, { libraryPath: "quarantine/01JX-held.docx", target: "pdf" });
+    expect(out).toMatchObject({ mime: "application/pdf" });
+  });
+
+  it("fails closed for a phone when the Gateway has no Library rows to check", async () => {
+    await mkdir(join(home, "library", "documents"), { recursive: true });
+    await writeFile(join(home, "library", "documents", "plan.docx"), "PK plan");
+    const run = composed(fakeRunner());
+    await expect(
+      run(phone, { libraryPath: "documents/plan.docx", target: "pdf" }),
+    ).rejects.toMatchObject({
+      code: "unavailable",
+    });
+  });
+});

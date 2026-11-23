@@ -14,6 +14,7 @@ import { type ContainerSandboxRunnerOptions, createSandboxRunner } from "@psyche
 import { libreOfficeArgv } from "@psyche/viewers/core/convert";
 import type { Call } from "../context.ts";
 import {
+  assertLibraryFileOpened,
   etagOf,
   type FileSource,
   type FilesSetup,
@@ -173,6 +174,7 @@ export function composeConversion(setup: ConvertSetup): ComposedPart {
         const fh = await openRegularFile(source.path);
         let bytes: Uint8Array;
         try {
+          await assertLibraryFileOpened(fh, source, setup);
           const info = await fh.stat();
           if (info.size > CONVERT_MAX_BYTES) {
             throw new PsycheError(
@@ -201,10 +203,10 @@ export function composeConversion(setup: ConvertSetup): ComposedPart {
     handlers: {
       "documents.convert": {
         async run(
-          _call: Call,
+          call: Call,
           params: MethodParams<"documents.convert">,
         ): Promise<MethodResult<"documents.convert">> {
-          const source = await resolveFileSource(params, setup);
+          const source = await resolveFileSource(params, setup, call);
           if (!CONVERTIBLE.test(source.name)) {
             throw new PsycheError(
               "invalid_params",
@@ -212,7 +214,14 @@ export function composeConversion(setup: ConvertSetup): ComposedPart {
             );
           }
           const probe = await openRegularFile(source.path);
-          const info = await probe.stat().finally(() => probe.close());
+          const info = await (async () => {
+            try {
+              await assertLibraryFileOpened(probe, source, setup);
+              return await probe.stat();
+            } finally {
+              await probe.close();
+            }
+          })();
           const key = createHash("sha256")
             .update(`${source.path}\0${etagOf(info)}\0${params.target}`)
             .digest("hex")

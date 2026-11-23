@@ -4,8 +4,8 @@ import { describe, expect, it } from "vitest";
 import {
   deleteLibraryItem,
   getLibraryItem,
-  getLibraryItemsAtPath,
   insertLibraryItem,
+  listLibraryGateRows,
   listLibraryItemsPage,
   type NewLibraryItem,
   upsertLibraryItemByPath,
@@ -67,15 +67,18 @@ describe("library_items", () => {
     expect(getLibraryItem(db, first.id)).toBeUndefined();
   });
 
-  it("finds the rows at a path without case or Unicode form mattering", () => {
+  it("lists the rows the quarantine gate needs: quarantined, or under quarantine/", () => {
     const db = memoryDb();
     const held = insertLibraryItem(
       db,
-      base({ name: "held.bin", path: "quarantine/q1-held.bin", quarantined: true }),
+      base({ name: "held.bin", path: "audio/held.wav", quarantined: true }),
     );
+    const trusted = insertLibraryItem(db, base({ name: "t.pdf", path: "quarantine/01JABC-t.pdf" }));
     insertLibraryItem(db, base({ name: "ok.txt", path: "recordings/ok.txt" }));
-    expect(getLibraryItemsAtPath(db, "quarantine/q1-held.bin").map((i) => i.id)).toEqual([held.id]);
-    expect(getLibraryItemsAtPath(db, "Quarantine/Q1-HELD.bin").map((i) => i.id)).toEqual([held.id]);
-    expect(getLibraryItemsAtPath(db, "recordings/missing.txt")).toEqual([]);
+    expect(
+      listLibraryGateRows(db)
+        .map((i) => i.id)
+        .sort(),
+    ).toEqual([held.id, trusted.id].sort());
   });
 });

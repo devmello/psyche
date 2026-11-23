@@ -92,15 +92,15 @@ export function getLibraryItem(db: PsycheDb, id: string): LibraryItem | undefine
 }
 
 /**
- * Every item stored at `path` (relative to the Library, as `LibraryItem.path`), matched without case and in
- * Unicode NFC, so a request that spells the name another way (APFS folds case and normalisation) finds the rows.
+ * The rows the Gateway's quarantine gate must see: every quarantined item, and every row under the
+ * `quarantine/` folder (trusted downloads stay there). The gate matches them to a file by identity (dev and
+ * inode), never by name, so the match doesn't depend on how a path is spelled.
  */
-export function getLibraryItemsAtPath(db: PsycheDb, path: string): LibraryItem[] {
-  const key = path.normalize("NFC").toLowerCase();
+export function listLibraryGateRows(db: PsycheDb): LibraryItem[] {
   return db.drizzle
     .select()
     .from(libraryItems)
-    .where(sql`lower(${libraryItems.path}) = ${key}`)
+    .where(sql`${libraryItems.quarantined} = 1 OR lower(${libraryItems.path}) LIKE 'quarantine/%'`)
     .all()
     .map(libraryItemFromRow);
 }

@@ -231,6 +231,8 @@ struct LibrarySettingsTests {
         }
         let url = try #require(try await backend.libraryFile(id: id))
         #expect(url.lastPathComponent == "Q3 review.pdf")
+        // The copy's folder is the first 16 hex characters of the recorded hash (the label stripped).
+        #expect(url.deletingLastPathComponent().lastPathComponent == String(Self.digest(part1 + part2).dropFirst(7).prefix(16)))
         #expect(url.path.hasPrefix(h.dir.appendingPathComponent("LibraryCache").path))
         #expect(try Data(contentsOf: url) == part1 + part2)
         #expect(reads.frames.map { $0.params?["libraryPath"]?.stringValue } == ["documents/Q3 review.pdf", "documents/Q3 review.pdf"])
