@@ -107,7 +107,7 @@ public enum SourceRoute {
     }
 
     /// Unreserved characters, `:` and `%XX`. A value of at least one character, whose decoded form has no
-    /// whitespace or control character.
+    /// whitespace or control character, no backslash, no `//` and no `..` segment.
     private static func isValue(_ value: Substring) -> Bool {
         guard !value.isEmpty else { return false }
         let scalars = Array(value.unicodeScalars)
@@ -125,6 +125,9 @@ public enum SourceRoute {
             index += 1
         }
         guard let decoded = String(value).removingPercentEncoding else { return false }
+        // A decoded value is a path or an id the phone may open: no backslash, no `//`, no `..` segment.
+        if decoded.unicodeScalars.contains("\\") || decoded.contains("//") { return false }
+        if decoded.split(separator: "/", omittingEmptySubsequences: false).contains("..") { return false }
         return !decoded.unicodeScalars.contains { $0.properties.isWhitespace || isControlish($0) }
     }
 

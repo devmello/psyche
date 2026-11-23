@@ -47,7 +47,7 @@ import Testing
         let safe = [
             "/", "/chat/thr_1", "/library/file-9", "/goals/g1", "/people/p2", "/spaces/s3", "/a-b_c.d",
             "/library/all?item=abc", "/library/all?item=mail:m1", "/library/all?item=mail%3Am1",
-            "/chat/x?message=y", "/agent/soul?file=memory%2Fnotes.md", "/feed?post=p1",
+            "/chat/x?message=y", "/agent/soul?file=memory%2Fnotes.md", "/agent/soul?entity=ent_x", "/agent/soul", "/feed?post=p1",
         ]
         for route in safe {
             #expect(SourceRoute.isSafe(route), "should open \(route)")
@@ -59,7 +59,8 @@ import Testing
             "/chat/a:b", "/\u{00A0}chat", "/" + String(repeating: "a", count: SourceRoute.maxLength),
             "//evil", "/\\evil", "/%2F%2Fevil", "/%5Cevil", "/a b", "/x?a=b c", "/x?a=%ZZ", "/x\n",
             "/x?", "/x?=v", "/x?k=", "/x?a=1&", "/x?a=1&&b=2", "/x?a=b?c", "/x?a=b/c", "/x?a=b=c", "/x?a=%4",
-            "/x?a=%0A", "/x?a=b+c", "/x??a=b", "/x?a.b=1", "/%3Ax", "/x?a=%E2%80%8B",
+            "/x?a=%0A", "/x?a=b+c", "/agent/soul?file=..%2F..%2Fsecret", "/agent/soul?file=memory%2F..%2Fx", "/x?a=%5C",
+            "/x?a=%2F%2Fevil", "/x?a=%2E%2E", "/x??a=b", "/x?a.b=1", "/%3Ax", "/x?a=%E2%80%8B",
         ]
         for route in refused {
             #expect(!SourceRoute.isSafe(route), "should refuse \(String(describing: route))")
