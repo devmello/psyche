@@ -1,4 +1,4 @@
-import type { EntitySummary, MethodResult } from "@psyche/protocol";
+import type { EntitySummary, GraphIdentifier, MethodResult } from "@psyche/protocol";
 import { type ReactElement, useEffect, useId, useState } from "react";
 import { toast } from "sonner";
 import {
@@ -254,6 +254,166 @@ export function MergeEntityDialog({
           </Button>
           <Button type="button" disabled={busy || preview === null} onClick={merge}>
             {t("people.merge.confirm")}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+export interface SplitEntityDialogProps {
+  entity: Target | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  /** After the chosen identifiers moved to the new person. */
+  onSplit?: (entity: Target) => void;
+}
+
+/**
+ * Split (docs/memory/people-and-projects-2026.md §6.5): lists the identifiers this person holds,
+ * the ones a merge brought in among them, and moves the chosen ones to a new person. The Gateway
+ * keeps the pair from being suggested for merging again. At least one identifier stays here.
+ */
+export function SplitEntityDialog({
+  entity,
+  open,
+  onOpenChange,
+  onSplit,
+}: SplitEntityDialogProps): ReactElement {
+  const call = useCall();
+  const nameId = useId();
+  const [identifiers, setIdentifiers] = useState<GraphIdentifier[] | null>(null);
+  const [picked, setPicked] = useState<ReadonlySet<string>>(new Set());
+  const [name, setName] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (!open || entity === null) return;
+    let live = true;
+    setIdentifiers(null);
+    setPicked(new Set());
+    setName("");
+    setError(null);
+    call("memory.entities.get", { id: entity.id }).then(
+      (r) => live && setIdentifiers(r.identifiers),
+      (err: unknown) => live && setError(describeError(err)),
+    );
+    return () => {
+      live = false;
+    };
+  }, [open, entity, call]);
+
+  const keyOf = (i: GraphIdentifier) => `${i.kind}:${i.value}`;
+  const chosen = (identifiers ?? []).filter((i) => picked.has(keyOf(i)));
+  const canSplit =
+    entity !== null &&
+    identifiers !== null &&
+    identifiers.length >= 2 &&
+    chosen.length >= 1 &&
+    chosen.length < identifiers.length &&
+    name.trim() !== "";
+
+  const toggle = (k: string, on: boolean) => {
+    setPicked((prev) => {
+      const next = new Set(prev);
+      if (on) next.add(k);
+      else next.delete(k);
+      return next;
+    });
+  };
+
+  const split = () => {
+    if (entity === null || !canSplit) return;
+    setBusy(true);
+    setError(null);
+    call("memory.entities.split", {
+      id: entity.id,
+      identifiers: chosen.map((i) => ({ kind: i.kind, value: i.value })),
+      name: name.trim(),
+    })
+      .then(() => {
+        onOpenChange(false);
+        onSplit?.(entity);
+      })
+      .catch((err: unknown) => setError(describeError(err)))
+      .finally(() => setBusy(false));
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{t("people.split.title", { name: entity?.name ?? "" })}</DialogTitle>
+          <DialogDescription>{t("people.split.description")}</DialogDescription>
+        </DialogHeader>
+        {identifiers === null ? (
+          error ? (
+            <p role="alert" className="text-callout text-danger-text">
+              {t("people.writeFailed", { reason: error })}
+            </p>
+          ) : (
+            <p role="status" className="text-body text-label-secondary">
+              {t("people.merge.checking")}
+            </p>
+          )
+        ) : identifiers.length < 2 ? (
+          <p role="status" className="text-body text-label-primary">
+            {t("people.split.none")}
+          </p>
+        ) : (
+          <div className="flex flex-col gap-3">
+            <fieldset className="flex flex-col gap-1">
+              <legend className="mb-1 text-callout text-label-secondary">
+                {t("people.split.identifiers")}
+              </legend>
+              {identifiers.map((i) => {
+                const k = keyOf(i);
+                const on = picked.has(k);
+                return (
+                  <label key={k} className="flex items-center gap-2 text-body text-label-primary">
+                    <input
+                      type="checkbox"
+                      checked={on}
+                      disabled={busy || (!on && picked.size >= identifiers.length - 1)}
+                      onChange={(e) => toggle(k, e.target.checked)}
+                    />
+                    <span className="min-w-0 truncate">{i.value}</span>
+                    <span className="text-callout text-label-secondary">{i.kind}</span>
+                  </label>
+                );
+              })}
+            </fieldset>
+            <p className="text-callout text-label-secondary">{t("people.split.keepOne")}</p>
+            <div className="flex flex-col gap-1">
+              <label htmlFor={nameId} className="text-body text-label-primary">
+                {t("people.split.newName")}
+              </label>
+              <Input
+                id={nameId}
+                value={name}
+                disabled={busy}
+                onChange={(e) => setName(e.target.value)}
+              />
+            </div>
+            {chosen.length > 0 ? (
+              <p role="status" className="text-callout text-label-secondary">
+                {t("people.split.preview", { count: chosen.length, name: name.trim() || "…" })}
+              </p>
+            ) : null}
+            {error ? (
+              <p role="alert" className="text-callout text-danger-text">
+                {t("people.writeFailed", { reason: error })}
+              </p>
+            ) : null}
+          </div>
+        )}
+        <DialogFooter>
+          <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
+            {t("people.dialog.cancel")}
+          </Button>
+          <Button type="button" disabled={busy || !canSplit} onClick={split}>
+            {t("people.split.confirm")}
           </Button>
         </DialogFooter>
       </DialogContent>

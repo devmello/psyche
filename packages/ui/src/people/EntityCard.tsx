@@ -47,6 +47,8 @@ export interface EntityCardActions {
   /** Keep private (§4): a work item shown on its Memory page only, never on a surface. */
   onTogglePrivate?: (entity: EntityView) => void;
   onMerge?: (entity: EntityView) => void;
+  /** Splits identifiers off a person that a merge brought in (`memory.entities.split`). */
+  onSplit?: (entity: EntityView) => void;
   onForget?: (entity: EntityView) => void;
   /** Everything memory (§10.3): export one person, forget what they said, stop learning. */
   onExport?: (entity: EntityView) => void;
@@ -114,6 +116,7 @@ export function CardHeader({
     actions.onTogglePin ||
     actions.onTogglePrivate ||
     actions.onMerge ||
+    actions.onSplit ||
     actions.onForget ||
     actions.onExport ||
     actions.onForgetSaid ||
@@ -163,6 +166,11 @@ export function CardHeader({
             {actions.onMerge ? (
               <DropdownMenuItem onClick={() => actions.onMerge?.(entity)}>
                 {t("people.merge")}
+              </DropdownMenuItem>
+            ) : null}
+            {actions.onSplit ? (
+              <DropdownMenuItem onClick={() => actions.onSplit?.(entity)}>
+                {t("people.split.menu")}
               </DropdownMenuItem>
             ) : null}
             {actions.onExport ? (
