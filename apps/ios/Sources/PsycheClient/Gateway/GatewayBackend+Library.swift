@@ -190,7 +190,8 @@ extension GatewayBackend {
         return LibraryItem(
             id: id, title: name, section: section ?? Self.section(ofKind: item["kind"]?.string),
             fileType: fileType(name: name, mime: item["mime"]?.string), detail: detail,
-            threadID: item["threadId"]?.string, evidence: evidence(of: item, threadTitle: nil), refusal: refusal)
+            threadID: item["threadId"]?.string, evidence: evidence(of: item, threadTitle: nil), refusal: refusal,
+            sources: SourceRef.list(item["sources"].flatMap { store($0) }))
     }
 
     /// "pdf" from `Q3.pdf`; the mime's subtype ("png") when the name has no extension.

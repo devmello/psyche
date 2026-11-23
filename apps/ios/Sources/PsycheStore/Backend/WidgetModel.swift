@@ -627,12 +627,15 @@ public struct WidgetSpec: Sendable, Equatable, Codable {
     public var title: String
     public var fallbackText: String
     public var root: JSONValue
+    /// The sources the widget was built from (`sources` on the wire; empty for payloads from before citations).
+    public var sources: [SourceRef]
 
-    public init(v: Int = 1, title: String, fallbackText: String, root: JSONValue) {
+    public init(v: Int = 1, title: String, fallbackText: String, root: JSONValue, sources: [SourceRef] = []) {
         self.v = v
         self.title = title
         self.fallbackText = fallbackText
         self.root = root
+        self.sources = sources
     }
 
     public init(from decoder: any Decoder) throws {
@@ -641,9 +644,10 @@ public struct WidgetSpec: Sendable, Equatable, Codable {
         title = (try? container.decode(String.self, forKey: .title)) ?? ""
         fallbackText = (try? container.decode(String.self, forKey: .fallbackText)) ?? ""
         root = (try? container.decode(JSONValue.self, forKey: .root)) ?? .null
+        sources = SourceRef.list(try? container.decode(JSONValue.self, forKey: .sources))
     }
 
-    private enum Keys: String, CodingKey { case v, title, fallbackText, root }
+    private enum Keys: String, CodingKey { case v, title, fallbackText, root, sources }
 
     /// Decode a spec from JSON text. Only a spec that isn't JSON at all fails.
     public init(json: String) throws {

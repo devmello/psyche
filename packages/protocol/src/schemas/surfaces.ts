@@ -227,6 +227,8 @@ export const LibraryItem = Type.Object(
     tags: Type.Array(Type.String()),
     textExtractRef: Nullable(Type.String()),
     quarantined: Type.Optional(Type.Boolean()),
+    /** Citations of the artifact mirrored to this item (only for artifacts made with sources). */
+    sources: Type.Optional(Type.Array(AnswerSource, { maxItems: 20 })),
     createdAt: IsoDateTime,
   },
   { $id: "LibraryItem" },

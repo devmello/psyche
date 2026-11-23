@@ -19416,6 +19416,7 @@ public struct LibraryItem: Codable, Sendable {
     public let quarantined: Bool?
     public let sha256: String
     public let size: Int
+    public let sources: [AnswerSource]?
     public let tags: [String]
     public let taskID: String?
     public let textExtractRef: String?
@@ -19432,13 +19433,14 @@ public struct LibraryItem: Codable, Sendable {
         case quarantined = "quarantined"
         case sha256 = "sha256"
         case size = "size"
+        case sources = "sources"
         case tags = "tags"
         case taskID = "taskId"
         case textExtractRef = "textExtractRef"
         case threadID = "threadId"
     }
 
-    public init(createdAt: String, id: String, kind: LibraryItemKind, mime: String, name: String, origin: LibraryItemOrigin, path: String, quarantined: Bool? = nil, sha256: String, size: Int, tags: [String], taskID: String? = nil, textExtractRef: String? = nil, threadID: String? = nil) {
+    public init(createdAt: String, id: String, kind: LibraryItemKind, mime: String, name: String, origin: LibraryItemOrigin, path: String, quarantined: Bool? = nil, sha256: String, size: Int, sources: [AnswerSource]? = nil, tags: [String], taskID: String? = nil, textExtractRef: String? = nil, threadID: String? = nil) {
         self.createdAt = createdAt
         self.id = id
         self.kind = kind
@@ -19449,6 +19451,7 @@ public struct LibraryItem: Codable, Sendable {
         self.quarantined = quarantined
         self.sha256 = sha256
         self.size = size
+        self.sources = sources
         self.tags = tags
         self.taskID = taskID
         self.textExtractRef = textExtractRef

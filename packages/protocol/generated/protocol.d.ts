@@ -6434,6 +6434,7 @@ export interface LibraryItem {
     quarantined?:    boolean;
     sha256:          string;
     size:            number;
+    sources?:        AnswerSource[];
     tags:            string[];
     taskId?:         null | string;
     textExtractRef?: null | string;

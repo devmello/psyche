@@ -135,6 +135,7 @@ public struct WidgetFrame: View {
                 }
             }
             WidgetNodeView(node: snapshot.root)
+            SourceChipRow(sources: snapshot.spec.sources)
         }
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)

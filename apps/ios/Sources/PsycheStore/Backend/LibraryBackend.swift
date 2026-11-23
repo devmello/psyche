@@ -72,11 +72,15 @@ public struct LibraryItem: Sendable, Equatable, Identifiable {
     /// Why the phone won't open this file, known from the item itself (quarantined, or too big). Nil when it can
     /// be downloaded on demand.
     public var refusal: LibraryFileRefusal?
+    /// The sources a document or artifact was made from (empty when it has none).
+    public var sources: [SourceRef]
 
     public init(
         id: String, title: String, section: LibrarySection, fileType: String, detail: String,
-        threadID: String? = nil, evidence: [String] = [], threadTitle: String? = nil, refusal: LibraryFileRefusal? = nil
+        threadID: String? = nil, evidence: [String] = [], threadTitle: String? = nil, refusal: LibraryFileRefusal? = nil,
+        sources: [SourceRef] = []
     ) {
+        self.sources = sources
         self.refusal = refusal
         self.evidence = evidence
         self.threadTitle = threadTitle
