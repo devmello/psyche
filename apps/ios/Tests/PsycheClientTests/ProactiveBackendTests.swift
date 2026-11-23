@@ -1,5 +1,6 @@
 import Foundation
 import enum PsycheProtocol.JSONValue
+import struct PsycheProtocol.WireError
 import PsycheStore
 import Testing
 
@@ -125,5 +126,71 @@ struct ProactiveBackendTests {
         }
         let overview = try await backend.scheduled()
         #expect(overview.runs.count == 1 && overview.runs[0].retryAt == nil)
+    }
+
+    @Test func pauseAndResumeSendTheItemAndReadTheStateBack() async throws {
+        let (backend, h) = try await live { g in
+            g.on("scheduled.pause") { req in
+                .success(.object(["item": .object(["id": .string(req.params?["id"]?.string ?? ""), "state": .string(req.params?["paused"] == .bool(true) ? "paused" : "active")])]))
+            }
+        }
+        #expect(try await backend.setScheduledPaused(id: "a1", paused: true) == "paused")
+        #expect(try await backend.setScheduledPaused(id: "a1", paused: false) == "active")
+        let calls = h.gateway.received.filter { $0.method == "scheduled.pause" }
+        #expect(calls.map { $0.params?["id"]?.string } == ["a1", "a1"])
+        #expect(calls.map { $0.params?["paused"] == .bool(true) } == [true, false])
+    }
+
+    @Test func aPauseTheGatewayRefusesShowsItsOwnWords() async throws {
+        let (backend, _) = try await live { g in
+            g.on("scheduled.pause") { _ in .failure(WireError(code: "forbidden", message: "This phone can't change schedules.")) }
+        }
+        await #expect(throws: BackendError.refused("This phone can't change schedules.")) {
+            try await backend.setScheduledPaused(id: "a1", paused: true)
+        }
+    }
+
+    @Test func runNowSendsTheAutomationId() async throws {
+        let (backend, h) = try await live { g in
+            g.on("automations.run") { _ in .success(.object(["runId": "run_9", "taskId": .null])) }
+        }
+        try await backend.runScheduledNow(id: "a1")
+        let calls = h.gateway.received.filter { $0.method == "automations.run" }
+        #expect(calls.count == 1)
+        #expect(calls[0].params?["automationId"]?.string == "a1")
+    }
+
+    @Test func goalStatusChangeSendsTheWireNameAndReturnsTheGoal() async throws {
+        let (backend, h) = try await live { g in
+            g.on("goals.update") { _ in .success(.object([
+                "goal": .object(["id": "g1", "title": "Half marathon", "category": "health", "status": "paused"]),
+                "taskIds": .array([]),
+                "milestones": .array([.object(["id": "m1", "title": "5 km", "doneAt": "2030-01-01T09:12:00Z"])]),
+                "links": .array([]),
+            ])) }
+        }
+        let detail = try await backend.setGoalStatus(id: "g1", .paused)
+        #expect(detail.goal.status == "paused")
+        #expect(detail.milestones.map(\.done) == [true])
+        let call = h.gateway.received.filter { $0.method == "goals.update" }.first
+        #expect(call?.params?["goalId"]?.string == "g1")
+        #expect(call?.params?["status"]?.string == "paused")
+    }
+
+    @Test func scheduledItemsKeepPausedAndOffAndOnlyRoutinesWithoutApprovalsSkipTheConfirm() async throws {
+        let (backend, _) = try await live { g in
+            g.on("scheduled.list") { _ in .success(.object(["timezone": "UTC", "items": .array([
+                .object(["id": "off1", "title": "Mail digest", "state": "off", "group": "routine"]),
+                .object(["id": "p1", "title": "Expenses", "state": "paused", "group": "owner", "approvals": .array([])]),
+                .object(["id": "r1", "title": "Brief", "state": "active", "group": "routine", "nextRunAt": "2030-01-02T09:00:00Z", "approvals": .array([])]),
+                .object(["id": "r2", "title": "Mail", "state": "active", "group": "routine", "nextRunAt": "2030-01-03T09:00:00Z", "approvals": .array(["queued"])]),
+                .object(["id": "x1", "title": "Odd", "state": "from_the_future", "group": "owner"]),
+            ])])) }
+            g.on("scheduled.runs") { _ in .success(.object(["runs": .array([])])) }
+        }
+        let overview = try await backend.scheduled()
+        #expect(overview.items.map(\.id) == ["r1", "r2", "p1", "off1"])
+        #expect(overview.upcoming.map(\.id) == ["r1", "r2"])
+        #expect(overview.items.map(\.confirmsRunNow) == [false, true, true, false])
     }
 }
