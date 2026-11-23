@@ -7,7 +7,8 @@
 
 ## Family
 
-* Brother Theo is studying architecture in Montreal
+- Brother Theo is studying architecture in Montreal
+
 1. Call me Sam in casual chats
 
 ## Notes

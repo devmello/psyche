@@ -51,8 +51,10 @@ import { readRegularFile, realDirUnder, writeFileReplacing } from "./hidden-fs.t
 import { type ChunkInput, MemoryIndex } from "./index-db.ts";
 import {
   BOOTSTRAP_FILE,
+  canonicalCase,
   dailyNoteDate,
   dailyNotePath,
+  isBootstrapFile,
   isGraphCard,
   isIndexed,
   isProtected,
@@ -1013,7 +1015,7 @@ export class SqliteMemoryStore implements MemoryStore {
       // teaching card (the lesson writer, actor `job`) may add to it.
       fail("policy_denied", "skill files change through the owner's approval, not by the agent");
     }
-    if (path === BOOTSTRAP_FILE && actor === "agent" && request.operation !== "delete") {
+    if (isBootstrapFile(path) && actor === "agent" && request.operation !== "delete") {
       // Injected into every private session while it exists: the agent may only delete it.
       fail("policy_denied", "BOOTSTRAP.md can only be deleted by the agent");
     }
@@ -1196,7 +1198,7 @@ export class SqliteMemoryStore implements MemoryStore {
       const p = isGraphCard(dst) ? dst : src;
       await this.#checkProtected(p, provenance, actor, undefined, { ...request, path: p });
     }
-    if (dst === BOOTSTRAP_FILE || src === BOOTSTRAP_FILE) {
+    if (isBootstrapFile(dst) || isBootstrapFile(src)) {
       await this.#checkProtected(BOOTSTRAP_FILE, provenance, actor, undefined, {
         ...request,
         path: BOOTSTRAP_FILE,
@@ -1436,7 +1438,8 @@ export class SqliteMemoryStore implements MemoryStore {
     // Lines to drop per file.
     const edits = new Map<string, string>();
     for (const path of this.#walk()) {
-      if (FORGET_SKIPS.has(path) || path.startsWith("skills/") || !path.endsWith(".md")) continue;
+      if (FORGET_SKIPS.has(canonicalCase(path)) || isSkillFile(path) || !path.endsWith(".md"))
+        continue;
       const content = this.#readDisk(path);
       if (content === undefined) continue;
       const lines = content.split("\n");
