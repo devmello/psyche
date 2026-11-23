@@ -510,9 +510,16 @@ export function ApprovalDetails({
               </Row>
             </>
           ) : null}
+          {/* Auto mode's exec reviewer asked instead of allowing: its one line, as a hint. */}
+          {typeof d.reviewerHint === "string" && d.reviewerHint.trim() !== "" ? (
+            <Row label={t("blocks.details.reviewerNote")}>
+              <span className="text-label-secondary">{d.reviewerHint}</span>
+            </Row>
+          ) : null}
           <Rest
             details={d}
             shown={[
+              "reviewerHint",
               "command",
               "cwd",
               "argv",

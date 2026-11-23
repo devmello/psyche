@@ -42,6 +42,11 @@ export interface FrictionReport {
   /** Deciding rules of `ask` results, most frequent first: where the friction comes from. */
   topAskRules: { rule: string; count: number }[];
   answerRejections: Record<string, number>;
+  /**
+   * Classifier labels by name. The exec reviewer's own are `exec_review:allow` and
+   * `exec_review:ask` (one per review), and `exec_review:allowed_calls` counts the calls it let
+   * through without a card.
+   */
   classifier: Record<string, number>;
   byKind: KindFriction[];
   byMode: Record<string, { decisions: number; asks: number }>;
@@ -137,6 +142,11 @@ export function frictionMetrics(entries: readonly AuditEntry[]): FrictionReport 
         } else if (decision === "allow") {
           kf.allows += 1;
           if (rule.startsWith("grant:")) allowedByGrant += 1;
+          // Calls Auto mode's exec reviewer let through without a card, apart from the labels.
+          if (rule === "classifier:exec_review") {
+            classifier["exec_review:allowed_calls"] =
+              (classifier["exec_review:allowed_calls"] ?? 0) + 1;
+          }
         } else if (decision === "deny") kf.denies += 1;
         break;
       }

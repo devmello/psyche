@@ -52,6 +52,7 @@ export const blocks: Partial<Catalogue> = {
   "blocks.details.executable": "程序",
   "blocks.details.network": "网络",
   "blocks.details.networkNone": "无",
+  "blocks.details.reviewerNote": "审核者备注",
   "blocks.details.runsSandboxed":
     "在你的 Mac 上、沙盒内运行：无法读取 Psyche 的保险库、你的 SSH 密钥、钥匙串或浏览器配置文件",
   "blocks.details.runsNoSandbox": "在你的 Mac 上运行，且沙盒尚未设置（{reason}）",

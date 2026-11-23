@@ -56,6 +56,7 @@ export const blocks: Partial<Catalogue> = {
   "blocks.details.executable": "البرنامج",
   "blocks.details.network": "الشبكة",
   "blocks.details.networkNone": "بلا",
+  "blocks.details.reviewerNote": "ملاحظة المراجِع",
   "blocks.details.runsSandboxed":
     "على جهاز Mac لديك، داخل البيئة المعزولة: لا يستطيع قراءة خزنة Psyche أو مفاتيح SSH أو سلاسل المفاتيح أو ملفات تعريف المتصفح",
   "blocks.details.runsNoSandbox": "على جهاز Mac لديك، والبيئة المعزولة غير مُعدّة ({reason})",

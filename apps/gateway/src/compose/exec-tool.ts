@@ -153,6 +153,9 @@ export function execTool(deps: ExecToolDeps): AgentToolRegistration {
       const command = p.argv.join(" ");
       return {
         kind: "exec",
+        // Always the sandbox (the container, or the sandbox Mac): Auto mode's exec reviewer may
+        // look at it once the broker's own floors hold (no env, no network, cwd in /workspace).
+        meta: { execReview: { sandbox: "container" as const } },
         target: { kind: "command", value: command.slice(0, 1000) },
         summary: `Run \`${command.slice(0, 80)}\` in the sandbox`,
         // Security §3.5 exec fields; placeholders bind as written, never their values.

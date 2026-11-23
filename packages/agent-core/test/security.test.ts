@@ -35,6 +35,19 @@ function taintedEmailHarness(to: string, ownerSaid: string) {
   return { h, ownerSaid };
 }
 
+describe("ownerWords (Auto mode's exec reviewer)", () => {
+  it("carries the owner's typed words of an owner run to the broker, and nothing else", async () => {
+    const { h } = taintedEmailHarness("ana@example.com", "");
+    const turn = start(h, "run the tests then email ana@example.com");
+    await until(() => h.broker.decisions.length === 2, "decisions");
+    expect(h.broker.decisions[0]?.ctx.ownerWords).toEqual([
+      "run the tests then email ana@example.com",
+    ]);
+    await h.loop.cancel(turn.runId);
+    await turn.done;
+  });
+});
+
 describe("newTarget (security §3.6)", () => {
   it("matches the owner's targets exactly, not by substring or display name", async () => {
     const { h } = taintedEmailHarness("ana@example.co", "");

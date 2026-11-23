@@ -219,6 +219,25 @@ export function policyWithReadOnlyQuiet(
   return { ...policy, exec: { ...exec, readOnlyWithoutAsking: on } };
 }
 
+/**
+ * `permissions.policy.exec.reviewInAuto` (owner's decision 2026-11-23): in Auto mode a reviewer
+ * model may approve safe terminal commands; on unless set to false.
+ */
+export function execReviewInAuto(values: Readonly<Record<string, unknown>>): boolean {
+  const exec = policyOf(values).exec;
+  return !(isRecord(exec) && exec.reviewInAuto === false);
+}
+
+/** The stored policy with `exec.reviewInAuto` set, everything else kept. */
+export function policyWithExecReview(
+  values: Readonly<Record<string, unknown>>,
+  on: boolean,
+): Record<string, unknown> {
+  const policy = policyOf(values);
+  const exec = isRecord(policy.exec) ? policy.exec : {};
+  return { ...policy, exec: { ...exec, reviewInAuto: on } };
+}
+
 /** The stored policy with `exec.execHostEnabled` set, everything else kept. */
 export function policyWithExecHost(
   values: Readonly<Record<string, unknown>>,

@@ -2068,6 +2068,9 @@ export const settings = {
     "What runs on its own, what asks first and what never happens.",
   "settings.permissions.loadLabel": "permissions",
   "settings.permissions.defaultModeTitle": "Default mode for new threads",
+  "settings.permissions.execReview": "Let a reviewer approve safe terminal commands in Auto mode",
+  "settings.permissions.execReviewHint":
+    "In Auto mode, builds, tests and local git steps that match your request can run without a card, sandboxed with no network. Each review is a small Haiku call on your key. Anything unclear still asks.",
   "settings.permissions.connectorActions": "Connector actions",
   "settings.permissions.connectorActionsHint":
     "Allow runs without asking, Ask shows an approval card, Deny never runs.",

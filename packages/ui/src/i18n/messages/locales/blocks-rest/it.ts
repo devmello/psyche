@@ -58,6 +58,7 @@ export const blocksRest: Partial<Catalogue> = {
   "blocks.details.executable": "Programma",
   "blocks.details.network": "Rete",
   "blocks.details.networkNone": "nessuna",
+  "blocks.details.reviewerNote": "Nota del revisore",
   "blocks.details.runsSandboxed":
     "sul tuo Mac, nella sandbox: non può leggere il vault di Psyche, le tue chiavi SSH, i portachiavi né i profili del browser",
   "blocks.details.runsNoSandbox": "sul tuo Mac, e la sandbox non è configurata ({reason})",

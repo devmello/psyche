@@ -2275,6 +2275,9 @@ export const ja: Partial<Catalogue> = {
     "自動で実行されるもの、先に確認するもの、決して行わないもの。",
   "settings.permissions.loadLabel": "権限",
   "settings.permissions.defaultModeTitle": "新しいスレッドのデフォルトモード",
+  "settings.permissions.execReview": "自動モードで安全なターミナルコマンドをレビュアーに承認させる",
+  "settings.permissions.execReviewHint":
+    "自動モードでは、依頼内容に合ったビルド、テスト、ローカルの git 操作をカードなしで、ネットワークなしのサンドボックス内で実行できます。各レビューはあなたのキーでの小さな Haiku 呼び出しです。不明確なものは引き続き確認します。",
   "settings.permissions.connectorActions": "コネクタのアクション",
   "settings.permissions.connectorActionsHint":
     "「許可」は確認なしで実行、「確認」は承認カードを表示、「拒否」は決して実行しません。",

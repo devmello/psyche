@@ -11,6 +11,13 @@ import {
   classifyFailClosed,
 } from "./classifier.ts";
 import { floorClass, floorLifted, matrixFloor, matrixRule } from "./connector-matrix.ts";
+import {
+  EXEC_REVIEW_RULE,
+  type ExecReviewer,
+  type ExecReviewResult,
+  execReviewFacts,
+  reviewFailClosed,
+} from "./exec-review.ts";
 import { classifyHostCommand, READ_ONLY_RULE } from "./host-readonly.ts";
 import {
   ALL_SCOPES,
@@ -37,6 +44,8 @@ import type { PolicyCall, PolicyContext, PolicyDecision } from "./types.ts";
  * 1 hard prohibitions → 2 user deny rules (plus plan mode, matrices, folder and app tiers) →
  * 3 hooks (deny / ask only; a rewrite restarts at 1 and ends at ask) → 4 taint escalation →
  * 5 standing grants and configured allowances → 6 mode default → 7 classifier (auto, writes).
+ * In step 6, Auto mode's exec reviewer (6a, `exec-review.ts`) may turn a terminal command's ask
+ * into an allow once every floor above held; it never touches an allow or a deny.
  * Every result carries the deciding rule and a trace of the steps that ran.
  */
 
@@ -144,6 +153,18 @@ export interface EngineDeps {
   hostProgramGrant?(call: PolicyCall, ctx: PolicyContext): StoredGrant | undefined;
   hooks: readonly PolicyHook[];
   classifier: ActionClassifier;
+  /**
+   * Auto mode's exec reviewer (step 6a, `exec-review.ts`); absent, every terminal command that
+   * would ask still asks.
+   */
+  execReviewer?: ExecReviewer;
+  /** The Host's OS for the reviewer's floors (tests; default this process's). */
+  platform?: NodeJS.Platform;
+  /**
+   * Records one review in the audit log before its answer is used. False (or a throw) means it
+   * could not be recorded: an `allow` then asks.
+   */
+  onExecReviewed?(ctx: PolicyContext, call: PolicyCall, result: ExecReviewResult): Promise<boolean>;
   localProject: LocalProjectVerifier;
   psycheHome: string | undefined;
   gatewayOrigins: readonly string[];
@@ -373,6 +394,7 @@ export class PolicyEngine {
       typedConfirmation?: string;
       deviceOnly?: true;
       classifier?: PolicyDecision["classifier"];
+      execReview?: PolicyDecision["execReview"];
     },
   ): Evaluation {
     trace.push(`${decision}:${rule}`);
@@ -381,6 +403,7 @@ export class PolicyEngine {
     if (x.grantId !== undefined) d.grantId = x.grantId;
     if (x.via !== undefined) d.via = x.via;
     if (x.classifier !== undefined) d.classifier = x.classifier;
+    if (x.execReview !== undefined) d.execReview = x.execReview;
     if (x.binding !== undefined) {
       d.bindingHash = x.binding.bindingHash;
       d.grantKey = x.binding.grantKey;
@@ -856,8 +879,9 @@ export class PolicyEngine {
       if (kind !== "credential_fill" && origin === undefined) s = s.filter((x) => x !== "site");
       return s.length === 0 ? (["once"] as GrantScope[]) : s;
     };
-    const ask = (rule: string, reason?: string, offer: GrantScope[] = ALL_SCOPES) =>
+    const ask = (rule: string, reason?: string, offer: GrantScope[] = ALL_SCOPES, extra = {}) =>
       done("ask", rule, reason, {
+        ...extra,
         binding,
         // Manual: writes and above are `once` only; first reads offer task / site (security §3.2).
         scopes: scopesFor(
@@ -969,6 +993,84 @@ export class PolicyEngine {
     trace.push("step6:mode_default");
     if (escalation !== undefined) return ask(escalation.rule, escalation.reason, escalation.scopes);
     const modeRule = `mode:${mode}/${se}`;
+
+    // 6a. The exec reviewer (Auto only; owner's decision 2026-11-23). It runs after every floor,
+    // prohibition, deny rule, hook, taint check and grant above, only for a terminal command that
+    // is about to ask here, and it can only turn that ask into an allow.
+    if (
+      mode === "auto" &&
+      dry === undefined &&
+      d.execReviewer !== undefined &&
+      (kind === "exec" || kind === "exec_host") &&
+      (se === "write" || se === "destructive") &&
+      p.config.exec?.reviewInAuto !== false
+    ) {
+      const cwdRaw =
+        (binding.fields as { cwd?: unknown }).cwd ?? (call.params as { cwd?: unknown })?.cwd;
+      let cwd: string | undefined;
+      try {
+        cwd =
+          kind === "exec_host"
+            ? canonicalPath(typeof cwdRaw === "string" ? cwdRaw : "")
+            : undefined;
+      } catch {
+        cwd = undefined;
+      }
+      const folder = cwd === undefined ? undefined : this.folderFor(cwd, ctx.threadId, ctx.runId);
+      const facts = execReviewFacts(
+        {
+          tool: call.tool,
+          kind,
+          params: call.params,
+          fields: binding.fields as Record<string, unknown>,
+          meta: call.meta,
+          ...(folder === undefined ? {} : { folder }),
+          ...(cwd === undefined ? {} : { cwd }),
+        },
+        {
+          tainted,
+          unattended: ctx.unattended === true,
+          ownerWords: ctx.ownerWords ?? [],
+          requester: ctx.requester,
+          platform: d.platform ?? process.platform,
+        },
+      );
+      if ("refused" in facts) trace.push(`exec_review:skip(${facts.refused})`);
+      else {
+        trace.push("step6a:exec_review");
+        const result = await reviewFailClosed(
+          d.execReviewer,
+          facts.input,
+          p.config.classifier?.timeoutMs ?? CLASSIFIER_TIMEOUT_MS,
+        );
+        // Recorded before it is used: a review the audit log cannot record never allows.
+        let logged = false;
+        try {
+          logged = (await d.onExecReviewed?.(ctx, call, result)) === true;
+        } catch {
+          logged = false;
+        }
+        const execReview = {
+          decision: result.decision,
+          reason: result.reason,
+          model: result.model,
+        };
+        if (result.decision === "allow" && logged) {
+          return done("allow", EXEC_REVIEW_RULE, result.reason, { binding, execReview });
+        }
+        const hint =
+          result.decision === "allow"
+            ? {
+                ...execReview,
+                decision: "ask" as const,
+                reason: "the review could not be recorded",
+              }
+            : execReview;
+        // The same card the mode default shows, with the reviewer's one line as its hint.
+        return ask(modeRule, undefined, ALL_SCOPES, { execReview: hint });
+      }
+    }
+
     switch (se) {
       case "none":
         return done("allow", modeRule, undefined, { binding });

@@ -56,6 +56,7 @@ export const blocksRest: Partial<Catalogue> = {
   "blocks.details.executable": "프로그램",
   "blocks.details.network": "네트워크",
   "blocks.details.networkNone": "없음",
+  "blocks.details.reviewerNote": "검토자 메모",
   "blocks.details.runsSandboxed":
     "Mac의 샌드박스 안에서 실행: Psyche 보관함, SSH 키, 키체인, 브라우저 프로필을 읽을 수 없습니다",
   "blocks.details.runsNoSandbox": "Mac에서 실행되지만 샌드박스가 설정되어 있지 않습니다 ({reason})",

@@ -2257,6 +2257,10 @@ export const pt: Partial<Catalogue> = {
     "O que é executado sozinho, o que pergunta antes e o que nunca acontece.",
   "settings.permissions.loadLabel": "permissões",
   "settings.permissions.defaultModeTitle": "Modo padrão para novas conversas",
+  "settings.permissions.execReview":
+    "Deixar um revisor aprovar comandos de terminal seguros no modo Auto",
+  "settings.permissions.execReviewHint":
+    "No modo Auto, builds, testes e passos locais do git que correspondem ao seu pedido podem ser executados sem cartão, na sandbox e sem rede. Cada revisão é uma pequena chamada ao Haiku com a sua chave. O que não estiver claro continua a perguntar.",
   "settings.permissions.connectorActions": "Ações de conectores",
   "settings.permissions.connectorActionsHint":
     "Permitir executa sem perguntar, Perguntar mostra um cartão de aprovação, Negar nunca executa.",

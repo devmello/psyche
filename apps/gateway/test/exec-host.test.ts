@@ -1369,7 +1369,8 @@ describe.skipIf(!posixHost)(
         ["/usr/bin/git", "status"],
       ]) {
         const params = { argv, cwd: dir };
-        expect(described(t, params).meta, argv.join(" ")).toBeUndefined();
+        // No read-only class (the meta may still name the exec reviewer's sandbox facts).
+        expect(described(t, params).meta?.hostCommand, argv.join(" ")).toBeUndefined();
         const d = await decide(t, params);
         expect(d.decision, argv.join(" ")).toBe("ask");
         expect(d.sideEffect, argv.join(" ")).toBe("destructive");

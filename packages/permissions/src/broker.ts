@@ -75,6 +75,7 @@ import {
   taskKey,
   trustedRead,
 } from "./engine.ts";
+import { EXEC_REVIEW_RULE, type ExecReviewer, type ExecReviewResult } from "./exec-review.ts";
 import {
   effectiveEntries,
   type FolderAccessEnv,
@@ -274,6 +275,14 @@ export interface PermissionBrokerOptions {
   bootId?: string;
   hooks?: PolicyHook[];
   classifier?: ActionClassifier;
+  /**
+   * Auto mode's exec reviewer (owner's decision 2026-11-23, `exec-review.ts`). Absent, every
+   * terminal command that would ask still asks. Each review is audited before it is used; without
+   * an audit log a review never allows.
+   */
+  execReviewer?: ExecReviewer;
+  /** The Host's OS for the exec reviewer (tests; default this process's). */
+  platform?: NodeJS.Platform;
   localProject?: LocalProjectVerifier;
   psycheHome?: string;
   /** Gateway UI origins the agent may never act on (design-03, design-19). */
@@ -622,6 +631,9 @@ export class PsychePermissionBroker implements PermissionBroker {
       gatewayOrigins,
       onClassified: (ctx, call, label, reason, breaker) =>
         this.#onClassified(ctx, call, label, reason, breaker),
+      ...(options.execReviewer === undefined ? {} : { execReviewer: options.execReviewer }),
+      ...(options.platform === undefined ? {} : { platform: options.platform }),
+      onExecReviewed: (ctx, call, result) => this.#onExecReviewed(ctx, call, result),
     });
     this.#warmRefusals();
   }
@@ -1206,9 +1218,12 @@ export class PsychePermissionBroker implements PermissionBroker {
       const key = binding.bindingHash;
       const now = this.clock.now();
       this.#recent.delete(key);
+      // The owner's words are for this one decision's reviewer: never cached or persisted with a
+      // card (a re-issued card is decided again without them, so it asks).
+      const { ownerWords: _ownerWords, ...kept } = ctx;
       this.#recent.set(key, {
         call: structuredClone(decision.call),
-        ctx: structuredClone(ctx),
+        ctx: structuredClone(kept),
         binding,
         decision,
         at: now,
@@ -1291,6 +1306,45 @@ export class PsychePermissionBroker implements PermissionBroker {
       });
     }
     return out;
+  }
+
+  /**
+   * One exec review in the audit log (rule, model, decision, reason, latency, params hash), before
+   * the engine uses it. False when there is no audit log or the write failed: then it asks.
+   */
+  async #onExecReviewed(
+    ctx: PolicyContext,
+    call: PolicyCall,
+    result: ExecReviewResult,
+  ): Promise<boolean> {
+    if (this.audit === undefined) return false;
+    try {
+      await this.#log(
+        "classifier.labeled",
+        { type: "system" },
+        {
+          runId: ctx.runId,
+          threadId: ctx.threadId,
+          ...(ctx.taskId === undefined ? {} : { taskId: ctx.taskId }),
+          ...(call.toolCallId === undefined ? {} : { toolCallId: call.toolCallId }),
+        },
+        {
+          classifier: EXEC_REVIEW_RULE,
+          rule: EXEC_REVIEW_RULE,
+          tool: call.tool,
+          model: result.model,
+          label: `exec_review:${result.decision}`,
+          decision: result.decision,
+          reason: result.reason,
+          ...(result.confidence === undefined ? {} : { confidence: result.confidence }),
+          latencyMs: result.latencyMs,
+          paramsHash: call.paramsHash,
+        },
+      );
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   async #onClassified(
@@ -2111,6 +2165,19 @@ export class PsychePermissionBroker implements PermissionBroker {
     delete details.final;
     const trustOffer = this.#trustSiteOffer(recent, input, se);
     if (trustOffer !== undefined) details.trustSite = { ...trustOffer };
+    // The exec reviewer's one line when it asked (Auto mode): only from the broker's own decision
+    // for this run, never a caller's.
+    delete details.reviewerHint;
+    const review = recent?.decision.execReview;
+    if (
+      review !== undefined &&
+      review.decision === "ask" &&
+      review.reason.trim() !== "" &&
+      recent?.ctx.runId === input.requestedBy.runId &&
+      (input.kind === "exec_host" || input.kind === "exec")
+    ) {
+      details.reviewerHint = sanitizeDisplay(review.reason).slice(0, 160);
+    }
     delete details.hostProgram;
     const programOffer = this.#hostProgramOffer(recent, input);
     if (programOffer !== undefined) {

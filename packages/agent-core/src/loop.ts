@@ -3532,6 +3532,10 @@ export class PsycheAgentLoop implements AgentLoop {
       newTarget: this.#isNewTarget(run, target, sideEffect),
       unattended: run.mode === "unattended",
       ...(run.requester === undefined ? {} : { requester: structuredClone(run.requester) }),
+      // The owner's own typed words (owner runs only), for Auto mode's exec reviewer.
+      ...(run.ownerRun && run.ownerText.trim() !== ""
+        ? { ownerWords: [run.ownerText.trim()] }
+        : {}),
     };
   }
 

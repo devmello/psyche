@@ -46,6 +46,9 @@ const LAUNCH_CONFIG_PAIRS: readonly (readonly [string, (name: string) => boolean
   [".cargo", (n) => n === "config.toml" || n === "config"],
 ];
 
+/** The folders of `LAUNCH_CONFIG_PAIRS` (`.claude`, `.cursor`, `.cargo`). */
+export const LAUNCH_CONFIG_PAIR_DIRS: readonly string[] = LAUNCH_CONFIG_PAIRS.map(([d]) => d);
+
 /** VS Code workspace files (`app.code-workspace`): tasks and settings, like `.vscode`. */
 const WORKSPACE_SUFFIX = ".code-workspace";
 

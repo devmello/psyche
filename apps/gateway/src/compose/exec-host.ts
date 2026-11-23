@@ -22,9 +22,13 @@ import {
   gitDriverOverrides,
   type ToolRunContext,
 } from "@psyche/agent-core";
+import { LAUNCH_CONFIG_DIRS, LAUNCH_CONFIG_FILES, LAUNCH_CONFIG_PAIR_DIRS } from "@psyche/hostfs";
 import { createScratchDir, defaultDenyRead, scratchReadRules } from "@psyche/mcp-host";
 import {
   classifyHostCommand,
+  EXEC_REVIEW_RULE,
+  execReviewPathsInside,
+  execReviewRefusal,
   type FolderAccessEnv,
   type FolderGrantEntry,
   grantedRootRefused,
@@ -629,6 +633,84 @@ const CONFINED_DENY_READ = [
   "/Users/Shared",
 ];
 
+/** Git internals that run code later or point git elsewhere: never written by a reviewed run. */
+const REVIEWED_GIT_DENY = [
+  "hooks",
+  "config",
+  "config.worktree",
+  "info",
+  "modules",
+  "worktrees",
+  // `commondir` points the repository's config and hooks at another folder (#1546 review, H1).
+  "commondir",
+  // A paused rebase or cherry-pick's todo list holds `exec` lines the owner's next
+  // `git rebase --continue` runs.
+  "rebase-merge",
+  "rebase-apply",
+  "sequencer",
+];
+
+/**
+ * Launch-config folders a reviewed run never writes, at any depth: the file tools' folders plus
+ * the folders of `LAUNCH_CONFIG_PAIRS` (Claude Code's settings hooks, Cursor's MCP list, Cargo's
+ * `rustc-wrapper`), whole, since a skill, a command or an agent there runs later too.
+ */
+const REVIEWED_LAUNCH_DIRS = [...new Set([...LAUNCH_CONFIG_DIRS, ...LAUNCH_CONFIG_PAIR_DIRS])];
+
+/** Characters srt reads as glob syntax: a repository root holding one is never reviewed. */
+const GLOB_META = /[[\]*?{}\\]/;
+
+/** `name` as a glob that matches it in any case (`.vscode` → `.[vV][sS][cC][oO][dD][eE]`). */
+export function anyCaseGlob(name: string): string {
+  return name.replace(/[a-z]/gi, (c) => `[${c.toLowerCase()}${c.toUpperCase()}]`);
+}
+
+/**
+ * What a run the exec reviewer approved may never write inside its repository, although it may
+ * write the rest of it (owner's decision 2026-11-23, security §5.4). Each srt deny covers the
+ * match and everything below it, and on macOS a pattern with glob syntax is an anchored,
+ * case-sensitive regex, so names are spelled in any case (APFS opens `.VSCode` as `.vscode`):
+ * - the repository's own git internals that run code later or redirect git
+ *   (`REVIEWED_GIT_DENY`);
+ * - any `.git` entry, file or folder, below the root: a nested repository's hooks and config, or
+ *   a `gitdir:` file pointing elsewhere (#1546 review, H2);
+ * - every app's launch config at any depth, and literally at the repository root and the cwd
+ *   (`LAUNCH_CONFIG_*`, `*.code-workspace`: #1546 review, M3).
+ * The caller refuses a root that holds glob syntax (`reviewableRepoRoot`).
+ */
+export function reviewedRunDenyWrite(repoRoot: string, cwdReal: string): string[] {
+  const git = join(repoRoot, ".git");
+  const gitAnyCase = join(repoRoot, anyCaseGlob(".git"));
+  const roots = [...new Set([repoRoot, cwdReal])];
+  const launch = [...REVIEWED_LAUNCH_DIRS, ...LAUNCH_CONFIG_FILES];
+  return [
+    ...REVIEWED_GIT_DENY.map((n) => join(git, n)),
+    ...REVIEWED_GIT_DENY.map((n) => join(gitAnyCase, anyCaseGlob(n))),
+    // `*/**/` needs one folder at least: the root's own `.git` stays writable (`git add`).
+    `${repoRoot}/*/**/${anyCaseGlob(".git")}`,
+    ...roots.flatMap((r) => launch.map((n) => join(r, n))),
+    ...launch.map((n) => `${repoRoot}/**/${anyCaseGlob(n)}`),
+    `${repoRoot}/**/*${anyCaseGlob(".code-workspace")}`,
+  ];
+}
+
+/**
+ * The repository root a reviewed run may write (`gitRepoRoot`), or undefined: never a root that
+ * srt would read as a glob, and never the owner's home or a folder above it (a dotfiles
+ * repository would let a reviewed run write `.zshrc`).
+ */
+export function reviewableRepoRoot(cwdReal: string, userHome: string): string | undefined {
+  const root = gitRepoRoot(cwdReal);
+  if (root === undefined || GLOB_META.test(root)) return undefined;
+  let home = userHome;
+  try {
+    home = realpathSync.native(userHome);
+  } catch {
+    // The home as given: still compared.
+  }
+  return under(home, root) || under(userHome, root) ? undefined : root;
+}
+
 /** The dot entries directly in `home`, by name (none when it cannot be listed). */
 function homeDotEntries(home: string): string[] {
   try {
@@ -659,6 +741,8 @@ export function execHostSrtSettings(input: {
    * dot-home rule, #1434 review r1, finding 4).
    */
   homeDotEntries?: readonly string[];
+  /** More paths no write may reach (a reviewed run: its repository's hooks and launch config). */
+  denyWrite?: readonly string[];
   /** The Host's OS (default this process's): Linux adds its own credential and Psyche paths. */
   platform?: NodeJS.Platform;
   /** The Host's `XDG_RUNTIME_DIR` and `XDG_STATE_HOME` (Linux; default this process's). */
@@ -709,6 +793,7 @@ export function execHostSrtSettings(input: {
           ...(input.writable.some((w) => within(input.userHome, w))
             ? (input.homeDotEntries ?? []).map((name) => h(name))
             : []),
+          ...(input.denyWrite ?? []),
         ]),
       ],
     },
@@ -839,6 +924,10 @@ export function gitRepoRoot(realCwd: string): string | undefined {
     const st = lstatSync(dotGit, { throwIfNoEntry: false });
     if (st !== undefined) {
       if (!st.isDirectory()) return undefined;
+      // `commondir` takes the config and hooks from another folder: a redirect (#1546 review, H1).
+      if (lstatSync(join(dotGit, "commondir"), { throwIfNoEntry: false }) !== undefined) {
+        return undefined;
+      }
       try {
         const config = readFileSync(join(dotGit, "config"), "utf8");
         if (config.length > 1_000_000 || GIT_CONFIG_REDIRECT.test(config)) return undefined;
@@ -1108,6 +1197,17 @@ export function execHostTool(deps: ExecHostDeps): AgentToolRegistration {
               ...(cwdReal === undefined ? {} : { cwdReal }),
             }
           : undefined;
+      // Auto mode's exec reviewer (owner's decision 2026-11-23) may look at a command only where a
+      // reviewed run is sandboxed: srt on macOS, in a git repository (its root is what such a run
+      // may write). Everything else about it the broker checks itself.
+      const repoRoot =
+        platform === "darwin" && "path" in srt && cwdReal !== undefined
+          ? reviewableRepoRoot(cwdReal, userHome)
+          : undefined;
+      const execReview =
+        repoRoot === undefined || cwdReal === undefined
+          ? undefined
+          : { sandbox: "srt" as const, cwdReal, repoRoot };
       const meta = {
         ...(readOnly
           ? {
@@ -1116,6 +1216,7 @@ export function execHostTool(deps: ExecHostDeps): AgentToolRegistration {
             }
           : {}),
         ...(hostProgram === undefined ? {} : { hostProgram }),
+        ...(execReview === undefined ? {} : { execReview }),
       };
       return {
         kind: "exec_host",
@@ -1296,6 +1397,36 @@ export function execHostTool(deps: ExecHostDeps): AgentToolRegistration {
         { details: { missing: { need: "sandbox" } } },
       );
     }
+    // A run the exec reviewer approved (no card, no grant): everything the broker checked is
+    // checked again against what is on disk now, and it runs under srt writing only its
+    // repository, minus the hooks and launch config (`reviewedRunDenyWrite`).
+    let reviewed: { repoRoot: string } | undefined;
+    if (ctx.approvalId === undefined && ctx.authority?.rule === EXEC_REVIEW_RULE) {
+      let folderReal: string;
+      try {
+        folderReal = realpathSync.native(folder.path);
+      } catch {
+        folderReal = "";
+      }
+      const repoRoot = windows || "missing" in srt ? undefined : reviewableRepoRoot(real, userHome);
+      const domainsNone = (p.allowedDomains ?? []).length === 0;
+      if (
+        unsandboxed ||
+        repoRoot === undefined ||
+        folderReal === "" ||
+        !under(repoRoot, folderReal) ||
+        Object.keys(p.env ?? {}).length > 0 ||
+        !domainsNone ||
+        execReviewRefusal(p.argv) !== undefined ||
+        !execReviewPathsInside(p.argv, real, repoRoot)
+      ) {
+        throw new PsycheError(
+          "forbidden",
+          "This command no longer fits what the reviewer approved (the repository, a path or the sandbox changed); it was not run",
+        );
+      }
+      reviewed = { repoRoot };
+    }
     if (unsandboxed && folder.mode !== "rw") {
       throw new PsycheError(
         "forbidden",
@@ -1377,7 +1508,13 @@ export function execHostTool(deps: ExecHostDeps): AgentToolRegistration {
         userHome,
         scratch,
         // Read-only: nothing writable but the scratch directory, whatever the folder's grant.
-        writable: folder.mode === "rw" && !readOnly && program === undefined ? [folder.path] : [],
+        writable:
+          folder.mode === "rw" && !readOnly && program === undefined
+            ? [reviewed === undefined ? folder.path : reviewed.repoRoot]
+            : [],
+        ...(reviewed === undefined
+          ? {}
+          : { denyWrite: reviewedRunDenyWrite(reviewed.repoRoot, real) }),
         ...(confineRead === undefined ? {} : { confineRead }),
         allowedDomains: readOnly ? [] : domains,
         homeDotEntries: homeDotEntries(userHome),

@@ -60,6 +60,7 @@ export const blocksA: Partial<Catalogue> = {
   "blocks.details.executable": "Programa",
   "blocks.details.network": "Rede",
   "blocks.details.networkNone": "nenhuma",
+  "blocks.details.reviewerNote": "Nota do revisor",
   "blocks.details.runsSandboxed":
     "no seu Mac, na sandbox: não pode ler o cofre do Psyche, suas chaves SSH, chaveiros nem perfis de navegador",
   "blocks.details.runsNoSandbox": "no seu Mac, e a sandbox não está configurada ({reason})",

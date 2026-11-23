@@ -58,6 +58,7 @@ export const blocksRest: Partial<Catalogue> = {
   "blocks.details.executable": "Programme",
   "blocks.details.network": "Réseau",
   "blocks.details.networkNone": "aucun",
+  "blocks.details.reviewerNote": "Note du relecteur",
   "blocks.details.runsSandboxed":
     "sur votre Mac, dans le bac à sable : il ne peut lire ni le coffre de Psyche, ni vos clés SSH, trousseaux ou profils de navigateur",
   "blocks.details.runsNoSandbox": "sur votre Mac, et le bac à sable n’est pas configuré ({reason})",

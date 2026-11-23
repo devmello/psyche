@@ -59,6 +59,7 @@ export const blocksA: Partial<Catalogue> = {
   "blocks.details.executable": "Programa",
   "blocks.details.network": "Red",
   "blocks.details.networkNone": "ninguna",
+  "blocks.details.reviewerNote": "Nota del revisor",
   "blocks.details.runsSandboxed":
     "en tu Mac, en el entorno aislado: no puede leer la bóveda de Psyche, tus claves SSH, los llaveros ni los perfiles del navegador",
   "blocks.details.runsNoSandbox": "en tu Mac, y el entorno aislado no está configurado ({reason})",

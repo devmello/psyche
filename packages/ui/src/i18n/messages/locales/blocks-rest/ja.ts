@@ -56,6 +56,7 @@ export const blocksRest: Partial<Catalogue> = {
   "blocks.details.executable": "プログラム",
   "blocks.details.network": "ネットワーク",
   "blocks.details.networkNone": "なし",
+  "blocks.details.reviewerNote": "レビュアーのメモ",
   "blocks.details.runsSandboxed":
     "Mac上のサンドボックス内で実行: Psycheの保管庫、SSHキー、キーチェーン、ブラウザのプロファイルは読み取れません",
   "blocks.details.runsNoSandbox":

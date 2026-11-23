@@ -300,6 +300,9 @@
         "readOnlyWithoutAsking": {
           "type": "boolean"
         },
+        "reviewInAuto": {
+          "type": "boolean"
+        },
         "allowEnv": {
           "type": "array",
           "items": {

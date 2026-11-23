@@ -144,6 +144,12 @@ export const PolicyConfig = Type.Object(
            * ask every time. A security setting: changing it needs fresh presence (§10).
            */
           readOnlyWithoutAsking: Type.Optional(Type.Boolean()),
+          /**
+           * Auto mode only: a reviewer model (the `utility` role, owner's decision 2026-11-23)
+           * may approve a safe, in-scope terminal command instead of a card (default on).
+           * A security setting: turning it on asks, turning it off applies at once (#1354).
+           */
+          reviewInAuto: Type.Optional(Type.Boolean()),
           /** Env names the owner typed and allows despite the dangerous-name list. */
           allowEnv: Type.Optional(Type.Array(Type.String())),
         },

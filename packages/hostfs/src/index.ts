@@ -18,6 +18,7 @@ export {
   findLaunchConfig,
   LAUNCH_CONFIG_DIRS,
   LAUNCH_CONFIG_FILES,
+  LAUNCH_CONFIG_PAIR_DIRS,
   LAUNCH_SCAN_SKIPPED_DIRS,
   type LaunchConfigFound,
   type LaunchConfigScan,
