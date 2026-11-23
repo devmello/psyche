@@ -16,9 +16,21 @@ public protocol MemoryBackend: Sendable {
     /// The owner's own value for a fact's attribute (memory.entities.facts.set). The Gateway supersedes
     /// the current value and refuses sensitive traits; its message comes back as `BackendError.refused`.
     func editFact(personID: String, attribute: String, value: String) async throws
+    /// The workspace files the agent keeps (memory.files.list): read-only on the phone.
+    func memoryFiles() async throws -> [MemoryFileRow]
+    /// One workspace file's text (memory.read, the whole file).
+    func memoryFile(path: String) async throws -> MemoryFileContent
+    /// The kind of an entity ("person", "org", "project", "place", …) from memory.entities.get. Throws `.notFound`
+    /// when there is no such entity.
+    func entityKind(id: String) async throws -> String
 }
 
 extension MemoryBackend {
+    // Additive: a backend without the memory files or entity reads says it has nothing to show.
+    public func memoryFiles() async throws -> [MemoryFileRow] { throw BackendError.notFound }
+    public func memoryFile(path: String) async throws -> MemoryFileContent { throw BackendError.notFound }
+    public func entityKind(id: String) async throws -> String { throw BackendError.notFound }
+
     // Additive: a backend that cannot edit facts yet says so, and the page offers "Edit on your Mac".
     public func confirmFact(personID: String, factID: String) async throws {
         throw BackendError.refused("Edit this on your Mac.")
@@ -188,4 +200,30 @@ extension ProjectDetail {
         todos: (1...2).map { TodoItem(id: "skt\($0)", title: "Placeholder to-do title", meta: "Day · Project", bucket: .thisWeek) },
         notes: (1...2).map { MemoryFact(id: "skn\($0)", text: "Placeholder note about this project.", evidence: ["source"]) },
         evidence: ["source", "source"])
+}
+
+/// One row of the memory file list (memory.files.list): the path, its size, and whether an agent write needs an
+/// approval (`protected`).
+public struct MemoryFileRow: Sendable, Equatable, Identifiable {
+    public var path: String
+    public var bytes: Int
+    public var isProtected: Bool
+    public var id: String { path }
+
+    public init(path: String, bytes: Int, isProtected: Bool) {
+        self.path = path
+        self.bytes = bytes
+        self.isProtected = isProtected
+    }
+}
+
+/// A workspace file's text (memory.read). Plain text: shown as-is, never interpreted as markup.
+public struct MemoryFileContent: Sendable, Equatable {
+    public var path: String
+    public var content: String
+
+    public init(path: String, content: String) {
+        self.path = path
+        self.content = content
+    }
 }
