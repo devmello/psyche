@@ -438,6 +438,7 @@ export {
   ConnectedUsageFooter,
   isSubscriptionModel,
   PlanRing,
+  UpdateBanner,
   UsageCard,
   UsageFooter,
   type UsageFooterProps,

@@ -186,7 +186,8 @@ import {
   parsePinnedRequirement,
   readBundledPinned,
 } from "./main/update-gate.ts";
-import { setLinuxUpdateHost, startUpdater, stopUpdater } from "./main/updater.ts";
+import { getUpdateStatus, onUpdateStatus } from "./main/update-status.ts";
+import { restartToUpdate, setLinuxUpdateHost, startUpdater, stopUpdater } from "./main/updater.ts";
 import {
   canvasColor,
   chromeViewBackground,
@@ -1751,6 +1752,11 @@ function registerIpc(): void {
       throw asPsycheError(err);
     }
   });
+  handle(IPC.updateStatus, () => getUpdateStatus());
+  handle(IPC.updateRestart, () => {
+    const refusal = restartToUpdate();
+    if (refusal) throw new PsycheError("forbidden", refusal);
+  });
   handle(IPC.systemAppearanceGet, () => systemAppearance());
   handle(IPC.localeGet, () => ({
     system: app.getSystemLocale(),
@@ -2497,6 +2503,7 @@ void app.whenReady().then(async () => {
   pairLinks.showPending();
   // TODO(beta feed): once the pipeline publishes a beta manifest, read `updates.channel` after the
   // Gateway is paired (not here: the connection is not up in this tick) and pass it as `channel`.
+  onUpdateStatus((s) => broadcast(IPC.updateChanged, s));
   if (perfProbe === undefined) void startUpdater({ stateFile: join(home, "run", "updater.json") });
 
   app.on("activate", () => windows?.showMain());

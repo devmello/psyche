@@ -46,6 +46,7 @@ import { settingsRest } from "./settings-rest/de.ts";
 import { shellRest } from "./shell-rest/de.ts";
 import { spaces } from "./spaces/de.ts";
 import { specialistsRest } from "./specialists-rest/de.ts";
+import { update } from "./update/de.ts";
 import { webRest } from "./web-rest/de.ts";
 import { widgetsRest } from "./widgets-rest/de.ts";
 import { windowsPlatform202611 } from "./windows-platform-2026-11/de.ts";
@@ -3938,6 +3939,7 @@ export const de: Partial<Catalogue> = {
   ...windowsPlatform202611,
   ...mailFollowups,
   ...keepAwake,
+  ...update,
   ...spaces,
   ...machines,
 };

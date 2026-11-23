@@ -37,6 +37,7 @@ import { settingsE } from "./settings-e/es.ts";
 import { spaces } from "./spaces/es.ts";
 import { specialistsA } from "./specialists-a/es.ts";
 import { teachA } from "./teach-a/es.ts";
+import { update } from "./update/es.ts";
 import { windowsPlatform202611 } from "./windows-platform-2026-11/es.ts";
 import { workA } from "./work-a/es.ts";
 import { workB } from "./work-b/es.ts";
@@ -3896,6 +3897,7 @@ export const es: Partial<Catalogue> = {
   ...windowsPlatform202611,
   ...mailFollowups,
   ...keepAwake,
+  ...update,
   ...spaces,
   ...machines,
 };

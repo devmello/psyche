@@ -54,6 +54,7 @@ import { settingsRest } from "./settings-rest/ko.ts";
 import { shellRest } from "./shell-rest/ko.ts";
 import { spaces } from "./spaces/ko.ts";
 import { specialistsRest } from "./specialists-rest/ko.ts";
+import { update } from "./update/ko.ts";
 import { webRest } from "./web-rest/ko.ts";
 import { widgetsRest } from "./widgets-rest/ko.ts";
 import { windowsPlatform202611 } from "./windows-platform-2026-11/ko.ts";
@@ -3794,6 +3795,7 @@ export const ko: Partial<Catalogue> = {
   ...windowsPlatform202611,
   ...mailFollowups,
   ...keepAwake,
+  ...update,
   ...spaces,
   ...machines,
 };

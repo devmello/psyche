@@ -5,9 +5,16 @@ import { Button } from "../../components/ui/button.tsx";
 import { useCall } from "../../data/hooks.ts";
 import { t } from "../../i18n/core.ts";
 import { describeError } from "../../i18n/errors.ts";
+import { useUpdateStatus } from "../../shell/UpdateBanner.tsx";
 import { useSlots } from "../../slots.tsx";
 import { Facts, Group, SectionFrame } from "./shared.tsx";
-import type { AboutInfo, DoctorCheck, UninstallPort } from "./types.ts";
+import type {
+  AboutInfo,
+  DoctorCheck,
+  UninstallPort,
+  UpdatePort,
+  UpdateStatusView,
+} from "./types.ts";
 import { UninstallGroupAction } from "./UninstallSheet.tsx";
 
 /** About (UI design §3.18): versions, `psyche doctor`, logs. */
@@ -30,19 +37,68 @@ export interface AboutPanelProps {
   uninstall?: UninstallPort;
   /** Desktop only: the release channel picker (the desktop app is the one that updates itself). */
   showUpdates?: boolean;
+  /** Desktop on macOS: the app's update state and "Restart to update". */
+  update?: UpdatePort;
+}
+
+/** The real state: "Up to date", "Psyche X is ready" with the restart, or why an update was refused. */
+export function UpdateStatusValue({
+  status,
+  port,
+}: {
+  status: UpdateStatusView;
+  port: UpdatePort;
+}): ReactElement | null {
+  const [error, setError] = useState<string | undefined>(undefined);
+  if (status.state === "idle") return null;
+  if (status.state === "checking") return <span>{t("settings.updates.checking")}</span>;
+  if (status.state === "none") return <span>{t("settings.updates.upToDate")}</span>;
+  if (status.state === "refused")
+    return <span>{t("settings.updates.refused", { reason: status.reason })}</span>;
+  const restart = (): void => {
+    setError(undefined);
+    port.restart().catch((err: unknown) => setError(describeError(err)));
+  };
+  return (
+    <span className="flex flex-wrap items-center gap-2">
+      <span>
+        {status.mandatory
+          ? t("settings.updates.readyRequired", { version: status.release })
+          : t("settings.updates.ready", { version: status.release })}
+      </span>
+      <Button type="button" size="sm" onClick={restart}>
+        {t("shell.update.restart")}
+      </Button>
+      {error ? (
+        <span role="alert" className="text-danger-text">
+          {error}
+        </span>
+      ) : null}
+    </span>
+  );
 }
 
 /**
  * Settings > About > Updates: the release channel. Stable is the only channel until the release
- * pipeline publishes a beta manifest, so this shows it and says so; there is nothing to save.
+ * pipeline publishes a beta manifest, so this shows it and says so; there is nothing to save. With
+ * a port (macOS) it also shows the app's own update state.
  */
-export function UpdateChannelGroup(): ReactElement {
+export function UpdateChannelGroup({ update }: { update?: UpdatePort }): ReactElement {
+  const status = useUpdateStatus(update);
   return (
     <Group title={t("settings.updates.group")} description={t("settings.updates.hint")}>
       <div className="flex flex-col gap-2">
         <Facts
           items={[
             { term: t("settings.updates.channel"), value: t("settings.updates.channel.stable") },
+            ...(update
+              ? [
+                  {
+                    term: t("settings.updates.status"),
+                    value: <UpdateStatusValue status={status} port={update} />,
+                  },
+                ]
+              : []),
           ]}
         />
         <p className="text-callout text-label-secondary">{t("settings.updates.channel.note")}</p>
@@ -60,6 +116,7 @@ export function AboutPanel({
   onRevealHome,
   uninstall,
   showUpdates = false,
+  update,
 }: AboutPanelProps): ReactElement {
   const { navigate } = useSlots();
   return (
@@ -103,7 +160,7 @@ export function AboutPanel({
           ]}
         />
       </Group>
-      {showUpdates ? <UpdateChannelGroup /> : null}
+      {showUpdates ? <UpdateChannelGroup update={update} /> : null}
       {navigate ? (
         <Group
           title={t("onboarding.rerun.title")}

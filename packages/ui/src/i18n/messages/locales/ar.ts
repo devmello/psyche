@@ -54,6 +54,7 @@ import { skillAuthor } from "./skill-author/ar.ts";
 import { spaces } from "./spaces/ar.ts";
 import { specialists } from "./specialists/ar.ts";
 import { teach } from "./teach/ar.ts";
+import { update } from "./update/ar.ts";
 import { web } from "./web/ar.ts";
 import { whatCanYouDo } from "./what-can-you-do/ar.ts";
 import { widgets } from "./widgets/ar.ts";
@@ -3852,6 +3853,7 @@ export const ar: Partial<Catalogue> = {
   ...windowsPlatform202611,
   ...mailFollowups,
   ...keepAwake,
+  ...update,
   ...spaces,
   ...machines,
 };

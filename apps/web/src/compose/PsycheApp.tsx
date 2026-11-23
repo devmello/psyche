@@ -52,6 +52,7 @@ import {
   t,
   type UiSlots,
   UiSlotsProvider,
+  UpdateBanner,
   useClearChatHeader,
   useDefaultAgentTab,
   useStore,
@@ -677,20 +678,26 @@ export function PsycheApp({ platform }: { platform: ShellPlatform }): ReactEleme
         screenRoute(route, navigate),
       agentSheet: (p) => <RoutedAgentSheet {...p} />,
       // The 2026 sidebar (redesign §5.1); the compact drawer shows its threads alone (§5.11).
+      // The update banner sits above the sidebar when a verified update is ready (desktop, macOS).
       sidebar: (p) => (
-        <ConnectedSidebar
-          route={p.route}
-          onNavigate={p.navigate}
-          activeThreadId={p.threadId}
-          onOpenThread={p.onOpenThread}
-          onNewSideChat={p.onNew}
-          width={p.width}
-          onWidthChange={p.onWidthChange}
-          mode={p.mode}
-          onModeChange={p.onModeChange}
-          onOpenSearch={p.onOpenSearch}
-          {...(p.header ? { header: p.header } : {})}
-        />
+        <div className="flex h-full min-h-0 flex-col">
+          <UpdateBanner {...(platform.app?.update ? { port: platform.app.update } : {})} />
+          <div className="flex min-h-0 flex-1 flex-col">
+            <ConnectedSidebar
+              route={p.route}
+              onNavigate={p.navigate}
+              activeThreadId={p.threadId}
+              onOpenThread={p.onOpenThread}
+              onNewSideChat={p.onNew}
+              width={p.width}
+              onWidthChange={p.onWidthChange}
+              mode={p.mode}
+              onModeChange={p.onModeChange}
+              onOpenSearch={p.onOpenSearch}
+              {...(p.header ? { header: p.header } : {})}
+            />
+          </div>
+        </div>
       ),
       threadList: ({ threadId, onOpen, onNew }) => (
         <ThreadList activeThreadId={threadId} onOpen={onOpen} onNewSideChat={onNew} />

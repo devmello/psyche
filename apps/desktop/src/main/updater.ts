@@ -41,6 +41,12 @@ import {
   readBundledPinned,
   satisfiesRequirement,
 } from "./update-gate.ts";
+import {
+  getUpdateStatus,
+  restartRefusal,
+  setUpdateStatus,
+  updateStatusFromOutcome,
+} from "./update-status.ts";
 
 /**
  * Auto-update (feature A6; security §11). Before Squirrel sees anything, the updater fetches
@@ -338,7 +344,14 @@ async function runLinuxUpdater(opts: UpdaterOptions, log: (m: string) => void): 
 }
 
 export async function startUpdater(opts: UpdaterOptions = {}): Promise<UpdaterState> {
+  // macOS only for now: the status drives the banner and About, and Windows and Linux have no
+  // "Restart to update" here yet.
+  const darwin = process.platform === "darwin";
+  if (darwin) setUpdateStatus({ state: "checking" });
   const state = await runUpdater(opts);
+  if (darwin && getUpdateStatus().state !== "ready") {
+    setUpdateStatus(updateStatusFromOutcome(state));
+  }
   if (opts.stateFile) {
     try {
       writeUpdaterState(opts.stateFile, {
@@ -414,10 +427,12 @@ async function applyMac(result: Ready, log: (m: string) => void): Promise<RunRes
   servers.push(served);
   autoUpdater.on("error", (error) => {
     log(error.message);
+    setUpdateStatus({ state: "refused", reason: error.message });
     void served.close();
   });
   autoUpdater.on("update-downloaded", () => {
     log(readyMessage(result));
+    setUpdateStatus({ state: "ready", release: result.release, mandatory: result.mandatory });
     void served.close();
   });
   autoUpdater.setFeedURL({ url: served.feedUrl, serverType: "json" });
@@ -427,6 +442,19 @@ async function applyMac(result: Ready, log: (m: string) => void): Promise<RunRes
     release: result.release,
     ...(result.quarantine ? { quarantine: result.quarantine } : {}),
   };
+}
+
+/**
+ * "Restart to update" (macOS): quits and installs the verified update Squirrel holds. Returns the
+ * refusal reason instead when no verified update is ready. `quitAndInstall` ends the app through
+ * Electron's normal quit, so `before-quit` runs (the Gateway and helper stop) and a window's
+ * unsaved-edit prompt can still keep the app open.
+ */
+export function restartToUpdate(): string | undefined {
+  const refusal = restartRefusal(process.platform, getUpdateStatus());
+  if (refusal) return refusal;
+  autoUpdater.quitAndInstall();
+  return undefined;
 }
 
 /**

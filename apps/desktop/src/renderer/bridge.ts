@@ -30,6 +30,7 @@ import {
   type TeachAppStatusView,
   type TeachCapture,
   type UninstallPlanView,
+  type UpdateStatusView,
   type WindowChrome,
 } from "@psyche/web/platform";
 import type { PsycheBridge } from "../preload.ts";
@@ -322,6 +323,11 @@ function fullDesktopPlatform(b: PsycheBridge): ShellPlatform {
       info: () => b.app.info() as Promise<HostAppInfo>,
       revealHome: async () => void (await b.app.revealHome()),
       revealLibraryItem: async (itemId) => void (await b.library.reveal(itemId)),
+      update: {
+        status: () => b.app.update.status() as Promise<UpdateStatusView>,
+        subscribe: (cb) => b.app.update.on((s) => cb(s as UpdateStatusView)),
+        restart: async () => void (await b.app.update.restart()),
+      },
       ...(b.chrome.uninstall === true
         ? {
             uninstallPlan: (req: { deleteData: boolean; removeKeychain?: boolean }) =>

@@ -370,6 +370,12 @@ const bridge = {
       approvalId?: string;
     }) => ipcRenderer.invoke(IPC.appUninstall, p) as Promise<Envelope>,
   },
+  /** The app's own update (macOS): the status now, its changes, and "Restart to update". */
+  update: {
+    status: () => invoke(IPC.updateStatus),
+    restart: () => invoke(IPC.updateRestart),
+    on: (cb: (s: unknown) => void) => listen(IPC.updateChanged, cb),
+  },
   /** macOS Reduce Transparency and Increase Contrast (redesign §3.4, §8). */
   systemAppearance: {
     get: () => invoke(IPC.systemAppearanceGet),
