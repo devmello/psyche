@@ -11,28 +11,49 @@ extension GatewayBackend {
         async let runs = call("scheduled.runs", .obj(["limit": .number(20)]))
         let jobs = (try await list)["items"]?.array ?? []
         let wireRuns = (try await runs)["runs"]?.array ?? []
-        var items = wireRuns.compactMap(Self.scheduledRun(from:))
-        for index in items.indices where items[index].state == .running {
-            let id = items[index].id
+        var runItems = wireRuns.compactMap(Self.scheduledRun(from:))
+        for index in runItems.indices where runItems[index].state == .running {
+            let id = runItems[index].id
             guard let automationID = wireRuns.first(where: { $0["id"]?.string == id })?["automationId"]?.string else { continue }
             let history = await optional { try await self.call("automations.runs", .obj(["automationId": .string(automationID), "limit": .number(5)])) }
-            items[index].retryAt = Self.retryAt(ofRun: id, in: history)
+            runItems[index].retryAt = Self.retryAt(ofRun: id, in: history)
         }
-        return ScheduledOverview(upcoming: Self.upcoming(from: jobs), runs: items)
+        let all = Self.jobs(from: jobs)
+        return ScheduledOverview(upcoming: ScheduledOverview.upcomingOf(all), items: all, runs: runItems)
+    }
+
+    /// Pause or resume one automation or routine. Returns the state the Gateway now reports.
+    public func setScheduledPaused(id: String, paused: Bool) async throws -> String {
+        let result = try await call("scheduled.pause", .obj(["id": .string(id), "paused": .bool(paused)]))
+        return result["item"]?["state"]?.string ?? (paused ? "paused" : "active")
+    }
+
+    /// Run now. A key per tap: a second tap is a second run, and a retry of this one is not.
+    public func runScheduledNow(id: String) async throws {
+        _ = try await call("automations.run", .obj(["automationId": .string(id)]), key: "automation-run-\(id)-\(UUID().uuidString)")
     }
 
     // MARK: - Mapping
 
-    /// Active items with a next time, soonest first.
-    static func upcoming(from items: [JSONValue]) -> [ScheduledJob] {
-        items.compactMap { item -> ScheduledJob? in
+    /// Every item the Gateway lists, active first (soonest first), then paused, then off. Items with no id
+    /// or title, or a state this app doesn't know, are left out rather than shown without their controls.
+    static func jobs(from items: [JSONValue]) -> [ScheduledJob] {
+        let known = ["active", "paused", "off"]
+        return items.compactMap { item -> ScheduledJob? in
             guard let id = item["id"]?.string, let title = item["title"]?.string,
-                  item["state"]?.string == "active", let next = WireFormat.date(item["nextRunAt"]?.string) else { return nil }
+                  let state = item["state"]?.string, known.contains(state) else { return nil }
+            let isRoutine = item["group"]?.string == "routine"
+            let approvals = item["approvals"]?.array ?? []
             return ScheduledJob(
-                id: id, title: title, summary: item["summary"]?.string ?? "", state: "active",
-                isRoutine: item["group"]?.string == "routine", nextRunAt: next, lastRunAt: WireFormat.date(item["lastRunAt"]?.string))
+                id: id, title: title, summary: item["summary"]?.string ?? "", state: state, isRoutine: isRoutine,
+                nextRunAt: WireFormat.date(item["nextRunAt"]?.string), lastRunAt: WireFormat.date(item["lastRunAt"]?.string),
+                confirmsRunNow: !isRoutine || !approvals.isEmpty)
         }
-        .sorted { ($0.nextRunAt ?? .distantFuture) < ($1.nextRunAt ?? .distantFuture) }
+        .sorted { lhs, rhs in
+            let order = ["active": 0, "paused": 1, "off": 2]
+            if order[lhs.state] != order[rhs.state] { return order[lhs.state]! < order[rhs.state]! }
+            return (lhs.nextRunAt ?? .distantFuture) < (rhs.nextRunAt ?? .distantFuture)
+        }
     }
 
     static func scheduledRun(from run: JSONValue) -> ScheduledRunItem? {

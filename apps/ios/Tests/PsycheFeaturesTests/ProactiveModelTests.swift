@@ -95,4 +95,78 @@ struct ProactiveModelTests {
         #expect(ProactiveText.runDot(.succeeded) == .done)
         #expect(ProactiveText.runDot(.failed) == .failed)
     }
+
+    @Test func pausingAScheduledItemChangesItsStateOnceTheGatewayAnswers() async {
+        let model = ScheduledModel(store: FixtureBackend())
+        await model.load()
+        let job = model.phase.value!.items[0]
+        #expect(job.state == "active")
+        await model.togglePause(job)
+        #expect(model.phase.value?.items.first { $0.id == job.id }?.state == "paused")
+        #expect(model.phase.value?.upcoming.contains { $0.id == job.id } == false)
+        #expect(model.actionError == nil && !model.isBusy(job.id))
+
+        let paused = model.phase.value!.items.first { $0.id == job.id }!
+        await model.togglePause(paused)
+        #expect(model.phase.value?.items.first { $0.id == job.id }?.state == "active")
+    }
+
+    @Test func aFailedPauseSaysWhyAndLeavesTheStateAlone() async {
+        let model = ScheduledModel(store: FixtureBackend())
+        await model.load()
+        let before = model.phase.value
+        // Not an item the Gateway lists: the fixture refuses it as the Gateway does for an id that is gone.
+        await model.togglePause(ScheduledJob(id: "gone", title: "Gone", state: "active"))
+        #expect(model.phase.value == before)
+        #expect(model.actionError != nil)
+    }
+
+    @Test func aRoutineThatIsOffHasNoPauseOrRunNow() async {
+        let model = ScheduledModel(store: FixtureBackend())
+        await model.load()
+        let off = model.phase.value!.items.first { $0.state == "off" }!
+        await model.togglePause(off)
+        await model.runNow(off)
+        #expect(model.phase.value?.items.first { $0.id == off.id }?.state == "off")
+        #expect(model.actionError == nil)
+    }
+
+    @Test func runNowKeepsTheListAndSaysWhenItFails() async {
+        let model = ScheduledModel(store: FixtureBackend())
+        await model.load()
+        let before = model.phase.value
+        await model.runNow(model.phase.value!.items[0])
+        #expect(model.actionError == nil)
+        await model.runNow(ScheduledJob(id: "gone", title: "Gone", state: "active"))
+        #expect(model.actionError != nil)
+        #expect(model.phase.value?.items.count == before?.items.count)
+    }
+
+    @Test func goalStatusChoicesFollowTheGoal() {
+        #expect(GoalsModel.choices(for: "candidate") == [.active])
+        #expect(GoalsModel.choices(for: "active") == [.paused, .done])
+        #expect(GoalsModel.choices(for: "paused") == [.active, .done])
+        #expect(GoalsModel.choices(for: "done") == [.active])
+        #expect(GoalsModel.choices(for: "archived").isEmpty)
+    }
+
+    @Test func settingAGoalStatusUpdatesTheListAndTheSheet() async {
+        let model = GoalsModel(store: FixtureBackend())
+        await model.load()
+        let goal = model.phase.value![0]
+        await model.open(goal)
+        await model.setStatus(.paused, for: goal)
+        #expect(model.detail.value?.goal.status == "paused")
+        #expect(model.phase.value?.first { $0.id == goal.id }?.status == "paused")
+        #expect(model.actionError == nil)
+    }
+
+    @Test func aRefusedGoalStatusKeepsTheGoalAndSaysWhy() async {
+        let model = GoalsModel(store: FixtureBackend())
+        await model.load()
+        let before = model.phase.value
+        await model.setStatus(.done, for: GoalItem(id: "gone", title: "Gone", category: "other", status: "active"))
+        #expect(model.phase.value == before)
+        #expect(model.actionError != nil)
+    }
 }

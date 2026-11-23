@@ -90,6 +90,8 @@ final class IdeasModel {
 final class GoalsModel {
     private(set) var phase: LoadPhase<[GoalItem]> = .idle
     private(set) var detail: LoadPhase<GoalDetail> = .idle
+    private(set) var actionError: String?
+    private(set) var busy = false
     private let store: any PsycheBackend
 
     init(store: any PsycheBackend) { self.store = store }
@@ -109,20 +111,93 @@ final class GoalsModel {
 
     func open(_ goal: GoalItem) async {
         detail = .loading
+        actionError = nil
         do { detail = .loaded(try await store.goalDetail(id: goal.id)) } catch {
             detail = .failed(error.localizedDescription)
         }
     }
 
-    func close() { detail = .idle }
+    /// The statuses a phone can set from the goal's current one.
+    static func choices(for status: String) -> [GoalStatusChange] {
+        switch status {
+        case "candidate": [.active]
+        case "active": [.paused, .done]
+        case "paused": [.active, .done]
+        case "done": [.active]
+        default: []
+        }
+    }
+
+    /// Sets the status. The sheet and the list show the Gateway's goal once it has answered; a refusal leaves
+    /// both as they were and says why.
+    func setStatus(_ status: GoalStatusChange, for goal: GoalItem) async {
+        guard !busy else { return }
+        busy = true
+        defer { busy = false }
+        do {
+            let updated = try await store.setGoalStatus(id: goal.id, status)
+            detail = .loaded(updated)
+            if var goals = phase.value, let index = goals.firstIndex(where: { $0.id == goal.id }) {
+                goals[index] = updated.goal
+                phase = .loaded(goals)
+            }
+            actionError = nil
+        } catch {
+            actionError = error.localizedDescription
+        }
+    }
+
+    func close() {
+        detail = .idle
+        actionError = nil
+    }
 }
 
 @MainActor @Observable
 final class ScheduledModel {
     private(set) var phase: LoadPhase<ScheduledOverview> = .idle
+    private(set) var actionError: String?
+    /// Items with a pause or run in flight: their buttons are off until the Gateway answers.
+    private(set) var busy: Set<String> = []
     private let store: any PsycheBackend
 
     init(store: any PsycheBackend) { self.store = store }
+
+    func isBusy(_ id: String) -> Bool { busy.contains(id) }
+
+    /// Pause an active or paused item, or resume a paused one. The state shown changes only after the Gateway
+    /// answers with it.
+    func togglePause(_ job: ScheduledJob) async {
+        guard job.state == "active" || job.state == "paused", !busy.contains(job.id) else { return }
+        busy.insert(job.id)
+        defer { busy.remove(job.id) }
+        do {
+            let state = try await store.setScheduledPaused(id: job.id, paused: job.state == "active")
+            if var overview = phase.value, let index = overview.items.firstIndex(where: { $0.id == job.id }) {
+                overview.items[index].state = state
+                overview.upcoming = ScheduledOverview.upcomingOf(overview.items)
+                phase = .loaded(overview)
+            }
+            actionError = nil
+            await load()
+        } catch {
+            actionError = error.localizedDescription
+        }
+    }
+
+    /// Run now. A run it starts appears in the list after a reload.
+    func runNow(_ job: ScheduledJob) async {
+        guard job.state != "off", !busy.contains(job.id) else { return }
+        busy.insert(job.id)
+        defer { busy.remove(job.id) }
+        do {
+            try await store.runScheduledNow(id: job.id)
+            actionError = nil
+            await load()
+        } catch {
+            actionError = error.localizedDescription
+        }
+    }
 
     func load() async {
         if phase.value == nil { phase = .loading }
