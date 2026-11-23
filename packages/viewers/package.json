@@ -62,7 +62,7 @@
     "@univerjs/core": "1.5.2",
     "@univerjs/preset-sheets-core": "1.5.2",
     "@univerjs/presets": "1.5.2",
-    "docx": "9.15.4",
+    "docx": "9.16.0",
     "docx-preview": "0.4.1",
     "dompurify": "3.4.18",
     "jszip": "3.10.2",
