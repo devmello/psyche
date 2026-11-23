@@ -746,6 +746,33 @@ export function graphHandlers(ctx: GraphMockContext): Handlers {
       }
       return { entity: into, movedIdentifiers, movedFacts, dryRun: p.dryRun === true };
     },
+    "memory.entities.split": (p) => {
+      const e = entityOf(p.id);
+      const w = ctx.graph();
+      const mine = w.identifiers.filter(
+        (i) =>
+          i.entityId === e.id &&
+          p.identifiers.some((x) => x.kind === i.kind && x.value === i.value),
+      );
+      if (mine.length === 0) throw new Error("none of those identifiers belong to this entity");
+      const created: GraphEntity = {
+        ...e,
+        id: `ent_split_${w.entities.length + 1}`,
+        name: p.name,
+        aliases: [],
+        status: "active",
+        mergedInto: null,
+        isOwner: false,
+        pinned: false,
+        hidden: false,
+      };
+      if (!p.dryRun) {
+        w.entities.push(created);
+        for (const i of mine) i.entityId = created.id;
+        touched(e, ["identifiers"]);
+      }
+      return { entity: created, dryRun: p.dryRun === true };
+    },
     "memory.entities.forget": (p) => {
       const e = entityOf(p.id);
       const removed = forgetCounts(e.id);

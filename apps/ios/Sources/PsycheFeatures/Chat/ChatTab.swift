@@ -32,7 +32,7 @@ struct ChatTab: View {
                     } else {
                         VStack(spacing: 8) {
                             MothAvatar(size: 44)
-                            Text("Pick a chat").font(.psycheRow).foregroundStyle(PsycheColor.muted)
+                            Text("Pick a chat", bundle: .module).font(.psycheRow).foregroundStyle(PsycheColor.muted)
                         }
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                         .psycheScreen()
@@ -54,6 +54,10 @@ struct ChatTab: View {
 struct ThreadListView: View {
     @State private var model: ThreadListModel
     @State private var spaces: SpaceMenuModel
+    /// The chat being renamed, its draft title, and the chat waiting for delete confirmation.
+    @State private var renaming: ChatThreadSummary?
+    @State private var renameText = ""
+    @State private var deleting: ChatThreadSummary?
     @Binding var selection: String?
     /// Shown again after a back swipe on a phone, when the same row is tapped twice.
     @Binding var column: NavigationSplitViewColumn
@@ -89,11 +93,27 @@ struct ThreadListView: View {
                             if !thread.isMain, !spaces.spaces.isEmpty {
                                 MoveToSpaceMenu(model: spaces, thread: thread) { await model.load() }
                             }
+                            if !thread.isMain {
+                                Button {
+                                    renameText = thread.title
+                                    renaming = thread
+                                } label: {
+                                    Label(String(localized: "Rename", bundle: .module), systemImage: "pencil")
+                                }
+                            }
+                            Button { Task { await model.export(thread) } } label: {
+                                Label(String(localized: "Export", bundle: .module), systemImage: "square.and.arrow.up")
+                            }
+                            if !thread.isMain {
+                                Button(role: .destructive) { deleting = thread } label: {
+                                    Label(String(localized: "Delete", bundle: .module), systemImage: "trash")
+                                }
+                            }
                         }
                         .swipeActions(edge: .leading, allowsFullSwipe: true) {
                             if !thread.isMain {
                                 Button { Task { await model.pin(thread) } } label: {
-                                    Label(thread.isPinned ? "Unpin" : "Pin", systemImage: thread.isPinned ? "pin.slash" : "pin")
+                                    Label(thread.isPinned ? String(localized: "Unpin", bundle: .module) : String(localized: "Pin", bundle: .module), systemImage: thread.isPinned ? "pin.slash" : "pin")
                                 }
                                 .tint(PsycheColor.muted)
                             }
@@ -101,7 +121,7 @@ struct ThreadListView: View {
                         .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                             if !thread.isMain {
                                 Button { Task { await model.archive(thread) } } label: {
-                                    Label("Archive", systemImage: "archivebox")
+                                    Label(String(localized: "Archive", bundle: .module), systemImage: "archivebox")
                                 }
                                 .tint(PsycheColor.muted)
                             }
@@ -111,7 +131,7 @@ struct ThreadListView: View {
         }
         .scrollContentBackground(.hidden)
         .psycheScreen()
-        .navigationTitle("Chat")
+        .navigationTitle(String(localized: "Chat", bundle: .module))
         .toolbar {
             ToolbarItem(placement: .primaryAction) { AgentButton(needsYou: model.phase.value?.contains { $0.statusKind == .needsYou } ?? false) }
             if !spaces.spaces.isEmpty {
@@ -119,15 +139,37 @@ struct ThreadListView: View {
             }
             ToolbarItem(placement: .primaryAction) {
                 Button { Task { selection = await newChat() ?? selection } } label: {
-                    Label("New chat", systemImage: "square.and.pencil")
+                    Label(String(localized: "New chat", bundle: .module), systemImage: "square.and.pencil")
                 }
-                .accessibilityLabel("New chat")
+                .accessibilityLabel(String(localized: "New chat", bundle: .module))
             }
         }
-        .alert("Couldn't do that", isPresented: errorShown) {
-            Button("OK") { model.clearError(); spaces.clearError() }
+        .alert(String(localized: "Couldn't do that", bundle: .module), isPresented: errorShown) {
+            Button(String(localized: "OK", bundle: .module)) { model.clearError(); spaces.clearError() }
         } message: {
             Text(model.actionError ?? spaces.actionError ?? "")
+        }
+        .alert(String(localized: "Rename chat", bundle: .module), isPresented: renameShown) {
+            TextField(String(localized: "Title", bundle: .module), text: $renameText)
+            Button(String(localized: "Cancel", bundle: .module), role: .cancel) { renaming = nil }
+            Button(String(localized: "Save", bundle: .module)) {
+                if let thread = renaming { Task { await model.rename(thread, to: renameText) } }
+                renaming = nil
+            }
+        }
+        .confirmationDialog(
+            String(localized: "Delete chat?", bundle: .module), isPresented: deleteShown, titleVisibility: .visible
+        ) {
+            Button(String(localized: "Delete", bundle: .module), role: .destructive) {
+                if let thread = deleting { Task { await model.delete(thread) } }
+                deleting = nil
+            }
+            Button(String(localized: "Cancel", bundle: .module), role: .cancel) { deleting = nil }
+        } message: {
+            Text(String(localized: "This deletes the chat and its messages. Receipts and audit entries are kept.", bundle: .module))
+        }
+        .sheet(item: exportShown) { chat in
+            ExportSheet(chat: chat)
         }
         .task {
             await spaces.load()
@@ -144,11 +186,50 @@ struct ThreadListView: View {
             set: { if !$0 { model.clearError(); spaces.clearError() } })
     }
 
+    private var renameShown: Binding<Bool> {
+        Binding(get: { renaming != nil }, set: { if !$0 { renaming = nil } })
+    }
+
+    private var deleteShown: Binding<Bool> {
+        Binding(get: { deleting != nil }, set: { if !$0 { deleting = nil } })
+    }
+
+    private var exportShown: Binding<ExportedChat?> {
+        Binding(get: { model.exported }, set: { if $0 == nil { model.clearExport() } })
+    }
+
     /// A new chat, in the Space the owner chose in the menu (none by default), then the list refreshes.
     private func newChat() async -> String? {
         let id = await spaces.newChat()
         await model.load()
         return id
+    }
+}
+
+/// A chat's Markdown transcript with the system share sheet, which can send it to Notes, Mail, Files and more.
+private struct ExportSheet: View {
+    let chat: ExportedChat
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                Text(verbatim: chat.markdown)
+                    .font(.body.monospaced())
+                    .foregroundStyle(PsycheColor.text)
+                    .textSelection(.enabled)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(PsycheMetrics.pagePadding)
+            }
+            .psycheScreen()
+            .navigationTitle(String(localized: "Export", bundle: .module))
+            .toolbar {
+                ToolbarItem(placement: .primaryAction) {
+                    ShareLink(item: chat.markdown, subject: Text(verbatim: chat.title)) {
+                        Label(String(localized: "Share", bundle: .module), systemImage: "square.and.arrow.up")
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -165,7 +246,7 @@ private struct ThreadRow: View {
             Spacer(minLength: 0)
             if thread.isPinned, !thread.isMain {
                 Image(systemName: "pin.fill").font(.caption2).foregroundStyle(PsycheColor.muted)
-                    .accessibilityLabel("Pinned")
+                    .accessibilityLabel(String(localized: "Pinned", bundle: .module))
             }
         }
         .padding(.vertical, 2)

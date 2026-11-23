@@ -15,7 +15,7 @@ final class SettingsModel {
 
     private(set) var phase: LoadPhase<Loaded> = .idle
     var notice: String?
-    /// Set when the Gateway could not be reached for "Remove this phone": the owner may still wipe this phone only.
+    /// Set when the Gateway could not be reached for String(localized: "Remove this phone", bundle: .module): the owner may still wipe this phone only.
     var offeringLocalRemoval = false
     private(set) var removing = false
     private let store: any PsycheBackend
@@ -122,9 +122,9 @@ struct SettingsSheet: View {
                         content(loaded)
                     case .failed(let message):
                         VStack(spacing: 12) {
-                            Text("Couldn't load this").font(.headline)
+                            Text("Couldn't load this", bundle: .module).font(.headline)
                             Text(message).font(.subheadline).foregroundStyle(PsycheColor.muted)
-                            Button("Try again") { Task { await model.load() } }
+                            Button(String(localized: "Try again", bundle: .module)) { Task { await model.load() } }
                                 .buttonStyle(.psycheOutline).frame(maxWidth: 220)
                         }
                         .frame(maxWidth: .infinity).padding(.vertical, 40)
@@ -135,11 +135,11 @@ struct SettingsSheet: View {
                 .padding(.bottom, 32)
             }
             .psycheScreen()
-            .navigationTitle("Settings")
+            .navigationTitle(String(localized: "Settings", bundle: .module))
             .psycheInlineTitle()
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }
+                    Button(String(localized: "Done", bundle: .module)) { dismiss() }
                 }
             }
         }
@@ -148,24 +148,24 @@ struct SettingsSheet: View {
             await model.load()
             await model.observe()
         }
-        .alert("Couldn't do that", isPresented: Binding(get: { model.notice != nil }, set: { if !$0 { model.notice = nil } })) {
-            Button("OK", role: .cancel) {}
+        .alert(String(localized: "Couldn't do that", bundle: .module), isPresented: Binding(get: { model.notice != nil }, set: { if !$0 { model.notice = nil } })) {
+            Button(String(localized: "OK", bundle: .module), role: .cancel) {}
         } message: {
             Text(model.notice ?? "")
         }
-        .confirmationDialog("Re-pair with your Mac?", isPresented: $confirmingRepair, titleVisibility: .visible) {
-            Button("Scan a new code") {
+        .confirmationDialog(String(localized: "Re-pair with your Mac?", bundle: .module), isPresented: $confirmingRepair, titleVisibility: .visible) {
+            Button(String(localized: "Scan a new code", bundle: .module)) {
                 dismiss()
                 session.cancelPairing()
             }
-            Button("Cancel", role: .cancel) {}
+            Button(String(localized: "Cancel", bundle: .module), role: .cancel) {}
         } message: {
-            Text("Open Settings \u{2192} Server & remote access \u{2192} Pair another computer on your Mac, then scan the code it shows.")
+            Text("Open Settings \u{2192} Server & remote access \u{2192} Pair another computer on your Mac, then scan the code it shows.", bundle: .module)
         }
         .confirmationDialog(
-            "Your Mac isn't reachable right now.", isPresented: $model.offeringLocalRemoval, titleVisibility: .visible
+            String(localized: "Your Mac isn't reachable right now.", bundle: .module), isPresented: $model.offeringLocalRemoval, titleVisibility: .visible
         ) {
-            Button("Remove from this phone only", role: .destructive) {
+            Button(String(localized: "Remove from this phone only", bundle: .module), role: .destructive) {
                 Task {
                     if await model.removeThisPhoneLocally() {
                         dismiss()
@@ -173,12 +173,12 @@ struct SettingsSheet: View {
                     }
                 }
             }
-            Button("Cancel", role: .cancel) {}
+            Button(String(localized: "Cancel", bundle: .module), role: .cancel) {}
         } message: {
-            Text("This phone can clear its keys and saved data now, but your Mac will keep listing it until you remove it in Settings \u{2192} Devices there.")
+            Text("This phone can clear its keys and saved data now, but your Mac will keep listing it until you remove it in Settings \u{2192} Devices there.", bundle: .module)
         }
-        .confirmationDialog("Remove this phone?", isPresented: $confirmingRemove, titleVisibility: .visible) {
-            Button("Remove this phone", role: .destructive) {
+        .confirmationDialog(String(localized: "Remove this phone?", bundle: .module), isPresented: $confirmingRemove, titleVisibility: .visible) {
+            Button(String(localized: "Remove this phone", bundle: .module), role: .destructive) {
                 Task {
                     if await model.removeThisPhone() {
                         dismiss()
@@ -186,9 +186,9 @@ struct SettingsSheet: View {
                     }
                 }
             }
-            Button("Cancel", role: .cancel) {}
+            Button(String(localized: "Cancel", bundle: .module), role: .cancel) {}
         } message: {
-            Text("Your Mac forgets this phone and this phone clears everything it saved. You'll pair again to use Psyche here.")
+            Text("Your Mac forgets this phone and this phone clears everything it saved. You'll pair again to use Psyche here.", bundle: .module)
         }
     }
 
@@ -199,48 +199,48 @@ struct SettingsSheet: View {
         let device = loaded.device
         let settings = loaded.settings
 
-        section("This phone") {
-            infoRow("Name", device.name)
-            infoRow("Access", device.scopes.joined(separator: ", "))
-            infoRow("Gateway", device.gatewayHost, mono: true, stacked: true)
-            infoRow("Fingerprint", device.gatewayFingerprint, mono: true, stacked: true)
-            infoRow("Connection", device.transport, last: true)
+        section(String(localized: "This phone", bundle: .module)) {
+            infoRow(String(localized: "Name", bundle: .module), device.name)
+            infoRow(String(localized: "Access", bundle: .module), device.scopes.joined(separator: ", "))
+            infoRow(String(localized: "Gateway", bundle: .module), device.gatewayHost, mono: true, stacked: true)
+            infoRow(String(localized: "Fingerprint", bundle: .module), device.gatewayFingerprint, mono: true, stacked: true)
+            infoRow(String(localized: "Connection", bundle: .module), device.transport, last: true)
         }
 
-        section("Notifications", footer: Self.notificationsFooter) {
-            toggleRow("Notifications", isOn: notificationsBinding(settings))
-            toggleRow("Live Activities", isOn: liveActivitiesBinding(settings), disabled: !settings.notifications)
+        section(String(localized: "Notifications", bundle: .module), footer: Self.notificationsFooter) {
+            toggleRow(String(localized: "Notifications", bundle: .module), isOn: notificationsBinding(settings))
+            toggleRow(String(localized: "Live Activities", bundle: .module), isOn: liveActivitiesBinding(settings), disabled: !settings.notifications)
             toggleRow(
-                "Task titles on the Lock Screen", isOn: binding(\.taskTitlesOnLockScreen, settings),
+                String(localized: "Task titles on the Lock Screen", bundle: .module), isOn: binding(\.taskTitlesOnLockScreen, settings),
                 disabled: !settings.notifications || !settings.liveActivities, last: true)
         }
 
         stayConnectedSection(settings)
 
-        section("Approvals", footer: "Asks for Face ID before you allow a risky action from this phone.") {
-            toggleRow("Face ID for approvals", isOn: binding(\.faceIDForApprovals, settings), last: true)
+        section("Approvals", footer: String(localized: "Asks for Face ID before you allow a risky action from this phone.", bundle: .module)) {
+            toggleRow(String(localized: "Face ID for approvals", bundle: .module), isOn: binding(\.faceIDForApprovals, settings), last: true)
         }
 
         computersSection(loaded.machines)
 
-        section("Gateway") {
-            Button { confirmingRepair = true } label: { actionRow("Re-pair with your Mac", destructive: false) }
+        section(String(localized: "Gateway", bundle: .module)) {
+            Button { confirmingRepair = true } label: { actionRow(String(localized: "Re-pair with your Mac", bundle: .module), destructive: false) }
                 .buttonStyle(.plain)
             HairlineDivider()
-            Button { confirmingRemove = true } label: { actionRow("Remove this phone", destructive: true) }
+            Button { confirmingRemove = true } label: { actionRow(String(localized: "Remove this phone", bundle: .module), destructive: true) }
                 .buttonStyle(.plain)
                 .disabled(model.removing)
         }
 
-        section("Appearance") {
-            infoRow("Theme", "Follows your system", last: true)
+        section(String(localized: "Appearance", bundle: .module)) {
+            infoRow("Theme", String(localized: "Follows your system", bundle: .module), last: true)
         }
 
-        section("About") {
-            infoRow("Version", Self.version, mono: true, last: true)
+        section(String(localized: "About", bundle: .module)) {
+            infoRow(String(localized: "Version", bundle: .module), Self.version, mono: true, last: true)
         }
 
-        EditOnMacNote(text: "Change everything else on your Mac, in Settings.")
+        EditOnMacNote(text: String(localized: "Change everything else on your Mac, in Settings.", bundle: .module))
     }
 
     /// "Computers Psyche can use": read-only. Adding or pairing one is done on the Mac.
@@ -382,7 +382,7 @@ struct SettingsSheet: View {
                 Task {
                     if await !alerts.requestNotificationPermission() {
                         model.update { $0.notifications = false }
-                        model.notice = "Notifications are off for Psyche in the iOS Settings app. Turn them on there, then try again."
+                        model.notice = String(localized: "Notifications are off for Psyche in the iOS Settings app. Turn them on there, then try again.", bundle: .module)
                     }
                 }
             })
@@ -394,16 +394,15 @@ struct SettingsSheet: View {
             set: { value in
                 model.update { $0.liveActivities = value }
                 if value, let alerts, !alerts.liveActivitiesAllowedBySystem {
-                    model.notice = "Live Activities are off for Psyche in the iOS Settings app. Turn them on there to see tasks on the Lock Screen."
+                    model.notice = String(localized: "Live Activities are off for Psyche in the iOS Settings app. Turn them on there to see tasks on the Lock Screen.", bundle: .module)
                 }
             })
     }
 
-    static let notificationsFooter = """
-        Task titles on the Lock Screen are off by default.
-
-        Without an Apple Developer account, Psyche can only notify you while it's open or when iOS lets it check in the background.
-        """
+    static let notificationsFooter = [
+        String(localized: "Task titles on the Lock Screen are off by default.", bundle: .module),
+        String(localized: "Without an Apple Developer account, Psyche can only notify you while it's open or when iOS lets it check in the background.", bundle: .module),
+    ].joined(separator: "\n\n")
 
     private func binding(_ keyPath: WritableKeyPath<PhoneSettings, Bool>, _ settings: PhoneSettings) -> Binding<Bool> {
         Binding(

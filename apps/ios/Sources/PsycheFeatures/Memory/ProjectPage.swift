@@ -96,9 +96,9 @@ struct ProjectPage: View {
                     content(detail)
                 case .failed(let message):
                     VStack(spacing: 12) {
-                        Text("Couldn't load this").font(.headline)
+                        Text("Couldn't load this", bundle: .module).font(.headline)
                         Text(message).font(.subheadline).foregroundStyle(PsycheColor.muted)
-                        Button("Try again") { Task { await model.load() } }
+                        Button(String(localized: "Try again", bundle: .module)) { Task { await model.load() } }
                             .buttonStyle(.psycheOutline).frame(maxWidth: 220)
                     }
                     .frame(maxWidth: .infinity).padding(.vertical, 40)
@@ -117,8 +117,8 @@ struct ProjectPage: View {
         }
         .navigationDestination(item: $openedSpace) { route in RouteView(route: route) }
         .sensoryFeedback(.success, trigger: model.completions)
-        .alert("Couldn't update that", isPresented: Binding(get: { model.notice != nil }, set: { if !$0 { model.notice = nil } })) {
-            Button("OK", role: .cancel) {}
+        .alert(String(localized: "Couldn't update that", bundle: .module), isPresented: Binding(get: { model.notice != nil }, set: { if !$0 { model.notice = nil } })) {
+            Button(String(localized: "OK", bundle: .module), role: .cancel) {}
         } message: {
             Text(model.notice ?? "")
         }
@@ -136,9 +136,9 @@ struct ProjectPage: View {
         spaceButton(detail)
 
         VStack(alignment: .leading, spacing: 8) {
-            SectionHeader("To-do")
+            SectionHeader(String(localized: "To-do", bundle: .module))
             if detail.todos.isEmpty {
-                Text("Nothing due on this project.").font(.subheadline).foregroundStyle(PsycheColor.muted)
+                Text("Nothing due on this project.", bundle: .module).font(.subheadline).foregroundStyle(PsycheColor.muted)
             } else {
                 PaperStack {
                     ForEach(Array(detail.todos.enumerated()), id: \.element.id) { index, todo in
@@ -151,7 +151,7 @@ struct ProjectPage: View {
 
         if !detail.notes.isEmpty {
             VStack(alignment: .leading, spacing: 8) {
-                SectionHeader("Notes")
+                SectionHeader(String(localized: "Notes", bundle: .module))
                 PaperStack {
                     ForEach(Array(detail.notes.enumerated()), id: \.element.id) { index, note in
                         if index > 0 { HairlineDivider() }
@@ -167,9 +167,9 @@ struct ProjectPage: View {
         }
 
         if !detail.evidence.isEmpty {
-            EvidenceLine("Because", detail.evidence)
+            EvidenceLine(String(localized: "Because", bundle: .module), detail.evidence)
         }
-        EditOnMacNote(text: "Edit on your Mac: renaming, deadlines, merging projects.")
+        EditOnMacNote(text: String(localized: "Edit on your Mac: renaming, deadlines, merging projects.", bundle: .module))
     }
 
     /// "Open Space" for a project that has one, "Make a Space" for one that doesn't. A Space is made only by this tap.

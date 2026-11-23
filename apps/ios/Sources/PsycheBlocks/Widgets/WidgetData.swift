@@ -33,7 +33,7 @@ struct TableNodeView: View {
 
     var body: some View {
         if table.rows.isEmpty {
-            Text("No rows.").font(.footnote).foregroundStyle(PsycheColor.muted)
+            Text("No rows.", bundle: .module).font(.footnote).foregroundStyle(PsycheColor.muted)
         } else {
             let shown = expanded ? rows : Array(rows.prefix(Self.shownRows))
             VStack(alignment: .leading, spacing: 8) {
@@ -83,7 +83,7 @@ struct TableNodeView: View {
             } label: { label }
             .buttonStyle(.plain)
             .gridColumnAlignment(column.kind == .number ? .trailing : .leading)
-            .accessibilityLabel("Sort by \(column.label)")
+            .accessibilityLabel(String(localized: "Sort by \(column.label)", bundle: .module))
             .accessibilityValue(active ? (ascending ? "ascending" : "descending") : "")
         } else {
             label.gridColumnAlignment(column.kind == .number ? .trailing : .leading)
@@ -243,7 +243,7 @@ struct ChartNodeView: View {
     private var dataTable: some View {
         Grid(alignment: .trailing, horizontalSpacing: 16, verticalSpacing: 4) {
             GridRow {
-                Text("Point").gridColumnAlignment(.leading)
+                Text("Point", bundle: .module).gridColumnAlignment(.leading)
                 ForEach(chart.series) { Text($0.name) }
             }
             .font(.footnote.weight(.medium)).foregroundStyle(PsycheColor.muted)
@@ -348,7 +348,7 @@ struct MapNodeView: View {
                     }
                     Spacer(minLength: 8)
                     if let url = Self.mapsURL(place) {
-                        Link("Open in Maps", destination: url).font(.footnote.weight(.medium)).foregroundStyle(PsycheColor.inkText)
+                        Link(String(localized: "Open in Maps", bundle: .module), destination: url).font(.footnote.weight(.medium)).foregroundStyle(PsycheColor.inkText)
                     }
                 }
                 .padding(.vertical, 9)
@@ -397,7 +397,7 @@ struct ImageNodeView: View {
         Group {
             switch image.source {
             case .data(let data)?:
-                if let decoded = PlatformImage(data: data) { picture(decoded) } else { note("Image unavailable: \(image.alt)") }
+                if let decoded = PlatformImage(data: data) { picture(decoded) } else { note(String(localized: "Image unavailable: \(image.alt)", bundle: .module)) }
             case .file(let id)?:
                 loadable(ref: id, requiresTap: false)
             case .remote(let url)?:
@@ -412,17 +412,17 @@ struct ImageNodeView: View {
         if let loaded {
             picture(loaded)
         } else if phase == .failed {
-            note("The image couldn't be loaded: \(image.alt)")
+            note(String(localized: "The image couldn't be loaded: \(image.alt)", bundle: .module))
         } else if phase == .loading {
-            note("Loading image: \(image.alt)").overlay(alignment: .trailing) { ProgressView().controlSize(.small).padding(.trailing, 12) }
+            note(String(localized: "Loading image: \(image.alt)", bundle: .module)).overlay(alignment: .trailing) { ProgressView().controlSize(.small).padding(.trailing, 12) }
         } else if requiresTap {
             // An untrusted widget can't fetch on its own: a remote image can be a tracking beacon.
             Button { Task { await load(ref) } } label: {
-                note("Load image from an untrusted source: \(image.alt)", dashed: true)
+                note(String(localized: "Load image from an untrusted source: \(image.alt)", bundle: .module), dashed: true)
             }
             .buttonStyle(.plain)
         } else {
-            note("Loading image: \(image.alt)").task { await load(ref) }
+            note(String(localized: "Loading image: \(image.alt)", bundle: .module)).task { await load(ref) }
         }
     }
 

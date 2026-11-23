@@ -2607,6 +2607,27 @@ export class MockGateway implements GatewayClient {
       }
       return this.goalDetail(p.goalId);
     },
+    "goals.link": (p) => {
+      this.find(this.world.goals, p.goalId, "goal");
+      const link = {
+        goalId: p.goalId,
+        taskId: p.taskId ?? null,
+        automationId: p.automationId ?? null,
+        watchId: p.watchId ?? null,
+      };
+      const same = (l: typeof link) =>
+        l.goalId === link.goalId &&
+        l.taskId === link.taskId &&
+        l.automationId === link.automationId &&
+        l.watchId === link.watchId;
+      this.goalLinks =
+        p.unlink === true
+          ? this.goalLinks.filter((l) => !same(l))
+          : this.goalLinks.some(same)
+            ? this.goalLinks
+            : [...this.goalLinks, link];
+      return { ok: true as const };
+    },
     "goals.decide": (p) => {
       const g = this.find(this.world.goals, p.goalId, "goal");
       const goal: Goal =
@@ -4481,10 +4502,27 @@ export class MockGateway implements GatewayClient {
     return list;
   }
 
+  /** Links made through `goals.link` in this session (the fixture has none). */
+  private goalLinks: {
+    goalId: string;
+    taskId: string | null;
+    automationId: string | null;
+    watchId: string | null;
+  }[] = [];
+
   private goalDetail(goalId: string) {
     const goal = this.find(this.world.goals, goalId, "goal");
-    const taskIds = this.world.tasks.filter((t) => t.createdFrom === "goal").map((t) => t.id);
-    return { goal, taskIds, milestones: [...this.goalMilestones(goalId)], links: [] };
+    const links = this.goalLinks.filter((l) => l.goalId === goalId);
+    const taskIds = [
+      ...this.world.tasks.filter((t) => t.createdFrom === "goal").map((t) => t.id),
+      ...links.flatMap((l) => (l.taskId === null ? [] : [l.taskId])),
+    ];
+    return {
+      goal,
+      taskIds: [...new Set(taskIds)],
+      milestones: [...this.goalMilestones(goalId)],
+      links,
+    };
   }
 
   private chunk(source: string, line: number, text: string): MemoryChunk {

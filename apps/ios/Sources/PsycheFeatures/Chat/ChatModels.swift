@@ -3,10 +3,18 @@ import Observation
 import PsycheBlocks
 import PsycheStore
 
+/// A chat exported as Markdown, ready for the share sheet.
+struct ExportedChat: Identifiable, Equatable {
+    var id: String
+    var title: String
+    var markdown: String
+}
+
 @MainActor @Observable
 final class ThreadListModel {
     private(set) var phase: LoadPhase<[ChatThreadSummary]> = .idle
     private(set) var actionError: String?
+    private(set) var exported: ExportedChat?
     private let store: any PsycheBackend
 
     init(store: any PsycheBackend) {
@@ -66,6 +74,44 @@ final class ThreadListModel {
         }
     }
 
+    /// Renames a chat. A blank title is ignored, as the sheet's Save does nothing for it.
+    func rename(_ thread: ChatThreadSummary, to title: String) async {
+        let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, trimmed != thread.title else { return }
+        patch(thread.id) { $0.title = trimmed }
+        do {
+            try await store.renameThread(id: thread.id, title: trimmed)
+            await load()
+        } catch {
+            actionError = error.localizedDescription
+            await load()
+        }
+    }
+
+    /// Deletes a side chat once the owner has confirmed it. The row leaves the list at once; a failure brings it back.
+    func delete(_ thread: ChatThreadSummary) async {
+        if case .loaded(let threads) = phase { phase = .loaded(threads.filter { $0.id != thread.id }) }
+        do {
+            try await store.deleteThread(id: thread.id)
+            await load()
+        } catch {
+            actionError = error.localizedDescription
+            await load()
+        }
+    }
+
+    /// Fetches the chat as Markdown; the view presents it for sharing.
+    func export(_ thread: ChatThreadSummary) async {
+        do {
+            let markdown = try await store.exportThread(id: thread.id)
+            exported = ExportedChat(id: thread.id, title: thread.title, markdown: markdown)
+        } catch {
+            actionError = error.localizedDescription
+        }
+    }
+
+    func clearExport() { exported = nil }
+
     func clearError() { actionError = nil }
 
     private func patch(_ id: String, _ change: (inout ChatThreadSummary) -> Void) {
@@ -97,6 +143,8 @@ final class ThreadModel {
     /// Options picked here, so the card shows the choice before the Gateway confirms it.
     private(set) var chosen: [String: String] = [:]
     private(set) var delivery: [String: MessageDelivery] = [:]
+    /// The last action the Gateway refused (a stop or an answer that failed), shown as an alert.
+    private(set) var actionError: String?
     /// Bumped each time the view should look at the bottom again (a flush of streamed text, a new item).
     private(set) var revision = 0
     /// Bumped on every message handed to the backend; drives the send haptic.
@@ -182,13 +230,26 @@ final class ThreadModel {
     }
 
     func cancel() {
-        Task { try? await store.cancelRun(threadID: phase.value?.id ?? id) }
+        Task {
+            do { try await store.cancelRun(threadID: phase.value?.id ?? id) } catch {
+                actionError = error.localizedDescription
+            }
+        }
     }
 
+    /// Marks the option at once; if the Gateway refuses the answer, the mark goes back and the error shows.
     func choose(option: String, for question: String) {
+        let previous = chosen[question]
         chosen[question] = option
-        Task { try? await store.answerQuestion(id: question, answer: QuestionAnswer(optionID: option)) }
+        Task {
+            do { try await store.answerQuestion(id: question, answer: QuestionAnswer(optionID: option)) } catch {
+                if chosen[question] == option { chosen[question] = previous }
+                actionError = error.localizedDescription
+            }
+        }
     }
+
+    func clearActionError() { actionError = nil }
 
     // MARK: Applying events
 

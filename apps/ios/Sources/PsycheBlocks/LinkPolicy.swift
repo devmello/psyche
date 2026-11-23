@@ -63,11 +63,11 @@ private struct ConfirmExternalLinks: ViewModifier {
                 "Open \(host)?", isPresented: Binding(get: { pending != nil }, set: { if !$0 { pending = nil } }),
                 titleVisibility: .visible
             ) {
-                Button("Open in browser") {
+                Button(String(localized: "Open in browser", bundle: .module)) {
                     if let url = pending { systemOpen(url) }
                     pending = nil
                 }
-                Button("Cancel", role: .cancel) { pending = nil }
+                Button(String(localized: "Cancel", bundle: .module), role: .cancel) { pending = nil }
             } message: {
                 Text(pending?.absoluteString ?? "")
             }

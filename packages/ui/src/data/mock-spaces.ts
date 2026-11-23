@@ -271,6 +271,33 @@ export function spacesHandlers(ctx: SpacesMockContext): Handlers {
       ctx.emit("space.updated", { spaceId: p.spaceId, changed: ["deleted"] });
       return { ok: true };
     },
+    "spaces.folders.add": (p) => {
+      const detail = find(p.spaceId);
+      if (p.path === undefined) throw new Error("pick the folder to add on your Mac");
+      const folder = {
+        path: p.path,
+        real: p.path,
+        mode: p.mode ?? "ro",
+        automationsWrite: false,
+        addedAt: ctx.now(),
+        addedByDevice: null,
+      };
+      detail.folders = [...detail.folders.filter((f) => f.path !== p.path), folder];
+      changed(detail, ["folders"]);
+      return view(detail);
+    },
+    "spaces.folders.remove": (p) => {
+      const detail = find(p.spaceId);
+      detail.folders = detail.folders.filter((f) => f.path !== p.path);
+      changed(detail, ["folders"]);
+      return view(detail);
+    },
+    "spaces.folders.setMode": (p) => {
+      const detail = find(p.spaceId);
+      detail.folders = detail.folders.map((f) => (f.path === p.path ? { ...f, mode: p.mode } : f));
+      changed(detail, ["folders"]);
+      return view(detail);
+    },
     "spaces.links.add": (p) => {
       const detail = find(p.spaceId);
       const link = {

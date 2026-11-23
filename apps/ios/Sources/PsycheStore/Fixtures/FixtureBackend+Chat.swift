@@ -55,6 +55,38 @@ extension FixtureBackend: ChatBackend {
         publish(.changed(.threads))
     }
 
+    public func renameThread(id: String, title: String) async throws {
+        let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { throw BackendError.notFound }
+        guard let index = chatState.summaries.firstIndex(where: { $0.id == id }) else { throw BackendError.notFound }
+        chatState.summaries[index].title = trimmed
+        chatState.threads[id]?.title = trimmed
+        publish(.changed(.threads))
+    }
+
+    public func deleteThread(id: String) async throws {
+        guard let summary = chatState.summaries.first(where: { $0.id == id }), !summary.isMain else {
+            throw BackendError.notFound
+        }
+        chatState.summaries.removeAll { $0.id == id }
+        chatState.threads[id] = nil
+        publish(.changed(.threads))
+    }
+
+    public func exportThread(id: String) async throws -> String {
+        await pause()
+        let thread = chatState.threads[id] ?? FixtureData.emptyThread(id: id, summaries: chatState.summaries)
+        var lines = ["# \(thread.title)", ""]
+        for item in thread.items {
+            switch item {
+            case .user(_, let text): lines += ["**You:** \(text)", ""]
+            case .assistant(_, let text, _): lines += [text, ""]
+            default: continue
+            }
+        }
+        return lines.joined(separator: "\n")
+    }
+
     private func appendItem(_ item: ChatItem, to threadID: String) {
         var thread = chatState.threads[threadID] ?? FixtureData.emptyThread(id: threadID, summaries: chatState.summaries)
         if let index = thread.items.firstIndex(where: { $0.id == item.id }) {

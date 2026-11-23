@@ -36,7 +36,7 @@ struct QuestionSheet: View {
                     }
                 }
                 if detail.allowsFreeText {
-                    TextField("Or write an answer", text: $text, axis: .vertical)
+                    TextField(String(localized: "Or write an answer", bundle: .module), text: $text, axis: .vertical)
                         .font(.callout)
                         .lineLimit(1...4)
                         .focused($typing)
@@ -48,7 +48,7 @@ struct QuestionSheet: View {
                                 .strokeBorder(PsycheColor.rule, lineWidth: 1))
                         .onChange(of: text) { if !text.isEmpty { optionID = nil } }
                 }
-                EvidenceLine(["Question", item.source, item.time])
+                EvidenceLine([String(localized: "Question", bundle: .module), item.source, item.time])
             }
             .padding(.horizontal, PsycheMetrics.pagePadding)
             .padding(.top, 28)
@@ -105,9 +105,9 @@ struct QuestionSheet: View {
                 AnswerError(message: message, retry: { Task { await flow.retry() } }, cancel: flow.dismissError)
             case .review, .checking, .sending:
                 if !session.state.canAnswer {
-                    Text("Reconnect to answer").font(.footnote).foregroundStyle(PsycheColor.muted)
+                    Text("Reconnect to answer", bundle: .module).font(.footnote).foregroundStyle(PsycheColor.muted)
                 }
-                ArmingInkButton(title: "Send answer", isBusy: flow.stage == .sending, action: send)
+                ArmingInkButton(title: String(localized: "Send answer", bundle: .module), isBusy: flow.stage == .sending, action: send)
                     .disabled(!canSend || !session.state.canAnswer || flow.isBusy)
             }
         }
@@ -124,7 +124,7 @@ struct QuestionSheet: View {
         let store = store
         typing = false
         Task {
-            await flow.run(confirmation: "Sent. Psyche carries on.") {
+            await flow.run(confirmation: String(localized: "Sent. Psyche carries on.", bundle: .module)) {
                 try await store.answerQuestion(id: id, answer: answer)
             }
         }

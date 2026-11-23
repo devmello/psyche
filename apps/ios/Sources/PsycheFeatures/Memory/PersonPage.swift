@@ -73,9 +73,9 @@ struct PersonPage: View {
                     content(detail)
                 case .failed(let message):
                     VStack(spacing: 12) {
-                        Text("Couldn't load this").font(.headline)
+                        Text("Couldn't load this", bundle: .module).font(.headline)
                         Text(message).font(.subheadline).foregroundStyle(PsycheColor.muted)
-                        Button("Try again") { Task { await model.load() } }
+                        Button(String(localized: "Try again", bundle: .module)) { Task { await model.load() } }
                             .buttonStyle(.psycheOutline).frame(maxWidth: 220)
                     }
                     .frame(maxWidth: .infinity).padding(.vertical, 40)
@@ -94,16 +94,16 @@ struct PersonPage: View {
         }
         .sensoryFeedback(.success, trigger: model.changes)
         .confirmationDialog(
-            "Remove this fact?", isPresented: Binding(get: { retracting != nil }, set: { if !$0 { retracting = nil } }),
+            String(localized: "Remove this fact?", bundle: .module), isPresented: Binding(get: { retracting != nil }, set: { if !$0 { retracting = nil } }),
             titleVisibility: .visible, presenting: retracting
         ) { fact in
-            Button("Remove", role: .destructive) { Task { await model.retract(fact) } }
-            Button("Keep it", role: .cancel) {}
+            Button(String(localized: "Remove", bundle: .module), role: .destructive) { Task { await model.retract(fact) } }
+            Button(String(localized: "Keep it", bundle: .module), role: .cancel) {}
         } message: { fact in
-            Text("\u{201C}\(fact.text)\u{201D} stops shaping what Psyche does.")
+            Text("\u{201C}\(fact.text)\u{201D} stops shaping what Psyche does.", bundle: .module)
         }
-        .alert("Couldn't change that", isPresented: Binding(get: { model.notice != nil }, set: { if !$0 { model.notice = nil } })) {
-            Button("OK", role: .cancel) {}
+        .alert(String(localized: "Couldn't change that", bundle: .module), isPresented: Binding(get: { model.notice != nil }, set: { if !$0 { model.notice = nil } })) {
+            Button(String(localized: "OK", bundle: .module), role: .cancel) {}
         } message: {
             Text(model.notice ?? "")
         }
@@ -121,9 +121,9 @@ struct PersonPage: View {
         .accessibilityElement(children: .combine)
 
         VStack(alignment: .leading, spacing: 8) {
-            SectionHeader("What Psyche knows")
+            SectionHeader(String(localized: "What Psyche knows", bundle: .module))
             if detail.facts.isEmpty {
-                Text("Nothing yet.").font(.subheadline).foregroundStyle(PsycheColor.muted)
+                Text("Nothing yet.", bundle: .module).font(.subheadline).foregroundStyle(PsycheColor.muted)
             } else {
                 PaperStack {
                     ForEach(Array(detail.facts.enumerated()), id: \.element.id) { index, fact in
@@ -136,7 +136,7 @@ struct PersonPage: View {
 
         if !detail.recent.isEmpty {
             VStack(alignment: .leading, spacing: 8) {
-                SectionHeader("Recent")
+                SectionHeader(String(localized: "Recent", bundle: .module))
                 PaperStack {
                     ForEach(Array(detail.recent.enumerated()), id: \.element.id) { index, fact in
                         if index > 0 { HairlineDivider() }
@@ -151,7 +151,7 @@ struct PersonPage: View {
             }
         }
 
-        EditOnMacNote(text: "Edit on your Mac: names, aliases, merging people.")
+        EditOnMacNote(text: String(localized: "Edit on your Mac: names, aliases, merging people.", bundle: .module))
     }
 
     private func factRow(_ fact: MemoryFact) -> some View {
@@ -164,9 +164,9 @@ struct PersonPage: View {
             Spacer(minLength: 0)
             Menu {
                 if !fact.confirmed {
-                    Button { Task { await model.confirm(fact) } } label: { Label("That's right", systemImage: "checkmark") }
+                    Button { Task { await model.confirm(fact) } } label: { Label(String(localized: "That's right", bundle: .module), systemImage: "checkmark") }
                 }
-                Button(role: .destructive) { retracting = fact } label: { Label("Remove", systemImage: "trash") }
+                Button(role: .destructive) { retracting = fact } label: { Label(String(localized: "Remove", bundle: .module), systemImage: "trash") }
             } label: {
                 Image(systemName: "ellipsis")
                     .font(.subheadline.weight(.semibold))
@@ -174,7 +174,7 @@ struct PersonPage: View {
                     .frame(width: 36, height: 36)
                     .contentShape(Rectangle())
             }
-            .accessibilityLabel("Actions for this fact")
+            .accessibilityLabel(String(localized: "Actions for this fact", bundle: .module))
         }
         .padding(.leading, 14)
         .padding(.trailing, 6)

@@ -50,9 +50,9 @@ struct PhaseView<Value: Sendable, Content: View>: View {
             content(value).transition(Self.stageTransition)
         case .failed(let message):
             VStack(spacing: 12) {
-                Text("Couldn't load this").font(.headline).foregroundStyle(PsycheColor.text)
+                Text("Couldn't load this", bundle: .module).font(.headline).foregroundStyle(PsycheColor.text)
                 Text(message).font(.subheadline).foregroundStyle(PsycheColor.muted)
-                Button("Try again") { Task { await retry() } }
+                Button(String(localized: "Try again", bundle: .module)) { Task { await retry() } }
                     .buttonStyle(.psycheOutline)
                     .frame(maxWidth: 220)
             }

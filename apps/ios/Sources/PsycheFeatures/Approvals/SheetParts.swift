@@ -33,7 +33,7 @@ struct ArmingInkButton: View {
         }
         .buttonStyle(.plain)
         .disabled(progress < 1 || isBusy)
-        .accessibilityHint(progress < 1 ? "Available in a moment" : "")
+        .accessibilityHint(progress < 1 ? String(localized: "Available in a moment", bundle: .module) : "")
     }
 }
 
@@ -77,7 +77,7 @@ struct AnsweredLine: View {
     }
 }
 
-/// The Gateway's own message after a failed answer, with "Try again".
+/// The Gateway's own message after a failed answer, with String(localized: "Try again", bundle: .module).
 struct AnswerError: View {
     let message: String
     let retry: () -> Void
@@ -88,8 +88,8 @@ struct AnswerError: View {
             StatusDot(.failed, notice(message), textColor: PsycheColor.text, font: .footnote)
                 .frame(maxWidth: .infinity, alignment: .leading)
             HStack(spacing: 10) {
-                GlassTextButton(title: "Not now", action: cancel)
-                ArmingInkButton(title: "Try again", action: retry)
+                GlassTextButton(title: String(localized: "Not now", bundle: .module), action: cancel)
+                ArmingInkButton(title: String(localized: "Try again", bundle: .module), action: retry)
             }
         }
     }

@@ -3357,6 +3357,17 @@ export const de: Partial<Catalogue> = {
   "screens.goals.loadingPlan": "Plan wird geladen …",
   "screens.goals.tasks": "Aufgaben",
   "screens.goals.noTasks": "Keine verknüpften Aufgaben.",
+  "screens.goals.link": "Verknüpfen…",
+  "screens.goals.linkTitle": "Mit diesem Ziel verknüpfen",
+  "screens.goals.linkHint":
+    "Wähle eine bestehende Aufgabe oder Automatisierung. Sonst ändert sich nichts.",
+  "screens.goals.linkTasks": "Aufgaben",
+  "screens.goals.linkAutomations": "Automatisierungen",
+  "screens.goals.linkNone": "Noch nichts zum Verknüpfen.",
+  "screens.goals.linkFailed": "Verknüpfung konnte nicht geändert werden: {reason}",
+  "screens.goals.unlink": "Trennen",
+  "screens.goals.unlinkItem": "{title} trennen",
+  "screens.goals.noAutomations": "Keine verknüpften Automatisierungen.",
   "screens.goals.checkins": "Check-ins",
   "screens.goals.checkinLine":
     "{cadence}{hasNext, select, true { · nächster {next}} other {}}{hasLast, select, true { · zuletzt: {last}} other {}}",

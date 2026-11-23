@@ -32,7 +32,7 @@ private struct LibraryContent: View {
             let wide = proxy.size.width >= 560
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
-                    PageHeader("Library")
+                    PageHeader(String(localized: "Library", bundle: .module))
                     SectionPicker(selection: $model.section)
                     ForEach(model.uploads) { job in
                         UploadRow(job: job, retry: { model.retry(job.id) }, dismiss: { model.dismiss(job.id) })
@@ -196,19 +196,19 @@ private struct EmptySection: View {
 
     private var headline: String {
         switch section {
-        case .documents: "No documents yet"
-        case .images: "No images yet"
-        case .artifacts: "Nothing built yet"
-        case .downloads: "No downloads yet"
+        case .documents: String(localized: "No documents yet", bundle: .module)
+        case .images: String(localized: "No images yet", bundle: .module)
+        case .artifacts: String(localized: "Nothing built yet", bundle: .module)
+        case .downloads: String(localized: "No downloads yet", bundle: .module)
         }
     }
 
     private var hint: String {
         switch section {
-        case .documents: "PDFs, slides and notes Psyche reads or writes for you land here. Add one with +, or share it from any app."
-        case .images: "Photos you add with + or share from your photo library show up here."
-        case .artifacts: "Pages, checklists and small tools Psyche builds for you are kept here."
-        case .downloads: "Files Psyche fetches from the web for a task are kept here."
+        case .documents: String(localized: "PDFs, slides and notes Psyche reads or writes for you land here. Add one with +, or share it from any app.", bundle: .module)
+        case .images: String(localized: "Photos you add with + or share from your photo library show up here.", bundle: .module)
+        case .artifacts: String(localized: "Pages, checklists and small tools Psyche builds for you are kept here.", bundle: .module)
+        case .downloads: String(localized: "Files Psyche fetches from the web for a task are kept here.", bundle: .module)
         }
     }
 }
@@ -231,8 +231,8 @@ private struct UploadRow: View {
                 if let failure = job.failure {
                     Text(failure).font(.footnote).foregroundStyle(PsycheColor.muted)
                     HStack(spacing: 16) {
-                        Button("Try again", action: retry)
-                        Button("Dismiss", role: .cancel, action: dismiss)
+                        Button(String(localized: "Try again", bundle: .module), action: retry)
+                        Button(String(localized: "Dismiss", bundle: .module), role: .cancel, action: dismiss)
                     }
                     .font(.footnote.weight(.semibold)).foregroundStyle(PsycheColor.inkText)
                 } else {
