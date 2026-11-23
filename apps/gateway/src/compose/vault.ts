@@ -36,6 +36,7 @@ import {
   Vault,
   type VaultEventName,
   type VaultRemovals,
+  type WrappedKey,
 } from "@psyche/vault";
 import type { BitwardenConfig, OnePasswordConfig } from "../config.ts";
 import type { Call, HandlerDef } from "../context.ts";
