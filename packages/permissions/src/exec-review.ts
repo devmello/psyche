@@ -10,15 +10,17 @@ import { isUnder } from "./targets.ts";
  * using a classifier"; Haiku on the owner's key through the `utility` role, Auto mode only).
  *
  * In Auto mode a terminal command that would otherwise show a card (an `exec_host` command on the
- * Mac, a sandbox `exec` or `code.run`) may be approved by a small model instead, but only after
- * every deterministic floor below holds. The model can only turn that ask into an allow; any
- * doubt, error, timeout or unavailable model leaves the card exactly as it was.
+ * Mac, or a sandbox `exec`; never `code.run`, which the Gateway gives no review facts) may be
+ * approved by a small model instead, but only after every deterministic floor below holds. The
+ * model can only turn that ask into an allow; any doubt, error, timeout or unavailable model
+ * leaves the card exactly as it was.
  *
  * What makes a reviewed command safe is the sandbox, not the model: a reviewed command runs under
  * srt (Mac) or in the container, with no network, no extra environment, no secrets, and on the
- * Mac with writes confined to the repository it runs in (its git hooks, git config and app launch
- * config stay read-only). The program list below keeps the reviewer to builds, tests and local
- * git; it is an allowlist, so anything it does not name asks.
+ * Mac with writes confined to the repository it runs in (its git hooks and git config, nested
+ * `.git` entries and app launch config at any depth stay read-only). The program list below keeps
+ * the reviewer to builds, tests and local git; it is an allowlist, so anything it does not name
+ * asks.
  *
  * `HOST_PROGRAM_NEVER` (shells, interpreters, package managers) and this list: package managers
  * and build tools are reviewable here, unlike for a standing program grant, because each review
@@ -40,7 +42,7 @@ export type ExecReviewSandbox = "srt" | "container";
 /**
  * What the Gateway's `describeCall` says about a command it could let the reviewer see (meta).
  * Set only where a reviewed run would be sandboxed: srt on macOS for `exec_host`, the container
- * for `exec` and `code.run`. The engine re-checks every fact it can against the call itself.
+ * for `exec` (never `code.run`). The engine re-checks every fact it can against the call itself.
  */
 export interface ExecReviewMeta {
   sandbox: ExecReviewSandbox;
@@ -109,7 +111,45 @@ export function execReviewRefusal(argv: readonly unknown[]): string | undefined 
   return undefined;
 }
 
-/** Indexes of `git commit` message values: `-m <msg>`, `-am <msg>`, `--message <msg>`, `-m<msg>`. */
+/**
+ * `git commit` options that take no value: after one of them the next argument is still read as
+ * an option or a path, so a following `-m` is a message flag.
+ */
+const COMMIT_FLAGS = new Set([
+  "-a",
+  "--all",
+  "-q",
+  "--quiet",
+  "-v",
+  "--verbose",
+  "-s",
+  "--signoff",
+  "-n",
+  "--no-verify",
+  "--allow-empty",
+  "--allow-empty-message",
+  "--amend",
+  "--no-edit",
+  "-e",
+  "--edit",
+  "--dry-run",
+  "-i",
+  "--include",
+  "-o",
+  "--only",
+  "--short",
+  "--porcelain",
+  "--status",
+  "--no-status",
+]);
+
+/**
+ * Indexes of `git commit` message values: `-m <msg>`, `-am <msg>`, `--message <msg>`, `-m<msg>`,
+ * `--message=<msg>`. Only while every earlier argument is understood: after an option that may
+ * take a value (`--author`, `--trailer`, `-F`...) or an unknown one, the `-m` could be that
+ * option's value, so nothing later is a message and every argument is checked as a plain one.
+ * A message that starts with `-` is never exempt (#1546 review, L4).
+ */
 function commitMessages(args: readonly string[]): Set<number> {
   const out = new Set<number>();
   if (args[0] !== "git" || args[1] !== "commit") return out;
@@ -117,9 +157,17 @@ function commitMessages(args: readonly string[]): Set<number> {
     const a = args[i] as string;
     if (a === "--") break;
     if (a === "-m" || a === "-am" || a === "--message") {
-      if (i + 1 < args.length) out.add(i + 1);
+      const value = args[i + 1];
+      if (value === undefined || value.startsWith("-")) break;
+      out.add(i + 1);
       i++;
-    } else if (/^-m./s.test(a) || a.startsWith("--message=")) out.add(i);
+    } else if (/^-m[^-]/s.test(a) || /^--message=[^-]/s.test(a)) {
+      out.add(i);
+    } else if (COMMIT_FLAGS.has(a) || !a.startsWith("-")) {
+      // A flag, or a path operand: the next argument starts afresh.
+    } else {
+      break;
+    }
   }
   return out;
 }
