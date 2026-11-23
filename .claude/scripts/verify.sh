@@ -18,6 +18,7 @@
 #   - secret-grep on the whole repo
 #   - protocol:check if packages/protocol changed
 #   - i18n:check if any TS/TSX or message file changed
+#   - xcstrings-coverage (all 11 locales per translated key) for each touched iOS catalog
 #   - typecheck for each touched package (not with --quick)
 #   - vitest (one worker) on touched test files plus the same-named test of each touched source
 #     file (x.ts -> x.test.ts); `--related` adds every importer (not with --quick)
@@ -148,6 +149,12 @@ fi
 if grep -qE '\.(ts|tsx)$|\.xcstrings$' <<<"$changed"; then
   run i18n-check pnpm run i18n:check
 fi
+
+# iOS catalogs: i18n:check never reads them (#1542 shipped keys without zh-Hans). Every translated
+# key needs all 11 locales; only the touched catalogs are read, so this takes milliseconds.
+xc="$(echo "$changed" | grep -E '\.xcstrings$' || true)"
+# shellcheck disable=SC2086
+[ -n "$xc" ] && run xcstrings-coverage python3 -I .claude/scripts/xcstrings-coverage.py $xc
 
 warn=()
 if [ "$quick" = 0 ]; then

@@ -2,6 +2,15 @@
 
 Newest first. The `reflect` skill reads the top entry to know where the last pass stopped.
 
+## 2026-11-23 (b): reflect pass over #1533, #1540, #1542-#1549
+Last pass: #1538. Evidence: the orchestrator's wave notes, security-reviewer memory (settings-narrowing, launch-config, owner-file-write patterns) and the haiku-verifier recurring-problems note (#1542 zh-Hans, #1543 sibling collisions).
+- **`verify.sh`:** new `xcstrings-coverage` check (`.claude/scripts/xcstrings-coverage.py`), run only on touched `.xcstrings`; all 11 locales per translated key (#1542). Tested on a scratch catalog with a missing zh-Hans (fails) and the 5 current catalogs (pass).
+- **`psyche-i18n`, `psyche-apple`:** the check; build after merging parallel iOS PRs (duplicate `self.store = store`, #1542/#1543).
+- **`psyche-permissions` §3g:** checklist for the five repeat findings (#1533, #1540/#1544, #1545, #1546, #1549).
+- **`orchestrate`:** escalate multi-finding security rounds to Sonnet (#1545); a `ps` recipe instead of `pgrep -f verify.sh`; Swift build after parallel iOS merges.
+- **`security-reviewer` agent:** downloads need the owner's go-ahead.
+- **`psyche-builder/learnings.md`:** zsh `"${H}:path"`.
+
 ## 2026-11-23: reflect pass over #1527-#1538 (Mac and iOS wave)
 Last pass: 2026-11-19 (e). Evidence: the orchestrator's learnings for the wave (#1529, #1531, #1533, #1537, #1538, iOS string-catalog conflicts, shared scratchpad overwrites).
 - **`psyche-builder`:** plain verify is not the merge gate, run `--related` for shared `packages/ui` screens (#1529); unique scratch file names incl. commit messages; no self-commissioned reviews. `learnings.md`: unique accessible names on composite pages (#1529), Electron quit ordering and dirty-flag guards (#1531, #1538), off-machine feature rules (#1533).
