@@ -15,18 +15,12 @@ public protocol ChatBackend: Sendable {
     func pinThread(id: String, pinned: Bool) async throws
     /// Archive a side chat: it leaves the list. The Gateway keeps it.
     func archiveThread(id: String) async throws
-}
-
-// Additive requirements get a default so an implementation written before them still compiles; the
-// Gateway backend overrides these when the methods exist on the wire.
-extension ChatBackend {
-    public func pinThread(id: String, pinned: Bool) async throws {
-        throw BackendError.refused("Pinning chats isn't available yet.")
-    }
-
-    public func archiveThread(id: String) async throws {
-        throw BackendError.refused("Archiving chats isn't available yet.")
-    }
+    /// Set the chat's title (`threads.rename`). The Gateway refuses an empty title.
+    func renameThread(id: String, title: String) async throws
+    /// Delete a side chat and its messages (`threads.delete`). Receipts and audit entries are kept.
+    func deleteThread(id: String) async throws
+    /// The chat as a Markdown transcript, for sharing (`chat.export`).
+    func exportThread(id: String) async throws -> String
 }
 
 public struct MessageDraft: Sendable, Equatable {

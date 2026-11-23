@@ -115,6 +115,11 @@ struct ThreadView: View {
                 focused: $composerFocused, send: send, stop: model.cancel)
         }
         .sensoryFeedback(.impact(weight: .light), trigger: model.sentCount)
+        .alert(String(localized: "Couldn't do that", bundle: .module), isPresented: actionErrorShown) {
+            Button(String(localized: "OK", bundle: .module)) { model.clearActionError() }
+        } message: {
+            Text(model.actionError ?? "")
+        }
         .onChange(of: session.state.canAnswer) { _, reachable in if reachable { composer.retryWaiting() } }
         .task {
             await model.load()
@@ -137,6 +142,10 @@ struct ThreadView: View {
             await model.observe()
         }
         .onDisappear { composer.dictation.stop() }
+    }
+
+    private var actionErrorShown: Binding<Bool> {
+        Binding(get: { model.actionError != nil }, set: { if !$0 { model.clearActionError() } })
     }
 
     private var context: BlockContext {
