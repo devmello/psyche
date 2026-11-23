@@ -155,4 +155,13 @@ describe("the quit check for unsaved Files edits", () => {
     reportFilesDirty(fakePage(21) as never, false);
     expect(confirmQuitWithUnsaved(() => 1)).toBe(true);
   });
+
+  it("forgets a page whose renderer crashed, so a stale flag does not block quit", () => {
+    const page = fakePage(40);
+    reportFilesDirty(page as never, true);
+    expect(hasUnsavedFiles()).toBe(true);
+    page.emit("render-process-gone");
+    expect(hasUnsavedFiles()).toBe(false);
+    expect(confirmQuitWithUnsaved(() => 1)).toBe(true);
+  });
 });

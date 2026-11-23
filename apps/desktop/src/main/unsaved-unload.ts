@@ -63,6 +63,8 @@ export function reportFilesDirty(contents: WebContents, dirty: boolean): void {
     watchedPages.add(contents.id);
     const forget = () => dirtyPages.delete(contents.id);
     contents.on("did-start-loading", forget);
+    // A crashed renderer's unsaved edits are gone with it: a stale flag would block quit for nothing.
+    contents.on("render-process-gone", forget);
     contents.once("destroyed", () => {
       forget();
       watchedPages.delete(contents.id);
