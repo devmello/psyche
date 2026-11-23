@@ -23,7 +23,8 @@ An English string that names "Mac", "Touch ID" or "Finder" needs a Linux and a W
 ## iOS
 
 - Strings live in `apps/ios/**/Localizable.xcstrings`, and `CFBundleLocalizations` lists the languages. Add every new key with all 10 translations.
-- Use `String(localized:)` and `Text("key")`, as the existing code does.
+- Use `String(localized:)` and `Text("key")`, as the existing code does. In Swift package targets pass `bundle: .module` (`Text("key", bundle: .module)`, `String(localized: "key", bundle: .module)`), or the string shows English everywhere. `LocalizedLiteralsTests` enforces it. Each module (PsycheFeatures, PsycheBlocks, PsycheDesign, PsycheShared) has its own catalog: add the key to the module's own.
+- Parallel iOS PRs always conflict in `apps/ios/Sources/PsycheFeatures/Resources/Localizable.xcstrings`. Resolve with a JSON union of `strings`, keeping main's key order and format (`json.dumps(indent=2, ensure_ascii=False)`, no sorting), and merge `origin/main` right before you report.
 
 ## Notices the Gateway authors
 

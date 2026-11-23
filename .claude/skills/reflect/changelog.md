@@ -2,6 +2,14 @@
 
 Newest first. The `reflect` skill reads the top entry to know where the last pass stopped.
 
+## 2026-11-23: reflect pass over #1527-#1538 (Mac and iOS wave)
+Last pass: 2026-11-19 (e). Evidence: the orchestrator's learnings for the wave (#1529, #1531, #1533, #1537, #1538, iOS string-catalog conflicts, shared scratchpad overwrites).
+- **`psyche-builder`:** plain verify is not the merge gate, run `--related` for shared `packages/ui` screens (#1529); unique scratch file names incl. commit messages; no self-commissioned reviews. `learnings.md`: unique accessible names on composite pages (#1529), Electron quit ordering and dirty-flag guards (#1531, #1538), off-machine feature rules (#1533).
+- **`psyche-i18n`:** `bundle: .module` in package targets, per-module catalogs (`LocalizedLiteralsTests`), xcstrings JSON-union conflict recipe.
+- **`psyche-apple`:** `pgrep -x` build check, `bundle: .module` pointer, NEL/C1 pointer. `.claude/CLAUDE.md` pgrep wording updated to match.
+- **`psyche-permissions`:** NEL/C1 approval sanitizers (#1537); empty-list fallback widens access (#1529).
+- **`orchestrate`:** merge gate and review ownership learning.
+
 ## 2026-11-19 (e): reflect pass over #1446, #1437, #1448, #1438, #1451, #1293, #1436, #1452, #1454 (wave 8)
 Last pass: #1445. #1274 parked unmerged (review-1274-r1: missing `install-package` root helper), not a pattern yet. Evidence: `review-1293` r3-r6, `-1294-r7`, `-1295-r1`, `-1436-r3`, `-1437-r3`, `-1438-r3`, `-1450-r1`, `-1452-r1`, the PR Learnings, and the coordinator's notes.
 - **`psyche-builder`:** no fd-to-path fallback (#1450 r1); server-recorded identity (#1293 r6, #1452); real-environment probes need a control that fires (#1295 r1); dry runs hide release breaks (#1295 r1); VM rules: no `/mnt/mac`, `git archive` + `orb push` because the worktree guard refuses `git` in the VM, clean up (coordinator); report once and stop background tasks first (coordinator, #1293/#1294). `learnings.md`: `git grep` pathspec (#1446), `--smoke-only` (#1448), migration checksum (#1436 r3, one occurrence, kept because it breaks local homes), gzip payloads and `toolChoice` (#1436, #1437).
