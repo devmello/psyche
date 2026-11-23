@@ -22,10 +22,12 @@ The vault refuses card numbers, CVVs, bank account numbers and government IDs wh
 | Slot | Where the key is kept | Used when |
 | --- | --- | --- |
 | Keychain | The macOS data-protection keychain, through Psyche Helper. Device-only, never synced, and reading it asks for Touch ID or your password. | The helper is signed with a Developer ID team and an embedded provisioning profile |
-| Key file | `$PSYCHE_HOME/secrets/vault.key`: 32 random bytes, mode 0600, in a 0700 directory, passed to the Gateway as `PSYCHE_VAULT_KEY_FILE`. Unlocks without a prompt. | Unsigned or ad-hoc Mac builds, and servers |
+| Key file | `$PSYCHE_HOME/secrets/vault.key`: 32 random bytes, mode 0600, in a 0700 directory. The Gateway reads it from `PSYCHE_VAULT_KEY_FILE` when that is set. Unlocks without a prompt. | Unsigned or ad-hoc Mac builds, and Linux servers (psyched's default when nothing else is set) |
 | Recovery key | `vault/recovery.slot`: the vault key wrapped under a key derived (Argon2id) from your recovery key | Always, as the way back in |
 
 The packaged Mac app picks the slot by itself. It gives the Gateway a key file only when the bundled helper cannot hold the Keychain slot. A vault that already exists with another slot is never switched.
+
+On Linux, psyched has no Keychain and no DPAPI, so it uses the key file by default. It creates `$PSYCHE_HOME/secrets/vault.key` on first start. A backup does not include that file, so after a restore on another machine use the recovery key.
 
 ## What an unsigned build means for your keys
 

@@ -72,7 +72,7 @@ async function start() {
       clock: { now: () => Date.now() },
       publish: (event, payload) => t?.gateway.bus.publish(event, payload),
     },
-    { argon2: TEST_ARGON2 },
+    { argon2: TEST_ARGON2, platform: "darwin" },
   );
   t = await startTestGateway({
     home,

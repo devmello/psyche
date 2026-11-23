@@ -74,7 +74,7 @@ describe("vault.* through the dispatcher (keychain slot via the Mac helper)", ()
         clock: { now: () => Date.now() },
         publish: (event, payload) => t?.gateway.bus.publish(event, payload),
       },
-      { argon2: TEST_ARGON2 },
+      { argon2: TEST_ARGON2, platform: "darwin" },
     );
     t = await startTestGateway({
       home,
@@ -326,7 +326,7 @@ describe("vault.* through the dispatcher (keychain slot via the Windows helper)"
         clock: { now: () => Date.now() },
         publish: (event, payload) => t?.gateway.bus.publish(event, payload),
       },
-      { argon2: TEST_ARGON2 },
+      { argon2: TEST_ARGON2, platform: "darwin" },
     );
     t = await startTestGateway({
       home,

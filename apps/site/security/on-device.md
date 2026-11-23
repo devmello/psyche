@@ -15,7 +15,7 @@ Everything is under `$PSYCHE_HOME`, which is `~/.psyche` by default on both macO
 | `state/psyche.sqlite` | Threads, tasks, approvals, grants, receipts, devices, settings, the memory index | No; relies on FileVault or LUKS |
 | `workspace/` | `SOUL.md`, `IDENTITY.md`, `USER.md`, `AGENTS.md`, `MEMORY.md`, daily notes | No; plain Markdown by design |
 | `vault/` | The credential vault (SQLCipher) and its key slots | Yes |
-| `secrets/vault.key` | The vault key, on unsigned Mac builds and servers only | No; see [Key storage](/security/key-storage) |
+| `secrets/vault.key` | The vault key, on unsigned Mac builds and Linux servers only | No; see [Key storage](/security/key-storage) |
 | `library/` | Files the agent made or received; downloads wait in `library/quarantine/` | No |
 | `browser/profiles/` | The agent browser's own profiles and cookies | Cookies use the OS key |
 | `audit/` | The hash-chained audit log, one file per month | No; tamper-evident instead |

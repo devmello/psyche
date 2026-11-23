@@ -242,6 +242,14 @@ These variables change that. Set them only in the service's environment (`system
 | `PSYCHE_PAYMENT_PRESENCE` | `passkey` | Payments need a passkey on any Host, not only a headless one. |
 | `PSYCHE_CHROMIUM` | a path | The Chromium binary for the headless browser. Unset: the first of `/usr/bin/chromium`, `/usr/bin/chromium-browser`, `/snap/bin/chromium`, `/usr/bin/google-chrome-stable` and `/usr/bin/google-chrome` that exists. |
 
+## The vault key
+
+On Linux the vault's key lives in a key file. Unless `PSYCHE_VAULT_KEY_FILE` names one, psyched creates `$PSYCHE_HOME/secrets/vault.key` the first time it starts: 32 random bytes, mode 0600, in a 0700 folder. The vault can then be created and unlocks at start without a prompt. Under Compose the file is `/data/secrets/vault.key` on the `psyche-home` volume.
+
+The key sits beside the data it protects, so anyone who can read `$PSYCHE_HOME` can open the vault. Full-disk encryption (LUKS) is what protects it at rest. Backups do not include `secrets/`: after a restore on another machine, unlock with the recovery key (`psyche vault unlock --recovery`).
+
+To keep the key off the data volume, store it in a file that only the Gateway's user can read (mode 0600, owned by that user) and set `PSYCHE_VAULT_KEY_FILE` to its path in the service's environment. psyched refuses a key file that other users can read. A vault that already uses another slot is never switched to a key file; setting up or unlocking the vault then fails with that reason.
+
 ## Reaching the Gateway
 
 ### SSH tunnel

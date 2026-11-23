@@ -116,7 +116,7 @@ Read by the Gateway (`psyched`):
 | `PSYCHE_LOG_LEVEL` | Minimum log level (default `info`) | [log.ts](https://github.com/devmello/psyche/blob/main/apps/gateway/src/log.ts) |
 | `PSYCHE_MODEL`, `PSYCHE_UTILITY_MODEL` | Primary and utility model, until set in Settings | [compose/models.ts](https://github.com/devmello/psyche/blob/main/apps/gateway/src/compose/models.ts) |
 | `PSYCHE_OLLAMA_URL`, `PSYCHE_LLAMACPP_URL`, `PSYCHE_LMSTUDIO_URL` | Address of a local model server | [compose/models.ts](https://github.com/devmello/psyche/blob/main/apps/gateway/src/compose/models.ts) |
-| `PSYCHE_VAULT_KEY_FILE` | Vault key file (the key-file slot) | [compose/vault.ts](https://github.com/devmello/psyche/blob/main/apps/gateway/src/compose/vault.ts) |
+| `PSYCHE_VAULT_KEY_FILE` | Vault key file (the key-file slot). Unset on Linux: `$PSYCHE_HOME/secrets/vault.key`, created on first start | [compose/vault.ts](https://github.com/devmello/psyche/blob/main/apps/gateway/src/compose/vault.ts) |
 | `PSYCHE_BROWSER`, `PSYCHE_SANDBOX`, `PSYCHE_VM`, `PSYCHE_CODING`, `PSYCHE_MCP` | Set to `off` to leave that part out of the Gateway | [compose/parts.ts](https://github.com/devmello/psyche/blob/main/apps/gateway/src/compose/parts.ts) |
 | `PSYCHE_BROWSER_PARTITION`, `PSYCHE_BROWSER_SIGNED_IN_ORIGINS` | Browser profile choice (`profile`, `clean`, `auto`) and the origins `auto` treats as signed in | [compose/parts.ts](https://github.com/devmello/psyche/blob/main/apps/gateway/src/compose/parts.ts) |
 | `PSYCHE_BROWSER_RECORD`, `PSYCHE_DEV_PREVIEW_PORTS` | `1` records browser sessions; loopback ports allowed for dev preview | [compose/parts.ts](https://github.com/devmello/psyche/blob/main/apps/gateway/src/compose/parts.ts) |

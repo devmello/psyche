@@ -382,7 +382,7 @@ Design: `docs/design/generative-ui-2026.md`. An agent-drawn widget is **data** (
 
 ### 4.3 Unlock flows
 
-**Per session (desktop default):** the first fill prompts Touch ID; the DEK stays in Gateway memory, zeroized on lock, until `vault.autoLockMinutes` (480), screen lock or sleep. **Per fill:** items flagged `requireAuthEachUse` (default for `payment`, `ssh_key`, and `api_key` tagged `live`) prompt every time with `LAContext` reuse duration 0. **Server mode:** unlock at boot from `PSYCHE_VAULT_KEY_FILE` (0600) or an interactive passphrase; fills still need a device-surface approval, the UI says biometric gating is absent, and high-value items should stay in a Mac node's vault (§13). `vault.unlock` is a helper capability the agent cannot call.
+**Per session (desktop default):** the first fill prompts Touch ID; the DEK stays in Gateway memory, zeroized on lock, until `vault.autoLockMinutes` (480), screen lock or sleep. **Per fill:** items flagged `requireAuthEachUse` (default for `payment`, `ssh_key`, and `api_key` tagged `live`) prompt every time with `LAContext` reuse duration 0. **Server mode:** unlock at boot from `PSYCHE_VAULT_KEY_FILE` (0600), which on Linux defaults to `$PSYCHE_HOME/secrets/vault.key` when nothing is set, or an interactive passphrase; fills still need a device-surface approval, the UI says biometric gating is absent, and high-value items should stay in a Mac node's vault (§13). `vault.unlock` is a helper capability the agent cannot call.
 
 ### 4.3.1 Key storage on unsigned builds
 
