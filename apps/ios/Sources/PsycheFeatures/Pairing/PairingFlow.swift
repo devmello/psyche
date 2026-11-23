@@ -33,9 +33,9 @@ private struct ScannerView: View {
         VStack(alignment: .leading, spacing: 28) {
             MothAvatar(size: 64)
             VStack(alignment: .leading, spacing: 8) {
-                Text("Pair with your Mac").psycheTitle(.title)
+                Text("Pair with your Mac", bundle: .module).psycheTitle(.title)
                     .foregroundStyle(PsycheColor.text)
-                Text("On your Mac, open Settings → Server & remote access → Pair another computer. Then scan the code it shows.")
+                Text("On your Mac, open Settings → Server & remote access → Pair another computer. Then scan the code it shows.", bundle: .module)
                     .font(.subheadline).foregroundStyle(PsycheColor.muted)
             }
             viewfinder
@@ -65,11 +65,11 @@ private struct ScannerView: View {
                 CameraScanner { session.beginPairing(code: $0) }
                 #endif
             case .undetermined:
-                note("Psyche uses the camera only to read this code. Nothing is recorded.")
+                note(String(localized: "Psyche uses the camera only to read this code. Nothing is recorded.", bundle: .module))
             case .denied:
-                note("Camera access is off. Turn it on in Settings to scan the code.")
+                note(String(localized: "Camera access is off. Turn it on in Settings to scan the code.", bundle: .module))
             case .unavailable:
-                note("This device has no camera to scan with.")
+                note(String(localized: "This device has no camera to scan with.", bundle: .module))
             }
         }
         .frame(maxWidth: .infinity)
@@ -77,7 +77,7 @@ private struct ScannerView: View {
         .background(PsycheColor.sheet)
         .clipShape(shape)
         .overlay(shape.strokeBorder(PsycheColor.hairline, lineWidth: 1))
-        .accessibilityLabel("Camera viewfinder")
+        .accessibilityLabel(String(localized: "Camera viewfinder", bundle: .module))
     }
 
     private func note(_ text: String) -> some View {
@@ -92,9 +92,9 @@ private struct ScannerView: View {
     private var actions: some View {
         switch camera.status {
         case .undetermined:
-            Button("Allow camera") { Task { await camera.request() } }.buttonStyle(.psycheInk)
+            Button(String(localized: "Allow camera", bundle: .module)) { Task { await camera.request() } }.buttonStyle(.psycheInk)
         case .denied:
-            Button("Open Settings") {
+            Button(String(localized: "Open Settings", bundle: .module)) {
                 #if os(iOS)
                 if let url = URL(string: UIApplication.openSettingsURLString) { openURL(url) }
                 #endif
@@ -118,11 +118,11 @@ extension ScannerView {
             }
             .buttonBorderShape(.capsule)
             .tint(PsycheColor.inkText)
-            .accessibilityLabel("Paste a pairing link")
-            Button("Try it without a Mac") { session.requestFixtureMode() }
+            .accessibilityLabel(String(localized: "Paste a pairing link", bundle: .module))
+            Button(String(localized: "Try it without a Mac", bundle: .module)) { session.requestFixtureMode() }
                 .font(.subheadline)
                 .foregroundStyle(PsycheColor.muted)
-                .accessibilityHint("Opens the app with sample content")
+                .accessibilityHint(String(localized: "Opens the app with sample content", bundle: .module))
         }
         .frame(maxWidth: .infinity)
     }
@@ -137,7 +137,7 @@ private struct ConfirmView: View {
         VStack(alignment: .leading, spacing: 28) {
             MothAvatar(size: 64)
             VStack(alignment: .leading, spacing: 8) {
-                Text("Connect to \(preview.hostName)?").psycheTitle(.title)
+                Text("Connect to \(preview.hostName)?", bundle: .module).psycheTitle(.title)
                     .foregroundStyle(PsycheColor.text)
                 Text(preview.host)
                     .font(.psycheMono(.subheadline))
@@ -146,20 +146,20 @@ private struct ConfirmView: View {
             }
             PaperCard(padding: 18, radius: 16) {
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("Gateway key").font(.footnote).foregroundStyle(PsycheColor.muted)
+                    Text("Gateway key", bundle: .module).font(.footnote).foregroundStyle(PsycheColor.muted)
                     Text(preview.fingerprint)
                         .font(.psycheMono(.title3, weight: .semibold))
                         .foregroundStyle(PsycheColor.text)
-                        .accessibilityLabel("Gateway key \(preview.fingerprint)")
-                    EvidenceLine([preview.transport.label, "pinned from the code"])
+                        .accessibilityLabel(String(localized: "Gateway key \(preview.fingerprint)", bundle: .module))
+                    EvidenceLine([preview.transport.label, String(localized: "pinned from the code", bundle: .module)])
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
-            Text("Your Mac shows the same key next to this phone's request. If they differ, don't connect.")
+            Text("Your Mac shows the same key next to this phone's request. If they differ, don't connect.", bundle: .module)
                 .font(.subheadline).foregroundStyle(PsycheColor.muted)
             Spacer(minLength: 0)
-            Button("Connect") { session.confirmPairing() }.buttonStyle(.psycheInk)
-            Button("Not now") { session.declinePairing() }.buttonStyle(.psycheOutline)
+            Button(String(localized: "Connect", bundle: .module)) { session.confirmPairing() }.buttonStyle(.psycheInk)
+            Button(String(localized: "Not now", bundle: .module)) { session.declinePairing() }.buttonStyle(.psycheOutline)
         }
         .padding(.horizontal, 28)
         .padding(.top, 56)
@@ -178,9 +178,9 @@ private struct PendingView: View {
         VStack(alignment: .leading, spacing: 28) {
             MothAvatar(size: 64)
             VStack(alignment: .leading, spacing: 8) {
-                Text("Approve this phone on your Mac").psycheTitle(.title)
+                Text("Approve this phone on your Mac", bundle: .module).psycheTitle(.title)
                     .foregroundStyle(PsycheColor.text)
-                Text("Psyche on your Mac is asking whether to let this phone in. Check that the code matches.")
+                Text("Psyche on your Mac is asking whether to let this phone in. Check that the code matches.", bundle: .module)
                     .font(.subheadline).foregroundStyle(PsycheColor.muted)
             }
             PaperCard(padding: 18, radius: 16) {
@@ -190,7 +190,7 @@ private struct PendingView: View {
                         .tracking(4)
                         .foregroundStyle(PsycheColor.text)
                         .frame(maxWidth: .infinity)
-                        .accessibilityLabel("Code \(pending.code.replacingOccurrences(of: " ", with: ", "))")
+                        .accessibilityLabel(String(localized: "Code \(pending.code.replacingOccurrences(of: " ", with: ", "))", bundle: .module))
                     HairlineDivider()
                     VStack(alignment: .leading, spacing: 4) {
                         Text(pending.endpoint.host).font(.subheadline.weight(.medium)).foregroundStyle(PsycheColor.text)
@@ -200,15 +200,15 @@ private struct PendingView: View {
                 }
             }
             VStack(alignment: .leading, spacing: 14) {
-                step(done: true, "Scanned the code from Settings → Devices")
+                step(done: true, String(localized: "Scanned the code from Settings → Devices", bundle: .module))
                 step(
                     done: false,
-                    Text("On your Mac, approve \(Text(pending.deviceName).fontWeight(.semibold)). It gets read, write and approvals, not admin."))
+                    Text("On your Mac, approve \(Text(pending.deviceName).fontWeight(.semibold)). It gets read, write and approvals, not admin.", bundle: .module))
             }
             Spacer(minLength: 0)
-            StatusDot(.needsYou, "Waiting for your Mac", textColor: PsycheColor.muted, font: .subheadline)
+            StatusDot(.needsYou, String(localized: "Waiting for your Mac", bundle: .module), textColor: PsycheColor.muted, font: .subheadline)
                 .frame(maxWidth: .infinity)
-            Button("Cancel") { session.cancelPairing() }.buttonStyle(.psycheOutline)
+            Button(String(localized: "Cancel", bundle: .module)) { session.cancelPairing() }.buttonStyle(.psycheOutline)
         }
         .padding(.horizontal, 28)
         .padding(.top, 56)
@@ -245,8 +245,8 @@ struct RefusedView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             MothAvatar(size: 64)
-            Text("This isn't your Gateway.").psycheTitle(.title).foregroundStyle(PsycheColor.text)
-            Text("The Mac that answered isn't the one this phone was paired with, so Psyche stopped. Nothing was sent to it.")
+            Text("This isn't your Gateway.", bundle: .module).psycheTitle(.title).foregroundStyle(PsycheColor.text)
+            Text("The Mac that answered isn't the one this phone was paired with, so Psyche stopped. Nothing was sent to it.", bundle: .module)
                 .font(.subheadline).foregroundStyle(PsycheColor.muted)
         }
         .padding(.horizontal, 28)

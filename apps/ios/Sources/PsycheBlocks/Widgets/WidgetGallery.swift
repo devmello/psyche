@@ -21,7 +21,7 @@ public struct WidgetGallery: View {
     public var body: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 26) {
-                PageHeader("Widgets", eyebrow: "\(fixtures.count) fixtures · debug")
+                PageHeader(String(localized: "Widgets", bundle: .module), eyebrow: "\(fixtures.count) fixtures · debug")
                 ForEach(fixtures) { fixture in
                     VStack(alignment: .leading, spacing: 8) {
                         Text(fixture.name).font(.psycheMono(.caption)).foregroundStyle(PsycheColor.muted)

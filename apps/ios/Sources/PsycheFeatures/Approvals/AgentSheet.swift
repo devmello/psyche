@@ -13,11 +13,15 @@ struct AgentSheet: View {
     @State private var model: AgentModel
     @State private var segment = Segment.activity
     @State private var cancelling: RunningTask?
+    /// The task whose run page is open (a nested sheet).
+    @State private var openedTaskID: String?
     @Environment(Router.self) private var router
     @Environment(Session.self) private var session
     private let motion = MotionContext()
+    private let store: any PsycheBackend
 
     init(store: any PsycheBackend) {
+        self.store = store
         _model = State(initialValue: AgentModel(store: store))
         #if DEBUG
         // `-psycheSegment Soul` for screenshots.
@@ -29,8 +33,8 @@ struct AgentSheet: View {
         ScrollView {
             VStack(alignment: .leading, spacing: PsycheMetrics.sectionSpacing) {
                 header
-                Picker("Section", selection: $segment) {
-                    ForEach(Segment.allCases) { Text($0.rawValue).tag($0) }
+                Picker(String(localized: "Section", bundle: .module), selection: $segment) {
+                    ForEach(Segment.allCases) { Text(LocalizedStringKey($0.rawValue), bundle: .module).tag($0) }
                 }
                 .pickerStyle(.segmented)
                 if let error = model.error {
@@ -71,10 +75,16 @@ struct AgentSheet: View {
                 get: { cancelling != nil }, set: { if !$0 { cancelling = nil } }),
             titleVisibility: .visible, presenting: cancelling
         ) { task in
-            Button("Cancel task", role: .destructive) { Task { await model.cancel(taskID: task.id) } }
-            Button("Keep running", role: .cancel) {}
+            Button(String(localized: "Cancel task", bundle: .module), role: .destructive) { Task { await model.cancel(taskID: task.id) } }
+            Button(String(localized: "Keep running", bundle: .module), role: .cancel) {}
         } message: { _ in
-            Text("Psyche stops where it is. Work already done stays.")
+            Text("Psyche stops where it is. Work already done stays.", bundle: .module)
+        }
+        .sheet(isPresented: Binding(get: { openedTaskID != nil }, set: { if !$0 { openedTaskID = nil } })) {
+            if let taskID = openedTaskID {
+                NavigationStack { TaskRunView(store: store, taskID: taskID) }
+                    .presentationDragIndicator(.visible)
+            }
         }
     }
 
@@ -92,7 +102,7 @@ struct AgentSheet: View {
                     StatusDot(
                         activity.needsYou.isEmpty ? .neutral : .needsYou,
                         activity.needsYou.isEmpty
-                            ? (activity.now.isEmpty ? "Idle" : "Working on \(activity.now.count)")
+                            ? (activity.now.isEmpty ? String(localized: "Idle", bundle: .module) : String(localized: "Working on \(activity.now.count)", bundle: .module))
                             : "\(activity.needsYou.count) need\(activity.needsYou.count == 1 ? "s" : "") you")
                 }
             }
@@ -106,7 +116,7 @@ struct AgentSheet: View {
                     .glassEffect(.regular.interactive(), in: .circle)
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("Settings")
+            .accessibilityLabel(String(localized: "Settings", bundle: .module))
         }
     }
 
@@ -115,17 +125,17 @@ struct AgentSheet: View {
     @ViewBuilder
     private func activityView(_ activity: AgentActivity) -> some View {
         if activity.needsYou.isEmpty && activity.now.isEmpty && activity.nextUp.isEmpty && activity.recent.isEmpty {
-            quiet("Nothing going on right now.")
+            quiet(String(localized: "Nothing going on right now.", bundle: .module))
         }
         if !activity.needsYou.isEmpty {
             VStack(alignment: .leading, spacing: 8) {
-                SectionHeader("Needs you", count: activity.needsYou.count, needsYou: true)
+                SectionHeader(String(localized: "Needs you", bundle: .module), count: activity.needsYou.count, needsYou: true)
                 needsYouCard(activity.needsYou)
             }
         }
         if !activity.now.isEmpty {
             VStack(alignment: .leading, spacing: 8) {
-                SectionHeader("Now")
+                SectionHeader(String(localized: "Now", bundle: .module))
                 PaperCard {
                     ForEach(Array(activity.now.enumerated()), id: \.element.id) { index, task in
                         if index > 0 { HairlineDivider() }
@@ -136,13 +146,13 @@ struct AgentSheet: View {
         }
         if !activity.nextUp.isEmpty {
             VStack(alignment: .leading, spacing: 8) {
-                SectionHeader("Next up")
+                SectionHeader(String(localized: "Next up", bundle: .module))
                 upcomingCard(Array(activity.nextUp.prefix(3)))
             }
         }
         if !activity.recent.isEmpty {
             VStack(alignment: .leading, spacing: 8) {
-                SectionHeader("Recent")
+                SectionHeader(String(localized: "Recent", bundle: .module))
                 recentCard(activity.recent)
             }
         }
@@ -154,7 +164,7 @@ struct AgentSheet: View {
                 if index > 0 { HairlineDivider() }
                 let row = NeedsYouRow(
                     title: item.title,
-                    evidence: session.state.canAnswer ? [item.kind.label, item.source, item.time] : [item.kind.label, "reconnect to answer"],
+                    evidence: session.state.canAnswer ? [item.kind.label, item.source, item.time] : [item.kind.label, String(localized: "reconnect to answer", bundle: .module)],
                     showsChevron: session.state.canAnswer)
                 Group {
                     if session.state.canAnswer {
@@ -171,15 +181,18 @@ struct AgentSheet: View {
     private func nowRow(_ task: RunningTask) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .firstTextBaseline, spacing: 12) {
-                Text(task.title).font(.psycheRow).foregroundStyle(PsycheColor.text)
+                Button { openedTaskID = task.id } label: {
+                    Text(task.title).font(.psycheRow).foregroundStyle(PsycheColor.text).multilineTextAlignment(.leading)
+                }
+                .buttonStyle(.plain)
                 Spacer(minLength: 0)
-                Button("Cancel") { cancelling = task }
+                Button(String(localized: "Cancel", bundle: .module)) { cancelling = task }
                     .font(.subheadline.weight(.medium))
                     .foregroundStyle(PsycheColor.muted)
                     .disabled(!session.state.canAnswer)
             }
             ProgressBar(fraction: task.fraction)
-            EvidenceLine(["Step \(task.step) of \(task.stepCount)", task.detail, task.elapsed])
+            EvidenceLine([String(localized: "Step \(task.step) of \(task.stepCount)", bundle: .module), task.detail, task.elapsed])
         }
         .padding(PsycheMetrics.rowPadding)
     }
@@ -203,15 +216,19 @@ struct AgentSheet: View {
         PaperCard {
             ForEach(Array(runs.enumerated()), id: \.element.id) { index, run in
                 if index > 0 { HairlineDivider() }
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(run.title).font(.psycheRow).foregroundStyle(PsycheColor.text)
-                    HStack(spacing: 8) {
-                        StatusDot(run.outcome.dot, run.outcome.label)
-                        EvidenceLine([run.time])
+                Button { openedTaskID = run.id } label: {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(run.title).font(.psycheRow).foregroundStyle(PsycheColor.text)
+                        HStack(spacing: 8) {
+                            StatusDot(run.outcome.dot, run.outcome.label)
+                            EvidenceLine([run.time])
+                        }
                     }
+                    .padding(PsycheMetrics.rowPadding)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .contentShape(.rect)
                 }
-                .padding(PsycheMetrics.rowPadding)
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .buttonStyle(.plain)
                 .accessibilityElement(children: .combine)
             }
         }
@@ -223,10 +240,10 @@ struct AgentSheet: View {
     private func approvals(_ activity: AgentActivity) -> some View {
         let pending = activity.needsYou.filter { $0.kind == .approval }
         if pending.isEmpty {
-            quiet("No approvals waiting.")
+            quiet(String(localized: "No approvals waiting.", bundle: .module))
         } else {
             VStack(alignment: .leading, spacing: 8) {
-                SectionHeader("Waiting for you", count: pending.count, needsYou: true)
+                SectionHeader(String(localized: "Waiting for you", bundle: .module), count: pending.count, needsYou: true)
                 needsYouCard(pending)
             }
         }
@@ -235,7 +252,7 @@ struct AgentSheet: View {
     @ViewBuilder
     private func upcoming(_ activity: AgentActivity) -> some View {
         if activity.nextUp.isEmpty {
-            quiet("Nothing scheduled.")
+            quiet(String(localized: "Nothing scheduled.", bundle: .module))
         } else {
             upcomingCard(activity.nextUp)
         }
@@ -245,7 +262,7 @@ struct AgentSheet: View {
     private var soul: some View {
         if let persona = model.persona {
             VStack(alignment: .leading, spacing: 8) {
-                SectionHeader("Soul")
+                SectionHeader(String(localized: "Soul", bundle: .module))
                 PaperCard(padding: 16) {
                     VStack(alignment: .leading, spacing: 14) {
                         Text(persona.summary).font(.callout).foregroundStyle(PsycheColor.text)
@@ -255,12 +272,12 @@ struct AgentSheet: View {
                         }
                     }
                 }
-                Text("Edit on your Mac")
+                Text("Edit on your Mac", bundle: .module)
                     .font(.footnote).foregroundStyle(PsycheColor.muted)
                     .padding(.horizontal, 2)
             }
         } else {
-            quiet("Loading…")
+            quiet(String(localized: "Loading…", bundle: .module))
         }
     }
 
@@ -281,9 +298,9 @@ extension RecentRun.Outcome {
 
     var label: String {
         switch self {
-        case .done: "Done"
-        case .failed: "Failed"
-        case .cancelled: "Cancelled"
+        case .done: String(localized: "Done", bundle: .module)
+        case .failed: String(localized: "Failed", bundle: .module)
+        case .cancelled: String(localized: "Cancelled", bundle: .module)
         }
     }
 }

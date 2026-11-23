@@ -20,6 +20,13 @@ import {
 import { Badge } from "../../components/ui/badge.tsx";
 import { Button } from "../../components/ui/button.tsx";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "../../components/ui/dialog.tsx";
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -29,7 +36,14 @@ import { Input } from "../../components/ui/input.tsx";
 import { Label } from "../../components/ui/label.tsx";
 import { NativeSelect } from "../../components/ui/native-select.tsx";
 import { Skeleton } from "../../components/ui/skeleton.tsx";
-import { useArtifact, useCall, useGoal, useTask } from "../../data/hooks.ts";
+import {
+  useArtifact,
+  useAutomations,
+  useCall,
+  useGoal,
+  useTask,
+  useTasks,
+} from "../../data/hooks.ts";
 import { activeI18n, t } from "../../i18n/core.ts";
 import { describeError } from "../../i18n/errors.ts";
 import { formatDate, formatTime } from "../../lib/format.ts";
@@ -245,6 +259,14 @@ export interface GoalPageViewProps {
   /** "Suggest next step": asks the model for one step, on request only. Absent: no button. */
   onSuggest?: () => void;
   suggesting?: boolean;
+  /** Linked automations, each with its title. Absent: no Automations section. */
+  automations?: readonly { id: string; title: string }[];
+  /** Opens the "Link…" picker for tasks and automations. Absent: no button. */
+  onLink?: () => void;
+  /** Unlinks one linked task or automation. Absent: no Unlink buttons. */
+  onUnlink?: (link: { taskId?: string; automationId?: string }) => void;
+  /** A refused or failed link change, shown inline. */
+  linkError?: string | null;
 }
 
 /** Goal check-in choices: the schedule each one sets (the Gateway's `CHECKIN_CADENCES`). */
@@ -289,6 +311,10 @@ export function GoalPageView({
   onCheckinChange,
   onSuggest,
   suggesting = false,
+  automations,
+  onLink,
+  onUnlink,
+  linkError = null,
 }: GoalPageViewProps): ReactElement {
   const titleId = useId();
   const frequencyId = useId();
@@ -363,6 +389,12 @@ export function GoalPageView({
         ) : null}
       </header>
 
+      {linkError ? (
+        <p role="alert" className="text-callout text-danger-text">
+          {t("screens.goals.linkFailed", { reason: linkError })}
+        </p>
+      ) : null}
+
       <Section title={t("screens.goals.milestones")}>
         {items.length === 0 ? (
           <Line>{t("screens.goals.noMilestones")}</Line>
@@ -390,7 +422,25 @@ export function GoalPageView({
         ) : (
           taskIds.map((id) => (
             <div key={id} className="contents">
-              {renderTask ? (
+              {onUnlink ? (
+                <div className="flex items-center gap-1 px-3">
+                  <div className="min-w-0 flex-1">
+                    {renderTask ? (
+                      renderTask(id)
+                    ) : (
+                      <GoalTaskRow taskId={id} {...(onOpenTask ? { onOpen: onOpenTask } : {})} />
+                    )}
+                  </div>
+                  <Button
+                    type="button"
+                    size="xs"
+                    variant="ghost"
+                    onClick={() => onUnlink({ taskId: id })}
+                  >
+                    {t("screens.goals.unlink")}
+                  </Button>
+                </div>
+              ) : renderTask ? (
                 <GroupedRow label={renderTask(id)} />
               ) : (
                 <GoalTaskRow taskId={id} {...(onOpenTask ? { onOpen: onOpenTask } : {})} />
@@ -398,7 +448,45 @@ export function GoalPageView({
             </div>
           ))
         )}
+        {onLink ? (
+          <GroupedRow
+            label={null}
+            control={
+              <Button type="button" size="sm" variant="outline" onClick={onLink}>
+                {t("screens.goals.link")}
+              </Button>
+            }
+          />
+        ) : null}
       </Section>
+
+      {automations !== undefined ? (
+        <Section title={t("screens.goals.linkAutomations")}>
+          {automations.length === 0 ? (
+            <Line>{t("screens.goals.noAutomations")}</Line>
+          ) : (
+            automations.map((a) => (
+              <GroupedRow
+                key={a.id}
+                label={<span className="min-w-0 truncate">{a.title}</span>}
+                control={
+                  onUnlink ? (
+                    <Button
+                      type="button"
+                      size="xs"
+                      variant="ghost"
+                      aria-label={t("screens.goals.unlinkItem", { title: a.title })}
+                      onClick={() => onUnlink({ automationId: a.id })}
+                    >
+                      {t("screens.goals.unlink")}
+                    </Button>
+                  ) : undefined
+                }
+              />
+            ))
+          )}
+        </Section>
+      ) : null}
 
       <Section title={t("screens.goals.checkins")}>
         <Line>
@@ -538,6 +626,20 @@ export function GoalPage({ goalId, onDelete, onDeleted }: GoalPageProps): ReactE
   const [suggesting, setSuggesting] = useState(false);
   const planId = g.goal === null ? null : readGoalPlan(g.goal).planArtifactId;
   const { artifact } = useArtifact(planId);
+  const { all: allTasks } = useTasks();
+  const { automations: allAutomations } = useAutomations();
+  const [linkOpen, setLinkOpen] = useState(false);
+  const [linkError, setLinkError] = useState<string | null>(null);
+  const linkedTaskIds = g.links.flatMap((l) => (l.taskId ? [l.taskId] : []));
+  const linkedAutomationIds = g.links.flatMap((l) => (l.automationId ? [l.automationId] : []));
+  // Unlinking only removes the link: the task or automation itself stays.
+  const unlink = (link: { taskId?: string; automationId?: string }) => {
+    setLinkError(null);
+    call("goals.link", { goalId, ...link, unlink: true }).then(
+      () => g.reload(),
+      (err: unknown) => setLinkError(describeError(err)),
+    );
+  };
 
   const remove = (goal: Goal) => {
     const run = onDelete ?? ((x: Goal) => call("goals.archive", { goalId: x.id }));
@@ -555,40 +657,175 @@ export function GoalPage({ goalId, onDelete, onDeleted }: GoalPageProps): ReactE
   };
 
   return (
-    <GoalPageView
-      goal={g.goal}
-      milestones={g.milestones}
-      planArtifact={artifact}
-      taskIds={g.taskIds}
-      loading={g.loading}
-      loadingDelayMs={150}
-      error={g.error}
-      onRetry={g.reload}
-      onOpenTask={(id) => navigate?.(`/agent/activity/${id}`)}
-      onDelete={remove}
-      suggesting={suggesting}
-      onSuggest={() => {
-        setSuggesting(true);
-        call("goals.suggest", { goalId }).then(
-          (r) => {
-            setSuggesting(false);
-            toast(
-              t(r.ideaId === null ? "screens.goals.suggest.none" : "screens.goals.suggest.done"),
-            );
-          },
-          (err: unknown) => {
-            setSuggesting(false);
-            toast.error(describeError(err));
-          },
-        );
-      }}
-      onCheckinChange={(cadence) => {
-        call("goals.update", { goalId, cadence }).then(
-          () => g.reload(),
-          (err: unknown) => toast.error(describeError(err)),
-        );
-      }}
-      {...(openArtifact ? { onOpenArtifact: openArtifact } : {})}
-    />
+    <>
+      <GoalPageView
+        goal={g.goal}
+        milestones={g.milestones}
+        planArtifact={artifact}
+        taskIds={g.taskIds}
+        loading={g.loading}
+        loadingDelayMs={150}
+        error={g.error}
+        onRetry={g.reload}
+        onOpenTask={(id) => navigate?.(`/agent/activity/${id}`)}
+        onDelete={remove}
+        suggesting={suggesting}
+        onSuggest={() => {
+          setSuggesting(true);
+          call("goals.suggest", { goalId }).then(
+            (r) => {
+              setSuggesting(false);
+              toast(
+                t(r.ideaId === null ? "screens.goals.suggest.none" : "screens.goals.suggest.done"),
+              );
+            },
+            (err: unknown) => {
+              setSuggesting(false);
+              toast.error(describeError(err));
+            },
+          );
+        }}
+        onCheckinChange={(cadence) => {
+          call("goals.update", { goalId, cadence }).then(
+            () => g.reload(),
+            (err: unknown) => toast.error(describeError(err)),
+          );
+        }}
+        {...(openArtifact ? { onOpenArtifact: openArtifact } : {})}
+        automations={linkedAutomationIds.map((id) => ({
+          id,
+          title: allAutomations.find((a) => a.id === id)?.title ?? id,
+        }))}
+        onLink={() => {
+          setLinkError(null);
+          setLinkOpen(true);
+        }}
+        onUnlink={unlink}
+        linkError={linkError}
+      />
+      <GoalLinkDialog
+        goalId={goalId}
+        open={linkOpen}
+        onOpenChange={setLinkOpen}
+        tasks={allTasks}
+        automations={allAutomations}
+        linkedTaskIds={linkedTaskIds}
+        linkedAutomationIds={linkedAutomationIds}
+        onLinked={() => g.reload()}
+      />
+    </>
+  );
+}
+
+interface LinkItem {
+  id: string;
+  title: string;
+}
+
+function LinkList({
+  label,
+  items,
+  disabled,
+  onPick,
+}: {
+  label: string;
+  items: readonly LinkItem[];
+  disabled: boolean;
+  onPick: (id: string) => void;
+}): ReactElement | null {
+  if (items.length === 0) return null;
+  return (
+    <section className="flex flex-col gap-1">
+      <h3 className="text-callout text-label-secondary">{label}</h3>
+      <ul className="flex max-h-60 flex-col overflow-y-auto">
+        {items.map((item) => (
+          <li key={item.id}>
+            <Button
+              type="button"
+              variant="ghost"
+              className="w-full justify-start"
+              disabled={disabled}
+              onClick={() => onPick(item.id)}
+            >
+              {item.title}
+            </Button>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+export interface GoalLinkDialogProps {
+  goalId: string;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  tasks: readonly Task[];
+  automations: readonly { id: string; title: string }[];
+  linkedTaskIds: readonly string[];
+  linkedAutomationIds: readonly string[];
+  onLinked: () => void;
+}
+
+/** "Link…": picks one existing task or automation that is not linked yet (`goals.link`). */
+export function GoalLinkDialog({
+  goalId,
+  open,
+  onOpenChange,
+  tasks,
+  automations,
+  linkedTaskIds,
+  linkedAutomationIds,
+  onLinked,
+}: GoalLinkDialogProps): ReactElement {
+  const call = useCall();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const freeTasks = tasks.filter((x) => !linkedTaskIds.includes(x.id));
+  const freeAutomations = automations.filter((a) => !linkedAutomationIds.includes(a.id));
+  const pick = (link: { taskId?: string; automationId?: string }) => {
+    setBusy(true);
+    setError(null);
+    call("goals.link", { goalId, ...link }).then(
+      () => {
+        setBusy(false);
+        onOpenChange(false);
+        onLinked();
+      },
+      (err: unknown) => {
+        setBusy(false);
+        setError(describeError(err));
+      },
+    );
+  };
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{t("screens.goals.linkTitle")}</DialogTitle>
+          <DialogDescription>{t("screens.goals.linkHint")}</DialogDescription>
+        </DialogHeader>
+        {error ? (
+          <p role="alert" className="text-callout text-danger-text">
+            {t("screens.goals.linkFailed", { reason: error })}
+          </p>
+        ) : null}
+        <LinkList
+          label={t("screens.goals.linkTasks")}
+          items={freeTasks.map((x) => ({ id: x.id, title: x.title }))}
+          disabled={busy}
+          onPick={(id) => pick({ taskId: id })}
+        />
+        <LinkList
+          label={t("screens.goals.linkAutomations")}
+          items={freeAutomations}
+          disabled={busy}
+          onPick={(id) => pick({ automationId: id })}
+        />
+        {freeTasks.length === 0 && freeAutomations.length === 0 ? (
+          <p className="text-body text-label-secondary">{t("screens.goals.linkNone")}</p>
+        ) : null}
+      </DialogContent>
+    </Dialog>
   );
 }

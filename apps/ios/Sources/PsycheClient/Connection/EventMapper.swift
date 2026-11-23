@@ -45,6 +45,11 @@ struct EventMapper {
             if message["role"]?.string == "agent" { out.append(.changed(.home)) }
             return (out, .none)
 
+        case "chat.queue.updated":
+            guard let thread = p["threadId"]?.string else { return ([], .none) }
+            let items = (p["items"]?.array ?? []).compactMap(GatewayBackend.queued(from:))
+            return ([.chat(.queue(threadID: thread, items: items))], .none)
+
         case "chat.block":
             guard let thread = p["threadId"]?.string, let block = p["block"] else { return ([], .none) }
             switch block["type"]?.string {

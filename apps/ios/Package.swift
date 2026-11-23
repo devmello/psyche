@@ -27,7 +27,9 @@ let package = Package(
     ],
     targets: [
         // App group paths and the Gateway endpoint: the only module the extensions link.
-        .target(name: "PsycheShared"),
+        // Its strings (the Live Activity's status words, the Gateway endpoint's transport label, the share note)
+        // live in Resources/Localizable.xcstrings. The widget extension links this target, so its bundle ships there too.
+        .target(name: "PsycheShared", resources: [.process("Resources")]),
         // Snapshot types and the store protocol the UI reads. Fixture implementation only (I2 adds the cache).
         .target(name: "PsycheStore", dependencies: ["PsycheShared"]),
         // Connection states, Session, the Gateway connection, pairing, outbox and `GatewayBackend` (I2).
@@ -43,7 +45,7 @@ let package = Package(
         .target(name: "PsycheDesign", resources: [.process("Resources")]),
         // Native block views (I4) and the generative-UI WebView host (I8). Blocks read `ChatItem`, so they
         // depend on PsycheStore (which has no UI and no further dependencies, so nothing points up).
-        .target(name: "PsycheBlocks", dependencies: ["PsycheDesign", "PsycheStore"]),
+        .target(name: "PsycheBlocks", dependencies: ["PsycheDesign", "PsycheStore"], resources: [.process("Resources")]),
         .target(
             name: "PsycheFeatures",
             dependencies: ["PsycheBlocks", "PsycheDesign", "PsycheClient", "PsycheStore", "PsycheShared"],

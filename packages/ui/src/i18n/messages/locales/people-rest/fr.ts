@@ -197,6 +197,17 @@ export const peopleRest: Partial<Catalogue> = {
     "Déplace {identifiers, plural, one {# adresse} other {# adresses}} et {facts, plural, one {# fait} other {# faits}} de {other} vers {name}. {other} disparaît ; vous pourrez les séparer à nouveau plus tard.",
   "people.merge.pickAnother": "Choisir quelqu’un d’autre",
   "people.merge.confirm": "Fusionner",
+  "people.split.menu": "Scinder…",
+  "people.split.title": "Scinder {name}",
+  "people.split.description":
+    "Choisissez les identifiants qui appartiennent à quelqu’un d’autre. Ils passent à une nouvelle personne, et celle-ci garde le reste. Psyche ne proposera plus de les fusionner.",
+  "people.split.identifiers": "Identifiants de cette personne",
+  "people.split.newName": "Nom de la nouvelle personne",
+  "people.split.keepOne": "Au moins un identifiant reste à cette personne.",
+  "people.split.preview":
+    "{count, plural, one {# identifiant passe} other {# identifiants passent}} à {name}.",
+  "people.split.confirm": "Scinder",
+  "people.split.none": "Rien à scinder : cette personne n’a qu’un identifiant.",
   "people.merge.done": "{other} a été fusionné dans {name}.",
   "people.writeFailed": "Psyche n’a pas pu enregistrer cela ({reason}). Rien n’a été modifié.",
   "people.loading": "Chargement de la fiche",

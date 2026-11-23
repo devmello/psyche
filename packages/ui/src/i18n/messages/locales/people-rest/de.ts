@@ -196,6 +196,17 @@ export const peopleRest: Partial<Catalogue> = {
     "Verschiebt {identifiers, plural, one {# Adresse} other {# Adressen}} und {facts, plural, one {# Fakt} other {# Fakten}} von {other} nach {name}. {other} verschwindet; du kannst sie später wieder trennen.",
   "people.merge.pickAnother": "Jemand anderen wählen",
   "people.merge.confirm": "Zusammenführen",
+  "people.split.menu": "Aufteilen…",
+  "people.split.title": "{name} aufteilen",
+  "people.split.description":
+    "Wähle die Kennungen, die zu jemand anderem gehören. Sie wandern zu einer neuen Person; diese behält den Rest. Psyche schlägt ein erneutes Zusammenführen nicht vor.",
+  "people.split.identifiers": "Kennungen dieser Person",
+  "people.split.newName": "Name der neuen Person",
+  "people.split.keepOne": "Mindestens eine Kennung bleibt bei dieser Person.",
+  "people.split.preview":
+    "{count, plural, one {# Kennung wandert} other {# Kennungen wandern}} zu {name}.",
+  "people.split.confirm": "Aufteilen",
+  "people.split.none": "Nichts zu teilen: Diese Person hat nur eine Kennung.",
   "people.merge.done": "{other} in {name} zusammengeführt.",
   "people.writeFailed": "Psyche konnte das nicht sichern ({reason}). Es wurde nichts geändert.",
   "people.loading": "Karte wird geladen",

@@ -25,7 +25,7 @@ struct HomeView: View {
         ScrollViewReader { proxy in
         ScrollView {
             VStack(alignment: .leading, spacing: PsycheMetrics.sectionSpacing) {
-                PageHeader("Home", eyebrow: Date.now.formatted(.dateTime.weekday(.wide).month(.wide).day())) {
+                PageHeader(String(localized: "Home", bundle: .module), eyebrow: Date.now.formatted(.dateTime.weekday(.wide).month(.wide).day())) {
                     AgentButton(needsYou: !(model.phase.value?.needsYou.isEmpty ?? true), glass: true)
                 }
                 ConnectionBanner(state: session.state, lastSyncedAt: session.lastSyncedAt)
@@ -64,7 +64,7 @@ struct HomeView: View {
 
     private var askField: some View {
         HStack(spacing: 10) {
-            TextField("Ask Psyche anything", text: $ask)
+            TextField(String(localized: "Ask Psyche anything", bundle: .module), text: $ask)
                 .font(.callout)
                 .submitLabel(.send)
                 .onSubmit(submitAsk)
@@ -80,7 +80,7 @@ struct HomeView: View {
                         .frame(width: 32, height: 32)
                         .contentShape(Circle())
                 }
-                .accessibilityLabel(active ? "Stop dictation" : "Dictate")
+                .accessibilityLabel(active ? String(localized: "Stop dictation", bundle: .module) : String(localized: "Dictate", bundle: .module))
             }
             if !ask.isEmpty && !dictation.isActive {
                 Button(action: submitAsk) {
@@ -88,7 +88,7 @@ struct HomeView: View {
                         .font(.title2)
                         .foregroundStyle(PsycheColor.inkText)
                 }
-                .accessibilityLabel("Ask")
+                .accessibilityLabel(String(localized: "Ask", bundle: .module))
             }
         }
         .padding(.horizontal, 16)
@@ -122,8 +122,8 @@ struct HomeView: View {
         if !snapshot.needsYou.isEmpty { needsYou(snapshot.needsYou).transition(rise) }
         if !snapshot.running.isEmpty { running(snapshot.running).transition(rise) }
         if !snapshot.today.isEmpty { today(snapshot.today).transition(rise) }
-        if !model.comingUp.isEmpty { todos("Coming up", model.comingUp).transition(rise) }
-        if !model.laterTodos.isEmpty { todos("To-do", model.laterTodos).transition(rise) }
+        if !model.comingUp.isEmpty { todos(String(localized: "Coming up", bundle: .module), model.comingUp).transition(rise) }
+        if !model.laterTodos.isEmpty { todos(String(localized: "To-do", bundle: .module), model.laterTodos).transition(rise) }
         if !snapshot.keepInTouch.isEmpty { keepInTouch(snapshot.keepInTouch).transition(rise) }
         if !model.pinnedWidgets.isEmpty { pinned(model.pinnedWidgets).transition(rise) }
         SpacesHomeSection(store: store)
@@ -133,7 +133,7 @@ struct HomeView: View {
 
     private func needsYou(_ items: [NeedsYouItem]) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            SectionHeader("Needs you", count: items.count, needsYou: true)
+            SectionHeader(String(localized: "Needs you", bundle: .module), count: items.count, needsYou: true)
             PaperCard {
                 ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
                     if index > 0 { HairlineDivider() }
@@ -147,7 +147,7 @@ struct HomeView: View {
     private func needsYouRow(_ item: NeedsYouItem) -> some View {
         let canAnswer = session.state.canAnswer
         let kind = item.kind.label
-        let evidence = canAnswer ? [kind, item.source, item.time] : [kind, "reconnect to answer"]
+        let evidence = canAnswer ? [kind, item.source, item.time] : [kind, String(localized: "reconnect to answer", bundle: .module)]
         let row = NeedsYouRow(title: item.title, evidence: evidence, showsChevron: canAnswer)
         if canAnswer {
             Button { router.open(item) } label: { row }.buttonStyle(.plain)
@@ -158,7 +158,7 @@ struct HomeView: View {
 
     private func running(_ tasks: [RunningTask]) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            SectionHeader("Running")
+            SectionHeader(String(localized: "Running", bundle: .module))
             ForEach(tasks) { task in
                 PaperCard(padding: 14) {
                     VStack(alignment: .leading, spacing: 10) {
@@ -166,17 +166,17 @@ struct HomeView: View {
                             Text(task.title).font(.psycheRow).foregroundStyle(PsycheColor.text)
                             Spacer(minLength: 0)
                             if alerts?.watching.contains(task.id) == true {
-                                Text("Watching")
+                                Text("Watching", bundle: .module)
                                     .font(.subheadline.weight(.medium))
                                     .foregroundStyle(PsycheColor.muted)
                             } else {
-                                Button("Watch") { watch(task) }
+                                Button(String(localized: "Watch", bundle: .module)) { watch(task) }
                                     .font(.subheadline.weight(.medium))
                                     .foregroundStyle(PsycheColor.muted)
                             }
                         }
                         ProgressBar(fraction: task.fraction)
-                        EvidenceLine(["Step \(task.step) of \(task.stepCount)", task.detail, task.elapsed])
+                        EvidenceLine([String(localized: "Step \(task.step) of \(task.stepCount)", bundle: .module), task.detail, task.elapsed])
                     }
                 }
             }
@@ -193,7 +193,7 @@ struct HomeView: View {
 
     private func today(_ items: [BriefItem]) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            SectionHeader("Today")
+            SectionHeader(String(localized: "Today", bundle: .module))
             VStack(alignment: .leading, spacing: 14) {
                 ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
                     if index > 0 { HairlineDivider() }
@@ -202,7 +202,7 @@ struct HomeView: View {
                         EvidenceLine(item.evidenceLabel, item.evidence)
                     }
                 }
-                Text("That's everything for today.")
+                Text("That's everything for today.", bundle: .module)
                     .font(.system(.footnote, design: .serif).italic())
                     .foregroundStyle(PsycheColor.muted)
                     .frame(maxWidth: .infinity)
@@ -233,7 +233,7 @@ struct HomeView: View {
 
     private func keepInTouch(_ nudges: [Nudge]) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            SectionHeader("Keep in touch")
+            SectionHeader(String(localized: "Keep in touch", bundle: .module))
             PaperCard {
                 ForEach(Array(nudges.enumerated()), id: \.element.id) { index, nudge in
                     if index > 0 { HairlineDivider() }
@@ -250,13 +250,13 @@ struct HomeView: View {
                 Text(nudge.text).font(.psycheRow).foregroundStyle(PsycheColor.text)
             }
             HStack(spacing: 20) {
-                Button("Start a message") {
+                Button(String(localized: "Start a message", bundle: .module)) {
                     router.askPsyche(nudge.draft ?? "Help me reach out. \(nudge.text)")
                     Task { await model.act(on: nudge, .startMessage) }
                 }
                 .foregroundStyle(PsycheColor.inkText)
-                Button("Snooze") { Task { await model.act(on: nudge, .snooze) } }
-                Button("Mute") { Task { await model.act(on: nudge, .mute) } }
+                Button(String(localized: "Snooze", bundle: .module)) { Task { await model.act(on: nudge, .snooze) } }
+                Button(String(localized: "Mute", bundle: .module)) { Task { await model.act(on: nudge, .mute) } }
             }
             .font(.subheadline.weight(.medium))
             .foregroundStyle(PsycheColor.muted)
@@ -272,7 +272,7 @@ struct HomeView: View {
     /// Up to 6 widgets, below the fold, drawn by the native widget renderer (live, open and reply only).
     private func pinned(_ widgets: [WidgetSnapshot]) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            SectionHeader("Pinned", count: widgets.count).id("pinned")
+            SectionHeader(String(localized: "Pinned", bundle: .module), count: widgets.count).id("pinned")
             LazyVStack(alignment: .leading, spacing: 12) {
                 ForEach(widgets) { widget in
                     WidgetView(snapshot: widget, backend: store, surface: .overview)
@@ -285,7 +285,7 @@ struct HomeView: View {
 
     private var more: some View {
         VStack(alignment: .leading, spacing: 8) {
-            SectionHeader("More")
+            SectionHeader(String(localized: "More", bundle: .module))
             PaperCard {
                 moreRow("Inbox", systemImage: "tray", route: .inbox, trailing: model.unreadInbox > 0 ? "\(model.unreadInbox) new" : nil)
                 HairlineDivider()
@@ -336,9 +336,9 @@ struct HomeView: View {
 extension NeedsYouItem.Kind {
     var label: String {
         switch self {
-        case .approval: "Approval"
-        case .question: "Question"
-        case .task: "Task"
+        case .approval: String(localized: "Approval", bundle: .module)
+        case .question: String(localized: "Question", bundle: .module)
+        case .task: String(localized: "Task", bundle: .module)
         }
     }
 }

@@ -67,7 +67,7 @@ private struct TabsNodeView: View {
         let current = min(selection, max(0, tabs.count - 1))
         VStack(alignment: .leading, spacing: 10) {
             if tabs.count > 1 {
-                Picker("Section", selection: $selection) {
+                Picker(String(localized: "Section", bundle: .module), selection: $selection) {
                     ForEach(Array(tabs.enumerated()), id: \.offset) { index, tab in
                         Text(tab.label).tag(index)
                     }
@@ -126,7 +126,7 @@ private struct ListNodeView: View {
 
     var body: some View {
         if rows.isEmpty {
-            Text("Nothing here.").font(.footnote).foregroundStyle(PsycheColor.muted)
+            Text("Nothing here.", bundle: .module).font(.footnote).foregroundStyle(PsycheColor.muted)
         } else {
             VStack(spacing: 0) {
                 ForEach(Array(rows.enumerated()), id: \.offset) { index, row in
@@ -242,7 +242,7 @@ private struct ProgressNodeView: View {
                             Text(step.label).font(.footnote).foregroundStyle(PsycheColor.text)
                         }
                         .accessibilityElement(children: .combine)
-                        .accessibilityLabel("\(step.label), \(step.state.spokenName)")
+                        .accessibilityLabel(String(localized: "\(step.label), \(step.state.spokenName)", bundle: .module))
                     }
                 }
             }
@@ -269,7 +269,7 @@ private struct ChecklistNodeView: View {
                     }
                 }
                 .accessibilityElement(children: .ignore)
-                .accessibilityLabel("\(item.label), \(item.state.spokenName)" + (item.detail.map { ", \($0)" } ?? ""))
+                .accessibilityLabel(String(localized: "\(item.label), \(item.state.spokenName)", bundle: .module) + (item.detail.map { ", \($0)" } ?? ""))
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -353,7 +353,7 @@ private struct StatNodeView: View {
             }
             if let delta = stat.delta {
                 Text(delta).font(.footnote).foregroundStyle(PsycheColor.muted)
-                    .accessibilityLabel("Change: \(delta)")
+                    .accessibilityLabel(String(localized: "Change: \(delta)", bundle: .module))
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -405,7 +405,7 @@ private struct LinkNodeView: View {
                 Label(label, systemImage: "arrow.up.right").labelStyle(.titleAndIcon).font(.subheadline)
                     .foregroundStyle(PsycheColor.inkText)
             }
-            .accessibilityHint("Opens in your browser")
+            .accessibilityHint(String(localized: "Opens in your browser", bundle: .module))
         } else {
             Text(label).font(.subheadline).foregroundStyle(PsycheColor.text)
         }
@@ -421,7 +421,7 @@ private struct UnsupportedNodeView: View {
             if let fallback, !fallback.isEmpty {
                 Text(fallback).font(.subheadline).foregroundStyle(PsycheColor.text)
             }
-            Label("Open on your Mac to see this part", systemImage: "macbook.and.iphone")
+            Label(String(localized: "Open on your Mac to see this part", bundle: .module), systemImage: "macbook.and.iphone")
                 .font(.footnote).foregroundStyle(PsycheColor.muted)
         }
         .padding(10)

@@ -102,11 +102,11 @@ private struct ItemContent: View {
                 ItemBody(item: item, file: model.file, preview: $preview, confirmDelete: $confirmDelete)
                     .transition(.opacity)
             case .gone:
-                message("That file is gone", "It was deleted, here or on your Mac.")
+                message(String(localized: "That file is gone", bundle: .module), String(localized: "It was deleted, here or on your Mac.", bundle: .module))
             case .failed(let text):
                 VStack(spacing: 12) {
-                    message("Couldn't load this", text)
-                    Button("Try again") { Task { await model.load() } }.buttonStyle(.psycheOutline).frame(maxWidth: 220)
+                    message(String(localized: "Couldn't load this", bundle: .module), text)
+                    Button(String(localized: "Try again", bundle: .module)) { Task { await model.load() } }.buttonStyle(.psycheOutline).frame(maxWidth: 220)
                 }
             }
         }
@@ -124,16 +124,16 @@ private struct ItemContent: View {
         .fullScreenCover(isPresented: $preview) {
             if let url = model.file { QuickLookPreview(url: url) { preview = false }.ignoresSafeArea() }
         }
-        .confirmationDialog("Delete this file?", isPresented: $confirmDelete, titleVisibility: .visible) {
-            Button("Delete", role: .destructive) {
+        .confirmationDialog(String(localized: "Delete this file?", bundle: .module), isPresented: $confirmDelete, titleVisibility: .visible) {
+            Button(String(localized: "Delete", bundle: .module), role: .destructive) {
                 Task { if await model.delete() { dismissPage() } }
             }
-            Button("Cancel", role: .cancel) {}
+            Button(String(localized: "Cancel", bundle: .module), role: .cancel) {}
         } message: {
-            Text("It's removed from your Library on your Mac too. Chats that used it keep their copy of the text.")
+            Text("It's removed from your Library on your Mac too. Chats that used it keep their copy of the text.", bundle: .module)
         }
-        .alert("Couldn't delete", isPresented: Binding(get: { model.deleteError != nil }, set: { if !$0 { model.clearDeleteError() } })) {
-            Button("OK", role: .cancel) {}
+        .alert(String(localized: "Couldn't delete", bundle: .module), isPresented: Binding(get: { model.deleteError != nil }, set: { if !$0 { model.clearDeleteError() } })) {
+            Button(String(localized: "OK", bundle: .module), role: .cancel) {}
         } message: {
             Text(model.deleteError ?? "")
         }
@@ -143,10 +143,10 @@ private struct ItemContent: View {
     private func shareButton(_ item: PsycheStore.LibraryItem) -> some View {
         if let url = model.file {
             ShareLink(item: url) { Image(systemName: "square.and.arrow.up") }
-                .accessibilityLabel("Share")
+                .accessibilityLabel(String(localized: "Share", bundle: .module))
         } else {
             ShareLink(item: item.title) { Image(systemName: "square.and.arrow.up") }
-                .accessibilityLabel("Share")
+                .accessibilityLabel(String(localized: "Share", bundle: .module))
         }
     }
 
@@ -185,8 +185,8 @@ private struct ItemBody: View {
             if let threadID = item.threadID {
                 NavigationLink(value: Route.thread(id: threadID)) {
                     HStack(spacing: 8) {
-                        Text("Used in").foregroundStyle(PsycheColor.muted)
-                        Text(item.threadTitle ?? "a chat").foregroundStyle(PsycheColor.inkText).fontWeight(.medium)
+                        Text("Used in", bundle: .module).foregroundStyle(PsycheColor.muted)
+                        Text(item.threadTitle ?? String(localized: "a chat", bundle: .module)).foregroundStyle(PsycheColor.inkText).fontWeight(.medium)
                         Spacer(minLength: 8)
                         Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).foregroundStyle(PsycheColor.rule)
                     }
@@ -200,15 +200,15 @@ private struct ItemBody: View {
             }
 
             if file != nil {
-                Button { preview = true } label: { Label("Open", systemImage: "eye") }
+                Button { preview = true } label: { Label(String(localized: "Open", bundle: .module), systemImage: "eye") }
                     .buttonStyle(.psycheInk)
             } else {
                 PaperCard(padding: 14) {
                     HStack(spacing: 10) {
                         Image(systemName: "desktopcomputer").foregroundStyle(PsycheColor.muted)
                         VStack(alignment: .leading, spacing: 2) {
-                            Text("Open on your Mac").font(.subheadline.weight(.semibold)).foregroundStyle(PsycheColor.text)
-                            Text("This one isn't kept on your phone. It lives in your Library on your Mac.")
+                            Text("Open on your Mac", bundle: .module).font(.subheadline.weight(.semibold)).foregroundStyle(PsycheColor.text)
+                            Text("This one isn't kept on your phone. It lives in your Library on your Mac.", bundle: .module)
                                 .font(.footnote).foregroundStyle(PsycheColor.muted)
                         }
                     }
@@ -216,7 +216,7 @@ private struct ItemBody: View {
             }
 
             Button(role: .destructive) { confirmDelete = true } label: {
-                Label("Delete", systemImage: "trash").foregroundStyle(PsycheColor.red)
+                Label(String(localized: "Delete", bundle: .module), systemImage: "trash").foregroundStyle(PsycheColor.red)
             }
             .buttonStyle(.psycheOutline)
         }

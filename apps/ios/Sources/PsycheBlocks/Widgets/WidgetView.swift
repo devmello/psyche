@@ -129,7 +129,7 @@ public struct WidgetFrame: View {
                     .fixedSize()
                 }
                 if snapshot.isUntrusted {
-                    Label("Built from untrusted content", systemImage: "exclamationmark.triangle")
+                    Label(String(localized: "Built from untrusted content", bundle: .module), systemImage: "exclamationmark.triangle")
                         .font(.footnote).foregroundStyle(PsycheColor.muted)
                         .accessibilityHint(snapshot.untrustedSources.joined(separator: ", "))
                 }
@@ -145,7 +145,7 @@ public struct WidgetFrame: View {
                     snapshot.isUntrusted ? PsycheColor.rule : PsycheColor.hairline,
                     style: StrokeStyle(lineWidth: 1, dash: snapshot.isUntrusted ? [5, 3] : [])))
         .contextMenu {
-            Button("Copy as text", systemImage: "doc.on.doc") { copy("\(snapshot.title)\n\(snapshot.spec.fallbackText)") }
+            Button(String(localized: "Copy as text", bundle: .module), systemImage: "doc.on.doc") { copy("\(snapshot.title)\n\(snapshot.spec.fallbackText)") }
         }
         .accessibilityElement(children: .contain)
         .accessibilityLabel(snapshot.title)
@@ -182,7 +182,7 @@ private struct WidgetFrameSkeleton: View {
         .background(PsycheColor.sheet, in: RoundedRectangle(cornerRadius: PsycheMetrics.cardRadius, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: PsycheMetrics.cardRadius, style: .continuous).strokeBorder(PsycheColor.hairline, lineWidth: 1))
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Loading widget")
+        .accessibilityLabel(String(localized: "Loading widget", bundle: .module))
     }
 }
 
@@ -193,7 +193,7 @@ private struct WidgetFrameMessage: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(message).font(.subheadline).foregroundStyle(PsycheColor.muted)
-            Button("Try again", action: retry).buttonStyle(WidgetButtonStyle())
+            Button(String(localized: "Try again", bundle: .module), action: retry).buttonStyle(WidgetButtonStyle())
         }
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)

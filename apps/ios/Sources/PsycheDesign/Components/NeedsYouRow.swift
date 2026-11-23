@@ -36,7 +36,7 @@ public struct NeedsYouRow: View {
 
 #Preview("Needs you") {
     VStack(alignment: .leading, spacing: 8) {
-        SectionHeader("Needs you", count: 2, needsYou: true)
+        SectionHeader(String(localized: "Needs you", bundle: .module), count: 2, needsYou: true)
         PaperCard {
             NeedsYouRow(title: "Pay the electricity bill, $84.20", evidence: ["Approval", "Bills automation", "9:12"])
             HairlineDivider()

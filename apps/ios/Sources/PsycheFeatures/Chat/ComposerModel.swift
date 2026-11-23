@@ -44,7 +44,7 @@ final class ComposerModel {
     /// Uploading, or waiting for the Mac: Send holds until the file can go with the message.
     var isUploading: Bool { attachments.contains { $0.state == .uploading || $0.state == .waiting } }
     /// What a waiting file's chip says.
-    static let waitingText = "This file will upload when your Mac is reachable"
+    static let waitingText = String(localized: "This file will upload when your Mac is reachable", bundle: .module)
     /// The bytes of files waiting for the Mac; they upload again from `retryWaiting()`.
     private var waitingData: [ComposerAttachment.ID: Data] = [:]
     var hasFailedUpload: Bool {
@@ -58,6 +58,13 @@ final class ComposerModel {
     var trimmedText: String { text.trimmingCharacters(in: .whitespacesAndNewlines) }
     /// Send is on when there is something to send and nothing is still uploading.
     var canSend: Bool { (!trimmedText.isEmpty || !readyAttachments.isEmpty) && !isUploading }
+
+    /// Clears the text after a message sent while Psyche replies was accepted. Text typed since then stays.
+    func textWasSent(_ sent: String) {
+        guard trimmedText == sent else { return }
+        dictation.stop()
+        text = ""
+    }
 
     /// Takes the message out of the composer; the thread model sends it.
     func takeMessage() -> (text: String, attachments: [AttachmentRef]) {
@@ -94,7 +101,7 @@ final class ComposerModel {
                     guard let data = try await item.loadTransferable(type: Data.self) else { throw CocoaError(.fileReadUnknown) }
                     await upload(placeholder, data: data)
                 } catch {
-                    fail(placeholder, "Couldn't read this photo")
+                    fail(placeholder, String(localized: "Couldn't read this photo", bundle: .module))
                 }
             }
         }
@@ -112,7 +119,7 @@ final class ComposerModel {
                     let data = try Data(contentsOf: url, options: .mappedIfSafe)
                     await upload(placeholder, data: data)
                 } catch {
-                    fail(placeholder, "Couldn't read this file")
+                    fail(placeholder, String(localized: "Couldn't read this file", bundle: .module))
                 }
             }
         }

@@ -93,6 +93,17 @@ export const workB: Partial<Catalogue> = {
     "Move {identifiers, plural, one {# endereço} other {# endereços}} e {facts, plural, one {# fato} other {# fatos}} de {other} para {name}. {other} deixa de existir; você pode separá-los de novo depois.",
   "people.merge.pickAnother": "Escolher outra pessoa",
   "people.merge.confirm": "Mesclar",
+  "people.split.menu": "Dividir…",
+  "people.split.title": "Dividir {name}",
+  "people.split.description":
+    "Escolha os identificadores que pertencem a outra pessoa. Eles passam para uma nova pessoa, e esta mantém o resto. A Psyche não voltará a sugerir uni-los.",
+  "people.split.identifiers": "Identificadores desta pessoa",
+  "people.split.newName": "Nome da nova pessoa",
+  "people.split.keepOne": "Pelo menos um identificador fica com esta pessoa.",
+  "people.split.preview":
+    "{count, plural, one {# identificador passa} other {# identificadores passam}} para {name}.",
+  "people.split.confirm": "Dividir",
+  "people.split.none": "Nada para dividir: esta pessoa tem um identificador.",
   "people.merge.done": "{other} foi mesclado com {name}.",
   "people.writeFailed": "O Psyche não conseguiu salvar ({reason}). Nada foi alterado.",
   "people.loading": "Carregando o cartão",

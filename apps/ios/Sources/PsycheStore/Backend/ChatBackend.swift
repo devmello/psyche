@@ -15,18 +15,40 @@ public protocol ChatBackend: Sendable {
     func pinThread(id: String, pinned: Bool) async throws
     /// Archive a side chat: it leaves the list. The Gateway keeps it.
     func archiveThread(id: String) async throws
+    /// Set the chat's title (`threads.rename`). The Gateway refuses an empty title.
+    func renameThread(id: String, title: String) async throws
+    /// Delete a side chat and its messages (`threads.delete`). Receipts and audit entries are kept.
+    func deleteThread(id: String) async throws
+    /// The chat as a Markdown transcript, for sharing (`chat.export`).
+    func exportThread(id: String) async throws -> String
+    /// Steers the running reply with new guidance now (`chat.steer`).
+    func steer(threadID: String, text: String) async throws
+    /// Queues a message to run after the current reply settles (`chat.followUp`). Returns the queued item.
+    func queueFollowUp(threadID: String, text: String) async throws -> QueuedFollowUp
+    /// The thread's queued follow-ups, in the order they will run (`chat.queue.list`).
+    func queuedFollowUps(threadID: String) async throws -> [QueuedFollowUp]
+    /// Removes a queued follow-up before it starts. False when it already started or is unknown (`chat.queue.remove`).
+    func removeQueuedFollowUp(threadID: String, id: String) async throws -> Bool
 }
 
-// Additive requirements get a default so an implementation written before them still compiles; the
-// Gateway backend overrides these when the methods exist on the wire.
-extension ChatBackend {
-    public func pinThread(id: String, pinned: Bool) async throws {
-        throw BackendError.refused("Pinning chats isn't available yet.")
-    }
+/// A follow-up the Gateway holds until the current reply settles. Its `id` is the Gateway's message id.
+public struct QueuedFollowUp: Sendable, Equatable, Identifiable {
+    public var id: String
+    public var threadID: String
+    public var position: Int
+    public var text: String
 
-    public func archiveThread(id: String) async throws {
-        throw BackendError.refused("Archiving chats isn't available yet.")
+    public init(id: String, threadID: String, position: Int, text: String) {
+        self.id = id
+        self.threadID = threadID
+        self.position = position
+        self.text = text
     }
+}
+
+/// How a message sent while Psyche is replying goes: steer the reply now, or queue it after the reply.
+public enum RunMessageMode: String, Sendable, Equatable, CaseIterable {
+    case queue, steer
 }
 
 public struct MessageDraft: Sendable, Equatable {
@@ -71,10 +93,13 @@ public enum ChatEvent: Sendable, Equatable {
     /// The Gateway's run for this thread changed (`run.updated`): a chat reply started, waits for the owner, or
     /// ended. Carries a task's run too (`isChat` false), which is what ties a task to its chat.
     case run(threadID: String, update: RunUpdate)
+    /// The thread's follow-up queue changed (`chat.queue.updated`): the whole list, in run order.
+    case queue(threadID: String, items: [QueuedFollowUp])
 
     public var threadID: String {
         switch self {
-        case .item(let id, _), .delta(let id, _, _), .done(let id, _), .status(let id, _, _), .run(let id, _): id
+        case .item(let id, _), .delta(let id, _, _), .done(let id, _), .status(let id, _, _), .run(let id, _),
+            .queue(let id, _): id
         }
     }
 }

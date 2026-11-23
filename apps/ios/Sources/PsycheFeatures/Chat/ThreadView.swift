@@ -37,7 +37,7 @@ struct ThreadView: View {
                             .transition(Self.isUser(item) ? .identity : motion.transition(.rise))
                     }
                     if thread.statusKind == .running, !isStreaming(thread) {
-                        WorkingRow(text: thread.status.isEmpty ? "Working" : thread.status)
+                        WorkingRow(text: thread.status.isEmpty ? String(localized: "Working", bundle: .module) : thread.status)
                             .padding(.top, 14)
                             .transition(motion.transition(.fade))
                     }
@@ -81,7 +81,7 @@ struct ThreadView: View {
                 }
                 .padding(.trailing, 16).padding(.bottom, 10)
                 .transition(motion.transition(.control))
-                .accessibilityLabel("Jump to latest")
+                .accessibilityLabel(String(localized: "Jump to latest", bundle: .module))
             }
         }
         .psycheAnimation(.snappy, value: pinned)
@@ -111,10 +111,19 @@ struct ThreadView: View {
         #endif
         .safeAreaInset(edge: .bottom) {
             Composer(
-                composer: composer, isRunning: model.isRunning, canSend: composer.canSend && session.state.canAnswer,
-                focused: $composerFocused, send: send, stop: model.cancel)
+                composer: composer, isRunning: model.isRunning,
+                // A file cannot join a reply that is running (the Gateway refuses it), so while one runs
+                // the attachments wait for the reply to end.
+                canSend: composer.canSend && session.state.canAnswer && !(model.isRunning && !composer.attachments.isEmpty),
+                focused: $composerFocused, queue: model.queue, runMode: model.runMode, setRunMode: model.setRunMode,
+                removeQueued: { item in Task { await model.removeQueued(item) } }, send: send, stop: model.cancel)
         }
         .sensoryFeedback(.impact(weight: .light), trigger: model.sentCount)
+        .alert(String(localized: "Couldn't do that", bundle: .module), isPresented: actionErrorShown) {
+            Button(String(localized: "OK", bundle: .module)) { model.clearActionError() }
+        } message: {
+            Text(model.actionError ?? "")
+        }
         .onChange(of: session.state.canAnswer) { _, reachable in if reachable { composer.retryWaiting() } }
         .task {
             await model.load()
@@ -139,6 +148,10 @@ struct ThreadView: View {
         .onDisappear { composer.dictation.stop() }
     }
 
+    private var actionErrorShown: Binding<Bool> {
+        Binding(get: { model.actionError != nil }, set: { if !$0 { model.clearActionError() } })
+    }
+
     private var context: BlockContext {
         BlockContext(
             chosen: model.chosen,
@@ -153,10 +166,25 @@ struct ThreadView: View {
     }
 
     private func send() {
+        if model.isRunning {
+            sendWhileRunning()
+            return
+        }
         let message = composer.takeMessage()
         alerts?.noteSentFromPhone()
         pinned = true
         model.send(message.text, attachments: message.attachments)
+    }
+
+    /// Steers the running reply or queues the text, by the chosen mode. The text leaves the field only once the
+    /// Gateway has taken it, so a refusal keeps it for another try.
+    private func sendWhileRunning() {
+        let text = composer.trimmedText
+        alerts?.noteSentFromPhone()
+        pinned = true
+        Task {
+            if await model.submitWhileRunning(text) { composer.textWasSent(text) }
+        }
     }
 
     private func jumpToLatest() {

@@ -105,6 +105,12 @@ export const spaces = {
   "spaces.files.rw": "read and write",
   "spaces.files.automationsRo": "automations read only",
   "spaces.files.addOnMac": "Add folders on the computer where Psyche runs",
+  "spaces.files.add": "Add folder",
+  "spaces.files.pickTitle": "Choose a folder for this Space",
+  "spaces.files.accessTo": "Access to {path}",
+  "spaces.files.remove": "Remove",
+  "spaces.files.removeFolder": "Remove {path}",
+  "spaces.files.failed": "Could not change the folders: {reason}",
   "spaces.goals": "Goals",
 
   "spaces.switcher.label": "Space: {name}",

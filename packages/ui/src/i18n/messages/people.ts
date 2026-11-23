@@ -205,6 +205,17 @@ export const people = {
     "Moves {identifiers, plural, one {# address} other {# addresses}} and {facts, plural, one {# fact} other {# facts}} from {other} into {name}. {other} goes away; you can split them again later.",
   "people.merge.pickAnother": "Pick someone else",
   "people.merge.confirm": "Merge",
+  "people.split.menu": "Split…",
+  "people.split.title": "Split {name}",
+  "people.split.description":
+    "Pick the identifiers that belong to someone else. They move to a new person, and this one keeps the rest. Psyche won't suggest merging them again.",
+  "people.split.identifiers": "Identifiers on this person",
+  "people.split.newName": "Name of the new person",
+  "people.split.keepOne": "At least one identifier stays with this person.",
+  "people.split.preview":
+    "{count, plural, one {# identifier moves} other {# identifiers move}} to {name}.",
+  "people.split.confirm": "Split",
+  "people.split.none": "Nothing to split: this person has one identifier.",
   "people.merge.done": "Merged {other} into {name}.",
   "people.writeFailed": "Psyche couldn't save that ({reason}). Nothing was changed.",
   "people.loading": "Loading the card",

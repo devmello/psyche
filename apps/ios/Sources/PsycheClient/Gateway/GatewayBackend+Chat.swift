@@ -62,6 +62,62 @@ extension GatewayBackend {
         _ = try await call("chat.cancel", .obj(["threadId": .string(threadID)]))
     }
 
+    public func steer(threadID: String, text: String) async throws {
+        let id = try await resolveThreadID(threadID)
+        // chat.steer is side-effecting: the key makes a resend after a lost reply a no-op.
+        _ = try await call("chat.steer", .obj(["threadId": .string(id), "content": .string(text)]), key: UUID().uuidString)
+    }
+
+    public func queueFollowUp(threadID: String, text: String) async throws -> QueuedFollowUp {
+        let id = try await resolveThreadID(threadID)
+        let result = try await call("chat.followUp", .obj(["threadId": .string(id), "content": .string(text)]), key: UUID().uuidString)
+        guard let messageID = result["messageId"]?.string else { throw BackendError.refused("The Gateway didn't queue the message.") }
+        // The position is the Gateway's to say: `chat.queue.updated` carries the whole list, so the
+        // queue's own order replaces this guess; Int.max keeps the new item last until then.
+        return QueuedFollowUp(id: messageID, threadID: id, position: .max, text: text)
+    }
+
+    public func queuedFollowUps(threadID: String) async throws -> [QueuedFollowUp] {
+        let id = try await resolveThreadID(threadID)
+        let result = try await call("chat.queue.list", .obj(["threadId": .string(id)]))
+        return (result["items"]?.array ?? []).compactMap(Self.queued(from:))
+    }
+
+    public func removeQueuedFollowUp(threadID: String, id: String) async throws -> Bool {
+        let thread = try await resolveThreadID(threadID)
+        let result = try await call("chat.queue.remove", .obj(["threadId": .string(thread), "messageId": .string(id)]))
+        return result["removed"]?.bool ?? false
+    }
+
+    /// One `QueuedMessage` as the composer's queue strip shows it. A malformed item is skipped, not fatal.
+    static func queued(from entry: JSONValue) -> QueuedFollowUp? {
+        guard let id = entry["messageId"]?.string, let thread = entry["threadId"]?.string,
+              let text = entry["content"]?.string else { return nil }
+        return QueuedFollowUp(id: id, threadID: thread, position: entry["position"]?.int ?? 0, text: text)
+    }
+
+    public func pinThread(id: String, pinned: Bool) async throws {
+        _ = try await call("threads.pin", .obj(["threadId": .string(id), "pinned": .bool(pinned)]))
+    }
+
+    public func archiveThread(id: String) async throws {
+        _ = try await call("threads.archive", .obj(["threadId": .string(id)]))
+    }
+
+    public func renameThread(id: String, title: String) async throws {
+        _ = try await call("threads.rename", .obj(["threadId": .string(id), "title": .string(title)]))
+    }
+
+    public func deleteThread(id: String) async throws {
+        _ = try await call("threads.delete", .obj(["threadId": .string(id)]))
+    }
+
+    public func exportThread(id: String) async throws -> String {
+        let result = try await call("chat.export", .obj(["threadId": .string(id), "format": "markdown"]))
+        guard let content = result["content"]?.string else { throw BackendError.notFound }
+        return content
+    }
+
     // MARK: -
 
     /// nil means the main thread. The screens still ask for the fixture's main-thread id ("thr_main") in a

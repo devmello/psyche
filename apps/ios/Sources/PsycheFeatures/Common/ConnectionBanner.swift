@@ -34,7 +34,7 @@ private struct ConnectingLine: View {
         HStack(spacing: 8) {
             if visible {
                 ProgressView().controlSize(.small)
-                Text("Connecting…").font(.footnote).foregroundStyle(PsycheColor.muted)
+                Text("Connecting…", bundle: .module).font(.footnote).foregroundStyle(PsycheColor.muted)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -63,11 +63,11 @@ private struct UnreachableBanner: View {
                     Text(reason.title).font(.psycheRow.weight(.semibold)).foregroundStyle(PsycheColor.text)
                     Text(reason.detail).font(.footnote).foregroundStyle(PsycheColor.muted)
                     if let lastSyncedAt {
-                        EvidenceLine(["Updated \(lastSyncedAt.formatted(.dateTime.hour().minute()))", "cached"])
+                        EvidenceLine([String(localized: "Updated \(lastSyncedAt.formatted(.dateTime.hour().minute()))", bundle: .module), String(localized: "cached", bundle: .module)])
                             .padding(.top, 2)
                     }
                     if reason == .tailscaleOff {
-                        Button(Tailscale.isInstalled ? "Open Tailscale" : "Get Tailscale") {
+                        Button(Tailscale.isInstalled ? String(localized: "Open Tailscale", bundle: .module) : "Get Tailscale") {
                             openURL(Tailscale.isInstalled ? Tailscale.appURL : Tailscale.storeURL)
                         }
                         .font(.footnote.weight(.semibold))
@@ -108,18 +108,18 @@ extension UnreachableReason {
 
     var title: String {
         switch self {
-        case .awayFromHome: "You're away from home"
-        case .gatewayOff: "Your Mac isn't answering"
-        case .tailscaleOff: "Turn on Tailscale to reach your Mac"
+        case .awayFromHome: String(localized: "You're away from home", bundle: .module)
+        case .gatewayOff: String(localized: "Your Mac isn't answering", bundle: .module)
+        case .tailscaleOff: String(localized: "Turn on Tailscale to reach your Mac", bundle: .module)
         }
     }
 
     var detail: String {
         switch self {
         case .awayFromHome:
-            "Your Mac is only reachable on your home network. Answers wait until you're back, or turn on Tailscale."
-        case .gatewayOff: "It may be asleep. Answers wait until it's back."
-        case .tailscaleOff: "Psyche reaches your Mac over Tailscale when you're away. Answers wait until it's on."
+            String(localized: "Your Mac is only reachable on your home network. Answers wait until you're back, or turn on Tailscale.", bundle: .module)
+        case .gatewayOff: String(localized: "It may be asleep. Answers wait until it's back.", bundle: .module)
+        case .tailscaleOff: String(localized: "Psyche reaches your Mac over Tailscale when you're away. Answers wait until it's on.", bundle: .module)
         }
     }
 }

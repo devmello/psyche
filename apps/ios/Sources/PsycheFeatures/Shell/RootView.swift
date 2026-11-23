@@ -85,26 +85,26 @@ struct MainTabs: View {
                     HomeView(store: store).routeDestinations()
                 }
             } label: {
-                tabLabel("Home", symbol: "house", tab: .home)
+                tabLabel(String(localized: "Home", bundle: .module), symbol: "house", tab: .home)
             }
             Tab(value: AppTab.chat) {
                 ChatTab()
             } label: {
-                tabLabel("Chat", symbol: "bubble.left", tab: .chat)
+                tabLabel(String(localized: "Chat", bundle: .module), symbol: "bubble.left", tab: .chat)
             }
             Tab(value: AppTab.library) {
                 NavigationStack(path: $router.libraryPath) {
                     LibraryView().routeDestinations()
                 }
             } label: {
-                tabLabel("Library", symbol: "books.vertical", tab: .library)
+                tabLabel(String(localized: "Library", bundle: .module), symbol: "books.vertical", tab: .library)
             }
             Tab(value: AppTab.memory) {
                 NavigationStack(path: $router.memoryPath) {
                     MemoryView(store: store).routeDestinations()
                 }
             } label: {
-                tabLabel("Memory", symbol: "bookmark", tab: .memory)
+                tabLabel(String(localized: "Memory", bundle: .module), symbol: "bookmark", tab: .memory)
             }
             Tab(value: AppTab.search, role: .search) {
                 NavigationStack(path: $router.searchPath) {
@@ -120,7 +120,7 @@ struct MainTabs: View {
         .tabViewSidebarHeader {
             HStack(spacing: 10) {
                 MothAvatar(size: 28)
-                Text("Psyche").psycheTitle(.title3)
+                Text("Psyche", bundle: .module).psycheTitle(.title3)
             }
             .padding(.vertical, 4)
         }
@@ -188,12 +188,12 @@ extension MainTabs {
     fileprivate var watchOffer: some View {
         if let alerts, let task = alerts.offer {
             HStack(spacing: 12) {
-                Text("Watch this on your Lock Screen?")
+                Text("Watch this on your Lock Screen?", bundle: .module)
                     .font(.subheadline).foregroundStyle(PsycheColor.text)
                 Spacer(minLength: 0)
-                Button("Not now") { alerts.dismissOffer() }
+                Button(String(localized: "Not now", bundle: .module)) { alerts.dismissOffer() }
                     .font(.subheadline).foregroundStyle(PsycheColor.muted)
-                Button("Watch") {
+                Button(String(localized: "Watch", bundle: .module)) {
                     Task {
                         _ = await alerts.watch(task)
                         alerts.dismissOffer()
