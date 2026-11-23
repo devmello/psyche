@@ -28,18 +28,4 @@ struct RouteView: View {
         case .task: EmptyView()  // opens the agent sheet through the router, never pushed
         }
     }
-
-    private func placeholder(_ kind: String, _ id: String) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(kind).psycheTitle()
-            EvidenceLine([id])
-            Text("Read-mostly on the phone. Edit on your Mac.", bundle: .module)
-                .font(.subheadline).foregroundStyle(PsycheColor.muted)
-            Spacer()
-        }
-        .padding(PsycheMetrics.pagePadding)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .psycheScreen()
-        .psycheInlineTitle()
-    }
 }

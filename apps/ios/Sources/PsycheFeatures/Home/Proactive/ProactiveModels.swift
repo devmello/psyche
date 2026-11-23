@@ -117,6 +117,14 @@ final class GoalsModel {
         }
     }
 
+    /// Creates the goal the draft describes, then reloads the list so it shows. A refusal throws and leaves the
+    /// list as it was; the Add goal sheet shows the Gateway's words.
+    func create(_ draft: GoalDraft) async throws {
+        guard draft.isValid else { return }
+        _ = try await store.createGoal(title: draft.trimmedTitle, category: draft.category)
+        await load()
+    }
+
     /// The statuses a phone can set from the goal's current one.
     static func choices(for status: String) -> [GoalStatusChange] {
         switch status {

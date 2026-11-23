@@ -23,6 +23,19 @@ enum ProactiveText {
         }
     }
 
+    static func goalCategory(_ category: GoalCategoryChoice) -> String {
+        switch category {
+        case .health: String(localized: "Health", bundle: .module)
+        case .finance: String(localized: "Finance", bundle: .module)
+        case .career: String(localized: "Career", bundle: .module)
+        case .relationships: String(localized: "Relationships", bundle: .module)
+        case .productivity: String(localized: "Productivity", bundle: .module)
+        case .learning: String(localized: "Learning", bundle: .module)
+        case .home: String(localized: "Household", bundle: .module)
+        case .other: String(localized: "Other", bundle: .module)
+        }
+    }
+
     static func runState(_ state: ScheduledRunState) -> String {
         switch state {
         case .running: String(localized: "Running", bundle: .module)
@@ -240,6 +253,7 @@ struct IdeasView: View {
 struct GoalsView: View {
     @State private var model: GoalsModel
     @State private var showing = false
+    @State private var adding = false
 
     init(store: any PsycheBackend) { _model = State(initialValue: GoalsModel(store: store)) }
 
@@ -274,6 +288,15 @@ struct GoalsView: View {
         }
         .sheet(isPresented: $showing, onDismiss: model.close) {
             GoalSheet(model: model)
+        }
+        .sheet(isPresented: $adding) {
+            AddGoalSheet { draft in try await model.create(draft) }
+        }
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button { adding = true } label: { Image(systemName: "plus") }
+                    .accessibilityLabel(String(localized: "Add goal", bundle: .module))
+            }
         }
     }
 }

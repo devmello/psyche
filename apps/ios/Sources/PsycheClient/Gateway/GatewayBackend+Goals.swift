@@ -17,6 +17,15 @@ extension GatewayBackend {
         try Self.goalDetail(from: try await call("goals.update", .obj(["goalId": .string(id), "status": .string(status.rawValue)])))
     }
 
+    /// `goals.create` with the Mac dialog's two fields: the title (trimmed) and the category.
+    public func createGoal(title: String, category: GoalCategoryChoice) async throws -> GoalDetail {
+        let params: JSONValue = .obj([
+            "title": .string(title.trimmingCharacters(in: .whitespacesAndNewlines)),
+            "category": .string(category.rawValue),
+        ])
+        return try Self.goalDetail(from: try await call("goals.create", params))
+    }
+
     /// A `goals.get` or `goals.update` answer: the goal, its milestones and its linked tasks.
     static func goalDetail(from result: JSONValue) throws -> GoalDetail {
         guard let wire = result["goal"], let goal = Self.goal(from: wire) else { throw BackendError.notFound }

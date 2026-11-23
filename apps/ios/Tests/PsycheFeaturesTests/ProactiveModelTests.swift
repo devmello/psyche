@@ -169,4 +169,24 @@ struct ProactiveModelTests {
         #expect(model.phase.value == before)
         #expect(model.actionError != nil)
     }
+
+    @Test func aGoalDraftNeedsATitleOnceItIsTrimmed() {
+        #expect(!GoalDraft().isValid)
+        #expect(!GoalDraft(title: "   \n ").isValid)
+        #expect(GoalDraft(title: " Run ").isValid)
+        #expect(GoalDraft(title: " Run ").trimmedTitle == "Run")
+        #expect(GoalDraft().category == .other)
+    }
+
+    @Test func creatingAGoalReloadsTheListAndABlankDraftCreatesNothing() async throws {
+        let model = GoalsModel(store: FixtureBackend())
+        await model.load()
+        let before = model.phase.value?.count ?? -1
+        try await model.create(GoalDraft(title: "  Learn Swift  ", category: .learning))
+        #expect(model.phase.value?.count == before + 1)
+        #expect(model.phase.value?.last?.title == "Learn Swift")
+        #expect(model.phase.value?.last?.category == "learning")
+        try await model.create(GoalDraft(title: " "))
+        #expect(model.phase.value?.count == before + 1)
+    }
 }
