@@ -13,11 +13,15 @@ struct AgentSheet: View {
     @State private var model: AgentModel
     @State private var segment = Segment.activity
     @State private var cancelling: RunningTask?
+    /// The task whose run page is open (a nested sheet).
+    @State private var openedTaskID: String?
     @Environment(Router.self) private var router
     @Environment(Session.self) private var session
     private let motion = MotionContext()
+    private let store: any PsycheBackend
 
     init(store: any PsycheBackend) {
+        self.store = store
         _model = State(initialValue: AgentModel(store: store))
         #if DEBUG
         // `-psycheSegment Soul` for screenshots.
@@ -75,6 +79,12 @@ struct AgentSheet: View {
             Button(String(localized: "Keep running", bundle: .module), role: .cancel) {}
         } message: { _ in
             Text("Psyche stops where it is. Work already done stays.", bundle: .module)
+        }
+        .sheet(isPresented: Binding(get: { openedTaskID != nil }, set: { if !$0 { openedTaskID = nil } })) {
+            if let taskID = openedTaskID {
+                NavigationStack { TaskRunView(store: store, taskID: taskID) }
+                    .presentationDragIndicator(.visible)
+            }
         }
     }
 
@@ -171,7 +181,10 @@ struct AgentSheet: View {
     private func nowRow(_ task: RunningTask) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .firstTextBaseline, spacing: 12) {
-                Text(task.title).font(.psycheRow).foregroundStyle(PsycheColor.text)
+                Button { openedTaskID = task.id } label: {
+                    Text(task.title).font(.psycheRow).foregroundStyle(PsycheColor.text).multilineTextAlignment(.leading)
+                }
+                .buttonStyle(.plain)
                 Spacer(minLength: 0)
                 Button(String(localized: "Cancel", bundle: .module)) { cancelling = task }
                     .font(.subheadline.weight(.medium))
@@ -203,15 +216,19 @@ struct AgentSheet: View {
         PaperCard {
             ForEach(Array(runs.enumerated()), id: \.element.id) { index, run in
                 if index > 0 { HairlineDivider() }
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(run.title).font(.psycheRow).foregroundStyle(PsycheColor.text)
-                    HStack(spacing: 8) {
-                        StatusDot(run.outcome.dot, run.outcome.label)
-                        EvidenceLine([run.time])
+                Button { openedTaskID = run.id } label: {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(run.title).font(.psycheRow).foregroundStyle(PsycheColor.text)
+                        HStack(spacing: 8) {
+                            StatusDot(run.outcome.dot, run.outcome.label)
+                            EvidenceLine([run.time])
+                        }
                     }
+                    .padding(PsycheMetrics.rowPadding)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .contentShape(.rect)
                 }
-                .padding(PsycheMetrics.rowPadding)
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .buttonStyle(.plain)
                 .accessibilityElement(children: .combine)
             }
         }
