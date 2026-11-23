@@ -1,4 +1,12 @@
-import { existsSync, readFileSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { openDb } from "@psyche/db";
@@ -515,6 +523,63 @@ describe("external edits", () => {
       await new Promise((r) => setTimeout(r, 25));
     }
     expect((await env.store.search("quokka")).length).toBe(1);
+  });
+
+  it("indexes and lists a Finder-made or pulled C#.md and the other ordinary Finder names", async () => {
+    env = await makeEnv();
+    writeFileSync(join(env.workspace, "C#.md"), "csharp narwhal notes");
+    writeFileSync(join(env.workspace, "Trip 🏝️.md"), "island narwhal trip");
+    writeFileSync(join(env.workspace, "a|b.md"), "pipe narwhal refused");
+    await env.store.sync();
+    const files = await env.store.listFiles();
+    expect(files).toContain("C#.md");
+    expect(files).toContain("Trip 🏝️.md");
+    expect(files).not.toContain("a|b.md");
+    const hits = await env.store.search("csharp narwhal");
+    expect(hits.map((h) => h.chunk.source)).toContain("C#.md");
+    const refused = await env.store.search("pipe refused");
+    expect(refused.map((h) => h.chunk.source)).not.toContain("a|b.md");
+    // Open and save again: the same name reads and writes through the store.
+    expect((await env.store.readFile("C#.md"))?.content).toBe("csharp narwhal notes");
+    await env.store.writeFile("C#.md", "csharp edited\n", { provenance: "owner" });
+    expect((await env.store.readFile("C#.md"))?.content).toBe("csharp edited\n");
+  });
+});
+
+// APFS (the owner's Mac) folds case and `ſ`; a case-sensitive temp dir cannot show the attack, so
+// the disk cases skip there. The pure canonicalisation table in formats.test.ts always runs.
+function volumeFoldsCase(): boolean {
+  const dir = mkdtempSync(join(tmpdir(), "ws-names-ci-"));
+  try {
+    writeFileSync(join(dir, "Probe.md"), "x");
+    return existsSync(join(dir, "probe.md"));
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+const foldingVolume = volumeFoldsCase();
+if (!foldingVolume) {
+  console.warn("skipping the case-folding disk cases: the temp directory is case-sensitive");
+}
+
+describe.skipIf(!foldingVolume)("case-folding volume: protected names (APFS)", () => {
+  const long_s = String.fromCodePoint(0x17f);
+  it("refuses an agent write to ſoul.md the way it refuses SOUL.md", async () => {
+    env = await makeEnv();
+    const soul = await code(env.store.writeFile("SOUL.md", "x", { provenance: "agent" }));
+    const folded = await code(env.store.writeFile(`${long_s}oul.md`, "x", { provenance: "agent" }));
+    expect(soul).toBe("approval_required");
+    expect(folded).toBe(soul);
+  });
+
+  it("refuses an untrusted write to UſER.md the way it refuses USER.md", async () => {
+    env = await makeEnv();
+    const user = await code(env.store.writeFile("USER.md", "x", { provenance: "untrusted" }));
+    const folded = await code(
+      env.store.writeFile(`U${long_s}ER.md`, "x", { provenance: "untrusted" }),
+    );
+    expect(user).not.toBe("ok");
+    expect(folded).toBe(user);
   });
 });
 

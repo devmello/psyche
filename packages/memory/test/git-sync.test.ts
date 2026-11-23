@@ -94,6 +94,25 @@ describe.skipIf(!hasGit)("WorkspaceGit (H10)", { timeout: 90_000 }, () => {
     expect(await sync.sync()).toMatchObject({ committed: false, pushed: true });
   });
 
+  it("syncs Finder names with glob characters: a tracked excluded file with [ ] is untracked literally", async () => {
+    const { bare, sync } = await setup();
+    if (env === undefined) throw new Error("no env");
+    await env.store.write("memory/imports/raw[1].md", "- raw export\n", {
+      provenance: "agent",
+      actor: "job",
+    });
+    await sync.init();
+    // A commit made before the exclusion existed: the excluded file is tracked.
+    git(env.workspace, "--literal-pathspecs", "add", "-f", "--", "memory/imports/raw[1].md");
+    git(env.workspace, "commit", "-q", "-m", "older commit");
+    writeFileSync(join(env.workspace, "C#.md"), "csharp notes\n");
+    const r = await sync.sync();
+    expect(r).toMatchObject({ committed: true, pushed: true });
+    const files = git(bare, "ls-tree", "-r", "--name-only", "main").split("\n");
+    expect(files).toContain("C#.md");
+    expect(files).not.toContain("memory/imports/raw[1].md");
+  });
+
   it("pulls the owner's edits from another machine, reindexes them, then pushes", async () => {
     const { bare, sync } = await setup();
     if (env === undefined) throw new Error("no env");
