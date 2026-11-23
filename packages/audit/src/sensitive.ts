@@ -304,8 +304,20 @@ const isDigitAt = (s: string, i: number) => {
   return c >= 48 && c <= 57;
 };
 
-/** 13–19 digits, optionally grouped by single spaces, dots, tabs or dashes (the strict reading). */
-const CARD_CANDIDATE = /(?<!\d)\d(?:[ .\t-]?\d){12,18}(?!\d)/g;
+/**
+ * ASCII letters and digits. A digit run next to one of these is part of a longer token (a hex
+ * digest, a UUID, a ULID, a git sha), not a card number, so it is never read as one.
+ */
+const isAlnumAt = (s: string, i: number) => {
+  const c = s.charCodeAt(i);
+  return (c >= 48 && c <= 57) || (c >= 65 && c <= 90) || (c >= 97 && c <= 122);
+};
+
+/**
+ * 13–19 digits, optionally grouped by single spaces, dots, tabs or dashes (the strict reading).
+ * The candidate must not touch a letter or digit on either side: "ab4111…cd" is a hash, not a card.
+ */
+const CARD_CANDIDATE = /(?<![0-9a-zA-Z])\d(?:[ .\t-]?\d){12,18}(?![0-9a-zA-Z])/g;
 
 /**
  * Characters people put between card-number groups in a message: spaces, dashes and minus signs,
@@ -347,7 +359,7 @@ function cardMatches(text: string): { start: number; length: number }[] {
   const n = text.length;
   let i = 0;
   while (i < n) {
-    if (!isDigitAt(text, i) || (i > 0 && isDigitAt(text, i - 1))) {
+    if (!isDigitAt(text, i) || (i > 0 && isAlnumAt(text, i - 1))) {
       i += 1;
       continue;
     }
@@ -355,6 +367,7 @@ function cardMatches(text: string): { start: number; length: number }[] {
     const gaps: string[] = [];
     let digits = "";
     let p = i;
+    let inToken = false;
     for (;;) {
       let q = p;
       while (q < n && isDigitAt(text, q)) q += 1;
@@ -367,11 +380,13 @@ function cardMatches(text: string): { start: number; length: number }[] {
         p = g;
         continue;
       }
+      // A letter right after the chain makes the whole run part of a token: no card here.
+      inToken = q < n && isAlnumAt(text, q);
       i = q;
       break;
     }
     const count = gs.length / 2;
-    if (digits.length < 13) continue;
+    if (inToken || digits.length < 13) continue;
     const size = (k: number) => (gs[2 * k + 1] as number) - (gs[2 * k] as number);
     const off = [0];
     for (let k = 0; k < count; k += 1) off.push((off[k] as number) + size(k));
