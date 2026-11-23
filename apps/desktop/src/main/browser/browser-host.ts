@@ -24,6 +24,7 @@ import {
   WebContentsView,
   type WebPreferences,
 } from "electron";
+import { hostPlatform } from "../../platform/index.ts";
 import {
   type BridgeHighlight,
   type BridgeHostEvents,
@@ -1344,7 +1345,7 @@ export class BrowserHost implements BridgeTabHost {
       homeDir: homedir(),
       psycheHome: this.home,
       tmpRoot: tmpdir(),
-      platform: process.platform,
+      platform: hostPlatform(),
       profile: () => {
         this.prepareSession(profile);
         return session.fromPartition(profile);

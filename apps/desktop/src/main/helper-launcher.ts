@@ -2,6 +2,7 @@ import { spawn, spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import { hostPlatform } from "../platform/index.ts";
 import type { Runner } from "./supervisor-base.ts";
 
 /**
@@ -249,7 +250,7 @@ export class HelperLauncher {
   }
 
   private get windows(): boolean {
-    return (this.opts.platform ?? process.platform) === "win32";
+    return (this.opts.platform ?? hostPlatform()) === "win32";
   }
 
   /** Waits for the signature check, never longer than `signatureWaitMs` (default 3 s). */
@@ -400,7 +401,7 @@ export class HelperLauncher {
     if (
       this.state.kind === "unbundled" ||
       appPath === undefined ||
-      (this.opts.platform ?? process.platform) !== "darwin"
+      (this.opts.platform ?? hostPlatform()) !== "darwin"
     ) {
       return "not-applicable";
     }

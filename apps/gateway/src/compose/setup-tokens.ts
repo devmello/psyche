@@ -12,7 +12,6 @@ import {
   encodePairingLink,
   encodePairingLinkV2,
   formatMachineLink,
-  MACHINE_TOKENS_ENABLED,
   type MethodResult,
   PsycheError,
   setupTokenScopesFor,
@@ -91,12 +90,6 @@ export function setupTokenHandlers(deps: {
       ): Promise<MethodResult<"devices.setupToken.create">> {
         const { config, identity } = call.ctx;
         const machine = params.purpose === "machine";
-        if (machine && !MACHINE_TOKENS_ENABLED) {
-          throw new PsycheError(
-            "unavailable",
-            "Pairing a computer for Psyche to use is not available yet",
-          );
-        }
         // The scopes a token carries come from its purpose, never from the caller alone: a
         // machine token is exactly `["node"]` and takes none; a device token takes operator scopes
         // and never `node` (so a device token cannot make a machine, nor a machine token a client).

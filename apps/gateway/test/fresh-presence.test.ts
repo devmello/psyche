@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { updateDevice } from "@psyche/db";
 import type { PresenceVerifier } from "@psyche/permissions";
-import { type ApprovalRequest, MACHINE_TOKENS_ENABLED } from "@psyche/protocol";
+import type { ApprovalRequest } from "@psyche/protocol";
 import { FakeModelProvider } from "@psyche/testing";
 import { afterEach, describe, expect, it } from "vitest";
 import { runCli } from "../src/cli.ts";
@@ -164,7 +164,6 @@ describe("fresh presence on admin methods", () => {
       publicOrigin: "https://studio-mac.tail1234.ts.net",
       allowedOrigins: ["https://studio-mac.tail1234.ts.net"],
     });
-    expect(MACHINE_TOKENS_ENABLED).toBe(true);
     // The gate raises the card before the handler runs: no token exists until it is approved.
     const first = await admin.request("devices.setupToken.create", { purpose: "machine" });
     expect(first).toMatchObject({ ok: false, error: { code: "approval_required" } });
