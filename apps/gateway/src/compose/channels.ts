@@ -78,6 +78,7 @@ import {
 import type { Call, HandlerDef } from "../context.ts";
 import { MAIN_SESSION_KEY } from "../handlers/threads.ts";
 import { type WebhookRoute, webhookRoute } from "../http.ts";
+import { emptiesGroupSenders, groupSendersAction, requireFreshPresence } from "../presence-gate.ts";
 import { sealedChannelStore } from "../security/sealed-stores.ts";
 import { ensureSecurityState, stateSealFor } from "../security/state-seal.ts";
 import type { Gateway } from "../server.ts";
@@ -1494,6 +1495,24 @@ export function composeChannels(
         // The Gateway checks the method's scope first; changes are re-checked here.
         if (MUTATIONS.has(name) && !call.identity.scopes.includes(ADMIN)) {
           throw new PsycheError("forbidden", `${name} requires scope ${ADMIN}`);
+        }
+        if (name === "channels.allowlist.update") {
+          // A removal can still widen access (the last group sender): the owner's card is needed
+          // then. The list is read as stored, so the request cannot pretend it is narrower.
+          const p = params as unknown as {
+            channelId: string;
+            list?: unknown;
+            add?: unknown;
+            remove?: unknown;
+            approvalId?: unknown;
+          };
+          if (emptiesGroupSenders(service.getChannel(p.channelId), p)) {
+            await requireFreshPresence(
+              call,
+              groupSendersAction(p as unknown as Record<string, unknown>),
+              typeof p.approvalId === "string" ? p.approvalId : undefined,
+            );
+          }
         }
         const result = await fn(params, { deviceId: call.identity.deviceId });
         if (name === "channels.configure" || name === "channels.allowlist.update") attachReady();

@@ -1753,10 +1753,35 @@ export const ar: Partial<Catalogue> = {
   "settings.channels.approve": "موافقة",
   "settings.channels.ignoreSender": "تجاهل {name}",
   "settings.channels.ignore": "تجاهل",
+  "settings.channels.allow.remove": "إزالة",
+  "settings.channels.allow.removeNamed": "إزالة {name}",
+  "settings.channels.allow.senderLabel": "المرسل المراد السماح له",
+  "settings.channels.allow.groupLabel": "إضافة مرسل (محادثات المجموعات)",
+  "settings.channels.allow.addSender": "إضافة مرسل",
+  "settings.channels.allow.addGroup": "إضافة مرسل",
+  "settings.channels.allow.senderApproval": "السماح لمرسل دردشة",
+  "settings.channels.allow.groupApproval": "تغيير من يمكنه تشغيلي في المجموعات",
+  "settings.channels.allow.groupEmptied":
+    "إزالة {name} تترك القائمة فارغة. عندها يمكن لكل من هو مسموح له في الرسائل المباشرة أن يشغّل Psyche في المجموعات.",
+  "settings.channels.allow.forbidden":
+    "تغيير من يمكنه المراسلة يحتاج إلى جهاز مشرف. استخدم جهازًا مقترنًا كمشرف.",
+  "settings.channels.allow.failed":
+    "تعذّر على Psyche تغيير من يمكنه المراسلة ({reason}). لم يتغير شيء.",
+  "settings.channels.identity.name": "اسم الشخص",
+  "settings.channels.identity.senders": "معرّفات المرسلين، مفصولة بفواصل",
+  "settings.channels.identity.link": "ربط الهوية",
+  "settings.channels.identity.unlink": "فك الربط",
+  "settings.channels.identity.unlinkNamed": "فك ربط {name}",
+  "settings.channels.identity.approval": "ربط هوية دردشة",
+  "settings.channels.identity.forbidden":
+    "تغيير روابط الهوية يحتاج إلى جهاز مشرف. استخدم جهازًا مقترنًا كمشرف.",
+  "settings.channels.identity.failed":
+    "تعذّر على Psyche تغيير رابط الهوية ({reason}). لم يتغير شيء.",
   "settings.channels.noOneYet": "لا أحد بعد.",
   "settings.channels.owner": " · المالك",
-  "settings.channels.groups": "المجموعات",
-  "settings.channels.noGroups": "لا مجموعات.",
+  "settings.channels.groups": "من يمكنه تشغيلي في المجموعات",
+  "settings.channels.noGroups":
+    "يمكن لكل من هو مسموح له في الرسائل المباشرة أن يشغّلني في المجموعات.",
   "settings.channels.requireMention": "الإجابة في المجموعات عند الإشارة فقط",
   "settings.channels.err.forbidden":
     "{action, select, policy {تغيير من يمكنه المراسلة} mention {تغيير إشارات المجموعات} approve {الموافقة على المرسل} other {تجاهل المرسل}} يحتاج إلى موافقة على هذا الجهاز. استخدم جهازًا مقترنًا كمسؤول.",
@@ -1984,6 +2009,12 @@ export const ar: Partial<Catalogue> = {
   "settings.apiKeys.save": "حفظ",
   "settings.apiKeys.saving": "جارٍ الحفظ…",
   "settings.apiKeys.clear": "مسح",
+  "settings.apiKeys.clearConfirm.title": "إزالة مفتاح {name}؟",
+  "settings.apiKeys.clearConfirm.body":
+    "يحذف Psyche مفتاح {name} المحفوظ في الخزنة. ستفشل الطلبات إلى {name} حتى يُحفظ مفتاح جديد أو يُضبط في البيئة.",
+  "settings.apiKeys.clearConfirm.bodyPrimary":
+    "يحذف Psyche مفتاح {name} المحفوظ في الخزنة. يستخدم نموذجك الافتراضي {name}، لذلك لن تعمل المحادثة حتى تحفظ مفتاحًا آخر أو تختار نموذجًا مختلفًا.",
+  "settings.apiKeys.clearConfirm.confirm": "إزالة المفتاح",
   "settings.apiKeys.none": "غير مضبوط",
   "settings.apiKeys.vault": "محفوظ في الخزنة",
   "settings.apiKeys.env": "مضبوط في البيئة (له الأولوية)",

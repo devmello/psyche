@@ -1,4 +1,13 @@
 import { type ReactElement, useId, useState } from "react";
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "../../components/ui/alert-dialog.tsx";
 import { Button } from "../../components/ui/button.tsx";
 import { useCall } from "../../data/hooks.ts";
 import { t } from "../../i18n/core.ts";
@@ -41,9 +50,12 @@ function statusLine(s: ApiKeyStatus): string {
 function KeyRow({
   status,
   onChanged,
+  isPrimary,
 }: {
   status: ApiKeyStatus;
   onChanged: () => void;
+  /** The default model (`models.primary`) is served by this provider. */
+  isPrimary: boolean;
 }): ReactElement {
   const call = useCall();
   const id = useId();
@@ -51,6 +63,7 @@ function KeyRow({
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [confirming, setConfirming] = useState(false);
 
   const save = async () => {
     const problem = checkApiKeyDraft(draft);
@@ -129,11 +142,38 @@ function KeyRow({
           size="sm"
           variant="ghost"
           disabled={busy || !status.inVault}
-          onClick={() => void clear()}
+          onClick={() => setConfirming(true)}
         >
           {t("settings.apiKeys.clear")}
         </Button>
       </div>
+      <AlertDialog open={confirming} onOpenChange={setConfirming}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {t("settings.apiKeys.clearConfirm.title", { name })}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {isPrimary
+                ? t("settings.apiKeys.clearConfirm.bodyPrimary", { name })
+                : t("settings.apiKeys.clearConfirm.body", { name })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={() => {
+                setConfirming(false);
+                void clear();
+              }}
+            >
+              {t("settings.apiKeys.clearConfirm.confirm")}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       <p id={`${id}-status`} className="text-callout text-muted-foreground">
         {statusLine(status)}
       </p>
@@ -149,9 +189,12 @@ function KeyRow({
 export function ApiKeysGroup({
   keys,
   onChanged,
+  primaryProvider,
 }: {
   keys: readonly ApiKeyStatus[];
   onChanged: () => void;
+  /** The provider id of the default model, so removing its key says what it breaks. */
+  primaryProvider?: string;
 }): ReactElement {
   return (
     <Group title={t("settings.apiKeys.title")} description={t("settings.apiKeys.description")}>
@@ -162,7 +205,14 @@ export function ApiKeysGroup({
           source: null,
           inVault: false,
         };
-        return <KeyRow key={id} status={status} onChanged={onChanged} />;
+        return (
+          <KeyRow
+            key={id}
+            status={status}
+            onChanged={onChanged}
+            isPrimary={primaryProvider === id}
+          />
+        );
       })}
     </Group>
   );

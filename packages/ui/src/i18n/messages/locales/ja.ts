@@ -1698,10 +1698,35 @@ export const ja: Partial<Catalogue> = {
   "settings.channels.approve": "承認",
   "settings.channels.ignoreSender": "{name}を無視",
   "settings.channels.ignore": "無視",
+  "settings.channels.allow.remove": "削除",
+  "settings.channels.allow.removeNamed": "{name} を削除",
+  "settings.channels.allow.senderLabel": "許可する送信者",
+  "settings.channels.allow.groupLabel": "送信者を追加（グループチャット）",
+  "settings.channels.allow.addSender": "送信者を追加",
+  "settings.channels.allow.addGroup": "送信者を追加",
+  "settings.channels.allow.senderApproval": "チャットの送信者を許可",
+  "settings.channels.allow.groupApproval": "グループで私を起動できる人の変更",
+  "settings.channels.allow.groupEmptied":
+    "{name} を削除すると、この一覧には誰も残りません。その場合、ダイレクトメッセージで許可されている全員がグループで Psyche を起動できるようになります。",
+  "settings.channels.allow.forbidden":
+    "誰がメッセージを送れるかを変更するには管理者デバイスが必要です。管理者としてペアリングしたデバイスを使ってください。",
+  "settings.channels.allow.failed":
+    "Psyche は誰がメッセージを送れるかを変更できませんでした（{reason}）。何も変更されていません。",
+  "settings.channels.identity.name": "相手の名前",
+  "settings.channels.identity.senders": "送信者 ID（カンマ区切り）",
+  "settings.channels.identity.link": "ID をリンク",
+  "settings.channels.identity.unlink": "リンクを解除",
+  "settings.channels.identity.unlinkNamed": "{name} のリンクを解除",
+  "settings.channels.identity.approval": "チャットの ID をリンク",
+  "settings.channels.identity.forbidden":
+    "ID リンクを変更するには管理者デバイスが必要です。管理者としてペアリングしたデバイスを使ってください。",
+  "settings.channels.identity.failed":
+    "Psyche は ID リンクを変更できませんでした（{reason}）。何も変更されていません。",
   "settings.channels.noOneYet": "まだ誰もいません。",
   "settings.channels.owner": " · 所有者",
-  "settings.channels.groups": "グループ",
-  "settings.channels.noGroups": "グループはありません。",
+  "settings.channels.groups": "グループで私を起動できる人",
+  "settings.channels.noGroups":
+    "ダイレクトメッセージで許可されている全員が、グループで私を起動できます。",
   "settings.channels.requireMention": "グループではメンションされたときのみ応答",
   "settings.channels.err.forbidden":
     "{action, select, policy {メッセージを送れる人の変更} mention {グループでのメンション設定の変更} approve {送信者の承認} other {送信者の無視}}にはこのデバイスでの承認が必要です。管理者としてペアリングされたデバイスを使用してください。",
@@ -1927,6 +1952,12 @@ export const ja: Partial<Catalogue> = {
   "settings.apiKeys.save": "保存",
   "settings.apiKeys.saving": "保存中…",
   "settings.apiKeys.clear": "消去",
+  "settings.apiKeys.clearConfirm.title": "{name} のキーを削除しますか？",
+  "settings.apiKeys.clearConfirm.body":
+    "Psyche は保管庫に保存されている {name} のキーを削除します。新しいキーを保存するか環境変数で設定するまで、{name} へのリクエストは失敗します。",
+  "settings.apiKeys.clearConfirm.bodyPrimary":
+    "Psyche は保管庫に保存されている {name} のキーを削除します。既定のモデルは {name} を使うため、新しいキーを保存するか別のモデルを選ぶまでチャットは失敗します。",
+  "settings.apiKeys.clearConfirm.confirm": "キーを削除",
   "settings.apiKeys.none": "未設定",
   "settings.apiKeys.vault": "保管庫に保存済み",
   "settings.apiKeys.env": "環境変数で設定済み（優先）",

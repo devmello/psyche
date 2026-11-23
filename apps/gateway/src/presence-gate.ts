@@ -235,3 +235,33 @@ export function methodPresence(
     approvalId: typeof approvalId === "string" ? approvalId : undefined,
   };
 }
+
+/**
+ * Removing the last entry of a channel's `groupAllowFrom` hands group triggering to everyone the
+ * channel allows in direct messages (`channels/src/policy.ts`: an empty group list falls back to
+ * `allowFrom`). That widens access, so it needs the owner's card although it is a removal. Pass
+ * the channel as stored: the caller reads the list server-side, never from the request.
+ */
+export function emptiesGroupSenders(
+  current: { allowFrom: readonly string[]; groupAllowFrom: readonly string[] },
+  p: { list?: unknown; add?: unknown; remove?: unknown },
+): boolean {
+  if (p.list !== "groupAllowFrom") return false;
+  if (Array.isArray(p.add) && p.add.length > 0) return false;
+  const remove = Array.isArray(p.remove) ? p.remove : [];
+  if (remove.length === 0) return false;
+  if (current.groupAllowFrom.length === 0 || current.allowFrom.length === 0) return false;
+  return current.groupAllowFrom.every((id) => remove.includes(id));
+}
+
+/** The card for a removal that empties `groupAllowFrom` (see `emptiesGroupSenders`). */
+export function groupSendersAction(p: Params): FreshPresenceAction {
+  const { approvalId, ...rest } = p;
+  void approvalId;
+  return {
+    name: "method:channels.allowlist.update",
+    summary: "Let everyone allowed in direct messages trigger Psyche in groups",
+    subject: rest,
+    details: { method: "channels.allowlist.update", params: rest as JsonObject },
+  };
+}
