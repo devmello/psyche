@@ -935,6 +935,91 @@ function writeProgress(home: string, phase: "snapshot" | "migrating", build: str
   }
 }
 
+// --- updates that changed no data -------------------------------------------------------------
+
+/** An update whose new version had no migrations to apply, so no snapshot was taken. */
+export interface NoMigrationUpdate {
+  from: string;
+  to: string;
+  build: string;
+  /** The highest snapshot sequence when it was noted: a snapshot with a higher one is newer. */
+  afterSeq: number;
+  at: string;
+}
+
+const NO_MIGRATIONS_FILE = "no-migrations.json";
+const NO_MIGRATIONS_KEEP = 16;
+
+function noMigrationsPath(home: string): string {
+  return join(preUpdateDir(home), NO_MIGRATIONS_FILE);
+}
+
+function readNoMigrationUpdates(home: string): NoMigrationUpdate[] {
+  try {
+    const v = JSON.parse(readFileSync(noMigrationsPath(home), "utf8")) as { records?: unknown };
+    if (!Array.isArray(v.records)) return [];
+    return v.records.filter(
+      (r): r is NoMigrationUpdate =>
+        typeof r === "object" &&
+        r !== null &&
+        typeof (r as NoMigrationUpdate).from === "string" &&
+        typeof (r as NoMigrationUpdate).to === "string" &&
+        typeof (r as NoMigrationUpdate).build === "string" &&
+        typeof (r as NoMigrationUpdate).afterSeq === "number",
+    );
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Durably notes that updating `from` -> `to` needed no data change. Best effort: without the note
+ * "Go back" refuses (it fails closed), it never goes back on a guess.
+ */
+export function recordNoMigrationUpdate(home: string, record: NoMigrationUpdate): void {
+  try {
+    const records = [...readNoMigrationUpdates(home), record].slice(-NO_MIGRATIONS_KEEP);
+    writeJsonDurable(noMigrationsPath(home), {
+      format: "psyche-no-migrations",
+      version: 1,
+      records,
+    });
+  } catch {
+    // Housekeeping; see above.
+  }
+}
+
+/** What "Go back to `from`" from the running `to` build may rely on. */
+export type GoBackSource =
+  | { kind: "snapshot"; dir: string; manifest: SnapshotManifest }
+  | { kind: "no-migrations"; record: NoMigrationUpdate }
+  | undefined;
+
+/**
+ * The newest snapshot or no-migrations note made for exactly this update: from `from`, to the
+ * running `to` (and build, when it was recorded). A snapshot of another update that merely starts
+ * at the same version (an earlier cycle) is never one: it holds older data.
+ */
+export function findGoBackSource(
+  home: string,
+  from: string,
+  to: string,
+  build: string,
+): GoBackSource {
+  const snapshot = listSnapshots(home).find(
+    (s) =>
+      s.manifest.from === from &&
+      s.manifest.to === to &&
+      (s.manifest.build === undefined || s.manifest.build === build),
+  );
+  const record = readNoMigrationUpdates(home)
+    .filter((r) => r.from === from && r.to === to && r.build === build)
+    .sort((a, b) => b.afterSeq - a.afterSeq)[0];
+  if (record !== undefined && (snapshot === undefined || record.afterSeq >= snapshot.manifest.seq))
+    return { kind: "no-migrations", record };
+  return snapshot === undefined ? undefined : { kind: "snapshot", ...snapshot };
+}
+
 // --- one Gateway per data folder ------------------------------------------------------------
 
 /**
@@ -1108,10 +1193,21 @@ export async function openDbWithSnapshot(opts: OpenWithSnapshotOptions): Promise
   });
   refuseToStartEmpty(opts, now);
   const probe = probeMigrations(opts.dbPath, opts.open?.migrationsDir ?? undefined);
-  const succeeded = (db: PsycheDb): PsycheDb => {
+  const succeeded = (db: PsycheDb, noMigrations = false): PsycheDb => {
     rmSync(join(opts.home, UPDATE_FAILED_FILE), { force: true });
     rmSync(join(opts.home, UPDATE_PROGRESS_FILE), { force: true });
+    // A new version that needed no data change took no snapshot: note that, so "Go back" can tell
+    // "nothing to put back" from "no copy of your data".
+    const before = noMigrations ? lastBoot(opts.home) : undefined;
     const goodSeq = recordBoot(opts.home, opts.version, opts.build, now());
+    if (before !== undefined && before.version !== opts.version)
+      recordNoMigrationUpdate(opts.home, {
+        from: before.version,
+        to: opts.version,
+        build: opts.build,
+        afterSeq: goodSeq,
+        at: now().toISOString(),
+      });
     // Only now, with a boot that worked, may older snapshots go.
     try {
       pruneSnapshots(opts.home, {
@@ -1125,7 +1221,7 @@ export async function openDbWithSnapshot(opts: OpenWithSnapshotOptions): Promise
     }
     return db;
   };
-  if (probe.state === "none") return succeeded(open(opts.dbPath, opts.open));
+  if (probe.state === "none") return succeeded(open(opts.dbPath, opts.open), true);
 
   const pending = probe.state === "pending" ? probe.ids : [];
   const probeNote = probe.state === "unknown" ? probe.reason : undefined;

@@ -16,6 +16,7 @@ import { loadOrCreateGatewayIdentity, rotateGatewayIdentity } from "./identity.t
 import {
   acquireGatewayLock,
   createSnapshot,
+  findGoBackSource,
   GATEWAY_LOCK_FILE,
   listSnapshots,
   releaseGatewayLock,
@@ -174,7 +175,8 @@ const RELEASE_VERSION = /^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$/;
  * `psyched pre-update go-back <version>` and `go-back-undo <version>` (go-back.ts): the desktop's
  * Linux "Go back". Like `restore` above, with the Gateway lock held; the restore is journalled so
  * the desktop can undo it if the swap of the app does not happen. Exit 0 means the data is as the
- * caller asked (restored, or put back). With no snapshot for the version it fails, so the desktop
+ * caller asked (restored, put back, or nothing to restore because that update changed no data). With no snapshot
+ * or note for exactly this update it fails, so the desktop
  * stops before it swaps the app; anything else changed nothing that was not put back, or says so.
  */
 function goBackCommand(
@@ -202,17 +204,21 @@ function goBackCommand(
       );
       return 0;
     }
-    const snapshot = listSnapshots(home).find((s) => s.manifest.from === version);
-    if (snapshot === undefined) {
-      // Fail closed: the older app would start on data the newer one has migrated, which it
+    const running = serverBuild();
+    const source = findGoBackSource(home, version, running.version, running.build);
+    if (source === undefined) {
+      // Fail closed: the older app would start on data the newer one may have migrated, which it
       // cannot read. The desktop stops before it swaps the app.
       out(
         `error: there is no copy of your data from before the update from ${version}, so going back to ${version} is not possible`,
       );
       return CLI_EXIT.refused;
     }
-    const running = serverBuild();
-    restoreForGoBack(snapshot.dir, home, version, {
+    if (source.kind === "no-migrations") {
+      out(`the update from ${version} changed no data: nothing to put back`);
+      return 0;
+    }
+    restoreForGoBack(source.dir, home, version, {
       dbPath,
       build: running.build,
       version: running.version,

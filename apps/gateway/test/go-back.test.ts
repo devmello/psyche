@@ -14,6 +14,7 @@ import { join, relative } from "node:path";
 import { openDb } from "@psyche/db";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { linuxRollbackHooks } from "../../desktop/src/packaging/linux-rollback.ts";
+import { serverBuild } from "../src/build-info.ts";
 import { CLI_EXIT, runCli } from "../src/cli.ts";
 import {
   commitGoBack,
@@ -24,7 +25,9 @@ import {
 } from "../src/go-back.ts";
 import {
   createSnapshot,
+  findGoBackSource,
   listSnapshots,
+  openDbWithSnapshot,
   RESTORE_MARKER_FILE,
   releaseAllGatewayLocks,
   UPDATE_FAILED_FILE,
@@ -114,16 +117,18 @@ function useNewerVersion(s: S) {
   writeFileSync(join(s.home, "state", "mem.db-shm"), Buffer.from("shm-newer"));
 }
 
-async function snapshotTaken(s: S): Promise<string> {
+async function snapshotTaken(s: S, to = "0.5.0", build = NEWER): Promise<string> {
   return createSnapshot({
     home: s.home,
     dbPath: s.dbPath,
     from: "0.4.0",
-    to: "0.5.0",
-    build: NEWER,
+    to,
+    build,
     pending: [],
   });
 }
+/** A snapshot made for the update to the build the CLI runs as (what `go-back` looks for). */
+const snapshotForRunning = (s: S) => snapshotTaken(s, serverBuild().version, serverBuild().build);
 
 /** Every file in the data folder as path -> sha256, except the bookkeeping the go-back owns. */
 function tree(home: string): Record<string, string> {
@@ -410,7 +415,7 @@ describe("psyched pre-update go-back (CLI)", () => {
 
   it("restores, then undoes, and commits", async () => {
     const s = setup();
-    await snapshotTaken(s);
+    await snapshotForRunning(s);
     useNewerVersion(s);
     const newer = tree(s.home);
     expect(listSnapshots(s.home)).toHaveLength(1);
@@ -467,7 +472,7 @@ describe("the desktop's hooks over the real psyched commands", () => {
 
   it("restore, then undo (what rollbackLinux's abort path calls), is byte-identical", async () => {
     const s = setup();
-    await snapshotTaken(s);
+    await snapshotForRunning(s);
     useNewerVersion(s);
     rmSync(join(s.home, "state", "memory.key.json"));
     const newer = tree(s.home);
@@ -482,7 +487,7 @@ describe("the desktop's hooks over the real psyched commands", () => {
 
   it("on success commits the journal and writes run/skip-builds.json", async () => {
     const s = setup();
-    await snapshotTaken(s);
+    await snapshotForRunning(s);
     useNewerVersion(s);
     const h = hooksFor(s);
     await h.restoreSnapshot("0.4.0");
@@ -593,5 +598,113 @@ describe("go back: a partly undone folder is never settled", () => {
       expect({ k, result: result === "settled" ? "settled" : "ok" }).toEqual({ k, result: "ok" });
       if (result !== "refused") expect({ k, tree: tree(s.home) }).toEqual({ k, tree: newer });
     }
+  });
+});
+
+describe("go back: which update's copy of the data counts", () => {
+  const running = () => serverBuild();
+  /** One Gateway start of `version` on this data folder (nothing pending: no snapshot). */
+  async function boot(s: S, version: string, build: string) {
+    releaseAllGatewayLocks();
+    const db = await openDbWithSnapshot({
+      home: s.home,
+      dbPath: s.dbPath,
+      version,
+      build,
+      open: { migrationsDir: join(s.root, "migrations") },
+    });
+    db.close();
+    releaseAllGatewayLocks();
+  }
+  async function psyched(s: S, ...args: string[]) {
+    const lines: string[] = [];
+    const saved = { home: process.env.PSYCHE_HOME, db: process.env.PSYCHE_DB };
+    process.env.PSYCHE_HOME = s.home;
+    process.env.PSYCHE_DB = s.dbPath;
+    try {
+      const code = await runCli(["pre-update", ...args], (l) => lines.push(l));
+      return { code, text: lines.join("\n") };
+    } finally {
+      for (const [k, v] of [
+        ["PSYCHE_HOME", saved.home],
+        ["PSYCHE_DB", saved.db],
+      ] as const) {
+        if (v === undefined) delete process.env[k];
+        else process.env[k] = v;
+      }
+    }
+  }
+
+  it("goes back without restoring anything after an update that had no migrations", async () => {
+    const s = setup();
+    await boot(s, "0.4.0", "build-y");
+    await boot(s, running().version, running().build); // the update: nothing pending
+    expect(listSnapshots(s.home)).toHaveLength(0);
+    useNewerVersion(s);
+    const newer = tree(s.home);
+    const res = await psyched(s, "go-back", "0.4.0");
+    expect(res.code).toBe(0);
+    expect(res.text).toMatch(/changed no data/);
+    expect(tree(s.home)).toEqual(newer);
+    expect(existsSync(join(s.home, GO_BACK_JOURNAL_FILE))).toBe(false);
+    // And the pair that follows is a no-op: undo and commit have nothing to do.
+    expect((await psyched(s, "go-back-undo", "0.4.0")).text).toMatch(/nothing to put back/);
+    expect(tree(s.home)).toEqual(newer);
+  });
+
+  it("refuses when the update left neither a snapshot nor a note (made by an older build)", async () => {
+    const s = setup();
+    await boot(s, "0.4.0", "build-y");
+    useNewerVersion(s);
+    const newer = tree(s.home);
+    const res = await psyched(s, "go-back", "0.4.0");
+    expect(res.code).toBe(CLI_EXIT.refused);
+    expect(res.text).toMatch(/no copy of your data/);
+    expect(tree(s.home)).toEqual(newer);
+  });
+
+  it("never restores a snapshot of an earlier cycle (Y to W, back to Y, then Y to Z)", async () => {
+    const s = setup();
+    // Y -> W migrated, so it took snapshot S (from Y, to W). The owner went back, then used Y.
+    await snapshotTaken(s, "0.5.0", "build-w");
+    useNewerVersion(s);
+    const newer = tree(s.home);
+    // Without a note for Y -> Z, S is not a copy for this update: refuse.
+    const refused = await psyched(s, "go-back", "0.4.0");
+    expect(refused.code).toBe(CLI_EXIT.refused);
+    expect(tree(s.home)).toEqual(newer);
+    expect(listSnapshots(s.home)).toHaveLength(1);
+    // With the note Y -> Z (nothing to migrate), going back needs no restore, and S is left alone.
+    await boot(s, "0.4.0", "build-y");
+    await boot(s, running().version, running().build);
+    const booted = tree(s.home);
+    const ok = await psyched(s, "go-back", "0.4.0");
+    expect(ok.code).toBe(0);
+    expect(ok.text).toMatch(/changed no data/);
+    expect(tree(s.home)).toEqual(booted);
+    expect(booted["config.json"]).toEqual(newer["config.json"]); // still the newer data, not S
+  });
+
+  it("uses the newest of a snapshot and a note for the same update", async () => {
+    const s = setup();
+    await boot(s, "0.4.0", "build-y");
+    await boot(s, running().version, running().build); // note, after no snapshot
+    expect(findGoBackSource(s.home, "0.4.0", running().version, running().build)?.kind).toBe(
+      "no-migrations",
+    );
+    await snapshotForRunning(s); // a snapshot of this very update, taken later
+    expect(findGoBackSource(s.home, "0.4.0", running().version, running().build)?.kind).toBe(
+      "snapshot",
+    );
+  });
+
+  it("needs the target and the running version and build to match", async () => {
+    const s = setup();
+    await snapshotForRunning(s);
+    const r = running();
+    expect(findGoBackSource(s.home, "0.4.0", r.version, r.build)?.kind).toBe("snapshot");
+    expect(findGoBackSource(s.home, "0.3.0", r.version, r.build)).toBeUndefined();
+    expect(findGoBackSource(s.home, "0.4.0", "9.9.9", r.build)).toBeUndefined();
+    expect(findGoBackSource(s.home, "0.4.0", r.version, "another-build")).toBeUndefined();
   });
 });
