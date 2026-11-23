@@ -186,7 +186,7 @@ import {
   parsePinnedRequirement,
   readBundledPinned,
 } from "./main/update-gate.ts";
-import { startUpdater, stopUpdater } from "./main/updater.ts";
+import { setLinuxUpdateHost, startUpdater, stopUpdater } from "./main/updater.ts";
 import {
   canvasColor,
   chromeViewBackground,
@@ -194,6 +194,8 @@ import {
   wantsAnyWindowSize,
 } from "./main/window-options.ts";
 import { type AppWindows, createAppWindows, preloadPath } from "./main/windows.ts";
+import { updateGateway } from "./packaging/linux-gateway.ts";
+import { linuxRollbackHooks, psychedRunner } from "./packaging/linux-rollback.ts";
 import { autostartPath } from "./platform/autostart.ts";
 import {
   hostPlatform,
@@ -209,7 +211,7 @@ import {
 } from "./platform/install-kind.ts";
 import { Linger } from "./platform/linger.ts";
 import { guardSafeStorage } from "./platform/secrets.ts";
-import { systemctlUser } from "./platform/systemd-supervisor.ts";
+import { SystemdUserSupervisor, systemctlUser } from "./platform/systemd-supervisor.ts";
 import { GATEWAY_UNIT, userUnitDir } from "./platform/systemd-unit.ts";
 import { statusNotifierAvailable } from "./platform/tray-support.ts";
 import {
@@ -2381,6 +2383,20 @@ void app.whenReady().then(async () => {
       broadcast(IPC.gatewayRun, run);
     },
   });
+
+  // Linux updates: the apply and rollback steps (packaging/linux-apply.ts) need the Gateway's
+  // stop/restart, the data snapshot restore and its undo. Without this the updater downloads
+  // nothing. A remote Gateway has no local data or unit to update.
+  if (isLinux() && supervisor instanceof SystemdUserSupervisor) {
+    const linuxSupervisor = supervisor;
+    const launch = linuxGatewayLaunch(process.env);
+    setLinuxUpdateHost({
+      gateway: updateGateway(linuxSupervisor, () =>
+        requireGateway().call("gateway.prepareUpdate", { waitMs: 10_000, timeoutMs: 60_000 }),
+      ),
+      ...linuxRollbackHooks({ home, run: psychedRunner(launch, process.env, home) }),
+    });
+  }
 
   // Stock GNOME has no StatusNotifierWatcher: without a tray the app quits on the last window.
   if (isLinux()) {

@@ -31,6 +31,7 @@ import {
 } from "../../src/packaging/linux-apply.ts";
 import type { UpdateGateway } from "../../src/packaging/linux-gateway.ts";
 import { linuxUpdatePaths, type RunCommand } from "../../src/packaging/linux-install.ts";
+import { linuxRollbackHooks } from "../../src/packaging/linux-rollback.ts";
 
 /**
  * The Linux apply step with the real file system in a temp folder, a fake Gateway, a fake `pkexec`
@@ -465,6 +466,72 @@ describe("AppImage", () => {
       expect(calls).toEqual(["restore", "undo"]);
       expect(s.events).toEqual(["stop", "restart:update"]);
       expect(readFileSync(elsewhere)).toEqual(NEW);
+    });
+
+    it("calls the real host's undo (psyched go-back-undo) when the swap is refused", async () => {
+      const { s, image, running } = await updated();
+      const elsewhere = join(dirname(image), "elsewhere.AppImage");
+      renameSync(image, elsewhere);
+      symlinkSync(elsewhere, image);
+      const ran: string[][] = [];
+      const home = join(root, "home");
+      const real = linuxRollbackHooks({
+        home,
+        run: async (args) => {
+          ran.push(args);
+          return { code: 0, output: "" };
+        },
+      });
+      expect(await rollbackLinux("appimage", image, running, real)).toMatchObject({
+        state: "failed",
+        code: "not_regular_file",
+      });
+      expect(ran).toEqual([
+        ["pre-update", "go-back", "1.0.0"],
+        ["pre-update", "go-back-undo", "1.0.0"],
+      ]);
+      expect(s.events).toEqual(["stop", "restart:update"]);
+      expect(existsSync(join(home, "run", "skip-builds.json"))).toBe(false);
+    });
+
+    it("commits the go back and records the skipped build with the real host on success", async () => {
+      const { image, running } = await updated();
+      const ran: string[][] = [];
+      const home = join(root, "home");
+      const real = linuxRollbackHooks({
+        home,
+        now: () => new Date("2026-11-22T10:00:00Z"),
+        run: async (args) => {
+          ran.push(args);
+          return { code: 0, output: "" };
+        },
+      });
+      expect(await rollbackLinux("appimage", image, running, real)).toEqual({
+        state: "applied",
+        release: "1.0.0",
+      });
+      expect(ran).toEqual([
+        ["pre-update", "go-back", "1.0.0"],
+        ["pre-update", "go-back-commit"],
+      ]);
+      expect(JSON.parse(readFileSync(join(home, "run", "skip-builds.json"), "utf8"))).toEqual({
+        skipped: [{ release: "1.1.0", build: "build-new", at: "2026-11-22T10:00:00.000Z" }],
+      });
+    });
+
+    it("does not touch the app when the data restore fails", async () => {
+      const { s, image, running } = await updated();
+      const real = linuxRollbackHooks({
+        home: join(root, "home"),
+        run: async () => ({ code: 1, output: "error: disk full\n" }),
+      });
+      expect(await rollbackLinux("appimage", image, running, real)).toMatchObject({
+        state: "failed",
+        code: "swap_failed",
+        detail: expect.stringContaining("disk full"),
+      });
+      expect(readFileSync(image)).toEqual(NEW);
+      expect(s.events).toEqual(["stop", "restart:update"]);
     });
 
     it("says so when the newer data cannot be put back either", async () => {
