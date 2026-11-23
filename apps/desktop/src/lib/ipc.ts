@@ -134,6 +134,11 @@ export const IPC = {
   // Settings → About → Uninstall Psyche: what would go, then do it. Main only; never a remote window.
   appUninstallPlan: "psyche:app:uninstall-plan",
   appUninstall: "psyche:app:uninstall",
+  // The app's own update (macOS): the current status, a change to it (main → windows), and
+  // "Restart to update", which main refuses unless a verified update is ready.
+  updateStatus: "psyche:update:status",
+  updateChanged: "psyche:update:changed",
+  updateRestart: "psyche:update:restart",
   // Native dialogs.
   dialogPickFolder: "psyche:dialog:pick-folder",
   // Dictation HUD only (main → HUD state and capture commands, HUD → main audio).

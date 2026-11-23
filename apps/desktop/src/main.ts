@@ -187,7 +187,15 @@ import {
   parsePinnedRequirement,
   readBundledPinned,
 } from "./main/update-gate.ts";
-import { setLinuxUpdateHost, startUpdater, stopUpdater } from "./main/updater.ts";
+import { commitRestart } from "./main/update-restart.ts";
+import { getUpdateStatus, onUpdateStatus } from "./main/update-status.ts";
+import {
+  restartToUpdate,
+  setLinuxUpdateHost,
+  setRestartWindowHooks,
+  startUpdater,
+  stopUpdater,
+} from "./main/updater.ts";
 import {
   canvasColor,
   chromeViewBackground,
@@ -1755,6 +1763,11 @@ function registerIpc(): void {
       throw asPsycheError(err);
     }
   });
+  handle(IPC.updateStatus, () => getUpdateStatus());
+  handle(IPC.updateRestart, () => {
+    const refusal = restartToUpdate();
+    if (refusal) throw new PsycheError("forbidden", refusal);
+  });
   handle(IPC.systemAppearanceGet, () => systemAppearance());
   handle(IPC.localeGet, () => ({
     system: app.getSystemLocale(),
@@ -2501,6 +2514,16 @@ void app.whenReady().then(async () => {
   pairLinks.showPending();
   // TODO(beta feed): once the pipeline publishes a beta manifest, read `updates.channel` after the
   // Gateway is paired (not here: the connection is not up in this tick) and pass it as `channel`.
+  onUpdateStatus((s) => broadcast(IPC.updateChanged, s));
+  // "Restart to update" closes every window before quitting: mark the quit first, or the main
+  // window hides on close and the update never installs (update-restart.ts).
+  setRestartWindowHooks({
+    beginQuit: () => windows?.setQuitting(),
+    cancelQuit: () => {
+      windows?.cancelQuitting();
+      windows?.showMain();
+    },
+  });
   if (perfProbe === undefined) void startUpdater({ stateFile: join(home, "run", "updater.json") });
 
   app.on("activate", () => windows?.showMain());
@@ -2599,6 +2622,8 @@ app.on("before-quit", (event) => {
     event.preventDefault();
     return;
   }
+  // The quit goes ahead: an update restart in progress can no longer be undone (update-restart.ts).
+  commitRestart();
   stopHelperForQuit();
   windows?.setQuitting();
   dockPolicy.dispose();

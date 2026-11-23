@@ -54,6 +54,7 @@ import { skillAuthor } from "./skill-author/zh.ts";
 import { spaces } from "./spaces/zh.ts";
 import { specialists } from "./specialists/zh.ts";
 import { teach } from "./teach/zh.ts";
+import { update } from "./update/zh.ts";
 import { web } from "./web/zh.ts";
 import { whatCanYouDo } from "./what-can-you-do/zh.ts";
 import { widgets } from "./widgets/zh.ts";
@@ -3775,6 +3776,7 @@ export const zh: Partial<Catalogue> = {
   ...windowsPlatform202611,
   ...mailFollowups,
   ...keepAwake,
+  ...update,
   ...spaces,
   ...machines,
 };

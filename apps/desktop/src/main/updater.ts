@@ -21,9 +21,10 @@ import {
   linuxUpdatePaths,
   type RunCommand,
 } from "../packaging/linux-install.ts";
-import { hostPlatform, isLinux } from "../platform/index.ts";
+import { hostPlatform, isLinux, isMac } from "../platform/index.ts";
 import { claimedRequirement } from "./bundle-integrity.ts";
 import { TRUSTED_RELEASE_KEYS } from "./release-keys.ts";
+import { confirmQuitWithUnsaved } from "./unsaved-unload.ts";
 import {
   checkForVerifiedUpdate,
   feedForChannel,
@@ -41,6 +42,13 @@ import {
   readBundledPinned,
   satisfiesRequirement,
 } from "./update-gate.ts";
+import { abandonRestart, restartToUpdate as restartNow } from "./update-restart.ts";
+import {
+  getUpdateStatus,
+  INSTALL_FAILED,
+  setUpdateStatus,
+  updateStatusFromOutcome,
+} from "./update-status.ts";
 
 /**
  * Auto-update (feature A6; security §11). Before Squirrel sees anything, the updater fetches
@@ -338,7 +346,14 @@ async function runLinuxUpdater(opts: UpdaterOptions, log: (m: string) => void): 
 }
 
 export async function startUpdater(opts: UpdaterOptions = {}): Promise<UpdaterState> {
+  // macOS only for now: the status drives the banner and About, and Windows and Linux have no
+  // "Restart to update" here yet.
+  const darwin = isMac();
+  if (darwin) setUpdateStatus({ state: "checking" });
   const state = await runUpdater(opts);
+  if (darwin && getUpdateStatus().state !== "ready") {
+    setUpdateStatus(updateStatusFromOutcome(state));
+  }
   if (opts.stateFile) {
     try {
       writeUpdaterState(opts.stateFile, {
@@ -413,11 +428,20 @@ async function applyMac(result: Ready, log: (m: string) => void): Promise<RunRes
   const served = await serveVerifiedUpdate(result.file, result.release);
   servers.push(served);
   autoUpdater.on("error", (error) => {
+    // The raw text can carry temp paths and the local feed address: it goes to the log only.
     log(error.message);
+    // A restart that failed to quit undoes its quitting mark, so the windows hide again.
+    abandonRestart(() => restartWindows?.cancelQuit());
+    setUpdateStatus({
+      state: "refused",
+      code: INSTALL_FAILED,
+      reason: "Psyche could not install the update",
+    });
     void served.close();
   });
   autoUpdater.on("update-downloaded", () => {
     log(readyMessage(result));
+    setUpdateStatus({ state: "ready", release: result.release, mandatory: result.mandatory });
     void served.close();
   });
   autoUpdater.setFeedURL({ url: served.feedUrl, serverType: "json" });
@@ -427,6 +451,36 @@ async function applyMac(result: Ready, log: (m: string) => void): Promise<RunRes
     release: result.release,
     ...(result.quarantine ? { quarantine: result.quarantine } : {}),
   };
+}
+
+/**
+ * "Restart to update" (macOS): quits and installs the verified update Squirrel holds. Returns the
+ * refusal reason instead when no verified update is ready. `quitAndInstall` ends the app through
+ * Electron's normal quit, so `before-quit` runs (the Gateway and helper stop) and a window's
+ * unsaved-edit prompt can still keep the app open.
+ */
+export function restartToUpdate(): string | undefined {
+  return restartNow({
+    platform: hostPlatform(),
+    status: getUpdateStatus(),
+    // Before the windows close, which drops their unsaved Files edits: the owner decides first.
+    confirmQuit: () => confirmQuitWithUnsaved(),
+    beginQuit: () => restartWindows?.beginQuit(),
+    cancelQuit: () => restartWindows?.cancelQuit(),
+    quitAndInstall: () => autoUpdater.quitAndInstall(),
+  });
+}
+
+/** The window hooks the restart needs: mark quitting before quitAndInstall, undo it on failure. */
+export interface RestartWindowHooks {
+  beginQuit(): void;
+  cancelQuit(): void;
+}
+
+let restartWindows: RestartWindowHooks | undefined;
+
+export function setRestartWindowHooks(hooks: RestartWindowHooks): void {
+  restartWindows = hooks;
 }
 
 /**

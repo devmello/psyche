@@ -564,8 +564,26 @@ export interface HostAppInfo {
   gateway: { name?: unknown; version?: unknown; protocolVersion?: unknown } | null;
 }
 
+/** The app's own update, as main reports it (macOS). Mirrors `UpdateStatus` in the desktop main. */
+export type UpdateStatusView =
+  | { state: "idle" }
+  | { state: "checking" }
+  | { state: "none" }
+  | { state: "ready"; release: string; mandatory: boolean }
+  | { state: "refused"; reason: string; code?: string };
+
+export interface UpdatePort {
+  status(): Promise<UpdateStatusView>;
+  /** Called when main's status changes; returns the unsubscribe function. */
+  subscribe(cb: (s: UpdateStatusView) => void): () => void;
+  /** Quits and installs the verified update. Rejects unless one is ready. */
+  restart(): Promise<void>;
+}
+
 export interface AppInfoPort {
   info(): Promise<HostAppInfo>;
+  /** The app's own update: the banner and Settings → About. Desktop on macOS only. */
+  update?: UpdatePort;
   /** Shows the data folder in Finder. Absent for a client of another computer's Gateway. */
   revealHome?(): Promise<void>;
   /**

@@ -54,6 +54,7 @@ import { settingsRest } from "./settings-rest/ja.ts";
 import { shellRest } from "./shell-rest/ja.ts";
 import { spaces } from "./spaces/ja.ts";
 import { specialistsRest } from "./specialists-rest/ja.ts";
+import { update } from "./update/ja.ts";
 import { webRest } from "./web-rest/ja.ts";
 import { widgetsRest } from "./widgets-rest/ja.ts";
 import { windowsPlatform202611 } from "./windows-platform-2026-11/ja.ts";
@@ -3860,6 +3861,7 @@ export const ja: Partial<Catalogue> = {
   ...windowsPlatform202611,
   ...mailFollowups,
   ...keepAwake,
+  ...update,
   ...spaces,
   ...machines,
 };

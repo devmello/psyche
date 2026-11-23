@@ -110,3 +110,18 @@ export interface DoctorCheck {
   status: "ok" | "warn" | "fail";
   detail: string;
 }
+
+/** The app's own update as the desktop main reports it (macOS; idle elsewhere). */
+export type UpdateStatusView =
+  | { state: "idle" }
+  | { state: "checking" }
+  | { state: "none" }
+  | { state: "ready"; release: string; mandatory: boolean }
+  | { state: "refused"; reason: string; code?: string };
+
+/** The update port the desktop shell provides; absent on the web. */
+export interface UpdatePort {
+  status(): Promise<UpdateStatusView>;
+  subscribe(cb: (s: UpdateStatusView) => void): () => void;
+  restart(): Promise<void>;
+}

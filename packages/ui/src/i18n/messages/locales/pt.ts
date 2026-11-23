@@ -37,6 +37,7 @@ import { settingsE } from "./settings-e/pt.ts";
 import { spaces } from "./spaces/pt.ts";
 import { specialistsA } from "./specialists-a/pt.ts";
 import { teachA } from "./teach-a/pt.ts";
+import { update } from "./update/pt.ts";
 import { windowsPlatform202611 } from "./windows-platform-2026-11/pt.ts";
 import { workA } from "./work-a/pt.ts";
 import { workB } from "./work-b/pt.ts";
@@ -3841,6 +3842,7 @@ export const pt: Partial<Catalogue> = {
   ...windowsPlatform202611,
   ...mailFollowups,
   ...keepAwake,
+  ...update,
   ...spaces,
   ...machines,
 };
