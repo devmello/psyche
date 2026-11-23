@@ -1960,25 +1960,32 @@ export const ko: Partial<Catalogue> = {
   "settings.data.export": "내보내기",
   "settings.data.exportHint": "작업 공간(SOUL.md, 메모리, 메모)과 모든 주장을 담은 zip 파일입니다.",
   "settings.data.git.title": "git으로 백업",
-  "settings.data.git.description": "내 메모리를 직접 소유한 비공개 git 저장소에 복사합니다. 올리면 메모리가 이 기기 밖으로 나가므로, 올리기 전에 모든 파일을 자격 증명과 카드 번호가 있는지 검사합니다. Psyche는 본인의 git 자격 증명을 사용하며 어떤 자격 증명도 저장하지 않습니다.",
+  "settings.data.git.description":
+    "내 메모리를 직접 소유한 비공개 git 저장소에 복사합니다. 올리면 메모리가 이 기기 밖으로 나가므로, 올리기 전에 모든 파일을 자격 증명과 카드 번호가 있는지 검사합니다. Psyche는 본인의 git 자격 증명을 사용하며 어떤 자격 증명도 저장하지 않습니다.",
   "settings.data.git.remote": "원격 저장소",
-  "settings.data.git.remoteHint": "비공개 저장소: https://, ssh://, user@host:경로 또는 로컬 경로. URL에 비밀번호를 넣지 마세요.",
+  "settings.data.git.remoteHint":
+    "비공개 저장소: https://, ssh://, user@host:경로 또는 로컬 경로. URL에 비밀번호를 넣지 마세요.",
   "settings.data.git.branch": "브랜치",
   "settings.data.git.enabled": "git 백업 켜기",
-  "settings.data.git.enabledHint": "‘지금 동기화’를 누를 때만 실행됩니다. 백그라운드에서는 동기화되지 않습니다.",
+  "settings.data.git.enabledHint":
+    "‘지금 동기화’를 누를 때만 실행됩니다. 백그라운드에서는 동기화되지 않습니다.",
   "settings.data.git.save": "저장",
   "settings.data.git.sync": "지금 동기화",
   "settings.data.git.lastSync": "마지막 동기화 {when}",
   "settings.data.git.backedUp": "파일 {files}개를 백업하고 올렸습니다.",
   "settings.data.git.upToDate": "백업할 새 항목이 없습니다. 원격 저장소가 최신 상태입니다.",
   "settings.data.git.pulled": "원격 저장소의 변경 사항을 가져왔습니다. 올릴 새 항목은 없습니다.",
-  "settings.data.git.noGit": "이 기기에 git이 설치되어 있지 않습니다. git을 설치한 뒤 다시 동기화하세요.",
+  "settings.data.git.noGit":
+    "이 기기에 git이 설치되어 있지 않습니다. git을 설치한 뒤 다시 동기화하세요.",
   "settings.data.git.noRemote": "먼저 원격 저장소를 설정하세요.",
   "settings.data.git.notEnabled": "먼저 git 백업을 켜세요.",
-  "settings.data.git.authFailed": "원격 저장소가 로그인을 거부했습니다. SSH 키나 git 자격 증명 도우미를 확인하세요.",
+  "settings.data.git.authFailed":
+    "원격 저장소가 로그인을 거부했습니다. SSH 키나 git 자격 증명 도우미를 확인하세요.",
   "settings.data.git.remoteFailed": "원격 저장소에 연결할 수 없습니다. 주소와 연결을 확인하세요.",
-  "settings.data.git.conflict": "원격 저장소에 이 기기의 메모리와 충돌하는 변경 사항이 있습니다. 아무것도 올리지 않았습니다.",
-  "settings.data.git.blocked": "동기화되지 않았습니다: {files}에 자격 증명이나 카드 번호가 있는 것으로 보입니다. 삭제한 뒤 다시 동기화하세요.",
+  "settings.data.git.conflict":
+    "원격 저장소에 이 기기의 메모리와 충돌하는 변경 사항이 있습니다. 아무것도 올리지 않았습니다.",
+  "settings.data.git.blocked":
+    "동기화되지 않았습니다: {files}에 자격 증명이나 카드 번호가 있는 것으로 보입니다. 삭제한 뒤 다시 동기화하세요.",
   "settings.data.git.failed": "git 백업에 실패했습니다. 다시 시도하세요.",
   "settings.data.git.needsAdmin": "git 백업을 하려면 이 기기에서 관리자 권한이 필요합니다.",
   "settings.data.git.saveFailed": "git 백업 설정을 저장할 수 없습니다.",

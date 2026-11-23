@@ -1979,27 +1979,37 @@ export const fr: Partial<Catalogue> = {
   "settings.data.exportHint":
     "Un zip de l’espace de travail (SOUL.md, mémoire, notes) et de toutes les affirmations.",
   "settings.data.git.title": "Sauvegarde dans git",
-  "settings.data.git.description": "Copie ta mémoire dans un dépôt git privé qui t'appartient. L'envoi la fait sortir de cet appareil : chaque fichier est donc d'abord contrôlé pour détecter identifiants et numéros de carte. Psyche utilise tes propres identifiants git et n'en stocke aucun.",
+  "settings.data.git.description":
+    "Copie ta mémoire dans un dépôt git privé qui t'appartient. L'envoi la fait sortir de cet appareil : chaque fichier est donc d'abord contrôlé pour détecter identifiants et numéros de carte. Psyche utilise tes propres identifiants git et n'en stocke aucun.",
   "settings.data.git.remote": "Distant",
-  "settings.data.git.remoteHint": "Un dépôt privé : https://, ssh://, utilisateur@hôte:chemin ou chemin local. Ne mets jamais de mot de passe dans l'URL.",
+  "settings.data.git.remoteHint":
+    "Un dépôt privé : https://, ssh://, utilisateur@hôte:chemin ou chemin local. Ne mets jamais de mot de passe dans l'URL.",
   "settings.data.git.branch": "Branche",
   "settings.data.git.enabled": "Sauvegarde git activée",
-  "settings.data.git.enabledHint": "Ne s'exécute que lorsque tu appuies sur « Synchroniser maintenant ». Rien n'est synchronisé en arrière-plan.",
+  "settings.data.git.enabledHint":
+    "Ne s'exécute que lorsque tu appuies sur « Synchroniser maintenant ». Rien n'est synchronisé en arrière-plan.",
   "settings.data.git.save": "Enregistrer",
   "settings.data.git.sync": "Synchroniser maintenant",
   "settings.data.git.lastSync": "Dernière synchro {when}",
-  "settings.data.git.backedUp": "{files, plural, one {# fichier sauvegardé} other {# fichiers sauvegardés}} et envoyé.",
+  "settings.data.git.backedUp":
+    "{files, plural, one {# fichier sauvegardé} other {# fichiers sauvegardés}} et envoyé.",
   "settings.data.git.upToDate": "Rien de nouveau à sauvegarder. Le distant est à jour.",
   "settings.data.git.pulled": "Modifications récupérées du distant. Rien de nouveau à envoyer.",
-  "settings.data.git.noGit": "git n'est pas installé sur cet appareil. Installe-le, puis synchronise à nouveau.",
+  "settings.data.git.noGit":
+    "git n'est pas installé sur cet appareil. Installe-le, puis synchronise à nouveau.",
   "settings.data.git.noRemote": "Définis d'abord un distant.",
   "settings.data.git.notEnabled": "Active d'abord la sauvegarde git.",
-  "settings.data.git.authFailed": "Le distant a refusé ta connexion. Vérifie ta clé SSH ou ton assistant d'identifiants git.",
-  "settings.data.git.remoteFailed": "Impossible de joindre le distant. Vérifie l'adresse et ta connexion.",
-  "settings.data.git.conflict": "Le distant contient des modifications en conflit avec la mémoire de cet appareil. Rien n'a été envoyé.",
-  "settings.data.git.blocked": "Non synchronisé : {files} semble contenir un identifiant ou un numéro de carte. Supprime-le, puis synchronise à nouveau.",
+  "settings.data.git.authFailed":
+    "Le distant a refusé ta connexion. Vérifie ta clé SSH ou ton assistant d'identifiants git.",
+  "settings.data.git.remoteFailed":
+    "Impossible de joindre le distant. Vérifie l'adresse et ta connexion.",
+  "settings.data.git.conflict":
+    "Le distant contient des modifications en conflit avec la mémoire de cet appareil. Rien n'a été envoyé.",
+  "settings.data.git.blocked":
+    "Non synchronisé : {files} semble contenir un identifiant ou un numéro de carte. Supprime-le, puis synchronise à nouveau.",
   "settings.data.git.failed": "La sauvegarde git a échoué. Réessaie.",
-  "settings.data.git.needsAdmin": "La sauvegarde git nécessite les droits d'administrateur sur cet appareil.",
+  "settings.data.git.needsAdmin":
+    "La sauvegarde git nécessite les droits d'administrateur sur cet appareil.",
   "settings.data.git.saveFailed": "Impossible d'enregistrer les réglages de la sauvegarde git.",
   "settings.data.exportEverything": "Tout exporter",
   "settings.data.deleteThreads": "Supprimer des discussions",

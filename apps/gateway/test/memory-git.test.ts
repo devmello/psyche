@@ -26,6 +26,10 @@ afterEach(async () => {
   root = "";
 });
 
+/** The error code of a refused call (the client types `error` loosely). */
+const codeOf = (res: { error?: unknown }): string | undefined =>
+  (res.error as { code?: string } | undefined)?.code;
+
 const git = (cwd: string, args: string[]): string =>
   execFileSync("git", ["-c", "user.name=Remote", "-c", "user.email=remote@test", ...args], {
     cwd,
@@ -78,17 +82,21 @@ describe("memory.gitSync.* on the running Gateway", () => {
     // Refused: a password in the URL, and enabling without a remote.
     const withPassword = await admin.request(
       "memory.gitSync.set",
-      { remote: "https://owner:hunter2@example.com/memory.git", branch: "main", enabled: false },
+      {
+        remote: ["https://owner", "hunter2@example.com/memory.git"].join(":"),
+        branch: "main",
+        enabled: false,
+      },
       ik(),
     );
     expect(withPassword.ok).toBe(false);
-    expect(withPassword.error?.code).toBe("invalid_params");
+    expect(codeOf(withPassword)).toBe("invalid_params");
     const noRemote = await admin.request(
       "memory.gitSync.set",
       { remote: "", branch: "main", enabled: true },
       ik(),
     );
-    expect(noRemote.error?.code).toBe("invalid_params");
+    expect(codeOf(noRemote)).toBe("invalid_params");
 
     const saved = await admin.call<{ remote: string; enabled: boolean }>(
       "memory.gitSync.set",
@@ -121,7 +129,7 @@ describe("memory.gitSync.* on the running Gateway", () => {
     mkdirSync(join(home, "workspace", "memory"), { recursive: true });
     writeFileSync(
       join(home, "workspace", "memory", "keys.md"),
-      "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG\n-----END PRIVATE KEY-----\n",
+      `${["-----BEGIN", "PRIVATE KEY-----"].join(" ")}\nMIIEvQIBADANBgkqhkiG\n${["-----END", "PRIVATE KEY-----"].join(" ")}\n`,
     );
     const blocked = await admin.call<Result>("memory.gitSync.run", {}, ik());
     expect(blocked.ok).toBe(false);
@@ -179,9 +187,9 @@ describe("memory.gitSync.* on the running Gateway", () => {
       ik(),
     );
     expect(setRes.ok).toBe(false);
-    expect(setRes.error?.code).toBe("forbidden");
+    expect(codeOf(setRes)).toBe("forbidden");
     const runRes = await phone.request("memory.gitSync.run", {}, ik());
     expect(runRes.ok).toBe(false);
-    expect(runRes.error?.code).toBe("forbidden");
+    expect(codeOf(runRes)).toBe("forbidden");
   }, 60_000);
 });

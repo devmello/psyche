@@ -1976,25 +1976,32 @@ export const hi: Partial<Catalogue> = {
   "settings.data.export": "एक्सपोर्ट",
   "settings.data.exportHint": "वर्कस्पेस (SOUL.md, मेमोरी, नोट्स) और हर दावे की एक zip।",
   "settings.data.git.title": "git पर बैकअप",
-  "settings.data.git.description": "आपकी मेमोरी को आपके अपने निजी git रिपॉज़िटरी में कॉपी करता है। भेजने पर वह इस डिवाइस से बाहर जाती है, इसलिए हर फ़ाइल पहले क्रेडेंशियल और कार्ड नंबर के लिए जाँची जाती है। Psyche आपके अपने git क्रेडेंशियल इस्तेमाल करता है और कोई क्रेडेंशियल सहेजता नहीं।",
+  "settings.data.git.description":
+    "आपकी मेमोरी को आपके अपने निजी git रिपॉज़िटरी में कॉपी करता है। भेजने पर वह इस डिवाइस से बाहर जाती है, इसलिए हर फ़ाइल पहले क्रेडेंशियल और कार्ड नंबर के लिए जाँची जाती है। Psyche आपके अपने git क्रेडेंशियल इस्तेमाल करता है और कोई क्रेडेंशियल सहेजता नहीं।",
   "settings.data.git.remote": "रिमोट",
-  "settings.data.git.remoteHint": "एक निजी रिपॉज़िटरी: https://, ssh://, user@host:path या स्थानीय पथ। URL में कभी पासवर्ड न डालें।",
+  "settings.data.git.remoteHint":
+    "एक निजी रिपॉज़िटरी: https://, ssh://, user@host:path या स्थानीय पथ। URL में कभी पासवर्ड न डालें।",
   "settings.data.git.branch": "ब्रांच",
   "settings.data.git.enabled": "git बैकअप चालू",
-  "settings.data.git.enabledHint": "केवल तब चलता है जब आप «अभी सिंक करें» दबाते हैं। पृष्ठभूमि में कुछ भी सिंक नहीं होता।",
+  "settings.data.git.enabledHint":
+    "केवल तब चलता है जब आप «अभी सिंक करें» दबाते हैं। पृष्ठभूमि में कुछ भी सिंक नहीं होता।",
   "settings.data.git.save": "सहेजें",
   "settings.data.git.sync": "अभी सिंक करें",
   "settings.data.git.lastSync": "पिछला सिंक {when}",
-  "settings.data.git.backedUp": "{files, plural, one {# फ़ाइल का बैकअप} other {# फ़ाइलों का बैकअप}} लिया और भेजा गया।",
+  "settings.data.git.backedUp":
+    "{files, plural, one {# फ़ाइल का बैकअप} other {# फ़ाइलों का बैकअप}} लिया और भेजा गया।",
   "settings.data.git.upToDate": "बैकअप के लिए कुछ नया नहीं है। रिमोट अद्यतन है।",
   "settings.data.git.pulled": "रिमोट से बदलाव लिए गए। भेजने के लिए कुछ नया नहीं है।",
   "settings.data.git.noGit": "इस डिवाइस पर git इंस्टॉल नहीं है। git इंस्टॉल करें, फिर दोबारा सिंक करें।",
   "settings.data.git.noRemote": "पहले एक रिमोट सेट करें।",
   "settings.data.git.notEnabled": "पहले git बैकअप चालू करें।",
-  "settings.data.git.authFailed": "रिमोट ने आपका लॉगिन अस्वीकार किया। अपनी SSH कुंजी या git क्रेडेंशियल हेल्पर जाँचें।",
+  "settings.data.git.authFailed":
+    "रिमोट ने आपका लॉगिन अस्वीकार किया। अपनी SSH कुंजी या git क्रेडेंशियल हेल्पर जाँचें।",
   "settings.data.git.remoteFailed": "रिमोट तक पहुँच नहीं हो सकी। पता और कनेक्शन जाँचें।",
-  "settings.data.git.conflict": "रिमोट में ऐसे बदलाव हैं जो इस डिवाइस की मेमोरी से टकराते हैं। कुछ भी नहीं भेजा गया।",
-  "settings.data.git.blocked": "सिंक नहीं हुआ: {files} में क्रेडेंशियल या कार्ड नंबर होने लगता है। उसे हटाएँ, फिर दोबारा सिंक करें।",
+  "settings.data.git.conflict":
+    "रिमोट में ऐसे बदलाव हैं जो इस डिवाइस की मेमोरी से टकराते हैं। कुछ भी नहीं भेजा गया।",
+  "settings.data.git.blocked":
+    "सिंक नहीं हुआ: {files} में क्रेडेंशियल या कार्ड नंबर होने लगता है। उसे हटाएँ, फिर दोबारा सिंक करें।",
   "settings.data.git.failed": "git बैकअप विफल रहा। फिर से कोशिश करें।",
   "settings.data.git.needsAdmin": "git बैकअप के लिए इस डिवाइस पर एडमिन अनुमति चाहिए।",
   "settings.data.git.saveFailed": "git बैकअप की सेटिंग सहेजी नहीं जा सकीं।",

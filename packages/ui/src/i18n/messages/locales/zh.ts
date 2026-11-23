@@ -1962,9 +1962,11 @@ export const zh: Partial<Catalogue> = {
   "settings.data.export": "导出",
   "settings.data.exportHint": "一个包含工作区（SOUL.md、记忆、笔记）和所有断言的 zip 文件。",
   "settings.data.git.title": "备份到 git",
-  "settings.data.git.description": "把你的记忆复制到你自己拥有的私有 git 仓库。推送会把记忆发送到这台设备之外，因此每个文件在推送前都会先检查是否含有凭据或卡号。Psyche 使用你自己的 git 凭据，不保存任何凭据。",
+  "settings.data.git.description":
+    "把你的记忆复制到你自己拥有的私有 git 仓库。推送会把记忆发送到这台设备之外，因此每个文件在推送前都会先检查是否含有凭据或卡号。Psyche 使用你自己的 git 凭据，不保存任何凭据。",
   "settings.data.git.remote": "远程仓库",
-  "settings.data.git.remoteHint": "私有仓库：https://、ssh://、user@host:路径，或本地路径。切勿在网址中包含密码。",
+  "settings.data.git.remoteHint":
+    "私有仓库：https://、ssh://、user@host:路径，或本地路径。切勿在网址中包含密码。",
   "settings.data.git.branch": "分支",
   "settings.data.git.enabled": "开启 git 备份",
   "settings.data.git.enabledHint": "仅在你点击“立即同步”时运行，不会在后台同步。",
