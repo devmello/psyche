@@ -106,9 +106,11 @@ struct SettingsSheet: View {
     @Environment(\.dismiss) private var dismiss
     @State private var confirmingRepair = false
     @State private var confirmingRemove = false
+    private let store: any PsycheBackend
 
     init(store: any PsycheBackend) {
         _model = State(initialValue: SettingsModel(store: store))
+        self.store = store
     }
 
     var body: some View {
@@ -222,6 +224,11 @@ struct SettingsSheet: View {
         }
 
         computersSection(loaded.machines)
+
+        section(String(localized: "Skills", bundle: .module)) {
+            NavigationLink { SkillsView(store: store) } label: { actionRow(String(localized: "Skills", bundle: .module), destructive: false) }
+                .buttonStyle(.plain)
+        }
 
         section(String(localized: "Gateway", bundle: .module)) {
             Button { confirmingRepair = true } label: { actionRow(String(localized: "Re-pair with your Mac", bundle: .module), destructive: false) }
