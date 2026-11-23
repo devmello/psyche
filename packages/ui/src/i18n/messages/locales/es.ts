@@ -1723,6 +1723,28 @@ export const es: Partial<Catalogue> = {
   "settings.channels.approve": "Aprobar",
   "settings.channels.ignoreSender": "Ignorar a {name}",
   "settings.channels.ignore": "Ignorar",
+  "settings.channels.allow.remove": "Quitar",
+  "settings.channels.allow.removeNamed": "Quitar {name}",
+  "settings.channels.allow.senderLabel": "Remitente que permitir",
+  "settings.channels.allow.groupLabel": "Grupo que permitir",
+  "settings.channels.allow.addSender": "Añadir remitente",
+  "settings.channels.allow.addGroup": "Añadir grupo",
+  "settings.channels.allow.senderApproval": "Permitir a un remitente del chat",
+  "settings.channels.allow.groupApproval": "Permitir a un grupo del chat",
+  "settings.channels.allow.forbidden":
+    "Cambiar quién puede escribir requiere un dispositivo de administrador. Usa un dispositivo emparejado como administrador.",
+  "settings.channels.allow.failed":
+    "Psyche no pudo cambiar quién puede escribir ({reason}). No cambió nada.",
+  "settings.channels.identity.name": "Nombre",
+  "settings.channels.identity.senders": "IDs de remitente, separados por comas",
+  "settings.channels.identity.link": "Vincular identidad",
+  "settings.channels.identity.unlink": "Desvincular",
+  "settings.channels.identity.unlinkNamed": "Desvincular {name}",
+  "settings.channels.identity.approval": "Vincular una identidad del chat",
+  "settings.channels.identity.forbidden":
+    "Cambiar los vínculos de identidad requiere un dispositivo de administrador. Usa un dispositivo emparejado como administrador.",
+  "settings.channels.identity.failed":
+    "Psyche no pudo cambiar el vínculo de identidad ({reason}). No cambió nada.",
   "settings.channels.noOneYet": "Nadie aún.",
   "settings.channels.owner": " · propietario",
   "settings.channels.groups": "Grupos",
@@ -1961,6 +1983,12 @@ export const es: Partial<Catalogue> = {
   "settings.apiKeys.save": "Guardar",
   "settings.apiKeys.saving": "Guardando…",
   "settings.apiKeys.clear": "Borrar",
+  "settings.apiKeys.clearConfirm.title": "¿Quitar la clave de {name}?",
+  "settings.apiKeys.clearConfirm.body":
+    "Psyche borra la clave de {name} guardada en la bóveda. Las solicitudes a {name} fallarán hasta que guardes otra clave o la definas en el entorno.",
+  "settings.apiKeys.clearConfirm.bodyPrimary":
+    "Psyche borra la clave de {name} guardada en la bóveda. Tu modelo predeterminado usa {name}, así que el chat fallará hasta que guardes otra clave o elijas otro modelo.",
+  "settings.apiKeys.clearConfirm.confirm": "Quitar clave",
   "settings.apiKeys.none": "Sin definir",
   "settings.apiKeys.vault": "Guardada en la bóveda",
   "settings.apiKeys.env": "Definida en el entorno (tiene prioridad)",

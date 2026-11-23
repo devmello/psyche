@@ -1705,6 +1705,28 @@ export const fr: Partial<Catalogue> = {
   "settings.channels.approve": "Approuver",
   "settings.channels.ignoreSender": "Ignorer {name}",
   "settings.channels.ignore": "Ignorer",
+  "settings.channels.allow.remove": "Supprimer",
+  "settings.channels.allow.removeNamed": "Supprimer {name}",
+  "settings.channels.allow.senderLabel": "Expéditeur à autoriser",
+  "settings.channels.allow.groupLabel": "Groupe à autoriser",
+  "settings.channels.allow.addSender": "Ajouter un expéditeur",
+  "settings.channels.allow.addGroup": "Ajouter un groupe",
+  "settings.channels.allow.senderApproval": "Autoriser un expéditeur de chat",
+  "settings.channels.allow.groupApproval": "Autoriser un groupe de chat",
+  "settings.channels.allow.forbidden":
+    "Modifier qui peut écrire nécessite un appareil administrateur. Utilisez un appareil couplé en tant qu'administrateur.",
+  "settings.channels.allow.failed":
+    "Psyche n'a pas pu modifier qui peut écrire ({reason}). Rien n'a changé.",
+  "settings.channels.identity.name": "Nom",
+  "settings.channels.identity.senders": "Identifiants d'expéditeur, séparés par des virgules",
+  "settings.channels.identity.link": "Lier l’identité",
+  "settings.channels.identity.unlink": "Délier",
+  "settings.channels.identity.unlinkNamed": "Délier {name}",
+  "settings.channels.identity.approval": "Lier une identité de chat",
+  "settings.channels.identity.forbidden":
+    "Modifier les liens d'identité nécessite un appareil administrateur. Utilisez un appareil couplé en tant qu'administrateur.",
+  "settings.channels.identity.failed":
+    "Psyche n'a pas pu modifier le lien d'identité ({reason}). Rien n'a changé.",
   "settings.channels.noOneYet": "Personne pour l’instant.",
   "settings.channels.owner": " · propriétaire",
   "settings.channels.groups": "Groupes",
@@ -1939,6 +1961,12 @@ export const fr: Partial<Catalogue> = {
   "settings.apiKeys.save": "Enregistrer",
   "settings.apiKeys.saving": "Enregistrement…",
   "settings.apiKeys.clear": "Effacer",
+  "settings.apiKeys.clearConfirm.title": "Supprimer la clé {name} ?",
+  "settings.apiKeys.clearConfirm.body":
+    "Psyche supprime la clé {name} enregistrée dans le coffre. Les requêtes vers {name} échoueront tant qu'une clé n'est pas enregistrée à nouveau ou définie dans l'environnement.",
+  "settings.apiKeys.clearConfirm.bodyPrimary":
+    "Psyche supprime la clé {name} enregistrée dans le coffre. Votre modèle par défaut utilise {name} : le chat échouera tant que vous n'enregistrerez pas une nouvelle clé ou ne choisirez pas un autre modèle.",
+  "settings.apiKeys.clearConfirm.confirm": "Supprimer la clé",
   "settings.apiKeys.none": "Non définie",
   "settings.apiKeys.vault": "Enregistrée dans le coffre",
   "settings.apiKeys.env": "Définie dans l’environnement (prioritaire)",

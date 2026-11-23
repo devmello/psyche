@@ -1751,6 +1751,28 @@ export const de: Partial<Catalogue> = {
   "settings.channels.approve": "Bestätigen",
   "settings.channels.ignoreSender": "{name} ignorieren",
   "settings.channels.ignore": "Ignorieren",
+  "settings.channels.allow.remove": "Entfernen",
+  "settings.channels.allow.removeNamed": "{name} entfernen",
+  "settings.channels.allow.senderLabel": "Absender, der erlaubt werden soll",
+  "settings.channels.allow.groupLabel": "Gruppe, die erlaubt werden soll",
+  "settings.channels.allow.addSender": "Absender hinzufügen",
+  "settings.channels.allow.addGroup": "Gruppe hinzufügen",
+  "settings.channels.allow.senderApproval": "Einen Chat-Absender erlauben",
+  "settings.channels.allow.groupApproval": "Eine Chat-Gruppe erlauben",
+  "settings.channels.allow.forbidden":
+    "Wer schreiben darf, lässt sich nur mit einem Admin-Gerät ändern. Nutze ein als Admin gekoppeltes Gerät.",
+  "settings.channels.allow.failed":
+    "Psyche konnte nicht ändern, wer schreiben darf ({reason}). Nichts wurde geändert.",
+  "settings.channels.identity.name": "Name",
+  "settings.channels.identity.senders": "Absender-IDs, durch Kommas getrennt",
+  "settings.channels.identity.link": "Identität verknüpfen",
+  "settings.channels.identity.unlink": "Verknüpfung lösen",
+  "settings.channels.identity.unlinkNamed": "Verknüpfung von {name} lösen",
+  "settings.channels.identity.approval": "Eine Chat-Identität verknüpfen",
+  "settings.channels.identity.forbidden":
+    "Identitätsverknüpfungen lassen sich nur mit einem Admin-Gerät ändern. Nutze ein als Admin gekoppeltes Gerät.",
+  "settings.channels.identity.failed":
+    "Psyche konnte die Identitätsverknüpfung nicht ändern ({reason}). Nichts wurde geändert.",
   "settings.channels.noOneYet": "Noch niemand.",
   "settings.channels.owner": " · Besitzer",
   "settings.channels.groups": "Gruppen",
@@ -1986,6 +2008,12 @@ export const de: Partial<Catalogue> = {
   "settings.apiKeys.save": "Speichern",
   "settings.apiKeys.saving": "Speichern …",
   "settings.apiKeys.clear": "Entfernen",
+  "settings.apiKeys.clearConfirm.title": "Schlüssel {name} entfernen?",
+  "settings.apiKeys.clearConfirm.body":
+    "Psyche löscht den gespeicherten {name}-Schlüssel aus dem Tresor. Anfragen an {name} schlagen fehl, bis wieder ein Schlüssel gespeichert oder in der Umgebung gesetzt ist.",
+  "settings.apiKeys.clearConfirm.bodyPrimary":
+    "Psyche löscht den gespeicherten {name}-Schlüssel aus dem Tresor. Dein Standardmodell nutzt {name}, daher funktioniert der Chat nicht, bis du wieder einen Schlüssel speicherst oder ein anderes Modell wählst.",
+  "settings.apiKeys.clearConfirm.confirm": "Schlüssel entfernen",
   "settings.apiKeys.none": "Nicht gesetzt",
   "settings.apiKeys.vault": "Im Tresor gespeichert",
   "settings.apiKeys.env": "In der Umgebung gesetzt (hat Vorrang)",

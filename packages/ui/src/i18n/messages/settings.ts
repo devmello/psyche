@@ -1006,6 +1006,28 @@ export const settings = {
   "settings.channels.approve": "Approve",
   "settings.channels.ignoreSender": "Ignore {name}",
   "settings.channels.ignore": "Ignore",
+  "settings.channels.allow.remove": "Remove",
+  "settings.channels.allow.removeNamed": "Remove {name}",
+  "settings.channels.allow.senderLabel": "Sender to allow",
+  "settings.channels.allow.groupLabel": "Group to allow",
+  "settings.channels.allow.addSender": "Add sender",
+  "settings.channels.allow.addGroup": "Add group",
+  "settings.channels.allow.senderApproval": "Allowing a chat sender",
+  "settings.channels.allow.groupApproval": "Allowing a chat group",
+  "settings.channels.allow.forbidden":
+    "Changing who can message needs an admin device. Use a device paired as admin.",
+  "settings.channels.allow.failed":
+    "Psyche couldn't change who can message ({reason}). Nothing changed.",
+  "settings.channels.identity.name": "Name",
+  "settings.channels.identity.senders": "Sender IDs, separated by commas",
+  "settings.channels.identity.link": "Link identity",
+  "settings.channels.identity.unlink": "Unlink",
+  "settings.channels.identity.unlinkNamed": "Unlink {name}",
+  "settings.channels.identity.approval": "Linking a chat identity",
+  "settings.channels.identity.forbidden":
+    "Changing identity links needs an admin device. Use a device paired as admin.",
+  "settings.channels.identity.failed":
+    "Psyche couldn't change the identity link ({reason}). Nothing changed.",
   "settings.channels.noOneYet": "No one yet.",
   "settings.channels.owner": " · owner",
   "settings.channels.groups": "Groups",
@@ -1586,6 +1608,12 @@ export const settings = {
   "settings.apiKeys.save": "Save",
   "settings.apiKeys.saving": "Saving…",
   "settings.apiKeys.clear": "Clear",
+  "settings.apiKeys.clearConfirm.title": "Remove the {name} key?",
+  "settings.apiKeys.clearConfirm.body":
+    "Psyche deletes the {name} key saved in the vault. Requests to {name} fail until a key is saved again or set in the environment.",
+  "settings.apiKeys.clearConfirm.bodyPrimary":
+    "Psyche deletes the {name} key saved in the vault. Your default model uses {name}, so chat fails until you save a key again or pick another model.",
+  "settings.apiKeys.clearConfirm.confirm": "Remove key",
   "settings.apiKeys.none": "Not set",
   "settings.apiKeys.vault": "Saved in the vault",
   "settings.apiKeys.env": "Set in the environment (takes priority)",

@@ -4172,6 +4172,46 @@ export class MockGateway implements GatewayClient {
       ),
     }),
     "channels.identities.list": () => ({ identities: this.world.channelIdentities }),
+    "channels.allowlist.update": (p) => {
+      const channel = this.find(this.world.channels, p.channelId, "channel") as Channel;
+      const remove = p.remove ?? [];
+      const next = [
+        ...new Set([...channel[p.list].filter((id) => !remove.includes(id)), ...(p.add ?? [])]),
+      ];
+      const updated = { ...channel, [p.list]: next, updatedAt: this.now() } as Channel;
+      this.replace("channels", updated);
+      return { channel: updated };
+    },
+    "channels.identities.upsert": (p) => {
+      const now = this.now();
+      const existing =
+        p.identityId === undefined
+          ? undefined
+          : this.world.channelIdentities.find((i) => i.id === p.identityId);
+      const identity: ChannelIdentity = {
+        id: p.identityId ?? this.id("idn"),
+        display: p.display,
+        links: [...new Set(p.links)],
+        delegatedPersona:
+          p.delegatedPersona !== undefined
+            ? p.delegatedPersona
+            : (existing?.delegatedPersona ?? null),
+        toolAllow: p.toolAllow !== undefined ? p.toolAllow : (existing?.toolAllow ?? null),
+        createdAt: existing?.createdAt ?? now,
+        updatedAt: now,
+      };
+      this.world.channelIdentities = [
+        ...this.world.channelIdentities.filter((i) => i.id !== identity.id),
+        identity,
+      ];
+      return { identity };
+    },
+    "channels.identities.delete": (p) => {
+      this.world.channelIdentities = this.world.channelIdentities.filter(
+        (i) => i.id !== p.identityId,
+      );
+      return { ok: true };
+    },
     "channels.pairing.approve": (p) => ({ pairingRequest: this.decidePairing(p, "approved") }),
     "channels.pairing.deny": (p) => ({ pairingRequest: this.decidePairing(p, "denied") }),
     "channels.secrets.set": (p) => {

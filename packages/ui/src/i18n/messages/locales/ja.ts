@@ -1698,6 +1698,28 @@ export const ja: Partial<Catalogue> = {
   "settings.channels.approve": "承認",
   "settings.channels.ignoreSender": "{name}を無視",
   "settings.channels.ignore": "無視",
+  "settings.channels.allow.remove": "削除",
+  "settings.channels.allow.removeNamed": "{name} を削除",
+  "settings.channels.allow.senderLabel": "許可する送信者",
+  "settings.channels.allow.groupLabel": "許可するグループ",
+  "settings.channels.allow.addSender": "送信者を追加",
+  "settings.channels.allow.addGroup": "グループを追加",
+  "settings.channels.allow.senderApproval": "チャットの送信者を許可",
+  "settings.channels.allow.groupApproval": "チャットのグループを許可",
+  "settings.channels.allow.forbidden":
+    "誰がメッセージを送れるかを変更するには管理者デバイスが必要です。管理者としてペアリングしたデバイスを使ってください。",
+  "settings.channels.allow.failed":
+    "Psyche は誰がメッセージを送れるかを変更できませんでした（{reason}）。何も変更されていません。",
+  "settings.channels.identity.name": "名前",
+  "settings.channels.identity.senders": "送信者 ID（カンマ区切り）",
+  "settings.channels.identity.link": "ID をリンク",
+  "settings.channels.identity.unlink": "リンクを解除",
+  "settings.channels.identity.unlinkNamed": "{name} のリンクを解除",
+  "settings.channels.identity.approval": "チャットの ID をリンク",
+  "settings.channels.identity.forbidden":
+    "ID リンクを変更するには管理者デバイスが必要です。管理者としてペアリングしたデバイスを使ってください。",
+  "settings.channels.identity.failed":
+    "Psyche は ID リンクを変更できませんでした（{reason}）。何も変更されていません。",
   "settings.channels.noOneYet": "まだ誰もいません。",
   "settings.channels.owner": " · 所有者",
   "settings.channels.groups": "グループ",
@@ -1927,6 +1949,12 @@ export const ja: Partial<Catalogue> = {
   "settings.apiKeys.save": "保存",
   "settings.apiKeys.saving": "保存中…",
   "settings.apiKeys.clear": "消去",
+  "settings.apiKeys.clearConfirm.title": "{name} のキーを削除しますか？",
+  "settings.apiKeys.clearConfirm.body":
+    "Psyche は保管庫に保存されている {name} のキーを削除します。新しいキーを保存するか環境変数で設定するまで、{name} へのリクエストは失敗します。",
+  "settings.apiKeys.clearConfirm.bodyPrimary":
+    "Psyche は保管庫に保存されている {name} のキーを削除します。既定のモデルは {name} を使うため、新しいキーを保存するか別のモデルを選ぶまでチャットは失敗します。",
+  "settings.apiKeys.clearConfirm.confirm": "キーを削除",
   "settings.apiKeys.none": "未設定",
   "settings.apiKeys.vault": "保管庫に保存済み",
   "settings.apiKeys.env": "環境変数で設定済み（優先）",

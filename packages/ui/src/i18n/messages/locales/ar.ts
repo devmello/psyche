@@ -1753,6 +1753,28 @@ export const ar: Partial<Catalogue> = {
   "settings.channels.approve": "موافقة",
   "settings.channels.ignoreSender": "تجاهل {name}",
   "settings.channels.ignore": "تجاهل",
+  "settings.channels.allow.remove": "إزالة",
+  "settings.channels.allow.removeNamed": "إزالة {name}",
+  "settings.channels.allow.senderLabel": "المرسل المراد السماح له",
+  "settings.channels.allow.groupLabel": "المجموعة المراد السماح لها",
+  "settings.channels.allow.addSender": "إضافة مرسل",
+  "settings.channels.allow.addGroup": "إضافة مجموعة",
+  "settings.channels.allow.senderApproval": "السماح لمرسل دردشة",
+  "settings.channels.allow.groupApproval": "السماح لمجموعة دردشة",
+  "settings.channels.allow.forbidden":
+    "تغيير من يمكنه المراسلة يحتاج إلى جهاز مشرف. استخدم جهازًا مقترنًا كمشرف.",
+  "settings.channels.allow.failed":
+    "تعذّر على Psyche تغيير من يمكنه المراسلة ({reason}). لم يتغير شيء.",
+  "settings.channels.identity.name": "الاسم",
+  "settings.channels.identity.senders": "معرّفات المرسلين، مفصولة بفواصل",
+  "settings.channels.identity.link": "ربط الهوية",
+  "settings.channels.identity.unlink": "فك الربط",
+  "settings.channels.identity.unlinkNamed": "فك ربط {name}",
+  "settings.channels.identity.approval": "ربط هوية دردشة",
+  "settings.channels.identity.forbidden":
+    "تغيير روابط الهوية يحتاج إلى جهاز مشرف. استخدم جهازًا مقترنًا كمشرف.",
+  "settings.channels.identity.failed":
+    "تعذّر على Psyche تغيير رابط الهوية ({reason}). لم يتغير شيء.",
   "settings.channels.noOneYet": "لا أحد بعد.",
   "settings.channels.owner": " · المالك",
   "settings.channels.groups": "المجموعات",
@@ -1984,6 +2006,12 @@ export const ar: Partial<Catalogue> = {
   "settings.apiKeys.save": "حفظ",
   "settings.apiKeys.saving": "جارٍ الحفظ…",
   "settings.apiKeys.clear": "مسح",
+  "settings.apiKeys.clearConfirm.title": "إزالة مفتاح {name}؟",
+  "settings.apiKeys.clearConfirm.body":
+    "يحذف Psyche مفتاح {name} المحفوظ في الخزنة. ستفشل الطلبات إلى {name} حتى يُحفظ مفتاح جديد أو يُضبط في البيئة.",
+  "settings.apiKeys.clearConfirm.bodyPrimary":
+    "يحذف Psyche مفتاح {name} المحفوظ في الخزنة. يستخدم نموذجك الافتراضي {name}، لذلك لن تعمل المحادثة حتى تحفظ مفتاحًا آخر أو تختار نموذجًا مختلفًا.",
+  "settings.apiKeys.clearConfirm.confirm": "إزالة المفتاح",
   "settings.apiKeys.none": "غير مضبوط",
   "settings.apiKeys.vault": "محفوظ في الخزنة",
   "settings.apiKeys.env": "مضبوط في البيئة (له الأولوية)",
