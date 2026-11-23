@@ -1,5 +1,6 @@
 import type { HashChainAuditLog } from "@psyche/audit";
 import type { PsycheDb } from "@psyche/db";
+import type { SqliteMemoryStore } from "@psyche/memory";
 import type { PsycheNotifier } from "@psyche/notifications";
 import type {
   LocalProjectVerifier,
@@ -49,6 +50,8 @@ export interface ComposeServices {
   /** What an app update would interrupt, beyond runs and tasks (`gateway.prepareUpdate`). */
   readonly busy?: Pick<BusySources, "add" | "count">;
   readonly db: PsycheDb;
+  /** The workspace memory store (git backup of `$PSYCHE_HOME/workspace`). */
+  readonly memory?: SqliteMemoryStore;
   readonly clock: Clock;
   /** `$PSYCHE_HOME`. */
   readonly home: string;

@@ -116,6 +116,15 @@ The folder must be new or empty. The CLI collects:
 
 Backups are a separate, encrypted copy of everything, made for restoring rather than reading. See [backup-restore.md](backup-restore.md).
 
-## Git sync
+## Back up to git
 
-The memory package can sync the workspace with a private git repository, but there is no command for it on main, so it is not available yet. The workspace is a plain folder of Markdown files, so you can keep it under version control yourself. Psyche treats changes that arrive that way as your edits.
+Settings → Data → "Back up to git" copies the workspace (SOUL.md, memory and notes) to a private git repository you own.
+
+- **Set it up.** Enter a remote: `https://`, `ssh://`, `user@host:path` or a local path. A password in the URL is refused; use an SSH key or your git credential helper. Choose a branch, then turn "Git backup on" and press Save.
+- **Sync.** Nothing syncs in the background. Press "Sync now" to commit the workspace, pull with rebase and push.
+- **What leaves this device.** Pushing sends your memory off this Mac. Before anything is committed, every file is scanned for credentials and card numbers. A file that holds one stops the sync, and the result names it. Remove it, then sync again.
+- **Conflicts.** If the remote has edits to the same lines, the rebase is aborted and nothing is pushed. The result lists the files. Pulled changes are reindexed as your own edits.
+- **Who can change it.** Only a device with admin can change the remote or run a sync. Psyche uses your own git credentials and stores none.
+- **Needs git.** The Mac must have git installed. Without it the result says so.
+
+The workspace is a plain folder of Markdown files, so you can also keep it under version control yourself. Psyche treats changes that arrive that way as your edits.

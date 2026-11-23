@@ -1,4 +1,4 @@
-import { Type } from "@sinclair/typebox";
+import { type Static, Type } from "@sinclair/typebox";
 import { Id, IsoDateTime, Nullable, Provenance, StringEnum } from "../common.ts";
 import {
   ComingUpItem,
@@ -63,6 +63,59 @@ import { WorkReminderList } from "../schemas/memory-work.ts";
 import { defineMethod, nextCursor, pageParams } from "./define.ts";
 
 /** `memory.*` (architecture §4.8; data model §7). Paths are relative to the workspace. */
+
+/**
+ * Git backup of the workspace (`memory.gitSync.*`): the owner's own private repository. Remote
+ * URLs never carry a password (the Gateway refuses them); credentials are the owner's own git
+ * setup. `enabled` must be on before a sync runs.
+ */
+export const GitSyncConfig = Type.Object(
+  {
+    /** Empty until the owner sets a remote. */
+    remote: Type.String({ maxLength: 2048 }),
+    branch: Type.String({ minLength: 1, maxLength: 200 }),
+    enabled: Type.Boolean(),
+  },
+  { $id: "GitSyncConfig" },
+);
+export type GitSyncConfig = Static<typeof GitSyncConfig>;
+
+export const GitSyncErrorCode = StringEnum(
+  [
+    "no_git",
+    "no_remote",
+    "auth_failed",
+    "remote_failed",
+    "conflict",
+    "blocked_secret",
+    "not_enabled",
+    "failed",
+  ],
+  { $id: "GitSyncErrorCode" },
+);
+
+/** The outcome of one sync; `ok` is false when the sync stopped on a clear, expected failure. */
+export const GitSyncResult = Type.Object(
+  {
+    at: IsoDateTime,
+    ok: Type.Boolean(),
+    committed: Type.Boolean(),
+    commit: Type.Optional(Type.String({ maxLength: 64 })),
+    /** Files in the commit made by this sync. */
+    files: Type.Integer({ minimum: 0 }),
+    pulled: Type.Boolean(),
+    pushed: Type.Boolean(),
+    /** Workspace-relative paths that conflicted; the rebase was aborted and nothing was pushed. */
+    conflicts: Type.Optional(Type.Array(Type.String({ maxLength: 1024 }), { maxItems: 500 })),
+    /** Workspace-relative paths the secret scan refused. */
+    blocked: Type.Optional(Type.Array(Type.String({ maxLength: 1024 }), { maxItems: 500 })),
+    errorCode: Type.Optional(GitSyncErrorCode),
+    /** English fallback for the error; clients show their own text for `errorCode`. */
+    error: Type.Optional(Type.String({ maxLength: 500 })),
+  },
+  { $id: "GitSyncResult" },
+);
+export type GitSyncResult = Static<typeof GitSyncResult>;
 
 /** Workspace-relative path: no leading slash, no `..` segment. The Gateway still canonicalizes. */
 export const WorkspacePath = Type.String({
@@ -286,6 +339,39 @@ export const MemoryMethods = {
     sideEffecting: true,
     description:
       "Pauses or resumes memory: while paused nothing is flushed, remembered or indexed from chats. Side-effecting.",
+  }),
+  "memory.gitSync.get": defineMethod({
+    params: Type.Object({}),
+    result: Type.Object({
+      config: GitSyncConfig,
+      /** The last sync this Gateway ran, or null before the first one. */
+      last: Type.Union([GitSyncResult, Type.Null()]),
+    }),
+    scope: "operator.read",
+    description:
+      "Git backup of the workspace: the remote, branch and enabled flag, and the last sync result.",
+  }),
+  "memory.gitSync.set": defineMethod({
+    params: Type.Object({
+      remote: Type.String({ maxLength: 2048 }),
+      branch: Type.String({ minLength: 1, maxLength: 200 }),
+      enabled: Type.Boolean(),
+    }),
+    result: GitSyncConfig,
+    // Admin only: the remote decides where memory is pushed.
+    scope: "operator.admin",
+    sideEffecting: true,
+    description:
+      "Sets the git backup remote (https://, ssh://, user@host:path or a local path; never a password in the URL), branch and enabled flag. Side-effecting.",
+  }),
+  "memory.gitSync.run": defineMethod({
+    params: Type.Object({}),
+    result: GitSyncResult,
+    // Admin only: a sync pushes memory off this Mac.
+    scope: "operator.admin",
+    sideEffecting: true,
+    description:
+      "Runs one git backup now: commits the workspace after a secret scan, pulls with rebase and pushes. Returns the outcome; expected failures come back with ok false. Side-effecting.",
   }),
   "memory.persona.get": defineMethod({
     params: Type.Object({}),

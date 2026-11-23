@@ -7633,6 +7633,39 @@ export interface MemoryForgetResult {
     retractedClaimIds: string[];
 }
 
+export interface MemoryGitSyncGetResult {
+    config: GitSyncConfig;
+    last:   GitSyncResult | null;
+}
+
+export interface GitSyncConfig {
+    branch:  string;
+    enabled: boolean;
+    remote:  string;
+}
+
+export interface GitSyncResult {
+    at:         string;
+    blocked?:   string[];
+    commit?:    string;
+    committed:  boolean;
+    conflicts?: string[];
+    error?:     string;
+    errorCode?: GitSyncErrorCode;
+    files:      number;
+    ok:         boolean;
+    pulled:     boolean;
+    pushed:     boolean;
+}
+
+export type GitSyncErrorCode = "no_git" | "no_remote" | "auth_failed" | "remote_failed" | "conflict" | "blocked_secret" | "not_enabled" | "failed";
+
+export interface MemoryGitSyncSetParams {
+    branch:  string;
+    enabled: boolean;
+    remote:  string;
+}
+
 export interface MemoryGraphBlocklistAddParams {
     kind:  GraphBlockKind;
     value: string;

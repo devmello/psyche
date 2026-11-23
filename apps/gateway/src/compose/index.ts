@@ -1440,6 +1440,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   const pageReads = new PageReadHub();
   const services: ComposeServices = {
     memoryStore: memoryDb,
+    memory,
     documents,
     pageReads,
     busy: busySources,

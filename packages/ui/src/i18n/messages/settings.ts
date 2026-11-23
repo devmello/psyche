@@ -1689,6 +1689,37 @@ export const settings = {
   "settings.data.export": "Export",
   "settings.data.exportHint": "A zip of the workspace (SOUL.md, memory, notes) and every claim.",
   "settings.data.exportEverything": "Export everything",
+  "settings.data.git.title": "Back up to git",
+  "settings.data.git.description":
+    "Copies your memory to a private git repository you own. Pushing sends it off this device, so every file is scanned for credentials and card numbers first. Psyche uses your own git credentials and stores none.",
+  "settings.data.git.remote": "Remote",
+  "settings.data.git.remoteHint":
+    "A private repository: https://, ssh://, user@host:path or a local path. Never put a password in the URL.",
+  "settings.data.git.branch": "Branch",
+  "settings.data.git.enabled": "Git backup on",
+  "settings.data.git.enabledHint":
+    "Runs only when you press Sync now. Nothing syncs in the background.",
+  "settings.data.git.save": "Save",
+  "settings.data.git.sync": "Sync now",
+  "settings.data.git.lastSync": "Last sync {when}",
+  "settings.data.git.backedUp":
+    "Backed up {files, plural, one {# file} other {# files}} and pushed.",
+  "settings.data.git.upToDate": "Nothing new to back up. The remote is up to date.",
+  "settings.data.git.pulled": "Pulled changes from the remote. Nothing new to push.",
+  "settings.data.git.noGit": "git is not installed on this device. Install git, then sync again.",
+  "settings.data.git.noRemote": "Set a remote first.",
+  "settings.data.git.notEnabled": "Turn git backup on first.",
+  "settings.data.git.authFailed":
+    "The remote refused your login. Check your SSH key or git credential helper.",
+  "settings.data.git.remoteFailed":
+    "Could not reach the remote. Check the address and your connection.",
+  "settings.data.git.conflict":
+    "The remote has changes that conflict with this device's memory. Nothing was pushed.",
+  "settings.data.git.blocked":
+    "Not synced: {files} looks like it holds a credential or card number. Remove it, then sync again.",
+  "settings.data.git.failed": "The git backup failed. Try again.",
+  "settings.data.git.needsAdmin": "Git backup needs admin on this device.",
+  "settings.data.git.saveFailed": "Could not save the git backup settings.",
   "settings.data.deleteThreads": "Delete threads",
   "settings.data.deleteThreadsHint":
     "Deleting a chat doesn't delete what {persona} learned from it. To forget that too, reset memory below.",

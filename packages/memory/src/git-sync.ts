@@ -59,6 +59,8 @@ export interface GitSyncOptions {
 export interface GitSyncResult {
   committed: boolean;
   commit?: string;
+  /** Files in the commit this sync made (0 when nothing changed). */
+  files: number;
   pulled: boolean;
   pushed: boolean;
   /** Files with rebase conflicts (the rebase was aborted; nothing was pushed). */
@@ -192,7 +194,7 @@ export class WorkspaceGit {
     await this.#store.idle();
     const pending = await this.#pending();
     this.#scan(pending);
-    const result: GitSyncResult = { committed: false, pulled: false, pushed: false };
+    const result: GitSyncResult = { committed: false, files: 0, pulled: false, pushed: false };
     if (pending.length > 0) {
       await this.#run(["add", "-A"]);
       await this.#run([
@@ -203,6 +205,7 @@ export class WorkspaceGit {
         `Psyche memory sync ${this.#store.now().date}`,
       ]);
       result.committed = true;
+      result.files = pending.length;
       result.commit = (await this.#run(["rev-parse", "HEAD"])).stdout.trim();
     }
     if (options.localOnly === true) return result;
