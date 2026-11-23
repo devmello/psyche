@@ -380,8 +380,15 @@ private struct GoalSheet: View {
 struct ScheduledView: View {
     @State private var model: ScheduledModel
     @State private var confirmingRun: ScheduledJob?
+    @State private var confirmingDelete: ScheduledJob?
+    @State private var editing: ScheduledJob?
+    @State private var adding = false
+    private let store: any PsycheBackend
 
-    init(store: any PsycheBackend) { _model = State(initialValue: ScheduledModel(store: store)) }
+    init(store: any PsycheBackend) {
+        self.store = store
+        _model = State(initialValue: ScheduledModel(store: store))
+    }
 
     var body: some View {
         ProactivePage(
@@ -423,7 +430,6 @@ struct ScheduledView: View {
                     }
                 }
             }
-            Text("Edit schedules and prompts on your Mac.", bundle: .module).font(.footnote).foregroundStyle(PsycheColor.muted)
         }
         .confirmationDialog(
             String(localized: "Run this now?", bundle: .module),
@@ -434,12 +440,40 @@ struct ScheduledView: View {
         } message: { _ in
             Text("This can take actions for you. Anything that needs your approval still waits for you.", bundle: .module)
         }
+        .confirmationDialog(
+            String(localized: "Delete this automation?", bundle: .module),
+            isPresented: Binding(get: { confirmingDelete != nil }, set: { if !$0 { confirmingDelete = nil } }),
+            titleVisibility: .visible, presenting: confirmingDelete
+        ) { job in
+            Button(String(localized: "Delete", bundle: .module), role: .destructive) { Task { await model.delete(job) } }
+        } message: { _ in
+            Text("It won't run again, and this can't be undone.", bundle: .module)
+        }
+        .sheet(item: $editing) { job in
+            AutomationEditorSheet(store: store, automationID: job.id) { Task { await model.load() } }
+        }
+        .sheet(isPresented: $adding) {
+            AutomationEditorSheet(store: store, automationID: nil) { Task { await model.load() } }
+        }
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button { adding = true } label: { Image(systemName: "plus") }
+                    .accessibilityLabel(String(localized: "New automation", bundle: .module))
+            }
+        }
     }
 
     private func jobRow(_ job: ScheduledJob) -> some View {
         let busy = model.isBusy(job.id)
         return VStack(alignment: .leading, spacing: 6) {
-            Text(job.title).font(.psycheRow).foregroundStyle(PsycheColor.text)
+            if job.isRoutine {
+                Text(job.title).font(.psycheRow).foregroundStyle(PsycheColor.text)
+            } else {
+                Button { editing = job } label: {
+                    Text(job.title).font(.psycheRow).foregroundStyle(PsycheColor.text)
+                }
+                .buttonStyle(.plain)
+            }
             EvidenceLine([ProactiveText.scheduleLine(job)])
             if job.state != "off" {
                 HStack(spacing: 20) {
@@ -455,6 +489,14 @@ struct ScheduledView: View {
                     }
                     .proactiveAction()
                     .disabled(busy)
+                }
+            }
+            if !job.isRoutine {
+                HStack(spacing: 20) {
+                    Button(String(localized: "Edit", bundle: .module)) { editing = job }
+                        .proactiveAction()
+                    Button(String(localized: "Delete", bundle: .module), role: .destructive) { confirmingDelete = job }
+                        .proactiveAction()
                 }
             }
         }
