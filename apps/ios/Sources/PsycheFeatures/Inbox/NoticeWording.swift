@@ -15,6 +15,17 @@ enum NoticeWording {
         "notice.codeRun.unmoved.title", "notice.codeRun.unmoved.body",
         "notice.machine.added.title", "notice.machine.added.body",
         "notice.machine.removed.title", "notice.machine.removed.body",
+        "notice.machine.offline.title", "notice.machine.offline.body",
+        "notice.machine.scanIncomplete.title", "notice.machine.scanIncomplete.body",
+        "notice.codeRun.unchecked.title", "notice.codeRun.unchecked.body",
+        "notice.approvals.digest.body", "notice.attention.paused.title", "notice.attention.paused.body",
+        "notice.browser.chrome.title", "notice.browser.chrome.body",
+        "notice.browser.takeover.title", "notice.browser.takeover.body",
+        "notice.connector.changed.title", "notice.connector.consent.title", "notice.connector.consent.body",
+        "notice.connector.reconnect.title", "notice.connector.reconnect.body",
+        "notice.mcp.changed.title", "notice.mcp.review.body", "notice.mcp.suspicious.title",
+        "notice.security.changed.title", "notice.security.firstAdmin.title", "notice.security.firstSeal.title",
+        "notice.security.tightened.body", "notice.security.untrusted.title", "notice.security.untrusted.body",
         "notice.action.keepIt",
     ]
 

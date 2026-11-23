@@ -7242,6 +7242,1639 @@
           }
         }
       }
+    },
+    "notice.machine.offline.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "انقطع اتصال {name}"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{name} ist offline gegangen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{name} went offline"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{name} se desconectó"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{name} est passé hors ligne"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{name} ऑफ़लाइन हो गया"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{name} è andato offline"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{name}がオフラインになりました"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{name}이(가) 오프라인이 되었습니다"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{name} ficou offline"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{name} 已离线"
+          }
+        }
+      }
+    },
+    "notice.machine.offline.body": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "لا يستطيع Psyche استخدامه حتى يعاود الاتصال. المهام التي تحتاج إليه تنتظرك."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche kann es nicht nutzen, bis es sich wieder verbindet. Aufgaben, die es brauchen, warten auf dich."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche can't use it until it reconnects. Tasks that need it wait for you."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche no puede usarlo hasta que se reconecte. Las tareas que lo necesitan esperan por ti."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche ne peut pas l'utiliser avant sa reconnexion. Les tâches qui en ont besoin t'attendent."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "दोबारा कनेक्ट होने तक Psyche इसे इस्तेमाल नहीं कर सकता। जिन टास्क को इसकी ज़रूरत है, वे आपका इंतज़ार करेंगे।"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche non può usarlo finché non si riconnette. Le attività che ne hanno bisogno aspettano te."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "再接続するまでPsycheは使えません。必要とするタスクは、あなたを待ちます。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "다시 연결될 때까지 Psyche가 사용할 수 없습니다. 필요한 작업은 사용자를 기다립니다."
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O Psyche não pode usá-lo até que ele se reconecte. As tarefas que precisam dele esperam por você."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "重新连接前 Psyche 无法使用它。需要它的任务会等你处理。"
+          }
+        }
+      }
+    },
+    "notice.approvals.digest.body": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "افتح الموافقات للموافقة عليها أو رفضها"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Öffne Genehmigungen, um sie zu genehmigen oder abzulehnen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open Approvals to approve or decline them"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abre Aprobaciones para aprobarlas o rechazarlas"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ouvrez Approbations pour les approuver ou les refuser"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "उन्हें मंज़ूर या अस्वीकार करने के लिए मंज़ूरियाँ खोलें"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apri Approvazioni per approvarle o rifiutarle"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "承認を開いて、承認または拒否してください"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "승인을 열어 승인하거나 거절하세요"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abra Aprovações para aprová-las ou recusá-las"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "打开“审批”来批准或拒绝它们"
+          }
+        }
+      }
+    },
+    "notice.attention.paused.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "مهمة تنتظرك"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eine Aufgabe wartet auf dich"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A task is waiting for you"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Una tarea te está esperando"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Une tâche vous attend"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "एक टास्क आपका इंतज़ार कर रहा है"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un’attività ti aspetta"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "タスクがあなたを待っています"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "작업이 기다리고 있습니다"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Uma tarefa está esperando por você"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "有任务在等你"
+          }
+        }
+      }
+    },
+    "notice.attention.paused.body": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "توقفت مؤقتًا قبل {tool} على تطبيق أو موقع حساس إلى أن تعود إلى Psyche."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vor {tool} auf einer sensiblen App oder Website pausiert, bis du wieder in Psyche bist."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Paused before {tool} on a sensitive app or site until you are back in Psyche."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "En pausa antes de {tool} en una app o sitio sensible hasta que vuelvas a Psyche."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "En pause avant {tool} sur une app ou un site sensible, jusqu’à votre retour dans Psyche."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "किसी संवेदनशील ऐप या साइट पर {tool} से पहले रोक दिया गया, जब तक आप Psyche में वापस नहीं आते।"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "In pausa prima di {tool} su un’app o un sito sensibile, finché non torni in Psyche."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "機密性の高いアプリやサイトで {tool} の前に一時停止しています。Psyche に戻るまで待機します。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "민감한 앱이나 사이트에서 {tool} 직전에 멈췄습니다. Psyche로 돌아올 때까지 기다립니다."
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Em pausa antes de {tool} em um app ou site sensível, até você voltar ao Psyche."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "在敏感的应用或网站上，已在 {tool} 之前暂停，等你回到 Psyche。"
+          }
+        }
+      }
+    },
+    "notice.browser.chrome.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche يتحكم في Chrome لديك"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche steuert dein Chrome"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche is driving your Chrome"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche está controlando tu Chrome"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche pilote votre Chrome"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche आपका Chrome चला रहा है"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche sta usando il tuo Chrome"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche があなたの Chrome を操作しています"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche가 Chrome을 조작하고 있습니다"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O Psyche está controlando seu Chrome"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche 正在操作你的 Chrome"
+          }
+        }
+      }
+    },
+    "notice.browser.chrome.body": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "تستخدم مهمة ملف Chrome الخاص بـ Psyche الذي سجّلت الدخول فيه. عنوان نافذته “Psyche is driving this window”. يُغلق عند انتهاء المهمة، ويمكنك أيضًا إنهاء Chrome."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eine Aufgabe nutzt das Psyche-Chrome-Profil, in dem du angemeldet bist. Der Fenstertitel lautet „Psyche is driving this window“. Es schließt sich, wenn die Aufgabe fertig ist; du kannst Chrome auch beenden."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A task is using the Psyche Chrome profile, where you are signed in. Its window title says “Psyche is driving this window”. It closes when the task is done; you can also quit Chrome."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Una tarea usa el perfil de Chrome de Psyche, donde tienes la sesión iniciada. El título de su ventana dice “Psyche is driving this window”. Se cierra cuando termina la tarea; también puedes salir de Chrome."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Une tâche utilise le profil Chrome de Psyche, où vous êtes connecté. Le titre de sa fenêtre indique « Psyche is driving this window ». Elle se ferme à la fin de la tâche ; vous pouvez aussi quitter Chrome."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "एक टास्क Psyche के Chrome प्रोफ़ाइल का उपयोग कर रहा है, जिसमें आप साइन इन हैं। उसकी विंडो के शीर्षक में “Psyche is driving this window” लिखा है। टास्क पूरा होने पर वह बंद हो जाता है; आप Chrome को खुद भी बंद कर सकते हैं।"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un’attività usa il profilo Chrome di Psyche, dove hai effettuato l’accesso. Il titolo della finestra dice “Psyche is driving this window”. Si chiude al termine dell’attività; puoi anche chiudere Chrome."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "タスクが、サインイン済みの Psyche 用 Chrome プロファイルを使っています。ウィンドウのタイトルは「Psyche is driving this window」です。タスクが終わると閉じます。Chrome を終了することもできます。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "작업이 로그인되어 있는 Psyche용 Chrome 프로필을 사용하고 있습니다. 창 제목은 “Psyche is driving this window”입니다. 작업이 끝나면 닫히며, Chrome을 직접 종료해도 됩니다."
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Uma tarefa está usando o perfil do Chrome do Psyche, onde você está conectado. O título da janela diz “Psyche is driving this window”. Ela fecha quando a tarefa termina; você também pode sair do Chrome."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "有任务正在使用你已登录的 Psyche Chrome 配置文件。窗口标题为“Psyche is driving this window”。任务完成后会关闭，你也可以退出 Chrome。"
+          }
+        }
+      }
+    },
+    "notice.browser.takeover.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "يحتاجك Psyche في المتصفح"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche braucht dich im Browser"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche needs you in the browser"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche te necesita en el navegador"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche a besoin de vous dans le navigateur"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche को ब्राउज़र में आपकी ज़रूरत है"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche ha bisogno di te nel browser"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ブラウザで Psyche の手助けが必要です"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "브라우저에서 Psyche가 도움을 필요로 합니다"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O Psyche precisa de você no navegador"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche 需要你在浏览器中协助"
+          }
+        }
+      }
+    },
+    "notice.browser.takeover.body": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "على {host}، يسأل الوكيل: {reason}. تولَّ التحكم في لوحة المتصفح ثم أعده إليه."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Auf {host} fragt der Agent: {reason}. Übernimm im Browserbereich die Steuerung und gib sie dann zurück."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "On {host}, the agent asks: {reason}. Take control in the browser pane, then hand it back."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "En {host}, el agente pregunta: {reason}. Toma el control en el panel del navegador y luego devuélvelo."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sur {host}, l’agent demande : {reason}. Prenez la main dans le volet du navigateur, puis rendez-la."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{host} पर एजेंट पूछ रहा है: {reason}। ब्राउज़र पेन में नियंत्रण अपने हाथ में लें, फिर उसे वापस सौंप दें।"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Su {host}, l’agente chiede: {reason}. Prendi il controllo nel pannello del browser, poi restituiscilo."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{host} でエージェントが尋ねています: {reason}。ブラウザのペインで操作を引き継ぎ、終わったら戻してください。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{host}에서 에이전트가 묻습니다: {reason}. 브라우저 창에서 직접 조작한 뒤 다시 넘겨주세요."
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Em {host}, o agente pergunta: {reason}. Assuma o controle no painel do navegador e depois devolva."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "在 {host} 上，智能体询问：{reason}。请在浏览器窗格中接管操作，完成后再交还。"
+          }
+        }
+      }
+    },
+    "notice.connector.changed.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "تغيّر اتصال"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eine Verbindung hat sich geändert"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A connection changed"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cambió una conexión"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Une connexion a changé"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "एक कनेक्शन बदल गया"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Una connessione è cambiata"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "接続が変更されました"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "연결이 변경되었습니다"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Uma conexão mudou"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "连接已更改"
+          }
+        }
+      }
+    },
+    "notice.connector.consent.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "أكمل ربط Google"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verbindung mit Google abschließen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Finish connecting Google"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Termina de conectar Google"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Terminer la connexion à Google"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Google का कनेक्शन पूरा करें"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Completa il collegamento a Google"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Google の接続を完了してください"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Google 연결을 마무리하세요"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Conclua a conexão com o Google"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "完成 Google 连接"
+          }
+        }
+      }
+    },
+    "notice.connector.consent.body": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "افتح هذا الرابط على الكمبيوتر الذي يعمل عليه Psyche لمنح الوصول: {url}"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Öffne diesen Link auf dem Computer, auf dem Psyche läuft, um den Zugriff zu erlauben: {url}"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open this link on the computer running Psyche to grant access: {url}"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abre este enlace en el ordenador donde se ejecuta Psyche para dar acceso: {url}"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ouvrez ce lien sur l’ordinateur où Psyche s’exécute pour accorder l’accès : {url}"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "पहुँच देने के लिए यह लिंक उस कंप्यूटर पर खोलें जिस पर Psyche चल रहा है: {url}"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apri questo link sul computer su cui è in esecuzione Psyche per concedere l’accesso: {url}"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "アクセスを許可するには、Psyche が動いているコンピュータでこのリンクを開いてください: {url}"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "접근을 허용하려면 Psyche가 실행 중인 컴퓨터에서 이 링크를 여세요: {url}"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abra este link no computador onde o Psyche está rodando para conceder acesso: {url}"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "请在运行 Psyche 的电脑上打开此链接以授予访问权限：{url}"
+          }
+        }
+      }
+    },
+    "notice.connector.reconnect.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "يلزم إعادة الاتصال"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Erneut verbinden"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reconnect needed"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hay que volver a conectar"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reconnexion nécessaire"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "फिर से कनेक्ट करना होगा"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Serve riconnettersi"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "再接続が必要です"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "다시 연결해야 합니다"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "É preciso reconectar"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "需要重新连接"
+          }
+        }
+      }
+    },
+    "notice.connector.reconnect.body": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "فقد موصّل إمكانية الوصول ويلزمك تسجيل الدخول من جديد."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ein Connector hat den Zugriff verloren. Melde dich erneut an."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A connector lost access and needs you to sign in again."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un conector perdió el acceso y necesitas iniciar sesión de nuevo."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un connecteur a perdu l’accès et vous devez vous reconnecter."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "एक कनेक्टर की पहुँच खत्म हो गई है; आपको फिर से साइन इन करना होगा।"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un connettore ha perso l’accesso e devi accedere di nuovo."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "コネクタがアクセスを失いました。もう一度サインインしてください。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "커넥터가 접근 권한을 잃었습니다. 다시 로그인하세요."
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Um conector perdeu o acesso e você precisa entrar de novo."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "某个连接器失去了访问权限，需要你重新登录。"
+          }
+        }
+      }
+    },
+    "notice.security.changed.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "تراجع Psyche عن تغيير أمني أُجري خارج التطبيق"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche hat eine Sicherheitsänderung rückgängig gemacht, die außerhalb der App erfolgte"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche undid a security change made outside the app"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche deshizo un cambio de seguridad hecho fuera de la app"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche a annulé une modification de sécurité faite en dehors de l’app"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche ने ऐप के बाहर किया गया सुरक्षा बदलाव पलट दिया"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche ha annullato una modifica di sicurezza fatta fuori dall’app"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "アプリの外で行われたセキュリティ変更を Psyche が元に戻しました"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "앱 밖에서 이루어진 보안 변경을 Psyche가 되돌렸습니다"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O Psyche desfez uma alteração de segurança feita fora do app"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche 撤销了在应用之外进行的安全更改"
+          }
+        }
+      }
+    },
+    "notice.security.firstAdmin.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "أنشأ أمر على هذا الـ Mac أول جهاز مسؤول"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ein Befehl auf diesem Mac hat das erste Admin-Gerät angelegt"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A command on this Mac made the first admin device"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un comando de este Mac creó el primer dispositivo administrador"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Une commande sur ce Mac a créé le premier appareil administrateur"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "इस Mac पर एक कमांड ने पहला एडमिन डिवाइस बनाया"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un comando su questo Mac ha creato il primo dispositivo amministratore"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "この Mac のコマンドで最初の管理デバイスが作られました"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "이 Mac의 명령으로 첫 관리자 기기가 만들어졌습니다"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Um comando neste Mac criou o primeiro dispositivo administrador"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "这台 Mac 上的命令创建了第一台管理员设备"
+          }
+        }
+      }
+    },
+    "notice.security.firstSeal.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "أصبح Psyche يفحص سجلات الأمان لديه الآن"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche prüft jetzt seine Sicherheitsdaten"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche now checks its security records"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche ahora comprueba sus registros de seguridad"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche vérifie désormais ses enregistrements de sécurité"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche अब अपने सुरक्षा रिकॉर्ड की जाँच करता है"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche ora controlla i suoi registri di sicurezza"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche がセキュリティ記録の確認を開始しました"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche가 이제 보안 기록을 확인합니다"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O Psyche agora verifica seus registros de segurança"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche 现在会检查它的安全记录"
+          }
+        }
+      }
+    },
+    "notice.security.tightened.body": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "هذا قلّل فقط ما يُسمح لـ Psyche بفعله، لذلك لم تكن هناك حاجة إلى موافقة. إن لم تكن أنت، فألغِ ربط الجهاز من الإعدادات ← الأجهزة."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Das hat nur eingeschränkt, was Psyche darf, deshalb war keine Freigabe nötig. Warst du das nicht, entferne das Gerät unter Einstellungen → Geräte."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This only reduced what Psyche is allowed to do, so no approval was needed. If that was not you, revoke the device in Settings → Devices."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Esto solo redujo lo que Psyche puede hacer, así que no hizo falta aprobación. Si no fuiste tú, revoca el dispositivo en Ajustes → Dispositivos."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cela a seulement réduit ce que Psyche peut faire, aucune approbation n'était donc nécessaire. Si ce n'était pas vous, révoquez l'appareil dans Réglages → Appareils."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "इससे Psyche को मिली अनुमतियाँ केवल घटीं, इसलिए किसी मंज़ूरी की ज़रूरत नहीं पड़ी। अगर यह आपने नहीं किया, तो सेटिंग्स → डिवाइस में उस डिवाइस को हटा दें।"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Questo ha solo ridotto ciò che Psyche può fare, quindi non serviva approvazione. Se non sei stato tu, revoca il dispositivo in Impostazioni → Dispositivi."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psycheができることを減らしただけなので、承認は不要でした。心当たりがない場合は、設定 → デバイスでそのデバイスを取り消してください。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche가 할 수 있는 일을 줄이기만 했으므로 승인이 필요하지 않았습니다. 본인이 아니라면 설정 → 기기에서 해당 기기를 해제하세요."
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Isso apenas reduziu o que o Psyche pode fazer, então nenhuma aprovação foi necessária. Se não foi você, revogue o dispositivo em Ajustes → Dispositivos."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "这只减少了 Psyche 可以做的事，因此无需批准。如果不是你本人操作，请在“设置 → 设备”中撤销该设备。"
+          }
+        }
+      }
+    },
+    "notice.security.untrusted.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "لا يستطيع Psyche الوثوق بسجلات الأمان لديه"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche kann seinen Sicherheitsdaten nicht vertrauen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche cannot trust its security records"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche no puede fiarse de sus registros de seguridad"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche ne peut pas se fier à ses enregistrements de sécurité"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche अपने सुरक्षा रिकॉर्ड पर भरोसा नहीं कर सकता"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche non può fidarsi dei suoi registri di sicurezza"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche はセキュリティ記録を信頼できません"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche가 보안 기록을 신뢰할 수 없습니다"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O Psyche não pode confiar nos seus registros de segurança"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche 无法信任它的安全记录"
+          }
+        }
+      }
+    },
+    "notice.security.untrusted.body": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "فشل فحص سجلات الأمان في Psyche، لذلك حُظرت التغييرات الأمنية والأجهزة الجديدة وموافقات Touch ID. راجع أجهزتك، ثم شغّل `psyched security reseal` على الـ Mac (يسري بعد 24 ساعة)."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die Prüfung von Psyches Sicherheitsdaten ist fehlgeschlagen. Sicherheitsänderungen, neue Geräte und Touch-ID-Freigaben sind deshalb gesperrt. Prüfe deine Geräte und führe dann auf dem Mac `psyched security reseal` aus (es gilt nach 24 Stunden)."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche's check of its security records failed, so security changes, new devices and Touch ID approvals are blocked. Review your devices, then run `psyched security reseal` on the Mac (it applies after 24 hours)."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La comprobación de los registros de seguridad de Psyche falló, así que los cambios de seguridad, los dispositivos nuevos y las aprobaciones con Touch ID están bloqueados. Revisa tus dispositivos y ejecuta `psyched security reseal` en el Mac (se aplica a las 24 horas)."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La vérification des enregistrements de sécurité de Psyche a échoué : les modifications de sécurité, les nouveaux appareils et les approbations par Touch ID sont bloqués. Vérifiez vos appareils, puis lancez `psyched security reseal` sur le Mac (effectif après 24 heures)."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche के सुरक्षा रिकॉर्ड की जाँच विफल रही, इसलिए सुरक्षा बदलाव, नए डिवाइस और Touch ID से मंज़ूरियाँ रोक दी गई हैं। अपने डिवाइस देखें, फिर Mac पर `psyched security reseal` चलाएँ (यह 24 घंटे बाद लागू होता है)।"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Il controllo dei registri di sicurezza di Psyche non è riuscito, quindi le modifiche di sicurezza, i nuovi dispositivi e le approvazioni con Touch ID sono bloccati. Controlla i tuoi dispositivi, poi esegui `psyched security reseal` sul Mac (vale dopo 24 ore)."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche のセキュリティ記録の確認に失敗したため、セキュリティ変更、新しいデバイス、Touch ID による承認はブロックされています。デバイスを確認してから、Mac で `psyched security reseal` を実行してください（24 時間後に適用されます）。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche의 보안 기록 확인에 실패해서 보안 변경, 새 기기, Touch ID 승인이 차단되었습니다. 기기를 확인한 다음 Mac에서 `psyched security reseal`을 실행하세요(24시간 후에 적용됩니다)."
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A verificação dos registros de segurança do Psyche falhou, então alterações de segurança, novos dispositivos e aprovações com Touch ID estão bloqueados. Revise seus dispositivos e execute `psyched security reseal` no Mac (vale após 24 horas)."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche 对安全记录的检查未通过，因此安全更改、新设备和 Touch ID 批准都已被阻止。请检查你的设备，然后在 Mac 上运行 `psyched security reseal`（24 小时后生效）。"
+          }
+        }
+      }
+    },
+    "notice.mcp.changed.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "خادم MCP {server} غيّر أدواته"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MCP-Server {server} hat seine Werkzeuge geändert"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MCP server {server} changed its tools"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El servidor MCP {server} cambió sus herramientas"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le serveur MCP {server} a changé ses outils"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MCP सर्वर {server} ने अपने टूल बदले"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Il server MCP {server} ha cambiato i suoi strumenti"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MCP サーバー {server} のツールが変わりました"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MCP 서버 {server}의 도구가 바뀌었습니다"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O servidor MCP {server} mudou suas ferramentas"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MCP 服务器 {server} 的工具已变更"
+          }
+        }
+      }
+    },
+    "notice.mcp.review.body": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "راجعها قبل استخدام هذا الخادم: {details}"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Prüfe das, bevor du diesen Server nutzt: {details}"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Review before you use this server: {details}"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Revísalo antes de usar este servidor: {details}"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vérifie avant d'utiliser ce serveur : {details}"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "इस सर्वर का उपयोग करने से पहले देखें: {details}"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Controlla prima di usare questo server: {details}"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "このサーバーを使う前に確認してください: {details}"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "이 서버를 쓰기 전에 확인하세요: {details}"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Revise antes de usar este servidor: {details}"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "使用此服务器前请先检查：{details}"
+          }
+        }
+      }
+    },
+    "notice.mcp.suspicious.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "خادم MCP {server} فيه أوصاف أدوات مريبة"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MCP-Server {server} hat verdächtige Werkzeugbeschreibungen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MCP server {server} has suspicious tool descriptions"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El servidor MCP {server} tiene descripciones de herramientas sospechosas"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le serveur MCP {server} a des descriptions d'outils suspectes"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MCP सर्वर {server} में संदिग्ध टूल विवरण हैं"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Il server MCP {server} ha descrizioni di strumenti sospette"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MCP サーバー {server} のツールの説明が不審です"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MCP 서버 {server}의 도구 설명이 의심스럽습니다"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O servidor MCP {server} tem descrições de ferramentas suspeitas"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MCP 服务器 {server} 的工具描述可疑"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

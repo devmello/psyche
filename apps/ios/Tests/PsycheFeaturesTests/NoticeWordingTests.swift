@@ -77,6 +77,8 @@ struct NoticeWordingTests {
                 let text = value(key, language) ?? ""
                 #expect(!text.isEmpty, "\(key) is missing in \(language)")
                 #expect(placeholders(text) == placeholders(english), "\(key) placeholders differ in \(language)")
+                // `fill` only replaces `{name}`. An ICU select or plural would reach the screen as raw markup.
+                #expect(!text.contains(", select,") && !text.contains(", plural,"), "\(key) has ICU markup in \(language)")
             }
         }
     }
