@@ -62,6 +62,28 @@ extension GatewayBackend {
         _ = try await call("chat.cancel", .obj(["threadId": .string(threadID)]))
     }
 
+    public func pinThread(id: String, pinned: Bool) async throws {
+        _ = try await call("threads.pin", .obj(["threadId": .string(id), "pinned": .bool(pinned)]))
+    }
+
+    public func archiveThread(id: String) async throws {
+        _ = try await call("threads.archive", .obj(["threadId": .string(id)]))
+    }
+
+    public func renameThread(id: String, title: String) async throws {
+        _ = try await call("threads.rename", .obj(["threadId": .string(id), "title": .string(title)]))
+    }
+
+    public func deleteThread(id: String) async throws {
+        _ = try await call("threads.delete", .obj(["threadId": .string(id)]))
+    }
+
+    public func exportThread(id: String) async throws -> String {
+        let result = try await call("chat.export", .obj(["threadId": .string(id), "format": "markdown"]))
+        guard let content = result["content"]?.string else { throw BackendError.notFound }
+        return content
+    }
+
     // MARK: -
 
     /// nil means the main thread. The screens still ask for the fixture's main-thread id ("thr_main") in a
