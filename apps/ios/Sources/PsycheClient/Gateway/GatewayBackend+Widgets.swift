@@ -96,7 +96,8 @@ extension GatewayBackend {
         return WidgetSnapshot(
             id: id, rev: w["rev"]?.int ?? 1,
             spec: WidgetSpec(
-                v: spec["v"]?.int ?? 1, title: title, fallbackText: spec["fallbackText"]?.string ?? title, root: model),
+                v: spec["v"]?.int ?? 1, title: title, fallbackText: spec["fallbackText"]?.string ?? title, root: model,
+                sources: SourceRef.list(spec["sources"].flatMap { store($0) })),
             isLive: w["state"]?.string != "frozen", untrustedSources: taint, pinned: w["pinned"]?.bool ?? false,
             updatedAt: WireFormat.date(w["updatedAt"]?.string) ?? .now)
     }

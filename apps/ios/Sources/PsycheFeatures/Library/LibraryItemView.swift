@@ -1,4 +1,5 @@
 #if os(iOS)
+import PsycheBlocks
 import PsycheDesign
 import PsycheStore
 import SwiftUI
@@ -215,6 +216,8 @@ private struct ItemBody: View {
                 Text(item.detail).font(.subheadline).foregroundStyle(PsycheColor.muted)
                 EvidenceLine(evidence)
             }
+
+            SourceChipRow(sources: item.sources)
 
             if let threadID = item.threadID {
                 NavigationLink(value: Route.thread(id: threadID)) {
