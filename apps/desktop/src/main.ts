@@ -237,7 +237,7 @@ import {
 // anything else starts (src/main/squirrel-events.ts).
 if (handleSquirrelEvent({ app, shell })) process.exit(0);
 
-const windows32 = hostPlatform() === "win32";
+const windows32 = isWindows();
 
 // Linux: the shell (GNOME's shortcut portal, the launcher) knows the app by its .desktop file; a
 // mismatch makes GNOME silently deny every global shortcut (design §10.4).
@@ -313,10 +313,10 @@ const supervisorMode = remoteGateway ? "remote" : chooseMode(process.env, app.is
  */
 const canUninstall =
   (app.isPackaged &&
-    ((supervisorMode === "launchd" && hostPlatform() === "darwin") ||
+    ((supervisorMode === "launchd" && isMac()) ||
       (supervisorMode === "systemd" && isLinux()) ||
       (supervisorMode === "taskscheduler" &&
-        hostPlatform() === "win32" &&
+        isWindows() &&
         squirrelLayout(process.execPath) !== undefined))) ||
   // The e2e shows the Uninstall sheet from an unpackaged run (it stubs the plan and never
   // confirms); the real plan and uninstall still refuse a copy that is not a Squirrel install.
@@ -409,7 +409,7 @@ let integrityMessage =
   "Turned off: this copy of Psyche was modified. Reinstall it from the official download.";
 
 async function startupIntegrity(): Promise<void> {
-  if (!app.isPackaged || hostPlatform() !== "darwin") return;
+  if (!app.isPackaged || !isMac()) return;
   const pinned = readBundledPinned(process.resourcesPath);
   const requirement = pinned === undefined ? undefined : parsePinnedRequirement(pinned);
   if (!requirement) return;
@@ -869,7 +869,7 @@ async function withoutOwnWindows<T>(run: () => Promise<T>): Promise<T> {
 
 /** `/Applications/Psyche.app` for a packaged macOS build (three levels above the executable), else null. */
 function installedBundlePath(): string | null {
-  if (!app.isPackaged || hostPlatform() !== "darwin") return null;
+  if (!app.isPackaged || !isMac()) return null;
   return resolve(dirname(process.execPath), "..", "..");
 }
 
@@ -1414,7 +1414,7 @@ function registerIpc(): void {
         "unavailable",
         id === undefined
           ? `This app has no bundled Psyche Helper to read the ${hostWords().presence} key from`
-          : id.error === undefined && hostPlatform() === "darwin"
+          : id.error === undefined && isMac()
             ? `${hostWords().presence} on this Mac needs no key to register`
             : `The bundled Psyche Helper has no ${hostWords().presence} key (${id.error ?? "unknown"})`,
       );
@@ -1973,7 +1973,7 @@ void app.whenReady().then(async () => {
   if (!app.isPackaged) {
   }
   // Packaged builds get the icon from the bundle (forge.config.ts); dev runs set the Dock icon here.
-  if (!app.isPackaged && hostPlatform() === "darwin") {
+  if (!app.isPackaged && isMac()) {
     app.dock?.setIcon(join(app.getAppPath(), "assets", "icon.png"));
   }
   if (!MAIN_WINDOW_VITE_DEV_SERVER_URL) await serveAppProtocol();
@@ -2305,7 +2305,7 @@ void app.whenReady().then(async () => {
     warn: (m) => console.warn(`[dictation] ${m}`),
     onStatus: (s) => broadcast(IPC.dictationStatus, s),
     // Windows: Settings warns when Right Alt is AltGr on the layout in use.
-    ...(hostPlatform() === "win32"
+    ...(isWindows()
       ? { altGrLayout: () => readAltGrLayout(helperForThisGateway(), runHelperOnce) }
       : {}),
     // Double-tapping the voice or dictation key opens "Ask about my screen", like the shortcut.
