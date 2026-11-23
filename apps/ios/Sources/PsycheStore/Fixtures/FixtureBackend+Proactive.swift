@@ -45,6 +45,13 @@ extension FixtureBackend: ProactiveBackend {
         return detail
     }
 
+    public func createGoal(title: String, category: GoalCategoryChoice) async throws -> GoalDetail {
+        await pause()
+        let detail = GoalDetail(goal: GoalItem(id: "goal_\(proactiveState.goals.count + 1)", title: title, category: category.rawValue, status: "active"))
+        proactiveState.goals.append(detail)
+        return detail
+    }
+
     public func setGoalStatus(id: String, _ status: GoalStatusChange) async throws -> GoalDetail {
         guard let index = proactiveState.goals.firstIndex(where: { $0.goal.id == id }) else { throw BackendError.notFound }
         proactiveState.goals[index].goal.status = status.rawValue
