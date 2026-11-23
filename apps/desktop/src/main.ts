@@ -187,6 +187,7 @@ import {
   parsePinnedRequirement,
   readBundledPinned,
 } from "./main/update-gate.ts";
+import { commitRestart } from "./main/update-restart.ts";
 import { getUpdateStatus, onUpdateStatus } from "./main/update-status.ts";
 import {
   restartToUpdate,
@@ -2621,6 +2622,8 @@ app.on("before-quit", (event) => {
     event.preventDefault();
     return;
   }
+  // The quit goes ahead: an update restart in progress can no longer be undone (update-restart.ts).
+  commitRestart();
   stopHelperForQuit();
   windows?.setQuitting();
   dockPolicy.dispose();

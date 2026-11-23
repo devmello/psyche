@@ -24,6 +24,7 @@ import {
 import { hostPlatform, isLinux, isMac } from "../platform/index.ts";
 import { claimedRequirement } from "./bundle-integrity.ts";
 import { TRUSTED_RELEASE_KEYS } from "./release-keys.ts";
+import { confirmQuitWithUnsaved } from "./unsaved-unload.ts";
 import {
   checkForVerifiedUpdate,
   feedForChannel,
@@ -462,6 +463,8 @@ export function restartToUpdate(): string | undefined {
   return restartNow({
     platform: hostPlatform(),
     status: getUpdateStatus(),
+    // Before the windows close, which drops their unsaved Files edits: the owner decides first.
+    confirmQuit: () => confirmQuitWithUnsaved(),
     beginQuit: () => restartWindows?.beginQuit(),
     cancelQuit: () => restartWindows?.cancelQuit(),
     quitAndInstall: () => autoUpdater.quitAndInstall(),
