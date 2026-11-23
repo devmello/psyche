@@ -59,7 +59,7 @@ struct MemoryView: View {
 
     @ViewBuilder
     private var header: some View {
-        PageHeader("Memory").plainRow(top: 8, bottom: 14)
+        PageHeader(String(localized: "Memory", bundle: .module)).plainRow(top: 8, bottom: 14)
         ConnectionBanner(state: session.state, lastSyncedAt: session.lastSyncedAt)
             .plainRow(bottom: session.state.isUnreachable ? 14 : 0)
         Picker(String(localized: "Memory", bundle: .module), selection: $segment) {
@@ -67,7 +67,7 @@ struct MemoryView: View {
         }
         .pickerStyle(.segmented)
         .plainRow(bottom: 12)
-        PaperSearchField(prompt: "Search \(segment.rawValue.lowercased())", text: $model.query)
+        PaperSearchField(prompt: String(localized: "Search \(segment.rawValue.lowercased())", bundle: .module), text: $model.query)
             .plainRow(bottom: 8)
     }
 
@@ -125,23 +125,23 @@ struct MemoryView: View {
         let week = model.todos(in: .thisWeek, of: snapshot)
         let later = model.todos(in: .later, of: snapshot)
         if week.isEmpty && later.isEmpty {
-            emptyNote(model.isSearching ? "No to-dos match \u{201C}\(model.query)\u{201D}." : "Nothing on your to-do list.")
+            emptyNote(model.isSearching ? String(localized: "No to-dos match \u{201C}\(model.query)\u{201D}.", bundle: .module) : String(localized: "Nothing on your to-do list.", bundle: .module))
         }
         if !week.isEmpty {
-            sectionHeader("This week")
+            sectionHeader(String(localized: "This week", bundle: .module))
             ForEach(Array(week.enumerated()), id: \.element.id) { index, todo in
                 todoRow(todo, position: CardPosition(index: index, count: week.count))
             }
         }
         if !later.isEmpty {
-            sectionHeader("Later")
+            sectionHeader(String(localized: "Later", bundle: .module))
             ForEach(Array(later.enumerated()), id: \.element.id) { index, todo in
                 todoRow(todo, position: CardPosition(index: index, count: later.count))
             }
         }
         // Empty sections aren't drawn (§4.1): no catch-up line means no card.
         if !model.isSearching, !snapshot.leftOff.text.isEmpty {
-            sectionHeader("Where you left off")
+            sectionHeader(String(localized: "Where you left off", bundle: .module))
             leftOffCard(snapshot.leftOff)
         }
     }
@@ -190,7 +190,7 @@ struct MemoryView: View {
             Text("\(Text(leftOff.title).fontWeight(.semibold)) \(leftOff.text)", bundle: .module)
                 .font(.psycheRow)
                 .foregroundStyle(PsycheColor.text)
-            EvidenceLine("Because", leftOff.evidence)
+            EvidenceLine(String(localized: "Because", bundle: .module), leftOff.evidence)
         }
         .padding(14)
         .cardRow(.only)
@@ -215,9 +215,9 @@ struct MemoryView: View {
     private func workRows(_ snapshot: MemorySnapshot) -> some View {
         let projects = model.projects(of: snapshot)
         if projects.isEmpty {
-            emptyNote(model.isSearching ? "No projects match \u{201C}\(model.query)\u{201D}." : "No projects yet. Tell Psyche what you're working on.")
+            emptyNote(model.isSearching ? String(localized: "No projects match \u{201C}\(model.query)\u{201D}.", bundle: .module) : String(localized: "No projects yet. Tell Psyche what you're working on.", bundle: .module))
         } else {
-            sectionHeader("Projects")
+            sectionHeader(String(localized: "Projects", bundle: .module))
             ForEach(Array(projects.enumerated()), id: \.element.id) { index, project in
                 Button { router.memoryPath.append(.project(id: project.id)) } label: {
                     VStack(alignment: .leading, spacing: 8) {
@@ -244,9 +244,9 @@ struct MemoryView: View {
     private func peopleRows(_ snapshot: MemorySnapshot) -> some View {
         let people = model.people(of: snapshot)
         if people.isEmpty {
-            emptyNote(model.isSearching ? "No one matches \u{201C}\(model.query)\u{201D}." : "No people yet.")
+            emptyNote(model.isSearching ? String(localized: "No one matches \u{201C}\(model.query)\u{201D}.", bundle: .module) : String(localized: "No people yet.", bundle: .module))
         } else {
-            sectionHeader("People")
+            sectionHeader(String(localized: "People", bundle: .module))
             ForEach(Array(people.enumerated()), id: \.element.id) { index, person in
                 Button { router.memoryPath.append(.person(id: person.id)) } label: {
                     HStack(spacing: 12) {

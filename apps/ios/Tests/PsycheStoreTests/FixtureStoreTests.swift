@@ -85,9 +85,10 @@ struct FixtureStoreTests {
         let question = try #require(try await store.home().needsYou.first { $0.id == "q_deck" }?.question)
         #expect(question.options.count == 2)
         await #expect(throws: BackendError.self) {
-            try await store.answerQuestion(id: "q_deck", answer: QuestionAnswer(text: "   "))
+            try await store.answerQuestion(id: "q_deck", answer: QuestionAnswer(values: ["Answer": .text("   ")]))
         }
-        try await store.answerQuestion(id: "q_deck", answer: QuestionAnswer(optionID: question.options[0].id))
+        try await store.answerQuestion(
+            id: "q_deck", answer: QuestionAnswer(values: ["Answer": .text(question.options[0].value)]))
         #expect(try await store.home().needsYou.allSatisfy { $0.id != "q_deck" })
     }
 

@@ -120,7 +120,7 @@ final class SearchModel {
             guard text == trimmed else { return }
             conversationQuery = text
             turns = []
-            if let answer { deepAnswer = answer } else { deepFailure = "No answer from your mail, messages and files." }
+            if let answer { deepAnswer = answer } else { deepFailure = String(localized: "No answer from your mail, messages and files.", bundle: .module) }
         } catch {
             guard text == trimmed else { return }
             deepFailure = error.localizedDescription
@@ -192,7 +192,7 @@ struct SearchView: View {
             VStack(alignment: .leading, spacing: 20) {
                 // The page title is drawn in the column like every other screen (the system's large title
                 // sits at the window edge and ignores the readable column on iPad).
-                PageHeader("Search")
+                PageHeader(String(localized: "Search", bundle: .module))
                 // Idle, loading, results, nothing and failed trade places with a 150 ms crossfade. Results
                 // themselves update in place, with no animation per keystroke (spec §4.2).
                 ZStack(alignment: .top) {
@@ -222,7 +222,7 @@ struct SearchView: View {
         .psycheInlineTitle()
         // iPhone: the search tab's field sits at the bottom (system). iPad: a field that is always shown, not a
         // toolbar button, so the tab opens ready to type.
-        .searchable(text: $model.query, placement: fieldPlacement, prompt: "Search or ask")
+        .searchable(text: $model.query, placement: fieldPlacement, prompt: String(localized: "Search or ask", bundle: .module))
         .onSubmit(of: .search) { model.remember() }
         .task(id: model.query) {
             if !model.trimmed.isEmpty { try? await Task.sleep(for: .milliseconds(250)) }
@@ -364,7 +364,7 @@ struct SearchView: View {
                 Text(answer == nil ? "Ask your life" : "From your memory").font(.psycheSection).foregroundStyle(PsycheColor.muted)
                 if let answer {
                     claimsView(answer)
-                    EvidenceLine("Sources", answer.evidence)
+                    EvidenceLine(String(localized: "Sources", bundle: .module), answer.evidence)
                 } else {
                     Text("Nothing in your reviewed memory answers this yet.", bundle: .module)
                         .font(.subheadline).foregroundStyle(PsycheColor.muted)
@@ -432,7 +432,7 @@ struct SearchView: View {
             case .loading: ProgressView().controlSize(.small)
             case .answered(let answer):
                 claimsView(answer)
-                EvidenceLine("Sources", answer.evidence)
+                EvidenceLine(String(localized: "Sources", bundle: .module), answer.evidence)
             case .none: Text("No answer to that.", bundle: .module).font(.subheadline).foregroundStyle(PsycheColor.muted)
             case .failed(let message): Text(message).font(.subheadline).foregroundStyle(PsycheColor.muted)
             }
@@ -615,8 +615,8 @@ private struct PassageSheet: View {
                         ProgressView().frame(maxWidth: .infinity).padding(.top, 24)
                     case .document(let document):
                         Text(document.text).font(.body).foregroundStyle(PsycheColor.text).textSelection(.enabled)
-                        if document.truncated { EvidenceLine(["Only the start is shown"]) }
-                        EvidenceLine(["Written by someone else. Shown as plain text."])
+                        if document.truncated { EvidenceLine([String(localized: "Only the start is shown", bundle: .module)]) }
+                        EvidenceLine([String(localized: "Written by someone else. Shown as plain text.", bundle: .module)])
                     case .onYourMac:
                         PaperCard(padding: 14) {
                             HStack(spacing: 10) {

@@ -194,6 +194,17 @@ export const peopleRest: Partial<Catalogue> = {
     "{other} से {name} में {identifiers, plural, one {# पता} other {# पते}} और {facts, plural, one {# तथ्य} other {# तथ्य}} ले जाता है। {other} हट जाता है; आप बाद में उन्हें फिर अलग कर सकते हैं।",
   "people.merge.pickAnother": "किसी और को चुनें",
   "people.merge.confirm": "मर्ज करें",
+  "people.split.menu": "बाँटें…",
+  "people.split.title": "{name} को बाँटें",
+  "people.split.description":
+    "वे पहचानकर्ता चुनें जो किसी और के हैं। वे एक नए व्यक्ति के पास जाएँगे, और यह व्यक्ति बाकी रखेगा। Psyche उन्हें दोबारा मर्ज करने का सुझाव नहीं देगा।",
+  "people.split.identifiers": "इस व्यक्ति के पहचानकर्ता",
+  "people.split.newName": "नए व्यक्ति का नाम",
+  "people.split.keepOne": "कम से कम एक पहचानकर्ता इस व्यक्ति के पास रहेगा।",
+  "people.split.preview":
+    "{count, plural, one {# पहचानकर्ता} other {# पहचानकर्ता}} {name} के पास जाएँगे।",
+  "people.split.confirm": "बाँटें",
+  "people.split.none": "बाँटने के लिए कुछ नहीं: इस व्यक्ति का एक ही पहचानकर्ता है।",
   "people.merge.done": "{other} को {name} में मर्ज कर दिया गया।",
   "people.writeFailed": "Psyche यह सेव नहीं कर सका ({reason})। कुछ नहीं बदला गया।",
   "people.loading": "कार्ड लोड हो रहा है",

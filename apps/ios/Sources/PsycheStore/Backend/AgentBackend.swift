@@ -1,12 +1,19 @@
 import Foundation
 
 // The agent sheet (§4.8): Activity, Approvals, Upcoming, Soul. Owner: the Home session (I5). Gateway
-// methods: tasks.list/get/cancel/pause/resume, runs.*, scheduled.*, memory.persona.get.
+// methods: tasks.list/get/cancel/pause/resume/retry/steer, runs.*, scheduled.*, memory.persona.get.
 
 public protocol AgentBackend: Sendable {
     func activity() async throws -> AgentActivity
     func persona() async throws -> PersonaSummary
     func cancelTask(id: String) async throws
+    /// A task's status, its latest run's steps and the controls it allows.
+    func taskRun(taskID: String) async throws -> TaskRunDetail
+    func pauseTask(id: String) async throws
+    func resumeTask(id: String) async throws
+    func retryTask(id: String) async throws
+    /// Guidance for a running task. Callers trim the text first: the Gateway refuses an empty one.
+    func steerTask(id: String, text: String) async throws
 }
 
 public struct UpcomingItem: Sendable, Equatable, Identifiable {

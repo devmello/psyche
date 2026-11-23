@@ -45,9 +45,28 @@ extension FixtureBackend: ProactiveBackend {
         return detail
     }
 
+    public func setGoalStatus(id: String, _ status: GoalStatusChange) async throws -> GoalDetail {
+        guard let index = proactiveState.goals.firstIndex(where: { $0.goal.id == id }) else { throw BackendError.notFound }
+        proactiveState.goals[index].goal.status = status.rawValue
+        return proactiveState.goals[index]
+    }
+
     public func scheduled() async throws -> ScheduledOverview {
         await pause()
         return proactiveState.scheduled
+    }
+
+    public func setScheduledPaused(id: String, paused: Bool) async throws -> String {
+        guard let index = proactiveState.scheduled.items.firstIndex(where: { $0.id == id }) else { throw BackendError.notFound }
+        // An off routine has no pause: its Settings section turns it on and off.
+        guard proactiveState.scheduled.items[index].state != "off" else { throw BackendError.refused("This is switched off in its Settings.") }
+        proactiveState.scheduled.items[index].state = paused ? "paused" : "active"
+        proactiveState.scheduled.upcoming = ScheduledOverview.upcomingOf(proactiveState.scheduled.items)
+        return proactiveState.scheduled.items[index].state
+    }
+
+    public func runScheduledNow(id: String) async throws {
+        guard proactiveState.scheduled.items.contains(where: { $0.id == id }) else { throw BackendError.notFound }
     }
 }
 
@@ -76,11 +95,15 @@ extension FixtureData {
         GoalDetail(goal: GoalItem(id: "goal_2", title: "Save for a deposit", category: "finance", status: "candidate")),
     ]
 
+    static let scheduledItems: [ScheduledJob] = [
+        ScheduledJob(id: "auto_1", title: "Pay the electricity bill", summary: "Checks the bill and asks before paying.", state: "active", nextRunAt: Date(timeIntervalSince1970: 1_900_100_000)),
+        ScheduledJob(id: "auto_2", title: "Daily brief", state: "active", isRoutine: true, nextRunAt: Date(timeIntervalSince1970: 1_900_200_000), confirmsRunNow: false),
+        ScheduledJob(id: "auto_3", title: "Weekly expense review", summary: "Sorts the week's receipts.", state: "paused", nextRunAt: nil),
+        ScheduledJob(id: "auto_4", title: "Mail digest", state: "off", isRoutine: true, confirmsRunNow: false),
+    ]
+
     static let scheduledOverview = ScheduledOverview(
-        upcoming: [
-            ScheduledJob(id: "auto_1", title: "Pay the electricity bill", summary: "Checks the bill and asks before paying.", state: "active", nextRunAt: Date(timeIntervalSince1970: 1_900_100_000)),
-            ScheduledJob(id: "auto_2", title: "Daily brief", state: "active", isRoutine: true, nextRunAt: Date(timeIntervalSince1970: 1_900_200_000)),
-        ],
+        upcoming: ScheduledOverview.upcomingOf(scheduledItems), items: scheduledItems,
         runs: [
             ScheduledRunItem(id: "run_1", title: "Daily brief", state: .succeeded, startedAt: Date(timeIntervalSince1970: 1_899_900_000), summary: "Sent."),
             ScheduledRunItem(id: "run_2", title: "Pay the electricity bill", state: .running, startedAt: Date(timeIntervalSince1970: 1_899_950_000), retryAt: Date(timeIntervalSince1970: 1_900_000_300)),

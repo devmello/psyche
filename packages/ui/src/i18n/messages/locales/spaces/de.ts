@@ -106,6 +106,12 @@ export const spaces: Partial<Catalogue> = {
   "spaces.files.rw": "lesen und schreiben",
   "spaces.files.automationsRo": "Automationen nur lesend",
   "spaces.files.addOnMac": "Ordner auf dem Computer hinzufügen, auf dem Psyche läuft",
+  "spaces.files.add": "Ordner hinzufügen",
+  "spaces.files.pickTitle": "Ordner für diesen Space wählen",
+  "spaces.files.accessTo": "Zugriff auf {path}",
+  "spaces.files.remove": "Entfernen",
+  "spaces.files.removeFolder": "{path} entfernen",
+  "spaces.files.failed": "Ordner konnten nicht geändert werden: {reason}",
   "spaces.goals": "Ziele",
 
   "spaces.switcher.label": "Space: {name}",

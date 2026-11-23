@@ -102,10 +102,10 @@ private struct ItemContent: View {
                 ItemBody(item: item, file: model.file, preview: $preview, confirmDelete: $confirmDelete)
                     .transition(.opacity)
             case .gone:
-                message("That file is gone", "It was deleted, here or on your Mac.")
+                message(String(localized: "That file is gone", bundle: .module), String(localized: "It was deleted, here or on your Mac.", bundle: .module))
             case .failed(let text):
                 VStack(spacing: 12) {
-                    message("Couldn't load this", text)
+                    message(String(localized: "Couldn't load this", bundle: .module), text)
                     Button(String(localized: "Try again", bundle: .module)) { Task { await model.load() } }.buttonStyle(.psycheOutline).frame(maxWidth: 220)
                 }
             }
@@ -186,7 +186,7 @@ private struct ItemBody: View {
                 NavigationLink(value: Route.thread(id: threadID)) {
                     HStack(spacing: 8) {
                         Text("Used in", bundle: .module).foregroundStyle(PsycheColor.muted)
-                        Text(item.threadTitle ?? "a chat").foregroundStyle(PsycheColor.inkText).fontWeight(.medium)
+                        Text(item.threadTitle ?? String(localized: "a chat", bundle: .module)).foregroundStyle(PsycheColor.inkText).fontWeight(.medium)
                         Spacer(minLength: 8)
                         Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).foregroundStyle(PsycheColor.rule)
                     }

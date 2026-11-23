@@ -196,6 +196,17 @@ export const peopleRest: Partial<Catalogue> = {
     "Sposta {identifiers, plural, one {# indirizzo} other {# indirizzi}} e {facts, plural, one {# fatto} other {# fatti}} da {other} a {name}. {other} scompare; potrai separarli di nuovo in seguito.",
   "people.merge.pickAnother": "Scegli qualcun altro",
   "people.merge.confirm": "Unisci",
+  "people.split.menu": "Dividi…",
+  "people.split.title": "Dividi {name}",
+  "people.split.description":
+    "Scegli gli identificativi che appartengono a un’altra persona. Passano a una nuova persona e questa conserva il resto. Psyche non suggerirà più di unirli.",
+  "people.split.identifiers": "Identificativi di questa persona",
+  "people.split.newName": "Nome della nuova persona",
+  "people.split.keepOne": "Almeno un identificativo resta a questa persona.",
+  "people.split.preview":
+    "{count, plural, one {# identificativo passa} other {# identificativi passano}} a {name}.",
+  "people.split.confirm": "Dividi",
+  "people.split.none": "Niente da dividere: questa persona ha un solo identificativo.",
   "people.merge.done": "{other} unito a {name}.",
   "people.writeFailed": "Psyche non è riuscito a salvare ({reason}). Non è stato modificato nulla.",
   "people.loading": "Caricamento della scheda",

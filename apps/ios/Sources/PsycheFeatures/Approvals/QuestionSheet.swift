@@ -3,7 +3,9 @@ import PsycheDesign
 import PsycheStore
 import SwiftUI
 
-/// A question from Psyche, answered from Home: the options, or a few words of your own.
+/// A question from Psyche, answered from Home: every part of it, each with its options (one or several) or a few
+/// words of the owner's own. Send stays off until every part is answered and sends one answer for all of them. A
+/// failure shows inline and keeps the picks.
 struct QuestionSheet: View {
     let item: NeedsYouItem
     let detail: QuestionDetail
@@ -12,12 +14,14 @@ struct QuestionSheet: View {
     @Environment(\.dismiss) private var dismiss
     @State private var flow = AnswerFlow()
     private let motion = MotionContext()
-    @State private var optionID: String?
-    @State private var text = ""
-    @FocusState private var typing: Bool
+    @State private var draft: QuestionDraft
+    @FocusState private var focusedPart: String?
 
-    private var trimmed: String { text.trimmingCharacters(in: .whitespacesAndNewlines) }
-    private var canSend: Bool { optionID != nil || !trimmed.isEmpty }
+    init(item: NeedsYouItem, detail: QuestionDetail) {
+        self.item = item
+        self.detail = detail
+        _draft = State(initialValue: QuestionDraft(detail: detail))
+    }
 
     var body: some View {
         ScrollView {
@@ -25,30 +29,11 @@ struct QuestionSheet: View {
                 VStack(alignment: .leading, spacing: 6) {
                     StatusDot(.needsYou, "Needs your answer · \(item.source)", font: .footnote.weight(.semibold))
                     Text(item.title).psycheTitle(.title).foregroundStyle(PsycheColor.text)
-                    Text(detail.prompt).font(.subheadline).foregroundStyle(PsycheColor.muted)
                 }
-                if !detail.options.isEmpty {
-                    PaperCard {
-                        ForEach(Array(detail.options.enumerated()), id: \.element.id) { index, option in
-                            if index > 0 { HairlineDivider() }
-                            optionRow(option)
-                        }
-                    }
+                ForEach(draft.parts) { part in
+                    partView(part)
                 }
-                if detail.allowsFreeText {
-                    TextField(String(localized: "Or write an answer", bundle: .module), text: $text, axis: .vertical)
-                        .font(.callout)
-                        .lineLimit(1...4)
-                        .focused($typing)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 13)
-                        .background(PsycheColor.sheet, in: RoundedRectangle(cornerRadius: PsycheMetrics.cardRadius, style: .continuous))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: PsycheMetrics.cardRadius, style: .continuous)
-                                .strokeBorder(PsycheColor.rule, lineWidth: 1))
-                        .onChange(of: text) { if !text.isEmpty { optionID = nil } }
-                }
-                EvidenceLine(["Question", item.source, item.time])
+                EvidenceLine([String(localized: "Question", bundle: .module), item.source, item.time])
             }
             .padding(.horizontal, PsycheMetrics.pagePadding)
             .padding(.top, 28)
@@ -70,11 +55,43 @@ struct QuestionSheet: View {
         }
     }
 
-    private func optionRow(_ option: QuestionDetail.Option) -> some View {
-        Button {
-            optionID = option.id
-            text = ""
-            typing = false
+    private func partView(_ part: QuestionDetail.Part) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(part.prompt).font(.subheadline).foregroundStyle(PsycheColor.muted)
+                if part.multiSelect {
+                    Text("Pick any", bundle: .module).font(.footnote).foregroundStyle(PsycheColor.muted)
+                }
+            }
+            if !part.options.isEmpty {
+                PaperCard {
+                    ForEach(Array(part.options.enumerated()), id: \.element.id) { index, option in
+                        if index > 0 { HairlineDivider() }
+                        optionRow(part, option)
+                    }
+                }
+            }
+            if part.allowsFreeText {
+                TextField(String(localized: "Or write an answer", bundle: .module), text: typedBinding(part), axis: .vertical)
+                    .font(.callout)
+                    .lineLimit(1...4)
+                    .focused($focusedPart, equals: part.header)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 13)
+                    .background(PsycheColor.sheet, in: RoundedRectangle(cornerRadius: PsycheMetrics.cardRadius, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: PsycheMetrics.cardRadius, style: .continuous)
+                            .strokeBorder(PsycheColor.rule, lineWidth: 1))
+            }
+        }
+    }
+
+    private func optionRow(_ part: QuestionDetail.Part, _ option: QuestionDetail.Option) -> some View {
+        let picked = (draft.selected[part.header] ?? []).contains(option.id)
+        let symbol = part.multiSelect ? (picked ? "checkmark.square.fill" : "square") : (picked ? "checkmark.circle.fill" : "circle")
+        return Button {
+            draft.choose(header: part.header, optionID: option.id)
+            focusedPart = nil
         } label: {
             HStack(spacing: 12) {
                 VStack(alignment: .leading, spacing: 3) {
@@ -82,16 +99,23 @@ struct QuestionSheet: View {
                     if let detail = option.detail { EvidenceLine([detail]) }
                 }
                 Spacer(minLength: 0)
-                Image(systemName: optionID == option.id ? "checkmark.circle.fill" : "circle")
+                Image(systemName: symbol)
                     .font(.title3)
-                    .foregroundStyle(optionID == option.id ? PsycheColor.inkText : PsycheColor.rule)
+                    .foregroundStyle(picked ? PsycheColor.inkText : PsycheColor.rule)
                     .accessibilityHidden(true)
             }
             .padding(PsycheMetrics.rowPadding)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .accessibilityAddTraits(optionID == option.id ? .isSelected : [])
+        .accessibilityAddTraits(picked ? .isSelected : [])
+    }
+
+    /// The typed "Other" answer of one part. Typing selects the part's Other row.
+    private func typedBinding(_ part: QuestionDetail.Part) -> Binding<String> {
+        Binding(
+            get: { draft.typed[part.header] ?? "" },
+            set: { draft.type($0, header: part.header) })
     }
 
     @ViewBuilder
@@ -107,8 +131,11 @@ struct QuestionSheet: View {
                 if !session.state.canAnswer {
                     Text("Reconnect to answer", bundle: .module).font(.footnote).foregroundStyle(PsycheColor.muted)
                 }
-                ArmingInkButton(title: "Send answer", isBusy: flow.stage == .sending, action: send)
-                    .disabled(!canSend || !session.state.canAnswer || flow.isBusy)
+                if detail.parts.count > 1, !draft.unanswered.isEmpty {
+                    Text("Answer every question to send.", bundle: .module).font(.footnote).foregroundStyle(PsycheColor.muted)
+                }
+                ArmingInkButton(title: String(localized: "Send answer", bundle: .module), isBusy: flow.stage == .sending, action: send)
+                    .disabled(!draft.unanswered.isEmpty || !session.state.canAnswer || flow.isBusy)
             }
         }
         .padding(.horizontal, PsycheMetrics.pagePadding)
@@ -119,12 +146,13 @@ struct QuestionSheet: View {
     }
 
     private func send() {
+        // Every part answered is the button's rule, so the answer is always whole here.
+        guard let answer = draft.answer() else { return }
         let id = item.id
-        let answer = QuestionAnswer(optionID: optionID, text: optionID == nil ? trimmed : nil)
         let store = store
-        typing = false
+        focusedPart = nil
         Task {
-            await flow.run(confirmation: "Sent. Psyche carries on.") {
+            await flow.run(confirmation: String(localized: "Sent. Psyche carries on.", bundle: .module)) {
                 try await store.answerQuestion(id: id, answer: answer)
             }
         }

@@ -7,9 +7,16 @@ import Testing
 /// literal that has no `bundle: .module` after it. Wrapped forms (`String(localized:bundle:)`) are not
 /// bare literals, so they are not matched.
 struct LocalizedLiteralsTests {
-    /// Constructs whose first argument is shown to the user.
-    static let construct = try! NSRegularExpression(
-        pattern: #"\b(Text|Label|Button|SectionHeader|navigationTitle|alert|confirmationDialog|TextField|Picker|Link|accessibilityLabel|accessibilityHint)\(\s*""#)
+    /// Shapes whose literal is shown to the user. Each pattern ends with the opening quote of the literal.
+    /// The first group is SwiftUI views and modifiers. The second is this app's helpers that take a
+    /// title, a label or a note as their first argument. The last ones take it as a named argument,
+    /// as the first element of an array, or after a `done:` flag.
+    static let patterns: [NSRegularExpression] = [
+        #"\b(Text|Label|Button|SectionHeader|navigationTitle|alert|confirmationDialog|TextField|Picker|Link|accessibilityLabel|accessibilityHint|infoRow|toggleRow|section|actionRow|sectionHeader|emptyNote|quiet|note|message|tabLabel|PageHeader|StatusDot|EditOnMacNote|ArmingInkButton|GlassTextButton|PaperSearchField|todos|rows)\(\s*""#,
+        #"\b(title|prompt|footer):\s*""#,
+        #"\bEvidenceLine\(\s*\[\s*""#,
+        #"\bstep\(done:\s*\w+,\s*""#,
+    ].map { try! NSRegularExpression(pattern: $0) }
 
     /// Literals that are shown as is: the product name, and text with no letters (a digit, a bullet).
     static let allowed: Set<String> = ["Psyche"]
@@ -64,15 +71,22 @@ struct LocalizedLiteralsTests {
             guard let source = try? String(contentsOf: file, encoding: .utf8) else { continue }
             for (number, line) in source.components(separatedBy: "\n").enumerated() {
                 let range = NSRange(line.startIndex..., in: line)
-                for match in construct.matches(in: line, range: range) {
+                // Fixtures, backends and previews hold sample data, not the strings the user reads.
+                if file.lastPathComponent.hasPrefix("Fixture") || file.lastPathComponent.contains("Backend") || line.contains("#Preview") { continue }
+                let inFeatures = file.path.contains("/PsycheFeatures/")
+                for (index, pattern) in patterns.enumerated() where index == 0 || inFeatures {
+                  for match in pattern.matches(in: line, range: range) {
                     guard let matchRange = Range(match.range, in: line) else { continue }
                     // The opening quote is the last character of the match.
                     let start = line.index(after: line.index(before: matchRange.upperBound))
                     guard let lit = literal(in: line, from: start) else { continue }
                     let rest = line[lit.end...]
                     if rest.contains("bundle: .module") { continue }
+                    // Placeholders are redacted skeleton text, never shown.
+                    if lit.text.hasPrefix("Placeholder") { continue }
                     if !lit.text.contains(where: \.isLetter) || allowed.contains(lit.text) { continue }
                     found.append("\(file.lastPathComponent):\(number + 1): \"\(lit.text)\"")
+                  }
                 }
             }
         }
@@ -86,10 +100,27 @@ struct LocalizedLiteralsTests {
         #expect(bare.isEmpty, "Use `bundle: .module` or String(localized:bundle:) for: \(bare.joined(separator: ", "))")
     }
 
+    /// PsycheShared has its own catalog (`Resources/Localizable.xcstrings`), so its user-facing strings (the Live
+    /// Activity's status words, the endpoint's transport label, the share note) must name that bundle: a bare
+    /// `String(localized:)` would look in the app's main bundle and show English everywhere.
+    @Test func sharedStringsAreLocalizedWithTheSharedBundle() {
+        let shared = Self.sourceFiles().filter { $0.path.contains("/PsycheShared/") }
+        #expect(shared.count > 3)
+        var bare: [String] = []
+        for file in shared {
+            guard let source = try? String(contentsOf: file, encoding: .utf8) else { continue }
+            for (number, line) in source.components(separatedBy: "\n").enumerated()
+            where line.contains("String(localized:") && !line.contains("bundle: .module") {
+                bare.append("\(file.lastPathComponent):\(number + 1)")
+            }
+        }
+        #expect(bare.isEmpty, "Add `bundle: .module` to: \(bare.joined(separator: ", "))")
+    }
+
     @Test func theScannerFindsABareLiteral() {
         let line = #"Text("Save changes").font(.body)"#
         let range = NSRange(line.startIndex..., in: line)
-        let match = Self.construct.firstMatch(in: line, range: range)
+        let match = Self.patterns[0].firstMatch(in: line, range: range)
         #expect(match != nil)
         let matchRange = Range(match!.range, in: line)!
         let start = line.index(after: line.index(before: matchRange.upperBound))

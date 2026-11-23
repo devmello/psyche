@@ -2,7 +2,7 @@ import Foundation
 import PsycheStore
 import enum PsycheProtocol.JSONValue
 
-// Goals over `goals.list/get`. Read-only on the phone: creating and editing goals is a Mac thing.
+// Goals over `goals.list/get/update`. The phone sets a goal's status; editing its title, plan or cadence is a Mac thing.
 extension GatewayBackend {
     public func goals() async throws -> [GoalItem] {
         let result = try await call("goals.list", .obj([:]))
@@ -10,7 +10,15 @@ extension GatewayBackend {
     }
 
     public func goalDetail(id: String) async throws -> GoalDetail {
-        let result = try await call("goals.get", .obj(["goalId": .string(id)]))
+        try Self.goalDetail(from: try await call("goals.get", .obj(["goalId": .string(id)])))
+    }
+
+    public func setGoalStatus(id: String, _ status: GoalStatusChange) async throws -> GoalDetail {
+        try Self.goalDetail(from: try await call("goals.update", .obj(["goalId": .string(id), "status": .string(status.rawValue)])))
+    }
+
+    /// A `goals.get` or `goals.update` answer: the goal, its milestones and its linked tasks.
+    static func goalDetail(from result: JSONValue) throws -> GoalDetail {
         guard let wire = result["goal"], let goal = Self.goal(from: wire) else { throw BackendError.notFound }
         let milestones: [GoalMilestoneItem] = (result["milestones"]?.array ?? []).compactMap { milestone in
             guard let id = milestone["id"]?.string, let title = milestone["title"]?.string else { return nil }

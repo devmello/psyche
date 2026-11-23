@@ -39,10 +39,12 @@ struct ApprovalSheet: View {
                     Text(detail.title).psycheTitle(.title).foregroundStyle(PsycheColor.text)
                     Text(detail.summary).font(.subheadline).foregroundStyle(PsycheColor.muted)
                 }
-                ApprovalCard(fields: detail.fields.map { .init(key: $0.key, value: $0.value) })
+                ApprovalCard(fields: detail.fields.map {
+                    .init(key: $0.key, value: $0.value, depth: $0.depth, monospaced: $0.monospaced, id: $0.path)
+                })
                 VStack(alignment: .leading, spacing: 6) {
-                    EvidenceLine("Because", detail.evidence)
-                    EvidenceLine("Also sent to", [detail.alsoSentTo])
+                    EvidenceLine(String(localized: "Because", bundle: .module), detail.evidence)
+                    EvidenceLine(String(localized: "Also sent to", bundle: .module), [detail.alsoSentTo])
                 }
             }
             .padding(.horizontal, PsycheMetrics.pagePadding)
@@ -104,10 +106,10 @@ struct ApprovalSheet: View {
                 HStack(spacing: 10) {
                     // Deny stays on a card the phone holds an answer for (refusing shows nothing the card doesn't); off
                     // when it holds none (a payment, a card kept on the Mac), where it could only fail.
-                    GlassTextButton(title: "Deny") { answer(.deny) }
+                    GlassTextButton(title: String(localized: "Deny", bundle: .module)) { answer(.deny) }
                         .disabled(!detail.canDeny)
                     ArmingInkButton(
-                        title: flow.stage == .checking ? "Checking…" : detail.allowLabel,
+                        title: flow.stage == .checking ? String(localized: "Checking…", bundle: .module) : detail.allowLabel,
                         progress: arming, isBusy: flow.stage == .sending
                     ) { answer(.allow) }
                     .disabled(detail.needsMac)
@@ -133,7 +135,7 @@ struct ApprovalSheet: View {
         Task {
             await flow.answer(
                 decision, on: detail, presence: presence,
-                confirmation: decision == .allow ? "Allowed. Your Mac has your answer." : "Denied. Your Mac has your answer."
+                confirmation: decision == .allow ? String(localized: "Allowed. Your Mac has your answer.", bundle: .module) : String(localized: "Denied. Your Mac has your answer.", bundle: .module)
             ) {
                 try await store.answerApproval(id: id, decision: decision)
             }

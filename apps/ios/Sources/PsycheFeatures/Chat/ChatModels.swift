@@ -149,6 +149,10 @@ final class ThreadModel {
     private(set) var revision = 0
     /// Bumped on every message handed to the backend; drives the send haptic.
     private(set) var sentCount = 0
+    /// The follow-ups the Gateway holds until the reply settles, in run order (`chat.queue.updated`).
+    private(set) var queue: [QueuedFollowUp] = []
+    /// How a message sent while Psyche is replying goes. Queue is the default, as on the desktop.
+    private(set) var runMode: RunMessageMode = .queue
     private let store: any PsycheBackend
     private var drafts: [String: MessageDraft] = [:]
     private var pendingDeltas: [String: String] = [:]
@@ -176,6 +180,62 @@ final class ThreadModel {
         } catch {
             if phase.value == nil { phase = .failed(error.localizedDescription) }
         }
+        await loadQueue()
+    }
+
+    /// The queue as the Gateway lists it. The live `chat.queue.updated` events keep it current after this.
+    private func loadQueue() async {
+        do {
+            queue = Self.sortedQueue(try await store.queuedFollowUps(threadID: phase.value?.id ?? id))
+        } catch {
+            actionError = error.localizedDescription
+        }
+    }
+
+    func setRunMode(_ mode: RunMessageMode) {
+        runMode = mode
+    }
+
+    /// Sends a message while Psyche is replying: steers the reply now, or queues it after the reply, by
+    /// `runMode`. Returns false when the Gateway refused it (the error shows in the alert), so the composer
+    /// keeps the text. The user's bubble is not added here: a steer or a queued item shows in its own place.
+    func submitWhileRunning(_ text: String) async -> Bool {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return false }
+        let threadID = phase.value?.id ?? id
+        do {
+            switch runMode {
+            case .steer:
+                try await store.steer(threadID: threadID, text: trimmed)
+            case .queue:
+                let item = try await store.queueFollowUp(threadID: threadID, text: trimmed)
+                if !queue.contains(where: { $0.id == item.id }) {
+                    queue = Self.sortedQueue(queue + [item])
+                }
+            }
+            sentCount += 1
+            return true
+        } catch {
+            actionError = error.localizedDescription
+            return false
+        }
+    }
+
+    /// Removes a queued follow-up. It leaves the strip at once; if the Gateway says it already started, or
+    /// refuses, the queue is read again so the strip shows what really waits.
+    func removeQueued(_ item: QueuedFollowUp) async {
+        queue.removeAll { $0.id == item.id }
+        do {
+            let removed = try await store.removeQueuedFollowUp(threadID: item.threadID, id: item.id)
+            if !removed { await loadQueue() }
+        } catch {
+            actionError = error.localizedDescription
+            await loadQueue()
+        }
+    }
+
+    static func sortedQueue(_ items: [QueuedFollowUp]) -> [QueuedFollowUp] {
+        items.sorted { $0.position < $1.position }
     }
 
     /// Applies this thread's live events until the view goes away (the reference pattern for every
@@ -242,7 +302,7 @@ final class ThreadModel {
         let previous = chosen[question]
         chosen[question] = option
         Task {
-            do { try await store.answerQuestion(id: question, answer: QuestionAnswer(optionID: option)) } catch {
+            do { try await store.answerQuestion(id: question, answer: QuestionAnswer(singleText: option)) } catch {
                 if chosen[question] == option { chosen[question] = previous }
                 actionError = error.localizedDescription
             }
@@ -254,6 +314,11 @@ final class ThreadModel {
     // MARK: Applying events
 
     private func apply(_ event: ChatEvent) {
+        // The queue is the whole list, so it replaces what this phone had.
+        if case .queue(_, let items) = event {
+            queue = Self.sortedQueue(items)
+            return
+        }
         // Run changes feed the Live Activity (AlertCenter); the thread screen reads its own status.
         if case .run = event { return }
         if case .delta(_, let itemID, let text) = event {
@@ -285,7 +350,7 @@ final class ThreadModel {
             }
             if case .assistant(_, _, false) = item { Self.endThinking(&thread) }
             Self.upsert(item, into: &thread)
-        case .delta:
+        case .delta, .queue:
             break
         case .done(_, let itemID):
             if let index = thread.items.firstIndex(where: { $0.id == itemID }),

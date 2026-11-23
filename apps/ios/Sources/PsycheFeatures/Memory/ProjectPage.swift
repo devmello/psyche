@@ -167,9 +167,9 @@ struct ProjectPage: View {
         }
 
         if !detail.evidence.isEmpty {
-            EvidenceLine("Because", detail.evidence)
+            EvidenceLine(String(localized: "Because", bundle: .module), detail.evidence)
         }
-        EditOnMacNote(text: "Edit on your Mac: renaming, deadlines, merging projects.")
+        EditOnMacNote(text: String(localized: "Edit on your Mac: renaming, deadlines, merging projects.", bundle: .module))
     }
 
     /// "Open Space" for a project that has one, "Make a Space" for one that doesn't. A Space is made only by this tap.

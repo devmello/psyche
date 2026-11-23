@@ -83,15 +83,17 @@ public struct TaskActivityContent: Codable, Hashable, Sendable {
     }
 
     /// "Step 3 of 7", or nil when the step count is unknown.
-    public var stepLabel: String? { hasStepCount ? "Step \(clampedStep) of \(stepCount)" : nil }
+    public var stepLabel: String? {
+        hasStepCount ? String(localized: "Step \(clampedStep) of \(stepCount)", bundle: .module) : nil
+    }
 
     /// One word for the island's status: "Running", "Needs your OK", "Done", "Failed".
     public var statusWord: String {
         switch status {
-        case .running: "Running"
-        case .needsApproval: "Needs your OK"
-        case .done: "Done"
-        case .failed: "Failed"
+        case .running: String(localized: "Running", bundle: .module)
+        case .needsApproval: String(localized: "Needs your OK", bundle: .module)
+        case .done: String(localized: "Done", bundle: .module)
+        case .failed: String(localized: "Failed", bundle: .module)
         }
     }
 
@@ -125,10 +127,13 @@ public struct TaskActivityContent: Codable, Hashable, Sendable {
     /// "Step 3 of 7 · running", or "Running" when the step count is unknown.
     public var statusLine: String {
         switch status {
-        case .running: hasStepCount ? "Step \(clampedStep) of \(stepCount) · running" : "Running"
-        case .needsApproval: "Needs approval"
-        case .done: "Done"
-        case .failed: "Failed"
+        case .running:
+            hasStepCount
+                ? String(localized: "Step \(clampedStep) of \(stepCount) · running", bundle: .module)
+                : String(localized: "Running", bundle: .module)
+        case .needsApproval: String(localized: "Needs approval", bundle: .module)
+        case .done: String(localized: "Done", bundle: .module)
+        case .failed: String(localized: "Failed", bundle: .module)
         }
     }
 

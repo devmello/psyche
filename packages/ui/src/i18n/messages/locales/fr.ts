@@ -3301,6 +3301,17 @@ export const fr: Partial<Catalogue> = {
   "screens.goals.loadingPlan": "Chargement du plan…",
   "screens.goals.tasks": "Tâches",
   "screens.goals.noTasks": "Aucune tâche liée.",
+  "screens.goals.link": "Lier…",
+  "screens.goals.linkTitle": "Lier à cet objectif",
+  "screens.goals.linkHint":
+    "Choisissez une tâche ou une automatisation existante. Rien d’autre ne change.",
+  "screens.goals.linkTasks": "Tâches",
+  "screens.goals.linkAutomations": "Automatisations",
+  "screens.goals.linkNone": "Rien à lier pour l’instant.",
+  "screens.goals.linkFailed": "Impossible de modifier le lien : {reason}",
+  "screens.goals.unlink": "Délier",
+  "screens.goals.unlinkItem": "Délier {title}",
+  "screens.goals.noAutomations": "Aucune automatisation liée.",
   "screens.goals.checkins": "Points d’étape",
   "screens.goals.checkinLine":
     "{cadence}{hasNext, select, true { · prochain {next}} other {}}{hasLast, select, true { · dernier : {last}} other {}}",

@@ -35,6 +35,26 @@ enum ProactiveText {
         }
     }
 
+    /// The button that moves a goal to `target`, named for what it does from `status`.
+    static func goalChange(_ target: GoalStatusChange, from status: String) -> String {
+        switch target {
+        case .active where status == "candidate": String(localized: "Start", bundle: .module)
+        case .active where status == "done": String(localized: "Reopen", bundle: .module)
+        case .active: String(localized: "Resume", bundle: .module)
+        case .paused: String(localized: "Pause", bundle: .module)
+        case .done: String(localized: "Mark done", bundle: .module)
+        }
+    }
+
+    /// The line under a scheduled item: its next run, or why it has none.
+    static func scheduleLine(_ job: ScheduledJob, now: Date = .now) -> String {
+        switch job.state {
+        case "paused": String(localized: "Paused", bundle: .module)
+        case "off": String(localized: "Turned off", bundle: .module)
+        default: when(job.nextRunAt, now: now)
+        }
+    }
+
     static func runDot(_ state: ScheduledRunState) -> StatusDot.Kind {
         switch state {
         case .succeeded: .done
@@ -249,22 +269,22 @@ struct GoalsView: View {
                         .buttonStyle(.plain)
                     }
                 }
-                Text("Change goals on your Mac.", bundle: .module).font(.footnote).foregroundStyle(PsycheColor.muted)
+                Text("Edit goal details and check-ins on your Mac.", bundle: .module).font(.footnote).foregroundStyle(PsycheColor.muted)
             }
         }
         .sheet(isPresented: $showing, onDismiss: model.close) {
-            GoalSheet(phase: model.detail)
+            GoalSheet(model: model)
         }
     }
 }
 
 private struct GoalSheet: View {
-    let phase: LoadPhase<GoalDetail>
+    let model: GoalsModel
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: PsycheMetrics.sectionSpacing) {
-                switch phase {
+                switch model.detail {
                 case .idle, .loading:
                     ProgressView().frame(maxWidth: .infinity).padding(.vertical, 40)
                 case .failed(let message):
@@ -272,6 +292,7 @@ private struct GoalSheet: View {
                 case .loaded(let detail):
                     loaded(detail)
                 }
+                ActionError(message: model.actionError)
             }
             .padding(PsycheMetrics.pagePadding)
         }
@@ -286,6 +307,18 @@ private struct GoalSheet: View {
             EvidenceLine(
                 [ProactiveText.goalStatus(detail.goal.status)]
                     + (detail.goal.nextCheckinAt.map { [String(localized: "Next check-in \(ProactiveText.when($0))", bundle: .module)] } ?? []))
+        }
+        let choices = GoalsModel.choices(for: detail.goal.status)
+        if !choices.isEmpty {
+            HStack(spacing: 20) {
+                ForEach(choices, id: \.self) { choice in
+                    Button(ProactiveText.goalChange(choice, from: detail.goal.status)) {
+                        Task { await model.setStatus(choice, for: detail.goal) }
+                    }
+                    .proactiveAction(prominent: choice == .active)
+                    .disabled(model.busy)
+                }
+            }
         }
         if let progress = detail.progress {
             VStack(alignment: .leading, spacing: 8) {
@@ -323,6 +356,7 @@ private struct GoalSheet: View {
 
 struct ScheduledView: View {
     @State private var model: ScheduledModel
+    @State private var confirmingRun: ScheduledJob?
 
     init(store: any PsycheBackend) { _model = State(initialValue: ScheduledModel(store: store)) }
 
@@ -331,26 +365,21 @@ struct ScheduledView: View {
             title: String(localized: "Scheduled", bundle: .module), phase: model.phase, skeleton: .skeleton,
             load: model.load, observe: model.observe
         ) { overview in
-            if overview.upcoming.isEmpty && overview.runs.isEmpty {
+            if overview.items.isEmpty && overview.runs.isEmpty {
                 EmptyLine(text: String(localized: "Nothing scheduled.", bundle: .module))
             }
-            if !overview.upcoming.isEmpty {
+            if !overview.items.isEmpty {
                 VStack(alignment: .leading, spacing: 8) {
-                    SectionHeader(String(localized: "Up next", bundle: .module))
+                    SectionHeader(String(localized: "Schedule", bundle: .module))
                     PaperCard {
-                        ForEach(Array(overview.upcoming.enumerated()), id: \.element.id) { index, job in
+                        ForEach(Array(overview.items.enumerated()), id: \.element.id) { index, job in
                             if index > 0 { HairlineDivider() }
-                            VStack(alignment: .leading, spacing: 3) {
-                                Text(job.title).font(.psycheRow).foregroundStyle(PsycheColor.text)
-                                EvidenceLine([ProactiveText.when(job.nextRunAt)])
-                            }
-                            .padding(PsycheMetrics.rowPadding)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .accessibilityElement(children: .combine)
+                            jobRow(job)
                         }
                     }
                 }
             }
+            ActionError(message: model.actionError)
             if !overview.runs.isEmpty {
                 VStack(alignment: .leading, spacing: 8) {
                     SectionHeader(String(localized: "Recent runs", bundle: .module))
@@ -371,8 +400,43 @@ struct ScheduledView: View {
                     }
                 }
             }
-            Text("Change schedules on your Mac.", bundle: .module).font(.footnote).foregroundStyle(PsycheColor.muted)
+            Text("Edit schedules and prompts on your Mac.", bundle: .module).font(.footnote).foregroundStyle(PsycheColor.muted)
         }
+        .confirmationDialog(
+            String(localized: "Run this now?", bundle: .module),
+            isPresented: Binding(get: { confirmingRun != nil }, set: { if !$0 { confirmingRun = nil } }),
+            titleVisibility: .visible, presenting: confirmingRun
+        ) { job in
+            Button(String(localized: "Run now", bundle: .module)) { Task { await model.runNow(job) } }
+        } message: { _ in
+            Text("This can take actions for you. Anything that needs your approval still waits for you.", bundle: .module)
+        }
+    }
+
+    private func jobRow(_ job: ScheduledJob) -> some View {
+        let busy = model.isBusy(job.id)
+        return VStack(alignment: .leading, spacing: 6) {
+            Text(job.title).font(.psycheRow).foregroundStyle(PsycheColor.text)
+            EvidenceLine([ProactiveText.scheduleLine(job)])
+            if job.state != "off" {
+                HStack(spacing: 20) {
+                    if job.state == "active" || job.state == "paused" {
+                        Button(job.state == "paused" ? String(localized: "Resume", bundle: .module) : String(localized: "Pause", bundle: .module)) {
+                            Task { await model.togglePause(job) }
+                        }
+                        .proactiveAction()
+                        .disabled(busy)
+                    }
+                    Button(String(localized: "Run now", bundle: .module)) {
+                        if job.confirmsRunNow { confirmingRun = job } else { Task { await model.runNow(job) } }
+                    }
+                    .proactiveAction()
+                    .disabled(busy)
+                }
+            }
+        }
+        .padding(PsycheMetrics.rowPadding)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 

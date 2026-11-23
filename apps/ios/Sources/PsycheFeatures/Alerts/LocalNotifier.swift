@@ -46,10 +46,10 @@ struct SystemNotifier: LocalNotifier {
     static func categories() -> Set<UNNotificationCategory> {
         func action(_ a: AlertAction) -> UNNotificationAction {
             switch a {
-            case .approve: UNNotificationAction(identifier: a.rawValue, title: "Approve", options: [.authenticationRequired])
-            case .deny: UNNotificationAction(identifier: a.rawValue, title: "Deny", options: [.destructive])
-            case .review: UNNotificationAction(identifier: a.rawValue, title: "Review…", options: [.foreground])
-            case .open: UNNotificationAction(identifier: a.rawValue, title: "Open", options: [.foreground])
+            case .approve: UNNotificationAction(identifier: a.rawValue, title: String(localized: "Approve", bundle: .module), options: [.authenticationRequired])
+            case .deny: UNNotificationAction(identifier: a.rawValue, title: String(localized: "Deny", bundle: .module), options: [.destructive])
+            case .review: UNNotificationAction(identifier: a.rawValue, title: String(localized: "Review…", bundle: .module), options: [.foreground])
+            case .open: UNNotificationAction(identifier: a.rawValue, title: String(localized: "Open", bundle: .module), options: [.foreground])
             }
         }
         return Set(AlertCategory.allCategories.map { category in
