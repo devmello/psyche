@@ -9,8 +9,8 @@ public struct GatewayEndpoint: Hashable, Sendable, Codable {
 
         public var label: String {
             switch self {
-            case .lan: "Home network"
-            case .tailscale: "Tailscale"
+            case .lan: String(localized: "Home network", bundle: .module)
+            case .tailscale: "Tailscale"  // a product name, shown as is
             }
         }
     }

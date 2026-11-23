@@ -88,7 +88,7 @@ public struct ShareInboxItem: Codable, Sendable, Equatable, Identifiable {
     /// The chat message that goes with the files: the note, then any shared text or link.
     public var messageText: String {
         let parts = [note, text].map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
-        if parts.isEmpty { return files.isEmpty ? "" : "Shared from my iPhone." }
+        if parts.isEmpty { return files.isEmpty ? "" : String(localized: "Shared from my iPhone.", bundle: .module) }
         return parts.joined(separator: "\n\n")
     }
 }

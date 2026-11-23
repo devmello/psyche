@@ -100,6 +100,23 @@ struct LocalizedLiteralsTests {
         #expect(bare.isEmpty, "Use `bundle: .module` or String(localized:bundle:) for: \(bare.joined(separator: ", "))")
     }
 
+    /// PsycheShared has its own catalog (`Resources/Localizable.xcstrings`), so its user-facing strings (the Live
+    /// Activity's status words, the endpoint's transport label, the share note) must name that bundle: a bare
+    /// `String(localized:)` would look in the app's main bundle and show English everywhere.
+    @Test func sharedStringsAreLocalizedWithTheSharedBundle() {
+        let shared = Self.sourceFiles().filter { $0.path.contains("/PsycheShared/") }
+        #expect(shared.count > 3)
+        var bare: [String] = []
+        for file in shared {
+            guard let source = try? String(contentsOf: file, encoding: .utf8) else { continue }
+            for (number, line) in source.components(separatedBy: "\n").enumerated()
+            where line.contains("String(localized:") && !line.contains("bundle: .module") {
+                bare.append("\(file.lastPathComponent):\(number + 1)")
+            }
+        }
+        #expect(bare.isEmpty, "Add `bundle: .module` to: \(bare.joined(separator: ", "))")
+    }
+
     @Test func theScannerFindsABareLiteral() {
         let line = #"Text("Save changes").font(.body)"#
         let range = NSRange(line.startIndex..., in: line)
