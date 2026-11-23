@@ -2904,8 +2904,6 @@ export const ja: Partial<Catalogue> = {
   "screens.search.activeFilters": "有効なフィルタ",
   "screens.search.removeFilter": "フィルタ{filter}を削除",
   "screens.search.unknownFilter": "{filter}（Psycheが認識できないフィルタのため無視されます）",
-  "screens.search.fromNote":
-    "from:はテキスト中の名前に一致します。送信者での絞り込みはまだ利用できません。",
   "screens.evidence.source.gmail": "Gmail",
   "screens.evidence.source.calendar": "カレンダー",
   "screens.evidence.source.browser": "ブラウザ",

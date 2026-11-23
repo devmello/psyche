@@ -54,8 +54,17 @@ describe("parseSearchQuery", () => {
     expect(q.scopes).toEqual(["feed"]);
     expect(q.types).toEqual(["pdf"]);
     expect(q.from).toEqual(["alice"]);
-    expect(q.queryText).toBe("dentist alice");
+    // The sender goes in the `from` param of search.query, not in the text.
+    expect(q.queryText).toBe("dentist");
     expect(q.unsupported).toEqual([]);
+  });
+
+  it("keeps the first sender out of the query text and leaves a repeated one as an operator", () => {
+    const q = parseSearchQuery('from:"Jane Ortiz" from:bo dentist');
+    expect(q.from).toEqual(["Jane Ortiz", "bo"]);
+    expect(q.text).toBe("dentist");
+    expect(q.queryText).toBe('dentist from:"bo"');
+    expect(parseSearchQuery("from:alice").queryText).toBe("");
   });
 
   it("accepts aliases, repeats and quoted values", () => {

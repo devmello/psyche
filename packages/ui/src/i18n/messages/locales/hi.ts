@@ -2895,7 +2895,6 @@ export const hi: Partial<Catalogue> = {
   "screens.search.activeFilters": "सक्रिय फ़िल्टर",
   "screens.search.removeFilter": "फ़िल्टर {filter} हटाएँ",
   "screens.search.unknownFilter": "{filter} (Psyche इस फ़िल्टर को नहीं जानता; अनदेखा किया गया)",
-  "screens.search.fromNote": "from: टेक्स्ट में नाम से मिलान करता है; प्रेषक के अनुसार फ़िल्टर अभी उपलब्ध नहीं है।",
   "screens.evidence.source.gmail": "Gmail",
   "screens.evidence.source.calendar": "कैलेंडर",
   "screens.evidence.source.browser": "ब्राउज़र",

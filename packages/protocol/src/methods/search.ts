@@ -402,6 +402,14 @@ export const SearchMethods = {
           description: "Ids of understood chips the user removed",
         }),
       ),
+      from: Type.Optional(
+        Type.String({
+          minLength: 1,
+          maxLength: 200,
+          description:
+            "Only documents whose sender matches this name, handle or address (case-insensitive, substring). Documents with no sender (chat messages, tasks, notes, memory, people) are left out",
+        }),
+      ),
       smart: Type.Optional(
         Type.Boolean({
           description:

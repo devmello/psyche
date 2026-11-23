@@ -9,8 +9,8 @@ import { t } from "../../i18n/core.ts";
  *   message → messages, task/activity → tasks, files → library, …). Repeatable.
  * - `type:<ext>` keeps hits whose title ends in that extension; without `in:` it searches the
  *   Library. Filtered client-side: `search.query` has no type parameter.
- * - `from:<name>` searches messages and threads for that name. `search.query` has no sender
- *   parameter, so the name is added to the text query.
+ * - `from:<name>` keeps only documents whose sender matches that name (`from` of `search.query`).
+ *   A second `from:` stays in the query text, where the Gateway's own `from:` filter reads it.
  * - Values may be quoted: `from:"Jane Ortiz"`. Unknown keys and unknown scopes stay in
  *   `unsupported` so the UI can say so instead of silently dropping them.
  */
@@ -106,7 +106,10 @@ export function parseSearchQuery(raw: string): ParsedSearchQuery {
   }
 
   const text = words.join(" ");
-  const queryText = [text, ...from].filter((s) => s !== "").join(" ");
+  // The first sender goes in the `from` param of search.query; any further ones stay in the query
+  // text as `from:` operators, which the Gateway's query parser also reads.
+  const extraFrom = from.slice(1).map((name) => `from:"${name.replace(/"/g, "")}"`);
+  const queryText = [text, ...extraFrom].filter((s) => s !== "").join(" ");
   return { text, filters, scopes, types, from, unsupported, queryText };
 }
 
