@@ -13,8 +13,8 @@ export type SourceChipsContent = Pick<BlockOf<"sources">, "items" | "cited">;
  * An in-app path only. A route is never a URL: `javascript:`, `https:` and protocol-relative `//`
  * routes are not openable, so their chip is disabled.
  */
-export function isOpenableRoute(route: string | null): route is string {
-  return route !== null && route.startsWith("/") && !route.startsWith("//");
+export function isOpenableRoute(route: string | null | undefined): route is string {
+  return typeof route === "string" && route.startsWith("/") && !route.startsWith("//");
 }
 
 /**

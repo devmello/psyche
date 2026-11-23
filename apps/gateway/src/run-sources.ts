@@ -17,8 +17,8 @@ const MAX_RUNS = 200;
 const runs = new Map<string, AnswerSource[]>();
 
 /** An in-app path (`/library/...`), or null. Never `javascript:`, a URL or a protocol-relative path. */
-export function inAppRoute(route: string | null): string | null {
-  if (route === null) return null;
+export function inAppRoute(route: string | null | undefined): string | null {
+  if (typeof route !== "string") return null;
   return route.startsWith("/") &&
     !route.startsWith("//") &&
     !/\s/.test(route) &&
