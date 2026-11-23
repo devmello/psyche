@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import {
   deleteLibraryItem,
   getLibraryItem,
+  getLibraryItemsAtPath,
   insertLibraryItem,
   listLibraryItemsPage,
   type NewLibraryItem,
@@ -64,5 +65,14 @@ describe("library_items", () => {
     expect(deleteLibraryItem(db, first.id)).toBe(true);
     expect(deleteLibraryItem(db, first.id)).toBe(false);
     expect(getLibraryItem(db, first.id)).toBeUndefined();
+  });
+
+  it("finds the rows at a path without case or Unicode form mattering", () => {
+    const db = memoryDb();
+    const held = insertLibraryItem(db, base({ name: "held.bin", path: "quarantine/q1-held.bin", quarantined: true }));
+    insertLibraryItem(db, base({ name: "ok.txt", path: "recordings/ok.txt" }));
+    expect(getLibraryItemsAtPath(db, "quarantine/q1-held.bin").map((i) => i.id)).toEqual([held.id]);
+    expect(getLibraryItemsAtPath(db, "Quarantine/Q1-HELD.bin").map((i) => i.id)).toEqual([held.id]);
+    expect(getLibraryItemsAtPath(db, "recordings/missing.txt")).toEqual([]);
   });
 });

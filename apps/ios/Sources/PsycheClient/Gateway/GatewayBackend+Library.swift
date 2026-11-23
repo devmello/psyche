@@ -1,3 +1,4 @@
+import CryptoKit
 import Foundation
 import PsycheStore
 import enum PsycheProtocol.JSONValue
@@ -71,6 +72,7 @@ extension GatewayBackend {
         defer { try? handle.close() }
         var offset = 0
         var etag: String?
+        var hasher = SHA256()
         while true {
             try Task.checkCancellation()
             let chunk = try await call("files.read", .obj(["libraryPath": .string(path), "offset": .number(Double(offset))]))
@@ -82,6 +84,7 @@ extension GatewayBackend {
                 throw BackendError.refused("The Gateway sent a file this phone can't read.")
             }
             try handle.write(contentsOf: bytes)
+            hasher.update(data: bytes)
             offset += bytes.count
             if offset > Self.downloadMaxBytes { throw LibraryFileRefusal.tooLarge }
             let total = max(chunk["size"]?.int ?? size, 1)
@@ -91,6 +94,14 @@ extension GatewayBackend {
             offset = next
         }
         try handle.close()
+        // The bytes must be the ones the Mac recorded (`sha256:<hex>`). A mismatch removes the copy: nothing is kept
+        // or opened from it.
+        let actual = hasher.finalize().map { String(format: "%02x", $0) }.joined()
+        let recorded = (item["sha256"]?.string ?? "").replacingOccurrences(of: "sha256:", with: "").lowercased()
+        guard actual == recorded else {
+            try? FileManager.default.removeItem(at: destination.deletingLastPathComponent())
+            throw BackendError.refused("This file doesn't match what your Mac has, so it wasn't opened. Try again.")
+        }
         try downloads.finish(temporary, as: destination)
         finished = true
         downloads.evict(maxBytes: Self.cacheMaxBytes, keeping: destination)

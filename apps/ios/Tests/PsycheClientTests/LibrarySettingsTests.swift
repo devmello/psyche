@@ -1,3 +1,4 @@
+import CryptoKit
 import Foundation
 import enum PsycheProtocol.JSONValue
 import struct PsycheProtocol.WireError
@@ -25,16 +26,22 @@ struct LibrarySettingsTests {
 
     static func wireItem(
         _ id: String, kind: String = "document", name: String = "Q3 review.pdf", mime: String = "application/pdf",
-        size: Int = 18_000, origin: String = "agent", threadID: String? = "thr_q3", quarantined: Bool? = nil
+        size: Int = 18_000, origin: String = "agent", threadID: String? = "thr_q3", quarantined: Bool? = nil,
+        sha256: String = "sha256:abcdef0123456789"
     ) -> JSONValue {
         var item: [String: JSONValue] = [
             "id": .string(id), "kind": .string(kind), "name": .string(name), "mime": .string(mime),
-            "path": .string("documents/\(name)"), "size": .number(Double(size)), "sha256": "abcdef0123456789",
+            "path": .string("documents/\(name)"), "size": .number(Double(size)), "sha256": .string(sha256),
             "origin": .string(origin), "tags": .array([]), "createdAt": "2030-01-01T10:14:00Z",
         ]
         item["threadId"] = threadID.map { .string($0) } ?? .null
         if let quarantined { item["quarantined"] = .bool(quarantined) }
         return .object(item)
+    }
+
+    /// `sha256:<hex>` of `data`, the form the Gateway records.
+    static func digest(_ data: Data) -> String {
+        "sha256:" + SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
     }
 
     // MARK: Library
@@ -212,7 +219,7 @@ struct LibrarySettingsTests {
         let part2 = Data(repeating: 2, count: 1000)
         let reads = Requests()
         let (backend, h) = try await GatewayBackendTests().live { g in
-            g.on("library.get") { _ in .success(.object(["item": Self.wireItem(id, size: 513_000)])) }
+            g.on("library.get") { _ in .success(.object(["item": Self.wireItem(id, size: 513_000, sha256: Self.digest(part1 + part2))])) }
             g.on("files.read") { req in
                 reads.add(req)
                 let offset = req.params?["offset"]?.int ?? 0
@@ -253,7 +260,7 @@ struct LibrarySettingsTests {
         let part2 = Data(repeating: 4, count: 512 * 1024)
         let reads = Requests()
         let (backend, _) = try await GatewayBackendTests().live { g in
-            g.on("library.get") { _ in .success(.object(["item": Self.wireItem(id, size: 1024 * 1024)])) }
+            g.on("library.get") { _ in .success(.object(["item": Self.wireItem(id, size: 1024 * 1024, sha256: Self.digest(part1 + part2))])) }
             g.on("files.read") { req in
                 reads.add(req)
                 let offset = req.params?["offset"]?.int ?? 0
@@ -320,6 +327,26 @@ struct LibrarySettingsTests {
         let folder = LibraryDownloads(directory: h.dir.appendingPathComponent("LibraryCache")).folder(id: id)
         let leftovers = (try? FileManager.default.subpathsOfDirectory(atPath: folder.path)) ?? []
         #expect(leftovers.allSatisfy { !$0.hasSuffix(".part") })
+    }
+
+    @Test func aDownloadThatDoesNotMatchTheRecordedHashIsDeletedAndNotOpened() async throws {
+        let id = "lib_tamper_\(UUID().uuidString.prefix(8))"
+        let bytes = Data(repeating: 9, count: 4096)
+        let reads = Requests()
+        let (backend, h) = try await GatewayBackendTests().live { g in
+            // The Mac recorded a different file than the one the Gateway now serves.
+            g.on("library.get") { _ in .success(.object(["item": Self.wireItem(id, size: bytes.count, sha256: Self.digest(Data("original".utf8)))])) }
+            g.on("files.read") { req in
+                reads.add(req)
+                return .success(.object(["size": .number(Double(bytes.count)), "offset": .number(0), "etag": "e4", "bytes": .string(bytes.base64EncodedString()), "nextOffset": .null]))
+            }
+        }
+        await #expect(throws: BackendError.refused("This file doesn't match what your Mac has, so it wasn't opened. Try again.")) {
+            try await backend.downloadLibraryFile(id: id) { _ in }
+        }
+        #expect(reads.frames.count == 1)
+        let folder = LibraryDownloads(directory: h.dir.appendingPathComponent("LibraryCache")).folder(id: id)
+        #expect(!FileManager.default.fileExists(atPath: folder.path))
     }
 
     @Test func theDownloadCacheEvictsTheLeastRecentlyOpenedFirst() throws {

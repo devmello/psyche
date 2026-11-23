@@ -10,9 +10,15 @@ let granted: string;
 let outside: string;
 let home: string;
 let folders: { path: string; mode: "ro" | "rw" }[];
+/** The Library's rows by relative path, as the Gateway's DB holds them. */
+let rows: Record<string, { name: string; quarantined: boolean }[]>;
 
 const run = (method: string, params: unknown) => {
-  const handlers = filesHandlers({ folders: () => folders, home });
+  const handlers = filesHandlers({
+    folders: () => folders,
+    home,
+    library: { itemsAtPath: (path) => rows[path] ?? [] },
+  });
   const h = handlers[method];
   if (h === undefined) throw new Error(`no handler ${method}`);
   return Promise.resolve(h.run({} as never, params as never)) as Promise<Record<string, unknown>>;
@@ -42,6 +48,14 @@ beforeEach(async () => {
   await writeFile(join(home, "library", "recordings", "shot.png"), Buffer.from([0x89, 0x50]));
   await writeFile(join(home, "secret.txt"), "home secret");
   folders = [{ path: granted, mode: "ro" }];
+  rows = {};
+  await mkdir(join(home, "library", "quarantine"), { recursive: true });
+  await writeFile(join(home, "library", "quarantine", "q1-held.bin"), "held bytes");
+  await writeFile(join(home, "library", "quarantine", "t2-trusted.txt"), "trusted text");
+  await symlink(
+    join(home, "library", "quarantine", "q1-held.bin"),
+    join(home, "library", "recordings", "qlink.bin"),
+  );
 });
 
 afterEach(async () => {
@@ -152,6 +166,56 @@ describe("files.read", () => {
       "forbidden",
     );
     expect(await codeOf(run("files.read", { libraryPath: "." }))).toBe("forbidden");
+  });
+
+  it("refuses a quarantined Library item, whatever path the client sends", async () => {
+    rows["quarantine/q1-held.bin"] = [{ name: "held.bin", quarantined: true }];
+    expect(await codeOf(run("files.read", { libraryPath: "quarantine/q1-held.bin" }))).toBe(
+      "forbidden",
+    );
+    // A quarantined row at a path reached through `..` or `./` is the same file: refused too.
+    expect(
+      await codeOf(run("files.read", { libraryPath: "recordings/../quarantine/q1-held.bin" })),
+    ).toBe("forbidden");
+    expect(await codeOf(run("files.read", { libraryPath: "./quarantine/q1-held.bin" }))).toBe(
+      "forbidden",
+    );
+    // A row that is quarantined wins over a second row at the same path.
+    rows["quarantine/q1-held.bin"] = [
+      { name: "held.bin", quarantined: false },
+      { name: "held.bin", quarantined: true },
+    ];
+    expect(await codeOf(run("files.read", { libraryPath: "quarantine/q1-held.bin" }))).toBe(
+      "forbidden",
+    );
+  });
+
+  it("refuses anything in the quarantine folder that has no trusted row (fail closed)", async () => {
+    // No row at all: the bytes sit in quarantine/ and nothing vouches for them.
+    expect(await codeOf(run("files.read", { libraryPath: "quarantine/q1-held.bin" }))).toBe(
+      "forbidden",
+    );
+  });
+
+  it("reads a trusted download that stays in quarantine/ once its row is released", async () => {
+    rows["quarantine/t2-trusted.txt"] = [{ name: "trusted.txt", quarantined: false }];
+    const out = await run("files.read", { libraryPath: "quarantine/t2-trusted.txt" });
+    expect(Buffer.from(out.bytes as string, "base64").toString()).toBe("trusted text");
+  });
+
+  it("refuses a symlink in the Library that points into quarantine/", async () => {
+    rows["quarantine/q1-held.bin"] = [{ name: "held.bin", quarantined: true }];
+    expect(await codeOf(run("files.read", { libraryPath: "recordings/qlink.bin" }))).toBe(
+      "forbidden",
+    );
+  });
+
+  it("reads nothing from the Library when the Gateway has no Library rows to check", async () => {
+    const read = filesHandlers({ folders: () => folders, home })["files.read"];
+    if (read === undefined) throw new Error("no files.read handler");
+    expect(await codeOf(Promise.resolve(read.run({} as never, { libraryPath: "recordings/shot.png" } as never)))).toBe(
+      "unavailable",
+    );
   });
 });
 

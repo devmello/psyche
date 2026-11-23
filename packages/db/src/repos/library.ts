@@ -92,6 +92,20 @@ export function getLibraryItem(db: PsycheDb, id: string): LibraryItem | undefine
 }
 
 /**
+ * Every item stored at `path` (relative to the Library, as `LibraryItem.path`), matched without case and in
+ * Unicode NFC, so a request that spells the name another way (APFS folds case and normalisation) finds the rows.
+ */
+export function getLibraryItemsAtPath(db: PsycheDb, path: string): LibraryItem[] {
+  const key = path.normalize("NFC").toLowerCase();
+  return db.drizzle
+    .select()
+    .from(libraryItems)
+    .where(sql`lower(${libraryItems.path}) = ${key}`)
+    .all()
+    .map(libraryItemFromRow);
+}
+
+/**
  * The writer's provenance detail (`source`), which `getLibraryItem` never returns: for trust
  * decisions inside the Gateway only (a screen capture is `provenance: "untrusted"`).
  */

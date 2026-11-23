@@ -2,7 +2,7 @@ import { randomBytes } from "node:crypto";
 import { type BigIntStats, constants } from "node:fs";
 import { type FileHandle, lstat, open, readdir, realpath, rename, unlink } from "node:fs/promises";
 import { homedir } from "node:os";
-import { basename, dirname, extname, join, resolve, sep } from "node:path";
+import { basename, dirname, extname, join, relative as relativeTo, resolve, sep } from "node:path";
 import type { HashChainAuditLog } from "@psyche/audit";
 import { getAgentThreadState, getThread, listRuns } from "@psyche/db";
 import {
@@ -59,6 +59,34 @@ export interface FilesSetup {
   audit?: Pick<HashChainAuditLog, "append">;
   /** Test seam: the rename that publishes a saved file. */
   rename?: (from: string, to: string) => Promise<void>;
+  /**
+   * The Library's rows at a path (relative to `library/`, as `LibraryItem.path`). Without it a `libraryPath`
+   * read is refused: a quarantined file is never handed out, and this is how the Gateway knows.
+   */
+  library?: { itemsAtPath: (path: string) => readonly { name: string; quarantined: boolean }[] };
+}
+
+/** Where quarantined bytes sit (`quarantine/<id>-<name>`); trusted files may stay there too. */
+const QUARANTINE_FOLDER = "quarantine";
+
+/**
+ * Refuses a Library file the phone must not read: one whose row is quarantined, or one in the quarantine
+ * folder with no trusted row (fail closed). A trusted download stays where it was written and reads normally.
+ */
+function assertLibraryReadable(libraryPath: string, setup: FilesSetup): void {
+  if (setup.library === undefined) {
+    throw new PsycheError("unavailable", "the Library can't be checked, so its files aren't read");
+  }
+  const rows = setup.library.itemsAtPath(libraryPath.split(sep).join("/"));
+  const held = rows.find((row) => row.quarantined);
+  if (held !== undefined) {
+    throw new PsycheError("forbidden", `${held.name} is quarantined on your Mac; trust it there first`);
+  }
+  const first = libraryPath.split(sep)[0] ?? "";
+  const inQuarantine = first.toLowerCase() === QUARANTINE_FOLDER;
+  if (inQuarantine && rows.length === 0) {
+    throw new PsycheError("forbidden", `${basename(libraryPath)} is quarantined on your Mac; trust it there first`);
+  }
 }
 
 /** A file the caller may read: its real path and display name. */
@@ -96,6 +124,8 @@ export async function resolveFileSource(
     throw new PsycheError("forbidden", `${relative} is outside the Library`);
   }
   await assertNoSymlinks(target);
+  // The check runs on the resolved path, so `..` and spelling tricks can't reach a quarantined file.
+  assertLibraryReadable(relativeTo(root, target), setup);
   return { path: target, name: basename(target) };
 }
 

@@ -18,6 +18,7 @@ import type { ConnectorRegistry } from "@psyche/connectors";
 import {
   countActivePasskeys,
   getDevice,
+  getLibraryItemsAtPath,
   getSetting,
   getThread,
   listDevices,
@@ -2529,6 +2530,10 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       folders: () => rawBroker.grantedFolders(),
       home: config.home,
       audit,
+      library: {
+        itemsAtPath: (path) =>
+          getLibraryItemsAtPath(db, path).map((item) => ({ name: item.name, quarantined: item.quarantined === true })),
+      },
       share: {
         broker: executorBroker,
         surfaces: ["desktop", "web"],
