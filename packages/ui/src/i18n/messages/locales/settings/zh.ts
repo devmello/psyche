@@ -177,23 +177,29 @@ export const settings: Partial<Catalogue> = {
     "默认开启。关闭后，除你选择保持登录的网站外，每个网站都以未登录状态打开。",
   "settings.browser.signedIn.none": "还没有已登录的网站。",
   "settings.browser.agent.title": "智能体登录",
-  "settings.browser.agent.description": "智能体的浏览器可以使用你的哪些登录状态。更改将在下一个浏览器会话生效。",
+  "settings.browser.agent.description":
+    "智能体的浏览器可以使用你的哪些登录状态。更改将在下一个浏览器会话生效。",
   "settings.browser.agent.mode.label": "登录状态",
   "settings.browser.agent.mode.clean": "未登录",
   "settings.browser.agent.mode.auto": "仅列表中的网站",
   "settings.browser.agent.mode.profile": "所有网站",
-  "settings.browser.agent.mode.cleanHint": "所有网站都以未登录状态打开。智能体从不使用你的登录状态。",
-  "settings.browser.agent.mode.autoHint": "列表中的网站以你的登录状态打开，其他网站以未登录状态打开。",
-  "settings.browser.agent.mode.profileHint": "所有网站都以你的登录状态打开。智能体可以在任何网站上代表你操作。",
+  "settings.browser.agent.mode.cleanHint":
+    "所有网站都以未登录状态打开。智能体从不使用你的登录状态。",
+  "settings.browser.agent.mode.autoHint":
+    "列表中的网站以你的登录状态打开，其他网站以未登录状态打开。",
+  "settings.browser.agent.mode.profileHint":
+    "所有网站都以你的登录状态打开。智能体可以在任何网站上代表你操作。",
   "settings.browser.agent.sites.title": "已登录的网站",
-  "settings.browser.agent.sites.description": "在「仅列表中的网站」模式下，智能体可以用你的登录状态打开的网站。仅限 https，localhost 可以使用 http。",
+  "settings.browser.agent.sites.description":
+    "在「仅列表中的网站」模式下，智能体可以用你的登录状态打开的网站。仅限 https，localhost 可以使用 http。",
   "settings.browser.agent.sites.none": "列表中还没有网站。",
   "settings.browser.agent.sites.remove": "移除 {site}",
   "settings.browser.agent.sites.removeShort": "移除",
   "settings.browser.agent.sites.label": "网站地址",
   "settings.browser.agent.sites.add": "添加网站",
   "settings.browser.agent.ports.title": "开发预览端口",
-  "settings.browser.agent.ports.description": "智能体可以打开的、运行在这台 Mac 上的本地开发服务器端口，仅限 localhost。",
+  "settings.browser.agent.ports.description":
+    "智能体可以打开的本地开发服务器端口，仅限 localhost。",
   "settings.browser.agent.ports.none": "列表中还没有端口。",
   "settings.browser.agent.ports.remove": "移除端口 {port}",
   "settings.browser.agent.ports.label": "端口号",

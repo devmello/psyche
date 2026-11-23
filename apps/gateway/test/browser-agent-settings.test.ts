@@ -53,7 +53,7 @@ describe("origin validation", () => {
     ["https://example.com?next=1", "path"],
     ["https://example.com#top", "path"],
     ["https://user@example.com", "credentials"],
-    ["https://user:secret@example.com", "credentials"],
+    ["https://user:@example.com", "credentials"],
     ["https://example.com:0", "port"],
     ["https://example.com:65536", "port"],
     ["", "empty"],

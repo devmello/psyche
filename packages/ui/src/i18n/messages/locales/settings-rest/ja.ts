@@ -225,33 +225,43 @@ export const settingsRest: Partial<Catalogue> = {
     "初期値はオンです。オフにすると、サインインを維持するよう選んだサイト以外は、すべてログアウトした状態で開きます。",
   "settings.browser.signedIn.none": "サインイン済みのサイトはまだありません。",
   "settings.browser.agent.title": "エージェントのサインイン",
-  "settings.browser.agent.description": "エージェントのブラウザが使ってよいサインインを選びます。変更は次のブラウザセッションから反映されます。",
+  "settings.browser.agent.description":
+    "エージェントのブラウザが使ってよいサインインを選びます。変更は次のブラウザセッションから反映されます。",
   "settings.browser.agent.mode.label": "サインイン",
   "settings.browser.agent.mode.clean": "サインインしない",
   "settings.browser.agent.mode.auto": "リストのサイトだけ",
   "settings.browser.agent.mode.profile": "すべてのサイト",
-  "settings.browser.agent.mode.cleanHint": "すべてのサイトはサインインせずに開きます。エージェントがサインインを使うことはありません。",
-  "settings.browser.agent.mode.autoHint": "リストのサイトはサインインして開きます。それ以外はサインインせずに開きます。",
-  "settings.browser.agent.mode.profileHint": "すべてのサイトをサインインして開きます。エージェントはどのサイトでもあなたとして操作できます。",
+  "settings.browser.agent.mode.cleanHint":
+    "すべてのサイトはサインインせずに開きます。エージェントがサインインを使うことはありません。",
+  "settings.browser.agent.mode.autoHint":
+    "リストのサイトはサインインして開きます。それ以外はサインインせずに開きます。",
+  "settings.browser.agent.mode.profileHint":
+    "すべてのサイトをサインインして開きます。エージェントはどのサイトでもあなたとして操作できます。",
   "settings.browser.agent.sites.title": "サインイン済みのサイト",
-  "settings.browser.agent.sites.description": "「リストのサイトだけ」モードでエージェントがサインインして開いてよいサイト。https のみ、localhost は http も可。",
+  "settings.browser.agent.sites.description":
+    "「リストのサイトだけ」モードでエージェントがサインインして開いてよいサイト。https のみ、localhost は http も可。",
   "settings.browser.agent.sites.none": "リストのサイトはありません。",
   "settings.browser.agent.sites.remove": "{site} を削除",
   "settings.browser.agent.sites.removeShort": "削除",
   "settings.browser.agent.sites.label": "サイトのアドレス",
   "settings.browser.agent.sites.add": "サイトを追加",
   "settings.browser.agent.ports.title": "開発プレビューのポート",
-  "settings.browser.agent.ports.description": "このMacで動くローカル開発サーバーのうち、エージェントが開いてよいもの。localhost のみ。",
+  "settings.browser.agent.ports.description":
+    "エージェントが開いてよいローカル開発サーバー。localhost のみ。",
   "settings.browser.agent.ports.none": "ポートはありません。",
   "settings.browser.agent.ports.remove": "ポート {port} を削除",
   "settings.browser.agent.ports.label": "ポート番号",
   "settings.browser.agent.ports.add": "ポートを追加",
-  "settings.browser.agent.fromEnv": "環境変数 {variable} で設定されています。ここで変更するには、その変数を外してください。",
-  "settings.browser.agent.refuse.notUrl": "サイトのアドレスではありません。https://example.com の形式で入力してください。",
-  "settings.browser.agent.refuse.wildcard": "ワイルドカードは使えません。サイトごとに正確なアドレスを指定してください。",
+  "settings.browser.agent.fromEnv":
+    "環境変数 {variable} で設定されています。ここで変更するには、その変数を外してください。",
+  "settings.browser.agent.refuse.notUrl":
+    "サイトのアドレスではありません。https://example.com の形式で入力してください。",
+  "settings.browser.agent.refuse.wildcard":
+    "ワイルドカードは使えません。サイトごとに正確なアドレスを指定してください。",
   "settings.browser.agent.refuse.credentials": "ユーザー名やパスワードを含むアドレスは使えません。",
   "settings.browser.agent.refuse.path": "パスを含めず、サイトのアドレスだけを入力してください。",
-  "settings.browser.agent.refuse.scheme": "https を使ってください。http は localhost のみ使えます。",
+  "settings.browser.agent.refuse.scheme":
+    "https を使ってください。http は localhost のみ使えます。",
   "settings.browser.agent.refuse.port": "ポートは 1 から 65535 までの整数にしてください。",
   "settings.browser.signedIn.viaHosts": "{hosts}経由でもサインイン済み",
   "settings.browser.signedIn.forget": "サインアウト / 削除",

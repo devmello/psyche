@@ -431,7 +431,7 @@ export function AgentBrowserGroup({
         <ul className="flex flex-col gap-2">
           {portList.map((port) => (
             <li key={port} className="flex items-center justify-between gap-3">
-              <span className="font-mono">{`localhost:${port}`}</span>
+              <span className="font-mono">{port}</span>
               {portsEnv ? null : (
                 <Button
                   type="button"

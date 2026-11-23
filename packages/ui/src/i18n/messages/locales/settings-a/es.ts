@@ -176,33 +176,44 @@ export const settingsA: Partial<Catalogue> = {
     "Activado por defecto. Desactivado abre cada sitio sin sesión, salvo los que elegiste mantener con sesión.",
   "settings.browser.signedIn.none": "Aún no hay sitios con sesión iniciada.",
   "settings.browser.agent.title": "Inicios de sesión del agente",
-  "settings.browser.agent.description": "Qué inicios de sesión tuyos puede usar el navegador del agente. Los cambios se aplican a la próxima sesión.",
+  "settings.browser.agent.description":
+    "Qué inicios de sesión tuyos puede usar el navegador del agente. Los cambios se aplican a la próxima sesión.",
   "settings.browser.agent.mode.label": "Inicios de sesión",
   "settings.browser.agent.mode.clean": "Sin sesión",
   "settings.browser.agent.mode.auto": "Solo sitios de la lista",
   "settings.browser.agent.mode.profile": "Todos los sitios",
-  "settings.browser.agent.mode.cleanHint": "Cada sitio se abre sin sesión. El agente nunca usa tus inicios de sesión.",
-  "settings.browser.agent.mode.autoHint": "Los sitios de la lista se abren con tus inicios de sesión. Los demás, sin sesión.",
-  "settings.browser.agent.mode.profileHint": "Cada sitio se abre con tus inicios de sesión. El agente puede actuar como tú en cualquiera.",
+  "settings.browser.agent.mode.cleanHint":
+    "Cada sitio se abre sin sesión. El agente nunca usa tus inicios de sesión.",
+  "settings.browser.agent.mode.autoHint":
+    "Los sitios de la lista se abren con tus inicios de sesión. Los demás, sin sesión.",
+  "settings.browser.agent.mode.profileHint":
+    "Cada sitio se abre con tus inicios de sesión. El agente puede actuar como tú en cualquiera.",
   "settings.browser.agent.sites.title": "Sitios con sesión iniciada",
-  "settings.browser.agent.sites.description": "Sitios que el agente puede abrir con tus inicios de sesión en el modo «Solo sitios de la lista». Solo https, o http para localhost.",
+  "settings.browser.agent.sites.description":
+    "Sitios que el agente puede abrir con tus inicios de sesión en el modo «Solo sitios de la lista». Solo https, o http para localhost.",
   "settings.browser.agent.sites.none": "No hay sitios en la lista.",
   "settings.browser.agent.sites.remove": "Quitar {site}",
   "settings.browser.agent.sites.removeShort": "Quitar",
   "settings.browser.agent.sites.label": "Dirección del sitio",
   "settings.browser.agent.sites.add": "Añadir sitio",
   "settings.browser.agent.ports.title": "Puertos de vista previa",
-  "settings.browser.agent.ports.description": "Servidores de desarrollo locales de este Mac que el agente puede abrir, solo en localhost.",
+  "settings.browser.agent.ports.description":
+    "Servidores de desarrollo locales que el agente puede abrir, solo en localhost.",
   "settings.browser.agent.ports.none": "No hay puertos en la lista.",
   "settings.browser.agent.ports.remove": "Quitar el puerto {port}",
   "settings.browser.agent.ports.label": "Número de puerto",
   "settings.browser.agent.ports.add": "Añadir puerto",
-  "settings.browser.agent.fromEnv": "Lo define la variable de entorno {variable}. Quítala para cambiarlo aquí.",
-  "settings.browser.agent.refuse.notUrl": "Eso no es una dirección de sitio. Usa una forma como https://ejemplo.com.",
-  "settings.browser.agent.refuse.wildcard": "No se permiten comodines. Indica cada sitio con su dirección exacta.",
-  "settings.browser.agent.refuse.credentials": "No se permiten direcciones con usuario o contraseña.",
+  "settings.browser.agent.fromEnv":
+    "Lo define la variable de entorno {variable}. Quítala para cambiarlo aquí.",
+  "settings.browser.agent.refuse.notUrl":
+    "Eso no es una dirección de sitio. Usa una forma como https://ejemplo.com.",
+  "settings.browser.agent.refuse.wildcard":
+    "No se permiten comodines. Indica cada sitio con su dirección exacta.",
+  "settings.browser.agent.refuse.credentials":
+    "No se permiten direcciones con usuario o contraseña.",
   "settings.browser.agent.refuse.path": "Indica solo la dirección del sitio, sin ruta.",
-  "settings.browser.agent.refuse.scheme": "Usa https. El http simple solo se permite para localhost.",
+  "settings.browser.agent.refuse.scheme":
+    "Usa https. El http simple solo se permite para localhost.",
   "settings.browser.agent.refuse.port": "Un puerto debe ser un número entero de 1 a 65535.",
   "settings.browser.signedIn.viaHosts": "También con sesión iniciada mediante {hosts}",
   "settings.browser.signedIn.forget": "Cerrar sesión / olvidar",
