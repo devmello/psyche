@@ -65,11 +65,11 @@ private struct ScannerView: View {
                 CameraScanner { session.beginPairing(code: $0) }
                 #endif
             case .undetermined:
-                note("Psyche uses the camera only to read this code. Nothing is recorded.")
+                note(String(localized: "Psyche uses the camera only to read this code. Nothing is recorded.", bundle: .module))
             case .denied:
-                note("Camera access is off. Turn it on in Settings to scan the code.")
+                note(String(localized: "Camera access is off. Turn it on in Settings to scan the code.", bundle: .module))
             case .unavailable:
-                note("This device has no camera to scan with.")
+                note(String(localized: "This device has no camera to scan with.", bundle: .module))
             }
         }
         .frame(maxWidth: .infinity)
@@ -151,7 +151,7 @@ private struct ConfirmView: View {
                         .font(.psycheMono(.title3, weight: .semibold))
                         .foregroundStyle(PsycheColor.text)
                         .accessibilityLabel(String(localized: "Gateway key \(preview.fingerprint)", bundle: .module))
-                    EvidenceLine([preview.transport.label, "pinned from the code"])
+                    EvidenceLine([preview.transport.label, String(localized: "pinned from the code", bundle: .module)])
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
@@ -200,13 +200,13 @@ private struct PendingView: View {
                 }
             }
             VStack(alignment: .leading, spacing: 14) {
-                step(done: true, "Scanned the code from Settings → Devices")
+                step(done: true, String(localized: "Scanned the code from Settings → Devices", bundle: .module))
                 step(
                     done: false,
                     Text("On your Mac, approve \(Text(pending.deviceName).fontWeight(.semibold)). It gets read, write and approvals, not admin.", bundle: .module))
             }
             Spacer(minLength: 0)
-            StatusDot(.needsYou, "Waiting for your Mac", textColor: PsycheColor.muted, font: .subheadline)
+            StatusDot(.needsYou, String(localized: "Waiting for your Mac", bundle: .module), textColor: PsycheColor.muted, font: .subheadline)
                 .frame(maxWidth: .infinity)
             Button(String(localized: "Cancel", bundle: .module)) { session.cancelPairing() }.buttonStyle(.psycheOutline)
         }

@@ -28,7 +28,7 @@ struct InboxView: View {
             }
             switch model.phase {
             case .idle, .loading:
-                rows(.skeleton, title: "Today").redacted(reason: .placeholder).allowsHitTesting(false)
+                rows(.skeleton, title: String(localized: "Today", bundle: .module)).redacted(reason: .placeholder).allowsHitTesting(false)
             case .loaded(let items):
                 content(items)
             case .failed(let message):
@@ -57,9 +57,9 @@ struct InboxView: View {
                 .frame(maxWidth: .infinity).padding(.vertical, 40)
                 .listRowBackground(Color.clear)
         }
-        if !waiting.isEmpty { rows(waiting, title: "Needs you", needsYou: true) }
-        if !rest.filter({ !$0.earlier }).isEmpty { rows(rest.filter { !$0.earlier }, title: "Today") }
-        if !rest.filter(\.earlier).isEmpty { rows(rest.filter(\.earlier), title: "Earlier") }
+        if !waiting.isEmpty { rows(waiting, title: String(localized: "Needs you", bundle: .module), needsYou: true) }
+        if !rest.filter({ !$0.earlier }).isEmpty { rows(rest.filter { !$0.earlier }, title: String(localized: "Today", bundle: .module)) }
+        if !rest.filter(\.earlier).isEmpty { rows(rest.filter(\.earlier), title: String(localized: "Earlier", bundle: .module)) }
     }
 
     private func rows(_ items: [InboxItem], title: String, needsYou: Bool = false) -> some View {
@@ -124,7 +124,7 @@ private struct InboxRow: View {
             }
             .buttonStyle(.plain)
             .accessibilityElement(children: .combine)
-            .accessibilityValue(item.read ? "Read" : "Unread")
+            .accessibilityValue(item.read ? "Read" : String(localized: "Unread", bundle: .module))
 
             if !item.actions.isEmpty {
                 HStack(spacing: 8) {

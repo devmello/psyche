@@ -77,7 +77,7 @@ final class AnswerFlow {
             confirmation: confirmation, operation)
     }
 
-    static let needsMacMessage = "This one needs your Mac. Answer it there."
+    static let needsMacMessage = String(localized: "This one needs your Mac. Answer it there.", bundle: .module)
 
     func retry() async { await lastAttempt?() }
     func dismissError() { stage = .review }

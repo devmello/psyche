@@ -44,7 +44,7 @@ final class ComposerModel {
     /// Uploading, or waiting for the Mac: Send holds until the file can go with the message.
     var isUploading: Bool { attachments.contains { $0.state == .uploading || $0.state == .waiting } }
     /// What a waiting file's chip says.
-    static let waitingText = "This file will upload when your Mac is reachable"
+    static let waitingText = String(localized: "This file will upload when your Mac is reachable", bundle: .module)
     /// The bytes of files waiting for the Mac; they upload again from `retryWaiting()`.
     private var waitingData: [ComposerAttachment.ID: Data] = [:]
     var hasFailedUpload: Bool {
@@ -94,7 +94,7 @@ final class ComposerModel {
                     guard let data = try await item.loadTransferable(type: Data.self) else { throw CocoaError(.fileReadUnknown) }
                     await upload(placeholder, data: data)
                 } catch {
-                    fail(placeholder, "Couldn't read this photo")
+                    fail(placeholder, String(localized: "Couldn't read this photo", bundle: .module))
                 }
             }
         }
@@ -112,7 +112,7 @@ final class ComposerModel {
                     let data = try Data(contentsOf: url, options: .mappedIfSafe)
                     await upload(placeholder, data: data)
                 } catch {
-                    fail(placeholder, "Couldn't read this file")
+                    fail(placeholder, String(localized: "Couldn't read this file", bundle: .module))
                 }
             }
         }

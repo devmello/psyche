@@ -67,7 +67,7 @@ struct UploadMenuButton: View {
             let name = "Photo \(Date.now.formatted(.iso8601.year().month().day().dateSeparator(.dash))) \(files.count + 1).\(ext)"
             files.append(UploadFile(name: name, contentType: type.preferredMIMEType ?? "image/jpeg", data: data))
         }
-        if files.isEmpty { problem = "Those photos couldn't be read." } else { onFiles(files) }
+        if files.isEmpty { problem = String(localized: "Those photos couldn't be read.", bundle: .module) } else { onFiles(files) }
     }
 
     private func importFiles(_ urls: [URL]) {
@@ -79,7 +79,7 @@ struct UploadMenuButton: View {
             let mime = UTType(filenameExtension: url.pathExtension)?.preferredMIMEType ?? "application/octet-stream"
             files.append(UploadFile(name: url.lastPathComponent, contentType: mime, data: data))
         }
-        if files.isEmpty { problem = "Those files couldn't be read." } else { onFiles(files) }
+        if files.isEmpty { problem = String(localized: "Those files couldn't be read.", bundle: .module) } else { onFiles(files) }
     }
 }
 

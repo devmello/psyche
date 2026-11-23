@@ -15,7 +15,7 @@ final class SettingsModel {
 
     private(set) var phase: LoadPhase<Loaded> = .idle
     var notice: String?
-    /// Set when the Gateway could not be reached for "Remove this phone": the owner may still wipe this phone only.
+    /// Set when the Gateway could not be reached for String(localized: "Remove this phone", bundle: .module): the owner may still wipe this phone only.
     var offeringLocalRemoval = false
     private(set) var removing = false
     private let store: any PsycheBackend
@@ -163,7 +163,7 @@ struct SettingsSheet: View {
             Text("Open Settings \u{2192} Server & remote access \u{2192} Pair another computer on your Mac, then scan the code it shows.", bundle: .module)
         }
         .confirmationDialog(
-            "Your Mac isn't reachable right now.", isPresented: $model.offeringLocalRemoval, titleVisibility: .visible
+            String(localized: "Your Mac isn't reachable right now.", bundle: .module), isPresented: $model.offeringLocalRemoval, titleVisibility: .visible
         ) {
             Button(String(localized: "Remove from this phone only", bundle: .module), role: .destructive) {
                 Task {
@@ -199,48 +199,48 @@ struct SettingsSheet: View {
         let device = loaded.device
         let settings = loaded.settings
 
-        section("This phone") {
-            infoRow("Name", device.name)
-            infoRow("Access", device.scopes.joined(separator: ", "))
-            infoRow("Gateway", device.gatewayHost, mono: true, stacked: true)
-            infoRow("Fingerprint", device.gatewayFingerprint, mono: true, stacked: true)
-            infoRow("Connection", device.transport, last: true)
+        section(String(localized: "This phone", bundle: .module)) {
+            infoRow(String(localized: "Name", bundle: .module), device.name)
+            infoRow(String(localized: "Access", bundle: .module), device.scopes.joined(separator: ", "))
+            infoRow(String(localized: "Gateway", bundle: .module), device.gatewayHost, mono: true, stacked: true)
+            infoRow(String(localized: "Fingerprint", bundle: .module), device.gatewayFingerprint, mono: true, stacked: true)
+            infoRow(String(localized: "Connection", bundle: .module), device.transport, last: true)
         }
 
-        section("Notifications", footer: Self.notificationsFooter) {
-            toggleRow("Notifications", isOn: notificationsBinding(settings))
-            toggleRow("Live Activities", isOn: liveActivitiesBinding(settings), disabled: !settings.notifications)
+        section(String(localized: "Notifications", bundle: .module), footer: Self.notificationsFooter) {
+            toggleRow(String(localized: "Notifications", bundle: .module), isOn: notificationsBinding(settings))
+            toggleRow(String(localized: "Live Activities", bundle: .module), isOn: liveActivitiesBinding(settings), disabled: !settings.notifications)
             toggleRow(
-                "Task titles on the Lock Screen", isOn: binding(\.taskTitlesOnLockScreen, settings),
+                String(localized: "Task titles on the Lock Screen", bundle: .module), isOn: binding(\.taskTitlesOnLockScreen, settings),
                 disabled: !settings.notifications || !settings.liveActivities, last: true)
         }
 
         stayConnectedSection(settings)
 
-        section("Approvals", footer: "Asks for Face ID before you allow a risky action from this phone.") {
-            toggleRow("Face ID for approvals", isOn: binding(\.faceIDForApprovals, settings), last: true)
+        section("Approvals", footer: String(localized: "Asks for Face ID before you allow a risky action from this phone.", bundle: .module)) {
+            toggleRow(String(localized: "Face ID for approvals", bundle: .module), isOn: binding(\.faceIDForApprovals, settings), last: true)
         }
 
         computersSection(loaded.machines)
 
-        section("Gateway") {
-            Button { confirmingRepair = true } label: { actionRow("Re-pair with your Mac", destructive: false) }
+        section(String(localized: "Gateway", bundle: .module)) {
+            Button { confirmingRepair = true } label: { actionRow(String(localized: "Re-pair with your Mac", bundle: .module), destructive: false) }
                 .buttonStyle(.plain)
             HairlineDivider()
-            Button { confirmingRemove = true } label: { actionRow("Remove this phone", destructive: true) }
+            Button { confirmingRemove = true } label: { actionRow(String(localized: "Remove this phone", bundle: .module), destructive: true) }
                 .buttonStyle(.plain)
                 .disabled(model.removing)
         }
 
-        section("Appearance") {
-            infoRow("Theme", "Follows your system", last: true)
+        section(String(localized: "Appearance", bundle: .module)) {
+            infoRow("Theme", String(localized: "Follows your system", bundle: .module), last: true)
         }
 
-        section("About") {
-            infoRow("Version", Self.version, mono: true, last: true)
+        section(String(localized: "About", bundle: .module)) {
+            infoRow(String(localized: "Version", bundle: .module), Self.version, mono: true, last: true)
         }
 
-        EditOnMacNote(text: "Change everything else on your Mac, in Settings.")
+        EditOnMacNote(text: String(localized: "Change everything else on your Mac, in Settings.", bundle: .module))
     }
 
     /// "Computers Psyche can use": read-only. Adding or pairing one is done on the Mac.
@@ -382,7 +382,7 @@ struct SettingsSheet: View {
                 Task {
                     if await !alerts.requestNotificationPermission() {
                         model.update { $0.notifications = false }
-                        model.notice = "Notifications are off for Psyche in the iOS Settings app. Turn them on there, then try again."
+                        model.notice = String(localized: "Notifications are off for Psyche in the iOS Settings app. Turn them on there, then try again.", bundle: .module)
                     }
                 }
             })
@@ -394,16 +394,15 @@ struct SettingsSheet: View {
             set: { value in
                 model.update { $0.liveActivities = value }
                 if value, let alerts, !alerts.liveActivitiesAllowedBySystem {
-                    model.notice = "Live Activities are off for Psyche in the iOS Settings app. Turn them on there to see tasks on the Lock Screen."
+                    model.notice = String(localized: "Live Activities are off for Psyche in the iOS Settings app. Turn them on there to see tasks on the Lock Screen.", bundle: .module)
                 }
             })
     }
 
-    static let notificationsFooter = """
-        Task titles on the Lock Screen are off by default.
-
-        Without an Apple Developer account, Psyche can only notify you while it's open or when iOS lets it check in the background.
-        """
+    static let notificationsFooter = [
+        String(localized: "Task titles on the Lock Screen are off by default.", bundle: .module),
+        String(localized: "Without an Apple Developer account, Psyche can only notify you while it's open or when iOS lets it check in the background.", bundle: .module),
+    ].joined(separator: "\n\n")
 
     private func binding(_ keyPath: WritableKeyPath<PhoneSettings, Bool>, _ settings: PhoneSettings) -> Binding<Bool> {
         Binding(

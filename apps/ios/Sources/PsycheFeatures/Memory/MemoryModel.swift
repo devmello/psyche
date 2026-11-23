@@ -93,7 +93,7 @@ final class MemoryModel {
 
     /// "Handed in · Oct 31" for a to-do just ticked here; the original line again if it is unticked.
     static func displayMeta(_ todo: TodoItem, done: Bool) -> String {
-        let prefix = "Handed in"
+        let prefix = String(localized: "Handed in", bundle: .module)
         if done && !todo.meta.hasPrefix(prefix) { return "\(prefix) · \(todo.meta)" }
         if !done && todo.meta.hasPrefix(prefix) {
             return todo.meta.components(separatedBy: " · ").dropFirst().joined(separator: " · ")
