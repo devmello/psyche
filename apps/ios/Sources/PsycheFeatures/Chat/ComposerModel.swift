@@ -59,6 +59,13 @@ final class ComposerModel {
     /// Send is on when there is something to send and nothing is still uploading.
     var canSend: Bool { (!trimmedText.isEmpty || !readyAttachments.isEmpty) && !isUploading }
 
+    /// Clears the text after a message sent while Psyche replies was accepted. Text typed since then stays.
+    func textWasSent(_ sent: String) {
+        guard trimmedText == sent else { return }
+        dictation.stop()
+        text = ""
+    }
+
     /// Takes the message out of the composer; the thread model sends it.
     func takeMessage() -> (text: String, attachments: [AttachmentRef]) {
         dictation.stop()

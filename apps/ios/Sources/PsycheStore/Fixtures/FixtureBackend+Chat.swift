@@ -6,6 +6,9 @@ struct ChatState: Sendable {
     var threads = FixtureData.chatThreads
     var cancelled: Set<String> = []
     var counter = 0
+    var queued: [String: [QueuedFollowUp]] = [:]
+    /// The next steer or queue call fails with this message, once (tests of the composer's error path).
+    var failNextQueueCall: String?
 }
 
 extension FixtureBackend: ChatBackend {
@@ -41,6 +44,47 @@ extension FixtureBackend: ChatBackend {
 
     public func cancelRun(threadID: String) async throws {
         chatState.cancelled.insert(threadID)
+    }
+
+    /// Makes the next steer or queue call fail with `message`, once.
+    public func failNextQueueCall(with message: String) {
+        chatState.failNextQueueCall = message
+    }
+
+    private func takeQueueFailure() throws {
+        if let message = chatState.failNextQueueCall {
+            chatState.failNextQueueCall = nil
+            throw BackendError.refused(message)
+        }
+    }
+
+    public func steer(threadID: String, text: String) async throws {
+        try takeQueueFailure()
+    }
+
+    public func queueFollowUp(threadID: String, text: String) async throws -> QueuedFollowUp {
+        try takeQueueFailure()
+        chatState.counter += 1
+        let item = QueuedFollowUp(
+            id: "queued\(chatState.counter)", threadID: threadID,
+            position: chatState.queued[threadID]?.count ?? 0, text: text)
+        chatState.queued[threadID, default: []].append(item)
+        publish(.chat(.queue(threadID: threadID, items: chatState.queued[threadID] ?? [])))
+        return item
+    }
+
+    public func queuedFollowUps(threadID: String) async throws -> [QueuedFollowUp] {
+        await pause()
+        return chatState.queued[threadID] ?? []
+    }
+
+    public func removeQueuedFollowUp(threadID: String, id: String) async throws -> Bool {
+        var items = chatState.queued[threadID] ?? []
+        guard items.contains(where: { $0.id == id }) else { return false }
+        items.removeAll { $0.id == id }
+        chatState.queued[threadID] = items
+        publish(.chat(.queue(threadID: threadID, items: items)))
+        return true
     }
 
     public func pinThread(id: String, pinned: Bool) async throws {
