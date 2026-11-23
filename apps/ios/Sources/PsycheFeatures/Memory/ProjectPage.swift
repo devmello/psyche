@@ -62,7 +62,9 @@ final class ProjectModel {
     /// Saves the owner's value for a project fact. Throws so the edit sheet shows the Gateway's words.
     /// The project is an entity like a person, so the same `memory.entities.facts.set` call takes its id.
     func edit(_ fact: MemoryFact, value: String) async throws {
-        guard let attribute = fact.attribute else { throw BackendError.refused("Edit this on your Mac.") }
+        guard let attribute = fact.attribute else {
+            throw BackendError.refused(String(localized: "Edit this on your Mac.", bundle: .module))
+        }
         try await store.editFact(personID: id, attribute: attribute, value: value)
         changes += 1
         await load()

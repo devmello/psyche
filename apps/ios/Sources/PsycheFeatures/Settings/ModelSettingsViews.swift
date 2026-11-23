@@ -124,7 +124,7 @@ struct DefaultModelView: View {
             Button(String(localized: "Use anyway", bundle: .module)) { Task { await model.useAnyway() } }
             Button(String(localized: "Cancel", bundle: .module), role: .cancel) {}
         } message: { pick in
-            Text(verbatim: pick.message)
+            Text("\(pick.ref) failed the tool-calling check, so it can chat but can't use tools. It would be the primary model.", bundle: .module)
         }
     }
 

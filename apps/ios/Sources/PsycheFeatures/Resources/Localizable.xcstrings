@@ -33725,6 +33725,148 @@
           }
         }
       }
+    },
+    "%@ failed the tool-calling check, so it can chat but can't use tools. It would be the primary model.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ failed the tool-calling check, so it can chat but can't use tools. It would be the primary model."
+          }
+        },
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "فشل %@ في فحص استدعاء الأدوات، لذا يمكنه الدردشة لكن لا يمكنه استخدام الأدوات. سيكون النموذج الأساسي."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ hat die Werkzeugaufruf-Prüfung nicht bestanden, kann also chatten, aber keine Werkzeuge verwenden. Es wäre das Hauptmodell."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ no superó la comprobación de llamadas a herramientas, así que puede conversar pero no usar herramientas. Sería el modelo principal."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ a échoué au test d’appel d’outils : il peut discuter mais pas utiliser d’outils. Il serait le modèle principal."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ टूल-कॉलिंग जाँच में विफल रहा, इसलिए यह चैट कर सकता है लेकिन टूल उपयोग नहीं कर सकता। यह प्राथमिक मॉडल होगा।"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ non ha superato il controllo della chiamata degli strumenti, quindi può chattare ma non usare strumenti. Sarebbe il modello principale."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@はツール呼び出しの確認に不合格だったため、チャットはできますがツールは使えません。プライマリモデルとして使用されます。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@이(가) 도구 호출 점검에 실패하여 채팅은 가능하지만 도구는 사용할 수 없습니다. 기본 모델이 됩니다."
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ falhou na verificação de chamada de ferramentas, então pode conversar, mas não pode usar ferramentas. Ele seria o modelo principal."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ 未通过工具调用检查，因此可以聊天但不能使用工具。它将作为主模型。"
+          }
+        }
+      }
+    },
+    "Edit this on your Mac.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edit this on your Mac."
+          }
+        },
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "عدّل هذا على جهاز Mac."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Auf deinem Mac bearbeiten."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edita esto en tu Mac."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Modifie cela sur ton Mac."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "इसे अपने Mac पर संपादित करें।"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Modificalo sul Mac."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "これは Mac で編集してください。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "이것은 Mac에서 편집하세요."
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edite isto no seu Mac."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "请在 Mac 上编辑此项。"
+          }
+        }
+      }
     }
   },
   "version": "1.0"
