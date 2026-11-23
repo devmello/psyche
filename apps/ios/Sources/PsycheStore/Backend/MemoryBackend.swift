@@ -43,6 +43,11 @@ extension MemoryBackend {
     public func editFact(personID: String, attribute: String, value: String) async throws {
         throw BackendError.refused("Edit this on your Mac.")
     }
+
+    // Additive: a backend that cannot edit a card yet says so, and the sheet shows the refusal.
+    public func updateEntity(id: String, changes: EntityChanges, ifMatch: String?) async throws {
+        throw BackendError.refused("Edit this on your Mac.")
+    }
 }
 
 public struct MemoryFact: Sendable, Equatable, Identifiable {
@@ -70,10 +75,13 @@ public struct PersonDetail: Sendable, Equatable {
     public var person: PersonItem
     public var facts: [MemoryFact]
     public var recent: [MemoryFact]
-    public init(person: PersonItem, facts: [MemoryFact], recent: [MemoryFact]) {
+    /// The card's name and aliases for the edit sheet. Nil when the Gateway didn't send it (no Edit then).
+    public var card: EntityCard?
+    public init(person: PersonItem, facts: [MemoryFact], recent: [MemoryFact], card: EntityCard? = nil) {
         self.person = person
         self.facts = facts
         self.recent = recent
+        self.card = card
     }
 }
 
@@ -85,14 +93,18 @@ public struct ProjectDetail: Sendable, Equatable {
     public var evidence: [String]
     /// Keep private in Memory: such a project gets no Space (spaces SR10), so its page shows no Space button.
     public var isPrivate: Bool
+    /// Name, aliases, status and due date for the edit sheet. Nil when the Gateway didn't send them.
+    public var card: EntityCard?
     public init(
-        project: ProjectItem, todos: [TodoItem], notes: [MemoryFact], evidence: [String] = [], isPrivate: Bool = false
+        project: ProjectItem, todos: [TodoItem], notes: [MemoryFact], evidence: [String] = [], isPrivate: Bool = false,
+        card: EntityCard? = nil
     ) {
         self.project = project
         self.todos = todos
         self.notes = notes
         self.evidence = evidence
         self.isPrivate = isPrivate
+        self.card = card
     }
 }
 
