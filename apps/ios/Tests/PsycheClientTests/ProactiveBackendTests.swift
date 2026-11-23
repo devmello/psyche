@@ -193,4 +193,31 @@ struct ProactiveBackendTests {
         #expect(overview.upcoming.map(\.id) == ["r1", "r2"])
         #expect(overview.items.map(\.confirmsRunNow) == [false, true, true, false])
     }
+
+    @Test func createGoalSendsTheTrimmedTitleAndCategoryAndDecodesTheGoal() async throws {
+        let (backend, h) = try await live { g in
+            g.on("goals.create") { _ in .success(.object([
+                "goal": .object(["id": "g9", "title": "Read 12 books", "category": "learning", "status": "active"]),
+                "taskIds": .array([]),
+                "milestones": .array([]),
+            ])) }
+        }
+        let detail = try await backend.createGoal(title: "  Read 12 books  ", category: .learning)
+        #expect(detail.goal.id == "g9")
+        #expect(detail.goal.status == "active")
+        #expect(detail.goal.category == "learning")
+        let sent = h.gateway.received.filter { $0.method == "goals.create" }
+        #expect(sent.count == 1)
+        #expect(sent.first?.params?["title"]?.string == "Read 12 books")
+        #expect(sent.first?.params?["category"]?.string == "learning")
+    }
+
+    @Test func createGoalRefusalShowsTheGatewaysWords() async throws {
+        let (backend, _) = try await live { g in
+            g.on("goals.create") { _ in .failure(WireError(code: "forbidden", message: "This phone can't add goals.")) }
+        }
+        await #expect(throws: BackendError.refused("This phone can't add goals.")) {
+            try await backend.createGoal(title: "Read", category: .other)
+        }
+    }
 }
