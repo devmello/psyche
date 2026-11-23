@@ -44,15 +44,22 @@ import Testing
     }
 
     @Test func routeSafetyTable() {
-        let safe = ["/", "/chat/thr_1", "/library/file-9", "/goals/g1", "/people/p2", "/spaces/s3", "/a-b_c.d"]
+        let safe = [
+            "/", "/chat/thr_1", "/library/file-9", "/goals/g1", "/people/p2", "/spaces/s3", "/a-b_c.d",
+            "/library/all?item=abc", "/library/all?item=mail:m1", "/library/all?item=mail%3Am1",
+            "/chat/x?message=y", "/agent/soul?file=memory%2Fnotes.md", "/feed?post=p1",
+        ]
         for route in safe {
             #expect(SourceRoute.isSafe(route), "should open \(route)")
         }
         let refused: [String?] = [
             nil, "", "chat/thr_1", "//evil.example/x", "/\\evil.example", "https://evil.example",
-            "javascript:alert(1)", "psyche://chat/x", " /chat/x", "/chat/x ", "/chat/\n1", "/chat/\u{0007}1",
-            "/chat/\u{202E}gnp", "/chat/\u{200B}1", "/chat/x?y=1", "/chat/x#frag", "/chat/a:b",
-            "/\u{00A0}chat", "/" + String(repeating: "a", count: SourceRoute.maxLength),
+            "javascript:alert(1)", "javascript:x", "https://x", "psyche://chat/x", " /chat/x", "/chat/x ",
+            "/chat/\n1", "/chat/\u{0007}1", "/chat/\u{202E}gnp", "/chat/\u{200B}1", "/chat/x#frag", "/x#y",
+            "/chat/a:b", "/\u{00A0}chat", "/" + String(repeating: "a", count: SourceRoute.maxLength),
+            "//evil", "/\\evil", "/%2F%2Fevil", "/%5Cevil", "/a b", "/x?a=b c", "/x?a=%ZZ", "/x\n",
+            "/x?", "/x?=v", "/x?k=", "/x?a=1&", "/x?a=1&&b=2", "/x?a=b?c", "/x?a=b/c", "/x?a=b=c", "/x?a=%4",
+            "/x?a=%0A", "/x?a=b+c", "/x??a=b", "/x?a.b=1", "/%3Ax", "/x?a=%E2%80%8B",
         ]
         for route in refused {
             #expect(!SourceRoute.isSafe(route), "should refuse \(String(describing: route))")

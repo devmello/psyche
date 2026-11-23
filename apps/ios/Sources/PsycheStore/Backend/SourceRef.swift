@@ -57,25 +57,87 @@ public struct SourceRef: Sendable, Equatable, Identifiable, Codable {
     public var canOpen: Bool { SourceRoute.isSafe(route) }
 }
 
-/// Which routes a source may open. Only a plain in-app path: one leading `/`, then ordinary path characters.
-/// A `//` (protocol-relative), a backslash, whitespace, a control or format character, a query or a fragment,
-/// and anything with a scheme is refused. Routes that are safe but unknown to the app are the host's to refuse.
+/// Which routes a source may open: an in-app path, optionally with a query string the Gateway writes
+/// (`/chat/<id>?message=…`, `/library/all?item=mail:m1`). Routes that are safe but unknown to the app are the
+/// host's to refuse.
+///
+/// Path (before the `?`): exactly one leading `/`. After percent-decoding there is no `//`, no `\`, no
+/// whitespace, no `:`, and no control, format or private-use character. A malformed `%` escape refuses.
+/// Query (after one optional `?`): `key=value` pairs joined by `&`. Keys are `[A-Za-z0-9_-]+`. Values are
+/// unreserved characters, `:` and valid `%XX` escapes only. Anywhere: no `#`, no whitespace, no control
+/// characters, at most `maxLength` bytes.
 public enum SourceRoute {
     /// The longest route the phone will open.
     public static let maxLength = 512
 
     public static func isSafe(_ route: String?) -> Bool {
         guard let route, !route.isEmpty, route.utf8.count <= maxLength else { return false }
-        guard route.hasPrefix("/"), !route.hasPrefix("//") else { return false }
         for scalar in route.unicodeScalars {
-            switch scalar.properties.generalCategory {
-            case .control, .format, .spaceSeparator, .lineSeparator, .paragraphSeparator, .unassigned,
-                .privateUse, .surrogate:
-                return false
-            default: break
-            }
-            if scalar == "\\" || scalar == "?" || scalar == "#" || scalar == ":" { return false }
+            if scalar == "#" || scalar.properties.isWhitespace || isControlish(scalar) { return false }
+        }
+        let halves = route.split(separator: "?", maxSplits: 1, omittingEmptySubsequences: false)
+        guard let path = halves.first, isSafePath(String(path)) else { return false }
+        if halves.count == 2 { return isSafeQuery(String(halves[1])) }
+        return true
+    }
+
+    private static func isSafePath(_ path: String) -> Bool {
+        guard path.hasPrefix("/"), !path.hasPrefix("//"), let decoded = path.removingPercentEncoding else { return false }
+        guard !decoded.hasPrefix("//") else { return false }
+        for scalar in decoded.unicodeScalars {
+            if scalar == "\\" || scalar == ":" || scalar.properties.isWhitespace || isControlish(scalar) { return false }
         }
         return true
+    }
+
+    private static func isSafeQuery(_ query: String) -> Bool {
+        guard !query.isEmpty else { return false }
+        for pair in query.split(separator: "&", omittingEmptySubsequences: false) {
+            let parts = pair.split(separator: "=", maxSplits: 1, omittingEmptySubsequences: false)
+            guard parts.count == 2, isKey(parts[0]), isValue(parts[1]) else { return false }
+        }
+        return true
+    }
+
+    private static func isKey(_ key: Substring) -> Bool {
+        !key.isEmpty && key.unicodeScalars.allSatisfy { scalar in
+            ("A"..."Z").contains(scalar) || ("a"..."z").contains(scalar) || ("0"..."9").contains(scalar)
+                || scalar == "_" || scalar == "-"
+        }
+    }
+
+    /// Unreserved characters, `:` and `%XX`. A value of at least one character, whose decoded form has no
+    /// whitespace or control character.
+    private static func isValue(_ value: Substring) -> Bool {
+        guard !value.isEmpty else { return false }
+        let scalars = Array(value.unicodeScalars)
+        var index = 0
+        while index < scalars.count {
+            let scalar = scalars[index]
+            if scalar == "%" {
+                guard index + 2 < scalars.count, isHex(scalars[index + 1]), isHex(scalars[index + 2]) else { return false }
+                index += 3
+                continue
+            }
+            let allowed = ("A"..."Z").contains(scalar) || ("a"..."z").contains(scalar) || ("0"..."9").contains(scalar)
+                || "-._~:".unicodeScalars.contains(scalar)
+            guard allowed else { return false }
+            index += 1
+        }
+        guard let decoded = String(value).removingPercentEncoding else { return false }
+        return !decoded.unicodeScalars.contains { $0.properties.isWhitespace || isControlish($0) }
+    }
+
+    private static func isHex(_ scalar: Unicode.Scalar) -> Bool {
+        ("0"..."9").contains(scalar) || ("A"..."F").contains(scalar) || ("a"..."f").contains(scalar)
+    }
+
+    private static func isControlish(_ scalar: Unicode.Scalar) -> Bool {
+        switch scalar.properties.generalCategory {
+        case .control, .format, .lineSeparator, .paragraphSeparator, .unassigned, .privateUse, .surrogate:
+            return true
+        default:
+            return false
+        }
     }
 }
