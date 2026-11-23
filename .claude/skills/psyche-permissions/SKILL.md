@@ -110,6 +110,15 @@ This covers any rule that sorts inputs into "asks" and "doesn't ask": money-inte
 
 Redact first, then trim, then slice, on every path (immediate and batched). Truncating raw text first lets a vault value that straddles the cut slip past the redactor. Match a provider on `config.kind`, never `?? id`. A cheap default model needs a fallback, or compaction fails for good; a gate must not fail open or silently turn off for local primaries. Test with the real redactor.
 
+## 3g. Checklist: findings that keep coming back (#1533, #1540, #1544, #1545, #1546, #1549)
+
+Before the PR, answer each in the body:
+- **Symlink write-through.** A file that `git pull`/checkout can replace (a repo file the Gateway also writes) may be swapped for a symlink: refuse writes through links and write via temp file plus rename, re-checking the target at use (#1533).
+- **Case and Unicode folding.** APFS folds case and Unicode, so protected-name checks (`.git`, `.env`, program names) must fold like `psyche-permissions` §3d, with `ſ` and ligature rows in the table test (#1544, #1540).
+- **Narrowing reaches live state.** A setting that narrows (sites, apps, folders, tools) must also apply to what is already open: browser tabs, running sessions, cached policies. Test with state opened before the change (#1545).
+- **srt/sandbox write boundary.** List what runs later or redirects git: `.git/commondir`, nested `.git` files (`gitdir:` pointers), `.git/config` and hooks, launch-config files (see the reviewer's launch-config list). `denyWrite` the files, not just the directory name (#1546).
+- **Exceptions in detectors.** An ID-shape or "looks like a token" exemption must apply only on the path it was meant for (owner-facing redaction), never on blocking paths (#1549).
+
 ## 4. Trust that moves to a new path or file
 
 If a client now trusts a different path (a socket, a pointer file, a config), the old `$PSYCHE_HOME` ownership no longer vouches for it. #1308 moved the helper's socket outside `$PSYCHE_HOME`, and the review found an impostor-Gateway risk: screen, computer use and `presence.confirm` signatures.
