@@ -163,4 +163,23 @@ struct ResyncTests {
         #expect(gap)
         #expect(r.lastStateVersion == 6)
     }
+    @Test func aQueueUpdateCarriesTheWholeListInTheGatewaysOrder() async {
+        var m = EventMapper(lookupQuestion: { _ in nil })
+        func item(_ id: String, _ text: String, _ position: Double) -> JSONValue {
+            .object(["messageId": .string(id), "threadId": "t1", "position": .number(position), "content": .string(text),
+                     "attachments": .array([]), "createdAt": "2030-01-01T09:12:00Z"])
+        }
+        func queueFrame(_ payload: JSONValue) -> WireEventFrame {
+            WireEventFrame(event: "chat.queue.updated", payload: payload, seq: 1, stateVersion: 1)
+        }
+        let payload: JSONValue = .object(["threadId": "t1", "items": .array([item("m1", "first", 0), item("m2", "second", 1)])])
+        let events = await m.map(queueFrame(payload), ownDeviceID: "d").events
+        #expect(events == [.chat(.queue(threadID: "t1", items: [
+            QueuedFollowUp(id: "m1", threadID: "t1", position: 0, text: "first"),
+            QueuedFollowUp(id: "m2", threadID: "t1", position: 1, text: "second"),
+        ]))])
+        // An empty list (the queue ran out) still replaces what the phone had.
+        let empty = await m.map(queueFrame(.object(["threadId": "t1", "items": .array([])])), ownDeviceID: "d").events
+        #expect(empty == [.chat(.queue(threadID: "t1", items: []))])
+    }
 }
