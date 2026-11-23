@@ -80,6 +80,7 @@ const ctx = (over: Partial<ToolRunContext> = {}): ToolRunContext => ({
   mode: "attended",
   taint: false,
   signal: new AbortController().signal,
+  onUpdate: () => undefined,
   ...over,
 });
 
