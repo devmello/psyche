@@ -22,6 +22,10 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-11-23 (machines and view wiring)
+
+- `machines.list` and `machines.rename` descriptions no longer say "Not implemented until the machine registry lands": the Gateway implements both. No shape change.
+- The `view.*` methods are now implemented by the Gateway (`compose/view.ts`). `view.open` answers `forbidden` for pane/target shapes a non-desktop client may not choose (`terminal`; a target on `browser`, `files`, `editor`, `diff`), and `unavailable` when no desktop shell is connected. No shape change.
 ### v1 additive — 2026-11-20 (Spaces, wave S4)
 
 - `WIDGET_BINDINGS` gains the bindable fields of the six Space query sources: `entity` (status, nextStep, stoppedAt, due), `work_due` (count, next), `calendar` (next, countWeek), `reminders` (open, done, nextDue), `mail` (unread, latest), `files` (recent, count). For `entity` the bind `id` is the linked project or one of its children; for the others it is the Space's id. New exports `SPACE_QUERY_SOURCES` and `isSpaceQuerySource`. `spaces.trackers.add` gains an optional `automationId` (with `widgetId`): the owner's link from an agent tracker to an automation of the Space, which is the only thing its Refresh runs. The generated Swift params gain the optional field.
