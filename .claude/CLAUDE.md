@@ -22,7 +22,7 @@ One Opus session orchestrates: it dispatches builder sessions, verifies their wo
 **Machine load**
 - No VMs, containers or local models (Ollama, llama.cpp, MLX…) without the owner's go-ahead. The orchestrator warns the owner first.
 - Tests: vitest with `--maxWorkers=1`, on the files you touched. Never run `pnpm -w typecheck`, `pnpm -r test`, Electron e2e or real-browser suites locally.
-- One Swift or Xcode build at a time on this Mac: check `pgrep -fl 'swift-build|xcodebuild'` before building. The owner's Xcode build dir may point at an unmounted `/Volumes/External`. Use `-derivedDataPath` inside your worktree, or the project's `WorkspaceSettings.xcsettings` override.
+- One Swift or Xcode build at a time on this Mac: check `pgrep -x swift-build; pgrep -x xcodebuild; pgrep -x swift-frontend` before building (psyche-apple says why). The owner's Xcode build dir may point at an unmounted `/Volumes/External`. Use `-derivedDataPath` inside your worktree, or the project's `WorkspaceSettings.xcsettings` override.
 - Tests must never pop keychain, Touch ID or permission dialogs.
 
 **Git and PRs**

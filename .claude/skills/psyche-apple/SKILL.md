@@ -7,7 +7,7 @@ description: Building and testing Psyche's Swift code on this Mac. Covers the Ma
 
 ## Before any build
 
-- One Swift or Xcode build at a time on this Mac. Run `pgrep -fl 'swift-build|xcodebuild'` and wait if anything is listed. Other sessions build too.
+- One Swift or Xcode build at a time on this Mac. Run `pgrep -x swift-build; pgrep -x xcodebuild; pgrep -x swift-frontend` and wait if anything is listed (`pgrep -fl` false-positives on other shells' command lines). Other sessions build too.
 - The owner's Xcode prefs put DerivedData on `/Volumes/External`, which is often unmounted ("mktemp failed … errno 2"). Fix it inside your worktree, never in the owner's global prefs:
   - **iOS:** after `pnpm ios:project` (xcodegen), write `apps/ios/Psyche.xcodeproj/project.xcworkspace/xcuserdata/$(whoami).xcuserdatad/WorkspaceSettings.xcsettings` with `BuildLocationStyle=CustomLocation`, `CustomBuildLocationType=Absolute`, `CustomBuildIntermediatesPath` and `CustomBuildProductsPath` set to a folder in your worktree, and `DerivedDataLocationStyle=Default`.
   - **Packages:** `swift build` and `swift test` inside the package dir work without it.
@@ -28,7 +28,8 @@ description: Building and testing Psyche's Swift code on this Mac. Covers the Ma
 - `Activity.request` is refused while the app is in the background, so a Live Activity can't start from a timer. Start it on resign-active and again on return for anything already past its threshold (`ChatTurnActivityHost`, #1305). To test the background moment: `xcrun simctl launch booted com.apple.mobilesafari`.
 - Delete untracked build output (`apps/ios/.build-ios`) before `verify.sh`: biome lints it.
 - Free Personal Team signing means no APNs, so Live Activities can't get remote pushes. They must update locally or count on their own, with `Text(timerInterval:)` and `staleDate`.
-- Localize every string in `Localizable.xcstrings` in all 10 languages (see `psyche-i18n`).
+- Localize every string in `Localizable.xcstrings` in all 10 languages, with `bundle: .module` in package targets (see `psyche-i18n`).
+- U+0085 (NEL) and C1 controls are real line breaks in iOS text layout; see `psyche-permissions` §3b for approval text.
 
 ## Free signing path
 
