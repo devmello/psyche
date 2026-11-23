@@ -1,9 +1,21 @@
+import type { AnswerSource } from "@psyche/protocol";
 import { Quote } from "lucide-react";
 import { type ReactElement, useState } from "react";
 import { t } from "../i18n/core.ts";
 import { cn } from "../lib/utils.ts";
 import { useSlots } from "../slots.tsx";
 import type { BlockOf } from "./types.ts";
+
+/** What the chips need: a block's items and cited ids, or a widget's or document's sources. */
+export type SourceChipsContent = Pick<BlockOf<"sources">, "items" | "cited">;
+
+/**
+ * An in-app path only. A route is never a URL: `javascript:`, `https:` and protocol-relative `//`
+ * routes are not openable, so their chip is disabled.
+ */
+export function isOpenableRoute(route: string | null | undefined): route is string {
+  return typeof route === "string" && route.startsWith("/") && !route.startsWith("//");
+}
 
 /**
  * The sources behind a `search_everything` answer: one chip per item that opens it (mail, message,
@@ -19,7 +31,7 @@ function sourceLabel(source: string): string {
     : t("blocks.sources.kind.other", { source });
 }
 
-export function SourceChips({ block }: { block: BlockOf<"sources"> }): ReactElement {
+export function SourceChips({ block }: { block: SourceChipsContent }): ReactElement {
   const [shown, setShown] = useState<string | null>(null);
   const { navigate } = useSlots();
   return (
@@ -32,12 +44,12 @@ export function SourceChips({ block }: { block: BlockOf<"sources"> }): ReactElem
               <button
                 type="button"
                 title={t("blocks.sources.open", { title })}
-                disabled={!item.route || navigate === undefined}
+                disabled={!isOpenableRoute(item.route) || navigate === undefined}
                 className={cn(
                   "inline-flex max-w-56 items-center gap-1 rounded-full border border-border bg-gray-2 px-2 py-0.5 text-callout text-gray-12 hover:bg-gray-3 disabled:opacity-60",
                   item.provenance === "untrusted" && "border-untrusted",
                 )}
-                onClick={() => (item.route ? navigate?.(item.route) : undefined)}
+                onClick={() => (isOpenableRoute(item.route) ? navigate?.(item.route) : undefined)}
               >
                 <span className="text-muted-foreground">{sourceLabel(item.source)}</span>
                 <span className="truncate">{title}</span>
@@ -79,6 +91,24 @@ export function SourceChips({ block }: { block: BlockOf<"sources"> }): ReactElem
           ))}
         </ul>
       ) : null}
+    </div>
+  );
+}
+
+/**
+ * The sources under a widget or a canvas document: the same chips and passages as the chat's
+ * source row. Nothing is cited inline, so every source is listed. Renders nothing when there are none,
+ * which is every payload from before citations existed.
+ */
+export function SourceList({
+  items,
+}: {
+  items: readonly AnswerSource[] | undefined;
+}): ReactElement | null {
+  if (items === undefined || items.length === 0) return null;
+  return (
+    <div className="border-border border-t px-3 py-2" data-testid="sources-footer">
+      <SourceChips block={{ items: [...items], cited: [] }} />
     </div>
   );
 }

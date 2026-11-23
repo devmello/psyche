@@ -13,6 +13,7 @@ import {
   WidgetSpec,
 } from "@psyche/protocol";
 import { Type } from "@sinclair/typebox";
+import { withRunSources } from "../run-sources.ts";
 import type { WidgetStore } from "./store.ts";
 
 /**
@@ -83,7 +84,8 @@ export function widgetTools(store: WidgetStore): AgentToolRegistration[] {
           const w = store.create({
             threadId: ctx.threadId,
             messageId: turn.messageId(),
-            spec: p.spec,
+            // Citations: the sources this run found, never ones the model wrote.
+            spec: withRunSources(p.spec, ctx.runId),
             taint: turnTaint(ctx),
             owner,
           });

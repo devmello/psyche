@@ -15,6 +15,7 @@ import {
   setArtifactMessageId,
   upsertLibraryItemByPath,
 } from "@psyche/db";
+import type { AnswerSource } from "@psyche/protocol";
 import {
   type Artifact,
   type ArtifactAuthor,
@@ -129,6 +130,8 @@ export interface CreateInput {
   language?: string;
   threadId?: string | null;
   untrusted?: boolean;
+  /** Citations the run drew on (`runSources`); stored with the artifact. */
+  sources?: readonly AnswerSource[];
 }
 
 export class ArtifactStore {
@@ -210,6 +213,7 @@ export class ArtifactStore {
         content,
         bytes: bytesOf(content),
         hash: sha(content),
+        ...(input.sources === undefined ? {} : { sources: input.sources }),
       },
       {
         author: trace.author,

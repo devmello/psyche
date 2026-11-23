@@ -1,6 +1,7 @@
 import { type Static, Type } from "@sinclair/typebox";
 import { Id, IsoDateTime, JsonObject, ModelRef, Nullable, StringEnum, Surface } from "../common.ts";
 import { GrowthCard } from "./learning.ts";
+import { AnswerSource } from "./sources.ts";
 import { FeedWidget } from "./widgets.ts";
 import { FeedPostKind, FeedPostRefs, WorkflowCard } from "./workflows.ts";
 
@@ -286,6 +287,8 @@ export const Artifact = Type.Object(
     untrusted: Type.Optional(Type.Boolean()),
     /** Size of the latest version's content in bytes. */
     bytes: Type.Optional(Type.Integer({ minimum: 0 })),
+    /** Citations: the sources the agent drew on when it made this artifact (set at creation). */
+    sources: Type.Optional(Type.Array(AnswerSource, { maxItems: 20 })),
   },
   { $id: "Artifact" },
 );

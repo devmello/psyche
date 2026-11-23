@@ -1,4 +1,5 @@
 import type {
+  AnswerSource,
   Artifact,
   ArtifactAuthor,
   ArtifactOp,
@@ -42,6 +43,8 @@ export interface NewArtifact {
   bytes: number;
   hash: string;
   createdAt?: string;
+  /** Citations the artifact was made from (stored as JSON; none when empty). */
+  sources?: readonly AnswerSource[];
 }
 
 export interface NewArtifactVersion {
@@ -85,6 +88,7 @@ export function artifactFromRow(row: ArtifactRow): Artifact {
   };
   if (row.language !== null) a.language = row.language;
   if (row.untrusted === 1) a.untrusted = true;
+  if (row.sources !== null) a.sources = JSON.parse(row.sources) as AnswerSource[];
   return a;
 }
 
@@ -143,6 +147,10 @@ export function insertArtifact(
         view: null,
         bytes: input.bytes,
         hash: input.hash,
+        sources:
+          input.sources !== undefined && input.sources.length > 0
+            ? JSON.stringify(input.sources)
+            : null,
         createdAt: now,
         updatedAt: now,
       })
