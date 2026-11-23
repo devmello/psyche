@@ -2847,7 +2847,6 @@ export const zh: Partial<Catalogue> = {
   "screens.search.activeFilters": "生效中的过滤条件",
   "screens.search.removeFilter": "移除过滤条件 {filter}",
   "screens.search.unknownFilter": "{filter}（Psyche 不识别此过滤条件，已忽略）",
-  "screens.search.fromNote": "from: 匹配文本中的名字；尚不支持按发送者过滤。",
   "screens.evidence.source.gmail": "Gmail",
   "screens.evidence.source.calendar": "日历",
   "screens.evidence.source.browser": "浏览器",

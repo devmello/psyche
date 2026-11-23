@@ -124,6 +124,31 @@ extension GatewayBackend {
             key: "edit-\(UUID().uuidString)")
     }
 
+    // MARK: - Memory files and entities (read-only on the phone)
+
+    public func memoryFiles() async throws -> [MemoryFileRow] {
+        let result = try await call("memory.files.list")
+        let files: [JSONValue] = result["files"]?.array ?? []
+        let rows: [MemoryFileRow] = files.compactMap { (file: JSONValue) -> MemoryFileRow? in
+            guard let path = file["path"]?.string, !path.isEmpty else { return nil }
+            var bytes = 0
+            if case .number(let value)? = file["bytes"] { bytes = Int(value) }
+            return MemoryFileRow(path: path, bytes: bytes, isProtected: file["protected"]?.bool == true)
+        }
+        return rows.sorted { $0.path < $1.path }
+    }
+
+    public func memoryFile(path: String) async throws -> MemoryFileContent {
+        let result = try await call("memory.read", .obj(["path": .string(path)]))
+        return MemoryFileContent(path: result["path"]?.string ?? path, content: result["content"]?.string ?? "")
+    }
+
+    public func entityKind(id: String) async throws -> String {
+        let head = try await call("memory.entities.get", .obj(["id": .string(id)]))
+        guard let kind = head["entity"]?["kind"]?.string, !kind.isEmpty else { throw BackendError.notFound }
+        return kind
+    }
+
     // MARK: - Reads
 
     func entities(kind: String, limit: Int) async throws -> [JSONValue] {

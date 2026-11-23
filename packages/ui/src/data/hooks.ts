@@ -1670,24 +1670,32 @@ export function useAutomations() {
   };
 }
 
-export function useSearch(query: string, scopes?: SearchScope[], dropChips?: string[]) {
+export function useSearch(
+  query: string,
+  scopes?: SearchScope[],
+  dropChips?: string[],
+  from?: string,
+) {
   const trimmed = query.trim();
+  // A sender filter alone (`from:alice`) is a search too, with a blank text.
+  const active = trimmed !== "" || from !== undefined;
   const q = useGatewayQuery(
     "search.query",
     {
       query: trimmed === "" ? " " : trimmed,
       ...(scopes === undefined ? {} : { scopes }),
       ...(dropChips === undefined || dropChips.length === 0 ? {} : { dropChips }),
+      ...(from === undefined ? {} : { from }),
     },
-    { enabled: trimmed !== "" },
+    { enabled: active },
   );
-  const hits: readonly SearchHit[] = trimmed === "" ? [] : (q.data?.hits ?? []);
+  const hits: readonly SearchHit[] = !active ? [] : (q.data?.hits ?? []);
   const groups = useMemo(() => {
     const out = new Map<SearchScope, SearchHit[]>();
     for (const h of hits) out.set(h.scope, [...(out.get(h.scope) ?? []), h]);
     return out;
   }, [hits]);
-  const understood = trimmed === "" ? undefined : q.data?.understood;
+  const understood = !active ? undefined : q.data?.understood;
   return { ...q, hits, groups, understood };
 }
 

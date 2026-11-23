@@ -111,6 +111,25 @@ struct MemoryView: View {
         SectionHeader(title).plainRow(top: 14, bottom: 8)
     }
 
+    /// The agent's workspace files, read-only on the phone (`/agent/soul`).
+    private var memoryFilesRow: some View {
+        Button { router.memoryPath.append(.memoryFiles) } label: {
+            HStack(spacing: 12) {
+                Image(systemName: "doc.text").foregroundStyle(PsycheColor.muted).frame(width: 32)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Memory files", bundle: .module).font(.psycheRow).foregroundStyle(PsycheColor.text)
+                    Text("Read-only on the phone", bundle: .module).font(.caption).foregroundStyle(PsycheColor.muted)
+                }
+                Spacer(minLength: 0)
+                chevron
+            }
+            .padding(PsycheMetrics.rowPadding)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .plainRow(top: 14, bottom: 8)
+    }
+
     private func emptyNote(_ text: String) -> some View {
         Text(text)
             .font(.subheadline).foregroundStyle(PsycheColor.muted)
@@ -265,6 +284,7 @@ struct MemoryView: View {
                 .cardRow(CardPosition(index: index, count: people.count))
             }
         }
+        memoryFilesRow
     }
 
     private var chevron: some View {

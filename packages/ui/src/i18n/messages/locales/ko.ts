@@ -2885,8 +2885,6 @@ export const ko: Partial<Catalogue> = {
   "screens.search.activeFilters": "활성 필터",
   "screens.search.removeFilter": "필터 {filter} 제거",
   "screens.search.unknownFilter": "{filter} (Psyche가 모르는 필터, 무시됨)",
-  "screens.search.fromNote":
-    "from:은 텍스트 안의 이름과 일치합니다. 발신자 필터링은 아직 지원되지 않습니다.",
   "screens.evidence.source.gmail": "Gmail",
   "screens.evidence.source.calendar": "캘린더",
   "screens.evidence.source.browser": "브라우저",

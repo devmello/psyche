@@ -16,6 +16,8 @@ public protocol ProactiveBackend: Sendable {
     func goalDetail(id: String) async throws -> GoalDetail
     /// Changes a goal's status and returns the goal as the Gateway now holds it.
     func setGoalStatus(id: String, _ status: GoalStatusChange) async throws -> GoalDetail
+    /// Creates a stated goal (active at once), as the Mac's Add goal dialog does, and returns it.
+    func createGoal(title: String, category: GoalCategoryChoice) async throws -> GoalDetail
     func scheduled() async throws -> ScheduledOverview
     /// Pauses (`paused: true`) or resumes an automation or routine; returns its new state.
     func setScheduledPaused(id: String, paused: Bool) async throws -> String
@@ -92,6 +94,27 @@ public struct IdeaItem: Sendable, Equatable, Identifiable {
 
 /// The statuses a phone can set on a goal (`goals.update`). Archiving stays on the Mac.
 public enum GoalStatusChange: String, Sendable, Equatable { case active, paused, done }
+
+/// The categories `goals.create` takes; the same eight as the protocol's GoalCategory.
+public enum GoalCategoryChoice: String, Sendable, Equatable, CaseIterable, Identifiable {
+    case health, finance, career, relationships, productivity, learning, home, other
+    public var id: String { rawValue }
+}
+
+/// What the Add goal sheet holds before it is sent. A goal needs a title once its spaces are trimmed.
+public struct GoalDraft: Sendable, Equatable {
+    public var title: String
+    public var category: GoalCategoryChoice
+
+    public init(title: String = "", category: GoalCategoryChoice = .other) {
+        self.title = title
+        self.category = category
+    }
+
+    public var trimmedTitle: String { title.trimmingCharacters(in: .whitespacesAndNewlines) }
+
+    public var isValid: Bool { !trimmedTitle.isEmpty }
+}
 
 public struct GoalItem: Sendable, Equatable, Identifiable {
     public var id: String

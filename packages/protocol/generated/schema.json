@@ -41584,6 +41584,12 @@
           "maxItems": 16,
           "type": "array"
         },
+        "from": {
+          "description": "Only documents whose sender matches this name, handle or address (case-insensitive, substring). Documents with no sender (chat messages, tasks, notes, memory, people) are left out",
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string"
+        },
         "smart": {
           "description": "Let the cheap query model read a question the rules could not filter (Enter, not keystrokes). Ignored when no model is configured",
           "type": "boolean"

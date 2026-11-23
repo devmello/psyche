@@ -10756,9 +10756,15 @@ export interface SearchQueryParams {
      * Ids of understood chips the user removed
      */
     dropChips?: string[];
-    limit?:     number;
-    query:      string;
-    scopes?:    SearchScope[];
+    /**
+     * Only documents whose sender matches this name, handle or address (case-insensitive,
+     * substring). Documents with no sender (chat messages, tasks, notes, memory, people) are
+     * left out
+     */
+    from?:   string;
+    limit?:  number;
+    query:   string;
+    scopes?: SearchScope[];
     /**
      * Let the cheap query model read a question the rules could not filter (Enter, not
      * keystrokes). Ignored when no model is configured

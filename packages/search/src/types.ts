@@ -132,6 +132,11 @@ export interface SearchRequest {
   /** Ids of understood chips the user removed (`time:last week`). */
   dropChips?: string[];
   /**
+   * Keep only documents whose sender matches this name, handle or address (case-insensitive,
+   * substring). Documents with no sender are left out. Same filter as the query's `from:`.
+   */
+  from?: string;
+  /**
    * Re-rank the top hits with the configured reranker (Search screen Enter, the agent tool;
    * never ⌘K keystrokes). Ignored unless the owner enabled it and the viewer is the owner.
    */
