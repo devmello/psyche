@@ -1,9 +1,10 @@
 import { type Static, Type } from "@sinclair/typebox";
-import { Id, IsoDateTime, Nullable, Provenance, StringEnum } from "../common.ts";
+import { Id, IsoDateTime, Nullable, StringEnum } from "../common.ts";
 import { CompactionSummary } from "./context.ts";
 import { DailyWorkflowProposal } from "./daily.ts";
 import { LifeAnswerPassage, LifeFactHit } from "./everything-memory.ts";
 import { LearnedFact } from "./memory.ts";
+import { AnswerSource } from "./sources.ts";
 
 /** Message content blocks (data model §9.1). Discriminated on `type`. */
 
@@ -125,27 +126,7 @@ export const RelatedThreadsBlock = Type.Object(
   { $id: "RelatedThreadsBlock" },
 );
 
-/**
- * One source behind a `search_everything` answer (search roadmap §6.3): a chip that opens the
- * item. Title, source and span come from mail, messages and files (untrusted): plain text only.
- */
-export const AnswerSource = Type.Object(
-  {
-    id: Type.String({ maxLength: 200 }),
-    /** Producer: `mail`, `messages`, `notes`, `library`, … */
-    source: Type.String({ maxLength: 80 }),
-    kind: Type.String({ maxLength: 40 }),
-    title: Type.String({ maxLength: 200 }),
-    date: Type.String({ maxLength: 10 }),
-    /** In-app deep link that opens the item; null when it has no pane. */
-    route: Nullable(Type.String({ maxLength: 500 })),
-    provenance: Provenance,
-    /** The cited passage ("show the source"). */
-    span: Type.String({ maxLength: 500 }),
-  },
-  { $id: "AnswerSource" },
-);
-export type AnswerSource = Static<typeof AnswerSource>;
+export { AnswerSource } from "./sources.ts";
 
 /**
  * The sources of a grounded answer, as chips under the reply with a "show the source" expander.

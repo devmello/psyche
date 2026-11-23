@@ -444,6 +444,8 @@ export const artifacts = sqliteTable("artifacts", {
    */
   runId: text("run_id"),
   messageId: text("message_id"),
+  /** Citations (migration 202611231000): JSON array of AnswerSource, or null. */
+  sources: text("sources"),
 });
 
 export const artifactVersions = sqliteTable(

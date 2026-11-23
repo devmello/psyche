@@ -78,6 +78,8 @@ import { ChartView } from "./ChartView.tsx";
 
 // The deck and workbook editors (and the presenter) are separate chunks: they load when a
 // slides or workbook artifact opens, so the chat's first paint and idle memory do not carry them.
+import { SourceList } from "../blocks/SourceChips.tsx";
+
 const DeckEditor = lazy(() => import("./documents/DeckEditor.tsx"));
 const WorkbookEditor = lazy(() => import("./documents/WorkbookEditor.tsx"));
 
@@ -542,6 +544,8 @@ function CanvasBody({
           </div>
         )}
       </m.div>
+      {/* Citations: the sources the agent drew on, as under a chat reply. */}
+      <SourceList items={artifact.sources} />
     </>
   );
 }

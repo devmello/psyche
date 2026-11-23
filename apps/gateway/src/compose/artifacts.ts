@@ -22,6 +22,7 @@ import { exportArtifact } from "../artifacts/documents.ts";
 import { ArtifactStore, type ArtifactWrite } from "../artifacts/store.ts";
 import type { Call, HandlerDef } from "../context.ts";
 import { decodeOffset, encodeOffset } from "../handlers/threads.ts";
+import { runSources } from "../run-sources.ts";
 import type { ComposedPart, ComposeServices } from "./services.ts";
 
 /**
@@ -294,6 +295,8 @@ export function artifactTools(store: ArtifactStore): AgentToolRegistration[] {
               threadId: ctx.threadId,
               untrusted: ctx.taint,
               ...(p.language === undefined ? {} : { language: p.language }),
+              // Citations: the sources this run found, so the canvas can show them.
+              ...(runSources(ctx.runId).length === 0 ? {} : { sources: runSources(ctx.runId) }),
             },
             { author: "agent", runId: ctx.runId, toolCallId: ctx.callId },
           );
