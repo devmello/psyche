@@ -304,20 +304,58 @@ const isDigitAt = (s: string, i: number) => {
   return c >= 48 && c <= 57;
 };
 
-/**
- * ASCII letters and digits. A digit run next to one of these is part of a longer token (a hex
- * digest, a UUID, a ULID, a git sha), not a card number, so it is never read as one.
- */
+/** ASCII letters and digits. */
 const isAlnumAt = (s: string, i: number) => {
   const c = s.charCodeAt(i);
   return (c >= 48 && c <= 57) || (c >= 65 && c <= 90) || (c >= 97 && c <= 122);
 };
 
+/** Longest token scanned on either side of a candidate; a longer one is never an identifier. */
+const TOKEN_SCAN = 512;
+const HEX_ID = /^[0-9a-fA-F]{32,}$/;
+const ULID_ID = /^[0-9A-HJKMNP-TV-Z]{26}$/i;
+const UUID_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * True when the token around a card-length digit run [start, end) is an identifier, not a card: a
+ * hex digest or git sha (32+ hex characters), a ULID, or a canonical UUID with its dashes (so an
+ * all-digit UUID counts). The token is the maximal run of letters and digits around the candidate,
+ * and for the UUID shape, that run plus dashes. Any other neighbour, such as a letter that makes
+ * "4111111111111111a" or "x4111111111111111", leaves the candidate a card.
+ */
+function isIdToken(text: string, start: number, end: number): boolean {
+  const n = text.length;
+  let l = start;
+  while (l > 0 && isAlnumAt(text, l - 1)) {
+    l -= 1;
+    if (start - l > TOKEN_SCAN) return false;
+  }
+  let r = end;
+  while (r < n && isAlnumAt(text, r)) {
+    r += 1;
+    if (r - end > TOKEN_SCAN) return false;
+  }
+  const word = text.slice(l, r);
+  if (HEX_ID.test(word) || ULID_ID.test(word)) return true;
+  let dl = start;
+  while (dl > 0 && (isAlnumAt(text, dl - 1) || text.charCodeAt(dl - 1) === 45)) {
+    dl -= 1;
+    if (start - dl > TOKEN_SCAN) return false;
+  }
+  let dr = end;
+  while (dr < n && (isAlnumAt(text, dr) || text.charCodeAt(dr) === 45)) {
+    dr += 1;
+    if (dr - end > TOKEN_SCAN) return false;
+  }
+  return UUID_ID.test(text.slice(dl, dr));
+}
+
 /**
  * 13–19 digits, optionally grouped by single spaces, dots, tabs or dashes (the strict reading).
- * The candidate must not touch a letter or digit on either side: "ab4111…cd" is a hash, not a card.
+ * A run touching a digit is never a candidate; one touching a letter is skipped only when its
+ * token is an identifier shape (see `isIdToken`).
  */
-const CARD_CANDIDATE = /(?<![0-9a-zA-Z])\d(?:[ .\t-]?\d){12,18}(?![0-9a-zA-Z])/g;
+const CARD_CANDIDATE = /(?<!\d)\d(?:[ .\t-]?\d){12,18}(?!\d)/g;
 
 /**
  * Characters people put between card-number groups in a message: spaces, dashes and minus signs,
@@ -359,7 +397,7 @@ function cardMatches(text: string): { start: number; length: number }[] {
   const n = text.length;
   let i = 0;
   while (i < n) {
-    if (!isDigitAt(text, i) || (i > 0 && isAlnumAt(text, i - 1))) {
+    if (!isDigitAt(text, i) || (i > 0 && isDigitAt(text, i - 1))) {
       i += 1;
       continue;
     }
@@ -367,7 +405,6 @@ function cardMatches(text: string): { start: number; length: number }[] {
     const gaps: string[] = [];
     let digits = "";
     let p = i;
-    let inToken = false;
     for (;;) {
       let q = p;
       while (q < n && isDigitAt(text, q)) q += 1;
@@ -380,13 +417,11 @@ function cardMatches(text: string): { start: number; length: number }[] {
         p = g;
         continue;
       }
-      // A letter right after the chain makes the whole run part of a token: no card here.
-      inToken = q < n && isAlnumAt(text, q);
       i = q;
       break;
     }
     const count = gs.length / 2;
-    if (inToken || digits.length < 13) continue;
+    if (digits.length < 13) continue;
     const size = (k: number) => (gs[2 * k + 1] as number) - (gs[2 * k] as number);
     const off = [0];
     for (let k = 0; k < count; k += 1) off.push((off[k] as number) + size(k));
@@ -440,7 +475,8 @@ function cardMatches(text: string): { start: number; length: number }[] {
         continue;
       }
       const start = gs[2 * cur] as number;
-      found.push({ start, length: (gs[2 * e + 1] as number) - start });
+      const end = gs[2 * e + 1] as number;
+      if (!isIdToken(text, start, end)) found.push({ start, length: end - start });
       cur = e + 1;
     }
   }
@@ -451,7 +487,10 @@ function cardMatches(text: string): { start: number; length: number }[] {
 function strictCardMatches(text: string): { start: number; length: number }[] {
   const found: { start: number; length: number }[] = [];
   for (const m of text.matchAll(CARD_CANDIDATE)) {
-    if (cardDigits(m[0]) !== undefined) found.push({ start: m.index, length: m[0].length });
+    const end = m.index + m[0].length;
+    if (cardDigits(m[0]) !== undefined && !isIdToken(text, m.index, end)) {
+      found.push({ start: m.index, length: m[0].length });
+    }
   }
   return found;
 }
