@@ -78,7 +78,7 @@ final class Dictation {
                 }
                 self?.state = .listening
             } catch {
-                self?.state = .failed((error as? LocalizedError)?.errorDescription ?? "Dictation isn't available right now.")
+                self?.state = .failed((error as? LocalizedError)?.errorDescription ?? String(localized: "Dictation isn't available right now.", bundle: .module))
             }
         }
     }
@@ -101,8 +101,8 @@ enum DictationError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .denied: "Allow the microphone and speech recognition for Psyche in Settings to dictate."
-        case .unavailable: "Dictation isn't available for your language on this device."
+        case .denied: String(localized: "Allow the microphone and speech recognition for Psyche in Settings to dictate.", bundle: .module)
+        case .unavailable: String(localized: "Dictation isn't available for your language on this device.", bundle: .module)
         }
     }
 }

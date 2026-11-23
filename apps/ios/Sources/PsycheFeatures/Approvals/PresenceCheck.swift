@@ -18,13 +18,13 @@ protocol PresenceCheck: Sendable {
 struct DevicePresenceCheck: PresenceCheck {
     func confirm(reason: String) async -> PresenceResult {
         let context = LAContext()
-        context.localizedFallbackTitle = "Use passcode"
+        context.localizedFallbackTitle = String(localized: "Use passcode", bundle: .module)
         var error: NSError?
         guard context.canEvaluatePolicy(.deviceOwnerAuthentication, error: &error) else {
             #if targetEnvironment(simulator)
             return .confirmed  // The simulator has no passcode or enrolled face by default.
             #else
-            return .unavailable("Set a passcode on this phone to allow this here, or answer on your Mac.")
+            return .unavailable(String(localized: "Set a passcode on this phone to allow this here, or answer on your Mac.", bundle: .module))
             #endif
         }
         do {

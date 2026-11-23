@@ -397,7 +397,7 @@ struct ImageNodeView: View {
         Group {
             switch image.source {
             case .data(let data)?:
-                if let decoded = PlatformImage(data: data) { picture(decoded) } else { note("Image unavailable: \(image.alt)") }
+                if let decoded = PlatformImage(data: data) { picture(decoded) } else { note(String(localized: "Image unavailable: \(image.alt)", bundle: .module)) }
             case .file(let id)?:
                 loadable(ref: id, requiresTap: false)
             case .remote(let url)?:
@@ -412,17 +412,17 @@ struct ImageNodeView: View {
         if let loaded {
             picture(loaded)
         } else if phase == .failed {
-            note("The image couldn't be loaded: \(image.alt)")
+            note(String(localized: "The image couldn't be loaded: \(image.alt)", bundle: .module))
         } else if phase == .loading {
-            note("Loading image: \(image.alt)").overlay(alignment: .trailing) { ProgressView().controlSize(.small).padding(.trailing, 12) }
+            note(String(localized: "Loading image: \(image.alt)", bundle: .module)).overlay(alignment: .trailing) { ProgressView().controlSize(.small).padding(.trailing, 12) }
         } else if requiresTap {
             // An untrusted widget can't fetch on its own: a remote image can be a tracking beacon.
             Button { Task { await load(ref) } } label: {
-                note("Load image from an untrusted source: \(image.alt)", dashed: true)
+                note(String(localized: "Load image from an untrusted source: \(image.alt)", bundle: .module), dashed: true)
             }
             .buttonStyle(.plain)
         } else {
-            note("Loading image: \(image.alt)").task { await load(ref) }
+            note(String(localized: "Loading image: \(image.alt)", bundle: .module)).task { await load(ref) }
         }
     }
 

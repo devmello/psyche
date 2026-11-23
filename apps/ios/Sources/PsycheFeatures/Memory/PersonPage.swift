@@ -94,7 +94,7 @@ struct PersonPage: View {
         }
         .sensoryFeedback(.success, trigger: model.changes)
         .confirmationDialog(
-            "Remove this fact?", isPresented: Binding(get: { retracting != nil }, set: { if !$0 { retracting = nil } }),
+            String(localized: "Remove this fact?", bundle: .module), isPresented: Binding(get: { retracting != nil }, set: { if !$0 { retracting = nil } }),
             titleVisibility: .visible, presenting: retracting
         ) { fact in
             Button(String(localized: "Remove", bundle: .module), role: .destructive) { Task { await model.retract(fact) } }
@@ -151,7 +151,7 @@ struct PersonPage: View {
             }
         }
 
-        EditOnMacNote(text: "Edit on your Mac: names, aliases, merging people.")
+        EditOnMacNote(text: String(localized: "Edit on your Mac: names, aliases, merging people.", bundle: .module))
     }
 
     private func factRow(_ fact: MemoryFact) -> some View {

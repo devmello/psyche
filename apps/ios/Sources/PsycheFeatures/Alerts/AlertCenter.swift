@@ -301,8 +301,8 @@ public final class AlertCenter {
     /// Home's Watch button and the offer. Returns a quiet message when it could not start.
     public func watch(_ task: RunningTask) async -> String? {
         await loadSettings()
-        guard liveActivitiesOn else { return "Live Activities are off. Turn them on in Settings." }
-        guard activities.isEnabled else { return "Live Activities are off for Psyche in the iOS Settings app." }
+        guard liveActivitiesOn else { return String(localized: "Live Activities are off. Turn them on in Settings.", bundle: .module) }
+        guard activities.isEnabled else { return String(localized: "Live Activities are off for Psyche in the iOS Settings app.", bundle: .module) }
         if watching.contains(task.id) { return nil }
         // An approval the task is already waiting on shows from the start: the island must not wait for the next
         // sync, which may not come before the app is suspended.

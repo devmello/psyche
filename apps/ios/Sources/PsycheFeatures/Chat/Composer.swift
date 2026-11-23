@@ -128,7 +128,7 @@ struct Composer: View {
                 .contentShape(Circle())
         }
         .padding(.bottom, 6)
-        .accessibilityLabel(active ? "Stop dictation" : "Dictate")
+        .accessibilityLabel(active ? String(localized: "Stop dictation", bundle: .module) : String(localized: "Dictate", bundle: .module))
     }
 
     private var sendButton: some View {

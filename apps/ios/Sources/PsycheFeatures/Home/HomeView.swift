@@ -25,7 +25,7 @@ struct HomeView: View {
         ScrollViewReader { proxy in
         ScrollView {
             VStack(alignment: .leading, spacing: PsycheMetrics.sectionSpacing) {
-                PageHeader("Home", eyebrow: Date.now.formatted(.dateTime.weekday(.wide).month(.wide).day())) {
+                PageHeader(String(localized: "Home", bundle: .module), eyebrow: Date.now.formatted(.dateTime.weekday(.wide).month(.wide).day())) {
                     AgentButton(needsYou: !(model.phase.value?.needsYou.isEmpty ?? true), glass: true)
                 }
                 ConnectionBanner(state: session.state, lastSyncedAt: session.lastSyncedAt)
@@ -80,7 +80,7 @@ struct HomeView: View {
                         .frame(width: 32, height: 32)
                         .contentShape(Circle())
                 }
-                .accessibilityLabel(active ? "Stop dictation" : "Dictate")
+                .accessibilityLabel(active ? String(localized: "Stop dictation", bundle: .module) : String(localized: "Dictate", bundle: .module))
             }
             if !ask.isEmpty && !dictation.isActive {
                 Button(action: submitAsk) {
@@ -122,8 +122,8 @@ struct HomeView: View {
         if !snapshot.needsYou.isEmpty { needsYou(snapshot.needsYou).transition(rise) }
         if !snapshot.running.isEmpty { running(snapshot.running).transition(rise) }
         if !snapshot.today.isEmpty { today(snapshot.today).transition(rise) }
-        if !model.comingUp.isEmpty { todos("Coming up", model.comingUp).transition(rise) }
-        if !model.laterTodos.isEmpty { todos("To-do", model.laterTodos).transition(rise) }
+        if !model.comingUp.isEmpty { todos(String(localized: "Coming up", bundle: .module), model.comingUp).transition(rise) }
+        if !model.laterTodos.isEmpty { todos(String(localized: "To-do", bundle: .module), model.laterTodos).transition(rise) }
         if !snapshot.keepInTouch.isEmpty { keepInTouch(snapshot.keepInTouch).transition(rise) }
         if !model.pinnedWidgets.isEmpty { pinned(model.pinnedWidgets).transition(rise) }
         SpacesHomeSection(store: store)
@@ -147,7 +147,7 @@ struct HomeView: View {
     private func needsYouRow(_ item: NeedsYouItem) -> some View {
         let canAnswer = session.state.canAnswer
         let kind = item.kind.label
-        let evidence = canAnswer ? [kind, item.source, item.time] : [kind, "reconnect to answer"]
+        let evidence = canAnswer ? [kind, item.source, item.time] : [kind, String(localized: "reconnect to answer", bundle: .module)]
         let row = NeedsYouRow(title: item.title, evidence: evidence, showsChevron: canAnswer)
         if canAnswer {
             Button { router.open(item) } label: { row }.buttonStyle(.plain)
@@ -336,9 +336,9 @@ struct HomeView: View {
 extension NeedsYouItem.Kind {
     var label: String {
         switch self {
-        case .approval: "Approval"
-        case .question: "Question"
-        case .task: "Task"
+        case .approval: String(localized: "Approval", bundle: .module)
+        case .question: String(localized: "Question", bundle: .module)
+        case .task: String(localized: "Task", bundle: .module)
         }
     }
 }

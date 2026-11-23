@@ -85,26 +85,26 @@ struct MainTabs: View {
                     HomeView(store: store).routeDestinations()
                 }
             } label: {
-                tabLabel("Home", symbol: "house", tab: .home)
+                tabLabel(String(localized: "Home", bundle: .module), symbol: "house", tab: .home)
             }
             Tab(value: AppTab.chat) {
                 ChatTab()
             } label: {
-                tabLabel("Chat", symbol: "bubble.left", tab: .chat)
+                tabLabel(String(localized: "Chat", bundle: .module), symbol: "bubble.left", tab: .chat)
             }
             Tab(value: AppTab.library) {
                 NavigationStack(path: $router.libraryPath) {
                     LibraryView().routeDestinations()
                 }
             } label: {
-                tabLabel("Library", symbol: "books.vertical", tab: .library)
+                tabLabel(String(localized: "Library", bundle: .module), symbol: "books.vertical", tab: .library)
             }
             Tab(value: AppTab.memory) {
                 NavigationStack(path: $router.memoryPath) {
                     MemoryView(store: store).routeDestinations()
                 }
             } label: {
-                tabLabel("Memory", symbol: "bookmark", tab: .memory)
+                tabLabel(String(localized: "Memory", bundle: .module), symbol: "bookmark", tab: .memory)
             }
             Tab(value: AppTab.search, role: .search) {
                 NavigationStack(path: $router.searchPath) {

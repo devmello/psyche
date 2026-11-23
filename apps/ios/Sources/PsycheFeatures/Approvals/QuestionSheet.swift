@@ -48,7 +48,7 @@ struct QuestionSheet: View {
                                 .strokeBorder(PsycheColor.rule, lineWidth: 1))
                         .onChange(of: text) { if !text.isEmpty { optionID = nil } }
                 }
-                EvidenceLine(["Question", item.source, item.time])
+                EvidenceLine([String(localized: "Question", bundle: .module), item.source, item.time])
             }
             .padding(.horizontal, PsycheMetrics.pagePadding)
             .padding(.top, 28)
@@ -107,7 +107,7 @@ struct QuestionSheet: View {
                 if !session.state.canAnswer {
                     Text("Reconnect to answer", bundle: .module).font(.footnote).foregroundStyle(PsycheColor.muted)
                 }
-                ArmingInkButton(title: "Send answer", isBusy: flow.stage == .sending, action: send)
+                ArmingInkButton(title: String(localized: "Send answer", bundle: .module), isBusy: flow.stage == .sending, action: send)
                     .disabled(!canSend || !session.state.canAnswer || flow.isBusy)
             }
         }
@@ -124,7 +124,7 @@ struct QuestionSheet: View {
         let store = store
         typing = false
         Task {
-            await flow.run(confirmation: "Sent. Psyche carries on.") {
+            await flow.run(confirmation: String(localized: "Sent. Psyche carries on.", bundle: .module)) {
                 try await store.answerQuestion(id: id, answer: answer)
             }
         }

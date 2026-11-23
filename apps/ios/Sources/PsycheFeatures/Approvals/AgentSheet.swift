@@ -92,7 +92,7 @@ struct AgentSheet: View {
                     StatusDot(
                         activity.needsYou.isEmpty ? .neutral : .needsYou,
                         activity.needsYou.isEmpty
-                            ? (activity.now.isEmpty ? "Idle" : "Working on \(activity.now.count)")
+                            ? (activity.now.isEmpty ? String(localized: "Idle", bundle: .module) : String(localized: "Working on \(activity.now.count)", bundle: .module))
                             : "\(activity.needsYou.count) need\(activity.needsYou.count == 1 ? "s" : "") you")
                 }
             }
@@ -115,7 +115,7 @@ struct AgentSheet: View {
     @ViewBuilder
     private func activityView(_ activity: AgentActivity) -> some View {
         if activity.needsYou.isEmpty && activity.now.isEmpty && activity.nextUp.isEmpty && activity.recent.isEmpty {
-            quiet("Nothing going on right now.")
+            quiet(String(localized: "Nothing going on right now.", bundle: .module))
         }
         if !activity.needsYou.isEmpty {
             VStack(alignment: .leading, spacing: 8) {
@@ -154,7 +154,7 @@ struct AgentSheet: View {
                 if index > 0 { HairlineDivider() }
                 let row = NeedsYouRow(
                     title: item.title,
-                    evidence: session.state.canAnswer ? [item.kind.label, item.source, item.time] : [item.kind.label, "reconnect to answer"],
+                    evidence: session.state.canAnswer ? [item.kind.label, item.source, item.time] : [item.kind.label, String(localized: "reconnect to answer", bundle: .module)],
                     showsChevron: session.state.canAnswer)
                 Group {
                     if session.state.canAnswer {
@@ -223,7 +223,7 @@ struct AgentSheet: View {
     private func approvals(_ activity: AgentActivity) -> some View {
         let pending = activity.needsYou.filter { $0.kind == .approval }
         if pending.isEmpty {
-            quiet("No approvals waiting.")
+            quiet(String(localized: "No approvals waiting.", bundle: .module))
         } else {
             VStack(alignment: .leading, spacing: 8) {
                 SectionHeader(String(localized: "Waiting for you", bundle: .module), count: pending.count, needsYou: true)
@@ -235,7 +235,7 @@ struct AgentSheet: View {
     @ViewBuilder
     private func upcoming(_ activity: AgentActivity) -> some View {
         if activity.nextUp.isEmpty {
-            quiet("Nothing scheduled.")
+            quiet(String(localized: "Nothing scheduled.", bundle: .module))
         } else {
             upcomingCard(activity.nextUp)
         }
@@ -260,7 +260,7 @@ struct AgentSheet: View {
                     .padding(.horizontal, 2)
             }
         } else {
-            quiet("Loading…")
+            quiet(String(localized: "Loading…", bundle: .module))
         }
     }
 
@@ -281,9 +281,9 @@ extension RecentRun.Outcome {
 
     var label: String {
         switch self {
-        case .done: "Done"
-        case .failed: "Failed"
-        case .cancelled: "Cancelled"
+        case .done: String(localized: "Done", bundle: .module)
+        case .failed: String(localized: "Failed", bundle: .module)
+        case .cancelled: String(localized: "Cancelled", bundle: .module)
         }
     }
 }

@@ -37,7 +37,7 @@ struct ThreadView: View {
                             .transition(Self.isUser(item) ? .identity : motion.transition(.rise))
                     }
                     if thread.statusKind == .running, !isStreaming(thread) {
-                        WorkingRow(text: thread.status.isEmpty ? "Working" : thread.status)
+                        WorkingRow(text: thread.status.isEmpty ? String(localized: "Working", bundle: .module) : thread.status)
                             .padding(.top, 14)
                             .transition(motion.transition(.fade))
                     }
