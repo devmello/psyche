@@ -150,7 +150,7 @@ describe("library.list / library.get", () => {
       source: "mail",
       title: `T ${id}`,
       date: "2026-11-02",
-      provenance: "untrusted",
+      provenance: "untrusted" as const,
       span: "Gate 4",
       route,
     });
