@@ -1718,16 +1718,18 @@ export const hi: Partial<Catalogue> = {
   "settings.channels.allow.remove": "हटाएँ",
   "settings.channels.allow.removeNamed": "{name} हटाएँ",
   "settings.channels.allow.senderLabel": "अनुमति देने वाला प्रेषक",
-  "settings.channels.allow.groupLabel": "अनुमति देने वाला समूह",
+  "settings.channels.allow.groupLabel": "प्रेषक जोड़ें (समूह चैट)",
   "settings.channels.allow.addSender": "प्रेषक जोड़ें",
-  "settings.channels.allow.addGroup": "समूह जोड़ें",
+  "settings.channels.allow.addGroup": "प्रेषक जोड़ें",
   "settings.channels.allow.senderApproval": "एक चैट प्रेषक को अनुमति देना",
-  "settings.channels.allow.groupApproval": "एक चैट समूह को अनुमति देना",
+  "settings.channels.allow.groupApproval": "समूहों में कौन मुझे चला सकता है, यह बदलना",
+  "settings.channels.allow.groupEmptied":
+    "{name} को हटाने से इस सूची में कोई नहीं बचेगा। तब डायरेक्ट मैसेज में अनुमति प्राप्त सभी लोग समूहों में Psyche को चला सकेंगे।",
   "settings.channels.allow.forbidden":
     "कौन संदेश भेज सकता है, यह बदलने के लिए एडमिन डिवाइस चाहिए। एडमिन के रूप में जोड़ा गया डिवाइस उपयोग करें।",
   "settings.channels.allow.failed":
     "Psyche बदल नहीं सका कि कौन संदेश भेज सकता है ({reason})। कुछ नहीं बदला।",
-  "settings.channels.identity.name": "नाम",
+  "settings.channels.identity.name": "व्यक्ति का नाम",
   "settings.channels.identity.senders": "प्रेषक आईडी, कॉमा से अलग करके",
   "settings.channels.identity.link": "पहचान जोड़ें",
   "settings.channels.identity.unlink": "लिंक हटाएँ",
@@ -1738,8 +1740,8 @@ export const hi: Partial<Catalogue> = {
   "settings.channels.identity.failed": "Psyche पहचान लिंक नहीं बदल सका ({reason})। कुछ नहीं बदला।",
   "settings.channels.noOneYet": "अभी कोई नहीं।",
   "settings.channels.owner": " · मालिक",
-  "settings.channels.groups": "समूह",
-  "settings.channels.noGroups": "कोई समूह नहीं।",
+  "settings.channels.groups": "समूहों में कौन मुझे चला सकता है",
+  "settings.channels.noGroups": "डायरेक्ट मैसेज में अनुमति प्राप्त सभी लोग समूहों में मुझे चला सकते हैं।",
   "settings.channels.requireMention": "समूहों में केवल उल्लेख किए जाने पर जवाब दें",
   "settings.channels.err.forbidden":
     "{action, select, policy {कौन संदेश भेज सकता है, यह बदलने} mention {समूह उल्लेख बदलने} approve {प्रेषक को स्वीकृत करने} other {प्रेषक की अनदेखी करने}} के लिए इस डिवाइस पर स्वीकृति चाहिए। ऐडमिन के रूप में पेयर किए गए डिवाइस का उपयोग करें।",

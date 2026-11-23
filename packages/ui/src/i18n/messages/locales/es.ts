@@ -1726,16 +1726,18 @@ export const es: Partial<Catalogue> = {
   "settings.channels.allow.remove": "Quitar",
   "settings.channels.allow.removeNamed": "Quitar {name}",
   "settings.channels.allow.senderLabel": "Remitente que permitir",
-  "settings.channels.allow.groupLabel": "Grupo que permitir",
+  "settings.channels.allow.groupLabel": "Añadir un remitente (chats de grupo)",
   "settings.channels.allow.addSender": "Añadir remitente",
-  "settings.channels.allow.addGroup": "Añadir grupo",
+  "settings.channels.allow.addGroup": "Añadir remitente",
   "settings.channels.allow.senderApproval": "Permitir a un remitente del chat",
-  "settings.channels.allow.groupApproval": "Permitir a un grupo del chat",
+  "settings.channels.allow.groupApproval": "Cambiar quién puede activarme en grupos",
+  "settings.channels.allow.groupEmptied":
+    "Quitar {name} deja la lista vacía. Entonces, todos los permitidos en mensajes directos podrán activar Psyche en los grupos.",
   "settings.channels.allow.forbidden":
     "Cambiar quién puede escribir requiere un dispositivo de administrador. Usa un dispositivo emparejado como administrador.",
   "settings.channels.allow.failed":
     "Psyche no pudo cambiar quién puede escribir ({reason}). No cambió nada.",
-  "settings.channels.identity.name": "Nombre",
+  "settings.channels.identity.name": "Nombre de la persona",
   "settings.channels.identity.senders": "IDs de remitente, separados por comas",
   "settings.channels.identity.link": "Vincular identidad",
   "settings.channels.identity.unlink": "Desvincular",
@@ -1747,8 +1749,9 @@ export const es: Partial<Catalogue> = {
     "Psyche no pudo cambiar el vínculo de identidad ({reason}). No cambió nada.",
   "settings.channels.noOneYet": "Nadie aún.",
   "settings.channels.owner": " · propietario",
-  "settings.channels.groups": "Grupos",
-  "settings.channels.noGroups": "Sin grupos.",
+  "settings.channels.groups": "Quién puede activarme en grupos",
+  "settings.channels.noGroups":
+    "Todos los permitidos en mensajes directos pueden activarme en grupos.",
   "settings.channels.requireMention": "Responder en grupos solo cuando se le mencione",
   "settings.channels.err.forbidden":
     "{action, select, policy {Cambiar quién puede escribir} mention {Cambiar las menciones en grupos} approve {Aprobar al remitente} other {Ignorar al remitente}} necesita aprobación en este dispositivo. Usa un dispositivo enlazado como administrador.",

@@ -1754,16 +1754,18 @@ export const de: Partial<Catalogue> = {
   "settings.channels.allow.remove": "Entfernen",
   "settings.channels.allow.removeNamed": "{name} entfernen",
   "settings.channels.allow.senderLabel": "Absender, der erlaubt werden soll",
-  "settings.channels.allow.groupLabel": "Gruppe, die erlaubt werden soll",
+  "settings.channels.allow.groupLabel": "Absender hinzufügen (Gruppenchats)",
   "settings.channels.allow.addSender": "Absender hinzufügen",
-  "settings.channels.allow.addGroup": "Gruppe hinzufügen",
+  "settings.channels.allow.addGroup": "Absender hinzufügen",
   "settings.channels.allow.senderApproval": "Einen Chat-Absender erlauben",
-  "settings.channels.allow.groupApproval": "Eine Chat-Gruppe erlauben",
+  "settings.channels.allow.groupApproval": "Änderung, wer mich in Gruppen auslösen kann",
+  "settings.channels.allow.groupEmptied":
+    "Wenn du {name} entfernst, bleibt niemand auf dieser Liste. Dann können alle, die in Direktnachrichten erlaubt sind, Psyche in Gruppen auslösen.",
   "settings.channels.allow.forbidden":
     "Wer schreiben darf, lässt sich nur mit einem Admin-Gerät ändern. Nutze ein als Admin gekoppeltes Gerät.",
   "settings.channels.allow.failed":
     "Psyche konnte nicht ändern, wer schreiben darf ({reason}). Nichts wurde geändert.",
-  "settings.channels.identity.name": "Name",
+  "settings.channels.identity.name": "Name der Person",
   "settings.channels.identity.senders": "Absender-IDs, durch Kommas getrennt",
   "settings.channels.identity.link": "Identität verknüpfen",
   "settings.channels.identity.unlink": "Verknüpfung lösen",
@@ -1775,8 +1777,9 @@ export const de: Partial<Catalogue> = {
     "Psyche konnte die Identitätsverknüpfung nicht ändern ({reason}). Nichts wurde geändert.",
   "settings.channels.noOneYet": "Noch niemand.",
   "settings.channels.owner": " · Besitzer",
-  "settings.channels.groups": "Gruppen",
-  "settings.channels.noGroups": "Keine Gruppen.",
+  "settings.channels.groups": "Wer mich in Gruppen auslösen kann",
+  "settings.channels.noGroups":
+    "Alle, die in Direktnachrichten erlaubt sind, können mich in Gruppen auslösen.",
   "settings.channels.requireMention": "In Gruppen nur bei Erwähnung antworten",
   "settings.channels.err.forbidden":
     "{action, select, policy {Das Ändern, wer schreiben darf,} mention {Das Ändern der Gruppenerwähnungen} approve {Das Bestätigen des Absenders} other {Das Ignorieren des Absenders}} braucht eine Genehmigung auf diesem Gerät. Verwende ein als Admin gekoppeltes Gerät.",

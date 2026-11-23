@@ -1,5 +1,5 @@
 import type { Channel, ChannelIdentity } from "@psyche/protocol";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import type { MockGateway } from "../src/data/mock-gateway.ts";
@@ -13,7 +13,9 @@ import { StoryWorld, type StoryWorldProps } from "../src/stories/harness.tsx";
 
 /** Settings → Channels: editing the allowlists and identity links (channels.allowlist.update,
  * channels.identities.*). Adding a sender or linking an identity is presence-gated, so the Gateway
- * answers `approval_required` and the Settings banner takes over; removing needs no approval. */
+ * answers `approval_required` and the Settings banner takes over. Removing needs no approval,
+ * except the last group sender: the group list empty means everyone allowed in direct messages
+ * may trigger Psyche in groups, so the Gateway asks for the card. */
 
 const channel = (): Channel => createFixtureWorld().channels[0] as Channel;
 
@@ -28,6 +30,10 @@ const identity = (over: Partial<ChannelIdentity> = {}): ChannelIdentity => ({
   ...over,
 });
 
+/** The add form that owns a given input (the two lists each have their own). */
+const formOf = (label: string): HTMLElement =>
+  screen.getByLabelText(label).closest("form") as HTMLElement;
+
 function renderPanel(over: Partial<Parameters<typeof ChannelsPanel>[0]> = {}) {
   return render(
     <ChannelsPanel
@@ -41,7 +47,7 @@ function renderPanel(over: Partial<Parameters<typeof ChannelsPanel>[0]> = {}) {
 }
 
 describe("ChannelsPanel allowlist controls", () => {
-  it("removes one sender or group without any other input", async () => {
+  it("removes one sender without any other input", async () => {
     const onAllowlistChange = vi.fn();
     renderPanel({ onAllowlistChange });
     await userEvent.click(screen.getByRole("button", { name: "Remove partner" }));
@@ -50,18 +56,51 @@ describe("ChannelsPanel allowlist controls", () => {
       "allowFrom",
       { remove: ["tg:20991834"] },
     );
-    await userEvent.click(screen.getByRole("button", { name: "Remove Family" }));
+  });
+
+  it("removes a group sender at once while others remain", async () => {
+    const onAllowlistChange = vi.fn();
+    renderPanel({
+      onAllowlistChange,
+      channels: [{ ...channel(), groupAllowFrom: ["tg:30000003", "tg:30000004"] }],
+    });
+    await userEvent.click(screen.getByRole("button", { name: "Remove Kim" }));
     expect(onAllowlistChange).toHaveBeenLastCalledWith(
       expect.objectContaining({ id: channel().id }),
       "groupAllowFrom",
-      { remove: ["tg:group:-100223344"] },
+      { remove: ["tg:30000003"] },
+    );
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+  });
+
+  it("asks first when removing the last group sender would open groups to everyone allowed in direct messages", async () => {
+    const onAllowlistChange = vi.fn();
+    renderPanel({ onAllowlistChange });
+    await userEvent.click(screen.getByRole("button", { name: "Remove Kim" }));
+    const dialog = await screen.findByRole("alertdialog");
+    expect(
+      within(dialog).getByText(/everyone allowed in direct messages can trigger Psyche in groups/),
+    ).toBeTruthy();
+    expect(onAllowlistChange).not.toHaveBeenCalled();
+    await userEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
+    expect(onAllowlistChange).not.toHaveBeenCalled();
+
+    await userEvent.click(screen.getByRole("button", { name: "Remove Kim" }));
+    await userEvent.click(
+      within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Remove" }),
+    );
+    expect(onAllowlistChange).toHaveBeenLastCalledWith(
+      expect.objectContaining({ id: channel().id }),
+      "groupAllowFrom",
+      { remove: ["tg:30000003"] },
     );
   });
 
-  it("adds a sender and a group from their inputs, and never sends an empty or listed id", async () => {
+  it("adds a sender and a group sender from their inputs, and never sends an empty or listed id", async () => {
     const onAllowlistChange = vi.fn();
     renderPanel({ onAllowlistChange });
-    const addSender = screen.getByRole("button", { name: "Add sender" });
+    const senderForm = formOf("Sender to allow");
+    const addSender = within(senderForm).getByRole("button", { name: "Add sender" });
     expect((addSender as HTMLButtonElement).disabled).toBe(true);
 
     await userEvent.type(screen.getByLabelText("Sender to allow"), "  tg:55555  ");
@@ -73,13 +112,14 @@ describe("ChannelsPanel allowlist controls", () => {
     // Already on the list: nothing is sent.
     const calls = onAllowlistChange.mock.calls.length;
     await userEvent.type(screen.getByLabelText("Sender to allow"), "tg:10442211");
-    await userEvent.click(screen.getByRole("button", { name: "Add sender" }));
+    await userEvent.click(within(senderForm).getByRole("button", { name: "Add sender" }));
     expect(onAllowlistChange).toHaveBeenCalledTimes(calls);
 
-    await userEvent.type(screen.getByLabelText("Group to allow"), "tg:group:-100999");
-    await userEvent.click(screen.getByRole("button", { name: "Add group" }));
+    const groupForm = formOf("Add a sender (group chats)");
+    await userEvent.type(screen.getByLabelText("Add a sender (group chats)"), "tg:30000009");
+    await userEvent.click(within(groupForm).getByRole("button", { name: "Add sender" }));
     expect(onAllowlistChange).toHaveBeenLastCalledWith(expect.anything(), "groupAllowFrom", {
-      add: ["tg:group:-100999"],
+      add: ["tg:30000009"],
     });
   });
 
@@ -101,7 +141,7 @@ describe("ChannelsPanel identity controls", () => {
 
     const link = screen.getByRole("button", { name: "Link identity" });
     expect((link as HTMLButtonElement).disabled).toBe(true);
-    await userEvent.type(screen.getByLabelText("Name"), "Marta");
+    await userEvent.type(screen.getByLabelText("Person's name"), "Marta");
     expect((link as HTMLButtonElement).disabled).toBe(true);
     await userEvent.type(
       screen.getByLabelText("Sender IDs, separated by commas"),
@@ -164,7 +204,9 @@ describe("Channels allowlist and identities over the Gateway", () => {
       approvalId: "apr_add_sender",
     });
     await userEvent.type(await screen.findByLabelText("Sender to allow"), "tg:55555");
-    await userEvent.click(screen.getByRole("button", { name: "Add sender" }));
+    await userEvent.click(
+      within(formOf("Sender to allow")).getByRole("button", { name: "Add sender" }),
+    );
 
     await waitFor(() => expect(pending).toHaveLength(1));
     expect(pending[0]).toMatchObject({
@@ -185,11 +227,37 @@ describe("Channels allowlist and identities over the Gateway", () => {
     expect(gateway().world.channels[0]?.allowFrom).toContain("tg:55555");
   });
 
+  it("asks for approval when removing the last group sender, and removes it once approved", async () => {
+    const { gateway, pending } = setupSection();
+    gateway().failNext("channels.allowlist.update", "approval_required", "needs approval", {
+      approvalId: "apr_last_group",
+    });
+    await userEvent.click(await screen.findByRole("button", { name: "Remove Kim" }));
+    await userEvent.click(
+      within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Remove" }),
+    );
+    await waitFor(() => expect(pending).toHaveLength(1));
+    expect(pending[0]).toMatchObject({
+      approvalId: "apr_last_group",
+      label: "Changing who can trigger me in groups",
+    });
+    await pending[0]?.retry("apr_last_group");
+    expect(callsOf(gateway(), "channels.allowlist.update").at(-1)?.params).toEqual({
+      channelId: gateway().world.channels[0]?.id,
+      list: "groupAllowFrom",
+      remove: ["tg:30000003"],
+      approvalId: "apr_last_group",
+    });
+    expect(gateway().world.channels[0]?.groupAllowFrom).toEqual([]);
+  });
+
   it("shows a refused change inline and changes nothing", async () => {
     const { gateway, pending } = setupSection();
     gateway().failNext("channels.allowlist.update", "forbidden", "not an admin");
     await userEvent.type(await screen.findByLabelText("Sender to allow"), "tg:77");
-    await userEvent.click(screen.getByRole("button", { name: "Add sender" }));
+    await userEvent.click(
+      within(formOf("Sender to allow")).getByRole("button", { name: "Add sender" }),
+    );
     expect(
       await screen.findByText(
         "Changing who can message needs an admin device. Use a device paired as admin.",
@@ -206,7 +274,7 @@ describe("Channels allowlist and identities over the Gateway", () => {
     gateway().failNext("channels.identities.upsert", "approval_required", "needs approval", {
       approvalId: "apr_identity",
     });
-    await userEvent.type(await screen.findByLabelText("Name"), "Marta");
+    await userEvent.type(await screen.findByLabelText("Person's name"), "Marta");
     await userEvent.type(screen.getByLabelText("Sender IDs, separated by commas"), "tg:1, tg:2");
     await userEvent.click(screen.getByRole("button", { name: "Link identity" }));
     await waitFor(() => expect(pending).toHaveLength(1));

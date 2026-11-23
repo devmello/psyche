@@ -2,6 +2,15 @@ import type { Channel, ChannelIdentity, DmPolicy, PairingRequest } from "@psyche
 import { TriangleAlert } from "lucide-react";
 import { type ReactElement, useCallback, useContext, useId, useState } from "react";
 import { toast } from "sonner";
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "../../components/ui/alert-dialog.tsx";
 import { Button } from "../../components/ui/button.tsx";
 import { Input } from "../../components/ui/input.tsx";
 import { useCall, useGatewayQuery } from "../../data/hooks.ts";
@@ -391,9 +400,14 @@ function ChannelCard({
   onAllowlistChange?: (channel: Channel, list: AllowlistList, change: AllowlistChange) => void;
 }): ReactElement {
   const [confirmOpen, setConfirmOpen] = useState(false);
+  // The id of a group-list sender whose removal would leave nobody on it (see the confirm below).
+  const [emptying, setEmptying] = useState<string | null>(null);
   const allow = displayMap(c, "allowFromDisplay");
-  const groups = displayMap(c, "groupsDisplay");
   const name = channelName(c.type);
+  // An empty group list means "everyone allowed in direct messages", so removing the last sender
+  // widens who can trigger Psyche in groups: the Gateway asks for a card, and this says why first.
+  const removingLastGroupSender = (id: string): boolean =>
+    c.groupAllowFrom.length === 1 && c.groupAllowFrom[0] === id && c.allowFrom.length > 0;
   return (
     <Group
       title={t("settings.channels.cardTitle", { name, account: c.account })}
@@ -553,7 +567,7 @@ function ChannelCard({
             <ul className="mt-1 flex flex-col gap-0.5">
               {c.groupAllowFrom.map((g) => (
                 <li key={g} className="flex flex-wrap items-center gap-2">
-                  <span>{groups[g] ?? g}</span>
+                  <span>{allow[g] ?? g}</span>
                   {onAllowlistChange ? (
                     <Button
                       type="button"
@@ -561,9 +575,12 @@ function ChannelCard({
                       variant="ghost"
                       className="ms-auto"
                       aria-label={t("settings.channels.allow.removeNamed", {
-                        name: groups[g] ?? g,
+                        name: allow[g] ?? g,
                       })}
-                      onClick={() => onAllowlistChange(c, "groupAllowFrom", { remove: [g] })}
+                      onClick={() => {
+                        if (removingLastGroupSender(g)) setEmptying(g);
+                        else onAllowlistChange(c, "groupAllowFrom", { remove: [g] });
+                      }}
                     >
                       {t("settings.channels.allow.remove")}
                     </Button>
@@ -573,12 +590,49 @@ function ChannelCard({
             </ul>
           )}
           {onAllowlistChange ? (
-            <AllowlistAdd
-              label={t("settings.channels.allow.groupLabel")}
-              action={t("settings.channels.allow.addGroup")}
-              existing={c.groupAllowFrom}
-              onAdd={(id) => onAllowlistChange(c, "groupAllowFrom", { add: [id] })}
-            />
+            <>
+              <AllowlistAdd
+                label={t("settings.channels.allow.groupLabel")}
+                action={t("settings.channels.allow.addGroup")}
+                existing={c.groupAllowFrom}
+                onAdd={(id) => onAllowlistChange(c, "groupAllowFrom", { add: [id] })}
+              />
+              <AlertDialog
+                open={emptying !== null}
+                onOpenChange={(open) => {
+                  if (!open) setEmptying(null);
+                }}
+              >
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>
+                      {t("settings.channels.allow.removeNamed", {
+                        name: allow[emptying ?? ""] ?? emptying ?? "",
+                      })}
+                    </AlertDialogTitle>
+                    <AlertDialogDescription>
+                      {t("settings.channels.allow.groupEmptied", {
+                        name: allow[emptying ?? ""] ?? emptying ?? "",
+                      })}
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      onClick={() => {
+                        const id = emptying;
+                        setEmptying(null);
+                        if (id !== null) onAllowlistChange(c, "groupAllowFrom", { remove: [id] });
+                      }}
+                    >
+                      {t("settings.channels.allow.remove")}
+                    </Button>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </>
           ) : null}
         </div>
       </div>

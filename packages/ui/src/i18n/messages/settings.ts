@@ -1009,16 +1009,18 @@ export const settings = {
   "settings.channels.allow.remove": "Remove",
   "settings.channels.allow.removeNamed": "Remove {name}",
   "settings.channels.allow.senderLabel": "Sender to allow",
-  "settings.channels.allow.groupLabel": "Group to allow",
+  "settings.channels.allow.groupLabel": "Add a sender (group chats)",
   "settings.channels.allow.addSender": "Add sender",
-  "settings.channels.allow.addGroup": "Add group",
+  "settings.channels.allow.addGroup": "Add sender",
   "settings.channels.allow.senderApproval": "Allowing a chat sender",
-  "settings.channels.allow.groupApproval": "Allowing a chat group",
+  "settings.channels.allow.groupApproval": "Changing who can trigger me in groups",
+  "settings.channels.allow.groupEmptied":
+    "Removing {name} leaves nobody on this list. Then everyone allowed in direct messages can trigger Psyche in groups.",
   "settings.channels.allow.forbidden":
     "Changing who can message needs an admin device. Use a device paired as admin.",
   "settings.channels.allow.failed":
     "Psyche couldn't change who can message ({reason}). Nothing changed.",
-  "settings.channels.identity.name": "Name",
+  "settings.channels.identity.name": "Person's name",
   "settings.channels.identity.senders": "Sender IDs, separated by commas",
   "settings.channels.identity.link": "Link identity",
   "settings.channels.identity.unlink": "Unlink",
@@ -1030,8 +1032,8 @@ export const settings = {
     "Psyche couldn't change the identity link ({reason}). Nothing changed.",
   "settings.channels.noOneYet": "No one yet.",
   "settings.channels.owner": " · owner",
-  "settings.channels.groups": "Groups",
-  "settings.channels.noGroups": "No groups.",
+  "settings.channels.groups": "Who can trigger me in groups",
+  "settings.channels.noGroups": "Everyone allowed in direct messages can trigger me in groups.",
   "settings.channels.requireMention": "Only answer in groups when mentioned",
   "settings.channels.err.forbidden":
     "{action, select, policy {Change who can message} mention {Change group mentions} approve {Approve the sender} other {Ignore the sender}} needs approval on this device. Use a device paired as admin.",

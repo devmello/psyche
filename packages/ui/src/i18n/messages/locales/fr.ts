@@ -1708,16 +1708,18 @@ export const fr: Partial<Catalogue> = {
   "settings.channels.allow.remove": "Supprimer",
   "settings.channels.allow.removeNamed": "Supprimer {name}",
   "settings.channels.allow.senderLabel": "Expéditeur à autoriser",
-  "settings.channels.allow.groupLabel": "Groupe à autoriser",
+  "settings.channels.allow.groupLabel": "Ajouter un expéditeur (discussions de groupe)",
   "settings.channels.allow.addSender": "Ajouter un expéditeur",
-  "settings.channels.allow.addGroup": "Ajouter un groupe",
+  "settings.channels.allow.addGroup": "Ajouter un expéditeur",
   "settings.channels.allow.senderApproval": "Autoriser un expéditeur de chat",
-  "settings.channels.allow.groupApproval": "Autoriser un groupe de chat",
+  "settings.channels.allow.groupApproval": "Modifier qui peut me déclencher dans les groupes",
+  "settings.channels.allow.groupEmptied":
+    "Supprimer {name} ne laisse personne sur cette liste. Tous les autorisés en messages directs pourront alors déclencher Psyche dans les groupes.",
   "settings.channels.allow.forbidden":
     "Modifier qui peut écrire nécessite un appareil administrateur. Utilisez un appareil couplé en tant qu'administrateur.",
   "settings.channels.allow.failed":
     "Psyche n'a pas pu modifier qui peut écrire ({reason}). Rien n'a changé.",
-  "settings.channels.identity.name": "Nom",
+  "settings.channels.identity.name": "Nom de la personne",
   "settings.channels.identity.senders": "Identifiants d'expéditeur, séparés par des virgules",
   "settings.channels.identity.link": "Lier l’identité",
   "settings.channels.identity.unlink": "Délier",
@@ -1729,8 +1731,9 @@ export const fr: Partial<Catalogue> = {
     "Psyche n'a pas pu modifier le lien d'identité ({reason}). Rien n'a changé.",
   "settings.channels.noOneYet": "Personne pour l’instant.",
   "settings.channels.owner": " · propriétaire",
-  "settings.channels.groups": "Groupes",
-  "settings.channels.noGroups": "Aucun groupe.",
+  "settings.channels.groups": "Qui peut me déclencher dans les groupes",
+  "settings.channels.noGroups":
+    "Tous les autorisés en messages directs peuvent me déclencher dans les groupes.",
   "settings.channels.requireMention": "Ne répondre dans les groupes que si mentionné",
   "settings.channels.err.forbidden":
     "{action, select, policy {Changer qui peut écrire} mention {Changer les mentions de groupe} approve {Approuver l’expéditeur} other {Ignorer l’expéditeur}} nécessite une approbation sur cet appareil. Utilisez un appareil jumelé comme administrateur.",

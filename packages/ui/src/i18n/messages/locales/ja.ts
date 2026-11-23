@@ -1701,16 +1701,18 @@ export const ja: Partial<Catalogue> = {
   "settings.channels.allow.remove": "削除",
   "settings.channels.allow.removeNamed": "{name} を削除",
   "settings.channels.allow.senderLabel": "許可する送信者",
-  "settings.channels.allow.groupLabel": "許可するグループ",
+  "settings.channels.allow.groupLabel": "送信者を追加（グループチャット）",
   "settings.channels.allow.addSender": "送信者を追加",
-  "settings.channels.allow.addGroup": "グループを追加",
+  "settings.channels.allow.addGroup": "送信者を追加",
   "settings.channels.allow.senderApproval": "チャットの送信者を許可",
-  "settings.channels.allow.groupApproval": "チャットのグループを許可",
+  "settings.channels.allow.groupApproval": "グループで私を起動できる人の変更",
+  "settings.channels.allow.groupEmptied":
+    "{name} を削除すると、この一覧には誰も残りません。その場合、ダイレクトメッセージで許可されている全員がグループで Psyche を起動できるようになります。",
   "settings.channels.allow.forbidden":
     "誰がメッセージを送れるかを変更するには管理者デバイスが必要です。管理者としてペアリングしたデバイスを使ってください。",
   "settings.channels.allow.failed":
     "Psyche は誰がメッセージを送れるかを変更できませんでした（{reason}）。何も変更されていません。",
-  "settings.channels.identity.name": "名前",
+  "settings.channels.identity.name": "相手の名前",
   "settings.channels.identity.senders": "送信者 ID（カンマ区切り）",
   "settings.channels.identity.link": "ID をリンク",
   "settings.channels.identity.unlink": "リンクを解除",
@@ -1722,8 +1724,9 @@ export const ja: Partial<Catalogue> = {
     "Psyche は ID リンクを変更できませんでした（{reason}）。何も変更されていません。",
   "settings.channels.noOneYet": "まだ誰もいません。",
   "settings.channels.owner": " · 所有者",
-  "settings.channels.groups": "グループ",
-  "settings.channels.noGroups": "グループはありません。",
+  "settings.channels.groups": "グループで私を起動できる人",
+  "settings.channels.noGroups":
+    "ダイレクトメッセージで許可されている全員が、グループで私を起動できます。",
   "settings.channels.requireMention": "グループではメンションされたときのみ応答",
   "settings.channels.err.forbidden":
     "{action, select, policy {メッセージを送れる人の変更} mention {グループでのメンション設定の変更} approve {送信者の承認} other {送信者の無視}}にはこのデバイスでの承認が必要です。管理者としてペアリングされたデバイスを使用してください。",
