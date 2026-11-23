@@ -87,6 +87,7 @@ import {
   showBrowser,
   toViewLayout,
 } from "./layout/index.ts";
+import { viewCommandRoute } from "./layout/view-command-route.ts";
 import type { GatewayRunView, ShellPlatform, WindowChrome } from "./platform.ts";
 import { ShellStore } from "./store.ts";
 import "./shell.css";
@@ -707,11 +708,13 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
   // view.* RPC from the Gateway (the agent opening, closing and focusing panes), then report.
   useEffect(() => {
     // Only the main window applies view.* and reports the layout; pop-outs and quick entry
-    // receive the same events and must not act on them twice.
+    // receive the same events and must not act on them twice. The Settings window cannot draw
+    // panes, so a command that opens one raises the main window instead (viewCommandRoute).
     if (platform.kind !== "desktop" || popOutPane || route === "/quick") return;
+    const windowKind = settingsWindow ? "settings" : "main";
     const offCmd = store.tap((e) => {
       // A Task parked on an app with unsaved changes on the virtual screen: show the watch pane.
-      if (e.event === "computerWatch.parked" && threadId) {
+      if (windowKind === "main" && e.event === "computerWatch.parked" && threadId) {
         // A computer's parked card opens that computer's pane; the Host's opens the Host's.
         const machine = (e.payload as { machine?: unknown } | undefined)?.machine;
         layout.dispatch(
@@ -725,28 +728,39 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
         );
         return;
       }
-      if (e.event !== "view.command" || !threadId) return;
-      const out = layout.applyViewCommand(e.payload, threadId, env());
+      if (e.event !== "view.command") return;
+      const decision = viewCommandRoute({
+        window: windowKind,
+        paneKey,
+        command: (e.payload as { command?: unknown } | undefined)?.command,
+      });
+      if (decision.raiseMain) platform.windows?.focusMain?.();
+      if (decision.applyTo === null) return;
+      const out = layout.applyViewCommand(e.payload, decision.applyTo, env());
       if (!out.ok) store.toast(t("web.toast.paneFailed", { code: out.error.code }), "warn");
     });
     let timer: ReturnType<typeof setTimeout> | undefined;
-    const offLayout = layout.subscribe((changed) => {
-      clearTimeout(timer);
-      if (changed.startsWith(VIEW_LAYOUT_PREFIX)) return;
-      timer = setTimeout(() => {
-        void store
-          .call("view.report", {
-            layout: toViewLayout(layout.forThread(changed), () => new Date().toISOString()),
-          })
-          .catch(() => undefined);
-      }, 100);
-    });
+    // Only the main window reports: the Settings window's layout is not the one the Gateway shows.
+    const offLayout =
+      windowKind !== "main"
+        ? () => undefined
+        : layout.subscribe((changed) => {
+            clearTimeout(timer);
+            if (changed.startsWith(VIEW_LAYOUT_PREFIX)) return;
+            timer = setTimeout(() => {
+              void store
+                .call("view.report", {
+                  layout: toViewLayout(layout.forThread(changed), () => new Date().toISOString()),
+                })
+                .catch(() => undefined);
+            }, 100);
+          });
     return () => {
       offCmd();
       offLayout();
       clearTimeout(timer);
     };
-  }, [platform.kind, store, layout, threadId, env, popOutPane, route]);
+  }, [platform, store, layout, threadId, paneKey, env, popOutPane, route, settingsWindow]);
 
   // Leaving an empty "New chat" (another chat, another screen, closing the window) deletes it.
   const chatOnScreen = base.startsWith("/chat") && !popOutPane && route !== "/quick";

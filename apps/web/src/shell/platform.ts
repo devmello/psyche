@@ -439,6 +439,8 @@ export interface WindowPort {
    * setup again", which the Settings window cannot render). Main relays it as a `navigate` command.
    */
   openInMain?(route: string): void;
+  /** From the Settings window: brings the main window forward, without navigating it. */
+  focusMain?(): void;
   /** Commands from the app menu, tray, deep links and global shortcuts. */
   onCommand(cb: (command: ShellCommand) => void): Unsubscribe;
 }

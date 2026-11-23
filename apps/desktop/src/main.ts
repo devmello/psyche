@@ -1374,6 +1374,10 @@ function registerIpc(): void {
   // Settings window → "Run setup again" and its other links outside Settings: the main window
   // comes forward and navigates there (`command` shows it).
   on(IPC.windowOpenInMain, (_e, arg) => command({ type: "navigate", route: checkMainRoute(arg) }));
+  // Only an app renderer may raise the main window (the Settings window raises it for a pane).
+  on(IPC.windowFocusMain, (event) => {
+    if (windows?.isAppContents(event.sender) === true) windows.showMain();
+  });
   handle(IPC.dictationGetStatus, () => dictation?.status);
   handle(IPC.dictationRecheck, async () => {
     await dictation?.recheck();
