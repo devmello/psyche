@@ -63,6 +63,8 @@ This covers any rule that sorts inputs into "asks" and "doesn't ask": money-inte
 - **Every new action path gets checked against every existing prohibition.** #1315's purchase tool skipped #1321's hard block. When a PR adds a tool, route or channel that can act, list the prohibitions (money block, outbound check, read-only allowlist, presence) and add a test per prohibition through the new path.
 - **Mutations bind to the fd you checked.** If the checked handle can't be opened, refuse; a by-path `chmod`/`rename` fallback follows a swapped link out of the share (#1450 r1). Copied mode bits drop setuid, setgid and sticky.
 - **Identity comes from the server or kernel, not a client-set field.** Window ownership uses X-Resource `LocalClientPID` plus the cgroup scope, never `_NET_WM_PID`; a missing answer refuses (#1293 r6, #1452 r1).
+- **Hidden line breaks in approval text.** U+0085 (NEL) and C1 controls break lines in iOS text layout, so an approval display sanitizer must neutralise them on both TS and Swift (#1537).
+- **"Removing" can widen access.** A list where empty falls back to a broader list (`groupAllowFrom` → `allowFrom`) is not tightening-only: test the empty case (#1529).
 - **Presence stays payments-only.** #1327's agent search popped a vault unlock. Reads and searches never trigger Touch ID or a vault prompt.
 
 ## 3c. Redacted reads, "is this narrower?" checks, receipts

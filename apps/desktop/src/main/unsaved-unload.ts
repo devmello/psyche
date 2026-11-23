@@ -47,8 +47,63 @@ export function unloadChoice(
   );
 }
 
+/**
+ * Pages that report unsaved Files edits (the renderer's `psyche.files.setDirty`, IPC
+ * `psyche:files:dirty`). Quitting does not reliably reach the page's `beforeunload` (a
+ * BaseWindow's WebContentsView is torn down with its window), so the quit asks from this state.
+ */
+const dirtyPages = new Set<number>();
+const watchedPages = new Set<number>();
+/** The owner chose Discard for a quit: the page's own beforeunload must not ask a second time. */
+let quitConfirmed = false;
+
+/** A page reports whether it holds unsaved Files edits. A reload forgets the old page's report. */
+export function reportFilesDirty(contents: WebContents, dirty: boolean): void {
+  if (!watchedPages.has(contents.id)) {
+    watchedPages.add(contents.id);
+    const forget = () => dirtyPages.delete(contents.id);
+    contents.on("did-start-loading", forget);
+    // A crashed renderer's unsaved edits are gone with it: a stale flag would block quit for nothing.
+    contents.on("render-process-gone", forget);
+    contents.once("destroyed", () => {
+      forget();
+      watchedPages.delete(contents.id);
+    });
+  }
+  if (dirty) dirtyPages.add(contents.id);
+  else dirtyPages.delete(contents.id);
+}
+
+/** Whether any page still holds unsaved Files edits. */
+export const hasUnsavedFiles = (): boolean => dirtyPages.size > 0;
+
+/**
+ * Called before the app quits: true lets the quit go ahead. With unsaved Files edits the owner is
+ * asked first (Discard / Keep editing). The update-restart path can call this too.
+ */
+export function confirmQuitWithUnsaved(
+  ask: (o: Electron.MessageBoxSyncOptions) => number = (o) => dialog.showMessageBoxSync(o),
+): boolean {
+  if (quitConfirmed || !hasUnsavedFiles()) return true;
+  const go = unloadChoice(ask, strings);
+  if (go) quitConfirmed = true;
+  return go;
+}
+
+/** Tests: forget every page and the quit choice. */
+export function resetUnsavedFilesForTests(): void {
+  dirtyPages.clear();
+  watchedPages.clear();
+  quitConfirmed = false;
+}
+
 export function askBeforeUnload(contents: WebContents, win: BaseWindow): void {
   contents.on("will-prevent-unload", (event) => {
+    // The owner already chose Discard for this quit: let the unload go ahead without asking again.
+    if (quitConfirmed) {
+      event.preventDefault();
+      return;
+    }
     const go = unloadChoice(
       (o) =>
         !win.isDestroyed() && win.isVisible()

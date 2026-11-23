@@ -231,6 +231,10 @@ const bridge = {
     openInMain: (route: string) => ipcRenderer.send(IPC.windowOpenInMain, { route }),
     onCommand: (cb: (c: unknown) => void) => listen(IPC.shellCommand, cb),
   },
+  files: {
+    /** Tells the desktop app whether this page holds unsaved Files edits (a quit asks first). */
+    setDirty: (dirty: boolean) => ipcRenderer.send(IPC.filesDirty, { dirty }),
+  },
   notify: {
     show: (n: { title: string; body: string; route?: string }) =>
       ipcRenderer.send(IPC.notifyShow, n),
