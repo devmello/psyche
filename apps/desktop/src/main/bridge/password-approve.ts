@@ -1,5 +1,6 @@
 import { PsycheError } from "@psyche/protocol";
 import { IPC, rec, str } from "../../lib/ipc.ts";
+import { isLinux } from "../../platform/index.ts";
 
 /**
  * The main window's Allow on a card that needs the owner's password (Linux, linux design §9.4).
@@ -26,7 +27,7 @@ export interface PasswordApproveGateway {
 }
 
 export function passwordApprove(gateway: PasswordApproveGateway, arg: unknown): Promise<unknown> {
-  if (process.platform !== "linux") {
+  if (!isLinux()) {
     throw new PsycheError("unavailable", "Password approvals work on Linux only", {
       details: { reason: "not_linux" },
     });

@@ -37,6 +37,7 @@ import { settingsE } from "./settings-e/pt.ts";
 import { spaces } from "./spaces/pt.ts";
 import { specialistsA } from "./specialists-a/pt.ts";
 import { teachA } from "./teach-a/pt.ts";
+import { update } from "./update/pt.ts";
 import { windowsPlatform202611 } from "./windows-platform-2026-11/pt.ts";
 import { workA } from "./work-a/pt.ts";
 import { workB } from "./work-b/pt.ts";
@@ -1672,10 +1673,35 @@ export const pt: Partial<Catalogue> = {
   "settings.channels.approve": "Aprovar",
   "settings.channels.ignoreSender": "Ignorar {name}",
   "settings.channels.ignore": "Ignorar",
+  "settings.channels.allow.remove": "Remover",
+  "settings.channels.allow.removeNamed": "Remover {name}",
+  "settings.channels.allow.senderLabel": "Remetente a permitir",
+  "settings.channels.allow.groupLabel": "Adicionar remetente (conversas em grupo)",
+  "settings.channels.allow.addSender": "Adicionar remetente",
+  "settings.channels.allow.addGroup": "Adicionar remetente",
+  "settings.channels.allow.senderApproval": "Permitir um remetente de chat",
+  "settings.channels.allow.groupApproval": "Mudar quem pode me acionar nos grupos",
+  "settings.channels.allow.groupEmptied":
+    "Remover {name} deixa a lista sem ninguém. Assim, todos os permitidos em mensagens diretas poderão acionar o Psyche nos grupos.",
+  "settings.channels.allow.forbidden":
+    "Mudar quem pode enviar mensagens exige um dispositivo de administrador. Use um dispositivo pareado como administrador.",
+  "settings.channels.allow.failed":
+    "O Psyche não conseguiu mudar quem pode enviar mensagens ({reason}). Nada mudou.",
+  "settings.channels.identity.name": "Nome da pessoa",
+  "settings.channels.identity.senders": "IDs de remetente, separados por vírgula",
+  "settings.channels.identity.link": "Vincular identidade",
+  "settings.channels.identity.unlink": "Desvincular",
+  "settings.channels.identity.unlinkNamed": "Desvincular {name}",
+  "settings.channels.identity.approval": "Vincular uma identidade de chat",
+  "settings.channels.identity.forbidden":
+    "Mudar os vínculos de identidade exige um dispositivo de administrador. Use um dispositivo pareado como administrador.",
+  "settings.channels.identity.failed":
+    "O Psyche não conseguiu mudar o vínculo de identidade ({reason}). Nada mudou.",
   "settings.channels.noOneYet": "Ninguém ainda.",
   "settings.channels.owner": " · proprietário",
-  "settings.channels.groups": "Grupos",
-  "settings.channels.noGroups": "Nenhum grupo.",
+  "settings.channels.groups": "Quem pode me acionar nos grupos",
+  "settings.channels.noGroups":
+    "Todos os permitidos em mensagens diretas podem me acionar nos grupos.",
   "settings.channels.requireMention": "Responder em grupos somente quando mencionado",
   "settings.channels.err.forbidden":
     "{action, select, policy {Alterar quem pode enviar mensagens} mention {Alterar menções em grupos} approve {Aprovar o remetente} other {Ignorar o remetente}} precisa de aprovação neste dispositivo. Use um dispositivo pareado como administrador.",
@@ -1902,6 +1928,12 @@ export const pt: Partial<Catalogue> = {
   "settings.apiKeys.save": "Salvar",
   "settings.apiKeys.saving": "Salvando…",
   "settings.apiKeys.clear": "Limpar",
+  "settings.apiKeys.clearConfirm.title": "Remover a chave de {name}?",
+  "settings.apiKeys.clearConfirm.body":
+    "O Psyche exclui a chave de {name} salva no cofre. As solicitações para {name} vão falhar até que uma chave seja salva de novo ou definida no ambiente.",
+  "settings.apiKeys.clearConfirm.bodyPrimary":
+    "O Psyche exclui a chave de {name} salva no cofre. Seu modelo padrão usa {name}, então o chat vai falhar até você salvar uma chave de novo ou escolher outro modelo.",
+  "settings.apiKeys.clearConfirm.confirm": "Remover chave",
   "settings.apiKeys.none": "Não definida",
   "settings.apiKeys.vault": "Salva no cofre",
   "settings.apiKeys.env": "Definida no ambiente (tem prioridade)",
@@ -3845,6 +3877,7 @@ export const pt: Partial<Catalogue> = {
   ...windowsPlatform202611,
   ...mailFollowups,
   ...keepAwake,
+  ...update,
   ...spaces,
   ...machines,
 };

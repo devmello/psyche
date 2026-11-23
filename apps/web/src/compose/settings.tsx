@@ -239,6 +239,7 @@ function AboutLive({ app }: { app: AppInfoPort | undefined }): ReactElement {
     <AboutSection
       info={info}
       showUpdates={app?.revealHome !== undefined}
+      {...(app?.update ? { update: app.update } : {})}
       {...(app?.revealHome
         ? { onRevealHome: () => void app.revealHome?.().catch(() => undefined) }
         : {})}

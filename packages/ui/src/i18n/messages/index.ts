@@ -59,6 +59,7 @@ import { spaces } from "./spaces.ts";
 import { specialists } from "./specialists.ts";
 import { teach } from "./teach.ts";
 import { time } from "./time.ts";
+import { update } from "./update.ts";
 import { voice } from "./voice.ts";
 import { web } from "./web.ts";
 import { whatCanYouDo } from "./what-can-you-do.ts";
@@ -138,6 +139,7 @@ export const en = {
   ...notices,
   ...separateDesktop,
   ...keepAwake,
+  ...update,
   ...spaces,
   ...machines,
 } as const;

@@ -54,6 +54,7 @@ import { settingsRest } from "./settings-rest/ko.ts";
 import { shellRest } from "./shell-rest/ko.ts";
 import { spaces } from "./spaces/ko.ts";
 import { specialistsRest } from "./specialists-rest/ko.ts";
+import { update } from "./update/ko.ts";
 import { webRest } from "./web-rest/ko.ts";
 import { widgetsRest } from "./widgets-rest/ko.ts";
 import { windowsPlatform202611 } from "./windows-platform-2026-11/ko.ts";
@@ -1698,10 +1699,35 @@ export const ko: Partial<Catalogue> = {
   "settings.channels.approve": "승인",
   "settings.channels.ignoreSender": "{name} 무시",
   "settings.channels.ignore": "무시",
+  "settings.channels.allow.remove": "삭제",
+  "settings.channels.allow.removeNamed": "{name} 삭제",
+  "settings.channels.allow.senderLabel": "허용할 발신자",
+  "settings.channels.allow.groupLabel": "발신자 추가 (그룹 채팅)",
+  "settings.channels.allow.addSender": "발신자 추가",
+  "settings.channels.allow.addGroup": "발신자 추가",
+  "settings.channels.allow.senderApproval": "채팅 발신자 허용",
+  "settings.channels.allow.groupApproval": "그룹에서 나를 호출할 수 있는 사람 변경",
+  "settings.channels.allow.groupEmptied":
+    "{name}을(를) 삭제하면 이 목록에 아무도 남지 않습니다. 그러면 개인 메시지에서 허용된 모든 사람이 그룹에서 Psyche를 호출할 수 있습니다.",
+  "settings.channels.allow.forbidden":
+    "누가 메시지를 보낼 수 있는지 바꾸려면 관리자 기기가 필요합니다. 관리자로 페어링된 기기를 사용하세요.",
+  "settings.channels.allow.failed":
+    "Psyche가 메시지를 보낼 수 있는 사람을 바꾸지 못했습니다({reason}). 아무것도 바뀌지 않았습니다.",
+  "settings.channels.identity.name": "사람 이름",
+  "settings.channels.identity.senders": "발신자 ID, 쉼표로 구분",
+  "settings.channels.identity.link": "ID 연결",
+  "settings.channels.identity.unlink": "연결 해제",
+  "settings.channels.identity.unlinkNamed": "{name} 연결 해제",
+  "settings.channels.identity.approval": "채팅 ID 연결",
+  "settings.channels.identity.forbidden":
+    "ID 연결을 바꾸려면 관리자 기기가 필요합니다. 관리자로 페어링된 기기를 사용하세요.",
+  "settings.channels.identity.failed":
+    "Psyche가 ID 연결을 바꾸지 못했습니다({reason}). 아무것도 바뀌지 않았습니다.",
   "settings.channels.noOneYet": "아직 아무도 없습니다.",
   "settings.channels.owner": " · 소유자",
-  "settings.channels.groups": "그룹",
-  "settings.channels.noGroups": "그룹이 없습니다.",
+  "settings.channels.groups": "그룹에서 나를 호출할 수 있는 사람",
+  "settings.channels.noGroups":
+    "개인 메시지에서 허용된 모든 사람이 그룹에서 나를 호출할 수 있습니다.",
   "settings.channels.requireMention": "그룹에서는 멘션될 때만 답하기",
   "settings.channels.err.forbidden":
     "{action, select, policy {메시지 허용 대상 변경} mention {그룹 멘션 설정 변경} approve {발신자 승인} other {발신자 무시}}에는 이 기기에서 승인이 필요합니다. 관리자로 페어링된 기기를 사용하십시오.",
@@ -1924,6 +1950,12 @@ export const ko: Partial<Catalogue> = {
   "settings.apiKeys.save": "저장",
   "settings.apiKeys.saving": "저장 중…",
   "settings.apiKeys.clear": "지우기",
+  "settings.apiKeys.clearConfirm.title": "{name} 키를 삭제할까요?",
+  "settings.apiKeys.clearConfirm.body":
+    "Psyche가 보관함에 저장된 {name} 키를 삭제합니다. 새 키를 다시 저장하거나 환경 변수로 설정하기 전까지 {name} 요청은 실패합니다.",
+  "settings.apiKeys.clearConfirm.bodyPrimary":
+    "Psyche가 보관함에 저장된 {name} 키를 삭제합니다. 기본 모델이 {name}을 사용하므로, 키를 다시 저장하거나 다른 모델을 고르기 전까지 채팅이 작동하지 않습니다.",
+  "settings.apiKeys.clearConfirm.confirm": "키 삭제",
   "settings.apiKeys.none": "설정되지 않음",
   "settings.apiKeys.vault": "보관함에 저장됨",
   "settings.apiKeys.env": "환경 변수로 설정됨(우선 적용)",
@@ -3836,6 +3868,7 @@ export const ko: Partial<Catalogue> = {
   ...windowsPlatform202611,
   ...mailFollowups,
   ...keepAwake,
+  ...update,
   ...spaces,
   ...machines,
 };

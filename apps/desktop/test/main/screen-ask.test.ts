@@ -5,13 +5,16 @@ import { IPC } from "../../src/lib/ipc.ts";
 class FakeWindow {
   static all: FakeWindow[] = [];
   readonly sent: [string, unknown][] = [];
-  readonly #wcOn = new Map<string, () => void>();
+  readonly #wcOn = new Map<string, (() => void)[]>();
   readonly #on = new Map<string, () => void>();
   loading = true;
   readonly webContents = {
-    on: (ev: string, fn: () => void) => this.#wcOn.set(ev, fn),
+    // Like Electron, every listener on an event runs (did-finish-load has two in ScreenAskWindow).
+    on: (ev: string, fn: () => void) => this.#wcOn.set(ev, [...(this.#wcOn.get(ev) ?? []), fn]),
     send: (channel: string, payload: unknown) => this.sent.push([channel, payload]),
     isLoading: () => this.loading,
+    isDestroyed: () => false,
+    setBackgroundThrottling: () => undefined,
     focus: () => undefined,
   };
   destroyed = false;
@@ -37,7 +40,7 @@ class FakeWindow {
   }
   finishLoad() {
     this.loading = false;
-    this.#wcOn.get("did-finish-load")?.();
+    for (const fn of this.#wcOn.get("did-finish-load") ?? []) fn();
   }
   ready() {
     this.#on.get("ready-to-show")?.();

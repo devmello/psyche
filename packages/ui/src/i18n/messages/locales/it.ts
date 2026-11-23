@@ -54,6 +54,7 @@ import { settingsRest } from "./settings-rest/it.ts";
 import { shellRest } from "./shell-rest/it.ts";
 import { spaces } from "./spaces/it.ts";
 import { specialistsRest } from "./specialists-rest/it.ts";
+import { update } from "./update/it.ts";
 import { webRest } from "./web-rest/it.ts";
 import { widgetsRest } from "./widgets-rest/it.ts";
 import { windowsPlatform202611 } from "./windows-platform-2026-11/it.ts";
@@ -1711,10 +1712,35 @@ export const it: Partial<Catalogue> = {
   "settings.channels.approve": "Approva",
   "settings.channels.ignoreSender": "Ignora {name}",
   "settings.channels.ignore": "Ignora",
+  "settings.channels.allow.remove": "Rimuovi",
+  "settings.channels.allow.removeNamed": "Rimuovi {name}",
+  "settings.channels.allow.senderLabel": "Mittente da consentire",
+  "settings.channels.allow.groupLabel": "Aggiungi un mittente (chat di gruppo)",
+  "settings.channels.allow.addSender": "Aggiungi mittente",
+  "settings.channels.allow.addGroup": "Aggiungi mittente",
+  "settings.channels.allow.senderApproval": "Consentire un mittente di chat",
+  "settings.channels.allow.groupApproval": "Cambiare chi può attivarmi nei gruppi",
+  "settings.channels.allow.groupEmptied":
+    "Rimuovere {name} lascia la lista vuota. Allora tutti i consentiti nei messaggi diretti potranno attivare Psyche nei gruppi.",
+  "settings.channels.allow.forbidden":
+    "Cambiare chi può scrivere richiede un dispositivo amministratore. Usa un dispositivo abbinato come amministratore.",
+  "settings.channels.allow.failed":
+    "Psyche non è riuscito a cambiare chi può scrivere ({reason}). Non è cambiato nulla.",
+  "settings.channels.identity.name": "Nome della persona",
+  "settings.channels.identity.senders": "ID mittente, separati da virgole",
+  "settings.channels.identity.link": "Collega identità",
+  "settings.channels.identity.unlink": "Scollega",
+  "settings.channels.identity.unlinkNamed": "Scollega {name}",
+  "settings.channels.identity.approval": "Collegare un'identità di chat",
+  "settings.channels.identity.forbidden":
+    "Cambiare i collegamenti delle identità richiede un dispositivo amministratore. Usa un dispositivo abbinato come amministratore.",
+  "settings.channels.identity.failed":
+    "Psyche non è riuscito a cambiare il collegamento dell'identità ({reason}). Non è cambiato nulla.",
   "settings.channels.noOneYet": "Ancora nessuno.",
   "settings.channels.owner": " · proprietario",
-  "settings.channels.groups": "Gruppi",
-  "settings.channels.noGroups": "Nessun gruppo.",
+  "settings.channels.groups": "Chi può attivarmi nei gruppi",
+  "settings.channels.noGroups":
+    "Tutti i consentiti nei messaggi diretti possono attivarmi nei gruppi.",
   "settings.channels.requireMention": "Nei gruppi rispondi solo se menzionato",
   "settings.channels.err.forbidden":
     "{action, select, policy {Cambiare chi può scrivere} mention {Cambiare le menzioni nei gruppi} approve {Approvare il mittente} other {Ignorare il mittente}} richiede un’approvazione su questo dispositivo. Usa un dispositivo abbinato come amministratore.",
@@ -1943,6 +1969,12 @@ export const it: Partial<Catalogue> = {
   "settings.apiKeys.save": "Salva",
   "settings.apiKeys.saving": "Salvataggio…",
   "settings.apiKeys.clear": "Cancella",
+  "settings.apiKeys.clearConfirm.title": "Rimuovere la chiave {name}?",
+  "settings.apiKeys.clearConfirm.body":
+    "Psyche elimina la chiave {name} salvata nel vault. Le richieste a {name} non riusciranno finché non ne salvi una nuova o non la imposti nell'ambiente.",
+  "settings.apiKeys.clearConfirm.bodyPrimary":
+    "Psyche elimina la chiave {name} salvata nel vault. Il tuo modello predefinito usa {name}, quindi la chat non funzionerà finché non salvi di nuovo una chiave o scegli un altro modello.",
+  "settings.apiKeys.clearConfirm.confirm": "Rimuovi chiave",
   "settings.apiKeys.none": "Non impostata",
   "settings.apiKeys.vault": "Salvata nel caveau",
   "settings.apiKeys.env": "Impostata nell’ambiente (ha la precedenza)",
@@ -3902,6 +3934,7 @@ export const it: Partial<Catalogue> = {
   ...windowsPlatform202611,
   ...mailFollowups,
   ...keepAwake,
+  ...update,
   ...spaces,
   ...machines,
 };

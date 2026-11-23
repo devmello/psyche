@@ -10308,25 +10308,6 @@ export type SandboxSrtProblem = "not_found" | "not_absolute" | "not_executable" 
 
 export type SandboxSrtSource = "env" | "setting" | "detected";
 
-export interface SandboxListResult {
-    sandboxes: SandboxInfo[];
-}
-
-export interface SandboxInfo {
-    createdAt:   string;
-    id:          string;
-    image:       string;
-    lastUsedAt?: null | string;
-    network:     SandboxNetwork;
-    status:      SandboxStatus;
-    taskId?:     null | string;
-    threadId?:   null | string;
-}
-
-export type SandboxNetwork = "none" | "proxy";
-
-export type SandboxStatus = "creating" | "running" | "stopped" | "error";
-
 export interface SandboxSetupResult {
     containers: SandboxContainerSetup;
     installer?: SandboxSrtInstaller;
@@ -10398,6 +10379,21 @@ export interface SandboxStatusResult {
     sandboxPc?: SandboxPCStatus;
     srt?:       SandboxSrtStatus;
 }
+
+export interface SandboxInfo {
+    createdAt:   string;
+    id:          string;
+    image:       string;
+    lastUsedAt?: null | string;
+    network:     SandboxNetwork;
+    status:      SandboxStatus;
+    taskId?:     null | string;
+    threadId?:   null | string;
+}
+
+export type SandboxNetwork = "none" | "proxy";
+
+export type SandboxStatus = "creating" | "running" | "stopped" | "error";
 
 export interface ScheduledListResult {
     items:    ScheduledItem[];
