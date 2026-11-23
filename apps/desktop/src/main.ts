@@ -181,6 +181,7 @@ import {
   UNINSTALL_MANUAL_STEPS_WINDOWS,
 } from "./main/uninstall-windows.ts";
 import { windowsUninstallDeps } from "./main/uninstall-windows-host.ts";
+import { confirmQuitWithUnsaved, reportFilesDirty } from "./main/unsaved-unload.ts";
 import {
   bundleOfExecutable,
   parsePinnedRequirement,
@@ -1348,6 +1349,9 @@ function registerIpc(): void {
       ) ?? false,
   );
   on(IPC.windowClose, (event) => windows?.closeFor(event.sender));
+  on(IPC.filesDirty, (event, arg) =>
+    reportFilesDirty(event.sender, (arg as { dirty?: unknown } | null)?.dirty === true),
+  );
   // The section is checked against a slug pattern in settingsRoute().
   on(IPC.windowOpenSettings, (_e, arg) =>
     windows?.showSettings(typeof arg === "string" ? arg : undefined),
@@ -2589,7 +2593,12 @@ function stopHelperForQuit(): void {
   }
 }
 
-app.on("before-quit", () => {
+app.on("before-quit", (event) => {
+  // Unsaved Files edits: the owner decides before anything is torn down (Discard / Keep editing).
+  if (!confirmQuitWithUnsaved()) {
+    event.preventDefault();
+    return;
+  }
   stopHelperForQuit();
   windows?.setQuitting();
   dockPolicy.dispose();
