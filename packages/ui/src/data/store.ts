@@ -825,6 +825,10 @@ export class GatewayStore {
           settings[entry.key] = entry.value;
           next = touch(next, `settings:${entry.key}`, v);
         }
+        // Settings → Browser lists the effective signed-in sites, which these keys change.
+        if (e.payload.entries.some((entry) => entry.key.startsWith("browser."))) {
+          next = invalidate(next, ["browser.settings.get"]);
+        }
         return { ...next, settings };
       }
       case "thread.updated": {

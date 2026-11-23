@@ -217,6 +217,50 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.browser.useSignedIn.hint":
     "डिफ़ॉल्ट रूप से चालू। बंद करने पर हर साइट लॉग आउट खुलती है, सिवाय उनके जिनके लिए आपने साइन इन रहना चुना है।",
   "settings.browser.signedIn.none": "अभी कोई साइट साइन इन नहीं है।",
+  "settings.browser.agent.title": "एजेंट साइन-इन",
+  "settings.browser.agent.description":
+    "एजेंट का ब्राउज़र आपके कौन-से साइन-इन इस्तेमाल कर सकता है। बदलाव नए टैब पर लागू होते हैं, चल रहे कार्यों में भी।",
+  "settings.browser.agent.mode.label": "साइन-इन",
+  "settings.browser.agent.mode.clean": "साइन-आउट",
+  "settings.browser.agent.mode.auto": "केवल साइन-इन वाली साइटें",
+  "settings.browser.agent.mode.profile": "सभी साइटें",
+  "settings.browser.agent.mode.cleanHint":
+    "हर साइट साइन-आउट अवस्था में खुलती है। एजेंट आपके साइन-इन कभी इस्तेमाल नहीं करता।",
+  "settings.browser.agent.mode.autoHint":
+    "नीचे सूची की साइटें आपके साइन-इन के साथ खुलती हैं, उन साइटों समेत जिनमें ब्राउज़र पहले से साइन इन है। बाकी सभी साइटें साइन-आउट खुलती हैं।",
+  "settings.browser.agent.mode.profileHint":
+    "हर साइट आपके साइन-इन के साथ खुलती है। एजेंट किसी भी साइट पर आपकी ओर से काम कर सकता है।",
+  "settings.browser.agent.sites.title": "साइन-इन की गई साइटें",
+  "settings.browser.agent.sites.description":
+    "«केवल साइन-इन वाली साइटें» मोड में एजेंट जिन साइटों को आपके साइन-इन से खोलता है। यहाँ एक जोड़ें, या ब्राउज़र टैब से साइन इन करें। केवल https, या localhost के लिए http।",
+  "settings.browser.agent.sites.none": "अभी कोई साइट सूची में नहीं है।",
+  "settings.browser.agent.sites.readOnly": "Psyche डेस्कटॉप ऐप से साइन आउट करें",
+  "settings.browser.agent.sites.signOutSite": "{site} से साइन आउट करें",
+  "settings.browser.agent.sites.source.stay": "साइन इन रहें",
+  "settings.browser.agent.sites.source.setting": "सेटिंग में जोड़ी गई",
+  "settings.browser.agent.mode.autoHintOff":
+    "केवल नीचे सूची की साइटें आपके साइन-इन के साथ खुलती हैं। बाकी सभी साइटें साइन-आउट खुलती हैं।",
+  "settings.browser.agent.sites.remove": "{site} हटाएँ",
+  "settings.browser.agent.sites.removeShort": "हटाएँ",
+  "settings.browser.agent.sites.label": "साइट का पता",
+  "settings.browser.agent.sites.add": "साइट जोड़ें",
+  "settings.browser.agent.ports.title": "डेव प्रीव्यू पोर्ट",
+  "settings.browser.agent.ports.description": "स्थानीय डेव सर्वर जिन्हें एजेंट खोल सकता है। केवल localhost।",
+  "settings.browser.agent.ports.none": "अभी कोई पोर्ट सूची में नहीं है।",
+  "settings.browser.agent.ports.remove": "पोर्ट {port} हटाएँ",
+  "settings.browser.agent.ports.label": "पोर्ट नंबर",
+  "settings.browser.agent.ports.add": "पोर्ट जोड़ें",
+  "settings.browser.agent.fromEnv":
+    "{variable} एनवायरनमेंट वेरिएबल द्वारा सेट है। यहाँ बदलने के लिए उसे हटाएँ।",
+  "settings.browser.agent.refuse.notUrl":
+    "यह साइट का पता नहीं है। https://example.com जैसा रूप इस्तेमाल करें।",
+  "settings.browser.agent.refuse.wildcard":
+    "वाइल्डकार्ड अनुमत नहीं हैं। हर साइट को उसके सटीक पते से सूची में डालें।",
+  "settings.browser.agent.refuse.credentials": "उपयोगकर्ता नाम या पासवर्ड वाले पते अनुमत नहीं हैं।",
+  "settings.browser.agent.refuse.path": "केवल साइट का पता दें, पाथ के बिना।",
+  "settings.browser.agent.refuse.scheme":
+    "https का उपयोग करें। सादा http केवल localhost के लिए अनुमत है।",
+  "settings.browser.agent.refuse.port": "पोर्ट 1 से 65535 के बीच का पूर्णांक होना चाहिए।",
   "settings.browser.signedIn.viaHosts": "{hosts} के ज़रिए भी साइन इन",
   "settings.browser.signedIn.forget": "साइन आउट / भूलें",
   "settings.browser.signedIn.loadFailed":

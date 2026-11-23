@@ -4,6 +4,11 @@ import { type GoogleClientConfig, googleClientFrom, readConfigFile } from "../co
 import { openExternalUrl } from "../platform.ts";
 import { composeBackup } from "./backup.ts";
 import { type ComposedBrowser, composeBrowser } from "./browser.ts";
+import {
+  readDetectedDomains,
+  readSignedInOrigins,
+  resolveBrowserAgentSettings,
+} from "./browser-agent-settings.ts";
 import { serverBrowserSetupFor } from "./browser-server.ts";
 import { channelsSetupFromEnv, composeChannels } from "./channels.ts";
 import { composeCoding } from "./coding.ts";
@@ -68,7 +73,6 @@ export function googleClientSetup(
   return { ...(file ?? {}), ...fromEnv };
 }
 
-/** Origins the owner chose to stay signed in to (`$PSYCHE_HOME/browser/signed-in.json`). */
 /**
  * Where the browser bridge listens: `PSYCHE_BROWSER_BRIDGE_SOCKET` when set, else the default
  * `$PSYCHE_HOME/run/browser-bridge.sock`. The desktop shell reads the same variable (its
@@ -79,36 +83,7 @@ export function bridgeSocketSetup(env: NodeJS.ProcessEnv): { socketPath?: string
   return path ? { socketPath: path } : {};
 }
 
-export function readSignedInOrigins(home: string): string[] {
-  try {
-    const doc = JSON.parse(readFileSync(join(home, "browser", "signed-in.json"), "utf8")) as {
-      sites?: { origin?: unknown }[];
-    };
-    return (doc.sites ?? []).flatMap((s) =>
-      typeof s.origin === "string" && /^https:\/\/[^/\s]+$/.test(s.origin) ? [s.origin] : [],
-    );
-  } catch {
-    return [];
-  }
-}
-
-/**
- * Registrable domains the persistent profile holds a live session for
- * (`$PSYCHE_HOME/browser/detected-sessions.json`, written by the desktop from the profile's
- * cookies: domain names only, never a cookie or a value).
- */
-export function readDetectedDomains(home: string): string[] {
-  try {
-    const doc = JSON.parse(
-      readFileSync(join(home, "browser", "detected-sessions.json"), "utf8"),
-    ) as { domains?: unknown };
-    return Array.isArray(doc.domains)
-      ? doc.domains.filter((d): d is string => typeof d === "string" && /^[a-z0-9.-]+$/.test(d))
-      : [];
-  } catch {
-    return [];
-  }
-}
+export { readDetectedDomains, readSignedInOrigins };
 
 export function partsFromEnv(
   env: NodeJS.ProcessEnv,
@@ -127,20 +102,10 @@ export function partsFromEnv(
     return srt;
   };
   if (env.PSYCHE_BROWSER !== "off") {
-    // Logged out by default (I15). `PSYCHE_BROWSER_PARTITION=profile|clean|auto` and the
-    // comma-separated `PSYCHE_BROWSER_SIGNED_IN_ORIGINS` (used by `auto`) stand in until
-    // Settings → Browser (S11) holds them.
-    const partition = env.PSYCHE_BROWSER_PARTITION;
-    const signedIn = (env.PSYCHE_BROWSER_SIGNED_IN_ORIGINS ?? "")
-      .split(",")
-      .map((o) => o.trim())
-      .filter((o) => o !== "");
-    // Dev preview (I12): the loopback ports the owner allowlists, until Settings → Browser
-    // and the sandbox's own server registrations exist.
-    const devPorts = (env.PSYCHE_DEV_PREVIEW_PORTS ?? "")
-      .split(",")
-      .map((p) => Number.parseInt(p.trim(), 10))
-      .filter((p) => Number.isInteger(p) && p > 0 && p < 65_536);
+    // Logged out by default (I15). The sign-in mode, the signed-in sites and the dev-preview ports
+    // come from Settings → Browser, or from the PSYCHE_BROWSER_PARTITION,
+    // PSYCHE_BROWSER_SIGNED_IN_ORIGINS and PSYCHE_DEV_PREVIEW_PORTS env vars when those are set
+    // (a development override). Each is read on every use, so a change applies at once.
     parts.push((s) => {
       browser = composeBrowser(s, {
         record: env.PSYCHE_BROWSER_RECORD === "1",
@@ -159,13 +124,16 @@ export function partsFromEnv(
               },
             }
           : {}),
-        ...(devPorts.length === 0 ? {} : { devPreview: { ownerPorts: devPorts } }),
-        ...(partition === "profile" || partition === "clean" || partition === "auto"
-          ? { partition }
-          : {}),
+        ownerDevPorts: () => resolveBrowserAgentSettings(s.db, env).devPreviewPorts.value,
+        partition: () => resolveBrowserAgentSettings(s.db, env).partition.value,
         // Read on every new session: Settings → Browser and "Stay signed in" change the list
         // while the Gateway runs (desktop writes `browser/signed-in.json`).
-        signedInOrigins: () => [...new Set([...signedIn, ...readSignedInOrigins(s.home)])],
+        signedInOrigins: () => [
+          ...new Set([
+            ...resolveBrowserAgentSettings(s.db, env).signedInOrigins.value,
+            ...readSignedInOrigins(s.home),
+          ]),
+        ],
         detectedDomains: () => readDetectedDomains(s.home),
       });
       return browser;

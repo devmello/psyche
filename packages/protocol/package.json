@@ -22,6 +22,10 @@
       "types": "./src/money-intent.ts",
       "default": "./src/money-intent.ts"
     },
+    "./browser-agent": {
+      "types": "./src/browser-agent.ts",
+      "default": "./src/browser-agent.ts"
+    },
     "./financial-block": {
       "types": "./src/financial-block.ts",
       "default": "./src/financial-block.ts"

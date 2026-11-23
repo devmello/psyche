@@ -177,6 +177,51 @@ export const settingsA: Partial<Catalogue> = {
   "settings.browser.useSignedIn.hint":
     "Ativado por padrão. Desativado abre cada site sem sessão, exceto os que você escolheu manter com sessão iniciada.",
   "settings.browser.signedIn.none": "Ainda não há sites com sessão iniciada.",
+  "settings.browser.agent.title": "Sessões do agente",
+  "settings.browser.agent.description":
+    "Quais dos seus logins o navegador do agente pode usar. As alterações valem para novas abas, inclusive em tarefas já em andamento.",
+  "settings.browser.agent.mode.label": "Sessões",
+  "settings.browser.agent.mode.clean": "Sem sessão",
+  "settings.browser.agent.mode.auto": "Somente sites com login",
+  "settings.browser.agent.mode.profile": "Todos os sites",
+  "settings.browser.agent.mode.cleanHint":
+    "Todo site abre sem sessão. O agente nunca usa as suas sessões.",
+  "settings.browser.agent.mode.autoHint":
+    "Os sites da lista abaixo abrem com seus logins, inclusive os sites em que o navegador já está conectado. Todos os outros abrem sem login.",
+  "settings.browser.agent.mode.profileHint":
+    "Todo site abre com as suas sessões. O agente pode agir como você em qualquer um.",
+  "settings.browser.agent.sites.title": "Sites com sessão",
+  "settings.browser.agent.sites.description":
+    "Sites que o agente abre com seus logins no modo «Somente sites com login». Adicione um aqui ou entre por uma aba do navegador. Somente https, ou http para localhost.",
+  "settings.browser.agent.sites.none": "Nenhum site na lista.",
+  "settings.browser.agent.sites.readOnly": "Saia pelo app de desktop do Psyche",
+  "settings.browser.agent.sites.signOutSite": "Sair de {site}",
+  "settings.browser.agent.sites.source.stay": "Manter login",
+  "settings.browser.agent.sites.source.setting": "Adicionado em Ajustes",
+  "settings.browser.agent.mode.autoHintOff":
+    "Somente os sites da lista abaixo abrem com seus logins. Todos os outros abrem sem login.",
+  "settings.browser.agent.sites.remove": "Remover {site}",
+  "settings.browser.agent.sites.removeShort": "Remover",
+  "settings.browser.agent.sites.label": "Endereço do site",
+  "settings.browser.agent.sites.add": "Adicionar site",
+  "settings.browser.agent.ports.title": "Portas de pré-visualização",
+  "settings.browser.agent.ports.description":
+    "Servidores de desenvolvimento locais que o agente pode abrir, só em localhost.",
+  "settings.browser.agent.ports.none": "Nenhuma porta na lista.",
+  "settings.browser.agent.ports.remove": "Remover a porta {port}",
+  "settings.browser.agent.ports.label": "Número da porta",
+  "settings.browser.agent.ports.add": "Adicionar porta",
+  "settings.browser.agent.fromEnv":
+    "Definido pela variável de ambiente {variable}. Remova-a para mudar isto aqui.",
+  "settings.browser.agent.refuse.notUrl":
+    "Isso não é um endereço de site. Use uma forma como https://exemplo.com.br.",
+  "settings.browser.agent.refuse.wildcard":
+    "Curingas não são permitidos. Liste cada site pelo endereço exato.",
+  "settings.browser.agent.refuse.credentials":
+    "Endereços com nome de usuário ou senha não são permitidos.",
+  "settings.browser.agent.refuse.path": "Informe só o endereço do site, sem caminho.",
+  "settings.browser.agent.refuse.scheme": "Use https. http simples só é permitido para localhost.",
+  "settings.browser.agent.refuse.port": "A porta deve ser um número inteiro de 1 a 65535.",
   "settings.browser.signedIn.viaHosts": "Também com sessão iniciada por meio de {hosts}",
   "settings.browser.signedIn.forget": "Sair / esquecer",
   "settings.browser.signedIn.loadFailed":

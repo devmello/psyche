@@ -10,8 +10,11 @@ extension GatewayBackend {
         Self.modelChoices(try await call("models.list", .obj([:])))
     }
 
-    public func setDefaultModel(_ ref: String) async throws {
-        _ = try await call("models.setRole", .obj(["role": .string("primary"), "ref": .string(ref)]))
+    /// `override` is sent only when true, as the desktop does: "Use anyway" for a chat-only model.
+    public func setDefaultModel(_ ref: String, override: Bool) async throws {
+        var params: [String: JSONValue] = ["role": .string("primary"), "ref": .string(ref)]
+        if override { params["override"] = .bool(true) }
+        _ = try await call("models.setRole", .object(params))
     }
 
     public func usage() async throws -> UsageReport {

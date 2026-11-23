@@ -8,6 +8,8 @@ final class ProjectModel {
     private(set) var phase: LoadPhase<ProjectDetail> = .idle
     private(set) var overrides: [String: Bool] = [:]
     private(set) var completions = 0
+    /// Bumped on each saved edit or forgotten fact, so the view can play one haptic.
+    private(set) var changes = 0
     var notice: String?
     /// The Space linked to this project, if there is one.
     private(set) var spaceID: String?
@@ -57,6 +59,28 @@ final class ProjectModel {
         }
     }
 
+    /// Saves the owner's value for a project fact. Throws so the edit sheet shows the Gateway's words.
+    /// The project is an entity like a person, so the same `memory.entities.facts.set` call takes its id.
+    func edit(_ fact: MemoryFact, value: String) async throws {
+        guard let attribute = fact.attribute else {
+            throw BackendError.refused(String(localized: "Edit this on your Mac.", bundle: .module))
+        }
+        try await store.editFact(personID: id, attribute: attribute, value: value)
+        changes += 1
+        await load()
+    }
+
+    /// "Forget": the fact leaves the page. A failure shows as the page's alert.
+    func retract(_ fact: MemoryFact) async {
+        do {
+            try await store.retractFact(personID: id, factID: fact.id)
+            changes += 1
+            await load()
+        } catch {
+            notice = error.localizedDescription
+        }
+    }
+
     func isDone(_ todo: TodoItem) -> Bool { overrides[todo.id] ?? todo.done }
 
     func toggle(_ todo: TodoItem) {
@@ -77,10 +101,13 @@ final class ProjectModel {
 }
 
 /// A project (docs/design/ios-app-2026.md §4.5): progress, its to-dos, what Psyche noted, and where the
-/// page comes from. Read-mostly: bigger edits say "Edit on your Mac".
+/// page comes from. Each noted fact has "Edit" and "Forget", as on a person's page. Bigger edits say
+/// "Edit on your Mac".
 struct ProjectPage: View {
     @State private var model: ProjectModel
     @State private var openedSpace: Route?
+    @State private var retracting: MemoryFact?
+    @State private var editing: MemoryFact?
 
     init(id: String, store: any PsycheBackend) {
         _model = State(initialValue: ProjectModel(id: id, store: store))
@@ -117,6 +144,19 @@ struct ProjectPage: View {
         }
         .navigationDestination(item: $openedSpace) { route in RouteView(route: route) }
         .sensoryFeedback(.success, trigger: model.completions)
+        .sensoryFeedback(.success, trigger: model.changes)
+        .alert(
+            String(localized: "Forget this fact?", bundle: .module), isPresented: Binding(get: { retracting != nil }, set: { if !$0 { retracting = nil } }),
+            presenting: retracting
+        ) { fact in
+            Button(String(localized: "Forget", bundle: .module), role: .destructive) { Task { await model.retract(fact) } }
+            Button(String(localized: "Keep it", bundle: .module), role: .cancel) {}
+        } message: { fact in
+            Text("\u{201C}\(fact.text)\u{201D} stops shaping what Psyche does.", bundle: .module)
+        }
+        .sheet(item: $editing) { fact in
+            FactEditSheet(fact: fact) { value in try await model.edit(fact, value: value) }
+        }
         .alert(String(localized: "Couldn't update that", bundle: .module), isPresented: Binding(get: { model.notice != nil }, set: { if !$0 { model.notice = nil } })) {
             Button(String(localized: "OK", bundle: .module), role: .cancel) {}
         } message: {
@@ -155,12 +195,7 @@ struct ProjectPage: View {
                 PaperStack {
                     ForEach(Array(detail.notes.enumerated()), id: \.element.id) { index, note in
                         if index > 0 { HairlineDivider() }
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text(note.text).font(.psycheRow).foregroundStyle(PsycheColor.text)
-                            EvidenceLine(note.evidence)
-                        }
-                        .padding(PsycheMetrics.rowPadding)
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                        noteRow(note)
                     }
                 }
             }
@@ -192,6 +227,33 @@ struct ProjectPage: View {
             .buttonStyle(.psycheOutline).frame(maxWidth: 220)
             .disabled(model.makingSpace)
         }
+    }
+
+    private func noteRow(_ note: MemoryFact) -> some View {
+        HStack(alignment: .top, spacing: 8) {
+            VStack(alignment: .leading, spacing: 3) {
+                Text(note.text).font(.psycheRow).foregroundStyle(PsycheColor.text)
+                    .multilineTextAlignment(.leading)
+                EvidenceLine(note.evidence)
+            }
+            Spacer(minLength: 0)
+            Menu {
+                if note.attribute != nil {
+                    Button { editing = note } label: { Label(String(localized: "Edit", bundle: .module), systemImage: "pencil") }
+                }
+                Button(role: .destructive) { retracting = note } label: { Label(String(localized: "Forget", bundle: .module), systemImage: "trash") }
+            } label: {
+                Image(systemName: "ellipsis")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(PsycheColor.muted)
+                    .frame(width: 36, height: 36)
+                    .contentShape(Rectangle())
+            }
+            .accessibilityLabel(String(localized: "Actions for this fact", bundle: .module))
+        }
+        .padding(.leading, 14)
+        .padding(.trailing, 6)
+        .padding(.vertical, 8)
     }
 
     private func todoRow(_ todo: TodoItem) -> some View {

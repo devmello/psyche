@@ -16,7 +16,7 @@ extension FixtureBackend: ModelsBackend {
         return ModelChoices(models: modelsState.models, defaultRef: modelsState.defaultRef)
     }
 
-    public func setDefaultModel(_ ref: String) async throws {
+    public func setDefaultModel(_ ref: String, override: Bool) async throws {
         await pause()
         guard modelsState.models.contains(where: { $0.ref == ref }) else { throw BackendError.notFound }
         modelsState.defaultRef = ref

@@ -57,6 +57,12 @@ import type { Call, HandlerDef } from "../context.ts";
 import type { PublicRoute } from "../http.ts";
 import type { Gateway } from "../server.ts";
 import {
+  effectiveSignedInSites,
+  readDetectedDomains,
+  readSignedInOrigins,
+  resolveBrowserAgentSettings,
+} from "./browser-agent-settings.ts";
+import {
   createPlaywrightServerDriver,
   NO_CHROMIUM_MESSAGE,
   noChromium,
@@ -98,9 +104,14 @@ export interface BrowserSetup {
    * `profile` (the owner's sign-ins) or `auto` (default: the profile only for tabs on
    * `signedInOrigins`, logged out everywhere else). Never remembered per task.
    */
-  partition?: PartitionMode;
+  partition?: PartitionMode | (() => PartitionMode | undefined);
   /** Origins the owner has signed into in the agent profile, for `auto`. */
   signedInOrigins?: string[] | (() => string[]);
+  /**
+   * The owner's dev-preview ports (Settings → Browser), read on every use so an added port
+   * applies at once. Overrides `devPreview.ownerPorts` when given.
+   */
+  ownerDevPorts?: () => number[];
   /**
    * Registrable domains the profile holds a live session for (found from its cookies by the
    * desktop). With "Let Psyche use my signed-in sessions" on (the default), `auto` mode opens
@@ -162,6 +173,13 @@ export const BOT_AUTH_SETTING = "browser.botAuth";
  * "Let Psyche use my signed-in sessions" (admin key, boolean, default on). Off keeps agent tabs
  * logged out except for sites the owner chose with "Stay signed in".
  */
+/** Settings whose change can put an open profile tab back in the logged-out partition. */
+const TIGHTENING_KEYS = new Set([
+  "browser.partition",
+  "browser.signedInOrigins",
+  "browser.useSignedInSessions",
+]);
+
 export const USE_SIGNED_IN_SETTING = "browser.useSignedInSessions";
 
 export function useSignedInFromSetting(value: unknown): boolean {
@@ -313,7 +331,19 @@ export function composeBrowser(
     ...services.ownPorts.list(),
     ...(await listeningPorts(process.pid)),
   ];
-  const devServers = new DevServerRegistry({ ...(setup.devPreview ?? {}), reservedPorts });
+  // The partition is read on every tab choice (a getter: Settings → Browser applies to the next
+  // session). Absent: the driver's own default.
+  const sessionPartition = (): PartitionMode | undefined =>
+    typeof setup.partition === "function" ? setup.partition() : setup.partition;
+  const devServers = new DevServerRegistry({
+    ...(setup.devPreview ?? {}),
+    // A getter, not a copy: the registry reads `ownerPorts` on each use (gate.ts), so a port the
+    // owner adds in Settings → Browser applies without a restart.
+    get ownerPorts() {
+      return setup.ownerDevPorts?.() ?? setup.devPreview?.ownerPorts;
+    },
+    reservedPorts,
+  });
   const ownProjectRule = createLocalProjectVerifier(
     systemLoopbackProbes({
       roots: () => devServers.spawnedPids(),
@@ -569,14 +599,16 @@ export function composeBrowser(
           ? { policy: { devPreview: true, loopbackPorts: [] }, partition: "clean" }
           : {
               policy: policyFor(key),
-              ...(setup.partition === undefined ? {} : { partition: setup.partition }),
+              // Getters, read on every tab choice: narrowing a setting reaches the tabs a thread
+              // opens later, not only new sessions.
+              partition: () => sessionPartition() ?? "auto",
               ...(setup.signedInOrigins === undefined
                 ? {}
                 : {
-                    signedInOrigins:
+                    signedInOrigins: () =>
                       typeof setup.signedInOrigins === "function"
                         ? setup.signedInOrigins()
-                        : setup.signedInOrigins,
+                        : (setup.signedInOrigins ?? []),
                   }),
               ...(setup.detectedDomains === undefined
                 ? {}
@@ -867,6 +899,25 @@ export function composeBrowser(
         // On by the env (PSYCHE_REAL_CHROME=1) or by the `browser.realChrome` setting.
         run: () => ({ enabled: realChromeOn(), ...realChrome.status() }),
       },
+      // Settings → Browser: the sign-in mode, signed-in sites and dev ports, and their sources.
+      "browser.settings.get": {
+        run: () => {
+          const values = resolveBrowserAgentSettings(services.db, process.env);
+          const useDetected = useSignedInFromSetting(
+            getSetting(services.db, USE_SIGNED_IN_SETTING)?.value,
+          );
+          return {
+            ...values,
+            signedInSites: effectiveSignedInSites({
+              settingOrigins: values.signedInOrigins.value,
+              stayOrigins: readSignedInOrigins(services.home),
+              detectedDomains: readDetectedDomains(services.home),
+              useDetected,
+            }),
+            useSignedInSessions: useDetected,
+          };
+        },
+      },
     },
     attach,
     get driver() {
@@ -906,6 +957,15 @@ export function composeBrowser(
           (f.payload?.entries ?? []).some((e) => e.key === REAL_CHROME_SETTING)
         ) {
           syncTools();
+        }
+        // Tightening the sign-in settings also closes the open profile tabs they no longer allow.
+        if (
+          f.event === "settings.changed" &&
+          (f.payload?.entries ?? []).some((e) => TIGHTENING_KEYS.has(e.key))
+        ) {
+          void primaryDriver()
+            ?.closeTightenedTabs()
+            .catch(() => undefined);
         }
       });
       if (setup.socketPath === false) return;

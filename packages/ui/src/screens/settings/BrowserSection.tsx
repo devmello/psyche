@@ -1,6 +1,20 @@
-import type { BotAuthStatus } from "@psyche/protocol";
+import type { BotAuthStatus, BrowserAgentSettings } from "@psyche/protocol";
+import {
+  BROWSER_DEV_PREVIEW_PORTS_ENV,
+  BROWSER_DEV_PREVIEW_PORTS_KEY,
+  BROWSER_PARTITION_ENV,
+  BROWSER_PARTITION_KEY,
+  BROWSER_SIGNED_IN_ORIGINS_ENV,
+  BROWSER_SIGNED_IN_ORIGINS_KEY,
+  type BrowserPartitionMode,
+  DEFAULT_BROWSER_PARTITION,
+  normalizeBrowserOrigin,
+  normalizeDevPreviewPort,
+  type OriginRefusal,
+  parseBrowserPartition,
+} from "@psyche/protocol/browser-agent";
 import { ExternalLink, KeyRound } from "lucide-react";
-import { type ReactElement, useCallback, useEffect, useState } from "react";
+import { type ReactElement, useEffect, useState } from "react";
 import { Button } from "../../components/ui/button.tsx";
 import { useCall, useGatewayQuery } from "../../data/hooks.ts";
 import { t } from "../../i18n/core.ts";
@@ -141,78 +155,338 @@ export function TeachStorageGroup({ status }: { status: TeachStorageStatus }): R
   );
 }
 
-/** Settings → Browser "Signed-in sites": what "Stay signed in" kept, each with Sign out. */
-export function SignedInSitesGroup({ api }: { api: SignedInSitesApi }): ReactElement {
-  const [sites, setSites] = useState<SignedInSite[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const reload = useCallback(
-    () =>
-      api.list().then(
-        (s) => setSites(s),
-        (err: unknown) =>
-          setError(t("settings.browser.signedIn.loadFailed", { reason: messageOf(err) })),
-      ),
-    [api],
-  );
-  useEffect(() => {
-    void reload();
-  }, [reload]);
+/** Why an origin was refused, in the owner's words. */
+function refusalText(reason: OriginRefusal): string {
+  switch (reason) {
+    case "wildcard":
+      return t("settings.browser.agent.refuse.wildcard");
+    case "credentials":
+      return t("settings.browser.agent.refuse.credentials");
+    case "path":
+      return t("settings.browser.agent.refuse.path");
+    case "scheme":
+      return t("settings.browser.agent.refuse.scheme");
+    case "port":
+      return t("settings.browser.agent.refuse.port");
+    default:
+      return t("settings.browser.agent.refuse.notUrl");
+  }
+}
+
+const ENV_NAME: Record<string, string> = {
+  partition: BROWSER_PARTITION_ENV,
+  signedInOrigins: BROWSER_SIGNED_IN_ORIGINS_ENV,
+  devPreviewPorts: BROWSER_DEV_PREVIEW_PORTS_ENV,
+};
+
+/**
+ * Settings → Browser "Agent sign-ins": the sign-in mode, the sites the agent may use signed in,
+ * and the loopback dev-preview ports. Each is an admin setting, so a change that widens what the
+ * agent can do asks for presence (the Gateway's `needsPresence`); narrowing applies at once. When
+ * an environment variable sets one (a development override), it shows read-only.
+ */
+export function AgentBrowserGroup({
+  agent,
+  values,
+  onChange,
+  signedInSites,
+  onForgotten,
+}: {
+  agent: BrowserAgentSettings | null | undefined;
+  values: Readonly<Record<string, unknown>>;
+  onChange: (key: string, value: unknown) => void;
+  /** Desktop only: a real sign-out (deletes the site's cookies). Without it those rows are read-only. */
+  signedInSites?: SignedInSitesApi;
+  /** Called after a sign-out so the list is read again. */
+  onForgotten?: () => void;
+}): ReactElement {
+  const partition = agent?.partition;
+  const origins = agent?.signedInOrigins;
+  const ports = agent?.devPreviewPorts;
+  const modeEnv = partition?.source === "env";
+  const originsEnv = origins?.source === "env";
+  const portsEnv = ports?.source === "env";
+  const mode: BrowserPartitionMode = modeEnv
+    ? partition.value
+    : (parseBrowserPartition(values[BROWSER_PARTITION_KEY]) ?? DEFAULT_BROWSER_PARTITION);
+  const siteList: string[] = originsEnv
+    ? origins.value
+    : Array.isArray(values[BROWSER_SIGNED_IN_ORIGINS_KEY])
+      ? (values[BROWSER_SIGNED_IN_ORIGINS_KEY] as string[])
+      : [];
+  const portList: number[] = portsEnv
+    ? ports.value
+    : Array.isArray(values[BROWSER_DEV_PREVIEW_PORTS_KEY])
+      ? (values[BROWSER_DEV_PREVIEW_PORTS_KEY] as number[])
+      : [];
+  const useSignedIn = useSignedInOf(values);
+  // The one list: sites chosen here (live from the form) plus the ones the browser is signed in to.
+  // A site the setting and another source share keeps its other row, so it can still be signed out.
+  const otherSites = (agent?.signedInSites ?? []).filter((site) => site.source !== "setting");
+  const [signOutError, setSignOutError] = useState<string | null>(null);
+  const signOut = (site: string): void => {
+    if (signedInSites === undefined) return;
+    setSignOutError(null);
+    signedInSites.forget(site).then(
+      () => onForgotten?.(),
+      (err: unknown) =>
+        setSignOutError(
+          t("settings.browser.signedIn.forgetFailed", { site, reason: messageOf(err) }),
+        ),
+    );
+  };
+  const [siteDraft, setSiteDraft] = useState("");
+  const [siteError, setSiteError] = useState<string | null>(null);
+  const [portDraft, setPortDraft] = useState("");
+  const [portError, setPortError] = useState<string | null>(null);
+
+  const addSite = (): void => {
+    const r = normalizeBrowserOrigin(siteDraft);
+    if (!r.ok) {
+      setSiteError(refusalText(r.reason));
+      return;
+    }
+    setSiteError(null);
+    setSiteDraft("");
+    if (!siteList.includes(r.origin)) {
+      onChange(BROWSER_SIGNED_IN_ORIGINS_KEY, [...siteList, r.origin]);
+    }
+  };
+  const addPort = (): void => {
+    const n = portDraft.trim() === "" ? Number.NaN : Number(portDraft);
+    const r = normalizeDevPreviewPort(n);
+    if (!r.ok) {
+      setPortError(t("settings.browser.agent.refuse.port"));
+      return;
+    }
+    setPortError(null);
+    setPortDraft("");
+    if (!portList.includes(r.port)) {
+      onChange(
+        BROWSER_DEV_PREVIEW_PORTS_KEY,
+        [...portList, r.port].sort((a, b) => a - b),
+      );
+    }
+  };
+
+  const modeOptions: { value: BrowserPartitionMode; label: string }[] = [
+    { value: "clean", label: t("settings.browser.agent.mode.clean") },
+    { value: "auto", label: t("settings.browser.agent.mode.auto") },
+    { value: "profile", label: t("settings.browser.agent.mode.profile") },
+  ];
+
   return (
     <Group
-      title={t("settings.browser.signedIn.title")}
-      description={t("settings.browser.signedIn.description")}
+      title={t("settings.browser.agent.title")}
+      description={t("settings.browser.agent.description")}
     >
-      {error ? <ErrorNotice what={error} did={t("settings.shared.nothingChanged")} /> : null}
-      {sites !== null && sites.length === 0 ? (
-        <p className="text-muted-foreground" data-testid="signed-in-empty">
-          {t("settings.browser.signedIn.none")}
+      <div className="flex flex-col gap-2" data-testid="agent-browser-mode">
+        {modeEnv ? (
+          <p className="text-callout" data-testid="agent-browser-mode-env">
+            {t("settings.browser.agent.mode.label")}: {t(`settings.browser.agent.mode.${mode}`)}
+            <span className="block text-muted-foreground">
+              {t("settings.browser.agent.fromEnv", { variable: ENV_NAME.partition ?? "" })}
+            </span>
+          </p>
+        ) : (
+          <RadioField<BrowserPartitionMode>
+            label={t("settings.browser.agent.mode.label")}
+            settingKey={BROWSER_PARTITION_KEY}
+            value={mode}
+            onChange={(v) => onChange(BROWSER_PARTITION_KEY, v)}
+            options={modeOptions}
+          />
+        )}
+        <p className="text-callout text-muted-foreground" data-testid="agent-browser-mode-hint">
+          {mode === "auto" && !useSignedIn
+            ? t("settings.browser.agent.mode.autoHintOff")
+            : t(`settings.browser.agent.mode.${mode}Hint`)}
         </p>
-      ) : null}
-      <ul className="flex flex-col gap-2" data-testid="signed-in-sites">
-        {(sites ?? []).map((s) => (
-          <li key={s.origin} className="flex items-center justify-between gap-3">
-            <span>
-              <span className="font-mono">{s.origin.replace(/^https:\/\//, "")}</span>
-              {s.detected ? (
+      </div>
+
+      <div className="flex flex-col gap-2" data-testid="agent-browser-sites">
+        <p className="font-medium">{t("settings.browser.agent.sites.title")}</p>
+        <p className="text-callout text-muted-foreground">
+          {t("settings.browser.agent.sites.description")}
+        </p>
+        {originsEnv ? (
+          <p className="text-callout text-muted-foreground" data-testid="agent-browser-sites-env">
+            {t("settings.browser.agent.fromEnv", { variable: ENV_NAME.signedInOrigins ?? "" })}
+          </p>
+        ) : null}
+        {siteList.length === 0 && otherSites.length === 0 ? (
+          <p className="text-muted-foreground">{t("settings.browser.agent.sites.none")}</p>
+        ) : null}
+        <ul className="flex flex-col gap-2" data-testid="signed-in-sites">
+          {siteList.map((site) => (
+            <li key={site} className="flex items-center justify-between gap-3">
+              <span>
+                <span className="font-mono">{site}</span>
                 <span
                   className="ms-2 text-callout text-muted-foreground"
-                  data-testid="signed-in-auto"
+                  data-testid="signed-in-source"
                 >
-                  {t("settings.browser.signedIn.auto")}
+                  {t("settings.browser.agent.sites.source.setting")}
                 </span>
-              ) : null}
-              {s.hosts.length > 1 ? (
-                <span className="block text-callout text-muted-foreground">
-                  {t("settings.browser.signedIn.viaHosts", { hosts: s.hosts.join(", ") })}
-                </span>
-              ) : null}
-            </span>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                setError(null);
-                api.forget(s.origin).then(reload, (err: unknown) =>
-                  setError(
-                    t("settings.browser.signedIn.forgetFailed", {
-                      site: s.origin,
-                      reason: messageOf(err),
-                    }),
-                  ),
-                );
-              }}
+              </span>
+              {originsEnv ? null : (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  aria-label={t("settings.browser.agent.sites.remove", { site })}
+                  onClick={() =>
+                    onChange(
+                      BROWSER_SIGNED_IN_ORIGINS_KEY,
+                      siteList.filter((s) => s !== site),
+                    )
+                  }
+                >
+                  {t("settings.browser.agent.sites.removeShort")}
+                </Button>
+              )}
+            </li>
+          ))}
+          {otherSites.map((site) => (
+            <li
+              key={`${site.source}:${site.origin}`}
+              className="flex items-center justify-between gap-3"
             >
-              {t("settings.browser.signedIn.forget")}
+              <span>
+                <span className="font-mono">{site.origin}</span>
+                <span
+                  className="ms-2 text-callout text-muted-foreground"
+                  data-testid="signed-in-source"
+                >
+                  {site.source === "detected"
+                    ? t("settings.browser.signedIn.auto")
+                    : t("settings.browser.agent.sites.source.stay")}
+                </span>
+              </span>
+              {signedInSites ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  aria-label={t("settings.browser.agent.sites.signOutSite", { site: site.origin })}
+                  onClick={() => signOut(site.origin)}
+                >
+                  {t("settings.browser.signedIn.forget")}
+                </Button>
+              ) : (
+                <span
+                  className="text-callout text-muted-foreground"
+                  data-testid="signed-in-readonly"
+                >
+                  {t("settings.browser.agent.sites.readOnly")}
+                </span>
+              )}
+            </li>
+          ))}
+        </ul>
+        {signOutError ? (
+          <ErrorNotice what={signOutError} did={t("settings.shared.nothingChanged")} />
+        ) : null}
+        {originsEnv ? null : (
+          <form
+            className="flex flex-wrap items-center gap-2"
+            onSubmit={(e) => {
+              e.preventDefault();
+              addSite();
+            }}
+          >
+            <input
+              className="min-w-0 flex-1 rounded-md border px-2 py-1 font-mono text-callout"
+              aria-label={t("settings.browser.agent.sites.label")}
+              // i18n-ignore: an example URL, not text
+              placeholder="https://example.com"
+              value={siteDraft}
+              onChange={(e) => setSiteDraft(e.target.value)}
+            />
+            <Button type="submit" variant="outline" size="sm">
+              {t("settings.browser.agent.sites.add")}
             </Button>
-          </li>
-        ))}
-      </ul>
+          </form>
+        )}
+        {siteError ? (
+          <p role="alert" className="text-callout">
+            {siteError}
+          </p>
+        ) : null}
+      </div>
+
+      <div className="flex flex-col gap-2" data-testid="agent-browser-ports">
+        <p className="font-medium">{t("settings.browser.agent.ports.title")}</p>
+        <p className="text-callout text-muted-foreground">
+          {t("settings.browser.agent.ports.description")}
+        </p>
+        {portsEnv ? (
+          <p className="text-callout text-muted-foreground" data-testid="agent-browser-ports-env">
+            {t("settings.browser.agent.fromEnv", { variable: ENV_NAME.devPreviewPorts ?? "" })}
+          </p>
+        ) : null}
+        {portList.length === 0 ? (
+          <p className="text-muted-foreground">{t("settings.browser.agent.ports.none")}</p>
+        ) : null}
+        <ul className="flex flex-col gap-2">
+          {portList.map((port) => (
+            <li key={port} className="flex items-center justify-between gap-3">
+              <span className="font-mono">{port}</span>
+              {portsEnv ? null : (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  aria-label={t("settings.browser.agent.ports.remove", { port })}
+                  onClick={() =>
+                    onChange(
+                      BROWSER_DEV_PREVIEW_PORTS_KEY,
+                      portList.filter((p) => p !== port),
+                    )
+                  }
+                >
+                  {t("settings.browser.agent.sites.removeShort")}
+                </Button>
+              )}
+            </li>
+          ))}
+        </ul>
+        {portsEnv ? null : (
+          <form
+            className="flex flex-wrap items-center gap-2"
+            onSubmit={(e) => {
+              e.preventDefault();
+              addPort();
+            }}
+          >
+            <input
+              type="number"
+              inputMode="numeric"
+              min={1}
+              max={65535}
+              className="w-28 rounded-md border px-2 py-1 font-mono text-callout"
+              aria-label={t("settings.browser.agent.ports.label")}
+              value={portDraft}
+              onChange={(e) => setPortDraft(e.target.value)}
+            />
+            <Button type="submit" variant="outline" size="sm">
+              {t("settings.browser.agent.ports.add")}
+            </Button>
+          </form>
+        )}
+        {portError ? (
+          <p role="alert" className="text-callout">
+            {portError}
+          </p>
+        ) : null}
+      </div>
     </Group>
   );
 }
 
 export interface BrowserPanelProps extends SettingsFormProps, LoadProps {
+  /** The agent browser's sign-in mode, sites and dev ports, with where each comes from. */
+  agentSettings?: BrowserAgentSettings | null;
   /** Web Bot Auth status from the Gateway; null while unknown. */
   botAuth?: BotAuthStatus | null;
   /** Creates or replaces the key; resolves once the Gateway has the new one. */
@@ -222,6 +496,8 @@ export interface BrowserPanelProps extends SettingsFormProps, LoadProps {
   profileLabel?: string;
   /** Desktop only: opens the profile in Google Chrome; resolves to its directory. */
   onOpenProfile?: (profile: string) => Promise<{ path: string }>;
+  /** Called after a sign-out so the signed-in list is read again. */
+  onForgotten?: () => void;
   /** Desktop only: the sites "Stay signed in" kept, with Sign out / forget. */
   signedInSites?: SignedInSitesApi;
   /** Desktop only: import sign-ins from the owner's other browsers into the profile. */
@@ -231,6 +507,8 @@ export interface BrowserPanelProps extends SettingsFormProps, LoadProps {
 }
 
 export function BrowserPanel({
+  agentSettings,
+  onForgotten,
   values,
   onChange,
   needsApproval,
@@ -342,6 +620,13 @@ export function BrowserPanel({
             )
           ) : null}
         </Group>
+        <AgentBrowserGroup
+          agent={agentSettings}
+          values={values}
+          onChange={onChange}
+          {...(signedInSites ? { signedInSites } : {})}
+          {...(onForgotten ? { onForgotten } : {})}
+        />
         <Group
           title={t("settings.browser.useSignedIn.title")}
           description={t("settings.browser.useSignedIn.description", { persona })}
@@ -354,7 +639,6 @@ export function BrowserPanel({
             onChange={(on) => onChange(USE_SIGNED_IN_KEY, on)}
           />
         </Group>
-        {signedInSites ? <SignedInSitesGroup api={signedInSites} /> : null}
         {cookieImport ? <CookieImportGroup api={cookieImport} /> : null}
         {teachStorage ? <TeachStorageGroup status={teachStorage} /> : null}
         <Advanced description={t("settings.browser.advancedHint")}>
@@ -481,9 +765,12 @@ export function BrowserSection({
   const named = useSlots().persona?.name;
   const call = useCall();
   const botAuthQ = useGatewayQuery("browser.botAuth.status", {});
+  const agentQ = useGatewayQuery("browser.settings.get", {});
   return (
     <div className="flex flex-col gap-3">
       <BrowserPanel
+        agentSettings={agentQ.data ?? null}
+        onForgotten={agentQ.reload}
         values={form.values}
         onChange={form.onChange}
         needsApproval={form.needsApproval}

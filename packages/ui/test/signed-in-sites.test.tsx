@@ -1,71 +1,165 @@
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import type { BrowserAgentSettings } from "@psyche/protocol";
+import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { SignedInSitesGroup } from "../src/screens/settings/BrowserSection.tsx";
+import { AgentBrowserGroup, BrowserPanel } from "../src/screens/settings/BrowserSection.tsx";
 
 afterEach(cleanup);
 
-/** Settings → Browser → Signed-in sites: what "Stay signed in" kept, with Sign out / forget. */
+const agent = (
+  sites: BrowserAgentSettings["signedInSites"],
+  over: Partial<BrowserAgentSettings> = {},
+): BrowserAgentSettings => ({
+  partition: { value: "auto", source: "setting" },
+  signedInOrigins: {
+    value: sites.filter((s) => s.source === "setting").map((s) => s.origin),
+    source: "setting",
+  },
+  devPreviewPorts: { value: [], source: "default" },
+  signedInSites: sites,
+  useSignedInSessions: true,
+  ...over,
+});
+
+const SITES: BrowserAgentSettings["signedInSites"] = [
+  { origin: "https://a.example", source: "setting" },
+  { origin: "https://canvas.ucsc.edu", source: "stay_signed_in" },
+  { origin: "https://github.com", source: "detected" },
+];
+const VALUES = { "browser.signedInOrigins": ["https://a.example"] };
+
+/** Settings → Browser: one "Signed-in sites" list, whatever the source of each site. */
 describe("Settings → Browser signed-in sites", () => {
-  it("lists the sites with their SSO hosts and forgets one", async () => {
-    let sites = [
-      {
-        origin: "https://canvas.ucsc.edu",
-        hosts: ["canvas.ucsc.edu", "login.ucsc.edu"],
-        addedAt: "2026-10-28T00:00:00Z",
-      },
-      { origin: "https://github.com", hosts: ["github.com"], addedAt: "2026-10-28T00:00:00Z" },
-    ];
-    const forget = vi.fn(async (origin: string) => {
-      sites = sites.filter((s) => s.origin !== origin);
-    });
-    render(<SignedInSitesGroup api={{ list: async () => sites, forget }} />);
-    await screen.findByText("canvas.ucsc.edu");
-    expect(screen.getByText(/login\.ucsc\.edu/)).toBeTruthy();
-    const buttons = screen.getAllByRole("button", { name: "Sign out / forget" });
-    expect(buttons).toHaveLength(2);
-    await userEvent.click(buttons[0] as HTMLElement);
-    expect(forget).toHaveBeenCalledWith("https://canvas.ucsc.edu");
-    await waitFor(() => expect(screen.queryByText("canvas.ucsc.edu")).toBeNull());
-    expect(screen.getByText("github.com")).toBeTruthy();
+  it("shows one list with a source on each row, and a single 'Signed-in sites' title", () => {
+    render(
+      <BrowserPanel
+        agentSettings={agent(SITES)}
+        values={VALUES}
+        onChange={() => {}}
+        persona="Wren"
+        signedInSites={{ list: async () => [], forget: async () => {} }}
+      />,
+    );
+    expect(screen.getAllByText("Signed-in sites")).toHaveLength(1);
+    const rows = within(screen.getByTestId("signed-in-sites")).getAllByRole("listitem");
+    expect(rows.map((r) => r.textContent)).toEqual([
+      expect.stringMatching(/a\.example.*Added in Settings/),
+      expect.stringMatching(/canvas\.ucsc\.edu.*Stay signed in/),
+      expect.stringMatching(/github\.com.*found automatically/),
+    ]);
   });
 
-  it("labels sites found from the profile's cookies", async () => {
+  it("removing a setting row writes the setting and never calls sign-out", async () => {
+    const onChange = vi.fn();
+    const forget = vi.fn(async () => {});
     render(
-      <SignedInSitesGroup
-        api={{
-          list: async () => [
-            {
-              origin: "https://ucsc.edu",
-              hosts: ["canvas.ucsc.edu"],
-              addedAt: "x",
-              detected: true,
-            },
-          ],
-          forget: async () => {},
+      <AgentBrowserGroup
+        agent={agent(SITES)}
+        values={VALUES}
+        onChange={onChange}
+        signedInSites={{ list: async () => [], forget }}
+      />,
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Remove https://a.example" }));
+    expect(onChange).toHaveBeenCalledWith("browser.signedInOrigins", []);
+    expect(forget).not.toHaveBeenCalled();
+  });
+
+  it.each([["https://canvas.ucsc.edu"], ["https://github.com"]])(
+    "signing out of %s calls forget and writes no setting",
+    async (origin) => {
+      const onChange = vi.fn();
+      const onForgotten = vi.fn();
+      const forget = vi.fn(async () => {});
+      render(
+        <AgentBrowserGroup
+          agent={agent(SITES)}
+          values={VALUES}
+          onChange={onChange}
+          onForgotten={onForgotten}
+          signedInSites={{ list: async () => [], forget }}
+        />,
+      );
+      await userEvent.click(screen.getByRole("button", { name: `Sign out of ${origin}` }));
+      expect(forget).toHaveBeenCalledWith(origin);
+      await waitFor(() => expect(onForgotten).toHaveBeenCalled());
+      expect(onChange).not.toHaveBeenCalled();
+    },
+  );
+
+  it("without the desktop API those rows are read-only and say where to sign out", () => {
+    render(<AgentBrowserGroup agent={agent(SITES)} values={VALUES} onChange={() => {}} />);
+    expect(screen.queryByRole("button", { name: /Sign out of/ })).toBeNull();
+    expect(screen.getAllByTestId("signed-in-readonly")).toHaveLength(2);
+    expect(screen.getAllByText("Sign out from the Psyche desktop app")).toHaveLength(2);
+    // The setting row stays removable from anywhere.
+    expect(screen.getByRole("button", { name: "Remove https://a.example" })).toBeTruthy();
+  });
+
+  it("shows a failed sign-out and keeps the site listed", async () => {
+    render(
+      <AgentBrowserGroup
+        agent={agent(SITES)}
+        values={VALUES}
+        onChange={() => {}}
+        signedInSites={{
+          list: async () => [],
+          forget: async () => {
+            throw new Error("profile busy");
+          },
         }}
       />,
     );
-    await screen.findByText("ucsc.edu");
-    expect(screen.getByTestId("signed-in-auto")).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Sign out / forget" })).toBeTruthy();
-  });
-
-  it("says so when nothing is kept signed in", async () => {
-    render(<SignedInSitesGroup api={{ list: async () => [], forget: async () => {} }} />);
-    expect(await screen.findByTestId("signed-in-empty")).toBeTruthy();
-  });
-
-  it("shows a failed sign-out without hiding the site", async () => {
-    const api = {
-      list: async () => [{ origin: "https://github.com", hosts: ["github.com"], addedAt: "x" }],
-      forget: async () => {
-        throw new Error("profile busy");
-      },
-    };
-    render(<SignedInSitesGroup api={api} />);
-    await userEvent.click(await screen.findByRole("button", { name: "Sign out / forget" }));
+    await userEvent.click(screen.getByRole("button", { name: "Sign out of https://github.com" }));
     expect(await screen.findByText(/couldn't sign out of https:\/\/github\.com/i)).toBeTruthy();
-    expect(screen.getByText("github.com")).toBeTruthy();
+    expect(screen.getByText("https://github.com")).toBeTruthy();
+  });
+
+  it("the Signed-in sites only hint is true: it names signed-in sites, and follows the toggle", () => {
+    const { rerender } = render(
+      <AgentBrowserGroup agent={agent(SITES)} values={VALUES} onChange={() => {}} />,
+    );
+    const hint = () => screen.getByTestId("agent-browser-mode-hint").textContent ?? "";
+    expect(hint()).toMatch(/already signed in to/);
+    expect(hint()).not.toMatch(/Listed sites/);
+    rerender(
+      <AgentBrowserGroup
+        agent={agent(SITES)}
+        values={{ ...VALUES, "browser.useSignedInSessions": false }}
+        onChange={() => {}}
+      />,
+    );
+    expect(hint()).not.toMatch(/already signed in to/);
+    expect(hint()).toMatch(/Only the sites in the list below/);
+  });
+
+  it("removing the setting row of a site that is also Stay signed in leaves the row with Sign out", async () => {
+    const shared: BrowserAgentSettings["signedInSites"] = [
+      { origin: "https://both.example", source: "setting" },
+      { origin: "https://both.example", source: "stay_signed_in" },
+    ];
+    const forget = vi.fn(async () => {});
+    const api = { list: async () => [], forget };
+    const first = render(
+      <AgentBrowserGroup
+        agent={agent(shared)}
+        values={{ "browser.signedInOrigins": ["https://both.example"] }}
+        onChange={() => {}}
+        signedInSites={api}
+      />,
+    );
+    expect(screen.getAllByText("https://both.example")).toHaveLength(2);
+    first.unmount();
+    // After the setting write the list is read again: only the Stay signed in row is left.
+    render(
+      <AgentBrowserGroup
+        agent={agent([{ origin: "https://both.example", source: "stay_signed_in" }])}
+        values={{ "browser.signedInOrigins": [] }}
+        onChange={() => {}}
+        signedInSites={api}
+      />,
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Sign out of https://both.example" }));
+    expect(forget).toHaveBeenCalledWith("https://both.example");
   });
 });
