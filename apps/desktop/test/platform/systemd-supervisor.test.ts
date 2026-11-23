@@ -149,7 +149,21 @@ describe("SystemdUserSupervisor", () => {
   it("AppImage: ExecStart is the image run with --psyched", async () => {
     const s = systemd();
     await s.build({ gatewayArgs: ["--psyched"] }).ensureRunning();
-    expect(readFileSync(unitFile(), "utf8")).toContain(`ExecStart="${program}" "--psyched"`);
+    const text = readFileSync(unitFile(), "utf8");
+    expect(text).toContain(`ExecStart="${program}" "--psyched"`);
+    // AppRun applies setpriv --no-new-privs to psyched; the unit must not block the FUSE mount.
+    for (const k of ["NoNewPrivileges", "LockPersonality", "RestrictSUIDSGID"]) {
+      expect(text).not.toMatch(new RegExp(`^${k}=`, "m"));
+    }
+  });
+
+  it("a user unit that runs a plain psyched (not an AppImage) keeps the hardening", async () => {
+    const s = systemd();
+    await s.build().ensureRunning();
+    const text = readFileSync(unitFile(), "utf8");
+    for (const k of ["NoNewPrivileges", "LockPersonality", "RestrictSUIDSGID"]) {
+      expect(text).toMatch(new RegExp(`^${k}=yes$`, "m"));
+    }
   });
 
   it("passes the vault key file into the unit", async () => {

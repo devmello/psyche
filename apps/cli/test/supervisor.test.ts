@@ -1,5 +1,5 @@
 import { execFileSync, spawnSync } from "node:child_process";
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { MockGateway } from "@psyche/web/testing";
 import { afterEach, describe, expect, it } from "vitest";
@@ -270,13 +270,61 @@ describe("service commands on linux (systemd --user)", () => {
   const linux = (extra: ExecScript = () => undefined) => {
     const bin = psychedBin();
     const xdg = join(tempDir(), "xdg");
+    const packaged = join(tempDir(), "usr-lib-systemd-user");
     const deps = makeDeps({
       platform: "linux",
       execScript: extra,
-      extraEnv: { PSYCHE_GATEWAY_BIN: bin, XDG_CONFIG_HOME: xdg },
+      extraEnv: {
+        PSYCHE_GATEWAY_BIN: bin,
+        XDG_CONFIG_HOME: xdg,
+        PSYCHE_PACKAGED_UNIT_DIR: packaged,
+      },
     });
-    return { bin, xdg, deps };
+    return { bin, xdg, packaged, deps };
   };
+
+  const active: ExecScript = (cmd, args) =>
+    cmd === "systemctl" && args[1] === "is-active"
+      ? { stdout: "active\n" }
+      : cmd === "systemctl" && args[1] === "show"
+        ? { stdout: "321\n" }
+        : undefined;
+
+  it("status: a running unit with no file anywhere is not installed", async () => {
+    const { deps } = linux(active);
+    const { json } = await runJson(["status", "--url", "http://127.0.0.1:1"], deps);
+    expect(json.service).toMatchObject({
+      kind: "systemd",
+      running: true,
+      pid: 321,
+      installed: false,
+    });
+  });
+
+  it("status: the package's unit in /usr/lib/systemd/user counts as installed", async () => {
+    const { deps, packaged } = linux(active);
+    mkdirSync(packaged, { recursive: true });
+    writeFileSync(join(packaged, "psyche-gateway.service"), "[Service]\n");
+    const { json } = await runJson(["status", "--url", "http://127.0.0.1:1"], deps);
+    expect(json.service).toMatchObject({
+      kind: "systemd",
+      running: true,
+      installed: true,
+      file: join(packaged, "psyche-gateway.service"),
+    });
+  });
+
+  it("status: the user's own unit wins over the package's, and start still writes the user dir", async () => {
+    const { deps, packaged, xdg } = linux(active);
+    mkdirSync(packaged, { recursive: true });
+    writeFileSync(join(packaged, "psyche-gateway.service"), "[Service]\n");
+    expect(await run(["start", "--no-wait"], deps)).toBe(0);
+    const user = join(xdg, "systemd", "user", "psyche-gateway.service");
+    expect(existsSync(user)).toBe(true);
+    const { json } = await runJson(["status", "--url", "http://127.0.0.1:1"], deps);
+    expect(json.service).toMatchObject({ installed: true, file: user });
+    expect(readFileSync(join(packaged, "psyche-gateway.service"), "utf8")).toBe("[Service]\n");
+  });
 
   it("start writes the unit, reloads and enables it", async () => {
     const { bin, xdg, deps } = linux();

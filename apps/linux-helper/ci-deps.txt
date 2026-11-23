@@ -6,6 +6,7 @@ iproute2
 libpipewire-0.3-dev
 libspa-0.2-dev
 libclang-dev
+libxcb1-dev
 dbus
 xvfb
 x11-utils

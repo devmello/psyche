@@ -3,7 +3,8 @@
 # installs). docs/design/linux-desktop-2026.md §2.1, §2.6.
 #
 #   psyche-apprun [args]            start the desktop app
-#   psyche-apprun --psyched [args]  start the Gateway (psyched) from the bundle, nothing else
+#   psyche-apprun --psyched [args]  start the Gateway (psyched) from the bundle, nothing else, under
+#                                   `setpriv --no-new-privs` (refuses to start without setpriv)
 #   psyche-apprun --setup-system    one admin prompt that installs the polkit policy and, on Ubuntu
 #                                   23.10+, a root-owned setuid copy of Electron's chrome-sandbox
 #
@@ -93,7 +94,16 @@ case ${1:-} in
     ;;
   --psyched)
     shift
-    exec "$here/resources/psyched/psyched" "$@"
+    # psyched and everything it starts run with no_new_privs (security §14: no sudo, pkexec or
+    # setuid binary can raise privileges). The Gateway's unit cannot say NoNewPrivileges=yes when
+    # it runs this AppImage, because the AppImage runtime mounts itself through the setuid
+    # fusermount3 and that fails under no_new_privs; so it is applied here, after the mount, to
+    # psyched itself. Fail closed: never start psyched without it.
+    command -v setpriv >/dev/null 2>&1 || {
+      echo "psyche: psyched needs setpriv (util-linux) to run with no_new_privs; install util-linux" >&2
+      exit 1
+    }
+    exec setpriv --no-new-privs "$here/resources/psyched/psyched" "$@"
     ;;
 esac
 

@@ -42,6 +42,14 @@ export interface GatewayUnitInput {
   vaultKeyFile?: string;
   /** desktop: `MemoryHigh=`, default {@link DEFAULT_MEMORY_HIGH}. */
   memoryHigh?: string;
+  /**
+   * desktop: the program is an AppImage (`install: "user"`). The unit then leaves out
+   * `NoNewPrivileges`, `LockPersonality` and `RestrictSUIDSGID` (the AppImage runtime mounts
+   * itself through the setuid `fusermount3`, which fails under no_new_privs; systemd also implies
+   * NoNewPrivileges for any seccomp-based option in a user unit). `deploy/linux/AppRun --psyched`
+   * applies `setpriv --no-new-privs` to psyched instead, so psyched and everything it starts keep it.
+   */
+  appImage?: boolean;
 }
 
 /**
@@ -108,6 +116,16 @@ WantedBy=default.target
     ["PSYCHE_BUILD", input.build],
     ["PSYCHE_VAULT_KEY_FILE", input.vaultKeyFile],
   ]);
+  const hardening =
+    input.appImage === true
+      ? `# No NoNewPrivileges, LockPersonality or RestrictSUIDSGID here: the AppImage runtime mounts itself
+# through the setuid fusermount3, which fails under no_new_privs. AppRun --psyched starts psyched
+# with \`setpriv --no-new-privs\`, so psyched and everything it starts still get it.
+`
+      : `NoNewPrivileges=yes
+LockPersonality=yes
+RestrictSUIDSGID=yes
+`;
   return `${DESKTOP_UNIT_MARKER}: it rewrites this file when its content changes.
 # Not part of graphical-session.target on purpose: the Gateway also runs headless.
 [Unit]
@@ -123,10 +141,7 @@ RestartSec=5
 TimeoutStopSec=20
 # Files 0600, directories 0700 (security §14).
 UMask=0077
-NoNewPrivileges=yes
-LockPersonality=yes
-RestrictSUIDSGID=yes
-# A throttle, never a kill: no MemoryMax (design §2.3).
+${hardening}# A throttle, never a kill: no MemoryMax (design §2.3).
 MemoryHigh=${input.memoryHigh ?? DEFAULT_MEMORY_HIGH}
 
 [Install]
@@ -236,6 +251,8 @@ export interface ParsedGatewayUnit {
   args: string[];
   env: Record<string, string>;
   profile: UnitProfile;
+  /** A desktop unit written with `appImage: true`: no `NoNewPrivileges=` line (see {@link GatewayUnitInput}). */
+  appImage: boolean;
 }
 
 /** What a unit written by {@link renderGatewayUnit} says; undefined for text with no `ExecStart=`. */
@@ -250,10 +267,12 @@ export function parseGatewayUnit(text: string): ParsedGatewayUnit | undefined {
     if (eq > 0) env[pair.slice(0, eq)] = pair.slice(eq + 1);
   }
   const [program, ...args] = tokens;
+  const profile: UnitProfile = text.includes(DESKTOP_UNIT_MARKER) ? "desktop" : "server";
   return {
     ...(program === undefined ? {} : { program }),
     args,
     env,
-    profile: text.includes(DESKTOP_UNIT_MARKER) ? "desktop" : "server",
+    profile,
+    appImage: profile === "desktop" && !/^NoNewPrivileges=yes$/m.test(text),
   };
 }

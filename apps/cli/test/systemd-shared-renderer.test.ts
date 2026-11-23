@@ -78,4 +78,21 @@ describe("the CLI's systemd unit", () => {
     // Same program and home: the desktop's file comes back unchanged, so neither side fights.
     expect(rewritten).toBe(installed);
   });
+
+  it("keeps an AppImage desktop unit without the no_new_privs lines when the CLI rewrites it", () => {
+    const installed = renderGatewayUnit({
+      program: "/a/Psyche.AppImage",
+      args: ["--psyched"],
+      psycheHome: "/home/me/.psyche",
+      profile: "desktop",
+      build: "b9",
+      appImage: true,
+    });
+    expect(installed).not.toContain("NoNewPrivileges=yes");
+    const rewritten = renderSystemdUnit(
+      { program: "/a/Psyche.AppImage", args: ["--psyched"], psycheHome: "/home/me/.psyche" },
+      installed,
+    );
+    expect(rewritten).toBe(installed);
+  });
 });
