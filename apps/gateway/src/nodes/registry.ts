@@ -342,6 +342,12 @@ export class NodeRegistry {
     for (const entry of this.#live.values()) {
       if (entry.phone !== true || !entry.conn.open) continue;
       if (!entry.info.capabilities.some((c) => c.name === capability)) continue;
+      // Authority is checked again at every use, as for a machine: a phone that was revoked or
+      // lost `operator.write` after it made its offer is no phone.
+      const device = getDevice(this.#ctx.db, entry.info.deviceId);
+      if (device === undefined || device.revokedAt || !device.scopes.includes("operator.write")) {
+        continue;
+      }
       chosen = entry;
     }
     return chosen === undefined

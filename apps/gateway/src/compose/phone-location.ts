@@ -12,8 +12,9 @@ import type { NodeRegistry } from "../nodes/registry.ts";
  * - **A read, no approval card.** The owner's switch on the phone is the consent; the call shows in
  *   the task's Activity like every tool call (`describeCall`). Nothing here asks for Touch ID or
  *   limits how often it runs.
- * - **Never remembered.** The Gateway keeps no trail: the fix goes to the run that asked and its
- *   trace, and the logger never sees the coordinates.
+ * - **Not kept as a trail, but not forgotten either.** The Gateway has no location history of its
+ *   own and its logger never sees the coordinates. Each fix is a tool result, so it stays in the
+ *   thread's transcript and the run trace, and may reach a daily note through the memory flush.
  * - **Never sent to a third party** by this tool. It does reach the thread's own model as a tool
  *   result, like any tool output; the phone's switch says so.
  * - **Failure is plain text** the agent can relay ("The phone isn't sharing location right now").
@@ -83,10 +84,14 @@ export function phoneLocationTool(deps: PhoneLocationDeps): AgentToolRegistratio
           latitude: fix.latitude,
           longitude: fix.longitude,
           accuracyMeters: Math.round(fix.accuracyMeters),
-          timestamp: fix.timestamp,
+          // The phone's own string is never passed on: the time is re-written from its parse, and
+          // dropped when it does not parse.
           ...(Number.isNaN(takenAt)
             ? {}
-            : { ageSeconds: Math.max(0, Math.round((now() - takenAt) / 1000)) }),
+            : {
+                timestamp: new Date(takenAt).toISOString(),
+                ageSeconds: Math.max(0, Math.round((now() - takenAt) / 1000)),
+              }),
           ...(placeName === "" ? {} : { placeName }),
         },
         // A place name is text from a map database (a shop can name itself anything), so a reply
