@@ -33,9 +33,16 @@ public struct BlockView: View {
             SourceChipRow(sources: sources)
         case .progress(_, let kind, let title, let steps):
             ProgressBlock(kind: kind, title: title, steps: steps)
-        case .file(_, let title, let fileType, let detail, let libraryID, let isArtifact):
-            FileRow(title: title, fileType: fileType, detail: detail, isArtifact: isArtifact, canOpen: libraryID != nil) {
-                if let libraryID { context.openFile(libraryID) }
+        case .file(_, let title, let fileType, let detail, let libraryID, let isArtifact, let artifactID):
+            FileRow(
+                title: title, fileType: fileType, detail: detail, isArtifact: isArtifact,
+                canOpen: libraryID != nil || artifactID != nil
+            ) {
+                if let artifactID {
+                    context.openRoute("/artifacts/\(artifactID)")
+                } else if let libraryID {
+                    context.openFile(libraryID)
+                }
             }
         case .appLink(_, let title, let detail, let route):
             LinkRow(symbol: "arrow.up.forward.app", title: title, detail: detail) { context.openRoute(route) }

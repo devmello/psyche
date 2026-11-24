@@ -233,7 +233,8 @@ public enum ChatItem: Sendable, Equatable, Identifiable {
     /// `task`, `plan` and `checklist`: a titled list of steps with a progress count.
     case progress(id: String, kind: StepListKind, title: String, steps: [ProgressStep])
     /// `file` and `artifact`: a paper row. `libraryID` opens it in Library when the phone can.
-    case file(id: String, title: String, fileType: String, detail: String, libraryID: String?, isArtifact: Bool)
+    /// `artifactID` is set for an artifact card: its tap opens the artifact viewer.
+    case file(id: String, title: String, fileType: String, detail: String, libraryID: String?, isArtifact: Bool, artifactID: String? = nil)
     /// A `tool_call` that expands to its arguments (and result, when there is one).
     case toolRun(id: String, symbol: String, summary: String, arguments: [ToolArgument], result: String?)
     /// `app_link`: a row that opens an app route (`/goals/…`, `/chat/…`).
@@ -254,7 +255,7 @@ public enum ChatItem: Sendable, Equatable, Identifiable {
         switch self {
         case .user(let id, _), .assistant(let id, _, _), .toolCall(let id, _, _),
             .question(let id, _, _), .evidence(let id, _, _), .sources(let id, _), .progress(let id, _, _, _),
-            .file(let id, _, _, _, _, _), .toolRun(let id, _, _, _, _), .appLink(let id, _, _, _),
+            .file(let id, _, _, _, _, _, _), .toolRun(let id, _, _, _, _), .appLink(let id, _, _, _),
             .relatedThreads(let id, _), .note(let id, _, _, _), .approval(let id, _, _), .widget(let id, _),
             .unknown(let id, _):
             id
