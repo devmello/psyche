@@ -2,7 +2,8 @@ import Foundation
 import PsycheStore
 import enum PsycheProtocol.JSONValue
 
-// Goals over `goals.list/get/update`. The phone sets a goal's status; editing its title, plan or cadence is a Mac thing.
+// Goals over `goals.list/get/update/decide/archive/milestone`. The phone sets a goal's status, decides a suggested
+// goal, archives it and edits its milestones. Its title, plan and check-in cadence are a Mac thing.
 extension GatewayBackend {
     public func goals() async throws -> [GoalItem] {
         let result = try await call("goals.list", .obj([:]))
@@ -15,6 +16,35 @@ extension GatewayBackend {
 
     public func setGoalStatus(id: String, _ status: GoalStatusChange) async throws -> GoalDetail {
         try Self.goalDetail(from: try await call("goals.update", .obj(["goalId": .string(id), "status": .string(status.rawValue)])))
+    }
+
+    public func decideGoal(id: String, _ decision: GoalDecision) async throws -> GoalItem {
+        let result = try await call("goals.decide", .obj(["goalId": .string(id), "decision": .string(decision.rawValue)]))
+        guard let wire = result["goal"], let goal = Self.goal(from: wire) else { throw BackendError.notFound }
+        return goal
+    }
+
+    public func archiveGoal(id: String) async throws -> GoalItem {
+        let result = try await call("goals.archive", .obj(["goalId": .string(id)]))
+        guard let wire = result["goal"], let goal = Self.goal(from: wire) else { throw BackendError.notFound }
+        return goal
+    }
+
+    /// `goals.milestone`: a new milestone takes the title and an optional due date; the others name the milestone.
+    public func changeMilestone(goalID: String, _ change: GoalMilestoneChange) async throws -> GoalDetail {
+        var params: [String: JSONValue] = ["goalId": .string(goalID)]
+        switch change {
+        case .add(let title, let dueAt):
+            params["title"] = .string(title.trimmingCharacters(in: .whitespacesAndNewlines))
+            if let dueAt { params["dueAt"] = .string(dueAt.formatted(.iso8601)) }
+        case .setDone(let id, let done):
+            params["milestoneId"] = .string(id)
+            params["done"] = .bool(done)
+        case .remove(let id):
+            params["milestoneId"] = .string(id)
+            params["remove"] = .bool(true)
+        }
+        return try Self.goalDetail(from: try await call("goals.milestone", .object(params)))
     }
 
     /// `goals.create` with the Mac dialog's two fields: the title (trimmed) and the category.

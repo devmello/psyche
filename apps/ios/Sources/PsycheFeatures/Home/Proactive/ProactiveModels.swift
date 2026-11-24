@@ -125,10 +125,9 @@ final class GoalsModel {
         await load()
     }
 
-    /// The statuses a phone can set from the goal's current one.
+    /// The statuses a phone can set from the goal's current one. A suggested goal is decided, not set.
     static func choices(for status: String) -> [GoalStatusChange] {
         switch status {
-        case "candidate": [.active]
         case "active": [.paused, .done]
         case "paused": [.active, .done]
         case "done": [.active]
@@ -144,15 +143,79 @@ final class GoalsModel {
         defer { busy = false }
         do {
             let updated = try await store.setGoalStatus(id: goal.id, status)
-            detail = .loaded(updated)
-            if var goals = phase.value, let index = goals.firstIndex(where: { $0.id == goal.id }) {
-                goals[index] = updated.goal
-                phase = .loaded(goals)
-            }
+            showDetail(updated)
             actionError = nil
         } catch {
             actionError = error.localizedDescription
         }
+    }
+
+    /// Add goal, Not now or Dismiss on a suggested goal. Returns true when the goal is now archived (it was
+    /// dismissed), so the sheet closes. Nothing is created before confirm.
+    func decide(_ decision: GoalDecision, for goal: GoalItem) async -> Bool {
+        await write { try await self.store.decideGoal(id: goal.id, decision) }
+    }
+
+    /// Archive goal: its check-ins stop. Returns true once archived, so the sheet closes.
+    func archive(_ goal: GoalItem) async -> Bool {
+        await write { try await self.store.archiveGoal(id: goal.id) }
+    }
+
+    /// Marks a milestone done or not done, or removes it. A refusal stays in `actionError`.
+    func changeMilestone(_ change: GoalMilestoneChange, for goal: GoalItem) async {
+        guard !busy else { return }
+        busy = true
+        defer { busy = false }
+        do {
+            showDetail(try await store.changeMilestone(goalID: goal.id, change))
+            actionError = nil
+        } catch {
+            actionError = error.localizedDescription
+        }
+    }
+
+    /// Adds a milestone. A refusal throws so the Add milestone sheet can show it in the Gateway's words.
+    func addMilestone(title: String, dueAt: Date?, for goal: GoalItem) async throws {
+        showDetail(try await store.changeMilestone(goalID: goal.id, .add(title: title, dueAt: dueAt)))
+        actionError = nil
+    }
+
+    /// One write that moves the goal in the list and the sheet. Returns true when the goal is now archived.
+    private func write(_ work: () async throws -> GoalItem) async -> Bool {
+        guard !busy else { return false }
+        busy = true
+        defer { busy = false }
+        do {
+            let updated = try await work()
+            showGoal(updated)
+            actionError = nil
+            return updated.status == "archived"
+        } catch {
+            actionError = error.localizedDescription
+            return false
+        }
+    }
+
+    /// Shows a goal the Gateway returned: its list row, which leaves the list once archived, and the sheet's goal
+    /// with its milestones kept.
+    private func showGoal(_ goal: GoalItem) {
+        if var goals = phase.value {
+            if goal.status == "archived" {
+                goals.removeAll { $0.id == goal.id }
+            } else if let index = goals.firstIndex(where: { $0.id == goal.id }) {
+                goals[index] = goal
+            }
+            phase = .loaded(goals)
+        }
+        if let current = detail.value, current.goal.id == goal.id {
+            detail = .loaded(GoalDetail(goal: goal, milestones: current.milestones, linkedTasks: current.linkedTasks))
+        }
+    }
+
+    /// Shows a whole goal page the Gateway returned.
+    private func showDetail(_ updated: GoalDetail) {
+        detail = .loaded(updated)
+        showGoal(updated.goal)
     }
 
     func close() {
