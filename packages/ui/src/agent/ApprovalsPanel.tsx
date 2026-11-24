@@ -1,6 +1,7 @@
 import type { Grant } from "@psyche/protocol";
 import { ChevronRight } from "lucide-react";
 import { type ReactElement, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { toast } from "sonner";
 import { ApprovalCard } from "../blocks/ApprovalCard.tsx";
 import { answerFailureText, classifyAnswerError } from "../blocks/answer-error.ts";
 import { otherSurfacesFor } from "../blocks/approval-surfaces.ts";
@@ -21,6 +22,7 @@ import {
   useStoreState,
 } from "../data/index.ts";
 import { t } from "../i18n/core.ts";
+import { describeError } from "../i18n/errors.ts";
 import { displaySummary } from "../lib/cards.ts";
 import { formatRelative } from "../lib/format.ts";
 import { useNow } from "../lib/use-now.ts";
@@ -270,7 +272,9 @@ export function ApprovalsPanel({
     setRevoking((r) => new Set(r).add(g.id));
     call("grants.revoke", { grantId: g.id })
       .then(() => reloadGrants())
-      .catch(() => {})
+      .catch((err: unknown) =>
+        toast.error(t("actionError.revokeGrant", { reason: describeError(err) })),
+      )
       .finally(() =>
         setRevoking((r) => {
           const next = new Set(r);

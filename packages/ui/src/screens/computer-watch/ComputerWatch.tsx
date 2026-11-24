@@ -13,6 +13,7 @@ import {
 import { Badge } from "../../components/ui/badge.tsx";
 import { Button } from "../../components/ui/button.tsx";
 import { t } from "../../i18n/core.ts";
+import { describeError } from "../../i18n/errors.ts";
 
 /** The Gateway's `vscreen.*` methods, injected so the pane has no Gateway wiring of its own. */
 export interface ComputerWatchClient {
@@ -74,6 +75,7 @@ export function ComputerWatch({
   const [failed, setFailed] = useState(false);
   const [shown, setShown] = useState<Shown | null>(null);
   const [takenOver, setTakenOver] = useState(false);
+  const [takeOverError, setTakeOverError] = useState<string | null>(null);
   const imgRef = useRef<HTMLImageElement>(null);
   const seq = useRef<number | undefined>(undefined);
   const toggling = useRef(false);
@@ -187,14 +189,16 @@ export function ComputerWatch({
 
   const toggleTakeOver = async () => {
     const on = !takenOver;
+    setTakeOverError(null);
     if (!on) letGo();
     toggling.current = true;
     setTakenOver(on);
     try {
       await client.setTakenOver(on);
       mine.current = on;
-    } catch {
+    } catch (err) {
       setTakenOver(!on);
+      setTakeOverError(t("actionError.takeOver", { reason: describeError(err) }));
     } finally {
       toggling.current = false;
     }
@@ -291,6 +295,11 @@ export function ComputerWatch({
         </Button>
       </header>
 
+      {takeOverError ? (
+        <p role="alert" className="text-footnote text-danger-text">
+          {takeOverError}
+        </p>
+      ) : null}
       <p role="status" aria-live="polite" className="text-footnote text-label-secondary">
         {failed
           ? machine

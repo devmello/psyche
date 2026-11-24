@@ -1,4 +1,5 @@
 import type { Catalogue } from "../index.ts";
+import { actionErrors } from "./action-errors/zh.ts";
 import { agent } from "./agent/zh.ts";
 import { agentNotes } from "./agent-notes/zh.ts";
 import { audit } from "./audit/zh.ts";
@@ -3809,4 +3810,5 @@ export const zh: Partial<Catalogue> = {
   ...update,
   ...spaces,
   ...machines,
+  ...actionErrors,
 };

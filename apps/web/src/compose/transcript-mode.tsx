@@ -1,4 +1,4 @@
-import { type DisclosureLevel, t, useSettings } from "@psyche/ui";
+import { type DisclosureLevel, describeError, t, toast, useSettings } from "@psyche/ui";
 import { type ReactElement, useCallback, useId } from "react";
 
 /**
@@ -54,7 +54,9 @@ export function useTranscriptMode(): [DisclosureLevel, (level: DisclosureLevel) 
   const level = levelOf(settings[TRANSCRIPT_MODE_KEY]);
   const setLevel = useCallback(
     (next: DisclosureLevel) => {
-      void set(TRANSCRIPT_MODE_KEY, modeOf(next)).catch(() => undefined);
+      void set(TRANSCRIPT_MODE_KEY, modeOf(next)).catch((err: unknown) =>
+        toast.error(t("actionError.transcriptMode", { reason: describeError(err) })),
+      );
     },
     [set],
   );

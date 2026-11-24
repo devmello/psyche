@@ -74,6 +74,8 @@ export interface ScreenAskViewProps {
   onAllowCapture?: () => void;
   destination: "new" | "current";
   onDestination: (d: "new" | "current") => void;
+  /** Why the destination could not be saved, shown under the choice. */
+  destinationError?: string | null;
   dictation?: ScreenAskDictation;
   answer?: ScreenAskAnswer;
   onOpen?: () => void;
@@ -381,6 +383,11 @@ export function ScreenAskView(p: ScreenAskViewProps): ReactElement {
                 {d === "new" ? t("screenAsk.dest.new") : t("screenAsk.dest.current")}
               </Button>
             ))}
+            {p.destinationError ? (
+              <p role="alert" className="text-footnote text-danger-text">
+                {p.destinationError}
+              </p>
+            ) : null}
           </div>
         ) : null}
         {answer ? <Answer answer={answer} onOpen={p.onOpen} /> : null}

@@ -1,4 +1,5 @@
 import type { Catalogue } from "../index.ts";
+import { actionErrors } from "./action-errors/ar.ts";
 import { agent } from "./agent/ar.ts";
 import { agentNotes } from "./agent-notes/ar.ts";
 import { audit } from "./audit/ar.ts";
@@ -3932,4 +3933,5 @@ export const ar: Partial<Catalogue> = {
   ...update,
   ...spaces,
   ...machines,
+  ...actionErrors,
 };

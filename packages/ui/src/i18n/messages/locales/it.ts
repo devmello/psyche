@@ -1,4 +1,5 @@
 import type { Catalogue } from "../index.ts";
+import { actionErrors } from "./action-errors/it.ts";
 import { agentRest } from "./agent-rest/it.ts";
 import { auditRest } from "./audit-rest/it.ts";
 import { automationChatRest } from "./automation-chat-rest/it.ts";
@@ -3939,4 +3940,5 @@ export const it: Partial<Catalogue> = {
   ...update,
   ...spaces,
   ...machines,
+  ...actionErrors,
 };

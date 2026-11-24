@@ -1,6 +1,7 @@
 import type { Message, ScreenCapture, ScreenImageChoice } from "@psyche/protocol";
 import {
   AppearanceProvider,
+  describeError,
   GatewayProvider,
   mentionsScreen,
   readVoiceSettings,
@@ -131,6 +132,7 @@ type Captured =
 function ScreenAskBody({ platform, bridge }: ScreenAskProps): ReactElement | null {
   const store = useStore();
   const [open, setOpen] = useState<ScreenAskOpen | null>(null);
+  const [destinationError, setDestinationError] = useState<string | null>(null);
   const [captured, setCaptured] = useState<Captured>({ status: "capturing", mode: "window" });
   const [image, setImage] = useState<ScreenImageChoice>("auto");
   const [text, setText] = useState("");
@@ -363,7 +365,15 @@ function ScreenAskBody({ platform, bridge }: ScreenAskProps): ReactElement | nul
             }
           : {})}
         destination={destination}
-        onDestination={(d) => void setSetting("screenAsk.destination", d).catch(() => undefined)}
+        onDestination={(d) => {
+          setDestinationError(null);
+          void setSetting("screenAsk.destination", d).catch((err: unknown) =>
+            setDestinationError(
+              t("actionError.screenAskDestination", { reason: describeError(err) }),
+            ),
+          );
+        }}
+        destinationError={destinationError}
         dictation={dictation}
         {...(answer ? { answer } : {})}
         {...(sent && sent.threadId !== ""

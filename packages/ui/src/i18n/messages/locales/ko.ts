@@ -1,4 +1,5 @@
 import type { Catalogue } from "../index.ts";
+import { actionErrors } from "./action-errors/ko.ts";
 import { agentRest } from "./agent-rest/ko.ts";
 import { auditRest } from "./audit-rest/ko.ts";
 import { automationChatRest } from "./automationChat-rest/ko.ts";
@@ -3872,4 +3873,5 @@ export const ko: Partial<Catalogue> = {
   ...update,
   ...spaces,
   ...machines,
+  ...actionErrors,
 };
