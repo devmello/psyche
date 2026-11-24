@@ -262,6 +262,7 @@ export const hi: Partial<Catalogue> = {
   "chat.commands.usageExport": "उपयोग: /export [md | json]",
 
   "chat.composer.commands": "कमांड",
+  "chat.composer.skills": "स्किल",
   "chat.composer.quoting": "उद्धरण:",
   "chat.composer.removeQuote": "उद्धरण हटाएँ",
   "chat.composer.offline": "Psyche तक पहुँच नहीं हो पा रही",

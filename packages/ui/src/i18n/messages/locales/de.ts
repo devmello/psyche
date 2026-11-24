@@ -256,6 +256,7 @@ export const de: Partial<Catalogue> = {
   "chat.commands.usageExport": "Verwendung: /export [md | json]",
 
   "chat.composer.commands": "Befehle",
+  "chat.composer.skills": "Skills",
   "chat.composer.quoting": "Zitat:",
   "chat.composer.removeQuote": "Zitat entfernen",
   "chat.composer.offline": "Psyche ist nicht erreichbar",

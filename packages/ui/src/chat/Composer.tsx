@@ -20,6 +20,7 @@ import * as m from "motion/react-m";
 import {
   type ClipboardEvent,
   type DragEvent,
+  Fragment,
   type KeyboardEvent,
   type ReactElement,
   useEffect,
@@ -29,6 +30,7 @@ import {
 } from "react";
 import { GlassSurface } from "../components/glass-surface.tsx";
 import { Button } from "../components/ui/button.tsx";
+import { useGatewayQuery } from "../data/index.ts";
 import { t } from "../i18n/core.ts";
 import { cn } from "../lib/utils.ts";
 import { motionSpring, spring } from "../motion/index.ts";
@@ -36,7 +38,14 @@ import { type ComposerVoice, ComposerVoiceButtons } from "../voice/controls.tsx"
 import { useDictationKeyLabel } from "../voice/hold-keys.ts";
 import { ArgMenu, useArgMenu } from "./ArgMenu.tsx";
 import type { ArgContext } from "./command-args.ts";
-import { COMMANDS, type CommandInfo, completion, matchCommands } from "./commands.ts";
+import {
+  COMMANDS,
+  type CommandInfo,
+  completion,
+  matchMenu,
+  type SkillMenuItem,
+  skillCompletion,
+} from "./commands.ts";
 import { messageText } from "./MessageView.tsx";
 import { useElementHeight } from "./ThreadChrome.tsx";
 import type { ComposerAttach } from "./useAttachments.ts";
@@ -59,13 +68,24 @@ function useCommandMenu() {
   const text = useAuiState((s) => (s.composer.isEditing ? s.composer.text : ""));
   const [active, setActive] = useState(0);
   const [dismissedFor, setDismissedFor] = useState<string | null>(null);
-  const matches = dismissedFor === text ? [] : matchCommands(text);
-  const exact = matches.length === 1 && completion(matches[0] as CommandInfo).trim() === text;
+  // The skills load the first time the owner types `/`, then stay in the store for the session:
+  // a `skills.changed` event invalidates the query and the next `/` reloads it. A failed or empty
+  // load leaves the built-in commands alone.
+  const skillQuery = useGatewayQuery("skills.commands", {}, { enabled: text.startsWith("/") });
+  const skills: readonly SkillMenuItem[] = skillQuery.data?.commands ?? [];
+  const found = dismissedFor === text ? { commands: [], skills: [] } : matchMenu(text, skills);
+  const matches: MenuItem[] = [
+    ...found.commands.map((info): MenuItem => ({ kind: "command", info })),
+    ...found.skills.map((skill): MenuItem => ({ kind: "skill", skill })),
+  ];
+  const insertOf = (item: MenuItem): string =>
+    item.kind === "command" ? completion(item.info) : skillCompletion(item.skill);
+  const exact = matches.length === 1 && insertOf(matches[0] as MenuItem).trim() === text;
   const open = matches.length > 0 && !exact;
   // biome-ignore lint/correctness/useExhaustiveDependencies: a new prefix restarts the highlight
   useEffect(() => setActive(0), [text]);
-  const pick = (info: CommandInfo) => {
-    aui.composer.setText(completion(info));
+  const pick = (item: MenuItem) => {
+    aui.composer.setText(insertOf(item));
   };
   const onKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (!open) return;
@@ -82,8 +102,22 @@ function useCommandMenu() {
       setDismissedFor(text);
     }
   };
-  return { open, matches, active: Math.min(active, matches.length - 1), pick, onKeyDown };
+  // The index of the first skill row: the "Skills" heading sits above it.
+  const firstSkill = matches.findIndex((item) => item.kind === "skill");
+  return {
+    open,
+    matches,
+    firstSkill,
+    active: Math.min(active, matches.length - 1),
+    optionId: (item: MenuItem) =>
+      item.kind === "command" ? item.info.name : `skill-${item.skill.name}`,
+    pick,
+    onKeyDown,
+  };
 }
+
+/** One row of the `/` menu: a built-in command, or a skill the Gateway lists (`$name` on pick). */
+type MenuItem = { kind: "command"; info: CommandInfo } | { kind: "skill"; skill: SkillMenuItem };
 
 /** The item the next message is about (Feed "Ask about this"): a removable chip. */
 export interface ComposerContextChip {
@@ -214,32 +248,46 @@ export function Composer({
               // The slash menu is a level-2 popover: opaque, since glass never sits on glass.
               className="absolute start-0 bottom-full z-10 mb-2 max-h-72 w-full overflow-y-auto rounded-lg bg-surface-overlay p-1 shadow-elevation-2"
             >
-              {menu.matches.map((c, i) => (
-                <div
-                  key={c.name}
-                  id={`${menuId}-${c.name}`}
-                  role="option"
-                  tabIndex={-1}
-                  aria-selected={i === menu.active}
-                  className={cn(
-                    "flex h-7 cursor-default items-baseline gap-2 rounded-sm px-2 py-1 text-body",
-                    i === menu.active && "bg-accent-a4",
-                  )}
-                  onMouseDown={(e) => {
-                    // Keep focus in the composer while picking.
-                    e.preventDefault();
-                    menu.pick(c);
-                  }}
-                >
-                  <span className="font-mono text-label-primary">/{c.name}</span>
-                  {c.hint ? (
-                    <span className="text-callout text-label-tertiary">{c.hint}</span>
-                  ) : null}
-                  <span className="ms-auto truncate text-callout text-label-secondary">
-                    {c.description}
-                  </span>
-                </div>
-              ))}
+              {menu.matches.map((item, i) => {
+                const label = item.kind === "command" ? item.info.name : item.skill.name;
+                const description =
+                  item.kind === "command" ? item.info.description : item.skill.description;
+                return (
+                  <Fragment key={menu.optionId(item)}>
+                    {i === menu.firstSkill ? (
+                      <div
+                        role="presentation"
+                        className="px-2 pt-1.5 pb-0.5 text-callout text-label-tertiary"
+                      >
+                        {t("chat.composer.skills")}
+                      </div>
+                    ) : null}
+                    <div
+                      id={`${menuId}-${menu.optionId(item)}`}
+                      role="option"
+                      tabIndex={-1}
+                      aria-selected={i === menu.active}
+                      className={cn(
+                        "flex h-7 cursor-default items-baseline gap-2 rounded-sm px-2 py-1 text-body",
+                        i === menu.active && "bg-accent-a4",
+                      )}
+                      onMouseDown={(e) => {
+                        // Keep focus in the composer while picking.
+                        e.preventDefault();
+                        menu.pick(item);
+                      }}
+                    >
+                      <span className="font-mono text-label-primary">/{label}</span>
+                      {item.kind === "command" && item.info.hint ? (
+                        <span className="text-callout text-label-tertiary">{item.info.hint}</span>
+                      ) : null}
+                      <span className="ms-auto truncate text-callout text-label-secondary">
+                        {description}
+                      </span>
+                    </div>
+                  </Fragment>
+                );
+              })}
             </div>
           ) : null}
           {argMenu.open ? <ArgMenu menu={argMenu} /> : null}
@@ -431,7 +479,9 @@ export function Composer({
               {...(menu.open
                 ? {
                     "aria-controls": menuId,
-                    "aria-activedescendant": `${menuId}-${menu.matches[menu.active]?.name ?? ""}`,
+                    "aria-activedescendant": menu.matches[menu.active]
+                      ? `${menuId}-${menu.optionId(menu.matches[menu.active] as (typeof menu.matches)[number])}`
+                      : undefined,
                   }
                 : argMenu.open && !argMenu.loading
                   ? {

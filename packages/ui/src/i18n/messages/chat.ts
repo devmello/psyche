@@ -88,6 +88,7 @@ export const chat = {
   "chat.args.mode.plan": "Read-only: plans without acting",
 
   "chat.composer.commands": "Commands",
+  "chat.composer.skills": "Skills",
   "chat.composer.quoting": "Quoting:",
   "chat.composer.removeQuote": "Remove quote",
   "chat.composer.offline": "Psyche isn't reachable",
