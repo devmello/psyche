@@ -83,6 +83,14 @@ extension FixtureBackend: HomeBackend {
         publish(.changed(.home))
     }
 
+    public func actOnFollowup(id: String, action: FollowupAction, until: Date?) async throws {
+        await pause()
+        guard homeState.snapshot.today.contains(where: { $0.id == id }) else { throw BackendError.notFound }
+        // Done, snoozed and dismissed follow-ups all leave the open list, as the Gateway's list does.
+        homeState.snapshot.today.removeAll { $0.id == id }
+        publish(.changed(.home))
+    }
+
     public func resolveNotice(id: String, actionID: String) async throws {
         guard let index = homeState.inbox.firstIndex(where: { $0.id == id }) else { throw BackendError.notFound }
         // Resolving clears the notice's buttons, as the Gateway does.

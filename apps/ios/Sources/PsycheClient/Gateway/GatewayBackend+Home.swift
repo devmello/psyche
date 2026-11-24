@@ -4,6 +4,13 @@ import enum PsycheProtocol.JSONValue
 import PsycheWire
 
 extension GatewayBackend {
+    /// `daily.followups.update`. The Gateway answers with the follow-up; the phone only needs it to have been accepted.
+    public func actOnFollowup(id: String, action: FollowupAction, until: Date?) async throws {
+        var params: [String: JSONValue] = ["id": .string(id), "action": .string(action.rawValue)]
+        if let until { params["until"] = .string(until.formatted(.iso8601)) }
+        _ = try await call("daily.followups.update", .object(params))
+    }
+
     public func home() async throws -> HomeSnapshot {
         // Approvals and questions are the screen; the rest degrade to empty sections.
         async let approvals = settled { try await self.needsYouApprovals() }

@@ -50,6 +50,26 @@ final class HomeModel {
         }
     }
 
+    /// Today follow-ups whose Done, Snooze or Dismiss is in flight: their buttons wait.
+    private(set) var followupsBusy: Set<String> = []
+
+    /// Done, snooze or dismiss on a Today follow-up. The row leaves Today once the Gateway accepts it; a refusal keeps
+    /// the row and shows the Gateway's words. A snooze without `until` comes back tomorrow morning.
+    func actOnFollowup(_ item: BriefItem, _ action: FollowupAction, until: Date? = nil) async {
+        guard !followupsBusy.contains(item.id) else { return }
+        followupsBusy.insert(item.id)
+        defer { followupsBusy.remove(item.id) }
+        do {
+            try await store.actOnFollowup(id: item.id, action: action, until: until)
+            if case .loaded(var snapshot) = phase {
+                snapshot.today.removeAll { $0.id == item.id }
+                phase = .loaded(snapshot)
+            }
+        } catch {
+            show(error.localizedDescription)
+        }
+    }
+
     func act(on nudge: Nudge, _ action: NudgeAction) async {
         do {
             try await store.actOnNudge(id: nudge.id, action: action)

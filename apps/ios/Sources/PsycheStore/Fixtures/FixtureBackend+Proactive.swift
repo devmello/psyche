@@ -100,6 +100,25 @@ extension FixtureBackend: ProactiveBackend {
         return proactiveState.goals[index]
     }
 
+    public func suggestNextStep(goalID: String) async throws -> String? {
+        await pause()
+        guard let goal = proactiveState.goals.first(where: { $0.goal.id == goalID }) else { throw BackendError.notFound }
+        let idea = IdeaItem(
+            id: "idea_next_\(goalID)", kind: "task", title: "Next step for \(goal.goal.title)",
+            body: "One concrete step this week, from the goal's open milestones.", effort: "10 min")
+        proactiveState.ideas.removeAll { $0.id == idea.id }
+        proactiveState.ideas.insert(idea, at: 0)
+        return idea.id
+    }
+
+    public func linkThread(goalID: String, threadID: String) async throws {
+        await pause()
+        guard let index = proactiveState.goals.firstIndex(where: { $0.goal.id == goalID }) else { throw BackendError.notFound }
+        guard !proactiveState.goals[index].linkedTaskIDs.contains(threadID) else { return }
+        proactiveState.goals[index].linkedTaskIDs.append(threadID)
+        proactiveState.goals[index].linkedTasks += 1
+    }
+
     public func scheduled() async throws -> ScheduledOverview {
         await pause()
         return proactiveState.scheduled
@@ -150,7 +169,7 @@ extension FixtureData {
                 GoalMilestoneItem(id: "m1", title: "Run 5 km without stopping", done: true),
                 GoalMilestoneItem(id: "m2", title: "Run 10 km", done: false),
                 GoalMilestoneItem(id: "m3", title: "Register for a race", done: false),
-            ], linkedTasks: 2),
+            ], linkedTasks: 2, linkedTaskIDs: ["thr_q3", "task_invoice"]),
         GoalDetail(goal: GoalItem(id: "goal_2", title: "Save for a deposit", category: "finance", status: "candidate")),
     ]
 

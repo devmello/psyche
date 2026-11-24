@@ -47,6 +47,17 @@ extension GatewayBackend {
         return try Self.goalDetail(from: try await call("goals.milestone", .object(params)))
     }
 
+    /// `goals.suggest`: the idea the Gateway made for the goal's next step, or nil when it made none.
+    public func suggestNextStep(goalID: String) async throws -> String? {
+        let result = try await call("goals.suggest", .obj(["goalId": .string(goalID)]))
+        return result["ideaId"]?.string
+    }
+
+    /// `goals.link` with the chat thread as the task. The Gateway answers `ok`; the goal page reloads to show it.
+    public func linkThread(goalID: String, threadID: String) async throws {
+        _ = try await call("goals.link", .obj(["goalId": .string(goalID), "taskId": .string(threadID)]))
+    }
+
     /// `goals.create` with the Mac dialog's two fields: the title (trimmed) and the category.
     public func createGoal(title: String, category: GoalCategoryChoice) async throws -> GoalDetail {
         let params: JSONValue = .obj([
@@ -64,7 +75,8 @@ extension GatewayBackend {
             return GoalMilestoneItem(
                 id: id, title: title, dueAt: WireFormat.date(milestone["dueAt"]?.string), done: milestone["doneAt"]?.string != nil)
         }
-        return GoalDetail(goal: goal, milestones: milestones, linkedTasks: result["taskIds"]?.array?.count ?? 0)
+        let taskIDs = (result["taskIds"]?.array ?? []).compactMap(\.string)
+        return GoalDetail(goal: goal, milestones: milestones, linkedTasks: taskIDs.count, linkedTaskIDs: taskIDs)
     }
 
     static func goal(from wire: JSONValue) -> GoalItem? {

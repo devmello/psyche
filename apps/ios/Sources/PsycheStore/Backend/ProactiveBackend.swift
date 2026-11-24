@@ -41,6 +41,11 @@ public protocol ProactiveBackend: Sendable {
     func deleteAutomation(id: String) async throws
     /// One page of an automation's run history, newest first (the editor's Past runs list). `nextCursor` nil is the last page.
     func automationRuns(id: String, cursor: String?) async throws -> AutomationRunPage
+    /// Asks the model for one next step for a goal (`goals.suggest`). Returns the id of the idea it offers, to Start or
+    /// Not now on Home (`ideas()` has it); nil when there is none. Runs only when the owner asks, and nothing starts.
+    func suggestNextStep(goalID: String) async throws -> String?
+    /// Links an existing chat thread to a goal (`goals.link`, the thread as the goal's task).
+    func linkThread(goalID: String, threadID: String) async throws
 }
 
 // MARK: Feed
@@ -182,11 +187,15 @@ public struct GoalDetail: Sendable, Equatable {
     public var goal: GoalItem
     public var milestones: [GoalMilestoneItem]
     public var linkedTasks: Int
+    /// The ids of the tasks and chat threads linked to the goal (`goals.get`'s `taskIds`). The goal page names the
+    /// chat threads among them from the threads list.
+    public var linkedTaskIDs: [String]
 
-    public init(goal: GoalItem, milestones: [GoalMilestoneItem] = [], linkedTasks: Int = 0) {
+    public init(goal: GoalItem, milestones: [GoalMilestoneItem] = [], linkedTasks: Int = 0, linkedTaskIDs: [String] = []) {
         self.goal = goal
         self.milestones = milestones
         self.linkedTasks = linkedTasks
+        self.linkedTaskIDs = linkedTaskIDs
     }
 
     /// Done milestones over all milestones; nil when the goal has none (progress is then unknown, not zero).

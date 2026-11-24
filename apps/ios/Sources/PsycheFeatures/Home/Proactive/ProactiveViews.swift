@@ -307,6 +307,7 @@ private struct GoalSheet: View {
     @Environment(\.dismiss) private var dismiss
     @State private var confirmingArchive = false
     @State private var addingMilestone = false
+    @State private var linkingThread = false
 
     var body: some View {
         ScrollView {
@@ -325,6 +326,7 @@ private struct GoalSheet: View {
         }
         .psycheScreen()
         .presentationDetents([.medium, .large])
+        .task { await model.loadThreads() }
         .confirmationDialog(String(localized: "Archive this goal?", bundle: .module), isPresented: $confirmingArchive, titleVisibility: .visible) {
             Button(String(localized: "Archive goal", bundle: .module), role: .destructive) {
                 guard let goal = currentGoal else { return }
@@ -333,6 +335,11 @@ private struct GoalSheet: View {
             Button(String(localized: "Cancel", bundle: .module), role: .cancel) {}
         } message: {
             Text("Its check-ins stop. Nothing is deleted.", bundle: .module)
+        }
+        .sheet(isPresented: $linkingThread) {
+            if let goal = currentGoal {
+                LinkThreadSheet(goal: goal, model: model)
+            }
         }
         .sheet(isPresented: $addingMilestone) {
             if let goal = currentGoal {
@@ -386,6 +393,9 @@ private struct GoalSheet: View {
                 }
             }
         }
+        if goal.status == "active" {
+            suggestion(goal)
+        }
         if let progress = detail.progress {
             VStack(alignment: .leading, spacing: 8) {
                 ProgressBar(fraction: progress)
@@ -412,10 +422,91 @@ private struct GoalSheet: View {
                     .disabled(model.busy)
             }
         }
+        linkedThreads(detail, archived: archived)
         if !archived && goal.status != "candidate" {
             Button(String(localized: "Archive goal", bundle: .module), role: .destructive) { confirmingArchive = true }
                 .proactiveAction()
                 .disabled(model.busy)
+        }
+    }
+
+    /// "Suggest a next step": the model's one idea for the goal, shown with Start and Not now. The request runs in a
+    /// task the sheet cancels; nothing starts without the owner's Start.
+    @ViewBuilder
+    private func suggestion(_ goal: GoalItem) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            SectionHeader(String(localized: "Next step", bundle: .module))
+            switch model.suggest {
+            case .idle:
+                Button(String(localized: "Suggest a next step", bundle: .module)) { model.startSuggest(for: goal) }
+                    .proactiveAction()
+                    .disabled(model.busy)
+                    .accessibilityIdentifier("goal.suggest")
+            case .working:
+                HStack(spacing: 12) {
+                    ProgressView()
+                    Text("Thinking of a next step…", bundle: .module).font(.subheadline).foregroundStyle(PsycheColor.muted)
+                    Spacer(minLength: 0)
+                    Button(String(localized: "Cancel", bundle: .module)) { model.cancelSuggest() }
+                        .proactiveAction()
+                        .accessibilityIdentifier("goal.suggest.cancel")
+                }
+                .accessibilityIdentifier("goal.suggest.working")
+            case .offered(let idea):
+                PaperCard {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(idea.title).font(.psycheRow).foregroundStyle(PsycheColor.text)
+                        Text(idea.body).font(.subheadline).foregroundStyle(PsycheColor.muted)
+                    }
+                    .padding(PsycheMetrics.rowPadding)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                HStack(spacing: 20) {
+                    Button(String(localized: "Start", bundle: .module)) { Task { await model.decideSuggestion(start: true) } }
+                        .proactiveAction(prominent: true)
+                        .accessibilityIdentifier("goal.suggest.start")
+                    Button(String(localized: "Not now", bundle: .module)) { Task { await model.decideSuggestion(start: false) } }
+                        .proactiveAction()
+                        .accessibilityIdentifier("goal.suggest.notNow")
+                }
+            case .none:
+                Text("No next step to suggest right now.", bundle: .module).font(.subheadline).foregroundStyle(PsycheColor.muted)
+                Button(String(localized: "Try again", bundle: .module)) { model.startSuggest(for: goal) }
+                    .proactiveAction()
+            case .failed(let message):
+                Text(message).font(.footnote).foregroundStyle(PsycheColor.red)
+                Button(String(localized: "Try again", bundle: .module)) { model.startSuggest(for: goal) }
+                    .proactiveAction()
+            }
+        }
+    }
+
+    /// The chat threads linked to the goal, by name, and "Link a thread" for one more (`goals.link`).
+    @ViewBuilder
+    private func linkedThreads(_ detail: GoalDetail, archived: Bool) -> some View {
+        let linked = model.threads.filter { detail.linkedTaskIDs.contains($0.id) }
+        VStack(alignment: .leading, spacing: 8) {
+            SectionHeader(String(localized: "Linked threads", bundle: .module))
+            if linked.isEmpty {
+                Text("No chats linked yet.", bundle: .module).font(.subheadline).foregroundStyle(PsycheColor.muted)
+            } else {
+                PaperCard {
+                    ForEach(Array(linked.enumerated()), id: \.element.id) { index, thread in
+                        if index > 0 { HairlineDivider() }
+                        Text(thread.title)
+                            .font(.psycheRow).foregroundStyle(PsycheColor.text)
+                            .padding(PsycheMetrics.rowPadding)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .accessibilityIdentifier("goal.thread.\(thread.id)")
+                    }
+                }
+            }
+            if !archived {
+                Button(String(localized: "Link a thread", bundle: .module)) { linkingThread = true }
+                    .proactiveAction()
+                    .disabled(model.busy)
+                    .accessibilityIdentifier("goal.linkThread")
+            }
         }
     }
 
@@ -458,6 +549,66 @@ private struct GoalSheet: View {
             }
         }
         .padding(PsycheMetrics.rowPadding)
+    }
+}
+
+/// "Link a thread": the owner's chats not linked to the goal yet. Tapping one links it; a refusal stays on the sheet
+/// in the Gateway's words.
+private struct LinkThreadSheet: View {
+    let goal: GoalItem
+    let model: GoalsModel
+    @Environment(\.dismiss) private var dismiss
+    @State private var linking: String?
+    @State private var failure: String?
+
+    private var candidates: [ChatThreadSummary] {
+        let linked = model.detail.value?.linkedTaskIDs ?? []
+        return model.threads.filter { !linked.contains($0.id) }
+    }
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Section {
+                    if candidates.isEmpty {
+                        Text("No chats to link.", bundle: .module).foregroundStyle(PsycheColor.muted)
+                    }
+                    ForEach(candidates) { thread in
+                        Button(thread.title) {
+                            Task { await link(thread) }
+                        }
+                        .disabled(linking != nil)
+                        .accessibilityIdentifier("goal.linkThread.row.\(thread.id)")
+                    }
+                } footer: {
+                    if let failure {
+                        Text(failure).foregroundStyle(PsycheColor.red)
+                    }
+                }
+            }
+            .navigationTitle(String(localized: "Link a thread", bundle: .module))
+            .psycheInlineTitle()
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(String(localized: "Cancel", bundle: .module)) { dismiss() }
+                        .disabled(linking != nil)
+                }
+            }
+        }
+        .presentationDragIndicator(.visible)
+        .task { await model.loadThreads() }
+    }
+
+    private func link(_ thread: ChatThreadSummary) async {
+        linking = thread.id
+        failure = nil
+        defer { linking = nil }
+        do {
+            try await model.linkThread(thread, to: goal)
+            dismiss()
+        } catch {
+            failure = error.localizedDescription
+        }
     }
 }
 
