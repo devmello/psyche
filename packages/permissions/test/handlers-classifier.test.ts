@@ -133,6 +133,14 @@ describe("API handlers", () => {
     expect(
       (await api["grants.revoke"]({ grantId: res.grant?.id }, desktop)).grant.revokedAt,
     ).toBeTypeOf("string");
+    // The revoke is recorded as the owner's device that did it, not as a system action.
+    const revokedRows = (await api["audit.list"]({ kindPrefix: "grant.revoked" }, desktop)).entries;
+    expect(revokedRows).toHaveLength(1);
+    expect(revokedRows[0]?.actor).toEqual({
+      type: "device",
+      deviceId: "dev_mac",
+      surface: "desktop",
+    });
     const entries = (await api["audit.list"]({ kindPrefix: "approval." }, desktop)).entries;
     expect(entries.map((e) => e.kind)).toEqual(["approval.created", "approval.decided"]);
     expect(await api["audit.verify"]({}, desktop)).toMatchObject({ ok: true });

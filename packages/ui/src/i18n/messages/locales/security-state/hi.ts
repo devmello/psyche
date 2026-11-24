@@ -41,6 +41,6 @@ export const securityState: Partial<Catalogue> = {
   "web.security.ack": "देखा गया चिह्नित करें",
   "web.security.approveNow": "अभी मंज़ूरी दें",
   "web.security.cancel": "अनुरोध रद्द करें",
-  "web.security.needsApproval": "Touch ID या पासकी से कार्ड को मंज़ूरी दें, फिर बटन दोबारा दबाएँ।",
+  "web.security.needsApproval": "कार्ड को मंज़ूरी दें, फिर बटन दोबारा दबाएँ।",
   "web.security.failed": "यह काम नहीं किया: {message}",
 };

@@ -126,6 +126,28 @@ export function brokerConnectors(
   return out;
 }
 
+/**
+ * Saves a connector's changed rules in one call. When that call fails (one bad entry: an unknown
+ * group, allow on a send), each entry is retried alone so the rest still apply, and `onFailed`
+ * hears every entry that did not.
+ */
+export async function applyMatrixEntries(
+  registry: Pick<ConnectorRegistry, "setMatrix">,
+  id: string,
+  changed: [string, MatrixRule][],
+  onFailed: (action: string, err: unknown) => void,
+): Promise<void> {
+  try {
+    await registry.setMatrix(id, Object.fromEntries(changed));
+    return;
+  } catch {
+    // Retried one entry at a time below.
+  }
+  for (const [action, rule] of changed) {
+    await registry.setMatrix(id, { [action]: rule }).catch((err) => onFailed(action, err));
+  }
+}
+
 export interface ConnectorMatrixSync {
   /** Re-applies the stored rules to the broker and the executor (boot, after any change). */
   sync(): Promise<void>;
@@ -174,19 +196,27 @@ export function connectorMatrixSync(
   async function setMatrix(record: ConnectorRecord, wanted: Matrix): Promise<void> {
     const changed = Object.entries(wanted).filter(([k, v]) => record.actionMatrix[k] !== v);
     if (changed.length === 0) return;
-    try {
-      await registry.setMatrix(record.id, Object.fromEntries(changed));
-    } catch {
-      // One bad entry (an unknown group, allow on a send) must not drop the rest.
-      for (const [k, v] of changed) {
-        await registry.setMatrix(record.id, { [k]: v }).catch((err) =>
-          warn("a connector rule could not be applied", err, {
-            connectorId: record.id,
-            action: k,
-          }),
-        );
-      }
-    }
+    await applyMatrixEntries(registry, record.id, changed, (k, err) => {
+      warn("a connector rule could not be applied", err, {
+        connectorId: record.id,
+        action: k,
+      });
+      // Each entry that did not apply is named to the owner, so the Settings save is not silently partial.
+      void services.notifier
+        .notify({
+          kind: "system",
+          route: "/settings/connectors",
+          title: "A connector rule didn't save",
+          body: `${k} on ${record.label} couldn't be applied, so it still uses its previous rule. Check it in Settings › Connectors.`,
+          message: {
+            titleKey: "notice.connectors.matrix.failed.title",
+            bodyKey: "notice.connectors.matrix.failed.body",
+            params: { action: k, connector: record.label.slice(0, 60) },
+          },
+          dedupeKey: `connector-matrix:${record.id}:${k}`,
+        })
+        .catch(() => undefined);
+    });
   }
 
   async function pass(): Promise<void> {

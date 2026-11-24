@@ -187,7 +187,12 @@ export function createPermissionHandlers(
     async "grants.revoke"(p, c) {
       requireScope(c, Methods["grants.revoke"].scope);
       const { grantId } = check(Methods["grants.revoke"].params, p);
-      return { grant: await broker.revokeGrant(grantId) };
+      return {
+        grant: await broker.revokeGrant(grantId, "owner", {
+          deviceId: c.deviceId,
+          surface: c.surface,
+        }),
+      };
     },
     async "audit.list"(p, c) {
       requireScope(c, AuditMethods["audit.list"].scope);

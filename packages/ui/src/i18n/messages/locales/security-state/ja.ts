@@ -40,7 +40,6 @@ export const securityState: Partial<Catalogue> = {
   "web.security.ack": "確認済みにする",
   "web.security.approveNow": "今すぐ承認",
   "web.security.cancel": "要求をキャンセル",
-  "web.security.needsApproval":
-    "Touch ID またはパスキーでカードを承認してから、もう一度ボタンを押してください。",
+  "web.security.needsApproval": "カードを承認してから、もう一度ボタンを押してください。",
   "web.security.failed": "うまくいきませんでした: {message}",
 };

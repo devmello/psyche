@@ -39,6 +39,6 @@ export const securityState: Partial<Catalogue> = {
   "web.security.ack": "확인함으로 표시",
   "web.security.approveNow": "지금 승인",
   "web.security.cancel": "요청 취소",
-  "web.security.needsApproval": "Touch ID나 패스키로 카드를 승인한 다음 버튼을 다시 누르세요.",
+  "web.security.needsApproval": "카드를 승인한 다음 버튼을 다시 누르세요.",
   "web.security.failed": "작동하지 않았습니다: {message}",
 };

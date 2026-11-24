@@ -41,7 +41,6 @@ export const securityState: Partial<Catalogue> = {
   "web.security.ack": "Marcar como revisado",
   "web.security.approveNow": "Aprobar ahora",
   "web.security.cancel": "Cancelar solicitud",
-  "web.security.needsApproval":
-    "Aprueba la tarjeta con Touch ID o una llave de acceso y vuelve a pulsar el botón.",
+  "web.security.needsApproval": "Aprueba la tarjeta y luego pulsa el botón otra vez.",
   "web.security.failed": "No funcionó: {message}",
 };
