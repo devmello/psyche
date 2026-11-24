@@ -12,6 +12,12 @@ export class FakeSmtpServer {
   readonly commands: string[] = [];
   /** Recipients refused with 550. */
   rejectRecipients = new Set<string>();
+  /** Offer STARTTLS on plaintext connections (`connectPlain`); off by default. */
+  offerStarttls = false;
+  /** How many plaintext connections were upgraded with STARTTLS. */
+  tlsUpgrades = 0;
+  /** The `servername` each STARTTLS upgrade was handed, in order. */
+  readonly upgradedWith: string[] = [];
 
   constructor(store: FakeMailStore) {
     this.store = store;
@@ -23,10 +29,30 @@ export class FakeSmtpServer {
     return client;
   }
 
-  async #serve(socket: FakeMailSocket): Promise<void> {
+  /** Plaintext connection for STARTTLS; `upgradeTls` serves the same connection under TLS. */
+  connectPlain(): FakeMailSocket {
+    const { client, server } = fakeSocketPair();
+    void this.#serve(server, { plain: true }).catch(() => undefined);
+    return {
+      ...client,
+      upgradeTls: async (servername: string) => {
+        this.tlsUpgrades += 1;
+        this.upgradedWith.push(servername);
+        const tls = fakeSocketPair();
+        void this.#serve(tls.server, { greet: false }).catch(() => undefined);
+        return tls.client;
+      },
+    };
+  }
+
+  async #serve(
+    socket: FakeMailSocket,
+    mode: { plain?: boolean; greet?: boolean } = {},
+  ): Promise<void> {
     const reader = new FakeLineReader(socket);
     const send = (line: string) => socket.write(`${line}\r\n`);
-    await send("220 fake.smtp.example ESMTP ready");
+    const canStarttls = mode.plain === true && this.offerStarttls;
+    if (mode.greet !== false) await send("220 fake.smtp.example ESMTP ready");
     let authed = false;
     let from = "";
     let recipients: string[] = [];
@@ -39,6 +65,7 @@ export class FakeSmtpServer {
       this.commands.push(cmd === "AUTH" ? "AUTH PLAIN ***" : line);
       if (cmd === "EHLO" || cmd === "HELO") {
         await send("250-fake.smtp.example");
+        if (canStarttls) await send("250-STARTTLS");
         await send("250-AUTH PLAIN");
         await send("250-SIZE 52428800");
         await send("250 8BITMIME");
@@ -51,6 +78,14 @@ export class FakeSmtpServer {
           authed = true;
           await send("235 2.7.0 Authentication successful");
         } else await send("535 5.7.8 Authentication credentials invalid");
+        continue;
+      }
+      if (cmd === "STARTTLS") {
+        if (canStarttls) {
+          await send("220 2.0.0 Ready to start TLS");
+          return;
+        }
+        await send("454 4.7.0 TLS not available");
         continue;
       }
       if (cmd === "QUIT") {

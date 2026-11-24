@@ -9,7 +9,7 @@ import {
   parseHeaders,
 } from "../rfc822.ts";
 import { SmtpClient } from "../smtp/client.ts";
-import { type MailDialer, tlsDialer } from "../transport.ts";
+import { type MailDialer, type MailSecurity, mailDialer } from "../transport.ts";
 import type {
   MailBackend,
   MailboxInfo,
@@ -39,9 +39,12 @@ export const IMAP_MAX_PAGE = 50;
 export interface ImapConfig {
   host: string;
   port: number;
+  /** `TLS` (IMAPS) or `STARTTLS` (IMAP upgraded from plaintext, never used without the upgrade). */
+  security: MailSecurity;
   username: string;
   smtpHost: string;
   smtpPort: number;
+  smtpSecurity: MailSecurity;
   smtpUsername: string;
   /** The owner's address (From and the connector account). */
   account: string | undefined;
@@ -65,27 +68,44 @@ function portOf(v: unknown, name: string, fallback: number): number {
   return v;
 }
 
+/** Ports that conventionally start in plaintext and upgrade: IMAP 143, SMTP submission 587. */
+const STARTTLS_PORTS = new Set([143, 587]);
+
+/**
+ * `TLS` or `STARTTLS` for one server. Without an explicit value the port decides: 143 and 587
+ * are STARTTLS, every other port is implicit TLS. There is no plaintext value.
+ */
+function securityOf(v: unknown, name: string, port: number): MailSecurity {
+  if (v === undefined) return STARTTLS_PORTS.has(port) ? "STARTTLS" : "TLS";
+  if (v === "TLS" || v === "STARTTLS") return v;
+  throw new PsycheError("invalid_params", `config.${name} must be "TLS" or "STARTTLS"`);
+}
+
 export function parseImapConfig(config: Record<string, unknown>): ImapConfig {
   const host = hostOf(config.host, "host");
   if (typeof config.username !== "string" || config.username === "") {
     throw new PsycheError("invalid_params", "config.username is required");
   }
-  if (config.tls === false || config.starttls === true) {
-    throw new PsycheError("invalid_params", "only implicit TLS (IMAPS / SMTPS) is supported");
+  if (config.tls === false) {
+    throw new PsycheError("invalid_params", "plaintext mail is not supported; use TLS or STARTTLS");
   }
+  const port = portOf(config.port, "port", IMAP_DEFAULT_PORT);
+  const smtpPort = portOf(config.smtpPort, "smtpPort", SMTP_DEFAULT_PORT);
   return {
     host,
-    port: portOf(config.port, "port", IMAP_DEFAULT_PORT),
+    port,
+    security: securityOf(config.security, "security", port),
     username: config.username,
     smtpHost: config.smtpHost === undefined ? host : hostOf(config.smtpHost, "smtpHost"),
-    smtpPort: portOf(config.smtpPort, "smtpPort", SMTP_DEFAULT_PORT),
+    smtpPort,
+    smtpSecurity: securityOf(config.smtpSecurity, "smtpSecurity", smtpPort),
     smtpUsername: typeof config.smtpUsername === "string" ? config.smtpUsername : config.username,
     account: typeof config.account === "string" ? config.account : undefined,
   };
 }
 
 export interface ImapBackendOptions {
-  /** Socket factory; default implicit TLS. Tests inject the fake servers. */
+  /** Socket factory; default dials implicit TLS or plaintext for STARTTLS. Tests inject fakes. */
   dial?: MailDialer;
 }
 
@@ -97,16 +117,18 @@ export class ImapBackend implements MailBackend {
 
   constructor(config: Record<string, unknown>, options: ImapBackendOptions = {}) {
     this.#cfg = parseImapConfig(config);
-    this.#dial = options.dial ?? tlsDialer();
+    this.#dial = options.dial ?? mailDialer();
     this.hosts = [...new Set([this.#cfg.host, this.#cfg.smtpHost])];
   }
 
   async open(secret: ResolvedSecret, signal?: AbortSignal): Promise<MailSession> {
     const password = secret.use((v) => v);
-    const socket = await this.#dial(this.#cfg.host, this.#cfg.port, signal);
+    const socket = await this.#dial(this.#cfg.host, this.#cfg.port, signal, this.#cfg.security);
     const client = new ImapClient(socket);
     try {
       await client.greeting();
+      // STARTTLS: refused before LOGIN unless the server offers it and the upgrade succeeds.
+      if (this.#cfg.security === "STARTTLS") await client.startTls(this.#cfg.host);
       await client.login(this.#cfg.username, password);
     } catch (err) {
       client.close();
@@ -373,12 +395,21 @@ export class ImapSession implements MailSession {
     const recipients = [
       ...new Set([...mail.to, ...(mail.cc ?? []), ...(mail.bcc ?? [])].map(canonicalAddress)),
     ];
-    const socket = await this.#dial(this.#cfg.smtpHost, this.#cfg.smtpPort, signal);
+    const socket = await this.#dial(
+      this.#cfg.smtpHost,
+      this.#cfg.smtpPort,
+      signal,
+      this.#cfg.smtpSecurity,
+    );
     const smtp = new SmtpClient(socket);
     let queueId: string | undefined;
     try {
       await smtp.greeting();
       await smtp.ehlo();
+      if (this.#cfg.smtpSecurity === "STARTTLS") {
+        await smtp.startTls(this.#cfg.smtpHost);
+        await smtp.ehlo();
+      }
       await smtp.authPlain(this.#cfg.smtpUsername, this.#password);
       queueId = (await smtp.send(from, recipients, raw)).queueId;
     } finally {

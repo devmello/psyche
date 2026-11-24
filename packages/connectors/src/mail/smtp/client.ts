@@ -3,8 +3,9 @@ import { LineReader, type MailSocket } from "../transport.ts";
 import { MailAuthError } from "../types.ts";
 
 /**
- * Minimal SMTP submission client (RFC 5321 / 4954 / 6409 subset) over implicit TLS: EHLO,
- * AUTH PLAIN, MAIL FROM, RCPT TO, DATA with dot-stuffing, QUIT. One message per connection.
+ * Minimal SMTP submission client (RFC 5321 / 4954 / 6409 subset) over implicit TLS or a STARTTLS
+ * upgrade: EHLO, STARTTLS, AUTH PLAIN, MAIL FROM, RCPT TO, DATA with dot-stuffing, QUIT. One
+ * message per connection.
  */
 
 export interface SmtpReply {
@@ -22,8 +23,8 @@ export class SmtpError extends Error {
 }
 
 export class SmtpClient {
-  readonly #socket: MailSocket;
-  readonly #reader: LineReader;
+  #socket: MailSocket;
+  #reader: LineReader;
   #extensions = new Set<string>();
 
   constructor(socket: MailSocket) {
@@ -43,6 +44,34 @@ export class SmtpClient {
   async ehlo(name = "psyche.local"): Promise<void> {
     const r = await this.command(`EHLO ${name}`, 250);
     this.#extensions = new Set(r.lines.slice(1).map((l) => l.split(" ")[0]?.toUpperCase() ?? ""));
+  }
+
+  /**
+   * Upgrade with STARTTLS before AUTH. Refuses unless EHLO advertised STARTTLS, and refuses when
+   * bytes arrived after the 220 reply. The caller runs EHLO again on the TLS socket.
+   */
+  async startTls(host: string): Promise<void> {
+    if (!this.#extensions.has("STARTTLS")) {
+      throw new PsycheError(
+        "unavailable",
+        "SMTP server does not offer STARTTLS; refusing to authenticate without TLS",
+      );
+    }
+    const socket = this.#socket;
+    if (socket.upgradeTls === undefined) {
+      throw new PsycheError("unavailable", "SMTP connection cannot upgrade to TLS");
+    }
+    await this.command("STARTTLS", 220);
+    if (this.#reader.buffered() > 0 || (socket.pendingBytes?.() ?? 0) > 0) {
+      throw new PsycheError(
+        "unavailable",
+        "SMTP server sent data after the STARTTLS reply; refusing to continue",
+      );
+    }
+    const secure = await socket.upgradeTls(host);
+    this.#socket = secure;
+    this.#reader = new LineReader(secure);
+    this.#extensions = new Set();
   }
 
   async authPlain(user: string, password: string): Promise<void> {
