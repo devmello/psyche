@@ -100,6 +100,21 @@ describe("attention.report (#272)", () => {
     expect(act?.(click)?.summary).toMatch(/^While you're away: /);
   });
 
+  it("a widget or MCP App message is page text, not the owner watching (typed one still counts)", () => {
+    const a = new OwnerAttention(() => 5);
+    const msg = (via?: string) =>
+      JSON.stringify({
+        event: "chat.message",
+        payload: {
+          message: { role: "user", provenance: "owner", ...(via === undefined ? {} : { via }) },
+        },
+      });
+    a.observe(msg("widget"));
+    expect(a.lastInput()).toBeUndefined();
+    a.observe(msg());
+    expect(a.lastInput()).toBe(5);
+  });
+
   it("counts the owner's own messages and answers as input, not the agent's", () => {
     let now = 5;
     const a = new OwnerAttention(() => now);

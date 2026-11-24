@@ -361,7 +361,7 @@ public actor GatewayClient {
     private func revokeReportingFailure() async {
         do { try await revoke() } catch {
             for c in failureSubscribers.values {
-                c.yield("This phone was removed, but its key could not be deleted from the Keychain. Restart your phone, then try again.")
+                c.yield(String(localized: "This phone was removed, but its key could not be deleted from the Keychain. Restart your phone, then try again.", bundle: .module))
             }
         }
     }
@@ -406,14 +406,14 @@ public actor GatewayClient {
     /// Queues a write and sends it now when connected. `.queued` means the Gateway has not acknowledged it yet.
     public func submit(_ entry: OutboxEntry) async -> Outbox.Delivery {
         // A write belongs to the Gateway this phone is paired with; without one there is nowhere to send it.
-        guard let gateway = Self.gatewayBinding(endpoint) else { return .rejected("This phone isn't paired with a Mac.") }
+        guard let gateway = Self.gatewayBinding(endpoint) else { return .rejected(String(localized: "This phone isn't paired with a Mac.", bundle: .module)) }
         var stamped = entry
         stamped.gateway = gateway
         if await deps.outbox.enqueue(stamped) != nil {
             // The queue file could not be written. Sent now it is fine; waiting would not survive a relaunch.
             if case .live = state {} else {
                 await deps.outbox.discard(id: entry.id)
-                return .rejected("This phone couldn't save your message to send later. Try again when your Mac is reachable.")
+                return .rejected(String(localized: "This phone couldn't save your message to send later. Try again when your Mac is reachable.", bundle: .module))
             }
         }
         guard case .live = state else { return .queued }
@@ -476,7 +476,7 @@ public actor GatewayClient {
                 if pairingInProgress, restorePreviousEndpoint() {
                     pairingInProgress = false
                     setupToken = nil
-                    publishFailure("That pairing link is for a different Mac than the one it names, so it was not used. Your earlier connection is unchanged.")
+                    publishFailure(String(localized: "That pairing link is for a different Mac than the one it names, so it was not used. Your earlier connection is unchanged.", bundle: .module))
                     set(.connecting)
                     continue
                 }
@@ -486,7 +486,7 @@ public actor GatewayClient {
                 if pairingInProgress, restorePreviousEndpoint() {
                     pairingInProgress = false
                     setupToken = nil
-                    publishFailure("Couldn't reach the Mac in that pairing link. Your earlier connection is unchanged.")
+                    publishFailure(String(localized: "Couldn't reach the Mac in that pairing link. Your earlier connection is unchanged.", bundle: .module))
                     set(.connecting)
                     continue
                 }
@@ -631,8 +631,8 @@ public actor GatewayClient {
             return .retry
         }
         let message = tokenInvalid
-            ? "That pairing link expired or was already used. Make a new link on your Mac."
-            : "Your Mac didn't accept this phone: \(reason)"
+            ? String(localized: "That pairing link expired or was already used. Make a new link on your Mac.", bundle: .module)
+            : String(localized: "Your Mac didn't accept this phone: \(reason)", bundle: .module)
         publishFailure(message)
         pairingInProgress = false
         setupToken = nil

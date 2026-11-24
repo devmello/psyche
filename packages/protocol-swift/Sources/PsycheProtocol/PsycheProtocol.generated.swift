@@ -792,6 +792,8 @@
 //   let mCPAddParams = try? JSONDecoder().decode(MCPAddParams.self, from: jsonData)
 //   let mCPAddResult = try? JSONDecoder().decode(MCPAddResult.self, from: jsonData)
 //   let mCPApp = try? JSONDecoder().decode(MCPApp.self, from: jsonData)
+//   let mCPAppCallParams = try? JSONDecoder().decode(MCPAppCallParams.self, from: jsonData)
+//   let mCPAppCallResult = try? JSONDecoder().decode(MCPAppCallResult.self, from: jsonData)
 //   let mCPAppParams = try? JSONDecoder().decode(MCPAppParams.self, from: jsonData)
 //   let mCPAppResult = try? JSONDecoder().decode(MCPAppResult.self, from: jsonData)
 //   let mCPConfigParams = try? JSONDecoder().decode(MCPConfigParams.self, from: jsonData)
@@ -20116,6 +20118,43 @@ public struct MCPServerStatus: Codable, Sendable {
 
 public enum MadeBy: String, Codable, Sendable {
     case psyche = "psyche"
+}
+
+// MARK: - MCPAppCallParams
+public struct MCPAppCallParams: Codable, Sendable {
+    public let arguments: [String: JSONAny]?
+    /// The server's own tool name, without the mcp__<server>__ prefix
+    public let name: String
+    public let toolCallID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case arguments = "arguments"
+        case name = "name"
+        case toolCallID = "toolCallId"
+    }
+
+    public init(arguments: [String: JSONAny]? = nil, name: String, toolCallID: String) {
+        self.arguments = arguments
+        self.name = name
+        self.toolCallID = toolCallID
+    }
+}
+
+// MARK: - MCPAppCallResult
+public struct MCPAppCallResult: Codable, Sendable {
+    public let isError: Bool
+    /// What the tool returned (blocks and structured data)
+    public let output: JSONAny
+
+    public enum CodingKeys: String, CodingKey {
+        case isError = "isError"
+        case output = "output"
+    }
+
+    public init(isError: Bool, output: JSONAny) {
+        self.isError = isError
+        self.output = output
+    }
 }
 
 // MARK: - MCPAppParams

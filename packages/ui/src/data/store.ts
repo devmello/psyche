@@ -305,9 +305,16 @@ export class GatewayStore {
    * reply: non-urgent reads wait out `retryAfterSec` (see `request-gate.ts`), and a read that was
    * limited is retried after that wait, a few times at most. A side effect is never sent twice.
    */
-  async call<M extends MethodName>(method: M, params: MethodParams<M>): Promise<MethodResult<M>> {
+  async call<M extends MethodName>(
+    method: M,
+    params: MethodParams<M>,
+    callOptions: { timeoutMs?: number } = {},
+  ): Promise<MethodResult<M>> {
     const sideEffecting = requiresIdempotencyKey(method);
-    const options = sideEffecting ? { idempotencyKey: newIdempotencyKey() } : {};
+    const options = {
+      ...(sideEffecting ? { idempotencyKey: newIdempotencyKey() } : {}),
+      ...(callOptions.timeoutMs === undefined ? {} : { timeoutMs: callOptions.timeoutMs }),
+    };
     for (let attempt = 1; ; attempt += 1) {
       await this.gate.admit(method);
       try {

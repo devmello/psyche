@@ -55,7 +55,7 @@ extension GatewayBackend {
         let result = try await call(
             "spaces.proposals.accept", .obj(["proposalId": .string(id)]), key: "spaces.proposals.accept.\(id)")
         guard let spaceID = result.at("space", "id")?.string else {
-            throw BackendError.refused("The Gateway didn't make that Space.")
+            throw BackendError.refused(String(localized: "The Gateway didn't make that Space.", bundle: .module))
         }
         return spaceID
     }

@@ -51,6 +51,7 @@ import {
 import {
   APPROVAL_ONLY_CHANNELS,
   checkCallable,
+  checkCallOptions,
   checkClipboardClearAfter,
   checkClipboardText,
   checkComposerText,
@@ -58,7 +59,6 @@ import {
   checkCookieImportScan,
   checkExternalUrl,
   checkHttpUrl,
-  checkIdempotencyKey,
   checkMainRoute,
   checkNotifyRoute,
   checkPasskeyOptions,
@@ -1174,13 +1174,8 @@ function registerIpc(): void {
   handle(IPC.call, async (e, arg) => {
     const r = rec(IPC.call, arg);
     const method = checkCallable(r.method, isMethodName);
-    const idempotencyKey = checkIdempotencyKey(r.idempotencyKey);
-    const forward = () =>
-      requireGateway().call(
-        method,
-        r.params ?? {},
-        idempotencyKey === undefined ? undefined : { idempotencyKey },
-      );
+    const callOptions = checkCallOptions(r);
+    const forward = () => requireGateway().call(method, r.params ?? {}, callOptions);
     // Ask about my screen from the ask panel: without a helper here, the desktop takes the frame.
     const result =
       method === "screen.capture" && !remoteGateway && screenAsk?.owns(e.sender) === true

@@ -124,7 +124,7 @@ public actor Outbox {
         var outcomes: [String: Delivery] = [:]
         while let next = entries.first {
             if checkGateway, next.gateway != gateway {
-                let outcome = Delivery.rejected("This message was written for a different Mac.")
+                let outcome = Delivery.rejected(String(localized: "This message was written for a different Mac.", bundle: .module))
                 entries.removeAll { $0.id == next.id }
                 try? persist()
                 outcomes[next.id] = outcome

@@ -31,7 +31,7 @@ extension GatewayBackend {
         let result = try await call(
             "spaces.trackers.refresh", .obj(["spaceId": .string(spaceID), "widgetId": .string(widgetID)]), key: key)
         guard let wire = result["tracker"], let status = Self.trackerStatus(from: wire) else {
-            throw BackendError.refused("The Gateway didn't refresh that tracker.")
+            throw BackendError.refused(String(localized: "The Gateway didn't refresh that tracker.", bundle: .module))
         }
         return status
     }
@@ -48,7 +48,7 @@ extension GatewayBackend {
     public func newThread(inSpace id: String) async throws -> ChatThreadSummary {
         let result = try await call("threads.newChat", .obj(["kind": "side", "spaceId": .string(id)]))
         guard let thread = result["thread"], let summary = Self.summary(from: .obj(["thread": thread, "activity": nil])) else {
-            throw BackendError.refused("The Gateway didn't create a chat.")
+            throw BackendError.refused(String(localized: "The Gateway didn't create a chat.", bundle: .module))
         }
         return summary
     }
@@ -70,7 +70,7 @@ extension GatewayBackend {
             "spaces.create", .obj(["name": .string(String(name.prefix(SpaceLimits.name))), "entityId": .string(projectID)]),
             key: "spaces.create.project.\(projectID)")
         guard let id = result.at("space", "id")?.string else {
-            throw BackendError.refused("The Gateway didn't make that Space.")
+            throw BackendError.refused(String(localized: "The Gateway didn't make that Space.", bundle: .module))
         }
         return id
     }

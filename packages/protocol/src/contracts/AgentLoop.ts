@@ -123,7 +123,7 @@ export interface StartTurnInput {
    * broker, the binding hash, grants, taint and the approval card. The model then answers from
    * its result like any other turn.
    */
-  proposedCall?: { tool: string; input: Record<string, unknown> };
+  proposedCall?: ProposedCall;
   /**
    * Write-ahead hook (architecture §4.5 "Leases"; security §3.11, #63): awaited immediately
    * before each tool call is dispatched, after the broker and any approval let it through. The
@@ -272,6 +272,20 @@ export interface AgentLoop {
     decision: "allow" | "ask" | "deny" | "device-only" | "unavailable";
     rule?: string;
   }>;
+}
+
+/**
+ * A call a widget or an MCP App panel proposes. `only`: the turn ends with the call's result, with
+ * no model call after it (an app panel gets the result back itself). `onResult` is told once with
+ * what the gate and the tool answered, a refusal included; it is in-process, never serialised.
+ */
+export interface ProposedCall {
+  tool: string;
+  input: Record<string, unknown>;
+  only?: boolean;
+  /** An MCP App panel's page asked for it: the broker's `mcp_app` initiator. */
+  initiator?: "mcp_app";
+  onResult?: (result: { isError: boolean; output: unknown }) => void;
 }
 
 // --- Prompt viewer (C11) -----------------------------------------------------------------------

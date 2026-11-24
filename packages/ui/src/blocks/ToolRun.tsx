@@ -176,7 +176,7 @@ export function ToolCallRow({
       {call ? <ToolResultPreview call={call} /> : null}
       {call ? <ShareFolderForCall call={call} /> : null}
       {block.status === "ok" && block.tool.startsWith("mcp__") ? (
-        <McpAppPanel tool={block.tool} />
+        <McpAppPanel tool={block.tool} toolCallId={block.toolCallId} />
       ) : null}
       {raw && call ? (
         <div className="ms-6 flex flex-col gap-1 rounded-md bg-fill-quaternary p-2">

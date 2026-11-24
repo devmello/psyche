@@ -25,10 +25,12 @@ export const widgets = {
   "widgets.app.title": "App from {server}",
   "widgets.app.untrusted": "Built from untrusted content",
   "widgets.app.note":
-    "This page came from the connector. It cannot use the network, your tools or your data, and it cannot ask for approvals.",
+    "This page came from the connector. It has no network and cannot see your data. It can only ask this connector's own tools to run, and each request asks you first when your rules say so.",
   "widgets.app.run": "Run app",
   "widgets.app.hide": "Hide app",
   "widgets.app.unavailable": "This app cannot be shown here.",
+  "widgets.app.callUnavailable": "This app can't call tools from here.",
+  "widgets.app.callFailed": "The tool call did not go through.",
   "widgets.node.unsupported": "Psyche can't show this part yet.",
   "widgets.node.unavailable": "Unavailable",
   "widgets.state.todo": "To do",

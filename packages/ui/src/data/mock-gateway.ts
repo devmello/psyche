@@ -506,6 +506,8 @@ export class MockGateway implements GatewayClient {
   mcpLauncher: "srt" | "container" | "vm" | "none" = "srt";
   /** MCP Apps by tool name (`mcp__<server>__<tool>`), for `mcp.app`. */
   mcpApps: Record<string, McpApp> = {};
+  /** `mcp.app.call` requests so far (tests). */
+  mcpAppCalls: { toolCallId: string; name: string; arguments?: Record<string, unknown> }[] = [];
   /** `sandbox.installSrt` calls so far, and an error to throw from it (tests). */
   installSrtCalls = 0;
   installSrtError: Error | null = null;
@@ -3336,6 +3338,25 @@ export class MockGateway implements GatewayClient {
       return { status: structuredClone(this.world.botAuth) };
     },
     "skills.list": () => ({ skills: this.world.skills }),
+    "skills.get": (p) => {
+      const skill =
+        this.world.skills.find(
+          (s) => s.name === p.name && (p.source === undefined || s.source === p.source),
+        ) ?? fail("not_found", `no skill ${p.name}`);
+      // An unreadable skill (empty hash, as the Gateway reports it) has no text.
+      const text =
+        skill.hash === ""
+          ? null
+          : `---\nname: ${skill.name}\ndescription: ${skill.description}\n---\n\n# ${skill.name}\n\nFixture instructions for ${skill.name}.\n`;
+      return { skill: structuredClone(skill), text };
+    },
+    "skills.search": (p) => {
+      const needle = p.query.trim().toLowerCase();
+      const hits = this.world.skills
+        .filter((s) => `${s.name} ${s.description}`.toLowerCase().includes(needle))
+        .slice(0, p.limit ?? 50);
+      return { skills: structuredClone(hits) };
+    },
     "plugins.list": () => ({
       enabled: this.world.pluginsEnabled,
       plugins: structuredClone(this.world.plugins),
@@ -3478,6 +3499,14 @@ export class MockGateway implements GatewayClient {
     "mcp.app": (p: { tool: string }) => {
       const app = this.mcpApps[p.tool];
       return app === undefined ? { available: false } : { available: true, app };
+    },
+    "mcp.app.call": (p: {
+      toolCallId: string;
+      name: string;
+      arguments?: Record<string, unknown>;
+    }) => {
+      this.mcpAppCalls.push(p);
+      return { isError: false, output: { blocks: [{ type: "text", text: `ran ${p.name}` }] } };
     },
     "mcp.status": () => ({ launcher: this.mcpLauncher, servers: this.mcpServers }),
     "mcp.probe": (p) => {

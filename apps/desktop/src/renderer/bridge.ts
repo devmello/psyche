@@ -161,7 +161,11 @@ function fullDesktopPlatform(b: PsycheBridge): ShellPlatform {
     onStatus: (cb) => b.gateway.onStatus((s) => cb(s as GatewayStatus)),
     // A retry of the same call (the chat outbox) carries its key, so the Host runs it once.
     call: (method, params, options) =>
-      unwrapCall(b.gateway.call(method, params, options?.idempotencyKey)),
+      unwrapCall(
+        options?.timeoutMs === undefined
+          ? b.gateway.call(method, params, options?.idempotencyKey)
+          : b.gateway.call(method, params, options.idempotencyKey, options.timeoutMs),
+      ),
     onEvent: (cb) => b.gateway.onEvent((e) => cb(e as GatewayEvent)),
     onResync: (cb) => b.gateway.onResync(cb),
     getRun: () => b.gateway.getRun() as Promise<GatewayRunView>,

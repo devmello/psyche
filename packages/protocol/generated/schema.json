@@ -1957,6 +1957,14 @@
         "sideEffecting": false
       },
       {
+        "description": "Side-effecting: a tool call an MCP App panel makes for its page (generative-ui-2026 P9). The server is never named by the caller: it is the server of the transcript tool call that showed the app (toolCallId), so an app can only call its own server's tools, never another server's or a Psyche tool. The call is recorded in that chat as a from-widget message with the tool and every argument, then gated like a model's call: the Permission Broker with the server's allow/ask/deny rules, money-intent checks and a receipt for writes. The app's arguments are untrusted: the turn is tainted (source mcp_app), so a card shows the taint banner, and every write the page asks for asks for a tap on a once-only card (no task, session or Always scope; standing grants do not apply). Returns the tool's result when the call finishes, which can be after the owner's tap: callers must wait at least the approval lifetime. A refusal comes back as isError. conflict when the chat is busy.",
+        "name": "mcp.app.call",
+        "params": "#/$defs/McpAppCallParams",
+        "result": "#/$defs/McpAppCallResult",
+        "scope": "operator.write",
+        "sideEffecting": true
+      },
+      {
         "description": "A configured server's command or URL, allowed domains and env variable names, to prefill the edit form. Admin only because arguments are the owner's own text. Never a secret value. not_found for an unknown server.",
         "name": "mcp.config",
         "params": "#/$defs/McpConfigParams",
@@ -28164,6 +28172,48 @@
         "csp",
         "permissions",
         "provenance"
+      ],
+      "type": "object"
+    },
+    "McpAppCallParams": {
+      "additionalProperties": false,
+      "properties": {
+        "toolCallId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "name": {
+          "description": "The server's own tool name, without the mcp__<server>__ prefix",
+          "pattern": "^[A-Za-z0-9_-]{1,64}$",
+          "type": "string"
+        },
+        "arguments": {
+          "patternProperties": {
+            "^(.*)$": {}
+          },
+          "type": "object"
+        }
+      },
+      "required": [
+        "toolCallId",
+        "name"
+      ],
+      "type": "object"
+    },
+    "McpAppCallResult": {
+      "properties": {
+        "isError": {
+          "type": "boolean"
+        },
+        "output": {
+          "description": "What the tool returned (blocks and structured data)"
+        }
+      },
+      "required": [
+        "isError",
+        "output"
       ],
       "type": "object"
     },

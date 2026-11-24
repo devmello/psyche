@@ -175,6 +175,12 @@ export interface DecisionContext {
    * result or a non-owner's message). Only Auto mode's exec reviewer reads them.
    */
   ownerWords?: string[];
+  /**
+   * The call was asked for by an MCP App's page (its panel's `tools/call`). The page is untrusted
+   * content, so the broker treats the call as tainted and never lets it ride a standing exec
+   * grant or a trusted-site offer, whatever the turn's own taint says.
+   */
+  initiator?: "owner" | "agent" | "subagent" | "automation" | "content" | "mcp_app";
 }
 
 /**

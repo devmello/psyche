@@ -248,6 +248,24 @@ describe("renderer bridge", () => {
       expect(seen[1]?.[2]).toBeUndefined();
     });
 
+    it("carries a call's timeout across the bridge, and sends none when there is none", async () => {
+      const seen: unknown[][] = [];
+      const bridge = {
+        chrome: { titleBar: "native" },
+        gateway: {
+          call: async (...args: unknown[]) => {
+            seen.push(args);
+            return { ok: true, value: {} };
+          },
+        },
+      } as unknown as PsycheBridge;
+      const { call } = desktopPlatform(bridge).gateway;
+      await call("mcp.app.call", {}, { timeoutMs: 2_100_000 });
+      await call("threads.list", {});
+      expect(seen[0]?.[3]).toBe(2_100_000);
+      expect(seen[1]).toHaveLength(3);
+    });
+
     it("gives the terminal a session on the Host and never main's local PTY", async () => {
       const calls: Array<{ method: string; params: unknown }> = [];
       const local = {

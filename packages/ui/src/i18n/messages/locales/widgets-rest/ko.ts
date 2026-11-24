@@ -21,10 +21,12 @@ export const widgetsRest: Partial<Catalogue> = {
   "widgets.app.title": "{server}의 앱",
   "widgets.app.untrusted": "신뢰할 수 없는 콘텐츠로 만들어짐",
   "widgets.app.note":
-    "이 페이지는 커넥터에서 제공한 것입니다. 네트워크, 도구, 데이터를 사용할 수 없으며 승인을 요청할 수도 없습니다.",
+    "이 페이지는 커넥터에서 제공한 것입니다. 네트워크가 없고 내 데이터를 볼 수 없습니다. 이 커넥터 자체의 도구 실행만 요청할 수 있으며, 규칙에 따라 필요하면 요청마다 먼저 확인합니다.",
   "widgets.app.run": "앱 실행",
   "widgets.app.hide": "앱 숨기기",
   "widgets.app.unavailable": "이 앱은 여기에 표시할 수 없습니다.",
+  "widgets.app.callUnavailable": "이 앱은 여기서 도구를 호출할 수 없습니다.",
+  "widgets.app.callFailed": "도구 호출이 완료되지 않았습니다.",
   "widgets.node.unsupported": "Psyche가 이 부분을 아직 표시할 수 없습니다.",
   "widgets.node.unavailable": "사용할 수 없음",
   "widgets.state.todo": "할 일",

@@ -24,9 +24,9 @@ enum WireFormat {
     static func elapsed(since text: String?, now: Date = .now) -> String {
         guard let date = date(text) else { return "" }
         let seconds = max(0, Int(now.timeIntervalSince(date)))
-        if seconds < 60 { return "just now" }
-        if seconds < 3600 { return "\(seconds / 60) min" }
-        if seconds < 86_400 { return "\(seconds / 3600) h" }
-        return "\(seconds / 86_400) d"
+        if seconds < 60 { return String(localized: "just now", bundle: .module) }
+        if seconds < 3600 { return String(localized: "\(seconds / 60) min", bundle: .module) }
+        if seconds < 86_400 { return String(localized: "\(seconds / 3600) h", bundle: .module) }
+        return String(localized: "\(seconds / 86_400) d", bundle: .module)
     }
 }
