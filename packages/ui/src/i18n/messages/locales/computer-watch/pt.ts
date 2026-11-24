@@ -17,6 +17,10 @@ export const computerWatch: Partial<Catalogue> = {
     "Quando o agente precisar de uma tela própria, você poderá acompanhá-la aqui.",
   "computerWatch.starting": "Iniciando a tela virtual…",
   "computerWatch.error": "Não foi possível acessar a tela virtual. Tentando de novo…",
+  "computerWatch.inputFailed": "Sua ação não chegou à tela virtual ({reason}).",
+  "computerWatch.handBackFailed":
+    "Não foi possível devolver o controle ao agente ({reason}). Você continua com o controle.",
+  "computerWatch.handBack.retry": "Tentar novamente",
   "computerWatch.parked.title": "Aguardando você",
   "computerWatch.parked.body": "Um app tem alterações não salvas, então a tarefa está em pausa.",
   "computerWatch.parked.look": "Ver",

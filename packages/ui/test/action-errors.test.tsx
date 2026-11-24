@@ -9,6 +9,7 @@ import { GatewayProvider, GatewayStore } from "../src/data/index.ts";
 import { MockGateway } from "../src/data/mock-gateway.ts";
 import { PEOPLE_IDS } from "../src/fixtures/people.ts";
 import { ConnectedEntityCard } from "../src/people/ConnectedEntityCard.tsx";
+import { FeedScreen } from "../src/screens/feed/FeedScreen.tsx";
 import { SearchScreen } from "../src/screens/search/SearchScreen.tsx";
 import { STORY_NOW, StoryWorld } from "../src/stories/harness.tsx";
 
@@ -66,6 +67,28 @@ describe("failed user actions say why", () => {
     );
     // The grant is still listed, so the owner can try again.
     expect(screen.getByRole("button", { name: label })).toBeTruthy();
+  });
+
+  it("undoing feedback that fails says why and the post stays liked", async () => {
+    const ref: { current?: MockGateway } = {};
+    const user = userEvent.setup();
+    render(
+      <StoryWorld onGateway={(g) => (ref.current = g)}>
+        <FeedScreen now={STORY_NOW} />
+      </StoryWorld>,
+    );
+    const like = (await screen.findAllByRole("button", { name: "Like" }))[0];
+    if (like === undefined) throw new Error("no feed post to like");
+    await user.click(like);
+    gatewayOf(ref)().failNext("feed.feedback", "unavailable", "the feed store is locked");
+    await user.click(await screen.findByText("Undo"));
+    await expectShown(
+      "Psyche couldn't save that feedback (the feed store is locked). Nothing was changed.",
+    );
+    // The undo never took effect, so the post is still liked.
+    expect(screen.getAllByRole("button", { name: "Like" })[0]?.getAttribute("aria-pressed")).toBe(
+      "true",
+    );
   });
 
   it("rebuilding the search index that fails says why", async () => {

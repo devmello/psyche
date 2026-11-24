@@ -16,6 +16,10 @@ export const computerWatch: Partial<Catalogue> = {
   "computerWatch.empty.body": "エージェントが専用の画面を必要とするとき、ここで様子を見られます。",
   "computerWatch.starting": "仮想画面を起動しています…",
   "computerWatch.error": "仮想画面に接続できません。再試行しています…",
+  "computerWatch.inputFailed": "入力が仮想画面に届きませんでした（{reason}）。",
+  "computerWatch.handBackFailed":
+    "エージェントに操作を戻せませんでした（{reason}）。引き続きあなたが操作中です。",
+  "computerWatch.handBack.retry": "再試行",
   "computerWatch.parked.title": "確認待ちです",
   "computerWatch.parked.body": "未保存の変更があるアプリがあるため、タスクは一時停止中です。",
   "computerWatch.parked.look": "見る",
