@@ -208,7 +208,7 @@ export interface OnboardingShellProps extends OnboardingExtrasProps {
   /** Runs the tool-calling check on the chosen model. */
   onCheckModel?: (
     choice: Omit<ModelChoice, "toolCheck">,
-  ) => Promise<"passed" | "failed"> | "passed" | "failed";
+  ) => Promise<"passed" | "failed" | "untested"> | "passed" | "failed" | "untested";
   /** VM mode needs macOS 15+ on Apple silicon; `false` disables the option with a reason. */
   vmAvailable?: boolean;
   /**
@@ -244,6 +244,9 @@ export type SavedKey = string | { keyRef: string; recoveryKey?: string; refused?
 export interface SetupCheck {
   id: string;
   label: string;
-  state: "ok" | "warn";
+  /** `fail`: refused or broken; `unchecked`: could not be verified (not a pass). */
+  state: "ok" | "warn" | "fail" | "unchecked";
   detail: string;
+  /** The step that fixes it; Done shows a link back to it. */
+  fixStep?: OnboardingStepId;
 }

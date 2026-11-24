@@ -58,7 +58,16 @@ export async function saveProviderKey(
 ): Promise<{ keyRef: string; recoveryKey?: string; refused?: string }> {
   const call = caller(platform);
   const vault = await ensureVault(call);
-  await call("models.setKey", { providerId: provider, key }, ik(`key-${provider}`));
+  try {
+    await call("models.setKey", { providerId: provider, key }, ik(`key-${provider}`));
+  } catch (err) {
+    // The vault was created above and its recovery key is shown once: a rejected key must not
+    // lose it. The flow reads it off the error and holds it until the owner confirms.
+    if (vault.recoveryKey !== undefined && err !== null && typeof err === "object") {
+      (err as { recoveryKey?: string }).recoveryKey = vault.recoveryKey;
+    }
+    throw err;
+  }
   // Check the key at once (#504): a refused key is reported here, in the field, rather than as a
   // chat that never answers. Only a refusal counts; an unreachable endpoint or an older Gateway
   // without models.probe does not stop the step.
@@ -72,6 +81,15 @@ export async function saveProviderKey(
   } catch {
     // Not checked; the probe in Settings can run later.
   }
+  if (refused !== undefined) {
+    // A refused key is not left as the active key (best effort: a Gateway that reads keys from
+    // its environment has no clearKey; Done then reports the refusal from the probe).
+    try {
+      await call("models.clearKey", { providerId: provider }, ik(`clear-${provider}`));
+    } catch {
+      // Done's check still shows the refusal.
+    }
+  }
   return { keyRef: `model-${provider}`, ...vault, ...(refused === undefined ? {} : { refused }) };
 }
 
@@ -79,7 +97,7 @@ export async function saveProviderKey(
 export async function checkModel(
   platform: ShellPlatform,
   choice: Omit<ModelChoice, "toolCheck">,
-): Promise<"passed" | "failed"> {
+): Promise<"passed" | "failed" | "untested"> {
   const call = caller(platform);
   // A subscription runs through its CLI, whose endpoint is never probed on a fresh install
   // (no key step): probe it first so the Gateway knows it answers (#547).
@@ -88,6 +106,8 @@ export async function checkModel(
   const res = (await call("models.check", { ref: choice.modelRef })) as {
     result: { status: string };
   };
+  // An inconclusive check (the endpoint did not answer) is "not checked", never "passed".
+  if (res.result.status === "untested") return "untested";
   return res.result.status === "chat-only" ? "failed" : "passed";
 }
 
@@ -130,6 +150,39 @@ async function probeProvider(call: Call, providerId: string): Promise<Probe | nu
   } catch {
     return null;
   }
+}
+
+/**
+ * What the provider's last endpoint probe says about a stored key. A missing probe (an older
+ * Gateway) counts as fine; a refusal is a failure; any other state but "reachable" means the key
+ * was not checked.
+ */
+function keyProbeVerdict(
+  provider: ModelsList["providers"][number] | undefined,
+): "ok" | "refused" | "unchecked" {
+  if (provider === undefined || provider.local || CLI_PROVIDERS.has(provider.id)) return "ok";
+  const state = provider.probe?.state;
+  if (state === undefined || state === "reachable") return "ok";
+  return state === "auth_failed" ? "refused" : "unchecked";
+}
+
+/** Done's model row when the stored key was refused (a failure) or could not be checked. */
+function probeCheck(ref: string, verdict: "refused" | "unchecked", error?: string): SetupCheck {
+  return verdict === "refused"
+    ? {
+        id: "model",
+        label: t("web.setup.model"),
+        state: "fail",
+        detail: t("web.setup.modelRefused", { ref, error: error ?? "" }),
+        fixStep: "model",
+      }
+    : {
+        id: "model",
+        label: t("web.setup.model"),
+        state: "unchecked",
+        detail: t("web.setup.modelNotChecked", { ref }),
+        fixStep: "model",
+      };
 }
 
 /** The provider can authenticate: local, a stored key, or a signed-in CLI subscription. */
@@ -211,7 +264,10 @@ export async function verifySetup(
       const provider = list.providers.find(
         (p) => kept !== undefined && kept.startsWith(`${p.id}/`),
       );
-      if (kept !== undefined && providerReady(provider)) {
+      const keptVerdict = keyProbeVerdict(provider);
+      if (kept !== undefined && providerReady(provider) && keptVerdict !== "ok") {
+        modelCheck = probeCheck(kept, keptVerdict, provider?.probe?.error);
+      } else if (kept !== undefined && providerReady(provider)) {
         const cli = cliProviderOf(kept);
         modelCheck = {
           id: "model",
@@ -259,8 +315,12 @@ export async function verifySetup(
       }
       const keyed = providerReady(provider);
       const bound = after.roles.primary === ref;
+      // A refusal shows even when the key was cleared after it; "not checked" only matters for a
+      // key that is stored.
+      const raw = keyProbeVerdict(provider);
+      const verdict = raw === "refused" || (keyed && raw === "unchecked") ? raw : "ok";
       const notReady = (): string => {
-        if (cli === null) return t("web.setup.modelNoKey", { ref });
+        if (cli === null) return t("web.setup.modelSkipped", { ref });
         const error = provider?.probe?.error ?? cliProbe?.error;
         const cliName = CLI_LABEL[cli] ?? cli;
         return error
@@ -268,22 +328,24 @@ export async function verifySetup(
           : t("web.setup.modelCliNotChecked", { ref, cli: cliName });
       };
       modelCheck =
-        bound && keyed
-          ? {
-              id: "model",
-              label: t("web.setup.model"),
-              state: "ok",
-              detail:
-                cli === null
-                  ? t("web.setup.modelOk", { ref })
-                  : t("web.setup.modelOkCli", { ref, cli: CLI_LABEL[cli] ?? cli }),
-            }
-          : {
-              id: "model",
-              label: t("web.setup.model"),
-              state: "warn",
-              detail: keyed ? t("web.setup.modelUnbound", { ref }) : notReady(),
-            };
+        verdict !== "ok"
+          ? probeCheck(ref, verdict, provider?.probe?.error)
+          : bound && keyed
+            ? {
+                id: "model",
+                label: t("web.setup.model"),
+                state: "ok",
+                detail:
+                  cli === null
+                    ? t("web.setup.modelOk", { ref })
+                    : t("web.setup.modelOkCli", { ref, cli: CLI_LABEL[cli] ?? cli }),
+              }
+            : {
+                id: "model",
+                label: t("web.setup.model"),
+                state: "warn",
+                detail: keyed ? t("web.setup.modelUnbound", { ref }) : notReady(),
+              };
     } catch (err) {
       modelCheck = {
         id: "model",

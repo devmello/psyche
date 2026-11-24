@@ -2953,6 +2953,9 @@ export const ar: Partial<Catalogue> = {
   "onboarding.done.checking": "جارٍ فحص الإعداد…",
   "onboarding.done.checks": "فحوصات الإعداد",
   "onboarding.done.ok": "سليم",
+  "onboarding.done.failed": "فشل",
+  "onboarding.done.notChecked": "لم يُفحص",
+  "onboarding.done.fixModel": "أصلح في خطوة النموذج",
   "onboarding.done.check": "فحص",
   "onboarding.model.idPlaceholder": "{provider}/model-name",
 
@@ -3592,6 +3595,13 @@ export const ar: Partial<Catalogue> = {
   "web.setup.helperOk": "متصل.",
   "web.setup.helperWarn": "غير متصل بعد. ينتظره استخدام الكمبيوتر والإشعارات.",
   "web.setup.model": "النموذج",
+  "web.setup.modelRefused": "{ref}: رفض المزوّد المفتاح ({error}). لم يُحتفظ بالمفتاح.",
+  "web.setup.modelNotChecked": "{ref}: المفتاح محفوظ، لكن تعذّر الوصول إلى المزوّد لفحصه.",
+  "web.setup.modelSkipped":
+    "{ref}: لم يُضف أي مفتاح، لذا لن ترد المحادثة بعد. أضف واحدًا في الإعدادات ← النماذج.",
+  "web.gate.loading": "جارٍ تشغيل Psyche",
+  "web.gate.error": "تعذّر على Psyche التحقق من اكتمال الإعداد.",
+  "web.gate.retry": "حاول مرة أخرى",
   "web.setup.modelNone": "لم يُختر شيء. أضف نموذجًا في الإعدادات ← النموذج والمزوّدون.",
   "web.setup.modelOk": "{ref}، والمفتاح في الخزنة.",
   "web.setup.modelUnbound": "{ref} غير مرتبط بعد.",

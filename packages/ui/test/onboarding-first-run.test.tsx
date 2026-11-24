@@ -76,7 +76,9 @@ describe("resume after quitting midway", () => {
     await screen.findByRole("textbox", { name: "Your name" });
     await click("Next");
     await waitFor(() =>
-      expect(first.onProgress).toHaveBeenLastCalledWith({ step: "stuff", done: ["you"] }),
+      expect(first.onProgress).toHaveBeenLastCalledWith(
+        expect.objectContaining({ step: "stuff", done: ["you"] }),
+      ),
     );
     first.unmount();
     // The shell reads the saved progress and starts there.
@@ -85,6 +87,35 @@ describe("resume after quitting midway", () => {
     );
     flow({ defaultStep: saved?.step ?? "you" });
     expect(heading().textContent).toContain("Memory and daily habits");
+  });
+
+  it("saves the You answers with the progress and restores them on relaunch", async () => {
+    const first = flow({ defaultStep: "you" });
+    await userEvent.type(await screen.findByRole("textbox", { name: "Your name" }), "Sam");
+    await click("Next");
+    await waitFor(() => {
+      const last = first.onProgress.mock.calls.at(-1)?.[0];
+      expect(last.answers.owner.name).toBe("Sam");
+    });
+    const saved = parseProgress(JSON.stringify(first.onProgress.mock.calls.at(-1)?.[0]));
+    first.unmount();
+    flow({ defaultStep: "you", ...(saved?.answers ? { initial: saved.answers } : {}) });
+    expect(
+      ((await screen.findByRole("textbox", { name: "Your name" })) as HTMLInputElement).value,
+    ).toBe("Sam");
+  });
+
+  it("parses saved answers defensively and never keeps non-text values", () => {
+    const p = parseProgress({
+      step: "stuff",
+      done: ["you"],
+      answers: {
+        owner: { name: "Sam", city: 5, extra: "x" },
+        persona: { name: "Flash", creatureMode: "weird" },
+      },
+    });
+    expect(p?.answers).toEqual({ owner: { name: "Sam" }, persona: { name: "Flash" } });
+    expect(parseProgress({ step: "you", answers: "nope" })?.answers).toBeUndefined();
   });
 
   it("maps progress saved by the twelve-step flow to the nearest step", () => {

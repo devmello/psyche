@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { MockGateway } from "../../../../packages/ui/src/data/mock-gateway.ts";
 import { createFixtureWorld, FIXTURE_NOW } from "../../../../packages/ui/src/fixtures/index.ts";
 import { usageSummary } from "../../../../packages/ui/src/fixtures/usage.ts";
@@ -404,6 +404,59 @@ describe("the composed app on the web host (A8)", () => {
     fireEvent.click(trigger);
     const menu = await screen.findByRole("menu");
     expect(menu.textContent).not.toContain("Permissions");
+  });
+
+  it("shows a neutral splash, not the app or a greeting, until the onboarded flag is read", async () => {
+    const { platform, calls } = webPlatform();
+    const call = platform.gateway.call;
+    const releases: (() => void)[] = [];
+    platform.gateway.call = async (method, params, options) => {
+      if (method === "settings.get") {
+        await new Promise<void>((resolve) => {
+          releases.push(resolve);
+        });
+      }
+      return call(method, params, options);
+    };
+    render(<PsycheApp platform={platform} />);
+    expect(await screen.findByTestId("gate-loading")).toBeTruthy();
+    expect(screen.queryByTestId("onboarding")).toBeNull();
+    expect(calls.some((c) => c.method === "chat.greet")).toBe(false);
+    await act(async () => {
+      for (const r of releases) r();
+    });
+    await waitFor(() => expect(screen.queryByTestId("gate-loading")).toBeNull());
+  });
+
+  it("retries a failed settings.get with backoff, then shows an error with Retry", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      const { platform } = webPlatform();
+      const call = platform.gateway.call;
+      let failing = true;
+      let reads = 0;
+      platform.gateway.call = async (method, params, options) => {
+        if (method === "settings.get" && failing) {
+          reads += 1;
+          throw new Error("gateway busy");
+        }
+        return call(method, params, options);
+      };
+      render(<PsycheApp platform={platform} />);
+      expect(await screen.findByTestId("gate-loading")).toBeTruthy();
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(5500);
+      });
+      const retry = await screen.findByRole("button", { name: "Try again" });
+      expect(reads).toBeGreaterThanOrEqual(4);
+      expect(screen.queryByTestId("gate-loading")).toBeNull();
+      failing = false;
+      fireEvent.click(retry);
+      await waitFor(() => expect(screen.queryByTestId("gate-error")).toBeNull());
+      expect(screen.queryByTestId("gate-loading")).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("gives the kit the shell's navigation: Add a goal creates it and opens it (#554)", async () => {

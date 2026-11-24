@@ -2907,6 +2907,9 @@ export const ja: Partial<Catalogue> = {
   "onboarding.done.checking": "セットアップを確認中…",
   "onboarding.done.checks": "セットアップの確認",
   "onboarding.done.ok": "OK",
+  "onboarding.done.failed": "失敗",
+  "onboarding.done.notChecked": "未確認",
+  "onboarding.done.fixModel": "モデルのステップで修正",
   "onboarding.done.check": "確認",
   "onboarding.model.idPlaceholder": "{provider}/モデル名",
 
@@ -3561,6 +3564,15 @@ export const ja: Partial<Catalogue> = {
   "web.setup.helperOk": "接続済み。",
   "web.setup.helperWarn": "まだ接続されていません。コンピュータ操作と通知はこれを待っています。",
   "web.setup.model": "モデル",
+  "web.setup.modelRefused":
+    "{ref}：プロバイダがキーを拒否しました（{error}）。キーは保持されませんでした。",
+  "web.setup.modelNotChecked":
+    "{ref}：キーは保存されましたが、確認のためにプロバイダへ接続できませんでした。",
+  "web.setup.modelSkipped":
+    "{ref}：キーが追加されていないため、チャットはまだ応答しません。設定 → モデルで追加してください。",
+  "web.gate.loading": "Psycheを起動中",
+  "web.gate.error": "セットアップが完了しているか確認できませんでした。",
+  "web.gate.retry": "もう一度試す",
   "web.setup.modelNone": "未選択。設定 → モデルとプロバイダで追加してください。",
   "web.setup.modelOk": "{ref}、キーは保管庫にあります。",
   "web.setup.modelUnbound": "{ref}はまだバインドされていません。",

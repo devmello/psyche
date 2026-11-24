@@ -481,7 +481,17 @@ export async function greetMainChat(
   }
 }
 
-type Gate = "loading" | "onboarding" | "ready";
+/** Waits between tries of the onboarded-flag read before the gate shows an error. */
+const GATE_RETRY_MS = [500, 1500, 3000] as const;
+/** Gateway phases where the shell's own offline and pairing UI must show while the gate loads. */
+const GATE_SHELL_PHASES: ReadonlySet<string> = new Set([
+  "pending",
+  "denied",
+  "error",
+  "disconnected",
+]);
+
+type Gate = "loading" | "onboarding" | "ready" | "error";
 type Persona = NonNullable<UiSlots["persona"]>;
 
 /** `name` / `creature` from IDENTITY.md's frontmatter (quoted or bare YAML scalars). */
@@ -644,28 +654,57 @@ export function PsycheApp({ platform }: { platform: ShellPlatform }): ReactEleme
   const [persona, reloadPersona] = useWorkspacePersona(platform);
   const claimLan = useClaimLanChoice(platform, gate === "onboarding");
 
+  const [gatePhase, setGatePhase] = useState<string>("idle");
+  const [gateNonce, setGateNonce] = useState(0);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: gateNonce re-runs the check (Retry)
   useEffect(() => {
     let cancelled = false;
+    let run = 0;
+    let timer: ReturnType<typeof setTimeout> | undefined;
     const check = async () => {
       const status = await platform.gateway.getStatus();
+      if (!cancelled) setGatePhase(status.phase);
       if (status.phase !== "paired") return;
       const res = (await platform.gateway.call("settings.get", { keys: [ONBOARDED_KEY] })) as {
         settings: Record<string, unknown>;
       };
       if (!cancelled) setGate(res.settings[ONBOARDED_KEY] ? "ready" : "onboarding");
     };
-    const retry = () => void check().catch(() => undefined);
-    retry();
+    // A failed read retries a few times with backoff, then shows an error with Retry: the app
+    // never opens (and the main chat never greets) before the gate is known.
+    const retry = async () => {
+      const mine = ++run;
+      for (let attempt = 0; ; attempt++) {
+        try {
+          await check();
+          return;
+        } catch {
+          if (cancelled || mine !== run) return;
+          const wait = GATE_RETRY_MS[attempt];
+          if (wait === undefined) {
+            setGate("error");
+            return;
+          }
+          await new Promise<void>((resolve) => {
+            timer = setTimeout(resolve, wait);
+          });
+          if (cancelled || mine !== run) return;
+        }
+      }
+    };
+    void retry();
     let paired = false;
     const off = platform.gateway.onStatus((s) => {
-      if (s.phase === "paired" && !paired) retry();
+      if (!cancelled) setGatePhase(s.phase);
+      if (s.phase === "paired" && !paired) void retry();
       paired = s.phase === "paired";
     });
     return () => {
       cancelled = true;
+      if (timer !== undefined) clearTimeout(timer);
       off();
     };
-  }, [platform]);
+  }, [platform, gateNonce]);
 
   const slots = useMemo<ShellSlots>(
     () => ({
@@ -790,8 +829,42 @@ export function PsycheApp({ platform }: { platform: ShellPlatform }): ReactEleme
         </main>
       </div>
     );
+  } else if (gate === "error") {
+    body = (
+      <div
+        className="flex h-dvh flex-col items-center justify-center gap-4 bg-canvas px-6"
+        data-testid="gate-error"
+      >
+        <p role="alert" className="max-w-md text-center text-label-secondary">
+          {t("web.gate.error")}
+        </p>
+        <button
+          type="button"
+          className="rounded-md border border-separator px-4 py-2 text-label-primary"
+          onClick={() => {
+            setGate("loading");
+            setGateNonce((n) => n + 1);
+          }}
+        >
+          {t("web.gate.retry")}
+        </button>
+      </div>
+    );
+  } else if (gate === "loading" && !GATE_SHELL_PHASES.has(gatePhase)) {
+    // Not known yet whether onboarding is done: a neutral splash, never the app (its empty main
+    // chat would greet before the owner has set anything up).
+    body = (
+      <div
+        className="flex h-dvh items-center justify-center bg-canvas"
+        role="status"
+        aria-busy="true"
+        aria-label={t("web.gate.loading")}
+        data-testid="gate-loading"
+      />
+    );
   } else {
-    // While the Gateway is unreachable the shell shows its offline banner; it is the same app.
+    // While the Gateway is unreachable or waiting for approval the shell shows its offline and
+    // pairing banners; it is the same app.
     body = <ShellApp platform={platform} slots={slots} />;
   }
   const uiSlots = useMemo<UiSlots>(

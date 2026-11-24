@@ -9,7 +9,25 @@ import { ToolCheckBadge } from "../settings/ModelSection.tsx";
 import { Facts, StatusChip } from "../settings/shared.tsx";
 import type { OnboardingResult, SetupCheck } from "./types.ts";
 
-const CHECK_TONE = { ok: "success", warn: "approval" } as const;
+const CHECK_TONE = {
+  ok: "success",
+  warn: "approval",
+  fail: "danger",
+  unchecked: "neutral",
+} as const;
+
+function checkChip(state: SetupCheck["state"]): string {
+  switch (state) {
+    case "ok":
+      return t("onboarding.done.ok");
+    case "fail":
+      return t("onboarding.done.failed");
+    case "unchecked":
+      return t("onboarding.done.notChecked");
+    case "warn":
+      return t("onboarding.done.check");
+  }
+}
 
 /** Done's line for mail and meetings: how many workflows are on, or that they're off. */
 function mailDoneValue(mail: NonNullable<OnboardingResult["mail"]>): string {
@@ -27,7 +45,10 @@ export function DoneStep({
   result,
   checks,
   helperConnected = false,
+  onFix,
 }: {
+  /** Opens the step that fixes a failed or unchecked row (the Model step). */
+  onFix?: (step: NonNullable<SetupCheck["fixStep"]>) => void;
   result: OnboardingResult;
   /** The Mac helper is paired: the voice key works, so say how to talk (voice-mode-2026 §6.5). */
   helperConnected?: boolean;
@@ -139,11 +160,18 @@ export function DoneStep({
         >
           {checks.map((c) => (
             <li key={c.id} className="flex flex-wrap items-center gap-2 text-sm">
-              <StatusChip tone={CHECK_TONE[c.state]}>
-                {c.state === "ok" ? t("onboarding.done.ok") : t("onboarding.done.check")}
-              </StatusChip>
+              <StatusChip tone={CHECK_TONE[c.state]}>{checkChip(c.state)}</StatusChip>
               <span className="font-medium">{c.label}</span>
               <span className="text-muted-foreground">{c.detail}</span>
+              {c.fixStep && onFix ? (
+                <button
+                  type="button"
+                  className="text-callout text-ink underline underline-offset-2"
+                  onClick={() => onFix(c.fixStep as NonNullable<SetupCheck["fixStep"]>)}
+                >
+                  {t("onboarding.done.fixModel")}
+                </button>
+              ) : null}
             </li>
           ))}
         </ul>

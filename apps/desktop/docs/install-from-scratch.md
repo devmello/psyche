@@ -47,13 +47,13 @@ run once. `--dry-run` shows every step without doing it, `--no-launch` leaves th
 3. **Psyche Helper.** Once the window is paired, the app runs `open -g -j <Psyche.app>/Contents/Resources/PsycheHelper.app`.
    - The helper starts in the background, connects to the Gateway's node socket and pairs automatically.
    - It asks for nothing at launch.
-   - Onboarding's Permissions step and Settings → Devices show its state: Starting…, Connected or Not connected. Nothing waits for it.
+   - Onboarding's Safety step and Settings → Devices show its state: Starting…, Connected or Not connected. Nothing waits for it.
    - When it quits or an update replaces it, the app starts it again, at most once a minute.
-4. **Onboarding:** Meet your agent, Permissions, Connectors, Model & provider, Where Psyche works, Done.
+4. **Onboarding:** You and your agent, Your stuff, Choose a model, Memory and daily habits, Folders (only when a folder can be shared), Safety, You're set. Quitting midway resumes at the same step with your answers on the You step restored. The recovery key is held until you confirm you saved it.
    - **Model & provider:** paste your provider's API key and press **Save to vault**.
      - If you have no vault yet, this creates it and shows your **vault recovery key once**. Save it in a password manager or on paper.
      - The key is stored in the vault as a Gateway-owned item bound to the provider's API origin. The agent never sees it.
-     - **Run check** runs the tool-calling check on the model you picked.
+     - **Run check** runs the tool-calling check on the model you picked. A refused key is not kept, and You're set shows the refusal with a link back to this step. A check that could not run shows as Not checked. You can finish without a key; You're set then says chat will not answer until you add one in Settings → Models.
    - **Done:** binds the model you picked and confirms three things: the Gateway is running, the helper is connected, and the model is set with a key.
 5. **Main chat.** The Gateway answers with the model you picked. No environment variables are involved.
 
@@ -81,14 +81,14 @@ Until those changes are in your build (#406, #407, #408), grant admin once in Te
 | ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | First open (ad-hoc or unnotarized build)                    | "Psyche" Not Opened / Apple could not verify…                                                                 | System Settings → Privacy & Security → **Open Anyway**, then confirm. Notarized builds instead show "downloaded from the Internet. Are you sure?" → **Open**. |
 | The Gateway's LaunchAgent is loaded                         | Notification: "Background Items Added"                                                                        | Nothing; leave it allowed in System Settings → General → Login Items & Extensions. If you turn it off there, the Gateway stops.                               |
-| Permissions → Accessibility → Allow                         | "Psyche would like to control this computer using accessibility features"                                     | **Open System Settings**, turn Psyche on, come back; the row updates.                                                                                         |
-| Permissions → Screen Recording → Allow                      | "Psyche would like to record this computer's screen and audio" (or System Settings opens directly)            | Turn Psyche on in System Settings → Privacy & Security → Screen & System Audio Recording.                                                                     |
-| Permissions → Notifications → Allow                         | "Psyche Helper would like to send you notifications" (from the helper when it is connected, else from Psyche) | **Allow**.                                                                                                                                                    |
+| First computer-use action (asked in chat) → Accessibility   | "Psyche would like to control this computer using accessibility features"                                     | **Open System Settings**, turn Psyche on, come back; the row updates.                                                                                         |
+| First screen-reading action (asked in chat) → Screen Recording | "Psyche would like to record this computer's screen and audio" (or System Settings opens directly)            | Turn Psyche on in System Settings → Privacy & Security → Screen & System Audio Recording.                                                                     |
+| Safety → Notifications → Allow                              | "Psyche Helper would like to send you notifications" (from the helper when it is connected, else from Psyche) | **Allow**.                                                                                                                                                    |
 | Model & provider → Save to vault (Keychain vault slot only) | Touch ID / password "Psyche Helper is trying to unlock your Psyche vault"                                     | Approve. A key-file vault has no prompt.                                                                                                                      |
 | First dictation                                             | "Psyche would like to access the microphone"                                                                  | **Allow**.                                                                                                                                                    |
 | First computer-use action on an app, by Psyche Helper       | Accessibility / Automation prompts naming **Psyche Helper**                                                   | Allow for the apps you want it to use.                                                                                                                        |
 
-The rows after the Permissions step happen only when you use the feature.
+Accessibility and Screen Recording are not asked in onboarding: the Safety step asks only for Notifications. The agent asks for the others in chat the first time an action needs them, and Settings → Computer use shows their state. The rows after the Safety step happen only when you use the feature.
 
 What the 2026-10-20 run showed, on a locally built app (not quarantined, so there was no Gatekeeper prompt): no prompt appeared from install through the main chat when the permission rows were skipped. The Gatekeeper and Background Items rows above are what macOS does for a downloaded app and a new LaunchAgent; they were not seen in that run.
 
