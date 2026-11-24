@@ -147,6 +147,41 @@ describe("API handlers", () => {
     expect((await api["audit.export"]({}, desktop)).data.split("\n").length).toBeGreaterThan(3);
   });
 
+  it("access.revoke records the owner's device as the actor of the grant revoke", async () => {
+    const h = makeBroker();
+    const api = createPermissionHandlers(h.broker, h.audit);
+    const d = await h.broker.decide(call("calendar.create", "write"), CTX);
+    const issued = await h.broker.requestApproval({
+      kind: d.approvalKind ?? "calendar_write",
+      summary: "x",
+      details: {},
+      bindingHash: d.bindingHash ?? "",
+      grantKey: d.grantKey ?? "",
+      requestedBy: { runId: CTX.runId, taskId: CTX.taskId ?? null, threadId: CTX.threadId },
+      sideEffect: "write",
+      surfaces: ["desktop"],
+      taint: false,
+    });
+    h.clock.advance(500);
+    const res = await api["approvals.answer"](
+      {
+        approvalId: issued.approval.id,
+        answerToken: issued.answerTokens.desktop,
+        decision: "approve",
+        scope: "always",
+      },
+      desktop,
+    );
+    const grantId = res.grant?.id;
+    expect(grantId).toBeTypeOf("string");
+    expect((await api["access.revoke"]({ entryId: `grant:${grantId}` }, desktop)).revoked).toBe(
+      true,
+    );
+    const rows = (await api["audit.list"]({ kindPrefix: "grant.revoked" }, desktop)).entries;
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.actor).toEqual({ type: "device", deviceId: "dev_mac", surface: "desktop" });
+  });
+
   it("node-role connections are refused", async () => {
     const h = makeBroker();
     const api = createPermissionHandlers(h.broker, h.audit);

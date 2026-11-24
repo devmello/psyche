@@ -156,7 +156,9 @@ export function createPermissionHandlers(
     async "access.revoke"(p, c) {
       requireScope(c, Methods["access.revoke"].scope);
       const { entryId } = check(Methods["access.revoke"].params, p);
-      return { revoked: await revokeAccess(broker, entryId) };
+      return {
+        revoked: await revokeAccess(broker, entryId, { deviceId: c.deviceId, surface: c.surface }),
+      };
     },
     async "access.confirmFolder"(p, c) {
       requireScope(c, Methods["access.confirmFolder"].scope);
@@ -340,6 +342,7 @@ function movedFields(
 export async function revokeAccess(
   broker: PsychePermissionBroker,
   entryId: string,
+  by?: { deviceId: string; surface?: Surface },
 ): Promise<boolean> {
   if (entryId.startsWith(FOLDER_ALWAYS))
     return broker.revokeFolder(entryId.slice(FOLDER_ALWAYS.length));
@@ -359,7 +362,7 @@ export async function revokeAccess(
     const grantId = entryId.slice(GRANT.length);
     const live = (await broker.listGrants()).some((g) => g.id === grantId);
     if (!live) return false;
-    await broker.revokeGrant(grantId);
+    await broker.revokeGrant(grantId, "owner", by);
     return true;
   }
   throw new PsycheError("invalid_params", "bad access entry");
