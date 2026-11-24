@@ -200,6 +200,7 @@ import {
 import { machineChangeHook } from "./machine-notices.ts";
 import { composeMailFollowups } from "./mail-followups.ts";
 import type { ComposedMcp } from "./mcp.ts";
+import { mountMemoryHandlers } from "./memory-chunks.ts";
 import { memoryStoreStatus, resolveMemoryStore, setMemoryEncrypted } from "./memory-db.ts";
 import { withMemoryEntityContext } from "./memory-item-context.ts";
 import {
@@ -2474,7 +2475,11 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   parts.push({ handlers: uninstallHandlers(services) });
   const handlers: Record<string, HandlerDef> = {
     ...mountPermissions(db, createPermissionHandlers(rawBroker, audit), tokens),
-    ...mountParamsOnly(createMemoryHandlers(memory, { teaching: teaching.service.store }) as never),
+    // memory.search and memory.explain return chunk text: held to the connection's viewer.
+    ...mountMemoryHandlers(
+      createMemoryHandlers(memory, { teaching: teaching.service.store }),
+      memory,
+    ),
     // memory.status also says how recall works (`memory.recall.mode`).
     "memory.status": {
       run: async () => ({
