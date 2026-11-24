@@ -62,7 +62,9 @@ describe("ClaimExplain", () => {
     expect(screen.getByText("memory/2026-10-18.md, line 1")).toBeTruthy();
     expect(
       ref.gateway?.calls.some(
-        (c) => c.method === "memory.explain" && c.params.claimId === "clm_ava1",
+        (c) =>
+          c.method === "memory.explain" &&
+          (c.params as { claimId?: string } | undefined)?.claimId === "clm_ava1",
       ),
     ).toBe(true);
   });
