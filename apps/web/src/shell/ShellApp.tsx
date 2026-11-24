@@ -1,4 +1,4 @@
-import type { SearchHit, Thread } from "@psyche/protocol";
+import type { SearchHit, Thread, ViewPane } from "@psyche/protocol";
 import {
   AGENT_PANEL_MIN_CONTENT,
   AGENT_PANEL_WIDTH,
@@ -846,6 +846,17 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
     if (next) setPermissionMode(next);
   }, [thread, setPermissionMode, autoBlockedBy]);
 
+  // A pane open main held while this window did not exist (Settings' Watch button). It waits for
+  // the screen to have its layout key: a fresh window has no threads, so no key, yet.
+  const [heldPaneOpen, setHeldPaneOpen] = useState<{ pane: ViewPane; target?: string } | null>(
+    null,
+  );
+  useEffect(() => {
+    if (heldPaneOpen === null || !paneKey) return;
+    layout.dispatch(paneKey, { type: "open", ...heldPaneOpen }, env());
+    setHeldPaneOpen(null);
+  }, [paneKey, layout, env, heldPaneOpen]);
+
   useEffect(
     () =>
       platform.windows?.onCommand((c) => {
@@ -853,6 +864,13 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
         if (c.type === "newSideChat") newSideChat();
         if (c.type === "palette") setOverlay("palette");
         if (c.type === "prefillComposer") prefillComposer(c.text);
+        if (c.type === "openPane") {
+          // The effect above applies it as soon as paneKey is known.
+          setHeldPaneOpen({
+            pane: c.pane,
+            ...(c.target !== undefined ? { target: c.target } : {}),
+          });
+        }
         if (c.type === "popOutClosed") {
           // The pane's window is gone: dock it again, on the thread it was popped out of.
           const target = parsePopOutRoute(c.route);

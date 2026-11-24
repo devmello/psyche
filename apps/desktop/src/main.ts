@@ -197,6 +197,12 @@ import {
   stopUpdater,
 } from "./main/updater.ts";
 import {
+  type QueuedViewOpen,
+  queueViewOpen,
+  takeViewOpens,
+  viewOpenFromCommand,
+} from "./main/view-open-handoff.ts";
+import {
   canvasColor,
   chromeViewBackground,
   titleBarOverlayColors,
@@ -531,6 +537,8 @@ const windowTheme = new WindowTheme({
   warn: (message) => console.warn(`[theme] ${message}`),
 });
 const pendingCommands: ShellCommand[] = [];
+// A `view.open` that arrived while no main window existed (the Settings window's Watch button).
+let pendingViewOpens: QueuedViewOpen[] = [];
 let quittingEntirely = false;
 
 function isAppUrl(url: string | undefined): boolean {
@@ -1858,6 +1866,11 @@ function onGatewayEvent(e: {
   seq: number;
   stateVersion: number;
 }): void {
+  // With no main window to apply a pane open, hold it for the window Settings is about to raise.
+  if (e.event === "view.command" && windows?.mainContents() === undefined) {
+    const request = viewOpenFromCommand(e.payload);
+    if (request !== null) pendingViewOpens = queueViewOpen(pendingViewOpens, request, Date.now());
+  }
   broadcast(IPC.event, e);
   // Settings changes would register the Host's dictation and Ask-about-screen hotkeys here.
   if (!remoteGateway) {
@@ -2041,6 +2054,13 @@ void app.whenReady().then(async () => {
     // Per page: the first main view and each one rebuilt after a release.
     onMainViewCreated: (win, view) => {
       view.webContents.once("did-finish-load", () => {
+        for (const request of takeViewOpens(pendingViewOpens, Date.now())) {
+          view.webContents.send(IPC.shellCommand, {
+            type: "openPane",
+            ...request,
+          } satisfies ShellCommand);
+        }
+        pendingViewOpens = [];
         for (const c of pendingCommands.splice(0)) view.webContents.send(IPC.shellCommand, c);
       });
       // Input in the app itself (chat, approvals) counts too; nothing synthesizes input there.

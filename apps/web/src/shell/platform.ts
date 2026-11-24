@@ -1,4 +1,4 @@
-import type { BridgeControlState, BridgeProfile } from "@psyche/protocol";
+import type { BridgeControlState, BridgeProfile, ViewPane } from "@psyche/protocol";
 import type { SandboxPcSlot } from "@psyche/ui";
 import type { CallOptions, GatewayEvent } from "../client/connection.ts";
 import type { GatewayStatus } from "../client/status.ts";
@@ -455,7 +455,12 @@ export type ShellCommand =
   /** A pane's pop-out window was closed: dock the pane again (main window only). */
   | { type: "popOutClosed"; route: string }
   /** Fills the chat composer without sending (from the Settings window's "Try it", #677). */
-  | { type: "prefillComposer"; text: string };
+  | { type: "prefillComposer"; text: string }
+  /**
+   * A pane open held by main while no main window existed (Settings' Watch button). The main
+   * window opens it on the screen it shows, once that screen has its layout key.
+   */
+  | { type: "openPane"; pane: ViewPane; target?: string };
 
 export interface NotifyPort {
   /** OS notification (desktop: mac helper when present, else Electron); web: none yet. */
