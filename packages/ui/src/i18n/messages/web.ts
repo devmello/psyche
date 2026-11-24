@@ -228,6 +228,7 @@ export const web = {
   "web.threads.busy": "Working or waiting",
   "web.threads.fromYou": "You: {text}",
   "web.threads.archived": "Archived ({count, number})",
+  "web.threads.showMore": "Show more",
   "web.banner.startFailed": "Psyche couldn't start: {reason}.",
   "web.banner.showLogs": "Show logs",
   "web.banner.starting": "Psyche is starting…",
@@ -410,6 +411,7 @@ export const web = {
   "web.chat.defaultModel": "default model",
   "web.chat.conversation": "Conversation",
   "web.chat.preparing": "Psyche is getting your main chat ready.",
+  "web.chat.loadingEarlier": "Loading earlier messages…",
   "web.quickEntry.status":
     "Psyche · {online, select, true {main chat} other {offline}}{approvals, plural, =0 {} one { · # approval waiting} other { · # approvals waiting}}",
   "web.quickEntry.placeholder": "Ask or tell Psyche…",

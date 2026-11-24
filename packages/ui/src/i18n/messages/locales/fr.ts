@@ -3616,6 +3616,7 @@ export const fr: Partial<Catalogue> = {
   "web.threads.busy": "En cours ou en attente",
   "web.threads.fromYou": "Vous : {text}",
   "web.threads.archived": "Archivées ({count, number})",
+  "web.threads.showMore": "Afficher plus",
   "web.banner.startFailed": "Psyche n’a pas pu démarrer : {reason}.",
   "web.banner.showLogs": "Afficher les journaux",
   "web.banner.starting": "Psyche démarre…",
@@ -3765,6 +3766,7 @@ export const fr: Partial<Catalogue> = {
   "web.chat.defaultModel": "modèle par défaut",
   "web.chat.conversation": "Conversation",
   "web.chat.preparing": "Psyche prépare votre discussion principale.",
+  "web.chat.loadingEarlier": "Chargement des messages précédents…",
   "web.quickEntry.status":
     "Psyche · {online, select, true {discussion principale} other {hors ligne}}{approvals, plural, =0 {} one { · # approbation en attente} other { · # approbations en attente}}",
   "web.quickEntry.placeholder": "Demandez ou dites quelque chose à Psyche…",

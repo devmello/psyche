@@ -3548,6 +3548,7 @@ export const ko: Partial<Catalogue> = {
   "web.threads.busy": "작업 중 또는 대기 중",
   "web.threads.fromYou": "나: {text}",
   "web.threads.archived": "보관됨 ({count, number})",
+  "web.threads.showMore": "더 보기",
   "web.banner.startFailed": "Psyche를 시작할 수 없습니다: {reason}.",
   "web.banner.showLogs": "로그 보기",
   "web.banner.starting": "Psyche를 시작하는 중…",
@@ -3695,6 +3696,7 @@ export const ko: Partial<Catalogue> = {
   "web.chat.defaultModel": "기본 모델",
   "web.chat.conversation": "대화",
   "web.chat.preparing": "Psyche가 메인 채팅을 준비하는 중입니다.",
+  "web.chat.loadingEarlier": "이전 메시지를 불러오는 중…",
   "web.quickEntry.status":
     "Psyche · {online, select, true {메인 채팅} other {오프라인}}{approvals, plural, =0 {} other { · 승인 #개 대기 중}}",
   "web.quickEntry.placeholder": "Psyche에게 묻거나 말하기…",

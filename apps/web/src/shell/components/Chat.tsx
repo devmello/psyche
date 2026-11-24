@@ -19,6 +19,7 @@ import {
   type KeyboardEvent,
   type ReactElement,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -696,10 +697,51 @@ export function ChatView(props: {
   const streaming = useShellState((s) => s.streaming);
   const approvals = useShellState((s) => s.approvals);
   const threadId = props.thread?.id;
+  const olderLoading = useShellState((s) => (threadId ? s.olderLoading[threadId] === true : false));
+  const hasOlder = useShellState((s) =>
+    threadId ? typeof s.historyCursors[threadId] === "string" : false,
+  );
+  const listRef = useRef<HTMLDivElement>(null);
+  /** Scroll height and oldest id when an older page was asked for, so the view stays put. */
+  const anchor = useRef<{ height: number; oldestId: string | undefined } | null>(null);
+  const openedFor = useRef<string | undefined>(undefined);
+  const oldestId = messages?.[0]?.id;
 
   useEffect(() => {
     if (threadId) void store.loadHistory(threadId);
   }, [store, threadId]);
+
+  // A thread opens at its newest message.
+  useLayoutEffect(() => {
+    const el = listRef.current;
+    if (!el || !threadId || !messages || messages.length === 0) return;
+    if (openedFor.current === threadId) return;
+    openedFor.current = threadId;
+    el.scrollTop = el.scrollHeight;
+  }, [messages, threadId]);
+
+  // Keeps the reader's place when an older page is prepended above it.
+  useLayoutEffect(() => {
+    const el = listRef.current;
+    const a = anchor.current;
+    if (!el || !a || olderLoading) return;
+    anchor.current = null;
+    if (oldestId !== a.oldestId) el.scrollTop += el.scrollHeight - a.height;
+  }, [oldestId, olderLoading]);
+
+  // A first page too short to scroll cannot show the top, so the next page loads now.
+  useEffect(() => {
+    const el = listRef.current;
+    if (!el || !threadId || !hasOlder || olderLoading) return;
+    if (el.scrollHeight <= el.clientHeight) void store.loadOlderMessages(threadId);
+  }, [store, threadId, hasOlder, olderLoading]);
+
+  const loadOlder = (): void => {
+    const el = listRef.current;
+    if (!el || !threadId || !hasOlder || olderLoading) return;
+    anchor.current = { height: el.scrollHeight, oldestId };
+    void store.loadOlderMessages(threadId);
+  };
 
   const live = Object.entries(streaming).filter(([, v]) => v.threadId === threadId);
   const dock = approvals.filter(
@@ -742,7 +784,20 @@ export function ChatView(props: {
           {props.thread?.modelRef ?? t("web.chat.defaultModel")}
         </button>
       </header>
-      <div className="messages" role="log" aria-label={t("web.chat.conversation")}>
+      <div
+        className="messages"
+        role="log"
+        aria-label={t("web.chat.conversation")}
+        ref={listRef}
+        onScroll={(e) => {
+          if (e.currentTarget.scrollTop < 96) loadOlder();
+        }}
+      >
+        {olderLoading ? (
+          <p className="messages-older" role="status">
+            {t("web.chat.loadingEarlier")}
+          </p>
+        ) : null}
         {(messages ?? []).map((m) => (
           <MessageRow key={m.id} m={m} />
         ))}

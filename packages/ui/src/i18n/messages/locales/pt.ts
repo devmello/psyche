@@ -3556,6 +3556,7 @@ export const pt: Partial<Catalogue> = {
   "web.threads.busy": "Trabalhando ou aguardando",
   "web.threads.fromYou": "Você: {text}",
   "web.threads.archived": "Arquivadas ({count, number})",
+  "web.threads.showMore": "Mostrar mais",
   "web.banner.startFailed": "O Psyche não conseguiu iniciar: {reason}.",
   "web.banner.showLogs": "Mostrar registros",
   "web.banner.starting": "O Psyche está iniciando…",
@@ -3705,6 +3706,7 @@ export const pt: Partial<Catalogue> = {
   "web.chat.defaultModel": "modelo padrão",
   "web.chat.conversation": "Conversa",
   "web.chat.preparing": "O Psyche está preparando sua conversa principal.",
+  "web.chat.loadingEarlier": "Carregando mensagens anteriores…",
   "web.quickEntry.status":
     "Psyche · {online, select, true {conversa principal} other {offline}}{approvals, plural, =0 {} one { · # aprovação aguardando} other { · # aprovações aguardando}}",
   "web.quickEntry.placeholder": "Pergunte ou diga algo ao Psyche…",
