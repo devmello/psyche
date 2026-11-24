@@ -480,7 +480,8 @@ describe("propose → trust card → install", () => {
         scope: "once",
         decidedBy: { deviceId: "dev_1", surface: "desktop" },
       });
-    return { clock, fake, registry, service, approve };
+    const tokenOf = (id: string) => tokens.get(id) ?? "";
+    return { clock, fake, registry, service, approve, tokenOf };
   }
 
   it("opens a device-only skill_install card (kind connector) bound with the broker's own recipe, then installs with tier rules", async () => {
@@ -578,5 +579,50 @@ describe("propose → trust card → install", () => {
     await expect(s.service.install(proposal.id, approval.id)).rejects.toMatchObject({
       code: "approval_expired",
     });
+  });
+
+  it("installs on the owner's approval (installApproved), once; a denied card installs nothing", async () => {
+    const s = setup();
+    const { proposal, approval } = await s.service.propose({ manifest: MANIFEST });
+    await s.approve(approval.id);
+    const approved = await s.fake.get(approval.id);
+    expect(approved?.status).toBe("approved");
+    const record = await s.service.installApproved(approved as NonNullable<typeof approved>);
+    expect(record).toMatchObject({ type: "custom", status: "connected", label: "Tasks API" });
+    expect((await s.registry.list()).filter((r) => r.type === "custom")).toHaveLength(1);
+    // The proposal is spent: a second call from the broker event installs nothing more.
+    await expect(s.service.install(proposal.id, approval.id)).rejects.toMatchObject({
+      code: "not_found",
+    });
+    expect(
+      await s.service.installApproved(approved as NonNullable<typeof approved>),
+    ).toBeUndefined();
+    expect((await s.registry.list()).filter((r) => r.type === "custom")).toHaveLength(1);
+  });
+
+  it("installs nothing when the card is denied, or when the approval is not this proposal's", async () => {
+    const s = setup();
+    const { approval } = await s.service.propose({ manifest: MANIFEST });
+    await s.fake.answer({
+      approvalId: approval.id,
+      answerToken: s.tokenOf(approval.id),
+      decision: "deny",
+      scope: "once",
+      decidedBy: { deviceId: "dev_1", surface: "desktop" },
+    });
+    const denied = await s.fake.get(approval.id);
+    expect(denied?.status).toBe("denied");
+    expect(await s.service.installApproved(denied as NonNullable<typeof denied>)).toBeUndefined();
+    expect(await s.registry.list()).toEqual([]);
+    // An approval that matches no staged card installs nothing.
+    const unknown = { ...approval, id: "apr_unknown", status: "approved" as const };
+    expect(await s.service.installApproved(unknown)).toBeUndefined();
+    // A card that claims approval the broker never recorded is refused by the install's own check.
+    const other = await s.service.propose({ manifest: MANIFEST });
+    const claimed = { ...other.approval, status: "approved" as const };
+    await expect(s.service.installApproved(claimed)).rejects.toMatchObject({
+      code: "approval_required",
+    });
+    expect(await s.registry.list()).toEqual([]);
   });
 });

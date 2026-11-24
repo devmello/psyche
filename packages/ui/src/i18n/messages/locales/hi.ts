@@ -2516,6 +2516,7 @@ export const hi: Partial<Catalogue> = {
   "settings.plugins.install": "फ़ोल्डर से इंस्टॉल करें…",
   "settings.plugins.pickFailed": "Psyche फ़ोल्डर चयनकर्ता नहीं खोल सका ({reason})।",
   "settings.plugins.installFailed": "इंस्टॉल शुरू नहीं हुआ। {reason}",
+  "settings.plugins.installNotDone": "प्लगइन इंस्टॉल नहीं हुआ। {reason}",
   "settings.plugins.proposed": "अनुमोदन कार्ड पर इंस्टॉल की समीक्षा करें।",
   "settings.plugins.includes": "इसमें शामिल: {list}",
   "settings.plugins.count.skills": "{n, plural, one {# स्किल} other {# स्किल}}",

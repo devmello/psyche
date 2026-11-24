@@ -23,6 +23,11 @@ function setup(edit?: Edit, onPickFolder?: () => Promise<string | null>): () => 
   };
 }
 
+/** The methods the Gateway was called with, in order. */
+function methods(gateway: MockGateway): string[] {
+  return gateway.calls.map((c) => c.method);
+}
+
 /** The `plugins.setEnabled` calls made so far, as `[name, enabled]`. */
 function toggles(gateway: MockGateway): [string, boolean][] {
   return gateway.calls
@@ -153,6 +158,57 @@ describe("Settings → Plugins", () => {
     await userEvent.click(await screen.findByRole("button", { name: "Install from folder…" }));
     await screen.findByTestId("plugin-meeting-notes");
     expect(gateway().calls.some((x) => x.method === "plugins.proposeInstall")).toBe(false);
+  });
+
+  it("installs the plugin only after the owner approves its card, then lists it", async () => {
+    const pick = vi.fn(async () => "/Users/me/plugins/neat");
+    const gateway = setup(undefined, pick);
+    await userEvent.click(await screen.findByRole("button", { name: "Install from folder…" }));
+    const card = await screen.findByRole("button", { name: "Allow with scope" });
+    expect(methods(gateway())).not.toContain("plugins.install");
+    await waitFor(() => expect((card as HTMLButtonElement).disabled).toBe(false));
+    await userEvent.click(card);
+    await waitFor(() => expect(methods(gateway())).toContain("plugins.install"));
+    const install = gateway().calls.find((c) => c.method === "plugins.install");
+    const approval = gateway().world.approvals.find((a) => a.kind === "skill_install");
+    expect(install?.params).toEqual({
+      proposalId: expect.any(String),
+      approvalId: approval?.id,
+    });
+    expect(await screen.findByTestId("plugin-neat")).toBeTruthy();
+  });
+
+  it("installs nothing when the owner denies the card", async () => {
+    const pick = vi.fn(async () => "/Users/me/plugins/neat");
+    const gateway = setup(undefined, pick);
+    await userEvent.click(await screen.findByRole("button", { name: "Install from folder…" }));
+    const deny = await screen.findByRole("button", { name: "Deny" });
+    await waitFor(() => expect((deny as HTMLButtonElement).disabled).toBe(false));
+    await userEvent.click(deny);
+    await waitFor(() =>
+      expect(gateway().world.approvals.some((a) => a.kind === "skill_install")).toBe(true),
+    );
+    await waitFor(() =>
+      expect(gateway().world.approvals.find((a) => a.kind === "skill_install")?.status).toBe(
+        "denied",
+      ),
+    );
+    expect(methods(gateway())).not.toContain("plugins.install");
+    expect(screen.queryByTestId("plugin-neat")).toBeNull();
+  });
+
+  it("shows the error line when the install fails after approval", async () => {
+    const pick = vi.fn(async () => "/Users/me/plugins/neat");
+    const gateway = setup(undefined, pick);
+    gateway().failNext("plugins.install", "unavailable", "the plugin store is locked");
+    await userEvent.click(await screen.findByRole("button", { name: "Install from folder…" }));
+    const card = await screen.findByRole("button", { name: "Allow with scope" });
+    await waitFor(() => expect((card as HTMLButtonElement).disabled).toBe(false));
+    await userEvent.click(card);
+    expect(
+      await screen.findByText("The plugin didn't install. the plugin store is locked"),
+    ).toBeTruthy();
+    expect(screen.queryByTestId("plugin-neat")).toBeNull();
   });
 
   it("hides the install button when there is no folder chooser (web)", async () => {

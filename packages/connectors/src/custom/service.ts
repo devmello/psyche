@@ -49,6 +49,8 @@ export interface CustomConnectorServiceOptions {
 interface Staged {
   proposal: CustomConnectorProposal;
   existingId: string | undefined;
+  /** The `skill_install` card this proposal opened; its approval installs it (`installApproved`). */
+  approvalId: string;
 }
 
 /** The `skill_install` binding the broker itself computes (no drift between card and install). */
@@ -73,6 +75,8 @@ export class CustomConnectors {
   readonly #o: CustomConnectorServiceOptions;
   readonly #staged = new Map<string, Staged>();
   #seq = 0;
+  /** Proposals whose install is running: a second install of the same one is refused. */
+  readonly #installing = new Set<string>();
 
   constructor(options: CustomConnectorServiceOptions) {
     this.#o = options;
@@ -171,7 +175,7 @@ export class CustomConnectors {
       scopesOffered: ["once"],
       taint: false,
     });
-    this.#staged.set(id, { proposal, existingId: existing?.id });
+    this.#staged.set(id, { proposal, existingId: existing?.id, approvalId: issued.approval.id });
     return { proposal: structuredClone(proposal), approval: issued.approval };
   }
 
@@ -181,9 +185,31 @@ export class CustomConnectors {
     return structuredClone(s.proposal);
   }
 
+  /**
+   * Installs the proposal whose card was just approved (the broker's `approval.decided`). Only an
+   * approved card of this service's own proposal counts; anything else installs nothing.
+   */
+  async installApproved(approval: ApprovalRequest): Promise<ConnectorRecord | undefined> {
+    if (approval.status !== "approved") return undefined;
+    for (const [proposalId, s] of this.#staged) {
+      if (s.approvalId === approval.id) return this.install(proposalId, approval.id);
+    }
+    return undefined;
+  }
+
   async install(proposalId: string, approvalId: string): Promise<ConnectorRecord> {
     const s = this.#staged.get(proposalId);
-    if (s === undefined) throw new PsycheError("not_found", "no such custom connector proposal");
+    if (s === undefined || this.#installing.has(proposalId))
+      throw new PsycheError("not_found", "no such custom connector proposal");
+    this.#installing.add(proposalId);
+    try {
+      return await this.#install(proposalId, approvalId, s);
+    } finally {
+      this.#installing.delete(proposalId);
+    }
+  }
+
+  async #install(proposalId: string, approvalId: string, s: Staged): Promise<ConnectorRecord> {
     const p = s.proposal;
     if (this.#o.clock.now() > p.expiresAt) {
       this.#staged.delete(proposalId);

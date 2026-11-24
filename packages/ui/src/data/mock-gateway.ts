@@ -9,6 +9,7 @@ import type {
   EndpointProbe,
   ModelProviderSummary,
   ModelRoles,
+  PluginProposalSchema,
   PluginSummarySchema,
 } from "@psyche/protocol";
 import {
@@ -491,6 +492,7 @@ export class MockGateway implements GatewayClient {
     };
   }
   private skillProposals = new Map<string, SkillProposal>();
+  private pluginProposals = new Map<string, PluginProposalSchema>();
   private skillAuthor: { keyId: string; name: string } | undefined;
   private skillAuthorCreated = 0;
   private skillAuthors: SkillAuthor[] = [];
@@ -3304,6 +3306,89 @@ export class MockGateway implements GatewayClient {
         status: !p.enabled ? "disabled" : this.world.pluginsEnabled ? "active" : "off",
       };
       this.world.plugins = this.world.plugins.map((x) => (x === current ? plugin : x));
+      return { plugin: structuredClone(plugin) };
+    },
+    // An install is a proposal and a device-only card: `plugins.install` needs the approved card.
+    "plugins.proposeInstall": (p) => {
+      const name = (p.path.split("/").filter(Boolean).pop() ?? "plugin").toLowerCase();
+      const now = this.now();
+      const hash = `sha256:${"d".repeat(64)}`;
+      const bindingHash = `sha256:${"e".repeat(64)}`;
+      const proposal = {
+        id: this.id("plg"),
+        manifest: {
+          name,
+          version: "0.1.0",
+          description: `A plugin in ${p.path}`,
+          main: "index.js",
+          capabilities: ["context"],
+        },
+        source: p.path,
+        hash,
+        files: [],
+        findings: [],
+        bindingHash,
+      } as unknown as PluginProposalSchema;
+      this.pluginProposals.set(proposal.id, proposal);
+      const approval = this.requestApproval({
+        id: this.id("apr"),
+        kind: "skill_install",
+        summary: `Install plugin "${name}" 0.1.0`,
+        details: {
+          kind: "plugin",
+          name,
+          version: "0.1.0",
+          description: proposal.manifest.description,
+          source: { kind: "path", path: p.path },
+          hash,
+          capabilities: ["context"],
+          permissions: [],
+          tools: [],
+          files: [],
+        },
+        bindingHash,
+        grantKey: `sha256:${"f".repeat(64)}`,
+        requestedBy: { runId: null, taskId: null, threadId: null },
+        sideEffect: "destructive",
+        surfaces: ["desktop", "web"],
+        scopesOffered: ["once"],
+        deviceOnly: true,
+        requiresAuthentication: false,
+        taint: false,
+        status: "pending",
+        scopeGranted: null,
+        decidedBy: null,
+        requestedAt: now,
+        // The card counts down on the real clock, so the expiry is measured from it too.
+        expiresAt: new Date(Date.now() + 30 * 60_000).toISOString(),
+        decidedAt: null,
+        grantId: null,
+      } as ApprovalRequest);
+      return { proposal: structuredClone(proposal), approval: structuredClone(approval) };
+    },
+    "plugins.install": (p) => {
+      const proposal =
+        this.pluginProposals.get(p.proposalId) ?? fail("not_found", "no such plugin proposal");
+      const approval = this.find(this.world.approvals, p.approvalId, "approval");
+      if (
+        approval.kind !== "skill_install" ||
+        approval.status !== "approved" ||
+        approval.bindingHash !== proposal.bindingHash
+      )
+        fail("approval_required", "installing a plugin needs its approved card");
+      this.pluginProposals.delete(p.proposalId);
+      const plugin: PluginSummarySchema = {
+        name: proposal.manifest.name,
+        version: proposal.manifest.version,
+        description: proposal.manifest.description,
+        capabilities: ["context"],
+        source: proposal.source,
+        hash: proposal.hash,
+        enabled: false,
+        status: "disabled",
+        installedAt: this.now(),
+      };
+      this.world.plugins = [...this.world.plugins.filter((x) => x.name !== plugin.name), plugin];
       return { plugin: structuredClone(plugin) };
     },
     "plugins.remove": (p) => {
