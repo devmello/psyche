@@ -35,6 +35,7 @@ import type {
   RunFrame,
   RunStep,
   SearchHit,
+  SecurityStateStatus,
   SkillDetails,
   SkillDraft,
   SpecialistJob,
@@ -147,6 +148,9 @@ export interface FixtureWorld {
   channels: Channel[];
   pairingRequests: PairingRequest[];
   devices: Device[];
+  /** `security.*` (absent: sealed, no alerts, no recoveries), and a Gateway that asks for an approval card. */
+  security?: SecurityStateStatus;
+  securityNeedsApproval?: boolean;
   /** Web Bot Auth (I14): no key until the owner creates one. */
   botAuth: BotAuthStatus;
   nodes: NodeInfo[];
