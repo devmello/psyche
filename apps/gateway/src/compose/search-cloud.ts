@@ -1,4 +1,4 @@
-import type { ConnectorRecord } from "@psyche/connectors";
+import { type ConnectorRecord, GoogleAuthError } from "@psyche/connectors";
 import type { ToolCall } from "@psyche/search";
 
 /**
@@ -318,6 +318,27 @@ const sameTask = (r: Obj) =>
  */
 export function mergedRemindersCall(backends: readonly ConnectorRecord[], exec: Exec): ToolCall {
   const PAGE = 500;
+  /**
+   * A Google connection made before Google Tasks has no Tasks scope: its reminders tools throw
+   * `missing_scopes`. That backend is skipped quietly (no error in Search or the brief); every
+   * other failure, and every other backend, is unchanged.
+   */
+  const unlessNoScope = async <T>(
+    rec: ConnectorRecord,
+    fn: () => Promise<T>,
+  ): Promise<T | undefined> => {
+    try {
+      return await fn();
+    } catch (err) {
+      if (
+        rec.type === "google" &&
+        err instanceof GoogleAuthError &&
+        err.reason === "missing_scopes"
+      )
+        return undefined;
+      throw err;
+    }
+  };
   const whole = async (rec: ConnectorRecord, p: Obj, signal: AbortSignal): Promise<Obj[]> => {
     const out: Obj[] = [];
     const filter: Obj = { ...p };
@@ -341,8 +362,10 @@ export function mergedRemindersCall(backends: readonly ConnectorRecord[], exec: 
   return async (tool, p, signal) => {
     if (tool === "reminders_list_lists") {
       const lists: Obj[] = [];
-      for (const rec of backends)
-        lists.push(...rows(await exec(rec, "reminders_list_lists", {}, signal), "lists"));
+      for (const rec of backends) {
+        const got = await unlessNoScope(rec, () => exec(rec, "reminders_list_lists", {}, signal));
+        if (got !== undefined) lists.push(...rows(got, "lists"));
+      }
       return { lists };
     }
     if (tool !== "reminders_list") throw new Error(`${tool} is not available`);
@@ -356,17 +379,20 @@ export function mergedRemindersCall(backends: readonly ConnectorRecord[], exec: 
       let params = p;
       if (wanted !== undefined) {
         // Each backend gets only its own list ids: the helper refuses an id it cannot read.
-        const own = new Set(
-          rows(await exec(rec, "reminders_list_lists", {}, signal), "lists").flatMap(
-            (l) => str(l.id) ?? [],
-          ),
-        );
+        const lists = await unlessNoScope(rec, () => exec(rec, "reminders_list_lists", {}, signal));
+        if (lists === undefined) continue;
+        const own = new Set(rows(lists, "lists").flatMap((l) => str(l.id) ?? []));
         const mine = wanted.filter((id) => own.has(id));
         if (mine.length === 0) continue;
         params = { ...p, listIds: mine };
       }
-      for (const r of await whole(rec, params, signal)) {
-        const k = sameTask(r);
+      const got = await unlessNoScope(rec, () => whole(rec, params, signal));
+      if (got === undefined) continue;
+      for (const r of got) {
+        // Google Tasks ids never match another backend's row (a different id space): its rows
+        // dedupe on their own id only. Outlook and To Do keep the title, due day and state rule.
+        const k =
+          rec.type === "google" ? `g:${rec.id}\u0000${str(r.id) ?? sameTask(r)}` : sameTask(r);
         if (seen.has(k)) continue;
         seen.add(k);
         all.push(r);
