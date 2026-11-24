@@ -164,6 +164,9 @@ const bridge = {
     onPendingLink: (cb: () => void) => listen(IPC.gatewaysLinkOpened, () => cb()),
     discover: () => invoke(IPC.gatewaysDiscover),
     addDiscovered: (id: string) => invoke(IPC.gatewaysAddDiscovered, { id }),
+    tailnet: (probe: boolean) => invoke(IPC.gatewaysTailnet, { probe }),
+    addTailnet: (id: string) => invoke(IPC.gatewaysAddTailnet, { id }),
+    openTailscale: () => invoke(IPC.gatewaysOpenTailscale),
     claim: (target: { id?: string; address?: string }, code: string) =>
       invoke(IPC.gatewaysClaim, { ...target, code }),
     rename: (id: string, name: string) => invoke(IPC.gatewaysRename, { id, name }),

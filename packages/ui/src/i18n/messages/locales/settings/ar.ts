@@ -982,6 +982,23 @@ export const settings: Partial<Catalogue> = {
     "ما يعلنه كمبيوتر على الشبكة مجرد ادعاء. تعرض شاشة الإقران مفتاحه: قارنه بمفتاح المضيف قبل أن توافق.",
   "settings.gateways.discoverAdd": "إضافة {name}",
   "settings.gateways.discoverSaved": "محفوظ",
+  "settings.gateways.tailnetTitle": "على شبكتك في Tailscale",
+  "settings.gateways.tailnetChecking": "جارٍ التحقق من Tailscale…",
+  "settings.gateways.tailnetLook": "البحث عن Psyche على شبكتي",
+  "settings.gateways.tailnetNone":
+    "لم يُعثر على Psyche على شبكتك. على ذلك الكمبيوتر، فعّل «السماح للأجهزة الأخرى».",
+  "settings.gateways.tailnetFailed":
+    "تعذّر قراءة Tailscale على هذا الكمبيوتر. أضف العنوان بدلًا من ذلك.",
+  "settings.gateways.tailnetOff": "Tailscale متوقف على هذا الكمبيوتر.",
+  "settings.gateways.tailnetOpen": "فتح Tailscale",
+  "settings.gateways.tailnetOpenFailed": "تعذّر فتح Tailscale. افتحه من مجلد التطبيقات.",
+  "settings.gateways.tailnetRetry": "حاول مرة أخرى",
+  "settings.gateways.tailnetOnline": "متصل",
+  "settings.gateways.tailnetOffline": "غير متصل",
+  "settings.gateways.tailnetConnect": "اتصال",
+  "settings.gateways.tailnetConnectName": "الاتصال بـ {name}",
+  "settings.gateways.tailnetHint":
+    "وجده Tailscale على هذا الكمبيوتر. يتحقق Psyche من المفتاح الذي يُثبته Gateway قبل الاقتران، كما في العنوان الذي تكتبه.",
   "settings.remoteSetup.title": "إعداد خادم بعيد",
   "settings.remoteSetup.open": "إعداد خادم بعيد",
   "settings.remoteSetup.intro":

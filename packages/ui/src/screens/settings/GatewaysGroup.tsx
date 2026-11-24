@@ -4,7 +4,13 @@ import { Input } from "../../components/ui/input.tsx";
 import { Label } from "../../components/ui/label.tsx";
 import { t } from "../../i18n/core.ts";
 import { groupFingerprint } from "../../lib/fingerprint.ts";
-import { type DiscoveredGateway, type GatewayEntry, useSlots } from "../../slots.tsx";
+import {
+  type DiscoveredGateway,
+  type GatewayEntry,
+  type TailnetListing,
+  type TailnetPeer,
+  useSlots,
+} from "../../slots.tsx";
 import { RemoteServerSetup } from "./RemoteServerSetup.tsx";
 import { ErrorNotice, Group, StatusChip } from "./shared.tsx";
 
@@ -58,6 +64,155 @@ export function useSavedGateways(): {
   }, [gateways]);
   useEffect(reload, [reload]);
   return { entries, reload };
+}
+
+type TailnetView =
+  | { kind: "loading" }
+  | { kind: "failed" }
+  | { kind: "listed"; listing: TailnetListing; probed: boolean };
+
+/**
+ * Add a Gateway → On your tailnet (remote-gateway design §3.2). Reads the local Tailscale CLI on
+ * open (no peer is contacted) and lists tagged peers. "Look for Psyche on my tailnet" also asks
+ * the untagged online peers for /healthz, on the owner's click. Connect is the same add a typed
+ * address gets: the native confirmation, then the first-connect pin. Nothing here is pre-trusted.
+ */
+export function TailnetGateways({
+  onAdded,
+}: {
+  onAdded: (entry: GatewayEntry) => void;
+}): ReactElement | null {
+  const { gateways } = useSlots();
+  const [view, setView] = useState<TailnetView>({ kind: "loading" });
+  const [looking, setLooking] = useState(false);
+  const [connecting, setConnecting] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const tailnet = gateways?.tailnet;
+  const look = useCallback(
+    (probe: boolean) => {
+      if (!tailnet) return;
+      setError(null);
+      setLooking(probe);
+      if (!probe) setView({ kind: "loading" });
+      tailnet(probe).then(
+        (listing) => {
+          setView({ kind: "listed", listing, probed: probe });
+          setLooking(false);
+        },
+        () => {
+          setView({ kind: "failed" });
+          setLooking(false);
+        },
+      );
+    },
+    [tailnet],
+  );
+  useEffect(() => look(false), [look]);
+  if (!gateways?.tailnet) return null;
+  if (view.kind === "listed" && view.listing.state === "missing") return null;
+  const connect = (peer: TailnetPeer) => {
+    if (!gateways.addTailnet) return;
+    setError(null);
+    setConnecting(peer.id);
+    gateways.addTailnet(peer.id).then(
+      (entry) => {
+        setConnecting(null);
+        onAdded(entry);
+      },
+      (err: unknown) => {
+        setConnecting(null);
+        setError(gatewayProblemText(err));
+      },
+    );
+  };
+  const openTailscale = () => {
+    setError(null);
+    gateways.openTailscale?.().catch(() => setError(t("settings.gateways.tailnetOpenFailed")));
+  };
+  const retry = (
+    <Button type="button" size="sm" variant="outline" onClick={() => look(false)}>
+      {t("settings.gateways.tailnetRetry")}
+    </Button>
+  );
+  return (
+    <section className="flex flex-col gap-2">
+      <span className="font-medium">{t("settings.gateways.tailnetTitle")}</span>
+      {view.kind === "loading" ? (
+        <p role="status" className="text-callout text-label-secondary">
+          {t("settings.gateways.tailnetChecking")}
+        </p>
+      ) : null}
+      {view.kind === "failed" ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <p role="alert" className="text-callout text-danger-text">
+            {t("settings.gateways.tailnetFailed")}
+          </p>
+          {retry}
+        </div>
+      ) : null}
+      {view.kind === "listed" && view.listing.state === "off" ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <p role="status" className="text-callout text-label-secondary">
+            {t("settings.gateways.tailnetOff")}
+          </p>
+          <Button type="button" size="sm" variant="outline" onClick={openTailscale}>
+            {t("settings.gateways.tailnetOpen")}
+          </Button>
+          {retry}
+        </div>
+      ) : null}
+      {view.kind === "listed" && view.listing.state === "ok" ? (
+        <>
+          {view.listing.peers.length === 0 ? (
+            <p role="status" className="text-callout text-label-secondary">
+              {t("settings.gateways.tailnetNone")}
+            </p>
+          ) : (
+            <ul className="flex flex-col divide-y divide-gray-6">
+              {view.listing.peers.map((peer) => (
+                <li key={peer.id} className="flex flex-wrap items-center gap-2 py-2 first:pt-0">
+                  <span className="flex min-w-0 flex-1 flex-col">
+                    <span className="font-medium">{peer.name}</span>
+                    <span className="text-callout text-label-secondary">
+                      {peer.online
+                        ? t("settings.gateways.tailnetOnline")
+                        : t("settings.gateways.tailnetOffline")}
+                    </span>
+                  </span>
+                  <Button
+                    type="button"
+                    size="sm"
+                    disabled={connecting !== null}
+                    aria-label={t("settings.gateways.tailnetConnectName", { name: peer.name })}
+                    onClick={() => connect(peer)}
+                  >
+                    {t("settings.gateways.tailnetConnect")}
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          )}
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={looking}
+              onClick={() => look(true)}
+            >
+              {looking ? t("settings.gateways.discovering") : t("settings.gateways.tailnetLook")}
+            </Button>
+          </div>
+          <p className="text-callout text-label-secondary">{t("settings.gateways.tailnetHint")}</p>
+        </>
+      ) : null}
+      {error ? (
+        <p role="alert" className="text-callout text-danger-text">
+          {error}
+        </p>
+      ) : null}
+    </section>
+  );
 }
 
 export function AddGatewayForm({
@@ -123,74 +278,77 @@ export function AddGatewayForm({
     );
   };
   return (
-    <form
-      className="flex flex-col gap-2"
-      onSubmit={(e) => {
-        e.preventDefault();
-        submit();
-      }}
-    >
-      <p className="text-callout text-label-secondary">{t("settings.gateways.addHint")}</p>
-      <div className="flex flex-wrap items-end gap-3">
-        <div className="flex min-w-56 flex-1 flex-col gap-1">
-          <Label htmlFor={`${id}-address`}>{t("settings.gateways.addressLabel")}</Label>
-          <Input
-            id={`${id}-address`}
-            value={address}
-            onChange={(e) => setAddress(e.target.value)}
-            placeholder={t("settings.gateways.addressPlaceholder")}
-            autoCapitalize="off"
-            autoCorrect="off"
-            spellCheck={false}
-            inputMode="url"
-            aria-describedby={opened ? `${id}-opened` : undefined}
-          />
-        </div>
-        <div className="flex min-w-40 flex-col gap-1">
-          <Label htmlFor={`${id}-name`}>{t("settings.gateways.nameLabel")}</Label>
-          <Input
-            id={`${id}-name`}
-            value={name}
-            disabled={viaLink}
-            onChange={(e) => setName(e.target.value)}
-          />
-        </div>
-        <Button type="submit" size="sm" disabled={busy || address.trim() === ""}>
-          {t("settings.gateways.adding")}
-        </Button>
-      </div>
-      {incoming !== null ? (
-        <div role="status" className="flex flex-wrap items-center gap-2 text-callout">
-          <span>{t("settings.gateways.newLink")}</span>
-          <Button
-            type="button"
-            size="xs"
-            variant="outline"
-            onClick={() => {
-              setAddress(incoming);
-              setIncoming(null);
-              setOpened(true);
-              setError(null);
-            }}
-          >
-            {t("settings.gateways.useNewLink")}
-          </Button>
-          <Button type="button" size="xs" variant="ghost" onClick={() => setIncoming(null)}>
-            {t("settings.gateways.ignoreNewLink")}
+    <div className="flex flex-col gap-4">
+      <TailnetGateways onAdded={(entry) => onAdded(entry, false)} />
+      <form
+        className="flex flex-col gap-2"
+        onSubmit={(e) => {
+          e.preventDefault();
+          submit();
+        }}
+      >
+        <p className="text-callout text-label-secondary">{t("settings.gateways.addHint")}</p>
+        <div className="flex flex-wrap items-end gap-3">
+          <div className="flex min-w-56 flex-1 flex-col gap-1">
+            <Label htmlFor={`${id}-address`}>{t("settings.gateways.addressLabel")}</Label>
+            <Input
+              id={`${id}-address`}
+              value={address}
+              onChange={(e) => setAddress(e.target.value)}
+              placeholder={t("settings.gateways.addressPlaceholder")}
+              autoCapitalize="off"
+              autoCorrect="off"
+              spellCheck={false}
+              inputMode="url"
+              aria-describedby={opened ? `${id}-opened` : undefined}
+            />
+          </div>
+          <div className="flex min-w-40 flex-col gap-1">
+            <Label htmlFor={`${id}-name`}>{t("settings.gateways.nameLabel")}</Label>
+            <Input
+              id={`${id}-name`}
+              value={name}
+              disabled={viaLink}
+              onChange={(e) => setName(e.target.value)}
+            />
+          </div>
+          <Button type="submit" size="sm" disabled={busy || address.trim() === ""}>
+            {t("settings.gateways.adding")}
           </Button>
         </div>
-      ) : null}
-      {opened ? (
-        <p id={`${id}-opened`} role="status" className="text-callout text-label-secondary">
-          {t("settings.gateways.fromLink")}
-        </p>
-      ) : null}
-      {error ? (
-        <p role="alert" className="text-callout text-danger-text">
-          {error}
-        </p>
-      ) : null}
-    </form>
+        {incoming !== null ? (
+          <div role="status" className="flex flex-wrap items-center gap-2 text-callout">
+            <span>{t("settings.gateways.newLink")}</span>
+            <Button
+              type="button"
+              size="xs"
+              variant="outline"
+              onClick={() => {
+                setAddress(incoming);
+                setIncoming(null);
+                setOpened(true);
+                setError(null);
+              }}
+            >
+              {t("settings.gateways.useNewLink")}
+            </Button>
+            <Button type="button" size="xs" variant="ghost" onClick={() => setIncoming(null)}>
+              {t("settings.gateways.ignoreNewLink")}
+            </Button>
+          </div>
+        ) : null}
+        {opened ? (
+          <p id={`${id}-opened`} role="status" className="text-callout text-label-secondary">
+            {t("settings.gateways.fromLink")}
+          </p>
+        ) : null}
+        {error ? (
+          <p role="alert" className="text-callout text-danger-text">
+            {error}
+          </p>
+        ) : null}
+      </form>
+    </div>
   );
 }
 

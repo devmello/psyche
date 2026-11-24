@@ -1028,6 +1028,24 @@ export const settingsRest: Partial<Catalogue> = {
     "네트워크에서 컴퓨터가 알리는 내용은 자체 주장일 뿐입니다. 페어링 화면에 키가 표시되므로 승인하기 전에 호스트의 키와 비교하십시오.",
   "settings.gateways.discoverAdd": "{name} 추가",
   "settings.gateways.discoverSaved": "저장됨",
+  "settings.gateways.tailnetTitle": "내 tailnet에서",
+  "settings.gateways.tailnetChecking": "Tailscale 확인 중…",
+  "settings.gateways.tailnetLook": "내 tailnet에서 Psyche 찾기",
+  "settings.gateways.tailnetNone":
+    "내 tailnet에서 Psyche를 찾지 못했습니다. 그 컴퓨터에서 “다른 컴퓨터 허용”을 켜세요.",
+  "settings.gateways.tailnetFailed":
+    "이 컴퓨터에서 Tailscale을 읽을 수 없습니다. 대신 주소를 추가하세요.",
+  "settings.gateways.tailnetOff": "이 컴퓨터에서 Tailscale이 꺼져 있습니다.",
+  "settings.gateways.tailnetOpen": "Tailscale 열기",
+  "settings.gateways.tailnetOpenFailed":
+    "Tailscale을 열 수 없습니다. 응용 프로그램 폴더에서 여세요.",
+  "settings.gateways.tailnetRetry": "다시 시도",
+  "settings.gateways.tailnetOnline": "온라인",
+  "settings.gateways.tailnetOffline": "오프라인",
+  "settings.gateways.tailnetConnect": "연결",
+  "settings.gateways.tailnetConnectName": "{name}에 연결",
+  "settings.gateways.tailnetHint":
+    "이 컴퓨터의 Tailscale로 찾았습니다. 직접 입력한 주소와 같이, Psyche는 페어링 전에 Gateway가 제시하는 키를 확인합니다.",
   "settings.remoteSetup.title": "원격 서버 설정",
   "settings.remoteSetup.open": "원격 서버 설정",
   "settings.remoteSetup.intro":

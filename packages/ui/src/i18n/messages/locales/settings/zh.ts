@@ -917,6 +917,22 @@ export const settings: Partial<Catalogue> = {
     "电脑在网络上宣告的内容只是一种声明。配对界面会显示它的密钥：批准之前请与主机上的密钥核对。",
   "settings.gateways.discoverAdd": "添加{name}",
   "settings.gateways.discoverSaved": "已保存",
+  "settings.gateways.tailnetTitle": "在你的 tailnet 上",
+  "settings.gateways.tailnetChecking": "正在检查 Tailscale…",
+  "settings.gateways.tailnetLook": "在我的 tailnet 上查找 Psyche",
+  "settings.gateways.tailnetNone":
+    "在你的 tailnet 上没有找到 Psyche。请在那台电脑上开启“允许其他电脑”。",
+  "settings.gateways.tailnetFailed": "无法读取这台电脑上的 Tailscale。请改为添加地址。",
+  "settings.gateways.tailnetOff": "这台电脑上的 Tailscale 已关闭。",
+  "settings.gateways.tailnetOpen": "打开 Tailscale",
+  "settings.gateways.tailnetOpenFailed": "无法打开 Tailscale。请从“应用程序”文件夹打开它。",
+  "settings.gateways.tailnetRetry": "重试",
+  "settings.gateways.tailnetOnline": "在线",
+  "settings.gateways.tailnetOffline": "离线",
+  "settings.gateways.tailnetConnect": "连接",
+  "settings.gateways.tailnetConnectName": "连接到 {name}",
+  "settings.gateways.tailnetHint":
+    "通过这台电脑上的 Tailscale 找到。与你输入的地址一样，Psyche 在配对前会核对 Gateway 出示的密钥。",
   "settings.remoteSetup.title": "设置远程服务器",
   "settings.remoteSetup.open": "设置远程服务器",
   "settings.remoteSetup.intro":

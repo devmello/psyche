@@ -79,6 +79,24 @@ export const settingsD: Partial<Catalogue> = {
     "O que um computador anuncia na rede é uma alegação. A tela de emparelhamento mostra a chave dele: compare-a com a do Host antes de aprovar.",
   "settings.gateways.discoverAdd": "Adicionar {name}",
   "settings.gateways.discoverSaved": "Salvo",
+  "settings.gateways.tailnetTitle": "No seu tailnet",
+  "settings.gateways.tailnetChecking": "Verificando o Tailscale…",
+  "settings.gateways.tailnetLook": "Procurar o Psyche no meu tailnet",
+  "settings.gateways.tailnetNone":
+    "Nenhum Psyche encontrado no seu tailnet. Nesse computador, ative «Permitir outros computadores».",
+  "settings.gateways.tailnetFailed":
+    "Não foi possível ler o Tailscale neste computador. Adicione o endereço no lugar.",
+  "settings.gateways.tailnetOff": "O Tailscale está desligado neste computador.",
+  "settings.gateways.tailnetOpen": "Abrir o Tailscale",
+  "settings.gateways.tailnetOpenFailed":
+    "Não foi possível abrir o Tailscale. Abra-o pela pasta Aplicativos.",
+  "settings.gateways.tailnetRetry": "Tentar de novo",
+  "settings.gateways.tailnetOnline": "Online",
+  "settings.gateways.tailnetOffline": "Offline",
+  "settings.gateways.tailnetConnect": "Conectar",
+  "settings.gateways.tailnetConnectName": "Conectar a {name}",
+  "settings.gateways.tailnetHint":
+    "Encontrado pelo Tailscale neste computador. Como com um endereço digitado, o Psyche confere a chave que o Gateway apresenta antes de parear.",
   "settings.remoteSetup.title": "Configurar um servidor remoto",
   "settings.remoteSetup.open": "Configurar um servidor remoto",
   "settings.remoteSetup.intro":
