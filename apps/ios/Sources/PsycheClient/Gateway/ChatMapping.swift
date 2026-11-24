@@ -48,7 +48,7 @@ enum ChatMapping {
                 if let q = await lookupQuestion(requestID) {
                     out.append(.question(id: requestID, title: q.title, options: q.options))
                 } else {
-                    out.append(.question(id: requestID, title: "Psyche has a question", options: []))
+                    out.append(.question(id: requestID, title: String(localized: "Psyche has a question", bundle: .module), options: []))
                 }
             case "sources":
                 // The Gateway's `AnswerSource` items: a title, a passage and an in-app route when there is one.
@@ -80,7 +80,7 @@ enum ChatMapping {
                     isArtifact: true, artifactID: artifactID))
             case "app_link":
                 guard let route = block["route"]?.string else { continue }
-                out.append(.appLink(id: rowID, title: "Open in Psyche", detail: route, route: route))
+                out.append(.appLink(id: rowID, title: String(localized: "Open in Psyche", bundle: .module), detail: route, route: route))
             case "context":
                 // Title and source come from fetched content (untrusted): plain text, as `evidence` draws it.
                 let parts = [block["title"]?.string, block["source"]?.string].compactMap { $0 }.filter { !$0.isEmpty }
@@ -99,10 +99,10 @@ enum ChatMapping {
                 if !facts.isEmpty { out.append(.note(id: rowID, kind: .learned, title: "Learned", detail: facts.joined(separator: "\n"))) }
             case "taught":
                 let statement = block["statement"]?.string
-                out.append(.note(id: rowID, kind: .taught, title: "Psyche will remember", detail: statement ?? "Thanks. Psyche noted it."))
+                out.append(.note(id: rowID, kind: .taught, title: String(localized: "Psyche will remember", bundle: .module), detail: statement ?? String(localized: "Thanks. Psyche noted it.", bundle: .module)))
             case "compaction":
                 let turns = block.at("replaced", "turns")?.int ?? 0
-                out.append(.note(id: rowID, kind: .compaction, title: "Earlier messages summarized", detail: turns > 0 ? "\(turns) turns" : ""))
+                out.append(.note(id: rowID, kind: .compaction, title: String(localized: "Earlier messages summarized", bundle: .module), detail: turns > 0 ? String(localized: "\(turns) turns", bundle: .module) : ""))
             case .some(let other):
                 out.append(.unknown(id: rowID, type: other))
             case nil:
@@ -136,7 +136,7 @@ enum ChatMapping {
 
     static func question(from request: JSONValue) -> (title: String, options: [ChatOption])? {
         guard let first = request["questions"]?.array?.first else { return nil }
-        let title = first["question"]?.string ?? "Psyche has a question"
+        let title = first["question"]?.string ?? String(localized: "Psyche has a question", bundle: .module)
         let options = (first["options"]?.array ?? []).enumerated().compactMap { index, option -> ChatOption? in
             guard let label = option["label"]?.string else { return nil }
             return ChatOption(id: label, title: label, detail: option["description"]?.string ?? "")

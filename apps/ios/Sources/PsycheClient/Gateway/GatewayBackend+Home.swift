@@ -29,17 +29,17 @@ extension GatewayBackend {
     public func answerApproval(id: String, decision: ApprovalDecision) async throws {
         let current = try await call("approvals.get", .obj(["approvalId": .string(id)]))
         guard let approval = current["approval"] else { throw BackendError.notFound }
-        if approval["status"]?.string != "pending" { throw BackendError.refused("That approval is no longer waiting.") }
+        if approval["status"]?.string != "pending" { throw BackendError.refused(String(localized: "That approval is no longer waiting.", bundle: .module)) }
         // Only presence-gated approvals (payments, adding a verifier) need a presence assertion from a registered
         // Secure Enclave key (companion §5); the phone has none yet, so these stay on the Mac rather than failing
         // late. Device-only just means "never in chat": the paired phone answers it with a plain tap. Long or nested
         // details are not a reason to refuse: the card shows every field in full, scrollable, before the tap.
         if approval["requiresAuthentication"]?.bool == true
             || (decision == .allow && Self.detailsNeedMac(approval["details"])) {
-            throw BackendError.refused("This one needs your Mac. Answer it there.")
+            throw BackendError.refused(String(localized: "This one needs your Mac. Answer it there.", bundle: .module))
         }
         guard let token = current["answerToken"]?.string else {
-            throw BackendError.refused("This approval was sent to a different device.")
+            throw BackendError.refused(String(localized: "This approval was sent to a different device.", bundle: .module))
         }
         // Approvals are never queued: the token is single use and the approval can expire.
         _ = try await call("approvals.answer", .obj([
@@ -74,21 +74,21 @@ extension GatewayBackend {
         for question in questions {
             guard let header = question["header"]?.string, !header.isEmpty else { throw BackendError.notFound }
             asked.insert(header)
-            guard let value = values[header] else { throw BackendError.refused("Answer every question first.") }
+            guard let value = values[header] else { throw BackendError.refused(String(localized: "Answer every question first.", bundle: .module)) }
             switch value {
             case .text(let text):
                 let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-                guard !trimmed.isEmpty else { throw BackendError.refused("Answer every question first.") }
-                guard trimmed.count <= QuestionDraft.maxTextLength else { throw BackendError.refused("That answer is too long.") }
+                guard !trimmed.isEmpty else { throw BackendError.refused(String(localized: "Answer every question first.", bundle: .module)) }
+                guard trimmed.count <= QuestionDraft.maxTextLength else { throw BackendError.refused(String(localized: "That answer is too long.", bundle: .module)) }
                 wire[header] = .string(trimmed)
             case .choices(let choices):
                 let picked = choices.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
-                guard !picked.isEmpty else { throw BackendError.refused("Answer every question first.") }
-                guard picked.count <= QuestionDraft.maxChoices else { throw BackendError.refused("Pick at most four answers.") }
+                guard !picked.isEmpty else { throw BackendError.refused(String(localized: "Answer every question first.", bundle: .module)) }
+                guard picked.count <= QuestionDraft.maxChoices else { throw BackendError.refused(String(localized: "Pick at most four answers.", bundle: .module)) }
                 wire[header] = .array(picked.map { .string($0) })
             }
         }
-        guard Set(values.keys).isSubset(of: asked) else { throw BackendError.refused("That answer does not match this question.") }
+        guard Set(values.keys).isSubset(of: asked) else { throw BackendError.refused(String(localized: "That answer does not match this question.", bundle: .module)) }
         return wire
     }
 
@@ -159,7 +159,7 @@ extension GatewayBackend {
         let result = try await call("questions.list", .obj(["limit": .number(30)]))
         return (result["inputRequests"]?.array ?? []).compactMap { request in
             guard let id = request["id"]?.string, request["status"]?.string != "answered" else { return nil }
-            let title = request["questions"]?.array?.first?["question"]?.string.map(DisplaySafe.text) ?? "Psyche has a question"
+            let title = request["questions"]?.array?.first?["question"]?.string.map(DisplaySafe.text) ?? String(localized: "Psyche has a question", bundle: .module)
             return NeedsYouItem(
                 id: id, kind: .question, title: title, source: "Question",
                 time: WireFormat.time(request["createdAt"]?.string), threadID: request["threadId"]?.string,
@@ -233,8 +233,8 @@ extension GatewayBackend {
         let (fields, nested) = Self.detailFields(a["details"])
         let reviewInApp = a["deviceOnly"]?.bool == true || nested
         var evidence: [String] = []
-        if let because = a.at("fromLesson", "because")?.string { evidence.append("Because you said: \(because)") }
-        if a["taint"]?.bool == true { evidence.append("Based on content from outside Psyche") }
+        if let because = a.at("fromLesson", "because")?.string { evidence.append(String(localized: "Because you said: \(because)", bundle: .module)) }
+        if a["taint"]?.bool == true { evidence.append(String(localized: "Based on content from outside Psyche", bundle: .module)) }
         // The phone has no presence key (companion §5), so it never asks for Face ID on a Gateway card: a payment,
         // a card it can't show in full, or one not sent to this phone (no answer token for it) is answered on the Mac.
         let payment = a["requiresAuthentication"]?.bool == true
@@ -245,9 +245,9 @@ extension GatewayBackend {
         let machineName = Self.machineName(a["machine"])
         let detail = ApprovalDetail(
             kindLabel: Self.humanized(kind), title: summary,
-            summary: agent.map { "Requested by \($0)." } ?? "Psyche is asking before it goes ahead.",
-            fields: fields, evidence: evidence, alsoSentTo: "Also sent to your Mac",
-            presenceNote: nil, allowLabel: "Allow once",
+            summary: agent.map { String(localized: "Requested by \($0).", bundle: .module) } ?? String(localized: "Psyche is asking before it goes ahead.", bundle: .module),
+            fields: fields, evidence: evidence, alsoSentTo: String(localized: "Also sent to your Mac", bundle: .module),
+            presenceNote: nil, allowLabel: String(localized: "Allow once", bundle: .module),
             reviewInApp: reviewInApp || machineName != nil, needsMac: needsMac, canDeny: canDeny,
             machineName: machineName)
         return NeedsYouItem(
@@ -360,7 +360,7 @@ extension GatewayBackend {
         let done = checklist.filter { $0["status"]?.string == "done" }.count
         let current = checklist.first { $0["status"]?.string != "done" }?["text"]?.string
         return RunningTask(
-            id: id, title: t["title"]?.string ?? "Working", step: min(done + 1, max(checklist.count, 1)),
+            id: id, title: t["title"]?.string ?? String(localized: "Working", bundle: .module), step: min(done + 1, max(checklist.count, 1)),
             stepCount: checklist.count, detail: current ?? t["goal"]?.string ?? "",
             elapsed: WireFormat.elapsed(since: t["createdAt"]?.string),
             startedAt: WireFormat.date(t["startedAt"]?.string) ?? WireFormat.date(t["createdAt"]?.string))
@@ -393,9 +393,9 @@ extension GatewayBackend {
         switch kind {
         case "approval": "Approval"
         case "input_needed": "Question"
-        case "task_done", "specialist_result": "Done"
+        case "task_done", "specialist_result": String(localized: "Done", bundle: .module)
         case "briefing": "Brief"
-        case "task_failed": "Failed"
+        case "task_failed": String(localized: "Failed", bundle: .module)
         case "reminder": "Reminder"
         default: "Update"
         }

@@ -475,6 +475,18 @@ export const screens = {
   "screens.library.recording.loading": "Loading the recording",
   "screens.library.recording.loadFailed": "Psyche couldn't load this recording ({reason}).",
   "screens.library.recording.notFound": "This recording isn't available any more.",
+  "screens.library.recording.delete": "Delete recording",
+  "screens.library.recording.deleteTitle": "Delete this recording?",
+  "screens.library.recording.deleteBody":
+    "Its steps and screenshots are removed from this computer. This can't be undone.",
+  "screens.library.recording.deleteConfirm": "Delete",
+  "screens.library.recording.deleteFailed": "Psyche couldn't delete this recording ({reason}).",
+  "screens.library.meetingNotes.action": "Make meeting notes",
+  "screens.library.meetingNotes.running":
+    "Making notes. A long recording can take a while, up to four hours of audio.",
+  "screens.library.meetingNotes.done": "The notes are ready in your Feed.",
+  "screens.library.meetingNotes.open": "Open notes",
+  "screens.library.meetingNotes.failed": "Psyche couldn't make the notes ({reason}).",
   "screens.library.trust": "Trust this file",
   "screens.library.moreFor": "More actions for {name}",
   "screens.library.quickLook": "Quick Look",

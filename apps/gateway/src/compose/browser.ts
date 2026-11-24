@@ -377,6 +377,10 @@ export function composeBrowser(
       recordingItems.set(r.id, imported.libraryItemId);
       return imported;
     },
+    async deleteRecording(id) {
+      await library.deleteRecording?.(id);
+      recordingItems.delete(id);
+    },
   };
   /** `browser.recording.updated`, at most once per recording per second. */
   const publishTimers = new Map<string, NodeJS.Timeout>();
@@ -879,7 +883,7 @@ export function composeBrowser(
     },
     handlers: {
       ...browserHandlers(router, sessionsForClients),
-      ...recordingHandlers(recordingStore, publishRecording),
+      ...recordingHandlers(recordingStore, publishRecording, recordingLibrary),
       "browser.botAuth.status": {
         async run() {
           return { status: await botAuthStatus() };
@@ -1015,6 +1019,7 @@ export function composeBrowser(
 function recordingHandlers(
   store: RecordingStore,
   publish: (id: string) => void,
+  recordingLibrary: LibraryWriter,
 ): Record<string, HandlerDef> {
   return {
     "browser.recordings.list": {
@@ -1054,7 +1059,14 @@ function recordingHandlers(
     },
     "browser.recordings.delete": {
       async run(_call: Call, p: MethodParams<"browser.recordings.delete">) {
-        await store.delete(p.recordingId);
+        // The folder goes first: a recording still being written is a conflict, and its row stays.
+        try {
+          await store.delete(p.recordingId);
+        } catch (err) {
+          // Folder already gone: still drop its Library row, so nothing points at nothing.
+          if (!(err instanceof PsycheError && err.code === "not_found")) throw err;
+        }
+        await recordingLibrary.deleteRecording?.(p.recordingId);
         publish(p.recordingId);
         return { ok: true };
       },

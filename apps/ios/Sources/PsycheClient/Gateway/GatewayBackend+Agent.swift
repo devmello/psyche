@@ -39,7 +39,7 @@ extension GatewayBackend {
             let when = item["nextRunAt"]?.string.map { WireFormat.time($0) } ?? item["trigger"]?.string ?? ""
             let schedule = item["schedule"]?.string
             return PsycheStore.UpcomingItem(
-                id: id, title: item["title"]?.string ?? "Scheduled",
+                id: id, title: item["title"]?.string ?? String(localized: "Scheduled", bundle: .module),
                 when: [when, schedule].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " · "))
         }
     }

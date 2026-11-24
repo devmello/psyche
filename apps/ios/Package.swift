@@ -39,7 +39,8 @@ let package = Package(
                 "PsycheStore", "PsycheShared",
                 .product(name: "PsycheProtocol", package: "protocol-swift"),
                 .product(name: "PsycheWire", package: "protocol-swift"),
-            ]
+            ],
+            resources: [.process("Resources")]
         ),
         // Tokens, type styles and components.
         .target(name: "PsycheDesign", resources: [.process("Resources")]),

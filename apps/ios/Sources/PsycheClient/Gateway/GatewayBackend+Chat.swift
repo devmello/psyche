@@ -59,7 +59,7 @@ extension GatewayBackend {
     public func newThread() async throws -> ChatThreadSummary {
         let result = try await call("threads.newChat", .obj(["kind": "side"]))
         guard let thread = result["thread"], let summary = Self.summary(from: .obj(["thread": thread, "activity": nil])) else {
-            throw BackendError.refused("The Gateway didn't create a chat.")
+            throw BackendError.refused(String(localized: "The Gateway didn't create a chat.", bundle: .module))
         }
         return summary
     }
@@ -94,7 +94,7 @@ extension GatewayBackend {
     public func queueFollowUp(threadID: String, text: String) async throws -> QueuedFollowUp {
         let id = try await resolveThreadID(threadID)
         let result = try await call("chat.followUp", .obj(["threadId": .string(id), "content": .string(text)]), key: UUID().uuidString)
-        guard let messageID = result["messageId"]?.string else { throw BackendError.refused("The Gateway didn't queue the message.") }
+        guard let messageID = result["messageId"]?.string else { throw BackendError.refused(String(localized: "The Gateway didn't queue the message.", bundle: .module)) }
         // The position is the Gateway's to say: `chat.queue.updated` carries the whole list, so the
         // queue's own order replaces this guess; Int.max keeps the new item last until then.
         return QueuedFollowUp(id: messageID, threadID: id, position: .max, text: text)
@@ -148,7 +148,7 @@ extension GatewayBackend {
         // Side-effecting: the key makes a resend after a lost reply return the same fork, not a second one.
         let result = try await call("threads.fork", .object(params), key: UUID().uuidString)
         guard let forked = result["thread"], let summary = Self.summary(from: .obj(["thread": forked, "activity": nil])) else {
-            throw BackendError.refused("The Gateway didn't fork the chat.")
+            throw BackendError.refused(String(localized: "The Gateway didn't fork the chat.", bundle: .module))
         }
         return summary
     }
@@ -214,15 +214,15 @@ extension GatewayBackend {
     static func summary(from entry: JSONValue) -> ChatThreadSummary? {
         guard let thread = entry["thread"], let id = thread["id"]?.string else { return nil }
         // The main thread is the conversation with Psyche itself, so an untitled one is named after it.
-        let untitled = thread["kind"]?.string == "main" ? "Psyche" : "New chat"
+        let untitled = thread["kind"]?.string == "main" ? "Psyche" : String(localized: "New chat", bundle: .module)
         let title = thread["title"]?.string.flatMap { $0.isEmpty ? nil : $0 } ?? untitled
         let activity = entry["activity"]
         let waiting = (activity?["awaitingApproval"]?.int ?? 0) + (activity?["awaitingInput"]?.int ?? 0)
         let running = activity?["running"]?.int ?? 0
         let updated = WireFormat.time(thread["lastMessageAt"]?.string ?? thread["updatedAt"]?.string)
         let (status, kind): (String, ChatThreadSummary.Status) =
-            waiting > 0 ? ("Waiting for you", .needsYou)
-            : running > 0 ? ("Running", .running)
+            waiting > 0 ? (String(localized: "Waiting for you", bundle: .module), .needsYou)
+            : running > 0 ? (String(localized: "Running", bundle: .module), .running)
             : (entry.at("lastMessage", "text")?.string ?? updated, .neutral)
         return ChatThreadSummary(
             id: id, title: title, status: status, statusKind: kind,

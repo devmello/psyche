@@ -5,6 +5,9 @@ import Foundation
 
 public protocol LibraryBackend: Sendable {
     func library(section: LibrarySection) async throws -> [LibraryItem]
+    /// One page of a section. `cursor` is nil for the first page, then the `nextCursor` of the page before; a nil
+    /// `nextCursor` is the last page. The cursor is opaque to the app.
+    func libraryPage(section: LibrarySection, cursor: String?) async throws -> LibraryPage
     /// A local file to show with Quick Look, or nil when the phone can't open it ("Open on your Mac").
     func libraryFile(id: String) async throws -> URL?
     /// Downloads the file for Quick Look, reporting 0...1 as bytes arrive. Throws `LibraryFileRefusal` when the
@@ -35,6 +38,44 @@ extension LibraryBackend {
         }
         throw BackendError.notFound
     }
+
+    /// A backend that lists a section in one piece: the first page is the whole list, and there is no next page.
+    public func libraryPage(section: LibrarySection, cursor: String?) async throws -> LibraryPage {
+        guard cursor == nil else { return LibraryPage(items: [], nextCursor: nil) }
+        return LibraryPage(items: try await library(section: section), nextCursor: nil)
+    }
+}
+
+/// One page of a Library section, newest first.
+public struct LibraryPage: Sendable, Equatable {
+    public var items: [LibraryItem]
+    /// Where the next page starts; nil on the last page.
+    public var nextCursor: String?
+
+    public init(items: [LibraryItem], nextCursor: String?) {
+        self.items = items
+        self.nextCursor = nextCursor
+    }
+}
+
+/// How pages of a Library section join: one row per id, newest first.
+public enum LibraryPaging {
+    /// `rows` without a repeated id (the first copy wins), sorted newest first. Rows with no date keep their order
+    /// at the end. Sorting is stable, so equal dates keep the order the rows arrived in.
+    public static func newestFirst(_ rows: [LibraryItem]) -> [LibraryItem] {
+        var seen = Set<String>()
+        let unique = rows.filter { seen.insert($0.id).inserted }
+        return unique.enumerated()
+            .sorted { lhs, rhs in
+                switch (lhs.element.date, rhs.element.date) {
+                case let (a?, b?) where a != b: return a > b
+                case (nil, _?): return false
+                case (_?, nil): return true
+                default: return lhs.offset < rhs.offset
+                }
+            }
+            .map(\.element)
+    }
 }
 
 /// Why the phone won't open a Library file. The Mac decides, the phone only shows why.
@@ -52,6 +93,8 @@ public enum LibrarySection: String, Sendable, CaseIterable, Identifiable {
     case images = "Images"
     case artifacts = "Artifacts"
     case downloads = "Downloads"
+    /// Voice memos, meeting and browser recordings: the Mac's audio, video and `recording` kinds.
+    case recordings = "Recordings"
     public var id: String { rawValue }
 }
 
@@ -76,12 +119,15 @@ public struct LibraryItem: Sendable, Equatable, Identifiable {
     public var sources: [SourceRef]
     /// The artifact this item is, for an artifact row: opens the artifact viewer instead of the file page.
     public var artifactID: String?
+    /// When the item was made (the Gateway's `createdAt`), for ordering pages. Nil when the Gateway sent none.
+    public var date: Date?
 
     public init(
         id: String, title: String, section: LibrarySection, fileType: String, detail: String,
         threadID: String? = nil, evidence: [String] = [], threadTitle: String? = nil, refusal: LibraryFileRefusal? = nil,
-        sources: [SourceRef] = [], artifactID: String? = nil
+        sources: [SourceRef] = [], artifactID: String? = nil, date: Date? = nil
     ) {
+        self.date = date
         self.artifactID = artifactID
         self.sources = sources
         self.refusal = refusal

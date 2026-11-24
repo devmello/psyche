@@ -3358,6 +3358,19 @@ export const de: Partial<Catalogue> = {
   "screens.library.recording.loading": "Aufnahme wird geladen",
   "screens.library.recording.loadFailed": "Psyche konnte diese Aufnahme nicht laden ({reason}).",
   "screens.library.recording.notFound": "Diese Aufnahme ist nicht mehr verfügbar.",
+  "screens.library.recording.delete": "Aufnahme löschen",
+  "screens.library.recording.deleteTitle": "Diese Aufnahme löschen?",
+  "screens.library.recording.deleteBody":
+    "Ihre Schritte und Bildschirmfotos werden von diesem Gerät entfernt. Das lässt sich nicht rückgängig machen.",
+  "screens.library.recording.deleteConfirm": "Löschen",
+  "screens.library.recording.deleteFailed":
+    "Psyche konnte diese Aufnahme nicht löschen ({reason}).",
+  "screens.library.meetingNotes.action": "Besprechungsnotizen erstellen",
+  "screens.library.meetingNotes.running":
+    "Notizen werden erstellt. Lange Aufnahmen können dauern, bis zu vier Stunden Audio.",
+  "screens.library.meetingNotes.done": "Die Notizen sind in Ihrem Feed bereit.",
+  "screens.library.meetingNotes.open": "Notizen öffnen",
+  "screens.library.meetingNotes.failed": "Psyche konnte die Notizen nicht erstellen ({reason}).",
   "screens.library.trust": "Dieser Datei vertrauen",
   "screens.library.moreFor": "Weitere Aktionen für {name}",
   "screens.library.quickLook": "Übersicht",

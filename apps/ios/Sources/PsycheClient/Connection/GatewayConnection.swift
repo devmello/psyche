@@ -304,7 +304,7 @@ public actor GatewayConnection {
             }
         }
         if response.ok { return response.payload ?? .null }
-        throw ConnectionFailure.remote(response.error ?? WireError(code: "unknown", message: "The Gateway refused."))
+        throw ConnectionFailure.remote(response.error ?? WireError(code: "unknown", message: String(localized: "The Gateway refused.", bundle: .module)))
     }
 
     public func call<R: Decodable & Sendable>(

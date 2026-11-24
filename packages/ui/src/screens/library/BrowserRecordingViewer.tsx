@@ -1,6 +1,15 @@
 import type { BrowserRecording, BrowserRecordingEvent, LibraryItem } from "@psyche/protocol";
 import { Pause, Play } from "lucide-react";
 import { type ReactElement, useEffect, useRef, useState } from "react";
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "../../components/ui/alert-dialog.tsx";
 import { Button } from "../../components/ui/button.tsx";
 import {
   Dialog,
@@ -46,14 +55,20 @@ export function frameFor(events: readonly BrowserRecordingEvent[], i: number): n
 export function BrowserRecordingViewer({
   item,
   onClose,
+  onDeleted,
 }: {
   item: LibraryItem;
   onClose: () => void;
+  /** Called after the recording is deleted, so the Library drops its row. */
+  onDeleted?: (item: LibraryItem) => void;
 }): ReactElement {
   const call = useCall();
   const { navigate } = useSlots();
   const [loaded, setLoaded] = useState<Loaded | "missing" | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [confirming, setConfirming] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [index, setIndex] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [src, setSrc] = useState<string | null>(null);
@@ -261,7 +276,73 @@ export function BrowserRecordingViewer({
             </Button>
           </div>
         ) : null}
+        {data !== null ? (
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                setDeleteError(null);
+                setConfirming(true);
+              }}
+            >
+              {t("screens.library.recording.delete")}
+            </Button>
+          </div>
+        ) : null}
       </DialogContent>
+      <AlertDialog
+        open={confirming}
+        onOpenChange={(open) => {
+          if (!open && !deleting) setConfirming(false);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("screens.library.recording.deleteTitle")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("screens.library.recording.deleteBody")}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          {deleteError !== null ? (
+            <p role="alert" className="text-callout text-danger-text">
+              {deleteError}
+            </p>
+          ) : null}
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>{t("common.cancel")}</AlertDialogCancel>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={deleting}
+              onClick={() => {
+                if (data === null) return;
+                setDeleting(true);
+                setDeleteError(null);
+                call("browser.recordings.delete", { recordingId: data.recording.id }).then(
+                  () => {
+                    setDeleting(false);
+                    setConfirming(false);
+                    onDeleted?.(item);
+                    onClose();
+                  },
+                  (err: unknown) => {
+                    setDeleting(false);
+                    setDeleteError(
+                      t("screens.library.recording.deleteFailed", {
+                        reason: describeError(err),
+                      }),
+                    );
+                  },
+                );
+              }}
+            >
+              {t("screens.library.recording.deleteConfirm")}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   );
 }

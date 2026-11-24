@@ -162,6 +162,8 @@ extension FixtureData {
         LibraryItem(id: "lib_91c0", title: "Q3-review-final.pdf", section: .documents, fileType: "pdf", detail: "Monday 16:52 · 21 pages", threadID: "thr_q3", evidence: ["Exported from", "Q3-review-v4.key", "Mon 16:52"], threadTitle: "Q3 review"),
         LibraryItem(id: "lib_lease", title: "lease-2026.pdf", section: .documents, fileType: "pdf", detail: "Oct 28 · 9 pages", threadID: "thr_lease", evidence: ["Read for", "Lease renewal questions", "Oct 28"], threadTitle: "Lease renewal questions"),
         LibraryItem(id: "lib_77c1", title: "PG&E statement, October", section: .documents, fileType: "pdf", detail: "Today 08:58 · 2 pages", evidence: ["Because", "mail", "Today 08:58"]),
+        LibraryItem(id: "lib_memo1", title: "Voice memo · dentist", section: .recordings, fileType: "wav", detail: "Oct 31 · 0:12", evidence: ["Recorded on", "this phone", "Oct 31"]),
+        LibraryItem(id: "lib_meet1", title: "Q3 review meeting.m4a", section: .recordings, fileType: "m4a", detail: "Oct 29 · 42 min", threadID: "thr_q3", evidence: ["Recorded for", "Q3 review", "Oct 29"], threadTitle: "Q3 review"),
         LibraryItem(id: "lib_img1", title: "Quartz sample.jpg", section: .images, fileType: "jpg", detail: "Oct 30", evidence: ["Uploaded", "this phone", "Oct 30"]),
         LibraryItem(id: "lib_img2", title: "Receipt, hardware store.png", section: .images, fileType: "png", detail: "Oct 27", evidence: ["Uploaded", "this phone", "Oct 27"]),
         LibraryItem(id: "lib_art1", title: "Kitchen budget", section: .artifacts, fileType: "html", detail: "Built for you · Oct 30", evidence: ["Made by", "Psyche", "Oct 30"]),

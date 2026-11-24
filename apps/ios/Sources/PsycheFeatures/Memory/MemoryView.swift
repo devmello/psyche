@@ -16,12 +16,17 @@ struct MemoryView: View {
     @State private var segment: Segment = .todo
     @State private var learning: LearningModel
     @State private var remembering = false
+    @State private var addingPerson = false
+    @State private var pauseModel: MemoryPauseModel
+    private let store: any PsycheBackend
     @Environment(Session.self) private var session
     @Environment(Router.self) private var router
 
     init(store: any PsycheBackend) {
         _model = State(initialValue: MemoryModel(store: store))
         _learning = State(initialValue: LearningModel(store: store))
+        _pauseModel = State(initialValue: MemoryPauseModel(store: store))
+        self.store = store
         #if DEBUG
         if let name = UserDefaults.standard.string(forKey: "psycheMemorySegment"),
             let start = Segment(rawValue: name)
@@ -44,9 +49,16 @@ struct MemoryView: View {
                 await model.load()
                 await model.observe()
             }
+            .task { await pauseModel.load() }
             .task(id: router.memoryFocusTodo) { await focusTodo(proxy) }
             .sensoryFeedback(.success, trigger: model.completions)
             .sheet(isPresented: $remembering) { RememberSheet(learning: learning) }
+            .sheet(isPresented: $addingPerson) {
+                AddPersonSheet(store: store) { id in
+                    router.memoryPath.append(.person(id: id))
+                    Task { await model.load() }
+                }
+            }
             .alert(String(localized: "Couldn't update that", bundle: .module), isPresented: noticeBinding) {
                 Button(String(localized: "OK", bundle: .module), role: .cancel) {}
             } message: {
@@ -73,10 +85,50 @@ struct MemoryView: View {
         .plainRow(bottom: 12)
         PaperSearchField(prompt: String(localized: "Search \(segment.rawValue.lowercased())", bundle: .module), text: $model.query)
             .plainRow(bottom: 8)
+        captureRow
+            .plainRow(bottom: 12)
         learningRows
     }
 
     // MARK: Content
+
+    /// Memory capture on or paused: the state, and the one control that changes it (memory.pause). Mac offers the same
+    /// switch; there are no durations.
+    private var captureRow: some View {
+        PaperStack {
+            HStack(alignment: .center, spacing: 12) {
+                VStack(alignment: .leading, spacing: 3) {
+                    if pauseModel.paused == true {
+                        Text("Memory is paused", bundle: .module).font(.psycheRow).foregroundStyle(PsycheColor.text)
+                        Text("Nothing new is remembered from your chats.", bundle: .module)
+                            .font(.subheadline).foregroundStyle(PsycheColor.muted)
+                    } else {
+                        Text("Memory is on", bundle: .module).font(.psycheRow).foregroundStyle(PsycheColor.text)
+                        Text("Psyche remembers from your chats.", bundle: .module)
+                            .font(.subheadline).foregroundStyle(PsycheColor.muted)
+                    }
+                }
+                Spacer(minLength: 0)
+                if let paused = pauseModel.paused {
+                    Button {
+                        Task { await pauseModel.toggle() }
+                    } label: {
+                        Text(paused
+                            ? String(localized: "Resume memory", bundle: .module)
+                            : String(localized: "Pause memory", bundle: .module))
+                    }
+                    .buttonStyle(.psycheOutline)
+                    .accessibilityIdentifier("memoryCaptureToggle")
+                }
+            }
+            .padding(PsycheMetrics.rowPadding)
+        }
+        .alert(String(localized: "Couldn't change that", bundle: .module), isPresented: Binding(get: { pauseModel.notice != nil }, set: { if !$0 { pauseModel.notice = nil } })) {
+            Button(String(localized: "OK", bundle: .module), role: .cancel) {}
+        } message: {
+            Text(pauseModel.notice ?? "")
+        }
+    }
 
     @ViewBuilder
     private var content: some View {
@@ -339,6 +391,16 @@ struct MemoryView: View {
                 .cardRow(CardPosition(index: index, count: people.count))
             }
         }
+        Button { addingPerson = true } label: {
+            Label(String(localized: "Add person", bundle: .module), systemImage: "person.badge.plus")
+                .font(.psycheRow)
+                .foregroundStyle(PsycheColor.text)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(PsycheMetrics.rowPadding)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("addPersonRow")
         memoryFilesRow
     }
 

@@ -11,6 +11,7 @@ final class SeenParams: @unchecked Sendable {
     private var values: [JSONValue?] = []
 
     func add(_ value: JSONValue?) { lock.withLock { values.append(value) } }
+    func reset() { lock.withLock { values = [] } }
     var all: [JSONValue?] { lock.withLock { values } }
 }
 
