@@ -90,6 +90,13 @@ export const APP_GUIDANCE: Readonly<Record<string, AppGuidance>> = {
       "`reminders_list_lists` to find the To Do list, then `reminders_list` with `overdue` / `dueToday` before asking what's due.",
     never: "complete or delete a to-do matched only loosely; confirm the exact title or id first.",
   },
+  google: {
+    for: "the owner's Google account: Gmail, Calendar, Drive files they picked, and their tasks in Google Tasks.",
+    prefer:
+      "`reminders_list_lists` to find the task list, then `reminders_list` with `overdue` / `dueToday` before asking what's due.",
+    never:
+      "complete or delete a task matched only loosely; confirm the exact title or id first. Priority, links, alarms and repeats are not supported on Google Tasks: say so rather than promising them.",
+  },
   obsidian: {
     for: "the owner's Obsidian vault: Markdown notes in a folder they shared.",
     prefer:
