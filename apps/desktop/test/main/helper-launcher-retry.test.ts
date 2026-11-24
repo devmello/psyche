@@ -22,6 +22,7 @@ function retrying(opts: { pairsAfterOpen?: boolean; blocked?: () => boolean } = 
   let t = 0;
   const timers: Timer[] = [];
   const run: Runner = async (file, args) => {
+    if (file === "/usr/bin/xattr") return { code: 0, stdout: "", stderr: "" };
     calls.push([file, ...args]);
     opened = true;
     return { code: 0, stdout: "", stderr: "" };

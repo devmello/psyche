@@ -1125,6 +1125,13 @@ export const settings = {
   "settings.computerUse.tccState.granted": "Granted",
   "settings.computerUse.tccState.denied": "Denied",
   "settings.computerUse.tccState.not_determined": "Not asked yet",
+  "settings.computerUse.tccState.offline": "Helper offline",
+  "settings.computerUse.helperAccess.hint":
+    "Computer use runs in Psyche Helper. In System Settings, turn on “Psyche Helper”, not “Psyche”.",
+  "settings.computerUse.helperAccess.offline":
+    "Psyche Helper isn't running, so its permissions can't be read. It starts with Psyche; quit and reopen Psyche if it stays offline.",
+  "settings.computerUse.helperAccess.allow": "Allow Psyche Helper",
+  "settings.computerUse.helperAccess.allowFor": "Allow Psyche Helper for {name}",
   "settings.computerUse.title": "Computer use",
   "settings.computerUse.description": "{persona} can use apps on this Mac only where you allow it.",
   "settings.computerUse.escStops": "stops computer use at any time.",

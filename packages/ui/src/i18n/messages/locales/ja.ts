@@ -1779,6 +1779,13 @@ export const ja: Partial<Catalogue> = {
   "settings.computerUse.tccState.granted": "許可済み",
   "settings.computerUse.tccState.denied": "拒否",
   "settings.computerUse.tccState.not_determined": "まだ確認されていません",
+  "settings.computerUse.tccState.offline": "ヘルパーはオフライン",
+  "settings.computerUse.helperAccess.hint":
+    "コンピュータ操作は Psyche Helper で動きます。システム設定では「Psyche」ではなく「Psyche Helper」をオンにしてください。",
+  "settings.computerUse.helperAccess.offline":
+    "Psyche Helper が起動していないため、権限を読み取れません。Psyche と一緒に起動します。オフラインのままなら Psyche を終了して開き直してください。",
+  "settings.computerUse.helperAccess.allow": "Psyche Helper を許可",
+  "settings.computerUse.helperAccess.allowFor": "{name} を Psyche Helper に許可",
   "settings.computerUse.title": "コンピュータ操作",
   "settings.computerUse.description":
     "{persona}は、あなたが許可した範囲でのみこのMacのアプリを使用できます。",

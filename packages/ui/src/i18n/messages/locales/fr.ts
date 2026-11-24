@@ -1790,6 +1790,13 @@ export const fr: Partial<Catalogue> = {
   "settings.computerUse.tccState.granted": "Accordée",
   "settings.computerUse.tccState.denied": "Refusée",
   "settings.computerUse.tccState.not_determined": "Pas encore demandée",
+  "settings.computerUse.tccState.offline": "Assistant hors ligne",
+  "settings.computerUse.helperAccess.hint":
+    "Le contrôle de l'ordinateur s'exécute dans Psyche Helper. Dans Réglages Système, activez « Psyche Helper », et non « Psyche ».",
+  "settings.computerUse.helperAccess.offline":
+    "Psyche Helper n'est pas lancé, ses autorisations sont donc illisibles. Il démarre avec Psyche ; quittez puis rouvrez Psyche s'il reste hors ligne.",
+  "settings.computerUse.helperAccess.allow": "Autoriser Psyche Helper",
+  "settings.computerUse.helperAccess.allowFor": "Autoriser Psyche Helper pour {name}",
   "settings.computerUse.title": "Utilisation de l’ordinateur",
   "settings.computerUse.description":
     "{persona} ne peut utiliser les apps de ce Mac que là où vous l’autorisez.",

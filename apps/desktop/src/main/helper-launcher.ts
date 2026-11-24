@@ -272,8 +272,18 @@ export class HelperLauncher {
       });
       return res.ok ? undefined : res.error;
     }
+    // An "Open Anyway" install (free signing) approves Psyche.app only. The nested helper can keep
+    // com.apple.quarantine, and `open -g -j` then raises a Gatekeeper sheet nobody sees: the helper
+    // stays offline. The owner already opened this bundle (the signature and integrity checks ran
+    // above), so the attribute goes, the same as on psyched (supervisor.ts).
+    await this.opts
+      .run("/usr/bin/xattr", ["-dr", "com.apple.quarantine", appPath])
+      .catch(() => undefined);
     const res = await this.opts.run("/usr/bin/open", openHelperArgs(appPath, this.opts.psycheHome));
-    return res.code === 0 ? undefined : res.stderr.trim() || `open exited ${res.code}`;
+    if (res.code === 0) return undefined;
+    const why = res.stderr.trim() || `open exited ${res.code}`;
+    console.warn(`[helper] could not start Psyche Helper at ${appPath}: ${why}`);
+    return why;
   }
 
   getState(): HelperRunState {

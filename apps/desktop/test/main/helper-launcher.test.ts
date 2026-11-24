@@ -16,12 +16,13 @@ const dir = mkdtempSync(join(tmpdir(), "psy-helper-"));
 const appPath = join(dir, "PsycheHelper.app");
 mkdirSync(appPath);
 
-function fake(opts: { pairsAfterOpen?: boolean; openCode?: number } = {}) {
+function fake(opts: { pairsAfterOpen?: boolean; openCode?: number; xattrCode?: number } = {}) {
   const calls: string[][] = [];
   let opened = false;
   let t = 0;
   const run: Runner = async (file, args) => {
     calls.push([file, ...args]);
+    if (file === "/usr/bin/xattr") return { code: opts.xattrCode ?? 0, stdout: "", stderr: "" };
     opened = true;
     return { code: opts.openCode ?? 0, stdout: "", stderr: opts.openCode ? "LSOpen failed" : "" };
   };
@@ -98,11 +99,20 @@ describe("HelperLauncher", () => {
     const f = fake();
     await Promise.all([f.launcher.launch(), f.launcher.launch()]);
     expect(f.calls).toEqual([
+      // An "Open Anyway" install can leave the nested helper quarantined: cleared before open.
+      ["/usr/bin/xattr", "-dr", "com.apple.quarantine", appPath],
       ["/usr/bin/open", "-g", "-j", "--env", `PSYCHE_HOME=${join(dir, "home")}`, appPath],
     ]);
     expect(f.states.map((s) => s.kind)).toEqual(["starting", "paired"]);
     await f.launcher.onPresence(true);
-    expect(f.calls).toHaveLength(1);
+    expect(f.calls).toHaveLength(2);
+  });
+
+  it("still opens the helper when clearing the quarantine fails", async () => {
+    const f = fake({ xattrCode: 1 });
+    await f.launcher.launch();
+    expect(f.calls.map((c) => c[0])).toEqual(["/usr/bin/xattr", "/usr/bin/open"]);
+    expect(f.launcher.getState().kind).toBe("paired");
   });
 
   it("reports a helper that never pairs, and relaunches it when it went away (throttled)", async () => {
@@ -113,10 +123,10 @@ describe("HelperLauncher", () => {
       reason: "it did not connect to the Gateway",
     });
     await f.launcher.onPresence(false);
-    expect(f.calls).toHaveLength(1);
+    expect(f.calls).toHaveLength(2);
     f.advance(61_000);
     await f.launcher.onPresence(false);
-    expect(f.calls).toHaveLength(2);
+    expect(f.calls).toHaveLength(4);
   });
 
   it("surfaces an open failure and does nothing without a bundled helper", async () => {

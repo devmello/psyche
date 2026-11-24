@@ -210,6 +210,7 @@ describe("after a quit nothing starts the helper again", () => {
       psycheHome: join(dir, "home"),
       platform: "darwin",
       run: async (file) => {
+        if (file !== "/usr/bin/open") return { code: 0, stdout: "", stderr: "" };
         opened.push(file);
         return { code: 0, stdout: "", stderr: "" };
       },
@@ -264,6 +265,7 @@ describe("a new app instance (relaunch after an update or a restart) starts the 
       psycheHome: join(dir, "home"),
       platform: "darwin",
       run: async (file, args) => {
+        if (file !== "/usr/bin/open") return { code: 0, stdout: "", stderr: "" };
         w.opened.push([file, ...args]);
         w.setPaired(true);
         return { code: 0, stdout: "", stderr: "" };

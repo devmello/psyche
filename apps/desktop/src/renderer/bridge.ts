@@ -14,6 +14,7 @@ import {
   type DownloadNotice,
   type GatewayPort,
   type GatewayRunView,
+  type HelperPermissionsState,
   type HostAppInfo,
   type KeptRecordingView,
   type MacHelperState,
@@ -269,6 +270,8 @@ function fullDesktopPlatform(b: PsycheBridge): ShellPlatform {
       status: () =>
         b.permissions.status() as Promise<Partial<Record<PermissionKind, PermissionState>>>,
       request: (kind) => b.permissions.request(kind) as Promise<PermissionState>,
+      helperStatus: () => b.permissions.helperStatus() as Promise<HelperPermissionsState>,
+      helperRequest: (kind) => b.permissions.helperRequest(kind) as Promise<HelperPermissionsState>,
     },
     helper: {
       getState: () => b.helper.getState() as Promise<MacHelperState>,

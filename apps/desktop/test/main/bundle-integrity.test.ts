@@ -189,7 +189,7 @@ describe("the helper stays off while the signature fails", () => {
       // The Mac helper: `open` through `run` (on Windows the launcher would spawn the .exe instead).
       platform: "darwin",
       run: async (file, args) => {
-        opened.push([file, ...args]);
+        if (file === "/usr/bin/open") opened.push([file, ...args]);
         return { code: 0, stdout: "", stderr: "" };
       },
       isPaired: async () => false,
