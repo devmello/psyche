@@ -283,6 +283,7 @@ export const chatHandlers: Record<string, HandlerDef> = {
       params: {
         threadId: string;
         content: string;
+        resolveSkills?: boolean;
         redo?: { messageId: string; instruction?: string; withoutLessons?: boolean };
         fromWidget?: { widgetId: string };
         attachedFiles?: ChatAttachedFile[];

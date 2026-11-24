@@ -18,6 +18,8 @@ export interface OutboxParams {
   threadId: string;
   content: string;
   replyToMessageId?: string;
+  /** Composer submits only: the skill references resolve on the Gateway (chat.send). */
+  resolveSkills?: true;
 }
 
 export interface OutboxItem {

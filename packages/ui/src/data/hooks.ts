@@ -494,6 +494,7 @@ export function useThread(threadId: string | null) {
       attachments?: readonly string[],
       context?: SendContext,
       attachedFiles?: readonly { path: string }[],
+      resolveSkills?: boolean,
     ) => {
       if (threadId === null) return;
       const pendingId = `pending-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
@@ -523,6 +524,7 @@ export function useThread(threadId: string | null) {
               ? { attachedFiles: attachedFiles.map((f) => ({ path: f.path })) }
               : {}),
             ...(context ? { context: context.ref } : {}),
+            ...(resolveSkills ? { resolveSkills: true } : {}),
           }),
       });
     },
@@ -546,6 +548,11 @@ export function useThread(threadId: string | null) {
         attachedFiles?: readonly { path: string }[];
         /** What the message is about (Feed "Ask about this"); sent at once, never queued. */
         context?: SendContext;
+        /**
+         * The composer's own submit: `$name` references read their skills. Buttons, prefills and
+         * other senders leave it off.
+         */
+        resolveSkills?: boolean;
       } = {},
     ) => {
       if (threadId === null) return;
@@ -564,6 +571,7 @@ export function useThread(threadId: string | null) {
           threadId,
           content,
           ...(options.replyToMessageId ? { replyToMessageId: options.replyToMessageId } : {}),
+          ...(options.resolveSkills ? { resolveSkills: true } : {}),
         });
         return;
       }
@@ -575,6 +583,7 @@ export function useThread(threadId: string | null) {
           options.attachments,
           options.context,
           options.attachedFiles,
+          options.resolveSkills,
         );
         return;
       }
@@ -602,6 +611,7 @@ export function useThread(threadId: string | null) {
         options.attachments,
         undefined,
         options.attachedFiles,
+        options.resolveSkills,
       );
     },
     [store, threadId, view.running, sendNow],

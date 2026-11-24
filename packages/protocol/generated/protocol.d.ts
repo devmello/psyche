@@ -3282,6 +3282,7 @@ export interface ChatSendParams {
     mode?:             QueueMode;
     redo?:             Redo;
     replyToMessageId?: string;
+    resolveSkills?:    boolean;
     screen?:           ChatScreenRef;
     threadId:          string;
 }

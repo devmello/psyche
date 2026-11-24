@@ -10868,6 +10868,7 @@ public struct ChatSendParams: Codable, Sendable {
     public let mode: QueueMode?
     public let redo: Redo?
     public let replyToMessageID: String?
+    public let resolveSkills: Bool?
     public let screen: ChatScreenRef?
     public let threadID: String
 
@@ -10880,11 +10881,12 @@ public struct ChatSendParams: Codable, Sendable {
         case mode = "mode"
         case redo = "redo"
         case replyToMessageID = "replyToMessageId"
+        case resolveSkills = "resolveSkills"
         case screen = "screen"
         case threadID = "threadId"
     }
 
-    public init(attachedFiles: [ChatAttachedFile]? = nil, attachments: [String]? = nil, content: String, context: ChatContextRef? = nil, fromWidget: ChatFromWidget? = nil, mode: QueueMode? = nil, redo: Redo? = nil, replyToMessageID: String? = nil, screen: ChatScreenRef? = nil, threadID: String) {
+    public init(attachedFiles: [ChatAttachedFile]? = nil, attachments: [String]? = nil, content: String, context: ChatContextRef? = nil, fromWidget: ChatFromWidget? = nil, mode: QueueMode? = nil, redo: Redo? = nil, replyToMessageID: String? = nil, resolveSkills: Bool? = nil, screen: ChatScreenRef? = nil, threadID: String) {
         self.attachedFiles = attachedFiles
         self.attachments = attachments
         self.content = content
@@ -10893,6 +10895,7 @@ public struct ChatSendParams: Codable, Sendable {
         self.mode = mode
         self.redo = redo
         self.replyToMessageID = replyToMessageID
+        self.resolveSkills = resolveSkills
         self.screen = screen
         self.threadID = threadID
     }
