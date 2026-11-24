@@ -14,11 +14,14 @@ struct MemoryView: View {
 
     @State private var model: MemoryModel
     @State private var segment: Segment = .todo
+    @State private var learning: LearningModel
+    @State private var remembering = false
     @Environment(Session.self) private var session
     @Environment(Router.self) private var router
 
     init(store: any PsycheBackend) {
         _model = State(initialValue: MemoryModel(store: store))
+        _learning = State(initialValue: LearningModel(store: store))
         #if DEBUG
         if let name = UserDefaults.standard.string(forKey: "psycheMemorySegment"),
             let start = Segment(rawValue: name)
@@ -43,6 +46,7 @@ struct MemoryView: View {
             }
             .task(id: router.memoryFocusTodo) { await focusTodo(proxy) }
             .sensoryFeedback(.success, trigger: model.completions)
+            .sheet(isPresented: $remembering) { RememberSheet(learning: learning) }
             .alert(String(localized: "Couldn't update that", bundle: .module), isPresented: noticeBinding) {
                 Button(String(localized: "OK", bundle: .module), role: .cancel) {}
             } message: {
@@ -69,6 +73,7 @@ struct MemoryView: View {
         .plainRow(bottom: 12)
         PaperSearchField(prompt: String(localized: "Search \(segment.rawValue.lowercased())", bundle: .module), text: $model.query)
             .plainRow(bottom: 8)
+        learningRows
     }
 
     // MARK: Content
@@ -109,6 +114,56 @@ struct MemoryView: View {
 
     private func sectionHeader(_ title: String) -> some View {
         SectionHeader(title).plainRow(top: 14, bottom: 8)
+    }
+
+    /// What Psyche learned, what it isn't sure of, what it changed on its own, and a quick note to keep.
+    @ViewBuilder
+    private var learningRows: some View {
+        sectionHeader(String(localized: "Learning", bundle: .module))
+        learningRow(
+            String(localized: "What Psyche learned", bundle: .module),
+            detail: String(localized: "Lessons from your corrections", bundle: .module), badge: nil,
+            position: CardPosition(index: 0, count: 4)
+        ) { router.memoryPath.append(.learning) }
+        learningRow(
+            String(localized: "To confirm", bundle: .module),
+            detail: String(localized: "Claims Psyche isn't sure of", bundle: .module), badge: model.claimCount,
+            position: CardPosition(index: 1, count: 4)
+        ) { router.memoryPath.append(.claims) }
+        learningRow(
+            String(localized: "Recent changes", bundle: .module),
+            detail: String(localized: "Changes Psyche made on its own", bundle: .module), badge: nil,
+            position: CardPosition(index: 2, count: 4)
+        ) { router.memoryPath.append(.recentChanges) }
+        learningRow(
+            String(localized: "Remember this", bundle: .module),
+            detail: String(localized: "Tell Psyche something to keep", bundle: .module), badge: nil,
+            position: CardPosition(index: 3, count: 4)
+        ) { remembering = true }
+    }
+
+    private func learningRow(
+        _ title: String, detail: String, badge: Int?, position: CardPosition, action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            HStack(spacing: 12) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(verbatim: title).font(.psycheRow).foregroundStyle(PsycheColor.text)
+                    Text(verbatim: detail).font(.caption).foregroundStyle(PsycheColor.muted)
+                }
+                Spacer(minLength: 0)
+                if let badge, badge > 0 {
+                    Text(verbatim: "\(badge)").font(.caption.weight(.semibold)).foregroundStyle(.white)
+                        .padding(.horizontal, 8).padding(.vertical, 2)
+                        .background(PsycheColor.ink, in: Capsule())
+                }
+                chevron
+            }
+            .padding(PsycheMetrics.rowPadding)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .cardRow(position)
     }
 
     /// The agent's workspace files, read-only on the phone (`/agent/soul`).
