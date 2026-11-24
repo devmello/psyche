@@ -132,6 +132,8 @@ export class FakeImapServer {
   readonly connections: { loggedIn: boolean; closed: boolean }[] = [];
   /** How many plaintext connections were upgraded with STARTTLS. */
   tlsUpgrades = 0;
+  /** The `servername` each STARTTLS upgrade was handed, in order. */
+  readonly upgradedWith: string[] = [];
 
   constructor(store: FakeMailStore, options: FakeImapServerOptions = {}) {
     this.store = store;
@@ -171,8 +173,9 @@ export class FakeImapServer {
     void this.#serve(server, conn, { plain: true }).catch(() => undefined);
     return {
       ...client,
-      upgradeTls: async () => {
+      upgradeTls: async (servername: string) => {
         this.tlsUpgrades += 1;
+        this.upgradedWith.push(servername);
         const tls = fakeSocketPair();
         void this.#serve(tls.server, conn, { greet: false }).catch(() => undefined);
         return tls.client;

@@ -24,6 +24,7 @@ describe("STARTTLS: IMAP", () => {
     await client.startTls(HOST);
     await client.login(OWNER, PASSWORD);
     expect(imap.tlsUpgrades).toBe(1);
+    expect(imap.upgradedWith).toEqual([HOST]);
     expect(client.has("IMAP4REV1")).toBe(true);
     const starttls = imap.commands.findIndex((c) => /STARTTLS/.test(c));
     const login = imap.commands.findIndex((c) => /LOGIN/.test(c));
@@ -54,6 +55,7 @@ describe("STARTTLS: SMTP", () => {
     await client.ehlo();
     await client.authPlain(OWNER, PASSWORD);
     expect(smtp.tlsUpgrades).toBe(1);
+    expect(smtp.upgradedWith).toEqual([HOST]);
     const starttls = smtp.commands.findIndex((c) => c === "STARTTLS");
     const auth = smtp.commands.findIndex((c) => c.startsWith("AUTH"));
     expect(starttls).toBeGreaterThanOrEqual(0);
