@@ -74,12 +74,15 @@ public struct LibraryItem: Sendable, Equatable, Identifiable {
     public var refusal: LibraryFileRefusal?
     /// The sources a document or artifact was made from (empty when it has none).
     public var sources: [SourceRef]
+    /// The artifact this item is, for an artifact row: opens the artifact viewer instead of the file page.
+    public var artifactID: String?
 
     public init(
         id: String, title: String, section: LibrarySection, fileType: String, detail: String,
         threadID: String? = nil, evidence: [String] = [], threadTitle: String? = nil, refusal: LibraryFileRefusal? = nil,
-        sources: [SourceRef] = []
+        sources: [SourceRef] = [], artifactID: String? = nil
     ) {
+        self.artifactID = artifactID
         self.sources = sources
         self.refusal = refusal
         self.evidence = evidence

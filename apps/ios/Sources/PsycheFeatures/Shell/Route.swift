@@ -6,9 +6,15 @@ public enum Route: Hashable, Sendable {
     case project(id: String)
     case person(id: String)
     case file(id: String)
+    /// An artifact's viewer (`/artifacts/<id>`, an artifact card's tap): its content and versions.
+    case artifact(id: String)
     /// The Soul & Memory file list (`/agent/soul` with no query), and one workspace file in it (`/agent/soul?file=…`).
     case memoryFiles
     case memoryFile(path: String)
+    /// Memory's learning screens: what Psyche learned, claims to confirm, and recent changes with undo.
+    case learning
+    case claims
+    case recentChanges
     /// A person, organisation, project or other entity (`/agent/soul?entity=…`). Its kind decides the page; the
     /// phone resolves it with `memory.entities.get` when the page opens, since an id doesn't say which it is.
     case entity(id: String)
@@ -52,6 +58,7 @@ public enum Route: Hashable, Sendable {
             } else {
                 self = .file(id: parts[1])
             }
+        case ("artifacts", 2): self = .artifact(id: parts[1])
         case ("inbox", 1): self = .inbox
         case ("scheduled", 1): self = .scheduled
         case ("overview", _): self = .overview

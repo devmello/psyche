@@ -121,8 +121,8 @@ public final class Router {
         }
         switch route {
         case .thread(let id): openThread(id)
-        case .project, .person, .entity, .memoryFiles, .memoryFile: tab = .memory; memoryPath = [route]
-        case .file: tab = .library; libraryPath = [route]
+        case .project, .person, .entity, .memoryFiles, .memoryFile, .learning, .claims, .recentChanges: tab = .memory; memoryPath = [route]
+        case .file, .artifact: tab = .library; libraryPath = [route]
         case .inbox, .scheduled, .overview, .feed, .ideas, .goals, .space: tab = .home; homePath = [route]
         case .task(let id): openTask(id)
         }

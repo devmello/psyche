@@ -50,8 +50,8 @@ export type CommandPart = string | { literal: Uint8Array } | { string: string };
 const SAFE_QUOTED = /^[\x20-\x7e]*$/;
 
 export class ImapClient {
-  readonly #socket: MailSocket;
-  readonly #reader: LineReader;
+  #socket: MailSocket;
+  #reader: LineReader;
   #tag = 0;
   #capabilities = new Set<string>();
   #closed = false;
@@ -103,6 +103,39 @@ export class ImapClient {
     }
     this.#captureCapabilities(r.text);
     if (this.#capabilities.size === 0) await this.capability();
+  }
+
+  /**
+   * Upgrade a plaintext connection with STARTTLS before LOGIN. Refuses (throws before any
+   * credential is sent) unless the server advertised STARTTLS, and refuses when bytes arrived
+   * after the tagged OK, which would be injected data read ahead of the TLS handshake.
+   */
+  async startTls(host: string): Promise<void> {
+    if (this.#closed) throw new PsycheError("unavailable", "IMAP connection closed");
+    if (this.#capabilities.size === 0) await this.capability();
+    if (!this.has("STARTTLS")) {
+      throw new PsycheError(
+        "unavailable",
+        "IMAP server does not offer STARTTLS; refusing to log in without TLS",
+      );
+    }
+    const socket = this.#socket;
+    if (socket.upgradeTls === undefined) {
+      throw new PsycheError("unavailable", "IMAP connection cannot upgrade to TLS");
+    }
+    await this.command("STARTTLS");
+    if (this.#reader.buffered() > 0 || (socket.pendingBytes?.() ?? 0) > 0) {
+      throw new PsycheError(
+        "unavailable",
+        "IMAP server sent data after the STARTTLS reply; refusing to continue",
+      );
+    }
+    const secure = await socket.upgradeTls(host);
+    this.#socket = secure;
+    this.#reader = new LineReader(secure);
+    // RFC 9051: capabilities are read again after the upgrade.
+    this.#capabilities = new Set();
+    await this.capability();
   }
 
   async list(): Promise<ImapListEntry[]> {

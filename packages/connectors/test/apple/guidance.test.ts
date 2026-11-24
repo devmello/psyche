@@ -27,9 +27,11 @@ describe("per-app guidance", () => {
     expect(text?.split("\n").map((l) => l.split(":").slice(0, 2).join(":"))).toEqual([
       "apple:calendar",
       "apple:mail",
+      "google: For",
     ]);
     expect(text).toContain("Never: claim to invite people");
-    expect(guidanceSection(["google"], (t) => t)).toBeUndefined();
+    expect(guidanceSection(["google"], (t) => t)).toContain("Google Tasks");
+    expect(guidanceSection(["unguided:app"], (t) => t)).toBeUndefined();
   });
 
   it("speaks of Outlook and this PC on a Windows Host, and has nothing for the Mac-only apps", () => {

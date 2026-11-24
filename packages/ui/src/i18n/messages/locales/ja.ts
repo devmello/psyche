@@ -2201,6 +2201,13 @@ export const ja: Partial<Catalogue> = {
   "settings.model.key.stored": "キーは保管庫に保存されています。Psycheは決して表示しません。",
   "settings.model.key.editNamed": "{name}のキーを{has, select, true {置き換える} other {追加}}",
   "settings.model.key.add": "キーを追加",
+  "settings.model.key.remove": "キーを削除",
+  "settings.model.key.removeNamed": "{name} のキーを削除",
+  "settings.model.key.removeTitle": "{name} のキーを削除しますか？",
+  "settings.model.key.removeBody":
+    "Psyche は {name} に保存されたキーを削除します。キーを追加し直すまで、{name} へのリクエストは失敗します。",
+  "settings.model.key.removeConfirm": "キーを削除",
+  "settings.model.key.removeFailed": "Psyche はキーを削除できませんでした（{reason}）。",
   "settings.model.key.replace": "キーを置き換える",
   "settings.model.key.newLabel": "{name}の新しいAPIキー",
   "settings.model.key.save": "キーを保存",
@@ -3213,6 +3220,12 @@ export const ja: Partial<Catalogue> = {
   "screens.library.openLabel": "{name}を{editor, select, true {エディタで} other {}}開く",
   "screens.library.openInEditor": "エディタで開く",
   "screens.library.open": "開く",
+  "screens.library.delete": "削除",
+  "screens.library.deleteTitle": "{name} を削除しますか？",
+  "screens.library.deleteBody":
+    "Psyche はライブラリから {name} とそのファイルを削除します。元に戻せません。",
+  "screens.library.deleteConfirm": "削除",
+  "screens.library.deleteItemFailed": "Psyche は {name} を削除できませんでした（{reason}）。",
   "screens.library.deleteDownload": "このダウンロードを削除",
   "screens.library.deleteFailed":
     "Psyche は {name} を削除できませんでした（{reason}）。隔離されたままです。",

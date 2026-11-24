@@ -2037,6 +2037,13 @@ export const settings = {
   "settings.model.key.stored": "Key stored in the vault. Psyche never shows it.",
   "settings.model.key.editNamed": "{has, select, true {Replace} other {Add}} the {name} key",
   "settings.model.key.add": "Add key",
+  "settings.model.key.remove": "Remove key",
+  "settings.model.key.removeNamed": "Remove the key for {name}",
+  "settings.model.key.removeTitle": "Remove the key for {name}?",
+  "settings.model.key.removeBody":
+    "Psyche deletes the stored key for {name}. Requests to {name} fail until you add a key again.",
+  "settings.model.key.removeConfirm": "Remove key",
+  "settings.model.key.removeFailed": "Psyche couldn't remove the key ({reason}).",
   "settings.model.key.replace": "Replace key",
   "settings.model.key.newLabel": "New API key for {name}",
   "settings.model.key.save": "Save key",

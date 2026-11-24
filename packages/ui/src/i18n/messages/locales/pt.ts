@@ -2181,6 +2181,13 @@ export const pt: Partial<Catalogue> = {
   "settings.model.key.editNamed":
     "{has, select, true {Substituir} other {Adicionar}} a chave de {name}",
   "settings.model.key.add": "Adicionar chave",
+  "settings.model.key.remove": "Remover chave",
+  "settings.model.key.removeNamed": "Remover a chave de {name}",
+  "settings.model.key.removeTitle": "Remover a chave de {name}?",
+  "settings.model.key.removeBody":
+    "O Psyche apaga a chave salva de {name}. As solicitações para {name} falharão até você adicionar uma chave novamente.",
+  "settings.model.key.removeConfirm": "Remover chave",
+  "settings.model.key.removeFailed": "O Psyche não conseguiu remover a chave ({reason}).",
   "settings.model.key.replace": "Substituir chave",
   "settings.model.key.newLabel": "Nova chave de API para {name}",
   "settings.model.key.save": "Salvar chave",
@@ -3193,6 +3200,12 @@ export const pt: Partial<Catalogue> = {
   "screens.library.openLabel": "Abrir {name}{editor, select, true { no editor} other {}}",
   "screens.library.openInEditor": "Abrir no editor",
   "screens.library.open": "Abrir",
+  "screens.library.delete": "Excluir",
+  "screens.library.deleteTitle": "Excluir {name}?",
+  "screens.library.deleteBody":
+    "O Psyche exclui {name} e o seu arquivo da biblioteca. Não é possível desfazer.",
+  "screens.library.deleteConfirm": "Excluir",
+  "screens.library.deleteItemFailed": "O Psyche não conseguiu excluir {name} ({reason}).",
   "screens.library.deleteDownload": "Excluir este download",
   "screens.library.deleteFailed":
     "O Psyche não conseguiu excluir {name} ({reason}). Continua em quarentena.",

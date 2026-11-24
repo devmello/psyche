@@ -2205,6 +2205,13 @@ export const hi: Partial<Catalogue> = {
   "settings.model.key.stored": "कुंजी वॉल्ट में संग्रहीत है। Psyche इसे कभी नहीं दिखाता।",
   "settings.model.key.editNamed": "{name} कुंजी {has, select, true {बदलें} other {जोड़ें}}",
   "settings.model.key.add": "कुंजी जोड़ें",
+  "settings.model.key.remove": "कुंजी हटाएँ",
+  "settings.model.key.removeNamed": "{name} की कुंजी हटाएँ",
+  "settings.model.key.removeTitle": "{name} की कुंजी हटाएँ?",
+  "settings.model.key.removeBody":
+    "Psyche {name} की सहेजी गई कुंजी हटा देगा। कुंजी दोबारा जोड़ने तक {name} के अनुरोध विफल होंगे।",
+  "settings.model.key.removeConfirm": "कुंजी हटाएँ",
+  "settings.model.key.removeFailed": "Psyche कुंजी नहीं हटा सका ({reason})।",
   "settings.model.key.replace": "कुंजी बदलें",
   "settings.model.key.newLabel": "{name} के लिए नई API कुंजी",
   "settings.model.key.save": "कुंजी सेव करें",
@@ -3190,6 +3197,12 @@ export const hi: Partial<Catalogue> = {
   "screens.library.openLabel": "{name}{editor, select, true { एडिटर में} other {}} खोलें",
   "screens.library.openInEditor": "एडिटर में खोलें",
   "screens.library.open": "खोलें",
+  "screens.library.delete": "हटाएँ",
+  "screens.library.deleteTitle": "{name} हटाएँ?",
+  "screens.library.deleteBody":
+    "Psyche लाइब्रेरी से {name} और उसकी फ़ाइल हटा देगा। इसे वापस नहीं लाया जा सकता।",
+  "screens.library.deleteConfirm": "हटाएँ",
+  "screens.library.deleteItemFailed": "Psyche {name} को नहीं हटा सका ({reason})।",
   "screens.library.deleteDownload": "यह डाउनलोड हटाएँ",
   "screens.library.deleteFailed": "Psyche {name} को हटा नहीं सका ({reason})। यह क्वारंटीन में ही रहेगा।",
   "screens.library.recording.description":

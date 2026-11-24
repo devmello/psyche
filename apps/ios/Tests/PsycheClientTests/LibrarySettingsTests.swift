@@ -79,9 +79,14 @@ struct LibrarySettingsTests {
                 kinds.add(req.params?["kind"]?.stringValue ?? "?")
                 return .success(.object(["items": .array([])]))
             }
+            // The Artifacts section is the artifacts list, not library.list with kind "artifact".
+            g.on("artifacts.list") { _ in
+                kinds.add("artifacts.list")
+                return .success(.object(["artifacts": .array([]), "nextCursor": .null]))
+            }
         }
         for section in LibrarySection.allCases { _ = try await backend.library(section: section) }
-        #expect(kinds.all == ["document", "image", "artifact", "download"])
+        #expect(kinds.all == ["document", "image", "artifacts.list", "download"])
     }
 
     @Test func oneItemGetsItsThreadTitleForTheEvidenceLine() async throws {

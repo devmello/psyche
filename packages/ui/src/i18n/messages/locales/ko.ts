@@ -2194,6 +2194,13 @@ export const ko: Partial<Catalogue> = {
   "settings.model.key.stored": "키가 금고에 저장되어 있습니다. Psyche는 절대 표시하지 않습니다.",
   "settings.model.key.editNamed": "{name} 키 {has, select, true {교체} other {추가}}",
   "settings.model.key.add": "키 추가",
+  "settings.model.key.remove": "키 삭제",
+  "settings.model.key.removeNamed": "{name} 키 삭제",
+  "settings.model.key.removeTitle": "{name} 키를 삭제할까요?",
+  "settings.model.key.removeBody":
+    "Psyche가 {name}의 저장된 키를 삭제합니다. 키를 다시 추가하기 전까지 {name}에 대한 요청은 실패합니다.",
+  "settings.model.key.removeConfirm": "키 삭제",
+  "settings.model.key.removeFailed": "Psyche가 키를 삭제하지 못했습니다 ({reason}).",
   "settings.model.key.replace": "키 교체",
   "settings.model.key.newLabel": "{name}의 새 API 키",
   "settings.model.key.save": "키 저장",
@@ -3188,6 +3195,12 @@ export const ko: Partial<Catalogue> = {
   "screens.library.openLabel": "{name}{editor, select, true {을(를) 편집기에서} other {}} 열기",
   "screens.library.openInEditor": "편집기에서 열기",
   "screens.library.open": "열기",
+  "screens.library.delete": "삭제",
+  "screens.library.deleteTitle": "{name}을(를) 삭제할까요?",
+  "screens.library.deleteBody":
+    "Psyche가 보관함에서 {name}과(와) 그 파일을 삭제합니다. 되돌릴 수 없습니다.",
+  "screens.library.deleteConfirm": "삭제",
+  "screens.library.deleteItemFailed": "Psyche가 {name}을(를) 삭제하지 못했습니다 ({reason}).",
   "screens.library.deleteDownload": "이 다운로드 삭제",
   "screens.library.deleteFailed":
     "Psyche가 {name}을(를) 삭제하지 못했습니다({reason}). 격리 상태로 남아 있습니다.",

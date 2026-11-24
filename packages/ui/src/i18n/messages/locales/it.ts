@@ -2224,6 +2224,13 @@ export const it: Partial<Catalogue> = {
   "settings.model.key.editNamed":
     "{has, select, true {Sostituisci} other {Aggiungi}} la chiave di {name}",
   "settings.model.key.add": "Aggiungi chiave",
+  "settings.model.key.remove": "Rimuovi chiave",
+  "settings.model.key.removeNamed": "Rimuovi la chiave di {name}",
+  "settings.model.key.removeTitle": "Rimuovere la chiave di {name}?",
+  "settings.model.key.removeBody":
+    "Psyche elimina la chiave salvata per {name}. Le richieste a {name} falliranno finché non aggiungi di nuovo una chiave.",
+  "settings.model.key.removeConfirm": "Rimuovi chiave",
+  "settings.model.key.removeFailed": "Psyche non è riuscito a rimuovere la chiave ({reason}).",
   "settings.model.key.replace": "Sostituisci chiave",
   "settings.model.key.newLabel": "Nuova chiave API per {name}",
   "settings.model.key.save": "Salva chiave",
@@ -3250,6 +3257,12 @@ export const it: Partial<Catalogue> = {
   "screens.library.openLabel": "Apri {name}{editor, select, true { nell’editor} other {}}",
   "screens.library.openInEditor": "Apri nell’editor",
   "screens.library.open": "Apri",
+  "screens.library.delete": "Elimina",
+  "screens.library.deleteTitle": "Eliminare {name}?",
+  "screens.library.deleteBody":
+    "Psyche elimina {name} e il suo file dalla libreria. Non si può annullare.",
+  "screens.library.deleteConfirm": "Elimina",
+  "screens.library.deleteItemFailed": "Psyche non è riuscito a eliminare {name} ({reason}).",
   "screens.library.deleteDownload": "Elimina questo download",
   "screens.library.deleteFailed":
     "Psyche non è riuscito a eliminare {name} ({reason}). Resta in quarantena.",

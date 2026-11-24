@@ -18,6 +18,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "../components/ui/dialog.tsx";
+import { Input } from "../components/ui/input.tsx";
 import { Label } from "../components/ui/label.tsx";
 import { Textarea } from "../components/ui/textarea.tsx";
 import { useCall, useGatewayQuery } from "../data/index.ts";
@@ -112,6 +113,107 @@ export function InstructionsDialog({
             </Button>
             <Button type="submit" disabled={busy || over || text === initial}>
               {t("common.save")}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/**
+ * Add link: a web address and an optional title. The Gateway checks the address (http or https)
+ * and its refusal is shown in its own words.
+ */
+export function AddLinkDialog({
+  open,
+  onOpenChange,
+  spaceId,
+  onAdded,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  spaceId: string;
+  onAdded: () => void;
+}): ReactElement {
+  const urlId = useId();
+  const titleId = useId();
+  const call = useCall();
+  const [url, setUrl] = useState("");
+  const [title, setTitle] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    if (open) {
+      setUrl("");
+      setTitle("");
+      setError(null);
+    }
+  }, [open]);
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{t("spaces.links.dialogTitle")}</DialogTitle>
+          <DialogDescription>{t("spaces.links.dialogBody")}</DialogDescription>
+        </DialogHeader>
+        <form
+          className="flex flex-col gap-3"
+          onSubmit={(e) => {
+            e.preventDefault();
+            const ref = url.trim();
+            if (busy || ref === "") return;
+            setBusy(true);
+            setError(null);
+            const typed = title.trim();
+            const label = (typed === "" ? ref : typed).slice(0, SPACE_LIMITS.linkLabel);
+            call("spaces.links.add", { spaceId, kind: "url", ref, label }).then(
+              () => {
+                setBusy(false);
+                onAdded();
+                onOpenChange(false);
+              },
+              (err: unknown) => {
+                setBusy(false);
+                setError(t("spaces.links.failed", { reason: describeError(err) }));
+              },
+            );
+          }}
+        >
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor={urlId}>{t("spaces.links.url")}</Label>
+            <Input
+              id={urlId}
+              type="text"
+              inputMode="url"
+              autoComplete="off"
+              spellCheck={false}
+              placeholder={t("spaces.links.urlPlaceholder")}
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              required
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor={titleId}>{t("spaces.links.title")}</Label>
+            <Input
+              id={titleId}
+              value={title}
+              maxLength={SPACE_LIMITS.linkLabel}
+              onChange={(e) => setTitle(e.target.value)}
+            />
+          </div>
+          {error ? (
+            <p role="alert" className="text-callout text-danger-text">
+              {error}
+            </p>
+          ) : null}
+          <DialogFooter>
+            <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
+              {t("common.cancel")}
+            </Button>
+            <Button type="submit" disabled={busy || url.trim() === ""}>
+              {t("spaces.links.add")}
             </Button>
           </DialogFooter>
         </form>

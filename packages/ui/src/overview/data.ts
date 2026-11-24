@@ -1,7 +1,9 @@
+import { useInsights } from "../data/insights.ts";
+
 /**
- * The seam later Overview PRs plug into (agent-overview-2026 §6, §7). O1's `useInsights(window)`
- * will fill this from `insights.summary`; until it lands the shell reads the stub below, and a
- * story or test passes `data` straight to `OverviewScreen`.
+ * The seam the Overview reads its first-activity time through (agent-overview-2026 §6, §7): it is
+ * filled from `insights.summary` by `useInsights`. A story or test passes `data` straight to
+ * `OverviewScreen`.
  */
 export interface OverviewData {
   /**
@@ -26,7 +28,12 @@ export function isNewUser(firstActivityAt: string | null | undefined, now: numbe
   return now - first < NEW_USER_DAYS * DAY_MS;
 }
 
-/** Stub for O1's `useInsights`: nothing is known yet, so the regular page renders. */
+/**
+ * The Overview's first-activity time from `insights.summary`. The window does not change it, so
+ * the cheapest one (`7d`) is asked. Until the answer arrives, or against a Gateway without the
+ * method, it stays `undefined` and the regular page renders.
+ */
 export function useOverviewData(): OverviewData {
-  return { firstActivityAt: undefined };
+  const { data } = useInsights("7d");
+  return { firstActivityAt: data === undefined ? undefined : data.firstActivityAt };
 }
