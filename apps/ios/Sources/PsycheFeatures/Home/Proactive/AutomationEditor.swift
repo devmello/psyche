@@ -16,7 +16,15 @@ final class AutomationEditorModel {
 
     private(set) var phase: Phase = .loading
     private(set) var detail: AutomationDetail?
-    var draft = AutomationDraft(schedule: AutomationSchedule())
+    var draft = AutomationDraft(schedule: AutomationSchedule()) {
+        didSet { if draft.prompt != oldValue.prompt { isPromptTouched = true } }
+    }
+    /// True once the prompt has been edited. Loading a draft resets it, so a new editor starts without a red hint.
+    private(set) var isPromptTouched = false
+    /// The prompt hint: shown once the owner has edited the prompt and it is empty, or whenever it is over the limit.
+    var showsPromptHint: Bool {
+        problems.prompt && (isPromptTouched || draft.prompt.utf16.count > AutomationDraft.maxPrompt)
+    }
     private(set) var saving = false
     private(set) var failure: String?
     let automationID: String?
@@ -35,6 +43,7 @@ final class AutomationEditorModel {
     func load() async {
         guard let automationID else {
             draft = AutomationDraft(schedule: AutomationSchedule.defaults(now: Date(), zone: .current))
+            isPromptTouched = false
             phase = .ready
             return
         }
@@ -42,6 +51,7 @@ final class AutomationEditorModel {
             let found = try await store.automation(id: automationID)
             detail = found
             draft = AutomationDraft(found)
+            isPromptTouched = false
             phase = found.isFormKind ? .ready : .readOnly
         } catch {
             phase = .failed(error.localizedDescription)
@@ -157,7 +167,7 @@ struct AutomationEditorSheet: View {
                 .lineLimit(3...12)
                 .accessibilityIdentifier("automationPrompt")
         } footer: {
-            if model.problems.prompt {
+            if model.showsPromptHint {
                 Text("Write what it should do, up to 20,000 characters.", bundle: .module).foregroundStyle(PsycheColor.red)
             }
         }
