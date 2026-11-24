@@ -66,6 +66,8 @@ export interface McpState {
   remove: (server: McpServerStatus) => void;
   /** Turns a server off (kept in the list, not running) or back on. */
   setEnabled: (server: McpServerStatus, enabled: boolean) => void;
+  /** A saved secret that could not be deleted, with a retry. Null when all were deleted. */
+  secretFailure: { message: string; retry: () => void } | null;
 }
 
 export interface McpLaunchFailure {
@@ -102,8 +104,25 @@ export function useMcp(now?: number): McpState {
   const [actionFailure, setActionFailure] = useState<McpLaunchFailure | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
+  // A secret that will not delete stays listed with a retry: the owner has to know one is left.
+  const [secretFailure, setSecretFailure] = useState<{
+    credentialIds: readonly string[];
+    reason: string;
+  } | null>(null);
   const dropSecrets = (ids: readonly string[]) => {
-    for (const credentialId of ids) void call("vault.delete", { credentialId }).catch(() => {});
+    for (const credentialId of ids) {
+      void call("vault.delete", { credentialId }).catch((err: unknown) => {
+        setSecretFailure((prev) => ({
+          credentialIds: [...(prev?.credentialIds ?? []), credentialId],
+          reason: messageOf(err),
+        }));
+      });
+    }
+  };
+  const retrySecrets = () => {
+    const ids = secretFailure?.credentialIds ?? [];
+    setSecretFailure(null);
+    dropSecrets(ids);
   };
 
   const decided = (status: "approved" | "denied" | "expired" | "invalidated") => {
@@ -146,6 +165,13 @@ export function useMcp(now?: number): McpState {
     actionError,
     actionFailure,
     notice,
+    secretFailure:
+      secretFailure === null
+        ? null
+        : {
+            message: t("settings.mcp.secretNotDeleted", { reason: secretFailure.reason }),
+            retry: retrySecrets,
+          },
     review:
       proposal === null ? null : (
         <McpTrustCard

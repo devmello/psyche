@@ -204,6 +204,7 @@ export const memoryReview: Partial<Catalogue> = {
   "everything.sources.notLearning": "لا يُتعلَّم منه",
   "everything.sources.notRead": "لا يقرأ Psyche {source}.",
   "everything.sources.letRead": "السماح لـ Psyche بقراءة {source}",
+  "everything.sources.enableFailed": "تعذّر على Psyche تفعيل {source}: {reason}",
   "everything.sources.letReadFailed": "تعذّر السماح لـ Psyche بقراءة {source}: {reason}",
   "everything.source.mail": "البريد",
   "everything.source.messages": "الرسائل",

@@ -203,6 +203,7 @@ export const memoryReview = {
   "everything.sources.notLearning": "Not learning from it",
   "everything.sources.notRead": "Psyche doesn't read {source}.",
   "everything.sources.letRead": "Let Psyche read {source}",
+  "everything.sources.enableFailed": "Psyche couldn't turn on {source}: {reason}",
   "everything.sources.letReadFailed": "Couldn't let Psyche read {source}: {reason}",
   "everything.source.mail": "Mail",
   "everything.source.messages": "Messages",
