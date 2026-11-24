@@ -122,38 +122,41 @@ struct AgentSheet: View {
 
     // MARK: Activity
 
-    @ViewBuilder
     private func activityView(_ activity: AgentActivity) -> some View {
-        if activity.needsYou.isEmpty && activity.now.isEmpty && activity.nextUp.isEmpty && activity.recent.isEmpty {
-            quiet(String(localized: "Nothing going on right now.", bundle: .module))
-        }
-        if !activity.needsYou.isEmpty {
-            VStack(alignment: .leading, spacing: 8) {
-                SectionHeader(String(localized: "Needs you", bundle: .module), count: activity.needsYou.count, needsYou: true)
-                needsYouCard(activity.needsYou)
+        // One stack for the sections: the segment crossfade sits in a ZStack, so loose siblings would draw on top
+        // of each other.
+        VStack(alignment: .leading, spacing: PsycheMetrics.sectionSpacing) {
+            if activity.needsYou.isEmpty && activity.now.isEmpty && activity.nextUp.isEmpty && activity.recent.isEmpty {
+                quiet(String(localized: "Nothing going on right now.", bundle: .module))
             }
-        }
-        if !activity.now.isEmpty {
-            VStack(alignment: .leading, spacing: 8) {
-                SectionHeader(String(localized: "Now", bundle: .module))
-                PaperCard {
-                    ForEach(Array(activity.now.enumerated()), id: \.element.id) { index, task in
-                        if index > 0 { HairlineDivider() }
-                        nowRow(task).transition(motion.transition(.rise))
+            if !activity.needsYou.isEmpty {
+                VStack(alignment: .leading, spacing: 8) {
+                    SectionHeader(String(localized: "Needs you", bundle: .module), count: activity.needsYou.count, needsYou: true)
+                    needsYouCard(activity.needsYou)
+                }
+            }
+            if !activity.now.isEmpty {
+                VStack(alignment: .leading, spacing: 8) {
+                    SectionHeader(String(localized: "Now", bundle: .module))
+                    PaperCard {
+                        ForEach(Array(activity.now.enumerated()), id: \.element.id) { index, task in
+                            if index > 0 { HairlineDivider() }
+                            nowRow(task).transition(motion.transition(.rise))
+                        }
                     }
                 }
             }
-        }
-        if !activity.nextUp.isEmpty {
-            VStack(alignment: .leading, spacing: 8) {
-                SectionHeader(String(localized: "Next up", bundle: .module))
-                upcomingCard(Array(activity.nextUp.prefix(3)))
+            if !activity.nextUp.isEmpty {
+                VStack(alignment: .leading, spacing: 8) {
+                    SectionHeader(String(localized: "Next up", bundle: .module))
+                    upcomingCard(Array(activity.nextUp.prefix(3)))
+                }
             }
-        }
-        if !activity.recent.isEmpty {
-            VStack(alignment: .leading, spacing: 8) {
-                SectionHeader(String(localized: "Recent", bundle: .module))
-                recentCard(activity.recent)
+            if !activity.recent.isEmpty {
+                VStack(alignment: .leading, spacing: 8) {
+                    SectionHeader(String(localized: "Recent", bundle: .module))
+                    recentCard(activity.recent)
+                }
             }
         }
     }
