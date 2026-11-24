@@ -68,6 +68,16 @@ final class TaskRunModel {
     func retry() async { await act { try await self.store.retryTask(id: self.taskID) } }
     func cancel() async { await act { try await self.store.cancelTask(id: self.taskID) } }
 
+    /// Saves the owner's limit changes. Unlike the other actions the failure is thrown, not kept on the page: the
+    /// edit sheet shows the Gateway's words and stays open. On success the page reloads what the Gateway now says.
+    func updateTask(_ changes: TaskChanges) async throws {
+        busy = true
+        defer { busy = false }
+        try await store.updateTask(id: taskID, changes: changes)
+        error = nil
+        await load()
+    }
+
     /// Sends guidance to the running task. Returns false, and sends nothing, for blank text.
     func steer(_ text: String) async -> Bool {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)

@@ -6,6 +6,8 @@ struct AgentState: Sendable {
     var recent = FixtureData.recent
     /// Task states the fixture's owner controls have moved (pause, resume, retry), by task id.
     var taskStates: [String: TaskRunState] = [:]
+    /// The limits the fixture's owner has set on a specialist job, by task id. A live job starts at the default.
+    var taskLimits: [String: TaskLimits] = [:]
 }
 
 extension FixtureBackend: AgentBackend {
@@ -37,7 +39,22 @@ extension FixtureBackend: AgentBackend {
             taskID: taskID, title: title, state: state,
             startedAt: .now.addingTimeInterval(-340), endedAt: state.isLive ? nil : .now.addingTimeInterval(-20),
             summary: state == .done ? "Filed the expense report and sent the receipt copy to Dana." : nil,
-            steps: FixtureData.runSteps(now: .now, state: state))
+            steps: FixtureData.runSteps(now: .now, state: state),
+            // Every live fixture job is a specialist's job, so the owner can edit its limits.
+            limits: state.isLive ? (agentState.taskLimits[taskID] ?? FixtureData.specialistLimits) : nil)
+    }
+
+    public func updateTask(id: String, changes: TaskChanges) async throws {
+        try requireTask(id)
+        let state = agentState.taskStates[id] ?? homeState.snapshot.running.first { $0.id == id }.map { _ in TaskRunState.running }
+        guard state?.isLive ?? false else { throw BackendError.refused("This task has already ended.") }
+        var limits = agentState.taskLimits[id] ?? FixtureData.specialistLimits
+        if let tokens = changes.tokens { limits.tokens = tokens }
+        if let costUsd = changes.costUsd { limits.costUsd = costUsd }
+        if let minutes = changes.minutes { limits.minutes = minutes }
+        if let deadline = changes.deadline { limits.deadline = deadline }
+        agentState.taskLimits[id] = limits
+        publish(.changed(.activity))
     }
 
     public func pauseTask(id: String) async throws {
@@ -83,6 +100,9 @@ extension FixtureBackend: AgentBackend {
 }
 
 extension FixtureData {
+
+    /// The limits a fixture specialist job starts with: a token budget, a cost, 30 minutes and no deadline.
+    public static let specialistLimits = TaskLimits(tokens: 200_000, costUsd: 2.5, minutes: 30, deadline: nil)
 
     public static let nextUp: [UpcomingItem] = [
         UpcomingItem(id: "u1", title: "Morning brief", when: "Tomorrow 7:00 · every weekday"),
