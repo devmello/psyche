@@ -293,6 +293,7 @@ export const zh: Partial<Catalogue> = {
   "chat.commands.usageExport": "用法：/export [md | json]",
 
   "chat.composer.commands": "命令",
+  "chat.composer.skills": "技能",
   "chat.composer.quoting": "引用：",
   "chat.composer.removeQuote": "移除引用",
   "chat.composer.offline": "无法连接到 Psyche",

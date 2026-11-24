@@ -158,6 +158,13 @@ export const ChatMethods = {
        * so the turn starts tainted. Only for a turn that starts now: a busy thread refuses it.
        */
       context: Type.Optional(ChatContextRef),
+      /**
+       * The owner typed this in the composer: `$name` references read the enabled user-invocable
+       * skills they name into the turn. Only the composer's own submit sets it; buttons, prefills,
+       * queued follow-ups from other places and every other caller leave it off, and the Gateway
+       * resolves nothing for them.
+       */
+      resolveSkills: Type.Optional(Type.Boolean()),
     }),
     result: ChatSendResult,
     scope: "operator.write",

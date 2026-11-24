@@ -148,3 +148,47 @@ export function matchCommands(text: string): CommandInfo[] {
 export function completion(info: CommandInfo): string {
   return info.arity === "none" ? `/${info.name}` : `/${info.name} `;
 }
+
+/** A user-invocable skill the menu lists under "Skills" (the Gateway's `skills.commands` row). */
+export interface SkillMenuItem {
+  readonly name: string;
+  readonly description: string;
+}
+
+/** The Gateway's skill reference (`$name`): lowercase words joined by hyphens. */
+const SKILL_NAME = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+
+export interface MenuMatches {
+  readonly commands: CommandInfo[];
+  readonly skills: SkillMenuItem[];
+}
+
+/**
+ * The menu rows for a composer that holds `/` plus a partial name: the built-in commands, then the
+ * skills. A skill named like a built-in command is left out (the built-in wins), as is one whose
+ * name the `$name` reference cannot carry, and a repeated name. Both lists are filtered by the
+ * prefix typed; skills come sorted by name.
+ */
+export function matchMenu(text: string, skills: readonly SkillMenuItem[]): MenuMatches {
+  const m = /^\/([a-z0-9-]*)$/.exec(text);
+  if (m === null) return { commands: [], skills: [] };
+  const prefix = m[1] ?? "";
+  const builtin = new Set<string>(COMMANDS.map((c) => c.name));
+  const seen = new Set<string>();
+  const found: SkillMenuItem[] = [];
+  for (const s of skills) {
+    if (!SKILL_NAME.test(s.name) || builtin.has(s.name) || seen.has(s.name)) continue;
+    seen.add(s.name);
+    if (s.name.startsWith(prefix)) found.push(s);
+  }
+  found.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+  return { commands: COMMANDS.filter((c) => c.name.startsWith(prefix)), skills: found };
+}
+
+/**
+ * What a picked skill inserts: `$name` and a space, the reference the Gateway reads in an owner
+ * message, so the owner types the request after it.
+ */
+export function skillCompletion(skill: SkillMenuItem): string {
+  return `$${skill.name} `;
+}

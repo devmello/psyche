@@ -264,6 +264,7 @@ export const ko: Partial<Catalogue> = {
   "chat.commands.usageModel": "사용법: /model 제공업체/모델, 예: anthropic/claude-sonnet-5-5",
   "chat.commands.usageExport": "사용법: /export [md | json]",
   "chat.composer.commands": "명령",
+  "chat.composer.skills": "스킬",
   "chat.composer.quoting": "인용 중:",
   "chat.composer.removeQuote": "인용 제거",
   "chat.composer.offline": "Psyche에 연결할 수 없음",
