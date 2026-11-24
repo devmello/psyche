@@ -259,7 +259,18 @@ export function ApprovalsPanel({
   decided?: boolean;
 }): ReactElement {
   const now = useNow(1000, fixedNow);
-  const { live, deferred, recent, answer, loading, tasks, threads } = useApprovalQueue();
+  const {
+    live,
+    deferred,
+    recent,
+    answer,
+    loading,
+    tasks,
+    threads,
+    hasMoreRecent,
+    loadMoreRecent,
+    loadingMoreRecent,
+  } = useApprovalQueue();
   const questions = useQuestions();
   const persona = usePersona();
   const slots = useSlots();
@@ -286,6 +297,12 @@ export function ApprovalsPanel({
   const recentList = recent.filter(
     (v) => now - Date.parse(v.approval.decidedAt ?? v.approval.requestedAt) < RECENT_MS,
   );
+  // The list is cut at 7 days: more history only matters while the oldest loaded is inside it.
+  const oldestLoaded = recent.at(-1)?.approval;
+  const moreRecentInWindow =
+    hasMoreRecent &&
+    oldestLoaded !== undefined &&
+    now - Date.parse(oldestLoaded.decidedAt ?? oldestLoaded.requestedAt) < RECENT_MS;
   const [grantsOpen, setGrantsOpen] = useState(false);
   const [decidedOpen, setDecidedOpen] = useState(decided);
   const decidedRef = useRef<HTMLDivElement>(null);
@@ -452,6 +469,18 @@ export function ApprovalsPanel({
                 })}
               </ul>
             )}
+            {moreRecentInWindow ? (
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                className="ms-5.5"
+                disabled={loadingMoreRecent}
+                onClick={() => void loadMoreRecent().catch(() => {})}
+              >
+                {t("screens.feedback.showOlder")}
+              </Button>
+            ) : null}
             <a
               href={overview.href}
               onClick={overview.onClick}
