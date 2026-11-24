@@ -21,7 +21,15 @@ import {
   mimeOfName,
   prepareAttachedFiles,
 } from "./chat-files.ts";
+import { type SkillTurn, skillsNamedBy } from "./chat-skills.ts";
 import { requireThread } from "./threads.ts";
+
+/** What `chat.send` reads before its transaction opens. */
+interface ChatPrepared {
+  attachedFiles?: AttachedFileInfo[];
+  /** The skills the owner's message names as `$name` (undefined: none). */
+  skills?: SkillTurn;
+}
 
 const DEFAULT_PAGE = 100;
 const MAX_PAGE = 500;
@@ -59,9 +67,15 @@ function send(
   },
   mode: QueueMode | undefined,
 ) {
-  assertWritableThread(requireThread(call, params.threadId), "written to");
-  // Checked and described by `prepareAttachedFiles`, before the transaction opened.
-  const attachedFiles = call.prepared as AttachedFileInfo[] | undefined;
+  const thread = requireThread(call, params.threadId);
+  assertWritableThread(thread, "written to");
+  // Checked and described by `prepareAttachedFiles`, and the skills it names read, before the
+  // transaction opened.
+  const prepared = call.prepared as ChatPrepared | undefined;
+  const attachedFiles = prepared?.attachedFiles;
+  // A message that starts a turn gets its skills' text. A busy chat queues or steers the message
+  // as typed (the controller takes no context for those): the `$name` stays plain text.
+  const skillTurn = (thread.activeWriterRunId ?? null) === null ? prepared?.skills : undefined;
   if (params.attachedFiles?.length && attachedFiles === undefined) {
     throw new PsycheError("internal", "attached files were not checked");
   }
@@ -120,6 +134,7 @@ function send(
     ...(fromWidget ?? []),
     ...(screen?.taintSources ?? []),
     ...(context?.taintSources ?? []),
+    ...(skillTurn?.taintSources ?? []),
   ];
   const result = call.ctx.sessions.send(
     {
@@ -134,13 +149,17 @@ function send(
             // targets of theirs (never `author: "owner"`).
             ownerWords: false,
           }),
-      ...(screen === undefined && context === undefined && attachedFiles === undefined
+      ...(screen === undefined &&
+      context === undefined &&
+      attachedFiles === undefined &&
+      skillTurn === undefined
         ? {}
         : {
             preamble: [
               screen?.preamble,
               context?.preamble,
               attachedFiles === undefined ? undefined : attachedFilesPreamble(attachedFiles),
+              skillTurn?.preamble,
             ]
               .filter((p): p is string => p !== undefined)
               .join("\n\n"),
@@ -259,8 +278,19 @@ export function transcriptMarkdown(thread: Thread, messages: readonly Message[])
 export const chatHandlers: Record<string, HandlerDef> = {
   "chat.send": {
     transactional: true,
-    prepare: (call: Call, params: { threadId: string; attachedFiles?: ChatAttachedFile[] }) =>
-      prepareAttachedFiles(call, params),
+    prepare: async (
+      call: Call,
+      params: {
+        threadId: string;
+        content: string;
+        redo?: { messageId: string; instruction?: string; withoutLessons?: boolean };
+        fromWidget?: { widgetId: string };
+        attachedFiles?: ChatAttachedFile[];
+      },
+    ): Promise<ChatPrepared> => ({
+      attachedFiles: await prepareAttachedFiles(call, params),
+      skills: await skillsNamedBy(call, params),
+    }),
     run: (
       call: Call,
       params: {

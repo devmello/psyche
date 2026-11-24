@@ -249,7 +249,9 @@ export function Composer({
               className="absolute start-0 bottom-full z-10 mb-2 max-h-72 w-full overflow-y-auto rounded-lg bg-surface-overlay p-1 shadow-elevation-2"
             >
               {menu.matches.map((item, i) => {
-                const label = item.kind === "command" ? item.info.name : item.skill.name;
+                // A command shows `/name`; a skill shows `$name`, the text picking it inserts.
+                const label =
+                  item.kind === "command" ? `/${item.info.name}` : `$${item.skill.name}`;
                 const description =
                   item.kind === "command" ? item.info.description : item.skill.description;
                 return (
@@ -277,7 +279,7 @@ export function Composer({
                         menu.pick(item);
                       }}
                     >
-                      <span className="font-mono text-label-primary">/{label}</span>
+                      <span className="font-mono text-label-primary">{label}</span>
                       {item.kind === "command" && item.info.hint ? (
                         <span className="text-callout text-label-tertiary">{item.info.hint}</span>
                       ) : null}
