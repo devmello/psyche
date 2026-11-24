@@ -1,4 +1,5 @@
 import { type ReactElement, useId } from "react";
+import { toast } from "sonner";
 import { Avatar } from "../../avatar/Avatar.tsx";
 import { Button } from "../../components/ui/button.tsx";
 import { Input } from "../../components/ui/input.tsx";
@@ -7,6 +8,7 @@ import { Textarea } from "../../components/ui/textarea.tsx";
 import { useSettings } from "../../data/hooks.ts";
 import { t } from "../../i18n/core.ts";
 import { tk } from "../../i18n/dynamic.ts";
+import { describeError } from "../../i18n/errors.ts";
 import { LANGUAGE_SETTING } from "../../i18n/locale.ts";
 import { LanguageSelect } from "../settings/LanguageSettings.tsx";
 import { CreaturePicker } from "../settings/PersonaSection.tsx";
@@ -39,7 +41,11 @@ function OnboardingLanguage(): ReactElement {
         className="min-w-48"
         value={settings[LANGUAGE_SETTING]}
         describedBy={`${id}-language-hint`}
-        onChange={(language) => void set(LANGUAGE_SETTING, language).catch(() => {})}
+        onChange={(language) =>
+          void set(LANGUAGE_SETTING, language).catch((err: unknown) =>
+            toast.error(t("actionError.language", { reason: describeError(err) })),
+          )
+        }
       />
     </div>
   );

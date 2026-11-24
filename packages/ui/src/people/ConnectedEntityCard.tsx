@@ -1,6 +1,9 @@
 import type { MethodResult } from "@psyche/protocol";
 import { type ReactElement, useState } from "react";
+import { toast } from "sonner";
 import { useCall, useGatewayQuery } from "../data/hooks.ts";
+import { t } from "../i18n/core.ts";
+import { describeError } from "../i18n/errors.ts";
 import { useOpenLink } from "../links/LinkPrompt.tsx";
 import { ConnectedAnchors } from "../memory-page/Anchors.tsx";
 import { ConnectedTimeline } from "../memory-page/Timeline.tsx";
@@ -124,10 +127,14 @@ export function ConnectedEntityCard({
           {...(isPerson
             ? {
                 onExport: () => {
-                  void call("memory.entities.export", { id }).then((file) => {
-                    if (onExportReady) onExportReady(file);
-                    else downloadZip(file);
-                  });
+                  void call("memory.entities.export", { id })
+                    .then((file) => {
+                      if (onExportReady) onExportReady(file);
+                      else downloadZip(file);
+                    })
+                    .catch((err: unknown) =>
+                      toast.error(t("actionError.exportPerson", { reason: describeError(err) })),
+                    );
                 },
                 onSplit: () => setDialog("split"),
                 onForgetSaid: () => setDialog("said"),

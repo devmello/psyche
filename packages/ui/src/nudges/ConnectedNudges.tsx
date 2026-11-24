@@ -1,10 +1,12 @@
 import type { NudgeAction } from "@psyche/protocol";
 import type { ReactElement } from "react";
+import { toast } from "sonner";
 import { usePrefillComposer } from "../chat/prefill.ts";
 import { GroupedList } from "../components/page.tsx";
 import { Button } from "../components/ui/button.tsx";
 import { useCall, useGatewayQuery } from "../data/hooks.ts";
 import { t } from "../i18n/core.ts";
+import { describeError } from "../i18n/errors.ts";
 import { NudgeActions } from "./NudgeActions.tsx";
 
 /** Under a nudge's Feed card: the actions for the nudge the post points at (`refs.nudgeId`). */
@@ -56,7 +58,11 @@ export function PersonNudgeRow({
             size="sm"
             variant="outline"
             onClick={() =>
-              void call("nudges.mute", { entityId, muted: false }).finally(() => list.reload())
+              void call("nudges.mute", { entityId, muted: false })
+                .catch((err: unknown) =>
+                  toast.error(t("actionError.unmute", { reason: describeError(err) })),
+                )
+                .finally(() => list.reload())
             }
           >
             {t("nudges.person.unmute")}

@@ -7,10 +7,12 @@ import type {
 } from "@psyche/protocol";
 import { RefreshCw } from "lucide-react";
 import type { ReactElement, ReactNode } from "react";
+import { toast } from "sonner";
 import { useOpenInSideChat } from "../../chat/ask-about.ts";
 import { Button } from "../../components/ui/button.tsx";
 import { useSearchIndexStatus } from "../../data/hooks.ts";
 import { t } from "../../i18n/core.ts";
+import { describeError } from "../../i18n/errors.ts";
 import { ConnectedEntityCard } from "../../people/ConnectedEntityCard.tsx";
 import { useSlots } from "../../slots.tsx";
 import { ScreenColumn, ScreenToolbar } from "../feed/ScreenToolbar.tsx";
@@ -256,7 +258,13 @@ export function SearchScreen({
       )}
       {...(now !== undefined ? { now } : {})}
       {...(index.status === undefined ? {} : { indexStatus: index.status })}
-      onReindex={() => void index.reindex().catch(() => undefined)}
+      onReindex={() =>
+        void index
+          .reindex()
+          .catch((err: unknown) =>
+            toast.error(t("actionError.reindex", { reason: describeError(err) })),
+          )
+      }
       reindexing={index.reindexing}
       {...(search.understood ? { understood: search.understood } : {})}
       onDropChip={search.dropChip}

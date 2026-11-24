@@ -3,6 +3,7 @@ import type { Block, Message } from "@psyche/protocol";
 import { ArrowDown } from "lucide-react";
 import * as m from "motion/react-m";
 import { type ReactElement, type ReactNode, useEffect, useId, useState } from "react";
+import { toast } from "sonner";
 import { Avatar } from "../avatar/Avatar.tsx";
 import { NEEDS_YOU_ROW, NeedsYouTag } from "../chat/NeedsYou.tsx";
 import { RailNode } from "../chat/RailNode.tsx";
@@ -21,6 +22,7 @@ import {
   useTask,
 } from "../data/index.ts";
 import { t } from "../i18n/core.ts";
+import { describeError } from "../i18n/errors.ts";
 import { displaySummary } from "../lib/cards.ts";
 import { cn } from "../lib/utils.ts";
 import { MapBlock } from "../map/MapBlock.tsx";
@@ -92,7 +94,14 @@ function ResearchRunBlock({ block }: { block: ToolCallBlock }): ReactElement {
       view={shown}
       {...(threadId === null
         ? {}
-        : { onStop: () => void store.call("chat.cancel", { threadId }).catch(() => undefined) })}
+        : {
+            onStop: () =>
+              void store
+                .call("chat.cancel", { threadId })
+                .catch((err: unknown) =>
+                  toast.error(t("actionError.stopResearch", { reason: describeError(err) })),
+                ),
+          })}
     />
   );
 }

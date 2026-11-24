@@ -4,6 +4,7 @@
  * `@psyche/ui/styles.css`. See README.md for the catalogue.
  */
 
+export { toast } from "sonner";
 // Agent header and sheet.
 export { ActionLog, ActivityPanel, TaskDetail, TaskList } from "./agent/ActivityPanel.tsx";
 export { AgentHeader, type AgentHeaderProps, MODE_LABEL } from "./agent/AgentHeader.tsx";

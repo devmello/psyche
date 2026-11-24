@@ -1,9 +1,11 @@
 import type { ScheduledRunEntry, ScheduledRunState } from "@psyche/protocol";
 import { type ReactElement, useEffect, useState } from "react";
+import { toast } from "sonner";
 import { Button } from "../../components/ui/button.tsx";
 import { useCall, useGatewayQuery } from "../../data/index.ts";
 import { t } from "../../i18n/core.ts";
 import { tk } from "../../i18n/dynamic.ts";
+import { describeError } from "../../i18n/errors.ts";
 import { formatDuration, formatRelative } from "../../lib/format.ts";
 import { absoluteWhen, itemName } from "./format.ts";
 
@@ -293,7 +295,9 @@ export function ScheduledRuns({
       onRerun={(automationId) => {
         setRerunning((x) => new Set(x).add(automationId));
         call("automations.run", { automationId })
-          .catch(() => undefined)
+          .catch((err: unknown) =>
+            toast.error(t("actionError.rerun", { reason: describeError(err) })),
+          )
           .finally(() => {
             setRerunning((x) => {
               const n = new Set(x);

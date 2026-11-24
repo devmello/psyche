@@ -1,4 +1,5 @@
 import type { Catalogue } from "../index.ts";
+import { actionErrors } from "./action-errors/pt.ts";
 import { agentA } from "./agent-a/pt.ts";
 import { blocksA } from "./blocks-a/pt.ts";
 import { canvas } from "./canvas/pt.ts";
@@ -3882,4 +3883,5 @@ export const pt: Partial<Catalogue> = {
   ...update,
   ...spaces,
   ...machines,
+  ...actionErrors,
 };
