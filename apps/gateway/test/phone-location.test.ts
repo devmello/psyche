@@ -115,6 +115,7 @@ const nodes = (c: TestClient) => c.call<{ nodes: NodeInfo[] }>("nodes.list", {})
 
 async function ask(): Promise<ToolResult> {
   const tool = phoneLocationTool({ nodes: () => t.gateway.context.nodes });
+  if (tool.run === undefined) throw new Error("location_current runs in-process");
   return tool.run({}, { signal: new AbortController().signal } as never);
 }
 
