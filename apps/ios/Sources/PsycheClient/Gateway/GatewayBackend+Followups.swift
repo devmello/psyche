@@ -27,12 +27,19 @@ extension GatewayBackend {
         return suggestion
     }
 
-    public func approveSuggestion(id: String) async throws {
+    @discardableResult
+    public func approveSuggestion(id: String) async throws -> NeedsYouItem? {
         let result = try await call("proposals.approve", Self.suggestionIDParams(id))
-        guard let approvalID = result["approval"]?["id"]?.string else { throw BackendError.notFound }
+        guard let approval = result["approval"], let approvalID = approval["id"]?.string else { throw BackendError.notFound }
+        // A payment, or details too large to show in full here, is never answered from the phone: hand it to the
+        // approval sheet, which keeps the Mac-only and presence rules. Nothing is sent to approvals.answer.
+        if approval["requiresAuthentication"]?.bool == true || Self.detailsNeedMac(approval["details"]) {
+            return Self.needsYou(approval: approval, holdsAnswer: false)
+        }
         // The token is this phone's single-use answer for the batch approval. Without one the Mac has to answer.
         guard let token = result["answerToken"]?.string else { throw BackendError.refused("This one needs your Mac. Answer it there.") }
         _ = try await call("approvals.answer", Self.suggestionAnswerParams(approvalID: approvalID, token: token))
+        return nil
     }
 
     public func dismissSuggestion(id: String) async throws {

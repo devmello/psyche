@@ -119,6 +119,27 @@ struct FollowupsBackendTests {
         #expect(answer[0].params?["scope"]?.string == "once")
     }
 
+    @Test func aPaymentApprovalIsHandedToTheSheetNotAnswered() async throws {
+        let (backend, h) = try await live { g in
+            g.on("proposals.approve") { _ in .success(.object([
+                "proposal": Self.proposal(id: "sg1", status: "awaiting_approval"),
+                "approval": .object([
+                    "id": .string("ap_pay"), "status": .string("pending"), "kind": .string("payment"),
+                    "summary": .string("Pay the electricity bill"), "requiresAuthentication": .bool(true),
+                    "details": .object([:]),
+                ]),
+                "answerToken": .string("tok_phone"),
+            ])) }
+            g.on("approvals.answer") { _ in .success(.object([:])) }
+        }
+        let handoff = try await backend.approveSuggestion(id: "sg1")
+        #expect(handoff?.id == "ap_pay")
+        #expect(handoff?.approval?.needsMac == true)
+        #expect(handoff?.approval?.canDeny == false)
+        // Nothing is answered from the phone: the sheet decides, with its own presence rules.
+        #expect(h.gateway.received.filter { $0.method == "approvals.answer" }.isEmpty)
+    }
+
     @Test func approveWithoutATokenSendsNothingAndAsksForTheMac() async throws {
         let (backend, h) = try await live { g in
             g.on("proposals.approve") { _ in .success(.object([

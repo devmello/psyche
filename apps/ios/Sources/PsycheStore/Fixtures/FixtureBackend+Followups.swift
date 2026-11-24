@@ -50,13 +50,14 @@ extension FixtureBackend: FollowupsBackend {
         return found
     }
 
-    public func approveSuggestion(id: String) async throws {
+    public func approveSuggestion(id: String) async throws -> NeedsYouItem? {
         let index = try suggestionIndex(id)
         guard followupsState.suggestions[index].status == .pending else {
             throw BackendError.refused("That suggestion is no longer waiting.")
         }
         followupsState.suggestions[index].status = .done
         publish(.changed(.home))
+        return nil
     }
 
     public func dismissSuggestion(id: String) async throws {

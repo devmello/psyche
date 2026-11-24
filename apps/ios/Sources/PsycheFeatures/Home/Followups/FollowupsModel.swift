@@ -60,23 +60,30 @@ final class FollowupsModel {
         await load()
     }
 
-    /// Approve is one tap: the Gateway requests the batch approval and answers it with this phone's token.
-    func approve(_ suggestion: Suggestion) async {
-        guard !busy.contains(suggestion.id) else { return }
+    /// Approve, from the detail sheet where the calls are on screen. The Gateway requests the batch approval and answers
+    /// it with this phone's token. Returns the Needs-you item to open in the approval sheet when the phone must not
+    /// answer it itself (a payment); nil when it was answered here.
+    @discardableResult
+    func approve(_ suggestion: Suggestion) async -> NeedsYouItem? {
+        guard !busy.contains(suggestion.id) else { return nil }
         busy.insert(suggestion.id)
         defer { busy.remove(suggestion.id) }
+        var handoff: NeedsYouItem?
         do {
-            try await store.approveSuggestion(id: suggestion.id)
+            handoff = try await store.approveSuggestion(id: suggestion.id)
             error = nil
-            suggestions.removeAll { $0.id == suggestion.id }
-            // Keep it for Undo when it ran and can be reversed; the Gateway says whether it did.
-            if let ran = try? await store.suggestion(id: suggestion.id), ran.canUndo {
-                undoable.append(UndoWindow(suggestion: ran, until: .now.addingTimeInterval(Self.undoWindow)))
+            if handoff == nil {
+                suggestions.removeAll { $0.id == suggestion.id }
+                // Keep it for Undo when it ran and can be reversed; the Gateway says whether it did.
+                if let ran = try? await store.suggestion(id: suggestion.id), ran.canUndo {
+                    undoable.append(UndoWindow(suggestion: ran, until: .now.addingTimeInterval(Self.undoWindow)))
+                }
             }
         } catch {
             self.error = error.localizedDescription
         }
         await load()
+        return handoff
     }
 
     func dismiss(_ suggestion: Suggestion) async {

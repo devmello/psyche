@@ -117,10 +117,9 @@ struct FollowupsHomeSections: View {
             }
             .buttonStyle(.plain)
             HStack(spacing: 20) {
-                Button(String(localized: "Approve", bundle: .module)) {
-                    Task { await model.approve(suggestion) }
-                }
-                .foregroundStyle(PsycheColor.inkText)
+                // Approve opens the sheet, where every call is on screen before the one tap.
+                Button(String(localized: "Approve", bundle: .module)) { open = suggestion }
+                    .foregroundStyle(PsycheColor.inkText)
                 Button(String(localized: "Dismiss", bundle: .module)) {
                     Task { await model.dismiss(suggestion) }
                 }
@@ -172,6 +171,7 @@ private struct SuggestionSheet: View {
     let store: any PsycheBackend
     @State private var current: Suggestion?
     @Environment(\.dismiss) private var dismiss
+    @Environment(Router.self) private var router
 
     var body: some View {
         let shown = current ?? suggestion
@@ -197,8 +197,10 @@ private struct SuggestionSheet: View {
                     HStack(spacing: 20) {
                         Button(String(localized: "Approve", bundle: .module)) {
                             Task {
-                                await model.approve(shown)
+                                // A payment the phone must not answer goes to the approval sheet, with its Touch ID rules.
+                                let handoff = await model.approve(shown)
                                 dismiss()
+                                if let handoff { router.open(handoff) }
                             }
                         }
                         .foregroundStyle(PsycheColor.inkText)

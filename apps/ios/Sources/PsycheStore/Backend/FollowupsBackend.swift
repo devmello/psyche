@@ -14,9 +14,12 @@ public protocol FollowupsBackend: Sendable {
     func suggestions() async throws -> [Suggestion]
     /// One suggestion as the Gateway holds it now (its calls, and its status once it ran).
     func suggestion(id: String) async throws -> Suggestion
-    /// Approves a suggestion: requests its one batch approval and answers it with this phone's token, so one tap runs
-    /// its calls. Refused with the Gateway's words when it can't run.
-    func approveSuggestion(id: String) async throws
+    /// Approves a suggestion from its detail sheet: requests its one batch approval and, when the phone may answer it,
+    /// answers it with this phone's token so one tap runs its calls. Returns nil when answered. An approval the phone
+    /// must not answer (a payment, or details too large to show here) is handed back as a Needs-you item instead, for
+    /// the approval sheet to answer, and nothing is sent. Refused with the Gateway's words when it can't run.
+    @discardableResult
+    func approveSuggestion(id: String) async throws -> NeedsYouItem?
     func dismissSuggestion(id: String) async throws
     /// Offers the inverse of a finished, reversible suggestion. It comes back as a new suggestion waiting for its approval.
     func undoSuggestion(id: String) async throws
