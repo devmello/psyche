@@ -35,7 +35,7 @@ export function mergeListedThreads(
   listed: readonly ThreadListEntry[],
   version: number,
 ): Dict<ThreadListEntry> {
-  const next: Dict<ThreadListEntry> = { ...s.threads };
+  const next: Record<string, ThreadListEntry> = { ...s.threads };
   for (const t of listed) {
     if ((s.touched[`threads:${t.thread.id}`] ?? -1) > version) continue;
     next[t.thread.id] = t;
