@@ -2405,15 +2405,22 @@ export class MockGateway implements GatewayClient {
       this.emit("growth.updated", {});
       return { event, lesson, approval: null };
     },
-    "feedback.list": (p) => ({
-      events: this.world.feedbackEvents.filter(
+    "feedback.list": (p) => {
+      // Newest first (events are prepended). The cursor is the offset of the next page.
+      const all = this.world.feedbackEvents.filter(
         (e) =>
           (p.kind === undefined || e.kind === p.kind) &&
           (p.targetType === undefined || e.target.type === p.targetType) &&
           (p.since === undefined || e.createdAt >= p.since),
-      ),
-      nextCursor: null,
-    }),
+      );
+      const start = p.cursor === undefined ? 0 : Number(p.cursor);
+      const limit = p.limit ?? 20;
+      const end = start + limit;
+      return {
+        events: all.slice(start, end),
+        nextCursor: end < all.length ? String(end) : null,
+      };
+    },
     "feedback.delete": (p) => {
       this.find(this.world.feedbackEvents, p.eventId, "feedback event");
       this.world.feedbackEvents = this.world.feedbackEvents.filter((e) => e.id !== p.eventId);
