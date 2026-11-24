@@ -63,6 +63,7 @@ export function createVaultHandlers(
           : await vault.unlockWithRecovery(recoveryKey),
     }),
     "vault.lock": async () => ({ status: vault.lock("manual") }),
+    "vault.setAutoLock": async ({ minutes }) => ({ status: await vault.setAutoLock(minutes) }),
     "vault.add": async (p) => {
       const input: Parameters<Vault["add"]>[0] = {
         kind: p.kind,

@@ -3994,6 +3994,17 @@ export class MockGateway implements GatewayClient {
       vault.status = { ...vault.status, state: "unlocked" };
       return { status: vault.status };
     },
+    "vault.lock": () => {
+      const vault = this.vaultOf();
+      vault.status = { ...vault.status, state: "locked", lockAt: null };
+      return { status: vault.status };
+    },
+    "vault.setAutoLock": (p) => {
+      const vault = this.vaultOf();
+      if (vault.status.state === "uninitialized") fail("not_found", "no vault");
+      vault.status = { ...vault.status, autoLockMinutes: p.minutes };
+      return { status: vault.status };
+    },
     "vault.list": () => ({ credentials: this.world.credentials }),
     "vault.add": (p) => {
       // The mock never keeps the secret. Like the vault, it refuses card-like numbers.

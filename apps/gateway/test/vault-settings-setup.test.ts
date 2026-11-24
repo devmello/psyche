@@ -187,4 +187,37 @@ describe("vault set up and recovery confirmed from Settings", () => {
     const after = await admin.call<{ status: VaultStatus }>("vault.status", {});
     expect(after.status.recoveryConfirmed).toBe(false);
   });
+
+  it("sets the idle auto-lock for an admin; a device without admin is refused and nothing changes", async () => {
+    const { gw, admin } = await start();
+    await admin.call("vault.setup", { slot: "keychain" }, ik());
+
+    const set = await admin.call<{ status: VaultStatus }>(
+      "vault.setAutoLock",
+      { minutes: 30 },
+      ik(),
+    );
+    expect(set.status.autoLockMinutes).toBe(30);
+
+    const plain = await desktopClient(gw.gateway);
+    cleanups.push(() => plain.close());
+    const refused = await plain.request("vault.setAutoLock", { minutes: null }, ik());
+    expect(refused.ok).toBe(false);
+    expect((refused.error as { code?: string } | undefined)?.code).toBe("forbidden");
+    const still = await admin.call<{ status: VaultStatus }>("vault.status", {});
+    expect(still.status.autoLockMinutes).toBe(30);
+
+    // Out-of-range minutes are refused by the protocol, before the handler runs.
+    const bad = await admin.request("vault.setAutoLock", { minutes: 0 }, ik());
+    expect(bad.ok).toBe(false);
+    expect((bad.error as { code?: string } | undefined)?.code).toBe("invalid_params");
+
+    // "Never" is the owner's explicit choice from an admin device.
+    const never = await admin.call<{ status: VaultStatus }>(
+      "vault.setAutoLock",
+      { minutes: null },
+      ik(),
+    );
+    expect(never.status.autoLockMinutes).toBeNull();
+  });
 });

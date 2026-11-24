@@ -1727,6 +1727,8 @@
 //   let vaultPaymentsListResult = try? JSONDecoder().decode(VaultPaymentsListResult.self, from: jsonData)
 //   let vaultPaymentsMethodsParams = try? JSONDecoder().decode(VaultPaymentsMethodsParams.self, from: jsonData)
 //   let vaultPaymentsMethodsResult = try? JSONDecoder().decode(VaultPaymentsMethodsResult.self, from: jsonData)
+//   let vaultSetAutoLockParams = try? JSONDecoder().decode(VaultSetAutoLockParams.self, from: jsonData)
+//   let vaultSetAutoLockResult = try? JSONDecoder().decode(VaultSetAutoLockResult.self, from: jsonData)
 //   let vaultSetupParams = try? JSONDecoder().decode(VaultSetupParams.self, from: jsonData)
 //   let vaultSetupResult = try? JSONDecoder().decode(VaultSetupResult.self, from: jsonData)
 //   let vaultStatus = try? JSONDecoder().decode(VaultStatus.self, from: jsonData)
@@ -38764,7 +38766,7 @@ public struct VaultConfirmRecoveryResult: Codable, Sendable {
 
 // MARK: - VaultStatus
 public struct VaultStatus: Codable, Sendable {
-    public let autoLockMinutes: Int
+    public let autoLockMinutes: Int?
     public let itemCount: Int
     public let lockAt: String?
     public let recoveryConfirmed: Bool
@@ -38780,7 +38782,7 @@ public struct VaultStatus: Codable, Sendable {
         case state = "state"
     }
 
-    public init(autoLockMinutes: Int, itemCount: Int, lockAt: String? = nil, recoveryConfirmed: Bool, slots: [VaultKeySlot], state: VaultStatusState) {
+    public init(autoLockMinutes: Int? = nil, itemCount: Int, lockAt: String? = nil, recoveryConfirmed: Bool, slots: [VaultKeySlot], state: VaultStatusState) {
         self.autoLockMinutes = autoLockMinutes
         self.itemCount = itemCount
         self.lockAt = lockAt
@@ -39257,6 +39259,32 @@ public struct LinkPaymentMethod: Codable, Sendable {
         self.isDefault = isDefault
         self.last4 = last4
         self.nickname = nickname
+    }
+}
+
+// MARK: - VaultSetAutoLockParams
+public struct VaultSetAutoLockParams: Codable, Sendable {
+    public let minutes: Int?
+
+    public enum CodingKeys: String, CodingKey {
+        case minutes = "minutes"
+    }
+
+    public init(minutes: Int? = nil) {
+        self.minutes = minutes
+    }
+}
+
+// MARK: - VaultSetAutoLockResult
+public struct VaultSetAutoLockResult: Codable, Sendable {
+    public let status: VaultStatus
+
+    public enum CodingKeys: String, CodingKey {
+        case status = "status"
+    }
+
+    public init(status: VaultStatus) {
+        self.status = status
     }
 }
 

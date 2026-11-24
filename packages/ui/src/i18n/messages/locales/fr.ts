@@ -1312,6 +1312,20 @@ export const fr: Partial<Catalogue> = {
     "Nécessite un Psyche Helper signé avec un Developer ID et un profil d’approvisionnement",
   "settings.credentials.keyFileExplainer":
     "La clé qui ouvre votre coffre est un fichier que seul votre compte peut lire. La déplacer vers le trousseau (Touch ID) nécessite un Psyche Helper signé ; l’assistant de cette version n’est pas signé.",
+  "settings.credentials.lockNow": "Verrouiller maintenant",
+  "settings.credentials.autoLock.label": "Verrouillage automatique après inactivité",
+  "settings.credentials.autoLock.hint":
+    "Le coffre se verrouille automatiquement après ce délai sans utilisation.",
+  "settings.credentials.autoLock.m15": "15 minutes",
+  "settings.credentials.autoLock.h1": "1 heure",
+  "settings.credentials.autoLock.h8": "8 heures",
+  "settings.credentials.autoLock.h24": "24 heures",
+  "settings.credentials.autoLock.never": "Jamais",
+  "settings.credentials.autoLock.custom": "{minutes} minutes",
+  "settings.credentials.autoLock.neverWarning":
+    "Sans verrouillage automatique, le coffre reste déverrouillé jusqu'à ce que vous le verrouilliez. Toute personne devant ce Mac peut alors utiliser vos identifiants enregistrés.",
+  "settings.credentials.err.lock": "Le coffre n'a pas pu être verrouillé : {reason}",
+  "settings.credentials.err.autoLock": "Le verrouillage automatique n'a pas été modifié : {reason}",
   "settings.credentials.detail.executor.browser": "Navigateur",
   "settings.credentials.detail.executor.connector": "Connecteur",
   "settings.credentials.detail.executor.sandbox": "Bac à sable",
