@@ -186,8 +186,7 @@ struct HeldBackView: View {
         Text("Trusted contacts", bundle: .module).font(.headline).foregroundStyle(PsycheColor.text)
             .padding(.top, 28).padding(.bottom, 4)
             .task { await model.loadSenders() }
-        Text("People whose facts Psyche accepts without asking. Sensitive or unsure facts still wait for you.",
-             bundle: .module)
+        Text("People whose facts Psyche accepts without asking. Sensitive or unsure facts still wait for you.", bundle: .module)
             .font(.subheadline).foregroundStyle(PsycheColor.muted).padding(.bottom, 12)
         switch model.senders {
         case .idle, .loading:
@@ -260,8 +259,7 @@ private struct SenderRowView: View {
                                    bundle: .module),
                     sender.confirmed, sender.name))
                     .font(.psycheRow).foregroundStyle(PsycheColor.text)
-                Text("Anything sensitive, unsure or in conflict is still reviewed, and you can undo for a week.",
-                     bundle: .module)
+                Text("Anything sensitive, unsure or in conflict is still reviewed, and you can undo for a week.", bundle: .module)
                     .font(.caption).foregroundStyle(PsycheColor.muted)
                 HStack(spacing: 12) {
                     Button(action: { decide(.trust) }) {
