@@ -7,6 +7,13 @@ import Testing
 struct TaskRunTests {
     let store = FixtureBackend()
 
+    @Test func theFixtureRunHasTwoHelpersAndOtherRunsHaveNone() async throws {
+        let helpers = try await store.runChildren(runID: FixtureData.runID)
+        #expect(helpers.count == 2)
+        #expect(helpers.map(\.kind) == [.specialist, .helper])
+        #expect(try await store.runChildren(runID: "run_not_in_fixture").isEmpty)
+    }
+
     @Test func eachStateShowsOnlyTheControlsTheGatewayAccepts() {
         let expected: [TaskRunState: [String]] = [
             .running: ["pause", "steer", "cancel"],

@@ -18,7 +18,7 @@ import { timeScale } from "../../components/timeline/scale.ts";
 import { Button } from "../../components/ui/button.tsx";
 import { Skeleton } from "../../components/ui/skeleton.tsx";
 import { useStoreState } from "../../data/provider.tsx";
-import { useRun, useRunFrames, useRunSteps } from "../../data/runs.ts";
+import { useRun, useRunChildren, useRunFrames, useRunSteps } from "../../data/runs.ts";
 import { t } from "../../i18n/core.ts";
 import { formatTime } from "../../lib/format.ts";
 import { cn } from "../../lib/utils.ts";
@@ -26,6 +26,7 @@ import { Disclosure, fade } from "../../motion/index.ts";
 import { countAtOrBefore, useReplayClock } from "./clock.ts";
 import { FailureBanner } from "./FailureBanner.tsx";
 import { Thumbs } from "./FrameViewer.tsx";
+import { HelpersSection } from "./HelpersSection.tsx";
 import { timelineAction, zoomStep } from "./keyboard.ts";
 import { ListView } from "./ListView.tsx";
 import {
@@ -116,7 +117,66 @@ export interface TimelineViewProps extends StepLinks {
   initialReplayAt?: number;
 }
 
-export function TimelineView({
+export function TimelineView(props: TimelineViewProps): ReactElement {
+  const {
+    runId,
+    onBack,
+    onStop,
+    onPause,
+    onRetry,
+    controls,
+    initialStepId,
+    initialTab,
+    initialReplayAt,
+    ...shared
+  } = props;
+  // The helper runs opened from this one, outermost first. The trail belongs to this root run:
+  // another root starts with no trail.
+  const [trail, setTrail] = useState<{ root: string; ids: readonly string[] }>({
+    root: runId,
+    ids: [],
+  });
+  const path = trail.root === runId ? trail.ids : [];
+  const current = path.at(-1) ?? runId;
+  const parentId = path.length > 1 ? (path.at(-2) ?? runId) : runId;
+  const parentRun = useStoreState((s) => s.runs[parentId] ?? null);
+  const open = useCallback(
+    (id: string) =>
+      setTrail((tr) => ({ root: runId, ids: [...(tr.root === runId ? tr.ids : []), id] })),
+    [runId],
+  );
+  const back = useCallback(
+    () => setTrail((tr) => ({ root: runId, ids: (tr.root === runId ? tr.ids : []).slice(0, -1) })),
+    [runId],
+  );
+  // Only the root run gets its own actions and opening step; a helper opens plain.
+  const rootProps = path.length === 0 ? props : shared;
+  return (
+    <TimelineRun
+      {...rootProps}
+      key={current}
+      runId={current}
+      onOpenRun={open}
+      {...(path.length > 0
+        ? {
+            returnTo: {
+              title: parentRun ? runTitle(parentRun) : t("agent.timeline.untitled"),
+              onReturn: back,
+            },
+          }
+        : {})}
+    />
+  );
+}
+
+interface TimelineRunProps extends TimelineViewProps {
+  /** Opens a helper run in this Timeline. */
+  onOpenRun: (runId: string) => void;
+  /** Set on a helper run: the run it was opened from, and the way back to it. */
+  returnTo?: { title: string; onReturn: () => void };
+}
+
+function TimelineRun({
   runId,
   initialStepId,
   now: fixedNow,
@@ -131,12 +191,19 @@ export function TimelineView({
   retentionDays = 7,
   initialTab,
   initialReplayAt,
+  onOpenRun,
+  returnTo,
   ...links
-}: TimelineViewProps): ReactElement {
+}: TimelineRunProps): ReactElement {
   const { run, steps, children, error, reload, exportTrace, deleteTrace } = useRun(runId);
   const { frames, image } = useRunFrames(runId);
   const allSteps = useStoreState((s) => s.runSteps);
   const runs = useStoreState((s) => s.runs);
+  // Helpers reload when the parent moves: a new helper, a step, or the run ending.
+  const helpers = useRunChildren(
+    runId,
+    `${run?.status ?? ""}|${run?.stepCount ?? ""}|${run?.endedAt ?? ""}`,
+  );
   const storeThreadTitle = useStoreState((s) =>
     run ? (s.threads[run.threadId]?.thread.title ?? null) : null,
   );
@@ -488,7 +555,7 @@ export function TimelineView({
   if (run === null) {
     return (
       <div ref={rootRef} className="flex flex-col gap-2 p-1" data-testid="timeline">
-        {onBack ? <BackButton onBack={onBack} /> : null}
+        <LeadingNav onBack={onBack} returnTo={returnTo} />
         {error ? (
           <p role="alert" className="text-body text-label-secondary">
             {t("agent.timeline.loadFailed", { reason: error })}{" "}
@@ -566,7 +633,7 @@ export function TimelineView({
         onExport={doExport}
         {...(onCopyLink ? { onCopyLink: () => onCopyLink(selectedId) } : {})}
         onDelete={() => void deleteTrace()}
-        leading={onBack ? <BackButton onBack={onBack} /> : undefined}
+        leading={<LeadingNav onBack={onBack} returnTo={returnTo} />}
       />
       {/* Banner and range line open and close with height + opacity, not by popping (C15). */}
       <Disclosure open={run.status === "failed" && failed?.step !== undefined}>
@@ -583,6 +650,13 @@ export function TimelineView({
           />
         ) : null}
       </Disclosure>
+      <HelpersSection
+        helpers={helpers.children}
+        runs={runs}
+        error={helpers.error}
+        onRetry={helpers.reload}
+        onOpen={onOpenRun}
+      />
       <Disclosure open={range !== null}>
         {range ? (
           <p className="flex items-center gap-2 text-callout text-label-secondary tabular-nums">
@@ -739,6 +813,27 @@ function useElementWidth(): [number, (el: HTMLElement | null) => void] {
     observer.current.observe(el);
   }, []);
   return [width, ref];
+}
+
+/** The leading control: a helper's way back to the run it came from, else Back to Activity. */
+function LeadingNav({
+  onBack,
+  returnTo,
+}: {
+  onBack?: (() => void) | undefined;
+  returnTo?: { title: string; onReturn: () => void } | undefined;
+}): ReactElement | null {
+  if (returnTo) {
+    return (
+      <Button size="xs" variant="ghost" onClick={returnTo.onReturn} className="min-w-0 max-w-full">
+        <ArrowLeft aria-hidden="true" className="rtl:rotate-180" />{" "}
+        <span className="truncate">
+          {t("agent.timeline.helpers.back", { title: returnTo.title })}
+        </span>
+      </Button>
+    );
+  }
+  return onBack ? <BackButton onBack={onBack} /> : null;
 }
 
 function BackButton({ onBack }: { onBack: () => void }): ReactElement {
