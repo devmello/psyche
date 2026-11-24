@@ -967,6 +967,7 @@ export const ja: Partial<Catalogue> = {
   "shell.threads.noMatch": "一致するスレッドはありません。",
   "shell.threads.noSideChats": "サイドチャットはまだありません。",
   "shell.threads.archivedCount": "アーカイブ済み（{n, number}）",
+  "shell.threads.showMore": "さらに表示",
   "shell.threads.archived": "アーカイブ済み",
   "shell.sidebar.label": "サイドバー",
   "shell.sidebar.destinations": "移動先",
@@ -3573,7 +3574,6 @@ export const ja: Partial<Catalogue> = {
   "web.threads.busy": "作業中または待機中",
   "web.threads.fromYou": "あなた：{text}",
   "web.threads.archived": "アーカイブ済み（{count, number}）",
-  "web.threads.showMore": "さらに表示",
   "web.banner.startFailed": "Psycheを起動できませんでした：{reason}。",
   "web.banner.showLogs": "ログを表示",
   "web.banner.starting": "Psycheを起動中…",
@@ -3722,7 +3722,6 @@ export const ja: Partial<Catalogue> = {
   "web.chat.defaultModel": "デフォルトのモデル",
   "web.chat.conversation": "会話",
   "web.chat.preparing": "Psycheがメインチャットを準備しています。",
-  "web.chat.loadingEarlier": "以前のメッセージを読み込み中…",
   "web.quickEntry.status":
     "Psyche · {online, select, true {メインチャット} other {オフライン}}{approvals, plural, =0 {} other { · #件の承認待ち}}",
   "web.quickEntry.placeholder": "Psycheに質問や依頼を…",

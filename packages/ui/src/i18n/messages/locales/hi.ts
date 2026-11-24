@@ -983,6 +983,7 @@ export const hi: Partial<Catalogue> = {
   "shell.threads.noMatch": "कोई थ्रेड मेल नहीं खाता।",
   "shell.threads.noSideChats": "अभी कोई साइड चैट नहीं।",
   "shell.threads.archivedCount": "आर्काइव किए गए ({n, number})",
+  "shell.threads.showMore": "और दिखाएं",
   "shell.threads.archived": "आर्काइव किए गए",
   "shell.sidebar.label": "साइडबार",
   "shell.sidebar.destinations": "गंतव्य",
@@ -3552,7 +3553,6 @@ export const hi: Partial<Catalogue> = {
   "web.threads.busy": "काम कर रहा है या प्रतीक्षा में",
   "web.threads.fromYou": "आप: {text}",
   "web.threads.archived": "आर्काइव किए गए ({count, number})",
-  "web.threads.showMore": "और दिखाएं",
   "web.banner.startFailed": "Psyche शुरू नहीं हो सका: {reason}।",
   "web.banner.showLogs": "लॉग दिखाएँ",
   "web.banner.starting": "Psyche शुरू हो रहा है…",
@@ -3703,7 +3703,6 @@ export const hi: Partial<Catalogue> = {
   "web.chat.defaultModel": "डिफ़ॉल्ट मॉडल",
   "web.chat.conversation": "बातचीत",
   "web.chat.preparing": "Psyche आपकी मुख्य चैट तैयार कर रहा है।",
-  "web.chat.loadingEarlier": "पिछले संदेश लोड हो रहे हैं…",
   "web.quickEntry.status":
     "Psyche · {online, select, true {मुख्य चैट} other {ऑफ़लाइन}}{approvals, plural, =0 {} one { · # स्वीकृति प्रतीक्षा में} other { · # स्वीकृतियाँ प्रतीक्षा में}}",
   "web.quickEntry.placeholder": "Psyche से पूछें या बताएँ…",

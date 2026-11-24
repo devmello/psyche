@@ -1,5 +1,5 @@
 import { activeI18n, destinationFor, isEmptyUserChat, PsycheMark, StatusPill, t } from "@psyche/ui";
-import { type ReactElement, type ReactNode, useEffect, useId, useRef, useState } from "react";
+import { type ReactElement, type ReactNode, useId, useState } from "react";
 import type { GatewayStatus } from "../../client/status.ts";
 import { useShell, useShellState } from "../context.tsx";
 import type { GatewayRunView } from "../platform.ts";
@@ -125,28 +125,9 @@ export function ThreadList(props: {
   onNew: () => void;
   onNewIncognito?: () => void;
 }): ReactElement {
-  const { store } = useShell();
   const threads = useShellState((s) => s.threads);
-  const threadsCursor = useShellState((s) => s.threadsCursor);
-  const loadingMore = useShellState((s) => s.threadsLoadingMore);
-  const moreRef = useRef<HTMLDivElement>(null);
   const searchId = useId();
   const [query, setQuery] = useState("");
-
-  // The next page loads as the end of the list comes near the viewport. The button below is the
-  // fallback where observing is not available.
-  useEffect(() => {
-    const el = moreRef.current;
-    if (!el || threadsCursor === null || typeof IntersectionObserver === "undefined") return;
-    const io = new IntersectionObserver(
-      (entries) => {
-        if (entries.some((e) => e.isIntersecting)) void store.loadMoreThreads();
-      },
-      { rootMargin: "0px 0px 160px 0px" },
-    );
-    io.observe(el);
-    return () => io.disconnect();
-  }, [store, threadsCursor]);
   // An empty "New chat" is not a conversation yet: never listed.
   const live = threads.filter((x) => x.thread.archivedAt === null && !isEmptyUserChat(x));
   const archived = threads.filter((x) => x.thread.archivedAt !== null).length;
@@ -248,18 +229,6 @@ export function ThreadList(props: {
           );
         })}
       </ul>
-      {threadsCursor !== null ? (
-        <div ref={moreRef} className="threads-more">
-          <button
-            type="button"
-            className="pill"
-            disabled={loadingMore}
-            onClick={() => void store.loadMoreThreads()}
-          >
-            {t("web.threads.showMore")}
-          </button>
-        </div>
-      ) : null}
       {archived > 0 ? (
         <p style={{ padding: "0 12px", color: "var(--shell-muted)" }}>
           {t("web.threads.archived", { count: archived })}

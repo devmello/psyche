@@ -1361,14 +1361,20 @@ export class MockGateway implements GatewayClient {
     }),
     "events.subscribe": () => ({ stateVersion: this.stateVersion }),
 
-    "threads.list": (p) => ({
-      threads: this.world.threads
+    "threads.list": (p) => {
+      // As the Gateway: one page at a time, default 50, with an opaque cursor (`o<offset>`).
+      const all = this.world.threads
         .filter((t) => !isEmptyUserChat(t))
         .filter((t) => p.includeArchived === true || t.thread.archivedAt == null)
         .filter((t) => p.kind === undefined || t.thread.kind === p.kind)
-        .filter((t) => p.spaceId === undefined || t.thread.spaceId === p.spaceId),
-      nextCursor: null,
-    }),
+        .filter((t) => p.spaceId === undefined || t.thread.spaceId === p.spaceId);
+      const offset = p.cursor === undefined ? 0 : Number(p.cursor.slice(1));
+      const limit = p.limit ?? 50;
+      return {
+        threads: all.slice(offset, offset + limit),
+        nextCursor: offset + limit < all.length ? `o${offset + limit}` : null,
+      };
+    },
     "threads.get": (p) => this.thread(p.threadId),
     "threads.create": (p) => {
       const now = this.now();

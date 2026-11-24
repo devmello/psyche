@@ -202,9 +202,6 @@ button {
 .threads-search {
   padding: 8px 8px 4px;
 }
-.threads-more {
-  padding: 6px 12px 10px;
-}
 .threads-search input {
   box-sizing: border-box;
   width: 100%;
@@ -325,18 +322,6 @@ button {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  position: relative;
-}
-/* Older-page status sits in the top padding, out of flow, so loading never shifts the transcript. */
-.messages-older {
-  position: absolute;
-  top: 4px;
-  inset-inline: 0;
-  margin: 0;
-  text-align: center;
-  font-size: 12px;
-  color: var(--shell-muted);
-  pointer-events: none;
 }
 .msg-user {
   align-self: flex-end;

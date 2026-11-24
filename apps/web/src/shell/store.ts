@@ -32,16 +32,6 @@ export interface ShellState {
   toasts: Toast[];
   /** Methods the Gateway answered with unknown_method / not_implemented. */
   unavailable: string[];
-  /**
-   * Cursor for the next older `chat.history` page per thread. A missing key means the newest
-   * page has not loaded yet; `null` means nothing older.
-   */
-  historyCursors: Record<string, string | null>;
-  /** Threads whose older page is being fetched. */
-  olderLoading: Record<string, boolean>;
-  /** Cursor for the next `threads.list` page; `null` means the list is complete. */
-  threadsCursor: string | null;
-  threadsLoadingMore: boolean;
 }
 
 const INITIAL: ShellState = {
@@ -54,23 +44,7 @@ const INITIAL: ShellState = {
   notifications: [],
   toasts: [],
   unavailable: [],
-  historyCursors: {},
-  olderLoading: {},
-  threadsCursor: null,
-  threadsLoadingMore: false,
 };
-
-/**
- * Union of two message lists by id, sorted by seq. The incoming copy wins for an id both have,
- * so a fresh newest page or a live `chat.message` replaces what was shown without dropping older
- * pages already loaded.
- */
-export function mergeMessages(existing: Message[], incoming: Message[]): Message[] {
-  const byId = new Map<string, Message>();
-  for (const m of existing) byId.set(m.id, m);
-  for (const m of incoming) byId.set(m.id, m);
-  return [...byId.values()].sort((a, b) => a.seq - b.seq);
-}
 
 function errCode(err: unknown): string | undefined {
   const c = (err as { code?: unknown } | null)?.code;
@@ -264,16 +238,17 @@ export class ShellStore {
 
   async refresh(): Promise<void> {
     const [threads, approvals, notifications] = await Promise.allSettled([
-      this.call<{ threads: ThreadListEntry[]; nextCursor?: string | null }>("threads.list", {}),
+      this.call<{ threads: ThreadListEntry[] }>("threads.list", {}),
       this.call<{ approvals: ApprovalRequest[]; answerTokens?: Record<string, string> }>(
         "approvals.list",
         {},
       ),
       this.call<{ notifications: Notification[] }>("notifications.list", {}),
     ]);
-    const threadPatch = this.threadsFromHead(threads);
     this.set({
-      ...threadPatch,
+      ...(threads.status === "fulfilled" && threads.value
+        ? { threads: this.withOpenEmptyChats(threads.value.threads) }
+        : {}),
       ...(approvals.status === "fulfilled" && approvals.value
         ? {
             approvals: approvals.value.approvals.filter((a) => a.status === "pending"),
@@ -309,112 +284,13 @@ export class ShellStore {
     return kept.length === 0 ? listed : [...kept, ...listed];
   }
 
-  /** Threads listed beyond the first `threads.list` page, from `loadMoreThreads`. */
-  #threadHeadIds = new Set<string>();
-
-  /**
-   * The first `threads.list` page replaces the head of the list. Threads paged in beyond it stay,
-   * except ones the new head lists again; a thread that left the head is dropped.
-   */
-  private threadsFromHead(
-    result: PromiseSettledResult<
-      { threads: ThreadListEntry[]; nextCursor?: string | null } | undefined
-    >,
-  ): Partial<ShellState> {
-    if (result.status !== "fulfilled" || !result.value) return {};
-    const head = result.value;
-    const base = this.withOpenEmptyChats(head.threads);
-    const baseIds = new Set(base.map((x) => x.thread.id));
-    const tail = this.state.threads.filter(
-      (x) => !this.#threadHeadIds.has(x.thread.id) && !baseIds.has(x.thread.id),
-    );
-    this.#threadHeadIds = new Set(head.threads.map((x) => x.thread.id));
-    return {
-      threads: [...base, ...tail],
-      threadsCursor: tail.length > 0 ? this.state.threadsCursor : (head.nextCursor ?? null),
-    };
-  }
-
-  /** Loads the next `threads.list` page, deduped by thread id. A failed page keeps the cursor. */
-  async loadMoreThreads(): Promise<void> {
-    const cursor = this.state.threadsCursor;
-    if (!cursor || this.state.threadsLoadingMore) return;
-    this.set({ threadsLoadingMore: true });
-    try {
-      const res = await this.call<{ threads: ThreadListEntry[]; nextCursor?: string | null }>(
-        "threads.list",
-        { cursor },
-      ).catch(() => undefined);
-      if (!res || this.state.threadsCursor !== cursor) return;
-      const known = new Set(this.state.threads.map((x) => x.thread.id));
-      this.set({
-        threads: [...this.state.threads, ...res.threads.filter((x) => !known.has(x.thread.id))],
-        threadsCursor: res.nextCursor ?? null,
-      });
-    } finally {
-      this.set({ threadsLoadingMore: false });
-    }
-  }
-
-  /**
-   * Loads the newest `chat.history` page and merges it into what is shown, so older pages already
-   * loaded stay and live messages are not lost. Only the first load sets the older-page cursor.
-   * When the newest page starts above everything held (more than a page arrived unseen), the
-   * held pages no longer join it, so the thread restarts from the newest page.
-   */
   async loadHistory(threadId: string): Promise<void> {
-    const res = await this.call<{ messages: Message[]; nextCursor?: string | null }>(
-      "chat.history",
-      { threadId },
-    ).catch(() => undefined);
-    if (!res) return;
-    const existing = this.state.messages[threadId] ?? [];
-    const oldestFresh = res.messages.reduce(
-      (min, m) => Math.min(min, m.seq),
-      Number.POSITIVE_INFINITY,
+    const res = await this.call<{ messages: Message[] }>("chat.history", { threadId }).catch(
+      () => undefined,
     );
-    const newestHeld = existing.reduce((max, m) => Math.max(max, m.seq), Number.NEGATIVE_INFINITY);
-    const gap = existing.length > 0 && res.messages.length > 0 && oldestFresh > newestHeld;
-    const hasCursor = this.state.historyCursors[threadId] !== undefined;
-    this.set({
-      messages: {
-        ...this.state.messages,
-        [threadId]: gap ? mergeMessages([], res.messages) : mergeMessages(existing, res.messages),
-      },
-      historyCursors:
-        hasCursor && !gap
-          ? this.state.historyCursors
-          : { ...this.state.historyCursors, [threadId]: res.nextCursor ?? null },
-    });
-  }
-
-  /**
-   * Fetches the page older than what is loaded and prepends it (deduped by id). Does nothing when
-   * there is nothing older or a page is already in flight. A failed page keeps the cursor, so the
-   * next scroll to the top retries.
-   */
-  async loadOlderMessages(threadId: string): Promise<void> {
-    const cursor = this.state.historyCursors[threadId];
-    if (!cursor || this.state.olderLoading[threadId]) return;
-    this.set({ olderLoading: { ...this.state.olderLoading, [threadId]: true } });
-    try {
-      const res = await this.call<{ messages: Message[]; nextCursor?: string | null }>(
-        "chat.history",
-        { threadId, cursor },
-      ).catch(() => undefined);
-      // The thread was cleared, deleted or restarted while this page was in flight.
-      if (!res || this.state.historyCursors[threadId] !== cursor) return;
-      this.set({
-        messages: {
-          ...this.state.messages,
-          [threadId]: mergeMessages(this.state.messages[threadId] ?? [], res.messages),
-        },
-        historyCursors: { ...this.state.historyCursors, [threadId]: res.nextCursor ?? null },
-      });
-    } finally {
-      const { [threadId]: _done, ...olderLoading } = this.state.olderLoading;
-      this.set({ olderLoading });
-    }
+    if (!res) return;
+    const sorted = [...res.messages].sort((a, b) => a.seq - b.seq);
+    this.set({ messages: { ...this.state.messages, [threadId]: sorted } });
   }
 
   /**
@@ -505,22 +381,15 @@ export class ShellStore {
       case "thread.deleted": {
         const id = String(p.threadId);
         const { [id]: _messages, ...messages } = this.state.messages;
-        const { [id]: _cursor, ...historyCursors } = this.state.historyCursors;
-        this.set({
-          threads: this.state.threads.filter((x) => x.thread.id !== id),
-          messages,
-          historyCursors,
-        });
+        this.set({ threads: this.state.threads.filter((x) => x.thread.id !== id), messages });
         break;
       }
       case "thread.cleared": {
         // The thread stays; its transcript was emptied (here or in another window).
         const id = String(p.threadId);
         const { [id]: _messages, ...messages } = this.state.messages;
-        const { [id]: _cursor, ...historyCursors } = this.state.historyCursors;
         this.set({
           messages,
-          historyCursors,
           threads: this.state.threads.map((x) => {
             if (x.thread.id !== id) return x;
             const { lastMessage: _line, ...rest } = x;

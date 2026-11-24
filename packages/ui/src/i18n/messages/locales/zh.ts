@@ -1003,6 +1003,7 @@ export const zh: Partial<Catalogue> = {
   "shell.threads.noMatch": "没有匹配的会话。",
   "shell.threads.noSideChats": "还没有支线聊天。",
   "shell.threads.archivedCount": "已归档（{n, number}）",
+  "shell.threads.showMore": "显示更多",
   "shell.threads.archived": "已归档",
   "shell.sidebar.label": "边栏",
   "shell.sidebar.destinations": "目的地",
@@ -3488,7 +3489,6 @@ export const zh: Partial<Catalogue> = {
   "web.threads.busy": "工作中或等待中",
   "web.threads.fromYou": "你：{text}",
   "web.threads.archived": "已归档（{count, number}）",
-  "web.threads.showMore": "显示更多",
   "web.banner.startFailed": "Psyche 无法启动：{reason}。",
   "web.banner.showLogs": "显示日志",
   "web.banner.starting": "Psyche 正在启动…",
@@ -3638,7 +3638,6 @@ export const zh: Partial<Catalogue> = {
   "web.chat.defaultModel": "默认模型",
   "web.chat.conversation": "对话",
   "web.chat.preparing": "Psyche 正在准备你的主聊天。",
-  "web.chat.loadingEarlier": "正在加载更早的消息…",
   "web.quickEntry.status":
     "Psyche · {online, select, true {主聊天} other {离线}}{approvals, plural, =0 {} other { · # 项审批等待中}}",
   "web.quickEntry.placeholder": "向 Psyche 提问或下达指令…",

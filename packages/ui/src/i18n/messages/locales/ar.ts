@@ -1023,6 +1023,7 @@ export const ar: Partial<Catalogue> = {
   "shell.threads.noMatch": "لا توجد محادثات مطابقة.",
   "shell.threads.noSideChats": "لا دردشات جانبية بعد.",
   "shell.threads.archivedCount": "المؤرشفة ({n, number})",
+  "shell.threads.showMore": "عرض المزيد",
   "shell.threads.archived": "المؤرشفة",
   "shell.sidebar.label": "الشريط الجانبي",
   "shell.sidebar.destinations": "الوجهات",
@@ -3608,7 +3609,6 @@ export const ar: Partial<Catalogue> = {
   "web.threads.busy": "تعمل أو تنتظر",
   "web.threads.fromYou": "أنت: {text}",
   "web.threads.archived": "المؤرشفة ({count, number})",
-  "web.threads.showMore": "عرض المزيد",
   "web.banner.startFailed": "تعذّر على Psyche البدء: {reason}.",
   "web.banner.showLogs": "عرض السجلات",
   "web.banner.starting": "Psyche يبدأ…",
@@ -3759,7 +3759,6 @@ export const ar: Partial<Catalogue> = {
   "web.chat.defaultModel": "النموذج الافتراضي",
   "web.chat.conversation": "المحادثة",
   "web.chat.preparing": "يجهّز Psyche دردشتك الرئيسية.",
-  "web.chat.loadingEarlier": "جارٍ تحميل الرسائل الأقدم…",
   "web.quickEntry.status":
     "Psyche · {online, select, true {الدردشة الرئيسية} other {غير متصل}}{approvals, plural, =0 {} one { · موافقة واحدة بالانتظار} two { · موافقتان بالانتظار} few { · # موافقات بالانتظار} many { · # موافقة بالانتظار} other { · # موافقة بالانتظار} zero {}}",
   "web.quickEntry.placeholder": "اسأل Psyche أو أخبره…",

@@ -113,6 +113,7 @@ export const shell = {
   "shell.threads.noMatch": "No threads match.",
   "shell.threads.noSideChats": "No side chats yet.",
   "shell.threads.archivedCount": "Archived ({n, number})",
+  "shell.threads.showMore": "Show more",
   "shell.threads.archived": "Archived",
   "shell.sidebar.label": "Sidebar",
   "shell.sidebar.destinations": "Destinations",
