@@ -29,7 +29,7 @@ async function setup(modelBudget = BUDGET) {
 const suggest = (c: TestClient) => c.request("goals.suggest", { goalId: "g1" }, ik());
 
 const limited = (r: Awaited<ReturnType<typeof suggest>>) =>
-  !r.ok && r.error.code === "rate_limited";
+  !r.ok && (r.error as { code?: string }).code === "rate_limited";
 
 describe("per-device model budget", () => {
   it("limits a paired device after the burst and says when to retry", async () => {
@@ -46,7 +46,7 @@ describe("per-device model budget", () => {
         details: { scope: "model_calls", reason: "model_budget", retryAfterMs: 60_000 },
       },
     });
-    expect(!res.ok && res.error.message).toBe(
+    expect(!res.ok && (res.error as { message?: string }).message).toBe(
       "Too many requests from this device. Try again in 1 minute.",
     );
   });
