@@ -7,6 +7,7 @@ import SwiftUI
 /// A tap marks the entry read and follows its route; a swipe only marks it read.
 struct InboxView: View {
     @State private var model: InboxModel
+    @State private var confirming: InboxItem?
     @Environment(Router.self) private var router
     @Environment(Session.self) private var session
 
@@ -21,6 +22,10 @@ struct InboxView: View {
                     .listRowInsets(EdgeInsets(top: 4, leading: 20, bottom: 8, trailing: 20))
                     .listRowBackground(Color.clear)
                     .listRowSeparator(.hidden)
+            }
+            if let result = model.recoveryResult {
+                Text(result).font(.footnote).foregroundStyle(PsycheColor.muted)
+                    .listRowBackground(Color.clear)
             }
             if let error = model.actionError {
                 Text(error).font(.footnote).foregroundStyle(PsycheColor.muted)
@@ -47,6 +52,19 @@ struct InboxView: View {
             await model.observe()
         }
         .refreshable { await model.load() }
+        .confirmationDialog(
+            String(localized: "Cancel this security request?", bundle: .module), isPresented: Binding(
+                get: { confirming != nil }, set: { if !$0 { confirming = nil } }),
+            titleVisibility: .visible
+        ) {
+            Button(String(localized: "Cancel recovery", bundle: .module), role: .destructive) {
+                if let item = confirming { Task { await model.cancelRecovery(item) } }
+                confirming = nil
+            }
+            Button(String(localized: "Keep request", bundle: .module), role: .cancel) { confirming = nil }
+        } message: {
+            Text("The change will not be made. If you asked for it on your Mac, you will need to ask again.", bundle: .module)
+        }
     }
 
     @ViewBuilder
@@ -81,9 +99,13 @@ struct InboxView: View {
     private func rows(_ items: [InboxItem], title: String, needsYou: Bool = false) -> some View {
         Section {
             ForEach(items) { item in
-                InboxRow(item: item, onOpen: { open(item) }, onAction: { action in
-                    Task { await model.act(item, action) }
-                })
+                InboxRow(
+                    item: item,
+                    canCancelRecovery: model.canCancelRecoveries && !model.cancellingRecovery
+                        && model.cancellable.contains(item.id),
+                    onOpen: { open(item) },
+                    onAction: { action in Task { await model.act(item, action) } },
+                    onCancelRecovery: { askCancel(item) })
                     .listRowInsets(EdgeInsets())
                     .listRowBackground(PsycheColor.sheet)
                     .listRowSeparatorTint(PsycheColor.hairline)
@@ -101,6 +123,13 @@ struct InboxView: View {
         }
     }
 
+    /// A re-seal or presence reset is asked for on the Mac and is the way out of a blocked state, so cancelling
+    /// one asks first. Other requests cancel at once.
+    private func askCancel(_ item: InboxItem) {
+        let op = InboxModel.recoveryNotice(for: item)?.op
+        if op == "seal" || op == "presence" { confirming = item } else { Task { await model.cancelRecovery(item) } }
+    }
+
     private func open(_ item: InboxItem) {
         Task { await model.markRead(item) }
         if let pending = model.pending(for: item), session.state.canAnswer {
@@ -113,8 +142,11 @@ struct InboxView: View {
 
 private struct InboxRow: View {
     let item: InboxItem
+    /// A security request this phone may cancel from here (it holds admin, and the notice still says "unless you cancel").
+    let canCancelRecovery: Bool
     let onOpen: () -> Void
     let onAction: (InboxAction) -> Void
+    let onCancelRecovery: () -> Void
 
     var body: some View {
         // The text opens the entry; the notice's own buttons sit beside it, not inside the tap target.
@@ -142,13 +174,20 @@ private struct InboxRow: View {
             .accessibilityElement(children: .combine)
             .accessibilityValue(item.read ? "Read" : String(localized: "Unread", bundle: .module))
 
-            if !item.actions.isEmpty {
+            if !item.actions.isEmpty || canCancelRecovery {
                 HStack(spacing: 8) {
                     ForEach(item.actions) { action in
                         Button(role: action.destructive ? .destructive : nil) {
                             onAction(action)
                         } label: {
                             Text(NoticeWording.label(action))
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                    }
+                    if canCancelRecovery {
+                        Button(role: .destructive, action: onCancelRecovery) {
+                            Text("Cancel recovery", bundle: .module)
                         }
                         .buttonStyle(.bordered)
                         .controlSize(.small)

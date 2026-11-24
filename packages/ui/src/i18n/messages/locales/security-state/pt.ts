@@ -44,4 +44,17 @@ export const securityState: Partial<Catalogue> = {
   "web.security.needsApproval":
     "Aprove o cartão com Touch ID ou uma chave de acesso e toque no botão de novo.",
   "web.security.failed": "Não funcionou: {message}",
+  "settings.security.title": "Registros de segurança",
+  "settings.security.description":
+    "Se os registros de segurança do Psyche estão íntegros, o que mudou sem você e os pedidos aguardando aplicação.",
+  "settings.security.status.sealed": "Íntegros",
+  "settings.security.status.untrusted": "Não confiáveis",
+  "settings.security.empty": "Nada para revisar. Nenhum aviso e nenhum pedido em espera.",
+  "settings.security.approvalLabel": "Mudança de segurança",
+  "settings.security.approve.title": "Aplicar esta mudança agora?",
+  "settings.security.approve.body": "O pedido é aplicado agora em vez de em {when}: {action}",
+  "settings.security.approve.confirm": "Aplicar agora",
+  "settings.security.cancel.title": "Cancelar este pedido?",
+  "settings.security.cancel.body": "A mudança não será feita e o pedido é descartado: {action}",
+  "settings.security.keep": "Manter",
 };

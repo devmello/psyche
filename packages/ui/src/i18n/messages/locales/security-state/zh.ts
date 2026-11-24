@@ -39,4 +39,17 @@ export const securityState: Partial<Catalogue> = {
   "web.security.cancel": "取消请求",
   "web.security.needsApproval": "请用触控 ID 或通行密钥批准卡片，然后再次按下按钮。",
   "web.security.failed": "操作失败：{message}",
+  "settings.security.title": "安全记录",
+  "settings.security.description":
+    "显示 Psyche 的安全记录是否完好、有哪些未经你操作的改动，以及等待生效的请求。",
+  "settings.security.status.sealed": "完好",
+  "settings.security.status.untrusted": "不可信",
+  "settings.security.empty": "没有需要查看的内容。没有提醒，也没有等待中的请求。",
+  "settings.security.approvalLabel": "安全变更",
+  "settings.security.approve.title": "现在应用此变更？",
+  "settings.security.approve.body": "此请求将立即应用，而不是在 {when}：{action}",
+  "settings.security.approve.confirm": "立即应用",
+  "settings.security.cancel.title": "取消此请求？",
+  "settings.security.cancel.body": "变更不会执行，请求将被丢弃：{action}",
+  "settings.security.keep": "保留",
 };
