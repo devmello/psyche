@@ -127,6 +127,23 @@ struct ThreadListView: View {
                             }
                         }
                 }
+                // Archived chats sit below the list; a row opens the chat, and a swipe brings it back.
+                if !model.archived.isEmpty {
+                    Section(String(localized: "Archived", bundle: .module)) {
+                        ForEach(model.archived) { thread in
+                            Button { selection = thread.id; column = .detail } label: { ThreadRow(thread: thread) }
+                                .buttonStyle(.plain)
+                                .listRowBackground(PsycheColor.sheet)
+                                .listRowSeparatorTint(PsycheColor.hairline)
+                                .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                                    Button { Task { await model.restore(thread) } } label: {
+                                        Label(String(localized: "Restore", bundle: .module), systemImage: "arrow.uturn.backward")
+                                    }
+                                    .tint(PsycheColor.muted)
+                                }
+                        }
+                    }
+                }
                 // The last row's neighbour: the next page loads when it appears. Its id is the cursor, so each
                 // page is a new row and a failed page does not retry in a loop.
                 if let cursor = model.nextCursor {

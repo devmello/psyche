@@ -141,6 +141,48 @@ extension GatewayBackend {
         return content
     }
 
+    public func forkThread(id: String, messageID: String, title: String?) async throws -> ChatThreadSummary {
+        let thread = try await resolveThreadID(id)
+        var params: [String: JSONValue] = ["threadId": .string(thread), "messageId": .string(messageID)]
+        if let title { params["title"] = .string(title) }
+        // Side-effecting: the key makes a resend after a lost reply return the same fork, not a second one.
+        let result = try await call("threads.fork", .object(params), key: UUID().uuidString)
+        guard let forked = result["thread"], let summary = Self.summary(from: .obj(["thread": forked, "activity": nil])) else {
+            throw BackendError.refused("The Gateway didn't fork the chat.")
+        }
+        return summary
+    }
+
+    public func clearThread(id: String) async throws {
+        let thread = try await resolveThreadID(id)
+        _ = try await call("threads.clear", .obj(["threadId": .string(thread)]), key: UUID().uuidString)
+    }
+
+    public func compactThread(id: String) async throws -> Bool {
+        let thread = try await resolveThreadID(id)
+        let result = try await call("threads.compact", .obj(["threadId": .string(thread)]), key: UUID().uuidString)
+        // `compaction` is null when there was nothing to summarise.
+        return !(result["compaction"]?.isNull ?? true)
+    }
+
+    public func restoreThread(id: String) async throws {
+        _ = try await call("threads.restore", .obj(["threadId": .string(id)]))
+    }
+
+    public func archivedThreads() async throws -> [ChatThreadSummary] {
+        let result = try await call("threads.list", .obj(["includeArchived": .bool(true), "limit": .number(Self.pageSize)]))
+        return (result["threads"]?.array ?? []).compactMap(Self.summary(from:)).filter(\.isArchived)
+    }
+
+    public func giveFeedback(threadID: String, messageID: String, helpful: Bool) async throws {
+        let thread = try await resolveThreadID(threadID)
+        let target: JSONValue = .obj(["type": "message", "id": .string(messageID), "threadId": .string(thread)])
+        _ = try await call(
+            "feedback.give",
+            .obj(["target": target, "kind": .string(helpful ? "helpful" : "not_helpful")]),
+            key: UUID().uuidString)
+    }
+
     // MARK: -
 
     /// nil means the main thread. The screens still ask for the fixture's main-thread id ("thr_main") in a
@@ -185,6 +227,6 @@ extension GatewayBackend {
         return ChatThreadSummary(
             id: id, title: title, status: status, statusKind: kind,
             isMain: thread["kind"]?.string == "main", updated: updated,
-            spaceID: thread["spaceId"]?.string)
+            spaceID: thread["spaceId"]?.string, isArchived: !(thread["archivedAt"]?.isNull ?? true))
     }
 }
