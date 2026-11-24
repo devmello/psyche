@@ -1990,6 +1990,7 @@ export const ar: Partial<Catalogue> = {
   "settings.mcp.network": "يستخدم الشبكة",
   "settings.mcp.added": "تمت إضافة {name}.",
   "settings.mcp.removed": "تمت إزالة {name}.",
+  "settings.openPage.failed": "تعذّر على Psyche فتح الصفحة ({reason}).",
   "settings.mcp.denied": "لم تتم إضافة {name}.",
   "settings.mcp.lapsed": "انقضت الموافقة. افحص الخادم مرة أخرى لإضافته.",
   "settings.mcp.removeTitle": "إزالة {name}؟",

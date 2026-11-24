@@ -1952,6 +1952,7 @@ export const it: Partial<Catalogue> = {
   "settings.mcp.network": "Usa la rete",
   "settings.mcp.added": "{name} aggiunto.",
   "settings.mcp.removed": "{name} rimosso.",
+  "settings.openPage.failed": "Psyche non è riuscito ad aprire la pagina ({reason}).",
   "settings.mcp.denied": "{name} non è stato aggiunto.",
   "settings.mcp.lapsed": "L’approvazione è scaduta. Controlla di nuovo il server per aggiungerlo.",
   "settings.mcp.removeTitle": "Rimuovere {name}?",

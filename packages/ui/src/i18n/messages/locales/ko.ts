@@ -1932,6 +1932,7 @@ export const ko: Partial<Catalogue> = {
   "settings.mcp.network": "네트워크 사용",
   "settings.mcp.added": "{name}을(를) 추가했습니다.",
   "settings.mcp.removed": "{name}을(를) 제거했습니다.",
+  "settings.openPage.failed": "페이지를 열지 못했습니다({reason}).",
   "settings.mcp.denied": "{name}은(는) 추가되지 않았습니다.",
   "settings.mcp.lapsed": "승인이 만료되었습니다. 추가하려면 서버를 다시 점검하십시오.",
   "settings.mcp.removeTitle": "{name}을(를) 제거하겠습니까?",

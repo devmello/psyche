@@ -1948,6 +1948,7 @@ export const fr: Partial<Catalogue> = {
   "settings.mcp.network": "Utilise le réseau",
   "settings.mcp.added": "{name} ajouté.",
   "settings.mcp.removed": "{name} retiré.",
+  "settings.openPage.failed": "Psyche n'a pas pu ouvrir la page ({reason}).",
   "settings.mcp.denied": "{name} n’a pas été ajouté.",
   "settings.mcp.lapsed": "L’approbation a expiré. Vérifiez de nouveau le serveur pour l’ajouter.",
   "settings.mcp.removeTitle": "Retirer {name} ?",

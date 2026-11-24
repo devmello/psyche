@@ -1992,6 +1992,7 @@ export const de: Partial<Catalogue> = {
   "settings.mcp.network": "Verwendet das Netzwerk",
   "settings.mcp.added": "{name} hinzugefügt.",
   "settings.mcp.removed": "{name} entfernt.",
+  "settings.openPage.failed": "Psyche konnte die Seite nicht öffnen ({reason}).",
   "settings.mcp.denied": "{name} wurde nicht hinzugefügt.",
   "settings.mcp.lapsed":
     "Die Genehmigung ist verfallen. Prüfe den Server erneut, um ihn hinzuzufügen.",

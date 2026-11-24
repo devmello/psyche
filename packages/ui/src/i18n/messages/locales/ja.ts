@@ -1934,6 +1934,7 @@ export const ja: Partial<Catalogue> = {
   "settings.mcp.network": "ネットワークを使用",
   "settings.mcp.added": "{name}を追加しました。",
   "settings.mcp.removed": "{name}を削除しました。",
+  "settings.openPage.failed": "ページを開けませんでした（{reason}）。",
   "settings.mcp.denied": "{name}は追加されませんでした。",
   "settings.mcp.lapsed": "承認が失効しました。追加するには、もう一度サーバを確認してください。",
   "settings.mcp.removeTitle": "{name}を削除しますか？",
