@@ -38,6 +38,15 @@ import { requestChatFocus } from "../../chat/focus-request.ts";
 import { canSendToChat, useSendToChat } from "../../chat/send-to-chat.ts";
 import { DelayedSkeletons } from "../../components/DelayedSkeleton.tsx";
 import { EmptyState, ErrorState, useDelayedFlag } from "../../components/page.tsx";
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "../../components/ui/alert-dialog.tsx";
 import { Badge } from "../../components/ui/badge.tsx";
 import { Button } from "../../components/ui/button.tsx";
 import {
@@ -86,6 +95,8 @@ export interface LibraryItemActions {
   onTrust?: (item: LibraryItem) => void;
   /** Deletes a quarantined download (and its file) without ever opening it. */
   onDeleteDownload?: (item: LibraryItem) => void;
+  /** Deletes any other item and its file (`library.delete`). Hard delete: no trash. */
+  onDelete?: (item: LibraryItem) => void;
   onOpenTask?: (taskId: string) => void;
   /** An artifact: its chat, scrolled to the message that made it, with the artifact open. */
   onOpenInChat?: (item: LibraryItem) => void;
@@ -215,6 +226,14 @@ export function itemActions(item: LibraryItem, a: LibraryItemActions, taskTitle?
     list.push({
       id: "delete-download",
       label: t("screens.library.deleteDownload"),
+      icon: <Trash2 aria-hidden="true" />,
+      run: () => del(item),
+    });
+  } else if (a.onDelete) {
+    const del = a.onDelete;
+    list.push({
+      id: "delete",
+      label: t("screens.library.delete"),
       icon: <Trash2 aria-hidden="true" />,
       run: () => del(item),
     });
@@ -1080,18 +1099,37 @@ export function LibraryScreen({
     );
   };
 
-  const deleteDownload = (item: LibraryItem) => {
-    call("library.quarantine.decide", { itemId: item.id, decision: "delete" }).then(
-      () =>
-        store.update((st) => {
-          const { [item.id]: _gone, ...rest } = st.library;
-          return { ...st, library: rest };
-        }),
-      (err: unknown) =>
-        toast.error(
-          t("screens.library.deleteFailed", { name: item.name, reason: describeError(err) }),
-        ),
-    );
+  /** Delete asks first (the dialog below); the confirm runs the delete. */
+  const [pendingDelete, setPendingDelete] = useState<LibraryItem | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const confirmDelete = (item: LibraryItem) => {
+    setDeleting(true);
+    // A quarantined download goes through the quarantine decision (audited, admin device); any
+    // other item, or a quarantined one on a device without admin, through `library.delete`.
+    const quarantined = item.quarantined === true && canDecide;
+    const done: Promise<unknown> = quarantined
+      ? call("library.quarantine.decide", { itemId: item.id, decision: "delete" })
+      : call("library.delete", { itemId: item.id });
+    done
+      .then(
+        () => {
+          setPendingDelete(null);
+          store.update((st) => {
+            const { [item.id]: _gone, ...rest } = st.library;
+            return { ...st, library: rest };
+          });
+        },
+        (err: unknown) =>
+          toast.error(
+            quarantined
+              ? t("screens.library.deleteFailed", { name: item.name, reason: describeError(err) })
+              : t("screens.library.deleteItemFailed", {
+                  name: item.name,
+                  reason: describeError(err),
+                }),
+          ),
+      )
+      .finally(() => setDeleting(false));
   };
 
   return (
@@ -1121,7 +1159,10 @@ export function LibraryScreen({
         onOpenViewer={openStandalone}
         onOpenTask={(id) => navigate?.(`/agent/activity/${id}`)}
         {...(renderThumbnail ? { renderThumbnail } : {})}
-        {...(canDecide ? { onTrust: trust, onDeleteDownload: deleteDownload } : {})}
+        onDelete={(item) => setPendingDelete(item)}
+        {...(canDecide
+          ? { onTrust: trust, onDeleteDownload: (item: LibraryItem) => setPendingDelete(item) }
+          : {})}
         {...(reveal ? { onReveal: reveal } : {})}
         {...(quickLook ? { onQuickLook: quickLook } : {})}
         {...(send ? { onSendToChat: send } : {})}
@@ -1129,6 +1170,36 @@ export function LibraryScreen({
       {replaying !== null ? (
         <BrowserRecordingViewer item={replaying} onClose={() => setReplaying(null)} />
       ) : null}
+      <AlertDialog
+        open={pendingDelete !== null}
+        onOpenChange={(open) => {
+          if (!open && !deleting) setPendingDelete(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {t("screens.library.deleteTitle", { name: pendingDelete?.name ?? "" })}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("screens.library.deleteBody", { name: pendingDelete?.name ?? "" })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={deleting}
+              onClick={() => {
+                if (pendingDelete !== null) confirmDelete(pendingDelete);
+              }}
+            >
+              {t("screens.library.deleteConfirm")}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }

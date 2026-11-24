@@ -11,4 +11,9 @@ struct LibraryItemView: View {
     let id: String
     var body: some View { EmptyView() }
 }
+
+struct ArtifactViewerView: View {
+    let artifactID: String
+    var body: some View { EmptyView() }
+}
 #endif

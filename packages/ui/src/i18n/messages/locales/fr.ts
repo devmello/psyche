@@ -2221,6 +2221,13 @@ export const fr: Partial<Catalogue> = {
   "settings.model.key.stored": "Clé enregistrée dans le coffre. Psyche ne l’affiche jamais.",
   "settings.model.key.editNamed": "{has, select, true {Remplacer} other {Ajouter}} la clé {name}",
   "settings.model.key.add": "Ajouter une clé",
+  "settings.model.key.remove": "Supprimer la clé",
+  "settings.model.key.removeNamed": "Supprimer la clé de {name}",
+  "settings.model.key.removeTitle": "Supprimer la clé de {name} ?",
+  "settings.model.key.removeBody":
+    "Psyche supprime la clé enregistrée pour {name}. Les requêtes vers {name} échoueront tant que vous n'en ajouterez pas une nouvelle.",
+  "settings.model.key.removeConfirm": "Supprimer la clé",
+  "settings.model.key.removeFailed": "Psyche n'a pas pu supprimer la clé ({reason}).",
   "settings.model.key.replace": "Remplacer la clé",
   "settings.model.key.newLabel": "Nouvelle clé API pour {name}",
   "settings.model.key.save": "Enregistrer la clé",
@@ -3248,6 +3255,12 @@ export const fr: Partial<Catalogue> = {
   "screens.library.openLabel": "Ouvrir {name}{editor, select, true { dans l’éditeur} other {}}",
   "screens.library.openInEditor": "Ouvrir dans l’éditeur",
   "screens.library.open": "Ouvrir",
+  "screens.library.delete": "Supprimer",
+  "screens.library.deleteTitle": "Supprimer {name} ?",
+  "screens.library.deleteBody":
+    "Psyche supprime {name} et son fichier de la bibliothèque. Cette action est irréversible.",
+  "screens.library.deleteConfirm": "Supprimer",
+  "screens.library.deleteItemFailed": "Psyche n'a pas pu supprimer {name} ({reason}).",
   "screens.library.deleteDownload": "Supprimer ce téléchargement",
   "screens.library.deleteFailed":
     "Psyche n'a pas pu supprimer {name} ({reason}). Il reste en quarantaine.",
