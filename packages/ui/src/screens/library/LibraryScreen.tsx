@@ -968,8 +968,7 @@ export function LibraryScreen({
   const persona = usePersona();
   const library = useLibrary();
   const tasks = useTasks();
-  // Every Library item and every task (for the titles), not only the first pages.
-  useLoadRemaining(library);
+  // Task titles for the rows shown (capped); the Library list pages on "Load older".
   useLoadRemaining(tasks);
   const now = useNow(60_000, fixedNow);
   const [own, setOwn] = useState<LibrarySection>("documents");
@@ -1170,6 +1169,18 @@ export function LibraryScreen({
         {...(quickLook ? { onQuickLook: quickLook } : {})}
         {...(send ? { onSendToChat: send } : {})}
       />
+      {library.hasMore ? (
+        <div className="flex justify-center p-3">
+          <button
+            type="button"
+            className="text-accent-11 underline"
+            disabled={library.loadingMore}
+            onClick={() => void library.loadMore().catch(() => undefined)}
+          >
+            {t("audit.loadMore")}
+          </button>
+        </div>
+      ) : null}
       {replaying !== null ? (
         <BrowserRecordingViewer
           item={replaying}

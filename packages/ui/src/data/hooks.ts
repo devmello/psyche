@@ -1136,18 +1136,19 @@ function usePaging(key: string) {
 }
 
 /**
- * Loads the rest of a paged list one page after another, so a screen that needs every row (a link
- * picker, a title lookup) sees past the Gateway's first page. A failed page stops the chain: the
- * list keeps what it has, and the hook does not retry in a loop.
+ * Loads the rest of a paged list one page after another, capped at `maxPages` (a picker or a
+ * title lookup, not a full list). A failed page stops the chain: the list keeps what it has, and
+ * the hook does not retry in a loop. Screens that show a list page it with a "Load older" button.
  */
-export function useLoadRemaining(page: {
-  hasMore: boolean;
-  loadingMore: boolean;
-  loadMore: () => Promise<void>;
-}): void {
+export function useLoadRemaining(
+  page: { hasMore: boolean; loadingMore: boolean; loadMore: () => Promise<void> },
+  maxPages = 10,
+): void {
   const failed = useRef(false);
+  const pages = useRef(0);
   useEffect(() => {
-    if (!page.hasMore || page.loadingMore || failed.current) return;
+    if (!page.hasMore || page.loadingMore || failed.current || pages.current >= maxPages) return;
+    pages.current += 1;
     page.loadMore().catch(() => {
       failed.current = true;
     });

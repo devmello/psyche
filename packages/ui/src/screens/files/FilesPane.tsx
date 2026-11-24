@@ -16,7 +16,7 @@ import { type CSSProperties, type ReactElement, type ReactNode, useEffect, useSt
 import { EmptyState, LoadingCards } from "../../components/page.tsx";
 import { Badge } from "../../components/ui/badge.tsx";
 import { Button } from "../../components/ui/button.tsx";
-import { useGatewayQuery, useLibrary, useLoadRemaining, useSettings } from "../../data/hooks.ts";
+import { useGatewayQuery, useLibrary, useSettings } from "../../data/hooks.ts";
 import { t } from "../../i18n/core.ts";
 import { formatRelative } from "../../lib/format.ts";
 import { pathBasename as basename, displayPath, isAbsolutePath } from "../../lib/paths.ts";
@@ -280,7 +280,6 @@ function FolderNode({
 function LibraryNode({ selected, onSelect }: Omit<TreeProps, "depth">): ReactElement {
   const [open, setOpen] = useState(false);
   const lib = useLibrary();
-  useLoadRemaining(lib);
   return (
     <li>
       <button
@@ -339,6 +338,18 @@ function LibraryNode({ selected, onSelect }: Omit<TreeProps, "depth">): ReactEle
               />
             ))
           )}
+          {lib.hasMore ? (
+            <li className="flex justify-center py-1">
+              <button
+                type="button"
+                className="text-accent-11 underline"
+                disabled={lib.loadingMore}
+                onClick={() => void lib.loadMore().catch(() => undefined)}
+              >
+                {t("audit.loadMore")}
+              </button>
+            </li>
+          ) : null}
         </ul>
       ) : null}
     </li>
@@ -363,7 +374,6 @@ export function FilesPaneView({
   const persona = usePersona();
   const clock = useNow(60_000, now);
   const lib = useLibrary();
-  useLoadRemaining(lib);
   const [picked, setPicked] = useState<FileRef | null>(null);
   const [editing, setEditing] = useState(false);
   const [dirty, setDirty] = useState(false);

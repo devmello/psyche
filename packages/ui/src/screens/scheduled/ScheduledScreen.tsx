@@ -201,7 +201,7 @@ export function ScheduledScreen({
     collectAllPages(async (cursor) => {
       const r = await call("threads.list", cursor === undefined ? {} : { cursor });
       return { items: r.threads, nextCursor: r.nextCursor };
-    }).then(
+    }, 10).then(
       (all) => {
         if (live) setChats(all);
       },
