@@ -94,7 +94,7 @@ extension GatewayBackend {
         space.due = wire.at("counts", "due")?.int ?? 0
         space.lastActivityAt = WireFormat.date(wire["lastActivityAt"]?.string)
         let folders: [SpaceFolderItem] = (wire["folders"]?.array ?? []).compactMap { folder in
-            guard let path = folder[String(localized: "path", bundle: .module)]?.string else { return nil }
+            guard let path = folder["path"]?.string else { return nil }
             return SpaceFolderItem(path: path, writable: folder["mode"]?.string == "rw")
         }
         let links: [SpaceLinkItem] = (wire["links"]?.array ?? []).compactMap { link in

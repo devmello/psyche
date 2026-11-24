@@ -80,4 +80,17 @@ struct ClientLocalizationTests {
         }
         #expect(checked >= 100, "expected the localized literals to be scanned, found \(checked)")
     }
+
+    /// Wire keys stay English: a translated JSON key breaks every non-English phone (#1618 review caught
+    /// `item[String(localized: "path")]`). A localized string must never be a subscript or a dictionary key.
+    @Test func noLocalizedWireKeys() throws {
+        let misuse = try NSRegularExpression(pattern: #"\[String\(localized:[^\]]*\](?:\?|\.|\s*\?\?)|\[String\(localized:[^:]*bundle:\s*\.module\):"#)
+        let files = (FileManager.default.enumerator(at: Self.clientDir, includingPropertiesForKeys: nil)?
+            .compactMap { $0 as? URL } ?? []).filter { $0.pathExtension == "swift" }
+        for file in files {
+            let source = try String(contentsOf: file, encoding: .utf8)
+            let hits = misuse.numberOfMatches(in: source, range: NSRange(source.startIndex..., in: source))
+            #expect(hits == 0, "\(file.lastPathComponent) uses a localized string as a wire key")
+        }
+    }
 }

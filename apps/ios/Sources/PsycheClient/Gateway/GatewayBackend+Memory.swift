@@ -184,7 +184,7 @@ extension GatewayBackend {
         let result = try await call("memory.files.list")
         let files: [JSONValue] = result["files"]?.array ?? []
         let rows: [MemoryFileRow] = files.compactMap { (file: JSONValue) -> MemoryFileRow? in
-            guard let path = file[String(localized: "path", bundle: .module)]?.string, !path.isEmpty else { return nil }
+            guard let path = file["path"]?.string, !path.isEmpty else { return nil }
             var bytes = 0
             if case .number(let value)? = file["bytes"] { bytes = Int(value) }
             return MemoryFileRow(path: path, bytes: bytes, isProtected: file["protected"]?.bool == true)
@@ -193,8 +193,8 @@ extension GatewayBackend {
     }
 
     public func memoryFile(path: String) async throws -> MemoryFileContent {
-        let result = try await call("memory.read", .obj([String(localized: "path", bundle: .module): .string(path)]))
-        return MemoryFileContent(path: result[String(localized: "path", bundle: .module)]?.string ?? path, content: result["content"]?.string ?? "")
+        let result = try await call("memory.read", .obj(["path": .string(path)]))
+        return MemoryFileContent(path: result["path"]?.string ?? path, content: result["content"]?.string ?? "")
     }
 
     public func entityKind(id: String) async throws -> String {

@@ -83,7 +83,7 @@ extension GatewayBackend {
     /// on the phone for this hash is reused; the cache keeps at most `cacheMaxBytes`, least recently used first.
     public func downloadLibraryFile(id: String, progress: @escaping @Sendable (Double) -> Void) async throws -> URL {
         let result = try await call("library.get", .obj(["itemId": .string(id)]))
-        guard let item = result["item"], let path = item[String(localized: "path", bundle: .module)]?.string, !path.isEmpty else { throw BackendError.notFound }
+        guard let item = result["item"], let path = item["path"]?.string, !path.isEmpty else { throw BackendError.notFound }
         if item["quarantined"]?.bool == true { throw LibraryFileRefusal.quarantined }
         let size = item["size"]?.int ?? 0
         if size > Self.downloadMaxBytes { throw LibraryFileRefusal.tooLarge }
