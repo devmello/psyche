@@ -5,6 +5,7 @@ struct LearningState: Sendable {
     var lessons = FixtureData.lessons
     var claims = FixtureData.claims
     var changes = FixtureData.recentChanges
+    var feedback = FixtureData.feedback
 }
 
 extension FixtureBackend {
@@ -32,6 +33,17 @@ extension FixtureBackend {
     public func forgetLesson(id: String) async throws {
         guard memoryState.learning.lessons.contains(where: { $0.id == id }) else { throw BackendError.notFound }
         memoryState.learning.lessons.removeAll { $0.id == id }
+        publish(.changed(.memory))
+    }
+
+    public func feedbackPage(cursor: String?) async throws -> FeedbackPage {
+        await pause()
+        return FeedbackPage(events: memoryState.learning.feedback, nextCursor: nil)
+    }
+
+    public func deleteFeedback(id: String) async throws {
+        guard memoryState.learning.feedback.contains(where: { $0.id == id }) else { throw BackendError.notFound }
+        memoryState.learning.feedback.removeAll { $0.id == id }
         publish(.changed(.memory))
     }
 
@@ -65,6 +77,12 @@ extension FixtureBackend {
 }
 
 extension FixtureData {
+    public static let feedback: [FeedbackItem] = [
+        FeedbackItem(id: "fbk_1", kind: "not_helpful", targetType: "message", reason: "too_long"),
+        FeedbackItem(id: "fbk_2", kind: "correction", targetType: "draft", text: "Keep replies short on the phone."),
+        FeedbackItem(id: "fbk_3", kind: "helpful", targetType: "message"),
+    ]
+
     public static let lessons: [LessonItem] = [
         LessonItem(
             id: "les_1", statement: "Keep replies short when you're on the phone.",

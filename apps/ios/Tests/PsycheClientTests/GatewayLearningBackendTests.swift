@@ -200,4 +200,41 @@ struct GatewayLearningBackendTests {
         #expect(seen.count(of: "memory.claims.list") == 1)
         #expect(seen.params(of: "memory.claims.confirm") == [.object(["claimId": "clm_1"])])
     }
+
+    @Test func feedbackListSendsTheCursorAndMapsTheRows() async throws {
+        let seen = Seen()
+        let (backend, _) = try await live { g in
+            g.on("feedback.list") { req in
+                seen.record(req.method, req.params)
+                return .success(.object([
+                    "events": .array([
+                        .object(["id": "fbk_1", "kind": "not_helpful", "target": .object(["type": "message", "id": "msg_1"]),
+                                 "text": .null, "reason": "too_long", "lessonId": .null]),
+                        .object(["id": "fbk_2", "kind": "correction", "target": .object(["type": "draft", "id": "drf_1"]),
+                                 "text": "Short replies.", "reason": .null]),
+                        .object(["id": "", "kind": "helpful", "target": .object(["type": "message", "id": "msg_2"])]),
+                    ]),
+                    "nextCursor": "c2",
+                ]))
+            }
+        }
+        let page = try await backend.feedbackPage(cursor: "c1")
+        #expect(page == FeedbackPage(events: [
+            FeedbackItem(id: "fbk_1", kind: "not_helpful", targetType: "message", text: nil, reason: "too_long"),
+            FeedbackItem(id: "fbk_2", kind: "correction", targetType: "draft", text: "Short replies.", reason: nil),
+        ], nextCursor: "c2"))
+        #expect(seen.params(of: "feedback.list") == [.object(["limit": .number(20), "cursor": "c1"])])
+    }
+
+    @Test func deletingFeedbackSendsTheEventId() async throws {
+        let seen = Seen()
+        let (backend, _) = try await live { g in
+            g.on("feedback.delete") { req in
+                seen.record(req.method, req.params)
+                return .success(.object([:]))
+            }
+        }
+        try await backend.deleteFeedback(id: "fbk_1")
+        #expect(seen.params(of: "feedback.delete") == [.object(["eventId": "fbk_1"])])
+    }
 }

@@ -18,10 +18,17 @@ final class LearningModel {
     /// Claims put off with "Not now" this session. Not persisted and never sent to the Gateway.
     private(set) var hiddenClaimIDs: Set<String> = []
 
+    /// The owner's feedback, a page at a time, newest first (feedback.list).
+    let feedback: PagedRows<FeedbackItem>
+
     private let store: any PsycheBackend
 
     init(store: any PsycheBackend) {
         self.store = store
+        feedback = PagedRows { cursor in
+            let page = try await store.feedbackPage(cursor: cursor)
+            return (page.events, page.nextCursor)
+        }
     }
 
     // MARK: Reads
@@ -73,6 +80,16 @@ final class LearningModel {
 
     func forget(_ lesson: LessonItem) async {
         await write { try await self.store.forgetLesson(id: lesson.id) }
+        await loadLessons()
+    }
+
+    // MARK: Feedback
+
+    /// Deletes one piece of feedback, then reloads the feedback and the lessons: the Gateway forgets the lessons made
+    /// only from it.
+    func deleteFeedback(_ item: FeedbackItem) async {
+        await write { try await self.store.deleteFeedback(id: item.id) }
+        await feedback.reload()
         await loadLessons()
     }
 

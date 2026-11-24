@@ -34,6 +34,10 @@ public protocol MemoryBackend: Sendable {
     func editLesson(id: String, value: String) async throws
     /// Forgets a lesson and restores what it replaced (memory.lessons.forget).
     func forgetLesson(id: String) async throws
+    /// The owner's feedback, newest first, one page at a time (feedback.list).
+    func feedbackPage(cursor: String?) async throws -> FeedbackPage
+    /// Deletes one piece of feedback; lessons made only from it are forgotten (feedback.delete).
+    func deleteFeedback(id: String) async throws
     /// Claims Psyche is not sure of and waits on (memory.claims.list).
     func claims() async throws -> [ClaimItem]
     /// "Right" on a claim (memory.claims.confirm): it becomes the owner's.
@@ -74,6 +78,8 @@ extension MemoryBackend {
     public func confirmLesson(id: String) async throws { throw BackendError.notFound }
     public func editLesson(id: String, value: String) async throws { throw BackendError.notFound }
     public func forgetLesson(id: String) async throws { throw BackendError.notFound }
+    public func feedbackPage(cursor: String?) async throws -> FeedbackPage { throw BackendError.notFound }
+    public func deleteFeedback(id: String) async throws { throw BackendError.notFound }
     public func claims() async throws -> [ClaimItem] { throw BackendError.notFound }
     public func confirmClaim(id: String) async throws { throw BackendError.notFound }
     public func recentChanges() async throws -> [RecentChange] { throw BackendError.notFound }

@@ -27,6 +27,20 @@ extension GatewayBackend {
             "memory.lessons.forget", .obj(["lessonId": .string(id)]), key: "lesson-forget-\(UUID().uuidString)")
     }
 
+    /// One page of the owner's feedback (feedback.list), newest first. The cursor is the Gateway's own.
+    public func feedbackPage(cursor: String?) async throws -> FeedbackPage {
+        var params: [String: JSONValue] = ["limit": .number(Double(Self.feedbackPageSize))]
+        if let cursor { params["cursor"] = .string(cursor) }
+        let result = try await call("feedback.list", .object(params))
+        let events = (result["events"]?.array ?? []).compactMap(Self.feedbackItem)
+        return FeedbackPage(events: events, nextCursor: result["nextCursor"]?.string)
+    }
+
+    public func deleteFeedback(id: String) async throws {
+        _ = try await call(
+            "feedback.delete", .obj(["eventId": .string(id)]), key: "feedback-delete-\(UUID().uuidString)")
+    }
+
     public func claims() async throws -> [ClaimItem] {
         let result = try await call("memory.claims.list")
         return (result["claims"]?.array ?? []).compactMap(Self.claim)
@@ -63,6 +77,17 @@ extension GatewayBackend {
             id: id, statement: statement, value: value, previous: row["previous"]?.string,
             confidence: number(row["confidence"]) ?? 0,
             confirmed: row["confirmedAt"]?.string != nil || row["status"]?.string == "confirmed")
+    }
+
+    /// Rows per feedback page, the Mac's size.
+    static let feedbackPageSize = 20
+
+    static func feedbackItem(_ row: JSONValue) -> FeedbackItem? {
+        guard let id = row["id"]?.string, !id.isEmpty, let kind = row["kind"]?.string,
+            let targetType = row["target"]?["type"]?.string
+        else { return nil }
+        return FeedbackItem(
+            id: id, kind: kind, targetType: targetType, text: row["text"]?.string, reason: row["reason"]?.string)
     }
 
     static func claim(_ row: JSONValue) -> ClaimItem? {
