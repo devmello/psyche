@@ -28,7 +28,7 @@ struct FixtureChatTests {
             case .evidence: seen.insert("evidence")
             case .sources: seen.insert("sources")
             case .progress(_, let kind, _, _): seen.insert("progress.\(kind.rawValue)")
-            case .file(_, _, _, _, _, let artifact): seen.insert(artifact ? "artifact" : "file")
+            case .file(_, _, _, _, _, let artifact, _): seen.insert(artifact ? "artifact" : "file")
             case .appLink: seen.insert("appLink")
             case .relatedThreads: seen.insert("relatedThreads")
             case .note(_, let kind, _, _): seen.insert("note.\(kind.rawValue)")

@@ -276,3 +276,36 @@ describe("EndpointProbeStatus", () => {
     expect(screen.queryByRole("button")).toBeNull();
   });
 });
+
+describe("removing a stored provider key in Settings", () => {
+  it("asks first, then clears the key through models.clearKey and refreshes the row", async () => {
+    const gateway = setup();
+    const world = () => gateway().world;
+    await screen.findByText("Anthropic");
+    await userEvent.click(screen.getByRole("button", { name: "Remove the key for Anthropic" }));
+    expect(await screen.findByText("Remove the key for Anthropic?")).toBeTruthy();
+    expect(screen.getByText(/Requests to Anthropic fail until you add a key again/)).toBeTruthy();
+    await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(callsOf(gateway(), "models.clearKey")).toEqual([]);
+
+    await userEvent.click(screen.getByRole("button", { name: "Remove the key for Anthropic" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Remove key" }));
+    await waitFor(() =>
+      expect(callsOf(gateway(), "models.clearKey").map((c) => c.params)).toEqual([
+        { providerId: "anthropic" },
+      ]),
+    );
+    await waitFor(() =>
+      expect(world().modelProviders?.find((p) => p.id === "anthropic")?.keyConfigured).toBe(false),
+    );
+    expect(screen.queryByRole("button", { name: "Remove the key for Anthropic" })).toBeNull();
+  });
+
+  it("offers no Remove key for a provider with no stored key", async () => {
+    setup();
+    await screen.findByText("Anthropic");
+    expect(
+      screen.queryByRole("button", { name: /Remove the key for Ollama|Remove the key for OpenAI/ }),
+    ).toBeNull();
+  });
+});

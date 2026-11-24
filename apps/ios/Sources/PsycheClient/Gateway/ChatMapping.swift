@@ -74,10 +74,10 @@ enum ChatMapping {
                 guard let itemID = block["libraryItemId"]?.string else { continue }
                 out.append(.file(id: rowID, title: "File", fileType: "", detail: "", libraryID: itemID, isArtifact: false))
             case "artifact":
-                guard block["artifactId"]?.string != nil else { continue }
+                guard let artifactID = block["artifactId"]?.string else { continue }
                 out.append(.file(
                     id: rowID, title: "Artifact", fileType: "", detail: block["preview"]?.string ?? "", libraryID: nil,
-                    isArtifact: true))
+                    isArtifact: true, artifactID: artifactID))
             case "app_link":
                 guard let route = block["route"]?.string else { continue }
                 out.append(.appLink(id: rowID, title: "Open in Psyche", detail: route, route: route))
