@@ -10,7 +10,10 @@ struct ThreadView: View {
     @State private var position = ScrollPosition(edge: .bottom)
     /// Follow the stream while the reader is at the bottom; let go the moment they scroll up.
     @State private var pinned = true
-    @State private var scrolling = false
+    /// The latest geometry answer, kept whatever the scroll phase is, so the order of the two callbacks never matters.
+    @State private var atBottom = true
+    /// True between the reader's touch and the end of their drag (the reader's own scrolling, not content growth).
+    @State private var reading = false
     @FocusState private var composerFocused: Bool
     @Environment(Router.self) private var router
     @Environment(Session.self) private var session
@@ -29,6 +32,16 @@ struct ThreadView: View {
         ScrollView {
             PhaseView(phase: model.phase, skeleton: .skeleton, retry: model.load) { thread in
                 LazyVStack(alignment: .leading, spacing: 0) {
+                    // The sentinel is the top row while older messages exist. Its id is the cursor, so each page
+                    // makes a new row and it loads once when it scrolls into view; nothing shows when there is none.
+                    if let cursor = thread.olderCursor {
+                        PageSentinel(
+                            loading: model.loadingOlder,
+                            label: String(localized: "Loading older messages", bundle: .module)
+                        )
+                        .id(cursor)
+                        .padding(.bottom, 8)
+                    }
                     ForEach(Array(thread.items.enumerated()), id: \.element.id) { index, item in
                         BlockView(item: item, context: context)
                             .padding(.top, index == 0 ? 0 : Self.gap(before: item, after: thread.items[index - 1]))
@@ -42,6 +55,9 @@ struct ThreadView: View {
                             .transition(motion.transition(.fade))
                     }
                 }
+                // The rows are scroll targets, so `position.scrollTo(id:)` can find the message the reader was on
+                // after an older page is prepended.
+                .scrollTargetLayout()
                 // Only an item arriving or leaving animates. Streamed text grows inside its own item (the id
                 // does not change), so tokens never trigger this: they are paced and faded by `StreamingText`.
                 .psycheAnimation(.smooth, value: thread.items.map(\.id))
@@ -56,12 +72,30 @@ struct ThreadView: View {
         // the same layout pass, instead of being chased by a scroll after the fact.
         .defaultScrollAnchor(.bottom, for: .sizeChanges)
         .scrollDismissesKeyboard(.interactively)
-        .onScrollPhaseChange { _, phase in scrolling = phase != .idle }
+        .onScrollPhaseChange { _, phase in
+            // A drag decides the pin when it starts and when it ends, from the latest geometry answer. Animated
+            // scrolls (Jump to latest) are the app's own and leave the pin alone.
+            if phase == .interacting || phase == .decelerating || phase == .tracking {
+                reading = true
+                pinned = atBottom
+            } else if phase == .idle, reading {
+                reading = false
+                pinned = atBottom
+            }
+        }
         .onScrollGeometryChange(for: Bool.self) { geometry in
             geometry.contentSize.height - (geometry.contentOffset.y + geometry.containerSize.height) < 48
         } action: { _, nearBottom in
-            // Only the reader's own scrolling can change this; content growing under us must not unpin.
-            if scrolling { pinned = nearBottom }
+            atBottom = nearBottom
+            pinned = ThreadScrollRules.pinned(pinned, reading: reading, nearBottom: nearBottom)
+        }
+        .onScrollGeometryChange(for: Bool.self) { geometry in
+            geometry.contentOffset.y < ThreadScrollRules.olderThreshold
+        } action: { _, nearTop in
+            let hasOlder = model.phase.value?.olderCursor != nil
+            if ThreadScrollRules.shouldLoadOlder(nearTop: nearTop, pinned: pinned, hasOlder: hasOlder, loading: model.loadingOlder) {
+                loadOlderIfScrolledUp()
+            }
         }
         .onChange(of: model.revision) { _, _ in
             if pinned { position.scrollTo(edge: .bottom) }
@@ -187,6 +221,19 @@ struct ThreadView: View {
         }
     }
 
+    /// Loads the older page only once the reader has scrolled away from the bottom. The top row also appears
+    /// during the first layout, before the thread has been pinned to its newest message, so a load then would
+    /// move the view off the bottom. While pinned at the bottom, a prepend does not move the view at all.
+    private func loadOlderIfScrolledUp() {
+        guard !pinned else { return }
+        let anchor = model.phase.value?.items.first?.id
+        Task {
+            await model.loadOlder()
+            // Keep the reader on the message they were looking at, unless they have since come back to the bottom.
+            if let anchor, !pinned { position.scrollTo(id: anchor, anchor: .top) }
+        }
+    }
+
     private func jumpToLatest() {
         pinned = true
         // A smooth scroll of at most 300 ms; instant under Reduce Motion.
@@ -217,6 +264,41 @@ struct ThreadView: View {
         case (.user, .file), (.file, .file): return 8
         default: return 14
         }
+    }
+}
+
+/// The thread's scroll rules as pure functions, so they can be tested without a view.
+enum ThreadScrollRules {
+    /// Distance from the top, in points, under which the next older page starts loading.
+    static let olderThreshold: CGFloat = 300
+
+    /// Whether the reader is following the bottom. A reader who is not scrolling keeps their pin, so content
+    /// growing under them cannot unpin them; arriving at the bottom always pins.
+    static func pinned(_ current: Bool, reading: Bool, nearBottom: Bool) -> Bool {
+        if nearBottom { return true }
+        return reading ? false : current
+    }
+
+    /// The older page loads only for a reader who has scrolled up to the top, and only once at a time.
+    static func shouldLoadOlder(nearTop: Bool, pinned: Bool, hasOlder: Bool, loading: Bool) -> Bool {
+        nearTop && !pinned && hasOlder && !loading
+    }
+}
+
+/// A quiet spinner while a page loads; otherwise a 1 pt clear row that marks where the next page starts.
+struct PageSentinel: View {
+    let loading: Bool
+    let label: String
+
+    var body: some View {
+        Group {
+            if loading {
+                ProgressView().controlSize(.small).accessibilityLabel(label)
+            } else {
+                Color.clear.frame(height: 1)
+            }
+        }
+        .frame(maxWidth: .infinity)
     }
 }
 

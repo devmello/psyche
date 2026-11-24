@@ -3,12 +3,33 @@ import Foundation
 /// Chat's fixture state. A sent message streams a short reply word by word, like `chat.delta`.
 struct ChatState: Sendable {
     var summaries = FixtureData.threads
-    var threads = FixtureData.chatThreads
+    var threads = ChatPaging.withLongHistory(FixtureData.chatThreads)
     var cancelled: Set<String> = []
     var counter = 0
     var queued: [String: [QueuedFollowUp]] = [:]
     /// The next steer or queue call fails with this message, once (tests of the composer's error path).
     var failNextQueueCall: String?
+}
+
+/// The fixture's paging. Its pages are smaller than the Gateway's 60, so the demo pages after a few rows.
+enum ChatPaging {
+    static let threadPageSize = 3
+    static let messagePageSize = 40
+
+    /// Maya's visit gets 120 older messages in front of its own, so its transcript pages back in the demo.
+    static func withLongHistory(_ threads: [String: ChatThread]) -> [String: ChatThread] {
+        var out = threads
+        guard var trip = out["thr_trip"] else { return out }
+        let older: [ChatItem] = (1...60).flatMap { n -> [ChatItem] in
+            [
+                .user(id: "hist-u\(n)", text: "Note \(n) for Maya's visit."),
+                .assistant(id: "hist-a\(n)", text: "Noted, \(n). I'll keep it with the plan.", streaming: false),
+            ]
+        }
+        trip.items = older + trip.items
+        out["thr_trip"] = trip
+        return out
+    }
 }
 
 extension FixtureBackend: ChatBackend {
@@ -17,9 +38,34 @@ extension FixtureBackend: ChatBackend {
         return chatState.summaries
     }
 
+    public func threadPage(cursor: String?) async throws -> ThreadPage {
+        await pause()
+        let count = chatState.summaries.count
+        let start = min(max(Int(cursor ?? "") ?? 0, 0), count)
+        let end = min(start + ChatPaging.threadPageSize, count)
+        return ThreadPage(
+            threads: Array(chatState.summaries[start..<end]),
+            nextCursor: end < count ? String(end) : nil)
+    }
+
     public func thread(id: String) async throws -> ChatThread {
         await pause()
-        return chatState.threads[id] ?? FixtureData.emptyThread(id: id, summaries: chatState.summaries)
+        var thread = chatState.threads[id] ?? FixtureData.emptyThread(id: id, summaries: chatState.summaries)
+        // The newest page only; `olderCursor` is the index the page starts at, into the full transcript.
+        let start = max(0, thread.items.count - ChatPaging.messagePageSize)
+        if start > 0 {
+            thread.items = Array(thread.items[start...])
+            thread.olderCursor = String(start)
+        }
+        return thread
+    }
+
+    public func olderItems(threadID: String, before cursor: String) async throws -> MessagePage {
+        await pause()
+        let thread = chatState.threads[threadID] ?? FixtureData.emptyThread(id: threadID, summaries: chatState.summaries)
+        let end = min(max(Int(cursor) ?? 0, 0), thread.items.count)
+        let start = max(0, end - ChatPaging.messagePageSize)
+        return MessagePage(items: Array(thread.items[start..<end]), nextCursor: start > 0 ? String(start) : nil)
     }
 
     public func newThread() async throws -> ChatThreadSummary {

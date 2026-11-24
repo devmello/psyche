@@ -127,6 +127,16 @@ struct ThreadListView: View {
                             }
                         }
                 }
+                // The last row's neighbour: the next page loads when it appears. Its id is the cursor, so each
+                // page is a new row and a failed page does not retry in a loop.
+                if let cursor = model.nextCursor {
+                    PageSentinel(loading: model.loadingMore, label: String(localized: "Loading more chats", bundle: .module))
+                        .id(cursor)
+                        .onAppear { Task { await model.loadMore() } }
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
+                        .listRowInsets(EdgeInsets(top: 6, leading: 0, bottom: 6, trailing: 0))
+                }
             }
         }
         .scrollContentBackground(.hidden)

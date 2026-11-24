@@ -15,6 +15,12 @@ final class ThreadListModel {
     private(set) var phase: LoadPhase<[ChatThreadSummary]> = .idle
     private(set) var actionError: String?
     private(set) var exported: ExportedChat?
+    /// Where the next page of the list starts; nil once the last page is loaded.
+    private(set) var nextCursor: String?
+    /// True while the next page is being fetched (the list shows a quiet spinner row).
+    private(set) var loadingMore = false
+    /// The rows that came from pages after the first, so a refresh of the first page keeps them.
+    private var olderIDs: Set<String> = []
     private let store: any PsycheBackend
 
     init(store: any PsycheBackend) {
@@ -24,9 +30,32 @@ final class ThreadListModel {
     func load() async {
         if phase.value == nil { phase = .loading }
         do {
-            phase = .loaded(Self.sorted(try await store.threads()))
+            let page = try await store.threadPage(cursor: nil)
+            let fresh = Set(page.threads.map(\.id))
+            // A refresh of the newest page keeps the older pages already loaded; their cursor stays too.
+            let kept = (phase.value ?? []).filter { olderIDs.contains($0.id) && !fresh.contains($0.id) }
+            olderIDs = Set(kept.map(\.id))
+            if kept.isEmpty { nextCursor = page.nextCursor }
+            phase = .loaded(Self.sorted(page.threads + kept))
         } catch {
             if phase.value == nil { phase = .failed(error.localizedDescription) }
+        }
+    }
+
+    /// Fetches the next page when the last row appears, adding rows the list does not have yet.
+    func loadMore() async {
+        guard !loadingMore, let cursor = nextCursor, case .loaded(let threads) = phase else { return }
+        loadingMore = true
+        defer { loadingMore = false }
+        do {
+            let page = try await store.threadPage(cursor: cursor)
+            let known = Set(threads.map(\.id))
+            let added = page.threads.filter { !known.contains($0.id) }
+            olderIDs.formUnion(added.map(\.id))
+            nextCursor = page.nextCursor
+            phase = .loaded(Self.sorted(threads + added))
+        } catch {
+            actionError = error.localizedDescription
         }
     }
 
@@ -175,12 +204,54 @@ final class ThreadModel {
     func load() async {
         if phase.value == nil { phase = .loading }
         do {
-            phase = .loaded(try await store.thread(id: id))
+            phase = .loaded(Self.refreshed(try await store.thread(id: id), keeping: phase.value))
             revision += 1
         } catch {
             if phase.value == nil { phase = .failed(error.localizedDescription) }
         }
         await loadQueue()
+    }
+
+    /// True while an older page of the transcript is being fetched.
+    private(set) var loadingOlder = false
+
+    /// Prepends the page before the loaded messages (deduped by id; the loaded copy wins).
+    func loadOlder() async {
+        guard !loadingOlder, case .loaded(let thread) = phase, let cursor = thread.olderCursor else { return }
+        loadingOlder = true
+        defer { loadingOlder = false }
+        do {
+            let page = try await store.olderItems(threadID: thread.id, before: cursor)
+            guard case .loaded(let current) = phase else { return }
+            phase = .loaded(Self.prepending(page, to: current))
+        } catch {
+            actionError = error.localizedDescription
+        }
+    }
+
+    /// The older page goes in front. Its messages are older than everything loaded, so order holds.
+    static func prepending(_ page: MessagePage, to thread: ChatThread) -> ChatThread {
+        let known = Set(thread.items.map(\.id))
+        var result = thread
+        result.items = page.items.filter { !known.contains($0.id) } + thread.items
+        result.olderCursor = page.nextCursor
+        return result
+    }
+
+    /// A reload of the newest page keeps the older messages already loaded and any live message that came
+    /// after the page's last shared message, so a refresh never drops history the reader has scrolled to.
+    static func refreshed(_ fresh: ChatThread, keeping current: ChatThread?) -> ChatThread {
+        guard let current, !current.items.isEmpty else { return fresh }
+        let freshIDs = Set(fresh.items.map(\.id))
+        guard let first = current.items.firstIndex(where: { freshIDs.contains($0.id) }),
+            let last = current.items.lastIndex(where: { freshIDs.contains($0.id) })
+        else { return fresh }
+        let older = Array(current.items[..<first])
+        let newer = current.items[(last + 1)...].filter { !freshIDs.contains($0.id) }
+        var result = fresh
+        result.items = older + fresh.items + newer
+        if !older.isEmpty { result.olderCursor = current.olderCursor }
+        return result
     }
 
     /// The queue as the Gateway lists it. The live `chat.queue.updated` events keep it current after this.
