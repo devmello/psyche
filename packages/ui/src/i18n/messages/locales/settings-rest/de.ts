@@ -1066,6 +1066,24 @@ export const settingsRest: Partial<Catalogue> = {
     "Was ein Computer im Netzwerk ankündigt, ist nur eine Behauptung. Der Kopplungsbildschirm zeigt seinen Schlüssel: Vergleiche ihn mit dem des Hosts, bevor du genehmigst.",
   "settings.gateways.discoverAdd": "{name} hinzufügen",
   "settings.gateways.discoverSaved": "Gespeichert",
+  "settings.gateways.tailnetTitle": "In deinem Tailnet",
+  "settings.gateways.tailnetChecking": "Tailscale wird geprüft…",
+  "settings.gateways.tailnetLook": "Psyche in meinem Tailnet suchen",
+  "settings.gateways.tailnetNone":
+    "Kein Psyche in deinem Tailnet gefunden. Schalte auf diesem Computer „Andere Computer zulassen“ ein.",
+  "settings.gateways.tailnetFailed":
+    "Tailscale auf diesem Computer konnte nicht gelesen werden. Füge stattdessen die Adresse hinzu.",
+  "settings.gateways.tailnetOff": "Tailscale ist auf diesem Computer aus.",
+  "settings.gateways.tailnetOpen": "Tailscale öffnen",
+  "settings.gateways.tailnetOpenFailed":
+    "Tailscale konnte nicht geöffnet werden. Öffne es aus dem Ordner „Programme“.",
+  "settings.gateways.tailnetRetry": "Erneut versuchen",
+  "settings.gateways.tailnetOnline": "Online",
+  "settings.gateways.tailnetOffline": "Offline",
+  "settings.gateways.tailnetConnect": "Verbinden",
+  "settings.gateways.tailnetConnectName": "Mit {name} verbinden",
+  "settings.gateways.tailnetHint":
+    "Über Tailscale auf diesem Computer gefunden. Psyche prüft vor dem Koppeln den Schlüssel, den das Gateway vorlegt, wie bei einer eingetippten Adresse.",
   "settings.remoteSetup.title": "Einen entfernten Server einrichten",
   "settings.remoteSetup.open": "Einen entfernten Server einrichten",
   "settings.remoteSetup.intro":

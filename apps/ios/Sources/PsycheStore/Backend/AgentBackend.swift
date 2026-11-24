@@ -17,6 +17,12 @@ public protocol AgentBackend: Sendable {
     /// Changes a specialist job's budget or deadline (`tasks.update`). Callers send only changed fields. The
     /// Gateway's refusal throws, in its own words.
     func updateTask(id: String, changes: TaskChanges) async throws
+    /// One page of a run's steps after `afterSeq` (`runs.steps`). The screen passes the last page's `nextSeq`.
+    func runSteps(runID: String, afterSeq: Int?, limit: Int) async throws -> RunStepPage
+    /// The frames Psyche saw during a run (`runs.frames`). Metadata only; the images come from `runFrameImage`.
+    func runFrames(runID: String) async throws -> [RunFrameRef]
+    /// The JPEG of one frame (`runs.frame`). Throws when the frame has expired.
+    func runFrameImage(runID: String, seq: Int) async throws -> Data
 }
 
 public struct UpcomingItem: Sendable, Equatable, Identifiable {

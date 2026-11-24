@@ -55,6 +55,21 @@ export interface GatewayEntry {
   lan?: boolean;
 }
 
+/** A peer on the owner's tailnet; a listing, not a proof (desktop: `lib/tailnet.ts`). */
+export interface TailnetPeer {
+  id: string;
+  name: string;
+  dnsName: string;
+  online: boolean;
+  tagged: boolean;
+}
+
+export interface TailnetListing {
+  /** `off`: Tailscale is installed but not running here. `missing`: no Tailscale CLI. */
+  state: "off" | "missing" | "ok";
+  peers: TailnetPeer[];
+}
+
 /** A Gateway the network announced; a claim, not a proof (desktop: `lib/lan-discovery.ts`). */
 export interface DiscoveredGateway {
   id: string;
@@ -83,6 +98,11 @@ export interface GatewaysSlot {
   discover?(): Promise<DiscoveredGateway[]>;
   /** Adds one `discover` returned, by its id: the app never takes an address from here. */
   addDiscovered?(id: string): Promise<GatewayEntry>;
+  /** Lists peers on the owner's tailnet; `probe` also asks untagged peers for /healthz. */
+  tailnet?(probe: boolean): Promise<TailnetListing>;
+  /** Connects to a peer `tailnet` listed, by id: the same add as typing its address. */
+  addTailnet?(id: string): Promise<GatewayEntry>;
+  openTailscale?(): Promise<void>;
   /**
    * Claims a fresh psyche-server with its setup code (design §3.6), by a listing's id or a typed
    * address. Rejects with `details.problem` `claim_<why>` (and `attemptsLeft`, `retryAfterSec`).

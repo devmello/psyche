@@ -2453,6 +2453,24 @@ export const settings = {
     "What a computer announces on the network is a claim. The pairing screen shows its key: compare it with the Host's before you approve.",
   "settings.gateways.discoverAdd": "Add {name}",
   "settings.gateways.discoverSaved": "Saved",
+  "settings.gateways.tailnetTitle": "On your tailnet",
+  "settings.gateways.tailnetChecking": "Checking Tailscale…",
+  "settings.gateways.tailnetLook": "Look for Psyche on my tailnet",
+  "settings.gateways.tailnetNone":
+    "No Psyche found on your tailnet. On that computer, turn on Allow other computers.",
+  "settings.gateways.tailnetFailed":
+    "Couldn't read Tailscale on this computer. Add the address instead.",
+  "settings.gateways.tailnetOff": "Tailscale is off on this computer.",
+  "settings.gateways.tailnetOpen": "Open Tailscale",
+  "settings.gateways.tailnetOpenFailed":
+    "Couldn't open Tailscale. Open it from your Applications folder.",
+  "settings.gateways.tailnetRetry": "Try again",
+  "settings.gateways.tailnetOnline": "Online",
+  "settings.gateways.tailnetOffline": "Offline",
+  "settings.gateways.tailnetConnect": "Connect",
+  "settings.gateways.tailnetConnectName": "Connect to {name}",
+  "settings.gateways.tailnetHint":
+    "Found through Tailscale on this computer. Psyche checks the key the Gateway proves before it pairs, the same as an address you type.",
   // Set up a remote server (remote-gateway design §3.6).
   "settings.remoteSetup.title": "Set up a remote server",
   "settings.remoteSetup.open": "Set up a remote server",

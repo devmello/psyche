@@ -91,6 +91,13 @@ import {
   realChromeProfileDir,
 } from "./lib/real-chrome.ts";
 import { checkSourceOpen, openSource } from "./lib/source-open.ts";
+import {
+  readTailnet,
+  realTailnetDeps,
+  TAILSCALE_APP,
+  type TailnetPeer,
+  tailnetOriginFor,
+} from "./lib/tailnet.ts";
 import { WindowTheme } from "./lib/window-theme.ts";
 import { ZoomController } from "./lib/zoom.ts";
 import { bootstrapAdminIfNeeded } from "./main/bootstrap-admin.ts";
@@ -990,6 +997,8 @@ async function confirmGatewayChange(c: GatewayConfirm): Promise<boolean | "plain
 
 /** The saved Gateways: the list, adding, forgetting, switching (a restart) and the active pin. */
 const lanDiscovery = new LanDiscovery();
+/** The last tailnet listing this process made: the window connects only to these ids. */
+const tailnetPeers = new Map<string, TailnetPeer>();
 let discovering: ReturnType<LanDiscovery["discover"]> | null = null;
 const gateways = new GatewayManager({
   userData: baseUserData,
@@ -1105,6 +1114,29 @@ function registerIpc(): void {
       address = str(IPC.gatewaysClaim, r.address, "address", 300);
     }
     return gateways.claim(address, code);
+  });
+  // "Pick from your tailnet" (design §3.2): the local `tailscale` CLI only; `probe` also asks the
+  // untagged online peers for /healthz. Only what this call returned can be connected to, by id.
+  handle(IPC.gatewaysTailnet, async (_e, arg) => {
+    const probe = rec(IPC.gatewaysTailnet, arg).probe === true;
+    const listing = await readTailnet({ probe }, realTailnetDeps());
+    tailnetPeers.clear();
+    for (const p of listing.peers) tailnetPeers.set(p.id, p);
+    return listing;
+  });
+  // Connect: the same add a typed address gets (native confirmation, no pin, the first connect pins).
+  handle(IPC.gatewaysAddTailnet, (_e, arg) => {
+    const { origin, name } = tailnetOriginFor(
+      tailnetPeers,
+      str(IPC.gatewaysAddTailnet, rec(IPC.gatewaysAddTailnet, arg).id, "id", 32),
+    );
+    return gateways.add(origin, name);
+  });
+  // "Open Tailscale": the fixed app bundle only, through the shell.
+  handle(IPC.gatewaysOpenTailscale, async () => {
+    if (!existsSync(TAILSCALE_APP)) throw new PsycheError("not_found", "Tailscale isn't installed");
+    const failure = await shell.openPath(TAILSCALE_APP);
+    if (failure !== "") throw new PsycheError("unavailable", "Couldn't open Tailscale");
   });
   handle(IPC.gatewaysAddDiscovered, (_e, arg) => {
     const found = lanDiscovery.get(
