@@ -629,7 +629,11 @@ describe("propose → trust card → install", () => {
   it("refuses to install proposal B with the approved card of proposal A", async () => {
     const s = setup();
     const a = await s.service.propose({ manifest: MANIFEST });
-    const b = await s.service.propose({ manifest: variant((m) => void (m.name = "Other")) });
+    const b = await s.service.propose({
+      manifest: variant((m) => {
+        m.name = "Other";
+      }),
+    });
     await s.approve(a.approval.id);
     await expect(s.service.install(b.proposal.id, a.approval.id)).rejects.toMatchObject({
       code: "approval_required",

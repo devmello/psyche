@@ -481,7 +481,10 @@ export function composeConnectors(
       provenanceOut: "trusted",
     },
     // The run's taint and requester travel onto the card, so an injected draft is shown as tainted
-    // (and offers only "once") and the card says who asked for it.
+    // (and offers only "once") and the card says who asked for it. `run` is preferred by the loop;
+    // `execute` is never reached.
+    execute: () =>
+      Promise.reject(new PsycheError("internal", "connectors_propose_custom runs in-process")),
     run: async (params, ctx) => {
       const p = (params ?? {}) as {
         manifest?: Record<string, unknown>;
