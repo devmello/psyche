@@ -222,7 +222,7 @@ extension GatewayBackend {
 
     static func libraryItem(from item: JSONValue, section: LibrarySection? = nil) -> LibraryItem? {
         guard let id = item["id"]?.string else { return nil }
-        let name = item["name"]?.string ?? "File"
+        let name = item["name"]?.string ?? String(localized: "File", bundle: .module)
         let size = item["size"]?.int
         let when = WireFormat.time(item["createdAt"]?.string)
         let detail = [when, size.map { ByteCountFormatter.string(fromByteCount: Int64($0), countStyle: .file) }]

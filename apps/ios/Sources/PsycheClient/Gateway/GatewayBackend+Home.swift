@@ -339,7 +339,7 @@ extension GatewayBackend {
     static func scalarText(_ value: JSONValue) -> String {
         switch value {
         case .null: return "—"
-        case .bool(let flag): return flag ? "true" : "false"
+        case .bool(let flag): return flag ? String(localized: "true", bundle: .module) : String(localized: "false", bundle: .module)
         case .number(let number):
             return number.rounded() == number && abs(number) < 1e15 ? String(Int(number)) : String(number)
         case .string(let text): return text.isEmpty ? "—" : text
