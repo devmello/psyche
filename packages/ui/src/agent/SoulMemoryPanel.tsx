@@ -33,6 +33,7 @@ import { useCall, useGatewayQuery, useMemoryFile } from "../data/index.ts";
 import { activeI18n, t } from "../i18n/core.ts";
 import { describeError } from "../i18n/errors.ts";
 import { cn } from "../lib/utils.ts";
+import { ClaimExplain } from "../memory/ClaimExplain.tsx";
 import { downloadExport, type ExportFile } from "../screens/settings/DataControlsSection.tsx";
 import { usePersona, useSlots } from "../slots.tsx";
 import { lessonsAt, useLessons } from "../teaching/hooks.ts";
@@ -287,6 +288,7 @@ function MemorySearch({ onClose }: { onClose?: () => void }): ReactElement {
                   </span>
                 </span>
                 <ProvenanceChip provenance={h.chunk.provenance} />
+                <ClaimExplain claimId={h.chunk.claimId} />
               </li>
             ))}
           </ul>
