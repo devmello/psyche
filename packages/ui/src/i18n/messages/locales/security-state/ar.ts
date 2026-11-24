@@ -40,6 +40,8 @@ export const securityState: Partial<Catalogue> = {
   "web.security.ack": "وضع علامة تمت المراجعة",
   "web.security.approveNow": "الموافقة الآن",
   "web.security.cancel": "إلغاء الطلب",
+  "web.security.needsApprovalPresence":
+    "وافق على البطاقة بـ Touch ID أو مفتاح مرور، ثم اضغط الزر مرة أخرى.",
   "web.security.needsApproval": "وافِق على البطاقة، ثم اضغط الزر مرة أخرى.",
   "web.security.failed": "لم ينجح ذلك: {message}",
 };

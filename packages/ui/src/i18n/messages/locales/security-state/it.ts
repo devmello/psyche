@@ -41,6 +41,8 @@ export const securityState: Partial<Catalogue> = {
   "web.security.ack": "Segna come controllato",
   "web.security.approveNow": "Approva ora",
   "web.security.cancel": "Annulla richiesta",
+  "web.security.needsApprovalPresence":
+    "Approva la scheda con Touch ID o una passkey, poi premi di nuovo il pulsante.",
   "web.security.needsApproval": "Approva la scheda, poi premi di nuovo il pulsante.",
   "web.security.failed": "Non ha funzionato: {message}",
 };

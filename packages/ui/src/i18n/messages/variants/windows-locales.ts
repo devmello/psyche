@@ -31,6 +31,8 @@ export const WINDOWS_LOCALES: Readonly<
     "web.security.alert.requested": "طُلب على هذا الكمبيوتر: {action} يُطبَّق في {when}.",
     "web.security.op.presenceReset":
       "التوقف عن طلب Windows Hello أو مفتاح المرور لتغييرات الأمان حتى يُسجَّل مفتاح جديد.",
+    "web.security.needsApprovalPresence":
+      "وافق على البطاقة بـ Windows Hello أو مفتاح مرور، ثم اضغط الزر مرة أخرى.",
     "web.security.needsApproval":
       "وافق على البطاقة بـ Windows Hello أو مفتاح مرور، ثم اضغط الزر مرة أخرى.",
   },
@@ -59,6 +61,8 @@ export const WINDOWS_LOCALES: Readonly<
     "web.security.alert.requested": "Auf diesem PC angefordert: {action} Gilt ab {when}.",
     "web.security.op.presenceReset":
       "für Sicherheitsänderungen kein Windows Hello und keinen Passkey mehr verlangen, bis ein neuer Schlüssel registriert ist.",
+    "web.security.needsApprovalPresence":
+      "Bestätige die Karte mit Windows Hello oder einem Passkey und tippe dann erneut auf die Taste.",
     "web.security.needsApproval":
       "Bestätige die Karte mit Windows Hello oder einem Passkey und tippe dann erneut auf die Taste.",
   },
@@ -87,6 +91,8 @@ export const WINDOWS_LOCALES: Readonly<
     "web.security.alert.requested": "Pedido en este PC: {action} Se aplica el {when}.",
     "web.security.op.presenceReset":
       "dejar de pedir Windows Hello o una llave de acceso para los cambios de seguridad hasta que se registre una clave nueva.",
+    "web.security.needsApprovalPresence":
+      "Aprueba la tarjeta con Windows Hello o una llave de acceso y vuelve a pulsar el botón.",
     "web.security.needsApproval":
       "Aprueba la tarjeta con Windows Hello o una llave de acceso y vuelve a pulsar el botón.",
   },
@@ -115,6 +121,8 @@ export const WINDOWS_LOCALES: Readonly<
     "web.security.alert.requested": "Demandé sur ce PC : {action} S’applique le {when}.",
     "web.security.op.presenceReset":
       "ne plus exiger Windows Hello ni de clé d’accès pour les modifications de sécurité jusqu’à l’enregistrement d’une nouvelle clé.",
+    "web.security.needsApprovalPresence":
+      "Approuvez la carte avec Windows Hello ou une clé d’accès, puis appuyez de nouveau sur le bouton.",
     "web.security.needsApproval":
       "Approuvez la carte avec Windows Hello ou une clé d’accès, puis appuyez de nouveau sur le bouton.",
   },
@@ -142,6 +150,8 @@ export const WINDOWS_LOCALES: Readonly<
     "web.security.alert.requested": "इस PC पर माँगा गया: {action} {when} को लागू होगा।",
     "web.security.op.presenceReset":
       "नई कुंजी दर्ज होने तक सुरक्षा बदलावों के लिए Windows Hello या पासकी न माँगना।",
+    "web.security.needsApprovalPresence":
+      "Windows Hello या पासकी से कार्ड को मंज़ूरी दें, फिर बटन दोबारा दबाएँ।",
     "web.security.needsApproval": "Windows Hello या पासकी से कार्ड को मंज़ूरी दें, फिर बटन दोबारा दबाएँ।",
   },
   it: {
@@ -169,6 +179,8 @@ export const WINDOWS_LOCALES: Readonly<
     "web.security.alert.requested": "Richiesto su questo PC: {action} Si applica il {when}.",
     "web.security.op.presenceReset":
       "non chiedere più Windows Hello o una passkey per le modifiche di sicurezza finché non viene registrata una nuova chiave.",
+    "web.security.needsApprovalPresence":
+      "Approva la scheda con Windows Hello o una passkey, poi premi di nuovo il pulsante.",
     "web.security.needsApproval":
       "Approva la scheda con Windows Hello o una passkey, poi premi di nuovo il pulsante.",
   },
@@ -197,6 +209,8 @@ export const WINDOWS_LOCALES: Readonly<
     "web.security.alert.requested": "この PC で要求: {action} {when} に適用されます。",
     "web.security.op.presenceReset":
       "新しいキーが登録されるまで、セキュリティ変更に Windows Hello やパスキーを求めない。",
+    "web.security.needsApprovalPresence":
+      "Windows Hello またはパスキーでカードを承認してから、もう一度ボタンを押してください。",
     "web.security.needsApproval":
       "Windows Hello またはパスキーでカードを承認してから、もう一度ボタンを押してください。",
   },
@@ -224,6 +238,8 @@ export const WINDOWS_LOCALES: Readonly<
     "web.security.alert.requested": "이 PC에서 요청됨: {action} {when}에 적용됩니다.",
     "web.security.op.presenceReset":
       "새 키가 등록될 때까지 보안 변경에 Windows Hello나 패스키를 요구하지 않음.",
+    "web.security.needsApprovalPresence":
+      "Windows Hello나 패스키로 카드를 승인한 다음 버튼을 다시 누르세요.",
     "web.security.needsApproval":
       "Windows Hello나 패스키로 카드를 승인한 다음 버튼을 다시 누르세요.",
   },
@@ -252,6 +268,8 @@ export const WINDOWS_LOCALES: Readonly<
     "web.security.alert.requested": "Pedido neste PC: {action} Será aplicado em {when}.",
     "web.security.op.presenceReset":
       "deixar de exigir Windows Hello ou uma chave de acesso para alterações de segurança até que uma nova chave seja registrada.",
+    "web.security.needsApprovalPresence":
+      "Aprove o cartão com Windows Hello ou uma chave de acesso e toque no botão de novo.",
     "web.security.needsApproval":
       "Aprove o cartão com Windows Hello ou uma chave de acesso e toque no botão de novo.",
   },
@@ -278,6 +296,8 @@ export const WINDOWS_LOCALES: Readonly<
       "这台 PC 上的一条命令将 {name} 设为第一台管理员设备。如果不是你做的，请在“设备”中撤销它。",
     "web.security.alert.requested": "在这台 PC 上请求：{action} 将于 {when} 生效。",
     "web.security.op.presenceReset": "在注册新密钥之前，安全更改不再需要Windows Hello 或通行密钥。",
+    "web.security.needsApprovalPresence":
+      "请用Windows Hello 或通行密钥批准卡片，然后再次按下按钮。",
     "web.security.needsApproval": "请用Windows Hello 或通行密钥批准卡片，然后再次按下按钮。",
   },
 };
