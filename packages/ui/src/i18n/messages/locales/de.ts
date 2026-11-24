@@ -995,6 +995,7 @@ export const de: Partial<Catalogue> = {
   "shell.threads.noMatch": "Keine Threads passen.",
   "shell.threads.noSideChats": "Noch keine Nebenchats.",
   "shell.threads.archivedCount": "Archiviert ({n, number})",
+  "shell.threads.showMore": "Mehr anzeigen",
   "shell.threads.archived": "Archiviert",
   "shell.sidebar.label": "Seitenleiste",
   "shell.sidebar.destinations": "Ziele",

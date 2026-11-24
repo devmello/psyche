@@ -57,6 +57,12 @@ import {
   withThreadCleared,
 } from "./state.ts";
 import type { GatewayStore } from "./store.ts";
+import {
+  applyHeadPage,
+  loadAllThreadPages,
+  loadNextThreadPage,
+  threadPageKey,
+} from "./thread-pages.ts";
 
 /**
  * Typed hooks over the Gateway (S12 data layer). Each hook loads its collection on mount,
@@ -280,19 +286,14 @@ const isRunThread = (e: ThreadListEntry): boolean =>
 
 export function useThreads(options: { includeArchived?: boolean } = {}) {
   const includeArchived = options.includeArchived ?? true;
+  const pageKey = threadPageKey(includeArchived);
   const threadsDict = useStoreState((s) => s.threads);
+  const page = useStoreState((s) => s.threadPages[pageKey]);
+  // The first page only; later pages load through `loadMore` / `loadAll` (thread-pages.ts).
   const load = useLoader(`threads:${includeArchived}`, async (store) => {
     const version = store.version();
-    const { threads } = await store.call("threads.list", { includeArchived });
-    store.update((s) => {
-      const next: Record<string, ThreadListEntry> = { ...s.threads };
-      for (const t of threads) {
-        // A thread.updated event after the request started is newer than this list.
-        if ((s.touched[`threads:${t.thread.id}`] ?? -1) > version) continue;
-        next[t.thread.id] = t;
-      }
-      return { ...s, threads: next, threadsLoaded: true };
-    });
+    const res = await store.call("threads.list", { includeArchived });
+    store.update((s) => applyHeadPage(s, pageKey, res, version));
   });
   const store = useStore();
   const all = useMemo(
@@ -335,6 +336,13 @@ export function useThreads(options: { includeArchived?: boolean } = {}) {
     main,
     active,
     archived,
+    /** The Gateway holds threads past the loaded pages. */
+    hasMore: page !== undefined && page.cursor !== null,
+    loadingMore: page?.loading === true,
+    /** Loads the next page; false when there is none or it failed (the cursor stays). */
+    loadMore: () => loadNextThreadPage(store, includeArchived),
+    /** Loads every remaining page, so a search can reach all threads. */
+    loadAll: () => loadAllThreadPages(store, includeArchived),
     /**
      * New chat: the empty chat the owner already has (the one on screen first), else a new one.
      * It is not listed until it has a message.

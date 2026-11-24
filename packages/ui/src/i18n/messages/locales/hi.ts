@@ -983,6 +983,7 @@ export const hi: Partial<Catalogue> = {
   "shell.threads.noMatch": "कोई थ्रेड मेल नहीं खाता।",
   "shell.threads.noSideChats": "अभी कोई साइड चैट नहीं।",
   "shell.threads.archivedCount": "आर्काइव किए गए ({n, number})",
+  "shell.threads.showMore": "और दिखाएं",
   "shell.threads.archived": "आर्काइव किए गए",
   "shell.sidebar.label": "साइडबार",
   "shell.sidebar.destinations": "गंतव्य",

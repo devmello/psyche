@@ -393,6 +393,35 @@ export function ThreadGroup({
     setFiltering(true);
     requestAnimationFrame(() => filterRef.current?.focus());
   }, [filterToken]);
+
+  // Pages load as the end of the list comes near the viewport (IntersectionObserver walks the
+  // scrolling ancestors); the button is the fallback. The refs keep the latest functions without
+  // re-observing on every render.
+  const moreRef = useRef<HTMLDivElement>(null);
+  const loadMoreRef = useRef(threads.loadMore);
+  loadMoreRef.current = threads.loadMore;
+  const loadAllRef = useRef(threads.loadAll);
+  loadAllRef.current = threads.loadAll;
+  const { hasMore, loadingMore } = threads;
+  useEffect(() => {
+    const el = moreRef.current;
+    // While a page is in flight there is nothing to observe; the effect re-arms when it lands.
+    if (!el || !hasMore || loadingMore || typeof IntersectionObserver === "undefined") return;
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) void loadMoreRef.current();
+      },
+      { rootMargin: "0px 0px 160px 0px" },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [hasMore, loadingMore]);
+  // A search must reach threads past the loaded pages, so it loads the rest first.
+  const searching = filter.trim() !== "";
+  useEffect(() => {
+    if (searching && hasMore && !loadingMore) void loadAllRef.current();
+  }, [searching, hasMore, loadingMore]);
+
   // Matches the title or the last line (§2.2).
   const match = (e: ThreadListEntry) =>
     `${threadTitle(e)} ${e.lastMessage?.text ?? ""}`
@@ -504,7 +533,7 @@ export function ThreadGroup({
             {threads.main && match(threads.main) ? row(threads.main) : null}
             {side.map(row)}
           </ul>
-          {side.length === 0 && filter ? (
+          {side.length === 0 && filter && !hasMore ? (
             <p className="px-3 py-1 text-callout text-label-tertiary">
               {t("shell.threads.noMatch")}
             </p>
@@ -536,6 +565,19 @@ export function ThreadGroup({
           ) : null}
         </>
       )}
+      {hasMore ? (
+        <div ref={moreRef} className="flex justify-center px-2 py-1">
+          <Button
+            variant="ghost"
+            size="sm"
+            disabled={loadingMore}
+            onClick={() => void threads.loadMore()}
+            className="text-label-secondary"
+          >
+            {t("shell.threads.showMore")}
+          </Button>
+        </div>
+      ) : null}
       {limitsFor !== null ? (
         <ThreadContextDialog
           threadId={limitsFor}

@@ -32,6 +32,7 @@ import type {
 } from "@psyche/protocol";
 import type { LibraryAttachItem } from "../chat/attachments.ts";
 import type { ConnectionState } from "./client.ts";
+import type { ThreadPageState } from "./thread-pages.ts";
 
 /** A text delta stream for an agent message that has not been committed yet. */
 /**
@@ -129,6 +130,8 @@ export interface UiState {
 
   threads: Dict<ThreadListEntry>;
   threadsLoaded: boolean;
+  /** `threads.list` paging per `includeArchived` flag ("true" / "false"). */
+  threadPages: Dict<ThreadPageState>;
   /** Messages per thread, ordered by `seq`. */
   messages: Dict<readonly Message[]>;
   historyCursor: Dict<string | null>;
@@ -204,6 +207,7 @@ export const INITIAL_STATE: UiState = {
   refreshing: false,
   threads: {},
   threadsLoaded: false,
+  threadPages: {},
   messages: {},
   historyCursor: {},
   streaming: {},

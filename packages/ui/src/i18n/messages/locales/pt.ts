@@ -935,6 +935,7 @@ export const pt: Partial<Catalogue> = {
   "shell.threads.noMatch": "Nenhuma conversa corresponde.",
   "shell.threads.noSideChats": "Nenhuma conversa paralela ainda.",
   "shell.threads.archivedCount": "Arquivadas ({n, number})",
+  "shell.threads.showMore": "Mostrar mais",
   "shell.threads.archived": "Arquivadas",
   "shell.sidebar.label": "Barra lateral",
   "shell.sidebar.destinations": "Destinos",

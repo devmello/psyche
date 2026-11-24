@@ -1023,6 +1023,7 @@ export const ar: Partial<Catalogue> = {
   "shell.threads.noMatch": "لا توجد محادثات مطابقة.",
   "shell.threads.noSideChats": "لا دردشات جانبية بعد.",
   "shell.threads.archivedCount": "المؤرشفة ({n, number})",
+  "shell.threads.showMore": "عرض المزيد",
   "shell.threads.archived": "المؤرشفة",
   "shell.sidebar.label": "الشريط الجانبي",
   "shell.sidebar.destinations": "الوجهات",

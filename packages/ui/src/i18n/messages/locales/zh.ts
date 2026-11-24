@@ -1003,6 +1003,7 @@ export const zh: Partial<Catalogue> = {
   "shell.threads.noMatch": "没有匹配的会话。",
   "shell.threads.noSideChats": "还没有支线聊天。",
   "shell.threads.archivedCount": "已归档（{n, number}）",
+  "shell.threads.showMore": "显示更多",
   "shell.threads.archived": "已归档",
   "shell.sidebar.label": "边栏",
   "shell.sidebar.destinations": "目的地",

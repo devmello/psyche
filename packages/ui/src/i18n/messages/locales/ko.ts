@@ -968,6 +968,7 @@ export const ko: Partial<Catalogue> = {
   "shell.threads.noMatch": "일치하는 스레드가 없습니다.",
   "shell.threads.noSideChats": "아직 사이드 채팅이 없습니다.",
   "shell.threads.archivedCount": "보관됨 ({n, number})",
+  "shell.threads.showMore": "더 보기",
   "shell.threads.archived": "보관됨",
   "shell.sidebar.label": "사이드바",
   "shell.sidebar.destinations": "이동",

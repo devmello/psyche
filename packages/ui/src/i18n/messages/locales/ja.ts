@@ -967,6 +967,7 @@ export const ja: Partial<Catalogue> = {
   "shell.threads.noMatch": "一致するスレッドはありません。",
   "shell.threads.noSideChats": "サイドチャットはまだありません。",
   "shell.threads.archivedCount": "アーカイブ済み（{n, number}）",
+  "shell.threads.showMore": "さらに表示",
   "shell.threads.archived": "アーカイブ済み",
   "shell.sidebar.label": "サイドバー",
   "shell.sidebar.destinations": "移動先",

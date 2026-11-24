@@ -960,6 +960,7 @@ export const fr: Partial<Catalogue> = {
   "shell.threads.noMatch": "Aucune discussion ne correspond.",
   "shell.threads.noSideChats": "Aucune discussion annexe pour l’instant.",
   "shell.threads.archivedCount": "Archivées ({n, number})",
+  "shell.threads.showMore": "Afficher plus",
   "shell.threads.archived": "Archivées",
   "shell.sidebar.label": "Barre latérale",
   "shell.sidebar.destinations": "Destinations",
