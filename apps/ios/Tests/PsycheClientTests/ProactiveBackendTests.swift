@@ -31,6 +31,41 @@ struct ProactiveBackendTests {
         #expect(feed.nextBriefAt != nil)
     }
 
+    @Test func generateFeedCallsFeedGenerateAndMapsThePosts() async throws {
+        let (backend, h) = try await live { g in
+            g.on("feed.generate") { _ in .success(.object(["posts": .array([
+                .object(["id": "p9", "title": "Today", "bodyMd": "Made now.", "createdAt": "2030-01-01T07:00:00Z"]),
+                .object(["title": "No id"]),
+            ])])) }
+        }
+        let cards = try await backend.generateFeed()
+        #expect(cards.map(\.id) == ["p9"])
+        #expect(cards[0].body == "Made now.")
+        #expect(h.gateway.received.filter { $0.method == "feed.generate" }.count == 1)
+    }
+
+    @Test func generateFeedWithNoPostsIsAnEmptyBrief() async throws {
+        let (backend, _) = try await live { g in
+            g.on("feed.generate") { _ in .success(.object(["posts": .array([])])) }
+        }
+        #expect(try await backend.generateFeed().isEmpty)
+    }
+
+    @Test func generateFeedShowsTheModelBudgetAsPlainWords() async throws {
+        let (backend, _) = try await live { g in
+            g.on("feed.generate") { _ in .failure(WireError(
+                code: "rate_limited", message: "Too many requests from this device. Try again in 1 minute.",
+                details: .object(["scope": .string("model_calls"), "reason": .string("model_budget"), "retryAfterMs": .number(120_000)]),
+                retryable: true)) }
+        }
+        do {
+            _ = try await backend.generateFeed()
+            Issue.record("Expected the model budget refusal")
+        } catch {
+            #expect(error as? BackendError == .slowDown(minutes: 2))
+        }
+    }
+
     @Test func feedbackSendsTheWireNameAndNullClears() async throws {
         let (backend, h) = try await live { g in
             g.on("feed.feedback") { _ in .success(.object([:])) }

@@ -18,6 +18,13 @@ extension FixtureBackend: ProactiveBackend {
         return FeedSnapshot(cards: proactiveState.cards.filter { $0.feedback != .notInterested }, nextBriefAt: nil)
     }
 
+
+    public func generateFeed() async throws -> [FeedCard] {
+        await pause()
+        // Demo mode has the brief already, so generating returns the seeded posts.
+        return proactiveState.cards.filter { $0.feedback != .notInterested }
+    }
+
     public func setFeedback(postID: String, _ feedback: FeedFeedback?) async throws {
         guard let index = proactiveState.cards.firstIndex(where: { $0.id == postID }) else { throw BackendError.notFound }
         proactiveState.cards[index].feedback = feedback
