@@ -3,7 +3,8 @@ import Foundation
 // Feed, Ideas, Goals and Scheduled work (the desktop Home's sections): what the Gateway's proactive side
 // proposes and what it runs on a schedule. Gateway methods: feed.list/feedback, ideas.list/accept/dismiss,
 // goals.list/get/update (status only), scheduled.list/runs/pause, automations.run and automations.runs (for
-// `retryAt`). Editing a goal's details or a schedule's time and prompt is a Mac thing.
+// `retryAt`), automations.list/create/update/delete (the Scheduled editor). A goal's details and milestones stay a
+// Mac thing; an automation triggered by an event or a watch is edited on the Mac.
 
 public protocol ProactiveBackend: Sendable {
     func feed() async throws -> FeedSnapshot
@@ -23,6 +24,14 @@ public protocol ProactiveBackend: Sendable {
     func setScheduledPaused(id: String, paused: Bool) async throws -> String
     /// Runs an automation or routine now, outside its schedule.
     func runScheduledNow(id: String) async throws
+    /// The automation behind a scheduled item, with its prompt and schedule, for the editor.
+    func automation(id: String) async throws -> AutomationDetail
+    /// Creates an automation and returns its id.
+    func createAutomation(_ create: AutomationCreate) async throws -> String
+    /// Sends only the changed fields. Nothing to send is a no-op.
+    func updateAutomation(id: String, changes: AutomationChanges) async throws
+    /// Deletes an automation. The Gateway refuses the ones it runs for itself.
+    func deleteAutomation(id: String) async throws
 }
 
 // MARK: Feed

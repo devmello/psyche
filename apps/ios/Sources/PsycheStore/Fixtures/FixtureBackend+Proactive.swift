@@ -6,6 +6,8 @@ struct ProactiveState: Sendable {
     var ideas = FixtureData.ideaItems
     var goals = FixtureData.goalDetails
     var scheduled = FixtureData.scheduledOverview
+    /// Automations the editor created or changed; a seeded item without one reads back as a daily cron.
+    var automations: [AutomationDetail] = []
 }
 
 extension FixtureBackend: ProactiveBackend {
