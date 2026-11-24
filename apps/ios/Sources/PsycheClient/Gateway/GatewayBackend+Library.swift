@@ -236,11 +236,11 @@ extension GatewayBackend {
         let hasThread = item["threadId"]?.string != nil
         var parts: [String] = []
         switch origin {
-        case "agent": parts.append(hasThread ? "Made for" : "Made by Psyche")
+        case "agent": parts.append(hasThread ? String(localized: "Made for", bundle: .module) : String(localized: "Made by Psyche", bundle: .module))
         case "upload": parts.append("Uploaded")
         case "download": parts.append("Downloaded")
-        case "connector": parts.append("From a connector")
-        case "channel": parts.append("Received in a channel")
+        case "connector": parts.append(String(localized: "From a connector", bundle: .module))
+        case "channel": parts.append(String(localized: "Received in a channel", bundle: .module))
         default: break
         }
         if let threadTitle { parts.append(threadTitle) }

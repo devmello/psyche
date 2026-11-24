@@ -161,8 +161,8 @@ extension GatewayBackend {
             case "status":
                 if enabled, let last = a["lastStatus"]?.string { return status(last) }
                 return status(enabled ? "enabled" : "disabled")
-            case "nextRun": return text(at(a["nextRunAt"]?.string, "Not scheduled"))
-            case "lastRun": return text(at(a["lastRunAt"]?.string, "Never"))
+            case "nextRun": return text(at(a["nextRunAt"]?.string, String(localized: "Not scheduled", bundle: .module)))
+            case "lastRun": return text(at(a["lastRunAt"]?.string, String(localized: "Never", bundle: .module)))
             default: return nil
             }
         case "tool_call", "research":
@@ -200,22 +200,22 @@ extension GatewayBackend {
 
     static func statusLabel(_ status: String) -> String {
         switch status {
-        case "queued": "Queued"
-        case "running": "Running"
-        case "awaiting_input": "Waiting for your answer"
-        case "awaiting_approval": "Waiting for your approval"
-        case "paused": "Paused"
-        case "done", "ok": "Done"
-        case "failed": "Failed"
-        case "cancelled": "Cancelled"
-        case "pending": "Pending"
-        case "uncertain": "Done, outcome unknown"
-        case "blocked": "Blocked"
-        case "working": "Working"
-        case "needs_you": "Needs you"
-        case "partial": "Partly done"
-        case "enabled": "Scheduled"
-        case "disabled": "Paused"
+        case "queued": String(localized: "Queued", bundle: .module)
+        case "running": String(localized: "Running", bundle: .module)
+        case "awaiting_input": String(localized: "Waiting for your answer", bundle: .module)
+        case "awaiting_approval": String(localized: "Waiting for your approval", bundle: .module)
+        case "paused": String(localized: "Paused", bundle: .module)
+        case "done", "ok": String(localized: "Done", bundle: .module)
+        case "failed": String(localized: "Failed", bundle: .module)
+        case "cancelled": String(localized: "Cancelled", bundle: .module)
+        case "pending": String(localized: "Pending", bundle: .module)
+        case "uncertain": String(localized: "Done, outcome unknown", bundle: .module)
+        case "blocked": String(localized: "Blocked", bundle: .module)
+        case "working": String(localized: "Working", bundle: .module)
+        case "needs_you": String(localized: "Needs you", bundle: .module)
+        case "partial": String(localized: "Partly done", bundle: .module)
+        case "enabled": String(localized: "Scheduled", bundle: .module)
+        case "disabled": String(localized: "Paused", bundle: .module)
         default: status
         }
     }
