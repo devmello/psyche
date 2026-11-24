@@ -3320,6 +3320,25 @@ export class MockGateway implements GatewayClient {
       return { status: structuredClone(this.world.botAuth) };
     },
     "skills.list": () => ({ skills: this.world.skills }),
+    "skills.get": (p) => {
+      const skill =
+        this.world.skills.find(
+          (s) => s.name === p.name && (p.source === undefined || s.source === p.source),
+        ) ?? fail("not_found", `no skill ${p.name}`);
+      // An unreadable skill (empty hash, as the Gateway reports it) has no text.
+      const text =
+        skill.hash === ""
+          ? null
+          : `---\nname: ${skill.name}\ndescription: ${skill.description}\n---\n\n# ${skill.name}\n\nFixture instructions for ${skill.name}.\n`;
+      return { skill: structuredClone(skill), text };
+    },
+    "skills.search": (p) => {
+      const needle = p.query.trim().toLowerCase();
+      const hits = this.world.skills
+        .filter((s) => `${s.name} ${s.description}`.toLowerCase().includes(needle))
+        .slice(0, p.limit ?? 50);
+      return { skills: structuredClone(hits) };
+    },
     "plugins.list": () => ({
       enabled: this.world.pluginsEnabled,
       plugins: structuredClone(this.world.plugins),
