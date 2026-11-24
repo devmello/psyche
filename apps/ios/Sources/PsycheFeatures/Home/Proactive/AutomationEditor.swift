@@ -207,6 +207,18 @@ struct AutomationEditorSheet: View {
             }
         }
 
+        // The next three runs, worked out on the phone in the automation's zone. Nothing for a custom schedule the
+        // picker cannot read, or a one-time time that has gone.
+        if let runs = model.draft.schedule.nextRuns(zone: model.zone, now: Date()), !runs.isEmpty {
+            Section {
+                ForEach(runs, id: \.self) { run in
+                    Text(Self.runText(run, zone: model.zone))
+                }
+            } header: {
+                Text("Next runs", bundle: .module)
+            }
+        }
+
         if model.draft.schedule.preset == .weekly {
             Section {
                 ForEach(0..<7, id: \.self) { day in
@@ -287,6 +299,16 @@ struct AutomationEditorSheet: View {
             set: { on in
                 if on { model.draft.schedule.weekdays.insert(day) } else { model.draft.schedule.weekdays.remove(day) }
             })
+    }
+
+    /// A run as a short date and time in the automation's zone, so the preview reads the same as the schedule above it.
+    private static func runText(_ date: Date, zone: TimeZone) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = .current
+        formatter.timeZone = zone
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .short
+        return formatter.string(from: date)
     }
 
     private static func presetLabel(_ preset: AutomationPreset) -> String {
