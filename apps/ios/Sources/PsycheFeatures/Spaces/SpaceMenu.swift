@@ -51,3 +51,46 @@ struct MoveToSpaceMenu: View {
         }
     }
 }
+
+/// The Space page's "More" menu: Archive (after a confirmation that names what pauses) or Restore on an archived
+/// Space. Archiving is the owner's tap; nothing is archived on the agent's behalf.
+struct SpaceActionsMenu: View {
+    let archived: Bool
+    let setArchived: (Bool) async -> Bool
+    @State private var confirming = false
+    @State private var working = false
+
+    var body: some View {
+        Menu {
+            if archived {
+                Button { change(to: false) } label: {
+                    Label(String(localized: "Restore", bundle: .module), systemImage: "arrow.uturn.backward")
+                }
+            } else {
+                Button(role: .destructive) { confirming = true } label: {
+                    Label(String(localized: "Archive", bundle: .module), systemImage: "archivebox")
+                }
+            }
+        } label: {
+            Label(String(localized: "More about this Space", bundle: .module), systemImage: "ellipsis.circle")
+        }
+        .disabled(working)
+        .confirmationDialog(
+            String(localized: "Archive this Space?", bundle: .module), isPresented: $confirming,
+            titleVisibility: .visible
+        ) {
+            Button(String(localized: "Archive", bundle: .module), role: .destructive) { change(to: true) }
+            Button(String(localized: "Cancel", bundle: .module), role: .cancel) {}
+        } message: {
+            Text("Its automations pause and its folders stop working. You can restore it any time.", bundle: .module)
+        }
+    }
+
+    private func change(to archive: Bool) {
+        working = true
+        Task {
+            _ = await setArchived(archive)
+            working = false
+        }
+    }
+}

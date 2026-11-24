@@ -1,13 +1,17 @@
 import type {
   SpaceDetail,
+  SpaceLinkKind,
   SpaceTracker,
   SpaceTrackerTemplate,
   SpaceTrackerValue,
 } from "@psyche/protocol";
 import {
+  ArrowDown,
+  ArrowUp,
   ChevronLeft,
   Ellipsis,
   FolderPlus,
+  Link2,
   MessageSquarePlus,
   Plus,
   RefreshCw,
@@ -25,7 +29,13 @@ import {
 } from "../components/ui/dropdown-menu.tsx";
 import { NativeSelect } from "../components/ui/native-select.tsx";
 import { Skeleton } from "../components/ui/skeleton.tsx";
-import { useAutomations, useCall, useGoals, useStoreState } from "../data/index.ts";
+import {
+  useAutomations,
+  useCall,
+  useGatewayQuery,
+  useGoals,
+  useStoreState,
+} from "../data/index.ts";
 import { t } from "../i18n/core.ts";
 import { describeError } from "../i18n/errors.ts";
 import { formatRelative } from "../lib/format.ts";
@@ -33,7 +43,12 @@ import { useNow } from "../lib/use-now.ts";
 import { ScreenSection } from "../screens/feed/ScreenToolbar.tsx";
 import { useSlots } from "../slots.tsx";
 import { WidgetBlockView } from "../widgets/WidgetBlock.tsx";
-import { ContextPreviewDialog, DeleteSpaceDialog, InstructionsDialog } from "./SpaceDialogs.tsx";
+import {
+  AddLinkDialog,
+  ContextPreviewDialog,
+  DeleteSpaceDialog,
+  InstructionsDialog,
+} from "./SpaceDialogs.tsx";
 import { useSpace, useSpaceActions, useSpaceThreads } from "./use-spaces.ts";
 
 const TEMPLATES: readonly SpaceTrackerTemplate[] = [
@@ -76,6 +91,7 @@ export function SpacePage({ spaceId, onNavigate, now: fixedNow }: SpacePageProps
   const { chats, all: allThreads } = useSpaceThreads(spaceId);
   const [values, setValues] = useState<Record<string, SpaceTrackerValue>>({});
   const [dialog, setDialog] = useState<"instructions" | "preview" | "delete" | null>(null);
+  const [linkOpen, setLinkOpen] = useState(false);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: opens once per Space, not per reload
   useEffect(() => {
@@ -95,6 +111,26 @@ export function SpacePage({ spaceId, onNavigate, now: fixedNow }: SpacePageProps
 
   const fail = (err: unknown) => toast.error(describeError(err));
   const write = (p: Promise<unknown>) => p.then(reload, fail);
+
+  // A removed link comes back with Undo: the same address and title, under a new id.
+  const removeLink = (link: { id: string; kind: SpaceLinkKind; ref: string; label: string }) =>
+    call("spaces.links.remove", { spaceId, linkId: link.id }).then(() => {
+      reload();
+      toast(t("spaces.links.removed"), {
+        action: {
+          label: t("spaces.links.undo"),
+          onClick: () =>
+            void write(
+              call("spaces.links.add", {
+                spaceId,
+                kind: link.kind,
+                ref: link.ref,
+                label: link.label,
+              }),
+            ),
+        },
+      });
+    }, fail);
 
   // Folders: only where the host's native picker exists (the Mac's desktop shell). Elsewhere the
   // section keeps its explanation, and the Gateway refuses folder writes from other devices too.
@@ -219,6 +255,13 @@ export function SpacePage({ spaceId, onNavigate, now: fixedNow }: SpacePageProps
           ) : null}
         </header>
 
+        <OffersBanner
+          spaceId={spaceId}
+          instructions={space.instructions}
+          onApplied={reload}
+          onError={(err) => toast.error(t("spaces.offers.failed", { reason: describeError(err) }))}
+        />
+
         <div className="flex flex-col [&>*+*]:mt-8 [&>*+*]:border-t [&>*+*]:border-separator [&>*+*]:pt-8">
           <TrackersSection
             detail={detail}
@@ -336,43 +379,69 @@ export function SpacePage({ spaceId, onNavigate, now: fixedNow }: SpacePageProps
                   </li>
                 ))}
                 {detail.links.map((l) => (
-                  <li
-                    key={l.id}
-                    className="flex min-h-9 items-baseline justify-between gap-3 px-2.5"
-                  >
-                    <span className="truncate text-body text-label-primary">{l.label}</span>
+                  <li key={l.id} className="flex min-h-9 items-center gap-2 px-2.5">
+                    <span className="min-w-0 flex-1 truncate text-body text-label-primary">
+                      {l.label}
+                    </span>
                     <span className="min-w-0 shrink truncate text-callout text-label-secondary">
                       {l.ref}
                     </span>
+                    <Button
+                      type="button"
+                      size="icon-xs"
+                      variant="ghost"
+                      disabled={archived}
+                      aria-label={t("spaces.links.remove", { title: l.label })}
+                      onClick={() => void removeLink(l)}
+                    >
+                      <X aria-hidden="true" />
+                    </Button>
                   </li>
                 ))}
               </ul>
             )}
-            {pickFolder ? (
-              <div className="flex flex-col items-start gap-2 px-2.5">
+            <div className="flex flex-col items-start gap-2 px-2.5">
+              <div className="flex flex-wrap gap-2">
+                {pickFolder ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={archived}
+                    onClick={addFolder}
+                  >
+                    <FolderPlus aria-hidden="true" />
+                    {t("spaces.files.add")}
+                  </Button>
+                ) : null}
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
                   disabled={archived}
-                  onClick={addFolder}
+                  onClick={() => setLinkOpen(true)}
                 >
-                  <FolderPlus aria-hidden="true" />
-                  {t("spaces.files.add")}
+                  <Link2 aria-hidden="true" />
+                  {t("spaces.links.add")}
                 </Button>
-                {folderError ? (
-                  <p role="alert" className="text-callout text-danger-text">
-                    {t("spaces.files.failed", { reason: folderError })}
-                  </p>
-                ) : null}
               </div>
-            ) : (
-              <Quiet>{t("spaces.files.addOnMac")}</Quiet>
-            )}
+              {folderError ? (
+                <p role="alert" className="text-callout text-danger-text">
+                  {t("spaces.files.failed", { reason: folderError })}
+                </p>
+              ) : null}
+            </div>
+            {pickFolder ? null : <Quiet>{t("spaces.files.addOnMac")}</Quiet>}
           </ScreenSection>
           <GoalsSection ids={detail.goalIds} onNavigate={navigate} />
         </div>
       </div>
+      <AddLinkDialog
+        open={linkOpen}
+        onOpenChange={setLinkOpen}
+        spaceId={spaceId}
+        onAdded={reload}
+      />
       <InstructionsDialog
         open={dialog === "instructions"}
         onOpenChange={(o) => setDialog(o ? "instructions" : null)}
@@ -436,6 +505,27 @@ function TrackersSection({
   const call = useCall();
   const spaceId = detail.space.id;
   const fail = (err: unknown) => toast.error(describeError(err));
+  // The order the owner just chose, shown before the Gateway answers. A failed save drops it
+  // (rollback); a reload of the Space replaces it with the saved order.
+  const [order, setOrder] = useState<readonly string[] | null>(null);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: each fresh detail ends the optimistic order
+  useEffect(() => setOrder(null), [detail]);
+  const saved = [...detail.trackers].sort((a, b) => a.position - b.position);
+  const shown =
+    order === null ? saved : order.flatMap((id) => saved.filter((tr) => tr.widgetId === id));
+  const move = (index: number, delta: -1 | 1) => {
+    const to = index + delta;
+    if (to < 0 || to >= shown.length) return;
+    const ids = shown.map((tr) => tr.widgetId);
+    const moved = ids[index] as string;
+    ids[index] = ids[to] as string;
+    ids[to] = moved;
+    setOrder(ids);
+    call("spaces.trackers.reorder", { spaceId, widgetIds: ids }).then(onChange, (err: unknown) => {
+      setOrder(null);
+      fail(err);
+    });
+  };
   return (
     <ScreenSection
       id="trackers"
@@ -474,32 +564,33 @@ function TrackersSection({
         <Quiet>{t("spaces.trackers.empty")}</Quiet>
       ) : (
         <ul className="grid grid-cols-1 gap-x-4 @2xl/home:grid-cols-2">
-          {[...detail.trackers]
-            .sort((a, b) => a.position - b.position)
-            .map((tracker) => (
-              <li key={tracker.widgetId} className="min-w-0">
-                <TrackerCard
-                  tracker={tracker}
-                  value={values[tracker.widgetId]}
-                  now={now}
-                  onRemove={() =>
-                    void call("spaces.trackers.remove", {
-                      spaceId,
-                      widgetId: tracker.widgetId,
-                    }).then(onChange, fail)
-                  }
-                  onRefresh={() =>
-                    void call("spaces.trackers.refresh", {
-                      spaceId,
-                      widgetId: tracker.widgetId,
-                    }).then((r) => {
-                      onRefreshed(r.tracker);
-                      onChange();
-                    }, fail)
-                  }
-                />
-              </li>
-            ))}
+          {shown.map((tracker, index) => (
+            <li key={tracker.widgetId} className="min-w-0">
+              <TrackerCard
+                tracker={tracker}
+                value={values[tracker.widgetId]}
+                now={now}
+                canMoveUp={index > 0}
+                canMoveDown={index < shown.length - 1}
+                onMove={(delta) => move(index, delta)}
+                onRemove={() =>
+                  void call("spaces.trackers.remove", {
+                    spaceId,
+                    widgetId: tracker.widgetId,
+                  }).then(onChange, fail)
+                }
+                onRefresh={() =>
+                  void call("spaces.trackers.refresh", {
+                    spaceId,
+                    widgetId: tracker.widgetId,
+                  }).then((r) => {
+                    onRefreshed(r.tracker);
+                    onChange();
+                  }, fail)
+                }
+              />
+            </li>
+          ))}
         </ul>
       )}
     </ScreenSection>
@@ -511,12 +602,18 @@ function TrackerCard({
   tracker,
   value,
   now,
+  canMoveUp,
+  canMoveDown,
+  onMove,
   onRefresh,
   onRemove,
 }: {
   tracker: SpaceTracker;
   value: SpaceTrackerValue | undefined;
   now: number;
+  canMoveUp: boolean;
+  canMoveDown: boolean;
+  onMove: (delta: -1 | 1) => void;
   onRefresh: () => void;
   onRemove: () => void;
 }): ReactElement {
@@ -537,6 +634,26 @@ function TrackerCard({
         {tracker.addedBy === "agent" ? <span>{t("spaces.tracker.addedByPsyche")}</span> : null}
         {value?.unavailable ? <span>{t("spaces.tracker.unavailable")}</span> : null}
         <span className="ms-auto flex items-center gap-1">
+          <Button
+            type="button"
+            size="icon-xs"
+            variant="ghost"
+            disabled={!canMoveUp}
+            aria-label={t("spaces.trackers.moveUp", { title: title })}
+            onClick={() => onMove(-1)}
+          >
+            <ArrowUp aria-hidden="true" />
+          </Button>
+          <Button
+            type="button"
+            size="icon-xs"
+            variant="ghost"
+            disabled={!canMoveDown}
+            aria-label={t("spaces.trackers.moveDown", { title: title })}
+            onClick={() => onMove(1)}
+          >
+            <ArrowDown aria-hidden="true" />
+          </Button>
           {refreshable ? (
             <Button
               type="button"
@@ -561,6 +678,123 @@ function TrackerCard({
         </span>
       </div>
     </div>
+  );
+}
+
+/**
+ * Offers after chats moved in (docs/design/spaces-2026.md §8): pinned widgets of those chats for
+ * the shelf, and the owner's standing instructions from them. Nothing is applied without a tap;
+ * Dismiss keeps an offer from coming back. Renders nothing when there are no offers.
+ */
+function OffersBanner({
+  spaceId,
+  instructions,
+  onApplied,
+  onError,
+}: {
+  spaceId: string;
+  instructions: string;
+  onApplied: () => void;
+  onError: (err: unknown) => void;
+}): ReactElement | null {
+  const call = useCall();
+  const { data, reload } = useGatewayQuery("spaces.offers.list", { spaceId });
+  const widgets = data?.widgets ?? [];
+  const rules = data?.rules ?? [];
+  if (widgets.length === 0 && rules.length === 0) return null;
+  const applied = () => {
+    reload();
+    onApplied();
+  };
+  const rowClass = "flex flex-wrap items-center gap-x-3 gap-y-1 py-1";
+  const textClass = "min-w-0 flex-1 truncate text-callout text-label-secondary";
+  return (
+    <section
+      aria-labelledby="space-offers-title"
+      data-testid="space-offers"
+      className="flex flex-col gap-1 rounded-lg border border-separator px-3 py-2.5"
+    >
+      <h2 id="space-offers-title" className="text-callout text-label-secondary">
+        {t("spaces.offers.title")}
+      </h2>
+      <ul className="flex flex-col">
+        {widgets.map((w) => (
+          <li key={w.id} className={rowClass}>
+            <span className={textClass}>
+              {t("spaces.offers.widget", { title: w.title || t("spaces.trackers") })}
+            </span>
+            <span className="flex shrink-0 items-center gap-1">
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                onClick={() =>
+                  void call("spaces.trackers.add", { spaceId, widgetId: w.widgetId }).then(
+                    applied,
+                    onError,
+                  )
+                }
+              >
+                {t("spaces.offers.addWidget")}
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                onClick={() =>
+                  void call("spaces.offers.dismiss", { spaceId, offerId: w.id }).then(
+                    () => reload(),
+                    onError,
+                  )
+                }
+              >
+                {t("spaces.offers.dismiss")}
+              </Button>
+            </span>
+          </li>
+        ))}
+        {rules.map((r) => (
+          <li key={r.id} className={rowClass}>
+            <span className={textClass}>
+              {t("spaces.offers.rule", {
+                chat: r.fromThreadTitle || t("spaces.offers.untitledChat"),
+                text: r.text,
+              })}
+            </span>
+            <span className="flex shrink-0 items-center gap-1">
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                onClick={() =>
+                  void call("spaces.update", {
+                    spaceId,
+                    instructions: [instructions.trimEnd(), r.text]
+                      .filter((part) => part !== "")
+                      .join("\n"),
+                  }).then(applied, onError)
+                }
+              >
+                {t("spaces.offers.addRule")}
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                onClick={() =>
+                  void call("spaces.offers.dismiss", { spaceId, offerId: r.id }).then(
+                    () => reload(),
+                    onError,
+                  )
+                }
+              >
+                {t("spaces.offers.dismiss")}
+              </Button>
+            </span>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 
