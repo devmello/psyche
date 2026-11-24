@@ -25,8 +25,7 @@ extension FixtureBackend: ProactiveBackend {
         return proactiveState.cards.filter { $0.feedback != .notInterested }
     }
 
-    public func setFeedback(postID: String
-, _ feedback: FeedFeedback?) async throws {
+    public func setFeedback(postID: String, _ feedback: FeedFeedback?) async throws {
         guard let index = proactiveState.cards.firstIndex(where: { $0.id == postID }) else { throw BackendError.notFound }
         proactiveState.cards[index].feedback = feedback
     }

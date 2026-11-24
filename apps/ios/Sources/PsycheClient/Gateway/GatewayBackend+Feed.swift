@@ -22,8 +22,7 @@ extension GatewayBackend {
         return (result["posts"]?.array ?? []).compactMap(Self.feedCard(from:))
     }
 
-    public func setFeedback(postID: String
-, _ feedback: FeedFeedback?) async throws {
+    public func setFeedback(postID: String, _ feedback: FeedFeedback?) async throws {
         _ = try await call(
             "feed.feedback", .obj(["postId": .string(postID), "feedback": feedback.map { .string($0.rawValue) } ?? .null]),
             key: "feed-\(postID)-\(feedback?.rawValue ?? "clear")")
