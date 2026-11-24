@@ -324,7 +324,7 @@ const PAGE = 50;
 const RESTRICTED_VIEWER: AnswerViewer = { passages: false, desktop: false };
 
 /** Who a call is: a paired client may read passages; only the desktop app reads the owner-only ones. */
-const viewerOf = (call: Call): AnswerViewer => ({
+export const viewerOf = (call: Call): AnswerViewer => ({
   passages: call.identity.role === "client",
   desktop: call.identity.role === "client" && call.identity.desktopShell === true,
 });
