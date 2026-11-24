@@ -105,6 +105,8 @@ const call = (over: { desktopShell?: true; loopback?: boolean } = {}): Call =>
     ctx: {
       db,
       config: { home: psycheHome },
+      // No skills part in this harness: `$name` is not resolved here.
+      skillReferences: { resolve: null },
       chatFiles: {
         attach: (t: string, p: string[], by: { deviceId: string }) => broker.attachFiles(t, p, by),
         attached: (t: string) => broker.attachedFiles(t),
