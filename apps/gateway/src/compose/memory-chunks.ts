@@ -73,7 +73,7 @@ export function scrubSearchForViewer<
   T extends {
     hits: { id: string; kind?: string; group?: string }[];
     groups?: { group?: string; count: number; hits: { id: string; kind?: string }[] }[];
-    total: number;
+    total?: number;
   },
 >(call: Call, res: T): T {
   const viewer = viewerOf(call);
@@ -85,7 +85,7 @@ export function scrubSearchForViewer<
   return scrubMemorySearch(call, {
     ...res,
     hits: res.hits.filter(shown),
-    total: Math.max(0, res.total - refused.size),
+    ...(res.total === undefined ? {} : { total: Math.max(0, res.total - refused.size) }),
     ...(res.groups === undefined
       ? {}
       : {
