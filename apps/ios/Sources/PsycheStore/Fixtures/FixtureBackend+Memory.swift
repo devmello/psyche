@@ -3,7 +3,10 @@ import Foundation
 /// Memory's fixture state.
 struct MemoryState: Sendable {
     var snapshot = FixtureData.memory
-    var facts = FixtureData.personFacts
+    /// Person and project facts by entity id: "That's right", "Edit" and "Forget" change these.
+    var facts = FixtureData.personFacts.merging(FixtureData.projectNotes) { person, _ in person }
+    /// Earlier values per "entity|attribute", newest first (memory.entities.history); the current value is in `facts`.
+    var history = FixtureData.factHistory
     /// The edit-sheet card per person and project id, with the etag `updateEntity` checks.
     var cards = FixtureData.entityCards
     /// What Psyche learned, the claims to confirm and the recent changes (FixtureBackend+Learning.swift).
@@ -39,7 +42,7 @@ extension FixtureBackend: MemoryBackend {
         let todos = memoryState.snapshot.todos.filter { ids.contains($0.id) }
         return ProjectDetail(
             project: project, todos: todos,
-            notes: FixtureData.projectNotes[id] ?? [MemoryFact(id: id + "-n1", text: project.detail, evidence: ["memory"])],
+            notes: memoryState.facts[id] ?? [MemoryFact(id: id + "-n1", text: project.detail, evidence: ["memory"])],
             evidence: FixtureData.projectEvidence[id] ?? ["memory"], card: memoryState.cards[id])
     }
 
@@ -58,6 +61,34 @@ extension FixtureBackend: MemoryBackend {
         memoryState.facts[personID]?.removeAll { $0.id == factID }
         publish(.changed(.memory))
     }
+
+    public func editFact(personID: String, attribute: String, value: String) async throws {
+        await pause()
+        guard let facts = memoryState.facts[personID], let index = facts.firstIndex(where: { $0.attribute == attribute })
+        else { throw BackendError.notFound }
+        // The value it replaces is kept as an earlier value, as the Gateway keeps superseded facts.
+        let old = facts[index]
+        let key = Self.historyKey(personID, attribute)
+        let earlier = FactVersion(
+            id: old.id + "-h\((memoryState.history[key]?.count ?? 0) + 1)", value: old.value ?? old.text, isCurrent: false,
+            evidence: old.evidence)
+        memoryState.history[key] = [earlier] + (memoryState.history[key] ?? [])
+        memoryState.facts[personID]?[index].value = value
+        memoryState.facts[personID]?[index].text = value
+        memoryState.facts[personID]?[index].evidence = ["you"]
+        memoryState.facts[personID]?[index].confirmed = true
+        publish(.changed(.memory))
+    }
+
+    public func entityHistory(entityID: String, attribute: String) async throws -> [FactVersion] {
+        await pause()
+        let current = (memoryState.facts[entityID] ?? []).first { $0.attribute == attribute }.map {
+            [FactVersion(id: $0.id, value: $0.value ?? $0.text, isCurrent: true, evidence: $0.evidence)]
+        } ?? []
+        return current + (memoryState.history[Self.historyKey(entityID, attribute)] ?? [])
+    }
+
+    static func historyKey(_ entityID: String, _ attribute: String) -> String { "\(entityID)|\(attribute)" }
 }
 
 extension FixtureData {
@@ -108,7 +139,9 @@ extension FixtureData {
     static let projectNotes: [String: [MemoryFact]] = [
         "p1": [
             MemoryFact(id: "p1-n1", text: "You picked the quartz sample.", evidence: ["Quartz sample.jpg"]),
-            MemoryFact(id: "p1-n2", text: "Waiting on the contractor's second quote.", evidence: ["mail Oct 30"]),
+            MemoryFact(
+                id: "p1-n2", text: "Waiting on the contractor's second quote.", evidence: ["mail Oct 30"],
+                attribute: "next_step", value: "Waiting on the contractor's second quote."),
         ],
         "p2": [
             MemoryFact(id: "p2-n1", text: "Dana wants the summary before Thursday's meeting.", evidence: ["mail Nov 2"]),
@@ -121,7 +154,7 @@ extension FixtureData {
         "pe1": [
             MemoryFact(id: "pe1-f1", text: "Your landlord. Rent is $1,850, due on the 6th.", evidence: ["lease-2026.pdf"], confirmed: true),
             MemoryFact(id: "pe1-f2", text: "Prefers a bank transfer over a check.", evidence: ["mail Oct 28"]),
-            MemoryFact(id: "pe1-f3", text: "Lives in Oakland.", evidence: ["mail Aug 3"]),
+            MemoryFact(id: "pe1-f3", text: "Lives in Oakland.", evidence: ["mail Aug 3"], attribute: "city", value: "Oakland"),
         ],
         "pe2": [
             MemoryFact(id: "pe2-f1", text: "Your manager on the Q3 review.", evidence: ["calendar"], confirmed: true),
@@ -134,6 +167,18 @@ extension FixtureData {
         "pe4": [
             MemoryFact(id: "pe4-f1", text: "A friend from college.", evidence: ["memory"]),
             MemoryFact(id: "pe4-f2", text: "Last talked in September about the trip.", evidence: ["messages Sep 14"]),
+        ],
+    ]
+
+    /// Earlier values of the fixture facts that have one, newest first (`MemoryState.history`).
+    static let factHistory: [String: [FactVersion]] = [
+        "pe1|city": [
+            FactVersion(id: "pe1-f3-h1", value: "Berkeley", isCurrent: false, evidence: ["mail Jun 9"]),
+            FactVersion(id: "pe1-f3-h2", value: "San Francisco", isCurrent: false, evidence: ["contacts Jan 12"]),
+        ],
+        "p1|next_step": [
+            FactVersion(id: "p1-n2-h1", value: "Pick a countertop sample", isCurrent: false, evidence: ["notes/kitchen.md"]),
+            FactVersion(id: "p1-n2-h2", value: "Get the second quote", isCurrent: false, evidence: ["mail Oct 12"]),
         ],
     ]
 
