@@ -4,6 +4,7 @@ import {
   APPROVAL_ONLY_CHANNELS,
   checkAudioChunk,
   checkCallable,
+  checkCallOptions,
   checkClipboardText,
   checkComposerText,
   checkCookieImportPick,
@@ -16,8 +17,10 @@ import {
   checkScanId,
   checkSiteDomain,
   checkTeachApp,
+  checkTimeoutMs,
   checkViewport,
   IPC,
+  MAX_CALL_TIMEOUT_MS,
   REMOTE_REFUSED_CHANNELS,
 } from "../src/lib/ipc.ts";
 
@@ -253,5 +256,59 @@ describe("cookie import IPC (owner only)", () => {
     expect(() => checkScanId("c", "../x")).toThrow();
     expect(checkSiteDomain("c", "ucsc.edu")).toBe("ucsc.edu");
     expect(() => checkSiteDomain("c", "../../etc")).toThrow();
+  });
+});
+
+describe("IPC.call timeoutMs (an app call that waits on the owner's tap)", () => {
+  // What main does for IPC.call: validate, then hand the options to the Gateway connection.
+  function forward(r: Record<string, unknown>) {
+    const seen: unknown[][] = [];
+    const gateway = {
+      call: (method: string, params: unknown, options?: unknown) => {
+        seen.push([method, params, options]);
+        return Promise.resolve({});
+      },
+    };
+    gateway.call("mcp.app.call", r.params ?? {}, checkCallOptions(r));
+    return seen[0];
+  }
+
+  it("passes a long timeout (with or without a key) through to the Gateway connection", () => {
+    expect(forward({ method: "mcp.app.call", params: { a: 1 }, timeoutMs: 2_100_000 })).toEqual([
+      "mcp.app.call",
+      { a: 1 },
+      { timeoutMs: 2_100_000 },
+    ]);
+    expect(forward({ params: {}, idempotencyKey: "k:1", timeoutMs: 5000 })?.[2]).toEqual({
+      idempotencyKey: "k:1",
+      timeoutMs: 5000,
+    });
+  });
+
+  it("a call without one keeps the connection's default (no options at all)", () => {
+    expect(forward({ method: "threads.list", params: {} })?.[2]).toBeUndefined();
+    expect(forward({ params: {}, idempotencyKey: "k:1" })?.[2]).toEqual({ idempotencyKey: "k:1" });
+  });
+
+  it("accepts a finite positive number up to the cap, nothing else", () => {
+    expect(checkTimeoutMs(undefined)).toBeUndefined();
+    expect(checkTimeoutMs(1)).toBe(1);
+    expect(checkTimeoutMs(MAX_CALL_TIMEOUT_MS)).toBe(MAX_CALL_TIMEOUT_MS);
+    for (const bad of [
+      "2100000",
+      null,
+      true,
+      {},
+      [],
+      0,
+      -1,
+      Number.NaN,
+      Number.POSITIVE_INFINITY,
+      MAX_CALL_TIMEOUT_MS + 1,
+      1e12,
+    ]) {
+      expect(() => checkTimeoutMs(bad), String(bad)).toThrow();
+      expect(() => checkCallOptions({ timeoutMs: bad }), String(bad)).toThrow();
+    }
   });
 });

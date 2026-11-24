@@ -323,6 +323,33 @@ export function checkIdempotencyKey(v: unknown): string | undefined {
   return s;
 }
 
+/** The longest a call may wait for its reply: an approval card's life, with room to spare. */
+export const MAX_CALL_TIMEOUT_MS = 60 * 60 * 1000;
+
+/** How long a call waits for its reply (an app call waits on the owner's tap): finite, positive, capped. */
+export function checkTimeoutMs(v: unknown): number | undefined {
+  if (v === undefined) return undefined;
+  if (typeof v !== "number" || !Number.isFinite(v) || v <= 0 || v > MAX_CALL_TIMEOUT_MS)
+    throw new IpcPayloadError(
+      IPC.call,
+      "timeoutMs must be a positive number of at most 60 minutes",
+    );
+  return v;
+}
+
+/** What `IPC.call` hands the Gateway connection besides the method and params. */
+export function checkCallOptions(
+  r: Record<string, unknown>,
+): { idempotencyKey?: string; timeoutMs?: number } | undefined {
+  const idempotencyKey = checkIdempotencyKey(r.idempotencyKey);
+  const timeoutMs = checkTimeoutMs(r.timeoutMs);
+  if (idempotencyKey === undefined && timeoutMs === undefined) return undefined;
+  return {
+    ...(idempotencyKey === undefined ? {} : { idempotencyKey }),
+    ...(timeoutMs === undefined ? {} : { timeoutMs }),
+  };
+}
+
 /** Methods the renderer may call through main: any protocol method except the handshake. */
 export function checkCallable(method: unknown, isMethodName: (m: unknown) => boolean): string {
   if (typeof method !== "string" || !isMethodName(method))
