@@ -335,9 +335,11 @@ extension FixtureData {
                     id: "l4", kind: .specialistResult, title: "Contracts specialist",
                     detail: "Found the 3% cap in section 6 and a fee clause in the addendum."),
                 .sources(id: "l5", sources: [
-                    SourceRef(id: "lib_lease25", title: "Lease-2025.pdf", source: "library", route: "/library/lib_lease25",
+                    // Routes in the Gateway's shape (`/library/<view>?item=<id>`), pointing at items the Library
+                    // fixtures hold; the mail has no in-app page, so its chip shows but does not open.
+                    SourceRef(id: "lib_lease", title: "lease-2026.pdf", source: "library", route: "/library/documents?item=lib_lease",
                               span: "Section 6 caps rent increases at 3% a year.", date: "2025-10-28"),
-                    SourceRef(id: "lib_letter", title: "Landlord letter, Oct 28", source: "library", route: "/library/lib_letter",
+                    SourceRef(id: "mail_letter", title: "Landlord letter, Oct 28", source: "mail", route: nil,
                               span: "Proposes a 4.5% increase from March.", date: "2025-10-28"),
                 ]),
                 .note(
