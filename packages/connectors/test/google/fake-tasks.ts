@@ -37,13 +37,13 @@ export class FakeTasksApi {
   readonly queries: Record<string, string>[] = [];
   readonly #lists: FakeTaskList[];
   readonly #registered = new Set<string>();
+  readonly g: FakeGoogle;
+  readonly pageSize: number;
   #seq = 0;
 
-  constructor(
-    readonly g: FakeGoogle,
-    lists: FakeTaskList[],
-    readonly pageSize = 2,
-  ) {
+  constructor(g: FakeGoogle, lists: FakeTaskList[], pageSize = 2) {
+    this.g = g;
+    this.pageSize = pageSize;
     this.#lists = lists;
     g.route("GET", "/tasks/v1/users/@me/lists", () =>
       json({
