@@ -1952,6 +1952,8 @@ export const it: Partial<Catalogue> = {
   "settings.mcp.network": "Usa la rete",
   "settings.mcp.added": "{name} aggiunto.",
   "settings.mcp.removed": "{name} rimosso.",
+  "settings.mcp.secretNotDeleted":
+    "Psyche non è riuscito a eliminare un segreto salvato ({reason}). Riprova per rimuoverlo.",
   "settings.mcp.denied": "{name} non è stato aggiunto.",
   "settings.mcp.lapsed": "L’approvazione è scaduta. Controlla di nuovo il server per aggiungerlo.",
   "settings.mcp.removeTitle": "Rimuovere {name}?",

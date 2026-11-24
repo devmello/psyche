@@ -52,6 +52,7 @@ export const everythingRest: Partial<Catalogue> = {
   "everything.sources.notLearning": "학습하지 않음",
   "everything.sources.notRead": "Psyche가 {source}을(를) 읽지 않습니다.",
   "everything.sources.letRead": "Psyche가 {source}을(를) 읽도록 허용",
+  "everything.sources.enableFailed": "Psyche가 {source}을(를) 켜지 못했습니다: {reason}",
   "everything.sources.letReadFailed":
     "Psyche가 {source}을(를) 읽도록 허용하지 못했습니다: {reason}",
   "everything.source.mail": "메일",

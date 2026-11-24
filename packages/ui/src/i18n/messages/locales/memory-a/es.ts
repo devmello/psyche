@@ -225,6 +225,7 @@ export const memoryA: Partial<Catalogue> = {
   "everything.sources.notLearning": "Sin aprender de ella",
   "everything.sources.notRead": "Psyche no lee {source}.",
   "everything.sources.letRead": "Dejar que Psyche lea {source}",
+  "everything.sources.enableFailed": "Psyche no pudo activar {source}: {reason}",
   "everything.sources.letReadFailed": "No se pudo dejar que Psyche lea {source}: {reason}",
   "everything.source.mail": "Correo",
   "everything.source.messages": "Mensajes",

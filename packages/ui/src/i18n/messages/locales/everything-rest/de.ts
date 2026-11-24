@@ -52,6 +52,7 @@ export const everythingRest: Partial<Catalogue> = {
   "everything.sources.notLearning": "Lernt nicht daraus",
   "everything.sources.notRead": "Psyche liest {source} nicht.",
   "everything.sources.letRead": "Psyche {source} lesen lassen",
+  "everything.sources.enableFailed": "Psyche konnte {source} nicht einschalten: {reason}",
   "everything.sources.letReadFailed": "Psyche konnte {source} nicht lesen lassen: {reason}",
   "everything.source.mail": "Mail",
   "everything.source.messages": "Nachrichten",
