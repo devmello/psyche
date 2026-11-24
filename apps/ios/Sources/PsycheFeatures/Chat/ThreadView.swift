@@ -15,6 +15,10 @@ struct ThreadView: View {
     /// True between the reader's touch and the end of their drag (the reader's own scrolling, not content growth).
     @State private var reading = false
     @FocusState private var composerFocused: Bool
+    /// The rename sheet's draft title, and whether it and the clear confirmation are showing.
+    @State private var renameText = ""
+    @State private var renaming = false
+    @State private var confirmingClear = false
     @Environment(Router.self) private var router
     @Environment(Session.self) private var session
     @Environment(\.alerts) private var alerts
@@ -48,6 +52,13 @@ struct ThreadView: View {
                             // A reply, card or tool line fades in with an 8 pt rise. The reader's own message
                             // does not move: sending is a frequent action and gets no motion (spec §3).
                             .transition(Self.isUser(item) ? .identity : motion.transition(.rise))
+                            .contextMenu { replyMenu(for: item) }
+                    }
+                    feedbackRow(for: thread)
+                    if model.compacting {
+                        WorkingRow(text: String(localized: "Summarizing earlier messages", bundle: .module))
+                            .padding(.top, 14)
+                            .transition(motion.transition(.fade))
                     }
                     if thread.statusKind == .running, !isStreaming(thread) {
                         WorkingRow(text: thread.status.isEmpty ? String(localized: "Working", bundle: .module) : thread.status)
@@ -136,6 +147,7 @@ struct ThreadView: View {
                 }
             }
             ToolbarItem(placement: .primaryAction) { AgentButton(needsYou: false) }
+            ToolbarItem(placement: .primaryAction) { chatMenu }
         }
         #if os(iOS)
         // iPhone: a thread gets the whole height and the composer sits at the bottom, as in the mockup; back
@@ -157,6 +169,24 @@ struct ThreadView: View {
             Button(String(localized: "OK", bundle: .module)) { model.clearActionError() }
         } message: {
             Text(model.actionError ?? "")
+        }
+        .alert(String(localized: "Rename chat", bundle: .module), isPresented: $renaming) {
+            TextField(String(localized: "Title", bundle: .module), text: $renameText)
+            Button(String(localized: "Cancel", bundle: .module), role: .cancel) {}
+            Button(String(localized: "Save", bundle: .module)) {
+                let title = renameText
+                Task { await model.rename(to: title) }
+            }
+        }
+        .confirmationDialog(
+            String(localized: "Clear this chat?", bundle: .module), isPresented: $confirmingClear, titleVisibility: .visible
+        ) {
+            Button(String(localized: "Clear chat", bundle: .module), role: .destructive) {
+                Task { await model.clear() }
+            }
+            Button(String(localized: "Cancel", bundle: .module), role: .cancel) {}
+        } message: {
+            Text(String(localized: "Its messages go, and Psyche starts fresh in this chat. The title and receipts stay.", bundle: .module))
         }
         .onChange(of: session.state.canAnswer) { _, reachable in if reachable { composer.retryWaiting() } }
         .task {
@@ -180,6 +210,93 @@ struct ThreadView: View {
             await model.observe()
         }
         .onDisappear { composer.dictation.stop() }
+    }
+
+    /// Chat-level actions: rename, fork from the latest reply, compact and clear. Fork needs a finished reply to
+    /// fork from; compact and clear wait while Psyche runs (the Gateway refuses them then anyway).
+    private var chatMenu: some View {
+        Menu {
+            Button {
+                renameText = model.phase.value?.title ?? ""
+                renaming = true
+            } label: {
+                Label(String(localized: "Rename", bundle: .module), systemImage: "pencil")
+            }
+            if let thread = model.phase.value, let messageID = latestReplyID(thread) {
+                Button {
+                    Task { if let newID = await model.fork(atMessage: messageID) { router.openThread(newID) } }
+                } label: {
+                    Label(String(localized: "Fork chat", bundle: .module), systemImage: "arrow.triangle.branch")
+                }
+            }
+            Button { Task { await model.compact() } } label: {
+                Label(String(localized: "Compact", bundle: .module), systemImage: "rectangle.compress.vertical")
+            }
+            .disabled(model.isRunning || model.compacting)
+            Button(role: .destructive) { confirmingClear = true } label: {
+                Label(String(localized: "Clear chat", bundle: .module), systemImage: "eraser")
+            }
+            .disabled(model.isRunning)
+        } label: {
+            Image(systemName: "ellipsis.circle")
+        }
+        .accessibilityLabel(String(localized: "Chat options", bundle: .module))
+    }
+
+    /// The reply's own menu: fork the chat from it, or give thumbs.
+    @ViewBuilder private func replyMenu(for item: ChatItem) -> some View {
+        if case .assistant(let messageID, _, false) = item {
+            Button {
+                Task { if let newID = await model.fork(atMessage: messageID) { router.openThread(newID) } }
+            } label: {
+                Label(String(localized: "Fork from here", bundle: .module), systemImage: "arrow.triangle.branch")
+            }
+            Button {
+                Task { await model.giveFeedback(messageID: messageID, helpful: true) }
+            } label: {
+                Label(String(localized: "Good reply", bundle: .module), systemImage: "hand.thumbsup")
+            }
+            Button {
+                Task { await model.giveFeedback(messageID: messageID, helpful: false) }
+            } label: {
+                Label(String(localized: "Not helpful", bundle: .module), systemImage: "hand.thumbsdown")
+            }
+        }
+    }
+
+    /// A quiet thumbs row under the latest finished reply. The marked one is filled, in ink.
+    @ViewBuilder private func feedbackRow(for thread: ChatThread) -> some View {
+        if thread.statusKind != .running, !model.compacting, let messageID = latestReplyID(thread) {
+            HStack(spacing: 8) {
+                feedbackButton(messageID, helpful: true, symbol: "hand.thumbsup",
+                               label: String(localized: "Good reply", bundle: .module))
+                feedbackButton(messageID, helpful: false, symbol: "hand.thumbsdown",
+                               label: String(localized: "Not helpful", bundle: .module))
+            }
+            .padding(.top, 6)
+        }
+    }
+
+    private func feedbackButton(_ messageID: String, helpful: Bool, symbol: String, label: String) -> some View {
+        let selected = model.feedback[messageID] == helpful
+        return Button {
+            Task { await model.giveFeedback(messageID: messageID, helpful: helpful) }
+        } label: {
+            Image(systemName: selected ? "\(symbol).fill" : symbol)
+                .font(.system(size: 15))
+                .foregroundStyle(selected ? PsycheColor.inkText : PsycheColor.muted)
+                .frame(width: 36, height: 32)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(label)
+        .accessibilityAddTraits(selected ? .isSelected : [])
+    }
+
+    /// The id of the newest reply, when it is finished (not streaming).
+    private func latestReplyID(_ thread: ChatThread) -> String? {
+        guard let last = thread.items.last, case .assistant(let messageID, _, false) = last else { return nil }
+        return messageID
     }
 
     private var actionErrorShown: Binding<Bool> {
