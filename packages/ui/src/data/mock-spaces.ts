@@ -300,6 +300,10 @@ export function spacesHandlers(ctx: SpacesMockContext): Handlers {
     },
     "spaces.links.add": (p) => {
       const detail = find(p.spaceId);
+      // The Gateway's refusal, word for word (apps/gateway/src/spaces/handlers.ts).
+      if (p.kind === "url" && !/^https?:\/\//i.test(p.ref)) {
+        throw new PsycheError("invalid_params", "a URL link must start with http:// or https://");
+      }
       const link = {
         id: ctx.id("lnk"),
         kind: p.kind,
@@ -469,6 +473,19 @@ export function spacesHandlers(ctx: SpacesMockContext): Handlers {
       return { ok: true };
     },
     "spaces.offers.list": (p) => ctx.world().offers?.[p.spaceId] ?? { widgets: [], rules: [] },
-    "spaces.offers.dismiss": () => ({ ok: true }),
+    "spaces.offers.dismiss": (p) => {
+      const world = ctx.world();
+      const offers = world.offers?.[p.spaceId];
+      if (offers !== undefined) {
+        world.offers = {
+          ...world.offers,
+          [p.spaceId]: {
+            widgets: offers.widgets.filter((w) => w.id !== p.offerId),
+            rules: offers.rules.filter((r) => r.id !== p.offerId),
+          },
+        };
+      }
+      return { ok: true };
+    },
   };
 }

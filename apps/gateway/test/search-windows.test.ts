@@ -1,7 +1,7 @@
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { ConnectorRecord } from "@psyche/connectors";
+import { type ConnectorRecord, GoogleAuthError } from "@psyche/connectors";
 import { appleAdapters, type SourceAdapter } from "@psyche/search";
 import { FakeModelProvider } from "@psyche/testing";
 import { describe, expect, it } from "vitest";
@@ -398,4 +398,117 @@ describe("Reminders from Microsoft To Do", () => {
     }
     // A whole composed Gateway: slower than the seams above on a busy machine.
   }, 30_000);
+});
+
+describe("Reminders from Google Tasks", () => {
+  const GOOGLE_TOOLS: Record<string, (p: Obj) => unknown> = {
+    "mcp__google-1__reminders_list": (p) => ({
+      reminders: [
+        {
+          id: "gl1|gt1",
+          listId: "gl1",
+          list: "Groceries",
+          title: "Buy milk",
+          due: "2026-11-07T00:00:00.000Z",
+          completed: false,
+          shared: false,
+          source: "Google Tasks",
+        },
+        // The same title and day as the To Do row: another provider's id, so both show.
+        {
+          id: "gl1|gt2",
+          listId: "gl1",
+          list: "Groceries",
+          title: "Renew passport",
+          due: "2026-11-07T08:00:00Z",
+          completed: false,
+          shared: false,
+          source: "Google Tasks",
+        },
+      ].filter((r) => p.completed !== true),
+    }),
+    "mcp__google-1__reminders_list_lists": () => ({
+      lists: [{ id: "gl1", title: "Groceries", shared: false, source: "Google Tasks" }],
+    }),
+  };
+  // A Google connection made before Google Tasks: its Tasks tools say the scope is missing.
+  const OLD_GOOGLE_TOOLS: Record<string, (p: Obj) => unknown> = {
+    "mcp__google-old__reminders_list": () => {
+      throw new GoogleAuthError("missing_scopes", "Google did not grant: tasks.");
+    },
+    "mcp__google-old__reminders_list_lists": () => {
+      throw new GoogleAuthError("missing_scopes", "Google did not grant: tasks.");
+    },
+  };
+
+  it("a Google connection's reminders reach the Reminders source and the brief, beside To Do", async () => {
+    const { s } = seams(
+      [
+        rec("ms-1", "microsoft", "owner@contoso.example"),
+        rec("google-1", "google", "owner@gmail.example"),
+      ],
+      { ...TOOLS, ...GOOGLE_TOOLS },
+      "darwin",
+    );
+    await s.refresh();
+    const page = await byId(appleAdapters(s.deps), "reminders").pull(null, { signal, limit: 50 });
+    expect(page.items.map((i) => i.title).sort()).toEqual(
+      ["Book flights", "Buy milk", "Renew passport", "Renew passport"].sort(),
+    );
+    expect(page.items.find((i) => i.title === "Buy milk")?.provenance).toBe("owner");
+    expect(page.items.find((i) => i.title === "Book flights")?.provenance).toBe("untrusted");
+
+    const rows = await appleWorkSources(s, () => []).reminders([], signal);
+    expect(rows.map((r) => [r.title, r.listTitle, r.trusted]).sort()).toEqual(
+      [
+        ["Book flights", "Family", false],
+        ["Buy milk", "Groceries", true],
+        ["Renew passport", "Groceries", true],
+        ["Renew passport", "Tasks", true],
+      ].sort(),
+    );
+    expect(await appleWorkSources(s, () => []).lists?.(signal)).toEqual(
+      expect.arrayContaining([
+        { id: "gl1", name: "Groceries", shared: false, source: "Google Tasks" },
+      ]),
+    );
+  });
+
+  it("a Google connection without the Tasks scope is skipped quietly; the other sources still show", async () => {
+    const { s } = seams(
+      [
+        rec("ms-1", "microsoft", "owner@contoso.example"),
+        rec("google-old", "google", "owner@gmail.example"),
+      ],
+      { ...TOOLS, ...OLD_GOOGLE_TOOLS },
+      "darwin",
+    );
+    await s.refresh();
+    const page = await byId(appleAdapters(s.deps), "reminders").pull(null, { signal, limit: 50 });
+    expect(page.items.map((i) => [i.title, i.provenance])).toEqual([
+      ["Renew passport", "owner"],
+      ["Book flights", "untrusted"],
+    ]);
+    const work = appleWorkSources(s, () => []);
+    const rows = await work.reminders([], signal);
+    expect(rows.map((r) => r.title)).toEqual(["Renew passport", "Book flights"]);
+    expect(await work.lists?.(signal)).toEqual([
+      { id: "L1", name: "Tasks", shared: false, source: "Microsoft To Do" },
+    ]);
+  });
+
+  it("a lone Google connection without the scope yields no reminders and no error", async () => {
+    const { s } = seams(
+      [rec("google-old", "google", "owner@gmail.example")],
+      OLD_GOOGLE_TOOLS,
+      "win32",
+    );
+    await s.refresh();
+    const call = s.deps.call("reminders");
+    expect(call).toBeDefined();
+    expect(await call?.("reminders_list", { completed: false, limit: 50 }, signal)).toEqual({
+      reminders: [],
+    });
+    expect(await appleWorkSources(s, () => []).reminders([], signal)).toEqual([]);
+  });
 });

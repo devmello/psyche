@@ -23,7 +23,8 @@ import {
  * app) and the Mac helper's Messages read. Nothing here opens Mail, Messages or chat.db itself.
  *
  * Reminders read every Reminders backend: the `apple:reminders` connection (Apple Reminders on a
- * Mac, Outlook tasks through the Windows helper) and Microsoft To Do on a Microsoft 365 connection.
+ * Mac, Outlook tasks through the Windows helper), Microsoft To Do on a Microsoft 365 connection and
+ * Google Tasks on a Google connection.
  * On Windows, Mail and Calendar fall back to the Microsoft 365 and Google connections when no
  * Outlook (Windows helper) connection is there (`search-cloud.ts`).
  */
@@ -125,9 +126,11 @@ export function appleSearchSeams(o: {
       if (app === "reminders") {
         const backends = [
           ...(rec === undefined ? [] : [rec]),
-          ...offering(["microsoft"], () => "reminders_list"),
+          ...offering(["microsoft", "google"], () => "reminders_list"),
         ];
-        if (backends.length <= 1)
+        // A lone Google connection still goes through the merged call: its pre-Tasks scope gap is
+        // skipped there, where a bare call would surface as a Reminders error.
+        if (backends.length <= 1 && backends[0]?.type !== "google")
           return backends[0] === undefined ? undefined : callFor(backends[0]);
         return mergedRemindersCall(backends, exec);
       }
