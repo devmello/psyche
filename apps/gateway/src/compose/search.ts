@@ -52,7 +52,7 @@ import type { Logger } from "../log.ts";
 import type { Gateway } from "../server.ts";
 import { markImportedHits } from "../session/imported-threads.ts";
 import { DeferredOpen } from "./deferred-open.ts";
-import { scrubMemorySearch } from "./memory-chunks.ts";
+import { hiddenSearchPrefixes, scrubSearchForViewer } from "./memory-chunks.ts";
 import type { PageReadHub } from "./page-reads.ts";
 import { openSearchDatabase } from "./search-db.ts";
 import { APPLE_RERANK_TOP_N } from "./search-engine.ts";
@@ -676,9 +676,15 @@ function buildSearch(deps: SearchDeps, sqlite: PsycheDb["sqlite"]): ComposedSear
   const handlers: Record<string, HandlerDef> = {
     "search.query": {
       run: async (call, params: never) =>
-        scrubMemorySearch(
+        scrubSearchForViewer(
           call,
-          markImportedHits(call.ctx.db, await api["search.query"](params, { viewer: OWNER })),
+          markImportedHits(
+            call.ctx.db,
+            await api["search.query"](params, {
+              viewer: OWNER,
+              excludeIdPrefixes: hiddenSearchPrefixes(call),
+            }),
+          ),
         ),
     },
     ...searchOpenHandlers({

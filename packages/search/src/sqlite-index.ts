@@ -560,6 +560,14 @@ export class SqliteSearchIndex implements SearchIndex {
     const groupLimit = clampLimit(request.groupLimit, 5);
     const agent = request.audience === "agent";
     const where = this.#where(parsed.filters, undefined, viewer, agent, request.sources);
+    const excluded = request.excludeIdPrefixes ?? [];
+    if (excluded.length > 0) {
+      // The prefix before the first `:`, compared whole: `messages:7` goes, `messagesX:1` stays.
+      where.sql.push(
+        `substr(d.id, 1, instr(d.id || ':', ':') - 1) NOT IN (${excluded.map(() => "?").join(", ")})`,
+      );
+      where.params.push(...excluded);
+    }
     const kinds = allowedKinds(request);
     if (kinds !== undefined) {
       where.sql.push(`d.kind IN (${kinds.map(() => "?").join(", ") || "NULL"})`);
@@ -588,6 +596,7 @@ export class SqliteSearchIndex implements SearchIndex {
         warnings,
         started,
         senderOnly,
+        noMemory: excluded.includes("memory"),
       });
     }
     const ranked = this.#rank(parsed, where, { collapse, limit, groupLimit });
@@ -609,7 +618,7 @@ export class SqliteSearchIndex implements SearchIndex {
     let total = ranked.total;
     let flat = flatLocal;
     const memory =
-      senderOnly || (agent && this.#agentHidden("memory"))
+      senderOnly || excluded.includes("memory") || (agent && this.#agentHidden("memory"))
         ? []
         : await this.#searchMemory(parsed, viewer, kinds, groupLimit, limit);
     if (memory.length > 0) {
@@ -668,6 +677,8 @@ export class SqliteSearchIndex implements SearchIndex {
       started: number;
       /** A sender filter is set: memory (no sender) is left out. */
       senderOnly: boolean;
+      /** Memory chunks are not for this viewer (`excludeIdPrefixes` names `memory`). */
+      noMemory?: boolean;
     },
   ): Promise<SearchResponse> {
     const depth = Math.max(o.limit, SEMANTIC_K);
@@ -781,7 +792,7 @@ export class SqliteSearchIndex implements SearchIndex {
     let total = ranked.total + chunkOf.size;
     let flat = flatLocal;
     const memory =
-      o.senderOnly || (o.agent && this.#agentHidden("memory"))
+      o.senderOnly || o.noMemory === true || (o.agent && this.#agentHidden("memory"))
         ? []
         : await this.#searchMemory(parsed, o.viewer, o.kinds, o.groupLimit, o.limit);
     if (memory.length > 0) {
