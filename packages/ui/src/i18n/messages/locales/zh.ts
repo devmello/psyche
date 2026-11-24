@@ -3653,6 +3653,7 @@ export const zh: Partial<Catalogue> = {
   "web.browser.clearConfirm":
     "要清除{profile, select, clean {登出状态} other {代理}}描述文件的 Cookie 和网站数据吗？",
   "web.browser.cleared": "浏览数据已清除。",
+  "web.browser.clearFailed": "无法清除浏览数据。",
   "web.browser.clearData": "清除浏览数据",
 
   "web.command.model": "为此会话选择模型",

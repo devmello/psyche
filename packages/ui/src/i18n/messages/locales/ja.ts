@@ -3740,6 +3740,7 @@ export const ja: Partial<Catalogue> = {
   "web.browser.clearConfirm":
     "{profile, select, clean {ログアウト状態の} other {エージェントの}}プロファイルのCookieとサイトデータを消去しますか？",
   "web.browser.cleared": "閲覧データを消去しました。",
+  "web.browser.clearFailed": "閲覧データを削除できませんでした。",
   "web.browser.clearData": "閲覧データを消去",
   "web.command.model": "このスレッドのモデルを選択",
   "web.command.schedule": "タスクまたはリマインダーをスケジュール",

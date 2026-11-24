@@ -9,6 +9,7 @@ export const automationChat: Partial<Catalogue> = {
     "{title}، {n, plural, zero {لا تشغيلات} one {تشغيل واحد} two {تشغيلان} few {# تشغيلات} many {# تشغيلًا} other {# تشغيل}}، آخر تشغيل {status}",
   "automationChat.schedule": "المجدولة",
   "automationChat.runNow": "التشغيل الآن",
+  "automationChat.runStarted": "بدأ التشغيل.",
   "automationChat.empty": "لا تشغيلات بعد. في كل مرة تعمل هذه الأتمتة تظهر هنا.",
   "automationChat.loading": "جارٍ تحميل التشغيلات",
   "automationChat.failed": "تعذّر على Psyche تحميل التشغيلات",

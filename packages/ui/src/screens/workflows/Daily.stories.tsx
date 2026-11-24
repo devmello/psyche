@@ -33,7 +33,7 @@ function Column({ children }: { children: ReactNode }): ReactElement {
 export const MorningBrief: Story = {
   render: () => (
     <Column>
-      <DailyCard brief={morningBrief()} onOpen={noop} onFollowup={noop} />
+      <DailyCard brief={morningBrief()} onOpen={noop} onFollowup={() => Promise.resolve(false)} />
     </Column>
   ),
 };
@@ -47,7 +47,11 @@ export const MorningNoConnectors: Story = {
 export const EveningWrapup: Story = {
   render: () => (
     <Column>
-      <DailyCard brief={eveningWrapup()} onFollowup={noop} onCarryOver={noop} />
+      <DailyCard
+        brief={eveningWrapup()}
+        onFollowup={() => Promise.resolve(false)}
+        onCarryOver={() => Promise.resolve(false)}
+      />
     </Column>
   ),
 };

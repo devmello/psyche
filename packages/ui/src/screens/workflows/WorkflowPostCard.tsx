@@ -64,7 +64,7 @@ export function WorkflowPostCard({
       }),
     );
   };
-  const onLoop = (loop: DigestLoop, action: DigestLoopAction) => {
+  const onLoop = (loop: DigestLoop, action: DigestLoopAction): Promise<boolean> | undefined => {
     if (action === "nudge") {
       prefill?.(
         t("workflows.ask.nudge", {
@@ -74,12 +74,16 @@ export function WorkflowPostCard({
       );
       return;
     }
-    store
+    return store
       .call("memory.loops.update", {
         id: loop.loop.id,
         status: action === "done" ? "done" : "snoozed",
       })
-      .catch((err: unknown) => toast.error(describeError(err)));
+      .then(() => true)
+      .catch((err: unknown) => {
+        toast.error(describeError(err));
+        return false;
+      });
   };
 
   switch (card.type) {
@@ -100,17 +104,24 @@ export function WorkflowPostCard({
           brief={card.daily}
           focused={focused}
           onOpen={(link) => (link.startsWith("/") ? navigate?.(link) : openLink(link))}
-          onFollowup={(id, action) => {
-            store
-              .call("daily.followups.update", { id, action })
-              .catch((err: unknown) => toast.error(describeError(err)));
-          }}
-          onCarryOver={(ids) => {
-            store
-              .call("daily.carryOver", { ids })
-              .then(() => toast.success(t("daily.carryOver.done")))
-              .catch((err: unknown) => toast.error(describeError(err)));
-          }}
+          onFollowup={(id, action) =>
+            store.call("daily.followups.update", { id, action }).then(
+              () => true,
+              () => {
+                toast.error(t("daily.followup.failed"));
+                return false;
+              },
+            )
+          }
+          onCarryOver={(ids) =>
+            store.call("daily.carryOver", { ids }).then(
+              () => true,
+              (err: unknown) => {
+                toast.error(describeError(err));
+                return false;
+              },
+            )
+          }
           {...(className ? { className } : {})}
         />
       );

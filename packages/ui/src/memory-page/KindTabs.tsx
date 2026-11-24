@@ -17,6 +17,7 @@ import type { EntitySummary } from "../people/types.ts";
 import { ScreenSection } from "../screens/feed/ScreenToolbar.tsx";
 import { SegmentedRadio } from "../screens/settings/SegmentedRadio.tsx";
 import { entityHref } from "./kinds.ts";
+import { LoadFailed } from "./LoadFailed.tsx";
 import { ProjectRow } from "./WorkRow.tsx";
 import { useProjects, useWorkWrites } from "./work-hooks.ts";
 
@@ -153,7 +154,7 @@ export function ProjectsTab({
 }): ReactElement {
   const [status, setStatus] = useState<GraphProjectStatus>("active");
   const [adding, setAdding] = useState(startAdding);
-  const { projects, loading } = useProjects();
+  const { projects, loading, error, reload } = useProjects();
   const rows = projects.filter((e) => (e.projectStatus ?? "active") === status);
   return (
     <section
@@ -186,7 +187,9 @@ export function ProjectsTab({
       ) : null}
       <GroupedList>
         {rows.length === 0 ? (
-          loading ? null : (
+          error !== null ? (
+            <LoadFailed onRetry={reload} />
+          ) : loading ? null : (
             <Quiet>{t("memory.page.projects.empty")}</Quiet>
           )
         ) : (
@@ -225,7 +228,21 @@ export function EventsTab({
   const loading = coming.loading || events.loading;
   return (
     <section aria-label={t("memory.page.kind.events")} className="flex flex-col gap-6">
-      {upcoming.length === 0 && other.length === 0 && !loading ? (
+      {coming.error !== null || events.error !== null ? (
+        <GroupedList>
+          <LoadFailed
+            onRetry={() => {
+              coming.reload();
+              events.reload();
+            }}
+          />
+        </GroupedList>
+      ) : null}
+      {upcoming.length === 0 &&
+      other.length === 0 &&
+      !loading &&
+      coming.error === null &&
+      events.error === null ? (
         <GroupedList>
           <Quiet>{t("memory.page.events.empty")}</Quiet>
         </GroupedList>

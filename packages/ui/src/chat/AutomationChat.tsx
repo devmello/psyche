@@ -1,11 +1,13 @@
 import type { AutomationRun, Run, RunStep, Thread } from "@psyche/protocol";
 import { ChevronRight } from "lucide-react";
 import { type ReactElement, type ReactNode, useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
 import { DisclosureProvider } from "../blocks/disclosure.tsx";
 import { Markdown } from "../blocks/Markdown.tsx";
 import { Button } from "../components/ui/button.tsx";
 import { useGatewayQuery, useRun, useStore, useStoreState } from "../data/index.ts";
 import { t } from "../i18n/core.ts";
+import { describeError } from "../i18n/errors.ts";
 import { formatDuration, formatRelative } from "../lib/format.ts";
 import { useNow } from "../lib/use-now.ts";
 import { cn } from "../lib/utils.ts";
@@ -444,7 +446,12 @@ export function AutomationChat({
       focusRunId={focusRunId}
       hasMore={q.data?.nextCursor != null}
       onMore={() => setLimit((l) => l + PAGE)}
-      onRunNow={() => void store.call("automations.run", { automationId })}
+      onRunNow={() =>
+        void store.call("automations.run", { automationId }).then(
+          () => toast.success(t("automationChat.runStarted")),
+          (err: unknown) => toast.error(describeError(err)),
+        )
+      }
       {...(navigate ? { onOpenScheduled: () => navigate("/scheduled") } : {})}
       liveOf={(r) => (r.runId == null ? undefined : agentRuns[r.runId]?.status)}
       renderRun={(run) => (

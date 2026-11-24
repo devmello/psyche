@@ -3786,6 +3786,7 @@ export const fr: Partial<Catalogue> = {
   "web.browser.clearConfirm":
     "Effacer les cookies et les données de sites du profil {profile, select, clean {déconnecté} other {de l’agent}} ?",
   "web.browser.cleared": "Données de navigation effacées.",
+  "web.browser.clearFailed": "Impossible d’effacer les données de navigation.",
   "web.browser.clearData": "Effacer les données de navigation",
   "web.command.model": "Choisir le modèle de cette discussion",
   "web.command.schedule": "Planifier une tâche ou un rappel",

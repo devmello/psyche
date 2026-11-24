@@ -7,6 +7,7 @@ export const automationChat: Partial<Catalogue> = {
   "automationChat.runs.aria": "{title}，{n, plural, other {# 次运行}}，上次运行{status}",
   "automationChat.schedule": "计划任务",
   "automationChat.runNow": "立即运行",
+  "automationChat.runStarted": "已开始运行。",
   "automationChat.empty": "还没有运行记录。此自动化每次运行都会显示在这里。",
   "automationChat.loading": "正在载入运行记录",
   "automationChat.failed": "Psyche 无法载入运行记录",
