@@ -109,7 +109,7 @@ describe("Search sources on Windows", () => {
     expect(screen.queryByRole("switch", { name: "Notes" })).toBeNull();
     expect(screen.getByRole("switch", { name: "Mail" })).toBeTruthy();
     expect(screen.getByText(/Outlook, Microsoft 365 or Gmail/)).toBeTruthy();
-    expect(screen.getByText(/Tasks in Outlook or Microsoft To Do/)).toBeTruthy();
+    expect(screen.getByText(/Tasks in Outlook, Microsoft To Do or Google Tasks/)).toBeTruthy();
   });
 
   it("keeps every row on a Mac", () => {

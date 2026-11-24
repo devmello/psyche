@@ -193,7 +193,7 @@ export const windows: Partial<Record<MessageId, string>> = {
   "settings.searchSources.hint.mail":
     "Subject, sender, recipients, date and the text of your mail in Outlook, Microsoft 365 or Gmail. Quoted replies are skipped.",
   "settings.searchSources.hint.reminders":
-    "Tasks in Outlook or Microsoft To Do, with their lists, due dates and notes.",
+    "Tasks in Outlook, Microsoft To Do or Google Tasks, with their lists, due dates and notes.",
   "settings.searchSources.hint.contacts":
     "Your contacts in classic Outlook: name, nickname, company, job title, emails, phone numbers, the city and country of each address, and birthday. Street addresses, notes and groups are never read. The agent can't search it until you allow it, and that switch covers only this index: what Memory has learned about people, and their pages with emails or numbers, follow Memory's own agent access.",
   "settings.searchSources.runOnBatteryHint":

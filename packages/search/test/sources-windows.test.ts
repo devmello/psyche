@@ -66,7 +66,7 @@ describe("sources on Windows", () => {
     expect(rows).toEqual([{ id: "reminders:L1|t1", provenance: "owner" }]);
     connected = false;
     expect(indexer.status().sources.find((s) => s.id === "reminders")?.detail).toBe(
-      "neither Outlook nor Microsoft To Do (Microsoft 365) is connected",
+      "neither Outlook, Microsoft To Do (Microsoft 365) nor Google Tasks is connected",
     );
   });
 });

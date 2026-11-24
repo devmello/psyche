@@ -22,7 +22,7 @@ export const galleryRest: Partial<Catalogue> = {
   "gallery.category.everyday": "रोज़मर्रा",
   "gallery.category.finance": "वित्त",
   "gallery.category.custom": "आपके अपने",
-  "gallery.builtin.google": "Gmail, Google Calendar और Drive।",
+  "gallery.builtin.google": "Gmail, Google Calendar, Drive और Tasks।",
   "gallery.builtin.microsoft": "Outlook मेल और कैलेंडर।",
   "gallery.builtin.imap": "IMAP सपोर्ट करने वाला कोई भी मेल खाता।",
   "gallery.builtin.appleNotes": "Apple Notes में अपने नोट्स पढ़ें और उनमें जोड़ें।",
