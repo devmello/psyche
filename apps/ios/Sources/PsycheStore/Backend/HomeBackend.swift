@@ -19,7 +19,12 @@ public protocol HomeBackend: Sendable {
     /// Taps one of a Gateway notice's own buttons ("Keep it"), the same `notifications.resolve` call the web inbox makes.
     /// Approval buttons are not here: they answer through `answerApproval`.
     func resolveNotice(id: String, actionID: String) async throws
+    /// Marks a Today follow-up done, snoozes it or dismisses it (`daily.followups.update`). A snooze without `until`
+    /// comes back tomorrow morning, as the Gateway's default does. The row leaves Today once the Gateway answers.
+    func actOnFollowup(id: String, action: FollowupAction, until: Date?) async throws
 }
+
+public enum FollowupAction: String, Sendable, Equatable { case done, snooze, dismiss }
 
 public enum ApprovalDecision: String, Sendable, Equatable { case allow, deny }
 
