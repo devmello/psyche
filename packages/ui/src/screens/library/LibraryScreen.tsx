@@ -60,7 +60,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "../../components/ui/pop
 import { Skeleton } from "../../components/ui/skeleton.tsx";
 import { Tabs, TabsList, TabsTrigger } from "../../components/ui/tabs.tsx";
 import { ToggleGroup, ToggleGroupItem } from "../../components/ui/toggle-group.tsx";
-import { useCall, useLibrary, useTasks } from "../../data/hooks.ts";
+import { useCall, useLibrary, useLoadRemaining, useTasks } from "../../data/hooks.ts";
 import { useStore } from "../../data/provider.tsx";
 import { t } from "../../i18n/core.ts";
 import { describeError } from "../../i18n/errors.ts";
@@ -968,6 +968,9 @@ export function LibraryScreen({
   const persona = usePersona();
   const library = useLibrary();
   const tasks = useTasks();
+  // Every Library item and every task (for the titles), not only the first pages.
+  useLoadRemaining(library);
+  useLoadRemaining(tasks);
   const now = useNow(60_000, fixedNow);
   const [own, setOwn] = useState<LibrarySection>("documents");
   const [layout, setLayout] = useState<"grid" | "list">("grid");

@@ -481,6 +481,16 @@ export function ActivityPanel({
       />
       <ApprovalFriction {...(fixedNow === undefined ? {} : { now: fixedNow })} />
       <AuditView {...(fixedNow === undefined ? {} : { now: fixedNow })} />
+      {tasks.hasMore ? (
+        <button
+          type="button"
+          className="self-center text-accent-11 underline"
+          disabled={tasks.loadingMore}
+          onClick={() => void tasks.loadMore().catch(() => undefined)}
+        >
+          {t("audit.loadMore")}
+        </button>
+      ) : null}
     </section>
   );
 }
