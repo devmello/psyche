@@ -1,3 +1,4 @@
+import { PsycheError } from "@psyche/protocol";
 import { assertNoSecrets, rawMessage, registerSecret } from "@psyche/testing";
 import { describe, expect, it } from "vitest";
 import { toolCallBindingHash } from "../../src/framework/binding.ts";
@@ -5,7 +6,7 @@ import { ConnectorRegistry } from "../../src/framework/registry.ts";
 import type { ConnectorEvent } from "../../src/framework/types.ts";
 import { sendBinding } from "../../src/mail/binding.ts";
 import { microsoftScopesFor } from "../../src/microsoft/auth.ts";
-import { graphEventBody } from "../../src/microsoft/calendar.ts";
+import { graphEventBody, graphEventView } from "../../src/microsoft/calendar.ts";
 import { microsoftFactory } from "../../src/microsoft/connector.ts";
 import { MapRegistry, run, stubBroker } from "../mail/helpers.ts";
 import { CDN, CLIENT_ID, FakeGraph, OWNER } from "./fake-graph.ts";
@@ -439,13 +440,13 @@ describe("Outlook calendar, contacts and OneDrive", () => {
       attendees: [{ emailAddress: { address: "Alice@Example.com" }, type: "required" }],
     });
     expect(out.output).toMatchObject({ id: "e9", summary: "Sync" });
-    expect(() =>
+    expect(
       graphEventBody({
         start: { dateTime: "2026-10-22T15:00:00Z" },
         end: { dateTime: "2026-10-22T16:00:00Z" },
-        recurrence: ["RRULE:FREQ=WEEKLY"],
+        recurrence: ["RRULE:FREQ=WEEKLY;BYDAY=TH"],
       }),
-    ).toThrow(/recurring/);
+    ).toMatchObject({ recurrence: { pattern: { type: "weekly" }, range: { type: "noEnd" } } });
     const del = t.tools.get("mcp__ms-1__calendar_delete_event");
     expect(del?.spec.sideEffect).toBe("destructive");
   });
@@ -604,5 +605,388 @@ describe("Outlook calendar, contacts and OneDrive", () => {
     const third = await t.registry.instance("ms-1")?.sync?.(rec.lastSync);
     expect(third?.full).toBe(true);
     assertNoSecrets({ first, second, third, requests: t.g.requests.map((r) => r.url) });
+  });
+});
+
+/** Start 2026-10-22T22:00Z is a Thursday; the series anchors on 2026-10-22 (UTC). */
+const START = { dateTime: "2026-10-22T22:00:00Z" };
+const END = { dateTime: "2026-10-22T23:00:00Z" };
+
+function refusal(event: Parameters<typeof graphEventBody>[0], opts?: { update?: boolean }) {
+  try {
+    graphEventBody(event, opts);
+  } catch (err) {
+    return err;
+  }
+  return undefined;
+}
+
+describe("Outlook recurrence (RRULE to Graph patternedRecurrence)", () => {
+  const table: [string, unknown][] = [
+    [
+      "RRULE:FREQ=DAILY;COUNT=5",
+      {
+        pattern: { type: "daily", interval: 1 },
+        range: { type: "numbered", startDate: "2026-10-22", numberOfOccurrences: 5 },
+      },
+    ],
+    [
+      "RRULE:FREQ=DAILY;INTERVAL=2;UNTIL=20261231",
+      {
+        pattern: { type: "daily", interval: 2 },
+        range: { type: "endDate", startDate: "2026-10-22", endDate: "2026-12-31" },
+      },
+    ],
+    [
+      "RRULE:FREQ=DAILY;UNTIL=20261231T235959Z",
+      {
+        pattern: { type: "daily", interval: 1 },
+        range: { type: "endDate", startDate: "2026-10-22", endDate: "2026-12-31" },
+      },
+    ],
+    [
+      "RRULE:FREQ=WEEKLY;BYDAY=MO,WE;COUNT=10",
+      {
+        pattern: {
+          type: "weekly",
+          interval: 1,
+          daysOfWeek: ["monday", "wednesday"],
+          firstDayOfWeek: "sunday",
+        },
+        range: { type: "numbered", startDate: "2026-10-22", numberOfOccurrences: 10 },
+      },
+    ],
+    [
+      "RRULE:FREQ=WEEKLY",
+      {
+        pattern: {
+          type: "weekly",
+          interval: 1,
+          daysOfWeek: ["thursday"],
+          firstDayOfWeek: "sunday",
+        },
+        range: { type: "noEnd", startDate: "2026-10-22" },
+      },
+    ],
+    [
+      "RRULE:FREQ=WEEKLY;INTERVAL=2;BYDAY=TU;WKST=MO",
+      {
+        pattern: {
+          type: "weekly",
+          interval: 2,
+          daysOfWeek: ["tuesday"],
+          firstDayOfWeek: "monday",
+        },
+        range: { type: "noEnd", startDate: "2026-10-22" },
+      },
+    ],
+    [
+      "RRULE:FREQ=MONTHLY;BYMONTHDAY=15;COUNT=3",
+      {
+        pattern: { type: "absoluteMonthly", interval: 1, dayOfMonth: 15 },
+        range: { type: "numbered", startDate: "2026-10-22", numberOfOccurrences: 3 },
+      },
+    ],
+    [
+      "RRULE:FREQ=MONTHLY",
+      {
+        pattern: { type: "absoluteMonthly", interval: 1, dayOfMonth: 22 },
+        range: { type: "noEnd", startDate: "2026-10-22" },
+      },
+    ],
+    [
+      "RRULE:FREQ=MONTHLY;BYDAY=2TU",
+      {
+        pattern: {
+          type: "relativeMonthly",
+          interval: 1,
+          daysOfWeek: ["tuesday"],
+          index: "second",
+        },
+        range: { type: "noEnd", startDate: "2026-10-22" },
+      },
+    ],
+    [
+      "RRULE:FREQ=MONTHLY;BYDAY=-1FR;UNTIL=20270101",
+      {
+        pattern: {
+          type: "relativeMonthly",
+          interval: 1,
+          daysOfWeek: ["friday"],
+          index: "last",
+        },
+        range: { type: "endDate", startDate: "2026-10-22", endDate: "2027-01-01" },
+      },
+    ],
+    [
+      "RRULE:FREQ=MONTHLY;BYDAY=MO,FR;BYSETPOS=3",
+      {
+        pattern: {
+          type: "relativeMonthly",
+          interval: 1,
+          daysOfWeek: ["monday", "friday"],
+          index: "third",
+        },
+        range: { type: "noEnd", startDate: "2026-10-22" },
+      },
+    ],
+    [
+      "RRULE:FREQ=YEARLY;BYMONTH=3;BYMONTHDAY=8;COUNT=2",
+      {
+        pattern: { type: "absoluteYearly", interval: 1, month: 3, dayOfMonth: 8 },
+        range: { type: "numbered", startDate: "2026-10-22", numberOfOccurrences: 2 },
+      },
+    ],
+    [
+      "RRULE:FREQ=YEARLY",
+      {
+        pattern: { type: "absoluteYearly", interval: 1, month: 10, dayOfMonth: 22 },
+        range: { type: "noEnd", startDate: "2026-10-22" },
+      },
+    ],
+    [
+      "RRULE:FREQ=YEARLY;INTERVAL=3;BYMONTH=11;BYDAY=4TH",
+      {
+        pattern: {
+          type: "relativeYearly",
+          interval: 3,
+          month: 11,
+          daysOfWeek: ["thursday"],
+          index: "fourth",
+        },
+        range: { type: "noEnd", startDate: "2026-10-22" },
+      },
+    ],
+  ];
+  it.each(table)("converts %s", (rrule, recurrence) => {
+    expect(graphEventBody({ start: START, end: END, recurrence: [rrule] })).toMatchObject({
+      recurrence,
+    });
+  });
+
+  const refused: [string, string[], RegExp][] = [
+    ["a second line (EXDATE)", ["RRULE:FREQ=DAILY", "EXDATE:20261023T220000Z"], /one RRULE line/],
+    ["an EXDATE alone", ["EXDATE:20261023T220000Z"], /only one RRULE line/],
+    ["an RDATE alone", ["RDATE:20261023T220000Z"], /only one RRULE line/],
+    ["FREQ=HOURLY", ["RRULE:FREQ=HOURLY;COUNT=3"], /FREQ=HOURLY is not supported/],
+    ["FREQ=MINUTELY", ["RRULE:FREQ=MINUTELY"], /FREQ=MINUTELY is not supported/],
+    ["a missing FREQ", ["RRULE:COUNT=3"], /FREQ=\(missing\)/],
+    ["BYHOUR", ["RRULE:FREQ=DAILY;BYHOUR=9"], /BYHOUR is not supported/],
+    ["BYWEEKNO", ["RRULE:FREQ=YEARLY;BYWEEKNO=20"], /BYWEEKNO is not supported/],
+    ["DAILY with BYDAY", ["RRULE:FREQ=DAILY;BYDAY=MO,TU"], /BYDAY is not supported under DAILY/],
+    ["WEEKLY with an ordinal", ["RRULE:FREQ=WEEKLY;BYDAY=2TU"], /ordinals are only supported/],
+    [
+      "WEEKLY with BYMONTH",
+      ["RRULE:FREQ=WEEKLY;BYMONTH=3"],
+      /BYMONTH is not supported under WEEKLY/,
+    ],
+    ["MONTHLY plain BYDAY", ["RRULE:FREQ=MONTHLY;BYDAY=MO"], /cannot express/],
+    [
+      "MONTHLY ordinal with BYSETPOS",
+      ["RRULE:FREQ=MONTHLY;BYDAY=2TU;BYSETPOS=1"],
+      /cannot also have BYSETPOS/,
+    ],
+    [
+      "BYSETPOS with two values",
+      ["RRULE:FREQ=MONTHLY;BYDAY=MO,FR;BYSETPOS=1,2"],
+      /more than one value/,
+    ],
+    ["BYSETPOS without BYDAY", ["RRULE:FREQ=MONTHLY;BYSETPOS=1"], /BYSETPOS needs BYDAY/],
+    [
+      "MONTHLY with BYMONTH",
+      ["RRULE:FREQ=MONTHLY;BYMONTH=3"],
+      /BYMONTH is not supported under MONTHLY/,
+    ],
+    ["mixed ordinals", ["RRULE:FREQ=MONTHLY;BYDAY=1MO,2TU"], /ordinals must all be the same/],
+    ["ordinal 5", ["RRULE:FREQ=MONTHLY;BYDAY=5MO"], /BYDAY ordinal=5 is out of range/],
+    ["ordinal -2", ["RRULE:FREQ=MONTHLY;BYDAY=-2MO"], /BYDAY ordinal=-2 is out of range/],
+    ["BYSETPOS 5", ["RRULE:FREQ=MONTHLY;BYDAY=MO;BYSETPOS=5"], /BYSETPOS=5 is out of range/],
+    [
+      "BYMONTHDAY with BYDAY",
+      ["RRULE:FREQ=MONTHLY;BYMONTHDAY=3;BYDAY=2TU"],
+      /cannot be combined with BYDAY/,
+    ],
+    ["two months under YEARLY", ["RRULE:FREQ=YEARLY;BYMONTH=1,2"], /takes one month/],
+    ["COUNT and UNTIL", ["RRULE:FREQ=DAILY;COUNT=3;UNTIL=20261231"], /cannot both be set/],
+    ["UNTIL with dashes", ["RRULE:FREQ=DAILY;UNTIL=2026-12-31"], /UNTIL must be/],
+    ["UNTIL time without Z", ["RRULE:FREQ=DAILY;UNTIL=20261231T235959"], /UNTIL must be/],
+    ["UNTIL before the start", ["RRULE:FREQ=DAILY;UNTIL=20261001"], /before the start/],
+    ["INTERVAL=0", ["RRULE:FREQ=DAILY;INTERVAL=0"], /INTERVAL must be a positive/],
+    ["BYMONTHDAY=32", ["RRULE:FREQ=MONTHLY;BYMONTHDAY=32"], /out of range/],
+    ["WKST=XX", ["RRULE:FREQ=WEEKLY;WKST=XX"], /not a weekday/],
+    ["a repeated part", ["RRULE:FREQ=DAILY;COUNT=2;COUNT=3"], /appears more than once/],
+  ];
+  it.each(refused)("refuses %s with invalid_params", (_name, recurrence, message) => {
+    const err = refusal({ start: START, end: END, recurrence });
+    expect(err).toBeInstanceOf(PsycheError);
+    expect(err).toMatchObject({ code: "invalid_params", message: expect.stringMatching(message) });
+  });
+
+  it("needs a start to anchor the series, on create and on update", () => {
+    expect(refusal({ end: END, recurrence: ["RRULE:FREQ=DAILY"] })).toMatchObject({
+      code: "invalid_params",
+      message: expect.stringMatching(/needs a start/),
+    });
+    expect(
+      refusal({ summary: "x", recurrence: ["RRULE:FREQ=DAILY"] }, { update: true }),
+    ).toMatchObject({ code: "invalid_params", message: expect.stringMatching(/needs a start/) });
+  });
+
+  it("an empty recurrence sends nothing on create and null on update (removes the series)", () => {
+    expect(graphEventBody({ start: START, end: END, recurrence: [] })).not.toHaveProperty(
+      "recurrence",
+    );
+    expect(graphEventBody({ recurrence: [] }, { update: true })).toMatchObject({
+      recurrence: null,
+    });
+    expect(graphEventBody({ summary: "x" }, { update: true })).not.toHaveProperty("recurrence");
+  });
+
+  const roundTrip = [
+    "RRULE:FREQ=DAILY;INTERVAL=2;COUNT=5",
+    "RRULE:FREQ=DAILY;UNTIL=20261231",
+    "RRULE:FREQ=WEEKLY;INTERVAL=2;BYDAY=MO,WE;WKST=MO;UNTIL=20261231",
+    "RRULE:FREQ=WEEKLY;BYDAY=TH;COUNT=4",
+    "RRULE:FREQ=MONTHLY;BYMONTHDAY=15;COUNT=3",
+    "RRULE:FREQ=MONTHLY;BYDAY=2TU",
+    "RRULE:FREQ=MONTHLY;BYDAY=-1FR;UNTIL=20270101",
+    "RRULE:FREQ=YEARLY;BYMONTH=3;BYMONTHDAY=8;COUNT=2",
+    "RRULE:FREQ=YEARLY;INTERVAL=3;BYMONTH=11;BYDAY=4TH",
+  ];
+  it.each(roundTrip)("round-trips %s through Graph and back", (rrule) => {
+    const body = graphEventBody({ start: START, end: END, recurrence: [rrule] });
+    const view = graphEventView({
+      id: "series-1",
+      subject: "Series",
+      start: { dateTime: "2026-10-22T22:00:00.0000000" },
+      end: { dateTime: "2026-10-22T23:00:00.0000000" },
+      recurrence: body.recurrence as Parameters<typeof graphEventView>[0]["recurrence"],
+    });
+    expect(view.recurrence).toEqual([rrule]);
+  });
+
+  it("reads a series without recurrence with no recurrence key", () => {
+    const view = graphEventView({ id: "e1", subject: "One-off", start: START, end: END });
+    expect(view).not.toHaveProperty("recurrence");
+  });
+});
+
+describe("Outlook recurring events in their own time zone", () => {
+  it("weekly on MO at 20:00 Los Angeles is wall-clock 20:00 Monday in that zone", () => {
+    const LA = "America/Los_Angeles";
+    // 2026-11-03T04:00Z is Monday 2026-11-02 20:00 in Los Angeles (PST, after DST ended).
+    const body = graphEventBody({
+      start: { dateTime: "2026-11-03T04:00:00Z", timeZone: LA },
+      end: { dateTime: "2026-11-03T05:00:00Z", timeZone: LA },
+      recurrence: ["RRULE:FREQ=WEEKLY;BYDAY=MO;COUNT=4"],
+    });
+    expect(body).toMatchObject({
+      start: { dateTime: "2026-11-02T20:00:00", timeZone: LA },
+      end: { dateTime: "2026-11-02T21:00:00", timeZone: LA },
+      recurrence: {
+        pattern: { type: "weekly", daysOfWeek: ["monday"] },
+        range: {
+          type: "numbered",
+          startDate: "2026-11-02",
+          numberOfOccurrences: 4,
+          recurrenceTimeZone: LA,
+        },
+      },
+    });
+  });
+
+  it("a bare wall-clock start in a zone passes through unchanged", () => {
+    expect(
+      graphEventBody({
+        start: { dateTime: "2026-11-02T20:00:00", timeZone: "America/Los_Angeles" },
+        end: { dateTime: "2026-11-02T21:00:00", timeZone: "America/Los_Angeles" },
+        recurrence: ["RRULE:FREQ=WEEKLY;BYDAY=MO"],
+      }),
+    ).toMatchObject({
+      start: { dateTime: "2026-11-02T20:00:00", timeZone: "America/Los_Angeles" },
+      recurrence: { range: { startDate: "2026-11-02" } },
+    });
+  });
+
+  it("a summer start in Europe/Berlin keeps the local hour (CEST, not UTC)", () => {
+    const BERLIN = "Europe/Berlin";
+    // 2026-07-06T16:30Z is Monday 18:30 in Berlin (CEST, +02:00).
+    const body = graphEventBody({
+      start: { dateTime: "2026-07-06T16:30:00Z", timeZone: BERLIN },
+      end: { dateTime: "2026-07-06T17:30:00Z", timeZone: BERLIN },
+      recurrence: ["RRULE:FREQ=WEEKLY;BYDAY=MO"],
+    });
+    expect(body).toMatchObject({
+      start: { dateTime: "2026-07-06T18:30:00", timeZone: BERLIN },
+      recurrence: {
+        pattern: { type: "weekly", daysOfWeek: ["monday"] },
+        range: { type: "noEnd", startDate: "2026-07-06", recurrenceTimeZone: BERLIN },
+      },
+    });
+  });
+
+  it("the end takes its own zone, else the start's", () => {
+    const body = graphEventBody({
+      start: { dateTime: "2026-07-06T16:30:00Z", timeZone: "Europe/Berlin" },
+      end: { dateTime: "2026-07-06T17:30:00Z", timeZone: "Europe/London" },
+      recurrence: ["RRULE:FREQ=WEEKLY;BYDAY=MO"],
+    });
+    expect(body).toMatchObject({
+      end: { dateTime: "2026-07-06T18:30:00", timeZone: "Europe/London" },
+    });
+  });
+
+  it("refuses an invalid zone on a recurring event with invalid_params", () => {
+    for (const timeZone of ["Mars/Olympus", "Europe/Atlantis"]) {
+      try {
+        graphEventBody({
+          start: { dateTime: "2026-07-06T16:30:00Z", timeZone },
+          end: { dateTime: "2026-07-06T17:30:00Z", timeZone },
+          recurrence: ["RRULE:FREQ=WEEKLY"],
+        });
+        expect.fail(`${timeZone} should be refused`);
+      } catch (err) {
+        expect(err).toBeInstanceOf(PsycheError);
+        expect(err).toMatchObject({
+          code: "invalid_params",
+          message: expect.stringMatching(/is not an IANA time zone/),
+        });
+      }
+    }
+  });
+
+  it("with no zone, a recurring event stays in UTC and has no recurrenceTimeZone", () => {
+    const body = graphEventBody({
+      start: { dateTime: "2026-10-22T22:00:00Z" },
+      end: { dateTime: "2026-10-22T23:00:00Z" },
+      recurrence: ["RRULE:FREQ=WEEKLY;BYDAY=TH"],
+    });
+    expect(body).toMatchObject({
+      start: { dateTime: "2026-10-22T22:00:00.000", timeZone: "UTC" },
+      recurrence: { range: { startDate: "2026-10-22" } },
+    });
+    expect(body.recurrence).not.toHaveProperty("range.recurrenceTimeZone");
+  });
+
+  it("a non-recurring event in a zone stays in UTC", () => {
+    expect(
+      graphEventBody({
+        start: { dateTime: "2026-07-06T16:30:00Z", timeZone: "Europe/Berlin" },
+        end: { dateTime: "2026-07-06T17:30:00Z", timeZone: "Europe/Berlin" },
+      }),
+    ).toMatchObject({ start: { dateTime: "2026-07-06T16:30:00.000", timeZone: "UTC" } });
+  });
+
+  it("an all-day recurring event uses its date and gets no zone", () => {
+    const body = graphEventBody({
+      start: { date: "2026-10-22", timeZone: "Europe/Berlin" },
+      end: { date: "2026-10-23", timeZone: "Europe/Berlin" },
+      recurrence: ["RRULE:FREQ=DAILY;COUNT=2"],
+    });
+    expect(body).toMatchObject({
+      isAllDay: true,
+      recurrence: { range: { startDate: "2026-10-22", numberOfOccurrences: 2 } },
+    });
+    expect(body.recurrence).not.toHaveProperty("range.recurrenceTimeZone");
   });
 });

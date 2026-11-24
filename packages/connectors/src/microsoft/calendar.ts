@@ -1,13 +1,19 @@
 import { type JsonObject, PsycheError } from "@psyche/protocol";
 import { type EventInput, type EventView, MAX_RANGE_DAYS } from "../google/calendar.ts";
 import { type GraphApi, GraphError, utcDateTime } from "./api.ts";
+import {
+  type GraphRecurrence,
+  graphRecurrenceToRrule,
+  rruleToGraphRecurrence,
+} from "./recurrence.ts";
 
 /**
  * Outlook calendar and contacts over Graph, shaped like the Google connector's views so the
  * calendar tools behave the same on both (feature M6, "same acceptance as M5"). Times go to
  * Graph in UTC and come back in UTC (`Prefer: outlook.timezone="UTC"`). Graph sends invitations
  * whenever an event has attendees, so the binding treats every event with attendees as an
- * invite (`calendarBinding`). Recurrence rules are not translated yet.
+ * invite (`calendarBinding`). Recurrence converts both ways for the shapes Graph can express
+ * (`recurrence.ts`); anything else is refused on write.
  */
 
 interface GraphEvent {
@@ -27,6 +33,7 @@ interface GraphEvent {
   }[];
   webLink?: string;
   lastModifiedDateTime?: string;
+  recurrence?: GraphRecurrence;
 }
 
 const str = (v: unknown, max = 5000) => (typeof v === "string" ? v.slice(0, max) : "");
@@ -38,9 +45,11 @@ function time(t: GraphEvent["start"], allDay: boolean): unknown {
   return { dateTime: dt === "" ? "" : `${dt.replace(/\.\d+$/, "")}Z` };
 }
 
-export function graphEventView(e: GraphEvent): EventView {
+export function graphEventView(e: GraphEvent): EventView & { recurrence?: string[] } {
   const allDay = e.isAllDay === true;
+  const rrule = e.recurrence === undefined ? undefined : graphRecurrenceToRrule(e.recurrence);
   return {
+    ...(rrule === undefined ? {} : { recurrence: [rrule] }),
     id: str(e.id, 500),
     status: e.isCancelled === true ? "cancelled" : "confirmed",
     summary: str(e.subject, 1000),
@@ -58,31 +67,113 @@ export function graphEventView(e: GraphEvent): EventView {
   };
 }
 
-function graphTime(t: EventInput["start"] | undefined, name: string) {
+/** An IANA zone name the runtime knows, or `invalid_params`. */
+function ianaZone(zone: string, name: string): string {
+  try {
+    new Intl.DateTimeFormat(undefined, { timeZone: zone });
+  } catch {
+    throw new PsycheError(
+      "invalid_params",
+      `${name}.timeZone "${zone.slice(0, 40)}" is not an IANA time zone`,
+    );
+  }
+  return zone;
+}
+
+/**
+ * A timed value as wall-clock time in `zone`. An instant (with `Z` or an offset) is converted
+ * with Intl; a bare date-time already is the wall clock in its zone and passes through.
+ */
+function wallClock(input: string, zone: string): { dateTime: string; timeZone: string } {
+  const bare = /^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})(:\d{2})?(\.\d+)?$/.exec(input);
+  if (bare !== null) {
+    return { dateTime: `${bare[1]}T${bare[2]}${bare[3] ?? ":00"}`, timeZone: zone };
+  }
+  const instant = new Date(input);
+  if (Number.isNaN(instant.getTime())) {
+    throw new PsycheError("invalid_params", `not a date-time: ${input.slice(0, 40)}`);
+  }
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: zone,
+    hourCycle: "h23",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  }).formatToParts(instant);
+  const part = (type: string) => parts.find((p) => p.type === type)?.value ?? "00";
+  const date = `${part("year")}-${part("month")}-${part("day")}`;
+  return {
+    dateTime: `${date}T${part("hour")}:${part("minute")}:${part("second")}`,
+    timeZone: zone,
+  };
+}
+
+/**
+ * `zone` is the event's own zone (`timeZone`), or undefined for UTC. A timed start in a zone
+ * becomes wall-clock time there (`wallClock`); without a zone the value is sent in UTC.
+ */
+function graphTime(
+  t: EventInput["start"] | undefined,
+  name: string,
+  zone: string | undefined,
+): { dateTime: string; timeZone: string } | undefined {
   if (t === undefined) return undefined;
   if (typeof t.date === "string") {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(t.date))
       throw new PsycheError("invalid_params", `${name}.date must be YYYY-MM-DD`);
     return { dateTime: `${t.date}T00:00:00`, timeZone: "UTC" };
   }
-  if (typeof t.dateTime === "string") return utcDateTime(t.dateTime);
+  if (typeof t.dateTime === "string") {
+    return zone === undefined ? utcDateTime(t.dateTime) : wallClock(t.dateTime, zone);
+  }
   throw new PsycheError("invalid_params", `${name} needs dateTime or date`);
 }
 
-/** Google-shaped event input → Graph event resource (partial for updates). */
-export function graphEventBody(e: Partial<EventInput>): JsonObject {
-  if (e.recurrence !== undefined && e.recurrence.length > 0) {
-    throw new PsycheError("invalid_params", "recurring events are not supported on Microsoft yet");
-  }
+/**
+ * Google-shaped event input → Graph event resource (partial for updates). `recurrence: []` on an
+ * update sends `recurrence: null`, which removes the series' recurrence; on create it is a no-op.
+ */
+export function graphEventBody(
+  e: Partial<EventInput>,
+  opts: { update?: boolean } = {},
+): JsonObject {
   const out: JsonObject = {};
   if (e.summary !== undefined) out.subject = e.summary;
   if (e.description !== undefined) out.body = { contentType: "text", content: e.description };
   if (e.location !== undefined) out.location = { displayName: e.location };
-  const start = graphTime(e.start, "start");
-  const end = graphTime(e.end, "end");
+  const recurring = e.recurrence !== undefined && e.recurrence.length > 0;
+  // A recurring timed event is anchored in its own IANA zone: wall-clock times there, so a weekly
+  // event keeps its weekday and hour across DST. Without a zone it stays in UTC, as before. The
+  // end takes its own zone, else the start's. Non-recurring events stay in UTC.
+  const timed =
+    e.start !== undefined && e.start.date === undefined && typeof e.start.dateTime === "string";
+  const startZone =
+    recurring && timed && e.start?.timeZone !== undefined
+      ? ianaZone(e.start.timeZone, "start")
+      : undefined;
+  const endTimeZone = e.end?.timeZone ?? e.start?.timeZone;
+  const endZone =
+    recurring && timed && endTimeZone !== undefined ? ianaZone(endTimeZone, "end") : undefined;
+  const start = graphTime(e.start, "start", recurring ? startZone : undefined);
+  const end = graphTime(e.end, "end", recurring ? endZone : undefined);
   if (start !== undefined) out.start = start;
   if (end !== undefined) out.end = end;
   if (e.start?.date !== undefined) out.isAllDay = true;
+  if (e.recurrence !== undefined) {
+    if (e.recurrence.length === 0) {
+      if (opts.update === true) out.recurrence = null;
+    } else {
+      // The series' date is the day of its start as sent (the start's zone, or UTC without one).
+      const rec = rruleToGraphRecurrence(e.recurrence, start?.dateTime.slice(0, 10));
+      out.recurrence =
+        startZone === undefined
+          ? rec
+          : { ...rec, range: { ...rec.range, recurrenceTimeZone: startZone } };
+    }
+  }
   if (e.attendees !== undefined) {
     out.attendees = e.attendees.map((a) => ({
       emailAddress: { address: a.email },
@@ -222,7 +313,7 @@ export class GraphCalendar {
   ): Promise<EventView> {
     const e = await this.#api.json<GraphEvent>(`/me/events/${encodeURIComponent(eventId)}`, {
       method: "PATCH",
-      json: graphEventBody(event),
+      json: graphEventBody(event, { update: true }),
       headers: UTC_PREFER,
       ...(signal === undefined ? {} : { signal }),
     });
