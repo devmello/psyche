@@ -22,6 +22,7 @@ import { MissionControl, TASK_GLYPH } from "./MissionControl.tsx";
 export { TASK_GLYPH };
 
 import { DelayedSkeleton } from "../components/DelayedSkeleton.tsx";
+import { ApprovalFriction } from "./ApprovalFriction.tsx";
 import { AuditView } from "./AuditView.tsx";
 import { TimelineView } from "./timeline/TimelineView.tsx";
 
@@ -478,6 +479,7 @@ export function ActivityPanel({
         onOpenTask={(taskId) => setSelected(taskId)}
         now={now}
       />
+      <ApprovalFriction {...(fixedNow === undefined ? {} : { now: fixedNow })} />
       <AuditView {...(fixedNow === undefined ? {} : { now: fixedNow })} />
     </section>
   );

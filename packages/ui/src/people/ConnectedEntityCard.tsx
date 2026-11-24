@@ -12,6 +12,7 @@ import { QuickAdd } from "../memory-page/WorkDue.tsx";
 import { ConnectedWorkHistory } from "../memory-page/WorkHistory.tsx";
 import { PersonNudgeRow } from "../nudges/ConnectedNudges.tsx";
 import { usePersona, useSlots } from "../slots.tsx";
+import { ConnectedInteractions } from "./ConnectedInteractions.tsx";
 import { EntityCard, type EntityCardActions } from "./EntityCard.tsx";
 import { ForgetEntityDialog, MergeEntityDialog, SplitEntityDialog } from "./EntityDialogs.tsx";
 import { useEntityCard } from "./hooks.ts";
@@ -123,6 +124,13 @@ export function ConnectedEntityCard({
           upcoming={(coming.data?.items ?? []).map((i) => i.text)}
           {...(isPerson && card.entity
             ? { keepInTouch: <PersonNudgeRow entityId={id} name={card.entity.name} /> }
+            : {})}
+          {...(isPerson && card.entity
+            ? {
+                interactionHistory: (
+                  <ConnectedInteractions key={id} entityId={id} name={card.entity.name} />
+                ),
+              }
             : {})}
           {...(isPerson
             ? {

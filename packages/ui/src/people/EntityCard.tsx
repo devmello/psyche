@@ -69,6 +69,8 @@ export interface EntityCardProps extends EntityCardActions {
   upcoming?: readonly string[];
   /** Relationship nudges' "Keep in touch" group (it brings its own heading; null when empty). */
   keepInTouch?: ReactNode;
+  /** The person's "Recent interactions" list, paged from the Gateway (under the Recent group). */
+  interactionHistory?: ReactNode;
   loading?: boolean;
   loadingDelayMs?: number;
   error?: string | null;
@@ -541,6 +543,7 @@ export function PersonCard({
   persona = "Wren",
   upcoming = [],
   keepInTouch = null,
+  interactionHistory = null,
   loading = false,
   loadingDelayMs = 0,
   error = null,
@@ -615,6 +618,7 @@ export function PersonCard({
                 {...(actions.onOpenLink ? { onOpenLink: actions.onOpenLink } : {})}
               />
             </GroupedList>
+            {interactionHistory}
             <GroupedList title={t("people.section.notes")}>
               <NotesEditor
                 entity={e}
