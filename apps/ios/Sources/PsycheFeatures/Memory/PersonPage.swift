@@ -77,6 +77,7 @@ struct PersonPage: View {
     @State private var editing: MemoryFact?
     @State private var editingCard = false
     @State private var historyFact: MemoryFact?
+    @State private var explainingFact: MemoryFact?
     private let id: String
     private let store: any PsycheBackend
 
@@ -130,6 +131,9 @@ struct PersonPage: View {
         }
         .sheet(item: $historyFact) { fact in
             FactHistorySheet(entityID: id, fact: fact, store: store)
+        }
+        .sheet(item: $explainingFact) { fact in
+            FactExplainSheet(fact: fact)
         }
         .sheet(isPresented: $editingCard) {
             if let card = model.phase.value?.card {
@@ -216,6 +220,11 @@ struct PersonPage: View {
                 }
                 if fact.attribute != nil {
                     Button { historyFact = fact } label: { Label(String(localized: "History", bundle: .module), systemImage: "clock.arrow.circlepath") }
+                }
+                // Any fact the Gateway sent with provenance: the sheet reads the fact itself.
+                if fact.provenance != nil {
+                    Button { explainingFact = fact } label: { Label(String(localized: "Why do you believe this?", bundle: .module), systemImage: "questionmark.bubble") }
+                        .accessibilityIdentifier("factRow.why")
                 }
                 Button(role: .destructive) { retracting = fact } label: { Label(String(localized: "Forget", bundle: .module), systemImage: "trash") }
             } label: {
