@@ -33,13 +33,8 @@ private struct LibraryContent: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
                     PageHeader(String(localized: "Library", bundle: .module))
-                    HStack(spacing: 10) {
-                        NavigationLink { ReceiptsView() } label: {
-                            LibraryPageTile(title: String(localized: "Receipts", bundle: .module), symbol: "receipt")
-                        }
-                        NavigationLink { ArtifactsView() } label: {
-                            LibraryPageTile(title: String(localized: "Artifacts", bundle: .module), symbol: "doc.richtext")
-                        }
+                    NavigationLink { ReceiptsView() } label: {
+                        LibraryPageTile(title: String(localized: "Receipts", bundle: .module), symbol: "receipt")
                     }
                     .buttonStyle(.plain)
                     SectionPicker(selection: $model.section)
@@ -76,7 +71,12 @@ private struct LibraryContent: View {
     }
 }
 
-/// A link to a page of the Library (Receipts, Artifacts), beside the sections.
+extension PsycheStore.LibraryItem {
+    /// Where a row goes: an artifact opens its viewer, anything else its file page.
+    var route: Route { artifactID.map { Route.artifact(id: $0) } ?? Route.file(id: id) }
+}
+
+/// A link to a page of the Library (Receipts), above the sections.
 private struct LibraryPageTile: View {
     let title: String
     let symbol: String
@@ -140,7 +140,7 @@ private struct LibraryList: View {
             VStack(spacing: 0) {
                 ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
                     if index > 0 { HairlineDivider().padding(.leading, 70) }
-                    NavigationLink(value: Route.file(id: item.id)) { LibraryRow(item: item) }
+                    NavigationLink(value: item.route) { LibraryRow(item: item) }
                         .buttonStyle(.plain)
                         .psycheZoomSource(id: item.id, in: zoom)
                 }
@@ -182,7 +182,7 @@ private struct LibraryGrid: View {
     var body: some View {
         LazyVGrid(columns: [GridItem(.adaptive(minimum: 150, maximum: 220), spacing: 18, alignment: .top)], spacing: 22) {
             ForEach(items) { item in
-                NavigationLink(value: Route.file(id: item.id)) {
+                NavigationLink(value: item.route) {
                     VStack(alignment: .leading, spacing: 8) {
                         LibraryThumbnail(item: item, style: .tile)
                         Text(item.title)

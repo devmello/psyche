@@ -9,6 +9,8 @@ public protocol ReceiptsBackend: Sendable {
     func receipt(id: String) async throws -> ReceiptItem
     /// One page of canvas artifacts, most recently updated first.
     func artifacts(cursor: String?) async throws -> ArtifactPage
+    /// One artifact's metadata (title, type, latest version).
+    func artifact(id: String) async throws -> ArtifactItem
     /// The content of one artifact at a version (the latest when nil).
     func artifactContent(id: String, version: Int?) async throws -> ArtifactContent
     /// Every version, oldest first.
@@ -88,13 +90,16 @@ public struct ArtifactItem: Sendable, Equatable, Identifiable {
     public var version: Int
     /// Formatted time of the last change.
     public var updatedAt: String
+    /// The Library item that holds the artifact's file, so the Library can list artifacts with their item.
+    public var libraryItemID: String?
 
-    public init(id: String, title: String, type: String, version: Int, updatedAt: String) {
+    public init(id: String, title: String, type: String, version: Int, updatedAt: String, libraryItemID: String? = nil) {
         self.id = id
         self.title = title
         self.type = type
         self.version = version
         self.updatedAt = updatedAt
+        self.libraryItemID = libraryItemID
     }
 
     /// HTML artifacts open in the Quick Look path (as a local .html file).

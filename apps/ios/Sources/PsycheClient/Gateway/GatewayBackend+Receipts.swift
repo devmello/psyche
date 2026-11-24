@@ -31,6 +31,24 @@ extension GatewayBackend {
         return ArtifactPage(artifacts: items, nextCursor: result["nextCursor"]?.string)
     }
 
+    public func artifact(id: String) async throws -> ArtifactItem {
+        let result = try await call("artifacts.get", .object(["artifactId": .string(id)]))
+        guard let item = result["artifact"].flatMap(Self.artifactItem) else { throw BackendError.notFound }
+        return item
+    }
+
+    /// The Library's Artifacts list: every artifact (the first page) as a Library row. Its id is the artifact's
+    /// Library item, and `artifactID` sends a tap to the artifact viewer.
+    func artifactLibraryRows() async throws -> [LibraryItem] {
+        let page = try await artifacts(cursor: nil)
+        return page.artifacts.map { artifact in
+            LibraryItem(
+                id: artifact.libraryItemID ?? artifact.id, title: artifact.title, section: .artifacts,
+                fileType: artifact.type, detail: "\(artifact.updatedAt) \u{00B7} v\(artifact.version)",
+                artifactID: artifact.id)
+        }
+    }
+
     public func artifactContent(id: String, version: Int?) async throws -> ArtifactContent {
         var params: [String: JSONValue] = ["artifactId": .string(id)]
         if let version { params["version"] = .number(Double(version)) }
@@ -96,6 +114,7 @@ extension GatewayBackend {
         guard let id = row["id"]?.string else { return nil }
         return ArtifactItem(
             id: id, title: row["title"]?.string ?? "Untitled", type: row["type"]?.string ?? "doc",
-            version: row["version"]?.int ?? 1, updatedAt: WireFormat.time(row["updatedAt"]?.string))
+            version: row["version"]?.int ?? 1, updatedAt: WireFormat.time(row["updatedAt"]?.string),
+            libraryItemID: row["libraryItemId"]?.string)
     }
 }

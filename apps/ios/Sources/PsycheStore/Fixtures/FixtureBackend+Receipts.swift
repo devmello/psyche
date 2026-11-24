@@ -28,8 +28,10 @@ enum FixtureReceipts {
     ]
 
     static let artifacts: [ArtifactItem] = [
-        ArtifactItem(id: "art_q3", title: "Q3 review", type: "html", version: 2, updatedAt: "Mon 10:20"),
-        ArtifactItem(id: "art_plan", title: "Trip plan", type: "markdown", version: 1, updatedAt: "Sat 16:45"),
+        ArtifactItem(id: "art_q3", title: "Q3 review", type: "html", version: 2, updatedAt: "Mon 10:20", libraryItemID: "lib_art_q3"),
+        ArtifactItem(
+            id: "art_plan", title: "Trip plan", type: "markdown", version: 1, updatedAt: "Sat 16:45",
+            libraryItemID: "lib_art_plan"),
     ]
 
     static let versions: [String: [(ArtifactVersionItem, String)]] = [
@@ -62,6 +64,12 @@ extension FixtureBackend: ReceiptsBackend {
     public func artifacts(cursor: String?) async throws -> ArtifactPage {
         await pause()
         return ArtifactPage(artifacts: receiptsState.artifacts, nextCursor: nil)
+    }
+
+    public func artifact(id: String) async throws -> ArtifactItem {
+        await pause()
+        guard let item = receiptsState.artifacts.first(where: { $0.id == id }) else { throw BackendError.notFound }
+        return item
     }
 
     public func artifactContent(id: String, version: Int?) async throws -> ArtifactContent {

@@ -140,6 +140,23 @@ struct ReceiptsBackendTests {
         #expect(versions[1].author == "user")
     }
 
+    @Test func artifactsSectionIsTheArtifactsListWithItsLibraryItem() async throws {
+        let (backend, _) = try await live { g in
+            g.on("artifacts.list") { _ in
+                .success(.object(["artifacts": .array([
+                    .object(["id": "art_q3", "libraryItemId": "lib_q3", "type": "html", "title": "Q3 review", "version": .number(2),
+                             "updatedAt": "2026-11-23T10:20:00.000Z"]),
+                    .object(["id": "art_nolib", "type": "markdown", "title": "Notes", "version": .number(1),
+                             "updatedAt": "2026-11-23T10:20:00.000Z", "libraryItemId": .null]),
+                ]), "nextCursor": .null]))
+            }
+        }
+        let rows = try await backend.library(section: .artifacts)
+        #expect(rows.map(\.id) == ["lib_q3", "art_nolib"])
+        #expect(rows.map(\.artifactID) == ["art_q3", "art_nolib"])
+        #expect(rows.allSatisfy { $0.section == .artifacts })
+    }
+
     @Test func restoreSendsBothIdsAndReturnsTheNewLatest() async throws {
         let seen = Recorder()
         let (backend, _) = try await live { g in
