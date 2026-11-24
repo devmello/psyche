@@ -89,34 +89,37 @@ struct TodayFollowupGoalModelTests {
         #expect(model.suggest == .idle)
     }
 
-    // MARK: Linked threads
+    // MARK: Goal links
 
-    @Test func linkingAThreadShowsItOnTheGoal() async throws {
-        let store = FixtureBackend()
-        let model = GoalsModel(store: store)
+    @Test func linkingATaskOrAutomationShowsItAndUnlinkRemovesIt() async throws {
+        let model = GoalsModel(store: FixtureBackend())
         await model.load()
         let goal = model.phase.value![0]
         await model.open(goal)
-        await model.loadThreads()
-        let linked = model.detail.value?.linkedTaskIDs ?? []
-        guard let thread = model.threads.first(where: { !linked.contains($0.id) }) else {
-            Issue.record("The fixture needs a chat that is not linked yet")
-            return
-        }
-        try await model.linkThread(thread, to: goal)
-        #expect(model.detail.value?.linkedTaskIDs.contains(thread.id) == true)
+        try await model.link(.automation("auto_2"), to: goal)
+        #expect(model.detail.value?.links.contains(.automation("auto_2")) == true)
+        await model.unlink(.task("task_q3"), from: goal)
+        #expect(model.detail.value?.links.contains(.task("task_q3")) == false)
+        #expect(model.actionError == nil)
     }
 
-    @Test func linkingAGoneGoalThrowsSoThePickerCanSayWhy() async {
+    @Test func thePickerLeavesOutWhatTheGoalAlreadyLinks() async {
         let model = GoalsModel(store: FixtureBackend())
-        await model.loadThreads()
-        guard let thread = model.threads.first else {
-            Issue.record("The fixture needs a chat")
-            return
-        }
+        await model.load()
+        let goal = model.phase.value![0]
+        await model.open(goal)
+        let choices = await model.linkChoices()
+        #expect(!choices.tasks.contains { $0.target == .task("task_q3") })
+        #expect(!choices.automations.contains { $0.target == .automation("auto_1") })
+        #expect(choices.automations.contains { $0.target == .automation("auto_2") })
+        #expect(model.linkTitles["auto_2"] != nil)
+    }
+
+    @Test func linkingToAGoneGoalThrowsSoThePickerCanSayWhy() async {
+        let model = GoalsModel(store: FixtureBackend())
         let ghost = GoalItem(id: "gone", title: "Gone", category: "other", status: "active")
         await #expect(throws: BackendError.notFound) {
-            try await model.linkThread(thread, to: ghost)
+            try await model.link(.task("task_q3"), to: ghost)
         }
     }
 }

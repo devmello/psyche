@@ -305,9 +305,10 @@ struct GoalsView: View {
 private struct GoalSheet: View {
     let model: GoalsModel
     @Environment(\.dismiss) private var dismiss
+    @Environment(Router.self) private var router
     @State private var confirmingArchive = false
     @State private var addingMilestone = false
-    @State private var linkingThread = false
+    @State private var linking = false
 
     var body: some View {
         ScrollView {
@@ -326,7 +327,7 @@ private struct GoalSheet: View {
         }
         .psycheScreen()
         .presentationDetents([.medium, .large])
-        .task { await model.loadThreads() }
+        .task { await model.loadLinkTitles() }
         .confirmationDialog(String(localized: "Archive this goal?", bundle: .module), isPresented: $confirmingArchive, titleVisibility: .visible) {
             Button(String(localized: "Archive goal", bundle: .module), role: .destructive) {
                 guard let goal = currentGoal else { return }
@@ -336,9 +337,9 @@ private struct GoalSheet: View {
         } message: {
             Text("Its check-ins stop. Nothing is deleted.", bundle: .module)
         }
-        .sheet(isPresented: $linkingThread) {
+        .sheet(isPresented: $linking) {
             if let goal = currentGoal {
-                LinkThreadSheet(goal: goal, model: model)
+                LinkGoalSheet(goal: goal, model: model)
             }
         }
         .sheet(isPresented: $addingMilestone) {
@@ -422,7 +423,7 @@ private struct GoalSheet: View {
                     .disabled(model.busy)
             }
         }
-        linkedThreads(detail, archived: archived)
+        linkedGoalItems(detail, archived: archived)
         if !archived && goal.status != "candidate" {
             Button(String(localized: "Archive goal", bundle: .module), role: .destructive) { confirmingArchive = true }
                 .proactiveAction()
@@ -481,33 +482,66 @@ private struct GoalSheet: View {
         }
     }
 
-    /// The chat threads linked to the goal, by name, and "Link a thread" for one more (`goals.link`).
+    /// The goal's linked tasks and automations by title. A task opens (its run page); a linked item can be unlinked
+    /// from its context menu, as the desktop's Unlink does. "Link…" adds one more.
     @ViewBuilder
-    private func linkedThreads(_ detail: GoalDetail, archived: Bool) -> some View {
-        let linked = model.threads.filter { detail.linkedTaskIDs.contains($0.id) }
+    private func linkedGoalItems(_ detail: GoalDetail, archived: Bool) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            SectionHeader(String(localized: "Linked threads", bundle: .module))
-            if linked.isEmpty {
-                Text("No chats linked yet.", bundle: .module).font(.subheadline).foregroundStyle(PsycheColor.muted)
+            SectionHeader(String(localized: "Linked", bundle: .module))
+            if detail.links.isEmpty {
+                Text("No tasks or automations linked yet.", bundle: .module).font(.subheadline).foregroundStyle(PsycheColor.muted)
             } else {
                 PaperCard {
-                    ForEach(Array(linked.enumerated()), id: \.element.id) { index, thread in
+                    ForEach(Array(detail.links.enumerated()), id: \.element) { index, link in
                         if index > 0 { HairlineDivider() }
-                        Text(thread.title)
-                            .font(.psycheRow).foregroundStyle(PsycheColor.text)
-                            .padding(PsycheMetrics.rowPadding)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .accessibilityIdentifier("goal.thread.\(thread.id)")
+                        linkRow(link, goal: detail.goal, archived: archived)
                     }
                 }
             }
             if !archived {
-                Button(String(localized: "Link a thread", bundle: .module)) { linkingThread = true }
+                Button(String(localized: "Link…", bundle: .module)) { linking = true }
                     .proactiveAction()
                     .disabled(model.busy)
-                    .accessibilityIdentifier("goal.linkThread")
+                    .accessibilityIdentifier("goal.link")
             }
         }
+    }
+
+    @ViewBuilder
+    private func linkRow(_ link: GoalLinkTarget, goal: GoalItem, archived: Bool) -> some View {
+        let fallback = link.isTask ? String(localized: "Task", bundle: .module) : String(localized: "Automation", bundle: .module)
+        let label = HStack(spacing: 12) {
+            Image(systemName: link.isTask ? "checklist" : "gearshape.2")
+                .foregroundStyle(PsycheColor.muted)
+            Text(model.linkTitles[link.id] ?? fallback)
+                .font(.psycheRow).foregroundStyle(PsycheColor.text)
+            Spacer(minLength: 0)
+        }
+        .padding(PsycheMetrics.rowPadding)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .contentShape(Rectangle())
+        Group {
+            if case .task(let id) = link {
+                Button {
+                    dismiss()
+                    router.open(appPath: "/task/\(id)")
+                } label: {
+                    label
+                }
+                .buttonStyle(.plain)
+            } else {
+                label
+            }
+        }
+        .contextMenu {
+            if !archived {
+                Button(String(localized: "Unlink", bundle: .module), role: .destructive) {
+                    Task { await model.unlink(link, from: goal) }
+                }
+                .accessibilityIdentifier("goal.unlink.\(link.id)")
+            }
+        }
+        .accessibilityIdentifier("goal.link.\(link.id)")
     }
 
     /// A milestone with a checkbox to mark it done or not, its due date, and a button to remove it.
@@ -552,41 +586,36 @@ private struct GoalSheet: View {
     }
 }
 
-/// "Link a thread": the owner's chats not linked to the goal yet. Tapping one links it; a refusal stays on the sheet
-/// in the Gateway's words.
-private struct LinkThreadSheet: View {
+/// "Link…": the tasks and automations the goal does not link yet, in two sections. Tapping one links it; a refusal
+/// stays on the sheet in the Gateway's words.
+private struct LinkGoalSheet: View {
     let goal: GoalItem
     let model: GoalsModel
     @Environment(\.dismiss) private var dismiss
+    @State private var choices: (tasks: [GoalsModel.LinkChoice], automations: [GoalsModel.LinkChoice])?
     @State private var linking: String?
     @State private var failure: String?
-
-    private var candidates: [ChatThreadSummary] {
-        let linked = model.detail.value?.linkedTaskIDs ?? []
-        return model.threads.filter { !linked.contains($0.id) }
-    }
 
     var body: some View {
         NavigationStack {
             List {
-                Section {
-                    if candidates.isEmpty {
-                        Text("No chats to link.", bundle: .module).foregroundStyle(PsycheColor.muted)
+                if let choices {
+                    if choices.tasks.isEmpty && choices.automations.isEmpty {
+                        Text("Nothing to link right now.", bundle: .module).foregroundStyle(PsycheColor.muted)
                     }
-                    ForEach(candidates) { thread in
-                        Button(thread.title) {
-                            Task { await link(thread) }
+                    if !choices.tasks.isEmpty {
+                        Section(String(localized: "Tasks", bundle: .module)) {
+                            ForEach(choices.tasks) { choice in linkButton(choice) }
                         }
-                        .disabled(linking != nil)
-                        .accessibilityIdentifier("goal.linkThread.row.\(thread.id)")
                     }
-                } footer: {
-                    if let failure {
-                        Text(failure).foregroundStyle(PsycheColor.red)
+                    if !choices.automations.isEmpty {
+                        Section(String(localized: "Automations", bundle: .module)) {
+                            ForEach(choices.automations) { choice in linkButton(choice) }
+                        }
                     }
                 }
             }
-            .navigationTitle(String(localized: "Link a thread", bundle: .module))
+            .navigationTitle(String(localized: "Link to this goal", bundle: .module))
             .psycheInlineTitle()
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -594,17 +623,30 @@ private struct LinkThreadSheet: View {
                         .disabled(linking != nil)
                 }
             }
+            .safeAreaInset(edge: .bottom) {
+                if let failure {
+                    Text(failure).font(.footnote).foregroundStyle(PsycheColor.red).padding()
+                }
+            }
         }
         .presentationDragIndicator(.visible)
-        .task { await model.loadThreads() }
+        .task { choices = await model.linkChoices() }
     }
 
-    private func link(_ thread: ChatThreadSummary) async {
-        linking = thread.id
+    private func linkButton(_ choice: GoalsModel.LinkChoice) -> some View {
+        Button(choice.title) {
+            Task { await link(choice.target) }
+        }
+        .disabled(linking != nil)
+        .accessibilityIdentifier("goal.link.row.\(choice.id)")
+    }
+
+    private func link(_ target: GoalLinkTarget) async {
+        linking = target.id
         failure = nil
         defer { linking = nil }
         do {
-            try await model.linkThread(thread, to: goal)
+            try await model.link(target, to: goal)
             dismiss()
         } catch {
             failure = error.localizedDescription

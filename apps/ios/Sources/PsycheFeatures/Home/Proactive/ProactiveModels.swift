@@ -103,8 +103,8 @@ final class GoalsModel {
     private(set) var actionError: String?
     private(set) var busy = false
     private(set) var suggest: GoalSuggestState = .idle
-    /// The owner's chat threads, for the Link a thread picker and to name the linked ones.
-    private(set) var threads: [ChatThreadSummary] = []
+    /// Titles of tasks and automations by id, from the Agent and Scheduled lists, to name a goal's links.
+    private(set) var linkTitles: [String: String] = [:]
     private let store: any PsycheBackend
     private var suggestTask: Task<Void, Never>?
 
@@ -160,17 +160,69 @@ final class GoalsModel {
         }
     }
 
-    /// Loads the chat threads for the picker and the goal's linked-thread names. A failed load leaves the list empty.
-    func loadThreads() async {
-        threads = (try? await store.threads()) ?? []
+    /// A task or automation the goal can link, with its title.
+    struct LinkChoice: Identifiable, Equatable {
+        let target: GoalLinkTarget
+        let title: String
+        var id: String { target.id }
     }
 
-    /// Links a chat thread to the goal and shows the goal page the Gateway answers with. A refusal throws, so the
+    /// Every task (running and recent, from the Agent list) and automation (from the Scheduled list) the phone knows,
+    /// and their titles for the goal's links. A list that fails just has nothing in it.
+    private func knownLinkItems() async -> (tasks: [LinkChoice], automations: [LinkChoice]) {
+        var tasks: [LinkChoice] = []
+        var seenTasks = Set<String>()
+        if let activity = try? await store.activity() {
+            for run in activity.now where seenTasks.insert(run.id).inserted {
+                tasks.append(LinkChoice(target: .task(run.id), title: run.title))
+            }
+            for run in activity.recent where seenTasks.insert(run.id).inserted {
+                tasks.append(LinkChoice(target: .task(run.id), title: run.title))
+            }
+        }
+        let automations = ((try? await store.scheduled())?.items ?? []).map {
+            LinkChoice(target: .automation($0.id), title: $0.title)
+        }
+        for choice in tasks + automations { linkTitles[choice.id] = choice.title }
+        return (tasks, automations)
+    }
+
+    /// Fills the titles of the goal's linked tasks and automations.
+    func loadLinkTitles() async {
+        _ = await knownLinkItems()
+    }
+
+    /// What the Link picker offers: the known tasks and automations this goal does not link yet.
+    func linkChoices() async -> (tasks: [LinkChoice], automations: [LinkChoice]) {
+        let items = await knownLinkItems()
+        let linked = Set((detail.value?.links ?? []))
+        return (items.tasks.filter { !linked.contains($0.target) }, items.automations.filter { !linked.contains($0.target) })
+    }
+
+    /// Links a task or automation to the goal and shows the goal page the Gateway then holds. A refusal throws, so the
     /// picker shows the Gateway's words and stays open.
-    func linkThread(_ thread: ChatThreadSummary, to goal: GoalItem) async throws {
-        try await store.linkThread(goalID: goal.id, threadID: thread.id)
-        if let fresh = try? await store.goalDetail(id: goal.id) { showDetail(fresh) }
+    func link(_ target: GoalLinkTarget, to goal: GoalItem) async throws {
+        try await store.linkGoal(goalID: goal.id, target)
+        await refreshDetail(goal)
         actionError = nil
+    }
+
+    /// Removes a link from the goal. The task or automation itself stays. A refusal stays in `actionError`.
+    func unlink(_ target: GoalLinkTarget, from goal: GoalItem) async {
+        guard !busy else { return }
+        busy = true
+        defer { busy = false }
+        do {
+            try await store.unlinkGoal(goalID: goal.id, target)
+            await refreshDetail(goal)
+            actionError = nil
+        } catch {
+            actionError = error.localizedDescription
+        }
+    }
+
+    private func refreshDetail(_ goal: GoalItem) async {
+        if let fresh = try? await store.goalDetail(id: goal.id) { showDetail(fresh) }
     }
 
     func load() async {
@@ -286,7 +338,7 @@ final class GoalsModel {
         }
         if let current = detail.value, current.goal.id == goal.id {
             detail = .loaded(GoalDetail(
-                goal: goal, milestones: current.milestones, linkedTasks: current.linkedTasks, linkedTaskIDs: current.linkedTaskIDs))
+                goal: goal, milestones: current.milestones, linkedTasks: current.linkedTasks, links: current.links))
         }
     }
 

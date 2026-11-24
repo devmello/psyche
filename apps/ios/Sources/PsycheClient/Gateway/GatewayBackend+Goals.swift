@@ -53,9 +53,23 @@ extension GatewayBackend {
         return result["ideaId"]?.string
     }
 
-    /// `goals.link` with the chat thread as the task. The Gateway answers `ok`; the goal page reloads to show it.
-    public func linkThread(goalID: String, threadID: String) async throws {
-        _ = try await call("goals.link", .obj(["goalId": .string(goalID), "taskId": .string(threadID)]))
+    /// `goals.link` with `taskId` or `automationId`. The Gateway answers `ok`; the goal page reloads to show it.
+    public func linkGoal(goalID: String, _ target: GoalLinkTarget) async throws {
+        _ = try await call("goals.link", .object(Self.linkParams(goalID: goalID, target)))
+    }
+
+    /// `goals.link` with `unlink: true`: removes only the link.
+    public func unlinkGoal(goalID: String, _ target: GoalLinkTarget) async throws {
+        var params = Self.linkParams(goalID: goalID, target)
+        params["unlink"] = .bool(true)
+        _ = try await call("goals.link", .object(params))
+    }
+
+    static func linkParams(goalID: String, _ target: GoalLinkTarget) -> [String: JSONValue] {
+        switch target {
+        case .task(let id): ["goalId": .string(goalID), "taskId": .string(id)]
+        case .automation(let id): ["goalId": .string(goalID), "automationId": .string(id)]
+        }
     }
 
     /// `goals.create` with the Mac dialog's two fields: the title (trimmed) and the category.
@@ -75,8 +89,19 @@ extension GatewayBackend {
             return GoalMilestoneItem(
                 id: id, title: title, dueAt: WireFormat.date(milestone["dueAt"]?.string), done: milestone["doneAt"]?.string != nil)
         }
-        let taskIDs = (result["taskIds"]?.array ?? []).compactMap(\.string)
-        return GoalDetail(goal: goal, milestones: milestones, linkedTasks: taskIDs.count, linkedTaskIDs: taskIDs)
+        // `links` is the Gateway's list of GoalLink rows (a task, an automation or a watch). Only tasks and automations
+        // are shown here. An answer without `links` (older Gateways) falls back to the bare `taskIds`.
+        let links: [GoalLinkTarget]
+        if result["links"] == nil {
+            links = (result["taskIds"]?.array ?? []).compactMap(\.string).map(GoalLinkTarget.task)
+        } else {
+            links = (result["links"]?.array ?? []).compactMap { link in
+                if let task = link["taskId"]?.string { return .task(task) }
+                if let automation = link["automationId"]?.string { return .automation(automation) }
+                return nil
+            }
+        }
+        return GoalDetail(goal: goal, milestones: milestones, linkedTasks: links.count, links: links)
     }
 
     static func goal(from wire: JSONValue) -> GoalItem? {

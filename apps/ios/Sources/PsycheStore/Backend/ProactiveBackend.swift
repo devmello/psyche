@@ -44,8 +44,10 @@ public protocol ProactiveBackend: Sendable {
     /// Asks the model for one next step for a goal (`goals.suggest`). Returns the id of the idea it offers, to Start or
     /// Not now on Home (`ideas()` has it); nil when there is none. Runs only when the owner asks, and nothing starts.
     func suggestNextStep(goalID: String) async throws -> String?
-    /// Links an existing chat thread to a goal (`goals.link`, the thread as the goal's task).
-    func linkThread(goalID: String, threadID: String) async throws
+    /// Links a task or an automation to a goal (`goals.link`), as the desktop's Link dialog does.
+    func linkGoal(goalID: String, _ target: GoalLinkTarget) async throws
+    /// Unlinks a task or an automation from a goal (`goals.link` with `unlink`). The task or automation itself stays.
+    func unlinkGoal(goalID: String, _ target: GoalLinkTarget) async throws
 }
 
 // MARK: Feed
@@ -183,19 +185,35 @@ public struct GoalMilestoneItem: Sendable, Equatable, Identifiable {
     }
 }
 
+/// A task or an automation linked to a goal: what `goals.link` takes (`taskId` or `automationId`) and what
+/// `goals.get` returns in `links`.
+public enum GoalLinkTarget: Sendable, Equatable, Hashable {
+    case task(String)
+    case automation(String)
+
+    public var id: String {
+        switch self {
+        case .task(let id), .automation(let id): id
+        }
+    }
+
+    public var isTask: Bool {
+        if case .task = self { true } else { false }
+    }
+}
+
 public struct GoalDetail: Sendable, Equatable {
     public var goal: GoalItem
     public var milestones: [GoalMilestoneItem]
     public var linkedTasks: Int
-    /// The ids of the tasks and chat threads linked to the goal (`goals.get`'s `taskIds`). The goal page names the
-    /// chat threads among them from the threads list.
-    public var linkedTaskIDs: [String]
+    /// The tasks and automations linked to the goal, in the order `goals.get` gives them (`links`).
+    public var links: [GoalLinkTarget]
 
-    public init(goal: GoalItem, milestones: [GoalMilestoneItem] = [], linkedTasks: Int = 0, linkedTaskIDs: [String] = []) {
+    public init(goal: GoalItem, milestones: [GoalMilestoneItem] = [], linkedTasks: Int = 0, links: [GoalLinkTarget] = []) {
         self.goal = goal
         self.milestones = milestones
         self.linkedTasks = linkedTasks
-        self.linkedTaskIDs = linkedTaskIDs
+        self.links = links
     }
 
     /// Done milestones over all milestones; nil when the goal has none (progress is then unknown, not zero).

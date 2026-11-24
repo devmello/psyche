@@ -111,12 +111,19 @@ extension FixtureBackend: ProactiveBackend {
         return idea.id
     }
 
-    public func linkThread(goalID: String, threadID: String) async throws {
+    public func linkGoal(goalID: String, _ target: GoalLinkTarget) async throws {
         await pause()
         guard let index = proactiveState.goals.firstIndex(where: { $0.goal.id == goalID }) else { throw BackendError.notFound }
-        guard !proactiveState.goals[index].linkedTaskIDs.contains(threadID) else { return }
-        proactiveState.goals[index].linkedTaskIDs.append(threadID)
-        proactiveState.goals[index].linkedTasks += 1
+        guard !proactiveState.goals[index].links.contains(target) else { return }
+        proactiveState.goals[index].links.append(target)
+        proactiveState.goals[index].linkedTasks = proactiveState.goals[index].links.count
+    }
+
+    public func unlinkGoal(goalID: String, _ target: GoalLinkTarget) async throws {
+        await pause()
+        guard let index = proactiveState.goals.firstIndex(where: { $0.goal.id == goalID }) else { throw BackendError.notFound }
+        proactiveState.goals[index].links.removeAll { $0 == target }
+        proactiveState.goals[index].linkedTasks = proactiveState.goals[index].links.count
     }
 
     public func scheduled() async throws -> ScheduledOverview {
@@ -169,7 +176,7 @@ extension FixtureData {
                 GoalMilestoneItem(id: "m1", title: "Run 5 km without stopping", done: true),
                 GoalMilestoneItem(id: "m2", title: "Run 10 km", done: false),
                 GoalMilestoneItem(id: "m3", title: "Register for a race", done: false),
-            ], linkedTasks: 2, linkedTaskIDs: ["thr_q3", "task_invoice"]),
+            ], linkedTasks: 2, links: [.task("task_q3"), .automation("auto_1")]),
         GoalDetail(goal: GoalItem(id: "goal_2", title: "Save for a deposit", category: "finance", status: "candidate")),
     ]
 

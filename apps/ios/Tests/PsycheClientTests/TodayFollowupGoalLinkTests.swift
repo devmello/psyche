@@ -55,26 +55,48 @@ struct TodayFollowupGoalLinkTests {
         #expect(h.gateway.received.filter { $0.method == "goals.suggest" }.count == 2)
     }
 
-    @Test func linkThreadSendsTheThreadAsTheTask() async throws {
+    @Test func linkSendsTheTaskOrAutomationIdAndUnlinkSetsTheFlag() async throws {
         let (backend, h) = try await live { g in
-            g.on("goals.link") { _ in .success(.object(["ok": .bool(true)])) }
+            g.on("goals.link") { _ in .success(.object([:])) }
         }
-        try await backend.linkThread(goalID: "g1", threadID: "thr_q3")
-        let call = h.gateway.received.filter { $0.method == "goals.link" }.first
-        #expect(call?.params?["goalId"]?.string == "g1")
-        #expect(call?.params?["taskId"]?.string == "thr_q3")
-        #expect(call?.params?["unlink"] == nil)
+        try await backend.linkGoal(goalID: "g1", .task("task_q3"))
+        try await backend.linkGoal(goalID: "g1", .automation("auto_2"))
+        try await backend.unlinkGoal(goalID: "g1", .automation("auto_2"))
+        let calls = h.gateway.received.filter { $0.method == "goals.link" }
+        #expect(calls.count == 3)
+        #expect(calls[0].params?["taskId"]?.string == "task_q3")
+        #expect(calls[0].params?["automationId"] == nil)
+        #expect(calls[0].params?["unlink"] == nil)
+        #expect(calls[1].params?["automationId"]?.string == "auto_2")
+        #expect(calls[1].params?["taskId"] == nil)
+        #expect(calls[2].params?["unlink"]?.bool == true)
+        #expect(calls[2].params?["automationId"]?.string == "auto_2")
     }
 
-    @Test func goalDetailKeepsTheLinkedTaskIds() async throws {
+    @Test func goalDetailReadsTheLinksOfEachKind() async throws {
         let (backend, _) = try await live { g in
             g.on("goals.get") { _ in .success(.object([
                 "goal": .object(["id": "g1", "title": "Half marathon", "category": "health", "status": "active"]),
-                "taskIds": .array(["thr_q3", "task_invoice"]),
+                "taskIds": .array(["t1"]),
+                "links": .array([
+                    .object(["goalId": "g1", "taskId": "t1", "automationId": .null, "watchId": .null]),
+                    .object(["goalId": "g1", "taskId": .null, "automationId": "a1", "watchId": .null]),
+                    .object(["goalId": "g1", "taskId": .null, "automationId": .null, "watchId": "w1"]),
+                ]),
             ])) }
         }
         let detail = try await backend.goalDetail(id: "g1")
-        #expect(detail.linkedTaskIDs == ["thr_q3", "task_invoice"])
+        #expect(detail.links == [.task("t1"), .automation("a1")])
         #expect(detail.linkedTasks == 2)
+    }
+
+    @Test func goalDetailWithoutLinksFallsBackToTheTaskIds() async throws {
+        let (backend, _) = try await live { g in
+            g.on("goals.get") { _ in .success(.object([
+                "goal": .object(["id": "g1", "title": "Half marathon", "category": "health", "status": "active"]),
+                "taskIds": .array(["t1", "t2"]),
+            ])) }
+        }
+        #expect(try await backend.goalDetail(id: "g1").links == [.task("t1"), .task("t2")])
     }
 }
