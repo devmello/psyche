@@ -15,6 +15,7 @@ public enum Route: Hashable, Sendable {
     case learning
     case claims
     case recentChanges
+    case reviewQueue
     /// A person, organisation, project or other entity (`/agent/soul?entity=…`). Its kind decides the page; the
     /// phone resolves it with `memory.entities.get` when the page opens, since an id doesn't say which it is.
     case entity(id: String)
