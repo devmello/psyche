@@ -1352,6 +1352,20 @@ export const de: Partial<Catalogue> = {
     "Braucht einen mit einer Developer ID und einem Provisioning-Profil signierten Psyche Helper",
   "settings.credentials.keyFileExplainer":
     "Der Schlüssel, der deinen Tresor öffnet, ist eine Datei, die nur dein Account lesen kann. Ihn in den Schlüsselbund (Touch ID) zu verschieben, braucht einen signierten Psyche Helper; der Helfer dieses Builds ist nicht signiert.",
+  "settings.credentials.lockNow": "Jetzt sperren",
+  "settings.credentials.autoLock.label": "Automatisch sperren nach Inaktivität",
+  "settings.credentials.autoLock.hint":
+    "Der Tresor sperrt sich nach dieser Zeit ohne Nutzung selbst.",
+  "settings.credentials.autoLock.m15": "15 Minuten",
+  "settings.credentials.autoLock.h1": "1 Stunde",
+  "settings.credentials.autoLock.h8": "8 Stunden",
+  "settings.credentials.autoLock.h24": "24 Stunden",
+  "settings.credentials.autoLock.never": "Nie",
+  "settings.credentials.autoLock.custom": "{minutes} Minuten",
+  "settings.credentials.autoLock.neverWarning":
+    "Ohne automatische Sperre bleibt der Tresor entsperrt, bis du ihn sperrst. Wer an diesem Gerät sitzt, kann dann deine gespeicherten Zugangsdaten nutzen.",
+  "settings.credentials.err.lock": "Der Tresor konnte nicht gesperrt werden: {reason}",
+  "settings.credentials.err.autoLock": "Die automatische Sperre wurde nicht geändert: {reason}",
 
   "settings.credentials.detail.executor.browser": "Browser",
   "settings.credentials.detail.executor.connector": "Verbindung",
@@ -2607,6 +2621,7 @@ export const de: Partial<Catalogue> = {
   "settings.plugins.install": "Aus Ordner installieren …",
   "settings.plugins.pickFailed": "Psyche konnte die Ordnerauswahl nicht öffnen ({reason}).",
   "settings.plugins.installFailed": "Die Installation wurde nicht gestartet. {reason}",
+  "settings.plugins.installNotDone": "Das Plugin wurde nicht installiert. {reason}",
   "settings.plugins.proposed": "Prüfe die Installation auf der Genehmigungskarte.",
   "settings.plugins.includes": "Enthält: {list}",
   "settings.plugins.count.skills": "{n, plural, one {# Skill} other {# Skills}}",

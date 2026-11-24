@@ -24,7 +24,7 @@ export const galleryRest: Partial<Catalogue> = {
   "gallery.category.everyday": "Vita quotidiana",
   "gallery.category.finance": "Finanza",
   "gallery.category.custom": "Personalizzati",
-  "gallery.builtin.google": "Gmail, Google Calendar e Drive.",
+  "gallery.builtin.google": "Gmail, Google Calendar, Drive e Attività.",
   "gallery.builtin.microsoft": "Posta e calendario di Outlook.",
   "gallery.builtin.imap": "Qualsiasi account di posta che supporti IMAP.",
   "gallery.builtin.appleNotes": "Leggi e aggiungi alle tue note in Note di Apple.",

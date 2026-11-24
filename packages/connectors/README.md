@@ -1,6 +1,6 @@
 # @psyche/connectors
 
-**Owner:** S09 (`docs/archive/prompts/s09-mcp-connectors.md`). Features M4 (directory data), M5 (Google), M8 (web search and fetch), M11 (action matrices) in [docs/03-feature-spec.md](../../docs/03-feature-spec.md). Later: M6 Microsoft, M7 IMAP / JMAP, M10 shopping helpers.
+**Owner:** S09 (`docs/archive/prompts/s09-mcp-connectors.md`). Features M4 (directory data), M5 (Google), M6 (Microsoft 365), M7 (mail), M8 (web search and fetch), M9 (custom connectors), M10 (shopping helpers), M11 (action matrices) in [docs/03-feature-spec.md](../../docs/03-feature-spec.md). Apple apps and Obsidian are first-party connectors too.
 
 First-party connectors behind one framework: a `Connector` interface, a `ConnectorRegistry` that enforces the owner's action matrix and scope mode, a catalogue for the Connectors directory, and `connectors.*` API handlers for the Gateway.
 
@@ -9,7 +9,13 @@ First-party connectors behind one framework: a `Connector` interface, a `Connect
 - **Framework** (`src/framework/`): `ConnectorRegistry` (`catalogue`, `list`, `get`, `connect`, `startConnect`, `restore`, `disconnect`, `remove`, `status`, `setMatrix`, `sync`, `permissionRows`, `instance`), `MemoryConnectorStore`, `SqliteConnectorStore` (the `connectors` table), the types in `types.ts`, `bindingHash` / `canonicalJSON` (security §3.5), `startLoopback` / `createPkce` (installed-app OAuth), `REMOTE_MCP_PRESETS` (Slack, Notion, Linear, GitHub) and `VERIFIED_MCP_HOSTS`, `COMING_SOON`.
 - **Gateway API**: `connectorHandlers(registry)` and `CONNECTOR_METHODS` for `connectors.catalogue | list | get | connect | disconnect | status | setMatrix | configure`.
 - **Web** (`src/web/`): `safeFetch`, `vetUrl`, `checkAddress`, `htmlToMarkdown`; search providers `braveProvider`, `exaProvider`, `tavilyProvider`, `searxngProvider`; factories `webSearchFactory` / `webFetchFactory`.
-- **Google** (`src/google/`): `googleFactory({ openBrowser, approveSecret? })`, `GOOGLE_CATALOGUE`, `GOOGLE_ACTIONS`, and the Gmail / Calendar / Drive clients.
+- **Google** (`src/google/`): `googleFactory({ openBrowser, approveSecret? })`, `GOOGLE_CATALOGUE`, `GOOGLE_ACTIONS` (includes the Tasks rows), `GoogleAuth`, `scopesFor`, and the Gmail / Calendar / Drive clients. Google Tasks has no export of its own: its `reminders_*` tools are built in `tasks-tools.ts`.
+- **Microsoft 365** (`src/microsoft/`): `microsoftFactory`, `MICROSOFT_CATALOGUE`, `MICROSOFT_ACTIONS`, the Graph calendar and file helpers, and the mail and To Do modules (`todo.ts`, `todo-tools.ts`).
+- **Apple apps** (`src/apple/`): `appleFactories(opts)`, one factory each for `apple:notes`, `apple:reminders`, `apple:calendar` and `apple:mail`; `APP_GUIDANCE` and `WINDOWS_APP_GUIDANCE`.
+- **Mail** (`src/mail/`): `mailFactory`, `imapFactory` (`IMAP_CATALOGUE`; IMAP / SMTP with `TLS` or `STARTTLS`), `jmapFactory` (`JMAP_CATALOGUE`), the IMAP, JMAP and SMTP clients, and the RFC 822 parser.
+- **Obsidian** (`src/obsidian/`): `obsidianFactory`, `OBSIDIAN_CATALOGUE`.
+- **Shopping** (`src/shopping/`): `shoppingFactory`, `SHOPPING_CATALOGUE`, `parseMerchants`.
+- **Custom** (`src/custom/`): `customFactory`, `CUSTOM_CATALOGUE`, `CustomConnectors` (the trust-card service), `checkManifest` and `manifestFromOpenApi`.
 
 ## How the registry enforces policy
 
@@ -108,6 +114,10 @@ Tools:
 
 Sync polls Graph delta queries (inbox messages, a −7 / +365 day `calendarView` and each To Do list's `tasks/delta`), restarting on 410 / `syncStateNotFound`; a To Do failure keeps its cursor and does not stop mail and calendar. Change-notification subscriptions are not used: they need a public HTTPS webhook (see docs/archive/status/s09.md).
 
+## Obsidian
+
+`obsidianFactory` (catalogue id `obsidian`) reads and writes one vault: a folder the owner shares in Settings → File access, as plain Markdown. No helper, no app, no macOS grant. Tools: `obsidian.read` (search and read notes, `allow`) and `obsidian.write` (add to and create notes, `connector_action`, `ask`). The Gateway's access rules (granted folder, read-only or read-write, protected roots, no symlinks) are checked on every path before it is touched. `.obsidian`, `.trash`, `.git` and `node_modules` are skipped. Note contents are untrusted.
+
 ## Custom connectors (M9)
 
 A custom connector is a manifest (`CustomConnectorManifest` in `@psyche/protocol`): `baseUrl` (https), an exact `hosts` allowlist, `auth` (`none`, or `bearer` / `header` / `query` / `basic` with a `{{cred:slug}}` placeholder), and `tools`, each a `method` + `path` (`{param}`), `params` in path / query / body with a JSON Schema, and a `sideEffect` tier. No code from the manifest runs.
@@ -124,6 +134,6 @@ A custom connector is a manifest (`CustomConnectorManifest` in `@psyche/protocol
 - Token storage: `TokenVault` is injected and needs the S06 vault write API.
 - Shopping: no payment (G12), no login to store accounts, no quantity other than one per add, no order-email polling (the tool parses an email the agent read).
 - Custom connectors: no OAuth (static keys only), no multipart / form bodies, no header params, no streaming; the drafting tool needs the owner at a device to install.
-- Mail: threads for JMAP (messages carry `threadId`, there is no thread tool yet); attachments on outgoing mail; the Gateway does not compose `jmapFactory` / `imapFactory` yet (INT). IMAP: no STARTTLS, no modified-UTF-7 mailbox names, no `STATUS` counts, no OAuth (XOAUTH2) for Gmail / Outlook over IMAP (use the Google connector).
+- Mail: threads for JMAP (messages carry `threadId`, there is no thread tool yet); attachments on outgoing mail. IMAP: no modified-UTF-7 mailbox names, no `STATUS` counts, no OAuth (XOAUTH2) for Gmail / Outlook over IMAP (use the Google connector).
 - Drive upload takes text content only. Uploading Library items needs a Library reader (S13).
-- Gmail attachments on outgoing mail (the builder supports them; no tool exposes them yet), Microsoft Graph (M6), IMAP / JMAP (M7), shopping helpers (M10).
+- Gmail attachments on outgoing mail (the builder supports them; no tool exposes them yet).

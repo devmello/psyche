@@ -114,12 +114,14 @@ final class AutomationEditorModel {
 /// the Scheduled screen to reload.
 struct AutomationEditorSheet: View {
     let onFinish: () -> Void
+    private let store: any PsycheBackend
     @State private var model: AutomationEditorModel
     @State private var confirmingDelete = false
     @Environment(\.dismiss) private var dismiss
 
     init(store: any PsycheBackend, automationID: String?, onFinish: @escaping () -> Void) {
         _model = State(initialValue: AutomationEditorModel(store: store, automationID: automationID))
+        self.store = store
         self.onFinish = onFinish
     }
 
@@ -140,6 +142,7 @@ struct AutomationEditorSheet: View {
                         Text("This runs on an event or a watch, so edit it on your Mac.", bundle: .module)
                             .foregroundStyle(PsycheColor.muted)
                     }
+                    pastRunsSection
                 case .ready:
                     editorSections
                 }
@@ -235,9 +238,25 @@ struct AutomationEditorSheet: View {
             }
         }
 
+        pastRunsSection
+
         if !model.isNew {
             Section {
                 Button(String(localized: "Delete automation", bundle: .module), role: .destructive) { confirmingDelete = true }
+            }
+        }
+    }
+
+    /// The automation's run history, pushed from the editor. Nothing for a new automation, which has no runs.
+    @ViewBuilder private var pastRunsSection: some View {
+        if let detail = model.detail {
+            Section {
+                NavigationLink {
+                    AutomationRunsScreen(store: store, automationID: detail.id)
+                } label: {
+                    Text("Past runs", bundle: .module)
+                }
+                .accessibilityIdentifier("automationPastRuns")
             }
         }
     }

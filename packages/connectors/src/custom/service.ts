@@ -1,4 +1,9 @@
-import { bindingFor, type SkillInstallBindingArgs } from "@psyche/permissions";
+import {
+  bindingFor,
+  type Requester,
+  type SkillInstallBindingArgs,
+  type TaintSource,
+} from "@psyche/permissions";
 import {
   type ApprovalRequest,
   type Clock,
@@ -37,6 +42,23 @@ export interface ProposeCustomInput {
   drafted?: "owner" | "agent";
 }
 
+/**
+ * Who asked for a proposal, from the tool run that drafted it. Absent for an owner's own proposal:
+ * that card is untainted, with no requester, and is not marked as drafted.
+ */
+export interface ProposeRun {
+  requestedBy: {
+    runId: string | null;
+    taskId: string | null;
+    threadId: string | null;
+    toolCallId?: string;
+  };
+  /** The run has read untrusted content: the card is tainted and offers only "once". */
+  taint: boolean;
+  taintSources?: TaintSource[];
+  requester?: Requester;
+}
+
 export interface CustomConnectorServiceOptions {
   registry: ConnectorRegistry;
   broker: PermissionBroker;
@@ -49,6 +71,8 @@ export interface CustomConnectorServiceOptions {
 interface Staged {
   proposal: CustomConnectorProposal;
   existingId: string | undefined;
+  /** The `skill_install` card this proposal opened; its approval installs it (`installApproved`). */
+  approvalId: string;
 }
 
 /** The `skill_install` binding the broker itself computes (no drift between card and install). */
@@ -73,6 +97,12 @@ export class CustomConnectors {
   readonly #o: CustomConnectorServiceOptions;
   readonly #staged = new Map<string, Staged>();
   #seq = 0;
+  /**
+   * Installs by card (approval id), in flight or done: the owner's Settings call and the broker's
+   * `approval.decided` event share one install, and a repeat gets the same result. A failed one is
+   * dropped so the same checks can run again.
+   */
+  readonly #installs = new Map<string, Promise<ConnectorRecord>>();
 
   constructor(options: CustomConnectorServiceOptions) {
     this.#o = options;
@@ -87,6 +117,7 @@ export class CustomConnectors {
 
   async propose(
     input: ProposeCustomInput,
+    run?: ProposeRun,
   ): Promise<{ proposal: CustomConnectorProposal; approval: ApprovalRequest }> {
     const findings: ManifestFinding[] = [];
     let raw: unknown = input.manifest;
@@ -142,13 +173,20 @@ export class CustomConnectors {
       proposal.update = { fromHash: manifestHash(prev), diff: lineDiff(manifestText(prev), text) };
     }
     const high = findings.filter((f) => f.severity === "high").length;
+    // Only the owner adds a connector. A designated person's or other requester's run may not open
+    // a card at all (the card shows the owner's device, and a requester has no standing to ask).
+    if (run?.requester !== undefined && run.requester.role !== "owner") {
+      throw new PsycheError("forbidden", "only the owner can add a connector");
+    }
+    const drafted = input.drafted === "agent";
     const issued = await this.#o.broker.requestApproval({
       kind: "skill_install",
-      summary: `${existing === undefined ? "Install" : "Update"} custom connector "${m.name}"${high > 0 ? ` (${high} high-severity findings: its tools will be off)` : ""}`,
+      summary: `${existing === undefined ? "Install" : "Update"} custom connector "${m.name}"${high > 0 ? ` (${high} high-severity findings: its tools will be off)` : ""}${drafted ? " (drafted by the agent)" : ""}`,
       details: {
         kind: "connector",
         name: m.name,
         id: m.id,
+        ...(drafted ? { drafted: "agent" } : {}),
         hash,
         baseUrl: m.baseUrl,
         hosts: m.hosts,
@@ -165,13 +203,17 @@ export class CustomConnectors {
       },
       bindingHash,
       grantKey,
-      requestedBy: { runId: null, taskId: null, threadId: null },
+      requestedBy: run?.requestedBy ?? { runId: null, taskId: null, threadId: null },
       sideEffect: "destructive",
       surfaces: (this.#o.surfaces ?? ["desktop"]).filter((x) => !x.includes(":")),
       scopesOffered: ["once"],
-      taint: false,
+      taint: run?.taint ?? false,
+      // The card dies with its proposal: an owner's approval TTL longer than the proposal's
+      // cannot leave a card that approves a proposal the Gateway would refuse to install.
+      maxTtlMs: CUSTOM_PROPOSAL_TTL_MS,
+      ...(run?.taintSources === undefined ? {} : { taintSources: run.taintSources }),
     });
-    this.#staged.set(id, { proposal, existingId: existing?.id });
+    this.#staged.set(id, { proposal, existingId: existing?.id, approvalId: issued.approval.id });
     return { proposal: structuredClone(proposal), approval: issued.approval };
   }
 
@@ -181,7 +223,37 @@ export class CustomConnectors {
     return structuredClone(s.proposal);
   }
 
-  async install(proposalId: string, approvalId: string): Promise<ConnectorRecord> {
+  /**
+   * Installs the proposal whose card was just approved (the broker's `approval.decided`). Returns
+   * `undefined` for a card that is not approved. An approved card whose proposal is gone (the
+   * Gateway restarted, or it expired) throws `not_found`, so the caller can tell the owner.
+   */
+  async installApproved(approval: ApprovalRequest): Promise<ConnectorRecord | undefined> {
+    if (approval.status !== "approved") return undefined;
+    for (const [proposalId, s] of this.#staged) {
+      if (s.approvalId === approval.id) return this.install(proposalId, approval.id);
+    }
+    const done = this.#installs.get(approval.id);
+    if (done !== undefined) return done;
+    throw new PsycheError(
+      "not_found",
+      "the connector's proposal is gone: the Gateway restarted or it expired",
+    );
+  }
+
+  install(proposalId: string, approvalId: string): Promise<ConnectorRecord> {
+    const key = approvalId;
+    const running = this.#installs.get(key);
+    if (running !== undefined) return running;
+    const run = this.#install(proposalId, approvalId).catch((err: unknown) => {
+      this.#installs.delete(key);
+      throw err;
+    });
+    this.#installs.set(key, run);
+    return run;
+  }
+
+  async #install(proposalId: string, approvalId: string): Promise<ConnectorRecord> {
     const s = this.#staged.get(proposalId);
     if (s === undefined) throw new PsycheError("not_found", "no such custom connector proposal");
     const p = s.proposal;
@@ -191,6 +263,11 @@ export class CustomConnectors {
         "approval_expired",
         "the proposal expired; propose the connector again",
       );
+    }
+    // Only the card this proposal opened can install it: another approved card (even a real one
+    // for another connector) installs nothing here.
+    if (approvalId !== s.approvalId) {
+      throw new PsycheError("approval_required", "that card is not this connector's trust card");
     }
     const approval = await this.#o.broker.get(approvalId);
     if (

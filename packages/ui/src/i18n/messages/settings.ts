@@ -457,6 +457,19 @@ export const settings = {
     "Needs a Psyche Helper signed with a Developer ID and a provisioning profile",
   "settings.credentials.keyFileExplainer":
     "The key that opens your vault is a file only your account can read. Moving it to the Keychain (Touch ID) needs a signed Psyche Helper; this build's helper is not signed.",
+  "settings.credentials.lockNow": "Lock now",
+  "settings.credentials.autoLock.label": "Auto-lock after idle time",
+  "settings.credentials.autoLock.hint": "The vault locks itself after this long without use.",
+  "settings.credentials.autoLock.m15": "15 minutes",
+  "settings.credentials.autoLock.h1": "1 hour",
+  "settings.credentials.autoLock.h8": "8 hours",
+  "settings.credentials.autoLock.h24": "24 hours",
+  "settings.credentials.autoLock.never": "Never",
+  "settings.credentials.autoLock.custom": "{minutes} minutes",
+  "settings.credentials.autoLock.neverWarning":
+    "With auto-lock off, the vault stays unlocked until you lock it. Anyone using this computer can then use your saved credentials.",
+  "settings.credentials.err.lock": "The vault could not be locked: {reason}",
+  "settings.credentials.err.autoLock": "Auto-lock was not changed: {reason}",
 
   // A vault item's detail and recent uses (CredentialDetail.tsx).
   "settings.credentials.detail.executor.browser": "Browser",
@@ -2666,6 +2679,7 @@ export const settings = {
   "settings.plugins.install": "Install from folder…",
   "settings.plugins.pickFailed": "Psyche couldn't open the folder chooser ({reason}).",
   "settings.plugins.installFailed": "The install didn't start. {reason}",
+  "settings.plugins.installNotDone": "The plugin didn't install. {reason}",
   "settings.plugins.proposed": "Review the install on the approval card.",
   "settings.plugins.includes": "Includes: {list}",
   "settings.plugins.count.skills": "{n, plural, one {# skill} other {# skills}}",

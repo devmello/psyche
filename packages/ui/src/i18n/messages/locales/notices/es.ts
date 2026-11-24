@@ -2,6 +2,9 @@ import type { Catalogue } from "../../index.ts";
 
 /** Notices the Gateway authors (es); merged into `../es.ts`. */
 export const notices: Partial<Catalogue> = {
+  "notice.install.failed.title": "Una instalación aprobada no se completó",
+  "notice.install.failed.body":
+    "{reason, select, lost {Psyche se reinició antes de que aprobaras, así que la propuesta se perdió. Vuelve a proponerla.} expired {La propuesta había caducado antes de que la aprobaras. Vuelve a proponerla.} other {Psyche no pudo instalarla. Revisa la lista y vuelve a intentarlo.}}",
   "notice.security.changed.title": "Psyche deshizo un cambio de seguridad hecho fuera de la app",
   "notice.security.changed.body":
     "Un programa de este Mac cambió {count, plural, =1 {# registro de seguridad} other {# registros de seguridad}} (dispositivos, claves, permisos o ajustes) sin pasar por Psyche{times, plural, =0 {} =1 {} other {, # veces hasta ahora}}. Psyche los restauró. Si no fuiste tú, revisa el Mac por si hay software no deseado.",

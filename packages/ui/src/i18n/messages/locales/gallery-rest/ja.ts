@@ -24,7 +24,7 @@ export const galleryRest: Partial<Catalogue> = {
   "gallery.category.everyday": "日常",
   "gallery.category.finance": "金融",
   "gallery.category.custom": "独自",
-  "gallery.builtin.google": "Gmail、Googleカレンダー、ドライブ。",
+  "gallery.builtin.google": "Gmail、Googleカレンダー、ドライブ、タスク。",
   "gallery.builtin.microsoft": "Outlookのメールとカレンダー。",
   "gallery.builtin.imap": "IMAPに対応した任意のメールアカウント。",
   "gallery.builtin.appleNotes": "Appleメモのメモを読み取り、追記します。",

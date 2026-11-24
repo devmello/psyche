@@ -1331,6 +1331,19 @@ export const hi: Partial<Catalogue> = {
     "Developer ID और प्रोविज़निंग प्रोफ़ाइल से साइन किया गया Psyche हेल्पर चाहिए",
   "settings.credentials.keyFileExplainer":
     "आपके वॉल्ट को खोलने वाली कुंजी एक ऐसी फ़ाइल है जिसे केवल आपका खाता पढ़ सकता है। इसे कीचेन (Touch ID) में ले जाने के लिए साइन किया गया Psyche हेल्पर चाहिए; इस बिल्ड का हेल्पर साइन नहीं किया गया है।",
+  "settings.credentials.lockNow": "अभी लॉक करें",
+  "settings.credentials.autoLock.label": "निष्क्रियता के बाद अपने-आप लॉक",
+  "settings.credentials.autoLock.hint": "इतने समय तक उपयोग न होने पर तिजोरी अपने-आप लॉक हो जाती है।",
+  "settings.credentials.autoLock.m15": "15 मिनट",
+  "settings.credentials.autoLock.h1": "1 घंटा",
+  "settings.credentials.autoLock.h8": "8 घंटे",
+  "settings.credentials.autoLock.h24": "24 घंटे",
+  "settings.credentials.autoLock.never": "कभी नहीं",
+  "settings.credentials.autoLock.custom": "{minutes} मिनट",
+  "settings.credentials.autoLock.neverWarning":
+    "स्वतः लॉक बंद होने पर तिजोरी तब तक खुली रहती है जब तक आप उसे लॉक न करें। तब इस कंप्यूटर पर बैठा कोई भी आपके सहेजे क्रेडेंशियल इस्तेमाल कर सकता है।",
+  "settings.credentials.err.lock": "तिजोरी लॉक नहीं हो सकी: {reason}",
+  "settings.credentials.err.autoLock": "स्वतः लॉक नहीं बदला गया: {reason}",
 
   "settings.credentials.detail.executor.browser": "ब्राउज़र",
   "settings.credentials.detail.executor.connector": "कनेक्टर",
@@ -2523,6 +2536,7 @@ export const hi: Partial<Catalogue> = {
   "settings.plugins.install": "फ़ोल्डर से इंस्टॉल करें…",
   "settings.plugins.pickFailed": "Psyche फ़ोल्डर चयनकर्ता नहीं खोल सका ({reason})।",
   "settings.plugins.installFailed": "इंस्टॉल शुरू नहीं हुआ। {reason}",
+  "settings.plugins.installNotDone": "प्लगइन इंस्टॉल नहीं हुआ। {reason}",
   "settings.plugins.proposed": "अनुमोदन कार्ड पर इंस्टॉल की समीक्षा करें।",
   "settings.plugins.includes": "इसमें शामिल: {list}",
   "settings.plugins.count.skills": "{n, plural, one {# स्किल} other {# स्किल}}",

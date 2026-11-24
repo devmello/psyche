@@ -105,7 +105,7 @@ export const GOOGLE_CATALOGUE: CatalogueEntry = {
   type: "google",
   id: "google",
   label: "Google",
-  description: "Gmail, Google Calendar and the Drive files you pick.",
+  description: "Gmail, Google Calendar, the Drive files you pick and Google Tasks.",
   category: "first_party",
   vendor: "Google",
   auth: "oauth",

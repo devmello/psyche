@@ -141,8 +141,10 @@ export class PluginManager {
   readonly #o: PluginManagerOptions;
   readonly #proposals = new Map<
     string,
-    { proposal: PluginProposalSchema; tree: SkillTree; expiresAt: number }
+    { proposal: PluginProposalSchema; tree: SkillTree; expiresAt: number; approvalId?: string }
   >();
+  /** Installs by proposal and approval, in flight or done (see `install`). */
+  readonly #installs = new Map<string, Promise<PluginSummarySchema>>();
   readonly #running = new Map<string, Running>();
   readonly #failed = new Map<string, string>();
   #sync: Promise<void> = Promise.resolve();
@@ -216,7 +218,11 @@ export class PluginManager {
       surfaces: (this.#o.surfaces ?? ["desktop"]).filter((x) => !x.includes(":")),
       scopesOffered: ["once"],
       taint: false,
+      // The card dies with its proposal (the Gateway will not install past it).
+      maxTtlMs: PROPOSAL_TTL_MS,
     });
+    const staged = this.#proposals.get(proposal.id);
+    if (staged !== undefined) staged.approvalId = issued.approval.id;
     return { proposal: structuredClone(proposal), approval: issued.approval };
   }
 
@@ -226,8 +232,43 @@ export class PluginManager {
     return structuredClone(staged.proposal);
   }
 
-  /** Installs exactly the scanned files, switched off, after the approved card. */
-  async install(proposalId: string, approvalId: string): Promise<PluginSummarySchema> {
+  /**
+   * The approved card's install, from the broker's `approval.decided` (the Gateway calls this, so
+   * an approval counts with Settings closed). `undefined` for a card that is not an approved
+   * plugin card; a plugin whose proposal is gone throws `not_found` so the owner can be told.
+   */
+  async installApproved(approval: ApprovalRequest): Promise<PluginSummarySchema | undefined> {
+    if (approval.status !== "approved" || approval.kind !== "skill_install") return undefined;
+    if (approval.details.kind !== "plugin") return undefined;
+    for (const [proposalId, staged] of this.#proposals) {
+      if (staged.approvalId === approval.id) return this.install(proposalId, approval.id);
+    }
+    const done = [...this.#installs.entries()].find(([key]) => key.endsWith(`|${approval.id}`));
+    if (done !== undefined) return done[1];
+    throw new PsycheError(
+      "not_found",
+      "the plugin's proposal is gone: the Gateway restarted or it expired",
+    );
+  }
+
+  /**
+   * Installs exactly the scanned files, switched off, after the approved card. One install per
+   * proposal and approval: the Settings call and the approval event share it, and a repeat gets
+   * the same result. A failed one is dropped so the same checks can run again.
+   */
+  install(proposalId: string, approvalId: string): Promise<PluginSummarySchema> {
+    const key = `${proposalId}|${approvalId}`;
+    const running = this.#installs.get(key);
+    if (running !== undefined) return running;
+    const run = this.#install(proposalId, approvalId).catch((err: unknown) => {
+      this.#installs.delete(key);
+      throw err;
+    });
+    this.#installs.set(key, run);
+    return run;
+  }
+
+  async #install(proposalId: string, approvalId: string): Promise<PluginSummarySchema> {
     const staged = this.#proposals.get(proposalId);
     if (staged === undefined) throw new PsycheError("not_found", "no such plugin proposal");
     if (this.#now() > staged.expiresAt) {

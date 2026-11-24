@@ -642,6 +642,22 @@ export function graphHandlers(ctx: GraphMockContext): Handlers {
           undoable: false,
         })),
     }),
+    "memory.entities.history": (p) => {
+      const w = ctx.graph();
+      return {
+        facts: w.facts
+          .filter(
+            (f) =>
+              f.entityId === p.entityId &&
+              (p.attribute === undefined || f.attribute === p.attribute),
+          )
+          .sort((a, b) => Date.parse(b.recordedAt) - Date.parse(a.recordedAt)),
+        edges:
+          p.attribute === undefined
+            ? w.edges.filter((x) => x.src === p.entityId || x.dst === p.entityId)
+            : [],
+      };
+    },
     "memory.entities.timeline": (p) => timelineOf(ctx.graph(), p.entityId, p.before, p.limit ?? 50),
     "memory.anchors.list": (p) => ({
       anchors: ctx

@@ -63,6 +63,7 @@ import { createChangeRecorder } from "./changes.ts";
 import { connectorMatrixSync } from "./connector-matrix.ts";
 import { fetchLimit, taskOrigins } from "./fetch-origins.ts";
 import { googleClientStore } from "./google-client.ts";
+import { approvedInstallReason, reportApprovedInstallFailed } from "./install-failed.ts";
 import { indexedConnectorLibrary } from "./library.ts";
 import { type MailCredentials, mailCredentials } from "./mail-credentials.ts";
 import { protectedRoots, writeProtectionFor } from "./protected-paths.ts";
@@ -432,22 +433,46 @@ export function composeConnectors(
         })),
     }),
   };
+  // The token-recording broker view, so the owner can answer the card (`approvals.get` returns the
+  // surface's answer token only for approvals the view issued). Events come from the raw broker.
   const custom = new CustomConnectors({
     registry,
-    broker: services.rawBroker,
+    broker: services.broker,
     clock: services.clock,
   });
   for (const [name, fn] of Object.entries(customConnectorHandlers(custom))) {
     if (!isMethodName(name)) continue;
     handlers[name] = { run: (_call: Call, params: never) => fn(params) };
   }
+  // The owner's approval of the drafted connector's card installs it (the card is the consent).
+  // Denied or expired cards never reach here; `installApproved` verifies the approval itself.
+  // An approved card whose install cannot run (the Gateway restarted, the proposal expired, a
+  // binding refused) is reported to the owner, never dropped silently.
+  const unsubscribeCustomInstall = services.rawBroker.subscribe((e) => {
+    if (e.type !== "approval.decided" || e.approval.kind !== "skill_install") return;
+    if ((e.approval.details as { kind?: unknown }).kind !== "connector") return;
+    void custom.installApproved(e.approval).catch((err: unknown) => {
+      const reason = approvedInstallReason(err);
+      log?.log("warn", "custom connector install after approval failed", {
+        approvalId: e.approval.id,
+        reason,
+      });
+      reportApprovedInstallFailed({
+        broker: services.broker,
+        notifier: services.notifier,
+        approval: e.approval,
+        kind: "connector",
+        reason,
+      });
+    });
+  });
   // The agent may draft a custom connector (M9), never enable one: this only opens the owner's
   // device-only trust card. Whatever it submits is marked as agent-drafted on the card.
-  const unregisterDraft = services.tools.register({
+  const draftTool: AgentToolRegistration = {
     spec: {
       name: "connectors_propose_custom",
       description:
-        "Draft a custom REST connector for the owner to review. Give either a manifest (schemaVersion 1: id, name, description, version, https baseUrl, hosts, auth with a {{cred:slug}} placeholder, tools with method, path, params and sideEffect) or an OpenAPI 3 document with the operations to include. This only shows the owner a review card on their device; nothing is installed or enabled.",
+        "Draft a custom REST connector for the owner to review. Give either a manifest (schemaVersion 1: id, name, description, version, https baseUrl, hosts, auth with a {{cred:slug}} placeholder, tools with method, path, params and sideEffect) or an OpenAPI 3 document with the operations to include. This only shows the owner a review card on their device; nothing is installed until the owner approves that card, and then it is installed with its tools on the rules the card shows.",
       inputSchema: {
         type: "object",
         properties: {
@@ -467,28 +492,47 @@ export function composeConnectors(
       sideEffect: "none",
       provenanceOut: "trusted",
     },
-    execute: async (_callId, params) => {
+    // The run's taint and requester travel onto the card, so an injected draft is shown as tainted
+    // (and offers only "once") and the card says who asked for it. `run` is preferred by the loop;
+    // `execute` is never reached.
+    execute: () =>
+      Promise.reject(new PsycheError("internal", "connectors_propose_custom runs in-process")),
+    run: async (params, ctx) => {
       const p = (params ?? {}) as {
         manifest?: Record<string, unknown>;
         openapi?: { document: string; id: string; operations?: string[] };
       };
-      const { proposal, approval } = await custom.propose({
-        ...(p.manifest === undefined ? {} : { manifest: p.manifest }),
-        ...(p.openapi === undefined ? {} : { openapi: p.openapi }),
-        drafted: "agent",
-      });
+      const { proposal, approval } = await custom.propose(
+        {
+          ...(p.manifest === undefined ? {} : { manifest: p.manifest }),
+          ...(p.openapi === undefined ? {} : { openapi: p.openapi }),
+          drafted: "agent",
+        },
+        {
+          requestedBy: {
+            runId: ctx.runId,
+            taskId: ctx.taskId ?? null,
+            threadId: ctx.threadId,
+            toolCallId: ctx.callId,
+          },
+          taint: ctx.taint,
+          ...(ctx.taintSources === undefined ? {} : { taintSources: [...ctx.taintSources] }),
+          ...(ctx.requester === undefined ? {} : { requester: ctx.requester }),
+        },
+      );
       return {
         output: {
           proposalId: proposal.id,
           approvalId: approval.id,
           hash: proposal.hash,
           findings: proposal.findings.map((f) => `${f.severity}: ${f.message}`),
-          note: "The owner reviews this on their device; it is not installed.",
+          note: "The owner reviews this card on their device. It installs when the owner approves the card, with its tools on the rules the card shows; until then nothing is installed.",
         },
         provenance: "trusted",
       };
     },
-  });
+  };
+  const unregisterDraft = services.tools.register(draftTool);
 
   // A token revoked in the vault by anything but the registry's own disconnect (the owner, a
   // provider revocation) disconnects the connector: its tools are torn down, so pending
@@ -584,6 +628,7 @@ export function composeConnectors(
       unsubscribeMatrix?.();
       unregisterFreeTime();
       unregisterDraft();
+      unsubscribeCustomInstall();
       unsubscribeRevoked();
       if (timer !== undefined) clearInterval(timer);
       timer = undefined;

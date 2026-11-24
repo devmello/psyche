@@ -3,7 +3,7 @@ import Foundation
 // Feed, Ideas, Goals and Scheduled work (the desktop Home's sections): what the Gateway's proactive side
 // proposes and what it runs on a schedule. Gateway methods: feed.list/feedback, ideas.list/accept/dismiss,
 // goals.list/get/update (status only), goals.decide/archive/milestone, scheduled.list/runs/pause,
-// automations.run and automations.runs (for `retryAt`), automations.list/create/update/delete (the Scheduled
+// automations.run and automations.runs (Past runs, and `retryAt`), automations.list/create/update/delete (the Scheduled
 // editor). A goal's title, plan and check-in cadence stay a Mac thing; an automation triggered by an event or a
 // watch is edited on the Mac.
 
@@ -39,6 +39,15 @@ public protocol ProactiveBackend: Sendable {
     func updateAutomation(id: String, changes: AutomationChanges) async throws
     /// Deletes an automation. The Gateway refuses the ones it runs for itself.
     func deleteAutomation(id: String) async throws
+    /// One page of an automation's run history, newest first (the editor's Past runs list). `nextCursor` nil is the last page.
+    func automationRuns(id: String, cursor: String?) async throws -> AutomationRunPage
+    /// Asks the model for one next step for a goal (`goals.suggest`). Returns the id of the idea it offers, to Start or
+    /// Not now on Home (`ideas()` has it); nil when there is none. Runs only when the owner asks, and nothing starts.
+    func suggestNextStep(goalID: String) async throws -> String?
+    /// Links a task or an automation to a goal (`goals.link`), as the desktop's Link dialog does.
+    func linkGoal(goalID: String, _ target: GoalLinkTarget) async throws
+    /// Unlinks a task or an automation from a goal (`goals.link` with `unlink`). The task or automation itself stays.
+    func unlinkGoal(goalID: String, _ target: GoalLinkTarget) async throws
 }
 
 // MARK: Feed
@@ -176,15 +185,35 @@ public struct GoalMilestoneItem: Sendable, Equatable, Identifiable {
     }
 }
 
+/// A task or an automation linked to a goal: what `goals.link` takes (`taskId` or `automationId`) and what
+/// `goals.get` returns in `links`.
+public enum GoalLinkTarget: Sendable, Equatable, Hashable {
+    case task(String)
+    case automation(String)
+
+    public var id: String {
+        switch self {
+        case .task(let id), .automation(let id): id
+        }
+    }
+
+    public var isTask: Bool {
+        if case .task = self { true } else { false }
+    }
+}
+
 public struct GoalDetail: Sendable, Equatable {
     public var goal: GoalItem
     public var milestones: [GoalMilestoneItem]
     public var linkedTasks: Int
+    /// The tasks and automations linked to the goal, in the order `goals.get` gives them (`links`).
+    public var links: [GoalLinkTarget]
 
-    public init(goal: GoalItem, milestones: [GoalMilestoneItem] = [], linkedTasks: Int = 0) {
+    public init(goal: GoalItem, milestones: [GoalMilestoneItem] = [], linkedTasks: Int = 0, links: [GoalLinkTarget] = []) {
         self.goal = goal
         self.milestones = milestones
         self.linkedTasks = linkedTasks
+        self.links = links
     }
 
     /// Done milestones over all milestones; nil when the goal has none (progress is then unknown, not zero).
@@ -268,4 +297,43 @@ public struct ScheduledOverview: Sendable, Equatable {
     }
     public static let skeleton = ScheduledOverview(
         items: (0..<3).map { ScheduledJob(id: "sk\($0)", title: "Loading", state: "active") })
+}
+
+// MARK: Automation runs
+
+/// A run's state as an automation's past runs show it (`automations.runs`).
+public enum AutomationRunStatus: String, Sendable, Equatable {
+    case running, done, noReply = "no_reply", failed, cancelled, skipped
+}
+
+/// One run of an automation. `summary` is what the run said; for a failed run, why it failed.
+public struct AutomationRunItem: Sendable, Equatable, Identifiable {
+    public var id: String
+    public var status: AutomationRunStatus
+    public var startedAt: Date
+    public var endedAt: Date?
+    public var summary: String?
+    /// The task the run worked in. Its run page (`TaskRunView`) opens from here; nil means no tap.
+    public var taskID: String?
+
+    public init(id: String, status: AutomationRunStatus, startedAt: Date, endedAt: Date? = nil, summary: String? = nil, taskID: String? = nil) {
+        self.id = id
+        self.status = status
+        self.startedAt = startedAt
+        self.endedAt = endedAt
+        self.summary = summary
+        self.taskID = taskID
+    }
+
+    /// How long the run took; nil while it is still running.
+    public var duration: TimeInterval? { endedAt.map { max(0, $0.timeIntervalSince(startedAt)) } }
+}
+
+public struct AutomationRunPage: Sendable, Equatable {
+    public var runs: [AutomationRunItem]
+    public var nextCursor: String?
+    public init(runs: [AutomationRunItem], nextCursor: String? = nil) {
+        self.runs = runs
+        self.nextCursor = nextCursor
+    }
 }

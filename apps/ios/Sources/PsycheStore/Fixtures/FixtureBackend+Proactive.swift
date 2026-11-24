@@ -8,6 +8,8 @@ struct ProactiveState: Sendable {
     var scheduled = FixtureData.scheduledOverview
     /// Automations the editor created or changed; a seeded item without one reads back as a daily cron.
     var automations: [AutomationDetail] = []
+    /// Past runs by automation id, newest first.
+    var automationRuns: [String: [AutomationRunItem]] = FixtureData.automationRuns
 }
 
 extension FixtureBackend: ProactiveBackend {
@@ -98,6 +100,32 @@ extension FixtureBackend: ProactiveBackend {
         return proactiveState.goals[index]
     }
 
+    public func suggestNextStep(goalID: String) async throws -> String? {
+        await pause()
+        guard let goal = proactiveState.goals.first(where: { $0.goal.id == goalID }) else { throw BackendError.notFound }
+        let idea = IdeaItem(
+            id: "idea_next_\(goalID)", kind: "task", title: "Next step for \(goal.goal.title)",
+            body: "One concrete step this week, from the goal's open milestones.", effort: "10 min")
+        proactiveState.ideas.removeAll { $0.id == idea.id }
+        proactiveState.ideas.insert(idea, at: 0)
+        return idea.id
+    }
+
+    public func linkGoal(goalID: String, _ target: GoalLinkTarget) async throws {
+        await pause()
+        guard let index = proactiveState.goals.firstIndex(where: { $0.goal.id == goalID }) else { throw BackendError.notFound }
+        guard !proactiveState.goals[index].links.contains(target) else { return }
+        proactiveState.goals[index].links.append(target)
+        proactiveState.goals[index].linkedTasks = proactiveState.goals[index].links.count
+    }
+
+    public func unlinkGoal(goalID: String, _ target: GoalLinkTarget) async throws {
+        await pause()
+        guard let index = proactiveState.goals.firstIndex(where: { $0.goal.id == goalID }) else { throw BackendError.notFound }
+        proactiveState.goals[index].links.removeAll { $0 == target }
+        proactiveState.goals[index].linkedTasks = proactiveState.goals[index].links.count
+    }
+
     public func scheduled() async throws -> ScheduledOverview {
         await pause()
         return proactiveState.scheduled
@@ -114,6 +142,16 @@ extension FixtureBackend: ProactiveBackend {
 
     public func runScheduledNow(id: String) async throws {
         guard proactiveState.scheduled.items.contains(where: { $0.id == id }) else { throw BackendError.notFound }
+    }
+
+    public func automationRuns(id: String, cursor: String?) async throws -> AutomationRunPage {
+        await pause()
+        // Three rows a page, so the seven runs of auto_1 take three pages. The cursor is the offset of the next row.
+        let rows = proactiveState.automationRuns[id] ?? []
+        let start = cursor.flatMap { Int($0) } ?? 0
+        guard start >= 0, start <= rows.count else { throw BackendError.refused("bad cursor") }
+        let end = min(start + 3, rows.count)
+        return AutomationRunPage(runs: Array(rows[start..<end]), nextCursor: end < rows.count ? String(end) : nil)
     }
 }
 
@@ -138,7 +176,7 @@ extension FixtureData {
                 GoalMilestoneItem(id: "m1", title: "Run 5 km without stopping", done: true),
                 GoalMilestoneItem(id: "m2", title: "Run 10 km", done: false),
                 GoalMilestoneItem(id: "m3", title: "Register for a race", done: false),
-            ], linkedTasks: 2),
+            ], linkedTasks: 2, links: [.task("task_q3"), .automation("auto_1")]),
         GoalDetail(goal: GoalItem(id: "goal_2", title: "Save for a deposit", category: "finance", status: "candidate")),
     ]
 
@@ -147,6 +185,33 @@ extension FixtureData {
         ScheduledJob(id: "auto_2", title: "Daily brief", state: "active", isRoutine: true, nextRunAt: Date(timeIntervalSince1970: 1_900_200_000), confirmsRunNow: false),
         ScheduledJob(id: "auto_3", title: "Weekly expense review", summary: "Sorts the week's receipts.", state: "paused", nextRunAt: nil),
         ScheduledJob(id: "auto_4", title: "Mail digest", state: "off", isRoutine: true, confirmsRunNow: false),
+    ]
+
+    /// Seven runs of "Pay the electricity bill" (auto_1), newest first: one running, one done with a task, one
+    /// failed with its reason, one with no reply, one failed after retries, one done with no task.
+    static let automationRuns: [String: [AutomationRunItem]] = [
+        "auto_1": [
+            AutomationRunItem(id: "arun_7", status: .running, startedAt: Date(timeIntervalSince1970: 1_900_300_000), taskID: "task_q3"),
+            AutomationRunItem(
+                id: "arun_6", status: .done, startedAt: Date(timeIntervalSince1970: 1_900_200_000),
+                endedAt: Date(timeIntervalSince1970: 1_900_200_095), summary: "Checked the bill: nothing due yet.", taskID: "task_q3"),
+            AutomationRunItem(
+                id: "arun_5", status: .failed, startedAt: Date(timeIntervalSince1970: 1_900_100_000),
+                endedAt: Date(timeIntervalSince1970: 1_900_100_040),
+                summary: "The utility site timed out twice, so nothing was paid.", taskID: "task_invoice"),
+            AutomationRunItem(
+                id: "arun_4", status: .done, startedAt: Date(timeIntervalSince1970: 1_900_000_000),
+                endedAt: Date(timeIntervalSince1970: 1_900_000_060), summary: "Paid nothing: the bill was already settled."),
+            AutomationRunItem(
+                id: "arun_3", status: .noReply, startedAt: Date(timeIntervalSince1970: 1_899_900_000),
+                endedAt: Date(timeIntervalSince1970: 1_899_900_012)),
+            AutomationRunItem(
+                id: "arun_2", status: .failed, startedAt: Date(timeIntervalSince1970: 1_899_800_000),
+                endedAt: Date(timeIntervalSince1970: 1_899_800_005), summary: "The model was unavailable after three tries."),
+            AutomationRunItem(
+                id: "arun_1", status: .done, startedAt: Date(timeIntervalSince1970: 1_899_700_000),
+                endedAt: Date(timeIntervalSince1970: 1_899_700_150), summary: "Checked the bill."),
+        ]
     ]
 
     static let scheduledOverview = ScheduledOverview(

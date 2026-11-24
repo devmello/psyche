@@ -10,7 +10,7 @@ import { describe, expect, it } from "vitest";
 import { customFactory } from "../../src/custom/connector.ts";
 import { checkManifest, manifestHash, manifestText } from "../../src/custom/manifest.ts";
 import { manifestFromOpenApi } from "../../src/custom/openapi.ts";
-import { CustomConnectors } from "../../src/custom/service.ts";
+import { CUSTOM_PROPOSAL_TTL_MS, CustomConnectors } from "../../src/custom/service.ts";
 import { toolCallBindingHash } from "../../src/framework/binding.ts";
 import { ConnectorRegistry } from "../../src/framework/registry.ts";
 import { MapRegistry, MemoryVault, run, stubBroker } from "../mail/helpers.ts";
@@ -480,7 +480,8 @@ describe("propose → trust card → install", () => {
         scope: "once",
         decidedBy: { deviceId: "dev_1", surface: "desktop" },
       });
-    return { clock, fake, registry, service, approve };
+    const tokenOf = (id: string) => tokens.get(id) ?? "";
+    return { clock, fake, registry, service, approve, tokenOf };
   }
 
   it("opens a device-only skill_install card (kind connector) bound with the broker's own recipe, then installs with tier rules", async () => {
@@ -578,5 +579,160 @@ describe("propose → trust card → install", () => {
     await expect(s.service.install(proposal.id, approval.id)).rejects.toMatchObject({
       code: "approval_expired",
     });
+  });
+
+  it("installs on the owner's approval (installApproved), once; a denied card installs nothing", async () => {
+    const s = setup();
+    const { proposal, approval } = await s.service.propose({ manifest: MANIFEST });
+    await s.approve(approval.id);
+    const approved = await s.fake.get(approval.id);
+    expect(approved?.status).toBe("approved");
+    const record = await s.service.installApproved(approved as NonNullable<typeof approved>);
+    expect(record).toMatchObject({ type: "custom", status: "connected", label: "Tasks API" });
+    expect((await s.registry.list()).filter((r) => r.type === "custom")).toHaveLength(1);
+    // The install is done once: a repeat from the Settings call or the broker's event gets the
+    // same connector, and nothing is connected twice.
+    expect((await s.service.install(proposal.id, approval.id)).id).toBe(record?.id);
+    expect(await s.service.installApproved(approved as NonNullable<typeof approved>)).toMatchObject(
+      { id: record?.id },
+    );
+    expect((await s.registry.list()).filter((r) => r.type === "custom")).toHaveLength(1);
+  });
+
+  it("the card is capped at its proposal expiry", async () => {
+    const s = setup();
+    const seen: Array<{ maxTtlMs?: number }> = [];
+    const original = s.fake.requestApproval.bind(s.fake);
+    s.fake.requestApproval = async (input) => {
+      seen.push(input);
+      return original(input);
+    };
+    await s.service.propose({ manifest: MANIFEST });
+    expect(seen[0]?.maxTtlMs).toBe(CUSTOM_PROPOSAL_TTL_MS);
+  });
+
+  it("an approved card whose proposal is gone (a restart) is reported with not_found, installs nothing", async () => {
+    const s = setup();
+    const { approval } = await s.service.propose({ manifest: MANIFEST });
+    await s.approve(approval.id);
+    const approved = await s.fake.get(approval.id);
+    // A new service has none of the staged proposals: the Gateway restarted in between.
+    const restarted = new CustomConnectors({
+      registry: s.registry,
+      broker: s.fake as unknown as PermissionBroker,
+      clock: s.clock,
+      surfaces: ["desktop"],
+    });
+    await expect(
+      restarted.installApproved(approved as NonNullable<typeof approved>),
+    ).rejects.toMatchObject({ code: "not_found" });
+    expect(await s.registry.list()).toEqual([]);
+  });
+
+  it("the Settings call and the approval event share one install", async () => {
+    const s = setup();
+    const { proposal, approval } = await s.service.propose({ manifest: MANIFEST });
+    await s.approve(approval.id);
+    const approved = await s.fake.get(approval.id);
+    const [viaUi, viaEvent] = await Promise.all([
+      s.service.install(proposal.id, approval.id),
+      s.service.installApproved(approved as NonNullable<typeof approved>),
+    ]);
+    expect(viaEvent?.id).toBe(viaUi.id);
+    expect((await s.registry.list()).filter((r) => r.type === "custom")).toHaveLength(1);
+  });
+
+  it("installs nothing when the card is denied, or when the approval is not this proposal's", async () => {
+    const s = setup();
+    const { approval } = await s.service.propose({ manifest: MANIFEST });
+    await s.fake.answer({
+      approvalId: approval.id,
+      answerToken: s.tokenOf(approval.id),
+      decision: "deny",
+      scope: "once",
+      decidedBy: { deviceId: "dev_1", surface: "desktop" },
+    });
+    const denied = await s.fake.get(approval.id);
+    expect(denied?.status).toBe("denied");
+    expect(await s.service.installApproved(denied as NonNullable<typeof denied>)).toBeUndefined();
+    expect(await s.registry.list()).toEqual([]);
+    // An approved card whose proposal this service does not hold is reported, not installed.
+    const unknown = { ...approval, id: "apr_unknown", status: "approved" as const };
+    await expect(s.service.installApproved(unknown)).rejects.toMatchObject({ code: "not_found" });
+    // A card that claims approval the broker never recorded is refused by the install's own check.
+    const other = await s.service.propose({ manifest: MANIFEST });
+    const claimed = { ...other.approval, status: "approved" as const };
+    await expect(s.service.installApproved(claimed)).rejects.toMatchObject({
+      code: "approval_required",
+    });
+    expect(await s.registry.list()).toEqual([]);
+  });
+
+  it("refuses to install proposal B with the approved card of proposal A", async () => {
+    const s = setup();
+    const a = await s.service.propose({ manifest: MANIFEST });
+    const b = await s.service.propose({
+      manifest: variant((m) => {
+        m.name = "Other";
+      }),
+    });
+    await s.approve(a.approval.id);
+    await expect(s.service.install(b.proposal.id, a.approval.id)).rejects.toMatchObject({
+      code: "approval_required",
+    });
+    // B still waits for its own card, and installs once that card is approved.
+    await s.approve(b.approval.id);
+    const record = await s.service.install(b.proposal.id, b.approval.id);
+    expect(record).toMatchObject({ label: "Other" });
+  });
+
+  it("marks an agent's draft on the card and taints it when the run read untrusted content", async () => {
+    const s = setup();
+    const run = {
+      requestedBy: { runId: "run_1", taskId: null, threadId: "thr_1", toolCallId: "tc_9" },
+      taint: true,
+      taintSources: [{ sourceKind: "web", origin: "https://evil.example", toolCallId: "tc_2" }],
+    };
+    const { approval } = await s.service.propose({ manifest: MANIFEST, drafted: "agent" }, run);
+    expect(approval.taint).toBe(true);
+    expect(approval.taintSources).toEqual(run.taintSources);
+    expect(approval.requestedBy).toEqual(run.requestedBy);
+    expect((approval.details as { drafted?: unknown }).drafted).toBe("agent");
+    expect(approval.summary).toMatch(/drafted by the agent/);
+    // An untainted draft still says it was drafted, and is not tainted.
+    const clean = await s.service.propose(
+      { manifest: MANIFEST, drafted: "agent" },
+      {
+        requestedBy: { runId: "run_2", taskId: null, threadId: null },
+        taint: false,
+      },
+    );
+    expect(clean.approval.taint).toBe(false);
+    expect((clean.approval.details as { drafted?: unknown }).drafted).toBe("agent");
+  });
+
+  it("refuses a draft from a run whose requester is not the owner, and opens no card", async () => {
+    const s = setup();
+    await expect(
+      s.service.propose(
+        { manifest: MANIFEST, drafted: "agent" },
+        {
+          requestedBy: { runId: "run_3", taskId: null, threadId: "thr_3" },
+          taint: false,
+          requester: { role: "designated", identityId: "idn_1" },
+        },
+      ),
+    ).rejects.toMatchObject({ code: "forbidden" });
+    expect(await s.fake.list()).toEqual([]);
+  });
+
+  it("an owner's own proposal is neither tainted, requested by a run, nor marked as drafted", async () => {
+    const s = setup();
+    const { approval } = await s.service.propose({ manifest: MANIFEST });
+    expect(approval.taint).toBe(false);
+    expect(approval.requestedBy).toEqual({ runId: null, taskId: null, threadId: null });
+    expect(approval.taintSources).toBeUndefined();
+    expect((approval.details as { drafted?: unknown }).drafted).toBeUndefined();
+    expect(approval.summary).not.toMatch(/drafted by the agent/);
   });
 });

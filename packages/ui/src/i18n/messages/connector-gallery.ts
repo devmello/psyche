@@ -25,7 +25,7 @@ export const connectorGallery = {
   "gallery.category.everyday": "Everyday",
   "gallery.category.finance": "Finance",
   "gallery.category.custom": "Your own",
-  "gallery.builtin.google": "Gmail, Google Calendar and Drive.",
+  "gallery.builtin.google": "Gmail, Google Calendar, Drive and Tasks.",
   "gallery.builtin.microsoft": "Outlook mail and calendar.",
   "gallery.builtin.imap": "Any mail account that supports IMAP.",
   "gallery.builtin.appleNotes": "Read and add to your notes in Apple Notes.",

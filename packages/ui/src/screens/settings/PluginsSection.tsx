@@ -8,6 +8,7 @@ import { Switch } from "../../components/ui/switch.tsx";
 import { useCall, useGatewayQuery } from "../../data/hooks.ts";
 import { activeI18n, t } from "../../i18n/core.ts";
 import { RowMoreMenu } from "./RowMoreMenu.tsx";
+import { TrustApproval } from "./SkillsSection.tsx";
 import { approvalIdOf, messageOf } from "./shared.tsx";
 
 /**
@@ -39,6 +40,8 @@ export function PluginsSection({
   const [waiting, setWaiting] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [proposed, setProposed] = useState(false);
+  // The install's trust card: `plugins.install` runs only after its approval (same as skills).
+  const [review, setReview] = useState<{ proposalId: string; approvalId: string } | null>(null);
 
   const setEnabled = (plugin: PluginSummarySchema, enabled: boolean) => {
     setPending(plugin.name);
@@ -74,14 +77,34 @@ export function PluginsSection({
       (path) => {
         if (path === null) return;
         call("plugins.proposeInstall", { path }).then(
-          // The proposal and its approval card arrive through the usual approval flow.
-          () => setProposed(true),
+          (r) => {
+            setProposed(true);
+            setReview({ proposalId: r.proposal.id, approvalId: r.approval.id });
+          },
           (err: unknown) =>
             setActionError(t("settings.plugins.installFailed", { reason: messageOf(err) })),
         );
       },
       (err: unknown) =>
         setActionError(t("settings.plugins.pickFailed", { reason: messageOf(err) })),
+    );
+  };
+
+  // The card's verdict. Only an approval installs; a denied or lapsed card installs nothing.
+  const decided = (status: "approved" | "denied" | "expired" | "invalidated") => {
+    const current = review;
+    if (current === null) return;
+    setReview(null);
+    setProposed(false);
+    if (status !== "approved") return;
+    setActionError(null);
+    call("plugins.install", {
+      proposalId: current.proposalId,
+      approvalId: current.approvalId,
+    }).then(
+      () => q.reload(),
+      (err: unknown) =>
+        setActionError(t("settings.plugins.installNotDone", { reason: messageOf(err) })),
     );
   };
 
@@ -112,6 +135,15 @@ export function PluginsSection({
         <p role="alert" className="px-3 py-2 text-callout text-danger-text">
           {actionError}
         </p>
+      ) : null}
+      {review !== null ? (
+        <div className="px-3 py-2">
+          <TrustApproval
+            key={review.approvalId}
+            approvalId={review.approvalId}
+            onDecided={decided}
+          />
+        </div>
       ) : null}
       {waiting ? (
         <p role="status" className="px-3 py-2 text-callout text-label-secondary">

@@ -13686,7 +13686,7 @@ export interface VaultConfirmRecoveryResult {
 }
 
 export interface VaultStatus {
-    autoLockMinutes:   number;
+    autoLockMinutes:   number | null;
     itemCount:         number;
     lockAt?:           null | string;
     recoveryConfirmed: boolean;
@@ -13837,6 +13837,14 @@ export interface LinkPaymentMethod {
     isDefault: boolean;
     last4:     string;
     nickname?: null | string;
+}
+
+export interface VaultSetAutoLockParams {
+    minutes: number | null;
+}
+
+export interface VaultSetAutoLockResult {
+    status: VaultStatus;
 }
 
 export interface VaultSetupParams {
