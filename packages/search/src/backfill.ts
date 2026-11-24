@@ -48,8 +48,11 @@ export interface BackfillOptions {
   onStatus?: (status: BackfillStatus) => void;
 }
 
-/** Current adapter version: bump to re-index existing installs once. */
-export const BACKFILL_VERSION = 1;
+/**
+ * Current adapter version: bump to re-index existing installs once. 2: chat messages carry their
+ * sender for `from:` (an in-place upsert; embeddings are keyed by document and are kept).
+ */
+export const BACKFILL_VERSION = 2;
 
 const CURSOR = (source: string) => `backfill.cursor.${source}`;
 const VERSION_KEY = "backfill.version";

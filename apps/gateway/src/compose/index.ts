@@ -2279,6 +2279,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   const searchModels = searchModelProvider(provider, searchModelEngine);
   const search = composeSearch({
     encryption: searchEncryption,
+    // Chat messages' sender for `from:` (the owner's profile name; see `messageSender`).
+    ownerName: async () => readHeader((await memory.readFile("USER.md"))?.content ?? "").name,
     // Local sources: each off until the owner turns it on in Settings → Search sources.
     sources: {
       apple: appleSearch.deps,
