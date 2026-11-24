@@ -46,4 +46,18 @@ export const securityState = {
   "web.security.needsApproval":
     "Approve the card with Touch ID or a passkey, then press the button again.",
   "web.security.failed": "That didn't work: {message}",
+  "settings.security.title": "Security records",
+  "settings.security.description":
+    "Whether Psyche's security records are intact, what changed without you, and requests waiting to apply.",
+  "settings.security.status.sealed": "Intact",
+  "settings.security.status.untrusted": "Not trusted",
+  "settings.security.empty": "Nothing to review. No alerts and no requests are waiting.",
+  "settings.security.approvalLabel": "Security change",
+  "settings.security.approve.title": "Apply this change now?",
+  "settings.security.approve.body": "This applies the request now instead of on {when}: {action}",
+  "settings.security.approve.confirm": "Apply now",
+  "settings.security.cancel.title": "Cancel this request?",
+  "settings.security.cancel.body":
+    "The change will not be made and the request is dropped: {action}",
+  "settings.security.keep": "Keep it",
 } as const;

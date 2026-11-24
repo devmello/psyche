@@ -44,4 +44,19 @@ export const securityState: Partial<Catalogue> = {
   "web.security.needsApproval":
     "Approva la scheda con Touch ID o una passkey, poi premi di nuovo il pulsante.",
   "web.security.failed": "Non ha funzionato: {message}",
+  "settings.security.title": "Registri di sicurezza",
+  "settings.security.description":
+    "Se i registri di sicurezza di Psyche sono integri, cosa è cambiato senza di te e le richieste in attesa di essere applicate.",
+  "settings.security.status.sealed": "Integri",
+  "settings.security.status.untrusted": "Non attendibili",
+  "settings.security.empty": "Niente da rivedere. Nessun avviso e nessuna richiesta in attesa.",
+  "settings.security.approvalLabel": "Modifica di sicurezza",
+  "settings.security.approve.title": "Applicare questa modifica ora?",
+  "settings.security.approve.body":
+    "La richiesta viene applicata ora invece che il {when}: {action}",
+  "settings.security.approve.confirm": "Applica ora",
+  "settings.security.cancel.title": "Annullare questa richiesta?",
+  "settings.security.cancel.body":
+    "La modifica non verrà fatta e la richiesta viene scartata: {action}",
+  "settings.security.keep": "Mantieni",
 };
