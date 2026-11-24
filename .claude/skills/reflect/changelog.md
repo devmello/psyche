@@ -9,6 +9,7 @@ Last pass: #1609. Evidence: PR Learnings, the orchestrator's review findings (Se
 - **`psyche-builder` §2 (sibling bullet) and `psyche-permissions` Learnings:** new path to an existing capability matches every gate (#1614, security hole); both ends of a kind mapping (#1617); authority re-checked at each use (#1616).
 - **`psyche-builder/learnings.md`:** two lines from PR Learnings (#1610, #1613, #1614, #1616, #1619).
 - **`orchestrate`:** premises like "no caller" need the grep quoted in the brief (3 wrong in this wave: setMatrix, normalizeWorkspacePath, #1612). The "wait until no other verify.sh runs" advice is replaced: `verify.sh` already queues on slot lock dirs (8 slots on 12 cores and 24 GB, retry every 10 s, not FIFO), so a hand-wait starves; the old "3 slots" figure was stale. Verification is not loosened and no runs are added.
+- Orchestrator amendment: the first draft dropped the "wait for no other verify" step and relied on verify.sh's 8 slots; that contradicts the owner's one-full-check-at-a-time rule (2026-11-18), so the line keeps the wait and caps concurrent reviewers/verifiers at one instead.
 - Not changed: "Not verified: not run in the Electron app" (expected); #1596 heredoc refusal (already in learnings); verify.sh comment says 5 slots while the code gives 8 (comment only, left alone). `.claude/CLAUDE.md` untouched.
 
 ## 2026-11-24 (b): reflect pass over #1596, #1599-#1607
