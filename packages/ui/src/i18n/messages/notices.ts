@@ -6,6 +6,9 @@
  * Values arrive cleaned of control and bidirectional characters (packages/notifications notice.ts).
  */
 export const notices = {
+  "notice.install.failed.title": "An approved install didn't finish",
+  "notice.install.failed.body":
+    "{reason, select, lost {Psyche restarted before you approved it, so the proposal was lost. Propose it again.} expired {The proposal had expired before you approved it. Propose it again.} other {Psyche could not install it. Check the list and try again.}}",
   "notice.security.changed.title": "Psyche undid a security change made outside the app",
   "notice.security.changed.body":
     "A program on this Mac changed {count, plural, =1 {# security record} other {# security records}} (devices, keys, grants or settings) without going through Psyche{times, plural, =0 {} =1 {} other {, # times so far}}. Psyche put them back. If you did not do this, check the Mac for unwanted software.",

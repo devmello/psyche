@@ -3,6 +3,7 @@ import type {
   CredentialKind,
   CredentialMeta,
   CredentialSecretInput,
+  VaultStatus,
 } from "@psyche/protocol";
 import { CreditCard, Ellipsis, KeyRound, Pencil, Search, X } from "lucide-react";
 import { type FormEvent, Fragment, type ReactElement, useId, useState } from "react";
@@ -905,7 +906,16 @@ export function vaultSlotLabel(slots: readonly string[]): string {
  * helper keeps the vault key in a 0600 file; moving it to the Keychain needs a Psyche Helper
  * signed with a Developer ID and a provisioning profile.
  */
-export function VaultProtectionPanel({ slots }: { slots: readonly string[] }): ReactElement {
+export function VaultProtectionPanel({
+  slots,
+  status,
+  onChanged,
+}: {
+  slots: readonly string[];
+  /** With the status and a refresh, the panel offers Lock now and the auto-lock picker. */
+  status?: VaultStatus;
+  onChanged?: () => void;
+}): ReactElement {
   const keyFile = slots.includes("key_file") && !slots.includes("keychain");
   return (
     <div
@@ -916,6 +926,7 @@ export function VaultProtectionPanel({ slots }: { slots: readonly string[] }): R
         {t("settings.credentials.protectedBy")}{" "}
         <span className="font-medium">{vaultSlotLabel(slots)}</span>
       </span>
+      {status?.state === "unlocked" && onChanged ? <LockNowButton onLocked={onChanged} /> : null}
       {keyFile ? (
         <>
           <Button
@@ -933,6 +944,125 @@ export function VaultProtectionPanel({ slots }: { slots: readonly string[] }): R
           </p>
         </>
       ) : null}
+      {status && onChanged ? (
+        <AutoLockPicker minutes={status.autoLockMinutes} onChanged={onChanged} />
+      ) : null}
+    </div>
+  );
+}
+
+/** Locks the vault now. Any device that can see this panel may lock; no presence prompt. */
+function LockNowButton({ onLocked }: { onLocked: () => void }): ReactElement {
+  const call = useCall();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const lock = () => {
+    setBusy(true);
+    setError(null);
+    call("vault.lock", {}).then(
+      () => {
+        setBusy(false);
+        onLocked();
+      },
+      (err: unknown) => {
+        setBusy(false);
+        setError(t("settings.credentials.err.lock", { reason: messageOf(err) }));
+      },
+    );
+  };
+  return (
+    <>
+      <Button
+        type="button"
+        size="xs"
+        variant="outline"
+        className="ms-auto"
+        disabled={busy}
+        onClick={lock}
+      >
+        {t("settings.credentials.lockNow")}
+      </Button>
+      {error ? <ErrorNotice what={error} className="w-full" /> : null}
+    </>
+  );
+}
+
+/** Presets for the idle auto-lock, in minutes; `null` is never. */
+const AUTO_LOCK_PRESETS: readonly (number | null)[] = [15, 60, 480, 1440, null];
+
+function autoLockPresetLabel(minutes: number): string {
+  if (minutes === 15) return t("settings.credentials.autoLock.m15");
+  if (minutes === 60) return t("settings.credentials.autoLock.h1");
+  if (minutes === 480) return t("settings.credentials.autoLock.h8");
+  if (minutes === 1440) return t("settings.credentials.autoLock.h24");
+  return t("settings.credentials.autoLock.custom", { minutes });
+}
+
+/**
+ * The idle auto-lock the owner can change or turn off. Changing it is an admin call on the
+ * Gateway (`vault.setAutoLock`); a device without admin is refused there, and the error shows here.
+ */
+function AutoLockPicker({
+  minutes,
+  onChanged,
+}: {
+  minutes: number | null;
+  onChanged: () => void;
+}): ReactElement {
+  const id = useId();
+  const call = useCall();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  // A value the owner set elsewhere (outside the presets) still shows, as its own option.
+  const options: readonly (number | null)[] =
+    minutes === null || AUTO_LOCK_PRESETS.includes(minutes)
+      ? AUTO_LOCK_PRESETS
+      : [...AUTO_LOCK_PRESETS.slice(0, -1), minutes, null];
+  const change = (value: string) => {
+    const next = value === "never" ? null : Number(value);
+    setBusy(true);
+    setError(null);
+    call("vault.setAutoLock", { minutes: next }).then(
+      () => {
+        setBusy(false);
+        onChanged();
+      },
+      (err: unknown) => {
+        setBusy(false);
+        setError(t("settings.credentials.err.autoLock", { reason: messageOf(err) }));
+      },
+    );
+  };
+  return (
+    <div className="flex w-full flex-col gap-1">
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="flex min-w-0 flex-1 flex-col">
+          <label htmlFor={id} className="text-body text-label-primary">
+            {t("settings.credentials.autoLock.label")}
+          </label>
+          <p className="text-callout text-muted-foreground">
+            {t("settings.credentials.autoLock.hint")}
+          </p>
+        </div>
+        <NativeSelect
+          id={id}
+          value={minutes === null ? "never" : String(minutes)}
+          disabled={busy}
+          onChange={(e) => change(e.target.value)}
+        >
+          {options.map((o) => (
+            <option key={o ?? "never"} value={o === null ? "never" : String(o)}>
+              {o === null ? t("settings.credentials.autoLock.never") : autoLockPresetLabel(o)}
+            </option>
+          ))}
+        </NativeSelect>
+      </div>
+      {minutes === null ? (
+        <p role="note" className="text-callout text-danger-text">
+          {t("settings.credentials.autoLock.neverWarning")}
+        </p>
+      ) : null}
+      {error ? <ErrorNotice what={error} /> : null}
     </div>
   );
 }
@@ -945,7 +1075,9 @@ function VaultProtection(): ReactElement | null {
   // the status refreshes from "uninitialized" to "unlocked".
   return (
     <>
-      {status.state === "uninitialized" ? null : <VaultProtectionPanel slots={status.slots} />}
+      {status.state === "uninitialized" ? null : (
+        <VaultProtectionPanel slots={status.slots} status={status} onChanged={q.reload} />
+      )}
       <VaultSetupPanel status={status} onChanged={q.reload} />
     </>
   );
