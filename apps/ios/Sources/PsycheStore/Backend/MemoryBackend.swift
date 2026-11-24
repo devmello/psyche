@@ -47,6 +47,21 @@ public protocol MemoryBackend: Sendable {
     /// Every value a fact's attribute has had, newest first, current and earlier (memory.entities.history with the
     /// attribute). Read when the owner opens "History" on a fact, not on page load.
     func entityHistory(entityID: String, attribute: String) async throws -> [FactVersion]
+    /// Other people matching `query` (memory.entities.search, kind person), for the merge picker.
+    func searchPeople(query: String) async throws -> [EntityRef]
+    /// Merges `otherID` into `id` (memory.entities.merge with `into` the current person). Returns the id of the
+    /// entity that survived, which the phone opens next.
+    func mergePerson(id: String, with otherID: String) async throws -> String
+    /// The contact details a person holds (memory.entities.get identifiers): what a split can move.
+    func personIdentifiers(id: String) async throws -> [EntityIdentifier]
+    /// Moves `identifiers` off `id` to a new person named `name` (memory.entities.split). Returns the new id.
+    func splitPerson(id: String, identifiers: [EntityIdentifier], name: String) async throws -> String
+    /// A new person with a name and optional aliases (memory.entities.create). Returns the new id.
+    func createPerson(name: String, aliases: [String]) async throws -> String
+    /// Whether memory capture is paused (memory.status `paused`).
+    func memoryPaused() async throws -> Bool
+    /// Pauses or resumes memory capture (memory.pause). Returns the state the Gateway now reports.
+    func setMemoryPaused(_ paused: Bool) async throws -> Bool
 }
 
 extension MemoryBackend {
@@ -82,6 +97,47 @@ extension MemoryBackend {
     // Additive: a backend that cannot edit a card yet says so, and the sheet shows the refusal.
     public func updateEntity(id: String, changes: EntityChanges, ifMatch: String?) async throws {
         throw BackendError.refused("Edit this on your Mac.")
+    }
+
+    // Additive: a backend without people editing says so; the sheets show the refusal in its words.
+    public func searchPeople(query: String) async throws -> [EntityRef] { throw BackendError.notFound }
+    public func mergePerson(id: String, with otherID: String) async throws -> String {
+        throw BackendError.refused("Merge this on your Mac.")
+    }
+    public func personIdentifiers(id: String) async throws -> [EntityIdentifier] { throw BackendError.notFound }
+    public func splitPerson(id: String, identifiers: [EntityIdentifier], name: String) async throws -> String {
+        throw BackendError.refused("Split this on your Mac.")
+    }
+    public func createPerson(name: String, aliases: [String]) async throws -> String {
+        throw BackendError.refused("Add this on your Mac.")
+    }
+    public func memoryPaused() async throws -> Bool { throw BackendError.notFound }
+    public func setMemoryPaused(_ paused: Bool) async throws -> Bool {
+        throw BackendError.refused("Pause memory on your Mac.")
+    }
+}
+
+/// A person a search or a merge names: enough to list and to open.
+public struct EntityRef: Sendable, Equatable, Identifiable {
+    public var id: String
+    public var name: String
+
+    public init(id: String, name: String) {
+        self.id = id
+        self.name = name
+    }
+}
+
+/// A contact detail a person holds (an email, a phone, a handle). `kind` is the Gateway's identifier kind.
+public struct EntityIdentifier: Sendable, Equatable, Hashable, Identifiable {
+    public var kind: String
+    public var value: String
+
+    public var id: String { "\(kind):\(value)" }
+
+    public init(kind: String, value: String) {
+        self.kind = kind
+        self.value = value
     }
 }
 
