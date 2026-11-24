@@ -150,7 +150,7 @@ export function TimelineView(props: TimelineViewProps): ReactElement {
     [runId],
   );
   // Only the root run gets its own actions and opening step; a helper opens plain.
-  const rootProps: TimelineViewProps = path.length === 0 ? props : shared;
+  const rootProps = path.length === 0 ? props : shared;
   return (
     <TimelineRun
       {...rootProps}
