@@ -213,6 +213,7 @@ export const SpacesMethods = {
     description: "Reorders the shelf.",
   }),
   "spaces.trackers.refresh": defineMethod({
+    callsModel: true,
     params: Type.Object({ spaceId: Id, widgetId: Id }),
     result: Type.Object({ tracker: SpaceTrackerValue }),
     scope: "operator.write",

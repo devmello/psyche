@@ -173,6 +173,8 @@ export const it: Partial<Catalogue> = {
   "errors.reason.secret_required": "Un client diverso richiede il proprio segreto del client.",
   "errors.reason.project_private":
     "Quel progetto è privato, quindi non può avere uno Space. Disattiva prima Mantieni privato.",
+  "errors.reason.model_budget":
+    "Troppe richieste da questo dispositivo. Riprova tra {minutes, plural, one {# minuto} other {# minuti}}.",
   "errors.reason.updating":
     "Psyche sta per riavviarsi per installare un aggiornamento. Riprova tra un momento.",
   "errors.reason.space_main_chat":

@@ -111,6 +111,7 @@ export const ChatMethods = {
       "Desktop app only (the web shell has no real paths and uploads to the Library instead). The owner picked or dropped these files on a message: each gets a read-only grant for exactly that file (not its folder) in this thread, for 24 hours, until Clear chat or deletion of the thread, or until a restart. The pick is the approval, so there is no card; a file under a sensitive root (~/.ssh, ~/.psyche, ~/Library, ...), a folder or a missing file is refused and listed in `refused`. Returns name, size and type for the chip. forbidden outside the desktop app. Side-effecting.",
   }),
   "chat.send": defineMethod({
+    callsModel: true,
     params: Type.Object({
       threadId: Id,
       content: MessageContent,
@@ -165,6 +166,7 @@ export const ChatMethods = {
       "Sends a user message. If the agent is mid-turn the message is queued by mode (default followUp). Side-effecting: requires idempotencyKey; duplicates return the original result.",
   }),
   "chat.greet": defineMethod({
+    callsModel: true,
     params: Type.Object({ threadId: Id }),
     result: Type.Object({
       started: Type.Boolean(),
@@ -188,6 +190,7 @@ export const ChatMethods = {
     description: "Cancels the active run (or the given run) in a thread.",
   }),
   "chat.steer": defineMethod({
+    callsModel: true,
     params: Type.Object({ threadId: Id, content: MessageContent }),
     result: QueuedMessageResult,
     scope: "operator.write",
@@ -195,6 +198,7 @@ export const ChatMethods = {
     description: "Interrupts the current tool loop with new guidance. Side-effecting.",
   }),
   "chat.followUp": defineMethod({
+    callsModel: true,
     params: Type.Object({ threadId: Id, content: MessageContent }),
     result: QueuedMessageResult,
     scope: "operator.write",

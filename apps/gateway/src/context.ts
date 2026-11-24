@@ -21,6 +21,11 @@ import type { Idempotency } from "./idempotency.ts";
 import type { GatewayIdentity } from "./identity.ts";
 import type { LanStatus } from "./lan/listener.ts";
 import type { Logger } from "./log.ts";
+import {
+  DEFAULT_MODEL_BUDGET_LIMITS,
+  type ModelBudget,
+  type ModelBudgetLimits,
+} from "./model-budget.ts";
 import type { MachineChange } from "./nodes/machines.ts";
 import type { NodeRegistry } from "./nodes/registry.ts";
 import type { PresenceState } from "./presence-gate.ts";
@@ -65,6 +70,8 @@ export interface GatewayLimits {
   deviceRequestsPerMinute: number;
   /** Side-effecting requests (`chat.send`, `nodes.invoke`, …) per paired device per minute. */
   deviceSideEffectsPerMinute: number;
+  /** The per-device budget for model-calling methods (`model-budget.ts`). Fixed; no setting. */
+  modelBudget: ModelBudgetLimits;
 }
 
 export const DEFAULT_LIMITS: GatewayLimits = {
@@ -78,6 +85,7 @@ export const DEFAULT_LIMITS: GatewayLimits = {
   pairingTtlMs: 5 * 60_000,
   deviceRequestsPerMinute: 600,
   deviceSideEffectsPerMinute: 120,
+  modelBudget: DEFAULT_MODEL_BUDGET_LIMITS,
 };
 
 /** What a live connection exposes to the rest of the Gateway. */
@@ -210,6 +218,8 @@ export interface GatewayContext {
   /** Per-device budgets (security §10), keyed by device id so extra connections do not help. */
   readonly deviceRequests: RateLimiter;
   readonly deviceSideEffects: RateLimiter;
+  /** Model-calling requests per paired device; the desktop shell and the Host CLI are exempt. */
+  readonly deviceModelCalls: ModelBudget;
   readonly handshakeSecret: string;
   /** Closed to new chat turns and tasks while an app update is prepared (`update-gate.ts`). */
   readonly updateGate: UpdateGate;

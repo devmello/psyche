@@ -89,6 +89,7 @@ export const AutomationsMethods = {
     description: "Deletes an automation.",
   }),
   "automations.run": defineMethod({
+    callsModel: true,
     params: Type.Object({ automationId: Id }),
     result: Type.Object({ runId: Nullable(Id), taskId: Nullable(Id) }),
     scope: "operator.write",

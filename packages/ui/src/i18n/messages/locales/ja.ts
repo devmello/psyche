@@ -176,6 +176,8 @@ export const ja: Partial<Catalogue> = {
     "別のクライアントには、そのクライアント専用のシークレットが必要です。",
   "errors.reason.project_private":
     "このプロジェクトは非公開のため、Spaceを持てません。先に「非公開にする」をオフにしてください。",
+  "errors.reason.model_budget":
+    "このデバイスからのリクエストが多すぎます。{minutes, plural, other {#分}}後にもう一度お試しください。",
   "errors.reason.updating":
     "Psycheはアップデートをインストールするため、まもなく再起動します。しばらくしてからもう一度お試しください。",
   "errors.reason.space_main_chat":

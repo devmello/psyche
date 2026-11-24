@@ -262,6 +262,7 @@ export const ThreadsMethods = {
       "Sets or clears a thread's context limits (maxTokens, compactAt, keepRecentTurns); maxTokens above the model's window is refused with invalid_params.",
   }),
   "threads.compact": defineMethod({
+    callsModel: true,
     params: Type.Object({ threadId: Id }),
     result: Type.Object({ compaction: Type.Union([CompactionResult, Type.Null()]) }),
     scope: "operator.write",

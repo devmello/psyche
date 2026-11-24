@@ -72,6 +72,7 @@ export const ProposalsMethods = {
  */
 export const MeetingsMethods = {
   "meetings.notes.create": defineMethod({
+    callsModel: true,
     params: Type.Object({
       /** A recording or audio file in the Library (dropped into chat or the Library). */
       libraryItemId: Id,
@@ -123,6 +124,7 @@ export const MeetingsMethods = {
       "Appends one chunk of the running recording's audio, captured by the device that started it (microphone in the desktop or web shell). Only that device may push. The Gateway stores it as a Library recording, and the recording ends by itself if chunks stop for two minutes or the device disconnects.",
   }),
   "meetings.record.stop": defineMethod({
+    callsModel: true,
     params: Type.Object({
       reason: Type.Optional(
         StringEnum(["stopped", "source_ended", "silence", "app_quit"], {

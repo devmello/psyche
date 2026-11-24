@@ -67,6 +67,7 @@ export const FeedMethods = {
       "Records feedback on a post in the interest ledger (null clears it, which is how undo works).",
   }),
   "feed.generate": defineMethod({
+    callsModel: true,
     params: Type.Object({ briefingId: Type.Optional(Id) }),
     result: Type.Object({ posts: Type.Array(FeedPost) }),
     scope: "operator.write",
@@ -210,6 +211,7 @@ export const GoalsMethods = {
     description: "Links (or unlinks) one task, automation or watch to a goal. Side-effecting.",
   }),
   "goals.suggest": defineMethod({
+    callsModel: true,
     params: Type.Object({ goalId: Id }),
     result: Type.Object({ ideaId: Nullable(Id) }),
     scope: "operator.write",

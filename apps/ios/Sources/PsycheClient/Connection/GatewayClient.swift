@@ -393,6 +393,11 @@ public actor GatewayClient {
         case .remote(let wire):
             if wire.code == "not_found" { return .notFound }
             if wire.code == "policy_denied" { return .policyDenied(wire.message) }
+            if wire.code == "rate_limited", wire.details?["reason"]?.stringValue == SlowDown.reason {
+                var retryAfterMs: Double?
+                if case .number(let n)? = wire.details?["retryAfterMs"] { retryAfterMs = n }
+                return .slowDown(minutes: SlowDown.minutes(retryAfterMs: retryAfterMs))
+            }
             return .refused(wire.message)
         case .timeout, .transport, .closed, .identityMismatch, .protocolError: return .unreachable
         }

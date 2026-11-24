@@ -66,6 +66,7 @@ import { type LanContext, type LanLimits, LanListener, peerLimitKey } from "./la
 import { LAN_SETTING, readLanSettings } from "./lan/settings.ts";
 import { createLogger, type Logger } from "./log.ts";
 import { allowedMapOrigins } from "./map-proxy.ts";
+import { ModelBudget } from "./model-budget.ts";
 import type { MachineChange } from "./nodes/machines.ts";
 import { NodeRegistry } from "./nodes/registry.ts";
 import { openGatewayDb, releaseGatewayLock } from "./pre-update.ts";
@@ -397,6 +398,7 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
       total: new RateLimiter(limits.lanPairingsTotalPerHour, 3_600_000, () => now().getTime()),
     },
     deviceRequests: new RateLimiter(limits.deviceRequestsPerMinute, 60_000, () => now().getTime()),
+    deviceModelCalls: new ModelBudget(limits.modelBudget, () => now().getTime()),
     deviceSideEffects: new RateLimiter(limits.deviceSideEffectsPerMinute, 60_000, () =>
       now().getTime(),
     ),

@@ -386,6 +386,7 @@ export const MemoryMethods = {
       "The persona from IDENTITY.md (name, creature, vibe, tagline, emoji, avatar, voice).",
   }),
   "memory.persona.edit": defineMethod({
+    callsModelWhen: (p) => p.instruction !== undefined,
     params: Type.Object({
       /** A natural-language change ("make yourself a pink hippo named Flash"), feature H9. */
       instruction: Type.Optional(Type.String({ minLength: 1, maxLength: 1000 })),
@@ -893,6 +894,7 @@ export const MemoryMethods = {
       "Lets everything memory read and learn from this address, number or domain again. Side-effecting.",
   }),
   "memory.everything.run": defineMethod({
+    callsModel: true,
     params: Type.Object({}),
     result: EverythingRunResult,
     scope: "operator.write",
@@ -978,6 +980,7 @@ export const MemoryMethods = {
       "Life search for the owner: people, organisations, events and topics by name, and cited facts (including ones still waiting for review, marked) by their words. Owner-only: the agent reads memory through its own tools and access rules.",
   }),
   "memory.life.answer": defineMethod({
+    callsModel: true,
     params: Type.Object({
       q: Type.String({ minLength: 1, maxLength: 500 }),
       passages: Type.Optional(

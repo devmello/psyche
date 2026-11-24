@@ -23,6 +23,19 @@ export interface MethodSpec<
   readonly scope: S;
   /** `true` → the `req` frame must carry `idempotencyKey`; duplicates return the original result. */
   readonly sideEffecting: E;
+  /**
+   * `true` when one request makes the Gateway call a model (a chat turn, an answer, a summary).
+   * A paired device is held to a per-device budget for these (`apps/gateway/src/model-budget.ts`),
+   * so it cannot spend the owner's tokens in a loop. Set it next to the method; a new method that
+   * calls a model without it is not budgeted.
+   */
+  readonly callsModel: boolean;
+  /**
+   * For a method that calls a model only for some params (`search.query` with `smart`, a memo
+   * that may start a task): the budget applies when this says yes. Never set together with
+   * `callsModel: true`.
+   */
+  callsModelWhen?(params: Static<P>): boolean;
   readonly description: string;
 }
 
@@ -42,6 +55,8 @@ export function defineMethod<
   result: R;
   scope: S;
   sideEffecting?: E;
+  callsModel?: boolean;
+  callsModelWhen?: (params: Static<P>) => boolean;
   description: string;
 }): MethodSpec<P, R, S, E> {
   return {
@@ -49,6 +64,8 @@ export function defineMethod<
     result: spec.result,
     scope: spec.scope,
     sideEffecting: (spec.sideEffecting ?? false) as E,
+    callsModel: spec.callsModel ?? false,
+    ...(spec.callsModelWhen === undefined ? {} : { callsModelWhen: spec.callsModelWhen }),
     description: spec.description,
   };
 }

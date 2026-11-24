@@ -54,3 +54,41 @@ describe("error reasons", () => {
     );
   });
 });
+
+describe("per-device model budget", () => {
+  const limited = (retryAfterMs: number) =>
+    new GatewayRequestError("memory.life.answer", "rate_limited", "Too many requests", {
+      scope: "model_calls",
+      reason: "model_budget",
+      retryAfterMs,
+    });
+
+  it("names the wait in whole minutes, rounded up", () => {
+    setActiveI18n(createI18n({ locale: "en-US" }));
+    expect(describeError(limited(60_000))).toBe(
+      "Too many requests from this device. Try again in 1 minute.",
+    );
+    expect(describeError(limited(61_000))).toBe(
+      "Too many requests from this device. Try again in 2 minutes.",
+    );
+    expect(errorSummary(limited(1_800_000))).toBe(
+      "Too many requests from this device. Try again in 30 minutes.",
+    );
+  });
+
+  it("is translated", () => {
+    setActiveI18n({ ...createI18n({ locale: "de-DE" }), messageLocale: "de" });
+    expect(describeError(limited(180_000))).toBe(
+      "Zu viele Anfragen von diesem Gerät. Versuche es in 3 Minuten erneut.",
+    );
+  });
+
+  it("leaves the shared request budget's message alone", () => {
+    setActiveI18n(createI18n({ locale: "en-US" }));
+    const plain = new GatewayRequestError("threads.list", "rate_limited", "Too many requests", {
+      scope: "requests",
+      retryAfterSec: 5,
+    });
+    expect(describeError(plain)).toBe("Too many requests");
+  });
+});

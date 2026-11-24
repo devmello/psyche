@@ -34,6 +34,7 @@ export const TasksMethods = {
     description: "Pauses a running task at the next checkpoint.",
   }),
   "tasks.resume": defineMethod({
+    callsModel: true,
     params: TaskIdParams,
     result: TaskResult,
     scope: "operator.write",
@@ -46,6 +47,7 @@ export const TasksMethods = {
     description: "Cancels a task; in-flight side effects are recorded as uncertain.",
   }),
   "tasks.retry": defineMethod({
+    callsModel: true,
     params: Type.Object({ taskId: Id, fromStepId: Type.Optional(Id) }),
     result: TaskResult,
     scope: "operator.write",
@@ -54,6 +56,7 @@ export const TasksMethods = {
       "Starts a new attempt of a failed or cancelled task, optionally from a step. Side-effecting: a duplicate would start a second attempt.",
   }),
   "tasks.steer": defineMethod({
+    callsModel: true,
     params: Type.Object({
       taskId: Id,
       text: Type.String({ minLength: 1, maxLength: 4000 }),
@@ -65,6 +68,7 @@ export const TasksMethods = {
       "Steers a running task (a specialist job): the text reaches the running turn as owner guidance, or opens its next turn when parked. Side-effecting: a duplicate would steer twice.",
   }),
   "tasks.update": defineMethod({
+    callsModelWhen: (p) => p.budget !== undefined || p.deadline !== undefined,
     params: Type.Object({
       taskId: Id,
       budget: Type.Optional(

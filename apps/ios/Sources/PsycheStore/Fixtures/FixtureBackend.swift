@@ -26,6 +26,13 @@ public actor FixtureBackend {
     var followupsState = FollowupsState()
     /// The scripted run of the watched task (`startRunningDemo`).
     var demoTask: Task<Void, Never>?
+    /// `memory.life.answer` calls so far, and an error to answer them with (tests: the model budget).
+    public internal(set) var lifeAnswerCalls = 0
+    var lifeAnswerFailure: BackendError?
+    public func failLifeAnswers(with error: BackendError?) { lifeAnswerFailure = error }
+    /// Search returns no hits (tests: a question whose answer is the only result).
+    var searchHitsHidden = false
+    public func hideSearchHits(_ hidden: Bool) { searchHitsHidden = hidden }
 
     private let latency: Duration
     private var subscribers: [UUID: AsyncStream<LiveEvent>.Continuation] = [:]
