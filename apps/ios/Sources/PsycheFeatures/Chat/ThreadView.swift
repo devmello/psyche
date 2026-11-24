@@ -37,7 +37,7 @@ struct ThreadView: View {
                             label: String(localized: "Loading older messages", bundle: .module)
                         )
                         .id(cursor)
-                        .onAppear { loadOlder() }
+                        .onAppear { loadOlderIfScrolledUp() }
                         .padding(.bottom, 8)
                     }
                     ForEach(Array(thread.items.enumerated()), id: \.element.id) { index, item in
@@ -198,13 +198,16 @@ struct ThreadView: View {
         }
     }
 
-    /// Loads the older page and keeps the reader on the message they were looking at: the first message that was
-    /// on screen stays where it was once the page is in front of it.
-    private func loadOlder() {
+    /// Loads the older page only once the reader has scrolled away from the bottom. The top row also appears
+    /// during the first layout, before the thread has been pinned to its newest message, so a load then would
+    /// move the view off the bottom. While pinned at the bottom, a prepend does not move the view at all.
+    private func loadOlderIfScrolledUp() {
+        guard !pinned else { return }
         let anchor = model.phase.value?.items.first?.id
         Task {
             await model.loadOlder()
-            if let anchor { position.scrollTo(id: anchor, anchor: .top) }
+            // Keep the reader on the message they were looking at, unless they have since come back to the bottom.
+            if let anchor, !pinned { position.scrollTo(id: anchor, anchor: .top) }
         }
     }
 
