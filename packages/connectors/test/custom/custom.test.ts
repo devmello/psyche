@@ -665,6 +665,21 @@ describe("propose → trust card → install", () => {
     expect((clean.approval.details as { drafted?: unknown }).drafted).toBe("agent");
   });
 
+  it("refuses a draft from a run whose requester is not the owner, and opens no card", async () => {
+    const s = setup();
+    await expect(
+      s.service.propose(
+        { manifest: MANIFEST, drafted: "agent" },
+        {
+          requestedBy: { runId: "run_3", taskId: null, threadId: "thr_3" },
+          taint: false,
+          requester: { role: "designated", identityId: "idn_1" },
+        },
+      ),
+    ).rejects.toMatchObject({ code: "forbidden" });
+    expect(await s.fake.list()).toEqual([]);
+  });
+
   it("an owner's own proposal is neither tainted, requested by a run, nor marked as drafted", async () => {
     const s = setup();
     const { approval } = await s.service.propose({ manifest: MANIFEST });

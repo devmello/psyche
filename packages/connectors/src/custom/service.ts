@@ -169,6 +169,11 @@ export class CustomConnectors {
       proposal.update = { fromHash: manifestHash(prev), diff: lineDiff(manifestText(prev), text) };
     }
     const high = findings.filter((f) => f.severity === "high").length;
+    // Only the owner adds a connector. A designated person's or other requester's run may not open
+    // a card at all (the card shows the owner's device, and a requester has no standing to ask).
+    if (run?.requester !== undefined && run.requester.role !== "owner") {
+      throw new PsycheError("forbidden", "only the owner can add a connector");
+    }
     const drafted = input.drafted === "agent";
     const issued = await this.#o.broker.requestApproval({
       kind: "skill_install",
@@ -200,7 +205,6 @@ export class CustomConnectors {
       scopesOffered: ["once"],
       taint: run?.taint ?? false,
       ...(run?.taintSources === undefined ? {} : { taintSources: run.taintSources }),
-      ...(run?.requester === undefined ? {} : { context: { requester: run.requester } }),
     });
     this.#staged.set(id, { proposal, existingId: existing?.id, approvalId: issued.approval.id });
     return { proposal: structuredClone(proposal), approval: issued.approval };

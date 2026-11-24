@@ -456,7 +456,7 @@ export function composeConnectors(
   });
   // The agent may draft a custom connector (M9), never enable one: this only opens the owner's
   // device-only trust card. Whatever it submits is marked as agent-drafted on the card.
-  const unregisterDraft = services.tools.register({
+  const draftTool: AgentToolRegistration = {
     spec: {
       name: "connectors_propose_custom",
       description:
@@ -516,7 +516,8 @@ export function composeConnectors(
         provenance: "trusted",
       };
     },
-  });
+  };
+  const unregisterDraft = services.tools.register(draftTool);
 
   // A token revoked in the vault by anything but the registry's own disconnect (the owner, a
   // provider revocation) disconnects the connector: its tools are torn down, so pending
