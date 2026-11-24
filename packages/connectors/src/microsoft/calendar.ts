@@ -1,13 +1,19 @@
 import { type JsonObject, PsycheError } from "@psyche/protocol";
 import { type EventInput, type EventView, MAX_RANGE_DAYS } from "../google/calendar.ts";
 import { type GraphApi, GraphError, utcDateTime } from "./api.ts";
+import {
+  type GraphRecurrence,
+  graphRecurrenceToRrule,
+  rruleToGraphRecurrence,
+} from "./recurrence.ts";
 
 /**
  * Outlook calendar and contacts over Graph, shaped like the Google connector's views so the
  * calendar tools behave the same on both (feature M6, "same acceptance as M5"). Times go to
  * Graph in UTC and come back in UTC (`Prefer: outlook.timezone="UTC"`). Graph sends invitations
  * whenever an event has attendees, so the binding treats every event with attendees as an
- * invite (`calendarBinding`). Recurrence rules are not translated yet.
+ * invite (`calendarBinding`). Recurrence converts both ways for the shapes Graph can express
+ * (`recurrence.ts`); anything else is refused on write.
  */
 
 interface GraphEvent {
@@ -27,6 +33,7 @@ interface GraphEvent {
   }[];
   webLink?: string;
   lastModifiedDateTime?: string;
+  recurrence?: GraphRecurrence;
 }
 
 const str = (v: unknown, max = 5000) => (typeof v === "string" ? v.slice(0, max) : "");
@@ -38,9 +45,11 @@ function time(t: GraphEvent["start"], allDay: boolean): unknown {
   return { dateTime: dt === "" ? "" : `${dt.replace(/\.\d+$/, "")}Z` };
 }
 
-export function graphEventView(e: GraphEvent): EventView {
+export function graphEventView(e: GraphEvent): EventView & { recurrence?: string[] } {
   const allDay = e.isAllDay === true;
+  const rrule = e.recurrence === undefined ? undefined : graphRecurrenceToRrule(e.recurrence);
   return {
+    ...(rrule === undefined ? {} : { recurrence: [rrule] }),
     id: str(e.id, 500),
     status: e.isCancelled === true ? "cancelled" : "confirmed",
     summary: str(e.subject, 1000),
@@ -58,7 +67,10 @@ export function graphEventView(e: GraphEvent): EventView {
   };
 }
 
-function graphTime(t: EventInput["start"] | undefined, name: string) {
+function graphTime(
+  t: EventInput["start"] | undefined,
+  name: string,
+): { dateTime: string; timeZone: string } | undefined {
   if (t === undefined) return undefined;
   if (typeof t.date === "string") {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(t.date))
@@ -69,11 +81,14 @@ function graphTime(t: EventInput["start"] | undefined, name: string) {
   throw new PsycheError("invalid_params", `${name} needs dateTime or date`);
 }
 
-/** Google-shaped event input → Graph event resource (partial for updates). */
-export function graphEventBody(e: Partial<EventInput>): JsonObject {
-  if (e.recurrence !== undefined && e.recurrence.length > 0) {
-    throw new PsycheError("invalid_params", "recurring events are not supported on Microsoft yet");
-  }
+/**
+ * Google-shaped event input → Graph event resource (partial for updates). `recurrence: []` on an
+ * update sends `recurrence: null`, which removes the series' recurrence; on create it is a no-op.
+ */
+export function graphEventBody(
+  e: Partial<EventInput>,
+  opts: { update?: boolean } = {},
+): JsonObject {
   const out: JsonObject = {};
   if (e.summary !== undefined) out.subject = e.summary;
   if (e.description !== undefined) out.body = { contentType: "text", content: e.description };
@@ -83,6 +98,15 @@ export function graphEventBody(e: Partial<EventInput>): JsonObject {
   if (start !== undefined) out.start = start;
   if (end !== undefined) out.end = end;
   if (e.start?.date !== undefined) out.isAllDay = true;
+  if (e.recurrence !== undefined) {
+    if (e.recurrence.length === 0) {
+      if (opts.update === true) out.recurrence = null;
+    } else {
+      // The series is anchored on the start, sent in UTC: its date is the UTC day of that start.
+      const startDate = start === undefined ? undefined : start.dateTime.slice(0, 10);
+      out.recurrence = rruleToGraphRecurrence(e.recurrence, startDate);
+    }
+  }
   if (e.attendees !== undefined) {
     out.attendees = e.attendees.map((a) => ({
       emailAddress: { address: a.email },
@@ -222,7 +246,7 @@ export class GraphCalendar {
   ): Promise<EventView> {
     const e = await this.#api.json<GraphEvent>(`/me/events/${encodeURIComponent(eventId)}`, {
       method: "PATCH",
-      json: graphEventBody(event),
+      json: graphEventBody(event, { update: true }),
       headers: UTC_PREFER,
       ...(signal === undefined ? {} : { signal }),
     });
