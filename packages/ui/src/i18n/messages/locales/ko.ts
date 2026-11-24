@@ -17,6 +17,7 @@ import { deckRest } from "./deck-rest/ko.ts";
 import { designRest } from "./design-rest/ko.ts";
 import { everythingRest } from "./everything-rest/ko.ts";
 import { final202611 } from "./final-2026-11/ko.ts";
+import { friction } from "./friction/ko.ts";
 import { galleryRest } from "./gallery-rest/ko.ts";
 import { helperCheck } from "./helper-check/ko.ts";
 import { helperOffline } from "./helper-offline/ko.ts";
@@ -3900,6 +3901,7 @@ export const ko: Partial<Catalogue> = {
   ...windowsPlatform202611,
   ...mailFollowups,
   ...keepAwake,
+  ...friction,
   ...update,
   ...spaces,
   ...machines,

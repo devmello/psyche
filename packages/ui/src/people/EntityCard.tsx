@@ -69,6 +69,8 @@ export interface EntityCardProps extends EntityCardActions {
   upcoming?: readonly string[];
   /** Relationship nudges' "Keep in touch" group (it brings its own heading; null when empty). */
   keepInTouch?: ReactNode;
+  /** Older Recent rows the owner paged in ("Show older" under the Recent group). */
+  olderInteractions?: OlderInteractions;
   loading?: boolean;
   loadingDelayMs?: number;
   error?: string | null;
@@ -226,6 +228,86 @@ export function EmptyRow({ children }: { children: ReactNode }): ReactElement {
   return <p className="px-3 py-2 text-body text-label-secondary">{children}</p>;
 }
 
+/** How many Recent rows the card shows before "Show older". */
+export const DEFAULT_RECENT_LIMIT = 5;
+
+/** Older Recent rows the owner paged in, and the state of that paging (see `useOlderInteractions`). */
+export interface OlderInteractions {
+  rows: InteractionView[];
+  /** Whether "Show older" still has rows to load. */
+  hasMore: boolean;
+  loading: boolean;
+  error: string | null;
+  onMore: () => void;
+}
+
+/** Subjects are third-party text: cut to this many characters (by code point) before display. */
+const SUBJECT_MAX = 120;
+
+/** A subject, cut to `max` code points. Plain text: React renders it as a text node. */
+export function clipSubject(text: string, max = SUBJECT_MAX): string {
+  const chars = [...text];
+  return chars.length > max ? `${chars.slice(0, max - 1).join("")}…` : text;
+}
+
+/** The newest `limit` interactions, newest first: the rows the card shows before "Show older". */
+export function recentShownOf(
+  interactions: readonly InteractionView[],
+  limit: number,
+): InteractionView[] {
+  return [...interactions]
+    .sort((a, b) => Date.parse(b.occurredAt) - Date.parse(a.occurredAt))
+    .slice(0, limit);
+}
+
+/**
+ * The Recent group as one list: the card's own rows, then any older rows the owner paged in, with
+ * "Show older" under them while there may be more.
+ */
+function RecentWithOlder({
+  interactions,
+  limit,
+  older,
+  onOpenLink,
+}: {
+  interactions: readonly InteractionView[];
+  limit: number;
+  older: OlderInteractions | undefined;
+  onOpenLink?: (link: string) => void;
+}): ReactElement {
+  const rows = [...recentShownOf(interactions, limit), ...(older?.rows ?? [])];
+  return (
+    <>
+      <RecentRows interactions={rows} limit={rows.length} {...(onOpenLink ? { onOpenLink } : {})} />
+      {older && (older.hasMore || older.error) ? (
+        <div className="flex flex-col gap-1 px-3 py-1.5">
+          {older.error ? (
+            <p className="text-callout text-label-secondary">
+              {t("people.interactions.error", { reason: older.error })}
+            </p>
+          ) : null}
+          {older.hasMore ? (
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              className="w-fit"
+              disabled={older.loading}
+              onClick={older.onMore}
+            >
+              {older.loading
+                ? t("people.interactions.loadingMore")
+                : older.error
+                  ? t("people.interactions.retry")
+                  : t("people.interactions.older")}
+            </Button>
+          ) : null}
+        </div>
+      ) : null}
+    </>
+  );
+}
+
 /** Interaction rows, newest first, each linking back to its app (spec §6.5 "Recent"). */
 export function RecentRows({
   interactions,
@@ -259,7 +341,11 @@ export function RecentRows({
               <div className="flex min-w-0 flex-1 flex-col">
                 <span className="truncate text-body text-label-primary">
                   {it.gist == null
-                    ? (it.subject ?? (it.with.length > 0 ? it.with.join(", ") : app))
+                    ? it.subject
+                      ? clipSubject(it.subject)
+                      : it.with.length > 0
+                        ? it.with.join(", ")
+                        : app
                     : it.gistUntrusted === true
                       ? `\u201c${it.gist}\u201d`
                       : it.gist}
@@ -541,6 +627,7 @@ export function PersonCard({
   persona = "Wren",
   upcoming = [],
   keepInTouch = null,
+  olderInteractions,
   loading = false,
   loadingDelayMs = 0,
   error = null,
@@ -609,9 +696,10 @@ export function PersonCard({
               )}
             </GroupedList>
             <GroupedList title={t("people.section.recent")}>
-              <RecentRows
+              <RecentWithOlder
                 interactions={e.interactions}
                 limit={recentLimit}
+                older={olderInteractions}
                 {...(actions.onOpenLink ? { onOpenLink: actions.onOpenLink } : {})}
               />
             </GroupedList>

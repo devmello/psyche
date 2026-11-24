@@ -18,6 +18,7 @@ import { daily } from "./daily/ar.ts";
 import { design } from "./design/ar.ts";
 import { deviceAccess } from "./device-access/ar.ts";
 import { final202611 } from "./final-2026-11/ar.ts";
+import { friction } from "./friction/ar.ts";
 import { helperCheck } from "./helper-check/ar.ts";
 import { helperOffline } from "./helper-offline/ar.ts";
 import { home } from "./home/ar.ts";
@@ -3959,6 +3960,7 @@ export const ar: Partial<Catalogue> = {
   ...windowsPlatform202611,
   ...mailFollowups,
   ...keepAwake,
+  ...friction,
   ...update,
   ...spaces,
   ...machines,

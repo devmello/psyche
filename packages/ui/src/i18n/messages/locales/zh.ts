@@ -18,6 +18,7 @@ import { daily } from "./daily/zh.ts";
 import { design } from "./design/zh.ts";
 import { deviceAccess } from "./device-access/zh.ts";
 import { final202611 } from "./final-2026-11/zh.ts";
+import { friction } from "./friction/zh.ts";
 import { helperCheck } from "./helper-check/zh.ts";
 import { helperOffline } from "./helper-offline/zh.ts";
 import { home } from "./home/zh.ts";
@@ -3835,6 +3836,7 @@ export const zh: Partial<Catalogue> = {
   ...windowsPlatform202611,
   ...mailFollowups,
   ...keepAwake,
+  ...friction,
   ...update,
   ...spaces,
   ...machines,

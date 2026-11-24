@@ -13,6 +13,7 @@ import { deckRest } from "./deck-rest/de.ts";
 import { designRest } from "./design-rest/de.ts";
 import { everythingRest } from "./everything-rest/de.ts";
 import { final202611 } from "./final-2026-11/de.ts";
+import { friction } from "./friction/de.ts";
 import { galleryRest } from "./gallery-rest/de.ts";
 import { helperCheck } from "./helper-check/de.ts";
 import { helperOffline } from "./helper-offline/de.ts";
@@ -4050,6 +4051,7 @@ export const de: Partial<Catalogue> = {
   ...windowsPlatform202611,
   ...mailFollowups,
   ...keepAwake,
+  ...friction,
   ...update,
   ...spaces,
   ...machines,
