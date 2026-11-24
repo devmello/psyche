@@ -26,6 +26,7 @@ import { serverBuild } from "./build-info.ts";
 import type { ClaimHelloInput, ClaimSession } from "./claim/mode.ts";
 import type { Call, GatewayContext, HandlerDef, LiveConnection } from "./context.ts";
 import type { EventFilter, FrameSink } from "./event-bus.ts";
+import { isLocalAdminCli } from "./handlers/devices.ts";
 import { HANDLERS } from "./handlers/index.ts";
 import { paramsHash } from "./idempotency.ts";
 import { readerOf } from "./message-scrub.ts";
@@ -324,6 +325,7 @@ export class Connection implements LiveConnection {
       throw new PsycheError("forbidden", `${method} requires scope ${scope}`);
     }
     this.#rateLimit(identity, method, spec.sideEffecting, params);
+    if (spec.callsModel) this.#modelBudget(identity);
     const def: HandlerDef | undefined = HANDLERS[method] ?? this.#ctx.extraHandlers[method];
     if (def === undefined) {
       throw new PsycheError("not_implemented", `${method} is not implemented yet`);
@@ -417,6 +419,19 @@ export class Connection implements LiveConnection {
     }
     deviceRequests.record(deviceId);
     if (sideEffecting) deviceSideEffects.record(deviceId);
+  }
+
+  /**
+   * The per-device model budget (`model-budget.ts`): a method that calls a model counts against
+   * the calling device. Only remote connections are held to it. The owner's own surfaces on the
+   * Host are not: the desktop shell (loopback, per-launch secret) and the Host CLI
+   * (`isLocalAdminCli`). The agent's own calls, automations and tasks never pass through here:
+   * they are not requests from a device. Called after `#rateLimit`, so a node frame is already out.
+   */
+  #modelBudget(identity: PairedIdentity): void {
+    if (identity.desktopShell === true && this.peer.remoteLoopback) return;
+    if (isLocalAdminCli(this.#ctx.db, identity, this.peer)) return;
+    this.#ctx.deviceModelCalls.admit(identity.deviceId);
   }
 
   /**

@@ -639,6 +639,233 @@
           }
         }
       }
+    },
+    "Too many requests from this device. Try again in %lld minutes.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Too many requests from this device. Try again in %lld minute."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Too many requests from this device. Try again in %lld minutes."
+                }
+              }
+            }
+          }
+        },
+        "de": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Zu viele Anfragen von diesem Gerät. Versuche es in %lld Minute erneut."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Zu viele Anfragen von diesem Gerät. Versuche es in %lld Minuten erneut."
+                }
+              }
+            }
+          }
+        },
+        "es": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Demasiadas solicitudes desde este dispositivo. Inténtalo de nuevo en %lld minuto."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Demasiadas solicitudes desde este dispositivo. Inténtalo de nuevo en %lld minutos."
+                }
+              }
+            }
+          }
+        },
+        "fr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Trop de requêtes depuis cet appareil. Réessayez dans %lld minute."
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Trop de requêtes depuis cet appareil. Réessayez dans %lld de minutes."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Trop de requêtes depuis cet appareil. Réessayez dans %lld minutes."
+                }
+              }
+            }
+          }
+        },
+        "hi": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "इस डिवाइस से बहुत अधिक अनुरोध हुए हैं। %lld मिनट बाद फिर कोशिश करें।"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "इस डिवाइस से बहुत अधिक अनुरोध हुए हैं। %lld मिनट बाद फिर कोशिश करें।"
+                }
+              }
+            }
+          }
+        },
+        "it": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Troppe richieste da questo dispositivo. Riprova tra %lld minuto."
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Troppe richieste da questo dispositivo. Riprova tra %lld di minuti."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Troppe richieste da questo dispositivo. Riprova tra %lld minuti."
+                }
+              }
+            }
+          }
+        },
+        "ja": {
+          "variations": {
+            "plural": {
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "このデバイスからのリクエストが多すぎます。%lld分後にもう一度お試しください。"
+                }
+              }
+            }
+          }
+        },
+        "ko": {
+          "variations": {
+            "plural": {
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "이 기기에서 요청이 너무 많습니다. %lld분 후에 다시 시도하세요."
+                }
+              }
+            }
+          }
+        },
+        "pt": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Muitas solicitações deste dispositivo. Tente novamente em %lld minuto."
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Muitas solicitações deste dispositivo. Tente novamente em %lld de minutos."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Muitas solicitações deste dispositivo. Tente novamente em %lld minutos."
+                }
+              }
+            }
+          }
+        },
+        "zh-Hans": {
+          "variations": {
+            "plural": {
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "此设备的请求过多。请在 %lld 分钟后重试。"
+                }
+              }
+            }
+          }
+        },
+        "ar": {
+          "variations": {
+            "plural": {
+              "zero": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "طلبات كثيرة جدًا من هذا الجهاز. حاول مرة أخرى بعد %lld دقيقة."
+                }
+              },
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "طلبات كثيرة جدًا من هذا الجهاز. حاول مرة أخرى بعد دقيقة واحدة."
+                }
+              },
+              "two": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "طلبات كثيرة جدًا من هذا الجهاز. حاول مرة أخرى بعد دقيقتين."
+                }
+              },
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "طلبات كثيرة جدًا من هذا الجهاز. حاول مرة أخرى بعد %lld دقائق."
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "طلبات كثيرة جدًا من هذا الجهاز. حاول مرة أخرى بعد %lld دقيقة."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "طلبات كثيرة جدًا من هذا الجهاز. حاول مرة أخرى بعد %lld دقيقة."
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "version": "1.0"

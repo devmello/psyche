@@ -212,6 +212,8 @@ export const ar: Partial<Catalogue> = {
   "errors.reason.secret_required": "يحتاج العميل المختلف إلى سر عميل خاص به.",
   "errors.reason.project_private":
     "هذا المشروع خاص، لذا لا يمكن أن تكون له مساحة. أوقف «إبقاء خاصًا» أولًا.",
+  "errors.reason.model_budget":
+    "طلبات كثيرة جدًا من هذا الجهاز. حاول مرة أخرى بعد {minutes, plural, zero {أقل من دقيقة} one {دقيقة واحدة} two {دقيقتين} few {# دقائق} many {# دقيقة} other {# دقيقة}}.",
   "errors.reason.updating": "سيعيد Psyche التشغيل الآن لتثبيت تحديث. حاول مرة أخرى بعد لحظة.",
   "errors.reason.space_main_chat":
     "لا يمكن تشغيل أتمتة موجودة في مساحة داخل المحادثة الرئيسية. شغّلها في محادثتها الخاصة، أو أخرجها من المساحة.",

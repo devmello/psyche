@@ -1,4 +1,5 @@
 import Foundation
+import PsycheShared
 
 // The app's whole backend contract, one protocol per feature so parallel sessions never edit the
 // same file (docs/design/ios-app-2026.md §4). Two implementations:
@@ -21,12 +22,15 @@ public enum BackendError: Error, Equatable, LocalizedError {
     /// message is the Gateway's; the caller can offer the owner a way past it.
     case policyDenied(String)
     case notFound
+    /// This phone used its model budget (`rate_limited`, reason `model_budget`): wait this many whole minutes.
+    case slowDown(minutes: Int)
 
     public var errorDescription: String? {
         switch self {
         case .unreachable: "Your Mac isn't reachable right now."
         case .refused(let message), .policyDenied(let message): message
         case .notFound: "That's no longer there."
+        case .slowDown(let minutes): SlowDown.message(minutes: minutes)
         }
     }
 }

@@ -36,6 +36,7 @@ export const ModelsMethods = {
       "Probes one configured provider's endpoint: reachability, the model list and capability guesses (vision, tool use, context length). Stores and returns the result. not_found for an unknown provider id.",
   }),
   "models.check": defineMethod({
+    callsModel: true,
     params: Type.Object({ ref: ModelRef }),
     result: Type.Object({ result: ToolCheckResult }),
     scope: "operator.admin",

@@ -72,6 +72,7 @@ export const ProposalsMethods = {
  */
 export const MeetingsMethods = {
   "meetings.notes.create": defineMethod({
+    callsModel: true,
     params: Type.Object({
       /** A recording or audio file in the Library (dropped into chat or the Library). */
       libraryItemId: Id,

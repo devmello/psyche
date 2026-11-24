@@ -18,6 +18,7 @@ import { defineMethod } from "./define.ts";
  */
 export const DailyMethods = {
   "daily.run": defineMethod({
+    callsModel: true,
     params: Type.Object({ kind: DailyKind }),
     result: Type.Object({ postId: Type.Optional(Id), skipped: Type.Optional(Type.String()) }),
     scope: "operator.write",
@@ -70,6 +71,7 @@ export const DailyMethods = {
     description: "Starter phrases for plain-language automations.",
   }),
   "daily.automations.parse": defineMethod({
+    callsModel: true,
     params: Type.Object({ text: Type.String({ minLength: 1, maxLength: 1000 }) }),
     result: Type.Object({
       draft: Type.Optional(DailyAutomationDraft),
