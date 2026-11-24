@@ -9,6 +9,12 @@ struct ChatState: Sendable {
     var queued: [String: [QueuedFollowUp]] = [:]
     /// The next steer or queue call fails with this message, once (tests of the composer's error path).
     var failNextQueueCall: String?
+    /// The archived side chats, newest archived first. They come back with `restoreThread`.
+    var archived: [ChatThreadSummary] = []
+    /// The next fork, clear, compact or feedback call fails with this message, once.
+    var failNextThreadAction: String?
+    /// Thumbs given on replies, by message id (true is helpful).
+    var feedback: [String: Bool] = [:]
 }
 
 /// The fixture's paging. Its pages are smaller than the Gateway's 60, so the demo pages after a few rows.
@@ -141,8 +147,96 @@ extension FixtureBackend: ChatBackend {
     }
 
     public func archiveThread(id: String) async throws {
-        chatState.summaries.removeAll { $0.id == id && !$0.isMain }
+        guard let summary = chatState.summaries.first(where: { $0.id == id && !$0.isMain }) else { return }
+        chatState.summaries.removeAll { $0.id == id }
+        var archived = summary
+        archived.isArchived = true
+        chatState.archived.insert(archived, at: 0)
         publish(.changed(.threads))
+    }
+
+    public func archivedThreads() async throws -> [ChatThreadSummary] {
+        await pause()
+        return chatState.archived
+    }
+
+    public func restoreThread(id: String) async throws {
+        await pause()
+        guard let index = chatState.archived.firstIndex(where: { $0.id == id }) else { throw BackendError.notFound }
+        var restored = chatState.archived.remove(at: index)
+        restored.isArchived = false
+        chatState.summaries.append(restored)
+        publish(.changed(.threads))
+    }
+
+    /// Makes the next fork, clear, compact or feedback call fail with `message`, once.
+    public func failNextThreadAction(with message: String) {
+        chatState.failNextThreadAction = message
+    }
+
+    private func takeThreadActionFailure() throws {
+        if let message = chatState.failNextThreadAction {
+            chatState.failNextThreadAction = nil
+            throw BackendError.refused(message)
+        }
+    }
+
+    public func forkThread(id: String, messageID: String, title: String?) async throws -> ChatThreadSummary {
+        await pause()
+        try takeThreadActionFailure()
+        guard let source = chatState.summaries.first(where: { $0.id == id }) else { throw BackendError.notFound }
+        let transcript = chatState.threads[id]?.items ?? []
+        guard let cut = transcript.firstIndex(where: { $0.id == messageID }) else { throw BackendError.notFound }
+        chatState.counter += 1
+        let forkID = "thr_fork\(chatState.counter)"
+        let forkTitle = title.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.flatMap { $0.isEmpty ? nil : $0 }
+        let summary = ChatThreadSummary(
+            id: forkID, title: forkTitle ?? "\(source.title) (fork)", status: "Just now", statusKind: .neutral,
+            isMain: false, updated: "now")
+        chatState.summaries.insert(summary, at: min(1, chatState.summaries.count))
+        chatState.threads[forkID] = ChatThread(
+            id: forkID, title: summary.title, status: "", statusKind: .neutral,
+            items: Array(transcript[...cut]))
+        publish(.changed(.threads))
+        return summary
+    }
+
+    public func clearThread(id: String) async throws {
+        await pause()
+        try takeThreadActionFailure()
+        guard var thread = chatState.threads[id] else { throw BackendError.notFound }
+        thread.items = []
+        thread.olderCursor = nil
+        chatState.threads[id] = thread
+        chatState.queued[id] = nil
+        if let index = chatState.summaries.firstIndex(where: { $0.id == id }) {
+            chatState.summaries[index].status = ""
+            chatState.summaries[index].statusKind = .neutral
+        }
+        publish(.changed(.threads))
+    }
+
+    public func compactThread(id: String) async throws -> Bool {
+        await pause()
+        try takeThreadActionFailure()
+        // Keep the last two messages, as the Gateway keeps the recent turns; summarise the rest into one note.
+        guard var thread = chatState.threads[id], thread.items.count > 2 else { return false }
+        let kept = Array(thread.items.suffix(2))
+        let replaced = thread.items.count - kept.count
+        chatState.counter += 1
+        let note = ChatItem.note(
+            id: "cmp\(chatState.counter)", kind: .compaction, title: "Earlier messages summarized",
+            detail: "\(replaced) turns")
+        thread.items = [note] + kept
+        chatState.threads[id] = thread
+        publish(.chat(.item(threadID: id, item: note)))
+        return true
+    }
+
+    public func giveFeedback(threadID: String, messageID: String, helpful: Bool) async throws {
+        await pause()
+        try takeThreadActionFailure()
+        chatState.feedback[messageID] = helpful
     }
 
     public func renameThread(id: String, title: String) async throws {
@@ -155,6 +249,7 @@ extension FixtureBackend: ChatBackend {
     }
 
     public func deleteThread(id: String) async throws {
+        chatState.archived.removeAll { $0.id == id }
         guard let summary = chatState.summaries.first(where: { $0.id == id }), !summary.isMain else {
             throw BackendError.notFound
         }
