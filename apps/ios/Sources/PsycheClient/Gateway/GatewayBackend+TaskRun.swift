@@ -30,6 +30,12 @@ extension GatewayBackend {
             runID: runID)
     }
 
+    /// `runs.children`: the helper and specialist runs a run spawned, for the page's Helpers section.
+    public func runChildren(runID: String) async throws -> [RunHelper] {
+        let result = try await call("runs.children", .obj(["runId": .string(runID)]))
+        return (result["runs"]?.array ?? []).compactMap(Self.runHelper)
+    }
+
     public func pauseTask(id: String) async throws {
         _ = try await call("tasks.pause", .obj(["taskId": .string(id)]))
     }
@@ -79,6 +85,30 @@ extension GatewayBackend {
             costUsd: limit?["costUsd"]?.double,
             minutes: limit?["wallMs"]?.double.map { Int($0 / 60_000) },
             deadline: WireFormat.date(specialist?["deadline"]?.string))
+    }
+
+    /// One `runs.children` row (a `RunSummary`). Its status words are the run statuses `TaskRunState` shares. The
+    /// budget is spent in cost when the limit has a cost, else in tokens; a row with no budget has no spend.
+    static func runHelper(_ r: JSONValue) -> RunHelper? {
+        guard let id = r["id"]?.string else { return nil }
+        let limit = r["budget"]?["limit"]
+        let used = r["budget"]?["used"]
+        let spend: RunHelper.Spend?
+        if let costLimit = limit?["costUsd"]?.double {
+            spend = .cost(spent: used?["costUsd"]?.double, limit: costLimit)
+        } else if let tokenLimit = limit?["tokens"]?.double {
+            spend = .tokens(spent: Int(used?["tokens"]?.double ?? 0), limit: Int(tokenLimit))
+        } else {
+            spend = nil
+        }
+        return RunHelper(
+            id: id,
+            title: r["title"]?.string.flatMap { $0.isEmpty ? nil : $0 },
+            kind: r["kind"]?.string == "subagent" ? .specialist : .helper,
+            // A status this build does not know shows as queued, never a guess.
+            state: TaskRunState(rawValue: r["status"]?.string ?? "") ?? .queued,
+            spend: spend,
+            deadline: WireFormat.date(r["deadline"]?.string))
     }
 
     /// One step of `runs.get`. The label is the past tense once the step ended ok; the result is the error

@@ -18,6 +18,10 @@ final class TaskRunModel {
     private(set) var error: String?
     /// An action is in flight: its buttons wait.
     private(set) var busy = false
+    /// The latest run's helper and specialist runs. Empty when it spawned none.
+    private(set) var helpers: [RunHelper] = []
+    /// Why the helpers did not load, shown in their section with a retry. The page itself still shows.
+    private(set) var helpersError: String?
     let taskID: String
     private let store: any PsycheBackend
 
@@ -36,6 +40,22 @@ final class TaskRunModel {
             } else {
                 self.error = error.localizedDescription
             }
+        }
+        await reloadHelpers()
+    }
+
+    /// Loads the latest run's helpers. A page with no run yet has none. A failure stays in `helpersError`.
+    func reloadHelpers() async {
+        guard let runID = phase.value?.runID else {
+            helpers = []
+            helpersError = nil
+            return
+        }
+        do {
+            helpers = try await store.runChildren(runID: runID)
+            helpersError = nil
+        } catch {
+            helpersError = error.localizedDescription
         }
     }
 

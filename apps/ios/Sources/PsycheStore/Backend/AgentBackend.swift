@@ -18,6 +18,8 @@ public protocol AgentBackend: Sendable {
     /// Gateway's refusal throws, in its own words.
     func updateTask(id: String, changes: TaskChanges) async throws
     /// One page of a run's steps after `afterSeq` (`runs.steps`). The screen passes the last page's `nextSeq`.
+    /// The helper and specialist runs a run spawned (`runs.children`). Empty when it spawned none.
+    func runChildren(runID: String) async throws -> [RunHelper]
     func runSteps(runID: String, afterSeq: Int?, limit: Int) async throws -> RunStepPage
     /// The frames Psyche saw during a run (`runs.frames`). Metadata only; the images come from `runFrameImage`.
     func runFrames(runID: String) async throws -> [RunFrameRef]
