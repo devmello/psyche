@@ -251,6 +251,9 @@ $(echo "$tracked" | grep -E "/$b\.(test|spec)\.(ts|tsx|mts)$" | sed "s#^$pkg/##"
     (cd "$pkg" && pnpm exec vitest run --passWithNoTests --maxWorkers=1 \
       --reporter=default --reporter=json --outputFile.json="$log.json" $tfiles) >"$log.log" 2>&1
   else
+    # Touched source with no test of its own or beside it: say so, rather than announce a step
+    # and record nothing (it read like a lost result).
+    warn+=("$name: no tests for the touched files (run --related to include importers)")
     continue
   fi
   [ $? -eq 0 ] && { pass+=("$name"); continue; }
