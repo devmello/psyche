@@ -44,6 +44,7 @@ import {
   flashMessage,
   useChatFocusRequest,
 } from "./focus-request.ts";
+import { useGreetEmptyMainChat } from "./greet.ts";
 import { MessageView } from "./MessageView.tsx";
 import { ModeSwitch } from "./ModeSwitch.tsx";
 import { applyModeChoice } from "./mode-switch.ts";
@@ -752,6 +753,14 @@ export function ChatThread({
   const anchorVersion = `${stackHeight}:${display.length}:${display.at(-1)?.message.blocks.length ?? 0}:${display.at(-1)?.streamingText?.length ?? 0}:${working}:${steps.length}:${steps.at(-1)?.status ?? ""}`;
   const { away, jump } = useBottomAnchor(viewportRef, columnRef, anchorVersion);
   const empty = display.length === 0 && !view.loading;
+  // The main chat's greeting (#555): an empty, connected main chat asks the Gateway once.
+  useGreetEmptyMainChat({
+    threadId,
+    kind: threadKind,
+    empty,
+    connected: connection === "open",
+    call,
+  });
 
   return (
     <DisclosureProvider
