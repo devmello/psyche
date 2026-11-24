@@ -69,14 +69,14 @@ enum ChatMapping {
                     }
                     return ProgressStep(id: "\(rowID)-\(n)", title: title, state: state)
                 }
-                if !steps.isEmpty { out.append(.progress(id: rowID, kind: .checklist, title: "Checklist", steps: steps)) }
+                if !steps.isEmpty { out.append(.progress(id: rowID, kind: .checklist, title: String(localized: "Checklist", bundle: .module), steps: steps)) }
             case "file":
                 guard let itemID = block["libraryItemId"]?.string else { continue }
-                out.append(.file(id: rowID, title: "File", fileType: "", detail: "", libraryID: itemID, isArtifact: false))
+                out.append(.file(id: rowID, title: String(localized: "File", bundle: .module), fileType: "", detail: "", libraryID: itemID, isArtifact: false))
             case "artifact":
                 guard let artifactID = block["artifactId"]?.string else { continue }
                 out.append(.file(
-                    id: rowID, title: "Artifact", fileType: "", detail: block["preview"]?.string ?? "", libraryID: nil,
+                    id: rowID, title: String(localized: "Artifact", bundle: .module), fileType: "", detail: block["preview"]?.string ?? "", libraryID: nil,
                     isArtifact: true, artifactID: artifactID))
             case "app_link":
                 guard let route = block["route"]?.string else { continue }
@@ -84,7 +84,7 @@ enum ChatMapping {
             case "context":
                 // Title and source come from fetched content (untrusted): plain text, as `evidence` draws it.
                 let parts = [block["title"]?.string, block["source"]?.string].compactMap { $0 }.filter { !$0.isEmpty }
-                if !parts.isEmpty { out.append(.evidence(id: rowID, label: "About", parts: parts)) }
+                if !parts.isEmpty { out.append(.evidence(id: rowID, label: String(localized: "About", bundle: .module), parts: parts)) }
             case "related_threads":
                 let threads = (block["items"]?.array ?? []).compactMap { item -> RelatedThread? in
                     guard let threadID = item["threadId"]?.string, let title = item["title"]?.string else { return nil }
@@ -96,7 +96,7 @@ enum ChatMapping {
                 out.append(.note(id: rowID, kind: .wrapUp, title: recap, detail: block["ask"]?.string ?? ""))
             case "learned":
                 let facts = (block["items"]?.array ?? []).compactMap { $0["text"]?.string }
-                if !facts.isEmpty { out.append(.note(id: rowID, kind: .learned, title: "Learned", detail: facts.joined(separator: "\n"))) }
+                if !facts.isEmpty { out.append(.note(id: rowID, kind: .learned, title: String(localized: "Learned", bundle: .module), detail: facts.joined(separator: "\n"))) }
             case "taught":
                 let statement = block["statement"]?.string
                 out.append(.note(id: rowID, kind: .taught, title: String(localized: "Psyche will remember", bundle: .module), detail: statement ?? String(localized: "Thanks. Psyche noted it.", bundle: .module)))

@@ -1945,6 +1945,8 @@ export const hi: Partial<Catalogue> = {
   "settings.mcp.network": "नेटवर्क उपयोग करता है",
   "settings.mcp.added": "{name} जोड़ा गया।",
   "settings.mcp.removed": "{name} हटाया गया।",
+  "settings.mcp.secretNotDeleted":
+    "Psyche सहेजा गया गुप्त मान नहीं हटा सका ({reason})। हटाने के लिए फिर से कोशिश करें।",
   "settings.mcp.denied": "{name} नहीं जोड़ा गया।",
   "settings.mcp.lapsed": "स्वीकृति समाप्त हो गई। जोड़ने के लिए सर्वर को दोबारा जाँचें।",
   "settings.mcp.removeTitle": "{name} हटाएँ?",

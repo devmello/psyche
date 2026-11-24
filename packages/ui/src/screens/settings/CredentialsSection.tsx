@@ -179,6 +179,8 @@ export function CredentialsPanel({
   const [adding, setAdding] = useState(defaultAdding);
   const [query, setQuery] = useState(defaultQuery);
   const [editingId, setEditingId] = useState<string | null>(defaultEditingId ?? null);
+  // A failed delete stays on its own row, so the owner sees which item is still there.
+  const [rowError, setRowError] = useState<{ id: string; message: string } | null>(null);
   const [importing, setImporting] = useState(defaultImporting);
   const [linking, setLinking] = useState<ExternalSource | null>(
     defaultLinking === true ? "1password" : defaultLinking === false ? null : defaultLinking,
@@ -408,7 +410,13 @@ export function CredentialsPanel({
                                       confirm: t("common.remove"),
                                       onConfirm: () => {
                                         if (editingId === c.id) setEditingId(null);
-                                        void Promise.resolve(onDelete(c)).catch(() => undefined);
+                                        setRowError(null);
+                                        void Promise.resolve(onDelete(c)).catch((err: unknown) =>
+                                          setRowError({
+                                            id: c.id,
+                                            message: vaultChangeError(err, c, "delete"),
+                                          }),
+                                        );
                                       },
                                     },
                                   ]}
@@ -419,6 +427,15 @@ export function CredentialsPanel({
                         </TableCell>
                       ) : null}
                     </TableRow>
+                    {rowError?.id === c.id ? (
+                      <TableRow className="hover:bg-transparent">
+                        <TableCell colSpan={columns} className="whitespace-normal">
+                          <p role="alert" className="text-callout text-danger-text">
+                            {rowError.message}
+                          </p>
+                        </TableCell>
+                      </TableRow>
+                    ) : null}
                     {editingId === c.id && onUpdate && managedOf(c) === null ? (
                       <TableRow className="hover:bg-transparent">
                         <TableCell colSpan={columns} className="whitespace-normal">
@@ -1112,13 +1129,8 @@ export function CredentialsSection({
   };
   const onDelete = (c: CredentialMeta): Promise<void> => {
     setItemError(null);
-    return call("vault.delete", { credentialId: c.id }).then(
-      () => q.reload(),
-      (err: unknown) => {
-        setItemError(vaultChangeError(err, c, "delete"));
-        throw err;
-      },
-    );
+    // The failure is shown on the item's row by the list (it rethrows), not up here.
+    return call("vault.delete", { credentialId: c.id }).then(() => q.reload());
   };
   const onImport = (format: ImportFormat, csv: string): Promise<ImportOutcome> =>
     call("vault.import", { format, csv }).then(

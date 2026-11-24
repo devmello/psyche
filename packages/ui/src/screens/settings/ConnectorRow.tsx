@@ -30,6 +30,7 @@ export function ConnectorRow({
   status,
   fix,
   onOpen,
+  error,
 }: {
   name: string;
   icon: ReactNode;
@@ -37,42 +38,51 @@ export function ConnectorRow({
   status?: { tone: Tone; label: string } | null;
   fix?: RowFix | null;
   onOpen: () => void;
+  /** A failed action on this connector, in words; shown under the row. */
+  error?: string | null;
 }): ReactElement {
   return (
-    <article aria-label={name} className="flex items-center gap-2">
-      <button
-        type="button"
-        aria-label={t("settings.connectors.page.open", { name })}
-        onClick={onOpen}
-        className="-my-1 flex min-w-0 flex-1 cursor-default items-center gap-3 rounded-md py-1 text-start outline-none transition-colors duration-(--duration-micro) hover:bg-fill-quaternary focus-visible:ring-2 focus-visible:ring-ring"
-      >
-        {icon}
-        <span className="flex min-w-0 flex-1 flex-col">
-          <span className="text-headline text-label-primary">{name}</span>
-          <span className="text-callout break-words text-label-secondary [overflow-wrap:anywhere]">
-            {subtitle}
-          </span>
-        </span>
-        {status ? <StatusChip tone={status.tone}>{status.label}</StatusChip> : null}
-        {fix ? null : (
-          <ChevronRight
-            aria-hidden="true"
-            className="size-4 shrink-0 text-label-tertiary rtl:rotate-180"
-          />
-        )}
-      </button>
-      {fix ? (
-        <Button
+    <div className="flex flex-col gap-2">
+      <article aria-label={name} className="flex items-center gap-2">
+        <button
           type="button"
-          size="sm"
-          variant="outline"
-          onClick={fix.onClick}
-          {...(fix.ariaLabel ? { "aria-label": fix.ariaLabel } : {})}
+          aria-label={t("settings.connectors.page.open", { name })}
+          onClick={onOpen}
+          className="-my-1 flex min-w-0 flex-1 cursor-default items-center gap-3 rounded-md py-1 text-start outline-none transition-colors duration-(--duration-micro) hover:bg-fill-quaternary focus-visible:ring-2 focus-visible:ring-ring"
         >
-          {fix.label}
-        </Button>
+          {icon}
+          <span className="flex min-w-0 flex-1 flex-col">
+            <span className="text-headline text-label-primary">{name}</span>
+            <span className="text-callout break-words text-label-secondary [overflow-wrap:anywhere]">
+              {subtitle}
+            </span>
+          </span>
+          {status ? <StatusChip tone={status.tone}>{status.label}</StatusChip> : null}
+          {fix ? null : (
+            <ChevronRight
+              aria-hidden="true"
+              className="size-4 shrink-0 text-label-tertiary rtl:rotate-180"
+            />
+          )}
+        </button>
+        {fix ? (
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={fix.onClick}
+            {...(fix.ariaLabel ? { "aria-label": fix.ariaLabel } : {})}
+          >
+            {fix.label}
+          </Button>
+        ) : null}
+      </article>
+      {error ? (
+        <p role="alert" className="text-callout text-danger-text">
+          {error}
+        </p>
       ) : null}
-    </article>
+    </div>
   );
 }
 
