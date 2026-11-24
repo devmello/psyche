@@ -596,7 +596,7 @@ function SkillSearchResults({
   query: string;
   search: (query: string) => Promise<readonly SkillHit[]>;
   onOpen: (skill: SkillTarget) => void;
-}): ReactElement {
+}): ReactElement | null {
   const term = useDebounced(query, 250);
   const [state, setState] = useState<SearchState>({ status: "loading" });
   // Searches only when the settled term changes, not when the parent hands over a new callback.
