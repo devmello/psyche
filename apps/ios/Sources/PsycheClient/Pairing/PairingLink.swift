@@ -32,11 +32,11 @@ public struct PairingLink: Equatable, Sendable {
 
         public var errorDescription: String? {
             switch self {
-            case .notAPairingLink: "That isn't a Psyche pairing code. Open Settings → Server & remote access → Pair another computer on your Mac."
-            case .unsupportedVersion: "That pairing code is from a newer Psyche. Update this app, or make a new code on your Mac."
-            case .damaged: "That pairing code is damaged. Make a new one on your Mac."
-            case .extraField, .badField: "That pairing code isn't valid. Make a new one on your Mac."
-            case .badGatewayURL(let why): "That pairing code points somewhere Psyche won't connect (\(why))."
+            case .notAPairingLink: String(localized: "That isn't a Psyche pairing code. Open Settings → Server & remote access → Pair another computer on your Mac.", bundle: .module)
+            case .unsupportedVersion: String(localized: "That pairing code is from a newer Psyche. Update this app, or make a new code on your Mac.", bundle: .module)
+            case .damaged: String(localized: "That pairing code is damaged. Make a new one on your Mac.", bundle: .module)
+            case .extraField, .badField: String(localized: "That pairing code isn't valid. Make a new one on your Mac.", bundle: .module)
+            case .badGatewayURL(let why): String(localized: "That pairing code points somewhere Psyche won't connect (\(why)).", bundle: .module)
             }
         }
     }
@@ -82,7 +82,7 @@ public struct PairingLink: Equatable, Sendable {
         guard isFingerprint(fingerprint) else { throw ParseError.badField("gatewayFingerprint") }
         guard isSetupToken(token) else { throw ParseError.badField("setupToken") }
         guard let cleaned = cleanHostName(host) else { throw ParseError.badField("hostName") }
-        guard url.utf16.count <= maxURLChars else { throw ParseError.badGatewayURL("too long") }
+        guard url.utf16.count <= maxURLChars else { throw ParseError.badGatewayURL(String(localized: "too long", bundle: .module)) }
         return PairingLink(
             gatewayURL: try origin(url), gatewayFingerprint: fingerprint, setupToken: token, hostName: cleaned)
     }
@@ -138,24 +138,24 @@ public struct PairingLink: Equatable, Sendable {
     static func origin(_ input: String) throws -> String {
         // Plain ASCII only, no whitespace/controls, and none of the characters that start credentials,
         // a query, a fragment or a path trick. This rejects before URLComponents' leniency can matter.
-        guard input.utf8.allSatisfy({ $0 > 0x20 && $0 < 0x7F }) else { throw ParseError.badGatewayURL("not a plain address") }
-        guard !input.contains("@") else { throw ParseError.badGatewayURL("credentials") }
+        guard input.utf8.allSatisfy({ $0 > 0x20 && $0 < 0x7F }) else { throw ParseError.badGatewayURL(String(localized: "not a plain address", bundle: .module)) }
+        guard !input.contains("@") else { throw ParseError.badGatewayURL(String(localized: "credentials", bundle: .module)) }
         guard !input.contains("?"), !input.contains("#"), !input.contains("\\") else {
-            throw ParseError.badGatewayURL("query or fragment")
+            throw ParseError.badGatewayURL(String(localized: "query or fragment", bundle: .module))
         }
         guard let parts = URLComponents(string: input), let scheme = parts.scheme?.lowercased(),
               var host = parts.host?.lowercased(), !host.isEmpty
-        else { throw ParseError.badGatewayURL("not a URL") }
-        guard parts.user == nil, parts.password == nil else { throw ParseError.badGatewayURL("credentials") }
-        guard parts.path.isEmpty || parts.path == "/" else { throw ParseError.badGatewayURL("path") }
-        guard scheme == "https" else { throw ParseError.badGatewayURL("must be https") }
+        else { throw ParseError.badGatewayURL(String(localized: "not a URL", bundle: .module)) }
+        guard parts.user == nil, parts.password == nil else { throw ParseError.badGatewayURL(String(localized: "credentials", bundle: .module)) }
+        guard parts.path.isEmpty || parts.path == "/" else { throw ParseError.badGatewayURL(String(localized: "path", bundle: .module)) }
+        guard scheme == "https" else { throw ParseError.badGatewayURL(String(localized: "must be https", bundle: .module)) }
         host = host.trimmingCharacters(in: CharacterSet(charactersIn: "[]"))  // IPv6 literals may or may not carry brackets
-        guard isPlainHost(host) else { throw ParseError.badGatewayURL("not a plain host name") }
-        guard !isLoopback(host) else { throw ParseError.badGatewayURL("that is this phone") }
+        guard isPlainHost(host) else { throw ParseError.badGatewayURL(String(localized: "not a plain host name", bundle: .module)) }
+        guard !isLoopback(host) else { throw ParseError.badGatewayURL(String(localized: "that is this phone", bundle: .module)) }
         if host.contains(":") { host = "[\(host)]" }
         var result = "https://\(host)"
         if let port = parts.port {
-            guard (1...65535).contains(port) else { throw ParseError.badGatewayURL("port") }
+            guard (1...65535).contains(port) else { throw ParseError.badGatewayURL(String(localized: "port", bundle: .module)) }
             if port != 443 { result += ":\(port)" }
         }
         return result

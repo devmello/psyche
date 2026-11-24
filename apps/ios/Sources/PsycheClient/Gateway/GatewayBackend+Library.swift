@@ -83,7 +83,7 @@ extension GatewayBackend {
     /// on the phone for this hash is reused; the cache keeps at most `cacheMaxBytes`, least recently used first.
     public func downloadLibraryFile(id: String, progress: @escaping @Sendable (Double) -> Void) async throws -> URL {
         let result = try await call("library.get", .obj(["itemId": .string(id)]))
-        guard let item = result["item"], let path = item["path"]?.string, !path.isEmpty else { throw BackendError.notFound }
+        guard let item = result["item"], let path = item[String(localized: "path", bundle: .module)]?.string, !path.isEmpty else { throw BackendError.notFound }
         if item["quarantined"]?.bool == true { throw LibraryFileRefusal.quarantined }
         let size = item["size"]?.int ?? 0
         if size > Self.downloadMaxBytes { throw LibraryFileRefusal.tooLarge }
@@ -236,11 +236,11 @@ extension GatewayBackend {
         let hasThread = item["threadId"]?.string != nil
         var parts: [String] = []
         switch origin {
-        case "agent": parts.append(hasThread ? "Made for" : "Made by Psyche")
+        case "agent": parts.append(hasThread ? String(localized: "Made for", bundle: .module) : String(localized: "Made by Psyche", bundle: .module))
         case "upload": parts.append("Uploaded")
         case "download": parts.append("Downloaded")
-        case "connector": parts.append("From a connector")
-        case "channel": parts.append("Received in a channel")
+        case "connector": parts.append(String(localized: "From a connector", bundle: .module))
+        case "channel": parts.append(String(localized: "Received in a channel", bundle: .module))
         default: break
         }
         if let threadTitle { parts.append(threadTitle) }

@@ -43,7 +43,7 @@ extension GatewayBackend {
                 "name": .string(name),
             ]),
             key: "entities-split-\(UUID().uuidString)")
-        guard let newID = result["entity"]?["id"]?.string else { throw BackendError.refused("Split didn't finish. Try again.") }
+        guard let newID = result["entity"]?["id"]?.string else { throw BackendError.refused(String(localized: "Split didn't finish. Try again.", bundle: .module)) }
         return newID
     }
 
@@ -54,7 +54,7 @@ extension GatewayBackend {
             "memory.entities.create",
             .obj(["kind": .string("person"), "name": .string(name), "aliases": aliasList]),
             key: "entities-create-\(UUID().uuidString)")
-        guard let newID = result["entity"]?["id"]?.string else { throw BackendError.refused("Couldn't add that person. Try again.") }
+        guard let newID = result["entity"]?["id"]?.string else { throw BackendError.refused(String(localized: "Couldn't add that person. Try again.", bundle: .module)) }
         return newID
     }
 

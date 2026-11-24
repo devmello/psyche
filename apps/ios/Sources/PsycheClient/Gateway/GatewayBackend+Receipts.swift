@@ -76,7 +76,7 @@ extension GatewayBackend {
         let params: JSONValue = .object(["artifactId": .string(id), "version": .number(Double(version))])
         // One key per tap: a retry of the same tap returns the same restore, never a second version.
         let result = try await call("artifacts.restore", params, key: "artifact-restore-\(UUID().uuidString)")
-        guard let latest = result["ref"]?["version"]?.int else { throw BackendError.refused("The Gateway didn't restore that version.") }
+        guard let latest = result["ref"]?["version"]?.int else { throw BackendError.refused(String(localized: "The Gateway didn't restore that version.", bundle: .module)) }
         await client.publishLive(.changed(.library))
         return latest
     }

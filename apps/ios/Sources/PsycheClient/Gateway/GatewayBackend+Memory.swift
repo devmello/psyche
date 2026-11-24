@@ -184,7 +184,7 @@ extension GatewayBackend {
         let result = try await call("memory.files.list")
         let files: [JSONValue] = result["files"]?.array ?? []
         let rows: [MemoryFileRow] = files.compactMap { (file: JSONValue) -> MemoryFileRow? in
-            guard let path = file["path"]?.string, !path.isEmpty else { return nil }
+            guard let path = file[String(localized: "path", bundle: .module)]?.string, !path.isEmpty else { return nil }
             var bytes = 0
             if case .number(let value)? = file["bytes"] { bytes = Int(value) }
             return MemoryFileRow(path: path, bytes: bytes, isProtected: file["protected"]?.bool == true)
@@ -193,8 +193,8 @@ extension GatewayBackend {
     }
 
     public func memoryFile(path: String) async throws -> MemoryFileContent {
-        let result = try await call("memory.read", .obj(["path": .string(path)]))
-        return MemoryFileContent(path: result["path"]?.string ?? path, content: result["content"]?.string ?? "")
+        let result = try await call("memory.read", .obj([String(localized: "path", bundle: .module): .string(path)]))
+        return MemoryFileContent(path: result[String(localized: "path", bundle: .module)]?.string ?? path, content: result["content"]?.string ?? "")
     }
 
     public func entityKind(id: String) async throws -> String {
@@ -306,18 +306,18 @@ extension GatewayBackend {
         let due = WireFormat.date(a["dueAt"]?.string)
         var parts: [String] = []
         if handedIn {
-            parts.append(status == "submitted" ? "Handed in" : "Done")
+            parts.append(status == "submitted" ? String(localized: "Handed in", bundle: .module) : String(localized: "Done", bundle: .module))
         } else if let due {
             parts.append(dueLabel(due, now: now))
         }
         if let project { parts.append(project) }
-        if status == "in_progress", !handedIn { parts.append("in progress") }
+        if status == "in_progress", !handedIn { parts.append(String(localized: "in progress", bundle: .module)) }
         let overdue = !handedIn && (due.map { $0 < now } ?? false)
         let resume = catchUp?.at("resume")
         let thread = ["thread", "chat"].contains(resume?.at("open", "kind")?.string ?? "") ? resume?.at("open", "ref")?.string : nil
         return TodoItem(
             id: a["id"]?.string ?? UUID().uuidString, title: a["name"]?.string ?? "Untitled",
-            meta: parts.isEmpty ? "No due date" : parts.joined(separator: " · "),
+            meta: parts.isEmpty ? String(localized: "No due date", bundle: .module) : parts.joined(separator: " · "),
             bucket: bucket(due: handedIn ? nil : due, now: now), needsYou: overdue || catchUp?["ask"]?.bool == true,
             done: handedIn, threadID: thread)
     }
@@ -329,7 +329,7 @@ extension GatewayBackend {
         if let due { parts.append(dueLabel(due, now: now)) }
         if let projectName { parts.append(projectName) }
         return TodoItem(
-            id: id, title: text, meta: parts.isEmpty ? "No due date" : parts.joined(separator: " · "),
+            id: id, title: text, meta: parts.isEmpty ? String(localized: "No due date", bundle: .module) : parts.joined(separator: " · "),
             bucket: bucket(due: due, now: now), needsYou: due.map { $0 < now } ?? false)
     }
 
@@ -342,7 +342,7 @@ extension GatewayBackend {
     /// "Today", "Tomorrow", "Fri", "Nov 12"; overdue: "Was due Nov 1".
     static func dueLabel(_ due: Date, now: Date, calendar: Calendar = .current) -> String {
         if calendar.isDate(due, inSameDayAs: now) { return "Today" }
-        if due < now { return "Was due " + due.formatted(.dateTime.month(.abbreviated).day()) }
+        if due < now { return String(localized: "Was due \(due.formatted(.dateTime.month(.abbreviated).day()))", bundle: .module) }
         if calendar.isDate(due, inSameDayAs: now.addingTimeInterval(86_400)) { return "Tomorrow" }
         if let days = calendar.dateComponents([.day], from: now, to: due).day, days < 6 {
             return due.formatted(.dateTime.weekday(.abbreviated))
@@ -379,13 +379,13 @@ extension GatewayBackend {
     static func projectItem(_ entity: JSONValue, progress: Progress) -> ProjectItem {
         var detail: String
         if progress.total > 0 {
-            detail = "\(progress.done) of \(progress.total) done"
+            detail = String(localized: "\(progress.done) of \(progress.total) done", bundle: .module)
             if let note = progress.note { detail += " · " + note }
         } else {
-            detail = progress.note ?? (entity["projectStatus"]?.string == "paused" ? "Paused" : "No to-dos yet")
+            detail = progress.note ?? (entity["projectStatus"]?.string == "paused" ? String(localized: "Paused", bundle: .module) : String(localized: "No to-dos yet", bundle: .module))
         }
         if let due = WireFormat.date(entity["dueAt"]?.string), progress.total == 0 || progress.note == nil {
-            detail += (detail.isEmpty ? "" : " · ") + "Due " + due.formatted(.dateTime.month(.abbreviated).day())
+            detail += (detail.isEmpty ? "" : " · ") + String(localized: "Due \(due.formatted(.dateTime.month(.abbreviated).day()))", bundle: .module)
         }
         return ProjectItem(
             id: entity["id"]?.string ?? "", title: entity["name"]?.string ?? "Untitled", detail: detail,
@@ -398,7 +398,7 @@ extension GatewayBackend {
         var parts: [String] = []
         if let subtitle = entity["subtitle"]?.string, !subtitle.isEmpty { parts.append(subtitle) }
         if let last = WireFormat.date(entity["lastInteractionAt"]?.string) {
-            parts.append("last contact " + last.formatted(.dateTime.month(.abbreviated).day()))
+            parts.append(String(localized: "last contact \(last.formatted(.dateTime.month(.abbreviated).day()))", bundle: .module))
         }
         return PersonItem(id: id, name: name, initials: initials(name), detail: parts.joined(separator: " · "))
     }
@@ -409,7 +409,7 @@ extension GatewayBackend {
         }
         let parts = [value("relationship_to_owner").map(humanized), value("role") ?? value("title"), value("employer")]
             .compactMap { $0 }
-        let last = WireFormat.date(entity["lastInteractionAt"]?.string).map { "last contact " + $0.formatted(.dateTime.month(.abbreviated).day()) }
+        let last = WireFormat.date(entity["lastInteractionAt"]?.string).map { String(localized: "last contact \($0.formatted(.dateTime.month(.abbreviated).day()))", bundle: .module) }
         return (Array(parts.prefix(2)) + [last].compactMap { $0 }).joined(separator: " · ")
     }
 

@@ -37,7 +37,7 @@ extension GatewayBackend {
             let existing = try await call("approvals.get", .obj(["approvalId": .string(approvalID)]))
             guard let approval = existing["approval"],
                   let item = Self.needsYou(approval: approval, holdsAnswer: existing["answerToken"]?.string != nil)
-            else { throw BackendError.refused("That suggestion is no longer waiting.") }
+            else { throw BackendError.refused(String(localized: "That suggestion is no longer waiting.", bundle: .module)) }
             return item
         }
         let result = try await call("proposals.approve", Self.suggestionIDParams(id))
@@ -47,7 +47,7 @@ extension GatewayBackend {
         switch approval["status"]?.string {
         case "approved": return nil
         case "pending", nil: break
-        default: throw BackendError.refused("That suggestion is no longer waiting.")
+        default: throw BackendError.refused(String(localized: "That suggestion is no longer waiting.", bundle: .module))
         }
         // A payment, or details too large to show in full here, is never answered from the phone: hand it to the
         // approval sheet, which keeps the Mac-only and presence rules. Nothing is sent to approvals.answer.
@@ -55,7 +55,7 @@ extension GatewayBackend {
             return Self.needsYou(approval: approval, holdsAnswer: false)
         }
         // The token is this phone's single-use answer for the batch approval. Without one the Mac has to answer.
-        guard let token = result["answerToken"]?.string else { throw BackendError.refused("This one needs your Mac. Answer it there.") }
+        guard let token = result["answerToken"]?.string else { throw BackendError.refused(String(localized: "This one needs your Mac. Answer it there.", bundle: .module)) }
         _ = try await call("approvals.answer", Self.suggestionAnswerParams(approvalID: approvalID, token: token))
         return nil
     }

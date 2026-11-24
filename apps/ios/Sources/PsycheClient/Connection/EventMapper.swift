@@ -61,7 +61,7 @@ struct EventMapper {
             case "question":
                 guard let id = block["inputRequestId"]?.string else { return ([], .none) }
                 let q = await lookupQuestion(id)
-                let item = ChatItem.question(id: id, title: q?.title ?? "Psyche has a question", options: q?.options ?? [])
+                let item = ChatItem.question(id: id, title: q?.title ?? String(localized: "Psyche has a question", bundle: .module), options: q?.options ?? [])
                 return ([.chat(.item(threadID: thread, item: item)), .changed(.home)], .none)
             case "approval", "task":
                 return ([.changed(.home), .changed(.activity)], .none)
