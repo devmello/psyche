@@ -60,4 +60,4 @@ packages/protocol/generated/.tmp/
 .claude/worktrees/
 
 # iOS scratch build output (Swift package build dir)
-apps/ios/.build-ios/
+apps/ios/.build-ios*/

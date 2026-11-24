@@ -2,6 +2,15 @@
 
 Newest first. The `reflect` skill reads the top entry to know where the last pass stopped.
 
+## 2026-11-24 (c): reflect pass over #1603, #1611-#1613, #1617-#1619, #1596, #1610, #1612 (+ #1614, #1616 in review)
+Last pass: #1609. Evidence: PR Learnings, the orchestrator's review findings (SendMessage) for #1614, #1616, #1618, #1617, `verify.sh` read directly. `failures.tsv` has no lines since 2026-11-19.
+- **`psyche-i18n`:** never localize wire keys; read scripted replaces line by line (#1618: `"path"` lookups, high cost, guarded now by `noLocalizedWireKeys`); interpolated catalog key form (#1618).
+- **`psyche-apple`, `.gitignore`:** `.build-ios-pkg` was not ignored and #1611 committed 645 KB; ignore rule widened to `apps/ios/.build-ios*/`, `git status` before `git add`.
+- **`psyche-builder` §2 (sibling bullet) and `psyche-permissions` Learnings:** new path to an existing capability matches every gate (#1614, security hole); both ends of a kind mapping (#1617); authority re-checked at each use (#1616).
+- **`psyche-builder/learnings.md`:** two lines from PR Learnings (#1610, #1613, #1614, #1616, #1619).
+- **`orchestrate`:** premises like "no caller" need the grep quoted in the brief (3 wrong in this wave: setMatrix, normalizeWorkspacePath, #1612). The "wait until no other verify.sh runs" advice is replaced: `verify.sh` already queues on slot lock dirs (8 slots on 12 cores and 24 GB, retry every 10 s, not FIFO), so a hand-wait starves; the old "3 slots" figure was stale. Verification is not loosened and no runs are added.
+- Not changed: "Not verified: not run in the Electron app" (expected); #1596 heredoc refusal (already in learnings); verify.sh comment says 5 slots while the code gives 8 (comment only, left alone). `.claude/CLAUDE.md` untouched.
+
 ## 2026-11-24 (b): reflect pass over #1596, #1599-#1607
 Last pass: the 2026-11-24 entry below. Evidence: PR bodies' Learnings, the orchestrator's review findings for each PR (SendMessage, not on GitHub) and its simulator pass on #1606. `failures.tsv` has no lines since 2026-11-19, so nothing to act on there.
 - **`psyche-builder` §2 (new bullet "Wire both ends, then every sibling"):** three recurring review findings. Stored-but-never-read or one-store-only (#1603, #1604, #1606 unflagged methods); sibling path bypasses a new guard (#1601 then #1607, #1606 `callsModel`, #1596 timeout on one path); wrong id kind or input the data lacks (#1599, #1600). A question list for the PR body, since no script can know the siblings.

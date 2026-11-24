@@ -139,6 +139,8 @@ If you change copy that names Touch ID, presence or approvals, also run `package
 
 ## Learnings
 
+- 2026-11-24: authority is checked at each use, not once at registration. #1616 checked the phone only in `NodeRegistry.phone()` at registration, where `machine()` re-checks on every use; a revoked or narrowed device kept working. A new device role re-reads revoke state and scopes on every call (#1616). A new path to an existing capability matches all its gates (#1614; see `psyche-builder` §2).
+
 - 2026-11-10: a "cross-window lockout" follow-up was unreachable, because `isDesktopShell` requires loopback. Uncapped chat answers (#1306) are by design: only guessing is limited. Check a security follow-up against main before building it.
 - 2026-11-19: a long helper action must keep its session alive by counting in-flight work: an idle timer that checks only the last acquire dropped the Esc tap mid-action (#1402 r1). A server woken from idle runs the same pre-start checks as a normal start (#1401 r1).
 - 2026-11-19: narrowing which app paths may be launched or written broke Spotify (an updater copy), Safari (the cryptex symlink) and Shortcuts Events (CoreServices) in successive #1427 rounds. Before you ship, probe every installed bundle id with read-only LaunchServices queries (no launch, no `lsregister`) and test the cryptex and CoreServices locations. Keep LaunchServices/codesign answers behind injected lookups (`AppLaunchPolicy.Lookups`) so tests register nothing. `describeCall` is synchronous: a resolved path must come from an earlier call's cache plus a run-time card.
