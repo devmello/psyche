@@ -36,21 +36,31 @@ struct TaskEditSheet: View {
         NavigationStack {
             Form {
                 Section {
-                    TextField(String(localized: "Tokens", bundle: .module), text: $draft.tokensText)
-                        .accessibilityIdentifier("taskTokensField")
-                        #if os(iOS)
-                        .keyboardType(.numberPad)
-                        #endif
-                    TextField(String(localized: "Cost", bundle: .module), text: $draft.costText)
-                        .accessibilityIdentifier("taskCostField")
-                        #if os(iOS)
-                        .keyboardType(.decimalPad)
-                        #endif
-                    TextField(String(localized: "Time (minutes)", bundle: .module), text: $draft.minutesText)
-                        .accessibilityIdentifier("taskMinutesField")
-                        #if os(iOS)
-                        .keyboardType(.numberPad)
-                        #endif
+                    // A filled field hides its placeholder, so the label sits beside the value.
+                    LabeledContent(String(localized: "Tokens", bundle: .module)) {
+                        TextField(String(localized: "Tokens", bundle: .module), text: $draft.tokensText)
+                            .multilineTextAlignment(.trailing)
+                            .accessibilityIdentifier("taskTokensField")
+                            #if os(iOS)
+                            .keyboardType(.numberPad)
+                            #endif
+                    }
+                    LabeledContent(String(localized: "Cost", bundle: .module)) {
+                        TextField(String(localized: "Cost", bundle: .module), text: $draft.costText)
+                            .multilineTextAlignment(.trailing)
+                            .accessibilityIdentifier("taskCostField")
+                            #if os(iOS)
+                            .keyboardType(.decimalPad)
+                            #endif
+                    }
+                    LabeledContent(String(localized: "Time (minutes)", bundle: .module)) {
+                        TextField(String(localized: "Time (minutes)", bundle: .module), text: $draft.minutesText)
+                            .multilineTextAlignment(.trailing)
+                            .accessibilityIdentifier("taskMinutesField")
+                            #if os(iOS)
+                            .keyboardType(.numberPad)
+                            #endif
+                    }
                 } header: {
                     Text("Budget", bundle: .module)
                 } footer: {
