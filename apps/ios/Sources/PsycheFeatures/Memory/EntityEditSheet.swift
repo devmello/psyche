@@ -11,6 +11,7 @@ struct EntityEditSheet: View {
     @Environment(\.dismiss) private var dismiss
     @State private var draft: EntityEditDraft
     @State private var newAlias = ""
+    @FocusState private var aliasFocused: Bool
     @State private var saving = false
     @State private var failure: String?
 
@@ -61,7 +62,13 @@ struct EntityEditSheet: View {
                     }
                     if draft.canAddAlias {
                         HStack {
+                            // Aliases are names: no autocorrection or predictions, and each word capitalised.
                             TextField(String(localized: "Add alias", bundle: .module), text: $newAlias)
+                                .autocorrectionDisabled()
+                                #if os(iOS)
+                                .textInputAutocapitalization(.words)
+                                #endif
+                                .focused($aliasFocused)
                                 .onSubmit(addAlias)
                             Button(String(localized: "Add", bundle: .module), action: addAlias)
                                 // In a Form row beside a TextField, a default-style button loses its tap to the field.
@@ -116,8 +123,13 @@ struct EntityEditSheet: View {
         .presentationDragIndicator(.visible)
     }
 
+    /// Adds the typed alias. The field's editing ends first and the text clears with it, then focus comes back on the
+    /// next turn, so UIKit's field and the binding cannot disagree (a cleared binding left the typed text on screen).
     private func addAlias() {
-        if draft.addAlias(newAlias) { newAlias = "" }
+        guard draft.addAlias(newAlias) else { return }
+        aliasFocused = false
+        newAlias = ""
+        Task { @MainActor in aliasFocused = true }
     }
 
     private func submit() async {

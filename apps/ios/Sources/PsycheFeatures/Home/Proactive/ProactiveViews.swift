@@ -19,6 +19,7 @@ enum ProactiveText {
         case "candidate": String(localized: "Suggested", bundle: .module)
         case "paused": String(localized: "Paused", bundle: .module)
         case "done": String(localized: "Done", bundle: .module)
+        case "archived": String(localized: "Archived", bundle: .module)
         default: String(localized: "Active", bundle: .module)
         }
     }
@@ -283,7 +284,7 @@ struct GoalsView: View {
                         .buttonStyle(.plain)
                     }
                 }
-                Text("Edit goal details and check-ins on your Mac.", bundle: .module).font(.footnote).foregroundStyle(PsycheColor.muted)
+                Text("Set a goal's plan and check-in cadence on your Mac.", bundle: .module).font(.footnote).foregroundStyle(PsycheColor.muted)
             }
         }
         .sheet(isPresented: $showing, onDismiss: model.close) {
@@ -303,6 +304,9 @@ struct GoalsView: View {
 
 private struct GoalSheet: View {
     let model: GoalsModel
+    @Environment(\.dismiss) private var dismiss
+    @State private var confirmingArchive = false
+    @State private var addingMilestone = false
 
     var body: some View {
         ScrollView {
@@ -321,25 +325,64 @@ private struct GoalSheet: View {
         }
         .psycheScreen()
         .presentationDetents([.medium, .large])
+        .confirmationDialog(String(localized: "Archive this goal?", bundle: .module), isPresented: $confirmingArchive, titleVisibility: .visible) {
+            Button(String(localized: "Archive goal", bundle: .module), role: .destructive) {
+                guard let goal = currentGoal else { return }
+                Task { if await model.archive(goal) { dismiss() } }
+            }
+            Button(String(localized: "Cancel", bundle: .module), role: .cancel) {}
+        } message: {
+            Text("Its check-ins stop. Nothing is deleted.", bundle: .module)
+        }
+        .sheet(isPresented: $addingMilestone) {
+            if let goal = currentGoal {
+                AddMilestoneSheet { title, dueAt in
+                    try await model.addMilestone(title: title, dueAt: dueAt, for: goal)
+                }
+            }
+        }
+    }
+
+    private var currentGoal: GoalItem? { model.detail.value?.goal }
+
+    /// Add goal, Not now or Dismiss. The sheet closes once the goal has left the goals (a dismissed one).
+    private func decide(_ decision: GoalDecision, _ goal: GoalItem) {
+        Task { if await model.decide(decision, for: goal) { dismiss() } }
     }
 
     @ViewBuilder
     private func loaded(_ detail: GoalDetail) -> some View {
+        let goal = detail.goal
+        let archived = goal.status == "archived"
         VStack(alignment: .leading, spacing: 6) {
-            Text(detail.goal.title).psycheTitle()
+            Text(goal.title).psycheTitle()
             EvidenceLine(
-                [ProactiveText.goalStatus(detail.goal.status)]
-                    + (detail.goal.nextCheckinAt.map { [String(localized: "Next check-in \(ProactiveText.when($0))", bundle: .module)] } ?? []))
+                [ProactiveText.goalStatus(goal.status)]
+                    + (goal.nextCheckinAt.map { [String(localized: "Next check-in \(ProactiveText.when($0))", bundle: .module)] } ?? []))
         }
-        let choices = GoalsModel.choices(for: detail.goal.status)
-        if !choices.isEmpty {
+        if goal.status == "candidate" {
             HStack(spacing: 20) {
-                ForEach(choices, id: \.self) { choice in
-                    Button(ProactiveText.goalChange(choice, from: detail.goal.status)) {
-                        Task { await model.setStatus(choice, for: detail.goal) }
-                    }
-                    .proactiveAction(prominent: choice == .active)
+                Button(String(localized: "Add goal", bundle: .module)) { decide(.confirm, goal) }
+                    .proactiveAction(prominent: true)
                     .disabled(model.busy)
+                Button(String(localized: "Not now", bundle: .module)) { decide(.later, goal) }
+                    .proactiveAction()
+                    .disabled(model.busy)
+                Button(String(localized: "Dismiss", bundle: .module)) { decide(.reject, goal) }
+                    .proactiveAction()
+                    .disabled(model.busy)
+            }
+        } else {
+            let choices = GoalsModel.choices(for: goal.status)
+            if !choices.isEmpty {
+                HStack(spacing: 20) {
+                    ForEach(choices, id: \.self) { choice in
+                        Button(ProactiveText.goalChange(choice, from: goal.status)) {
+                            Task { await model.setStatus(choice, for: goal) }
+                        }
+                        .proactiveAction(prominent: choice == .active)
+                        .disabled(model.busy)
+                    }
                 }
             }
         }
@@ -359,19 +402,62 @@ private struct GoalSheet: View {
                 PaperCard {
                     ForEach(Array(detail.milestones.enumerated()), id: \.element.id) { index, milestone in
                         if index > 0 { HairlineDivider() }
-                        HStack(spacing: 12) {
-                            Image(systemName: milestone.done ? "checkmark.circle.fill" : "circle")
-                                .foregroundStyle(milestone.done ? PsycheColor.green : PsycheColor.muted)
-                                .accessibilityHidden(true)
-                            Text(milestone.title).font(.psycheRow).foregroundStyle(PsycheColor.text)
-                            Spacer(minLength: 0)
-                        }
-                        .padding(PsycheMetrics.rowPadding)
-                        .accessibilityElement(children: .combine)
+                        milestoneRow(milestone, goal: goal, editable: !archived)
                     }
                 }
             }
+            if !archived {
+                Button(String(localized: "Add milestone", bundle: .module)) { addingMilestone = true }
+                    .proactiveAction()
+                    .disabled(model.busy)
+            }
         }
+        if !archived && goal.status != "candidate" {
+            Button(String(localized: "Archive goal", bundle: .module), role: .destructive) { confirmingArchive = true }
+                .proactiveAction()
+                .disabled(model.busy)
+        }
+    }
+
+    /// A milestone with a checkbox to mark it done or not, its due date, and a button to remove it.
+    @ViewBuilder
+    private func milestoneRow(_ milestone: GoalMilestoneItem, goal: GoalItem, editable: Bool) -> some View {
+        HStack(spacing: 12) {
+            Button {
+                Task { await model.changeMilestone(.setDone(id: milestone.id, !milestone.done), for: goal) }
+            } label: {
+                Image(systemName: milestone.done ? "checkmark.circle.fill" : "circle")
+                    .font(.title3)
+                    .foregroundStyle(milestone.done ? PsycheColor.green : PsycheColor.muted)
+                    .frame(width: 36, height: 36)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .disabled(!editable || model.busy)
+            .accessibilityLabel(milestone.done ? String(localized: "Mark not done", bundle: .module) : String(localized: "Mark done", bundle: .module))
+            VStack(alignment: .leading, spacing: 2) {
+                Text(milestone.title).font(.psycheRow).foregroundStyle(PsycheColor.text)
+                if let due = milestone.dueAt {
+                    Text("Due \(due.formatted(.dateTime.month(.abbreviated).day()))", bundle: .module)
+                        .font(.footnote).foregroundStyle(PsycheColor.muted)
+                }
+            }
+            Spacer(minLength: 0)
+            if editable {
+                Button {
+                    Task { await model.changeMilestone(.remove(id: milestone.id), for: goal) }
+                } label: {
+                    Image(systemName: "minus.circle")
+                        .foregroundStyle(PsycheColor.muted)
+                        .frame(width: 36, height: 36)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .disabled(model.busy)
+                .accessibilityLabel(String(localized: "Remove milestone", bundle: .module))
+            }
+        }
+        .padding(PsycheMetrics.rowPadding)
     }
 }
 
