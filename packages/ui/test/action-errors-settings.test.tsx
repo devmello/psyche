@@ -22,6 +22,20 @@ function gatewayOf(ref: { current?: MockGateway }) {
   };
 }
 
+/** Holds the latest hook value for the test to call; shows the secret failure with its Retry. */
+function McpProbe({ held }: { held: { mcp: McpState | null } }) {
+  held.mcp = useMcp();
+  const failure = held.mcp.secretFailure;
+  return failure ? (
+    <div>
+      <p role="alert">{failure.message}</p>
+      <button type="button" onClick={failure.retry}>
+        Retry
+      </button>
+    </div>
+  ) : null;
+}
+
 describe("settings actions show their failure", () => {
   it("turning on a memory source that fails says why, next to its switch", async () => {
     const user = userEvent.setup();
@@ -88,21 +102,9 @@ describe("settings actions show their failure", () => {
   it("a secret left behind by a failed MCP probe says so, and Retry deletes it", async () => {
     const ref: { current?: MockGateway } = {};
     const held: { mcp: McpState | null } = { mcp: null };
-    function Probe() {
-      held.mcp = useMcp();
-      const failure = held.mcp.secretFailure;
-      return failure ? (
-        <div>
-          <p role="alert">{failure.message}</p>
-          <button type="button" onClick={failure.retry}>
-            Retry
-          </button>
-        </div>
-      ) : null;
-    }
     render(
       <StoryWorld onGateway={(g) => (ref.current = g)}>
-        <Probe />
+        <McpProbe held={held} />
       </StoryWorld>,
     );
     await waitFor(() => expect(held.mcp).not.toBeNull());
