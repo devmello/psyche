@@ -140,6 +140,7 @@ export {
   PersonaSection,
 } from "./PersonaSection.tsx";
 export { SearchPanel, type SearchPanelProps, SearchSection } from "./SearchSection.tsx";
+export { SecuritySection } from "./SecuritySection.tsx";
 export { SegmentedRadio } from "./SegmentedRadio.tsx";
 export { ServerPanel, type ServerPanelProps, ServerSection } from "./ServerSection.tsx";
 export { presenceUnavailable, SettingsApprovalProvider } from "./SettingsApproval.tsx";

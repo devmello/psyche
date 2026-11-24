@@ -54,6 +54,8 @@ final class FakeGateway: @unchecked Sendable {
         self.identity = identity
     }
 
+    /// The scopes a paired connect reports (a test of an admin-only call sets it before pairing).
+    nonisolated(unsafe) var pairedScopes: [String] = ["operator.read"]
     var behavior: Behavior { get { lock.withLock { _behavior } } set { lock.withLock { _behavior = newValue } } }
     var malform: Malform { get { lock.withLock { _malform } } set { lock.withLock { _malform = newValue } } }
     var lie: Lie { get { lock.withLock { _lie } } set { lock.withLock { _lie = newValue } } }
@@ -126,7 +128,7 @@ final class FakeGateway: @unchecked Sendable {
             let result: JSONValue
             switch behavior {
             case .paired(let v):
-                result = .object(["phase": "paired", "deviceId": "dev_test", "scopes": .array(["operator.read"]),
+                result = .object(["phase": "paired", "deviceId": "dev_test", "scopes": .array(pairedScopes.map { .string($0) }),
                                   "stateVersion": .number(Double(v)), "serverTime": "2030-01-01T00:00:00Z"])
             case .pending(let code): result = .object(["phase": "pending", "pairingRequestId": "pr_1", "code": .string(code)])
             case .denied(let reason, let tokenInvalid, let code):

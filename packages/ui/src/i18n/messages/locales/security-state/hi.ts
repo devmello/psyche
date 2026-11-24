@@ -43,4 +43,17 @@ export const securityState: Partial<Catalogue> = {
   "web.security.cancel": "अनुरोध रद्द करें",
   "web.security.needsApproval": "Touch ID या पासकी से कार्ड को मंज़ूरी दें, फिर बटन दोबारा दबाएँ।",
   "web.security.failed": "यह काम नहीं किया: {message}",
+  "settings.security.title": "सुरक्षा रिकॉर्ड",
+  "settings.security.description":
+    "Psyche के सुरक्षा रिकॉर्ड सही हैं या नहीं, आपके बिना क्या बदला, और लागू होने की प्रतीक्षा में कौन-से अनुरोध हैं।",
+  "settings.security.status.sealed": "सही",
+  "settings.security.status.untrusted": "भरोसेमंद नहीं",
+  "settings.security.empty": "समीक्षा के लिए कुछ नहीं। कोई अलर्ट या प्रतीक्षारत अनुरोध नहीं है।",
+  "settings.security.approvalLabel": "सुरक्षा बदलाव",
+  "settings.security.approve.title": "यह बदलाव अभी लागू करें?",
+  "settings.security.approve.body": "अनुरोध {when} के बजाय अभी लागू होगा: {action}",
+  "settings.security.approve.confirm": "अभी लागू करें",
+  "settings.security.cancel.title": "यह अनुरोध रद्द करें?",
+  "settings.security.cancel.body": "बदलाव नहीं किया जाएगा और अनुरोध हटा दिया जाएगा: {action}",
+  "settings.security.keep": "रहने दें",
 };

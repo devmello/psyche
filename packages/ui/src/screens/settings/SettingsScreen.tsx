@@ -46,6 +46,7 @@ import { PermissionsSection } from "./PermissionsSection.tsx";
 import { PersonaSection } from "./PersonaSection.tsx";
 import { PluginsSection } from "./PluginsSection.tsx";
 import { SearchSection } from "./SearchSection.tsx";
+import { SecuritySection } from "./SecuritySection.tsx";
 import { ServerSection } from "./ServerSection.tsx";
 import { SettingsApprovalProvider } from "./SettingsApproval.tsx";
 import { SkillsSection } from "./SkillsSection.tsx";
@@ -262,7 +263,12 @@ export function SettingsSectionView({
     case "specialists":
       return <SpecialistsSection />;
     case "permissions":
-      return <PermissionsSection {...opt("now", s.now)} />;
+      return (
+        <>
+          <PermissionsSection {...opt("now", s.now)} />
+          <SecuritySection />
+        </>
+      );
     case "computer-use":
       return (
         <ComputerUseSection

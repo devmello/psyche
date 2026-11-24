@@ -7,6 +7,11 @@ final class InboxModel {
     private let pager: PagedRows<InboxItem>
     private(set) var needsYou: [NeedsYouItem] = []
     private(set) var actionError: String?
+    /// What the last Cancel recovery said, so the owner sees the result in the list.
+    private(set) var recoveryResult: String?
+    /// True once the Gateway has granted this phone admin, the scope cancelling a recovery needs.
+    private(set) var canCancelRecoveries = false
+    private(set) var cancellingRecovery = false
     private let store: any PsycheBackend
 
     init(store: any PsycheBackend) {
@@ -30,6 +35,7 @@ final class InboxModel {
         async let home = try? store.home()
         await pager.reload()
         needsYou = await home?.needsYou ?? needsYou
+        canCancelRecoveries = await store.canCancelRecoveries()
     }
 
     /// Fetches the next page when the end of the list appears.
@@ -69,6 +75,42 @@ final class InboxModel {
         } catch {
             actionError = error.localizedDescription
         }
+        await load()
+    }
+
+    /// The waiting security request a notice is about, when it still says it will apply "unless you cancel it":
+    /// the Mac's `psyched` asked for it (state "requested"). Applied, cancelled and failed notices have nothing
+    /// left to cancel.
+    static func recoveryNotice(for item: InboxItem) -> RecoveryNotice? {
+        guard let message = item.message, message.bodyKey == "notice.security.recovery.body",
+              message.params["state"] == "requested",
+              let op = message.params["op"], ["approve", "grant", "presence", "seal"].contains(op)
+        else { return nil }
+        func named(_ name: String, absent: String) -> String? {
+            guard let value = message.params[name], !value.isEmpty, value != absent else { return nil }
+            return value
+        }
+        return RecoveryNotice(op: op, device: named("device", absent: "?"), key: named("key", absent: "none"))
+    }
+
+    /// Cancels the request a notice describes (`security.recoveries.cancel`: it only narrows, so it is a plain tap).
+    /// The Gateway decides; its refusal is shown as it words it.
+    func cancelRecovery(_ item: InboxItem) async {
+        guard let notice = Self.recoveryNotice(for: item), !cancellingRecovery else { return }
+        cancellingRecovery = true
+        actionError = nil
+        recoveryResult = nil
+        do {
+            switch try await store.cancelRecovery(for: notice) {
+            case .cancelled:
+                recoveryResult = String(localized: "Cancelled. Nothing will change.", bundle: .module)
+            case .nothingWaiting:
+                recoveryResult = String(localized: "Nothing is waiting any more. It was already applied or cancelled.", bundle: .module)
+            }
+        } catch {
+            actionError = error.localizedDescription
+        }
+        cancellingRecovery = false
         await load()
     }
 

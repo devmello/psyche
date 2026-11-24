@@ -22,6 +22,10 @@ struct InboxView: View {
                     .listRowBackground(Color.clear)
                     .listRowSeparator(.hidden)
             }
+            if let result = model.recoveryResult {
+                Text(result).font(.footnote).foregroundStyle(PsycheColor.muted)
+                    .listRowBackground(Color.clear)
+            }
             if let error = model.actionError {
                 Text(error).font(.footnote).foregroundStyle(PsycheColor.muted)
                     .listRowBackground(Color.clear)
@@ -81,9 +85,13 @@ struct InboxView: View {
     private func rows(_ items: [InboxItem], title: String, needsYou: Bool = false) -> some View {
         Section {
             ForEach(items) { item in
-                InboxRow(item: item, onOpen: { open(item) }, onAction: { action in
-                    Task { await model.act(item, action) }
-                })
+                InboxRow(
+                    item: item,
+                    canCancelRecovery: model.canCancelRecoveries && !model.cancellingRecovery
+                        && InboxModel.recoveryNotice(for: item) != nil,
+                    onOpen: { open(item) },
+                    onAction: { action in Task { await model.act(item, action) } },
+                    onCancelRecovery: { Task { await model.cancelRecovery(item) } })
                     .listRowInsets(EdgeInsets())
                     .listRowBackground(PsycheColor.sheet)
                     .listRowSeparatorTint(PsycheColor.hairline)
@@ -113,8 +121,11 @@ struct InboxView: View {
 
 private struct InboxRow: View {
     let item: InboxItem
+    /// A security request this phone may cancel from here (it holds admin, and the notice still says "unless you cancel").
+    let canCancelRecovery: Bool
     let onOpen: () -> Void
     let onAction: (InboxAction) -> Void
+    let onCancelRecovery: () -> Void
 
     var body: some View {
         // The text opens the entry; the notice's own buttons sit beside it, not inside the tap target.
@@ -142,13 +153,20 @@ private struct InboxRow: View {
             .accessibilityElement(children: .combine)
             .accessibilityValue(item.read ? "Read" : String(localized: "Unread", bundle: .module))
 
-            if !item.actions.isEmpty {
+            if !item.actions.isEmpty || canCancelRecovery {
                 HStack(spacing: 8) {
                     ForEach(item.actions) { action in
                         Button(role: action.destructive ? .destructive : nil) {
                             onAction(action)
                         } label: {
                             Text(NoticeWording.label(action))
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                    }
+                    if canCancelRecovery {
+                        Button(role: .destructive, action: onCancelRecovery) {
+                            Text("Cancel recovery", bundle: .module)
                         }
                         .buttonStyle(.bordered)
                         .controlSize(.small)
