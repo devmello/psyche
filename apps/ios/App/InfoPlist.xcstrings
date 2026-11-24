@@ -1,0 +1,76 @@
+{
+  "sourceLanguage": "en",
+  "strings": {
+    "NSLocationWhenInUseUsageDescription": {
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "يشارك Psyche مكان هذا الـ iPhone مع جهاز Mac، فقط أثناء فتح Psyche وفقط إذا فعّلت مشاركة الموقع مع Psyche في الإعدادات."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche teilt den Standort dieses iPhones mit deinem Mac, nur solange Psyche geöffnet ist und nur, wenn du in den Einstellungen „Standort mit Psyche teilen“ eingeschaltet hast."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche shares where this iPhone is with your Mac, only while Psyche is open and only if you switch on Share location with Psyche in Settings."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche comparte con tu Mac dónde está este iPhone, solo mientras Psyche está abierto y solo si activas Compartir ubicación con Psyche en Ajustes."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche partage la position de cet iPhone avec votre Mac, seulement tant que Psyche est ouvert et seulement si vous avez activé « Partager la position avec Psyche » dans les réglages."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche इस iPhone का स्थान आपके Mac के साथ साझा करता है, केवल तब जब Psyche खुला हो और केवल तब जब आपने सेटिंग में \"Psyche के साथ स्थान साझा करें\" चालू किया हो।"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche condivide con il tuo Mac dove si trova questo iPhone, solo mentre Psyche è aperto e solo se attivi Condividi la posizione con Psyche nelle Impostazioni."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche は、Psyche を開いている間だけ、また設定で「位置情報を Psyche と共有」をオンにした場合だけ、この iPhone の場所を Mac と共有します。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche는 Psyche가 열려 있는 동안에만, 그리고 설정에서 \"Psyche와 위치 공유\"를 켠 경우에만 이 iPhone의 위치를 Mac과 공유합니다."
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O Psyche compartilha com o seu Mac onde este iPhone está, somente enquanto o Psyche estiver aberto e somente se você ativar Compartilhar localização com o Psyche nos Ajustes."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "仅在 Psyche 打开期间，并且仅当你在设置中开启“与 Psyche 共享位置”时，Psyche 才会与你的 Mac 共享这部 iPhone 的位置。"
+          }
+        }
+      }
+    }
+  },
+  "version": "1.0"
+}

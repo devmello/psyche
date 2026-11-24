@@ -67,6 +67,7 @@ export const agent: Partial<Catalogue> = {
   "agent.timeline.tooltipUsage": "{start} · {duration} · {tokens} رمز (token) · {cost}",
   "agent.timeline.range": "عرض من {from} إلى {to}",
   "agent.timeline.clearRange": "عرض الكل",
+  "agent.timeline.tabs.title": "علامات التبويب المفتوحة",
   "agent.timeline.zoomIn": "تكبير",
   "agent.timeline.zoomOut": "تصغير",
   "agent.timeline.zoomFit": "ملاءمة",

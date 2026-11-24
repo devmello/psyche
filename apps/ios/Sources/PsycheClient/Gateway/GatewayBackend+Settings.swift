@@ -25,12 +25,29 @@ extension GatewayBackend {
     }
 
     public func settings() async throws -> PhoneSettings {
-        PhoneSettingsStore(directory: client.dataDirectory).load()
+        var settings = PhoneSettingsStore(directory: client.dataDirectory).load()
+        // Shown as on only while iOS still allows it: a permission switched off in iOS Settings reads as off here.
+        if settings.shareLocation { settings.shareLocation = await client.locationSharingAllowed() }
+        return settings
     }
 
     public func updateSettings(_ settings: PhoneSettings) async throws {
-        try PhoneSettingsStore(directory: client.dataDirectory).save(settings)
+        // The location switch has its own call (`setLocationSharing`): it asks iOS, so it never rides along here.
+        let store = PhoneSettingsStore(directory: client.dataDirectory)
+        var next = settings
+        next.shareLocation = store.load().shareLocation
+        try store.save(next)
         await client.publishLive(.changed(.settings))
+    }
+
+    public func setLocationSharing(_ on: Bool) async throws -> LocationSharingOutcome {
+        guard let outcome = await client.setLocationSharing(on) else { throw BackendError.notFound }
+        let store = PhoneSettingsStore(directory: client.dataDirectory)
+        var saved = store.load()
+        saved.shareLocation = outcome == .enabled
+        try store.save(saved)
+        await client.publishLive(.changed(.settings))
+        return outcome
     }
 
     /// `devices.revokeSelf`, then the wipe (keys, endpoint, outbox, share inbox, caches, saved settings). The UI
@@ -98,6 +115,7 @@ struct PhoneSettingsStore: Sendable {
         var taskTitlesOnLockScreen: Bool?
         var faceIDForApprovals: Bool?
         var stayConnectedWhileRunning: Bool?
+        var shareLocation: Bool?
     }
 
     /// What was saved; anything missing (no file, a damaged one, a setting added later) is the default.
@@ -109,7 +127,8 @@ struct PhoneSettingsStore: Sendable {
             notifications: stored.notifications ?? d.notifications, liveActivities: stored.liveActivities ?? d.liveActivities,
             taskTitlesOnLockScreen: stored.taskTitlesOnLockScreen ?? d.taskTitlesOnLockScreen,
             faceIDForApprovals: stored.faceIDForApprovals ?? d.faceIDForApprovals,
-            stayConnectedWhileRunning: stored.stayConnectedWhileRunning ?? d.stayConnectedWhileRunning)
+            stayConnectedWhileRunning: stored.stayConnectedWhileRunning ?? d.stayConnectedWhileRunning,
+            shareLocation: stored.shareLocation ?? d.shareLocation)
     }
 
     func save(_ settings: PhoneSettings) throws {
@@ -118,7 +137,7 @@ struct PhoneSettingsStore: Sendable {
         let stored = Stored(
             notifications: settings.notifications, liveActivities: settings.liveActivities,
             taskTitlesOnLockScreen: settings.taskTitlesOnLockScreen, faceIDForApprovals: settings.faceIDForApprovals,
-            stayConnectedWhileRunning: settings.stayConnectedWhileRunning)
+            stayConnectedWhileRunning: settings.stayConnectedWhileRunning, shareLocation: settings.shareLocation)
         try JSONEncoder().encode(stored).write(
             to: directory.appendingPathComponent(Self.fileName),
             options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])

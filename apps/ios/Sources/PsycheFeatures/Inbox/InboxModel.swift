@@ -1,3 +1,4 @@
+import Foundation
 import Observation
 import PsycheStore
 
@@ -36,11 +37,13 @@ final class InboxModel {
         await pager.reload()
         needsYou = await home?.needsYou ?? needsYou
         canCancelRecoveries = await store.canCancelRecoveries()
+        await refreshCancellable()
     }
 
     /// Fetches the next page when the end of the list appears.
     func loadMore() async {
         await pager.loadMore()
+        await refreshCancellable()
     }
 
     /// Tries the failed next page again.
@@ -90,13 +93,34 @@ final class InboxModel {
             guard let value = message.params[name], !value.isEmpty, value != absent else { return nil }
             return value
         }
-        return RecoveryNotice(op: op, device: named("device", absent: "?"), key: named("key", absent: "none"))
+        return RecoveryNotice(
+            op: op, device: named("device", absent: "?"), key: named("key", absent: "none"),
+            when: named("when", absent: "none").flatMap(Self.utcDate(_:)))
+    }
+
+    /// The Gateway's `new Date(notBefore).toUTCString()`: "Mon, 02 Mar 2026 09:00:00 GMT".
+    static func utcDate(_ text: String) -> Date? {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.timeZone = TimeZone(identifier: "UTC")
+        f.dateFormat = "EEE, dd MMM yyyy HH:mm:ss 'GMT'"
+        return f.date(from: text)
+    }
+
+    /// Notices that still have a waiting request. Old notices stay in the Inbox, so the button shows only for these.
+    var cancellable: Set<String> = []
+
+    private func refreshCancellable() async {
+        guard canCancelRecoveries, case .loaded(let items) = pager.phase else { cancellable = []; return }
+        let pairs = items.compactMap { item in Self.recoveryNotice(for: item).map { (item.id, $0) } }
+        let live = await store.cancellable(pairs.map(\.1))
+        cancellable = Set(pairs.filter { live.contains($0.1) }.map(\.0))
     }
 
     /// Cancels the request a notice describes (`security.recoveries.cancel`: it only narrows, so it is a plain tap).
     /// The Gateway decides; its refusal is shown as it words it.
     func cancelRecovery(_ item: InboxItem) async {
-        guard let notice = Self.recoveryNotice(for: item), !cancellingRecovery else { return }
+        guard let notice = Self.recoveryNotice(for: item), cancellable.contains(item.id), !cancellingRecovery else { return }
         cancellingRecovery = true
         actionError = nil
         recoveryResult = nil

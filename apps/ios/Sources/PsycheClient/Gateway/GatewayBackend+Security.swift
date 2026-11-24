@@ -11,6 +11,12 @@ extension GatewayBackend {
         await client.ownIdentity.scopes.contains("operator.admin")
     }
 
+    /// A failed read hides the button rather than offering a cancel the phone cannot check.
+    public func cancellable(_ notices: [RecoveryNotice]) async -> Set<RecoveryNotice> {
+        guard !notices.isEmpty, let state = try? await call("security.state.get", .obj([:])) else { return [] }
+        return Set(notices.filter { !Self.waitingRecoveryIDs(matching: $0, in: state).isEmpty })
+    }
+
     public func cancelRecovery(for notice: RecoveryNotice) async throws -> RecoveryCancelOutcome {
         let state = try await call("security.state.get", .obj([:]))
         let ids = Self.waitingRecoveryIDs(matching: notice, in: state)
@@ -21,6 +27,12 @@ extension GatewayBackend {
             cancelled += 1
         }
         return .cancelled(cancelled)
+    }
+
+    static func date(_ iso: String) -> Date? {
+        let fractional = ISO8601DateFormatter()
+        fractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return fractional.date(from: iso) ?? ISO8601DateFormatter().date(from: iso)
     }
 
     /// The notice carries the op, the device's name and the start of its key's fingerprint, not the recovery's id,
@@ -35,6 +47,11 @@ extension GatewayBackend {
         guard let op = ops[notice.op] else { return [] }
         return (state["recoveries"]?.array ?? []).compactMap { r in
             guard r["status"]?.string == "waiting", r["op"]?.string == op, let id = r["id"]?.string else { return nil }
+            // The time the notice names is the request's own, to the second. An old notice of the same op
+            // never matches a newer request (a March notice must not cancel a June re-seal).
+            guard let when = notice.when, let notBefore = r["notBefore"]?.string.flatMap(Self.date(_:)),
+                  Int(notBefore.timeIntervalSince1970) == Int(when.timeIntervalSince1970)
+            else { return nil }
             if op == "devices.approve" || op == "devices.grant" {
                 if let key = notice.key {
                     let fingerprint = (r["deviceFingerprint"]?.string ?? "").replacingOccurrences(of: "sha256:", with: "")

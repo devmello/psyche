@@ -2,6 +2,14 @@
 
 Newest first. The `reflect` skill reads the top entry to know where the last pass stopped.
 
+## 2026-11-24 (d): reflect pass over #1620, #1621, #1623-#1626, #1630 (#1614, #1616, #1618, #1619 were in the last entry)
+Last pass: #1622. Evidence: PR Learnings and the orchestrator's review catches for the wave. `failures.tsv` unchanged.
+- **`psyche-apple`:** eager `VStack` inside `LazyVStack` loads every page (#1624); scripted edits split Swift signatures (#1630); `xcodegen generate` in a fresh worktree (#1630).
+- **`psyche-i18n`:** the xcstrings conflict recipe is the three-way union of git stages 1/2/3 (#1624/#1625, #1616).
+- **`orchestrate`:** three more wrong brief premises (#1626 `chat.greet`, `dropSecrets`, `memory.entities.forget` admin): quote the grep incl. `apps/web`, name the gate.
+- **`psyche-builder/learnings.md`:** #1620, #1621 line.
+- Already covered, left alone: #1614 and #1616 gate lessons (in `psyche-builder` section 2 and `psyche-permissions`), #1618 wire keys (in `psyche-i18n`). Not changed: #1625 fixture run ID (one use, low cost). `.claude/CLAUDE.md` untouched.
+
 ## 2026-11-24 (c): reflect pass over #1603, #1611-#1613, #1617-#1619, #1596, #1610, #1612 (+ #1614, #1616 in review)
 Last pass: #1609. Evidence: PR Learnings, the orchestrator's review findings (SendMessage) for #1614, #1616, #1618, #1617, `verify.sh` read directly. `failures.tsv` has no lines since 2026-11-19.
 - **`psyche-i18n`:** never localize wire keys; read scripted replaces line by line (#1618: `"path"` lookups, high cost, guarded now by `noLocalizedWireKeys`); interpolated catalog key form (#1618).

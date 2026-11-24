@@ -55,6 +55,8 @@ export function useTeaching() {
         refresh();
         return r;
       },
+      /** One page of the owner's feedback, newest first ("Show older" passes `cursor`). */
+      listFeedback: (params: MethodParams<"feedback.list">) => store.call("feedback.list", params),
       /** Undo for feedback that made no lesson. */
       deleteFeedback: async (eventId: string) => {
         await store.call("feedback.delete", { eventId });

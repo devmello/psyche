@@ -7,6 +7,7 @@ import SwiftUI
 /// A tap marks the entry read and follows its route; a swipe only marks it read.
 struct InboxView: View {
     @State private var model: InboxModel
+    @State private var confirming: InboxItem?
     @Environment(Router.self) private var router
     @Environment(Session.self) private var session
 
@@ -51,6 +52,19 @@ struct InboxView: View {
             await model.observe()
         }
         .refreshable { await model.load() }
+        .confirmationDialog(
+            String(localized: "Cancel this security request?", bundle: .module), isPresented: Binding(
+                get: { confirming != nil }, set: { if !$0 { confirming = nil } }),
+            titleVisibility: .visible
+        ) {
+            Button(String(localized: "Cancel recovery", bundle: .module), role: .destructive) {
+                if let item = confirming { Task { await model.cancelRecovery(item) } }
+                confirming = nil
+            }
+            Button(String(localized: "Keep request", bundle: .module), role: .cancel) { confirming = nil }
+        } message: {
+            Text("The change will not be made. If you asked for it on your Mac, you will need to ask again.", bundle: .module)
+        }
     }
 
     @ViewBuilder
@@ -88,10 +102,10 @@ struct InboxView: View {
                 InboxRow(
                     item: item,
                     canCancelRecovery: model.canCancelRecoveries && !model.cancellingRecovery
-                        && InboxModel.recoveryNotice(for: item) != nil,
+                        && model.cancellable.contains(item.id),
                     onOpen: { open(item) },
                     onAction: { action in Task { await model.act(item, action) } },
-                    onCancelRecovery: { Task { await model.cancelRecovery(item) } })
+                    onCancelRecovery: { askCancel(item) })
                     .listRowInsets(EdgeInsets())
                     .listRowBackground(PsycheColor.sheet)
                     .listRowSeparatorTint(PsycheColor.hairline)
@@ -107,6 +121,13 @@ struct InboxView: View {
                 .textCase(nil)
                 .padding(.leading, 6)
         }
+    }
+
+    /// A re-seal or presence reset is asked for on the Mac and is the way out of a blocked state, so cancelling
+    /// one asks first. Other requests cancel at once.
+    private func askCancel(_ item: InboxItem) {
+        let op = InboxModel.recoveryNotice(for: item)?.op
+        if op == "seal" || op == "presence" { confirming = item } else { Task { await model.cancelRecovery(item) } }
     }
 
     private func open(_ item: InboxItem) {

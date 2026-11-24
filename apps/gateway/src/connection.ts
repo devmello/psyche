@@ -241,6 +241,7 @@ export class Connection implements LiveConnection {
     }
     this.#outbound.clear();
     if (this.#identity?.role === "node") this.#ctx.nodes.detach(this);
+    else if (this.#identity !== null) this.#ctx.nodes.detachPhone(this);
     this.#transport.close(reason);
     const deviceId = this.#identity?.deviceId;
     if (deviceId !== undefined) {
@@ -321,7 +322,13 @@ export class Connection implements LiveConnection {
     const scope = spec.scope as DeviceScope | "none";
     // While untrusted, `identity.scopes` are what the seal vouches for (H-C: no stored scopes).
     const have = identity.scopes;
-    if (scope !== "none" && !have.includes(scope)) {
+    // The owner's phone answers the Gateway's `node.invoke` on its operator connection: it holds no
+    // `node` scope, and these two frames are the whole of what it gets from one. The registry still
+    // matches every frame to an invocation this very connection was sent.
+    const phoneAnswer =
+      (method === "node.result" || method === "node.event") &&
+      this.#ctx.nodes.isPhoneConnection(this);
+    if (scope !== "none" && !phoneAnswer && !have.includes(scope)) {
       throw new PsycheError("forbidden", `${method} requires scope ${scope}`);
     }
     this.#rateLimit(identity, method, spec.sideEffecting, params);

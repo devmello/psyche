@@ -22,9 +22,23 @@ public protocol SettingsBackend: Sendable {
     /// The computers Psyche can use (`machines.list`, read-only). Empty when there are none or the Gateway
     /// does not answer; the phone never adds or pairs one.
     func machines() async throws -> [MachineSummary]
+
+    /// "Share location with Psyche": turns the phone's `location.current` offer on or off. Turning on asks iOS for
+    /// When-In-Use permission (only if it was never asked) and then tells the Gateway the phone offers it; turning
+    /// off withdraws it at once. Off by default. A backend with no location support throws.
+    func setLocationSharing(_ on: Bool) async throws -> LocationSharingOutcome
+}
+
+/// How a "Share location with Psyche" change ended.
+public enum LocationSharingOutcome: Sendable, Equatable {
+    case enabled
+    case disabled
+    /// iOS location permission is off for Psyche, so sharing stayed off. The person turns it on in iOS Settings.
+    case permissionDenied
 }
 
 extension SettingsBackend {
+    public func setLocationSharing(_ on: Bool) async throws -> LocationSharingOutcome { throw BackendError.notFound }
     public func removeThisPhoneLocally() async throws {}
     public func machines() async throws -> [MachineSummary] { [] }
 }
@@ -71,8 +85,15 @@ public struct PhoneSettings: Sendable, Equatable {
     /// "Stay connected while a task runs": keep Psyche awake in the background, with a silent audio session, only while a
     /// watched task runs or waits. Off by default.
     public var stayConnectedWhileRunning: Bool
-    public init(notifications: Bool, liveActivities: Bool, taskTitlesOnLockScreen: Bool, faceIDForApprovals: Bool, stayConnectedWhileRunning: Bool = false) {
+    /// "Share location with Psyche": lets the agent ask where this phone is, only while Psyche is open here.
+    /// Off by default. Read as off when iOS location permission is off, whatever was saved.
+    public var shareLocation: Bool
+    public init(
+        notifications: Bool, liveActivities: Bool, taskTitlesOnLockScreen: Bool, faceIDForApprovals: Bool,
+        stayConnectedWhileRunning: Bool = false, shareLocation: Bool = false
+    ) {
         self.stayConnectedWhileRunning = stayConnectedWhileRunning
+        self.shareLocation = shareLocation
         self.notifications = notifications
         self.liveActivities = liveActivities
         self.taskTitlesOnLockScreen = taskTitlesOnLockScreen

@@ -9,17 +9,20 @@ import Testing
 /// Cancelling a waiting recovery from its notice: `security.state.get` to find it, `security.recoveries.cancel` to
 /// cancel it, and the button only for a phone the Gateway granted `operator.admin`.
 struct SecurityBackendTests {
+    /// Every fixture request applies at this time (the recovery's `notBefore`).
+    static let when = ISO8601DateFormatter().date(from: "2030-01-02T09:00:00Z")!
+
     static func state(_ recoveries: [JSONValue]) -> JSONValue {
         .object(["status": "sealed", "reason": .null, "alerts": .array([]), "recoveries": .array(recoveries)])
     }
 
     static func recovery(
-        _ id: String, op: String = "devices.grant", status: String = "waiting", name: String? = "Work laptop",
+        _ id: String, op: String = "devices.grant", status: String = "waiting", notBefore: String = "2030-01-02T09:00:00Z", name: String? = "Work laptop",
         fingerprint: String? = "sha256:0123456789abcdef0123456789abcdef"
     ) -> JSONValue {
         var r: [String: JSONValue] = [
             "id": .string(id), "op": .string(op), "status": .string(status),
-            "requestedAt": "2030-01-01T09:00:00Z", "notBefore": "2030-01-02T09:00:00Z", "decidedAt": .null, "outcome": .null,
+            "requestedAt": "2030-01-01T09:00:00Z", "notBefore": .string(notBefore), "decidedAt": .null, "outcome": .null,
         ]
         if let name { r["deviceName"] = .string(name) }
         if let fingerprint { r["deviceFingerprint"] = .string(fingerprint) }
@@ -62,7 +65,7 @@ struct SecurityBackendTests {
             }
         }
         let outcome = try await backend.cancelRecovery(
-            for: RecoveryNotice(op: "grant", device: "Work laptop", key: "0123456789abcdef"))
+            for: RecoveryNotice(op: "grant", device: "Work laptop", key: "0123456789abcdef", when: Self.when))
         #expect(outcome == .cancelled(1))
         #expect(cancelled.all == ["rc_mine"])
     }
@@ -82,8 +85,8 @@ struct SecurityBackendTests {
                 return .success(.object(["recovery": Self.recovery("x", status: "cancelled")]))
             }
         }
-        #expect(try await backend.cancelRecovery(for: RecoveryNotice(op: "grant", device: "Work laptop")) == .cancelled(1))
-        #expect(try await backend.cancelRecovery(for: RecoveryNotice(op: "presence")) == .cancelled(1))
+        #expect(try await backend.cancelRecovery(for: RecoveryNotice(op: "grant", device: "Work laptop", when: Self.when)) == .cancelled(1))
+        #expect(try await backend.cancelRecovery(for: RecoveryNotice(op: "presence", when: Self.when)) == .cancelled(1))
         #expect(cancelled.all == ["rc_named", "rc_presence"])
     }
 
@@ -96,7 +99,7 @@ struct SecurityBackendTests {
                 return .success(.object([:]))
             }
         }
-        let outcome = try await backend.cancelRecovery(for: RecoveryNotice(op: "grant", device: "Work laptop"))
+        let outcome = try await backend.cancelRecovery(for: RecoveryNotice(op: "grant", device: "Work laptop", when: Self.when))
         #expect(outcome == .nothingWaiting)
         #expect(cancelled.all.isEmpty)
     }
@@ -109,16 +112,45 @@ struct SecurityBackendTests {
             }
         }
         await #expect(throws: BackendError.refused("A re-seal can be cancelled only from an admin device Psyche still trusts")) {
-            _ = try await backend.cancelRecovery(for: RecoveryNotice(op: "seal"))
+            _ = try await backend.cancelRecovery(for: RecoveryNotice(op: "seal", when: Self.when))
         }
     }
 
     @Test func anUnknownOpMatchesNothing() {
         let state = Self.state([Self.recovery("rc", op: "devices.grant")])
-        #expect(GatewayBackend.waitingRecoveryIDs(matching: RecoveryNotice(op: "other"), in: state).isEmpty)
+        #expect(GatewayBackend.waitingRecoveryIDs(matching: RecoveryNotice(op: "other", when: Self.when), in: state).isEmpty)
         // A notice that names a key never matches a request whose key is missing.
         #expect(GatewayBackend.waitingRecoveryIDs(
-            matching: RecoveryNotice(op: "grant", device: "Work laptop", key: "0123456789abcdef"),
+            matching: RecoveryNotice(op: "grant", device: "Work laptop", key: "0123456789abcdef", when: Self.when),
             in: Self.state([Self.recovery("rc", fingerprint: nil)])).isEmpty)
+    }
+
+    @Test func anOldNoticeNeverCancelsANewerRequestOfTheSameOp() async throws {
+        let cancelled = OutboxTests.Sent()
+        let backend = try await live(admin: true) { g in
+            g.on("security.state.get") { _ in
+                .success(Self.state([
+                    Self.recovery("rc_june", op: "seal.reset", notBefore: "2030-06-02T09:00:00.250Z", name: nil, fingerprint: nil),
+                    Self.recovery("rc_presence_june", op: "presence.reset", notBefore: "2030-06-02T09:00:00Z", name: nil, fingerprint: nil),
+                ]))
+            }
+            g.on("security.recoveries.cancel") { req in
+                cancelled.add(req.params?["id"]?.stringValue ?? "")
+                return .success(.object(["recovery": Self.recovery("x", status: "cancelled")]))
+            }
+        }
+        let march = ISO8601DateFormatter().date(from: "2030-03-02T09:00:00Z")!
+        let june = ISO8601DateFormatter().date(from: "2030-06-02T09:00:00Z")!
+        let old = RecoveryNotice(op: "seal", when: march)
+        let current = RecoveryNotice(op: "seal", when: june)
+        // The March notice shows no button and cancels nothing; one with no time never matches.
+        #expect(await backend.cancellable([old, RecoveryNotice(op: "seal"), RecoveryNotice(op: "presence", when: march)]).isEmpty)
+        #expect(try await backend.cancelRecovery(for: old) == .nothingWaiting)
+        #expect(try await backend.cancelRecovery(for: RecoveryNotice(op: "seal")) == .nothingWaiting)
+        #expect(cancelled.all.isEmpty)
+        // The matching one (to the second, a fractional notBefore included) cancels only that request.
+        #expect(await backend.cancellable([old, current]) == [current])
+        #expect(try await backend.cancelRecovery(for: current) == .cancelled(1))
+        #expect(cancelled.all == ["rc_june"])
     }
 }

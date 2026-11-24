@@ -2,6 +2,7 @@ import Foundation
 import PsycheShared
 import PsycheStore
 import enum PsycheProtocol.JSONValue
+import struct PsycheProtocol.WireError
 import struct PsycheProtocol.WireEventFrame
 import PsycheWire
 
@@ -30,6 +31,8 @@ public struct GatewayClientDependencies: Sendable {
     public var onWipe: @Sendable () async -> Void
     /// Where downloaded Library files live (Quick Look); removed with the rest on revoke.
     public var libraryCache: URL
+    /// CoreLocation behind a seam. Nil: this build offers no location (tests, demo mode).
+    public var locationProvider: (any LocationProviding)?
 
     public static var defaultLibraryCache: URL {
         FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
@@ -51,8 +54,10 @@ public struct GatewayClientDependencies: Sendable {
         keptPingTimeout: Duration = .seconds(10),
         shareInbox: ShareInbox? = ShareInbox.shared,
         onWipe: @escaping @Sendable () async -> Void = {},
-        libraryCache: URL = GatewayClientDependencies.defaultLibraryCache
+        libraryCache: URL = GatewayClientDependencies.defaultLibraryCache,
+        locationProvider: (any LocationProviding)? = nil
     ) {
+        self.locationProvider = locationProvider
         self.endpointStore = endpointStore
         self.identityStore = identityStore
         self.outbox = outbox
@@ -101,8 +106,16 @@ public actor GatewayClient {
     private var eventSubscribers: [UUID: AsyncStream<LiveEvent>.Continuation] = [:]
     private var failureSubscribers: [UUID: AsyncStream<String>.Continuation] = [:]
 
+    /// Whether Psyche is on screen; the phone answers a location request only while it is.
+    private let foreground: ForegroundState
+    /// The phone's `location.current` offer; nil when this build has no location provider.
+    private let location: PhoneLocationNode?
+
     public init(dependencies: GatewayClientDependencies) {
         deps = dependencies
+        let foreground = ForegroundState()
+        self.foreground = foreground
+        location = dependencies.locationProvider.map { PhoneLocationNode(provider: $0, foreground: foreground) }
         resync = Resync(lastStateVersion: Self.loadStateVersion(dependencies.stateDirectory))
         endpoint = dependencies.endpointStore.load()
         state = endpoint == nil ? .unpaired : .connecting
@@ -176,6 +189,7 @@ public actor GatewayClient {
     /// `scenePhase == .active` connects; `.background` closes about five seconds later.
     public func setActive(_ isActive: Bool) {
         active = isActive
+        foreground.set(isActive)
         if isActive {
             backgroundTimer?.cancel()
             backgroundTimer = nil
@@ -317,6 +331,7 @@ public actor GatewayClient {
         try? FileManager.default.removeItem(at: deps.libraryCache)
         deps.shareInbox?.wipe()
         resync = Resync(lastStateVersion: nil)
+        await location?.reset()
         await deps.onWipe()
     }
 
@@ -370,6 +385,41 @@ public actor GatewayClient {
     public func forgetGateway() async throws {
         defer { set(.unpaired) }
         try await revoke()
+    }
+
+    // MARK: - Location
+
+    /// "Share location with Psyche". Nil when this build has no location provider.
+    public func setLocationSharing(_ on: Bool) async -> LocationSharingOutcome? {
+        guard let location else { return nil }
+        return await location.setSharing(on)
+    }
+
+    /// Whether the saved switch may show as on: the node exists and iOS still allows it.
+    public func locationSharingAllowed() async -> Bool {
+        guard let location else { return false }
+        await location.restore(wanted: PhoneSettingsStore(directory: deps.stateDirectory).load().shareLocation)
+        return await location.isSharing()
+    }
+
+    /// Wires the phone's node onto a connection that just went live: the answer to `node.invoke`, and the
+    /// declaration of whatever the owner has switched on (nothing, by default).
+    private func attachLocation(to live: GatewayConnection) async {
+        guard let location else { return }
+        await live.setInboundHandler { [weak live] req in
+            guard req.method == "node.invoke" else {
+                return .failure(WireError(code: "unknown_method", message: "The phone does not handle \(req.method)"))
+            }
+            let target = live
+            return await location.accept(params: req.params) { _, result in
+                _ = try? await target?.call("node.result", params: result)
+            }
+        }
+        await location.restore(wanted: PhoneSettingsStore(directory: deps.stateDirectory).load().shareLocation)
+        await location.connected { [weak live] capabilities in
+            _ = try await live?.call(
+                "phone.capabilities.set", params: .obj(["capabilities": .array(capabilities.map(JSONValue.string))]))
+        }
     }
 
     // MARK: - Calls
@@ -458,6 +508,7 @@ public actor GatewayClient {
                 attempt = 0
                 setupToken = nil
                 await consume(events)
+                await location?.disconnected()
                 if Task.isCancelled || !wantsConnection { return }
                 try? await Task.sleep(for: .seconds(deps.backoff.delay(attempt: 0)))
             case .pending(let code):
@@ -536,6 +587,7 @@ public actor GatewayClient {
                 self.ownDeviceID = deviceID
                 self.ownScopes = scopes
                 set(.live)
+                Task { await self.attachLocation(to: connection) }
                 // Always tell the screens: one that loaded while the phone was still connecting failed with
                 // "unreachable", and one that stayed open while offline may be stale, whether or not
                 // `stateVersion` moved (N14 refetch).
