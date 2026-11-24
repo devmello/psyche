@@ -543,7 +543,6 @@ button {
   margin: 4px;
   padding: 8px 10px;
   border: 1px solid var(--separator);
-  border-left: 3px solid var(--accent-9);
   border-radius: 8px;
   background: var(--surface-sidebar);
   font-size: 13px;
