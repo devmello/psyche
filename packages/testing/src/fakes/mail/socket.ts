@@ -7,6 +7,8 @@ export interface FakeMailSocket {
   write(data: Uint8Array | string): Promise<void>;
   end(): void;
   destroy(): void;
+  /** Plaintext fake sockets only: the same connection served under TLS afterwards. */
+  upgradeTls?(servername: string): Promise<FakeMailSocket>;
 }
 
 function channel() {

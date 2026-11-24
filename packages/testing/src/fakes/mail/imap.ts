@@ -18,6 +18,8 @@ export interface FakeImapServerOptions {
   capabilities?: string[];
   /** Refuse `CHARSET UTF-8` searches with `NO [BADCHARSET]`. */
   asciiSearchOnly?: boolean;
+  /** Offer STARTTLS on plaintext connections (`connectPlain`); off by default. */
+  starttls?: boolean;
 }
 
 type Token = string | null | Uint8Array | Token[];
@@ -128,6 +130,8 @@ export class FakeImapServer {
   /** Commands as received, with LOGIN credentials and literals redacted. */
   readonly commands: string[] = [];
   readonly connections: { loggedIn: boolean; closed: boolean }[] = [];
+  /** How many plaintext connections were upgraded with STARTTLS. */
+  tlsUpgrades = 0;
 
   constructor(store: FakeMailStore, options: FakeImapServerOptions = {}) {
     this.store = store;
@@ -156,13 +160,36 @@ export class FakeImapServer {
     return client;
   }
 
+  /**
+   * Plaintext connection for STARTTLS. It offers STARTTLS when `options.starttls` is set; the
+   * client's `upgradeTls` serves the same connection again under TLS, without a new greeting.
+   */
+  connectPlain(): FakeMailSocket {
+    const { client, server } = fakeSocketPair();
+    const conn = { loggedIn: false, closed: false };
+    this.connections.push(conn);
+    void this.#serve(server, conn, { plain: true }).catch(() => undefined);
+    return {
+      ...client,
+      upgradeTls: async () => {
+        this.tlsUpgrades += 1;
+        const tls = fakeSocketPair();
+        void this.#serve(tls.server, conn, { greet: false }).catch(() => undefined);
+        return tls.client;
+      },
+    };
+  }
+
   async #serve(
     socket: FakeMailSocket,
     conn: { loggedIn: boolean; closed: boolean },
+    mode: { plain?: boolean; greet?: boolean } = {},
   ): Promise<void> {
     const reader = new FakeLineReader(socket);
     const send = (line: string) => socket.write(`${line}\r\n`);
-    await send(`* OK [CAPABILITY ${this.capabilities.join(" ")}] fake IMAP ready`);
+    const canStarttls = mode.plain === true && this.options.starttls === true;
+    const caps = canStarttls ? [...this.capabilities, "STARTTLS"] : this.capabilities;
+    if (mode.greet !== false) await send(`* OK [CAPABILITY ${caps.join(" ")}] fake IMAP ready`);
     let selected: string | undefined;
     for (;;) {
       const read = await this.#readCommand(reader, send);
@@ -173,8 +200,16 @@ export class FakeImapServer {
       const no = (text: string) => send(`${tag} NO ${text}`);
       const bad = (text: string) => send(`${tag} BAD ${text}`);
       if (name === "CAPABILITY") {
-        await send(`* CAPABILITY ${this.capabilities.join(" ")}`);
+        await send(`* CAPABILITY ${caps.join(" ")}`);
         await ok();
+        continue;
+      }
+      if (name === "STARTTLS") {
+        if (canStarttls) {
+          await ok("Begin TLS negotiation now");
+          return;
+        }
+        await bad("STARTTLS not available");
         continue;
       }
       if (name === "NOOP" || name === "ID" || name === "ENABLE") {
