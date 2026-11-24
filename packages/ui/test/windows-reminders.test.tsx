@@ -24,6 +24,39 @@ afterEach(() => {
 const reminders = CAPABILITIES.find((c) => c.id === "reminders");
 
 describe("To Do as the Reminders capability", () => {
+  it("a Google-only owner with the Tasks scope gets Reminders; Google without Tasks does not", () => {
+    if (reminders === undefined) throw new Error("no reminders capability");
+    const withTasks = connectedTypesOf([
+      {
+        type: "google",
+        status: "connected",
+        scopes: [
+          "https://www.googleapis.com/auth/gmail.readonly",
+          "https://www.googleapis.com/auth/tasks.readonly",
+        ],
+      },
+    ]);
+    expect(withTasks.has("google:tasks")).toBe(true);
+    expect(isAvailable(reminders, withTasks)).toBe(true);
+    const beforeTasks = connectedTypesOf([
+      {
+        type: "google",
+        status: "connected",
+        scopes: ["https://www.googleapis.com/auth/gmail.readonly"],
+      },
+    ]);
+    expect(beforeTasks.has("google:tasks")).toBe(false);
+    expect(isAvailable(reminders, beforeTasks)).toBe(false);
+    const googleNeedsAuth = connectedTypesOf([
+      {
+        type: "google",
+        status: "needs_auth",
+        scopes: ["https://www.googleapis.com/auth/tasks"],
+      },
+    ]);
+    expect(isAvailable(reminders, googleNeedsAuth)).toBe(false);
+  });
+
   it("a Microsoft 365 connection with the To Do scope unlocks Reminders; one without does not", () => {
     if (reminders === undefined) throw new Error("no reminders capability");
     const withTodo = connectedTypesOf([

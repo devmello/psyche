@@ -118,7 +118,7 @@ Global controls on every step: **Back**, **Skip** (where allowed), **Continue**.
 
 | Connector | Card text | Notes shown on connect |
 | --- | --- | --- |
-| Google (Gmail, Calendar, Drive) | "Mail, calendar and the Drive files you pick." | See "Setting up Google" below. · "Drive access is limited to files {agent} creates or you open with it." |
+| Google (Gmail, Calendar, Drive) | "Mail, calendar, the Drive files you pick and your tasks." | See "Setting up Google" below. · "Drive access is limited to files {agent} creates or you open with it." |
 | Microsoft (Outlook, OneDrive) | "Outlook mail and calendar, OneDrive files." | "Sign in with your Microsoft account in the window that opens." |
 | Other mail (IMAP) | "Any mail account with IMAP and SMTP." | "Use an app password from your mail provider, not your main password. Psyche stores it in the vault; {agent} never sees it." |
 | Fastmail | "Mail and calendar through Fastmail's API." | "Create an API token in Fastmail → Settings → Privacy & Security, then paste it here. It goes straight into the vault." |

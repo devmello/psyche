@@ -19,7 +19,8 @@ import {
  */
 /**
  * The connected connector types, plus `microsoft:todo` for a Microsoft 365 connection that holds
- * the To Do scope (one made before To Do has none until it is reconnected).
+ * the To Do scope, and `google:tasks` for a Google connection that holds the Tasks scope (one
+ * made before Tasks was added has none until it is reconnected).
  */
 export function connectedTypesOf(
   connectors: readonly { type: string; status: string; scopes: readonly string[] }[],
@@ -30,6 +31,8 @@ export function connectedTypesOf(
     out.add(c.type);
     if (c.type === "microsoft" && c.scopes.some((s) => /(^|\/)tasks\.read(write)?$/i.test(s)))
       out.add("microsoft:todo");
+    if (c.type === "google" && c.scopes.some((s) => /(^|\/)tasks(\.readonly)?$/i.test(s)))
+      out.add("google:tasks");
   }
   return out;
 }
