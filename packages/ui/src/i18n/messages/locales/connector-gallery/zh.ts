@@ -22,7 +22,7 @@ export const connectorGallery: Partial<Catalogue> = {
   "gallery.category.everyday": "日常",
   "gallery.category.finance": "财务",
   "gallery.category.custom": "你自己的",
-  "gallery.builtin.google": "Gmail、Google 日历和云端硬盘。",
+  "gallery.builtin.google": "Gmail、Google 日历、云端硬盘和任务。",
   "gallery.builtin.microsoft": "Outlook 邮件和日历。",
   "gallery.builtin.imap": "任何支持 IMAP 的邮件账户。",
   "gallery.builtin.appleNotes": "读取并添加到你在 Apple 备忘录中的备忘录。",

@@ -22,7 +22,7 @@ export const connectorGallery: Partial<Catalogue> = {
   "gallery.category.everyday": "اليومي",
   "gallery.category.finance": "المالية",
   "gallery.category.custom": "خاصتك",
-  "gallery.builtin.google": "Gmail وتقويم Google وDrive.",
+  "gallery.builtin.google": "Gmail وتقويم Google وDrive والمهام.",
   "gallery.builtin.microsoft": "بريد Outlook وتقويمه.",
   "gallery.builtin.imap": "أي حساب بريد يدعم IMAP.",
   "gallery.builtin.appleNotes": "اقرأ ملاحظاتك في Apple Notes وأضف إليها.",

@@ -181,7 +181,7 @@ export const settingsE: Partial<Catalogue> = {
   "gallery.category.everyday": "Día a día",
   "gallery.category.finance": "Finanzas",
   "gallery.category.custom": "Los tuyos",
-  "gallery.builtin.google": "Gmail, Google Calendar y Drive.",
+  "gallery.builtin.google": "Gmail, Google Calendar, Drive y Tareas.",
   "gallery.builtin.microsoft": "Correo y calendario de Outlook.",
   "gallery.builtin.imap": "Cualquier cuenta de correo compatible con IMAP.",
   "gallery.builtin.appleNotes": "Lee y añade a tus notas en Apple Notas.",

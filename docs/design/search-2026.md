@@ -4,7 +4,7 @@ Status: plan and spec. Phases S1–S2 are being built first, then S3. This exten
 
 ## 1. Problem
 
-The Search screen and ⌘K both answer with "Search failed (search.query is not implemented yet)."
+The Search screen and ⌘K used to answer with "Search failed (search.query is not implemented yet)." `search.query` is now implemented in the Gateway (`apps/gateway/src/compose/search.ts`).
 
 `packages/search` already has a complete lexical engine:
 

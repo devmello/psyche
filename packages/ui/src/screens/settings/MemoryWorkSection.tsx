@@ -35,7 +35,7 @@ export type WorkList = TrustSource & { source?: string };
 /**
  * The lists work tracking can follow: the helper's Reminders lists (Apple Reminders, or Outlook
  * tasks through the Windows helper) and every other Reminders backend the Gateway reads through
- * its connector (`memory.work.lists`: Microsoft To Do). The helper being away is only an error
+ * its connector (`memory.work.lists`: Microsoft To Do or Google Tasks). The helper being away is only an error
  * when nothing else has lists either.
  */
 export function useWorkLists(enabled: boolean): {

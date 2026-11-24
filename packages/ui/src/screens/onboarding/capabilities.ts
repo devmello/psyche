@@ -12,9 +12,10 @@ const CALENDAR: CapabilityNeed = { anyOf: ["apple:calendar", "google", "microsof
 /**
  * `apple:reminders` is Reminders on a Mac and Outlook Tasks through the Windows helper (the same
  * type). `microsoft:todo` is Microsoft To Do: a Microsoft 365 connection that holds the To Do
- * scope (`connectedTypesOf`).
+ * scope. `google:tasks` is Google Tasks: a Google connection that holds the Tasks scope
+ * (`connectedTypesOf`).
  */
-const REMINDERS: CapabilityNeed = { anyOf: ["apple:reminders", "microsoft:todo"] };
+const REMINDERS: CapabilityNeed = { anyOf: ["apple:reminders", "microsoft:todo", "google:tasks"] };
 const NOTES: CapabilityNeed = { anyOf: ["apple:notes", "obsidian"] };
 
 export const CAPABILITY_IDS = [

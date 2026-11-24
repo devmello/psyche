@@ -94,7 +94,7 @@ const NO_HELPER = "the Mac helper is not connected";
 const WINDOWS_NOT_CONNECTED = {
   mail: "neither Outlook nor a Microsoft 365 or Google account is connected",
   calendar: "neither Outlook nor a Microsoft 365 or Google account is connected",
-  reminders: "neither Outlook nor Microsoft To Do (Microsoft 365) is connected",
+  reminders: "neither Outlook, Microsoft To Do (Microsoft 365) nor Google Tasks is connected",
   notes: NOT_CONNECTED,
 } as const;
 /**

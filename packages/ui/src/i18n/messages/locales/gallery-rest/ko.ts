@@ -24,7 +24,7 @@ export const galleryRest: Partial<Catalogue> = {
   "gallery.category.everyday": "일상",
   "gallery.category.finance": "금융",
   "gallery.category.custom": "직접 추가",
-  "gallery.builtin.google": "Gmail, Google 캘린더, 드라이브.",
+  "gallery.builtin.google": "Gmail, Google 캘린더, 드라이브, 할 일.",
   "gallery.builtin.microsoft": "Outlook 메일과 캘린더.",
   "gallery.builtin.imap": "IMAP을 지원하는 모든 메일 계정.",
   "gallery.builtin.appleNotes": "Apple 메모의 메모를 읽고 추가합니다.",

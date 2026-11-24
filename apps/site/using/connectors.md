@@ -68,7 +68,7 @@ The server's tools appear to the agent as `mcp__<server>__<tool>`. How Psyche tr
 
 ### Google (once it can be connected)
 
-Gmail, Google Calendar and Google Drive, on your own Google Cloud OAuth client, so your mail never passes through anyone else's server. You choose **Read only** or **Read and act** when you connect, and Drive is limited to files the agent creates or you open with it. See the [Connectors guide](/guides/connectors).
+Gmail, Google Calendar, Google Drive and Google Tasks, on your own Google Cloud OAuth client, so your mail never passes through anyone else's server. You choose **Read only** or **Read and act** when you connect, and Drive is limited to files the agent creates or you open with it. See the [Connectors guide](/guides/connectors).
 
 ### Shopping
 
