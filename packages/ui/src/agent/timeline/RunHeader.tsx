@@ -50,7 +50,7 @@ export function runGlyph(status: RunStatus): StepStatusKind {
   }
 }
 
-function stateLabel(status: RunStatus, partial = false): string {
+export function stateLabel(status: RunStatus, partial = false): string {
   if (partial && status === "done") return t("agent.timeline.state.partial");
   const key = status === "awaiting_approval" || status === "awaiting_input" ? "waiting" : status;
   return t(`agent.timeline.state.${key}` as MessageId);
