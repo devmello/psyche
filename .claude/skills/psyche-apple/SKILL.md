@@ -26,6 +26,9 @@ description: Building and testing Psyche's Swift code on this Mac. Covers the Ma
 
 - Boot one simulator at most, and shut it down when done. It is moderately memory-heavy.
 - `Activity.request` is refused while the app is in the background, so a Live Activity can't start from a timer. Start it on resign-active and again on return for anything already past its threshold (`ChatTurnActivityHost`, #1305). To test the background moment: `xcrun simctl launch booted com.apple.mobilesafari`.
+- **Fixtures with every backend method.** A new backend method or a model field that gates UI (Edit buttons, a screen) gets a `FixtureBackend` implementation with plausible data in the same PR. The protocol default that throws `notFound` leaves demo mode (`-psycheScenario live`) showing "Couldn't load this" and hidden buttons (#1553-#1557: `memoryFiles`, `memoryFile`, `entityKind`, `updateEntity`, person/project `card`).
+- **Validation shows late.** Show a field error only after that field was edited, or on Save, and keep Save disabled meanwhile. A red error on an untouched new form (automation editor, #1556) reads as broken.
+- **Simulator etiquette.** If the simulator tool says another session uses a device, pick a different one; never more than one per agent. Demo mode is `-psycheScenario live` (debug-only, `apps/ios/App/PsycheApp.swift:23-28`). Build with `CODE_SIGNING_ALLOWED=NO` and `-derivedDataPath` inside your worktree.
 - Delete untracked build output (`apps/ios/.build-ios`) before `verify.sh`: biome lints it.
 - Free Personal Team signing means no APNs, so Live Activities can't get remote pushes. They must update locally or count on their own, with `Text(timerInterval:)` and `staleDate`.
 - Localize every string in `Localizable.xcstrings` in all 10 languages, with `bundle: .module` in package targets (see `psyche-i18n`).
