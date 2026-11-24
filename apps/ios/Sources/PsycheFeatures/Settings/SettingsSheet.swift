@@ -67,6 +67,29 @@ final class SettingsModel {
         }
     }
 
+    /// "Share location with Psyche". Shows the new value at once; iOS permission is asked only when it goes on,
+    /// and a refusal puts the switch back off with a line that says where to change it.
+    func setShareLocation(_ on: Bool) async {
+        guard var loaded = phase.value, loaded.settings.shareLocation != on else { return }
+        loaded.settings.shareLocation = on
+        phase = .loaded(loaded)
+        func putBack() {
+            if var current = phase.value {
+                current.settings.shareLocation = !on
+                phase = .loaded(current)
+            }
+        }
+        do {
+            if try await store.setLocationSharing(on) == .permissionDenied {
+                putBack()
+                notice = String(localized: "Location is off for Psyche in the iOS Settings app. Turn it on there, then try again.", bundle: .module)
+            }
+        } catch {
+            putBack()
+            notice = error.localizedDescription
+        }
+    }
+
     /// Asks the Gateway to forget this phone. Returns whether the caller should now leave to pairing.
     func removeThisPhone() async -> Bool {
         removing = true
@@ -218,6 +241,16 @@ struct SettingsSheet: View {
         }
 
         stayConnectedSection(settings)
+
+        section(
+            String(localized: "Location", bundle: .module),
+            footer: String(
+                localized: "Off by default. When on, Psyche on your Mac can ask where this phone is, but only while Psyche is open on this phone. It never tracks you in the background or keeps a history of where you've been, and your location goes only to your Mac.",
+                bundle: .module)
+        ) {
+            toggleRow(
+                String(localized: "Share location with Psyche", bundle: .module), isOn: shareLocationBinding(settings), last: true)
+        }
 
         section("Approvals", footer: String(localized: "Asks for Face ID before you allow a risky action from this phone.", bundle: .module)) {
             toggleRow(String(localized: "Face ID for approvals", bundle: .module), isOn: binding(\.faceIDForApprovals, settings), last: true)
@@ -421,6 +454,12 @@ struct SettingsSheet: View {
                     }
                 }
             })
+    }
+
+    private func shareLocationBinding(_ settings: PhoneSettings) -> Binding<Bool> {
+        Binding(
+            get: { settings.shareLocation },
+            set: { value in Task { await model.setShareLocation(value) } })
     }
 
     private func liveActivitiesBinding(_ settings: PhoneSettings) -> Binding<Bool> {

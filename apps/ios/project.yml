@@ -80,6 +80,8 @@ targets:
         NSLocalNetworkUsageDescription: Psyche connects to your Mac on your home network. It does not look for other devices.
         NSMicrophoneUsageDescription: Psyche listens only while you dictate a message, and the speech is turned into text on this iPhone.
         NSSpeechRecognitionUsageDescription: Psyche turns your dictation into text, on this iPhone when your language supports it.
+        # When-In-Use only, asked only when the owner switches on "Share location with Psyche". No `location` background mode, never "Always".
+        NSLocationWhenInUseUsageDescription: Psyche shares where this iPhone is with your Mac, only while Psyche is open and only if you switch on Share location with Psyche in Settings.
         NSFaceIDUsageDescription: Psyche asks for Face ID before it allows a payment or another sensitive action from your phone.
         LSApplicationQueriesSchemes: [tailscale]
         # Live Activities for a running task, updated by the app itself (no APNs without a paid account).

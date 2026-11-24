@@ -43,6 +43,7 @@ final class FakeGateway: @unchecked Sendable {
     private var _pings = 0
     private var _certificate: PeerCertificate? = .trusted
     private var _vouch: Vouch = .valid
+    private var _responses: [WireResFrame] = []
 
     /// The key this Gateway signs with (a second Gateway in a test has its own).
     let identity: Curve25519.Signing.PrivateKey
@@ -58,6 +59,9 @@ final class FakeGateway: @unchecked Sendable {
     var malform: Malform { get { lock.withLock { _malform } } set { lock.withLock { _malform = newValue } } }
     var lie: Lie { get { lock.withLock { _lie } } set { lock.withLock { _lie = newValue } } }
     var received: [WireReqFrame] { lock.withLock { _received } }
+    /// What the phone answered to requests this Gateway sent it (`push(request:)`).
+    var responses: [WireResFrame] { lock.withLock { _responses } }
+    func noteResponse(_ res: WireResFrame) { lock.withLock { _responses.append(res) } }
     var connectCount: Int { lock.withLock { _connects } }
     /// While true, new sockets fail at once (the Gateway is off).
     var down: Bool { get { lock.withLock { _dropConnections } } set { lock.withLock { _dropConnections = newValue } } }
@@ -166,8 +170,11 @@ final class FakeTransport: WebSocketTransport, @unchecked Sendable {
 
     func send(_ frame: Data) async throws {
         if gateway.down { throw TransportClosed() }
-        guard case .req(let req)? = try? WireFrame.decode(frame) else { return }
-        gateway.handle(req, on: self)
+        switch try? WireFrame.decode(frame) {
+        case .req(let req)?: gateway.handle(req, on: self)
+        case .res(let res)?: gateway.noteResponse(res)
+        default: return
+        }
     }
 
     func receive() async throws -> Data {
@@ -198,6 +205,11 @@ final class FakeTransport: WebSocketTransport, @unchecked Sendable {
         case .failure(let error): frame = WireResFrame(id: id, ok: false, error: error)
         }
         if let data = try? WireFrame.res(frame).encode() { sink.yield(data) }
+    }
+
+    /// The Gateway calls the phone (`node.invoke`).
+    func push(request: WireReqFrame) {
+        if let data = try? WireFrame.req(request).encode() { sink.yield(data) }
     }
 
     func push(event: String, payload: JSONValue, seq: Int, stateVersion: Int) {

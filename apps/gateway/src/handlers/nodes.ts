@@ -1,10 +1,11 @@
-import { getNode } from "@psyche/db";
+import { getDevice, getDeviceFamily, getNode } from "@psyche/db";
 import {
   type ErrorPayload,
   isHostHelperKind,
   type JsonObject,
   type NodeEventParams,
   type NodeResultParams,
+  PHONE_CAPABILITY_NAMES,
   PsycheError,
   type Receipt,
   type ToolCallIntent,
@@ -35,11 +36,13 @@ import { isMachineInvokeReachable } from "../nodes/machines.ts";
  * nor an agent tool can start, stop or read a recording, on any node.
  * `presence.*` is the helper's Touch ID / Windows Hello key: only the Gateway picks what it signs
  * (a window's approval, `approvals.approveWithTouchId`) and reads the key it registers.
+ * `location.*` is the owner's phone position: only the agent's `location_current` tool reads it
+ * (it records the use), never a client through `nodes.invoke`.
  * `chrome.*` reads the owner's open browser tabs: never through `nodes.invoke` on any node (the
  * Host helper's are already behind the allowlist below; this keeps a remote node's out too).
  */
 const UNREACHABLE =
-  /^(vault|keychain|settings|permissions|grants|approvals|devices|gateway|dictation|apps|computer|messages|notify|screen|ocr|llm|presence|teach|chrome|vscreen)([^a-z0-9]|$)/;
+  /^(vault|keychain|settings|permissions|grants|approvals|devices|gateway|dictation|apps|computer|messages|notify|screen|ocr|llm|presence|teach|chrome|vscreen|location)([^a-z0-9]|$)/;
 
 /**
  * The helper's own notification permission, which the desktop's onboarding and Settings read and
@@ -235,6 +238,39 @@ export const nodesHandlers: Record<string, HandlerDef> = {
       if (result.error !== undefined) out.error = result.error;
       if (receipt) out.receipt = receipt;
       return out;
+    },
+  },
+  // The owner's phone offering `location.current` (and nothing else) on its operator connection.
+  "phone.capabilities.set": {
+    run(call: Call, params: { capabilities: string[] }) {
+      const { ctx, identity } = call;
+      const device = getDevice(ctx.db, identity.deviceId);
+      // Only the owner's own paired iPhone/iPad: an iOS device row whose family was pinned when it
+      // paired (a device cannot change it later), on a client connection that is not the desktop,
+      // a Host helper, a machine or a guest.
+      if (
+        identity.role !== "client" ||
+        identity.hostHelper === true ||
+        identity.machine === true ||
+        identity.guestContainer !== undefined ||
+        identity.desktopShell === true ||
+        device === undefined ||
+        device.revokedAt ||
+        device.platform !== "ios" ||
+        getDeviceFamily(ctx.db, identity.deviceId) !== "ios"
+      ) {
+        throw new PsycheError(
+          "forbidden",
+          "Only the owner's paired iPhone can offer phone capabilities",
+        );
+      }
+      const wanted = params.capabilities.filter((c) =>
+        (PHONE_CAPABILITY_NAMES as readonly string[]).includes(c),
+      );
+      const node = ctx.nodes.setPhoneCapabilities(call.conn, identity, wanted);
+      return {
+        capabilities: (node?.status === "online" ? node.capabilities : []).map((c) => c.name),
+      };
     },
   },
   // Node → Gateway halves of the node protocol (scope `node`).
