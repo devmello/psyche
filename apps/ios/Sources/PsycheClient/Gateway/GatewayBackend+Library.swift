@@ -20,6 +20,8 @@ extension GatewayBackend {
     static let cacheMaxBytes = 200 * 1024 * 1024
 
     public func library(section: LibrarySection) async throws -> [LibraryItem] {
+        // One Artifacts list: the artifacts themselves (`artifacts.list`), not the library's artifact files.
+        if section == .artifacts { return try await artifactLibraryRows() }
         let result = try await call("library.list", .obj(["kind": .string(Self.wireKind(of: section)), "limit": .number(100)]))
         return (result["items"]?.array ?? []).compactMap { item in
             guard item["quarantined"]?.bool != true else { return nil }
