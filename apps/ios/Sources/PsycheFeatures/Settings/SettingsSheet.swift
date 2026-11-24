@@ -269,6 +269,11 @@ struct SettingsSheet: View {
 
         computersSection(loaded.machines)
 
+        section(String(localized: "Standing permissions", bundle: .module)) {
+            NavigationLink { StandingPermissionsView(store: store) } label: { actionRow(String(localized: "Standing permissions", bundle: .module), destructive: false) }
+                .buttonStyle(.plain)
+        }
+
         section(String(localized: "Skills", bundle: .module)) {
             NavigationLink { SkillsView(store: store) } label: { actionRow(String(localized: "Skills", bundle: .module), destructive: false) }
                 .buttonStyle(.plain)
