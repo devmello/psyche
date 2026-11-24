@@ -19,6 +19,13 @@ import {
 import { ApprovalCard } from "../../blocks/ApprovalCard.tsx";
 import { Button } from "../../components/ui/button.tsx";
 import { Checkbox } from "../../components/ui/checkbox.tsx";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "../../components/ui/dialog.tsx";
 import { Input } from "../../components/ui/input.tsx";
 import { Label } from "../../components/ui/label.tsx";
 import { Switch } from "../../components/ui/switch.tsx";
@@ -539,6 +546,257 @@ export interface SkillsPanelProps extends LoadProps {
   suggestions?: ReactNode;
   /** Lessons written to skills' `LESSONS.md` (teaching loop §5.2): "3 lessons from you". */
   lessons?: readonly Lesson[];
+  /** Search the installed and bundled skills (`skills.search`); the field is hidden without it. */
+  onSearch?: (query: string) => Promise<readonly SkillHit[]>;
+  /** The full skill and its `SKILL.md` text (`skills.get`) for the detail view. */
+  onLoadDetail?: (target: SkillTarget) => Promise<SkillDetailLoad>;
+}
+
+/** A skill as `skills.get` addresses it: its name and the source copy the owner means. */
+type SkillTarget = { name: string; source: SkillDetails["source"] };
+type SkillDetailLoad = { skill: SkillDetails; text: string | null };
+/** A search hit (`skills.search`): a summary, not the full row. */
+type SkillHit = Pick<
+  SkillDetails,
+  "name" | "description" | "source" | "trust" | "enabled" | "path"
+>;
+
+function skillSourceLabel(source: SkillDetails["source"]): string {
+  switch (source) {
+    case "workspace":
+      return t("settings.skills.detail.workspace");
+    case "home":
+      return t("settings.skills.detail.home");
+    default:
+      return t("settings.skills.trust.bundled");
+  }
+}
+
+/** Settles on `value` once it has stopped changing for `ms`. */
+function useDebounced<T>(value: T, ms: number): T {
+  const [settled, setSettled] = useState(value);
+  useEffect(() => {
+    const id = setTimeout(() => setSettled(value), ms);
+    return () => clearTimeout(id);
+  }, [value, ms]);
+  return settled;
+}
+
+type SearchState =
+  | { status: "loading" }
+  | { status: "error"; reason: string }
+  | { status: "done"; skills: readonly SkillHit[] };
+
+/** Matches for the query, debounced; an empty result says so. */
+function SkillSearchResults({
+  query,
+  search,
+  onOpen,
+}: {
+  query: string;
+  search: (query: string) => Promise<readonly SkillHit[]>;
+  onOpen: (skill: SkillTarget) => void;
+}): ReactElement | null {
+  const term = useDebounced(query, 250);
+  const [state, setState] = useState<SearchState>({ status: "loading" });
+  // Searches only when the settled term changes, not when the parent hands over a new callback.
+  const searchRef = useRef(search);
+  useEffect(() => {
+    searchRef.current = search;
+  }, [search]);
+  useEffect(() => {
+    // Nothing is searched for an empty field: the normal list shows instead.
+    if (term === "") return;
+    let live = true;
+    setState({ status: "loading" });
+    searchRef.current(term).then(
+      (skills) => {
+        if (live) setState({ status: "done", skills });
+      },
+      (err: unknown) => {
+        if (live) setState({ status: "error", reason: messageOf(err) });
+      },
+    );
+    return () => {
+      live = false;
+    };
+  }, [term]);
+
+  if (query === "") return null;
+  if (state.status === "error") {
+    return (
+      <p role="alert" className="text-danger-text">
+        {t("settings.skills.search.failed", { reason: state.reason })}
+      </p>
+    );
+  }
+  if (state.status === "loading" || term !== query) {
+    return <p className="text-muted-foreground">{t("settings.skills.search.loading")}</p>;
+  }
+  if (state.skills.length === 0) {
+    return <EmptyNotice text={t("settings.skills.search.empty", { query: show(query, 80) })} />;
+  }
+  return (
+    <ul className="flex flex-col divide-y divide-gray-6" data-testid="skill-results">
+      {state.skills.map((s) => (
+        <li
+          key={`${s.source}:${s.name}`}
+          className="flex flex-col gap-1 py-3 first:pt-0 last:pb-0"
+          data-testid={`skill-hit-${s.name}`}
+        >
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              className="text-start font-medium hover:underline"
+              onClick={() => onOpen({ name: s.name, source: s.source })}
+            >
+              {show(s.name, 64)}
+            </button>
+            <StatusChip tone="info">{skillSourceLabel(s.source)}</StatusChip>
+          </div>
+          <p className="text-muted-foreground">{show(s.description, 400)}</p>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/** The skill's details and its `SKILL.md` text, read-only; the text is the publisher's data. */
+function SkillDetailDialog({
+  target,
+  onClose,
+  load,
+}: {
+  target: SkillTarget | null;
+  onClose: () => void;
+  load: (target: SkillTarget) => Promise<SkillDetailLoad>;
+}): ReactElement {
+  type DetailState =
+    | { status: "loading" }
+    | { status: "error"; reason: string }
+    | ({ status: "ready" } & SkillDetailLoad);
+  const [state, setState] = useState<DetailState>({ status: "loading" });
+  const name = target?.name;
+  const source = target?.source;
+  // Loads once per skill opened, not again when the parent hands over a new callback.
+  const loadRef = useRef(load);
+  useEffect(() => {
+    loadRef.current = load;
+  }, [load]);
+  useEffect(() => {
+    if (name === undefined || source === undefined) return;
+    let live = true;
+    setState({ status: "loading" });
+    loadRef.current({ name, source }).then(
+      (r) => {
+        if (live) setState({ status: "ready", ...r });
+      },
+      (err: unknown) => {
+        if (live) setState({ status: "error", reason: messageOf(err) });
+      },
+    );
+    return () => {
+      live = false;
+    };
+  }, [name, source]);
+
+  return (
+    <Dialog
+      open={target !== null}
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+    >
+      <DialogContent
+        className="max-h-[85vh] overflow-y-auto sm:max-w-lg"
+        data-testid="skill-detail"
+      >
+        <DialogHeader>
+          <DialogTitle>{show(name ?? "", 64)}</DialogTitle>
+          {state.status === "ready" ? (
+            <DialogDescription>{show(state.skill.description, 400)}</DialogDescription>
+          ) : null}
+        </DialogHeader>
+        {state.status === "loading" ? (
+          <p className="text-muted-foreground">{t("settings.skills.detail.loading")}</p>
+        ) : null}
+        {state.status === "error" ? (
+          <p role="alert" className="text-danger-text">
+            {t("settings.skills.detail.failed", { reason: state.reason })}
+          </p>
+        ) : null}
+        {state.status === "ready" ? (
+          <div className="flex flex-col gap-4">
+            <Facts
+              items={[
+                {
+                  term: t("settings.skills.detail.status"),
+                  value: t(`settings.skills.status.${state.skill.status}`),
+                },
+                {
+                  term: t("settings.skills.trust.source"),
+                  value: skillSourceLabel(state.skill.source),
+                },
+                { term: t("settings.skills.detail.path"), value: show(state.skill.path, 300) },
+                {
+                  term: t("settings.skills.trust.publisher"),
+                  value: trustLabel(state.skill.trust),
+                },
+              ]}
+            />
+            <div className="flex flex-col gap-2">
+              <h4 className="font-medium">{t("settings.skills.trust.findings")}</h4>
+              {state.skill.findings.length === 0 ? (
+                <p className="text-muted-foreground">{t("settings.skills.trust.clean")}</p>
+              ) : (
+                <ul className="flex flex-col gap-1">
+                  {state.skill.findings.map((f) => (
+                    <li
+                      key={`${f.rule}:${f.file ?? ""}:${f.line ?? 0}`}
+                      className="flex flex-wrap gap-2"
+                    >
+                      <StatusChip
+                        tone={
+                          f.severity === "high"
+                            ? "danger"
+                            : f.severity === "warn"
+                              ? "approval"
+                              : "info"
+                        }
+                      >
+                        {severityLabel(f.severity)}
+                      </StatusChip>
+                      <span className="min-w-0 flex-1">
+                        {show(f.message)}
+                        {f.file === undefined
+                          ? ""
+                          : ` (${show(f.file, 200)}${f.line === undefined ? "" : `:${f.line}`})`}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+            <div className="flex flex-col gap-2">
+              <h4 className="font-medium">{t("settings.skills.detail.text")}</h4>
+              {state.text === null ? (
+                <p className="text-muted-foreground">{t("settings.skills.detail.noText")}</p>
+              ) : (
+                <section
+                  aria-label={t("settings.skills.detail.text")}
+                  className="max-h-72 overflow-auto rounded-md bg-gray-3 p-3"
+                >
+                  <pre className="whitespace-pre-wrap break-words font-mono text-callout">
+                    {sanitizeBlock(state.text)}
+                  </pre>
+                </section>
+              )}
+            </div>
+          </div>
+        ) : null}
+      </DialogContent>
+    </Dialog>
+  );
 }
 
 function SkillRow({
@@ -549,6 +807,7 @@ function SkillRow({
   onReviewUpdate,
   onStartExport,
   onAuthor,
+  onOpen,
 }: {
   skill: SkillDetails;
   lessons?: readonly Lesson[];
@@ -557,6 +816,7 @@ function SkillRow({
   onReviewUpdate?: SkillsPanelProps["onReviewUpdate"];
   onStartExport?: (skill: SkillDetails) => void;
   onAuthor?: SkillsPanelProps["onAuthor"];
+  onOpen?: (skill: SkillTarget) => void;
 }): ReactElement {
   const id = useId();
   const persona = usePersona().name;
@@ -593,9 +853,20 @@ function SkillRow({
       data-testid={`skill-${skill.name}`}
     >
       <div className="flex flex-wrap items-center gap-2">
-        <span id={id} className="font-medium">
-          {name}
-        </span>
+        {onOpen ? (
+          <button
+            type="button"
+            id={id}
+            className="text-start font-medium hover:underline"
+            onClick={() => onOpen({ name: skill.name, source: skill.source })}
+          >
+            {name}
+          </button>
+        ) : (
+          <span id={id} className="font-medium">
+            {name}
+          </span>
+        )}
         <StatusChip tone={STATUS_TONE[skill.status]}>
           {t(`settings.skills.status.${skill.status}`)}
         </StatusChip>
@@ -772,18 +1043,26 @@ export function SkillsPanel({
   onAuthor,
   suggestions,
   lessons = [],
+  onSearch,
+  onLoadDetail,
   loading,
   error,
   onRetry,
 }: SkillsPanelProps): ReactElement {
   const inputId = useId();
   const fileId = useId();
+  const searchId = useId();
   const persona = usePersona().name;
   const [path, setPath] = useState("");
   const [pickError, setPickError] = useState<string | null>(null);
   // The skill being exported; its author name is asked only when no author key exists yet.
   const [exporting, setExporting] = useState<SkillDetails | null>(null);
   const [authorName, setAuthorName] = useState("");
+  const [query, setQuery] = useState("");
+  const trimmed = query.trim();
+  const searching = onSearch !== undefined && trimmed !== "";
+  const [opened, setOpened] = useState<SkillTarget | null>(null);
+  const openSkill = (s: SkillTarget) => setOpened({ name: s.name, source: s.source });
   const startExport = (s: SkillDetails) => {
     if (hasAuthorKey) onExport?.(s);
     else setExporting(s);
@@ -814,6 +1093,7 @@ export function SkillsPanel({
     ...(onReviewUpdate ? { onReviewUpdate } : {}),
     ...(onExport ? { onStartExport: startExport } : {}),
     ...(onAuthor ? { onAuthor } : {}),
+    ...(onLoadDetail ? { onOpen: openSkill } : {}),
   };
   return (
     <SectionFrame
@@ -847,162 +1127,191 @@ export function SkillsPanel({
             {notice}
           </p>
         ) : null}
+        {onSearch ? (
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor={searchId}>{t("settings.skills.search.label")}</Label>
+            <Input
+              id={searchId}
+              type="search"
+              value={query}
+              maxLength={2000}
+              placeholder={t("settings.skills.search.placeholder")}
+              onChange={(e) => setQuery(e.target.value)}
+            />
+          </div>
+        ) : null}
         {review ?? null}
-        {onReview && review === undefined ? (
-          <Group
-            title={t("settings.skills.install")}
-            description={t("settings.skills.installHint")}
-          >
-            <form
-              className="flex flex-col gap-2"
-              onSubmit={(e) => {
-                e.preventDefault();
-                submit();
-              }}
-            >
-              <Label htmlFor={inputId}>{t("settings.skills.pathLabel")}</Label>
-              <div className="flex flex-wrap gap-2">
-                <Input
-                  id={inputId}
-                  value={path}
-                  placeholder={t("settings.skills.pathPlaceholder")}
-                  onChange={(e) => setPath(e.target.value)}
-                  className="min-w-0 flex-1"
-                />
-                {onPickFolder ? (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => {
-                      setPickError(null);
-                      onPickFolder().then(
-                        (p) => {
-                          if (p === null) return;
-                          setPath(p);
-                          onReview(skillSourceOf(p));
-                        },
-                        (err: unknown) =>
-                          setPickError(t("settings.skills.pickFailed", { reason: messageOf(err) })),
-                      );
-                    }}
-                  >
-                    <FolderOpen aria-hidden="true" />
-                    {t("settings.skills.chooseFolder")}
-                  </Button>
-                ) : null}
-                <Button type="submit" disabled={reviewing || path.trim() === ""}>
-                  {reviewing ? t("settings.shortcut.checking") : t("settings.skills.review")}
-                </Button>
-              </div>
-              {onImportFile ? (
-                <div className="flex flex-wrap items-center gap-2">
-                  <input
-                    id={fileId}
-                    type="file"
-                    accept=".psyche-skill,application/json"
-                    className="sr-only"
-                    aria-label={t("settings.skills.import.file")}
-                    onChange={(e) => {
-                      readFile(e.target.files?.[0]);
-                      e.target.value = "";
-                    }}
+        {onSearch ? (
+          <SkillSearchResults query={trimmed} search={onSearch} onOpen={openSkill} />
+        ) : null}
+        {searching ? null : (
+          <>
+            {onReview && review === undefined ? (
+              <Group
+                title={t("settings.skills.install")}
+                description={t("settings.skills.installHint")}
+              >
+                <form
+                  className="flex flex-col gap-2"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    submit();
+                  }}
+                >
+                  <Label htmlFor={inputId}>{t("settings.skills.pathLabel")}</Label>
+                  <div className="flex flex-wrap gap-2">
+                    <Input
+                      id={inputId}
+                      value={path}
+                      placeholder={t("settings.skills.pathPlaceholder")}
+                      onChange={(e) => setPath(e.target.value)}
+                      className="min-w-0 flex-1"
+                    />
+                    {onPickFolder ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => {
+                          setPickError(null);
+                          onPickFolder().then(
+                            (p) => {
+                              if (p === null) return;
+                              setPath(p);
+                              onReview(skillSourceOf(p));
+                            },
+                            (err: unknown) =>
+                              setPickError(
+                                t("settings.skills.pickFailed", { reason: messageOf(err) }),
+                              ),
+                          );
+                        }}
+                      >
+                        <FolderOpen aria-hidden="true" />
+                        {t("settings.skills.chooseFolder")}
+                      </Button>
+                    ) : null}
+                    <Button type="submit" disabled={reviewing || path.trim() === ""}>
+                      {reviewing ? t("settings.shortcut.checking") : t("settings.skills.review")}
+                    </Button>
+                  </div>
+                  {onImportFile ? (
+                    <div className="flex flex-wrap items-center gap-2">
+                      <input
+                        id={fileId}
+                        type="file"
+                        accept=".psyche-skill,application/json"
+                        className="sr-only"
+                        aria-label={t("settings.skills.import.file")}
+                        onChange={(e) => {
+                          readFile(e.target.files?.[0]);
+                          e.target.value = "";
+                        }}
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        disabled={reviewing}
+                        onClick={() => document.getElementById(fileId)?.click()}
+                      >
+                        {t("settings.skills.import.file")}
+                      </Button>
+                      <p className="min-w-0 flex-1 text-callout text-muted-foreground">
+                        {t("settings.skills.import.hint")}
+                      </p>
+                    </div>
+                  ) : null}
+                  {pickError ? <ErrorNotice what={pickError} /> : null}
+                </form>
+              </Group>
+            ) : null}
+            {exporting !== null && onExport ? (
+              <Group
+                title={t("settings.skills.export.title", { name: show(exporting.name, 64) })}
+                description={t("settings.skills.export.hint")}
+              >
+                <form
+                  className="flex flex-col gap-2"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    if (authorName.trim() === "") return;
+                    onExport(exporting, authorName.trim());
+                    setExporting(null);
+                  }}
+                >
+                  <Label htmlFor={`${fileId}-author`}>
+                    {t("settings.skills.export.nameLabel")}
+                  </Label>
+                  <Input
+                    id={`${fileId}-author`}
+                    value={authorName}
+                    maxLength={64}
+                    onChange={(e) => setAuthorName(e.target.value)}
                   />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    disabled={reviewing}
-                    onClick={() => document.getElementById(fileId)?.click()}
-                  >
-                    {t("settings.skills.import.file")}
-                  </Button>
-                  <p className="min-w-0 flex-1 text-callout text-muted-foreground">
-                    {t("settings.skills.import.hint")}
+                  <p className="text-callout text-muted-foreground">
+                    {t("settings.skills.export.nameHint")}
                   </p>
-                </div>
-              ) : null}
-              {pickError ? <ErrorNotice what={pickError} /> : null}
-            </form>
-          </Group>
-        ) : null}
-        {exporting !== null && onExport ? (
-          <Group
-            title={t("settings.skills.export.title", { name: show(exporting.name, 64) })}
-            description={t("settings.skills.export.hint")}
-          >
-            <form
-              className="flex flex-col gap-2"
-              onSubmit={(e) => {
-                e.preventDefault();
-                if (authorName.trim() === "") return;
-                onExport(exporting, authorName.trim());
-                setExporting(null);
-              }}
+                  <div className="flex gap-2">
+                    <Button type="submit" disabled={authorName.trim() === ""}>
+                      {t("settings.skills.export.go")}
+                    </Button>
+                    <Button type="button" variant="ghost" onClick={() => setExporting(null)}>
+                      {t("common.cancel")}
+                    </Button>
+                  </div>
+                </form>
+              </Group>
+            ) : null}
+            {review === undefined ? (suggestions ?? null) : null}
+            <Group
+              title={t("settings.skills.installed")}
+              description={t("settings.skills.installedHint")}
             >
-              <Label htmlFor={`${fileId}-author`}>{t("settings.skills.export.nameLabel")}</Label>
-              <Input
-                id={`${fileId}-author`}
-                value={authorName}
-                maxLength={64}
-                onChange={(e) => setAuthorName(e.target.value)}
-              />
-              <p className="text-callout text-muted-foreground">
-                {t("settings.skills.export.nameHint")}
-              </p>
-              <div className="flex gap-2">
-                <Button type="submit" disabled={authorName.trim() === ""}>
-                  {t("settings.skills.export.go")}
-                </Button>
-                <Button type="button" variant="ghost" onClick={() => setExporting(null)}>
-                  {t("common.cancel")}
-                </Button>
-              </div>
-            </form>
-          </Group>
+              {installed.length === 0 ? (
+                <EmptyNotice text={t("settings.skills.noInstalled")} />
+              ) : (
+                <ul className="flex flex-col divide-y divide-gray-6">
+                  {installed.map((s) => (
+                    <SkillRow
+                      key={`${s.source}:${s.name}`}
+                      skill={s}
+                      lessons={lessons.filter(
+                        (l) => l.destination.type === "skill" && l.destination.skill === s.name,
+                      )}
+                      {...rowProps}
+                    />
+                  ))}
+                </ul>
+              )}
+            </Group>
+            {onToggle ? (
+              <AvailableSkills skills={skills} onEnable={(s) => onToggle(s, true)} />
+            ) : null}
+            <Advanced description={t("settings.skills.advancedHint")}>
+              {authorKeys ?? null}
+              <Group title={t("settings.skills.trust.bundled")}>
+                {bundled.length === 0 ? (
+                  <EmptyNotice text={t("settings.skills.noBundled")} />
+                ) : (
+                  <ul className="flex flex-col divide-y divide-gray-6">
+                    {bundled.map((s) => (
+                      <SkillRow
+                        key={`${s.source}:${s.name}`}
+                        skill={s}
+                        lessons={lessons.filter(
+                          (l) => l.destination.type === "skill" && l.destination.skill === s.name,
+                        )}
+                        {...rowProps}
+                      />
+                    ))}
+                  </ul>
+                )}
+              </Group>
+            </Advanced>
+          </>
+        )}
+        {onLoadDetail ? (
+          <SkillDetailDialog target={opened} onClose={() => setOpened(null)} load={onLoadDetail} />
         ) : null}
-        {review === undefined ? (suggestions ?? null) : null}
-        <Group
-          title={t("settings.skills.installed")}
-          description={t("settings.skills.installedHint")}
-        >
-          {installed.length === 0 ? (
-            <EmptyNotice text={t("settings.skills.noInstalled")} />
-          ) : (
-            <ul className="flex flex-col divide-y divide-gray-6">
-              {installed.map((s) => (
-                <SkillRow
-                  key={`${s.source}:${s.name}`}
-                  skill={s}
-                  lessons={lessons.filter(
-                    (l) => l.destination.type === "skill" && l.destination.skill === s.name,
-                  )}
-                  {...rowProps}
-                />
-              ))}
-            </ul>
-          )}
-        </Group>
-        {onToggle ? <AvailableSkills skills={skills} onEnable={(s) => onToggle(s, true)} /> : null}
-        <Advanced description={t("settings.skills.advancedHint")}>
-          {authorKeys ?? null}
-          <Group title={t("settings.skills.trust.bundled")}>
-            {bundled.length === 0 ? (
-              <EmptyNotice text={t("settings.skills.noBundled")} />
-            ) : (
-              <ul className="flex flex-col divide-y divide-gray-6">
-                {bundled.map((s) => (
-                  <SkillRow
-                    key={`${s.source}:${s.name}`}
-                    skill={s}
-                    lessons={lessons.filter(
-                      (l) => l.destination.type === "skill" && l.destination.skill === s.name,
-                    )}
-                    {...rowProps}
-                  />
-                ))}
-              </ul>
-            )}
-          </Group>
-        </Advanced>
       </LoadGate>
     </SectionFrame>
   );
@@ -1352,6 +1661,8 @@ export function SkillsSection({
         />
       }
       {...(onPickFolder ? { onPickFolder } : {})}
+      onSearch={(query) => call("skills.search", { query }).then((r) => r.skills)}
+      onLoadDetail={(target) => call("skills.get", target)}
       onToggle={(s, enabled) =>
         run(
           enabled ? "on" : "off",
