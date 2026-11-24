@@ -133,9 +133,7 @@ struct PersonPage: View {
             FactHistorySheet(entityID: id, fact: fact, store: store)
         }
         .sheet(item: $explainingFact) { fact in
-            if let claimID = fact.claimID {
-                FactExplainSheet(claimID: claimID, store: store)
-            }
+            FactExplainSheet(fact: fact)
         }
         .sheet(isPresented: $editingCard) {
             if let card = model.phase.value?.card {
@@ -223,8 +221,8 @@ struct PersonPage: View {
                 if fact.attribute != nil {
                     Button { historyFact = fact } label: { Label(String(localized: "History", bundle: .module), systemImage: "clock.arrow.circlepath") }
                 }
-                // Only a fact the Gateway ties to a memory claim can be explained (memory.explain takes a claim id).
-                if fact.claimID != nil {
+                // Any fact the Gateway sent with provenance: the sheet reads the fact itself.
+                if fact.provenance != nil {
                     Button { explainingFact = fact } label: { Label(String(localized: "Why do you believe this?", bundle: .module), systemImage: "questionmark.bubble") }
                         .accessibilityIdentifier("factRow.why")
                 }

@@ -47,9 +47,6 @@ public protocol MemoryBackend: Sendable {
     /// Every value a fact's attribute has had, newest first, current and earlier (memory.entities.history with the
     /// attribute). Read when the owner opens "History" on a fact, not on page load.
     func entityHistory(entityID: String, attribute: String) async throws -> [FactVersion]
-    /// "Why do you believe this?" on a fact: the claim, its confidence and the sources it rests on (memory.explain).
-    /// Read when the owner opens it, not on page load.
-    func explainFact(claimID: String) async throws -> FactExplanation
 }
 
 extension MemoryBackend {
@@ -68,7 +65,6 @@ extension MemoryBackend {
     public func undoChange(factID: String) async throws { throw BackendError.notFound }
     public func remember(text: String) async throws { throw BackendError.notFound }
     public func entityHistory(entityID: String, attribute: String) async throws -> [FactVersion] { throw BackendError.notFound }
-    public func explainFact(claimID: String) async throws -> FactExplanation { throw BackendError.notFound }
 
     // Additive: a backend that cannot edit facts yet says so, and the page offers "Edit on your Mac".
     public func confirmFact(personID: String, factID: String) async throws {
@@ -89,18 +85,41 @@ extension MemoryBackend {
     }
 }
 
-/// Why a fact is believed (memory.explain). `text` is the claim as a sentence; `sources` are the passages it rests on,
-/// as chips (`route` opens the workspace file they came from). The passage text itself is not carried here.
-public struct FactExplanation: Sendable, Equatable {
-    public var text: String
-    /// 0 to 1, when the Gateway sent one.
-    public var confidence: Double?
-    public var sources: [SourceRef]
+/// Where a fact came from and how sure Psyche is, from the graph fact itself (memory.entities.* facts). "Why do you
+/// believe this?" reads it. `evidence` is the quoted span the fact came from: someone else's words when `origin` is
+/// `.untrusted`, so it is shown as plain text only.
+public struct FactProvenance: Sendable, Equatable {
+    public enum Origin: Sendable, Equatable {
+        /// The owner's own words or edit.
+        case owner
+        /// Psyche inferred it (the rule or the model named by `extractor`).
+        case agent
+        /// Written by someone else (a message, a mail): untrusted text.
+        case untrusted
+        /// From the owner's data (a contact, a calendar entry, a file).
+        case system
+    }
 
-    public init(text: String, confidence: Double? = nil, sources: [SourceRef] = []) {
-        self.text = text
+    public var origin: Origin
+    /// 0 to 1.
+    public var confidence: Double?
+    /// The quoted span (at most 200 characters), untrusted text.
+    public var evidence: String?
+    /// Where it was read, as the kind words the Gateway names ("mail", "contacts", "chat"). Raw ids are not shown.
+    public var sourceKinds: [String]
+    public var firstSeen: Date?
+    public var lastSeen: Date?
+
+    public init(
+        origin: Origin, confidence: Double? = nil, evidence: String? = nil, sourceKinds: [String] = [],
+        firstSeen: Date? = nil, lastSeen: Date? = nil
+    ) {
+        self.origin = origin
         self.confidence = confidence
-        self.sources = sources
+        self.evidence = evidence
+        self.sourceKinds = sourceKinds
+        self.firstSeen = firstSeen
+        self.lastSeen = lastSeen
     }
 }
 
@@ -129,15 +148,15 @@ public struct MemoryFact: Sendable, Equatable, Identifiable {
     /// The Gateway's attribute (`role`, `city`, ...) and its raw value, for "Edit". Nil when unknown.
     public var attribute: String?
     public var value: String?
-    /// The memory claim behind this fact, for "Why do you believe this?". Nil when the Gateway didn't name one.
-    public var claimID: String?
+    /// Where the fact came from, for "Why do you believe this?". Nil when the Gateway sent none of it.
+    public var provenance: FactProvenance?
     /// Edit needs the Gateway's attribute: `memory.entities.facts.set` writes one value for one attribute. A fact
     /// without one has no Edit on the phone, and the Mac cannot edit it either. Forget still works.
     public var isEditable: Bool { attribute != nil }
 
     public init(
         id: String, text: String, evidence: [String], confirmed: Bool = false, attribute: String? = nil, value: String? = nil,
-        claimID: String? = nil
+        provenance: FactProvenance? = nil
     ) {
         self.id = id
         self.text = text
@@ -145,7 +164,7 @@ public struct MemoryFact: Sendable, Equatable, Identifiable {
         self.confirmed = confirmed
         self.attribute = attribute
         self.value = value
-        self.claimID = claimID
+        self.provenance = provenance
     }
 }
 

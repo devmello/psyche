@@ -353,7 +353,7 @@ extension GatewayBackend {
     /// The assignments that are part of project `id` (a `part_of` edge from the assignment to the project).
     static func children(of id: String, in detail: JSONValue) -> [JSONValue] {
         let childIDs = Set((detail["edges"]?.array ?? []).compactMap { edge -> String? in
-            guard edge["rel"]?.string == "part_of", edge["dst"]?.string == id, edge["retractedAt"] == nil else { return nil }
+            guard edge["rel"]?.string == "part_of", edge["dst"]?.string == id, edge["retractedAt"]?.isNull ?? true else { return nil }
             return edge["src"]?.string
         })
         return (detail["related"]?.array ?? []).filter {
@@ -405,7 +405,7 @@ extension GatewayBackend {
 
     static func personDetail(entity: JSONValue, facts: [JSONValue]) -> String {
         func value(_ attribute: String) -> String? {
-            facts.first { $0["attribute"]?.string == attribute && $0["retractedAt"] == nil }?["value"]?.string
+            facts.first { $0["attribute"]?.string == attribute && $0["retractedAt"]?.isNull ?? true }?["value"]?.string
         }
         let parts = [value("relationship_to_owner").map(humanized), value("role") ?? value("title"), value("employer")]
             .compactMap { $0 }
@@ -417,15 +417,45 @@ extension GatewayBackend {
     /// quarantined ones are not shown.
     static func facts(_ facts: [JSONValue]) -> [MemoryFact] {
         facts.compactMap { fact in
-            guard let id = fact["id"]?.string, let value = fact["value"]?.string, fact["retractedAt"] == nil,
-                fact["supersededBy"] == nil, !["discarded", "quarantined"].contains(fact["review"]?.string ?? "")
+            // An explicit JSON null is "not set", so the check reads `.isNull`, not Swift nil.
+            guard let id = fact["id"]?.string, let value = fact["value"]?.string, fact["retractedAt"]?.isNull ?? true,
+                fact["supersededBy"]?.isNull ?? true, !["discarded", "quarantined"].contains(fact["review"]?.string ?? "")
             else { return nil }
             let attribute = fact["attribute"]?.string ?? "note"
             let text = ["note", "preference"].contains(attribute) ? value : "\(attributeLabel(attribute)): \(value)"
             let owner = fact["provenance"]?.string == "owner" || fact["review"]?.string == "edited"
             return MemoryFact(
-                id: id, text: text, evidence: evidence(of: fact), confirmed: owner, attribute: fact["attribute"]?.string, value: value)
+                id: id, text: text, evidence: evidence(of: fact), confirmed: owner, attribute: fact["attribute"]?.string, value: value,
+                provenance: provenance(of: fact))
         }
+    }
+
+    /// "Why do you believe this?": the graph fact's own provenance, confidence, quoted span, sources and dates.
+    /// Read from the fact as the Gateway sent it, so nothing is fetched on tap.
+    static func provenance(of fact: JSONValue) -> FactProvenance {
+        let origin: FactProvenance.Origin = switch fact["provenance"]?.string {
+        case "owner": .owner
+        case "untrusted": .untrusted
+        case "system": .system
+        default: .agent
+        }
+        var kinds: [String] = []
+        for source in fact["sources"]?.array?.compactMap(\.string) ?? [] {
+            // "mail:m1" reads as "mail"; ids without a kind (a chunk, an interaction) name nothing the owner can see.
+            guard source.contains(":"), let word = source.split(separator: ":", maxSplits: 1).first.map(String.init),
+                !word.hasPrefix("int_"), !word.hasPrefix("lf_")
+            else { continue }
+            let kind = sourceWord(word)
+            if !kinds.contains(kind) { kinds.append(kind) }
+        }
+        let evidence = fact["evidence"]?.string.flatMap { $0.isEmpty ? nil : $0 }
+        return FactProvenance(
+            origin: origin,
+            confidence: fact["confidence"]?.double,
+            evidence: evidence,
+            sourceKinds: kinds,
+            firstSeen: WireFormat.date(fact["firstSeenAt"]?.string),
+            lastSeen: WireFormat.date(fact["lastSeenAt"]?.string))
     }
 
     /// "mail Oct 28", "contacts Nov 1": where the fact was read and when; "you" for the owner's own words.
