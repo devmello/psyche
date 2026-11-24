@@ -2,10 +2,11 @@ import PsycheDesign
 import PsycheStore
 import SwiftUI
 
-// The review queue on the Memory tab: "Held back" (items the Mac kept out of memory, with Release, Discard and Block
-// sender) and "Trusted senders" (offers to accept a contact's self-disclosures, and the ones already trusted).
-// Excerpts and names come from outside sources, so they are shown with `Text(verbatim:)` only: never Markdown,
-// links or data detectors. Discard and Block sender ask first; every other tap is plain.
+// The review queue on the Memory tab: "Trusted contacts" (offers to accept a contact's self-disclosures, and the ones
+// already trusted; a short list, so it comes first) and "Held back" (items the Mac kept out of memory, paged, with
+// Release, Discard and Block sender). Excerpts and names come from outside sources, so they are shown with
+// `Text(verbatim:)` only: never Markdown, links or data detectors. Discard and Block sender ask first, with a dialog
+// anchored to their own row; every other tap is plain.
 
 /// The Mac's wording for each quarantine reason (memoryReview.quarantine.reason.*). An unknown id gets the generic line.
 private func reasonLabel(_ reason: String) -> String {
@@ -87,10 +88,6 @@ final class HeldBackModel {
 
 struct HeldBackView: View {
     @State private var model: HeldBackModel
-    @State private var confirmingDiscard = false
-    @State private var pendingDiscard: HeldItem?
-    @State private var confirmingBlock = false
-    @State private var pendingBlock: HeldItem?
 
     init(store: any PsycheBackend) {
         _model = State(initialValue: HeldBackModel(store: store))
@@ -100,8 +97,8 @@ struct HeldBackView: View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 0) {
                 Text("Review", bundle: .module).psycheTitle().padding(.bottom, 16)
-                heldSection
                 senderSection
+                heldSection
             }
             .padding(PsycheMetrics.pagePadding)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -119,35 +116,13 @@ struct HeldBackView: View {
     }
 
     // Each row and the end sentinel are direct children of the LazyVStack: an inner stack would load every page at
-    // once (#1624). The `.task` and the dialogs sit on the header, not on a group.
+    // once (#1624). The `.task` sits on the header; each row owns its own confirmation dialogs, so they anchor there.
     @ViewBuilder
     private var heldSection: some View {
         let pager = model.held
         Text("Held back", bundle: .module).font(.headline).foregroundStyle(PsycheColor.text)
-            .padding(.top, 8).padding(.bottom, 4)
+            .padding(.top, 28).padding(.bottom, 4)
             .task { await pager.reload() }
-            .confirmationDialog(
-                String(localized: "Discard this item?", bundle: .module), isPresented: $confirmingDiscard,
-                titleVisibility: .visible
-            ) {
-                Button(String(localized: "Discard", bundle: .module), role: .destructive) {
-                    if let item = pendingDiscard { Task { await model.act(item, .discard) } }
-                }
-                Button(String(localized: "Cancel", bundle: .module), role: .cancel) {}
-            } message: {
-                Text("It stays out of memory.", bundle: .module)
-            }
-            .confirmationDialog(
-                String(localized: "Block this sender?", bundle: .module), isPresented: $confirmingBlock,
-                titleVisibility: .visible
-            ) {
-                Button(String(localized: "Block sender", bundle: .module), role: .destructive) {
-                    if let item = pendingBlock { Task { await model.act(item, .blockSender) } }
-                }
-                Button(String(localized: "Cancel", bundle: .module), role: .cancel) {}
-            } message: {
-                Text("Nothing else from them will be remembered.", bundle: .module)
-            }
         Text("Text Psyche kept out of memory. Nothing is remembered from it until you release it.", bundle: .module)
             .font(.subheadline).foregroundStyle(PsycheColor.muted).padding(.bottom, 12)
         switch pager.phase {
@@ -160,19 +135,8 @@ struct HeldBackView: View {
                 .font(.subheadline).foregroundStyle(PsycheColor.muted)
         case .loaded(let rows):
             ForEach(Array(rows.enumerated()), id: \.element.id) { index, item in
-                HeldItemRow(
-                    item: item,
-                    release: { Task { await model.act(item, .release) } },
-                    discard: {
-                        pendingDiscard = item
-                        confirmingDiscard = true
-                    },
-                    block: {
-                        pendingBlock = item
-                        confirmingBlock = true
-                    }
-                )
-                .cardRow(CardPosition(index: index, count: rows.count))
+                HeldItemRow(item: item) { action in Task { await model.act(item, action) } }
+                    .cardRow(CardPosition(index: index, count: rows.count))
             }
         }
         PagedRowsEnd(
@@ -184,7 +148,7 @@ struct HeldBackView: View {
     @ViewBuilder
     private var senderSection: some View {
         Text("Trusted contacts", bundle: .module).font(.headline).foregroundStyle(PsycheColor.text)
-            .padding(.top, 28).padding(.bottom, 4)
+            .padding(.top, 8).padding(.bottom, 4)
             .task { await model.loadSenders() }
         Text("People whose facts Psyche accepts without asking. Sensitive or unsure facts still wait for you.", bundle: .module)
             .font(.subheadline).foregroundStyle(PsycheColor.muted).padding(.bottom, 12)
@@ -206,11 +170,13 @@ struct HeldBackView: View {
 }
 
 /// One held item: the reasons in the Mac's words, where it came from, its text verbatim, and the owner's actions.
+/// Discard and Block sender confirm first; the dialogs belong to this row, so they anchor to the tapped row.
 private struct HeldItemRow: View {
     let item: HeldItem
-    let release: () -> Void
-    let discard: () -> Void
-    let block: () -> Void
+    let act: (HeldItemAction) -> Void
+
+    @State private var confirmingDiscard = false
+    @State private var confirmingBlock = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -222,27 +188,50 @@ private struct HeldItemRow: View {
             Text("Text from the item (not shown as formatted):", bundle: .module)
                 .font(.caption).foregroundStyle(PsycheColor.muted)
             Text(verbatim: item.excerpt)
-                .font(.system(.callout, design: .monospaced)).foregroundStyle(PsycheColor.muted)
+                .font(.footnote.monospaced()).foregroundStyle(PsycheColor.muted)
+                .lineLimit(4)
             HStack(spacing: 12) {
-                Button(action: release) {
+                Button(action: { act(.release) }) {
                     Text("Release", bundle: .module)
                 }
-                .buttonStyle(.psycheOutline)
+                .buttonStyle(.bordered)
                 .accessibilityHint(Text("Read it once more; anything found still waits for your review.", bundle: .module))
-                Button(action: discard) {
-                    Text("Discard", bundle: .module).font(.subheadline).foregroundStyle(PsycheColor.muted)
+                Button(action: { confirmingDiscard = true }) {
+                    Text("Discard", bundle: .module)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.borderless)
+                .foregroundStyle(PsycheColor.muted)
                 if item.senderEntityID != nil {
-                    Button(action: block) {
-                        Text("Block sender", bundle: .module).font(.subheadline).foregroundStyle(PsycheColor.muted)
+                    Button(action: { confirmingBlock = true }) {
+                        Text("Block sender", bundle: .module)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.borderless)
+                    .foregroundStyle(PsycheColor.muted)
                 }
+                Spacer(minLength: 0)
             }
+            .controlSize(.small)
         }
         .padding(PsycheMetrics.rowPadding)
         .frame(maxWidth: .infinity, alignment: .leading)
+        .confirmationDialog(
+            String(localized: "Discard this item?", bundle: .module), isPresented: $confirmingDiscard,
+            titleVisibility: .visible
+        ) {
+            Button(String(localized: "Discard", bundle: .module), role: .destructive) { act(.discard) }
+            Button(String(localized: "Cancel", bundle: .module), role: .cancel) {}
+        } message: {
+            Text("It stays out of memory.", bundle: .module)
+        }
+        .confirmationDialog(
+            String(localized: "Block this sender?", bundle: .module), isPresented: $confirmingBlock,
+            titleVisibility: .visible
+        ) {
+            Button(String(localized: "Block sender", bundle: .module), role: .destructive) { act(.blockSender) }
+            Button(String(localized: "Cancel", bundle: .module), role: .cancel) {}
+        } message: {
+            Text("Nothing else from them will be remembered.", bundle: .module)
+        }
     }
 }
 
