@@ -19,7 +19,7 @@ struct AutomationRunsScreen: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
+            LazyVStack(alignment: .leading, spacing: 18) {
                 switch model.phase {
                 case .idle, .loading:
                     ProgressView().frame(maxWidth: .infinity).padding(.top, 40)
@@ -38,14 +38,10 @@ struct AutomationRunsScreen: View {
                             }
                         }
                     }
-                    // The next page loads when this row appears; its cursor is its id, so each page is a new row.
-                    if model.moreFailed {
-                        FailedNotice { Task { await model.retryMore() } }
-                    } else if let cursor = model.nextCursor {
-                        PageSentinel(loading: model.loadingMore, label: String(localized: "Loading more runs", bundle: .module))
-                            .id(cursor)
-                            .onAppear { Task { await model.loadMore() } }
-                    }
+                    PagedRowsEnd(
+                        moreFailed: model.moreFailed, nextCursor: model.nextCursor, loadingMore: model.loadingMore,
+                        label: String(localized: "Loading more runs", bundle: .module),
+                        loadMore: { await model.loadMore() }, retryMore: { await model.retryMore() })
                 }
             }
             .padding(.horizontal, PsycheMetrics.pagePadding)
