@@ -502,6 +502,8 @@ export class MockGateway implements GatewayClient {
   mcpLauncher: "srt" | "container" | "vm" | "none" = "srt";
   /** MCP Apps by tool name (`mcp__<server>__<tool>`), for `mcp.app`. */
   mcpApps: Record<string, McpApp> = {};
+  /** `mcp.app.call` requests so far (tests). */
+  mcpAppCalls: { toolCallId: string; name: string; arguments?: Record<string, unknown> }[] = [];
   /** `sandbox.installSrt` calls so far, and an error to throw from it (tests). */
   installSrtCalls = 0;
   installSrtError: Error | null = null;
@@ -3355,6 +3357,14 @@ export class MockGateway implements GatewayClient {
     "mcp.app": (p: { tool: string }) => {
       const app = this.mcpApps[p.tool];
       return app === undefined ? { available: false } : { available: true, app };
+    },
+    "mcp.app.call": (p: {
+      toolCallId: string;
+      name: string;
+      arguments?: Record<string, unknown>;
+    }) => {
+      this.mcpAppCalls.push(p);
+      return { isError: false, output: { blocks: [{ type: "text", text: `ran ${p.name}` }] } };
     },
     "mcp.status": () => ({ launcher: this.mcpLauncher, servers: this.mcpServers }),
     "mcp.probe": (p) => {

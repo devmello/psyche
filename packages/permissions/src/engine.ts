@@ -900,10 +900,17 @@ export class PolicyEngine {
     // A matrix floor on a send / destructive / financial call yields to a standing grant the owner
     // made on such a card (Always allow, §3.12); every other floor asks first.
     let grantCovers: boolean | undefined;
+    // An MCP App's page chose these arguments: no standing grant (made for the owner's own request
+    // or the model's) approves a write or worse that it asked for. The owner's configured allow
+    // rules for the server still apply, so a server the owner allowed stays allowed.
+    const standing = !(ctx.initiator === "mcp_app" && SEVERITY[se] >= SEVERITY.write);
     const floor = floors.find((f) => {
       if (f.grantLiftable !== true) return true;
       grantCovers ??=
-        consult && !unbound && d.matchGrant(binding.grantKey, kind, se, ctx, origin) !== undefined;
+        consult &&
+        standing &&
+        !unbound &&
+        d.matchGrant(binding.grantKey, kind, se, ctx, origin) !== undefined;
       return !grantCovers;
     });
     if (floor !== undefined) return ask(floor.rule, floor.reason);
@@ -927,12 +934,12 @@ export class PolicyEngine {
     let allowed: Allowance | undefined;
     if (consult) {
       // Financial calls match only an `always` grant the owner confirmed (`allowedScopes`).
-      const g = d.matchGrant(binding.grantKey, kind, se, ctx, origin);
+      const g = standing ? d.matchGrant(binding.grantKey, kind, se, ctx, origin) : undefined;
       // An exec_host call no exact grant covers may still sit under a program grant (§5.4). It
       // needs no escalation of its own: a tainted turn asks below (`escalation`), env, network
       // and cwd-config programs never match.
       const hp =
-        g === undefined && kind === "exec_host" && !noAlways && !unbound
+        g === undefined && kind === "exec_host" && !noAlways && !unbound && standing
           ? d.hostProgramGrant?.(call, ctx)
           : undefined;
       if (g !== undefined && !unbound) allowed = { rule: `grant:${g.grant.id}`, grant: g };
