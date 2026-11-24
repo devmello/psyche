@@ -296,7 +296,7 @@ describe("removing a stored provider key in Settings", () => {
       ]),
     );
     await waitFor(() =>
-      expect(world().modelProviders?.find((p) => p.id === "anthropic")?.keyRef).toBeNull(),
+      expect(world().modelProviders?.find((p) => p.id === "anthropic")?.keyConfigured).toBe(false),
     );
     expect(screen.queryByRole("button", { name: "Remove the key for Anthropic" })).toBeNull();
   });
