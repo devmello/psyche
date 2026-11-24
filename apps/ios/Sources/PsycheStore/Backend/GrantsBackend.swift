@@ -16,7 +16,7 @@ public enum GrantSubject: Sendable, Equatable {
     /// A connector action or MCP tool, by its name.
     case named(String)
     /// A host program, in a folder, with any arguments or exactly these.
-    case hostProgram(program: String, folder: String, exactArguments: Bool)
+    case hostProgram(program: String, executable: String, folder: String, exactArguments: Bool)
     /// A command (`argv` joined), in a folder when known.
     case command(String, folder: String?)
     /// Sending email to these recipients, from an account when known.
@@ -25,6 +25,15 @@ public enum GrantSubject: Sendable, Equatable {
     case calendar(id: String?)
     /// Anything else: the grant key as written.
     case other(String)
+}
+
+extension GrantSubject {
+    /// A second line that tells apart what the first line can't: a host program grant is bound to one
+    /// executable, and its basename alone makes `/tmp/x/git` look like `/usr/bin/git`.
+    public var detail: String? {
+        if case .hostProgram(_, let executable, _, _) = self { return executable }
+        return nil
+    }
 }
 
 public enum GrantStatus: Sendable, Equatable {
