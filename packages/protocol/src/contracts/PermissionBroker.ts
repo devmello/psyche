@@ -180,7 +180,7 @@ export interface DecisionContext {
    * content, so the broker treats the call as tainted and never lets it ride a standing exec
    * grant or a trusted-site offer, whatever the turn's own taint says.
    */
-  initiator?: "mcp_app";
+  initiator?: "owner" | "agent" | "subagent" | "automation" | "content" | "mcp_app";
 }
 
 /**
