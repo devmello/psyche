@@ -203,7 +203,7 @@ struct PersonPage: View {
                 if !fact.confirmed {
                     Button { Task { await model.confirm(fact) } } label: { Label(String(localized: "That's right", bundle: .module), systemImage: "checkmark") }
                 }
-                if fact.attribute != nil {
+                if fact.isEditable {
                     Button { editing = fact } label: { Label(String(localized: "Edit", bundle: .module), systemImage: "pencil") }
                 }
                 Button(role: .destructive) { retracting = fact } label: { Label(String(localized: "Forget", bundle: .module), systemImage: "trash") }

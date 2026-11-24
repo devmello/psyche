@@ -62,6 +62,10 @@ public struct MemoryFact: Sendable, Equatable, Identifiable {
     /// The Gateway's attribute (`role`, `city`, ...) and its raw value, for "Edit". Nil when unknown.
     public var attribute: String?
     public var value: String?
+    /// Edit needs the Gateway's attribute: `memory.entities.facts.set` writes one value for one attribute. A fact
+    /// without one has no Edit on the phone, and the Mac cannot edit it either. Forget still works.
+    public var isEditable: Bool { attribute != nil }
+
     public init(
         id: String, text: String, evidence: [String], confirmed: Bool = false, attribute: String? = nil, value: String? = nil
     ) {
