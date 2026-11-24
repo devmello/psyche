@@ -1754,7 +1754,7 @@ export const pt: Partial<Catalogue> = {
   "settings.computerUse.tccState.not_determined": "Ainda não solicitada",
   "settings.computerUse.tccState.offline": "Auxiliar offline",
   "settings.computerUse.helperAccess.hint":
-    "O controle do computador roda no Psyche Helper. Em Ajustes do Sistema, ative “Psyche Helper”, não “Psyche”.",
+    "O controle do computador roda no Psyche Helper. Ative “Psyche Helper”, não “Psyche”.",
   "settings.computerUse.helperAccess.offline":
     "O Psyche Helper não está em execução, então não dá para ler as permissões dele. Ele inicia com o Psyche; feche e reabra o Psyche se continuar offline.",
   "settings.computerUse.helperAccess.allow": "Permitir o Psyche Helper",

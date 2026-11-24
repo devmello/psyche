@@ -1781,7 +1781,7 @@ export const ja: Partial<Catalogue> = {
   "settings.computerUse.tccState.not_determined": "まだ確認されていません",
   "settings.computerUse.tccState.offline": "ヘルパーはオフライン",
   "settings.computerUse.helperAccess.hint":
-    "コンピュータ操作は Psyche Helper で動きます。システム設定では「Psyche」ではなく「Psyche Helper」をオンにしてください。",
+    "コンピュータ操作は Psyche Helper で動きます。「Psyche」ではなく「Psyche Helper」をオンにしてください。",
   "settings.computerUse.helperAccess.offline":
     "Psyche Helper が起動していないため、権限を読み取れません。Psyche と一緒に起動します。オフラインのままなら Psyche を終了して開き直してください。",
   "settings.computerUse.helperAccess.allow": "Psyche Helper を許可",

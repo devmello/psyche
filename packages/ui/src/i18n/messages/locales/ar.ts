@@ -1835,7 +1835,7 @@ export const ar: Partial<Catalogue> = {
   "settings.computerUse.tccState.not_determined": "لم يُطلب بعد",
   "settings.computerUse.tccState.offline": "المساعد غير متصل",
   "settings.computerUse.helperAccess.hint":
-    "يعمل التحكم بالكمبيوتر داخل Psyche Helper. في إعدادات النظام، فعّل «Psyche Helper» وليس «Psyche».",
+    "يعمل التحكم بالكمبيوتر داخل Psyche Helper. فعّل «Psyche Helper» وليس «Psyche».",
   "settings.computerUse.helperAccess.offline":
     "Psyche Helper لا يعمل، لذا تتعذّر قراءة أذوناته. يبدأ مع Psyche؛ أغلق Psyche وأعد فتحه إن بقي غير متصل.",
   "settings.computerUse.helperAccess.allow": "السماح لـ Psyche Helper",

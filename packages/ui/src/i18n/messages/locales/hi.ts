@@ -1794,7 +1794,7 @@ export const hi: Partial<Catalogue> = {
   "settings.computerUse.tccState.not_determined": "अभी नहीं पूछा गया",
   "settings.computerUse.tccState.offline": "हेल्पर ऑफ़लाइन है",
   "settings.computerUse.helperAccess.hint":
-    "कंप्यूटर कंट्रोल Psyche Helper में चलता है। सिस्टम सेटिंग्स में “Psyche” नहीं, “Psyche Helper” चालू करें।",
+    "कंप्यूटर कंट्रोल Psyche Helper में चलता है। “Psyche” नहीं, “Psyche Helper” चालू करें।",
   "settings.computerUse.helperAccess.offline":
     "Psyche Helper चल नहीं रहा है, इसलिए उसकी अनुमतियाँ पढ़ी नहीं जा सकतीं। यह Psyche के साथ शुरू होता है; ऑफ़लाइन रहे तो Psyche बंद करके दोबारा खोलें।",
   "settings.computerUse.helperAccess.allow": "Psyche Helper को अनुमति दें",

@@ -1787,7 +1787,7 @@ export const zh: Partial<Catalogue> = {
   "settings.computerUse.tccState.not_determined": "尚未询问",
   "settings.computerUse.tccState.offline": "辅助程序离线",
   "settings.computerUse.helperAccess.hint":
-    "电脑操控在 Psyche Helper 中运行。请在系统设置中打开“Psyche Helper”，而不是“Psyche”。",
+    "电脑操控在 Psyche Helper 中运行。请打开“Psyche Helper”，而不是“Psyche”。",
   "settings.computerUse.helperAccess.offline":
     "Psyche Helper 未运行，无法读取它的权限。它随 Psyche 启动；若一直离线，请退出并重新打开 Psyche。",
   "settings.computerUse.helperAccess.allow": "允许 Psyche Helper",

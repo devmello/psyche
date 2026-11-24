@@ -1127,7 +1127,7 @@ export const settings = {
   "settings.computerUse.tccState.not_determined": "Not asked yet",
   "settings.computerUse.tccState.offline": "Helper offline",
   "settings.computerUse.helperAccess.hint":
-    "Computer use runs in Psyche Helper. In System Settings, turn on “Psyche Helper”, not “Psyche”.",
+    "Computer use runs in Psyche Helper. Turn on “Psyche Helper”, not “Psyche”.",
   "settings.computerUse.helperAccess.offline":
     "Psyche Helper isn't running, so its permissions can't be read. It starts with Psyche; quit and reopen Psyche if it stays offline.",
   "settings.computerUse.helperAccess.allow": "Allow Psyche Helper",
