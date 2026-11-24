@@ -9,6 +9,10 @@ public enum Route: Hashable, Sendable {
     /// The Soul & Memory file list (`/agent/soul` with no query), and one workspace file in it (`/agent/soul?file=…`).
     case memoryFiles
     case memoryFile(path: String)
+    /// Memory's learning screens: what Psyche learned, claims to confirm, and recent changes with undo.
+    case learning
+    case claims
+    case recentChanges
     /// A person, organisation, project or other entity (`/agent/soul?entity=…`). Its kind decides the page; the
     /// phone resolves it with `memory.entities.get` when the page opens, since an id doesn't say which it is.
     case entity(id: String)

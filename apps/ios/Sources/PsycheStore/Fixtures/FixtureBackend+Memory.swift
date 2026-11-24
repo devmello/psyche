@@ -6,6 +6,8 @@ struct MemoryState: Sendable {
     var facts = FixtureData.personFacts
     /// The edit-sheet card per person and project id, with the etag `updateEntity` checks.
     var cards = FixtureData.entityCards
+    /// What Psyche learned, the claims to confirm and the recent changes (FixtureBackend+Learning.swift).
+    var learning = LearningState()
 }
 
 extension FixtureBackend: MemoryBackend {
