@@ -96,8 +96,9 @@ export class OwnerAttention {
     const f = JSON.parse(frame) as { event?: string; payload?: Record<string, unknown> };
     const p = f.payload ?? {};
     if (f.event === "chat.message") {
-      const m = p.message as { role?: string; provenance?: string } | undefined;
-      if (m?.role === "user" && m.provenance === "owner") this.noteInput();
+      // A widget or app click is text a page or widget wrote, not the owner watching.
+      const m = p.message as { role?: string; provenance?: string; via?: string } | undefined;
+      if (m?.role === "user" && m.provenance === "owner" && m.via !== "widget") this.noteInput();
     } else if (f.event === "approval.updated") {
       const a = p.approval as { decidedBy?: { deviceId?: string } | null } | undefined;
       if (typeof a?.decidedBy?.deviceId === "string") this.noteInput();

@@ -5,6 +5,7 @@ struct LearningState: Sendable {
     var lessons = FixtureData.lessons
     var claims = FixtureData.claims
     var changes = FixtureData.recentChanges
+    var feedback = FixtureData.feedback
 }
 
 extension FixtureBackend {
@@ -32,6 +33,21 @@ extension FixtureBackend {
     public func forgetLesson(id: String) async throws {
         guard memoryState.learning.lessons.contains(where: { $0.id == id }) else { throw BackendError.notFound }
         memoryState.learning.lessons.removeAll { $0.id == id }
+        publish(.changed(.memory))
+    }
+
+    public func feedbackPage(cursor: String?) async throws -> FeedbackPage {
+        await pause()
+        let all = memoryState.learning.feedback
+        // The cursor is the offset of the next row, as a string. 20 rows a page, as the Gateway.
+        let start = min(max(Int(cursor ?? "0") ?? 0, 0), all.count)
+        let end = min(start + 20, all.count)
+        return FeedbackPage(events: Array(all[start..<end]), nextCursor: end < all.count ? String(end) : nil)
+    }
+
+    public func deleteFeedback(id: String) async throws {
+        guard memoryState.learning.feedback.contains(where: { $0.id == id }) else { throw BackendError.notFound }
+        memoryState.learning.feedback.removeAll { $0.id == id }
         publish(.changed(.memory))
     }
 
@@ -65,6 +81,16 @@ extension FixtureBackend {
 }
 
 extension FixtureData {
+    /// 45 rows, so the paging proof has three pages.
+    public static let feedback: [FeedbackItem] = (1...45).map { n in
+        let kinds = ["not_helpful", "correction", "helpful", "regenerated"]
+        let targets = ["message", "draft", "task"]
+        let kind = kinds[n % kinds.count]
+        return FeedbackItem(
+            id: "fbk_\(n)", kind: kind, targetType: targets[n % targets.count],
+            text: kind == "correction" ? "Keep replies short on the phone." : nil)
+    }
+
     public static let lessons: [LessonItem] = [
         LessonItem(
             id: "les_1", statement: "Keep replies short when you're on the phone.",

@@ -147,3 +147,36 @@ public struct TaskRunDetail: Sendable, Equatable {
         return controls
     }
 }
+
+/// A helper or specialist run a run spawned (`runs.children`): one row of the run page's Helpers section.
+public struct RunHelper: Sendable, Equatable, Identifiable {
+    /// A specialist's job (`subagent` runs) or any other helper the run started.
+    public enum Kind: Sendable, Equatable {
+        case specialist, helper
+    }
+
+    /// What the run has spent against its budget, in the dimension the budget limits: cost first, then tokens.
+    public enum Spend: Sendable, Equatable {
+        /// `spent` is nil for an unpriced (subscription) run, which shows as "—".
+        case cost(spent: Double?, limit: Double)
+        case tokens(spent: Int, limit: Int)
+    }
+
+    public var id: String
+    /// Nil when the Gateway sent no title; the row then shows its kind.
+    public var title: String?
+    public var kind: Kind
+    public var state: TaskRunState
+    /// Nil when the run has no budget.
+    public var spend: Spend?
+    public var deadline: Date?
+
+    public init(id: String, title: String?, kind: Kind, state: TaskRunState, spend: Spend?, deadline: Date?) {
+        self.id = id
+        self.title = title
+        self.kind = kind
+        self.state = state
+        self.spend = spend
+        self.deadline = deadline
+    }
+}

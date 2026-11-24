@@ -2834,6 +2834,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       : ref.kind === "mail_followup"
         ? mailFollowups.resolveContext(ref)
         : baseChatContext(ref, caller);
+  // `$skill` in an owner's message: the chat send path reads the enabled skills it names.
+  gateway.context.skillReferences.resolve = (text) => skills.references(text);
   gateway.context.chatFiles.attach = (threadId, paths, by) =>
     rawBroker.attachFiles(threadId, paths, by);
   gateway.context.chatFiles.attached = (threadId) => rawBroker.attachedFiles(threadId);

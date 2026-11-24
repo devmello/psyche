@@ -274,6 +274,32 @@ export const McpMethods = {
     description:
       "The MCP App (ui:// resource) the named tool declares, read from its own running server: only a resource that server's pinned tools declare is served, never a URI from the caller. The HTML is server-authored and untrusted: render it only in the artifact sandbox, after the owner chooses to run it. It cannot call tools or read anything else.",
   }),
+  "mcp.app.call": defineMethod({
+    params: Type.Object(
+      {
+        toolCallId: Id,
+        name: Type.String({
+          pattern: "^[A-Za-z0-9_-]{1,64}$",
+          description: "The server's own tool name, without the mcp__<server>__ prefix",
+        }),
+        arguments: Type.Optional(Type.Record(Type.String(), Type.Unknown())),
+      },
+      { additionalProperties: false },
+    ),
+    result: Type.Object(
+      {
+        isError: Type.Boolean(),
+        output: Type.Unknown({
+          description: "What the tool returned (blocks and structured data)",
+        }),
+      },
+      { $id: "McpAppCallResult" },
+    ),
+    scope: "operator.write",
+    sideEffecting: true,
+    description:
+      "Side-effecting: a tool call an MCP App panel makes for its page (generative-ui-2026 P9). The server is never named by the caller: it is the server of the transcript tool call that showed the app (toolCallId), so an app can only call its own server's tools, never another server's or a Psyche tool. The call is recorded in that chat as a from-widget message with the tool and every argument, then gated like a model's call: the Permission Broker with the server's allow/ask/deny rules, money-intent checks and a receipt for writes. The app's arguments are untrusted: the turn is tainted (source mcp_app), so a card shows the taint banner, and every write the page asks for asks for a tap on a once-only card (no task, session or Always scope; standing grants do not apply). Returns the tool's result when the call finishes, which can be after the owner's tap: callers must wait at least the approval lifetime. A refusal comes back as isError. conflict when the chat is busy.",
+  }),
   "mcp.status": defineMethod({
     params: Type.Object({}),
     result: Type.Object({

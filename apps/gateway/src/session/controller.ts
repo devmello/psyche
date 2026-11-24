@@ -23,6 +23,7 @@ import {
   type EventPayload,
   type Message,
   type MethodResult,
+  type ProposedCall,
   type Provenance,
   PsycheError,
   type QueueMode,
@@ -120,7 +121,7 @@ export interface SendInput {
    * A widget button proposed this tool call (generative-ui-2026 §6.2): the turn's first step is
    * the call, gated like a model's. Busy chats refuse it (it is never queued).
    */
-  proposedCall?: { tool: string; input: Record<string, unknown> };
+  proposedCall?: ProposedCall;
   /** `false`: the text is not the owner's own words (widget-composed), so it names no targets. */
   ownerWords?: boolean;
 }
@@ -867,11 +868,13 @@ export class SessionController {
       }
     };
 
+    let proposed: ProposedCall | undefined;
     try {
       const queuedTaint = this.#inputTaint.get(runId);
       this.#inputTaint.delete(runId);
       const turnOptions = this.#turnOptions.get(runId);
       this.#turnOptions.delete(runId);
+      proposed = turnOptions?.proposedCall;
       // Library attachments: images as image parts, documents as capped extracted text.
       const attached =
         attachments.length > 0
@@ -933,6 +936,16 @@ export class SessionController {
       this.#ctx.runTrace.end(runId, "failed", outcome.error ?? undefined);
     }
     this.#drafts.finishThread(threadId);
+    // A proposer waiting on the call's result (an MCP App panel) is told if the turn ended without
+    // one (cancelled, failed, never started); a listener ignores a second answer.
+    try {
+      proposed?.onResult?.({
+        isError: true,
+        output: { error: outcome.error ?? `the request ended (${outcome.status})` },
+      });
+    } catch {
+      // the listener's failure never changes the run
+    }
     if (turn.detached) {
       this.#ctx.runTrace.end(runId, "cancelled");
       return;

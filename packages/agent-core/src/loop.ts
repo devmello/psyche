@@ -31,6 +31,7 @@ import {
   type OwnerWordsOption,
   type PermissionBroker,
   type PermissionMode,
+  type ProposedCall,
   type ProvenanceOut,
   PsycheError,
   pinId,
@@ -650,7 +651,9 @@ interface RunState {
   /** The owner's own words this turn (target matching); empty for a non-owner requester. */
   ownerText: string;
   /** A widget button proposed this call: the turn's first step is this call, not a model call. */
-  proposedCall?: { tool: string; input: Record<string, unknown> };
+  proposedCall?: ProposedCall;
+  /** Who asked for the run's calls when it is not the owner or the model: an MCP App's page. */
+  initiator?: "mcp_app";
   /** The owner's own message carried Library attachments (#509: the learner reads uploads). */
   ownerAttached: boolean;
   /** The first turn's input was third-party content (see `inputTainted`). */
@@ -1081,6 +1084,9 @@ export class PsycheAgentLoop implements AgentLoop {
       // Only the typed words: never the Gateway's context (preamble, quote, forwarded text).
       ownerText: ownerSent && input.ownerWords !== false ? ownerTypedText(input) : "",
       ...(input.proposedCall === undefined ? {} : { proposedCall: input.proposedCall }),
+      ...(input.proposedCall?.initiator === undefined
+        ? {}
+        : { initiator: input.proposedCall.initiator }),
       ownerAttached: ownerSent && (input.input.attachments?.length ?? 0) > 0,
       ...(requester === undefined ? {} : { requester }),
       ...(input.beforeDispatch === undefined ? {} : { beforeDispatch: input.beforeDispatch }),
@@ -1463,6 +1469,22 @@ export class PsycheAgentLoop implements AgentLoop {
       if (step.calls.length > 0) {
         const replied = run.chatReplies;
         const results = await this.#runTools(run, step.calls);
+        if (proposed?.onResult !== undefined) {
+          const r = results[0];
+          try {
+            proposed.onResult(
+              r?.type === "tool_result"
+                ? { isError: r.isError === true, output: r.output }
+                : { isError: true, output: { error: "no result" } },
+            );
+          } catch {
+            // a listener's failure never changes the run
+          }
+        }
+        if (proposed?.only === true) {
+          run.thread.messages.push({ role: "tool", parts: results });
+          return "final";
+        }
         // The owner typed a reply that closed these waits: their words, kept with the results.
         const reply = run.chatReplies > replied ? run.chatReply : undefined;
         run.thread.messages.push({
@@ -3529,6 +3551,7 @@ export class PsycheAgentLoop implements AgentLoop {
       permissionMode: run.permissionMode,
       taint: run.taint,
       ...(run.taint ? { taintSources: dedupeSources(run.taintSources) } : {}),
+      ...(run.initiator === undefined ? {} : { initiator: run.initiator }),
       newTarget: this.#isNewTarget(run, target, sideEffect),
       unattended: run.mode === "unattended",
       ...(run.requester === undefined ? {} : { requester: structuredClone(run.requester) }),

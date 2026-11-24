@@ -3,6 +3,7 @@
  * extraction, PDF / sheet / DOCX / email parsing, conversion, artifact sandbox builders and the
  * Markdown document session. Nothing here imports React.
  */
+export * from "./app-rpc.ts";
 export * from "./artifact.ts";
 export * from "./code.ts";
 export * from "./convert.ts";

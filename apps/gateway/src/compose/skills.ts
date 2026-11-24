@@ -5,6 +5,7 @@ import { assetDir } from "@psyche/assets";
 import { redactSensitive } from "@psyche/audit";
 import { getDevice, getThread, setSetting } from "@psyche/db";
 import {
+  type LoadedSkill,
   PsycheError,
   type SkillLoader,
   type SkillSummary,
@@ -303,6 +304,11 @@ export interface ComposedSkills {
   updates(): Promise<{ skill: string; draftId: string; lessons: number }[]>;
   /** Installed skills made from a recording (for scheduling them; teach by showing §8). */
   recorded: RecordedSkills;
+  /**
+   * The enabled skills an owner's typed message names as `$name` (`resolveReferences`). For the
+   * chat send path only; the agent reads skills through `skills_read` as before.
+   */
+  references(text: string): Promise<LoadedSkill[]>;
 }
 
 const LESSON_LINE = /^- \d{4}-\d{2}-\d{2} \[(ls_[a-z0-9_]+)[^\]]*\] (.+)$/;
@@ -549,7 +555,8 @@ export function composeSkills(opts: SkillsOptions = {}): ComposedSkills {
     skillText: (name) => ready().skillText(name),
     lessons: (name) => ready().lessons(name),
   });
-  return { part, loader, roles, updates, recorded };
+  const references = (text: string) => ready().resolveReferences(text);
+  return { part, loader, roles, updates, recorded, references };
 }
 
 /**

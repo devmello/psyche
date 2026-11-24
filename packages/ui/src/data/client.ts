@@ -25,6 +25,8 @@ export type GatewayEvent = {
 export interface RequestOptions {
   /** Required by side-effecting methods; the store adds one automatically. */
   idempotencyKey?: string;
+  /** How long to wait for the reply, when the call can wait on the owner (an approval card). */
+  timeoutMs?: number;
 }
 
 export interface GatewayClient {

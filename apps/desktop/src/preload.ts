@@ -142,11 +142,12 @@ const bridge = {
      * an Error's message, so the renderer builds the error itself (`renderer/bridge.ts`) and
      * keeps `code` and `details` (e.g. `approval_required` → `{ approvalId }`).
      */
-    call: (method: string, params: unknown, idempotencyKey?: string) =>
+    call: (method: string, params: unknown, idempotencyKey?: string, timeoutMs?: number) =>
       ipcRenderer.invoke(IPC.call, {
         method,
         params,
         ...(idempotencyKey === undefined ? {} : { idempotencyKey }),
+        ...(timeoutMs === undefined ? {} : { timeoutMs }),
       }) as Promise<Envelope>,
     onEvent: (cb: (e: unknown) => void) => listen(IPC.event, cb),
     onResync: (cb: () => void) => listen(IPC.resync, () => cb()),

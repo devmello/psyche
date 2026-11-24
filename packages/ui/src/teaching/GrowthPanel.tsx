@@ -22,6 +22,7 @@ import { useGatewayQuery } from "../data/index.ts";
 import { activeI18n, t } from "../i18n/core.ts";
 import { formatDate } from "../lib/format.ts";
 import { usePersona } from "../slots.tsx";
+import { FeedbackList } from "./FeedbackList.tsx";
 import { useTeaching } from "./hooks.ts";
 import { ChangeLines } from "./LessonMark.tsx";
 
@@ -334,6 +335,7 @@ export function GrowthPanel({ defaultWindow = "30d" }: { defaultWindow?: GrowthW
       <div className="flex flex-col gap-4 px-2">
         {header}
         <EmptyState icon={Sprout}>{t("screens.growth.empty", { agent: persona.name })}</EmptyState>
+        <FeedbackList />
       </div>
     );
   }
@@ -383,6 +385,7 @@ export function GrowthPanel({ defaultWindow = "30d" }: { defaultWindow?: GrowthW
           </ul>
         </section>
       ) : null}
+      <FeedbackList />
     </div>
   );
 }

@@ -208,7 +208,14 @@ describe("slash commands (C9)", () => {
     renderMain();
     await userEvent.type(await box(), "/");
     const menu = await screen.findByRole("listbox", { name: "Commands" });
-    expect(within(menu).getAllByRole("option")).toHaveLength(COMMANDS.length);
+    // The built-ins come first; the fixture's skills load after them, under "Skills".
+    await waitFor(() =>
+      expect(within(menu).getAllByRole("option").length).toBeGreaterThan(COMMANDS.length),
+    );
+    const rows = within(menu).getAllByRole("option");
+    expect(rows.slice(0, COMMANDS.length).map((r) => r.querySelector("span")?.textContent)).toEqual(
+      COMMANDS.map((c) => `/${c.name}`),
+    );
     await userEvent.type(await box(), "rem");
     expect(
       within(screen.getByRole("listbox", { name: "Commands" })).getAllByRole("option"),

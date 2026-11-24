@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { type AppRpcHost, createToolCallGate, handleAppRpc, isJsonRpc } from "../core/app-rpc.ts";
 import {
   ARTIFACT_SANDBOX,
   type ArtifactPolicy,
@@ -26,6 +27,11 @@ export interface ArtifactFrameProps {
   onError?: (message: string) => void;
   /** The frame tried to navigate itself away; it has been torn down. */
   onBlockedNavigation?: () => void;
+  /**
+   * An MCP App's JSON-RPC bridge (generative-ui-2026 P9). Omit it and the frame answers nothing:
+   * a page's JSON-RPC messages are ignored. Inline placement only.
+   */
+  rpc?: Omit<AppRpcHost, "resize" | "gate">;
 }
 
 const DEFAULT_POLICY: ArtifactPolicy = { allowScripts: true };
@@ -68,9 +74,35 @@ export function ArtifactFrame(props: ArtifactFrameProps) {
 
   useEffect(() => {
     const expectedOrigin = hostOrigin ?? "null";
+    // One gate per rendered document: a page's tool calls are limited, whatever it posts.
+    const gate = createToolCallGate();
     const onMessage = (e: MessageEvent) => {
       const frame = ref.current;
       if (frame === null || e.source !== frame.contentWindow) return;
+      // An MCP App speaks plain JSON-RPC (no channel tag). It is honoured only from this exact
+      // frame's window, with the opaque origin an `allow-scripts` srcdoc frame has, and only when
+      // the owner's panel gave the frame a bridge.
+      const rpc = callbacks.current.rpc;
+      if (rpc !== undefined && hostOrigin === undefined && isJsonRpc(e.data)) {
+        if (e.origin !== expectedOrigin) return;
+        const target = frame.contentWindow;
+        void handleAppRpc(e.data, {
+          ...rpc,
+          gate,
+          resize: (h) => {
+            const cb = callbacks.current;
+            setHeight(Math.min(cb.maxHeight ?? 4000, Math.max(cb.minHeight ?? 40, h)));
+          },
+        })
+          .then((reply) => {
+            // The frame may have been replaced while the call ran: answer only the same window.
+            if (reply !== undefined && ref.current?.contentWindow === target) {
+              target?.postMessage(reply, "*");
+            }
+          })
+          .catch(() => undefined);
+        return;
+      }
       if (hostOrigin !== undefined && e.origin === hostOrigin && isHostReady(e.data)) {
         // Answer once per document: a relayed or replayed host-ready must not loop renders.
         if (answeredHost.current === built.channel) return;

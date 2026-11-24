@@ -3282,6 +3282,7 @@ export interface ChatSendParams {
     mode?:             QueueMode;
     redo?:             Redo;
     replyToMessageId?: string;
+    resolveSkills?:    boolean;
     screen?:           ChatScreenRef;
     threadId:          string;
 }
@@ -6671,6 +6672,23 @@ export interface MCPServerStatus {
 }
 
 export type MadeBy = "psyche";
+
+export interface MCPAppCallParams {
+    arguments?: { [key: string]: unknown };
+    /**
+     * The server's own tool name, without the mcp__<server>__ prefix
+     */
+    name:       string;
+    toolCallId: string;
+}
+
+export interface MCPAppCallResult {
+    isError: boolean;
+    /**
+     * What the tool returned (blocks and structured data)
+     */
+    output: unknown;
+}
 
 export interface MCPAppParams {
     /**

@@ -402,7 +402,10 @@ export function FeedScreen({
       action: {
         label: t("screens.feed.undo"),
         onClick: () => {
-          void feed.feedback(post.id, null).catch(() => {});
+          // A failed undo leaves the post as it was (store.mutate drops the optimistic value).
+          feed.feedback(post.id, null).catch((err: unknown) => {
+            toast.error(t("screens.feed.feedbackFailed", { reason: describeError(err) }));
+          });
         },
       },
     });

@@ -7,7 +7,8 @@ import type {
   RunSummary,
   RunTraceFormat,
 } from "@psyche/protocol";
-import { useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { describeError } from "../i18n/errors.ts";
 import { type LoadState, useGatewayQuery, useLoader } from "./hooks.ts";
 import { useStore, useStoreState } from "./provider.tsx";
 import { put, putMany, type RunStepDetail, upsertRunSteps } from "./state.ts";
@@ -23,6 +24,7 @@ import type { GatewayStore } from "./store.ts";
 const EMPTY_STEPS: readonly RunStep[] = [];
 const EMPTY_FRAMES: readonly RunFrame[] = [];
 const EMPTY_RUNS: readonly Run[] = [];
+const EMPTY_SUMMARIES: readonly RunSummary[] = [];
 /** runs.steps pages up to the per-run cap (§4.5). */
 const STEP_PAGE = 500;
 const MAX_PAGES = 4;
@@ -231,6 +233,53 @@ export function useRun(
     });
   }, [store, runId]);
   return { ...load, run: run ?? null, steps, children, exportTrace, deleteTrace };
+}
+
+/**
+ * A run's helper and specialist runs with their status, budget and deadline (`runs.children`).
+ * Loads when the view opens and again whenever `refreshKey` changes (the parent's status, step
+ * count or end, which its `run.updated` events move). A child's live status reads from the
+ * store, which `run.updated` keeps current. A failure is kept for the view to show inline.
+ */
+export function useRunChildren(
+  runId: string | null,
+  refreshKey: string,
+): { children: readonly RunSummary[]; error: string | null; reload: () => void } {
+  const store = useStore();
+  const [state, setState] = useState<{
+    runId: string | null;
+    children: readonly RunSummary[];
+    error: string | null;
+  }>({ runId: null, children: EMPTY_SUMMARIES, error: null });
+  const [tick, setTick] = useState(0);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `refreshKey` and `tick` re-run the load
+  useEffect(() => {
+    if (runId === null || store.detached) return;
+    let live = true;
+    store.call("runs.children", { runId }).then(
+      (res) => {
+        if (live) setState({ runId, children: res.runs, error: null });
+      },
+      (err: unknown) => {
+        if (live)
+          setState((s) => ({
+            runId,
+            children: s.runId === runId ? s.children : EMPTY_SUMMARIES,
+            error: describeError(err),
+          }));
+      },
+    );
+    return () => {
+      live = false;
+    };
+  }, [store, runId, refreshKey, tick]);
+  const reload = useCallback(() => setTick((n) => n + 1), []);
+  const current = runId !== null && state.runId === runId;
+  return {
+    children: current ? state.children : EMPTY_SUMMARIES,
+    error: current ? state.error : null,
+    reload,
+  };
 }
 
 /** A run's steps in seq order, live (`run.step`), catching up from the last seq after a gap. */

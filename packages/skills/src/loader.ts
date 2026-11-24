@@ -756,11 +756,17 @@ export class FsSkillLoader implements SkillLoader {
       .map(toCommand);
   }
 
-  /** Active skills referenced as `$name` in an owner message (at most eight). */
+  /**
+   * Skills referenced as `$name` in an owner message (at most eight): enabled and user-invocable,
+   * the same set `commands()` lists. An owner-only skill (`user-invocable: false`) never injects
+   * from a reference, whatever the text says.
+   */
   async resolveReferences(text: string, max = 8): Promise<LoadedSkill[]> {
     this.#fresh();
     const active = new Set(
-      [...this.#winners.values()].filter((e) => e.details.enabled).map((e) => e.details.name),
+      [...this.#winners.values()]
+        .filter((e) => e.details.enabled && e.details.userInvocable)
+        .map((e) => e.details.name),
     );
     const out: LoadedSkill[] = [];
     for (const name of extractSkillReferences(text, active, max)) {

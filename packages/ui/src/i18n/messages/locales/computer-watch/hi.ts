@@ -16,6 +16,10 @@ export const computerWatch: Partial<Catalogue> = {
   "computerWatch.empty.body": "जब एजेंट को अपनी अलग स्क्रीन चाहिए होगी, आप उसे यहाँ देख सकेंगे।",
   "computerWatch.starting": "वर्चुअल स्क्रीन शुरू हो रही है…",
   "computerWatch.error": "वर्चुअल स्क्रीन तक नहीं पहुँच पा रहे। फिर कोशिश की जा रही है…",
+  "computerWatch.inputFailed": "आपका इनपुट वर्चुअल स्क्रीन तक नहीं पहुँचा ({reason})।",
+  "computerWatch.handBackFailed":
+    "नियंत्रण एजेंट को वापस नहीं दिया जा सका ({reason})। नियंत्रण अभी आपके पास है।",
+  "computerWatch.handBack.retry": "फिर से कोशिश करें",
   "computerWatch.parked.title": "आपका इंतज़ार है",
   "computerWatch.parked.body": "एक ऐप में बिना सहेजे बदलाव हैं, इसलिए काम रुका हुआ है।",
   "computerWatch.parked.look": "देखें",

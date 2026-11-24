@@ -9,6 +9,8 @@ import PsycheStore
 final class FeedModel {
     private(set) var phase: LoadPhase<FeedSnapshot> = .idle
     private(set) var actionError: String?
+    /// True while `feed.generate` runs (a model call, so it can take a while).
+    private(set) var generating = false
     private let store: any PsycheBackend
 
     init(store: any PsycheBackend) { self.store = store }
@@ -17,6 +19,21 @@ final class FeedModel {
         if phase.value == nil { phase = .loading }
         do { phase = .loaded(try await store.feed()) } catch {
             if phase.value == nil { phase = .failed(error.localizedDescription) }
+        }
+    }
+
+    /// Makes the brief now (the first-run state) and reloads the feed to show it. A refusal, such as the
+    /// phone's model budget, stays on screen as its own message.
+    func generate() async {
+        guard !generating else { return }
+        generating = true
+        actionError = nil
+        defer { generating = false }
+        do {
+            _ = try await store.generateFeed()
+            await load()
+        } catch {
+            actionError = error.localizedDescription
         }
     }
 

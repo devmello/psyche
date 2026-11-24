@@ -144,10 +144,12 @@ export const scheduledA: Partial<Catalogue> = {
   "widgets.app.title": "App de {server}",
   "widgets.app.untrusted": "Creada a partir de contenido no confiable",
   "widgets.app.note":
-    "Esta página vino del conector. No puede usar la red, tus herramientas ni tus datos, y no puede pedir aprobaciones.",
+    "Esta página vino del conector. No tiene red y no puede ver tus datos. Solo puede pedir que se ejecuten las herramientas de este mismo conector, y cada petición te pregunta primero cuando tus reglas lo indican.",
   "widgets.app.run": "Ejecutar la app",
   "widgets.app.hide": "Ocultar la app",
   "widgets.app.unavailable": "Esta app no se puede mostrar aquí.",
+  "widgets.app.callUnavailable": "Esta app no puede llamar a herramientas desde aquí.",
+  "widgets.app.callFailed": "La llamada a la herramienta no se completó.",
   "widgets.node.unsupported": "Psyche aún no puede mostrar esta parte.",
   "widgets.node.unavailable": "No disponible",
   "widgets.state.todo": "Por hacer",

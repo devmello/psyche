@@ -1,7 +1,7 @@
 import Foundation
 
 // Feed, Ideas, Goals and Scheduled work (the desktop Home's sections): what the Gateway's proactive side
-// proposes and what it runs on a schedule. Gateway methods: feed.list/feedback, ideas.list/accept/dismiss,
+// proposes and what it runs on a schedule. Gateway methods: feed.list/feedback/generate, ideas.list/accept/dismiss,
 // goals.list/get/update (status only), goals.decide/archive/milestone, scheduled.list/runs/pause,
 // automations.run and automations.runs (Past runs, and `retryAt`), automations.list/create/update/delete (the Scheduled
 // editor). A goal's title, plan and check-in cadence stay a Mac thing; an automation triggered by an event or a
@@ -9,6 +9,9 @@ import Foundation
 
 public protocol ProactiveBackend: Sendable {
     func feed() async throws -> FeedSnapshot
+    /// Makes the brief now instead of at its schedule (the Feed's first-run state) and returns the posts it made.
+    /// A model call, so it can take a while. Throws `BackendError.slowDown` when this phone is out of model budget.
+    func generateFeed() async throws -> [FeedCard]
     /// Records feedback on a post; nil clears it (undo).
     func setFeedback(postID: String, _ feedback: FeedFeedback?) async throws
     func ideas() async throws -> [IdeaItem]

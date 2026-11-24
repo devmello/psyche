@@ -381,6 +381,8 @@ export function ChatThread({
         try {
           await view.send(parsed.text, {
             mode,
+            // The composer's own submit: its `$name` references read their skills.
+            resolveSkills: true,
             replyToMessageId,
             ...(sentIds.length > 0 ? { attachments: sentIds } : {}),
             ...(sentFiles.length > 0 ? { attachedFiles: sentFiles } : {}),

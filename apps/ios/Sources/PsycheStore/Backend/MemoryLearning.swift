@@ -60,3 +60,33 @@ public struct RecentChange: Sendable, Equatable, Hashable, Identifiable {
         self.previousValue = previousValue
     }
 }
+
+/// One piece of feedback the owner gave (feedback.list). `kind` and `targetType` are the Gateway's own values, kept as
+/// text so an unknown one still shows. The label is worked out in the view.
+public struct FeedbackItem: Sendable, Equatable, Hashable, Identifiable {
+    public var id: String
+    public var kind: String
+    public var targetType: String
+    /// The owner's one-line correction or redo instruction, when there is one.
+    public var text: String?
+    public var reason: String?
+
+    public init(id: String, kind: String, targetType: String, text: String? = nil, reason: String? = nil) {
+        self.id = id
+        self.kind = kind
+        self.targetType = targetType
+        self.text = text
+        self.reason = reason
+    }
+}
+
+/// One page of the owner's feedback, newest first. A nil `nextCursor` is the last page.
+public struct FeedbackPage: Sendable, Equatable {
+    public var events: [FeedbackItem]
+    public var nextCursor: String?
+
+    public init(events: [FeedbackItem], nextCursor: String?) {
+        self.events = events
+        self.nextCursor = nextCursor
+    }
+}

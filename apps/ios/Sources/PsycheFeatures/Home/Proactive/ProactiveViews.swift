@@ -160,7 +160,7 @@ struct FeedView: View {
             load: model.load, observe: model.observe
         ) { snapshot in
             if snapshot.cards.isEmpty {
-                EmptyLine(text: String(localized: "Nothing new in your feed.", bundle: .module))
+                feedEmptyState
             } else {
                 ForEach(snapshot.cards) { card in cardView(card) }
             }
@@ -174,6 +174,26 @@ struct FeedView: View {
             presenting: confirming
         ) { url in
             Button(String(localized: "Open \(url.host ?? "link")", bundle: .module)) { openURL(url) }
+        }
+    }
+
+    /// No brief yet: the owner can make today's now instead of waiting for the schedule. While it runs, a progress line
+    /// replaces the button so it can't be tapped twice.
+    private var feedEmptyState: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            EmptyLine(text: String(localized: "Nothing new in your feed.", bundle: .module))
+            if model.generating {
+                HStack(spacing: 8) {
+                    ProgressView()
+                    Text("Making today's brief", bundle: .module)
+                        .font(.subheadline).foregroundStyle(PsycheColor.muted)
+                }
+            } else {
+                Button(String(localized: "Make today's brief now", bundle: .module)) {
+                    Task { await model.generate() }
+                }
+                .proactiveAction(prominent: true)
+            }
         }
     }
 

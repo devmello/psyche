@@ -45,6 +45,11 @@ extension FixtureBackend: AgentBackend {
             runID: FixtureData.runID)
     }
 
+    public func runChildren(runID: String) async throws -> [RunHelper] {
+        await pause()
+        return runID == FixtureData.runID ? FixtureData.helpers : []
+    }
+
     public func updateTask(id: String, changes: TaskChanges) async throws {
         try requireTask(id)
         let state = agentState.taskStates[id] ?? homeState.snapshot.running.first { $0.id == id }.map { _ in TaskRunState.running }
@@ -104,6 +109,15 @@ extension FixtureData {
 
     /// The limits a fixture specialist job starts with: a token budget, a cost, 30 minutes and no deadline.
     public static let specialistLimits = TaskLimits(tokens: 200_000, costUsd: 2.5, minutes: 30, deadline: nil)
+
+    /// Two helpers the fixture run spawned: a finished specialist priced against its cost budget, and a helper
+    /// still running against a token budget with a deadline.
+    public static let helpers: [RunHelper] = [
+        RunHelper(id: "run_helper_1", title: "Total the receipts", kind: .specialist, state: .done,
+                  spend: .cost(spent: 0.42, limit: 2.5), deadline: nil),
+        RunHelper(id: "run_helper_2", title: "Draft the note to Dana", kind: .helper, state: .running,
+                  spend: .tokens(spent: 48_000, limit: 200_000), deadline: Date.now.addingTimeInterval(1800)),
+    ]
 
     public static let nextUp: [UpcomingItem] = [
         UpcomingItem(id: "u1", title: "Morning brief", when: "Tomorrow 7:00 · every weekday"),

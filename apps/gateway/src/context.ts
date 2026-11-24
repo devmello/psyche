@@ -7,6 +7,7 @@ import type {
   DeviceScope,
   EventName,
   EventPayload,
+  LoadedSkill,
   MemoryStore,
   Message,
   ModelRef,
@@ -293,6 +294,11 @@ export interface GatewayContext {
    * sets it; without one a send naming a context is refused.
    */
   readonly chatContext: { resolve: ChatContextResolver | null };
+  /**
+   * `$skill-name` in the owner's typed message (the skills loader's `resolveReferences`): the
+   * enabled skills the message names, read for the turn it starts. Unset: nothing is injected.
+   */
+  readonly skillReferences: { resolve: ((text: string) => Promise<LoadedSkill[]>) | null };
   /**
    * Files attached from disk (desktop): `attach` grants the owner's picks read-only for one
    * thread (the broker's `attachFiles`), `attached` lists the files it holds for that thread.
