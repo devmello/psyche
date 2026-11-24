@@ -21,10 +21,12 @@ export const widgetsRest: Partial<Catalogue> = {
   "widgets.app.title": "{server}のアプリ",
   "widgets.app.untrusted": "信頼できない内容から作成",
   "widgets.app.note":
-    "このページはコネクタから提供されたものです。ネットワーク、ツール、データを使用することはできず、承認を求めることもできません。",
+    "このページはコネクタから提供されたものです。ネットワークはなく、データを見ることもできません。このコネクタ自身のツールの実行を依頼できるだけで、ルールで確認が必要な場合は、依頼のたびに先に確認します。",
   "widgets.app.run": "アプリを実行",
   "widgets.app.hide": "アプリを隠す",
   "widgets.app.unavailable": "このアプリはここでは表示できません。",
+  "widgets.app.callUnavailable": "このアプリはここからツールを呼び出せません。",
+  "widgets.app.callFailed": "ツールの呼び出しは完了しませんでした。",
   "widgets.node.unsupported": "Psycheはこの部分をまだ表示できません。",
   "widgets.node.unavailable": "利用できません",
   "widgets.state.todo": "未着手",

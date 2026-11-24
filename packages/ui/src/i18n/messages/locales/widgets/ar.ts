@@ -27,10 +27,12 @@ export const widgets: Partial<Catalogue> = {
   "widgets.app.title": "تطبيق من {server}",
   "widgets.app.untrusted": "مبني من محتوى غير موثوق",
   "widgets.app.note":
-    "جاءت هذه الصفحة من الموصّل. لا تستطيع استخدام الشبكة أو أدواتك أو بياناتك، ولا تستطيع طلب موافقات.",
+    "جاءت هذه الصفحة من الموصّل. لا يتوفر لها اتصال بالشبكة ولا ترى بياناتك. يمكنها فقط أن تطلب تشغيل أدوات هذا الموصّل نفسه، وكل طلب يسألك أولًا عندما تقتضي قواعدك ذلك.",
   "widgets.app.run": "تشغيل التطبيق",
   "widgets.app.hide": "إخفاء التطبيق",
   "widgets.app.unavailable": "لا يمكن عرض هذا التطبيق هنا.",
+  "widgets.app.callUnavailable": "لا يستطيع هذا التطبيق استدعاء الأدوات من هنا.",
+  "widgets.app.callFailed": "لم يتم تنفيذ استدعاء الأداة.",
   "widgets.node.unsupported": "لا يستطيع Psyche عرض هذا الجزء بعد.",
   "widgets.node.unavailable": "غير متاح",
   "widgets.state.todo": "للإنجاز",

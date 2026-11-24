@@ -202,9 +202,18 @@ export interface UiSlots {
   renderArtifact?: (props: ArtifactRenderProps) => ReactNode;
   /**
    * An MCP App (a `ui://` page a connector's tool declares) in the artifact sandbox: scripts on,
-   * no network, no tool or data channel. Absent where the host has no sandbox: the app is not shown.
+   * no network and no data channel. `callTool` is its only way out: a tool of its own connector, by
+   * the tool's own name, through the Gateway's permission broker (absent: the app can call nothing).
+   * Absent where the host has no sandbox: the app is not shown.
    */
-  renderMcpApp?: (props: { html: string; title: string }) => ReactNode;
+  renderMcpApp?: (props: {
+    html: string;
+    title: string;
+    callTool?: (
+      name: string,
+      args: Record<string, unknown>,
+    ) => Promise<{ isError: boolean; output: unknown }>;
+  }) => ReactNode;
   /** The Markdown editor from `packages/viewers` (Rich / Source / Diff). */
   renderEditor?: (props: EditorSlotProps) => ReactNode;
   /** Writes the system clipboard (the desktop's goes through main; #507). */

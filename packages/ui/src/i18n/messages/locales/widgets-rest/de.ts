@@ -21,10 +21,12 @@ export const widgetsRest: Partial<Catalogue> = {
   "widgets.app.title": "App von {server}",
   "widgets.app.untrusted": "Aus nicht vertrauenswürdigen Inhalten erstellt",
   "widgets.app.note":
-    "Diese Seite stammt vom Connector. Sie kann weder das Netzwerk noch deine Tools oder Daten nutzen und keine Genehmigungen anfordern.",
+    "Diese Seite stammt vom Connector. Sie hat kein Netzwerk und sieht deine Daten nicht. Sie kann nur die eigenen Tools dieses Connectors anfordern, und jede Anfrage fragt zuerst bei dir nach, wenn deine Regeln das vorsehen.",
   "widgets.app.run": "App ausführen",
   "widgets.app.hide": "App ausblenden",
   "widgets.app.unavailable": "Diese App kann hier nicht angezeigt werden.",
+  "widgets.app.callUnavailable": "Diese App kann von hier aus keine Tools aufrufen.",
+  "widgets.app.callFailed": "Der Tool-Aufruf wurde nicht ausgeführt.",
   "widgets.node.unsupported": "Psyche kann diesen Teil noch nicht anzeigen.",
   "widgets.node.unavailable": "Nicht verfügbar",
   "widgets.state.todo": "Offen",

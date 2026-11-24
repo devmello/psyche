@@ -38,6 +38,7 @@ import { connectorBundles } from "./connector-bundles.ts";
 import { TURN_ON_SANDBOX_PC } from "./guest-sandbox.ts";
 import { type McpAdder, mcpAdder } from "./mcp-add.ts";
 import { mcpAppHandler } from "./mcp-app.ts";
+import { dbOrigin, mcpAppCallHandler } from "./mcp-app-call.ts";
 import { mcpEditHandlers } from "./mcp-edit.ts";
 import { mcpGrantRevocation } from "./mcp-grants.ts";
 import { mcpManageHandlers } from "./mcp-manage.ts";
@@ -610,6 +611,12 @@ export function composeMcp(services: ComposeServices, setup: McpSetup = {}): Com
         running: (id) => registrations.has(id),
         withheld: (id, tool) => known.get(id)?.disabledTools?.includes(tool) === true,
         host,
+      }),
+      "mcp.app.call": mcpAppCallHandler({
+        running: (id) => registrations.has(id),
+        withheld: (id, tool) => known.get(id)?.disabledTools?.includes(tool) === true,
+        host,
+        origin: dbOrigin,
       }),
       // Editing a server in place and testing an approved one.
       ...mcpEditHandlers({

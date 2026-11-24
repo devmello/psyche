@@ -21,10 +21,12 @@ export const widgetsRest: Partial<Catalogue> = {
   "widgets.app.title": "{server} से ऐप",
   "widgets.app.untrusted": "अविश्वसनीय सामग्री से बना",
   "widgets.app.note":
-    "यह पेज कनेक्टर से आया है। यह नेटवर्क, आपके टूल या आपके डेटा का उपयोग नहीं कर सकता, और स्वीकृतियाँ नहीं मांग सकता।",
+    "यह पेज कनेक्टर से आया है। इसके पास नेटवर्क नहीं है और यह आपका डेटा नहीं देख सकता। यह केवल इसी कनेक्टर के अपने टूल चलाने का अनुरोध कर सकता है, और जब आपके नियम कहें तो हर अनुरोध पहले आपसे पूछता है।",
   "widgets.app.run": "ऐप चलाएँ",
   "widgets.app.hide": "ऐप छिपाएँ",
   "widgets.app.unavailable": "यह ऐप यहाँ नहीं दिखाया जा सकता।",
+  "widgets.app.callUnavailable": "यह ऐप यहाँ से टूल नहीं चला सकता।",
+  "widgets.app.callFailed": "टूल कॉल पूरा नहीं हुआ।",
   "widgets.node.unsupported": "Psyche अभी यह हिस्सा नहीं दिखा सकता।",
   "widgets.node.unavailable": "उपलब्ध नहीं",
   "widgets.state.todo": "करना है",
