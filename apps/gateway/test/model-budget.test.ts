@@ -1,4 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
+import type { HandlerDef } from "../src/context.ts";
+import { HANDLERS } from "../src/handlers/index.ts";
 import {
   desktopClient,
   ik,
@@ -20,9 +22,30 @@ afterEach(async () => {
 
 const BUDGET = { burstCalls: 3, burstWindowMs: 60_000, hourlyCalls: 5, hourlyWindowMs: 3_600_000 };
 
+/** The methods the table below calls, answered by a stub so the budget is all that is tested. */
+const STUBBED = [
+  "goals.suggest",
+  "widgets.act",
+  "spaces.trackers.refresh",
+  "meetings.record.stop",
+  "tasks.resume",
+  "tasks.update",
+  "search.query",
+  "voice.memo.save",
+  "memory.persona.edit",
+];
+const stubs = (): Record<string, HandlerDef> =>
+  Object.fromEntries(
+    STUBBED.filter((m) => !Object.hasOwn(HANDLERS, m)).map((m) => [m, { run: () => ({}) }]),
+  );
+
 async function setup(modelBudget = BUDGET) {
   clock = Date.parse("2026-10-20T12:00:00.000Z");
-  t = await startTestGateway({ now: () => new Date(clock), limits: { modelBudget } });
+  t = await startTestGateway({
+    now: () => new Date(clock),
+    limits: { modelBudget },
+    handlers: stubs(),
+  });
 }
 
 /** A model-calling method; the answer may be anything but `rate_limited` while under budget. */
@@ -123,10 +146,97 @@ describe("per-device model budget", () => {
   });
 
   it("uses the shipped numbers by default", async () => {
-    t = await startTestGateway({ now: () => new Date(clock) });
+    t = await startTestGateway({ now: () => new Date(clock), handlers: stubs() });
     const phone = await remoteClient(t.gateway);
     clients.push(phone);
-    for (let i = 0; i < 10; i++) expect(limited(await suggest(phone))).toBe(false);
+    for (let i = 0; i < 20; i++) expect(limited(await suggest(phone))).toBe(false);
     expect(limited(await suggest(phone))).toBe(true);
+  });
+});
+
+/** Methods a device can call that start model work: always, or only for some params. */
+const CASES: {
+  method: string;
+  /** Starts model work: counts. */
+  counted: Record<string, unknown>;
+  /** Same method without model work: free. Absent for a method that always counts. */
+  free?: Record<string, unknown>;
+}[] = [
+  { method: "widgets.act", counted: { widgetId: "w1", nodeId: "n1" } },
+  { method: "spaces.trackers.refresh", counted: { spaceId: "s1", widgetId: "w1" } },
+  { method: "meetings.record.stop", counted: {} },
+  { method: "tasks.resume", counted: { taskId: "t1" } },
+  {
+    method: "tasks.update",
+    counted: { taskId: "t1", budget: { tokens: 5000 } },
+    free: { taskId: "t1", deadline: "2030-01-01T00:00:00.000Z" },
+  },
+  {
+    method: "search.query",
+    counted: { query: "what did Sam say", smart: true },
+    free: { query: "what did Sam say", smart: false },
+  },
+  {
+    method: "voice.memo.save",
+    counted: { sessionId: "v1", task: "always" },
+    free: { sessionId: "v1", task: "never" },
+  },
+  {
+    method: "memory.persona.edit",
+    counted: { instruction: "be shorter" },
+    free: { fields: {} },
+  },
+];
+
+describe("methods that start model work are budgeted", () => {
+  for (const c of CASES) {
+    const call = (client: TestClient, params: Record<string, unknown>) =>
+      client.request(c.method as never, params as never, ik());
+
+    it(`${c.method}: counted when it starts model work`, async () => {
+      await setup();
+      const phone = await remoteClient(t.gateway);
+      clients.push(phone);
+      for (let i = 0; i < 3; i++) expect(limited(await call(phone, c.counted))).toBe(false);
+      expect(limited(await call(phone, c.counted))).toBe(true);
+      // The desktop shell is never held to it.
+      const desk = await desktopClient(t.gateway);
+      clients.push(desk);
+      for (let i = 0; i < 6; i++) expect(limited(await call(desk, c.counted))).toBe(false);
+    });
+
+    if (c.free !== undefined) {
+      const free = c.free;
+      it(`${c.method}: free when it starts none`, async () => {
+        await setup();
+        const phone = await remoteClient(t.gateway);
+        clients.push(phone);
+        for (let i = 0; i < 12; i++) expect(limited(await call(phone, free))).toBe(false);
+        // Nothing was spent: the counted form still has its whole burst.
+        for (let i = 0; i < 3; i++) expect(limited(await call(phone, c.counted))).toBe(false);
+      });
+    }
+  }
+
+  it("does not charge a call refused for its params or an unknown method", async () => {
+    await setup();
+    const phone = await remoteClient(t.gateway);
+    clients.push(phone);
+    for (let i = 0; i < 10; i++) {
+      const bad = await phone.request("goals.suggest", {} as never, ik());
+      expect(limited(bad)).toBe(false);
+    }
+    for (let i = 0; i < 3; i++) expect(limited(await suggest(phone))).toBe(false);
+  });
+
+  it("does not charge an idempotent replay", async () => {
+    await setup();
+    const phone = await remoteClient(t.gateway);
+    clients.push(phone);
+    const key = ik();
+    for (let i = 0; i < 8; i++) {
+      const r = await phone.request("goals.suggest", { goalId: "g1" }, key);
+      expect(limited(r)).toBe(false);
+    }
   });
 });

@@ -3,8 +3,15 @@ import Foundation
 // Search (§4.6): the search tab and Ask your life. Owner: the Memory session (I7). Gateway methods:
 // search.query, memory.life.answer.
 
+public extension SearchBackend {
+    /// The hits and, for a question, its answer.
+    func search(query: String) async throws -> SearchResults { try await search(query: query, askLife: true) }
+}
+
 public protocol SearchBackend: Sendable {
-    func search(query: String) async throws -> SearchResults
+    /// `search.query` for the hits. `askLife` also asks `memory.life.answer` when the query reads as a question; a
+    /// model call that counts against this phone's budget, so typing never sets it (`SearchModel` asks on its own).
+    func search(query: String, askLife: Bool) async throws -> SearchResults
     /// `memory.life.answer`: one answer to a question. `passages` is true only after the owner tapped "Answer from my
     /// mail, messages and files"; `previous` makes it a follow-up. Nil when the Gateway has no grounded answer.
     func lifeAnswer(question: String, passages: Bool, previous: LifeTurn?) async throws -> SearchResults.Answer?

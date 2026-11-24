@@ -19,11 +19,26 @@ const MODEL_CALLERS = [
   "meetings.notes.create",
   "memory.everything.run",
   "memory.life.answer",
+  "meetings.record.stop",
   "models.check",
+  "spaces.trackers.refresh",
+  "tasks.resume",
   "tasks.retry",
   "tasks.steer",
   "threads.compact",
+  "widgets.act",
 ] as const;
+
+/** Methods that call a model only for some params (`callsModelWhen`): the cases that count. */
+const CONDITIONAL_CALLERS = {
+  "memory.persona.edit": { yes: { instruction: "x" }, no: { fields: {} } },
+  "search.query": { yes: { query: "q", smart: true }, no: { query: "q" } },
+  "tasks.update": { yes: { taskId: "t", budget: { tokens: 1 } }, no: { taskId: "t" } },
+  "voice.memo.save": {
+    yes: { sessionId: "s", task: "always" },
+    no: { sessionId: "s", task: "never" },
+  },
+} as const;
 
 describe("callsModel", () => {
   it("is set on every known model-calling method", () => {
@@ -38,6 +53,25 @@ describe("callsModel", () => {
       .map(([name]) => name)
       .sort();
     expect(flagged).toEqual([...MODEL_CALLERS].sort());
+  });
+
+  it("has a condition on every method that calls a model only sometimes, and on nothing else", () => {
+    const conditional = Object.entries(Methods)
+      .filter(
+        ([, spec]) => typeof (spec as { callsModelWhen?: unknown }).callsModelWhen === "function",
+      )
+      .map(([name]) => name)
+      .sort();
+    expect(conditional).toEqual(Object.keys(CONDITIONAL_CALLERS).sort());
+    for (const [name, c] of Object.entries(CONDITIONAL_CALLERS)) {
+      const spec = Methods[name as keyof typeof Methods] as unknown as {
+        callsModel: boolean;
+        callsModelWhen(p: unknown): boolean;
+      };
+      expect(spec.callsModel, name).toBe(false);
+      expect(spec.callsModelWhen(c.yes), `${name} yes`).toBe(true);
+      expect(spec.callsModelWhen(c.no), `${name} no`).toBe(false);
+    }
   });
 
   it("is false for plain reads and writes", () => {

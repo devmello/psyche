@@ -38,6 +38,15 @@ final class SearchModel {
     /// The query `deepAnswer` and `turns` belong to: another query starts clean.
     private var conversationQuery = ""
     private(set) var phase: Phase = .idle
+    /// "From your memory" for a typed question: asked on Return or after a pause in typing, once per question.
+    private(set) var lifeAnswer: SearchResults.Answer?
+    /// Why the answer was not asked for: the phone's model budget (the slow-down text), never swallowed.
+    private(set) var askFailure: String?
+    /// Answers already fetched, by normalised question (`nil` is a settled "nothing"): the same question costs one call.
+    private var asked: [String: SearchResults.Answer?] = [:]
+    private var askingKey: String?
+    /// How long typing must pause before the question is asked on its own.
+    static let askIdle: Duration = .milliseconds(1500)
     private(set) var results = SearchResults(answer: nil, hits: [])
     private(set) var recents: [String]
     private let store: any PsycheBackend
@@ -51,7 +60,49 @@ final class SearchModel {
 
     var trimmed: String { query.trimmingCharacters(in: .whitespacesAndNewlines) }
 
-    /// Debounced by the view (about 250 ms); an empty query clears at once.
+    /// A question compared by its words: case, spacing and a closing mark do not make a new one.
+    static func normalised(_ text: String) -> String {
+        var words = text.lowercased().split(whereSeparator: \.isWhitespace).joined(separator: " ")
+        while let last = words.last, "?!.".contains(last) { words.removeLast() }
+        return words
+    }
+
+    var isAsking: Bool { askingKey != nil }
+
+    /// The question was asked and the Gateway had nothing grounded to say.
+    var askedNothing: Bool {
+        if case .some(.none) = asked[Self.normalised(trimmed)] { return true }
+        return false
+    }
+
+    /// Asks the question the search found in the text, if it has not been asked: one `memory.life.answer` call. Called on
+    /// Return and after a pause in typing, never per keystroke; a change of text cancels it (the view's task).
+    func ask() async {
+        let text = trimmed
+        let key = Self.normalised(text)
+        guard results.canAskLife, !key.isEmpty, askingKey != key else { return }
+        if let known = asked[key] {
+            lifeAnswer = known
+            askFailure = nil
+            return
+        }
+        askingKey = key
+        askFailure = nil
+        defer { if askingKey == key { askingKey = nil } }
+        do {
+            let answer = try await store.lifeAnswer(question: text, passages: false, previous: nil)
+            guard !Task.isCancelled, key == Self.normalised(trimmed) else { return }
+            asked[key] = .some(answer)
+            if asked.count > 20 { asked = [key: answer] }
+            lifeAnswer = answer
+        } catch {
+            guard !Task.isCancelled, key == Self.normalised(trimmed) else { return }
+            // Only the budget is worth saying; any other failure leaves the card as it was.
+            if case BackendError.slowDown = error { askFailure = error.localizedDescription }
+        }
+    }
+
+    /// Debounced by the view (about 250 ms); an empty query clears at once. Never asks a model: `ask()` does.
     func run() async {
         let text = trimmed
         guard !text.isEmpty else {
@@ -63,9 +114,10 @@ final class SearchModel {
         if text != conversationQuery { resetConversation() }
         phase = .searching
         do {
-            let found = try await store.search(query: text)
+            let found = try await store.search(query: text, askLife: false)
             guard !Task.isCancelled, text == trimmed else { return }
             results = found
+            if let known = asked[Self.normalised(text)] { lifeAnswer = known }
             phase = .done
         } catch {
             guard !Task.isCancelled else { return }
@@ -91,6 +143,8 @@ final class SearchModel {
     var hasAnything: Bool { results.answer != nil || !results.hits.isEmpty }
 
     private func resetConversation() {
+        lifeAnswer = nil
+        askFailure = nil
         deepAnswer = nil
         deepLoading = false
         deepFailure = nil
@@ -101,7 +155,7 @@ final class SearchModel {
     }
 
     /// The answer on the card: from passages once asked for, else the facts-only one.
-    var shownAnswer: SearchResults.Answer? { deepAnswer ?? results.answer }
+    var shownAnswer: SearchResults.Answer? { deepAnswer ?? lifeAnswer ?? results.answer }
 
     /// The button is offered on a question, until it has been tapped.
     var offersDeep: Bool { deepAnswer == nil && (results.answer != nil || results.canAskLife) }
@@ -223,11 +277,19 @@ struct SearchView: View {
         // iPhone: the search tab's field sits at the bottom (system). iPad: a field that is always shown, not a
         // toolbar button, so the tab opens ready to type.
         .searchable(text: $model.query, placement: fieldPlacement, prompt: String(localized: "Search or ask", bundle: .module))
-        .onSubmit(of: .search) { model.remember() }
+        .onSubmit(of: .search) {
+            model.remember()
+            Task { await model.ask() }
+        }
         .task(id: model.query) {
             if !model.trimmed.isEmpty { try? await Task.sleep(for: .milliseconds(250)) }
             guard !Task.isCancelled else { return }
             await model.run()
+            // A question is asked once typing pauses (not per keystroke); Return asks at once.
+            guard model.results.canAskLife else { return }
+            try? await Task.sleep(for: SearchModel.askIdle - .milliseconds(250))
+            guard !Task.isCancelled else { return }
+            await model.ask()
         }
     }
 
@@ -365,7 +427,11 @@ struct SearchView: View {
                 if let answer {
                     claimsView(answer)
                     EvidenceLine(String(localized: "Sources", bundle: .module), answer.evidence)
-                } else {
+                } else if let failure = model.askFailure {
+                    Text(failure).font(.subheadline).foregroundStyle(PsycheColor.muted)
+                } else if model.isAsking {
+                    ProgressView().controlSize(.small)
+                } else if model.askedNothing {
                     Text("Nothing in your reviewed memory answers this yet.", bundle: .module)
                         .font(.subheadline).foregroundStyle(PsycheColor.muted)
                 }

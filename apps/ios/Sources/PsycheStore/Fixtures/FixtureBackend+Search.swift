@@ -1,7 +1,7 @@
 import Foundation
 
 extension FixtureBackend: SearchBackend {
-    public func search(query: String) async throws -> SearchResults {
+    public func search(query: String, askLife: Bool) async throws -> SearchResults {
         let needle = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         guard !needle.isEmpty else { return SearchResults(answer: nil, hits: []) }
         await pause()
@@ -12,7 +12,7 @@ extension FixtureBackend: SearchBackend {
             let haystack = (hit.title + " " + hit.detail).lowercased()
             return haystack.contains(needle) || words.contains { haystack.contains($0) }
         }
-        let answer = needle.contains("rent") ? FixtureData.rentAnswer : nil
+        let answer = askLife && needle.contains("rent") ? FixtureData.rentAnswer : nil
         return SearchResults(answer: answer, hits: hits, canAskLife: needle.contains("rent"))
     }
 
@@ -20,6 +20,8 @@ extension FixtureBackend: SearchBackend {
     /// is answered only when the turn before it names the ids it cited, as the Gateway reads them again.
     public func lifeAnswer(question: String, passages: Bool, previous: LifeTurn?) async throws -> SearchResults.Answer? {
         await pause()
+        lifeAnswerCalls += 1
+        if let lifeAnswerFailure { throw lifeAnswerFailure }
         if let previous {
             guard !previous.factIDs.isEmpty || !previous.passageIDs.isEmpty else { return nil }
             return passages ? FixtureData.autopayFollowUp : FixtureData.autopayFollowUpFacts

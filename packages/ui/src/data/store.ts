@@ -9,7 +9,7 @@ import {
   requiresIdempotencyKey,
   type ThreadListEntry,
 } from "@psyche/protocol";
-import { modelBudgetMinutes } from "../i18n/errors.ts";
+import { modelBudgetMinutes, modelBudgetRetryMs } from "../i18n/errors.ts";
 import {
   type ConnectionState,
   type GatewayClient,
@@ -208,7 +208,11 @@ export class GatewayStore {
         if (code !== "rate_limited") throw err;
         // The model budget is this device's, not the shared request budget: it pauses nothing
         // else and the send is not retried in a loop. The message stays queued for the next flush.
-        if (modelBudgetMinutes(err) !== null) throw err;
+        const budgetMs = modelBudgetRetryMs(err);
+        if (budgetMs !== null) {
+          this.scheduleOutboxRetry(Date.now() + budgetMs);
+          throw err;
+        }
         const until = this.gate.pause(retryAfterSecOf((err as { details?: unknown }).details));
         if (attempt >= MAX_RATE_LIMIT_ATTEMPTS) {
           // Still limited after a few tries: the message stays queued, and goes again once the pause is over.

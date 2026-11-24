@@ -30,6 +30,12 @@ export interface MethodSpec<
    * calls a model without it is not budgeted.
    */
   readonly callsModel: boolean;
+  /**
+   * For a method that calls a model only for some params (`search.query` with `smart`, a memo
+   * that may start a task): the budget applies when this says yes. Never set together with
+   * `callsModel: true`.
+   */
+  callsModelWhen?(params: Static<P>): boolean;
   readonly description: string;
 }
 
@@ -50,6 +56,7 @@ export function defineMethod<
   scope: S;
   sideEffecting?: E;
   callsModel?: boolean;
+  callsModelWhen?: (params: Static<P>) => boolean;
   description: string;
 }): MethodSpec<P, R, S, E> {
   return {
@@ -58,6 +65,7 @@ export function defineMethod<
     scope: spec.scope,
     sideEffecting: (spec.sideEffecting ?? false) as E,
     callsModel: spec.callsModel ?? false,
+    ...(spec.callsModelWhen === undefined ? {} : { callsModelWhen: spec.callsModelWhen }),
     description: spec.description,
   };
 }

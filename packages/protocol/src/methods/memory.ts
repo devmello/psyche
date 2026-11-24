@@ -386,6 +386,7 @@ export const MemoryMethods = {
       "The persona from IDENTITY.md (name, creature, vibe, tagline, emoji, avatar, voice).",
   }),
   "memory.persona.edit": defineMethod({
+    callsModelWhen: (p) => p.instruction !== undefined,
     params: Type.Object({
       /** A natural-language change ("make yourself a pink hippo named Flash"), feature H9. */
       instruction: Type.Optional(Type.String({ minLength: 1, maxLength: 1000 })),

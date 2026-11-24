@@ -6,15 +6,15 @@ import { RateLimiter } from "./rate-limit.ts";
  * a paired phone or a remote client cannot spend the owner's tokens in a loop. These are the
  * only numbers: there is no setting for them, so a device cannot raise its own budget.
  *
- * - A burst of 10 calls in any 60 seconds, so a person typing, retrying and tapping never
+ * - A burst of 20 calls in any 60 seconds, so a person typing, retrying and tapping never
  *   notices it.
- * - 60 calls in any hour, so a loop is held to one call a minute on average. A refusal is
+ * - 240 calls in any hour (real phone chat reaches 60 to 120), so a loop is held to about four calls a minute. A refusal is
  *   never longer than the window that is full (a minute for the burst, an hour at the most for
  *   the hourly cap), and nothing is locked: the first call that finds room goes through.
  */
 export const MODEL_BUDGET = {
-  burst: { calls: 10, windowMs: 60_000 },
-  hourly: { calls: 60, windowMs: 3_600_000 },
+  burst: { calls: 20, windowMs: 60_000 },
+  hourly: { calls: 240, windowMs: 3_600_000 },
 } as const;
 
 export interface ModelBudgetLimits {

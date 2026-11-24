@@ -6,19 +6,19 @@ import PsycheWire
 // Search over the Gateway: `search.query` for the hits, `memory.life.answer` for "From your memory"
 // when the query reads as a question.
 extension GatewayBackend {
-    public func search(query: String) async throws -> SearchResults {
+    public func search(query: String, askLife: Bool) async throws -> SearchResults {
         let text = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return SearchResults(answer: nil, hits: []) }
         let asksQuestion = Self.readsAsQuestion(text)
         // Typing never sends raw mail, messages or files to a model: this answer reads reviewed facts only.
-        async let answer = optional { asksQuestion ? try await self.lifeAnswer(question: text, passages: false, previous: nil) : nil }
+        async let answer = optional { askLife && asksQuestion ? try await self.lifeAnswer(question: text, passages: false, previous: nil) : nil }
         let result = try await call("search.query", .obj(["query": .string(text), "limit": .number(40)]))
         var found = await answer ?? nil
         var question = asksQuestion
         // The Gateway may read a question the rules did not: ask for the answer then.
-        if found == nil, !asksQuestion, result.at("understood", "intent")?.string == "answer" {
+        if !asksQuestion, result.at("understood", "intent")?.string == "answer" {
             question = true
-            found = await optional { try await self.lifeAnswer(question: text, passages: false, previous: nil) } ?? nil
+            if askLife { found = await optional { try await self.lifeAnswer(question: text, passages: false, previous: nil) } ?? nil }
         }
         let hits = (result["hits"]?.array ?? []).compactMap(Self.hit)
         return SearchResults(answer: found, hits: hits, canAskLife: question)

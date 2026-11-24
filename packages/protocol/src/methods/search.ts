@@ -392,6 +392,7 @@ export type SearchOpenTarget = Static<typeof SearchOpenTarget>;
 
 export const SearchMethods = {
   "search.query": defineMethod({
+    callsModelWhen: (p) => p.smart === true,
     params: Type.Object({
       query: Type.String({ minLength: 1, maxLength: 2000 }),
       scopes: Type.Optional(Type.Array(SearchScope)),

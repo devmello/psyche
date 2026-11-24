@@ -132,6 +132,7 @@ export const VoiceMethods = {
     description: "Cancels a dictation session without a final transcript.",
   }),
   "voice.memo.save": defineMethod({
+    callsModelWhen: (p) => p.task !== "never",
     params: Type.Object({
       sessionId: SessionId,
       threadId: Type.Optional(Id),

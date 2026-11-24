@@ -16,10 +16,16 @@ function errorReason(err: unknown): string | null {
  * whole minutes to wait, at least one, or null for any other error.
  */
 export function modelBudgetMinutes(err: unknown): number | null {
+  const ms = modelBudgetRetryMs(err);
+  return ms === null ? null : Math.max(1, Math.ceil(ms / 60_000));
+}
+
+/** The milliseconds until the model budget has room again (a minute when the Gateway gave none), or null. */
+export function modelBudgetRetryMs(err: unknown): number | null {
   if (errorReason(err) !== "model_budget") return null;
   const details = (err as { details?: { retryAfterMs?: unknown } }).details;
   const ms = Number(details?.retryAfterMs);
-  return Math.max(1, Math.ceil((Number.isFinite(ms) && ms > 0 ? ms : 60_000) / 60_000));
+  return Number.isFinite(ms) && ms > 0 ? ms : 60_000;
 }
 
 /** The error code of a Gateway error (a request error or a `PsycheError`), else null. */

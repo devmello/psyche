@@ -30,6 +30,7 @@ export const WidgetsMethods = {
     description: "The pinned widgets, most recently pinned first (the Overview's Pinned block).",
   }),
   "widgets.act": defineMethod({
+    callsModel: true,
     params: Type.Object(
       {
         widgetId: Id,

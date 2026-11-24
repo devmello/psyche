@@ -34,6 +34,7 @@ export const TasksMethods = {
     description: "Pauses a running task at the next checkpoint.",
   }),
   "tasks.resume": defineMethod({
+    callsModel: true,
     params: TaskIdParams,
     result: TaskResult,
     scope: "operator.write",
@@ -67,6 +68,7 @@ export const TasksMethods = {
       "Steers a running task (a specialist job): the text reaches the running turn as owner guidance, or opens its next turn when parked. Side-effecting: a duplicate would steer twice.",
   }),
   "tasks.update": defineMethod({
+    callsModelWhen: (p) => p.budget !== undefined,
     params: Type.Object({
       taskId: Id,
       budget: Type.Optional(

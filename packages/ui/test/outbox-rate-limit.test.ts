@@ -148,4 +148,27 @@ describe("queued sends and rate_limited", () => {
     expect(sends.map((s) => s.content)).toEqual(["first", "first", "second"]);
     expect(outbox.items()).toEqual([]);
   });
+
+  it("a spent model budget is not retried in a loop and goes again once, after its wait", async () => {
+    const budget = new PsycheError("rate_limited", "Too many requests", {
+      details: { scope: "model_calls", reason: "model_budget", retryAfterMs: 120_000 },
+      retryable: true,
+    });
+    const { client, sends } = scriptedClient([refuse(budget), accept]);
+    const outbox = new ChatOutbox(memoryStorage());
+    outbox.enqueue({ threadId: "t1", content: "hello" });
+    const store = new GatewayStore(client, { outbox });
+    store.start();
+
+    await store.flushOutbox();
+    // One attempt, not the three the shared request budget gets, and the message is still queued.
+    expect(sends).toHaveLength(1);
+    expect(outbox.items()).toHaveLength(1);
+    await vi.advanceTimersByTimeAsync(119_000);
+    expect(sends).toHaveLength(1);
+    await vi.advanceTimersByTimeAsync(2_000);
+    expect(sends).toHaveLength(2);
+    expect(outbox.items()).toEqual([]);
+    store.stop();
+  });
 });

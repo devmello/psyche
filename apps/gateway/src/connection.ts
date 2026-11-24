@@ -325,7 +325,10 @@ export class Connection implements LiveConnection {
       throw new PsycheError("forbidden", `${method} requires scope ${scope}`);
     }
     this.#rateLimit(identity, method, spec.sideEffecting, params);
-    if (spec.callsModel) this.#modelBudget(identity);
+    // Counted only when the call is about to run (after params, scope, presence and the replay
+    // check), so a refused or replayed request costs nothing.
+    const budgeted =
+      spec.callsModel || (spec.callsModelWhen as ((p: unknown) => boolean) | undefined)?.(params);
     const def: HandlerDef | undefined = HANDLERS[method] ?? this.#ctx.extraHandlers[method];
     if (def === undefined) {
       throw new PsycheError("not_implemented", `${method} is not implemented yet`);
@@ -337,6 +340,7 @@ export class Connection implements LiveConnection {
     if (!spec.sideEffecting) {
       if (gate !== undefined)
         await requireFreshPresence({ ctx: this.#ctx, identity }, gate.action, gate.approvalId);
+      if (budgeted) this.#modelBudget(identity);
       return this.#execute(def, method, params, identity, null);
     }
 
@@ -357,6 +361,7 @@ export class Connection implements LiveConnection {
         if (gate !== undefined) {
           await requireFreshPresence({ ctx: this.#ctx, identity }, gate.action, gate.approvalId);
         }
+        if (budgeted) this.#modelBudget(identity);
         return this.#execute(def, method, params, identity, { ref, hash });
       },
       def.transactional !== true,
