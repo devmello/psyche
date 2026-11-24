@@ -51,7 +51,7 @@ describe("settings actions show their failure", () => {
         }}
         onGateway={(g) => (ref.current = g)}
       >
-        <ConnectorsSection now={Date.parse(STORY_NOW)} />
+        <ConnectorsSection now={STORY_NOW} />
       </StoryWorld>,
     );
     const notes = await screen.findByRole("article", { name: "Apple Notes" });
@@ -70,7 +70,7 @@ describe("settings actions show their failure", () => {
     const ref: { current?: MockGateway } = {};
     render(
       <StoryWorld onGateway={(g) => (ref.current = g)}>
-        <CredentialsSection now={Date.parse(STORY_NOW)} />
+        <CredentialsSection now={STORY_NOW} />
       </StoryWorld>,
     );
     const more = (await screen.findAllByRole("button", { name: /^More for / }))[0];
