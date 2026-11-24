@@ -9,6 +9,7 @@ struct TaskRunView: View {
     @State private var model: TaskRunModel
     @State private var draft = ""
     @State private var confirmingCancel = false
+    @State private var editing = false
     @Environment(Session.self) private var session
 
     init(store: any PsycheBackend, taskID: String) {
@@ -43,6 +44,11 @@ struct TaskRunView: View {
             Button(String(localized: "Keep running", bundle: .module), role: .cancel) {}
         } message: {
             Text("Psyche stops where it is. Work already done stays.", bundle: .module)
+        }
+        .sheet(isPresented: $editing) {
+            if let limits = model.phase.value?.limits {
+                TaskEditSheet(limits: limits) { changes in try await model.updateTask(changes) }
+            }
         }
     }
 
@@ -96,6 +102,9 @@ struct TaskRunView: View {
                 }
                 if allowed.canRetry {
                     Button(String(localized: "Retry", bundle: .module)) { Task { await model.retry() } }
+                }
+                if allowed.canEdit {
+                    Button(String(localized: "Edit", bundle: .module)) { editing = true }
                 }
                 if allowed.canCancel {
                     Button(String(localized: "Cancel", bundle: .module), role: .destructive) { confirmingCancel = true }

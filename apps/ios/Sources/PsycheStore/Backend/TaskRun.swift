@@ -26,16 +26,22 @@ public struct TaskRunControls: Sendable, Equatable {
     public var canRetry: Bool
     public var canSteer: Bool
     public var canCancel: Bool
+    /// `tasks.update` changes a specialist job's budget or deadline. Only a job that is still live has one.
+    public var canEdit: Bool
 
-    public init(canPause: Bool = false, canResume: Bool = false, canRetry: Bool = false, canSteer: Bool = false, canCancel: Bool = false) {
+    public init(
+        canPause: Bool = false, canResume: Bool = false, canRetry: Bool = false, canSteer: Bool = false,
+        canCancel: Bool = false, canEdit: Bool = false
+    ) {
         self.canPause = canPause
         self.canResume = canResume
         self.canRetry = canRetry
         self.canSteer = canSteer
         self.canCancel = canCancel
+        self.canEdit = canEdit
     }
 
-    public var isEmpty: Bool { !(canPause || canResume || canRetry || canSteer || canCancel) }
+    public var isEmpty: Bool { !(canPause || canResume || canRetry || canSteer || canCancel || canEdit) }
 
     /// `tasks.pause` pauses a running task, `tasks.resume` a paused one, `tasks.retry` a failed or cancelled one,
     /// `tasks.steer` a running one, and `tasks.cancel` any task that has not ended.
@@ -48,6 +54,40 @@ public struct TaskRunControls: Sendable, Equatable {
         case .done: TaskRunControls()
         }
     }
+}
+
+/// A specialist job's limits as the Gateway's task carries them: the budget's token, cost and wall-clock limits
+/// and its deadline. Nil in a field the Gateway did not send.
+public struct TaskLimits: Sendable, Equatable {
+    public var tokens: Int?
+    public var costUsd: Double?
+    public var minutes: Int?
+    public var deadline: Date?
+
+    public init(tokens: Int? = nil, costUsd: Double? = nil, minutes: Int? = nil, deadline: Date? = nil) {
+        self.tokens = tokens
+        self.costUsd = costUsd
+        self.minutes = minutes
+        self.deadline = deadline
+    }
+}
+
+/// The fields the owner changed on a job's limits. Nil means unchanged and is never sent. A deadline can move
+/// but not clear: `tasks.update` takes no null deadline.
+public struct TaskChanges: Sendable, Equatable {
+    public var tokens: Int?
+    public var costUsd: Double?
+    public var minutes: Int?
+    public var deadline: Date?
+
+    public init(tokens: Int? = nil, costUsd: Double? = nil, minutes: Int? = nil, deadline: Date? = nil) {
+        self.tokens = tokens
+        self.costUsd = costUsd
+        self.minutes = minutes
+        self.deadline = deadline
+    }
+
+    public var isEmpty: Bool { tokens == nil && costUsd == nil && minutes == nil && deadline == nil }
 }
 
 public struct TaskRunStep: Sendable, Equatable, Identifiable {
@@ -81,8 +121,13 @@ public struct TaskRunDetail: Sendable, Equatable {
     public var endedAt: Date?
     public var summary: String?
     public var steps: [TaskRunStep]
+    /// The job's limits, when the task is a specialist's job. Nil for any other task.
+    public var limits: TaskLimits?
 
-    public init(taskID: String, title: String, state: TaskRunState, startedAt: Date?, endedAt: Date?, summary: String?, steps: [TaskRunStep]) {
+    public init(
+        taskID: String, title: String, state: TaskRunState, startedAt: Date?, endedAt: Date?, summary: String?,
+        steps: [TaskRunStep], limits: TaskLimits? = nil
+    ) {
         self.taskID = taskID
         self.title = title
         self.state = state
@@ -90,7 +135,12 @@ public struct TaskRunDetail: Sendable, Equatable {
         self.endedAt = endedAt
         self.summary = summary
         self.steps = steps
+        self.limits = limits
     }
 
-    public var controls: TaskRunControls { .available(for: state) }
+    public var controls: TaskRunControls {
+        var controls = TaskRunControls.available(for: state)
+        controls.canEdit = limits != nil && state.isLive
+        return controls
+    }
 }

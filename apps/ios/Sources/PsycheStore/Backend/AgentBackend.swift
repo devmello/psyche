@@ -1,7 +1,7 @@
 import Foundation
 
 // The agent sheet (§4.8): Activity, Approvals, Upcoming, Soul. Owner: the Home session (I5). Gateway
-// methods: tasks.list/get/cancel/pause/resume/retry/steer, runs.*, scheduled.*, memory.persona.get.
+// methods: tasks.list/get/cancel/pause/resume/retry/steer/update, runs.*, scheduled.*, memory.persona.get.
 
 public protocol AgentBackend: Sendable {
     func activity() async throws -> AgentActivity
@@ -14,6 +14,9 @@ public protocol AgentBackend: Sendable {
     func retryTask(id: String) async throws
     /// Guidance for a running task. Callers trim the text first: the Gateway refuses an empty one.
     func steerTask(id: String, text: String) async throws
+    /// Changes a specialist job's budget or deadline (`tasks.update`). Callers send only changed fields. The
+    /// Gateway's refusal throws, in its own words.
+    func updateTask(id: String, changes: TaskChanges) async throws
 }
 
 public struct UpcomingItem: Sendable, Equatable, Identifiable {

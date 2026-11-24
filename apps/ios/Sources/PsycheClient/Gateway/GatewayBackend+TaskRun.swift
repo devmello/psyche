@@ -24,7 +24,8 @@ extension GatewayBackend {
             startedAt: WireFormat.date(t["createdAt"]?.string),
             endedAt: WireFormat.date(t["completedAt"]?.string),
             summary: t["summary"]?.string.flatMap { $0.isEmpty ? nil : $0 },
-            steps: steps)
+            steps: steps,
+            limits: Self.taskLimits(t["specialist"]))
     }
 
     public func pauseTask(id: String) async throws {
@@ -47,7 +48,36 @@ extension GatewayBackend {
             key: "steer-\(id)-\(UUID().uuidString)")
     }
 
+    /// Side-effecting: a fresh key per save. Sends only what changed: `budget` carries the changed limits and
+    /// `deadline` the new one. The Gateway caps each limit at the role's Settings and refuses a task that has
+    /// ended or is not a specialist's job; that refusal throws in the Gateway's own words.
+    public func updateTask(id: String, changes: TaskChanges) async throws {
+        let budget: JSONValue? = changes.tokens == nil && changes.costUsd == nil && changes.minutes == nil
+            ? nil
+            : .obj([
+                "tokens": changes.tokens.map { JSONValue.number(Double($0)) },
+                "costUsd": changes.costUsd.map { JSONValue.number($0) },
+                "minutes": changes.minutes.map { JSONValue.number(Double($0)) },
+            ])
+        let deadline = changes.deadline.map { JSONValue.string($0.formatted(.iso8601)) }
+        _ = try await call(
+            "tasks.update",
+            .obj(["taskId": .string(id), "budget": budget, "deadline": deadline]),
+            key: "task-update-\(id)-\(UUID().uuidString)")
+    }
+
     // MARK: -
+
+    /// The limits of a specialist's job, from the task's `specialist` block. Nil when the task has none.
+    static func taskLimits(_ specialist: JSONValue?) -> TaskLimits? {
+        guard let budget = specialist?["budget"] else { return nil }
+        let limit = budget["limit"]
+        return TaskLimits(
+            tokens: limit?["tokens"]?.double.map { Int($0) },
+            costUsd: limit?["costUsd"]?.double,
+            minutes: limit?["wallMs"]?.double.map { Int($0 / 60_000) },
+            deadline: WireFormat.date(specialist?["deadline"]?.string))
+    }
 
     /// One step of `runs.get`. The label is the past tense once the step ended ok; the result is the error
     /// message when it failed, else the first line of its output preview.
