@@ -12,6 +12,7 @@ import {
   isIncognito,
   libraryDoc,
   messageDoc,
+  messageSender,
   type RecordingRef,
   type SearchDoc,
   taskActionDoc,
@@ -30,6 +31,8 @@ import type { Recognize } from "./search-ocr.ts";
 export interface SearchSourceDeps {
   db: PsycheDb;
   home: string;
+  /** The owner's name from the profile, for the sender of their chat messages (`from:`). */
+  ownerName?: () => Promise<string | undefined> | string | undefined;
   tasks: {
     get(taskId: string): Promise<Task | undefined>;
     actions(taskId: string): Promise<TaskAction[]>;
@@ -111,11 +114,20 @@ export function searchSources(deps: SearchSourceDeps): BackfillSource[] {
           .all(cursor ?? "", Math.max(1, Math.floor(size / 10))) as { id: string }[]
       ).map((r) => r.id);
       const out: BackfillPage = { docs: [], flags: [], next: null };
+      const owner = await deps.ownerName?.();
       for (const id of ids) {
         const thread = getThread(db, id);
         if (thread === undefined || isIncognito(thread)) continue;
         for (const m of listAllMessages(db, id)) {
-          out.docs.push(messageDoc(m, { thread }));
+          const sender = messageSender(m, thread, { owner });
+          out.docs.push(
+            messageDoc(m, {
+              thread,
+              ...(sender === undefined
+                ? {}
+                : { sender: sender.name, senderAliases: sender.aliases ?? [] }),
+            }),
+          );
           if (hasAttachment(m)) {
             out.flags?.push({ targetId: m.id, flag: "attachment" });
             out.flags?.push({ targetId: id, flag: "attachment" });

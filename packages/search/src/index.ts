@@ -18,6 +18,7 @@ export * from "./ranking.ts";
 export * from "./rerank.ts";
 export * from "./schema.ts";
 export * from "./semantic.ts";
+export * from "./senders.ts";
 export * from "./sources/index.ts";
 export * from "./sqlite-index.ts";
 export * from "./types.ts";

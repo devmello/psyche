@@ -2,6 +2,7 @@ import type { ApprovalRequest, Message, Task, TaskAction, Thread } from "@psyche
 import { SAMPLE_APPROVAL_REQUEST, SAMPLE_MESSAGES, SAMPLE_THREAD } from "@psyche/testing";
 import { describe, expect, it } from "vitest";
 import { SearchIndexer } from "../src/indexer.ts";
+import { messageSender } from "../src/senders.ts";
 import { setup } from "./helpers.ts";
 
 const thread = (over: Partial<Thread> = {}): Thread => ({ ...SAMPLE_THREAD, ...over });
@@ -35,7 +36,7 @@ function wire() {
   const { index } = setup();
   const errors: unknown[] = [];
   const indexer = new SearchIndexer(index, {
-    senderOf: (m) => (m.role === "user" ? "me" : undefined),
+    senderOf: (m, t) => messageSender(m, t, { owner: "Jane Ortiz" }),
     onError: (e) => errors.push(e),
   });
   return { index, indexer, errors };

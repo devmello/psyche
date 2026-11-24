@@ -27,6 +27,8 @@ export interface SearchIndexDoc {
   provenance: Provenance;
   threadId?: string;
   from?: string;
+  /** Other names `from:` matches this document by, whole: `me` for the owner's messages. */
+  fromAliases?: string[];
   mime?: string;
   tags?: string[];
   incognito?: boolean;

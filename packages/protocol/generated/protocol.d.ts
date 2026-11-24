@@ -10758,8 +10758,9 @@ export interface SearchQueryParams {
     dropChips?: string[];
     /**
      * Only documents whose sender matches this name, handle or address (case-insensitive,
-     * substring). Documents with no sender (chat messages, tasks, notes, memory, people) are
-     * left out
+     * substring). Chat messages have a sender: the owner's (their name, and `me`), the agent's
+     * (`Psyche`), or a channel peer's. `me` matches the owner's messages only. Documents with
+     * no sender (tasks, notes, memory, people) are left out
      */
     from?:   string;
     limit?:  number;
