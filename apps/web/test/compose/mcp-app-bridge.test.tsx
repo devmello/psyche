@@ -200,10 +200,10 @@ describe("MCP App JSON-RPC bridge", () => {
         const { send, gateway, posted } = await open("tc_1");
         gateway.request = ((method: string) =>
           method === "mcp.app.call"
-            ? new Promise((resolve) =>
+            ? new Promise<unknown>((resolve) =>
                 setTimeout(() => resolve({ isError: false, output: { blocks: [] } }), 31_000),
               )
-            : Promise.resolve({})) as typeof gateway.request;
+            : Promise.resolve({})) as unknown as typeof gateway.request;
         await send(rpc("tools/call", { name: "t" }, 4));
         expect(posted).not.toHaveBeenCalled();
         await act(async () => {
