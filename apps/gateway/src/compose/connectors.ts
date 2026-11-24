@@ -63,6 +63,7 @@ import { createChangeRecorder } from "./changes.ts";
 import { connectorMatrixSync } from "./connector-matrix.ts";
 import { fetchLimit, taskOrigins } from "./fetch-origins.ts";
 import { googleClientStore } from "./google-client.ts";
+import { approvedInstallReason, reportApprovedInstallFailed } from "./install-failed.ts";
 import { indexedConnectorLibrary } from "./library.ts";
 import { type MailCredentials, mailCredentials } from "./mail-credentials.ts";
 import { protectedRoots, writeProtectionFor } from "./protected-paths.ts";
@@ -445,14 +446,25 @@ export function composeConnectors(
   }
   // The owner's approval of the drafted connector's card installs it (the card is the consent).
   // Denied or expired cards never reach here; `installApproved` verifies the approval itself.
+  // An approved card whose install cannot run (the Gateway restarted, the proposal expired, a
+  // binding refused) is reported to the owner, never dropped silently.
   const unsubscribeCustomInstall = services.rawBroker.subscribe((e) => {
     if (e.type !== "approval.decided" || e.approval.kind !== "skill_install") return;
-    void custom.installApproved(e.approval).catch((err: unknown) =>
+    if ((e.approval.details as { kind?: unknown }).kind !== "connector") return;
+    void custom.installApproved(e.approval).catch((err: unknown) => {
+      const reason = approvedInstallReason(err);
       log?.log("warn", "custom connector install after approval failed", {
         approvalId: e.approval.id,
-        reason: err instanceof Error ? err.message : String(err),
-      }),
-    );
+        reason,
+      });
+      reportApprovedInstallFailed({
+        broker: services.broker,
+        notifier: services.notifier,
+        approval: e.approval,
+        kind: "connector",
+        reason,
+      });
+    });
   });
   // The agent may draft a custom connector (M9), never enable one: this only opens the owner's
   // device-only trust card. Whatever it submits is marked as agent-drafted on the card.
@@ -514,7 +526,7 @@ export function composeConnectors(
           approvalId: approval.id,
           hash: proposal.hash,
           findings: proposal.findings.map((f) => `${f.severity}: ${f.message}`),
-          note: "The owner reviews this on their device; it is not installed.",
+          note: "The owner reviews this card on their device. It installs when the owner approves the card, with its tools on the rules the card shows; until then nothing is installed.",
         },
         provenance: "trusted",
       };

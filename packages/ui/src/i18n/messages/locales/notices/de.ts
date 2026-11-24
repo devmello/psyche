@@ -2,6 +2,9 @@ import type { Catalogue } from "../../index.ts";
 
 /** Notices the Gateway authors (de); merged into `../de.ts`. */
 export const notices: Partial<Catalogue> = {
+  "notice.install.failed.title": "Eine genehmigte Installation wurde nicht abgeschlossen",
+  "notice.install.failed.body":
+    "{reason, select, lost {Psyche wurde neu gestartet, bevor du genehmigt hast, daher ging der Vorschlag verloren. Schlage es erneut vor.} expired {Der Vorschlag war abgelaufen, bevor du genehmigt hast. Schlage es erneut vor.} other {Psyche konnte es nicht installieren. Prüfe die Liste und versuche es erneut.}}",
   "notice.security.changed.title":
     "Psyche hat eine Sicherheitsänderung rückgängig gemacht, die außerhalb der App erfolgte",
   "notice.security.changed.body":

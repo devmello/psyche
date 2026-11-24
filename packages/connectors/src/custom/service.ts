@@ -97,8 +97,12 @@ export class CustomConnectors {
   readonly #o: CustomConnectorServiceOptions;
   readonly #staged = new Map<string, Staged>();
   #seq = 0;
-  /** Proposals whose install is running: a second install of the same one is refused. */
-  readonly #installing = new Set<string>();
+  /**
+   * Installs by card (approval id), in flight or done: the owner's Settings call and the broker's
+   * `approval.decided` event share one install, and a repeat gets the same result. A failed one is
+   * dropped so the same checks can run again.
+   */
+  readonly #installs = new Map<string, Promise<ConnectorRecord>>();
 
   constructor(options: CustomConnectorServiceOptions) {
     this.#o = options;
@@ -204,6 +208,9 @@ export class CustomConnectors {
       surfaces: (this.#o.surfaces ?? ["desktop"]).filter((x) => !x.includes(":")),
       scopesOffered: ["once"],
       taint: run?.taint ?? false,
+      // The card dies with its proposal: an owner's approval TTL longer than the proposal's
+      // cannot leave a card that approves a proposal the Gateway would refuse to install.
+      maxTtlMs: CUSTOM_PROPOSAL_TTL_MS,
       ...(run?.taintSources === undefined ? {} : { taintSources: run.taintSources }),
     });
     this.#staged.set(id, { proposal, existingId: existing?.id, approvalId: issued.approval.id });
@@ -217,30 +224,38 @@ export class CustomConnectors {
   }
 
   /**
-   * Installs the proposal whose card was just approved (the broker's `approval.decided`). Only an
-   * approved card of this service's own proposal counts; anything else installs nothing.
+   * Installs the proposal whose card was just approved (the broker's `approval.decided`). Returns
+   * `undefined` for a card that is not approved. An approved card whose proposal is gone (the
+   * Gateway restarted, or it expired) throws `not_found`, so the caller can tell the owner.
    */
   async installApproved(approval: ApprovalRequest): Promise<ConnectorRecord | undefined> {
     if (approval.status !== "approved") return undefined;
     for (const [proposalId, s] of this.#staged) {
       if (s.approvalId === approval.id) return this.install(proposalId, approval.id);
     }
-    return undefined;
+    const done = this.#installs.get(approval.id);
+    if (done !== undefined) return done;
+    throw new PsycheError(
+      "not_found",
+      "the connector's proposal is gone: the Gateway restarted or it expired",
+    );
   }
 
-  async install(proposalId: string, approvalId: string): Promise<ConnectorRecord> {
+  install(proposalId: string, approvalId: string): Promise<ConnectorRecord> {
+    const key = approvalId;
+    const running = this.#installs.get(key);
+    if (running !== undefined) return running;
+    const run = this.#install(proposalId, approvalId).catch((err: unknown) => {
+      this.#installs.delete(key);
+      throw err;
+    });
+    this.#installs.set(key, run);
+    return run;
+  }
+
+  async #install(proposalId: string, approvalId: string): Promise<ConnectorRecord> {
     const s = this.#staged.get(proposalId);
-    if (s === undefined || this.#installing.has(proposalId))
-      throw new PsycheError("not_found", "no such custom connector proposal");
-    this.#installing.add(proposalId);
-    try {
-      return await this.#install(proposalId, approvalId, s);
-    } finally {
-      this.#installing.delete(proposalId);
-    }
-  }
-
-  async #install(proposalId: string, approvalId: string, s: Staged): Promise<ConnectorRecord> {
+    if (s === undefined) throw new PsycheError("not_found", "no such custom connector proposal");
     const p = s.proposal;
     if (this.#o.clock.now() > p.expiresAt) {
       this.#staged.delete(proposalId);

@@ -1207,6 +1207,12 @@ export class PsychePermissionBroker implements PermissionBroker {
     return this.#ttlMs ?? (m === undefined ? APPROVAL_TTL_MS : m * 60_000);
   }
 
+  /** The card's lifetime: the given or default TTL, never past `maxTtlMs` (a proposal's expiry). */
+  #cardTtl(input: { ttlMs?: number; maxTtlMs?: number }): number {
+    const ttl = input.ttlMs ?? this.#approvalTtl();
+    return input.maxTtlMs === undefined ? ttl : Math.min(ttl, Math.max(0, input.maxTtlMs));
+  }
+
   // ---- decide -------------------------------------------------------------------------------
 
   async decide(call: PolicyCall, ctx: PolicyContext): Promise<PolicyDecision> {
@@ -2232,7 +2238,7 @@ export class PsychePermissionBroker implements PermissionBroker {
       scopeGranted: null,
       decidedBy: null,
       requestedAt: new Date(now).toISOString(),
-      expiresAt: new Date(now + (input.ttlMs ?? this.#approvalTtl())).toISOString(),
+      expiresAt: new Date(now + this.#cardTtl(input)).toISOString(),
       decidedAt: null,
       grantId: null,
     };
