@@ -34,8 +34,10 @@ struct RouteView: View {
         case .feed: FeedView(store: store)
         case .ideas: IdeasView(store: store)
         case .goals: GoalsView(store: store)
+        case .goal(let id): GoalsView(store: store, openGoalID: id)
+        case .feedPost(let id): FeedView(store: store, focusPostID: id)
         case .space(let id): SpaceView(id: id, store: store)
-        case .task: EmptyView()  // opens the agent sheet through the router, never pushed
+        case .task, .agentApprovals: EmptyView()  // open the agent sheet through the router, never pushed
         }
     }
 }

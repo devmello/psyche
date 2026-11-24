@@ -18,7 +18,7 @@ import Testing
         ("/library/documents?item=doc1", Route.file(id: "doc1")),
         ("/feed?post=p1", Route.feed),
         ("/ideas?idea=i1", Route.ideas),
-        ("/goals/g1", Route.project(id: "g1")),
+        ("/goals/g1", Route.goal(id: "g1")),
         ("/agent/soul?entity=e1", Route.entity(id: "e1")),
         ("/agent/soul?entity=ent_x", Route.entity(id: "ent_x")),
         // Existing shapes and refusals

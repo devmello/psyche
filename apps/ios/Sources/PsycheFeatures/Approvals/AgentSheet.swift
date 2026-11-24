@@ -70,6 +70,8 @@ struct AgentSheet: View {
             await model.load()
             await model.observe()
         }
+        .onAppear(perform: consumeFocus)
+        .onChange(of: router.agentFocus) { consumeFocus() }
         .confirmationDialog(
             cancelling.map { "Cancel “\($0.title)”?" } ?? "", isPresented: Binding(
                 get: { cancelling != nil }, set: { if !$0 { cancelling = nil } }),
@@ -85,6 +87,16 @@ struct AgentSheet: View {
                 NavigationStack { TaskRunView(store: store, taskID: taskID) }
                     .presentationDragIndicator(.visible)
             }
+        }
+    }
+
+    /// Applies the router's request (a task's run page, or the Approvals segment) and clears it, so a later open asks again.
+    private func consumeFocus() {
+        guard let focus = router.agentFocus else { return }
+        router.agentFocus = nil
+        switch focus {
+        case .task(let id): openedTaskID = id
+        case .approvals: segment = .approvals
         }
     }
 
