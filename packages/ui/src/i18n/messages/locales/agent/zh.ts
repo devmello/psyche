@@ -66,6 +66,7 @@ export const agent: Partial<Catalogue> = {
   "agent.timeline.tooltipUsage": "{start} · {duration} · {tokens} 个 token · {cost}",
   "agent.timeline.range": "显示 {from} 到 {to}",
   "agent.timeline.clearRange": "显示全部",
+  "agent.timeline.tabs.title": "打开的标签页",
   "agent.timeline.zoomIn": "放大",
   "agent.timeline.zoomOut": "缩小",
   "agent.timeline.zoomFit": "适应窗口",

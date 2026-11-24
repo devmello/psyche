@@ -66,6 +66,7 @@ export const agentRest: Partial<Catalogue> = {
   "agent.timeline.tooltipUsage": "{start} · {duration} · {tokens} 토큰 · {cost}",
   "agent.timeline.range": "{from}부터 {to}까지 표시 중",
   "agent.timeline.clearRange": "모두 보기",
+  "agent.timeline.tabs.title": "열린 탭",
   "agent.timeline.zoomIn": "확대",
   "agent.timeline.zoomOut": "축소",
   "agent.timeline.zoomFit": "맞춤",
