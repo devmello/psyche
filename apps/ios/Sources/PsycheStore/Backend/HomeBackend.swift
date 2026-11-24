@@ -13,6 +13,8 @@ public protocol HomeBackend: Sendable {
     func answerQuestion(id: String, answer: QuestionAnswer) async throws
     func actOnNudge(id: String, action: NudgeAction) async throws
     func inbox() async throws -> [InboxItem]
+    /// One page of the inbox, newest first. `cursor` is nil for the first page; `nextCursor` is nil on the last.
+    func inboxPage(cursor: String?) async throws -> InboxPage
     func markRead(ids: [String]) async throws
     /// Taps one of a Gateway notice's own buttons ("Keep it"), the same `notifications.resolve` call the web inbox makes.
     /// Approval buttons are not here: they answer through `answerApproval`.
@@ -84,6 +86,17 @@ public struct InboxItem: Sendable, Equatable, Identifiable {
         self.route = route
         self.needsYouID = needsYouID
         self.earlier = earlier
+    }
+}
+
+/// One page of the inbox. `nextCursor` is nil when this is the last page.
+public struct InboxPage: Sendable, Equatable {
+    public var items: [InboxItem]
+    public var nextCursor: String?
+
+    public init(items: [InboxItem], nextCursor: String?) {
+        self.items = items
+        self.nextCursor = nextCursor
     }
 }
 
