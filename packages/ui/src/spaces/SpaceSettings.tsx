@@ -180,7 +180,7 @@ export function SpaceSettingsSection({
                       <ScopeRow
                         key={c.id}
                         label={c.label}
-                        detail={c.account}
+                        detail={c.account ?? null}
                         aria={t("spaces.settings.connectors.use", { name: c.label })}
                         checked={scope?.includes(c.id) === true}
                         disabled={locked}
