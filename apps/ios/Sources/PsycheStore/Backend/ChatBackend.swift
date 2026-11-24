@@ -33,6 +33,20 @@ public protocol ChatBackend: Sendable {
     func queuedFollowUps(threadID: String) async throws -> [QueuedFollowUp]
     /// Removes a queued follow-up before it starts. False when it already started or is unknown (`chat.queue.remove`).
     func removeQueuedFollowUp(threadID: String, id: String) async throws -> Bool
+    /// Forks a chat at one message: a new side chat with the transcript up to and including `messageID`
+    /// (`threads.fork`). `title` nil keeps the Gateway's default.
+    func forkThread(id: String, messageID: String, title: String?) async throws -> ChatThreadSummary
+    /// Empties a chat in place (`threads.clear`): its messages and queued follow-ups go, the chat stays.
+    /// The Gateway refuses while the chat runs or waits on the owner.
+    func clearThread(id: String) async throws
+    /// Summarises a chat's earlier turns now (`threads.compact`). False when there was nothing to compact.
+    func compactThread(id: String) async throws -> Bool
+    /// Brings an archived chat back into the list (`threads.restore`).
+    func restoreThread(id: String) async throws
+    /// The archived side chats (`threads.list` with `includeArchived`, keeping only the archived rows).
+    func archivedThreads() async throws -> [ChatThreadSummary]
+    /// Records the owner's thumbs on one assistant reply (`feedback.give`): helpful, or not helpful.
+    func giveFeedback(threadID: String, messageID: String, helpful: Bool) async throws
 }
 
 /// A follow-up the Gateway holds until the current reply settles. Its `id` is the Gateway's message id.
@@ -139,12 +153,14 @@ public struct ChatThreadSummary: Sendable, Equatable, Identifiable {
     public var isPinned: Bool
     /// The Space the chat is in, nil when it is in none.
     public var spaceID: String?
+    /// True for a chat the owner archived (it leaves the list and sits in the Archived section).
+    public var isArchived: Bool
 
     public enum Status: Sendable { case neutral, needsYou, running }
 
     public init(
         id: String, title: String, status: String, statusKind: Status, isMain: Bool, updated: String,
-        isPinned: Bool = false, spaceID: String? = nil
+        isPinned: Bool = false, spaceID: String? = nil, isArchived: Bool = false
     ) {
         self.id = id
         self.title = title
@@ -154,6 +170,7 @@ public struct ChatThreadSummary: Sendable, Equatable, Identifiable {
         self.updated = updated
         self.isPinned = isPinned
         self.spaceID = spaceID
+        self.isArchived = isArchived
     }
 }
 
