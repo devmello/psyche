@@ -263,6 +263,7 @@ export const ja: Partial<Catalogue> = {
   "chat.commands.usageModel": "使い方：/model プロバイダ/モデル（例：anthropic/claude-sonnet-5-5）",
   "chat.commands.usageExport": "使い方：/export [md | json]",
   "chat.composer.commands": "コマンド",
+  "chat.composer.skills": "スキル",
   "chat.composer.quoting": "引用：",
   "chat.composer.removeQuote": "引用を削除",
   "chat.composer.offline": "Psycheに接続できません",

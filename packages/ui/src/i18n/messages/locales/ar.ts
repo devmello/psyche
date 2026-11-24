@@ -299,6 +299,7 @@ export const ar: Partial<Catalogue> = {
   "chat.commands.usageExport": "الاستخدام: /export [md | json]",
 
   "chat.composer.commands": "الأوامر",
+  "chat.composer.skills": "المهارات",
   "chat.composer.quoting": "اقتباس:",
   "chat.composer.removeQuote": "إزالة الاقتباس",
   "chat.composer.offline": "تعذّر الوصول إلى Psyche",

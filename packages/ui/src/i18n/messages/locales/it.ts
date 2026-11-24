@@ -261,6 +261,7 @@ export const it: Partial<Catalogue> = {
     "Uso: /model fornitore/modello, per esempio anthropic/claude-sonnet-5-5",
   "chat.commands.usageExport": "Uso: /export [md | json]",
   "chat.composer.commands": "Comandi",
+  "chat.composer.skills": "Skill",
   "chat.composer.quoting": "Citazione:",
   "chat.composer.removeQuote": "Rimuovi citazione",
   "chat.composer.offline": "Psyche non è raggiungibile",

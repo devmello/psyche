@@ -15544,6 +15544,9 @@
         },
         "context": {
           "$ref": "#/$defs/ChatContextRef"
+        },
+        "resolveSkills": {
+          "type": "boolean"
         }
       },
       "required": [
