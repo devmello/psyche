@@ -147,6 +147,8 @@ export interface MockWorld {
   /** Audit change records (`audit.changes`), newest first, with their stored diffs. */
   auditChanges: { change: AuditChange; diff?: string }[];
   auditVerified: boolean;
+  /** What `audit.friction` answers (stories, tests); absent means an empty window. */
+  auditFriction?: MethodResult<"audit.friction">;
   artifacts: Artifact[];
   widgets: Widget[];
   /** What `widgets.preview` answers per tool (default `ask`). */
@@ -2695,6 +2697,26 @@ export class MockGateway implements GatewayClient {
       return { entry, stateVersion: this.stateVersion };
     },
 
+    "audit.friction": () =>
+      this.world.auditFriction ?? {
+        from: null,
+        to: null,
+        decisions: 0,
+        asks: 0,
+        askRate: 0,
+        asksPerAskingRun: 0,
+        answerRate: 0,
+        approveRate: 0,
+        p50AnswerMs: null,
+        p90AnswerMs: null,
+        allowedByGrant: 0,
+        grantsCreated: {},
+        topAskRules: [],
+        answerRejections: {},
+        classifier: {},
+        byKind: [],
+        byMode: {},
+      },
     "usage.summary": () =>
       structuredClone(
         this.world.usageSummary ?? {

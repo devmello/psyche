@@ -126,6 +126,8 @@ export interface FixtureWorld {
   auditChanges: { change: AuditChange; diff?: string }[];
   /** Whether the audit hash chain verifies. */
   auditVerified: boolean;
+  /** What `audit.friction` answers; absent means an empty window. */
+  auditFriction?: MethodResult<"audit.friction">;
   artifacts: Artifact[];
   /** Generative-UI widget snapshots (empty unless a story or test adds some). */
   widgets: Widget[];

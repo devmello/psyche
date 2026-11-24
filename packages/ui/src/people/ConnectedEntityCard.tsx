@@ -12,9 +12,15 @@ import { QuickAdd } from "../memory-page/WorkDue.tsx";
 import { ConnectedWorkHistory } from "../memory-page/WorkHistory.tsx";
 import { PersonNudgeRow } from "../nudges/ConnectedNudges.tsx";
 import { usePersona, useSlots } from "../slots.tsx";
-import { EntityCard, type EntityCardActions } from "./EntityCard.tsx";
+import {
+  DEFAULT_RECENT_LIMIT,
+  EntityCard,
+  type EntityCardActions,
+  recentShownOf,
+} from "./EntityCard.tsx";
 import { ForgetEntityDialog, MergeEntityDialog, SplitEntityDialog } from "./EntityDialogs.tsx";
 import { useEntityCard } from "./hooks.ts";
+import { useOlderInteractions } from "./older-interactions.ts";
 import { PersonDataDialog, type PersonDataMode } from "./PersonDataDialog.tsx";
 
 export interface ConnectedEntityCardProps {
@@ -51,6 +57,17 @@ export function ConnectedEntityCard({
   const openLink = useOpenLink();
   const persona = usePersona();
   const card = useEntityCard(id, now);
+  // The Recent rows the card shows; "Show older" pages from the Gateway and skips these.
+  const shownRecent = new Set(
+    recentShownOf(card.entity?.interactions ?? [], recentLimit ?? DEFAULT_RECENT_LIMIT).map(
+      (i) => i.id,
+    ),
+  );
+  const older = useOlderInteractions({
+    entityId: id,
+    shown: shownRecent,
+    enabled: card.entity !== null && card.entity.kind === "person",
+  });
   const call = useCall();
   const [dialog, setDialog] = useState<"merge" | "split" | "forget" | PersonDataMode | null>(null);
   const isPerson = card.entity !== null && card.entity.kind === "person" && id !== "";
@@ -124,6 +141,7 @@ export function ConnectedEntityCard({
           {...(isPerson && card.entity
             ? { keepInTouch: <PersonNudgeRow entityId={id} name={card.entity.name} /> }
             : {})}
+          {...(isPerson && card.entity ? { olderInteractions: older } : {})}
           {...(isPerson
             ? {
                 onExport: () => {
