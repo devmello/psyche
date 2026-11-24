@@ -439,7 +439,9 @@ private struct TrackersSheet: View {
                     Task { await model.reorderTrackers(ids) }
                 }
             }
+            #if os(iOS)
             .environment(\.editMode, .constant(.active))
+            #endif
             .navigationTitle(String(localized: "Edit trackers", bundle: .module))
             .psycheInlineTitle()
             .toolbar {
@@ -579,8 +581,10 @@ private struct AddLinkSheet: View {
                     TextField(text: $address) {
                         Text("Address", bundle: .module)
                     }
+                    #if os(iOS)
                     .keyboardType(.URL)
                     .textInputAutocapitalization(.never)
+                    #endif
                     .autocorrectionDisabled()
                     .onChange(of: address) { _, _ in addressEdited = true }
                     TextField(text: $title) {
