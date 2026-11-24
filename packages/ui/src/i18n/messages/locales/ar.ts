@@ -3776,6 +3776,7 @@ export const ar: Partial<Catalogue> = {
   "web.browser.clearConfirm":
     "مسح ملفات تعريف الارتباط وبيانات المواقع لملف تعريف {profile, select, clean {بلا تسجيل دخول} other {الوكيل}}؟",
   "web.browser.cleared": "تم مسح بيانات التصفح.",
+  "web.browser.clearFailed": "تعذّر مسح بيانات التصفح.",
   "web.browser.clearData": "مسح بيانات التصفح",
 
   "web.command.model": "اختيار النموذج لهذه المحادثة",

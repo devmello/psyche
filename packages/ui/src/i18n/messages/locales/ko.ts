@@ -3714,6 +3714,7 @@ export const ko: Partial<Catalogue> = {
   "web.browser.clearConfirm":
     "{profile, select, clean {로그아웃} other {에이전트}} 프로파일의 쿠키와 사이트 데이터를 지우겠습니까?",
   "web.browser.cleared": "방문 기록 데이터를 지웠습니다.",
+  "web.browser.clearFailed": "브라우저 데이터를 지우지 못했습니다.",
   "web.browser.clearData": "방문 기록 데이터 지우기",
   "web.command.model": "이 스레드의 모델 선택",
   "web.command.schedule": "작업 또는 미리 알림 예약",

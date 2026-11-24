@@ -3819,6 +3819,7 @@ export const es: Partial<Catalogue> = {
   "web.browser.clearConfirm":
     "¿Borrar las cookies y los datos de sitios del perfil {profile, select, clean {sin sesión} other {del agente}}?",
   "web.browser.cleared": "Datos de navegación borrados.",
+  "web.browser.clearFailed": "No se pudieron borrar los datos de navegación.",
   "web.browser.clearData": "Borrar los datos de navegación",
 
   "web.command.model": "Elegir el modelo de esta conversación",

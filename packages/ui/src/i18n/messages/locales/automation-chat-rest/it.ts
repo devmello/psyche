@@ -8,6 +8,7 @@ export const automationChatRest: Partial<Catalogue> = {
     "{title}, {n, plural, one {# esecuzione} other {# esecuzioni}}, ultima esecuzione {status}",
   "automationChat.schedule": "Pianificate",
   "automationChat.runNow": "Esegui ora",
+  "automationChat.runStarted": "Esecuzione avviata.",
   "automationChat.empty":
     "Ancora nessuna esecuzione. Ogni volta che questa automazione viene eseguita, compare qui.",
   "automationChat.loading": "Caricamento delle esecuzioni",

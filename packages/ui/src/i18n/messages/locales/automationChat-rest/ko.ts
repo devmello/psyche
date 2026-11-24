@@ -7,6 +7,7 @@ export const automationChatRest: Partial<Catalogue> = {
   "automationChat.runs.aria": "{title}, {n, plural, other {실행 #회}}, 마지막 실행: {status}",
   "automationChat.schedule": "예약됨",
   "automationChat.runNow": "지금 실행",
+  "automationChat.runStarted": "실행을 시작했습니다.",
   "automationChat.empty": "아직 실행되지 않았습니다. 이 자동화가 실행될 때마다 여기에 표시됩니다.",
   "automationChat.loading": "실행 기록을 불러오는 중",
   "automationChat.failed": "Psyche가 실행 기록을 불러오지 못했습니다",

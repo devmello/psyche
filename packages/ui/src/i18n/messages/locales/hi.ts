@@ -3722,6 +3722,7 @@ export const hi: Partial<Catalogue> = {
   "web.browser.clearConfirm":
     "{profile, select, clean {लॉग-आउट} other {एजेंट}} प्रोफ़ाइल के कुकी और साइट डेटा साफ़ करें?",
   "web.browser.cleared": "ब्राउज़िंग डेटा साफ़ किया गया।",
+  "web.browser.clearFailed": "ब्राउज़िंग डेटा साफ़ नहीं हो सका।",
   "web.browser.clearData": "ब्राउज़िंग डेटा साफ़ करें",
 
   "web.command.model": "इस थ्रेड के लिए मॉडल चुनें",

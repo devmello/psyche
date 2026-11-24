@@ -99,16 +99,19 @@ export function PeopleSheetSection({
   );
   const openName = open ? (names.get(open)?.name ?? "") : "";
 
-  const act = (work: () => Promise<unknown>) => {
+  const act = (work: () => Promise<unknown>, onDone?: () => void) => {
     setBusy(true);
     work()
+      .then(() => onDone?.())
       .catch((err: unknown) => toast.error(t("people.writeFailed", { reason: describeError(err) })))
       .finally(() => setBusy(false));
   };
+  // A suggestion the owner answered leaves the list at once; the refetch then confirms it.
+  const [answered, setAnswered] = useState<ReadonlySet<string>>(() => new Set());
 
   let body: ReactElement;
   if (filter === "suggestions") {
-    const list = suggestions.data?.suggestions ?? [];
+    const list = (suggestions.data?.suggestions ?? []).filter((s) => !answered.has(s.id));
     body =
       list.length === 0 ? (
         <p className="px-3 py-2 text-body text-label-secondary">
@@ -122,7 +125,13 @@ export function PeopleSheetSection({
               suggestion={toSuggestionView(s, names)}
               busy={busy}
               onAnswer={(_v, answer) =>
-                act(() => call("memory.entities.suggestions.answer", { id: s.id, answer }))
+                act(
+                  () => call("memory.entities.suggestions.answer", { id: s.id, answer }),
+                  () => {
+                    setAnswered((prev) => new Set(prev).add(s.id));
+                    suggestions.reload();
+                  },
+                )
               }
             />
           ))}
