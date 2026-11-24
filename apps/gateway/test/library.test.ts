@@ -583,6 +583,31 @@ describe("writers index what they save", () => {
     expect(getLibraryItem(db, first.libraryItemId)?.size).toBe(21);
   });
 
+  it("deleting a browser recording removes its row and folder, even after a restart", async () => {
+    const dir = join(home, "library", "recordings", "thread_t2");
+    await mkdir(join(dir, "frames"), { recursive: true });
+    await writeFile(join(dir, "index.json"), '{"version":1}');
+    await writeFile(join(dir, "frames", "0.jpg"), "abcd");
+    const rec = {
+      id: "thread:t2",
+      dir,
+      taskId: null,
+      threadId: "t2",
+      frameCount: 1,
+      eventCount: 0,
+    };
+    const imported = await new IndexedQuarantineWriter(db, home).importRecording(rec);
+    expect(getLibraryItem(db, imported.libraryItemId)).toBeDefined();
+
+    // A new writer has no memory of the import: the row is found from the recording id.
+    await new IndexedQuarantineWriter(db, home).deleteRecording(rec.id);
+    expect(getLibraryItem(db, imported.libraryItemId)).toBeUndefined();
+    expect(existsSync(dir)).toBe(false);
+
+    // Deleting again, with no row left, is fine.
+    await new IndexedQuarantineWriter(db, home).deleteRecording(rec.id);
+  });
+
   it("speech audio: clips and memos are indexed, untrusted ones quarantined", async () => {
     const audio = new FsAudioLibrary(home, undefined, indexSavedAudio(db));
     const clip = await audio.saveAudio({

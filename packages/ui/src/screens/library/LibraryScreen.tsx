@@ -1171,12 +1171,15 @@ export function LibraryScreen({
         <BrowserRecordingViewer
           item={replaying}
           onClose={() => setReplaying(null)}
-          onDeleted={(gone) =>
+          onDeleted={(gone) => {
+            // The store's list only adds rows (putMany never drops a missing one), so the
+            // deleted row goes from the store here, then the list reloads from the Gateway.
             store.update((st) => {
               const { [gone.id]: _removed, ...rest } = st.library;
               return { ...st, library: rest };
-            })
-          }
+            });
+            library.reload();
+          }}
         />
       ) : null}
       <AlertDialog

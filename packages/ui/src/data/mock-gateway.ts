@@ -3288,10 +3288,12 @@ export class MockGateway implements GatewayClient {
     },
     "browser.recordings.delete": (p) => {
       const list = this.world.browserRecordings ?? [];
-      if (!list.some((x) => x.recording.id === p.recordingId)) {
-        return fail("not_found", `recording ${p.recordingId} not found`);
-      }
+      const gone = list.find((x) => x.recording.id === p.recordingId);
+      if (gone === undefined) return fail("not_found", `recording ${p.recordingId} not found`);
       this.world.browserRecordings = list.filter((x) => x.recording.id !== p.recordingId);
+      // The Gateway removes the recording's Library row with its folder.
+      const itemId = gone.recording.libraryItemId;
+      if (itemId) this.world.library = this.world.library.filter((i) => i.id !== itemId);
       return { ok: true };
     },
     "meetings.notes.create": (p) => {

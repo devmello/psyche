@@ -300,4 +300,27 @@ describe("Browser recording delete", () => {
     expect(onClose).not.toHaveBeenCalled();
     expect(gateway().world.browserRecordings).toHaveLength(1);
   });
+
+  it("refreshes the Library from the Gateway, so the deleted row is gone", async () => {
+    render(
+      <StoryWorld
+        edit={(w) => {
+          w.library.push(ITEM);
+        }}
+        onGateway={(g) => {
+          g.world.browserRecordings = [RECORDING];
+        }}
+      >
+        <LibraryScreen section="documents" now={Date.parse("2026-11-19T10:00:00Z")} />
+      </StoryWorld>,
+    );
+    await userEvent.dblClick(await screen.findByRole("button", { name: /Open Booking a flight/ }));
+    const viewer = await screen.findByTestId("recording-viewer");
+    await within(viewer).findByRole("img");
+    await userEvent.click(within(viewer).getByRole("button", { name: "Delete recording" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Delete" }));
+    await waitFor(() =>
+      expect(screen.queryByRole("button", { name: /Open Booking a flight/ })).toBeNull(),
+    );
+  });
 });
