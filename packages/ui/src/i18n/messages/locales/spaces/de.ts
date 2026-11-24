@@ -112,6 +112,48 @@ export const spaces: Partial<Catalogue> = {
   "spaces.files.remove": "Entfernen",
   "spaces.files.removeFolder": "{path} entfernen",
   "spaces.files.failed": "Ordner konnten nicht geändert werden: {reason}",
+
+  "spaces.settings.title": "Space-Einstellungen",
+  "spaces.settings.description": "Wie Psyche in diesem Space arbeitet.",
+  "spaces.settings.remote":
+    "Dieser Space liegt auf {host}. Ändere seine Einstellungen in Psyche auf diesem Computer.",
+  "spaces.settings.onMac":
+    "Ändere diese Einstellungen in der Psyche-Desktop-App auf dem Computer, auf dem Psyche läuft.",
+  "spaces.settings.mode.label": "Standard-Berechtigungsmodus",
+  "spaces.settings.mode.inherit": "Wie mein globaler Modus",
+  "spaces.settings.mode.plan": "Planen",
+  "spaces.settings.mode.manual": "Manuell",
+  "spaces.settings.mode.balanced": "Ausgewogen",
+  "spaces.settings.mode.auto": "Automatisch",
+  "spaces.settings.mode.inheritHint": "Chats hier nutzen deinen globalen Berechtigungsmodus.",
+  "spaces.settings.mode.planHint": "Chats hier lesen und planen nur; nichts wird geändert.",
+  "spaces.settings.mode.manualHint": "Jede Aktion außerhalb einer Freigabe fragt zuerst.",
+  "spaces.settings.mode.balancedHint":
+    "Lesen läuft; Schreibaktionen an Personen und Geld fragen zuerst.",
+  "spaces.settings.mode.autoHint":
+    "Routineaktionen innerhalb deiner Freigaben laufen von selbst, sensible fragen weiterhin. Dein globaler Modus setzt weiterhin die Grenze.",
+  "spaces.settings.connectors.label": "Connectors in diesem Space",
+  "spaces.settings.connectors.all": "Alle meine Connectors",
+  "spaces.settings.connectors.some": "Nur die, die ich wähle",
+  "spaces.settings.connectors.allHint":
+    "Chats und Automationen hier können jeden eingerichteten Connector nutzen.",
+  "spaces.settings.connectors.someHint":
+    "Chats und Automationen hier können nur die unten angehakten Connectors nutzen.",
+  "spaces.settings.connectors.none": "Es sind noch keine Connectors eingerichtet.",
+  "spaces.settings.connectors.use": "{name} in diesem Space nutzen",
+  "spaces.settings.automations": "Automationen und Dateien",
+  "spaces.settings.automationsHint":
+    "Automationen hier lesen einen Ordner nur. Mit dem Haken darf eine selbstständig laufende Automation dort Dateien erstellen, ändern und löschen; Chats nutzen weiterhin den Zugriff des Ordners.",
+  "spaces.settings.automationsNone":
+    "Füge einen Ordner hinzu, um zu wählen, ob Automationen seine Dateien ändern dürfen.",
+  "spaces.settings.automationsIn": "Automationen dürfen Dateien in {path} ändern",
+  "spaces.settings.failed": "Die Einstellungen konnten nicht gespeichert werden: {reason}",
+  "spaces.settings.mode.ceiling":
+    "Ein Space kann Chats strenger als dein globaler Modus machen, nie lockerer.",
+  "spaces.settings.connectors.groupConnectors": "Connectors",
+  "spaces.settings.connectors.groupServers": "MCP-Server",
+  "spaces.settings.automationsNeedsRw":
+    "Dieser Ordner ist nur lesbar. Erlaube zuerst unter Dateien und Links Änderungen daran.",
   "spaces.goals": "Ziele",
 
   "spaces.switcher.label": "Space: {name}",

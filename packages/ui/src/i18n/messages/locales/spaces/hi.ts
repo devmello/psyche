@@ -108,6 +108,43 @@ export const spaces: Partial<Catalogue> = {
   "spaces.files.remove": "हटाएँ",
   "spaces.files.removeFolder": "{path} हटाएँ",
   "spaces.files.failed": "फ़ोल्डर बदले नहीं जा सके: {reason}",
+
+  "spaces.settings.title": "Space सेटिंग",
+  "spaces.settings.description": "इस Space में Psyche कैसे काम करता है।",
+  "spaces.settings.remote": "यह Space {host} पर है। इसकी सेटिंग उसी कंप्यूटर पर Psyche में बदलें।",
+  "spaces.settings.onMac": "ये सेटिंग उस कंप्यूटर पर Psyche डेस्कटॉप ऐप में बदलें जहाँ Psyche चलता है।",
+  "spaces.settings.mode.label": "डिफ़ॉल्ट अनुमति मोड",
+  "spaces.settings.mode.inherit": "मेरे ग्लोबल मोड जैसा",
+  "spaces.settings.mode.plan": "योजना",
+  "spaces.settings.mode.manual": "मैन्युअल",
+  "spaces.settings.mode.balanced": "संतुलित",
+  "spaces.settings.mode.auto": "ऑटो",
+  "spaces.settings.mode.inheritHint": "यहाँ की चैट आपके ग्लोबल अनुमति मोड का उपयोग करती हैं।",
+  "spaces.settings.mode.planHint": "यहाँ की चैट केवल पढ़ती और योजना बनाती हैं; कुछ नहीं बदलता।",
+  "spaces.settings.mode.manualHint": "अनुमति से बाहर की हर कार्रवाई पहले पूछती है।",
+  "spaces.settings.mode.balancedHint": "पढ़ना चलता है; लोगों और पैसे से जुड़ी लिखाई पहले पूछती है।",
+  "spaces.settings.mode.autoHint":
+    "आपकी अनुमतियों के भीतर की रोज़ाना की कार्रवाइयाँ अपने आप चलती हैं, और संवेदनशील कार्रवाइयाँ फिर भी पूछती हैं। सीमा अब भी आपका ग्लोबल मोड तय करता है।",
+  "spaces.settings.connectors.label": "इस Space के कनेक्टर",
+  "spaces.settings.connectors.all": "मेरे सभी कनेक्टर",
+  "spaces.settings.connectors.some": "केवल वे जो मैं चुनूँ",
+  "spaces.settings.connectors.allHint":
+    "यहाँ की चैट और ऑटोमेशन आपके सेट किए किसी भी कनेक्टर का उपयोग कर सकते हैं।",
+  "spaces.settings.connectors.someHint":
+    "यहाँ की चैट और ऑटोमेशन केवल नीचे चुने गए कनेक्टर का उपयोग कर सकते हैं।",
+  "spaces.settings.connectors.none": "अभी कोई कनेक्टर सेट नहीं है।",
+  "spaces.settings.connectors.use": "इस Space में {name} का उपयोग करें",
+  "spaces.settings.automations": "ऑटोमेशन और फ़ाइलें",
+  "spaces.settings.automationsHint":
+    "यहाँ के ऑटोमेशन फ़ोल्डर को केवल पढ़ते हैं। चुनने पर अपने आप चलने वाला ऑटोमेशन वहाँ फ़ाइलें बना, बदल और मिटा सकता है; चैट फ़ोल्डर की अपनी पहुँच का ही उपयोग करती हैं।",
+  "spaces.settings.automationsNone": "फ़ोल्डर जोड़ें, फिर चुनें कि ऑटोमेशन उसकी फ़ाइलें बदल सकते हैं या नहीं।",
+  "spaces.settings.automationsIn": "ऑटोमेशन को {path} में फ़ाइलें बदलने दें",
+  "spaces.settings.failed": "सेटिंग सहेजी नहीं जा सकीं: {reason}",
+  "spaces.settings.mode.ceiling": "Space चैट को आपके ग्लोबल मोड से ज़्यादा सख़्त बना सकता है, ढीला कभी नहीं।",
+  "spaces.settings.connectors.groupConnectors": "कनेक्टर",
+  "spaces.settings.connectors.groupServers": "MCP सर्वर",
+  "spaces.settings.automationsNeedsRw":
+    "यह फ़ोल्डर केवल पढ़ने के लिए है। पहले फ़ाइलें और लिंक में इसमें बदलाव की अनुमति दें।",
   "spaces.goals": "लक्ष्य",
 
   "spaces.switcher.label": "स्पेस: {name}",

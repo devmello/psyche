@@ -110,6 +110,47 @@ export const spaces: Partial<Catalogue> = {
   "spaces.files.remove": "제거",
   "spaces.files.removeFolder": "{path} 제거",
   "spaces.files.failed": "폴더를 변경할 수 없습니다: {reason}",
+
+  "spaces.settings.title": "스페이스 설정",
+  "spaces.settings.description": "이 스페이스에서 Psyche가 작동하는 방식입니다.",
+  "spaces.settings.remote":
+    "이 스페이스는 {host}에 있습니다. 해당 컴퓨터의 Psyche에서 설정을 변경하세요.",
+  "spaces.settings.onMac":
+    "이 설정은 Psyche가 실행되는 컴퓨터의 Psyche 데스크톱 앱에서 변경하세요.",
+  "spaces.settings.mode.label": "기본 권한 모드",
+  "spaces.settings.mode.inherit": "전역 모드와 동일",
+  "spaces.settings.mode.plan": "계획",
+  "spaces.settings.mode.manual": "수동",
+  "spaces.settings.mode.balanced": "균형",
+  "spaces.settings.mode.auto": "자동",
+  "spaces.settings.mode.inheritHint": "여기의 채팅은 전역 권한 모드를 사용합니다.",
+  "spaces.settings.mode.planHint": "여기의 채팅은 읽고 계획만 하며 아무것도 변경하지 않습니다.",
+  "spaces.settings.mode.manualHint": "허용 범위 밖의 모든 작업은 먼저 묻습니다.",
+  "spaces.settings.mode.balancedHint": "읽기는 실행하고, 사람과 돈에 대한 쓰기는 먼저 묻습니다.",
+  "spaces.settings.mode.autoHint":
+    "허용 범위 안의 일상 작업은 스스로 실행하고, 민감한 작업은 계속 묻습니다. 한도는 여전히 전역 모드가 정합니다.",
+  "spaces.settings.connectors.label": "이 스페이스의 커넥터",
+  "spaces.settings.connectors.all": "내 모든 커넥터",
+  "spaces.settings.connectors.some": "내가 고른 것만",
+  "spaces.settings.connectors.allHint":
+    "여기의 채팅과 자동화는 설정된 모든 커넥터를 사용할 수 있습니다.",
+  "spaces.settings.connectors.someHint":
+    "여기의 채팅과 자동화는 아래에서 선택한 커넥터만 사용할 수 있습니다.",
+  "spaces.settings.connectors.none": "아직 설정된 커넥터가 없습니다.",
+  "spaces.settings.connectors.use": "이 스페이스에서 {name} 사용",
+  "spaces.settings.automations": "자동화와 파일",
+  "spaces.settings.automationsHint":
+    "여기의 자동화는 폴더를 읽기만 합니다. 선택하면 혼자 실행되는 자동화가 그곳의 파일을 만들고, 수정하고, 삭제할 수 있습니다. 채팅은 폴더 자체의 접근 권한을 사용합니다.",
+  "spaces.settings.automationsNone":
+    "폴더를 추가하면 자동화가 파일을 변경할 수 있는지 선택할 수 있습니다.",
+  "spaces.settings.automationsIn": "자동화가 {path}의 파일을 변경하도록 허용",
+  "spaces.settings.failed": "설정을 저장할 수 없습니다: {reason}",
+  "spaces.settings.mode.ceiling":
+    "스페이스는 채팅을 전역 모드보다 엄격하게 만들 수는 있어도 느슨하게 만들 수는 없습니다.",
+  "spaces.settings.connectors.groupConnectors": "커넥터",
+  "spaces.settings.connectors.groupServers": "MCP 서버",
+  "spaces.settings.automationsNeedsRw":
+    "이 폴더는 읽기 전용입니다. 먼저 파일 및 링크에서 변경을 허용하세요.",
   "spaces.goals": "목표",
 
   "spaces.switcher.label": "스페이스: {name}",

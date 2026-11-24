@@ -111,6 +111,47 @@ export const spaces = {
   "spaces.files.remove": "Remove",
   "spaces.files.removeFolder": "Remove {path}",
   "spaces.files.failed": "Could not change the folders: {reason}",
+
+  "spaces.settings.title": "Space settings",
+  "spaces.settings.description": "How Psyche works in this Space.",
+  "spaces.settings.remote":
+    "This Space lives on {host}. Change its settings in Psyche on that computer.",
+  "spaces.settings.onMac":
+    "Change these settings in the Psyche desktop app, on the computer where Psyche runs.",
+  "spaces.settings.mode.label": "Default permission mode",
+  "spaces.settings.mode.inherit": "Same as my global mode",
+  "spaces.settings.mode.plan": "Plan",
+  "spaces.settings.mode.manual": "Manual",
+  "spaces.settings.mode.balanced": "Balanced",
+  "spaces.settings.mode.auto": "Auto",
+  "spaces.settings.mode.inheritHint": "Chats here use your global permission mode.",
+  "spaces.settings.mode.planHint": "Chats here only read and plan; nothing is changed.",
+  "spaces.settings.mode.manualHint": "Every action outside a grant asks first.",
+  "spaces.settings.mode.balancedHint": "Reads run; writes to people and money ask first.",
+  "spaces.settings.mode.autoHint":
+    "Routine actions inside your grants run on their own, and sensitive ones still ask. Your global mode still sets the limit.",
+  "spaces.settings.connectors.label": "Connectors in this Space",
+  "spaces.settings.connectors.all": "All my connectors",
+  "spaces.settings.connectors.some": "Only the ones I choose",
+  "spaces.settings.connectors.allHint":
+    "Chats and automations here can use any connector you have set up.",
+  "spaces.settings.connectors.someHint":
+    "Chats and automations here can use only the connectors ticked below.",
+  "spaces.settings.connectors.none": "No connectors are set up yet.",
+  "spaces.settings.connectors.use": "Use {name} in this Space",
+  "spaces.settings.automations": "Automations and files",
+  "spaces.settings.automationsHint":
+    "Automations here only read a folder. Ticking one lets an automation that runs on its own create, edit and delete files there; chats still use the folder's own access.",
+  "spaces.settings.automationsNone":
+    "Add a folder to choose whether automations may change its files.",
+  "spaces.settings.automationsIn": "Let automations change files in {path}",
+  "spaces.settings.failed": "Could not save the settings: {reason}",
+  "spaces.settings.mode.ceiling":
+    "A Space can make chats stricter than your global mode, never looser.",
+  "spaces.settings.connectors.groupConnectors": "Connectors",
+  "spaces.settings.connectors.groupServers": "MCP servers",
+  "spaces.settings.automationsNeedsRw":
+    "This folder is read only. Allow changes to it under Files and links first.",
   "spaces.goals": "Goals",
 
   "spaces.switcher.label": "Space: {name}",

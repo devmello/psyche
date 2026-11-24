@@ -125,6 +125,11 @@ export interface SearchRequest {
   audience?: "owner" | "agent";
   /** Restrict to documents of these producers (`source`). */
   sources?: string[];
+  /**
+   * Leave out documents whose id starts `<prefix>:` (`messages`, `contacts`, `memory`), counted
+   * out of `total` and the group counts too. `memory` also skips the Memory chunk search.
+   */
+  excludeIdPrefixes?: readonly string[];
   /** Collapse messages onto threads and actions onto tasks (default true). */
   collapse?: boolean;
   /** Read plain-English input (default true); false runs `q` exactly as the query language. */

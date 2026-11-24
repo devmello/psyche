@@ -115,6 +115,45 @@ export const spaces: Partial<Catalogue> = {
   "spaces.files.remove": "إزالة",
   "spaces.files.removeFolder": "إزالة {path}",
   "spaces.files.failed": "تعذّر تغيير المجلدات: {reason}",
+
+  "spaces.settings.title": "إعدادات المساحة",
+  "spaces.settings.description": "كيف يعمل Psyche في هذه المساحة.",
+  "spaces.settings.remote":
+    "هذه المساحة موجودة على {host}. غيّر إعداداتها في Psyche على ذلك الحاسوب.",
+  "spaces.settings.onMac":
+    "غيّر هذه الإعدادات في تطبيق Psyche لسطح المكتب على الحاسوب الذي يعمل عليه Psyche.",
+  "spaces.settings.mode.label": "وضع الأذونات الافتراضي",
+  "spaces.settings.mode.inherit": "مثل وضعي العام",
+  "spaces.settings.mode.plan": "تخطيط",
+  "spaces.settings.mode.manual": "يدوي",
+  "spaces.settings.mode.balanced": "متوازن",
+  "spaces.settings.mode.auto": "تلقائي",
+  "spaces.settings.mode.inheritHint": "تستخدم المحادثات هنا وضع الأذونات العام لديك.",
+  "spaces.settings.mode.planHint": "تقرأ المحادثات هنا وتخطط فقط؛ لا يتغير شيء.",
+  "spaces.settings.mode.manualHint": "كل إجراء خارج الأذونات الممنوحة يسأل أولًا.",
+  "spaces.settings.mode.balancedHint": "تُنفَّذ القراءات؛ أما الكتابة إلى الأشخاص والمال فتسأل أولًا.",
+  "spaces.settings.mode.autoHint":
+    "تُنفَّذ الإجراءات الروتينية ضمن أذوناتك من تلقاء نفسها، وتظل الحساسة تسأل. ويظل وضعك العام هو الذي يحدد الحد الأعلى.",
+  "spaces.settings.connectors.label": "موصّلات هذه المساحة",
+  "spaces.settings.connectors.all": "كل موصّلاتي",
+  "spaces.settings.connectors.some": "التي أختارها فقط",
+  "spaces.settings.connectors.allHint": "يمكن للمحادثات والأتمتة هنا استخدام أي موصّل أعددته.",
+  "spaces.settings.connectors.someHint":
+    "يمكن للمحادثات والأتمتة هنا استخدام الموصّلات المحددة أدناه فقط.",
+  "spaces.settings.connectors.none": "لم يتم إعداد أي موصّل بعد.",
+  "spaces.settings.connectors.use": "استخدم {name} في هذه المساحة",
+  "spaces.settings.automations": "الأتمتة والملفات",
+  "spaces.settings.automationsHint":
+    "تقرأ الأتمتة هنا المجلد فقط. وعند تحديده يمكن لأتمتة تعمل من تلقاء نفسها إنشاء الملفات وتعديلها وحذفها هناك؛ وتظل المحادثات تستخدم وصول المجلد نفسه.",
+  "spaces.settings.automationsNone": "أضف مجلدًا لتختار هل يمكن للأتمتة تغيير ملفاته.",
+  "spaces.settings.automationsIn": "السماح للأتمتة بتغيير الملفات في {path}",
+  "spaces.settings.failed": "تعذّر حفظ الإعدادات: {reason}",
+  "spaces.settings.mode.ceiling":
+    "يمكن للمساحة جعل المحادثات أكثر صرامة من وضعك العام، ولا تجعلها أكثر تساهلًا أبدًا.",
+  "spaces.settings.connectors.groupConnectors": "الموصّلات",
+  "spaces.settings.connectors.groupServers": "خوادم MCP",
+  "spaces.settings.automationsNeedsRw":
+    "هذا المجلد للقراءة فقط. اسمح بالتعديل عليه أولًا من الملفات والروابط.",
   "spaces.goals": "الأهداف",
 
   "spaces.switcher.label": "المساحة: {name}",

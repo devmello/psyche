@@ -88,6 +88,8 @@ export function routeOf(hit: RichHit): string | null {
 export interface SearchHandlerContext {
   /** Who is asking. Paired operator devices are the owner; delegated sessions pass their scope. */
   viewer?: SearchViewer;
+  /** Id prefixes (`messages`, `contacts`, `memory`) this caller may not be shown at all. */
+  excludeIdPrefixes?: readonly string[];
 }
 
 export type SearchHandlers = {
@@ -107,6 +109,9 @@ export function createSearchHandlers(index: SqliteSearchIndex): SearchHandlers {
       const res = await index.search({
         q: params.query,
         viewer: ctx.viewer ?? OWNER,
+        ...(ctx.excludeIdPrefixes === undefined || ctx.excludeIdPrefixes.length === 0
+          ? {}
+          : { excludeIdPrefixes: ctx.excludeIdPrefixes }),
         limit: params.limit ?? 20,
         kinds,
         // `threads` shows one result per conversation; `messages` alone lists every message.
