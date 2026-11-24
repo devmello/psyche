@@ -193,6 +193,21 @@ final class ScheduledModel {
         }
     }
 
+    /// Deletes an automation the owner made (routines are Psyche's own and stay). The list reloads after the Gateway
+    /// answers; a refusal is shown in the list's action error.
+    func delete(_ job: ScheduledJob) async {
+        guard !job.isRoutine, !busy.contains(job.id) else { return }
+        busy.insert(job.id)
+        defer { busy.remove(job.id) }
+        do {
+            try await store.deleteAutomation(id: job.id)
+            actionError = nil
+            await load()
+        } catch {
+            actionError = error.localizedDescription
+        }
+    }
+
     /// Run now. A run it starts appears in the list after a reload.
     func runNow(_ job: ScheduledJob) async {
         guard job.state != "off", !busy.contains(job.id) else { return }
