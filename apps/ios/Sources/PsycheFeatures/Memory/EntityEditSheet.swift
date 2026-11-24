@@ -64,6 +64,8 @@ struct EntityEditSheet: View {
                             TextField(String(localized: "Add alias", bundle: .module), text: $newAlias)
                                 .onSubmit(addAlias)
                             Button(String(localized: "Add", bundle: .module), action: addAlias)
+                                // In a Form row beside a TextField, a default-style button loses its tap to the field.
+                                .buttonStyle(.borderless)
                                 .disabled(newAlias.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                         }
                     }

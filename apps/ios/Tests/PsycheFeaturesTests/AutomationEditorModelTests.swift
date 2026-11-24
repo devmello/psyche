@@ -82,4 +82,28 @@ struct AutomationEditorModelTests {
         await model.load()
         #expect(model.phase == .failed(BackendError.notFound.localizedDescription))
     }
+
+    @Test func theEmptyPromptHintWaitsForAnEdit() async {
+        let model = AutomationEditorModel(store: FixtureBackend(), automationID: nil)
+        await model.load()
+        #expect(model.problems.prompt)
+        #expect(!model.isPromptTouched)
+        #expect(!model.showsPromptHint)
+        model.draft.prompt = "   "
+        #expect(model.isPromptTouched)
+        #expect(model.showsPromptHint)
+        model.draft.prompt = "Summarize the week"
+        #expect(!model.showsPromptHint)
+    }
+
+    @Test func anOverLimitPromptShowsItsHintWithoutAnEdit() async throws {
+        let long = String(repeating: "a", count: AutomationDraft.maxPrompt + 1)
+        let (store, id) = try await seeded(prompt: long)
+        let model = AutomationEditorModel(store: store, automationID: id)
+        await model.load()
+        #expect(!model.isPromptTouched)
+        #expect(model.showsPromptHint)
+        #expect(!model.canSave)
+    }
+
 }

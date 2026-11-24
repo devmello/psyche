@@ -23,6 +23,9 @@ public protocol MemoryBackend: Sendable {
     /// The kind of an entity ("person", "org", "project", "place", …) from memory.entities.get. Throws `.notFound`
     /// when there is no such entity.
     func entityKind(id: String) async throws -> String
+    /// Saves the owner's name, aliases, status or due date on a person or project card (memory.entities.update).
+    /// A requirement, not only an extension default, so a backend's own edit is the one the sheet reaches.
+    func updateEntity(id: String, changes: EntityChanges, ifMatch: String?) async throws
 }
 
 extension MemoryBackend {
