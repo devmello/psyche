@@ -1363,7 +1363,7 @@ export const de: Partial<Catalogue> = {
   "settings.credentials.autoLock.never": "Nie",
   "settings.credentials.autoLock.custom": "{minutes} Minuten",
   "settings.credentials.autoLock.neverWarning":
-    "Ohne automatische Sperre bleibt der Tresor entsperrt, bis du ihn sperrst. Wer an diesem Mac sitzt, kann dann deine gespeicherten Zugangsdaten nutzen.",
+    "Ohne automatische Sperre bleibt der Tresor entsperrt, bis du ihn sperrst. Wer an diesem Gerät sitzt, kann dann deine gespeicherten Zugangsdaten nutzen.",
   "settings.credentials.err.lock": "Der Tresor konnte nicht gesperrt werden: {reason}",
   "settings.credentials.err.autoLock": "Die automatische Sperre wurde nicht geändert: {reason}",
 

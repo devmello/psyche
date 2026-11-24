@@ -1383,7 +1383,7 @@ export const ar: Partial<Catalogue> = {
   "settings.credentials.autoLock.never": "أبدًا",
   "settings.credentials.autoLock.custom": "{minutes} دقيقة",
   "settings.credentials.autoLock.neverWarning":
-    "مع إيقاف القفل التلقائي تبقى الخزنة مفتوحة حتى تقفلها بنفسك. يستطيع أي شخص على هذا الـMac استخدام بيانات الاعتماد المحفوظة لديك.",
+    "مع إيقاف القفل التلقائي تبقى الخزنة مفتوحة حتى تقفلها بنفسك. يستطيع أي شخص على هذا الجهاز استخدام بيانات الاعتماد المحفوظة لديك.",
   "settings.credentials.err.lock": "لم يُقفل الخزنة: {reason}",
   "settings.credentials.err.autoLock": "لم يتغير القفل التلقائي: {reason}",
 

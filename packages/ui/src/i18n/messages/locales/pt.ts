@@ -1293,7 +1293,7 @@ export const pt: Partial<Catalogue> = {
   "settings.credentials.autoLock.never": "Nunca",
   "settings.credentials.autoLock.custom": "{minutes} minutos",
   "settings.credentials.autoLock.neverWarning":
-    "Sem bloqueio automático, o cofre fica desbloqueado até você bloqueá-lo. Qualquer pessoa neste Mac pode então usar suas credenciais salvas.",
+    "Sem bloqueio automático, o cofre fica desbloqueado até você bloqueá-lo. Qualquer pessoa neste computador pode então usar suas credenciais salvas.",
   "settings.credentials.err.lock": "Não foi possível bloquear o cofre: {reason}",
   "settings.credentials.err.autoLock": "O bloqueio automático não foi alterado: {reason}",
   "settings.credentials.detail.executor.browser": "Navegador",

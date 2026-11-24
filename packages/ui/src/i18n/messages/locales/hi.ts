@@ -1341,7 +1341,7 @@ export const hi: Partial<Catalogue> = {
   "settings.credentials.autoLock.never": "कभी नहीं",
   "settings.credentials.autoLock.custom": "{minutes} मिनट",
   "settings.credentials.autoLock.neverWarning":
-    "स्वतः लॉक बंद होने पर तिजोरी तब तक खुली रहती है जब तक आप उसे लॉक न करें। तब इस Mac पर बैठा कोई भी आपके सहेजे क्रेडेंशियल इस्तेमाल कर सकता है।",
+    "स्वतः लॉक बंद होने पर तिजोरी तब तक खुली रहती है जब तक आप उसे लॉक न करें। तब इस कंप्यूटर पर बैठा कोई भी आपके सहेजे क्रेडेंशियल इस्तेमाल कर सकता है।",
   "settings.credentials.err.lock": "तिजोरी लॉक नहीं हो सकी: {reason}",
   "settings.credentials.err.autoLock": "स्वतः लॉक नहीं बदला गया: {reason}",
 

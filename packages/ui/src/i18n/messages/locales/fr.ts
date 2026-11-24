@@ -1323,7 +1323,7 @@ export const fr: Partial<Catalogue> = {
   "settings.credentials.autoLock.never": "Jamais",
   "settings.credentials.autoLock.custom": "{minutes} minutes",
   "settings.credentials.autoLock.neverWarning":
-    "Sans verrouillage automatique, le coffre reste déverrouillé jusqu'à ce que vous le verrouilliez. Toute personne devant ce Mac peut alors utiliser vos identifiants enregistrés.",
+    "Sans verrouillage automatique, le coffre reste déverrouillé jusqu'à ce que vous le verrouilliez. Toute personne devant cet ordinateur peut alors utiliser vos identifiants enregistrés.",
   "settings.credentials.err.lock": "Le coffre n'a pas pu être verrouillé : {reason}",
   "settings.credentials.err.autoLock": "Le verrouillage automatique n'a pas été modifié : {reason}",
   "settings.credentials.detail.executor.browser": "Navigateur",

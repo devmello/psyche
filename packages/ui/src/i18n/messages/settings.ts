@@ -467,7 +467,7 @@ export const settings = {
   "settings.credentials.autoLock.never": "Never",
   "settings.credentials.autoLock.custom": "{minutes} minutes",
   "settings.credentials.autoLock.neverWarning":
-    "With auto-lock off, the vault stays unlocked until you lock it. Anyone at this Mac can then use your saved credentials.",
+    "With auto-lock off, the vault stays unlocked until you lock it. Anyone using this computer can then use your saved credentials.",
   "settings.credentials.err.lock": "The vault could not be locked: {reason}",
   "settings.credentials.err.autoLock": "Auto-lock was not changed: {reason}",
 

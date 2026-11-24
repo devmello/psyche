@@ -1325,7 +1325,7 @@ export const ja: Partial<Catalogue> = {
   "settings.credentials.autoLock.never": "しない",
   "settings.credentials.autoLock.custom": "{minutes}分",
   "settings.credentials.autoLock.neverWarning":
-    "自動ロックを切ると、ロックするまで保管庫は解除されたままになります。この Mac を使える人は保存済みの認証情報を使えてしまいます。",
+    "自動ロックを切ると、ロックするまで保管庫は解除されたままになります。このコンピュータを使える人は保存済みの認証情報を使えてしまいます。",
   "settings.credentials.err.lock": "保管庫をロックできませんでした: {reason}",
   "settings.credentials.err.autoLock": "自動ロックは変更されませんでした: {reason}",
   "settings.credentials.detail.executor.browser": "ブラウザ",

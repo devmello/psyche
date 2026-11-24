@@ -1354,7 +1354,7 @@ export const zh: Partial<Catalogue> = {
   "settings.credentials.autoLock.never": "从不",
   "settings.credentials.autoLock.custom": "{minutes} 分钟",
   "settings.credentials.autoLock.neverWarning":
-    "关闭自动锁定后，保险库会一直保持解锁，直到你手动锁定。使用这台 Mac 的任何人都可以使用你保存的凭据。",
+    "关闭自动锁定后，保险库会一直保持解锁，直到你手动锁定。使用这台电脑的任何人都可以使用你保存的凭据。",
   "settings.credentials.err.lock": "无法锁定保险库：{reason}",
   "settings.credentials.err.autoLock": "自动锁定未更改：{reason}",
 

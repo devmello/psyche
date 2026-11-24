@@ -3,24 +3,43 @@ import PsycheStore
 
 @MainActor @Observable
 final class InboxModel {
-    private(set) var phase: LoadPhase<[InboxItem]> = .idle
+    /// The inbox rows, one page at a time. `phase` is what the list shows; the pager owns the cursor.
+    private let pager: PagedRows<InboxItem>
     private(set) var needsYou: [NeedsYouItem] = []
     private(set) var actionError: String?
     private let store: any PsycheBackend
 
     init(store: any PsycheBackend) {
         self.store = store
+        self.pager = PagedRows<InboxItem> { cursor in
+            let page = try await store.inboxPage(cursor: cursor)
+            return (page.items, page.nextCursor)
+        }
     }
 
+    var phase: LoadPhase<[InboxItem]> { pager.phase }
+    /// True while the next page is being fetched (a quiet spinner row at the end).
+    var loadingMore: Bool { pager.loadingMore }
+    /// True when the next page failed (a retry row at the end).
+    var moreFailed: Bool { pager.moreFailed }
+    /// Where the next page starts; nil once the last page is loaded. The end row is keyed on it, so each page is a new row.
+    var nextCursor: String? { pager.nextCursor }
+
+    /// Loads page one again (a reload resets the list to its newest page).
     func load() async {
-        if phase.value == nil { phase = .loading }
         async let home = try? store.home()
-        do {
-            phase = .loaded(try await store.inbox())
-        } catch {
-            if phase.value == nil { phase = .failed(error.localizedDescription) }
-        }
+        await pager.reload()
         needsYou = await home?.needsYou ?? needsYou
+    }
+
+    /// Fetches the next page when the end of the list appears.
+    func loadMore() async {
+        await pager.loadMore()
+    }
+
+    /// Tries the failed next page again.
+    func retryMore() async {
+        await pager.retryMore()
     }
 
     func observe() async {
@@ -34,9 +53,10 @@ final class InboxModel {
 
     /// Marks read now (the list updates at once), then tells the Gateway.
     func markRead(_ item: InboxItem) async {
-        guard !item.read, case .loaded(var items) = phase, let index = items.firstIndex(where: { $0.id == item.id }) else { return }
-        items[index].read = true
-        phase = .loaded(items)
+        guard !item.read, pager.rows.contains(where: { $0.id == item.id }) else { return }
+        pager.edit { items in
+            if let index = items.firstIndex(where: { $0.id == item.id }) { items[index].read = true }
+        }
         try? await store.markRead(ids: [item.id])
     }
 

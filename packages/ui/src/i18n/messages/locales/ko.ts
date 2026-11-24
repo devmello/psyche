@@ -1326,7 +1326,7 @@ export const ko: Partial<Catalogue> = {
   "settings.credentials.autoLock.never": "안 함",
   "settings.credentials.autoLock.custom": "{minutes}분",
   "settings.credentials.autoLock.neverWarning":
-    "자동 잠금을 끄면 직접 잠그기 전까지 금고가 열려 있습니다. 이 Mac을 쓸 수 있는 누구나 저장된 자격 증명을 사용할 수 있습니다.",
+    "자동 잠금을 끄면 직접 잠그기 전까지 금고가 열려 있습니다. 이 컴퓨터를 쓸 수 있는 누구나 저장된 자격 증명을 사용할 수 있습니다.",
   "settings.credentials.err.lock": "금고를 잠글 수 없습니다: {reason}",
   "settings.credentials.err.autoLock": "자동 잠금이 변경되지 않았습니다: {reason}",
   "settings.credentials.detail.executor.browser": "브라우저",

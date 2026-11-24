@@ -96,8 +96,17 @@ extension GatewayBackend {
     }
 
     public func inbox() async throws -> [InboxItem] {
-        let result = try await call("notifications.list", .obj(["limit": .number(50)]))
-        return (result["notifications"]?.array ?? []).compactMap { n in
+        try await inboxPage(cursor: nil).items
+    }
+
+    /// Rows per inbox page. The Gateway clamps to its own maximum.
+    static let inboxPageSize = 50
+
+    public func inboxPage(cursor: String?) async throws -> InboxPage {
+        var params: [String: JSONValue] = ["limit": .number(Double(Self.inboxPageSize))]
+        if let cursor { params["cursor"] = .string(cursor) }
+        let result = try await call("notifications.list", .object(params))
+        let items: [InboxItem] = (result["notifications"]?.array ?? []).compactMap { n in
             guard let id = n["id"]?.string else { return nil }
             let kind = n["kind"]?.string ?? "system"
             let waiting = (kind == "approval" || kind == "input_needed") && n["resolvedAt"]?.string == nil
@@ -107,6 +116,7 @@ extension GatewayBackend {
                 needsYou: waiting, read: n["readAt"]?.string != nil, route: n["route"]?.string,
                 message: Self.noticeKeys(n["message"]), actions: Self.noticeActions(n, kind: kind))
         }
+        return InboxPage(items: items, nextCursor: result["nextCursor"]?.string)
     }
 
     public func resolveNotice(id: String, actionID: String) async throws {

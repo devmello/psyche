@@ -31,6 +31,7 @@ struct InboxView: View {
                 rows(.skeleton, title: String(localized: "Today", bundle: .module)).redacted(reason: .placeholder).allowsHitTesting(false)
             case .loaded(let items):
                 content(items)
+                pageEnd(hasRows: !items.isEmpty)
             case .failed(let message):
                 PhaseView(phase: LoadPhase<Int>.failed(message), skeleton: 0, retry: model.load) { _ in EmptyView() }
                     .listRowBackground(Color.clear)
@@ -60,6 +61,24 @@ struct InboxView: View {
         if !waiting.isEmpty { rows(waiting, title: String(localized: "Needs you", bundle: .module), needsYou: true) }
         if !rest.filter({ !$0.earlier }).isEmpty { rows(rest.filter { !$0.earlier }, title: String(localized: "Today", bundle: .module)) }
         if !rest.filter(\.earlier).isEmpty { rows(rest.filter(\.earlier), title: String(localized: "Earlier", bundle: .module)) }
+    }
+
+    /// The end of the list: the next page loads when this row appears (its id is the cursor, so each page is a new
+    /// row). A failed page shows a retry row instead, which does not load again by itself.
+    @ViewBuilder
+    private func pageEnd(hasRows: Bool) -> some View {
+        if hasRows, model.moreFailed {
+            FailedNotice { Task { await model.retryMore() } }
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
+        } else if hasRows, let cursor = model.nextCursor {
+            PageSentinel(loading: model.loadingMore, label: String(localized: "Loading more notices", bundle: .module))
+                .id(cursor)
+                .onAppear { Task { await model.loadMore() } }
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
+                .listRowInsets(EdgeInsets(top: 6, leading: 0, bottom: 6, trailing: 0))
+        }
     }
 
     private func rows(_ items: [InboxItem], title: String, needsYou: Bool = false) -> some View {

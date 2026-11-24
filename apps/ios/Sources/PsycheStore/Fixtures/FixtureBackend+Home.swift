@@ -63,6 +63,19 @@ extension FixtureBackend: HomeBackend {
         return homeState.inbox
     }
 
+    /// The fixture inbox pages three rows at a time, so the five fixture notices take two pages. The cursor is the
+    /// offset of the next row, as the Gateway's paging works. `inbox()` still returns every row for Home.
+    static let inboxFixturePageSize = 3
+
+    public func inboxPage(cursor: String?) async throws -> InboxPage {
+        await pause()
+        let start = cursor.flatMap { Int($0) } ?? 0
+        let rows = homeState.inbox
+        guard start >= 0, start <= rows.count else { throw BackendError.refused("bad cursor") }
+        let end = min(start + Self.inboxFixturePageSize, rows.count)
+        return InboxPage(items: Array(rows[start..<end]), nextCursor: end < rows.count ? String(end) : nil)
+    }
+
     public func markRead(ids: [String]) async throws {
         for index in homeState.inbox.indices where ids.contains(homeState.inbox[index].id) {
             homeState.inbox[index].read = true

@@ -1331,7 +1331,7 @@ export const it: Partial<Catalogue> = {
   "settings.credentials.autoLock.never": "Mai",
   "settings.credentials.autoLock.custom": "{minutes} minuti",
   "settings.credentials.autoLock.neverWarning":
-    "Senza blocco automatico, la cassaforte resta sbloccata finché non la blocchi. Chiunque usi questo Mac può usare le credenziali salvate.",
+    "Senza blocco automatico, la cassaforte resta sbloccata finché non la blocchi. Chiunque usi questo computer può usare le credenziali salvate.",
   "settings.credentials.err.lock": "Impossibile bloccare la cassaforte: {reason}",
   "settings.credentials.err.autoLock": "Il blocco automatico non è stato modificato: {reason}",
   "settings.credentials.detail.executor.browser": "Browser",

@@ -1335,7 +1335,7 @@ export const es: Partial<Catalogue> = {
   "settings.credentials.autoLock.never": "Nunca",
   "settings.credentials.autoLock.custom": "{minutes} minutos",
   "settings.credentials.autoLock.neverWarning":
-    "Sin bloqueo automático, la bóveda permanece desbloqueada hasta que la bloquees. Cualquiera que use este Mac podrá usar tus credenciales guardadas.",
+    "Sin bloqueo automático, la bóveda permanece desbloqueada hasta que la bloquees. Cualquiera que use este equipo podrá usar tus credenciales guardadas.",
   "settings.credentials.err.lock": "No se pudo bloquear la bóveda: {reason}",
   "settings.credentials.err.autoLock": "No se cambió el bloqueo automático: {reason}",
 
