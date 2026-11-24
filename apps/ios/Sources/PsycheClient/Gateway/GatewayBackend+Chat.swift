@@ -5,7 +5,13 @@ import PsycheWire
 
 extension GatewayBackend {
     public func threads() async throws -> [ChatThreadSummary] {
-        let result = try await call("threads.list", .obj(["limit": .number(60)]))
+        try await threadPage(cursor: nil).threads
+    }
+
+    public func threadPage(cursor: String?) async throws -> ThreadPage {
+        var params: [String: JSONValue] = ["limit": .number(Self.pageSize)]
+        if let cursor { params["cursor"] = .string(cursor) }
+        let result = try await call("threads.list", .object(params))
         let entries = result["threads"]?.array ?? []
         var out: [ChatThreadSummary] = []
         for entry in entries {
@@ -13,24 +19,41 @@ extension GatewayBackend {
             if entry.at("thread", "kind")?.string == "main", let id = entry.at("thread", "id")?.string { await mainThread.set(id) }
             out.append(summary)
         }
-        return out
+        return ThreadPage(threads: out, nextCursor: result["nextCursor"]?.string)
     }
 
     public func thread(id requested: String) async throws -> ChatThread {
         let id = try await resolveThreadID(requested == FixtureData.mainThreadID ? nil : requested)
         async let entry = call("threads.get", .obj(["threadId": .string(id)]))
-        async let history = call("chat.history", .obj(["threadId": .string(id), "limit": .number(60)]))
+        async let history = call("chat.history", .obj(["threadId": .string(id), "limit": .number(Self.pageSize)]))
         let (head, page) = try await (entry, history)
         guard let summary = Self.summary(from: head) else { throw BackendError.notFound }
-        // chat.history pages backwards from the newest, but each page's messages are oldest first
-        // (`listMessagesPage` reverses its DESC read), which is the order the thread reads in.
-        let messages = page["messages"]?.array ?? []
-        let lookup = questionLookup()
+        let (items, older) = await transcript(page)
+        return ChatThread(
+            id: summary.id, title: summary.title, status: summary.status, statusKind: summary.statusKind,
+            items: items, olderCursor: older)
+    }
+
+    public func olderItems(threadID: String, before cursor: String) async throws -> MessagePage {
+        let id = try await resolveThreadID(threadID == FixtureData.mainThreadID ? nil : threadID)
+        let page = try await call(
+            "chat.history", .obj(["threadId": .string(id), "limit": .number(Self.pageSize), "cursor": .string(cursor)]))
+        let (items, older) = await transcript(page)
+        return MessagePage(items: items, nextCursor: older)
+    }
+
+    /// Page size for both lists; the Gateway clamps it to its own maximum.
+    static let pageSize: Double = 60
+
+    /// One `chat.history` page as the thread reads it, plus the cursor of the page before it. Each page's
+    /// messages are oldest first (`listMessagesPage` reverses its DESC read), which is the order the thread reads in.
+    private func transcript(_ page: JSONValue) async -> ([ChatItem], String?) {
         var items: [ChatItem] = []
-        for message in messages {
+        let lookup = questionLookup()
+        for message in page["messages"]?.array ?? [] {
             items.append(contentsOf: await ChatMapping.items(from: message, lookupQuestion: lookup))
         }
-        return ChatThread(id: summary.id, title: summary.title, status: summary.status, statusKind: summary.statusKind, items: items)
+        return (items, page["nextCursor"]?.string)
     }
 
     public func newThread() async throws -> ChatThreadSummary {

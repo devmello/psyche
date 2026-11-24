@@ -29,6 +29,17 @@ struct ThreadView: View {
         ScrollView {
             PhaseView(phase: model.phase, skeleton: .skeleton, retry: model.load) { thread in
                 LazyVStack(alignment: .leading, spacing: 0) {
+                    // The sentinel is the top row while older messages exist. Its id is the cursor, so each page
+                    // makes a new row and it loads once when it scrolls into view; nothing shows when there is none.
+                    if let cursor = thread.olderCursor {
+                        PageSentinel(
+                            loading: model.loadingOlder,
+                            label: String(localized: "Loading older messages", bundle: .module)
+                        )
+                        .id(cursor)
+                        .onAppear { loadOlder() }
+                        .padding(.bottom, 8)
+                    }
                     ForEach(Array(thread.items.enumerated()), id: \.element.id) { index, item in
                         BlockView(item: item, context: context)
                             .padding(.top, index == 0 ? 0 : Self.gap(before: item, after: thread.items[index - 1]))
@@ -187,6 +198,16 @@ struct ThreadView: View {
         }
     }
 
+    /// Loads the older page and keeps the reader on the message they were looking at: the first message that was
+    /// on screen stays where it was once the page is in front of it.
+    private func loadOlder() {
+        let anchor = model.phase.value?.items.first?.id
+        Task {
+            await model.loadOlder()
+            if let anchor { position.scrollTo(id: anchor, anchor: .top) }
+        }
+    }
+
     private func jumpToLatest() {
         pinned = true
         // A smooth scroll of at most 300 ms; instant under Reduce Motion.
@@ -217,6 +238,23 @@ struct ThreadView: View {
         case (.user, .file), (.file, .file): return 8
         default: return 14
         }
+    }
+}
+
+/// A quiet spinner while a page loads; otherwise a 1 pt clear row that marks where the next page starts.
+struct PageSentinel: View {
+    let loading: Bool
+    let label: String
+
+    var body: some View {
+        Group {
+            if loading {
+                ProgressView().controlSize(.small).accessibilityLabel(label)
+            } else {
+                Color.clear.frame(height: 1)
+            }
+        }
+        .frame(maxWidth: .infinity)
     }
 }
 

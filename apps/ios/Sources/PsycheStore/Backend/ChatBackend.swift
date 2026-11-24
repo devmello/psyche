@@ -5,7 +5,11 @@ import Foundation
 
 public protocol ChatBackend: Sendable {
     func threads() async throws -> [ChatThreadSummary]
+    /// One page of the thread list, most recent first. Pass the last page's `nextCursor` to get the next one.
+    func threadPage(cursor: String?) async throws -> ThreadPage
     func thread(id: String) async throws -> ChatThread
+    /// The page of a transcript just before `cursor` (`ChatThread.olderCursor`), oldest first, ready to prepend.
+    func olderItems(threadID: String, before cursor: String) async throws -> MessagePage
     func newThread() async throws -> ChatThreadSummary
     /// Queue a message. It goes through the outbox (§3.1), so it is accepted offline; the reply
     /// arrives as `LiveEvent.chat` events.
@@ -153,19 +157,47 @@ public struct ChatThreadSummary: Sendable, Equatable, Identifiable {
     }
 }
 
+/// One page of the thread list. `nextCursor` is nil on the last page.
+public struct ThreadPage: Sendable, Equatable {
+    public var threads: [ChatThreadSummary]
+    public var nextCursor: String?
+
+    public init(threads: [ChatThreadSummary], nextCursor: String?) {
+        self.threads = threads
+        self.nextCursor = nextCursor
+    }
+}
+
+/// One older page of a transcript, oldest first. `nextCursor` is nil when nothing older is left.
+public struct MessagePage: Sendable, Equatable {
+    public var items: [ChatItem]
+    public var nextCursor: String?
+
+    public init(items: [ChatItem], nextCursor: String?) {
+        self.items = items
+        self.nextCursor = nextCursor
+    }
+}
+
 public struct ChatThread: Sendable, Equatable, Identifiable {
     public var id: String
     public var title: String
     public var status: String
     public var statusKind: ChatThreadSummary.Status
     public var items: [ChatItem]
+    /// Where the next older page starts; nil when the transcript's first message is loaded.
+    public var olderCursor: String?
 
-    public init(id: String, title: String, status: String, statusKind: ChatThreadSummary.Status, items: [ChatItem]) {
+    public init(
+        id: String, title: String, status: String, statusKind: ChatThreadSummary.Status, items: [ChatItem],
+        olderCursor: String? = nil
+    ) {
         self.id = id
         self.title = title
         self.status = status
         self.statusKind = statusKind
         self.items = items
+        self.olderCursor = olderCursor
     }
 }
 
