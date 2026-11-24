@@ -26,6 +26,24 @@ public protocol MemoryBackend: Sendable {
     /// Saves the owner's name, aliases, status or due date on a person or project card (memory.entities.update).
     /// A requirement, not only an extension default, so a backend's own edit is the one the sheet reaches.
     func updateEntity(id: String, changes: EntityChanges, ifMatch: String?) async throws
+    /// What Psyche learned from the owner, newest first (memory.lessons.list), without forgotten lessons.
+    func lessons() async throws -> [LessonItem]
+    /// "Keep it" on a lesson (memory.lessons.confirm).
+    func confirmLesson(id: String) async throws
+    /// The owner's own line for a lesson (memory.lessons.edit).
+    func editLesson(id: String, value: String) async throws
+    /// Forgets a lesson and restores what it replaced (memory.lessons.forget).
+    func forgetLesson(id: String) async throws
+    /// Claims Psyche is not sure of and waits on (memory.claims.list).
+    func claims() async throws -> [ClaimItem]
+    /// "Right" on a claim (memory.claims.confirm): it becomes the owner's.
+    func confirmClaim(id: String) async throws
+    /// Facts Psyche accepted on its own in the last week (memory.review.list, auto_accepted).
+    func recentChanges() async throws -> [RecentChange]
+    /// Reverts an automatic change (memory.review.undo).
+    func undoChange(factID: String) async throws
+    /// Adds the owner's own note to today's daily note (memory.remember).
+    func remember(text: String) async throws
 }
 
 extension MemoryBackend {
@@ -33,6 +51,16 @@ extension MemoryBackend {
     public func memoryFiles() async throws -> [MemoryFileRow] { throw BackendError.notFound }
     public func memoryFile(path: String) async throws -> MemoryFileContent { throw BackendError.notFound }
     public func entityKind(id: String) async throws -> String { throw BackendError.notFound }
+    // Additive: a backend without the learning surface says it has nothing to show.
+    public func lessons() async throws -> [LessonItem] { throw BackendError.notFound }
+    public func confirmLesson(id: String) async throws { throw BackendError.notFound }
+    public func editLesson(id: String, value: String) async throws { throw BackendError.notFound }
+    public func forgetLesson(id: String) async throws { throw BackendError.notFound }
+    public func claims() async throws -> [ClaimItem] { throw BackendError.notFound }
+    public func confirmClaim(id: String) async throws { throw BackendError.notFound }
+    public func recentChanges() async throws -> [RecentChange] { throw BackendError.notFound }
+    public func undoChange(factID: String) async throws { throw BackendError.notFound }
+    public func remember(text: String) async throws { throw BackendError.notFound }
 
     // Additive: a backend that cannot edit facts yet says so, and the page offers "Edit on your Mac".
     public func confirmFact(personID: String, factID: String) async throws {
