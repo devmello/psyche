@@ -146,7 +146,7 @@ function LoopRow({
   loop: DigestLoop;
   now: number;
   onLoop?: DigestCardProps["onLoop"];
-}): ReactElement {
+}): ReactElement | null {
   const [gone, setGone] = useState(false);
   const since = loop.thread?.at ?? loop.loop.createdAt;
   if (gone) return null;

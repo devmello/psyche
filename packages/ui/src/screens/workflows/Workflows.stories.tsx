@@ -51,7 +51,7 @@ export const Digest: Story = {
         digest={inboxDigest()}
         now={STORY_NOW}
         onAction={noop}
-        onLoop={noop}
+        onLoop={() => Promise.resolve(false)}
         onGroup={noop}
         onSettings={noop}
       />
