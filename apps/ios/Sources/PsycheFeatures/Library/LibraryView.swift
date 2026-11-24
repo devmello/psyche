@@ -33,6 +33,11 @@ private struct LibraryContent: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
                     PageHeader(String(localized: "Library", bundle: .module))
+                    HStack(spacing: 10) {
+                        NavigationLink { ReceiptsView() } label: { LibraryPageTile(title: "Receipts", symbol: "receipt") }
+                        NavigationLink { ArtifactsView() } label: { LibraryPageTile(title: "Artifacts", symbol: "doc.richtext") }
+                    }
+                    .buttonStyle(.plain)
                     SectionPicker(selection: $model.section)
                     ForEach(model.uploads) { job in
                         UploadRow(job: job, retry: { model.retry(job.id) }, dismiss: { model.dismiss(job.id) })
@@ -64,6 +69,26 @@ private struct LibraryContent: View {
         .psycheAnimation(.smooth, value: model.uploads.map(\.id))
         .task(id: model.section) { await model.load() }
         .task { await model.observe() }
+    }
+}
+
+/// A link to a page of the Library (Receipts, Artifacts), beside the sections.
+private struct LibraryPageTile: View {
+    let title: String
+    let symbol: String
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: symbol).font(.body.weight(.medium)).foregroundStyle(PsycheColor.muted)
+            Text(LocalizedStringKey(title), bundle: .module)
+                .font(.psycheRow.weight(.medium)).foregroundStyle(PsycheColor.text)
+            Spacer(minLength: 0)
+            Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).foregroundStyle(PsycheColor.rule)
+        }
+        .padding(.horizontal, 14).padding(.vertical, 12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(PsycheColor.sheet, in: RoundedRectangle(cornerRadius: PsycheMetrics.cardRadius, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: PsycheMetrics.cardRadius, style: .continuous).strokeBorder(PsycheColor.hairline, lineWidth: 1))
     }
 }
 
