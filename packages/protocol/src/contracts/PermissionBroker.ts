@@ -251,6 +251,8 @@ export interface ApprovalRequestInput {
   /** Taint sources for the card (security §3.6); `context.taintSources` is used when absent. */
   taintSources?: TaintSource[];
   ttlMs?: number;
+  /** The card never outlives this, even when the owner's approval TTL is longer (a proposal's own expiry). */
+  maxTtlMs?: number;
   /**
    * The decision context of the call (requester, taint sources, task): the card names the
    * person it is for and its taint sources, the requester's own chats are never surfaces, and a

@@ -2,6 +2,9 @@ import type { Catalogue } from "../../index.ts";
 
 /** Notices the Gateway authors (ja); merged into `../ja.ts`. */
 export const notices: Partial<Catalogue> = {
+  "notice.install.failed.title": "承認したインストールが完了しませんでした",
+  "notice.install.failed.body":
+    "{reason, select, lost {承認の前に Psyche が再起動したため、提案は失われました。もう一度提案してください。} expired {承認の前に提案の有効期限が切れていました。もう一度提案してください。} other {Psyche はインストールできませんでした。一覧を確認して、もう一度お試しください。}}",
   "notice.security.changed.title": "アプリの外で行われたセキュリティ変更を Psyche が元に戻しました",
   "notice.security.changed.body":
     "この Mac のプログラムが、Psyche を通さずに {count, plural, =1 {# 件のセキュリティ記録} other {# 件のセキュリティ記録}}（デバイス、キー、許可、設定）を変更しました{times, plural, =0 {} =1 {} other {（これまでに # 回）}}。Psyche は元に戻しました。心当たりがない場合は、Mac に不要なソフトウェアがないか確認してください。",

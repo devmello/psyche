@@ -10,7 +10,7 @@ import { describe, expect, it } from "vitest";
 import { customFactory } from "../../src/custom/connector.ts";
 import { checkManifest, manifestHash, manifestText } from "../../src/custom/manifest.ts";
 import { manifestFromOpenApi } from "../../src/custom/openapi.ts";
-import { CustomConnectors } from "../../src/custom/service.ts";
+import { CUSTOM_PROPOSAL_TTL_MS, CustomConnectors } from "../../src/custom/service.ts";
 import { toolCallBindingHash } from "../../src/framework/binding.ts";
 import { ConnectorRegistry } from "../../src/framework/registry.ts";
 import { MapRegistry, MemoryVault, run, stubBroker } from "../mail/helpers.ts";
@@ -590,13 +590,55 @@ describe("propose → trust card → install", () => {
     const record = await s.service.installApproved(approved as NonNullable<typeof approved>);
     expect(record).toMatchObject({ type: "custom", status: "connected", label: "Tasks API" });
     expect((await s.registry.list()).filter((r) => r.type === "custom")).toHaveLength(1);
-    // The proposal is spent: a second call from the broker event installs nothing more.
-    await expect(s.service.install(proposal.id, approval.id)).rejects.toMatchObject({
-      code: "not_found",
+    // The install is done once: a repeat from the Settings call or the broker's event gets the
+    // same connector, and nothing is connected twice.
+    expect((await s.service.install(proposal.id, approval.id)).id).toBe(record?.id);
+    expect(await s.service.installApproved(approved as NonNullable<typeof approved>)).toMatchObject(
+      { id: record?.id },
+    );
+    expect((await s.registry.list()).filter((r) => r.type === "custom")).toHaveLength(1);
+  });
+
+  it("the card is capped at its proposal expiry", async () => {
+    const s = setup();
+    const seen: Array<{ maxTtlMs?: number }> = [];
+    const original = s.fake.requestApproval.bind(s.fake);
+    s.fake.requestApproval = async (input) => {
+      seen.push(input);
+      return original(input);
+    };
+    await s.service.propose({ manifest: MANIFEST });
+    expect(seen[0]?.maxTtlMs).toBe(CUSTOM_PROPOSAL_TTL_MS);
+  });
+
+  it("an approved card whose proposal is gone (a restart) is reported with not_found, installs nothing", async () => {
+    const s = setup();
+    const { approval } = await s.service.propose({ manifest: MANIFEST });
+    await s.approve(approval.id);
+    const approved = await s.fake.get(approval.id);
+    // A new service has none of the staged proposals: the Gateway restarted in between.
+    const restarted = new CustomConnectors({
+      registry: s.registry,
+      broker: s.fake as unknown as PermissionBroker,
+      clock: s.clock,
+      surfaces: ["desktop"],
     });
-    expect(
-      await s.service.installApproved(approved as NonNullable<typeof approved>),
-    ).toBeUndefined();
+    await expect(
+      restarted.installApproved(approved as NonNullable<typeof approved>),
+    ).rejects.toMatchObject({ code: "not_found" });
+    expect(await s.registry.list()).toEqual([]);
+  });
+
+  it("the Settings call and the approval event share one install", async () => {
+    const s = setup();
+    const { proposal, approval } = await s.service.propose({ manifest: MANIFEST });
+    await s.approve(approval.id);
+    const approved = await s.fake.get(approval.id);
+    const [viaUi, viaEvent] = await Promise.all([
+      s.service.install(proposal.id, approval.id),
+      s.service.installApproved(approved as NonNullable<typeof approved>),
+    ]);
+    expect(viaEvent?.id).toBe(viaUi.id);
     expect((await s.registry.list()).filter((r) => r.type === "custom")).toHaveLength(1);
   });
 
@@ -614,9 +656,9 @@ describe("propose → trust card → install", () => {
     expect(denied?.status).toBe("denied");
     expect(await s.service.installApproved(denied as NonNullable<typeof denied>)).toBeUndefined();
     expect(await s.registry.list()).toEqual([]);
-    // An approval that matches no staged card installs nothing.
+    // An approved card whose proposal this service does not hold is reported, not installed.
     const unknown = { ...approval, id: "apr_unknown", status: "approved" as const };
-    expect(await s.service.installApproved(unknown)).toBeUndefined();
+    await expect(s.service.installApproved(unknown)).rejects.toMatchObject({ code: "not_found" });
     // A card that claims approval the broker never recorded is refused by the install's own check.
     const other = await s.service.propose({ manifest: MANIFEST });
     const claimed = { ...other.approval, status: "approved" as const };

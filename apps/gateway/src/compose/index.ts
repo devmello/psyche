@@ -2447,6 +2447,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       db,
       home: config.home,
       broker: executorBroker,
+      events: rawBroker,
+      notifier,
       loop,
       ...(gwOptions.logger === undefined ? {} : { logger: gwOptions.logger }),
     }),
