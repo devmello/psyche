@@ -40,7 +40,7 @@ extension GatewayBackend {
     /// `voice.memo.save`'s answer: the filed Library item, the transcript text and the length.
     static func voiceMemoSaved(from result: JSONValue) throws -> VoiceMemoSaved {
         guard let item = result["item"].flatMap({ libraryItem(from: $0) }) else {
-            throw BackendError.refused("The Gateway didn't store that file.")
+            throw BackendError.refused(String(localized: "The Gateway didn't store that file.", bundle: .module))
         }
         return VoiceMemoSaved(
             item: item,

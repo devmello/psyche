@@ -26,10 +26,11 @@ extension FixtureBackend: VoiceMemoBackend {
         guard let bytes = voiceMemoState.received.removeValue(forKey: sessionID) else { throw BackendError.notFound }
         let durationMs = bytes / 2 * 1000 / 16_000
         libraryState.counter += 1
+        // The Mac files a memo as a `recording`; the Recordings section lists it.
         let item = LibraryItem(
             id: "fixture-library-memo-\(libraryState.counter)",
             title: "Voice memo \(libraryState.counter)",
-            section: .documents,
+            section: .recordings,
             fileType: "wav",
             detail: "Just now \u{00B7} \(durationMs / 1000) s")
         libraryState.items.insert(item, at: 0)
