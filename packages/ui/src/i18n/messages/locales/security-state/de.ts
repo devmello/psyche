@@ -44,4 +44,18 @@ export const securityState: Partial<Catalogue> = {
   "web.security.needsApproval":
     "Bestätige die Karte mit Touch ID oder einem Passkey und tippe dann erneut auf die Taste.",
   "web.security.failed": "Das hat nicht geklappt: {message}",
+  "settings.security.title": "Sicherheitsdaten",
+  "settings.security.description":
+    "Ob Psyches Sicherheitsdaten intakt sind, was sich ohne dein Zutun geändert hat und welche Anfragen auf ihre Ausführung warten.",
+  "settings.security.status.sealed": "Intakt",
+  "settings.security.status.untrusted": "Nicht vertrauenswürdig",
+  "settings.security.empty": "Nichts zu prüfen. Keine Hinweise und keine wartenden Anfragen.",
+  "settings.security.approvalLabel": "Sicherheitsänderung",
+  "settings.security.approve.title": "Diese Änderung jetzt anwenden?",
+  "settings.security.approve.body": "Die Anfrage wird jetzt statt am {when} angewendet: {action}",
+  "settings.security.approve.confirm": "Jetzt anwenden",
+  "settings.security.cancel.title": "Diese Anfrage abbrechen?",
+  "settings.security.cancel.body":
+    "Die Änderung wird nicht vorgenommen und die Anfrage verworfen: {action}",
+  "settings.security.keep": "Behalten",
 };

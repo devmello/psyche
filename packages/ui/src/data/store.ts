@@ -936,6 +936,9 @@ export class GatewayStore {
         return invalidate(s, ["connectors."]);
       case "node.updated":
         return invalidate(s, ["nodes."]);
+      case "security.state.changed":
+        // Settings → Permissions → Security records follows alerts and local recoveries.
+        return invalidate(s, ["security.state.get"]);
       case "search.sources.updated":
         return invalidate(s, ["search.sources"]);
       case "speech.model_download":

@@ -43,4 +43,17 @@ export const securityState: Partial<Catalogue> = {
   "web.security.needsApproval":
     "Touch ID またはパスキーでカードを承認してから、もう一度ボタンを押してください。",
   "web.security.failed": "うまくいきませんでした: {message}",
+  "settings.security.title": "セキュリティ記録",
+  "settings.security.description":
+    "Psyche のセキュリティ記録が無事か、知らないうちに何が変わったか、適用待ちの依頼を表示します。",
+  "settings.security.status.sealed": "正常",
+  "settings.security.status.untrusted": "信頼できません",
+  "settings.security.empty": "確認するものはありません。通知も待機中の依頼もありません。",
+  "settings.security.approvalLabel": "セキュリティの変更",
+  "settings.security.approve.title": "この変更を今すぐ適用しますか？",
+  "settings.security.approve.body": "この依頼を {when} ではなく今すぐ適用します: {action}",
+  "settings.security.approve.confirm": "今すぐ適用",
+  "settings.security.cancel.title": "この依頼をキャンセルしますか？",
+  "settings.security.cancel.body": "変更は行われず、依頼は破棄されます: {action}",
+  "settings.security.keep": "そのままにする",
 };

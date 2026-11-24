@@ -43,4 +43,17 @@ export const securityState: Partial<Catalogue> = {
   "web.security.needsApproval":
     "وافق على البطاقة بـ Touch ID أو مفتاح مرور، ثم اضغط الزر مرة أخرى.",
   "web.security.failed": "لم ينجح ذلك: {message}",
+  "settings.security.title": "سجلات الأمان",
+  "settings.security.description":
+    "هل سجلات أمان Psyche سليمة، وما الذي تغيّر دون علمك، والطلبات التي تنتظر التنفيذ.",
+  "settings.security.status.sealed": "سليمة",
+  "settings.security.status.untrusted": "غير موثوقة",
+  "settings.security.empty": "لا شيء للمراجعة. لا توجد تنبيهات ولا طلبات في الانتظار.",
+  "settings.security.approvalLabel": "تغيير أمني",
+  "settings.security.approve.title": "تطبيق هذا التغيير الآن؟",
+  "settings.security.approve.body": "سيُطبَّق الطلب الآن بدلًا من {when}: {action}",
+  "settings.security.approve.confirm": "طبّق الآن",
+  "settings.security.cancel.title": "إلغاء هذا الطلب؟",
+  "settings.security.cancel.body": "لن يُجرى التغيير وسيُسقَط الطلب: {action}",
+  "settings.security.keep": "إبقاؤه",
 };
