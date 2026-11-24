@@ -20,18 +20,18 @@ extension AlertCenter {
         if case .run(let threadID, let update) = event, !update.isChat, let task = update.taskID {
             taskThreads[task] = threadID  // which chat a task belongs to, for the no-duplicates rule
         }
-        await process(chatTracker.apply(event, now: .now))
+        await process(chatTracker.apply(event, now: clock.now()))
     }
 
     /// The thread list: ends replies the events never closed, learns chat titles. (It never starts one.)
     func reconcileChatTurns() async {
         guard let summaries = try? await store.threads() else { return }
         for summary in summaries { chatTitles[summary.id] = summary.title }
-        await process(chatTracker.reconcile(summaries, now: .now))
+        await process(chatTracker.reconcile(summaries, now: clock.now()))
         // An activity the system kept across a relaunch for a reply that has since ended. What it last showed is
         // known only if this run of the app drew it; otherwise how it ended is not, so it is just removed.
         for id in chatWatching where chatTracker.turns[id] == nil {
-            if let final = finalContent(for: id, failed: false, at: .now) {
+            if let final = finalContent(for: id, failed: false, at: clock.now()) {
                 await endChatActivity(id, final: final, dismissAfter: Self.doneLinger)
             } else {
                 await endChatActivity(id, final: nil, dismissAfter: 0)
@@ -76,10 +76,13 @@ extension AlertCenter {
 
     private func scheduleChatStart(_ turn: ChatTurnTracker.Turn) {
         guard chatStartTimers[turn.threadID] == nil else { return }
-        let delay = max(0, turn.startedAt.addingTimeInterval(chatThreshold).timeIntervalSinceNow)
+        // The wake time is fixed here, not inside the task, so a clock that moves before the task first runs
+        // still wakes it.
+        let wake = turn.startedAt.addingTimeInterval(chatThreshold)
         let id = turn.threadID
+        let clock = self.clock
         chatStartTimers[id] = Task { [weak self] in
-            try? await Task.sleep(for: .seconds(delay))
+            try? await clock.sleepUntil(wake)
             guard !Task.isCancelled, let self else { return }
             self.chatStartTimers[id] = nil
             await self.startChatActivityIfDue(id)
@@ -90,12 +93,12 @@ extension AlertCenter {
     /// the threshold gets its activity now (a background timer could not start one).
     func startChatActivityIfDue(_ id: String, early: Bool = false) async {
         guard let turn = chatTracker.turns[id], !chatWatching.contains(id), liveActivitiesOn,
-              early || Date.now.timeIntervalSince(turn.startedAt) >= chatThreshold - 0.25 else { return }
+              early || clock.now().timeIntervalSince(turn.startedAt) >= chatThreshold - 0.25 else { return }
         guard !chatCoveredByTask(id) else { return }
         if chatTitles[id] == nil { await loadChatTitles() }
         // Awaiting the titles may have let the reply end or another path start the activity.
         guard let current = chatTracker.turns[id], !chatWatching.contains(id), chatActivities.isEnabled else { return }
-        let now = Date.now
+        let now = clock.now()
         let content = chatContent(for: current)
         let stale = staleDate(from: now)
         guard chatActivities.start(threadID: id, content: content, staleDate: stale) else { return }
@@ -144,7 +147,7 @@ extension AlertCenter {
     private func pushChat(_ turn: ChatTurnTracker.Turn) async {
         let content = chatContent(for: turn)
         guard content != chatContents[turn.threadID] else { return }
-        let now = Date.now
+        let now = clock.now()
         if let last = chatPushes[turn.threadID], now.timeIntervalSince(last) < chatMinInterval {
             scheduleChatCatchUp(after: chatMinInterval - now.timeIntervalSince(last))
             return
@@ -162,8 +165,10 @@ extension AlertCenter {
 
     private func scheduleChatCatchUp(after delay: TimeInterval) {
         guard chatCatchUp == nil else { return }
+        let wake = clock.now().addingTimeInterval(max(0.1, delay))
+        let clock = self.clock
         chatCatchUp = Task { [weak self] in
-            try? await Task.sleep(for: .seconds(max(0.1, delay)))
+            try? await clock.sleepUntil(wake)
             guard !Task.isCancelled, let self else { return }
             self.chatCatchUp = nil
             for id in self.chatWatching {
@@ -231,7 +236,7 @@ extension AlertCenter {
     /// Awake and the stale date is about to pass (or the app just opened with a live connection): the unchanged
     /// activity gets a later one. Asleep, nothing can, and the activity goes stale on its own.
     func refreshChatFreshness() async {
-        let now = Date.now
+        let now = clock.now()
         for id in chatWatching {
             guard let content = chatContents[id], let stale = chatStaleDates[id] else { continue }
             let due = isAwake && now >= ActivityFreshness.refreshTime(forStaleDate: stale)
@@ -253,4 +258,16 @@ extension AlertCenter {
             if let content = chatContents[id] { await pushChat(id, content, at: now, staleDate: now) }
         }
     }
+}
+
+/// The time source of the chat-activity timers. Production keeps the wall clock; tests inject a manual one and
+/// advance it, so no test depends on how fast the machine runs.
+struct ChatClock {
+    var now: @MainActor () -> Date
+    /// Returns once `now()` has reached the date, or throws if the sleeping task is cancelled.
+    var sleepUntil: @MainActor (Date) async throws -> Void
+
+    static let real = ChatClock(
+        now: { .now },
+        sleepUntil: { date in try await Task.sleep(for: .seconds(max(0, date.timeIntervalSinceNow))) })
 }
