@@ -101,15 +101,15 @@ extension GatewayBackend {
         switch kind {
         case "thread", "message", "threads", "messages":
             let thread = h["threadId"]?.string ?? id
-            return .init(id: id, group: .chatsAndFiles, symbol: "bubble.left", title: title, detail: detail("Chat"), target: .chat(id: thread))
+            return .init(id: id, group: .chatsAndFiles, symbol: "bubble.left", title: title, detail: detail(String(localized: "Chat", bundle: .module)), target: .chat(id: thread))
         case "library":
             return .init(
-                id: id, group: .chatsAndFiles, symbol: "doc", title: title, detail: detail("Library"),
+                id: id, group: .chatsAndFiles, symbol: "doc", title: title, detail: detail(String(localized: "Library", bundle: .module)),
                 target: .file(id: id.replacingOccurrences(of: "library:", with: "")))
         case "person":
             // The person page holds what is known; the row says only who it is.
             let entity = id.replacingOccurrences(of: "entity:", with: "")
-            return .init(id: id, group: .people, symbol: "person", title: title, detail: "Person", target: .person(id: entity))
+            return .init(id: id, group: .people, symbol: "person", title: title, detail: String(localized: "Person", bundle: .module), target: .person(id: entity))
         case "memory":
             // The wire hit's `entityType` says which kind of entity it is ("assignment" is a to-do). A Gateway
             // that predates it sends none, so the first line of the document ("To-do: name", "Project: name",
@@ -120,24 +120,24 @@ extension GatewayBackend {
                     ?? entityLabel(in: h["snippet"]?.string ?? "")
                 switch label {
                 case "to-do":
-                    return .init(id: id, group: .todo, symbol: "circle", title: title, detail: "To-do", target: .todo(id: entity))
+                    return .init(id: id, group: .todo, symbol: "circle", title: title, detail: String(localized: "To-do", bundle: .module), target: .todo(id: entity))
                 case "project":
-                    return .init(id: id, group: .chatsAndFiles, symbol: "folder", title: title, detail: detail("Project"), target: .project(id: entity))
+                    return .init(id: id, group: .chatsAndFiles, symbol: "folder", title: title, detail: detail(String(localized: "Project", bundle: .module)), target: .project(id: entity))
                 default: break
                 }
             }
-            return .init(id: id, group: .chatsAndFiles, symbol: "brain", title: title, detail: detail("Memory"))
+            return .init(id: id, group: .chatsAndFiles, symbol: "brain", title: title, detail: detail(String(localized: "Memory", bundle: .module)))
         case "project", "projects":
             // The project's own document: `entity:<id>`.
             let entity = id.replacingOccurrences(of: "entity:", with: "")
             return .init(
-                id: id, group: .chatsAndFiles, symbol: "folder", title: title, detail: detail("Project"), target: .project(id: entity))
+                id: id, group: .chatsAndFiles, symbol: "folder", title: title, detail: detail(String(localized: "Project", bundle: .module)), target: .project(id: entity))
         case "task", "tasks":
             // An Activity line collapses onto its task; the route names the task (`/agent/activity/<taskId>`).
             let task = h["route"]?.string.flatMap { route -> String? in
                 route.hasPrefix("/agent/activity/") ? String(route.dropFirst("/agent/activity/".count)) : nil
             } ?? id
-            return .init(id: id, group: .chatsAndFiles, symbol: "checklist", title: title, detail: detail("Task"), target: .task(id: task))
+            return .init(id: id, group: .chatsAndFiles, symbol: "checklist", title: title, detail: detail(String(localized: "Task", bundle: .module)), target: .task(id: task))
         default:
             return .init(id: id, group: .chatsAndFiles, symbol: "doc.text", title: title, detail: detail(humanized(kind)))
         }
