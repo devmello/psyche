@@ -168,7 +168,7 @@ export function SpaceSettingsSection({
                   <li key={c.id} className="flex min-h-8 items-center gap-2">
                     <Checkbox
                       aria-label={t("spaces.settings.connectors.use", { name: c.label })}
-                      checked={scope.includes(c.id)}
+                      checked={scope?.includes(c.id) === true}
                       disabled={locked}
                       onCheckedChange={(on) => toggleConnector(c.id, on === true)}
                     />
