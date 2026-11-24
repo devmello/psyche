@@ -831,27 +831,71 @@ export interface ApprovalView {
   stale: boolean;
 }
 
+/** Resolved approvals are history: one page at a time. Pending ones always load in full. */
+const RESOLVED_STATUSES = ["approved", "denied", "expired", "invalidated"] as const;
+const APPROVAL_PAGE = 100;
+/** A runaway cursor chain stops here (500 pages of 500). */
+const MAX_PAGES = 500;
+
 export function useApprovals() {
   const store = useStore();
   const approvals = useStoreState((s) => s.approvals);
   const tokens = useStoreState((s) => s.answerTokens);
   const stale = useStoreState((s) => s.staleApprovals);
+  // Cursor for the next page of resolved approvals; null once the history is complete.
+  const [recentCursor, setRecentCursor] = useState<string | null>(null);
+  const beyondHead = useRef(false);
+  const [loadingMoreRecent, setLoadingMoreRecent] = useState(false);
   const load = useLoader("approvals", async (st) => {
+    // Every pending approval, however old: an unlisted one has no card and no answer token, so
+    // it could never be answered and its run would wait forever. The pending set is small.
+    let cursor: string | undefined;
+    for (let page = 0; page < MAX_PAGES; page++) {
+      const version = st.version();
+      const res = await st.call("approvals.list", {
+        status: ["pending"],
+        limit: 500,
+        ...(cursor === undefined ? {} : { cursor }),
+      });
+      st.update((s) => {
+        const next = putMany(s, "approvals", res.approvals, version);
+        const staleNext: Record<string, true> = { ...next.staleApprovals };
+        for (const a of res.approvals) delete staleNext[a.id];
+        return {
+          ...next,
+          answerTokens: { ...next.answerTokens, ...(res.answerTokens ?? {}) },
+          staleApprovals: staleNext,
+        };
+      });
+      if (res.nextCursor == null) break;
+      cursor = res.nextCursor;
+    }
+    // Decided history: the head page only. A reload keeps the cursor of pages already loaded.
     const version = st.version();
-    const res = await st.call("approvals.list", {
-      status: ["pending", "approved", "denied", "expired", "invalidated"],
+    const head = await st.call("approvals.list", {
+      status: [...RESOLVED_STATUSES],
+      limit: APPROVAL_PAGE,
     });
-    st.update((s) => {
-      const next = putMany(s, "approvals", res.approvals, version);
-      const staleNext: Record<string, true> = { ...next.staleApprovals };
-      for (const a of res.approvals) if (a.status === "pending") delete staleNext[a.id];
-      return {
-        ...next,
-        answerTokens: { ...next.answerTokens, ...(res.answerTokens ?? {}) },
-        staleApprovals: staleNext,
-      };
-    });
+    st.update((s) => putMany(s, "approvals", head.approvals, version));
+    if (!beyondHead.current) setRecentCursor(head.nextCursor ?? null);
   });
+  const loadMoreRecent = useCallback(async () => {
+    if (recentCursor === null || loadingMoreRecent) return;
+    setLoadingMoreRecent(true);
+    try {
+      const version = store.version();
+      const res = await store.call("approvals.list", {
+        status: [...RESOLVED_STATUSES],
+        limit: APPROVAL_PAGE,
+        cursor: recentCursor,
+      });
+      store.update((s) => putMany(s, "approvals", res.approvals, version));
+      beyondHead.current = true;
+      setRecentCursor(res.nextCursor ?? null);
+    } finally {
+      setLoadingMoreRecent(false);
+    }
+  }, [store, recentCursor, loadingMoreRecent]);
   const views = useMemo(() => {
     const list = Object.values(approvals)
       .sort((a, b) => b.requestedAt.localeCompare(a.requestedAt))
@@ -872,6 +916,10 @@ export function useApprovals() {
   return {
     ...load,
     ...views,
+    /** More decided approvals exist beyond the ones loaded. */
+    hasMoreRecent: recentCursor !== null,
+    loadMoreRecent,
+    loadingMoreRecent,
     answer: (
       id: string,
       decision: "approve" | "deny",
@@ -1582,14 +1630,65 @@ export function useGoal(goalId: string | null): LoadState & {
 
 // --- Inbox, settings, automations, search, memory ---------------------------------------------
 
+const NOTIFICATION_PAGE = 50;
+
+type NotificationListParams = { unreadOnly?: boolean; unresolvedOnly?: boolean };
+
+/** Pages one filtered `notifications.list` to the end, handing each page to `each`. */
+async function eachNotificationPage(
+  st: GatewayStore,
+  filter: NotificationListParams,
+  each: (page: Notification[], version: number) => void,
+): Promise<void> {
+  let cursor: string | undefined;
+  for (let page = 0; page < MAX_PAGES; page++) {
+    const version = st.version();
+    const res = await st.call("notifications.list", {
+      ...filter,
+      limit: 500,
+      ...(cursor === undefined ? {} : { cursor }),
+    });
+    each(res.notifications as Notification[], version);
+    if (res.nextCursor == null) return;
+    cursor = res.nextCursor;
+  }
+}
+
 export function useNotifications() {
   const store = useStore();
   const notifications = useStoreState((s) => s.notifications);
+  // Cursor for the next page of the inbox list; null once it is complete.
+  const [cursor, setCursor] = useState<string | null>(null);
+  const beyondHead = useRef(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const load = useLoader("notifications", async (st) => {
+    const merge = (page: Notification[], version: number) =>
+      st.update((s) => putMany(s, "notifications", page, version));
+    // Everything unresolved or unread loads in full, so the Needs-you and unread counts are
+    // right however old the notification is. Both sets are bounded by what the owner left open.
+    await eachNotificationPage(st, { unresolvedOnly: true }, merge);
+    await eachNotificationPage(st, { unreadOnly: true }, merge);
+    // The inbox list itself pages: the head here, older ones on `loadMore`.
     const version = st.version();
-    const res = await st.call("notifications.list", {});
-    st.update((s) => putMany(s, "notifications", res.notifications, version));
+    const head = await st.call("notifications.list", { limit: NOTIFICATION_PAGE });
+    merge(head.notifications as Notification[], version);
+    if (!beyondHead.current) setCursor(head.nextCursor ?? null);
   });
+  const loadMore = useCallback(async () => {
+    if (cursor === null || loadingMore) return;
+    setLoadingMore(true);
+    try {
+      const version = store.version();
+      const res = await store.call("notifications.list", { limit: NOTIFICATION_PAGE, cursor });
+      store.update((s) =>
+        putMany(s, "notifications", res.notifications as Notification[], version),
+      );
+      beyondHead.current = true;
+      setCursor(res.nextCursor ?? null);
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [store, cursor, loadingMore]);
   const all = useMemo(
     () => Object.values(notifications).sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
     [notifications],
@@ -1603,9 +1702,32 @@ export function useNotifications() {
     }
     return next;
   };
+  /**
+   * Marks every unread notification read, including the ones this client never loaded: the
+   * Gateway has no mark-all method, so it pages the unread ids and marks them 500 at a time.
+   */
+  const markAllRead = async () => {
+    const ids: string[] = [];
+    await eachNotificationPage(store, { unreadOnly: true }, (page) => {
+      for (const n of page) ids.push(n.id);
+    });
+    for (let i = 0; i < ids.length; i += 500) {
+      const batch = ids.slice(i, i + 500);
+      await store.mutate({
+        optimistic: mark(batch, new Date().toISOString()),
+        run: () => store.call("notifications.markRead", { notificationIds: batch }),
+        commit: (s) => mark(batch, new Date().toISOString())(s),
+      });
+    }
+  };
   return {
     ...load,
     all,
+    /** More (older) notifications exist beyond the ones listed. */
+    hasMore: cursor !== null,
+    loadMore,
+    loadingMore,
+    markAllRead,
     unread,
     unresolved: all.filter((n) => n.resolvedAt == null),
     markRead: (ids: string[]) =>
