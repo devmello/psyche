@@ -6,7 +6,7 @@ import enum PsycheProtocol.JSONValue
 // stale query trackers for free), refreshes a tracker on request, edits instructions, starts a chat in a Space and
 // moves a chat in or out. Folders and Space settings are admin scope and stay on the Mac.
 /// Mirrors `SPACE_LIMITS` in the protocol.
-enum SpaceLimits { static let name = 60 }
+enum SpaceLimits { static let name = 60, linkLabel = 120 }
 
 extension GatewayBackend {
     public func spaces() async throws -> [SpaceItem] {
@@ -83,7 +83,7 @@ extension GatewayBackend {
             id: id, name: name, description: wire["description"]?.string ?? "",
             chats: wire.at("counts", "chats")?.int ?? 0, trackers: wire.at("counts", "trackers")?.int ?? 0,
             due: wire.at("counts", "due")?.int ?? 0, lastActivityAt: WireFormat.date(wire["lastActivityAt"]?.string),
-            entityID: wire["entityId"]?.string)
+            entityID: wire["entityId"]?.string, archived: wire["archivedAt"]?.string != nil)
     }
 
     static func spaceDetail(from wire: JSONValue) -> SpaceDetailItem? {

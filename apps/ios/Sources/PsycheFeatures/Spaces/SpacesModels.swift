@@ -2,16 +2,22 @@ import Foundation
 import Observation
 import PsycheStore
 
-/// Home's Spaces section: the Spaces in sort order. A failed load leaves the section out rather than breaking Home.
+/// Home's Spaces section: the Spaces in sort order, then the suggested ones and the archived ones. A failed load
+/// leaves that part out rather than breaking Home.
 @MainActor @Observable
 final class SpacesListModel {
     private(set) var spaces: [SpaceItem] = []
+    private(set) var archived: [SpaceItem] = []
+    private(set) var proposals: [SpaceProposalItem] = []
+    private(set) var actionError: String?
     private let store: any PsycheBackend
 
     init(store: any PsycheBackend) { self.store = store }
 
     func load() async {
         if let loaded = try? await store.spaces() { spaces = loaded }
+        if let loaded = try? await store.archivedSpaces() { archived = loaded }
+        if let loaded = try? await store.spaceProposals() { proposals = loaded }
     }
 
     func observe() async {
@@ -22,6 +28,30 @@ final class SpacesListModel {
             }
         }
     }
+
+    /// Creates the suggested Space. Returns its id so the caller can open it.
+    func accept(_ proposal: SpaceProposalItem) async -> String? {
+        do {
+            let id = try await store.acceptProposal(id: proposal.id)
+            await load()
+            return id
+        } catch {
+            actionError = error.localizedDescription
+            return nil
+        }
+    }
+
+    func dismiss(_ proposal: SpaceProposalItem) async {
+        // Gone from the list at once; the Gateway's answer only matters if it refuses.
+        let previous = proposals
+        proposals.removeAll { $0.id == proposal.id }
+        do { try await store.dismissProposal(id: proposal.id) } catch {
+            proposals = previous
+            actionError = error.localizedDescription
+        }
+    }
+
+    func clearError() { actionError = nil }
 }
 
 /// One Space page: the Space with its parts, the widget behind each tracker, and the chats in it.
@@ -108,6 +138,76 @@ final class SpaceModel {
         }
     }
 
+    /// Archives or restores this Space. Returns whether the Gateway took it.
+    func setArchived(_ archived: Bool) async -> Bool {
+        do {
+            try await store.setSpaceArchived(id: id, archived)
+            await load()
+            return true
+        } catch {
+            actionError = error.localizedDescription
+            return false
+        }
+    }
+
+    func addTracker(_ template: SpaceTrackerTemplateItem) async -> Bool {
+        do {
+            try await store.addTracker(spaceID: id, template: template)
+            await load()
+            return true
+        } catch {
+            actionError = error.localizedDescription
+            return false
+        }
+    }
+
+    func removeTracker(_ tracker: SpaceTrackerItem) async {
+        do {
+            try await store.removeTracker(spaceID: id, widgetID: tracker.widgetID)
+            widgets[tracker.widgetID] = nil
+            await load()
+        } catch {
+            actionError = error.localizedDescription
+        }
+    }
+
+    /// Shows the new shelf order at once and puts it back if the Gateway refuses.
+    func reorderTrackers(_ widgetIDs: [String]) async {
+        guard let previous = phase.value else { return }
+        let byID = Dictionary(previous.trackers.map { ($0.widgetID, $0) }, uniquingKeysWith: { first, _ in first })
+        var optimistic = previous
+        optimistic.trackers = widgetIDs.compactMap { byID[$0] }
+        phase = .loaded(optimistic)
+        do {
+            try await store.reorderTrackers(spaceID: id, widgetIDs: widgetIDs)
+            await load()
+        } catch {
+            phase = .loaded(previous)
+            actionError = error.localizedDescription
+        }
+    }
+
+    /// Adds a link after the address passed `SpaceLinkAddress`. Returns whether the Gateway took it.
+    func addLink(url: String, title: String) async -> Bool {
+        do {
+            try await store.addLink(spaceID: id, url: url, title: title)
+            await load()
+            return true
+        } catch {
+            actionError = error.localizedDescription
+            return false
+        }
+    }
+
+    func removeLink(_ link: SpaceLinkItem) async {
+        do {
+            try await store.removeLink(spaceID: id, linkID: link.id)
+            await load()
+        } catch {
+            actionError = error.localizedDescription
+        }
+    }
+
     func clearError() { actionError = nil }
 }
 
@@ -160,4 +260,15 @@ final class SpaceMenuModel {
     }
 
     func clearError() { actionError = nil }
+}
+
+/// The address the owner types for a link: http or https with a host, nothing else. Returns the trimmed address.
+enum SpaceLinkAddress {
+    static func parse(_ text: String) -> String? {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, let url = URL(string: trimmed), let scheme = url.scheme?.lowercased(),
+            scheme == "http" || scheme == "https", let host = url.host, !host.isEmpty
+        else { return nil }
+        return trimmed
+    }
 }

@@ -29,11 +29,28 @@ enum SpacesText {
         folder.writable
             ? String(localized: "Read and write", bundle: .module) : String(localized: "Read only", bundle: .module)
     }
+
+    /// The Mac's template names (`spaces.template.*`).
+    static func templateName(_ template: SpaceTrackerTemplateItem) -> String {
+        switch template {
+        case .workDue: String(localized: "Work due", bundle: .module)
+        case .nextEvents: String(localized: "Next events", bundle: .module)
+        case .recentFiles: String(localized: "Recent files", bundle: .module)
+        case .mailOnThis: String(localized: "Mail on this", bundle: .module)
+        case .checklist: String(localized: "Checklist", bundle: .module)
+        case .automationStatus: String(localized: "Automation status", bundle: .module)
+        }
+    }
+
+    static var untrustedSuggestion: String {
+        String(localized: "Suggested while reading outside content. Check it before you create it.", bundle: .module)
+    }
 }
 
 // MARK: Home section
 
-/// Home's Spaces section, after Pinned: one row per Space. Not drawn while there are none or the load failed.
+/// Home's Spaces section, after Pinned: one row per Space, then a quiet "Suggested" group and the archived Spaces.
+/// Not drawn while there is nothing to show or the load failed.
 struct SpacesHomeSection: View {
     @State private var model: SpacesListModel
     @Environment(Router.self) private var router
@@ -42,22 +59,83 @@ struct SpacesHomeSection: View {
 
     var body: some View {
         Group {
-            if !model.spaces.isEmpty {
-                VStack(alignment: .leading, spacing: 8) {
-                    SectionHeader(String(localized: "Spaces", bundle: .module), count: model.spaces.count)
-                    PaperCard {
-                        ForEach(Array(model.spaces.prefix(6).enumerated()), id: \.element.id) { index, space in
-                            if index > 0 { HairlineDivider() }
-                            Button { router.homePath.append(.space(id: space.id)) } label: { row(space) }
-                                .buttonStyle(.plain)
-                        }
-                    }
+            if !model.spaces.isEmpty || !model.proposals.isEmpty || !model.archived.isEmpty {
+                VStack(alignment: .leading, spacing: PsycheMetrics.sectionSpacing) {
+                    if !model.spaces.isEmpty { spaceList }
+                    if !model.proposals.isEmpty { suggested }
+                    if !model.archived.isEmpty { archivedList }
                 }
             }
         }
         .task {
             await model.load()
             await model.observe()
+        }
+        .alert(String(localized: "Couldn't do that", bundle: .module), isPresented: errorShown) {
+            Button(String(localized: "OK", bundle: .module)) { model.clearError() }
+        } message: {
+            Text(model.actionError ?? "")
+        }
+    }
+
+    private var errorShown: Binding<Bool> {
+        Binding(get: { model.actionError != nil }, set: { if !$0 { model.clearError() } })
+    }
+
+    private var spaceList: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            SectionHeader(String(localized: "Spaces", bundle: .module), count: model.spaces.count)
+            PaperCard {
+                ForEach(Array(model.spaces.prefix(6).enumerated()), id: \.element.id) { index, space in
+                    if index > 0 { HairlineDivider() }
+                    Button { router.homePath.append(.space(id: space.id)) } label: { row(space) }
+                        .buttonStyle(.plain)
+                }
+            }
+        }
+    }
+
+    private var suggested: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            SectionHeader(String(localized: "Suggested", bundle: .module), count: model.proposals.count)
+            PaperCard {
+                ForEach(Array(model.proposals.enumerated()), id: \.element.id) { index, proposal in
+                    if index > 0 { HairlineDivider() }
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(verbatim: proposal.name).font(.psycheRow).foregroundStyle(PsycheColor.text).lineLimit(2)
+                        if !proposal.reason.isEmpty { EvidenceLine([proposal.reason]) }
+                        if !proposal.chatTitles.isEmpty { EvidenceLine([proposal.chatTitles.joined(separator: ", ")]) }
+                        if proposal.untrusted { EvidenceLine([SpacesText.untrustedSuggestion]) }
+                        HStack(spacing: 20) {
+                            Button(String(localized: "Create", bundle: .module)) {
+                                Task { _ = await model.accept(proposal) }
+                            }
+                            .font(.subheadline.weight(.medium)).foregroundStyle(PsycheColor.inkText)
+                            Button(String(localized: "Not now", bundle: .module)) {
+                                Task { await model.dismiss(proposal) }
+                            }
+                            .font(.subheadline.weight(.medium)).foregroundStyle(PsycheColor.muted)
+                        }
+                        .buttonStyle(.plain)
+                        .padding(.top, 2)
+                    }
+                    .padding(PsycheMetrics.rowPadding)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
+        }
+    }
+
+    private var archivedList: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            SectionHeader(String(localized: "Archived", bundle: .module), count: model.archived.count)
+            PaperCard {
+                ForEach(Array(model.archived.enumerated()), id: \.element.id) { index, space in
+                    if index > 0 { HairlineDivider() }
+                    Button { router.homePath.append(.space(id: space.id)) } label: { row(space) }
+                        .buttonStyle(.plain)
+                }
+            }
         }
     }
 
@@ -81,11 +159,14 @@ struct SpacesHomeSection: View {
 
 // MARK: Space page
 
-/// One Space: trackers on top, then Chats, Work due, Automations, and Files and links (read only here). Folders and
-/// Space settings are shown with "Change on your Mac"; the instructions can be edited from the phone.
+/// One Space: trackers on top, then Instructions, Chats, Work due, Automations, and Files and links. Trackers and
+/// links are added and removed here; folders and Space settings are shown with "Change on your Mac".
 struct SpaceView: View {
     @State private var model: SpaceModel
     @State private var editing = false
+    @State private var addingTracker = false
+    @State private var managingTrackers = false
+    @State private var managingLinks = false
     @Environment(Session.self) private var session
     @Environment(Router.self) private var router
     private let store: any PsycheBackend
@@ -128,7 +209,13 @@ struct SpaceView: View {
                 } label: {
                     Label(String(localized: "New chat here", bundle: .module), systemImage: "square.and.pencil")
                 }
-                .disabled(model.phase.value == nil || !session.state.canAnswer)
+                .disabled(
+                    model.phase.value == nil || !session.state.canAnswer || model.phase.value?.space.archived == true)
+            }
+            ToolbarItem(placement: .primaryAction) {
+                if let detail = model.phase.value {
+                    SpaceActionsMenu(archived: detail.space.archived) { archive in await model.setArchived(archive) }
+                }
             }
         }
         .task {
@@ -140,6 +227,15 @@ struct SpaceView: View {
             if let detail = model.phase.value {
                 InstructionsEditor(text: detail.instructions) { text in await model.saveInstructions(text) }
             }
+        }
+        .sheet(isPresented: $addingTracker) {
+            AddTrackerSheet { template in await model.addTracker(template) }
+        }
+        .sheet(isPresented: $managingTrackers) {
+            TrackersSheet(model: model)
+        }
+        .sheet(isPresented: $managingLinks) {
+            LinksSheet(model: model)
         }
         .alert(String(localized: "Couldn't do that", bundle: .module), isPresented: errorShown) {
             Button(String(localized: "OK", bundle: .module)) { model.clearError() }
@@ -154,38 +250,57 @@ struct SpaceView: View {
 
     @ViewBuilder
     private func loaded(_ detail: SpaceDetailItem) -> some View {
+        if detail.space.archived {
+            Text("Archived. Its automations are paused and its folders are off.", bundle: .module)
+                .font(.subheadline).foregroundStyle(PsycheColor.muted)
+        }
         if !detail.space.description.isEmpty {
             Text(detail.space.description).font(.subheadline).foregroundStyle(PsycheColor.muted)
         }
-        if !detail.trackers.isEmpty { trackers(detail.trackers) }
+        trackers(detail)
         instructions(detail.instructions)
         if !model.chats.isEmpty { chats(model.chats) }
         if detail.space.due > 0 || detail.automations > 0 { work(detail) }
-        if !detail.folders.isEmpty || !detail.links.isEmpty { files(detail) }
+        files(detail)
     }
 
-    private func trackers(_ items: [SpaceTrackerItem]) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            SectionHeader(String(localized: "Trackers", bundle: .module), count: items.count)
-            LazyVStack(alignment: .leading, spacing: 12) {
-                ForEach(items) { tracker in
-                    VStack(alignment: .leading, spacing: 6) {
-                        if let snapshot = model.widgets[tracker.widgetID] {
-                            WidgetView(snapshot: snapshot, backend: store, surface: .overview)
-                        }
-                        HStack {
-                            let line = SpacesText.trackerLine(tracker, model.status[tracker.widgetID])
-                            if !line.isEmpty { EvidenceLine(line) }
-                            Spacer(minLength: 0)
-                            if tracker.canRefresh {
-                                Button(String(localized: "Refresh", bundle: .module)) { Task { await model.refresh(tracker) } }
-                                    .font(.subheadline.weight(.medium))
-                                    .foregroundStyle(PsycheColor.inkText)
-                                    .buttonStyle(.plain)
-                                    .disabled(model.refreshing.contains(tracker.widgetID) || !session.state.canAnswer)
+    private func trackers(_ detail: SpaceDetailItem) -> some View {
+        let items = detail.trackers
+        let editable = !detail.space.archived && session.state.canAnswer
+        return VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                SectionHeader(String(localized: "Trackers", bundle: .module), count: items.isEmpty ? nil : items.count)
+                Spacer(minLength: 0)
+                if !items.isEmpty {
+                    Button(String(localized: "Edit", bundle: .module)) { managingTrackers = true }
+                        .font(.subheadline.weight(.medium)).foregroundStyle(PsycheColor.muted).buttonStyle(.plain)
+                        .disabled(!editable)
+                }
+                Button(String(localized: "Add", bundle: .module)) { addingTracker = true }
+                    .font(.subheadline.weight(.medium)).foregroundStyle(PsycheColor.inkText).buttonStyle(.plain)
+                    .disabled(!editable)
+            }
+            if !items.isEmpty {
+                LazyVStack(alignment: .leading, spacing: 12) {
+                    ForEach(items) { tracker in
+                        VStack(alignment: .leading, spacing: 6) {
+                            if let snapshot = model.widgets[tracker.widgetID] {
+                                WidgetView(snapshot: snapshot, backend: store, surface: .overview)
                             }
+                            HStack {
+                                let line = SpacesText.trackerLine(tracker, model.status[tracker.widgetID])
+                                if !line.isEmpty { EvidenceLine(line) }
+                                Spacer(minLength: 0)
+                                if tracker.canRefresh {
+                                    Button(String(localized: "Refresh", bundle: .module)) { Task { await model.refresh(tracker) } }
+                                        .font(.subheadline.weight(.medium))
+                                        .foregroundStyle(PsycheColor.inkText)
+                                        .buttonStyle(.plain)
+                                        .disabled(model.refreshing.contains(tracker.widgetID) || !session.state.canAnswer)
+                                }
+                            }
+                            .padding(.horizontal, 4)
                         }
-                        .padding(.horizontal, 4)
                     }
                 }
             }
@@ -256,27 +371,38 @@ struct SpaceView: View {
 
     private func files(_ detail: SpaceDetailItem) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            SectionHeader(String(localized: "Files and links", bundle: .module))
-            PaperCard {
-                ForEach(Array(detail.folders.enumerated()), id: \.element.id) { index, folder in
-                    if index > 0 { HairlineDivider() }
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text(folder.path).font(.psycheRow).foregroundStyle(PsycheColor.text).lineLimit(1).truncationMode(.middle)
-                        EvidenceLine([SpacesText.folderMode(folder)])
+            HStack {
+                SectionHeader(String(localized: "Files and links", bundle: .module))
+                Spacer(minLength: 0)
+                Button(String(localized: "Edit", bundle: .module)) { managingLinks = true }
+                    .font(.subheadline.weight(.medium)).foregroundStyle(PsycheColor.muted).buttonStyle(.plain)
+                    .disabled(detail.space.archived || !session.state.canAnswer)
+            }
+            if detail.folders.isEmpty && detail.links.isEmpty {
+                Text("No folders or links yet.", bundle: .module)
+                    .font(.footnote).foregroundStyle(PsycheColor.muted)
+            } else {
+                PaperCard {
+                    ForEach(Array(detail.folders.enumerated()), id: \.element.id) { index, folder in
+                        if index > 0 { HairlineDivider() }
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(folder.path).font(.psycheRow).foregroundStyle(PsycheColor.text).lineLimit(1).truncationMode(.middle)
+                            EvidenceLine([SpacesText.folderMode(folder)])
+                        }
+                        .padding(PsycheMetrics.rowPadding)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                     }
-                    .padding(PsycheMetrics.rowPadding)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                }
-                if !detail.folders.isEmpty && !detail.links.isEmpty { HairlineDivider() }
-                ForEach(Array(detail.links.enumerated()), id: \.element.id) { index, link in
-                    if index > 0 { HairlineDivider() }
-                    VStack(alignment: .leading, spacing: 3) {
-                        // A link's label is text, never a control: an untrusted one came from outside the owner.
-                        Text(verbatim: link.label).font(.psycheRow).foregroundStyle(PsycheColor.text).lineLimit(2)
-                        if link.untrusted { EvidenceLine([String(localized: "From an outside source", bundle: .module)]) }
+                    if !detail.folders.isEmpty && !detail.links.isEmpty { HairlineDivider() }
+                    ForEach(Array(detail.links.enumerated()), id: \.element.id) { index, link in
+                        if index > 0 { HairlineDivider() }
+                        VStack(alignment: .leading, spacing: 3) {
+                            // A link's label is text, never a control: an untrusted one came from outside the owner.
+                            Text(verbatim: link.label).font(.psycheRow).foregroundStyle(PsycheColor.text).lineLimit(2)
+                            if link.untrusted { EvidenceLine([String(localized: "From an outside source", bundle: .module)]) }
+                        }
+                        .padding(PsycheMetrics.rowPadding)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                     }
-                    .padding(PsycheMetrics.rowPadding)
-                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
             }
             if !detail.folders.isEmpty {
@@ -284,6 +410,209 @@ struct SpaceView: View {
                     .font(.footnote).foregroundStyle(PsycheColor.muted)
             }
         }
+    }
+}
+
+// MARK: Trackers
+
+/// The shelf in an editing list: drag to reorder (the whole order is saved), swipe to remove after a confirmation.
+private struct TrackersSheet: View {
+    let model: SpaceModel
+    @Environment(\.dismiss) private var dismiss
+    @State private var pendingRemoval: SpaceTrackerItem?
+
+    var body: some View {
+        NavigationStack {
+            List {
+                ForEach(model.phase.value?.trackers ?? []) { tracker in
+                    Text(verbatim: model.widgets[tracker.widgetID]?.title ?? String(localized: "Tracker", bundle: .module))
+                        .font(.psycheRow)
+                        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                            Button(role: .destructive) { pendingRemoval = tracker } label: {
+                                Label(String(localized: "Remove", bundle: .module), systemImage: "minus.circle")
+                            }
+                        }
+                }
+                .onMove { from, to in
+                    var ids = (model.phase.value?.trackers ?? []).map(\.widgetID)
+                    ids.move(fromOffsets: from, toOffset: to)
+                    Task { await model.reorderTrackers(ids) }
+                }
+            }
+            .environment(\.editMode, .constant(.active))
+            .navigationTitle(String(localized: "Edit trackers", bundle: .module))
+            .psycheInlineTitle()
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(String(localized: "Done", bundle: .module)) { dismiss() }
+                }
+            }
+            .confirmationDialog(
+                String(localized: "Remove this tracker from the Space?", bundle: .module),
+                isPresented: Binding(get: { pendingRemoval != nil }, set: { if !$0 { pendingRemoval = nil } }),
+                titleVisibility: .visible
+            ) {
+                Button(String(localized: "Remove", bundle: .module), role: .destructive) {
+                    if let tracker = pendingRemoval { Task { await model.removeTracker(tracker) } }
+                    pendingRemoval = nil
+                }
+                Button(String(localized: "Cancel", bundle: .module), role: .cancel) { pendingRemoval = nil }
+            } message: {
+                Text("The widget goes back to its chat.", bundle: .module)
+            }
+        }
+        .presentationDetents([.medium, .large])
+    }
+}
+
+/// Pick a template from the Mac's list and put it on the shelf.
+private struct AddTrackerSheet: View {
+    let add: (SpaceTrackerTemplateItem) async -> Bool
+    @State private var template: SpaceTrackerTemplateItem = .workDue
+    @State private var saving = false
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Picker(selection: $template) {
+                    ForEach(SpaceTrackerTemplateItem.allCases) { item in
+                        Text(verbatim: SpacesText.templateName(item)).tag(item)
+                    }
+                } label: {
+                    Text("Template", bundle: .module)
+                }
+            }
+            .navigationTitle(String(localized: "Add a tracker", bundle: .module))
+            .psycheInlineTitle()
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(String(localized: "Cancel", bundle: .module)) { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(String(localized: "Add", bundle: .module)) {
+                        saving = true
+                        Task {
+                            if await add(template) { dismiss() }
+                            saving = false
+                        }
+                    }
+                    .disabled(saving)
+                }
+            }
+        }
+        .presentationDetents([.medium])
+    }
+}
+
+// MARK: Links
+
+/// The Space's links: swipe to remove after a confirmation, and Add opens the address form.
+private struct LinksSheet: View {
+    let model: SpaceModel
+    @Environment(\.dismiss) private var dismiss
+    @State private var adding = false
+    @State private var pendingRemoval: SpaceLinkItem?
+
+    var body: some View {
+        NavigationStack {
+            List {
+                ForEach(model.phase.value?.links ?? []) { link in
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(verbatim: link.label).font(.psycheRow).lineLimit(2)
+                        if link.untrusted { EvidenceLine([String(localized: "From an outside source", bundle: .module)]) }
+                    }
+                    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                        Button(role: .destructive) { pendingRemoval = link } label: {
+                            Label(String(localized: "Remove", bundle: .module), systemImage: "trash")
+                        }
+                    }
+                }
+            }
+            .navigationTitle(String(localized: "Files and links", bundle: .module))
+            .psycheInlineTitle()
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(String(localized: "Done", bundle: .module)) { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(String(localized: "Add link", bundle: .module)) { adding = true }
+                }
+            }
+            .confirmationDialog(
+                String(localized: "Remove this link?", bundle: .module),
+                isPresented: Binding(get: { pendingRemoval != nil }, set: { if !$0 { pendingRemoval = nil } }),
+                titleVisibility: .visible
+            ) {
+                Button(String(localized: "Remove", bundle: .module), role: .destructive) {
+                    if let link = pendingRemoval { Task { await model.removeLink(link) } }
+                    pendingRemoval = nil
+                }
+                Button(String(localized: "Cancel", bundle: .module), role: .cancel) { pendingRemoval = nil }
+            } message: {
+                Text("It leaves this Space. The page itself is untouched.", bundle: .module)
+            }
+            .sheet(isPresented: $adding) {
+                AddLinkSheet { url, title in await model.addLink(url: url, title: title) }
+            }
+        }
+        .presentationDetents([.medium, .large])
+    }
+}
+
+/// An http or https address with an optional title. The error shows only after the owner types, and Save waits for
+/// a valid address.
+private struct AddLinkSheet: View {
+    let add: (String, String) async -> Bool
+    @State private var address = ""
+    @State private var title = ""
+    @State private var addressEdited = false
+    @State private var saving = false
+    @Environment(\.dismiss) private var dismiss
+
+    private var valid: String? { SpaceLinkAddress.parse(address) }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    TextField(text: $address) {
+                        Text("Address", bundle: .module)
+                    }
+                    .keyboardType(.URL)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                    .onChange(of: address) { _, _ in addressEdited = true }
+                    TextField(text: $title) {
+                        Text("Title (optional)", bundle: .module)
+                    }
+                } footer: {
+                    if addressEdited && valid == nil {
+                        Text("Enter a web address that starts with http:// or https://.", bundle: .module)
+                            .foregroundStyle(.red)
+                    }
+                }
+            }
+            .navigationTitle(String(localized: "Add link", bundle: .module))
+            .psycheInlineTitle()
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(String(localized: "Cancel", bundle: .module)) { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(String(localized: "Save", bundle: .module)) {
+                        guard let url = valid else { return }
+                        saving = true
+                        Task {
+                            if await add(url, title) { dismiss() }
+                            saving = false
+                        }
+                    }
+                    .disabled(valid == nil || saving)
+                }
+            }
+        }
+        .presentationDetents([.medium])
     }
 }
 
