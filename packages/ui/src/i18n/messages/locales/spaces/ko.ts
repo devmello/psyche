@@ -145,6 +145,12 @@ export const spaces: Partial<Catalogue> = {
     "폴더를 추가하면 자동화가 파일을 변경할 수 있는지 선택할 수 있습니다.",
   "spaces.settings.automationsIn": "자동화가 {path}의 파일을 변경하도록 허용",
   "spaces.settings.failed": "설정을 저장할 수 없습니다: {reason}",
+  "spaces.settings.mode.ceiling":
+    "스페이스는 채팅을 전역 모드보다 엄격하게 만들 수는 있어도 느슨하게 만들 수는 없습니다.",
+  "spaces.settings.connectors.groupConnectors": "커넥터",
+  "spaces.settings.connectors.groupServers": "MCP 서버",
+  "spaces.settings.automationsNeedsRw":
+    "이 폴더는 읽기 전용입니다. 먼저 파일 및 링크에서 변경을 허용하세요.",
   "spaces.goals": "목표",
 
   "spaces.switcher.label": "스페이스: {name}",

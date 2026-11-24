@@ -148,6 +148,12 @@ export const spaces: Partial<Catalogue> = {
     "Füge einen Ordner hinzu, um zu wählen, ob Automationen seine Dateien ändern dürfen.",
   "spaces.settings.automationsIn": "Automationen dürfen Dateien in {path} ändern",
   "spaces.settings.failed": "Die Einstellungen konnten nicht gespeichert werden: {reason}",
+  "spaces.settings.mode.ceiling":
+    "Ein Space kann Chats strenger als dein globaler Modus machen, nie lockerer.",
+  "spaces.settings.connectors.groupConnectors": "Connectors",
+  "spaces.settings.connectors.groupServers": "MCP-Server",
+  "spaces.settings.automationsNeedsRw":
+    "Dieser Ordner ist nur lesbar. Erlaube zuerst unter Dateien und Links Änderungen daran.",
   "spaces.goals": "Ziele",
 
   "spaces.switcher.label": "Space: {name}",

@@ -147,6 +147,12 @@ export const spaces: Partial<Catalogue> = {
     "フォルダを追加すると、オートメーションがファイルを変更してよいか選べます。",
   "spaces.settings.automationsIn": "オートメーションが {path} のファイルを変更することを許可",
   "spaces.settings.failed": "設定を保存できませんでした: {reason}",
+  "spaces.settings.mode.ceiling":
+    "スペースはチャットをグローバルモードより厳しくできますが、緩くはできません。",
+  "spaces.settings.connectors.groupConnectors": "コネクタ",
+  "spaces.settings.connectors.groupServers": "MCP サーバー",
+  "spaces.settings.automationsNeedsRw":
+    "このフォルダは読み取り専用です。先に「ファイルとリンク」で変更を許可してください。",
   "spaces.goals": "目標",
 
   "spaces.switcher.label": "スペース: {name}",

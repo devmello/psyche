@@ -138,6 +138,10 @@ export const spaces: Partial<Catalogue> = {
   "spaces.settings.automationsNone": "添加文件夹后，可选择自动化是否可以更改其文件。",
   "spaces.settings.automationsIn": "允许自动化更改 {path} 中的文件",
   "spaces.settings.failed": "无法保存设置：{reason}",
+  "spaces.settings.mode.ceiling": "空间只能让聊天比你的全局模式更严格，不能更宽松。",
+  "spaces.settings.connectors.groupConnectors": "连接器",
+  "spaces.settings.connectors.groupServers": "MCP 服务器",
+  "spaces.settings.automationsNeedsRw": "此文件夹为只读。请先在“文件和链接”中允许更改。",
   "spaces.goals": "目标",
 
   "spaces.switcher.label": "空间：{name}",

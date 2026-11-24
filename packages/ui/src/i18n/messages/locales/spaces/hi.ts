@@ -140,6 +140,11 @@ export const spaces: Partial<Catalogue> = {
   "spaces.settings.automationsNone": "फ़ोल्डर जोड़ें, फिर चुनें कि ऑटोमेशन उसकी फ़ाइलें बदल सकते हैं या नहीं।",
   "spaces.settings.automationsIn": "ऑटोमेशन को {path} में फ़ाइलें बदलने दें",
   "spaces.settings.failed": "सेटिंग सहेजी नहीं जा सकीं: {reason}",
+  "spaces.settings.mode.ceiling": "Space चैट को आपके ग्लोबल मोड से ज़्यादा सख़्त बना सकता है, ढीला कभी नहीं।",
+  "spaces.settings.connectors.groupConnectors": "कनेक्टर",
+  "spaces.settings.connectors.groupServers": "MCP सर्वर",
+  "spaces.settings.automationsNeedsRw":
+    "यह फ़ोल्डर केवल पढ़ने के लिए है। पहले फ़ाइलें और लिंक में इसमें बदलाव की अनुमति दें।",
   "spaces.goals": "लक्ष्य",
 
   "spaces.switcher.label": "स्पेस: {name}",

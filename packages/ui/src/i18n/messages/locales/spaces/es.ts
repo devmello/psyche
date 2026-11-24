@@ -148,6 +148,12 @@ export const spaces: Partial<Catalogue> = {
     "Añade una carpeta para elegir si las automatizaciones pueden cambiar sus archivos.",
   "spaces.settings.automationsIn": "Permitir que las automatizaciones cambien archivos en {path}",
   "spaces.settings.failed": "No se pudieron guardar los ajustes: {reason}",
+  "spaces.settings.mode.ceiling":
+    "Un espacio puede hacer los chats más estrictos que tu modo global, nunca más laxos.",
+  "spaces.settings.connectors.groupConnectors": "Conectores",
+  "spaces.settings.connectors.groupServers": "Servidores MCP",
+  "spaces.settings.automationsNeedsRw":
+    "Esta carpeta es de solo lectura. Primero permite cambios en ella en Archivos y enlaces.",
   "spaces.goals": "Objetivos",
 
   "spaces.switcher.label": "Espacio: {name}",

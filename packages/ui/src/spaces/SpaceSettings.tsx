@@ -1,5 +1,5 @@
 import type { PermissionMode, SpaceDetail } from "@psyche/protocol";
-import { type ReactElement, useId, useState } from "react";
+import { type ReactElement, type ReactNode, useId, useState } from "react";
 import { Checkbox } from "../components/ui/checkbox.tsx";
 import { Label } from "../components/ui/label.tsx";
 import { NativeSelect } from "../components/ui/native-select.tsx";
@@ -54,6 +54,8 @@ export function SpaceSettingsSection({
   const call = useCall();
   const ids = useId();
   const connectors = useGatewayQuery("connectors.list", {});
+  // The scope names connectors and MCP servers alike (they share one namespace at run time).
+  const servers = useGatewayQuery("mcp.status", {});
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [needsAdmin, setNeedsAdmin] = useState(false);
@@ -88,6 +90,9 @@ export function SpaceSettingsSection({
   const mode: PermissionMode | "inherit" = space.defaultPermissionMode ?? "inherit";
   const scope = space.connectorScope;
   const known = connectors.data?.connectors ?? [];
+  const knownServers = servers.data?.servers ?? [];
+  // "Only the ones I choose" starts from both lists: saving before both loaded would drop the rest.
+  const listsLoaded = connectors.data !== undefined && servers.data !== undefined;
   const toggleConnector = (id: string, on: boolean) => {
     const current = scope ?? [];
     save({
@@ -131,7 +136,7 @@ export function SpaceSettingsSection({
             ))}
           </NativeSelect>
           <p id={`${ids}-mode-hint`} className="text-callout text-label-secondary">
-            {MODE_HINT[mode]()}
+            {MODE_HINT[mode]()} {t("spaces.settings.mode.ceiling")}
           </p>
         </div>
 
@@ -145,12 +150,17 @@ export function SpaceSettingsSection({
             aria-describedby={`${ids}-scope-hint`}
             onChange={(e) =>
               save({
-                connectorScope: e.target.value === "all" ? null : known.map((c) => c.id),
+                connectorScope:
+                  e.target.value === "all"
+                    ? null
+                    : [...known.map((c) => c.id), ...knownServers.map((x) => x.id)],
               })
             }
           >
             <option value="all">{t("spaces.settings.connectors.all")}</option>
-            <option value="some">{t("spaces.settings.connectors.some")}</option>
+            <option value="some" disabled={!listsLoaded && scope === null}>
+              {t("spaces.settings.connectors.some")}
+            </option>
           </NativeSelect>
           <p id={`${ids}-scope-hint`} className="text-callout text-label-secondary">
             {scope === null
@@ -158,29 +168,43 @@ export function SpaceSettingsSection({
               : t("spaces.settings.connectors.someHint")}
           </p>
           {scope !== null ? (
-            known.length === 0 ? (
+            known.length === 0 && knownServers.length === 0 ? (
               <p className="text-callout text-label-secondary">
                 {t("spaces.settings.connectors.none")}
               </p>
             ) : (
-              <ul className="flex flex-col">
-                {known.map((c) => (
-                  <li key={c.id} className="flex min-h-8 items-center gap-2">
-                    <Checkbox
-                      aria-label={t("spaces.settings.connectors.use", { name: c.label })}
-                      checked={scope?.includes(c.id) === true}
-                      disabled={locked}
-                      onCheckedChange={(on) => toggleConnector(c.id, on === true)}
-                    />
-                    <span className="min-w-0 truncate text-body text-label-primary">
-                      {c.label}
-                      {c.account ? (
-                        <span className="text-label-secondary"> · {c.account}</span>
-                      ) : null}
-                    </span>
-                  </li>
-                ))}
-              </ul>
+              <>
+                {known.length > 0 ? (
+                  <ScopeList heading={t("spaces.settings.connectors.groupConnectors")}>
+                    {known.map((c) => (
+                      <ScopeRow
+                        key={c.id}
+                        label={c.label}
+                        detail={c.account}
+                        aria={t("spaces.settings.connectors.use", { name: c.label })}
+                        checked={scope?.includes(c.id) === true}
+                        disabled={locked}
+                        onChange={(on) => toggleConnector(c.id, on)}
+                      />
+                    ))}
+                  </ScopeList>
+                ) : null}
+                {knownServers.length > 0 ? (
+                  <ScopeList heading={t("spaces.settings.connectors.groupServers")}>
+                    {knownServers.map((x) => (
+                      <ScopeRow
+                        key={x.id}
+                        label={x.name}
+                        detail={null}
+                        aria={t("spaces.settings.connectors.use", { name: x.name })}
+                        checked={scope?.includes(x.id) === true}
+                        disabled={locked}
+                        onChange={(on) => toggleConnector(x.id, on)}
+                      />
+                    ))}
+                  </ScopeList>
+                ) : null}
+              </>
             )
           ) : null}
         </div>
@@ -201,7 +225,7 @@ export function SpaceSettingsSection({
                   <Checkbox
                     aria-label={t("spaces.settings.automationsIn", { path: f.path })}
                     checked={f.automationsWrite}
-                    disabled={locked}
+                    disabled={locked || (f.mode === "ro" && !f.automationsWrite)}
                     onCheckedChange={(on) =>
                       save({ automationsWrite: [{ path: f.path, allow: on === true }] })
                     }
@@ -209,6 +233,11 @@ export function SpaceSettingsSection({
                   <span className="min-w-0 truncate font-mono text-callout text-label-primary">
                     {f.path}
                   </span>
+                  {f.mode === "ro" && !f.automationsWrite ? (
+                    <span className="text-callout text-label-secondary">
+                      {t("spaces.settings.automationsNeedsRw")}
+                    </span>
+                  ) : null}
                 </li>
               ))}
             </ul>
@@ -222,5 +251,38 @@ export function SpaceSettingsSection({
         ) : null}
       </div>
     </ScreenSection>
+  );
+}
+
+function ScopeList({ heading, children }: { heading: string; children: ReactNode }): ReactElement {
+  return (
+    <div className="flex flex-col">
+      <span className="text-callout text-label-secondary">{heading}</span>
+      <ul className="flex flex-col">{children}</ul>
+    </div>
+  );
+}
+
+function ScopeRow(props: {
+  label: string;
+  detail: string | null;
+  aria: string;
+  checked: boolean;
+  disabled: boolean;
+  onChange: (on: boolean) => void;
+}): ReactElement {
+  return (
+    <li className="flex min-h-8 items-center gap-2">
+      <Checkbox
+        aria-label={props.aria}
+        checked={props.checked}
+        disabled={props.disabled}
+        onCheckedChange={(on) => props.onChange(on === true)}
+      />
+      <span className="min-w-0 truncate text-body text-label-primary">
+        {props.label}
+        {props.detail ? <span className="text-label-secondary"> · {props.detail}</span> : null}
+      </span>
+    </li>
   );
 }

@@ -152,6 +152,12 @@ export const spaces: Partial<Catalogue> = {
   "spaces.settings.automationsIn":
     "Autoriser les automatisations à modifier les fichiers de {path}",
   "spaces.settings.failed": "Impossible d’enregistrer les réglages : {reason}",
+  "spaces.settings.mode.ceiling":
+    "Un espace peut rendre les conversations plus strictes que votre mode global, jamais plus souples.",
+  "spaces.settings.connectors.groupConnectors": "Connecteurs",
+  "spaces.settings.connectors.groupServers": "Serveurs MCP",
+  "spaces.settings.automationsNeedsRw":
+    "Ce dossier est en lecture seule. Autorisez d’abord les modifications dans Fichiers et liens.",
   "spaces.goals": "Objectifs",
 
   "spaces.switcher.label": "Espace : {name}",

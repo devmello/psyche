@@ -146,6 +146,12 @@ export const spaces = {
     "Add a folder to choose whether automations may change its files.",
   "spaces.settings.automationsIn": "Let automations change files in {path}",
   "spaces.settings.failed": "Could not save the settings: {reason}",
+  "spaces.settings.mode.ceiling":
+    "A Space can make chats stricter than your global mode, never looser.",
+  "spaces.settings.connectors.groupConnectors": "Connectors",
+  "spaces.settings.connectors.groupServers": "MCP servers",
+  "spaces.settings.automationsNeedsRw":
+    "This folder is read only. Allow changes to it under Files and links first.",
   "spaces.goals": "Goals",
 
   "spaces.switcher.label": "Space: {name}",

@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { MockGateway } from "../src/data/mock-gateway.ts";
+import type { FixtureWorld } from "../src/fixtures/index.ts";
 import { SPACE_IDS, withSpaces } from "../src/fixtures/spaces.ts";
 import { SpacePage } from "../src/spaces/SpacePage.tsx";
 import { StoryWorld } from "../src/stories/harness.tsx";
@@ -19,12 +20,25 @@ const gw = () => {
   return gateway;
 };
 
-function renderSpace(slots: Record<string, unknown> = { pickFolder: () => Promise.resolve(null) }) {
+const SERVER = {
+  id: "mcp_files",
+  name: "Files server",
+  trust: "verified",
+  transport: "stdio",
+  network: false,
+  connected: true,
+} as const;
+
+function renderSpace(
+  slots: Record<string, unknown> = { pickFolder: () => Promise.resolve(null) },
+  edit: (w: FixtureWorld) => void = withSpaces,
+) {
   return render(
     <StoryWorld
-      edit={withSpaces}
+      edit={edit}
       onGateway={(g) => {
         gateway = g;
+        if (!g.mcpServers.some((x) => x.id === SERVER.id)) g.mcpServers.push({ ...SERVER });
       }}
       slots={{ navigate: vi.fn(), ...slots }}
     >
@@ -43,7 +57,7 @@ describe("Space settings", () => {
     const s = await section();
     const mode = s.getByRole("combobox", { name: MODE }) as HTMLSelectElement;
     expect(mode.value).toBe("inherit");
-    expect(s.getByText("Chats here use your global permission mode.")).toBeTruthy();
+    expect(s.getByText(/^Chats here use your global permission mode\./)).toBeTruthy();
     expect(
       (s.getByRole("combobox", { name: "Connectors in this Space" }) as HTMLSelectElement).value,
     ).toBe("all");
@@ -78,6 +92,12 @@ describe("Space settings", () => {
     renderSpace();
     const s = await section();
     const known = gw().world.connectors;
+    // Until both lists have loaded "Only the ones I choose" is off, so [] is never saved by mistake.
+    await waitFor(() =>
+      expect(
+        (s.getByRole("option", { name: "Only the ones I choose" }) as HTMLOptionElement).disabled,
+      ).toBe(false),
+    );
     expect(known.length).toBeGreaterThan(1);
     fireEvent.change(s.getByRole("combobox", { name: "Connectors in this Space" }), {
       target: { value: "some" },
@@ -85,7 +105,7 @@ describe("Space settings", () => {
     await waitFor(() => expect(calls("spaces.settings.set")).toHaveLength(1));
     expect(calls("spaces.settings.set")[0]?.params).toEqual({
       spaceId: SPACE_IDS.kitchen,
-      connectorScope: known.map((c) => c.id),
+      connectorScope: [...known.map((c) => c.id), SERVER.id],
     });
 
     const first = known[0];
@@ -94,14 +114,29 @@ describe("Space settings", () => {
     await waitFor(() => expect(calls("spaces.settings.set")).toHaveLength(2));
     expect(calls("spaces.settings.set")[1]?.params).toEqual({
       spaceId: SPACE_IDS.kitchen,
+      connectorScope: [...known.slice(1).map((c) => c.id), SERVER.id],
+    });
+    // MCP servers share the scope (their tools are filtered by server): listed under their own heading.
+    expect(s.getByText("MCP servers")).toBeTruthy();
+    await waitFor(() =>
+      expect(
+        s
+          .getByRole("checkbox", { name: `Use ${first.label} in this Space` })
+          .getAttribute("aria-checked"),
+      ).toBe("false"),
+    );
+    fireEvent.click(s.getByRole("checkbox", { name: "Use Files server in this Space" }));
+    await waitFor(() => expect(calls("spaces.settings.set")).toHaveLength(3));
+    expect(calls("spaces.settings.set")[2]?.params).toEqual({
+      spaceId: SPACE_IDS.kitchen,
       connectorScope: known.slice(1).map((c) => c.id),
     });
 
     fireEvent.change(s.getByRole("combobox", { name: "Connectors in this Space" }), {
       target: { value: "all" },
     });
-    await waitFor(() => expect(calls("spaces.settings.set")).toHaveLength(3));
-    expect(calls("spaces.settings.set")[2]?.params).toEqual({
+    await waitFor(() => expect(calls("spaces.settings.set")).toHaveLength(4));
+    expect(calls("spaces.settings.set")[3]?.params).toEqual({
       spaceId: SPACE_IDS.kitchen,
       connectorScope: null,
     });
@@ -190,5 +225,27 @@ describe("Space settings", () => {
       ),
     ).toBeTruthy();
     expect((s.getByRole("combobox", { name: MODE }) as HTMLSelectElement).disabled).toBe(true);
+  });
+
+  it("says a Space only makes chats stricter than the global mode", async () => {
+    renderSpace();
+    const s = await section();
+    expect(
+      s.getByText(/A Space can make chats stricter than your global mode, never looser\./),
+    ).toBeTruthy();
+  });
+
+  it("will not offer automation writes on a read-only folder, and says why", async () => {
+    renderSpace(undefined, (w) => {
+      withSpaces(w);
+      for (const d of w.spaces?.spaces ?? []) {
+        d.folders = d.folders.map((f) => ({ ...f, mode: "ro" }));
+      }
+    });
+    const s = await section();
+    expect(s.getByRole("checkbox", { name: KITCHEN_WRITE }).getAttribute("aria-disabled")).toBe(
+      "true",
+    );
+    expect(s.getByText(/This folder is read only\./)).toBeTruthy();
   });
 });

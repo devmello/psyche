@@ -148,6 +148,12 @@ export const spaces: Partial<Catalogue> = {
   "spaces.settings.automationsNone": "أضف مجلدًا لتختار هل يمكن للأتمتة تغيير ملفاته.",
   "spaces.settings.automationsIn": "السماح للأتمتة بتغيير الملفات في {path}",
   "spaces.settings.failed": "تعذّر حفظ الإعدادات: {reason}",
+  "spaces.settings.mode.ceiling":
+    "يمكن للمساحة جعل المحادثات أكثر صرامة من وضعك العام، ولا تجعلها أكثر تساهلًا أبدًا.",
+  "spaces.settings.connectors.groupConnectors": "الموصّلات",
+  "spaces.settings.connectors.groupServers": "خوادم MCP",
+  "spaces.settings.automationsNeedsRw":
+    "هذا المجلد للقراءة فقط. اسمح بالتعديل عليه أولًا من الملفات والروابط.",
   "spaces.goals": "الأهداف",
 
   "spaces.switcher.label": "المساحة: {name}",
