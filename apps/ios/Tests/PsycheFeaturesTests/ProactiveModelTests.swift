@@ -143,11 +143,87 @@ struct ProactiveModelTests {
     }
 
     @Test func goalStatusChoicesFollowTheGoal() {
-        #expect(GoalsModel.choices(for: "candidate") == [.active])
+        // A suggested goal is decided (confirm, later, reject), not set, so it has no status choices.
+        #expect(GoalsModel.choices(for: "candidate").isEmpty)
         #expect(GoalsModel.choices(for: "active") == [.paused, .done])
         #expect(GoalsModel.choices(for: "paused") == [.active, .done])
         #expect(GoalsModel.choices(for: "done") == [.active])
         #expect(GoalsModel.choices(for: "archived").isEmpty)
+    }
+
+    @Test func confirmingASuggestedGoalMakesItActiveInTheList() async {
+        let model = GoalsModel(store: FixtureBackend())
+        await model.load()
+        let suggested = model.phase.value!.first { $0.status == "candidate" }!
+        await model.open(suggested)
+        let closed = await model.decide(.confirm, for: suggested)
+        #expect(closed == false)
+        #expect(model.detail.value?.goal.status == "active")
+        #expect(model.phase.value?.first { $0.id == suggested.id }?.status == "active")
+        #expect(model.actionError == nil)
+    }
+
+    @Test func laterKeepsASuggestedGoalAndRejectTakesItOffTheList() async {
+        let model = GoalsModel(store: FixtureBackend())
+        await model.load()
+        let suggested = model.phase.value!.first { $0.status == "candidate" }!
+        await model.open(suggested)
+        #expect(await model.decide(.later, for: suggested) == false)
+        #expect(model.phase.value?.first { $0.id == suggested.id }?.status == "candidate")
+        #expect(await model.decide(.reject, for: suggested) == true)
+        #expect(model.phase.value?.contains { $0.id == suggested.id } == false)
+        #expect(model.detail.value?.goal.status == "archived")
+    }
+
+    @Test func aDecisionTheGatewayRefusesKeepsTheGoalAndSaysWhy() async {
+        let model = GoalsModel(store: FixtureBackend())
+        await model.load()
+        let active = model.phase.value!.first { $0.status == "active" }!
+        let before = model.phase.value
+        #expect(await model.decide(.confirm, for: active) == false)
+        #expect(model.phase.value == before)
+        #expect(model.actionError != nil)
+    }
+
+    @Test func archivingAGoalRemovesItFromTheListAndClosesTheSheet() async {
+        let model = GoalsModel(store: FixtureBackend())
+        await model.load()
+        let goal = model.phase.value!.first { $0.id == "goal_1" }!
+        await model.open(goal)
+        #expect(await model.archive(goal) == true)
+        #expect(model.phase.value?.contains { $0.id == goal.id } == false)
+        #expect(model.detail.value?.goal.status == "archived")
+    }
+
+    @Test func milestonesAddMarkAndRemoveUpdateTheSheet() async throws {
+        let model = GoalsModel(store: FixtureBackend())
+        await model.load()
+        let goal = model.phase.value!.first { $0.id == "goal_1" }!
+        await model.open(goal)
+        let before = model.detail.value?.milestones.count ?? -1
+
+        await model.changeMilestone(.setDone(id: "m2", true), for: goal)
+        #expect(model.detail.value?.milestones.first { $0.id == "m2" }?.done == true)
+
+        try await model.addMilestone(title: "  Buy shoes  ", dueAt: nil, for: goal)
+        #expect(model.detail.value?.milestones.count == before + 1)
+        #expect(model.detail.value?.milestones.last?.title == "Buy shoes")
+
+        let added = model.detail.value!.milestones.last!
+        await model.changeMilestone(.remove(id: added.id), for: goal)
+        #expect(model.detail.value?.milestones.count == before)
+        #expect(model.actionError == nil)
+    }
+
+    @Test func aRefusedMilestoneEditKeepsTheListAndSaysWhy() async {
+        let model = GoalsModel(store: FixtureBackend())
+        await model.load()
+        let goal = model.phase.value!.first { $0.id == "goal_1" }!
+        await model.open(goal)
+        let before = model.detail.value
+        await model.changeMilestone(.remove(id: "gone"), for: goal)
+        #expect(model.detail.value == before)
+        #expect(model.actionError != nil)
     }
 
     @Test func settingAGoalStatusUpdatesTheListAndTheSheet() async {

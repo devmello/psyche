@@ -2,9 +2,10 @@ import Foundation
 
 // Feed, Ideas, Goals and Scheduled work (the desktop Home's sections): what the Gateway's proactive side
 // proposes and what it runs on a schedule. Gateway methods: feed.list/feedback, ideas.list/accept/dismiss,
-// goals.list/get/update (status only), scheduled.list/runs/pause, automations.run and automations.runs (for
-// `retryAt`), automations.list/create/update/delete (the Scheduled editor). A goal's details and milestones stay a
-// Mac thing; an automation triggered by an event or a watch is edited on the Mac.
+// goals.list/get/update (status only), goals.decide/archive/milestone, scheduled.list/runs/pause,
+// automations.run and automations.runs (for `retryAt`), automations.list/create/update/delete (the Scheduled
+// editor). A goal's title, plan and check-in cadence stay a Mac thing; an automation triggered by an event or a
+// watch is edited on the Mac.
 
 public protocol ProactiveBackend: Sendable {
     func feed() async throws -> FeedSnapshot
@@ -17,6 +18,12 @@ public protocol ProactiveBackend: Sendable {
     func goalDetail(id: String) async throws -> GoalDetail
     /// Changes a goal's status and returns the goal as the Gateway now holds it.
     func setGoalStatus(id: String, _ status: GoalStatusChange) async throws -> GoalDetail
+    /// Confirms, defers or rejects a suggested goal and returns it as the Gateway now holds it.
+    func decideGoal(id: String, _ decision: GoalDecision) async throws -> GoalItem
+    /// Archives a goal and stops its check-ins. Nothing is deleted.
+    func archiveGoal(id: String) async throws -> GoalItem
+    /// Adds, completes or removes a milestone and returns the goal page the Gateway now holds.
+    func changeMilestone(goalID: String, _ change: GoalMilestoneChange) async throws -> GoalDetail
     /// Creates a stated goal (active at once), as the Mac's Add goal dialog does, and returns it.
     func createGoal(title: String, category: GoalCategoryChoice) async throws -> GoalDetail
     func scheduled() async throws -> ScheduledOverview
@@ -101,8 +108,18 @@ public struct IdeaItem: Sendable, Equatable, Identifiable {
 
 // MARK: Goals
 
-/// The statuses a phone can set on a goal (`goals.update`). Archiving stays on the Mac.
+/// The statuses a phone can set on a goal (`goals.update`). Archiving is `archiveGoal`.
 public enum GoalStatusChange: String, Sendable, Equatable { case active, paused, done }
+
+/// What the owner can decide about a suggested goal (`goals.decide`). Nothing is created before `confirm`.
+public enum GoalDecision: String, Sendable, Equatable { case confirm, reject, later }
+
+/// A milestone edit (`goals.milestone`): add one (no id), mark one done or undone, or remove one.
+public enum GoalMilestoneChange: Sendable, Equatable {
+    case add(title: String, dueAt: Date?)
+    case setDone(id: String, Bool)
+    case remove(id: String)
+}
 
 /// The categories `goals.create` takes; the same eight as the protocol's GoalCategory.
 public enum GoalCategoryChoice: String, Sendable, Equatable, CaseIterable, Identifiable {
