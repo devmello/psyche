@@ -22,11 +22,42 @@ extension GatewayBackend {
     public func library(section: LibrarySection) async throws -> [LibraryItem] {
         // One Artifacts list: the artifacts themselves (`artifacts.list`), not the library's artifact files.
         if section == .artifacts { return try await artifactLibraryRows() }
-        let result = try await call("library.list", .obj(["kind": .string(Self.wireKind(of: section)), "limit": .number(100)]))
-        return (result["items"]?.array ?? []).compactMap { item in
-            guard item["quarantined"]?.bool != true else { return nil }
-            return Self.libraryItem(from: item, section: section)
+        // `library.list` takes one kind, so each kind the section shows is fetched and the rows merged, newest first.
+        var rows: [(date: Date?, item: LibraryItem)] = []
+        for kind in Self.wireKinds(of: section) {
+            let result = try await call("library.list", .obj(["kind": .string(kind), "limit": .number(100)]))
+            for wire in result["items"]?.array ?? [] where wire["quarantined"]?.bool != true {
+                if let item = Self.libraryItem(from: wire, section: section) {
+                    rows.append((WireFormat.date(wire["createdAt"]?.string), item))
+                }
+            }
         }
+        return Self.newestFirst(rows)
+    }
+
+    /// The Gateway kinds a section lists. `section(ofKind:)` is the inverse: every kind lands in exactly one section.
+    static func wireKinds(of section: LibrarySection) -> [String] {
+        switch section {
+        case .documents: ["document", "system"]
+        case .images: ["image"]
+        case .artifacts: ["artifact"]
+        case .downloads: ["download"]
+        case .recordings: ["audio", "video", "recording"]
+        }
+    }
+
+    /// Stable newest-first merge; rows with no date keep the Gateway's order at the end.
+    static func newestFirst(_ rows: [(date: Date?, item: LibraryItem)]) -> [LibraryItem] {
+        rows.enumerated()
+            .sorted { lhs, rhs in
+                switch (lhs.element.date, rhs.element.date) {
+                case let (a?, b?) where a != b: return a > b
+                case (nil, _?): return false
+                case (_?, nil): return true
+                default: return lhs.offset < rhs.offset
+                }
+            }
+            .map { $0.element.item }
     }
 
     public func libraryItem(id: String) async throws -> LibraryItem {
@@ -81,11 +112,11 @@ extension GatewayBackend {
             try Task.checkCancellation()
             let chunk = try await call("files.read", .obj(["libraryPath": .string(path), "offset": .number(Double(offset))]))
             if let etag, let now = chunk["etag"]?.string, now != etag {
-                throw BackendError.refused("This file changed while it downloaded. Try again.")
+                throw BackendError.refused(String(localized: "This file changed while it downloaded. Try again.", bundle: .module))
             }
             etag = chunk["etag"]?.string
             guard let encoded = chunk["bytes"]?.string, let bytes = Data(base64Encoded: encoded) else {
-                throw BackendError.refused("The Gateway sent a file this phone can't read.")
+                throw BackendError.refused(String(localized: "The Gateway sent a file this phone can't read.", bundle: .module))
             }
             try handle.write(contentsOf: bytes)
             hasher.update(data: bytes)
@@ -103,7 +134,7 @@ extension GatewayBackend {
         let actual = hasher.finalize().map { String(format: "%02x", $0) }.joined()
         guard !recorded.isEmpty, actual == recorded else {
             downloads.discard(destination)
-            throw BackendError.refused("This file doesn't match what your Mac has, so it wasn't opened. Try again.")
+            throw BackendError.refused(String(localized: "This file doesn't match what your Mac has, so it wasn't opened. Try again.", bundle: .module))
         }
         try downloads.finish(temporary, as: destination)
         finished = true
@@ -117,9 +148,9 @@ extension GatewayBackend {
     }
 
     public func upload(_ file: UploadFile, progress: @escaping @Sendable (Double) -> Void) async throws -> LibraryItem {
-        guard !file.data.isEmpty else { throw BackendError.refused("That file is empty.") }
+        guard !file.data.isEmpty else { throw BackendError.refused(String(localized: "That file is empty.", bundle: .module)) }
         guard file.data.count <= Self.uploadMaxBytes else {
-            throw BackendError.refused("That file is bigger than 25 MB. Add it on your Mac instead.")
+            throw BackendError.refused(String(localized: "That file is bigger than 25 MB. Add it on your Mac instead.", bundle: .module))
         }
         // One key per chunk, derived from one id for this upload: a chunk resent after a lost answer is a no-op.
         let token = UUID().uuidString
@@ -144,13 +175,13 @@ extension GatewayBackend {
             progress(Double(sent) / Double(total))
             if final {
                 guard let wire = result["item"], let item = Self.libraryItem(from: wire) else {
-                    throw BackendError.refused("The Gateway didn't store that file.")
+                    throw BackendError.refused(String(localized: "The Gateway didn't store that file.", bundle: .module))
                 }
                 await client.publishLive(.changed(.library))
                 return item
             }
         }
-        throw BackendError.refused("The Gateway didn't store that file.")
+        throw BackendError.refused(String(localized: "The Gateway didn't store that file.", bundle: .module))
     }
 
     public func deleteLibraryItem(id: String) async throws {
@@ -161,21 +192,15 @@ extension GatewayBackend {
 
     // MARK: - Mapping
 
-    static func wireKind(of section: LibrarySection) -> String {
-        switch section {
-        case .documents: "document"
-        case .images: "image"
-        case .artifacts: "artifact"
-        case .downloads: "download"
-        }
-    }
-
+    /// The section an item of this Gateway kind shows in. Kinds a newer Gateway adds fall to Documents,
+    /// and are not listed until `wireKinds(of:)` names them.
     static func section(ofKind kind: String?) -> LibrarySection {
         switch kind {
         case "image": .images
         case "artifact": .artifacts
         case "download": .downloads
-        default: .documents  // document, audio, video, recording, system, and kinds a newer Gateway adds
+        case "audio", "video", "recording": .recordings
+        default: .documents  // document, system, and unknown kinds
         }
     }
 

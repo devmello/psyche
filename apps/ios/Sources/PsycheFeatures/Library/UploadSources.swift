@@ -15,8 +15,10 @@ struct UploadMenuButton: View {
     @State private var showPhotos = false
     @State private var showFiles = false
     @State private var showScanner = false
+    @State private var showVoiceMemo = false
     @State private var photos: [PhotosPickerItem] = []
     @State private var problem: String?
+    @Environment(Router.self) private var router
 
     var body: some View {
         Menu {
@@ -24,6 +26,7 @@ struct UploadMenuButton: View {
             Button { showFiles = true } label: { Label(String(localized: "Files", bundle: .module), systemImage: "folder") }
             Button { showScanner = true } label: { Label(String(localized: "Scan document", bundle: .module), systemImage: "doc.viewfinder") }
                 .disabled(!VNDocumentCameraViewController.isSupported)
+            Button { showVoiceMemo = true } label: { Label(String(localized: "Voice memo", bundle: .module), systemImage: "mic") }
         } label: {
             Image(systemName: "plus")
                 .font(.system(size: 22, weight: .semibold))
@@ -42,6 +45,14 @@ struct UploadMenuButton: View {
             switch result {
             case .success(let urls): importFiles(urls)
             case .failure(let error): problem = error.localizedDescription
+            }
+        }
+        .sheet(isPresented: $showVoiceMemo) {
+            // A saved memo opens on its Library page; the Mac has already filed it.
+            VoiceMemoSheet { item in
+                showVoiceMemo = false
+                router.tab = .library
+                router.libraryPath = [.file(id: item.id)]
             }
         }
         .fullScreenCover(isPresented: $showScanner) {

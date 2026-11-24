@@ -52,6 +52,8 @@ public enum LibrarySection: String, Sendable, CaseIterable, Identifiable {
     case images = "Images"
     case artifacts = "Artifacts"
     case downloads = "Downloads"
+    /// Voice memos, meeting and browser recordings: the Mac's audio, video and `recording` kinds.
+    case recordings = "Recordings"
     public var id: String { rawValue }
 }
 

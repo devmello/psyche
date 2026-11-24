@@ -105,7 +105,7 @@ private struct SectionPicker: View {
         HStack(spacing: 2) {
             ForEach(LibrarySection.allCases) { section in
                 Button { selection = section } label: {
-                    Text(section.rawValue)
+                    Text(section.pickerTitle)
                         .font(.subheadline.weight(selection == section ? .semibold : .regular))
                         .foregroundStyle(selection == section ? PsycheColor.text : PsycheColor.muted)
                         .lineLimit(1).minimumScaleFactor(0.6)
@@ -229,6 +229,7 @@ private struct EmptySection: View {
         case .images: String(localized: "No images yet", bundle: .module)
         case .artifacts: String(localized: "Nothing built yet", bundle: .module)
         case .downloads: String(localized: "No downloads yet", bundle: .module)
+        case .recordings: String(localized: "No recordings yet", bundle: .module)
         }
     }
 
@@ -238,6 +239,20 @@ private struct EmptySection: View {
         case .images: String(localized: "Photos you add with + or share from your photo library show up here.", bundle: .module)
         case .artifacts: String(localized: "Pages, checklists and small tools Psyche builds for you are kept here.", bundle: .module)
         case .downloads: String(localized: "Files Psyche fetches from the web for a task are kept here.", bundle: .module)
+        case .recordings: String(localized: "Voice memos and recordings you make land here.", bundle: .module)
+        }
+    }
+}
+
+extension LibrarySection {
+    /// The segment's label, localized (the raw value is the English name used as a key).
+    var pickerTitle: String {
+        switch self {
+        case .documents: String(localized: "Documents", bundle: .module)
+        case .images: String(localized: "Images", bundle: .module)
+        case .artifacts: String(localized: "Artifacts", bundle: .module)
+        case .downloads: String(localized: "Downloads", bundle: .module)
+        case .recordings: String(localized: "Recordings", bundle: .module)
         }
     }
 }

@@ -51,6 +51,8 @@ struct LibrarySettingsTests {
         let (backend, _) = try await GatewayBackendTests().live { g in
             g.on("library.list") { req in
                 seen.add(req)
+                // Documents asks for `document` and `system`; the items belong to `document` only.
+                guard req.params?["kind"]?.stringValue == "document" else { return .success(.object(["items": .array([])])) }
                 return .success(.object(["items": .array([
                     Self.wireItem("lib_1"),
                     Self.wireItem("lib_2", name: "scan", mime: "image/png", origin: "upload", threadID: nil),
@@ -86,7 +88,8 @@ struct LibrarySettingsTests {
             }
         }
         for section in LibrarySection.allCases { _ = try await backend.library(section: section) }
-        #expect(kinds.all == ["document", "image", "artifacts.list", "download"])
+        // Each section fetches the kinds it lists: Documents has document and system, Recordings has audio, video and recording.
+        #expect(kinds.all == ["document", "system", "image", "artifacts.list", "download", "audio", "video", "recording"])
     }
 
     @Test func oneItemGetsItsThreadTitleForTheEvidenceLine() async throws {
