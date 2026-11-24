@@ -25,6 +25,8 @@ At most 5 builders working at once. Count reviewers. Warn the owner before anyth
 
 ## 2. Write the brief
 
+Before dispatching a queued item, grep or run a test for it on `origin/main`. Drop items already fixed and remove them from memory: 3 of 5 queued items (`sandbox.list`, `MACHINE_TOKENS_ENABLED`, the ⌘Q unsaved-edit prompt) were already on main (2026-11-23).
+
 Use `start_session` with `initiation: "user_asked"` (the owner asked for the work), `use_worktree: true` and `permission_mode: "auto"`. The prompt:
 
 ```
@@ -71,6 +73,7 @@ Out of scope: <neighbouring areas other sessions own>
 - **Conflict with main in a shared file** (`broker.ts`): resolve it in the builder's worktree, rerun the touched and sibling tests, and run one full verify.
 - **Stale dependabot PRs** (300-1000 commits behind): recreate each update on a fresh branch from `origin/main` instead of rebasing.
 - **Linux checks:** the OrbStack VM `psyche-linux` is approved (`orb -m psyche-linux`). Brief the builder with the rules in `psyche-builder` §3: no `/mnt/mac`, no `git` in the VM (`git archive` + `orb push`), clean up its dirs.
+- **Gating two iOS PRs together (A then B):** build main+A+B locally with a 3-way `Localizable.xcstrings` union (apply B's adds and removes onto main+A), run `verify.sh --swift` once, merge A with gh, then on B's branch merge `origin/main` with `-s ours` (same tree), push, and gh-merge B. Never push a local main+A merge commit to B's branch: the criss-cross shows CONFLICTING on GitHub (#1556/#1557).
 - **Stale base:** if a PR you dispatched overlaps one that merged after the builder started, tell it to merge `origin/main` and re-check fixtures before review (#1360).
 - **Message files:** a PR that adds English strings naming Mac or Touch ID is not "i18n only": the platform variants and `platform-linux/windows` tests must pass (#1338 broke main).
 - **Reviewers, verifiers and builders:** run verify in the foreground, report once, and don't wait with `pgrep -f` (it matches your own zsh command line; to see running verifies use `ps -axo pid,command | grep -E '^ *[0-9]+ (nice -n 10 )?bash \.claude/scripts/verify\.sh'`) (load 26 from duplicate verifies; repeated reports). Say that `tsc` runs only via verify or alone (load 22 with overlapping full runs and loose `tsc`). Stagger dispatches so full verifies don't queue 45+ minutes (slots: 3 on 10+ cores since #1394). Tell builders to write verify output to a file named for the PR, run it foreground with timeout 600000 and nice, and to use PR-specific names in shared scratch dirs (`pr-body.md` and `verify2.log` were overwritten by other sessions: #1404). Remind them to run git only in their own worktree. Tell builders to send one report, stop their background tasks first, and not re-report while waiting (re-sent 3 or 4 times on #1293/#1294). A resumed reviewer's second handback is refused, so re-review briefs say "also write the report to `scratchpad/review-<pr>-r<n>.md`".
