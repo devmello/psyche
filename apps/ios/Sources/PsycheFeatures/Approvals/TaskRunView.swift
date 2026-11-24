@@ -25,6 +25,7 @@ struct TaskRunView: View {
                     header(run)
                     if !run.controls.isEmpty { controls(run) }
                     steps(run)
+                    helpersSection()
                 }
                 if let error = model.error {
                     StatusDot(.failed, error, textColor: PsycheColor.text)
@@ -154,6 +155,82 @@ struct TaskRunView: View {
                         .font(.psycheRow)
                 }
             }
+        }
+    }
+
+    // MARK: Helpers
+
+    /// The helper and specialist runs this run spawned, one row each. Hidden when there are none and nothing failed
+    /// to load. A row opens that run's details.
+    @ViewBuilder
+    private func helpersSection() -> some View {
+        if !model.helpers.isEmpty || model.helpersError != nil {
+            VStack(alignment: .leading, spacing: 8) {
+                SectionHeader(String(localized: "Helpers", bundle: .module))
+                if let error = model.helpersError {
+                    HStack(spacing: 10) {
+                        StatusDot(.failed, error, textColor: PsycheColor.text)
+                        Button(String(localized: "Try again", bundle: .module)) { Task { await model.reloadHelpers() } }
+                            .buttonStyle(.bordered)
+                    }
+                }
+                if !model.helpers.isEmpty {
+                    PaperCard {
+                        ForEach(Array(model.helpers.enumerated()), id: \.element.id) { index, helper in
+                            if index > 0 { HairlineDivider() }
+                            NavigationLink {
+                                RunDetailView(store: store, runID: helper.id)
+                            } label: {
+                                helperRow(helper)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private func helperRow(_ helper: RunHelper) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Text(helper.title ?? kindLabel(helper.kind))
+                    .font(.psycheRow).foregroundStyle(PsycheColor.text).lineLimit(1)
+                Spacer(minLength: 0)
+                StatusDot(helper.state.dot, helper.state.label)
+            }
+            HStack(spacing: 8) {
+                Text(kindLabel(helper.kind))
+                if let spend = helper.spend {
+                    Text(spendText(spend))
+                }
+                if let deadline = helper.deadline {
+                    Text(String(localized: "Due \(deadline.formatted(date: .omitted, time: .shortened))", bundle: .module))
+                }
+            }
+            .font(.caption.monospacedDigit())
+            .foregroundStyle(PsycheColor.muted)
+        }
+        .padding(PsycheMetrics.rowPadding)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityElement(children: .combine)
+    }
+
+    private func kindLabel(_ kind: RunHelper.Kind) -> String {
+        switch kind {
+        case .specialist: String(localized: "Specialist", bundle: .module)
+        case .helper: String(localized: "Helper", bundle: .module)
+        }
+    }
+
+    /// Spent against the budget, in the dimension the budget limits. An unpriced run's cost shows as a dash.
+    private func spendText(_ spend: RunHelper.Spend) -> String {
+        switch spend {
+        case let .cost(spent, limit):
+            let spentText = spent.map { $0.formatted(.currency(code: "USD")) } ?? "—"
+            return String(localized: "Spent \(spentText) of \(limit.formatted(.currency(code: "USD")))", bundle: .module)
+        case let .tokens(spent, limit):
+            return String(localized: "Spent \(spent.formatted()) of \(limit.formatted())", bundle: .module)
         }
     }
 
