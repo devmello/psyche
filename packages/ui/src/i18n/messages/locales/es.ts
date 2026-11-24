@@ -2580,6 +2580,7 @@ export const es: Partial<Catalogue> = {
   "settings.plugins.install": "Instalar desde una carpeta…",
   "settings.plugins.pickFailed": "Psyche no pudo abrir el selector de carpetas ({reason}).",
   "settings.plugins.installFailed": "La instalación no se inició. {reason}",
+  "settings.plugins.installNotDone": "El plugin no se instaló. {reason}",
   "settings.plugins.proposed": "Revisa la instalación en la tarjeta de aprobación.",
   "settings.plugins.includes": "Incluye: {list}",
   "settings.plugins.count.skills": "{n, plural, one {# skill} other {# skills}}",

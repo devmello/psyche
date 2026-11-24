@@ -2557,6 +2557,7 @@ export const it: Partial<Catalogue> = {
   "settings.plugins.pickFailed":
     "Psyche non è riuscito ad aprire il selettore di cartelle ({reason}).",
   "settings.plugins.installFailed": "L'installazione non è partita. {reason}",
+  "settings.plugins.installNotDone": "Il plugin non è stato installato. {reason}",
   "settings.plugins.proposed": "Controlla l'installazione sulla scheda di approvazione.",
   "settings.plugins.includes": "Include: {list}",
   "settings.plugins.count.skills": "{n, plural, one {# skill} other {# skill}}",

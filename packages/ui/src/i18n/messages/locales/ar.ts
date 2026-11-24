@@ -2577,6 +2577,7 @@ export const ar: Partial<Catalogue> = {
   "settings.plugins.install": "التثبيت من مجلد…",
   "settings.plugins.pickFailed": "تعذّر على Psyche فتح أداة اختيار المجلد ({reason}).",
   "settings.plugins.installFailed": "لم يبدأ التثبيت. {reason}",
+  "settings.plugins.installNotDone": "لم يتم تثبيت الإضافة. {reason}",
   "settings.plugins.proposed": "راجع التثبيت على بطاقة الموافقة.",
   "settings.plugins.includes": "تتضمن: {list}",
   "settings.plugins.count.skills":

@@ -2508,6 +2508,7 @@ export const ko: Partial<Catalogue> = {
   "settings.plugins.install": "폴더에서 설치…",
   "settings.plugins.pickFailed": "Psyche가 폴더 선택기를 열 수 없습니다({reason}).",
   "settings.plugins.installFailed": "설치를 시작하지 못했습니다. {reason}",
+  "settings.plugins.installNotDone": "플러그인을 설치하지 못했습니다. {reason}",
   "settings.plugins.proposed": "승인 카드에서 설치 내용을 확인하세요.",
   "settings.plugins.includes": "포함: {list}",
   "settings.plugins.count.skills": "{n, plural, other {스킬 #개}}",

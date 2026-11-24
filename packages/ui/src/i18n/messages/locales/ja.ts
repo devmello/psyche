@@ -2526,6 +2526,7 @@ export const ja: Partial<Catalogue> = {
   "settings.plugins.install": "フォルダからインストール…",
   "settings.plugins.pickFailed": "Psycheがフォルダ選択を開けませんでした（{reason}）。",
   "settings.plugins.installFailed": "インストールを開始できませんでした。{reason}",
+  "settings.plugins.installNotDone": "プラグインをインストールできませんでした。{reason}",
   "settings.plugins.proposed": "承認カードでインストール内容を確認してください。",
   "settings.plugins.includes": "含まれるもの: {list}",
   "settings.plugins.count.skills": "{n, plural, other {スキル#件}}",

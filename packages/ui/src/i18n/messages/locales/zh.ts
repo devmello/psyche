@@ -2484,6 +2484,7 @@ export const zh: Partial<Catalogue> = {
   "settings.plugins.install": "从文件夹安装…",
   "settings.plugins.pickFailed": "Psyche 无法打开文件夹选择器（{reason}）。",
   "settings.plugins.installFailed": "安装未能开始。{reason}",
+  "settings.plugins.installNotDone": "插件未能安装。{reason}",
   "settings.plugins.proposed": "请在批准卡片上查看此次安装。",
   "settings.plugins.includes": "包含：{list}",
   "settings.plugins.count.skills": "{n, plural, other {# 个技能}}",

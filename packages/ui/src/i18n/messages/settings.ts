@@ -2666,6 +2666,7 @@ export const settings = {
   "settings.plugins.install": "Install from folder…",
   "settings.plugins.pickFailed": "Psyche couldn't open the folder chooser ({reason}).",
   "settings.plugins.installFailed": "The install didn't start. {reason}",
+  "settings.plugins.installNotDone": "The plugin didn't install. {reason}",
   "settings.plugins.proposed": "Review the install on the approval card.",
   "settings.plugins.includes": "Includes: {list}",
   "settings.plugins.count.skills": "{n, plural, one {# skill} other {# skills}}",

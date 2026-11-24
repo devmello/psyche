@@ -2607,6 +2607,7 @@ export const de: Partial<Catalogue> = {
   "settings.plugins.install": "Aus Ordner installieren …",
   "settings.plugins.pickFailed": "Psyche konnte die Ordnerauswahl nicht öffnen ({reason}).",
   "settings.plugins.installFailed": "Die Installation wurde nicht gestartet. {reason}",
+  "settings.plugins.installNotDone": "Das Plugin wurde nicht installiert. {reason}",
   "settings.plugins.proposed": "Prüfe die Installation auf der Genehmigungskarte.",
   "settings.plugins.includes": "Enthält: {list}",
   "settings.plugins.count.skills": "{n, plural, one {# Skill} other {# Skills}}",
