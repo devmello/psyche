@@ -15,6 +15,8 @@ final class ThreadListModel {
     private(set) var phase: LoadPhase<[ChatThreadSummary]> = .idle
     private(set) var actionError: String?
     private(set) var exported: ExportedChat?
+    /// The archived side chats, shown below the list. A failed read leaves the section empty.
+    private(set) var archived: [ChatThreadSummary] = []
     /// Where the next page of the list starts; nil once the last page is loaded.
     private(set) var nextCursor: String?
     /// True while the next page is being fetched (the list shows a quiet spinner row).
@@ -40,6 +42,18 @@ final class ThreadListModel {
         } catch {
             if phase.value == nil { phase = .failed(error.localizedDescription) }
         }
+        archived = (try? await store.archivedThreads()) ?? []
+    }
+
+    /// Brings an archived chat back into the list.
+    func restore(_ thread: ChatThreadSummary) async {
+        archived.removeAll { $0.id == thread.id }
+        do {
+            try await store.restoreThread(id: thread.id)
+        } catch {
+            actionError = error.localizedDescription
+        }
+        await load()
     }
 
     /// Fetches the next page when the last row appears, adding rows the list does not have yet.
@@ -182,6 +196,10 @@ final class ThreadModel {
     private(set) var queue: [QueuedFollowUp] = []
     /// How a message sent while Psyche is replying goes. Queue is the default, as on the desktop.
     private(set) var runMode: RunMessageMode = .queue
+    /// True while the Gateway summarises the thread's earlier turns (`threads.compact`); the view shows progress.
+    private(set) var compacting = false
+    /// The owner's thumbs on replies in this session, by message id (true is helpful).
+    private(set) var feedback: [String: Bool] = [:]
     private let store: any PsycheBackend
     private var drafts: [String: MessageDraft] = [:]
     private var pendingDeltas: [String: String] = [:]
@@ -381,6 +399,74 @@ final class ThreadModel {
     }
 
     func clearActionError() { actionError = nil }
+
+    // MARK: Chat actions (rename, fork, clear, compact, feedback)
+
+    /// The chat's id as the Gateway knows it, for calls that name it.
+    private var threadID: String { phase.value?.id ?? id }
+
+    /// Renames the chat. A blank title does nothing; a refusal shows the Gateway's words and the title is read again.
+    func rename(to title: String) async {
+        let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        if case .loaded(var thread) = phase {
+            thread.title = trimmed
+            phase = .loaded(thread)
+        }
+        do {
+            try await store.renameThread(id: threadID, title: trimmed)
+        } catch {
+            actionError = error.localizedDescription
+            await load()
+        }
+    }
+
+    /// Forks the chat at one reply (`threads.fork`). Returns the new chat's id so the caller can open it; nil on refusal.
+    func fork(atMessage messageID: String) async -> String? {
+        do {
+            return try await store.forkThread(id: threadID, messageID: messageID, title: nil).id
+        } catch {
+            actionError = error.localizedDescription
+            return nil
+        }
+    }
+
+    /// Empties the chat (`threads.clear`) once the owner has confirmed it, then reads it again.
+    func clear() async {
+        do {
+            try await store.clearThread(id: threadID)
+            queue = []
+        } catch {
+            actionError = error.localizedDescription
+        }
+        await load()
+    }
+
+    /// Summarises the earlier turns now, with progress shown until the transcript is read again.
+    func compact() async {
+        guard !compacting, !isRunning else { return }
+        compacting = true
+        defer { compacting = false }
+        do {
+            _ = try await store.compactThread(id: threadID)
+        } catch {
+            actionError = error.localizedDescription
+        }
+        await load()
+    }
+
+    /// Records thumbs on a reply. The mark shows at once; a refusal takes it back and shows the Gateway's words.
+    func giveFeedback(messageID: String, helpful: Bool) async {
+        guard feedback[messageID] != helpful else { return }
+        let previous = feedback[messageID]
+        feedback[messageID] = helpful
+        do {
+            try await store.giveFeedback(threadID: threadID, messageID: messageID, helpful: helpful)
+        } catch {
+            feedback[messageID] = previous
+            actionError = error.localizedDescription
+        }
+    }
 
     // MARK: Applying events
 
