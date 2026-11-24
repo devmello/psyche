@@ -38,7 +38,11 @@ extension FixtureBackend {
 
     public func feedbackPage(cursor: String?) async throws -> FeedbackPage {
         await pause()
-        return FeedbackPage(events: memoryState.learning.feedback, nextCursor: nil)
+        let all = memoryState.learning.feedback
+        // The cursor is the offset of the next row, as a string. 20 rows a page, as the Gateway.
+        let start = min(max(Int(cursor ?? "0") ?? 0, 0), all.count)
+        let end = min(start + 20, all.count)
+        return FeedbackPage(events: Array(all[start..<end]), nextCursor: end < all.count ? String(end) : nil)
     }
 
     public func deleteFeedback(id: String) async throws {
@@ -77,11 +81,15 @@ extension FixtureBackend {
 }
 
 extension FixtureData {
-    public static let feedback: [FeedbackItem] = [
-        FeedbackItem(id: "fbk_1", kind: "not_helpful", targetType: "message", reason: "too_long"),
-        FeedbackItem(id: "fbk_2", kind: "correction", targetType: "draft", text: "Keep replies short on the phone."),
-        FeedbackItem(id: "fbk_3", kind: "helpful", targetType: "message"),
-    ]
+    /// 45 rows, so the paging proof has three pages.
+    public static let feedback: [FeedbackItem] = (1...45).map { n in
+        let kinds = ["not_helpful", "correction", "helpful", "regenerated"]
+        let targets = ["message", "draft", "task"]
+        let kind = kinds[n % kinds.count]
+        return FeedbackItem(
+            id: "fbk_\(n)", kind: kind, targetType: targets[n % targets.count],
+            text: kind == "correction" ? "Keep replies short on the phone." : nil)
+    }
 
     public static let lessons: [LessonItem] = [
         LessonItem(

@@ -30,7 +30,7 @@ struct LessonsView: View {
                 Text("Lessons from your corrections. Keep one, change its wording, or forget it.", bundle: .module)
                     .font(.subheadline).foregroundStyle(PsycheColor.muted).padding(.bottom, 16)
                 content
-                FeedbackHistory(model: model)
+                feedbackSection
             }
             .padding(PsycheMetrics.pagePadding)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -50,6 +50,55 @@ struct LessonsView: View {
 
     private var noticeBinding: Binding<Bool> {
         Binding(get: { model.notice != nil }, set: { if !$0 { model.notice = nil } })
+    }
+
+    @State private var confirmingDelete = false
+    /// The row Delete was tapped on. Kept after the dialog closes so the confirm action still has it.
+    @State private var pendingDelete: FeedbackItem?
+
+    /// "Feedback you gave". Its header, rows and end sentinel are direct children of the LazyVStack, so a row or the
+    /// sentinel is realized only when it scrolls on screen, and the next page loads only when the owner reaches the
+    /// end. The `.task` and the dialog sit on the header alone: a modifier on a group would apply to every child.
+    @ViewBuilder
+    private var feedbackSection: some View {
+        let pager = model.feedback
+        Text("Feedback you gave", bundle: .module).font(.headline).foregroundStyle(PsycheColor.text)
+            .padding(.top, 28).padding(.bottom, 4)
+            .task { await pager.reload() }
+            .confirmationDialog(
+                String(localized: "Delete this feedback?", bundle: .module), isPresented: $confirmingDelete,
+                titleVisibility: .visible
+            ) {
+                Button(String(localized: "Delete", bundle: .module), role: .destructive) {
+                    if let item = pendingDelete { Task { await model.deleteFeedback(item) } }
+                }
+                Button(String(localized: "Cancel", bundle: .module), role: .cancel) {}
+            } message: {
+                Text("Lessons made only from this feedback will be forgotten.", bundle: .module)
+            }
+        Text("Each thumb, correction and note. Newest first.", bundle: .module)
+            .font(.subheadline).foregroundStyle(PsycheColor.muted).padding(.bottom, 12)
+        switch pager.phase {
+        case .idle, .loading:
+            ProgressView().frame(maxWidth: .infinity).padding(.top, 12)
+        case .failed:
+            FailedNotice { Task { await pager.reload() } }
+        case .loaded(let rows) where rows.isEmpty:
+            Text("You haven't given any feedback yet.", bundle: .module)
+                .font(.subheadline).foregroundStyle(PsycheColor.muted)
+        case .loaded(let rows):
+            ForEach(Array(rows.enumerated()), id: \.element.id) { index, item in
+                FeedbackRow(item: item) {
+                    pendingDelete = item
+                    confirmingDelete = true
+                }
+                .cardRow(CardPosition(index: index, count: rows.count))
+            }
+        }
+        PagedRowsEnd(
+            moreFailed: pager.moreFailed, nextCursor: pager.nextCursor, loadingMore: pager.loadingMore,
+            label: String(localized: "Loading more feedback", bundle: .module),
+            loadMore: { await pager.loadMore() }, retryMore: { await pager.retryMore() })
     }
 
     @ViewBuilder
@@ -429,60 +478,6 @@ private struct LearningRetry: View {
     }
 }
 
-// MARK: - Feedback you gave
-
-/// "Feedback you gave" under the lessons: every thumb, correction and note the owner sent, newest first, a page at a
-/// time (PagedRows). Delete asks first and says that lessons made only from that feedback are forgotten.
-private struct FeedbackHistory: View {
-    let model: LearningModel
-    @State private var confirmingDelete = false
-    /// The row the owner tapped Delete on. Kept after the dialog closes, so the confirm action still has it.
-    @State private var pendingDelete: FeedbackItem?
-
-    var body: some View {
-        let pager = model.feedback
-        VStack(alignment: .leading, spacing: 0) {
-            Text("Feedback you gave", bundle: .module).font(.headline).foregroundStyle(PsycheColor.text)
-                .padding(.top, 28).padding(.bottom, 4)
-            Text("Each thumb, correction and note. Newest first.", bundle: .module)
-                .font(.subheadline).foregroundStyle(PsycheColor.muted).padding(.bottom, 12)
-            switch pager.phase {
-            case .idle, .loading:
-                ProgressView().frame(maxWidth: .infinity).padding(.top, 12)
-            case .failed:
-                FailedNotice { Task { await pager.reload() } }
-            case .loaded(let rows) where rows.isEmpty:
-                Text("You haven't given any feedback yet.", bundle: .module)
-                    .font(.subheadline).foregroundStyle(PsycheColor.muted)
-            case .loaded(let rows):
-                ForEach(Array(rows.enumerated()), id: \.element.id) { index, item in
-                    FeedbackRow(item: item) {
-                        pendingDelete = item
-                        confirmingDelete = true
-                    }
-                    .cardRow(CardPosition(index: index, count: rows.count))
-                }
-            }
-            PagedRowsEnd(
-                moreFailed: pager.moreFailed, nextCursor: pager.nextCursor, loadingMore: pager.loadingMore,
-                label: String(localized: "Loading more feedback", bundle: .module),
-                loadMore: { await pager.loadMore() }, retryMore: { await pager.retryMore() })
-        }
-        .task { await pager.reload() }
-        .confirmationDialog(
-            String(localized: "Delete this feedback?", bundle: .module), isPresented: $confirmingDelete,
-            titleVisibility: .visible
-        ) {
-            Button(String(localized: "Delete", bundle: .module), role: .destructive) {
-                if let item = pendingDelete { Task { await model.deleteFeedback(item) } }
-            }
-            Button(String(localized: "Cancel", bundle: .module), role: .cancel) {}
-        } message: {
-            Text("Lessons made only from this feedback will be forgotten.", bundle: .module)
-        }
-    }
-}
-
 /// One feedback row: "Thumbs down · Reply", the owner's words when there are any, and Delete.
 private struct FeedbackRow: View {
     let item: FeedbackItem
@@ -491,7 +486,8 @@ private struct FeedbackRow: View {
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
             VStack(alignment: .leading, spacing: 2) {
-                Text(verbatim: "\(feedbackKindLabel(item.kind)) · \(feedbackTargetLabel(item.targetType))")
+                Text(verbatim: String(format: String(localized: "%@ · %@", bundle: .module),
+                    feedbackKindLabel(item.kind), feedbackTargetLabel(item.targetType)))
                     .font(.psycheRow).foregroundStyle(PsycheColor.text)
                 if let text = item.text, !text.isEmpty {
                     Text(verbatim: text).font(.caption).foregroundStyle(PsycheColor.muted)
