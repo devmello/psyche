@@ -25,11 +25,12 @@ struct LessonsView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 0) {
+            LazyVStack(alignment: .leading, spacing: 0) {
                 Text("What Psyche learned", bundle: .module).psycheTitle().padding(.bottom, 4)
                 Text("Lessons from your corrections. Keep one, change its wording, or forget it.", bundle: .module)
                     .font(.subheadline).foregroundStyle(PsycheColor.muted).padding(.bottom, 16)
                 content
+                feedbackSection
             }
             .padding(PsycheMetrics.pagePadding)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -49,6 +50,55 @@ struct LessonsView: View {
 
     private var noticeBinding: Binding<Bool> {
         Binding(get: { model.notice != nil }, set: { if !$0 { model.notice = nil } })
+    }
+
+    @State private var confirmingDelete = false
+    /// The row Delete was tapped on. Kept after the dialog closes so the confirm action still has it.
+    @State private var pendingDelete: FeedbackItem?
+
+    /// "Feedback you gave". Its header, rows and end sentinel are direct children of the LazyVStack, so a row or the
+    /// sentinel is realized only when it scrolls on screen, and the next page loads only when the owner reaches the
+    /// end. The `.task` and the dialog sit on the header alone: a modifier on a group would apply to every child.
+    @ViewBuilder
+    private var feedbackSection: some View {
+        let pager = model.feedback
+        Text("Feedback you gave", bundle: .module).font(.headline).foregroundStyle(PsycheColor.text)
+            .padding(.top, 28).padding(.bottom, 4)
+            .task { await pager.reload() }
+            .confirmationDialog(
+                String(localized: "Delete this feedback?", bundle: .module), isPresented: $confirmingDelete,
+                titleVisibility: .visible
+            ) {
+                Button(String(localized: "Delete", bundle: .module), role: .destructive) {
+                    if let item = pendingDelete { Task { await model.deleteFeedback(item) } }
+                }
+                Button(String(localized: "Cancel", bundle: .module), role: .cancel) {}
+            } message: {
+                Text("Lessons made only from this feedback will be forgotten.", bundle: .module)
+            }
+        Text("Each thumb, correction and note. Newest first.", bundle: .module)
+            .font(.subheadline).foregroundStyle(PsycheColor.muted).padding(.bottom, 12)
+        switch pager.phase {
+        case .idle, .loading:
+            ProgressView().frame(maxWidth: .infinity).padding(.top, 12)
+        case .failed:
+            FailedNotice { Task { await pager.reload() } }
+        case .loaded(let rows) where rows.isEmpty:
+            Text("You haven't given any feedback yet.", bundle: .module)
+                .font(.subheadline).foregroundStyle(PsycheColor.muted)
+        case .loaded(let rows):
+            ForEach(Array(rows.enumerated()), id: \.element.id) { index, item in
+                FeedbackRow(item: item) {
+                    pendingDelete = item
+                    confirmingDelete = true
+                }
+                .cardRow(CardPosition(index: index, count: rows.count))
+            }
+        }
+        PagedRowsEnd(
+            moreFailed: pager.moreFailed, nextCursor: pager.nextCursor, loadingMore: pager.loadingMore,
+            label: String(localized: "Loading more feedback", bundle: .module),
+            loadMore: { await pager.loadMore() }, retryMore: { await pager.retryMore() })
     }
 
     @ViewBuilder
@@ -425,5 +475,63 @@ private struct LearningRetry: View {
                 .buttonStyle(.psycheOutline)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+/// One feedback row: "Thumbs down · Reply", the owner's words when there are any, and Delete.
+private struct FeedbackRow: View {
+    let item: FeedbackItem
+    let delete: () -> Void
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(verbatim: String(format: String(localized: "%@ · %@", bundle: .module),
+                    feedbackKindLabel(item.kind), feedbackTargetLabel(item.targetType)))
+                    .font(.psycheRow).foregroundStyle(PsycheColor.text)
+                if let text = item.text, !text.isEmpty {
+                    Text(verbatim: text).font(.caption).foregroundStyle(PsycheColor.muted)
+                }
+            }
+            Spacer(minLength: 0)
+            Button(String(localized: "Delete", bundle: .module), role: .destructive, action: delete)
+                .buttonStyle(.borderless).font(.subheadline)
+        }
+        .padding(PsycheMetrics.rowPadding)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+/// The Gateway's feedback kinds in words. The raw values are wire keys and are never shown.
+private func feedbackKindLabel(_ kind: String) -> String {
+    switch kind {
+    case "helpful": return String(localized: "Thumbs up", bundle: .module)
+    case "not_helpful": return String(localized: "Thumbs down", bundle: .module)
+    case "correction": return String(localized: "Correction", bundle: .module)
+    case "undo": return String(localized: "Undo", bundle: .module)
+    case "draft_edited": return String(localized: "Edited draft", bundle: .module)
+    case "approval_edited": return String(localized: "Edited approval", bundle: .module)
+    case "approval_denied": return String(localized: "Denied approval", bundle: .module)
+    case "dismissed": return String(localized: "Dismissed", bundle: .module)
+    case "regenerated": return String(localized: "Asked again", bundle: .module)
+    case "feed": return String(localized: "Feed feedback", bundle: .module)
+    case "idea": return String(localized: "Idea feedback", bundle: .module)
+    default: return String(localized: "Feedback", bundle: .module)
+    }
+}
+
+/// What the feedback was about, in words.
+private func feedbackTargetLabel(_ type: String) -> String {
+    switch type {
+    case "message": return String(localized: "Reply", bundle: .module)
+    case "tool_call": return String(localized: "Tool step", bundle: .module)
+    case "task": return String(localized: "Task", bundle: .module)
+    case "approval": return String(localized: "Approval", bundle: .module)
+    case "draft": return String(localized: "Draft", bundle: .module)
+    case "feed_post": return String(localized: "Feed post", bundle: .module)
+    case "idea": return String(localized: "Idea", bundle: .module)
+    case "automation_run": return String(localized: "Automation run", bundle: .module)
+    case "skill_run": return String(localized: "Skill run", bundle: .module)
+    default: return String(localized: "Item", bundle: .module)
     }
 }
