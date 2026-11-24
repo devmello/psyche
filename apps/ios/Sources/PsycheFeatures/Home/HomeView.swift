@@ -201,6 +201,7 @@ struct HomeView: View {
                     VStack(alignment: .leading, spacing: 4) {
                         Text(item.text).font(.psycheRow).foregroundStyle(PsycheColor.text)
                         EvidenceLine(item.evidenceLabel, item.evidence)
+                        followupActions(item)
                     }
                 }
                 Text("That's everything for today.", bundle: .module)
@@ -211,6 +212,39 @@ struct HomeView: View {
             }
             .padding(.horizontal, 2)
         }
+    }
+
+    /// A Today follow-up's actions: Done, and a menu with Snooze (tomorrow or a week) and Dismiss, as the desktop's.
+    /// The row leaves Today once the Gateway accepts; a refusal shows its words in the quiet line.
+    private func followupActions(_ item: BriefItem) -> some View {
+        HStack(spacing: 18) {
+            Button(String(localized: "Done", bundle: .module)) {
+                Task { await model.actOnFollowup(item, .done) }
+            }
+            .accessibilityIdentifier("today.followup.done.\(item.id)")
+            Menu {
+                Menu(String(localized: "Snooze", bundle: .module)) {
+                    Button(String(localized: "Until tomorrow", bundle: .module)) {
+                        Task { await model.actOnFollowup(item, .snooze) }
+                    }
+                    Button(String(localized: "For a week", bundle: .module)) {
+                        let week = Calendar.current.date(byAdding: .day, value: 7, to: .now)
+                        Task { await model.actOnFollowup(item, .snooze, until: week) }
+                    }
+                }
+                Button(String(localized: "Dismiss", bundle: .module), role: .destructive) {
+                    Task { await model.actOnFollowup(item, .dismiss) }
+                }
+            } label: {
+                Text("More", bundle: .module)
+            }
+            .accessibilityIdentifier("today.followup.menu.\(item.id)")
+        }
+        .font(.subheadline.weight(.medium))
+        .foregroundStyle(PsycheColor.muted)
+        .buttonStyle(.plain)
+        .disabled(model.followupsBusy.contains(item.id))
+        .padding(.top, 4)
     }
 
     private func todos(_ title: String, _ items: [TodoItem]) -> some View {
