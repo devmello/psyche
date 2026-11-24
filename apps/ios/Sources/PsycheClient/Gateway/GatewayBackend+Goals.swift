@@ -47,6 +47,31 @@ extension GatewayBackend {
         return try Self.goalDetail(from: try await call("goals.milestone", .object(params)))
     }
 
+    /// `goals.suggest`: the idea the Gateway made for the goal's next step, or nil when it made none.
+    public func suggestNextStep(goalID: String) async throws -> String? {
+        let result = try await call("goals.suggest", .obj(["goalId": .string(goalID)]))
+        return result["ideaId"]?.string
+    }
+
+    /// `goals.link` with `taskId` or `automationId`. The Gateway answers `ok`; the goal page reloads to show it.
+    public func linkGoal(goalID: String, _ target: GoalLinkTarget) async throws {
+        _ = try await call("goals.link", .object(Self.linkParams(goalID: goalID, target)))
+    }
+
+    /// `goals.link` with `unlink: true`: removes only the link.
+    public func unlinkGoal(goalID: String, _ target: GoalLinkTarget) async throws {
+        var params = Self.linkParams(goalID: goalID, target)
+        params["unlink"] = .bool(true)
+        _ = try await call("goals.link", .object(params))
+    }
+
+    static func linkParams(goalID: String, _ target: GoalLinkTarget) -> [String: JSONValue] {
+        switch target {
+        case .task(let id): ["goalId": .string(goalID), "taskId": .string(id)]
+        case .automation(let id): ["goalId": .string(goalID), "automationId": .string(id)]
+        }
+    }
+
     /// `goals.create` with the Mac dialog's two fields: the title (trimmed) and the category.
     public func createGoal(title: String, category: GoalCategoryChoice) async throws -> GoalDetail {
         let params: JSONValue = .obj([
@@ -64,7 +89,19 @@ extension GatewayBackend {
             return GoalMilestoneItem(
                 id: id, title: title, dueAt: WireFormat.date(milestone["dueAt"]?.string), done: milestone["doneAt"]?.string != nil)
         }
-        return GoalDetail(goal: goal, milestones: milestones, linkedTasks: result["taskIds"]?.array?.count ?? 0)
+        // `links` is the Gateway's list of GoalLink rows (a task, an automation or a watch). Only tasks and automations
+        // are shown here. An answer without `links` (older Gateways) falls back to the bare `taskIds`.
+        let links: [GoalLinkTarget]
+        if result["links"] == nil {
+            links = (result["taskIds"]?.array ?? []).compactMap(\.string).map(GoalLinkTarget.task)
+        } else {
+            links = (result["links"]?.array ?? []).compactMap { link in
+                if let task = link["taskId"]?.string { return .task(task) }
+                if let automation = link["automationId"]?.string { return .automation(automation) }
+                return nil
+            }
+        }
+        return GoalDetail(goal: goal, milestones: milestones, linkedTasks: links.count, links: links)
     }
 
     static func goal(from wire: JSONValue) -> GoalItem? {

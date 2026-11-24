@@ -86,15 +86,144 @@ final class IdeasModel {
     }
 }
 
+/// Where "Suggest a next step" stands on a goal's sheet.
+enum GoalSuggestState: Equatable {
+    case idle
+    case working
+    /// The idea the Gateway made: Start puts it to work, Not now dismisses it. Nothing starts without a tap.
+    case offered(IdeaItem)
+    case none
+    case failed(String)
+}
+
 @MainActor @Observable
 final class GoalsModel {
     private(set) var phase: LoadPhase<[GoalItem]> = .idle
     private(set) var detail: LoadPhase<GoalDetail> = .idle
     private(set) var actionError: String?
     private(set) var busy = false
+    private(set) var suggest: GoalSuggestState = .idle
+    /// Titles of tasks and automations by id, from the Agent and Scheduled lists, to name a goal's links.
+    private(set) var linkTitles: [String: String] = [:]
     private let store: any PsycheBackend
+    private var suggestTask: Task<Void, Never>?
 
     init(store: any PsycheBackend) { self.store = store }
+
+    /// Starts one suggestion in a task the sheet can cancel. A second tap while one runs does nothing.
+    func startSuggest(for goal: GoalItem) {
+        guard suggest != .working else { return }
+        suggest = .working
+        suggestTask = Task { await self.runSuggest(for: goal) }
+    }
+
+    /// Asks the Gateway for the goal's next step and reads the idea it made from the Home ideas. A cancelled run
+    /// changes nothing; any other failure says why. Internal so tests can await one run.
+    func runSuggest(for goal: GoalItem) async {
+        do {
+            guard let ideaID = try await store.suggestNextStep(goalID: goal.id) else {
+                if !Task.isCancelled { suggest = .none }
+                return
+            }
+            let ideas = try await store.ideas()
+            guard !Task.isCancelled else { return }
+            if let idea = ideas.first(where: { $0.id == ideaID }) {
+                suggest = .offered(idea)
+            } else {
+                suggest = .none
+            }
+        } catch {
+            guard !Task.isCancelled else { return }
+            suggest = .failed(error.localizedDescription)
+        }
+    }
+
+    /// Stops a suggestion that is still running and forgets it. The Gateway may still have made the idea; it waits on Home.
+    func cancelSuggest() {
+        suggestTask?.cancel()
+        suggestTask = nil
+        suggest = .idle
+    }
+
+    /// Start: accepts the offered idea. Not now: dismisses it. Either way the card goes once the Gateway answers.
+    func decideSuggestion(start: Bool) async {
+        guard case .offered(let idea) = suggest else { return }
+        do {
+            if start {
+                try await store.acceptIdea(id: idea.id)
+            } else {
+                try await store.dismissIdea(id: idea.id, reason: .notNow)
+            }
+            suggest = .idle
+        } catch {
+            suggest = .failed(error.localizedDescription)
+        }
+    }
+
+    /// A task or automation the goal can link, with its title.
+    struct LinkChoice: Identifiable, Equatable {
+        let target: GoalLinkTarget
+        let title: String
+        var id: String { target.id }
+    }
+
+    /// Every task (running and recent, from the Agent list) and automation (from the Scheduled list) the phone knows,
+    /// and their titles for the goal's links. A list that fails just has nothing in it.
+    private func knownLinkItems() async -> (tasks: [LinkChoice], automations: [LinkChoice]) {
+        var tasks: [LinkChoice] = []
+        var seenTasks = Set<String>()
+        if let activity = try? await store.activity() {
+            for run in activity.now where seenTasks.insert(run.id).inserted {
+                tasks.append(LinkChoice(target: .task(run.id), title: run.title))
+            }
+            for run in activity.recent where seenTasks.insert(run.id).inserted {
+                tasks.append(LinkChoice(target: .task(run.id), title: run.title))
+            }
+        }
+        let automations = ((try? await store.scheduled())?.items ?? []).map {
+            LinkChoice(target: .automation($0.id), title: $0.title)
+        }
+        for choice in tasks + automations { linkTitles[choice.id] = choice.title }
+        return (tasks, automations)
+    }
+
+    /// Fills the titles of the goal's linked tasks and automations.
+    func loadLinkTitles() async {
+        _ = await knownLinkItems()
+    }
+
+    /// What the Link picker offers: the known tasks and automations this goal does not link yet.
+    func linkChoices() async -> (tasks: [LinkChoice], automations: [LinkChoice]) {
+        let items = await knownLinkItems()
+        let linked = Set((detail.value?.links ?? []))
+        return (items.tasks.filter { !linked.contains($0.target) }, items.automations.filter { !linked.contains($0.target) })
+    }
+
+    /// Links a task or automation to the goal and shows the goal page the Gateway then holds. A refusal throws, so the
+    /// picker shows the Gateway's words and stays open.
+    func link(_ target: GoalLinkTarget, to goal: GoalItem) async throws {
+        try await store.linkGoal(goalID: goal.id, target)
+        await refreshDetail(goal)
+        actionError = nil
+    }
+
+    /// Removes a link from the goal. The task or automation itself stays. A refusal stays in `actionError`.
+    func unlink(_ target: GoalLinkTarget, from goal: GoalItem) async {
+        guard !busy else { return }
+        busy = true
+        defer { busy = false }
+        do {
+            try await store.unlinkGoal(goalID: goal.id, target)
+            await refreshDetail(goal)
+            actionError = nil
+        } catch {
+            actionError = error.localizedDescription
+        }
+    }
+
+    private func refreshDetail(_ goal: GoalItem) async {
+        if let fresh = try? await store.goalDetail(id: goal.id) { showDetail(fresh) }
+    }
 
     func load() async {
         if phase.value == nil { phase = .loading }
@@ -208,7 +337,8 @@ final class GoalsModel {
             phase = .loaded(goals)
         }
         if let current = detail.value, current.goal.id == goal.id {
-            detail = .loaded(GoalDetail(goal: goal, milestones: current.milestones, linkedTasks: current.linkedTasks))
+            detail = .loaded(GoalDetail(
+                goal: goal, milestones: current.milestones, linkedTasks: current.linkedTasks, links: current.links))
         }
     }
 
@@ -219,6 +349,7 @@ final class GoalsModel {
     }
 
     func close() {
+        cancelSuggest()
         detail = .idle
         actionError = nil
     }

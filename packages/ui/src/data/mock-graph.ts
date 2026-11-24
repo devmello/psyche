@@ -192,6 +192,29 @@ function factText(f: GraphFact, prior: GraphFact | undefined): string {
   }
 }
 
+/** `memory.entities.interactions`: one entity's interactions, newest first, paged by offset cursor. */
+function interactionsPage(
+  w: GraphWorld,
+  id: string,
+  cursor: string | undefined,
+  limit: number,
+): { interactions: GraphWorld["interactions"]; nextCursor: string | null } {
+  notFoundIfMissing(w, id);
+  const all = w.interactions
+    .filter((i) => i.participants.some((p) => p.entityId === id))
+    .sort((a, b) => Date.parse(b.occurredAt) - Date.parse(a.occurredAt));
+  const start = cursor === undefined ? 0 : Number(cursor);
+  const end = start + limit;
+  return {
+    interactions: all.slice(start, end),
+    nextCursor: end < all.length ? String(end) : null,
+  };
+}
+
+function notFoundIfMissing(w: GraphWorld, id: string): void {
+  if (!w.entities.some((e) => e.id === id)) notFound(`entity ${id}`);
+}
+
 /** `memory.entities.timeline`: interactions, work-fact history and loops, newest first (§3.5). */
 function timelineOf(
   w: GraphWorld,
@@ -658,6 +681,8 @@ export function graphHandlers(ctx: GraphMockContext): Handlers {
             : [],
       };
     },
+    "memory.entities.interactions": (p) =>
+      interactionsPage(ctx.graph(), p.id, p.cursor, p.limit ?? 20),
     "memory.entities.timeline": (p) => timelineOf(ctx.graph(), p.entityId, p.before, p.limit ?? 50),
     "memory.anchors.list": (p) => ({
       anchors: ctx

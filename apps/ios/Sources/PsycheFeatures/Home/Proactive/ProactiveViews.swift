@@ -305,8 +305,10 @@ struct GoalsView: View {
 private struct GoalSheet: View {
     let model: GoalsModel
     @Environment(\.dismiss) private var dismiss
+    @Environment(Router.self) private var router
     @State private var confirmingArchive = false
     @State private var addingMilestone = false
+    @State private var linking = false
 
     var body: some View {
         ScrollView {
@@ -325,6 +327,7 @@ private struct GoalSheet: View {
         }
         .psycheScreen()
         .presentationDetents([.medium, .large])
+        .task { await model.loadLinkTitles() }
         .confirmationDialog(String(localized: "Archive this goal?", bundle: .module), isPresented: $confirmingArchive, titleVisibility: .visible) {
             Button(String(localized: "Archive goal", bundle: .module), role: .destructive) {
                 guard let goal = currentGoal else { return }
@@ -333,6 +336,11 @@ private struct GoalSheet: View {
             Button(String(localized: "Cancel", bundle: .module), role: .cancel) {}
         } message: {
             Text("Its check-ins stop. Nothing is deleted.", bundle: .module)
+        }
+        .sheet(isPresented: $linking) {
+            if let goal = currentGoal {
+                LinkGoalSheet(goal: goal, model: model)
+            }
         }
         .sheet(isPresented: $addingMilestone) {
             if let goal = currentGoal {
@@ -386,6 +394,9 @@ private struct GoalSheet: View {
                 }
             }
         }
+        if goal.status == "active" {
+            suggestion(goal)
+        }
         if let progress = detail.progress {
             VStack(alignment: .leading, spacing: 8) {
                 ProgressBar(fraction: progress)
@@ -412,11 +423,125 @@ private struct GoalSheet: View {
                     .disabled(model.busy)
             }
         }
+        linkedGoalItems(detail, archived: archived)
         if !archived && goal.status != "candidate" {
             Button(String(localized: "Archive goal", bundle: .module), role: .destructive) { confirmingArchive = true }
                 .proactiveAction()
                 .disabled(model.busy)
         }
+    }
+
+    /// "Suggest a next step": the model's one idea for the goal, shown with Start and Not now. The request runs in a
+    /// task the sheet cancels; nothing starts without the owner's Start.
+    @ViewBuilder
+    private func suggestion(_ goal: GoalItem) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            SectionHeader(String(localized: "Next step", bundle: .module))
+            switch model.suggest {
+            case .idle:
+                Button(String(localized: "Suggest a next step", bundle: .module)) { model.startSuggest(for: goal) }
+                    .proactiveAction()
+                    .disabled(model.busy)
+                    .accessibilityIdentifier("goal.suggest")
+            case .working:
+                HStack(spacing: 12) {
+                    ProgressView()
+                    Text("Thinking of a next step…", bundle: .module).font(.subheadline).foregroundStyle(PsycheColor.muted)
+                    Spacer(minLength: 0)
+                    Button(String(localized: "Cancel", bundle: .module)) { model.cancelSuggest() }
+                        .proactiveAction()
+                        .accessibilityIdentifier("goal.suggest.cancel")
+                }
+                .accessibilityIdentifier("goal.suggest.working")
+            case .offered(let idea):
+                PaperCard {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(idea.title).font(.psycheRow).foregroundStyle(PsycheColor.text)
+                        Text(idea.body).font(.subheadline).foregroundStyle(PsycheColor.muted)
+                    }
+                    .padding(PsycheMetrics.rowPadding)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                HStack(spacing: 20) {
+                    Button(String(localized: "Start", bundle: .module)) { Task { await model.decideSuggestion(start: true) } }
+                        .proactiveAction(prominent: true)
+                        .accessibilityIdentifier("goal.suggest.start")
+                    Button(String(localized: "Not now", bundle: .module)) { Task { await model.decideSuggestion(start: false) } }
+                        .proactiveAction()
+                        .accessibilityIdentifier("goal.suggest.notNow")
+                }
+            case .none:
+                Text("No next step to suggest right now.", bundle: .module).font(.subheadline).foregroundStyle(PsycheColor.muted)
+                Button(String(localized: "Try again", bundle: .module)) { model.startSuggest(for: goal) }
+                    .proactiveAction()
+            case .failed(let message):
+                Text(message).font(.footnote).foregroundStyle(PsycheColor.red)
+                Button(String(localized: "Try again", bundle: .module)) { model.startSuggest(for: goal) }
+                    .proactiveAction()
+            }
+        }
+    }
+
+    /// The goal's linked tasks and automations by title. A task opens (its run page); a linked item can be unlinked
+    /// from its context menu, as the desktop's Unlink does. "Link…" adds one more.
+    @ViewBuilder
+    private func linkedGoalItems(_ detail: GoalDetail, archived: Bool) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            SectionHeader(String(localized: "Linked", bundle: .module))
+            if detail.links.isEmpty {
+                Text("No tasks or automations linked yet.", bundle: .module).font(.subheadline).foregroundStyle(PsycheColor.muted)
+            } else {
+                PaperCard {
+                    ForEach(Array(detail.links.enumerated()), id: \.element) { index, link in
+                        if index > 0 { HairlineDivider() }
+                        linkRow(link, goal: detail.goal, archived: archived)
+                    }
+                }
+            }
+            if !archived {
+                Button(String(localized: "Link…", bundle: .module)) { linking = true }
+                    .proactiveAction()
+                    .disabled(model.busy)
+                    .accessibilityIdentifier("goal.link")
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func linkRow(_ link: GoalLinkTarget, goal: GoalItem, archived: Bool) -> some View {
+        let fallback = link.isTask ? String(localized: "Task", bundle: .module) : String(localized: "Automation", bundle: .module)
+        let label = HStack(spacing: 12) {
+            Image(systemName: link.isTask ? "checklist" : "gearshape.2")
+                .foregroundStyle(PsycheColor.muted)
+            Text(model.linkTitles[link.id] ?? fallback)
+                .font(.psycheRow).foregroundStyle(PsycheColor.text)
+            Spacer(minLength: 0)
+        }
+        .padding(PsycheMetrics.rowPadding)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .contentShape(Rectangle())
+        Group {
+            if case .task(let id) = link {
+                Button {
+                    dismiss()
+                    router.open(appPath: "/task/\(id)")
+                } label: {
+                    label
+                }
+                .buttonStyle(.plain)
+            } else {
+                label
+            }
+        }
+        .contextMenu {
+            if !archived {
+                Button(String(localized: "Unlink", bundle: .module), role: .destructive) {
+                    Task { await model.unlink(link, from: goal) }
+                }
+                .accessibilityIdentifier("goal.unlink.\(link.id)")
+            }
+        }
+        .accessibilityIdentifier("goal.link.\(link.id)")
     }
 
     /// A milestone with a checkbox to mark it done or not, its due date, and a button to remove it.
@@ -458,6 +583,74 @@ private struct GoalSheet: View {
             }
         }
         .padding(PsycheMetrics.rowPadding)
+    }
+}
+
+/// "Link…": the tasks and automations the goal does not link yet, in two sections. Tapping one links it; a refusal
+/// stays on the sheet in the Gateway's words.
+private struct LinkGoalSheet: View {
+    let goal: GoalItem
+    let model: GoalsModel
+    @Environment(\.dismiss) private var dismiss
+    @State private var choices: (tasks: [GoalsModel.LinkChoice], automations: [GoalsModel.LinkChoice])?
+    @State private var linking: String?
+    @State private var failure: String?
+
+    var body: some View {
+        NavigationStack {
+            List {
+                if let choices {
+                    if choices.tasks.isEmpty && choices.automations.isEmpty {
+                        Text("Nothing to link right now.", bundle: .module).foregroundStyle(PsycheColor.muted)
+                    }
+                    if !choices.tasks.isEmpty {
+                        Section(String(localized: "Tasks", bundle: .module)) {
+                            ForEach(choices.tasks) { choice in linkButton(choice) }
+                        }
+                    }
+                    if !choices.automations.isEmpty {
+                        Section(String(localized: "Automations", bundle: .module)) {
+                            ForEach(choices.automations) { choice in linkButton(choice) }
+                        }
+                    }
+                }
+            }
+            .navigationTitle(String(localized: "Link to this goal", bundle: .module))
+            .psycheInlineTitle()
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(String(localized: "Cancel", bundle: .module)) { dismiss() }
+                        .disabled(linking != nil)
+                }
+            }
+            .safeAreaInset(edge: .bottom) {
+                if let failure {
+                    Text(failure).font(.footnote).foregroundStyle(PsycheColor.red).padding()
+                }
+            }
+        }
+        .presentationDragIndicator(.visible)
+        .task { choices = await model.linkChoices() }
+    }
+
+    private func linkButton(_ choice: GoalsModel.LinkChoice) -> some View {
+        Button(choice.title) {
+            Task { await link(choice.target) }
+        }
+        .disabled(linking != nil)
+        .accessibilityIdentifier("goal.link.row.\(choice.id)")
+    }
+
+    private func link(_ target: GoalLinkTarget) async {
+        linking = target.id
+        failure = nil
+        defer { linking = nil }
+        do {
+            try await model.link(target, to: goal)
+            dismiss()
+        } catch {
+            failure = error.localizedDescription
+        }
     }
 }
 
