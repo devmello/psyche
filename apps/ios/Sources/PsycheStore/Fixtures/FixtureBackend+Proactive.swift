@@ -38,7 +38,8 @@ extension FixtureBackend: ProactiveBackend {
 
     public func goals() async throws -> [GoalItem] {
         await pause()
-        return proactiveState.goals.map(\.goal)
+        // goals.list leaves out archived goals, as the Gateway does.
+        return proactiveState.goals.filter { $0.goal.status != "archived" }.map(\.goal)
     }
 
     public func goalDetail(id: String) async throws -> GoalDetail {
@@ -57,6 +58,43 @@ extension FixtureBackend: ProactiveBackend {
     public func setGoalStatus(id: String, _ status: GoalStatusChange) async throws -> GoalDetail {
         guard let index = proactiveState.goals.firstIndex(where: { $0.goal.id == id }) else { throw BackendError.notFound }
         proactiveState.goals[index].goal.status = status.rawValue
+        return proactiveState.goals[index]
+    }
+
+    public func decideGoal(id: String, _ decision: GoalDecision) async throws -> GoalItem {
+        await pause()
+        guard let index = proactiveState.goals.firstIndex(where: { $0.goal.id == id }) else { throw BackendError.notFound }
+        guard proactiveState.goals[index].goal.status == "candidate" else { throw BackendError.refused("This goal is already decided.") }
+        switch decision {
+        case .confirm: proactiveState.goals[index].goal.status = "active"
+        case .reject: proactiveState.goals[index].goal.status = "archived"
+        case .later: break
+        }
+        return proactiveState.goals[index].goal
+    }
+
+    public func archiveGoal(id: String) async throws -> GoalItem {
+        await pause()
+        guard let index = proactiveState.goals.firstIndex(where: { $0.goal.id == id }) else { throw BackendError.notFound }
+        proactiveState.goals[index].goal.status = "archived"
+        proactiveState.goals[index].goal.nextCheckinAt = nil
+        return proactiveState.goals[index].goal
+    }
+
+    public func changeMilestone(goalID: String, _ change: GoalMilestoneChange) async throws -> GoalDetail {
+        await pause()
+        guard let index = proactiveState.goals.firstIndex(where: { $0.goal.id == goalID }) else { throw BackendError.notFound }
+        switch change {
+        case .add(let title, let dueAt):
+            proactiveState.goals[index].milestones.append(
+                GoalMilestoneItem(id: "m_\(UUID().uuidString.prefix(8))", title: title.trimmingCharacters(in: .whitespacesAndNewlines), dueAt: dueAt, done: false))
+        case .setDone(let id, let done):
+            guard let milestone = proactiveState.goals[index].milestones.firstIndex(where: { $0.id == id }) else { throw BackendError.notFound }
+            proactiveState.goals[index].milestones[milestone].done = done
+        case .remove(let id):
+            guard proactiveState.goals[index].milestones.contains(where: { $0.id == id }) else { throw BackendError.notFound }
+            proactiveState.goals[index].milestones.removeAll { $0.id == id }
+        }
         return proactiveState.goals[index]
     }
 

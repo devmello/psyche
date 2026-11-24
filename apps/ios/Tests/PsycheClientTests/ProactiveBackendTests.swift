@@ -220,4 +220,58 @@ struct ProactiveBackendTests {
             try await backend.createGoal(title: "Read", category: .other)
         }
     }
+
+    @Test func decideSendsTheWireDecisionAndReturnsTheGoal() async throws {
+        let (backend, h) = try await live { g in
+            g.on("goals.decide") { _ in .success(.object([
+                "goal": .object(["id": "g2", "title": "Save", "category": "finance", "status": "active"]),
+            ])) }
+        }
+        let goal = try await backend.decideGoal(id: "g2", .confirm)
+        #expect(goal.status == "active")
+        let call = h.gateway.received.filter { $0.method == "goals.decide" }.first
+        #expect(call?.params?["goalId"]?.string == "g2")
+        #expect(call?.params?["decision"]?.string == "confirm")
+    }
+
+    @Test func archiveSendsTheGoalIdAndReturnsItArchived() async throws {
+        let (backend, h) = try await live { g in
+            g.on("goals.archive") { _ in .success(.object([
+                "goal": .object(["id": "g1", "title": "Run", "category": "health", "status": "archived"]),
+            ])) }
+        }
+        let goal = try await backend.archiveGoal(id: "g1")
+        #expect(goal.status == "archived")
+        #expect(h.gateway.received.filter { $0.method == "goals.archive" }.first?.params?["goalId"]?.string == "g1")
+    }
+
+    @Test func milestoneEditsSendTheRightFieldsForAddDoneAndRemove() async throws {
+        let (backend, h) = try await live { g in
+            g.on("goals.milestone") { _ in .success(.object([
+                "goal": .object(["id": "g1", "title": "Run", "category": "health", "status": "active"]),
+                "taskIds": .array([]),
+                "milestones": .array([.object(["id": "m1", "title": "5 km", "doneAt": "2030-01-01T09:12:00Z"])]),
+            ])) }
+        }
+        let detail = try await backend.changeMilestone(goalID: "g1", .add(title: "  Shoes ", dueAt: nil))
+        #expect(detail.milestones.map(\.done) == [true])
+        _ = try await backend.changeMilestone(goalID: "g1", .setDone(id: "m1", false))
+        _ = try await backend.changeMilestone(goalID: "g1", .remove(id: "m1"))
+        let sent = h.gateway.received.filter { $0.method == "goals.milestone" }
+        #expect(sent.count == 3)
+        #expect(sent[0].params?["milestoneId"] == nil)
+        #expect(sent[0].params?["title"]?.string == "Shoes")
+        #expect(sent[1].params?["milestoneId"]?.string == "m1")
+        #expect(sent[1].params?["done"] == .bool(false))
+        #expect(sent[2].params?["remove"] == .bool(true))
+    }
+
+    @Test func aRefusedMilestoneEditShowsTheGatewaysWords() async throws {
+        let (backend, _) = try await live { g in
+            g.on("goals.milestone") { _ in .failure(WireError(code: "forbidden", message: "This goal is archived.")) }
+        }
+        await #expect(throws: BackendError.refused("This goal is archived.")) {
+            try await backend.changeMilestone(goalID: "g1", .remove(id: "m1"))
+        }
+    }
 }
