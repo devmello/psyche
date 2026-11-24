@@ -437,6 +437,7 @@ struct ScheduledView: View {
             titleVisibility: .visible, presenting: confirmingRun
         ) { job in
             Button(String(localized: "Run now", bundle: .module)) { Task { await model.runNow(job) } }
+            Button(String(localized: "Cancel", bundle: .module), role: .cancel) {}
         } message: { _ in
             Text("This can take actions for you. Anything that needs your approval still waits for you.", bundle: .module)
         }
@@ -446,6 +447,7 @@ struct ScheduledView: View {
             titleVisibility: .visible, presenting: confirmingDelete
         ) { job in
             Button(String(localized: "Delete", bundle: .module), role: .destructive) { Task { await model.delete(job) } }
+            Button(String(localized: "Cancel", bundle: .module), role: .cancel) {}
         } message: { _ in
             Text("It won't run again, and this can't be undone.", bundle: .module)
         }
