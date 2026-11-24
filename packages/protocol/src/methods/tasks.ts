@@ -68,7 +68,7 @@ export const TasksMethods = {
       "Steers a running task (a specialist job): the text reaches the running turn as owner guidance, or opens its next turn when parked. Side-effecting: a duplicate would steer twice.",
   }),
   "tasks.update": defineMethod({
-    callsModelWhen: (p) => p.budget !== undefined,
+    callsModelWhen: (p) => p.budget !== undefined || p.deadline !== undefined,
     params: Type.Object({
       taskId: Id,
       budget: Type.Optional(

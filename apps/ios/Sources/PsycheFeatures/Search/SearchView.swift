@@ -140,7 +140,8 @@ final class SearchModel {
         recents = []
     }
 
-    var hasAnything: Bool { results.answer != nil || !results.hits.isEmpty }
+    /// A question counts even with no hits: its answer card is the result (asked on Return or after a pause).
+    var hasAnything: Bool { shownAnswer != nil || results.canAskLife || !results.hits.isEmpty }
 
     private func resetConversation() {
         lifeAnswer = nil

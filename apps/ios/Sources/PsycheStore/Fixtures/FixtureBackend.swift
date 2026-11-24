@@ -30,6 +30,9 @@ public actor FixtureBackend {
     public internal(set) var lifeAnswerCalls = 0
     var lifeAnswerFailure: BackendError?
     public func failLifeAnswers(with error: BackendError?) { lifeAnswerFailure = error }
+    /// Search returns no hits (tests: a question whose answer is the only result).
+    var searchHitsHidden = false
+    public func hideSearchHits(_ hidden: Bool) { searchHitsHidden = hidden }
 
     private let latency: Duration
     private var subscribers: [UUID: AsyncStream<LiveEvent>.Continuation] = [:]

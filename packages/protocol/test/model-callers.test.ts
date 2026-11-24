@@ -72,6 +72,9 @@ describe("callsModel", () => {
       expect(spec.callsModelWhen(c.yes), `${name} yes`).toBe(true);
       expect(spec.callsModelWhen(c.no), `${name} no`).toBe(false);
     }
+    // A deadline change also re-queues a budget-parked job.
+    const update = Methods["tasks.update"] as unknown as { callsModelWhen(p: unknown): boolean };
+    expect(update.callsModelWhen({ taskId: "t", deadline: "2030-01-01T00:00:00.000Z" })).toBe(true);
   });
 
   it("is false for plain reads and writes", () => {

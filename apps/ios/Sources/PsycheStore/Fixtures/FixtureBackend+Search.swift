@@ -12,8 +12,9 @@ extension FixtureBackend: SearchBackend {
             let haystack = (hit.title + " " + hit.detail).lowercased()
             return haystack.contains(needle) || words.contains { haystack.contains($0) }
         }
+        let shown = searchHitsHidden ? [] : hits
         let answer = askLife && needle.contains("rent") ? FixtureData.rentAnswer : nil
-        return SearchResults(answer: answer, hits: hits, canAskLife: needle.contains("rent"))
+        return SearchResults(answer: answer, hits: shown, canAskLife: needle.contains("rent"))
     }
 
     /// The answer card's two other calls. Passages come only when asked for (the owner's button), and a follow-up

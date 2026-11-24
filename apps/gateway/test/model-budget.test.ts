@@ -169,7 +169,11 @@ const CASES: {
   {
     method: "tasks.update",
     counted: { taskId: "t1", budget: { tokens: 5000 } },
-    free: { taskId: "t1", deadline: "2030-01-01T00:00:00.000Z" },
+    free: { taskId: "t1" },
+  },
+  {
+    method: "tasks.update",
+    counted: { taskId: "t1", deadline: "2030-01-01T00:00:00.000Z" },
   },
   {
     method: "search.query",

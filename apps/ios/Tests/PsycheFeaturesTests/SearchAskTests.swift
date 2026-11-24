@@ -74,3 +74,29 @@ struct SearchAskTests {
         #expect(SearchModel.normalised("when is rent due today") != "when is rent due")
     }
 }
+
+@MainActor
+struct SearchAskNoHitsTests {
+    @Test func aQuestionWithNoHitsStillShowsItsAnswerAfterAsking() async {
+        let store = FixtureBackend()
+        await store.hideSearchHits(true)
+        let model = SearchModel(store: store)
+        model.query = "When is rent due?"
+        await model.run()
+        #expect(model.results.hits.isEmpty)
+        // Not "No results": the answer card is the result.
+        #expect(model.hasAnything)
+        await model.ask()
+        #expect(model.shownAnswer != nil)
+        #expect(model.hasAnything)
+    }
+
+    @Test func plainTextWithNoHitsIsStillNoResults() async {
+        let store = FixtureBackend()
+        await store.hideSearchHits(true)
+        let model = SearchModel(store: store)
+        model.query = "sam"
+        await model.run()
+        #expect(!model.hasAnything)
+    }
+}
