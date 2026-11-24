@@ -114,6 +114,46 @@ public struct AutomationSchedule: Sendable, Equatable {
         }
     }
 
+    /// The next runs of this choice after `now`, in `zone`, soonest first: the preview under the schedule. Computed on
+    /// the phone from the same rules as the Mac's `nextRuns` (schedule-form.ts), so no Gateway call is needed. Nil when
+    /// there is no preview: a custom schedule the picker cannot read, or a choice that is not valid yet.
+    public func nextRuns(zone: TimeZone, now: Date, count: Int = 3) -> [Date]? {
+        switch preset {
+        case .custom:
+            return nil
+        case .interval:
+            guard (1...168).contains(intervalHours) else { return nil }
+            return (1...count).map { now.addingTimeInterval(TimeInterval($0 * intervalHours) * 3600) }
+        case .once:
+            let at = Self.minuteFloor(onceAt)
+            return at > now ? [at] : []
+        case .daily, .weekdays, .weekly:
+            let days: Set<Int>
+            switch preset {
+            case .weekdays: days = [1, 2, 3, 4, 5]
+            case .weekly: days = weekdays.filter { (0...6).contains($0) }
+            default: days = Set(0...6)
+            }
+            guard !days.isEmpty else { return nil }
+            var calendar = Calendar(identifier: .gregorian)
+            calendar.timeZone = zone
+            let today = calendar.startOfDay(for: now)
+            var runs: [Date] = []
+            var offset = 0
+            // A week of days always holds a run for every choice, so 400 days is far more than the loop needs.
+            while runs.count < count && offset < 400 {
+                defer { offset += 1 }
+                guard let day = calendar.date(byAdding: .day, value: offset, to: today) else { continue }
+                // Calendar weekday is 1 = Sunday; the schedule's weekday is 0 = Sunday.
+                guard days.contains(calendar.component(.weekday, from: day) - 1) else { continue }
+                guard let at = calendar.date(bySettingHour: minuteOfDay / 60, minute: minuteOfDay % 60, second: 0, of: day),
+                      at > now else { continue }
+                runs.append(at)
+            }
+            return runs
+        }
+    }
+
     private func cron(days: String) -> AutomationWireSchedule {
         AutomationWireSchedule(kind: "cron", schedule: "\(minuteOfDay % 60) \(minuteOfDay / 60) * * \(days)")
     }

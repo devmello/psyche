@@ -277,7 +277,7 @@ struct ProjectPage: View {
             }
             Spacer(minLength: 0)
             Menu {
-                if note.attribute != nil {
+                if note.isEditable {
                     Button { editing = note } label: { Label(String(localized: "Edit", bundle: .module), systemImage: "pencil") }
                 }
                 Button(role: .destructive) { retracting = note } label: { Label(String(localized: "Forget", bundle: .module), systemImage: "trash") }
