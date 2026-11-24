@@ -1320,6 +1320,20 @@ export const it: Partial<Catalogue> = {
     "Richiede un Psyche Helper firmato con un Developer ID e un profilo di provisioning",
   "settings.credentials.keyFileExplainer":
     "La chiave che apre la cassaforte è un file che solo il tuo account può leggere. Spostarla nel Portachiavi (Touch ID) richiede un Psyche Helper firmato; l’helper di questa versione non è firmato.",
+  "settings.credentials.lockNow": "Blocca ora",
+  "settings.credentials.autoLock.label": "Blocco automatico dopo inattività",
+  "settings.credentials.autoLock.hint":
+    "La cassaforte si blocca da sola dopo questo tempo senza utilizzo.",
+  "settings.credentials.autoLock.m15": "15 minuti",
+  "settings.credentials.autoLock.h1": "1 ora",
+  "settings.credentials.autoLock.h8": "8 ore",
+  "settings.credentials.autoLock.h24": "24 ore",
+  "settings.credentials.autoLock.never": "Mai",
+  "settings.credentials.autoLock.custom": "{minutes} minuti",
+  "settings.credentials.autoLock.neverWarning":
+    "Senza blocco automatico, la cassaforte resta sbloccata finché non la blocchi. Chiunque usi questo computer può usare le credenziali salvate.",
+  "settings.credentials.err.lock": "Impossibile bloccare la cassaforte: {reason}",
+  "settings.credentials.err.autoLock": "Il blocco automatico non è stato modificato: {reason}",
   "settings.credentials.detail.executor.browser": "Browser",
   "settings.credentials.detail.executor.connector": "Connettore",
   "settings.credentials.detail.executor.sandbox": "Sandbox",
