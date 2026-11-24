@@ -9,6 +9,8 @@ final class MemoryModel {
     private(set) var overrides: [String: Bool] = [:]
     /// Bumped on each check-off, so the view can play one haptic.
     private(set) var completions = 0
+    /// Claims Psyche is not sure of, for the "To confirm" count on the Memory tab.
+    private(set) var claimCount = 0
     /// Shown in an alert when a write fails.
     var notice: String?
     /// "Search within Memory": filters the visible segment.
@@ -27,6 +29,7 @@ final class MemoryModel {
         if phase.value == nil { phase = .loading }
         do {
             phase = .loaded(try await store.memory())
+            claimCount = (try? await store.claims())?.count ?? 0
             overrides = overrides.filter { pending.contains($0.key) }
         } catch {
             if phase.value == nil { phase = .failed(error.localizedDescription) }

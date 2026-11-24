@@ -45,10 +45,14 @@ The owner creates their own Desktop OAuth client. The steps and copy are in [doc
 5. The Gateway uses `registry.startConnect`: it resolves as soon as the consent page is pending (`ConnectInput.onAuthorization` → `{ url, expiresAt, opened }`, the record stored as `needs_auth`) and the connect ends in a `status` event. `registry.restore()` re-creates stored `connected` records at boot without a new consent.
 
 Scopes:
-- `read_act`: `gmail.modify` (or `gmail.readonly` + `gmail.send` with `gmailScopes: "readonly_send"`, which drops labelling), `calendar`, `drive.file`.
-- `read`: `gmail.readonly`, `calendar.readonly`, `drive.file`.
+- `read_act`: `gmail.modify` (or `gmail.readonly` + `gmail.send` with `gmailScopes: "readonly_send"`, which drops labelling), `calendar`, `drive.file`, `tasks`.
+- `read`: `gmail.readonly`, `calendar.readonly`, `drive.file`, `tasks.readonly`.
 
 Every (re)connect revokes the previous grant first and does not use `include_granted_scopes`, so a read-only connection never holds `gmail.send` / `gmail.modify`; the record stores the scopes Google actually granted. A grant that lacks a requested scope, or carries more than requested, fails the connect (the extra grant is revoked). A refresh token that dies roughly 7 days after consent is reported as the Testing-mode expiry (copy in docs/copy/system-messages.md). Any other revocation moves the connector to `needs_auth` and emits `invalidated`.
+
+Google Tasks (`tasks`) is a newer scope: a connection made before it holds no Tasks scope, so its `reminders_*` tools answer "Google did not grant: tasks" until the owner reconnects Google (Google then asks only for the new permission). The Google Cloud project must have the Google Tasks API enabled, or Tasks calls fail with a 403 from Google.
+
+**Google Tasks** (`src/google/tasks.ts`, `tasks-tools.ts`, REST `tasks.googleapis.com/tasks/v1`): the same `reminders_*` tools, names, matrix rows (`reminders.read` allow; `reminders.write` / `reminders.delete` ask, `connector_action`) and outputs as Microsoft To Do, so `TASKS_ACTIONS` equals `TODO_ACTIONS` (a test pins it). A reminder id is `<listId>|<taskId>`; the due day is kept, the time is not. Google Tasks has no priority, Important flag, link, alarm or repeat, so `priority`, `url`, `alarm`, `recurrence`, `flagged` and clearing a due date are refused with a message instead of being dropped. Lists are the owner's own and unshared (`shared: false`).
 
 Tools: `gmail_search_threads`, `gmail_read_thread` (text/plain preferred; HTML stripped of hidden elements, scripts and comments), `gmail_list_labels`, `gmail_save_attachment` (to the Library, 25 MB limit), `gmail_modify_labels`, `gmail_create_draft`, `gmail_send` (`send_email` binding: account, recipients lowercased and sorted, subject, body hash), `calendar_list_calendars`, `calendar_list_events` (bounded, at most 366 days), `calendar_free_busy`, `calendar_create_event` / `calendar_update_event` / `calendar_delete_event` (`calendar_write` binding; delete is `destructive`; an event with attendees or `sendUpdates: "all"` targets the attendee set, so a standing grant never covers inviting someone new), `drive_download` (Google Docs exported as PDF), `drive_upload` (text).
 
