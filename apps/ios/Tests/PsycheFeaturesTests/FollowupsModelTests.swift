@@ -38,6 +38,55 @@ struct FollowupsModelTests {
         #expect(model.error == nil)
     }
 
+    @Test func undoAppearsEvenWhenTheBatchIsStillRunningRightAfterTheAnswer() async {
+        let store = FixtureBackend()
+        await store.setFollowupRunReads(3)
+        let model = FollowupsModel(store: store, settleDelay: .milliseconds(1), settleAttempts: 8)
+        await model.load()
+        await model.approve(model.suggestions[0])
+        // The first reads see `running`; the model waits instead of dropping Undo.
+        #expect(model.openUndo(at: .now).map(\.id) == ["sg_receipts"])
+        #expect(model.openUndo(at: .now)[0].suggestion.status == .done)
+    }
+
+    @Test func waitingForTheBatchIsBounded() async {
+        let store = FixtureBackend()
+        await store.setFollowupRunReads(100)
+        let model = FollowupsModel(store: store, settleDelay: .milliseconds(1), settleAttempts: 3)
+        await model.load()
+        await model.approve(model.suggestions[0])
+        // Still running after the bound: no Undo is offered, and nothing hangs.
+        #expect(model.openUndo(at: .now).isEmpty)
+        #expect(model.error == nil)
+    }
+
+    @Test func aSecondUndoIsRefusedAndTheOriginalOffersNone() async {
+        let store = FixtureBackend()
+        let model = FollowupsModel(store: store)
+        await model.load()
+        await model.approve(model.suggestions[0])
+        let window = model.openUndo(at: .now)[0]
+        await model.undo(window)
+        #expect(model.openUndo(at: .now).isEmpty)
+        // A stale second tap on the same window is refused: the original reads as undone.
+        await model.undo(window)
+        #expect(model.error == "This can't be undone any more.")
+        #expect(model.suggestions.filter { $0.id == "undo_sg_receipts" }.count == 1)
+    }
+
+    @Test func approvingABatchAwaitingApprovalHandsOverItsExistingApproval() async throws {
+        let store = FixtureBackend()
+        let model = FollowupsModel(store: store)
+        await model.load()
+        try await store.awaitApproval("sg_receipts")
+        await model.load()
+        let handoff = await model.approve(model.suggestions[0])
+        #expect(handoff?.kind == .approval)
+        #expect(model.error == nil)
+        // It stays on the list until that approval is answered: nothing ran.
+        #expect(model.openUndo(at: .now).isEmpty)
+    }
+
     @Test func undoWindowCloses() async {
         let model = FollowupsModel(store: FixtureBackend())
         await model.load()

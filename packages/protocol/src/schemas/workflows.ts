@@ -72,6 +72,16 @@ export const ActionProposal = Type.Object(
     results: Type.Optional(Type.Array(ActionCallResult)),
     /** The inverse proposal that undoes this one (reversible mail tools only), once offered. */
     undoOf: Type.Optional(Nullable(Id)),
+    /**
+     * The inverse proposal already offered for this one (set on the original, never on the
+     * inverse). Once set, `proposals.undo` refuses a second inverse.
+     */
+    undoneBy: Type.Optional(Nullable(Id)),
+    /**
+     * The Gateway can offer an inverse now: it ran, every call that succeeded has an inverse, and
+     * none was offered yet. The 30 s window is separate (it runs from `updatedAt`).
+     */
+    undoable: Type.Optional(Type.Boolean()),
     createdAt: IsoDateTime,
     expiresAt: IsoDateTime,
     updatedAt: IsoDateTime,

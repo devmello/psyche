@@ -37,21 +37,42 @@ function conflict(message: string): never {
 }
 
 function get(ctx: ProposalMockContext, id: string): ActionProposal {
-  return (
-    ctx.proposals().find((p) => p.id === id) ??
-    (() => {
-      throw new PsycheError("not_found", `proposal ${id} not found`);
-    })()
-  );
+  const found = ctx.proposals().find((p) => p.id === id);
+  if (found === undefined) throw new PsycheError("not_found", `proposal ${id} not found`);
+  return derive(ctx.proposals(), found);
+}
+
+/** What the Gateway adds on every read: whether an inverse is offered now, and which one was. */
+function derive(list: ActionProposal[], p: ActionProposal): ActionProposal {
+  const undoneBy =
+    list.find(
+      (q) =>
+        q.undoOf === p.id &&
+        q.status !== "dismissed" &&
+        q.status !== "expired" &&
+        q.status !== "failed",
+    )?.id ?? null;
+  const ok = new Set((p.results ?? []).filter((r) => r.status === "ok").map((r) => r.index));
+  const reversible =
+    (p.status === "done" || p.status === "partial") &&
+    !p.undoOf &&
+    ok.size > 0 &&
+    p.calls.every((c, i) => !ok.has(i) || INVERSE[c.tool] !== undefined);
+  return { ...p, undoneBy, undoable: reversible && undoneBy === null };
 }
 
 function save(ctx: ProposalMockContext, next: ActionProposal): ActionProposal {
   const list = ctx.proposals();
   const i = list.findIndex((p) => p.id === next.id);
-  if (i === -1) list.unshift(next);
-  else list[i] = next;
-  ctx.emit("proposal.updated", { proposal: next });
-  return next;
+  const stored = derive(list, next);
+  if (i === -1) list.unshift(stored);
+  else list[i] = stored;
+  // An inverse changes its original's `undoneBy`: tell the clients that hold the original.
+  const original = next.undoOf == null ? -1 : list.findIndex((p) => p.id === next.undoOf);
+  if (original !== -1) list[original] = derive(list, list[original] as ActionProposal);
+  ctx.emit("proposal.updated", { proposal: stored });
+  if (original !== -1) ctx.emit("proposal.updated", { proposal: list[original] as ActionProposal });
+  return stored;
 }
 
 const INVERSE: Record<string, string> = {
@@ -71,7 +92,8 @@ export function proposalHandlers(ctx: ProposalMockContext): Handlers {
           .proposals()
           .filter(
             (x) => wanted.includes(x.status) && (p.postId === undefined || x.postId === p.postId),
-          ),
+          )
+          .map((x) => derive(ctx.proposals(), x)),
       };
     },
     "proposals.get": (p) => ({ proposal: get(ctx, p.proposalId) }),
@@ -130,6 +152,7 @@ export function proposalHandlers(ctx: ProposalMockContext): Handlers {
       const proposal = get(ctx, p.proposalId);
       if (proposal.status !== "done" && proposal.status !== "partial")
         conflict(`proposal ${proposal.id} has not run`);
+      if (proposal.undoneBy) conflict(`proposal ${proposal.id} was already undone`);
       if (Date.parse(ctx.now()) - Date.parse(proposal.updatedAt) > UNDO_WINDOW_MS)
         conflict("the undo window has passed");
       const ok = new Set(

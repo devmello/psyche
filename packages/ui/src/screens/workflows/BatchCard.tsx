@@ -17,13 +17,6 @@ import { offsetLabel } from "./MeetingNotesCard.tsx";
 /** How long Undo stays on the receipt row (§7.2; the Gateway's `UNDO_WINDOW_MS`). */
 export const UNDO_WINDOW_MS = 30_000;
 
-/** The mail tools whose batches can be undone by an inverse batch (mark read, move, flag). */
-const REVERSIBLE = /^(mail_(mark_(un)?read|move|(un)?flag)|gmail_modify)$/;
-
-export function isReversible(proposal: ActionProposal): boolean {
-  return proposal.calls.every((c) => REVERSIBLE.test(c.tool));
-}
-
 export interface BatchCardProps {
   proposal: ActionProposal;
   /** The `batch` approval once requested; null while it is being issued. */
@@ -118,8 +111,10 @@ export function BatchCard({
   const undoable =
     onUndo !== undefined &&
     (status === "done" || status === "partial") &&
+    // The Gateway decides: its inverse table, and that none was offered yet (`undoneBy`).
+    proposal.undoable === true &&
+    !proposal.undoneBy &&
     !proposal.undoOf &&
-    isReversible(proposal) &&
     left > 0;
   const glyph =
     status === "running"

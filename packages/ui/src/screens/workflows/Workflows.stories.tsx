@@ -293,6 +293,7 @@ const ran = (extra: object) =>
     createdAt: "2026-10-18T10:12:00Z",
     updatedAt: RAN_AT,
     results: markReadProposal().calls.map((_, index) => ({ index, status: "ok" as const })),
+    undoable: true,
     ...extra,
   });
 
