@@ -1,4 +1,4 @@
-import type { EntitySummary, GraphEntityKind } from "@psyche/protocol";
+import type { EntitySummary, GraphEntityKind, GraphFact } from "@psyche/protocol";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useCall, useGatewayQuery } from "../data/hooks.ts";
@@ -41,6 +41,24 @@ export function useEntitySearch(
     entities: enabled ? (res.data?.entities ?? []) : [],
     loading: enabled && res.loading,
     error: enabled ? res.error : null,
+  };
+}
+
+/**
+ * One fact's versions, current and superseded, newest first (`memory.entities.history`). It loads
+ * only while `enabled`, so a card asks for nothing until the owner opens a fact's History.
+ */
+export function useFactHistory(
+  entityId: string,
+  attribute: GraphFactAttribute,
+  enabled: boolean,
+): { facts: GraphFact[]; loading: boolean; error: string | null; reload: () => void } {
+  const res = useGatewayQuery("memory.entities.history", { entityId, attribute }, { enabled });
+  return {
+    facts: enabled ? (res.data?.facts ?? []) : [],
+    loading: enabled && res.loading,
+    error: enabled ? res.error : null,
+    reload: res.reload,
   };
 }
 
