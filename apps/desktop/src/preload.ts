@@ -229,6 +229,8 @@ const bridge = {
     prefillComposer: (text: string) => ipcRenderer.send(IPC.windowPrefillComposer, { text }),
     /** From the Settings window: the main window comes forward and navigates to `route`. */
     openInMain: (route: string) => ipcRenderer.send(IPC.windowOpenInMain, { route }),
+    /** From the Settings window: the main window comes forward (no navigation). */
+    focusMain: () => ipcRenderer.send(IPC.windowFocusMain),
     onCommand: (cb: (c: unknown) => void) => listen(IPC.shellCommand, cb),
   },
   files: {

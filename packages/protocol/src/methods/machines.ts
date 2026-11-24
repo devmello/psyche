@@ -16,7 +16,7 @@ export const MachinesMethods = {
     result: Type.Object({ machines: Type.Array(MachineInfo) }),
     scope: "operator.read",
     description:
-      "Lists the computers the owner paired for Psyche to use (machines), with status, surfaces, the box's own limits and its account. Read-only. Not implemented until the machine registry lands.",
+      "Lists the computers the owner paired for Psyche to use (machines), with status, surfaces, the box's own limits and its account. Read-only.",
   }),
   "machines.rename": defineMethod({
     params: Type.Object({ id: Id, name: MachineName }),
@@ -24,6 +24,6 @@ export const MachinesMethods = {
     scope: "operator.admin",
     sideEffecting: true,
     description:
-      "Renames a machine. Names match case-insensitively and two machines cannot share one (conflict). Side-effecting. Not implemented until the machine registry lands.",
+      "Renames a machine. Names match case-insensitively and two machines cannot share one (conflict). Side-effecting.",
   }),
 } as const;

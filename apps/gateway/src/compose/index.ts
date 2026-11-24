@@ -330,6 +330,7 @@ import { updateHandlers } from "./update.ts";
 import { usageSummaryHandlers } from "./usage-summary.ts";
 import { createUserProfile } from "./user-profile.ts";
 import { composeVault, maskingLogger, type VaultSetup, vaultSetupFromEnv } from "./vault.ts";
+import { viewHandlers } from "./view.ts";
 import { type ComposedVirtualScreen, composeVirtualScreen } from "./virtual-screen.ts";
 import type { ComposedVm } from "./vm.ts";
 import { type ComposedWebTools, composeWebTools, type WebToolsSetup } from "./web-tools.ts";
@@ -2550,6 +2551,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     ...vault.handlers,
     ...bootstrapAdminHandlers({ db, audit }),
     ...setupTokenHandlers({ db, audit }),
+    // view.*: pane control forwarded to the desktop shell (view.ts).
+    ...viewHandlers(),
     // "Restart to update": stop taking new work and report what is busy (desktop shell only).
     ...updateHandlers({
       db,

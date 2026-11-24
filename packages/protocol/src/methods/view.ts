@@ -5,7 +5,11 @@ import { defineMethod, OkResult } from "./define.ts";
 /**
  * `view.*`: desktop pane control (architecture §5, §11). A client (or the agent, through the
  * Gateway) asks for a pane change; the Gateway forwards it to the desktop shell as a
- * `view.command` event. Only the desktop renders panes; other clients get `unavailable`.
+ * `view.command` event. Only the desktop renders panes, so with no desktop shell connected the
+ * calls answer `unavailable`. Other callers (a paired phone, a loopback CLI) may open, close and
+ * focus display-only panes. `terminal` is desktop-only (it starts or kills a host shell), and so
+ * is a target on `browser`, `files`, `editor` or `diff` (navigation or file access). Those answer
+ * `forbidden` for other callers.
  */
 
 export const ViewPane = StringEnum(

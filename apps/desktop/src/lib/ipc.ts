@@ -89,6 +89,8 @@ export const IPC = {
   windowPrefillComposer: "psyche:window:prefill-composer",
   /** The Settings window's links to anywhere else (Run setup again): the main window navigates. */
   windowOpenInMain: "psyche:window:open-in-main",
+  /** The Settings window raises the main window (a pane it opened is shown there). */
+  windowFocusMain: "psyche:window:focus-main",
   shellCommand: "psyche:shell:command",
   notifyShow: "psyche:notify:show",
   // A passkey for the remote Gateway, made in a window of its origin (remote windows only).

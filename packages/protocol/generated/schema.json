@@ -1909,7 +1909,7 @@
         "sideEffecting": false
       },
       {
-        "description": "Lists the computers the owner paired for Psyche to use (machines), with status, surfaces, the box's own limits and its account. Read-only. Not implemented until the machine registry lands.",
+        "description": "Lists the computers the owner paired for Psyche to use (machines), with status, surfaces, the box's own limits and its account. Read-only.",
         "name": "machines.list",
         "params": "#/$defs/MachinesListParams",
         "result": "#/$defs/MachinesListResult",
@@ -1917,7 +1917,7 @@
         "sideEffecting": false
       },
       {
-        "description": "Renames a machine. Names match case-insensitively and two machines cannot share one (conflict). Side-effecting. Not implemented until the machine registry lands.",
+        "description": "Renames a machine. Names match case-insensitively and two machines cannot share one (conflict). Side-effecting.",
         "name": "machines.rename",
         "params": "#/$defs/MachinesRenameParams",
         "result": "#/$defs/MachinesRenameResult",

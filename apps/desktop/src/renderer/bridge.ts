@@ -249,6 +249,7 @@ function fullDesktopPlatform(b: PsycheBridge): ShellPlatform {
       openSettings: (section) => b.windows.openSettings(section),
       prefillComposer: (text) => b.windows.prefillComposer(text),
       openInMain: (route) => b.windows.openInMain(route),
+      focusMain: () => b.windows.focusMain(),
       onCommand: (cb) => b.windows.onCommand((c) => cb(c as ShellCommand)),
     },
     notify: { show: (n) => b.notify.show(n) },
