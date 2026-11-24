@@ -1344,6 +1344,19 @@ export const zh: Partial<Catalogue> = {
     "需要使用 Developer ID 签名并带有描述文件的 Psyche 助手",
   "settings.credentials.keyFileExplainer":
     "打开保险库的密钥是一个只有你的账户能读取的文件。将其移至钥匙串（Touch ID）需要经过签名的 Psyche 助手；此版本的助手未签名。",
+  "settings.credentials.lockNow": "立即锁定",
+  "settings.credentials.autoLock.label": "空闲后自动锁定",
+  "settings.credentials.autoLock.hint": "超过这段时间未使用，保险库会自动锁定。",
+  "settings.credentials.autoLock.m15": "15 分钟",
+  "settings.credentials.autoLock.h1": "1 小时",
+  "settings.credentials.autoLock.h8": "8 小时",
+  "settings.credentials.autoLock.h24": "24 小时",
+  "settings.credentials.autoLock.never": "从不",
+  "settings.credentials.autoLock.custom": "{minutes} 分钟",
+  "settings.credentials.autoLock.neverWarning":
+    "关闭自动锁定后，保险库会一直保持解锁，直到你手动锁定。使用这台电脑的任何人都可以使用你保存的凭据。",
+  "settings.credentials.err.lock": "无法锁定保险库：{reason}",
+  "settings.credentials.err.autoLock": "自动锁定未更改：{reason}",
 
   "settings.credentials.detail.executor.browser": "浏览器",
   "settings.credentials.detail.executor.connector": "连接器",

@@ -1373,6 +1373,19 @@ export const ar: Partial<Catalogue> = {
     "يحتاج إلى مساعد Psyche موقَّع بمعرّف مطوّر وملف تعريف توفير",
   "settings.credentials.keyFileExplainer":
     "المفتاح الذي يفتح خزنتك هو ملف لا يمكن إلا لحسابك قراءته. يحتاج نقله إلى سلسلة المفاتيح (Touch ID) إلى مساعد Psyche موقَّع؛ ومساعد هذا الإصدار غير موقَّع.",
+  "settings.credentials.lockNow": "قفل الآن",
+  "settings.credentials.autoLock.label": "القفل التلقائي بعد وقت الخمول",
+  "settings.credentials.autoLock.hint": "يُقفل الخزنة تلقائيًا بعد هذه المدة دون استخدام.",
+  "settings.credentials.autoLock.m15": "15 دقيقة",
+  "settings.credentials.autoLock.h1": "ساعة واحدة",
+  "settings.credentials.autoLock.h8": "8 ساعات",
+  "settings.credentials.autoLock.h24": "24 ساعة",
+  "settings.credentials.autoLock.never": "أبدًا",
+  "settings.credentials.autoLock.custom": "{minutes} دقيقة",
+  "settings.credentials.autoLock.neverWarning":
+    "مع إيقاف القفل التلقائي تبقى الخزنة مفتوحة حتى تقفلها بنفسك. يستطيع أي شخص على هذا الجهاز استخدام بيانات الاعتماد المحفوظة لديك.",
+  "settings.credentials.err.lock": "لم يُقفل الخزنة: {reason}",
+  "settings.credentials.err.autoLock": "لم يتغير القفل التلقائي: {reason}",
 
   "settings.credentials.detail.executor.browser": "المتصفح",
   "settings.credentials.detail.executor.connector": "الموصّل",

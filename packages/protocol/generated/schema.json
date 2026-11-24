@@ -4285,6 +4285,14 @@
         "sideEffecting": false
       },
       {
+        "description": "Sets the idle auto-lock (null = never), persisted with the vault. Admin only. Side-effecting.",
+        "name": "vault.setAutoLock",
+        "params": "#/$defs/VaultSetAutoLockParams",
+        "result": "#/$defs/VaultSetAutoLockResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
         "description": "Creates the vault with a random key wrapped by the chosen slot plus a recovery key, returned once. Side-effecting.",
         "name": "vault.setup",
         "params": "#/$defs/VaultSetupParams",
@@ -52229,6 +52237,37 @@
       ],
       "type": "object"
     },
+    "VaultSetAutoLockParams": {
+      "properties": {
+        "minutes": {
+          "anyOf": [
+            {
+              "maximum": 10080,
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "minutes"
+      ],
+      "type": "object"
+    },
+    "VaultSetAutoLockResult": {
+      "properties": {
+        "status": {
+          "$ref": "#/$defs/VaultStatus"
+        }
+      },
+      "required": [
+        "status"
+      ],
+      "type": "object"
+    },
     "VaultSetupParams": {
       "properties": {
         "slot": {
@@ -52280,8 +52319,16 @@
           "type": "boolean"
         },
         "autoLockMinutes": {
-          "minimum": 1,
-          "type": "integer"
+          "anyOf": [
+            {
+              "maximum": 10080,
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "lockAt": {
           "anyOf": [

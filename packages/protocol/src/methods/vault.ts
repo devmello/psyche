@@ -89,6 +89,17 @@ export const VaultMethods = {
     sideEffecting: true,
     description: "Locks the vault and zeroizes the key in memory. Side-effecting.",
   }),
+  "vault.setAutoLock": defineMethod({
+    params: Type.Object({
+      /** Idle minutes before the vault locks (1 to 10080, 7 days); null turns auto-lock off. */
+      minutes: Type.Union([Type.Integer({ minimum: 1, maximum: 10_080 }), Type.Null()]),
+    }),
+    result: Type.Object({ status: VaultStatus }),
+    scope: "operator.admin",
+    sideEffecting: true,
+    description:
+      "Sets the idle auto-lock (null = never), persisted with the vault. Admin only. Side-effecting.",
+  }),
   "vault.add": defineMethod({
     params: Type.Object({
       kind: CredentialKind,
