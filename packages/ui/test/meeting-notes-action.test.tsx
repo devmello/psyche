@@ -14,7 +14,7 @@ const AUDIO: LibraryItem = {
   path: "uploads/planning-call.m4a",
   size: 4096,
   sha256: "sha256:00",
-  origin: "user",
+  origin: "upload",
   threadId: null,
   taskId: null,
   tags: [],
