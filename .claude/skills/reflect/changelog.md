@@ -2,6 +2,14 @@
 
 Newest first. The `reflect` skill reads the top entry to know where the last pass stopped.
 
+## 2026-11-24 (b): reflect pass over #1596, #1599-#1607
+Last pass: the 2026-11-24 entry below. Evidence: PR bodies' Learnings, the orchestrator's review findings for each PR (SendMessage, not on GitHub) and its simulator pass on #1606. `failures.tsv` has no lines since 2026-11-19, so nothing to act on there.
+- **`psyche-builder` §2 (new bullet "Wire both ends, then every sibling"):** three recurring review findings. Stored-but-never-read or one-store-only (#1603, #1604, #1606 unflagged methods); sibling path bypasses a new guard (#1601 then #1607, #1606 `callsModel`, #1596 timeout on one path); wrong id kind or input the data lacks (#1599, #1600). A question list for the PR body, since no script can know the siblings.
+- **`psyche-builder/learnings.md`:** two lines from PR Learnings (#1599, #1601, #1607, #1602, #1604, #1606); folded the `timeout` line into the bash 3.2 line.
+- **`psyche-apple`:** #1606 added as another case of the `@ViewBuilder`-in-`ZStack` trap (already documented).
+- **`orchestrate`:** verify output to a file, not `| tail` (#1606).
+- Not changed: #1602 duplicate Recent list (one occurrence, low cost); #1596 "Always" scope for app writes and widget attention (one PR; the taint point is already in `psyche-permissions`). `.claude/CLAUDE.md` untouched. Code facts checked on main: `callsModel`/`callsModelWhen` in `packages/protocol/src/methods`, `scrubMemorySearch` in `apps/gateway/src/compose/memory-chunks.ts`.
+
 ## 2026-11-24: reflect pass over #1574-#1596
 Last pass: #1557. Evidence: the orchestrator's first-hand lessons for the wave (#1580 R1, #1581, #1586, #1588) and the security reviews of the install PRs.
 - **`psyche-apple`:** SwiftUI traps (`.task` on an empty `Group`, `@ViewBuilder` siblings in a `ZStack`, `LabeledContent` over placeholder labels) and simulator deep-link behaviour (checked against `Router.swift`).
