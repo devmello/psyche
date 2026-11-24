@@ -879,17 +879,22 @@ export class PolicyEngine {
       if (kind !== "credential_fill" && origin === undefined) s = s.filter((x) => x !== "site");
       return s.length === 0 ? (["once"] as GrantScope[]) : s;
     };
+    // An MCP App's page chose these arguments: its writes are tapped once, never kept as a task,
+    // session or Always grant (a grant would go to the model's calls, not to the app).
+    const appWrite = ctx.initiator === "mcp_app" && SEVERITY[se] >= SEVERITY.write;
     const ask = (rule: string, reason?: string, offer: GrantScope[] = ALL_SCOPES, extra = {}) =>
       done("ask", rule, reason, {
         ...extra,
         binding,
         // Manual: writes and above are `once` only; first reads offer task / site (security §3.2).
         scopes: scopesFor(
-          mode !== "manual"
-            ? offer
-            : SEVERITY[se] >= SEVERITY.write
-              ? ["once"]
-              : ["once", "task", "site"],
+          appWrite
+            ? ["once"]
+            : mode !== "manual"
+              ? offer
+              : SEVERITY[se] >= SEVERITY.write
+                ? ["once"]
+                : ["once", "task", "site"],
         ),
         ...(typedConfirmation === undefined ? {} : { typedConfirmation }),
         ...(deviceOnly === undefined ? {} : { deviceOnly }),
@@ -903,7 +908,7 @@ export class PolicyEngine {
     // An MCP App's page chose these arguments: no standing grant (made for the owner's own request
     // or the model's) approves a write or worse that it asked for. The owner's configured allow
     // rules for the server still apply, so a server the owner allowed stays allowed.
-    const standing = !(ctx.initiator === "mcp_app" && SEVERITY[se] >= SEVERITY.write);
+    const standing = !appWrite;
     const floor = floors.find((f) => {
       if (f.grantLiftable !== true) return true;
       grantCovers ??=

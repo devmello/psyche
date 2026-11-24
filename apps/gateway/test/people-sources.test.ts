@@ -416,7 +416,13 @@ describe("notes and chats adapters", () => {
 
   it("chats: only the owner's own words in private chats, resuming a long backlog", () => {
     const db = openDb(":memory:");
-    const say = (threadId: string, role: "user" | "agent", text: string, provenance = "owner") =>
+    const say = (
+      threadId: string,
+      role: "user" | "agent",
+      text: string,
+      provenance = "owner",
+      via?: "widget",
+    ) =>
       appendMessage(
         db,
         {
@@ -424,6 +430,7 @@ describe("notes and chats adapters", () => {
           role,
           blocks: [{ type: "text", md: text }] as never,
           provenance: provenance as never,
+          ...(via === undefined ? {} : { via }),
         },
         { expectedWriterRunId: null },
       );
@@ -431,6 +438,8 @@ describe("notes and chats adapters", () => {
     say(main.id, "user", "Remind me to call Rita Gomez");
     say(main.id, "agent", "Sure, and Mo Chen?");
     say(main.id, "user", "forwarded: Omar Haddad says hi", "untrusted");
+    // A widget or MCP App call is text the page wrote: never the owner's words.
+    say(main.id, "user", "Run mcp__srv__x with Sam Page", "owner", "widget");
     const secret = createThread(db, { kind: "incognito", sessionKey: "owner:incognito" });
     say(secret.id, "user", "Dana Fox private");
     const channel = createThread(db, { kind: "main", sessionKey: "channel:telegram:x:dm:9" });

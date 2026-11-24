@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 
-import type { McpApp } from "@psyche/protocol";
+import { APPROVAL_TTL_MS, type McpApp } from "@psyche/protocol";
 import { GatewayProvider, McpAppPanel, UiSlotsProvider } from "@psyche/ui";
 import { MockGateway } from "@psyche/ui/testing";
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
@@ -132,5 +132,90 @@ describe("MCP App JSON-RPC bridge", () => {
     await send(rpc("tools/call", { name: "show_chart" }));
     expect(gateway.mcpAppCalls).toEqual([]);
     expect(posted.mock.calls[0]?.[0]).toMatchObject({ id: 1, error: { code: -32000 } });
+  });
+
+  // The page is untrusted: it must not drain the owner's request budget (rate_limited on
+  // chat.send and approvals.answer), so its tool calls are limited in the frame.
+  describe("limits on the page", () => {
+    const post = (frame: HTMLIFrameElement, data: unknown) =>
+      window.dispatchEvent(
+        new MessageEvent("message", {
+          data,
+          origin: "null",
+          source: frame.contentWindow as Window,
+        }),
+      );
+    const answers = (posted: { mock: { calls: unknown[][] } }) =>
+      posted.mock.calls.map((c) => c[0] as { id: number; error?: { code: number } });
+
+    it("2000 synchronous posts reach the Gateway at most 5 times", async () => {
+      const { frame, posted, gateway } = await open("tc_1");
+      await act(async () => {
+        for (let i = 0; i < 2000; i += 1) post(frame, rpc("tools/call", { name: "t" }, i));
+        await new Promise((r) => setTimeout(r, 0));
+      });
+      expect(gateway.mcpAppCalls.length).toBeLessThanOrEqual(5);
+      expect(gateway.mcpAppCalls.length).toBeGreaterThan(0);
+      expect(answers(posted).length).toBe(2000);
+    });
+
+    it("10 concurrent posts: one request, nine immediate -32000 answers", async () => {
+      const { frame, posted, gateway } = await open("tc_1");
+      await act(async () => {
+        for (let i = 0; i < 10; i += 1) post(frame, rpc("tools/call", { name: "t" }, i));
+        await new Promise((r) => setTimeout(r, 0));
+      });
+      expect(gateway.mcpAppCalls).toHaveLength(1);
+      const refused = answers(posted).filter((a) => a.error?.code === -32000);
+      expect(refused).toHaveLength(9);
+    });
+
+    it("an app that awaits each result can make 5 calls in a row, and a 6th at once is slowed", async () => {
+      const { send, gateway, posted } = await open("tc_1");
+      for (let i = 0; i < 5; i += 1) await send(rpc("tools/call", { name: "t" }, i));
+      expect(gateway.mcpAppCalls).toHaveLength(5);
+      await send(rpc("tools/call", { name: "t" }, 99));
+      expect(gateway.mcpAppCalls).toHaveLength(5);
+      expect(answers(posted).at(-1)).toMatchObject({ id: 99, error: { code: -32000 } });
+    });
+  });
+
+  describe("waiting on the owner", () => {
+    it("asks for a timeout as long as an approval card lives", async () => {
+      const { send, gateway } = await open("tc_1");
+      const seen: unknown[] = [];
+      const original = gateway.request.bind(gateway);
+      gateway.request = ((method: string, params: unknown, options: unknown) => {
+        if (method === "mcp.app.call") seen.push(options);
+        return (original as (...a: unknown[]) => unknown)(method, params, options);
+      }) as typeof gateway.request;
+      await send(rpc("tools/call", { name: "t" }));
+      expect(seen).toHaveLength(1);
+      expect((seen[0] as { timeoutMs: number }).timeoutMs).toBeGreaterThanOrEqual(APPROVAL_TTL_MS);
+    });
+
+    it("a reply 31 seconds later still reaches the frame", async () => {
+      vi.useFakeTimers({ shouldAdvanceTime: true });
+      try {
+        const { send, gateway, posted } = await open("tc_1");
+        gateway.request = ((method: string) =>
+          method === "mcp.app.call"
+            ? new Promise((resolve) =>
+                setTimeout(() => resolve({ isError: false, output: { blocks: [] } }), 31_000),
+              )
+            : Promise.resolve({})) as typeof gateway.request;
+        await send(rpc("tools/call", { name: "t" }, 4));
+        expect(posted).not.toHaveBeenCalled();
+        await act(async () => {
+          await vi.advanceTimersByTimeAsync(31_000);
+        });
+        expect(posted).toHaveBeenCalledWith(
+          { jsonrpc: "2.0", id: 4, result: { content: [], isError: false } },
+          "*",
+        );
+      } finally {
+        vi.useRealTimers();
+      }
+    });
   });
 });

@@ -28,7 +28,8 @@ export interface McpAppCallDeps {
   withheld(serverId: string, tool: string): boolean;
   host: {
     appResources(serverId: string): { tool: string; resourceUri: string }[];
-    listTools(serverId: string): Promise<{ tools: { name: string }[] }>;
+    /** The pinned tools/list, with no round trip to the server (a page must not cause one). */
+    pinnedTools(serverId: string): { tools: { name: string }[] };
   };
   /** The tool and chat of a transcript tool call; `undefined` for an unknown one. */
   origin(call: Call, toolCallId: string): { tool: string; threadId: string } | undefined;
@@ -69,7 +70,7 @@ export function mcpAppCallHandler(deps: McpAppCallDeps): HandlerDef {
       }
       // The target is built from the origin's server and the bare name: no other namespace exists.
       const target = mcpToolName(serverId, p.name);
-      const listed = (await deps.host.listTools(serverId)).tools.find((t) => t.name === target);
+      const listed = deps.host.pinnedTools(serverId).tools.find((t) => t.name === target);
       if (listed === undefined) {
         throw new PsycheError("not_found", `${serverId} has no tool ${p.name}.`);
       }

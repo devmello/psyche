@@ -43,7 +43,7 @@ function setup(
     host: {
       appResources: (id) =>
         id === "echo" ? [{ tool: "show_chart", resourceUri: "ui://echo/chart.html" }] : [],
-      listTools: async () => ({
+      pinnedTools: () => ({
         tools: (over.tools ?? ["mcp__echo__send", "mcp__echo__lookup"]).map((name) => ({ name })),
       }),
     },

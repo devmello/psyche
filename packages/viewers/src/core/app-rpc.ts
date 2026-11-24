@@ -37,6 +37,41 @@ export interface AppRpcHost {
   callTool?: (name: string, args: Record<string, unknown>) => Promise<AppToolOutcome>;
   /** `ui/notifications/size-changed`: the app's wanted height in CSS pixels. */
   resize?: (height: number) => void;
+  /**
+   * Limits the page, not the owner: one `tools/call` at a time and a burst budget per frame, so a
+   * looping page cannot drain the owner's request budget. Absent: no limit (tests only).
+   */
+  gate?: ToolCallGate;
+}
+
+export interface ToolCallGate {
+  /** A release function when the call may go, or the plain refusal for the app. */
+  enter(): (() => void) | string;
+}
+
+/** Burst of calls a page may make, then one more per second. */
+export const APP_CALL_BURST = 5;
+export const APP_CALL_REFILL_MS = 1000;
+
+/** One frame's gate: one call in flight, a burst of 5, then 1 per second. */
+export function createToolCallGate(now: () => number = Date.now): ToolCallGate {
+  let inFlight = false;
+  let tokens = APP_CALL_BURST;
+  let last = now();
+  return {
+    enter() {
+      if (inFlight) return "The app already has a tool call running; wait for its answer.";
+      const t = now();
+      tokens = Math.min(APP_CALL_BURST, tokens + (t - last) / APP_CALL_REFILL_MS);
+      last = t;
+      if (tokens < 1) return "The app is calling tools too fast; wait a moment and try again.";
+      tokens -= 1;
+      inFlight = true;
+      return () => {
+        inFlight = false;
+      };
+    },
+  };
 }
 
 const TOOL_NAME = /^[A-Za-z0-9_-]{1,64}$/;
@@ -145,6 +180,8 @@ export async function handleAppRpc(
       if (host.callTool === undefined) {
         return fail(id, JSONRPC_REFUSED, "This app cannot call tools here.");
       }
+      const admitted = host.gate?.enter() ?? (() => undefined);
+      if (typeof admitted === "string") return fail(id, JSONRPC_REFUSED, admitted);
       try {
         const outcome = await host.callTool(name, args ?? {});
         return { jsonrpc: "2.0", id, result: toCallToolResult(outcome) };
@@ -152,6 +189,8 @@ export async function handleAppRpc(
         const message =
           err instanceof Error && err.message !== "" ? err.message : "The call failed.";
         return fail(id, JSONRPC_REFUSED, message.slice(0, 500));
+      } finally {
+        admitted();
       }
     }
     default:

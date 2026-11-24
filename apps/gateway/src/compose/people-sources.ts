@@ -660,7 +660,9 @@ function chatsAdapter(deps: SourceDeps, db: PsycheDb): GraphSourceAdapter {
             ...(before === undefined ? {} : { beforeSeq: before }),
           });
           for (const m of page.messages) {
-            if (m.role !== "user" || m.provenance !== "owner" || m.createdAt <= since) continue;
+            // A widget or MCP App call is text the widget or page wrote, never the owner's words.
+            if (m.role !== "user" || m.provenance !== "owner" || m.via === "widget") continue;
+            if (m.createdAt <= since) continue;
             const text = m.blocks
               .flatMap((b) => (b.type === "text" ? [b.md] : []))
               .join("\n")

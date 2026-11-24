@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { type AppRpcHost, handleAppRpc, isJsonRpc } from "../core/app-rpc.ts";
+import { type AppRpcHost, createToolCallGate, handleAppRpc, isJsonRpc } from "../core/app-rpc.ts";
 import {
   ARTIFACT_SANDBOX,
   type ArtifactPolicy,
@@ -31,7 +31,7 @@ export interface ArtifactFrameProps {
    * An MCP App's JSON-RPC bridge (generative-ui-2026 P9). Omit it and the frame answers nothing:
    * a page's JSON-RPC messages are ignored. Inline placement only.
    */
-  rpc?: Omit<AppRpcHost, "resize">;
+  rpc?: Omit<AppRpcHost, "resize" | "gate">;
 }
 
 const DEFAULT_POLICY: ArtifactPolicy = { allowScripts: true };
@@ -74,6 +74,8 @@ export function ArtifactFrame(props: ArtifactFrameProps) {
 
   useEffect(() => {
     const expectedOrigin = hostOrigin ?? "null";
+    // One gate per rendered document: a page's tool calls are limited, whatever it posts.
+    const gate = createToolCallGate();
     const onMessage = (e: MessageEvent) => {
       const frame = ref.current;
       if (frame === null || e.source !== frame.contentWindow) return;
@@ -86,6 +88,7 @@ export function ArtifactFrame(props: ArtifactFrameProps) {
         const target = frame.contentWindow;
         void handleAppRpc(e.data, {
           ...rpc,
+          gate,
           resize: (h) => {
             const cb = callbacks.current;
             setHeight(Math.min(cb.maxHeight ?? 4000, Math.max(cb.minHeight ?? 40, h)));

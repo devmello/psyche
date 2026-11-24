@@ -1,9 +1,12 @@
-import type { McpApp } from "@psyche/protocol";
+import { APPROVAL_TTL_MS, type McpApp } from "@psyche/protocol";
 import { AppWindow, ShieldAlert } from "lucide-react";
 import { type ReactElement, useCallback, useEffect, useState } from "react";
 import { useStore } from "../data/index.ts";
 import { t } from "../i18n/core.ts";
 import { useSlots } from "../slots.tsx";
+
+/** An approval card's whole life, plus time for the tool to run after the tap. */
+export const MCP_APP_CALL_TIMEOUT_MS = APPROVAL_TTL_MS + 5 * 60_000;
 
 /**
  * An MCP App a connector's tool declares, under that tool's row (generative-ui-2026 P9). The page
@@ -42,7 +45,13 @@ export function McpAppPanel({
     async (name: string, args: Record<string, unknown>) => {
       if (toolCallId === undefined) throw new Error(t("widgets.app.callUnavailable"));
       try {
-        return await store.call("mcp.app.call", { toolCallId, name, arguments: args });
+        // The call can wait on the owner's tap (a card lives APPROVAL_TTL_MS), so it must not time out
+        // at the client's 30 s default: the tool would still run and the page never hear.
+        return await store.call(
+          "mcp.app.call",
+          { toolCallId, name, arguments: args },
+          { timeoutMs: MCP_APP_CALL_TIMEOUT_MS },
+        );
       } catch (err) {
         throw new Error(err instanceof Error ? err.message : t("widgets.app.callFailed"));
       }

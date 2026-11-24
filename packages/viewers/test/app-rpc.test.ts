@@ -1,7 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  APP_CALL_BURST,
   APP_RPC_MAX_CHARS,
   type AppRpcHost,
+  createToolCallGate,
   handleAppRpc,
   isJsonRpc,
   JSONRPC_INVALID_PARAMS,
@@ -219,5 +221,57 @@ describe("toCallToolResult", () => {
       content: [{ type: "text", text: "5" }],
       isError: false,
     });
+  });
+});
+
+describe("the page's tool-call gate", () => {
+  it("lets one call run at a time and answers the rest at once, without running them", async () => {
+    const now = 0;
+    const gate = createToolCallGate(() => now);
+    let release: (() => void) | undefined;
+    const callTool = vi.fn(
+      () =>
+        new Promise<{ isError: boolean; output: unknown }>((res) => {
+          release = () => res({ isError: false, output: {} });
+        }),
+    );
+    const h: AppRpcHost = { callTool, gate };
+    const first = handleAppRpc(call({ name: "t" }, 1), h);
+    const rest = await Promise.all(
+      Array.from({ length: 9 }, (_, i) => handleAppRpc(call({ name: "t" }, i + 2), h)),
+    );
+    expect(callTool).toHaveBeenCalledTimes(1);
+    for (const r of rest) expect(r).toMatchObject({ error: { code: JSONRPC_REFUSED } });
+    release?.();
+    expect(await first).toMatchObject({ id: 1, result: { isError: false } });
+    // Positive control: once the first is done, the next call runs.
+    const next = handleAppRpc(call({ name: "t" }, 20), h);
+    release?.();
+    expect(await next).toMatchObject({ id: 20, result: { isError: false } });
+  });
+
+  it("allows a burst of 5, then one a second", async () => {
+    let now = 0;
+    const gate = createToolCallGate(() => now);
+    const callTool = vi.fn(async () => ({ isError: false, output: {} }));
+    const h: AppRpcHost = { callTool, gate };
+    for (let i = 0; i < APP_CALL_BURST; i += 1) await handleAppRpc(call({ name: "t" }, i), h);
+    expect(callTool).toHaveBeenCalledTimes(APP_CALL_BURST);
+    expect(await handleAppRpc(call({ name: "t" }, 50), h)).toMatchObject({
+      error: { code: JSONRPC_REFUSED },
+    });
+    now += 1000;
+    expect(await handleAppRpc(call({ name: "t" }, 51), h)).toMatchObject({ result: {} });
+    expect(callTool).toHaveBeenCalledTimes(APP_CALL_BURST + 1);
+    expect(await handleAppRpc(call({ name: "t" }, 52), h)).toMatchObject({ error: {} });
+  });
+
+  it("a refused or invalid call does not spend the budget", async () => {
+    const gate = createToolCallGate(() => 0);
+    const h: AppRpcHost = { callTool: async () => ({ isError: false, output: {} }), gate };
+    for (let i = 0; i < 20; i += 1) await handleAppRpc(call({ name: "mcp__x__y" }, i), h);
+    for (let i = 0; i < APP_CALL_BURST; i += 1) {
+      expect(await handleAppRpc(call({ name: "t" }, 100 + i), h)).toMatchObject({ result: {} });
+    }
   });
 });
