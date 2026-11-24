@@ -58,7 +58,9 @@ struct SpacesHomeSection: View {
     init(store: any PsycheBackend) { _model = State(initialValue: SpacesListModel(store: store)) }
 
     var body: some View {
-        Group {
+        // A container that always exists, so `.task` runs even while there is nothing to show yet. A `Group` that is
+        // empty before the first load never realizes its task, so no Space ever loads (the Home section stayed hidden).
+        VStack(alignment: .leading, spacing: 0) {
             if !model.spaces.isEmpty || !model.proposals.isEmpty || !model.archived.isEmpty {
                 VStack(alignment: .leading, spacing: PsycheMetrics.sectionSpacing) {
                     if !model.spaces.isEmpty { spaceList }
