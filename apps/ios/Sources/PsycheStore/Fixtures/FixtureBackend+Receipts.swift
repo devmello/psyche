@@ -51,8 +51,12 @@ enum FixtureReceipts {
 extension FixtureBackend: ReceiptsBackend {
     public func receipts(cursor: String?) async throws -> ReceiptPage {
         await pause()
-        // The fixture has few rows, so it fits one page; the cursor is only echoed back.
-        return ReceiptPage(receipts: receiptsState.receipts, nextCursor: nil)
+        // Two rows a page, so the four fixture receipts take two pages. The cursor is the offset of the next row.
+        let start = cursor.flatMap { Int($0) } ?? 0
+        let rows = receiptsState.receipts
+        guard start >= 0, start <= rows.count else { throw BackendError.refused("bad cursor") }
+        let end = min(start + 2, rows.count)
+        return ReceiptPage(receipts: Array(rows[start..<end]), nextCursor: end < rows.count ? String(end) : nil)
     }
 
     public func receipt(id: String) async throws -> ReceiptItem {
