@@ -12,7 +12,8 @@ extension GatewayBackend {
         guard let t = task["task"] else { throw BackendError.notFound }
         let runs = try await call("runs.list", .obj(["taskId": .string(taskID), "limit": .number(1)]))
         var steps: [TaskRunStep] = []
-        if let runID = runs["runs"]?.array?.first?["id"]?.string {
+        let runID = runs["runs"]?.array?.first?["id"]?.string
+        if let runID {
             let run = try await call("runs.get", .obj(["runId": .string(runID)]))
             steps = (run["steps"]?.array ?? []).compactMap(Self.runStep)
         }
@@ -25,7 +26,8 @@ extension GatewayBackend {
             endedAt: WireFormat.date(t["completedAt"]?.string),
             summary: t["summary"]?.string.flatMap { $0.isEmpty ? nil : $0 },
             steps: steps,
-            limits: Self.taskLimits(t["specialist"]))
+            limits: Self.taskLimits(t["specialist"]),
+            runID: runID)
     }
 
     public func pauseTask(id: String) async throws {

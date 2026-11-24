@@ -123,11 +123,14 @@ public struct TaskRunDetail: Sendable, Equatable {
     public var steps: [TaskRunStep]
     /// The job's limits, when the task is a specialist's job. Nil for any other task.
     public var limits: TaskLimits?
+    /// The latest run's id, for the run details screen. Nil when the task has no run yet.
+    public var runID: String?
 
     public init(
         taskID: String, title: String, state: TaskRunState, startedAt: Date?, endedAt: Date?, summary: String?,
-        steps: [TaskRunStep], limits: TaskLimits? = nil
+        steps: [TaskRunStep], limits: TaskLimits? = nil, runID: String? = nil
     ) {
+        self.runID = runID
         self.taskID = taskID
         self.title = title
         self.state = state
