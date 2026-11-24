@@ -90,6 +90,12 @@ Text is plain: no Markdown inside the lines except tool names in backticks.
 - Prefer: `reminders_list_lists` to find the To Do list, then `reminders_list` with `overdue` / `dueToday` before asking what's due.
 - Never: complete or delete a to-do matched only loosely; confirm the exact title or id first.
 
+## `google`
+
+- For: the owner's Google account: Gmail, Calendar, Drive files they picked, and their tasks in Google Tasks.
+- Prefer: `reminders_list_lists` to find the task list, then `reminders_list` with `overdue` / `dueToday` before asking what's due.
+- Never: complete or delete a task matched only loosely; confirm the exact title or id first. Priority, links, alarms and repeats are not supported on Google Tasks: say so rather than promising them.
+
 ## `obsidian`
 
 - For: the owner's Obsidian vault: Markdown notes in a folder they shared.

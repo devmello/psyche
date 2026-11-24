@@ -90,7 +90,12 @@ describe("Google OAuth (desktop client, loopback + PKCE)", () => {
     expect(q.get("access_type")).toBe("offline");
     expect(q.get("redirect_uri")).toMatch(/^http:\/\/127\.0\.0\.1:\d+\/callback$/);
     expect(q.get("scope")?.split(" ").sort()).toEqual(
-      [GOOGLE_SCOPES.gmailModify, GOOGLE_SCOPES.calendar, GOOGLE_SCOPES.driveFile].sort(),
+      [
+        GOOGLE_SCOPES.gmailModify,
+        GOOGLE_SCOPES.calendar,
+        GOOGLE_SCOPES.driveFile,
+        GOOGLE_SCOPES.tasks,
+      ].sort(),
     );
     expect(record).toMatchObject({
       status: "connected",
@@ -570,7 +575,12 @@ describe("review regressions", () => {
       g.requests.filter((q) => q.url.href === "https://oauth2.googleapis.com/revoke").length,
     ).toBe(revokesBefore + 1);
     expect(r.scopes.sort()).toEqual(
-      [GOOGLE_SCOPES.calendarReadonly, GOOGLE_SCOPES.driveFile, GOOGLE_SCOPES.gmailReadonly].sort(),
+      [
+        GOOGLE_SCOPES.calendarReadonly,
+        GOOGLE_SCOPES.driveFile,
+        GOOGLE_SCOPES.gmailReadonly,
+        GOOGLE_SCOPES.tasksReadonly,
+      ].sort(),
     );
   });
 
