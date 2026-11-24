@@ -87,6 +87,7 @@ describe("Apple connectors on a Host that isn't a Mac", () => {
     checking: false,
     actionError: null,
     actionFailure: null,
+    secretFailure: null,
     notice: null,
     review: null,
     check: noop,

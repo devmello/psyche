@@ -144,6 +144,8 @@ export interface ConnectorsPanelProps extends LoadProps {
   onCheck?: (connector: Connector) => void;
   /** "Open System Settings" for a connector waiting on a macOS grant (reconnects it, #549). */
   onGrant?: (connector: Connector) => void;
+  /** A failed check or grant for one connector, shown on its row. */
+  rowError?: { id: string; message: string } | null;
   /** `connectors.catalogue`: each type's action groups for the Apple app cards (#640). */
   catalogue?: readonly ConnectorCatalogueEntry[];
   /**
@@ -185,6 +187,7 @@ export function ConnectorsPanel({
   defaultAddType,
   onCheck,
   onGrant,
+  rowError = null,
   sharedFolders = [],
   onShareFolder,
   onConfigure,
@@ -346,6 +349,7 @@ export function ConnectorsPanel({
           status={r.status}
           fix={r.fix}
           onOpen={open(r.id)}
+          error={rowError?.id === r.id ? rowError.message : null}
         />
       ));
   const has = (group: RowData["group"]) => rows.some((r) => r.group === group);
@@ -448,6 +452,9 @@ export function ConnectorsPanel({
             }}
           />
         </div>
+      ) : null}
+      {showing === "detail" && connector && rowError?.id === connector.id ? (
+        <ErrorNotice what={rowError.message} did="" />
       ) : null}
       {showing === "detail" && connector ? (
         <ConnectorDetail
@@ -662,19 +669,32 @@ export function ConnectorsSection({
   const onTry = usePrefillComposer();
   const call = useCall();
   const [configureError, setConfigureError] = useState<string | null>(null);
+  const [rowError, setRowError] = useState<{ id: string; message: string } | null>(null);
   // Built in unless the host supplies them: reconnect (for a macOS grant, the helper opens
   // System Settings) and re-check (#549).
   const reconnect = async (c: Connector, action: "check" | "open_settings") => {
+    setRowError(null);
     const catalogueId = await call("connectors.catalogue", {})
       .then((r) => r.entries.find((e) => e.type === c.type)?.id ?? c.type)
       .catch(() => c.type);
-    await call("connectors.connect", {
-      catalogueId,
-      scopeMode: c.scopeMode,
-      label: c.label,
-      connectorId: c.id,
-      config: { permissionAction: action },
-    }).catch(() => undefined);
+    try {
+      await call("connectors.connect", {
+        catalogueId,
+        scopeMode: c.scopeMode,
+        label: c.label,
+        connectorId: c.id,
+        config: { permissionAction: action },
+      });
+    } catch (err: unknown) {
+      // Shown on this connector's row (or its detail) so the owner sees why nothing changed.
+      setRowError({
+        id: c.id,
+        message: t("settings.connectors.actionFailed", {
+          name: c.label,
+          reason: describeError(err),
+        }),
+      });
+    }
     q.reload();
   };
   // Check again asks macOS when it has not decided yet (#570), not just re-reading the state.
@@ -741,6 +761,7 @@ export function ConnectorsSection({
           : {})}
         onGrant={(c: Connector) => void reconnect(c, "open_settings")}
         onCheck={check}
+        rowError={rowError}
         persona={persona ?? fallback.name}
         implemented={implemented}
         {...(catalogue ? { catalogue } : {})}
@@ -789,6 +810,9 @@ export function ConnectorsSection({
       />
       {form.writeError ? <ErrorNotice what={form.writeError} did="" /> : null}
       {configureError ? <ErrorNotice what={configureError} /> : null}
+      {mcp.secretFailure ? (
+        <ErrorNotice what={mcp.secretFailure.message} did="" onRetry={mcp.secretFailure.retry} />
+      ) : null}
     </div>
   );
 }

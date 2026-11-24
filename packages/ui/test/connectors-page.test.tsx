@@ -39,6 +39,7 @@ const mcp = (list: McpState["servers"]): McpState => ({
   checking: false,
   actionError: null,
   actionFailure: null,
+  secretFailure: null,
   notice: null,
   review: null,
   check: noop,

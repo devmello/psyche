@@ -244,11 +244,24 @@ export function SourceFields({
   onEnable?: (source: EverythingSource) => void | Promise<void>;
 }): ReactElement {
   const [pending, setPending] = useState<ReadonlySet<EverythingSource>>(new Set());
+  const [enableError, setEnableError] = useState<{
+    source: EverythingSource;
+    message: string;
+  } | null>(null);
   const enable = (s: EverythingSource) => {
     if (!onEnable) return;
+    setEnableError(null);
     setPending((p) => new Set(p).add(s));
     void Promise.resolve(onEnable(s))
-      .catch(() => undefined)
+      .catch((err: unknown) =>
+        setEnableError({
+          source: s,
+          message: t("everything.sources.enableFailed", {
+            source: t(`everything.source.${s}`),
+            reason: err instanceof Error ? err.message : String(err),
+          }),
+        }),
+      )
       .finally(() =>
         setPending((p) => {
           const next = new Set(p);
@@ -283,6 +296,11 @@ export function SourceFields({
                   >
                     {t("everything.sources.letRead", { source: name })}
                   </Button>
+                  {enableError?.source === s ? (
+                    <p role="alert" className="text-callout text-danger-text">
+                      {enableError.message}
+                    </p>
+                  ) : null}
                 </div>
               ) : null}
             </SwitchField>
