@@ -43,6 +43,8 @@ export interface LibraryWriter {
   importDownload(file: QuarantinedFile, sniffed: SniffResult): Promise<LibraryImport>;
   /** Register a finished recording as `kind: recording` (feature I10); files stay in place. */
   importRecording?(recording: RecordingImport): Promise<{ libraryItemId: string }>;
+  /** Removes a recording's Library row and folder (`browser.recordings.delete`). */
+  deleteRecording?(recordingId: string): Promise<void>;
 }
 
 /** Strip path separators, control characters and leading dots from a server-chosen name. */

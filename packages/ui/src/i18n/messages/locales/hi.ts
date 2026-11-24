@@ -3236,6 +3236,18 @@ export const hi: Partial<Catalogue> = {
   "screens.library.recording.loading": "रिकॉर्डिंग लोड हो रही है",
   "screens.library.recording.loadFailed": "Psyche यह रिकॉर्डिंग लोड नहीं कर सका ({reason})।",
   "screens.library.recording.notFound": "यह रिकॉर्डिंग अब उपलब्ध नहीं है।",
+  "screens.library.recording.delete": "रिकॉर्डिंग हटाएँ",
+  "screens.library.recording.deleteTitle": "क्या यह रिकॉर्डिंग हटानी है?",
+  "screens.library.recording.deleteBody":
+    "इसके चरण और स्क्रीनशॉट इस डिवाइस से हट जाएँगे। इसे वापस नहीं लाया जा सकता।",
+  "screens.library.recording.deleteConfirm": "हटाएँ",
+  "screens.library.recording.deleteFailed": "Psyche यह रिकॉर्डिंग नहीं हटा सका ({reason})।",
+  "screens.library.meetingNotes.action": "मीटिंग नोट्स बनाएँ",
+  "screens.library.meetingNotes.running":
+    "नोट्स बन रहे हैं। लंबी रिकॉर्डिंग में समय लग सकता है, चार घंटे तक के ऑडियो में।",
+  "screens.library.meetingNotes.done": "नोट्स आपके फ़ीड में तैयार हैं।",
+  "screens.library.meetingNotes.open": "नोट्स खोलें",
+  "screens.library.meetingNotes.failed": "Psyche नोट्स नहीं बना सका ({reason})।",
   "screens.library.trust": "इस फ़ाइल पर भरोसा करें",
   "screens.library.moreFor": "{name} के लिए और कार्रवाइयाँ",
   "screens.library.quickLook": "क्विक लुक",

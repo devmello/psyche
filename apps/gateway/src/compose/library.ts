@@ -27,6 +27,7 @@ import {
   artifactSourcesForLibraryItem,
   deleteLibraryItem,
   getLibraryItem,
+  getLibraryItemSource,
   getThread,
   insertLibraryItem,
   listLibraryItemsPage,
@@ -233,6 +234,20 @@ export class IndexedQuarantineWriter extends FsQuarantineWriter {
       },
     });
     return { libraryItemId: item.id };
+  }
+
+  /**
+   * Removes a browser recording's Library row and its folder, the same way `library.delete`
+   * does. Found from the recording id stored in the row's source, so it works after a restart;
+   * no row left is fine.
+   */
+  async deleteRecording(recordingId: string): Promise<void> {
+    const rows = listLibraryItemsPage(this.#db, { kind: "recording", limit: 10_000 }).items;
+    for (const row of rows) {
+      if (getLibraryItemSource(this.#db, row.id)?.recordingId !== recordingId) continue;
+      await removeStored(this.#home, row);
+      deleteLibraryItem(this.#db, row.id);
+    }
   }
 }
 

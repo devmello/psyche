@@ -3321,6 +3321,18 @@ export const es: Partial<Catalogue> = {
   "screens.library.recording.loading": "Cargando la grabación",
   "screens.library.recording.loadFailed": "Psyche no pudo cargar esta grabación ({reason}).",
   "screens.library.recording.notFound": "Esta grabación ya no está disponible.",
+  "screens.library.recording.delete": "Eliminar grabación",
+  "screens.library.recording.deleteTitle": "¿Eliminar esta grabación?",
+  "screens.library.recording.deleteBody":
+    "Sus pasos y capturas se quitan de este equipo. No se puede deshacer.",
+  "screens.library.recording.deleteConfirm": "Eliminar",
+  "screens.library.recording.deleteFailed": "Psyche no pudo eliminar esta grabación ({reason}).",
+  "screens.library.meetingNotes.action": "Crear notas de la reunión",
+  "screens.library.meetingNotes.running":
+    "Creando las notas. Una grabación larga puede tardar, hasta cuatro horas de audio.",
+  "screens.library.meetingNotes.done": "Las notas están listas en tu Feed.",
+  "screens.library.meetingNotes.open": "Abrir notas",
+  "screens.library.meetingNotes.failed": "Psyche no pudo crear las notas ({reason}).",
   "screens.library.trust": "Confiar en este archivo",
   "screens.library.moreFor": "Más acciones para {name}",
   "screens.library.quickLook": "Vista Rápida",

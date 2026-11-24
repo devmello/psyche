@@ -11,8 +11,10 @@ struct TaskRunView: View {
     @State private var confirmingCancel = false
     @State private var editing = false
     @Environment(Session.self) private var session
+    private let store: any PsycheBackend
 
     init(store: any PsycheBackend, taskID: String) {
+        self.store = store
         _model = State(initialValue: TaskRunModel(store: store, taskID: taskID))
     }
 
@@ -144,6 +146,14 @@ struct TaskRunView: View {
                     }
                 }
             }
+            if let runID = run.runID {
+                NavigationLink {
+                    RunDetailView(store: store, runID: runID)
+                } label: {
+                    Label(String(localized: "Run details", bundle: .module), systemImage: "list.bullet.rectangle")
+                        .font(.psycheRow)
+                }
+            }
         }
     }
 
@@ -193,7 +203,7 @@ private extension TaskRunState {
     }
 }
 
-private extension TaskRunStep.Status {
+extension TaskRunStep.Status {
     var label: String {
         switch self {
         case .pending: String(localized: "Pending", bundle: .module)

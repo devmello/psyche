@@ -3298,6 +3298,19 @@ export const fr: Partial<Catalogue> = {
   "screens.library.recording.loadFailed":
     "Psyche n'a pas pu charger cet enregistrement ({reason}).",
   "screens.library.recording.notFound": "Cet enregistrement n'est plus disponible.",
+  "screens.library.recording.delete": "Supprimer l'enregistrement",
+  "screens.library.recording.deleteTitle": "Supprimer cet enregistrement ?",
+  "screens.library.recording.deleteBody":
+    "Ses étapes et ses captures sont retirées de cet appareil. Action irréversible.",
+  "screens.library.recording.deleteConfirm": "Supprimer",
+  "screens.library.recording.deleteFailed":
+    "Psyche n'a pas pu supprimer cet enregistrement ({reason}).",
+  "screens.library.meetingNotes.action": "Créer les notes de réunion",
+  "screens.library.meetingNotes.running":
+    "Création des notes. Un long enregistrement peut prendre du temps, jusqu'à quatre heures d'audio.",
+  "screens.library.meetingNotes.done": "Les notes sont prêtes dans votre fil.",
+  "screens.library.meetingNotes.open": "Ouvrir les notes",
+  "screens.library.meetingNotes.failed": "Psyche n'a pas pu créer les notes ({reason}).",
   "screens.library.trust": "Faire confiance à ce fichier",
   "screens.library.moreFor": "Autres actions pour {name}",
   "screens.library.quickLook": "Coup d’œil",

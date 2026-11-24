@@ -41,7 +41,8 @@ extension FixtureBackend: AgentBackend {
             summary: state == .done ? "Filed the expense report and sent the receipt copy to Dana." : nil,
             steps: FixtureData.runSteps(now: .now, state: state),
             // Every live fixture job is a specialist's job, so the owner can edit its limits.
-            limits: state.isLive ? (agentState.taskLimits[taskID] ?? FixtureData.specialistLimits) : nil)
+            limits: state.isLive ? (agentState.taskLimits[taskID] ?? FixtureData.specialistLimits) : nil,
+            runID: FixtureData.runID)
     }
 
     public func updateTask(id: String, changes: TaskChanges) async throws {

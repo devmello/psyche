@@ -9,6 +9,13 @@ struct MemoryState: Sendable {
     var history = FixtureData.factHistory
     /// The edit-sheet card per person and project id, with the etag `updateEntity` checks.
     var cards = FixtureData.entityCards
+    /// Contact details per person id: what a split moves and a merge brings along (memory.entities.get).
+    var identifiers: [String: [EntityIdentifier]] = [
+        "pe1": [EntityIdentifier(kind: "email", value: "sam.ortiz@example.com"), EntityIdentifier(kind: "phone", value: "+1 555 0142")],
+        "pe2": [EntityIdentifier(kind: "email", value: "priya@example.com")],
+    ]
+    /// Whether memory capture is paused (memory.pause, memory.status `paused`).
+    var paused = false
     /// What Psyche learned, the claims to confirm and the recent changes (FixtureBackend+Learning.swift).
     var learning = LearningState()
 }

@@ -3260,6 +3260,18 @@ export const ja: Partial<Catalogue> = {
   "screens.library.recording.loading": "録画を読み込み中",
   "screens.library.recording.loadFailed": "Psyche はこの録画を読み込めませんでした（{reason}）。",
   "screens.library.recording.notFound": "この録画はもう利用できません。",
+  "screens.library.recording.delete": "録画を削除",
+  "screens.library.recording.deleteTitle": "この録画を削除しますか？",
+  "screens.library.recording.deleteBody":
+    "手順とスクリーンショットがこの端末から削除されます。元に戻せません。",
+  "screens.library.recording.deleteConfirm": "削除",
+  "screens.library.recording.deleteFailed": "Psyche はこの録画を削除できませんでした（{reason}）。",
+  "screens.library.meetingNotes.action": "会議のメモを作成",
+  "screens.library.meetingNotes.running":
+    "メモを作成中です。長い録音には時間がかかることがあります（最大4時間の音声）。",
+  "screens.library.meetingNotes.done": "メモがフィードで準備できました。",
+  "screens.library.meetingNotes.open": "メモを開く",
+  "screens.library.meetingNotes.failed": "Psyche はメモを作成できませんでした（{reason}）。",
   "screens.library.trust": "このファイルを信頼",
   "screens.library.moreFor": "{name}のその他の操作",
   "screens.library.quickLook": "クイックルック",
