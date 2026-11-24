@@ -4,9 +4,10 @@ import { Input } from "../components/ui/input.tsx";
 import { NativeSelect } from "../components/ui/native-select.tsx";
 import { t } from "../i18n/core.ts";
 import { cn } from "../lib/utils.ts";
+import { FactHistory } from "./FactHistory.tsx";
 import { ProvenanceGlyph, sourceText } from "./glyphs.tsx";
 import { revealOnHover } from "./LoopRow.tsx";
-import type { FactView, GraphEntityKind, GraphFactAttribute } from "./types.ts";
+import type { EntityView, FactView, GraphEntityKind, GraphFactAttribute } from "./types.ts";
 
 /** Attributes the owner may set by hand, per kind (spec §4.3; birthday and relations included). */
 export const OWNER_ATTRIBUTES: Record<
@@ -65,6 +66,8 @@ export interface FactRowProps {
   stale?: boolean;
   /** The group's own title already says what it is: keep the attribute for screen readers only. */
   hideAttribute?: boolean;
+  /** The card's entity: when set, the row offers "History" (earlier values, loaded on open). */
+  entity?: EntityView;
 }
 
 /**
@@ -79,9 +82,11 @@ export function FactRow({
   busy = false,
   stale = false,
   hideAttribute = false,
+  entity,
 }: FactRowProps): ReactElement {
   const labelId = useId();
   const [editing, setEditing] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const [draft, setDraft] = useState(fact.value);
   const untrusted = fact.provenance === "untrusted";
   const attribute = t(`people.attr.${fact.attribute}`);
@@ -165,6 +170,7 @@ export function FactRow({
             </span>
           ) : null}
         </span>
+        {entity && historyOpen ? <FactHistory entity={entity} fact={fact} /> : null}
       </div>
       <span
         className={cn(
@@ -172,6 +178,18 @@ export function FactRow({
           revealOnHover,
         )}
       >
+        {entity ? (
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            aria-expanded={historyOpen}
+            aria-label={t("people.fact.historyLabel", { attribute })}
+            onClick={() => setHistoryOpen((open) => !open)}
+          >
+            {t("people.fact.history")}
+          </Button>
+        ) : null}
         {onSet ? (
           <Button
             type="button"

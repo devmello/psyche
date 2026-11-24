@@ -378,6 +378,7 @@ export function FactRows({
           <FactRow
             key={fact.id}
             fact={fact}
+            entity={entity}
             busy={busy}
             {...(actions.onSetFact
               ? {
@@ -681,6 +682,7 @@ export function ProjectCard({
               {nextStep ? (
                 <FactRow
                   fact={nextStep}
+                  entity={e}
                   busy={busy}
                   {...(actions.onSetFact
                     ? { onSet: (f: FactView, v: string) => actions.onSetFact?.(e, f.attribute, v) }
