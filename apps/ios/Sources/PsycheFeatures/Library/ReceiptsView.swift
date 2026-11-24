@@ -3,28 +3,39 @@ import PsycheDesign
 import PsycheStore
 import SwiftUI
 
-/// Receipts: what Psyche did on the owner's behalf (a payment, a sent email, a booking), newest first, with the
-/// rest of the list one "Load more" away. Each row opens its fields (`receipts.get`).
+/// Receipts: what Psyche did on the owner's behalf (a payment, a sent email, a booking), newest first. The list
+/// loads a page at a time: the next page comes when the owner reaches the end. Each row opens its fields (`receipts.get`).
 struct ReceiptsView: View {
     @Environment(\.backend) private var backend
-    @State private var receipts: [ReceiptItem] = []
-    @State private var nextCursor: String?
-    @State private var loading = false
-    @State private var failed = false
-    @State private var loaded = false
+
+    var body: some View {
+        ReceiptsList(store: backend)
+    }
+}
+
+private struct ReceiptsList: View {
+    @State private var model: PagedRows<ReceiptItem>
+
+    init(store: any PsycheBackend) {
+        _model = State(initialValue: PagedRows<ReceiptItem> { cursor in
+            let page = try await store.receipts(cursor: cursor)
+            return (page.receipts, page.nextCursor)
+        })
+    }
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
-                if !loaded && loading {
+                switch model.phase {
+                case .idle, .loading:
                     Color.clear.frame(height: 200)
-                } else if receipts.isEmpty && failed {
-                    FailedNotice { Task { await load(after: nil) } }
-                } else if receipts.isEmpty {
+                case .failed:
+                    FailedNotice { Task { await model.reload() } }
+                case .loaded(let receipts) where receipts.isEmpty:
                     Text("No receipts yet", bundle: .module).font(.psycheRow.weight(.medium)).foregroundStyle(PsycheColor.text)
                     Text("Receipts appear here when Psyche acts for you.", bundle: .module)
                         .font(.footnote).foregroundStyle(PsycheColor.muted)
-                } else {
+                case .loaded(let receipts):
                     PaperCard {
                         VStack(spacing: 0) {
                             ForEach(Array(receipts.enumerated()), id: \.element.id) { index, receipt in
@@ -34,10 +45,13 @@ struct ReceiptsView: View {
                             }
                         }
                     }
-                    if nextCursor != nil {
-                        Button(String(localized: "Load more", bundle: .module)) { Task { await load(after: nextCursor) } }
-                            .buttonStyle(.psycheOutline)
-                            .disabled(loading)
+                    // The next page loads when this row appears; its id is the cursor, so each page is a new row.
+                    if model.moreFailed {
+                        FailedNotice { Task { await model.retryMore() } }
+                    } else if let cursor = model.nextCursor {
+                        PageSentinel(loading: model.loadingMore, label: String(localized: "Loading more receipts", bundle: .module))
+                            .id(cursor)
+                            .onAppear { Task { await model.loadMore() } }
                     }
                 }
             }
@@ -45,25 +59,11 @@ struct ReceiptsView: View {
             .padding(.top, 8)
             .padding(.bottom, 40)
         }
-        .refreshable { await load(after: nil) }
+        .refreshable { await model.reload() }
         .psycheScreen()
         .psycheInlineTitle()
         .navigationTitle(String(localized: "Receipts", bundle: .module))
-        .task { if !loaded { await load(after: nil) } }
-    }
-
-    private func load(after cursor: String?) async {
-        loading = true
-        defer { loading = false }
-        do {
-            let page = try await backend.receipts(cursor: cursor)
-            receipts = cursor == nil ? page.receipts : receipts + page.receipts
-            nextCursor = page.nextCursor
-            failed = false
-        } catch {
-            failed = true
-        }
-        loaded = true
+        .task { if model.phase.value == nil { await model.reload() } }
     }
 }
 
@@ -174,18 +174,6 @@ extension ReceiptOutcome {
         case .ok: String(localized: "Done", bundle: .module)
         case .failed: String(localized: "Failed", bundle: .module)
         case .uncertain: String(localized: "Needs checking", bundle: .module)
-        }
-    }
-}
-
-/// The same "couldn't load" line the Library uses, with a retry.
-struct FailedNotice: View {
-    let retry: () -> Void
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Couldn't load this", bundle: .module).font(.psycheRow.weight(.medium)).foregroundStyle(PsycheColor.text)
-            Button(String(localized: "Try again", bundle: .module), action: retry).buttonStyle(.psycheOutline).frame(maxWidth: 220)
         }
     }
 }

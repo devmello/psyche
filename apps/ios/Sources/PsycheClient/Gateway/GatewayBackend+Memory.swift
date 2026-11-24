@@ -125,6 +125,25 @@ extension GatewayBackend {
             key: "edit-\(UUID().uuidString)")
     }
 
+    /// "History" on a fact: every value the attribute has had, from memory.entities.history. The Gateway returns
+    /// current and superseded facts newest first; retracted and discarded ones are not earlier values.
+    public func entityHistory(entityID: String, attribute: String) async throws -> [FactVersion] {
+        let result = try await call(
+            "memory.entities.history", .obj(["entityId": .string(entityID), "attribute": .string(attribute)]))
+        return Self.factVersions(result["facts"]?.array ?? [], attribute: attribute)
+    }
+
+    static func factVersions(_ facts: [JSONValue], attribute: String) -> [FactVersion] {
+        facts.compactMap { fact in
+            guard let id = fact["id"]?.string, let value = fact["value"]?.string,
+                (fact["attribute"]?.string ?? attribute) == attribute, fact["retractedAt"]?.string == nil,
+                !["discarded", "quarantined"].contains(fact["review"]?.string ?? "")
+            else { return nil }
+            return FactVersion(
+                id: id, value: value, isCurrent: fact["supersededBy"]?.string == nil, evidence: evidence(of: fact))
+        }
+    }
+
     /// Name, aliases, status and due date from the Gateway's card, for the edit sheet. The etag is the card's
     /// if-match: a save made against an older card is refused, not overwritten.
     static func card(_ entity: JSONValue, etag: String?) -> EntityCard? {

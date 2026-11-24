@@ -44,6 +44,9 @@ public protocol MemoryBackend: Sendable {
     func undoChange(factID: String) async throws
     /// Adds the owner's own note to today's daily note (memory.remember).
     func remember(text: String) async throws
+    /// Every value a fact's attribute has had, newest first, current and earlier (memory.entities.history with the
+    /// attribute). Read when the owner opens "History" on a fact, not on page load.
+    func entityHistory(entityID: String, attribute: String) async throws -> [FactVersion]
 }
 
 extension MemoryBackend {
@@ -61,6 +64,7 @@ extension MemoryBackend {
     public func recentChanges() async throws -> [RecentChange] { throw BackendError.notFound }
     public func undoChange(factID: String) async throws { throw BackendError.notFound }
     public func remember(text: String) async throws { throw BackendError.notFound }
+    public func entityHistory(entityID: String, attribute: String) async throws -> [FactVersion] { throw BackendError.notFound }
 
     // Additive: a backend that cannot edit facts yet says so, and the page offers "Edit on your Mac".
     public func confirmFact(personID: String, factID: String) async throws {
@@ -78,6 +82,22 @@ extension MemoryBackend {
     // Additive: a backend that cannot edit a card yet says so, and the sheet shows the refusal.
     public func updateEntity(id: String, changes: EntityChanges, ifMatch: String?) async throws {
         throw BackendError.refused("Edit this on your Mac.")
+    }
+}
+
+/// One value a fact's attribute has had (memory.entities.history). `evidence` is the source and date, as a fact's own
+/// evidence line reads them ("mail Oct 28"). The current value is marked; earlier values are kept by the Gateway.
+public struct FactVersion: Sendable, Equatable, Identifiable {
+    public var id: String
+    public var value: String
+    public var isCurrent: Bool
+    public var evidence: [String]
+
+    public init(id: String, value: String, isCurrent: Bool, evidence: [String] = []) {
+        self.id = id
+        self.value = value
+        self.isCurrent = isCurrent
+        self.evidence = evidence
     }
 }
 

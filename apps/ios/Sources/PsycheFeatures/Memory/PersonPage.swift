@@ -76,8 +76,13 @@ struct PersonPage: View {
     @State private var retracting: MemoryFact?
     @State private var editing: MemoryFact?
     @State private var editingCard = false
+    @State private var historyFact: MemoryFact?
+    private let id: String
+    private let store: any PsycheBackend
 
     init(id: String, store: any PsycheBackend) {
+        self.id = id
+        self.store = store
         _model = State(initialValue: PersonModel(id: id, store: store))
     }
 
@@ -122,6 +127,9 @@ struct PersonPage: View {
         }
         .sheet(item: $editing) { fact in
             FactEditSheet(fact: fact) { value in try await model.edit(fact, value: value) }
+        }
+        .sheet(item: $historyFact) { fact in
+            FactHistorySheet(entityID: id, fact: fact, store: store)
         }
         .sheet(isPresented: $editingCard) {
             if let card = model.phase.value?.card {
@@ -205,6 +213,9 @@ struct PersonPage: View {
                 }
                 if fact.isEditable {
                     Button { editing = fact } label: { Label(String(localized: "Edit", bundle: .module), systemImage: "pencil") }
+                }
+                if fact.attribute != nil {
+                    Button { historyFact = fact } label: { Label(String(localized: "History", bundle: .module), systemImage: "clock.arrow.circlepath") }
                 }
                 Button(role: .destructive) { retracting = fact } label: { Label(String(localized: "Forget", bundle: .module), systemImage: "trash") }
             } label: {
