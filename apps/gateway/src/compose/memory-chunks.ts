@@ -1,5 +1,6 @@
 import type { MemoryHandlers, SqliteMemoryStore } from "@psyche/memory";
 import { PsycheError } from "@psyche/protocol";
+import { OWNER_ONLY_SOURCES } from "@psyche/search";
 import type { Call, HandlerDef } from "../context.ts";
 import { viewerOf } from "./everything.ts";
 import { mountParamsOnly } from "./handlers.ts";
@@ -53,6 +54,53 @@ export function scrubMemorySearch<
             .map((g) => ({ ...g, hits: g.hits.filter((h) => !isMemory(h)) })),
         }),
   };
+}
+
+/**
+ * Source ids a connection may not be shown in search results at all (title, snippet or count):
+ * the same rule as `search.document`'s `needDocument`, via `forViewer` and plain `viewerOf`.
+ */
+export const hiddenSearchPrefixes = (call: Call): readonly string[] =>
+  OWNER_ONLY_SOURCES.filter((s) => forViewer({ docId: `${s}:x` }, viewerOf(call)) === undefined);
+
+/**
+ * `search.query` as this connection may see it. The index already leaves the owner-only sources
+ * out (`excludeIdPrefixes`, so `total` and group counts never count them); this is the second
+ * pass over what came back: any hit `forViewer` refuses is dropped and subtracted from the
+ * counts, then the Memory-chunk scrub runs.
+ */
+export function scrubSearchForViewer<
+  T extends {
+    hits: { id: string; kind?: string; group?: string }[];
+    groups?: { group?: string; count: number; hits: { id: string; kind?: string }[] }[];
+    total: number;
+  },
+>(call: Call, res: T): T {
+  const viewer = viewerOf(call);
+  const shown = (h: { id: string }) => forViewer({ docId: h.id }, viewer) !== undefined;
+  const refused = new Set<string>();
+  for (const h of [...res.hits, ...(res.groups ?? []).flatMap((g) => g.hits)])
+    if (!shown(h)) refused.add(h.id);
+  if (refused.size === 0) return scrubMemorySearch(call, res);
+  return scrubMemorySearch(call, {
+    ...res,
+    hits: res.hits.filter(shown),
+    total: Math.max(0, res.total - refused.size),
+    ...(res.groups === undefined
+      ? {}
+      : {
+          groups: res.groups
+            .map((g) => {
+              const kept = g.hits.filter(shown);
+              return {
+                ...g,
+                count: Math.max(0, g.count - (g.hits.length - kept.length)),
+                hits: kept,
+              };
+            })
+            .filter((g) => g.count > 0),
+        }),
+  });
 }
 
 /** The memory handlers, with the chunk-returning methods held to the connection's viewer. */
