@@ -21,6 +21,13 @@ extension FixtureBackend: SettingsBackend {
         publish(.changed(.settings))
     }
 
+    /// Demo mode has no iOS permission to ask for: the switch just moves.
+    public func setLocationSharing(_ on: Bool) async throws -> LocationSharingOutcome {
+        settingsState.settings.shareLocation = on
+        publish(.changed(.settings))
+        return on ? .enabled : .disabled
+    }
+
     public func revokeThisPhone() async throws {
         settingsState.revoked = true
         publish(.changed(.settings))

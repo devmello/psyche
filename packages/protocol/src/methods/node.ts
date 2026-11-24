@@ -1,9 +1,11 @@
 import { Type } from "@sinclair/typebox";
+import { StringEnum } from "../common.ts";
 import {
   NodeEventParams,
   NodeInvokeAccepted,
   NodeInvokeParams,
   NodeResultParams,
+  PHONE_CAPABILITY_NAMES,
 } from "../node.ts";
 import { Device } from "../schemas/identity.ts";
 import { defineMethod, OkResult } from "./define.ts";
@@ -33,6 +35,19 @@ export const NodeMethods = {
     scope: "node",
     description:
       "Node → Gateway: the final outcome of an invocation, with a receipt for side effects.",
+  }),
+  "phone.capabilities.set": defineMethod({
+    params: Type.Object({
+      capabilities: Type.Array(StringEnum([...PHONE_CAPABILITY_NAMES]), {
+        maxItems: PHONE_CAPABILITY_NAMES.length,
+        description:
+          "The capabilities the phone offers now, from a closed list; an empty list withdraws all of them",
+      }),
+    }),
+    result: Type.Object({ capabilities: Type.Array(Type.String()) }),
+    scope: "operator.write",
+    description:
+      "Phone → Gateway, on the phone's own operator connection: offer (or withdraw) the capabilities the owner switched on in the phone's Settings (today only `location.current`). The Gateway registers a `phone` node bound to this connection, with capability text it writes itself; the phone then answers `node.invoke` and ends with `node.result` on the same connection. Only the owner's paired iOS device may call it, and the offer lasts as long as the connection: it is withdrawn when the phone sends an empty list, disconnects or is revoked.",
   }),
   "node.unpair": defineMethod({
     params: Type.Object({}),

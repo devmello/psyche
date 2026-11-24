@@ -198,6 +198,13 @@ public actor GatewayConnection {
     private var nextID = 0
     private var receiver: Task<Void, Never>?
     private var closed = false
+    /// Answers the requests the Gateway sends this phone (`node.invoke`). Nil: the phone offers nothing.
+    private var inboundHandler: InboundHandler?
+    /// Set once the handshake reached `paired`: until then nothing the Gateway sends is acted on.
+    private var authenticated = false
+
+    /// What the phone does with a request from the Gateway: a result, or an error the Gateway sees.
+    public typealias InboundHandler = @Sendable (WireReqFrame) async -> Result<JSONValue, WireError>
 
     /// The key (and LAN certificate) the Gateway proved in the last handshake; set before anything was signed.
     public private(set) var proven: IdentityCheck.Proven?
@@ -260,6 +267,7 @@ public actor GatewayConnection {
         switch result.phase {
         case "paired":
             stateVersion = result.stateVersion
+            authenticated = true
             return .paired(
                 deviceID: result.deviceId ?? identity.deviceId, scopes: result.scopes ?? [],
                 stateVersion: result.stateVersion ?? 0)
@@ -308,6 +316,9 @@ public actor GatewayConnection {
             throw ConnectionFailure.protocolError("\(method): unexpected result")
         }
     }
+
+    /// Installs (or removes) the answer to requests the Gateway sends the phone.
+    public func setInboundHandler(_ handler: InboundHandler?) { inboundHandler = handler }
 
     public func close() { close(reason: .closed) }
 
@@ -364,8 +375,20 @@ public actor GatewayConnection {
             lastSeq = event.seq
             stateVersion = max(stateVersion ?? 0, event.stateVersion)
             eventSink.yield(event)
-        case .req:
-            break  // The Gateway does not call the phone in M1.
+        case .req(let req):
+            // Only a Gateway whose identity was proven and that paired this phone is answered.
+            guard authenticated, proven != nil else { return }
+            let handler = inboundHandler
+            Task { [transport] in
+                let outcome = await handler?(req)
+                    ?? .failure(WireError(code: "unknown_method", message: "The phone does not handle \(req.method)"))
+                let frame: WireResFrame
+                switch outcome {
+                case .success(let payload): frame = WireResFrame(id: req.id, ok: true, payload: payload)
+                case .failure(let error): frame = WireResFrame(id: req.id, ok: false, error: error)
+                }
+                if let data = try? WireFrame.res(frame).encode() { try? await transport.send(data) }
+            }
         }
     }
 

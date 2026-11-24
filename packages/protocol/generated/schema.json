@@ -3005,6 +3005,14 @@
         "sideEffecting": false
       },
       {
+        "description": "Phone → Gateway, on the phone's own operator connection: offer (or withdraw) the capabilities the owner switched on in the phone's Settings (today only `location.current`). The Gateway registers a `phone` node bound to this connection, with capability text it writes itself; the phone then answers `node.invoke` and ends with `node.result` on the same connection. Only the owner's paired iOS device may call it, and the offer lasts as long as the connection: it is withdrawn when the phone sends an empty list, disconnects or is revoked.",
+        "name": "phone.capabilities.set",
+        "params": "#/$defs/PhoneCapabilitiesSetParams",
+        "result": "#/$defs/PhoneCapabilitiesSetResult",
+        "scope": "operator.write",
+        "sideEffecting": false
+      },
+      {
         "description": "A staged install (manifest, files, findings) for its approval card.",
         "name": "plugins.getProposal",
         "params": "#/$defs/PluginsGetProposalParams",
@@ -36516,6 +36524,75 @@
         "identity",
         "changed",
         "avatarRequested"
+      ],
+      "type": "object"
+    },
+    "PhoneCapabilitiesSetParams": {
+      "properties": {
+        "capabilities": {
+          "description": "The capabilities the phone offers now, from a closed list; an empty list withdraws all of them",
+          "items": {
+            "enum": [
+              "location.current"
+            ],
+            "type": "string"
+          },
+          "maxItems": 1,
+          "type": "array"
+        }
+      },
+      "required": [
+        "capabilities"
+      ],
+      "type": "object"
+    },
+    "PhoneCapabilitiesSetResult": {
+      "properties": {
+        "capabilities": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "capabilities"
+      ],
+      "type": "object"
+    },
+    "PhoneLocation": {
+      "properties": {
+        "latitude": {
+          "maximum": 90,
+          "minimum": -90,
+          "type": "number"
+        },
+        "longitude": {
+          "maximum": 180,
+          "minimum": -180,
+          "type": "number"
+        },
+        "accuracyMeters": {
+          "minimum": 0,
+          "type": "number"
+        },
+        "timestamp": {
+          "description": "ISO 8601, when the fix was taken",
+          "maxLength": 40,
+          "minLength": 1,
+          "type": "string"
+        },
+        "placeName": {
+          "description": "Reverse-geocoded by Apple on the phone",
+          "maxLength": 200,
+          "type": "string"
+        }
+      },
+      "required": [
+        "latitude",
+        "longitude",
+        "accuracyMeters",
+        "timestamp"
       ],
       "type": "object"
     },

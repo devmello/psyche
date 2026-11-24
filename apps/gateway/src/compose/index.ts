@@ -234,6 +234,7 @@ import { passkeyPresenceForced, withPaymentPresence } from "./payment-presence.t
 import { type ComposedPayments, type PaymentsSetup, paymentsSetupFromEnv } from "./payments.ts";
 import { composePeople, type People } from "./people.ts";
 import { graphSourceAdapters } from "./people-sources.ts";
+import { phoneLocationTool } from "./phone-location.ts";
 import { composePlugins } from "./plugins.ts";
 import { type ComposedProactive, composeProactive, connectorToolLookup } from "./proactive.ts";
 import {
@@ -1378,6 +1379,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     threadTools({ db, gateway: () => gatewayRef }),
   );
   crossThread.sync(getSetting(db, CROSS_THREAD_SETTING)?.value);
+  // The owner's phone, while it offers `location.current` (it is off by default on the phone).
+  registry.register(phoneLocationTool({ nodes: () => gatewayRef?.context.nodes }));
   // People and projects (#651): handlers, owner-only agent tools, search docs, the nightly pass.
   people = composePeople({
     db,

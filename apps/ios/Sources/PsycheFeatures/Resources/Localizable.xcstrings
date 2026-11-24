@@ -48425,6 +48425,290 @@
           }
         }
       }
+    },
+    "Location": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "الموقع"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Standort"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Location"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ubicación"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Position"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "स्थान"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Posizione"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "位置情報"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "위치"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Localização"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "位置"
+          }
+        }
+      }
+    },
+    "Share location with Psyche": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "مشاركة الموقع مع Psyche"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Standort mit Psyche teilen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Share location with Psyche"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Compartir ubicación con Psyche"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Partager la position avec Psyche"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche के साथ स्थान साझा करें"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Condividi la posizione con Psyche"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "位置情報を Psyche と共有"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche와 위치 공유"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Compartilhar localização com o Psyche"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "与 Psyche 共享位置"
+          }
+        }
+      }
+    },
+    "Off by default. When on, Psyche on your Mac can ask where this phone is, but only while Psyche is open on this phone. It never tracks you in the background or keeps a history of where you've been, and your location goes only to your Mac.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "متوقف افتراضيًا. عند التشغيل، يمكن لـ Psyche على جهاز Mac أن يسأل عن مكان هذا الهاتف، ولكن فقط أثناء فتح Psyche على هذا الهاتف. لا يتتبعك في الخلفية ولا يحتفظ بسجل للأماكن التي زرتها، ويصل موقعك إلى جهاز Mac فقط."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Standardmäßig aus. Wenn aktiv, kann Psyche auf deinem Mac fragen, wo dieses iPhone ist, aber nur, solange Psyche auf diesem iPhone geöffnet ist. Es verfolgt dich nie im Hintergrund und führt keinen Verlauf deiner Aufenthaltsorte. Dein Standort geht nur an deinen Mac."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Off by default. When on, Psyche on your Mac can ask where this phone is, but only while Psyche is open on this phone. It never tracks you in the background or keeps a history of where you've been, and your location goes only to your Mac."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Desactivado por defecto. Si lo activas, Psyche en tu Mac puede preguntar dónde está este teléfono, pero solo mientras Psyche está abierto en él. Nunca te sigue en segundo plano ni guarda un historial de dónde has estado, y tu ubicación solo llega a tu Mac."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Désactivé par défaut. Une fois activé, Psyche sur votre Mac peut demander où se trouve ce téléphone, mais seulement tant que Psyche est ouvert sur ce téléphone. Il ne vous suit jamais en arrière-plan et ne garde aucun historique de vos déplacements. Votre position n'est envoyée qu'à votre Mac."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "डिफ़ॉल्ट रूप से बंद। चालू होने पर, आपके Mac पर Psyche पूछ सकता है कि यह फ़ोन कहाँ है, लेकिन केवल तब जब Psyche इस फ़ोन पर खुला हो। यह बैकग्राउंड में आपको ट्रैक नहीं करता और आपके जाने की जगहों का इतिहास नहीं रखता, और आपका स्थान केवल आपके Mac को भेजा जाता है।"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Disattivato per impostazione predefinita. Se attivo, Psyche sul tuo Mac può chiedere dove si trova questo telefono, ma solo mentre Psyche è aperto su questo telefono. Non ti segue mai in background e non conserva uno storico dei luoghi in cui sei stato; la tua posizione va solo al tuo Mac."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "初期設定ではオフです。オンにすると、Mac の Psyche がこの iPhone の場所を尋ねることができますが、この iPhone で Psyche を開いている間だけです。バックグラウンドで追跡したり、行った場所の履歴を残したりすることはなく、位置情報は Mac にのみ送られます。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "기본적으로 꺼져 있습니다. 켜면 Mac의 Psyche가 이 iPhone의 위치를 물어볼 수 있지만, 이 iPhone에서 Psyche가 열려 있는 동안에만 가능합니다. 백그라운드에서 위치를 추적하거나 방문 기록을 남기지 않으며, 위치는 Mac으로만 전달됩니다."
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Desativado por padrão. Quando ativado, o Psyche no seu Mac pode perguntar onde este telefone está, mas só enquanto o Psyche estiver aberto neste telefone. Ele nunca rastreia você em segundo plano nem guarda um histórico de onde você esteve, e sua localização vai apenas para o seu Mac."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "默认关闭。开启后，Mac 上的 Psyche 可以询问这部 iPhone 在哪里，但仅限 Psyche 在这部 iPhone 上打开期间。它不会在后台追踪你，也不会保存你去过哪里的记录，你的位置只会发送到你的 Mac。"
+          }
+        }
+      }
+    },
+    "Location is off for Psyche in the iOS Settings app. Turn it on there, then try again.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "الموقع متوقف لتطبيق Psyche في تطبيق الإعدادات في iOS. فعّله هناك ثم حاول مرة أخرى."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Der Standort ist für Psyche in der iOS-Einstellungen-App ausgeschaltet. Schalte ihn dort ein und versuche es erneut."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Location is off for Psyche in the iOS Settings app. Turn it on there, then try again."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La ubicación está desactivada para Psyche en la app Ajustes de iOS. Actívala allí e inténtalo de nuevo."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La localisation est désactivée pour Psyche dans l'app Réglages d'iOS. Activez-la là-bas, puis réessayez."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iOS की सेटिंग ऐप में Psyche के लिए स्थान बंद है। उसे वहाँ चालू करें, फिर दोबारा कोशिश करें।"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La posizione è disattivata per Psyche nell'app Impostazioni di iOS. Attivala lì, poi riprova."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iOS の設定アプリで Psyche の位置情報がオフになっています。そこでオンにしてから、もう一度お試しください。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iOS 설정 앱에서 Psyche의 위치가 꺼져 있습니다. 그곳에서 켠 다음 다시 시도하세요."
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A localização está desativada para o Psyche no app Ajustes do iOS. Ative-a lá e tente novamente."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "在 iOS 设置应用中，Psyche 的位置已关闭。请先在那里开启，然后再试一次。"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

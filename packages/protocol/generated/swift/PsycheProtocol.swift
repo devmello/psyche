@@ -1158,6 +1158,9 @@
 //   let personRemoved = try? JSONDecoder().decode(PersonRemoved.self, from: jsonData)
 //   let personaIdentity = try? JSONDecoder().decode(PersonaIdentity.self, from: jsonData)
 //   let personaUpdatedPayload = try? JSONDecoder().decode(PersonaUpdatedPayload.self, from: jsonData)
+//   let phoneCapabilitiesSetParams = try? JSONDecoder().decode(PhoneCapabilitiesSetParams.self, from: jsonData)
+//   let phoneCapabilitiesSetResult = try? JSONDecoder().decode(PhoneCapabilitiesSetResult.self, from: jsonData)
+//   let phoneLocation = try? JSONDecoder().decode(PhoneLocation.self, from: jsonData)
 //   let pickableModelRole = try? JSONDecoder().decode(PickableModelRole.self, from: jsonData)
 //   let planBlock = try? JSONDecoder().decode(PlanBlock.self, from: jsonData)
 //   let planStep = try? JSONDecoder().decode(PlanStep.self, from: jsonData)
@@ -27629,6 +27632,65 @@ public struct PersonaUpdatedPayload: Codable, Sendable {
         self.avatarRequested = avatarRequested
         self.changed = changed
         self.identity = identity
+    }
+}
+
+// MARK: - PhoneCapabilitiesSetParams
+public struct PhoneCapabilitiesSetParams: Codable, Sendable {
+    /// The capabilities the phone offers now, from a closed list; an empty list withdraws all of
+    /// them
+    public let capabilities: [Capability]
+
+    public enum CodingKeys: String, CodingKey {
+        case capabilities = "capabilities"
+    }
+
+    public init(capabilities: [Capability]) {
+        self.capabilities = capabilities
+    }
+}
+
+public enum Capability: String, Codable, Sendable {
+    case locationCurrent = "location.current"
+}
+
+// MARK: - PhoneCapabilitiesSetResult
+public struct PhoneCapabilitiesSetResult: Codable, Sendable {
+    public let capabilities: [String]
+
+    public enum CodingKeys: String, CodingKey {
+        case capabilities = "capabilities"
+    }
+
+    public init(capabilities: [String]) {
+        self.capabilities = capabilities
+    }
+}
+
+// MARK: - PhoneLocation
+public struct PhoneLocation: Codable, Sendable {
+    public let accuracyMeters: Double
+    public let latitude: Double
+    public let longitude: Double
+    /// Reverse-geocoded by Apple on the phone
+    public let placeName: String?
+    /// ISO 8601, when the fix was taken
+    public let timestamp: String
+
+    public enum CodingKeys: String, CodingKey {
+        case accuracyMeters = "accuracyMeters"
+        case latitude = "latitude"
+        case longitude = "longitude"
+        case placeName = "placeName"
+        case timestamp = "timestamp"
+    }
+
+    public init(accuracyMeters: Double, latitude: Double, longitude: Double, placeName: String? = nil, timestamp: String) {
+        self.accuracyMeters = accuracyMeters
+        self.latitude = latitude
+        self.longitude = longitude
+        self.placeName = placeName
+        self.timestamp = timestamp
     }
 }
 

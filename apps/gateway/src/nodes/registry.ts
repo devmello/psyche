@@ -22,12 +22,38 @@ import {
   type NodeKind,
   type NodeReceipt,
   type PeerCheck,
+  PHONE_CAPABILITY_NAMES,
+  type PhoneCapabilityName,
   PsycheError,
 } from "@psyche/protocol";
 import type { PairedIdentity, PeerInfo } from "../auth.ts";
 import type { GatewayContext, LiveConnection } from "../context.ts";
 import { isTarballInstall } from "../server-install.ts";
 import { announceMachine, filterMachineCapabilities, machineInfoOf } from "./machines.ts";
+
+/**
+ * What the owner's phone can offer, written by the Gateway: the phone names a capability from this
+ * closed list (`phone.capabilities.set`) and never supplies the description or side effect itself.
+ * Nothing here can name a Host helper capability, and `filterPhoneCapabilities` is the one place
+ * a phone manifest is built.
+ */
+const PHONE_CAPABILITY_DEFS: Record<PhoneCapabilityName, NodeCapability> = {
+  "location.current": {
+    name: "location.current",
+    description:
+      "The phone's current location (latitude, longitude, accuracy in metres, time, and a place name). Works only while the Psyche app is open on the phone and the owner has switched location sharing on.",
+    sideEffect: "read",
+  },
+};
+
+/** The phone capabilities named in `declared` that are on the closed list, once each. */
+export function filterPhoneCapabilities(declared: readonly unknown[]): NodeCapability[] {
+  const kept: NodeCapability[] = [];
+  for (const name of PHONE_CAPABILITY_NAMES) {
+    if (declared.includes(name)) kept.push({ ...PHONE_CAPABILITY_DEFS[name] });
+  }
+  return kept;
+}
 
 /** Default end-to-end timeout of one invocation. */
 export const NODE_INVOKE_TIMEOUT_MS = 60_000;
@@ -121,6 +147,11 @@ export class NodeRegistry {
       /** The Linux accept-time peer check of this connection, when one ran (Host helper only). */
       peerCheck?: PeerCheck;
       peerCheckReason?: string;
+      /**
+       * The owner's phone offering capabilities on its own operator connection
+       * (`setPhoneCapabilities`). Never set for a node that connected with role `node`.
+       */
+      phone?: true;
     }
   >();
   /** Whether Host-bound routing is currently refused for want of one helper. */
@@ -234,6 +265,126 @@ export class NodeRegistry {
     if (announced) return;
     const info = machineInfoOf(db, machine);
     if (info !== undefined) bus.publish("machines.changed", { machine: info, change: "updated" });
+  }
+
+  /**
+   * The owner's phone offers (or withdraws) capabilities on its operator connection. `names` is
+   * cut to the closed phone list; an empty result withdraws everything at once. The node is bound
+   * to `conn` and lives only as long as it: nothing is remembered for the next connection, so a
+   * phone that restarts offers nothing until its own toggle says so again.
+   *
+   * The caller has already checked that this device is the owner's paired iOS device
+   * (`handlers/nodes.ts`); this is the registry half.
+   */
+  setPhoneCapabilities(
+    conn: LiveConnection,
+    identity: { deviceId: string },
+    names: readonly unknown[],
+  ): NodeInfo | undefined {
+    const { db, bus } = this.#ctx;
+    const capabilities = filterPhoneCapabilities(names);
+    const existing = getNodeByDevice(db, identity.deviceId);
+    if (capabilities.length === 0) {
+      this.#withdrawPhone(identity.deviceId, "withdrawn by the phone");
+      return existing === undefined ? undefined : getNodeByDevice(db, identity.deviceId);
+    }
+    // A node row of this device that is not a phone (a role-node connection) is never taken over.
+    if (existing !== undefined && existing.kind !== "phone") {
+      throw new PsycheError(
+        "conflict",
+        "This device is already registered as another kind of node",
+      );
+    }
+    const info = db.sqlite.transaction(() => {
+      const node = upsertNode(db, {
+        id: existing?.id ?? db.newId(),
+        deviceId: identity.deviceId,
+        kind: "phone",
+        capabilities,
+        status: "online",
+      });
+      bus.bumpStateVersion();
+      return node;
+    })();
+    const previous = this.#live.get(info.id);
+    this.#live.set(info.id, {
+      conn,
+      info,
+      host: false,
+      transport: conn.peer.transport,
+      phone: true,
+    });
+    // Another operator socket of the same phone no longer owns the node.
+    if (previous && previous.conn !== conn) {
+      this.#failInvocations(previous.conn.id, "replaced by a new connection");
+    }
+    this.#ctx.log.log("info", "phone node attached", { nodeId: info.id });
+    bus.publish("node.updated", { node: info });
+    this.#notifyChange();
+    return info;
+  }
+
+  /** Whether `conn` is currently the connection a phone node is bound to. */
+  isPhoneConnection(conn: LiveConnection): boolean {
+    for (const entry of this.#live.values()) {
+      if (entry.phone === true && entry.conn === conn) return true;
+    }
+    return false;
+  }
+
+  /**
+   * The live phone that offers `capability`: only a node attached through `setPhoneCapabilities`
+   * (never a role-`node` connection that merely says its family is `phone`), on a connection that
+   * is still open. With more than one phone, the one that switched sharing on last.
+   */
+  phone(capability: PhoneCapabilityName): { info: NodeInfo; client: NodeClient } | undefined {
+    let chosen: { conn: LiveConnection; info: NodeInfo } | undefined;
+    for (const entry of this.#live.values()) {
+      if (entry.phone !== true || !entry.conn.open) continue;
+      if (!entry.info.capabilities.some((c) => c.name === capability)) continue;
+      chosen = entry;
+    }
+    return chosen === undefined
+      ? undefined
+      : {
+          info: structuredClone(chosen.info),
+          client: new ConnectionNodeClient(this, chosen.conn, chosen.info),
+        };
+  }
+
+  /** The phone's connection closed or lost authority: what it offered goes with it. */
+  detachPhone(conn: LiveConnection): void {
+    for (const [nodeId, entry] of [...this.#live]) {
+      if (entry.phone === true && entry.conn === conn) {
+        this.#withdrawPhone(entry.info.deviceId, "phone disconnected", nodeId);
+      }
+    }
+  }
+
+  /** Removes a device's phone node: no capabilities, offline, calls in flight failed. */
+  #withdrawPhone(deviceId: string, reason: string, knownNodeId?: string): void {
+    const { db, bus } = this.#ctx;
+    const row = getNodeByDevice(db, deviceId);
+    const nodeId = knownNodeId ?? row?.id;
+    if (nodeId === undefined) return;
+    const entry = this.#live.get(nodeId);
+    if (entry !== undefined && entry.phone !== true) return;
+    if (entry !== undefined) {
+      this.#live.delete(nodeId);
+      this.#failInvocations(entry.conn.id, reason);
+    }
+    if (row === undefined || row.kind !== "phone") return;
+    // The row keeps nothing the phone offered: a stale list would say it can still be asked.
+    const node = upsertNode(db, {
+      id: row.id,
+      deviceId,
+      kind: "phone",
+      capabilities: [],
+      status: "offline",
+    });
+    bus.bumpStateVersion();
+    bus.publish("node.updated", { node });
+    this.#notifyChange();
   }
 
   detach(conn: LiveConnection): void {

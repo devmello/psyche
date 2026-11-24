@@ -61,7 +61,14 @@ private struct AppModel {
         let deviceName = "iPhone"
         #endif
         let store = EndpointStore.standard()
-        let client = GatewayClient(dependencies: GatewayClientDependencies(endpointStore: store, deviceName: deviceName))
+        // Location is offered only when the owner switches it on in Settings; creating the provider asks for nothing.
+        #if os(iOS)
+        let location: (any LocationProviding)? = CoreLocationProvider()
+        #else
+        let location: (any LocationProviding)? = nil
+        #endif
+        let client = GatewayClient(
+            dependencies: GatewayClientDependencies(endpointStore: store, deviceName: deviceName, locationProvider: location))
         let driver = LiveSessionDriver(client: client, endpoint: store.load())
         let backend = GatewayBackend(client: client)
         return AppModel(

@@ -69,6 +69,36 @@ export function hostHelperKindOf(family: HostHelperFamily): NodeKind {
 export const PEER_CHECKS = ["root_owned", "user_owned", "unverified", "mismatch"] as const;
 export type PeerCheck = (typeof PEER_CHECKS)[number];
 
+/**
+ * The capabilities the owner's phone may offer, a closed list (`phone.capabilities.set`). The phone
+ * names them; the Gateway writes each one's description, side effect and input itself, so a phone
+ * can never declare a name or a side effect of its own, and never one of the Host helper's.
+ */
+export const PHONE_CAPABILITY_NAMES = ["location.current"] as const;
+export type PhoneCapabilityName = (typeof PHONE_CAPABILITY_NAMES)[number];
+
+/**
+ * What `location.current` returns: the phone's position now. Foreground only, When-In-Use
+ * permission, one fix per call; never a stream, never a stored trail.
+ */
+export const PhoneLocation = Type.Object(
+  {
+    latitude: Type.Number({ minimum: -90, maximum: 90 }),
+    longitude: Type.Number({ minimum: -180, maximum: 180 }),
+    accuracyMeters: Type.Number({ minimum: 0 }),
+    timestamp: Type.String({
+      minLength: 1,
+      maxLength: 40,
+      description: "ISO 8601, when the fix was taken",
+    }),
+    placeName: Type.Optional(
+      Type.String({ maxLength: 200, description: "Reverse-geocoded by Apple on the phone" }),
+    ),
+  },
+  { $id: "PhoneLocation" },
+);
+export type PhoneLocation = Static<typeof PhoneLocation>;
+
 export const InvocationId = Type.String({ minLength: 1, maxLength: 128, $id: "InvocationId" });
 
 /** What a node declares at `connect` (and may re-declare later). */
