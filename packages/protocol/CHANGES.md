@@ -26,6 +26,10 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 - `machines.list` and `machines.rename` descriptions no longer say "Not implemented until the machine registry lands": the Gateway implements both. No shape change.
 - The `view.*` methods are now implemented by the Gateway (`compose/view.ts`). `view.open` answers `forbidden` for pane/target shapes a non-desktop client may not choose (`terminal`; a target on `browser`, `files`, `editor`, `diff`), and `unavailable` when no desktop shell is connected. No shape change.
+### v1 additive — 2026-11-23 (Search `from:` on chat messages)
+
+- `search.query` `from` now matches chat messages: the owner's messages by the owner's profile name and `me`, assistant messages by `Psyche`, and channel peers by their chat title and id. Only the `from` field's description changed; the shape is the same. Existing indexes re-index once (backfill version 2).
+
 ### v1 additive — 2026-11-23 (Search `from:` filter)
 
 - `search.query` params gain optional `from` (a 1–200 character name, handle or address). It keeps only documents whose sender matches it, case-insensitively, as a substring. Documents with no sender (chat messages, tasks, memory, people, notes) are left out when it is set. Old clients that do not send it see no change. The generated Swift params gain the optional field.

@@ -25,6 +25,7 @@ import { fuse, RRF_K } from "./ranking.ts";
 import { applyOrder, clampTopN, type RerankSettings, toCandidate } from "./rerank.ts";
 import { ensureSearchSchema, SOURCE_FLAGS_SCHEMA } from "./schema.ts";
 import { SemanticBusyError, type SemanticCandidate, type SemanticSearch } from "./semantic.ts";
+import { senderKeyOf, senderNeedle } from "./senders.ts";
 import {
   GROUP_OF_KIND,
   GROUP_ORDER,
@@ -220,7 +221,7 @@ export class SqliteSearchIndex implements SearchIndex {
       collapse_key: collapseKey(doc),
       scope_key: doc.scopeKey ?? OWNER_SCOPE,
       sender: doc.from ?? null,
-      sender_key: doc.from === undefined ? null : doc.from.normalize("NFC").toLowerCase(),
+      sender_key: senderKeyOf(doc.from, doc.fromAliases),
       mime: doc.mime ?? null,
       tags: JSON.stringify(doc.tags ?? []),
       source: doc.source ?? null,
@@ -570,7 +571,7 @@ export class SqliteSearchIndex implements SearchIndex {
     const senderOnly = request.from !== undefined;
     if (request.from !== undefined) {
       where.sql.push("instr(d.sender_key, ?) > 0");
-      where.params.push(request.from.normalize("NFC").toLowerCase());
+      where.params.push(senderNeedle(request.from));
     }
 
     const collapse = request.collapse ?? true;
@@ -869,7 +870,7 @@ export class SqliteSearchIndex implements SearchIndex {
     }
     if (parsed.from !== undefined) {
       sql.push(`(${parsed.from.map(() => "instr(d.sender_key, ?) > 0").join(" OR ")})`);
-      params.push(...parsed.from.map((f) => f.normalize("NFC").toLowerCase()));
+      params.push(...parsed.from.map(senderNeedle));
     }
     if (contract?.from !== undefined) {
       sql.push("d.sender = ?");

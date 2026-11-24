@@ -22,6 +22,7 @@ import {
   threadScope,
 } from "./adapters.ts";
 import type { SearchFlag } from "./query-parser.ts";
+import type { MessageSender } from "./senders.ts";
 import type { SearchDoc } from "./types.ts";
 
 /** What the indexer needs from the index (`SqliteSearchIndex` implements it). */
@@ -42,8 +43,14 @@ export interface SearchIndexerOptions {
   lookupThread?: (threadId: string) => Promise<ThreadInfo | undefined>;
   /** Loads a task for a `task.action` that arrives before (or without) its `task.updated`. */
   lookupTask?: (taskId: string) => Promise<Pick<Task, "title" | "threadId"> | undefined>;
-  /** Display name / address of a message's sender for `from:` (channel peers, email senders). */
-  senderOf?: (message: Message, thread: ThreadInfo | undefined) => string | undefined;
+  /**
+   * Who sent a message, for `from:` (Gateway: `messageSender`, with the owner's name from the
+   * profile). Called for every chat message; undefined leaves the message without a sender.
+   */
+  senderOf?: (
+    message: Message,
+    thread: ThreadInfo | undefined,
+  ) => MessageSender | undefined | Promise<MessageSender | undefined>;
   /** Called with errors from event handling; indexing never throws into the event bus. */
   onError?: (error: unknown, event: string) => void;
 }
@@ -137,9 +144,14 @@ export class SearchIndexer {
   async onMessage(message: Message): Promise<void> {
     const thread = await this.#thread(message.threadId);
     if (thread === undefined || isIncognito(thread)) return;
-    const sender = this.#opts.senderOf?.(message, thread);
+    const sender = await this.#opts.senderOf?.(message, thread);
     await this.#index.index(
-      messageDoc(message, { thread, ...(sender === undefined ? {} : { sender }) }),
+      messageDoc(message, {
+        thread,
+        ...(sender === undefined
+          ? {}
+          : { sender: sender.name, senderAliases: sender.aliases ?? [] }),
+      }),
     );
     if (hasAttachment(message)) {
       await this.#index.setFlag(message.id, "attachment");

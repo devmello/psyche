@@ -29,6 +29,7 @@ import {
   type MemorySourceDeps,
   ModelReranker,
   memoryAdapter,
+  messageSender,
   OWNER,
   type PowerState,
   QueryModel,
@@ -148,6 +149,8 @@ export interface CardHostState {
 /** Cards are a background job: one bounded step this often, not on every library beat. */
 export const CARD_TICK_MS = 600_000;
 const CARD_MIN_IDLE_MINUTES = 2;
+/** How long the owner's name the search index stamps on messages is reused. */
+const OWNER_NAME_TTL_MS = 60_000;
 
 export interface SearchDeps extends Omit<SearchSourceDeps, "pageSize"> {
   memory: MemoryStore;
@@ -343,9 +346,22 @@ function buildSearch(deps: SearchDeps, sqlite: PsycheDb["sqlite"]): ComposedSear
           },
         }),
   });
+  // The owner's name is read from the profile (a file read), at most once a minute: the indexer
+  // asks for every message it indexes.
+  let ownerNameAt: { value: string | undefined; at: number } | undefined;
+  const ownerName = async (): Promise<string | undefined> => {
+    const now = deps.now();
+    if (ownerNameAt === undefined || now - ownerNameAt.at >= OWNER_NAME_TTL_MS) {
+      const value = await Promise.resolve(deps.ownerName?.()).catch(() => undefined);
+      ownerNameAt = { value, at: now };
+    }
+    return ownerNameAt.value;
+  };
   const indexer = new SearchIndexer(index, {
     lookupThread: async (id) => getThread(deps.db, id),
     lookupTask: (id) => deps.tasks.get(id),
+    senderOf: async (message, thread) =>
+      messageSender(message, thread, { owner: await ownerName() }),
     onError: (err, event) =>
       deps.logger?.log("warn", "search: indexing an event failed", { event, err: String(err) }),
   });

@@ -84,6 +84,8 @@ export interface MessageContext {
   thread?: Pick<Thread, "id" | "title" | "kind" | "personaOverlay" | "sessionKey">;
   /** Display name or address of the sender, for `from:`. */
   sender?: string;
+  /** Aliases the sender answers to for `from:` (`me` for the owner). */
+  senderAliases?: string[];
 }
 
 export function messageDoc(message: Message, ctx: MessageContext = {}): SearchDoc {
@@ -98,6 +100,9 @@ export function messageDoc(message: Message, ctx: MessageContext = {}): SearchDo
     incognito: t !== undefined && isIncognito(t),
     scopeKey: t === undefined ? OWNER_SCOPE : threadScope(t),
     ...(ctx.sender === undefined ? {} : { from: ctx.sender }),
+    ...(ctx.sender === undefined || ctx.senderAliases === undefined
+      ? {}
+      : { fromAliases: ctx.senderAliases }),
     createdAt: Date.parse(message.createdAt),
   };
 }
