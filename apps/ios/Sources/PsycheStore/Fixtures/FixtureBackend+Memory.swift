@@ -80,6 +80,13 @@ extension FixtureBackend: MemoryBackend {
         publish(.changed(.memory))
     }
 
+    /// "Why do you believe this?": the claim and its sources. A claim with no recorded sources says so (empty list).
+    public func explainFact(claimID: String) async throws -> FactExplanation {
+        await pause()
+        guard let explanation = FixtureData.explanations[claimID] else { throw BackendError.notFound }
+        return explanation
+    }
+
     public func entityHistory(entityID: String, attribute: String) async throws -> [FactVersion] {
         await pause()
         let current = (memoryState.facts[entityID] ?? []).first { $0.attribute == attribute }.map {
@@ -93,6 +100,19 @@ extension FixtureBackend: MemoryBackend {
 
 extension FixtureData {
     // MARK: Memory
+
+    /// What memory.explain returns for the demo claims: the sentence, its confidence and the files it came from.
+    static let explanations: [String: FactExplanation] = [
+        "clm_landlord": FactExplanation(
+            text: "Your landlord. Rent is $1,850, due on the 6th.", confidence: 0.92,
+            sources: [
+                SourceRef(id: "chk_lease1", title: "memory/lease-2026.md", source: "memory", route: "/agent/soul?file=memory/lease-2026.md",
+                          date: "Jan 4"),
+                SourceRef(id: "chk_rent2", title: "memory/2026-10-06.md", source: "memory", route: "/agent/soul?file=memory/2026-10-06.md",
+                          date: "Oct 6"),
+            ]),
+        "clm_bank": FactExplanation(text: "Prefers a bank transfer over a check.", confidence: 0.6, sources: []),
+    ]
 
     public static let memory = MemorySnapshot(
         todos: [
@@ -152,8 +172,8 @@ extension FixtureData {
 
     static let personFacts: [String: [MemoryFact]] = [
         "pe1": [
-            MemoryFact(id: "pe1-f1", text: "Your landlord. Rent is $1,850, due on the 6th.", evidence: ["lease-2026.pdf"], confirmed: true),
-            MemoryFact(id: "pe1-f2", text: "Prefers a bank transfer over a check.", evidence: ["mail Oct 28"]),
+            MemoryFact(id: "pe1-f1", text: "Your landlord. Rent is $1,850, due on the 6th.", evidence: ["lease-2026.pdf"], confirmed: true, claimID: "clm_landlord"),
+            MemoryFact(id: "pe1-f2", text: "Prefers a bank transfer over a check.", evidence: ["mail Oct 28"], claimID: "clm_bank"),
             MemoryFact(id: "pe1-f3", text: "Lives in Oakland.", evidence: ["mail Aug 3"], attribute: "city", value: "Oakland"),
         ],
         "pe2": [
