@@ -9,7 +9,7 @@ import Foundation
 // changes later arrives as a `LiveEvent`.
 
 public typealias PsycheBackend = AgentBackend & ChatBackend & HomeBackend & LibraryBackend & LiveUpdates
-    & MemoryBackend & ModelsBackend & ProactiveBackend & SearchBackend & SettingsBackend & SkillsBackend
+    & FollowupsBackend & MemoryBackend & ModelsBackend & ProactiveBackend & SearchBackend & SettingsBackend & SkillsBackend
     & SpacesBackend & WidgetBackend
 
 public enum BackendError: Error, Equatable, LocalizedError {
