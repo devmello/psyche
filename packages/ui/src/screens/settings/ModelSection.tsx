@@ -278,6 +278,65 @@ export interface ModelProvidersPanelProps extends SettingsFormProps, LoadProps {
    * When set, Add / Replace key opens a field in the provider's row instead of `onEditKey`.
    */
   onSaveKey?: (providerId: string, key: string) => Promise<string | null>;
+  /**
+   * Remove a stored key (`models.clearKey`). Resolves to an error to show, or null. When set,
+   * a stored key gets a Remove key action behind a confirmation.
+   */
+  onClearKey?: (providerId: string) => Promise<string | null>;
+}
+
+/** The confirmation for Remove key: names the provider and what stops working. */
+function RemoveKeyDialog({
+  provider,
+  onConfirm,
+  onClose,
+}: {
+  provider: ProviderInfo;
+  onConfirm: () => Promise<string | null>;
+  onClose: () => void;
+}): ReactElement {
+  const [working, setWorking] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const remove = () => {
+    setWorking(true);
+    setError(null);
+    onConfirm()
+      .then((problem) => {
+        if (problem === null) onClose();
+        else setError(problem);
+      })
+      .finally(() => setWorking(false));
+  };
+  return (
+    <AlertDialog
+      open
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+    >
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>
+            {t("settings.model.key.removeTitle", { name: provider.label })}
+          </AlertDialogTitle>
+          <AlertDialogDescription>
+            {t("settings.model.key.removeBody", { name: provider.label })}
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        {error !== null ? (
+          <p role="alert" className="text-callout text-danger-text">
+            {error}
+          </p>
+        ) : null}
+        <AlertDialogFooter>
+          <AlertDialogCancel>{t("settings.model.key.cancel")}</AlertDialogCancel>
+          <Button type="button" variant="destructive" disabled={working} onClick={remove}>
+            {t("settings.model.key.removeConfirm")}
+          </Button>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
 }
 
 /** The inline Add / Replace key field (#504): the key goes to the vault and is checked at once. */
@@ -372,8 +431,10 @@ export function ModelProvidersPanel({
   error,
   onRetry,
   onSaveKey,
+  onClearKey,
 }: ModelProvidersPanelProps): ReactElement {
   const [editingKey, setEditingKey] = useState<string | null>(null);
+  const [removingKey, setRemovingKey] = useState<ProviderInfo | null>(null);
   const editKey = onSaveKey !== undefined ? (p: ProviderInfo) => setEditingKey(p.id) : onEditKey;
   // Embedding models cannot chat; they never appear as role choices.
   const models = providers
@@ -451,6 +512,20 @@ export function ModelProvidersPanel({
                           : t("settings.model.key.replace")}
                       </Button>
                     ) : null}
+                    {onClearKey !== undefined &&
+                    p.keyRef !== null &&
+                    p.kind !== "local" &&
+                    p.kind !== "subscription" ? (
+                      <Button
+                        type="button"
+                        variant="link"
+                        size="xs"
+                        onClick={() => setRemovingKey(p)}
+                        aria-label={t("settings.model.key.removeNamed", { name: p.label })}
+                      >
+                        {t("settings.model.key.remove")}
+                      </Button>
+                    ) : null}
                   </p>
                   {onSaveKey !== undefined && editingKey === p.id ? (
                     <KeyEditor
@@ -513,6 +588,14 @@ export function ModelProvidersPanel({
             </ul>
           )}
         </Group>
+
+        {removingKey !== null && onClearKey !== undefined ? (
+          <RemoveKeyDialog
+            provider={removingKey}
+            onConfirm={() => onClearKey(removingKey.id)}
+            onClose={() => setRemovingKey(null)}
+          />
+        ) : null}
 
         <Group title={t("settings.model.roles")} description={t("settings.model.rolesHint")}>
           {MODEL_ROLES.map((role) => {
@@ -759,6 +842,18 @@ export function ModelSection(props: ModelSectionProps): ReactElement {
     }
   };
 
+  /** Remove a stored key, then refresh so the row shows no key. */
+  const onClearKey = async (providerId: string): Promise<string | null> => {
+    try {
+      await call("models.clearKey", { providerId });
+      return null;
+    } catch (err) {
+      return t("settings.model.key.removeFailed", { reason: messageOf(err) });
+    } finally {
+      reload();
+    }
+  };
+
   const onRunCheck =
     props.onRunCheck ??
     (live
@@ -801,7 +896,7 @@ export function ModelSection(props: ModelSectionProps): ReactElement {
         listError={props.providers === undefined && !live ? list.error : null}
         onRetryList={reload}
         {...(live ? { onProbe } : {})}
-        {...(live && props.onEditKey === undefined ? { onSaveKey } : {})}
+        {...(live && props.onEditKey === undefined ? { onSaveKey, onClearKey } : {})}
         {...(onRunCheck === undefined ? {} : { onRunCheck })}
       />
       <AlertDialog
