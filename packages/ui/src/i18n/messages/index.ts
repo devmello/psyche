@@ -19,6 +19,7 @@ import { daily } from "./daily.ts";
 import { design } from "./design.ts";
 import { deviceAccess } from "./device-access.ts";
 import { errors } from "./errors.ts";
+import { friction } from "./friction.ts";
 import { glass } from "./glass.ts";
 import { helperCheck } from "./helper-check.ts";
 import { helperOffline } from "./helper-offline.ts";
@@ -140,6 +141,7 @@ export const en = {
   ...notices,
   ...separateDesktop,
   ...keepAwake,
+  ...friction,
   ...update,
   ...spaces,
   ...machines,
