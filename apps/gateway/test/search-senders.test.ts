@@ -70,12 +70,12 @@ async function messageDocs(db: PsycheDb, ownerName: string | undefined): Promise
   }).find((s) => s.name === "messages");
   if (source === undefined) throw new Error("no messages source");
   const docs: SearchDoc[] = [];
-  let cursor: string | undefined;
+  let cursor: string | null = null;
   do {
     const page = await source.page(cursor);
     docs.push(...page.docs);
-    cursor = page.next ?? undefined;
-  } while (cursor !== undefined);
+    cursor = page.next;
+  } while (cursor !== null);
   return docs;
 }
 
