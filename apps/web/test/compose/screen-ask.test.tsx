@@ -196,7 +196,9 @@ describe("ScreenAsk", () => {
       expect(screen.getByTestId("screen-ask-chip").textContent).toContain("Safari"),
     );
     fireEvent.keyDown(screen.getByTestId("screen-ask"), { key: "Escape" });
-    expect(calls.at(-1)).toEqual(["screen.discard", { captureId: "cap_1" }]);
+    // store.call waits for the request gate before it reaches the client, so the discard is
+    // recorded a tick after Esc. The product discards at once; wait for the call to land.
+    await waitFor(() => expect(calls.at(-1)).toEqual(["screen.discard", { captureId: "cap_1" }]));
     expect(bridged).toEqual(["done"]);
     expect(screen.queryByTestId("screen-ask")).toBeNull();
   });
