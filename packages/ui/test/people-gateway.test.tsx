@@ -53,8 +53,7 @@ describe("ConnectedEntityCard", () => {
     expect(within(card).queryByText("Product manager")).toBeNull();
     expect(within(card).getByText("From Sam Lee's mail, Oct 12")).toBeTruthy();
     expect(within(card).getByRole("button", { name: /Q4 launch/ })).toBeTruthy();
-    // The person page now lists this interaction twice: under Recent and under Recent interactions.
-    expect(within(card).getAllByText("SOW and next steps").length).toBeGreaterThan(0);
+    expect(within(card).getByText("SOW and next steps")).toBeTruthy();
   });
 
   it("saves an edit as an owner fact and shows the new value", async () => {

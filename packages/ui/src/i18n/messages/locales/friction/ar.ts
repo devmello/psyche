@@ -40,9 +40,8 @@ export const friction: Partial<Catalogue> = {
   "friction.modes": "حسب الوضع",
   "friction.mode.row": "{mode}: سأل {asks} من {decisions}",
 
-  "people.interactions.title": "التفاعلات الأخيرة",
-  "people.interactions.empty": "لا توجد تفاعلات مع {name} بعد.",
-  "people.interactions.error": "تعذّر تحميل التفاعلات: {reason}",
-  "people.interactions.more": "عرض المزيد",
+  "people.interactions.error": "تعذّر تحميل التفاعلات الأقدم: {reason}",
+  "people.interactions.older": "عرض الأقدم",
+  "people.interactions.retry": "أعد المحاولة",
   "people.interactions.loadingMore": "جارٍ التحميل…",
 };

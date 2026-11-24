@@ -40,9 +40,8 @@ export const friction: Partial<Catalogue> = {
   "friction.modes": "モード別",
   "friction.mode.row": "{mode}: {decisions} 件中 {asks} 件で確認",
 
-  "people.interactions.title": "最近のやり取り",
-  "people.interactions.empty": "{name}とのやり取りはまだありません。",
-  "people.interactions.error": "やり取りを読み込めませんでした: {reason}",
-  "people.interactions.more": "さらに表示",
+  "people.interactions.error": "以前のやり取りを読み込めませんでした: {reason}",
+  "people.interactions.older": "以前のやり取りを表示",
+  "people.interactions.retry": "再試行",
   "people.interactions.loadingMore": "読み込み中…",
 };

@@ -40,9 +40,8 @@ export const friction: Partial<Catalogue> = {
   "friction.modes": "모드별",
   "friction.mode.row": "{mode}: {decisions}개 중 {asks}개 질문",
 
-  "people.interactions.title": "최근 상호작용",
-  "people.interactions.empty": "{name}님과의 상호작용이 아직 없습니다.",
-  "people.interactions.error": "상호작용을 불러오지 못했습니다: {reason}",
-  "people.interactions.more": "더 보기",
+  "people.interactions.error": "이전 상호작용을 불러오지 못했습니다: {reason}",
+  "people.interactions.older": "이전 항목 보기",
+  "people.interactions.retry": "다시 시도",
   "people.interactions.loadingMore": "불러오는 중…",
 };

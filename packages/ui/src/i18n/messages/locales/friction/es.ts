@@ -45,9 +45,8 @@ export const friction: Partial<Catalogue> = {
   "friction.modes": "Por modo",
   "friction.mode.row": "{mode}: preguntó {asks} de {decisions}",
 
-  "people.interactions.title": "Interacciones recientes",
-  "people.interactions.empty": "Todavía no hay interacciones con {name}.",
-  "people.interactions.error": "No se pudieron cargar las interacciones: {reason}",
-  "people.interactions.more": "Mostrar más",
+  "people.interactions.error": "No se pudieron cargar las interacciones anteriores: {reason}",
+  "people.interactions.older": "Mostrar anteriores",
+  "people.interactions.retry": "Intentar de nuevo",
   "people.interactions.loadingMore": "Cargando…",
 };

@@ -37,9 +37,8 @@ export const friction: Partial<Catalogue> = {
   "friction.modes": "按模式",
   "friction.mode.row": "{mode}：{decisions} 次中询问 {asks} 次",
 
-  "people.interactions.title": "最近互动",
-  "people.interactions.empty": "与 {name} 还没有互动。",
-  "people.interactions.error": "无法加载互动记录：{reason}",
-  "people.interactions.more": "显示更多",
+  "people.interactions.error": "无法加载更早的互动记录：{reason}",
+  "people.interactions.older": "显示更早的记录",
+  "people.interactions.retry": "重试",
   "people.interactions.loadingMore": "加载中…",
 };

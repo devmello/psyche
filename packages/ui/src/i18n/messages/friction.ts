@@ -42,9 +42,8 @@ export const friction = {
   "friction.modes": "By mode",
   "friction.mode.row": "{mode}: asked {asks} of {decisions}",
 
-  "people.interactions.title": "Recent interactions",
-  "people.interactions.empty": "No interactions with {name} yet.",
-  "people.interactions.error": "Could not load interactions: {reason}",
-  "people.interactions.more": "Show more",
+  "people.interactions.error": "Could not load older interactions: {reason}",
+  "people.interactions.older": "Show older",
+  "people.interactions.retry": "Try again",
   "people.interactions.loadingMore": "Loading…",
 };

@@ -41,9 +41,8 @@ export const friction: Partial<Catalogue> = {
   "friction.modes": "मोड के अनुसार",
   "friction.mode.row": "{mode}: {decisions} में से {asks} पर पूछा",
 
-  "people.interactions.title": "हाल की बातचीत",
-  "people.interactions.empty": "{name} के साथ अभी कोई बातचीत नहीं है।",
-  "people.interactions.error": "बातचीत लोड नहीं हो सकी: {reason}",
-  "people.interactions.more": "और दिखाएँ",
+  "people.interactions.error": "पुरानी बातचीत लोड नहीं हो सकी: {reason}",
+  "people.interactions.older": "पुरानी बातचीत देखें",
+  "people.interactions.retry": "फिर से कोशिश करें",
   "people.interactions.loadingMore": "लोड हो रहा है…",
 };
