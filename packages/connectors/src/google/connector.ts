@@ -27,6 +27,8 @@ import {
 import { Calendar, type EventInput } from "./calendar.ts";
 import { Drive } from "./drive.ts";
 import { Gmail } from "./gmail.ts";
+import { GoogleTasks } from "./tasks.ts";
+import { TASKS_ACTIONS, type TasksAccess, tasksAccess, tasksTools } from "./tasks-tools.ts";
 
 export { actionBinding, sendBinding } from "../mail/binding.ts";
 
@@ -95,6 +97,8 @@ export const GOOGLE_ACTIONS: ConnectorAction[] = [
     approvalKind: "connector_action",
     defaultRule: "ask",
   },
+  // Google Tasks: the same rows as Microsoft To Do (`TODO_ACTIONS`), see tasks-tools.ts.
+  ...TASKS_ACTIONS,
 ];
 
 export const GOOGLE_CATALOGUE: CatalogueEntry = {
@@ -205,6 +209,9 @@ export class GoogleConnector implements Connector {
   readonly #gmail: Gmail;
   readonly #calendar: Calendar;
   readonly #drive: Drive;
+  readonly #tasks: GoogleTasks;
+  /** From the granted scopes: a connection made before Google Tasks has no Tasks scope. */
+  #tasksAccess: TasksAccess;
   #account: string | null;
   #gmailScopes: GmailScopeChoice;
   #status: ConnectorRecord["status"];
@@ -232,6 +239,8 @@ export class GoogleConnector implements Connector {
     this.#gmail = new Gmail(api);
     this.#calendar = new Calendar(api);
     this.#drive = new Drive(api);
+    this.#tasks = new GoogleTasks(api, { now: () => ctx.clock.now() });
+    this.#tasksAccess = tasksAccess(record.scopes);
     this.#account = record.account;
     this.#gmailScopes = cfg.gmailScopes === "readonly_send" ? "readonly_send" : "modify";
     this.#status = record.status;
@@ -246,14 +255,16 @@ export class GoogleConnector implements Connector {
     await this.#auth.revoke(input.signal);
     const tokens = await this.#auth.authorize(scopes, input.signal, input.onAuthorization);
     const granted = (tokens.scope ?? "").split(/\s+/).filter((x) => x !== "");
+    const kept = granted.length > 0 ? granted : scopes;
     const profile = await this.#gmail.profile(input.signal);
     if (typeof profile.emailAddress !== "string")
       throw new PsycheError("internal", "Gmail profile has no address");
     this.#account = profile.emailAddress.toLowerCase();
+    this.#tasksAccess = tasksAccess(kept);
     this.#status = "connected";
     return {
       account: this.#account,
-      scopes: granted.length > 0 ? granted : scopes,
+      scopes: kept,
       config: { gmailScopes: choice },
     };
   }
@@ -661,6 +672,16 @@ export class GoogleConnector implements Connector {
           }),
       },
     ];
+    // Google Tasks tools stay listed on a connection without the Tasks scope: they answer with
+    // "Google did not grant: tasks" so the owner knows to reconnect.
+    tools.push(
+      ...tasksTools({
+        connectorId: this.id,
+        tasks: this.#tasks,
+        access: () => this.#tasksAccess,
+        guard: (fn) => this.#guard(fn),
+      }),
+    );
     const allowed = new Set(this.actions().map((a) => a.id));
     return tools.filter((t) => allowed.has(t.action));
   }

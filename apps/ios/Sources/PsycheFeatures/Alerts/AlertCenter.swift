@@ -88,6 +88,10 @@ public final class AlertCenter {
     var chatTitles: [String: String] = [:]
     var chatStartTimers: [String: Task<Void, Never>] = [:]
     var chatCatchUp: Task<Void, Never>?
+    /// "Now" and "sleep until" for the chat-activity timers. Production uses the wall clock; tests pass a manual one.
+    let clock: ChatClock
+    /// The work the last foreground change started, so a test can await it instead of sleeping.
+    var appActiveWork: Task<Void, Never>?
     /// Which chat each task belongs to, learned from the Gateway's runs and approvals: a chat whose task has its
     /// own activity gets none of its own.
     var taskThreads: [String: String] = [:]
@@ -99,8 +103,9 @@ public final class AlertCenter {
         awakeLedger: AwakeTimeLedger = AwakeTimeLedger(directory: nil),
         awakeCap: AwakeCapStore = AwakeCapStore(directory: nil), staleOverride: TimeInterval? = nil,
         chatActivities: any ChatTurnActivityHost = NoChatTurnActivityHost(),
-        chatThreshold: TimeInterval = ChatTurnTracker.longRunning
+        chatThreshold: TimeInterval = ChatTurnTracker.longRunning, clock: ChatClock = .real
     ) {
+        self.clock = clock
         self.chatActivities = chatActivities
         self.chatThreshold = chatThreshold
         chatWatching = Set(chatActivities.activeThreadIDs)
@@ -188,7 +193,7 @@ public final class AlertCenter {
         // Leaving: the app stays "in front" for the stay-awake audio until the early start below has run, because
         // iOS refuses to start audio from the background.
         if active { awake?.setForeground(true) }
-        Task {
+        appActiveWork = Task {
             if active {
                 // Open again: ask for fresh data. Each activity gets a fresh, longer fuse only from what the Gateway
                 // says now, and only with a live connection (never by re-pushing what was shown before).

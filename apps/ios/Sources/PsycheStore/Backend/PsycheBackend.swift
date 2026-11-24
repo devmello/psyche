@@ -9,8 +9,8 @@ import Foundation
 // changes later arrives as a `LiveEvent`.
 
 public typealias PsycheBackend = AgentBackend & ChatBackend & HomeBackend & LibraryBackend & LiveUpdates
-    & MemoryBackend & ModelsBackend & ProactiveBackend & ReceiptsBackend & SearchBackend & SettingsBackend & SkillsBackend
-    & SpacesBackend & WidgetBackend
+    & FollowupsBackend & MemoryBackend & ModelsBackend & ProactiveBackend & ReceiptsBackend & SearchBackend & SettingsBackend
+    & SkillsBackend & SpacesBackend & WidgetBackend
 
 public enum BackendError: Error, Equatable, LocalizedError {
     /// Not reachable right now (away from home, Mac asleep). Writes that can wait go to the outbox.

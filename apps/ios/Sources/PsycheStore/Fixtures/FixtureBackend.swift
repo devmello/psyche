@@ -23,6 +23,7 @@ public actor FixtureBackend {
     var widgetState = WidgetState()
     var proactiveState = ProactiveState()
     var spacesState = SpacesState()
+    var followupsState = FollowupsState()
     /// The scripted run of the watched task (`startRunningDemo`).
     var demoTask: Task<Void, Never>?
 
