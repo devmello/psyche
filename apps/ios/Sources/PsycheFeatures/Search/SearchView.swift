@@ -398,12 +398,14 @@ struct SearchView: View {
 
     // MARK: Results
 
-    @ViewBuilder
+    /// One column: inside the states' `ZStack` loose siblings would draw on top of each other.
     private var results: some View {
-        if model.shownAnswer != nil || model.results.canAskLife { answerCard(model.shownAnswer) }
-        ForEach(SearchResults.Hit.Group.allCases, id: \.self) { kind in
-            let hits = model.results.hits.filter { $0.group == kind }
-            if !hits.isEmpty { group(kind, hits: hits) }
+        VStack(alignment: .leading, spacing: 20) {
+            if model.shownAnswer != nil || model.results.canAskLife { answerCard(model.shownAnswer) }
+            ForEach(SearchResults.Hit.Group.allCases, id: \.self) { kind in
+                let hits = model.results.hits.filter { $0.group == kind }
+                if !hits.isEmpty { group(kind, hits: hits) }
+            }
         }
     }
 
