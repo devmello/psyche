@@ -1,0 +1,27 @@
+{
+  "object" : {
+    "artifacts" : [
+
+    ],
+    "dependencies" : [
+      {
+        "basedOn" : null,
+        "packageRef" : {
+          "identity" : "protocol-swift",
+          "kind" : "fileSystem",
+          "location" : "/Users/devmello/Projects/psyche/.claude/worktrees/agent-ad54ffd5ee51e5b5b/packages/protocol-swift",
+          "name" : "PsycheProtocolSwift"
+        },
+        "state" : {
+          "name" : "fileSystem",
+          "path" : "/Users/devmello/Projects/psyche/.claude/worktrees/agent-ad54ffd5ee51e5b5b/packages/protocol-swift"
+        },
+        "subpath" : "protocol-swift"
+      }
+    ],
+    "prebuilts" : [
+
+    ]
+  },
+  "version" : 7
+}
