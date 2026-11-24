@@ -17,6 +17,12 @@ import type {
   ScopeMode,
   ToolOutput,
 } from "../framework/types.ts";
+import {
+  DEFAULT_DAILY_FORMAT,
+  dailyNoteName,
+  localDay,
+  renderDailyTemplate,
+} from "./daily-format.ts";
 
 /**
  * Obsidian (docs/connectors/apple-apps-2026.md §5, #639): the vault is a folder the owner shared
@@ -98,17 +104,29 @@ function notePath(vault: string, rel: unknown, field = "path"): string {
   return full;
 }
 
-/** `.obsidian/daily-notes.json`: the daily-note folder (format other than YYYY-MM-DD is not supported). */
-async function dailyFolder(vault: string): Promise<string> {
+interface DailySettings {
+  folder: string;
+  format: string;
+  template: string;
+}
+
+/**
+ * `.obsidian/daily-notes.json` (Obsidian's core Daily notes plugin): folder, moment.js format and
+ * template. Periodic Notes' own settings are not read.
+ */
+async function dailySettings(vault: string): Promise<DailySettings> {
+  const none: DailySettings = { folder: "", format: DEFAULT_DAILY_FORMAT, template: "" };
   try {
     const raw = JSON.parse(
       await readFile(join(vault, ".obsidian", "daily-notes.json"), "utf8"),
-    ) as {
-      folder?: unknown;
+    ) as { folder?: unknown; format?: unknown; template?: unknown };
+    return {
+      folder: typeof raw.folder === "string" ? raw.folder.replace(/^\/+|\/+$/g, "") : "",
+      format: typeof raw.format === "string" ? raw.format : DEFAULT_DAILY_FORMAT,
+      template: typeof raw.template === "string" ? raw.template.replace(/^\/+/, "") : "",
     };
-    return typeof raw.folder === "string" ? raw.folder.replace(/^\/+|\/+$/g, "") : "";
   } catch {
-    return "";
+    return none;
   }
 }
 
@@ -226,6 +244,28 @@ class ObsidianConnector implements Connector {
     return this.#vault;
   }
 
+  /**
+   * The body of a new daily note from its template (Obsidian's `template` setting, with or without
+   * `.md`). A template outside the vault, unreadable or missing is not applied: the note starts
+   * empty rather than reading a file the vault does not hold.
+   */
+  async #dailyTemplate(
+    root: string,
+    template: string,
+    file: string,
+    date: string,
+  ): Promise<string> {
+    if (template === "") return "";
+    try {
+      const tpl = notePath(root, /\.md$/i.test(template) ? template : `${template}.md`, "template");
+      await this.#opts.access(tpl, "read");
+      const text = await readFile(tpl, "utf8");
+      return renderDailyTemplate(text, date, basename(file, ".md"), new Date());
+    } catch {
+      return "";
+    }
+  }
+
   tools(): ConnectorTool[] {
     const action = (name: string, params: unknown): ToolCallDescription => ({
       kind: "connector_action",
@@ -333,7 +373,7 @@ class ObsidianConnector implements Connector {
         name: "obsidian_append_daily",
         action: "obsidian.write",
         description:
-          "Add text to today's daily note (or date: YYYY-MM-DD), creating it in the vault's daily-notes folder if needed, e.g. a log line or meeting notes.",
+          "Add text to today's daily note (or date: YYYY-MM-DD), creating it if needed, e.g. a log line or meeting notes. The file is named and placed as Obsidian's Daily notes settings say (format, folder); a new note starts from the daily template when one is set.",
         inputSchema: obj(
           {
             text: { type: "string", minLength: 1, maxLength: 100_000 },
@@ -346,19 +386,21 @@ class ObsidianConnector implements Connector {
         execute: async (p) => {
           const o = p as { text: string; date?: string };
           const root = this.#root();
-          const date = o.date ?? this.#opts.today?.() ?? new Date().toISOString().slice(0, 10);
-          const folder = this.#dailyFolder ?? (await dailyFolder(root));
-          const file = notePath(root, join(folder, `${date}.md`));
+          const date = o.date ?? this.#opts.today?.() ?? localDay(new Date());
+          const settings = await dailySettings(root);
+          const folder = this.#dailyFolder ?? settings.folder;
+          const file = notePath(root, join(folder, `${dailyNoteName(date, settings.format)}.md`));
           await this.#opts.access(file, "write");
-          const before = await readFile(file, "utf8").catch(() => "");
+          const before = await readFile(file, "utf8").catch(() => null);
+          const base = before ?? (await this.#dailyTemplate(root, settings.template, file, date));
           await mkdir(dirname(file), { recursive: true });
           await writeFile(
             file,
-            `${before}${before.endsWith("\n") || before === "" ? "" : "\n"}${o.text}\n`,
+            `${base}${base === "" || base.endsWith("\n") ? "" : "\n"}${o.text}\n`,
           );
           return untrusted(
-            { path: vaultPath(root, file), created: before === "" },
-            { receiptSummary: `Added to the daily note ${date}` },
+            { path: vaultPath(root, file), created: before === null },
+            { receiptSummary: `Added to the daily note ${vaultPath(root, file)}` },
           );
         },
       },
