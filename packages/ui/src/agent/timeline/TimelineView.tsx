@@ -41,6 +41,7 @@ import {
   traceGaps,
   visibleRows,
 } from "./model.ts";
+import { OpenTabs } from "./OpenTabs.tsx";
 import { RunHeader, runTitle, type TimelineMode } from "./RunHeader.tsx";
 import {
   advance,
@@ -583,6 +584,11 @@ export function TimelineView({
           />
         ) : null}
       </Disclosure>
+      {/* Tabs reload with the run, on the same key the helpers use. */}
+      <OpenTabs
+        taskId={run.taskId ?? null}
+        refreshKey={`${run.status}|${run.stepCount ?? ""}|${run.endedAt ?? ""}`}
+      />
       <Disclosure open={range !== null}>
         {range ? (
           <p className="flex items-center gap-2 text-callout text-label-secondary tabular-nums">

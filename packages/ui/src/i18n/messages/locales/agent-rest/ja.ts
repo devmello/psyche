@@ -59,6 +59,7 @@ export const agentRest: Partial<Catalogue> = {
   "agent.timeline.tooltipUsage": "{start} · {duration} · {tokens}トークン · {cost}",
   "agent.timeline.range": "{from}から{to}を表示中",
   "agent.timeline.clearRange": "すべて表示",
+  "agent.timeline.tabs.title": "開いているタブ",
   "agent.timeline.zoomIn": "拡大",
   "agent.timeline.zoomOut": "縮小",
   "agent.timeline.zoomFit": "全体表示",

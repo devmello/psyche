@@ -162,6 +162,7 @@ export const agent = {
   "agent.timeline.tooltipUsage": "{start} · {duration} · {tokens} tokens · {cost}",
   "agent.timeline.range": "Showing {from} to {to}",
   "agent.timeline.clearRange": "Show all",
+  "agent.timeline.tabs.title": "Open tabs",
   "agent.timeline.zoomIn": "Zoom in",
   "agent.timeline.zoomOut": "Zoom out",
   "agent.timeline.zoomFit": "Fit",

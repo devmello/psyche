@@ -61,6 +61,7 @@ export const agentRest: Partial<Catalogue> = {
   "agent.timeline.tooltipUsage": "{start} · {duration} · {tokens} token · {cost}",
   "agent.timeline.range": "Visualizzazione da {from} a {to}",
   "agent.timeline.clearRange": "Mostra tutto",
+  "agent.timeline.tabs.title": "Schede aperte",
   "agent.timeline.zoomIn": "Ingrandisci",
   "agent.timeline.zoomOut": "Riduci",
   "agent.timeline.zoomFit": "Adatta",

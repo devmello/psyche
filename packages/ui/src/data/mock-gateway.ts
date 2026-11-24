@@ -24,6 +24,7 @@ import {
   type BrowserRecording,
   type BrowserRecordingEvent,
   type BrowserRecordingFrame,
+  type BrowserTab,
   buildPsycheTrace,
   type Channel,
   type ChannelIdentity,
@@ -132,6 +133,8 @@ export interface MockWorld {
   machines?: MachineInfo[];
   /** Browser recordings (absent = none). */
   browserRecordings?: MockBrowserRecording[];
+  /** Agent browser tabs (absent = none); `browser.tabs` filters them by task. */
+  browserTabs?: BrowserTab[];
   /** Everything memory's review queue (absent = empty). */
   review?: ReviewWorld;
   threads: ThreadListEntry[];
@@ -3295,6 +3298,11 @@ export class MockGateway implements GatewayClient {
       if (!this.admin) fail("forbidden", "devices.list requires operator.admin");
       return { devices: this.world.devices };
     },
+    "browser.tabs": (p) => ({
+      tabs: (this.world.browserTabs ?? []).filter(
+        (t) => p.taskId === undefined || t.taskId === p.taskId,
+      ),
+    }),
     "browser.recordings.list": () => ({
       recordings: (this.world.browserRecordings ?? []).map((r) => r.recording),
       nextCursor: null,
