@@ -9528,6 +9528,13 @@ export interface PlanBlock {
 
 export type PlanBlockType = "plan";
 
+export interface PluginsChangedPayload {
+    change: PluginsChangedPayloadChange;
+    name:   string;
+}
+
+export type PluginsChangedPayloadChange = "installed" | "enabled" | "disabled" | "removed";
+
 export interface PluginsGetProposalParams {
     proposalId: string;
 }

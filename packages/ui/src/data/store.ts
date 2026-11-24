@@ -518,6 +518,18 @@ export class GatewayStore {
     }
     if (INSIGHTS_EVENTS.has(e.event)) this.invalidateInsightsSoon();
     if (MAP_EVENTS.has(e.event)) this.invalidateMapSoon();
+    // The Library list and item loaders are not queries: rerun the open ones for a created or updated item.
+    if (e.event === "library.item.changed" && e.payload.change !== "deleted") {
+      void this.refreshKeys("library:");
+    }
+  }
+
+  /** Reruns the registered loaders whose key starts with `prefix`; each loader shows its own error. */
+  private async refreshKeys(prefix: string): Promise<void> {
+    const once = [...this.refreshers.entries()]
+      .filter(([key]) => key.startsWith(prefix))
+      .flatMap(([, set]) => [...set].slice(0, 1));
+    await Promise.allSettled(once.map((r) => r()));
   }
 
   /** Coalesces gap refreshes: one in flight, one trailing, spaced `GAP_REFRESH_MIN_MS` apart. */
@@ -846,6 +858,12 @@ export class GatewayStore {
         if (e.payload.entries.some((entry) => entry.key.startsWith("browser."))) {
           next = invalidate(next, ["browser.settings.get"]);
         }
+        // `settings.get` reads (the helper banner, Devices) keep their own copy: reload the ones
+        // that ask for a changed key, and the ones that ask for every key.
+        next = invalidateSettingsReads(
+          next,
+          e.payload.entries.map((entry) => entry.key),
+        );
         return { ...next, settings };
       }
       case "thread.updated": {
@@ -958,8 +976,34 @@ export class GatewayStore {
           },
         };
       case "device.updated":
-      case "pairing.requested":
         return invalidate(s, ["devices."]);
+      case "pairing.requested":
+        // The pairing request also lists in Settings → Channels (messaging pairing).
+        return invalidate(s, ["devices.", "channels."]);
+      case "channels.updated":
+        return invalidate(s, ["channels."]);
+      case "persona.updated":
+        return invalidate(s, ["memory.persona."]);
+      case "vault.locked":
+      case "vault.unlocked":
+        return invalidate(s, ["vault."], ["vault.onePassword."]);
+      case "plugins.changed":
+        return invalidate(s, ["plugins."]);
+      case "library.item.changed": {
+        const { itemId, change } = e.payload;
+        const touched = touch(s, `library:${itemId}`, v);
+        if (change === "deleted") {
+          const { [itemId]: _gone, ...rest } = touched.library;
+          return invalidate({ ...touched, library: rest }, ["library."]);
+        }
+        // Created or updated: the open lists and the item reload (see `onEvent`); a held copy of
+        // an updated item is dropped so nothing shows its old state meanwhile.
+        if (change === "updated") {
+          const { [itemId]: _old, ...rest } = touched.library;
+          return invalidate({ ...touched, library: rest }, ["library."]);
+        }
+        return invalidate(touched, ["library."]);
+      }
       case "machines.changed":
         // Settings → Devices → Computers Psyche can use, and the machine picker in Computer use.
         return invalidate(s, ["machines."]);
@@ -1076,6 +1120,25 @@ export function withAutomationRun(s: UiState, run: AutomationRun, started: boole
 }
 
 /** Marks generic queries whose method starts with one of `prefixes` as needing a reload. */
+/** Marks the `settings.get` reads stale that ask for one of `keys`, or for all settings. */
+function invalidateSettingsReads(s: UiState, keys: readonly string[]): UiState {
+  let changed = false;
+  const queries: Record<string, (typeof s.queries)[string]> = { ...s.queries };
+  for (const [key, q] of Object.entries(queries)) {
+    if (!key.startsWith("settings.get:")) continue;
+    let wanted: readonly string[] | undefined;
+    try {
+      wanted = (JSON.parse(key.slice("settings.get:".length)) as { keys?: string[] }).keys;
+    } catch {
+      wanted = undefined;
+    }
+    if (wanted !== undefined && !wanted.some((k) => keys.includes(k))) continue;
+    queries[key] = { ...q, version: -1 };
+    changed = true;
+  }
+  return changed ? { ...s, queries } : s;
+}
+
 function invalidate(
   s: UiState,
   prefixes: readonly string[],

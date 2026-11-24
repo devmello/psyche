@@ -329,6 +329,11 @@
         "payload": "#/$defs/PersonaUpdatedPayload"
       },
       {
+        "description": "A code plugin was installed (after its approved card), switched on or off, or removed, so Settings reloads the plugin list (a hint, not state).",
+        "name": "plugins.changed",
+        "payload": "#/$defs/PluginsChangedPayload"
+      },
+      {
         "description": "A batch proposal was created, sent for approval, ran (per-call results), was dismissed, expired or offered an undo (mail and meeting workflows §8.1).",
         "name": "proposal.updated",
         "payload": "#/$defs/ProposalUpdatedPayload"
@@ -36918,6 +36923,27 @@
         "enabled",
         "status",
         "installedAt"
+      ],
+      "type": "object"
+    },
+    "PluginsChangedPayload": {
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "change": {
+          "enum": [
+            "installed",
+            "enabled",
+            "disabled",
+            "removed"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "change"
       ],
       "type": "object"
     },

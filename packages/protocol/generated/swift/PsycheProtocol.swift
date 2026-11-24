@@ -1174,6 +1174,7 @@
 //   let pluginProposal = try? JSONDecoder().decode(PluginProposal.self, from: jsonData)
 //   let pluginStatus = try? JSONDecoder().decode(PluginStatus.self, from: jsonData)
 //   let pluginSummary = try? JSONDecoder().decode(PluginSummary.self, from: jsonData)
+//   let pluginsChangedPayload = try? JSONDecoder().decode(PluginsChangedPayload.self, from: jsonData)
 //   let pluginsGetProposalParams = try? JSONDecoder().decode(PluginsGetProposalParams.self, from: jsonData)
 //   let pluginsGetProposalResult = try? JSONDecoder().decode(PluginsGetProposalResult.self, from: jsonData)
 //   let pluginsInstallParams = try? JSONDecoder().decode(PluginsInstallParams.self, from: jsonData)
@@ -27755,6 +27756,29 @@ public struct PlanBlock: Codable, Sendable {
 
 public enum PlanBlockType: String, Codable, Sendable {
     case plan = "plan"
+}
+
+// MARK: - PluginsChangedPayload
+public struct PluginsChangedPayload: Codable, Sendable {
+    public let change: PluginsChangedPayloadChange
+    public let name: String
+
+    public enum CodingKeys: String, CodingKey {
+        case change = "change"
+        case name = "name"
+    }
+
+    public init(change: PluginsChangedPayloadChange, name: String) {
+        self.change = change
+        self.name = name
+    }
+}
+
+public enum PluginsChangedPayloadChange: String, Codable, Sendable {
+    case disabled = "disabled"
+    case enabled = "enabled"
+    case installed = "installed"
+    case removed = "removed"
 }
 
 // MARK: - PluginsGetProposalParams
