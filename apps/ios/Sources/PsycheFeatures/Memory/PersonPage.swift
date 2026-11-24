@@ -42,6 +42,13 @@ final class PersonModel {
         await write { try await self.store.retractFact(personID: self.id, factID: fact.id) }
     }
 
+    /// Saves the owner's name and aliases (memory.entities.update). Throws so the sheet shows the Gateway's words.
+    func updateCard(_ update: EntityChanges, ifMatch: String?) async throws {
+        try await store.updateEntity(id: id, changes: update, ifMatch: ifMatch)
+        changes += 1
+        await load()
+    }
+
     /// Saves the owner's value. Throws so the edit sheet shows the Gateway's words beside its field
     /// (a refusal stays on the sheet, so the owner can change the value and try again).
     func edit(_ fact: MemoryFact, value: String) async throws {
@@ -68,6 +75,7 @@ struct PersonPage: View {
     @State private var model: PersonModel
     @State private var retracting: MemoryFact?
     @State private var editing: MemoryFact?
+    @State private var editingCard = false
 
     init(id: String, store: any PsycheBackend) {
         _model = State(initialValue: PersonModel(id: id, store: store))
@@ -114,6 +122,18 @@ struct PersonPage: View {
         }
         .sheet(item: $editing) { fact in
             FactEditSheet(fact: fact) { value in try await model.edit(fact, value: value) }
+        }
+        .sheet(isPresented: $editingCard) {
+            if let card = model.phase.value?.card {
+                EntityEditSheet(card: card, isProject: false) { update in try await model.updateCard(update, ifMatch: card.etag) }
+            }
+        }
+        .toolbar {
+            if model.phase.value?.card != nil {
+                ToolbarItem(placement: .primaryAction) {
+                    Button(String(localized: "Edit", bundle: .module)) { editingCard = true }
+                }
+            }
         }
         .alert(String(localized: "Couldn't change that", bundle: .module), isPresented: Binding(get: { model.notice != nil }, set: { if !$0 { model.notice = nil } })) {
             Button(String(localized: "OK", bundle: .module), role: .cancel) {}
@@ -164,7 +184,7 @@ struct PersonPage: View {
             }
         }
 
-        EditOnMacNote(text: String(localized: "Edit on your Mac: names, aliases, merging people.", bundle: .module))
+        EditOnMacNote(text: String(localized: "Edit on your Mac: merging people.", bundle: .module))
     }
 
     private func factRow(_ fact: MemoryFact) -> some View {

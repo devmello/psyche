@@ -75,7 +75,8 @@ extension GatewayBackend {
             id: entityID, name: name, initials: Self.initials(name),
             detail: Self.personDetail(entity: entity, facts: head["facts"]?.array ?? []))
         let recent = (rows?["rows"]?.array ?? []).prefix(5).compactMap(Self.recentRow)
-        return PersonDetail(person: person, facts: facts, recent: Array(recent))
+        return PersonDetail(
+            person: person, facts: facts, recent: Array(recent), card: Self.card(entity, etag: head["etag"]?.string))
     }
 
     public func project(id: String) async throws -> ProjectDetail {
@@ -97,7 +98,7 @@ extension GatewayBackend {
         let item = Self.projectItem(head["entity"]!, progress: Self.progress(children: children, facts: facts))
         return ProjectDetail(
             project: item, todos: Self.sorted(todos), notes: notes, evidence: Array(evidence.prefix(4)),
-            isPrivate: entity["private"]?.bool == true)
+            isPrivate: entity["private"]?.bool == true, card: Self.card(entity, etag: head["etag"]?.string))
     }
 
     public func confirmFact(personID: String, factID: String) async throws {
@@ -122,6 +123,40 @@ extension GatewayBackend {
             .obj(["entityId": .string(personID), "attribute": .string(attribute), "value": .string(value),
                   "source": .obj(["kind": "owner_edit"])]),
             key: "edit-\(UUID().uuidString)")
+    }
+
+    /// Name, aliases, status and due date from the Gateway's card, for the edit sheet. The etag is the card's
+    /// if-match: a save made against an older card is refused, not overwritten.
+    static func card(_ entity: JSONValue, etag: String?) -> EntityCard? {
+        guard let name = entity["name"]?.string else { return nil }
+        return EntityCard(
+            name: name,
+            aliases: (entity["aliases"]?.array ?? []).compactMap { $0.string },
+            projectStatus: entity["projectStatus"]?.string.flatMap(ProjectStatus.init(rawValue:)),
+            dueAt: WireFormat.date(entity["dueAt"]?.string),
+            etag: etag)
+    }
+
+    /// "Edit" on a person or project card: memory.entities.update with only the changed fields. The Gateway's
+    /// refusal (a name it won't take, a stale card) reaches the owner in its own words.
+    public func updateEntity(id: String, changes: EntityChanges, ifMatch: String?) async throws {
+        var dueValue: JSONValue?
+        switch changes.dueAt {
+        case .clear?: dueValue = .null
+        case .set(let date)?: dueValue = .string(date.formatted(.iso8601))
+        case nil: dueValue = nil
+        }
+        _ = try await call(
+            "memory.entities.update",
+            .obj([
+                "id": .string(id),
+                "name": changes.name.map { JSONValue.string($0) },
+                "aliases": changes.aliases.map { JSONValue.array($0.map { .string($0) }) },
+                "projectStatus": changes.projectStatus.map { JSONValue.string($0.rawValue) },
+                "dueAt": dueValue,
+                "etag": ifMatch.map { JSONValue.string($0) },
+            ]),
+            key: "entity-edit-\(UUID().uuidString)")
     }
 
     // MARK: - Memory files and entities (read-only on the phone)
