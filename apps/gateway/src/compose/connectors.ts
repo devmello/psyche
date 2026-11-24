@@ -445,7 +445,7 @@ export function composeConnectors(
   }
   // The owner's approval of the drafted connector's card installs it (the card is the consent).
   // Denied or expired cards never reach here; `installApproved` verifies the approval itself.
-  services.rawBroker.subscribe((e) => {
+  const unsubscribeCustomInstall = services.rawBroker.subscribe((e) => {
     if (e.type !== "approval.decided" || e.approval.kind !== "skill_install") return;
     void custom.installApproved(e.approval).catch((err: unknown) =>
       log?.log("warn", "custom connector install after approval failed", {
@@ -480,16 +480,31 @@ export function composeConnectors(
       sideEffect: "none",
       provenanceOut: "trusted",
     },
-    execute: async (_callId, params) => {
+    // The run's taint and requester travel onto the card, so an injected draft is shown as tainted
+    // (and offers only "once") and the card says who asked for it.
+    run: async (params, ctx) => {
       const p = (params ?? {}) as {
         manifest?: Record<string, unknown>;
         openapi?: { document: string; id: string; operations?: string[] };
       };
-      const { proposal, approval } = await custom.propose({
-        ...(p.manifest === undefined ? {} : { manifest: p.manifest }),
-        ...(p.openapi === undefined ? {} : { openapi: p.openapi }),
-        drafted: "agent",
-      });
+      const { proposal, approval } = await custom.propose(
+        {
+          ...(p.manifest === undefined ? {} : { manifest: p.manifest }),
+          ...(p.openapi === undefined ? {} : { openapi: p.openapi }),
+          drafted: "agent",
+        },
+        {
+          requestedBy: {
+            runId: ctx.runId,
+            taskId: ctx.taskId ?? null,
+            threadId: ctx.threadId,
+            toolCallId: ctx.callId,
+          },
+          taint: ctx.taint,
+          ...(ctx.taintSources === undefined ? {} : { taintSources: [...ctx.taintSources] }),
+          ...(ctx.requester === undefined ? {} : { requester: ctx.requester }),
+        },
+      );
       return {
         output: {
           proposalId: proposal.id,
@@ -597,6 +612,7 @@ export function composeConnectors(
       unsubscribeMatrix?.();
       unregisterFreeTime();
       unregisterDraft();
+      unsubscribeCustomInstall();
       unsubscribeRevoked();
       if (timer !== undefined) clearInterval(timer);
       timer = undefined;

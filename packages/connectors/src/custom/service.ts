@@ -1,4 +1,9 @@
-import { bindingFor, type SkillInstallBindingArgs } from "@psyche/permissions";
+import {
+  bindingFor,
+  type Requester,
+  type SkillInstallBindingArgs,
+  type TaintSource,
+} from "@psyche/permissions";
 import {
   type ApprovalRequest,
   type Clock,
@@ -35,6 +40,23 @@ export interface ProposeCustomInput {
   scopeMode?: ScopeMode;
   /** Who drafted it; the agent's drafts say so on the card. Default `owner`. */
   drafted?: "owner" | "agent";
+}
+
+/**
+ * Who asked for a proposal, from the tool run that drafted it. Absent for an owner's own proposal:
+ * that card is untainted, with no requester, and is not marked as drafted.
+ */
+export interface ProposeRun {
+  requestedBy: {
+    runId: string | null;
+    taskId: string | null;
+    threadId: string | null;
+    toolCallId?: string;
+  };
+  /** The run has read untrusted content: the card is tainted and offers only "once". */
+  taint: boolean;
+  taintSources?: TaintSource[];
+  requester?: Requester;
 }
 
 export interface CustomConnectorServiceOptions {
@@ -91,6 +113,7 @@ export class CustomConnectors {
 
   async propose(
     input: ProposeCustomInput,
+    run?: ProposeRun,
   ): Promise<{ proposal: CustomConnectorProposal; approval: ApprovalRequest }> {
     const findings: ManifestFinding[] = [];
     let raw: unknown = input.manifest;
@@ -146,13 +169,15 @@ export class CustomConnectors {
       proposal.update = { fromHash: manifestHash(prev), diff: lineDiff(manifestText(prev), text) };
     }
     const high = findings.filter((f) => f.severity === "high").length;
+    const drafted = input.drafted === "agent";
     const issued = await this.#o.broker.requestApproval({
       kind: "skill_install",
-      summary: `${existing === undefined ? "Install" : "Update"} custom connector "${m.name}"${high > 0 ? ` (${high} high-severity findings: its tools will be off)` : ""}`,
+      summary: `${existing === undefined ? "Install" : "Update"} custom connector "${m.name}"${high > 0 ? ` (${high} high-severity findings: its tools will be off)` : ""}${drafted ? " (drafted by the agent)" : ""}`,
       details: {
         kind: "connector",
         name: m.name,
         id: m.id,
+        ...(drafted ? { drafted: "agent" } : {}),
         hash,
         baseUrl: m.baseUrl,
         hosts: m.hosts,
@@ -169,11 +194,13 @@ export class CustomConnectors {
       },
       bindingHash,
       grantKey,
-      requestedBy: { runId: null, taskId: null, threadId: null },
+      requestedBy: run?.requestedBy ?? { runId: null, taskId: null, threadId: null },
       sideEffect: "destructive",
       surfaces: (this.#o.surfaces ?? ["desktop"]).filter((x) => !x.includes(":")),
       scopesOffered: ["once"],
-      taint: false,
+      taint: run?.taint ?? false,
+      ...(run?.taintSources === undefined ? {} : { taintSources: run.taintSources }),
+      ...(run?.requester === undefined ? {} : { context: { requester: run.requester } }),
     });
     this.#staged.set(id, { proposal, existingId: existing?.id, approvalId: issued.approval.id });
     return { proposal: structuredClone(proposal), approval: issued.approval };
@@ -217,6 +244,11 @@ export class CustomConnectors {
         "approval_expired",
         "the proposal expired; propose the connector again",
       );
+    }
+    // Only the card this proposal opened can install it: another approved card (even a real one
+    // for another connector) installs nothing here.
+    if (approvalId !== s.approvalId) {
+      throw new PsycheError("approval_required", "that card is not this connector's trust card");
     }
     const approval = await this.#o.broker.get(approvalId);
     if (

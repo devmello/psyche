@@ -625,4 +625,53 @@ describe("propose → trust card → install", () => {
     });
     expect(await s.registry.list()).toEqual([]);
   });
+
+  it("refuses to install proposal B with the approved card of proposal A", async () => {
+    const s = setup();
+    const a = await s.service.propose({ manifest: MANIFEST });
+    const b = await s.service.propose({ manifest: variant((m) => void (m.name = "Other")) });
+    await s.approve(a.approval.id);
+    await expect(s.service.install(b.proposal.id, a.approval.id)).rejects.toMatchObject({
+      code: "approval_required",
+    });
+    // B still waits for its own card, and installs once that card is approved.
+    await s.approve(b.approval.id);
+    const record = await s.service.install(b.proposal.id, b.approval.id);
+    expect(record).toMatchObject({ label: "Other" });
+  });
+
+  it("marks an agent's draft on the card and taints it when the run read untrusted content", async () => {
+    const s = setup();
+    const run = {
+      requestedBy: { runId: "run_1", taskId: null, threadId: "thr_1", toolCallId: "tc_9" },
+      taint: true,
+      taintSources: [{ sourceKind: "web", origin: "https://evil.example", toolCallId: "tc_2" }],
+    };
+    const { approval } = await s.service.propose({ manifest: MANIFEST, drafted: "agent" }, run);
+    expect(approval.taint).toBe(true);
+    expect(approval.taintSources).toEqual(run.taintSources);
+    expect(approval.requestedBy).toEqual(run.requestedBy);
+    expect((approval.details as { drafted?: unknown }).drafted).toBe("agent");
+    expect(approval.summary).toMatch(/drafted by the agent/);
+    // An untainted draft still says it was drafted, and is not tainted.
+    const clean = await s.service.propose(
+      { manifest: MANIFEST, drafted: "agent" },
+      {
+        requestedBy: { runId: "run_2", taskId: null, threadId: null },
+        taint: false,
+      },
+    );
+    expect(clean.approval.taint).toBe(false);
+    expect((clean.approval.details as { drafted?: unknown }).drafted).toBe("agent");
+  });
+
+  it("an owner's own proposal is neither tainted, requested by a run, nor marked as drafted", async () => {
+    const s = setup();
+    const { approval } = await s.service.propose({ manifest: MANIFEST });
+    expect(approval.taint).toBe(false);
+    expect(approval.requestedBy).toEqual({ runId: null, taskId: null, threadId: null });
+    expect(approval.taintSources).toBeUndefined();
+    expect((approval.details as { drafted?: unknown }).drafted).toBeUndefined();
+    expect(approval.summary).not.toMatch(/drafted by the agent/);
+  });
 });
