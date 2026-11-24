@@ -29,6 +29,32 @@ export function memoryViewerOf(call: Call): AnswerViewer {
 export const mayReadMemoryChunks = (viewer: AnswerViewer): boolean =>
   forViewer({ source: "memory" }, viewer) !== undefined;
 
+/**
+ * A search response as this connection may see it: for one that may not open Memory, every
+ * memory-kind hit (a chunk snippet) and the memory group are dropped. Other kinds are unchanged.
+ */
+export function scrubMemorySearch<
+  T extends {
+    hits: { kind?: string; group?: string }[];
+    groups?: { group?: string; hits: { kind?: string }[] }[];
+  },
+>(call: Call, res: T): T {
+  if (mayReadMemoryChunks(memoryViewerOf(call))) return res;
+  const isMemory = (h: { kind?: string; group?: string }) =>
+    h.kind === "memory" || h.group === "memory";
+  return {
+    ...res,
+    hits: res.hits.filter((h) => !isMemory(h)),
+    ...(res.groups === undefined
+      ? {}
+      : {
+          groups: res.groups
+            .filter((g) => g.group !== "memory")
+            .map((g) => ({ ...g, hits: g.hits.filter((h) => !isMemory(h)) })),
+        }),
+  };
+}
+
 /** The memory handlers, with the chunk-returning methods held to the connection's viewer. */
 export function mountMemoryHandlers(
   handlers: MemoryHandlers,
@@ -48,6 +74,16 @@ export function mountMemoryHandlers(
       const claim = store.getClaim((params as { claimId: string }).claimId);
       if (claim === undefined) throw new PsycheError("not_found", "no such claim");
       return { claim, chunks: [] };
+    },
+  };
+  out["memory.export"] = {
+    run: async (call: Call, params: never) => {
+      // The whole workspace plus claims, lessons and feedback: the desktop app and Host CLI only.
+      if (!mayReadMemoryChunks(memoryViewerOf(call)))
+        throw new PsycheError("forbidden", "Memory exports from the Psyche app on the Host only", {
+          details: { reason: "not_desktop" },
+        });
+      return handlers["memory.export"](params);
     },
   };
   return out;
