@@ -31,6 +31,10 @@ export const IPC = {
   gatewaysLinkOpened: "psyche:gateways:link-opened",
   gatewaysDiscover: "psyche:gateways:discover",
   gatewaysAddDiscovered: "psyche:gateways:add-discovered",
+  /** "Pick from your tailnet": the local tailscale CLI, and `probe` for /healthz on peers. */
+  gatewaysTailnet: "psyche:gateways:tailnet",
+  gatewaysAddTailnet: "psyche:gateways:add-tailnet",
+  gatewaysOpenTailscale: "psyche:gateways:open-tailscale",
   /** "Set up a remote server": claim a psyche-server with its setup code (design §3.6). */
   gatewaysClaim: "psyche:gateways:claim",
   gatewaysRename: "psyche:gateways:rename",

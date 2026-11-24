@@ -1009,6 +1009,22 @@ export const settingsRest: Partial<Catalogue> = {
     "कंप्यूटर नेटवर्क पर जो घोषित करता है वह सिर्फ़ एक दावा है। पेयरिंग स्क्रीन उसकी कुंजी दिखाती है: स्वीकृत करने से पहले उसे होस्ट की कुंजी से मिलाएँ।",
   "settings.gateways.discoverAdd": "{name} जोड़ें",
   "settings.gateways.discoverSaved": "सेव किया गया",
+  "settings.gateways.tailnetTitle": "आपके tailnet पर",
+  "settings.gateways.tailnetChecking": "Tailscale जाँचा जा रहा है…",
+  "settings.gateways.tailnetLook": "मेरे tailnet पर Psyche खोजें",
+  "settings.gateways.tailnetNone":
+    "आपके tailnet पर कोई Psyche नहीं मिला। उस कंप्यूटर पर “अन्य कंप्यूटर की अनुमति दें” चालू करें।",
+  "settings.gateways.tailnetFailed": "इस कंप्यूटर पर Tailscale नहीं पढ़ा जा सका। इसके बजाय पता जोड़ें।",
+  "settings.gateways.tailnetOff": "इस कंप्यूटर पर Tailscale बंद है।",
+  "settings.gateways.tailnetOpen": "Tailscale खोलें",
+  "settings.gateways.tailnetOpenFailed": "Tailscale नहीं खुल सका। इसे अपने Applications फ़ोल्डर से खोलें।",
+  "settings.gateways.tailnetRetry": "फिर से कोशिश करें",
+  "settings.gateways.tailnetOnline": "ऑनलाइन",
+  "settings.gateways.tailnetOffline": "ऑफ़लाइन",
+  "settings.gateways.tailnetConnect": "कनेक्ट करें",
+  "settings.gateways.tailnetConnectName": "{name} से कनेक्ट करें",
+  "settings.gateways.tailnetHint":
+    "इस कंप्यूटर पर Tailscale के ज़रिए मिला। टाइप किए गए पते की तरह, Psyche जोड़ने से पहले Gateway की दी हुई कुंजी जाँचता है।",
   "settings.remoteSetup.title": "रिमोट सर्वर सेट अप करें",
   "settings.remoteSetup.open": "रिमोट सर्वर सेट अप करें",
   "settings.remoteSetup.intro":

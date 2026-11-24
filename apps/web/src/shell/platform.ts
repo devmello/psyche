@@ -50,6 +50,20 @@ export interface SavedGatewayView {
 }
 
 /** A Gateway the network announced (Bonjour `_psyche._tcp`); a claim, not a proof. */
+/** One peer on the owner's tailnet (desktop: `lib/tailnet.ts`). A listing, not a proof. */
+export interface TailnetPeerView {
+  id: string;
+  name: string;
+  dnsName: string;
+  online: boolean;
+  tagged: boolean;
+}
+
+export interface TailnetListingView {
+  state: "off" | "missing" | "ok";
+  peers: TailnetPeerView[];
+}
+
 export interface DiscoveredGatewayView {
   /** Stable for this listing; the window adds it by this id, never by an address. */
   id: string;
@@ -97,6 +111,12 @@ export interface GatewaysPort {
   discover?(): Promise<DiscoveredGatewayView[]>;
   /** Adds a listing `discover` returned; the same native confirmation and pin flow as `add`. */
   addDiscovered?(id: string): Promise<SavedGatewayView>;
+  /** "Pick from your tailnet": the local Tailscale CLI. `probe` also asks untagged peers for /healthz. */
+  tailnet?(probe: boolean): Promise<TailnetListingView>;
+  /** Connects to a peer `tailnet` listed, by its id: the same add as a typed address. */
+  addTailnet?(id: string): Promise<SavedGatewayView>;
+  /** Opens the Tailscale app. */
+  openTailscale?(): Promise<void>;
   /**
    * "Set up a remote server" (design §3.6): claims a fresh psyche-server, by a listing's id or a
    * typed address, with the setup code it printed. Main confirms the address natively, both sides
