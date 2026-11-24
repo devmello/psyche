@@ -2,6 +2,14 @@
 
 Newest first. The `reflect` skill reads the top entry to know where the last pass stopped.
 
+## 2026-11-24: reflect pass over #1574-#1596
+Last pass: #1557. Evidence: the orchestrator's first-hand lessons for the wave (#1580 R1, #1581, #1586, #1588) and the security reviews of the install PRs.
+- **`psyche-apple`:** SwiftUI traps (`.task` on an empty `Group`, `@ViewBuilder` siblings in a `ZStack`, `LabeledContent` over placeholder labels) and simulator deep-link behaviour (checked against `Router.swift`).
+- **`psyche-builder`:** approval-triggered actions run on the Gateway and report failure; look in `packages/ui` before `apps/web/src/shell`; `--related` is the merge gate, builders run plain `verify.sh` (builders hit the turn cap).
+- **`psyche-permissions` §3g:** same server-side point for installs (#1581 reviews).
+- **`orchestrate`:** reviewers wait for other `verify.sh` runs (3-4 `--related` at once).
+- Pruned nothing: no stale advice found in the touched areas. `.claude/CLAUDE.md` untouched.
+
 ## 2026-11-23 (c): reflect pass over #1552-#1557 (and #1553-#1555)
 Last pass: #1549. Evidence: the orchestrator's summary of the last 9 merged builder PRs.
 - **`psyche-apple`:** FixtureBackend with every new backend method or UI-gating field (#1553-#1557); validation errors only after edit or on Save (#1556); simulator etiquette and demo mode (one device per agent, `-psycheScenario live`).
