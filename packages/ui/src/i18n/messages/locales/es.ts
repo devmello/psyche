@@ -1325,6 +1325,19 @@ export const es: Partial<Catalogue> = {
     "Necesita un Psyche Helper firmado con un Developer ID y un perfil de aprovisionamiento",
   "settings.credentials.keyFileExplainer":
     "La clave que abre tu bóveda es un archivo que solo tu cuenta puede leer. Moverla al llavero (Touch ID) necesita un Psyche Helper firmado; el asistente de esta compilación no está firmado.",
+  "settings.credentials.lockNow": "Bloquear ahora",
+  "settings.credentials.autoLock.label": "Bloqueo automático tras inactividad",
+  "settings.credentials.autoLock.hint": "La bóveda se bloquea sola tras este tiempo sin uso.",
+  "settings.credentials.autoLock.m15": "15 minutos",
+  "settings.credentials.autoLock.h1": "1 hora",
+  "settings.credentials.autoLock.h8": "8 horas",
+  "settings.credentials.autoLock.h24": "24 horas",
+  "settings.credentials.autoLock.never": "Nunca",
+  "settings.credentials.autoLock.custom": "{minutes} minutos",
+  "settings.credentials.autoLock.neverWarning":
+    "Sin bloqueo automático, la bóveda permanece desbloqueada hasta que la bloquees. Cualquiera que use este equipo podrá usar tus credenciales guardadas.",
+  "settings.credentials.err.lock": "No se pudo bloquear la bóveda: {reason}",
+  "settings.credentials.err.autoLock": "No se cambió el bloqueo automático: {reason}",
 
   "settings.credentials.detail.executor.browser": "Navegador",
   "settings.credentials.detail.executor.connector": "Conector",

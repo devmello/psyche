@@ -83,6 +83,8 @@ import { parseTotpSeed, totpCode } from "./totp.ts";
 
 /** Default idle lock (security §4.3, `vault.autoLockMinutes`). */
 export const DEFAULT_AUTO_LOCK_MINUTES = 480;
+/** The longest idle lock the owner can pick (7 days). */
+export const MAX_AUTO_LOCK_MINUTES = 10_080;
 
 /** Kinds `vault.add` accepts. `payment_link` comes only from Stripe Link pairing (G12, M3). */
 const ADDABLE_KINDS: readonly CredentialKind[] = [
@@ -183,6 +185,8 @@ interface SlotsFile {
   version: 1;
   vaultId: string;
   recoveryConfirmed: boolean;
+  /** The owner's idle lock (`setAutoLock`); null = never. Absent until the owner sets it. */
+  autoLockMinutes?: number | null;
   /** Last group of the recovery key, sealed under the DEK, for `confirmRecovery`. */
   recoveryCheck?: SealedBox;
   slots: Partial<Record<Exclude<VaultKeySlot, "recovery">, WrappedKey>>;
@@ -395,6 +399,8 @@ export class Vault implements CredentialBroker, ConnectorCredentialStore {
   #unlocked: Unlocked | undefined;
   /** 1Password as the external source: from options, or set later by the guided setup. */
   #onePassword: OnePasswordSource | undefined;
+  /** Idle minutes before the lock; null = never. Persisted in slots.json once set. */
+  #autoLock: number | null;
   #lockAt: number | null = null;
   #cancelTimer: (() => void) | undefined;
   #unlocking: Promise<void> | undefined;
@@ -417,6 +423,9 @@ export class Vault implements CredentialBroker, ConnectorCredentialStore {
     this.#onePassword = options.onePassword;
     this.clock = options.clock ?? { now: () => Date.now() };
     this.#dir = join(options.home, "vault");
+    // A saved value wins, including the saved "never" (null); only a never-set file falls back.
+    const saved = this.#persistedAutoLock();
+    this.#autoLock = saved === undefined ? this.#o.autoLockMinutes : saved;
     this.#redactor = options.redactor ?? new SecretRedactor();
     this.#newId = options.newId ?? (() => randomUUID().replace(/-/g, ""));
     // The mirror is in the (restorable) database: drop removed items before anyone lists them.
@@ -438,6 +447,16 @@ export class Vault implements CredentialBroker, ConnectorCredentialStore {
   #readSlots(): SlotsFile | undefined {
     if (!existsSync(this.#slotsPath)) return undefined;
     return JSON.parse(readFileSync(this.#slotsPath, "utf8")) as SlotsFile;
+  }
+
+  /** The owner's saved auto-lock, if one was ever set. An unreadable file keeps the default. */
+  #persistedAutoLock(): number | null | undefined {
+    try {
+      const slots = this.#readSlots();
+      return slots?.autoLockMinutes;
+    } catch {
+      return undefined;
+    }
   }
 
   #writeJson(path: string, value: unknown): void {
@@ -496,7 +515,7 @@ export class Vault implements CredentialBroker, ConnectorCredentialStore {
             : "unlocked",
       slots: present,
       recoveryConfirmed: slots?.recoveryConfirmed ?? false,
-      autoLockMinutes: this.#o.autoLockMinutes,
+      autoLockMinutes: this.#autoLock,
       lockAt: this.#lockAt === null ? null : toIso(this.#lockAt),
       itemCount: this.#o.meta.list().length,
     };
@@ -578,6 +597,30 @@ export class Vault implements CredentialBroker, ConnectorCredentialStore {
     }
     const { recoveryCheck: _drop, ...rest } = slots;
     this.#writeJson(this.#slotsPath, { ...rest, recoveryConfirmed: true });
+    return this.status();
+  }
+
+  /**
+   * Sets the idle lock (`null` = never). Saved in slots.json, so it survives a restart. An
+   * unlocked vault re-arms its timer from now. Needs no unlock and no presence: the caller's
+   * admin scope is the gate (the handler), not the key.
+   */
+  async setAutoLock(minutes: number | null): Promise<VaultStatus> {
+    if (
+      minutes !== null &&
+      (!Number.isInteger(minutes) || minutes < 1 || minutes > MAX_AUTO_LOCK_MINUTES)
+    ) {
+      return fail(
+        "invalid_params",
+        `auto-lock is a whole number of minutes from 1 to ${MAX_AUTO_LOCK_MINUTES}, or never`,
+      );
+    }
+    const slots = this.#readSlots();
+    if (slots === undefined) return fail("not_found", "no vault");
+    this.#writeJson(this.#slotsPath, { ...slots, autoLockMinutes: minutes });
+    this.#autoLock = minutes;
+    if (this.#unlocked !== undefined) this.#touch();
+    await this.#audit("vault.autoLock.changed", { minutes });
     return this.status();
   }
 
@@ -705,7 +748,12 @@ export class Vault implements CredentialBroker, ConnectorCredentialStore {
 
   #touch(): void {
     this.#cancelTimer?.();
-    const at = this.clock.now() + this.#o.autoLockMinutes * 60_000;
+    this.#cancelTimer = undefined;
+    if (this.#autoLock === null) {
+      this.#lockAt = null;
+      return;
+    }
+    const at = this.clock.now() + this.#autoLock * 60_000;
     this.#lockAt = at;
     const c = this.clock as Clock & { setTimer?: (at: number, fn: () => void) => () => void };
     if (typeof c.setTimer === "function") {

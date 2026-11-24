@@ -1,11 +1,14 @@
 import { join } from "node:path";
 import type { PsycheAgentLoop } from "@psyche/agent-core";
 import { getSetting, type PsycheDb } from "@psyche/db";
+import type { PsycheNotifier } from "@psyche/notifications";
+import type { PsychePermissionBroker } from "@psyche/permissions";
 import { createPluginsHandlers, PluginManager } from "@psyche/plugins";
 import type { PermissionBroker } from "@psyche/protocol";
 import type { Logger } from "../log.ts";
 import type { Gateway } from "../server.ts";
 import { mountParamsOnly } from "./handlers.ts";
+import { approvedInstallReason, reportApprovedInstallFailed } from "./install-failed.ts";
 import type { ComposedPart } from "./services.ts";
 
 /**
@@ -24,6 +27,9 @@ export interface PluginsSetup {
   home: string;
   /** The executor broker: the install card is announced like the other executors' cards. */
   broker: PermissionBroker;
+  /** The raw broker's decisions: an approved card installs the plugin, whatever screen is open. */
+  events: Pick<PsychePermissionBroker, "subscribe">;
+  notifier: Pick<PsycheNotifier, "notify">;
   loop: PsycheAgentLoop;
   logger?: Logger;
 }
@@ -39,6 +45,26 @@ export function composePlugins(setup: PluginsSetup): ComposedPart & { manager: P
     log: (message, data) => setup.logger?.log("info", `plugins: ${message}`, data ?? {}),
   });
   let unsubscribe: (() => void) | undefined;
+  // The owner's approval of a plugin card installs it (the card is the consent). Denied or expired
+  // cards never reach here; `installApproved` checks the approval itself. A failure is reported.
+  const unsubscribeInstall = setup.events.subscribe((e) => {
+    if (e.type !== "approval.decided" || e.approval.kind !== "skill_install") return;
+    if (e.approval.details.kind !== "plugin") return;
+    void manager.installApproved(e.approval).catch((err: unknown) => {
+      const reason = approvedInstallReason(err);
+      setup.logger?.log("warn", "plugin install after approval failed", {
+        approvalId: e.approval.id,
+        reason,
+      });
+      reportApprovedInstallFailed({
+        broker: setup.broker,
+        notifier: setup.notifier,
+        approval: e.approval,
+        kind: "plugin",
+        reason,
+      });
+    });
+  });
   return {
     manager,
     handlers: mountParamsOnly(createPluginsHandlers(manager, enabled) as never),
@@ -58,6 +84,7 @@ export function composePlugins(setup: PluginsSetup): ComposedPart & { manager: P
       await manager.sync();
     },
     async stop() {
+      unsubscribeInstall();
       unsubscribe?.();
       await manager.stopAll();
     },

@@ -220,6 +220,8 @@ export interface PolicyBatchInput {
   details?: JsonObject;
   taintSources?: TaintSource[];
   ttlMs?: number;
+  /** Caps the card's expiry (the owner's approval TTL is the default). */
+  maxTtlMs?: number;
 }
 
 /** WebAuthn assertion or helper-signed Touch ID signature over the challenge (design-04). */

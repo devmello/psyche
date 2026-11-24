@@ -166,6 +166,73 @@ describe("plugin install and switches", () => {
     });
   });
 
+  it("an approved card installs through the broker's event alone, and the Settings call shares it", async () => {
+    const s = await setup();
+    s.clock.advance(500);
+    await approve(s.broker, s.approval.id);
+    const approved = await s.broker.get(s.approval.id);
+    // The owner closed Settings: only the event runs. With Settings open too, both run once.
+    const alone = await s.manager.installApproved(approved as NonNullable<typeof approved>);
+    expect(alone).toMatchObject({ name: "office-hours", enabled: false });
+    const again = await s.manager.install(s.proposal.id, s.approval.id);
+    expect(again.name).toBe("office-hours");
+    expect(s.manager.list()).toHaveLength(1);
+    const receipts = (await s.broker.listReceipts()).filter(
+      (r) => r.kind === "skill_install" && r.externalRefs?.plugin === "office-hours",
+    );
+    expect(receipts).toHaveLength(1);
+  });
+
+  it("the Settings call and the event racing each other install once", async () => {
+    const s = await setup();
+    s.clock.advance(500);
+    await approve(s.broker, s.approval.id);
+    const approved = await s.broker.get(s.approval.id);
+    const [viaUi, viaEvent] = await Promise.all([
+      s.manager.install(s.proposal.id, s.approval.id),
+      s.manager.installApproved(approved as NonNullable<typeof approved>),
+    ]);
+    expect(viaEvent?.name).toBe(viaUi.name);
+    const receipts = (await s.broker.listReceipts()).filter(
+      (r) => r.kind === "skill_install" && r.externalRefs?.plugin === "office-hours",
+    );
+    expect(receipts).toHaveLength(1);
+  });
+
+  it("an approved card whose proposal is gone (a restart) is reported with not_found, installs nothing", async () => {
+    const s = await setup();
+    s.clock.advance(500);
+    await approve(s.broker, s.approval.id);
+    const approved = await s.broker.get(s.approval.id);
+    const restarted = new PluginManager({
+      dir: join(dir, "plugins"),
+      broker: s.broker,
+      registry: s.registry,
+      enabled: () => false,
+      now: () => s.clock.now(),
+    });
+    await expect(
+      restarted.installApproved(approved as NonNullable<typeof approved>),
+    ).rejects.toMatchObject({ code: "not_found" });
+    expect(restarted.list()).toEqual([]);
+  });
+
+  it("a denied card installs nothing, and an expired proposal is refused", async () => {
+    const s = await setup();
+    s.clock.advance(500);
+    await approve(s.broker, s.approval.id, "deny");
+    const denied = await s.broker.get(s.approval.id);
+    expect(await s.manager.installApproved(denied as NonNullable<typeof denied>)).toBeUndefined();
+    expect(s.manager.list()).toEqual([]);
+
+    const late = await setup();
+    late.clock.advance(31 * 60_000);
+    await expect(late.manager.install(late.proposal.id, late.approval.id)).rejects.toMatchObject({
+      code: "approval_expired",
+    });
+    expect(late.manager.list()).toEqual([]);
+  });
+
   it("counts what the folder really adds, whatever the manifest declares", async () => {
     const s0 = await setup();
     s0.clock.advance(500);
@@ -250,13 +317,17 @@ class RecordingBroker extends FakePermissionBroker {
   }
 }
 
-async function approve(broker: RecordingBroker, approvalId: string) {
+async function approve(
+  broker: RecordingBroker,
+  approvalId: string,
+  decision: "approve" | "deny" = "approve",
+) {
   const issued = broker.issued.find((i) => i.approval.id === approvalId);
   const surface = Object.keys(issued?.answerTokens ?? {})[0] ?? "desktop";
   await broker.answer({
     approvalId,
     answerToken: issued?.answerTokens[surface] ?? "",
-    decision: "approve",
+    decision,
     decidedBy: { deviceId: "dev_owner", surface },
   });
 }
