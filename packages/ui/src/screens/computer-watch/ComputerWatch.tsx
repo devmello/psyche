@@ -10,6 +10,7 @@ import {
   useState,
   type WheelEvent,
 } from "react";
+import { toast } from "sonner";
 import { Badge } from "../../components/ui/badge.tsx";
 import { Button } from "../../components/ui/button.tsx";
 import { t } from "../../i18n/core.ts";
@@ -76,6 +77,9 @@ export function ComputerWatch({
   const [shown, setShown] = useState<Shown | null>(null);
   const [takenOver, setTakenOver] = useState(false);
   const [takeOverError, setTakeOverError] = useState<string | null>(null);
+  // Set when a hand-back failed: the owner still has control and can try again.
+  const [handBackFailed, setHandBackFailed] = useState(false);
+  const [inputError, setInputError] = useState<string | null>(null);
   const imgRef = useRef<HTMLImageElement>(null);
   const seq = useRef<number | undefined>(undefined);
   const toggling = useRef(false);
@@ -152,6 +156,18 @@ export function ComputerWatch({
     };
   }, [active, running, client]);
 
+  /** Sends input. A batch that does not arrive is shown inline, not dropped silently. */
+  const forward = useCallback(
+    (events: VscreenInputEvent[]): void => {
+      client.input(events).then(
+        () => setInputError(null),
+        (err: unknown) =>
+          setInputError(t("computerWatch.inputFailed", { reason: describeError(err) })),
+      );
+    },
+    [client],
+  );
+
   /** Key-up and button-up for everything still held (focus left, hidden, or control handed back). */
   const letGo = useCallback(() => {
     const events: VscreenInputEvent[] = [];
@@ -160,8 +176,8 @@ export function ComputerWatch({
       events.push({ type: "up", ...lastPoint.current, button });
     heldKeys.current.clear();
     heldButtons.current.clear();
-    if (events.length > 0) void client.input(events).catch(() => {});
-  }, [client]);
+    if (events.length > 0) forward(events);
+  }, [forward]);
 
   useEffect(() => {
     const onHidden = () => {
@@ -175,13 +191,31 @@ export function ComputerWatch({
     };
   }, [letGo]);
 
+  /**
+   * Gives control back when the pane is hidden or closed. The pane may be gone by the time it
+   * fails, so the error is a toast, and control stays marked as ours so Try again can hand it back.
+   */
+  const handBackFromHidden = useCallback((): void => {
+    client.setTakenOver(false).then(
+      () => {
+        mine.current = false;
+      },
+      (err: unknown) => {
+        mine.current = true;
+        toast.error(t("computerWatch.handBackFailed", { reason: describeError(err) }), {
+          action: { label: t("computerWatch.handBack.retry"), onClick: () => handBackFromHidden() },
+        });
+      },
+    );
+  }, [client]);
+
   // Hiding the pane (or closing it) hands control back: the agent must not stay paused unseen.
   const release = useCallback(() => {
     letGo();
     if (!mine.current) return;
     mine.current = false;
-    void client.setTakenOver(false).catch(() => {});
-  }, [client, letGo]);
+    handBackFromHidden();
+  }, [handBackFromHidden, letGo]);
   useEffect(() => {
     if (!visible) release();
     return release;
@@ -190,6 +224,7 @@ export function ComputerWatch({
   const toggleTakeOver = async () => {
     const on = !takenOver;
     setTakeOverError(null);
+    setHandBackFailed(false);
     if (!on) letGo();
     toggling.current = true;
     setTakenOver(on);
@@ -197,8 +232,14 @@ export function ComputerWatch({
       await client.setTakenOver(on);
       mine.current = on;
     } catch (err) {
+      // A failed hand-back leaves the owner in control; a failed take-over leaves the agent's.
       setTakenOver(!on);
-      setTakeOverError(t("actionError.takeOver", { reason: describeError(err) }));
+      setHandBackFailed(!on);
+      setTakeOverError(
+        on
+          ? t("actionError.takeOver", { reason: describeError(err) })
+          : t("computerWatch.handBackFailed", { reason: describeError(err) }),
+      );
     } finally {
       toggling.current = false;
     }
@@ -215,7 +256,7 @@ export function ComputerWatch({
   };
 
   const send = (events: VscreenInputEvent[]) => {
-    void client.input(events).catch(() => {});
+    forward(events);
   };
 
   /** Displayed-image pixels to the guest screen's pixels. */
@@ -296,8 +337,21 @@ export function ComputerWatch({
       </header>
 
       {takeOverError ? (
+        <div
+          role="alert"
+          className="flex flex-wrap items-center gap-2 text-footnote text-danger-text"
+        >
+          <span>{takeOverError}</span>
+          {handBackFailed ? (
+            <Button variant="outline" size="sm" onClick={() => void toggleTakeOver()}>
+              {t("computerWatch.handBack.retry")}
+            </Button>
+          ) : null}
+        </div>
+      ) : null}
+      {inputError ? (
         <p role="alert" className="text-footnote text-danger-text">
-          {takeOverError}
+          {inputError}
         </p>
       ) : null}
       <p role="status" aria-live="polite" className="text-footnote text-label-secondary">

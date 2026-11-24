@@ -17,6 +17,10 @@ export const computerWatch: Partial<Catalogue> = {
     "Quando l’agente ha bisogno di uno schermo tutto suo, puoi guardarlo qui.",
   "computerWatch.starting": "Avvio dello schermo virtuale…",
   "computerWatch.error": "Impossibile raggiungere lo schermo virtuale. Nuovo tentativo…",
+  "computerWatch.inputFailed": "L’input non è arrivato allo schermo virtuale ({reason}).",
+  "computerWatch.handBackFailed":
+    "Impossibile restituire il controllo all’agente ({reason}). Hai ancora il controllo.",
+  "computerWatch.handBack.retry": "Riprova",
   "computerWatch.parked.title": "In attesa di te",
   "computerWatch.parked.body": "Un’app ha modifiche non salvate, quindi l’attività è in pausa.",
   "computerWatch.parked.look": "Guarda",

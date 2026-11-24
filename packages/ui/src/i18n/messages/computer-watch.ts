@@ -14,6 +14,10 @@ export const computerWatch = {
   "computerWatch.empty.body": "When the agent needs a screen of its own, you can watch it here.",
   "computerWatch.starting": "Starting the virtual screen…",
   "computerWatch.error": "Can't reach the virtual screen. Trying again…",
+  "computerWatch.inputFailed": "Your input didn't reach the virtual screen ({reason}).",
+  "computerWatch.handBackFailed":
+    "Couldn't give control back to the agent ({reason}). You still have control.",
+  "computerWatch.handBack.retry": "Try again",
   "computerWatch.parked.title": "Waiting for you",
   "computerWatch.parked.body": "An app has unsaved changes, so the task is paused.",
   "computerWatch.parked.look": "Look",

@@ -16,6 +16,9 @@ export const computerWatch: Partial<Catalogue> = {
   "computerWatch.empty.body": "عندما يحتاج الوكيل إلى شاشة خاصة به، يمكنك مشاهدتها هنا.",
   "computerWatch.starting": "جارٍ تشغيل الشاشة الافتراضية…",
   "computerWatch.error": "يتعذّر الوصول إلى الشاشة الافتراضية. تتم إعادة المحاولة…",
+  "computerWatch.inputFailed": "لم يصل إدخالك إلى الشاشة الافتراضية ({reason}).",
+  "computerWatch.handBackFailed": "تعذّر إعادة التحكم إلى الوكيل ({reason}). ما زال التحكم بيدك.",
+  "computerWatch.handBack.retry": "أعد المحاولة",
   "computerWatch.parked.title": "في انتظارك",
   "computerWatch.parked.body":
     "يحتوي أحد التطبيقات على تغييرات غير محفوظة، لذا تم إيقاف المهمة مؤقتًا.",

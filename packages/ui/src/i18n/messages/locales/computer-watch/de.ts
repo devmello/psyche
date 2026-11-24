@@ -17,6 +17,11 @@ export const computerWatch: Partial<Catalogue> = {
     "Wenn der Agent einen eigenen Bildschirm braucht, kannst du ihm hier zusehen.",
   "computerWatch.starting": "Virtueller Bildschirm wird gestartet…",
   "computerWatch.error": "Der virtuelle Bildschirm ist nicht erreichbar. Neuer Versuch…",
+  "computerWatch.inputFailed":
+    "Ihre Eingabe hat den virtuellen Bildschirm nicht erreicht ({reason}).",
+  "computerWatch.handBackFailed":
+    "Die Kontrolle konnte nicht an den Agenten zurückgegeben werden ({reason}). Sie haben weiterhin die Kontrolle.",
+  "computerWatch.handBack.retry": "Erneut versuchen",
   "computerWatch.parked.title": "Wartet auf dich",
   "computerWatch.parked.body":
     "Eine App hat nicht gesicherte Änderungen, deshalb ist die Aufgabe angehalten.",

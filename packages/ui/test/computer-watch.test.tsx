@@ -9,6 +9,9 @@ import {
   TINY_JPEG_2,
 } from "../src/screens/computer-watch/fixtures.ts";
 
+const toastError = vi.hoisted(() => vi.fn());
+vi.mock("sonner", () => ({ toast: { error: toastError } }));
+
 /** The Virtual screen watch pane: polling rules, take-over forwarding, Stop, the parked card. */
 
 /** Steps of 10 ms, each in its own act, so effects run between timers as they do in a browser. */
@@ -285,5 +288,115 @@ describe("ComputerWatch Stop and parked card", () => {
     render(<ComputerWatch client={fakeClient()} visible />);
     await advance(10);
     expect(screen.queryByRole("button", { name: "Keep it open" })).toBeNull();
+  });
+});
+
+describe("ComputerWatch failures are shown", () => {
+  it("a dropped input shows an inline error instead of being swallowed", async () => {
+    const client = fakeClient();
+    client.input = async () => {
+      throw new Error("the screen connection dropped");
+    };
+    render(<ComputerWatch client={client} visible />);
+    await advance(10);
+    const img = sizeImage();
+    await takeOver();
+    await act(async () => {
+      fireEvent.pointerDown(img, { clientX: 330, clientY: 200, button: 0 });
+    });
+    await advance(10);
+    const alert = screen.getByRole("alert");
+    expect(alert.textContent).toBe(
+      "Your input didn't reach the virtual screen (the screen connection dropped).",
+    );
+  });
+
+  it("a successful input shows no error (control case)", async () => {
+    const client = fakeClient();
+    render(<ComputerWatch client={client} visible />);
+    await advance(10);
+    const img = sizeImage();
+    await takeOver();
+    await act(async () => {
+      fireEvent.pointerDown(img, { clientX: 330, clientY: 200, button: 0 });
+    });
+    expect(client.inputs).toHaveLength(1);
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("a failed hand-back keeps the owner in control and offers Try again", async () => {
+    const client = fakeClient();
+    const real = client.setTakenOver.bind(client);
+    let failNext = false;
+    client.setTakenOver = async (on: boolean) => {
+      if (!on && failNext) {
+        failNext = false;
+        throw new Error("the agent did not answer");
+      }
+      return real(on);
+    };
+    render(<ComputerWatch client={client} visible />);
+    await advance(10);
+    await takeOver();
+    expect(screen.getByRole("status").textContent).toBe("You are in control. The agent is paused.");
+
+    failNext = true;
+    await takeOver();
+    await advance(10);
+    const alert = screen.getByRole("alert");
+    expect(alert.textContent).toContain("Couldn't give control back to the agent");
+    expect(alert.textContent).toContain("the agent did not answer");
+    // Still in the "you have control" state: the agent never got it back.
+    expect(screen.getByRole("status").textContent).toBe("You are in control. The agent is paused.");
+    expect(screen.getByRole("button", { name: "Take over" }).getAttribute("aria-pressed")).toBe(
+      "true",
+    );
+
+    // Try again hands it back for real this time.
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+    });
+    await advance(10);
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(screen.getByRole("button", { name: "Take over" }).getAttribute("aria-pressed")).toBe(
+      "false",
+    );
+    expect(client.calls.takenOver).toEqual([true, false]);
+  });
+
+  it("a failed hand-back when the pane is hidden shows a toast with Try again", async () => {
+    const client = fakeClient();
+    const real = client.setTakenOver.bind(client);
+    let failNext = false;
+    client.setTakenOver = async (on: boolean) => {
+      if (!on && failNext) {
+        failNext = false;
+        throw new Error("the screen is busy");
+      }
+      return real(on);
+    };
+    const { rerender } = render(<ComputerWatch client={client} visible />);
+    await advance(10);
+    await takeOver();
+
+    failNext = true;
+    rerender(<ComputerWatch client={client} visible={false} />);
+    await advance(10);
+    expect(toastError).toHaveBeenCalledTimes(1);
+    const [message, options] = toastError.mock.calls[0] as [
+      string,
+      { action: { label: string; onClick: () => void } },
+    ];
+    expect(message).toBe(
+      "Couldn't give control back to the agent (the screen is busy). You still have control.",
+    );
+    expect(options.action.label).toBe("Try again");
+
+    // Try again from the toast: control really goes back to the agent.
+    await act(async () => {
+      options.action.onClick();
+    });
+    await advance(10);
+    expect(client.calls.takenOver).toEqual([true, false]);
   });
 });

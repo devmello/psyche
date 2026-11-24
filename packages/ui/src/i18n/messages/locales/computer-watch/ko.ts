@@ -16,6 +16,10 @@ export const computerWatch: Partial<Catalogue> = {
   "computerWatch.empty.body": "에이전트에게 전용 화면이 필요하면 여기에서 볼 수 있습니다.",
   "computerWatch.starting": "가상 화면을 시작하는 중…",
   "computerWatch.error": "가상 화면에 연결할 수 없습니다. 다시 시도하는 중…",
+  "computerWatch.inputFailed": "입력이 가상 화면에 전달되지 않았어요 ({reason}).",
+  "computerWatch.handBackFailed":
+    "에이전트에게 제어권을 돌려주지 못했어요 ({reason}). 아직 제어권은 내게 있어요.",
+  "computerWatch.handBack.retry": "다시 시도",
   "computerWatch.parked.title": "확인을 기다리는 중",
   "computerWatch.parked.body":
     "저장하지 않은 변경 사항이 있는 앱이 있어 작업이 일시 중지되었습니다.",
