@@ -58,6 +58,11 @@ final class PersonModel {
         await load()
     }
 
+    /// A merge or split changed people: the sheets report it so the Memory screens reload too.
+    func noteChanged() {
+        changes += 1
+    }
+
     private func write(_ action: () async throws -> Void) async {
         do {
             try await action()
@@ -78,6 +83,9 @@ struct PersonPage: View {
     @State private var editingCard = false
     @State private var historyFact: MemoryFact?
     @State private var explainingFact: MemoryFact?
+    @State private var mergingWith = false
+    @State private var splitting = false
+    @Environment(Router.self) private var router
     private let id: String
     private let store: any PsycheBackend
 
@@ -140,10 +148,42 @@ struct PersonPage: View {
                 EntityEditSheet(card: card, isProject: false) { update in try await model.updateCard(update, ifMatch: card.etag) }
             }
         }
+        .sheet(isPresented: $mergingWith) {
+            if let person = model.phase.value?.person {
+                PersonMergeSheet(current: person, store: store) { survivor in
+                    if case .replace(let next) = PersonMergeNavigation.decide(current: id, survivor: survivor) {
+                        if !router.memoryPath.isEmpty { router.memoryPath.removeLast() }
+                        router.memoryPath.append(.person(id: next))
+                    }
+                    model.noteChanged()
+                    Task { await model.load() }
+                }
+            }
+        }
+        .sheet(isPresented: $splitting) {
+            if let person = model.phase.value?.person {
+                PersonSplitSheet(person: person, store: store) {
+                    model.noteChanged()
+                    Task { await model.load() }
+                }
+            }
+        }
         .toolbar {
             if model.phase.value?.card != nil {
                 ToolbarItem(placement: .primaryAction) {
                     Button(String(localized: "Edit", bundle: .module)) { editingCard = true }
+                }
+            }
+            if model.phase.value != nil {
+                ToolbarItem(placement: .primaryAction) {
+                    Menu {
+                        Button(String(localized: "Merge with…", bundle: .module)) { mergingWith = true }
+                        Button(String(localized: "Split…", bundle: .module)) { splitting = true }
+                    } label: {
+                        Image(systemName: "ellipsis.circle")
+                    }
+                    .accessibilityLabel(String(localized: "More actions for this person", bundle: .module))
+                    .accessibilityIdentifier("personMenu")
                 }
             }
         }
@@ -199,8 +239,6 @@ struct PersonPage: View {
                 }
             }
         }
-
-        EditOnMacNote(text: String(localized: "Edit on your Mac: merging people.", bundle: .module))
     }
 
     private func factRow(_ fact: MemoryFact) -> some View {
