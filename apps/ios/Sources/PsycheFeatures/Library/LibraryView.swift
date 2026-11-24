@@ -34,8 +34,12 @@ private struct LibraryContent: View {
                 VStack(alignment: .leading, spacing: 18) {
                     PageHeader(String(localized: "Library", bundle: .module))
                     HStack(spacing: 10) {
-                        NavigationLink { ReceiptsView() } label: { LibraryPageTile(title: "Receipts", symbol: "receipt") }
-                        NavigationLink { ArtifactsView() } label: { LibraryPageTile(title: "Artifacts", symbol: "doc.richtext") }
+                        NavigationLink { ReceiptsView() } label: {
+                            LibraryPageTile(title: String(localized: "Receipts", bundle: .module), symbol: "receipt")
+                        }
+                        NavigationLink { ArtifactsView() } label: {
+                            LibraryPageTile(title: String(localized: "Artifacts", bundle: .module), symbol: "doc.richtext")
+                        }
                     }
                     .buttonStyle(.plain)
                     SectionPicker(selection: $model.section)
@@ -80,7 +84,7 @@ private struct LibraryPageTile: View {
     var body: some View {
         HStack(spacing: 10) {
             Image(systemName: symbol).font(.body.weight(.medium)).foregroundStyle(PsycheColor.muted)
-            Text(LocalizedStringKey(title), bundle: .module)
+            Text(verbatim: title)
                 .font(.psycheRow.weight(.medium)).foregroundStyle(PsycheColor.text)
             Spacer(minLength: 0)
             Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).foregroundStyle(PsycheColor.rule)
