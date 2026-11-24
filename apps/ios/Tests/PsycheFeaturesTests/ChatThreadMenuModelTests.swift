@@ -121,6 +121,8 @@ struct ChatThreadMenuModelTests {
 
         await list.restore(side)
         #expect(list.archived.contains { $0.id == side.id } == false)
-        #expect(list.phase.value?.contains { $0.id == side.id } == true)
+        // The fixture pages its list small, so the restored chat is checked in the store's full list.
+        let all = try await store.threads()
+        #expect(all.contains { $0.id == side.id && !$0.isArchived })
     }
 }

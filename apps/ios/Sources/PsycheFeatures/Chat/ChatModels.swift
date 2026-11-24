@@ -439,7 +439,7 @@ final class ThreadModel {
         } catch {
             actionError = error.localizedDescription
         }
-        await load()
+        await replaceTranscript()
     }
 
     /// Summarises the earlier turns now, with progress shown until the transcript is read again.
@@ -452,7 +452,19 @@ final class ThreadModel {
         } catch {
             actionError = error.localizedDescription
         }
-        await load()
+        await replaceTranscript()
+    }
+
+    /// Reads the transcript again as the Gateway has it now. Unlike `load()`, this does not keep older messages
+    /// already on screen, so a compaction or a clear shows what is left, not the old turns in front of it.
+    private func replaceTranscript() async {
+        do {
+            phase = .loaded(try await store.thread(id: threadID))
+            revision += 1
+        } catch {
+            actionError = error.localizedDescription
+        }
+        await loadQueue()
     }
 
     /// Records thumbs on a reply. The mark shows at once; a refusal takes it back and shows the Gateway's words.
