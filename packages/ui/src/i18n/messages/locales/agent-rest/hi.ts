@@ -67,6 +67,7 @@ export const agentRest: Partial<Catalogue> = {
   "agent.timeline.tooltipUsage": "{start} · {duration} · {tokens} टोकन · {cost}",
   "agent.timeline.range": "{from} से {to} तक दिखा रहा है",
   "agent.timeline.clearRange": "सब दिखाएँ",
+  "agent.timeline.tabs.title": "खुले टैब",
   "agent.timeline.zoomIn": "ज़ूम इन",
   "agent.timeline.zoomOut": "ज़ूम आउट",
   "agent.timeline.zoomFit": "फ़िट करें",

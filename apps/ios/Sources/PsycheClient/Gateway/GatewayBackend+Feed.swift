@@ -12,6 +12,16 @@ extension GatewayBackend {
             nextBriefAt: WireFormat.date(result["nextBriefAt"]?.string))
     }
 
+
+    /// `feed.generate` calls a model, so it gets far longer than a read.
+    static let generateTimeout: Duration = .seconds(180)
+
+    public func generateFeed() async throws -> [FeedCard] {
+        let result = try await call(
+            "feed.generate", .obj([:]), key: "feed-generate-\(UUID().uuidString)", timeout: Self.generateTimeout)
+        return (result["posts"]?.array ?? []).compactMap(Self.feedCard(from:))
+    }
+
     public func setFeedback(postID: String, _ feedback: FeedFeedback?) async throws {
         _ = try await call(
             "feed.feedback", .obj(["postId": .string(postID), "feedback": feedback.map { .string($0.rawValue) } ?? .null]),

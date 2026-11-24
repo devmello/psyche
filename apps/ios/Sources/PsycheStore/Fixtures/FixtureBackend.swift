@@ -25,6 +25,7 @@ public actor FixtureBackend {
     var proactiveState = ProactiveState()
     var spacesState = SpacesState()
     var followupsState = FollowupsState()
+    var grantsState = GrantsState()
     /// The scripted run of the watched task (`startRunningDemo`).
     var demoTask: Task<Void, Never>?
     /// `memory.life.answer` calls so far, and an error to answer them with (tests: the model budget).

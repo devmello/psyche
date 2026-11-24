@@ -31,6 +31,14 @@ struct ProactiveModelTests {
         #expect(model.phase.value?.cards.map(\.id) == [cards[0].id])
     }
 
+    @Test func makingTodaysBriefReloadsTheFeedAndClearsProgress() async {
+        let model = FeedModel(store: FixtureBackend())
+        await model.generate()
+        #expect(model.generating == false)
+        #expect(model.actionError == nil)
+        #expect(model.phase.value?.cards.isEmpty == false)
+    }
+
     @Test func acceptingOrDismissingAnIdeaRemovesIt() async {
         let model = IdeasModel(store: FixtureBackend())
         await model.load()

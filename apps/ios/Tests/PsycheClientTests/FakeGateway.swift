@@ -43,6 +43,8 @@ final class FakeGateway: @unchecked Sendable {
     private var _pings = 0
     private var _certificate: PeerCertificate? = .trusted
     private var _vouch: Vouch = .valid
+    private var _responses: [WireResFrame] = []
+    private var _scopes: [String] = ["operator.read"]
 
     /// The key this Gateway signs with (a second Gateway in a test has its own).
     let identity: Curve25519.Signing.PrivateKey
@@ -54,10 +56,15 @@ final class FakeGateway: @unchecked Sendable {
         self.identity = identity
     }
 
+    /// The scopes `connect.verify` reports for a paired device (default read only).
+    var pairedScopes: [String] { get { lock.withLock { _scopes } } set { lock.withLock { _scopes = newValue } } }
     var behavior: Behavior { get { lock.withLock { _behavior } } set { lock.withLock { _behavior = newValue } } }
     var malform: Malform { get { lock.withLock { _malform } } set { lock.withLock { _malform = newValue } } }
     var lie: Lie { get { lock.withLock { _lie } } set { lock.withLock { _lie = newValue } } }
     var received: [WireReqFrame] { lock.withLock { _received } }
+    /// What the phone answered to requests this Gateway sent it (`push(request:)`).
+    var responses: [WireResFrame] { lock.withLock { _responses } }
+    func noteResponse(_ res: WireResFrame) { lock.withLock { _responses.append(res) } }
     var connectCount: Int { lock.withLock { _connects } }
     /// While true, new sockets fail at once (the Gateway is off).
     var down: Bool { get { lock.withLock { _dropConnections } } set { lock.withLock { _dropConnections = newValue } } }
@@ -126,7 +133,7 @@ final class FakeGateway: @unchecked Sendable {
             let result: JSONValue
             switch behavior {
             case .paired(let v):
-                result = .object(["phase": "paired", "deviceId": "dev_test", "scopes": .array(["operator.read"]),
+                result = .object(["phase": "paired", "deviceId": "dev_test", "scopes": .array(pairedScopes.map { JSONValue.string($0) }),
                                   "stateVersion": .number(Double(v)), "serverTime": "2030-01-01T00:00:00Z"])
             case .pending(let code): result = .object(["phase": "pending", "pairingRequestId": "pr_1", "code": .string(code)])
             case .denied(let reason, let tokenInvalid, let code):
@@ -166,8 +173,11 @@ final class FakeTransport: WebSocketTransport, @unchecked Sendable {
 
     func send(_ frame: Data) async throws {
         if gateway.down { throw TransportClosed() }
-        guard case .req(let req)? = try? WireFrame.decode(frame) else { return }
-        gateway.handle(req, on: self)
+        switch try? WireFrame.decode(frame) {
+        case .req(let req)?: gateway.handle(req, on: self)
+        case .res(let res)?: gateway.noteResponse(res)
+        default: return
+        }
     }
 
     func receive() async throws -> Data {
@@ -198,6 +208,11 @@ final class FakeTransport: WebSocketTransport, @unchecked Sendable {
         case .failure(let error): frame = WireResFrame(id: id, ok: false, error: error)
         }
         if let data = try? WireFrame.res(frame).encode() { sink.yield(data) }
+    }
+
+    /// The Gateway calls the phone (`node.invoke`).
+    func push(request: WireReqFrame) {
+        if let data = try? WireFrame.req(request).encode() { sink.yield(data) }
     }
 
     func push(event: String, payload: JSONValue, seq: Int, stateVersion: Int) {

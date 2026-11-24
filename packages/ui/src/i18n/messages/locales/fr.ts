@@ -247,6 +247,7 @@ export const fr: Partial<Catalogue> = {
     "Utilisation : /model fournisseur/modèle, par exemple anthropic/claude-sonnet-5-5",
   "chat.commands.usageExport": "Utilisation : /export [md | json]",
   "chat.composer.commands": "Commandes",
+  "chat.composer.skills": "Compétences",
   "chat.composer.quoting": "Citation :",
   "chat.composer.removeQuote": "Retirer la citation",
   "chat.composer.offline": "Psyche est injoignable",
@@ -1949,6 +1950,8 @@ export const fr: Partial<Catalogue> = {
   "settings.mcp.added": "{name} ajouté.",
   "settings.mcp.removed": "{name} retiré.",
   "settings.openPage.failed": "Psyche n'a pas pu ouvrir la page ({reason}).",
+  "settings.mcp.secretNotDeleted":
+    "Psyche n'a pas pu supprimer un secret enregistré ({reason}). Réessayez pour le retirer.",
   "settings.mcp.denied": "{name} n’a pas été ajouté.",
   "settings.mcp.lapsed": "L’approbation a expiré. Vérifiez de nouveau le serveur pour l’ajouter.",
   "settings.mcp.removeTitle": "Retirer {name} ?",

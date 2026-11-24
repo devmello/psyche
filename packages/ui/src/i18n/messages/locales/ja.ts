@@ -263,6 +263,7 @@ export const ja: Partial<Catalogue> = {
   "chat.commands.usageModel": "使い方：/model プロバイダ/モデル（例：anthropic/claude-sonnet-5-5）",
   "chat.commands.usageExport": "使い方：/export [md | json]",
   "chat.composer.commands": "コマンド",
+  "chat.composer.skills": "スキル",
   "chat.composer.quoting": "引用：",
   "chat.composer.removeQuote": "引用を削除",
   "chat.composer.offline": "Psycheに接続できません",
@@ -1935,6 +1936,8 @@ export const ja: Partial<Catalogue> = {
   "settings.mcp.added": "{name}を追加しました。",
   "settings.mcp.removed": "{name}を削除しました。",
   "settings.openPage.failed": "ページを開けませんでした（{reason}）。",
+  "settings.mcp.secretNotDeleted":
+    "保存済みのシークレットを削除できませんでした（{reason}）。もう一度試して削除してください。",
   "settings.mcp.denied": "{name}は追加されませんでした。",
   "settings.mcp.lapsed": "承認が失効しました。追加するには、もう一度サーバを確認してください。",
   "settings.mcp.removeTitle": "{name}を削除しますか？",

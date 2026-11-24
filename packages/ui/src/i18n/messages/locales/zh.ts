@@ -293,6 +293,7 @@ export const zh: Partial<Catalogue> = {
   "chat.commands.usageExport": "用法：/export [md | json]",
 
   "chat.composer.commands": "命令",
+  "chat.composer.skills": "技能",
   "chat.composer.quoting": "引用：",
   "chat.composer.removeQuote": "移除引用",
   "chat.composer.offline": "无法连接到 Psyche",
@@ -1931,6 +1932,7 @@ export const zh: Partial<Catalogue> = {
   "settings.mcp.added": "已添加 {name}。",
   "settings.mcp.removed": "已移除 {name}。",
   "settings.openPage.failed": "Psyche 无法打开该页面（{reason}）。",
+  "settings.mcp.secretNotDeleted": "Psyche 无法删除一个已保存的密钥（{reason}）。重试以将其移除。",
   "settings.mcp.denied": "未添加 {name}。",
   "settings.mcp.lapsed": "批准已失效。请重新检查服务器以添加。",
   "settings.mcp.removeTitle": "要移除 {name} 吗？",

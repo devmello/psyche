@@ -24,6 +24,7 @@ import {
   type BrowserRecording,
   type BrowserRecordingEvent,
   type BrowserRecordingFrame,
+  type BrowserTab,
   buildPsycheTrace,
   type Channel,
   type ChannelIdentity,
@@ -132,6 +133,8 @@ export interface MockWorld {
   machines?: MachineInfo[];
   /** Browser recordings (absent = none). */
   browserRecordings?: MockBrowserRecording[];
+  /** Agent browser tabs (absent = none); `browser.tabs` filters them by task. */
+  browserTabs?: BrowserTab[];
   /** Everything memory's review queue (absent = empty). */
   review?: ReviewWorld;
   threads: ThreadListEntry[];
@@ -2407,15 +2410,22 @@ export class MockGateway implements GatewayClient {
       this.emit("growth.updated", {});
       return { event, lesson, approval: null };
     },
-    "feedback.list": (p) => ({
-      events: this.world.feedbackEvents.filter(
+    "feedback.list": (p) => {
+      // Newest first (events are prepended). The cursor is the offset of the next page.
+      const all = this.world.feedbackEvents.filter(
         (e) =>
           (p.kind === undefined || e.kind === p.kind) &&
           (p.targetType === undefined || e.target.type === p.targetType) &&
           (p.since === undefined || e.createdAt >= p.since),
-      ),
-      nextCursor: null,
-    }),
+      );
+      const start = p.cursor === undefined ? 0 : Number(p.cursor);
+      const limit = p.limit ?? 20;
+      const end = start + limit;
+      return {
+        events: all.slice(start, end),
+        nextCursor: end < all.length ? String(end) : null,
+      };
+    },
     "feedback.delete": (p) => {
       this.find(this.world.feedbackEvents, p.eventId, "feedback event");
       this.world.feedbackEvents = this.world.feedbackEvents.filter((e) => e.id !== p.eventId);
@@ -3295,6 +3305,11 @@ export class MockGateway implements GatewayClient {
       if (!this.admin) fail("forbidden", "devices.list requires operator.admin");
       return { devices: this.world.devices };
     },
+    "browser.tabs": (p) => ({
+      tabs: (this.world.browserTabs ?? []).filter(
+        (t) => p.taskId === undefined || t.taskId === p.taskId,
+      ),
+    }),
     "browser.recordings.list": () => ({
       recordings: (this.world.browserRecordings ?? []).map((r) => r.recording),
       nextCursor: null,

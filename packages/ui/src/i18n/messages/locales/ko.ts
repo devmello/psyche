@@ -264,6 +264,7 @@ export const ko: Partial<Catalogue> = {
   "chat.commands.usageModel": "사용법: /model 제공업체/모델, 예: anthropic/claude-sonnet-5-5",
   "chat.commands.usageExport": "사용법: /export [md | json]",
   "chat.composer.commands": "명령",
+  "chat.composer.skills": "스킬",
   "chat.composer.quoting": "인용 중:",
   "chat.composer.removeQuote": "인용 제거",
   "chat.composer.offline": "Psyche에 연결할 수 없음",
@@ -1933,6 +1934,8 @@ export const ko: Partial<Catalogue> = {
   "settings.mcp.added": "{name}을(를) 추가했습니다.",
   "settings.mcp.removed": "{name}을(를) 제거했습니다.",
   "settings.openPage.failed": "페이지를 열지 못했습니다({reason}).",
+  "settings.mcp.secretNotDeleted":
+    "저장된 비밀 값을 삭제하지 못했습니다({reason}). 다시 시도해 제거하세요.",
   "settings.mcp.denied": "{name}은(는) 추가되지 않았습니다.",
   "settings.mcp.lapsed": "승인이 만료되었습니다. 추가하려면 서버를 다시 점검하십시오.",
   "settings.mcp.removeTitle": "{name}을(를) 제거하겠습니까?",

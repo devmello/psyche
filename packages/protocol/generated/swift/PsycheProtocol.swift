@@ -1160,6 +1160,10 @@
 //   let personRemoved = try? JSONDecoder().decode(PersonRemoved.self, from: jsonData)
 //   let personaIdentity = try? JSONDecoder().decode(PersonaIdentity.self, from: jsonData)
 //   let personaUpdatedPayload = try? JSONDecoder().decode(PersonaUpdatedPayload.self, from: jsonData)
+//   let phoneCapabilitiesSetParams = try? JSONDecoder().decode(PhoneCapabilitiesSetParams.self, from: jsonData)
+//   let phoneCapabilitiesSetResult = try? JSONDecoder().decode(PhoneCapabilitiesSetResult.self, from: jsonData)
+//   let phoneCapabilityName = try? JSONDecoder().decode(PhoneCapabilityName.self, from: jsonData)
+//   let phoneLocation = try? JSONDecoder().decode(PhoneLocation.self, from: jsonData)
 //   let pickableModelRole = try? JSONDecoder().decode(PickableModelRole.self, from: jsonData)
 //   let planBlock = try? JSONDecoder().decode(PlanBlock.self, from: jsonData)
 //   let planStep = try? JSONDecoder().decode(PlanStep.self, from: jsonData)
@@ -10870,6 +10874,7 @@ public struct ChatSendParams: Codable, Sendable {
     public let mode: QueueMode?
     public let redo: Redo?
     public let replyToMessageID: String?
+    public let resolveSkills: Bool?
     public let screen: ChatScreenRef?
     public let threadID: String
 
@@ -10882,11 +10887,12 @@ public struct ChatSendParams: Codable, Sendable {
         case mode = "mode"
         case redo = "redo"
         case replyToMessageID = "replyToMessageId"
+        case resolveSkills = "resolveSkills"
         case screen = "screen"
         case threadID = "threadId"
     }
 
-    public init(attachedFiles: [ChatAttachedFile]? = nil, attachments: [String]? = nil, content: String, context: ChatContextRef? = nil, fromWidget: ChatFromWidget? = nil, mode: QueueMode? = nil, redo: Redo? = nil, replyToMessageID: String? = nil, screen: ChatScreenRef? = nil, threadID: String) {
+    public init(attachedFiles: [ChatAttachedFile]? = nil, attachments: [String]? = nil, content: String, context: ChatContextRef? = nil, fromWidget: ChatFromWidget? = nil, mode: QueueMode? = nil, redo: Redo? = nil, replyToMessageID: String? = nil, resolveSkills: Bool? = nil, screen: ChatScreenRef? = nil, threadID: String) {
         self.attachedFiles = attachedFiles
         self.attachments = attachments
         self.content = content
@@ -10895,6 +10901,7 @@ public struct ChatSendParams: Codable, Sendable {
         self.mode = mode
         self.redo = redo
         self.replyToMessageID = replyToMessageID
+        self.resolveSkills = resolveSkills
         self.screen = screen
         self.threadID = threadID
     }
@@ -27668,6 +27675,65 @@ public struct PersonaUpdatedPayload: Codable, Sendable {
         self.avatarRequested = avatarRequested
         self.changed = changed
         self.identity = identity
+    }
+}
+
+// MARK: - PhoneCapabilitiesSetParams
+public struct PhoneCapabilitiesSetParams: Codable, Sendable {
+    /// The capabilities the phone offers now, from a closed list; an empty list withdraws all of
+    /// them
+    public let capabilities: [PhoneCapabilityName]
+
+    public enum CodingKeys: String, CodingKey {
+        case capabilities = "capabilities"
+    }
+
+    public init(capabilities: [PhoneCapabilityName]) {
+        self.capabilities = capabilities
+    }
+}
+
+public enum PhoneCapabilityName: String, Codable, Sendable {
+    case locationCurrent = "location.current"
+}
+
+// MARK: - PhoneCapabilitiesSetResult
+public struct PhoneCapabilitiesSetResult: Codable, Sendable {
+    public let capabilities: [String]
+
+    public enum CodingKeys: String, CodingKey {
+        case capabilities = "capabilities"
+    }
+
+    public init(capabilities: [String]) {
+        self.capabilities = capabilities
+    }
+}
+
+// MARK: - PhoneLocation
+public struct PhoneLocation: Codable, Sendable {
+    public let accuracyMeters: Double
+    public let latitude: Double
+    public let longitude: Double
+    /// Reverse-geocoded by Apple on the phone
+    public let placeName: String?
+    /// ISO 8601, when the fix was taken
+    public let timestamp: String
+
+    public enum CodingKeys: String, CodingKey {
+        case accuracyMeters = "accuracyMeters"
+        case latitude = "latitude"
+        case longitude = "longitude"
+        case placeName = "placeName"
+        case timestamp = "timestamp"
+    }
+
+    public init(accuracyMeters: Double, latitude: Double, longitude: Double, placeName: String? = nil, timestamp: String) {
+        self.accuracyMeters = accuracyMeters
+        self.latitude = latitude
+        self.longitude = longitude
+        self.placeName = placeName
+        self.timestamp = timestamp
     }
 }
 

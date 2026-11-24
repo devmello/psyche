@@ -3282,6 +3282,7 @@ export interface ChatSendParams {
     mode?:             QueueMode;
     redo?:             Redo;
     replyToMessageId?: string;
+    resolveSkills?:    boolean;
     screen?:           ChatScreenRef;
     threadId:          string;
 }
@@ -9490,6 +9491,34 @@ export interface PersonaUpdatedPayload {
     avatarRequested: boolean;
     changed:         string[];
     identity:        PersonaIdentity;
+}
+
+export interface PhoneCapabilitiesSetParams {
+    /**
+     * The capabilities the phone offers now, from a closed list; an empty list withdraws all of
+     * them
+     */
+    capabilities: PhoneCapabilityName[];
+}
+
+export type PhoneCapabilityName = "location.current";
+
+export interface PhoneCapabilitiesSetResult {
+    capabilities: string[];
+}
+
+export interface PhoneLocation {
+    accuracyMeters: number;
+    latitude:       number;
+    longitude:      number;
+    /**
+     * Reverse-geocoded by Apple on the phone
+     */
+    placeName?: string;
+    /**
+     * ISO 8601, when the fix was taken
+     */
+    timestamp: string;
 }
 
 export interface PlanBlock {

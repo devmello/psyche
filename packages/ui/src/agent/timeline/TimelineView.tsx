@@ -42,6 +42,7 @@ import {
   traceGaps,
   visibleRows,
 } from "./model.ts";
+import { OpenTabs } from "./OpenTabs.tsx";
 import { RunHeader, runTitle, type TimelineMode } from "./RunHeader.tsx";
 import {
   advance,
@@ -200,10 +201,8 @@ function TimelineRun({
   const allSteps = useStoreState((s) => s.runSteps);
   const runs = useStoreState((s) => s.runs);
   // Helpers reload when the parent moves: a new helper, a step, or the run ending.
-  const helpers = useRunChildren(
-    runId,
-    `${run?.status ?? ""}|${run?.stepCount ?? ""}|${run?.endedAt ?? ""}`,
-  );
+  const refreshKey = `${run?.status ?? ""}|${run?.stepCount ?? ""}|${run?.endedAt ?? ""}`;
+  const helpers = useRunChildren(runId, refreshKey);
   const storeThreadTitle = useStoreState((s) =>
     run ? (s.threads[run.threadId]?.thread.title ?? null) : null,
   );
@@ -657,6 +656,8 @@ function TimelineRun({
         onRetry={helpers.reload}
         onOpen={onOpenRun}
       />
+      {/* A helper run shows its own task's tabs; the refresh key is the helpers' one. */}
+      <OpenTabs taskId={run.taskId ?? null} refreshKey={refreshKey} />
       <Disclosure open={range !== null}>
         {range ? (
           <p className="flex items-center gap-2 text-callout text-label-secondary tabular-nums">

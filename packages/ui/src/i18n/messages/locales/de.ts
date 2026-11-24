@@ -256,6 +256,7 @@ export const de: Partial<Catalogue> = {
   "chat.commands.usageExport": "Verwendung: /export [md | json]",
 
   "chat.composer.commands": "Befehle",
+  "chat.composer.skills": "Skills",
   "chat.composer.quoting": "Zitat:",
   "chat.composer.removeQuote": "Zitat entfernen",
   "chat.composer.offline": "Psyche ist nicht erreichbar",
@@ -1993,6 +1994,8 @@ export const de: Partial<Catalogue> = {
   "settings.mcp.added": "{name} hinzugefügt.",
   "settings.mcp.removed": "{name} entfernt.",
   "settings.openPage.failed": "Psyche konnte die Seite nicht öffnen ({reason}).",
+  "settings.mcp.secretNotDeleted":
+    "Psyche konnte ein gespeichertes Geheimnis nicht löschen ({reason}). Erneut versuchen, um es zu entfernen.",
   "settings.mcp.denied": "{name} wurde nicht hinzugefügt.",
   "settings.mcp.lapsed":
     "Die Genehmigung ist verfallen. Prüfe den Server erneut, um ihn hinzuzufügen.",

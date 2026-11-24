@@ -232,6 +232,7 @@ export const es: Partial<Catalogue> = {
   "chat.commands.usageExport": "Uso: /export [md | json]",
 
   "chat.composer.commands": "Comandos",
+  "chat.composer.skills": "Habilidades",
   "chat.composer.quoting": "Citando:",
   "chat.composer.removeQuote": "Quitar la cita",
   "chat.composer.offline": "No se puede conectar con Psyche",
@@ -1968,6 +1969,8 @@ export const es: Partial<Catalogue> = {
   "settings.mcp.added": "Se añadió {name}.",
   "settings.mcp.removed": "Se quitó {name}.",
   "settings.openPage.failed": "Psyche no pudo abrir la página ({reason}).",
+  "settings.mcp.secretNotDeleted":
+    "Psyche no pudo borrar un secreto guardado ({reason}). Vuelve a intentarlo para quitarlo.",
   "settings.mcp.denied": "{name} no se añadió.",
   "settings.mcp.lapsed": "La aprobación venció. Vuelve a comprobar el servidor para añadirlo.",
   "settings.mcp.removeTitle": "¿Quitar {name}?",

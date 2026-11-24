@@ -299,6 +299,7 @@ export const ar: Partial<Catalogue> = {
   "chat.commands.usageExport": "الاستخدام: /export [md | json]",
 
   "chat.composer.commands": "الأوامر",
+  "chat.composer.skills": "المهارات",
   "chat.composer.quoting": "اقتباس:",
   "chat.composer.removeQuote": "إزالة الاقتباس",
   "chat.composer.offline": "تعذّر الوصول إلى Psyche",
@@ -1991,6 +1992,7 @@ export const ar: Partial<Catalogue> = {
   "settings.mcp.added": "تمت إضافة {name}.",
   "settings.mcp.removed": "تمت إزالة {name}.",
   "settings.openPage.failed": "تعذّر على Psyche فتح الصفحة ({reason}).",
+  "settings.mcp.secretNotDeleted": "تعذّر على Psyche حذف سرّ محفوظ ({reason}). أعد المحاولة لإزالته.",
   "settings.mcp.denied": "لم تتم إضافة {name}.",
   "settings.mcp.lapsed": "انقضت الموافقة. افحص الخادم مرة أخرى لإضافته.",
   "settings.mcp.removeTitle": "إزالة {name}؟",
