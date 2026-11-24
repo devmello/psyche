@@ -870,3 +870,123 @@ describe("Outlook recurrence (RRULE to Graph patternedRecurrence)", () => {
     expect(view).not.toHaveProperty("recurrence");
   });
 });
+
+describe("Outlook recurring events in their own time zone", () => {
+  it("weekly on MO at 20:00 Los Angeles is wall-clock 20:00 Monday in that zone", () => {
+    const LA = "America/Los_Angeles";
+    // 2026-11-03T04:00Z is Monday 2026-11-02 20:00 in Los Angeles (PST, after DST ended).
+    const body = graphEventBody({
+      start: { dateTime: "2026-11-03T04:00:00Z", timeZone: LA },
+      end: { dateTime: "2026-11-03T05:00:00Z", timeZone: LA },
+      recurrence: ["RRULE:FREQ=WEEKLY;BYDAY=MO;COUNT=4"],
+    });
+    expect(body).toMatchObject({
+      start: { dateTime: "2026-11-02T20:00:00", timeZone: LA },
+      end: { dateTime: "2026-11-02T21:00:00", timeZone: LA },
+      recurrence: {
+        pattern: { type: "weekly", daysOfWeek: ["monday"] },
+        range: {
+          type: "numbered",
+          startDate: "2026-11-02",
+          numberOfOccurrences: 4,
+          recurrenceTimeZone: LA,
+        },
+      },
+    });
+  });
+
+  it("a bare wall-clock start in a zone passes through unchanged", () => {
+    expect(
+      graphEventBody({
+        start: { dateTime: "2026-11-02T20:00:00", timeZone: "America/Los_Angeles" },
+        end: { dateTime: "2026-11-02T21:00:00", timeZone: "America/Los_Angeles" },
+        recurrence: ["RRULE:FREQ=WEEKLY;BYDAY=MO"],
+      }),
+    ).toMatchObject({
+      start: { dateTime: "2026-11-02T20:00:00", timeZone: "America/Los_Angeles" },
+      recurrence: { range: { startDate: "2026-11-02" } },
+    });
+  });
+
+  it("a summer start in Europe/Berlin keeps the local hour (CEST, not UTC)", () => {
+    const BERLIN = "Europe/Berlin";
+    // 2026-07-06T16:30Z is Monday 18:30 in Berlin (CEST, +02:00).
+    const body = graphEventBody({
+      start: { dateTime: "2026-07-06T16:30:00Z", timeZone: BERLIN },
+      end: { dateTime: "2026-07-06T17:30:00Z", timeZone: BERLIN },
+      recurrence: ["RRULE:FREQ=WEEKLY;BYDAY=MO"],
+    });
+    expect(body).toMatchObject({
+      start: { dateTime: "2026-07-06T18:30:00", timeZone: BERLIN },
+      recurrence: {
+        pattern: { type: "weekly", daysOfWeek: ["monday"] },
+        range: { type: "noEnd", startDate: "2026-07-06", recurrenceTimeZone: BERLIN },
+      },
+    });
+  });
+
+  it("the end takes its own zone, else the start's", () => {
+    const body = graphEventBody({
+      start: { dateTime: "2026-07-06T16:30:00Z", timeZone: "Europe/Berlin" },
+      end: { dateTime: "2026-07-06T17:30:00Z", timeZone: "Europe/London" },
+      recurrence: ["RRULE:FREQ=WEEKLY;BYDAY=MO"],
+    });
+    expect(body).toMatchObject({
+      end: { dateTime: "2026-07-06T18:30:00", timeZone: "Europe/London" },
+    });
+  });
+
+  it("refuses an invalid zone on a recurring event with invalid_params", () => {
+    for (const timeZone of ["Mars/Olympus", "Europe/Atlantis"]) {
+      try {
+        graphEventBody({
+          start: { dateTime: "2026-07-06T16:30:00Z", timeZone },
+          end: { dateTime: "2026-07-06T17:30:00Z", timeZone },
+          recurrence: ["RRULE:FREQ=WEEKLY"],
+        });
+        expect.fail(`${timeZone} should be refused`);
+      } catch (err) {
+        expect(err).toBeInstanceOf(PsycheError);
+        expect(err).toMatchObject({
+          code: "invalid_params",
+          message: expect.stringMatching(/is not an IANA time zone/),
+        });
+      }
+    }
+  });
+
+  it("with no zone, a recurring event stays in UTC and has no recurrenceTimeZone", () => {
+    const body = graphEventBody({
+      start: { dateTime: "2026-10-22T22:00:00Z" },
+      end: { dateTime: "2026-10-22T23:00:00Z" },
+      recurrence: ["RRULE:FREQ=WEEKLY;BYDAY=TH"],
+    });
+    expect(body).toMatchObject({
+      start: { dateTime: "2026-10-22T22:00:00.000", timeZone: "UTC" },
+      recurrence: { range: { startDate: "2026-10-22" } },
+    });
+    expect(body.recurrence).not.toHaveProperty("range.recurrenceTimeZone");
+  });
+
+  it("a non-recurring event in a zone stays in UTC", () => {
+    expect(
+      graphEventBody({
+        start: { dateTime: "2026-07-06T16:30:00Z", timeZone: "Europe/Berlin" },
+        end: { dateTime: "2026-07-06T17:30:00Z", timeZone: "Europe/Berlin" },
+      }),
+    ).toMatchObject({ start: { dateTime: "2026-07-06T16:30:00.000", timeZone: "UTC" } });
+  });
+
+  it("an all-day recurring event uses its date and gets no zone", () => {
+    const body = graphEventBody({
+      start: { date: "2026-10-22", timeZone: "Europe/Berlin" },
+      end: { date: "2026-10-23", timeZone: "Europe/Berlin" },
+      recurrence: ["RRULE:FREQ=DAILY;COUNT=2"],
+    });
+    expect(body).toMatchObject({
+      isAllDay: true,
+      recurrence: { range: { startDate: "2026-10-22", numberOfOccurrences: 2 } },
+    });
+    expect(body.recurrence).not.toHaveProperty("range.recurrenceTimeZone");
+  });
+});

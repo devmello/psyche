@@ -27,6 +27,7 @@ export interface GraphRecurrence {
     startDate?: string;
     numberOfOccurrences?: number;
     endDate?: string;
+    recurrenceTimeZone?: string;
   };
 }
 
