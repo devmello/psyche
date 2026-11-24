@@ -831,6 +831,27 @@ export interface ApprovalView {
   stale: boolean;
 }
 
+/**
+ * Runs `work` once per store and key while one is in flight; a second caller (another mounted
+ * consumer of the same list) shares its result instead of paging the Gateway again. Once it
+ * settles, the next caller (a refresh, a remount) loads afresh.
+ */
+const sharedLoads = new WeakMap<GatewayStore, Map<string, Promise<unknown>>>();
+function sharedLoad<T>(store: GatewayStore, key: string, work: () => Promise<T>): Promise<T> {
+  let byKey = sharedLoads.get(store);
+  if (byKey === undefined) {
+    byKey = new Map();
+    sharedLoads.set(store, byKey);
+  }
+  const running = byKey.get(key);
+  if (running !== undefined) return running as Promise<T>;
+  const promise = work().finally(() => {
+    if (byKey.get(key) === promise) byKey.delete(key);
+  });
+  byKey.set(key, promise);
+  return promise;
+}
+
 /** Resolved approvals are history: one page at a time. Pending ones always load in full. */
 const RESOLVED_STATUSES = ["approved", "denied", "expired", "invalidated"] as const;
 const APPROVAL_PAGE = 100;
@@ -847,37 +868,41 @@ export function useApprovals() {
   const beyondHead = useRef(false);
   const [loadingMoreRecent, setLoadingMoreRecent] = useState(false);
   const load = useLoader("approvals", async (st) => {
-    // Every pending approval, however old: an unlisted one has no card and no answer token, so
-    // it could never be answered and its run would wait forever. The pending set is small.
-    let cursor: string | undefined;
-    for (let page = 0; page < MAX_PAGES; page++) {
+    const headCursor = await sharedLoad(st, "approvals", async () => {
+      // Every pending approval, however old: an unlisted one has no card and no answer token, so
+      // it could never be answered and its run would wait forever. The pending set is small.
+      let cursor: string | undefined;
+      for (let page = 0; page < MAX_PAGES; page++) {
+        const version = st.version();
+        const res = await st.call("approvals.list", {
+          status: ["pending"],
+          limit: 500,
+          ...(cursor === undefined ? {} : { cursor }),
+        });
+        st.update((s) => {
+          const next = putMany(s, "approvals", res.approvals, version);
+          const staleNext: Record<string, true> = { ...next.staleApprovals };
+          for (const a of res.approvals) delete staleNext[a.id];
+          return {
+            ...next,
+            answerTokens: { ...next.answerTokens, ...(res.answerTokens ?? {}) },
+            staleApprovals: staleNext,
+          };
+        });
+        if (res.nextCursor == null) break;
+        cursor = res.nextCursor;
+      }
+      // Decided history: the head page only.
       const version = st.version();
-      const res = await st.call("approvals.list", {
-        status: ["pending"],
-        limit: 500,
-        ...(cursor === undefined ? {} : { cursor }),
+      const head = await st.call("approvals.list", {
+        status: [...RESOLVED_STATUSES],
+        limit: APPROVAL_PAGE,
       });
-      st.update((s) => {
-        const next = putMany(s, "approvals", res.approvals, version);
-        const staleNext: Record<string, true> = { ...next.staleApprovals };
-        for (const a of res.approvals) delete staleNext[a.id];
-        return {
-          ...next,
-          answerTokens: { ...next.answerTokens, ...(res.answerTokens ?? {}) },
-          staleApprovals: staleNext,
-        };
-      });
-      if (res.nextCursor == null) break;
-      cursor = res.nextCursor;
-    }
-    // Decided history: the head page only. A reload keeps the cursor of pages already loaded.
-    const version = st.version();
-    const head = await st.call("approvals.list", {
-      status: [...RESOLVED_STATUSES],
-      limit: APPROVAL_PAGE,
+      st.update((s) => putMany(s, "approvals", head.approvals, version));
+      return head.nextCursor ?? null;
     });
-    st.update((s) => putMany(s, "approvals", head.approvals, version));
-    if (!beyondHead.current) setRecentCursor(head.nextCursor ?? null);
+    // A reload keeps the cursor of pages already loaded beyond the head.
+    if (!beyondHead.current) setRecentCursor(headCursor);
   });
   const loadMoreRecent = useCallback(async () => {
     if (recentCursor === null || loadingMoreRecent) return;
@@ -1662,17 +1687,20 @@ export function useNotifications() {
   const beyondHead = useRef(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const load = useLoader("notifications", async (st) => {
-    const merge = (page: Notification[], version: number) =>
-      st.update((s) => putMany(s, "notifications", page, version));
-    // Everything unresolved or unread loads in full, so the Needs-you and unread counts are
-    // right however old the notification is. Both sets are bounded by what the owner left open.
-    await eachNotificationPage(st, { unresolvedOnly: true }, merge);
-    await eachNotificationPage(st, { unreadOnly: true }, merge);
-    // The inbox list itself pages: the head here, older ones on `loadMore`.
-    const version = st.version();
-    const head = await st.call("notifications.list", { limit: NOTIFICATION_PAGE });
-    merge(head.notifications as Notification[], version);
-    if (!beyondHead.current) setCursor(head.nextCursor ?? null);
+    const headCursor = await sharedLoad(st, "notifications", async () => {
+      const merge = (page: Notification[], version: number) =>
+        st.update((s) => putMany(s, "notifications", page, version));
+      // Everything unresolved or unread loads in full, so the Needs-you and unread counts are
+      // right however old the notification is. Both sets are bounded by what the owner left open.
+      await eachNotificationPage(st, { unresolvedOnly: true }, merge);
+      await eachNotificationPage(st, { unreadOnly: true }, merge);
+      // The inbox list itself pages: the head here, older ones on `loadMore`.
+      const version = st.version();
+      const head = await st.call("notifications.list", { limit: NOTIFICATION_PAGE });
+      merge(head.notifications as Notification[], version);
+      return head.nextCursor ?? null;
+    });
+    if (!beyondHead.current) setCursor(headCursor);
   });
   const loadMore = useCallback(async () => {
     if (cursor === null || loadingMore) return;
@@ -1707,17 +1735,26 @@ export function useNotifications() {
    * Gateway has no mark-all method, so it pages the unread ids and marks them 500 at a time.
    */
   const markAllRead = async () => {
-    const ids: string[] = [];
-    await eachNotificationPage(store, { unreadOnly: true }, (page) => {
-      for (const n of page) ids.push(n.id);
-    });
-    for (let i = 0; i < ids.length; i += 500) {
-      const batch = ids.slice(i, i + 500);
-      await store.mutate({
-        optimistic: mark(batch, new Date().toISOString()),
-        run: () => store.call("notifications.markRead", { notificationIds: batch }),
-        commit: (s) => mark(batch, new Date().toISOString())(s),
+    // An id can vanish between listing and marking (the Gateway refuses the whole batch for an
+    // unknown id): list again and carry on with what is still there.
+    for (let attempt = 0; ; attempt++) {
+      const ids: string[] = [];
+      await eachNotificationPage(store, { unreadOnly: true }, (page) => {
+        for (const n of page) ids.push(n.id);
       });
+      try {
+        for (let i = 0; i < ids.length; i += 500) {
+          const batch = ids.slice(i, i + 500);
+          await store.mutate({
+            optimistic: mark(batch, new Date().toISOString()),
+            run: () => store.call("notifications.markRead", { notificationIds: batch }),
+            commit: (s) => mark(batch, new Date().toISOString())(s),
+          });
+        }
+        return;
+      } catch (err) {
+        if (codeOf(err) !== "not_found" || attempt >= 3) throw err;
+      }
     }
   };
   return {

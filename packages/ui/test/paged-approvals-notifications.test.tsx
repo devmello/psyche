@@ -187,4 +187,53 @@ describe("useNotifications beyond the first page", () => {
     expect(gateway.world.notifications.every((n) => n.readAt != null)).toBe(true);
     expect(result.current.unread).toHaveLength(0);
   });
+
+  it("retries mark-all after the Gateway refuses a batch for an id that went missing", async () => {
+    const { gateway, wrapper } = setup({
+      notifications: [notification("n_a", 1), notification("n_b", 2)],
+    });
+    const { result } = renderHook(() => useNotifications(), { wrapper });
+    await waitFor(() => expect(result.current.unread).toHaveLength(2));
+
+    gateway.failNext("notifications.markRead", "not_found", "notification n_gone not found");
+    await act(() => result.current.markAllRead());
+    expect(gateway.world.notifications.every((n) => n.readAt != null)).toBe(true);
+    expect(gateway.calls.filter((c) => c.method === "notifications.markRead")).toHaveLength(2);
+  });
+});
+
+describe("shared loads across consumers", () => {
+  const countCalls = (gateway: MockGateway, method: string, match: object) =>
+    gateway.calls.filter(
+      (c) =>
+        c.method === method &&
+        Object.entries(match).every(
+          ([k, v]) => JSON.stringify((c.params as never)[k]) === JSON.stringify(v),
+        ),
+    ).length;
+
+  it("four mounted notification consumers page each list once", async () => {
+    const { gateway, wrapper } = setup({
+      notifications: [notification("n_1", 1), notification("n_2", 2, { resolvedAt: NOW })],
+    });
+    const hooks = Array.from({ length: 4 }, () =>
+      renderHook(() => useNotifications(), { wrapper }),
+    );
+    for (const h of hooks) await waitFor(() => expect(h.result.current.loading).toBe(false));
+    expect(countCalls(gateway, "notifications.list", { unresolvedOnly: true })).toBe(1);
+    expect(countCalls(gateway, "notifications.list", { unreadOnly: true })).toBe(1);
+    expect(gateway.calls.filter((c) => c.method === "notifications.list")).toHaveLength(3);
+    for (const h of hooks) expect(h.result.current.unread).toHaveLength(2);
+  });
+
+  it("four mounted approval consumers page pending and history once", async () => {
+    const { gateway, wrapper } = setup({
+      approvals: [approval("ap_1", 1, "pending"), approval("ap_2", 2, "approved")],
+      answerTokens: { ap_1: "at_1" },
+    });
+    const hooks = Array.from({ length: 4 }, () => renderHook(() => useApprovals(), { wrapper }));
+    for (const h of hooks) await waitFor(() => expect(h.result.current.loading).toBe(false));
+    expect(gateway.calls.filter((c) => c.method === "approvals.list")).toHaveLength(2);
+    for (const h of hooks) expect(h.result.current.pending[0]?.canAnswer).toBe(true);
+  });
 });
