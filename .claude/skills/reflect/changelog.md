@@ -2,6 +2,12 @@
 
 Newest first. The `reflect` skill reads the top entry to know where the last pass stopped.
 
+## 2026-11-23 (c): reflect pass over #1552-#1557 (and #1553-#1555)
+Last pass: #1549. Evidence: the orchestrator's summary of the last 9 merged builder PRs.
+- **`psyche-apple`:** FixtureBackend with every new backend method or UI-gating field (#1553-#1557); validation errors only after edit or on Save (#1556); simulator etiquette and demo mode (one device per agent, `-psycheScenario live`).
+- **`psyche-builder`:** trace a fix to the visible pixels, with a test on the decision (#1552 `view.command` / `paneKey`).
+- **`orchestrate`:** two-iOS-PR merge recipe with `-s ours` (#1556/#1557); check queue items against main before dispatch (3 of 5 stale).
+
 ## 2026-11-23 (b): reflect pass over #1533, #1540, #1542-#1549
 Last pass: #1538. Evidence: the orchestrator's wave notes, security-reviewer memory (settings-narrowing, launch-config, owner-file-write patterns) and the haiku-verifier recurring-problems note (#1542 zh-Hans, #1543 sibling collisions).
 - **`verify.sh`:** new `xcstrings-coverage` check (`.claude/scripts/xcstrings-coverage.py`), run only on touched `.xcstrings`; all 11 locales per translated key (#1542). Tested on a scratch catalog with a missing zh-Hans (fails) and the 5 current catalogs (pass).
