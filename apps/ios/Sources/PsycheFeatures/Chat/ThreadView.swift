@@ -10,7 +10,10 @@ struct ThreadView: View {
     @State private var position = ScrollPosition(edge: .bottom)
     /// Follow the stream while the reader is at the bottom; let go the moment they scroll up.
     @State private var pinned = true
-    @State private var scrolling = false
+    /// The latest geometry answer, kept whatever the scroll phase is, so the order of the two callbacks never matters.
+    @State private var atBottom = true
+    /// True between the reader's touch and the end of their drag (the reader's own scrolling, not content growth).
+    @State private var reading = false
     @FocusState private var composerFocused: Bool
     @Environment(Router.self) private var router
     @Environment(Session.self) private var session
@@ -37,7 +40,6 @@ struct ThreadView: View {
                             label: String(localized: "Loading older messages", bundle: .module)
                         )
                         .id(cursor)
-                        .onAppear { loadOlderIfScrolledUp() }
                         .padding(.bottom, 8)
                     }
                     ForEach(Array(thread.items.enumerated()), id: \.element.id) { index, item in
@@ -67,12 +69,30 @@ struct ThreadView: View {
         // the same layout pass, instead of being chased by a scroll after the fact.
         .defaultScrollAnchor(.bottom, for: .sizeChanges)
         .scrollDismissesKeyboard(.interactively)
-        .onScrollPhaseChange { _, phase in scrolling = phase != .idle }
+        .onScrollPhaseChange { _, phase in
+            // A drag decides the pin when it starts and when it ends, from the latest geometry answer. Animated
+            // scrolls (Jump to latest) are the app's own and leave the pin alone.
+            if phase == .interacting || phase == .decelerating || phase == .tracking {
+                reading = true
+                pinned = atBottom
+            } else if phase == .idle, reading {
+                reading = false
+                pinned = atBottom
+            }
+        }
         .onScrollGeometryChange(for: Bool.self) { geometry in
             geometry.contentSize.height - (geometry.contentOffset.y + geometry.containerSize.height) < 48
         } action: { _, nearBottom in
-            // Only the reader's own scrolling can change this; content growing under us must not unpin.
-            if scrolling { pinned = nearBottom }
+            atBottom = nearBottom
+            pinned = ThreadScrollRules.pinned(pinned, reading: reading, nearBottom: nearBottom)
+        }
+        .onScrollGeometryChange(for: Bool.self) { geometry in
+            geometry.contentOffset.y < ThreadScrollRules.olderThreshold
+        } action: { _, nearTop in
+            let hasOlder = model.phase.value?.olderCursor != nil
+            if ThreadScrollRules.shouldLoadOlder(nearTop: nearTop, pinned: pinned, hasOlder: hasOlder, loading: model.loadingOlder) {
+                loadOlderIfScrolledUp()
+            }
         }
         .onChange(of: model.revision) { _, _ in
             if pinned { position.scrollTo(edge: .bottom) }
@@ -241,6 +261,24 @@ struct ThreadView: View {
         case (.user, .file), (.file, .file): return 8
         default: return 14
         }
+    }
+}
+
+/// The thread's scroll rules as pure functions, so they can be tested without a view.
+enum ThreadScrollRules {
+    /// Distance from the top, in points, under which the next older page starts loading.
+    static let olderThreshold: CGFloat = 300
+
+    /// Whether the reader is following the bottom. A reader who is not scrolling keeps their pin, so content
+    /// growing under them cannot unpin them; arriving at the bottom always pins.
+    static func pinned(_ current: Bool, reading: Bool, nearBottom: Bool) -> Bool {
+        if nearBottom { return true }
+        return reading ? false : current
+    }
+
+    /// The older page loads only for a reader who has scrolled up to the top, and only once at a time.
+    static func shouldLoadOlder(nearTop: Bool, pinned: Bool, hasOlder: Bool, loading: Bool) -> Bool {
+        nearTop && !pinned && hasOlder && !loading
     }
 }
 
