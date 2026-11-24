@@ -3218,6 +3218,18 @@ export const ko: Partial<Catalogue> = {
   "screens.library.recording.loading": "녹화를 불러오는 중",
   "screens.library.recording.loadFailed": "Psyche가 이 녹화를 불러오지 못했습니다({reason}).",
   "screens.library.recording.notFound": "이 녹화는 더 이상 사용할 수 없습니다.",
+  "screens.library.recording.delete": "녹화 삭제",
+  "screens.library.recording.deleteTitle": "이 녹화를 삭제할까요?",
+  "screens.library.recording.deleteBody":
+    "단계와 스크린샷이 이 기기에서 삭제됩니다. 되돌릴 수 없습니다.",
+  "screens.library.recording.deleteConfirm": "삭제",
+  "screens.library.recording.deleteFailed": "Psyche가 이 녹화를 삭제하지 못했습니다({reason}).",
+  "screens.library.meetingNotes.action": "회의 노트 만들기",
+  "screens.library.meetingNotes.running":
+    "노트를 만드는 중입니다. 긴 녹음은 오래 걸릴 수 있습니다(최대 4시간 분량).",
+  "screens.library.meetingNotes.done": "노트가 피드에 준비되었습니다.",
+  "screens.library.meetingNotes.open": "노트 열기",
+  "screens.library.meetingNotes.failed": "Psyche가 노트를 만들지 못했습니다({reason}).",
   "screens.library.trust": "이 파일 신뢰",
   "screens.library.moreFor": "{name}에 대한 추가 동작",
   "screens.library.quickLook": "훑어보기",

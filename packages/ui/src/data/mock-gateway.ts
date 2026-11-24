@@ -3286,6 +3286,20 @@ export class MockGateway implements GatewayClient {
       if (f === undefined) return fail("not_found", `frame ${p.seq} not found`);
       return { frame: f.frame, mime: f.mime, data: f.data };
     },
+    "browser.recordings.delete": (p) => {
+      const list = this.world.browserRecordings ?? [];
+      if (!list.some((x) => x.recording.id === p.recordingId)) {
+        return fail("not_found", `recording ${p.recordingId} not found`);
+      }
+      this.world.browserRecordings = list.filter((x) => x.recording.id !== p.recordingId);
+      return { ok: true };
+    },
+    "meetings.notes.create": (p) => {
+      if (!this.world.library.some((i) => i.id === p.libraryItemId)) {
+        return fail("not_found", `library item ${p.libraryItemId} not found`);
+      }
+      return { status: "done", postId: "post_meeting_notes_fixture" };
+    },
     "browser.botAuth.status": () => ({ status: structuredClone(this.world.botAuth) }),
     "browser.botAuth.rotate": () => {
       // A fresh fake thumbprint each time, as a real rotation gives.

@@ -1168,7 +1168,16 @@ export function LibraryScreen({
         {...(send ? { onSendToChat: send } : {})}
       />
       {replaying !== null ? (
-        <BrowserRecordingViewer item={replaying} onClose={() => setReplaying(null)} />
+        <BrowserRecordingViewer
+          item={replaying}
+          onClose={() => setReplaying(null)}
+          onDeleted={(gone) =>
+            store.update((st) => {
+              const { [gone.id]: _removed, ...rest } = st.library;
+              return { ...st, library: rest };
+            })
+          }
+        />
       ) : null}
       <AlertDialog
         open={pendingDelete !== null}

@@ -240,3 +240,64 @@ describe("Library", () => {
     expect(await within(viewer).findByRole("img")).toBeTruthy();
   });
 });
+
+describe("Browser recording delete", () => {
+  function setupDelete() {
+    let gw: MockGateway | null = null;
+    const onClose = vi.fn();
+    const onDeleted = vi.fn();
+    render(
+      <StoryWorld
+        onGateway={(g) => {
+          gw = g;
+          g.world.browserRecordings = [RECORDING];
+        }}
+      >
+        <BrowserRecordingViewer item={ITEM} onClose={onClose} onDeleted={onDeleted} />
+      </StoryWorld>,
+    );
+    return {
+      onClose,
+      onDeleted,
+      gateway: () => gw as unknown as MockGateway,
+    };
+  }
+
+  it("cancelling the confirm keeps the recording", async () => {
+    const { onClose, onDeleted, gateway } = setupDelete();
+    const dialog = await screen.findByRole("dialog");
+    await within(dialog).findByRole("img");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Delete recording" }));
+    expect(await screen.findByText("Delete this recording?")).toBeTruthy();
+    await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    await waitFor(() => expect(screen.queryByText("Delete this recording?")).toBeNull());
+    expect(gateway().world.browserRecordings).toHaveLength(1);
+    expect(onDeleted).not.toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it("deletes after confirm, then drops the row and closes", async () => {
+    const { onClose, onDeleted, gateway } = setupDelete();
+    const dialog = await screen.findByRole("dialog");
+    await within(dialog).findByRole("img");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Delete recording" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Delete" }));
+    await waitFor(() => expect(onDeleted).toHaveBeenCalledWith(ITEM));
+    expect(onClose).toHaveBeenCalled();
+    expect(gateway().world.browserRecordings).toHaveLength(0);
+  });
+
+  it("shows the error and keeps the recording when the delete fails", async () => {
+    const { onClose, onDeleted, gateway } = setupDelete();
+    const dialog = await screen.findByRole("dialog");
+    await within(dialog).findByRole("img");
+    gateway().failNext("browser.recordings.delete", "unavailable", "The Gateway is busy.");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Delete recording" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Delete" }));
+    expect(await screen.findByText(/Psyche couldn't delete this recording/)).toBeTruthy();
+    expect(screen.getByRole("alert").textContent).toContain("The Gateway is busy.");
+    expect(onDeleted).not.toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
+    expect(gateway().world.browserRecordings).toHaveLength(1);
+  });
+});

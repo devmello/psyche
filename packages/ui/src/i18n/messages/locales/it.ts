@@ -3281,6 +3281,19 @@ export const it: Partial<Catalogue> = {
   "screens.library.recording.loadFailed":
     "Psyche non è riuscito a caricare questa registrazione ({reason}).",
   "screens.library.recording.notFound": "Questa registrazione non è più disponibile.",
+  "screens.library.recording.delete": "Elimina registrazione",
+  "screens.library.recording.deleteTitle": "Eliminare questa registrazione?",
+  "screens.library.recording.deleteBody":
+    "I passaggi e le schermate vengono rimossi da questo dispositivo. Non si può annullare.",
+  "screens.library.recording.deleteConfirm": "Elimina",
+  "screens.library.recording.deleteFailed":
+    "Psyche non è riuscito a eliminare questa registrazione ({reason}).",
+  "screens.library.meetingNotes.action": "Crea note della riunione",
+  "screens.library.meetingNotes.running":
+    "Creazione delle note in corso. Una registrazione lunga può richiedere tempo, fino a quattro ore di audio.",
+  "screens.library.meetingNotes.done": "Le note sono pronte nel tuo Feed.",
+  "screens.library.meetingNotes.open": "Apri note",
+  "screens.library.meetingNotes.failed": "Psyche non è riuscito a creare le note ({reason}).",
   "screens.library.trust": "Considera attendibile questo file",
   "screens.library.moreFor": "Altre azioni per {name}",
   "screens.library.quickLook": "Visualizzazione rapida",
