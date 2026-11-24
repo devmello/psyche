@@ -25,7 +25,7 @@ private struct ReceiptsList: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
+            LazyVStack(alignment: .leading, spacing: 18) {
                 switch model.phase {
                 case .idle, .loading:
                     Color.clear.frame(height: 200)
@@ -45,14 +45,10 @@ private struct ReceiptsList: View {
                             }
                         }
                     }
-                    // The next page loads when this row appears; its id is the cursor, so each page is a new row.
-                    if model.moreFailed {
-                        FailedNotice { Task { await model.retryMore() } }
-                    } else if let cursor = model.nextCursor {
-                        PageSentinel(loading: model.loadingMore, label: String(localized: "Loading more receipts", bundle: .module))
-                            .id(cursor)
-                            .onAppear { Task { await model.loadMore() } }
-                    }
+                    PagedRowsEnd(
+                        moreFailed: model.moreFailed, nextCursor: model.nextCursor, loadingMore: model.loadingMore,
+                        label: String(localized: "Loading more receipts", bundle: .module),
+                        loadMore: { await model.loadMore() }, retryMore: { await model.retryMore() })
                 }
             }
             .padding(.horizontal, PsycheMetrics.pagePadding)

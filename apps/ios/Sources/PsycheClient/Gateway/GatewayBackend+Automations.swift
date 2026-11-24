@@ -52,4 +52,23 @@ extension GatewayBackend {
             id: id, kind: kind, title: title, prompt: wire["prompt"]?.string ?? "", schedule: schedule,
             timezone: wire["timezone"]?.string ?? TimeZone.current.identifier, enabled: wire["enabled"]?.bool ?? true)
     }
+
+    /// One page of an automation's run history, newest first (`automations.runs`, 20 a page). The cursor is the
+    /// Gateway's own; a run without an id or a start time is left out.
+    public func automationRuns(id: String, cursor: String?) async throws -> AutomationRunPage {
+        var params: [String: JSONValue] = ["automationId": .string(id), "limit": .number(20)]
+        if let cursor { params["cursor"] = .string(cursor) }
+        let result = try await call("automations.runs", .object(params))
+        let runs = (result["runs"]?.array ?? []).compactMap(Self.automationRun(from:))
+        return AutomationRunPage(runs: runs, nextCursor: result["nextCursor"]?.string)
+    }
+
+    /// One run row. A status this app doesn't know reads as skipped, so a newer Gateway's run still shows.
+    static func automationRun(from run: JSONValue) -> AutomationRunItem? {
+        guard let id = run["id"]?.string, let started = WireFormat.date(run["startedAt"]?.string) else { return nil }
+        return AutomationRunItem(
+            id: id, status: run["status"]?.string.flatMap(AutomationRunStatus.init(rawValue:)) ?? .skipped,
+            startedAt: started, endedAt: WireFormat.date(run["endedAt"]?.string),
+            summary: run["summary"]?.string, taskID: run["taskId"]?.string)
+    }
 }

@@ -63,18 +63,15 @@ struct InboxView: View {
         if !rest.filter(\.earlier).isEmpty { rows(rest.filter(\.earlier), title: String(localized: "Earlier", bundle: .module)) }
     }
 
-    /// The end of the list: the next page loads when this row appears (its id is the cursor, so each page is a new
-    /// row). A failed page shows a retry row instead, which does not load again by itself.
+    /// The end of the list: the next page loads while this row is on screen (`PagedRowsEnd`). A failed page shows a
+    /// retry row instead, which does not load again by itself.
     @ViewBuilder
     private func pageEnd(hasRows: Bool) -> some View {
-        if hasRows, model.moreFailed {
-            FailedNotice { Task { await model.retryMore() } }
-                .listRowBackground(Color.clear)
-                .listRowSeparator(.hidden)
-        } else if hasRows, let cursor = model.nextCursor {
-            PageSentinel(loading: model.loadingMore, label: String(localized: "Loading more notices", bundle: .module))
-                .id(cursor)
-                .onAppear { Task { await model.loadMore() } }
+        if hasRows {
+            PagedRowsEnd(
+                moreFailed: model.moreFailed, nextCursor: model.nextCursor, loadingMore: model.loadingMore,
+                label: String(localized: "Loading more notices", bundle: .module),
+                loadMore: { await model.loadMore() }, retryMore: { await model.retryMore() })
                 .listRowBackground(Color.clear)
                 .listRowSeparator(.hidden)
                 .listRowInsets(EdgeInsets(top: 6, leading: 0, bottom: 6, trailing: 0))

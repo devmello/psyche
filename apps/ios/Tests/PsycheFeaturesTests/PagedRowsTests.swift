@@ -151,8 +151,13 @@ struct PagedRowsTests {
         let model = InboxModel(store: FixtureBackend())
         await model.load()
         let all = FixtureData.inbox.map(\.id)
-        #expect(model.phase.value?.map(\.id) == Array(all.prefix(3)))
-        #expect(model.nextCursor == "3")
+        // Two a page: the five fixture notices take three pages.
+        #expect(model.phase.value?.map(\.id) == Array(all.prefix(2)))
+        #expect(model.nextCursor == "2")
+
+        await model.loadMore()
+        #expect(model.phase.value?.map(\.id) == Array(all.prefix(4)))
+        #expect(model.nextCursor == "4")
 
         await model.loadMore()
         #expect(model.phase.value?.map(\.id) == all)
