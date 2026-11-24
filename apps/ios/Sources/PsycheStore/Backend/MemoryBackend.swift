@@ -44,9 +44,6 @@ public protocol MemoryBackend: Sendable {
     func undoChange(factID: String) async throws
     /// Adds the owner's own note to today's daily note (memory.remember).
     func remember(text: String) async throws
-    /// Forgets what matches a subject, its text (memory.forget). Used for a fact the owner removes and a claim
-    /// the owner rejects.
-    func forget(subject: String) async throws
 }
 
 extension MemoryBackend {
@@ -64,7 +61,6 @@ extension MemoryBackend {
     public func recentChanges() async throws -> [RecentChange] { throw BackendError.notFound }
     public func undoChange(factID: String) async throws { throw BackendError.notFound }
     public func remember(text: String) async throws { throw BackendError.notFound }
-    public func forget(subject: String) async throws { throw BackendError.notFound }
 
     // Additive: a backend that cannot edit facts yet says so, and the page offers "Edit on your Mac".
     public func confirmFact(personID: String, factID: String) async throws {

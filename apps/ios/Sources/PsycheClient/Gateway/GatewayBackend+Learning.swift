@@ -3,7 +3,7 @@ import PsycheStore
 import enum PsycheProtocol.JSONValue
 
 // What Psyche learned, claims to confirm, recent changes and quick notes, over the Gateway's memory methods
-// (memory.lessons.*, memory.claims.*, memory.review.*, memory.remember, memory.forget). Every write sends an
+// (memory.lessons.*, memory.claims.*, memory.review.*, memory.remember). Every write sends an
 // idempotency key, so a retried tap does not repeat the change.
 extension GatewayBackend {
     public func lessons() async throws -> [LessonItem] {
@@ -49,11 +49,6 @@ extension GatewayBackend {
 
     public func remember(text: String) async throws {
         _ = try await call("memory.remember", .obj(["text": .string(text)]), key: "remember-\(UUID().uuidString)")
-    }
-
-    public func forget(subject: String) async throws {
-        _ = try await call(
-            "memory.forget", .obj(["subject": .string(subject)]), key: "forget-\(UUID().uuidString)")
     }
 
     // MARK: - Mapping (static, so the wire shapes can be tested without a connection)

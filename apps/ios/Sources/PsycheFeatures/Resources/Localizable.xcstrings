@@ -39690,77 +39690,6 @@
         }
       }
     },
-    "Psyche isn't sure of these. Confirm what's right, or reject what isn't.": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Psyche isn't sure of these. Confirm what's right, or reject what isn't."
-          }
-        },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Psyche غير متأكد من هذه. أكّد الصحيح، وارفض غير الصحيح."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Psyche ist sich hier nicht sicher. Bestätige, was stimmt, und lehne ab, was nicht stimmt."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Psyche no está seguro de estas. Confirma lo que es correcto y rechaza lo que no."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Psyche n'en est pas sûr. Confirmez ce qui est juste et rejetez le reste."
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Psyche को इन पर भरोसा नहीं है। जो सही है उसकी पुष्टि करें, जो गलत है उसे अस्वीकार करें।"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Psyche non ne è sicuro. Conferma ciò che è giusto e rifiuta ciò che non lo è."
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Psyche はこれらに確信がありません。正しいものは確認し、違うものは却下してください。"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Psyche가 확신하지 못하는 내용입니다. 맞는 것은 확인하고 틀린 것은 거부하세요."
-          }
-        },
-        "pt": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "A Psyche não tem certeza disto. Confirme o que está certo e rejeite o que não está."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Psyche 不太确定这些内容。确认正确的，拒绝不对的。"
-          }
-        }
-      }
-    },
     "Confirm": {
       "extractionState": "manual",
       "localizations": {
@@ -39828,219 +39757,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "确认"
-          }
-        }
-      }
-    },
-    "Reject": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Reject"
-          }
-        },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "رفض"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ablehnen"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Rechazar"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Rejeter"
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "अस्वीकार करें"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Rifiuta"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "却下"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "거부"
-          }
-        },
-        "pt": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Rejeitar"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "拒绝"
-          }
-        }
-      }
-    },
-    "Reject this?": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Reject this?"
-          }
-        },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "هل ترفض هذا؟"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ablehnen?"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "¿Rechazar esto?"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Rejeter ceci ?"
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "इसे अस्वीकार करें?"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Rifiutare questo?"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "これを却下しますか?"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "이것을 거부할까요?"
-          }
-        },
-        "pt": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Rejeitar isto?"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "拒绝这一条吗?"
-          }
-        }
-      }
-    },
-    "Psyche forgets it and won't keep it.": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Psyche forgets it and won't keep it."
-          }
-        },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "ينساه Psyche ولن يحتفظ به."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Psyche vergisst es und behält es nicht."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Psyche lo olvida y no lo guardará."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Psyche l'oublie et ne le gardera pas."
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Psyche इसे भूल जाएगा और नहीं रखेगा।"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Psyche lo dimentica e non lo terrà."
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Psyche はこれを忘れ、保持しません。"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Psyche가 이것을 잊고 보관하지 않습니다."
-          }
-        },
-        "pt": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "A Psyche esquece isto e não o guardará."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Psyche 会忘记它，不再保留。"
           }
         }
       }
@@ -40893,6 +40609,77 @@
           "stringUnit": {
             "state": "translated",
             "value": "会保存到今天的日记笔记中。"
+          }
+        }
+      }
+    },
+    "Psyche isn't sure of these. Confirm what's right, or leave the rest for now.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche isn't sure of these. Confirm what's right, or leave the rest for now."
+          }
+        },
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche غير متأكد من هذه. أكّد الصحيح، واترك الباقي الآن."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche ist sich hier nicht sicher. Bestätige, was stimmt, und lass den Rest vorerst."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche no está seguro de estas. Confirma lo que es correcto y deja el resto por ahora."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche n'en est pas sûr. Confirmez ce qui est juste et laissez le reste pour l'instant."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche को इन पर भरोसा नहीं है। जो सही है उसकी पुष्टि करें, बाकी अभी छोड़ दें।"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche non ne è sicuro. Conferma ciò che è giusto e lascia il resto per ora."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche はこれらに確信がありません。正しいものは確認し、残りは今は保留してください。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche가 확신하지 못하는 내용입니다. 맞는 것은 확인하고 나머지는 나중에 보세요."
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A Psyche não tem certeza disto. Confirme o que está certo e deixe o resto para depois."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche 不太确定这些内容。确认正确的，其余的先保留。"
           }
         }
       }

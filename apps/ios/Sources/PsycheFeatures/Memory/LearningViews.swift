@@ -215,10 +215,10 @@ struct LessonEditSheet: View {
 
 // MARK: - To confirm
 
-/// Claims Psyche is not sure of. Confirm makes one the owner's; Reject forgets it, after a Cancel-able question.
+/// Claims Psyche is not sure of. Confirm makes one the owner's (memory.claims.confirm). Not now hides it for this
+/// session only; no Gateway call is made, so the claim keeps waiting. There is no reject on the phone.
 struct ClaimsView: View {
     @State private var model: LearningModel
-    @State private var rejecting: ClaimItem?
 
     init(store: any PsycheBackend) {
         _model = State(initialValue: LearningModel(store: store))
@@ -228,7 +228,7 @@ struct ClaimsView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
                 Text("To confirm", bundle: .module).psycheTitle().padding(.bottom, 4)
-                Text("Psyche isn't sure of these. Confirm what's right, or reject what isn't.", bundle: .module)
+                Text("Psyche isn't sure of these. Confirm what's right, or leave the rest for now.", bundle: .module)
                     .font(.subheadline).foregroundStyle(PsycheColor.muted).padding(.bottom, 16)
                 content
             }
@@ -238,18 +238,6 @@ struct ClaimsView: View {
         .psycheScreen()
         .psycheInlineTitle()
         .task { await model.loadClaims() }
-        .confirmationDialog(
-            String(localized: "Reject this?", bundle: .module),
-            isPresented: Binding(get: { rejecting != nil }, set: { if !$0 { rejecting = nil } }),
-            titleVisibility: .visible, presenting: rejecting
-        ) { claim in
-            Button(String(localized: "Reject", bundle: .module), role: .destructive) {
-                Task { await model.reject(claim) }
-            }
-            Button(String(localized: "Cancel", bundle: .module), role: .cancel) {}
-        } message: { _ in
-            Text("Psyche forgets it and won't keep it.", bundle: .module)
-        }
         .alert(String(localized: "Couldn't update that", bundle: .module), isPresented: noticeBinding) {
             Button(String(localized: "OK", bundle: .module), role: .cancel) {}
         } message: {
@@ -268,10 +256,12 @@ struct ClaimsView: View {
             ProgressView().frame(maxWidth: .infinity).padding(.top, 24)
         case .failed(let message):
             LearningRetry(message: message) { Task { await model.loadClaims() } }
-        case .loaded(let claims) where claims.isEmpty:
-            Text("Nothing is waiting for you.", bundle: .module)
-                .font(.subheadline).foregroundStyle(PsycheColor.muted)
-        case .loaded(let claims):
+        case .loaded(let all):
+            let claims = model.shownClaims(all)
+            if claims.isEmpty {
+                Text("Nothing is waiting for you.", bundle: .module)
+                    .font(.subheadline).foregroundStyle(PsycheColor.muted)
+            }
             ForEach(Array(claims.enumerated()), id: \.element.id) { index, claim in
                 VStack(alignment: .leading, spacing: 10) {
                     Text(verbatim: claim.text).font(.psycheRow).foregroundStyle(PsycheColor.text)
@@ -280,7 +270,7 @@ struct ClaimsView: View {
                     HStack(spacing: 10) {
                         Button(String(localized: "Confirm", bundle: .module)) { Task { await model.confirm(claim) } }
                             .buttonStyle(.psycheOutline)
-                        Button(String(localized: "Reject", bundle: .module)) { rejecting = claim }
+                        Button(String(localized: "Not now", bundle: .module)) { model.hideForNow(claim) }
                             .buttonStyle(.psycheOutline)
                     }
                 }

@@ -1,7 +1,7 @@
 import Foundation
 
 // What Psyche learned from the owner, the claims it is not sure of, and recent memory changes (memory.lessons.*,
-// memory.claims.*, memory.review.*, memory.remember, memory.forget). Owner: the Memory session.
+// memory.claims.*, memory.review.*, memory.remember). Owner: the Memory session.
 
 /// A lesson Psyche took from the owner's feedback (memory.lessons.list): the line in Psyche's words, the value
 /// it writes, and the value it replaced.

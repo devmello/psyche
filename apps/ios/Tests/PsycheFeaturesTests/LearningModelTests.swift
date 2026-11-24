@@ -59,15 +59,19 @@ struct LearningModelTests {
         }
     }
 
-    @Test func rejectingAClaimRemovesIt() async {
+    @Test func notNowHidesAClaimForThisSessionOnly() async {
         let model = model()
         await model.loadClaims()
-        guard let claim = model.claims.value?.first else {
+        guard let claims = model.claims.value, let claim = claims.first else {
             Issue.record("no claims loaded")
             return
         }
-        await model.reject(claim)
-        #expect(model.claims.value?.contains(claim) == false)
+        model.hideForNow(claim)
+        #expect(model.shownClaims(claims).contains(claim) == false)
+        #expect(model.shownClaims(claims).count == claims.count - 1)
+        // Still waiting in the store: a reload shows it again in the unfiltered list.
+        await model.loadClaims()
+        #expect(model.claims.value?.contains(claim) == true)
     }
 
     @Test func confirmingAClaimRemovesItFromTheWaitingList() async {

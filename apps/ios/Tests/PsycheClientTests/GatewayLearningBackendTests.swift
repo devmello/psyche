@@ -24,6 +24,13 @@ struct GatewayLearningBackendTests {
             defer { lock.unlock() }
             return calls.filter { $0.method == method }.compactMap { $0.params }
         }
+
+        /// How many times a method was called, whether or not it sent params.
+        func count(of method: String) -> Int {
+            lock.lock()
+            defer { lock.unlock() }
+            return calls.filter { $0.method == method }.count
+        }
     }
 
     func live(_ configure: (FakeGateway) -> Void) async throws -> (GatewayBackend, GatewayClientTests.Harness) {
@@ -153,12 +160,33 @@ struct GatewayLearningBackendTests {
         #expect(seen.params(of: "memory.review.undo") == [.object(["factId": "fct_1"])])
     }
 
-    @Test func rememberSendsTheTextAndForgetSendsTheSubject() async throws {
+    @Test func rememberSendsTheText() async throws {
         let seen = Seen()
         let (backend, _) = try await live { g in
             g.on("memory.remember") { req in
                 seen.record(req.method, req.params)
                 return .success(.object(["path": "memory/2026-11-24.md", "chunk": .object(["id": "chk_1"])]))
+            }
+        }
+        try await backend.remember(text: "Dentist on Friday")
+        #expect(seen.params(of: "memory.remember") == [.object(["text": "Dentist on Friday"])])
+    }
+
+    /// The To confirm screen only lists and confirms claims. Its "Not now" is local, so no memory.forget is
+    /// ever sent from there: a forget-by-text would retract more than the one claim.
+    @Test func theToConfirmScreenNeverCallsMemoryForget() async throws {
+        let seen = Seen()
+        let (backend, _) = try await live { g in
+            g.on("memory.claims.list") { req in
+                seen.record(req.method, req.params)
+                return .success(.object(["claims": .array([
+                    .object(["id": "clm_1", "text": "Due in March.", "confidence": .number(0.4), "kind": "fact",
+                             "retractedAt": .null, "supersededBy": .null]),
+                ])]))
+            }
+            g.on("memory.claims.confirm") { req in
+                seen.record(req.method, req.params)
+                return .success(.object(["claim": .object(["id": "clm_1"])]))
             }
             g.on("memory.forget") { req in
                 seen.record(req.method, req.params)
@@ -166,9 +194,10 @@ struct GatewayLearningBackendTests {
                                          "files": .array([])]))
             }
         }
-        try await backend.remember(text: "Dentist on Friday")
-        try await backend.forget(subject: "Your car is due for service in March.")
-        #expect(seen.params(of: "memory.remember") == [.object(["text": "Dentist on Friday"])])
-        #expect(seen.params(of: "memory.forget") == [.object(["subject": "Your car is due for service in March."])])
+        _ = try await backend.claims()
+        try await backend.confirmClaim(id: "clm_1")
+        #expect(seen.count(of: "memory.forget") == 0)
+        #expect(seen.count(of: "memory.claims.list") == 1)
+        #expect(seen.params(of: "memory.claims.confirm") == [.object(["claimId": "clm_1"])])
     }
 }

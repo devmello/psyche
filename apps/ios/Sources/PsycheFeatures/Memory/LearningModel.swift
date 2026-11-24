@@ -15,6 +15,8 @@ final class LearningModel {
     private(set) var changes: LoadPhase<[RecentChange]> = .idle
     /// Shown in an alert when a write from a list fails.
     var notice: String?
+    /// Claims put off with "Not now" this session. Not persisted and never sent to the Gateway.
+    private(set) var hiddenClaimIDs: Set<String> = []
 
     private let store: any PsycheBackend
 
@@ -81,10 +83,14 @@ final class LearningModel {
         await loadClaims()
     }
 
-    /// "Reject" is a forget of what the claim says: memory.forget retracts the matching claim.
-    func reject(_ claim: ClaimItem) async {
-        await write { try await self.store.forget(subject: claim.text) }
-        await loadClaims()
+    /// "Not now": hides a claim for this session only. Nothing is sent to the Gateway and the claim stays waiting.
+    func hideForNow(_ claim: ClaimItem) {
+        hiddenClaimIDs.insert(claim.id)
+    }
+
+    /// The claims the To confirm screen shows: waiting ones the owner has not put off for now.
+    func shownClaims(_ claims: [ClaimItem]) -> [ClaimItem] {
+        claims.filter { !hiddenClaimIDs.contains($0.id) }
     }
 
     // MARK: Recent changes
@@ -92,11 +98,6 @@ final class LearningModel {
     func undo(_ change: RecentChange) async {
         await write { try await self.store.undoChange(factID: change.id) }
         await loadChanges()
-    }
-
-    /// Forgets a fact the owner removed from the fact sheet, by the text it says (memory.forget).
-    func forgetFact(text: String) async throws {
-        try await store.forget(subject: text)
     }
 
     // MARK: Quick note

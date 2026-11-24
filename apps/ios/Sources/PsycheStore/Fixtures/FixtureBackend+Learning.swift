@@ -62,13 +62,6 @@ extension FixtureBackend {
         publish(.changed(.memory))
     }
 
-    public func forget(subject: String) async throws {
-        await pause()
-        let needle = subject.trimmingCharacters(in: .whitespacesAndNewlines)
-        memoryState.learning.claims.removeAll { $0.text.localizedCaseInsensitiveContains(needle) }
-        memoryState.learning.changes.removeAll { $0.sentence.localizedCaseInsensitiveContains(needle) }
-        publish(.changed(.memory))
-    }
 }
 
 extension FixtureData {
