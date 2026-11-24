@@ -92,12 +92,38 @@ describe("Library item actions", () => {
     expect(screen.queryByRole("menuitem", { name: "Delete this download" })).toBeNull();
   });
 
-  it("offers Delete this download for a quarantined file, and removes it", async () => {
+  it("offers Delete this download for a quarantined file, and removes it after a confirmation", async () => {
     const { user } = setup(<LibraryScreen now={STORY_NOW} section="downloads" />);
     const del = await menuItem(user, "invoice.pdf", "Delete this download");
     expect(del).not.toBeNull();
     await user.click(del as HTMLElement);
+    expect(await screen.findByText("Delete invoice.pdf?")).toBeTruthy();
+    expect(screen.getByText(/It cannot be undone/)).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "Delete" }));
     await waitFor(() => expect(screen.queryByText("invoice.pdf")).toBeNull());
+  });
+
+  it("deletes any other item through library.delete only after the dialog is confirmed", async () => {
+    let gw: MockGateway | undefined;
+    const { user } = setup(<LibraryScreen now={STORY_NOW} />, undefined, (g) => {
+      gw = g;
+    });
+    const del = await menuItem(user, "acme-intake-form.pdf", "Delete");
+    expect(del).not.toBeNull();
+    await user.click(del as HTMLElement);
+    expect(await screen.findByText("Delete acme-intake-form.pdf?")).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(gw?.calls.filter((c) => c.method === "library.delete")).toEqual([]);
+    expect(screen.getByText("acme-intake-form.pdf")).toBeTruthy();
+
+    await user.click((await menuItem(user, "acme-intake-form.pdf", "Delete")) as HTMLElement);
+    await user.click(await screen.findByRole("button", { name: "Delete" }));
+    await waitFor(() =>
+      expect(gw?.calls.filter((c) => c.method === "library.delete").map((c) => c.params)).toEqual([
+        { itemId: IDS.library.intakeForm },
+      ]),
+    );
+    await waitFor(() => expect(screen.queryByText("acme-intake-form.pdf")).toBeNull());
   });
 });
 
@@ -147,6 +173,17 @@ describe("which actions an item is offered", () => {
     expect(
       ids({ ...base, kind: "document" }, { ...all, onDeleteDownload: () => {} }),
     ).not.toContain("delete-download");
+  });
+
+  it("offers Delete for any item when passed, and Delete this download for a quarantined one", () => {
+    const doc = { ...base, kind: "document" as const };
+    expect(ids(doc, all)).not.toContain("delete");
+    expect(ids(doc, { ...all, onDelete: () => {} })).toContain("delete");
+    const quarantined = { ...base, kind: "download" as const, quarantined: true };
+    const both = { ...all, onDelete: () => {}, onDeleteDownload: () => {} };
+    expect(ids(quarantined, both)).toContain("delete-download");
+    expect(ids(quarantined, both)).not.toContain("delete");
+    expect(ids(quarantined, { ...all, onDelete: () => {} })).toContain("delete");
   });
 
   it("offers Trust only for a quarantined file from outside, never a meeting recording", () => {

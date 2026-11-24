@@ -21,6 +21,7 @@ struct RouteView: View {
         case .project(let id): ProjectPage(id: id, store: store)
         case .person(let id): PersonPage(id: id, store: store)
         case .file(let id): LibraryItemView(id: id)
+        case .artifact(let id): ArtifactViewerView(artifactID: id)
         case .memoryFiles: MemoryFilesView(store: store)
         case .learning: LessonsView(store: store)
         case .claims: ClaimsView(store: store)

@@ -13,6 +13,15 @@ struct LibraryState: Sendable {
 extension FixtureBackend: LibraryBackend {
     public func library(section: LibrarySection) async throws -> [LibraryItem] {
         await pause()
+        if section == .artifacts {
+            // The same list as the Gateway: the artifacts, one row each.
+            return receiptsState.artifacts.map { artifact in
+                LibraryItem(
+                    id: artifact.libraryItemID ?? artifact.id, title: artifact.title, section: .artifacts,
+                    fileType: artifact.type, detail: "\(artifact.updatedAt) \u{00B7} v\(artifact.version)",
+                    artifactID: artifact.id)
+            }
+        }
         return libraryState.items.filter { $0.section == section }
     }
 
