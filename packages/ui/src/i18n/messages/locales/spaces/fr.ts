@@ -113,6 +113,51 @@ export const spaces: Partial<Catalogue> = {
   "spaces.files.remove": "Retirer",
   "spaces.files.removeFolder": "Retirer {path}",
   "spaces.files.failed": "Impossible de modifier les dossiers : {reason}",
+
+  "spaces.settings.title": "Réglages de l’espace",
+  "spaces.settings.description": "Comment Psyche travaille dans cet espace.",
+  "spaces.settings.remote":
+    "Cet espace est sur {host}. Modifiez ses réglages dans Psyche sur cet ordinateur.",
+  "spaces.settings.onMac":
+    "Modifiez ces réglages dans l’app de bureau Psyche, sur l’ordinateur où Psyche s’exécute.",
+  "spaces.settings.mode.label": "Mode d’autorisation par défaut",
+  "spaces.settings.mode.inherit": "Comme mon mode global",
+  "spaces.settings.mode.plan": "Plan",
+  "spaces.settings.mode.manual": "Manuel",
+  "spaces.settings.mode.balanced": "Équilibré",
+  "spaces.settings.mode.auto": "Auto",
+  "spaces.settings.mode.inheritHint":
+    "Les conversations ici utilisent votre mode d’autorisation global.",
+  "spaces.settings.mode.planHint":
+    "Les conversations ici lisent et planifient seulement ; rien n’est modifié.",
+  "spaces.settings.mode.manualHint": "Toute action hors autorisation demande d’abord.",
+  "spaces.settings.mode.balancedHint":
+    "Les lectures s’exécutent ; les écritures vers des personnes et l’argent demandent d’abord.",
+  "spaces.settings.mode.autoHint":
+    "Les actions courantes dans vos autorisations s’exécutent seules, les sensibles demandent toujours. Votre mode global fixe toujours la limite.",
+  "spaces.settings.connectors.label": "Connecteurs de cet espace",
+  "spaces.settings.connectors.all": "Tous mes connecteurs",
+  "spaces.settings.connectors.some": "Seulement ceux que je choisis",
+  "spaces.settings.connectors.allHint":
+    "Les conversations et automatisations ici peuvent utiliser tout connecteur configuré.",
+  "spaces.settings.connectors.someHint":
+    "Les conversations et automatisations ici ne peuvent utiliser que les connecteurs cochés ci-dessous.",
+  "spaces.settings.connectors.none": "Aucun connecteur n’est encore configuré.",
+  "spaces.settings.connectors.use": "Utiliser {name} dans cet espace",
+  "spaces.settings.automations": "Automatisations et fichiers",
+  "spaces.settings.automationsHint":
+    "Les automatisations ici ne font que lire un dossier. Cocher une case permet à une automatisation qui s’exécute seule d’y créer, modifier et supprimer des fichiers ; les conversations gardent l’accès propre au dossier.",
+  "spaces.settings.automationsNone":
+    "Ajoutez un dossier pour choisir si les automatisations peuvent modifier ses fichiers.",
+  "spaces.settings.automationsIn":
+    "Autoriser les automatisations à modifier les fichiers de {path}",
+  "spaces.settings.failed": "Impossible d’enregistrer les réglages : {reason}",
+  "spaces.settings.mode.ceiling":
+    "Un espace peut rendre les conversations plus strictes que votre mode global, jamais plus souples.",
+  "spaces.settings.connectors.groupConnectors": "Connecteurs",
+  "spaces.settings.connectors.groupServers": "Serveurs MCP",
+  "spaces.settings.automationsNeedsRw":
+    "Ce dossier est en lecture seule. Autorisez d’abord les modifications dans Fichiers et liens.",
   "spaces.goals": "Objectifs",
 
   "spaces.switcher.label": "Espace : {name}",

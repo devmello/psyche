@@ -214,7 +214,7 @@ describe("SpacePage", () => {
     expect(trackers).toHaveLength(2);
     expect(await screen.findByText("Dentist booking")).toBeTruthy();
     expect(screen.getByText("Lisbon trip")).toBeTruthy();
-    expect(screen.getByText("~/Projects/Kitchen")).toBeTruthy();
+    expect(screen.getAllByText("~/Projects/Kitchen").length).toBeGreaterThan(0);
     expect(screen.getByText("Permit portal")).toBeTruthy();
     // The tracker built from an email is marked untrusted by the host frame.
     expect(await screen.findAllByTestId("widget-untrusted")).toHaveLength(1);

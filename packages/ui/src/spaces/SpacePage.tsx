@@ -49,6 +49,7 @@ import {
   DeleteSpaceDialog,
   InstructionsDialog,
 } from "./SpaceDialogs.tsx";
+import { SpaceSettingsSection } from "./SpaceSettings.tsx";
 import { useSpace, useSpaceActions, useSpaceThreads } from "./use-spaces.ts";
 
 const TEMPLATES: readonly SpaceTrackerTemplate[] = [
@@ -82,7 +83,7 @@ export interface SpacePageProps {
  * `spaces.open`, which recomputes stale query trackers without a model call.
  */
 export function SpacePage({ spaceId, onNavigate, now: fixedNow }: SpacePageProps): ReactElement {
-  const { navigate: slotNavigate, pickFolder } = useSlots();
+  const { navigate: slotNavigate, pickFolder, remoteHost } = useSlots();
   const navigate = onNavigate ?? slotNavigate ?? (() => {});
   const call = useCall();
   const actions = useSpaceActions();
@@ -433,6 +434,18 @@ export function SpacePage({ spaceId, onNavigate, now: fixedNow }: SpacePageProps
             </div>
             {pickFolder ? null : <Quiet>{t("spaces.files.addOnMac")}</Quiet>}
           </ScreenSection>
+          <SpaceSettingsSection
+            detail={detail}
+            archived={archived}
+            readOnlyReason={
+              remoteHost !== undefined
+                ? t("spaces.settings.remote", { host: remoteHost })
+                : pickFolder === undefined
+                  ? t("spaces.settings.onMac")
+                  : null
+            }
+            onSaved={reload}
+          />
           <GoalsSection ids={detail.goalIds} onNavigate={navigate} />
         </div>
       </div>

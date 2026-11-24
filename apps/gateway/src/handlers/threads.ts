@@ -216,6 +216,36 @@ export function defaultThreadMode(call: Call, modelRef?: ModelRef): PermissionMo
     : "balanced";
 }
 
+const MODE_STRICTNESS: Record<PermissionMode, number> = {
+  plan: 0,
+  manual: 1,
+  balanced: 2,
+  auto: 3,
+};
+
+/**
+ * The mode a new chat in a Space starts in (design §4.2: the Space's default mode "sets the mode
+ * of new chats"). It only ever narrows: the stricter of the Space's mode and the owner's global
+ * default (`defaultThreadMode`, which keeps the Auto model allowlist). A Space that says Auto
+ * under a global Manual gives Manual. No Space, or a Space with no mode, is the global default.
+ */
+export function newThreadModeIn(
+  call: Call,
+  spaceId: string | undefined,
+  modelRef?: ModelRef,
+): PermissionMode | undefined {
+  const base = defaultThreadMode(call, modelRef);
+  if (spaceId === undefined) return base;
+  const row = call.ctx.db.sqlite
+    .prepare("SELECT default_permission_mode AS mode FROM spaces WHERE id = ?")
+    .get(spaceId) as { mode: string | null } | undefined;
+  const space = row?.mode;
+  if (space !== "plan" && space !== "manual" && space !== "balanced" && space !== "auto") {
+    return base;
+  }
+  return MODE_STRICTNESS[space] < MODE_STRICTNESS[base ?? "balanced"] ? space : base;
+}
+
 export const threadsHandlers: Record<string, HandlerDef> = {
   "threads.create": {
     transactional: true,
@@ -258,7 +288,7 @@ export const threadsHandlers: Record<string, HandlerDef> = {
         if (existing) return { thread: existing };
       }
       const id = db.newId();
-      const mode = params.permissionMode ?? defaultThreadMode(call, params.modelRef);
+      const mode = params.permissionMode ?? newThreadModeIn(call, params.spaceId, params.modelRef);
       const thread = createThread(db, {
         id,
         kind,
@@ -303,15 +333,26 @@ export const threadsHandlers: Record<string, HandlerDef> = {
       if (reuse) {
         // Opening it again restarts its clock for the empty-chat sweep. A reused empty chat joins
         // the Space asked for (or none), so "New chat in Kitchen" lands where it was asked.
-        const thread = updateThread(db, reuse.id, { spaceId: params.spaceId ?? null }) as Thread;
+        const spaceMode = newThreadModeIn(call, params.spaceId);
+        // The Space's mode applies to an empty chat that joins it too, but only to narrow it.
+        const narrower =
+          params.spaceId !== undefined &&
+          spaceMode !== undefined &&
+          MODE_STRICTNESS[spaceMode] < MODE_STRICTNESS[reuse.permissionMode ?? "balanced"];
+        const thread = updateThread(db, reuse.id, {
+          spaceId: params.spaceId ?? null,
+          ...(narrower ? { permissionMode: spaceMode } : {}),
+        }) as Thread;
         return { thread, reused: true };
       }
       const id = db.newId();
+      const mode = newThreadModeIn(call, params.spaceId);
       const thread = createThread(db, {
         id,
         kind: params.kind,
         sessionKey: `owner:${params.kind}:${id}`,
         userCreated: true,
+        ...(params.spaceId === undefined || mode === undefined ? {} : { permissionMode: mode }),
         ...(params.spaceId === undefined ? {} : { spaceId: params.spaceId }),
         expiresAt:
           params.kind === "incognito"
