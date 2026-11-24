@@ -9681,6 +9681,8 @@ export interface ActionProposal {
     taint:         boolean;
     taintSources?: TaintSource[];
     title:         string;
+    undoable?:     boolean;
+    undoneBy?:     null | string;
     undoOf?:       null | string;
     updatedAt:     string;
 }

@@ -115,6 +115,17 @@ export class ProposalStore {
     return r === undefined ? undefined : fromRow(r);
   }
 
+  /** The live inverse of a proposal: an undo offered for it that was not dismissed or expired. */
+  inverseOf(id: string): StoredProposal | undefined {
+    const r = this.#db
+      .prepare(
+        `SELECT * FROM action_proposals WHERE undo_of = ?
+           AND status NOT IN ('dismissed', 'expired', 'failed') ORDER BY created_at LIMIT 1`,
+      )
+      .get(id) as Row | undefined;
+    return r === undefined ? undefined : fromRow(r);
+  }
+
   byApproval(approvalId: string): StoredProposal | undefined {
     const r = this.#db
       .prepare("SELECT * FROM action_proposals WHERE approval_id = ?")

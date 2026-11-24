@@ -5,6 +5,10 @@ import Foundation
 struct FollowupsState: Sendable {
     var followups = FixtureData.followups
     var suggestions = FixtureData.suggestions
+    /// How many reads of a suggestion still see it `running` after its approval (the Gateway runs a batch after the
+    /// answer). Zero: it is done at once. Tests set it to prove the model waits for the batch to settle.
+    var runReads = 0
+    var readsLeft: [String: Int] = [:]
 }
 
 extension FixtureData {
@@ -46,16 +50,42 @@ extension FixtureBackend: FollowupsBackend {
 
     public func suggestion(id: String) async throws -> Suggestion {
         await pause()
-        guard let found = followupsState.suggestions.first(where: { $0.id == id }) else { throw BackendError.notFound }
-        return found
+        guard let index = followupsState.suggestions.firstIndex(where: { $0.id == id }) else { throw BackendError.notFound }
+        if followupsState.suggestions[index].status == .running {
+            let left = (followupsState.readsLeft[id] ?? 0) - 1
+            followupsState.readsLeft[id] = left
+            if left <= 0 { followupsState.suggestions[index].status = .done }
+        }
+        return followupsState.suggestions[index]
+    }
+
+    /// Test hook: after the next approval, the suggestion reads as `running` this many times before it is done.
+    func setFollowupRunReads(_ reads: Int) { followupsState.runReads = reads }
+
+    /// Test hook: a suggestion that already asked for its approval, which is waiting on Needs you.
+    func awaitApproval(_ id: String) throws {
+        let index = try suggestionIndex(id)
+        followupsState.suggestions[index].status = .awaitingApproval
     }
 
     public func approveSuggestion(id: String) async throws -> NeedsYouItem? {
         let index = try suggestionIndex(id)
+        if followupsState.suggestions[index].status == .awaitingApproval {
+            // Its approval already waits on Needs you: that one is answered there, nothing is asked twice.
+            guard let item = homeState.snapshot.needsYou.first(where: { $0.kind == .approval }) else {
+                throw BackendError.refused("That suggestion is no longer waiting.")
+            }
+            return item
+        }
         guard followupsState.suggestions[index].status == .pending else {
             throw BackendError.refused("That suggestion is no longer waiting.")
         }
-        followupsState.suggestions[index].status = .done
+        if followupsState.runReads > 0 {
+            followupsState.suggestions[index].status = .running
+            followupsState.readsLeft[id] = followupsState.runReads
+        } else {
+            followupsState.suggestions[index].status = .done
+        }
         publish(.changed(.home))
         return nil
     }

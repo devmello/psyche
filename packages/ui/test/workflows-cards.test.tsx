@@ -387,6 +387,7 @@ describe("BatchCard", () => {
     const done = markReadProposal("done", {
       updatedAt: "2026-10-18T10:12:03Z",
       results: markReadProposal().calls.map((_, index) => ({ index, status: "ok" as const })),
+      undoable: true,
     });
     const { rerender } = render(
       <BatchCard {...idle} proposal={done} onUndo={() => {}} now={at + 12_000} />,
@@ -398,6 +399,43 @@ describe("BatchCard", () => {
       <BatchCard
         {...idle}
         proposal={{ ...remindersProposal(), status: "done", updatedAt: "2026-10-18T10:12:03Z" }}
+        onUndo={() => {}}
+        now={at + 1_000}
+      />,
+    );
+    expect(screen.queryByRole("button", { name: /^Undo/ })).toBeNull();
+  });
+
+  it("drops Undo once the Gateway says the batch was undone, or never flagged it undoable", () => {
+    const at = Date.parse("2026-10-18T10:12:03Z");
+    const base = {
+      updatedAt: "2026-10-18T10:12:03Z",
+      results: markReadProposal().calls.map((_, index) => ({ index, status: "ok" as const })),
+    };
+    // Positive control: the same card with `undoable` shows Undo.
+    const { rerender } = render(
+      <BatchCard
+        {...idle}
+        proposal={markReadProposal("done", { ...base, undoable: true, undoneBy: null })}
+        onUndo={() => {}}
+        now={at + 1_000}
+      />,
+    );
+    expect(screen.getByRole("button", { name: /^Undo/ })).toBeTruthy();
+    rerender(
+      <BatchCard
+        {...idle}
+        proposal={markReadProposal("done", { ...base, undoable: false, undoneBy: "prop_undo" })}
+        onUndo={() => {}}
+        now={at + 1_000}
+      />,
+    );
+    expect(screen.queryByRole("button", { name: /^Undo/ })).toBeNull();
+    // An older Gateway sends no flag: no Undo rather than a guess from tool names.
+    rerender(
+      <BatchCard
+        {...idle}
+        proposal={markReadProposal("done", base)}
         onUndo={() => {}}
         now={at + 1_000}
       />,

@@ -18,6 +18,9 @@ final class FollowupsModel {
     /// Ids with a call in flight: their buttons wait.
     private(set) var busy: Set<String> = []
     private let store: any PsycheBackend
+    /// A batch runs after its approval is answered. Reads are repeated until it settles, up to this many times.
+    private let settleDelay: Duration
+    private let settleAttempts: Int
 
     struct UndoWindow: Equatable, Identifiable {
         var suggestion: Suggestion
@@ -25,8 +28,26 @@ final class FollowupsModel {
         var id: String { suggestion.id }
     }
 
-    init(store: any PsycheBackend) {
+    init(store: any PsycheBackend, settleDelay: Duration = .milliseconds(500), settleAttempts: Int = 12) {
         self.store = store
+        self.settleDelay = settleDelay
+        self.settleAttempts = settleAttempts
+    }
+
+    /// Reads the suggestion until the Gateway has finished running it (it is still `running` just after the answer).
+    /// Gives up after a bounded number of reads and returns what it last saw.
+    func settled(_ id: String) async -> Suggestion? {
+        var last: Suggestion?
+        for attempt in 0..<max(1, settleAttempts) {
+            if attempt > 0 { try? await Task.sleep(for: settleDelay) }
+            guard let read = try? await store.suggestion(id: id) else { return last }
+            last = read
+            switch read.status {
+            case .pending, .awaitingApproval, .running: continue
+            default: return read
+            }
+        }
+        return last
     }
 
     func load() async {
@@ -75,8 +96,11 @@ final class FollowupsModel {
             if handoff == nil {
                 suggestions.removeAll { $0.id == suggestion.id }
                 // Keep it for Undo when it ran and can be reversed; the Gateway says whether it did.
-                if let ran = try? await store.suggestion(id: suggestion.id), ran.canUndo {
-                    undoable.append(UndoWindow(suggestion: ran, until: .now.addingTimeInterval(Self.undoWindow)))
+                if let ran = await settled(suggestion.id), ran.canUndo {
+                    // The window runs from when the batch finished, up to one poll before this read.
+                    let slack = Double(settleDelay.components.seconds) + Double(settleDelay.components.attoseconds) / 1e18
+                    undoable.append(UndoWindow(
+                        suggestion: ran, until: .now.addingTimeInterval(max(1, Self.undoWindow - slack))))
                 }
             }
         } catch {

@@ -164,8 +164,38 @@ export class ProposalService {
     return toIso(this.#o.clock.now());
   }
 
+  /**
+   * The proposal as clients see it, with what only the Gateway knows: whether an inverse is
+   * offered now (`undoable`) and which one was already offered (`undoneBy`).
+   */
+  #view(p: StoredProposal): ActionProposal {
+    const undoneBy = this.store.inverseOf(p.id)?.id ?? null;
+    return {
+      ...toActionProposal(p),
+      undoneBy,
+      undoable: undoneBy === null && this.#undoCalls(p) !== undefined,
+    };
+  }
+
+  /** The inverse calls of a finished proposal, or `undefined` when it cannot be undone. */
+  #undoCalls(p: StoredProposal): ActionCall[] | undefined {
+    if (p.status !== "done" && p.status !== "partial") return undefined;
+    // An undo is never itself undone: that would offer the original's calls again.
+    if (p.undoOf != null) return undefined;
+    const inverses = this.#o.inverses ?? DEFAULT_INVERSES;
+    const okIdx = new Set((p.results ?? []).filter((r) => r.status === "ok").map((r) => r.index));
+    const calls: ActionCall[] = [];
+    for (const [i, c] of p.calls.entries()) {
+      if (!okIdx.has(i)) continue;
+      const inv = inverses[c.tool]?.(c);
+      if (inv === undefined) return undefined;
+      calls.unshift(inv);
+    }
+    return calls.length === 0 ? undefined : calls;
+  }
+
   #emit(p: StoredProposal): void {
-    this.#o.onEvent?.({ event: "proposal.updated", payload: { proposal: toActionProposal(p) } });
+    this.#o.onEvent?.({ event: "proposal.updated", payload: { proposal: this.#view(p) } });
   }
 
   #save(p: StoredProposal): StoredProposal {
@@ -231,17 +261,17 @@ export class ProposalService {
     };
     this.store.insert(p);
     this.#emit(p);
-    return toActionProposal(p);
+    return this.#view(p);
   }
 
   list(filter: Parameters<ProposalStore["list"]>[0] = {}) {
     this.#sweep();
     const page = this.store.list(filter);
-    return { proposals: page.proposals.map(toActionProposal), nextCursor: page.nextCursor };
+    return { proposals: page.proposals.map((p) => this.#view(p)), nextCursor: page.nextCursor };
   }
 
   get(id: string): ActionProposal {
-    return toActionProposal(this.#get(id));
+    return this.#view(this.#get(id));
   }
 
   // --- approve ---------------------------------------------------------------------------------
@@ -320,7 +350,7 @@ export class ProposalService {
     // A standing grant for prep notes approved the batch inside requestBatch, before the proposal
     // knew its approval id, so no `approval.decided` reached #onBroker: run it now.
     if (issued.approval.status === "approved") this.#start(next);
-    return { proposal: toActionProposal(this.#get(id)), issued };
+    return { proposal: this.#view(this.#get(id)), issued };
   }
 
   dismiss(id: string): ActionProposal {
@@ -328,7 +358,7 @@ export class ProposalService {
     if (p.status !== "pending" && p.status !== "awaiting_approval") {
       throw new PsycheError("conflict", `proposal ${id} is ${p.status}`);
     }
-    return toActionProposal(this.#save({ ...p, status: "dismissed" }));
+    return this.#view(this.#save({ ...p, status: "dismissed" }));
   }
 
   /** The inverse proposal of a finished one, within 30 s, when every call has an inverse. */
@@ -340,17 +370,14 @@ export class ProposalService {
     if (p.finishedAt === null || this.#o.clock.now() - Date.parse(p.finishedAt) > UNDO_WINDOW_MS) {
       throw new PsycheError("conflict", "the undo window has passed");
     }
-    const inverses = this.#o.inverses ?? DEFAULT_INVERSES;
-    const okIdx = new Set((p.results ?? []).filter((r) => r.status === "ok").map((r) => r.index));
-    const calls: ActionCall[] = [];
-    for (const [i, c] of p.calls.entries()) {
-      if (!okIdx.has(i)) continue;
-      const inv = inverses[c.tool]?.(c);
-      if (inv === undefined) throw new PsycheError("conflict", `${c.tool} cannot be undone`);
-      calls.unshift(inv);
+    if (p.undoOf != null) throw new PsycheError("conflict", "an undo cannot be undone");
+    // One inverse per proposal: a second Undo would run the same reversal twice.
+    if (this.store.inverseOf(p.id) !== undefined) {
+      throw new PsycheError("conflict", `proposal ${id} was already undone`);
     }
-    if (calls.length === 0) throw new PsycheError("conflict", "nothing to undo");
-    return this.create({
+    const calls = this.#undoCalls(p);
+    if (calls === undefined) throw new PsycheError("conflict", "nothing to undo");
+    const inverse = this.create({
       title: `Undo: ${p.title}`,
       calls,
       createdBy: { job: "proposal.undo" },
@@ -360,6 +387,9 @@ export class ProposalService {
       ...(p.taintSources === undefined ? {} : { taintSources: p.taintSources }),
       undoOf: p.id,
     });
+    // The original now carries `undoneBy`, so every client drops its Undo.
+    this.#emit(p);
+    return inverse;
   }
 
   // --- run -------------------------------------------------------------------------------------

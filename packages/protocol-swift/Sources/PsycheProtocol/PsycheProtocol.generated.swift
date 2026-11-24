@@ -28131,6 +28131,8 @@ public struct ActionProposal: Codable, Sendable {
     public let taint: Bool
     public let taintSources: [TaintSource]?
     public let title: String
+    public let undoable: Bool?
+    public let undoneBy: String?
     public let undoOf: String?
     public let updatedAt: String
 
@@ -28148,11 +28150,13 @@ public struct ActionProposal: Codable, Sendable {
         case taint = "taint"
         case taintSources = "taintSources"
         case title = "title"
+        case undoable = "undoable"
+        case undoneBy = "undoneBy"
         case undoOf = "undoOf"
         case updatedAt = "updatedAt"
     }
 
-    public init(approvalID: String? = nil, calls: [ActionCall], createdAt: String, createdBy: CreatedBy, expiresAt: String, id: String, postID: String? = nil, results: [ActionCallResult]? = nil, sideEffect: ActionProposalSideEffect, status: ActionProposalStatus, taint: Bool, taintSources: [TaintSource]? = nil, title: String, undoOf: String? = nil, updatedAt: String) {
+    public init(approvalID: String? = nil, calls: [ActionCall], createdAt: String, createdBy: CreatedBy, expiresAt: String, id: String, postID: String? = nil, results: [ActionCallResult]? = nil, sideEffect: ActionProposalSideEffect, status: ActionProposalStatus, taint: Bool, taintSources: [TaintSource]? = nil, title: String, undoable: Bool? = nil, undoneBy: String? = nil, undoOf: String? = nil, updatedAt: String) {
         self.approvalID = approvalID
         self.calls = calls
         self.createdAt = createdAt
@@ -28166,6 +28170,8 @@ public struct ActionProposal: Codable, Sendable {
         self.taint = taint
         self.taintSources = taintSources
         self.title = title
+        self.undoable = undoable
+        self.undoneBy = undoneBy
         self.undoOf = undoOf
         self.updatedAt = updatedAt
     }

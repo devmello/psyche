@@ -47,6 +47,20 @@ function rig() {
       }),
     ],
     [
+      "gmail_modify_labels",
+      defineTool({
+        name: "gmail_modify_labels",
+        description: "Change Gmail labels",
+        input: Type.Object({
+          ids: Type.Array(Type.String()),
+          add: Type.Array(Type.String()),
+          remove: Type.Array(Type.String()),
+        }),
+        sideEffect: "write",
+        run: record("gmail_modify_labels"),
+      }),
+    ],
+    [
       "reminders_create",
       defineTool({
         name: "reminders_create",
@@ -284,6 +298,51 @@ describe("batch proposals (W2)", () => {
     expect(() => r.proposals.undo(noInverse.id)).toThrow(
       expect.objectContaining({ code: "conflict" }),
     );
+  });
+
+  it("flags undoable on a finished reversible batch, and refuses a second undo", async () => {
+    const r = rig();
+    const p = r.proposals.create({
+      title: "Mark 2 read",
+      calls: newsletters(2),
+      createdBy: { job: "mail.digest" },
+    });
+    expect(r.proposals.get(p.id).undoable).toBe(false);
+    const { issued } = await r.proposals.approve(p.id);
+    await r.answer(issued.approval.id, issued.answerTokens.desktop ?? "");
+    await r.proposals.idle();
+    expect(r.proposals.get(p.id)).toMatchObject({ undoable: true, undoneBy: null });
+    expect(r.proposals.list({ status: ["done"] }).proposals[0]?.undoable).toBe(true);
+    const undo = r.proposals.undo(p.id);
+    // The original carries undoneBy, never undoOf; the inverse carries undoOf.
+    expect(r.proposals.get(p.id)).toMatchObject({ undoable: false, undoneBy: undo.id });
+    expect(r.proposals.get(p.id).undoOf ?? null).toBeNull();
+    expect(() => r.proposals.undo(p.id)).toThrow(expect.objectContaining({ code: "conflict" }));
+    // An undo is not itself undoable.
+    expect(r.proposals.get(undo.id).undoable).toBe(false);
+    // Dismissing the offered inverse frees the original for a fresh one.
+    r.proposals.dismiss(undo.id);
+    expect(r.proposals.get(p.id).undoable).toBe(true);
+    expect(r.proposals.undo(p.id).id).not.toBe(undo.id);
+  });
+
+  it("flags a gmail_modify_labels batch undoable and a reminders batch not", async () => {
+    const r = rig();
+    const g = r.proposals.create({
+      title: "Archive 1",
+      calls: [
+        {
+          tool: "gmail_modify_labels",
+          params: { ids: ["g1"], add: ["Receipts"], remove: ["INBOX"] },
+          summary: "Archive g1",
+        },
+      ],
+      createdBy: { job: "mail.digest" },
+    });
+    const { issued } = await r.proposals.approve(g.id);
+    await r.answer(issued.approval.id, issued.answerTokens.desktop ?? "");
+    await r.proposals.idle();
+    expect(r.proposals.get(g.id).undoable).toBe(true);
   });
 
   it("taint flows from the proposal to the card and every call; pending proposals expire", async () => {

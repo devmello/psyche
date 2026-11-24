@@ -29,8 +29,26 @@ extension GatewayBackend {
 
     @discardableResult
     public func approveSuggestion(id: String) async throws -> NeedsYouItem? {
+        // A batch that already asked (awaiting_approval) answers `proposals.approve` with a conflict. Its approval is
+        // already on Needs you: hand that one to the approval sheet instead of asking again.
+        let current = try await call("proposals.get", Self.suggestionIDParams(id))
+        if current.at("proposal", "status")?.string == "awaiting_approval" {
+            guard let approvalID = current.at("proposal", "approvalId")?.string else { throw BackendError.notFound }
+            let existing = try await call("approvals.get", .obj(["approvalId": .string(approvalID)]))
+            guard let approval = existing["approval"],
+                  let item = Self.needsYou(approval: approval, holdsAnswer: existing["answerToken"]?.string != nil)
+            else { throw BackendError.refused("That suggestion is no longer waiting.") }
+            return item
+        }
         let result = try await call("proposals.approve", Self.suggestionIDParams(id))
         guard let approval = result["approval"], let approvalID = approval["id"]?.string else { throw BackendError.notFound }
+        // A standing grant can approve the batch inside `proposals.approve`: it is already running, and answering it
+        // would only fail. Only a pending approval is answered.
+        switch approval["status"]?.string {
+        case "approved": return nil
+        case "pending", nil: break
+        default: throw BackendError.refused("That suggestion is no longer waiting.")
+        }
         // A payment, or details too large to show in full here, is never answered from the phone: hand it to the
         // approval sheet, which keeps the Mac-only and presence rules. Nothing is sent to approvals.answer.
         if approval["requiresAuthentication"]?.bool == true || Self.detailsNeedMac(approval["details"]) {
@@ -73,11 +91,6 @@ extension GatewayBackend {
 
     // MARK: - Mapping
 
-    /// The tools whose batches can be undone by an inverse batch (mark read or unread, move, flag). The Mac's rule.
-    static let reversibleTools: Set<String> = [
-        "mail_mark_read", "mail_mark_unread", "mail_move", "mail_flag", "mail_unflag", "gmail_modify",
-    ]
-
     static func mailFollowup(_ item: JSONValue) -> MailFollowup? {
         guard let id = item["id"]?.string,
               let kind = item["kind"]?.string.flatMap(MailFollowup.Kind.init(rawValue:)),
@@ -96,13 +109,13 @@ extension GatewayBackend {
               let status = p["status"]?.string.flatMap(Suggestion.Status.init(rawValue:)),
               let calls = p["calls"]?.array
         else { return nil }
-        let tools = calls.compactMap { $0["tool"]?.string }
         let summaries = calls.compactMap { $0["summary"]?.string.map(DisplaySafe.text) }
         return Suggestion(
             id: id, title: DisplaySafe.text(title), status: status, callSummaries: summaries,
-            reversible: !tools.isEmpty && tools.allSatisfy(reversibleTools.contains),
-            // `undoOf` is set once the inverse has been offered: Undo goes away then, as on the Mac.
-            undoOffered: p["undoOf"]?.string != nil,
+            // The Gateway decides what can be undone (its inverse table), not a list copied here.
+            reversible: p["undoable"]?.bool == true,
+            // `undoneBy` is set on the original once its inverse was offered; `undoOf` marks an inverse itself.
+            undoOffered: p["undoneBy"]?.string != nil || p["undoOf"]?.string != nil,
             fromOutsideContent: p["taint"]?.bool == true,
             source: p.at("createdBy", "job")?.string ?? "")
     }

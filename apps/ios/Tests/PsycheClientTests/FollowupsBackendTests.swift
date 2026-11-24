@@ -12,13 +12,14 @@ struct FollowupsBackendTests {
     }
 
     static func proposal(
-        id: String, status: String, tool: String = "mail_mark_read", taint: Bool = false, undoOf: JSONValue = .null
+        id: String, status: String, tool: String = "mail_mark_read", taint: Bool = false, undoOf: JSONValue = .null,
+        undoable: Bool? = nil, undoneBy: JSONValue = .null, approvalId: JSONValue = .null
     ) -> JSONValue {
         .object([
             "id": .string(id), "title": .string("Mark the newsletters read"), "status": .string(status),
             "calls": .array([.object(["tool": .string(tool), "summary": .string("Mark read: Weekly digest"), "params": .object([:])])]),
-            "sideEffect": .string("write"), "postId": .null, "approvalId": .null, "taint": .bool(taint),
-            "undoOf": undoOf, "createdBy": .object(["job": .string("mail.digest")]),
+            "sideEffect": .string("write"), "postId": .null, "approvalId": approvalId, "taint": .bool(taint),
+            "undoOf": undoOf, "undoneBy": undoneBy, "undoable": undoable.map(JSONValue.bool) ?? .null, "createdBy": .object(["job": .string("mail.digest")]),
             "createdAt": .string("2030-01-01T09:00:00Z"), "expiresAt": .string("2030-01-02T09:00:00Z"),
             "updatedAt": .string("2030-01-01T09:00:00Z"),
         ])
@@ -70,8 +71,8 @@ struct FollowupsBackendTests {
     @Test func suggestionsMapStatusCallsAndReversibility() async throws {
         let (backend, h) = try await live { g in
             g.on("proposals.list") { _ in .success(.object(["proposals": .array([
-                Self.proposal(id: "sg1", status: "pending"),
-                Self.proposal(id: "sg2", status: "awaiting_approval", tool: "send_email", taint: true),
+                Self.proposal(id: "sg1", status: "pending", tool: "gmail_modify_labels", undoable: true),
+                Self.proposal(id: "sg2", status: "awaiting_approval", tool: "mail_mark_read", taint: true, undoable: false),
                 Self.proposal(id: "sg3", status: "a_new_status"),
             ])])) }
         }
@@ -88,18 +89,92 @@ struct FollowupsBackendTests {
         #expect(wanted == ["pending", "awaiting_approval"])
     }
 
-    @Test func undoneOfferHidesUndo() async throws {
+    @Test func undoneBySetOnTheOriginalHidesUndo() async throws {
         let (backend, _) = try await live { g in
             g.on("proposals.get") { _ in .success(.object(["proposal": Self.proposal(
-                id: "sg1", status: "done", undoOf: .string("sg1_inverse"))])) }
+                id: "sg1", status: "done", undoable: true, undoneBy: .string("sg1_inverse"))])) }
         }
         let one = try await backend.suggestion(id: "sg1")
         #expect(one.undoOffered)
         #expect(!one.canUndo)
     }
 
+    @Test func undoableFromTheGatewayOffersUndoAndTheClientHoldsNoToolList() async throws {
+        let (backend, _) = try await live { g in
+            // gmail_modify_labels is what the digest creates; the old client list did not know it.
+            g.on("proposals.get") { _ in .success(.object(["proposal": Self.proposal(
+                id: "sg1", status: "done", tool: "gmail_modify_labels", undoable: true)])) }
+        }
+        let one = try await backend.suggestion(id: "sg1")
+        #expect(one.canUndo)
+        // Without the flag (an older Gateway, or not reversible) no Undo is guessed from tool names.
+        let (other, _) = try await live { g in
+            g.on("proposals.get") { _ in .success(.object(["proposal": Self.proposal(
+                id: "sg2", status: "done", tool: "mail_mark_read")])) }
+        }
+        #expect(try await other.suggestion(id: "sg2").canUndo == false)
+    }
+
+    @Test func anInverseProposalIsNeverUndoneAgain() async throws {
+        let (backend, _) = try await live { g in
+            g.on("proposals.get") { _ in .success(.object(["proposal": Self.proposal(
+                id: "sg1_inverse", status: "done", undoOf: .string("sg1"), undoable: true)])) }
+        }
+        #expect(try await backend.suggestion(id: "sg1_inverse").canUndo == false)
+    }
+
+    @Test func aBatchAlreadyApprovedByAStandingGrantIsNotAnswered() async throws {
+        let (backend, h) = try await live { g in
+            g.on("proposals.get") { _ in .success(.object(["proposal": Self.proposal(id: "sg1", status: "pending")])) }
+            g.on("proposals.approve") { _ in .success(.object([
+                "proposal": Self.proposal(id: "sg1", status: "running"),
+                "approval": .object(["id": .string("ap_1"), "status": .string("approved")]),
+                "answerToken": .string("tok_phone"),
+            ])) }
+            g.on("approvals.answer") { _ in .failure(WireError(code: "conflict", message: "approval is approved")) }
+        }
+        let handoff = try await backend.approveSuggestion(id: "sg1")
+        #expect(handoff == nil)
+        #expect(h.gateway.received.filter { $0.method == "approvals.answer" }.isEmpty)
+    }
+
+    @Test func aDeniedOrExpiredApprovalIsRefusedNotAnswered() async throws {
+        let (backend, h) = try await live { g in
+            g.on("proposals.get") { _ in .success(.object(["proposal": Self.proposal(id: "sg1", status: "pending")])) }
+            g.on("proposals.approve") { _ in .success(.object([
+                "proposal": Self.proposal(id: "sg1", status: "dismissed"),
+                "approval": .object(["id": .string("ap_1"), "status": .string("denied")]),
+                "answerToken": .string("tok_phone"),
+            ])) }
+        }
+        await #expect(throws: BackendError.refused("That suggestion is no longer waiting.")) {
+            try await backend.approveSuggestion(id: "sg1")
+        }
+        #expect(h.gateway.received.filter { $0.method == "approvals.answer" }.isEmpty)
+    }
+
+    @Test func awaitingApprovalRoutesToTheExistingApprovalInsteadOfApprovingAgain() async throws {
+        let (backend, h) = try await live { g in
+            g.on("proposals.get") { _ in .success(.object(["proposal": Self.proposal(
+                id: "sg1", status: "awaiting_approval", approvalId: .string("ap_9"))])) }
+            g.on("approvals.get") { _ in .success(.object([
+                "approval": .object([
+                    "id": .string("ap_9"), "status": .string("pending"), "kind": .string("batch"),
+                    "summary": .string("Mark the newsletters read"),
+                ]),
+                "answerToken": .string("tok_phone"),
+            ])) }
+            g.on("proposals.approve") { _ in .failure(WireError(code: "conflict", message: "proposal sg1 is awaiting_approval")) }
+        }
+        let handoff = try await backend.approveSuggestion(id: "sg1")
+        #expect(handoff?.id == "ap_9")
+        #expect(h.gateway.received.filter { $0.method == "proposals.approve" }.isEmpty)
+        #expect(h.gateway.received.filter { $0.method == "approvals.answer" }.isEmpty)
+    }
+
     @Test func approveRunsTheBatchWithThisPhonesToken() async throws {
         let (backend, h) = try await live { g in
+            g.on("proposals.get") { _ in .success(.object(["proposal": Self.proposal(id: "sg1", status: "pending")])) }
             g.on("proposals.approve") { _ in .success(.object([
                 "proposal": Self.proposal(id: "sg1", status: "awaiting_approval"),
                 "approval": .object(["id": .string("ap_1"), "status": .string("pending")]),
@@ -121,6 +196,7 @@ struct FollowupsBackendTests {
 
     @Test func aPaymentApprovalIsHandedToTheSheetNotAnswered() async throws {
         let (backend, h) = try await live { g in
+            g.on("proposals.get") { _ in .success(.object(["proposal": Self.proposal(id: "sg1", status: "pending")])) }
             g.on("proposals.approve") { _ in .success(.object([
                 "proposal": Self.proposal(id: "sg1", status: "awaiting_approval"),
                 "approval": .object([
@@ -142,6 +218,7 @@ struct FollowupsBackendTests {
 
     @Test func approveWithoutATokenSendsNothingAndAsksForTheMac() async throws {
         let (backend, h) = try await live { g in
+            g.on("proposals.get") { _ in .success(.object(["proposal": Self.proposal(id: "sg1", status: "pending")])) }
             g.on("proposals.approve") { _ in .success(.object([
                 "proposal": Self.proposal(id: "sg1", status: "awaiting_approval"),
                 "approval": .object(["id": .string("ap_1"), "status": .string("pending")]),
@@ -155,6 +232,7 @@ struct FollowupsBackendTests {
 
     @Test func gatewayRefusalKeepsItsWords() async throws {
         let (backend, _) = try await live { g in
+            g.on("proposals.get") { _ in .success(.object(["proposal": Self.proposal(id: "sg1", status: "pending")])) }
             g.on("proposals.approve") { _ in .failure(WireError(code: "forbidden", message: "This phone can't approve batches.")) }
         }
         await #expect(throws: BackendError.refused("This phone can't approve batches.")) {
