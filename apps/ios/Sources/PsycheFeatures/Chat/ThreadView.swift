@@ -55,6 +55,9 @@ struct ThreadView: View {
                             .transition(motion.transition(.fade))
                     }
                 }
+                // The rows are scroll targets, so `position.scrollTo(id:)` can find the message the reader was on
+                // after an older page is prepended.
+                .scrollTargetLayout()
                 // Only an item arriving or leaving animates. Streamed text grows inside its own item (the id
                 // does not change), so tokens never trigger this: they are paced and faded by `StreamingText`.
                 .psycheAnimation(.smooth, value: thread.items.map(\.id))
