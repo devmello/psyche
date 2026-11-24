@@ -31,7 +31,8 @@ private struct LibraryContent: View {
         GeometryReader { proxy in
             let wide = proxy.size.width >= 560
             ScrollView {
-                VStack(alignment: .leading, spacing: 18) {
+                // Lazy, so the end row only asks for the next page once it is on screen (`PagedRowsEnd`).
+                LazyVStack(alignment: .leading, spacing: 18) {
                     PageHeader(String(localized: "Library", bundle: .module))
                     NavigationLink { ReceiptsView() } label: {
                         LibraryPageTile(title: String(localized: "Receipts", bundle: .module), symbol: "receipt")
@@ -45,10 +46,16 @@ private struct LibraryContent: View {
                     PhaseView(phase: model.phase, skeleton: .skeleton, retry: model.load) { items in
                         if items.isEmpty && model.uploads.isEmpty {
                             EmptySection(section: model.section)
-                        } else if wide {
-                            LibraryGrid(items: items)
                         } else {
-                            LibraryList(items: items)
+                            if wide {
+                                LibraryGrid(items: items)
+                            } else {
+                                LibraryList(items: items)
+                            }
+                            PagedRowsEnd(
+                                moreFailed: model.moreFailed, nextCursor: model.nextCursor, loadingMore: model.loadingMore,
+                                label: String(localized: "Loading more files", bundle: .module),
+                                loadMore: { await model.loadMore() }, retryMore: { await model.retryMore() })
                         }
                     }
                 }

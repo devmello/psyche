@@ -20,19 +20,35 @@ extension GatewayBackend {
     static let cacheMaxBytes = 200 * 1024 * 1024
 
     public func library(section: LibrarySection) async throws -> [LibraryItem] {
+        try await libraryPage(section: section, cursor: nil).items
+    }
+
+    /// One page of a section. `library.list` takes one kind and returns its own cursor, so the cursor the app keeps is
+    /// the kinds that still have more, each with its own: JSON `{kind: cursor}`, opaque to the app. The first page
+    /// asks every kind for its first 100 rows; a later page asks only the kinds the cursor names. The rows of the
+    /// page are merged newest first.
+    public func libraryPage(section: LibrarySection, cursor: String?) async throws -> LibraryPage {
         // One Artifacts list: the artifacts themselves (`artifacts.list`), not the library's artifact files.
-        if section == .artifacts { return try await artifactLibraryRows() }
-        // `library.list` takes one kind, so each kind the section shows is fetched and the rows merged, newest first.
+        if section == .artifacts { return LibraryPage(items: try await artifactLibraryRows(), nextCursor: nil) }
+        let pending: [String: String]? = try cursor.map { try JSONDecoder().decode([String: String].self, from: Data($0.utf8)) }
         var rows: [(date: Date?, item: LibraryItem)] = []
+        var more: [String: String] = [:]
         for kind in Self.wireKinds(of: section) {
-            let result = try await call("library.list", .obj(["kind": .string(kind), "limit": .number(100)]))
+            var params: [String: JSONValue] = ["kind": .string(kind), "limit": .number(100)]
+            if let pending {
+                guard let from = pending[kind] else { continue }
+                params["cursor"] = .string(from)
+            }
+            let result = try await call("library.list", .object(params))
             for wire in result["items"]?.array ?? [] where wire["quarantined"]?.bool != true {
                 if let item = Self.libraryItem(from: wire, section: section) {
                     rows.append((WireFormat.date(wire["createdAt"]?.string), item))
                 }
             }
+            if let next = result["nextCursor"]?.string { more[kind] = next }
         }
-        return Self.newestFirst(rows)
+        let nextCursor = more.isEmpty ? nil : String(decoding: try JSONEncoder().encode(more), as: UTF8.self)
+        return LibraryPage(items: Self.newestFirst(rows), nextCursor: nextCursor)
     }
 
     /// The Gateway kinds a section lists. `section(ofKind:)` is the inverse: every kind lands in exactly one section.
@@ -218,7 +234,8 @@ extension GatewayBackend {
             id: id, title: name, section: section ?? Self.section(ofKind: item["kind"]?.string),
             fileType: fileType(name: name, mime: item["mime"]?.string), detail: detail,
             threadID: item["threadId"]?.string, evidence: evidence(of: item, threadTitle: nil), refusal: refusal,
-            sources: SourceRef.list(item["sources"].flatMap { store($0) }))
+            sources: SourceRef.list(item["sources"].flatMap { store($0) }),
+            date: WireFormat.date(item["createdAt"]?.string))
     }
 
     /// "pdf" from `Q3.pdf`; the mime's subtype ("png") when the name has no extension.
