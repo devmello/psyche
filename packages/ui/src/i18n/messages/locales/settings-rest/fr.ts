@@ -1059,6 +1059,24 @@ export const settingsRest: Partial<Catalogue> = {
     "Ce qu’un ordinateur annonce sur le réseau n’est qu’une affirmation. L’écran de jumelage affiche sa clé : comparez-la avec celle de l’hôte avant d’approuver.",
   "settings.gateways.discoverAdd": "Ajouter {name}",
   "settings.gateways.discoverSaved": "Enregistrée",
+  "settings.gateways.tailnetTitle": "Sur votre tailnet",
+  "settings.gateways.tailnetChecking": "Vérification de Tailscale…",
+  "settings.gateways.tailnetLook": "Chercher Psyche sur mon tailnet",
+  "settings.gateways.tailnetNone":
+    "Aucun Psyche trouvé sur votre tailnet. Sur cet ordinateur, activez « Autoriser les autres ordinateurs ».",
+  "settings.gateways.tailnetFailed":
+    "Impossible de lire Tailscale sur cet ordinateur. Ajoutez plutôt l'adresse.",
+  "settings.gateways.tailnetOff": "Tailscale est désactivé sur cet ordinateur.",
+  "settings.gateways.tailnetOpen": "Ouvrir Tailscale",
+  "settings.gateways.tailnetOpenFailed":
+    "Impossible d'ouvrir Tailscale. Ouvrez-le depuis le dossier Applications.",
+  "settings.gateways.tailnetRetry": "Réessayer",
+  "settings.gateways.tailnetOnline": "En ligne",
+  "settings.gateways.tailnetOffline": "Hors ligne",
+  "settings.gateways.tailnetConnect": "Connecter",
+  "settings.gateways.tailnetConnectName": "Connecter à {name}",
+  "settings.gateways.tailnetHint":
+    "Trouvé via Tailscale sur cet ordinateur. Comme pour une adresse saisie, Psyche vérifie la clé présentée par la Gateway avant l'appairage.",
   "settings.remoteSetup.title": "Configurer un serveur distant",
   "settings.remoteSetup.open": "Configurer un serveur distant",
   "settings.remoteSetup.intro":

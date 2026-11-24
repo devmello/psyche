@@ -50,7 +50,7 @@ Out of scope: <neighbouring areas other sessions own>
 
 ## 3. The verification loop
 
-1. **Builder self-check.** It runs touched tests while working and `verify.sh` once before the PR. The Stop hook only runs `--quick`. `/goal` keeps it going until the PR exists. Owner rule (2026-11-18): don't overheat the Mac. One full check per PR head, and full checks queue one at a time.
+1. **Builder self-check.** It runs touched tests while working and `verify.sh` once before the PR. The Stop hook only runs `--quick`. `/goal` keeps it going until the PR exists. Owner rule (2026-11-18): don't overheat the Mac. One full check per PR head, and full checks queue one at a time. Write `verify.sh` output to a file and grep the summary line from it: `| tail -4` lost it (#1606).
 2. **Orchestrator verify.** When a builder reports, don't trust the report:
    - `gh pr view <n>` and `gh pr diff <n>`: read the diff against "Done means".
    - Throwaway worktree: `git worktree add <scratchpad>/wt-<n> origin/<head branch>` (the PR's real head ref, from `gh pr view --json headRefName`), then `pnpm install --frozen-lockfile --prefer-offline --ignore-scripts` (a plain install fails on better-sqlite3 here; if pnpm still reinstalls, set `pnpm_config_verify_deps_before_run=false`) and `bash .claude/scripts/verify.sh --related`, with `--swift` if needed. Remove the worktree after. This is the merge gate: run it once per PR head. If a `haiku-verifier` or `security-reviewer` already ran it on the same head SHA, read theirs instead of running it again. Docs, copy or i18n-only PRs need no `--related`.

@@ -1043,6 +1043,24 @@ export const settingsRest: Partial<Catalogue> = {
     "ネットワーク上でコンピュータが通知する内容は自己申告です。ペアリング画面にキーが表示されるので、承認する前にホストのキーと照合してください。",
   "settings.gateways.discoverAdd": "{name}を追加",
   "settings.gateways.discoverSaved": "保存済み",
+  "settings.gateways.tailnetTitle": "あなたのtailnet上",
+  "settings.gateways.tailnetChecking": "Tailscaleを確認しています…",
+  "settings.gateways.tailnetLook": "自分のtailnetでPsycheを探す",
+  "settings.gateways.tailnetNone":
+    "tailnetにPsycheが見つかりません。そのコンピュータで「他のコンピュータを許可」をオンにしてください。",
+  "settings.gateways.tailnetFailed":
+    "このコンピュータのTailscaleを読み取れませんでした。代わりにアドレスを追加してください。",
+  "settings.gateways.tailnetOff": "このコンピュータではTailscaleがオフです。",
+  "settings.gateways.tailnetOpen": "Tailscaleを開く",
+  "settings.gateways.tailnetOpenFailed":
+    "Tailscaleを開けませんでした。「アプリケーション」フォルダから開いてください。",
+  "settings.gateways.tailnetRetry": "再試行",
+  "settings.gateways.tailnetOnline": "オンライン",
+  "settings.gateways.tailnetOffline": "オフライン",
+  "settings.gateways.tailnetConnect": "接続",
+  "settings.gateways.tailnetConnectName": "{name}に接続",
+  "settings.gateways.tailnetHint":
+    "このコンピュータのTailscaleで見つかりました。入力したアドレスと同じく、ペアリング前にGatewayが示す鍵を確認します。",
   "settings.remoteSetup.title": "リモートサーバーを設定",
   "settings.remoteSetup.open": "リモートサーバーを設定",
   "settings.remoteSetup.intro":
