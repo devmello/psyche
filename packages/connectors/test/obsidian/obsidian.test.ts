@@ -1,6 +1,6 @@
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, sep } from "node:path";
+import { basename, join, sep } from "node:path";
 import { PsycheError } from "@psyche/protocol";
 import { FakeClock } from "@psyche/testing";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -163,5 +163,56 @@ describe("Obsidian (#639)", () => {
         config: { vaultPath: vault },
       }),
     ).rejects.toMatchObject({ code: "forbidden" });
+  });
+
+  it("names the daily note by the Daily notes format and starts it from the template", async () => {
+    writeFileSync(
+      join(vault, ".obsidian", "daily-notes.json"),
+      JSON.stringify({
+        folder: "Daily",
+        format: "YYYY/MM/YYYY-MM-DD",
+        template: "Templates/Daily",
+      }),
+    );
+    mkdirSync(join(vault, "Templates"));
+    writeFileSync(
+      join(vault, "Templates", "Daily.md"),
+      "# {{title}}\nDate: {{date:dddd}}, {{date}}\n",
+    );
+    const { registry, run } = make();
+    await registry.connect({
+      catalogueId: "obsidian",
+      scopeMode: "read_act",
+      config: { vaultPath: vault },
+    });
+    await registry.setMatrix("obs-1", { "obsidian.write": "allow" });
+    await run("obsidian_append_daily")({ text: "- standup" });
+    await run("obsidian_append_daily")({ text: "- lunch" });
+    // 2026-10-25 is a Sunday; the template is applied once, when the note is created.
+    expect(readFileSync(join(vault, "Daily", "2026", "10", "2026-10-25.md"), "utf8")).toBe(
+      "# 2026-10-25\nDate: Sunday, 2026-10-25\n- standup\n- lunch\n",
+    );
+    expect(existsSync(join(vault, "Daily", "2026-10-25.md"))).toBe(false);
+  });
+
+  it("does not apply a template outside the vault (the note starts empty)", async () => {
+    const name = basename(outside);
+    writeFileSync(join(outside, "secret.md"), "SECRET");
+    const cases = [`../${name}/secret`, join(outside, "secret.md")];
+    for (const [i, template] of cases.entries()) {
+      writeFileSync(
+        join(vault, ".obsidian", "daily-notes.json"),
+        JSON.stringify({ folder: `Out${i}`, template }),
+      );
+      const { registry, run } = make();
+      await registry.connect({
+        catalogueId: "obsidian",
+        scopeMode: "read_act",
+        config: { vaultPath: vault },
+      });
+      await registry.setMatrix("obs-1", { "obsidian.write": "allow" });
+      await run("obsidian_append_daily")({ text: "- standup" });
+      expect(readFileSync(join(vault, `Out${i}`, "2026-10-25.md"), "utf8")).toBe("- standup\n");
+    }
   });
 });
