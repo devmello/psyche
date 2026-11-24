@@ -26,6 +26,7 @@ struct FixtureChatTests {
             case .toolRun: seen.insert("toolRun")
             case .question: seen.insert("question")
             case .evidence: seen.insert("evidence")
+            case .sources: seen.insert("sources")
             case .progress(_, let kind, _, _): seen.insert("progress.\(kind.rawValue)")
             case .file(_, _, _, _, _, let artifact): seen.insert(artifact ? "artifact" : "file")
             case .appLink: seen.insert("appLink")
@@ -37,7 +38,7 @@ struct FixtureChatTests {
             }
         }
         let expected: Set<String> = [
-            "user", "assistant", "toolCall", "toolRun", "question", "evidence", "progress.task", "progress.plan",
+            "user", "assistant", "toolCall", "toolRun", "question", "evidence", "sources", "progress.task", "progress.plan",
             "progress.checklist", "file", "artifact", "appLink", "relatedThreads", "approval", "widget", "unknown",
             "note.learned", "note.taught", "note.wrap_up", "note.compaction", "note.specialist_result",
             "note.automation_workflow",
@@ -74,7 +75,7 @@ struct FixtureChatTests {
             switch chat {
             case .item(_, .toolRun(_, _, _, let arguments, _)): sawTool = !arguments.isEmpty
             case .delta: sawDelta = true
-            case .item(_, .evidence(_, "Sources", _)): sawSources = true
+            case .item(_, .sources(_, let sources)): sawSources = !sources.isEmpty
             case .status(_, _, .neutral): finished = true
             default: break
             }

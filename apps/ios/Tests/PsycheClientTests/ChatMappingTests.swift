@@ -59,6 +59,29 @@ struct ChatMappingTests {
         #expect(items[4] == .relatedThreads(id: "msg_1-4-related_threads", threads: [RelatedThread(id: "thr_2", title: "Rent", status: "Landlord")]))
     }
 
+    @Test func aSourcesBlockBecomesChipsWithTitlesAndRoutes() async {
+        let items = await map([.object(["type": "sources", "items": .array([
+            .object(["id": "lib_1", "source": "library", "kind": "document", "title": "Lease-2025.pdf", "date": "2025-10-28",
+                     "route": "/library/lib_1", "provenance": "owner", "span": "Section 6 caps increases at 3%."]),
+            .object(["id": "mail_2", "source": "mail", "kind": "message", "title": "Re: quote", "date": "2026-11-21",
+                     "route": .null, "provenance": "untrusted", "span": "$1,420"]),
+        ]), "cited": .array([.string("lib_1")])])])
+        guard case .sources(let id, let sources)? = items.first else { Issue.record("no sources row"); return }
+        #expect(id == "msg_1-0-sources")
+        #expect(sources.map(\.title) == ["Lease-2025.pdf", "Re: quote"])
+        #expect(sources.map(\.id) == ["lib_1", "mail_2"])
+        #expect(sources[0].route == "/library/lib_1")
+        #expect(sources[0].canOpen)
+        #expect(!sources[1].canOpen)
+        #expect(sources[1].isUntrusted)
+        #expect(sources[0].span == "Section 6 caps increases at 3%.")
+    }
+
+    @Test func aSourceWithoutAnIdIsDroppedAndAnEmptyListIsNoRow() async {
+        let items = await map([.object(["type": "sources", "items": .array([.object(["title": "No id"])])])])
+        #expect(items.isEmpty)
+    }
+
     @Test func aSystemMessagesTextIsNotARow() async {
         #expect(await map([.object(["type": "text", "md": "internal"])], role: "system").isEmpty)
     }

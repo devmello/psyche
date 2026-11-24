@@ -176,8 +176,10 @@ public enum ChatItem: Sendable, Equatable, Identifiable {
     case assistant(id: String, text: String, streaming: Bool)
     case toolCall(id: String, symbol: String, summary: String)
     case question(id: String, title: String, options: [ChatOption])
-    /// `receipt`, `sources` and `context`: one muted mono line.
+    /// `receipt` and `context`: one muted mono line.
     case evidence(id: String, label: String, parts: [String])
+    /// `sources`: the passages a reply rests on, as chips that open their route (`SourceChipRow`).
+    case sources(id: String, sources: [SourceRef])
 
     /// `task`, `plan` and `checklist`: a titled list of steps with a progress count.
     case progress(id: String, kind: StepListKind, title: String, steps: [ProgressStep])
@@ -202,7 +204,7 @@ public enum ChatItem: Sendable, Equatable, Identifiable {
     public var id: String {
         switch self {
         case .user(let id, _), .assistant(let id, _, _), .toolCall(let id, _, _),
-            .question(let id, _, _), .evidence(let id, _, _), .progress(let id, _, _, _),
+            .question(let id, _, _), .evidence(let id, _, _), .sources(let id, _), .progress(let id, _, _, _),
             .file(let id, _, _, _, _, _), .toolRun(let id, _, _, _, _), .appLink(let id, _, _, _),
             .relatedThreads(let id, _), .note(let id, _, _, _), .approval(let id, _, _), .widget(let id, _),
             .unknown(let id, _):
