@@ -24,6 +24,7 @@ import { useNow } from "../../lib/use-now.ts";
 import { cn } from "../../lib/utils.ts";
 import { usePersona } from "../../slots.tsx";
 import { formatBytes } from "../library/library-items.ts";
+import { isMeetingMedia, MeetingNotesAction } from "../library/MeetingNotesAction.tsx";
 import { folderGrants } from "../settings/FileAccessSection.tsx";
 import type { FolderGrant } from "../settings/types.ts";
 import {
@@ -543,6 +544,11 @@ export function FilesPaneView({
                   >
                     {t("screens.files.keepEditing")}
                   </Button>
+                </div>
+              ) : null}
+              {selected.libraryItem && isMeetingMedia(selected.libraryItem) && !editing ? (
+                <div className="border-b border-separator px-3 py-1.5">
+                  <MeetingNotesAction key={selected.libraryItem.id} item={selected.libraryItem} />
                 </div>
               ) : null}
               {readOnlyNote !== null && !editing ? (

@@ -3289,6 +3289,18 @@ export const ar: Partial<Catalogue> = {
   "screens.library.recording.loading": "جارٍ تحميل التسجيل",
   "screens.library.recording.loadFailed": "تعذّر على Psyche تحميل هذا التسجيل ({reason}).",
   "screens.library.recording.notFound": "لم يعد هذا التسجيل متاحًا.",
+  "screens.library.recording.delete": "حذف التسجيل",
+  "screens.library.recording.deleteTitle": "أتريد حذف هذا التسجيل؟",
+  "screens.library.recording.deleteBody":
+    "ستُزال خطواته ولقطات شاشته من هذا الجهاز. لا يمكن التراجع عن ذلك.",
+  "screens.library.recording.deleteConfirm": "حذف",
+  "screens.library.recording.deleteFailed": "تعذّر على Psyche حذف هذا التسجيل ({reason}).",
+  "screens.library.meetingNotes.action": "إنشاء ملاحظات الاجتماع",
+  "screens.library.meetingNotes.running":
+    "جارٍ إنشاء الملاحظات. قد تستغرق التسجيلات الطويلة وقتًا، حتى أربع ساعات من الصوت.",
+  "screens.library.meetingNotes.done": "الملاحظات جاهزة في خلاصتك.",
+  "screens.library.meetingNotes.open": "فتح الملاحظات",
+  "screens.library.meetingNotes.failed": "تعذّر على Psyche إنشاء الملاحظات ({reason}).",
   "screens.library.trust": "الوثوق بهذا الملف",
   "screens.library.moreFor": "مزيد من الإجراءات لـ {name}",
   "screens.library.quickLook": "نظرة سريعة",
