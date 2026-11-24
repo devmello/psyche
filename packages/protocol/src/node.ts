@@ -1,5 +1,5 @@
 import { type Static, Type } from "@sinclair/typebox";
-import { Id } from "./common.ts";
+import { Id, StringEnum } from "./common.ts";
 import { ErrorPayload } from "./errors.ts";
 import { DevicePlatform, NodeCapability, type NodeKind } from "./schemas/identity.ts";
 import { Receipt } from "./schemas/permissions.ts";
@@ -75,7 +75,10 @@ export type PeerCheck = (typeof PEER_CHECKS)[number];
  * can never declare a name or a side effect of its own, and never one of the Host helper's.
  */
 export const PHONE_CAPABILITY_NAMES = ["location.current"] as const;
-export type PhoneCapabilityName = (typeof PHONE_CAPABILITY_NAMES)[number];
+export const PhoneCapabilityName = StringEnum([...PHONE_CAPABILITY_NAMES], {
+  $id: "PhoneCapabilityName",
+});
+export type PhoneCapabilityName = Static<typeof PhoneCapabilityName>;
 
 /**
  * What `location.current` returns: the phone's position now. Foreground only, When-In-Use

@@ -36532,10 +36532,7 @@
         "capabilities": {
           "description": "The capabilities the phone offers now, from a closed list; an empty list withdraws all of them",
           "items": {
-            "enum": [
-              "location.current"
-            ],
-            "type": "string"
+            "$ref": "#/$defs/PhoneCapabilityName"
           },
           "maxItems": 1,
           "type": "array"
@@ -36559,6 +36556,12 @@
         "capabilities"
       ],
       "type": "object"
+    },
+    "PhoneCapabilityName": {
+      "enum": [
+        "location.current"
+      ],
+      "type": "string"
     },
     "PhoneLocation": {
       "properties": {

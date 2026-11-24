@@ -1160,6 +1160,7 @@
 //   let personaUpdatedPayload = try? JSONDecoder().decode(PersonaUpdatedPayload.self, from: jsonData)
 //   let phoneCapabilitiesSetParams = try? JSONDecoder().decode(PhoneCapabilitiesSetParams.self, from: jsonData)
 //   let phoneCapabilitiesSetResult = try? JSONDecoder().decode(PhoneCapabilitiesSetResult.self, from: jsonData)
+//   let phoneCapabilityName = try? JSONDecoder().decode(PhoneCapabilityName.self, from: jsonData)
 //   let phoneLocation = try? JSONDecoder().decode(PhoneLocation.self, from: jsonData)
 //   let pickableModelRole = try? JSONDecoder().decode(PickableModelRole.self, from: jsonData)
 //   let planBlock = try? JSONDecoder().decode(PlanBlock.self, from: jsonData)
@@ -27639,18 +27640,18 @@ public struct PersonaUpdatedPayload: Codable, Sendable {
 public struct PhoneCapabilitiesSetParams: Codable, Sendable {
     /// The capabilities the phone offers now, from a closed list; an empty list withdraws all of
     /// them
-    public let capabilities: [Capability]
+    public let capabilities: [PhoneCapabilityName]
 
     public enum CodingKeys: String, CodingKey {
         case capabilities = "capabilities"
     }
 
-    public init(capabilities: [Capability]) {
+    public init(capabilities: [PhoneCapabilityName]) {
         self.capabilities = capabilities
     }
 }
 
-public enum Capability: String, Codable, Sendable {
+public enum PhoneCapabilityName: String, Codable, Sendable {
     case locationCurrent = "location.current"
 }
 

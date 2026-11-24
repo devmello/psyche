@@ -1,11 +1,11 @@
 import { Type } from "@sinclair/typebox";
-import { StringEnum } from "../common.ts";
 import {
   NodeEventParams,
   NodeInvokeAccepted,
   NodeInvokeParams,
   NodeResultParams,
   PHONE_CAPABILITY_NAMES,
+  PhoneCapabilityName,
 } from "../node.ts";
 import { Device } from "../schemas/identity.ts";
 import { defineMethod, OkResult } from "./define.ts";
@@ -38,7 +38,7 @@ export const NodeMethods = {
   }),
   "phone.capabilities.set": defineMethod({
     params: Type.Object({
-      capabilities: Type.Array(StringEnum([...PHONE_CAPABILITY_NAMES]), {
+      capabilities: Type.Array(PhoneCapabilityName, {
         maxItems: PHONE_CAPABILITY_NAMES.length,
         description:
           "The capabilities the phone offers now, from a closed list; an empty list withdraws all of them",

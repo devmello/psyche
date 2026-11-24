@@ -9480,10 +9480,10 @@ export interface PhoneCapabilitiesSetParams {
      * The capabilities the phone offers now, from a closed list; an empty list withdraws all of
      * them
      */
-    capabilities: Capability[];
+    capabilities: PhoneCapabilityName[];
 }
 
-export type Capability = "location.current";
+export type PhoneCapabilityName = "location.current";
 
 export interface PhoneCapabilitiesSetResult {
     capabilities: string[];
