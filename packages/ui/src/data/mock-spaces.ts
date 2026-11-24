@@ -298,6 +298,30 @@ export function spacesHandlers(ctx: SpacesMockContext): Handlers {
       changed(detail, ["folders"]);
       return view(detail);
     },
+    "spaces.settings.set": (p) => {
+      const detail = find(p.spaceId);
+      const writes = p.automationsWrite ?? [];
+      for (const w of writes) {
+        if (!detail.folders.some((f) => f.path === w.path)) {
+          throw new PsycheError("not_found", `${w.path} is not a folder of this Space`);
+        }
+      }
+      if (p.defaultPermissionMode !== undefined) {
+        detail.space = { ...detail.space, defaultPermissionMode: p.defaultPermissionMode };
+      }
+      if (p.connectorScope !== undefined) {
+        detail.space = {
+          ...detail.space,
+          connectorScope: p.connectorScope === null ? null : [...new Set(p.connectorScope)],
+        };
+      }
+      detail.folders = detail.folders.map((f) => {
+        const w = writes.find((x) => x.path === f.path);
+        return w === undefined ? f : { ...f, automationsWrite: w.allow };
+      });
+      changed(detail, writes.length > 0 ? ["folders", "row"] : ["row"]);
+      return view(detail);
+    },
     "spaces.links.add": (p) => {
       const detail = find(p.spaceId);
       // The Gateway's refusal, word for word (apps/gateway/src/spaces/handlers.ts).

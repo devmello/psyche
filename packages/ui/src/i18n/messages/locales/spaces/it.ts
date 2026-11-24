@@ -112,6 +112,43 @@ export const spaces: Partial<Catalogue> = {
   "spaces.files.remove": "Rimuovi",
   "spaces.files.removeFolder": "Rimuovi {path}",
   "spaces.files.failed": "Impossibile modificare le cartelle: {reason}",
+
+  "spaces.settings.title": "Impostazioni dello spazio",
+  "spaces.settings.description": "Come lavora Psyche in questo spazio.",
+  "spaces.settings.remote":
+    "Questo spazio si trova su {host}. Modifica le sue impostazioni in Psyche su quel computer.",
+  "spaces.settings.onMac":
+    "Modifica queste impostazioni nell’app desktop di Psyche, sul computer su cui gira Psyche.",
+  "spaces.settings.mode.label": "Modalità di permessi predefinita",
+  "spaces.settings.mode.inherit": "Come la mia modalità globale",
+  "spaces.settings.mode.plan": "Piano",
+  "spaces.settings.mode.manual": "Manuale",
+  "spaces.settings.mode.balanced": "Bilanciata",
+  "spaces.settings.mode.auto": "Automatica",
+  "spaces.settings.mode.inheritHint": "Le chat qui usano la tua modalità di permessi globale.",
+  "spaces.settings.mode.planHint":
+    "Le chat qui leggono e pianificano soltanto; nulla viene modificato.",
+  "spaces.settings.mode.manualHint": "Ogni azione fuori da un permesso chiede prima.",
+  "spaces.settings.mode.balancedHint":
+    "Le letture vengono eseguite; le scritture verso persone e denaro chiedono prima.",
+  "spaces.settings.mode.autoHint":
+    "Le azioni di routine entro i tuoi permessi vengono eseguite da sole, quelle sensibili chiedono ancora. La tua modalità globale fissa comunque il limite.",
+  "spaces.settings.connectors.label": "Connettori di questo spazio",
+  "spaces.settings.connectors.all": "Tutti i miei connettori",
+  "spaces.settings.connectors.some": "Solo quelli che scelgo",
+  "spaces.settings.connectors.allHint":
+    "Le chat e le automazioni qui possono usare qualsiasi connettore configurato.",
+  "spaces.settings.connectors.someHint":
+    "Le chat e le automazioni qui possono usare solo i connettori spuntati sotto.",
+  "spaces.settings.connectors.none": "Non è ancora configurato nessun connettore.",
+  "spaces.settings.connectors.use": "Usa {name} in questo spazio",
+  "spaces.settings.automations": "Automazioni e file",
+  "spaces.settings.automationsHint":
+    "Le automazioni qui si limitano a leggere una cartella. Spuntandola, un’automazione che parte da sola può creare, modificare ed eliminare file lì; le chat usano ancora l’accesso proprio della cartella.",
+  "spaces.settings.automationsNone":
+    "Aggiungi una cartella per scegliere se le automazioni possono modificarne i file.",
+  "spaces.settings.automationsIn": "Consenti alle automazioni di modificare i file in {path}",
+  "spaces.settings.failed": "Impossibile salvare le impostazioni: {reason}",
   "spaces.goals": "Obiettivi",
 
   "spaces.switcher.label": "Spazio: {name}",

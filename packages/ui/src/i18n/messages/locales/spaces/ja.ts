@@ -112,6 +112,41 @@ export const spaces: Partial<Catalogue> = {
   "spaces.files.remove": "削除",
   "spaces.files.removeFolder": "{path} を削除",
   "spaces.files.failed": "フォルダを変更できませんでした: {reason}",
+
+  "spaces.settings.title": "スペースの設定",
+  "spaces.settings.description": "このスペースでの Psyche の動作です。",
+  "spaces.settings.remote":
+    "このスペースは {host} にあります。そのコンピュータの Psyche で設定を変更してください。",
+  "spaces.settings.onMac":
+    "この設定は、Psyche が動いているコンピュータの Psyche デスクトップアプリで変更してください。",
+  "spaces.settings.mode.label": "既定の権限モード",
+  "spaces.settings.mode.inherit": "グローバルモードと同じ",
+  "spaces.settings.mode.plan": "プラン",
+  "spaces.settings.mode.manual": "手動",
+  "spaces.settings.mode.balanced": "バランス",
+  "spaces.settings.mode.auto": "自動",
+  "spaces.settings.mode.inheritHint": "ここのチャットはグローバルの権限モードを使います。",
+  "spaces.settings.mode.planHint": "ここのチャットは読み取りと計画のみで、何も変更しません。",
+  "spaces.settings.mode.manualHint": "許可のない操作はすべて先に確認します。",
+  "spaces.settings.mode.balancedHint": "読み取りは実行し、人やお金への書き込みは先に確認します。",
+  "spaces.settings.mode.autoHint":
+    "許可の範囲内の定型操作は自動で実行し、重要な操作は引き続き確認します。上限は引き続きグローバルモードで決まります。",
+  "spaces.settings.connectors.label": "このスペースのコネクタ",
+  "spaces.settings.connectors.all": "すべてのコネクタ",
+  "spaces.settings.connectors.some": "選んだものだけ",
+  "spaces.settings.connectors.allHint":
+    "ここのチャットとオートメーションは、設定済みのどのコネクタも使えます。",
+  "spaces.settings.connectors.someHint":
+    "ここのチャットとオートメーションは、下でチェックしたコネクタだけを使えます。",
+  "spaces.settings.connectors.none": "設定済みのコネクタはまだありません。",
+  "spaces.settings.connectors.use": "このスペースで {name} を使う",
+  "spaces.settings.automations": "オートメーションとファイル",
+  "spaces.settings.automationsHint":
+    "ここのオートメーションはフォルダを読み取るだけです。チェックすると、単独で動くオートメーションがそこでファイルを作成、編集、削除できます。チャットはフォルダ自体のアクセス権を使います。",
+  "spaces.settings.automationsNone":
+    "フォルダを追加すると、オートメーションがファイルを変更してよいか選べます。",
+  "spaces.settings.automationsIn": "オートメーションが {path} のファイルを変更することを許可",
+  "spaces.settings.failed": "設定を保存できませんでした: {reason}",
   "spaces.goals": "目標",
 
   "spaces.switcher.label": "スペース: {name}",
