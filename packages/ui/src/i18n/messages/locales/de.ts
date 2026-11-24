@@ -2270,6 +2270,13 @@ export const de: Partial<Catalogue> = {
   "settings.model.key.editNamed":
     "{name}-Schlüssel {has, select, true {ersetzen} other {hinzufügen}}",
   "settings.model.key.add": "Schlüssel hinzufügen",
+  "settings.model.key.remove": "Schlüssel entfernen",
+  "settings.model.key.removeNamed": "Schlüssel für {name} entfernen",
+  "settings.model.key.removeTitle": "Schlüssel für {name} entfernen?",
+  "settings.model.key.removeBody":
+    "Psyche löscht den gespeicherten Schlüssel für {name}. Anfragen an {name} schlagen fehl, bis du wieder einen Schlüssel hinzufügst.",
+  "settings.model.key.removeConfirm": "Schlüssel entfernen",
+  "settings.model.key.removeFailed": "Psyche konnte den Schlüssel nicht entfernen ({reason}).",
   "settings.model.key.replace": "Schlüssel ersetzen",
   "settings.model.key.newLabel": "Neuer API-Schlüssel für {name}",
   "settings.model.key.save": "Schlüssel sichern",
@@ -3310,6 +3317,12 @@ export const de: Partial<Catalogue> = {
   "screens.library.openLabel": "{name}{editor, select, true { im Editor} other {}} öffnen",
   "screens.library.openInEditor": "Im Editor öffnen",
   "screens.library.open": "Öffnen",
+  "screens.library.delete": "Löschen",
+  "screens.library.deleteTitle": "{name} löschen?",
+  "screens.library.deleteBody":
+    "Psyche löscht {name} und die Datei aus der Bibliothek. Das lässt sich nicht rückgängig machen.",
+  "screens.library.deleteConfirm": "Löschen",
+  "screens.library.deleteItemFailed": "Psyche konnte {name} nicht löschen ({reason}).",
   "screens.library.deleteDownload": "Diesen Download löschen",
   "screens.library.deleteFailed":
     "Psyche konnte {name} nicht löschen ({reason}). Die Datei bleibt in Quarantäne.",

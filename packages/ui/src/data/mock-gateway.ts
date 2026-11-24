@@ -2751,6 +2751,13 @@ export class MockGateway implements GatewayClient {
       provider.keyConfigured = true;
       return { provider };
     },
+    "models.clearKey": (p) => {
+      const provider = this.modelProvider(p.providerId);
+      if (provider.local) fail("invalid_params", `${p.providerId} takes no API key`);
+      provider.keyConfigured = false;
+      provider.keyRef = null;
+      return { provider };
+    },
     "models.check": (p) => {
       const entry = this.modelEntry(p.ref);
       entry.toolCheck = "agent-capable";
