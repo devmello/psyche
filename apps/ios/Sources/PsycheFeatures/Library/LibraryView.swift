@@ -33,6 +33,10 @@ private struct LibraryContent: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
                     PageHeader(String(localized: "Library", bundle: .module))
+                    NavigationLink { ReceiptsView() } label: {
+                        LibraryPageTile(title: String(localized: "Receipts", bundle: .module), symbol: "receipt")
+                    }
+                    .buttonStyle(.plain)
                     SectionPicker(selection: $model.section)
                     ForEach(model.uploads) { job in
                         UploadRow(job: job, retry: { model.retry(job.id) }, dismiss: { model.dismiss(job.id) })
@@ -64,6 +68,31 @@ private struct LibraryContent: View {
         .psycheAnimation(.smooth, value: model.uploads.map(\.id))
         .task(id: model.section) { await model.load() }
         .task { await model.observe() }
+    }
+}
+
+extension PsycheStore.LibraryItem {
+    /// Where a row goes: an artifact opens its viewer, anything else its file page.
+    var route: Route { artifactID.map { Route.artifact(id: $0) } ?? Route.file(id: id) }
+}
+
+/// A link to a page of the Library (Receipts), above the sections.
+private struct LibraryPageTile: View {
+    let title: String
+    let symbol: String
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: symbol).font(.body.weight(.medium)).foregroundStyle(PsycheColor.muted)
+            Text(verbatim: title)
+                .font(.psycheRow.weight(.medium)).foregroundStyle(PsycheColor.text)
+            Spacer(minLength: 0)
+            Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).foregroundStyle(PsycheColor.rule)
+        }
+        .padding(.horizontal, 14).padding(.vertical, 12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(PsycheColor.sheet, in: RoundedRectangle(cornerRadius: PsycheMetrics.cardRadius, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: PsycheMetrics.cardRadius, style: .continuous).strokeBorder(PsycheColor.hairline, lineWidth: 1))
     }
 }
 
@@ -111,7 +140,7 @@ private struct LibraryList: View {
             VStack(spacing: 0) {
                 ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
                     if index > 0 { HairlineDivider().padding(.leading, 70) }
-                    NavigationLink(value: Route.file(id: item.id)) { LibraryRow(item: item) }
+                    NavigationLink(value: item.route) { LibraryRow(item: item) }
                         .buttonStyle(.plain)
                         .psycheZoomSource(id: item.id, in: zoom)
                 }
@@ -153,7 +182,7 @@ private struct LibraryGrid: View {
     var body: some View {
         LazyVGrid(columns: [GridItem(.adaptive(minimum: 150, maximum: 220), spacing: 18, alignment: .top)], spacing: 22) {
             ForEach(items) { item in
-                NavigationLink(value: Route.file(id: item.id)) {
+                NavigationLink(value: item.route) {
                     VStack(alignment: .leading, spacing: 8) {
                         LibraryThumbnail(item: item, style: .tile)
                         Text(item.title)

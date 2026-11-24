@@ -26,6 +26,9 @@ export const GOOGLE_SCOPES = {
   calendar: `${S}calendar`,
   calendarReadonly: `${S}calendar.readonly`,
   driveFile: `${S}drive.file`,
+  /** Google Tasks, read and change (`reminders_*`); `tasks.readonly` reads only. */
+  tasks: `${S}tasks`,
+  tasksReadonly: `${S}tasks.readonly`,
 } as const;
 
 /** `modify` (labels, archive, drafts, send) or the narrower `readonly + send` pair. */
@@ -33,13 +36,18 @@ export type GmailScopeChoice = "modify" | "readonly_send";
 
 export function scopesFor(mode: ScopeMode, gmail: GmailScopeChoice = "modify"): string[] {
   if (mode === "read") {
-    return [GOOGLE_SCOPES.gmailReadonly, GOOGLE_SCOPES.calendarReadonly, GOOGLE_SCOPES.driveFile];
+    return [
+      GOOGLE_SCOPES.gmailReadonly,
+      GOOGLE_SCOPES.calendarReadonly,
+      GOOGLE_SCOPES.driveFile,
+      GOOGLE_SCOPES.tasksReadonly,
+    ];
   }
   const mail =
     gmail === "modify"
       ? [GOOGLE_SCOPES.gmailModify]
       : [GOOGLE_SCOPES.gmailReadonly, GOOGLE_SCOPES.gmailSend];
-  return [...mail, GOOGLE_SCOPES.calendar, GOOGLE_SCOPES.driveFile];
+  return [...mail, GOOGLE_SCOPES.calendar, GOOGLE_SCOPES.driveFile, GOOGLE_SCOPES.tasks];
 }
 
 /** Seven days: refresh tokens of an External app left in Testing expire after this. */

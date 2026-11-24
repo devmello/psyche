@@ -507,7 +507,7 @@ extension FixtureData {
                     ]),
                 .file(
                     id: "t4", title: "Saturday plan.html", fileType: "html", detail: "Artifact · today",
-                    libraryID: "lib_plan", isArtifact: true),
+                    libraryID: "lib_plan", isArtifact: true, artifactID: "art_plan"),
                 .relatedThreads(
                     id: "t5",
                     threads: [

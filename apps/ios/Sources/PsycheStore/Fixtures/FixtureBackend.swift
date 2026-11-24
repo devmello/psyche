@@ -15,6 +15,7 @@ public actor FixtureBackend {
     var homeState = HomeState()
     var chatState = ChatState()
     var libraryState = LibraryState()
+    var receiptsState = ReceiptsState()
     var memoryState = MemoryState()
     var agentState = AgentState()
     var settingsState = SettingsState()
