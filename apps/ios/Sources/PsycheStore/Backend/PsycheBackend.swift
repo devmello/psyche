@@ -10,7 +10,7 @@ import PsycheShared
 // changes later arrives as a `LiveEvent`.
 
 public typealias PsycheBackend = AgentBackend & ChatBackend & HomeBackend & LibraryBackend & LiveUpdates
-    & FollowupsBackend & MemoryBackend & ModelsBackend & ProactiveBackend & ReceiptsBackend & SearchBackend & SettingsBackend
+    & FollowupsBackend & GrantsBackend & MemoryBackend & ModelsBackend & ProactiveBackend & ReceiptsBackend & SearchBackend & SettingsBackend
     & SkillsBackend & SpacesBackend & VoiceMemoBackend & WidgetBackend
 
 public enum BackendError: Error, Equatable, LocalizedError {
