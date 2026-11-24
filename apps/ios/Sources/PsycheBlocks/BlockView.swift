@@ -29,6 +29,8 @@ public struct BlockView: View {
             ) { context.choose(id, $0) }
         case .evidence(_, let label, let parts):
             EvidenceLine(label, parts)
+        case .sources(_, let sources):
+            SourceChipRow(sources: sources)
         case .progress(_, let kind, let title, let steps):
             ProgressBlock(kind: kind, title: title, steps: steps)
         case .file(_, let title, let fileType, let detail, let libraryID, let isArtifact):

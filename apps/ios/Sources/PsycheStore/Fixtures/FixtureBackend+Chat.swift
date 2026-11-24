@@ -180,7 +180,12 @@ extension FixtureBackend: ChatBackend {
         }
         appendItem(.assistant(id: replyID, text: reply, streaming: false), to: threadID)
         publish(.chat(.done(threadID: threadID, itemID: replyID)))
-        emit(.evidence(id: replyID + "-ev", label: "Sources", parts: ["mail", "calendar", "now"]), in: threadID)
+        emit(.sources(id: replyID + "-ev", sources: [
+            SourceRef(id: "mail_m14", title: "Re: plumbing quote", source: "mail", route: "/library/all?item=mail:m14",
+                      span: "Installed price $1,420, with a ten-year tank warranty.", date: "2026-11-21", isUntrusted: true),
+            SourceRef(id: "cal_plumber", title: "Plumber visit", source: "calendar", route: nil,
+                      span: "Tuesday, 10:00 to 11:30.", date: "2026-11-24"),
+        ]), in: threadID)
         publish(.chat(.status(threadID: threadID, status: "", kind: .neutral)))
         setListStatus(threadID, status: idleStatus.text, kind: .neutral, idle: idleStatus)
         publish(.changed(.threads))
@@ -286,7 +291,12 @@ extension FixtureData {
                         ChatOption(id: "o1", title: "Q3-review-v4.key", detail: "Monday 10:14 · 18 slides"),
                         ChatOption(id: "o2", title: "Q3-review-final.pdf", detail: "Monday 16:52 · 21 pages"),
                     ]),
-                .evidence(id: "m6", label: "Sources", parts: ["lib_8f2a", "lib_91c0", "10:22"]),
+                .sources(id: "m6", sources: [
+                    SourceRef(id: "lib_8f2a", title: "Q3-review-v4.key", source: "library", route: "/library/lib_8f2a",
+                              span: "Eighteen slides. The launch dates are on slide 12.", date: "2026-11-17"),
+                    SourceRef(id: "lib_91c0", title: "Q3-review-final.pdf", source: "library", route: "/library/lib_91c0",
+                              span: "Twenty-one pages, with the hiring plan on page 16.", date: "2026-11-16"),
+                ]),
                 .assistant(
                     id: "m7",
                     text: "While you pick, here's the outline so far: the quarter's results, the two launches that moved to December, and where hiring stands",
@@ -324,7 +334,12 @@ extension FixtureData {
                 .note(
                     id: "l4", kind: .specialistResult, title: "Contracts specialist",
                     detail: "Found the 3% cap in section 6 and a fee clause in the addendum."),
-                .evidence(id: "l5", label: "Sources", parts: ["lib_lease25", "lib_letter", "Oct 28"]),
+                .sources(id: "l5", sources: [
+                    SourceRef(id: "lib_lease25", title: "Lease-2025.pdf", source: "library", route: "/library/lib_lease25",
+                              span: "Section 6 caps rent increases at 3% a year.", date: "2025-10-28"),
+                    SourceRef(id: "lib_letter", title: "Landlord letter, Oct 28", source: "library", route: "/library/lib_letter",
+                              span: "Proposes a 4.5% increase from March.", date: "2025-10-28"),
+                ]),
                 .note(
                     id: "l6", kind: .compaction, title: "Earlier messages summarized",
                     detail: "42 messages from Oct 12–20 are kept as a summary."),

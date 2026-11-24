@@ -33,6 +33,48 @@ struct AutomationEditingTests {
         #expect(AutomationSchedule(preset: .once, onceAt: past).wire(zone: Self.la, now: Self.now, editingKind: nil) == .failure(.past))
     }
 
+    // MARK: Once defaults and the Repeats choices
+
+    @Test func theNextWholeHourIsInTheAutomationsZone() {
+        // 2030-01-01T00:20Z is 16:20 in Los Angeles: the next whole hour is 17:00 there, 01:00Z.
+        let twentyPast = Date(timeIntervalSince1970: Self.now.timeIntervalSince1970 + 20 * 60)
+        #expect(AutomationSchedule.nextWholeHour(now: twentyPast, zone: Self.la) == Date(timeIntervalSince1970: 1_893_459_600))
+        // On the hour itself the next whole hour is the one after.
+        #expect(AutomationSchedule.nextWholeHour(now: Self.now, zone: Self.la) == Date(timeIntervalSince1970: 1_893_459_600))
+    }
+
+    @Test func aNewOneTimeScheduleDefaultsToAWholeHourNotTheEpoch() {
+        let onceAt = AutomationSchedule().onceAt
+        #expect(onceAt > Date())
+        #expect(Calendar.current.component(.minute, from: onceAt) == 0)
+        #expect(onceAt.timeIntervalSince1970 > 0)
+    }
+
+    @Test func aRepeatingAutomationNeverOffersOnce() {
+        #expect(AutomationSchedule.choices(editingKind: "cron", current: .daily) == [.daily, .weekdays, .weekly, .interval])
+        #expect(AutomationSchedule.choices(editingKind: "interval", current: .interval) == [.daily, .weekdays, .weekly, .interval])
+    }
+
+    @Test func aOneTimeAutomationOffersOnlyOnce() {
+        #expect(AutomationSchedule.choices(editingKind: "reminder", current: .once) == [.once])
+    }
+
+    @Test func aNewAutomationOffersAllPresetsAndACustomOnlyWhenItIsOne() {
+        #expect(AutomationSchedule.choices(editingKind: nil, current: .daily) == [.once, .daily, .weekdays, .weekly, .interval])
+        #expect(AutomationSchedule.choices(editingKind: "cron", current: .custom) == [.daily, .weekdays, .weekly, .interval, .custom])
+    }
+
+    // MARK: Prompt problems
+
+    @Test func anEmptyPromptAndAnOverLimitPromptAreDifferentProblems() {
+        #expect(AutomationDraft(prompt: "   ", schedule: AutomationSchedule()).promptProblem == .empty)
+        #expect(AutomationDraft(prompt: String(repeating: "p", count: AutomationDraft.maxPrompt + 1), schedule: AutomationSchedule())
+            .promptProblem == .tooLong)
+        #expect(AutomationDraft(prompt: String(repeating: "p", count: AutomationDraft.maxPrompt), schedule: AutomationSchedule())
+            .promptProblem == nil)
+        #expect(AutomationDraft(prompt: "Do it", schedule: AutomationSchedule()).promptProblem == nil)
+    }
+
     @Test func aWeeklyScheduleNeedsADay() {
         #expect(AutomationSchedule(preset: .weekly, weekdays: []).wire(zone: Self.la, now: Self.now, editingKind: nil) == .failure(.noDays))
     }

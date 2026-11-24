@@ -51,9 +51,9 @@ enum ChatMapping {
                     out.append(.question(id: requestID, title: "Psyche has a question", options: []))
                 }
             case "sources":
-                let items = block["items"]?.array ?? []
-                let parts = items.compactMap { $0["title"]?.string ?? $0["label"]?.string ?? $0["id"]?.string }
-                if !parts.isEmpty { out.append(.evidence(id: "\(id)-sources", label: "Sources", parts: parts)) }
+                // The Gateway's `AnswerSource` items: a title, a passage and an in-app route when there is one.
+                let sources = SourceRef.list(block["items"].flatMap { GatewayBackend.store($0) })
+                if !sources.isEmpty { out.append(.sources(id: rowID, sources: sources)) }
             case "text":
                 break  // a system or tool message's text carries no conversation
             case "ui":

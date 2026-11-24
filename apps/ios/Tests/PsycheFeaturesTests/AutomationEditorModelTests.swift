@@ -88,12 +88,12 @@ struct AutomationEditorModelTests {
         await model.load()
         #expect(model.problems.prompt)
         #expect(!model.isPromptTouched)
-        #expect(!model.showsPromptHint)
+        #expect(model.promptHint == nil)
         model.draft.prompt = "   "
         #expect(model.isPromptTouched)
-        #expect(model.showsPromptHint)
+        #expect(model.promptHint == .empty)
         model.draft.prompt = "Summarize the week"
-        #expect(!model.showsPromptHint)
+        #expect(model.promptHint == nil)
     }
 
     @Test func anOverLimitPromptShowsItsHintWithoutAnEdit() async throws {
@@ -102,8 +102,54 @@ struct AutomationEditorModelTests {
         let model = AutomationEditorModel(store: store, automationID: id)
         await model.load()
         #expect(!model.isPromptTouched)
-        #expect(model.showsPromptHint)
+        #expect(model.promptHint == .tooLong)
         #expect(!model.canSave)
+    }
+
+    @Test func anUnchangedAutomationIsNotSavable() async throws {
+        let (store, id) = try await seeded()
+        let model = AutomationEditorModel(store: store, automationID: id)
+        await model.load()
+        #expect(!model.hasChanges)
+        #expect(!model.canSave)
+        model.draft.title = "Weekly digest"
+        #expect(model.hasChanges)
+        #expect(model.canSave)
+        model.draft.title = "Digest"
+        #expect(!model.canSave)
+    }
+
+    @Test func anEnabledToggleIsAChangeToo() async throws {
+        let (store, id) = try await seeded()
+        let model = AutomationEditorModel(store: store, automationID: id)
+        await model.load()
+        model.draft.enabled = false
+        #expect(model.canSave)
+    }
+
+    @Test func aRepeatingAutomationOffersNoOnce() async throws {
+        let (store, id) = try await seeded()
+        let model = AutomationEditorModel(store: store, automationID: id)
+        await model.load()
+        #expect(model.presetChoices == [.daily, .weekdays, .weekly, .interval])
+    }
+
+    @Test func aOneTimeAutomationOffersOnlyOnce() async throws {
+        let store = FixtureBackend()
+        let id = try await store.createAutomation(AutomationCreate(
+            kind: "reminder", title: "Call Sam", schedule: "2030-01-02T09:00:00-08:00", prompt: "Call Sam.",
+            timezone: "America/Los_Angeles", enabled: true))
+        let model = AutomationEditorModel(store: store, automationID: id)
+        await model.load()
+        #expect(model.phase == .ready)
+        #expect(model.presetChoices == [.once])
+        #expect(model.draft.schedule.preset == .once)
+    }
+
+    @Test func aNewAutomationOffersEveryPresetButCustom() async {
+        let model = AutomationEditorModel(store: FixtureBackend(), automationID: nil)
+        await model.load()
+        #expect(model.presetChoices == [.once, .daily, .weekdays, .weekly, .interval])
     }
 
 }

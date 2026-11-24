@@ -148,6 +148,10 @@ struct PersonPage: View {
             InitialsAvatar(detail.person.initials, size: 56)
             VStack(alignment: .leading, spacing: 3) {
                 Text(detail.person.name).psycheTitle(.title).foregroundStyle(PsycheColor.text)
+                if let aliases = detail.card?.aliases, !aliases.isEmpty {
+                    Text(String(localized: "Also: \(aliases.joined(separator: ", "))", bundle: .module))
+                        .font(.subheadline).foregroundStyle(PsycheColor.muted)
+                }
                 EvidenceLine([detail.person.detail])
             }
         }

@@ -189,6 +189,8 @@ struct ProjectPage: View {
         VStack(alignment: .leading, spacing: 10) {
             Text(detail.project.title).psycheTitle(.title).foregroundStyle(PsycheColor.text)
             ProgressBar(fraction: detail.project.fraction)
+            let facts = Self.statusParts(detail.card)
+            if !facts.isEmpty { EvidenceLine(facts) }
             EvidenceLine([detail.project.detail])
         }
         .accessibilityElement(children: .combine)
@@ -225,6 +227,23 @@ struct ProjectPage: View {
             EvidenceLine(String(localized: "Because", bundle: .module), detail.evidence)
         }
         EditOnMacNote(text: String(localized: "Edit on your Mac: merging projects.", bundle: .module))
+    }
+
+    /// The status and due date the owner set on the card, as the header's line. Nothing when neither is set.
+    static func statusParts(_ card: EntityCard?) -> [String] {
+        guard let card else { return [] }
+        var parts: [String] = []
+        if let status = card.projectStatus {
+            switch status {
+            case .active: parts.append(String(localized: "Active", bundle: .module))
+            case .paused: parts.append(String(localized: "Paused", bundle: .module))
+            case .done: parts.append(String(localized: "Done", bundle: .module))
+            }
+        }
+        if let due = card.dueAt {
+            parts.append(String(localized: "Due \(due.formatted(date: .abbreviated, time: .omitted))", bundle: .module))
+        }
+        return parts
     }
 
     /// "Open Space" for a project that has one, "Make a Space" for one that doesn't. A Space is made only by this tap.

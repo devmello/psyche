@@ -21,9 +21,14 @@ final class AutomationEditorModel {
     }
     /// True once the prompt has been edited. Loading a draft resets it, so a new editor starts without a red hint.
     private(set) var isPromptTouched = false
-    /// The prompt hint: shown once the owner has edited the prompt and it is empty, or whenever it is over the limit.
-    var showsPromptHint: Bool {
-        problems.prompt && (isPromptTouched || draft.prompt.utf16.count > AutomationDraft.maxPrompt)
+    /// The prompt hint: "empty" once the owner has edited the prompt and it is empty; "too long" whenever it is over
+    /// the limit. Nil when the prompt is fine.
+    var promptHint: AutomationPromptProblem? {
+        switch draft.promptProblem {
+        case .empty: return isPromptTouched ? .empty : nil
+        case .tooLong: return .tooLong
+        case nil: return nil
+        }
     }
     private(set) var saving = false
     private(set) var failure: String?
@@ -38,7 +43,16 @@ final class AutomationEditorModel {
     var isNew: Bool { automationID == nil }
     var zone: TimeZone { detail?.zone ?? .current }
     var problems: AutomationDraftProblems { draft.problems(zone: zone, now: Date(), editingKind: detail?.kind) }
-    var canSave: Bool { phase == .ready && !saving && problems.isEmpty }
+    /// Whether the draft differs from the automation as it is now. A new automation always has something to save.
+    var hasChanges: Bool {
+        guard let detail else { return true }
+        guard case .success(let changes) = draft.changes(from: detail, now: Date()) else { return false }
+        return !changes.isEmpty
+    }
+    /// Save is on once there is something to save and it is valid. An existing automation opened unchanged stays off.
+    var canSave: Bool { phase == .ready && !saving && problems.isEmpty && hasChanges }
+    /// The kinds the Repeats picker offers for this automation.
+    var presetChoices: [AutomationPreset] { AutomationSchedule.choices(editingKind: detail?.kind, current: draft.schedule.preset) }
 
     func load() async {
         guard let automationID else {
@@ -152,6 +166,7 @@ struct AutomationEditorSheet: View {
                 Button(String(localized: "Delete", bundle: .module), role: .destructive) {
                     Task { if await model.delete() { onFinish(); dismiss() } }
                 }
+                Button(String(localized: "Cancel", bundle: .module), role: .cancel) {}
             } message: {
                 Text("It won't run again, and this can't be undone.", bundle: .module)
             }
@@ -167,14 +182,19 @@ struct AutomationEditorSheet: View {
                 .lineLimit(3...12)
                 .accessibilityIdentifier("automationPrompt")
         } footer: {
-            if model.showsPromptHint {
-                Text("Write what it should do, up to 20,000 characters.", bundle: .module).foregroundStyle(PsycheColor.red)
+            switch model.promptHint {
+            case .empty:
+                Text("Write what it should do.", bundle: .module).foregroundStyle(PsycheColor.red)
+            case .tooLong:
+                Text("Keep it under 20,000 characters.", bundle: .module).foregroundStyle(PsycheColor.red)
+            case nil:
+                EmptyView()
             }
         }
 
         Section {
-            Picker(String(localized: "Repeats", bundle: .module), selection: $model.draft.schedule.preset) {
-                ForEach(AutomationPreset.allCases.filter { $0 != .custom || model.draft.schedule.preset == .custom }) { preset in
+            Picker(String(localized: "Repeats", bundle: .module), selection: presetBinding) {
+                ForEach(model.presetChoices) { preset in
                     Text(Self.presetLabel(preset)).tag(preset)
                 }
             }
@@ -182,8 +202,8 @@ struct AutomationEditorSheet: View {
         } header: {
             Text("When", bundle: .module)
         } footer: {
-            if let problem = model.problems.schedule {
-                Text(Self.problemText(problem)).foregroundStyle(PsycheColor.red)
+            if let problem = model.problems.schedule, let text = Self.problemText(problem) {
+                Text(text).foregroundStyle(PsycheColor.red)
             }
         }
 
@@ -230,6 +250,20 @@ struct AutomationEditorSheet: View {
         }
     }
 
+    /// Switching to Once starts it at the next whole hour in the automation's zone. Picking the choice already shown
+    /// keeps the time the owner set.
+    private var presetBinding: Binding<AutomationPreset> {
+        Binding(
+            get: { model.draft.schedule.preset },
+            set: { preset in
+                let switchingToOnce = preset == .once && model.draft.schedule.preset != .once
+                model.draft.schedule.preset = preset
+                if switchingToOnce {
+                    model.draft.schedule.onceAt = AutomationSchedule.nextWholeHour(now: Date(), zone: model.zone)
+                }
+            })
+    }
+
     /// The picked time, as minutes after midnight in the zone the schedule is written in.
     private var timeBinding: Binding<Date> {
         Binding(
@@ -266,13 +300,14 @@ struct AutomationEditorSheet: View {
         }
     }
 
-    private static func problemText(_ problem: AutomationScheduleProblem) -> String {
+    /// The words under the schedule. Nil for `switchKind`: the Repeats picker never offers the swap, so the form
+    /// cannot reach it.
+    private static func problemText(_ problem: AutomationScheduleProblem) -> String? {
         switch problem {
         case .past: return String(localized: "Pick a time that is still ahead.", bundle: .module)
         case .noDays: return String(localized: "Choose at least one day.", bundle: .module)
         case .hours: return String(localized: "Pick between 1 and 168 hours.", bundle: .module)
-        case .switchKind:
-            return String(localized: "A one-time automation can't become repeating, or the other way round. Make a new one instead.", bundle: .module)
+        case .switchKind: return nil
         case .emptyCustom: return String(localized: "Enter a schedule.", bundle: .module)
         }
     }

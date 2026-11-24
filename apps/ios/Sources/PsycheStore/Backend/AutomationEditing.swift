@@ -40,7 +40,8 @@ public struct AutomationSchedule: Sendable, Equatable {
     public var customText: String
 
     public init(
-        preset: AutomationPreset = .daily, onceAt: Date = Date(timeIntervalSince1970: 0), minuteOfDay: Int = 9 * 60,
+        preset: AutomationPreset = .daily, onceAt: Date = AutomationSchedule.nextWholeHour(now: Date(), zone: .current),
+        minuteOfDay: Int = 9 * 60,
         weekdays: Set<Int> = [1], intervalHours: Int = 6, customText: String = ""
     ) {
         self.preset = preset
@@ -49,6 +50,28 @@ public struct AutomationSchedule: Sendable, Equatable {
         self.weekdays = weekdays
         self.intervalHours = intervalHours
         self.customText = customText
+    }
+
+    /// The next whole hour after `now`, in `zone`: where a one-time schedule starts when the owner switches to Once.
+    public static func nextWholeHour(now: Date, zone: TimeZone) -> Date {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = zone
+        let thisHour = calendar.dateInterval(of: .hour, for: now)?.start ?? now
+        return calendar.date(byAdding: .hour, value: 1, to: thisHour) ?? now.addingTimeInterval(3600)
+    }
+
+    /// The presets an automation's Repeats picker offers. A new one gets every preset; one that repeats never gets
+    /// Once, and a one-time automation gets only Once, since the Gateway keeps an automation's kind. `current` stays
+    /// offered when it is a custom schedule the picker cannot write, so it can still be kept as it is.
+    public static func choices(editingKind: String?, current: AutomationPreset) -> [AutomationPreset] {
+        var base: [AutomationPreset]
+        switch editingKind {
+        case nil: base = [.once, .daily, .weekdays, .weekly, .interval]
+        case "reminder": base = [.once]
+        default: base = [.daily, .weekdays, .weekly, .interval]
+        }
+        if current == .custom { base.append(.custom) }
+        return base
     }
 
     /// Daily at 09:00, as the Mac's form starts. A one-time schedule starts tomorrow at 09:00 in `zone`.
@@ -185,6 +208,12 @@ public struct AutomationDetail: Sendable, Equatable, Identifiable {
     public var zone: TimeZone { TimeZone(identifier: timezone) ?? .current }
 }
 
+/// Why the prompt is refused: the words the form shows under it are different for each.
+public enum AutomationPromptProblem: String, Sendable, Equatable {
+    case empty
+    case tooLong
+}
+
 /// What the form shows as wrong. Save stays off while any of these is set.
 public struct AutomationDraftProblems: Sendable, Equatable, Error {
     public var prompt = false
@@ -267,6 +296,13 @@ public struct AutomationDraft: Sendable, Equatable {
         let line = String(firstLine.trimmingCharacters(in: .whitespacesAndNewlines).prefix(Self.maxTitleFromPrompt))
             .trimmingCharacters(in: .whitespacesAndNewlines)
         return line.isEmpty ? "Automation" : line
+    }
+
+    /// Why the prompt cannot be saved, if it cannot: empty, or over the limit. Length counts the trimmed text.
+    public var promptProblem: AutomationPromptProblem? {
+        if trimmedPrompt.isEmpty { return .empty }
+        if trimmedPrompt.utf16.count > Self.maxPrompt { return .tooLong }
+        return nil
     }
 
     /// What is wrong with the draft. Empty when it can be saved.

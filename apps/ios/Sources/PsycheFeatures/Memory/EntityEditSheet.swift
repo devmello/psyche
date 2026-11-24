@@ -80,8 +80,6 @@ struct EntityEditSheet: View {
                             Text("Paused", bundle: .module).tag(ProjectStatus.paused)
                             Text("Done", bundle: .module).tag(ProjectStatus.done)
                         }
-                    } header: {
-                        Text("Status", bundle: .module)
                     }
 
                     Section {
@@ -89,8 +87,6 @@ struct EntityEditSheet: View {
                         if draft.dueAt != nil {
                             DatePicker(String(localized: "Due date", bundle: .module), selection: dueDate, displayedComponents: .date)
                         }
-                    } header: {
-                        Text("Due date", bundle: .module)
                     } footer: {
                         if draft.dueAt == nil {
                             Text("No deadline", bundle: .module)
