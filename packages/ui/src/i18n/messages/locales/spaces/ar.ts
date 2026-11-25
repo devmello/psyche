@@ -129,7 +129,8 @@ export const spaces: Partial<Catalogue> = {
   "spaces.settings.mode.balanced": "متوازن",
   "spaces.settings.mode.auto": "تلقائي",
   "spaces.settings.mode.inheritHint": "تستخدم المحادثات هنا وضع الأذونات العام لديك.",
-  "spaces.settings.mode.planHint": "تقرأ المحادثات هنا وتخطط فقط؛ لا يتغير شيء.",
+  "spaces.settings.mode.planHint":
+    "تبدأ المحادثات الجديدة هنا في وضع التخطيط: تقرأ وتخطط فقط، ولا يتغير شيء.",
   "spaces.settings.mode.manualHint": "كل إجراء خارج الأذونات الممنوحة يسأل أولًا.",
   "spaces.settings.mode.balancedHint": "تُنفَّذ القراءات؛ أما الكتابة إلى الأشخاص والمال فتسأل أولًا.",
   "spaces.settings.mode.autoHint":

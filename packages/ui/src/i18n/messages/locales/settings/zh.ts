@@ -123,6 +123,10 @@ export const settings: Partial<Catalogue> = {
   "settings.key.notifications.quietHours.start": "免打扰开始于",
   "settings.key.notifications.quietHours.end": "免打扰持续到",
   "settings.notifications.title": "通知",
+  "settings.notifications.helper.title": "Psyche Helper 通知",
+  "settings.notifications.helper.hint":
+    "审批通知通过 Psyche Helper 送达。请允许它显示通知，这样窗口关闭时也能收到审批。",
+  "settings.notifications.helper.allow": "允许 Psyche Helper 通知",
   "settings.notifications.description": "Psyche 何时可以打扰你。",
   "settings.notifications.group.quietHours": "免打扰时段",
   "settings.notifications.quietHours.hint": "时段结束前暂存通知。时间紧迫的批准仍会送达。",

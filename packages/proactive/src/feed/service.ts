@@ -568,6 +568,8 @@ export class FeedService {
   job(): ProactiveJob {
     return {
       name: "feed brief",
+      // Reads and proposes only: safe to run again after a restart cut it off.
+      rerunOnInterrupt: true,
       matches: (a) => {
         const job = parseJobMarker(a.prompt)?.job;
         return job === FEED_BRIEF_JOB || job === FEED_BRIEFING_JOB;

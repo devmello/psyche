@@ -31,12 +31,14 @@ import { MailFollowupMethods } from "./mail-followups.ts";
 import { McpMethods } from "./mcp.ts";
 import { MemoryMethods } from "./memory.ts";
 import { ModelsMethods } from "./models.ts";
+import { NightShiftMethods } from "./night-shift.ts";
 import { NodeMethods } from "./node.ts";
 import { NodesMethods } from "./nodes.ts";
 import { NotificationsMethods } from "./notifications.ts";
 import { NudgeMethods } from "./nudges.ts";
 import { PasskeysMethods } from "./passkeys.ts";
 import { PluginsMethods } from "./plugins.ts";
+import { PointsMethods } from "./points.ts";
 import { FeedMethods, GoalsMethods, IdeasMethods } from "./proactive.ts";
 import { QuestionsMethods } from "./questions.ts";
 import { ArtifactsMethods, ReceiptsMethods } from "./receipts.ts";
@@ -94,12 +96,14 @@ export * from "./mail-followups.ts";
 export * from "./mcp.ts";
 export * from "./memory.ts";
 export * from "./models.ts";
+export * from "./night-shift.ts";
 export * from "./node.ts";
 export * from "./nodes.ts";
 export * from "./notifications.ts";
 export * from "./nudges.ts";
 export * from "./passkeys.ts";
 export * from "./plugins.ts";
+export * from "./points.ts";
 export * from "./proactive.ts";
 export * from "./questions.ts";
 export * from "./receipts.ts";
@@ -175,6 +179,7 @@ export const Methods = {
   ...RunsMethods,
   ...DictationMethods,
   ...TeachAppMethods,
+  ...PointsMethods,
   ...AttentionMethods,
   ...SkillsMethods,
   ...ConnectorBundleMethods,
@@ -189,6 +194,7 @@ export const Methods = {
   ...InsightsMethods,
   ...DailyMethods,
   ...MailFollowupMethods,
+  ...NightShiftMethods,
   ...NudgeMethods,
   ...ProposalsMethods,
   ...MeetingsMethods,

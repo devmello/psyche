@@ -1,5 +1,6 @@
 import type {
   Decision,
+  Message,
   ProvenanceOut,
   SideEffect,
   Target,
@@ -7,9 +8,9 @@ import type {
   ToolCallStatus,
 } from "@psyche/protocol";
 import { and, eq, inArray, lt, sql } from "drizzle-orm";
-import { encodeJson, fromBool, toolCallFromRow } from "../mappers.ts";
+import { decodeJson, encodeJson, fromBool, messageFromRow, toolCallFromRow } from "../mappers.ts";
 import type { PsycheDb } from "../open.ts";
-import { runs, toolCalls, toolPayloads } from "../schema.ts";
+import { messages, runs, toolCalls, toolPayloads } from "../schema.ts";
 
 export interface ToolCallUpsert {
   readonly id: string;
@@ -139,6 +140,65 @@ export function markInterruptedToolCalls(db: PsycheDb): ToolCall[] {
     .returning()
     .all()
     .map(toolCallFromRow);
+}
+
+/**
+ * A run ended cancelled or failed (Stop, an interrupt, a crash in the turn): its calls still
+ * `pending` or `running` will never finish. Read-only calls (`none`, `read`) become `failed`, the
+ * rest `uncertain` as in the boot sweep, since whether a side effect happened is unknown. The
+ * run's committed messages carry the same status in their tool blocks, so they are rewritten
+ * too. Returns what changed, for the caller to publish.
+ */
+export function settleRunToolCalls(
+  db: PsycheDb,
+  runId: string,
+): { calls: ToolCall[]; messages: Message[] } {
+  return db.sqlite.transaction(() => {
+    const at = db.now();
+    const open = listToolCallsForRun(db, runId).filter(
+      (c) => c.status === "pending" || c.status === "running",
+    );
+    const calls: ToolCall[] = [];
+    for (const c of open) {
+      const status: ToolCallStatus =
+        c.sideEffect === "none" || c.sideEffect === "read" ? "failed" : "uncertain";
+      const row = db.drizzle
+        .update(toolCalls)
+        .set({ status, endedAt: at, updatedAt: at })
+        .where(eq(toolCalls.id, c.id))
+        .returning()
+        .get();
+      if (row !== undefined) calls.push(toolCallFromRow(row));
+    }
+    const statusById = new Map(listToolCallsForRun(db, runId).map((c) => [c.id, c.status]));
+    const changed: Message[] = [];
+    const rows = db.drizzle.select().from(messages).where(eq(messages.runId, runId)).all();
+    for (const row of rows) {
+      const blocks = decodeJson<Message["blocks"]>(row.blocks);
+      let touched = false;
+      const next = blocks.map((b) => {
+        if (b.type !== "tool_call" || (b.status !== "pending" && b.status !== "running")) return b;
+        touched = true;
+        const status = statusById.get(b.toolCallId);
+        return {
+          ...b,
+          status:
+            status === undefined || status === "pending" || status === "running"
+              ? "failed"
+              : status,
+        };
+      });
+      if (!touched) continue;
+      const updated = db.drizzle
+        .update(messages)
+        .set({ blocks: JSON.stringify(next) })
+        .where(eq(messages.id, row.id))
+        .returning()
+        .get();
+      if (updated !== undefined) changed.push(messageFromRow(updated));
+    }
+    return { calls, messages: changed };
+  })();
 }
 
 // --- Level-3 payloads (data model §12) ---------------------------------------------------------

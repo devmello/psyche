@@ -201,6 +201,12 @@ export const es: Partial<Catalogue> = {
   "chat.queue.notSent": "no enviado",
   "chat.queue.retry": "Reintentar el envío de «{content}»",
   "chat.queue.remove": "Quitar de la cola el mensaje «{content}»",
+  "chat.thread.loadingEarlier": "Cargando mensajes anteriores",
+  "chat.thread.loadEarlierFailed": "No se pudieron cargar los mensajes anteriores.",
+  "chat.thread.focusNotFound": "No se encontró ese mensaje en este chat.",
+  "chat.queue.parked": "en pausa tras detener",
+  "chat.queue.sendQueued": "Enviar en cola",
+  "chat.queue.sendQueuedLabel": "Enviar el mensaje en cola «{content}»",
 
   "chat.commands.model.hint": "proveedor/modelo",
   "chat.commands.model.description": "Elegir el modelo de esta conversación",
@@ -477,6 +483,7 @@ export const es: Partial<Catalogue> = {
   "blocks.toolRun.status.failed": "fallido",
   "blocks.toolRun.status.uncertain": "resultado desconocido",
   "blocks.toolRun.status.blocked": "bloqueado",
+  "blocks.toolRun.status.stopped": "detenido",
   "blocks.toolRun.summary": "{count, plural, one {# acción} other {# acciones}} · {families}",
   "blocks.toolRun.untrustedOutput": "salida no fiable",
   "blocks.toolRun.trustedOutput": "salida fiable",
@@ -1808,13 +1815,19 @@ export const es: Partial<Catalogue> = {
   "settings.computerUse.tccState.granted": "Concedido",
   "settings.computerUse.tccState.denied": "Denegado",
   "settings.computerUse.tccState.not_determined": "Aún no solicitado",
+  "settings.computerUse.tccState.offline": "Ayudante sin conexión",
+  "settings.computerUse.helperAccess.hint":
+    "El control del ordenador se ejecuta en Psyche Helper. Activa «Psyche Helper», no «Psyche».",
+  "settings.computerUse.helperAccess.offline":
+    "Psyche Helper no está en ejecución, así que no se pueden leer sus permisos. Se inicia con Psyche; cierra y vuelve a abrir Psyche si sigue sin conexión.",
+  "settings.computerUse.helperAccess.allow": "Permitir a Psyche Helper",
+  "settings.computerUse.helperAccess.allowFor": "Permitir a Psyche Helper: {name}",
   "settings.computerUse.title": "Uso del ordenador",
   "settings.computerUse.description":
     "{persona} solo puede usar las apps de este Mac donde tú lo permitas.",
   "settings.computerUse.escStops": "detiene el uso del ordenador en cualquier momento.",
   "settings.computerUse.loadLabel": "el uso del ordenador",
   "settings.computerUse.macPermissions": "Permisos de macOS",
-  "settings.computerUse.openSystemSettingsFor": "Abrir Ajustes del Sistema para {name}",
   "settings.computerUse.openSystemSettings": "Abrir Ajustes del Sistema",
   "settings.computerUse.apps": "Apps",
   "settings.computerUse.enabledHint":

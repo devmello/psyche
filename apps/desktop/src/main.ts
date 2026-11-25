@@ -139,6 +139,11 @@ import { PasskeyHost } from "./main/passkey-host.ts";
 import { createPasskeyWindow } from "./main/passkey-window.ts";
 import { perfHold, perfProbeFile, startProbe, watchFirstPaint } from "./main/perf-probe.ts";
 import {
+  createHelperPermissions,
+  HELPER_PERMISSION_KINDS,
+  type HelperPermissionKind,
+} from "./main/permissions/helper-permissions.ts";
+import {
   createPermissions,
   notificationStateOf,
   PERMISSION_KINDS,
@@ -743,6 +748,9 @@ const sandboxPc = createSandboxPc({
   },
   onState: (s) => broadcast(IPC.sandboxPcState, s),
 });
+
+/** The helper's own Accessibility and Screen Recording, for Settings -> Computer use. */
+const helperPermissions = createHelperPermissions({ invoke: invokeHelper });
 
 /** macOS privacy permissions for onboarding and Settings (issue #384). */
 const permissions = createPermissions({
@@ -1419,6 +1427,7 @@ function registerIpc(): void {
     return dictation?.status;
   });
   handle(IPC.permissionsStatus, () => permissions.statusAll());
+  handle(IPC.helperPermissionsStatus, () => helperPermissions.status());
   // Windows: Settings → Sandbox PC. State, and "Turn on" (the elevated service install, the helper
   // restart and the guest image download). Nothing in the arguments: main computes every path.
   handle(IPC.sandboxPcGetState, () => sandboxPc.getState());
@@ -1821,6 +1830,19 @@ function registerIpc(): void {
       throw new Error(`${IPC.permissionsRequest}: unknown permission ${kind}`);
     }
     return permissions.request(kind as PermissionKind);
+  });
+  handle(IPC.helperPermissionsRequest, (_event, arg) => {
+    if (integrityBlocked) throw new Error(integrityMessage);
+    const kind = str(
+      IPC.helperPermissionsRequest,
+      rec(IPC.helperPermissionsRequest, arg).kind,
+      "kind",
+      32,
+    );
+    if (!(HELPER_PERMISSION_KINDS as readonly string[]).includes(kind)) {
+      throw new Error(`${IPC.helperPermissionsRequest}: unknown permission ${kind}`);
+    }
+    return helperPermissions.request(kind as HelperPermissionKind);
   });
   handle(IPC.dictationCheckHotkey, (_event, arg) => {
     const r = rec(IPC.dictationCheckHotkey, arg);

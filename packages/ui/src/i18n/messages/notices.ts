@@ -7,8 +7,11 @@
  */
 export const notices = {
   "notice.install.failed.title": "An approved install didn't finish",
+  "notice.connectors.matrix.failed.title": "A connector rule didn't save",
+  "notice.connectors.matrix.failed.body":
+    "{action} on {connector} couldn't be applied, so it still uses its previous rule. Check it in Settings › Connectors.",
   "notice.install.failed.body":
-    "{reason, select, lost {Psyche restarted before you approved it, so the proposal was lost. Propose it again.} expired {The proposal had expired before you approved it. Propose it again.} other {Psyche could not install it. Check the list and try again.}}",
+    "{reason, select, lost {Psyche restarted before you approved it, so the proposal was lost. Propose it again.} expired {The proposal had expired before you approved it. Propose it again.} other {Psyche could not install it. Propose it again, or ask Psyche to.}}",
   "notice.security.changed.title": "Psyche undid a security change made outside the app",
   "notice.security.changed.body":
     "A program on this Mac changed {count, plural, =1 {# security record} other {# security records}} (devices, keys, grants or settings) without going through Psyche{times, plural, =0 {} =1 {} other {, # times so far}}. Psyche put them back. If you did not do this, check the Mac for unwanted software.",
@@ -43,6 +46,12 @@ export const notices = {
     "{reason, select, account_changed {A connector now signs in to a different account. Work bound to the old account was stopped.} disconnected {A connector was disconnected. Work that needed it was stopped.} scope_changed {A connector is now read-only. Pending actions through it were stopped.} other {A connector's access was revoked. Sign in again to keep using it.}}",
   "notice.connector.reconnect.title": "Reconnect needed",
   "notice.connector.reconnect.body": "A connector lost access and needs you to sign in again.",
+  "notice.connector.syncFailing.title": "{name} isn't syncing",
+  "notice.connector.syncFailing.body":
+    "{name} failed to sync several times in a row ({reason}). Psyche keeps retrying. Open Settings › Connectors to check it.",
+  "notice.connector.testingExpired.title": "Google signed you out",
+  "notice.connector.testingExpired.body":
+    "Google signs you out after 7 days while the Psyche OAuth app is in Testing mode. Publish the OAuth app in Google Cloud to stop this, then reconnect Google in Settings › Connectors.",
   "notice.attention.paused.title": "A task is waiting for you",
   "notice.attention.paused.body":
     "Paused before {tool} on a sensitive app or site until you are back in Psyche.",
@@ -104,4 +113,10 @@ export const notices = {
   "notice.machine.offline.title": "{name} went offline",
   "notice.machine.offline.body":
     "A task is waiting to use it and goes on when {name} is back. You can also cancel the task.",
+  "notice.automation.needsApproval.title": "{title} is waiting for your approval",
+  "notice.automation.needsApproval.body":
+    "It stopped because the approval ran out. Open Approvals to see what it needs, then run it again.",
+  "notice.automation.interrupted.title": "{title} was interrupted",
+  "notice.automation.interrupted.body":
+    "Psyche restarted while it was running, and it may have done part of it. Check the result, then run it again if you need to.",
 } as const;

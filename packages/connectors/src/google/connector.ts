@@ -301,10 +301,15 @@ export class GoogleConnector implements Connector {
   async sync(cursor: Record<string, unknown> | null, signal?: AbortSignal): Promise<SyncResult> {
     return this.#guard(async () => {
       const c = (cursor ?? {}) as {
-        gmail?: { historyId?: string };
+        gmail?: { historyId?: string; pageToken?: string; syncedAt?: number };
         calendars?: Record<string, string>;
       };
-      const mail = await this.#gmail.sync(c.gmail?.historyId, signal);
+      const now = this.#ctx.clock.now();
+      const mail = await this.#gmail.sync(c.gmail?.historyId, signal, {
+        ...(c.gmail?.pageToken === undefined ? {} : { pageToken: c.gmail.pageToken }),
+        ...(c.gmail?.syncedAt === undefined ? {} : { sinceMs: c.gmail.syncedAt }),
+        nowMs: now,
+      });
       const calendars: Record<string, string> = {};
       let events = 0;
       let full = mail.full;
@@ -318,8 +323,18 @@ export class GoogleConnector implements Connector {
       return {
         changes: mail.messageIds.length + events,
         full,
+        ...(mail.truncated ? { truncated: true } : {}),
         cursor: {
-          gmail: { historyId: mail.historyId },
+          // `syncedAt` is the last sync that read everything: it stays put while pages remain.
+          gmail: {
+            historyId: mail.historyId,
+            ...(mail.nextPageToken === undefined
+              ? { syncedAt: now }
+              : {
+                  pageToken: mail.nextPageToken,
+                  ...(c.gmail?.syncedAt === undefined ? {} : { syncedAt: c.gmail.syncedAt }),
+                }),
+          },
           calendars,
           newMessageIds: mail.messageIds.slice(0, 500),
         },

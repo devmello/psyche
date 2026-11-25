@@ -30,6 +30,7 @@ import {
   inputFromRow,
   json,
   parseJson,
+  readStaging,
   type TaskRow,
   taskFromRow,
 } from "./rows.ts";
@@ -61,6 +62,9 @@ export interface SqliteTaskEngineOptions {
 
 /** Longest level-1 status line kept; longer lines are cut with an ellipsis. */
 export const LEVEL1_MAX = 200;
+/** `outcome.result` of an unattended task that ended because its approval ran out unanswered. */
+export const NEEDS_APPROVAL_RESULT = "needs_approval";
+export const NEEDS_APPROVAL_SUMMARY = "Needs approval: the approval expired before it was answered";
 
 const questionValidator = createValidator(Question);
 const isTerminal = (s: TaskStatus) => TERMINAL_TASK_STATUSES.includes(s);
@@ -313,16 +317,22 @@ export class SqliteTaskEngine implements TaskEngine {
         "Imported conversations are read-only: no task can run in one.",
       );
     }
+    // Server-only (night-shift-2026 §2.2): validated here, and a staging task never runs attended.
+    const staging = input.staging === undefined ? null : readStaging(input.staging);
+    if (staging !== null && (input.mode ?? "attended") !== "unattended") {
+      throw new PsycheError("invalid_params", "a staging task runs unattended");
+    }
     const id = this.#newId();
     const now = this.#iso();
     const event = this.#tx(() => {
       this.#db.sqlite
         .prepare(
           `INSERT INTO tasks (id, thread_id, title, goal, status, created_from, plan, checklist,
-            attempt, run_mode, budget, taint, taint_sources, workspace, specialist, created_at,
-            updated_at)
+            attempt, run_mode, budget, taint, taint_sources, workspace, specialist, staging,
+            created_at, updated_at)
            VALUES (@id, @thread_id, @title, @goal, 'queued', @created_from, @plan, @checklist,
-            0, @run_mode, @budget, @taint, @taint_sources, @workspace, @specialist, @now, @now)`,
+            0, @run_mode, @budget, @taint, @taint_sources, @workspace, @specialist, @staging,
+            @now, @now)`,
         )
         .run({
           id,
@@ -339,6 +349,7 @@ export class SqliteTaskEngine implements TaskEngine {
           taint_sources: json(input.taintSources),
           workspace: input.workspace ?? null,
           specialist: json(input.specialist ?? null),
+          staging: staging === null ? null : JSON.stringify(staging),
           now,
         });
       return this.#updated(id);
@@ -388,6 +399,8 @@ export class SqliteTaskEngine implements TaskEngine {
       budget: parseJson<TaskBudget>(row.budget),
       awaiting: parseJson<Awaiting>(row.awaiting),
       resume: parseJson<ResumeItem[]>(row.resume) ?? [],
+      // A stored block that cannot be read throws: the task must not run unstaged.
+      staging: row.staging == null ? null : readStaging(row.staging, true),
     };
   }
 
@@ -481,6 +494,9 @@ export class SqliteTaskEngine implements TaskEngine {
       if (options.excludeOrigins !== undefined && options.excludeOrigins.length > 0) {
         filters.push(`created_from NOT IN (${list("xorg", options.excludeOrigins)})`);
       }
+      if (options.excludeTaskIds !== undefined && options.excludeTaskIds.length > 0) {
+        filters.push(`NOT (status = 'running' AND id IN (${list("xid", options.excludeTaskIds)}))`);
+      }
       if (options.perParentLimit !== undefined) {
         params.perParent = options.perParentLimit;
         filters.push(`(specialist IS NULL OR (
@@ -549,12 +565,16 @@ export class SqliteTaskEngine implements TaskEngine {
     return result.lease;
   }
 
-  #checkLease(lease: TaskLease): TaskRow {
+  #checkLease(lease: TaskLease, options: { allowExpired?: boolean } = {}): TaskRow {
     const row = this.#row(lease.taskId);
     if (row.lease_token !== lease.token || row.status !== "running") {
       return fail("conflict", "lease lost");
     }
-    if (row.lease_until !== null && row.lease_until <= this.#iso()) {
+    if (
+      options.allowExpired !== true &&
+      row.lease_until !== null &&
+      row.lease_until <= this.#iso()
+    ) {
       return fail("conflict", "lease expired");
     }
     return row;
@@ -569,7 +589,9 @@ export class SqliteTaskEngine implements TaskEngine {
 
   async renew(lease: TaskLease, leaseMs: number): Promise<TaskLease> {
     return this.#tx(() => {
-      this.#checkLease(lease);
+      // A lease whose time ran out but whose token is still the task's is still ours: nobody
+      // claimed it. The Mac slept (the wall clock moved, the worker did not), so renewing is right.
+      this.#checkLease(lease, { allowExpired: true });
       const until = this.clock.now() + leaseMs;
       this.#patch(lease.taskId, { lease_until: new Date(until).toISOString() });
       return { ...lease, until };
@@ -1029,6 +1051,26 @@ export class SqliteTaskEngine implements TaskEngine {
             "UPDATE task_checkpoints SET status = 'pending', updated_at = ? WHERE task_id = ? AND step_id = ? AND status != 'uncertain'",
           )
           .run(this.#iso(), taskId, awaiting.stepId);
+      }
+      if (approval.status === "expired" && row.run_mode === "unattended") {
+        // Nobody answered an unattended run (an automation, or a specialist job one started): end it as needing approval instead of re-queueing
+        // the step, which would raise the same card again and keep the automation busy for good.
+        this.#setStatus(row, "cancelled", {
+          summary: NEEDS_APPROVAL_SUMMARY,
+          outcome: JSON.stringify({ result: NEEDS_APPROVAL_RESULT, approvalId: approval.id }),
+          awaiting: null,
+          resume,
+        });
+        out.push(
+          this.#actionEvent(
+            this.#insertAction(taskId, {
+              level1: "Approval expired; the run ended and waits for you to run it again",
+              level2: { tool: "approval", target: approval.id, outcome: "expired" },
+            }),
+          ),
+        );
+        out.push(this.#updated(taskId));
+        return out;
       }
       const level1 =
         approval.status === "approved"

@@ -72,6 +72,8 @@ export function withWeeklyCard<R extends LaunchRequest, Run>(
       })().catch((): LaunchResult => ({ status: "failed", summary: "Weekly card failed" }));
       return { result };
     },
+    // The weekly card only reads and posts a Feed card.
+    rerunOnInterrupt: (a) => isWeeklyCardAutomation(a) || inner.rerunOnInterrupt?.(a) === true,
     ...(inner.reattach === undefined ? {} : { reattach: (run: Run) => inner.reattach?.(run) }),
     ...(inner.cancel === undefined
       ? {}

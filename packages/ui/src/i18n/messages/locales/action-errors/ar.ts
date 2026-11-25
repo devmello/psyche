@@ -11,5 +11,6 @@ export const actionErrors: Partial<Catalogue> = {
   "actionError.language": "تعذّر تغيير اللغة ({reason}).",
   "actionError.transcriptMode": "تعذّر تغيير تفاصيل النص ({reason}).",
   "actionError.screenAskDestination": "تعذّر تغيير وجهة أسئلة الشاشة ({reason}).",
+  "actionError.stopVirtualScreen": "تعذّر إيقاف الشاشة الافتراضية ({reason}). قد تكون ما زالت تعمل.",
   "actionError.takeOver": "تعذّر تولّي الشاشة الافتراضية ({reason}).",
 };

@@ -225,6 +225,12 @@ export const de: Partial<Catalogue> = {
   "chat.queue.notSent": "nicht gesendet",
   "chat.queue.retry": "„{content}“ erneut senden",
   "chat.queue.remove": "Wartende Nachricht „{content}“ entfernen",
+  "chat.thread.loadingEarlier": "Frühere Nachrichten werden geladen",
+  "chat.thread.loadEarlierFailed": "Frühere Nachrichten konnten nicht geladen werden.",
+  "chat.thread.focusNotFound": "Diese Nachricht wurde in diesem Chat nicht gefunden.",
+  "chat.queue.parked": "nach Stopp pausiert",
+  "chat.queue.sendQueued": "Wartende senden",
+  "chat.queue.sendQueuedLabel": "Wartende Nachricht „{content}“ senden",
 
   "chat.commands.model.hint": "anbieter/modell",
   "chat.commands.model.description": "Modell für diesen Thread wählen",
@@ -503,6 +509,7 @@ export const de: Partial<Catalogue> = {
   "blocks.toolRun.status.failed": "fehlgeschlagen",
   "blocks.toolRun.status.uncertain": "Ergebnis unbekannt",
   "blocks.toolRun.status.blocked": "blockiert",
+  "blocks.toolRun.status.stopped": "gestoppt",
   "blocks.toolRun.summary": "{count, plural, one {# Aktion} other {# Aktionen}} · {families}",
   "blocks.toolRun.untrustedOutput": "nicht vertrauenswürdige Ausgabe",
   "blocks.toolRun.trustedOutput": "vertrauenswürdige Ausgabe",
@@ -1833,13 +1840,19 @@ export const de: Partial<Catalogue> = {
   "settings.computerUse.tccState.granted": "Erlaubt",
   "settings.computerUse.tccState.denied": "Verweigert",
   "settings.computerUse.tccState.not_determined": "Noch nicht gefragt",
+  "settings.computerUse.tccState.offline": "Helfer offline",
+  "settings.computerUse.helperAccess.hint":
+    "Die Computersteuerung läuft in Psyche Helper. Aktiviere „Psyche Helper“, nicht „Psyche“.",
+  "settings.computerUse.helperAccess.offline":
+    "Psyche Helper läuft nicht, daher lassen sich seine Berechtigungen nicht lesen. Er startet mit Psyche; beende Psyche und öffne es neu, falls er offline bleibt.",
+  "settings.computerUse.helperAccess.allow": "Psyche Helper erlauben",
+  "settings.computerUse.helperAccess.allowFor": "Psyche Helper für {name} erlauben",
   "settings.computerUse.title": "Computersteuerung",
   "settings.computerUse.description":
     "{persona} kann Apps auf diesem Mac nur dort verwenden, wo du es erlaubst.",
   "settings.computerUse.escStops": "stoppt die Computersteuerung jederzeit.",
   "settings.computerUse.loadLabel": "Computersteuerung",
   "settings.computerUse.macPermissions": "macOS-Berechtigungen",
-  "settings.computerUse.openSystemSettingsFor": "Systemeinstellungen für {name} öffnen",
   "settings.computerUse.openSystemSettings": "Systemeinstellungen öffnen",
   "settings.computerUse.apps": "Apps",
   "settings.computerUse.enabledHint":

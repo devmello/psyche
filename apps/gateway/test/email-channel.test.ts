@@ -115,6 +115,90 @@ function inbound(): InboundMessage {
   };
 }
 
+/** A mailbox of uids 1..total: `sync` returns the uids from the saved `uidNext`, like IMAP. */
+function mailbox(total: number, opts: { bad?: Set<string>; readFails?: boolean } = {}) {
+  const read: string[] = [];
+  const backend = {
+    kind: "imap" as const,
+    hosts: ["imap.example.org"],
+    open: async () => {
+      const session: Partial<MailSession> = {
+        sync: async (cursor) => {
+          const from = Number(
+            (cursor as { inbox?: { uidNext?: number } } | null)?.inbox?.uidNext ?? 1,
+          );
+          const ids = Array.from({ length: Math.max(0, total - from + 1) }, (_, i) =>
+            String(from + i),
+          );
+          return {
+            changes: ids.length,
+            full: false,
+            cursor: { inbox: { uidValidity: 1, uidNext: total + 1 } },
+            newMessageIds: ids,
+          };
+        },
+        read: async ({ id }) => {
+          read.push(id);
+          if (opts.readFails || opts.bad?.has(id)) throw new Error("fetch failed");
+          return view({ id, messageId: `<m${id}@mail.example>` });
+        },
+        close: async () => undefined,
+      };
+      return session as MailSession;
+    },
+  } as unknown as MailBackend;
+  return { backend, read };
+}
+
+describe("email poll batches", () => {
+  const transport = async (backend: MailBackend) =>
+    mailEmailTransport(await services(), {
+      address: ME,
+      imap: {},
+      password: staticSecret("app-password"),
+      backend,
+    });
+
+  it("processes 120 new messages over 3 polls and loses none", async () => {
+    const { backend } = mailbox(120);
+    const t = await transport(backend);
+    let cursor: Record<string, unknown> | null = null;
+    const ids: string[] = [];
+    const sizes: number[] = [];
+    for (let i = 0; i < 3; i++) {
+      const r = await t.poll(cursor as never);
+      sizes.push(r.messages.length);
+      ids.push(...r.messages.map((m) => m.id));
+      cursor = r.cursor;
+    }
+    expect(sizes).toEqual([50, 50, 20]);
+    expect(ids).toEqual(Array.from({ length: 120 }, (_, i) => String(i + 1)));
+    expect(cursor).toEqual({ inbox: { uidValidity: 1, uidNext: 121 } });
+    expect((await t.poll(cursor as never)).messages).toEqual([]);
+  });
+
+  it("a partial batch saves a cursor just past what it read", async () => {
+    const { backend } = mailbox(120);
+    const t = await transport(backend);
+    const r = await t.poll(null);
+    expect(r.cursor).toEqual({ inbox: { uidValidity: 1, uidNext: 51 } });
+  });
+
+  it("skips one message that cannot be read and still delivers the rest", async () => {
+    const { backend } = mailbox(5, { bad: new Set(["3"]) });
+    const t = await transport(backend);
+    const r = await t.poll(null);
+    expect(r.messages.map((m) => m.id)).toEqual(["1", "2", "4", "5"]);
+    expect(r.cursor).toEqual({ inbox: { uidValidity: 1, uidNext: 6 } });
+  });
+
+  it("fails the poll, keeping the cursor, when no message at all can be read", async () => {
+    const { backend } = mailbox(3, { readFails: true });
+    const t = await transport(backend);
+    await expect(t.poll(null)).rejects.toMatchObject({ code: "unavailable" });
+  });
+});
+
 describe("email transport over the mail backend", () => {
   it("polls through a session, maps senders to bare addresses, and uses the password only to open", async () => {
     const s = await services();

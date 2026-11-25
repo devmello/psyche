@@ -16,6 +16,8 @@ import type { DailyService } from "./service.ts";
 import type { DailySettings } from "./settings.ts";
 import { confirmWorkflow } from "./workflows.ts";
 
+const zoneOf = (z: string | (() => string)): string => (typeof z === "function" ? z() : z);
+
 export interface DailyHandlerDeps {
   daily: DailyService | undefined;
   followups: FollowupStore;
@@ -23,7 +25,8 @@ export interface DailyHandlerDeps {
   scheduler: SchedulerLike;
   provider: ModelProvider | undefined;
   model: ModelRef | undefined;
-  timezone: string;
+  /** A function so a zone change (travel) reaches "today" without a restart. */
+  timezone: string | (() => string);
   now: () => number;
   validate?: ValidateSchedule;
 }
@@ -61,7 +64,7 @@ export function createDailyHandlers(d: DailyHandlerDeps) {
       return {
         added: d.followups.ingestOwnerText(p.text, p.source, {
           sensitivity: s.sensitivity,
-          timezone: d.timezone,
+          timezone: zoneOf(d.timezone),
           ...(p.sourceLink === undefined ? {} : { sourceLink: p.sourceLink }),
         }),
       };
@@ -74,7 +77,7 @@ export function createDailyHandlers(d: DailyHandlerDeps) {
       parseAutomation(p.text, {
         provider: d.provider,
         model: d.model,
-        timezone: d.timezone,
+        timezone: zoneOf(d.timezone),
         now: d.now,
         ...(d.validate === undefined ? {} : { validate: d.validate }),
       }),

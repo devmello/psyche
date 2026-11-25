@@ -16,6 +16,12 @@ extension FixtureBackend {
         return memoryState.learning.lessons
     }
 
+    public func lessonsPage(cursor: String?) async throws -> LessonsPage {
+        await pause()
+        // The demo keeps its few lessons on one page.
+        return LessonsPage(lessons: memoryState.learning.lessons, nextCursor: nil)
+    }
+
     public func confirmLesson(id: String) async throws {
         guard let index = memoryState.learning.lessons.firstIndex(where: { $0.id == id }) else {
             throw BackendError.notFound

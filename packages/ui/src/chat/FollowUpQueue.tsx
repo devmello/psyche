@@ -21,6 +21,7 @@ export function FollowUpQueue({
   onRemove,
   onRetry,
   onSendNow,
+  onSendQueued,
 }: {
   items: readonly QueuedFollowUp[];
   onRemove: (id: string) => void;
@@ -28,6 +29,8 @@ export function FollowUpQueue({
   onRetry?: (id: string) => void;
   /** Sends a queued item now instead of after the turn. */
   onSendNow?: (item: QueuedFollowUp, mode: "steer" | "interrupt") => void;
+  /** Lets an item Stop held go out once the run has ended. */
+  onSendQueued?: (id: string) => void;
 }): ReactElement | null {
   if (items.length === 0) return null;
   return (
@@ -37,7 +40,7 @@ export function FollowUpQueue({
           key={q.id}
           className="bg-surface-raised shadow-elevation-1 inline-flex h-7 max-w-full items-center gap-1.5 rounded-full ps-3 pe-1 text-callout text-label-primary"
         >
-          {onSendNow && !q.failed ? (
+          {onSendNow && !q.failed && !q.parked ? (
             <DropdownMenu>
               <DropdownMenuTrigger
                 className="inline-flex shrink-0 cursor-default items-center gap-0.5 rounded-full text-label-secondary transition-colors duration-(--duration-micro) outline-none hover:text-label-primary focus-visible:ring-2 focus-visible:ring-ring"
@@ -64,6 +67,21 @@ export function FollowUpQueue({
             </span>
           )}
           <span className="truncate">{t("chat.quote.text", { text: q.content })}</span>
+          {q.parked && !q.failed ? (
+            <>
+              <span className="shrink-0 text-label-secondary">{t("chat.queue.parked")}</span>
+              {onSendQueued ? (
+                <button
+                  type="button"
+                  onClick={() => onSendQueued(q.id)}
+                  className="cursor-default rounded-sm px-1 text-accent-11 hover:bg-fill-tertiary"
+                  aria-label={t("chat.queue.sendQueuedLabel", { content: q.content })}
+                >
+                  {t("chat.queue.sendQueued")}
+                </button>
+              ) : null}
+            </>
+          ) : null}
           {q.failed ? (
             <>
               <span className="text-danger-text">{t("chat.queue.notSent")}</span>

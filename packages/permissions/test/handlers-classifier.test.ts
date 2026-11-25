@@ -133,10 +133,53 @@ describe("API handlers", () => {
     expect(
       (await api["grants.revoke"]({ grantId: res.grant?.id }, desktop)).grant.revokedAt,
     ).toBeTypeOf("string");
+    // The revoke is recorded as the owner's device that did it, not as a system action.
+    const revokedRows = (await api["audit.list"]({ kindPrefix: "grant.revoked" }, desktop)).entries;
+    expect(revokedRows).toHaveLength(1);
+    expect(revokedRows[0]?.actor).toEqual({
+      type: "device",
+      deviceId: "dev_mac",
+      surface: "desktop",
+    });
     const entries = (await api["audit.list"]({ kindPrefix: "approval." }, desktop)).entries;
     expect(entries.map((e) => e.kind)).toEqual(["approval.created", "approval.decided"]);
     expect(await api["audit.verify"]({}, desktop)).toMatchObject({ ok: true });
     expect((await api["audit.export"]({}, desktop)).data.split("\n").length).toBeGreaterThan(3);
+  });
+
+  it("access.revoke records the owner's device as the actor of the grant revoke", async () => {
+    const h = makeBroker();
+    const api = createPermissionHandlers(h.broker, h.audit);
+    const d = await h.broker.decide(call("calendar.create", "write"), CTX);
+    const issued = await h.broker.requestApproval({
+      kind: d.approvalKind ?? "calendar_write",
+      summary: "x",
+      details: {},
+      bindingHash: d.bindingHash ?? "",
+      grantKey: d.grantKey ?? "",
+      requestedBy: { runId: CTX.runId, taskId: CTX.taskId ?? null, threadId: CTX.threadId },
+      sideEffect: "write",
+      surfaces: ["desktop"],
+      taint: false,
+    });
+    h.clock.advance(500);
+    const res = await api["approvals.answer"](
+      {
+        approvalId: issued.approval.id,
+        answerToken: issued.answerTokens.desktop,
+        decision: "approve",
+        scope: "always",
+      },
+      desktop,
+    );
+    const grantId = res.grant?.id;
+    expect(grantId).toBeTypeOf("string");
+    expect((await api["access.revoke"]({ entryId: `grant:${grantId}` }, desktop)).revoked).toBe(
+      true,
+    );
+    const rows = (await api["audit.list"]({ kindPrefix: "grant.revoked" }, desktop)).entries;
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.actor).toEqual({ type: "device", deviceId: "dev_mac", surface: "desktop" });
   });
 
   it("node-role connections are refused", async () => {

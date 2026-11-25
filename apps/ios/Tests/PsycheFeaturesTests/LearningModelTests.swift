@@ -24,25 +24,25 @@ struct LearningModelTests {
     @Test func lessonsLoadFromTheDemo() async {
         let model = model()
         await model.loadLessons()
-        #expect(model.lessons.value?.count == 3)
+        #expect(model.lessons.rows.count == 3)
     }
 
     @Test func forgettingALessonRemovesItFromTheList() async {
         let model = model()
         await model.loadLessons()
-        guard let lesson = model.lessons.value?.first else {
+        guard let lesson = model.lessons.rows.first else {
             Issue.record("no lessons loaded")
             return
         }
         await model.forget(lesson)
-        #expect(model.lessons.value?.contains(lesson) == false)
+        #expect(model.lessons.rows.contains(lesson) == false)
         #expect(model.notice == nil)
     }
 
     @Test func confirmingALessonKeepsItAndMarksItConfirmed() async {
         let model = model()
         await model.loadLessons()
-        guard let lesson = model.lessons.value?.first(where: { !$0.confirmed }) else {
+        guard let lesson = model.lessons.rows.first(where: { !$0.confirmed }) else {
             Issue.record("no unconfirmed lesson in the demo")
             return
         }

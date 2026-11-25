@@ -28,6 +28,21 @@ public enum ShareInboxDrain {
         }
     }
 
+    /// What a live event means for the share inbox. A thread change rewrites the share sheet's recents. A
+    /// reconnect (`.resynced`) also drains: on a cold launch the first drain runs while the phone is still
+    /// connecting, finds the Mac unreachable and leaves the items queued, and only this retries them.
+    public static func react(to event: LiveEvent, inbox: ShareInbox, backend: any PsycheBackend) async {
+        switch event {
+        case .changed(.threads):
+            await writeRecents(inbox: inbox, backend: backend)
+        case .resynced:
+            await writeRecents(inbox: inbox, backend: backend)
+            await run(inbox: inbox, backend: backend)
+        default:
+            break
+        }
+    }
+
     /// Whether a failed attempt should use one of an item's `maxAttempts`. Away from the Mac (`unreachable`, or
     /// no network at all) is not the item's fault: it waits without losing an attempt, so a week away from home
     /// cannot throw a share out. Anything else (refused, not found, a bad file) counts.

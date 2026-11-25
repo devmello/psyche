@@ -33,7 +33,9 @@ import {
 import { FeedbackEvent, Lesson, LessonStatus } from "./schemas/learning.ts";
 import { MachineInfo } from "./schemas/machines.ts";
 import { MemoryChangeSource, MemoryJob, PersonaIdentity } from "./schemas/memory.ts";
+import { NightShiftNight, StagedAction } from "./schemas/night-shift.ts";
 import { ApprovalRequest, Receipt } from "./schemas/permissions.ts";
+import { PointsAskRequestedPayload, PointsUpdatedPayload } from "./schemas/points.ts";
 import { ResearchProgressEvent } from "./schemas/research.ts";
 import { RunStep } from "./schemas/runs.ts";
 import { SpaceProposal } from "./schemas/spaces.ts";
@@ -456,6 +458,15 @@ export const Events = {
     payload: Type.Object({ proposal: SpaceProposal }),
     description: "The agent proposed a new Space. It was not created; the owner decides.",
   }),
+  "nightShift.updated": defineEvent({
+    payload: Type.Object({ night: NightShiftNight }),
+    description:
+      "A night's row changed (it started, stopped or finished, or its review status moved). Clients re-read nightShift.status.",
+  }),
+  "nightShift.item.updated": defineEvent({
+    payload: Type.Object({ item: StagedAction }),
+    description: "One prepared item changed status (stale, applied, failed, undone, dismissed...).",
+  }),
   "goal.updated": defineEvent({
     payload: Type.Object({ goal: Goal }),
     description: "A goal was created, confirmed, changed or archived.",
@@ -510,6 +521,16 @@ export const Events = {
     payload: DictationKeyPayload,
     description:
       "The watched hold-to-talk key went down or up (dictation.watch), sent only to the watching device.",
+  }),
+  "points.updated": defineEvent({
+    payload: PointsUpdatedPayload,
+    description:
+      "A Psyche points session changed state (reading, pointing, paused, ended), page or step, or needs a permission, sent only to the device that started it. Counts and states only, never titles or values.",
+  }),
+  "points.ask_requested": defineEvent({
+    payload: PointsAskRequestedPayload,
+    description:
+      "The owner pressed Ask in Psyche… on the Points card, sent only to the device that started the session.",
   }),
   "terminal.output": defineEvent({
     payload: TerminalOutputPayload,
@@ -581,6 +602,14 @@ export const Events = {
     }),
     description:
       "A machine was added, renamed, changed status or limits, or removed. Emitted once the machine registry lands (wave H3).",
+  }),
+  "plugins.changed": defineEvent({
+    payload: Type.Object({
+      name: Type.String(),
+      change: StringEnum(["installed", "enabled", "disabled", "removed"]),
+    }),
+    description:
+      "A code plugin was installed (after its approved card), switched on or off, or removed, so Settings reloads the plugin list (a hint, not state).",
   }),
 } as const;
 

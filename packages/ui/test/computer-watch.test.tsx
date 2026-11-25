@@ -260,6 +260,25 @@ describe("ComputerWatch Stop and parked card", () => {
     expect(screen.queryByRole("img")).toBeNull();
   });
 
+  it("a failed Stop says so, and the screen still shows what is running", async () => {
+    const base = fakeClient();
+    const client = {
+      ...base,
+      stop: async () => {
+        base.calls.stop += 1;
+        throw new Error("the stop did not answer");
+      },
+    };
+    render(<ComputerWatch client={client} visible />);
+    await advance(10);
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Stop" }));
+    });
+    await advance(10);
+    expect(base.calls.stop).toBe(1);
+    expect(screen.getByRole("alert").textContent).toMatch(/Couldn't stop the virtual screen/);
+  });
+
   it("shows Look, Discard and Keep it open for a parked task", async () => {
     const onLook = vi.fn();
     const onDiscard = vi.fn();

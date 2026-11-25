@@ -139,7 +139,8 @@ extension GatewayBackend {
         let entry = OutboxEntry(
             id: "markread-\(UUID().uuidString)", kind: .markRead, method: "notifications.markRead",
             params: .obj(["notificationIds": .array(ids.map { .string($0) })]))
-        _ = await client.submit(entry)
+        // A rejection (the Gateway refused it for good) is the caller's to show; `.queued` waits for the Mac.
+        if case .rejected(let why) = await client.submit(entry) { throw BackendError.refused(why) }
     }
 
     // MARK: - Pieces of the Home snapshot

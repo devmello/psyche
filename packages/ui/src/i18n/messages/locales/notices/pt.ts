@@ -3,8 +3,11 @@ import type { Catalogue } from "../../index.ts";
 /** Notices the Gateway authors (pt); merged into `../pt.ts`. */
 export const notices: Partial<Catalogue> = {
   "notice.install.failed.title": "Uma instalação aprovada não foi concluída",
+  "notice.connectors.matrix.failed.title": "Uma regra de conector não foi salva",
+  "notice.connectors.matrix.failed.body":
+    "Não foi possível aplicar {action} em {connector}, então continua valendo a regra anterior. Confira em Ajustes › Conectores.",
   "notice.install.failed.body":
-    "{reason, select, lost {O Psyche reiniciou antes de você aprovar, então a proposta se perdeu. Proponha de novo.} expired {A proposta tinha expirado antes de você aprovar. Proponha de novo.} other {O Psyche não conseguiu instalá-la. Confira a lista e tente de novo.}}",
+    "{reason, select, lost {O Psyche reiniciou antes de você aprovar, então a proposta se perdeu. Proponha de novo.} expired {A proposta tinha expirado antes de você aprovar. Proponha de novo.} other {O Psyche não conseguiu instalá-la. Proponha de novo ou peça ao Psyche.}}",
   "notice.security.changed.title": "O Psyche desfez uma alteração de segurança feita fora do app",
   "notice.security.changed.body":
     "Um programa neste Mac alterou {count, plural, =1 {# registro de segurança} other {# registros de segurança}} (dispositivos, chaves, permissões ou configurações) sem passar pelo Psyche{times, plural, =0 {} =1 {} other {, # vezes até agora}}. O Psyche os restaurou. Se não foi você, verifique se o Mac tem software indesejado.",
@@ -40,6 +43,12 @@ export const notices: Partial<Catalogue> = {
     "{reason, select, account_changed {Um conector agora entra em outra conta. O trabalho ligado à conta antiga foi interrompido.} disconnected {Um conector foi desconectado. O trabalho que dependia dele foi interrompido.} scope_changed {Um conector agora é somente leitura. As ações pendentes por meio dele foram interrompidas.} other {O acesso de um conector foi revogado. Entre de novo para continuar usando.}}",
   "notice.connector.reconnect.title": "É preciso reconectar",
   "notice.connector.reconnect.body": "Um conector perdeu o acesso e você precisa entrar de novo.",
+  "notice.connector.syncFailing.title": "{name} não está sincronizando",
+  "notice.connector.syncFailing.body":
+    "{name} falhou ao sincronizar várias vezes seguidas ({reason}). O Psyche continua tentando. Confira em Ajustes › Conectores.",
+  "notice.connector.testingExpired.title": "O Google desconectou você",
+  "notice.connector.testingExpired.body":
+    "O Google desconecta você após 7 dias enquanto o app OAuth do Psyche está em modo de teste. Publique o app OAuth no Google Cloud para evitar isso e reconecte o Google em Ajustes › Conectores.",
   "notice.attention.paused.title": "Uma tarefa está esperando por você",
   "notice.attention.paused.body":
     "Em pausa antes de {tool} em um app ou site sensível, até você voltar ao Psyche.",
@@ -105,4 +114,10 @@ export const notices: Partial<Catalogue> = {
   "notice.machine.offline.title": "{name} ficou offline",
   "notice.machine.offline.body":
     "Uma tarefa está esperando para usá-lo e continua quando {name} voltar. Você também pode cancelar a tarefa.",
+  "notice.automation.needsApproval.title": "{title} está esperando sua aprovação",
+  "notice.automation.needsApproval.body":
+    "Parou porque a aprovação expirou. Abra Aprovações para ver o que precisa e execute de novo.",
+  "notice.automation.interrupted.title": "{title} foi interrompido",
+  "notice.automation.interrupted.body":
+    "O Psyche reiniciou enquanto rodava e pode já ter feito uma parte. Confira o resultado e execute de novo se precisar.",
 };

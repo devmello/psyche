@@ -41,6 +41,7 @@ import {
   useAutomations,
   useCall,
   useGoal,
+  useLoadRemaining,
   useTask,
   useTasks,
 } from "../../data/hooks.ts";
@@ -626,7 +627,10 @@ export function GoalPage({ goalId, onDelete, onDeleted }: GoalPageProps): ReactE
   const [suggesting, setSuggesting] = useState(false);
   const planId = g.goal === null ? null : readGoalPlan(g.goal).planArtifactId;
   const { artifact } = useArtifact(planId);
-  const { all: allTasks } = useTasks();
+  const goalTasks = useTasks();
+  // The link picker offers every task, so the remaining pages load behind it.
+  useLoadRemaining(goalTasks);
+  const allTasks = goalTasks.all;
   const { automations: allAutomations } = useAutomations();
   const [linkOpen, setLinkOpen] = useState(false);
   const [linkError, setLinkError] = useState<string | null>(null);

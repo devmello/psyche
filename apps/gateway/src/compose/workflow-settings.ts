@@ -184,6 +184,7 @@ export function workflowSettings(db: PsycheDb): WorkflowSettings {
 export function pausable(job: ProactiveJob, paused: () => boolean): ProactiveJob {
   return {
     name: job.name,
+    ...(job.rerunOnInterrupt === undefined ? {} : { rerunOnInterrupt: job.rerunOnInterrupt }),
     matches: (a) => job.matches(a),
     run: async (request): Promise<LaunchResult> =>
       paused() ? { status: "no_reply", summary: "paused in Settings" } : job.run(request),

@@ -14,5 +14,7 @@ export const actionErrors: Partial<Catalogue> = {
     "Impossible de changer le niveau de détail de la transcription ({reason}).",
   "actionError.screenAskDestination":
     "Impossible de changer la destination des questions sur l'écran ({reason}).",
+  "actionError.stopVirtualScreen":
+    "Impossible d'arrêter l'écran virtuel ({reason}). Il tourne peut-être encore.",
   "actionError.takeOver": "Impossible de prendre le contrôle de l'écran virtuel ({reason}).",
 };

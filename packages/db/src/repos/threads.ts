@@ -1,5 +1,5 @@
 import type { PermissionMode, Thread, ThreadKind } from "@psyche/protocol";
-import { and, desc, eq, inArray, isNull, lte, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, isNotNull, isNull, lte, sql } from "drizzle-orm";
 import { fromBool, threadFromRow } from "../mappers.ts";
 import type { PsycheDb } from "../open.ts";
 import { threads } from "../schema.ts";
@@ -192,6 +192,8 @@ export interface ThreadPageOptions extends ListThreadsOptions {
   readonly hideRunThreads?: boolean;
   /** Offset cursor from a previous page. */
   readonly offset?: number;
+  /** Only archived threads (wins over `includeArchived`). */
+  readonly archivedOnly?: boolean;
 }
 
 /** One page in `listThreads` order; `hasMore` tells the caller whether to hand out a cursor. */
@@ -202,7 +204,11 @@ export function listThreadsPage(
   const limit = opts.limit ?? 50;
   const escaped = opts.query?.replace(/[\\%_]/g, (c) => `\\${c}`);
   const filters = [
-    opts.includeArchived ? undefined : isNull(threads.archivedAt),
+    opts.archivedOnly
+      ? isNotNull(threads.archivedAt)
+      : opts.includeArchived
+        ? undefined
+        : isNull(threads.archivedAt),
     opts.kind === undefined ? undefined : eq(threads.kind, opts.kind),
     opts.pinnedOnly ? eq(threads.pinned, 1) : undefined,
     opts.spaceId === undefined

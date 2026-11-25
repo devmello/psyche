@@ -1,5 +1,6 @@
 import { NOTIFICATION_SETTING_DEFAULTS as DEFAULTS } from "@psyche/protocol";
 import type { ReactElement } from "react";
+import { Button } from "../../components/ui/button.tsx";
 import { t } from "../../i18n/core.ts";
 import { TimeRow } from "./MailMeetingsSection.tsx";
 import {
@@ -8,6 +9,7 @@ import {
   LoadGate,
   SectionFrame,
   type SettingsFormProps,
+  StatusChip,
   SwitchField,
   str,
   useSettingsForm,
@@ -20,7 +22,15 @@ import {
  * reads these keys when each notification is sent, so a change applies to the next one.
  */
 
+/** Psyche Helper's own notification permission (approval notifications go through the helper). */
+export interface HelperNotifications {
+  /** `offline`: the helper is not connected, so nothing is known (never shown as allowed). */
+  state: "granted" | "denied" | "not_determined" | "offline";
+  onAllow: () => void;
+}
+
 export interface NotificationsPanelProps extends Pick<SettingsFormProps, "values" | "onChange"> {
+  helperNotifications?: HelperNotifications;
   needsApproval?: ReadonlySet<string>;
   loading?: boolean;
   error?: string | null;
@@ -32,6 +42,7 @@ export function NotificationsPanel({
   values,
   onChange,
   needsApproval,
+  helperNotifications,
   loading = false,
   error = null,
   onRetry,
@@ -53,6 +64,43 @@ export function NotificationsPanel({
         error={error}
         {...(onRetry ? { onRetry } : {})}
       >
+        {helperNotifications ? (
+          <Group
+            title={t("settings.notifications.helper.title")}
+            description={t("settings.notifications.helper.hint")}
+          >
+            <div className="flex flex-wrap items-center gap-2">
+              <StatusChip
+                tone={
+                  helperNotifications.state === "granted"
+                    ? "success"
+                    : helperNotifications.state === "denied"
+                      ? "danger"
+                      : "neutral"
+                }
+              >
+                {t(
+                  `settings.computerUse.tccState.${helperNotifications.state === "offline" ? "offline" : helperNotifications.state}`,
+                )}
+              </StatusChip>
+              {helperNotifications.state === "offline" ? (
+                <span className="text-callout text-muted-foreground">
+                  {t("settings.computerUse.helperAccess.offline")}
+                </span>
+              ) : helperNotifications.state !== "granted" ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="xs"
+                  className="ms-auto"
+                  onClick={helperNotifications.onAllow}
+                >
+                  {t("settings.notifications.helper.allow")}
+                </Button>
+              ) : null}
+            </div>
+          </Group>
+        ) : null}
         <Group
           title={t("settings.notifications.group.quietHours")}
           description={t("settings.notifications.quietHours.hint")}
@@ -90,10 +138,15 @@ export function NotificationsPanel({
 }
 
 /** Connected: `settings.*` from the Gateway. */
-export function NotificationsSection(): ReactElement {
+export function NotificationsSection({
+  helperNotifications,
+}: {
+  helperNotifications?: HelperNotifications;
+}): ReactElement {
   const form = useSettingsForm();
   return (
     <NotificationsPanel
+      {...(helperNotifications ? { helperNotifications } : {})}
       values={form.values}
       onChange={form.onChange}
       needsApproval={form.needsApproval}

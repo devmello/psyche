@@ -180,7 +180,7 @@ describe("the helper stays off while the signature fails", () => {
     const dir = temp();
     const app = join(dir, "PsycheHelper.app");
     mkdirSync(app);
-    const opened: string[][] = [];
+    const ran: string[][] = [];
     const states: string[] = [];
     let blocked = true;
     const launcher = new HelperLauncher({
@@ -189,8 +189,9 @@ describe("the helper stays off while the signature fails", () => {
       // The Mac helper: `open` through `run` (on Windows the launcher would spawn the .exe instead).
       platform: "darwin",
       run: async (file, args) => {
-        opened.push([file, ...args]);
-        return { code: 0, stdout: "", stderr: "" };
+        ran.push([file, ...args]);
+        // No quarantine attribute on this bundle (`xattr -p` exits 1).
+        return { code: file === "/usr/bin/xattr" ? 1 : 0, stdout: "", stderr: "" };
       },
       isPaired: async () => false,
       blocked: () => blocked,
@@ -200,10 +201,11 @@ describe("the helper stays off while the signature fails", () => {
     });
     await launcher.launch();
     await launcher.onPresence(false);
-    expect(opened).toEqual([]);
+    // Blocked: nothing at all runs, not even the quarantine probe.
+    expect(ran).toEqual([]);
     expect(launcher.getState()).toMatchObject({ kind: "offline" });
     blocked = false;
     await launcher.launch();
-    expect(opened.length).toBe(1);
+    expect(ran.map((c) => c[0])).toEqual(["/usr/bin/xattr", "/usr/bin/open"]);
   });
 });

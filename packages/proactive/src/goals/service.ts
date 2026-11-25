@@ -826,6 +826,8 @@ export class GoalsService {
   checkinJob(): ProactiveJob {
     return {
       name: "goal check-in",
+      // Reads and proposes only: safe to run again after a restart cut it off.
+      rerunOnInterrupt: true,
       matches: (a) => parseJobMarker(a.prompt)?.job === GOAL_CHECKIN_JOB,
       run: (request) => this.#runCheckin(request),
     };

@@ -112,6 +112,8 @@ export const ApprovalKind = StringEnum(
      * action, connect a connector or grant macOS access it found missing (security §3.13).
      */
     "permission_request",
+    /** Night shift: one approval for the ticked prepared changes, bound to their hashes. */
+    "staged_apply",
   ],
   { $id: "ApprovalKind" },
 );
