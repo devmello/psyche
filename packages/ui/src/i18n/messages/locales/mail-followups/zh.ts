@@ -15,4 +15,6 @@ export const mailFollowups: Partial<Catalogue> = {
   "mailFollowups.thread.title": "邮件跟进",
   "chat.composer.placeholderMail": "询问这组邮件往来",
   "daily.section.quiet_threads": "沉寂的邮件往来",
+  "daily.section.promises": "承诺",
+  "screens.inbox.kind.promise_due": "承诺到期",
 };

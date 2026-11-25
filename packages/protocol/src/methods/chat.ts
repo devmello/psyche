@@ -27,7 +27,14 @@ export const ChatSendResult = Type.Object(
  */
 export const ChatContextRef = Type.Object(
   {
-    kind: StringEnum(["feed_item", "search_hit", "memory_entity", "life_answer", "mail_followup"]),
+    kind: StringEnum([
+      "feed_item",
+      "search_hit",
+      "memory_entity",
+      "life_answer",
+      "mail_followup",
+      "promise",
+    ]),
     id: Id,
     /**
      * `search_hit` only: what the window labelled the result, for the card it shows. The Gateway
@@ -40,6 +47,15 @@ export const ChatContextRef = Type.Object(
      */
     title: Type.Optional(Type.String({ maxLength: 300 })),
     scope: Type.Optional(Type.String({ maxLength: 40 })),
+    /**
+     * `promise` only (docs/design/promise-ledger-2026.md §8.2): `id` is the promise and the
+     * Gateway resolves it, checks it is visible to this caller, and never takes text from here.
+     * What the draft is for; `proposedDue` is the date a renegotiation offers.
+     */
+    intent: Type.Optional(
+      StringEnum(["nudge", "renegotiate", "release_note", "do_it"], { $id: "PromiseDraftIntent" }),
+    ),
+    proposedDue: Type.Optional(IsoDateTime),
   },
   { $id: "ChatContextRef" },
 );

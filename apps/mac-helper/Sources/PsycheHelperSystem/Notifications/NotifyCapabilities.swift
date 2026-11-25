@@ -17,7 +17,7 @@ public enum NotifyCapabilities {
         return .object(o)
     }
 
-    static let kinds = ["approval", "input_needed", "task_done", "task_failed", "proactive", "briefing", "reminder", "system"]
+    static let kinds = ["approval", "input_needed", "task_done", "task_failed", "proactive", "briefing", "reminder", "system", "specialist_result", "promise_due"]
 
     static let showSchema: JSONValue = Schema.object(
         [

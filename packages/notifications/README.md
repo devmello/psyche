@@ -36,14 +36,14 @@ inbox row (durable) ──► subscribe() events ──► Gateway ──► not
 
 ## Routing matrix (defaults)
 
-| Kind | In-app (desktop, web) | OS (`notification`) | Owner's chat (`channelTargets`) | OS interruption level | Quiet hours |
-| --- | --- | --- | --- | --- | --- |
-| approval | yes | yes | yes, as buttons, never if `deviceOnly` | timeSensitive | breaks through |
-| input_needed | yes | yes (text reply when the action id is `reply`) | yes | active | deferred |
-| task_done / task_failed | yes | yes | yes | active | deferred |
-| reminder | yes | yes | yes | passive | deferred |
-| proactive / briefing | yes | no (opt in per kind) | no | passive | deferred |
-| system | yes | no | no | passive | deferred |
+| Kind                    | In-app (desktop, web) | OS (`notification`)                            | Owner's chat (`channelTargets`)        | OS interruption level | Quiet hours    |
+| ----------------------- | --------------------- | ---------------------------------------------- | -------------------------------------- | --------------------- | -------------- |
+| approval                | yes                   | yes                                            | yes, as buttons, never if `deviceOnly` | timeSensitive         | breaks through |
+| input_needed            | yes                   | yes (text reply when the action id is `reply`) | yes                                    | active                | deferred       |
+| task_done / task_failed | yes                   | yes                                            | yes                                    | active                | deferred       |
+| reminder                | yes                   | yes                                            | yes                                    | passive               | deferred       |
+| proactive / briefing    | yes                   | no (opt in per kind)                           | no                                     | passive               | deferred       |
+| system                  | yes                   | no                                             | no                                     | passive               | deferred       |
 
 Explicit `surfaces` on `notify` replace the defaults. `os` is accepted as an alias of the protocol's `notification`. In-app delivery is never deferred: the inbox row is written at once, and quiet hours only hold back interruptions.
 

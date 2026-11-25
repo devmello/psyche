@@ -28,6 +28,8 @@ export const DailySectionId = StringEnum(
     // `due` in the morning brief when work memory is on; `worked_on` joins the evening wrap-up.
     "catching_up",
     "worked_on",
+    // Promise ledger (docs/design/promise-ledger-2026.md §5.5): after "Coming up".
+    "promises",
   ],
   { $id: "DailySectionId" },
 );

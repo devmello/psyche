@@ -130,8 +130,15 @@ describe("migrations and the encrypted store", () => {
    * Rebuilds that only copy rows into a table with a wider CHECK or new columns (INSERT ... SELECT
    * into a `_v2` table). The statements the pattern below finds in them are the re-created
    * citation-cleanup triggers. The encrypted file takes the new shape from `syncSchema`.
+   * 202611241000 (promise ledger) is the same kind of rebuild; its `basis`, due and source
+   * backfills run only on the plain file, so an encrypted store keeps the column defaults
+   * (basis `request`, due_kind `none`, remote_visible 0: all fail-closed) until the ledger's own
+   * code backfills them (promises/store, wave W1).
    */
-  const ROW_PRESERVING_REBUILDS = new Set(["202611031400_memory_work.sql"]);
+  const ROW_PRESERVING_REBUILDS = new Set([
+    "202611031400_memory_work.sql",
+    "202611241000_memory_promises.sql",
+  ]);
 
   it("no new migration changes rows of a moved table (schema changes reach it, row changes cannot)", () => {
     const dir = join(import.meta.dirname, "..", "..", "db", "migrations");

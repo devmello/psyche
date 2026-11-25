@@ -16,4 +16,6 @@ export const mailFollowups: Partial<Catalogue> = {
   "mailFollowups.thread.title": "ईमेल फ़ॉलो-अप",
   "chat.composer.placeholderMail": "इस थ्रेड के बारे में पूछें",
   "daily.section.quiet_threads": "शांत पड़े ईमेल थ्रेड",
+  "daily.section.promises": "वादे",
+  "screens.inbox.kind.promise_due": "वादा देय",
 };

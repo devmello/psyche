@@ -334,6 +334,11 @@
         "payload": "#/$defs/PluginsChangedPayload"
       },
       {
+        "description": "A promise was created, confirmed, re-dated, warned about, completed, broken or released. Personalised per subscriber: a remote subscriber gets the scrubbed form, and nothing for a hidden promise.",
+        "name": "promise.updated",
+        "payload": "#/$defs/PromiseUpdatedPayload"
+      },
+      {
         "description": "A batch proposal was created, sent for approval, ran (per-call results), was dismissed, expired or offered an undo (mail and meeting workflows §8.1).",
         "name": "proposal.updated",
         "payload": "#/$defs/ProposalUpdatedPayload"
@@ -3072,6 +3077,62 @@
         "result": "#/$defs/PluginsSetEnabledResult",
         "scope": "operator.admin",
         "sideEffecting": true
+      },
+      {
+        "description": "Confirms, completes, reopens, releases, dismisses, snoozes or re-dates a promise, or answers a question about it. Sends nothing. Side-effecting.",
+        "name": "promises.act",
+        "params": "#/$defs/PromisesActParams",
+        "result": "#/$defs/PromisesActResult",
+        "scope": "operator.write",
+        "sideEffecting": true
+      },
+      {
+        "description": "Adds a promise by hand, with the owner's provenance. Side-effecting.",
+        "name": "promises.add",
+        "params": "#/$defs/PromisesAddParams",
+        "result": "#/$defs/PromisesAddResult",
+        "scope": "operator.write",
+        "sideEffecting": true
+      },
+      {
+        "description": "Hard-deletes a promise, its citations and its history, and records that it is not a promise so it is not found again. Desktop shell only. Side-effecting.",
+        "name": "promises.delete",
+        "params": "#/$defs/PromisesDeleteParams",
+        "result": "#/$defs/PromisesDeleteResult",
+        "scope": "operator.write",
+        "sideEffecting": true
+      },
+      {
+        "description": "One promise. Citations and history come back for the desktop shell only; a hidden promise is `not_found` for a remote caller.",
+        "name": "promises.get",
+        "params": "#/$defs/PromisesGetParams",
+        "result": "#/$defs/PromisesGetResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "The ledger, filtered by view (yours, theirs, to confirm, closed). Scrubbed for remote callers. Text is untrusted.",
+        "name": "promises.list",
+        "params": "#/$defs/PromisesListParams",
+        "result": "#/$defs/PromisesListResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Stops (or resumes) tracking promises with one person or in one thread. Desktop shell only. Side-effecting.",
+        "name": "promises.mute",
+        "params": "#/$defs/PromisesMuteParams",
+        "result": "#/$defs/PromisesMuteResult",
+        "scope": "operator.write",
+        "sideEffecting": true
+      },
+      {
+        "description": "Counts, the next due date and the warnings due in the next 7 days (quiet hours applied), for Home and for iOS local notifications. Scrubbed for remote callers.",
+        "name": "promises.summary",
+        "params": "#/$defs/PromisesSummaryParams",
+        "result": "#/$defs/PromisesSummaryResult",
+        "scope": "operator.read",
+        "sideEffecting": false
       },
       {
         "description": "Requests the one batch approval for a proposal (kind batch, bound to the ordered list of calls, once only). The calls run after the approval is answered. Side-effecting.",
@@ -15116,7 +15177,8 @@
             "search_hit",
             "memory_entity",
             "life_answer",
-            "mail_followup"
+            "mail_followup",
+            "promise"
           ],
           "type": "string"
         },
@@ -15132,6 +15194,14 @@
         },
         "scope": {
           "maxLength": 40,
+          "type": "string"
+        },
+        "intent": {
+          "$ref": "#/$defs/PromiseDraftIntent"
+        },
+        "proposedDue": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
           "type": "string"
         }
       },
@@ -17620,7 +17690,8 @@
             "search_hit",
             "memory_entity",
             "life_answer",
-            "mail_followup"
+            "mail_followup",
+            "promise"
           ],
           "type": "string"
         },
@@ -18994,7 +19065,8 @@
         "keep_in_touch",
         "quiet_threads",
         "catching_up",
-        "worked_on"
+        "worked_on",
+        "promises"
       ],
       "type": "string"
     },
@@ -24533,7 +24605,10 @@
       "enum": [
         "owner",
         "reply_seen",
-        "due_passed"
+        "due_passed",
+        "auto",
+        "aged_out",
+        "released"
       ],
       "type": "string"
     },
@@ -24565,6 +24640,8 @@
         "open",
         "snoozed",
         "done",
+        "broken",
+        "released",
         "dismissed"
       ],
       "type": "string"
@@ -32261,7 +32338,7 @@
           "items": {
             "$ref": "#/$defs/GraphLoopStatus"
           },
-          "maxItems": 5,
+          "maxItems": 7,
           "type": "array"
         },
         "direction": {
@@ -35461,7 +35538,8 @@
         "briefing",
         "reminder",
         "system",
-        "specialist_result"
+        "specialist_result",
+        "promise_due"
       ],
       "type": "string"
     },
@@ -37347,6 +37425,1009 @@
         "ref",
         "id",
         "capabilities"
+      ],
+      "type": "object"
+    },
+    "PromiseActAction": {
+      "anyOf": [
+        {
+          "properties": {
+            "type": {
+              "const": "confirm",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "type": {
+              "const": "not_promise",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "type": {
+              "const": "done",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "type": {
+              "const": "reopen",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "type": {
+              "const": "release",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "type": {
+              "const": "dismiss",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "type": {
+              "const": "snooze",
+              "type": "string"
+            },
+            "until": {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "until"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "type": {
+              "const": "set_due",
+              "type": "string"
+            },
+            "dueAt": {
+              "anyOf": [
+                {
+                  "description": "ISO-8601 timestamp (UTC)",
+                  "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "type": {
+              "const": "more_time",
+              "type": "string"
+            },
+            "days": {
+              "maximum": 60,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "type",
+            "days"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "type": {
+              "const": "accept_proposed",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "type": {
+              "const": "reject_proposed",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "type": {
+              "const": "answer",
+              "type": "string"
+            },
+            "answer": {
+              "enum": [
+                "yes",
+                "not_yet"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "answer"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "PromiseAction": {
+      "enum": [
+        "send",
+        "reply",
+        "meet",
+        "do"
+      ],
+      "type": "string"
+    },
+    "PromiseBasis": {
+      "enum": [
+        "promise",
+        "ask",
+        "request"
+      ],
+      "type": "string"
+    },
+    "PromiseCitation": {
+      "properties": {
+        "id": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "source": {
+          "$ref": "#/$defs/PromiseCitationSource"
+        },
+        "quote": {
+          "maxLength": 200,
+          "type": "string"
+        },
+        "sourceRef": {
+          "maxLength": 1000,
+          "type": "string"
+        },
+        "observedAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "provenance": {
+          "$ref": "#/$defs/Provenance"
+        }
+      },
+      "required": [
+        "id",
+        "source",
+        "quote",
+        "sourceRef",
+        "observedAt",
+        "provenance"
+      ],
+      "type": "object"
+    },
+    "PromiseCitationSource": {
+      "enum": [
+        "mail",
+        "messages",
+        "notes",
+        "chats",
+        "transcripts"
+      ],
+      "type": "string"
+    },
+    "PromiseClosedBy": {
+      "enum": [
+        "owner",
+        "reply_seen",
+        "due_passed",
+        "auto",
+        "aged_out",
+        "released"
+      ],
+      "type": "string"
+    },
+    "PromiseDirection": {
+      "enum": [
+        "i_owe",
+        "waiting_on"
+      ],
+      "type": "string"
+    },
+    "PromiseDraftIntent": {
+      "enum": [
+        "nudge",
+        "renegotiate",
+        "release_note",
+        "do_it"
+      ],
+      "type": "string"
+    },
+    "PromiseDueKind": {
+      "enum": [
+        "explicit",
+        "inferred",
+        "none"
+      ],
+      "type": "string"
+    },
+    "PromiseEvent": {
+      "properties": {
+        "id": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "at": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/$defs/PromiseEventKind"
+        },
+        "from": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "to": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "by": {
+          "$ref": "#/$defs/PromiseEventBy"
+        },
+        "citationId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "at",
+        "kind",
+        "by"
+      ],
+      "type": "object"
+    },
+    "PromiseEventBy": {
+      "enum": [
+        "owner",
+        "auto",
+        "model",
+        "rule"
+      ],
+      "type": "string"
+    },
+    "PromiseEventKind": {
+      "enum": [
+        "created",
+        "confirmed",
+        "source_added",
+        "due_changed",
+        "due_proposed",
+        "status",
+        "warned",
+        "asked",
+        "nudge_drafted",
+        "nudge_sent",
+        "auto_done",
+        "undo"
+      ],
+      "type": "string"
+    },
+    "PromiseListView": {
+      "enum": [
+        "yours",
+        "theirs",
+        "confirm",
+        "closed",
+        "all"
+      ],
+      "type": "string"
+    },
+    "PromiseSourceKind": {
+      "enum": [
+        "mail",
+        "messages",
+        "meeting",
+        "chat",
+        "manual"
+      ],
+      "type": "string"
+    },
+    "PromiseState": {
+      "enum": [
+        "suggested",
+        "open",
+        "due_soon",
+        "snoozed",
+        "broken",
+        "done",
+        "released",
+        "dismissed"
+      ],
+      "type": "string"
+    },
+    "PromiseSummary": {
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "yours": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "theirs": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "toConfirm": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "dueSoon": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "missed": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "late": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "nextDueAt": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "hiddenCount": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "upcoming": {
+          "items": {
+            "$ref": "#/$defs/PromiseUpcoming"
+          },
+          "maxItems": 50,
+          "type": "array"
+        }
+      },
+      "required": [
+        "enabled",
+        "yours",
+        "theirs",
+        "toConfirm",
+        "dueSoon",
+        "missed",
+        "late",
+        "hiddenCount",
+        "upcoming"
+      ],
+      "type": "object"
+    },
+    "PromiseUpcoming": {
+      "properties": {
+        "id": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "warnAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "title": {
+          "maxLength": 200,
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "warnAt",
+        "title"
+      ],
+      "type": "object"
+    },
+    "PromiseUpdatedPayload": {
+      "properties": {
+        "promise": {
+          "$ref": "#/$defs/PromiseView"
+        }
+      },
+      "required": [
+        "promise"
+      ],
+      "type": "object"
+    },
+    "PromiseView": {
+      "properties": {
+        "id": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "direction": {
+          "$ref": "#/$defs/PromiseDirection"
+        },
+        "what": {
+          "maxLength": 200,
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/$defs/GraphLoopStatus"
+        },
+        "state": {
+          "$ref": "#/$defs/PromiseState"
+        },
+        "basis": {
+          "$ref": "#/$defs/PromiseBasis"
+        },
+        "whatAction": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PromiseAction"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "counterpartLabel": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "counterpartId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "projectId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "dueAt": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "dueText": {
+          "anyOf": [
+            {
+              "maxLength": 120,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "dueKind": {
+          "$ref": "#/$defs/PromiseDueKind"
+        },
+        "dueConfidence": {
+          "anyOf": [
+            {
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "proposedDueAt": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "snoozedUntil": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "brokenAt": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "warnedAt": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "nudgeCount": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "lastNudgeAt": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "sourceKind": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PromiseSourceKind"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "link": {
+          "maxLength": 1000,
+          "type": "string"
+        },
+        "provenance": {
+          "$ref": "#/$defs/Provenance"
+        },
+        "confidence": {
+          "maximum": 1,
+          "minimum": 0,
+          "type": "number"
+        },
+        "createdAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "closedAt": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "closedBy": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PromiseClosedBy"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "citations": {
+          "items": {
+            "$ref": "#/$defs/PromiseCitation"
+          },
+          "maxItems": 20,
+          "type": "array"
+        },
+        "events": {
+          "items": {
+            "$ref": "#/$defs/PromiseEvent"
+          },
+          "maxItems": 200,
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "direction",
+        "what",
+        "status",
+        "state",
+        "basis",
+        "dueKind",
+        "nudgeCount",
+        "provenance",
+        "confidence",
+        "createdAt"
+      ],
+      "type": "object"
+    },
+    "PromisesActParams": {
+      "properties": {
+        "id": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "action": {
+          "$ref": "#/$defs/PromiseActAction"
+        }
+      },
+      "required": [
+        "id",
+        "action"
+      ],
+      "type": "object"
+    },
+    "PromisesActResult": {
+      "properties": {
+        "promise": {
+          "$ref": "#/$defs/PromiseView"
+        }
+      },
+      "required": [
+        "promise"
+      ],
+      "type": "object"
+    },
+    "PromisesAddParams": {
+      "properties": {
+        "direction": {
+          "anyOf": [
+            {
+              "const": "i_owe",
+              "type": "string"
+            },
+            {
+              "const": "waiting_on",
+              "type": "string"
+            }
+          ]
+        },
+        "what": {
+          "maxLength": 120,
+          "minLength": 1,
+          "type": "string"
+        },
+        "counterpartId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "dueAt": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "direction",
+        "what"
+      ],
+      "type": "object"
+    },
+    "PromisesAddResult": {
+      "properties": {
+        "promise": {
+          "$ref": "#/$defs/PromiseView"
+        }
+      },
+      "required": [
+        "promise"
+      ],
+      "type": "object"
+    },
+    "PromisesDeleteParams": {
+      "properties": {
+        "id": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "type": "object"
+    },
+    "PromisesDeleteResult": {
+      "properties": {
+        "ok": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "ok"
+      ],
+      "type": "object"
+    },
+    "PromisesGetParams": {
+      "properties": {
+        "id": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "type": "object"
+    },
+    "PromisesGetResult": {
+      "properties": {
+        "promise": {
+          "$ref": "#/$defs/PromiseView"
+        }
+      },
+      "required": [
+        "promise"
+      ],
+      "type": "object"
+    },
+    "PromisesListParams": {
+      "properties": {
+        "view": {
+          "$ref": "#/$defs/PromiseListView"
+        },
+        "entityId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "dueBefore": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "cursor": {
+          "description": "Opaque cursor",
+          "maxLength": 512,
+          "minLength": 1,
+          "type": "string"
+        },
+        "limit": {
+          "maximum": 500,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "view"
+      ],
+      "type": "object"
+    },
+    "PromisesListResult": {
+      "properties": {
+        "promises": {
+          "items": {
+            "$ref": "#/$defs/PromiseView"
+          },
+          "type": "array"
+        },
+        "hiddenCount": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "nextCursor": {
+          "anyOf": [
+            {
+              "description": "Opaque cursor",
+              "maxLength": 512,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "promises",
+        "hiddenCount"
+      ],
+      "type": "object"
+    },
+    "PromisesMuteParams": {
+      "properties": {
+        "entityId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "threadRef": {
+          "maxLength": 1000,
+          "minLength": 1,
+          "type": "string"
+        },
+        "muted": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "muted"
+      ],
+      "type": "object"
+    },
+    "PromisesMuteResult": {
+      "properties": {
+        "ok": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "ok"
+      ],
+      "type": "object"
+    },
+    "PromisesSummaryParams": {
+      "properties": {},
+      "type": "object"
+    },
+    "PromisesSummaryResult": {
+      "properties": {
+        "summary": {
+          "$ref": "#/$defs/PromiseSummary"
+        }
+      },
+      "required": [
+        "summary"
       ],
       "type": "object"
     },

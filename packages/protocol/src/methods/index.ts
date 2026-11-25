@@ -38,6 +38,7 @@ import { NudgeMethods } from "./nudges.ts";
 import { PasskeysMethods } from "./passkeys.ts";
 import { PluginsMethods } from "./plugins.ts";
 import { FeedMethods, GoalsMethods, IdeasMethods } from "./proactive.ts";
+import { PromisesMethods } from "./promises.ts";
 import { QuestionsMethods } from "./questions.ts";
 import { ArtifactsMethods, ReceiptsMethods } from "./receipts.ts";
 import { RunsMethods } from "./runs.ts";
@@ -189,6 +190,7 @@ export const Methods = {
   ...InsightsMethods,
   ...DailyMethods,
   ...MailFollowupMethods,
+  ...PromisesMethods,
   ...NudgeMethods,
   ...ProposalsMethods,
   ...MeetingsMethods,
