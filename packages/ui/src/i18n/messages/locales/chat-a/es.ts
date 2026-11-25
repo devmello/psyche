@@ -47,6 +47,8 @@ export const chatA: Partial<Catalogue> = {
   "chat.attach.remove": "Quitar {name}",
   "chat.attach.uploading": "Subiendo {name}",
   "chat.attach.failed": "No se subió {name}",
+  "chat.attach.retry": "Reintentar subir {name}",
+  "chat.attach.blockedByFailed": "Un archivo no se subió. Reinténtalo o quítalo para poder enviar.",
   "chat.attach.dismiss": "Descartar",
   "chat.attach.refused.image":
     "{name}: este modelo no puede leer imágenes, así que solo se pueden adjuntar documentos (PDF, Word, Excel, texto)",

@@ -44,6 +44,8 @@ export const chatRest: Partial<Catalogue> = {
   "chat.attach.remove": "{name} हटाएँ",
   "chat.attach.uploading": "{name} अपलोड हो रही है",
   "chat.attach.failed": "{name} अपलोड नहीं हुई",
+  "chat.attach.retry": "{name} फिर से अपलोड करें",
+  "chat.attach.blockedByFailed": "एक फ़ाइल अपलोड नहीं हुई। भेजने के लिए उसे फिर आज़माएँ या हटाएँ।",
   "chat.attach.dismiss": "खारिज करें",
   "chat.attach.refused.image":
     "{name}: यह मॉडल चित्र नहीं पढ़ सकता, इसलिए सिर्फ़ दस्तावेज़ (PDF, Word, Excel, टेक्स्ट) संलग्न किए जा सकते हैं",
