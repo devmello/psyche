@@ -29,9 +29,13 @@ extension GatewayBackend {
         let (head, page) = try await (entry, history)
         guard let summary = Self.summary(from: head) else { throw BackendError.notFound }
         let (items, older) = await transcript(page)
+        let wire = head["thread"]
+        let imported = !(wire?["imported"]?.isNull ?? true)
         return ChatThread(
             id: summary.id, title: summary.title, status: summary.status, statusKind: summary.statusKind,
-            items: items, olderCursor: older)
+            items: items, olderCursor: older, permissionMode: wire?["permissionMode"]?.string ?? "balanced",
+            fullAccessAllowed: ThreadFullAccess.isAllowed(
+                kind: wire?["kind"]?.string, imported: imported, sessionKey: wire?["sessionKey"]?.string))
     }
 
     public func olderItems(threadID: String, before cursor: String) async throws -> MessagePage {
@@ -129,6 +133,13 @@ extension GatewayBackend {
 
     public func renameThread(id: String, title: String) async throws {
         _ = try await call("threads.rename", .obj(["threadId": .string(id), "title": .string(title)]))
+    }
+
+    public func setFullAccess(threadID: String, enabled: Bool) async throws {
+        let id = try await resolveThreadID(threadID)
+        _ = try await call(
+            "threads.update",
+            .obj(["threadId": .string(id), "permissionMode": .string(enabled ? ThreadFullAccess.mode : "balanced")]))
     }
 
     public func deleteThread(id: String) async throws {
