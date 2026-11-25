@@ -4,10 +4,12 @@ import {
   createThread,
   getNode,
   getRun,
+  getRunStep,
   getToolCall,
   listAllMessages,
   updateDevice,
   updateRun,
+  upsertRunStep,
   upsertToolCall,
 } from "@psyche/db";
 import type { AgentEvent, AgentLoop, StartTurnInput, Thread } from "@psyche/protocol";
@@ -178,6 +180,66 @@ describe("S01 review regressions", () => {
     expect(getToolCall(db, "tc_wait")?.status).toBe("pending");
     expect(getToolCall(db, "tc_run")?.status).toBe("uncertain");
     expect(getRun(db, waiting.id)?.status).toBe("awaiting_approval");
+  });
+
+  it("recovery closes the open steps of a run it fails, and leaves a suspended run's steps (bug 10)", async () => {
+    t = await startTestGateway();
+    const db = t.gateway.context.db;
+    const th = createThread(db, { kind: "side", sessionKey: "s" });
+    const step = (runId: string, id: string, seq: number, status: "running" | "ok" | "waiting") =>
+      upsertRunStep(db, {
+        id,
+        runId,
+        seq,
+        kind: "tool",
+        status,
+        label: "Searching",
+        startedAt: "2026-11-25T10:00:00.000Z",
+        endedAt: status === "ok" ? "2026-11-25T10:00:01.000Z" : null,
+        attempt: 1,
+      });
+    const cut = createRun(db, { threadId: th.id, modelRef: "fake/m" });
+    step(cut.id, "stp_done", 1, "ok");
+    step(cut.id, "stp_open", 2, "running");
+    const waiting = createRun(db, { threadId: th.id, modelRef: "fake/m" });
+    updateRun(db, waiting.id, { status: "awaiting_approval" });
+    step(waiting.id, "stp_wait", 1, "waiting");
+    recoverAfterRestart(db, silentLogger);
+    expect(getRun(db, cut.id)?.status).toBe("failed");
+    expect(getRunStep(db, cut.id, "stp_open")).toMatchObject({
+      status: "failed",
+      error: { code: "interrupted" },
+    });
+    expect(getRunStep(db, cut.id, "stp_open")?.endedAt).toBeTruthy();
+    // A finished step is untouched, and so is the step of a run that is only waiting (controls).
+    expect(getRunStep(db, cut.id, "stp_done")?.status).toBe("ok");
+    expect(getRunStep(db, waiting.id, "stp_wait")?.status).toBe("waiting");
+  });
+
+  it("recovery's restart note carries a key the UI words, and only for the run it failed", async () => {
+    t = await startTestGateway();
+    const db = t.gateway.context.db;
+    const cutThread = createThread(db, { kind: "side", sessionKey: "s-cut" });
+    const cut = createRun(db, { threadId: cutThread.id, modelRef: "fake/m" });
+    const waitThread = createThread(db, { kind: "side", sessionKey: "s-wait" });
+    const waiting = createRun(db, { threadId: waitThread.id, modelRef: "fake/m" });
+    updateRun(db, waiting.id, { status: "awaiting_approval" });
+    db.sqlite
+      .prepare("UPDATE threads SET active_writer_run_id = ? WHERE id = ?")
+      .run(cut.id, cutThread.id);
+    db.sqlite
+      .prepare("UPDATE threads SET active_writer_run_id = ? WHERE id = ?")
+      .run(waiting.id, waitThread.id);
+    recoverAfterRestart(db, silentLogger);
+    const notes = (threadId: string) =>
+      listAllMessages(db, threadId).filter((m) => m.role === "system");
+    expect(notes(cutThread.id)[0]?.blocks[0]).toEqual({
+      type: "text",
+      md: "The Gateway restarted during this turn, so it was stopped.",
+      noteKey: "gateway_restart",
+    });
+    // Control: a suspended run was not stopped, so its thread gets no note.
+    expect(notes(waitThread.id)).toEqual([]);
   });
 
   it("retention keeps an expired incognito thread with a suspended run (finding 5)", async () => {

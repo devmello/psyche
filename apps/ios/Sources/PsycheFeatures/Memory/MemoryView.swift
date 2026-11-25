@@ -3,8 +3,9 @@ import PsycheDesign
 import PsycheStore
 import SwiftUI
 
-/// Memory (docs/design/ios-app-2026.md §4.5): To-do, Work and People. One `List`, so a to-do row can
-/// swipe; every row is drawn as a slice of a paper card (`cardRow`).
+/// Memory (docs/design/ios-app-2026.md §4.5): To-do, Work and People. A native `List` with a large title and
+/// `.searchable`; the owner's own content comes first. Pause, the Learning pages and the memory files are in the
+/// toolbar menu.
 struct MemoryView: View {
     private let motion = MotionContext()
     enum Segment: String, CaseIterable, Identifiable {
@@ -42,8 +43,13 @@ struct MemoryView: View {
                 header
                 content
             }
-            .memoryListStyle()
-            .psycheHidesNavigationBar()
+            .navigationTitle(String(localized: "Memory", bundle: .module))
+            #if os(iOS)
+            .navigationBarTitleDisplayMode(.large)
+            #endif
+            .searchable(text: $model.query, prompt: String(localized: "Search \(segment.rawValue.lowercased())", bundle: .module))
+            .autocorrectionDisabled()
+            .toolbar { ToolbarItem(placement: .primaryAction) { moreMenu } }
             .refreshable { await model.load() }
             .task {
                 await model.load()
@@ -64,6 +70,11 @@ struct MemoryView: View {
             } message: {
                 Text(model.notice ?? "")
             }
+            .alert(String(localized: "Couldn't change that", bundle: .module), isPresented: Binding(get: { pauseModel.notice != nil }, set: { if !$0 { pauseModel.notice = nil } })) {
+                Button(String(localized: "OK", bundle: .module), role: .cancel) {}
+            } message: {
+                Text(pauseModel.notice ?? "")
+            }
         }
     }
 
@@ -73,62 +84,96 @@ struct MemoryView: View {
 
     // MARK: Header
 
+    /// The owner's own content comes first: the segment picker, then (only when they matter) a paused note and the
+    /// claims waiting to be confirmed. Pause, Learning and Memory files live in the toolbar menu.
     @ViewBuilder
     private var header: some View {
-        PageHeader(String(localized: "Memory", bundle: .module)).plainRow(top: 8, bottom: 14)
-        ConnectionBanner(state: session.state, lastSyncedAt: session.lastSyncedAt)
-            .plainRow(bottom: session.state.isUnreachable ? 14 : 0)
+        if session.state.showsBanner {
+            ConnectionBanner(state: session.state, lastSyncedAt: session.lastSyncedAt)
+                .listRowBackground(Color.clear)
+        }
         Picker(String(localized: "Memory", bundle: .module), selection: $segment) {
             ForEach(Segment.allCases) { Text(LocalizedStringKey($0.rawValue), bundle: .module).tag($0) }
         }
         .pickerStyle(.segmented)
-        .plainRow(bottom: 12)
-        PaperSearchField(prompt: String(localized: "Search \(segment.rawValue.lowercased())", bundle: .module), text: $model.query)
-            .plainRow(bottom: 8)
-        captureRow
-            .plainRow(bottom: 12)
-        learningRows
+        .listRowBackground(Color.clear)
+        .listRowInsets(EdgeInsets(top: 0, leading: 16, bottom: 8, trailing: 16))
+        if pauseModel.paused == true {
+            pausedRow
+        }
+        if model.claimCount > 0 {
+            Button { router.memoryPath.append(.claims) } label: {
+                LabeledContent {
+                    Text(verbatim: "\(model.claimCount)")
+                } label: {
+                    Text("To confirm", bundle: .module)
+                }
+            }
+            .tint(.primary)
+            .accessibilityIdentifier("memoryToConfirmRow")
+        }
+    }
+
+    /// Memory capture paused: says so, and offers the one control that changes it (memory.pause). The same switch
+    /// is in the toolbar menu when capture is on; there are no durations.
+    private var pausedRow: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label {
+                Text("Memory is paused", bundle: .module).font(.headline)
+            } icon: {
+                Image(systemName: "pause.circle")
+            }
+            Text("Nothing new is remembered from your chats.", bundle: .module)
+                .font(.subheadline).foregroundStyle(.secondary)
+            Button {
+                Task { await pauseModel.toggle() }
+            } label: {
+                Text("Resume memory", bundle: .module)
+            }
+            .buttonStyle(.bordered)
+            .accessibilityIdentifier("memoryCaptureToggle")
+        }
+        .padding(.vertical, 4)
+    }
+
+    /// Everything that used to sit above the content: pause, the Learning pages, Remember this and the memory files.
+    private var moreMenu: some View {
+        Menu {
+            if let paused = pauseModel.paused, !paused {
+                Button {
+                    Task { await pauseModel.toggle() }
+                } label: {
+                    Label(String(localized: "Pause memory", bundle: .module), systemImage: "pause.circle")
+                }
+            }
+            Section(String(localized: "Learning", bundle: .module)) {
+                Button { router.memoryPath.append(.learning) } label: {
+                    Label(String(localized: "What Psyche learned", bundle: .module), systemImage: "graduationcap")
+                }
+                Button { router.memoryPath.append(.claims) } label: {
+                    Label(String(localized: "To confirm", bundle: .module), systemImage: "questionmark.circle")
+                }
+                Button { router.memoryPath.append(.recentChanges) } label: {
+                    Label(String(localized: "Recent changes", bundle: .module), systemImage: "clock.arrow.circlepath")
+                }
+                Button { router.memoryPath.append(.reviewQueue) } label: {
+                    Label(String(localized: "Held back", bundle: .module), systemImage: "tray")
+                }
+                Button { remembering = true } label: {
+                    Label(String(localized: "Remember this", bundle: .module), systemImage: "plus.bubble")
+                }
+            }
+            Button { router.memoryPath.append(.memoryFiles) } label: {
+                Label(String(localized: "Memory files", bundle: .module), systemImage: "doc.text")
+            }
+        } label: {
+            Image(systemName: "ellipsis.circle")
+        }
+        .accessibilityLabel(String(localized: "More", bundle: .module))
+        .accessibilityIdentifier("memoryMoreMenu")
     }
 
     // MARK: Content
-
-    /// Memory capture on or paused: the state, and the one control that changes it (memory.pause). Mac offers the same
-    /// switch; there are no durations.
-    private var captureRow: some View {
-        PaperStack {
-            HStack(alignment: .center, spacing: 12) {
-                VStack(alignment: .leading, spacing: 3) {
-                    if pauseModel.paused == true {
-                        Text("Memory is paused", bundle: .module).font(.psycheRow).foregroundStyle(PsycheColor.text)
-                        Text("Nothing new is remembered from your chats.", bundle: .module)
-                            .font(.subheadline).foregroundStyle(PsycheColor.muted)
-                    } else {
-                        Text("Memory is on", bundle: .module).font(.psycheRow).foregroundStyle(PsycheColor.text)
-                        Text("Psyche remembers from your chats.", bundle: .module)
-                            .font(.subheadline).foregroundStyle(PsycheColor.muted)
-                    }
-                }
-                Spacer(minLength: 0)
-                if let paused = pauseModel.paused {
-                    Button {
-                        Task { await pauseModel.toggle() }
-                    } label: {
-                        Text(paused
-                            ? String(localized: "Resume memory", bundle: .module)
-                            : String(localized: "Pause memory", bundle: .module))
-                    }
-                    .buttonStyle(.psycheOutline)
-                    .accessibilityIdentifier("memoryCaptureToggle")
-                }
-            }
-            .padding(PsycheMetrics.rowPadding)
-        }
-        .alert(String(localized: "Couldn't change that", bundle: .module), isPresented: Binding(get: { pauseModel.notice != nil }, set: { if !$0 { pauseModel.notice = nil } })) {
-            Button(String(localized: "OK", bundle: .module), role: .cancel) {}
-        } message: {
-            Text(pauseModel.notice ?? "")
-        }
-    }
 
     @ViewBuilder
     private var content: some View {
@@ -140,7 +185,7 @@ struct MemoryView: View {
         case .loaded(let snapshot):
             body(for: snapshot)
         case .failed(let message):
-            failed(message).plainRow(top: 24)
+            failed(message)
         }
     }
 
@@ -154,99 +199,27 @@ struct MemoryView: View {
     }
 
     private func failed(_ message: String) -> some View {
-        VStack(spacing: 12) {
-            Text("Couldn't load this", bundle: .module).font(.headline).foregroundStyle(PsycheColor.text)
-            Text(message).font(.subheadline).foregroundStyle(PsycheColor.muted)
+        ContentUnavailableView {
+            Label(String(localized: "Couldn't load this", bundle: .module), systemImage: "exclamationmark.triangle")
+        } description: {
+            Text(message)
+        } actions: {
             Button(String(localized: "Try again", bundle: .module)) { Task { await model.load() } }
-                .buttonStyle(.psycheOutline)
-                .frame(maxWidth: 220)
+                .buttonStyle(.bordered)
         }
-        .frame(maxWidth: .infinity)
-    }
-
-    private func sectionHeader(_ title: String) -> some View {
-        SectionHeader(title).plainRow(top: 14, bottom: 8)
-    }
-
-    /// What Psyche learned, what it isn't sure of, what it changed on its own, and a quick note to keep.
-    @ViewBuilder
-    private var learningRows: some View {
-        sectionHeader(String(localized: "Learning", bundle: .module))
-        learningRow(
-            String(localized: "What Psyche learned", bundle: .module),
-            detail: String(localized: "Lessons from your corrections", bundle: .module), badge: nil,
-            position: CardPosition(index: 0, count: 5)
-        ) { router.memoryPath.append(.learning) }
-        learningRow(
-            String(localized: "To confirm", bundle: .module),
-            detail: String(localized: "Claims Psyche isn't sure of", bundle: .module), badge: model.claimCount,
-            position: CardPosition(index: 1, count: 5)
-        ) { router.memoryPath.append(.claims) }
-        learningRow(
-            String(localized: "Recent changes", bundle: .module),
-            detail: String(localized: "Changes Psyche made on its own", bundle: .module), badge: nil,
-            position: CardPosition(index: 2, count: 5)
-        ) { router.memoryPath.append(.recentChanges) }
-        learningRow(
-            String(localized: "Held back", bundle: .module),
-            detail: String(localized: "Kept out of memory, and senders you trust", bundle: .module), badge: nil,
-            position: CardPosition(index: 3, count: 5)
-        ) { router.memoryPath.append(.reviewQueue) }
-        learningRow(
-            String(localized: "Remember this", bundle: .module),
-            detail: String(localized: "Tell Psyche something to keep", bundle: .module), badge: nil,
-            position: CardPosition(index: 4, count: 5)
-        ) { remembering = true }
-    }
-
-    private func learningRow(
-        _ title: String, detail: String, badge: Int?, position: CardPosition, action: @escaping () -> Void
-    ) -> some View {
-        Button(action: action) {
-            HStack(spacing: 12) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(verbatim: title).font(.psycheRow).foregroundStyle(PsycheColor.text)
-                    Text(verbatim: detail).font(.caption).foregroundStyle(PsycheColor.muted)
-                }
-                Spacer(minLength: 0)
-                if let badge, badge > 0 {
-                    Text(verbatim: "\(badge)").font(.caption.weight(.semibold)).foregroundStyle(.white)
-                        .padding(.horizontal, 8).padding(.vertical, 2)
-                        .background(PsycheColor.ink, in: Capsule())
-                }
-                chevron
-            }
-            .padding(PsycheMetrics.rowPadding)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .cardRow(position)
-    }
-
-    /// The agent's workspace files, read-only on the phone (`/agent/soul`).
-    private var memoryFilesRow: some View {
-        Button { router.memoryPath.append(.memoryFiles) } label: {
-            HStack(spacing: 12) {
-                Image(systemName: "doc.text").foregroundStyle(PsycheColor.muted).frame(width: 32)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Memory files", bundle: .module).font(.psycheRow).foregroundStyle(PsycheColor.text)
-                    Text("Read-only on the phone", bundle: .module).font(.caption).foregroundStyle(PsycheColor.muted)
-                }
-                Spacer(minLength: 0)
-                chevron
-            }
-            .padding(PsycheMetrics.rowPadding)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .plainRow(top: 14, bottom: 8)
+        .listRowBackground(Color.clear)
     }
 
     private func emptyNote(_ text: String) -> some View {
         Text(text)
-            .font(.subheadline).foregroundStyle(PsycheColor.muted)
+            .font(.subheadline).foregroundStyle(.secondary)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .plainRow(top: 8)
+            .listRowBackground(Color.clear)
+    }
+
+    /// A secondary line under a row title: a text style in the secondary colour, not a mono log line.
+    private func metaLine(_ text: String) -> some View {
+        Text(text).font(.caption).foregroundStyle(.secondary)
     }
 
     // MARK: To-do
@@ -259,25 +232,24 @@ struct MemoryView: View {
             emptyNote(model.isSearching ? String(localized: "No to-dos match \u{201C}\(model.query)\u{201D}.", bundle: .module) : String(localized: "Nothing on your to-do list.", bundle: .module))
         }
         if !week.isEmpty {
-            sectionHeader(String(localized: "This week", bundle: .module))
-            ForEach(Array(week.enumerated()), id: \.element.id) { index, todo in
-                todoRow(todo, position: CardPosition(index: index, count: week.count))
+            Section(String(localized: "This week", bundle: .module)) {
+                ForEach(week, id: \.id) { todoRow($0) }
             }
         }
         if !later.isEmpty {
-            sectionHeader(String(localized: "Later", bundle: .module))
-            ForEach(Array(later.enumerated()), id: \.element.id) { index, todo in
-                todoRow(todo, position: CardPosition(index: index, count: later.count))
+            Section(String(localized: "Later", bundle: .module)) {
+                ForEach(later, id: \.id) { todoRow($0) }
             }
         }
-        // Empty sections aren't drawn (§4.1): no catch-up line means no card.
+        // Empty sections aren't drawn (§4.1): no catch-up line means no section.
         if !model.isSearching, !snapshot.leftOff.text.isEmpty {
-            sectionHeader(String(localized: "Where you left off", bundle: .module))
-            leftOffCard(snapshot.leftOff)
+            Section(String(localized: "Where you left off", bundle: .module)) {
+                leftOffCard(snapshot.leftOff)
+            }
         }
     }
 
-    private func todoRow(_ todo: TodoItem, position: CardPosition) -> some View {
+    private func todoRow(_ todo: TodoItem) -> some View {
         let done = model.isDone(todo)
         return HStack(spacing: 12) {
             Button { model.toggle(todo) } label: { CircleCheck(done: done).frame(width: 44, height: 44).contentShape(Rectangle()) }
@@ -286,21 +258,19 @@ struct MemoryView: View {
                 .accessibilityLabel(done ? "Mark \(todo.title) not done" : "Mark \(todo.title) done")
             VStack(alignment: .leading, spacing: 2) {
                 Text(todo.title)
-                    .font(.psycheRow)
+                    .font(.body)
                     .strikethrough(done)
-                    .foregroundStyle(done ? PsycheColor.muted : PsycheColor.text)
+                    .foregroundStyle(done ? .secondary : .primary)
                     .multilineTextAlignment(.leading)
-                EvidenceLine([MemoryModel.displayMeta(todo, done: done)])
+                metaLine(MemoryModel.displayMeta(todo, done: done))
             }
             Spacer(minLength: 0)
             if todo.needsYou && !done { NeedsYouDot() }
         }
-        .padding(.vertical, 4)
-        .padding(.horizontal, PsycheMetrics.rowPadding.leading)
         .contentShape(Rectangle())
         .onTapGesture { if let thread = todo.threadID { router.openThread(thread) } }
         .accessibilityElement(children: .contain)
-        .cardRow(position, highlighted: model.highlighted == todo.id)
+        .listRowBackground(model.highlighted == todo.id ? PsycheColor.inkText.opacity(0.10) : nil)
         .id(todo.id)
         .swipeActions(edge: .leading, allowsFullSwipe: true) {
             Button { model.toggle(todo) } label: {
@@ -311,7 +281,7 @@ struct MemoryView: View {
         .swipeActions(edge: .trailing) {
             if let thread = todo.threadID {
                 Button { router.openThread(thread) } label: { Label(String(localized: "Open thread", bundle: .module), systemImage: "bubble.left") }
-                    .tint(PsycheColor.muted)
+                    .tint(.gray)
             }
         }
     }
@@ -319,12 +289,9 @@ struct MemoryView: View {
     private func leftOffCard(_ leftOff: LeftOff) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             Text("\(Text(leftOff.title).fontWeight(.semibold)) \(leftOff.text)", bundle: .module)
-                .font(.psycheRow)
-                .foregroundStyle(PsycheColor.text)
-            EvidenceLine(String(localized: "Because", bundle: .module), leftOff.evidence)
+                .font(.body)
+            metaLine("\(String(localized: "Because", bundle: .module)) \(leftOff.evidence.joined(separator: " \u{B7} "))")
         }
-        .padding(14)
-        .cardRow(.only)
         .accessibilityElement(children: .combine)
     }
 
@@ -348,24 +315,23 @@ struct MemoryView: View {
         if projects.isEmpty {
             emptyNote(model.isSearching ? String(localized: "No projects match \u{201C}\(model.query)\u{201D}.", bundle: .module) : String(localized: "No projects yet. Tell Psyche what you're working on.", bundle: .module))
         } else {
-            sectionHeader(String(localized: "Projects", bundle: .module))
-            ForEach(Array(projects.enumerated()), id: \.element.id) { index, project in
-                Button { router.memoryPath.append(.project(id: project.id)) } label: {
-                    VStack(alignment: .leading, spacing: 8) {
-                        HStack {
-                            Text(project.title).font(.psycheRow).foregroundStyle(PsycheColor.text)
-                            Spacer(minLength: 0)
+            Section(String(localized: "Projects", bundle: .module)) {
+                ForEach(projects, id: \.id) { project in
+                    Button { router.memoryPath.append(.project(id: project.id)) } label: {
+                        HStack(spacing: 12) {
+                            VStack(alignment: .leading, spacing: 6) {
+                                Text(project.title).font(.body).foregroundStyle(.primary)
+                                ProgressView(value: min(max(project.fraction, 0), 1))
+                                    .accessibilityHidden(true)
+                                metaLine(project.detail)
+                            }
                             chevron
                         }
-                        ProgressBar(fraction: project.fraction)
-                        EvidenceLine([project.detail])
+                        .contentShape(Rectangle())
                     }
-                    .padding(PsycheMetrics.rowPadding)
-                    .contentShape(Rectangle())
+                    .buttonStyle(.plain)
+                    .task { await model.ensureProgress(project.id) }
                 }
-                .buttonStyle(.plain)
-                .task { await model.ensureProgress(project.id) }
-                .cardRow(CardPosition(index: index, count: projects.count))
             }
         }
     }
@@ -378,47 +344,45 @@ struct MemoryView: View {
         if people.isEmpty {
             emptyNote(model.isSearching ? String(localized: "No one matches \u{201C}\(model.query)\u{201D}.", bundle: .module) : String(localized: "No people yet.", bundle: .module))
         } else {
-            sectionHeader(String(localized: "People", bundle: .module))
-            ForEach(Array(people.enumerated()), id: \.element.id) { index, person in
-                Button { router.memoryPath.append(.person(id: person.id)) } label: {
-                    HStack(spacing: 12) {
-                        InitialsAvatar(person.initials)
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(person.name).font(.psycheRow).foregroundStyle(PsycheColor.text)
-                            EvidenceLine([person.detail])
+            Section(String(localized: "People", bundle: .module)) {
+                ForEach(people, id: \.id) { person in
+                    Button { router.memoryPath.append(.person(id: person.id)) } label: {
+                        HStack(spacing: 12) {
+                            InitialsAvatar(person.initials)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(person.name).font(.body).foregroundStyle(.primary)
+                                metaLine(person.detail)
+                            }
+                            Spacer(minLength: 0)
+                            chevron
                         }
-                        Spacer(minLength: 0)
-                        chevron
+                        .contentShape(Rectangle())
                     }
-                    .padding(PsycheMetrics.rowPadding)
-                    .contentShape(Rectangle())
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
-                .cardRow(CardPosition(index: index, count: people.count))
             }
         }
-        Button { addingPerson = true } label: {
-            Label(String(localized: "Add person", bundle: .module), systemImage: "person.badge.plus")
-                .font(.psycheRow)
-                .foregroundStyle(PsycheColor.text)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(PsycheMetrics.rowPadding)
-                .contentShape(Rectangle())
+        Section {
+            Button { addingPerson = true } label: {
+                Label(String(localized: "Add person", bundle: .module), systemImage: "person.badge.plus")
+            }
+            .accessibilityIdentifier("addPersonRow")
         }
-        .buttonStyle(.plain)
-        .accessibilityIdentifier("addPersonRow")
-        memoryFilesRow
     }
 
     private var chevron: some View {
         Image(systemName: "chevron.right").font(.footnote.weight(.semibold))
-            .foregroundStyle(PsycheColor.muted.opacity(0.7))
+            .foregroundStyle(.tertiary)
             .accessibilityHidden(true)
     }
 }
 
 extension ConnectionState {
-    fileprivate var isUnreachable: Bool {
-        if case .unreachable = self { true } else { false }
+    /// The banner has something to say: still connecting, or unreachable.
+    fileprivate var showsBanner: Bool {
+        switch self {
+        case .connecting, .unreachable: true
+        default: false
+        }
     }
 }

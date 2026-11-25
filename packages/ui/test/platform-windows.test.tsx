@@ -139,6 +139,20 @@ describe("Windows copy (i18n/messages/variants/windows.ts)", () => {
 const ABOUT_MACOS = new Set<string>([
   // The Mac helper's Touch ID key in the login keychain (states only a mac-helper key reaches).
   "settings.devices.touchId.confirmReplace",
+  // Psyche Helper's macOS privacy grants: only the Mac helper's rows and TCC refusals reach these.
+  "settings.computerUse.helperAccess.lost",
+  "settings.computerUse.helperAccess.restartToApply",
+  "errors.reason.permission_missing",
+  "errors.reason.permission_denied",
+  "errors.reason.automation_denied",
+  "errors.reason.automation_not_granted",
+  "errors.reason.full_disk_access_missing",
+  "errors.reason.prompt_refused_by_macos",
+  "errors.reason.apple_not_connected",
+  "settings.computerUse.fullDiskAccess.why",
+  "settings.computerUse.fullDiskAccess.open",
+  "settings.connect.path.automation",
+  "settings.connect.path.privacy",
   // The macOS bundle integrity check at start-up (main.ts runs it on macOS only).
   "app.integrity.detail",
   // iMessage / SMS channel: Apple vouches for iMessage senders.

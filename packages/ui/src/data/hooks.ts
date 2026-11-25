@@ -2068,7 +2068,7 @@ export function useSpeechEngine() {
       try {
         await store.call("speech.engine.download", {});
       } catch (err) {
-        setError(err instanceof Error ? err.message : String(err));
+        setError(describeError(err));
       } finally {
         setRequested(false);
         q.reload();

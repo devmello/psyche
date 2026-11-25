@@ -183,6 +183,10 @@ export const galleryA: Partial<Catalogue> = {
   "onboarding.you.agent": "Tu agente",
   "onboarding.you.customize": "Personalizar el aspecto",
   "onboarding.you.more": "Más sobre ti",
+  "onboarding.restore.title": "Restaurar desde una copia de seguridad",
+  "onboarding.restore.where":
+    "Las copias de seguridad están en $PSYCHE_HOME/backups. Para restaurar en un ordenador nuevo, detén el Gateway y ejecuta:",
+  "onboarding.restore.unlock": "Después desbloquea la bóveda con su clave de recuperación.",
   "onboarding.memory.habitsLead":
     "Elige qué hace {name} cada día y qué conserva en la memoria. Todo se puede cambiar en Ajustes.",
   "onboarding.memory.bring": "Traer la memoria de ChatGPT o Claude",

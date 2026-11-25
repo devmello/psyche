@@ -26,6 +26,7 @@ const RAIL: Record<string, MessageId> = {
   inbox: "screens.inbox.title",
   "can-do": "capabilities.title",
   onboarding: "onboarding.rerun.title",
+  spaces: "spaces.title",
 };
 
 const AGENT: Record<string, MessageId> = {

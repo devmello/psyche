@@ -54,7 +54,7 @@ function show(onAnswer: (...a: unknown[]) => Promise<void>, a = approval()) {
   );
 }
 
-const allow = () => screen.getByRole("button", { name: "Allow with scope" }) as HTMLButtonElement;
+const allow = () => screen.getByRole("button", { name: "Allow" }) as HTMLButtonElement;
 
 afterEach(() => vi.useRealTimers());
 
@@ -258,46 +258,40 @@ describe("answer failures on the card", () => {
     expect(onAnswer).toHaveBeenCalledTimes(1);
   });
 
-  it("from the window, Always becomes once, and the card says so before and after", async () => {
-    const onAnswer = vi.fn(async () => undefined);
-    const a = approval({ requiresAuthentication: true, scopesOffered: ["once", "always"] });
-    const { rerender } = render(
-      <UiSlotsProvider
-        value={{ persona: { name: "Wren", creature: "moth" }, touchIdOnceOnly: true }}
-      >
-        <ApprovalCard
-          approval={a}
-          persona="Wren"
-          canAnswer
-          now={NOW}
-          armDelayMs={0}
-          mode="balanced"
-          onAnswer={onAnswer as never}
-        />
-      </UiSlotsProvider>,
-    );
-    await userEvent.selectOptions(screen.getByRole("combobox", { name: "Allow for" }), "always");
-    expect(screen.getByTestId("touch-id-once-only").textContent).toContain("once only");
-    await userEvent.click(allow());
-    await waitFor(() => expect(onAnswer).toHaveBeenCalled());
-    rerender(
-      <UiSlotsProvider
-        value={{ persona: { name: "Wren", creature: "moth" }, touchIdOnceOnly: true }}
-      >
-        <ApprovalCard
-          approval={{ ...a, status: "approved", scopeGranted: "once", decidedAt: FIXTURE_NOW }}
-          persona="Wren"
-          canAnswer
-          now={NOW}
-          armDelayMs={0}
-          mode="balanced"
-          onAnswer={onAnswer as never}
-        />
-      </UiSlotsProvider>,
-    );
-    expect(document.body.textContent).toContain(
-      "Allowed once (Touch ID approvals from this window are once only)",
-    );
+  it("a card that needs presence never shows a lasting choice (control: without presence it does)", async () => {
+    const view = (
+      over: Partial<ApprovalRequest>,
+      touchIdOnceOnly: boolean,
+      onAnswer = vi.fn(async () => undefined),
+    ) =>
+      render(
+        <UiSlotsProvider value={{ persona: { name: "Wren", creature: "moth" }, touchIdOnceOnly }}>
+          <ApprovalCard
+            approval={approval({ scopesOffered: ["once", "session", "always"], ...over })}
+            persona="Wren"
+            canAnswer
+            now={NOW}
+            armDelayMs={0}
+            mode="balanced"
+            onAnswer={onAnswer as never}
+          />
+        </UiSlotsProvider>,
+      );
+    // The control: the same card with no presence step offers its lasting choices.
+    const control = view({ requiresAuthentication: false }, false);
+    expect(screen.getByTestId("approval-second-choice")).toBeTruthy();
+    control.unmount();
+    // With presence, from any window: no lasting choice and no More options.
+    for (const onceOnly of [false, true]) {
+      const onAnswer = vi.fn(async () => undefined);
+      const { unmount } = view({ requiresAuthentication: true }, onceOnly, onAnswer);
+      expect(screen.queryByTestId("approval-second-choice")).toBeNull();
+      expect(screen.queryByRole("button", { name: /Always|rest of this chat/ })).toBeNull();
+      expect(screen.queryByRole("button", { name: "More options…" })).toBeNull();
+      await userEvent.click(allow());
+      await waitFor(() => expect(onAnswer).toHaveBeenCalledWith("approve", "once", undefined));
+      unmount();
+    }
   });
 
   it("shows the approval code the Touch ID sheet names", () => {

@@ -38,6 +38,7 @@ struct RouteView: View {
         case .goal(let id): GoalsView(store: store, openGoalID: id)
         case .feedPost(let id): FeedView(store: store, focusPostID: id)
         case .space(let id): SpaceView(id: id, store: store)
+        case .nightShift(let id): NightShiftReviewView(reviewID: id, store: store)
         case .task, .agentApprovals, .tab, .settings: EmptyView()  // the router opens these, never pushed
         }
     }

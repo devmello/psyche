@@ -9,6 +9,7 @@ import {
   previewImport,
   saveHabits,
   saveMemory,
+  saveNightShift,
   saveProgress,
   touchIdSetup,
 } from "../../src/compose/onboarding-host.ts";
@@ -326,6 +327,21 @@ describe("habits and automations", () => {
       "daily.wrapup.enabled",
       "daily.followups.enabled",
     ]);
+  });
+
+  it("turns Night shift on with the consent time, and not at all when the owner skipped it", async () => {
+    const g = gateway({ "settings.set": () => ({}) });
+    await saveNightShift(g.call);
+    expect(
+      g.calls.map((c) => [c.params.key, c.params.value === true ? true : typeof c.params.value]),
+    ).toEqual([
+      ["nightShift.enabled", true],
+      ["nightShift.consentedAt", "string"],
+    ]);
+    // The habit writes never touch it.
+    const h = gateway({ "settings.set": () => ({}) });
+    await saveHabits(h.call, { brief: true, wrapup: true, followups: true });
+    expect(h.calls.some((c) => String(c.params.key).startsWith("nightShift."))).toBe(false);
   });
 
   it("creates a cron automation", async () => {

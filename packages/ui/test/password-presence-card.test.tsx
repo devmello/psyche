@@ -62,7 +62,7 @@ describe("approval card with password presence", () => {
     let finish: () => void = () => undefined;
     const a = approval();
     show(() => new Promise<void>((r) => (finish = r)), a);
-    await userEvent.click(screen.getByRole("button", { name: "Allow with scope" }));
+    await userEvent.click(screen.getByRole("button", { name: "Allow" }));
     const waiting = await screen.findByTestId("password-waiting");
     expect(waiting.textContent).toContain(approvalCode(a.bindingHash));
     expect(waiting.textContent).toContain("Waiting for your password");
@@ -74,7 +74,7 @@ describe("approval card with password presence", () => {
     show(async () => {
       throw fail("presence_agent_missing", "agent_missing");
     });
-    await userEvent.click(screen.getByRole("button", { name: "Allow with scope" }));
+    await userEvent.click(screen.getByRole("button", { name: "Allow" }));
     expect((await screen.findByRole("alert")).textContent).toContain("polkit agent");
     expect(screen.queryByTestId("password-waiting")).toBeNull();
   });

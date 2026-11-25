@@ -32,6 +32,10 @@ function originOf(task: Task): RunOrigin {
   switch (task.createdFrom) {
     case "automation":
       return "automation";
+    // A plan-fork branch is a background run the owner never typed (fork-a-plan-2026 L3): not
+    // `owner`, so nothing that learns from or counts the owner's own turns takes it for one.
+    case "fork":
+      return "automation";
     case "subagent":
       return "subagent";
     case "channel":

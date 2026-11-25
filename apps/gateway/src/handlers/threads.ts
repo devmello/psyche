@@ -283,7 +283,8 @@ export const threadsHandlers: Record<string, HandlerDef> = {
       },
     ) {
       const { db } = call.ctx;
-      const kind = params.kind ?? "main";
+      // A missing kind is a new side chat: it must never answer with the existing main thread.
+      const kind = params.kind ?? "side";
       if (kind !== "main" && kind !== "side" && kind !== "incognito") {
         throw new PsycheError(
           "invalid_params",

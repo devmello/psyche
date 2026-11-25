@@ -6,7 +6,7 @@ import { Kbd } from "../../components/ui/kbd.tsx";
 import { useHostOs } from "../../data/host-os.ts";
 import { t } from "../../i18n/core.ts";
 import { isLinux, isWindows, type UiPlatform, uiPlatform } from "../../lib/platform.ts";
-import { HelperPermissionRow } from "../../points/HelperPermissionRow.tsx";
+import { FullDiskAccessRow, HelperPermissionRow } from "../../points/HelperPermissionRow.tsx";
 import { POINTS_ENABLED_KEY, PointsSettingsGroup } from "../../points/PointsSettings.tsx";
 import { usePersona, useSlots } from "../../slots.tsx";
 import { LinuxAccessRows, linuxAccessFromSettings } from "./LinuxAccess.tsx";
@@ -148,6 +148,15 @@ export interface ComputerUsePanelProps extends SettingsFormProps, LoadProps {
   onOpenSystemSettings?: (permission: TccPermission) => void;
   /** Psyche Helper is not connected: its permissions are unknown, never shown as Granted. */
   helperOffline?: boolean;
+  /** Per permission, why a grant may not show yet (lost after an update, or needs a restart). */
+  helperNotices?: Partial<Record<TccPermission, "lost" | "restart">>;
+  /** Restarts Psyche Helper, offered next to a notice. */
+  onRestartHelper?: () => void;
+  /**
+   * Opens System Settings › Full Disk Access, which Messages needs. macOS has no prompt or status
+   * for it, so the row is a link to the pane; absent hides the row.
+   */
+  onOpenFullDiskAccess?: () => void;
   /** Linux computers the owner paired: with any, the page offers a computer picker. */
   machines?: readonly MachineInfo[];
 }
@@ -160,6 +169,9 @@ export function ComputerUsePanel({
   tcc,
   onOpenSystemSettings,
   helperOffline = false,
+  helperNotices = {},
+  onRestartHelper,
+  onOpenFullDiskAccess,
   machines = [],
   loading,
   error,
@@ -244,8 +256,13 @@ export function ComputerUsePanel({
                     persona={persona}
                     offline={helperOffline}
                     onAllow={onOpenSystemSettings}
+                    notice={helperNotices[p]}
+                    onRestart={onRestartHelper}
                   />
                 ))}
+                {onOpenFullDiskAccess ? (
+                  <FullDiskAccessRow persona={persona} onOpen={onOpenFullDiskAccess} />
+                ) : null}
               </>
             )}
           </Group>
@@ -320,12 +337,18 @@ export interface ComputerUseSectionProps {
   tcc?: Partial<Record<TccPermission, TccState>>;
   onOpenSystemSettings?: (permission: TccPermission) => void;
   helperOffline?: boolean;
+  helperNotices?: Partial<Record<TccPermission, "lost" | "restart">>;
+  onRestartHelper?: () => void;
+  onOpenFullDiskAccess?: () => void;
 }
 
 export function ComputerUseSection({
   tcc = {},
   onOpenSystemSettings,
   helperOffline = false,
+  helperNotices = {},
+  onRestartHelper,
+  onOpenFullDiskAccess,
 }: ComputerUseSectionProps): ReactElement {
   const form = useSettingsForm();
   const persona = usePersona();
@@ -353,6 +376,9 @@ export function ComputerUseSection({
         persona={persona.name}
         tcc={tcc}
         helperOffline={helperOffline}
+        helperNotices={helperNotices}
+        {...(onRestartHelper ? { onRestartHelper } : {})}
+        {...(onOpenFullDiskAccess ? { onOpenFullDiskAccess } : {})}
         machines={machines}
         loading={form.loading && Object.keys(form.values).length === 0}
         error={form.error}

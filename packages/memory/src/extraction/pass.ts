@@ -92,9 +92,14 @@ export interface PassDeps {
   signal?: AbortSignal;
   /**
    * The existing people-graph model pass, folded into the same window and budget (§6.8). Gets
-   * the tokens left tonight; returns what it used. Skipped when the model setting is `none`.
+   * the tokens left tonight and the ids of the people this pass already read items about (the
+   * graph pass leaves those alone: one model call per entity per night); returns what it used,
+   * which must not exceed `tokensLeft`. Skipped when the model setting is `none`.
    */
-  graphModelPass?: (tokensLeft: number) => Promise<{ tokens: number }>;
+  graphModelPass?: (
+    tokensLeft: number,
+    covered: ReadonlySet<string>,
+  ) => Promise<{ tokens: number }>;
   /** Facts the owner stated about themselves: proposals for USER.md review, never graph facts. */
   onOwnerProposals?: (proposals: OwnerProposal[]) => void;
   /** The owner consented to work tracking (`memory.work`): without it notes never report work. */
@@ -248,6 +253,8 @@ export async function runEverythingPass(deps: PassDeps): Promise<PassReport> {
     graph.listEntities(["person"]).filter((p) => !em.isEntityExcluded(p.id)),
   );
   const budget = settings.maxTokensPerNight;
+  /** People whose items the model read tonight (authors and the people the items name). */
+  const covered = new Set<string>();
   const localStarted = now;
   const usesLocal = [...choices.keys()].some((s) => modelKindFor(settings, s) === "local");
   let stopped = false;
@@ -321,6 +328,10 @@ export async function runEverythingPass(deps: PassDeps): Promise<PassReport> {
             unavailable = true;
             break;
           }
+          for (const p of batch) {
+            if (p.author !== undefined) covered.add(p.author.id);
+            for (const m of p.mentions) covered.add(m.id);
+          }
         }
         if (unavailable) {
           // The model cannot answer now: nothing was read for this source, so the cursor stays
@@ -336,7 +347,7 @@ export async function runEverythingPass(deps: PassDeps): Promise<PassReport> {
     if (deps.graphModelPass !== undefined && !stopped && choices.size > 0) {
       const left = budget - report.tokensIn - report.tokensOut;
       if (left > 0) {
-        const used = await deps.graphModelPass(left).catch(() => ({ tokens: 0 }));
+        const used = await deps.graphModelPass(left, covered).catch(() => ({ tokens: 0 }));
         report.tokensOut += used.tokens;
       }
     }

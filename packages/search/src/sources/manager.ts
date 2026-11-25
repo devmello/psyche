@@ -46,6 +46,33 @@ export interface SourceIndexerOptions {
   onRecover?: (source: SourceId) => void;
 }
 
+/**
+ * The machine reasons of the texts an adapter gives for "cannot read now", so viewers say them in
+ * the owner's language; a text not listed here (a Windows one) has no reason and shows as is.
+ */
+const DETAIL_REASONS: Readonly<Record<string, string>> = {
+  "the Mac helper is not connected": "needs_helper",
+  "Apple apps are not connected": "apple_not_connected",
+  "no folder has been shared": "no_folder_shared",
+  "Memory is still opening": "memory_opening",
+};
+
+const REASON_WORD = /^[a-z][a-z0-9_]{0,63}$/;
+
+/** `details.reason` of a thrown error (a helper refusal), when it looks like a reason. */
+export function errorReason(err: unknown): string | undefined {
+  const r = (err as { details?: { reason?: unknown } | null } | null)?.details?.reason;
+  return typeof r === "string" && REASON_WORD.test(r) ? r : undefined;
+}
+
+/** The reason for a status line: the adapter's known text, else the error's own reason. */
+export function reasonOfDetail(
+  why: string | undefined,
+  errReason: string | undefined,
+): string | undefined {
+  return why !== undefined ? DETAIL_REASONS[why] : errReason;
+}
+
 const DAY_MS = 86_400_000;
 const MIN_DEDUPE_CHARS = 200;
 
@@ -148,6 +175,8 @@ export class SourceIndexer {
   > &
     SourceIndexerOptions;
   readonly #errors = new Map<SourceId, string>();
+  /** The machine reason behind an error, when the thrown error carried one. */
+  readonly #errorReasons = new Map<SourceId, string>();
   readonly #active = new Set<SourceId>();
   /** Sources being rebuilt now: a pass skips them, and a second rebuild is refused. */
   readonly #rebuilding = new Set<SourceId>();
@@ -308,6 +337,7 @@ export class SourceIndexer {
           changed += await this.#forgetMissing(id, new Set(res.items.map((i) => i.nativeId)));
         this.#setMeta(`src.${id}.cursor`, JSON.stringify(res.cursor ?? null));
         this.#setMeta(`src.${id}.lastAt`, String(this.#o.now()));
+        this.#errorReasons.delete(id);
         if (this.#errors.delete(id)) this.#o.onRecover?.(id);
         if (changed > 0) this.#o.onChange?.();
         if (!res.hasMore) {
@@ -318,7 +348,7 @@ export class SourceIndexer {
         if (this.#o.pauseMs > 0) await new Promise((r) => setTimeout(r, this.#o.pauseMs));
       }
     } catch (err) {
-      this.#errors.set(id, err instanceof Error ? err.message : String(err));
+      this.#setError(id, err);
       this.#o.onError?.(id, err);
     } finally {
       this.#active.delete(id);
@@ -571,7 +601,7 @@ export class SourceIndexer {
       if (removed > 0) this.#o.onChange?.();
       return removed + expired;
     } catch (err) {
-      this.#errors.set(id, err instanceof Error ? err.message : String(err));
+      this.#setError(id, err);
       this.#o.onError?.(id, err);
       return 0;
     }
@@ -598,6 +628,7 @@ export class SourceIndexer {
     this.#index.db.prepare("DELETE FROM search_source_items WHERE source = ?").run(id);
     this.#index.db.prepare("DELETE FROM search_meta WHERE key LIKE ?").run(`src.${id}.%`);
     this.#errors.delete(id);
+    this.#errorReasons.delete(id);
     this.#o.onChange?.();
     return n;
   }
@@ -700,6 +731,13 @@ export class SourceIndexer {
     this.#abort = new AbortController();
   }
 
+  #setError(id: SourceId, err: unknown): void {
+    this.#errors.set(id, err instanceof Error ? err.message : String(err));
+    const reason = errorReason(err);
+    if (reason === undefined) this.#errorReasons.delete(id);
+    else this.#errorReasons.set(id, reason);
+  }
+
   // --- status ----------------------------------------------------------------------------------
 
   status(): SourcesStatus {
@@ -742,6 +780,9 @@ export class SourceIndexer {
         ocr: cfg.ocr,
         state,
         ...(cfg.enabled && (why ?? err) !== undefined ? { detail: (why ?? err) as string } : {}),
+        ...(cfg.enabled && reasonOfDetail(why, this.#errorReasons.get(id)) !== undefined
+          ? { reason: reasonOfDetail(why, this.#errorReasons.get(id)) as string }
+          : {}),
         ...(adapter?.cannotEnable?.() === undefined
           ? {}
           : { cannotEnable: adapter.cannotEnable() as string }),

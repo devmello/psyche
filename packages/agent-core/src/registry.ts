@@ -273,6 +273,17 @@ export const SUBAGENT_WITHHELD = new Set([
   // A subagent of a fork branch inherits the branch's staging, but only the branch files its report.
   "fork_report",
 ]);
+/**
+ * Names only a built-in may register (fork-a-plan-2026 §3.2): `fork_report` files a branch's
+ * report, so a plugin, MCP bridge or connector registering the bare name would shadow it.
+ */
+export const RESERVED_TOOL_NAMES: ReadonlySet<string> = new Set(["fork_report"]);
+const BUILTIN_REGISTRATIONS = new WeakSet<object>();
+/** Marks a registration as the built-in that owns a reserved name. */
+export function markBuiltinRegistration<T extends object>(registration: T): T {
+  BUILTIN_REGISTRATIONS.add(registration);
+  return registration;
+}
 /** Tools offered only in plan mode. */
 export const PLAN_ONLY = new Set(["exit_plan_mode"]);
 /**
@@ -335,6 +346,10 @@ export class AgentToolRegistry implements ToolRegistry {
   register(registration: ToolRegistration | AgentToolRegistration): Unsubscribe {
     const name = registration.spec.name;
     if (!TOOL_NAME.test(name)) throw new PsycheError("invalid_params", `invalid tool name ${name}`);
+    if (RESERVED_TOOL_NAMES.has(name) && !BUILTIN_REGISTRATIONS.has(registration)) {
+      // A third party must not take a built-in's name, before or after the built-in registers.
+      throw new PsycheError("invalid_params", `tool name ${name} is reserved`);
+    }
     if (this.#tools.has(name)) throw new PsycheError("conflict", `tool ${name} already registered`);
     this.#tools.set(name, registration);
     return () => {

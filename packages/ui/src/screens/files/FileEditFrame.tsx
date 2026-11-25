@@ -8,6 +8,7 @@ import { Button } from "../../components/ui/button.tsx";
 import { readFileBytes } from "../../data/files.ts";
 import { useCall } from "../../data/hooks.ts";
 import { t } from "../../i18n/core.ts";
+import { describeError } from "../../i18n/errors.ts";
 import type { FolderGrant } from "../settings/types.ts";
 import type { FileRef } from "./FilesPane.tsx";
 import { clearDraft, draftEpoch, dropDraft, getDraft, putDraft } from "./file-drafts.ts";
@@ -90,7 +91,7 @@ interface Shape {
   eol: "\n" | "\r\n";
 }
 
-const errorText = (err: unknown): string => (err instanceof Error ? err.message : String(err));
+const errorText = (err: unknown): string => describeError(err);
 
 const bytesOf = (s: string): number => new TextEncoder().encode(s).length;
 

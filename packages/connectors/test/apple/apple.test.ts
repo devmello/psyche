@@ -564,8 +564,10 @@ describe("macOS permission and single instances (#549)", () => {
     const { registry, events } = reg(helper);
     const r = await registry.connect({ catalogueId: "apple-mail", scopeMode: "read" });
     expect(r.status).toBe("needs_auth");
+    // No `reasonCode`: nothing was asked, so there is no "no prompt" reason to say.
     expect(r.config.permission).toEqual({
       kind: "automation",
+      app: "mail",
       target: "com.apple.mail",
       state: "denied",
       settingsPath: "System Settings → Privacy & Security → Automation → Psyche (Helper) → Mail",
@@ -622,8 +624,10 @@ describe("macOS permission and single instances (#549)", () => {
     expect(r.config.permission).toMatchObject({
       kind: "reminders",
       state: "notDetermined",
+      app: "reminders",
       requested: true,
       reason: 'macOS answered "denied"',
+      reasonCode: "prompt_refused_by_macos",
     });
     // Check again asks again (still not decided), without opening System Settings.
     helper.calls.length = 0;

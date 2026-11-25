@@ -1,5 +1,5 @@
 import { ForkReport, PsycheError } from "@psyche/protocol";
-import { defineTool, type ToolRunContext } from "../registry.ts";
+import { defineTool, markBuiltinRegistration, type ToolRunContext } from "../registry.ts";
 import type { TurnToolContext } from "./turn.ts";
 
 /**
@@ -71,19 +71,21 @@ export function stripGatewayFields(report: ForkReport): ForkReport {
   return out as unknown as ForkReport;
 }
 
-export const forkReportTool = defineTool({
-  name: "fork_report",
-  description:
-    "Plan forks only: file your branch's one report when your research is done. A summary, the steps (who does each: psyche or you), costs, dates, people affected, trade-offs, risks and open questions. Every cost, date, person, trade-off and risk cites the tool call and the id, message, event or URL it came from; an item you cannot cite is shown as an estimate. List anything you could not check as an open question. A second call is refused.",
-  input: ForkReport,
-  sideEffect: "none",
-  describeCall: () => ({ summary: "Filed the branch report" }),
-  run: async (report, ctx) => {
-    const dup = duplicateReportId(report);
-    if (dup !== undefined) {
-      throw new PsycheError("invalid_params", `the report repeats the item id ${dup}`);
-    }
-    await apiOf(ctx).file(stripGatewayFields(report));
-    return { output: { filed: true }, provenance: "trusted" };
-  },
-});
+export const forkReportTool = markBuiltinRegistration(
+  defineTool({
+    name: "fork_report",
+    description:
+      "Plan forks only: file your branch's one report when your research is done. A summary, the steps (who does each: psyche or you), costs, dates, people affected, trade-offs, risks and open questions. Every cost, date, person, trade-off and risk cites the tool call and the id, message, event or URL it came from; an item you cannot cite is shown as an estimate. List anything you could not check as an open question. A second call is refused.",
+    input: ForkReport,
+    sideEffect: "none",
+    describeCall: () => ({ summary: "Filed the branch report" }),
+    run: async (report, ctx) => {
+      const dup = duplicateReportId(report);
+      if (dup !== undefined) {
+        throw new PsycheError("invalid_params", `the report repeats the item id ${dup}`);
+      }
+      await apiOf(ctx).file(stripGatewayFields(report));
+      return { output: { filed: true }, provenance: "trusted" };
+    },
+  }),
+);

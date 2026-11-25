@@ -201,6 +201,10 @@ export const onboarding = {
   "onboarding.you.agent": "Your agent",
   "onboarding.you.customize": "Customize look",
   "onboarding.you.more": "More about you",
+  "onboarding.restore.title": "Restore from a backup",
+  "onboarding.restore.where":
+    "Backups are kept in $PSYCHE_HOME/backups. To restore on a new computer, stop the Gateway and run:",
+  "onboarding.restore.unlock": "Then unlock the vault with its recovery key.",
   "onboarding.memory.habitsLead":
     "Pick what {name} does each day and what it keeps in memory. All of it can be changed in Settings.",
   "onboarding.memory.bring": "Bring memory from ChatGPT or Claude",

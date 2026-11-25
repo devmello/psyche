@@ -83,6 +83,6 @@ Tests: `test/commands.test.ts` and `test/pairing.test.ts` (every command, human 
 ## Stubbed or waiting on others
 
 - `skills.*` is in the protocol (S16, #77) but not yet composed into `psyched`; the commands report "not available on this Gateway" until it is.
-- The Gateway on `main` serves devices, settings, threads, chat, nodes and events. `vault.*`, `automations.*`, `memory.*`, `grants.*`, `channels.*`, `sandbox.*` answer `not_implemented` until their packages are composed into `psyched`; doctor and audit list those checks as skipped or "not checked" rather than passing them.
+- The Gateway on `main` serves devices, settings, threads, chat, nodes and events. `vault.*`, `automations.*`, `memory.*`, `grants.*`, `channels.*` and `sandbox.*` are composed into `psyched` on `main`; against an older Gateway that does not register one, a method answers `not_implemented` and doctor and audit list that check as skipped or "not checked" rather than passing it.
 - Model reachability: there is no `models.*` method yet, so doctor checks for a provider key in the vault or a local Ollama, not a live call to the provider.
 - Mac helper permission status comes from `nodes.list` (helper online and its capability count); per-permission TCC state needs a helper capability (S14).

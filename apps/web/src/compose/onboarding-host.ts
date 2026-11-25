@@ -113,6 +113,24 @@ export async function saveHabits(call: Call, habits: HabitChoices): Promise<void
 }
 
 /**
+ * Turns Night shift on after the owner chose it in onboarding (off otherwise): the switch and the
+ * time they agreed, which Settings → Daily shows. Best effort, like the habits.
+ */
+export async function saveNightShift(call: Call): Promise<void> {
+  const writes: [string, unknown][] = [
+    ["nightShift.enabled", true],
+    ["nightShift.consentedAt", new Date().toISOString()],
+  ];
+  for (const [settingKey, value] of writes) {
+    try {
+      await call("settings.set", { key: settingKey, value }, { idempotencyKey: key(settingKey) });
+    } catch {
+      // Off is the safe default.
+    }
+  }
+}
+
+/**
  * What a re-run leaves out: only the model, when a primary one is set and ready (its key is in the
  * vault, or it runs locally). Every other step is shown pre-filled by `loadCurrent`.
  */

@@ -10,6 +10,7 @@ import { useThreads } from "../data/index.ts";
 import { useStore, useStoreState } from "../data/provider.tsx";
 import { useRunsList } from "../data/runs.ts";
 import { activeI18n, t } from "../i18n/core.ts";
+import { describeError } from "../i18n/errors.ts";
 import { useNow } from "../lib/use-now.ts";
 import { cn } from "../lib/utils.ts";
 import { useSlots } from "../slots.tsx";
@@ -192,7 +193,7 @@ function RecentList({
       setMore((m) => ({
         ...m,
         loading: false,
-        error: err instanceof Error ? err.message : String(err),
+        error: describeError(err),
       }));
     }
   };
