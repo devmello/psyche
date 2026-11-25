@@ -255,6 +255,8 @@ export const settings = {
   "settings.notifications.helper.hint":
     "Approval notifications arrive through Psyche Helper. Allow it to show them, so approvals reach you when the window is closed.",
   "settings.notifications.helper.allow": "Allow Psyche Helper notifications",
+  "settings.notifications.helper.denied": "Notifications are off in System Settings",
+  "settings.notifications.helper.openSettings": "Open System Settings",
   "settings.notifications.description": "When Psyche may interrupt you.",
   "settings.notifications.group.quietHours": "Quiet hours",
   "settings.notifications.quietHours.hint":

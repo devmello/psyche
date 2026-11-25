@@ -40,7 +40,7 @@ These never reach chat: `deviceOnly` requests, `financial`, `purchase`, `credent
 - **Inbound.** One streaming `messages.watch` (`includeFromMe: true`) from the persisted chat.db cursor (`message.ROWID`; the first start begins at the newest row, so history is never replayed). Each batch's cursor is saved on receipt (at most once: a crash drops a batch rather than re-running it), and each ROWID is handled once. Rows are dispatched in per-chat FIFO queues, so a send waiting on its approval in one chat never stalls another.
 - **Mapping.** `senderId` is the canonical handle (E.164 or lowercased email; `validateChannel` rejects anything else in the id lists), `chatId` the chat guid. Rows whose handle or chat is `sms`, `rcs` or `unknown` are `identityStrength: "weak"`: they never match an owner (not even with the owner's number in `ownerIds` or `ownerAllowFrom`), cannot pair, and their DMs are dropped. Inline replies become `quoted` (`fromSelf` for Psyche's own rows). Attachments are metadata only (`kind: "voice"` for audio bubbles); the helper returns no bytes, so nothing is ingested yet. Tapbacks are never turns.
 - **Groups.** chat.db has no structured mentions, so `mentioned` is always false. Groups stay off unless listed in `config.groups`; under `requireMention` (the default) only an inline reply to one of Psyche's messages activates a listed group, and `requireMention: false` on the group makes every allowed sender's message a turn.
-- **Outbound and its authorization.** `messages.send` is destructive (it speaks as the Mac's Apple ID), and the node refuses it without an `approvalId`. Telegram replies are not broker-gated because the bot's reply in the sender's own chat is the channel itself; iMessage keeps that rule for *what* may be sent (only into the conversation being answered: a chat guid seen inbound, or a 1:1 peer's bare handle, which resolves to that peer's known iMessage chat or a new 1:1 iMessage chat), but the node still needs a real approval. So every send (reply chunk, pairing code, approval card, notices) calls `authorizeSend(intent)`, a port the Gateway implements with its Permission Broker: `intent` carries `{channel: "imessage", account, recipient, bodySha256, bindingHash, grantKey, purpose}`, where `bindingHash` is `bindingFor("message_send", …)` (security §3.5), and it must resolve the id of an approved `message_send` approval (scope `once`) bound to exactly that. A refusal sends nothing. The adapter never fabricates an id.
+- **Outbound and its authorization.** `messages.send` is destructive (it speaks as the Mac's Apple ID), and the node refuses it without an `approvalId`. Telegram replies are not broker-gated because the bot's reply in the sender's own chat is the channel itself; iMessage keeps that rule for _what_ may be sent (only into the conversation being answered: a chat guid seen inbound, or a 1:1 peer's bare handle, which resolves to that peer's known iMessage chat or a new 1:1 iMessage chat), but the node still needs a real approval. So every send (reply chunk, pairing code, approval card, notices) calls `authorizeSend(intent)`, a port the Gateway implements with its Permission Broker: `intent` carries `{channel: "imessage", account, recipient, bodySha256, bindingHash, grantKey, purpose}`, where `bindingHash` is `bindingFor("message_send", …)` (security §3.5), and it must resolve the id of an approved `message_send` approval (scope `once`) bound to exactly that. A refusal sends nothing. The adapter never fabricates an id.
 - **Approvals.** Cards are `renderForSurface("imessage:<peerId>", approval)` in plain text with the `/approve <ref> approve|deny` fallback and "Or tap 👍 to approve or 👎 to deny." The card's guid is learned from its own echo; a 👍 (`like`) or 👎 (`dislike`) tapback on it, in the same 1:1 chat, from a strong (iMessage) handle, is relayed as an approval answer, and `ChatApprovals` accepts it only from an owner, with scope `once`. Removed tapbacks and other kinds do nothing. Device-only, financial and non-opted-in destructive approvals get the header and "Answer this on your Mac." only. `ChatApprovals` hands the card to the adapter when it has `buttons` or `reactions`.
 - **Health.** `messages.status` is the start preflight. A missing Full Disk Access grant (preflight or a `full_disk_access_missing` watch error) reports "Grant Full Disk Access to Psyche Helper …" as the health and channel status detail; restarts go through `ChannelService`'s exponential backoff and open no new watch while the grant is missing. A retryable watch error keeps the channel up with a detail; an ended watch is restarted. No typing indicators, no Markdown (plain text), 4000 characters per message (the service chunks).
 
@@ -138,9 +138,16 @@ These never reach chat: `deviceOnly` requests, `financial`, `purchase`, `credent
 ## Recommended single-owner policy
 
 ```json
-{ "type": "telegram", "dmPolicy": "allowlist", "allowFrom": ["<your numeric id>"],
-  "ownerIds": ["<your numeric id>"], "dmScope": "main", "requireMention": true,
-  "groupAllowFrom": [], "config": { "groups": {} } }
+{
+  "type": "telegram",
+  "dmPolicy": "allowlist",
+  "allowFrom": ["<your numeric id>"],
+  "ownerIds": ["<your numeric id>"],
+  "dmScope": "main",
+  "requireMention": true,
+  "groupAllowFrom": [],
+  "config": { "groups": {} }
+}
 ```
 
 Get your id with `/whoami` after pairing once, or from the pairing request. Keep `dmScope: per-channel-peer` (the default) as soon as anyone else can message the bot, and link your other channels with an identity instead of widening `main`.

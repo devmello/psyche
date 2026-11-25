@@ -1971,9 +1971,17 @@ function onGatewayEvent(e: {
       showNotification(d.title, d.body, d.route, d.urgency);
   }
   if (e.event === "notification.created") {
-    relay.offer(p.notification as PsycheNotification, (d) => {
+    const created = p.notification as PsycheNotification;
+    relay.offer(created, (d) => {
       if (d.show && d.title && d.body && d.route)
         showNotification(d.title, d.body, d.route, d.urgency);
+      // The helper is online but may refuse (permission not determined, ad-hoc signature):
+      // when it has recorded no delivery after a short grace, show the toast ourselves.
+      if (d.reason === "helper_delivers")
+        relay.graceFallback(created, fetchNotification, (f) => {
+          if (f.show && f.title && f.body && f.route)
+            showNotification(f.title, f.body, f.route, f.urgency);
+        });
     });
   }
   if (e.event === "approval.created" || e.event === "approval.updated") {
@@ -1986,6 +1994,14 @@ function onGatewayEvent(e: {
     });
   }
   if (e.event === "node.updated") void refreshHelperPresence();
+}
+
+/** The current row of one notification, for the helper-delivery check. */
+async function fetchNotification(id: string): Promise<PsycheNotification | undefined> {
+  const res = (await gateway
+    ?.call("notifications.list", { unresolvedOnly: true })
+    .catch(() => undefined)) as { notifications?: PsycheNotification[] } | undefined;
+  return res?.notifications?.find((x) => x.id === id);
 }
 
 type NodeRow = { kind?: string; status?: string; capabilities?: { name?: string }[] };
