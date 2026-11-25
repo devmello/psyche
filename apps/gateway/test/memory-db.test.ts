@@ -238,6 +238,58 @@ describe("moving the data", () => {
     expect(getSetting(f.db, MEMORY_MOVE_STATE)?.value).toBe("cleared");
   });
 
+  /** The trust-leak migration's marker row in the backup table (a moved table, but never data). */
+  const addMarker = (sqlite: ConstructorParameters<typeof GraphStore>[0]["sqlite"]) =>
+    sqlite
+      .prepare(
+        "INSERT OR IGNORE INTO memory_migration_backup_2026_11 (id, review, moved_at) VALUES ('applied:202611250900', 'applied', '2026-11-25T00:00:00.000Z')",
+      )
+      .run();
+
+  it("a cleared plain file with the trust-leak marker in it still resumes: ready, data kept, safety copy kept", async () => {
+    const f = await fixture(true);
+    sam(f.db.sqlite).createEntity({ kind: "person", name: "Sam Lee" });
+    addMarker(f.db.sqlite);
+    const safety = join(f.dir, "safety", "memory.pre-encrypt.sqlite");
+    const m = resolveMemoryStore({ ...f, slot: "key_file" });
+    m.start();
+    await wait(() => m.status().state === "ready");
+    m.stop();
+    expect(existsSync(safety)).toBe(true);
+    // The process stopped after the clear but before recording it, and the marker is in plain.
+    setSetting(f.db, MEMORY_MOVE_STATE, "copied");
+    addMarker(f.db.sqlite);
+    expect(f.db.sqlite.prepare("SELECT count(*) n FROM graph_entities").get()).toEqual({ n: 0 });
+    const again = resolveMemoryStore({ ...f, slot: "key_file" });
+    stops.push(() => again.stop());
+    again.start();
+    await wait(() => again.status().state === "ready");
+    expect(sam(again.sqlite).search("sam", {})).toHaveLength(1);
+    expect(existsSync(safety)).toBe(true);
+    expect(getSetting(f.db, MEMORY_MOVE_STATE)?.value).toBe("cleared");
+  });
+
+  it("a copied state with the encrypted file missing never deletes the safety copy, marker or not", async () => {
+    const f = await fixture(true);
+    sam(f.db.sqlite).createEntity({ kind: "person", name: "Sam Lee" });
+    addMarker(f.db.sqlite);
+    const safety = join(f.dir, "safety", "memory.pre-encrypt.sqlite");
+    const m = resolveMemoryStore({ ...f, slot: "key_file" });
+    m.start();
+    await wait(() => m.status().state === "ready");
+    m.stop();
+    rmSync(join(f.dir, "state", "memory.sqlite"));
+    setSetting(f.db, MEMORY_MOVE_STATE, "copied");
+    addMarker(f.db.sqlite);
+    const again = resolveMemoryStore({ ...f, slot: "key_file" });
+    stops.push(() => again.stop());
+    again.start();
+    await wait(() => again.status().state === "unavailable");
+    expect(again.status()).toMatchObject({ reason: expect.stringMatching(/missing/) });
+    expect(existsSync(safety)).toBe(true);
+    expect(getSetting(f.db, MEMORY_MOVE_STATE)?.value).toBe("copied");
+  });
+
   it("switched off by hand while the encrypted file is the only copy, it still opens that file", async () => {
     const f = await fixture(true);
     sam(f.db.sqlite).createEntity({ kind: "person", name: "Sam Lee" });

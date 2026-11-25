@@ -231,7 +231,6 @@ final class SearchModel {
 /// The field is the system's (at the bottom on iPhone); the results are paper.
 struct SearchView: View {
     @State private var model: SearchModel
-    @Environment(\.horizontalSizeClass) private var sizeClass
     @Environment(Router.self) private var router
 
     init(store: any PsycheBackend) {
@@ -245,9 +244,6 @@ struct SearchView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
-                // The page title is drawn in the column like every other screen (the system's large title
-                // sits at the window edge and ignores the readable column on iPad).
-                PageHeader(String(localized: "Search", bundle: .module))
                 // Idle, loading, results, nothing and failed trade places with a 150 ms crossfade. Results
                 // themselves update in place, with no animation per keystroke (spec §4.2).
                 ZStack(alignment: .top) {
@@ -273,10 +269,9 @@ struct SearchView: View {
         .scrollDismissesKeyboard(.interactively)
         .psycheScreen()
         .sheet(item: $model.viewer) { viewer in PassageSheet(viewer: viewer) }
-        .navigationTitle("")
-        .psycheInlineTitle()
-        // iPhone: the search tab's field sits at the bottom (system). iPad: a field that is always shown, not a
-        // toolbar button, so the tab opens ready to type.
+        .navigationTitle(String(localized: "Search", bundle: .module))
+        .psycheLargeTitle()
+        // A field that is always shown under the title, not a toolbar button, so the tab opens ready to type.
         .searchable(text: $model.query, placement: fieldPlacement, prompt: String(localized: "Search or ask", bundle: .module))
         .onSubmit(of: .search) {
             model.remember()
@@ -308,7 +303,8 @@ struct SearchView: View {
 
     private var fieldPlacement: SearchFieldPlacement {
         #if os(iOS)
-        sizeClass == .regular ? .navigationBarDrawer(displayMode: .always) : .automatic
+        // Always shown, under the large title: the default hides the field until the page is pulled down.
+        .navigationBarDrawer(displayMode: .always)
         #else
         .automatic  // the package's macOS test build; the app is iOS only
         #endif
@@ -319,8 +315,11 @@ struct SearchView: View {
     @ViewBuilder
     private var idle: some View {
         if model.recents.isEmpty {
-            Text("Search your chats, files, people and to-dos, or ask about your life.", bundle: .module)
-                .font(.subheadline).foregroundStyle(PsycheColor.muted)
+            ContentUnavailableView {
+                Label(String(localized: "Search", bundle: .module), systemImage: "magnifyingglass")
+            } description: {
+                Text("Search your chats, files, people and to-dos, or ask about your life.", bundle: .module)
+            }
         } else {
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
@@ -373,27 +372,31 @@ struct SearchView: View {
     }
 
     private var noResults: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Text("Nothing matches \u{201C}\(model.trimmed)\u{201D}.", bundle: .module)
-                .font(.psycheRow.weight(.semibold)).foregroundStyle(PsycheColor.text)
+        ContentUnavailableView {
+            Label {
+                Text("Nothing matches \u{201C}\(model.trimmed)\u{201D}.", bundle: .module)
+            } icon: {
+                Image(systemName: "magnifyingglass")
+            }
+        } description: {
             Text("Try fewer words, or ask Psyche in chat.", bundle: .module)
-                .font(.subheadline).foregroundStyle(PsycheColor.muted)
+        } actions: {
             Button(String(localized: "Ask Psyche", bundle: .module)) { router.askPsyche(model.trimmed) }
-                .buttonStyle(.psycheOutline)
-                .frame(maxWidth: 220)
+                .buttonStyle(.borderedProminent)
         }
-        .padding(.top, 24)
+        .frame(maxWidth: .infinity)
     }
 
     private func failed(_ message: String) -> some View {
-        VStack(spacing: 12) {
-            Text("Couldn't search", bundle: .module).font(.headline).foregroundStyle(PsycheColor.text)
-            Text(message).font(.subheadline).foregroundStyle(PsycheColor.muted)
+        ContentUnavailableView {
+            Label(String(localized: "Couldn't search", bundle: .module), systemImage: "exclamationmark.triangle")
+        } description: {
+            Text(message)
+        } actions: {
             Button(String(localized: "Try again", bundle: .module)) { Task { await model.run() } }
-                .buttonStyle(.psycheOutline).frame(maxWidth: 220)
+                .buttonStyle(.bordered)
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 40)
     }
 
     // MARK: Results

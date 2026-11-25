@@ -127,6 +127,8 @@ export const settings: Partial<Catalogue> = {
   "settings.notifications.helper.hint":
     "审批通知通过 Psyche Helper 送达。请允许它显示通知，这样窗口关闭时也能收到审批。",
   "settings.notifications.helper.allow": "允许 Psyche Helper 通知",
+  "settings.notifications.helper.denied": "通知已在“系统设置”中关闭",
+  "settings.notifications.helper.openSettings": "打开系统设置",
   "settings.notifications.description": "Psyche 何时可以打扰你。",
   "settings.notifications.group.quietHours": "免打扰时段",
   "settings.notifications.quietHours.hint":
