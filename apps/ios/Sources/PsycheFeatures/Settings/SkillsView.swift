@@ -12,6 +12,16 @@ final class SkillsModel {
         self.store = store
     }
 
+    /// Reloads when a skill changes on the Mac and after a resync, until the view goes away.
+    func observe() async {
+        for await event in store.events() {
+            switch event {
+            case .changed(.skills), .resynced: await load()
+            default: break
+            }
+        }
+    }
+
     func load() async {
         if phase.value == nil { phase = .loading }
         do {
@@ -69,7 +79,10 @@ struct SkillsView: View {
         .navigationTitle(String(localized: "Skills", bundle: .module))
         .psycheInlineTitle()
         .refreshable { await model.load() }
-        .task { await model.load() }
+        .task {
+            await model.load()
+            await model.observe()
+        }
     }
 
     private func row(_ skill: SkillItem) -> some View {

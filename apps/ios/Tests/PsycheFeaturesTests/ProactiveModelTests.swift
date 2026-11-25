@@ -10,7 +10,7 @@ struct ProactiveModelTests {
         #expect(Route(appPath: "/feed") == .feed)
         #expect(Route(appPath: "/ideas") == .ideas)
         #expect(Route(appPath: "/goals") == .goals)
-        #expect(Route(appPath: "/goals/g1") == .project(id: "g1"))
+        #expect(Route(appPath: "/goals/g1") == .goal(id: "g1"))
     }
 
     @Test func notInterestedTakesTheCardOffAndSaveKeepsItMarked() async {
@@ -272,5 +272,125 @@ struct ProactiveModelTests {
         #expect(model.phase.value?.last?.category == "learning")
         try await model.create(GoalDraft(title: " "))
         #expect(model.phase.value?.count == before + 1)
+    }
+
+    // MARK: Freshness
+
+    /// Waits (briefly) for a condition a debounced reload will make true.
+    private func eventually(_ condition: () -> Bool) async -> Bool {
+        for _ in 0..<200 {
+            if condition() { return true }
+            try? await Task.sleep(for: .milliseconds(10))
+        }
+        return condition()
+    }
+
+    @Test func aNotInterestedPostStaysGoneAfterEveryReload() async {
+        let backend = FixtureBackend()
+        let model = FeedModel(store: backend)
+        await model.load()
+        let gone = model.phase.value!.cards[1]
+        await model.give(.notInterested, to: gone)
+        await model.load()
+        #expect(model.phase.value?.cards.contains { $0.id == gone.id } == false)
+        // Another device's feedback, or a backend that still sends the post, changes nothing on screen.
+        let fresh = FeedModel(store: backend)
+        await fresh.load()
+        #expect(fresh.phase.value?.cards.contains { $0.id == gone.id } == false)
+        #expect(FeedCard(id: "x", title: "t", body: "", feedback: .notInterested).isDismissed)
+        #expect(FeedCard(id: "x", title: "t", body: "", hiddenByFeedback: true).isDismissed)
+        #expect(!FeedCard(id: "x", title: "t", body: "", feedback: .save).isDismissed)
+    }
+
+    @Test func theFeedReloadsWhenAPostArrivesAndOnResync() async {
+        let backend = FixtureBackend()
+        let model = FeedModel(store: backend, reloadDelay: .milliseconds(5))
+        await model.load()
+        let observing = Task { await model.observe() }
+        defer { observing.cancel() }
+        try? await Task.sleep(for: .milliseconds(50))
+        // A post marked not interested elsewhere: the next reload drops nothing new, but a change event must reload.
+        try? await backend.setFeedback(postID: "post_1", .notInterested)
+        await backend.publish(.changed(.home))
+        #expect(await eventually { model.phase.value?.cards.contains { $0.id == "post_1" } == false })
+
+        try? await backend.setFeedback(postID: "post_2", .notInterested)
+        await backend.publish(.resynced)
+        #expect(await eventually { model.phase.value?.cards.isEmpty == true })
+    }
+
+    @Test func ideasAndGoalsReloadOnHomeChanges() async {
+        let backend = FixtureBackend()
+        let ideas = IdeasModel(store: backend, reloadDelay: .milliseconds(5))
+        let goals = GoalsModel(store: backend, reloadDelay: .milliseconds(5))
+        await ideas.load()
+        await goals.load()
+        let observeIdeas = Task { await ideas.observe() }
+        let observeGoals = Task { await goals.observe() }
+        defer { observeIdeas.cancel(); observeGoals.cancel() }
+        try? await Task.sleep(for: .milliseconds(50))
+        let firstIdea = ideas.phase.value![0]
+        try? await backend.acceptIdea(id: firstIdea.id)
+        let count = goals.phase.value!.count
+        _ = try? await backend.createGoal(title: "New goal", category: .other)
+        await backend.publish(.changed(.home))
+        #expect(await eventually { ideas.phase.value?.contains { $0.id == firstIdea.id } == false })
+        #expect(await eventually { goals.phase.value?.count == count + 1 })
+    }
+
+    @Test func aBurstOfEventsReloadsOnce() async {
+        let backend = FixtureBackend()
+        let model = FeedModel(store: backend, reloadDelay: .milliseconds(60))
+        await model.load()
+        let observing = Task { await model.observe() }
+        defer { observing.cancel() }
+        try? await Task.sleep(for: .milliseconds(50))
+        try? await backend.setFeedback(postID: "post_1", .notInterested)
+        for _ in 0..<5 { await backend.publish(.changed(.home)) }
+        #expect(model.phase.value?.cards.contains { $0.id == "post_1" } == true, "still waiting out the delay")
+        #expect(await eventually { model.phase.value?.cards.contains { $0.id == "post_1" } == false })
+    }
+
+    @Test func scheduledReloadsOnAutomationChangesAndResync() async {
+        let backend = FixtureBackend()
+        let model = ScheduledModel(store: backend, reloadDelay: .milliseconds(5))
+        await model.load()
+        let observing = Task { await model.observe() }
+        defer { observing.cancel() }
+        try? await Task.sleep(for: .milliseconds(50))
+        let job = model.phase.value!.items.first { $0.state == "active" && !$0.isRoutine }!
+        try? await backend.deleteAutomation(id: job.id)
+        await backend.publish(.changed(.scheduled))
+        #expect(await eventually { model.phase.value?.items.contains { $0.id == job.id } == false })
+    }
+
+    @Test func loadMoreAppendsOlderPostsAndIdeasUntilTheLastPage() async {
+        let backend = FixtureBackend()
+        await backend.setProactivePageSize(1)
+        let feed = FeedModel(store: backend)
+        await feed.load()
+        #expect(feed.phase.value?.cards.count == 1 && feed.phase.value?.nextCursor != nil)
+        await feed.loadOlder()
+        #expect(feed.phase.value?.cards.count == 2 && feed.phase.value?.nextCursor == nil)
+        await feed.loadOlder()
+        #expect(feed.phase.value?.cards.count == 2)
+
+        let ideas = IdeasModel(store: backend)
+        await ideas.load()
+        #expect(ideas.phase.value?.count == 1 && ideas.nextCursor != nil)
+        await ideas.loadOlder()
+        #expect(ideas.phase.value?.count == 2 && ideas.nextCursor == nil)
+    }
+
+    @Test func pausedAndDoneGoalsStayListedAndADoneGoalCanBeReopened() async {
+        let model = GoalsModel(store: FixtureBackend())
+        await model.load()
+        let goal = model.phase.value![0]
+        await model.setStatus(.done, for: goal)
+        await model.load()
+        #expect(model.phase.value?.first { $0.id == goal.id }?.status == "done")
+        #expect(GoalsModel.choices(for: "done") == [.active])
+        await model.setStatus(.active, for: goal)
+        #expect(model.phase.value?.first { $0.id == goal.id }?.status == "active")
     }
 }

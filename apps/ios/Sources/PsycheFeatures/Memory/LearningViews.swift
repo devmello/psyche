@@ -38,6 +38,7 @@ struct LessonsView: View {
         .psycheScreen()
         .psycheInlineTitle()
         .task { await model.loadLessons() }
+        .task { await model.follow { await model.loadLessons() } }
         .navigationDestination(for: LessonItem.self) { lesson in
             LessonDetailView(id: lesson.id, fallback: lesson, model: model)
         }
@@ -101,13 +102,15 @@ struct LessonsView: View {
             loadMore: { await pager.loadMore() }, retryMore: { await pager.retryMore() })
     }
 
+    /// The lessons, one page at a time: the next page loads when the owner reaches the end of the list.
     @ViewBuilder
     private var content: some View {
-        switch model.lessons {
+        let pager = model.lessons
+        switch pager.phase {
         case .idle, .loading:
             ProgressView().frame(maxWidth: .infinity).padding(.top, 24)
         case .failed(let message):
-            LearningRetry(message: message) { Task { await model.loadLessons() } }
+            LearningRetry(message: message) { Task { await pager.reload() } }
         case .loaded(let lessons) where lessons.isEmpty:
             Text("Nothing has been learned yet.", bundle: .module)
                 .font(.subheadline).foregroundStyle(PsycheColor.muted)
@@ -132,6 +135,10 @@ struct LessonsView: View {
                 .buttonStyle(.plain)
                 .cardRow(CardPosition(index: index, count: lessons.count))
             }
+            PagedRowsEnd(
+                moreFailed: pager.moreFailed, nextCursor: pager.nextCursor, loadingMore: pager.loadingMore,
+                label: String(localized: "Loading more lessons", bundle: .module),
+                loadMore: { await pager.loadMore() }, retryMore: { await pager.retryMore() })
         }
     }
 }
@@ -288,6 +295,7 @@ struct ClaimsView: View {
         .psycheScreen()
         .psycheInlineTitle()
         .task { await model.loadClaims() }
+        .task { await model.follow { await model.loadClaims() } }
         .alert(String(localized: "Couldn't update that", bundle: .module), isPresented: noticeBinding) {
             Button(String(localized: "OK", bundle: .module), role: .cancel) {}
         } message: {
@@ -356,6 +364,7 @@ struct RecentChangesView: View {
         .psycheScreen()
         .psycheInlineTitle()
         .task { await model.loadChanges() }
+        .task { await model.follow { await model.loadChanges() } }
         .alert(String(localized: "Couldn't update that", bundle: .module), isPresented: noticeBinding) {
             Button(String(localized: "OK", bundle: .module), role: .cancel) {}
         } message: {

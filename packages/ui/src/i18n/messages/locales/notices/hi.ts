@@ -3,8 +3,11 @@ import type { Catalogue } from "../../index.ts";
 /** Notices the Gateway authors (hi); merged into `../hi.ts`. */
 export const notices: Partial<Catalogue> = {
   "notice.install.failed.title": "स्वीकृत इंस्टॉल पूरा नहीं हुआ",
+  "notice.connectors.matrix.failed.title": "एक कनेक्टर नियम सहेजा नहीं जा सका",
+  "notice.connectors.matrix.failed.body":
+    "{connector} पर {action} लागू नहीं हो सका, इसलिए उसका पिछला नियम चल रहा है। इसे सेटिंग्स › कनेक्टर में देखें।",
   "notice.install.failed.body":
-    "{reason, select, lost {आपकी स्वीकृति से पहले Psyche फिर से शुरू हुआ, इसलिए प्रस्ताव खो गया। इसे फिर से प्रस्तावित करें।} expired {आपकी स्वीकृति से पहले प्रस्ताव की समय-सीमा समाप्त हो गई थी। इसे फिर से प्रस्तावित करें।} other {Psyche इसे इंस्टॉल नहीं कर पाया। सूची देखें और फिर से कोशिश करें।}}",
+    "{reason, select, lost {आपकी स्वीकृति से पहले Psyche फिर से शुरू हुआ, इसलिए प्रस्ताव खो गया। इसे फिर से प्रस्तावित करें।} expired {आपकी स्वीकृति से पहले प्रस्ताव की समय-सीमा समाप्त हो गई थी। इसे फिर से प्रस्तावित करें।} other {Psyche इसे इंस्टॉल नहीं कर सका। इसे फिर से प्रस्तावित करें, या Psyche से ऐसा करने को कहें।}}",
   "notice.security.changed.title": "Psyche ने ऐप के बाहर किया गया सुरक्षा बदलाव पलट दिया",
   "notice.security.changed.body":
     "इस Mac पर किसी प्रोग्राम ने Psyche से गुज़रे बिना {count, plural, =1 {# सुरक्षा रिकॉर्ड} other {# सुरक्षा रिकॉर्ड}} (डिवाइस, कुंजियाँ, अनुमतियाँ या सेटिंग) बदल दिए{times, plural, =0 {} =1 {} other {, अब तक # बार}}। Psyche ने उन्हें वापस ठीक कर दिया। अगर यह आपने नहीं किया, तो Mac में अनचाहे सॉफ़्टवेयर की जाँच करें।",
@@ -97,4 +100,10 @@ export const notices: Partial<Catalogue> = {
   "notice.machine.offline.title": "{name} ऑफ़लाइन हो गया",
   "notice.machine.offline.body":
     "एक काम इसे इस्तेमाल करने का इंतज़ार कर रहा है और {name} के वापस आने पर आगे बढ़ेगा। आप काम रद्द भी कर सकते हैं।",
+  "notice.automation.needsApproval.title": "{title} आपकी मंज़ूरी का इंतज़ार कर रहा है",
+  "notice.automation.needsApproval.body":
+    "मंज़ूरी की समय-सीमा खत्म हो गई, इसलिए यह रुक गया। देखने के लिए मंज़ूरियाँ खोलें कि इसे क्या चाहिए, फिर इसे दोबारा चलाएँ।",
+  "notice.automation.interrupted.title": "{title} बीच में रुक गया",
+  "notice.automation.interrupted.body":
+    "चलते समय Psyche फिर से शुरू हुआ और हो सकता है इसका कुछ हिस्सा हो चुका हो। नतीजा देखें, ज़रूरत हो तो इसे दोबारा चलाएँ।",
 };

@@ -18,12 +18,27 @@ struct EventMapperTests {
         #expect(patched == [.changed(.widgets), .changed(.home)])
         let task = await m.map(frame("task.updated", .object([:])), ownDeviceID: "d").events
         #expect(task.contains(.changed(.widgets)) && task.contains(.changed(.activity)) && task.contains(.changed(.home)))
-        #expect(await m.map(frame("automation.updated", .object([:])), ownDeviceID: "d").events == [.changed(.widgets)])
+        #expect(await m.map(frame("automation.updated", .object([:])), ownDeviceID: "d").events == [.changed(.widgets), .changed(.scheduled)])
         for event in ["space.updated", "space.tracker.refreshed", "space.proposal.created"] {
             #expect(await m.map(frame(event, .object(["spaceId": "s1"])), ownDeviceID: "d").events == [.changed(.spaces)])
         }
         for event in ["library.item.changed", "artifact.updated"] {
             #expect(await m.map(frame(event, .object(["itemId": "lib_1", "change": "deleted"])), ownDeviceID: "d").events == [.changed(.library)])
+        }
+    }
+
+    @Test func proactiveAndScreenEventsMapToTheTopicsTheirScreensListenTo() async {
+        var m = mapper()
+        for event in ["feed.post", "feed.updated", "idea.updated", "goal.updated", "proposal.updated"] {
+            #expect(await m.map(frame(event, .object([:])), ownDeviceID: "d").events == [.changed(.home)], "\(event)")
+        }
+        #expect(await m.map(frame("receipt.created", .object([:])), ownDeviceID: "d").events == [.changed(.receipts)])
+        for event in ["skills.changed", "skills.updated"] {
+            #expect(await m.map(frame(event, .object([:])), ownDeviceID: "d").events == [.changed(.skills)], "\(event)")
+        }
+        for event in ["lesson.changed", "growth.updated"] {
+            let events = await m.map(frame(event, .object([:])), ownDeviceID: "d").events
+            #expect(events.contains(.changed(.learning)) && events.contains(.changed(.memory)), "\(event)")
         }
     }
 

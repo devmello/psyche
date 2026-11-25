@@ -37,7 +37,8 @@ export const securityState: Partial<Catalogue> = {
   "web.security.ack": "标记为已查看",
   "web.security.approveNow": "立即批准",
   "web.security.cancel": "取消请求",
-  "web.security.needsApproval": "请用触控 ID 或通行密钥批准卡片，然后再次按下按钮。",
+  "web.security.needsApprovalPresence": "请用触控 ID 或通行密钥批准卡片，然后再次按下按钮。",
+  "web.security.needsApproval": "批准卡片，然后再次按下按钮。",
   "web.security.failed": "操作失败：{message}",
   "settings.security.title": "安全记录",
   "settings.security.description":

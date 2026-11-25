@@ -126,7 +126,8 @@ export const spaces: Partial<Catalogue> = {
   "spaces.settings.mode.balanced": "Ausgewogen",
   "spaces.settings.mode.auto": "Automatisch",
   "spaces.settings.mode.inheritHint": "Chats hier nutzen deinen globalen Berechtigungsmodus.",
-  "spaces.settings.mode.planHint": "Chats hier lesen und planen nur; nichts wird geändert.",
+  "spaces.settings.mode.planHint":
+    "Neue Chats hier starten im Planungsmodus: Sie lesen nur und planen, und nichts wird geändert.",
   "spaces.settings.mode.manualHint": "Jede Aktion außerhalb einer Freigabe fragt zuerst.",
   "spaces.settings.mode.balancedHint":
     "Lesen läuft; Schreibaktionen an Personen und Geld fragen zuerst.",

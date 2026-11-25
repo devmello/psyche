@@ -1,6 +1,11 @@
 import type { AutomationRun, Task } from "@psyche/protocol";
 import { TERMINAL_TASK_STATUSES } from "@psyche/protocol";
-import type { SqliteTaskEngine, TaskBudget, TaskWorkerPool } from "@psyche/tasks";
+import {
+  NEEDS_APPROVAL_RESULT,
+  type SqliteTaskEngine,
+  type TaskBudget,
+  type TaskWorkerPool,
+} from "@psyche/tasks";
 import type { RunLauncher, RunResult } from "./types.ts";
 
 function resultOf(task: Task): RunResult {
@@ -10,6 +15,10 @@ function resultOf(task: Task): RunResult {
       ? { ...base, status: "no_reply", summary: null }
       : { ...base, status: "done", summary: task.summary ?? null };
   }
+  if (task.status === "cancelled" && task.outcome?.result === NEEDS_APPROVAL_RESULT) {
+    // Its approval ran out unanswered: the run ends (and frees its automation) as needing approval.
+    return { ...base, status: "cancelled", summary: task.summary ?? null, needsApproval: true };
+  }
   if (task.status === "cancelled")
     return { ...base, status: "cancelled", summary: task.summary ?? null };
   return { ...base, status: "failed", summary: task.summary ?? null };
@@ -18,7 +27,8 @@ function resultOf(task: Task): RunResult {
 /**
  * Runs each automation as an unattended Task (`createdFrom: automation`) on the worker pool and
  * resolves when the task ends. A task parked on an approval keeps the run `running` until it is
- * decided (the approval sits in the queue with a notification; nobody is asked inline).
+ * decided or the approval expires (the approval sits in the queue with a notification; nobody is
+ * asked inline). An expired approval ends the task as needing approval (`needsApproval`).
  */
 export function createTaskLauncher(options: {
   engine: SqliteTaskEngine;

@@ -3,8 +3,11 @@ import type { Catalogue } from "../../index.ts";
 /** Notices the Gateway authors (de); merged into `../de.ts`. */
 export const notices: Partial<Catalogue> = {
   "notice.install.failed.title": "Eine genehmigte Installation wurde nicht abgeschlossen",
+  "notice.connectors.matrix.failed.title": "Eine Connector-Regel wurde nicht gespeichert",
+  "notice.connectors.matrix.failed.body":
+    "{action} für {connector} konnte nicht angewendet werden, daher gilt weiter die bisherige Regel. Prüfe sie unter Einstellungen › Konnektoren.",
   "notice.install.failed.body":
-    "{reason, select, lost {Psyche wurde neu gestartet, bevor du genehmigt hast, daher ging der Vorschlag verloren. Schlage es erneut vor.} expired {Der Vorschlag war abgelaufen, bevor du genehmigt hast. Schlage es erneut vor.} other {Psyche konnte es nicht installieren. Prüfe die Liste und versuche es erneut.}}",
+    "{reason, select, lost {Psyche wurde neu gestartet, bevor du genehmigt hast, daher ging der Vorschlag verloren. Schlage es erneut vor.} expired {Der Vorschlag war abgelaufen, bevor du genehmigt hast. Schlage es erneut vor.} other {Psyche konnte es nicht installieren. Schlage es erneut vor oder bitte Psyche darum.}}",
   "notice.security.changed.title":
     "Psyche hat eine Sicherheitsänderung rückgängig gemacht, die außerhalb der App erfolgte",
   "notice.security.changed.body":
@@ -107,4 +110,10 @@ export const notices: Partial<Catalogue> = {
   "notice.machine.offline.title": "{name} ist offline",
   "notice.machine.offline.body":
     "Eine Aufgabe wartet darauf, ihn zu nutzen, und läuft weiter, sobald {name} wieder da ist. Du kannst die Aufgabe auch abbrechen.",
+  "notice.automation.needsApproval.title": "{title} wartet auf deine Freigabe",
+  "notice.automation.needsApproval.body":
+    "Es wurde angehalten, weil die Freigabe abgelaufen ist. Öffne die Freigaben, um zu sehen, was es braucht, und starte es dann erneut.",
+  "notice.automation.interrupted.title": "{title} wurde unterbrochen",
+  "notice.automation.interrupted.body":
+    "Psyche wurde neu gestartet, während es lief, und hat vielleicht einen Teil schon erledigt. Prüfe das Ergebnis und starte es bei Bedarf erneut.",
 };

@@ -364,6 +364,7 @@ struct MemoryView: View {
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                .task { await model.ensureProgress(project.id) }
                 .cardRow(CardPosition(index: index, count: projects.count))
             }
         }

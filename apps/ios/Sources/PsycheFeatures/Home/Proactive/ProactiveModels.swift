@@ -5,20 +5,75 @@ import PsycheStore
 /// Feed, Ideas, Goals and Scheduled models. Each loads its own snapshot and keeps what is on screen when a
 /// refresh fails. Acting on a card or idea takes it off the list at once and puts it back if the call fails.
 
+/// Coalesces a burst of change events (a brief lands as several `feed.post` events) into one reload.
+@MainActor
+final class ReloadDebouncer {
+    private let delay: Duration
+    private var task: Task<Void, Never>?
+
+    init(delay: Duration) { self.delay = delay }
+
+    func schedule(_ work: @escaping @MainActor () async -> Void) {
+        task?.cancel()
+        task = Task { [delay] in
+            try? await Task.sleep(for: delay)
+            guard !Task.isCancelled else { return }
+            await work()
+        }
+    }
+
+    func cancel() {
+        task?.cancel()
+        task = nil
+    }
+}
+
+/// The wait before a change event reloads a list; tests pass a shorter one.
+let proactiveReloadDelay: Duration = .milliseconds(400)
+
 @MainActor @Observable
 final class FeedModel {
     private(set) var phase: LoadPhase<FeedSnapshot> = .idle
     private(set) var actionError: String?
     /// True while `feed.generate` runs (a model call, so it can take a while).
     private(set) var generating = false
+    /// True while "Load older" runs.
+    private(set) var loadingOlder = false
     private let store: any PsycheBackend
+    private let reloads: ReloadDebouncer
 
-    init(store: any PsycheBackend) { self.store = store }
+    init(store: any PsycheBackend, reloadDelay: Duration = proactiveReloadDelay) {
+        self.store = store
+        reloads = ReloadDebouncer(delay: reloadDelay)
+    }
 
     func load() async {
         if phase.value == nil { phase = .loading }
-        do { phase = .loaded(try await store.feed()) } catch {
+        do {
+            var snapshot = try await store.feed()
+            // Posts marked not interested (or hidden by source) stay gone, whatever the backend returned.
+            snapshot.cards.removeAll(where: \.isDismissed)
+            phase = .loaded(snapshot)
+        } catch {
             if phase.value == nil { phase = .failed(error.localizedDescription) }
+        }
+    }
+
+    /// The next page of older posts, appended. A reload in between drops the page (its cursor is stale).
+    func loadOlder() async {
+        guard !loadingOlder, let cursor = phase.value?.nextCursor else { return }
+        loadingOlder = true
+        defer { loadingOlder = false }
+        do {
+            let page = try await store.feedPage(cursor: cursor)
+            guard var snapshot = phase.value, snapshot.nextCursor == cursor else { return }
+            let known = Set(snapshot.cards.map(\.id))
+            snapshot.cards += page.cards.filter { !known.contains($0.id) && !$0.isDismissed }
+            snapshot.nextCursor = page.nextCursor
+            phase = .loaded(snapshot)
+            actionError = nil
+        } catch {
+            actionError = error.localizedDescription
         }
     }
 
@@ -37,9 +92,17 @@ final class FeedModel {
         }
     }
 
+    /// Reloads on a new or changed post (debounced) and on a resync, until the view goes away.
     func observe() async {
+        defer { reloads.cancel() }
         for await event in store.events() {
-            if case .resynced = event { await load() }
+            switch event {
+            case .resynced:
+                reloads.cancel()
+                await load()
+            case .changed(.home): reloads.schedule { await self.load() }
+            default: break
+            }
         }
     }
 
@@ -65,20 +128,56 @@ final class FeedModel {
 final class IdeasModel {
     private(set) var phase: LoadPhase<[IdeaItem]> = .idle
     private(set) var actionError: String?
+    /// Set while older ideas remain ("Load older").
+    private(set) var nextCursor: String?
+    private(set) var loadingOlder = false
     private let store: any PsycheBackend
+    private let reloads: ReloadDebouncer
 
-    init(store: any PsycheBackend) { self.store = store }
+    init(store: any PsycheBackend, reloadDelay: Duration = proactiveReloadDelay) {
+        self.store = store
+        reloads = ReloadDebouncer(delay: reloadDelay)
+    }
 
     func load() async {
         if phase.value == nil { phase = .loading }
-        do { phase = .loaded(try await store.ideas()) } catch {
+        do {
+            let page = try await store.ideasPage(cursor: nil)
+            phase = .loaded(page.items)
+            nextCursor = page.nextCursor
+        } catch {
             if phase.value == nil { phase = .failed(error.localizedDescription) }
         }
     }
 
+    /// The next page of older ideas, appended. A reload in between drops the page (its cursor is stale).
+    func loadOlder() async {
+        guard !loadingOlder, let cursor = nextCursor else { return }
+        loadingOlder = true
+        defer { loadingOlder = false }
+        do {
+            let page = try await store.ideasPage(cursor: cursor)
+            guard let current = phase.value, nextCursor == cursor else { return }
+            let known = Set(current.map(\.id))
+            phase = .loaded(current + page.items.filter { !known.contains($0.id) })
+            nextCursor = page.nextCursor
+            actionError = nil
+        } catch {
+            actionError = error.localizedDescription
+        }
+    }
+
+    /// Reloads on a new or changed idea (debounced) and on a resync, until the view goes away.
     func observe() async {
+        defer { reloads.cancel() }
         for await event in store.events() {
-            if case .resynced = event { await load() }
+            switch event {
+            case .resynced:
+                reloads.cancel()
+                await load()
+            case .changed(.home): reloads.schedule { await self.load() }
+            default: break
+            }
         }
     }
 
@@ -124,13 +223,20 @@ final class GoalsModel {
     private(set) var linkTitles: [String: String] = [:]
     private let store: any PsycheBackend
     private var suggestTask: Task<Void, Never>?
+    /// The goal the current suggestion is for, so accepting it can refresh that goal's links.
+    private var suggestGoal: GoalItem?
+    private let reloads: ReloadDebouncer
 
-    init(store: any PsycheBackend) { self.store = store }
+    init(store: any PsycheBackend, reloadDelay: Duration = proactiveReloadDelay) {
+        self.store = store
+        reloads = ReloadDebouncer(delay: reloadDelay)
+    }
 
     /// Starts one suggestion in a task the sheet can cancel. A second tap while one runs does nothing.
     func startSuggest(for goal: GoalItem) {
         guard suggest != .working else { return }
         suggest = .working
+        suggestGoal = goal
         suggestTask = Task { await self.runSuggest(for: goal) }
     }
 
@@ -168,6 +274,8 @@ final class GoalsModel {
         do {
             if start {
                 try await store.acceptIdea(id: idea.id)
+                // Accepting can link the task it makes to the goal: show the goal's links as they now are.
+                if let goal = suggestGoal { await refreshDetail(goal) }
             } else {
                 try await store.dismissIdea(id: idea.id, reason: .notNow)
             }
@@ -249,9 +357,22 @@ final class GoalsModel {
         }
     }
 
+    /// Reloads on a goal change (debounced) and on a resync, until the view goes away. An open goal page reloads too.
     func observe() async {
+        defer { reloads.cancel() }
         for await event in store.events() {
-            if case .resynced = event { await load() }
+            switch event {
+            case .resynced:
+                reloads.cancel()
+                await load()
+                if let goal = detail.value?.goal { await refreshDetail(goal) }
+            case .changed(.home):
+                reloads.schedule {
+                    await self.load()
+                    if let goal = self.detail.value?.goal, !self.busy { await self.refreshDetail(goal) }
+                }
+            default: break
+            }
         }
     }
 
@@ -379,8 +500,12 @@ final class ScheduledModel {
     /// Items with a pause or run in flight: their buttons are off until the Gateway answers.
     private(set) var busy: Set<String> = []
     private let store: any PsycheBackend
+    private let reloads: ReloadDebouncer
 
-    init(store: any PsycheBackend) { self.store = store }
+    init(store: any PsycheBackend, reloadDelay: Duration = proactiveReloadDelay) {
+        self.store = store
+        reloads = ReloadDebouncer(delay: reloadDelay)
+    }
 
     func isBusy(_ id: String) -> Bool { busy.contains(id) }
 
@@ -441,9 +566,14 @@ final class ScheduledModel {
     }
 
     func observe() async {
+        defer { reloads.cancel() }
         for await event in store.events() {
             switch event {
-            case .changed(.activity), .resynced: await load()
+            case .resynced:
+                reloads.cancel()
+                await load()
+            // `automation.updated` and run changes: an open Scheduled page follows them.
+            case .changed(.scheduled), .changed(.activity): reloads.schedule { await self.load() }
             default: break
             }
         }

@@ -11,5 +11,6 @@ export const actionErrors: Partial<Catalogue> = {
   "actionError.language": "无法更改语言（{reason}）。",
   "actionError.transcriptMode": "无法更改转录详细程度（{reason}）。",
   "actionError.screenAskDestination": "无法更改屏幕提问的发送位置（{reason}）。",
+  "actionError.stopVirtualScreen": "无法停止虚拟屏幕（{reason}）。它可能仍在运行。",
   "actionError.takeOver": "无法接管虚拟屏幕（{reason}）。",
 };

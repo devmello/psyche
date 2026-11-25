@@ -72,7 +72,7 @@ struct EventMapper {
         case "approval.created", "approval.updated", "question.created", "question.updated":
             return ([.changed(.home), .changed(.activity)], .none)
         case "notification.created", "notification.updated", "notification.resolved", "notification.opened",
-             "feed.post", "feed.updated", "idea.updated", "goal.updated":
+             "feed.post", "feed.updated", "idea.updated", "goal.updated", "proposal.updated":
             return ([.changed(.home)], .none)
         case "run.updated":
             // A chat run starting or ending is what a long reply's Live Activity follows; the rest is the same
@@ -86,7 +86,14 @@ struct EventMapper {
             // A task or specialist job can be what a pinned widget's bindings read, so widgets refetch too.
             return ([.changed(.activity), .changed(.home), .changed(.widgets)], .none)
         case "automation.updated":
-            return ([.changed(.widgets)], .none)
+            return ([.changed(.widgets), .changed(.scheduled)], .none)
+        // Learning shows lessons and growth under Memory; both topics refetch so either listener stays current.
+        case "lesson.changed", "growth.updated":
+            return ([.changed(.learning), .changed(.memory)], .none)
+        case "receipt.created":
+            return ([.changed(.receipts)], .none)
+        case "skills.changed", "skills.updated":
+            return ([.changed(.skills)], .none)
         // A tool call or a deep-research run can be what a widget node binds to (`widgets.binding.resolve`).
         case "tool_call.updated", "research.progress":
             return ([.changed(.widgets)], .none)

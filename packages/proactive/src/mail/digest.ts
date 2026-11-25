@@ -580,6 +580,8 @@ export class DigestService {
   job(): ProactiveJob {
     return {
       name: "mail digest",
+      // Reads and proposes only: safe to run again after a restart cut it off.
+      rerunOnInterrupt: true,
       matches: (a) => parseJobMarker(a.prompt)?.job === MAIL_DIGEST_JOB,
       run: async (): Promise<LaunchResult> => {
         const r = await this.run();
