@@ -29,6 +29,8 @@ export const linux: Partial<Record<MessageId, string>> = {
   "blocks.details.runsNoSandbox": "on your computer, and the sandbox is not set up ({reason})",
   "blocks.permission.need.capability": "Turn on Run commands on this computer",
   "blocks.permission.need.macos_access": "Give {connector} access in Settings",
+  "settings.notifications.helper.denied": "Notifications are off in Settings",
+  "settings.notifications.helper.openSettings": "Open Settings",
   "blocks.permission.openSystemSettings": "Open Settings",
   "blocks.approval.answerOnHost":
     "Answer on {host}, or set up password approvals for this computer in Settings → Devices.",
