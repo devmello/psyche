@@ -7,8 +7,20 @@ import enum PsycheProtocol.JSONValue
 // idempotency key, so a retried tap does not repeat the change.
 extension GatewayBackend {
     public func lessons() async throws -> [LessonItem] {
-        let result = try await call("memory.lessons.list")
-        return (result["lessons"]?.array ?? []).compactMap(Self.lesson)
+        try await lessonsPage(cursor: nil).lessons
+    }
+
+    /// One page of what Psyche learned, newest first, with the Mac's status filter (live lessons only: a forgotten,
+    /// dormant or superseded lesson is not listed). The cursor is the Gateway's own.
+    public func lessonsPage(cursor: String?) async throws -> LessonsPage {
+        var params: [String: JSONValue] = [
+            "status": .array(Self.liveLessonStatuses.map { .string($0) }),
+            "limit": .number(Double(Self.lessonPageSize)),
+        ]
+        if let cursor { params["cursor"] = .string(cursor) }
+        let result = try await call("memory.lessons.list", .object(params))
+        return LessonsPage(
+            lessons: (result["lessons"]?.array ?? []).compactMap(Self.lesson), nextCursor: result["nextCursor"]?.string)
     }
 
     public func confirmLesson(id: String) async throws {
@@ -71,13 +83,20 @@ extension GatewayBackend {
         guard let id = row["id"]?.string, !id.isEmpty, let statement = row["statement"]?.string,
             let value = row["value"]?.string
         else { return nil }
-        // A forgotten lesson is never shown; the list asks for the live ones, this is a second guard.
-        if row["status"]?.string == "forgotten" { return nil }
+        // Only the live statuses are shown (the list asks for them too; this is a second guard).
+        if let status = row["status"]?.string, !liveLessonStatuses.contains(status) { return nil }
         return LessonItem(
             id: id, statement: statement, value: value, previous: row["previous"]?.string,
             confidence: number(row["confidence"]) ?? 0,
             confirmed: row["confirmedAt"]?.string != nil || row["status"]?.string == "confirmed")
     }
+
+    /// Lessons the Mac lists: the live statuses, as its LIVE_LESSONS filter.
+    static let liveLessonStatuses = ["proposed", "active", "confirmed"]
+    /// Lessons per page, the Gateway's default.
+    static let lessonPageSize = 50
+    /// Provenance of a claim the owner can confirm (`confirmClaim` refuses every other kind).
+    static let confirmableProvenances: Set<String> = ["agent"]
 
     /// Rows per feedback page, the Mac's size.
     static let feedbackPageSize = 20
@@ -94,6 +113,9 @@ extension GatewayBackend {
         guard let id = row["id"]?.string, !id.isEmpty, let text = row["text"]?.string else { return nil }
         // Retracted or superseded claims are not waiting for the owner.
         if row["retractedAt"]?.string != nil || row["supersededBy"]?.string != nil { return nil }
+        // Only what memory.claims.confirm accepts: Psyche's own claims. The owner's own, and any from untrusted or
+        // system content, are refused (policy_denied), so they are never waiting for the owner.
+        guard confirmableProvenances.contains(row["provenance"]?.string ?? "") else { return nil }
         return ClaimItem(id: id, text: text, confidence: number(row["confidence"]) ?? 0)
     }
 

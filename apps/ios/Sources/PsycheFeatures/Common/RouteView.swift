@@ -26,6 +26,7 @@ struct RouteView: View {
         case .learning: LessonsView(store: store)
         case .claims: ClaimsView(store: store)
         case .recentChanges: RecentChangesView(store: store)
+        case .reviewQueue: HeldBackView(store: store)
         case .memoryFile(let path): MemoryFileView(path: path, store: store)
         case .entity(let id): EntityRouteView(id: id, store: store)
         case .inbox: InboxView(store: store)
@@ -34,8 +35,10 @@ struct RouteView: View {
         case .feed: FeedView(store: store)
         case .ideas: IdeasView(store: store)
         case .goals: GoalsView(store: store)
+        case .goal(let id): GoalsView(store: store, openGoalID: id)
+        case .feedPost(let id): FeedView(store: store, focusPostID: id)
         case .space(let id): SpaceView(id: id, store: store)
-        case .task: EmptyView()  // opens the agent sheet through the router, never pushed
+        case .task, .agentApprovals, .tab, .settings: EmptyView()  // the router opens these, never pushed
         }
     }
 }

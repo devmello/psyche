@@ -155,7 +155,14 @@ export function SecurityStateBanner({
       const id = approvalIdOf(err);
       if (id !== null) {
         setApprovals((a) => ({ ...a, [key]: id }));
-        setNotice(t("web.security.needsApproval"));
+        // A recovery approval needs fresh presence (security §10); an acknowledge is a plain tap.
+        setNotice(
+          t(
+            method === "security.recoveries.approve"
+              ? "web.security.needsApprovalPresence"
+              : "web.security.needsApproval",
+          ),
+        );
       } else {
         setNotice(t("web.security.failed", { message: describeError(err) }));
       }

@@ -68,7 +68,7 @@ final class RunDetailModel {
         frames.filter { $0.stepID == stepID && !$0.expired }
     }
 
-    func imageData(for frame: RunFrameRef) async throws -> Data {
-        try await store.runFrameImage(runID: runID, seq: frame.seq)
+    func imageData(for frame: RunFrameRef, size: RunFrameSize = .thumb) async throws -> Data {
+        try await store.runFrameImage(runID: runID, seq: frame.seq, size: size)
     }
 }

@@ -120,7 +120,8 @@ export const spaces: Partial<Catalogue> = {
   "spaces.settings.mode.balanced": "संतुलित",
   "spaces.settings.mode.auto": "ऑटो",
   "spaces.settings.mode.inheritHint": "यहाँ की चैट आपके ग्लोबल अनुमति मोड का उपयोग करती हैं।",
-  "spaces.settings.mode.planHint": "यहाँ की चैट केवल पढ़ती और योजना बनाती हैं; कुछ नहीं बदलता।",
+  "spaces.settings.mode.planHint":
+    "यहाँ नई चैट योजना मोड में शुरू होती हैं: वे केवल पढ़ती और योजना बनाती हैं, कुछ नहीं बदलता।",
   "spaces.settings.mode.manualHint": "अनुमति से बाहर की हर कार्रवाई पहले पूछती है।",
   "spaces.settings.mode.balancedHint": "पढ़ना चलता है; लोगों और पैसे से जुड़ी लिखाई पहले पूछती है।",
   "spaces.settings.mode.autoHint":

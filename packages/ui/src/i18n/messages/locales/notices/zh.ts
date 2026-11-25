@@ -3,8 +3,11 @@ import type { Catalogue } from "../../index.ts";
 /** Notices the Gateway authors (zh); merged into `../zh.ts`. */
 export const notices: Partial<Catalogue> = {
   "notice.install.failed.title": "已批准的安装未完成",
+  "notice.connectors.matrix.failed.title": "一条连接器规则未能保存",
+  "notice.connectors.matrix.failed.body":
+    "无法对 {connector} 应用 {action}，因此仍使用之前的规则。请在 设置 › 连接器 中检查。",
   "notice.install.failed.body":
-    "{reason, select, lost {你批准之前 Psyche 重新启动了，因此该提案已丢失。请重新提出。} expired {你批准之前，该提案已过期。请重新提出。} other {Psyche 无法安装它。请查看列表后再试一次。}}",
+    "{reason, select, lost {你批准之前 Psyche 重新启动了，因此该提案已丢失。请重新提出。} expired {你批准之前，该提案已过期。请重新提出。} other {Psyche 无法安装它。请重新提出，或让 Psyche 来做。}}",
   "notice.security.changed.title": "Psyche 撤销了在应用之外进行的安全更改",
   "notice.security.changed.body":
     "这台 Mac 上有程序绕过 Psyche 更改了 {count, plural, =1 {# 条安全记录} other {# 条安全记录}}（设备、密钥、授权或设置）{times, plural, =0 {} =1 {} other {，目前已发生 # 次}}。Psyche 已将它们恢复。如果不是你做的，请检查 Mac 上是否有不明软件。",
@@ -94,4 +97,10 @@ export const notices: Partial<Catalogue> = {
   "notice.machine.offline.title": "{name} 已离线",
   "notice.machine.offline.body":
     "有一个任务正在等待使用它，{name} 恢复后会继续。你也可以取消这个任务。",
+  "notice.automation.needsApproval.title": "{title} 正在等待你的批准",
+  "notice.automation.needsApproval.body":
+    "批准已过期，所以它停了下来。打开“批准”查看它需要什么，然后再运行一次。",
+  "notice.automation.interrupted.title": "{title} 被中断了",
+  "notice.automation.interrupted.body":
+    "运行时 Psyche 重新启动了，可能已经完成了一部分。请查看结果，需要的话再运行一次。",
 };

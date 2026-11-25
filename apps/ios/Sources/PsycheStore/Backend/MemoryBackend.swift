@@ -6,6 +6,9 @@ import Foundation
 
 public protocol MemoryBackend: Sendable {
     func memory() async throws -> MemorySnapshot
+    /// One project's row with its progress, read on its own (memory.entities.get). Used for the projects the snapshot
+    /// lists with `progressPending`.
+    func projectRow(id: String) async throws -> ProjectItem
     func setTodo(id: String, done: Bool) async throws
     func person(id: String) async throws -> PersonDetail
     func project(id: String) async throws -> ProjectDetail
@@ -28,6 +31,8 @@ public protocol MemoryBackend: Sendable {
     func updateEntity(id: String, changes: EntityChanges, ifMatch: String?) async throws
     /// What Psyche learned from the owner, newest first (memory.lessons.list), without forgotten lessons.
     func lessons() async throws -> [LessonItem]
+    /// One page of the live lessons, newest first (memory.lessons.list with a cursor).
+    func lessonsPage(cursor: String?) async throws -> LessonsPage
     /// "Keep it" on a lesson (memory.lessons.confirm).
     func confirmLesson(id: String) async throws
     /// The owner's own line for a lesson (memory.lessons.edit).
@@ -38,6 +43,14 @@ public protocol MemoryBackend: Sendable {
     func feedbackPage(cursor: String?) async throws -> FeedbackPage
     /// Deletes one piece of feedback; lessons made only from it are forgotten (feedback.delete).
     func deleteFeedback(id: String) async throws
+    /// Held-back items still waiting for the owner (memory.quarantine.list), a page at a time, newest first.
+    func heldItemsPage(cursor: String?) async throws -> HeldItemsPage
+    /// Releases, discards or blocks the sender of one held item (memory.quarantine.decide).
+    func decideHeldItem(id: String, action: HeldItemAction) async throws
+    /// The senders the Mac offers to trust, and the ones already trusted (memory.senders.list).
+    func senderTrust() async throws -> [SenderTrustRow]
+    /// Trusts, declines or revokes one sender (memory.senders.decide).
+    func decideSender(entityID: String, decision: SenderDecision) async throws
     /// Claims Psyche is not sure of and waits on (memory.claims.list).
     func claims() async throws -> [ClaimItem]
     /// "Right" on a claim (memory.claims.confirm): it becomes the owner's.
@@ -70,16 +83,22 @@ public protocol MemoryBackend: Sendable {
 
 extension MemoryBackend {
     // Additive: a backend without the memory files or entity reads says it has nothing to show.
+    public func projectRow(id: String) async throws -> ProjectItem { throw BackendError.notFound }
     public func memoryFiles() async throws -> [MemoryFileRow] { throw BackendError.notFound }
     public func memoryFile(path: String) async throws -> MemoryFileContent { throw BackendError.notFound }
     public func entityKind(id: String) async throws -> String { throw BackendError.notFound }
     // Additive: a backend without the learning surface says it has nothing to show.
     public func lessons() async throws -> [LessonItem] { throw BackendError.notFound }
+    public func lessonsPage(cursor: String?) async throws -> LessonsPage { throw BackendError.notFound }
     public func confirmLesson(id: String) async throws { throw BackendError.notFound }
     public func editLesson(id: String, value: String) async throws { throw BackendError.notFound }
     public func forgetLesson(id: String) async throws { throw BackendError.notFound }
     public func feedbackPage(cursor: String?) async throws -> FeedbackPage { throw BackendError.notFound }
     public func deleteFeedback(id: String) async throws { throw BackendError.notFound }
+    public func heldItemsPage(cursor: String?) async throws -> HeldItemsPage { throw BackendError.notFound }
+    public func decideHeldItem(id: String, action: HeldItemAction) async throws { throw BackendError.notFound }
+    public func senderTrust() async throws -> [SenderTrustRow] { throw BackendError.notFound }
+    public func decideSender(entityID: String, decision: SenderDecision) async throws { throw BackendError.notFound }
     public func claims() async throws -> [ClaimItem] { throw BackendError.notFound }
     public func confirmClaim(id: String) async throws { throw BackendError.notFound }
     public func recentChanges() async throws -> [RecentChange] { throw BackendError.notFound }
@@ -272,12 +291,19 @@ public struct MemorySnapshot: Sendable, Equatable {
     public var projects: [ProjectItem]
     public var people: [PersonItem]
     public var leftOff: LeftOff
+    /// Projects listed without their progress, which the screen reads one at a time as their rows appear
+    /// (`MemoryBackend.projectRow`).
+    public var progressPending: Set<String>
 
-    public init(todos: [TodoItem], projects: [ProjectItem], people: [PersonItem], leftOff: LeftOff) {
+    public init(
+        todos: [TodoItem], projects: [ProjectItem], people: [PersonItem], leftOff: LeftOff,
+        progressPending: Set<String> = []
+    ) {
         self.todos = todos
         self.projects = projects
         self.people = people
         self.leftOff = leftOff
+        self.progressPending = progressPending
     }
 }
 

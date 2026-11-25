@@ -582,6 +582,14 @@ export const Events = {
     description:
       "A machine was added, renamed, changed status or limits, or removed. Emitted once the machine registry lands (wave H3).",
   }),
+  "plugins.changed": defineEvent({
+    payload: Type.Object({
+      name: Type.String(),
+      change: StringEnum(["installed", "enabled", "disabled", "removed"]),
+    }),
+    description:
+      "A code plugin was installed (after its approved card), switched on or off, or removed, so Settings reloads the plugin list (a hint, not state).",
+  }),
 } as const;
 
 export type EventName = keyof typeof Events;

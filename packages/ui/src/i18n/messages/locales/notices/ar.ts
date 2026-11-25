@@ -3,8 +3,11 @@ import type { Catalogue } from "../../index.ts";
 /** Notices the Gateway authors (ar); merged into `../ar.ts`. */
 export const notices: Partial<Catalogue> = {
   "notice.install.failed.title": "لم يكتمل تثبيت تمت الموافقة عليه",
+  "notice.connectors.matrix.failed.title": "لم تُحفظ قاعدة أحد الموصلات",
+  "notice.connectors.matrix.failed.body":
+    "تعذّر تطبيق {action} على {connector}، لذلك ما زال يستخدم قاعدته السابقة. راجعها في الإعدادات › الموصلات.",
   "notice.install.failed.body":
-    "{reason, select, lost {أُعيد تشغيل Psyche قبل موافقتك، لذلك ضاع الاقتراح. اقترحه من جديد.} expired {انتهت صلاحية الاقتراح قبل موافقتك. اقترحه من جديد.} other {تعذّر على Psyche تثبيته. راجع القائمة وحاول مرة أخرى.}}",
+    "{reason, select, lost {أُعيد تشغيل Psyche قبل موافقتك، لذلك ضاع الاقتراح. اقترحه من جديد.} expired {انتهت صلاحية الاقتراح قبل موافقتك. اقترحه من جديد.} other {تعذّر على Psyche تثبيته. اقترحه من جديد، أو اطلب من Psyche ذلك.}}",
   "notice.security.changed.title": "تراجع Psyche عن تغيير أمني أُجري خارج التطبيق",
   "notice.security.changed.body":
     "غيّر برنامج على هذا الـ Mac {count, plural, =1 {سجل أمان واحدًا} other {# من سجلات الأمان}} (الأجهزة أو المفاتيح أو الأذونات أو الإعدادات) دون المرور عبر Psyche{times, plural, =0 {} =1 {} other {، # مرات حتى الآن}}. أعاد Psyche كل شيء كما كان. إن لم تكن أنت من فعل ذلك، فافحص الـ Mac بحثًا عن برامج غير مرغوب فيها.",
@@ -98,4 +101,10 @@ export const notices: Partial<Catalogue> = {
   "notice.machine.offline.title": "انقطع اتصال {name}",
   "notice.machine.offline.body":
     "توجد مهمة تنتظر استخدامه، وستتابع عندما يعود {name}. يمكنك أيضاً إلغاء المهمة.",
+  "notice.automation.needsApproval.title": "{title} ينتظر موافقتك",
+  "notice.automation.needsApproval.body":
+    "توقف لأن الموافقة انتهت صلاحيتها. افتح الموافقات لترى ما يحتاجه، ثم شغّله مرة أخرى.",
+  "notice.automation.interrupted.title": "تمت مقاطعة {title}",
+  "notice.automation.interrupted.body":
+    "أُعيد تشغيل Psyche أثناء تشغيله وربما أنجز جزءًا منه. تحقق من النتيجة، ثم شغّله مرة أخرى إن لزم.",
 };

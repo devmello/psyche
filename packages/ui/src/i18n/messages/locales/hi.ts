@@ -1792,13 +1792,19 @@ export const hi: Partial<Catalogue> = {
   "settings.computerUse.tccState.granted": "दी गई",
   "settings.computerUse.tccState.denied": "अस्वीकृत",
   "settings.computerUse.tccState.not_determined": "अभी नहीं पूछा गया",
+  "settings.computerUse.tccState.offline": "हेल्पर ऑफ़लाइन है",
+  "settings.computerUse.helperAccess.hint":
+    "कंप्यूटर कंट्रोल Psyche Helper में चलता है। “Psyche” नहीं, “Psyche Helper” चालू करें।",
+  "settings.computerUse.helperAccess.offline":
+    "Psyche Helper चल नहीं रहा है, इसलिए उसकी अनुमतियाँ पढ़ी नहीं जा सकतीं। यह Psyche के साथ शुरू होता है; ऑफ़लाइन रहे तो Psyche बंद करके दोबारा खोलें।",
+  "settings.computerUse.helperAccess.allow": "Psyche Helper को अनुमति दें",
+  "settings.computerUse.helperAccess.allowFor": "{name} के लिए Psyche Helper को अनुमति दें",
   "settings.computerUse.title": "कंप्यूटर उपयोग",
   "settings.computerUse.description":
     "{persona} इस Mac पर ऐप केवल वहीं उपयोग कर सकता है जहाँ आप अनुमति दें।",
   "settings.computerUse.escStops": "किसी भी समय कंप्यूटर उपयोग रोक देता है।",
   "settings.computerUse.loadLabel": "कंप्यूटर उपयोग",
   "settings.computerUse.macPermissions": "macOS अनुमतियाँ",
-  "settings.computerUse.openSystemSettingsFor": "{name} के लिए सिस्टम सेटिंग्ज़ खोलें",
   "settings.computerUse.openSystemSettings": "सिस्टम सेटिंग्ज़ खोलें",
   "settings.computerUse.apps": "ऐप",
   "settings.computerUse.enabledHint":
@@ -2899,6 +2905,9 @@ export const hi: Partial<Catalogue> = {
   "onboarding.done.checking": "सेटअप की जाँच हो रही है…",
   "onboarding.done.checks": "सेटअप जाँचें",
   "onboarding.done.ok": "ठीक",
+  "onboarding.done.failed": "विफल",
+  "onboarding.done.notChecked": "जाँचा नहीं गया",
+  "onboarding.done.fixModel": "मॉडल चरण में ठीक करें",
   "onboarding.done.check": "जाँच",
   "onboarding.model.idPlaceholder": "{provider}/model-name",
 
@@ -3539,6 +3548,13 @@ export const hi: Partial<Catalogue> = {
   "web.setup.helperOk": "कनेक्टेड।",
   "web.setup.helperWarn": "अभी कनेक्टेड नहीं। कंप्यूटर उपयोग और सूचनाएँ इसकी प्रतीक्षा करती हैं।",
   "web.setup.model": "मॉडल",
+  "web.setup.modelRefused": "{ref}: प्रदाता ने कुंजी अस्वीकार कर दी ({error})। कुंजी रखी नहीं गई।",
+  "web.setup.modelNotChecked": "{ref}: कुंजी सहेजी गई है, लेकिन जाँचने के लिए प्रदाता तक पहुँचा नहीं जा सका।",
+  "web.setup.modelSkipped":
+    "{ref}: कोई कुंजी नहीं जोड़ी गई, इसलिए चैट अभी जवाब नहीं देगी। सेटिंग्स → मॉडल में जोड़ें।",
+  "web.gate.loading": "Psyche शुरू हो रहा है",
+  "web.gate.error": "Psyche यह जाँच नहीं सका कि सेटअप पूरा हुआ या नहीं।",
+  "web.gate.retry": "फिर कोशिश करें",
   "web.setup.modelNone": "कोई नहीं चुना गया। सेटिंग्ज़ → मॉडल और प्रदाता में एक जोड़ें।",
   "web.setup.modelOk": "{ref}, कुंजी वॉल्ट में।",
   "web.setup.modelUnbound": "{ref} अभी बाइंड नहीं है।",

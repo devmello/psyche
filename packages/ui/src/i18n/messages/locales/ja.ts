@@ -1779,13 +1779,19 @@ export const ja: Partial<Catalogue> = {
   "settings.computerUse.tccState.granted": "許可済み",
   "settings.computerUse.tccState.denied": "拒否",
   "settings.computerUse.tccState.not_determined": "まだ確認されていません",
+  "settings.computerUse.tccState.offline": "ヘルパーはオフライン",
+  "settings.computerUse.helperAccess.hint":
+    "コンピュータ操作は Psyche Helper で動きます。「Psyche」ではなく「Psyche Helper」をオンにしてください。",
+  "settings.computerUse.helperAccess.offline":
+    "Psyche Helper が起動していないため、権限を読み取れません。Psyche と一緒に起動します。オフラインのままなら Psyche を終了して開き直してください。",
+  "settings.computerUse.helperAccess.allow": "Psyche Helper を許可",
+  "settings.computerUse.helperAccess.allowFor": "{name} を Psyche Helper に許可",
   "settings.computerUse.title": "コンピュータ操作",
   "settings.computerUse.description":
     "{persona}は、あなたが許可した範囲でのみこのMacのアプリを使用できます。",
   "settings.computerUse.escStops": "でいつでもコンピュータ操作を停止できます。",
   "settings.computerUse.loadLabel": "コンピュータ操作",
   "settings.computerUse.macPermissions": "macOSの権限",
-  "settings.computerUse.openSystemSettingsFor": "{name}のシステム設定を開く",
   "settings.computerUse.openSystemSettings": "システム設定を開く",
   "settings.computerUse.apps": "アプリ",
   "settings.computerUse.enabledHint":
@@ -2908,6 +2914,9 @@ export const ja: Partial<Catalogue> = {
   "onboarding.done.checking": "セットアップを確認中…",
   "onboarding.done.checks": "セットアップの確認",
   "onboarding.done.ok": "OK",
+  "onboarding.done.failed": "失敗",
+  "onboarding.done.notChecked": "未確認",
+  "onboarding.done.fixModel": "モデルのステップで修正",
   "onboarding.done.check": "確認",
   "onboarding.model.idPlaceholder": "{provider}/モデル名",
 
@@ -3562,6 +3571,15 @@ export const ja: Partial<Catalogue> = {
   "web.setup.helperOk": "接続済み。",
   "web.setup.helperWarn": "まだ接続されていません。コンピュータ操作と通知はこれを待っています。",
   "web.setup.model": "モデル",
+  "web.setup.modelRefused":
+    "{ref}：プロバイダがキーを拒否しました（{error}）。キーは保持されませんでした。",
+  "web.setup.modelNotChecked":
+    "{ref}：キーは保存されましたが、確認のためにプロバイダへ接続できませんでした。",
+  "web.setup.modelSkipped":
+    "{ref}：キーが追加されていないため、チャットはまだ応答しません。設定 → モデルで追加してください。",
+  "web.gate.loading": "Psycheを起動中",
+  "web.gate.error": "セットアップが完了しているか確認できませんでした。",
+  "web.gate.retry": "もう一度試す",
   "web.setup.modelNone": "未選択。設定 → モデルとプロバイダで追加してください。",
   "web.setup.modelOk": "{ref}、キーは保管庫にあります。",
   "web.setup.modelUnbound": "{ref}はまだバインドされていません。",

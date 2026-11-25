@@ -1833,13 +1833,19 @@ export const de: Partial<Catalogue> = {
   "settings.computerUse.tccState.granted": "Erlaubt",
   "settings.computerUse.tccState.denied": "Verweigert",
   "settings.computerUse.tccState.not_determined": "Noch nicht gefragt",
+  "settings.computerUse.tccState.offline": "Helfer offline",
+  "settings.computerUse.helperAccess.hint":
+    "Die Computersteuerung läuft in Psyche Helper. Aktiviere „Psyche Helper“, nicht „Psyche“.",
+  "settings.computerUse.helperAccess.offline":
+    "Psyche Helper läuft nicht, daher lassen sich seine Berechtigungen nicht lesen. Er startet mit Psyche; beende Psyche und öffne es neu, falls er offline bleibt.",
+  "settings.computerUse.helperAccess.allow": "Psyche Helper erlauben",
+  "settings.computerUse.helperAccess.allowFor": "Psyche Helper für {name} erlauben",
   "settings.computerUse.title": "Computersteuerung",
   "settings.computerUse.description":
     "{persona} kann Apps auf diesem Mac nur dort verwenden, wo du es erlaubst.",
   "settings.computerUse.escStops": "stoppt die Computersteuerung jederzeit.",
   "settings.computerUse.loadLabel": "Computersteuerung",
   "settings.computerUse.macPermissions": "macOS-Berechtigungen",
-  "settings.computerUse.openSystemSettingsFor": "Systemeinstellungen für {name} öffnen",
   "settings.computerUse.openSystemSettings": "Systemeinstellungen öffnen",
   "settings.computerUse.apps": "Apps",
   "settings.computerUse.enabledHint":
@@ -3001,6 +3007,9 @@ export const de: Partial<Catalogue> = {
   "onboarding.done.checking": "Einrichtung wird geprüft …",
   "onboarding.done.checks": "Einrichtungsprüfungen",
   "onboarding.done.ok": "OK",
+  "onboarding.done.failed": "Fehlgeschlagen",
+  "onboarding.done.notChecked": "Nicht geprüft",
+  "onboarding.done.fixModel": "Im Schritt Modell beheben",
   "onboarding.done.check": "Prüfung",
   "onboarding.model.idPlaceholder": "{provider}/modellname",
 
@@ -3672,6 +3681,15 @@ export const de: Partial<Catalogue> = {
   "web.setup.helperOk": "Verbunden.",
   "web.setup.helperWarn": "Noch nicht verbunden. Computersteuerung und Mitteilungen warten darauf.",
   "web.setup.model": "Modell",
+  "web.setup.modelRefused":
+    "{ref}: Der Anbieter hat den Schlüssel abgelehnt ({error}). Der Schlüssel wurde nicht behalten.",
+  "web.setup.modelNotChecked":
+    "{ref}: Der Schlüssel ist gespeichert, aber der Anbieter war zur Prüfung nicht erreichbar.",
+  "web.setup.modelSkipped":
+    "{ref}: Kein Schlüssel hinzugefügt, der Chat antwortet noch nicht. Füge einen unter Einstellungen → Modelle hinzu.",
+  "web.gate.loading": "Psyche startet",
+  "web.gate.error": "Psyche konnte nicht prüfen, ob die Einrichtung abgeschlossen ist.",
+  "web.gate.retry": "Erneut versuchen",
   "web.setup.modelNone":
     "Keines gewählt. Füge eines unter „Einstellungen“ → „Modell & Anbieter“ hinzu.",
   "web.setup.modelOk": "{ref}, Schlüssel im Tresor.",

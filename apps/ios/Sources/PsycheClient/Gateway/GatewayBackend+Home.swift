@@ -358,8 +358,8 @@ extension GatewayBackend {
     static func running(task t: JSONValue) -> RunningTask? {
         guard let id = t["id"]?.string else { return nil }
         let checklist = t["checklist"]?.array ?? []
-        let done = checklist.filter { $0["status"]?.string == "done" }.count
-        let current = checklist.first { $0["status"]?.string != "done" }?["text"]?.string
+        let done = checklist.filter { $0["status"]?.string == "completed" }.count
+        let current = checklist.first { $0["status"]?.string != "completed" }?["text"]?.string
         return RunningTask(
             id: id, title: t["title"]?.string ?? String(localized: "Working", bundle: .module), step: min(done + 1, max(checklist.count, 1)),
             stepCount: checklist.count, detail: current ?? t["goal"]?.string ?? "",

@@ -3,8 +3,11 @@ import type { Catalogue } from "../../index.ts";
 /** Notices the Gateway authors (ja); merged into `../ja.ts`. */
 export const notices: Partial<Catalogue> = {
   "notice.install.failed.title": "承認したインストールが完了しませんでした",
+  "notice.connectors.matrix.failed.title": "コネクタのルールを保存できませんでした",
+  "notice.connectors.matrix.failed.body":
+    "{connector} の {action} を適用できなかったため、以前のルールのままです。設定 › コネクタで確認してください。",
   "notice.install.failed.body":
-    "{reason, select, lost {承認の前に Psyche が再起動したため、提案は失われました。もう一度提案してください。} expired {承認の前に提案の有効期限が切れていました。もう一度提案してください。} other {Psyche はインストールできませんでした。一覧を確認して、もう一度お試しください。}}",
+    "{reason, select, lost {承認の前に Psyche が再起動したため、提案は失われました。もう一度提案してください。} expired {承認の前に提案の有効期限が切れていました。もう一度提案してください。} other {Psyche はインストールできませんでした。もう一度提案するか、Psyche に頼んでください。}}",
   "notice.security.changed.title": "アプリの外で行われたセキュリティ変更を Psyche が元に戻しました",
   "notice.security.changed.body":
     "この Mac のプログラムが、Psyche を通さずに {count, plural, =1 {# 件のセキュリティ記録} other {# 件のセキュリティ記録}}（デバイス、キー、許可、設定）を変更しました{times, plural, =0 {} =1 {} other {（これまでに # 回）}}。Psyche は元に戻しました。心当たりがない場合は、Mac に不要なソフトウェアがないか確認してください。",
@@ -100,4 +103,10 @@ export const notices: Partial<Catalogue> = {
   "notice.machine.offline.title": "{name} がオフラインになりました",
   "notice.machine.offline.body":
     "タスクがこのコンピュータを使うために待っています。{name} が戻ると続きます。タスクをキャンセルすることもできます。",
+  "notice.automation.needsApproval.title": "{title} はあなたの承認を待っています",
+  "notice.automation.needsApproval.body":
+    "承認の期限が切れたため停止しました。「承認」を開いて必要な内容を確認し、もう一度実行してください。",
+  "notice.automation.interrupted.title": "{title} は中断されました",
+  "notice.automation.interrupted.body":
+    "実行中に Psyche が再起動したため、一部がすでに実行された可能性があります。結果を確認し、必要ならもう一度実行してください。",
 };

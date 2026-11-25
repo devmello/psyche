@@ -1808,13 +1808,19 @@ export const es: Partial<Catalogue> = {
   "settings.computerUse.tccState.granted": "Concedido",
   "settings.computerUse.tccState.denied": "Denegado",
   "settings.computerUse.tccState.not_determined": "Aún no solicitado",
+  "settings.computerUse.tccState.offline": "Ayudante sin conexión",
+  "settings.computerUse.helperAccess.hint":
+    "El control del ordenador se ejecuta en Psyche Helper. Activa «Psyche Helper», no «Psyche».",
+  "settings.computerUse.helperAccess.offline":
+    "Psyche Helper no está en ejecución, así que no se pueden leer sus permisos. Se inicia con Psyche; cierra y vuelve a abrir Psyche si sigue sin conexión.",
+  "settings.computerUse.helperAccess.allow": "Permitir a Psyche Helper",
+  "settings.computerUse.helperAccess.allowFor": "Permitir a Psyche Helper: {name}",
   "settings.computerUse.title": "Uso del ordenador",
   "settings.computerUse.description":
     "{persona} solo puede usar las apps de este Mac donde tú lo permitas.",
   "settings.computerUse.escStops": "detiene el uso del ordenador en cualquier momento.",
   "settings.computerUse.loadLabel": "el uso del ordenador",
   "settings.computerUse.macPermissions": "Permisos de macOS",
-  "settings.computerUse.openSystemSettingsFor": "Abrir Ajustes del Sistema para {name}",
   "settings.computerUse.openSystemSettings": "Abrir Ajustes del Sistema",
   "settings.computerUse.apps": "Apps",
   "settings.computerUse.enabledHint":
@@ -2971,6 +2977,9 @@ export const es: Partial<Catalogue> = {
   "onboarding.done.checking": "Comprobando la configuración…",
   "onboarding.done.checks": "Comprobaciones de la configuración",
   "onboarding.done.ok": "OK",
+  "onboarding.done.failed": "Fallido",
+  "onboarding.done.notChecked": "Sin comprobar",
+  "onboarding.done.fixModel": "Corregir en el paso Modelo",
   "onboarding.done.check": "Comprobación",
   "onboarding.model.idPlaceholder": "{provider}/nombre-del-modelo",
 
@@ -3633,6 +3642,15 @@ export const es: Partial<Catalogue> = {
   "web.setup.helperWarn":
     "Aún no está conectado. El uso del ordenador y las notificaciones lo esperan.",
   "web.setup.model": "Modelo",
+  "web.setup.modelRefused":
+    "{ref}: el proveedor rechazó la clave ({error}). La clave no se conservó.",
+  "web.setup.modelNotChecked":
+    "{ref}: la clave está guardada, pero no se pudo contactar con el proveedor para comprobarla.",
+  "web.setup.modelSkipped":
+    "{ref}: no se añadió ninguna clave, así que el chat aún no responderá. Añade una en Ajustes → Modelos.",
+  "web.gate.loading": "Iniciando Psyche",
+  "web.gate.error": "Psyche no pudo comprobar si la configuración ha terminado.",
+  "web.gate.retry": "Reintentar",
   "web.setup.modelNone": "Ninguno elegido. Añade uno en Ajustes → Modelo y proveedores.",
   "web.setup.modelOk": "{ref}, clave en la bóveda.",
   "web.setup.modelUnbound": "{ref} aún no está vinculado.",

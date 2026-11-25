@@ -80,6 +80,7 @@ export function ComputerWatch({
   // Set when a hand-back failed: the owner still has control and can try again.
   const [handBackFailed, setHandBackFailed] = useState(false);
   const [inputError, setInputError] = useState<string | null>(null);
+  const [stopError, setStopError] = useState<string | null>(null);
   const imgRef = useRef<HTMLImageElement>(null);
   const seq = useRef<number | undefined>(undefined);
   const toggling = useRef(false);
@@ -246,10 +247,12 @@ export function ComputerWatch({
   };
 
   const stop = async () => {
+    setStopError(null);
     try {
       await client.stop();
-    } catch {
-      // Status shows what is still running.
+    } catch (err) {
+      // Status shows what is still running; the owner is told why the stop did not happen.
+      setStopError(t("actionError.stopVirtualScreen", { reason: describeError(err) }));
     }
     mine.current = false;
     await refreshStatus();
@@ -352,6 +355,11 @@ export function ComputerWatch({
       {inputError ? (
         <p role="alert" className="text-footnote text-danger-text">
           {inputError}
+        </p>
+      ) : null}
+      {stopError ? (
+        <p role="alert" className="text-footnote text-danger-text">
+          {stopError}
         </p>
       ) : null}
       <p role="status" aria-live="polite" className="text-footnote text-label-secondary">

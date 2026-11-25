@@ -34,6 +34,8 @@ export const asleep: Timers = { setTimeout: () => undefined, clearTimeout: () =>
 /** A launcher that records requests and answers each with `respond` (default: done). */
 export class RecordingLauncher implements RunLauncher {
   readonly requests: AutomationRunRequest[] = [];
+  /** Whether an interrupted in-process run of this launcher may run again (a job that opted in). */
+  rerunOnInterrupt: ((a: unknown) => boolean) | undefined;
   respond: (r: AutomationRunRequest) => RunResult | Promise<RunResult> = (r) => ({
     status: "done",
     summary: `Result of ${r.automation.title}`,

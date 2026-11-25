@@ -309,4 +309,59 @@ struct ProactiveBackendTests {
             try await backend.changeMilestone(goalID: "g1", .remove(id: "m1"))
         }
     }
+
+    @Test func feedDropsNotInterestedAndHiddenSourcePostsAndKeepsTheRest() async throws {
+        let (backend, _) = try await live { g in
+            g.on("feed.list") { _ in .success(.object(["posts": .array([
+                .object(["id": "p1", "title": "Kept", "feedback": "like"]),
+                .object(["id": "p2", "title": "Not interested", "feedback": "not_interested"]),
+                .object(["id": "p3", "title": "Hidden source", "feedback": "hide_source"]),
+                .object(["id": "p4", "title": "No feedback"]),
+                .object(["id": "p5", "title": "Saved", "feedback": "save"]),
+            ])])) }
+        }
+        #expect(try await backend.feed().cards.map(\.id) == ["p1", "p4", "p5"])
+    }
+
+    @Test func feedAndIdeasPageThroughTheCursor() async throws {
+        let (backend, h) = try await live { g in
+            g.on("feed.list") { req in
+                let first = req.params?["cursor"] == nil
+                return .success(.object([
+                    "posts": .array([.object(["id": first ? "p1" : "p2", "title": first ? "New" : "Old"])]),
+                    "nextCursor": first ? .string("c1") : .null,
+                ]))
+            }
+            g.on("ideas.list") { req in
+                let first = req.params?["cursor"] == nil
+                return .success(.object([
+                    "ideas": .array([.object(["id": first ? "i1" : "i2", "title": "Idea"])]),
+                    "nextCursor": first ? .string("c2") : .null,
+                ]))
+            }
+        }
+        let first = try await backend.feedPage(cursor: nil)
+        #expect(first.cards.map(\.id) == ["p1"] && first.nextCursor == "c1")
+        let older = try await backend.feedPage(cursor: "c1")
+        #expect(older.cards.map(\.id) == ["p2"] && older.nextCursor == nil)
+        let ideas = try await backend.ideasPage(cursor: nil)
+        #expect(ideas.items.map(\.id) == ["i1"] && ideas.nextCursor == "c2")
+        #expect(try await backend.ideasPage(cursor: "c2").nextCursor == nil)
+        let cursors = h.gateway.received.filter { $0.method == "feed.list" }.map { $0.params?["cursor"]?.string }
+        #expect(cursors == [nil, "c1"])
+    }
+
+    @Test func goalsListAsksForPausedAndDoneToo() async throws {
+        let (backend, h) = try await live { g in
+            g.on("goals.list") { _ in .success(.object(["goals": .array([
+                .object(["id": "g1", "title": "Active", "category": "health", "status": "active"]),
+                .object(["id": "g2", "title": "Paused", "category": "health", "status": "paused"]),
+                .object(["id": "g3", "title": "Done", "category": "health", "status": "done"]),
+            ])])) }
+        }
+        let goals = try await backend.goals()
+        #expect(goals.map(\.status) == ["active", "paused", "done"])
+        let sent = h.gateway.received.first { $0.method == "goals.list" }?.params?["status"]?.array?.compactMap(\.string)
+        #expect(sent == ["candidate", "active", "paused", "done"])
+    }
 }

@@ -4307,14 +4307,23 @@ export class PsychePermissionBroker implements PermissionBroker {
       });
   }
 
-  async revokeGrant(grantId: string, reason = "owner"): Promise<Grant> {
+  /** `by` is the owner's device that revoked it (the audit actor); without it the row is `system`. */
+  async revokeGrant(
+    grantId: string,
+    reason = "owner",
+    by?: { deviceId: string; surface?: Surface },
+  ): Promise<Grant> {
     const rec = this.#store.getGrant(grantId);
     if (rec === undefined) return fail("not_found", `grant ${grantId} not found`);
     if (rec.grant.revokedAt != null) return rec.grant;
-    return (await this.#revoke(rec, reason)).grant;
+    return (await this.#revoke(rec, reason, by)).grant;
   }
 
-  async #revoke(rec: StoredGrant, reason: string): Promise<StoredGrant> {
+  async #revoke(
+    rec: StoredGrant,
+    reason: string,
+    by?: { deviceId: string; surface?: Surface },
+  ): Promise<StoredGrant> {
     const next = structuredClone(rec);
     next.grant.revokedAt = new Date(this.clock.now()).toISOString();
     next.meta.revokedReason = reason;
@@ -4324,7 +4333,7 @@ export class PsychePermissionBroker implements PermissionBroker {
     this.#emit({ type: "grant.revoked", grant: next.grant });
     await this.#log(
       "grant.revoked",
-      { type: "system" },
+      by === undefined ? { type: "system" } : actorOf(by),
       { grantId: next.grant.id },
       { reason, kind: next.grant.kind, scope: next.grant.scope },
     );

@@ -5,6 +5,7 @@ import { FakeNode, type FakeNodeHandler } from "./fake-node.ts";
 import {
   desktopClient,
   ik,
+  remoteClient,
   startTestGateway,
   type TestClient,
   type TestGateway,
@@ -39,6 +40,18 @@ const HANDLERS: FakeNodeHandler[] = [
     run: () => ({ authorization: "notDetermined" }),
   },
   { capability: { name: "notify.show", sideEffect: "write" }, run: () => "should never run" },
+  {
+    capability: { name: "permissions.request", sideEffect: "write" },
+    run: (params) => ({ status: "prompted", params }),
+  },
+  {
+    capability: { name: "notify.request_authorization", sideEffect: "write" },
+    run: () => ({ authorization: "authorized" }),
+  },
+  {
+    capability: { name: "permissions.open_settings", sideEffect: "none" },
+    run: () => ({ opened: true }),
+  },
   // What the real helper offers beyond the above: all acting on the owner's Mac.
   {
     capability: { name: "speech.transcribe_stream", sideEffect: "read", streaming: true },
@@ -206,6 +219,94 @@ describe("node registry", () => {
     );
     expect(show).toMatchObject({ ok: false, error: { code: "forbidden" } });
     expect(node.invocations.map((i) => i.capability)).toEqual(["notify.authorization_status"]);
+  });
+
+  it("lets Settings ask the Host's helper for its own Accessibility and Screen Recording, nothing else", async () => {
+    // `deny` as the default: only the owner's click path may get through, with no approval card.
+    const { desk, node } = await setup({ policy: { default: "deny" } }, true);
+    const invoke = (capability: string, params: unknown) =>
+      desk.request("nodes.invoke", { nodeId: node.nodeId, capability, params }, ik());
+    expect(await invoke("permissions.request", { permission: "accessibility" })).toMatchObject({
+      ok: true,
+    });
+    expect(
+      await invoke("permissions.request", {
+        permission: "screenRecording",
+        purpose: "vision_fallback",
+      }),
+    ).toMatchObject({ ok: true });
+    expect(
+      await invoke("permissions.open_settings", { permission: "accessibility" }),
+    ).toMatchObject({ ok: true });
+    expect(await invoke("notify.request_authorization", { provisional: false })).toMatchObject({
+      ok: true,
+    });
+    expect(
+      await invoke("permissions.open_settings", { permission: "notifications" }),
+    ).toMatchObject({ ok: true });
+    const sent = node.invocations.length;
+    // Near misses that must stay refused: other permissions, a missing purpose, extra arguments.
+    for (const [cap, params] of [
+      ["permissions.request", { permission: "fullDiskAccess" }],
+      ["permissions.request", { permission: "microphone" }],
+      ["permissions.request", { permission: "screenRecording" }],
+      ["permissions.request", { permission: "screenRecording", purpose: "other" }],
+      ["permissions.request", { permission: "accessibility", target: "com.apple.mail" }],
+      ["permissions.open_settings", { permission: "contacts" }],
+      ["permissions.open_settings", {}],
+      ["permissions.request", null],
+      // Notifications ask through notify.*, never permissions.request; no provisional or extras.
+      ["permissions.request", { permission: "notifications" }],
+      ["notify.request_authorization", { provisional: true }],
+      ["notify.request_authorization", {}],
+      ["notify.request_authorization", { provisional: false, extra: 1 }],
+      ["notify.show", { provisional: false }],
+      ["permissions.status.extra", { permission: "accessibility" }],
+    ] as const) {
+      expect(await invoke(cap, params), `${cap} ${JSON.stringify(params)}`).toMatchObject({
+        ok: false,
+      });
+    }
+    expect(node.invocations.length).toBe(sent);
+  });
+
+  it("refuses the permission prompts to a paired device that is not the desktop shell", async () => {
+    // A phone, another Mac or a leaked write token: no TCC sheets on the Host.
+    const { node } = await setup({ policy: { default: "deny" } }, true);
+    const remote = await remoteClient(t.gateway);
+    try {
+      for (const [capability, params] of [
+        ["permissions.request", { permission: "accessibility" }],
+        ["permissions.request", { permission: "screenRecording", purpose: "vision_fallback" }],
+        ["permissions.open_settings", { permission: "accessibility" }],
+        ["notify.request_authorization", { provisional: false }],
+      ] as const) {
+        const res = await remote.request(
+          "nodes.invoke",
+          { nodeId: node.nodeId, capability, params },
+          ik(),
+        );
+        expect(res, capability).toMatchObject({ ok: false });
+      }
+      expect(node.invocations).toHaveLength(0);
+    } finally {
+      remote.close();
+    }
+  });
+
+  it("keeps permission prompts off every node but the Host's helper", async () => {
+    const { desk, node } = await setup({ policy: { default: "allow" } }, false);
+    const res = await desk.request(
+      "nodes.invoke",
+      {
+        nodeId: node.nodeId,
+        capability: "permissions.request",
+        params: { permission: "accessibility" },
+      },
+      ik(),
+    );
+    expect(res).toMatchObject({ ok: false, error: { code: "forbidden" } });
+    expect(node.invocations).toHaveLength(0);
   });
 
   it("lets Settings list the Reminders lists and calendars it marks trusted, on the Mac and the Windows helper, and nothing in them", async () => {

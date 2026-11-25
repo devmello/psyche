@@ -15,6 +15,7 @@ public enum Route: Hashable, Sendable {
     case learning
     case claims
     case recentChanges
+    case reviewQueue
     /// A person, organisation, project or other entity (`/agent/soul?entity=…`). Its kind decides the page; the
     /// phone resolves it with `memory.entities.get` when the page opens, since an id doesn't say which it is.
     case entity(id: String)
@@ -26,10 +27,22 @@ public enum Route: Hashable, Sendable {
     case feed
     case ideas
     case goals
+    /// One goal (`/goals/<id>`): the Goals list with that goal's sheet open. Goal notifications send this.
+    case goal(id: String)
+    /// One Feed post (`/feed/<id>`): the Feed with that card opened.
+    case feedPost(id: String)
     /// A Space page (`/spaces/<id>`), pushed from Home.
     case space(id: String)
-    /// A running task (`psyche://task/<id>`, the Live Activity's tap target): opens the agent sheet.
+    /// A running task or its run page (`psyche://task/<id>`, `/tasks/<id>`, the Live Activity's tap target): opens
+    /// the agent sheet on that task's run page.
     case task(id: String)
+    /// The agent sheet on its Approvals segment (`/agent/approvals`). Never pushed; the router opens the sheet.
+    case agentApprovals
+    /// A tab's root (`/home`, `/chat`, `/memory`, `/search`, `/library/<view>`, `/memory/review`, `/spaces`). Never pushed.
+    case tab(AppTab)
+    /// Settings (`/settings`, `/settings/<section>`). The phone's Settings has no section pages yet, so every section
+    /// opens the sheet. Never pushed.
+    case settings
 
     /// Maps the desktop's routes so a notification's `route` opens the same thing on the phone.
     /// `/chat/<id>`, `/goals/<id>`, `/people/<id>`, `/library/<id>`, `/inbox`, `/scheduled` and
@@ -48,26 +61,36 @@ public enum Route: Hashable, Sendable {
         guard let head = parts.first else { return nil }
         switch (head, parts.count) {
         case ("chat", 2): self = .thread(id: parts[1])
-        case ("goals", 2): self = .project(id: parts[1])
+        case ("goals", 2): self = .goal(id: parts[1])
         case ("people", 2): self = .person(id: parts[1])
+        case ("library", 1): self = .tab(.library)
         case ("library", 2):
             if let item = Self.queryValue("item", in: query) {
                 self = .file(id: item)
             } else if Self.libraryViews.contains(parts[1]) {
-                return nil  // `/library/all` with no item names a view, not a file
+                self = .tab(.library)  // `/library/all` with no item names a view: the Library tab
             } else {
                 self = .file(id: parts[1])
             }
+        case ("home", 1): self = .tab(.home)
+        case ("chat", 1): self = .tab(.chat)
+        case ("memory", 1): self = .tab(.memory)
+        case ("memory", 2) where parts[1] == "review": self = .tab(.memory)  // the review screen lands with #1633
+        case ("search", 1): self = .tab(.search)
+        case ("spaces", 1): self = .tab(.home)  // Spaces live on Home; there is no separate list page
+        case ("settings", _): self = .settings
         case ("artifacts", 2): self = .artifact(id: parts[1])
         case ("inbox", 1): self = .inbox
         case ("scheduled", 1): self = .scheduled
         case ("overview", _): self = .overview
         case ("feed", 1): self = .feed
+        case ("feed", 2): self = .feedPost(id: parts[1])
         case ("ideas", 1): self = .ideas
         case ("goals", 1): self = .goals
         case ("spaces", 2): self = .space(id: parts[1])
-        case ("task", 2): self = .task(id: parts[1])
+        case ("task", 2), ("tasks", 2): self = .task(id: parts[1])
         case ("agent", 3) where parts[1] == "activity": self = .task(id: parts[2])
+        case ("agent", 2) where parts[1] == "approvals": self = .agentApprovals
         case ("agent", 2) where parts[1] == "soul":
             // A file or an entity, never both. A query with neither key, or a bad value, is refused.
             if let file = Self.queryValue("file", in: query) {

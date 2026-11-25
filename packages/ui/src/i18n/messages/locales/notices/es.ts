@@ -3,8 +3,11 @@ import type { Catalogue } from "../../index.ts";
 /** Notices the Gateway authors (es); merged into `../es.ts`. */
 export const notices: Partial<Catalogue> = {
   "notice.install.failed.title": "Una instalación aprobada no se completó",
+  "notice.connectors.matrix.failed.title": "No se guardó una regla de conector",
+  "notice.connectors.matrix.failed.body":
+    "No se pudo aplicar {action} en {connector}, así que sigue usando su regla anterior. Revísala en Ajustes › Conectores.",
   "notice.install.failed.body":
-    "{reason, select, lost {Psyche se reinició antes de que aprobaras, así que la propuesta se perdió. Vuelve a proponerla.} expired {La propuesta había caducado antes de que la aprobaras. Vuelve a proponerla.} other {Psyche no pudo instalarla. Revisa la lista y vuelve a intentarlo.}}",
+    "{reason, select, lost {Psyche se reinició antes de que aprobaras, así que la propuesta se perdió. Vuelve a proponerla.} expired {La propuesta había caducado antes de que la aprobaras. Vuelve a proponerla.} other {Psyche no pudo instalarla. Vuelve a proponerla o pídele a Psyche que lo haga.}}",
   "notice.security.changed.title": "Psyche deshizo un cambio de seguridad hecho fuera de la app",
   "notice.security.changed.body":
     "Un programa de este Mac cambió {count, plural, =1 {# registro de seguridad} other {# registros de seguridad}} (dispositivos, claves, permisos o ajustes) sin pasar por Psyche{times, plural, =0 {} =1 {} other {, # veces hasta ahora}}. Psyche los restauró. Si no fuiste tú, revisa el Mac por si hay software no deseado.",
@@ -107,4 +110,10 @@ export const notices: Partial<Catalogue> = {
   "notice.machine.offline.title": "{name} se desconectó",
   "notice.machine.offline.body":
     "Una tarea espera para usarlo y seguirá cuando {name} vuelva. También puedes cancelar la tarea.",
+  "notice.automation.needsApproval.title": "{title} está esperando tu aprobación",
+  "notice.automation.needsApproval.body":
+    "Se detuvo porque la aprobación caducó. Abre Aprobaciones para ver qué necesita y vuelve a ejecutarlo.",
+  "notice.automation.interrupted.title": "{title} se interrumpió",
+  "notice.automation.interrupted.body":
+    "Psyche se reinició mientras se ejecutaba y puede que ya haya hecho una parte. Revisa el resultado y vuelve a ejecutarlo si hace falta.",
 };

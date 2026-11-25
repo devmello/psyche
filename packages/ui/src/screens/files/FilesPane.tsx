@@ -338,6 +338,18 @@ function LibraryNode({ selected, onSelect }: Omit<TreeProps, "depth">): ReactEle
               />
             ))
           )}
+          {lib.hasMore ? (
+            <li className="flex justify-center py-1">
+              <button
+                type="button"
+                className="text-accent-11 underline"
+                disabled={lib.loadingMore}
+                onClick={() => void lib.loadMore().catch(() => undefined)}
+              >
+                {t("audit.loadMore")}
+              </button>
+            </li>
+          ) : null}
         </ul>
       ) : null}
     </li>

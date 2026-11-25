@@ -15,8 +15,10 @@ struct ReceiptsView: View {
 
 private struct ReceiptsList: View {
     @State private var model: PagedRows<ReceiptItem>
+    private let store: any PsycheBackend
 
     init(store: any PsycheBackend) {
+        self.store = store
         _model = State(initialValue: PagedRows<ReceiptItem> { cursor in
             let page = try await store.receipts(cursor: cursor)
             return (page.receipts, page.nextCursor)
@@ -59,7 +61,16 @@ private struct ReceiptsList: View {
         .psycheScreen()
         .psycheInlineTitle()
         .navigationTitle(String(localized: "Receipts", bundle: .module))
-        .task { if model.phase.value == nil { await model.reload() } }
+        .task {
+            if model.phase.value == nil { await model.reload() }
+            // A new receipt, or a resync after being away, reloads the first page.
+            for await event in store.events() {
+                switch event {
+                case .changed(.receipts), .resynced: await model.reload()
+                default: break
+                }
+            }
+        }
     }
 }
 

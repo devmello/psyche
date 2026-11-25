@@ -1833,13 +1833,19 @@ export const ar: Partial<Catalogue> = {
   "settings.computerUse.tccState.granted": "ممنوح",
   "settings.computerUse.tccState.denied": "مرفوض",
   "settings.computerUse.tccState.not_determined": "لم يُطلب بعد",
+  "settings.computerUse.tccState.offline": "المساعد غير متصل",
+  "settings.computerUse.helperAccess.hint":
+    "يعمل التحكم بالكمبيوتر داخل Psyche Helper. فعّل «Psyche Helper» وليس «Psyche».",
+  "settings.computerUse.helperAccess.offline":
+    "Psyche Helper لا يعمل، لذا تتعذّر قراءة أذوناته. يبدأ مع Psyche؛ أغلق Psyche وأعد فتحه إن بقي غير متصل.",
+  "settings.computerUse.helperAccess.allow": "السماح لـ Psyche Helper",
+  "settings.computerUse.helperAccess.allowFor": "السماح لـ Psyche Helper بـ {name}",
   "settings.computerUse.title": "استخدام الكمبيوتر",
   "settings.computerUse.description":
     "يمكن لـ {persona} استخدام التطبيقات على هذا الـ Mac حيث تسمح له فقط.",
   "settings.computerUse.escStops": "يوقف استخدام الكمبيوتر في أي وقت.",
   "settings.computerUse.loadLabel": "استخدام الكمبيوتر",
   "settings.computerUse.macPermissions": "أذونات macOS",
-  "settings.computerUse.openSystemSettingsFor": "فتح إعدادات النظام لـ {name}",
   "settings.computerUse.openSystemSettings": "فتح إعدادات النظام",
   "settings.computerUse.apps": "التطبيقات",
   "settings.computerUse.enabledHint":
@@ -2954,6 +2960,9 @@ export const ar: Partial<Catalogue> = {
   "onboarding.done.checking": "جارٍ فحص الإعداد…",
   "onboarding.done.checks": "فحوصات الإعداد",
   "onboarding.done.ok": "سليم",
+  "onboarding.done.failed": "فشل",
+  "onboarding.done.notChecked": "لم يُفحص",
+  "onboarding.done.fixModel": "أصلح في خطوة النموذج",
   "onboarding.done.check": "فحص",
   "onboarding.model.idPlaceholder": "{provider}/model-name",
 
@@ -3593,6 +3602,13 @@ export const ar: Partial<Catalogue> = {
   "web.setup.helperOk": "متصل.",
   "web.setup.helperWarn": "غير متصل بعد. ينتظره استخدام الكمبيوتر والإشعارات.",
   "web.setup.model": "النموذج",
+  "web.setup.modelRefused": "{ref}: رفض المزوّد المفتاح ({error}). لم يُحتفظ بالمفتاح.",
+  "web.setup.modelNotChecked": "{ref}: المفتاح محفوظ، لكن تعذّر الوصول إلى المزوّد لفحصه.",
+  "web.setup.modelSkipped":
+    "{ref}: لم يُضف أي مفتاح، لذا لن ترد المحادثة بعد. أضف واحدًا في الإعدادات ← النماذج.",
+  "web.gate.loading": "جارٍ تشغيل Psyche",
+  "web.gate.error": "تعذّر على Psyche التحقق من اكتمال الإعداد.",
+  "web.gate.retry": "حاول مرة أخرى",
   "web.setup.modelNone": "لم يُختر شيء. أضف نموذجًا في الإعدادات ← النموذج والمزوّدون.",
   "web.setup.modelOk": "{ref}، والمفتاح في الخزنة.",
   "web.setup.modelUnbound": "{ref} غير مرتبط بعد.",

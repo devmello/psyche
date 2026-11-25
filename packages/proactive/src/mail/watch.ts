@@ -269,6 +269,8 @@ export class MailWatcher {
   job(): ProactiveJob {
     return {
       name: "mail watch",
+      // Reads and proposes only: safe to run again after a restart cut it off.
+      rerunOnInterrupt: true,
       matches: (a) => parseJobMarker(a.prompt)?.job === MAIL_WATCH_JOB,
       run: async (_request: LaunchRequest): Promise<LaunchResult> => {
         const r = await this.poll();

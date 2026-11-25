@@ -13,7 +13,7 @@ export type ApprovedInstallReason = "lost" | "expired" | "other";
 const RECEIPT_WHY: Record<ApprovedInstallReason, string> = {
   lost: "Psyche restarted before this was approved, so the proposal was lost. Propose it again.",
   expired: "The proposal had expired before this was approved. Propose it again.",
-  other: "Psyche could not install it. Check the list and try again.",
+  other: "Psyche could not install it. Propose it again, or ask Psyche to.",
 };
 
 export function approvedInstallReason(err: unknown): ApprovedInstallReason {

@@ -99,9 +99,21 @@ describe("code plugins in the Gateway (T4)", () => {
       ik(),
     );
     expect(installed.plugin).toMatchObject({ enabled: false, status: "disabled" });
+    // Settings reloads its list on this event (an approved install lands without a click there).
+    await vi.waitFor(() =>
+      expect(owner.eventsNamed("plugins.changed").map((e) => e.payload)).toEqual([
+        { name: "office-hours", change: "installed" },
+      ]),
+    );
 
     // 2. Its own switch on, plugins still off: nothing runs.
     await owner.call("plugins.setEnabled", { name: "office-hours", enabled: true }, ik());
+    await vi.waitFor(() =>
+      expect(owner.eventsNamed("plugins.changed").at(-1)?.payload).toEqual({
+        name: "office-hours",
+        change: "enabled",
+      }),
+    );
     expect(await owner.call("plugins.list", {})).toMatchObject({
       enabled: false,
       plugins: [{ name: "office-hours", status: "off" }],

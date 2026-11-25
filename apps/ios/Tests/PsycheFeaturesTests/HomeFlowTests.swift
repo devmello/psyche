@@ -9,7 +9,7 @@ struct HomeFlowTests {
 
     @Test func mapsDesktopRoutes() {
         #expect(Route(appPath: "/chat/thr_q3") == .thread(id: "thr_q3"))
-        #expect(Route(appPath: "/goals/p1") == .project(id: "p1"))
+        #expect(Route(appPath: "/goals/p1") == .goal(id: "p1"))
         #expect(Route(appPath: "/people/pe2") == .person(id: "pe2"))
         #expect(Route(appPath: "/library/lib_77c1") == .file(id: "lib_77c1"))
         #expect(Route(appPath: "/inbox") == .inbox)
@@ -22,9 +22,9 @@ struct HomeFlowTests {
     @Test func unknownRoutesAreNil() {
         #expect(Route(appPath: "") == nil)
         #expect(Route(appPath: "/") == nil)
-        #expect(Route(appPath: "/home") == nil)
-        #expect(Route(appPath: "/chat") == nil)
-        #expect(Route(appPath: "/settings/models") == nil)
+        #expect(Route(appPath: "/home/instructions") == nil)
+        #expect(Route(appPath: "/onboarding") == nil)
+        #expect(Route(appPath: "/can-do") == nil)
     }
 
     // MARK: AnswerFlow

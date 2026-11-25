@@ -15,6 +15,16 @@ final class MemoryFilesModel {
         self.store = store
     }
 
+    /// Reloads when a memory file changes and after a resync, until the view goes away.
+    func observe() async {
+        for await event in store.events() {
+            switch event {
+            case .changed(.memory), .resynced: await load()
+            default: break
+            }
+        }
+    }
+
     func load() async {
         if phase.value == nil { phase = .loading }
         do {
@@ -34,6 +44,15 @@ final class MemoryFileModel {
     init(path: String, store: any PsycheBackend) {
         self.path = path
         self.store = store
+    }
+
+    func observe() async {
+        for await event in store.events() {
+            switch event {
+            case .changed(.memory), .resynced: await load()
+            default: break
+            }
+        }
     }
 
     func load() async {
@@ -67,7 +86,10 @@ struct MemoryFilesView: View {
         }
         .psycheScreen()
         .psycheInlineTitle()
-        .task { await model.load() }
+        .task {
+            await model.load()
+            await model.observe()
+        }
     }
 
     @ViewBuilder
@@ -137,7 +159,10 @@ struct MemoryFileView: View {
         }
         .psycheScreen()
         .psycheInlineTitle()
-        .task { await model.load() }
+        .task {
+            await model.load()
+            await model.observe()
+        }
     }
 }
 

@@ -117,6 +117,10 @@ export const settingsA: Partial<Catalogue> = {
   "settings.key.notifications.quietHours.start": "Silêncio a partir das",
   "settings.key.notifications.quietHours.end": "Silêncio até as",
   "settings.notifications.title": "Notificações",
+  "settings.notifications.helper.title": "Notificações do Psyche Helper",
+  "settings.notifications.helper.hint":
+    "As notificações de aprovação chegam pelo Psyche Helper. Permita que ele as mostre para receber aprovações com a janela fechada.",
+  "settings.notifications.helper.allow": "Permitir notificações do Psyche Helper",
   "settings.notifications.description": "Quando o Psyche pode interromper você.",
   "settings.notifications.group.quietHours": "Horário de silêncio",
   "settings.notifications.quietHours.hint":

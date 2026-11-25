@@ -17,7 +17,13 @@ import { toast } from "sonner";
 import { Button } from "../components/ui/button.tsx";
 import { Input } from "../components/ui/input.tsx";
 import { NativeSelect } from "../components/ui/native-select.tsx";
-import { useCall, useGatewayQuery, useLibrary, useThreads } from "../data/hooks.ts";
+import {
+  useCall,
+  useGatewayQuery,
+  useLibrary,
+  useLoadRemaining,
+  useThreads,
+} from "../data/hooks.ts";
 import { t } from "../i18n/core.ts";
 import { describeError } from "../i18n/errors.ts";
 import { pathBasename } from "../lib/paths.ts";
@@ -115,6 +121,8 @@ function AddAnchor({
   const [choice, setChoice] = useState("");
   const threads = useThreads();
   const library = useLibrary();
+  // The document picker offers every Library item.
+  useLoadRemaining(library);
 
   const chats = threads.active.map((e) => ({ id: e.thread.id, name: e.thread.title }));
   const docs = library.items

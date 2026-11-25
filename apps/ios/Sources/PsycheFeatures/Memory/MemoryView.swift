@@ -175,22 +175,27 @@ struct MemoryView: View {
         learningRow(
             String(localized: "What Psyche learned", bundle: .module),
             detail: String(localized: "Lessons from your corrections", bundle: .module), badge: nil,
-            position: CardPosition(index: 0, count: 4)
+            position: CardPosition(index: 0, count: 5)
         ) { router.memoryPath.append(.learning) }
         learningRow(
             String(localized: "To confirm", bundle: .module),
             detail: String(localized: "Claims Psyche isn't sure of", bundle: .module), badge: model.claimCount,
-            position: CardPosition(index: 1, count: 4)
+            position: CardPosition(index: 1, count: 5)
         ) { router.memoryPath.append(.claims) }
         learningRow(
             String(localized: "Recent changes", bundle: .module),
             detail: String(localized: "Changes Psyche made on its own", bundle: .module), badge: nil,
-            position: CardPosition(index: 2, count: 4)
+            position: CardPosition(index: 2, count: 5)
         ) { router.memoryPath.append(.recentChanges) }
+        learningRow(
+            String(localized: "Held back", bundle: .module),
+            detail: String(localized: "Kept out of memory, and senders you trust", bundle: .module), badge: nil,
+            position: CardPosition(index: 3, count: 5)
+        ) { router.memoryPath.append(.reviewQueue) }
         learningRow(
             String(localized: "Remember this", bundle: .module),
             detail: String(localized: "Tell Psyche something to keep", bundle: .module), badge: nil,
-            position: CardPosition(index: 3, count: 4)
+            position: CardPosition(index: 4, count: 5)
         ) { remembering = true }
     }
 
@@ -359,6 +364,7 @@ struct MemoryView: View {
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                .task { await model.ensureProgress(project.id) }
                 .cardRow(CardPosition(index: index, count: projects.count))
             }
         }

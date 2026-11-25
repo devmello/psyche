@@ -113,7 +113,12 @@ import {
   SqliteScheduler,
 } from "@psyche/scheduler";
 import { WEB_SEARCH_PROVIDER_SETTING, WEB_SEARCH_SEARXNG_SETTING } from "@psyche/search";
-import { createTaskHandlers, SqliteTaskEngine, TaskWorkerPool } from "@psyche/tasks";
+import {
+  createTaskHandlers,
+  createWakeDetector,
+  SqliteTaskEngine,
+  TaskWorkerPool,
+} from "@psyche/tasks";
 import { DerivedKeyStore, type PaymentBroker, SecretRedactor, type Vault } from "@psyche/vault";
 import { type DocumentsHandle, documentBridge } from "../artifacts/bridge.ts";
 import { resolveConfig } from "../config.ts";
@@ -327,6 +332,7 @@ import { endSessionQuietly } from "./thread-end.ts";
 import { SqliteThreadStateStore } from "./thread-state.ts";
 import { CROSS_THREAD_SETTING, crossThreadToggle, threadTools } from "./thread-tools.ts";
 import { modelPinsFor, restoreModelPins, threadSettingsHandlers } from "./threads.ts";
+import { SystemZone } from "./time-zone.ts";
 import { uninstallHandlers } from "./uninstall.ts";
 import { updateHandlers } from "./update.ts";
 import { usageSummaryHandlers } from "./usage-summary.ts";
@@ -574,7 +580,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   const config = resolveConfig(gwOptions.env ?? process.env, gwOptions.config ?? {});
   // "Today", daily notes and automations follow the owner's timezone (USER.md's `Timezone`,
   // also filled from what they told Psyche); no zone there leaves the defaults as they were.
-  const timeZone = timeZoneOption ?? ownerTimeZoneAt(join(config.home, "workspace", "USER.md"));
+  // `let`: it is read again on wake and every hour, so a trip changes it without a restart.
+  let timeZone = timeZoneOption ?? ownerTimeZoneAt(join(config.home, "workspace", "USER.md"));
   // One redactor for the vault, payments and logs: a value the vault handed out is masked
   // wherever it would be written.
   const redactor = new SecretRedactor();
@@ -1675,6 +1682,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       return launcher.launch(request);
     },
     reattach: (run) => launcher?.reattach?.(run),
+    rerunOnInterrupt: (a) => launcher?.rerunOnInterrupt?.(a) === true,
     cancel: async (run, reason) => launcher?.cancel?.(run, reason),
   };
   const scheduler = new SqliteScheduler({
@@ -1689,7 +1697,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     }),
     // Watches (O3) read public pages through the guarded fetch until S09 exports its own.
     watchFetch: publicFetch(),
-    ...(timeZone === undefined ? {} : { defaultTimezone: timeZone }),
+    defaultTimezone: () => timeZone,
   });
   // Keeps the Mac awake while a scheduled run (or its retry) is active, when the owner turned it on.
   // Re-checked on every scheduler event and settings change; caffeinate exits with this process.
@@ -2080,6 +2088,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     graph: () => (people?.settings().enabled === true ? people.graph : undefined),
     // The recordings-folder watch reads only inside these (#953).
     folders: () => rawBroker.grantedFolders(),
+    timeZoneNow: () => timeZone,
     ...(timeZone === undefined ? {} : { timeZone }),
     ...(gwOptions.logger === undefined ? {} : { logger: gwOptions.logger }),
   });
@@ -2454,6 +2463,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       events: rawBroker,
       notifier,
       loop,
+      publish,
       ...(gwOptions.logger === undefined ? {} : { logger: gwOptions.logger }),
     }),
   );
@@ -2845,9 +2855,41 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   // Phrases still queued by a Forget before the last shutdown resume here.
   traceScrub.start();
   await proactive.start();
-  await ensureWeeklyCardAutomation(scheduler, {
-    timezone: timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone,
+  const systemZone = new SystemZone();
+  const effectiveZone = () => timeZone ?? systemZone.zone;
+  await ensureWeeklyCardAutomation(scheduler, { timezone: effectiveZone() });
+  // The owner may have travelled (Mac asleep, or hours since the last look): re-read the zone, and
+  // when it moved re-sync what is zone-dependent. Automations the owner made keep their own zone.
+  async function refreshTimeZone(): Promise<void> {
+    const before = effectiveZone();
+    systemZone.refresh();
+    timeZone = timeZoneOption ?? ownerTimeZoneAt(join(config.home, "workspace", "USER.md"));
+    const now = effectiveZone();
+    if (now === before) return;
+    gwOptions.logger?.log("info", "time zone changed", { from: before, to: now });
+    await proactive.syncWorkflowSchedules();
+    await ensureWeeklyCardAutomation(scheduler, { timezone: now });
+  }
+  const logWakeError = (what: string) => (err: unknown) =>
+    gwOptions.logger?.log("warn", what, { code: PsycheError.from(err).code });
+  // libuv timers stop while the Mac sleeps but the wall clock (leases, due times) does not: when
+  // the two drift apart, renew running turns first, then catch the scheduler up and re-read the zone.
+  const wakeDetector = createWakeDetector({
+    onWake: async () => {
+      await pool.renewLeases().catch(logWakeError("lease renewal after wake failed"));
+      await specialistPool.renewLeases().catch(logWakeError("lease renewal after wake failed"));
+      pool.poke();
+      specialistPool.poke();
+      await scheduler.wake().catch(logWakeError("scheduler catch-up after wake failed"));
+      await refreshTimeZone().catch(logWakeError("time zone refresh failed"));
+    },
+    onError: logWakeError("wake handling failed"),
   });
+  const zoneTimer = setInterval(
+    () => void refreshTimeZone().catch(logWakeError("time zone refresh failed")),
+    3_600_000,
+  );
+  zoneTimer.unref();
   // Lesson cards that were open at shutdown are awaited again (or settled).
   await teaching.resume().catch(() => undefined);
 
@@ -2865,6 +2907,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     }
     pool.start();
     specialistPool.start();
+    wakeDetector.start();
     try {
       await pool.onApprovalsReissued(tokens.takeReissued());
     } catch (err) {
@@ -2906,6 +2949,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       proactive.stop();
       traceScrub.stop();
       vault.stop();
+      wakeDetector.stop();
+      clearInterval(zoneTimer);
       await pool.stop();
       await specialistPool.stop();
       scheduler.stop();

@@ -127,7 +127,7 @@ export const spaces: Partial<Catalogue> = {
   "spaces.settings.mode.auto": "Automatica",
   "spaces.settings.mode.inheritHint": "Le chat qui usano la tua modalità di permessi globale.",
   "spaces.settings.mode.planHint":
-    "Le chat qui leggono e pianificano soltanto; nulla viene modificato.",
+    "Le nuove chat qui iniziano in modalità piano: leggono e pianificano soltanto, senza modificare nulla.",
   "spaces.settings.mode.manualHint": "Ogni azione fuori da un permesso chiede prima.",
   "spaces.settings.mode.balancedHint":
     "Le letture vengono eseguite; le scritture verso persone e denaro chiedono prima.",

@@ -1778,13 +1778,19 @@ export const ko: Partial<Catalogue> = {
   "settings.computerUse.tccState.granted": "허용됨",
   "settings.computerUse.tccState.denied": "거부됨",
   "settings.computerUse.tccState.not_determined": "아직 묻지 않음",
+  "settings.computerUse.tccState.offline": "도우미 오프라인",
+  "settings.computerUse.helperAccess.hint":
+    "컴퓨터 사용은 Psyche Helper에서 실행됩니다. “Psyche”가 아니라 “Psyche Helper”를 켜 주세요.",
+  "settings.computerUse.helperAccess.offline":
+    "Psyche Helper가 실행 중이 아니어서 권한을 읽을 수 없습니다. Psyche와 함께 시작되며, 계속 오프라인이면 Psyche를 종료했다가 다시 여세요.",
+  "settings.computerUse.helperAccess.allow": "Psyche Helper 허용",
+  "settings.computerUse.helperAccess.allowFor": "{name}에 대해 Psyche Helper 허용",
   "settings.computerUse.title": "컴퓨터 사용",
   "settings.computerUse.description":
     "{persona}은(는) 사용자가 허용한 범위에서만 이 Mac의 앱을 사용할 수 있습니다.",
   "settings.computerUse.escStops": "키를 누르면 언제든 컴퓨터 사용이 중지됩니다.",
   "settings.computerUse.loadLabel": "컴퓨터 사용",
   "settings.computerUse.macPermissions": "macOS 권한",
-  "settings.computerUse.openSystemSettingsFor": "{name}에 대한 시스템 설정 열기",
   "settings.computerUse.openSystemSettings": "시스템 설정 열기",
   "settings.computerUse.apps": "앱",
   "settings.computerUse.enabledHint":
@@ -2888,6 +2894,9 @@ export const ko: Partial<Catalogue> = {
   "onboarding.done.checking": "설정을 점검하는 중…",
   "onboarding.done.checks": "설정 점검",
   "onboarding.done.ok": "정상",
+  "onboarding.done.failed": "실패",
+  "onboarding.done.notChecked": "확인 안 됨",
+  "onboarding.done.fixModel": "모델 단계에서 해결",
   "onboarding.done.check": "점검",
   "onboarding.model.idPlaceholder": "{provider}/model-name",
 
@@ -3537,6 +3546,14 @@ export const ko: Partial<Catalogue> = {
   "web.setup.helperOk": "연결되었습니다.",
   "web.setup.helperWarn": "아직 연결되지 않았습니다. 컴퓨터 사용과 알림은 연결을 기다립니다.",
   "web.setup.model": "모델",
+  "web.setup.modelRefused": "{ref}: 공급자가 키를 거부했습니다({error}). 키는 보관되지 않았습니다.",
+  "web.setup.modelNotChecked":
+    "{ref}: 키는 저장되었지만 확인을 위해 공급자에 연결할 수 없었습니다.",
+  "web.setup.modelSkipped":
+    "{ref}: 추가된 키가 없어 채팅이 아직 응답하지 않습니다. 설정 → 모델에서 추가하세요.",
+  "web.gate.loading": "Psyche 시작 중",
+  "web.gate.error": "설정이 끝났는지 확인하지 못했습니다.",
+  "web.gate.retry": "다시 시도",
   "web.setup.modelNone": "선택된 모델이 없습니다. 설정 → 모델 및 제공업체에서 추가하십시오.",
   "web.setup.modelOk": "{ref}, 키는 금고에 있습니다.",
   "web.setup.modelUnbound": "{ref}은(는) 아직 연결되지 않았습니다.",

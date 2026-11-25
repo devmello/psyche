@@ -6,12 +6,20 @@ struct LearningState: Sendable {
     var claims = FixtureData.claims
     var changes = FixtureData.recentChanges
     var feedback = FixtureData.feedback
+    var held = FixtureData.heldItems
+    var senderTrust = FixtureData.senderTrust
 }
 
 extension FixtureBackend {
     public func lessons() async throws -> [LessonItem] {
         await pause()
         return memoryState.learning.lessons
+    }
+
+    public func lessonsPage(cursor: String?) async throws -> LessonsPage {
+        await pause()
+        // The demo keeps its few lessons on one page.
+        return LessonsPage(lessons: memoryState.learning.lessons, nextCursor: nil)
     }
 
     public func confirmLesson(id: String) async throws {

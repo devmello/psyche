@@ -7,8 +7,11 @@
  */
 export const notices = {
   "notice.install.failed.title": "An approved install didn't finish",
+  "notice.connectors.matrix.failed.title": "A connector rule didn't save",
+  "notice.connectors.matrix.failed.body":
+    "{action} on {connector} couldn't be applied, so it still uses its previous rule. Check it in Settings › Connectors.",
   "notice.install.failed.body":
-    "{reason, select, lost {Psyche restarted before you approved it, so the proposal was lost. Propose it again.} expired {The proposal had expired before you approved it. Propose it again.} other {Psyche could not install it. Check the list and try again.}}",
+    "{reason, select, lost {Psyche restarted before you approved it, so the proposal was lost. Propose it again.} expired {The proposal had expired before you approved it. Propose it again.} other {Psyche could not install it. Propose it again, or ask Psyche to.}}",
   "notice.security.changed.title": "Psyche undid a security change made outside the app",
   "notice.security.changed.body":
     "A program on this Mac changed {count, plural, =1 {# security record} other {# security records}} (devices, keys, grants or settings) without going through Psyche{times, plural, =0 {} =1 {} other {, # times so far}}. Psyche put them back. If you did not do this, check the Mac for unwanted software.",
@@ -104,4 +107,10 @@ export const notices = {
   "notice.machine.offline.title": "{name} went offline",
   "notice.machine.offline.body":
     "A task is waiting to use it and goes on when {name} is back. You can also cancel the task.",
+  "notice.automation.needsApproval.title": "{title} is waiting for your approval",
+  "notice.automation.needsApproval.body":
+    "It stopped because the approval ran out. Open Approvals to see what it needs, then run it again.",
+  "notice.automation.interrupted.title": "{title} was interrupted",
+  "notice.automation.interrupted.body":
+    "Psyche restarted while it was running, and it may have done part of it. Check the result, then run it again if you need to.",
 } as const;

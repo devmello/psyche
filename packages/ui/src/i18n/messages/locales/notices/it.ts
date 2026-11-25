@@ -3,8 +3,11 @@ import type { Catalogue } from "../../index.ts";
 /** Notices the Gateway authors (it); merged into `../it.ts`. */
 export const notices: Partial<Catalogue> = {
   "notice.install.failed.title": "Un'installazione approvata non è andata a buon fine",
+  "notice.connectors.matrix.failed.title": "Una regola del connettore non è stata salvata",
+  "notice.connectors.matrix.failed.body":
+    "Impossibile applicare {action} su {connector}, quindi resta in uso la regola precedente. Controllala in Impostazioni › Connettori.",
   "notice.install.failed.body":
-    "{reason, select, lost {Psyche si è riavviato prima della tua approvazione, quindi la proposta è andata persa. Proponila di nuovo.} expired {La proposta era scaduta prima della tua approvazione. Proponila di nuovo.} other {Psyche non è riuscito a installarla. Controlla l'elenco e riprova.}}",
+    "{reason, select, lost {Psyche si è riavviato prima della tua approvazione, quindi la proposta è andata persa. Proponila di nuovo.} expired {La proposta era scaduta prima della tua approvazione. Proponila di nuovo.} other {Psyche non è riuscito a installarla. Proponila di nuovo o chiedi a Psyche di farlo.}}",
   "notice.security.changed.title":
     "Psyche ha annullato una modifica di sicurezza fatta fuori dall’app",
   "notice.security.changed.body":
@@ -106,4 +109,10 @@ export const notices: Partial<Catalogue> = {
   "notice.machine.offline.title": "{name} è offline",
   "notice.machine.offline.body":
     "Un'attività aspetta di usarlo e riprende quando {name} torna disponibile. Puoi anche annullare l'attività.",
+  "notice.automation.needsApproval.title": "{title} aspetta la tua approvazione",
+  "notice.automation.needsApproval.body":
+    "Si è fermato perché l'approvazione è scaduta. Apri Approvazioni per vedere cosa serve, poi eseguilo di nuovo.",
+  "notice.automation.interrupted.title": "{title} è stato interrotto",
+  "notice.automation.interrupted.body":
+    "Psyche si è riavviato mentre era in esecuzione e potrebbe aver già fatto una parte. Controlla il risultato ed eseguilo di nuovo se serve.",
 };

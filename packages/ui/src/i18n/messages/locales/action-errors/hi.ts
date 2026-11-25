@@ -11,5 +11,7 @@ export const actionErrors: Partial<Catalogue> = {
   "actionError.language": "भाषा नहीं बदली जा सकी ({reason})।",
   "actionError.transcriptMode": "ट्रांसक्रिप्ट का विवरण नहीं बदला जा सका ({reason})।",
   "actionError.screenAskDestination": "स्क्रीन प्रश्नों का गंतव्य नहीं बदला जा सका ({reason})।",
+  "actionError.stopVirtualScreen":
+    "वर्चुअल स्क्रीन रोक नहीं सका ({reason})। हो सकता है वह अब भी चल रही हो।",
   "actionError.takeOver": "वर्चुअल स्क्रीन का नियंत्रण नहीं लिया जा सका ({reason})।",
 };

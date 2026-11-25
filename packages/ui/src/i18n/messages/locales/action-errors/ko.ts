@@ -11,5 +11,7 @@ export const actionErrors: Partial<Catalogue> = {
   "actionError.language": "언어를 바꾸지 못했어요 ({reason}).",
   "actionError.transcriptMode": "전사 상세 수준을 바꾸지 못했어요 ({reason}).",
   "actionError.screenAskDestination": "화면 질문의 보낼 곳을 바꾸지 못했어요 ({reason}).",
+  "actionError.stopVirtualScreen":
+    "가상 화면을 멈추지 못했습니다 ({reason}). 아직 실행 중일 수 있습니다.",
   "actionError.takeOver": "가상 화면을 넘겨받지 못했어요 ({reason}).",
 };

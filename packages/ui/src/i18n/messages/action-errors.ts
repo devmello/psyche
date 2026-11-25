@@ -9,5 +9,7 @@ export const actionErrors = {
   "actionError.language": "Couldn't change the language ({reason}).",
   "actionError.transcriptMode": "Couldn't change the transcript detail ({reason}).",
   "actionError.screenAskDestination": "Couldn't change where screen questions go ({reason}).",
+  "actionError.stopVirtualScreen":
+    "Couldn't stop the virtual screen ({reason}). It may still be running.",
   "actionError.takeOver": "Couldn't take over the virtual screen ({reason}).",
 } as const;
