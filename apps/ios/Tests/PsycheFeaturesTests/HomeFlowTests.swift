@@ -22,9 +22,9 @@ struct HomeFlowTests {
     @Test func unknownRoutesAreNil() {
         #expect(Route(appPath: "") == nil)
         #expect(Route(appPath: "/") == nil)
-        #expect(Route(appPath: "/home") == nil)
-        #expect(Route(appPath: "/chat") == nil)
-        #expect(Route(appPath: "/settings/models") == nil)
+        #expect(Route(appPath: "/home/instructions") == nil)
+        #expect(Route(appPath: "/onboarding") == nil)
+        #expect(Route(appPath: "/can-do") == nil)
     }
 
     // MARK: AnswerFlow

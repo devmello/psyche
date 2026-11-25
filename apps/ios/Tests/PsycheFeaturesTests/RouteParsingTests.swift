@@ -23,9 +23,9 @@ import Testing
         ("/agent/soul?entity=ent_x", Route.entity(id: "ent_x")),
         // Existing shapes and refusals
         ("/library/file-9", Route.file(id: "file-9")),
-        ("/library/all", nil),
-        ("/library/all?item=", nil),
-        ("/library/all?item=%ZZ", nil),
+        ("/library/all", Route.tab(.library)),
+        ("/library/all?item=", Route.tab(.library)),
+        ("/library/all?item=%ZZ", Route.tab(.library)),
         ("/agent/soul", Route.memoryFiles),
         // A traversal, an absolute path, a backslash, an empty or dot segment, a control character, a bad % escape,
         // an empty value, or a query with neither key is refused.
@@ -43,7 +43,7 @@ import Testing
         ("/agent/soul?other=1", nil),
         ("/agent/activity", nil),
         ("/people/p2", Route.person(id: "p2")),
-        ("/home", nil),
+        ("/home", Route.tab(.home)),
         ("", nil),
     ] as [(String, Route?)])
     func parsesGatewayRoutes(path: String, expected: Route?) {

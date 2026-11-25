@@ -37,6 +37,11 @@ public enum Route: Hashable, Sendable {
     case task(id: String)
     /// The agent sheet on its Approvals segment (`/agent/approvals`). Never pushed; the router opens the sheet.
     case agentApprovals
+    /// A tab's root (`/home`, `/chat`, `/memory`, `/search`, `/library/<view>`, `/memory/review`, `/spaces`). Never pushed.
+    case tab(AppTab)
+    /// Settings (`/settings`, `/settings/<section>`). The phone's Settings has no section pages yet, so every section
+    /// opens the sheet. Never pushed.
+    case settings
 
     /// Maps the desktop's routes so a notification's `route` opens the same thing on the phone.
     /// `/chat/<id>`, `/goals/<id>`, `/people/<id>`, `/library/<id>`, `/inbox`, `/scheduled` and
@@ -57,14 +62,22 @@ public enum Route: Hashable, Sendable {
         case ("chat", 2): self = .thread(id: parts[1])
         case ("goals", 2): self = .goal(id: parts[1])
         case ("people", 2): self = .person(id: parts[1])
+        case ("library", 1): self = .tab(.library)
         case ("library", 2):
             if let item = Self.queryValue("item", in: query) {
                 self = .file(id: item)
             } else if Self.libraryViews.contains(parts[1]) {
-                return nil  // `/library/all` with no item names a view, not a file
+                self = .tab(.library)  // `/library/all` with no item names a view: the Library tab
             } else {
                 self = .file(id: parts[1])
             }
+        case ("home", 1): self = .tab(.home)
+        case ("chat", 1): self = .tab(.chat)
+        case ("memory", 1): self = .tab(.memory)
+        case ("memory", 2) where parts[1] == "review": self = .tab(.memory)  // the review screen lands with #1633
+        case ("search", 1): self = .tab(.search)
+        case ("spaces", 1): self = .tab(.home)  // Spaces live on Home; there is no separate list page
+        case ("settings", _): self = .settings
         case ("artifacts", 2): self = .artifact(id: parts[1])
         case ("inbox", 1): self = .inbox
         case ("scheduled", 1): self = .scheduled

@@ -175,6 +175,8 @@ public final class Router {
         case .agentApprovals:
             agentFocus = .approvals
             sheet = .agent
+        case .tab(let root): tab = root
+        case .settings: sheet = .settings
         }
     }
 }

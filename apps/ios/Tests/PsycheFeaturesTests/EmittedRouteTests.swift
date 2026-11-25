@@ -29,11 +29,32 @@ import Testing
         ("/ideas", Route.ideas),
         ("/agent/soul", Route.memoryFiles),
         ("/chat/thr_1", Route.thread(id: "thr_1")),
+        // Tab roots the Gateway names.
+        ("/home", Route.tab(.home)),
+        ("/chat", Route.tab(.chat)),
+        ("/memory", Route.tab(.memory)),
+        ("/memory/review", Route.tab(.memory)),
+        ("/search", Route.tab(.search)),
+        ("/library/documents", Route.tab(.library)),
+        ("/library/all", Route.tab(.library)),
+        ("/library/downloads", Route.tab(.library)),
+        // Spaces live on Home.
+        ("/spaces", Route.tab(.home)),
+        ("/spaces?new=1", Route.tab(.home)),
+        ("/spaces#archived", Route.tab(.home)),
+        ("/spaces/s1", Route.space(id: "s1")),
+        // Settings: the sheet, for every section (the phone has no section pages).
+        ("/settings", Route.settings),
+        ("/settings/devices", Route.settings),
+        ("/settings/model", Route.settings),
+        ("/settings/connectors", Route.settings),
+        ("/settings/connectors/add-mcp", Route.settings),
+        ("/settings/channels/ch1", Route.settings),
+        ("/settings/browser", Route.settings),
         // Routes the phone does not open: nil, so the caller falls back to Home.
-        ("/settings/devices", nil),
-        ("/memory/review", nil),
         ("/home/instructions", nil),
         ("/can-do", nil),
+        ("/onboarding", nil),
     ] as [(String, Route?)])
     func parsesEmittedRoutes(path: String, expected: Route?) {
         #expect(Route(appPath: path) == expected, "route \(path)")
