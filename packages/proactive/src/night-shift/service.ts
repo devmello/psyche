@@ -10,12 +10,7 @@ import { localAt, localParts } from "../daily/time.ts";
 import type { ProactiveJob, SchedulerLike } from "../jobs.ts";
 import { NIGHT_JOB_BUDGET, NightBudget } from "./budget.ts";
 import { type Candidate, type CandidateSource, gatherCandidates } from "./candidates.ts";
-import {
-  betweenJobsGate,
-  type GateState,
-  ownerActive,
-  startGate,
-} from "./gates.ts";
+import { betweenJobsGate, type GateState, ownerActive, startGate } from "./gates.ts";
 import {
   enabledDomains,
   minutesOf,
