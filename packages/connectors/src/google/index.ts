@@ -26,6 +26,7 @@ export { Drive, MAX_DRIVE_BYTES } from "./drive.ts";
 export { Gmail, type MessageView, type ThreadSummary } from "./gmail.ts";
 export {
   buildMime,
+  canonicalAddress,
   decodeBase64Url,
   htmlToText,
   MAX_ATTACHMENT_BYTES,
