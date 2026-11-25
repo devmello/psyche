@@ -7,6 +7,7 @@ import {
   insertStagedAction,
   listNights,
   listStagedActions,
+  listStagedActionsForBranch,
   updateNight,
   updateStagedAction,
 } from "../src/index.ts";
@@ -159,5 +160,45 @@ describe("night shift repo (real SQLite)", () => {
     insertStagedAction(db, base(n.id));
     db.sqlite.prepare("DELETE FROM night_shift_nights WHERE id = ?").run(n.id);
     expect(listStagedActions(db, n.id)).toEqual([]);
+  });
+
+  it("stores a fork-branch origin, supersedes within it and keeps the two origins apart", () => {
+    const db = memoryDb();
+    const n = insertNight(db, { night: "2026-11-24", status: "running" });
+    const { nightId: _n, ...rest } = base(n.id) as Record<string, unknown>;
+    const f = (over: Record<string, unknown> = {}) => ({
+      ...rest,
+      forkBranchId: "branch1",
+      ...over,
+    });
+    const first = insertStagedAction(db, f() as never);
+    expect(first).toMatchObject({ nightId: null, forkBranchId: "branch1", status: "ready" });
+    expect(getStagedAction(db, first.id)).toEqual(first);
+    // The same target key under a night is another origin: not superseded, no index clash.
+    const night = insertStagedAction(db, base(n.id));
+    expect(getStagedAction(db, night.id)?.status).toBe("ready");
+    const second = insertStagedAction(db, f({ seq: 1 }) as never);
+    expect(getStagedAction(db, first.id)?.status).toBe("superseded");
+    expect(listStagedActionsForBranch(db, "branch1").map((i) => i.id)).toEqual([
+      first.id,
+      second.id,
+    ]);
+    expect(listStagedActions(db, n.id).map((i) => i.id)).toEqual([night.id]);
+    // The fork unique index refuses two live items for one target.
+    const other = insertStagedAction(db, f({ seq: 2, targetKey: "thread:9" }) as never);
+    expect(() =>
+      db.sqlite
+        .prepare("UPDATE staged_actions SET target_key = 'thread:1' WHERE id = ?")
+        .run(other.id),
+    ).toThrow(/UNIQUE/);
+  });
+
+  it("the CHECK rejects both origins and neither", () => {
+    const db = memoryDb();
+    const n = insertNight(db, { night: "2026-11-24", status: "running" });
+    expect(() => insertStagedAction(db, base(n.id, { forkBranchId: "branch1" }) as never)).toThrow(
+      /CHECK/,
+    );
+    expect(() => insertStagedAction(db, base(n.id, { nightId: null }) as never)).toThrow(/CHECK/);
   });
 });

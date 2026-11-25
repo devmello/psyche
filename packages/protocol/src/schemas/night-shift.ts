@@ -66,7 +66,9 @@ export type StagedActionResult = Static<typeof StagedActionResult>;
 export const StagedAction = Type.Object(
   {
     id: Id,
-    nightId: Id,
+    /** Origin: exactly one of `nightId` (Night shift) or `forkBranchId` (Fork a plan) is set. */
+    nightId: Nullable(Id),
+    forkBranchId: Nullable(Id),
     seq: Type.Integer({ minimum: 0 }),
     domain: StagedActionDomain,
     /** Thread id, event id, reminder id or file `dev:ino`: one live item per target per night. */

@@ -47,6 +47,7 @@ export function stagedActionFromRow(row: StagedActionRow): StagedAction {
   return {
     id: row.id as string,
     nightId: row.nightId,
+    forkBranchId: row.forkBranchId,
     seq: row.seq,
     domain: row.domain as StagedAction["domain"],
     targetKey: row.targetKey,
@@ -162,7 +163,9 @@ export function listNights(db: PsycheDb, reviewStatus?: NightShiftReviewStatus):
 
 export interface NewStagedAction {
   id?: string;
-  nightId: string;
+  /** Exactly one of `nightId` and `forkBranchId` must be set; the table CHECK enforces it. */
+  nightId?: string | null;
+  forkBranchId?: string | null;
   seq: number;
   domain: StagedAction["domain"];
   targetKey: string;
@@ -192,23 +195,41 @@ export interface NewStagedAction {
  */
 export function insertStagedAction(db: PsycheDb, input: NewStagedAction): StagedAction {
   const now = db.now();
+  const nightId = input.nightId ?? null;
+  const forkBranchId = input.forkBranchId ?? null;
   return db.sqlite.transaction(() => {
-    db.drizzle
-      .update(stagedActions)
-      .set({ status: "superseded", updatedAt: now })
-      .where(
-        and(
-          eq(stagedActions.nightId, input.nightId),
-          eq(stagedActions.targetKey, input.targetKey),
-          eq(stagedActions.status, "ready"),
-        ),
-      )
-      .run();
+    // Supersede inside the one origin that is set; with neither or both set the CHECK refuses the insert.
+    if (nightId !== null && forkBranchId === null) {
+      db.drizzle
+        .update(stagedActions)
+        .set({ status: "superseded", updatedAt: now })
+        .where(
+          and(
+            eq(stagedActions.nightId, nightId),
+            eq(stagedActions.targetKey, input.targetKey),
+            eq(stagedActions.status, "ready"),
+          ),
+        )
+        .run();
+    } else if (forkBranchId !== null && nightId === null) {
+      db.drizzle
+        .update(stagedActions)
+        .set({ status: "superseded", updatedAt: now })
+        .where(
+          and(
+            eq(stagedActions.forkBranchId, forkBranchId),
+            eq(stagedActions.targetKey, input.targetKey),
+            eq(stagedActions.status, "ready"),
+          ),
+        )
+        .run();
+    }
     const row = db.drizzle
       .insert(stagedActions)
       .values({
         id: input.id ?? db.newId(),
-        nightId: input.nightId,
+        nightId,
+        forkBranchId,
         seq: input.seq,
         domain: input.domain,
         targetKey: input.targetKey,
@@ -252,6 +273,16 @@ export function listStagedActions(db: PsycheDb, nightId: string): StagedAction[]
     .select()
     .from(stagedActions)
     .where(eq(stagedActions.nightId, nightId))
+    .orderBy(asc(stagedActions.seq))
+    .all()
+    .map(stagedActionFromRow);
+}
+
+export function listStagedActionsForBranch(db: PsycheDb, forkBranchId: string): StagedAction[] {
+  return db.drizzle
+    .select()
+    .from(stagedActions)
+    .where(eq(stagedActions.forkBranchId, forkBranchId))
     .orderBy(asc(stagedActions.seq))
     .all()
     .map(stagedActionFromRow);

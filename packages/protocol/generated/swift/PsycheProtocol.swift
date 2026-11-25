@@ -26446,10 +26446,11 @@ public struct StagedAction: Codable, Sendable {
     public let bindingHash: String
     public let createdAt: String
     public let domain: StagedActionDomain
+    public let forkBranchID: String?
     public let id: String
     public let inverse: JSONAny?
     public let kind: String
-    public let nightID: String
+    public let nightID: String?
     public let params: JSONAny?
     public let paramsHash: String
     public let precondition: JSONAny?
@@ -26476,6 +26477,7 @@ public struct StagedAction: Codable, Sendable {
         case bindingHash = "bindingHash"
         case createdAt = "createdAt"
         case domain = "domain"
+        case forkBranchID = "forkBranchId"
         case id = "id"
         case inverse = "inverse"
         case kind = "kind"
@@ -26501,12 +26503,13 @@ public struct StagedAction: Codable, Sendable {
         case why = "why"
     }
 
-    public init(appliedAt: String? = nil, approvalID: String? = nil, bindingHash: String, createdAt: String, domain: StagedActionDomain, id: String, inverse: JSONAny? = nil, kind: String, nightID: String, params: JSONAny? = nil, paramsHash: String, precondition: JSONAny? = nil, preview: JSONAny? = nil, result: StagedActionResult? = nil, send: StagedActionSend? = nil, seq: Int, sideEffect: String, status: StagedActionStatus, summary: String, taint: Bool, taintSources: [TaintSource], target: JSONAny? = nil, targetKey: String, taskID: String? = nil, tool: String, toolCallID: String? = nil, updatedAt: String, why: String? = nil) {
+    public init(appliedAt: String? = nil, approvalID: String? = nil, bindingHash: String, createdAt: String, domain: StagedActionDomain, forkBranchID: String? = nil, id: String, inverse: JSONAny? = nil, kind: String, nightID: String? = nil, params: JSONAny? = nil, paramsHash: String, precondition: JSONAny? = nil, preview: JSONAny? = nil, result: StagedActionResult? = nil, send: StagedActionSend? = nil, seq: Int, sideEffect: String, status: StagedActionStatus, summary: String, taint: Bool, taintSources: [TaintSource], target: JSONAny? = nil, targetKey: String, taskID: String? = nil, tool: String, toolCallID: String? = nil, updatedAt: String, why: String? = nil) {
         self.appliedAt = appliedAt
         self.approvalID = approvalID
         self.bindingHash = bindingHash
         self.createdAt = createdAt
         self.domain = domain
+        self.forkBranchID = forkBranchID
         self.id = id
         self.inverse = inverse
         self.kind = kind

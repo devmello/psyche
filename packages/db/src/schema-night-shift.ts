@@ -29,7 +29,8 @@ export const stagedActions = sqliteTable(
   "staged_actions",
   {
     id: text("id"),
-    nightId: text("night_id").notNull(),
+    nightId: text("night_id"),
+    forkBranchId: text("fork_branch_id"),
     seq: integer("seq").notNull(),
     domain: text("domain").notNull(),
     targetKey: text("target_key").notNull(),

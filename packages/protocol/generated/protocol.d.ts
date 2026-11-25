@@ -9029,10 +9029,11 @@ export interface StagedAction {
     bindingHash:   string;
     createdAt:     string;
     domain:        StagedActionDomain;
+    forkBranchId?: null | string;
     id:            string;
     inverse?:      unknown;
     kind:          string;
-    nightId:       string;
+    nightId?:      null | string;
     params?:       unknown;
     paramsHash:    string;
     precondition?: unknown;

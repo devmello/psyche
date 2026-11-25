@@ -21,7 +21,10 @@ CREATE INDEX night_shift_nights_review ON night_shift_nights (review_status, nig
 
 CREATE TABLE staged_actions (
   id TEXT PRIMARY KEY,
-  night_id TEXT NOT NULL REFERENCES night_shift_nights (id) ON DELETE CASCADE,
+  -- Origin: exactly one of night_id (Night shift) or fork_branch_id (Fork a plan, F0 adds that
+  -- table; no FK here because SQLite cannot add one later without a rebuild).
+  night_id TEXT REFERENCES night_shift_nights (id) ON DELETE CASCADE,
+  fork_branch_id TEXT,
   seq INTEGER NOT NULL,
   domain TEXT NOT NULL CHECK (domain IN ('mail', 'calendar', 'reminders', 'files')),
   target_key TEXT NOT NULL,
@@ -52,9 +55,13 @@ CREATE TABLE staged_actions (
   tool_call_id TEXT,
   applied_at TEXT,
   created_at TEXT NOT NULL,
-  updated_at TEXT NOT NULL
+  updated_at TEXT NOT NULL,
+  CHECK ((night_id IS NULL) <> (fork_branch_id IS NULL))
 );
 CREATE INDEX staged_actions_night ON staged_actions (night_id, seq);
 -- One live item per target per night: a later call on the same target supersedes the earlier one.
 CREATE UNIQUE INDEX staged_actions_live_target ON staged_actions (night_id, target_key)
-  WHERE status IN ('ready', 'stale');
+  WHERE night_id IS NOT NULL AND status IN ('ready', 'stale');
+CREATE UNIQUE INDEX staged_actions_live_fork_target ON staged_actions (fork_branch_id, target_key)
+  WHERE fork_branch_id IS NOT NULL AND status IN ('ready', 'stale');
+CREATE INDEX staged_actions_fork ON staged_actions (fork_branch_id, seq) WHERE fork_branch_id IS NOT NULL;

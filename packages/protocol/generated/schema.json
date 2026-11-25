@@ -48539,10 +48539,30 @@
           "type": "string"
         },
         "nightId": {
-          "description": "ULID in production",
-          "maxLength": 64,
-          "minLength": 1,
-          "type": "string"
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "forkBranchId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "seq": {
           "minimum": 0,
@@ -48727,7 +48747,6 @@
       },
       "required": [
         "id",
-        "nightId",
         "seq",
         "domain",
         "targetKey",
