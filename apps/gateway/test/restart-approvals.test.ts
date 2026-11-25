@@ -322,7 +322,7 @@ describe("who the Try again resends", () => {
     user(agent, "from a subagent", "agent", run.id);
     await agent.restart();
     // Its own message is not the owner's, and the owner's older one is not skipped to.
-    expect(retryOf(agent)).toBe(agent.owner.id);
+    expect(retryOf(agent)).toBeUndefined();
   });
 
   it("gives no action when the thread has no owner message", async () => {

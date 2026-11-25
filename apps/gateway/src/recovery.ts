@@ -78,6 +78,12 @@ function ownerMessageIdBefore(db: PsycheDb, threadId: string, runId: string): st
     )
     .get(threadId, runId) as { id: string } | undefined;
   if (own !== undefined) return own.id;
+  // A run started by someone else's words (an agent turn, the greeting prompt) has its own
+  // non-owner user message: an older owner message is not what it was doing, so no action.
+  const othersWords = db.sqlite
+    .prepare("SELECT 1 FROM messages WHERE thread_id = ? AND run_id = ? AND role = 'user' LIMIT 1")
+    .get(threadId, runId);
+  if (othersWords !== undefined) return undefined;
   const run = getRun(db, runId);
   if (run === undefined || run.origin !== "owner") return undefined;
   const first = db.sqlite
