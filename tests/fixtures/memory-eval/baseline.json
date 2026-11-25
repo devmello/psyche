@@ -1,0 +1,20 @@
+{
+  "markdown": {
+    "recallAt5": 0.05,
+    "injectedPrecision": 0.008,
+    "emptyCorrectness": 0,
+    "staleHitRate": 0,
+    "avgChars": 455,
+    "totalChars": 21840,
+    "queries": 48
+  },
+  "fts": {
+    "recallAt5": 0.45,
+    "injectedPrecision": 0.089,
+    "emptyCorrectness": 0.375,
+    "staleHitRate": 0.8,
+    "avgChars": 392,
+    "totalChars": 18808,
+    "queries": 48
+  }
+}
