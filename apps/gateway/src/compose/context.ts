@@ -165,10 +165,11 @@ export function createContext(deps: ContextDeps) {
       })
       .catch(() => undefined);
     lastMessage.set(c.compactionId, message?.id ?? null);
-    // The meter shows the last model call's prompt: after a compaction it is the old, bigger one
-    // until the next turn. Count the compaction and show the size it left the prompt at.
+    // The meter shows the last model call's prompt: after a manual compaction it is the old,
+    // bigger one until the next turn (an auto one is followed by its own turn's report). Count
+    // the compaction and show the size it left the prompt at.
     const stored = getSetting(db, usageKey(c.threadId))?.value as ContextUsage | undefined;
-    if (stored !== undefined) {
+    if (c.trigger === "manual" && stored !== undefined) {
       const usage: ContextUsage = {
         ...stored,
         promptTokens: c.tokensAfter,
