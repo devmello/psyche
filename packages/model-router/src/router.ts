@@ -78,6 +78,44 @@ export interface ModelRouterOptions {
    * prompt-injection resistance). Others are capped at `balanced`.
    */
   autoModeAllowlist?: (string | RegExp)[];
+  /** Same-model retry of transient failures before any content streamed. Off unless set (`createModelRouter` turns it on with the defaults). */
+  retry?: RetryPolicy | false;
+}
+
+/** Retry of one model call on a transient error, before the router cools down or falls back. */
+export interface RetryPolicy {
+  /** Retries after the first call (default 3). */
+  retries?: number;
+  /** Backoff base delays in ms, one per retry (default 1 s, 3 s, 8 s). */
+  delaysMs?: number[];
+  /** Longest wait for any retry, `retryAfterSec` included (default 30 s). */
+  maxDelayMs?: number;
+  /** Jitter source in [0, 1) (default `Math.random`). */
+  random?: () => number;
+}
+
+/** Errors worth another try of the same call: the provider or the network, not the request. */
+const RETRYABLE_KINDS: ReadonlySet<ModelErrorKind> = new Set([
+  "rate_limited",
+  "overloaded",
+  "server_error",
+  "timeout",
+  "network",
+]);
+
+/** Wait `ms`, ending early (returning false) when the signal aborts. */
+function abortableSleep(ms: number, signal: AbortSignal | undefined): Promise<boolean> {
+  if (isAborted(signal)) return Promise.resolve(false);
+  return new Promise((resolve) => {
+    const done = (v: boolean) => {
+      clearTimeout(timer);
+      signal?.removeEventListener("abort", onAbort);
+      resolve(v);
+    };
+    const onAbort = () => done(false);
+    const timer = setTimeout(() => done(true), ms);
+    signal?.addEventListener("abort", onAbort, { once: true });
+  });
 }
 
 /**
@@ -552,14 +590,52 @@ export class ModelRouter implements ModelProvider {
         };
         if (signal !== undefined) callOpts.signal = signal;
         if (profileId !== undefined) callOpts.profileId = profileId;
-        for await (const event of provider.stream({ ...plan.request, model: ref }, callOpts)) {
-          if (event.type === "finish") {
-            finish = event;
+        const retry = this.#o.retry === false ? undefined : this.#o.retry;
+        const maxRetries = retry === undefined ? 0 : (retry.retries ?? 3);
+        let attempt = 0;
+        let cancelledInBackoff = false;
+        for (;;) {
+          outcome = undefined;
+          finish = undefined;
+          // Anything the consumer has seen that a second attempt would repeat.
+          let streamed = false;
+          for await (const event of provider.stream({ ...plan.request, model: ref }, callOpts)) {
+            if (event.type === "finish") {
+              finish = event;
+              break;
+            }
+            if (event.type === "usage") usage = event.usage;
+            if (isContent(event)) content = true;
+            if (isContent(event) || event.type === "tool_input") streamed = true;
+            yield event;
+          }
+          if (finish?.reason !== "error" || streamed || attempt >= maxRetries) break;
+          const failure =
+            (outcome as CallOutcome | undefined)?.error ?? errorFromFinish(finish.error);
+          if (!RETRYABLE_KINDS.has(failure.kind)) break;
+          // Another auth profile is the better answer to a rate limit than waiting.
+          if (failure.kind === "rate_limited" && profiles.length > 1) break;
+          const r = retry ?? {};
+          const maxDelay = r.maxDelayMs ?? 30_000;
+          const bases = r.delaysMs ?? [1000, 3000, 8000];
+          const base = bases[Math.min(attempt, bases.length - 1)] ?? 1000;
+          const jitter = 0.8 + 0.4 * (r.random ?? Math.random)();
+          const wait = Math.min(
+            maxDelay,
+            failure.retryAfterSec !== undefined ? failure.retryAfterSec * 1000 : base * jitter,
+          );
+          attempt += 1;
+          if (usage !== undefined)
+            await this.#record(ref, usage, outcome as CallOutcome | undefined, options);
+          usage = undefined;
+          if (!(await abortableSleep(wait, signal))) {
+            cancelledInBackoff = true;
             break;
           }
-          if (event.type === "usage") usage = event.usage;
-          if (isContent(event)) content = true;
-          yield event;
+        }
+        if (cancelledInBackoff) {
+          yield { type: "finish", reason: "cancelled" };
+          return;
         }
         if (usage !== undefined) await this.#record(ref, usage, outcome, options);
         const fin = finish ?? { type: "finish", reason: "stop" };
