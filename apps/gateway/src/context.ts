@@ -325,6 +325,12 @@ export interface GatewayContext {
    * root adds `broker.endSession`.
    */
   readonly threadEnded: Set<(threadId: string) => void>;
+  /**
+   * The same moment, one step earlier: called synchronously just before Clear chat or delete
+   * removes the messages, so a listener that needs the transcript (the promise lane reads the
+   * owner's own turns) can take a snapshot. It must not await, and a failure never stops the clear.
+   */
+  readonly threadEnding: Set<(threadId: string) => void>;
   /** Per-reader pass over messages that carry a life answer (`chat.history`, `chat.message`, exports). */
   readonly messageScrub: MessageScrub;
   serverOrigin(): string;

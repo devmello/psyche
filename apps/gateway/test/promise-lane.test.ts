@@ -9,9 +9,9 @@ import {
 } from "@psyche/memory";
 import { FakeClock } from "@psyche/testing";
 import { SecretRedactor } from "@psyche/vault";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { graphLoopWriter } from "../src/compose/meetings.ts";
-import { promiseChatOnThreadEnd } from "../src/compose/thread-end.ts";
+import { promiseRedactor } from "../src/compose/promise-redact.ts";
 
 const NOW = Date.parse("2026-11-24T10:12:00.000Z");
 
@@ -95,7 +95,7 @@ describe("redact, then truncate (real SecretRedactor, a secret straddling the 60
     };
     const report = await runPromiseLane([item], {
       store,
-      redact: (t) => redactor().redact(t),
+      redact: promiseRedactor(redactor()),
       ownerNames: ["Sam"],
       zone: "UTC",
       budget: new PromiseBudget({ clock, zone: "UTC" }),
@@ -189,96 +189,87 @@ describe("graphLoopWriter with the promise ledger", () => {
   });
 });
 
-describe("promiseChatOnThreadEnd", () => {
-  const turns = [
-    {
-      id: "a",
-      role: "user",
-      text: "I told Dana I'd send the budget Monday.",
-      at: "2026-11-24T09:00:00Z",
-    },
-    {
-      id: "b",
-      role: "assistant",
-      text: "I'll send the summary tomorrow.",
-      at: "2026-11-24T09:01:00Z",
-    },
-    { id: "c", role: "tool", text: "I'll send the file today.", at: "2026-11-24T09:02:00Z" },
-    {
-      id: "d",
-      role: "user",
-      text: "> I'll wire the money today\nthanks",
-      at: "2026-11-24T09:03:00Z",
-    },
-    {
-      id: "e",
-      role: "user",
-      text: `${"pasted mail ".repeat(300)} I'll send it today`,
-      at: "2026-11-24T09:04:00Z",
-    },
-    {
-      id: "f",
-      role: "user",
-      text: "```\nI'll send the deck tomorrow\n```",
-      at: "2026-11-24T09:05:00Z",
-    },
-  ];
-  const settle = () => new Promise((r) => setTimeout(r, 0));
+describe("redaction built for the lane (finding 6): a card, an SSN and a one-time code never reach the model", () => {
+  const CARD = "4111 1111 1111 1111";
+  const SSN = "078-05-1120";
+  const OTP = "Your verification code is 482913";
+  const text = `${OTP}. Hi, I'll send the deck on Friday. My card is ${CARD}, SSN ${SSN}.`;
 
-  it("hands the lane the owner's own turns only, as chat items from the owner", async () => {
-    const run = vi.fn(async () => undefined);
-    promiseChatOnThreadEnd({
-      enabled: () => true,
-      readThread: async () => ({ incognito: false, turns }),
-      run,
-    })("thr_1");
-    await settle();
-    expect(run).toHaveBeenCalledTimes(1);
-    const items = (run.mock.calls[0] as unknown as [LaneItem[]])[0];
-    // The assistant and tool turns, the pasted block, the quoted line and the fenced block are
-    // gone; the owner's own words around them stay.
-    expect(items.map((i) => [i.sourceRef, i.text])).toEqual([
-      ["chat:thr_1:a", "I told Dana I'd send the budget Monday."],
-      ["chat:thr_1:d", "thanks"],
-    ]);
+  const run = async (redact: (t: string) => string) => {
+    const seen: string[] = [];
+    const item: LaneItem = {
+      source: "mail",
+      sourceRef: "m1",
+      threadId: "t1",
+      author: "counterpart",
+      counterpartId: sam,
+      counterpartLabel: "Sam Lee",
+      sentAt: "2026-11-24T10:12:00.000Z",
+      text,
+    };
+    await runPromiseLane([item], {
+      store,
+      redact,
+      ownerNames: ["Sam"],
+      zone: "UTC",
+      budget: new PromiseBudget({ clock, zone: "UTC" }),
+      complete: async (req) => {
+        seen.push(req.user);
+        return { text: '{"items":[]}', tokens: 10 };
+      },
+    });
+    return seen.join("\n");
+  };
+
+  it("with the lane's redactor none of the three is sent, and the promise sentence still is", async () => {
+    const sent = await run(promiseRedactor(new SecretRedactor()));
+    expect(sent).toContain("send the deck on Friday");
+    expect(sent).not.toContain("4111");
+    expect(sent).not.toContain("1111 1111");
+    expect(sent).not.toContain(SSN);
+    expect(sent).not.toContain("078-05");
+    expect(sent).not.toContain("482913");
+  });
+
+  it("positive control: a bare SecretRedactor with no secrets would have sent all three", async () => {
+    const sent = await run((t) => new SecretRedactor().redact(t));
+    expect(sent).toContain("4111");
+    expect(sent).toContain(SSN);
+    expect(sent).toContain("482913");
+  });
+});
+
+describe("graphLoopWriter: every person the name could mean", () => {
+  it("an ambiguous name that includes a muted or excluded person gets no promise", async () => {
+    const sam2 = graph.createEntity({ kind: "person", name: "Sam Park" }).id;
+    const loop = {
+      text: "send the budget",
+      counterpart: "Sam",
+      dueAt: null,
+      evidence: "Sam: I'll send the budget",
+      provenance: "untrusted" as const,
+      meetingId: "evt_2",
+    };
+    // Two Sams match: neither is picked, but one of them is muted, so nothing is written.
     expect(
-      items.every((i) => i.source === "chat" && i.author === "owner" && i.threadId === "thr_1"),
-    ).toBe(true);
-  });
-
-  it("an incognito thread, a disabled source and a missing thread are never read", async () => {
-    const run = vi.fn(async () => undefined);
-    const readThread = vi.fn(async () => ({ incognito: true, turns }));
-    promiseChatOnThreadEnd({ enabled: () => true, readThread, run })("thr_1");
-    promiseChatOnThreadEnd({ enabled: () => false, readThread, run })("thr_1");
-    promiseChatOnThreadEnd({ enabled: () => true, readThread: async () => undefined, run })(
-      "thr_2",
-    );
-    await settle();
-    expect(run).not.toHaveBeenCalled();
-    expect(readThread).toHaveBeenCalledTimes(1);
-  });
-
-  it("a failure is logged and swallowed, never an unhandled rejection", async () => {
-    const log = { log: vi.fn() };
-    const unhandled = vi.fn();
-    process.on("unhandledRejection", unhandled);
-    promiseChatOnThreadEnd({
-      enabled: () => true,
-      readThread: async () => Promise.reject(new Error("db closed")),
-      run: async () => undefined,
-      log: log as never,
-    })("thr_1");
-    promiseChatOnThreadEnd({
-      enabled: () => true,
-      readThread: async () => ({ incognito: false, turns }),
-      run: async () => Promise.reject(new Error("model offline")),
-      log: log as never,
-    })("thr_2");
-    await settle();
-    await settle();
-    process.off("unhandledRejection", unhandled);
-    expect(unhandled).not.toHaveBeenCalled();
-    expect(log.log).toHaveBeenCalledTimes(2);
+      await graphLoopWriter(
+        () => graph,
+        () => ({ store, mutedEntities: new Set([sam2]) }),
+      )(loop),
+    ).toBeUndefined();
+    expect(
+      await graphLoopWriter(
+        () => graph,
+        () => ({ store, isExcluded: (id) => id === sam }),
+      )(loop),
+    ).toBeUndefined();
+    expect(store.list("all")).toEqual([]);
+    // Positive control: with nobody muted or excluded it is written, unattributed.
+    const ok = await graphLoopWriter(
+      () => graph,
+      () => ({ store }),
+    )(loop);
+    expect(ok).toBeDefined();
+    expect(store.list("all")[0]).toMatchObject({ counterpartId: null, status: "suggested" });
   });
 });

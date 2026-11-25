@@ -519,6 +519,8 @@ export interface MeetingLedgerTarget {
   store: PromiseStore;
   /** `promises.state.muted`: nobody here gets a promise tracked. */
   mutedEntities?: ReadonlySet<string>;
+  /** Excluded, hidden or forgotten people (design 7.1). */
+  isExcluded?: (entityId: string) => boolean;
 }
 
 /**
@@ -544,7 +546,13 @@ export function graphLoopWriter(
     const counterpartId = matches.length === 1 ? (matches[0]?.id ?? null) : null;
     const text = matches.length === 1 ? loop.text : `${loop.counterpart}: ${loop.text}`;
     if (mode !== undefined) {
-      if (counterpartId !== null && mode.mutedEntities?.has(counterpartId) === true)
+      // Every person the name could mean, not only a single clear match: an ambiguous name that
+      // includes someone muted or excluded gets no promise at all.
+      if (
+        matches.some(
+          (p) => mode.mutedEntities?.has(p.id) === true || mode.isExcluded?.(p.id) === true,
+        )
+      )
         return undefined;
       const sourceRef = `meeting:${loop.meetingId ?? "notes"}`;
       const quote = loop.evidence ?? loop.text;

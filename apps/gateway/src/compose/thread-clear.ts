@@ -8,7 +8,7 @@ import {
 } from "@psyche/db";
 import { type AuditLog, type PermissionBroker, PsycheError, type Thread } from "@psyche/protocol";
 import type { Call, HandlerDef } from "../context.ts";
-import { endConversation, requireThread } from "../handlers/threads.ts";
+import { endConversation, endingConversation, requireThread } from "../handlers/threads.ts";
 import { assertWritableThread } from "../session/imported-threads.ts";
 import { usageKey } from "./context.ts";
 
@@ -76,6 +76,8 @@ export function createThreadClear(deps: ThreadClearDeps): Record<string, Handler
         if (thread === undefined) throw new PsycheError("not_found", "no such thread");
         const again = busyReason(deps, thread);
         if (again !== undefined) refuse(again);
+        // Still synchronous with the clear below: listeners that need the transcript read it now.
+        endingConversation(ctx, thread.id);
         const cleared = db.sqlite.transaction(() => {
           const counts = clearThread(db, thread.id);
           deleteAgentThreadState(db, thread.id);

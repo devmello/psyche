@@ -181,6 +181,7 @@ function patch(
  */
 export async function removeThread(call: Call, threadId: string): Promise<void> {
   const { ctx } = call;
+  endingConversation(ctx, threadId);
   await ctx.sessions.closeThread(threadId, () => {
     deleteThread(ctx.db, threadId);
     deleteAgentThreadState(ctx.db, threadId);
@@ -188,6 +189,20 @@ export async function removeThread(call: Call, threadId: string): Promise<void> 
   });
   endConversation(ctx, threadId);
   ctx.bus.publish("thread.deleted", { threadId }, threadId);
+}
+
+/**
+ * The conversation is about to end (Clear chat or delete is the next synchronous step): listeners
+ * that need the transcript take a snapshot now. A listener never fails the clear or the delete.
+ */
+export function endingConversation(ctx: Call["ctx"], threadId: string): void {
+  for (const listener of ctx.threadEnding ?? []) {
+    try {
+      listener(threadId);
+    } catch {
+      // Swallowed on purpose.
+    }
+  }
 }
 
 /** The conversation is over (cleared or deleted): what was granted to it alone ends. */

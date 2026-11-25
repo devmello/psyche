@@ -113,17 +113,31 @@ function model(
 
 describe("end to end through the real PromiseStore", () => {
   it("the owner's own promise opens; a counterpart's is only ever suggested", async () => {
-    const m = model(({ snippets }) => [
-      item({ snippet: snippets[0] as string }),
-      item({
-        snippet: snippets[1] as string,
-        promiser: "counterpart",
-        promisee: "owner",
-        what: "send the contract",
-        quote: "I'll send the contract tomorrow",
-        confidence: 0.99,
-      }),
-    ]);
+    // The owner's snippet and the counterpart's go to separate calls, so the model answers each.
+    const m = {
+      calls: { n: 0 },
+      complete: (async (req) => {
+        const handle = /"id":"(s\d+)"/.exec(req.user)?.[1] as string;
+        const theirs = req.user.includes('"author":"counterpart"');
+        return {
+          text: JSON.stringify({
+            items: [
+              theirs
+                ? item({
+                    snippet: handle,
+                    promiser: "counterpart",
+                    promisee: "owner",
+                    what: "send the contract",
+                    quote: "I'll send the contract tomorrow",
+                    confidence: 0.99,
+                  })
+                : item({ snippet: handle }),
+            ],
+          }),
+          tokens: 500,
+        };
+      }) as LaneComplete,
+    };
     const report = await runPromiseLane(
       [
         ownerMail("I'll send the deck on Friday.", { sourceRef: "m1" }),
@@ -131,7 +145,7 @@ describe("end to end through the real PromiseStore", () => {
       ],
       { ...deps({ complete: m.complete }), redact: identity },
     );
-    expect(report).toMatchObject({ mode: "model", calls: 1, created: 2 });
+    expect(report).toMatchObject({ mode: "model", calls: 2, created: 2 });
     const rows = env.store.list("all");
     const mine = rows.find((r) => r.direction === "i_owe");
     const theirs = rows.find((r) => r.direction === "waiting_on");
@@ -306,7 +320,7 @@ describe("validator: quote and promiser checks", () => {
       snippet: "s1",
       promiser: "counterpart",
       promisee: "owner",
-      what: "send the contract",
+      what: "the contract by Friday",
       quote: "Sam promised the contract on Friday",
     });
     const text = "Sam promised the contract on Friday.";

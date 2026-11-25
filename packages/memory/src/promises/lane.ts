@@ -182,7 +182,12 @@ export interface BudgetUsage {
   day: string;
   calls: number;
   tokens: number;
+  /** Other people's snippets read today, by counterpart (`groupKey`): the flood cap. */
+  counterparts?: Record<string, number>;
 }
+
+/** Most snippets of one other person's text sent to a model in a day. */
+export const MAX_SNIPPETS_PER_COUNTERPART_PER_DAY = 10;
 
 /**
  * Calls and tokens spent today, in the owner's zone. A new local day starts from zero. The caller
@@ -224,6 +229,15 @@ export class PromiseBudget {
   #roll(): void {
     const today = this.#today();
     if (this.#usage.day !== today) this.#usage = { day: today, calls: 0, tokens: 0 };
+  }
+
+  /** Counts one snippet of `key`'s text for today; false when that person is over the daily cap. */
+  takeSnippet(key: string, cap = MAX_SNIPPETS_PER_COUNTERPART_PER_DAY): boolean {
+    this.#roll();
+    const by = (this.#usage.counterparts ??= {});
+    if ((by[key] ?? 0) >= cap) return false;
+    by[key] = (by[key] ?? 0) + 1;
+    return true;
   }
 
   get usage(): BudgetUsage {
@@ -287,6 +301,8 @@ export interface PendingUpdate {
   source: LaneSource;
   sourceRef: string;
   author: "owner" | "counterpart";
+  /** The call that produced it also read someone else's text: never apply it unasked. */
+  batchTainted: boolean;
 }
 
 export interface LaneReport {
@@ -345,8 +361,19 @@ function openPromisesFor(store: PromiseStore, counterpartId: string | null): Ope
 const groupKey = (s: LaneSnippet): string =>
   s.counterpartId ?? (s.counterpartLabel === null ? "none" : `label:${s.counterpartLabel}`);
 
-/** Batches within the call limits; a group's snippets may spread over two batches. */
+/**
+ * Batches within the call limits; a group's snippets may spread over two batches. The owner's
+ * own snippets never share a batch with anyone else's text: a model that read a hostile mail in
+ * the same call could be steered into rewording the owner's promise (review #1683, round 1).
+ */
 function plan(snippets: readonly LaneSnippet[]): LaneSnippet[][] {
+  return [
+    ...planBatches(snippets.filter((s) => s.author === "owner")),
+    ...planBatches(snippets.filter((s) => s.author !== "owner")),
+  ];
+}
+
+function planBatches(snippets: readonly LaneSnippet[]): LaneSnippet[][] {
   const byGroup = new Map<string, LaneSnippet[]>();
   for (const s of snippets) {
     const k = groupKey(s);
@@ -416,7 +443,12 @@ function toInput(a: AcceptedItem, direction: "i_owe" | "waiting_on"): PromiseInp
 }
 
 /** Apply what the validator accepted. Returns counts; every write goes through the store. */
-function apply(accepted: readonly AcceptedItem[], deps: LaneDeps, report: LaneReport): void {
+function apply(
+  accepted: readonly AcceptedItem[],
+  deps: LaneDeps,
+  report: LaneReport,
+  batchTainted: boolean,
+): void {
   const drop = (reason: string) => {
     report.dropped[reason] = (report.dropped[reason] ?? 0) + 1;
   };
@@ -472,6 +504,7 @@ function apply(accepted: readonly AcceptedItem[], deps: LaneDeps, report: LaneRe
           source: a.snippet.source,
           sourceRef: a.snippet.sourceRef,
           author: a.snippet.author,
+          batchTainted,
         });
       }
     } catch {
@@ -497,7 +530,13 @@ export async function extractSnippets(
     report.queued = [...snippets];
     return report;
   }
-  const batches = plan(snippets);
+  // One person's flood costs a capped number of snippets a day; the rest waits for the catch-up.
+  const admitted: LaneSnippet[] = [];
+  for (const s of snippets) {
+    if (s.author === "owner" || deps.budget.takeSnippet(groupKey(s))) admitted.push(s);
+    else report.queued.push(s);
+  }
+  const batches = plan(admitted);
   for (const [bi, batch] of batches.entries()) {
     const keys = [...new Set(batch.map(groupKey))];
     const groups: PromptGroup[] = keys.map((key) => {
@@ -522,6 +561,8 @@ export async function extractSnippets(
     try {
       reply = await complete({ system: prompt.system, user: prompt.user, maxOutputTokens: 1_500 });
     } catch {
+      // A failed call is charged what it would have cost, so a broken model cannot loop for free.
+      deps.budget.record(prompt.estimatedTokens);
       report.failedCalls++;
       report.queued.push(...batch);
       continue;
@@ -540,7 +581,12 @@ export async function extractSnippets(
     for (const [reason, n] of Object.entries(checked.dropped)) {
       report.dropped[reason] = (report.dropped[reason] ?? 0) + n;
     }
-    apply(checked.accepted, deps, report);
+    apply(
+      checked.accepted,
+      deps,
+      report,
+      batch.some((x) => x.author !== "owner"),
+    );
   }
   return report;
 }

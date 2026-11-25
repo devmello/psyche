@@ -28,6 +28,7 @@ export * from "./graph/life-answer.ts";
 export * from "./graph/model-pass.ts";
 export * from "./graph/normalize.ts";
 export * from "./graph/nudges.ts";
+export { ownWords } from "./graph/own-words.ts";
 export * from "./graph/poll.ts";
 export * from "./graph/projects.ts";
 export * from "./graph/starters.ts";

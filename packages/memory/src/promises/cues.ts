@@ -659,6 +659,8 @@ export function sentencesOf(text: string): string[] {
 }
 
 export const SNIPPET_MAX_CHARS = 600;
+/** At most this many snippets from one item (a mail full of "I'll" lines is a flood, not a list). */
+export const MAX_CANDIDATES_PER_ITEM = 3;
 
 export interface Candidate {
   /** The promise sentence. */
@@ -676,12 +678,15 @@ export interface Candidate {
  */
 export function findCandidates(
   text: string,
-  options: { cuesOff?: ReadonlySet<string> } = {},
+  options: { cuesOff?: ReadonlySet<string>; max?: number } = {},
 ): Candidate[] {
   const sentences = sentencesOf(text);
   const out: Candidate[] = [];
   let coveredTo = -1;
+  const max = options.max ?? MAX_CANDIDATES_PER_ITEM;
   for (const [i, sentence] of sentences.entries()) {
+    // One item cannot cost more than a few snippets, however many cue sentences it holds.
+    if (out.length >= max) break;
     const verdict = judgeSentence(sentence, options);
     if (verdict === null || i <= coveredTo) continue;
     const parts = [sentences[i - 1], sentence, sentences[i + 1]].filter(

@@ -18,7 +18,7 @@ import { STORE_MIN_CONFIDENCE } from "./thresholds.ts";
  * - `same_as` must be a handle this call gave, **to the same counterpart group**, and the promiser
  *   must be the side that made that promise;
  * - `what` is at most 120 characters, one line, plain, not instruction-shaped, not sensitive, and
- *   shares a content word with the quote.
+ *   at least 60% of its content words are in the quote (a quote with none never passes).
  *
  * Whatever passes still goes through `PromiseStore.add`, which makes anything from another person
  * `suggested`. Nothing here calls a model, a tool or the network.
@@ -58,13 +58,31 @@ export function whatProblem(what: string): string | undefined {
   return undefined;
 }
 
-function shareWord(a: string, b: string): boolean {
-  const wa = contentWords(a);
-  const wb = contentWords(b);
-  // Nothing to compare (all stopwords): the quote check already ties it to the snippet.
-  if (wa.size === 0 || wb.size === 0) return true;
-  for (const w of wa) if (wb.has(w)) return true;
-  return false;
+/** Light folding so "sending", "sends" and "send" meet. CJK bigrams are left alone. */
+function stem(w: string): string {
+  if (w.length <= 4 || /[^\p{Script=Latin}\p{N}]/u.test(w)) return w;
+  return w.replace(/(?:ing|ed|es|s)$/u, "");
+}
+
+const stems = (text: string): Set<string> => new Set([...contentWords(text)].map(stem));
+
+/** Share of `what`'s content words that must also be in the quote. */
+export const MIN_WHAT_COVERAGE = 0.6;
+
+/**
+ * What the promise says must come from the quote. A quote with no content words ("I'll", "to the")
+ * supports nothing, so it never passes. Otherwise at least 60% of `what`'s content words must be
+ * in the quote: a model steered by other text cannot swap a different promise in under the
+ * owner's innocent sentence.
+ */
+function coverageProblem(what: string, quote: string): string | undefined {
+  const q = stems(quote);
+  if (q.size === 0) return "quote_no_content";
+  const w = stems(what);
+  if (w.size === 0) return "what_no_content";
+  let hit = 0;
+  for (const word of w) if (q.has(word)) hit += 1;
+  return hit / w.size >= MIN_WHAT_COVERAGE ? undefined : "what_not_in_quote";
 }
 
 export function validateLaneOutput(
@@ -121,8 +139,9 @@ export function validateLaneOutput(
       drop(problem);
       continue;
     }
-    if (!shareWord(what, quote)) {
-      drop("what_not_in_quote");
+    const coverage = coverageProblem(what, quote);
+    if (coverage !== undefined) {
+      drop(coverage);
       continue;
     }
 
