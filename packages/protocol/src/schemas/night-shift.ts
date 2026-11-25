@@ -124,6 +124,13 @@ export const StagedAction = Type.Object(
     send: Nullable(StagedActionSend),
     taint: Type.Boolean(),
     taintSources: Type.Array(TaintSource, { maxItems: 20 }),
+    /**
+     * Set for a caller that may not see the item's source: `messages` means it was made from the
+     * owner's Messages, which only this Mac's desktop app shows. The summary, preview, params and
+     * why are withheld; clients render their own localized line (the English `summary` is only a
+     * fallback for older clients).
+     */
+    withheld: Type.Optional(StringEnum(["messages"])),
     status: StagedActionStatus,
     result: Nullable(StagedActionResult),
     approvalId: Nullable(Id),

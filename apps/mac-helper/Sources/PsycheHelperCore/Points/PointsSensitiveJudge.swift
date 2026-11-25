@@ -38,8 +38,14 @@ public struct PointsPageFacts: Sendable, Equatable {
     public var title: String?
     public var hasPaymentFields: Bool
     public var insecure: Bool
+    /// Every heading and static text the read collected, so a payment page that hides its card field from
+    /// AX still shows "Payment details" or "Card number" somewhere on the page.
+    public var texts: [String]
 
-    public init(url: String? = nil, host: String? = nil, title: String? = nil, hasPaymentFields: Bool = false, insecure: Bool = false) {
+    public init(
+        url: String? = nil, host: String? = nil, title: String? = nil, hasPaymentFields: Bool = false, insecure: Bool = false, texts: [String] = []
+    ) {
+        self.texts = texts
         self.url = url
         self.host = host
         self.title = title
@@ -81,6 +87,7 @@ public enum PointsSensitiveJudge {
             if matches(contextPath, path) { return true }
         }
         if let title = page.title, matches(contextTitle, title) { return true }
+        for t in page.texts where matches(contextTitle, t) || isPaymentField(autocomplete: nil, name: nil, label: t) { return true }
         return false
     }
 

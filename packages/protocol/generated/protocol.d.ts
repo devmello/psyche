@@ -9062,6 +9062,7 @@ export interface StagedAction {
     toolCallId?:   null | string;
     updatedAt:     string;
     why?:          null | string;
+    withheld?:     Withheld;
 }
 
 export type StagedActionDomain = "mail" | "calendar" | "reminders" | "files";
@@ -9096,6 +9097,8 @@ export interface StagedActionSend {
 }
 
 export type StagedActionStatus = "ready" | "stale" | "superseded" | "applied" | "failed" | "uncertain" | "skipped" | "dismissed" | "expired" | "undone";
+
+export type Withheld = "messages";
 
 export interface NightShiftReviewGetParams {
     reviewId: string;
