@@ -131,7 +131,7 @@ describe("findCandidates: snippets", () => {
 
 describe("parseDue: the code resolves dates", () => {
   const SENT = Date.parse("2026-11-24T10:12:00Z"); // a Tuesday
-  const at = (p: string, tz = "UTC") => parseDue(p, SENT, tz);
+  const at = (p: string | null, tz = "UTC") => parseDue(p, SENT, tz);
 
   it("a bare day means 17:00 that day; EOD 17:00; tonight 21:00", () => {
     expect(at("by Friday")).toMatchObject({ at: "2026-11-27T17:00:00.000Z", kind: "explicit" });

@@ -398,7 +398,14 @@ describe("validator: injection rows", () => {
       [
         {
           key: "a",
-          open: [{ id: "loop_a", promiser: "counterpart", what: "send the contract", due: null }],
+          open: [
+            {
+              id: "loop_a",
+              promiser: "counterpart" as const,
+              what: "send the contract",
+              due: null,
+            },
+          ],
           snippets: [s("a1", env.sam)],
         },
         ...(group2
@@ -406,7 +413,12 @@ describe("validator: injection rows", () => {
               {
                 key: "b",
                 open: [
-                  { id: "loop_b", promiser: "counterpart", what: "send the invoice", due: null },
+                  {
+                    id: "loop_b",
+                    promiser: "counterpart" as const,
+                    what: "send the invoice",
+                    due: null,
+                  },
                 ],
                 snippets: [s("b1", env.dana)],
               },
