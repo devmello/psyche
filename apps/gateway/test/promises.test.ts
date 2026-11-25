@@ -8,6 +8,7 @@ import {
   GraphStore,
   type LaneItem,
   nudgeEligible,
+  ownWords,
   type PromiseRow,
 } from "@psyche/memory";
 import type { ToolLookup } from "@psyche/proactive";
@@ -15,7 +16,8 @@ import type { ModelEvent, ModelRequest, Notification } from "@psyche/protocol";
 import { FakeClock, FakeModelProvider } from "@psyche/testing";
 import { afterEach, describe, expect, it } from "vitest";
 import { type ComposedGateway, composeGateway } from "../src/compose/index.ts";
-import { readMailItems } from "../src/compose/promise-mail-source.ts";
+import { collectDoneEvidence } from "../src/compose/promise-evidence.ts";
+import { ownerMailText, readMailBatch, readMailItems } from "../src/compose/promise-mail-source.ts";
 import {
   admitNudges,
   decideWarning,
@@ -101,7 +103,7 @@ function lanePromises(): FakeModelProvider {
   return provider;
 }
 
-async function boot(provider: FakeModelProvider, start = T0) {
+async function boot(provider: FakeModelProvider, start = T0, zone = "UTC") {
   home = mkdtempSync(join(tmpdir(), "psyche-promises-"));
   const clock = new FakeClock(start);
   composed = await composeGateway({
@@ -109,7 +111,7 @@ async function boot(provider: FakeModelProvider, start = T0) {
     logger: silentLogger,
     retentionIntervalMs: 0,
     background: false,
-    timeZone: "UTC",
+    timeZone: zone,
     clock,
     config: { home, port: 0, dbPath: join(home, "psyche.db"), webRoot: null },
     model: { provider, model: "fake/model" },
@@ -117,6 +119,9 @@ async function boot(provider: FakeModelProvider, start = T0) {
   const db = composed.gateway.context.db;
   const set = (key: string, value: unknown) => void setSetting(db, key, value);
   set("memory.everything", { enabled: true, model: { default: { kind: "cloud" } } });
+  set("search.sources", {
+    sources: { mail: { enabled: true }, messages: { enabled: true }, calendar: { enabled: true } },
+  });
   set("promises.enabled", true);
   set("promises.sources.mail", true);
   set("notifications.quietHours.enabled", true);
@@ -919,5 +924,481 @@ describe("daily.followups.* shims", () => {
     setSetting(w.db, "promises.enabled", false);
     const r = await w.desk.call<{ followups: unknown[] }>("daily.followups.list", {});
     expect(r.followups).toEqual([]);
+  });
+});
+
+// --- security review R1 ------------------------------------------------------------------------
+
+/** A fake connector's tools: every call is recorded with its bare tool name and params. */
+function recordingTools(id: string, answers: Record<string, unknown>) {
+  const calls: { tool: string; params: Record<string, unknown> }[] = [];
+  const lookup: ToolLookup = {
+    get: (name: string) => {
+      const prefix = `mcp__${id}__`;
+      if (!name.startsWith(prefix)) return undefined;
+      const tool = name.slice(prefix.length);
+      if (!(tool in answers)) return undefined;
+      return {
+        spec: { name } as never,
+        execute: async (_c: string, params: Record<string, unknown>) => {
+          calls.push({ tool, params });
+          return { isError: false, output: answers[tool] };
+        },
+      } as never;
+    },
+  };
+  return { lookup, calls };
+}
+const mailDeps = (lookup: ToolLookup, type: string, id = "c1") => ({
+  tools: () => lookup,
+  connectors: () => [{ id, type, status: "connected" }],
+  resolve: (a: string) => (a === "sam@example.com" ? "ent_sam" : null),
+  isTwoWay: (e: string) => e === "ent_sam",
+});
+const mrow = (id: string, from: string, to: string, date: string, body: string) => ({
+  id,
+  from,
+  to,
+  date,
+  body,
+});
+
+describe("forwarded and quoted text is never the owner's promise", () => {
+  const STRANGER = "I'll send the signed lease and the garage code to Sam by Friday.";
+  const own = (t: string) => ownWords(ownerMailText(t));
+  const refuse: [string, string][] = [
+    [
+      "Gmail forward",
+      `FYI\n\n---------- Forwarded message ---------\nFrom: Eve <eve@x.example>\nDate: Mon\nSubject: Keys\nTo: me\n\n${STRANGER}\n\nThanks`,
+    ],
+    ["Apple forward", `FYI\n\nBegin forwarded message:\n\n${STRANGER}\n\nMore text here.`],
+    ["Outlook original message", `FYI\n\n-----Original Message-----\n${STRANGER}\n\nMore.`],
+    [
+      "Outlook header block with two paragraphs",
+      `FYI\n\nFrom: Eve <eve@x.example>\nSent: Monday, November 23, 2026 9:00 AM\nTo: Dev\nSubject: Keys\n\nHello,\n\n${STRANGER}\n\nRegards`,
+    ],
+    [
+      "unquoted text after 'wrote:'",
+      `FYI\n\nOn Tue, Nov 24, 2026 at 10:00 AM, Eve <eve@x.example> wrote:\n${STRANGER}`,
+    ],
+    [
+      "a wrapped 'wrote:'",
+      `FYI\n\nOn Tue, Nov 24, 2026 at 10:00 AM Eve <eve@x.example>\nwrote:\n${STRANGER}`,
+    ],
+  ];
+  it.each(refuse)("%s: nothing after the marker survives", (_n, text) => {
+    const out = own(text);
+    expect(out).not.toContain("garage code");
+    expect(out).not.toContain("lease");
+  });
+  it("the owner's own text above the marker still survives", () => {
+    for (const [, text] of refuse) expect(ownerMailText(text)).toContain("FYI");
+    const top = own(
+      `I'll send you the Q3 deck by Friday.\n\nBegin forwarded message:\n\n${STRANGER}`,
+    );
+    expect(top).toContain("Q3 deck");
+  });
+  it("a plain >-quoted reply is unchanged", () => {
+    const reply =
+      "Sure, I'll send it Friday.\n\nOn Tue, Nov 24, 2026, Sam wrote:\n> I'll send the lease\n> thanks";
+    expect(ownerMailText(reply)).toBe(reply);
+    expect(own(reply)).toContain("Sure");
+    expect(own(reply)).not.toContain("lease");
+  });
+
+  it("end to end: a forwarded stranger's promise never reaches the model, the ledger or a notice", async () => {
+    const provider = lanePromises();
+    const { clock, sam, notices, p } = await boot(provider);
+    const fwd = `I'll send you the Q3 deck by Friday.\n\n---------- Forwarded message ---------\nFrom: Eve <eve@x.example>\n\n${STRANGER}`;
+    const { lookup } = recordingTools("g1", {
+      gmail_search_threads: { threads: [{ id: "th1" }] },
+      gmail_read_thread: {
+        messages: [
+          mrow(
+            "m1",
+            "Me <me@example.com>",
+            "sam@example.com",
+            new Date(T0 - 3_600_000).toISOString(),
+            fwd,
+          ),
+        ].map((m) => ({ ...m, labelIds: ["SENT"] })),
+      },
+    });
+    p.useSources({
+      mail: (since) =>
+        readMailBatch(
+          {
+            ...mailDeps(lookup, "google", "g1"),
+            resolve: (a) => (a === "sam@example.com" ? sam : null),
+            isTwoWay: () => true,
+          },
+          since,
+        ),
+    });
+    await p.scan();
+    expect(provider.requests.length).toBeGreaterThan(0);
+    expect(JSON.stringify(provider.requests)).not.toContain("garage code");
+    const rows = p.store().list("all");
+    expect(rows.map((r) => r.text).join("|")).not.toContain("lease");
+    expect(rows.some((r) => r.text.includes("Q3 deck"))).toBe(true);
+    clock.set(at("2026-11-27T10:07:00.000Z"));
+    await p.sweep();
+    expect(notices.map((n) => n.body).join("|")).not.toContain("lease");
+    expect(
+      p
+        .briefLines("brief")
+        .map((l) => l.text)
+        .join("|"),
+    ).not.toContain("lease");
+  });
+});
+
+describe("the mail reader asks the right questions", () => {
+  const SINCE = at("2026-11-24T01:30:00.000Z");
+
+  it("Gmail: epoch seconds, not a UTC calendar day", async () => {
+    const { lookup, calls } = recordingTools("g1", { gmail_search_threads: { threads: [] } });
+    await readMailBatch(mailDeps(lookup, "google", "g1"), SINCE);
+    const q = String(calls[0]?.params.query);
+    expect(q).toMatch(/^after:\d{10} before:\d{10}$/);
+    expect(q.startsWith(`after:${Math.floor(SINCE / 1000)} `)).toBe(true);
+    expect(q).not.toContain("/");
+  });
+
+  it("Apple Mail: the Sent mailbox is searched by name, and so is the inbox", async () => {
+    const { lookup, calls } = recordingTools("a1", {
+      mail_mailboxes: {
+        mailboxes: [
+          { name: "Sent Messages", special: "sent", account: "me" },
+          { name: "INBOX", special: "inbox" },
+        ],
+      },
+      mail_search: { messages: [] },
+    });
+    await readMailBatch(mailDeps(lookup, "apple:mail", "a1"), SINCE);
+    const searches = calls.filter((c) => c.tool === "mail_search").map((c) => c.params);
+    expect(searches).toHaveLength(2);
+    expect(searches[0]).toMatchObject({ mailbox: "Sent Messages", account: "me", limit: 100 });
+    expect(searches[1]).not.toHaveProperty("mailbox");
+  });
+
+  it("IMAP: the sent-role mailbox is searched too", async () => {
+    const { lookup, calls } = recordingTools("i1", {
+      mail_list_mailboxes: {
+        mailboxes: [
+          { id: "box-sent", role: "sent" },
+          { id: "box-in", role: "inbox" },
+        ],
+      },
+      mail_search_messages: { messages: [] },
+    });
+    await readMailBatch(mailDeps(lookup, "imap", "i1"), SINCE);
+    const searches = calls.filter((c) => c.tool === "mail_search_messages").map((c) => c.params);
+    expect(searches[0]).toMatchObject({ mailbox: "box-sent", maxResults: 100 });
+    expect(searches).toHaveLength(2);
+  });
+
+  it("a row from the Sent mailbox is the owner's whatever its From header says", async () => {
+    const sent = mrow(
+      "s1",
+      "forged@x.example",
+      "sam@example.com",
+      "2026-11-24T09:00:00Z",
+      "I'll send the Q3 deck by Friday.",
+    );
+    const { lookup } = recordingTools("i1", {
+      mail_list_mailboxes: { mailboxes: [{ id: "box-sent", role: "sent" }] },
+      mail_search_messages: { messages: [sent] },
+      mail_read_message: sent,
+    });
+    const items = await readMailItems(mailDeps(lookup, "imap", "i1"), SINCE);
+    expect(items[0]?.author).toBe("owner");
+  });
+
+  it("automated senders do not use up the cap; a capped read says where to resume", async () => {
+    const bots = Array.from({ length: 60 }, (_, i) =>
+      mrow(
+        `b${i}`,
+        "noreply@shop.example",
+        "me@example.com",
+        "2026-11-24T05:00:00Z",
+        "I will send you offers.",
+      ),
+    );
+    const real = Array.from({ length: 5 }, (_, i) =>
+      mrow(
+        `r${i}`,
+        "Sam <sam@example.com>",
+        "me@example.com",
+        `2026-11-24T0${i + 2}:00:00Z`,
+        "I will send the contract Wednesday.",
+      ),
+    );
+    const t1 = recordingTools("i1", {
+      mail_list_mailboxes: { mailboxes: [] },
+      mail_search_messages: { messages: [...bots, ...real] },
+      mail_read_message: real[0],
+    });
+    const done = await readMailBatch(mailDeps(t1.lookup, "imap", "i1"), SINCE);
+    expect(done.items).toHaveLength(5);
+    expect(done.nextSince).toBeUndefined();
+    const many = Array.from({ length: 45 }, (_, i) =>
+      mrow(
+        `m${i}`,
+        "Sam <sam@example.com>",
+        "me@example.com",
+        new Date(SINCE + (i + 1) * 60_000).toISOString(),
+        "I will send the contract Wednesday.",
+      ),
+    );
+    const t2 = recordingTools("i1", {
+      mail_list_mailboxes: { mailboxes: [] },
+      mail_search_messages: { messages: many },
+      mail_read_message: many[0],
+    });
+    const cut = await readMailBatch(mailDeps(t2.lookup, "imap", "i1"), SINCE);
+    expect(t2.calls.filter((c) => c.tool === "mail_read_message")).toHaveLength(30);
+    expect(cut.nextSince).toBe(SINCE + 30 * 60_000);
+  });
+
+  it("the scan's cursor does not pass what a capped reader did not read", async () => {
+    const { graph, p } = await boot(lanePromises());
+    p.useSources({ mail: async () => ({ items: [], nextSince: T0 - 5 * 3_600_000 }) });
+    await p.scan();
+    expect(graph.cursor("promises.cursor.mail")).toEqual({ at: T0 - 5 * 3_600_000 });
+  });
+});
+
+describe("retention, listing and events", () => {
+  it("promises.retentionDays reaches the ledger: an old closed row goes, an old quote is cleared", async () => {
+    const { clock, sam, p } = await boot(lanePromises(), T0);
+    const add = (what: string) => {
+      const r = p.store().add({
+        direction: "i_owe",
+        what,
+        counterpartId: sam,
+        counterpartLabel: "Sam Lee",
+        dueKind: "none",
+        provenance: "owner",
+        confidence: 1,
+        detectedBy: "owner",
+        sourceKind: "mail",
+        threadKey: `t-${what}`,
+        citation: {
+          source: "mail",
+          sourceRef: `message:<${what}>`,
+          quote: `quote of ${what}`,
+          provenance: "owner",
+        },
+      });
+      if (r.kind !== "created") throw new Error("no");
+      return r.promise.id;
+    };
+    const old = add("ancient");
+    const recent = add("recent");
+    const kept = add("kept open");
+    p.store().act(old, { action: "done" });
+    p.store().act(recent, { action: "done" });
+    const day = 86_400_000;
+    const c = composed as ComposedGateway;
+    const sqlite = c.gateway.context.db.sqlite;
+    sqlite
+      .prepare("UPDATE graph_loops SET closed_at = ? WHERE id = ?")
+      .run(new Date(T0 - 200 * day).toISOString(), old);
+    sqlite
+      .prepare("UPDATE graph_loops SET closed_at = ? WHERE id = ?")
+      .run(new Date(T0 - 40 * day).toISOString(), recent);
+    clock.set(T0 + 1000);
+    const policy = p.retention();
+    expect(policy).toMatchObject({ retentionDays: 180 });
+    c.everything.store.runRetention({
+      pendingDays: 30,
+      untrustedAcceptedMonths: 0,
+      quarantineDays: 30,
+      runLogDays: 30,
+      ...(policy === undefined ? {} : { promises: policy }),
+    });
+    expect(p.store().get(old)).toBeUndefined();
+    expect(p.store().get(recent)).toBeDefined();
+    expect(p.store().citations(recent)[0]?.quote).toBe("");
+    expect(p.store().citations(kept)[0]?.quote).toContain("kept open");
+    setSetting(c.gateway.context.db, "promises.enabled", false);
+    expect(p.retention()).toBeUndefined();
+  });
+
+  it("list keeps the live and the newest promises past 500 rows", async () => {
+    const { graph, sam, p } = await boot(lanePromises());
+    const mk = (n: number, status: "done" | "open") =>
+      graph.addLoop({
+        direction: "i_owe",
+        text: `row ${n}`,
+        counterpartId: sam,
+        status,
+        provenance: "owner",
+        detectedBy: "owner",
+        basis: "promise",
+        sourceKind: "mail",
+        dedupeKey: `k${n}`,
+        createdAt: new Date(T0 - 1000 * 86_400_000 + n * 60_000).toISOString(),
+        ...(status === "done"
+          ? { closedAt: new Date(T0).toISOString(), closedBy: "owner" as const }
+          : {}),
+      });
+    mk(0, "open");
+    for (let n = 1; n <= 510; n++) mk(n, "done");
+    mk(511, "open");
+    const texts = p
+      .store()
+      .list("all", { limit: 500 })
+      .map((r) => r.text);
+    expect(texts).toHaveLength(500);
+    expect(texts).toContain("row 0");
+    expect(texts).toContain("row 511");
+  });
+
+  it("a run that created nothing publishes nothing; one that created a promise publishes it", async () => {
+    const provider = lanePromises();
+    const { sam, p } = await boot(provider);
+    const desk = await desktopClient((composed as ComposedGateway).gateway);
+    clients.push(desk);
+    const tick = () => new Promise((r) => setTimeout(r, 80));
+    p.useSources({ mail: async () => mailItems(sam).slice(0, 1) });
+    await p.scan();
+    await tick();
+    const first = desk.eventsNamed("promise.updated").length;
+    expect(first).toBe(1);
+    p.useSources({ mail: async () => mailItems(sam).slice(0, 1) });
+    await p.scan();
+    await p.scan();
+    await tick();
+    expect(desk.eventsNamed("promise.updated")).toHaveLength(first);
+  });
+});
+
+describe("done signals follow the source switches", () => {
+  it("collectDoneEvidence reads only what is allowed (switch off: never called; on: called)", async () => {
+    const calls: string[] = [];
+    const lookup: ToolLookup = {
+      get: (name: string) =>
+        ({
+          spec: { name } as never,
+          execute: async () => {
+            calls.push(name);
+            return { isError: false, output: { messages: [], events: [], threads: [] } };
+          },
+        }) as never,
+    };
+    const helper = {
+      invoke: async (m: string) => {
+        calls.push(m);
+        return { ok: true, result: { messages: [] } };
+      },
+    };
+    const deps = {
+      clock: new FakeClock(T0),
+      tools: () => lookup,
+      connectors: () => [{ id: "g1", type: "google", status: "connected" }],
+      helper: () => helper as never,
+      resolve: () => null,
+    };
+    const q = {
+      person: { entityId: "e", addresses: ["sam@example.com"], handles: ["+15550100"] },
+      threadKey: null,
+      sinceMs: T0 - 86_400_000,
+    };
+    await collectDoneEvidence(deps, {
+      ...q,
+      allow: { mail: false, calendar: false, messages: false },
+    });
+    expect(calls).toEqual([]);
+    await collectDoneEvidence(deps, {
+      ...q,
+      allow: { mail: false, calendar: false, messages: true },
+    });
+    expect(calls).toEqual(["messages.read"]);
+    calls.length = 0;
+    await collectDoneEvidence(deps, {
+      ...q,
+      allow: { mail: true, calendar: false, messages: false },
+    });
+    expect(calls.some((c) => c.includes("gmail"))).toBe(true);
+    expect(calls.some((c) => c.includes("calendar"))).toBe(false);
+    expect(calls).not.toContain("messages.read");
+  });
+
+  it("the sweep passes the owner's switches, and with all off reads nothing", async () => {
+    const { clock, db, sam, p } = await boot(lanePromises());
+    const seen: unknown[] = [];
+    p.useEvidence(async (q) => {
+      seen.push(q.allow);
+      return { sent: [], replies: [], events: [] };
+    });
+    p.store().add({
+      direction: "i_owe",
+      what: "send the deck",
+      counterpartId: sam,
+      counterpartLabel: "Sam Lee",
+      dueKind: "none",
+      provenance: "owner",
+      confidence: 1,
+      detectedBy: "owner",
+      sourceKind: "mail",
+      threadKey: "t",
+      citation: { source: "mail", sourceRef: "message:<x>", quote: "x", provenance: "owner" },
+    });
+    clock.set(T0 + 3 * 3_600_000);
+    await p.sweep();
+    expect(seen[0]).toEqual({ mail: true, calendar: true, messages: false });
+    setSetting(db, "promises.sources.mail", false);
+    clock.set(T0 + 6 * 3_600_000);
+    await p.sweep();
+    expect(seen).toHaveLength(1);
+    setSetting(db, "promises.sources.mail", true);
+    setSetting(db, "search.sources", {
+      sources: {
+        mail: { enabled: false },
+        calendar: { enabled: false },
+        messages: { enabled: true },
+      },
+    });
+    clock.set(T0 + 9 * 3_600_000);
+    await p.sweep();
+    expect(seen).toHaveLength(1);
+  });
+});
+
+describe("the warning cap is the owner's local day", () => {
+  const world = async () => {
+    // 19:00 on Friday 27 November in Los Angeles is already Saturday in UTC.
+    const w = await boot(lanePromises(), at("2026-11-27T20:00:00.000Z"), "America/Los_Angeles");
+    setSetting(w.db, "notifications.quietHours.enabled", false);
+    w.p.store().add({
+      direction: "i_owe",
+      what: "send the budget",
+      counterpartId: w.sam,
+      counterpartLabel: "Sam Lee",
+      dueAt: "2026-11-28T10:00:00.000Z",
+      dueKind: "explicit",
+      dueConfidence: 1,
+      provenance: "owner",
+      confidence: 1,
+      detectedBy: "owner",
+      sourceKind: "mail",
+      threadKey: "t",
+      citation: { source: "mail", sourceRef: "message:<b>", quote: "b", provenance: "owner" },
+    });
+    w.clock.set(at("2026-11-28T03:00:00.000Z"));
+    return w;
+  };
+  it("3 a day counted in the owner's zone, not UTC's", async () => {
+    const { db, notices, p } = await world();
+    setSetting(db, "promises.state.notified", { day: "2026-11-27", count: 3 });
+    await p.sweep();
+    expect(notices.filter((n) => n.kind === "promise_due")).toHaveLength(0);
+  });
+  it("with the day's count at zero the same warning goes out (positive control)", async () => {
+    const { notices, p } = await world();
+    await p.sweep();
+    expect(notices.filter((n) => n.kind === "promise_due")).toHaveLength(1);
   });
 });

@@ -58,6 +58,11 @@ export interface EvidenceQuery {
   sinceMs: number;
   /** Upper bound for calendar events created for later. */
   calendarDays?: number;
+  /**
+   * Which sources may be read (the owner's `promises.sources.*` switches and Search's opt-out).
+   * Left out, all of them: a source that is off is never read.
+   */
+  allow?: { mail: boolean; calendar: boolean; messages: boolean };
 }
 
 const DAY_MS = 86_400_000;
@@ -383,14 +388,19 @@ export async function collectDoneEvidence(
   const sent: SentItem[] = [];
   const replies: ReplyItem[] = [];
   let events: CalendarItem[] = [];
+  const allow = q.allow ?? { mail: true, calendar: true, messages: true };
   if (tools !== undefined) {
-    const mail = mailEvidence(await readMail(deps, tools, q, connectors), (a) => deps.resolve(a));
-    sent.push(...mail.sent);
-    replies.push(...mail.replies);
-    events = await readCalendar(deps, tools, q, connectors);
+    if (allow.mail) {
+      const mail = mailEvidence(await readMail(deps, tools, q, connectors), (a) => deps.resolve(a));
+      sent.push(...mail.sent);
+      replies.push(...mail.replies);
+    }
+    if (allow.calendar) events = await readCalendar(deps, tools, q, connectors);
   }
-  const chat = await readMessages(deps, q, signal);
-  sent.push(...chat.sent);
-  replies.push(...chat.replies);
+  if (allow.messages) {
+    const chat = await readMessages(deps, q, signal);
+    sent.push(...chat.sent);
+    replies.push(...chat.replies);
+  }
   return { sent, replies, events };
 }

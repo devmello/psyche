@@ -106,6 +106,8 @@ export interface DailyServiceOptions {
    * channel. An empty list leaves the section out. The caller keeps hidden promises out of the text.
    */
   promises?: (surface?: BriefSurface) => { text: string; link?: string }[];
+  /** True while the promise ledger is on: the old Follow-ups section is left out, not shown twice. */
+  hideFollowups?: () => boolean;
   /**
    * Quiet email threads (the owner sent the last message and got no reply, or never answered a
    * question): morning brief only, never on a chat channel. The lines come from mail, so the
@@ -313,7 +315,8 @@ export class DailyService {
   }
 
   #followupsSection(title: string, dayEnd: number): Section {
-    if (!this.#o.settings().followups.enabled) return { id: "followups", title, items: [] };
+    if (!this.#o.settings().followups.enabled || this.#o.hideFollowups?.() === true)
+      return { id: "followups", title, items: [] };
     const items = this.#o.followups
       .list()
       .filter((f) => f.dueAt === undefined || Date.parse(f.dueAt) < dayEnd)

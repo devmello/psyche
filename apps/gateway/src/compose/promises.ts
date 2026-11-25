@@ -51,7 +51,7 @@ import type { ConnectorRef } from "./mail-threads.ts";
 import type { EvidenceQuery } from "./promise-evidence.ts";
 import {
   type MailSourceDeps as PromiseMailDeps,
-  readMailItems as readPromiseMail,
+  readMailBatch as readPromiseMail,
 } from "./promise-mail-source.ts";
 import { ownerQuietHours } from "./quiet-hours.ts";
 import { promiseChatOnThreadEnd, snapshotThread } from "./thread-end.ts";
@@ -248,12 +248,19 @@ export interface PromisesDeps {
   /** Mail tools and connectors for the scan. */
   mail?: PromiseMailDeps;
   /** Readers for other sources (Messages); tests and later waves supply them. */
-  sources?: Partial<Record<"mail" | "messages", (sinceMs: number) => Promise<LaneItem[]>>>;
+  sources?: Partial<Record<"mail" | "messages", PromiseSourceReader>>;
+  /** Whether Search lets memory read this source (`search.sources` and its opt-out, design 7.3). */
+  searchAllows?: (source: "mail" | "messages" | "calendar") => boolean;
   /** Done evidence for one promise; the default reads the connectors. */
   evidence?: (q: EvidenceQuery) => Promise<DoneEvidence>;
   connectors?: () => readonly ConnectorRef[] | Promise<readonly ConnectorRef[]>;
   logger?: Pick<Logger, "log">;
 }
+
+/** What a source reader returns: the items, and where the next read may start when it was cut short. */
+export type PromiseSourceReader = (
+  sinceMs: number,
+) => Promise<LaneItem[] | { items: LaneItem[]; nextSince?: number }>;
 
 export interface ScanReport {
   skipped?: "off" | "no_sources";
@@ -304,6 +311,8 @@ export interface Promises {
   /** Nudge offers on show (nudge-eligible, under the limits), for Home and the brief. */
   offers(): PromiseRow[];
   store(): PromiseStore;
+  /** What nightly retention applies (`promises.retentionDays`), or undefined while the ledger is off. */
+  retention(): { retentionDays: number; pendingDays: number; quoteDays: number } | undefined;
 }
 
 const sha = (text: string): string => createHash("sha256").update(text).digest("hex");
@@ -644,6 +653,13 @@ export function composePromises(deps: PromisesDeps): Promises {
     };
   };
 
+  /** Each row's last change, to tell what a lane run touched. */
+  const snapshot = (): Map<string, string> =>
+    new Map(
+      store()
+        .list("all", { limit: 500 })
+        .map((p) => [p.id, p.updatedAt]),
+    );
   let lane: Promise<unknown> = Promise.resolve();
   /** Items in, ledger rows out, on the day's budget. Runs one at a time. */
   const runLane = (items: LaneItem[]): Promise<LaneReport> => {
@@ -659,6 +675,7 @@ export function composePromises(deps: PromisesDeps): Promises {
         ...(usage === undefined || usage === null ? {} : { usage }),
       });
       const complete = completeOf();
+      const before = snapshot();
       const report = await runPromiseLane(items, {
         store: store(),
         redact: deps.redact,
@@ -673,10 +690,10 @@ export function composePromises(deps: PromisesDeps): Promises {
         cuesOff: new Set(arrayOf("promises.state.cuesOff")),
       });
       put("promises.state.budget", budget.usage);
-      for (const p of store()
-        .list("all", { limit: 500 })
-        .slice(-report.created - report.merged))
-        publishUpdated(p);
+      // Exactly the rows this run created or changed: nothing for a run that did nothing.
+      const after = snapshot();
+      for (const p of store().list("all", { limit: 500 }))
+        if (after.get(p.id) !== before.get(p.id)) publishUpdated(p);
       return report;
     });
     lane = run.catch(() => undefined);
@@ -688,10 +705,11 @@ export function composePromises(deps: PromisesDeps): Promises {
     const s = settings();
     const out: ScanReport = { items: 0, calls: 0, created: 0, merged: 0 };
     if (!s.enabled) return { ...out, skipped: "off" };
-    const readers: { name: "mail" | "messages"; read: (since: number) => Promise<LaneItem[]> }[] =
-      [];
+    const readers: { name: "mail" | "messages"; read: PromiseSourceReader }[] = [];
+    const allowed = (src: "mail" | "messages"): boolean =>
+      s.sources[src] && (deps.searchAllows?.(src) ?? true);
     const custom = sourceOverride;
-    if (s.sources.mail) {
+    if (allowed("mail")) {
       const read =
         custom?.mail ??
         (deps.mail === undefined
@@ -699,7 +717,7 @@ export function composePromises(deps: PromisesDeps): Promises {
           : (since: number) => readPromiseMail(deps.mail as PromiseMailDeps, since));
       if (read !== undefined) readers.push({ name: "mail", read });
     }
-    if (s.sources.messages && custom?.messages !== undefined)
+    if (allowed("messages") && custom?.messages !== undefined)
       readers.push({ name: "messages", read: custom.messages });
     if (readers.length === 0) return { ...out, skipped: "no_sources" };
     for (const r of readers) {
@@ -707,8 +725,11 @@ export function composePromises(deps: PromisesDeps): Promises {
       const stored = graph.cursor(cursorKey(r.name)) as { at?: number } | null | undefined;
       const since = typeof stored?.at === "number" ? stored.at : started - DAY_MS;
       let items: LaneItem[];
+      let cut: number | undefined;
       try {
-        items = await r.read(since);
+        const got = await r.read(since);
+        items = Array.isArray(got) ? got : got.items;
+        cut = Array.isArray(got) ? undefined : got.nextSince;
       } catch (err) {
         deps.logger?.log("warn", "promise scan read failed", {
           source: r.name,
@@ -717,7 +738,8 @@ export function composePromises(deps: PromisesDeps): Promises {
         continue;
       }
       out.items += items.length;
-      let next = started;
+      // A reader that stopped at its cap says where to resume; never past what it did not read.
+      let next = cut === undefined ? started : Math.min(started, cut);
       if (items.length > 0) {
         const report = await runLane(items);
         out.calls += report.calls;
@@ -726,7 +748,7 @@ export function composePromises(deps: PromisesDeps): Promises {
         // What the day's cap left is read again by the next scan (the 03:00 one is the catch-up):
         // the cursor stays before the earliest held-back snippet, and `seen` skips what was done.
         const held = report.queued.map((q) => Date.parse(q.sentAt)).filter((t) => !Number.isNaN(t));
-        if (held.length > 0) next = Math.min(...held) - 1;
+        if (held.length > 0) next = Math.min(next, ...held) - 1;
       }
       graph.setCursor(cursorKey(r.name), { at: next });
     }
@@ -749,6 +771,14 @@ export function composePromises(deps: PromisesDeps): Promises {
     const out = { done: 0, asked: 0 };
     const readEvidence = evidenceOverride;
     if (readEvidence === undefined) return out;
+    const sw = settings().sources;
+    const allow = {
+      mail: sw.mail && (deps.searchAllows?.("mail") ?? true),
+      calendar: sw.mail && (deps.searchAllows?.("calendar") ?? true),
+      messages: sw.messages && (deps.searchAllows?.("messages") ?? true),
+    };
+    // Nothing the owner has not switched on is read, not even for a promise they already have.
+    if (!allow.mail && !allow.calendar && !allow.messages) return out;
     const nowMs = clock.now();
     const memo = (get("promises.state.signalsAt") ?? {}) as Record<string, number>;
     let reads = 0;
@@ -761,6 +791,7 @@ export function composePromises(deps: PromisesDeps): Promises {
       try {
         const evidence = await readEvidence({
           person: entityPerson(p.counterpartId),
+          allow,
           threadKey: p.threadKey,
           sinceMs: s.firstCitationAt(p.id) ?? (Date.parse(p.createdAt) || nowMs - 30 * DAY_MS),
         });
@@ -784,13 +815,18 @@ export function composePromises(deps: PromisesDeps): Promises {
     id: string;
     dueAt: string;
   }
+  /** The owner's local day, so "3 a day" resets at their midnight and not at UTC's. */
+  const localDayKey = (): string => {
+    const d = promiseLocalDay(clock.now(), tz());
+    return `${d.y}-${d.m}-${d.d}`;
+  };
   const dayCount = (key: string): number => {
     const v = get(key) as { day?: string; count?: number } | undefined;
-    const today = new Date(clock.now()).toISOString().slice(0, 10);
+    const today = localDayKey();
     return v?.day === today ? (v.count ?? 0) : 0;
   };
   const bumpDay = (key: string, by: number): void => {
-    const today = new Date(clock.now()).toISOString().slice(0, 10);
+    const today = localDayKey();
     put(key, { day: today, count: dayCount(key) + by });
   };
 
@@ -1171,5 +1207,11 @@ export function composePromises(deps: PromisesDeps): Promises {
     },
     offers,
     store,
+    retention: () => {
+      const s = settings();
+      return s.enabled
+        ? { retentionDays: s.retentionDays, pendingDays: 30, quoteDays: 30 }
+        : undefined;
+    },
   };
 }

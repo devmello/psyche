@@ -183,6 +183,7 @@ export interface ProactiveSetup {
    */
   promises?: {
     briefLines: (surface?: "brief" | "channel") => { text: string; link?: string }[];
+    ledgerOn: () => boolean;
     meetingTarget: () => MeetingLedgerTarget | "off" | undefined;
     jobs: () => ProactiveJob[];
     ensureSchedules: (scheduler: SchedulerLike, timezone: string) => Promise<void>;
@@ -863,7 +864,10 @@ export function composeProactive(setup: ProactiveSetup): ComposedProactive {
 function briefLines(
   setup: ProactiveSetup,
   catchup: ReturnType<typeof composeCatchup> | undefined,
-): Pick<ConstructorParameters<typeof DailyService>[0], "comingUp" | "keepInTouch" | "promises"> {
+): Pick<
+  ConstructorParameters<typeof DailyService>[0],
+  "comingUp" | "keepInTouch" | "promises" | "hideFollowups"
+> {
   const comingUp = catchup === undefined ? setup.comingUp : catchup.comingUp(setup.comingUp);
   const keepInTouch =
     catchup === undefined ? setup.keepInTouch : catchup.keepInTouch(setup.keepInTouch);

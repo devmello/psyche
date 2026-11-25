@@ -186,7 +186,12 @@ import { DeferredDigest } from "./deferred-digest.ts";
 import { DeferredResume } from "./deferred-resume.ts";
 import { composeDeviceNotifications, DeviceNotifications } from "./device-notify.ts";
 import { composeDictation } from "./dictation.ts";
-import { composeEverything, type Everything, everythingSettings } from "./everything.ts";
+import {
+  composeEverything,
+  type Everything,
+  everythingSettings,
+  indexedSources,
+} from "./everything.ts";
 import { readSystemState } from "./everything-probe.ts";
 import { type ExecHostDeps, execHostTool } from "./exec-host.ts";
 import { feedContextResolver } from "./feed-context.ts";
@@ -1473,6 +1478,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     // tokens it leaves, for the people it did not read about (the graph's own nightly step then
     // skips its model pass).
     graphModelPass: (left, covered) => people.modelPass(left, covered),
+    promiseRetention: () => promises.retention(),
     announce: (card) => void proactive.feed.postNotice({ ...card, reason: "memory learned" }),
     ...(gwOptions.logger === undefined ? {} : { logger: gwOptions.logger }),
   });
@@ -2163,6 +2169,10 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       return owner === undefined ? [] : [owner.name, ...owner.aliases];
     },
     model: () => everything.answerModel(),
+    // Search's switches and the owner's opt-out bind the ledger too (design 7.3).
+    searchAllows: (source) =>
+      everythingSettings(getSetting(db, EVERYTHING_MEMORY_SETTING_KEY)?.value, indexedSources(db))
+        .sources[source] === true,
     mail: {
       tools: promisesTools,
       connectors: promisesConnectors,
@@ -2217,6 +2227,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     nightShift: () => nightShiftRef?.briefLine(),
     promises: {
       briefLines: (surface) => promises.briefLines(surface),
+      ledgerOn: () => promises.ledgerOn(),
       meetingTarget: () => promises.meetingTarget(),
       jobs: () => promises.jobs(),
       ensureSchedules: (scheduler, zone) => promises.ensureSchedules(scheduler, zone),

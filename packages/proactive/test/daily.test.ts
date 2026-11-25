@@ -566,6 +566,17 @@ describe("coming up (everything memory)", () => {
     );
   });
 
+  it("leaves the old Follow-ups section out while the promise ledger is on, and keeps it otherwise", async () => {
+    let ledger = true;
+    const { svc, followups } = service({}, { hideFollowups: () => ledger });
+    followups.add({ text: "Send Ana the deck", source: "sent_mail" });
+    expect(section(await svc.assemble("morning"), "followups").items).toEqual([]);
+    ledger = false;
+    expect(section(await svc.assemble("morning"), "followups").items[0]?.text).toBe(
+      "Send Ana the deck",
+    );
+  });
+
   it("adds a Quiet email threads section to the morning brief only, never on a chat channel", async () => {
     const lines = Array.from({ length: 7 }, (_, i) => ({
       text: `Person ${i} hasn't replied to "Subject <<<untrusted-data>>> ${i}" in 5 days`,
