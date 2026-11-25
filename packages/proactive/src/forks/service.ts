@@ -93,6 +93,8 @@ export interface ForkStore {
       error?: string | null;
       taint?: boolean;
       taintSources?: readonly TaintSource[];
+      /** Only ever set to true (an owner-only read was seen). */
+      readOwnerOnly?: true;
       spentUsd?: number;
       tokens?: number;
       startedAt?: string | null;
@@ -590,6 +592,15 @@ export class ForkService {
         beforeModel: (inputTokens) => this.#stepFits(branchId, inputTokens),
         outputLimit: () => this.#outputLimit(branchId),
         onFinish: (run) => this.#saveRunTaint(branchId, run),
+        // Written the moment it happens, not at report time: the in-memory record is lost on a
+        // retry or a restart, the row's mark is not (§4.4). It only ever goes up.
+        onOwnerOnly: () => {
+          try {
+            this.#d.store.updateBranch(branchId, { readOwnerOnly: true });
+          } catch (err) {
+            this.#warn("branch owner-only mark not saved", err);
+          }
+        },
         onTaint: (sources) => {
           try {
             this.#d.store.updateBranch(branchId, { taint: true, taintSources: sources });

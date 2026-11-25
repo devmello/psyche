@@ -121,25 +121,61 @@ export function forkEventHidden(
   payload: unknown,
   reader: { local?: boolean },
   cache: Map<string, boolean>,
+  /** The thread the publish named: decides it whatever the payload's shape (`run.step`, `tool_call.updated`). */
+  publishThreadId?: string,
 ): boolean {
   if (reader.local === true) return false;
   const p = (payload ?? {}) as Record<string, Record<string, unknown> | string | undefined>;
   const task = p.task as { createdFrom?: unknown; threadId?: unknown } | undefined;
   if (task?.createdFrom === "fork") return true;
-  const candidates = [
-    p.threadId,
-    (p.message as { threadId?: unknown } | undefined)?.threadId,
-    (p.thread as { id?: unknown } | undefined)?.id,
-    (p.run as { threadId?: unknown } | undefined)?.threadId,
-    task?.threadId,
-  ];
-  for (const c of candidates) {
-    if (typeof c !== "string") continue;
+  const toolCall = p.toolCall as { runId?: unknown; threadId?: unknown } | undefined;
+  const action = p.action as { taskId?: unknown } | undefined;
+  // `task.action` names only its task, `run.step` only its run: read their threads (and a fork
+  // task's origin) from the store, so no payload shape slips a fork's tool params through.
+  if (typeof action?.taskId === "string") {
+    const key = `task:${action.taskId}`;
+    let fork = cache.get(key);
+    if (fork === undefined) {
+      const row = db.sqlite
+        .prepare(
+          "SELECT created_from AS createdFrom, thread_id AS threadId FROM tasks WHERE id = ?",
+        )
+        .get(action.taskId) as Pick<Task, "createdFrom" | "threadId"> | undefined;
+      fork = row !== undefined && isForkTask(db, row);
+      if (cache.size > 5000) cache.clear();
+      cache.set(key, fork);
+    }
+    if (fork) return true;
+  }
+  const forkThread = (c: string) => {
     let fork = cache.get(c);
     if (fork === undefined) {
       fork = isForkThread(db, c);
       if (cache.size > 5000) cache.clear();
       cache.set(c, fork);
+    }
+    return fork;
+  };
+  const candidates = [
+    publishThreadId,
+    p.threadId,
+    (p.message as { threadId?: unknown } | undefined)?.threadId,
+    (p.thread as { id?: unknown } | undefined)?.id,
+    (p.run as { threadId?: unknown } | undefined)?.threadId,
+    task?.threadId,
+    toolCall?.threadId,
+  ];
+  for (const c of candidates) if (typeof c === "string" && forkThread(c)) return true;
+  for (const runId of [toolCall?.runId, p.runId]) {
+    if (typeof runId !== "string") continue;
+    const key = `run:${runId}`;
+    let fork = cache.get(key);
+    if (fork === undefined) {
+      const row = db.sqlite.prepare("SELECT thread_id AS t FROM runs WHERE id = ?").get(runId) as
+        | { t: string }
+        | undefined;
+      fork = row !== undefined && forkThread(row.t);
+      cache.set(key, fork);
     }
     if (fork) return true;
   }
@@ -195,16 +231,64 @@ export function withForkTaskScrub(
     const res = r as { task: Task };
     return { ...res, task: one(res.task) };
   });
-  wrap("tasks.actions", (_c, p, r) => {
+  const forkTaskId = (p: Record<string, unknown>) => {
     const taskId = typeof p.taskId === "string" ? p.taskId : "";
     const row = db.sqlite
       .prepare("SELECT created_from AS createdFrom, thread_id AS threadId FROM tasks WHERE id = ?")
       .get(taskId) as Pick<Task, "createdFrom" | "threadId"> | undefined;
-    if (row === undefined || !isForkTask(db, row)) return r;
+    return row !== undefined && isForkTask(db, row);
+  };
+  wrap("tasks.actions", (_c, p, r) => {
+    if (!forkTaskId(p)) return r;
     return { ...(r as object), actions: [], nextCursor: null };
   });
+  // Control of a fork task. A branch is driven by its fork (`planForks.cancel`,
+  // `planForks.retryBranch`), so `tasks.retry` is refused to everyone: it would get round the
+  // once-per-branch rule and could run a branch after Take. The others are the desktop shell's
+  // only, and any Task they return is stripped for anyone else.
+  for (const method of FORK_TASK_CONTROL) {
+    const def = handlers[method];
+    if (def === undefined) continue;
+    out[method] = {
+      ...def,
+      run: async (call: Call, params: never) => {
+        const p = (params ?? {}) as Record<string, unknown>;
+        const desktop = isDesktopViewer(call);
+        if (forkTaskId(p)) {
+          if (method === "tasks.retry") {
+            throw new PsycheError("conflict", "retry this option from the plan instead", {
+              details: { reason: "fork_task", use: "planForks.retryBranch" },
+            });
+          }
+          if (!desktop) {
+            throw new PsycheError(
+              "forbidden",
+              "this plan's working can be opened only on your Mac",
+              {
+                details: { reason: "fork_owner_only" },
+              },
+            );
+          }
+        }
+        const result = await def.run(call, params);
+        if (desktop) return result;
+        const res = result as { task?: Task } | undefined;
+        return res?.task === undefined ? result : { ...res, task: one(res.task) };
+      },
+    };
+  }
   return out;
 }
+
+/** The task methods that act on one task and answer with it (`TaskResult`). */
+const FORK_TASK_CONTROL = [
+  "tasks.pause",
+  "tasks.resume",
+  "tasks.cancel",
+  "tasks.retry",
+  "tasks.steer",
+  "tasks.update",
+] as const;
 
 /**
  * `search.query` for a viewer that is not the desktop shell: hits under a fork's hidden thread

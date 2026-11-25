@@ -2293,7 +2293,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
           {
             threadId: input.threadId,
             content: input.content,
-            leadingContext: input.leadingContext,
+            ...(input.leadingContext === undefined ? {} : { leadingContext: input.leadingContext }),
+            ...(input.preamble === undefined ? {} : { preamble: input.preamble }),
             deviceId: input.deviceId,
             taintSources: input.taintSources,
           },
@@ -2740,15 +2741,18 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
         }) as never,
       ),
     ),
-    ...mountParamsOnly(
-      taskUpdateHandlers({
-        tasks,
-        roles: skills.roles,
-        now: () => clock.now(),
-        raise: (taskId, patch) =>
-          raiseSpecialistBudget({ tasks, host: specialists }, taskId, patch),
-        poke: () => specialistPool.poke(),
-      }) as never,
+    ...withForkTaskScrub(
+      db,
+      mountParamsOnly(
+        taskUpdateHandlers({
+          tasks,
+          roles: skills.roles,
+          now: () => clock.now(),
+          raise: (taskId, patch) =>
+            raiseSpecialistBudget({ tasks, host: specialists }, taskId, patch),
+          poke: () => specialistPool.poke(),
+        }) as never,
+      ),
     ),
     ...mountParamsOnly(
       specialistHandlers({
@@ -2956,9 +2960,10 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   // approval.created carries each approver's own surface token (issue #50, security §3.7):
   // only to devices that hold operator.approvals, and only their surface's token.
   const forkThreadCache = new Map<string, boolean>();
-  gateway.bus.setPersonalizer((event, payload, sub) => {
+  gateway.bus.setPersonalizer((event, payload, sub, publishThreadId) => {
     // A plan fork's hidden threads and tasks reach only the desktop shell on this Mac (§4.4).
-    if (forkEventHidden(db, payload, sub.reader, forkThreadCache)) return SKIP_EVENT;
+    if (forkEventHidden(db, payload, sub.reader, forkThreadCache, publishThreadId))
+      return SKIP_EVENT;
     // A life answer in a transcript is read again for each subscriber (a remote window gets no
     // Messages chips); a subscriber with no identity (a Gateway part) is read as the least trusted.
     if (event === "chat.message")

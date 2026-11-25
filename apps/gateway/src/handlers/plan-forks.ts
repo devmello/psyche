@@ -83,7 +83,10 @@ export interface PlanForkDeps {
   startTurn?: (input: {
     threadId: string;
     content: string;
-    leadingContext: string;
+    /** The visible start of `content` that is the plan (not the owner's words). */
+    leadingContext?: string;
+    /** The plan for the agent only, never in the transcript (a branch with owner-only reads). */
+    preamble?: string;
     deviceId: string;
     taintSources: TaintSource[];
   }) => boolean;
@@ -103,6 +106,15 @@ const FORKABLE_KINDS = new Set(["main", "side"]);
  * plan_taken card shows Continue, which calls `planForks.take` with no items and `continue`.
  */
 export const PLAN_CONTINUE_PENDING = "continue_pending";
+/** The parent turn's visible text when the plan itself stays on the Mac (owner-only reads). */
+export const PLAN_TURN_VISIBLE_LINE = "Carrying out the plan you took.";
+/**
+ * `take_approval_id` while a Take is being issued: the compare-and-set claim that makes a second
+ * Take of the same fork (another branch, a second device) a `conflict`. Stale after a minute
+ * (a restart mid-issue), then cleared by the next Take.
+ */
+const TAKE_CLAIM_PREFIX = "claim:";
+const TAKE_CLAIM_STALE_MS = 60_000;
 const MAX_LIVE_FORKS = 3;
 const TASK_TERMINAL = new Set(["done", "failed", "cancelled"]);
 const BRANCH_TERMINAL = new Set(["reported", "failed", "cancelled", "budget_stopped"]);
@@ -281,13 +293,10 @@ export function createPlanForkHandlers(deps: PlanForkDeps) {
     deviceId: string,
   ): "started" | "busy" | "none" => {
     if (deps.startTurn === undefined) return "none";
-    const applied = new Set(
-      listStagedActionsForBranch(db, branch.id)
-        .filter((i) => i.status === "applied")
-        .map((i) => i.id),
-    );
+    // A step with a staged item was settled at Take: applied, or unticked or declined by the
+    // owner. Only the steps nothing was staged for remain, never one the owner left out.
     const steps = (branch.report?.steps ?? []).filter(
-      (s) => s.who === "psyche" && !(s.stagedId !== undefined && applied.has(s.stagedId)),
+      (s) => s.who === "psyche" && s.stagedId === undefined,
     );
     if (steps.length === 0) return "none";
     const plan = {
@@ -303,14 +312,27 @@ export function createPlanForkHandlers(deps: PlanForkDeps) {
     if (branch.taint && taintSources.length === 0) {
       taintSources.push({ sourceKind: "plan_fork", origin: fork.id });
     }
+    const ask = "Carry out the remaining steps of this plan, asking before each action as usual.";
     try {
-      const started = deps.startTurn({
-        threadId: fork.threadId,
-        content: `${lead}Carry out the remaining steps of this plan, asking before each action as usual.`,
-        leadingContext: lead,
-        deviceId,
-        taintSources,
-      });
+      // A branch that read Memory, Messages or Contacts: the plan goes to the agent only (the
+      // preamble), and the transcript, which the phone reads, holds the short line (§4.4).
+      const started = deps.startTurn(
+        branch.readOwnerOnly
+          ? {
+              threadId: fork.threadId,
+              content: `${PLAN_TURN_VISIBLE_LINE} ${ask}`,
+              preamble: lead.trimEnd(),
+              deviceId,
+              taintSources,
+            }
+          : {
+              threadId: fork.threadId,
+              content: `${lead}${ask}`,
+              leadingContext: lead,
+              deviceId,
+              taintSources,
+            },
+      );
       return started ? "started" : "busy";
     } catch (err) {
       warn("plan turn not started", err);
@@ -639,27 +661,72 @@ export function createPlanForkHandlers(deps: PlanForkDeps) {
       if (branch.status !== "reported" || branch.report == null) {
         throw new PsycheError("conflict", "that option has no report to take");
       }
-      if (fork.takeApprovalId != null) {
-        const prior = await deps.broker.get(fork.takeApprovalId);
-        if (prior?.status === "pending") {
-          throw new PsycheError("conflict", "a plan of this fork is waiting for your answer");
+      const busyTake = () =>
+        new PsycheError("conflict", "a plan of this fork is waiting for your answer");
+      const prior = fork.takeApprovalId;
+      if (prior != null) {
+        if (prior.startsWith(TAKE_CLAIM_PREFIX)) {
+          const at = Number(prior.slice(TAKE_CLAIM_PREFIX.length));
+          if (!(clock.now() - at > TAKE_CLAIM_STALE_MS)) throw busyTake();
+        } else if ((await deps.broker.get(prior))?.status === "pending") {
+          throw busyTake();
         }
-        updatePlanFork(db, fork.id, { takeApprovalId: null });
+        // Settled (or a stale claim): cleared only if nobody replaced it meanwhile.
+        db.sqlite
+          .prepare(
+            "UPDATE plan_forks SET take_approval_id = NULL WHERE id = ? AND take_approval_id = ?",
+          )
+          .run(fork.id, prior);
       }
+      // One Take at a time per fork: a second one (another branch, another device) is refused
+      // here, before anything is issued or applied.
+      const claim = `${TAKE_CLAIM_PREFIX}${clock.now()}`;
+      const claimed = db.sqlite
+        .prepare(
+          `UPDATE plan_forks SET take_approval_id = ?, updated_at = ?
+            WHERE id = ? AND status = 'ready' AND take_approval_id IS NULL`,
+        )
+        .run(claim, nowIso(), fork.id);
+      if (claimed.changes === 0) throw busyTake();
+      const release = () =>
+        db.sqlite
+          .prepare(
+            "UPDATE plan_forks SET take_approval_id = NULL WHERE id = ? AND take_approval_id = ?",
+          )
+          .run(fork.id, claim);
       const opts = { continue: p.continue, deviceId: call.identity.deviceId };
       if (p.items.length === 0 && p.sends.length === 0) {
-        await finishTake(fork.id, branch.id, opts);
+        try {
+          await finishTake(fork.id, branch.id, opts);
+        } finally {
+          release();
+        }
         return { refused: [] };
       }
-      if (deps.applier === undefined)
+      if (deps.applier === undefined) {
+        release();
         throw new PsycheError("unavailable", "taking a plan isn't available");
-      const r = await deps.applier.applyFork(
-        { forkId: fork.id, branchId: branch.id, items: p.items, sends: p.sends },
-        { local: isDesktopViewer(call) },
-      );
+      }
+      let r: Awaited<ReturnType<NonNullable<PlanForkDeps["applier"]>["applyFork"]>>;
+      try {
+        r = await deps.applier.applyFork(
+          { forkId: fork.id, branchId: branch.id, items: p.items, sends: p.sends },
+          { local: isDesktopViewer(call) },
+        );
+      } catch (err) {
+        release();
+        throw err;
+      }
       const refused = r.refused.map((x) => ({ itemId: x.itemId, reason: x.reason.slice(0, 300) }));
-      if (r.issued === undefined) return { refused };
-      updatePlanFork(db, fork.id, { takeApprovalId: r.issued.approval.id });
+      if (r.issued === undefined) {
+        release();
+        return { refused };
+      }
+      db.sqlite
+        .prepare(
+          "UPDATE plan_forks SET take_approval_id = ?, updated_at = ? WHERE id = ? AND take_approval_id = ?",
+        )
+        .run(r.issued.approval.id, nowIso(), fork.id, claim);
       pendingTakes.set(r.issued.approval.id, opts);
       const token = r.issued.answerTokens[deps.surfaceOf(call.identity.deviceId)];
       publishFork(fork.id);

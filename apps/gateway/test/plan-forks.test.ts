@@ -3,6 +3,7 @@ import {
   appendMessage,
   createThread,
   getPlanFork,
+  getPlanForkBranch,
   listAllMessages,
   listPlanForkBranches,
   listStagedActionsForBranch,
@@ -26,7 +27,11 @@ import { composeNightShift } from "../src/compose/night-shift.ts";
 import { connectorToolLookup } from "../src/compose/proactive.ts";
 import { createThreadClear } from "../src/compose/thread-clear.ts";
 import type { Call } from "../src/context.ts";
-import { createPlanForkHandlers, PLAN_CONTINUE_PENDING } from "../src/handlers/plan-forks.ts";
+import {
+  createPlanForkHandlers,
+  PLAN_CONTINUE_PENDING,
+  PLAN_TURN_VISIBLE_LINE,
+} from "../src/handlers/plan-forks.ts";
 import { Idempotency, paramsHash } from "../src/idempotency.ts";
 
 /**
@@ -463,5 +468,155 @@ describe("planForks end to end (F4)", () => {
         r.db.sqlite.prepare("SELECT 1 FROM threads WHERE id = ?").get(b.threadId),
       ).toBeUndefined();
     }
+  });
+});
+
+const phone = {
+  identity: { deviceId: "dev_phone", role: "client" },
+  conn: { peer: { remoteLoopback: false } },
+} as unknown as Call;
+
+/** Files a branch's report (no staged items) and ends its task. */
+async function report(r: Rig, forkId: string, branchId: string, summary: string, steps: string[]) {
+  const b = listPlanForkBranches(r.db, forkId).find((x) => x.id === branchId);
+  await r.forks.service.reports.file({
+    forkId,
+    branchId,
+    runId: `run_${branchId}`,
+    toolCallId: "report",
+    report: {
+      summary,
+      steps: steps.map((text, i) => ({ id: `s${i}`, text, who: "psyche" })),
+      costs: [],
+      dates: [],
+      people: [],
+      tradeoffs: [],
+      risks: [],
+      openQuestions: [],
+    } as never,
+  });
+  await r.engine.updateStatus(b?.taskId as string, "done");
+}
+
+const read = (r: Rig, forkId: string, branchId: string, tool: string) =>
+  r.forks.service.readsFor({ kind: "fork", forkId, branchId })?.observe({
+    callId: `c_${tool}`,
+    tool,
+    sideEffect: "read",
+    args: {},
+    output: { items: [] },
+    ok: true,
+    provenance: "trusted",
+  });
+
+describe("planForks R1 fixes", () => {
+  it("an owner-only read in a failed run keeps the branch restricted after a retry (finding 2)", async () => {
+    const r = await rig();
+    const created = (await r.run("planForks.create", {
+      threadId: r.main.id,
+      messageId: r.msg.id,
+      branches: [
+        { label: "Move", premise: "Assume we move" },
+        { label: "Stay", premise: "Assume we stay" },
+      ],
+    })) as { fork: { id: string } };
+    const forkId = created.fork.id;
+    const [a, b] = listPlanForkBranches(r.db, forkId);
+    if (a === undefined || b === undefined) throw new Error("no branches");
+    // Run 1 reads Messages, then fails.
+    read(r, forkId, a.id, "mcp__apple__messages_search");
+    expect(getPlanForkBranch(r.db, a.id)?.readOwnerOnly).toBe(true);
+    await r.engine.updateStatus(a.taskId as string, "failed");
+    await tick(r);
+    expect(getPlanForkBranch(r.db, a.id)?.status).toBe("failed");
+    await r.run("planForks.retryBranch", { forkId, branchId: a.id });
+    // Run 2 reads nothing owner-only and reports.
+    await report(r, forkId, a.id, "Moving costs about $4,000", ["Book movers"]);
+    // The control: a branch that read only calendar, mail and web is shown.
+    read(r, forkId, b.id, "mcp__apple__calendar_list_events");
+    read(r, forkId, b.id, "mcp__apple__mail_search");
+    await report(r, forkId, b.id, "Staying keeps rent flat", ["Renew the lease"]);
+    for (let i = 0; i < 20 && getPlanFork(r.db, forkId)?.status !== "ready"; i++) await tick(r);
+    expect(getPlanForkBranch(r.db, a.id)?.readOwnerOnly).toBe(true);
+    expect(getPlanForkBranch(r.db, b.id)?.readOwnerOnly).toBe(false);
+    type View = { branches: { id: string; report: { summary: string } | null }[] };
+    const onPhone = (await r.run("planForks.get", { forkId }, undefined, phone)) as View;
+    const summaryOf = (v: View, id: string) => v.branches.find((x) => x.id === id)?.report?.summary;
+    expect(summaryOf(onPhone, a.id)).toBe("");
+    expect(summaryOf(onPhone, b.id)).toBe("Staying keeps rent flat");
+    const onMac = (await r.run("planForks.get", { forkId })) as View;
+    expect(summaryOf(onMac, a.id)).toBe("Moving costs about $4,000");
+  });
+
+  it("the parent turn of an owner-only branch puts the plan in the agent's preamble only (finding 4)", async () => {
+    const r = await rig();
+    const f = await readyFork(r);
+    updatePlanForkBranch(r.db, f.a.id, { readOwnerOnly: true });
+    await r.run("planForks.take", {
+      forkId: f.forkId,
+      branchId: f.a.id,
+      items: [],
+      sends: [],
+      continue: true,
+    });
+    expect(r.turns).toHaveLength(1);
+    const turn = r.turns[0] as (typeof r.turns)[number] & { preamble?: string };
+    expect(turn.content).not.toContain("Email the landlord");
+    expect(turn.content).toContain(PLAN_TURN_VISIBLE_LINE);
+    expect(turn.preamble).toContain("Email the landlord about the lease");
+    expect(turn.taintSources).toEqual([
+      { sourceKind: "web", origin: "https://example.com/austin" },
+    ]);
+  });
+
+  it("the parent turn leaves out steps whose items were not ticked (finding 6)", async () => {
+    const r = await rig();
+    const f = await readyFork(r);
+    // Take with nothing ticked: the movers step (staged) is the owner's choice not to do.
+    await r.run("planForks.take", {
+      forkId: f.forkId,
+      branchId: f.a.id,
+      items: [],
+      sends: [],
+      continue: true,
+    });
+    expect(r.turns[0]?.content).toContain("Email the landlord about the lease");
+    expect(r.turns[0]?.content).not.toContain("Call the movers");
+    expect(r.ran).toEqual([]);
+  });
+
+  it("two takes of the same fork at once: the second is a conflict and one branch applies (finding 5)", async () => {
+    const r = await rig();
+    const f = await readyFork(r);
+    const takeOf = (branchId: string, item: { id: string; bindingHash: string }) =>
+      r.run("planForks.take", {
+        forkId: f.forkId,
+        branchId,
+        items: [{ itemId: item.id, bindingHash: item.bindingHash }],
+        sends: [],
+        continue: false,
+      }) as Promise<{ approval?: { id: string }; answerToken?: string }>;
+    const [one, two] = await Promise.allSettled([takeOf(f.a.id, f.itemA), takeOf(f.b.id, f.itemB)]);
+    expect(one.status).toBe("fulfilled");
+    expect(two.status).toBe("rejected");
+    expect((two as PromiseRejectedResult).reason).toMatchObject({ code: "conflict" });
+    const out = (one as PromiseFulfilledResult<{ approval?: { id: string }; answerToken?: string }>)
+      .value;
+    expect((await r.h.broker.list({ status: "pending" })).map((a) => a.id)).toEqual([
+      out.approval?.id,
+    ]);
+    r.clock.advance(500);
+    await r.h.broker.answer({
+      approvalId: out.approval?.id ?? "",
+      answerToken: out.answerToken ?? "",
+      decision: "approve",
+      scope: "once",
+      decidedBy: DEVICE,
+    });
+    for (let i = 0; i < 10 && getPlanFork(r.db, f.forkId)?.status !== "taken"; i++) await tick(r);
+    expect(r.ran).toEqual([{ tool: "reminders_create", callId: f.itemA.id }]);
+    expect(listStagedActionsForBranch(r.db, f.b.id)[0]?.status).toBe("dismissed");
+    // A take after the plan is taken is refused as before.
+    await expect(takeOf(f.b.id, f.itemB)).rejects.toMatchObject({ code: "conflict" });
   });
 });
