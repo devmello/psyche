@@ -59,6 +59,7 @@ export * from "./promises/store.ts";
 export * from "./promises/thresholds.ts";
 export * from "./promises/validate.ts";
 export * from "./provenance.ts";
+export * from "./query-recall.ts";
 export * from "./store.ts";
 export * from "./support.ts";
 export * from "./teaching/index.ts";
