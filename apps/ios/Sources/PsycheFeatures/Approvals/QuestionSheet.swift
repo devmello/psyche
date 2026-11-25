@@ -24,25 +24,28 @@ struct QuestionSheet: View {
     }
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
-                VStack(alignment: .leading, spacing: 6) {
-                    StatusDot(.needsYou, "Needs your answer · \(item.source)", font: .footnote.weight(.semibold))
-                    Text(item.title).psycheTitle(.title).foregroundStyle(PsycheColor.text)
+        NavigationStack {
+            List {
+                Section {
+                    VStack(alignment: .leading, spacing: 8) {
+                        StatusDot(.needsYou, "Needs your answer · \(item.source)", font: .footnote.weight(.semibold))
+                        Text(item.title).font(.title2.weight(.semibold))
+                        Text(verbatim: [String(localized: "Question", bundle: .module), item.source, item.time].joined(separator: " \u{B7} "))
+                            .font(.footnote).foregroundStyle(.secondary)
+                    }
+                    .padding(.vertical, 4)
                 }
                 ForEach(draft.parts) { part in
-                    partView(part)
+                    partSection(part)
                 }
-                EvidenceLine([String(localized: "Question", bundle: .module), item.source, item.time])
             }
-            .padding(.horizontal, PsycheMetrics.pagePadding)
-            .padding(.top, 28)
-            .padding(.bottom, 16)
+            .navigationTitle(String(localized: "Question", bundle: .module))
+            #if os(iOS)
+            .navigationBarTitleDisplayMode(.inline)
+            #endif
+            .scrollDismissesKeyboard(.interactively)
+            .safeAreaInset(edge: .bottom, spacing: 0) { actions }
         }
-        .scrollBounceBehavior(.basedOnSize)
-        .scrollDismissesKeyboard(.interactively)
-        .safeAreaInset(edge: .bottom, spacing: 0) { actions }
-        .psycheScreen()
         .sensoryFeedback(.success, trigger: flow.answeredCount)
         .interactiveDismissDisabled(flow.isBusy)
         .presentationDragIndicator(.visible)
@@ -55,34 +58,24 @@ struct QuestionSheet: View {
         }
     }
 
-    private func partView(_ part: QuestionDetail.Part) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(part.prompt).font(.subheadline).foregroundStyle(PsycheColor.muted)
-                if part.multiSelect {
-                    Text("Pick any", bundle: .module).font(.footnote).foregroundStyle(PsycheColor.muted)
-                }
-            }
-            if !part.options.isEmpty {
-                PaperCard {
-                    ForEach(Array(part.options.enumerated()), id: \.element.id) { index, option in
-                        if index > 0 { HairlineDivider() }
-                        optionRow(part, option)
-                    }
-                }
+    private func partSection(_ part: QuestionDetail.Part) -> some View {
+        Section {
+            ForEach(part.options, id: \.id) { option in
+                optionRow(part, option)
             }
             if part.allowsFreeText {
                 TextField(String(localized: "Or write an answer", bundle: .module), text: typedBinding(part), axis: .vertical)
-                    .font(.callout)
                     .lineLimit(1...4)
                     .focused($focusedPart, equals: part.header)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 13)
-                    .background(PsycheColor.sheet, in: RoundedRectangle(cornerRadius: PsycheMetrics.cardRadius, style: .continuous))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: PsycheMetrics.cardRadius, style: .continuous)
-                            .strokeBorder(PsycheColor.rule, lineWidth: 1))
             }
+        } header: {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(part.prompt)
+                if part.multiSelect {
+                    Text("Pick any", bundle: .module)
+                }
+            }
+            .textCase(nil)
         }
     }
 
@@ -95,16 +88,15 @@ struct QuestionSheet: View {
         } label: {
             HStack(spacing: 12) {
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(option.label).font(.psycheRow).foregroundStyle(PsycheColor.text)
-                    if let detail = option.detail { EvidenceLine([detail]) }
+                    Text(option.label).foregroundStyle(.primary)
+                    if let detail = option.detail { Text(detail).font(.caption).foregroundStyle(.secondary) }
                 }
                 Spacer(minLength: 0)
                 Image(systemName: symbol)
                     .font(.title3)
-                    .foregroundStyle(picked ? PsycheColor.inkText : PsycheColor.rule)
+                    .foregroundStyle(picked ? Color.accentColor : Color.secondary)
                     .accessibilityHidden(true)
             }
-            .padding(PsycheMetrics.rowPadding)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -129,19 +121,19 @@ struct QuestionSheet: View {
                 AnswerError(message: message, retry: { Task { await flow.retry() } }, cancel: flow.dismissError)
             case .review, .checking, .sending:
                 if !session.state.canAnswer {
-                    Text("Reconnect to answer", bundle: .module).font(.footnote).foregroundStyle(PsycheColor.muted)
+                    Text("Reconnect to answer", bundle: .module).font(.footnote).foregroundStyle(.secondary)
                 }
                 if detail.parts.count > 1, !draft.unanswered.isEmpty {
-                    Text("Answer every question to send.", bundle: .module).font(.footnote).foregroundStyle(PsycheColor.muted)
+                    Text("Answer every question to send.", bundle: .module).font(.footnote).foregroundStyle(.secondary)
                 }
-                ArmingInkButton(title: String(localized: "Send answer", bundle: .module), isBusy: flow.stage == .sending, action: send)
+                PrimaryAnswerButton(title: String(localized: "Send answer", bundle: .module), isBusy: flow.stage == .sending, action: send)
                     .disabled(!draft.unanswered.isEmpty || !session.state.canAnswer || flow.isBusy)
             }
         }
-        .padding(.horizontal, PsycheMetrics.pagePadding)
-        .padding(.top, 8)
+        .padding(.horizontal)
+        .padding(.top, 12)
         .padding(.bottom, 12)
-        .background(PsycheColor.paper)
+        .background(.bar)
         .psycheAnimation(flow.stage.isAnswered ? .emphasis : .micro, value: flow.stage)
     }
 
