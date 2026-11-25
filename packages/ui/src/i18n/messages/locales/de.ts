@@ -1993,6 +1993,7 @@ export const de: Partial<Catalogue> = {
   "settings.mcp.network": "Verwendet das Netzwerk",
   "settings.mcp.added": "{name} hinzugefügt.",
   "settings.mcp.removed": "{name} entfernt.",
+  "settings.openPage.failed": "Psyche konnte die Seite nicht öffnen ({reason}).",
   "settings.mcp.secretNotDeleted":
     "Psyche konnte ein gespeichertes Geheimnis nicht löschen ({reason}). Erneut versuchen, um es zu entfernen.",
   "settings.mcp.denied": "{name} wurde nicht hinzugefügt.",
