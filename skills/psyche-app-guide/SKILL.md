@@ -202,7 +202,7 @@ Access to files, apps and the screen is not asked in setup: the agent asks in ch
 - **balanced**: reads run; risky actions (to people, money) ask first.
 - **auto**: acts on its own; needs an Auto-capable model (pick one with `/model`).
 - **plan**: read-only; plans without acting.
-- **full** (Full access): in this chat only, Psyche browses, changes files in your home folder, runs commands, uses apps and connectors without asking. Sending to other people (email, messages, invites, posts) still asks with one tap, and payments still ask with Touch ID or your password. Turn it on with `/full` from the Mac or an admin-paired device; turn it off with `/full off` or Turn off above the composer. Never in channel, automation or Night shift threads, and never for unattended runs.
+- **full** (Full access): in this chat only, Psyche browses, changes files in your home folder, runs commands and uses apps and connectors, and no card comes up for those. Sends to other people (email, messages, invites, posts) still ask once, with one tap, and payments still ask with Touch ID or your password. Turn it on with `/full` from the Mac or an admin-paired device; turn it off with `/full off` or Turn off above the composer. Never in channel, automation or Night shift threads, and never for unattended runs.
 
 **Approval cards** appear in the chat and in `/agent/approvals`. Scopes: **Allow once**, **Allow for this task**, **Allow for this site**, **Allow for this session**, **Always allow** (shown under Settings → Permissions → Approval rules → Grants ledger, revocable). A folder request asks which folder to share. Running a command without the sandbox offers only Allow once and asks you to type a word; **Set up sandbox** is the better path.
 
