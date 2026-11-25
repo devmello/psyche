@@ -43,6 +43,9 @@ interface Plan {
   loopIds: string[];
   interactionIds: string[];
   summaries: string[];
+  /** Connector state rows (not `poll:*`) rewritten without the matching entries. */
+  cursors: { source: string; json: string }[];
+  cursorRemoved: number;
   notes: { id: string; text: string }[];
   suggestionIds: string[];
   anchorIds: string[];
@@ -50,6 +53,53 @@ interface Plan {
   quarantineIds: string[];
   /** Per root: what `GraphStore.forget` reports it will remove. */
   entityCounts: Partial<ForgetCounts>;
+}
+
+/** Cursor rows that are one record: address or thread key -> entry (`ingest.ts`). */
+const RECORD_CURSORS = new Set(["candidates:mail", "threads:asks"]);
+
+const deepMentions = (m: ForgetMatcher, v: unknown): boolean => {
+  if (typeof v === "string") return mentions(m, v);
+  if (Array.isArray(v)) return v.some((e) => deepMentions(m, e));
+  if (v !== null && typeof v === "object")
+    return Object.entries(v).some(([k, e]) => mentions(m, k) || deepMentions(m, e));
+  return false;
+};
+
+/**
+ * A connector state row without what names the phrase. `record` rows (candidate addresses with
+ * display names, thread asks with their text) lose the whole entry; `struct` rows (work signals,
+ * catch-up state) keep their fields and lose the matching entries or elements inside them
+ * (an ask with its verbatim evidence). Poll cursors (`poll:*`) carry no text and are not read here.
+ */
+export function pruneCursor(
+  value: unknown,
+  shape: "record" | "struct",
+  m: ForgetMatcher,
+): { value: unknown; removed: number } {
+  let removed = 0;
+  const prune = (v: unknown): unknown => {
+    if (Array.isArray(v)) {
+      const kept = v.filter((e) => !deepMentions(m, e));
+      removed += v.length - kept.length;
+      return kept;
+    }
+    if (v !== null && typeof v === "object") {
+      const out: Record<string, unknown> = {};
+      for (const [k, e] of Object.entries(v)) {
+        if (mentions(m, k) || deepMentions(m, e)) removed++;
+        else out[k] = e;
+      }
+      return out;
+    }
+    return v;
+  };
+  if (shape === "record") return { value: prune(value), removed };
+  if (value === null || typeof value !== "object" || Array.isArray(value))
+    return { value: prune(value), removed };
+  const out: Record<string, unknown> = {};
+  for (const [k, e] of Object.entries(value)) out[k] = prune(e);
+  return { value: out, removed };
 }
 
 const marks = (n: number): string => Array.from({ length: n }, () => "?").join(", ");
@@ -287,6 +337,27 @@ function plan(db: Database.Database, graph: GraphStore, m: ForgetMatcher): Plan 
       })),
   ];
 
+  // --- connector state: candidate addresses, thread asks, work signals, catch-up marks ---
+  const cursors: { source: string; json: string }[] = [];
+  let cursorRemoved = 0;
+  for (const r of all("SELECT source, cursor FROM graph_cursors WHERE source NOT LIKE 'poll:%'")) {
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(r.cursor as string);
+    } catch {
+      continue;
+    }
+    const out = pruneCursor(
+      parsed,
+      RECORD_CURSORS.has(r.source as string) ? "record" : "struct",
+      m,
+    );
+    if (out.removed > 0) {
+      cursors.push({ source: r.source as string, json: JSON.stringify(out.value) });
+      cursorRemoved += out.removed;
+    }
+  }
+
   // --- quarantine: the excerpt, and any item from a sender that goes ---
   const quarantineIds = all("SELECT id, excerpt, sender_entity_id FROM memory_quarantine")
     .filter((q) => hit(q.excerpt) || (gone.has(q.sender_entity_id as string) && q.excerpt !== ""))
@@ -307,6 +378,8 @@ function plan(db: Database.Database, graph: GraphStore, m: ForgetMatcher): Plan 
     loopIds,
     interactionIds,
     summaries,
+    cursors,
+    cursorRemoved,
     notes,
     suggestionIds,
     anchorIds,
@@ -335,6 +408,7 @@ function countsOf(p: Plan): Partial<ForgetCounts> {
     graphOther:
       (e.graphOther ?? 0) +
       p.summaries.length +
+      p.cursorRemoved +
       p.notes.length +
       p.suggestionIds.length +
       p.anchorIds.length +
@@ -419,6 +493,9 @@ export function applyGraphForget(
           `UPDATE graph_entities SET summary = NULL, summary_at = NULL, summary_hash = NULL WHERE id IN (${marks(part.length)})`,
         ).run(...part);
       }
+      for (const c of p.cursors) {
+        db.prepare("UPDATE graph_cursors SET cursor = ? WHERE source = ?").run(c.json, c.source);
+      }
       for (const nt of p.notes) {
         db.prepare("UPDATE graph_entities SET notes = ? WHERE id = ?").run(
           nt.text.trim() === "" ? null : nt.text,
@@ -498,7 +575,7 @@ const resetCounts = (db: Database.Database): GraphResetCounts => {
  * `memory.reset` for the graph and the extraction tables: entities (the owner's too), facts,
  * relations, interactions, loops, suggestions, corrections, citations and the quarantine, with
  * the free pages zeroed. Kept: the owner's exclusion rules and trusted senders (settings, hashes),
- * the blocklist, the connector cursors and the "this is wrong" corrections (hashes), the
+ * the blocklist, the poll cursors (`poll:*`: where each connector stopped; the other connector state, with its addresses, ask texts and evidence, goes) and the "this is wrong" corrections (hashes), the
  * extraction run log and `memory_extracted_items` (hashes of what was read, no text): without
  * them the next poll would read the same mail again, bring blocklisted people back and relearn
  * what the owner marked wrong.
@@ -542,6 +619,7 @@ export function applyGraphReset(db: Database.Database): GraphResetCounts {
     db.transaction(() => {
       db.exec(
         `DELETE FROM graph_citations; DELETE FROM memory_quarantine; DELETE FROM memory_migration_backup_2026_11;
+         DELETE FROM graph_cursors WHERE source NOT LIKE 'poll:%';
          DELETE FROM graph_loops; DELETE FROM graph_participants; DELETE FROM graph_interactions;
          DELETE FROM graph_suggestions; DELETE FROM memory_work_undo;
          DELETE FROM graph_feedback WHERE kind NOT IN ('wrong_fact', 'wrong_edge');

@@ -292,6 +292,7 @@ export class SqliteMemoryStore implements MemoryStore {
   readonly #flush: FlushConfig | undefined;
   readonly #onForget: ((forgotten: ForgottenPhrase) => void) | undefined;
   #cascade: ForgetCascade | undefined;
+  #warnedNoKey = false;
   #embedQueue: Promise<unknown> = Promise.resolve();
   #watcher: FSWatcher | undefined;
   #syncTimer: ReturnType<typeof setTimeout> | undefined;
@@ -476,19 +477,34 @@ export class SqliteMemoryStore implements MemoryStore {
     if (!FORGET_SKIPS.has(canonicalCase(path)) && !isSkillFile(path)) return chunks;
     const suppressed = this.#suppressions();
     if (suppressed.length === 0) return chunks;
-    const key = this.#forgetKey();
+    const key = this.#forgetKey(false);
+    if (key === undefined) {
+      // The list is there but its key is gone (deleted, or never synced to this machine): the
+      // hashes cannot be checked, so these files index nothing rather than a forgotten phrase.
+      if (!this.#warnedNoKey) {
+        this.#warnedNoKey = true;
+        process.emitWarning(
+          "memory: .psyche/forget.key is missing; persona and skill files are not indexed until memory is reset",
+        );
+      }
+      return [];
+    }
     return chunks.filter((c) => !isSuppressed(c.text, suppressed, key));
   }
 
   /**
    * This install's secret for keying the hashes of forgotten phrases: 32 random bytes in
-   * `.psyche/forget.key` (0600, never committed, removed by `reset`). Not the keychain: nothing
-   * here may prompt.
+   * `.psyche/forget.key` (0600, removed by `reset`). It stays on this machine: the git backup
+   * lists it in `.gitignore` and never commits it. Not the keychain: nothing here may prompt.
+   * A missing or malformed key is minted only when `create` is set, and the caller sets it only
+   * while the suppression list is empty (a new key would orphan the list's hashes).
    */
-  #forgetKey(): string {
-    const dir = realDirUnder(this.root, [PSYCHE_DIR], { create: true, mode: DIR_MODE }) as string;
+  #forgetKey(create: boolean): string | undefined {
+    const dir = realDirUnder(this.root, [PSYCHE_DIR], { create, mode: DIR_MODE });
+    if (dir === undefined) return undefined;
     const have = readRegularFile(dir, FORGET_KEY_FILE, 128)?.trim();
     if (have !== undefined && /^[0-9a-f]{64}$/.test(have)) return have;
+    if (!create) return undefined;
     const fresh = randomBytes(32).toString("hex");
     writeFileReplacing(dir, FORGET_KEY_FILE, `${fresh}\n`, FILE_MODE);
     return fresh;
@@ -501,7 +517,9 @@ export class SqliteMemoryStore implements MemoryStore {
   }
 
   #suppress(phrase: string): void {
-    const key = this.#forgetKey();
+    // Mint a key only for the first entry; with entries and no key, the files stay unindexed.
+    const key = this.#forgetKey(this.#suppressions().length === 0);
+    if (key === undefined) return;
     const entry = suppressionFor(phrase, key);
     if (entry === undefined) return;
     const list = this.#suppressions().filter(

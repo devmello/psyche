@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { FakeModelProvider } from "@psyche/testing";
@@ -286,6 +286,59 @@ async function seed(c: ComposedGateway): Promise<Seed> {
     doc("connector:mail:1", "connector:mail", "Re: lunch", "Jordan wrote about lunch on Friday"),
   );
 
+  // Connector state the poll and the ingesters keep in `graph_cursors`.
+  g.setCursor("candidates:mail", {
+    "jordan@example.com": { names: ["Jordan Lee"], threads: ["t1"], ownerSent: false },
+    "jordana@example.com": { names: ["Jordana"], threads: ["t2"], ownerSent: false },
+    "pat@example.com": { names: ["Pat"], threads: [], ownerSent: false },
+  });
+  g.setCursor("threads:asks", {
+    t1: {
+      counterpart: "jordan@example.com",
+      askedAt: NOW,
+      text: "Could you send me the slides?",
+      interactionId: "i1",
+    },
+    t3: {
+      counterpart: "pat@example.com",
+      askedAt: NOW,
+      text: "Can you ask Jordan about lunch?",
+      interactionId: "i3",
+    },
+    t2: {
+      counterpart: "pat@example.com",
+      askedAt: NOW,
+      text: "Can you send the report?",
+      interactionId: "i2",
+    },
+  });
+  g.setCursor("work:signals", {
+    v: 1,
+    reminders: {},
+    events: {},
+    files: {},
+    folderSuggested: [],
+    asks: [
+      {
+        entityId: pat.id,
+        claims: "done",
+        at: NOW,
+        sources: [],
+        evidence: "Jordan says it is done",
+        origin: "untrusted_text",
+      },
+      {
+        entityId: pat.id,
+        claims: "done",
+        at: NOW,
+        sources: [],
+        evidence: "Pat says it is done",
+        origin: "untrusted_text",
+      },
+    ],
+  });
+  g.setCursor("poll:mail", { since: "2026-11-01T00:00:00.000Z" });
+
   return {
     jordanId: jordan.id,
     jordanaId: jordana.id,
@@ -319,6 +372,7 @@ describe("forget everywhere", () => {
       "memory_quarantine",
       "lessons",
       "feedback_events",
+      "graph_cursors",
       "search_docs",
     ]) {
       expect(
@@ -369,6 +423,24 @@ describe("forget everywhere", () => {
 
     // Zero rows name him in the database, the search index memory docs, or the workspace.
     expect(leaks(c.db.sqlite)).toEqual([]);
+    // Connector state: nothing in `graph_cursors` names him; Jordana's candidate, Pat's own asks
+    // and the poll cursor stay.
+    const cursorRows = c.db.sqlite.prepare("SELECT source, cursor FROM graph_cursors").all() as {
+      source: string;
+      cursor: string;
+    }[];
+    for (const r of cursorRows) expect(r.cursor, r.source).not.toMatch(JORDAN);
+    expect(Object.keys(c.people.graph.cursor("candidates:mail") as object).sort()).toEqual([
+      "jordana@example.com",
+      "pat@example.com",
+    ]);
+    expect(Object.keys(c.people.graph.cursor("threads:asks") as object)).toEqual(["t2"]);
+    expect(
+      (c.people.graph.cursor("work:signals") as { asks: { evidence: string }[] }).asks.map(
+        (a) => a.evidence,
+      ),
+    ).toEqual(["Pat says it is done"]);
+    expect(c.people.graph.cursor("poll:mail")).toEqual({ since: "2026-11-01T00:00:00.000Z" });
     expect(leaks(c.search.index.db, (t) => t === "search_docs" || t === "search_cards")).toEqual(
       // Only the mail document is left: it is Search's copy of a mail, not Memory's, and no
       // Memory source item, card or People document names him.
@@ -555,6 +627,11 @@ describe("forget everywhere", () => {
       .all();
     expect(docs).toEqual([]);
     expect(leaks(c.db.sqlite)).toEqual([]);
+    // Connector state with addresses, ask texts and evidence goes; where each poll stopped stays.
+    for (const key of ["candidates:mail", "threads:asks", "work:signals"]) {
+      expect(c.people.graph.cursor(key), key).toBeUndefined();
+    }
+    expect(c.people.graph.cursor("poll:mail")).toEqual({ since: "2026-11-01T00:00:00.000Z" });
   });
 });
 
@@ -759,5 +836,46 @@ describe("forget everywhere: what each entry point reaches", () => {
     });
     // The owner (no actor) is not held to these.
     await c.memory.forget("Lisbon");
+  });
+
+  it("fails closed when the key is gone: persona chunks of a forgotten phrase do not come back", async () => {
+    composed = await compose();
+    const c = composed;
+    const desk = await adminClient(c.gateway);
+    clients.push(desk);
+    const soul = join(home, "workspace", "SOUL.md");
+    const keyFile = join(home, "workspace", ".psyche", "forget.key");
+    // Fresh install: no list, no key, and a forget with nothing to hide mints none.
+    expect(existsSync(keyFile)).toBe(false);
+    await c.memory.writeFileAsOwner("SOUL.md", "# Soul\n\nA teacher called Casey taught me.\n");
+    await c.memory.idle();
+    // Control: the first forget with a persona chunk mints the key (no prompt) and the list.
+    await desk.call("memory.forget", { subject: "Casey" }, ik());
+    expect(existsSync(keyFile)).toBe(true);
+    const soulChunks = () =>
+      (
+        sqlOf(c).prepare("SELECT text FROM memory_chunks WHERE source = 'SOUL.md'").all() as {
+          text: string;
+        }[]
+      ).map((r) => r.text);
+    expect(soulChunks().some((t) => /Casey/.test(t))).toBe(false);
+    // The key is lost (a pull that dropped it, a restore from backup); the file is reindexed.
+    rmSync(keyFile);
+    writeFileSync(soul, "# Soul\n\nA teacher called Casey taught me.\nI keep things short.\n");
+    const synced = await c.memory.sync();
+    expect(synced.changed).toContain("SOUL.md");
+    // Must refuse: nothing of SOUL.md is indexed, and in particular not the forgotten phrase.
+    expect(soulChunks()).toEqual([]);
+    expect(existsSync(keyFile)).toBe(false); // and no new key was minted over the old list
+    // A new forget cannot rebuild the list without its key either; the files stay unindexed.
+    await desk.call("memory.forget", { subject: "Taylor" }, ik());
+    expect(soulChunks()).toEqual([]);
+    // Reset removes the key and the list together, and the files index again.
+    await desk.call("memory.reset", {}, ik());
+    expect(existsSync(keyFile)).toBe(false);
+    expect(
+      sqlOf(c).prepare("SELECT 1 FROM memory_state WHERE key = 'forget.suppress'").get(),
+    ).toBeUndefined();
+    expect(soulChunks().length).toBeGreaterThan(0);
   });
 });

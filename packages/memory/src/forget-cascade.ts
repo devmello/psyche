@@ -31,6 +31,23 @@ const STOPWORDS = new Set([
   "on",
   "at",
   "is",
+  "for",
+  "with",
+  "that",
+  "this",
+  "be",
+  "we",
+  "he",
+  "she",
+  "they",
+  "but",
+  "not",
+  "so",
+  "as",
+  "by",
+  "from",
+  "was",
+  "are",
 ]);
 
 /** A single word that is on the short stopword list. */
@@ -45,7 +62,7 @@ export interface ForgetMatcher {
 const oneLine = (s: string): string => s.replace(/\s+/g, " ").trim();
 
 /**
- * Scripts written without spaces between words: a phrase that starts or ends in one cannot be
+ * Scripts written without spaces between words (Han, Kana, Thai...; Korean uses spaces, so Hangul is not one): a phrase that starts or ends in one cannot be
  * bounded by "the next character is not a letter" (`和李明一起` holds `李明`), so no boundary is
  * asked on that side.
  */

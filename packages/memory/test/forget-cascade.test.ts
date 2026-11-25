@@ -17,6 +17,7 @@ import {
   applyGraphReset,
   previewGraphForget,
   previewGraphReset,
+  pruneCursor,
 } from "../src/graph/forget.ts";
 import { GraphStore } from "../src/graph/store.ts";
 
@@ -37,6 +38,7 @@ const MUST_MATCH: [phrase: string, text: string][] = [
   ["Jordan Lee", "Jordan   Lee called"],
   ["Jordan Lee", "ask Jordan\nLee"],
   ["Zoë", "Zoë and I"],
+  ["민수", "안녕 민수 씨"],
   ["李明", "和李明一起"],
 ];
 
@@ -50,6 +52,7 @@ const MUST_NOT_MATCH: [phrase: string, text: string][] = [
   ["Jordan Lee", "Jordan Leeds"],
   ["Jordan Lee", "Jordan and Lee"],
   ["Zoë", "Zoëy"],
+  ["민수", "김민수는 학생"],
 ];
 
 describe("forgetMatcher", () => {
@@ -119,6 +122,23 @@ describe("what a forget refuses", () => {
     "on",
     "at",
     "is",
+    "for",
+    "with",
+    "that",
+    "this",
+    "be",
+    "we",
+    "he",
+    "she",
+    "they",
+    "but",
+    "not",
+    "so",
+    "as",
+    "by",
+    "from",
+    "was",
+    "are",
   ])("%j is a stopword", (w) => expect(isStopword(w)).toBe(true));
   it.each(["Jordan", "the Jordans", "Theo", "isle", "on call", "李明"])("%j is not", (w) =>
     expect(isStopword(w)).toBe(false),
@@ -126,10 +146,39 @@ describe("what a forget refuses", () => {
   it.each([
     ["李明", 2],
     ["李", 2],
+    ["민수", 3],
     ["ab", 3],
     ["Jordan", 3],
     ["ab李", 2],
   ])("the fewest characters for %j is %d", (w, n) => expect(minForgetChars(w)).toBe(n));
+});
+
+describe("connector state rows", () => {
+  const m = forgetMatcher("Jordan");
+  it("record rows lose the entries that name him and keep Jordana and the rest", () => {
+    const candidates = {
+      "jordan@example.com": { names: ["J"], threads: ["t1"], ownerSent: false },
+      "j2@example.com": { names: ["Jordan Lee"], threads: [], ownerSent: true },
+      "jordana@example.com": { names: ["Jordana"], threads: ["t2"], ownerSent: false },
+      "pat@example.com": { names: ["Pat"], threads: [], ownerSent: false },
+    };
+    const out = pruneCursor(candidates, "record", m);
+    expect(out.removed).toBe(2);
+    expect(Object.keys(out.value as object)).toEqual(["jordana@example.com", "pat@example.com"]);
+  });
+  it("struct rows keep their fields and lose the asks whose evidence names him", () => {
+    const state = {
+      v: 1,
+      reminders: {},
+      asks: [
+        { entityId: "e1", evidence: "Jordan says it is done", sources: [] },
+        { entityId: "e2", evidence: "Jordana says it is done", sources: [] },
+      ],
+    };
+    const out = pruneCursor(state, "struct", m);
+    expect(out.removed).toBe(1);
+    expect(out.value).toMatchObject({ v: 1, reminders: {}, asks: [{ entityId: "e2" }] });
+  });
 });
 
 describe("graph forget and reset", () => {
@@ -225,7 +274,9 @@ describe("graph forget and reset", () => {
     g.retractFact(fact?.id ?? "");
     g.forget(ghost.id); // blocklists the address (a hash)
     db.sqlite
-      .prepare("INSERT INTO graph_cursors (source, cursor, updated_at) VALUES ('mail', '{}', 'x')")
+      .prepare(
+        "INSERT INTO graph_cursors (source, cursor, updated_at) VALUES ('poll:mail', '{}', 'x'), ('candidates:mail', '{}', 'x'), ('threads:asks', '{}', 'x'), ('work:signals', '{}', 'x')",
+      )
       .run();
     db.sqlite
       .prepare(
@@ -250,7 +301,11 @@ describe("graph forget and reset", () => {
       }),
     ).toThrow(/forgotten/);
     // ...and reads from where it stopped, not from the start.
-    expect(n("graph_cursors")).toBe(1);
+    expect(
+      (db.sqlite.prepare("SELECT source FROM graph_cursors").all() as { source: string }[]).map(
+        (r) => r.source,
+      ),
+    ).toEqual(["poll:mail"]);
     expect(n("graph_exclusions")).toBe(1);
     expect(
       (
