@@ -50,7 +50,7 @@ export const points: Partial<Catalogue> = {
   "points.settings.title": "Psyche points",
   "points.settings.description":
     "एक विंडो चुनें और Psyche भरने के लिए अगला खाना दिखाएगा। यह कभी क्लिक या टाइप नहीं करता।",
-  "points.settings.enabledHint": "कमांड पैलेट और मेन्यू बार मेन्यू में फ़ॉर्म में मेरा मार्गदर्शन करें जोड़ता है।",
+  "points.settings.enabledHint": "कमांड पैलेट में फ़ॉर्म में मेरा मार्गदर्शन करें जोड़ता है।",
   "settings.key.points.enabled": "फ़ॉर्म में मार्गदर्शन",
   "points.card.back": "वापस",
   "points.card.skip": "छोड़ें",

@@ -47,7 +47,7 @@ export const points: Partial<Catalogue> = {
   "points.palette.keywords": "psyche points 箭头 指引 表单 填写 报税 签证 材料 帮助",
   "points.settings.title": "Psyche points",
   "points.settings.description": "选一个窗口，Psyche 会指出下一个要填的栏位。它绝不会点击或输入。",
-  "points.settings.enabledHint": "在命令面板和菜单栏菜单中加入“带我填表”。",
+  "points.settings.enabledHint": "在命令面板中加入“带我填表”。",
   "settings.key.points.enabled": "带我填表",
   "points.card.back": "返回",
   "points.card.skip": "跳过",

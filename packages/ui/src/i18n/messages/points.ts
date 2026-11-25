@@ -54,8 +54,7 @@ export const points = {
   "points.settings.title": "Psyche points",
   "points.settings.description":
     "Pick a window and Psyche points at the next field to fill. It never clicks or types.",
-  "points.settings.enabledHint":
-    "Adds Point me through a form to the command palette and the menu bar menu.",
+  "points.settings.enabledHint": "Adds Point me through a form to the command palette.",
   "settings.key.points.enabled": "Point me through forms",
   "points.card.back": "Back",
   "points.card.skip": "Skip",

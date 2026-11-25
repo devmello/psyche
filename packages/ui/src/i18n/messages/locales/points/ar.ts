@@ -49,7 +49,7 @@ export const points: Partial<Catalogue> = {
   "points.settings.title": "Psyche points",
   "points.settings.description":
     "اختر نافذة وسيشير Psyche إلى الحقل التالي لتملأه. لا ينقر ولا يكتب أبدًا.",
-  "points.settings.enabledHint": "يضيف أرشدني خلال نموذج إلى لوحة الأوامر وقائمة شريط القوائم.",
+  "points.settings.enabledHint": "يضيف أرشدني خلال نموذج إلى لوحة الأوامر.",
   "settings.key.points.enabled": "أرشدني خلال النماذج",
   "points.card.back": "رجوع",
   "points.card.skip": "تخطَّ",

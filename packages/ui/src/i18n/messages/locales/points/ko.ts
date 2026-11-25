@@ -50,7 +50,7 @@ export const points: Partial<Catalogue> = {
   "points.settings.title": "Psyche points",
   "points.settings.description":
     "창을 고르면 Psyche가 다음에 채울 칸을 가리킵니다. 클릭하거나 입력하는 일은 절대 없습니다.",
-  "points.settings.enabledHint": "명령 팔레트와 메뉴 막대 메뉴에 '양식 안내 받기'를 추가합니다.",
+  "points.settings.enabledHint": "명령 팔레트에 '양식 안내 받기'를 추가합니다.",
   "settings.key.points.enabled": "양식 안내 받기",
   "points.card.back": "뒤로",
   "points.card.skip": "건너뛰기",
