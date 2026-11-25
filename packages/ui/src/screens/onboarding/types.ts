@@ -2,6 +2,7 @@ import type { StarterFolderId } from "@psyche/protocol";
 import type { ScopeMode } from "../settings/ConnectorsSection.tsx";
 import type { MacHelperStatus } from "../settings/MacHelperStatus.tsx";
 import type { ProviderKind, TccPermission, TccState, ToolCheck } from "../settings/types.ts";
+import type { OnboardingAnswers } from "./progress.ts";
 
 /** Onboarding (UI design §3.19): the steps, the shell callbacks and the result. */
 
@@ -125,7 +126,11 @@ export interface OnboardingExtrasProps {
   /** Saves the reviewed items as the owner's memory; resolves with how many were saved. */
   onCommitImport?: (items: ImportedMemory[]) => Promise<number>;
   /** Called whenever the step changes or a step is finished, so a restart resumes. */
-  onProgress?: (progress: { step: OnboardingStepId; done: OnboardingStepId[] }) => void;
+  onProgress?: (progress: {
+    step: OnboardingStepId;
+    done: OnboardingStepId[];
+    answers?: OnboardingAnswers;
+  }) => void;
   /** Steps a re-run leaves out because they are already set up. */
   completed?: readonly OnboardingStepId[];
   /** A re-run: the agent's name and look are edited in Settings, so the You step omits them. */
