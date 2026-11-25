@@ -366,6 +366,22 @@ Design: `docs/design/generative-ui-2026.md`. An agent-drawn widget is **data** (
 - **Open.** App routes through the known-route table; Library items and artifacts through the app's own openers; links through the owner's link policy (a new origin from a tainted context asks, §3.6).
 - **Images (D3).** Remote images are off by default (`widgets.remoteImages`, an admin setting); when on they are fetched by the Gateway only for a URL named in that widget's stored spec, https only, every hop and resolved address vetted against private ranges, no cookies or referrer, image types only (never SVG), 512 KiB; in an untrusted widget they load only after a click.
 
+### 3.15 Staged apply (Night shift)
+
+Design: `docs/design/night-shift-2026.md` §3. In the morning the owner ticks the changes Night shift prepared and one approval covers exactly that set. `PermissionBroker.requestStagedApply(input)` issues it. It is modelled on `requestBatch` and adds no new answer path: `approvals.answer` applies its usual rules (the connection's `local`, device-only, scope, lockout).
+
+- **Input.** 1 to 50 children, each `{itemId, call, summary}`, plus `explicitSend` and `recipients` for a send, and `undo: {createdId}` for an undo. Every child is decided again with `decide` under today's policy, so a stale grant or a changed mode applies.
+- **Per-child refusal.** A refused child comes back in `refused[]` with its item id, index and a reason, and the rest of the set is still approved. When nothing is left, no approval is issued (`policy_denied`, `details.reason = "all_refused"`). The kinds are judged from the resolved, declared and inferred kind, so a relabelled call meets every rule. A child is refused when it is:
+  - money-intent: `isMoneyToolName` on the tool, `isMoneyText` on the summary, the target and every string and key in its params (a call too large to read fails closed);
+  - denied by the decision, `financial`, `purchase`, any `AUTH_KINDS` kind, or needs a typed confirmation;
+  - a nested `batch` or `staged_apply`, or any other `DEVICE_ONLY_KINDS` kind;
+  - a `send_email` unless it is marked `explicitSend` and carries a non-empty list of recipients;
+  - destructive, except an undo inverse (night-shift §5.4): only `calendar_delete_event` or `reminders_delete` (matched on the last name segment), with `undo.createdId` appearing in the call's params;
+  - anything that is not a write (a read is not a change).
+- **The approval.** `kind: "staged_apply"`, `riskClass: "sensitive"` always (so a bulk answer, "Approve all routine", is refused with `not_routine`), `scopesOffered: ["once"]` and no grant, `requiresAuthentication: false` always (nothing in the set can need presence, so the answer is a plain tap, §3.7), TTL 10 minutes. It is `deviceOnly` with side effect `destructive` when the set holds a send or an undo delete, so it is never delivered to a chat. It binds the ordered list of the children's binding hashes. `details.items` is written by the broker after the caller's details and lists `{itemId, tool, summary, bindingHash}` per child, with `send: {to}` on a send. The client checks that set equals what it showed before it answers.
+- **Children.** On approval one approved, once-only child is minted per kept item with `requestedBy.toolCallId` = the item id (the connector registry's `toolCallId === callId` check). Each is consumed once by `verifyBinding` and checked again by the connector. Taint carries from the set to the card and every child. `batchChildren(approvalId)` reads them for both kinds.
+- **Tests.** `packages/permissions/test/staged-apply.test.ts`: a table row for every refusal class with near-misses that must be allowed, the approval fields, the bulk refusal, the send and undo device-only rule, and the minted children on in-memory and real SQLite.
+
 ## 4. Credential Broker specification
 
 ### 4.1 Vault format
