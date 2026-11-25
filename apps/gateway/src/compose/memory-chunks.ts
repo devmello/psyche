@@ -193,26 +193,60 @@ export function mountMemoryHandlers(
   return out;
 }
 
+/** What the Gateway knows of a paired device, for {@link gateMemoryEntities}. */
+export interface EntityDeviceFacts {
+  platform: string;
+  family: string | null;
+  paired: boolean;
+  revoked: boolean;
+}
+
 /**
  * Every `memory.entities.*` method reads or writes the people and projects in the owner's Memory
- * (names, facts, edges, interactions, history), so each is held to the same rule as `memory.read`
- * and `memory.export`: the desktop app and the Host CLI only. Any other connection (a phone, a
- * remote Mac, a web viewer, a read-only or unpaired caller) is refused with `forbidden` and
- * `details.reason = "not_desktop"`. Applied once over the final handler map, so a method added
- * later is covered by its name, wherever it is mounted.
+ * (owner decision 2026-11-25: "Yes, phone too"). Allowed: the desktop app and the Host CLI, and a
+ * paired, not revoked owner device (the iPhone, a remote Mac) holding a write scope. The method's
+ * own scope still applies on top (reads `operator.read`, writes `operator.write`, forget
+ * `operator.admin`). Refused with `forbidden` / `not_desktop` or, for the browser web shell,
+ * `web_shell` (the UI says "Open this on your Mac or iPhone"): the web shell, a read-only device,
+ * an unpaired or pairing-pending one, a revoked or unknown one and a node. A failed lookup refuses.
+ * Applied once over the final handler map, so the scrubs inside (`withLoopViewer`,
+ * `attachGistSources`) still run for the remote devices that get through.
  */
-export function gateMemoryEntities(handlers: Record<string, HandlerDef>): void {
+export function gateMemoryEntities(
+  handlers: Record<string, HandlerDef>,
+  deviceOf: (deviceId: string) => EntityDeviceFacts | undefined,
+): void {
+  const refuse = (reason: "not_desktop" | "web_shell") =>
+    new PsycheError(
+      "forbidden",
+      reason === "web_shell"
+        ? "People and projects open in the Psyche app on your Mac or iPhone"
+        : "People and projects open in the Psyche app on the Host or a paired device only",
+      { details: { reason } },
+    );
+  const allowed = (call: Call): "ok" | "not_desktop" | "web_shell" => {
+    if (mayReadMemoryChunks(memoryViewerOf(call))) return "ok";
+    const id = call.identity;
+    if (id.role !== "client" || id.deviceId === undefined) return "not_desktop";
+    if (!id.scopes?.includes("operator.write") && !id.scopes?.includes("operator.admin"))
+      return "not_desktop";
+    let d: EntityDeviceFacts | undefined;
+    try {
+      d = deviceOf(id.deviceId);
+    } catch {
+      return "not_desktop";
+    }
+    if (d === undefined || !d.paired || d.revoked) return "not_desktop";
+    if (d.platform === "web" || d.family === "web") return "web_shell";
+    return d.family === null ? "not_desktop" : "ok";
+  };
   for (const [name, def] of Object.entries(handlers)) {
     if (!name.startsWith("memory.entities.")) continue;
     handlers[name] = {
       ...def,
       run: async (call: Call, params: never) => {
-        if (!mayReadMemoryChunks(memoryViewerOf(call)))
-          throw new PsycheError(
-            "forbidden",
-            "People and projects open in the Psyche app on the Host only",
-            { details: { reason: "not_desktop" } },
-          );
+        const verdict = allowed(call);
+        if (verdict !== "ok") throw refuse(verdict);
         return (def.run as (c: Call, p: never) => unknown)(call, params);
       },
     } as HandlerDef;
