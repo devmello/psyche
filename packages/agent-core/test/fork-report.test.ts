@@ -293,6 +293,50 @@ describe("fork_report: the report is filed once", () => {
     expect(resultOf(h, "f1")?.isError).toBe(true);
   });
 
+  const withExtra = (path: "top" | "cost" | "cite" | "step" | "question", key: string) => {
+    const r = report() as unknown as Record<string, unknown>;
+    const first = (list: string) =>
+      (r[list] as Record<string, unknown>[])[0] as Record<string, unknown>;
+    if (path === "top") r[key] = true;
+    if (path === "cost") first("costs")[key] = "x".repeat(200_000);
+    if (path === "cite")
+      ((first("costs").cites as Record<string, unknown>[])[0] as Record<string, unknown>)[key] =
+        true;
+    if (path === "step") first("steps")[key] = true;
+    if (path === "question") first("openQuestions")[key] = true;
+    return r;
+  };
+
+  it.each([
+    { label: "verified at the top level", input: () => withExtra("top", "verified") },
+    { label: "checkedBy at the top level", input: () => withExtra("top", "checkedBy") },
+    { label: "a 200k-character blob on a cost", input: () => withExtra("cost", "blob") },
+    { label: "sourceChecked on a cost", input: () => withExtra("cost", "sourceChecked") },
+    { label: "trusted on a cite", input: () => withExtra("cite", "trusted") },
+    { label: "an unknown key on a step", input: () => withExtra("step", "approved") },
+    { label: "an unknown key on an open question", input: () => withExtra("question", "x") },
+  ])("an unknown key ($label) is refused and files nothing", async ({ input }) => {
+    const host = new FakeHost();
+    const h = harness({
+      loop: { forkReports: host },
+      script: [call("f1", "fork_report", input()), say("done")],
+    });
+    await turn(h, FORK);
+    expect(host.filed).toHaveLength(0);
+    expect(resultOf(h, "f1")?.isError).toBe(true);
+  });
+
+  it("control: the same report without the extra key files", async () => {
+    const host = new FakeHost();
+    const h = harness({
+      loop: { forkReports: host },
+      script: [call("f1", "fork_report", report()), say("done")],
+    });
+    await turn(h, FORK);
+    expect(host.filed).toHaveLength(1);
+    expect(JSON.stringify(host.filed[0]?.report)).not.toContain("blob");
+  });
+
   it("drops the fields only the Gateway may set, wherever the model put them", async () => {
     const host = new FakeHost();
     const sneaky = report();

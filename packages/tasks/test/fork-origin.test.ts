@@ -1,7 +1,9 @@
 import type { Staging } from "@psyche/protocol";
-import { FakeClock } from "@psyche/testing";
+import { FakeClock, FakeNotifier, FakePermissionBroker } from "@psyche/testing";
 import { describe, expect, it } from "vitest";
+import { TaskWorkerPool } from "../src/index.ts";
 import { THREAD, testDb, testEngine, tmpDir } from "./helpers.ts";
+import { ControlledLoop, clockTimers } from "./loops.ts";
 
 /**
  * Fork a plan F1 (docs/design/fork-a-plan-2026.md §2.2, §3.1): a branch's task is created with
@@ -55,15 +57,26 @@ describe("tasks: the fork origin", () => {
     ).rejects.toMatchObject({ code: "invalid_params" });
   });
 
-  it("control: the same fork block under another origin is still accepted (night rows unchanged)", async () => {
+  it.each(["chat", "automation", "subagent"] as const)(
+    "refuses a fork block under the %s origin",
+    async (createdFrom) => {
+      const { engine } = testEngine();
+      await expect(
+        engine.create({ ...base, createdFrom, mode: "unattended", staging: FORK }),
+      ).rejects.toMatchObject({ code: "invalid_params" });
+      expect(await engine.list()).toHaveLength(0);
+    },
+  );
+
+  it("control: a night block under a non-fork origin is still accepted (night rows unchanged)", async () => {
     const { engine } = testEngine();
     const task = await engine.create({
       ...base,
       createdFrom: "chat",
       mode: "unattended",
-      staging: FORK,
+      staging: NIGHT,
     });
-    expect(engine.getRecord(task.id)?.staging).toEqual(FORK);
+    expect(engine.getRecord(task.id)?.staging).toEqual(NIGHT);
   });
 
   it("the chat pool's claim filter skips fork tasks and a fork claim finds them", async () => {
@@ -85,5 +98,42 @@ describe("tasks: the fork origin", () => {
     ).toBeUndefined();
     const forkClaim = await engine.claim("fork/0", { leaseMs: 60_000, origins: ["fork"] });
     expect(forkClaim?.taskId).toBe(fork.id);
+  });
+});
+
+describe("worker: a fork task ends quietly", () => {
+  async function finish(createdFrom: "fork" | "chat") {
+    const clock = new FakeClock();
+    const { engine } = testEngine({ clock });
+    const loop = new ControlledLoop();
+    const notifier = new FakeNotifier({ clock });
+    const pool = new TaskWorkerPool({
+      engine,
+      loop,
+      clock,
+      timers: clockTimers(clock),
+      broker: new FakePermissionBroker({ clock }),
+      notifier,
+      owner: "w1",
+      newRunId: () => "run_1",
+      stagingSinkFor: () => ({ stage: async () => ({ staged: false as const }) }),
+    });
+    await engine.create(
+      createdFrom === "fork"
+        ? { ...base, createdFrom, mode: "unattended", staging: FORK }
+        : { ...base, createdFrom, mode: "unattended" },
+    );
+    const next = loop.nextTurn();
+    const report = pool.runOnce();
+    const turn = await next;
+    turn.emit({ type: "chat.delta", messageId: "m1", delta: "Done." });
+    turn.end("final");
+    await report;
+    return (await notifier.list()).map((n) => n.kind);
+  }
+
+  it("a branch posts no task_done, and the same task under the chat origin does (control)", async () => {
+    expect(await finish("chat")).toEqual(["task_done"]);
+    expect(await finish("fork")).toEqual([]);
   });
 });

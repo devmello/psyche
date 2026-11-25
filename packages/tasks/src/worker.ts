@@ -735,7 +735,13 @@ export class TaskWorkerPool {
     // Automation runs are delivered by the scheduler; chat-attended tasks show in the thread.
     // Automation runs are delivered by the scheduler and specialist jobs by their one result
     // card (docs/agent/specialists-2026.md §4.2), so neither gets a second notification here.
-    if (n === undefined || task.createdFrom === "automation" || task.createdFrom === "subagent") {
+    // A plan-fork branch reports through its fork (`planFork.updated`), never as a task.
+    if (
+      n === undefined ||
+      task.createdFrom === "automation" ||
+      task.createdFrom === "subagent" ||
+      task.createdFrom === "fork"
+    ) {
       return;
     }
     try {
