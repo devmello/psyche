@@ -647,7 +647,17 @@ describe("threads", () => {
     ).toBe(true);
     await c.call("threads.archive", { threadId: side.id });
     expect((await c.call<{ threads: unknown[] }>("threads.list", {})).threads).toHaveLength(0);
+    // archivedOnly lists just the archived chats (paged), not the newest of everything.
+    const archivedOnly = await c.call<{ threads: { thread: Thread }[]; nextCursor: string | null }>(
+      "threads.list",
+      { archivedOnly: true, limit: 5 },
+    );
+    expect(archivedOnly.threads.map((e) => e.thread.id)).toEqual([side.id]);
+    expect(archivedOnly.nextCursor).toBeNull();
     await c.call("threads.restore", { threadId: side.id });
+    expect(
+      (await c.call<{ threads: unknown[] }>("threads.list", { archivedOnly: true })).threads,
+    ).toHaveLength(0);
     expect((await c.call<{ threads: unknown[] }>("threads.list", {})).threads).toHaveLength(1);
     await c.call("threads.delete", { threadId: side.id });
     expect((await c.request("threads.get", { threadId: side.id })).error).toMatchObject({

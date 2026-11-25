@@ -30,6 +30,8 @@ export const DailySectionId = StringEnum(
     "worked_on",
     // Promise ledger (docs/design/promise-ledger-2026.md §5.5): after "Coming up".
     "promises",
+    // Night shift (docs/design/night-shift-2026.md §5.5): one line when changes were prepared.
+    "night_shift",
   ],
   { $id: "DailySectionId" },
 );

@@ -17,6 +17,7 @@ export * from "./memory.ts";
 export * from "./memory-work.ts";
 export * from "./messages.ts";
 export * from "./models.ts";
+export * from "./night-shift.ts";
 export * from "./ocr.ts";
 export * from "./permissions.ts";
 export * from "./promises.ts";

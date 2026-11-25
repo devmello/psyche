@@ -3,8 +3,8 @@ import PsycheStore
 import SwiftUI
 
 extension View {
-    /// Picks up what the share extension queued, on launch and every time the app comes to the front, and
-    /// keeps the extension's list of recent threads current.
+    /// Picks up what the share extension queued, on launch, every time the app comes to the front and when the
+    /// phone reconnects, and keeps the extension's list of recent threads current.
     func syncsShareInbox(store: any PsycheBackend) -> some View {
         modifier(ShareInboxSync(store: store))
     }
@@ -25,10 +25,8 @@ private struct ShareInboxSync: ViewModifier {
             .task { await sync() }
             .task {
                 for await event in store.events() {
-                    switch event {
-                    case .changed(.threads), .resynced: await writeRecents()
-                    default: break
-                    }
+                    guard ShareInboxPolicy.touchesRealInbox(backend: store), let inbox = ShareInbox.shared else { continue }
+                    await ShareInboxDrain.react(to: event, inbox: inbox, backend: store)
                 }
             }
             .onChange(of: scenePhase) { _, phase in
