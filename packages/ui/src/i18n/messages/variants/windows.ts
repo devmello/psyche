@@ -468,6 +468,8 @@ export const windows: Partial<Record<MessageId, string>> = {
   "web.security.alert.requested": "Asked for on this PC: {action} Applies on {when}.",
   "web.security.op.presenceReset":
     "stop requiring Windows Hello or a passkey for security changes until a new key is registered.",
+  "web.security.needsApprovalPresence":
+    "Approve the card with Windows Hello or a passkey, then press the button again.",
   "web.security.needsApproval":
     "Approve the card with Windows Hello or a passkey, then press the button again.",
   "notice.security.changed.body":

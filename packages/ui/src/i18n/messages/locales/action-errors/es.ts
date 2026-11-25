@@ -12,5 +12,7 @@ export const actionErrors: Partial<Catalogue> = {
   "actionError.transcriptMode": "No se pudo cambiar el detalle de la transcripción ({reason}).",
   "actionError.screenAskDestination":
     "No se pudo cambiar el destino de las preguntas de pantalla ({reason}).",
+  "actionError.stopVirtualScreen":
+    "No se pudo detener la pantalla virtual ({reason}). Puede que siga en marcha.",
   "actionError.takeOver": "No se pudo tomar el control de la pantalla virtual ({reason}).",
 };

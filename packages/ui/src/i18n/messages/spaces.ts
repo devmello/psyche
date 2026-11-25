@@ -125,7 +125,8 @@ export const spaces = {
   "spaces.settings.mode.balanced": "Balanced",
   "spaces.settings.mode.auto": "Auto",
   "spaces.settings.mode.inheritHint": "Chats here use your global permission mode.",
-  "spaces.settings.mode.planHint": "Chats here only read and plan; nothing is changed.",
+  "spaces.settings.mode.planHint":
+    "New chats here start in plan mode: they only read and plan, and nothing is changed.",
   "spaces.settings.mode.manualHint": "Every action outside a grant asks first.",
   "spaces.settings.mode.balancedHint": "Reads run; writes to people and money ask first.",
   "spaces.settings.mode.autoHint":

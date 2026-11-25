@@ -1,7 +1,8 @@
 import type { ConnectorRecord, ConnectorRegistry } from "@psyche/connectors";
 import { getSetting, getSettings } from "@psyche/db";
+import type { PsycheNotifier } from "@psyche/notifications";
 import { appleConnectorKey, type MatrixRule, type PolicyConfig } from "@psyche/permissions";
-import { PsycheError } from "@psyche/protocol";
+import { type Notification, PsycheError } from "@psyche/protocol";
 import { stateSealFor } from "../security/state-seal.ts";
 import type { ComposeServices } from "./services.ts";
 
@@ -126,6 +127,90 @@ export function brokerConnectors(
   return out;
 }
 
+/**
+ * Saves a connector's changed rules in one call. When that call fails (one bad entry: an unknown
+ * group, allow on a send), each entry is retried alone so the rest still apply, and `onFailed`
+ * hears every entry that did not.
+ */
+export async function applyMatrixEntries(
+  registry: Pick<ConnectorRegistry, "setMatrix">,
+  id: string,
+  changed: [string, MatrixRule][],
+  onFailed: (action: string, err: unknown) => void,
+): Promise<void> {
+  try {
+    await registry.setMatrix(id, Object.fromEntries(changed));
+    return;
+  } catch {
+    // Retried one entry at a time below.
+  }
+  for (const [action, rule] of changed) {
+    await registry.setMatrix(id, { [action]: rule }).catch((err) => onFailed(action, err));
+  }
+}
+
+const MATRIX_NOTICE_TITLE = "notice.connectors.matrix.failed.title";
+/** Longest action id or connector label put in a notice (values are clamped, not trusted). */
+const NOTICE_TEXT_MAX = 60;
+const clipText = (s: string): string => s.slice(0, NOTICE_TEXT_MAX);
+
+/**
+ * The "a connector rule didn't save" notices, one per connector action. A refused value raises one
+ * notice; it is not raised again for that value after the owner dismisses it. When the rule later
+ * applies, the open notice is resolved. Open notices are found by their content, not by memory, so
+ * a restart still resolves them.
+ */
+export function matrixNotices(notifier: Pick<PsycheNotifier, "list" | "notify" | "resolve">): {
+  refused(
+    record: Pick<ConnectorRecord, "id" | "label">,
+    action: string,
+    value: string,
+  ): Promise<void>;
+  settled(record: Pick<ConnectorRecord, "id" | "label">, action: string): Promise<void>;
+} {
+  // `<id> <action> <value>` for each refusal raised since its last settle, so a repeating refusal
+  // does not come back once the owner has dismissed it.
+  const raised = new Set<string>();
+  const prefix = (id: string, action: string) => `${id}\u0000${action}\u0000`;
+  const openFor = async (label: string, action: string): Promise<Notification[]> =>
+    (await notifier.list({ unresolvedOnly: true })).filter(
+      (n) =>
+        n.message?.titleKey === MATRIX_NOTICE_TITLE &&
+        n.message.params?.connector === clipText(label) &&
+        n.message.params?.action === clipText(action),
+    );
+  return {
+    async refused(record, action, value) {
+      const k = `${prefix(record.id, action)}${value}`;
+      if (raised.has(k)) return;
+      raised.add(k);
+      const shownAction = clipText(action);
+      const shownLabel = clipText(record.label);
+      await notifier
+        .notify({
+          kind: "system",
+          route: "/settings/connectors",
+          title: "A connector rule didn't save",
+          body: `${shownAction} on ${shownLabel} couldn't be applied, so it still uses its previous rule. Check it in Settings › Connectors.`,
+          message: {
+            titleKey: MATRIX_NOTICE_TITLE,
+            bodyKey: "notice.connectors.matrix.failed.body",
+            params: { action: shownAction, connector: shownLabel },
+          },
+          dedupeKey: `connector-matrix:${record.id}:${action}`,
+        })
+        .catch(() => undefined);
+    },
+    async settled(record, action) {
+      const head = prefix(record.id, action);
+      for (const k of [...raised]) if (k.startsWith(head)) raised.delete(k);
+      for (const n of await openFor(record.label, action)) {
+        await notifier.resolve(n.id).catch(() => undefined);
+      }
+    },
+  };
+}
+
 export interface ConnectorMatrixSync {
   /** Re-applies the stored rules to the broker and the executor (boot, after any change). */
   sync(): Promise<void>;
@@ -171,22 +256,22 @@ export function connectorMatrixSync(
     }
   }
 
+  const notices = matrixNotices(services.notifier);
+
   async function setMatrix(record: ConnectorRecord, wanted: Matrix): Promise<void> {
     const changed = Object.entries(wanted).filter(([k, v]) => record.actionMatrix[k] !== v);
     if (changed.length === 0) return;
-    try {
-      await registry.setMatrix(record.id, Object.fromEntries(changed));
-    } catch {
-      // One bad entry (an unknown group, allow on a send) must not drop the rest.
-      for (const [k, v] of changed) {
-        await registry.setMatrix(record.id, { [k]: v }).catch((err) =>
-          warn("a connector rule could not be applied", err, {
-            connectorId: record.id,
-            action: k,
-          }),
-        );
-      }
-    }
+    // A floor lift saved beside this rule: a refusal before the lift lands is the other half of
+    // the same change, so the owner is not told about it.
+    const lifted = ownerLiftedFloors(getSettings(db)).get(record.id) ?? [];
+    await applyMatrixEntries(registry, record.id, changed, (k, err) => {
+      const code = PsycheError.from(err).code;
+      warn("a connector rule could not be applied", err, { connectorId: record.id, action: k });
+      // An unknown action or a malformed rule is a stale record: logged, nothing for the owner.
+      if (code === "invalid_params") return;
+      if (code === "policy_denied" && lifted.includes(k)) return;
+      void notices.refused(record, k, wanted[k] ?? "");
+    });
   }
 
   async function pass(): Promise<void> {
@@ -194,12 +279,22 @@ export function connectorMatrixSync(
     // and action matrix) feeds no rule to the broker (security-state-integrity §7.1).
     const seal = stateSealFor(db);
     seal?.ensure();
-    records = (await registry.list()).filter((r) => seal?.genuine("connectors", r.id) ?? true);
+    const trusted = (list: ConnectorRecord[]) =>
+      list.filter((r) => seal?.genuine("connectors", r.id) ?? true);
+    records = trusted(await registry.list());
     applyBroker();
     const owner = ownerMatrices(getSettings(db));
     for (const r of records) {
       const wanted = owner.get(r.id);
       if (wanted !== undefined) await setMatrix(r, wanted);
+    }
+    // Settle every notice whose rule now matches the owner's choice (a lift that landed, a retry).
+    for (const r of trusted(await registry.list())) {
+      const wanted = owner.get(r.id);
+      if (wanted === undefined) continue;
+      for (const [k, v] of Object.entries(wanted)) {
+        if (r.actionMatrix[k] === v) await notices.settled(r, k);
+      }
     }
   }
 

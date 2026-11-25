@@ -97,7 +97,8 @@ describe("SecurityStateBanner", () => {
     fireEvent.click(screen.getByRole("button", { name: "Review" }));
     expect(screen.getByText("Added: devices · rogue")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Mark reviewed" }));
-    expect(await screen.findByText(/Approve the card with Touch ID/)).toBeTruthy();
+    // An acknowledge is a plain tap: no presence (Touch ID) is named.
+    expect(await screen.findByText(/Approve the card, then press the button again/)).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Mark reviewed" }));
     await waitFor(() => expect(asked).toBe(2));
     expect(g.seen.at(-2)?.params).toEqual({ id: "a1", approvalId: "ap1" });
