@@ -181,7 +181,7 @@ describe("onboarding model setup", () => {
       ["helper", "warn"],
       ["model", "warn"],
     ]);
-    expect(checks.at(-1)?.detail).toMatch(/no key yet/);
+    expect(checks.at(-1)?.detail).toMatch(/no key added/);
   });
 
   it("counts a signed-in Claude subscription (claude-code) as ready with no API key (#537)", async () => {
@@ -322,5 +322,112 @@ describe("onboarding model setup", () => {
     expect((await verifySetup(web.platform, none, undefined)).some((c) => c.id === "admin")).toBe(
       false,
     );
+  });
+});
+
+describe("onboarding model setup: rejected and refused keys", () => {
+  const vaultNew = {
+    "vault.status": () => ({ status: { state: "uninitialized" } }),
+    "vault.setup": () => ({ recoveryKey: "AAAA-BBBB-CCCC", status: { state: "unlocked" } }),
+  };
+
+  it("carries the new vault's recovery key on the error when models.setKey rejects the key", async () => {
+    const { platform } = platformWith({
+      ...vaultNew,
+      "models.setKey": () => {
+        throw invalid("that does not look like an Anthropic API key");
+      },
+    });
+    const err = await saveProviderKey(platform, "anthropic", "sk-wrong").catch((e) => e);
+    expect(err).toBeInstanceOf(Error);
+    expect((err as { recoveryKey?: string }).recoveryKey).toBe("AAAA-BBBB-CCCC");
+    expect((err as Error).message).not.toContain("AAAA-BBBB-CCCC");
+    // Hidden from JSON.stringify and spreads, so a later log of the error cannot leak it.
+    expect(JSON.stringify(err)).not.toContain("AAAA-BBBB-CCCC");
+    expect(Object.keys(err as object)).not.toContain("recoveryKey");
+  });
+
+  it("puts no recovery key on the error when the vault already existed", async () => {
+    const { platform } = platformWith({
+      "vault.status": () => ({ status: { state: "unlocked" } }),
+      "models.setKey": () => {
+        throw invalid("bad key");
+      },
+    });
+    const err = await saveProviderKey(platform, "anthropic", "x").catch((e) => e);
+    expect((err as { recoveryKey?: string }).recoveryKey).toBeUndefined();
+  });
+
+  it("removes a refused key so it is not left as the active key", async () => {
+    const { platform, calls } = platformWith({
+      "vault.status": () => ({ status: { state: "unlocked" } }),
+      "models.setKey": () => ({ provider: {} }),
+      "models.probe": () => ({ provider: { probe: { state: "auth_failed", error: "HTTP 401" } } }),
+      "models.clearKey": () => ({ provider: {} }),
+    });
+    const saved = await saveProviderKey(platform, "anthropic", "sk-ant-x");
+    expect(saved.refused).toBe("HTTP 401");
+    expect(calls.map((c) => c.method)).toContain("models.clearKey");
+  });
+
+  it("keeps an accepted key (positive control for clearKey)", async () => {
+    const { platform, calls } = platformWith({
+      "vault.status": () => ({ status: { state: "unlocked" } }),
+      "models.setKey": () => ({ provider: {} }),
+      "models.probe": () => ({ provider: { probe: { state: "reachable" } } }),
+      "models.clearKey": () => ({ provider: {} }),
+    });
+    await saveProviderKey(platform, "anthropic", "sk-ant-x");
+    expect(calls.map((c) => c.method)).not.toContain("models.clearKey");
+  });
+
+  it("checkModel reports an inconclusive check as untested, not passed", async () => {
+    const mk = (status: string) =>
+      platformWith({ "models.check": () => ({ result: { status } }) }).platform;
+    const choice = { modelRef: "anthropic/claude-sonnet-5-5" } as never;
+    expect(await checkModel(mk("untested"), choice)).toBe("untested");
+    expect(await checkModel(mk("chat-only"), choice)).toBe("failed");
+    expect(await checkModel(mk("full"), choice)).toBe("passed");
+  });
+
+  const result = {
+    model: { modelRef: "anthropic/claude-sonnet-5-5", toolCheck: "untested" },
+  } as never;
+  const listWith = (provider: Record<string, unknown>) => ({
+    "models.list": () => ({
+      providers: [{ id: "anthropic", local: false, ...provider }],
+      roles: { primary: "anthropic/claude-sonnet-5-5" },
+    }),
+    "models.setRole": () => ({ roles: {} }),
+  });
+
+  it("Done shows a refused key as a failure with a link back to the Model step", async () => {
+    for (const keyConfigured of [true, false]) {
+      const { platform } = platformWith(
+        listWith({ keyConfigured, probe: { state: "auth_failed", error: "HTTP 401" } }),
+      );
+      const model = (await verifySetup(platform, result, undefined)).at(-1);
+      expect(model).toMatchObject({ id: "model", state: "fail", fixStep: "model" });
+      expect(model?.detail).toContain("HTTP 401");
+    }
+  });
+
+  it("Done shows a stored key it could not check as not checked", async () => {
+    const { platform } = platformWith(
+      listWith({ keyConfigured: true, probe: { state: "unreachable" } }),
+    );
+    expect((await verifySetup(platform, result, undefined)).at(-1)).toMatchObject({
+      state: "unchecked",
+      fixStep: "model",
+    });
+  });
+
+  it("Done passes a reachable key, and says plainly when there is no key", async () => {
+    const ok = platformWith(listWith({ keyConfigured: true, probe: { state: "reachable" } }));
+    expect((await verifySetup(ok.platform, result, undefined)).at(-1)?.state).toBe("ok");
+    const none = platformWith(listWith({ keyConfigured: false, probe: { state: "not_probed" } }));
+    const row = (await verifySetup(none.platform, result, undefined)).at(-1);
+    expect(row?.state).toBe("warn");
+    expect(row?.detail).toMatch(/no key added/);
   });
 });

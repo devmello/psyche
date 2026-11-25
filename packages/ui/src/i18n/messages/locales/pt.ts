@@ -2891,6 +2891,9 @@ export const pt: Partial<Catalogue> = {
   "onboarding.done.checking": "Verificando a configuração…",
   "onboarding.done.checks": "Verificações da configuração",
   "onboarding.done.ok": "OK",
+  "onboarding.done.failed": "Falhou",
+  "onboarding.done.notChecked": "Não verificado",
+  "onboarding.done.fixModel": "Corrigir na etapa Modelo",
   "onboarding.done.check": "Verificar",
   "onboarding.model.idPlaceholder": "{provider}/nome-do-modelo",
 
@@ -3546,6 +3549,14 @@ export const pt: Partial<Catalogue> = {
   "web.setup.helperWarn":
     "Ainda não conectado. O uso do computador e as notificações aguardam por ele.",
   "web.setup.model": "Modelo",
+  "web.setup.modelRefused": "{ref}: o provedor recusou a chave ({error}). A chave não foi mantida.",
+  "web.setup.modelNotChecked":
+    "{ref}: a chave está guardada, mas não foi possível contactar o provedor para a verificar.",
+  "web.setup.modelSkipped":
+    "{ref}: nenhuma chave adicionada, por isso o chat ainda não responde. Adicione uma em Definições → Modelos.",
+  "web.gate.loading": "A iniciar o Psyche",
+  "web.gate.error": "O Psyche não conseguiu verificar se a configuração está concluída.",
+  "web.gate.retry": "Tentar novamente",
   "web.setup.modelNone": "Nenhum escolhido. Adicione um em Ajustes → Modelo e provedores.",
   "web.setup.modelOk": "{ref}, chave no cofre.",
   "web.setup.modelUnbound": "{ref} ainda não está vinculado.",
