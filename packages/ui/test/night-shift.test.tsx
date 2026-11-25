@@ -28,7 +28,11 @@ import {
 import { ReviewSheet } from "../src/night-shift/ReviewSheet.tsx";
 import { HABIT_DEFAULTS, MEMORY_CHOICE_DEFAULTS } from "../src/screens/onboarding/index.ts";
 import { MemoryStep } from "../src/screens/onboarding/MemoryStep.tsx";
-import { DailyPanel, windowLongEnough } from "../src/screens/settings/DailySection.tsx";
+import {
+  DailyPanel,
+  runNowMessage,
+  windowLongEnough,
+} from "../src/screens/settings/DailySection.tsx";
 import { STORY_NOW, StoryWorld } from "../src/stories/harness.tsx";
 
 /**
@@ -764,5 +768,16 @@ describe("settings", () => {
       </StoryWorld>,
     );
     expect(screen.queryByTestId("onboarding-night-shift")).toBeNull();
+  });
+
+  it("says in plain words why Try it now did not start, with a fallback", () => {
+    const say = (outcome: unknown) => runNowMessage({ started: false, outcome });
+    expect(say("off")).toBe("Night shift is off.");
+    expect(say("already")).toBe("It already ran tonight.");
+    expect(say("skipped")).toBe("Skipped tonight.");
+    expect(say("no_candidates")).toBe("Nothing to do tonight.");
+    // An older Gateway sends no outcome, a newer one may send another: the generic line, no raw text.
+    expect(say(undefined)).toBe("Couldn’t start it.");
+    expect(say("something_new")).toBe("Couldn’t start it.");
   });
 });

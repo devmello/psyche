@@ -108,4 +108,8 @@ export const nightShift: Partial<Catalogue> = {
     "Der Entwurf wurde gespeichert, aber nichts wurde gesendet. Du kannst ihn aus Mail senden.",
   "nightShift.status.sendUnsure":
     "Der Entwurf wurde gespeichert. Unklar, ob das Senden abgeschlossen wurde. Prüfe „Gesendet“ in Mail.",
+  "settings.nightShift.runNow.off": "Die Nachtschicht ist aus.",
+  "settings.nightShift.runNow.already": "Sie ist heute Nacht schon gelaufen.",
+  "settings.nightShift.runNow.skipped": "Heute Nacht übersprungen.",
+  "settings.nightShift.runNow.nothing": "Heute Nacht gibt es nichts zu tun.",
 };

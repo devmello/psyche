@@ -128,6 +128,26 @@ function BudgetRow({
   );
 }
 
+/**
+ * What "Try it now" says when it did not start: the `outcome` the Gateway names (`off`,
+ * `already`, `skipped`, `no_candidates`), in plain words. A Gateway that sends no outcome (or one
+ * this does not know) gets the generic line; the Gateway's own `reason` text is never shown.
+ */
+export function runNowMessage(r: { started: boolean; outcome?: unknown }): string {
+  switch (r.outcome) {
+    case "off":
+      return t("settings.nightShift.runNow.off");
+    case "already":
+      return t("settings.nightShift.runNow.already");
+    case "skipped":
+      return t("settings.nightShift.runNow.skipped");
+    case "no_candidates":
+      return t("settings.nightShift.runNow.nothing");
+    default:
+      return t("settings.nightShift.tryNow.failed");
+  }
+}
+
 export interface NightShiftGroupProps extends Pick<SettingsFormProps, "values" | "onChange"> {
   onTryNow?: () => void;
   onOpenFiles?: () => void;
@@ -669,7 +689,7 @@ export function DailySection(): ReactElement {
         onTryNightShift={() =>
           void call("nightShift.runNow", {})
             .then((r) => {
-              if (!r.started && r.reason) toast.error(r.reason);
+              if (!r.started) toast.message(runNowMessage(r));
             })
             .catch((err: unknown) => fail("settings.nightShift.tryNow.failed", err))
         }

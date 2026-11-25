@@ -97,4 +97,8 @@ export const nightShift: Partial<Catalogue> = {
   "nightShift.status.undoRefused": "未撤销：应用之后它发生了变化。",
   "nightShift.status.sendNotSent": "草稿已保存，但没有发送任何内容。你可以从“邮件”发送。",
   "nightShift.status.sendUnsure": "草稿已保存。不确定发送是否完成。请在“邮件”中查看“已发送”。",
+  "settings.nightShift.runNow.off": "夜班已关闭。",
+  "settings.nightShift.runNow.already": "今晚已经运行过了。",
+  "settings.nightShift.runNow.skipped": "今晚已跳过。",
+  "settings.nightShift.runNow.nothing": "今晚没有要做的事。",
 };

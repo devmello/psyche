@@ -102,4 +102,8 @@ export const nightShift: Partial<Catalogue> = {
     "下書きは保存されましたが、何も送信されていません。Mailから送信できます。",
   "nightShift.status.sendUnsure":
     "下書きは保存されました。送信が完了したか確認できません。Mailの送信済みを確認してください。",
+  "settings.nightShift.runNow.off": "ナイトシフトはオフです。",
+  "settings.nightShift.runNow.already": "今夜はすでに実行済みです。",
+  "settings.nightShift.runNow.skipped": "今夜はスキップしました。",
+  "settings.nightShift.runNow.nothing": "今夜やることはありません。",
 };

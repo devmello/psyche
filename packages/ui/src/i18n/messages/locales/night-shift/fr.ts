@@ -106,4 +106,8 @@ export const nightShift: Partial<Catalogue> = {
     "Le brouillon a été enregistré, mais rien n’a été envoyé. Vous pouvez l’envoyer depuis Mail.",
   "nightShift.status.sendUnsure":
     "Le brouillon a été enregistré. Impossible de dire si l’envoi s’est terminé. Vérifiez Envoyés dans Mail.",
+  "settings.nightShift.runNow.off": "L’équipe de nuit est désactivée.",
+  "settings.nightShift.runNow.already": "Elle a déjà tourné cette nuit.",
+  "settings.nightShift.runNow.skipped": "Ignorée cette nuit.",
+  "settings.nightShift.runNow.nothing": "Rien à faire cette nuit.",
 };

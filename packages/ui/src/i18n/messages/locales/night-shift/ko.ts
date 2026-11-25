@@ -101,4 +101,8 @@ export const nightShift: Partial<Catalogue> = {
     "초안은 저장되었지만 아무것도 보내지 않았습니다. Mail에서 보낼 수 있습니다.",
   "nightShift.status.sendUnsure":
     "초안이 저장되었습니다. 보내기가 끝났는지 확실하지 않습니다. Mail의 보낸 편지함을 확인하세요.",
+  "settings.nightShift.runNow.off": "나이트 시프트가 꺼져 있습니다.",
+  "settings.nightShift.runNow.already": "오늘 밤에 이미 실행했습니다.",
+  "settings.nightShift.runNow.skipped": "오늘 밤은 건너뛰었습니다.",
+  "settings.nightShift.runNow.nothing": "오늘 밤 할 일이 없습니다.",
 };

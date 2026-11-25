@@ -108,4 +108,8 @@ export const nightShift: Partial<Catalogue> = {
     "El borrador se guardó, pero no se envió nada. Puedes enviarlo desde Mail.",
   "nightShift.status.sendUnsure":
     "El borrador se guardó. No está claro si el envío terminó. Revisa Enviados en Mail.",
+  "settings.nightShift.runNow.off": "El turno de noche está desactivado.",
+  "settings.nightShift.runNow.already": "Ya se ejecutó esta noche.",
+  "settings.nightShift.runNow.skipped": "Omitido esta noche.",
+  "settings.nightShift.runNow.nothing": "Nada que hacer esta noche.",
 };

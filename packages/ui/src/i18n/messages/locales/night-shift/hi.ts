@@ -99,4 +99,8 @@ export const nightShift: Partial<Catalogue> = {
   "nightShift.status.undoRefused": "वापस नहीं किया गया: लागू होने के बाद यह बदल गया।",
   "nightShift.status.sendNotSent": "ड्राफ़्ट सहेजा गया, लेकिन कुछ भेजा नहीं गया। आप इसे Mail से भेज सकते हैं।",
   "nightShift.status.sendUnsure": "ड्राफ़्ट सहेजा गया। पक्का नहीं कि भेजना पूरा हुआ। Mail में भेजे गए देखें।",
+  "settings.nightShift.runNow.off": "नाइट शिफ़्ट बंद है।",
+  "settings.nightShift.runNow.already": "आज रात यह पहले ही चल चुका है।",
+  "settings.nightShift.runNow.skipped": "आज रात छोड़ दिया गया।",
+  "settings.nightShift.runNow.nothing": "आज रात करने को कुछ नहीं है।",
 };

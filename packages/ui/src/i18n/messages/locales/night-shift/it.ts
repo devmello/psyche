@@ -107,4 +107,8 @@ export const nightShift: Partial<Catalogue> = {
     "La bozza è stata salvata, ma non è stato inviato nulla. Puoi inviarla da Mail.",
   "nightShift.status.sendUnsure":
     "La bozza è stata salvata. Non è chiaro se l’invio sia finito. Controlla Inviati in Mail.",
+  "settings.nightShift.runNow.off": "Il turno di notte è disattivato.",
+  "settings.nightShift.runNow.already": "Ha già girato stanotte.",
+  "settings.nightShift.runNow.skipped": "Saltato stanotte.",
+  "settings.nightShift.runNow.nothing": "Niente da fare stanotte.",
 };

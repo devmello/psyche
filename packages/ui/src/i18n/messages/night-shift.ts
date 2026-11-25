@@ -99,4 +99,8 @@ export const nightShift = {
     "The draft was saved, but nothing was sent. You can send it from Mail.",
   "nightShift.status.sendUnsure":
     "The draft was saved. Not sure the send finished. Check Sent in Mail.",
+  "settings.nightShift.runNow.off": "Night shift is off.",
+  "settings.nightShift.runNow.already": "It already ran tonight.",
+  "settings.nightShift.runNow.skipped": "Skipped tonight.",
+  "settings.nightShift.runNow.nothing": "Nothing to do tonight.",
 } as const;

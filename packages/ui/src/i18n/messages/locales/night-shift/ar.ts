@@ -102,4 +102,8 @@ export const nightShift: Partial<Catalogue> = {
   "nightShift.status.sendNotSent": "حُفظت المسودة، لكن لم يُرسل شيء. يمكنك إرسالها من Mail.",
   "nightShift.status.sendUnsure":
     "حُفظت المسودة. لست متأكدًا من اكتمال الإرسال. تحقق من المرسلة في Mail.",
+  "settings.nightShift.runNow.off": "الوردية الليلية متوقفة.",
+  "settings.nightShift.runNow.already": "تم تشغيلها بالفعل الليلة.",
+  "settings.nightShift.runNow.skipped": "تم تخطيها الليلة.",
+  "settings.nightShift.runNow.nothing": "لا شيء لفعله الليلة.",
 };

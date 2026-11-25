@@ -106,4 +106,8 @@ export const nightShift: Partial<Catalogue> = {
     "O rascunho foi salvo, mas nada foi enviado. Você pode enviá-lo pelo Mail.",
   "nightShift.status.sendUnsure":
     "O rascunho foi salvo. Não está claro se o envio terminou. Confira Enviados no Mail.",
+  "settings.nightShift.runNow.off": "O turno da noite está desativado.",
+  "settings.nightShift.runNow.already": "Já rodou esta noite.",
+  "settings.nightShift.runNow.skipped": "Ignorado esta noite.",
+  "settings.nightShift.runNow.nothing": "Nada a fazer esta noite.",
 };
