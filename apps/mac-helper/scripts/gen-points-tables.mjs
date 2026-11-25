@@ -1,4 +1,5 @@
 import fs from "node:fs";
+
 // Regenerates PointsRuleTables.swift and points-tables.json from packages/protocol/src (run from the repo root):
 //   node apps/mac-helper/scripts/gen-points-tables.mjs "$PWD" apps/mac-helper/Sources/PsycheHelperCore/Points/PointsRuleTables.swift
 // The TS test points-tables.test.ts and the Swift test PointsRuleTablesFreshnessTests compare both to the sources,
@@ -6,6 +7,7 @@ import fs from "node:fs";
 const root = process.argv[2];
 const src = fs.readFileSync(root + "/packages/protocol/src/points-rules.ts", "utf8");
 const wm = src.match(/export const POINTS_SENSITIVE_WORDS[^=]*=\s*(\[[\s\S]*?\n\]);/)[1];
+// biome-ignore lint/security/noGlobalEval: evaluates the array literal of this repo's own points-rules.ts
 const WORDS = (0, eval)("(" + wm + ")");
 const NPC = ["library", "loyalty", "membership", "student", "sim", "boarding", "business"];
 const BENIGN = [
@@ -41,9 +43,11 @@ const conf = {};
 const blocks = [];
 const m1 = src.match(/const CONFUSABLES[^=]*=\s*\{([\s\S]*?)\n\};/);
 if (m1) blocks.push(m1[1]);
-for (const m of src.matchAll(/Object\.assign\(CONFUSABLES, \{([\s\S]*?)\n\}\);/g)) blocks.push(m[1]);
+for (const m of src.matchAll(/Object\.assign\(CONFUSABLES, \{([\s\S]*?)\n\}\);/g))
+  blocks.push(m[1]);
 for (const body of blocks) {
-  for (const l of body.matchAll(/^\s*([^\s:/][^:]*?):\s*"([^"]*)",?\s*$/gm)) conf[l[1].trim()] = l[2];
+  for (const l of body.matchAll(/^\s*([^\s:/][^:]*?):\s*"([^"]*)",?\s*$/gm))
+    conf[l[1].trim()] = l[2];
 }
 out += `    static let confusables: [String: String] = [\n`;
 for (const [k, v] of Object.entries(conf)) out += `        ${esc(k)}: ${esc(v)},\n`;
@@ -58,5 +62,14 @@ console.log(Object.keys(conf).length, hosts.length, pr.POINTS_SENSITIVE_WORDS.le
 
 fs.writeFileSync(
   root + "/packages/protocol/test/fixtures/points-tables.json",
-  JSON.stringify({ words: WORDS.map((w) => ({ reason: w.reason, source: w.source })), benign: BENIGN, confusables: conf, venueDomains: hosts }, null, 2) + "\n",
+  JSON.stringify(
+    {
+      words: WORDS.map((w) => ({ reason: w.reason, source: w.source })),
+      benign: BENIGN,
+      confusables: conf,
+      venueDomains: hosts,
+    },
+    null,
+    2,
+  ) + "\n",
 );
