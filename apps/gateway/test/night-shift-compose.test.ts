@@ -1,9 +1,9 @@
 import { AgentToolRegistry } from "@psyche/agent-core";
 import { appendMessage, createThread, getThread, openDb, setSetting } from "@psyche/db";
 import type { ToolLookup } from "@psyche/proactive";
+import type { StagedAction } from "@psyche/protocol";
 import { FakeClock } from "@psyche/testing";
 import { describe, expect, it } from "vitest";
-import type { StagedAction } from "@psyche/protocol";
 import {
   composeNightShift,
   forRemote,
