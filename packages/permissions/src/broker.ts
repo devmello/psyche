@@ -290,6 +290,11 @@ export interface PermissionBrokerOptions {
   platform?: NodeJS.Platform;
   localProject?: LocalProjectVerifier;
   psycheHome?: string;
+  /**
+   * Full access's file roots (the owner's home folder, owner 2026-11-25): file tools in a
+   * Full-access turn reach paths under them without a folder grant. Absent: none.
+   */
+  fullAccessRoots?: () => readonly string[];
   /** Gateway UI origins the agent may never act on (design-03, design-19). */
   gatewayOrigins?: string[];
   presence?: PresenceVerifier;
@@ -637,6 +642,9 @@ export class PsychePermissionBroker implements PermissionBroker {
       classifier,
       localProject: options.localProject ?? DENY_ALL_LOOPBACK,
       psycheHome: options.psycheHome,
+      ...(options.fullAccessRoots === undefined
+        ? {}
+        : { fullAccessRoots: options.fullAccessRoots }),
       gatewayOrigins,
       onClassified: (ctx, call, label, reason, breaker) =>
         this.#onClassified(ctx, call, label, reason, breaker),

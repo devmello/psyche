@@ -212,9 +212,16 @@ export interface SpecialistReportInput {
   gaps?: string[];
 }
 
-export const PERMISSION_ORDER: readonly PermissionMode[] = ["plan", "manual", "balanced", "auto"];
+// `full` is the widest, so `minMode("full", role.maxMode)` is the role's own limit.
+export const PERMISSION_ORDER: readonly PermissionMode[] = [
+  "plan",
+  "manual",
+  "balanced",
+  "auto",
+  "full",
+];
 
-/** The stricter of two permission modes (plan < manual < balanced < auto). */
+/** The stricter of two permission modes (plan < manual < balanced < auto < full). */
 export function minMode(a: PermissionMode, b: PermissionMode): PermissionMode {
   return PERMISSION_ORDER.indexOf(a) <= PERMISSION_ORDER.indexOf(b) ? a : b;
 }

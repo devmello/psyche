@@ -1,5 +1,11 @@
 import { launchConfigEntry } from "@psyche/hostfs";
-import type { ApprovalKind, GrantScope, JsonObject, SideEffect } from "@psyche/protocol";
+import {
+  type ApprovalKind,
+  fullAccessIgnored,
+  type GrantScope,
+  type JsonObject,
+  type SideEffect,
+} from "@psyche/protocol";
 import { hostWords } from "@psyche/protocol/host-words";
 import { appleAppAction, appleAppConnector, appleAppEffect } from "./apple-apps.ts";
 import { appCap, effectiveTier, TIER_RANK, tierRequired } from "./apps.ts";
@@ -18,6 +24,7 @@ import {
   execReviewFacts,
   reviewFailClosed,
 } from "./exec-review.ts";
+import { fullAccessHold } from "./full-access.ts";
 import { classifyHostCommand, READ_ONLY_RULE } from "./host-readonly.ts";
 import {
   ALL_SCOPES,
@@ -28,6 +35,7 @@ import {
   FILE_TOOLS,
   inferApprovalKind,
   mcpConnector,
+  memoryNotesCall,
   SEVERITY,
 } from "./kinds.ts";
 import { missingFor } from "./missing.ts";
@@ -113,6 +121,11 @@ export interface DryRun {
 
 export interface EngineDeps {
   policy(): CompiledPolicy;
+  /**
+   * Full access's file roots (the owner's home folder): a file tool's path outside every
+   * granted folder but under one of these runs in a Full-access turn. Absent: none.
+   */
+  fullAccessRoots?(): readonly string[];
   /**
    * Folders the owner allowed for one conversation only (`folder_access`, scope `once`), and with
    * a run id, the folders of the Space that run was bound to at its start (spaces-2026 §5.3).
@@ -255,6 +268,11 @@ interface Floor {
   scopes?: GrantScope[];
   /** A send / destructive / financial matrix floor: a standing grant the owner made covers it. */
   grantLiftable?: true;
+  /**
+   * One of Psyche's own default asks, which Full access lifts (owner, 2026-11-25). The owner's
+   * own ask rules, prohibitions, hooks and the held kinds (`full-access.ts`) never carry it.
+   */
+  fullLifts?: true;
 }
 
 interface Allowance {
@@ -445,7 +463,15 @@ export class PolicyEngine {
     // Security §5.4: a host command in the read-only class is a `read`, never the `exec_host`
     // floor, when the Gateway's description says so and this classifier agrees on the argv.
     const hostReadOnly = kind === "exec_host" && readOnlyHostCall(call);
-    const declared = hostReadOnly ? "read" : effectiveSideEffect(call.tool, call.sideEffect);
+    // Psyche's own notes (owner, 2026-11-25): a `memory` view is a read of the workspace with no
+    // external effect, so the `memory` write floor never makes it ask; a write to the agent's
+    // memory folder keeps the floor and gets an allowance below (Manual still asks).
+    const notes = plainMemory ? memoryNotesCall(call) : undefined;
+    const declared = hostReadOnly
+      ? "read"
+      : notes === "view"
+        ? "none"
+        : effectiveSideEffect(call.tool, call.sideEffect);
     // A write inside a repository's `.git/` (config, hooks, info/attributes), which the next git
     // command runs, or into an app's launch config in a shared folder (`.vscode`, `.obsidian`,
     // `.envrc`...), which the app runs when it next opens the folder: never a plain write, so
@@ -462,8 +488,25 @@ export class PolicyEngine {
     if (se !== call.sideEffect) trace.push(`floor:${call.sideEffect}->${se}`);
     const tainted = ctx.taint || ctx.initiator === "mcp_app";
     const state = dry === undefined ? d.task(ctx) : dryTask(dry, d, ctx);
+    // Full access (owner, 2026-11-25; `full-access.ts`): only the owner's attended chat turn gets
+    // it, and a held call (a send, a payment, a credential, …) is decided exactly as in Balanced.
+    const fullIgnored = ctx.permissionMode === "full" ? fullAccessIgnored(ctx) : undefined;
+    if (fullIgnored !== undefined) trace.push(`full:ignored(${fullIgnored})`);
+    const fullHeld =
+      ctx.permissionMode === "full" && fullIgnored === undefined
+        ? // A label never un-holds a call: the tool's own inferred kind counts too.
+          (fullAccessHold(call, kind, se) ??
+          (inferred === kind ? undefined : fullAccessHold(call, inferred, se)))
+        : undefined;
+    if (fullHeld !== undefined) trace.push(`full:held(${fullHeld})`);
     const mode =
-      state.downgraded && ctx.permissionMode === "auto" ? "balanced" : ctx.permissionMode;
+      ctx.permissionMode === "full"
+        ? fullIgnored === undefined && fullHeld === undefined
+          ? "full"
+          : "balanced"
+        : state.downgraded && ctx.permissionMode === "auto"
+          ? "balanced"
+          : ctx.permissionMode;
     const origin = originOf(call);
     const base = { kind, se };
     const done = (
@@ -563,7 +606,13 @@ export class PolicyEngine {
       const effect = appleAppEffect(call.tool, configured, lifted);
       const rule = `connector:${connector.id}/${connector.action}`;
       if (effect === "deny") return done("deny", rule, "connector matrix denies this action");
-      if (effect === "ask") floors.push({ rule, reason: "connector matrix asks" });
+      // Psyche's default ask (an Apple app adapter's), not one the owner set, lifts in Full access.
+      if (effect === "ask")
+        floors.push({
+          rule,
+          reason: "connector matrix asks",
+          ...(configured === "ask" ? {} : { fullLifts: true as const }),
+        });
       if (effect === "allow") {
         // Floors: an owner `allow` silences sends, destructive or financial calls only with the
         // confirmed override; device-only and authentication kinds always ask.
@@ -578,6 +627,8 @@ export class PolicyEngine {
           floors.push({
             rule: `${rule}:floor`,
             reason: floor,
+            // Sends, payments and the device-only kinds are held before this lifts (`full-access`).
+            fullLifts: true,
             ...(floorClass(kind, se) === undefined || se === "financial"
               ? {}
               : { grantLiftable: true as const }),
@@ -620,12 +671,32 @@ export class PolicyEngine {
         return done("deny", "folder:invalid_path", "file targets must be absolute paths");
       }
       const folder = this.folderFor(path, ctx.threadId, ctx.runId);
-      if (folder === undefined)
+      // Full access: the file tools reach the owner's home folder without a grant (the file
+      // executors get the same root for this run; protected roots and prohibitions still refuse).
+      // A folder the owner granted read-only stays read-only, and the code tools keep their grants.
+      const fullRoot =
+        folder === undefined && mode === "full" && FILE_TOOLS.has(call.tool)
+          ? (d.fullAccessRoots?.() ?? []).find((r) => {
+              try {
+                return isUnder(path, canonicalPath(r));
+              } catch {
+                return false;
+              }
+            })
+          : undefined;
+      if (folder === undefined && fullRoot === undefined)
         return done("deny", "folder:not_granted", `${path} is outside every granted folder`);
-      if (folder.mode === "ro" && SEVERITY[se] >= SEVERITY.write) {
+      if (folder?.mode === "ro" && SEVERITY[se] >= SEVERITY.write) {
         return done("deny", "folder:read_only", `${folder.path} is granted read-only`);
       }
-      allowances.push({ rule: folder.workspace ? "folder:workspace" : `folder:${folder.mode}` });
+      allowances.push({
+        rule:
+          folder === undefined
+            ? "folder:full_access"
+            : folder.workspace
+              ? "folder:workspace"
+              : `folder:${folder.mode}`,
+      });
     }
     if (kind === "exec_host") {
       // Security §5.4: a host command runs only in a folder the owner granted. It grants no
@@ -660,20 +731,38 @@ export class PolicyEngine {
       if (hostReadOnly) {
         if (call.meta?.hostSandbox === "missing") {
           // srt is what keeps it read-only at run time: without it the owner decides (UNSANDBOXED).
-          floors.push({ rule: "exec_host:no_sandbox", reason: "srt is not set up" });
+          floors.push({
+            rule: "exec_host:no_sandbox",
+            reason: "srt is not set up",
+            fullLifts: true,
+          });
         } else if (mode !== "manual" && p.config.exec?.readOnlyWithoutAsking !== false) {
           allowances.push({ rule: READ_ONLY_RULE });
         } else {
           floors.push({
             rule: mode === "manual" ? "mode:manual/exec_host" : "exec_host:read_only_off",
             reason: "read-only commands ask in this mode or with the setting off",
+            // Every command runs in Full access; the read-only class can't ask more than the rest.
+            fullLifts: true,
           });
         }
       }
     }
     if (kind === "memory_protected_write") {
-      floors.push({ rule: "memory:protected_path", reason: "protected memory files always ask" });
+      // A tainted turn never gets here (prohibition `untrusted_memory_promotion`).
+      floors.push({
+        rule: "memory:protected_path",
+        reason: "protected memory files always ask",
+        fullLifts: true,
+      });
     }
+    // Psyche's own notes and workflow state (owner, 2026-11-25): writes to the agent's memory
+    // folder and to an automation's shared state file have no effect outside Psyche, so they run
+    // like a write in a granted folder (Manual still asks, plan mode still refuses, a tainted
+    // turn still asks for a new target).
+    if (notes === "notes") allowances.push({ rule: "memory:agent_notes" });
+    if (call.tool === "automation_state_set" && call.kind === undefined && call.target === undefined)
+      allowances.push({ rule: "workspace:automation_state" });
     if (kind === "git_push") {
       // A push publishes commits with the owner's credentials: never silent, never reusable (V10).
       floors.push({ rule: "git:push", reason: "pushes always ask", scopes: ["once"] });
@@ -753,6 +842,8 @@ export class PolicyEngine {
         rule: "mcp:unknown_tier",
         reason: "tools of unknown MCP servers ask",
         scopes: ["once"],
+        // MCP tools run in Full access; a server's money tools are `financial` and held.
+        fullLifts: true,
       });
     }
 
@@ -807,7 +898,10 @@ export class PolicyEngine {
     const tk = targetKey(call);
     const newTarget = ctx.newTarget ?? (tk === undefined ? true : !state.approvedTargets.has(tk));
     let escalation: Floor | undefined;
-    if (tainted) {
+    // Full access: web pages or other people's mail read in this turn don't bring the cards back
+    // (owner, 2026-11-25). Held calls (sends, payments, credentials) are decided as Balanced, so
+    // their taint escalation still runs; prohibitions applied above whatever the taint.
+    if (tainted && mode !== "full") {
       if (SEVERITY[se] >= SEVERITY.write && newTarget) {
         escalation = {
           rule: "taint:new_target",
@@ -910,6 +1004,7 @@ export class PolicyEngine {
     // rules for the server still apply, so a server the owner allowed stays allowed.
     const standing = !appWrite;
     const floor = floors.find((f) => {
+      if (mode === "full" && f.fullLifts === true) return false;
       if (f.grantLiftable !== true) return true;
       grantCovers ??=
         consult &&
@@ -919,6 +1014,13 @@ export class PolicyEngine {
       return !grantCovers;
     });
     if (floor !== undefined) return ask(floor.rule, floor.reason);
+
+    // Full access (owner, 2026-11-25): what is left runs without a card, sensitive-category reads
+    // included ("full web browsing"). It never consults or uses a grant, never runs the Auto
+    // classifier, and the decision is audited and receipted like any allow (`mode:full/<se>`).
+    if (mode === "full") {
+      return done("allow", `mode:full/${se}`, undefined, { binding, via: "full-access" });
+    }
 
     // Sensitive categories always ask for reads, whatever grants exist (security §3.2).
     const sensitiveRead =

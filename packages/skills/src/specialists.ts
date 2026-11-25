@@ -16,7 +16,10 @@ import { TOOL_CAPABILITIES, toolMatches } from "./gating.ts";
 export const SPECIALIST_MODEL_CLASSES = ["utility", "primary", "harness", "vision"] as const;
 export type SpecialistModelClass = (typeof SPECIALIST_MODEL_CLASSES)[number];
 export const SPECIALIST_RESULT_KINDS = ["findings", "draft", "changes", "plan", "items"] as const;
-/** plan < manual < balanced < auto (security §3.2). */
+/**
+ * plan < manual < balanced < auto (security §3.2): the modes a role's manifest may declare as its
+ * `maxMode`. Full access (`full`) is never a role's mode: only the owner turns it on in a chat.
+ */
 export const PERMISSION_ORDER: readonly PermissionMode[] = ["plan", "manual", "balanced", "auto"];
 const ROLE_PATTERN = /^[a-z][a-z0-9-]{0,63}$/;
 const TOOL_PATTERN = /^[A-Za-z0-9_][A-Za-z0-9_.:-]*(\.\*|\*)?$/;
