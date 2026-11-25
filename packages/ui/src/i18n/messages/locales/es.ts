@@ -142,6 +142,9 @@ export const es: Partial<Catalogue> = {
   "errors.reason.secret_required": "Un cliente distinto necesita su propio secreto de cliente.",
   "errors.reason.project_private":
     "Ese proyecto es privado, así que no puede tener un Space. Desactiva Mantener privado primero.",
+  "errors.reason.entity_exists": "Ya está en la memoria.",
+  "errors.reason.setting_unknown": "Este ajuste no existe.",
+  "errors.reason.setting_invalid": "Este valor no es válido para el ajuste.",
   "errors.reason.model_budget":
     "Demasiadas solicitudes desde este dispositivo. Inténtalo de nuevo en {minutes, plural, one {# minuto} other {# minutos}}.",
   "errors.reason.updating":

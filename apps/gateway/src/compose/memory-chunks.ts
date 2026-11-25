@@ -26,6 +26,21 @@ export function memoryViewerOf(call: Call): AnswerViewer {
   return cli ? { ...v, desktop: true } : v;
 }
 
+/**
+ * Workspace files a connection that may not open Memory can still read: exactly the persona file,
+ * whose content `memory.persona.get` returns to it already. An allowlist of one exact name, folded
+ * the way APFS folds (case and Unicode); any other spelling or path is refused, never resolved.
+ */
+const PERSONA_FILE = "IDENTITY.md";
+
+/**
+ * ASCII case-insensitive only: no Unicode folding, so `ıdentıty.md`, `ＩＤＥＮＴＩＴＹ.md` and
+ * `IDENTITY.ｍｄ` are different files and are refused. A path that passes is read as the literal
+ * {@link PERSONA_FILE}, never as the spelling the caller sent.
+ */
+export const isRemoteReadablePath = (path: string): boolean =>
+  /^[iI][dD][eE][nN][tT][iI][tT][yY]\.[mM][dD]$/.test(path);
+
 /** True when this viewer may open a Memory-source passage: the one rule, `forViewer`'s. */
 export const mayReadMemoryChunks = (viewer: AnswerViewer): boolean =>
   forViewer({ source: "memory" }, viewer) !== undefined;
@@ -113,6 +128,47 @@ export function mountMemoryHandlers(
     run: async (call: Call, params: never) => {
       if (!mayReadMemoryChunks(memoryViewerOf(call))) return { hits: [] };
       return handlers["memory.search"](params);
+    },
+  };
+  // Workspace files (USER.md, MEMORY.md, people/*, memory/*) are Memory passages too: search hides
+  // them from a connection that may not open Memory, so reading or listing them does the same.
+  // The one thing it still gets is the persona file, which `memory.persona.get` already returns.
+  out["memory.read"] = {
+    run: async (call: Call, params: never) => {
+      if (!mayReadMemoryChunks(memoryViewerOf(call))) {
+        const path = (params as { path?: unknown }).path;
+        if (typeof path !== "string" || !isRemoteReadablePath(path))
+          throw new PsycheError(
+            "forbidden",
+            "Memory files open in the Psyche app on the Host only",
+            {
+              details: { reason: "not_desktop" },
+            },
+          );
+      }
+      // A connection that may not open Memory reads the persona file by its one literal name.
+      if (!mayReadMemoryChunks(memoryViewerOf(call)))
+        return handlers["memory.read"]({ ...(params as object), path: PERSONA_FILE } as never);
+      return handlers["memory.read"](params);
+    },
+  };
+  // `memory.forget` reports which files, chunks and claims match a word (`dryRun`) or deletes the
+  // lines: a word-level oracle over files this connection cannot read. Same refusal as `memory.export`.
+  out["memory.forget"] = {
+    run: async (call: Call, params: never) => {
+      if (!mayReadMemoryChunks(memoryViewerOf(call)))
+        throw new PsycheError("forbidden", "Memory forgets from the Psyche app on the Host only", {
+          details: { reason: "not_desktop" },
+        });
+      return handlers["memory.forget"](params);
+    },
+  };
+  out["memory.files.list"] = {
+    run: async (call: Call, params: never) => {
+      const res = await handlers["memory.files.list"](params);
+      if (mayReadMemoryChunks(memoryViewerOf(call))) return res;
+      // Only the files this connection may read: the names of people and projects are Memory too.
+      return { ...res, files: res.files.filter((f) => isRemoteReadablePath(f.path)) };
     },
   };
   out["memory.explain"] = {

@@ -13,6 +13,7 @@ import { HOST_HELPER_PIN_SETTING } from "../nodes/registry.ts";
 import { requireFreshPresence } from "../presence-gate.ts";
 import { isPromiseSourceKey, requireDesktopShell } from "../promise-scrub.ts";
 import { redactMcpServers } from "../redact.ts";
+import { settingsRegistry } from "../settings-registry.ts";
 import { INTERNAL_SETTING_PREFIX } from "../state-version.ts";
 import { isNarrowing } from "./settings-narrowing.ts";
 
@@ -294,6 +295,8 @@ export const settingsHandlers: Record<string, HandlerDef> = {
       if (isAdminSettingKey(key) && !call.identity.scopes.includes("operator.admin")) {
         throw new PsycheError("forbidden", `Changing ${key} requires operator.admin`);
       }
+      // Known keys only, with typed values (settings-registry.ts). Before any card is made.
+      value = settingsRegistry.validate(key, value);
       let foldersAtStart: string[] | undefined;
       if (key === "permissions.policy") {
         value = expandPolicyFolders(value, getSetting(call.ctx.db, key)?.value);
