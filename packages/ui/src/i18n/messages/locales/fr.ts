@@ -188,6 +188,14 @@ export const fr: Partial<Catalogue> = {
   "errors.reason.app_not_running": "Cette app n'est pas ouverte. Ouvrez-la, puis réessayez.",
   "errors.reason.needs_helper":
     "Cela nécessite Psyche Helper, qui ne fonctionne pas. Redémarrez-le dans Paramètres → Appareils.",
+  "errors.reason.apple_not_connected":
+    "Les apps Apple ne sont pas encore connectées. Connectez-les dans Paramètres → Connecteurs.",
+  "errors.reason.no_folder_shared":
+    "Aucun dossier n'est encore partagé. Partagez-en un dans Paramètres → Accès aux fichiers.",
+  "errors.reason.memory_opening":
+    "La mémoire est encore en cours d'ouverture. Réessayez dans un instant.",
+  "errors.reason.outlook_object_model_guard":
+    "Outlook empêche les autres programmes de lire le courrier ou d'en envoyer, car Windows ne signale aucun antivirus à jour. Activez la Sécurité Windows ou réglez « Accès par programmation » sur « Ne jamais m'avertir » dans Outlook → Fichier → Options → Centre de gestion de la confidentialité, puis réessayez.",
   "errors.reason.no_chromium":
     "Le navigateur de Psyche a besoin de Chromium sur cet hôte. Installez-le ou définissez PSYCHE_CHROMIUM.",
   "errors.reason.chromium_sandbox":
@@ -1834,6 +1842,11 @@ export const fr: Partial<Catalogue> = {
   "settings.computerUse.loadLabel": "l’utilisation de l’ordinateur",
   "settings.computerUse.macPermissions": "Autorisations macOS",
   "settings.computerUse.openSystemSettings": "Ouvrir Réglages Système",
+  "settings.computerUse.fullDiskAccess.name": "Accès complet au disque",
+  "settings.computerUse.fullDiskAccess.why":
+    "permet à {persona} de lire vos messages. macOS ne le demande pas par une alerte : ajoutez Psyche Helper à la liste.",
+  "settings.computerUse.fullDiskAccess.open":
+    "Ouvrir Accès complet au disque dans Réglages Système",
   "settings.computerUse.apps": "Apps",
   "settings.computerUse.enabledHint":
     "Désactivé arrête toutes les apps ci-dessous. Chaque app fait l’objet d’une demande à sa première utilisation.",
@@ -2833,6 +2846,12 @@ export const fr: Partial<Catalogue> = {
   "settings.connect.notAskedYet":
     "{name} est configuré, mais macOS ne vous a pas encore demandé. « Vérifier de nouveau » affiche l’invite macOS sur le Mac.",
   "settings.connect.noPrompt": "macOS n’a pas affiché d’invite : {reason}",
+  "settings.connect.path.automation":
+    "Réglages Système → Confidentialité et sécurité → Automatisation → Psyche (Helper) → {app}",
+  "settings.connect.path.privacy":
+    "Réglages Système → Confidentialité et sécurité → {pane} → Psyche (Helper)",
+  "settings.connect.path.shortcuts": "l'app Raccourcis",
+  "settings.connect.path.files": "Paramètres → Accès aux fichiers dans Psyche",
   "settings.connect.checkAgain": "Vérifier de nouveau",
   "settings.connectors.status.needsPermission": "Autorisation nécessaire",
   "settings.connectors.catalog.connected": "{name} (connecté)",

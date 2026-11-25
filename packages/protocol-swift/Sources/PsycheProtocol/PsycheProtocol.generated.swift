@@ -32015,19 +32015,37 @@ public enum Attribute: Codable, Sendable {
 // MARK: - RunStepError
 public struct RunStepError: Codable, Sendable {
     public let code: String
+    public let details: RunStepErrorDetails?
     public let message: String
     public let retryable: Bool
 
     public enum CodingKeys: String, CodingKey {
         case code = "code"
+        case details = "details"
         case message = "message"
         case retryable = "retryable"
     }
 
-    public init(code: String, message: String, retryable: Bool) {
+    public init(code: String, details: RunStepErrorDetails? = nil, message: String, retryable: Bool) {
         self.code = code
+        self.details = details
         self.message = message
         self.retryable = retryable
+    }
+}
+
+// MARK: - RunStepErrorDetails
+public struct RunStepErrorDetails: Codable, Sendable {
+    /// A machine reason (`automation_denied`, `needs_helper`), which viewers say in the owner's
+    /// language; `message` is the fallback
+    public let reason: String
+
+    public enum CodingKeys: String, CodingKey {
+        case reason = "reason"
+    }
+
+    public init(reason: String) {
+        self.reason = reason
     }
 }
 
@@ -34986,6 +35004,9 @@ public struct SearchSourceStatus: Codable, Sendable {
     /// allows it. Only Files uses it
     public let ocr: Bool
     public let processing: SearchProcessing
+    /// A machine reason for `detail` (`full_disk_access_missing`), which viewers say in the
+    /// owner's language; `detail` is the fallback
+    public let reason: String?
     public let state: SearchSourceState
     /// Text indexed for this source
     public let textBytes: Int
@@ -35003,11 +35024,12 @@ public struct SearchSourceStatus: Codable, Sendable {
         case lastIndexedAt = "lastIndexedAt"
         case ocr = "ocr"
         case processing = "processing"
+        case reason = "reason"
         case state = "state"
         case textBytes = "textBytes"
     }
 
-    public init(agent: Bool, backfilled: Bool, cannotAgent: String? = nil, cannotEnable: String? = nil, detail: String? = nil, enabled: Bool, id: SearchSourceID, items: Int, label: String, lastIndexedAt: Int? = nil, ocr: Bool, processing: SearchProcessing, state: SearchSourceState, textBytes: Int) {
+    public init(agent: Bool, backfilled: Bool, cannotAgent: String? = nil, cannotEnable: String? = nil, detail: String? = nil, enabled: Bool, id: SearchSourceID, items: Int, label: String, lastIndexedAt: Int? = nil, ocr: Bool, processing: SearchProcessing, reason: String? = nil, state: SearchSourceState, textBytes: Int) {
         self.agent = agent
         self.backfilled = backfilled
         self.cannotAgent = cannotAgent
@@ -35020,6 +35042,7 @@ public struct SearchSourceStatus: Codable, Sendable {
         self.lastIndexedAt = lastIndexedAt
         self.ocr = ocr
         self.processing = processing
+        self.reason = reason
         self.state = state
         self.textBytes = textBytes
     }
@@ -35066,7 +35089,7 @@ public struct SecurityAlertsAcknowledgeResult: Codable, Sendable {
 public struct SecurityAlert: Codable, Sendable {
     public let acknowledgedAt: String?
     public let createdAt: String
-    public let details: Details
+    public let details: SecurityAlertDetails
     public let id: String
     public let kind: SecurityAlertKind
     public let severity: SecurityAlertSeverity
@@ -35080,7 +35103,7 @@ public struct SecurityAlert: Codable, Sendable {
         case severity = "severity"
     }
 
-    public init(acknowledgedAt: String? = nil, createdAt: String, details: Details, id: String, kind: SecurityAlertKind, severity: SecurityAlertSeverity) {
+    public init(acknowledgedAt: String? = nil, createdAt: String, details: SecurityAlertDetails, id: String, kind: SecurityAlertKind, severity: SecurityAlertSeverity) {
         self.acknowledgedAt = acknowledgedAt
         self.createdAt = createdAt
         self.details = details
@@ -35090,8 +35113,8 @@ public struct SecurityAlert: Codable, Sendable {
     }
 }
 
-// MARK: - Details
-public struct Details: Codable, Sendable {
+// MARK: - SecurityAlertDetails
+public struct SecurityAlertDetails: Codable, Sendable {
     public let admins: Int?
     public let changes: [SecurityStateChange]?
     /// sha256:<hex> of the device key, shown next to its name

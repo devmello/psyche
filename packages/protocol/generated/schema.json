@@ -43799,6 +43799,22 @@
         },
         "retryable": {
           "type": "boolean"
+        },
+        "details": {
+          "additionalProperties": false,
+          "properties": {
+            "reason": {
+              "description": "A machine reason (`automation_denied`, `needs_helper`), which viewers say in the owner's language; `message` is the fallback",
+              "maxLength": 64,
+              "minLength": 1,
+              "pattern": "^[a-z][a-z0-9_]*$",
+              "type": "string"
+            }
+          },
+          "required": [
+            "reason"
+          ],
+          "type": "object"
         }
       },
       "required": [
@@ -46378,6 +46394,13 @@
         },
         "detail": {
           "description": "Why it cannot run, or the last error",
+          "type": "string"
+        },
+        "reason": {
+          "description": "A machine reason for `detail` (`full_disk_access_missing`), which viewers say in the owner's language; `detail` is the fallback",
+          "maxLength": 64,
+          "minLength": 1,
+          "pattern": "^[a-z][a-z0-9_]*$",
           "type": "string"
         },
         "items": {

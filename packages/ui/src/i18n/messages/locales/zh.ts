@@ -235,6 +235,11 @@ export const zh: Partial<Catalogue> = {
   "errors.reason.app_not_running": "该 App 没有打开。请打开它，然后重试。",
   "errors.reason.needs_helper":
     "此操作需要 Psyche Helper，但它没有运行。请在“设置”→“设备”中重启它。",
+  "errors.reason.apple_not_connected": "Apple 的 App 尚未连接。请在“设置”→“连接器”中连接。",
+  "errors.reason.no_folder_shared": "还没有共享任何文件夹。请在“设置”→“文件访问”中共享一个。",
+  "errors.reason.memory_opening": "记忆仍在打开。请稍后重试。",
+  "errors.reason.outlook_object_model_guard":
+    "由于 Windows 未检测到最新的杀毒软件，Outlook 阻止其他程序读取邮件或发送邮件。请开启 Windows 安全中心，或在 Outlook →“文件”→“选项”→“信任中心”中将“编程访问”设为“从不警告”，然后重试。",
   "errors.reason.no_chromium":
     "Psyche 的浏览器需要此主机上的 Chromium。请安装它，或设置 PSYCHE_CHROMIUM。",
   "errors.reason.chromium_sandbox":
@@ -1828,6 +1833,10 @@ export const zh: Partial<Catalogue> = {
   "settings.computerUse.loadLabel": "电脑使用",
   "settings.computerUse.macPermissions": "macOS 权限",
   "settings.computerUse.openSystemSettings": "打开系统设置",
+  "settings.computerUse.fullDiskAccess.name": "完全磁盘访问权限",
+  "settings.computerUse.fullDiskAccess.why":
+    "让 {persona} 读取你的信息。macOS 不会为此弹出提示：请在列表中添加 Psyche Helper。",
+  "settings.computerUse.fullDiskAccess.open": "在“系统设置”中打开“完全磁盘访问权限”",
   "settings.computerUse.apps": "App",
   "settings.computerUse.enabledHint": "关闭后会停止下方所有 App。每个 App 在首次使用时询问。",
   "settings.computerUse.noApps": "还没有 App。App 首次被使用时会出现在这里。",
@@ -2749,6 +2758,10 @@ export const zh: Partial<Catalogue> = {
   "settings.connect.notAskedYet":
     "{name} 已设置，但 macOS 尚未向你询问。“重新检查”会在 Mac 上显示 macOS 的提示。",
   "settings.connect.noPrompt": "macOS 未显示提示：{reason}",
+  "settings.connect.path.automation": "“系统设置”→“隐私与安全性”→“自动化”→ Psyche (Helper) → {app}",
+  "settings.connect.path.privacy": "“系统设置”→“隐私与安全性”→ {pane} → Psyche (Helper)",
+  "settings.connect.path.shortcuts": "“快捷指令”App",
+  "settings.connect.path.files": "“设置”→ Psyche 中的“文件访问”",
   "settings.connect.checkAgain": "重新检查",
   "settings.connectors.status.needsPermission": "需要权限",
   "settings.connectors.catalog.connected": "{name}（已连接）",

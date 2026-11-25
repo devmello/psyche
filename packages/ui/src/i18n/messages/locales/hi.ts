@@ -201,6 +201,11 @@ export const hi: Partial<Catalogue> = {
   "errors.reason.app_not_running": "वह ऐप खुला नहीं है। उसे खोलें, फिर दोबारा कोशिश करें।",
   "errors.reason.needs_helper":
     "इसके लिए Psyche Helper चाहिए, जो अभी नहीं चल रहा है। सेटिंग्स → डिवाइस में उसे रीस्टार्ट करें।",
+  "errors.reason.apple_not_connected": "Apple ऐप्स अभी कनेक्ट नहीं हैं। उन्हें सेटिंग्स → कनेक्टर में कनेक्ट करें।",
+  "errors.reason.no_folder_shared": "अभी कोई फ़ोल्डर साझा नहीं है। सेटिंग्स → फ़ाइल ऐक्सेस में एक साझा करें।",
+  "errors.reason.memory_opening": "मेमोरी अभी खुल रही है। थोड़ी देर बाद फिर कोशिश करें।",
+  "errors.reason.outlook_object_model_guard":
+    "Outlook दूसरे प्रोग्राम को मेल पढ़ने या भेजने से रोक रहा है, क्योंकि Windows को कोई अपडेटेड एंटीवायरस नहीं मिला। Windows सिक्योरिटी चालू करें, या Outlook → फ़ाइल → विकल्प → ट्रस्ट सेंटर में “प्रोग्रामैटिक ऐक्सेस” को “कभी चेतावनी न दें” पर सेट करें, फिर दोबारा कोशिश करें।",
   "errors.reason.no_chromium":
     "Psyche के ब्राउज़र को इस होस्ट पर Chromium चाहिए। इसे इंस्टॉल करें या PSYCHE_CHROMIUM सेट करें।",
   "errors.reason.chromium_sandbox":
@@ -1836,6 +1841,10 @@ export const hi: Partial<Catalogue> = {
   "settings.computerUse.loadLabel": "कंप्यूटर उपयोग",
   "settings.computerUse.macPermissions": "macOS अनुमतियाँ",
   "settings.computerUse.openSystemSettings": "सिस्टम सेटिंग्ज़ खोलें",
+  "settings.computerUse.fullDiskAccess.name": "पूर्ण डिस्क ऐक्सेस",
+  "settings.computerUse.fullDiskAccess.why":
+    "{persona} को आपके संदेश पढ़ने देता है। macOS इसके लिए अनुमति नहीं पूछता: सूची में Psyche Helper जोड़ें।",
+  "settings.computerUse.fullDiskAccess.open": "सिस्टम सेटिंग्स में पूर्ण डिस्क ऐक्सेस खोलें",
   "settings.computerUse.apps": "ऐप",
   "settings.computerUse.enabledHint":
     "बंद करने पर नीचे का हर ऐप रुक जाता है। हर ऐप के बारे में पहले उपयोग पर पूछा जाता है।",
@@ -2797,6 +2806,11 @@ export const hi: Partial<Catalogue> = {
   "settings.connect.notAskedYet":
     "{name} सेट अप है, लेकिन macOS ने अभी आपसे पूछा नहीं है। फिर से जाँचें Mac पर macOS का प्रॉम्प्ट दिखाता है।",
   "settings.connect.noPrompt": "macOS ने प्रॉम्प्ट नहीं दिखाया: {reason}",
+  "settings.connect.path.automation":
+    "सिस्टम सेटिंग्स → गोपनीयता और सुरक्षा → ऑटोमेशन → Psyche (Helper) → {app}",
+  "settings.connect.path.privacy": "सिस्टम सेटिंग्स → गोपनीयता और सुरक्षा → {pane} → Psyche (Helper)",
+  "settings.connect.path.shortcuts": "शॉर्टकट ऐप",
+  "settings.connect.path.files": "सेटिंग्स → Psyche में फ़ाइल ऐक्सेस",
   "settings.connect.checkAgain": "फिर से जाँचें",
   "settings.connectors.status.needsPermission": "अनुमति चाहिए",
   "settings.connectors.catalog.connected": "{name} (कनेक्टेड)",

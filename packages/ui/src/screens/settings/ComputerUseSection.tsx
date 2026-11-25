@@ -6,7 +6,7 @@ import { Kbd } from "../../components/ui/kbd.tsx";
 import { useHostOs } from "../../data/host-os.ts";
 import { t } from "../../i18n/core.ts";
 import { isLinux, isWindows, type UiPlatform, uiPlatform } from "../../lib/platform.ts";
-import { HelperPermissionRow } from "../../points/HelperPermissionRow.tsx";
+import { FullDiskAccessRow, HelperPermissionRow } from "../../points/HelperPermissionRow.tsx";
 import { POINTS_ENABLED_KEY, PointsSettingsGroup } from "../../points/PointsSettings.tsx";
 import { usePersona, useSlots } from "../../slots.tsx";
 import { LinuxAccessRows, linuxAccessFromSettings } from "./LinuxAccess.tsx";
@@ -152,6 +152,11 @@ export interface ComputerUsePanelProps extends SettingsFormProps, LoadProps {
   helperNotices?: Partial<Record<TccPermission, "lost" | "restart">>;
   /** Restarts Psyche Helper, offered next to a notice. */
   onRestartHelper?: () => void;
+  /**
+   * Opens System Settings › Full Disk Access, which Messages needs. macOS has no prompt or status
+   * for it, so the row is a link to the pane; absent hides the row.
+   */
+  onOpenFullDiskAccess?: () => void;
   /** Linux computers the owner paired: with any, the page offers a computer picker. */
   machines?: readonly MachineInfo[];
 }
@@ -166,6 +171,7 @@ export function ComputerUsePanel({
   helperOffline = false,
   helperNotices = {},
   onRestartHelper,
+  onOpenFullDiskAccess,
   machines = [],
   loading,
   error,
@@ -254,6 +260,9 @@ export function ComputerUsePanel({
                     onRestart={onRestartHelper}
                   />
                 ))}
+                {onOpenFullDiskAccess ? (
+                  <FullDiskAccessRow persona={persona} onOpen={onOpenFullDiskAccess} />
+                ) : null}
               </>
             )}
           </Group>
@@ -330,6 +339,7 @@ export interface ComputerUseSectionProps {
   helperOffline?: boolean;
   helperNotices?: Partial<Record<TccPermission, "lost" | "restart">>;
   onRestartHelper?: () => void;
+  onOpenFullDiskAccess?: () => void;
 }
 
 export function ComputerUseSection({
@@ -338,6 +348,7 @@ export function ComputerUseSection({
   helperOffline = false,
   helperNotices = {},
   onRestartHelper,
+  onOpenFullDiskAccess,
 }: ComputerUseSectionProps): ReactElement {
   const form = useSettingsForm();
   const persona = usePersona();
@@ -367,6 +378,7 @@ export function ComputerUseSection({
         helperOffline={helperOffline}
         helperNotices={helperNotices}
         {...(onRestartHelper ? { onRestartHelper } : {})}
+        {...(onOpenFullDiskAccess ? { onOpenFullDiskAccess } : {})}
         machines={machines}
         loading={form.loading && Object.keys(form.values).length === 0}
         error={form.error}

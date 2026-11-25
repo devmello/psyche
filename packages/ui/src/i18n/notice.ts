@@ -1,5 +1,6 @@
 import type { NoticeMessage } from "@psyche/protocol";
 import { activeI18n, type I18n, isMessageId, type MessageValues } from "./core.ts";
+import { codeSentence } from "./errors.ts";
 
 /** What a Gateway-authored notice says, in the active language when the client knows its ids. */
 export interface NoticeText {
@@ -22,8 +23,16 @@ export function noticeText(
   if (m === undefined || m === null) return { title: n.title, body: n.body };
   if (!isMessageId(m.titleKey) || !isMessageId(m.bodyKey)) return { title: n.title, body: n.body };
   try {
-    const values = (m.params ?? {}) as MessageValues;
-    return { title: i18n.t(m.titleKey, values), body: i18n.t(m.bodyKey, values) };
+    const values = { ...(m.params ?? {}) } as Record<string, unknown>;
+    // A bare code the Gateway kept (a connector's `internal`, a helper's `automation_denied`) is
+    // said in words; anything that is not a code with a sentence stays as the Gateway sent it.
+    if (typeof values.reason === "string") {
+      values.reason = codeSentence(values.reason, i18n) ?? values.reason;
+    }
+    return {
+      title: i18n.t(m.titleKey, values as MessageValues),
+      body: i18n.t(m.bodyKey, values as MessageValues),
+    };
   } catch {
     return { title: n.title, body: n.body };
   }

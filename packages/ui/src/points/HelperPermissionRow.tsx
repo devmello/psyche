@@ -136,3 +136,34 @@ function HelperPermissionLine({
     </div>
   );
 }
+
+/**
+ * Full Disk Access, which Psyche Helper needs to read Messages. macOS neither prompts for it nor
+ * reports it, so the row shows no state: only a way into the System Settings pane.
+ */
+export function FullDiskAccessRow({
+  persona,
+  onOpen,
+}: {
+  persona: string;
+  onOpen: () => void;
+}): ReactElement {
+  return (
+    <div className="flex flex-wrap items-center gap-2" data-testid="full-disk-access-row">
+      <span className="font-medium">{t("settings.computerUse.fullDiskAccess.name")}</span>
+      <span className="text-callout text-muted-foreground">
+        {t("settings.computerUse.fullDiskAccess.why", { persona })}
+      </span>
+      <Button
+        type="button"
+        variant="outline"
+        size="xs"
+        className="ms-auto"
+        onClick={onOpen}
+        aria-label={t("settings.computerUse.fullDiskAccess.open")}
+      >
+        {t("settings.computerUse.openSystemSettings")}
+      </Button>
+    </div>
+  );
+}

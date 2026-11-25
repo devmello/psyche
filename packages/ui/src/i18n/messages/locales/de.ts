@@ -192,6 +192,14 @@ export const de: Partial<Catalogue> = {
     "Diese App ist nicht geöffnet. Öffne sie und versuche es erneut.",
   "errors.reason.needs_helper":
     "Dafür braucht es Psyche Helper, der gerade nicht läuft. Starte ihn unter Einstellungen → Geräte neu.",
+  "errors.reason.apple_not_connected":
+    "Apple-Apps sind noch nicht verbunden. Verbinde sie unter Einstellungen → Verbindungen.",
+  "errors.reason.no_folder_shared":
+    "Es ist noch kein Ordner freigegeben. Gib einen unter Einstellungen → Dateizugriff frei.",
+  "errors.reason.memory_opening":
+    "Das Gedächtnis wird noch geöffnet. Versuche es gleich noch einmal.",
+  "errors.reason.outlook_object_model_guard":
+    "Outlook blockiert andere Programme beim Lesen von Mails und beim Senden, weil Windows keinen aktuellen Virenschutz meldet. Aktiviere die Windows-Sicherheit oder stelle „Programmgesteuerter Zugriff“ in Outlook → Datei → Optionen → Trust Center auf „Nie warnen“ und versuche es erneut.",
   "errors.reason.no_chromium":
     "Psyches Browser braucht Chromium auf diesem Host. Installiere es oder setze PSYCHE_CHROMIUM.",
   "errors.reason.chromium_sandbox":
@@ -1879,6 +1887,11 @@ export const de: Partial<Catalogue> = {
   "settings.computerUse.loadLabel": "Computersteuerung",
   "settings.computerUse.macPermissions": "macOS-Berechtigungen",
   "settings.computerUse.openSystemSettings": "Systemeinstellungen öffnen",
+  "settings.computerUse.fullDiskAccess.name": "Festplattenvollzugriff",
+  "settings.computerUse.fullDiskAccess.why":
+    "lässt {persona} deine Nachrichten lesen. macOS fragt dafür nicht nach: Füge Psyche Helper in der Liste hinzu.",
+  "settings.computerUse.fullDiskAccess.open":
+    "Festplattenvollzugriff in den Systemeinstellungen öffnen",
   "settings.computerUse.apps": "Apps",
   "settings.computerUse.enabledHint":
     "Aus stoppt jede App unten. Nach jeder App wird bei der ersten Verwendung gefragt.",
@@ -2892,6 +2905,12 @@ export const de: Partial<Catalogue> = {
   "settings.connect.notAskedYet":
     "{name} ist eingerichtet, aber macOS hat dich noch nicht gefragt. „Erneut prüfen“ zeigt die macOS-Abfrage auf dem Mac.",
   "settings.connect.noPrompt": "macOS hat keine Abfrage gezeigt: {reason}",
+  "settings.connect.path.automation":
+    "Systemeinstellungen → Datenschutz & Sicherheit → Automation → Psyche (Helper) → {app}",
+  "settings.connect.path.privacy":
+    "Systemeinstellungen → Datenschutz & Sicherheit → {pane} → Psyche (Helper)",
+  "settings.connect.path.shortcuts": "die Kurzbefehle-App",
+  "settings.connect.path.files": "Einstellungen → Dateizugriff in Psyche",
   "settings.connect.checkAgain": "Erneut prüfen",
   "settings.connectors.status.needsPermission": "Braucht Berechtigung",
   "settings.connectors.catalog.connected": "{name} (verbunden)",

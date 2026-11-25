@@ -782,6 +782,8 @@ export interface PermissionsPort {
   status(): Promise<Partial<Record<PermissionKind, PermissionState>>>;
   /** Shows the macOS prompt, or opens the System Settings pane, and answers the new state. */
   request(kind: PermissionKind): Promise<PermissionState>;
+  /** Opens System Settings › Privacy & Security › Full Disk Access (Messages); no prompt or status. */
+  openFullDiskAccess?(): Promise<boolean>;
   /**
    * Settings -> Computer use: what the Mac helper itself was granted. macOS keeps grants per
    * app, so Psyche.app's own state (`status`) says nothing about computer use.

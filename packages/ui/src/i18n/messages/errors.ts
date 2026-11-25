@@ -75,6 +75,12 @@ export const errors = {
   "errors.reason.app_not_running": "That app isn't open. Open it, then try again.",
   "errors.reason.needs_helper":
     "This needs Psyche Helper, which isn't running. Restart it in Settings → Devices.",
+  "errors.reason.apple_not_connected":
+    "Apple apps aren't connected yet. Connect them in Settings → Connectors.",
+  "errors.reason.no_folder_shared": "No folder is shared yet. Share one in Settings → File access.",
+  "errors.reason.memory_opening": "Memory is still opening. Try again in a moment.",
+  "errors.reason.outlook_object_model_guard":
+    "Outlook blocks other programs from reading mail or sending, because Windows reports no up-to-date antivirus. Turn on Windows Security, or set Programmatic Access to “Never warn me” in Outlook → File → Options → Trust Center, then try again.",
   "errors.reason.no_chromium":
     "Psyche's browser needs Chromium on this Host. Install it, or set PSYCHE_CHROMIUM.",
   "errors.reason.chromium_sandbox":

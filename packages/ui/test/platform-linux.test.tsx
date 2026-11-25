@@ -172,6 +172,11 @@ const ABOUT_MACOS = new Set<string>([
   "errors.reason.automation_not_granted",
   "errors.reason.full_disk_access_missing",
   "errors.reason.prompt_refused_by_macos",
+  "errors.reason.apple_not_connected",
+  "settings.computerUse.fullDiskAccess.why",
+  "settings.computerUse.fullDiskAccess.open",
+  "settings.connect.path.automation",
+  "settings.connect.path.privacy",
   // The macOS bundle integrity check at start-up (main.ts runs it on macOS only).
   "app.integrity.detail",
   // iMessage / SMS channel: Apple vouches for iMessage senders.

@@ -1,6 +1,6 @@
 import { PsycheError } from "@psyche/protocol";
 import { GatewayRequestError } from "../data/client.ts";
-import { activeI18n, isMessageId } from "./core.ts";
+import { activeI18n, type I18n, isMessageId } from "./core.ts";
 
 /** The Gateway's `details.reason` of an error, when it names one. */
 function errorReason(err: unknown): string | null {
@@ -76,10 +76,30 @@ export function errorSummary(err: unknown): string {
  * `lastSync.error` is `unavailable`, `timeout`, or a helper reason such as `automation_denied`),
  * reason first; null when the catalogue has neither, so the caller shows what it has.
  */
-export function codeSentence(codeOrReason: string): string | null {
+export function codeSentence(codeOrReason: string, i18n: I18n = activeI18n()): string | null {
   if (!/^[a-z][a-z0-9_]{0,63}$/.test(codeOrReason)) return null;
   for (const id of [`errors.reason.${codeOrReason}`, `errors.${codeOrReason}`]) {
-    if (isMessageId(id)) return activeI18n().t(id);
+    if (isMessageId(id)) return i18n.t(id);
   }
   return null;
+}
+
+/**
+ * What a run step's error says: the sentence for its machine `details.reason` in the owner's
+ * language, else the connector's own `message` (an older Gateway sends no reason, and a reason
+ * the catalogue has no sentence for falls back too).
+ */
+export function stepErrorText(error: {
+  code?: string;
+  retryable?: boolean;
+  message: string;
+  details?: { reason?: string | undefined } | undefined;
+}): string {
+  const reason = error.details?.reason;
+  return (reason === undefined ? null : codeSentence(reason)) ?? error.message;
+}
+
+/** A source status line's reason in words, else the Gateway's English `detail`. */
+export function reasonText(reason: string | undefined, fallback: string): string {
+  return (reason === undefined ? null : codeSentence(reason)) ?? fallback;
 }
