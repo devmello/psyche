@@ -163,6 +163,15 @@ describe("Linux copy (i18n/messages/variants/linux.ts)", () => {
  */
 const ABOUT_MACOS = new Set<string>([
   "settings.devices.touchId.confirmReplace",
+  // Psyche Helper's macOS privacy grants: only the Mac helper's rows and TCC refusals reach these.
+  "settings.computerUse.helperAccess.lost",
+  "settings.computerUse.helperAccess.restartToApply",
+  "errors.reason.permission_missing",
+  "errors.reason.permission_denied",
+  "errors.reason.automation_denied",
+  "errors.reason.automation_not_granted",
+  "errors.reason.full_disk_access_missing",
+  "errors.reason.prompt_refused_by_macos",
   // The macOS bundle integrity check at start-up (main.ts runs it on macOS only).
   "app.integrity.detail",
   // iMessage / SMS channel: Apple vouches for iMessage senders.

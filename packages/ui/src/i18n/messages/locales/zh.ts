@@ -220,6 +220,21 @@ export const zh: Partial<Catalogue> = {
   "errors.reason.awaiting_owner": "某个应用有未保存的更改。Psyche 会等你决定如何处理。",
   "errors.reason.checkout_needs_desktop":
     "要在 Psyche 的浏览器中付款，需要将 Psyche 桌面应用连接到此主机。",
+  "errors.reason.permission_missing":
+    "Psyche Helper 还没有执行此操作所需的 macOS 权限。请在“系统设置”→“隐私与安全性”中允许，然后重试。",
+  "errors.reason.permission_denied":
+    "Psyche Helper 无权执行此操作。请在“系统设置”→“隐私与安全性”中打开，然后重试。",
+  "errors.reason.automation_denied":
+    "Psyche Helper 无权控制此 App。请在“系统设置”→“隐私与安全性”→“自动化”中打开，然后重试。",
+  "errors.reason.automation_not_granted":
+    "Psyche Helper 还不能控制此 App。请重试，并在 macOS 询问时选择“好”。",
+  "errors.reason.full_disk_access_missing":
+    "Psyche Helper 需要“完全磁盘访问权限”才能读取“信息”。请在“系统设置”→“隐私与安全性”→“完全磁盘访问权限”中打开，然后重启 Psyche Helper。",
+  "errors.reason.prompt_refused_by_macos":
+    "macOS 没有显示权限请求。请改为在“系统设置”→“隐私与安全性”中允许 Psyche Helper。",
+  "errors.reason.app_not_running": "该 App 没有打开。请打开它，然后重试。",
+  "errors.reason.needs_helper":
+    "此操作需要 Psyche Helper，但它没有运行。请在“设置”→“设备”中重启它。",
   "errors.reason.no_chromium":
     "Psyche 的浏览器需要此主机上的 Chromium。请安装它，或设置 PSYCHE_CHROMIUM。",
   "errors.reason.chromium_sandbox":
@@ -1800,6 +1815,12 @@ export const zh: Partial<Catalogue> = {
   "settings.computerUse.helperAccess.offline":
     "Psyche Helper 未运行，无法读取它的权限。它随 Psyche 启动；若一直离线，请退出并重新打开 Psyche。",
   "settings.computerUse.helperAccess.allow": "允许 Psyche Helper",
+  "settings.computerUse.helperAccess.lost":
+    "macOS 撤销了 Psyche Helper 的这项权限，通常发生在更新之后：请在“系统设置”中将 Psyche Helper 关闭再重新打开，然后重启 Psyche Helper。",
+  "settings.computerUse.helperAccess.restartToApply":
+    "Psyche Helper 重启后，macOS 才会应用这项权限。",
+  "settings.computerUse.helperAccess.restart": "重启 Psyche Helper",
+  "settings.computerUse.helperAccess.restartFor": "重启 Psyche Helper 以应用{name}",
   "settings.computerUse.helperAccess.allowFor": "允许 Psyche Helper 使用{name}",
   "settings.computerUse.title": "电脑使用",
   "settings.computerUse.description": "{persona} 只能在你允许的范围内使用这台 Mac 上的 App。",

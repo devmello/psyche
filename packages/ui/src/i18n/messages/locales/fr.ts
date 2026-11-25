@@ -173,6 +173,21 @@ export const fr: Partial<Catalogue> = {
     "Une app a des modifications non enregistrées. Psyche attend que vous décidiez de leur sort.",
   "errors.reason.checkout_needs_desktop":
     "Pour payer dans le navigateur de Psyche, l’app de bureau Psyche doit être connectée à cet hôte.",
+  "errors.reason.permission_missing":
+    "Psyche Helper n'a pas encore l'autorisation macOS pour cela. Autorisez-la dans Réglages Système → Confidentialité et sécurité, puis réessayez.",
+  "errors.reason.permission_denied":
+    "Psyche Helper n'est pas autorisé à faire cela. Activez-le dans Réglages Système → Confidentialité et sécurité, puis réessayez.",
+  "errors.reason.automation_denied":
+    "Psyche Helper n'est pas autorisé à contrôler cette app. Activez-le dans Réglages Système → Confidentialité et sécurité → Automatisation, puis réessayez.",
+  "errors.reason.automation_not_granted":
+    "Psyche Helper ne peut pas encore contrôler cette app. Réessayez et choisissez OK quand macOS le demande.",
+  "errors.reason.full_disk_access_missing":
+    "Psyche Helper a besoin de l'accès complet au disque pour lire Messages. Activez-le dans Réglages Système → Confidentialité et sécurité → Accès complet au disque, puis redémarrez Psyche Helper.",
+  "errors.reason.prompt_refused_by_macos":
+    "macOS n'a pas affiché la demande d'autorisation. Autorisez Psyche Helper dans Réglages Système → Confidentialité et sécurité.",
+  "errors.reason.app_not_running": "Cette app n'est pas ouverte. Ouvrez-la, puis réessayez.",
+  "errors.reason.needs_helper":
+    "Cela nécessite Psyche Helper, qui ne fonctionne pas. Redémarrez-le dans Paramètres → Appareils.",
   "errors.reason.no_chromium":
     "Le navigateur de Psyche a besoin de Chromium sur cet hôte. Installez-le ou définissez PSYCHE_CHROMIUM.",
   "errors.reason.chromium_sandbox":
@@ -1805,6 +1820,12 @@ export const fr: Partial<Catalogue> = {
   "settings.computerUse.helperAccess.offline":
     "Psyche Helper n'est pas lancé, ses autorisations sont donc illisibles. Il démarre avec Psyche ; quittez puis rouvrez Psyche s'il reste hors ligne.",
   "settings.computerUse.helperAccess.allow": "Autoriser Psyche Helper",
+  "settings.computerUse.helperAccess.lost":
+    "macOS a retiré cette autorisation à Psyche Helper, souvent après une mise à jour : dans Réglages Système, désactivez puis réactivez Psyche Helper, puis redémarrez-le.",
+  "settings.computerUse.helperAccess.restartToApply":
+    "macOS applique cette autorisation au redémarrage de Psyche Helper.",
+  "settings.computerUse.helperAccess.restart": "Redémarrer Psyche Helper",
+  "settings.computerUse.helperAccess.restartFor": "Redémarrer Psyche Helper pour appliquer {name}",
   "settings.computerUse.helperAccess.allowFor": "Autoriser Psyche Helper pour {name}",
   "settings.computerUse.title": "Utilisation de l’ordinateur",
   "settings.computerUse.description":

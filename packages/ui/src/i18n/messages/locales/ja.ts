@@ -190,6 +190,22 @@ export const ja: Partial<Catalogue> = {
     "アプリに未保存の変更があります。どうするかをあなたが決めるまで Psyche は待ちます。",
   "errors.reason.checkout_needs_desktop":
     "Psyche のブラウザで支払うには、Psyche デスクトップアプリをこのホストに接続する必要があります。",
+  "errors.reason.permission_missing":
+    "Psyche Helper にはまだこの操作に必要な macOS の権限がありません。システム設定 → プライバシーとセキュリティで許可してから、もう一度お試しください。",
+  "errors.reason.permission_denied":
+    "Psyche Helper にはこの操作が許可されていません。システム設定 → プライバシーとセキュリティでオンにしてから、もう一度お試しください。",
+  "errors.reason.automation_denied":
+    "Psyche Helper にはこのアプリを操作する許可がありません。システム設定 → プライバシーとセキュリティ → オートメーションでオンにしてから、もう一度お試しください。",
+  "errors.reason.automation_not_granted":
+    "Psyche Helper はまだこのアプリを操作できません。もう一度試して、macOS に聞かれたら「OK」を選んでください。",
+  "errors.reason.full_disk_access_missing":
+    "メッセージを読むには、Psyche Helper にフルディスクアクセスが必要です。システム設定 → プライバシーとセキュリティ → フルディスクアクセスでオンにしてから、Psyche Helper を再起動してください。",
+  "errors.reason.prompt_refused_by_macos":
+    "macOS が許可の確認を表示しませんでした。代わりにシステム設定 → プライバシーとセキュリティで Psyche Helper を許可してください。",
+  "errors.reason.app_not_running":
+    "そのアプリが開いていません。開いてから、もう一度お試しください。",
+  "errors.reason.needs_helper":
+    "これには Psyche Helper が必要ですが、実行されていません。設定 → デバイスで再起動してください。",
   "errors.reason.no_chromium":
     "Psyche のブラウザにはこのホストの Chromium が必要です。インストールするか、PSYCHE_CHROMIUM を設定してください。",
   "errors.reason.chromium_sandbox":
@@ -1794,6 +1810,12 @@ export const ja: Partial<Catalogue> = {
   "settings.computerUse.helperAccess.offline":
     "Psyche Helper が起動していないため、権限を読み取れません。Psyche と一緒に起動します。オフラインのままなら Psyche を終了して開き直してください。",
   "settings.computerUse.helperAccess.allow": "Psyche Helper を許可",
+  "settings.computerUse.helperAccess.lost":
+    "アップデート後などに、macOS が Psyche Helper のこの権限を外しました。システム設定で Psyche Helper をいったんオフにしてからオンに戻し、Psyche Helper を再起動してください。",
+  "settings.computerUse.helperAccess.restartToApply":
+    "この権限は Psyche Helper の再起動後に有効になります。",
+  "settings.computerUse.helperAccess.restart": "Psyche Helper を再起動",
+  "settings.computerUse.helperAccess.restartFor": "Psyche Helper を再起動して{name}を有効にする",
   "settings.computerUse.helperAccess.allowFor": "{name} を Psyche Helper に許可",
   "settings.computerUse.title": "コンピュータ操作",
   "settings.computerUse.description":

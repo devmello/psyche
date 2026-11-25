@@ -35,6 +35,20 @@ const tccOf = (r: PermissionResult): TccState => (r === "unavailable" ? "not_det
 type HelperKind = "accessibility" | "screenRecording" | "notifications";
 
 /**
+ * Why a row may still read "not allowed" after the owner allowed it: macOS dropped the grant
+ * (`lost`, usually an update that changed the helper's signature: turn it off and on, then
+ * restart the helper) or the running helper has not picked it up yet (`restart`). Lost wins.
+ */
+export function helperNoticesOf(
+  s: HelperPermissionsState,
+): Partial<Record<TccPermission, "lost" | "restart">> {
+  const out: Partial<Record<TccPermission, "lost" | "restart">> = {};
+  for (const k of s.restartToApply ?? []) out[k] = "restart";
+  for (const k of s.lost ?? []) out[k] = "lost";
+  return out;
+}
+
+/**
  * The helper's own grants, when this window may ask for them: the desktop port has the helper
  * calls, and this is not a window onto another Mac's Gateway (the helper there is the Host's).
  */
@@ -103,10 +117,17 @@ export function ComputerUseSettings({ platform }: { platform: ShellPlatform }): 
       ? { accessibility: helper.state.accessibility, screenRecording: helper.state.screenRecording }
       : {}
     : tcc;
+  const launch = platform.helper?.launch?.bind(platform.helper);
+  const { read: readHelper } = helper;
+  const restartHelper = useCallback(() => {
+    void launch?.(true).then(readHelper, readHelper);
+  }, [launch, readHelper]);
   return (
     <ComputerUseSection
       tcc={shown}
       helperOffline={helperPort ? helper.offline : false}
+      helperNotices={helperPort && helper.state ? helperNoticesOf(helper.state) : {}}
+      {...(helperPort && launch ? { onRestartHelper: restartHelper } : {})}
       {...(platform.permissions
         ? {
             onOpenSystemSettings: (p: TccPermission) => {

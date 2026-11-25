@@ -148,6 +148,10 @@ export interface ComputerUsePanelProps extends SettingsFormProps, LoadProps {
   onOpenSystemSettings?: (permission: TccPermission) => void;
   /** Psyche Helper is not connected: its permissions are unknown, never shown as Granted. */
   helperOffline?: boolean;
+  /** Per permission, why a grant may not show yet (lost after an update, or needs a restart). */
+  helperNotices?: Partial<Record<TccPermission, "lost" | "restart">>;
+  /** Restarts Psyche Helper, offered next to a notice. */
+  onRestartHelper?: () => void;
   /** Linux computers the owner paired: with any, the page offers a computer picker. */
   machines?: readonly MachineInfo[];
 }
@@ -160,6 +164,8 @@ export function ComputerUsePanel({
   tcc,
   onOpenSystemSettings,
   helperOffline = false,
+  helperNotices = {},
+  onRestartHelper,
   machines = [],
   loading,
   error,
@@ -244,6 +250,8 @@ export function ComputerUsePanel({
                     persona={persona}
                     offline={helperOffline}
                     onAllow={onOpenSystemSettings}
+                    notice={helperNotices[p]}
+                    onRestart={onRestartHelper}
                   />
                 ))}
               </>
@@ -320,12 +328,16 @@ export interface ComputerUseSectionProps {
   tcc?: Partial<Record<TccPermission, TccState>>;
   onOpenSystemSettings?: (permission: TccPermission) => void;
   helperOffline?: boolean;
+  helperNotices?: Partial<Record<TccPermission, "lost" | "restart">>;
+  onRestartHelper?: () => void;
 }
 
 export function ComputerUseSection({
   tcc = {},
   onOpenSystemSettings,
   helperOffline = false,
+  helperNotices = {},
+  onRestartHelper,
 }: ComputerUseSectionProps): ReactElement {
   const form = useSettingsForm();
   const persona = usePersona();
@@ -353,6 +365,8 @@ export function ComputerUseSection({
         persona={persona.name}
         tcc={tcc}
         helperOffline={helperOffline}
+        helperNotices={helperNotices}
+        {...(onRestartHelper ? { onRestartHelper } : {})}
         machines={machines}
         loading={form.loading && Object.keys(form.values).length === 0}
         error={form.error}

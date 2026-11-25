@@ -191,6 +191,21 @@ export const ko: Partial<Catalogue> = {
     "앱에 저장되지 않은 변경 사항이 있습니다. 어떻게 할지 결정할 때까지 Psyche가 기다립니다.",
   "errors.reason.checkout_needs_desktop":
     "Psyche 브라우저에서 결제하려면 Psyche 데스크톱 앱이 이 호스트에 연결되어 있어야 합니다.",
+  "errors.reason.permission_missing":
+    "Psyche Helper에 아직 이 작업에 필요한 macOS 권한이 없습니다. 시스템 설정 → 개인정보 보호 및 보안에서 허용한 다음 다시 시도하세요.",
+  "errors.reason.permission_denied":
+    "Psyche Helper는 이 작업을 할 수 없습니다. 시스템 설정 → 개인정보 보호 및 보안에서 켠 다음 다시 시도하세요.",
+  "errors.reason.automation_denied":
+    "Psyche Helper는 이 앱을 제어할 수 없습니다. 시스템 설정 → 개인정보 보호 및 보안 → 자동화에서 켠 다음 다시 시도하세요.",
+  "errors.reason.automation_not_granted":
+    "Psyche Helper는 아직 이 앱을 제어할 수 없습니다. 다시 시도하고 macOS가 물으면 '확인'을 선택하세요.",
+  "errors.reason.full_disk_access_missing":
+    "메시지를 읽으려면 Psyche Helper에 전체 디스크 접근 권한이 필요합니다. 시스템 설정 → 개인정보 보호 및 보안 → 전체 디스크 접근 권한에서 켠 다음 Psyche Helper를 재시작하세요.",
+  "errors.reason.prompt_refused_by_macos":
+    "macOS가 권한 요청을 표시하지 않았습니다. 대신 시스템 설정 → 개인정보 보호 및 보안에서 Psyche Helper를 허용하세요.",
+  "errors.reason.app_not_running": "해당 앱이 열려 있지 않습니다. 앱을 연 다음 다시 시도하세요.",
+  "errors.reason.needs_helper":
+    "이 작업에는 Psyche Helper가 필요하지만 실행 중이 아닙니다. 설정 → 기기에서 재시작하세요.",
   "errors.reason.no_chromium":
     "Psyche 브라우저에는 이 호스트의 Chromium이 필요합니다. 설치하거나 PSYCHE_CHROMIUM을 설정하세요.",
   "errors.reason.chromium_sandbox":
@@ -1793,6 +1808,12 @@ export const ko: Partial<Catalogue> = {
   "settings.computerUse.helperAccess.offline":
     "Psyche Helper가 실행 중이 아니어서 권한을 읽을 수 없습니다. Psyche와 함께 시작되며, 계속 오프라인이면 Psyche를 종료했다가 다시 여세요.",
   "settings.computerUse.helperAccess.allow": "Psyche Helper 허용",
+  "settings.computerUse.helperAccess.lost":
+    "업데이트 후 등으로 macOS가 Psyche Helper의 이 권한을 해제했습니다. 시스템 설정에서 Psyche Helper를 껐다가 다시 켠 다음 Psyche Helper를 재시작하세요.",
+  "settings.computerUse.helperAccess.restartToApply":
+    "이 권한은 Psyche Helper를 재시작하면 적용됩니다.",
+  "settings.computerUse.helperAccess.restart": "Psyche Helper 재시작",
+  "settings.computerUse.helperAccess.restartFor": "{name} 적용을 위해 Psyche Helper 재시작",
   "settings.computerUse.helperAccess.allowFor": "{name}에 대해 Psyche Helper 허용",
   "settings.computerUse.title": "컴퓨터 사용",
   "settings.computerUse.description":

@@ -141,6 +141,7 @@ import { createPasskeyWindow } from "./main/passkey-window.ts";
 import { perfHold, perfProbeFile, startProbe, watchFirstPaint } from "./main/perf-probe.ts";
 import {
   createHelperPermissions,
+  fileGrantMemory,
   HELPER_PERMISSION_KINDS,
   type HelperPermissionKind,
 } from "./main/permissions/helper-permissions.ts";
@@ -768,7 +769,11 @@ const sandboxPc = createSandboxPc({
 });
 
 /** The helper's own Accessibility and Screen Recording, for Settings -> Computer use. */
-const helperPermissions = createHelperPermissions({ invoke: invokeHelper });
+const helperPermissions = createHelperPermissions({
+  invoke: invokeHelper,
+  // What the helper was granted before, so a grant macOS dropped after an update says so.
+  memory: fileGrantMemory(() => join(app.getPath("userData"), "helper-grants.json")),
+});
 
 /** macOS privacy permissions for onboarding and Settings (issue #384). */
 const permissions = createPermissions({
@@ -2235,6 +2240,9 @@ void app.whenReady().then(async () => {
     isPaired: async () => (await onlineHostHelpers()).length > 0,
     blocked: () => integrityBlocked,
     onState: (s) => {
+      // A helper that went away or is starting is a new process when it pairs again: it reads
+      // a Screen Recording grant afresh, so "Restart to apply" no longer holds.
+      if (s.kind === "offline" || s.kind === "starting") helperPermissions.helperRestarted();
       broadcast(IPC.helperState, s);
     },
   });
@@ -2247,7 +2255,11 @@ void app.whenReady().then(async () => {
   const onPairing = pairingEdge({
     onPaired: () => {
       attention.resend();
-      void refreshHelperPresence();
+      // The Gateway is back (a restart or an update): the helper's retries counted while it was
+      // away say nothing now, so it is tried at once rather than after the long back-off.
+      void refreshHelperPresence()
+        .then(() => helper?.kick())
+        .catch(() => undefined);
       void refreshApprovals();
       void zoom.load();
       void windowTheme.load();
@@ -2438,11 +2450,14 @@ void app.whenReady().then(async () => {
     broadcast(IPC.voiceSystem, { event: "suspend" });
     screenAsk?.suspend();
   });
+  // A woken Mac tries an offline helper now (it may have quit or crashed while asleep).
   powerMonitor.on("unlock-screen", () => {
     screenAsk?.resume();
+    void helper?.kick().catch(() => undefined);
   });
   powerMonitor.on("resume", () => {
     screenAsk?.resume();
+    void helper?.kick().catch(() => undefined);
   });
   registerIpc();
   gateways.sweepForgottenData();

@@ -70,3 +70,16 @@ export function errorSummary(err: unknown): string {
   const id = code === null ? null : `errors.${code}`;
   return id !== null && isMessageId(id) ? activeI18n().t(id) : activeI18n().t("errors.unknown");
 }
+
+/**
+ * The catalogue sentence for a bare reason or code a record kept (a connector's
+ * `lastSync.error` is `unavailable`, `timeout`, or a helper reason such as `automation_denied`),
+ * reason first; null when the catalogue has neither, so the caller shows what it has.
+ */
+export function codeSentence(codeOrReason: string): string | null {
+  if (!/^[a-z][a-z0-9_]{0,63}$/.test(codeOrReason)) return null;
+  for (const id of [`errors.reason.${codeOrReason}`, `errors.${codeOrReason}`]) {
+    if (isMessageId(id)) return activeI18n().t(id);
+  }
+  return null;
+}
