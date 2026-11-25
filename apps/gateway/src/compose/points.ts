@@ -32,6 +32,7 @@ import {
 import { hostWords } from "@psyche/protocol/host-words";
 import {
   classifyPointsValue,
+  foldPointsText,
   maskPointsShapes,
   type PointsMemoryLine,
   sanitizePointsNote,
@@ -263,6 +264,20 @@ const ASK_SYSTEM = [
   "Answer the owner's question about this form in a few plain sentences, in their language. Never suggest, guess or quote a value for a field marked sensitive. No links, no Markdown.",
 ].join("\n");
 
+/** A goal as compared with an offer: folded, with trailing punctuation and spaces removed. */
+const sameGoal = (text: string): string =>
+  foldPointsText(sanitizePointsValue(text, POINTS_LIMITS.goalMax)).replace(/[\s.,;:!?…]+$/u, "");
+
+/** A note with no Markdown link or image and no bare URL: the whole note, not only the app name. */
+export function plainNote(text: string): string {
+  return text
+    .replace(/!?\[([^\]]*)\]\([^)]*\)/gu, "$1")
+    .replace(/\b[a-z][a-z0-9+.-]*:\/\/\S+/giu, "")
+    .replace(/\bwww\.\S+/giu, "")
+    .replace(/\s+/gu, " ")
+    .trim();
+}
+
 export function composePoints(opts: PointsOptions) {
   return (services: ComposeServices): ComposedPart => {
     let gateway: Gateway | null = null;
@@ -355,10 +370,12 @@ export function composePoints(opts: PointsOptions) {
             services,
             s.threadId,
             null,
-            s.closingNote
-              .replaceAll("{app}", name)
-              .replaceAll("{pages}", String(s.pages.size))
-              .replaceAll("{fields}", String(s.pointed.size)),
+            plainNote(
+              s.closingNote
+                .replaceAll("{app}", name)
+                .replaceAll("{pages}", String(s.pages.size))
+                .replaceAll("{fields}", String(s.pointed.size)),
+            ),
           );
         } catch {
           // The note is a courtesy: a thread that moved on never stops the session from ending.
@@ -607,14 +624,10 @@ export function composePoints(opts: PointsOptions) {
 
     /** Whether a `points_offer` block with this goal is in the thread. */
     const wasOffered = (threadId: string, goal: string): boolean => {
-      const want = sanitizePointsValue(goal, POINTS_LIMITS.goalMax);
+      const want = sameGoal(goal);
       try {
         return listAllMessages(db, threadId).some((m) =>
-          m.blocks.some(
-            (b) =>
-              b.type === "points_offer" &&
-              sanitizePointsValue(b.goal, POINTS_LIMITS.goalMax) === want,
-          ),
+          m.blocks.some((b) => b.type === "points_offer" && sameGoal(b.goal) === want),
         );
       } catch {
         return false;

@@ -146,7 +146,12 @@ const HELPER: FakeNodeHandler[] = [
       new Promise((resolve, reject) => {
         // The real helper holds one session and refuses a second (`points_active`).
         if (rig.sessionId !== undefined)
-          return reject(Object.assign(new Error("points_active"), { code: "points_active" }));
+          return reject(
+            Object.assign(new Error("points_active"), {
+              code: "conflict",
+              details: { reason: "points_active" },
+            }),
+          );
         rig.sessionId = invocationId;
         rig.emit = emit;
         rig.finish = resolve;
@@ -174,9 +179,8 @@ const HELPER: FakeNodeHandler[] = [
     run: (p) => {
       if ((p as { sessionId?: string }).sessionId !== rig.sessionId)
         throw Object.assign(new Error("no session"), { code: "not_found" });
+      // Only the Gateway's `node.cancel` releases the helper's session slot (the control for it).
       rig.ended.push(p);
-      rig.sessionId = undefined;
-      rig.finish?.({ ended: "end" });
       return {};
     },
   },
@@ -578,6 +582,28 @@ describe("one session at a time", () => {
     );
   });
 
+  it("the closing note carries no link, image or URL, whatever the template says", async () => {
+    const { desk } = await setup();
+    const { thread } = await desk.call<{ thread: { id: string } }>(
+      "threads.create",
+      { kind: "main" },
+      ik(),
+    );
+    const s = await begin(desk, {
+      entry: "chat",
+      threadId: thread.id,
+      closingNote:
+        "Done [Open](https://evil.test) ![x](https://evil.test/i.png) {app} www.evil.test https://evil.test/y",
+    });
+    await desk.call("points.stop", { sessionId: s.sessionId }, ik());
+    const { messages } = await desk.call<{ messages: { blocks: { md?: string }[] }[] }>(
+      "chat.history",
+      { threadId: thread.id },
+    );
+    const texts = messages.flatMap((m) => m.blocks.map((b) => b.md ?? "")).filter((t) => t !== "");
+    expect(texts).toEqual(["Done Open x Safari"]);
+  });
+
   it("a session started from Chat leaves one counts-only note in that thread", async () => {
     const { desk } = await setup();
     const { thread } = await desk.call<{ thread: { id: string } }>(
@@ -585,7 +611,7 @@ describe("one session at a time", () => {
       { kind: "main" },
       ik(),
     );
-    rig.windows = [win(101, "com.apple.Safari", "Saf*ari [x](http://e.test)")];
+    rig.windows = [win(101, "com.apple.Safari", "Saf*ari [x]")];
     const s = await begin(desk, {
       entry: "chat",
       threadId: thread.id,
@@ -597,7 +623,7 @@ describe("one session at a time", () => {
       { threadId: thread.id },
     );
     const texts = messages.flatMap((m) => m.blocks.map((b) => b.md ?? ""));
-    expect(texts).toContain("Pointed you through Safari xhttp://e.test: 1 pages, 1 fields.");
+    expect(texts).toContain("Pointed you through Safari x: 1 pages, 1 fields.");
     for (const t of texts) {
       expect(t).not.toContain(SECRET);
       for (const l of LABELS) expect(t).not.toContain(l);
@@ -790,7 +816,7 @@ describe("the helper session is the invocation's", () => {
       },
       { expectedWriterRunId: null },
     );
-    await begin(desk, { entry: "chat", threadId: thread.id, goal: "OFFERED purpose text" });
+    await begin(desk, { entry: "chat", threadId: thread.id, goal: "OFFERED purpose text." });
     expect(JSON.stringify(model.requests[0])).not.toContain("OFFERED purpose text");
     expect(JSON.stringify(model.requests[0])).toContain("(none given)");
   });
