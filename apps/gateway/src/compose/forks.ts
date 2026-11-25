@@ -146,6 +146,18 @@ export function composeForks(setup: ForkSetup) {
     },
     isLocalModel: (threadId) => threadModelIsLocal(setup.router, threadId),
     modelPrice: (threadId) => threadModelPrice(setup.router, prices, threadId),
+    findBranchTask: async (branchId) => {
+      // The branch's main task, if one exists already (never its forced report).
+      const row = db.sqlite
+        .prepare(
+          `SELECT id FROM tasks
+            WHERE created_from = 'fork' AND json_extract(staging, '$.branchId') = ?
+              AND title NOT LIKE 'Plan report: %'
+            ORDER BY created_at, id LIMIT 1`,
+        )
+        .get(branchId) as { id: string } | undefined;
+      return row === undefined ? undefined : setup.tasks.get(row.id);
+    },
     domains: () => setup.stagerParts.domains(),
     digestThread: (branch) => {
       // The forced report starts here, not in the branch's long transcript (fork-a-plan §6).

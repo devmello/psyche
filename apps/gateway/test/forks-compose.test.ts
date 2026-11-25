@@ -8,6 +8,7 @@ import {
 } from "@psyche/db";
 import { AiSdkAdapter, type ModelRouter, Prices } from "@psyche/model-router";
 import type { Task } from "@psyche/protocol";
+import { SqliteTaskEngine } from "@psyche/tasks";
 import { FakeClock } from "@psyche/testing";
 import { describe, expect, it } from "vitest";
 import {
@@ -152,6 +153,72 @@ describe("the price of a thread's model", () => {
     expect(threadModelPrice(router("acme/embed"), prices, "t")).toBeUndefined();
     expect(threadModelPrice(router(undefined), prices, "t")).toBeUndefined();
     expect(threadModelPrice(undefined, prices, "t")).toBeUndefined();
+  });
+});
+
+describe("a requeue adopts the branch's existing task (real task table)", () => {
+  it("one task per branch after a crash between the task and the branch row", async () => {
+    const clock = new FakeClock(Date.parse("2026-11-25T10:00:00Z"));
+    const db = openDb(":memory:", { now: () => new Date(clock.now()).toISOString() });
+    const engine = new SqliteTaskEngine({ db, clock });
+    const main = createThread(db, { kind: "main", sessionKey: "main" });
+    const fork = insertPlanFork(db, { threadId: main.id });
+    const mk = (ord: number) => {
+      const t = createThread(db, {
+        kind: "subagent",
+        parentThreadId: main.id,
+        sessionKey: `fork:${ord}`,
+        title: `B${ord}`,
+        titleSource: "user",
+      });
+      return insertPlanForkBranch(db, {
+        forkId: fork.id,
+        ord,
+        label: `B${ord}`,
+        premise: "Assume",
+        threadId: t.id,
+      });
+    };
+    const [a, b] = [mk(0), mk(1)];
+    // The task of branch a exists, but the branch row never got its id; so do a forced report task
+    // of branch b (never adopted as the main task).
+    const orphan = await engine.create({
+      threadId: a.threadId,
+      title: "Plan: B0",
+      goal: "g",
+      createdFrom: "fork",
+      mode: "unattended",
+      staging: { kind: "fork", forkId: fork.id, branchId: a.id },
+    });
+    await engine.create({
+      threadId: b.threadId,
+      title: "Plan report: B1",
+      goal: "g",
+      createdFrom: "fork",
+      mode: "unattended",
+      staging: { kind: "fork", forkId: fork.id, branchId: b.id },
+    });
+    const forks = composeForks({
+      db,
+      clock,
+      tasks: Object.assign(engine, { subscribe: () => () => undefined }) as never,
+      poke: () => undefined,
+      registry: new AgentToolRegistry(),
+      stagerParts: {
+        adapters: () => new Map(),
+        connectors: () => new Map(),
+        domains: () => new Set(),
+        rehash: () => undefined,
+        refresh: async () => undefined,
+      },
+    });
+    await forks.service.queueFork(fork.id);
+    expect(getPlanForkBranch(db, a.id)?.taskId).toBe(orphan.id);
+    const all = await engine.list();
+    // The orphan and the forced-report row exist; branch b got exactly one new main task.
+    expect(all.filter((t) => t.title === "Plan: B0")).toHaveLength(1);
+    expect(all.filter((t) => t.title === "Plan: B1")).toHaveLength(1);
+    expect(getPlanForkBranch(db, b.id)?.taskId).not.toBeNull();
   });
 });
 

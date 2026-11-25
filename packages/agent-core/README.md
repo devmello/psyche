@@ -10,43 +10,33 @@ The agent loop: it turns a user message into model calls, tool calls, approvals,
 import { createAgentLoop, parseComposerInput } from "@psyche/agent-core";
 
 const loop = createAgentLoop({
-  provider, // ModelProvider (the router)
+  provider,                 // ModelProvider (the router)
   model: "anthropic/claude-sonnet-5-5",
   utilityModel: "ollama/qwen3:8b", // compaction summaries
-  broker, // PermissionBroker
-  memory,
-  skills,
-  tasks,
-  scheduler,
-  notifier, // optional; built-ins register only for what is given
-  state, // ThreadStateStore (default in-memory; the Gateway supplies a durable one)
+  broker,                   // PermissionBroker
+  memory, skills, tasks, scheduler, notifier, // optional; built-ins register only for what is given
+  state,                    // ThreadStateStore (default in-memory; the Gateway supplies a durable one)
   hooks: { before_tool_call: (ctx) => ({ action: "continue" }) },
   timeZone: "Europe/Berlin",
 });
 
-for await (const event of loop.startTurn({
-  threadId,
-  runId,
-  input: { text },
-  mode: "attended",
-  permissionMode: "balanced",
-})) {
+for await (const event of loop.startTurn({ threadId, runId, input: { text }, mode: "attended", permissionMode: "balanced" })) {
   // run.status, chat.delta, block, tool_call, approval_requested, question, usage, then exactly one end
 }
 ```
 
-| Member                                                                                       | What it does                                                                                                                                                                                         |
-| -------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `startTurn(input)`                                                                           | One turn; the iterable ends after exactly one `end`. A second turn on a busy thread ends `failed` / `thread_busy` (the Gateway's session controller serializes). Stopping iteration cancels the run. |
-| `steer(runId, text)`                                                                         | Skips the rest of the current tool batch (each skipped call gets a result saying so) and adds the text as a user message before the next model call.                                                 |
-| `followUp(threadId, text)`                                                                   | Queued; runs inside the same run when the model would otherwise stop, one message at a time, in order. Queued on an idle thread, it runs after the next turn.                                        |
-| `cancel(runId)`                                                                              | Aborts the model stream and tool waits, rejects open questions and calls `broker.revokeRunAuthority`. Dangling tool calls get `cancelled` results so the transcript stays a valid request.           |
-| `explainContext(runId)`                                                                      | The exact system prompt, sections and tools of the run's latest model call (C11). Kept for the last 200 runs.                                                                                        |
-| `answerQuestion(inputRequestId, answer)`                                                     | Answers an attended `ask_user` card. Answers are keyed by question `header` (as in `questions.answer`).                                                                                              |
-| `openQuestions(threadId?)`, `getPlan(planId)`, `threadState(threadId)`, `isActive(threadId)` | Read helpers for the Gateway.                                                                                                                                                                        |
-| `registry`                                                                                   | The `ToolRegistry` (see below).                                                                                                                                                                      |
-| `hooks`                                                                                      | `HookRegistry`: `hooks.on(name, handler)` returns an unsubscribe.                                                                                                                                    |
-| `parseComposerInput(text)`                                                                   | Slash commands → `ComposerIntent` (C9); `COMPOSER_COMMANDS` and `completeComposerCommand` feed autocompletion.                                                                                       |
+| Member | What it does |
+| --- | --- |
+| `startTurn(input)` | One turn; the iterable ends after exactly one `end`. A second turn on a busy thread ends `failed` / `thread_busy` (the Gateway's session controller serializes). Stopping iteration cancels the run. |
+| `steer(runId, text)` | Skips the rest of the current tool batch (each skipped call gets a result saying so) and adds the text as a user message before the next model call. |
+| `followUp(threadId, text)` | Queued; runs inside the same run when the model would otherwise stop, one message at a time, in order. Queued on an idle thread, it runs after the next turn. |
+| `cancel(runId)` | Aborts the model stream and tool waits, rejects open questions and calls `broker.revokeRunAuthority`. Dangling tool calls get `cancelled` results so the transcript stays a valid request. |
+| `explainContext(runId)` | The exact system prompt, sections and tools of the run's latest model call (C11). Kept for the last 200 runs. |
+| `answerQuestion(inputRequestId, answer)` | Answers an attended `ask_user` card. Answers are keyed by question `header` (as in `questions.answer`). |
+| `openQuestions(threadId?)`, `getPlan(planId)`, `threadState(threadId)`, `isActive(threadId)` | Read helpers for the Gateway. |
+| `registry` | The `ToolRegistry` (see below). |
+| `hooks` | `HookRegistry`: `hooks.on(name, handler)` returns an unsubscribe. |
+| `parseComposerInput(text)` | Slash commands → `ComposerIntent` (C9); `COMPOSER_COMMANDS` and `completeComposerCommand` feed autocompletion. |
 
 Options worth knowing: `maxSteps` (50 model calls), `maxRunTokens` (2M input + output), `maxToolResultChars` (50k, cut with a marker), `budgets` (context budgets), `compaction` (`thresholdRatio` 0.75 of the model's context window, `keepRecentTurns` 2), `approvalSurfaces`, `planExitMode` (`balanced`), `toolToggles(threadId)`, `isIncognito(threadId)`, `finishTurn`, `onPermissionModeChange`.
 
@@ -87,20 +77,20 @@ Other packages (browser, sandbox, connectors, nodes) register executors on `loop
 ```ts
 const off = loop.registry.register({
   spec: {
-    name: "browser.navigate", // connector tools: mcpToolName("notion", "search") → mcp__notion__search
+    name: "browser.navigate",          // connector tools: mcpToolName("notion", "search") → mcp__notion__search
     description: "Open a URL in the agent browser",
     inputSchema: { type: "object", properties: { url: { type: "string" } }, required: ["url"] },
     sideEffect: "read",
     targetKind: "origin",
-    provenanceOut: "untrusted", // page content taints the turn
+    provenanceOut: "untrusted",       // page content taints the turn
   },
   execute: async (callId, params, signal, onUpdate) => ({ output, provenance: "untrusted" }),
   // Optional, from protocol `ToolCallDescription`: per-call facts only you can compute.
   describeCall: (params) => ({
     target: { kind: "origin", value: new URL(params.url).origin },
     kind: "new_origin",
-    bindingFields: { origin, taskId }, // data model §4.2; hashed into the approval's bindingHash
-    summary: `Opened ${origin}`, // the transcript's level-1 line
+    bindingFields: { origin, taskId },  // data model §4.2; hashed into the approval's bindingHash
+    summary: `Opened ${origin}`,        // the transcript's level-1 line
   }),
 });
 ```
@@ -116,17 +106,17 @@ const off = loop.registry.register({
 
 ### Built-in tool shells
 
-| Tool             | Side effect                                                                           | Delegates to                                                                                                                |
-| ---------------- | ------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| `ask_user`       | none                                                                                  | Attended: question card, run parks `awaiting_input`. Run with a task: `TaskEngine.requestInput`, run ends `awaiting_input`. |
-| `update_plan`    | none                                                                                  | Checklist (whole list, `advance`, `done` / `start`, exactly one `in_progress`), kept per thread, `checklist` block.         |
-| `wrap_up`        | none                                                                                  | `wrap_up` block (recap ≤300, ask ≤100, 1–2 actions).                                                                        |
-| `exit_plan_mode` | none                                                                                  | `plan` block + `plan_exit` approval; on approval the run leaves plan mode (`planExitMode`).                                 |
-| `memory`         | none; `write` + `memory_protected_write` for SOUL / IDENTITY / USER / MEMORY / AGENTS | `MemoryStore` (`memory_20250818` commands; daily notes append-only). Tainted turns write with `untrusted` provenance.       |
-| `task.start`     | none                                                                                  | `TaskEngine.create` (inherits taint), `task` block.                                                                         |
-| `schedule`       | write                                                                                 | `Scheduler.create` (unattended automation).                                                                                 |
-| `notify`         | write                                                                                 | `Notifier.notify`.                                                                                                          |
-| `subagent.spawn` | none                                                                                  | A child run of this loop (C6), below.                                                                                       |
+| Tool | Side effect | Delegates to |
+| --- | --- | --- |
+| `ask_user` | none | Attended: question card, run parks `awaiting_input`. Run with a task: `TaskEngine.requestInput`, run ends `awaiting_input`. |
+| `update_plan` | none | Checklist (whole list, `advance`, `done` / `start`, exactly one `in_progress`), kept per thread, `checklist` block. |
+| `wrap_up` | none | `wrap_up` block (recap ≤300, ask ≤100, 1–2 actions). |
+| `exit_plan_mode` | none | `plan` block + `plan_exit` approval; on approval the run leaves plan mode (`planExitMode`). |
+| `memory` | none; `write` + `memory_protected_write` for SOUL / IDENTITY / USER / MEMORY / AGENTS | `MemoryStore` (`memory_20250818` commands; daily notes append-only). Tainted turns write with `untrusted` provenance. |
+| `task.start` | none | `TaskEngine.create` (inherits taint), `task` block. |
+| `schedule` | write | `Scheduler.create` (unattended automation). |
+| `notify` | write | `Notifier.notify`. |
+| `subagent.spawn` | none | A child run of this loop (C6), below. |
 
 ### Subagents (C6)
 
@@ -153,7 +143,6 @@ Unlike a subagent, a specialist runs a job **in the background** as a Task in it
 - `specialist.status {taskId?}` lists the thread's jobs; its output is `untrusted` when any result was tainted.
 
 **A specialist's run** is a task run whose task has a `specialist` block:
-
 - it uses the role's model (never a `/model` pin);
 - its permission mode is `min(input, spec)`;
 - its tools are the role allowlist plus `ask_user` and `specialist.report`;
@@ -161,7 +150,6 @@ Unlike a subagent, a specialist runs a job **in the background** as a Task in it
 - its step budget comes from `budget.limit.steps`.
 
 **Budgets** (specialists §4.6): after every model call, the job's `budget.used` (steps, tokens, wall time, cost; unpriced cost never counts) is added to through `SpecialistHost.updateSpec`.
-
 - The job gets one `[80% of the … budget used]` marker per dimension.
 - **At a limit**, the remaining tool calls of that step don't run. An attended job then pauses on a "Budget" question card in the task (`budgetPause` on its spec): "Finish with what it has" (recommended), "Give it more" (+50%, capped by the role) or "Stop it". On its next run the loop acts on the answer through `SpecialistHost.budgetDecision`. `raised` means `tasks.update` already raised the limits, so no extra +50% is added.
 - An unattended job never pauses.
@@ -170,7 +158,6 @@ Unlike a subagent, a specialist runs a job **in the background** as a Task in it
 **Plan first** (§4.1): a `planFirst` job runs in plan mode, with `exit_plan_mode` added to its tools, until its `plan_exit` card is approved. It then continues in its own mode (`planApproved` on its spec). A declined plan ends the job with the plan as a `partial` report.
 
 Owner runs that offer `specialist.spawn` get the "Specialists" prompt section (`specialistsPromptSection` from `@psyche/skills`). **Delivery** happens in the Gateway (`apps/gateway/src/compose/specialists.ts`). Each job ends with exactly one result:
-
 - a `specialist_result` notification, which is the Inbox card ("Researcher finished Apartments" · "Done · 3 findings · $0.84 · 22 min"), routed to `/tasks/<id>`;
 - a `specialist.result` event;
 - one system line in the parent thread, with a `task` block.

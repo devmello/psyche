@@ -28,6 +28,7 @@ import {
   createForkStager,
   DIGEST_MAX_CHARS,
   FORCED_REPORT_CAPS,
+  FORCED_REPORT_OUTPUT_TOKENS,
   FORCED_TITLE_PREFIX,
   FORK_BRANCH_CAPS,
   FORK_CONNECTOR_READS,
@@ -38,6 +39,7 @@ import {
   type ForkTasks,
   forcedReportToolVisible,
   forkToolVisible,
+  MAIN_STEP_OUTPUT_TOKENS,
   RECOVERY_WALL_FACTOR,
   searchResultUrls,
   splitBudget,
@@ -338,7 +340,7 @@ describe("the budget split and reserve", () => {
       budgetUsd: 1,
       reserveUsd: 0.1,
       branchShareUsd: 0.45,
-      forcedReportUsd: 0.033333,
+      forcedReportUsd: 0.05,
     });
     expect(splitBudget(1, 4).branchShareUsd).toBe(0.225);
     expect(splitBudget(5, 3).reserveUsd).toBe(0.5);
@@ -389,7 +391,7 @@ describe("the budget split and reserve", () => {
       b.add(`b${(i % 2) + 1}`, "forced", usage(500, b.split.forcedReportUsd), `f${i}`);
       forced += 1;
     }
-    expect(forced).toBe(3);
+    expect(forced).toBe(2);
     expect(b.canForceReport()).toBe(false);
     expect(b.state.spentUsd).toBeLessThanOrEqual(1 + 1e-9);
     expect(b.reserveLeftUsd()).toBeLessThan(b.split.forcedReportUsd);
@@ -482,6 +484,7 @@ function rig(
     branches?: number;
     price?: Price;
     domains?: string[];
+    orphans?: Map<string, Task>;
   } = {},
 ) {
   const clock = new FakeClock(T0);
@@ -535,6 +538,9 @@ function rig(
       ...(o.price === undefined ? {} : { modelPrice: () => o.price }),
       ...(o.domains === undefined ? {} : { domains: () => new Set(o.domains) }),
       digestThread: (b) => `digest_${b.id}`,
+      ...(o.orphans === undefined
+        ? {}
+        : { findBranchTask: async (id: string) => o.orphans?.get(id) }),
       publish: (_e, payload) => {
         if (o.publishThrows === true) throw new Error("bus down");
         published.push(payload);
@@ -1374,9 +1380,10 @@ describe("R1.3: the forced report starts fresh on a digest", () => {
     await start(r);
     const reads = r.svc.readsFor(r.staging(0));
     for (let i = 0; i < 60; i++) reads?.observe(bigCall(i));
-    const transcriptChars = reads?.calls
-      ? [...(reads as BranchReads).calls()].reduce((n, c) => n + c.result.length, 0)
-      : 0;
+    const transcriptChars = [...(reads as BranchReads).calls()].reduce(
+      (n, c) => n + c.result.length,
+      0,
+    );
     expect(transcriptChars / 4).toBeGreaterThan(55_000);
     await r.event(r.svc, "task_1", "failed", {
       summary: "Stopped: step budget (16) exceeded",
@@ -1504,12 +1511,13 @@ describe("R1.4: the budget is checked before each model call", () => {
     expect(r.svc.readsFor(r.staging(0))?.beforeModelCall?.({ inputTokens: 100_000 })).toBe(false);
   });
 
-  it("a model with no price (local) is not held to money; a cancelled branch is held to nothing", async () => {
+  it("a model with no price (local) is held to tokens, not money; a cancelled branch is held to nothing", async () => {
     const local = rig();
     await start(local);
-    expect(
-      local.svc.readsFor(local.staging(0))?.beforeModelCall?.({ inputTokens: 5_000_000 }),
-    ).toBe(true);
+    // No price: dollars are 0, so the token share binds instead (R2.4).
+    const lr = local.svc.readsFor(local.staging(0));
+    expect(lr?.beforeModelCall?.({ inputTokens: 5_000 })).toBe(true);
+    expect(lr?.beforeModelCall?.({ inputTokens: 5_000_000 })).toBe(false);
     const r = rig({ price: cheap });
     await start(r);
     const reads = r.svc.readsFor(r.staging(0));
@@ -1714,5 +1722,137 @@ describe("R1.6: the owner's Night shift domains apply to fork branches", () => {
     };
     expect(await make(["calendar"]).stage(call)).toEqual({ staged: false });
     expect(await make(["mail"]).stage(call)).toMatchObject({ staged: true });
+  });
+});
+
+// --- Review round 2 ----------------------------------------------------------------------------
+
+describe("R2.2: the forced report fits its allowance and is sent the limit it reserves", () => {
+  // $1 fork, 2 branches: the forced allowance is 0.05, so a report (2.5k out) and 2k of input fit
+  // at $1/$5 and at $3/$15 and not at $15/$75.
+  const model = (input: number, output: number): Price => ({
+    inputPerToken: input / 1e6,
+    outputPerToken: output / 1e6,
+    maxOutputTokens: 64_000,
+  });
+  async function forcedRig(price: Price) {
+    const r = rig({ price });
+    await start(r);
+    await r.event(r.svc, "task_1", "done");
+    await r.event(r.svc, "task_3", "running");
+    return r;
+  }
+
+  it.each([
+    ["$1 / $5", model(1, 5)],
+    ["$3 / $15", model(3, 15)],
+    ["$0.25 / $1.25", model(0.25, 1.25)],
+  ])("must pass: a forced report with 2k input on a %s model", async (_label, price) => {
+    const r = await forcedRig(price);
+    expect(r.svc.readsFor(r.staging(0))?.beforeModelCall?.({ inputTokens: 2_000 })).toBe(true);
+  });
+
+  it("must refuse: a forced step whose input alone exceeds the allowance, and a model too dear for it", async () => {
+    const r = await forcedRig(model(3, 15));
+    // 20k input at $3/M is 0.06 > 0.05 before any output.
+    expect(r.svc.readsFor(r.staging(0))?.beforeModelCall?.({ inputTokens: 20_000 })).toBe(false);
+    const dear = await forcedRig(model(15, 75));
+    expect(dear.svc.readsFor(dear.staging(0))?.beforeModelCall?.({ inputTokens: 2_000 })).toBe(
+      false,
+    );
+  });
+
+  it("the request is sent the output limit the estimate reserves (one number)", async () => {
+    const r = await forcedRig(model(3, 15));
+    expect(r.svc.readsFor(r.staging(0))?.outputLimit?.()).toBe(FORCED_REPORT_OUTPUT_TOKENS);
+    expect(FORCED_REPORT_OUTPUT_TOKENS).toBe(2_500);
+    // A main step is sent MAIN_STEP_OUTPUT_TOKENS, and a model that writes less keeps its own max.
+    const main = rig({ price: model(3, 15) });
+    await start(main);
+    expect(main.svc.readsFor(main.staging(0))?.outputLimit?.()).toBe(MAIN_STEP_OUTPUT_TOKENS);
+    const small = rig({ price: { ...model(3, 15), maxOutputTokens: 1_000 } });
+    await start(small);
+    expect(small.svc.readsFor(small.staging(0))?.outputLimit?.()).toBe(1_000);
+  });
+
+  it("the estimate is an upper bound: input plus exactly the limit sent", async () => {
+    const price = model(3, 15);
+    const r = rig({ price });
+    await start(r);
+    const reads = r.svc.readsFor(r.staging(0));
+    // 0.45 share: with 4096 output at $15/M (0.0614), input must stay under (0.45-0.0614)/3e-6.
+    const limit = 0.45 / 1;
+    void limit;
+    expect(reads?.beforeModelCall?.({ inputTokens: 129_000 })).toBe(true);
+    expect(reads?.beforeModelCall?.({ inputTokens: 130_000 })).toBe(false);
+  });
+
+  it("the splitBudget allowance is the reserve over the branches", () => {
+    expect(splitBudget(1, 2).forcedReportUsd).toBe(0.05);
+    expect(splitBudget(1, 4).forcedReportUsd).toBe(0.025);
+  });
+});
+
+describe("R2.3: a requeue adopts a task the branch already has", () => {
+  it("must pass: an orphan task exists, restart, one task for the branch", async () => {
+    const orphans = new Map<string, Task>();
+    const r = rig({ orphans });
+    const id = (r.branches[0] as { id: string }).id;
+    const orphan = {
+      id: "task_orphan",
+      title: "Plan: Move to Austin",
+      status: "queued",
+      createdFrom: "fork",
+      threadId: (r.branches[0] as { threadId: string }).threadId,
+    } as unknown as Task;
+    orphans.set(id, orphan);
+    r.tasks.byId.set("task_orphan", orphan);
+    await r.make().recover();
+    // Branch 0 adopted the orphan; only branch 1 got a new task.
+    expect(r.branch(0)?.taskId).toBe("task_orphan");
+    expect(r.tasks.created).toHaveLength(1);
+    expect(r.tasks.created[0]?.input.staging).toEqual(r.staging(1));
+    // The adopted task's events move the branch.
+    const second = r.make();
+    await second.recover();
+    await r.event(second, "task_orphan", "running");
+    expect(r.branch(0)?.status).toBe("running");
+  });
+
+  it("control: with no orphan each branch gets its own task, once", async () => {
+    const r = rig({ orphans: new Map() });
+    await r.make().recover();
+    await r.make().recover();
+    expect(r.tasks.created).toHaveLength(2);
+  });
+});
+
+describe("R2.4: a model with no price is held to its token shares", () => {
+  it("a main step over the branch's token share is refused, a small one passes", async () => {
+    const r = rig();
+    await start(r);
+    const reads = r.svc.readsFor(r.staging(0));
+    // Share is 400k * 0.9 / 2 = 180k tokens.
+    expect(reads?.beforeModelCall?.({ inputTokens: 100_000 })).toBe(true);
+    expect(reads?.beforeModelCall?.({ inputTokens: 178_000 })).toBe(false);
+  });
+
+  it("the fork's token ceiling binds too, and used tokens count", async () => {
+    const r = rig();
+    await start(r);
+    r.svc.meter("task_1", usage(100_000, 0), "run_1");
+    const reads = r.svc.readsFor(r.staging(0));
+    expect(reads?.beforeModelCall?.({ inputTokens: 70_000 })).toBe(true);
+    expect(reads?.beforeModelCall?.({ inputTokens: 80_000 })).toBe(false);
+  });
+
+  it("a forced step is held to the forced report's token cap", async () => {
+    const r = rig();
+    await start(r);
+    await r.event(r.svc, "task_1", "done");
+    await r.event(r.svc, "task_3", "running");
+    const reads = r.svc.readsFor(r.staging(0));
+    expect(reads?.beforeModelCall?.({ inputTokens: 5_000 })).toBe(true);
+    expect(reads?.beforeModelCall?.({ inputTokens: 18_000 })).toBe(false);
   });
 });

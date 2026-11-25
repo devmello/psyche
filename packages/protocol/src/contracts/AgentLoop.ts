@@ -223,6 +223,11 @@ export interface StagingReads {
    */
   beforeModelCall?(step: { inputTokens: number }): boolean;
   /**
+   * The output limit every model call of the run is sent with. `beforeModelCall` reserves exactly
+   * this much output, so its estimate is an upper bound on the call.
+   */
+  outputLimit?(): number | undefined;
+  /**
    * Told once as the run ends, with the run's own taint (the transcript it started from, the
    * task's taint, context providers and what it read), so a stored row carries the real value.
    */

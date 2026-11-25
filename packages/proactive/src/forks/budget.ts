@@ -18,6 +18,13 @@ export const FORK_TOKEN_CEILING = 400_000;
 export const FORK_BRANCH_CAPS = { maxSteps: 16, maxTokens: 120_000, maxWallMs: 240_000 } as const;
 /** The forced report: one or two calls over what the branch already found. */
 export const FORCED_REPORT_CAPS = { maxSteps: 3, maxTokens: 20_000, maxWallMs: 60_000 } as const;
+/**
+ * What one forced report may write, and what one step of a branch may write. Each is both what
+ * the pre-call check reserves and the output limit the request is sent with, so the estimate is
+ * an upper bound.
+ */
+export const FORCED_REPORT_OUTPUT_TOKENS = 2_500;
+export const MAIN_STEP_OUTPUT_TOKENS = 4_096;
 /** The smallest token cap a branch is lowered to: below it a branch could not read anything. */
 export const MIN_BRANCH_TOKENS = 8_000;
 
@@ -32,7 +39,10 @@ export interface BudgetSplit {
   reserveUsd: number;
   /** What one branch may spend. */
   branchShareUsd: number;
-  /** What one forced report may spend: the reserve over one slot per branch and the comparison. */
+  /**
+   * What one forced report may spend: one slot of the reserve per branch. The comparison pass uses
+   * what the forced reports leave (the fallback comparison needs no model).
+   */
   forcedReportUsd: number;
 }
 
@@ -44,7 +54,7 @@ export function splitBudget(budgetUsd: number, branches: number): BudgetSplit {
     budgetUsd,
     reserveUsd,
     branchShareUsd: round((budgetUsd - reserveUsd) / n),
-    forcedReportUsd: round(reserveUsd / (n + 1)),
+    forcedReportUsd: round(reserveUsd / n),
   };
 }
 
@@ -139,6 +149,11 @@ export class ForkBudget {
     const used = this.branchUsed(branchId);
     const tokenShare = (this.tokenCeiling * (1 - FORK_RESERVE_FRACTION)) / this.branches;
     return used.usd >= this.split.branchShareUsd || used.tokens >= tokenShare;
+  }
+
+  /** A branch's share of the token ceiling. */
+  tokenShare(): number {
+    return (this.tokenCeiling * (1 - FORK_RESERVE_FRACTION)) / this.branches;
   }
 
   /** The fork's total is at its budget or token ceiling: nothing more may run. */

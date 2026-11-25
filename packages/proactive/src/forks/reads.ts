@@ -72,6 +72,7 @@ export class BranchReads implements StagingReads {
   readonly #calls: BranchCall[] = [];
   readonly #taint: TaintSource[] = [];
   readonly #onTaint: ((sources: readonly TaintSource[]) => void) | undefined;
+  readonly #outputLimit: (() => number | undefined) | undefined;
   readonly #beforeModel: ((inputTokens: number) => boolean) | undefined;
   readonly #onFinish: ((run: { taint: boolean; taintSources: TaintSource[] }) => void) | undefined;
 
@@ -80,13 +81,20 @@ export class BranchReads implements StagingReads {
       onTaint?: (sources: readonly TaintSource[]) => void;
       /** The money check before each model call (`StagingReads.beforeModelCall`). */
       beforeModel?: (inputTokens: number) => boolean;
+      /** The output limit every call is sent with (`StagingReads.outputLimit`). */
+      outputLimit?: () => number | undefined;
       /** The run's own taint as it ends (`StagingReads.finish`). */
       onFinish?: (run: { taint: boolean; taintSources: TaintSource[] }) => void;
     } = {},
   ) {
     this.#onTaint = opts.onTaint;
     this.#beforeModel = opts.beforeModel;
+    this.#outputLimit = opts.outputLimit;
     this.#onFinish = opts.onFinish;
+  }
+
+  outputLimit(): number | undefined {
+    return this.#outputLimit?.();
   }
 
   beforeModelCall(step: { inputTokens: number }): boolean {

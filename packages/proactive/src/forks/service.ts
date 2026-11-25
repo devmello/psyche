@@ -19,9 +19,11 @@ import {
 import {
   branchCaps,
   FORCED_REPORT_CAPS,
+  FORCED_REPORT_OUTPUT_TOKENS,
   FORK_BRANCH_CAPS,
   ForkBudget,
   type Lane,
+  MAIN_STEP_OUTPUT_TOKENS,
 } from "./budget.ts";
 import {
   BRANCH_TITLE_PREFIX,
@@ -143,6 +145,11 @@ export interface ForkServiceDeps {
   ) => { inputPerToken: number; outputPerToken: number; maxOutputTokens: number } | undefined;
   /** The Night shift domains the owner left on; a domain that is off is off for branches too. */
   domains?: () => ReadonlySet<string>;
+  /**
+   * An existing main task of a fork branch (matched on its staging block), so a requeue after a
+   * restart adopts it instead of running the branch twice.
+   */
+  findBranchTask?: (branchId: string) => Promise<Task | undefined>;
   /** A fresh hidden thread for a branch's forced report (its digest, not the branch's transcript). */
   digestThread?: (branch: PlanForkBranch) => string;
   /** True when the id resolves in Memory's people store (§4.2). */
@@ -276,6 +283,16 @@ export class ForkService {
     const budget = this.#budgetOf(fork, branches.length);
     for (const b of branches) {
       if (b.status !== "queued" || b.taskId != null) continue;
+      // Adopt a task this branch already has (a crash between the task and the branch row).
+      const orphan = await this.#d.findBranchTask?.(b.id);
+      if (orphan !== undefined) {
+        this.#taskRefs.set(orphan.id, { forkId, branchId: b.id, lane: "branch" });
+        this.#d.store.updateBranch(b.id, { taskId: orphan.id });
+        if (TASK_TERMINAL.has(orphan.status) || orphan.status === "running") {
+          await this.onTaskUpdated(orphan);
+        }
+        continue;
+      }
       const price = this.#d.modelPrice?.(b.threadId);
       const caps = branchCaps(budget.split, branches.length, {
         ...(price === undefined ? {} : { usdPerToken: price.inputPerToken }),
@@ -510,6 +527,7 @@ export class ForkService {
     if (reads === undefined) {
       reads = new BranchReads({
         beforeModel: (inputTokens) => this.#stepFits(branchId, inputTokens),
+        outputLimit: () => this.#outputLimit(branchId),
         onFinish: (run) => this.#saveRunTaint(branchId, run),
         onTaint: (sources) => {
           try {
@@ -524,35 +542,63 @@ export class ForkService {
     return reads;
   }
 
+  #laneOf(branch: PlanForkBranch): Lane {
+    const ref = branch.taskId == null ? undefined : this.#taskRefs.get(branch.taskId);
+    return ref?.lane ?? "branch";
+  }
+
+  /**
+   * The output limit of a branch's calls: what a forced report or one step may write. It is both
+   * what `#stepFits` reserves and what the request is sent with, so the estimate is an upper bound.
+   */
+  #outputLimit(branchId: string): number | undefined {
+    const branch = this.#d.store.getBranch(branchId);
+    if (branch === null) return undefined;
+    const cap =
+      this.#laneOf(branch) === "forced" ? FORCED_REPORT_OUTPUT_TOKENS : MAIN_STEP_OUTPUT_TOKENS;
+    const model = this.#d.modelPrice?.(branch.threadId)?.maxOutputTokens;
+    return model === undefined ? cap : Math.min(cap, model);
+  }
+
   /**
    * Whether the next model call fits (§6): its estimated input tokens at the model's price, plus
-   * the most it may write, against what is left of the branch's share (the forced report's
-   * allowance and the reserve for a forced report) and of the fork's whole budget. A step that
-   * would not fit is refused before it is sent.
+   * the output limit it is sent with, against what is left of the branch's share (the forced
+   * report's allowance and the reserve for a forced report) and of the fork's whole budget. A model
+   * with no price is held to the same shares in tokens and to the token ceiling. A step that would
+   * not fit is refused before it is sent.
    */
   #stepFits(branchId: string, inputTokens: number): boolean {
     if (this.#cancelRequested.has(branchId)) return false;
     const branch = this.#d.store.getBranch(branchId);
     if (branch === null) return false;
+    const fork = this.#d.store.getFork(branch.forkId);
+    if (fork === null) return false;
+    const budget = this.#budgetOf(fork, this.#d.store.listBranches(fork.id).length);
+    const lane = this.#laneOf(branch);
+    const output = this.#outputLimit(branchId) ?? MAIN_STEP_OUTPUT_TOKENS;
     const price = this.#d.modelPrice?.(branch.threadId);
-    if (price === undefined) return true;
-    const budget = this.#budgets.get(branch.forkId);
-    if (budget === undefined) return true;
-    const ref = branch.taskId == null ? undefined : this.#taskRefs.get(branch.taskId);
-    const lane: Lane = ref?.lane ?? "branch";
-    const estimate =
-      inputTokens * price.inputPerToken + price.maxOutputTokens * price.outputPerToken;
-    const lane$ =
-      lane === "forced"
-        ? Math.min(
-            budget.split.forcedReportUsd - budget.forcedUsed(branchId).usd,
-            budget.reserveLeftUsd(),
-          )
-        : budget.split.branchShareUsd - budget.branchUsed(branchId).usd;
-    const left = Math.min(lane$, budget.split.budgetUsd - budget.state.spentUsd);
-    if (estimate <= left + 1e-9) return true;
-    if (lane === "branch") this.#budgetStopped.add(branchId);
-    return false;
+    let fits: boolean;
+    if (price === undefined) {
+      // No price (a local model): dollars are 0, so tokens bind.
+      const used =
+        lane === "forced" ? budget.forcedUsed(branchId).tokens : budget.branchUsed(branchId).tokens;
+      const cap = lane === "forced" ? FORCED_REPORT_CAPS.maxTokens : budget.tokenShare();
+      const step = inputTokens + output;
+      fits = used + step <= cap && budget.state.tokens + step <= budget.tokenCeiling;
+    } else {
+      const estimate = inputTokens * price.inputPerToken + output * price.outputPerToken;
+      const laneLeft =
+        lane === "forced"
+          ? Math.min(
+              budget.split.forcedReportUsd - budget.forcedUsed(branchId).usd,
+              budget.reserveLeftUsd(),
+            )
+          : budget.split.branchShareUsd - budget.branchUsed(branchId).usd;
+      const left = Math.min(laneLeft, budget.split.budgetUsd - budget.state.spentUsd);
+      fits = estimate <= left + 1e-9;
+    }
+    if (!fits && lane === "branch") this.#budgetStopped.add(branchId);
+    return fits;
   }
 
   /** The run's own taint, written onto the branch row as the run ends; it only ever goes up. */

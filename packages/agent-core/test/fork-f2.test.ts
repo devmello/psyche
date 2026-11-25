@@ -422,6 +422,29 @@ describe("the loop asks the guard before each model call", () => {
   });
 });
 
+describe("the output limit the guard reserves is the one the request carries", () => {
+  class Limited extends StepGuard {
+    outputLimit(): number | undefined {
+      return 2_500;
+    }
+  }
+
+  it("must pass: a fork run's request carries the guard's limit", async () => {
+    const h = harness({ policy: { default: "allow" }, script: [say("hi")] });
+    await run(h, FORK, new Limited());
+    expect(h.provider.requests[0]?.maxOutputTokens).toBe(2_500);
+  });
+
+  it("must refuse: a guard with no limit, and a night or ordinary run, send none", async () => {
+    const a = harness({ policy: { default: "allow" }, script: [say("hi")] });
+    await run(a, FORK, new StepGuard());
+    expect(a.provider.requests[0]?.maxOutputTokens).toBeUndefined();
+    const b = harness({ policy: { default: "allow" }, script: [say("hi")] });
+    await run(b, NIGHT);
+    expect(b.provider.requests[0]?.maxOutputTokens).toBeUndefined();
+  });
+});
+
 describe("the loop tells the guard the run's own taint as it ends", () => {
   it("must refuse: a run that read nothing untrusted itself but started from a tainted task is tainted", async () => {
     const h = harness({ policy: { default: "allow" }, script: [say("done")] });

@@ -2812,6 +2812,9 @@ export class PsycheAgentLoop implements AgentLoop {
         ? {}
         : { systemStableLength: cache.systemStableLength }),
       messages: this.#requestMessages(run),
+      ...(run.staging?.reads?.outputLimit?.() === undefined
+        ? {}
+        : { maxOutputTokens: run.staging.reads.outputLimit() as number }),
       ...(tools.length === 0 ? {} : { tools }),
       // Only beside the tools they belong to: a tool-free call loads nothing.
       ...(tools.length === 0 ||
