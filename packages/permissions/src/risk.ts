@@ -101,6 +101,9 @@ export interface RiskInput {
 
 export function riskClassFor(input: RiskInput): RiskClass {
   const r = input.recent;
+  // A staged apply is never routine, whatever else is true: it is never part of "Approve all
+  // routine" (night-shift-2026 §3.3).
+  if (input.kind === "staged_apply") return "sensitive";
   if (r === undefined) return "sensitive";
   if (input.requiresAuthentication || input.taint || input.deviceOnly || input.typedConfirmation)
     return "sensitive";
