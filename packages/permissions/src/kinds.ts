@@ -182,6 +182,8 @@ export function allowedScopes(
       "permission_request",
       // One folder for one task of the separate desktop: never kept, never a host grant.
       "separate_desktop_share",
+      // A Night shift apply is the owner's tap on exactly the listed actions, never kept (§3.3).
+      "staged_apply",
     ].includes(kind)
   )
     return ["once"];
