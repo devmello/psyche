@@ -3,8 +3,11 @@ import type { Catalogue } from "../../index.ts";
 /** Notices the Gateway authors (hi); merged into `../hi.ts`. */
 export const notices: Partial<Catalogue> = {
   "notice.install.failed.title": "स्वीकृत इंस्टॉल पूरा नहीं हुआ",
+  "notice.connectors.matrix.failed.title": "एक कनेक्टर नियम सहेजा नहीं जा सका",
+  "notice.connectors.matrix.failed.body":
+    "{connector} पर {action} लागू नहीं हो सका, इसलिए उसका पिछला नियम चल रहा है। इसे सेटिंग्स › कनेक्टर में देखें।",
   "notice.install.failed.body":
-    "{reason, select, lost {आपकी स्वीकृति से पहले Psyche फिर से शुरू हुआ, इसलिए प्रस्ताव खो गया। इसे फिर से प्रस्तावित करें।} expired {आपकी स्वीकृति से पहले प्रस्ताव की समय-सीमा समाप्त हो गई थी। इसे फिर से प्रस्तावित करें।} other {Psyche इसे इंस्टॉल नहीं कर पाया। सूची देखें और फिर से कोशिश करें।}}",
+    "{reason, select, lost {आपकी स्वीकृति से पहले Psyche फिर से शुरू हुआ, इसलिए प्रस्ताव खो गया। इसे फिर से प्रस्तावित करें।} expired {आपकी स्वीकृति से पहले प्रस्ताव की समय-सीमा समाप्त हो गई थी। इसे फिर से प्रस्तावित करें।} other {Psyche इसे इंस्टॉल नहीं कर सका। इसे फिर से प्रस्तावित करें, या Psyche से ऐसा करने को कहें।}}",
   "notice.security.changed.title": "Psyche ने ऐप के बाहर किया गया सुरक्षा बदलाव पलट दिया",
   "notice.security.changed.body":
     "इस Mac पर किसी प्रोग्राम ने Psyche से गुज़रे बिना {count, plural, =1 {# सुरक्षा रिकॉर्ड} other {# सुरक्षा रिकॉर्ड}} (डिवाइस, कुंजियाँ, अनुमतियाँ या सेटिंग) बदल दिए{times, plural, =0 {} =1 {} other {, अब तक # बार}}। Psyche ने उन्हें वापस ठीक कर दिया। अगर यह आपने नहीं किया, तो Mac में अनचाहे सॉफ़्टवेयर की जाँच करें।",
@@ -39,6 +42,12 @@ export const notices: Partial<Catalogue> = {
     "{reason, select, account_changed {एक कनेक्टर अब किसी दूसरे खाते में साइन इन करता है। पुराने खाते से जुड़ा काम रोक दिया गया।} disconnected {एक कनेक्टर डिस्कनेक्ट हो गया। जिस काम को उसकी ज़रूरत थी वह रोक दिया गया।} scope_changed {एक कनेक्टर अब केवल पढ़ने के लिए है। उसके ज़रिए लंबित कार्रवाइयाँ रोक दी गईं।} other {एक कनेक्टर की पहुँच रद्द कर दी गई। उसका उपयोग जारी रखने के लिए फिर से साइन इन करें।}}",
   "notice.connector.reconnect.title": "फिर से कनेक्ट करना होगा",
   "notice.connector.reconnect.body": "एक कनेक्टर की पहुँच खत्म हो गई है; आपको फिर से साइन इन करना होगा।",
+  "notice.connector.syncFailing.title": "{name} सिंक नहीं हो रहा है",
+  "notice.connector.syncFailing.body":
+    "{name} लगातार कई बार सिंक नहीं हो सका ({reason})। Psyche कोशिश करता रहेगा। सेटिंग › कनेक्टर में जाँचें।",
+  "notice.connector.testingExpired.title": "Google ने आपको साइन आउट कर दिया",
+  "notice.connector.testingExpired.body":
+    "जब तक Psyche का OAuth ऐप टेस्टिंग मोड में है, Google 7 दिन बाद आपको साइन आउट कर देता है। इसे रोकने के लिए Google Cloud में OAuth ऐप प्रकाशित करें, फिर सेटिंग › कनेक्टर में Google को दोबारा जोड़ें।",
   "notice.attention.paused.title": "एक टास्क आपका इंतज़ार कर रहा है",
   "notice.attention.paused.body":
     "किसी संवेदनशील ऐप या साइट पर {tool} से पहले रोक दिया गया, जब तक आप Psyche में वापस नहीं आते।",
@@ -97,4 +106,10 @@ export const notices: Partial<Catalogue> = {
   "notice.machine.offline.title": "{name} ऑफ़लाइन हो गया",
   "notice.machine.offline.body":
     "एक काम इसे इस्तेमाल करने का इंतज़ार कर रहा है और {name} के वापस आने पर आगे बढ़ेगा। आप काम रद्द भी कर सकते हैं।",
+  "notice.automation.needsApproval.title": "{title} आपकी मंज़ूरी का इंतज़ार कर रहा है",
+  "notice.automation.needsApproval.body":
+    "मंज़ूरी की समय-सीमा खत्म हो गई, इसलिए यह रुक गया। देखने के लिए मंज़ूरियाँ खोलें कि इसे क्या चाहिए, फिर इसे दोबारा चलाएँ।",
+  "notice.automation.interrupted.title": "{title} बीच में रुक गया",
+  "notice.automation.interrupted.body":
+    "चलते समय Psyche फिर से शुरू हुआ और हो सकता है इसका कुछ हिस्सा हो चुका हो। नतीजा देखें, ज़रूरत हो तो इसे दोबारा चलाएँ।",
 };

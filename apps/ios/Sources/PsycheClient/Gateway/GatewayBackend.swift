@@ -22,7 +22,11 @@ public final class GatewayBackend: PsycheBackend, Sendable {
     @TaskLocal static var callTimeout: Duration = .seconds(20)
 
     func call(_ method: String, _ params: JSONValue? = nil, key: String? = nil, timeout: Duration? = nil) async throws -> JSONValue {
-        try await client.call(method, params: params, idempotencyKey: key, timeout: timeout ?? Self.callTimeout)
+        // The Gateway refuses a side-effecting method without a key and ignores one on a read, so every
+        // call carries one. A caller that retries the same action (the outbox) passes its own stable key.
+        try await client.call(
+            method, params: params, idempotencyKey: key ?? "\(method)-\(UUID().uuidString)",
+            timeout: timeout ?? Self.callTimeout)
     }
 
     /// Runs optional pieces of a screen: a failure or a slow answer leaves that section empty instead of

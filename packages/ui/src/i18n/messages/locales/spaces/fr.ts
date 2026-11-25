@@ -129,7 +129,7 @@ export const spaces: Partial<Catalogue> = {
   "spaces.settings.mode.inheritHint":
     "Les conversations ici utilisent votre mode d’autorisation global.",
   "spaces.settings.mode.planHint":
-    "Les conversations ici lisent et planifient seulement ; rien n’est modifié.",
+    "Les nouvelles conversations d'ici démarrent en mode plan : elles lisent et planifient seulement, et rien n'est modifié.",
   "spaces.settings.mode.manualHint": "Toute action hors autorisation demande d’abord.",
   "spaces.settings.mode.balancedHint":
     "Les lectures s’exécutent ; les écritures vers des personnes et l’argent demandent d’abord.",

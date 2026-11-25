@@ -81,6 +81,17 @@ public struct FeedbackItem: Sendable, Equatable, Hashable, Identifiable {
 }
 
 /// One page of the owner's feedback, newest first. A nil `nextCursor` is the last page.
+/// One page of lessons (memory.lessons.list): the live ones, newest first. `nextCursor` is nil on the last page.
+public struct LessonsPage: Sendable, Equatable {
+    public var lessons: [LessonItem]
+    public var nextCursor: String?
+
+    public init(lessons: [LessonItem], nextCursor: String?) {
+        self.lessons = lessons
+        self.nextCursor = nextCursor
+    }
+}
+
 public struct FeedbackPage: Sendable, Equatable {
     public var events: [FeedbackItem]
     public var nextCursor: String?

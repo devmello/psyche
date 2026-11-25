@@ -50,6 +50,7 @@ import {
   put,
   putMany,
   type QueuedFollowUp,
+  replaceLibraryWindow,
   type StreamingMessage,
   type ThreadContextEntry,
   type UiState,
@@ -553,9 +554,15 @@ export function useThread(threadId: string | null) {
          * other senders leave it off.
          */
         resolveSkills?: boolean;
+        /**
+         * Sending one queued message by hand ("Send now") leaves the others held after a Stop.
+         * Any other send is the owner carrying on, so what Stop held goes out after it.
+         */
+        keepQueueParked?: boolean;
       } = {},
     ) => {
       if (threadId === null) return;
+      if (options.keepQueueParked !== true) store.resumeQueued(threadId);
       const mode = options.mode ?? "followUp";
       // Remote windows: while the Gateway can't be reached the message waits in the outbox and
       // goes out on reconnect, once (its key is kept). Messages with a file or a context chip
@@ -648,11 +655,17 @@ export function useThread(threadId: string | null) {
       store.update((s) => ({ ...s, queue: s.queue.filter((q) => q.id !== id) })),
     cancel: async () => {
       if (threadId === null) return;
+      // Stop means stop: the follow-ups waiting behind this run do not start the moment it ends.
+      store.parkQueued(threadId);
       await store.call("chat.cancel", { threadId });
     },
-    loadOlder: async () => {
-      if (threadId === null) return;
-      await loadOlderMessages(store, threadId);
+    /** Sends a follow-up Stop held; `undefined` releases every held one of this thread. */
+    resumeQueued: (id?: string) => {
+      if (threadId !== null) store.resumeQueued(threadId, id);
+    },
+    loadOlder: async (): Promise<boolean> => {
+      if (threadId === null) return false;
+      return loadOlderMessages(store, threadId);
     },
     exportAs: (format: "markdown" | "json") =>
       threadId === null
@@ -664,20 +677,23 @@ export function useThread(threadId: string | null) {
 const EMPTY: readonly Message[] = [];
 
 /** Loads the page of a thread's history before what is loaded; false when there is none. */
-export async function loadOlderMessages(store: GatewayStore, threadId: string): Promise<boolean> {
-  const cursor = store.getState().historyCursor[threadId];
-  if (cursor == null) return false;
-  const page = await store.call("chat.history", { threadId, cursor, limit: 100 });
-  store.update((s) => {
-    const byId = new Map((s.messages[threadId] ?? []).map((m) => [m.id, m]));
-    for (const m of page.messages) if (!byId.has(m.id)) byId.set(m.id, m);
-    return {
-      ...s,
-      messages: { ...s.messages, [threadId]: [...byId.values()].sort((a, b) => a.seq - b.seq) },
-      historyCursor: { ...s.historyCursor, [threadId]: page.nextCursor ?? null },
-    };
+export function loadOlderMessages(store: GatewayStore, threadId: string): Promise<boolean> {
+  // One page at a time: the scroll sentinel and a focus request may ask together.
+  return sharedLoad(store, `older:${threadId}`, async () => {
+    const cursor = store.getState().historyCursor[threadId];
+    if (cursor == null) return false;
+    const page = await store.call("chat.history", { threadId, cursor, limit: 100 });
+    store.update((s) => {
+      const byId = new Map((s.messages[threadId] ?? []).map((m) => [m.id, m]));
+      for (const m of page.messages) if (!byId.has(m.id)) byId.set(m.id, m);
+      return {
+        ...s,
+        messages: { ...s.messages, [threadId]: [...byId.values()].sort((a, b) => a.seq - b.seq) },
+        historyCursor: { ...s.historyCursor, [threadId]: page.nextCursor ?? null },
+      };
+    });
+    return true;
   });
-  return true;
 }
 
 const NO_CONTEXT: ThreadContextEntry = { usage: null };
@@ -1185,16 +1201,78 @@ export function useQuestions(filter: { threadId?: string } = {}) {
 
 // --- Tasks ------------------------------------------------------------------------------------
 
+/**
+ * Cursor state for a Gateway list the hooks page through (`nextCursor`). The cursor belongs to one
+ * filter `key`: a cursor from another filter reads as "no more pages".
+ */
+function usePaging(key: string) {
+  const [state, setState] = useState<{ key: string; cursor: string | null; loading: boolean }>({
+    key,
+    cursor: null,
+    loading: false,
+  });
+  const current = state.key === key ? state : { key, cursor: null, loading: false };
+  const set = useCallback(
+    (cursor: string | null) =>
+      setState((s) => ({ key, cursor, loading: s.key === key ? s.loading : false })),
+    [key],
+  );
+  const setLoading = useCallback(
+    (loading: boolean) => setState((s) => ({ ...s, key, loading })),
+    [key],
+  );
+  return { cursor: current.cursor, loading: current.loading, set, setLoading };
+}
+
+/**
+ * Loads the rest of a paged list one page after another, capped at `maxPages` (a picker or a
+ * title lookup, not a full list). A failed page stops the chain: the list keeps what it has, and
+ * the hook does not retry in a loop. Screens that show a list page it with a "Load older" button.
+ */
+export function useLoadRemaining(
+  page: { hasMore: boolean; loadingMore: boolean; loadMore: () => Promise<void> },
+  maxPages = 10,
+): void {
+  const failed = useRef(false);
+  const pages = useRef(0);
+  useEffect(() => {
+    if (!page.hasMore || page.loadingMore || failed.current || pages.current >= maxPages) return;
+    pages.current += 1;
+    page.loadMore().catch(() => {
+      failed.current = true;
+    });
+  });
+}
+
 export function useTasks(filter: { threadId?: string } = {}) {
   const store = useStore();
   const tasks = useStoreState((s) => s.tasks);
-  const load = useLoader(`tasks:${filter.threadId ?? "*"}`, async (st) => {
+  const key = `tasks:${filter.threadId ?? "*"}`;
+  const paging = usePaging(key);
+  const load = useLoader(key, async (st) => {
     const version = st.version();
     const res = await st.call("tasks.list", {
       ...(filter.threadId === undefined ? {} : { threadId: filter.threadId }),
     });
+    paging.set(res.nextCursor ?? null);
     st.update((s) => putMany(s, "tasks", res.tasks, version));
   });
+  /** Fetches the page after the one held and merges it by id (the Gateway caps a page at 50). */
+  const loadMore = async () => {
+    if (paging.cursor === null || paging.loading) return;
+    paging.setLoading(true);
+    try {
+      const version = store.version();
+      const res = await store.call("tasks.list", {
+        ...(filter.threadId === undefined ? {} : { threadId: filter.threadId }),
+        cursor: paging.cursor,
+      });
+      paging.set(res.nextCursor ?? null);
+      store.update((s) => putMany(s, "tasks", res.tasks, version));
+    } finally {
+      paging.setLoading(false);
+    }
+  };
   const all = useMemo(
     () =>
       Object.values(tasks)
@@ -1206,7 +1284,17 @@ export function useTasks(filter: { threadId?: string } = {}) {
   const needsYou = all.filter(
     (t) => t.status === "awaiting_approval" || t.status === "awaiting_input",
   );
-  return { ...load, all, running, needsYou, ...taskActions(store) };
+  return {
+    ...load,
+    all,
+    running,
+    needsYou,
+    /** More tasks after the loaded pages (`tasks.list` `nextCursor`). */
+    hasMore: paging.cursor !== null,
+    loadingMore: paging.loading,
+    loadMore,
+    ...taskActions(store),
+  };
 }
 
 function taskActions(store: GatewayStore) {
@@ -1477,13 +1565,48 @@ export function useVmGuests(): VmUpdatedPayload[] {
 }
 
 export function useLibrary(filter: MethodParams<"library.list"> = {}) {
+  const store = useStore();
   const items = useStoreState((s) => s.library);
   const key = JSON.stringify(filter);
+  const paging = usePaging(`library:${key}`);
   const load = useLoader(`library:${key}`, async (st) => {
     const version = st.version();
     const res = await st.call("library.list", filter);
-    st.update((s) => putMany(s, "library", res.items, version));
+    const filtered =
+      filter.threadId !== undefined ||
+      filter.taskId !== undefined ||
+      filter.query !== undefined ||
+      filter.quarantined !== undefined ||
+      filter.cursor !== undefined;
+    // A head reload replaces the loaded window (rows the Gateway dropped go away) and resets the
+    // cursor to the head's, so "Load older" starts again from the same place the window ends.
+    paging.set(res.nextCursor ?? null);
+    st.update((s) =>
+      replaceLibraryWindow(
+        s,
+        res.items,
+        {
+          ...(filter.kind === undefined ? {} : { kind: filter.kind }),
+          filtered,
+          hasMore: res.nextCursor !== null && res.nextCursor !== undefined,
+        },
+        version,
+      ),
+    );
   });
+  /** Fetches the page after the one held and merges it by id (the Gateway caps a page at 200). */
+  const loadMore = async () => {
+    if (paging.cursor === null || paging.loading) return;
+    paging.setLoading(true);
+    try {
+      const version = store.version();
+      const res = await store.call("library.list", { ...filter, cursor: paging.cursor });
+      paging.set(res.nextCursor ?? null);
+      store.update((s) => putMany(s, "library", res.items, version));
+    } finally {
+      paging.setLoading(false);
+    }
+  };
   const list = useMemo(
     () =>
       Object.values(items)
@@ -1491,7 +1614,14 @@ export function useLibrary(filter: MethodParams<"library.list"> = {}) {
         .sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
     [items, filter.kind],
   );
-  return { ...load, items: list };
+  return {
+    ...load,
+    items: list,
+    /** More Library items after the loaded pages (`library.list` `nextCursor`). */
+    hasMore: paging.cursor !== null,
+    loadingMore: paging.loading,
+    loadMore,
+  };
 }
 
 // --- Proactive surfaces -----------------------------------------------------------------------
@@ -1500,14 +1630,29 @@ export function useFeed() {
   const store = useStore();
   const feed = useStoreState((s) => s.feed);
   const nextBriefAt = useStoreState((s) => s.nextBriefAt);
+  const paging = usePaging("feed");
   const load = useLoader("feed", async (st) => {
     const version = st.version();
     const res = await st.call("feed.list", {});
+    paging.set(res.nextCursor ?? null);
     st.update((s) => ({
       ...putMany(s, "feed", res.posts, version),
       nextBriefAt: res.nextBriefAt ?? null,
     }));
   });
+  /** The next page of posts (`feed.list` `nextCursor`), merged by id; the brief time is kept. */
+  const loadMore = async () => {
+    if (paging.cursor === null || paging.loading) return;
+    paging.setLoading(true);
+    try {
+      const version = store.version();
+      const res = await store.call("feed.list", { cursor: paging.cursor });
+      paging.set(res.nextCursor ?? null);
+      store.update((s) => putMany(s, "feed", res.posts, version));
+    } finally {
+      paging.setLoading(false);
+    }
+  };
   const posts = useMemo(
     () =>
       Object.values(feed)
@@ -1519,6 +1664,10 @@ export function useFeed() {
     ...load,
     posts,
     nextBriefAt,
+    /** More posts after the loaded pages; `loadMore` fetches the next one. */
+    hasMore: paging.cursor !== null,
+    loadingMore: paging.loading,
+    loadMore,
     /** Generates the first (or next) brief now (`feed.generate`). */
     generate: async () => {
       const version = store.version();

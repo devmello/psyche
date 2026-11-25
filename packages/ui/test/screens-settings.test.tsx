@@ -451,11 +451,11 @@ describe("Computer use", () => {
     });
     expect(await screen.findByText("Denied")).toBeTruthy();
     await userEvent.click(
-      screen.getByRole("button", { name: "Open System Settings for Screen Recording" }),
+      screen.getByRole("button", { name: "Allow Psyche Helper for Screen Recording" }),
     );
     expect(onOpenSystemSettings).toHaveBeenCalledWith("screenRecording");
     expect(
-      screen.queryByRole("button", { name: "Open System Settings for Accessibility" }),
+      screen.queryByRole("button", { name: "Allow Psyche Helper for Accessibility" }),
     ).toBeNull();
     // Locked caps are rows of the Apps card, next to the per-app tier controls.
     const row = Array.from(document.querySelectorAll<HTMLElement>('[data-locked="true"]')).find(

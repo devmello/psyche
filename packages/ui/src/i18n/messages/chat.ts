@@ -32,6 +32,12 @@ export const chat = {
   "chat.queue.notSent": "not sent",
   "chat.queue.retry": 'Retry sending "{content}"',
   "chat.queue.remove": 'Remove queued message "{content}"',
+  "chat.thread.loadingEarlier": "Loading earlier messages",
+  "chat.thread.loadEarlierFailed": "Couldn't load earlier messages.",
+  "chat.thread.focusNotFound": "Couldn't find that message in this chat.",
+  "chat.queue.parked": "paused after Stop",
+  "chat.queue.sendQueued": "Send queued",
+  "chat.queue.sendQueuedLabel": 'Send queued message "{content}"',
 
   "chat.commands.model.hint": "provider/model",
   "chat.commands.model.description": "Pick this thread's model",

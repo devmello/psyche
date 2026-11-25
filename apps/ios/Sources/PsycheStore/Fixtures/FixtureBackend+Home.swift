@@ -6,6 +6,8 @@ struct HomeState: Sendable {
     var inbox = FixtureData.inbox
     /// When set, the next answer fails with this Gateway message (tests and demos of "Try again").
     var failNextAnswer: String?
+    /// When set, the next mark-read fails with this message, once.
+    var failNextMarkRead: String?
 }
 
 extension FixtureBackend {
@@ -76,7 +78,16 @@ extension FixtureBackend: HomeBackend {
         return InboxPage(items: Array(rows[start..<end]), nextCursor: end < rows.count ? String(end) : nil)
     }
 
+    /// Makes the next mark-read fail with `message`, once.
+    public func failNextMarkRead(with message: String) {
+        homeState.failNextMarkRead = message
+    }
+
     public func markRead(ids: [String]) async throws {
+        if let message = homeState.failNextMarkRead {
+            homeState.failNextMarkRead = nil
+            throw BackendError.refused(message)
+        }
         for index in homeState.inbox.indices where ids.contains(homeState.inbox[index].id) {
             homeState.inbox[index].read = true
         }

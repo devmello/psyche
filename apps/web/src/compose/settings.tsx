@@ -29,7 +29,7 @@ import { BackupsPanel } from "./backups.tsx";
 import { DesktopDevicesSettings, useThisDeviceId } from "./helper.tsx";
 import { LogViewer } from "./logs.tsx";
 import { PasskeysPanel } from "./passkeys.tsx";
-import { ComputerUseSettings } from "./permissions.tsx";
+import { ComputerUseSettings, NotificationsSettings } from "./permissions.tsx";
 import { RemotePresencePanel } from "./remote-presence.tsx";
 import { ZoomSetting } from "./ZoomSetting.tsx";
 
@@ -304,6 +304,7 @@ export function settingsRoute(
           : {})}
         sections={{
           "computer-use": <ComputerUseSettings platform={platform} />,
+          notifications: <NotificationsSettings platform={platform} />,
           files: <FileAccessSettings platform={platform} />,
           ...(platform.dictation
             ? { voice: <SystemVoiceSettings dictation={platform.dictation} /> }

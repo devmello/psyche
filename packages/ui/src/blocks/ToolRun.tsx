@@ -38,6 +38,11 @@ export interface ToolCallItem {
   block: ToolCallBlock;
   call?: ToolCall | null;
   receipt?: Receipt | null;
+  /**
+   * The run that made the call has ended (done, failed or cancelled). A call still marked pending
+   * or running then never finishes (Stop, a restart): it shows as stopped, not as working.
+   */
+  settled?: boolean;
 }
 
 const statusLabel = (status: ToolCallStatus): string => t(`blocks.toolRun.status.${status}`);
@@ -104,7 +109,8 @@ export function toolIcon(tool: string): LucideIcon {
 }
 
 /** One status glyph per tool state (redesign-2026 §5.2): spinner, check, cross or clock. */
-export function toolGlyph(status: ToolCallStatus): StatusKind {
+export function toolGlyph(status: ToolCallStatus, settled = false): StatusKind {
+  if (settled && (status === "running" || status === "pending")) return "cancelled";
   switch (status) {
     case "running":
       return "running";
@@ -119,7 +125,7 @@ export function toolGlyph(status: ToolCallStatus): StatusKind {
 
 /** The glyph a folded run shows: running wins, then a failure, then waiting, then done. */
 export function runGlyph(items: readonly ToolCallItem[]): StatusKind {
-  const kinds = items.map((i) => toolGlyph(i.block.status));
+  const kinds = items.map((i) => toolGlyph(i.block.status, i.settled === true));
   if (kinds.includes("running")) return "running";
   if (kinds.includes("failed")) return "failed";
   if (kinds.includes("waiting")) return "waiting";
@@ -143,7 +149,10 @@ export function ToolCallRow({
   const family = toolFamily(block.tool);
   // A change the call made, as its receipt recorded it (`code.edit`, a file write).
   const diff = typeof receipt?.payload?.diff === "string" ? receipt.payload.diff : undefined;
-  const waiting = toolGlyph(block.status) === "waiting";
+  const glyph = toolGlyph(block.status, item.settled === true);
+  const waiting = glyph === "waiting";
+  const label =
+    glyph === "cancelled" ? t("blocks.toolRun.status.stopped") : statusLabel(block.status);
   return (
     <li className="flex flex-col gap-1 py-1 text-body" data-waiting={waiting ? "true" : undefined}>
       <div className={cn("flex min-h-6 items-center gap-2", waiting && `px-2 ${NEEDS_YOU_ROW}`)}>
@@ -159,10 +168,10 @@ export function ToolCallRow({
           <>
             <NeedsYouTag />
             <RailNode state="waiting" />
-            <span className="sr-only">{statusLabel(block.status)}</span>
+            <span className="sr-only">{label}</span>
           </>
         ) : (
-          <StatusGlyph status={toolGlyph(block.status)} label={statusLabel(block.status)} />
+          <StatusGlyph status={glyph} label={label} />
         )}
       </div>
       {diff !== undefined ? (

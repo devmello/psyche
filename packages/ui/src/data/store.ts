@@ -21,8 +21,10 @@ import type { ChatOutbox, OutboxItem } from "./outbox.ts";
 import { RequestGate, retryAfterSecOf } from "./request-gate.ts";
 import {
   appendBlock,
+  dropSettledStreaming,
   INITIAL_STATE,
   put,
+  putMany,
   type QueuedFollowUp,
   touch,
   type UiState,
@@ -375,7 +377,8 @@ export class GatewayStore {
    * thread, and only the first caller gets the item. Failed items stay put until retried.
    */
   takeQueued(threadId: string): QueuedFollowUp | null {
-    const next = this.base.queue.find((q) => q.threadId === threadId);
+    // Items parked by Stop are skipped: they wait for the owner.
+    const next = this.base.queue.find((q) => q.threadId === threadId && q.parked !== true);
     if (next === undefined || next.failed === true || this.sending.has(next.id)) return null;
     this.sending.add(next.id);
     this.update((s) => ({ ...s, queue: s.queue.filter((q) => q.id !== next.id) }));
@@ -390,6 +393,34 @@ export class GatewayStore {
 
   sentQueued(item: QueuedFollowUp): void {
     this.sending.delete(item.id);
+  }
+
+  /** Stop: what waits in this thread's queue is held until the owner sends or removes it. */
+  parkQueued(threadId: string): void {
+    this.update((s) =>
+      s.queue.some((q) => q.threadId === threadId && q.parked !== true)
+        ? {
+            ...s,
+            queue: s.queue.map((q) => (q.threadId === threadId ? { ...q, parked: true } : q)),
+          }
+        : s,
+    );
+  }
+
+  /** Lets held follow-ups go: one item (its "Send queued" button) or the whole thread's queue. */
+  resumeQueued(threadId: string, id?: string): void {
+    this.update((s) =>
+      s.queue.some((q) => q.threadId === threadId && q.parked === true)
+        ? {
+            ...s,
+            queue: s.queue.map((q) =>
+              q.threadId === threadId && q.parked === true && (id === undefined || q.id === id)
+                ? { ...q, parked: false }
+                : q,
+            ),
+          }
+        : s,
+    );
   }
 
   /** Clears the failed mark so the queue drains again. */
@@ -491,6 +522,30 @@ export class GatewayStore {
       // Refresh anyway: the version only tells us whether anything changed.
     }
     await this.refreshAll().catch(() => {});
+    await this.settleStaleRuns();
+  }
+
+  /**
+   * After a reconnect a run the client saw running may have ended while it was away (a restart
+   * fails it, a Stop settles it): read each one again so the chat stops claiming work, then drop
+   * the partial replies of runs that ended without a committed message.
+   */
+  private async settleStaleRuns(): Promise<void> {
+    const open = Object.values(this.base.runs)
+      .filter((r) => r.status === "running" || r.status === "awaiting_approval")
+      .slice(0, 20);
+    await Promise.all(
+      open.map(async (r) => {
+        try {
+          const version = this.version();
+          const res = await this.call("runs.get", { runId: r.id });
+          this.update((s) => putMany(s, "runs", [res.run], version));
+        } catch {
+          // Unreachable now: the next refresh tries again.
+        }
+      }),
+    );
+    this.update((s) => dropSettledStreaming(s));
   }
 
   // --- Events ----------------------------------------------------------------------------------
@@ -518,6 +573,18 @@ export class GatewayStore {
     }
     if (INSIGHTS_EVENTS.has(e.event)) this.invalidateInsightsSoon();
     if (MAP_EVENTS.has(e.event)) this.invalidateMapSoon();
+    // The Library list and item loaders are not queries: rerun the open ones for a created or updated item.
+    if (e.event === "library.item.changed" && e.payload.change !== "deleted") {
+      void this.refreshKeys("library:");
+    }
+  }
+
+  /** Reruns the registered loaders whose key starts with `prefix`; each loader shows its own error. */
+  private async refreshKeys(prefix: string): Promise<void> {
+    const once = [...this.refreshers.entries()]
+      .filter(([key]) => key.startsWith(prefix))
+      .flatMap(([, set]) => [...set].slice(0, 1));
+    await Promise.allSettled(once.map((r) => r()));
   }
 
   /** Coalesces gap refreshes: one in flight, one trailing, spaced `GAP_REFRESH_MIN_MS` apart. */
@@ -651,12 +718,14 @@ export class GatewayStore {
           v,
         );
       case "run.updated": {
-        const next = touch(put(s, "runs", e.payload.run), `runs:${e.payload.run.id}`, v);
+        const put1 = touch(put(s, "runs", e.payload.run), `runs:${e.payload.run.id}`, v);
         // Reasoning lives only as long as its run is in progress (#633).
         const status = e.payload.run.status;
         if (status === "running" || status === "awaiting_approval" || status === "awaiting_input")
-          return next;
+          return put1;
         const runId = e.payload.run.id;
+        // A partial reply the run never committed (interrupt, forced stop) must not linger.
+        const next = dropSettledStreaming(put1, runId);
         if (!Object.values(next.reasoning).some((r) => r.runId === runId)) return next;
         return {
           ...next,
@@ -846,6 +915,12 @@ export class GatewayStore {
         if (e.payload.entries.some((entry) => entry.key.startsWith("browser."))) {
           next = invalidate(next, ["browser.settings.get"]);
         }
+        // `settings.get` reads (the helper banner, Devices) keep their own copy: reload the ones
+        // that ask for a changed key, and the ones that ask for every key.
+        next = invalidateSettingsReads(
+          next,
+          e.payload.entries.map((entry) => entry.key),
+        );
         return { ...next, settings };
       }
       case "thread.updated": {
@@ -961,8 +1036,34 @@ export class GatewayStore {
           },
         };
       case "device.updated":
-      case "pairing.requested":
         return invalidate(s, ["devices."]);
+      case "pairing.requested":
+        // The pairing request also lists in Settings → Channels (messaging pairing).
+        return invalidate(s, ["devices.", "channels."]);
+      case "channels.updated":
+        return invalidate(s, ["channels."]);
+      case "persona.updated":
+        return invalidate(s, ["memory.persona."]);
+      case "vault.locked":
+      case "vault.unlocked":
+        return invalidate(s, ["vault."], ["vault.onePassword."]);
+      case "plugins.changed":
+        return invalidate(s, ["plugins."]);
+      case "library.item.changed": {
+        const { itemId, change } = e.payload;
+        const touched = touch(s, `library:${itemId}`, v);
+        if (change === "deleted") {
+          const { [itemId]: _gone, ...rest } = touched.library;
+          return invalidate({ ...touched, library: rest }, ["library."]);
+        }
+        // Created or updated: the open lists and the item reload (see `onEvent`); a held copy of
+        // an updated item is dropped so nothing shows its old state meanwhile.
+        if (change === "updated") {
+          const { [itemId]: _old, ...rest } = touched.library;
+          return invalidate({ ...touched, library: rest }, ["library."]);
+        }
+        return invalidate(touched, ["library."]);
+      }
       case "machines.changed":
         // Settings → Devices → Computers Psyche can use, and the machine picker in Computer use.
         return invalidate(s, ["machines."]);
@@ -1079,6 +1180,25 @@ export function withAutomationRun(s: UiState, run: AutomationRun, started: boole
 }
 
 /** Marks generic queries whose method starts with one of `prefixes` as needing a reload. */
+/** Marks the `settings.get` reads stale that ask for one of `keys`, or for all settings. */
+function invalidateSettingsReads(s: UiState, keys: readonly string[]): UiState {
+  let changed = false;
+  const queries: Record<string, (typeof s.queries)[string]> = { ...s.queries };
+  for (const [key, q] of Object.entries(queries)) {
+    if (!key.startsWith("settings.get:")) continue;
+    let wanted: readonly string[] | undefined;
+    try {
+      wanted = (JSON.parse(key.slice("settings.get:".length)) as { keys?: string[] }).keys;
+    } catch {
+      wanted = undefined;
+    }
+    if (wanted !== undefined && !wanted.some((k) => keys.includes(k))) continue;
+    queries[key] = { ...q, version: -1 };
+    changed = true;
+  }
+  return changed ? { ...s, queries } : s;
+}
+
 function invalidate(
   s: UiState,
   prefixes: readonly string[],

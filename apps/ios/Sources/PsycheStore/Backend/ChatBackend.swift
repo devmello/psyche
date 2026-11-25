@@ -43,10 +43,18 @@ public protocol ChatBackend: Sendable {
     func compactThread(id: String) async throws -> Bool
     /// Brings an archived chat back into the list (`threads.restore`).
     func restoreThread(id: String) async throws
-    /// The archived side chats (`threads.list` with `includeArchived`, keeping only the archived rows).
-    func archivedThreads() async throws -> [ChatThreadSummary]
+    /// One page of the archived side chats, most recent first (`threads.list` with `archivedOnly`). Pass the last
+    /// page's `nextCursor` for the next one.
+    func archivedThreadPage(cursor: String?) async throws -> ThreadPage
     /// Records the owner's thumbs on one assistant reply (`feedback.give`): helpful, or not helpful.
     func giveFeedback(threadID: String, messageID: String, helpful: Bool) async throws
+}
+
+extension ChatBackend {
+    /// The first page of archived chats.
+    public func archivedThreads() async throws -> [ChatThreadSummary] {
+        try await archivedThreadPage(cursor: nil).threads
+    }
 }
 
 /// A follow-up the Gateway holds until the current reply settles. Its `id` is the Gateway's message id.
@@ -113,11 +121,14 @@ public enum ChatEvent: Sendable, Equatable {
     case run(threadID: String, update: RunUpdate)
     /// The thread's follow-up queue changed (`chat.queue.updated`): the whole list, in run order.
     case queue(threadID: String, items: [QueuedFollowUp])
+    /// A message that waited in the outbox went out (`failure` nil) or was refused for good (`failure` is the
+    /// Gateway's reason), so the bubble can drop "Waiting" or show Retry.
+    case sendResult(threadID: String, messageID: String, failure: String?)
 
     public var threadID: String {
         switch self {
         case .item(let id, _), .delta(let id, _, _), .done(let id, _), .status(let id, _, _), .run(let id, _),
-            .queue(let id, _): id
+            .queue(let id, _), .sendResult(let id, _, _): id
         }
     }
 }

@@ -3,8 +3,11 @@ import type { Catalogue } from "../../index.ts";
 /** Notices the Gateway authors (ar); merged into `../ar.ts`. */
 export const notices: Partial<Catalogue> = {
   "notice.install.failed.title": "لم يكتمل تثبيت تمت الموافقة عليه",
+  "notice.connectors.matrix.failed.title": "لم تُحفظ قاعدة أحد الموصلات",
+  "notice.connectors.matrix.failed.body":
+    "تعذّر تطبيق {action} على {connector}، لذلك ما زال يستخدم قاعدته السابقة. راجعها في الإعدادات › الموصلات.",
   "notice.install.failed.body":
-    "{reason, select, lost {أُعيد تشغيل Psyche قبل موافقتك، لذلك ضاع الاقتراح. اقترحه من جديد.} expired {انتهت صلاحية الاقتراح قبل موافقتك. اقترحه من جديد.} other {تعذّر على Psyche تثبيته. راجع القائمة وحاول مرة أخرى.}}",
+    "{reason, select, lost {أُعيد تشغيل Psyche قبل موافقتك، لذلك ضاع الاقتراح. اقترحه من جديد.} expired {انتهت صلاحية الاقتراح قبل موافقتك. اقترحه من جديد.} other {تعذّر على Psyche تثبيته. اقترحه من جديد، أو اطلب من Psyche ذلك.}}",
   "notice.security.changed.title": "تراجع Psyche عن تغيير أمني أُجري خارج التطبيق",
   "notice.security.changed.body":
     "غيّر برنامج على هذا الـ Mac {count, plural, =1 {سجل أمان واحدًا} other {# من سجلات الأمان}} (الأجهزة أو المفاتيح أو الأذونات أو الإعدادات) دون المرور عبر Psyche{times, plural, =0 {} =1 {} other {، # مرات حتى الآن}}. أعاد Psyche كل شيء كما كان. إن لم تكن أنت من فعل ذلك، فافحص الـ Mac بحثًا عن برامج غير مرغوب فيها.",
@@ -39,6 +42,12 @@ export const notices: Partial<Catalogue> = {
     "{reason, select, account_changed {يسجّل موصّل الدخول الآن إلى حساب مختلف. أُوقف العمل المرتبط بالحساب القديم.} disconnected {فُصل موصّل. أُوقف العمل الذي كان يحتاج إليه.} scope_changed {أصبح موصّل للقراءة فقط. أُوقفت الإجراءات المعلّقة عبره.} other {أُلغي وصول موصّل. سجّل الدخول من جديد لمواصلة استخدامه.}}",
   "notice.connector.reconnect.title": "يلزم إعادة الاتصال",
   "notice.connector.reconnect.body": "فقد موصّل إمكانية الوصول ويلزمك تسجيل الدخول من جديد.",
+  "notice.connector.syncFailing.title": "{name} لا تتم مزامنته",
+  "notice.connector.syncFailing.body":
+    "فشلت مزامنة {name} عدة مرات متتالية ({reason}). يواصل Psyche المحاولة. تحقق من ذلك في الإعدادات › الموصلات.",
+  "notice.connector.testingExpired.title": "سجّل Google خروجك",
+  "notice.connector.testingExpired.body":
+    "يسجّل Google خروجك بعد 7 أيام ما دام تطبيق OAuth الخاص بـ Psyche في وضع الاختبار. انشر تطبيق OAuth في Google Cloud لإيقاف ذلك، ثم أعد ربط Google من الإعدادات › الموصلات.",
   "notice.attention.paused.title": "مهمة تنتظرك",
   "notice.attention.paused.body":
     "توقفت مؤقتًا قبل {tool} على تطبيق أو موقع حساس إلى أن تعود إلى Psyche.",
@@ -98,4 +107,10 @@ export const notices: Partial<Catalogue> = {
   "notice.machine.offline.title": "انقطع اتصال {name}",
   "notice.machine.offline.body":
     "توجد مهمة تنتظر استخدامه، وستتابع عندما يعود {name}. يمكنك أيضاً إلغاء المهمة.",
+  "notice.automation.needsApproval.title": "{title} ينتظر موافقتك",
+  "notice.automation.needsApproval.body":
+    "توقف لأن الموافقة انتهت صلاحيتها. افتح الموافقات لترى ما يحتاجه، ثم شغّله مرة أخرى.",
+  "notice.automation.interrupted.title": "تمت مقاطعة {title}",
+  "notice.automation.interrupted.body":
+    "أُعيد تشغيل Psyche أثناء تشغيله وربما أنجز جزءًا منه. تحقق من النتيجة، ثم شغّله مرة أخرى إن لزم.",
 };

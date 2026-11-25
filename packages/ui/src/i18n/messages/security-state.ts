@@ -43,8 +43,9 @@ export const securityState = {
   "web.security.ack": "Mark reviewed",
   "web.security.approveNow": "Approve now",
   "web.security.cancel": "Cancel request",
-  "web.security.needsApproval":
+  "web.security.needsApprovalPresence":
     "Approve the card with Touch ID or a passkey, then press the button again.",
+  "web.security.needsApproval": "Approve the card, then press the button again.",
   "web.security.failed": "That didn't work: {message}",
   "settings.security.title": "Security records",
   "settings.security.description":

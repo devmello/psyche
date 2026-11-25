@@ -288,12 +288,18 @@ describe("storage hardening", () => {
     recording(home, "task_old", Date.now() - 9 * DAY);
     recording(home, "task_new", Date.now() - DAY);
     const rows: string[] = [];
+    const emitted: string[] = [];
     const db = {
       sqlite: {
-        prepare: () => ({ run: (path: string) => rows.push(path) }),
+        prepare: (sql: string) => ({
+          all: (path: string) => (sql.startsWith("SELECT") ? [{ id: `item_for_${path}` }] : []),
+          run: (path: string) => rows.push(path),
+        }),
       },
     };
-    await clearStorage(home, ["recordings"], Date.now(), db as never);
+    await clearStorage(home, ["recordings"], Date.now(), db as never, (id) => emitted.push(id));
     expect(rows).toEqual(["recordings/task_old"]);
+    // Each removed row is announced, so the Library grid drops it without a reload.
+    expect(emitted).toEqual(["item_for_recordings/task_old"]);
   });
 });

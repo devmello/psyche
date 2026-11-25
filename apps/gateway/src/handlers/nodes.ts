@@ -42,7 +42,7 @@ import { isMachineInvokeReachable } from "../nodes/machines.ts";
  * Host helper's are already behind the allowlist below; this keeps a remote node's out too).
  */
 const UNREACHABLE =
-  /^(vault|keychain|settings|permissions|grants|approvals|devices|gateway|dictation|apps|computer|messages|notify|screen|ocr|llm|presence|teach|chrome|vscreen|location)([^a-z0-9]|$)/;
+  /^(vault|keychain|settings|permissions|grants|approvals|devices|gateway|dictation|apps|computer|messages|notify|screen|ocr|llm|presence|teach|chrome|vscreen|location|points)([^a-z0-9]|$)/;
 
 /**
  * The helper's own notification permission, which the desktop's onboarding and Settings read and
@@ -87,6 +87,47 @@ export function isUnreachableCapability(name: string): boolean {
   return UNREACHABLE.test(name.toLowerCase());
 }
 
+/**
+ * Settings asks the Host's Mac helper for its own Accessibility, Screen Recording and
+ * Notifications grants (macOS grants are per app identity: "Psyche Helper", not Psyche.app). Only
+ * the owner's click in the desktop app, and only on the Host's helper: the helper shows the system
+ * prompt or opens the pane, nothing else. Screen Recording keeps the helper's own
+ * `vision_fallback` purpose. Any other permission, extra argument, caller or node stays refused.
+ */
+const HELPER_PERMISSIONS: ReadonlySet<unknown> = new Set(["accessibility", "screenRecording"]);
+
+/** Exactly these keys, own properties only (`Object.hasOwn`, so a prototype never answers). */
+function hasOnly(p: Record<string, unknown>, keys: readonly string[]): boolean {
+  const own = Object.keys(p);
+  return own.length === keys.length && keys.every((k) => Object.hasOwn(p, k));
+}
+
+/**
+ * The helper's own permission prompts, asked for by the owner's click (Settings → Computer use
+ * and → Notifications). Accessibility and Screen Recording go through `permissions.request`;
+ * Notifications through `notify.request_authorization` (the explicit prompt, never provisional);
+ * `permissions.open_settings` opens the pane of any of the three. Everything else stays refused.
+ */
+export function isHelperPermissionPrompt(capability: string, params: unknown): boolean {
+  if (typeof params !== "object" || params === null || Array.isArray(params)) return false;
+  const p = params as Record<string, unknown>;
+  if (capability === "notify.request_authorization") {
+    return hasOnly(p, ["provisional"]) && p.provisional === false;
+  }
+  if (capability === "permissions.open_settings") {
+    return (
+      hasOnly(p, ["permission"]) &&
+      (HELPER_PERMISSIONS.has(p.permission) || p.permission === "notifications")
+    );
+  }
+  if (capability !== "permissions.request" || !Object.hasOwn(p, "permission")) return false;
+  if (p.permission === "accessibility") return hasOnly(p, ["permission"]);
+  if (p.permission === "screenRecording") {
+    return hasOnly(p, ["permission", "purpose"]) && p.purpose === "vision_fallback";
+  }
+  return false;
+}
+
 /** Pseudo thread id for client-initiated invocations (no conversation owns them). */
 export const CLIENT_INVOKE_THREAD = "client:nodes.invoke";
 
@@ -109,10 +150,15 @@ export const nodesHandlers: Record<string, HandlerDef> = {
       const { ctx } = call;
       const node = getNode(ctx.db, params.nodeId);
       if (!node) throw new PsycheError("not_found", `node ${params.nodeId} not found`);
-      if (
-        (isHostHelperKind(node.kind) || ctx.nodes.isHostHelper(node.id)) &&
-        !isHostHelperCapabilityReachable(params.capability)
-      ) {
+      const hostHelper = isHostHelperKind(node.kind) || ctx.nodes.isHostHelper(node.id);
+      // Only the owner's own desktop app (a loopback desktop-shell connection) may prompt: a
+      // paired phone, another Mac or a leaked write token must not spam the Host with TCC sheets.
+      const permissionPrompt =
+        hostHelper &&
+        call.identity.desktopShell === true &&
+        call.conn.peer.remoteLoopback &&
+        isHelperPermissionPrompt(params.capability, params.params);
+      if (hostHelper && !permissionPrompt && !isHostHelperCapabilityReachable(params.capability)) {
         throw new PsycheError(
           "forbidden",
           `${params.capability} is not reachable through nodes.invoke on the Host's ${node.kind === "win-helper" ? "Windows" : node.kind === "host-helper" ? "Linux" : "Mac"} helper`,
@@ -132,7 +178,7 @@ export const nodesHandlers: Record<string, HandlerDef> = {
           `${params.capability} is not reachable through nodes.invoke on a machine`,
         );
       }
-      if (isUnreachableCapability(params.capability)) {
+      if (!permissionPrompt && isUnreachableCapability(params.capability)) {
         throw new PsycheError(
           "forbidden",
           `${params.capability} is not reachable through nodes.invoke`,
@@ -157,12 +203,15 @@ export const nodesHandlers: Record<string, HandlerDef> = {
         params: params.params ?? null,
         paramsHash: `sha256:${paramsHash({ nodeId: node.id, capability: capability.name, params: params.params })}`,
       };
-      const decision = await ctx.broker.decide(intent, {
-        threadId: CLIENT_INVOKE_THREAD,
-        runId: invocationId,
-        permissionMode: "balanced",
-        taint: false,
-      });
+      // The owner's own click on Allow is the consent; the prompt itself is the OS's.
+      const decision = permissionPrompt
+        ? ({ decision: "allow" } as Awaited<ReturnType<typeof ctx.broker.decide>>)
+        : await ctx.broker.decide(intent, {
+            threadId: CLIENT_INVOKE_THREAD,
+            runId: invocationId,
+            permissionMode: "balanced",
+            taint: false,
+          });
       if (decision.decision === "deny") {
         throw new PsycheError("policy_denied", decision.reason ?? "denied by policy", {
           details: { rule: decision.rule },

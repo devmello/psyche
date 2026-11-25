@@ -169,7 +169,8 @@ export interface Snapshot {
     state: string;
     slots: string[];
     recoveryConfirmed: boolean;
-    autoLockMinutes: number;
+    /** `null` is "Never": the vault never locks on idle. */
+    autoLockMinutes: number | null;
     itemCount: number;
   }>;
   apiKeys: Query<{ name: string; bindings: Record<string, string>[] }[]>;

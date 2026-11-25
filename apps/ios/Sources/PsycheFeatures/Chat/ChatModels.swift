@@ -17,6 +17,11 @@ final class ThreadListModel {
     private(set) var exported: ExportedChat?
     /// The archived side chats, shown below the list. A failed read leaves the section empty.
     private(set) var archived: [ChatThreadSummary] = []
+    /// Where the next page of archived chats starts; nil once the last page is loaded.
+    private(set) var archivedCursor: String?
+    /// True while the next page of archived chats is being fetched.
+    private(set) var loadingMoreArchived = false
+    private var archivedOlderIDs: Set<String> = []
     /// Where the next page of the list starts; nil once the last page is loaded.
     private(set) var nextCursor: String?
     /// True while the next page is being fetched (the list shows a quiet spinner row).
@@ -42,7 +47,34 @@ final class ThreadListModel {
         } catch {
             if phase.value == nil { phase = .failed(error.localizedDescription) }
         }
-        archived = (try? await store.archivedThreads()) ?? []
+        await loadArchived()
+    }
+
+    /// Reads the first archived page again. A failure keeps the list already shown, and older pages stay.
+    private func loadArchived() async {
+        guard let page = try? await store.archivedThreadPage(cursor: nil) else { return }
+        let fresh = Set(page.threads.map(\.id))
+        let kept = archived.filter { archivedOlderIDs.contains($0.id) && !fresh.contains($0.id) }
+        archivedOlderIDs = Set(kept.map(\.id))
+        if kept.isEmpty { archivedCursor = page.nextCursor }
+        archived = page.threads + kept
+    }
+
+    /// Fetches the next page of archived chats ("Load older chats").
+    func loadMoreArchived() async {
+        guard !loadingMoreArchived, let cursor = archivedCursor else { return }
+        loadingMoreArchived = true
+        defer { loadingMoreArchived = false }
+        do {
+            let page = try await store.archivedThreadPage(cursor: cursor)
+            let known = Set(archived.map(\.id))
+            let added = page.threads.filter { !known.contains($0.id) }
+            archivedOlderIDs.formUnion(added.map(\.id))
+            archivedCursor = page.nextCursor
+            archived += added
+        } catch {
+            actionError = error.localizedDescription
+        }
     }
 
     /// Brings an archived chat back into the list.
@@ -200,6 +232,10 @@ final class ThreadModel {
     private(set) var compacting = false
     /// The owner's thumbs on replies in this session, by message id (true is helpful).
     private(set) var feedback: [String: Bool] = [:]
+    /// The Gateway's own word on this thread's chat run (`run.updated`); nil until one arrives, and after a
+    /// terminal state. Keeps Stop up while a run waits on an approval.
+    private(set) var runState: RunUpdate.State?
+    private var refreshingHeader = false
     private let store: any PsycheBackend
     private var drafts: [String: MessageDraft] = [:]
     private var pendingDeltas: [String: String] = [:]
@@ -214,6 +250,7 @@ final class ThreadModel {
     /// True while Psyche is working on this thread, which swaps Send for Stop.
     var isRunning: Bool {
         guard let thread = phase.value else { return false }
+        if runState == .waiting { return true }
         if thread.statusKind == .running { return true }
         if case .assistant(_, _, true)? = thread.items.last { return true }
         return false
@@ -224,6 +261,7 @@ final class ThreadModel {
         do {
             phase = .loaded(Self.refreshed(try await store.thread(id: id), keeping: phase.value))
             revision += 1
+            runState = nil
         } catch {
             if phase.value == nil { phase = .failed(error.localizedDescription) }
         }
@@ -333,10 +371,35 @@ final class ThreadModel {
         for await event in store.events() {
             switch event {
             // Opened by an alias (the main thread is "thr_main" until loaded), events carry the real id.
-            case .chat(let chat) where chat.threadID == id || chat.threadID == phase.value?.id: apply(chat)
+            case .chat(let chat) where chat.threadID == id || chat.threadID == phase.value?.id:
+                apply(chat)
+                // A run that ended may have left a failure, a cancel or no reply at all: read the thread as it is now.
+                if case .run(_, let update) = chat, update.isChat, Self.isTerminal(update.state) { await load() }
+            // `thread.updated` (a rename, an automatic title) reaches an open thread as a threads change.
+            case .changed(.threads): await refreshHeader()
             case .resynced: await load()
             default: break
             }
+        }
+    }
+
+    /// Takes only the title from the Gateway, so a rename or an automatic title shows in an open thread without
+    /// touching the messages. Bursts share one fetch.
+    private func refreshHeader() async {
+        guard !refreshingHeader, case .loaded = phase else { return }
+        refreshingHeader = true
+        defer { refreshingHeader = false }
+        guard let fresh = try? await store.thread(id: threadID),
+            case .loaded(var thread) = phase, thread.title != fresh.title
+        else { return }
+        thread.title = fresh.title
+        phase = .loaded(thread)
+    }
+
+    static func isTerminal(_ state: RunUpdate.State) -> Bool {
+        switch state {
+        case .done, .failed, .cancelled: true
+        case .running, .waiting: false
         }
     }
 
@@ -482,14 +545,31 @@ final class ThreadModel {
 
     // MARK: Applying events
 
-    private func apply(_ event: ChatEvent) {
+    func apply(_ event: ChatEvent) {
         // The queue is the whole list, so it replaces what this phone had.
         if case .queue(_, let items) = event {
             queue = Self.sortedQueue(items)
             return
         }
-        // Run changes feed the Live Activity (AlertCenter); the thread screen reads its own status.
-        if case .run = event { return }
+        if case .run(_, let update) = event {
+            applyRun(update)
+            return
+        }
+        // The outbox settled a message that waited offline: a refusal marks its bubble failed (Retry shows), a
+        // delivery drops "Waiting".
+        if case .sendResult(_, let messageID, let failure) = event {
+            if let failure {
+                delivery[messageID] = .failed(failure)
+                if case .loaded(var thread) = phase, thread.status == "Thinking" {
+                    thread.status = ""
+                    thread.statusKind = .neutral
+                    phase = .loaded(thread)
+                }
+            } else if delivery[messageID] == .queued {
+                delivery[messageID] = nil
+            }
+            return
+        }
         if case .delta(_, let itemID, let text) = event {
             // Deltas arrive faster than frames; they are folded together and laid out once per frame.
             pendingDeltas[itemID, default: ""] += text
@@ -519,7 +599,7 @@ final class ThreadModel {
             }
             if case .assistant(_, _, false) = item { Self.endThinking(&thread) }
             Self.upsert(item, into: &thread)
-        case .delta, .queue:
+        case .delta, .queue, .sendResult:
             break
         case .done(_, let itemID):
             if let index = thread.items.firstIndex(where: { $0.id == itemID }),
@@ -533,6 +613,35 @@ final class ThreadModel {
             thread.statusKind = kind
         case .run:
             break
+        }
+        phase = .loaded(thread)
+        revision += 1
+    }
+
+    /// The thread follows its chat run. Any terminal state (done, failed, cancelled) clears Thinking and Running
+    /// and settles a reply that was still streaming, even when no assistant message ever arrives. Task runs and
+    /// other kinds say nothing about this thread's reply.
+    private func applyRun(_ update: RunUpdate) {
+        guard update.isChat else { return }
+        flushDeltas()
+        guard case .loaded(var thread) = phase else { return }
+        if Self.isTerminal(update.state) {
+            runState = nil
+            if thread.statusKind == .running || thread.status == "Thinking" {
+                thread.status = ""
+                thread.statusKind = .neutral
+            }
+            for index in thread.items.indices {
+                if case .assistant(let id, let text, true) = thread.items[index] {
+                    thread.items[index] = .assistant(id: id, text: text, streaming: false)
+                }
+            }
+        } else {
+            runState = update.state
+            if update.state == .running, thread.statusKind != .running {
+                thread.status = "Thinking"
+                thread.statusKind = .running
+            }
         }
         phase = .loaded(thread)
         revision += 1

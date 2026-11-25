@@ -3,8 +3,11 @@ import type { Catalogue } from "../../index.ts";
 /** Notices the Gateway authors (ko); merged into `../ko.ts`. */
 export const notices: Partial<Catalogue> = {
   "notice.install.failed.title": "승인한 설치가 완료되지 않았습니다",
+  "notice.connectors.matrix.failed.title": "커넥터 규칙 하나를 저장하지 못했습니다",
+  "notice.connectors.matrix.failed.body":
+    "{connector}의 {action}을(를) 적용하지 못해 이전 규칙이 그대로 사용됩니다. 설정 › 커넥터에서 확인하세요.",
   "notice.install.failed.body":
-    "{reason, select, lost {승인 전에 Psyche가 다시 시작되어 제안이 사라졌습니다. 다시 제안해 주세요.} expired {승인 전에 제안이 만료되었습니다. 다시 제안해 주세요.} other {Psyche가 설치하지 못했습니다. 목록을 확인하고 다시 시도해 주세요.}}",
+    "{reason, select, lost {승인 전에 Psyche가 다시 시작되어 제안이 사라졌습니다. 다시 제안해 주세요.} expired {승인 전에 제안이 만료되었습니다. 다시 제안해 주세요.} other {Psyche가 설치하지 못했습니다. 다시 제안하거나 Psyche에게 요청해 주세요.}}",
   "notice.security.changed.title": "앱 밖에서 이루어진 보안 변경을 Psyche가 되돌렸습니다",
   "notice.security.changed.body":
     "이 Mac의 프로그램이 Psyche를 거치지 않고 보안 기록 {count, plural, =1 {# 개} other {# 개}}(기기, 키, 권한, 설정)를 변경했습니다{times, plural, =0 {} =1 {} other {(지금까지 # 번)}}. Psyche가 되돌려 놓았습니다. 직접 하신 일이 아니라면 Mac에 원치 않는 소프트웨어가 없는지 확인하세요.",
@@ -39,6 +42,12 @@ export const notices: Partial<Catalogue> = {
     "{reason, select, account_changed {커넥터가 이제 다른 계정으로 로그인합니다. 이전 계정에 묶인 작업은 중단되었습니다.} disconnected {커넥터 연결이 끊어졌습니다. 해당 커넥터가 필요한 작업은 중단되었습니다.} scope_changed {커넥터가 이제 읽기 전용입니다. 이를 통한 대기 중인 작업은 중단되었습니다.} other {커넥터의 접근 권한이 취소되었습니다. 계속 사용하려면 다시 로그인하세요.}}",
   "notice.connector.reconnect.title": "다시 연결해야 합니다",
   "notice.connector.reconnect.body": "커넥터가 접근 권한을 잃었습니다. 다시 로그인하세요.",
+  "notice.connector.syncFailing.title": "{name} 동기화가 되지 않습니다",
+  "notice.connector.syncFailing.body":
+    "{name} 동기화가 여러 번 연속 실패했습니다 ({reason}). Psyche가 계속 다시 시도합니다. 설정 › 커넥터에서 확인하세요.",
+  "notice.connector.testingExpired.title": "Google에서 로그아웃되었습니다",
+  "notice.connector.testingExpired.body":
+    "Psyche OAuth 앱이 테스트 모드인 동안 Google은 7일 후 로그아웃합니다. Google Cloud에서 OAuth 앱을 게시하면 해결되며, 그다음 설정 › 커넥터에서 Google을 다시 연결하세요.",
   "notice.attention.paused.title": "작업이 기다리고 있습니다",
   "notice.attention.paused.body":
     "민감한 앱이나 사이트에서 {tool} 직전에 멈췄습니다. Psyche로 돌아올 때까지 기다립니다.",
@@ -99,4 +108,10 @@ export const notices: Partial<Catalogue> = {
   "notice.machine.offline.title": "{name}이(가) 오프라인 상태입니다",
   "notice.machine.offline.body":
     "작업이 이 컴퓨터를 사용하려고 기다리고 있으며 {name}이(가) 돌아오면 계속됩니다. 작업을 취소할 수도 있습니다.",
+  "notice.automation.needsApproval.title": "{title}이(가) 승인을 기다리고 있습니다",
+  "notice.automation.needsApproval.body":
+    "승인 시간이 지나 중단되었습니다. 승인 화면을 열어 필요한 내용을 확인한 뒤 다시 실행하세요.",
+  "notice.automation.interrupted.title": "{title}이(가) 중단되었습니다",
+  "notice.automation.interrupted.body":
+    "실행 중에 Psyche가 다시 시작되어 일부가 이미 처리되었을 수 있습니다. 결과를 확인하고 필요하면 다시 실행하세요.",
 };

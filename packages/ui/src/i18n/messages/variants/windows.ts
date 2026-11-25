@@ -160,7 +160,6 @@ export const windows: Partial<Record<MessageId, string>> = {
     "No channels yet. Connect Telegram or Slack to reach {persona} away from this PC.",
   "settings.computerUse.description": "{persona} can use apps on this PC only where you allow it.",
   "settings.computerUse.macPermissions": "Windows access",
-  "settings.computerUse.openSystemSettingsFor": "Open Windows Settings for {name}",
   "settings.computerUse.openSystemSettings": "Open Settings",
   "settings.mcp.sandboxHelp":
     "Command servers run in the sandbox PC: turn it on in Settings → Sandbox PC.",
@@ -469,6 +468,8 @@ export const windows: Partial<Record<MessageId, string>> = {
   "web.security.alert.requested": "Asked for on this PC: {action} Applies on {when}.",
   "web.security.op.presenceReset":
     "stop requiring Windows Hello or a passkey for security changes until a new key is registered.",
+  "web.security.needsApprovalPresence":
+    "Approve the card with Windows Hello or a passkey, then press the button again.",
   "web.security.needsApproval":
     "Approve the card with Windows Hello or a passkey, then press the button again.",
   "notice.security.changed.body":

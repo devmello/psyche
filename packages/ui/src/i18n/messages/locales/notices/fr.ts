@@ -3,8 +3,11 @@ import type { Catalogue } from "../../index.ts";
 /** Notices the Gateway authors (fr); merged into `../fr.ts`. */
 export const notices: Partial<Catalogue> = {
   "notice.install.failed.title": "Une installation approuvée n'a pas abouti",
+  "notice.connectors.matrix.failed.title": "Une règle de connecteur n'a pas été enregistrée",
+  "notice.connectors.matrix.failed.body":
+    "{action} sur {connector} n'a pas pu être appliqué, donc la règle précédente reste active. Vérifie-la dans Réglages › Connecteurs.",
   "notice.install.failed.body":
-    "{reason, select, lost {Psyche a redémarré avant ton approbation, la proposition a donc été perdue. Propose-la à nouveau.} expired {La proposition avait expiré avant ton approbation. Propose-la à nouveau.} other {Psyche n'a pas pu l'installer. Vérifie la liste et réessaie.}}",
+    "{reason, select, lost {Psyche a redémarré avant ton approbation, la proposition a donc été perdue. Propose-la à nouveau.} expired {La proposition avait expiré avant ton approbation. Propose-la à nouveau.} other {Psyche n'a pas pu l'installer. Propose-la à nouveau, ou demande à Psyche de le faire.}}",
   "notice.security.changed.title":
     "Psyche a annulé une modification de sécurité faite en dehors de l’app",
   "notice.security.changed.body":
@@ -42,6 +45,12 @@ export const notices: Partial<Catalogue> = {
   "notice.connector.reconnect.title": "Reconnexion nécessaire",
   "notice.connector.reconnect.body":
     "Un connecteur a perdu l’accès et vous devez vous reconnecter.",
+  "notice.connector.syncFailing.title": "{name} ne se synchronise pas",
+  "notice.connector.syncFailing.body":
+    "La synchronisation de {name} a échoué plusieurs fois de suite ({reason}). Psyche continue d'essayer. Vérifiez dans Réglages › Connecteurs.",
+  "notice.connector.testingExpired.title": "Google vous a déconnecté",
+  "notice.connector.testingExpired.body":
+    "Google vous déconnecte après 7 jours tant que l'app OAuth de Psyche est en mode test. Publiez l'app OAuth dans Google Cloud pour y mettre fin, puis reconnectez Google dans Réglages › Connecteurs.",
   "notice.attention.paused.title": "Une tâche vous attend",
   "notice.attention.paused.body":
     "En pause avant {tool} sur une app ou un site sensible, jusqu’à votre retour dans Psyche.",
@@ -107,4 +116,10 @@ export const notices: Partial<Catalogue> = {
   "notice.machine.offline.title": "{name} est hors ligne",
   "notice.machine.offline.body":
     "Une tâche attend de l'utiliser et reprendra quand {name} sera de retour. Vous pouvez aussi annuler la tâche.",
+  "notice.automation.needsApproval.title": "{title} attend ton approbation",
+  "notice.automation.needsApproval.body":
+    "Il s'est arrêté parce que l'approbation a expiré. Ouvre Approbations pour voir ce qu'il demande, puis relance-le.",
+  "notice.automation.interrupted.title": "{title} a été interrompu",
+  "notice.automation.interrupted.body":
+    "Psyche a redémarré pendant son exécution et il en a peut-être déjà fait une partie. Vérifie le résultat, puis relance-le si besoin.",
 };

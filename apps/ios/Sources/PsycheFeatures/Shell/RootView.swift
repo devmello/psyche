@@ -22,9 +22,17 @@ public struct RootView: View {
             switch session.state {
             case .unpaired, .pending, .revoked:
                 PairingFlow().transition(.opacity)
-            case .refused:
-                RefusedView().transition(.opacity)
-            case .connecting, .live, .unreachable:
+            case .refused(let reason):
+                RefusedView(reason: reason).transition(.opacity)
+            case .connecting, .unreachable:
+                // A pairing that never reached the Mac has nothing to show: say so and offer Cancel. An earlier
+                // pairing that lost its connection keeps its cached tabs.
+                if let attempt = session.pairingAttempt {
+                    PairingProgressView(attempt: attempt, reachable: session.state == .connecting).transition(.opacity)
+                } else {
+                    MainTabs(store: store).transition(.opacity)
+                }
+            case .live:
                 MainTabs(store: store).transition(.opacity)
             }
         }
@@ -46,9 +54,7 @@ public struct RootView: View {
         // psyche://<route> only, never a Gateway URL or key (docs/design/ios-app-2026.md §4).
         #if DEBUG
         // `simctl launch … -psycheOpen /chat/thr_q3` opens a route without a tap (screenshots, demos).
-        .task {
-            if let path = UserDefaults.standard.string(forKey: "psycheOpen") { router.open(appPath: path) }
-        }
+        .task { router.applyQueuedLaunchRoute() }
         #endif
         .onOpenURL { url in
             guard url.scheme == "psyche", let host = url.host else { return }

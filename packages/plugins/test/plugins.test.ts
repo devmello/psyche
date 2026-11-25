@@ -121,7 +121,7 @@ describe("plugin processes", () => {
 });
 
 describe("plugin install and switches", () => {
-  async function setup(enabled = { on: false }) {
+  async function setup(enabled = { on: false }, onChange?: (name: string, change: string) => void) {
     const clock = new FakeClock();
     const broker = new RecordingBroker({ clock });
     const registry = new AgentPluginRegistry();
@@ -131,6 +131,7 @@ describe("plugin install and switches", () => {
       registry,
       enabled: () => enabled.on,
       now: () => clock.now(),
+      ...(onChange === undefined ? {} : { onChange: onChange as never }),
     });
     const source = join(dir, "src-office-hours");
     cpSync(join(FIXTURES, "office-hours"), source, { recursive: true });
@@ -181,6 +182,31 @@ describe("plugin install and switches", () => {
       (r) => r.kind === "skill_install" && r.externalRefs?.plugin === "office-hours",
     );
     expect(receipts).toHaveLength(1);
+  });
+
+  it("reports an approved install once, then the switch and the removal (and survives a throwing listener)", async () => {
+    const seen: string[] = [];
+    const s = await setup({ on: false }, (name, change) => {
+      seen.push(`${name}:${change}`);
+      throw new Error("listener failed");
+    });
+    s.clock.advance(500);
+    await approve(s.broker, s.approval.id);
+    const approved = await s.broker.get(s.approval.id);
+    await Promise.all([
+      s.manager.install(s.proposal.id, s.approval.id),
+      s.manager.installApproved(approved as NonNullable<typeof approved>),
+    ]);
+    expect(seen).toEqual(["office-hours:installed"]);
+    await s.manager.setEnabled("office-hours", true);
+    await s.manager.setEnabled("office-hours", false);
+    await s.manager.remove("office-hours");
+    expect(seen).toEqual([
+      "office-hours:installed",
+      "office-hours:enabled",
+      "office-hours:disabled",
+      "office-hours:removed",
+    ]);
   });
 
   it("the Settings call and the event racing each other install once", async () => {

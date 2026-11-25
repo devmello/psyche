@@ -12,6 +12,10 @@
 
 CI fails when the generated files are stale (`pnpm protocol:check`).
 
+## Night shift (W0: protocol and DB)
+
+- New methods `nightShift.status`, `nightShift.review.get`, `nightShift.apply`, `nightShift.undo`, `nightShift.dismiss`, `nightShift.runNow` (apply, undo, dismiss and runNow are side-effecting; apply and undo need `operator.approvals`). New events `nightShift.updated` and `nightShift.item.updated`. New types `NightShiftNight`, `NightShiftSummary`, `StagedAction` and friends. `ApprovalKind` gains `staged_apply`; `DailySectionId` gains `night_shift`. Tables `night_shift_nights` and `staged_actions`. No Gateway handlers yet: calls return `not_implemented`. Design: `docs/design/night-shift-2026.md`.
+
 ## Quiet email threads (follow-ups on mail)
 
 - New methods `mailFollowups.list` and `mailFollowups.act` (`snooze` | `dismiss`); new types `MailFollowupItem`, `MailFollowupKind`, `MailFollowupAction`. `DailySectionId` gains `quiet_threads`; `DailyBrief.sections` allows 10 sections (was 8). Setting keys: the existing `mail.followups.enabled` and `mail.followups.waitDays`.
@@ -424,7 +428,7 @@ For S17 (`packages/speech` `VoiceConversation`, V-G), S14 (helper, V-H #692), th
   - `interrupt {conversationId, stage: suspect | confirmed, playedMs?}`;
   - `played {conversationId, utteranceId, playedMs, done}`;
   - `stop {conversationId}`.
-  Schemas `VoiceConversationMode`, `VoiceConversationPhase`, `VoiceConversationEndReason`, `VoiceConversationReason`, `VoiceSpeakLevel`, `VoiceNarrateLevel`, `VoiceApprovalTier`, `VoiceTurnAction`, `VoiceInterruptStage`, and `VOICE_CONVERSATION_SETTING_KEYS` (14 `voice.conversation.*` keys).
+    Schemas `VoiceConversationMode`, `VoiceConversationPhase`, `VoiceConversationEndReason`, `VoiceConversationReason`, `VoiceSpeakLevel`, `VoiceNarrateLevel`, `VoiceApprovalTier`, `VoiceTurnAction`, `VoiceInterruptStage`, and `VOICE_CONVERSATION_SETTING_KEYS` (14 `voice.conversation.*` keys).
 - **New events** to the starting device only: `voice.conversation.state` (`phase`, `reason?`, `approvalId?`, `prompt?`, `windowMs?`, `listening`), `.caption`, `.speech` (PCM), `.step` and `.ended`.
 - **New `InputVia` (`"voice"`)**, used as optional `ApprovalAnswer.via` (answered by a spoken phrase after a readback; chat's tiers, never `deviceOnly`) and optional `Message.via` (spoken by the owner).
 - **Contract `StartTurnInput.voice?: VoiceTurnOptions`** (`speak`, `narrate`, `language?`): the loop adds the voice-turn prompt section and runs with thinking off where the model allows. Fakes need no change.
@@ -454,6 +458,7 @@ For W6 (#670) and the helper's H1 / H2, docs/workflows/mail-and-meetings-2026.md
 ### v1 additive — 2026-10-26 (U, #640: connector settings from Settings → Connectors)
 
 For the UI session (U) and S09 (G, #639): `connectors.configure {connectorId, config}` merges non-secret keys into a connector's `config` (`null` removes one) without reconnecting it. Settings writes `apple:shortcuts`' `config.shortcutRules` (`off` / `ask` / `allow` per shortcut id) and Obsidian's `config.vaultPath` and `config.dailyFolder` through it. G implements the handler.
+
 ### v1 additive — 2026-10-26 (S09 for S14 #719: Things auth token)
 
 - `ThingsUpdateParams.authToken?` and `ThingsCompleteParams.authToken?`: Things' URL-scheme auth token, which the Gateway fills in from the vault for that call only. The model never writes it, no card shows it, and the helper neither logs nor stores it.
@@ -829,9 +834,11 @@ For S02 (`task.start` declares `sideEffect: write` and `kind: task_start`), S05 
 ### v1 additive — 2026-10-19 (P9 file tools, #49)
 
 For `@psyche/files` and the approval cards (S11 / S12). `ToolCallDescription` gains optional `details?: JsonObject`: what the approval card shows besides the params, display only and never part of the binding. The agent loop spreads it into `ApprovalRequest.details` under `tool`, `params` and `target`, which it cannot override. `write_file` / `edit_file` use it for `{path, operation, diff}`, which the UI kit's `file_write` card already renders.
+
 ### v1 additive — 2026-10-19 (S05 M2: fresh presence on security settings)
 
 For S05 (the Gateway's `settings.set`) and S11 (Settings). `settings.set` gains optional `approvalId`. Once the Gateway has a presence verifier (helper Touch ID, passkeys), a security key (security §10: `permissions.*`, `exec.*`, `vault.*`, `devices.*`, `gateway.*`, `identityLinks.*`, `commands.ownerAllowFrom`, the channel DM / allow policies) fails `approval_required` with `details.approvalId`: a device-only `policy_change` card bound to the key and the value's hash, which needs a presence assertion to approve. The client retries with that `approvalId`; the approval covers that one value, once.
+
 ### v1 additive — 2026-10-19 (S02/S05: connector rule and taint sources, #71)
 
 For S02 (`agent-core` passes both), S05 (the broker reads `connectorRule` and fills `taintSources`), S11 / S12 (approval cards show `taint.sources`, security §3.11), S18 (the scenario and injection runners drop their glue).
@@ -846,6 +853,7 @@ For S02 (`agent-core` passes both), S05 (the broker reads `connectorRule` and fi
 ### v1 additive — 2026-10-19 (S11 M2: quote-reply)
 
 For S11 / S12 (chat column), S01 (session controller). `chat.send` gains optional `replyToMessageId` (feature E5): the message this one answers, in the same thread. The Gateway stores it as `Message.replyToMessageId` (already in the schema) and puts the quoted text ahead of the new message in what the agent sees, so replies carry a quote reference the agent reads.
+
 ### v1 additive — 2026-10-19 (S14 M3: VM mode shapes)
 
 For S14 (the mac helper's `vm.*` node capabilities), S11 (Settings → Devices → "Create a sandbox Mac"), S01 (re-broadcasting guest changes).
@@ -861,6 +869,7 @@ For S11 (sidebar rows, UI design §2.2) and S01 (`threads.list`). `ThreadListEnt
 ### v1 additive — 2026-10-19 (S11 M2: quote-reply)
 
 For S11 / S12 (chat column), S01 (session controller). `chat.send` gains optional `replyToMessageId` (feature E5): the message this one answers, in the same thread. The Gateway stores it as `Message.replyToMessageId` (already in the schema) and puts the quoted text ahead of the new message in what the agent sees, so replies carry a quote reference the agent reads.
+
 ### v1 additive — 2026-10-19 (S11 M2: backups and logs for Settings)
 
 For S11 (Settings → Data controls and About), S01 / S22 (the Gateway handlers; `psyche backup` and `psyche logs` do the same work locally today).

@@ -178,7 +178,7 @@ private struct FrameViewer: View {
                 }
             }
             .task {
-                guard let data = try? await model.imageData(for: frame) else { return }
+                guard let data = try? await model.imageData(for: frame, size: .full) else { return }
                 image = decodedImage(data)
             }
         }

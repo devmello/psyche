@@ -270,6 +270,12 @@ export const ar: Partial<Catalogue> = {
   "chat.queue.notSent": "لم تُرسل",
   "chat.queue.retry": "إعادة محاولة إرسال «{content}»",
   "chat.queue.remove": "إزالة الرسالة «{content}» من قائمة الانتظار",
+  "chat.thread.loadingEarlier": "جارٍ تحميل الرسائل السابقة",
+  "chat.thread.loadEarlierFailed": "تعذّر تحميل الرسائل السابقة.",
+  "chat.thread.focusNotFound": "تعذّر العثور على تلك الرسالة في هذه المحادثة.",
+  "chat.queue.parked": "متوقفة مؤقتًا بعد الإيقاف",
+  "chat.queue.sendQueued": "إرسال الرسالة المنتظرة",
+  "chat.queue.sendQueuedLabel": "إرسال الرسالة «{content}» من قائمة الانتظار",
 
   "chat.commands.model.hint": "المزوّد/النموذج",
   "chat.commands.model.description": "اختيار نموذج هذه المحادثة",
@@ -544,6 +550,7 @@ export const ar: Partial<Catalogue> = {
   "blocks.toolRun.status.failed": "فشل",
   "blocks.toolRun.status.uncertain": "النتيجة غير معروفة",
   "blocks.toolRun.status.blocked": "محظور",
+  "blocks.toolRun.status.stopped": "تم إيقافه",
   "blocks.toolRun.summary":
     "{count, plural, zero {لا إجراءات} one {إجراء واحد} two {إجراءان} few {# إجراءات} many {# إجراءً} other {# إجراء}} · {families}",
   "blocks.toolRun.untrustedOutput": "مخرجات غير موثوقة",
@@ -1833,13 +1840,19 @@ export const ar: Partial<Catalogue> = {
   "settings.computerUse.tccState.granted": "ممنوح",
   "settings.computerUse.tccState.denied": "مرفوض",
   "settings.computerUse.tccState.not_determined": "لم يُطلب بعد",
+  "settings.computerUse.tccState.offline": "المساعد غير متصل",
+  "settings.computerUse.helperAccess.hint":
+    "يعمل التحكم بالكمبيوتر داخل Psyche Helper. فعّل «Psyche Helper» وليس «Psyche».",
+  "settings.computerUse.helperAccess.offline":
+    "Psyche Helper لا يعمل، لذا تتعذّر قراءة أذوناته. يبدأ مع Psyche؛ أغلق Psyche وأعد فتحه إن بقي غير متصل.",
+  "settings.computerUse.helperAccess.allow": "السماح لـ Psyche Helper",
+  "settings.computerUse.helperAccess.allowFor": "السماح لـ Psyche Helper بـ {name}",
   "settings.computerUse.title": "استخدام الكمبيوتر",
   "settings.computerUse.description":
     "يمكن لـ {persona} استخدام التطبيقات على هذا الـ Mac حيث تسمح له فقط.",
   "settings.computerUse.escStops": "يوقف استخدام الكمبيوتر في أي وقت.",
   "settings.computerUse.loadLabel": "استخدام الكمبيوتر",
   "settings.computerUse.macPermissions": "أذونات macOS",
-  "settings.computerUse.openSystemSettingsFor": "فتح إعدادات النظام لـ {name}",
   "settings.computerUse.openSystemSettings": "فتح إعدادات النظام",
   "settings.computerUse.apps": "التطبيقات",
   "settings.computerUse.enabledHint":

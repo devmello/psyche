@@ -170,6 +170,7 @@ export {
 } from "./ideas/service.ts";
 export { type IdeaAction, IdeaStore, type StoredIdea, toIdea } from "./ideas/store.ts";
 export {
+  BeforeEffectError,
   cadenceKind,
   jobMarker,
   type Launcher,

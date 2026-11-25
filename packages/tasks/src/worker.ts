@@ -12,6 +12,9 @@ import type {
   PermissionMode,
   RunOutcome,
   SideEffect,
+  Staging,
+  StagingRun,
+  StagingSink,
   Task,
   TaskCheckpoint,
   TaskLease,
@@ -67,7 +70,7 @@ export interface TaskWorkerPoolOptions {
    * claims only `subagent` jobs, at most `perParentLimit` per parent thread; the chat pool
    * excludes them.
    */
-  claim?: Pick<ClaimOptions, "origins" | "excludeOrigins" | "perParentLimit">;
+  claim?: Pick<ClaimOptions, "origins" | "excludeOrigins" | "perParentLimit" | "excludeTaskIds">;
   onError?: (error: unknown) => void;
   /**
    * Asked before each claim: false leaves queued tasks queued (an app update is being prepared).
@@ -80,6 +83,12 @@ export interface TaskWorkerPoolOptions {
    * fails the turn.
    */
   trace?: TaskTurnTrace;
+  /**
+   * Where a staging task's writes go (night-shift-2026 §2.2). A task with a `staging` block runs
+   * only when this returns a sink for it; with none, or with a task that is not unattended, the
+   * turn fails before the model is called, never running the task unstaged.
+   */
+  stagingSinkFor?: (staging: Staging, task: Task) => StagingSink | undefined;
 }
 
 /** One turn of a task: its own run. */
@@ -107,6 +116,8 @@ interface ActiveTurn {
   runId: string;
   controller: AbortController;
   stop: (reason: "cancelled" | "paused" | "lease_lost") => void;
+  /** Renew the lease now (after a sleep) instead of waiting for the next timer. */
+  renewNow: () => Promise<void>;
 }
 
 const SAFE_EFFECTS: readonly SideEffect[] = ["none", "read"];
@@ -326,9 +337,12 @@ export class TaskWorkerPool {
     const { engine, loop } = this.#o;
     if (this.#o.canClaim?.() === false) return undefined;
     const owner = options.owner ?? `${this.#o.owner}/0`;
+    // A turn this pool is already running is never taken over: after a sleep its wall-clock
+    // lease has run out while the turn is alive, and a second claim would stop the original.
     const claimOpts: ClaimOptions = {
       leaseMs: this.#o.leaseMs,
       ...this.#o.claim,
+      excludeTaskIds: [...(this.#o.claim?.excludeTaskIds ?? []), ...this.#active.keys()],
       ...(options.taskId === undefined ? {} : { taskId: options.taskId }),
     };
     let lease = await engine.claim(owner, claimOpts);
@@ -355,7 +369,6 @@ export class TaskWorkerPool {
         this.#o.broker?.revokeRunAuthority(runId).catch((e) => this.#error(e));
       }
     };
-    this.#active.set(taskId, { runId, controller, stop });
     const turn: TaskTurn = { taskId, runId, task: record.task };
     this.#traced(() => this.#o.trace?.start(turn));
 
@@ -363,26 +376,27 @@ export class TaskWorkerPool {
     // from another process, the stop carries that reason so authority is revoked too.
     let renewHandle: unknown;
     let settled = false;
+    const renewLease = async (): Promise<void> => {
+      const current = lease;
+      if (current === undefined || stopped !== undefined || settled) return;
+      try {
+        const l = await engine.renew(current, this.#o.leaseMs);
+        if (settled) return;
+        lease = l;
+      } catch {
+        if (settled) return;
+        const status = (await engine.get(taskId))?.status;
+        stop(status === "cancelled" ? "cancelled" : status === "paused" ? "paused" : "lease_lost");
+      }
+    };
     const scheduleRenew = () => {
       renewHandle = this.#timers.setTimeout(() => {
-        const current = lease;
-        if (current === undefined || stopped !== undefined || settled) return;
-        engine.renew(current, this.#o.leaseMs).then(
-          (l) => {
-            if (settled) return;
-            lease = l;
-            scheduleRenew();
-          },
-          async () => {
-            if (settled) return;
-            const status = (await engine.get(taskId))?.status;
-            stop(
-              status === "cancelled" ? "cancelled" : status === "paused" ? "paused" : "lease_lost",
-            );
-          },
-        );
+        renewLease().then(() => {
+          if (!settled && stopped === undefined) scheduleRenew();
+        });
       }, this.#o.renewEveryMs);
     };
+    this.#active.set(taskId, { runId, controller, stop, renewNow: renewLease });
     scheduleRenew();
 
     let outcome: RunOutcome = "failed";
@@ -410,7 +424,19 @@ export class TaskWorkerPool {
 
     try {
       const permissionMode = (await this.#o.permissionModeFor?.(record.task)) ?? "balanced";
+      let staging: StagingRun | undefined;
+      if (record.staging !== null) {
+        const sink = this.#o.stagingSinkFor?.(record.staging, record.task);
+        if (sink === undefined || record.runMode !== "unattended") {
+          throw new PsycheError(
+            "unavailable",
+            "a staging task has no sink to record into: it was not run",
+          );
+        }
+        staging = { staging: record.staging, sink };
+      }
       const stream = loop.startTurn({
+        ...(staging === undefined ? {} : { staging }),
         threadId: record.task.threadId,
         runId,
         taskId,
@@ -690,6 +716,14 @@ export class TaskWorkerPool {
         this.watchApproval(taskId, approval.id);
       }
     }
+  }
+
+  /**
+   * The wall clock jumped (the Mac slept): renew every running turn's lease now, before a slot
+   * polls. A lease whose token is still the task's is renewed even though its time ran out.
+   */
+  async renewLeases(): Promise<void> {
+    await Promise.all([...this.#active.values()].map((turn) => turn.renewNow()));
   }
 
   get activeTaskIds(): string[] {

@@ -25,6 +25,7 @@ export * from "./registry.ts";
 export * from "./requester.ts";
 export * from "./routines.ts";
 export * from "./specialists.ts";
+export * from "./staging.ts";
 export * from "./state.ts";
 export * from "./tool-output.ts";
 export * from "./turn-context.ts";

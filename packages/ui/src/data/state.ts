@@ -82,6 +82,11 @@ export interface QueuedFollowUp {
   attachedFiles?: readonly { path: string }[];
   /** Sending failed; the queue stops draining until the user retries or removes it. */
   failed?: boolean;
+  /**
+   * The owner pressed Stop while this waited: it stays until they send it, remove it or send
+   * another message themselves, instead of going out the moment the run ends.
+   */
+  parked?: boolean;
 }
 
 /** Result of a generic query (methods without a dedicated collection). */
@@ -327,8 +332,65 @@ export function putMany<C extends EntityCollection>(
   return { ...state, [collection]: next };
 }
 
+/**
+ * Applies a `library.list` result and drops the items the Gateway no longer has: a reload replaces
+ * the loaded window instead of only merging, so a row removed without an event stops showing.
+ * Only an unfiltered list (or one by `kind`) says what is missing; a page that has more after it
+ * covers only the items newer than its last one. Items an event touched after `version`
+ * stay (they are newer than the list).
+ */
+export function replaceLibraryWindow(
+  state: UiState,
+  items: readonly LibraryItem[],
+  opts: { kind?: LibraryItem["kind"]; filtered: boolean; hasMore: boolean },
+  version: number,
+): UiState {
+  const merged = putMany(state, "library", items, version);
+  if (opts.filtered) return merged;
+  const seen = new Set(items.map((i) => i.id));
+  const oldest = items.reduce<string | null>(
+    (min, i) => (min === null || i.createdAt < min ? i.createdAt : min),
+    null,
+  );
+  // A full page with more behind it and no rows at all: nothing to anchor the window on.
+  if (opts.hasMore && oldest === null) return merged;
+  const library: Record<string, LibraryItem> = {};
+  for (const [id, item] of Object.entries(merged.library)) {
+    const inKind = opts.kind === undefined || item.kind === opts.kind;
+    const inWindow = !opts.hasMore || (oldest !== null && item.createdAt > oldest);
+    const newer = (merged.touched[`library:${id}`] ?? -1) > version;
+    if (inKind && inWindow && !seen.has(id) && !newer) continue;
+    library[id] = item;
+  }
+  return { ...merged, library };
+}
+
 export function touch(state: UiState, key: string, version: number): UiState {
   return { ...state, touched: { ...state.touched, [key]: version } };
+}
+
+/**
+ * Drops partial replies whose run has ended (done, failed or cancelled) without a committed
+ * message of the same id: an interrupt, a forced stop or a Gateway restart leaves no commit to
+ * replace them, and they would otherwise stay on screen as a ghost. `runId` limits it to one run.
+ */
+export function dropSettledStreaming(state: UiState, runId?: string): UiState {
+  let changed = false;
+  const streaming: Record<string, StreamingMessage> = {};
+  for (const [id, m] of Object.entries(state.streaming)) {
+    const run = m.runId === null ? undefined : state.runs[m.runId];
+    const settled =
+      run !== undefined &&
+      (runId === undefined || run.id === runId) &&
+      (run.status === "done" || run.status === "failed" || run.status === "cancelled");
+    const committed = (state.messages[m.threadId] ?? []).some((x) => x.id === m.messageId);
+    if (settled && !committed) {
+      changed = true;
+      continue;
+    }
+    streaming[id] = m;
+  }
+  return changed ? { ...state, streaming } : state;
 }
 
 /** Inserts or replaces a message, keeping the thread ordered by seq. */
