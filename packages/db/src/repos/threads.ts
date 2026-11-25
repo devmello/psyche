@@ -208,6 +208,28 @@ export interface ThreadPageOptions extends ListThreadsOptions {
   readonly archivedOnly?: boolean;
 }
 
+/**
+ * Not a plan fork's hidden thread (fork-a-plan-2026 §2.3): neither a branch thread
+ * (`plan_fork_branches.thread_id`) nor one whose session key is a fork's (`fork-branch:`,
+ * `fork-digest:`). `listThreadsPage` always applies it.
+ */
+const notForkThread = sql`NOT EXISTS (SELECT 1 FROM plan_fork_branches pfb WHERE pfb.thread_id = ${threads.id}) AND ${threads.sessionKey} NOT LIKE 'fork-branch:%' AND ${threads.sessionKey} NOT LIKE 'fork-digest:%'`;
+
+/**
+ * Whether a thread is one of a plan fork's hidden threads: a branch thread (by origin) or a fork
+ * session key (`fork-branch:`, `fork-digest:`). Unknown ids are not fork threads.
+ */
+export function isForkThread(db: PsycheDb, threadId: string): boolean {
+  const row = db.sqlite
+    .prepare(
+      `SELECT 1 FROM threads t WHERE t.id = ?
+         AND (EXISTS (SELECT 1 FROM plan_fork_branches b WHERE b.thread_id = t.id)
+              OR t.session_key LIKE 'fork-branch:%' OR t.session_key LIKE 'fork-digest:%')`,
+    )
+    .get(threadId);
+  return row !== undefined;
+}
+
 /** One page in `listThreads` order; `hasMore` tells the caller whether to hand out a cursor. */
 export function listThreadsPage(
   db: PsycheDb,
@@ -230,6 +252,8 @@ export function listThreadsPage(
           sql`${threads.sessionKey} NOT LIKE 'cron:%' AND ${threads.sessionKey} NOT LIKE 'night-shift:%'`,
         ),
     opts.hideEmptyChats ? sql`NOT (${emptyUserChat})` : undefined,
+    // A fork's hidden threads never list (fork-a-plan-2026 §2.3): by origin and by session key.
+    notForkThread,
     opts.hideRunThreads
       ? sql`NOT (${threads.kind} = 'automation' AND (${threads.sessionKey} LIKE 'cron:%' OR ${threads.sessionKey} LIKE 'night-shift:%'))`
       : undefined,

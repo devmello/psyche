@@ -48,7 +48,17 @@ import type { NightStore } from "./store.ts";
  *  - items move `ready` to bound with a compare-and-set on `approval_id`, so a second apply of
  *    the same item is refused, and the broker's `verifyBinding` consumes each child once;
  *  - `check()` runs right before each item executes: a stale item is never applied.
+ *
+ * The items come from a source: a night's review (`nightShift.apply`), or one plan-fork branch
+ * (`planForks.take`, docs/design/fork-a-plan-2026.md §3.4). Both go through the same rebuild,
+ * checks, `staged_apply` approval and executor; only where the items are listed, the run's thread
+ * and what happens once the approval settles differ.
  */
+
+/** Where the staged items of one apply come from. Undo and dismiss are the night's only. */
+export type ApplySource =
+  | { kind: "night"; id: string }
+  | { kind: "fork"; id: string; forkId: string };
 
 export const UNDO_WINDOW_MS = 24 * 3_600_000;
 
@@ -104,10 +114,30 @@ export interface NightApplyDeps {
   onItem?: (item: StagedAction) => void;
   onNight?: (nightId: string) => void;
   onError?: (err: unknown) => void;
+  /** A plan-fork branch's staged items (`planForks.take`). Absent: fork applies are refused. */
+  listForBranch?: (branchId: string) => StagedAction[];
+  /** The thread a fork branch's applies run in: the branch's own hidden thread. */
+  forkThreadId?: (branchId: string) => Promise<string>;
+  /**
+   * A fork source's `staged_apply` settled: `applied` once the approved children have run,
+   * `not_approved` when it was declined, expired or invalidated (nothing ran).
+   */
+  onSourceSettled?: (
+    source: ApplySource,
+    approval: ApprovalRequest,
+    outcome: "applied" | "not_approved",
+  ) => void;
 }
 
 export interface ApplyRequest {
   reviewId: string;
+  items: readonly { itemId: string; bindingHash: string }[];
+  sends: readonly { itemId: string; sendHash: string }[];
+}
+
+export interface ForkApplyRequest {
+  forkId: string;
+  branchId: string;
   items: readonly { itemId: string; bindingHash: string }[];
   sends: readonly { itemId: string; sendHash: string }[];
 }
@@ -165,6 +195,34 @@ export function sendToolFor(draftTool: string): string | undefined {
 }
 
 const SEND_SUFFIX = ":send";
+
+/** The approval details naming the source (the client and `#onBroker` read them back). */
+function sourceDetails(op: "apply" | "undo", source: ApplySource): Record<string, unknown> {
+  return source.kind === "night"
+    ? { nightShift: { op, reviewId: source.id } }
+    : { planFork: { op, forkId: source.forkId, branchId: source.id } };
+}
+
+/** The source and op an approval's details name, if any. */
+function sourceOf(details: unknown): { op: "apply" | "undo"; source: ApplySource } | undefined {
+  const d = asRecord(details as Json);
+  const ns = asRecord(d.nightShift as Json);
+  if (ns.op === "apply" || ns.op === "undo") {
+    return typeof ns.reviewId === "string"
+      ? { op: ns.op, source: { kind: "night", id: ns.reviewId } }
+      : { op: ns.op, source: { kind: "night", id: "" } };
+  }
+  const pf = asRecord(d.planFork as Json);
+  if (pf.op === "apply" && typeof pf.branchId === "string" && typeof pf.forkId === "string") {
+    return { op: "apply", source: { kind: "fork", id: pf.branchId, forkId: pf.forkId } };
+  }
+  return undefined;
+}
+
+/** The run id the children run under: unchanged for a night. */
+function runIdOf(op: "apply" | "undo", source: ApplySource): string {
+  return source.kind === "night" ? `night_${op}_${source.id}` : `fork_${op}_${source.id}`;
+}
 
 /**
  * A draft's id from the draft tool's output: the Mac helper answers `{draft: {draftId, ...,
@@ -322,7 +380,9 @@ export class NightShiftApply {
     const args = structuredClone(call.args);
     let desc: ReturnType<NonNullable<typeof reg.describeCall>> | undefined;
     try {
-      desc = reg.describeCall?.(structuredClone(args), { runId: `night_${item.nightId}` });
+      desc = reg.describeCall?.(structuredClone(args), {
+        runId: item.nightId != null ? `night_${item.nightId}` : `fork_${item.forkBranchId}`,
+      });
     } catch {
       return "the call can't be described";
     }
@@ -376,8 +436,42 @@ export class NightShiftApply {
     if (night.reviewStatus !== "ready" && night.reviewStatus !== "partial") {
       throw new PsycheError("conflict", `the review is ${night.reviewStatus}`);
     }
+    return this.#applyItems(
+      { kind: "night", id: night.id },
+      this.#d.store.listStagedActions(night.id),
+      req,
+      caller,
+    );
+  }
+
+  /**
+   * `planForks.take`: the ticked items of one plan-fork branch, through the same checks and the
+   * same one `staged_apply` approval. The caller has checked the fork is ready and the branch
+   * reported; an item of another branch is "not in this review".
+   */
+  async applyFork(
+    req: ForkApplyRequest,
+    caller: ApplyCaller = { local: false },
+  ): Promise<ApplyAnswer> {
+    const list = this.#d.listForBranch;
+    if (list === undefined || this.#d.forkThreadId === undefined) {
+      throw new PsycheError("unavailable", "taking a plan isn't available");
+    }
+    return this.#applyItems(
+      { kind: "fork", id: req.branchId, forkId: req.forkId },
+      list(req.branchId),
+      req,
+      caller,
+    );
+  }
+
+  async #applyItems(
+    source: ApplySource,
+    items: StagedAction[],
+    req: Pick<ApplyRequest, "items" | "sends">,
+    caller: ApplyCaller,
+  ): Promise<ApplyAnswer> {
     const refused: ApplyAnswer["refused"] = [];
-    const items = this.#d.store.listStagedActions(night.id);
     const byId = new Map(items.map((i) => [i.id, i]));
     const ticked = new Map<string, string>();
     for (const t of req.items) {
@@ -498,13 +592,13 @@ export class NightShiftApply {
       });
     }
     if (children.length === 0) return { refused };
-    return this.#issue("apply", night.id, kept, children, refused, null);
+    return this.#issue("apply", source, kept, children, refused, null);
   }
 
   /** Binds the items, requests the approval, and unbinds on any failure. */
   async #issue(
     op: Op,
-    nightId: string,
+    source: ApplySource,
     items: StagedAction[],
     children: StagedApplyChildInput[],
     refused: ApplyAnswer["refused"],
@@ -533,10 +627,10 @@ export class NightShiftApply {
     const kept = items.filter((i) => bound.has(i.id));
     const taintSources = dedupe(kept.flatMap((i) => i.taintSources));
     const taint = kept.some((i) => i.taint) || taintSources.length > 0;
-    const runId = `night_${op}_${nightId}`;
+    const runId = runIdOf(op, source);
     let issued: IssuedStagedApply;
     try {
-      const threadId = await this.#d.threadId(nightId);
+      const threadId = await this.#threadOf(source);
       issued = await this.#d.broker.requestStagedApply({
         connectorIds: this.#d.connectorIds(),
         title:
@@ -554,7 +648,7 @@ export class NightShiftApply {
         requestedBy: { runId, taskId: null, threadId },
         // The review lives in the Mac and iOS apps; never a chat surface.
         surfaces: this.#d.surfaces ?? ["desktop", "web", "notification"],
-        details: { nightShift: { op, reviewId: nightId } },
+        details: sourceDetails(op, source),
         ...(taintSources.length === 0 ? {} : { taintSources }),
       });
     } catch (err) {
@@ -656,7 +750,7 @@ export class NightShiftApply {
       });
     }
     if (children.length === 0 || nightId === undefined) return { refused };
-    return this.#issue("undo", nightId, kept, children, refused, null);
+    return this.#issue("undo", { kind: "night", id: nightId }, kept, children, refused, null);
   }
 
   /** The created thing is as the apply left it (§5.4): true, or why not. A throw is a refusal. */
@@ -739,9 +833,9 @@ export class NightShiftApply {
   #onBroker(e: { type: string; approval?: ApprovalRequest }): void {
     const a = e.approval;
     if (a === undefined || a.kind !== "staged_apply") return;
-    const ns = asRecord(asRecord(a.details as Json).nightShift as Json);
-    const op = ns.op === "undo" ? "undo" : ns.op === "apply" ? "apply" : undefined;
-    if (op === undefined) return;
+    const named = sourceOf(a.details);
+    if (named === undefined) return;
+    const { op, source } = named;
     const status = op === "apply" ? "ready" : "applied";
     if (e.type === "approval.decided" && a.status === "approved") {
       const run = this.#run(a, op).catch((err) => this.#d.onError?.(err));
@@ -755,16 +849,37 @@ export class NightShiftApply {
       const items = this.#d.store.listByApproval(a.id);
       this.#d.store.unbindApproval(a.id, status);
       for (const i of items) this.#emitItem(i.id);
+      if (source.kind === "fork") this.#sourceSettled(source, a, "not_approved");
     }
+  }
+
+  #sourceSettled(
+    source: ApplySource,
+    a: ApprovalRequest,
+    outcome: "applied" | "not_approved",
+  ): void {
+    try {
+      this.#d.onSourceSettled?.(source, a, outcome);
+    } catch (err) {
+      this.#d.onError?.(err);
+    }
+  }
+
+  /** The thread an apply's children run in: the night's, or the fork branch's own. */
+  async #threadOf(source: ApplySource): Promise<string> {
+    if (source.kind === "night") return this.#d.threadId(source.id);
+    const thread = this.#d.forkThreadId;
+    if (thread === undefined) throw new PsycheError("unavailable", "taking a plan isn't available");
+    return thread(source.id);
   }
 
   async #run(a: ApprovalRequest, op: Op): Promise<void> {
     const children = await this.#d.broker.batchChildren(a.id);
-    const ns = asRecord(asRecord(a.details as Json).nightShift as Json);
-    const nightId = typeof ns.reviewId === "string" ? ns.reviewId : undefined;
-    if (nightId === undefined) return;
-    const threadId = await this.#d.threadId(nightId);
-    const runId = `night_${op}_${nightId}`;
+    const named = sourceOf(a.details);
+    if (named === undefined || named.source.id === "") return;
+    const { source } = named;
+    const threadId = await this.#threadOf(source);
+    const runId = runIdOf(op, source);
     const ctx = { threadId, runId, taint: a.taint, taintSources: a.taintSources ?? [] };
     const drafts = new Map<string, DraftOutcome>();
     for (const child of children) {
@@ -842,7 +957,8 @@ export class NightShiftApply {
         ...(saved === undefined ? {} : { saved }),
       });
     }
-    this.#settle(nightId);
+    if (source.kind === "night") this.#settle(source.id);
+    else this.#sourceSettled(source, a, "applied");
   }
 
   #record(
