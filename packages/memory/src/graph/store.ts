@@ -882,6 +882,8 @@ export class GraphStore {
   #mapBuilder: ReturnType<typeof createMemoryMapBuilder> | undefined;
   readonly #newId: () => string;
   readonly #onEvent: ((e: GraphEvent) => void) | undefined;
+  /** Bumped by every entity event and alias write; the recall name index rebuilds on a change. */
+  #entityVersion = 0;
   readonly #country: string;
   readonly #retentionDays: number;
 
@@ -920,6 +922,7 @@ export class GraphStore {
   }
 
   #emit(event: GraphEvent): void {
+    this.#entityVersion++;
     try {
       this.#onEvent?.(event);
     } catch {
@@ -1363,6 +1366,7 @@ export class GraphStore {
     if (text === null) return;
     const norm = normalizeName(text);
     if (norm.length === 0) return;
+    this.#entityVersion++;
     this.#db
       .prepare(
         "INSERT OR IGNORE INTO graph_aliases (entity_id, alias_norm, alias, source, created_at) VALUES (?, ?, ?, ?, ?)",
@@ -3759,6 +3763,38 @@ export class GraphStore {
         )
         .all(...k) as EntityRow[]
     ).map((r) => toEntity(r, this.#aliases(r.id)));
+  }
+
+  /** Changes whenever an entity, name or alias may have changed (entity events, alias writes). */
+  entityVersion(): number {
+    return this.#entityVersion;
+  }
+
+  /**
+   * Every active entity of these kinds with its name and aliases, in two queries however many
+   * there are (the entity-recall name index reads this once per change, not per turn).
+   */
+  nameIndexRows(
+    kinds: GraphEntityKind[],
+  ): { id: string; kind: GraphEntityKind; name: string; aliases: string[] }[] {
+    const marks = kinds.map(() => "?").join(", ");
+    const rows = this.#db
+      .prepare(
+        `SELECT id, kind, name FROM graph_entities WHERE status = 'active' AND kind IN (${marks}) ORDER BY sort_name, id`,
+      )
+      .all(...kinds) as { id: string; kind: GraphEntityKind; name: string }[];
+    const aliases = new Map<string, string[]>();
+    for (const r of this.#db
+      .prepare(
+        `SELECT a.entity_id AS id, a.alias AS alias FROM graph_aliases a JOIN graph_entities e ON e.id = a.entity_id
+         WHERE e.status = 'active' AND e.kind IN (${marks}) ORDER BY a.created_at, a.alias`,
+      )
+      .all(...kinds) as { id: string; alias: string }[]) {
+      const list = aliases.get(r.id);
+      if (list === undefined) aliases.set(r.id, [r.alias]);
+      else list.push(r.alias);
+    }
+    return rows.map((r) => ({ ...r, aliases: aliases.get(r.id) ?? [] }));
   }
 
   cursor(source: string): unknown {
