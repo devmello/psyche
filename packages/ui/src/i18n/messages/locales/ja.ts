@@ -359,6 +359,8 @@ export const ja: Partial<Catalogue> = {
   "chat.thread.forgetNothing": "「{subject}」に一致する記憶はありません。",
   "chat.thread.forgetPreview":
     "「{subject}」を忘れると、{claims, plural, other {#件の事実}}と{chunks, plural, other {#件のインデックス済みメモ}}が取り消されます{hasFiles, select, true {（{files}を編集）} other {}}。",
+  "chat.thread.forgetCounts":
+    "人物グラフの{graph, plural, other {#件}}、レビュー待ちの{review, plural, other {#件}}、{lessons, plural, other {#件のレッスンまたはレッスン行}}、{search, plural, other {#件の検索エントリ}}も削除し、保存済みのチャットと実行トレースからもその語を取り除きます。元に戻せません。",
   "chat.thread.forgetConfirm": "忘れる",
   "chat.thread.forgot": "「{subject}」を忘れました。",
   "chat.thread.forgetFailed":

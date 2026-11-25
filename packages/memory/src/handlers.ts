@@ -3,6 +3,8 @@ import { join } from "node:path";
 import { type MethodParams, type MethodResult, PsycheError } from "@psyche/protocol";
 import { parseDailyNote } from "./daily.ts";
 import { exportMemory } from "./export.ts";
+import { FORGET_COUNT_KEYS, forgetTotal, UNCOUNTED_FORGET_STORES } from "./forget-cascade.ts";
+import type { GraphResetCounts } from "./graph/forget.ts";
 import { confirmClaim, importMemory, importOpenClaw } from "./importer.ts";
 import { dailyNoteDate } from "./layout.ts";
 import { normalizeWorkspacePath } from "./paths.ts";
@@ -32,6 +34,7 @@ type MemoryMethod =
   | "memory.claims.confirm"
   | "memory.explain"
   | "memory.forget"
+  | "memory.forget.preview"
   | "memory.remember"
   | "memory.import"
   | "memory.export"
@@ -55,6 +58,7 @@ export const MEMORY_METHODS: readonly MemoryMethod[] = [
   "memory.claims.confirm",
   "memory.explain",
   "memory.forget",
+  "memory.forget.preview",
   "memory.remember",
   "memory.import",
   "memory.export",
@@ -77,6 +81,23 @@ export interface MemoryHandlerOptions {
    * `lessons.json` and `feedback.json`, cleared by `memory.reset`.
    */
   teaching?: TeachingStore;
+  /**
+   * `memory.reset` beyond the workspace: the people graph and the extraction tables (and what the
+   * Gateway derives from them, like search rows). `preview` counts, `apply` erases. Absent when
+   * there is no graph.
+   */
+  graphReset?: {
+    preview(): GraphResetCounts;
+    apply(): Promise<GraphResetCounts>;
+  };
+}
+
+/** The counts of a forget result as the schema has them: every key present, integers. */
+function forgetCounts(counts: Record<string, number> | undefined) {
+  return Object.fromEntries(FORGET_COUNT_KEYS.map((k) => [k, counts?.[k] ?? 0])) as Record<
+    (typeof FORGET_COUNT_KEYS)[number],
+    number
+  >;
 }
 
 export function createMemoryHandlers(
@@ -173,6 +194,18 @@ export function createMemoryHandlers(
         retractedClaimIds: r.retractedClaimIds,
         removedChunkIds: r.removedChunkIds,
         files: r.files ?? [],
+        counts: forgetCounts(r.counts),
+      };
+    },
+
+    async "memory.forget.preview"(p) {
+      const r = await store.forget(p.subject, { dryRun: true });
+      const counts = forgetCounts(r.counts);
+      return {
+        counts,
+        total: forgetTotal(counts),
+        files: r.files ?? [],
+        uncounted: [...UNCOUNTED_FORGET_STORES],
       };
     },
 
@@ -204,9 +237,11 @@ export function createMemoryHandlers(
     },
 
     async "memory.reset"(p) {
-      const result = await store.reset({ dryRun: p.dryRun === true });
-      if (p.dryRun !== true) options.teaching?.clear();
-      return result;
+      const dryRun = p.dryRun === true;
+      const result = await store.reset({ dryRun });
+      if (!dryRun) options.teaching?.clear();
+      const graph = dryRun ? options.graphReset?.preview() : await options.graphReset?.apply();
+      return graph === undefined ? result : { ...result, graph };
     },
 
     async "memory.status"() {

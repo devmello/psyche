@@ -357,6 +357,8 @@ export const ko: Partial<Catalogue> = {
   "chat.thread.forgetNothing": "“{subject}”와(과) 일치하는 기억이 없습니다.",
   "chat.thread.forgetPreview":
     "“{subject}”을(를) 잊으면 {claims, plural, other {#개의 주장}}과 {chunks, plural, other {#개의 색인된 메모}}가 철회됩니다{hasFiles, select, true { (편집되는 파일: {files})} other {}}.",
+  "chat.thread.forgetCounts":
+    "사람 그래프에서 {graph, plural, other {#개 항목}}, 검토 대기 중인 {review, plural, other {#개 항목}}, {lessons, plural, other {#개의 학습 내용 또는 학습 줄}}, {search, plural, other {#개의 검색 항목}}도 삭제하고, 저장된 채팅과 실행 기록에서도 해당 단어를 제거합니다. 되돌릴 수 없습니다.",
   "chat.thread.forgetConfirm": "잊기",
   "chat.thread.forgot": "“{subject}”을(를) 잊었습니다.",
   "chat.thread.forgetFailed": "잊기에 실패했습니다({reason}). 변경된 것은 없습니다.",

@@ -354,6 +354,8 @@ export const de: Partial<Catalogue> = {
   "chat.thread.forgetNothing": "Nichts Gemerktes passt zu „{subject}“.",
   "chat.thread.forgetPreview":
     "„{subject}“ zu vergessen nimmt {claims, plural, one {# Aussage} other {# Aussagen}} und {chunks, plural, one {# indizierte Notiz} other {# indizierte Notizen}} zurück{hasFiles, select, true { und bearbeitet {files}} other {}}.",
+  "chat.thread.forgetCounts":
+    "Außerdem werden {graph, plural, one {# Eintrag} other {# Einträge}} aus deinem Personengraphen, {review, plural, one {# Eintrag} other {# Einträge}} in der Prüfung, {lessons, plural, one {# Lektion oder Lektionszeile} other {# Lektionen oder Lektionszeilen}} und {search, plural, one {# Sucheintrag} other {# Sucheinträge}} gelöscht, und die Wörter werden aus gespeicherten Chats und Laufprotokollen entfernt. Das ist endgültig.",
   "chat.thread.forgetConfirm": "Vergessen",
   "chat.thread.forgot": "„{subject}“ vergessen.",
   "chat.thread.forgetFailed": "Vergessen hat nicht funktioniert ({reason}). Nichts wurde geändert.",

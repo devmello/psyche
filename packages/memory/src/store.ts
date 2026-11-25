@@ -47,6 +47,19 @@ import { chunkId, chunkText, estimateTokens, stripComments } from "./chunker.ts"
 import { applyDailyWrite, formatEntry, newDailyNote, oneLine, parseDailyNote } from "./daily.ts";
 import { blockingKinds } from "./filters.ts";
 import { type FlushConfig, flushFacts, flushMemory } from "./flush.ts";
+import {
+  addForgetCounts,
+  emptyForgetCounts,
+  type ForgetCascade,
+  type ForgetCounts,
+  forgetMatcher,
+  isSuppressed,
+  MAX_SUPPRESSIONS,
+  MIN_FORGET_CHARS,
+  mentions as mentionsPhrase,
+  type Suppression,
+  suppressionFor,
+} from "./forget-cascade.ts";
 import { readRegularFile, realDirUnder, writeFileReplacing } from "./hidden-fs.ts";
 import { type ChunkInput, MemoryIndex } from "./index-db.ts";
 import {
@@ -114,7 +127,6 @@ export const DEFAULT_TEMPLATES_DIR = assetDir("templates");
 const DIR_MODE = 0o700;
 const FILE_MODE = 0o600;
 const MAX_ENTRY_CHARS = 2_000;
-const MIN_FORGET_CHARS = 3;
 /** Files `forget` never edits: instructions and persona, not remembered facts. */
 const FORGET_SKIPS = new Set(["SOUL.md", "IDENTITY.md", "AGENTS.md", "BOOTSTRAP.md"]);
 
@@ -149,6 +161,11 @@ export interface SqliteMemoryStoreOptions {
    * The Gateway cuts the same words out of stored run-trace payloads.
    */
   onForget?: (forgotten: ForgottenPhrase) => void;
+  /**
+   * The stores outside this one (graph, lessons, search index): previewed by every dry run and
+   * cleaned by every forget. Can also be set later (`setForgetCascade`), once they exist.
+   */
+  cascade?: ForgetCascade;
 }
 
 /** A forgotten phrase: `pattern` matches it (case-insensitive, whole words, no `g` flag). */
@@ -269,6 +286,7 @@ export class SqliteMemoryStore implements MemoryStore {
   readonly #onChange: ((change: MemoryFileChange) => void) | undefined;
   readonly #flush: FlushConfig | undefined;
   readonly #onForget: ((forgotten: ForgottenPhrase) => void) | undefined;
+  #cascade: ForgetCascade | undefined;
   #embedQueue: Promise<unknown> = Promise.resolve();
   #watcher: FSWatcher | undefined;
   #syncTimer: ReturnType<typeof setTimeout> | undefined;
@@ -291,6 +309,7 @@ export class SqliteMemoryStore implements MemoryStore {
     this.#onChange = options.onChange;
     this.#flush = options.flush;
     this.#onForget = options.onForget;
+    this.#cascade = options.cascade;
     ensureDir(options.workspaceDir);
     this.root = options.workspaceDir;
     this.#sqliteVec = options.sqliteVec !== false;
@@ -446,7 +465,33 @@ export class SqliteMemoryStore implements MemoryStore {
     if (!isIndexed(path)) return [];
     // Credentials typed into a file outside Psyche never reach search results.
     const clean = (c: ChunkInput) => blockingKinds(c.text, true).length === 0;
-    return this.#rawChunks(path, content, provenance).filter(clean);
+    const chunks = this.#rawChunks(path, content, provenance).filter(clean);
+    // Files forget never edits (persona, instructions, skills) keep their text; what the owner
+    // forgot stays out of their chunks when they are indexed again.
+    if (!FORGET_SKIPS.has(canonicalCase(path)) && !isSkillFile(path)) return chunks;
+    const suppressed = this.#suppressions();
+    return suppressed.length === 0
+      ? chunks
+      : chunks.filter((c) => !isSuppressed(c.text, suppressed));
+  }
+
+  /** Hashes of forgotten phrases (never the words): see `forgetCascade.isSuppressed`. */
+  #suppressions(): Suppression[] {
+    const v = this.#state("forget.suppress");
+    return Array.isArray(v) ? (v as Suppression[]) : [];
+  }
+
+  #suppress(phrase: string): void {
+    const entry = suppressionFor(phrase);
+    if (entry === undefined) return;
+    const list = this.#suppressions().filter((s) => !(s.k === entry.k && s.h === entry.h));
+    list.push(entry);
+    this.#setState("forget.suppress", list.slice(-MAX_SUPPRESSIONS));
+  }
+
+  /** Sets (or clears) the stores `forget` reaches beyond this one. */
+  setForgetCascade(cascade: ForgetCascade | undefined): void {
+    this.#cascade = cascade;
   }
 
   #rawChunks(path: string, content: string, provenance: Provenance): ChunkInput[] {
@@ -1422,13 +1467,12 @@ export class SqliteMemoryStore implements MemoryStore {
     subject: string,
     options: { dryRun?: boolean; actor?: WriteActor; approvalId?: string; link?: WriteLink } = {},
   ): Promise<ForgetResult> {
-    const phrase = oneLine(subject);
+    const matcher = forgetMatcher(subject);
+    const { phrase, pattern } = matcher;
     if (phrase.length < MIN_FORGET_CHARS) {
       fail("invalid_params", `forget needs at least ${MIN_FORGET_CHARS} characters`);
     }
-    const escaped = phrase.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/ /g, "\\s+");
-    const pattern = new RegExp(`(?<![\\p{L}\\p{N}])${escaped}(?![\\p{L}\\p{N}])`, "iu");
-    const mentions = (text: string) => pattern.test(text);
+    const mentions = (text: string) => mentionsPhrase(matcher, text);
 
     const claims = (await this.listClaims()).filter((c) => mentions(c.text));
     const claimIds = new Set(claims.map((c) => c.id));
@@ -1437,6 +1481,7 @@ export class SqliteMemoryStore implements MemoryStore {
 
     // Lines to drop per file.
     const edits = new Map<string, string>();
+    let droppedLines = 0;
     for (const path of this.#walk()) {
       if (FORGET_SKIPS.has(canonicalCase(path)) || isSkillFile(path) || !path.endsWith(".md"))
         continue;
@@ -1458,14 +1503,30 @@ export class SqliteMemoryStore implements MemoryStore {
           if (mentions(l)) drop.add(i + 1);
         });
       }
-      if (drop.size > 0) edits.set(path, lines.filter((_, i) => !drop.has(i + 1)).join("\n"));
+      if (drop.size > 0) {
+        edits.set(path, lines.filter((_, i) => !drop.has(i + 1)).join("\n"));
+        droppedLines += drop.size;
+      }
     }
+    const own: ForgetCounts = {
+      ...emptyForgetCounts(),
+      markdownFiles: edits.size,
+      markdownLines: droppedLines,
+      claims: claims.length,
+      chunks: chunks.length,
+    };
     const result: ForgetResult = {
       retractedClaimIds: claims.map((c) => c.id),
       removedChunkIds: chunks.map((c) => c.id),
       files: [...edits.keys()],
+      counts: own,
     };
-    if (options.dryRun === true) return result;
+    if (options.dryRun === true) {
+      if (this.#cascade !== undefined) {
+        result.counts = addForgetCounts(own, await this.#cascade.preview(matcher));
+      }
+      return result;
+    }
 
     if (options.actor === "agent") {
       const touched = [...edits.keys()].filter(isProtected);
@@ -1506,10 +1567,12 @@ export class SqliteMemoryStore implements MemoryStore {
         );
         for (const c of claims) retract.run(now, now, c.id);
       })();
-      // Chunks of files forget does not edit (persona files) leave the index until they change.
+      // Chunks of files forget does not edit (persona files) leave the index, and stay out when
+      // the file is indexed again (a hash of the phrase is kept, never the phrase).
       this.#index.deleteChunks(
         chunks.map((c) => c.id).filter((id) => this.#index.getChunk(id) !== undefined),
       );
+      this.#suppress(phrase);
       if (claims.length + chunks.length + edits.size > 0) {
         await this.appendDailyNote({
           text: `Retracted ${claims.length} claim(s) and removed ${chunks.length} memory chunk(s) from ${edits.size} file(s) at the owner's request.`,
@@ -1533,6 +1596,16 @@ export class SqliteMemoryStore implements MemoryStore {
     } finally {
       restoreSecureDelete();
     }
+    // The rest of memory: graph, lessons, search index. A failure here is the owner's to see (the
+    // phrase may still be somewhere), but the run-trace pass below still runs.
+    let cascadeError: unknown;
+    if (this.#cascade !== undefined) {
+      try {
+        result.counts = addForgetCounts(own, await this.#cascade.apply(matcher));
+      } catch (err) {
+        cascadeError = err;
+      }
+    }
     // The forget has committed: a failing hook must not fail it (the owner would see an error
     // for a change that happened, and a retry would repeat the work).
     try {
@@ -1540,6 +1613,7 @@ export class SqliteMemoryStore implements MemoryStore {
     } catch {
       // The hook logs its own failures.
     }
+    if (cascadeError !== undefined) throw cascadeError;
     return result;
   }
 
@@ -1713,7 +1787,11 @@ export class SqliteMemoryStore implements MemoryStore {
       this.#db.transaction(() => {
         this.#index.clear();
         this.#db.exec("UPDATE memory_claims SET superseded_by = NULL; DELETE FROM memory_claims;");
-        this.#db.prepare("DELETE FROM memory_state WHERE key = 'workspace.initialized'").run();
+        this.#db
+          .prepare(
+            "DELETE FROM memory_state WHERE key IN ('workspace.initialized', 'forget.suppress')",
+          )
+          .run();
       })();
       for (const f of files) {
         this.#emit({
