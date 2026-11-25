@@ -121,12 +121,17 @@ export async function queryRecall(
   for (const c of found) {
     if (out.length >= limit || room <= 0) break;
     if (inUser(c.text) || chosen.some((t) => similarity(t, c.text) >= 0.8)) continue;
-    const line = `- [${c.path}] ${clip(c.text, Math.min(400, room))}`;
-    room -= line.length;
+    // The joined section stays within maxChars: count the prefix and the newline between lines.
+    const prefix = `- [${c.path}] `;
+    const space = room - (out.length > 0 ? 1 : 0) - prefix.length;
+    if (space <= 0) continue;
+    const line = `${prefix}${clip(c.text, Math.min(400, space))}`;
+    room -= line.length + (out.length > 0 ? 1 : 0);
     out.push(line);
     chosen.push(c.text);
     recalled.add(c.chunkId);
   }
-  if (recalled.size > 0) store.recordRecall([...recalled], query);
+  // A paused memory writes nothing, recall counts included.
+  if (recalled.size > 0 && !store.paused) store.recordRecall([...recalled], query);
   return out;
 }

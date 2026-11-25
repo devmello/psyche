@@ -65,10 +65,11 @@ describe("queryRecall", () => {
   });
 
   it("holds the character cap and the line limit", async () => {
-    for (let i = 0; i < 8; i++) {
+    // Distinct notes with long paths, so dedupe cannot fold them.
+    for (let i = 0; i < 7; i++) {
       await env.store.writeFile(
-        `memory/agent/garden-${i}.md`,
-        `Garden bed ${i} note: ${"tomato seedlings need watering ".repeat(20)}`,
+        `memory/agent/garden-bed-${"x".repeat(60)}-${i}.md`,
+        `Tomato seedlings need watering: ${["alpha", "bravo", "cobalt", "dune", "ember", "fjord", "glacier"][i]} ${["mango", "nectar", "orchid", "pebble", "quartz", "raven", "saffron"][i]} ${["tundra", "umber", "velvet", "walnut", "xenon", "yarrow", "zephyr"][i]} ${"filler words here ".repeat(4)}`,
         { provenance: "agent" },
       );
     }
@@ -77,10 +78,18 @@ describe("queryRecall", () => {
       limit: 5,
       maxChars: 1_100,
     });
-    expect(lines.length).toBeGreaterThan(0);
-    expect(lines.length).toBeLessThanOrEqual(5);
-    expect(lines.join("\n").length).toBeLessThanOrEqual(1_100 + lines.length);
-    expect(lines.every((l) => l.length <= 400 + 40)).toBe(true);
+    expect(lines).toHaveLength(5);
+    expect(lines.join("\n").length).toBeLessThanOrEqual(1_100);
+  });
+
+  it("counts no recalls while memory is paused", async () => {
+    env.store.setPaused(true);
+    const lines = await queryRecall(env.store, "which toner does the printer take?");
+    expect(lines).toHaveLength(1);
+    expect(env.store.recallStats().size).toBe(0);
+    env.store.setPaused(false);
+    await queryRecall(env.store, "which toner does the printer take?");
+    expect(env.store.recallStats().size).toBe(1);
   });
 
   it("never injects an untrusted line, even from an otherwise trusted file", async () => {
