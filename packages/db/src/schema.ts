@@ -16,6 +16,7 @@ import {
 } from "./schema-night-shift.ts";
 import { notificationsSchema } from "./schema-notifications.ts";
 import { permissionsSchema } from "./schema-permissions.ts";
+import { type planForkBranches, type planForks, planForksSchema } from "./schema-plan-forks.ts";
 import { s04Schema } from "./schema-s04.ts";
 import { s07Schema } from "./schema-s07.ts";
 import { s15Schema } from "./schema-s15.ts";
@@ -26,6 +27,7 @@ import { spacesSchema } from "./schema-spaces.ts";
 export * from "./schema-connectors.ts";
 export * from "./schema-night-shift.ts";
 export * from "./schema-notifications.ts";
+export * from "./schema-plan-forks.ts";
 export * from "./schema-s04.ts";
 export * from "./schema-s07.ts";
 export * from "./schema-s15.ts";
@@ -543,6 +545,7 @@ export const schema = {
   ...securitySchema,
   ...spacesSchema,
   ...nightShiftSchema,
+  ...planForksSchema,
 };
 export type Schema = typeof schema;
 
@@ -580,5 +583,7 @@ export type NewLibraryItemRow = typeof libraryItems.$inferInsert;
 export type WidgetRow = typeof widgets.$inferSelect;
 export type NightShiftNightRow = typeof nightShiftNights.$inferSelect;
 export type StagedActionRow = typeof stagedActions.$inferSelect;
+export type PlanForkRow = typeof planForks.$inferSelect;
+export type PlanForkBranchRow = typeof planForkBranches.$inferSelect;
 export type ArtifactRow = typeof artifacts.$inferSelect;
 export type ArtifactVersionRow = typeof artifactVersions.$inferSelect;

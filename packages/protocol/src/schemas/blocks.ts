@@ -296,6 +296,21 @@ export const AppLinkBlock = Type.Object(
  */
 export const UiBlock = Type.Object({ type: Type.Literal("ui"), widgetId: Id }, { $id: "UiBlock" });
 
+/**
+ * Fork a plan (docs/design/fork-a-plan-2026.md §2.2): the fork card, appended to the parent thread
+ * at the end. It holds only the fork id; the UI reads the rest with `planForks.get`.
+ */
+export const PlanForkBlock = Type.Object(
+  { type: Type.Literal("plan_fork"), forkId: Id },
+  { $id: "PlanForkBlock" },
+);
+
+/** Posted in the parent thread when the owner takes a branch's plan (§3.4); read with `planForks.get`. */
+export const PlanTakenBlock = Type.Object(
+  { type: Type.Literal("plan_taken"), forkId: Id, branchId: Id },
+  { $id: "PlanTakenBlock" },
+);
+
 export const Block = Type.Union(
   [
     TextBlock,
@@ -321,6 +336,8 @@ export const Block = Type.Union(
     AutomationWorkflowBlock,
     AppLinkBlock,
     UiBlock,
+    PlanForkBlock,
+    PlanTakenBlock,
   ],
   { $id: "Block" },
 );

@@ -240,6 +240,10 @@ function blockToMarkdown(block: Block): string {
       return `[open in the app: ${block.route}]`;
     case "ui":
       return `[widget ${block.widgetId}]`;
+    case "plan_fork":
+      return `[plan fork ${block.forkId}]`;
+    case "plan_taken":
+      return `[plan taken ${block.forkId}]`;
     case "automation_workflow":
       return [
         `> Proposed automation: ${block.proposal.title}`,
