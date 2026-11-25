@@ -114,6 +114,50 @@ describe("the owner is whoever the mailbox says, never the From header", () => {
     expect(ev.sent[0]).toMatchObject({ fromOwner: false, toEntityIds: [] });
   });
 
+  it("Gmail spam and trash messages are dropped from the evidence", async () => {
+    const msg = (id: string, labelIds: string[]) => ({
+      id,
+      threadId: "thread-1",
+      from: OWNER,
+      to: SAM_ADDR,
+      date: new Date(MON + DAY).toISOString(),
+      labelIds,
+      attachments: [{ filename: "budget-deck.pdf", mimeType: "application/pdf" }],
+    });
+    const run = async (labelIds: string[]) => {
+      const lookup: ToolLookup = {
+        get: (name) =>
+          name === "mcp__gmail__gmail_read_thread"
+            ? ({
+                run: async () => ({
+                  output: { messages: [msg("g1", labelIds)] },
+                  provenance: "untrusted",
+                }),
+              } as never)
+            : name === "mcp__gmail__gmail_search_threads"
+              ? ({
+                  run: async () => ({ output: { threads: [] }, provenance: "untrusted" }),
+                } as never)
+              : undefined,
+      };
+      const deps: EvidenceDeps = {
+        clock: new FakeClock(MON + 2 * DAY),
+        tools: () => lookup,
+        connectors: () => [{ id: "gmail", type: "google", status: "connected" }],
+        resolve,
+      };
+      return collectDoneEvidence(deps, {
+        person: { entityId: SAM, addresses: [SAM_ADDR], handles: [] },
+        threadKey: "thread-1",
+        sinceMs: MON,
+      });
+    };
+    expect((await run(["SENT", "SPAM"])).sent).toEqual([]);
+    expect((await run(["SENT", "TRASH"])).sent).toEqual([]);
+    // Positive control: the same message without those labels is evidence.
+    expect((await run(["SENT"])).sent).toHaveLength(1);
+  });
+
   it("inline pictures are not attachments", () => {
     const m = parseMailMeta(
       row({
@@ -295,6 +339,7 @@ describe("collectDoneEvidence looks tools up by connector id", () => {
 });
 
 describe("Apple Mail and IMAP, with the connectors' real output shapes", () => {
+  const SENT_FOLDER = "[Gmail]/Sent Mail";
   const make = (
     tools: Record<string, (p: Record<string, unknown>) => unknown>,
     connectors: { id: string; type: string; status: string }[],
@@ -383,6 +428,47 @@ describe("Apple Mail and IMAP, with the connectors' real output shapes", () => {
     expect(boxes).toContain("Sent Messages");
     expect(boxes).not.toContain("Presentations");
     expect(boxes).not.toContain("Unsent");
+  });
+
+  it("Apple Mail: the helper's `special: sent` finds a Sent folder with any name", async () => {
+    const summary = {
+      id: "42",
+      mailbox: SENT_FOLDER,
+      account: "Gmail",
+      subject: "Budget",
+      from: `Me <${OWNER}>`,
+      date: when,
+      read: true,
+    };
+    const { deps, calls } = make(
+      {
+        "mcp__apple-mail__mail_mailboxes": () => ({
+          mailboxes: [
+            { account: "Gmail", name: SENT_FOLDER, unreadCount: 0, special: "sent" },
+            // Named like Sent, but the helper says it is not: never searched as the owner's.
+            { account: "Gmail", name: "Sent", unreadCount: 0, special: "archive" },
+          ],
+        }),
+        "mcp__apple-mail__mail_search": (p) =>
+          p.mailbox === SENT_FOLDER ? { messages: [summary] } : { messages: [] },
+        "mcp__apple-mail__mail_read": () => ({
+          message: {
+            summary,
+            to: [SAM_ADDR],
+            cc: [],
+            body: "",
+            truncated: false,
+            attachments: [{ name: "budget-deck.pdf", size: 10, mimeType: "application/pdf" }],
+          },
+        }),
+      },
+      [{ id: "apple-mail", type: "apple:mail", status: "connected" }],
+    );
+    const ev = await collectDoneEvidence(deps, query);
+    expect(verdict(ev)).toBe("auto");
+    const boxes = calls.filter((c) => c.tool.endsWith("mail_search")).map((c) => c.params.mailbox);
+    expect(boxes).toContain(SENT_FOLDER);
+    expect(boxes).not.toContain("Sent");
   });
 
   it("Apple Mail: a message in a folder named Unsent or Presentations is not the owner's", async () => {

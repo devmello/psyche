@@ -338,15 +338,19 @@ export function evaluateDone(
   return { kind: "none" };
 }
 
+const MAX_LABEL = 120;
+/** C0 and C1 controls, format characters (bidi overrides, isolates, zero-width), and brackets. */
+const UNSAFE_CHAR = /[\p{Cc}\p{Cf}\u2028\u2029<>]/u;
+
 /** "Marked done: you sent deck.pdf on Thu", from the citation quote the store keeps. */
 export function doneQuote(evidence: DoneEvidenceRef, who: string): string {
   // A file name is someone's text: no control characters or angle brackets in the quote.
   const plain = [...evidence.label]
-    .map((ch) =>
-      ch.charCodeAt(0) < 32 || ch.charCodeAt(0) === 127 || ch === "<" || ch === ">" ? " " : ch,
-    )
+    .map((ch) => (UNSAFE_CHAR.test(ch) ? " " : ch))
     .join("")
-    .trim();
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, MAX_LABEL);
   const e = { ...evidence, label: plain };
   if (e.channel === "calendar") return `${who} scheduled ${e.label}`;
   if (e.label === "") return e.by === "owner" ? "you replied" : `${who} replied`;

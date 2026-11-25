@@ -88,8 +88,10 @@ const APPLE_SENT = /^sent( (messages|mail|items))?$/i;
 const APPLE: BoxedFlavor = {
   listBoxes: "mail_mailboxes",
   sentBoxes: (list) =>
-    output<Record<string, unknown>>(list, "mailboxes").filter((b) =>
-      APPLE_SENT.test(str(b.name).trim()),
+    output<Record<string, unknown>>(list, "mailboxes").filter(
+      // The helper says which mailbox is Sent (`special`), which covers "[Gmail]/Sent Mail";
+      // the exact-name match is only the fallback for a helper that does not.
+      (b) => b.special === "sent" || (b.special == null && APPLE_SENT.test(str(b.name).trim())),
     ),
   search: "mail_search",
   boxParams: (b) => ({
@@ -187,7 +189,10 @@ async function readMail(
         const th = await safe("gmail_read_thread", () =>
           readConnectorTool(tools, c.id, "gmail_read_thread", { threadId }),
         );
-        for (const raw of output<unknown>(th, "messages")) {
+        for (const raw of output<Record<string, unknown>>(th, "messages")) {
+          // Spam and trash are not conversation: neither side's evidence.
+          const labels = Array.isArray(raw?.labelIds) ? (raw.labelIds as unknown[]) : [];
+          if (labels.includes("SPAM") || labels.includes("TRASH")) continue;
           const m = parseMailMeta(raw, { threadKey: threadId });
           if (m !== undefined) out.push(m);
         }

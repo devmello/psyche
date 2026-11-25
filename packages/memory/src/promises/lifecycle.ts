@@ -123,7 +123,7 @@ function dueChange(loop: LedgerLoop, dueMs: number, by: EventBy): Decision {
 export function decide(
   loop: LedgerLoop,
   input: PromiseActionInput,
-  ctx: { nowMs: number; lastAsk?: LastAsk },
+  ctx: { nowMs: number; lastAsk?: LastAsk; autoDone?: boolean },
 ): Decision {
   const { nowMs } = ctx;
   const active = ACTIVE.includes(loop.status);
@@ -167,8 +167,10 @@ export function decide(
       if (loop.status !== "done" && loop.status !== "dismissed" && loop.status !== "released")
         return bad("only a closed promise can be reopened");
       const closedAt = parseMs(loop.closedAt) ?? nowMs;
-      const undo =
-        loop.status === "done" && (loop.closedBy === "auto" || loop.closedBy === "reply_seen");
+      // Undo (limited to 7 days) is for a done the ledger closed itself: an `auto_done` event for
+      // this very close, or `closedBy: auto`. Any other reopen, such as a `reply_seen` the ingest
+      // rule closed, is the owner's plain reopen and has no limit.
+      const undo = loop.status === "done" && (loop.closedBy === "auto" || ctx.autoDone === true);
       if (undo && nowMs - closedAt > UNDO_AUTO_DONE_DAYS * DAY_MS)
         return bad("an automatic done can be undone for 7 days");
       return {

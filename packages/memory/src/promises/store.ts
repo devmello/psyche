@@ -697,6 +697,15 @@ export class PromiseStore {
     return last;
   }
 
+  /** Whether the promise's current done is the one an `auto_done` event recorded. */
+  #closedByAutoDone(loop: LedgerLoop): boolean {
+    if (loop.status !== "done") return false;
+    const closedAt = parseMs(loop.closedAt);
+    return this.events(loop.id).some(
+      (e) => e.kind === "auto_done" && e.to === "done" && Date.parse(e.at) === closedAt,
+    );
+  }
+
   /** Records a question to the owner ("Did Sam send it?", "Still on?"). */
   recordAsk(id: string, question: "done" | "still_on"): void {
     this.#must(id);
@@ -749,6 +758,7 @@ export class PromiseStore {
       const lastAsk = this.#lastAsk(id);
       const decision = decide(loop, input, {
         nowMs: this.#now(),
+        autoDone: this.#closedByAutoDone(loop),
         ...(lastAsk === undefined ? {} : { lastAsk }),
       });
       const citationId = opts.citation === undefined ? null : this.addCitation(id, opts.citation);

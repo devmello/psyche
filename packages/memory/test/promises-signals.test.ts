@@ -323,6 +323,19 @@ describe("evaluateDone: near-misses never close it", () => {
   });
 });
 
+describe("doneQuote", () => {
+  const q = (label: string) =>
+    doneQuote({ channel: "mail", ref: "r", label, at: 0, by: "owner" }, "Sam");
+
+  it("strips bidi, zero-width and C1 characters, and caps the length", () => {
+    expect(q("deck\u202Efdp.exe")).toBe("you sent deck fdp.exe");
+    expect(q("a\u2066b\u2069c\u200Bd\u0085e")).toBe("you sent a b c d e");
+    expect(q("x".repeat(500)).length).toBeLessThanOrEqual("you sent ".length + 120);
+    // Positive control: an ordinary name, including non-Latin text, is untouched.
+    expect(q("予算 deck.pdf")).toBe("you sent 予算 deck.pdf");
+  });
+});
+
 describe("applyDoneSignals on the ledger", () => {
   let clock: FakeClock;
   let store: PromiseStore;
@@ -331,6 +344,7 @@ describe("applyDoneSignals on the ledger", () => {
     clock = new FakeClock(MON);
     const db = openDb(":memory:");
     const graph = new GraphStore({ sqlite: db.sqlite, clock });
+    graphRef = graph;
     store = new PromiseStore({ graph, sqlite: db.sqlite, clock, timezone: "UTC" });
     const sam = graph.createEntity({ kind: "person", name: "Sam Lee" }).id;
     const r = store.add({
@@ -351,8 +365,10 @@ describe("applyDoneSignals on the ledger", () => {
     SAM_ID = sam;
   });
   let SAM_ID = "";
+  let graphRef: GraphStore | undefined;
 
   const withSam = (m: SentItem): SentItem => ({ ...m, toEntityIds: [SAM_ID] });
+  const sentTo = (at: number): SentItem => withSam(sent({ at, ref: `mail:${at}` }));
 
   it("closes it with the evidence kept as a citation, and Undo reopens it", () => {
     clock.set(MON + DAY);
@@ -437,6 +453,20 @@ describe("applyDoneSignals on the ledger", () => {
     expect(applyDoneSignals(store, rid, ev({ replies: [later] }), "Sam").kind).toBe("done");
     clock.advance(8 * DAY);
     expect(() => store.act(rid, { action: "reopen" })).toThrow(/7 days/);
+  });
+
+  it("an owner reopen of a reply_seen the ingest rule closed works at any age", () => {
+    // The old ingest rule closes a loop with no `auto_done` event: that is not an Undo.
+    graphRef?.updateLoop(id, { status: "done", closedBy: "reply_seen" });
+    clock.advance(30 * DAY);
+    expect(store.get(id)).toMatchObject({ status: "done", closedBy: "reply_seen" });
+    expect(store.act(id, { action: "reopen" }).status).toBe("open");
+    // Positive control: an automatic done of the same age is refused.
+    clock.advance(DAY);
+    applyDoneSignals(store, id, ev({ sent: [sentTo(clock.now() + 1)] }), "Sam");
+    expect(store.get(id)?.status).toBe("done");
+    clock.advance(8 * DAY);
+    expect(() => store.act(id, { action: "reopen" })).toThrow(/7 days/);
   });
 
   it("a refused action leaves no citation behind", () => {
