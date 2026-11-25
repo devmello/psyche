@@ -7,7 +7,7 @@ import { ApprovalDock } from "../src/chat/ApprovalDock.tsx";
 import { ChatThread } from "../src/chat/Thread.tsx";
 import { GatewayProvider, GatewayStore } from "../src/data/index.ts";
 import { MockGateway } from "../src/data/mock-gateway.ts";
-import { createFixtureWorld, FIXTURE_NOW, IDS } from "../src/fixtures/index.ts";
+import { createFixtureWorld, FIXTURE_NOW } from "../src/fixtures/index.ts";
 import { UiSlotsProvider } from "../src/slots.tsx";
 
 /**
