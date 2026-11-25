@@ -3567,7 +3567,7 @@ export const ar: Partial<Catalogue> = {
   "web.onboarding.title": "إعداد Psyche",
   "web.onboarding.saveError": "تعذّر حفظ وكيلك: {error}",
   "web.onboarding.hostOnly":
-    "يُضبط اسم وكيلك وما يعرفه عنك في تطبيق Psyche على المضيف. لا يلزم فعل أي شيء آخر هنا.",
+    "يُضبط اسم وكيلك وما يعرفه عنك في تطبيق Psyche على جهاز Mac الخاص بك. لا يلزم فعل أي شيء آخر هنا.",
 
   "web.bytes.b": "{n} بايت",
   "web.bytes.kb": "{n} ك.ب",
@@ -3760,7 +3760,7 @@ export const ar: Partial<Catalogue> = {
   "web.banner.starting": "Psyche يبدأ…",
   "web.banner.pairing": "وافق على هذا الجهاز من جهاز مقترن للمتابعة. رمز الاقتران",
   "web.banner.pairingHow":
-    "للموافقة عليه، افتح الإعدادات ← الأجهزة في تطبيق Psyche على المضيف، أو شغّل psyched devices approve {code} في Terminal على المضيف.",
+    "للموافقة عليه، افتح الإعدادات ← الأجهزة في تطبيق Psyche على جهاز Mac الخاص بك، أو شغّل psyched devices approve {code} في Terminal على جهاز Mac الخاص بك.",
   "web.banner.denied": "رُفض وصول هذا الجهاز إلى Psyche.",
   "web.banner.offline":
     "تعذّر الوصول إلى Psyche الآن. تستمر المهام في العمل؛ وتعيد هذه النافذة الاتصال تلقائيًا.",

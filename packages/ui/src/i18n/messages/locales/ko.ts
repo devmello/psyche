@@ -3514,7 +3514,7 @@ export const ko: Partial<Catalogue> = {
   "web.onboarding.title": "Psyche 설정",
   "web.onboarding.saveError": "에이전트를 저장할 수 없습니다: {error}",
   "web.onboarding.hostOnly":
-    "에이전트의 이름과 에이전트가 당신에 대해 아는 내용은 호스트의 Psyche 앱에서 설정합니다. 여기서 더 할 일은 없습니다.",
+    "에이전트의 이름과 에이전트가 당신에 대해 아는 내용은 Mac의 Psyche 앱에서 설정합니다. 여기서 더 할 일은 없습니다.",
   "web.bytes.b": "{n}B",
   "web.bytes.kb": "{n}KB",
   "web.bytes.mb": "{n}MB",
@@ -3703,7 +3703,7 @@ export const ko: Partial<Catalogue> = {
   "web.banner.starting": "Psyche를 시작하는 중…",
   "web.banner.pairing": "계속하려면 페어링된 기기에서 이 기기를 승인하십시오. 페어링 코드",
   "web.banner.pairingHow":
-    "승인하려면 호스트의 Psyche 앱에서 설정 → 기기를 열거나, 호스트의 터미널에서 psyched devices approve {code} 를 실행하세요.",
+    "승인하려면 Mac의 Psyche 앱에서 설정 → 기기를 열거나, Mac의 터미널에서 psyched devices approve {code} 를 실행하세요.",
   "web.banner.denied": "이 기기는 Psyche 접근이 거부되었습니다.",
   "web.banner.offline":
     "지금은 Psyche에 연결할 수 없습니다. 작업은 계속 실행되며 이 윈도우는 자동으로 다시 연결됩니다.",

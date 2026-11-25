@@ -3581,7 +3581,7 @@ export const it: Partial<Catalogue> = {
   "web.onboarding.title": "Configura Psyche",
   "web.onboarding.saveError": "Impossibile salvare il tuo agente: {error}",
   "web.onboarding.hostOnly":
-    "Il nome del tuo agente e ciò che sa di te si impostano nell'app Psyche sull'host. Qui non c'è altro da fare.",
+    "Il nome del tuo agente e ciò che sa di te si impostano nell'app Psyche sul tuo Mac. Qui non c'è altro da fare.",
   "web.bytes.b": "{n} B",
   "web.bytes.kb": "{n} KB",
   "web.bytes.mb": "{n} MB",
@@ -3774,7 +3774,7 @@ export const it: Partial<Catalogue> = {
   "web.banner.pairing":
     "Approva questo dispositivo da un dispositivo abbinato per continuare. Codice di abbinamento",
   "web.banner.pairingHow":
-    "Per approvarlo, apri Impostazioni → Dispositivi nell'app Psyche sull'host, oppure esegui psyched devices approve {code} nel Terminale sull'host.",
+    "Per approvarlo, apri Impostazioni → Dispositivi nell'app Psyche sul tuo Mac, oppure esegui psyched devices approve {code} nel Terminale sul tuo Mac.",
   "web.banner.denied": "A questo dispositivo è stato negato l’accesso a Psyche.",
   "web.banner.offline":
     "Psyche non è raggiungibile al momento. Le attività continuano; questa finestra si riconnette da sola.",

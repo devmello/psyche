@@ -9,6 +9,10 @@ import type { MessageId } from "../index.ts";
 export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<MessageId, string>>>>> =
   {
     ar: {
+      "web.banner.pairingHow":
+        "للموافقة عليه، افتح الإعدادات ← الأجهزة في تطبيق Psyche على الكمبيوتر الخاص بك، أو شغّل psyched devices approve {code} في الطرفية على الكمبيوتر الخاص بك.",
+      "web.onboarding.hostOnly":
+        "يُضبط اسم وكيلك وما يعرفه عنك في تطبيق Psyche على الكمبيوتر الخاص بك. لا يلزم فعل أي شيء آخر هنا.",
       "settings.notifications.helper.denied": "الإشعارات متوقفة في الإعدادات",
       "settings.notifications.helper.openSettings": "فتح الإعدادات",
       "settings.remoteSetup.problem.maybe_claimed":
@@ -411,6 +415,10 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "وافق على البطاقة بكلمة المرور أو مفتاح مرور، ثم اضغط الزر مرة أخرى.",
     },
     de: {
+      "web.banner.pairingHow":
+        "Zum Bestätigen öffne in der Psyche-App auf deinem Computer Einstellungen → Geräte, oder führe auf deinem Computer in einem Terminal psyched devices approve {code} aus.",
+      "web.onboarding.hostOnly":
+        "Name deines Agenten und was er über dich weiß, richtest du in der Psyche-App auf deinem Computer ein. Hier ist nichts weiter zu tun.",
       "settings.notifications.helper.denied":
         "Mitteilungen sind in den Einstellungen ausgeschaltet",
       "settings.notifications.helper.openSettings": "Einstellungen öffnen",
@@ -838,6 +846,10 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "Bestätige die Karte mit deinem Passwort oder einem Passkey und tippe dann erneut auf die Taste.",
     },
     es: {
+      "web.banner.pairingHow":
+        "Para aprobarlo, abre Ajustes → Dispositivos en la app Psyche de tu equipo, o ejecuta psyched devices approve {code} en una terminal de tu equipo.",
+      "web.onboarding.hostOnly":
+        "El nombre de tu agente y lo que sabe de ti se configuran en la app Psyche de tu equipo. Aquí no hay nada más que hacer.",
       "settings.notifications.helper.denied":
         "Las notificaciones están desactivadas en Configuración",
       "settings.notifications.helper.openSettings": "Abrir Configuración",
@@ -1268,6 +1280,10 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "Aprueba la tarjeta con tu contraseña o una llave de acceso y vuelve a pulsar el botón.",
     },
     fr: {
+      "web.banner.pairingHow":
+        "Pour l'approuver, ouvre Réglages → Appareils dans l'app Psyche sur ton ordinateur, ou lance psyched devices approve {code} dans un terminal sur ton ordinateur.",
+      "web.onboarding.hostOnly":
+        "Le nom de ton agent et ce qu'il sait de toi se règlent dans l'app Psyche sur ton ordinateur. Il n'y a rien d'autre à faire ici.",
       "settings.notifications.helper.denied":
         "Les notifications sont désactivées dans les Paramètres",
       "settings.notifications.helper.openSettings": "Ouvrir les Paramètres",
@@ -1701,6 +1717,10 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "Approuvez la carte avec votre mot de passe ou une clé d’accès, puis appuyez de nouveau sur le bouton.",
     },
     hi: {
+      "web.banner.pairingHow":
+        "इसे मंज़ूर करने के लिए अपने कंप्यूटर पर Psyche ऐप में सेटिंग → डिवाइस खोलें, या अपने कंप्यूटर के टर्मिनल में psyched devices approve {code} चलाएँ।",
+      "web.onboarding.hostOnly":
+        "आपके एजेंट का नाम और वह आपके बारे में क्या जानता है, आपके कंप्यूटर पर Psyche ऐप में सेट होता है। यहाँ और कुछ करने की ज़रूरत नहीं है।",
       "settings.notifications.helper.denied": "सेटिंग्ज़ में सूचनाएँ बंद हैं",
       "settings.notifications.helper.openSettings": "सेटिंग्ज़ खोलें",
       "settings.remoteSetup.problem.maybe_claimed":
@@ -2100,6 +2120,10 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "web.security.needsApproval": "अपने पासवर्ड या पासकी से कार्ड को मंज़ूरी दें, फिर बटन दोबारा दबाएँ।",
     },
     it: {
+      "web.banner.pairingHow":
+        "Per approvarlo, apri Impostazioni → Dispositivi nell'app Psyche sul tuo computer, oppure esegui psyched devices approve {code} in un terminale sul tuo computer.",
+      "web.onboarding.hostOnly":
+        "Il nome del tuo agente e ciò che sa di te si impostano nell'app Psyche sul tuo computer. Qui non c'è altro da fare.",
       "settings.notifications.helper.denied": "Le notifiche sono disattivate in Impostazioni",
       "settings.notifications.helper.openSettings": "Apri Impostazioni",
       "settings.remoteSetup.problem.maybe_claimed":
@@ -2525,6 +2549,10 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "Approva la scheda con la tua password o una passkey, poi premi di nuovo il pulsante.",
     },
     ja: {
+      "web.banner.pairingHow":
+        "承認するには、お使いのコンピュータの Psyche アプリで「設定 → デバイス」を開くか、そのコンピュータのターミナルで psyched devices approve {code} を実行してください。",
+      "web.onboarding.hostOnly":
+        "エージェントの名前とあなたについて知っていることは、お使いのコンピュータの Psyche アプリで設定します。ここでやることはもうありません。",
       "settings.notifications.helper.denied": "通知は設定でオフになっています",
       "settings.notifications.helper.openSettings": "設定を開く",
       "settings.remoteSetup.problem.maybe_claimed":
@@ -2950,6 +2978,10 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "パスワードまたはパスキーでカードを承認してから、もう一度ボタンを押してください。",
     },
     ko: {
+      "web.banner.pairingHow":
+        "승인하려면 내 컴퓨터의 Psyche 앱에서 설정 → 기기를 열거나, 내 컴퓨터의 터미널에서 psyched devices approve {code} 를 실행하세요.",
+      "web.onboarding.hostOnly":
+        "에이전트의 이름과 에이전트가 당신에 대해 아는 내용은 내 컴퓨터의 Psyche 앱에서 설정합니다. 여기서 더 할 일은 없습니다.",
       "settings.notifications.helper.denied": "설정에서 알림이 꺼져 있습니다",
       "settings.notifications.helper.openSettings": "설정 열기",
       "settings.remoteSetup.problem.maybe_claimed":
@@ -3356,6 +3388,10 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "사용자 암호나 패스키로 카드를 승인한 다음 버튼을 다시 누르세요.",
     },
     pt: {
+      "web.banner.pairingHow":
+        "Para aprovar, abra Ajustes → Dispositivos no app Psyche do seu computador, ou execute psyched devices approve {code} em um terminal do seu computador.",
+      "web.onboarding.hostOnly":
+        "O nome do seu agente e o que ele sabe sobre você são definidos no app Psyche do seu computador. Não há mais nada a fazer aqui.",
       "settings.notifications.helper.denied": "As notificações estão desativadas nas Configurações",
       "settings.notifications.helper.openSettings": "Abrir Configurações",
       "settings.remoteSetup.problem.maybe_claimed":
@@ -3774,6 +3810,10 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "Aprove o cartão com a sua senha ou uma chave-senha e toque no botão de novo.",
     },
     zh: {
+      "web.banner.pairingHow":
+        "要批准它,请在你电脑上的 Psyche 应用中打开“设置 → 设备”,或在你电脑的终端运行 psyched devices approve {code}。",
+      "web.onboarding.hostOnly":
+        "代理的名字和它对你的了解,请在你电脑上的 Psyche 应用中设置。这里无需再做任何事。",
       "settings.notifications.helper.denied": "通知已在设置中关闭",
       "settings.notifications.helper.openSettings": "打开设置",
       "settings.remoteSetup.problem.maybe_claimed":
