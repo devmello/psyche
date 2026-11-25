@@ -1,5 +1,5 @@
 import { updateDevice } from "@psyche/db";
-import type { Json, RunStep, ToolCall } from "@psyche/protocol";
+import type { RunStep, ToolCall } from "@psyche/protocol";
 import { afterEach, describe, expect, it } from "vitest";
 import type { Call } from "../src/context.ts";
 import { runsHandlers } from "../src/handlers/runs.ts";
@@ -41,7 +41,7 @@ afterEach(async () => {
   t = null;
 });
 
-const record = (runId: string, id: string, tool: string, params: Json): ToolCall => ({
+const record = (runId: string, id: string, tool: string, params: Record<string, unknown>): ToolCall => ({
   id,
   runId,
   messageId: null,
