@@ -133,6 +133,12 @@ export interface ControlFacts {
    * a helper that cannot resolve the target). On a trading, banking or P2P venue that is refused.
    */
   unreadable?: boolean;
+  /**
+   * The executor read this action as a send to other people: Return or ⌘Return in a messaging or
+   * mail app, typed text ending a line there, a menu item or pressed control named Send. Full
+   * access keeps its card (`ui_send`).
+   */
+  sends?: boolean;
 }
 
 /**

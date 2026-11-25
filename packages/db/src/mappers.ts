@@ -124,7 +124,8 @@ export function threadFromRow(row: ThreadRow): Thread {
     forkedFromMessageId: row.forkedFromMessageId,
     sessionKey: row.sessionKey,
     personaOverlay: row.personaOverlay,
-    permissionMode: row.permissionMode as PermissionMode,
+    // Full access is its own column (`full_access`): `permission_mode`'s CHECK predates it.
+    permissionMode: (row.fullAccess === 1 ? "full" : row.permissionMode) as PermissionMode,
     modelRef: row.modelRef,
     pinned: toBool(row.pinned),
     archivedAt: row.archivedAt,

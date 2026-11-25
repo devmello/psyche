@@ -680,6 +680,20 @@ export const fr: Partial<Catalogue> = {
   "agent.mode.manual": "manuel",
   "agent.mode.balanced": "équilibré",
   "agent.mode.auto": "auto",
+  "agent.mode.full": "Accès complet",
+  "chat.commands.full.hint": "on | off",
+  "chat.commands.full.description": "Activer ou désactiver l'accès complet dans cette discussion",
+  "chat.commands.usageFull": "Utilisation : /full [on | off]",
+  "chat.args.mode.full": "Agit sans demander, sauf pour les envois et les paiements",
+  "chat.args.full.on": "Agir sans demander, sauf pour les envois et les paiements",
+  "chat.args.full.off": "Revenir à Équilibré",
+  "chat.thread.fullAccessOn":
+    "L'accès complet est activé dans cette discussion. Les envois à d'autres personnes et les paiements demandent toujours.",
+  "chat.thread.fullAccessOff":
+    "L'accès complet est désactivé. Cette discussion repasse en Équilibré.",
+  "chat.fullAccess.banner":
+    "Accès complet : Psyche agit sans demander, sauf pour les envois et les paiements.",
+  "chat.fullAccess.turnOff": "Désactiver",
   "agent.mode.plan": "plan",
   "agent.state.idle": "inactif",
   "agent.state.working": "au travail",

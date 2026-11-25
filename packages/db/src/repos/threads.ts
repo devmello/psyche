@@ -40,7 +40,11 @@ export function createThread(db: PsycheDb, input: NewThread): Thread {
       forkedFromMessageId: input.forkedFromMessageId ?? null,
       sessionKey: input.sessionKey,
       personaOverlay: input.personaOverlay ?? null,
-      permissionMode: input.permissionMode ?? "balanced",
+      permissionMode:
+        input.permissionMode === undefined || input.permissionMode === "full"
+          ? "balanced"
+          : input.permissionMode,
+      fullAccess: input.permissionMode === "full" ? 1 : 0,
       modelRef: input.modelRef ?? null,
       pinned: fromBool(input.pinned),
       expiresAt: input.expiresAt ?? null,
@@ -112,7 +116,12 @@ export function updateThread(db: PsycheDb, id: string, patch: ThreadPatch): Thre
   if (patch.titleSource !== undefined) set.titleSource = patch.titleSource;
   if (patch.pinned !== undefined) set.pinned = fromBool(patch.pinned);
   if (patch.archivedAt !== undefined) set.archivedAt = patch.archivedAt;
-  if (patch.permissionMode !== undefined) set.permissionMode = patch.permissionMode;
+  // `full` sets the Full access column and keeps the mode under it; any other mode clears it.
+  if (patch.permissionMode === "full") set.fullAccess = 1;
+  else if (patch.permissionMode !== undefined) {
+    set.permissionMode = patch.permissionMode;
+    set.fullAccess = 0;
+  }
   if (patch.modelRef !== undefined) set.modelRef = patch.modelRef;
   if (patch.spaceId !== undefined) set.spaceId = patch.spaceId;
   const row = db.drizzle.update(threads).set(set).where(eq(threads.id, id)).returning().get();
