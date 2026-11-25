@@ -47,8 +47,9 @@ function show(a: ApprovalRequest) {
   return onAnswer;
 }
 
-const scopeSelect = () => screen.getByRole("combobox", { name: "Allow for" });
-const allow = () => screen.getByRole("button", { name: "Allow with scope" });
+const alwaysChoice = () =>
+  screen.getByRole("button", { name: "Always allow this same kind of action" });
+const allow = () => screen.getByRole("button", { name: "Allow" });
 
 describe("Always allow on a floored card (§3.12)", () => {
   it("classes cards like the broker", () => {
@@ -62,12 +63,8 @@ describe("Always allow on a floored card (§3.12)", () => {
 
   it("offers Always allow, confirms, then answers always", async () => {
     const onAnswer = show(approval({}));
-    const options = within(scopeSelect())
-      .getAllByRole("option")
-      .map((o) => o.textContent);
-    expect(options).toContain("Always allow");
-    await userEvent.selectOptions(scopeSelect(), "always");
-    await userEvent.click(allow());
+    expect(alwaysChoice()).toBeTruthy();
+    await userEvent.click(alwaysChoice());
     const dialog = await screen.findByRole("alertdialog");
     expect(dialog.textContent).toContain("Wren can do this again");
     expect(dialog.textContent).toContain("may not be recoverable");
@@ -78,13 +75,11 @@ describe("Always allow on a floored card (§3.12)", () => {
 
   it("cancelling the confirm answers nothing; Allow once needs no confirm", async () => {
     const onAnswer = show(approval({}));
-    await userEvent.selectOptions(scopeSelect(), "always");
-    await userEvent.click(allow());
+    await userEvent.click(alwaysChoice());
     await userEvent.click(
       within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Cancel" }),
     );
     expect(onAnswer).not.toHaveBeenCalled();
-    await userEvent.selectOptions(scopeSelect(), "once");
     await userEvent.click(allow());
     await waitFor(() => expect(onAnswer).toHaveBeenCalledWith("approve", "once", undefined));
     expect(screen.queryByRole("alertdialog")).toBeNull();
@@ -92,7 +87,7 @@ describe("Always allow on a floored card (§3.12)", () => {
 
   it("a tainted card offers only Allow once", () => {
     show(approval({ taint: true, kind: "send_email", sideEffect: "write" }));
-    expect(screen.queryByRole("combobox", { name: "Allow for" })).toBeNull();
-    expect(screen.queryByRole("option", { name: "Always allow" })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Always allow/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: "More options…" })).toBeNull();
   });
 });

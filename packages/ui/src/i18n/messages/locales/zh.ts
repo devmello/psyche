@@ -2,6 +2,7 @@ import type { Catalogue } from "../index.ts";
 import { actionErrors } from "./action-errors/zh.ts";
 import { agent } from "./agent/zh.ts";
 import { agentNotes } from "./agent-notes/zh.ts";
+import { approvalsW3 } from "./approvals-w3/zh.ts";
 import { audit } from "./audit/zh.ts";
 import { automationChat } from "./automation-chat/zh.ts";
 import { blocks } from "./blocks/zh.ts";
@@ -3881,6 +3882,8 @@ export const zh: Partial<Catalogue> = {
   ...computerWatch,
   // Psyche points (docs/design/psyche-points-2026.md §9)
   ...points,
+  // Approvals wave W3 (card choices, Allowed list)
+  ...approvalsW3,
   // Gateway-authored notices (inbox notifications, security alerts)
   ...notices,
   // Settings > Computer use > Separate desktop (Linux)

@@ -309,9 +309,9 @@ describe("BatchCard", () => {
     );
     expect(screen.getByText("Mark read: Weekly digest (Acme)")).toBeTruthy();
     // The broker offers a batch "always" only for prep notes; this one did not.
-    expect(screen.queryByRole("option", { name: /always/i })).toBeNull();
+    expect(screen.queryByRole("button", { name: /always/i })).toBeNull();
     const deny = screen.getByRole("button", { name: "Deny" });
-    const allow = screen.getByRole("button", { name: "Allow with scope" });
+    const allow = screen.getByRole("button", { name: "Allow" });
     expect(deny.compareDocumentPosition(allow) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     // ⌘↩ allows once, the only scope offered.
     allow.focus();
@@ -332,8 +332,7 @@ describe("BatchCard", () => {
         now={STORY_NOW}
       />,
     );
-    await user.selectOptions(screen.getByRole("combobox", { name: "Allow for" }), "always");
-    await user.keyboard("{Control>}{Enter}{/Control}");
+    await user.click(screen.getByRole("button", { name: "Always for prep notes" }));
     expect(onAnswer).toHaveBeenCalledWith("approve", "always", undefined);
   });
 
@@ -454,7 +453,7 @@ describe("ProposalBatchCard against the MockGateway", () => {
     expect(await screen.findByText("Mark read: Weekly digest (Acme)")).toBeTruthy();
     // Choose Allow (once), then wait out the 400 ms arming.
 
-    const allow = screen.getByRole("button", { name: "Allow with scope" }) as HTMLButtonElement;
+    const allow = screen.getByRole("button", { name: "Allow" }) as HTMLButtonElement;
     await waitFor(() => expect(allow.disabled).toBe(false), { timeout: 2000 });
     await user.click(allow);
     await waitFor(() =>
@@ -476,8 +475,8 @@ describe("ProposalBatchCard against the MockGateway", () => {
         w.proposalFailures = { [WORKFLOW_IDS.proposals.newsletters]: { 1: "message moved" } };
       },
     });
-    await screen.findByRole("button", { name: "Allow with scope" });
-    const allow = screen.getByRole("button", { name: "Allow with scope" }) as HTMLButtonElement;
+    await screen.findByRole("button", { name: "Allow" });
+    const allow = screen.getByRole("button", { name: "Allow" }) as HTMLButtonElement;
     await waitFor(() => expect(allow.disabled).toBe(false), { timeout: 2000 });
     await user.click(allow);
     expect(await screen.findByText("5 of 6 done · 1 failed: message moved")).toBeTruthy();

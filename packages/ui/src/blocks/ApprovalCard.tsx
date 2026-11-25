@@ -19,14 +19,13 @@ import {
   DropdownMenuContent,
   DropdownMenuTrigger,
 } from "../components/ui/dropdown-menu.tsx";
-import { NativeSelect } from "../components/ui/native-select.tsx";
+import { useCall } from "../data/index.ts";
 import { t } from "../i18n/core.ts";
 import { describeError } from "../i18n/errors.ts";
 import { formatCountdown, formatRelative } from "../lib/format.ts";
 import { keysLabel } from "../lib/keys.ts";
 import { pathBasename } from "../lib/paths.ts";
 import { isMac } from "../lib/platform.ts";
-import { parseSendGrantKey, splitRecipients } from "../lib/send-grant.ts";
 import { useNow } from "../lib/use-now.ts";
 import { cn } from "../lib/utils.ts";
 import { easeLinear, fade, motionSpring, spring } from "../motion/index.ts";
@@ -38,7 +37,17 @@ import {
   classifyAnswerError,
   type TouchIdFix,
 } from "./answer-error.ts";
+import {
+  type AllowScope,
+  answerFor,
+  buildChoices,
+  defaultAllow,
+  isPaymentCard,
+  spaceOffer,
+  splitChoices,
+} from "./approval-choice.ts";
 import { ApprovalDetails, ApprovalIds } from "./approval-details.tsx";
+import { plainHeader, voidedText } from "./approval-plain.ts";
 import { otherSurfacesFor } from "./approval-surfaces.ts";
 import { floorClassOf, useLiftFloorConfirm } from "./LiftFloorDialog.tsx";
 import { approvalMachineLine } from "./machine-line.ts";
@@ -66,64 +75,6 @@ export function focusApproval(approvalId: string): void {
 }
 
 export type ApprovalChoice = "deny" | "once" | "task" | "site" | "always" | "session";
-
-/**
- * `trust` / `trustSubdomains` are "Always for this site" (and its subdomains): sent as `once` plus
- * `trustSite`, only on a first-read card that offers it (`details.trustSite`).
- */
-type AllowScope =
-  | Exclude<ApprovalChoice, "deny">
-  | "trust"
-  | "trustSubdomains"
-  | "program"
-  | "space";
-
-/** The origin a first-read card offers to trust, as the Gateway computed it. */
-function trustSiteOffer(
-  approval: ApprovalRequest,
-): { origin: string; display: string; subdomains: boolean } | null {
-  const o = (approval.details as Record<string, unknown>).trustSite;
-  if (typeof o !== "object" || o === null) return null;
-  const { origin, subdomains } = o as { origin?: unknown; subdomains?: unknown };
-  if (typeof origin !== "string" || !approval.scopesOffered.includes("once")) return null;
-  return { origin, display: origin.replace(/^https:\/\//, ""), subdomains: subdomains === true };
-}
-
-/**
- * "Always allow <program> in <folder>" on a host-command card, as the Gateway computed it
- * (`details.hostProgram`): sent as `once` plus `hostProgram`. `exact` when it covers only the
- * argv shown (a program that can run other code), else any arguments of a read-only tool.
- */
-function hostProgramOffer(
-  approval: ApprovalRequest,
-): { program: string; folder: string; exact: boolean } | null {
-  const o = (approval.details as Record<string, unknown>).hostProgram;
-  if (typeof o !== "object" || o === null) return null;
-  const { program, folder, argv } = o as { program?: unknown; folder?: unknown; argv?: unknown };
-  if (typeof program !== "string" || typeof folder !== "string") return null;
-  if (!approval.scopesOffered.includes("once")) return null;
-  return { program, folder, exact: Array.isArray(argv) };
-}
-
-/**
- * "Allow in this Space" on a folder card, as the Gateway offered it (`details.space`): sent as
- * `once` plus `inSpace`. Never on a tainted card (spaces-2026 §5.3).
- */
-function spaceOffer(approval: ApprovalRequest): { name: string; automationsWrite: boolean } | null {
-  if (approval.kind !== "folder_access" || approval.taint) return null;
-  const o = (approval.details as Record<string, unknown>).space;
-  if (typeof o !== "object" || o === null) return null;
-  const { id, name, automationsWrite } = o as {
-    id?: unknown;
-    name?: unknown;
-    automationsWrite?: unknown;
-  };
-  if (typeof id !== "string" || id === "" || !approval.scopesOffered.includes("once")) return null;
-  return {
-    name: typeof name === "string" ? name : "",
-    automationsWrite: automationsWrite === true,
-  };
-}
 
 export interface ApprovalCardProps {
   approval: ApprovalRequest;
@@ -317,8 +268,6 @@ function MessageCompose({
   );
 }
 
-const scopeLabel = (scope: GrantScope): string => t(`blocks.approval.scope.${scope}`);
-
 /** "Downloads" for `/Users/me/Downloads` or `C:\Users\me\Downloads`. */
 const folderName = pathBasename;
 
@@ -358,11 +307,9 @@ function statusText(approval: ApprovalRequest, now: number): string | null {
         when: approval.decidedAt ? formatRelative(approval.decidedAt, now) : "",
       });
     case "expired":
-      return t("blocks.approval.status.expired");
+      return t("approvals.expired");
     case "invalidated":
-      return approval.invalidatedReason
-        ? t("blocks.approval.status.voidedBecause", { reason: approval.invalidatedReason })
-        : t("blocks.approval.status.voided");
+      return voidedText(approval.invalidatedReason);
     default:
       return null;
   }
@@ -432,17 +379,21 @@ export function ApprovalCard({
   // A paired phone's own `device:<deviceId>` surface is not a place to name: hide it.
   const otherSurfaces = useMemo(() => otherSurfacesFor(allOtherSurfaces, []), [allOtherSurfaces]);
   // First line of the per-surface template: kind · side effect · taint (never attacker text).
-  const header = useMemo(() => renderForSurface("desktop", raw).text.split("\n")[0] ?? "", [raw]);
+  const header = useMemo(
+    () => plainHeader(raw, renderForSurface("desktop", raw).text.split("\n")[0] ?? ""),
+    [raw],
+  );
   const machineLine = approvalMachineLine(approval);
   const now = useNow(1000, fixedNow);
   const headingId = useId();
   const headingRef = useRef<HTMLHeadingElement>(null);
-  // The scope sits on the Allow action; the narrowest offered lifetime is the default.
-  const [choice, setChoice] = useState<AllowScope>(
-    (["once", "task", "site", "session", "always"] as const).find((v) =>
-      approval.scopesOffered.includes(v),
-    ) ?? "once",
-  );
+  // Allow sends the narrowest offered lifetime; the second choice and "More options" send theirs.
+  const allowValue = defaultAllow(approval);
+  const [moreOpen, setMoreOpen] = useState(false);
+  // An answer that made a lasting grant offers to take it back (`grants.revoke`).
+  const call = useCall();
+  const [undo, setUndo] = useState<"idle" | "busy" | "done">("idle");
+  const [undoError, setUndoError] = useState<string | null>(null);
   const [armed, setArmed] = useState(armDelayMs === 0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -546,8 +497,6 @@ export function ApprovalCard({
     return () => clearTimeout(timer);
   }, [interactive, armDelayMs]);
   const site = originOf(approval);
-  const trustOffer = approval.status === "pending" ? trustSiteOffer(approval) : null;
-  const programOffer = approval.status === "pending" ? hostProgramOffer(approval) : null;
   const inSpaceOffer = approval.status === "pending" ? spaceOffer(approval) : null;
   // A send / destructive / financial card (§3.12): Always allow lifts its floor for this call
   // class, so it confirms first, and a tainted one never offers it (§3.6).
@@ -558,32 +507,28 @@ export function ApprovalCard({
       : approval.scopesOffered;
   const liftConfirm = useLiftFloorConfirm(persona, "card");
 
-  const submit = async (decision: "approve" | "deny", confirmed = false) => {
+  const submit = async (
+    decision: "approve" | "deny",
+    confirmed = false,
+    pick: AllowScope = allowValue,
+  ) => {
     if (!interactive || !armed || busy || inFlight.current) return;
     if (limitedUntil !== null && Date.now() < limitedUntil && decision === "approve") return;
     if (decision === "approve" && (!allowReady || answerOnHost !== null)) return;
-    if (decision === "approve" && floor !== null && choice === "always" && !confirmed) {
+    if (decision === "approve" && floor !== null && pick === "always" && !confirmed) {
       liftConfirm.ask(
         floor,
         t("blocks.liftFloor.cardWhat", { summary: approval.summary }),
-        () => void submit("approve", true),
+        () => void submit("approve", true, pick),
       );
       return;
     }
-    const trustSite =
-      decision === "approve" && choice === "trust"
-        ? ("origin" as const)
-        : decision === "approve" && choice === "trustSubdomains"
-          ? ("subdomains" as const)
-          : undefined;
-    const hostProgram = decision === "approve" && choice === "program";
-    const inSpace = decision === "approve" && choice === "space" && inSpaceOffer !== null;
-    const scope: GrantScope | undefined =
-      decision === "deny"
-        ? undefined
-        : trustSite !== undefined || hostProgram || inSpace
-          ? "once"
-          : (choice as GrantScope);
+    const sent = answerFor(pick);
+    const extra = decision === "approve" ? sent.extras : undefined;
+    const trustSite = extra !== undefined && "trustSite" in extra ? extra.trustSite : undefined;
+    const hostProgram = extra !== undefined && "hostProgram" in extra;
+    const inSpace = decision === "approve" && pick === "space" && inSpaceOffer !== null;
+    const scope: GrantScope | undefined = decision === "deny" ? undefined : sent.scope;
     inFlight.current = true;
     setBusy(true);
     setError(null);
@@ -663,6 +608,23 @@ export function ApprovalCard({
         ? t("blocks.approval.status.allowedOncePassword")
         : t("blocks.approval.status.allowedOnceTouchId")
       : statusText(approval, now);
+  const grantedScope =
+    approval.status === "approved" && approval.grantId != null && approval.scopeGranted
+      ? approval.scopeGranted
+      : null;
+  const undoable = grantedScope !== null && grantedScope !== "once" && !forcedOnce;
+  const undoGrant = async () => {
+    if (!undoable || approval.grantId == null || undo !== "idle") return;
+    setUndo("busy");
+    setUndoError(null);
+    try {
+      await call("grants.revoke", { grantId: approval.grantId });
+      setUndo("done");
+    } catch (err) {
+      setUndo("idle");
+      setUndoError(t("actionError.revokeGrant", { reason: describeError(err) }));
+    }
+  };
   const whatLabel = t("blocks.approval.whatItWillDo");
   const onlyOnce = offered.length === 1 && offered[0] === "once";
   const taintNote = pending ? taintSentence(approval, persona, onlyOnce) : null;
@@ -689,99 +651,26 @@ export function ApprovalCard({
   const permissionLabel = enables
     ? t("blocks.permission.enable")
     : t("blocks.permission.checkAgain");
-  const scopeText = (scope: GrantScope) =>
-    isFolder && (scope === "once" || scope === "always")
-      ? t(isSdShare ? "blocks.folder.sd.scope.once" : `blocks.folder.scope.${scope}`)
-      : scopeLabel(scope);
-  const offeredScopes: { value: AllowScope; label: string }[] = [
-    ...(offered.includes("once")
-      ? [{ value: "once" as const, label: isPermission ? permissionLabel : scopeText("once") }]
-      : []),
-    ...(offered.includes("task") ? [{ value: "task" as const, label: scopeLabel("task") }] : []),
-    ...(offered.includes("site") && site !== null
-      ? [{ value: "site" as const, label: `${scopeLabel("site")} ${site}` }]
-      : []),
-    ...(trustOffer !== null
-      ? [
-          {
-            value: "trust" as const,
-            label: t("blocks.approval.scope.trustSite", { site: trustOffer.display }),
-          },
-          ...(trustOffer.subdomains
-            ? [
-                {
-                  value: "trustSubdomains" as const,
-                  label: t("blocks.approval.scope.trustSiteSubdomains", {
-                    site: trustOffer.display,
-                  }),
-                },
-              ]
-            : []),
-        ]
-      : []),
-    ...(programOffer !== null && !unsandboxed
-      ? [
-          {
-            value: "program" as const,
-            label: t(
-              programOffer.exact
-                ? "blocks.approval.scope.hostProgramExact"
-                : "blocks.approval.scope.hostProgram",
-              { program: programOffer.program, folder: programOffer.folder },
-            ),
-          },
-        ]
-      : []),
-    ...(inSpaceOffer !== null
-      ? [
-          {
-            value: "space" as const,
-            // Names the card's Space: the answer applies to that Space only.
-            label:
-              inSpaceOffer.name === ""
-                ? t("blocks.folder.scope.space")
-                : t("blocks.folder.scope.spaceNamed", { space: inSpaceOffer.name }),
-          },
-        ]
-      : []),
-    // Typing UNSANDBOXED allows this run only, so no lasting scope is offered then.
-    ...(offered.includes("session") && !unsandboxed
-      ? [{ value: "session" as const, label: scopeLabel("session") }]
-      : []),
-    ...(offered.includes("always") && !unsandboxed
-      ? [
-          {
-            value: "always" as const,
-            // A batch card offers `always` only for the prep note (security §3.4): name what it covers.
-            label:
-              approval.kind === "batch"
-                ? t("blocks.approval.scope.prepNotes")
-                : scopeText("always"),
-          },
-        ]
-      : []),
-  ];
-  // An email send that offers Always keeps it for this recipient (the grant is keyed by the
-  // recipient list). Show it as a visible choice, not only as a menu entry. It sets the same
-  // `choice` as the menu, so the floor confirm and the answer are unchanged.
-  // The grant covers the whole recipient set (to, cc and bcc together). Name that set from the
-  // request's own target, the canonical list the grant is keyed by, so a bcc is never hidden.
-  const sendRecipients =
-    approval.kind === "send_email" && approval.target?.kind === "recipient"
-      ? splitRecipients(approval.target.value)
-      : [];
-  const sendAccount = parseSendGrantKey(approval.grantKey)?.account ?? null;
-  // Unticking falls back to the narrowest other offered scope; without one, there is no choice.
-  const narrowerScope = (["once", "task", "site", "session"] as const).find((s) =>
-    offered.includes(s),
-  );
-  const alwaysForRecipient =
-    sendRecipients.length > 0 &&
-    offered.includes("always") &&
-    narrowerScope !== undefined &&
-    !unsandboxed;
+  const choices = buildChoices(approval, offered, {
+    site,
+    unsandboxed,
+    folderWords: isFolder,
+    sdShare: isSdShare,
+    onceOnly: onceOnlyHere,
+    ...(isPermission ? { permissionLabel } : {}),
+  });
+  const {
+    allow: allowChoice,
+    second,
+    more,
+  } = splitChoices(choices, allowValue, isPaymentCard(approval) || onceOnlyHere);
+  const allowLabel = isPermission
+    ? permissionLabel
+    : allowChoice !== null && allowChoice.value !== "once"
+      ? allowChoice.label
+      : t("chat.approval.allow");
   const allowReady =
-    offeredScopes.length > 0 &&
+    allowChoice !== null &&
     (!isFolder || folder !== "") &&
     (compose === null || (recipientId !== "" && messageText.trim() !== "")) &&
     (!isExecHost || sandboxReady || unsandboxed);
@@ -937,11 +826,34 @@ export function ApprovalCard({
         {stale
           ? t("blocks.approval.stale")
           : expiredByClock
-            ? t("blocks.approval.status.expired")
+            ? t("approvals.expired")
             : pending && !canAnswer
               ? t("blocks.approval.answerElsewhere")
-              : (status ?? "")}
+              : undoable
+                ? undo === "done"
+                  ? t("approvals.undo.done")
+                  : t(`approvals.undo.${grantedScope ?? "always"}`)
+                : (status ?? "")}
+        {undoable && undo !== "done" ? (
+          <>
+            {" · "}
+            <button
+              type="button"
+              disabled={undo === "busy"}
+              onClick={() => void undoGrant()}
+              className="rounded-sm text-accent-11 underline outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
+              data-testid="approval-undo"
+            >
+              {t("approvals.undo.button")}
+            </button>
+          </>
+        ) : null}
       </p>
+      {undoError !== null ? (
+        <p role="alert" className="mt-1 text-callout text-danger-text">
+          {undoError}
+        </p>
+      ) : null}
 
       {interactive && isFolder ? (
         <div className="mt-2 flex flex-col gap-1.5" data-testid="folder-pick">
@@ -1081,8 +993,6 @@ export function ApprovalCard({
               onChange={(e) => {
                 const v = e.target.value.trim();
                 setTyped(v);
-                if (v === unsandboxedWord && (choice === "always" || choice === "program"))
-                  setChoice("once");
               }}
               aria-label={t("blocks.execHost.typeLabel", { word: unsandboxedWord })}
               placeholder={unsandboxedWord}
@@ -1177,7 +1087,7 @@ export function ApprovalCard({
               {t("blocks.approval.answerOnHost", { host: answerOnHost })}
             </span>
           ) : null}
-          {onceOnlyHere && choice !== "once" ? (
+          {onceOnlyHere && allowValue !== "once" ? (
             <span data-testid="touch-id-once-only">
               {passwordPresence === true
                 ? t("blocks.approval.password.onceOnly")
@@ -1249,27 +1159,10 @@ export function ApprovalCard({
         </div>
       ) : null}
 
-      {interactive && alwaysForRecipient ? (
-        <label className="mt-3 flex items-center gap-2 text-callout text-label-primary">
-          <input
-            type="checkbox"
-            checked={choice === "always"}
-            disabled={busy}
-            onChange={(e) => setChoice(e.target.checked ? "always" : (narrowerScope ?? "once"))}
-            data-testid="always-recipient"
-          />
-          {sendAccount !== null
-            ? t("blocks.approval.alwaysRecipientFrom", {
-                recipients: sendRecipients.join(", "),
-                account: sendAccount,
-              })
-            : t("blocks.approval.alwaysRecipient", { recipients: sendRecipients.join(", ") })}
-        </label>
-      ) : null}
-
       {interactive ? (
-        // Deny leading, Allow trailing; the buttons never move (docs/06 §3.3).
-        <div className="mt-4 flex items-center justify-end gap-2">
+        // Deny leading, Allow trailing; the buttons never move (docs/06 §3.3). A lasting choice
+        // sits between them, named by what it covers.
+        <div className="mt-4 flex flex-wrap items-center justify-end gap-2">
           <p id={hintId} className="sr-only">
             {t("chat.approval.keysHint", {
               allows: t("blocks.approval.keyAllows"),
@@ -1285,25 +1178,15 @@ export function ApprovalCard({
           >
             {t("blocks.approval.deny")}
           </Button>
-          {offeredScopes.length > 1 ? (
-            <>
-              <label className="sr-only" htmlFor={`${headingId}-scope`}>
-                {t("blocks.approval.allowScope")}
-              </label>
-              <NativeSelect
-                id={`${headingId}-scope`}
-                size="sm"
-                value={choice}
-                disabled={busy}
-                onChange={(e) => setChoice(e.target.value as AllowScope)}
-              >
-                {offeredScopes.map((scope) => (
-                  <option key={scope.value} value={scope.value}>
-                    {scope.label}
-                  </option>
-                ))}
-              </NativeSelect>
-            </>
+          {second !== null ? (
+            <Button
+              variant="outline"
+              disabled={!canAllow}
+              onClick={() => void submit("approve", false, second.value)}
+              data-testid="approval-second-choice"
+            >
+              {second.label}
+            </Button>
           ) : null}
           <Button
             // Solid accent once armed; before that a fill with a 400 ms progress underline, so
@@ -1316,11 +1199,11 @@ export function ApprovalCard({
               if (e.detail === 0) return;
               void submit("approve");
             }}
-            aria-label={t("blocks.approval.allowWithScope")}
+            aria-label={allowLabel}
             aria-keyshortcuts="Meta+Enter Control+Enter"
             aria-describedby={hintId}
           >
-            {isPermission ? permissionLabel : t("chat.approval.allow")}
+            {allowLabel}
             <kbd className="font-sans text-callout opacity-85">{approveKeys()}</kbd>
             {!armed ? (
               <m.span
@@ -1335,8 +1218,43 @@ export function ApprovalCard({
           </Button>
         </div>
       ) : null}
+      {/* Below the buttons, so opening it never moves them (§3.3): the rest of what is offered. */}
+      {interactive && more.length > 0 ? (
+        <div className="mt-2 flex flex-col items-end gap-1">
+          <Button
+            variant="ghost"
+            size="xs"
+            className="text-label-secondary"
+            aria-expanded={moreOpen}
+            aria-controls={`${headingId}-more`}
+            onClick={() => setMoreOpen((v) => !v)}
+          >
+            {t("approvals.more")}
+          </Button>
+          {moreOpen ? (
+            <ul id={`${headingId}-more`} className="flex flex-col items-end gap-1">
+              {more.map((c) => (
+                <li key={c.value}>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    disabled={!canAllow}
+                    onClick={() => void submit("approve", false, c.value)}
+                    data-testid={`approval-more-${c.value}`}
+                  >
+                    {c.label}
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </div>
+      ) : null}
       {/* Below the buttons, so choosing it never moves them (§3.3): who else gets the folder. */}
-      {interactive && choice === "space" && inSpaceOffer !== null && inSpaceOffer.name !== "" ? (
+      {interactive &&
+      inSpaceOffer !== null &&
+      inSpaceOffer.name !== "" &&
+      (second?.value === "space" || (moreOpen && more.some((c) => c.value === "space"))) ? (
         <p className="mt-2 text-callout text-label-secondary" data-testid="space-automations">
           {t(
             inSpaceOffer.automationsWrite

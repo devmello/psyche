@@ -212,6 +212,8 @@ export interface AgentSheetBodyProps {
    * this off: it sits beside the chat, so Escape in the composer must not close it (#625).
    */
   escapeAnywhere?: boolean;
+  /** The chat open beside the sheet: its approval cards are answered there, not twice here. */
+  currentThreadId?: string | null;
 }
 
 /** The two segments behind the avatar (agent-overview-2026 §4.1), also used by `/agent/*` routes. */
@@ -225,6 +227,7 @@ export function AgentSheetBody({
   file,
   onClose,
   escapeAnywhere = true,
+  currentThreadId = null,
 }: AgentSheetBodyProps): ReactElement {
   // Escape closes the page unless something on top (a dialog, a menu) already handled it.
   useEffect(() => {
@@ -305,6 +308,7 @@ export function AgentSheetBody({
             <ApprovalsPanel
               {...(now === undefined ? {} : { now })}
               {...(view === "decided" ? { decided: true } : {})}
+              currentThreadId={currentThreadId}
             />
           </TabsContent>
           <TabsContent value="soul">

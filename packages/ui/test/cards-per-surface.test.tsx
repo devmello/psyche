@@ -50,7 +50,10 @@ describe("ApprovalCard renders through renderForSurface (design-12)", () => {
     // The fixed template header comes first, from the same function every surface uses.
     const header = renderForSurface("desktop", a).text.split("\n")[0];
     expect(header).toBe("Send email · write · after reading untrusted content");
-    expect(container.querySelector("[data-card-header]")?.textContent).toBe(header);
+    // The desktop says the side effect in plain words; the channels keep the template line.
+    expect(container.querySelector("[data-card-header]")?.textContent).toBe(
+      "Send email · Sends to someone · After reading untrusted content",
+    );
     expect(screen.getByRole("heading", { level: 3 }).textContent).toBe(
       'Send reply "Re: x"⏎⏎✅ Low risk: saving a draft only (write)⏎',
     );
@@ -80,7 +83,7 @@ describe("ApprovalCard renders through renderForSurface (design-12)", () => {
     expect(text).toContain("GITHUB_TOKEN");
     expect(text).not.toMatch(/ghp_[A-Za-z0-9]+/);
     expect(container.querySelector("[data-card-header]")?.textContent).toBe(
-      "Run command in sandbox · write",
+      "Run command in sandbox · Changes files",
     );
   });
 
@@ -100,7 +103,7 @@ describe("ApprovalCard renders through renderForSurface (design-12)", () => {
     expect(text).not.toContain("kаyak");
     expect(text).toContain("does not match");
     expect(container.querySelector("[data-card-header]")?.textContent).toBe(
-      "Fill credential · write",
+      "Fill credential · Changes something",
     );
   });
 
@@ -115,11 +118,11 @@ describe("ApprovalCard renders through renderForSurface (design-12)", () => {
       details: { merchant: "shop.example", amount: "12.00 USD" },
     });
     const { unmount } = card(pay, true);
-    expect(screen.getByRole("button", { name: "Allow with scope" })).toBeDefined();
+    expect(screen.getByRole("button", { name: "Allow" })).toBeDefined();
     expect(screen.getByText(/Needs Touch ID/)).toBeDefined();
     unmount();
     card(pay, false);
-    expect(screen.queryByRole("button", { name: "Allow with scope" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Allow" })).toBeNull();
     expect(screen.getByText("Answer this on the device it was sent to.")).toBeDefined();
     const chat = renderForSurface("telegram:1", pay);
     expect(chat.text).toBe(`Pay · financial\n${DEVICE_ONLY_TEXT}`);

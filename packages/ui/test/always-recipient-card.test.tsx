@@ -1,5 +1,5 @@
 import type { ApprovalRequest } from "@psyche/protocol";
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { ApprovalCard } from "../src/blocks/ApprovalCard.tsx";
@@ -59,17 +59,19 @@ function show(a: ApprovalRequest) {
   return onAnswer;
 }
 
-const recipientChoice = () => screen.queryByRole("checkbox", { name: /Always allow sending to/ });
-const scopeSelect = () => screen.getByRole("combobox", { name: "Allow for" }) as HTMLSelectElement;
-const allow = () => screen.getByRole("button", { name: "Allow with scope" });
+const recipientChoice = (name: string | RegExp = /^Always allow sending to/) =>
+  screen.queryByRole("button", { name });
+const allow = () => screen.getByRole("button", { name: /^(Allow|For this task)$/ });
 
 describe("Always allow for this recipient on an email send card", () => {
-  it("names the one recipient and the account, unticked by default", () => {
+  it("names the one recipient and the account on the one second choice", () => {
     show(sendApproval(["jane@example.com"], { to: ["jane@example.com"] }));
-    const box = screen.getByRole("checkbox", {
-      name: `Always allow sending to jane@example.com from ${ACCOUNT}`,
-    });
-    expect((box as HTMLInputElement).checked).toBe(false);
+    expect(
+      screen.getByRole("button", {
+        name: `Always allow sending to jane@example.com from ${ACCOUNT}`,
+      }),
+    ).toBeTruthy();
+    expect(screen.queryByRole("checkbox")).toBeNull();
   });
 
   it("names a bcc recipient too: to jane plus bcc evil lists both", () => {
@@ -80,7 +82,7 @@ describe("Always allow for this recipient on an email send card", () => {
       }),
     );
     expect(
-      screen.getByRole("checkbox", {
+      screen.getByRole("button", {
         name: `Always allow sending to evil@example.net, jane@example.com from ${ACCOUNT}`,
       }),
     ).toBeTruthy();
@@ -94,35 +96,37 @@ describe("Always allow for this recipient on an email send card", () => {
       }),
     );
     expect(
-      screen.getByRole("checkbox", {
+      screen.getByRole("button", {
         name: `Always allow sending to a@example.com, b@example.com, c@example.com from ${ACCOUNT}`,
       }),
     ).toBeTruthy();
   });
 
-  it("ticking selects Always, and the floor confirm still comes before the answer", async () => {
+  it("choosing it sends always, and the floor confirm still comes before the answer", async () => {
     const onAnswer = show(sendApproval(["jane@example.com"], { to: ["jane@example.com"] }));
     await userEvent.click(recipientChoice() as HTMLElement);
-    expect(scopeSelect().value).toBe("always");
-    await userEvent.click(allow());
     const dialog = await screen.findByRole("alertdialog");
     expect(onAnswer).not.toHaveBeenCalled();
     await userEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
     expect(onAnswer).not.toHaveBeenCalled();
+    await userEvent.click(recipientChoice() as HTMLElement);
+    await userEvent.click(
+      within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Always allow" }),
+    );
+    await waitFor(() => expect(onAnswer).toHaveBeenCalledWith("approve", "always", undefined));
   });
 
-  it("unticking returns to the narrowest other offered scope", async () => {
-    show(
+  it("plain Allow sends the narrowest scope offered, never always", async () => {
+    const onAnswer = show(
       sendApproval(
         ["jane@example.com"],
         { to: ["jane@example.com"] },
         { scopesOffered: ["task", "always"] },
       ),
     );
-    await userEvent.click(recipientChoice() as HTMLElement);
-    expect(scopeSelect().value).toBe("always");
-    await userEvent.click(recipientChoice() as HTMLElement);
-    expect(scopeSelect().value).toBe("task");
+    await userEvent.click(allow());
+    await waitFor(() => expect(onAnswer).toHaveBeenCalledWith("approve", "task", undefined));
+    expect(screen.queryByRole("alertdialog")).toBeNull();
   });
 
   it("does not show the choice when Always is not offered", () => {
@@ -135,10 +139,10 @@ describe("Always allow for this recipient on an email send card", () => {
   it("does not show the choice on a tainted send, which offers Allow once only", () => {
     show(sendApproval(["jane@example.com"], { to: ["jane@example.com"] }, { taint: true }));
     expect(recipientChoice()).toBeNull();
-    expect(screen.queryByRole("option", { name: "Always allow" })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Always allow/ })).toBeNull();
   });
 
-  it("does not show the choice when the card names no recipient set", () => {
+  it("without a recipient set it does not claim one (control: with it, the names show)", () => {
     show(sendApproval(["jane@example.com"], { to: ["jane@example.com"] }, { target: undefined }));
     expect(recipientChoice()).toBeNull();
   });

@@ -726,10 +726,7 @@ async function refreshApprovals(): Promise<void> {
     | undefined;
   if (!res?.approvals) return;
   pending = res.approvals.filter((a) => a.status === "pending");
-  tray?.update({
-    pendingApprovals: pending.length,
-    ...(pending[0] ? { firstApproval: pending[0].summary } : { firstApproval: undefined }),
-  });
+  tray?.update({ pendingApprovals: pending.length });
 }
 
 /** This computer's paired helper (Mac or Windows), when online (for its notify.* capabilities). */
@@ -1980,10 +1977,7 @@ function onGatewayEvent(e: {
     const a = p.approval as ApprovalRequest;
     pending = pending.filter((x) => x.id !== a.id);
     if (a.status === "pending") pending.push(a);
-    tray?.update({
-      pendingApprovals: pending.length,
-      ...(pending[0] ? { firstApproval: pending[0].summary } : {}),
-    });
+    tray?.update({ pendingApprovals: pending.length });
   }
   if (e.event === "node.updated") void refreshHelperPresence();
 }

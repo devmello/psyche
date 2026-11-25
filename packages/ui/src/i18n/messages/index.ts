@@ -1,4 +1,5 @@
 import { actionErrors } from "./action-errors.ts";
+import { approvals } from "./approvals.ts";
 import { agent } from "./agent.ts";
 import { agentNotes } from "./agent-notes.ts";
 import { audit } from "./audit.ts";
@@ -140,6 +141,7 @@ export const en = {
   ...linuxAccess,
   ...computerWatch,
   ...points,
+  ...approvals,
   ...notices,
   ...separateDesktop,
   ...keepAwake,
