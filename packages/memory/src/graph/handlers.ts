@@ -1,4 +1,9 @@
-import { type MethodParams, type MethodResult, PsycheError } from "@psyche/protocol";
+import {
+  type GraphLoop,
+  type MethodParams,
+  type MethodResult,
+  PsycheError,
+} from "@psyche/protocol";
 import type { SqliteMemoryStore } from "../store.ts";
 import type { CardSync } from "./cards.ts";
 import {
@@ -10,11 +15,13 @@ import {
 import type { GraphStore } from "./store.ts";
 
 export {
+  backfillLoopRemoteVisible,
   createLoopVisibility,
   type LoopViewer,
   type LoopVisibility,
   loopForViewer,
   loopsForViewer,
+  markLoopRemoteVisible,
   REMOTE_LOOP_VIEWER,
   scrubLoopForRemote,
 } from "./loop-visibility.ts";
@@ -109,6 +116,10 @@ export interface GraphHandlerOptions {
 function notFound(): never {
   throw new PsycheError("not_found", "no such entity");
 }
+
+/** How many rows a remote viewer's list reads at a time, and how many reads at most. */
+const SCAN_PAGE = 200;
+const MAX_SCAN_PAGES = 50;
 
 function cursorOf(items: { id: string }[], limit: number): string | null {
   return items.length >= limit ? (items.at(-1)?.id ?? null) : null;
@@ -331,19 +342,44 @@ export function createGraphHandlers(
 
     async "memory.loops.list"(p, viewer) {
       const limit = p.limit ?? 100;
-      const loops = graph.loops({
+      const filter = {
         ...(p.status === undefined ? {} : { status: p.status }),
         ...(p.direction === undefined ? {} : { direction: p.direction }),
         ...(p.entityId === undefined ? {} : { entityId: p.entityId }),
         ...(p.projectId === undefined ? {} : { projectId: p.projectId }),
         ...(p.dueBefore === undefined ? {} : { dueBefore: p.dueBefore }),
-        ...(p.cursor === undefined ? {} : { after: p.cursor }),
-        limit,
-      });
-      // The cursor follows the unfiltered page, so a hidden loop never shortens the walk.
-      const nextCursor = cursorOf(loops, limit);
-      if (viewer === undefined || viewer.full) return { loops, nextCursor };
-      return { loops: loopsForViewer(loops, viewer, options.loopVisibility), nextCursor };
+      };
+      if (viewer === undefined || viewer.full) {
+        const loops = graph.loops({
+          ...filter,
+          ...(p.cursor === undefined ? {} : { after: p.cursor }),
+          limit,
+        });
+        return { loops, nextCursor: cursorOf(loops, limit) };
+      }
+      // A remote viewer pages over the visible rows only: the cursor is the id of the last loop
+      // it was given, never of one it may not know exists. Hidden rows are skipped, not counted.
+      const shown: GraphLoop[] = [];
+      let after = p.cursor;
+      let more = true;
+      for (let i = 0; i < MAX_SCAN_PAGES && shown.length < limit && more; i += 1) {
+        const page = graph.loops({
+          ...filter,
+          ...(after === undefined ? {} : { after }),
+          limit: SCAN_PAGE,
+        });
+        more = page.length >= SCAN_PAGE;
+        for (const l of loopsForViewer(page, viewer, options.loopVisibility)) {
+          if (shown.length < limit) shown.push(l);
+        }
+        const last = page.at(-1);
+        if (last === undefined) break;
+        after = last.id;
+      }
+      return {
+        loops: shown,
+        nextCursor: shown.length >= limit ? (shown.at(-1)?.id ?? null) : null,
+      };
     },
 
     async "memory.loops.update"(p, viewer) {

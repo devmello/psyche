@@ -29,6 +29,52 @@ export interface LoopVisibility {
 
 const CHUNK = 400;
 
+/**
+ * The part of the rule that does not depend on the column: no Messages marker on the loop, its
+ * citations or its source interaction. `l` is the `graph_loops` alias. The reader, the writer
+ * (`markLoopRemoteVisible`) and the backfill all use this one fragment.
+ */
+const NO_MESSAGES_MARKER = `COALESCE(l.source_kind, '') <> 'messages'
+  AND NOT EXISTS (
+    SELECT 1 FROM graph_citations c
+    WHERE c.target_kind = 'loop' AND c.target_id = l.id AND c.source = 'messages')
+  AND NOT EXISTS (
+    SELECT 1 FROM graph_interactions x
+    WHERE x.id = l.source_interaction_id AND x.kind = 'message')`;
+
+/**
+ * Sets `remote_visible = 1` on a loop that has no Messages marker (the writer of a new loop calls
+ * this; a Messages source or citation leaves it 0). Never throws.
+ */
+export function markLoopRemoteVisible(sqlite: Database.Database, id: string): void {
+  try {
+    sqlite
+      .prepare(
+        `UPDATE graph_loops AS l SET remote_visible = 1 WHERE l.id = ? AND ${NO_MESSAGES_MARKER}`,
+      )
+      .run(id);
+  } catch {
+    // The column stays 0: hidden from remote viewers, never shown by mistake.
+  }
+}
+
+/**
+ * Once, for loops written before the column was set: the same rule over every loop. Returns how
+ * many rows changed. It runs in code, not in a migration, so the encrypted store gets it too.
+ */
+export function backfillLoopRemoteVisible(sqlite: Database.Database): number {
+  try {
+    return sqlite
+      .prepare(
+        `UPDATE graph_loops AS l SET remote_visible = 1
+          WHERE l.remote_visible = 0 AND ${NO_MESSAGES_MARKER}`,
+      )
+      .run().changes;
+  } catch {
+    return 0;
+  }
+}
+
 export function createLoopVisibility(sqlite: Database.Database): LoopVisibility {
   return {
     remoteVisible(ids) {
@@ -42,13 +88,7 @@ export function createLoopVisibility(sqlite: Database.Database): LoopVisibility 
               `SELECT l.id AS id FROM graph_loops l
                WHERE l.id IN (${part.map(() => "?").join(", ")})
                  AND l.remote_visible = 1
-                 AND COALESCE(l.source_kind, '') <> 'messages'
-                 AND NOT EXISTS (
-                   SELECT 1 FROM graph_citations c
-                   WHERE c.target_kind = 'loop' AND c.target_id = l.id AND c.source = 'messages')
-                 AND NOT EXISTS (
-                   SELECT 1 FROM graph_interactions x
-                   WHERE x.id = l.source_interaction_id AND x.kind = 'message')`,
+                 AND ${NO_MESSAGES_MARKER}`,
             )
             .all(...part) as { id: string }[];
           for (const r of rows) out.add(r.id);
@@ -62,15 +102,15 @@ export function createLoopVisibility(sqlite: Database.Database): LoopVisibility 
 }
 
 /**
- * The loop as a remote viewer sees it: no quoted sentence, no person or project link, no source
- * interaction (each is a way into Memory, or the source's own words).
+ * The loop as a remote viewer sees it: no quoted sentence, no person link, no source interaction
+ * (each is a way into Memory, or the source's own words). The project stays: iOS filters project
+ * to-dos on it, and projects are already readable through `memory.entities.get`.
  */
 export function scrubLoopForRemote(loop: GraphLoop): GraphLoop {
   return {
     ...loop,
     evidence: null,
     counterpartId: null,
-    projectId: null,
     sourceInteractionId: null,
   };
 }

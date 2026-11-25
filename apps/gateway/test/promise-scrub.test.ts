@@ -4,6 +4,7 @@ import type { DeviceToast } from "@psyche/notifications";
 import {
   type GraphLoop,
   type MethodParams,
+  type Notification,
   type PromiseSummary,
   type PromiseView,
   PsycheError,
@@ -20,10 +21,13 @@ import {
   isPromiseSourceKey,
   type PromiseService,
   personalizeLoopEvent,
+  personalizeNotificationEvent,
   personalizePromiseEvent,
   promiseHandlers,
   scrubDeviceToast,
+  scrubNotification,
   viewerOfCall,
+  withNotificationScrub,
 } from "../src/promise-scrub.ts";
 
 /**
@@ -742,6 +746,12 @@ describe("promises.sources.* settings are desktop shell only", () => {
     "promises.sources.meetings",
     "promises.sources.chat",
     "promises.sources",
+    "promises.state",
+    "promises.state.muted",
+    "promises.state.muted.ent_1",
+    "promises.state.mutedThreads",
+    "promises.enabled",
+    "promises.consentedAt",
   ])("%s", async (key) => {
     expect(isPromiseSourceKey(key)).toBe(true);
     for (const vn of viewerNames) {
@@ -758,13 +768,16 @@ describe("promises.sources.* settings are desktop shell only", () => {
     }
   });
 
-  it.each(["promises.enabled", "promises.notify", "promises.sourcesX", "promises.source"])(
-    "%s is not a source key, and a remote admin device may set it",
-    async (key) => {
-      expect(isPromiseSourceKey(key)).toBe(false);
-      await expect(set(VIEWERS.iOS as ViewerDef, key)).resolves.toBeDefined();
-    },
-  );
+  it.each([
+    "promises.notify",
+    "promises.graceDays",
+    "promises.sourcesX",
+    "promises.statex",
+    "promises.source",
+  ])("%s is not a source key, and a remote admin device may set it", async (key) => {
+    expect(isPromiseSourceKey(key)).toBe(false);
+    await expect(set(VIEWERS.iOS as ViewerDef, key)).resolves.toBeDefined();
+  });
 
   it("params that name the shell change nothing", async () => {
     const v = VIEWERS["spoofed desktopShell param"] as ViewerDef;
@@ -786,5 +799,95 @@ describe("the typed params of promises.mute and delete come through unchanged", 
       muted: true,
     });
     expect(seen).toEqual([{ threadRef: "mail|t1", muted: true }]);
+  });
+});
+
+describe("notifications.* and notification.* events", () => {
+  const note = (route: string | null, kind: Notification["kind"] = "promise_due"): Notification =>
+    ({
+      id: `n_${route}`,
+      kind,
+      title: `Reply to ${NAME}`,
+      body: QUOTE,
+      message: { titleKey: "x", bodyKey: "y", params: { name: NAME } },
+      taskId: null,
+      approvalId: null,
+      route,
+      actions: [],
+      surfaces: ["desktop"],
+      delivered: {},
+      readAt: null,
+      resolvedAt: null,
+      createdAt: NOW,
+    }) as Notification;
+  const readerFor = (v: ViewerDef) =>
+    readerOf({ role: "client", ...(v.full ? { desktopShell: true as const } : {}) });
+
+  it.each(cross)("created/updated/resolved for %s, %s source", (vn, mn) => {
+    const v = VIEWERS[vn] as ViewerDef;
+    const mix = MIXES[mn] as Mix;
+    const payload = { notification: note(`/promises/${ids[mn]}`) };
+    const out = personalizeNotificationEvent(payload, readerFor(v), vis());
+    if (v.full) {
+      expect(out).toBe(payload);
+    } else if (!mix.remote) {
+      expect(out).toBe(SKIP_EVENT);
+    } else {
+      const s = JSON.stringify(out);
+      expect(s).not.toContain(NAME);
+      expect(s).not.toContain(QUOTE);
+      expect(s).toContain("notice.promise.due.title");
+    }
+  });
+
+  it("another kind is left to the shared frame (positive control)", () => {
+    expect(
+      personalizeNotificationEvent(
+        { notification: note("/chat/t1", "task_done") },
+        readerFor(VIEWERS.iOS as ViewerDef),
+        vis(),
+      ),
+    ).toBeUndefined();
+  });
+
+  it("a promise_due notice with no readable route, or no visibility reader, is hidden", () => {
+    for (const route of [null, "/chat/t1", "/promises/"])
+      expect(scrubNotification(note(route), vis())).toBeNull();
+    expect(scrubNotification(note(`/promises/${ids.mail}`), undefined)).toBeNull();
+  });
+
+  it.each(viewerNames)("notifications.list for %s", async (vn) => {
+    const v = VIEWERS[vn] as ViewerDef;
+    const all = [
+      ...mixNames.map((m) => note(`/promises/${ids[m]}`)),
+      { ...note("/chat/t1", "task_done"), title: "Done", body: "", message: undefined },
+    ];
+    const inner: Record<string, HandlerDef> = {
+      "notifications.list": { run: () => ({ notifications: all, nextCursor: null }) },
+      "notifications.resolve": {
+        run: () => ({ notification: note(`/promises/${ids.messages}`) }),
+      },
+    };
+    const handlers = withNotificationScrub(inner, vis);
+    const list = await run<{ notifications: Notification[] }>(handlers, v, "notifications.list");
+    if (!list.ok) throw new Error(list.code);
+    const routes = list.value.notifications.map((n) => n.route);
+    const s = JSON.stringify(list.value);
+    if (v.full) {
+      expect(list.value.notifications).toHaveLength(all.length);
+      expect(s).toContain(QUOTE);
+    } else {
+      // The visible promises and the task notice; the Messages ones are gone.
+      expect(list.value.notifications).toHaveLength(
+        mixNames.filter((m) => (MIXES[m] as Mix).remote).length + 1,
+      );
+      expect(routes).not.toContain(`/promises/${ids.messages}`);
+      expect(routes).toContain("/chat/t1");
+      expect(s).not.toContain(NAME);
+      expect(s).not.toContain(QUOTE);
+    }
+    const res = await run<{ notification: Notification }>(handlers, v, "notifications.resolve", {});
+    if (!res.ok) throw new Error(res.code);
+    expect(JSON.stringify(res.value).includes(QUOTE)).toBe(v.full);
   });
 });

@@ -5,6 +5,7 @@ import {
   type GraphLoop,
   type MethodParams,
   type MethodResult,
+  type Notification,
   type PromiseSummary,
   type PromiseView,
   PsycheError,
@@ -62,9 +63,18 @@ export function requireDesktopShell(call: Call, what: string): void {
   if (!viewerOfCall(call).full) throw ownerOnly(what);
 }
 
-/** The setting keys only the desktop shell may write (`promises.sources.mail` …). */
+/**
+ * The setting keys only the desktop shell may write: the sources the ledger reads
+ * (`promises.sources.mail` …), the mute state (`promises.state.*`, design §7.1), and whether the
+ * ledger is on at all with the consent it records.
+ */
 export const isPromiseSourceKey = (key: string): boolean =>
-  key === "promises.sources" || key.startsWith("promises.sources.");
+  key === "promises.enabled" ||
+  key === "promises.consentedAt" ||
+  key === "promises.sources" ||
+  key.startsWith("promises.sources.") ||
+  key === "promises.state" ||
+  key.startsWith("promises.state.");
 
 /** A mail deep link a remote viewer may be given: an external scheme, never an in-app route. */
 const SAFE_LINK = /^(?:message:|mailto:|https?:)/i;
@@ -241,6 +251,22 @@ export function personalizeLoopEvent(
 /** `/promises/<id>`: the route a `promise_due` notification carries (the id is all we read). */
 const PROMISE_ROUTE = /^\/promises\/([A-Za-z0-9_-]{1,64})(?:[/?#].*)?$/;
 
+/** The promise a `promise_due` notice is about, when its route says and a remote caller may know it. */
+function visiblePromiseOf(
+  route: string | null | undefined,
+  vis: LoopVisibility | undefined,
+): string | undefined {
+  const id = route == null ? undefined : PROMISE_ROUTE.exec(route)?.[1];
+  return id === undefined || vis === undefined || !vis.remoteVisible([id]).has(id) ? undefined : id;
+}
+
+const GENERIC_TITLE = "A promise is due soon";
+const GENERIC_BODY = "Open Psyche to see which one.";
+const GENERIC_MESSAGE = {
+  titleKey: "notice.promise.due.title",
+  bodyKey: "notice.promise.due.body",
+} as const;
+
 /**
  * A `notification.device` toast as a remote device may receive it, or `null` for none. Only
  * `promise_due` is rewritten. It names a promise by its route; a toast with no readable route, or
@@ -252,16 +278,95 @@ export function scrubDeviceToast(
   vis: LoopVisibility | undefined,
 ): DeviceToast | null {
   if (toast.kind !== "promise_due") return toast;
-  const id = toast.route === null ? undefined : PROMISE_ROUTE.exec(toast.route)?.[1];
-  if (id === undefined || vis === undefined || !vis.remoteVisible([id]).has(id)) return null;
+  const id = visiblePromiseOf(toast.route, vis);
+  if (id === undefined) return null;
   return {
     id: toast.id,
     kind: toast.kind,
-    title: "A promise is due soon",
-    body: "Open Psyche to see which one.",
-    message: { titleKey: "notice.promise.due.title", bodyKey: "notice.promise.due.body" },
+    title: GENERIC_TITLE,
+    body: GENERIC_BODY,
+    message: { ...GENERIC_MESSAGE },
     route: `/promises/${id}`,
     interruption: toast.interruption,
     createdAt: toast.createdAt,
   };
+}
+
+/** A notification for a remote reader: a `promise_due` one is generic or `null`; others pass. */
+export function scrubNotification(
+  n: Notification,
+  vis: LoopVisibility | undefined,
+): Notification | null {
+  if (n.kind !== "promise_due") return n;
+  const id = visiblePromiseOf(n.route, vis);
+  if (id === undefined) return null;
+  return {
+    ...n,
+    title: GENERIC_TITLE,
+    body: GENERIC_BODY,
+    message: { ...GENERIC_MESSAGE },
+    route: `/promises/${id}`,
+  };
+}
+
+/** `notification.created|updated|resolved` for one subscriber: only `promise_due` is personalised. */
+export function personalizeNotificationEvent(
+  payload: { notification: Notification },
+  reader: Reader,
+  vis: LoopVisibility | undefined,
+): { notification: Notification } | typeof SKIP_EVENT | undefined {
+  if (payload.notification.kind !== "promise_due") return undefined;
+  if (viewerOfReader(reader).full) return payload;
+  const n = scrubNotification(payload.notification, vis);
+  return n === null ? SKIP_EVENT : { ...payload, notification: n };
+}
+
+/**
+ * `notifications.list` and `notifications.resolve` for the caller: the desktop shell is untouched;
+ * a remote caller gets `promise_due` notices as the generic text, or not at all when hidden.
+ */
+export function withNotificationScrub(
+  mounted: Record<string, HandlerDef>,
+  vis: () => LoopVisibility | undefined,
+): Record<string, HandlerDef> {
+  const out = { ...mounted };
+  const list = mounted["notifications.list"];
+  const resolve = mounted["notifications.resolve"];
+  if (list !== undefined)
+    out["notifications.list"] = {
+      ...list,
+      run: async (call: Call, params: never) => {
+        const r = (await list.run(call, params)) as { notifications: Notification[] };
+        if (viewerOfCall(call).full) return r;
+        const v = vis();
+        return {
+          ...r,
+          notifications: r.notifications.flatMap((n) => {
+            const s = scrubNotification(n, v);
+            return s === null ? [] : [s];
+          }),
+        };
+      },
+    };
+  if (resolve !== undefined)
+    out["notifications.resolve"] = {
+      ...resolve,
+      run: async (call: Call, params: never) => {
+        const r = (await resolve.run(call, params)) as { notification: Notification };
+        if (viewerOfCall(call).full) return r;
+        const s = scrubNotification(r.notification, vis());
+        // The change was made; a hidden notice is answered as the generic one it would be.
+        return {
+          ...r,
+          notification: s ?? {
+            ...r.notification,
+            title: GENERIC_TITLE,
+            body: GENERIC_BODY,
+            message: { ...GENERIC_MESSAGE },
+            route: null,
+          },
+        };
+      },
+    };
+  return out;
 }

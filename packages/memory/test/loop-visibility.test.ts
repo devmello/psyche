@@ -3,7 +3,11 @@ import { PsycheError } from "@psyche/protocol";
 import { FakeClock } from "@psyche/testing";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createGraphHandlers } from "../src/graph/handlers.ts";
-import { createLoopVisibility, scrubLoopForRemote } from "../src/graph/loop-visibility.ts";
+import {
+  backfillLoopRemoteVisible,
+  createLoopVisibility,
+  scrubLoopForRemote,
+} from "../src/graph/loop-visibility.ts";
 import { GraphStore } from "../src/graph/store.ts";
 
 /**
@@ -103,7 +107,7 @@ describe("which loops a remote viewer may see", () => {
     expect(vis.remoteVisible(all).size).toBe(0);
   });
 
-  it("scrubbing removes the quote, the person, the project and the source", () => {
+  it("scrubbing removes the quote, the person and the source, and keeps the project", () => {
     const l = g.getLoop(ids.mail as string);
     if (l === undefined) throw new Error("no loop");
     expect(l.evidence).toBe("I will send the deck on Friday");
@@ -112,7 +116,7 @@ describe("which loops a remote viewer may see", () => {
     expect(s).toMatchObject({
       evidence: null,
       counterpartId: null,
-      projectId: null,
+      projectId: "proj_1",
       sourceInteractionId: null,
       text: l.text,
     });
@@ -191,5 +195,162 @@ describe("memory.loops.* and memory.entities.get by viewer", () => {
       VISIBLE.map((n) => ids[n] as string).sort(),
     );
     expect(remote.openLoops.every((l) => l.evidence === null)).toBe(true);
+  });
+});
+
+const rv = (id: string): number =>
+  (
+    db.sqlite.prepare("SELECT remote_visible AS v FROM graph_loops WHERE id = ?").get(id) as {
+      v: number;
+    }
+  ).v;
+
+describe("the owner's own devices keep their loops (iOS-shaped)", () => {
+  const handlers = () =>
+    createGraphHandlers(g, { loopVisibility: createLoopVisibility(db.sqlite) });
+  const remote = { full: false };
+  let project = "";
+
+  /** An owner loop and a legacy mail loop, written the way the store writes them. */
+  function seedIos(): { owner: string; legacy: string; message: string } {
+    project = g.createEntity({
+      kind: "project",
+      name: "Kitchen",
+      linkedBy: "rule",
+      source: "notes",
+    }).id;
+    const owner = g.addLoop({
+      direction: "i_owe",
+      text: "Book the plumber",
+      projectId: project,
+      status: "open",
+      provenance: "owner",
+      detectedBy: "owner",
+    });
+    const legacy = g.addLoop({
+      direction: "waiting_on",
+      text: "Quote from the electrician",
+      evidence: "I will send the quote",
+      counterpartId: sam,
+      projectId: project,
+      status: "open",
+      provenance: "untrusted",
+      detectedBy: "rule",
+    });
+    // A loop whose source interaction is a Messages thread.
+    db.sqlite
+      .prepare(
+        `INSERT INTO graph_interactions (id, kind, source, external_ref, occurred_at, direction, created_at)
+         VALUES ('int_m', 'message', 'apple:messages', 'mref', ?, 'in', ?)`,
+      )
+      .run(NOW, NOW);
+    const message = g.addLoop({
+      direction: "i_owe",
+      text: "Text Sam back",
+      status: "open",
+      sourceInteractionId: "int_m",
+      provenance: "owner",
+      detectedBy: "owner",
+    });
+    if (owner === undefined || legacy === undefined || message === undefined)
+      throw new Error("no loop");
+    return { owner: owner.id, legacy: legacy.id, message: message.id };
+  }
+
+  it("addLoop sets remote_visible from the rule: 1 without a Messages marker, 0 with one", () => {
+    const { owner, legacy, message } = seedIos();
+    expect(rv(owner)).toBe(1);
+    expect(rv(legacy)).toBe(1);
+    expect(rv(message)).toBe(0);
+  });
+
+  it("a remote list, a tick-done and a project filter work on an owner loop and a legacy mail loop", async () => {
+    const { owner, legacy, message } = seedIos();
+    const list = await handlers()["memory.loops.list"]({ projectId: project, limit: 50 }, remote);
+    expect(list.loops.map((l) => l.id).sort()).toEqual([owner, legacy].sort());
+    // The project stays on the loop; the person and the quote do not.
+    expect(list.loops.every((l) => l.projectId === project)).toBe(true);
+    expect(list.loops.find((l) => l.id === legacy)).toMatchObject({
+      counterpartId: null,
+      evidence: null,
+    });
+    for (const id of [owner, legacy]) {
+      const done = await handlers()["memory.loops.update"]({ id, status: "done" }, remote);
+      expect(done.loop.status).toBe("done");
+    }
+    expect(
+      await codeOf(() =>
+        handlers()["memory.loops.update"]({ id: message, status: "done" }, remote),
+      ),
+    ).toBe("not_found");
+  });
+
+  it("the backfill gives old loops the same answer, once, and leaves Messages loops hidden", () => {
+    const { owner, legacy, message } = seedIos();
+    db.sqlite.prepare("UPDATE graph_loops SET remote_visible = 0").run();
+    citation(owner, "messages", 99);
+    const changed = backfillLoopRemoteVisible(db.sqlite);
+    expect(rv(owner)).toBe(0);
+    expect(rv(legacy)).toBe(1);
+    expect(rv(message)).toBe(0);
+    // Positive control: the loops from the seed section above were all 0 and are mostly 1 now.
+    expect(changed).toBeGreaterThan(0);
+    expect(backfillLoopRemoteVisible(db.sqlite)).toBe(0);
+  });
+
+  it("a remote page never hands out the id of a loop it may not see", async () => {
+    // Visible loops interleaved with hidden ones, created in this order.
+    const made: string[] = [];
+    for (let i = 0; i < 6; i += 1) {
+      const l = g.addLoop({
+        direction: "i_owe",
+        text: `Task number ${i}`,
+        status: "open",
+        provenance: "owner",
+        detectedBy: "owner",
+      });
+      if (l === undefined) throw new Error("no loop");
+      made.push(l.id);
+      // 1, 3 and 5 are Messages loops.
+      if (i % 2 === 1)
+        db.sqlite.prepare("UPDATE graph_loops SET remote_visible = 0 WHERE id = ?").run(l.id);
+    }
+    const hidden = new Set([made[1], made[3], made[5]]);
+    const base = await handlers()["memory.loops.list"](
+      { limit: 100, status: ["open"] },
+      { full: true },
+    );
+    const seenVisible = new Set<string>();
+    let cursor: string | undefined;
+    for (let i = 0; i < 10; i += 1) {
+      const page = await handlers()["memory.loops.list"](
+        { limit: 2, status: ["open"], ...(cursor === undefined ? {} : { cursor }) },
+        remote,
+      );
+      for (const l of page.loops) seenVisible.add(l.id);
+      if (page.nextCursor !== null) {
+        expect(hidden.has(page.nextCursor)).toBe(false);
+        expect(page.loops.map((l) => l.id)).toContain(page.nextCursor);
+      }
+      if (page.nextCursor === null) break;
+      cursor = page.nextCursor;
+    }
+    const wantVisible = base.loops
+      .map((l) => l.id)
+      .filter(
+        (id) =>
+          !hidden.has(id) &&
+          id !== ids.messages &&
+          id !== ids.mixed &&
+          id !== ids.legacy &&
+          id !== ids.fromMessage,
+      );
+    expect([...seenVisible].sort()).toEqual([...new Set(wantVisible)].sort());
+    // Positive control: the shell's cursor is the plain last id of its page.
+    const full = await handlers()["memory.loops.list"](
+      { limit: 2, status: ["open"] },
+      { full: true },
+    );
+    expect(full.nextCursor).toBe(full.loops.at(-1)?.id);
   });
 });

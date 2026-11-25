@@ -269,7 +269,10 @@ export const settingsHandlers: Record<string, HandlerDef> = {
       // Which sources the promise ledger reads (mail, Messages, meetings, chat) is the owner's
       // call on this Mac: a remote device can neither switch one on nor off (promise scrub).
       if (isPromiseSourceKey(key))
-        requireDesktopShell(call, "Choosing the sources promises are read from");
+        requireDesktopShell(
+          call,
+          "Changing what the promise ledger reads, whom it mutes, or whether it is on",
+        );
       // `gateway.lan` is stored in its normalized form, and a malformed or wildcard value is
       // refused before anything (including the presence card) is created for it.
       let value = key === LAN_SETTING ? parseLanSettings(params.value) : params.value;

@@ -96,6 +96,7 @@ import {
   type Message,
   type ModelProvider,
   type ModelRef,
+  type Notification,
   type PermissionBroker,
   type PromiseView,
   PsycheError,
@@ -129,7 +130,12 @@ import type { PublicRoute, WebhookRoute } from "../http.ts";
 import { createLogger } from "../log.ts";
 import { personalizeMessageEvent } from "../message-scrub.ts";
 import { openGatewayDb, purgePreUpdateSnapshots, releaseGatewayLock } from "../pre-update.ts";
-import { personalizeLoopEvent, personalizePromiseEvent } from "../promise-scrub.ts";
+import {
+  personalizeLoopEvent,
+  personalizeNotificationEvent,
+  personalizePromiseEvent,
+  withNotificationScrub,
+} from "../promise-scrub.ts";
 import { TraceScrubWorker } from "../run-trace/forget-scrub.ts";
 import { taskRunTrace } from "../run-trace/tasks.ts";
 import { alertNotice, alertNotifyDecision } from "../security/alerts.ts";
@@ -2569,7 +2575,10 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
         },
       }) as never,
     ),
-    ...mountParamsOnly(createNotificationHandlers(notifier) as never),
+    ...withNotificationScrub(
+      mountParamsOnly(createNotificationHandlers(notifier) as never),
+      () => people?.loopVisibility,
+    ),
     ...proactive.handlers,
     ...capabilities.handlers,
     ...questionHandlers(loop, tasks),
@@ -2753,6 +2762,16 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     if (event === "memory.loop.updated")
       return personalizeLoopEvent(
         payload as { loop: GraphLoop },
+        sub.reader,
+        people?.loopVisibility,
+      );
+    if (
+      event === "notification.created" ||
+      event === "notification.updated" ||
+      event === "notification.resolved"
+    )
+      return personalizeNotificationEvent(
+        payload as { notification: Notification },
         sub.reader,
         people?.loopVisibility,
       );
