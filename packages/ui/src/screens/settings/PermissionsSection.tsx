@@ -17,6 +17,7 @@ import { parseSendGrantKey, splitRecipients } from "../../lib/send-grant.ts";
 import { useNow } from "../../lib/use-now.ts";
 import { useSlots } from "../../slots.tsx";
 import { ActionMatrix, type ActionRule, withMatrixOverrides } from "./ActionMatrix.tsx";
+import { AllowedList } from "./AllowedList.tsx";
 import { appleApp } from "./ConnectorCapabilities.tsx";
 import { SCOPE_MODE_LABEL } from "./ConnectorsSection.tsx";
 import { execReviewInAuto, policyWithExecReview } from "./FileAccessSection.tsx";
@@ -259,6 +260,15 @@ export function PermissionsPanel({
           />
         </Group>
 
+        {/* One list of everything allowed for good; the older per-kind lists are under Details. */}
+        <AllowedList
+          grants={grants}
+          now={clock}
+          {...(onRevoke ? { onRevoke } : {})}
+          revoking={revoking}
+          error={revokeError}
+        />
+
         {/* One grouped list per connector, rows per action (redesign §5.8). */}
         <Advanced
           title={t("settings.permissions.connectorActions")}
@@ -334,69 +344,6 @@ export function PermissionsPanel({
         </Advanced>
 
         <Group
-          title={t("settings.permissions.trusted.title")}
-          description={t("settings.permissions.trusted.description")}
-        >
-          {trusted.length === 0 ? (
-            <EmptyNotice text={t("settings.permissions.trusted.empty")} />
-          ) : (
-            <ul className="flex flex-col gap-1.5">
-              {trusted.map((g) => (
-                <li key={g.id} className="flex flex-wrap items-center gap-2">
-                  <span className="font-medium">{grantSubject(g)}</span>
-                  <span className="text-callout text-muted-foreground">
-                    {t("settings.permissions.trusted.added", { date: formatDate(g.createdAt) })}
-                  </span>
-                  {onRevoke ? (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="xs"
-                      onClick={() => onRevoke(g)}
-                      disabled={revoking?.has(g.id) ?? false}
-                      aria-label={t("settings.permissions.trusted.removeNamed", {
-                        name: grantSubject(g),
-                      })}
-                    >
-                      {t("settings.permissions.trusted.remove")}
-                    </Button>
-                  ) : null}
-                </li>
-              ))}
-            </ul>
-          )}
-        </Group>
-
-        <Group
-          title={t("settings.permissions.sendsTitle")}
-          description={t("settings.permissions.sendsHint")}
-        >
-          {sends.length === 0 ? (
-            <EmptyNotice text={t("settings.permissions.noSends")} />
-          ) : (
-            <ul className="flex flex-col gap-1.5">
-              {sends.map((g) => (
-                <li key={g.id} className="flex flex-wrap items-center gap-2">
-                  <span className="font-medium">{grantSubject(g)}</span>
-                  {onRevoke ? (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="xs"
-                      onClick={() => onRevoke(g)}
-                      disabled={revoking?.has(g.id) ?? false}
-                      aria-label={t("settings.permissions.revokeNamed", { name: grantSubject(g) })}
-                    >
-                      {t("settings.devices.revoke")}
-                    </Button>
-                  ) : null}
-                </li>
-              ))}
-            </ul>
-          )}
-        </Group>
-
-        <Group
           title={t("settings.permissions.sensitive.title")}
           description={t("settings.permissions.sensitive.description")}
         >
@@ -416,123 +363,194 @@ export function PermissionsPanel({
           />
         </Group>
 
-        <Group
-          title={t("settings.permissions.origins")}
-          description={t("settings.permissions.originsHint")}
-        >
-          {origins.length === 0 ? (
-            <EmptyNotice text={t("settings.permissions.noOrigins")} />
-          ) : (
-            <ul className="flex flex-col gap-1.5">
-              {origins.map((g) => (
-                <li key={g.id} className="flex flex-wrap items-center gap-2">
-                  <span className="font-medium">{grantSubject(g)}</span>
-                  <span className="text-callout text-muted-foreground">
-                    {g.expiresAt
-                      ? t("settings.permissions.scopeExpires", {
-                          scope: scopeLabel(g.scope),
-                          date: formatDate(g.expiresAt),
-                        })
-                      : scopeLabel(g.scope)}
-                  </span>
-                  {onRevoke ? (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="xs"
-                      onClick={() => onRevoke(g)}
-                      disabled={revoking?.has(g.id) ?? false}
-                      aria-label={t("settings.permissions.revokeNamed", { name: grantSubject(g) })}
-                    >
-                      {t("settings.devices.revoke")}
-                    </Button>
-                  ) : null}
-                </li>
-              ))}
-            </ul>
-          )}
-        </Group>
-
-        <Group
-          title={t("settings.permissions.ledger")}
-          description={t("settings.permissions.ledgerHint", { n: active.length })}
-        >
-          {revokeError ? (
-            <ErrorNotice what={revokeError} did={t("settings.permissions.grantUnchanged")} />
-          ) : null}
-          {grants.length === 0 ? (
-            <EmptyNotice text={t("settings.permissions.noGrants")} />
-          ) : (
-            <Table aria-label={t("settings.permissions.ledger")}>
-              <TableHeader>
-                <TableRow>
-                  <TableHead scope="col">{t("settings.permissions.col.grant")}</TableHead>
-                  <TableHead scope="col">{t("settings.permissions.col.scope")}</TableHead>
-                  <TableHead scope="col">{t("settings.credentials.col.uses")}</TableHead>
-                  <TableHead scope="col">{t("settings.credentials.col.lastUsed")}</TableHead>
-                  <TableHead scope="col">
-                    <span className="sr-only">{t("settings.credentials.col.actions")}</span>
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {grants.map((g) => (
-                  <TableRow key={g.id} data-revoked={g.revokedAt !== null}>
-                    <TableCell className="whitespace-normal">
-                      <span className="block text-callout text-muted-foreground">
-                        {grantKindLabel(g.kind)}
-                      </span>
-                      <span className={g.revokedAt ? "text-muted-foreground line-through" : ""}>
-                        {grantSubject(g)}
-                      </span>
-                      {grantExecutable(g) ? (
-                        <span className="block break-all font-mono text-callout text-muted-foreground">
-                          {grantExecutable(g)}
-                        </span>
-                      ) : null}
-                    </TableCell>
-                    <TableCell>
-                      {scopeLabel(g.scope)}
-                      {g.expiresAt ? (
-                        <span className="block text-callout text-muted-foreground">
-                          {Date.parse(g.expiresAt) < clock
-                            ? t("settings.permissions.expired")
-                            : t("settings.permissions.until", { date: formatDate(g.expiresAt) })}
-                        </span>
-                      ) : null}
-                    </TableCell>
-                    <TableCell className="tabular-nums">
-                      {activeI18n().number(g.useCount)}
-                    </TableCell>
-                    <TableCell>
-                      {g.lastUsedAt
-                        ? formatRelative(g.lastUsedAt, clock)
-                        : t("settings.permissions.never")}
-                    </TableCell>
-                    <TableCell className="text-end">
-                      {g.revokedAt ? (
-                        <StatusChip tone="neutral">{t("settings.permissions.revoked")}</StatusChip>
-                      ) : onRevoke ? (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="xs"
-                          onClick={() => onRevoke(g)}
-                          disabled={revoking?.has(g.id) ?? false}
-                          aria-label={t("settings.permissions.revokeNamed", {
-                            name: grantSubject(g),
-                          })}
-                        >
-                          {t("settings.devices.revoke")}
-                        </Button>
-                      ) : null}
-                    </TableCell>
-                  </TableRow>
+        <Advanced title={t("approvals.allowed.details")}>
+          <Group
+            title={t("settings.permissions.trusted.title")}
+            description={t("settings.permissions.trusted.description")}
+          >
+            {trusted.length === 0 ? (
+              <EmptyNotice text={t("settings.permissions.trusted.empty")} />
+            ) : (
+              <ul className="flex flex-col gap-1.5">
+                {trusted.map((g) => (
+                  <li key={g.id} className="flex flex-wrap items-center gap-2">
+                    <span className="font-medium">{grantSubject(g)}</span>
+                    <span className="text-callout text-muted-foreground">
+                      {t("settings.permissions.trusted.added", { date: formatDate(g.createdAt) })}
+                    </span>
+                    {onRevoke ? (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="xs"
+                        onClick={() => onRevoke(g)}
+                        disabled={revoking?.has(g.id) ?? false}
+                        aria-label={t("settings.permissions.trusted.removeNamed", {
+                          name: grantSubject(g),
+                        })}
+                      >
+                        {t("settings.permissions.trusted.remove")}
+                      </Button>
+                    ) : null}
+                  </li>
                 ))}
-              </TableBody>
-            </Table>
-          )}
-        </Group>
+              </ul>
+            )}
+          </Group>
+
+          <Group
+            title={t("settings.permissions.sendsTitle")}
+            description={t("settings.permissions.sendsHint")}
+          >
+            {sends.length === 0 ? (
+              <EmptyNotice text={t("settings.permissions.noSends")} />
+            ) : (
+              <ul className="flex flex-col gap-1.5">
+                {sends.map((g) => (
+                  <li key={g.id} className="flex flex-wrap items-center gap-2">
+                    <span className="font-medium">{grantSubject(g)}</span>
+                    {onRevoke ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="xs"
+                        onClick={() => onRevoke(g)}
+                        disabled={revoking?.has(g.id) ?? false}
+                        aria-label={t("settings.permissions.revokeNamed", {
+                          name: grantSubject(g),
+                        })}
+                      >
+                        {t("settings.devices.revoke")}
+                      </Button>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Group>
+
+          <Group
+            title={t("settings.permissions.origins")}
+            description={t("settings.permissions.originsHint")}
+          >
+            {origins.length === 0 ? (
+              <EmptyNotice text={t("settings.permissions.noOrigins")} />
+            ) : (
+              <ul className="flex flex-col gap-1.5">
+                {origins.map((g) => (
+                  <li key={g.id} className="flex flex-wrap items-center gap-2">
+                    <span className="font-medium">{grantSubject(g)}</span>
+                    <span className="text-callout text-muted-foreground">
+                      {g.expiresAt
+                        ? t("settings.permissions.scopeExpires", {
+                            scope: scopeLabel(g.scope),
+                            date: formatDate(g.expiresAt),
+                          })
+                        : scopeLabel(g.scope)}
+                    </span>
+                    {onRevoke ? (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="xs"
+                        onClick={() => onRevoke(g)}
+                        disabled={revoking?.has(g.id) ?? false}
+                        aria-label={t("settings.permissions.revokeNamed", {
+                          name: grantSubject(g),
+                        })}
+                      >
+                        {t("settings.devices.revoke")}
+                      </Button>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Group>
+
+          <Group
+            title={t("settings.permissions.ledger")}
+            description={t("settings.permissions.ledgerHint", { n: active.length })}
+          >
+            {revokeError ? (
+              <ErrorNotice what={revokeError} did={t("settings.permissions.grantUnchanged")} />
+            ) : null}
+            {grants.length === 0 ? (
+              <EmptyNotice text={t("settings.permissions.noGrants")} />
+            ) : (
+              <Table aria-label={t("settings.permissions.ledger")}>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead scope="col">{t("settings.permissions.col.grant")}</TableHead>
+                    <TableHead scope="col">{t("settings.permissions.col.scope")}</TableHead>
+                    <TableHead scope="col">{t("settings.credentials.col.uses")}</TableHead>
+                    <TableHead scope="col">{t("settings.credentials.col.lastUsed")}</TableHead>
+                    <TableHead scope="col">
+                      <span className="sr-only">{t("settings.credentials.col.actions")}</span>
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {grants.map((g) => (
+                    <TableRow key={g.id} data-revoked={g.revokedAt !== null}>
+                      <TableCell className="whitespace-normal">
+                        <span className="block text-callout text-muted-foreground">
+                          {grantKindLabel(g.kind)}
+                        </span>
+                        <span className={g.revokedAt ? "text-muted-foreground line-through" : ""}>
+                          {grantSubject(g)}
+                        </span>
+                        {grantExecutable(g) ? (
+                          <span className="block break-all font-mono text-callout text-muted-foreground">
+                            {grantExecutable(g)}
+                          </span>
+                        ) : null}
+                      </TableCell>
+                      <TableCell>
+                        {scopeLabel(g.scope)}
+                        {g.expiresAt ? (
+                          <span className="block text-callout text-muted-foreground">
+                            {Date.parse(g.expiresAt) < clock
+                              ? t("settings.permissions.expired")
+                              : t("settings.permissions.until", { date: formatDate(g.expiresAt) })}
+                          </span>
+                        ) : null}
+                      </TableCell>
+                      <TableCell className="tabular-nums">
+                        {activeI18n().number(g.useCount)}
+                      </TableCell>
+                      <TableCell>
+                        {g.lastUsedAt
+                          ? formatRelative(g.lastUsedAt, clock)
+                          : t("settings.permissions.never")}
+                      </TableCell>
+                      <TableCell className="text-end">
+                        {g.revokedAt ? (
+                          <StatusChip tone="neutral">
+                            {t("settings.permissions.revoked")}
+                          </StatusChip>
+                        ) : onRevoke ? (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="xs"
+                            onClick={() => onRevoke(g)}
+                            disabled={revoking?.has(g.id) ?? false}
+                            aria-label={t("settings.permissions.revokeNamed", {
+                              name: grantSubject(g),
+                            })}
+                          >
+                            {t("settings.devices.revoke")}
+                          </Button>
+                        ) : null}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </Group>
+        </Advanced>
 
         <Group
           title={t("settings.permissions.hard")}

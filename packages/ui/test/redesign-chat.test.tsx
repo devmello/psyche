@@ -204,7 +204,7 @@ describe("approval dock (redesign-2026 §5.3, docs/06 §3.3)", () => {
       expect(within(dock).queryByRole("radiogroup")).toBeNull();
       expect(within(dock).getAllByRole("button", { name: "Deny" })).toHaveLength(1);
       const deny = within(dock).getByRole("button", { name: "Deny" });
-      const allow = within(dock).getByRole("button", { name: "Allow with scope" });
+      const allow = within(dock).getByRole("button", { name: "Allow" });
       // Deny leads, Allow trails.
       expect(deny.compareDocumentPosition(allow) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
       expect(deny.hasAttribute("disabled")).toBe(true);

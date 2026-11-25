@@ -260,8 +260,10 @@ export const memoryReview: Partial<Catalogue> = {
   "everything.agent.allHint": "وكذلك الحقائق التي ما زالت تنتظر المراجعة، موسومة بأنها غير مؤكدة.",
   "everything.agent.sensitive": "يستطيع الوكيل رؤية الحقائق الحساسة",
   "everything.schedule.title": "الجدول الليلي",
-  "everything.schedule.quietStart": "بداية ساعات الهدوء",
-  "everything.schedule.quietEnd": "نهاية ساعات الهدوء",
+  "everything.schedule.quietStart": "بداية المرور الليلي",
+  "everything.schedule.quietEnd": "نهاية المرور الليلي",
+  "everything.schedule.hint":
+    "الوقت الذي يمكن فيه لـ Psyche قراءة ما تعلّمته وترتيبه. هذه ليست ساعات الهدوء للإشعارات.",
   "everything.schedule.battery": "التشغيل على البطارية",
   "everything.schedule.batteryHint":
     "متوقف: فقط أثناء التوصيل بالطاقة، وليس في وضع الطاقة المنخفضة، وأثناء غيابك.",
@@ -284,7 +286,7 @@ export const memoryReview: Partial<Catalogue> = {
   "everything.run.reason.low_power": "ليس الآن: وضع الطاقة المنخفضة مفعّل.",
   "everything.run.reason.thermal": "ليس الآن: الـ Mac ساخن جدًا.",
   "everything.run.reason.not_idle": "ليس الآن: أنت تستخدم الـ Mac.",
-  "everything.run.reason.outside_quiet_hours": "ليس الآن: خارج ساعات الهدوء.",
+  "everything.run.reason.outside_quiet_hours": "ليس الآن: خارج ساعات المرور الليلي.",
   "everything.run.reason.local_not_confirmed": "أكّد تحذير ذاكرة النموذج المحلي أولًا.",
   "everything.run.reason.low_memory": "ليس الآن: لا توجد ذاكرة حرة كافية للنموذج المحلي.",
   "everything.run.reason.no_owner_entity": "لم تُعدّ بطاقتك الخاصة في الأشخاص بعد.",

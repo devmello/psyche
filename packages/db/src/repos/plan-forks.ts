@@ -300,3 +300,25 @@ export function deletePlanForkBranch(db: PsycheDb, id: string): boolean {
     return db.drizzle.delete(planForkBranches).where(eq(planForkBranches.id, id)).run().changes > 0;
   })();
 }
+
+/**
+ * Files a branch's one report (fork-a-plan-2026 §2.3, §4.1). One statement: the row is written
+ * only while it is `running` and holds no report, so a second filing (a model retry after a host
+ * that committed and then threw, a run replayed after a restart) changes nothing. Returns whether
+ * this call wrote it.
+ */
+export function fileBranchReport(
+  db: PsycheDb,
+  id: string,
+  report: ForkReport,
+  extra: { readOwnerOnly?: boolean } = {},
+): boolean {
+  const res = db.sqlite
+    .prepare(
+      `UPDATE plan_fork_branches
+          SET report = ?, read_owner_only = ?, updated_at = ?
+        WHERE id = ? AND report IS NULL AND status = 'running'`,
+    )
+    .run(JSON.stringify(report), extra.readOwnerOnly === true ? 1 : 0, db.now(), id);
+  return res.changes > 0;
+}

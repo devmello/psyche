@@ -31,7 +31,9 @@ export interface NewNightInput {
 export type NightPatchInput = Partial<Omit<NewNightInput, "night">>;
 
 export interface NewStagedInput {
-  nightId: string;
+  /** Exactly one of `nightId` and `forkBranchId` (the table's CHECK enforces it). */
+  nightId?: string;
+  forkBranchId?: string;
   seq: number;
   domain: StagedAction["domain"];
   targetKey: string;

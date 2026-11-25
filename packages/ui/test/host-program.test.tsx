@@ -56,11 +56,10 @@ function show(approval: ApprovalRequest, onAnswer = vi.fn()) {
 describe("host-command card: Always allow <program> in <folder>", () => {
   it("answers once with hostProgram when the Gateway offered it", async () => {
     const onAnswer = show(hostApproval({ details: OFFER }));
-    await userEvent.selectOptions(
-      screen.getByRole("combobox"),
-      "Always allow rg in /Users/me/project",
+    // The program in its folder is the one second choice, labelled with exactly that reach.
+    await userEvent.click(
+      screen.getByRole("button", { name: "Always allow rg in /Users/me/project" }),
     );
-    await userEvent.click(screen.getByRole("button", { name: "Allow with scope" }));
     await waitFor(() =>
       expect(onAnswer).toHaveBeenCalledWith("approve", "once", { hostProgram: true }),
     );
@@ -68,13 +67,14 @@ describe("host-command card: Always allow <program> in <folder>", () => {
 
   it("does not offer it without the Gateway's offer (control: with it, it shows)", () => {
     show(hostApproval({ details: { sandbox: "srt" } }));
-    expect(screen.queryByRole("option", { name: /^Always allow rg in/ })).toBeNull();
-    expect(screen.getByRole("option", { name: "Allow once" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /^Always allow rg in/ })).toBeNull();
+    // The card still offers its own exact-command Always, so the control is that this one differs.
+    expect(screen.getByRole("button", { name: "Always allow this exact command" })).toBeTruthy();
   });
 
   it("a plain Allow once sends no hostProgram", async () => {
     const onAnswer = show(hostApproval({ details: OFFER }));
-    await userEvent.click(screen.getByRole("button", { name: "Allow with scope" }));
+    await userEvent.click(screen.getByRole("button", { name: "Allow" }));
     await waitFor(() => expect(onAnswer).toHaveBeenCalledWith("approve", "once", undefined));
   });
 });
@@ -115,8 +115,11 @@ describe("Settings → Permissions: program grants", () => {
         />
       </UiSlotsProvider>,
     );
-    expect(screen.getByText("rg in /Users/me/project, any arguments")).toBeTruthy();
-    await userEvent.click(screen.getByRole("button", { name: /Revoke|Remove/ }));
+    // The Allowed list says it in plain words; the ledger under Details keeps the old row.
+    expect(screen.getByText("Always · runs rg in /Users/me/project, any arguments")).toBeTruthy();
+    await userEvent.click(
+      screen.getByRole("button", { name: "Remove rg in /Users/me/project, any arguments" }),
+    );
     expect(onRevoke).toHaveBeenCalledTimes(1);
   });
 });

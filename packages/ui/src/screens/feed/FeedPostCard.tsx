@@ -11,6 +11,7 @@ import {
   DropdownMenuTrigger,
 } from "../../components/ui/dropdown-menu.tsx";
 import { t } from "../../i18n/core.ts";
+import { feedBodyText } from "../../i18n/run-text.ts";
 import { formatTime } from "../../lib/format.ts";
 import { cn } from "../../lib/utils.ts";
 import { SafeLink } from "../../links/SafeLink.tsx";
@@ -117,7 +118,7 @@ function StandardPostCard({
       </h2>
       {/* Every [n] marker reads the same: web citations are links, in-app ones plain text. */}
       <Markdown className="text-reading text-label-primary [&_a]:text-inherit [&_a]:underline [&_a]:decoration-dotted [&_a]:underline-offset-2 [&_a:hover]:decoration-solid [&_a]:rounded-sm [&_a:focus-visible]:outline-2 [&_a:focus-visible]:outline-ring">
-        {withCitationLinks(post.bodyMd, post.citations)}
+        {withCitationLinks(feedBodyText(post.bodyMd), post.citations)}
       </Markdown>
       {post.widget ? <FeedWidgetView postId={post.id} snapshot={post.widget} /> : null}
       {/* The weekly "What I learned" card (teaching loop §5.4): its review items. */}

@@ -82,6 +82,22 @@ export const NightShiftMethods = {
     params: Type.Object({}),
     result: Type.Object({
       started: Type.Boolean(),
+      /**
+       * What the run did if it settled within a moment: `already` (a night is running), `skipped`
+       * (a gate: see reason), `no_candidates` (nothing to do tonight), `off`, or `empty`, `done`,
+       * `stopped`. Absent while the run is still going. The UI words it, localised.
+       */
+      outcome: Type.Optional(
+        Type.Union([
+          Type.Literal("off"),
+          Type.Literal("already"),
+          Type.Literal("skipped"),
+          Type.Literal("no_candidates"),
+          Type.Literal("empty"),
+          Type.Literal("done"),
+          Type.Literal("stopped"),
+        ]),
+      ),
       reason: Type.Optional(Type.String({ maxLength: 200 })),
     }),
     scope: "operator.admin",

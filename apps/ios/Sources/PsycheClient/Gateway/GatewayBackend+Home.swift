@@ -231,7 +231,7 @@ extension GatewayBackend {
         // Read in the app before Allow: a lock-screen banner or the Dynamic Island shows only the title. Nested
         // details (a command's params, a script's lines) are shown in full, never summarised: the tap approves
         // exactly this, so they are read in the app first too.
-        let (fields, nested) = Self.detailFields(a["details"])
+        let (fields, nested) = Self.detailFields(Self.localizingWithheld(a["details"]))
         let reviewInApp = a["deviceOnly"]?.bool == true || nested
         var evidence: [String] = []
         if let because = a.at("fromLesson", "because")?.string { evidence.append(String(localized: "Because you said: \(because)", bundle: .module)) }

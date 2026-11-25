@@ -1,5 +1,6 @@
 import {
   appendMessage,
+  failOpenRunSteps,
   finishRun,
   listRunsByStatus,
   markAllNodesOffline,
@@ -7,6 +8,7 @@ import {
   type PsycheDb,
   settleRunToolCalls,
 } from "@psyche/db";
+import { GATEWAY_RESTART_NOTE } from "@psyche/protocol";
 import type { Logger } from "./log.ts";
 
 export const RESTART_ERROR = "gateway_restart";
@@ -32,6 +34,8 @@ export function recoverAfterRestart(db: PsycheDb, log: Logger): RecoveryReport {
       finishRun(db, run.id, { status: "failed", error: RESTART_ERROR });
       // The calls are `uncertain` now; the run's committed tool blocks must say so too.
       settleRunToolCalls(db, run.id);
+      // The trace too: an open step under a failed run would show as running forever.
+      failOpenRunSteps(db, run.id);
       report.failedRuns.push(run.id);
     }
     const owned = db.sqlite
@@ -51,7 +55,11 @@ export function recoverAfterRestart(db: PsycheDb, log: Logger): RecoveryReport {
             threadId: id,
             role: "system",
             blocks: [
-              { type: "text", md: "The Gateway restarted during this turn, so it was stopped." },
+              {
+                type: "text",
+                md: GATEWAY_RESTART_NOTE.md,
+                noteKey: GATEWAY_RESTART_NOTE.key,
+              },
             ],
             provenance: "system",
             runId,

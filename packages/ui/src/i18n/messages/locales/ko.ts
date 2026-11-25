@@ -1,6 +1,7 @@
 import type { Catalogue } from "../index.ts";
 import { actionErrors } from "./action-errors/ko.ts";
 import { agentRest } from "./agent-rest/ko.ts";
+import { approvalsW3 } from "./approvals-w3/ko.ts";
 import { auditRest } from "./audit-rest/ko.ts";
 import { automationChatRest } from "./automationChat-rest/ko.ts";
 import { blocksRest } from "./blocks-rest/ko.ts";
@@ -37,6 +38,7 @@ import { memoryPrivacyRest } from "./memoryPrivacy-rest/ko.ts";
 import { memoryReviewRest } from "./memoryReview-rest/ko.ts";
 import { memorySurfacesRest } from "./memorySurfaces-rest/ko.ts";
 import { memoryWorkRest } from "./memoryWork-rest/ko.ts";
+import { nightShift } from "./night-shift/ko.ts";
 import { notices } from "./notices/ko.ts";
 import { nudgesRest } from "./nudges-rest/ko.ts";
 import { onboardingRest } from "./onboarding-rest/ko.ts";
@@ -190,6 +192,28 @@ export const ko: Partial<Catalogue> = {
     "앱에 저장되지 않은 변경 사항이 있습니다. 어떻게 할지 결정할 때까지 Psyche가 기다립니다.",
   "errors.reason.checkout_needs_desktop":
     "Psyche 브라우저에서 결제하려면 Psyche 데스크톱 앱이 이 호스트에 연결되어 있어야 합니다.",
+  "errors.reason.permission_missing":
+    "Psyche Helper에 아직 이 작업에 필요한 macOS 권한이 없습니다. 시스템 설정 → 개인정보 보호 및 보안에서 허용한 다음 다시 시도하세요.",
+  "errors.reason.permission_denied":
+    "Psyche Helper는 이 작업을 할 수 없습니다. 시스템 설정 → 개인정보 보호 및 보안에서 켠 다음 다시 시도하세요.",
+  "errors.reason.automation_denied":
+    "Psyche Helper는 이 앱을 제어할 수 없습니다. 시스템 설정 → 개인정보 보호 및 보안 → 자동화에서 켠 다음 다시 시도하세요.",
+  "errors.reason.automation_not_granted":
+    "Psyche Helper는 아직 이 앱을 제어할 수 없습니다. 다시 시도하고 macOS가 물으면 '확인'을 선택하세요.",
+  "errors.reason.full_disk_access_missing":
+    "메시지를 읽으려면 Psyche Helper에 전체 디스크 접근 권한이 필요합니다. 시스템 설정 → 개인정보 보호 및 보안 → 전체 디스크 접근 권한에서 켠 다음 Psyche Helper를 재시작하세요.",
+  "errors.reason.prompt_refused_by_macos":
+    "macOS가 권한 요청을 표시하지 않았습니다. 대신 시스템 설정 → 개인정보 보호 및 보안에서 Psyche Helper를 허용하세요.",
+  "errors.reason.app_not_running": "해당 앱이 열려 있지 않습니다. 앱을 연 다음 다시 시도하세요.",
+  "errors.reason.needs_helper":
+    "이 작업에는 Psyche Helper가 필요하지만 실행 중이 아닙니다. 설정 → 기기에서 재시작하세요.",
+  "errors.reason.apple_not_connected":
+    "Apple 앱이 아직 연결되지 않았습니다. 설정 → 커넥터에서 연결하세요.",
+  "errors.reason.no_folder_shared":
+    "공유된 폴더가 아직 없습니다. 설정 → 파일 접근에서 폴더를 공유하세요.",
+  "errors.reason.memory_opening": "메모리를 아직 여는 중입니다. 잠시 후 다시 시도하세요.",
+  "errors.reason.outlook_object_model_guard":
+    "Windows가 최신 바이러스 백신을 확인하지 못해 Outlook이 다른 프로그램의 메일 읽기와 보내기를 막고 있습니다. Windows 보안을 켜거나 Outlook → 파일 → 옵션 → 보안 센터에서 ‘프로그래밍 방식 액세스’를 ‘경고 안 함’으로 설정한 다음 다시 시도하세요.",
   "errors.reason.no_chromium":
     "Psyche 브라우저에는 이 호스트의 Chromium이 필요합니다. 설치하거나 PSYCHE_CHROMIUM을 설정하세요.",
   "errors.reason.chromium_sandbox":
@@ -212,6 +236,14 @@ export const ko: Partial<Catalogue> = {
   "errors.tab_not_found": "해당 브라우저 탭이 닫혔습니다.",
   "errors.method_not_allowed": "브라우저에서 해당 동작을 허용하지 않습니다.",
   "errors.presence_required": "먼저 패스키 또는 Mac 도우미에서 본인임을 확인하십시오.",
+  "errors.presence_unavailable_here":
+    "승인하려면 컴퓨터 앞에 누군가 있어야 합니다. 해당 데스크톱에 로그인한 뒤 다시 시도하세요.",
+  "errors.presence_agent_missing":
+    "이 데스크톱에는 비밀번호 확인 창이 실행 중이지 않아 본인 여부를 확인할 수 없습니다.",
+  "errors.presence_policy_missing":
+    "이 컴퓨터는 아직 본인 확인을 할 수 있도록 설정되지 않았습니다. Psyche 승인 정책을 설치한 뒤 다시 시도하세요.",
+  "errors.presence_not_enforced":
+    "이 컴퓨터는 비밀번호를 묻지 않고 승인해 버리므로 본인 여부를 확인할 수 없습니다.",
   "errors.offline": "Psyche에 연결할 수 없습니다.",
   "errors.unknown": "문제가 발생했습니다.",
 
@@ -1792,6 +1824,12 @@ export const ko: Partial<Catalogue> = {
   "settings.computerUse.helperAccess.offline":
     "Psyche Helper가 실행 중이 아니어서 권한을 읽을 수 없습니다. Psyche와 함께 시작되며, 계속 오프라인이면 Psyche를 종료했다가 다시 여세요.",
   "settings.computerUse.helperAccess.allow": "Psyche Helper 허용",
+  "settings.computerUse.helperAccess.lost":
+    "업데이트 후 등으로 macOS가 Psyche Helper의 이 권한을 해제했습니다. 시스템 설정에서 Psyche Helper를 껐다가 다시 켠 다음 Psyche Helper를 재시작하세요.",
+  "settings.computerUse.helperAccess.restartToApply":
+    "이 권한은 Psyche Helper를 재시작하면 적용됩니다.",
+  "settings.computerUse.helperAccess.restart": "Psyche Helper 재시작",
+  "settings.computerUse.helperAccess.restartFor": "{name} 적용을 위해 Psyche Helper 재시작",
   "settings.computerUse.helperAccess.allowFor": "{name}에 대해 Psyche Helper 허용",
   "settings.computerUse.title": "컴퓨터 사용",
   "settings.computerUse.description":
@@ -1800,6 +1838,10 @@ export const ko: Partial<Catalogue> = {
   "settings.computerUse.loadLabel": "컴퓨터 사용",
   "settings.computerUse.macPermissions": "macOS 권한",
   "settings.computerUse.openSystemSettings": "시스템 설정 열기",
+  "settings.computerUse.fullDiskAccess.name": "전체 디스크 접근 권한",
+  "settings.computerUse.fullDiskAccess.why":
+    "{persona}이(가) 메시지를 읽을 수 있게 합니다. macOS는 이에 대해 허용 창을 띄우지 않습니다. 목록에 Psyche Helper를 추가하세요.",
+  "settings.computerUse.fullDiskAccess.open": "시스템 설정에서 전체 디스크 접근 권한 열기",
   "settings.computerUse.apps": "앱",
   "settings.computerUse.enabledHint":
     "끄면 아래의 모든 앱이 중지됩니다. 각 앱은 처음 사용할 때 묻습니다.",
@@ -2759,6 +2801,11 @@ export const ko: Partial<Catalogue> = {
   "settings.connect.notAskedYet":
     "{name}이(가) 설정되었지만 macOS가 아직 묻지 않았습니다. 다시 확인을 누르면 Mac에 macOS 확인 창이 표시됩니다.",
   "settings.connect.noPrompt": "macOS가 확인 창을 표시하지 않았습니다: {reason}",
+  "settings.connect.path.automation":
+    "시스템 설정 → 개인정보 보호 및 보안 → 자동화 → Psyche (Helper) → {app}",
+  "settings.connect.path.privacy": "시스템 설정 → 개인정보 보호 및 보안 → {pane} → Psyche (Helper)",
+  "settings.connect.path.shortcuts": "단축어 앱",
+  "settings.connect.path.files": "설정 → Psyche의 파일 접근",
   "settings.connect.checkAgain": "다시 확인",
   "settings.connectors.status.needsPermission": "권한 필요",
   "settings.connectors.catalog.connected": "{name} (연결됨)",
@@ -3951,6 +3998,8 @@ export const ko: Partial<Catalogue> = {
   ...computerWatch,
   // Psyche points (docs/design/psyche-points-2026.md §9)
   ...points,
+  // Approvals wave W3 (card choices, Allowed list)
+  ...approvalsW3,
   // Gateway-authored notices (inbox notifications, security alerts)
   ...notices,
   // Settings > Computer use > Separate desktop (Linux)
@@ -3958,6 +4007,7 @@ export const ko: Partial<Catalogue> = {
   // Windows variants of the sandbox PC, voice keys and platform terms
   ...windowsPlatform202611,
   ...mailFollowups,
+  ...nightShift,
   ...keepAwake,
   ...friction,
   ...update,

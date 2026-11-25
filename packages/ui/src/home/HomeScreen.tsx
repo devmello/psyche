@@ -2,6 +2,8 @@ import { type ReactElement, useEffect, useState } from "react";
 import { useNotifications } from "../data/index.ts";
 import { activeI18n, t } from "../i18n/core.ts";
 import { QuietThreadsSection } from "../mail-followups/QuietThreadsSection.tsx";
+import { NightShiftSection } from "../night-shift/NightShiftSection.tsx";
+import { ReviewSheet } from "../night-shift/ReviewSheet.tsx";
 import { FeedScreen } from "../screens/feed/FeedScreen.tsx";
 import { ScreenToolbar } from "../screens/feed/ScreenToolbar.tsx";
 import { needsYou } from "../screens/inbox/InboxScreen.tsx";
@@ -35,6 +37,11 @@ export interface HomeScreenProps {
    * exists leaves the owner at Today.
    */
   post?: string;
+  /**
+   * `/home?review=<id>`: the Night shift review sheet is open over Home (`latest` is the review
+   * waiting now). Closing it goes back to `/home`.
+   */
+  review?: string;
   /** Fixed clock (stories, tests). */
   now?: number;
 }
@@ -53,6 +60,7 @@ export function HomeScreen({
   instructionsOpen,
   anchor,
   post,
+  review,
   now,
 }: HomeScreenProps): ReactElement {
   const { navigate: slotNavigate } = useSlots();
@@ -89,6 +97,7 @@ export function HomeScreen({
         {/* One calm column: the four things that matter, then a closed "More". Space, not rules,
             marks each section's edge; a section with nothing to say is not drawn. */}
         <NeedsYouSection onNavigate={navigate} {...clock} />
+        <NightShiftSection onNavigate={navigate} accent={!waiting} />
         <FeedScreen
           onCloseInstructions={() => navigate("/home")}
           collapseAfter={3}
@@ -111,6 +120,7 @@ export function HomeScreen({
           <KeepInTouchSection onNavigate={navigate} limit={2} />
         </MoreSection>
       </div>
+      {review ? <ReviewSheet review={review} onClose={() => navigate("/home")} {...clock} /> : null}
     </div>
   );
 }

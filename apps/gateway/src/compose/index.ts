@@ -6,6 +6,7 @@ import {
   type CompactionPolicy,
   createAgentLoop,
   defangFence,
+  type ForkReportHost,
   type PsycheAgentLoop,
 } from "@psyche/agent-core";
 import {
@@ -88,6 +89,7 @@ import {
   EVERYTHING_MEMORY_SETTING_KEY,
   type EventName,
   type EventPayload,
+  type GraphLoop,
   type IssuedApproval,
   isUnattendedTask,
   MEMORY_RECALL_MODE_SETTING,
@@ -95,7 +97,9 @@ import {
   type Message,
   type ModelProvider,
   type ModelRef,
+  type Notification,
   type PermissionBroker,
+  type PromiseView,
   PsycheError,
   type SecurityAlert,
   type StagedAction,
@@ -128,6 +132,12 @@ import type { PublicRoute, WebhookRoute } from "../http.ts";
 import { createLogger } from "../log.ts";
 import { personalizeMessageEvent } from "../message-scrub.ts";
 import { openGatewayDb, purgePreUpdateSnapshots, releaseGatewayLock } from "../pre-update.ts";
+import {
+  personalizeLoopEvent,
+  personalizeNotificationEvent,
+  personalizePromiseEvent,
+  withNotificationScrub,
+} from "../promise-scrub.ts";
 import { TraceScrubWorker } from "../run-trace/forget-scrub.ts";
 import { taskRunTrace } from "../run-trace/tasks.ts";
 import { alertNotice, alertNotifyDecision } from "../security/alerts.ts";
@@ -181,6 +191,7 @@ import { feedContextResolver } from "./feed-context.ts";
 import { filesHandlers } from "./files.ts";
 import { migrateFilesConnector } from "./files-migration.ts";
 import { repointFolders, withFolder, withRecordedReal, withRecordedRef } from "./folder-access.ts";
+import { composeForks, FORK_POOL_CLAIM } from "./forks.ts";
 import { usesSandboxPc } from "./guest-sandbox.ts";
 import {
   mountParamsOnly,
@@ -339,7 +350,7 @@ import { SystemZone } from "./time-zone.ts";
 import { uninstallHandlers } from "./uninstall.ts";
 import { updateHandlers } from "./update.ts";
 import { usageSummaryHandlers } from "./usage-summary.ts";
-import { createUserProfile } from "./user-profile.ts";
+import { cheapLearnerModel, createUserProfile } from "./user-profile.ts";
 import { composeVault, maskingLogger, type VaultSetup, vaultSetupFromEnv } from "./vault.ts";
 import { viewHandlers } from "./view.ts";
 import { type ComposedVirtualScreen, composeVirtualScreen } from "./virtual-screen.ts";
@@ -1408,6 +1419,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     ...(background ? {} : { pollIntervalMs: 0, afterRunDelayMs: 0 }),
     ...(gwOptions.logger === undefined ? {} : { logger: gwOptions.logger }),
   });
+  // A remote desktop's OS notifications about a promise follow the same scrub.
+  deviceNotes.bindPromiseVisibility(people.loopVisibility);
   // Everything memory (#1010): review and quarantine handlers, and the nightly pass.
   const everything = composeEverything({
     db,
@@ -1437,9 +1450,14 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       const e = searchRef?.embedder();
       return e === undefined ? undefined : asMemoryEmbedder(e);
     },
+    // One nightly budget: the people graph's model pass runs inside this pass's window, on the
+    // tokens it leaves, for the people it did not read about (the graph's own nightly step then
+    // skips its model pass).
+    graphModelPass: (left, covered) => people.modelPass(left, covered),
     announce: (card) => void proactive.feed.postNotice({ ...card, reason: "memory learned" }),
     ...(gwOptions.logger === undefined ? {} : { logger: gwOptions.logger }),
   });
+  people.useModelWindow(() => everything.ownsGraphPass());
   // Relationship nudges: off until the owner consents; cards are silent Feed posts.
   const nudges = composeNudges({
     db,
@@ -1768,6 +1786,11 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     provider,
     model: utility ?? modelRef,
     active: utility !== undefined,
+    // Chat learning runs on a cheap model only (the owner's utility pick or the provider's cheap
+    // default), never on the primary; with none it does not learn from chats at all.
+    cheapModel: () => (router === undefined ? utility : cheapLearnerModel(router)),
+    now: () => clock.now(),
+    ...(gwOptions.logger === undefined ? {} : { logger: gwOptions.logger }),
     // One learner call per thread per half minute; quicker turns are sent together.
     // (Tests run with background off and learn on every turn.)
     minIntervalMs: background ? 30_000 : 0,
@@ -1862,7 +1885,16 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     },
   });
   parts.push(spaceRun.part);
+  // `fork_report` files to the plan-fork service, which is composed after the loop (late binding).
+  const forkReportHost: { current: ForkReportHost | undefined } = { current: undefined };
   const loop = createAgentLoop({
+    forkReports: {
+      file: async (input) => {
+        const host = forkReportHost.current;
+        if (host === undefined) throw new PsycheError("unavailable", "plan forks are not ready");
+        await host.file(input);
+      },
+    },
     // Screenshots and MCP images are decoded and re-encoded (cut to 1568 px) before the model sees
     // or the thread keeps them; one that cannot be decoded becomes a note.
     toolImageShaper: (bytes, mime, signal) =>
@@ -1951,6 +1983,9 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   // Night shift (docs/design/night-shift-2026.md): composed after Proactive; the pool reaches it
   // through this ref for a staging task's sink, its toolset and its usage meter.
   let nightShiftRef: ReturnType<typeof composeNightShift> | undefined;
+  // Plan forks (docs/design/fork-a-plan-2026.md): composed right after Night shift, whose adapters
+  // they share; the fork pool reaches them through this ref.
+  let forksRef: ReturnType<typeof composeForks> | undefined;
   const taskTrace = taskRunTrace({
     db,
     sink: () => gatewayRef?.context.runTrace,
@@ -1986,6 +2021,33 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     // Specialist jobs run in their own pool, so they never take the chat tasks' slots.
     // Plan-fork branches run in their own pool (F2); until it exists none runs here.
     claim: { excludeOrigins: ["subagent", "fork"] },
+  });
+  // Plan-fork branches (fork-a-plan-2026 §2.3): their own pool, so a branch never takes a chat
+  // task's slot. Two slots, or one when the thread's model is a local one (`canClaim`).
+  const forkPool: TaskWorkerPool = new TaskWorkerPool({
+    engine: tasks,
+    loop,
+    clock,
+    broker,
+    notifier,
+    tools: registry,
+    owner: "fork",
+    concurrency: 2,
+    stagingSinkFor: (staging) => forksRef?.sinkFor(staging),
+    stagingToolsFor: (staging, task) => forksRef?.toolsFor(staging, task),
+    stagingReadsFor: (staging) => forksRef?.readsFor(staging),
+    ...(taskPollMs === undefined ? {} : { pollMs: taskPollMs }),
+    canClaim: () => updateGate.accepting() && (forksRef?.canClaim(forkPool) ?? true),
+    newRunId: () => db.newId(),
+    trace: {
+      start: (turn) => taskTrace.start(turn),
+      event: (turn, ev) => {
+        if (ev.type === "usage") forksRef?.meter(turn.taskId, ev.usage, turn.runId);
+        taskTrace.event(turn, ev);
+      },
+      end: (turn, outcome, error) => taskTrace.end(turn, outcome, error),
+    },
+    claim: FORK_POOL_CLAIM,
   });
   // Background specialists (specialists §4.5): their own slots (Settings, 1–6, default 3), FIFO,
   // at most 2 running per parent thread; a job parked on the owner frees its slot.
@@ -2033,6 +2095,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   updateGate.onReopen(() => {
     pool.poke();
     specialistPool.poke();
+    forkPool.poke();
   });
   const speechPart = parts.find(
     (p): p is ComposedPart & { meetings: MeetingIngest } => "meetings" in p,
@@ -2148,6 +2211,20 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     surfaceOf: (deviceId) => surfaceOf(db, deviceId),
     ...(gwOptions.logger === undefined ? {} : { logger: gwOptions.logger }),
   });
+  forksRef = composeForks({
+    db,
+    clock,
+    tasks: tasks as never,
+    poke: () => forkPool.poke(),
+    registry,
+    stagerParts: nightShiftRef.stagerParts,
+    router,
+    redact: (text) => redactor.redact(text),
+    publish: (event, payload) => publish(event as never, payload as never),
+    ...(gwOptions.logger === undefined ? {} : { logger: gwOptions.logger }),
+  });
+  // The report host the loop files each branch's one report to (fork_report, F1).
+  forkReportHost.current = forksRef.service.reports;
   // #557: web.search / web.fetch on every surface (read-only, untrusted output).
   const webTools = composeWebTools(
     {
@@ -2564,7 +2641,12 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       ) as never,
     ),
     ...mountParamsOnly(
-      createTaskHandlers({ engine: tasks, pool, pools: [specialistPool], broker }) as never,
+      createTaskHandlers({
+        engine: tasks,
+        pool,
+        pools: [specialistPool, forkPool],
+        broker,
+      }) as never,
     ),
     ...mountParamsOnly(
       taskUpdateHandlers({
@@ -2609,7 +2691,10 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
         },
       }) as never,
     ),
-    ...mountParamsOnly(createNotificationHandlers(notifier) as never),
+    ...withNotificationScrub(
+      mountParamsOnly(createNotificationHandlers(notifier) as never),
+      () => people?.loopVisibility,
+    ),
     ...proactive.handlers,
     ...(nightShiftRef?.defs ?? {}),
     ...capabilities.handlers,
@@ -2782,6 +2867,31 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     // Messages chips); a subscriber with no identity (a Gateway part) is read as the least trusted.
     if (event === "chat.message")
       return personalizeMessageEvent(gateway.context, payload as { message: Message }, sub.reader);
+    // A promise or a loop is read again for each subscriber (promise scrub): the desktop shell
+    // gets it whole, a remote one the stripped form, and a hidden one nothing. With the graph not
+    // composed, nobody gets it.
+    if (event === "promise.updated")
+      return personalizePromiseEvent(
+        payload as { promise: PromiseView },
+        sub.reader,
+        people?.loopVisibility,
+      );
+    if (event === "memory.loop.updated")
+      return personalizeLoopEvent(
+        payload as { loop: GraphLoop },
+        sub.reader,
+        people?.loopVisibility,
+      );
+    if (
+      event === "notification.created" ||
+      event === "notification.updated" ||
+      event === "notification.resolved"
+    )
+      return personalizeNotificationEvent(
+        payload as { notification: Notification },
+        sub.reader,
+        people?.loopVisibility,
+      );
     // A Night shift item made from Messages reaches only the desktop shell on this Mac in full.
     if (event === "nightShift.item.updated")
       return personalizeNightShiftItem(payload as { item: StagedAction }, sub.reader);
@@ -2905,6 +3015,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   traceScrub.start();
   await proactive.start();
   await nightShiftRef?.start();
+  await forksRef?.start();
   const systemZone = new SystemZone();
   const effectiveZone = () => timeZone ?? systemZone.zone;
   await ensureWeeklyCardAutomation(scheduler, { timezone: effectiveZone() });
@@ -2928,6 +3039,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     onWake: async () => {
       await pool.renewLeases().catch(logWakeError("lease renewal after wake failed"));
       await specialistPool.renewLeases().catch(logWakeError("lease renewal after wake failed"));
+      await forkPool.renewLeases().catch(logWakeError("lease renewal after wake failed"));
       pool.poke();
       specialistPool.poke();
       await scheduler.wake().catch(logWakeError("scheduler catch-up after wake failed"));
@@ -2957,6 +3069,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     }
     pool.start();
     specialistPool.start();
+    forkPool.start();
     wakeDetector.start();
     try {
       await pool.onApprovalsReissued(tokens.takeReissued());
@@ -3003,6 +3116,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       clearInterval(zoneTimer);
       await pool.stop();
       await specialistPool.stop();
+      await forkPool.stop();
+      forksRef?.stop();
       scheduler.stop();
       keepAwake.stop();
       memory.unwatch();

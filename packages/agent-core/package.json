@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "@psyche/hostfs": "workspace:*",
+    "@psyche/memory": "workspace:*",
     "@psyche/protocol": "workspace:*",
     "@sinclair/typebox": "0.34.52"
   },

@@ -1,0 +1,103 @@
+{
+  "_comment": "Synthetic owner. daily: owner-written daily notes (old). agent: notes the agent wrote itself under memory/agent/, oldest first, so the last five are the 'newest' that markdown mode injects.",
+  "daily": [
+    {
+      "path": "memory/2025-03-10.md",
+      "text": "# 2025-03-10\n\n- 09:12 I live on Quarry Street in Millbrook, a ten minute walk from the station.\n- 17:40 Tracking all tickets in Jira for the platform team.\n- 18:05 My phone is an iPhone 12 and the battery is getting old.\n- 18:30 I work as a senior engineer at Brightwell.\n"
+    },
+    {
+      "path": "memory/2026-02-14.md",
+      "text": "# 2026-02-14\n\n- 10:20 Booked a Skyline Air flight to Lisbon for Maya's birthday on 9 May.\n- 11:00 Reminder: renew the passport before the Lisbon trip.\n"
+    },
+    {
+      "path": "memory/2026-05-20.md",
+      "text": "# 2026-05-20\n\n- 16:00 Heron kickoff retro: we decided on Postgres instead of MySQL for the ledger tables.\n- 16:30 Dev Raman asked for a demo of the invoice export before the March launch.\n"
+    },
+    {
+      "path": "memory/2026-08-11.md",
+      "text": "# 2026-08-11\n\n- 08:15 Biscuit had a vet visit; Dr. Alvarez says the weight is fine.\n- 12:30 Lunch with Priya Nair's brother about the allotment waiting list.\n"
+    }
+  ],
+  "agent": [
+    {
+      "path": "memory/agent/climbing.md",
+      "text": "# Climbing\n\nJordan goes bouldering at Boulder Works on Tuesday evenings.\n"
+    },
+    {
+      "path": "memory/agent/travel.md",
+      "text": "# Travel\n\nJordan prefers trains to planes and dislikes red-eye flights.\n"
+    },
+    {
+      "path": "memory/agent/allergy.md",
+      "text": "# Allergy\n\nJordan is allergic to shellfish, so never suggest prawn or crab dishes.\n"
+    },
+    {
+      "path": "memory/agent/reading.md",
+      "text": "# Reading\n\nJordan is reading The Overstory on the e-reader before bed.\n"
+    },
+    {
+      "path": "memory/agent/sleep.md",
+      "text": "# Sleep\n\nJordan goes to bed around 22:30 and wakes at 6:15.\n"
+    },
+    {
+      "path": "memory/agent/music.md",
+      "text": "# Music\n\nJordan listens to jazz while coding, mostly Coltrane and Monk.\n"
+    },
+    {
+      "path": "memory/agent/taxes.md",
+      "text": "# Taxes\n\nQuarterly tax estimates are due on the 15th, and the accountant is Lena Fischer.\n"
+    },
+    {
+      "path": "memory/agent/niece.md",
+      "text": "# Family\n\nMaya's daughter Ines turns seven in May and loves dinosaurs.\n"
+    },
+    {
+      "path": "memory/agent/editor.md",
+      "text": "# Editor\n\nJordan's editor is Neovim with the Gruvbox theme.\n"
+    },
+    {
+      "path": "memory/agent/standup.md",
+      "text": "# Standup\n\nThe Brightwell standup is at 9:30 in the Orion room.\n"
+    },
+    {
+      "path": "memory/agent/pills.md",
+      "text": "# Dog care\n\nBiscuit gets a heartworm tablet on the first day of each month.\n"
+    },
+    {
+      "path": "memory/agent/birthday.md",
+      "text": "# Birthdays\n\nDev Raman's birthday is on 4 September; he likes lemon cake.\n"
+    },
+    {
+      "path": "memory/agent/bird.md",
+      "text": "# Bird sighting\n\nSaw a grey heron by the lake during a run, a nice bird to spot in winter.\n"
+    },
+    {
+      "path": "memory/agent/poetry.md",
+      "text": "# Bookshelf\n\nJordan owns a Maya Angelou poetry collection on the living room shelf.\n"
+    },
+    {
+      "path": "memory/agent/barista.md",
+      "text": "# Cafe\n\nDevon Clarke is the barista at the corner cafe and remembers the usual order.\n"
+    },
+    {
+      "path": "memory/agent/r1-weather.md",
+      "text": "# Weather\n\nAsked about the weather in Ashford on Monday.\n"
+    },
+    {
+      "path": "memory/agent/r2-conversion.md",
+      "text": "# Conversion\n\nAsked to convert three cups into millilitres.\n"
+    },
+    {
+      "path": "memory/agent/r3-trains.md",
+      "text": "# Trains\n\nLooked up train times to Bristol for Saturday.\n"
+    },
+    {
+      "path": "memory/agent/r4-pasta.md",
+      "text": "# Pasta\n\nAsked for a quick pasta recipe with garlic.\n"
+    },
+    {
+      "path": "memory/agent/r5-keyboard.md",
+      "text": "# Keyboard\n\nTried the Colemak keyboard layout for a week.\n"
+    }
+  ]
+}

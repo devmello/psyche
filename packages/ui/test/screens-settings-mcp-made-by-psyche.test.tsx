@@ -93,7 +93,7 @@ describe("Connectors → made by Psyche", () => {
     expect(within(card).getByText("Changes since version 1")).toBeTruthy();
     expect(gateway().calls.map((c) => c.method)).not.toContain("mcp.add");
 
-    const allow = await within(card).findByRole("button", { name: "Allow with scope" });
+    const allow = await within(card).findByRole("button", { name: "Allow" });
     await waitFor(() => expect((allow as HTMLButtonElement).disabled).toBe(false));
     await userEvent.click(allow);
     expect(await screen.findByText("Notes tools updated.")).toBeTruthy();

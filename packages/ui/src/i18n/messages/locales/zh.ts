@@ -2,6 +2,7 @@ import type { Catalogue } from "../index.ts";
 import { actionErrors } from "./action-errors/zh.ts";
 import { agent } from "./agent/zh.ts";
 import { agentNotes } from "./agent-notes/zh.ts";
+import { approvalsW3 } from "./approvals-w3/zh.ts";
 import { audit } from "./audit/zh.ts";
 import { automationChat } from "./automation-chat/zh.ts";
 import { blocks } from "./blocks/zh.ts";
@@ -33,6 +34,7 @@ import { memoryMap } from "./memory-map/zh.ts";
 import { memoryPage } from "./memory-page/zh.ts";
 import { memoryReview } from "./memory-review/zh.ts";
 import { memorySettings } from "./memory-settings/zh.ts";
+import { nightShift } from "./night-shift/zh.ts";
 import { notices } from "./notices/zh.ts";
 import { nudges } from "./nudges/zh.ts";
 import { onboarding } from "./onboarding/zh.ts";
@@ -219,6 +221,26 @@ export const zh: Partial<Catalogue> = {
   "errors.reason.awaiting_owner": "某个应用有未保存的更改。Psyche 会等你决定如何处理。",
   "errors.reason.checkout_needs_desktop":
     "要在 Psyche 的浏览器中付款，需要将 Psyche 桌面应用连接到此主机。",
+  "errors.reason.permission_missing":
+    "Psyche Helper 还没有执行此操作所需的 macOS 权限。请在“系统设置”→“隐私与安全性”中允许，然后重试。",
+  "errors.reason.permission_denied":
+    "Psyche Helper 无权执行此操作。请在“系统设置”→“隐私与安全性”中打开，然后重试。",
+  "errors.reason.automation_denied":
+    "Psyche Helper 无权控制此 App。请在“系统设置”→“隐私与安全性”→“自动化”中打开，然后重试。",
+  "errors.reason.automation_not_granted":
+    "Psyche Helper 还不能控制此 App。请重试，并在 macOS 询问时选择“好”。",
+  "errors.reason.full_disk_access_missing":
+    "Psyche Helper 需要“完全磁盘访问权限”才能读取“信息”。请在“系统设置”→“隐私与安全性”→“完全磁盘访问权限”中打开，然后重启 Psyche Helper。",
+  "errors.reason.prompt_refused_by_macos":
+    "macOS 没有显示权限请求。请改为在“系统设置”→“隐私与安全性”中允许 Psyche Helper。",
+  "errors.reason.app_not_running": "该 App 没有打开。请打开它，然后重试。",
+  "errors.reason.needs_helper":
+    "此操作需要 Psyche Helper，但它没有运行。请在“设置”→“设备”中重启它。",
+  "errors.reason.apple_not_connected": "Apple 的 App 尚未连接。请在“设置”→“连接器”中连接。",
+  "errors.reason.no_folder_shared": "还没有共享任何文件夹。请在“设置”→“文件访问”中共享一个。",
+  "errors.reason.memory_opening": "记忆仍在打开。请稍后重试。",
+  "errors.reason.outlook_object_model_guard":
+    "由于 Windows 未检测到最新的杀毒软件，Outlook 阻止其他程序读取邮件或发送邮件。请开启 Windows 安全中心，或在 Outlook →“文件”→“选项”→“信任中心”中将“编程访问”设为“从不警告”，然后重试。",
   "errors.reason.no_chromium":
     "Psyche 的浏览器需要此主机上的 Chromium。请安装它，或设置 PSYCHE_CHROMIUM。",
   "errors.reason.chromium_sandbox":
@@ -239,6 +261,11 @@ export const zh: Partial<Catalogue> = {
   "errors.tab_not_found": "该浏览器标签页已关闭。",
   "errors.method_not_allowed": "浏览器不允许该操作。",
   "errors.presence_required": "请先通过通行密钥或 Mac 助手确认是你本人。",
+  "errors.presence_unavailable_here": "批准需要有人在这台电脑前。请登录它的桌面后重试。",
+  "errors.presence_agent_missing": "这个桌面没有运行密码提示，所以无法确认是你本人。",
+  "errors.presence_policy_missing":
+    "这台电脑还没有设置好确认你本人的功能。请安装 Psyche 的批准策略后重试。",
+  "errors.presence_not_enforced": "这台电脑不会要求输入密码就批准，所以无法确认是你本人。",
   "errors.offline": "无法连接到 Psyche。",
   "errors.unknown": "出了点问题。",
 
@@ -1799,6 +1826,12 @@ export const zh: Partial<Catalogue> = {
   "settings.computerUse.helperAccess.offline":
     "Psyche Helper 未运行，无法读取它的权限。它随 Psyche 启动；若一直离线，请退出并重新打开 Psyche。",
   "settings.computerUse.helperAccess.allow": "允许 Psyche Helper",
+  "settings.computerUse.helperAccess.lost":
+    "macOS 撤销了 Psyche Helper 的这项权限，通常发生在更新之后：请在“系统设置”中将 Psyche Helper 关闭再重新打开，然后重启 Psyche Helper。",
+  "settings.computerUse.helperAccess.restartToApply":
+    "Psyche Helper 重启后，macOS 才会应用这项权限。",
+  "settings.computerUse.helperAccess.restart": "重启 Psyche Helper",
+  "settings.computerUse.helperAccess.restartFor": "重启 Psyche Helper 以应用{name}",
   "settings.computerUse.helperAccess.allowFor": "允许 Psyche Helper 使用{name}",
   "settings.computerUse.title": "电脑使用",
   "settings.computerUse.description": "{persona} 只能在你允许的范围内使用这台 Mac 上的 App。",
@@ -1806,6 +1839,10 @@ export const zh: Partial<Catalogue> = {
   "settings.computerUse.loadLabel": "电脑使用",
   "settings.computerUse.macPermissions": "macOS 权限",
   "settings.computerUse.openSystemSettings": "打开系统设置",
+  "settings.computerUse.fullDiskAccess.name": "完全磁盘访问权限",
+  "settings.computerUse.fullDiskAccess.why":
+    "让 {persona} 读取你的信息。macOS 不会为此弹出提示：请在列表中添加 Psyche Helper。",
+  "settings.computerUse.fullDiskAccess.open": "在“系统设置”中打开“完全磁盘访问权限”",
   "settings.computerUse.apps": "App",
   "settings.computerUse.enabledHint": "关闭后会停止下方所有 App。每个 App 在首次使用时询问。",
   "settings.computerUse.noApps": "还没有 App。App 首次被使用时会出现在这里。",
@@ -2727,6 +2764,10 @@ export const zh: Partial<Catalogue> = {
   "settings.connect.notAskedYet":
     "{name} 已设置，但 macOS 尚未向你询问。“重新检查”会在 Mac 上显示 macOS 的提示。",
   "settings.connect.noPrompt": "macOS 未显示提示：{reason}",
+  "settings.connect.path.automation": "“系统设置”→“隐私与安全性”→“自动化”→ Psyche (Helper) → {app}",
+  "settings.connect.path.privacy": "“系统设置”→“隐私与安全性”→ {pane} → Psyche (Helper)",
+  "settings.connect.path.shortcuts": "“快捷指令”App",
+  "settings.connect.path.files": "“设置”→ Psyche 中的“文件访问”",
   "settings.connect.checkAgain": "重新检查",
   "settings.connectors.status.needsPermission": "需要权限",
   "settings.connectors.catalog.connected": "{name}（已连接）",
@@ -3882,6 +3923,8 @@ export const zh: Partial<Catalogue> = {
   ...computerWatch,
   // Psyche points (docs/design/psyche-points-2026.md §9)
   ...points,
+  // Approvals wave W3 (card choices, Allowed list)
+  ...approvalsW3,
   // Gateway-authored notices (inbox notifications, security alerts)
   ...notices,
   // Settings > Computer use > Separate desktop (Linux)
@@ -3889,6 +3932,7 @@ export const zh: Partial<Catalogue> = {
   // Windows variants of the sandbox PC, voice keys and platform terms
   ...windowsPlatform202611,
   ...mailFollowups,
+  ...nightShift,
   ...keepAwake,
   ...friction,
   ...update,

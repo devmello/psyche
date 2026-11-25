@@ -1,6 +1,7 @@
 import type { ApprovalRequest, Notification, NotificationKind } from "@psyche/protocol";
 import {
   Bell,
+  ChevronDown,
   CircleAlert,
   CircleCheck,
   CircleHelp,
@@ -14,10 +15,22 @@ import {
 } from "lucide-react";
 import { type ReactElement, type ReactNode, useEffect, useId, useState } from "react";
 import { toast } from "sonner";
+import {
+  type AllowScope,
+  answerFor,
+  defaultAllow as defaultAllowOf,
+  inlineChoices,
+} from "../../blocks/approval-choice.ts";
 import { DelayedSkeletons } from "../../components/DelayedSkeleton.tsx";
 import { EmptyState, ErrorState, useDelayedFlag } from "../../components/page.tsx";
 import { StatusGlyph, type StatusKind } from "../../components/status.tsx";
 import { Button } from "../../components/ui/button.tsx";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "../../components/ui/dropdown-menu.tsx";
 import { Skeleton } from "../../components/ui/skeleton.tsx";
 import { useApproval, useCall, useNotifications, useTask } from "../../data/hooks.ts";
 import { isMessageId, t } from "../../i18n/core.ts";
@@ -140,7 +153,8 @@ export interface InboxRowProps {
   busy?: boolean;
   /** Approve takes the accent fill; the view gives it to one row only (one primary per view). */
   primary?: boolean;
-  onApprove?: (n: Notification) => void;
+  /** `pick` is the choice from the Allow menu; absent is plain Allow (the narrowest scope). */
+  onApprove?: (n: Notification, pick?: AllowScope) => void;
   onDeny?: (n: Notification) => void;
   /** Opens `notification.route` (Answer, Open, Open card). */
   onOpen?: (n: Notification) => void;
@@ -180,7 +194,7 @@ function ApprovalControls({
   now: number;
   busy: boolean;
   primary: boolean;
-  onApprove?: (n: Notification) => void;
+  onApprove?: (n: Notification, pick?: AllowScope) => void;
   onDeny?: (n: Notification) => void;
   onOpen?: (n: Notification) => void;
 }): ReactElement {
@@ -230,6 +244,13 @@ function ApprovalControls({
     !a.requiresAuthentication &&
     state?.canAnswer &&
     !state.stale;
+  const inlineSet = inline ? inlineChoices(a) : null;
+  const lasting = inlineSet?.all ?? [];
+  // The label says what plain Approve sends: once, unless the card offers no once.
+  const approveLabel =
+    inlineSet?.allow != null && inlineSet.allow.value !== "once"
+      ? t("approvals.inbox.approveWith", { label: inlineSet.allow.label, summary: a.summary })
+      : t("screens.inbox.approveLabel", { summary: a.summary });
   return (
     <>
       {countdown}
@@ -252,10 +273,35 @@ function ApprovalControls({
             variant={primary ? "default" : "outline"}
             disabled={busy || !armed}
             onClick={() => onApprove?.(n)}
-            aria-label={t("screens.inbox.approveLabel", { summary: a.summary })}
+            aria-label={approveLabel}
           >
             {t("screens.inbox.approve")}
           </Button>
+          {/* The same choices as the card's second button and More options, never an invented one. */}
+          {lasting.length > 0 ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                render={
+                  <Button
+                    type="button"
+                    size="icon-xs"
+                    variant="ghost"
+                    disabled={busy || !armed}
+                    aria-label={t("approvals.inbox.allowMenu", { summary: a.summary })}
+                  />
+                }
+              >
+                <ChevronDown aria-hidden="true" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                {lasting.map((c) => (
+                  <DropdownMenuItem key={c.value} onClick={() => onApprove?.(n, c.value)}>
+                    {c.label}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : null}
         </>
       ) : (
         openCard
@@ -675,9 +721,15 @@ function ConnectedInboxRow({
       busy={busy}
       primary={primary}
       approval={{ approval: ap.approval, canAnswer: ap.canAnswer, stale: ap.stale }}
-      onApprove={() => {
+      onApprove={(_n, pick) => {
         read();
-        run(() => ap.answer("approve", "once"), t("screens.inbox.sendApprovalFailed"));
+        // Plain Allow sends the narrowest scope the card offers; a menu choice sends its own.
+        const a = ap.approval;
+        const sent = answerFor(pick ?? (a === null ? "once" : defaultAllowOf(a)));
+        run(
+          () => ap.answer("approve", sent.scope, sent.extras),
+          t("screens.inbox.sendApprovalFailed"),
+        );
       }}
       onDeny={() => {
         read();

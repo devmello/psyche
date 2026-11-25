@@ -61,7 +61,7 @@ export function EverythingAdvancedGroups({
         localConfirmed={localConfirmed}
         onConfirmLocal={onConfirmLocal}
       />
-      <Group title={t("everything.schedule.title")}>
+      <Group title={t("everything.schedule.title")} description={t("everything.schedule.hint")}>
         <TimeField
           label={t("everything.schedule.quietStart")}
           value={value.schedule.quietHoursStart}

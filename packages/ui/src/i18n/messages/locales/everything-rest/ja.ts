@@ -110,8 +110,10 @@ export const everythingRest: Partial<Catalogue> = {
   "everything.agent.allHint": "確認待ちの事実も、未確認と明示して含めます。",
   "everything.agent.sensitive": "エージェントに機微な事実を見せる",
   "everything.schedule.title": "夜間のスケジュール",
-  "everything.schedule.quietStart": "おやすみ時間の開始",
-  "everything.schedule.quietEnd": "おやすみ時間の終了",
+  "everything.schedule.quietStart": "夜間処理の開始",
+  "everything.schedule.quietEnd": "夜間処理の終了",
+  "everything.schedule.hint":
+    "Psycheが学んだことを読み込んで整理してよい時間帯です。通知の静音時間とは別のものです。",
   "everything.schedule.battery": "バッテリー駆動中も実行",
   "everything.schedule.batteryHint":
     "オフの場合: 電源接続中で、低電力モードでなく、不在のときのみ実行します。",
@@ -135,7 +137,7 @@ export const everythingRest: Partial<Catalogue> = {
   "everything.run.reason.low_power": "今は実行できません: 低電力モードがオンです。",
   "everything.run.reason.thermal": "今は実行できません: Macの温度が高すぎます。",
   "everything.run.reason.not_idle": "今は実行できません: Macを使用中です。",
-  "everything.run.reason.outside_quiet_hours": "今は実行できません: おやすみ時間の外です。",
+  "everything.run.reason.outside_quiet_hours": "今は実行しません: 夜間処理の時間帯の外です。",
   "everything.run.reason.local_not_confirmed":
     "先にローカルモデルのメモリに関する警告を確認してください。",
   "everything.run.reason.low_memory":

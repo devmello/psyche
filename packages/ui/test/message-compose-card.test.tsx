@@ -61,7 +61,7 @@ function card(candidates: unknown[], over: Partial<ApprovalRequest> = {}, source
   return onAnswer;
 }
 
-const allow = () => screen.getByRole("button", { name: "Allow with scope" });
+const allow = () => screen.getByRole("button", { name: "Allow" });
 const editor = () => screen.getByRole("textbox", { name: /Message text/ });
 
 describe("message_send compose card", () => {

@@ -2,6 +2,7 @@ import type { Catalogue } from "../index.ts";
 import { actionErrors } from "./action-errors/ar.ts";
 import { agent } from "./agent/ar.ts";
 import { agentNotes } from "./agent-notes/ar.ts";
+import { approvalsW3 } from "./approvals-w3/ar.ts";
 import { audit } from "./audit/ar.ts";
 import { automationChat } from "./automation-chat/ar.ts";
 import { blocks } from "./blocks/ar.ts";
@@ -33,6 +34,7 @@ import { memoryMap } from "./memory-map/ar.ts";
 import { memoryPage } from "./memory-page/ar.ts";
 import { memoryReview } from "./memory-review/ar.ts";
 import { memorySettings } from "./memory-settings/ar.ts";
+import { nightShift } from "./night-shift/ar.ts";
 import { notices } from "./notices/ar.ts";
 import { nudges } from "./nudges/ar.ts";
 import { onboarding } from "./onboarding/ar.ts";
@@ -224,6 +226,28 @@ export const ar: Partial<Catalogue> = {
     "يحتوي تطبيق على تغييرات غير محفوظة. ينتظر Psyche أن تقرر ما يحدث لها.",
   "errors.reason.checkout_needs_desktop":
     "يتطلب الدفع في متصفح Psyche أن يكون تطبيق Psyche لسطح المكتب متصلاً بهذا المضيف.",
+  "errors.reason.permission_missing":
+    "لا يملك Psyche Helper بعدُ إذن macOS لهذا. اسمح به في إعدادات النظام ← الخصوصية والأمن، ثم حاول مجددًا.",
+  "errors.reason.permission_denied":
+    "غير مسموح لـ Psyche Helper بفعل هذا. فعّله في إعدادات النظام ← الخصوصية والأمن، ثم حاول مجددًا.",
+  "errors.reason.automation_denied":
+    "غير مسموح لـ Psyche Helper بالتحكم في هذا التطبيق. فعّله في إعدادات النظام ← الخصوصية والأمن ← الأتمتة، ثم حاول مجددًا.",
+  "errors.reason.automation_not_granted":
+    "لا يستطيع Psyche Helper التحكم في هذا التطبيق بعد. حاول مجددًا واختر «موافق» عندما يسأل macOS.",
+  "errors.reason.full_disk_access_missing":
+    "يحتاج Psyche Helper إلى الوصول الكامل إلى القرص لقراءة الرسائل. فعّله في إعدادات النظام ← الخصوصية والأمن ← الوصول الكامل إلى القرص، ثم أعد تشغيل Psyche Helper.",
+  "errors.reason.prompt_refused_by_macos":
+    "لم يعرض macOS طلب الإذن. اسمح لـ Psyche Helper في إعدادات النظام ← الخصوصية والأمن بدلًا من ذلك.",
+  "errors.reason.app_not_running": "هذا التطبيق غير مفتوح. افتحه ثم حاول مجددًا.",
+  "errors.reason.needs_helper":
+    "يحتاج هذا إلى Psyche Helper، وهو لا يعمل الآن. أعد تشغيله من الإعدادات ← الأجهزة.",
+  "errors.reason.apple_not_connected":
+    "تطبيقات Apple غير متصلة بعد. اربطها من الإعدادات ← الموصّلات.",
+  "errors.reason.no_folder_shared":
+    "لم تتم مشاركة أي مجلد بعد. شارك مجلدًا من الإعدادات ← الوصول إلى الملفات.",
+  "errors.reason.memory_opening": "الذاكرة قيد الفتح. حاول مجددًا بعد لحظة.",
+  "errors.reason.outlook_object_model_guard":
+    "يمنع Outlook البرامج الأخرى من قراءة البريد أو إرساله لأن Windows لا يبلّغ عن برنامج مكافحة فيروسات محدَّث. فعّل أمان Windows، أو اضبط «الوصول البرمجي» على «عدم التحذير أبدًا» في Outlook ← ملف ← خيارات ← مركز التوثيق، ثم حاول مجددًا.",
   "errors.reason.no_chromium":
     "يحتاج متصفح Psyche إلى Chromium على هذا المضيف. ثبّته أو اضبط PSYCHE_CHROMIUM.",
   "errors.reason.chromium_sandbox":
@@ -244,6 +268,14 @@ export const ar: Partial<Catalogue> = {
   "errors.tab_not_found": "علامة تبويب المتصفح تلك مغلقة.",
   "errors.method_not_allowed": "لا يسمح المتصفح بهذا الإجراء.",
   "errors.presence_required": "أكّد أنك أنت عبر مفتاح مرور أو مساعد Mac أولًا.",
+  "errors.presence_unavailable_here":
+    "تحتاج الموافقة إلى شخص أمام الحاسوب. سجّل الدخول إلى سطح مكتبه وحاول مرة أخرى.",
+  "errors.presence_agent_missing":
+    "لا توجد نافذة لطلب كلمة المرور تعمل على سطح المكتب هذا، لذا لا يمكن التأكد من أنك أنت.",
+  "errors.presence_policy_missing":
+    "هذا الحاسوب غير مهيّأ بعد للتأكد من أنك أنت. ثبّت سياسة الموافقة في Psyche وحاول مرة أخرى.",
+  "errors.presence_not_enforced":
+    "كان هذا الحاسوب سيوافق دون طلب كلمة مرور، لذا لا يمكن التأكد من أنك أنت.",
   "errors.offline": "تعذّر الوصول إلى Psyche.",
   "errors.unknown": "حدث خطأ ما.",
 
@@ -1847,6 +1879,12 @@ export const ar: Partial<Catalogue> = {
   "settings.computerUse.helperAccess.offline":
     "Psyche Helper لا يعمل، لذا تتعذّر قراءة أذوناته. يبدأ مع Psyche؛ أغلق Psyche وأعد فتحه إن بقي غير متصل.",
   "settings.computerUse.helperAccess.allow": "السماح لـ Psyche Helper",
+  "settings.computerUse.helperAccess.lost":
+    "أزال macOS هذا الإذن من Psyche Helper، غالبًا بعد تحديث: في إعدادات النظام، أوقف Psyche Helper ثم شغّله مجددًا، ثم أعد تشغيله.",
+  "settings.computerUse.helperAccess.restartToApply":
+    "يطبّق macOS هذا الإذن عند إعادة تشغيل Psyche Helper.",
+  "settings.computerUse.helperAccess.restart": "إعادة تشغيل Psyche Helper",
+  "settings.computerUse.helperAccess.restartFor": "إعادة تشغيل Psyche Helper لتطبيق {name}",
   "settings.computerUse.helperAccess.allowFor": "السماح لـ Psyche Helper بـ {name}",
   "settings.computerUse.title": "استخدام الكمبيوتر",
   "settings.computerUse.description":
@@ -1855,6 +1893,10 @@ export const ar: Partial<Catalogue> = {
   "settings.computerUse.loadLabel": "استخدام الكمبيوتر",
   "settings.computerUse.macPermissions": "أذونات macOS",
   "settings.computerUse.openSystemSettings": "فتح إعدادات النظام",
+  "settings.computerUse.fullDiskAccess.name": "الوصول الكامل إلى القرص",
+  "settings.computerUse.fullDiskAccess.why":
+    "يتيح لـ {persona} قراءة رسائلك. لا يعرض macOS طلب إذن له: أضف Psyche Helper إلى القائمة.",
+  "settings.computerUse.fullDiskAccess.open": "فتح «الوصول الكامل إلى القرص» في إعدادات النظام",
   "settings.computerUse.apps": "التطبيقات",
   "settings.computerUse.enabledHint":
     "الإيقاف يوقف كل التطبيقات أدناه. يُسأل عن كل تطبيق عند أول استخدام.",
@@ -2828,6 +2870,11 @@ export const ar: Partial<Catalogue> = {
   "settings.connect.notAskedYet":
     "{name} مُعَدّ، لكن macOS لم يسألك بعد. «فحص مرة أخرى» يعرض مطالبة macOS على الـ Mac.",
   "settings.connect.noPrompt": "لم يعرض macOS مطالبة: {reason}",
+  "settings.connect.path.automation":
+    "إعدادات النظام ← الخصوصية والأمن ← الأتمتة ← Psyche (Helper) ← {app}",
+  "settings.connect.path.privacy": "إعدادات النظام ← الخصوصية والأمن ← {pane} ← Psyche (Helper)",
+  "settings.connect.path.shortcuts": "تطبيق الاختصارات",
+  "settings.connect.path.files": "الإعدادات ← الوصول إلى الملفات في Psyche",
   "settings.connect.checkAgain": "فحص مرة أخرى",
   "settings.connectors.status.needsPermission": "يحتاج إلى إذن",
   "settings.connectors.catalog.connected": "{name} (متصل)",
@@ -4008,6 +4055,8 @@ export const ar: Partial<Catalogue> = {
   ...computerWatch,
   // Psyche points (docs/design/psyche-points-2026.md §9)
   ...points,
+  // Approvals wave W3 (card choices, Allowed list)
+  ...approvalsW3,
   // Gateway-authored notices (inbox notifications, security alerts)
   ...notices,
   // Settings > Computer use > Separate desktop (Linux)
@@ -4015,6 +4064,7 @@ export const ar: Partial<Catalogue> = {
   // Windows variants of the sandbox PC, voice keys and platform terms
   ...windowsPlatform202611,
   ...mailFollowups,
+  ...nightShift,
   ...keepAwake,
   ...friction,
   ...update,

@@ -120,4 +120,6 @@ export const notices: Partial<Catalogue> = {
   "notice.automation.interrupted.title": "{title} foi interrompido",
   "notice.automation.interrupted.body":
     "O Psyche reiniciou enquanto rodava e pode já ter feito uma parte. Confira o resultado e execute de novo se precisar.",
+  "notice.promise.due.title": "Uma promessa vence em breve",
+  "notice.promise.due.body": "Abra o Psyche para ver qual.",
 };

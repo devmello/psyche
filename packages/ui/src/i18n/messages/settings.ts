@@ -258,7 +258,7 @@ export const settings = {
   "settings.notifications.description": "When Psyche may interrupt you.",
   "settings.notifications.group.quietHours": "Quiet hours",
   "settings.notifications.quietHours.hint":
-    "Holds notifications until the window ends. Time-sensitive approvals still come through.",
+    "Holds notifications until the window ends. Time-sensitive approvals still come through. The overnight memory pass has its own hours, in the Memory settings.",
   "settings.key.voice.engine": "Speech engine",
   "settings.key.voice.conversation.enabled": "Talk with Psyche",
   "settings.key.voice.conversation.key": "Voice key",
@@ -657,7 +657,7 @@ export const settings = {
     "Touch ID or the passkey didn't confirm it's you. Try again.",
   "settings.approval.loading": "Loading the approval…",
 
-  // A connector's per-action rules (ActionMatrix.tsx, RadioTableRow.tsx).
+  // A connector's per-action rules (ActionMatrix.tsx).
   "settings.actions.rule.allow": "Allow",
   "settings.actions.rule.ask": "Ask",
   "settings.actions.rule.deny": "Deny",
@@ -1135,6 +1135,12 @@ export const settings = {
   "settings.computerUse.helperAccess.offline":
     "Psyche Helper isn't running, so its permissions can't be read. It starts with Psyche; quit and reopen Psyche if it stays offline.",
   "settings.computerUse.helperAccess.allow": "Allow Psyche Helper",
+  "settings.computerUse.helperAccess.lost":
+    "macOS dropped this permission for Psyche Helper, usually after an update: in System Settings, turn Psyche Helper off and on again, then restart it.",
+  "settings.computerUse.helperAccess.restartToApply":
+    "macOS applies this permission once Psyche Helper restarts.",
+  "settings.computerUse.helperAccess.restart": "Restart Psyche Helper",
+  "settings.computerUse.helperAccess.restartFor": "Restart Psyche Helper to apply {name}",
   "settings.computerUse.helperAccess.allowFor": "Allow Psyche Helper for {name}",
   "settings.computerUse.title": "Computer use",
   "settings.computerUse.description": "{persona} can use apps on this Mac only where you allow it.",
@@ -1142,6 +1148,10 @@ export const settings = {
   "settings.computerUse.loadLabel": "computer use",
   "settings.computerUse.macPermissions": "macOS permissions",
   "settings.computerUse.openSystemSettings": "Open System Settings",
+  "settings.computerUse.fullDiskAccess.name": "Full Disk Access",
+  "settings.computerUse.fullDiskAccess.why":
+    "lets {persona} read your Messages. macOS has no prompt for it: add Psyche Helper to the list.",
+  "settings.computerUse.fullDiskAccess.open": "Open Full Disk Access in System Settings",
   "settings.computerUse.appsHint": "How far Psyche may go in each app.",
   "settings.computerUse.apps": "Apps",
   "settings.computerUse.enabledHint":
@@ -3049,6 +3059,12 @@ export const settings = {
   "settings.connect.notAskedYet":
     "{name} is set up, but macOS has not asked you yet. Check again shows the macOS prompt on the Mac.",
   "settings.connect.noPrompt": "macOS did not show a prompt: {reason}",
+  "settings.connect.path.automation":
+    "System Settings → Privacy & Security → Automation → Psyche (Helper) → {app}",
+  "settings.connect.path.privacy":
+    "System Settings → Privacy & Security → {pane} → Psyche (Helper)",
+  "settings.connect.path.shortcuts": "the Shortcuts app",
+  "settings.connect.path.files": "Settings → File access in Psyche",
   "settings.connect.checkAgain": "Check again",
   "settings.connectors.status.needsPermission": "Needs permission",
   "settings.connectors.catalog.connected": "{name} (connected)",

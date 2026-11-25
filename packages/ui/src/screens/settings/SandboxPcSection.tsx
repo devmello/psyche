@@ -4,7 +4,7 @@ import { Button } from "../../components/ui/button.tsx";
 import { Progress } from "../../components/ui/progress.tsx";
 import { useCall, useGatewayQuery, useVmGuests } from "../../data/hooks.ts";
 import { t } from "../../i18n/core.ts";
-import { describeError } from "../../i18n/errors.ts";
+import { describeError, describeStepError } from "../../i18n/errors.ts";
 import { formatRelative } from "../../lib/format.ts";
 import { type SandboxPcSlot, type SandboxPcState, usePersona, useSlots } from "../../slots.tsx";
 import { ErrorNotice, Group, StatusChip } from "./shared.tsx";
@@ -426,7 +426,7 @@ export function SandboxPcConnected({ now }: { now?: number }): ReactElement | nu
       setError(null);
       try {
         const r = await call("nodes.invoke", { nodeId: helper.id, capability, params });
-        if (!r.ok) setError(r.error?.message ?? capability);
+        if (!r.ok) setError(r.error ? describeStepError(r.error) : capability);
       } catch (err) {
         setError(describeError(err));
       } finally {

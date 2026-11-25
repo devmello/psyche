@@ -119,4 +119,6 @@ export const notices = {
   "notice.automation.interrupted.title": "{title} was interrupted",
   "notice.automation.interrupted.body":
     "Psyche restarted while it was running, and it may have done part of it. Check the result, then run it again if you need to.",
+  "notice.promise.due.title": "A promise is due soon",
+  "notice.promise.due.body": "Open Psyche to see which one.",
 } as const;

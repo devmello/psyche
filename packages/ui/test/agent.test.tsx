@@ -84,11 +84,11 @@ describe("ApprovalsPanel", () => {
     const card = groups.find((g) => /jane\.ortiz/.test(g.textContent ?? ""));
     if (card === undefined) throw new Error("send_email card not found");
     await waitFor(() =>
-      expect(
-        within(card).getByRole("button", { name: "Allow with scope" }).hasAttribute("disabled"),
-      ).toBe(false),
+      expect(within(card).getByRole("button", { name: "Allow" }).hasAttribute("disabled")).toBe(
+        false,
+      ),
     );
-    await userEvent.click(within(card).getByRole("button", { name: "Allow with scope" }));
+    await userEvent.click(within(card).getByRole("button", { name: "Allow" }));
     await waitFor(() => {
       const call = ref.gateway?.calls.find((c) => c.method === "approvals.answer");
       expect(call?.params).toMatchObject({

@@ -232,6 +232,17 @@ export function YouStep({
           ))}
         </div>
       </Advanced>
+      {rerun ? null : (
+        <Advanced title={t("onboarding.restore.title")}>
+          <div className="flex flex-col gap-2" data-testid="onboarding-restore">
+            <p className="text-callout text-label-secondary">{t("onboarding.restore.where")}</p>
+            <code className="break-all rounded-md bg-surface-raised px-3 py-2 text-callout">
+              psyche backup restore $PSYCHE_HOME/backups/&lt;file&gt;
+            </code>
+            <p className="text-callout text-label-secondary">{t("onboarding.restore.unlock")}</p>
+          </div>
+        </Advanced>
+      )}
     </div>
   );
 }

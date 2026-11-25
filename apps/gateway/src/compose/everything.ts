@@ -701,6 +701,11 @@ export interface EverythingDeps {
   passageIndex?: () => Pick<PassageDeps, "index" | "document" | "cloudBlocked"> | undefined;
   /** The machine, read once when the pass starts (tests pass fixed numbers). */
   readState?: () => Promise<PassDeps["state"]>;
+  /**
+   * The people graph's model pass, run inside this pass's window on its token budget (the tokens
+   * left tonight, and the people this pass already read items about, which it leaves alone).
+   */
+  graphModelPass?: PassDeps["graphModelPass"];
   /** Posts the "Psyche learned N things" card to the Feed (no notification). */
   announce?: (card: { title: string; bodyMd: string; widget?: FeedWidget }) => void;
   logger?: { log(level: "warn", msg: string, fields?: Record<string, unknown>): void };
@@ -738,6 +743,11 @@ export interface Everything {
   readonly job: ProactiveJob;
   /** "Run now": same pass and limits, minus quiet hours and idle time. */
   runNow(): Promise<EverythingRunResult>;
+  /**
+   * Whether this pass runs the people graph's model pass in its window (it is on, reads a source
+   * and has a model for it): the graph's own nightly step then leaves the model pass to it.
+   */
+  ownsGraphPass(): boolean;
   /** The brief's "Learned yesterday" line, while the last run is recent and found something. */
   learnedYesterday(): { text: string; link: string } | undefined;
   /** "Coming up" lines for the morning brief: birthdays, anniversaries and events, 14 days. */
@@ -926,6 +936,7 @@ export function composeEverything(deps: EverythingDeps): Everything {
       },
       // The owner confirms the RAM warning for one named model; changing it asks again.
       localModelConfirmed: localRefs.every((r) => r !== undefined && confirmed.has(r)),
+      ...(deps.graphModelPass === undefined ? {} : { graphModelPass: deps.graphModelPass }),
       // Work in the owner's notes only with their work-tracking consent.
       workConsent: workSettings(getSetting(db, MEMORY_WORK_SETTING_KEY)?.value).enabled,
     };
@@ -1078,6 +1089,15 @@ export function composeEverything(deps: EverythingDeps): Everything {
     nightly,
     job,
     runNow: () => runNowFn(),
+    ownsGraphPass() {
+      if (deps.graphModelPass === undefined) return false;
+      const s = settings();
+      if (!s.enabled) return false;
+      const per = s.model.perSource as Record<string, { kind: string }> | undefined;
+      return Object.entries(s.sources).some(
+        ([src, on]) => on === true && (per?.[src] ?? s.model.default).kind !== "none",
+      );
+    },
     comingUp() {
       if (!settings().enabled) return [];
       const now = clock.now();

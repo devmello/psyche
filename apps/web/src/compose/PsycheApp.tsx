@@ -77,7 +77,7 @@ import { DesktopHelperBanner, fixTouchId } from "./helper.tsx";
 import { kitClient } from "./kit-client.ts";
 import { renderLibraryThumbnail } from "./library-thumbnails.tsx";
 import { writeOnboarding } from "./onboarding.ts";
-import { saveHabits, saveMemory, saveProgress } from "./onboarding-host.ts";
+import { saveHabits, saveMemory, saveNightShift, saveProgress } from "./onboarding-host.ts";
 import { useRemotePresence } from "./remote-presence.tsx";
 import {
   ClaimLanChoice,
@@ -193,11 +193,13 @@ function RoutedAgentSheet({
   presentation,
   navigate,
   onClose,
+  threadId = null,
 }: {
   route: string | null;
   presentation: "inline" | "overlay";
   navigate: (to: string) => void;
   onClose: () => void;
+  threadId?: string | null;
 }): ReactElement | null {
   const routed = route === null ? null : agentSheetRoute(route);
   // Activity, Upcoming and Growth moved to the Overview (agent-overview-2026 §3): the old
@@ -219,6 +221,7 @@ function RoutedAgentSheet({
     ...(sheet.view === undefined ? {} : { view: sheet.view }),
     ...(sheet.file === undefined ? {} : { file: sheet.file }),
     onClose: close,
+    currentThreadId: threadId,
   };
   return presentation === "inline" ? (
     <AgentSheetPanel {...body} />
@@ -265,6 +268,7 @@ export function screenRoute(route: string, navigate: (to: string) => void): Reac
       // open (docs/design/consolidation-2026.md §3.1).
       const hash = route.split("#")[1];
       const post = new URLSearchParams(query).get(HOME_POST_PARAM);
+      const review = new URLSearchParams(query).get("review");
       return page(
         "Home",
         <HomeScreen
@@ -272,6 +276,7 @@ export function screenRoute(route: string, navigate: (to: string) => void): Reac
           instructionsOpen={parts[1] === "instructions"}
           {...(hash ? { anchor: hash } : {})}
           {...(post ? { post } : {})}
+          {...(review ? { review } : {})}
         />,
       );
     }
@@ -427,6 +432,7 @@ export async function completeOnboarding(
     ...(owner?.city.trim() ? { city: owner.city.trim() } : {}),
   });
   if (result.habits) await saveHabits(call, result.habits);
+  if (result.nightShift) await saveNightShift(call);
   if (result.memory) await saveMemory(call, result.memory);
   // The mail and meetings decision screen (§7.5), when it was offered: one setting per switch.
   // Best effort: a failed write leaves that workflow off, the safe default, and the owner can
