@@ -145,8 +145,11 @@ function rig() {
   const call = {
     identity: { deviceId: "dev_mac", scopes: ["operator.approvals"] },
   } as unknown as Call;
-  const run = (method: string, params: unknown) =>
-    (ns?.defs[method]?.run as (c: Call, p: unknown) => Promise<unknown>)(call, params);
+  const run = (method: string, params: unknown) => {
+    const def = ns?.defs[method];
+    if (def === undefined) throw new Error(`no handler ${method}`);
+    return (def.run as (c: Call, p: unknown) => Promise<unknown>)(call, params);
+  };
   return { ns, db, h, clock, reminders, ran, run };
 }
 
@@ -198,10 +201,9 @@ describe("Night shift apply, undo and dismiss through the Gateway (W5)", () => {
     expect(out.approval?.kind).toBe("staged_apply");
     // The approval lists exactly the ticked items' hashes (what W6/W7 compare before answering).
     expect(
-      (out.approval?.details.items as { itemId: string; bindingHash: string }[]).map((x) => [
-        x.itemId,
-        x.bindingHash,
-      ]),
+      ((out.approval?.details.items ?? []) as { itemId: string; bindingHash: string }[]).map(
+        (x) => [x.itemId, x.bindingHash],
+      ),
     ).toEqual([a, b].map((i) => [i.id, i.bindingHash]));
     await approve(r, out);
 

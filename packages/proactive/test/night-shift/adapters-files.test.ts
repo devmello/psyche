@@ -579,7 +579,7 @@ describe("the stored call carries the identity it was judged on (W5, #1661 findi
       expect(cap.ok).toBe(true);
       const st = statSync(src(), { bigint: true });
       const parent = statSync(dirname(src()), { bigint: true });
-      const item = (cap.call?.args.items as Record<string, unknown>[])[0] as Record<
+      const item = ((cap.call?.args.items ?? []) as Record<string, unknown>[])[0] as Record<
         string,
         unknown
       >;

@@ -20,11 +20,11 @@ import { DEVICE, makeBroker } from "../../../permissions/test/helpers.ts";
 import {
   type Adapter,
   type ApplyStore,
-  type CaptureOk,
   NightShiftApply,
   sendFor,
   type ToolLookup,
 } from "../../src/index.ts";
+import type { CaptureOk } from "../../src/night-shift/adapters/types.ts";
 import { FakeRegistry, thread } from "./adapters-registry.ts";
 import { NIGHT_START } from "./rig.ts";
 

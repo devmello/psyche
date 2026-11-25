@@ -274,15 +274,13 @@ describe("apply: the send recipe", () => {
   it("refuses a send whose stored recipients were edited after staging", async () => {
     const r = applyRig();
     const d = r.draft();
-    r.db.sqlite
-      .prepare("UPDATE staged_actions SET send = ? WHERE id = ?")
-      .run(
-        JSON.stringify({
-          recipients: ["ann@x.com", "eve@evil.test"],
-          contentHash: d.send?.contentHash,
-        }),
-        d.id,
-      );
+    r.db.sqlite.prepare("UPDATE staged_actions SET send = ? WHERE id = ?").run(
+      JSON.stringify({
+        recipients: ["ann@x.com", "eve@evil.test"],
+        contentHash: d.send?.contentHash,
+      }),
+      d.id,
+    );
     const out = await r.applier.apply({
       reviewId: r.night.id,
       items: [r.tick(d)],
