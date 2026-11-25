@@ -109,8 +109,15 @@ export const STAGING_NONE_ALLOWED: ReadonlySet<string> = new Set([
 ]);
 
 /** Reads that reach the network or a live app: out of scope overnight (§3.1), whatever their class. */
-const NETWORK_READ_BARE: ReadonlySet<string> = new Set(["web_fetch", "web_search"]);
-const LIVE_READ_PREFIX = /^(browser|computer|harness|exec|sandbox|vm)([._]|$)/;
+const NETWORK_READ_BARE: ReadonlySet<string> = new Set([
+  "web_fetch",
+  "web_search",
+  // Paired machines (§3.1) and the owner's live location: out of scope overnight.
+  "machine_files",
+  "location_current",
+]);
+// `web.search` and `web.fetch` are the built-ins (dots), `web_fetch` the connector's (underscore).
+const LIVE_READ_PREFIX = /^(browser|computer|harness|exec|sandbox|vm|web)([._]|$)/;
 
 export type ReadRefusal = "none_not_allowed" | "memory_not_view" | "network_read" | "mcp_read";
 
