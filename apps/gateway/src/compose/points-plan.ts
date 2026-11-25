@@ -19,6 +19,7 @@ import {
   classifyPointsValue,
   foldPointsText,
   groundPointsValue,
+  isPointsRecoveryPhrasePage,
   maskPointsShapes,
   type PointsGroundingSource,
   type PointsMemoryLine,
@@ -139,6 +140,8 @@ export interface PointsFieldInfo {
   role: PointsField["role"];
   label: string;
   options: string[];
+  /** The same options as the field spells them (not masked or folded), for the helper. */
+  rawOptions: string[];
   state: PointsField["state"];
   sensitive?: PointsSensitiveReason;
 }
@@ -184,10 +187,22 @@ function clean(deps: PointsPlanDeps, text: string, max: number, mask = true): st
   return sanitizePointsValue(mask ? maskPointsShapes(redacted) : redacted, max);
 }
 
-/** A page path with no query or fragment, and any segment that looks like a token masked. */
+/**
+ * A page path with no query or fragment, and any segment that looks like a token masked: 24 or
+ * more URL-safe characters (the teach URL rule), or anything the value rules flag.
+ */
 function cleanPath(deps: PointsPlanDeps, path: string): string {
   const base = path.split(/[?#]/u, 1)[0] ?? "";
-  const segments = base.split("/").map((seg) => (classifyPointsValue(seg) === null ? seg : "…"));
+  const segments = base.split("/").map((seg) => {
+    let decoded = seg;
+    try {
+      decoded = decodeURIComponent(seg);
+    } catch {
+      // Not valid percent-encoding: judge it as it is.
+    }
+    if (/^[A-Za-z0-9_-]{24,}$/u.test(decoded)) return "…";
+    return classifyPointsValue(seg) === null && classifyPointsValue(decoded) === null ? seg : "…";
+  });
   return clean(deps, segments.join("/"), 500);
 }
 
@@ -208,9 +223,17 @@ export interface Judged {
 export function judgePointsFields(digest: PointsDigest): {
   judged: Judged[];
   directionsOnly: boolean;
+  /** The page names a recovery phrase or private key: nothing it says is sent. */
+  secretPage: boolean;
   judgedCount: number;
   valueShapeHits: number;
 } {
+  const secretPage = isPointsRecoveryPhrasePage([
+    digest.windowTitle,
+    ...digest.headings,
+    digest.instructions,
+    ...digest.fields.flatMap((f) => [f.label, ...f.path]),
+  ]);
   const own = digest.fields.map((field) => ({
     field,
     reason: field.sensitive ?? classifyPointsField({ label: field.label, path: field.path }, null),
@@ -254,13 +277,27 @@ export function judgePointsFields(digest: PointsDigest): {
   for (const j of judged)
     if (j.reason !== null && !byId.has(j.field.fieldId)) byId.set(j.field.fieldId, j.reason);
   for (const j of judged) j.reason = byId.get(j.field.fieldId) ?? j.reason;
-  return { judged, directionsOnly: page !== null, judgedCount, valueShapeHits };
+  if (secretPage) {
+    for (const j of judged) {
+      if (j.reason === null) judgedCount += 1;
+      j.reason = "secret";
+    }
+  }
+  return {
+    judged,
+    directionsOnly: page !== null || secretPage,
+    secretPage,
+    judgedCount,
+    valueShapeHits,
+  };
 }
 
 type DigestField = Record<string, unknown>;
 
-function digestField(deps: PointsPlanDeps, j: Judged): DigestField {
+function digestField(deps: PointsPlanDeps, j: Judged, secretPage: boolean): DigestField {
   const f = j.field;
+  // A recovery-phrase page: not even a label (the phrase may be spread over chips).
+  if (secretPage) return { id: f.fieldId, role: f.role, sensitive: "secret", state: f.state };
   const label = clean(deps, f.label, POINTS_LIMITS.labelMax);
   // A sensitive field is only {id, role, label, sensitive, state}: no value, no error text, no options.
   if (j.reason !== null)
@@ -316,7 +353,8 @@ export function preparePointsPlan(
   input: PointsPlanInput,
 ): PreparedPointsPlan {
   const { digest } = input;
-  const { judged, directionsOnly, judgedCount, valueShapeHits } = judgePointsFields(digest);
+  const { judged, directionsOnly, secretPage, judgedCount, valueShapeHits } =
+    judgePointsFields(digest);
 
   // Fields go in until the digest's budget is spent; the rest are not in the digest, so the plan
   // cannot name them.
@@ -326,7 +364,7 @@ export function preparePointsPlan(
   let cut = 0;
   for (const j of judged) {
     if (fields.has(j.field.fieldId)) continue;
-    const row = digestField(deps, j);
+    const row = digestField(deps, j, secretPage);
     const size = JSON.stringify(row).length;
     if (used + size > POINTS_DIGEST_CHAR_CAP) {
       cut += 1;
@@ -339,6 +377,11 @@ export function preparePointsPlan(
       role: j.field.role,
       label: typeof row.label === "string" ? row.label : "",
       options: Array.isArray(row.options) ? (row.options as string[]) : [],
+      rawOptions: Array.isArray(row.options)
+        ? (j.field.options ?? [])
+            .slice(0, POINTS_LIMITS.optionsMax)
+            .map((o) => sanitizePointsValue(o, POINTS_LIMITS.labelMax))
+        : [],
       state: j.field.state,
     };
     if (j.reason !== null) info.sensitive = j.reason;
@@ -350,19 +393,24 @@ export function preparePointsPlan(
     fields: Math.max(0, Math.min(POINTS_LIMITS.fieldsMax, Math.trunc(p.fields))),
   }));
 
-  const page: Record<string, unknown> = {
-    app: clean(deps, digest.app.name, 120),
-    window: clean(deps, digest.windowTitle, POINTS_LIMITS.titleMax),
-  };
-  if (digest.host !== undefined) page.host = clean(deps, digest.host, 253);
-  if (digest.path !== undefined) page.path = cleanPath(deps, digest.path);
-  if (digest.insecure === true) page.insecure = true;
-  page.headings = digest.headings
-    .slice(0, 40)
-    .map((h) => clean(deps, h, POINTS_LIMITS.labelMax))
-    .filter((h) => h !== "");
-  page.instructions = clean(deps, digest.instructions, POINTS_LIMITS.pageTextMax);
-  if (directionsOnly) page.directionsOnly = true;
+  const page: Record<string, unknown> = secretPage
+    ? // A recovery-phrase page sends nothing the page says: no title, headings, text or labels.
+      { secretPage: true, directionsOnly: true }
+    : {
+        app: clean(deps, digest.app.name, 120),
+        window: clean(deps, digest.windowTitle, POINTS_LIMITS.titleMax),
+      };
+  if (!secretPage) {
+    if (digest.host !== undefined) page.host = clean(deps, digest.host, 253);
+    if (digest.path !== undefined) page.path = cleanPath(deps, digest.path);
+    if (digest.insecure === true) page.insecure = true;
+    page.headings = digest.headings
+      .slice(0, 40)
+      .map((h) => clean(deps, h, POINTS_LIMITS.labelMax))
+      .filter((h) => h !== "");
+    page.instructions = clean(deps, digest.instructions, POINTS_LIMITS.pageTextMax);
+    if (directionsOnly) page.directionsOnly = true;
+  }
   page.earlierPages = earlier;
   page.fields = rows;
 
@@ -443,9 +491,11 @@ function withLabel(template: string, label: string): string {
       : `${t}: ${label}`;
 }
 
+/** The field's own spelling of the option the model named (it saw the masked, folded one). */
 function matchOption(field: PointsFieldInfo, option: string): string | undefined {
   const want = sanitizePointsValue(option, POINTS_LIMITS.labelMax).normalize("NFKC").toLowerCase();
-  return field.options.find((o) => o.normalize("NFKC").toLowerCase() === want);
+  const at = field.options.findIndex((o) => o.normalize("NFKC").toLowerCase() === want);
+  return at < 0 ? undefined : (field.rawOptions[at] ?? field.options[at]);
 }
 
 const CAN_HOLD_VALUE: ReadonlySet<PointsStepKind> = new Set(["fill"]);
@@ -560,7 +610,7 @@ export function checkPointsPlan(plan: PointsPlan, ctx: PointsPlanContext): Point
         const d = sanitizePointsNote(raw.expect.detail, POINTS_LIMITS.hintMax);
         if (d !== "") expect.detail = d;
       }
-      if (raw.expect.shape === "oneOf") expect.options = [...field.options];
+      if (raw.expect.shape === "oneOf") expect.options = [...field.rawOptions];
       step.expect = expect;
     }
     steps.push(step);

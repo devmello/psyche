@@ -940,7 +940,53 @@ function redactShapes(text: string): string {
  * view with the shapes blanked. Call it before any cut: a cut value no longer matches a shape.
  */
 export function maskPointsShapes(text: string): string {
-  return redactShapes(shapeText(text));
+  return redactShapes(shapeText(text).replace(WORD_RUN, "…"));
+}
+
+/**
+ * Twelve or more lowercase words of three to eight letters in a row, with `1.` or `2)` numbering
+ * allowed between them: the shape of a wallet recovery phrase, numbered in text or spread over
+ * chips. The teach rule only matches a whole value of 12 to 24 words, so a phrase inside other
+ * text needs this backstop. Two-letter words (a, of, to) break a run, so prose rarely matches.
+ */
+const WORD_RUN = /(?<![\p{L}\p{N}])(?:(?:\d{1,2}[.)]\s*)?[a-z]{3,8}(?![\p{L}\p{N}])[\s,;]*){12,}/gu;
+
+/**
+ * Words that name a wallet recovery phrase or a private key, in the shipped languages (en, es, fr,
+ * de, it, pt, ja, ko, zh, hi, ar). Narrow on purpose: "private" alone, "key" alone and "recovery"
+ * alone do not match. Latin sources are written without accents.
+ */
+const RECOVERY_PHRASE_WORDS = new RegExp(
+  [
+    "seed[- ]?phrase|recovery[- ]?phrase|secret recovery|secret phrase|backup phrase|mnemonic|private[- ]?key",
+    "frase semilla|frase de recuperacion|frase secreta|clave privada|mnemonico",
+    "phrase de recuperation|phrase secrete|phrase mnemonique|phrase de restauration|cle privee|phrase de recuperation secrete",
+    "wiederherstellungsphrase|seed[- ]?phrase|geheime wiederherstellung|privater schlussel|privatschlussel|geheime phrase",
+    "frase di recupero|frase segreta|chiave privata|frase seed|frase mnemonica",
+    "frase de recuperacao|frase secreta|chave privada|frase semente|frase mnemonica",
+    "シードフレーズ|リカバリーフレーズ|リカバリフレーズ|秘密鍵|復元フレーズ|秘密のリカバリー|ニーモニック",
+    "시드 ?구문|복구 ?구문|복구 ?문구|비공개 ?키|개인 ?키|니모닉",
+    "助记词|助記詞|恢复短语|恢復短語|恢复词|私钥|私鑰|种子短语|種子短語",
+    "सीड फ्रेज़?|सीड फ़्रेज़?|रिकवरी फ्रेज़?|रिकवरी फ़्रेज़?|निजी कुंजी|प्राइवेट की|मेनमोनिक",
+    "عبارة الاسترداد|عبارة الاستعادة|العبارة السرية|عبارة البذرة|المفتاح الخاص|المفتاح الخاص",
+  ].join("|"),
+  "iu",
+);
+
+/**
+ * Whether any of these page texts (window title, headings, instructions, field labels and paths)
+ * names a recovery phrase or a private key. Such a page is secret as a whole: nothing the page
+ * says goes to a model, because the phrase may be spread over chips, numbered in text or in the
+ * labels. Texts are folded first, and read with and without accents.
+ */
+export function isPointsRecoveryPhrasePage(texts: readonly (string | undefined)[]): boolean {
+  for (const raw of texts) {
+    if (raw === undefined || raw === "") continue;
+    const folded = foldPointsText(raw);
+    if (RECOVERY_PHRASE_WORDS.test(folded) || RECOVERY_PHRASE_WORDS.test(stripAccents(folded)))
+      return true;
+  }
+  return false;
 }
 
 /**

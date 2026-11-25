@@ -8,6 +8,7 @@ import {
   classifyPointsValue,
   filterPointsMemoryLine,
   groundPointsValue,
+  isPointsRecoveryPhrasePage,
   maskPointsShapes,
   type PointsFieldFacts,
   type PointsPageFacts,
@@ -591,4 +592,50 @@ describe("maskPointsShapes", () => {
   ])("leaves %s as it is", (text) => {
     expect(maskPointsShapes(text)).toBe(text);
   });
+});
+
+describe("recovery phrase pages and word runs", () => {
+  const PHRASE =
+    "1. abandon 2. ability 3. able 4. about 5. above 6. absent 7. absorb 8. abstract 9. absurd 10. abuse 11. access 12. accident";
+
+  it("masks a numbered phrase inside ordinary text, and one without numbers", () => {
+    const out = maskPointsShapes(`Note these: ${PHRASE}. Then go on to the form.`);
+    expect(out).not.toContain("abandon");
+    expect(out).not.toContain("accident");
+    expect(out).toContain("Then go on to the form");
+    const plain = maskPointsShapes(PHRASE.replace(/\d+\. /gu, ""));
+    expect(plain).not.toContain("absurd");
+  });
+
+  it.each([
+    "Please enter your full legal name exactly as it appears on your passport or national identity card here",
+    "Fill in your legal name and date of birth.",
+    "one two three four five six seven eight nine ten eleven",
+  ])("leaves ordinary text alone: %s", (text) => {
+    expect(maskPointsShapes(text)).toBe(text);
+  });
+
+  it.each([
+    "Confirm Secret Recovery Phrase",
+    "Your seed phrase",
+    "Frase semilla",
+    "Phrase de r\u00e9cup\u00e9ration",
+    "Wiederherstellungsphrase eingeben",
+    "Frase di recupero",
+    "Frase de recupera\u00e7\u00e3o",
+    "\u30b7\u30fc\u30c9\u30d5\u30ec\u30fc\u30ba",
+    "\ube44\uacf5\uac1c \ud0a4",
+    "\u52a9\u8bb0\u8bcd",
+    "\u0639\u0628\u0627\u0631\u0629 \u0627\u0644\u0627\u0633\u062a\u0631\u062f\u0627\u062f",
+    "Enter your private key",
+  ])("names a recovery phrase: %s", (text) => {
+    expect(isPointsRecoveryPhrasePage([text])).toBe(true);
+  });
+
+  it.each([
+    "Private details about you",
+    "Recovery email address",
+    "Key dates",
+    "Passport photo upload",
+  ])("does not for %s", (text) => {});
 });

@@ -1049,3 +1049,158 @@ describe("a repeated field id", () => {
     expect(context.fields.get("f1")?.sensitive).toBe("identity");
   });
 });
+
+describe("a wallet recovery phrase page", () => {
+  const WORDS = [
+    "abandon",
+    "ability",
+    "able",
+    "about",
+    "above",
+    "absent",
+    "absorb",
+    "abstract",
+    "absurd",
+    "abuse",
+    "access",
+    "accident",
+  ];
+  const PHRASE_PAGE = () =>
+    digest(
+      WORDS.map((w, i) => field(`f${i + 1}`, w, { role: "button" })),
+      {
+        windowTitle: "MetaMask",
+        headings: ["Confirm Secret Recovery Phrase"],
+        instructions: WORDS.map((w, i) => `${i + 1}. ${w}`).join(" "),
+      },
+    );
+
+  it("sends none of the twelve words, and no title, heading, text or label", () => {
+    const out = HEAD(PHRASE_PAGE());
+    for (const w of WORDS) expect(out).not.toContain(w);
+    expect(out).not.toContain("MetaMask");
+    expect(out).not.toContain("Recovery");
+    expect(out).toContain('"sensitive":"secret"');
+    expect(out).toContain('"id":"f12"');
+  });
+
+  it("reads the title, the instructions, a label or a path as the sign", () => {
+    for (const edit of [
+      (d: PointsDigest) => {
+        d.windowTitle = "Your Secret Recovery Phrase";
+      },
+      (d: PointsDigest) => {
+        d.instructions = "Write down your seed phrase";
+      },
+      (d: PointsDigest) => {
+        d.fields[0] = field("f1", "Word 1", { path: ["Mnemonic"] });
+      },
+      (d: PointsDigest) => {
+        d.fields[0] = field("f1", "Enter your private key");
+      },
+      (d: PointsDigest) => {
+        d.headings = ["助记词"];
+      },
+      (d: PointsDigest) => {
+        d.headings = ["Phrase de récupération"];
+      },
+    ]) {
+      const d = PAGE();
+      edit(d);
+      expect(HEAD(d)).toContain('"sensitive":"secret"');
+    }
+  });
+
+  it("makes every step plain fixed copy with no hint, and sends no field as ordinary", async () => {
+    const { provider, deps } = setup();
+    provider.script([
+      reply(
+        plan([
+          {
+            fieldId: "f1",
+            kind: "fill",
+            note: "Click abandon first",
+            value: "abandon",
+            sources: ["goal"],
+          },
+          { fieldId: "f2", kind: "self", note: "It's on the card" },
+        ]),
+      ),
+    ]);
+    const r = await requestPointsPlan(deps, input(PHRASE_PAGE(), { goal: "abandon ability" }));
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    for (const s of r.plan.steps) {
+      expect(s).toMatchObject({
+        kind: "self",
+        sensitive: "secret",
+        fixed: true,
+        note: "You fill this yourself",
+      });
+      expect(s.value).toBeUndefined();
+      expect(s.hint).toBeUndefined();
+    }
+  });
+
+  it("keeps an ordinary page whose heading says private but not key (control)", () => {
+    const d = PAGE();
+    d.headings = ["Private details about you"];
+    const out = HEAD(d);
+    expect(out).toContain("Legal name");
+    expect(out).toContain("Private details about you");
+    expect(out).not.toContain('"sensitive":"secret"');
+  });
+
+  it("masks a numbered phrase inside ordinary instructions (the backstop)", () => {
+    const d = PAGE();
+    d.headings = [];
+    d.instructions = `Please note these down: ${WORDS.map((w, i) => `${i + 1}. ${w}`).join(" ")}. Then go on to the form.`;
+    const out = HEAD(d);
+    for (const w of WORDS) expect(out).not.toContain(w);
+    expect(out).toContain("Then go on to the form");
+  });
+});
+
+describe("options and path tokens", () => {
+  it("returns the option as the field spells it, not the masked view", async () => {
+    const { provider, deps } = setup();
+    provider.script([
+      reply(
+        plan([
+          { fieldId: "f3", kind: "choose", note: "Pick", option: "Japan" },
+          { fieldId: "f2", kind: "choose", note: "Pick", option: "United StatesTM" },
+        ]),
+      ),
+    ]);
+    const d = digest([
+      field("f3", "Country", {
+        role: "popup",
+        options: ["\uff2a\uff41\uff50\uff41\uff4e", "Spain"],
+      }),
+      field("f2", "Region", { role: "popup", options: ["United States\u2122"] }),
+    ]);
+    const r = await requestPointsPlan(deps, input(d));
+    expect(r.ok && r.plan.steps.map((x) => x.option)).toEqual([
+      "\uff2a\uff41\uff50\uff41\uff4e",
+      "United States\u2122",
+    ]);
+  });
+
+  it.each([
+    ["a 26-character reset token", "/reset/abcdefghijklmnopqrstuvwxyz"],
+    ["a 24-character id with dashes", "/doc/ab12-cd34-ef56-gh78-ij90"],
+    ["a percent-encoded long token", "/r/abcdefghijklmnopqrstuvwxyz%5F12"],
+  ])("masks %s in the path", (_n, path) => {
+    const d = PAGE();
+    d.path = path;
+    const out = HEAD(d);
+    expect(out).not.toContain("abcdefghij");
+    expect(out).not.toContain("ab12-cd34");
+  });
+
+  it("keeps a short path segment (control)", () => {
+    const d = PAGE();
+    d.path = "/i-130/part-one-of-the-form";
+    expect(HEAD(d)).toContain("/i-130/part-one-of-the-form");
+  });
+});
