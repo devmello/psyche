@@ -172,10 +172,17 @@ public enum PointsSensitiveJudge {
         re.stringByReplacingMatches(in: s, options: [], range: NSRange(s.startIndex..., in: s), withTemplate: t)
     }
 
+    /// The teach words, compiled through the same ASCII-`\b` `compile` as the Points words (ICU's Unicode
+    /// `\b` missed "IBAN\u{756A}\u{53F7}", "OTP\u{8A8D}\u{8A3C}", "PIN\u{756A}\u{53F7}" and "PWD\u{C785}\u{B825}").
+    private static let teachWords: [(PointsSensitiveReason, NSRegularExpression)] = AppTeachPolicy.words.map { (reasonOf($0.0), compile($0.1.pattern)) }
+
+    /// The reason a label alone gives (used by the value rules for a bare code next to a code word).
+    static func labelReason(_ text: String) -> PointsSensitiveReason? { reasonOfText(text) }
+
     private static func testWords(_ text: String) -> PointsSensitiveReason? {
         // The shared teach words first (`classifyTeachField({label})`), then the Points words.
         let range = NSRange(text.startIndex..., in: text)
-        for (reason, re) in AppTeachPolicy.words where re.firstMatch(in: text, options: [], range: range) != nil { return reasonOf(reason) }
+        for (reason, re) in teachWords where re.firstMatch(in: text, options: [], range: range) != nil { return reason }
         for (reason, re) in pointsWords where re.firstMatch(in: text, options: [], range: range) != nil { return reason }
         return nil
     }

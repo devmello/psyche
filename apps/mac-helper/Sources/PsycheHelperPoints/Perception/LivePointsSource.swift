@@ -30,8 +30,13 @@ final class LivePointsSource: PointsAXSource, @unchecked Sendable {
 
     func windowRoot() -> AXKey? { AXKey(element: window) }
 
+    /// Every element read gets the short timeout: children do not inherit the app element's, and a
+    /// hung app would otherwise hold the observer thread for the 6 s default per read.
+    private func touch(_ e: AXUIElement) { AXUIElementSetMessagingTimeout(e, 0.5) }
+
     func attributes(_ node: AXKey) -> PointsAXAttributes {
         let e = node.element
+        touch(e)
         let a = AX.attrs(e, Self.attributeNames)
         let role = AX.string(a["AXRole"]) ?? "AXUnknown"
         var text: String?
@@ -67,7 +72,8 @@ final class LivePointsSource: PointsAXSource, @unchecked Sendable {
     }
 
     func children(of node: AXKey) -> [AXKey] {
-        AX.elements(AX.attr(node.element, "AXChildren")).map { AXKey(element: $0) }
+        touch(node.element)
+        return AX.elements(AX.attr(node.element, "AXChildren")).map { AXKey(element: $0) }
     }
 
     func options(of node: AXKey, limit: Int) -> [String] {
@@ -87,9 +93,10 @@ final class LivePointsSource: PointsAXSource, @unchecked Sendable {
 
     func secureEventInput() -> Bool { IsSecureEventInputEnabled() }
 
-    func fieldValue(of node: AXKey) -> String? { AX.string(AX.attr(node.element, "AXValue")) }
+    func fieldValue(of node: AXKey) -> String? { touch(node.element); return AX.string(AX.attr(node.element, "AXValue")) }
 
     func characterCount(of node: AXKey) -> Int? {
+        touch(node.element)
         guard let v = AX.attr(node.element, "AXNumberOfCharacters"), CFGetTypeID(v) == CFNumberGetTypeID() else { return nil }
         return (v as? NSNumber)?.intValue
     }

@@ -61,6 +61,7 @@ final class PointsHost: @unchecked Sendable {
     private let isComputerBusy: @Sendable () -> Bool
     private let isRecording: @Sendable () -> Bool
     private let activity: PointsActivity
+    static let maxSessionSeconds: UInt64 = 30 * 60
     private let lock = NSLock()
     private var sessions: [String: PointsSessionController] = [:]
 
@@ -101,8 +102,17 @@ final class PointsHost: @unchecked Sendable {
             throw CapabilityError(.notFound, reason: "not_a_window", "That window is gone")
         }
         let window = windows[ref.index]
-        guard activity.begin(ctx.invocationId) else {
-            throw CapabilityError(.conflict, reason: "points_active", "Psyche points is already helping with a window")
+        // Busy check and slot take in one step, against a computer action taking its session (7d).
+        try PointsActivity.gate.withLock {
+            if isComputerBusy() {
+                throw CapabilityError(.conflict, reason: "computer_busy", "The agent is using the computer; pointing waits until it is done", retryable: true)
+            }
+            if isRecording() {
+                throw CapabilityError(.conflict, reason: "recording_active", "A recording is running; pointing waits until it stops", retryable: true)
+            }
+            guard activity.begin(ctx.invocationId) else {
+                throw CapabilityError(.conflict, reason: "points_active", "Psyche points is already helping with a window")
+            }
         }
         let target = PointsTarget(
             bundleId: bundleId, appName: String((app.localizedName ?? bundleId).prefix(120)), pid: ref.pid,
@@ -120,6 +130,12 @@ final class PointsHost: @unchecked Sendable {
         guard controller.start() else {
             throw CapabilityError.unavailable("points_unavailable", "Could not read that window's accessibility tree", retryable: true)
         }
+        // A helper-side limit: a session never outlives 30 minutes, even if the Gateway forgets it.
+        let limit = _Concurrency.Task { [controller] in
+            try? await _Concurrency.Task.sleep(nanoseconds: Self.maxSessionSeconds * 1_000_000_000)
+            controller.stop(.idle)
+        }
+        defer { limit.cancel() }
         await withTaskCancellationHandler {
             for await event in controller.events {
                 if let json = try? JSONValue(encoding: event) { await ctx.emit(json) }

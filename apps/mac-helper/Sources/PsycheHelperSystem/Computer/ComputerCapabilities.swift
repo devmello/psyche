@@ -92,6 +92,11 @@ public final class ComputerUse: @unchecked Sendable {
     /// Session lock for one mutating call. The Gateway must name the session (the run id): a
     /// shared default would let one Esc block every later run, or let runs share a lock.
     func beginAction(session: String?) throws {
+        // The check and the session take are one step against a Points session starting (7d).
+        try PointsActivity.gate.withLock { try beginActionLocked(session: session) }
+    }
+
+    private func beginActionLocked(session: String?) throws {
         try refuseWhilePointing()
         try refuseWhileRecording()
         guard let session, !session.isEmpty, session.count <= 128 else {

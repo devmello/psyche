@@ -50,6 +50,8 @@ final class PointsSessionController: @unchecked Sendable {
     private var started = false
     private var stopped = false
     private let exited = DispatchSemaphore(value: 0)
+    /// Set once the stream is finished: nothing is yielded after it (stop does not wait on the observer thread).
+    private let closedGate: LockedFlag
 
     init(sessionId: String, app: NSRunningApplication, window: AXUIElement, target: PointsTarget, teamId: String?) {
         self.sessionId = sessionId
@@ -62,7 +64,9 @@ final class PointsSessionController: @unchecked Sendable {
         events = AsyncStream(bufferingPolicy: .unbounded) { cont = $0 }
         continuation = cont
         let c = cont!
-        engine = PointsEngine(source: source, target: target) { c.yield($0) }
+        let closed = LockedFlag()
+        closedGate = closed
+        engine = PointsEngine(source: source, target: target) { if !closed.isSet { c.yield($0) } }
     }
 
     static func now() -> Double { ProcessInfo.processInfo.systemUptime }
@@ -75,7 +79,12 @@ final class PointsSessionController: @unchecked Sendable {
         let ok = LockedFlag()
         let t = Thread { [self] in
             let run = CFRunLoopGetCurrent()!
-            lock.withLock { loop = run }
+            let early = lock.withLock { () -> Bool in loop = run; return stopped }
+            if early {  // stopped before the loop existed (7a)
+                ready.signal()
+                finish()
+                return
+            }
             guard install(run) else {
                 ready.signal()
                 finish()
@@ -103,7 +112,7 @@ final class PointsSessionController: @unchecked Sendable {
 
     private func finish() {
         removeScrollMonitor()
-        continuation.finish()
+        if closedGate.testAndSet() { continuation.finish() }
         exited.signal()
     }
 
@@ -114,11 +123,13 @@ final class PointsSessionController: @unchecked Sendable {
             stopped = true
             return loop
         }
-        guard let run else {
-            // The thread never came up, or this is a second call.
-            if lock.withLock({ loop }) == nil { continuation.finish() }
-            return
+        // End the stream here, on the caller's thread: a hung app must not keep the session slot or
+        // computer use locked out. The observer thread (if it is alive) only tears its watches down.
+        if closedGate.testAndSet() {
+            continuation.yield(PointsSessionEvent(reason: reason, type: .ended))
+            continuation.finish()
         }
+        guard let run else { return }
         perform(on: run) { [self] in
             engine.end(reason)
             CFRunLoopStop(CFRunLoopGetCurrent())
@@ -333,6 +344,8 @@ final class LockedFlag: @unchecked Sendable {
     private let lock = NSLock()
     private var value = false
     func set() { lock.withLock { value = true } }
+    /// Sets the flag; true if this call was the one that set it.
+    func testAndSet() -> Bool { lock.withLock { let was = value; value = true; return !was } }
     var isSet: Bool { lock.withLock { value } }
 }
 

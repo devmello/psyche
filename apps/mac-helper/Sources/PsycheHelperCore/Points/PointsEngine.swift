@@ -43,9 +43,11 @@ public final class PointsEngine<S: PointsAXSource>: @unchecked Sendable {
 
     private var ids = PointsFieldIds<Node>()
     private var records: [String: PointsFieldRecord<Node>] = [:]
-    private var valueShape = Set<Node>()
+    /// Every node ever judged sensitive this session, with its reason. A node in here is never read again.
+    private var latched: [Node: PointsSensitiveReason] = [:]
     private var sensitiveFill: [Node: PointsFieldFill] = [:]
     private var lastCommitted: [String: String] = [:]
+    private var lastNow: Double = 0
     private var lastFingerprint: String?
     private var lastSummary: Data?
     private var focusedId: String?
@@ -76,6 +78,7 @@ public final class PointsEngine<S: PointsAXSource>: @unchecked Sendable {
     /// The first read. Emits the digest; false when the window cannot be read at all.
     @discardableResult
     public func begin(at now: Double) -> Bool {
+        lastNow = now
         guard let read = PointsDigestBuilder.read(source: source, target: target, ids: &ids) else {
             finish(.windowClosed)
             return false
@@ -100,6 +103,7 @@ public final class PointsEngine<S: PointsAXSource>: @unchecked Sendable {
 
     public func notify(_ n: PointsNotification<Node>, at now: Double) {
         guard !ended else { return }
+        lastNow = now
         switch n {
         case .focusChanged(let node): focusChanged(node, at: now)
         case .valueChanged(let node):
@@ -127,6 +131,7 @@ public final class PointsEngine<S: PointsAXSource>: @unchecked Sendable {
     /// Runs what is due at `now` (the caller's one-shot timer fired, or a notification arrived).
     public func tick(at now: Double) {
         guard !ended else { return }
+        lastNow = now
         for work in coalescer.due(at: now) {
             switch work {
             case .fullRead: fullRead(at: now)
@@ -139,17 +144,48 @@ public final class PointsEngine<S: PointsAXSource>: @unchecked Sendable {
 
     // MARK: Focus and commit
 
+    /// Judges one element again from what it says NOW, before any value is read (a custom field can
+    /// become a password field, or be relabelled "Card number", after the digest). True when it is
+    /// still plain. Once a node is sensitive it stays so for the session, whatever it is relabelled.
+    private func stillPlain(_ id: String) -> Bool {
+        guard var r = records[id] else { return false }
+        if r.sensitive != nil || latched[r.node] != nil { return false }
+        let a = source.attributes(r.node)
+        var f = r.facts
+        func raw(_ s: String?) -> String? { PointsDigestBuilder.tidy(s, 300) }
+        f.label = raw(a.title) ?? raw(a.titleElementText) ?? raw(a.description) ?? raw(a.placeholder) ?? raw(a.help)
+        f.placeholder = raw(a.placeholder)
+        f.help = raw(a.help)
+        f.identifier = a.identifier
+        f.nearbyText = r.facts.nearbyText + [a.description, a.titleElementText].compactMap { $0 }
+        let focusedNow = source.focusedElement()
+        f.secure = r.facts.secure || a.role == "AXSecureTextField" || a.subrole == "AXSecureTextField"
+            || (source.secureEventInput() && focusedNow == r.node)
+        let reason = PointsSensitiveJudge.classify(f, directionsOnly: r.directionsOnly)
+        if let label = PointsDigestBuilder.tidy(a.title, 120), !r.label.isEmpty, label != r.label { coalescer.layoutChanged(at: lastNow) }
+        if reason == nil, PointsRoleMap.fieldRole(role: a.role, subrole: a.subrole) != r.role { f.secure = false }
+        guard let reason else {
+            r.facts = f
+            records[id] = r
+            return true
+        }
+        latched[r.node] = reason
+        r.sensitive = reason
+        r.facts = f
+        r.fill = sensitiveFill[r.node] ?? .unknown
+        records[id] = r
+        coalescer.layoutChanged(at: lastNow)
+        return false
+    }
+
     private func focusChanged(_ node: Node?, at now: Double) {
         if let prev = focusedId { commit(prev) }
         guard let node else { focusedId = nil; return }
         if let id = ids.existingId(for: node), records[id] != nil {
             focusedId = id
             pendingFocus = nil
+            _ = stillPlain(id)  // latches a field that turned sensitive since the digest (Secure Event Input, a relabel)
             emit(PointsSessionEvent(fieldID: id, type: .focus))
-            // A field whose label changed under us is a different field: read the page again.
-            if let r = records[id], let title = PointsDigestBuilder.tidy(source.attributes(node).title, 120), !r.label.isEmpty, title != r.label {
-                coalescer.layoutChanged(at: now)
-            }
         } else {
             focusedId = nil
             pendingFocus = node
@@ -159,9 +195,10 @@ public final class PointsEngine<S: PointsAXSource>: @unchecked Sendable {
 
     /// Focus left a field: the one moment its value may leave the helper.
     private func commit(_ id: String) {
-        guard var r = records[id] else { return }
+        guard let r0 = records[id] else { return }
         coalescer.cancelValue(fieldId: id)
-        if r.sensitive != nil {
+        if !stillPlain(id) {
+            var r = records[id] ?? r0
             // Never AXValue. Filled or empty from the character count, where the app has one.
             let state: PointsFieldFill
             if let n = source.characterCount(of: r.node) { state = n > 0 ? .filled : .empty } else { state = .unknown }
@@ -171,6 +208,7 @@ public final class PointsEngine<S: PointsAXSource>: @unchecked Sendable {
             if state != .unknown { emit(PointsSessionEvent(fieldID: id, state: state, type: .field)) }
             return
         }
+        var r = records[id] ?? r0
         guard r.role != .button, r.role != .link else { return }
         let value = source.fieldValue(of: r.node)
         let state = PointsDigestBuilder.fillState(role: r.role, value: value)
@@ -178,9 +216,9 @@ public final class PointsEngine<S: PointsAXSource>: @unchecked Sendable {
         let sendsValue = [.text, .multiline, .number, .date, .combobox, .popup].contains(r.role)
         var out: String?
         if sendsValue, state == .filled, let value {
-            if AppTeachPolicy.valueReason(value, label: r.label) != nil {
-                // A secret of a plain-looking field: it never leaves, and the field is sensitive from now on.
-                valueShape.insert(r.node)
+            if PointsValueRules.classify(value, label: r.label) != nil {
+                // A secret in a plain-looking field: it never leaves, and the field is sensitive from now on.
+                latched[r.node] = .valueShape
                 r.sensitive = .valueShape
             } else {
                 out = String(value.prefix(Self.valueMax))
@@ -195,7 +233,7 @@ public final class PointsEngine<S: PointsAXSource>: @unchecked Sendable {
 
     /// 300 ms after the last change to the focused field: filled or empty, never the value.
     private func valueSettled(_ id: String) {
-        guard var r = records[id], r.sensitive == nil, r.role != .button, r.role != .link else { return }
+        guard stillPlain(id), var r = records[id], r.role != .button, r.role != .link else { return }
         let state = PointsDigestBuilder.fillState(role: r.role, value: source.fieldValue(of: r.node))
         guard state != r.fill else { return }
         r.fill = state
@@ -206,7 +244,7 @@ public final class PointsEngine<S: PointsAXSource>: @unchecked Sendable {
     // MARK: Reads
 
     private func fullRead(at now: Double) {
-        guard let read = PointsDigestBuilder.read(source: source, target: target, ids: &ids, valueShape: valueShape, sensitiveFill: sensitiveFill) else {
+        guard let read = PointsDigestBuilder.read(source: source, target: target, ids: &ids, latched: latched, sensitiveFill: sensitiveFill) else {
             finish(.windowClosed)
             return
         }
@@ -233,6 +271,7 @@ public final class PointsEngine<S: PointsAXSource>: @unchecked Sendable {
         var next: [String: PointsFieldRecord<Node>] = [:]
         for r in read.records { next[r.id] = r }
         records = next
+        for r in read.records { if let why = r.sensitive { latched[r.node] = why } }
         if let f = read.records.first(where: { $0.focused }) { focusedId = f.id }
         // Keep the commit memory of fields still on the page.
         lastCommitted = lastCommitted.filter { next[$0.key] != nil }
@@ -261,3 +300,4 @@ public final class PointsEngine<S: PointsAXSource>: @unchecked Sendable {
     public func record(_ id: String) -> PointsFieldRecord<Node>? { records[id] }
     public func fieldId(for node: Node) -> String? { ids.existingId(for: node) }
 }
+

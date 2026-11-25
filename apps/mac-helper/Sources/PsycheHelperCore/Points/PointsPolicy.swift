@@ -24,6 +24,9 @@ public enum PointsPolicy {
 /// Points target, and the Points target sets it without a way to reach computer use.
 public final class PointsActivity: @unchecked Sendable {
     public static let shared = PointsActivity()
+    /// Taken around "is the other side busy?" plus "take my slot" on both sides (a computer action's
+    /// session lock, a Points session), so the two can never both start.
+    public static let gate = NSLock()
 
     private let lock = NSLock()
     private var holder: String?

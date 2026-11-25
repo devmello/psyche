@@ -210,7 +210,9 @@ fi
 # two closures; any new public Points API must change this pin in review, never by loosening it.
 public_want='public enum PointsCapabilities {
 public static func make(isComputerBusy: @escaping @Sendable () -> Bool, isRecording: @escaping @Sendable () -> Bool) -> [any CapabilityHandler] {'
-public_decls="$(grep -rhE --include='*.swift' '^[[:space:]]*(@[A-Za-z_]+(\([^)]*\))?[[:space:]]+)*(public|open|package)([[:space:]]|\()' Sources/PsycheHelperPoints | sed 's/^[[:space:]]*//' | sort)"
+# The word `public`, `open` or `package` as a whole word anywhere on a non-comment line (so `final public class`,
+# `static public var` and `public extension` count, not only a line that starts with it).
+public_decls="$(grep -rhE --include='*.swift' '(^|[^A-Za-z0-9_.])(public|open|package)([^A-Za-z0-9_]|$)' Sources/PsycheHelperPoints | grep -vE '^[[:space:]]*//' | sed 's/^[[:space:]]*//' | sort)"
 public_want_sorted="$(printf '%s\n' "$public_want" | sort)"
 if [ "$public_decls" != "$public_want_sorted" ]; then
   fail "PsycheHelperPoints public declarations changed (this pin must be updated in review): found: $(echo "$public_decls" | tr '\n' '|')"

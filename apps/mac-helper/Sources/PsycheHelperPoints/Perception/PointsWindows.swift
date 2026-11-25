@@ -47,6 +47,11 @@ enum PointsWindowList {
                 continue
             }
             let refusal = PointsPolicy.refusal(bundleId: bundleId, settings: settings)
+            if refusal != nil {
+                // A refused app's window titles (a bank, a password manager) are never read: one row, the app name.
+                out.append(PointsHelperWindow(app: wapp, frontmost: app.processIdentifier == front, pid: Int(app.processIdentifier), refusal: refusal, title: name, windowIndex: 0))
+                continue
+            }
             for (i, w) in windows(of: app.processIdentifier).enumerated() where isWindow(w) {
                 let title = String((AX.string(AX.attr(w, "AXTitle")) ?? "").prefix(200))
                 let main = AX.bool(AX.attr(w, "AXMain")) ?? false

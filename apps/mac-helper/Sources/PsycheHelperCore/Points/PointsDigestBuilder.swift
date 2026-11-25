@@ -15,6 +15,9 @@ public struct PointsFieldRecord<Node: Hashable> {
     public var frame: CGRect?
     public var enabled: Bool?
     public var focused: Bool
+    /// What the judge saw, kept so the engine can judge the element again before any value is read.
+    public var facts: PointsFieldFacts
+    public var directionsOnly: Bool
 }
 
 /// One full read of the window: the wire digest plus the helper-side records.
@@ -61,6 +64,8 @@ public enum PointsRoleMap {
 public enum PointsDigestBuilder {
     public static let maxVisit = 4_000
     public static let maxEmit = 300
+    /// Seconds one full read may take before it stops and marks the digest truncated.
+    public static let budget: Double = 1.5
     static let maxDepth = 80
 
     private struct Candidate<Node: Hashable> {
@@ -71,14 +76,15 @@ public enum PointsDigestBuilder {
         var facts: PointsFieldFacts
         var path: [String]
         var errorText: String?
+        var parent: Int?
     }
 
     /// `ids` hands out stable field ids. `valueShape` holds fields a committed value showed to be a
     /// secret (they stay sensitive); `sensitiveFill` holds the filled-or-empty answer read once from
     /// a sensitive field when focus left it.
     public static func read<S: PointsAXSource>(
-        source: S, target: PointsTarget, ids: inout PointsFieldIds<S.Node>, valueShape: Set<S.Node> = [],
-        sensitiveFill: [S.Node: PointsFieldFill] = [:]
+        source: S, target: PointsTarget, ids: inout PointsFieldIds<S.Node>, latched: [S.Node: PointsSensitiveReason] = [:],
+        sensitiveFill: [S.Node: PointsFieldFill] = [:], budget: Double = PointsDigestBuilder.budget
     ) -> PointsRead<S.Node>? {
         guard let root = source.windowRoot() else { return nil }
         let secureInput = source.secureEventInput()
@@ -91,14 +97,18 @@ public enum PointsDigestBuilder {
         var instructionChars = 0
         var webURL: String?
         var fillable = 0
+        // A full read has a wall-clock budget: a hung app must not hold the observer thread.
+        let deadline = ProcessInfo.processInfo.systemUptime + budget
 
         func clip(_ s: String?, _ n: Int = 120) -> String? { tidy(s, n) }
 
         var currentHeading: String?
 
-        func visit(_ node: S.Node, depth: Int, groups: [String], recent: inout [String], lastCandidate: inout Int?) {
+        func visit(_ node: S.Node, depth: Int, groups: [String], parent: Int?, recent: inout [String], lastCandidate: inout Int?) {
             guard visited < maxVisit, depth <= maxDepth else { truncated = visited >= maxVisit || truncated; return }
+            if ProcessInfo.processInfo.systemUptime > deadline { truncated = true; return }
             visited += 1
+            var childParent = parent
             let a = source.attributes(node)
             if a.role == "AXWebArea" || (webURL == nil && a.url != nil && a.role == "AXDocument") {
                 if webURL == nil, let u = a.url, !u.isEmpty { webURL = u }
@@ -146,8 +156,9 @@ public enum PointsDigestBuilder {
                     label: label.isEmpty ? nil : label, placeholder: clip(a.placeholder), help: clip(a.help), identifier: a.identifier,
                     secure: secure, path: groups + (currentHeading.map { [$0] } ?? []), nearbyText: nearby)
                 if candidates.count < maxEmit {
-                    candidates.append(Candidate(node: node, attrs: a, role: role, label: label, facts: facts, path: path))
+                    candidates.append(Candidate(node: node, attrs: a, role: role, label: label, facts: facts, path: path, parent: parent))
                     lastCandidate = candidates.count - 1
+                    childParent = candidates.count - 1
                 } else {
                     truncated = true
                 }
@@ -160,14 +171,14 @@ public enum PointsDigestBuilder {
             var childRecent: [String] = []
             var childLast: Int?
             for child in source.children(of: node) {
-                visit(child, depth: depth + 1, groups: g, recent: &childRecent, lastCandidate: &childLast)
+                visit(child, depth: depth + 1, groups: g, parent: childParent, recent: &childRecent, lastCandidate: &childLast)
                 if visited >= maxVisit { truncated = true; break }
             }
         }
 
         var rootRecent: [String] = []
         var rootLast: Int?
-        visit(root, depth: 0, groups: [], recent: &rootRecent, lastCandidate: &rootLast)
+        visit(root, depth: 0, groups: [], parent: nil, recent: &rootRecent, lastCandidate: &rootLast)
 
         // First judgement, from the elements alone: no value has been read yet.
         let rootAttrs = source.attributes(root)
@@ -180,10 +191,15 @@ public enum PointsDigestBuilder {
 
         var records: [PointsFieldRecord<S.Node>] = []
         var fields: [PointsField] = []
+        var finalReasons: [PointsSensitiveReason?] = []
         for (i, c) in candidates.enumerated() {
-            guard let id = ids.id(for: c.node) else { truncated = true; continue }
+            guard let id = ids.id(for: c.node) else { truncated = true; finalReasons.append(.secureField); continue }
             var reason: PointsSensitiveReason? = c.facts.secure ? .secureField : directionsOnly ? .directionsOnly : judged[i]
-            if reason == nil, valueShape.contains(c.node) { reason = .valueShape }
+            // A field inside a sensitive field (the text field of a password combo box) is sensitive too.
+            if reason == nil, let p = c.parent, p < finalReasons.count, let pr = finalReasons[p] { reason = pr }
+            // Once sensitive in this session, always: a relabel never clears it.
+            if reason == nil, let l = latched[c.node] { reason = l }
+            finalReasons.append(reason)
             let fill: PointsFieldFill
             if reason == nil, c.role != .button, c.role != .link {
                 // The only place a field's value is read for the digest: the judge said it is plain.
@@ -197,7 +213,7 @@ public enum PointsDigestBuilder {
             if let e = errorText, looksLikeSecret(e) { errorText = nil }
             records.append(
                 PointsFieldRecord(id: id, node: c.node, role: c.role, label: c.label, path: c.path, sensitive: reason, fill: fill,
-                                  frame: c.attrs.frame, enabled: c.attrs.enabled, focused: isFocused))
+                                  frame: c.attrs.frame, enabled: c.attrs.enabled, focused: isFocused, facts: c.facts, directionsOnly: directionsOnly))
             fields.append(
                 PointsField(
                     enabled: c.attrs.enabled, errorText: errorText, fieldID: id, focused: isFocused ? true : nil,
