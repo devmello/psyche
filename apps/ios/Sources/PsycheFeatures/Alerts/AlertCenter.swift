@@ -366,6 +366,7 @@ public final class AlertCenter {
 
         await announce(home.needsYou, mode: effective)
         await clearStale(pending: Set(home.needsYou.map(\.id)))
+        await announceNightShift(mode: effective)
         if effective != .baseline {
             await announceFinished(vanished: vanished, recent: recent)
             if effective == .live { considerOffer(home.running, previous: previous) }
@@ -549,6 +550,31 @@ public final class AlertCenter {
             if mode == .live && appActive { UINotificationFeedbackGenerator().notificationOccurred(.warning) }
             #endif
         }
+    }
+
+    /// Night shift: one local note per review ("Prepared overnight"), read from `nightShift.status` on a foreground sync
+    /// and on a background check. Best effort: BGAppRefresh may not run (no APNs on the free signing path), and then
+    /// the Home card is how the owner finds it. The review's id is claimed in the ledger first, so a restart, a
+    /// reconnect or the next background check never posts it twice. It says nothing of what is inside. A review that
+    /// is gone (applied, dismissed, expired) takes its delivered note with it.
+    private func announceNightShift(mode: SyncMode) async {
+        guard !isFixture, let status = try? await store.nightShiftStatus() else { return }
+        guard let reviewID = status.readyReviewID, status.enabled else {
+            let gone = await notifier.delivered().filter { $0.category == .review }.map(\.id)
+            await notifier.removeDelivered(ids: gone)
+            return
+        }
+        let id = AlertPolicy.nightShiftAlertID(reviewID: reviewID)
+        if mode == .baseline || !settings.notifications {
+            // Already on Home when the app opens: turning notifications on later must not replay it.
+            await ledger.markSeen([id])
+            return
+        }
+        guard await notifier.authorization() == .allowed, await ledger.claim(id) else { return }
+        var payload = AlertPolicy.nightShiftReady(reviewID: reviewID)
+        payload.title = notice(payload.title)
+        payload.body = notice(payload.body)
+        await notifier.post(payload)
     }
 
     private func announceFinished(vanished: Set<String>, recent: [RecentRun]) async {
