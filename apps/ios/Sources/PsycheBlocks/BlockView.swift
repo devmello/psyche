@@ -296,7 +296,7 @@ private struct StepGlyph: View {
             case .failed:
                 ZStack {
                     Circle().fill(PsycheColor.red)
-                    Image(systemName: "xmark").font(.system(size: 10, weight: .bold)).foregroundStyle(PsycheColor.sheet)
+                    Image(systemName: "xmark").font(.caption2.weight(.bold)).dynamicTypeSize(...DynamicTypeSize.xxxLarge).foregroundStyle(PsycheColor.sheet)
                 }
                 .frame(width: 22, height: 22)
             }

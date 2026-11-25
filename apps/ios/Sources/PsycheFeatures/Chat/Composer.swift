@@ -25,6 +25,9 @@ struct Composer: View {
     @State private var photoSelection: [PhotosPickerItem] = []
     private let motion = MotionContext()
     @Namespace private var glass
+    @ScaledMetric(relativeTo: .body) private var fieldHit: CGFloat = 48
+    @ScaledMetric(relativeTo: .body) private var controlHit: CGFloat = 36
+    @State private var sendTick = 0
 
     private var showsStop: Bool { isRunning && composer.trimmedText.isEmpty && composer.attachments.isEmpty }
 
@@ -92,9 +95,9 @@ struct Composer: View {
             #endif
         } label: {
             Image(systemName: "plus")
-                .font(.system(size: 19, weight: .regular))
+                .font(.title3)
                 .foregroundStyle(PsycheColor.text)
-                .frame(width: 48, height: 48)
+                .frame(width: fieldHit, height: fieldHit)
                 .contentShape(Circle())
         }
         .glassEffect(.regular.interactive(), in: .circle)
@@ -110,7 +113,6 @@ struct Composer: View {
                 .focused(focused)
                 .padding(.vertical, 14)
                 .padding(.leading, 6)
-            if isRunning { modeMenu }
             dictationButton
             // Stop keeps its place while a reply runs and the reader is typing: a compact one sits by Send.
             if isRunning, !showsStop { stopButton.transition(.opacity) }
@@ -126,42 +128,32 @@ struct Composer: View {
         }
         .padding(.leading, 12)
         .padding(.trailing, 6)
-        .frame(minHeight: 48)
+        .frame(minHeight: fieldHit)
         .glassEffect(.regular, in: .rect(cornerRadius: 24))
         .glassEffectID("field", in: glass)
     }
 
-    /// While Psyche replies: how the next message goes. The icon shows the current choice.
-    private var modeMenu: some View {
-        Menu {
+    /// While Psyche replies, a long-press on Send picks how the next message goes (it was a separate menu in the field).
+    @ViewBuilder
+    private var sendModeMenu: some View {
+        if isRunning {
             Button { setRunMode(.queue) } label: {
-                Label(String(localized: "Queue after the reply", bundle: .module), systemImage: "clock")
+                Label(String(localized: "Queue after the reply", bundle: .module), systemImage: runMode == .queue ? "checkmark" : "clock")
             }
             Button { setRunMode(.steer) } label: {
-                Label(String(localized: "Steer the reply", bundle: .module), systemImage: "bolt.fill")
+                Label(String(localized: "Steer the reply", bundle: .module), systemImage: runMode == .steer ? "checkmark" : "bolt.fill")
             }
-        } label: {
-            Image(systemName: runMode == .steer ? "bolt.fill" : "clock")
-                .font(.system(size: 15, weight: .regular))
-                .foregroundStyle(PsycheColor.muted)
-                .frame(width: 36, height: 36)
-                .contentShape(Circle())
         }
-        .padding(.bottom, 6)
-        .accessibilityLabel(
-            runMode == .steer
-                ? String(localized: "Steer the reply", bundle: .module)
-                : String(localized: "Queue after the reply", bundle: .module))
     }
 
     private var dictationButton: some View {
         let active = composer.dictation.isActive
         return Button { composer.toggleDictation() } label: {
             Image(systemName: active ? "waveform" : "mic")
-                .font(.system(size: 17, weight: .regular))
+                .font(.body)
                 .foregroundStyle(active ? PsycheColor.text : PsycheColor.muted)
                 .symbolEffect(.variableColor.iterative, isActive: active && !motion.reduced)
-                .frame(width: 36, height: 36)
+                .frame(width: controlHit, height: controlHit)
                 .contentShape(Circle())
         }
         .padding(.bottom, 6)
@@ -169,26 +161,31 @@ struct Composer: View {
     }
 
     private var sendButton: some View {
-        Button(action: send) {
+        Button { sendTick += 1; send() } label: {
             Image(systemName: "arrow.up")
-                .font(.system(size: 16, weight: .bold))
+                .font(.callout.weight(.bold))
                 .foregroundStyle(.white)
-                .frame(width: 36, height: 36)
+                .frame(width: controlHit, height: controlHit)
                 .background(PsycheColor.ink, in: Circle())
         }
         .padding(.bottom, 6)
         .disabled(!canSend)
         .opacity(canSend ? 1 : 0.4)
+        .sensoryFeedback(.impact, trigger: sendTick)
+        .contextMenu { sendModeMenu }
         .accessibilityLabel(String(localized: "Send", bundle: .module))
+        .accessibilityHint(isRunning ? (runMode == .steer ? String(localized: "Steer the reply", bundle: .module) : String(localized: "Queue after the reply", bundle: .module)) : "")
+        .accessibilityAction(named: Text("Queue after the reply", bundle: .module)) { if isRunning { setRunMode(.queue) } }
+        .accessibilityAction(named: Text("Steer the reply", bundle: .module)) { if isRunning { setRunMode(.steer) } }
     }
 
     /// Stop is not ink: the screen's one filled control is Send.
     private var stopButton: some View {
         Button(action: stop) {
             Image(systemName: "stop.fill")
-                .font(.system(size: 13, weight: .bold))
+                .font(.footnote.weight(.bold))
                 .foregroundStyle(PsycheColor.text)
-                .frame(width: 36, height: 36)
+                .frame(width: controlHit, height: controlHit)
                 .background(PsycheColor.fill, in: Circle())
         }
         .padding(.bottom, 6)

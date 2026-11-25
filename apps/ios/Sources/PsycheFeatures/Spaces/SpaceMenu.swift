@@ -9,14 +9,24 @@ struct SpaceTargetMenu: View {
 
     var body: some View {
         Menu {
-            Button { model.choose(nil) } label: { check(String(localized: "No Space", bundle: .module), model.target == nil) }
-            ForEach(model.spaces) { space in
-                Button { model.choose(space.id) } label: { check(space.name, model.target == space.id) }
-            }
+            SpaceTargetItems(model: model)
         } label: {
             Label(model.targetName ?? String(localized: "Space", bundle: .module), systemImage: "square.stack")
         }
         .accessibilityLabel(String(localized: "Space", bundle: .module))
+    }
+}
+
+/// The choices in the Space menu: "No Space" and each Space, the current one checked. Used by the title menu of
+/// the Chat list.
+struct SpaceTargetItems: View {
+    let model: SpaceMenuModel
+
+    var body: some View {
+        Button { model.choose(nil) } label: { check(String(localized: "No Space", bundle: .module), model.target == nil) }
+        ForEach(model.spaces) { space in
+            Button { model.choose(space.id) } label: { check(space.name, model.target == space.id) }
+        }
     }
 
     @ViewBuilder
