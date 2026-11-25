@@ -41,9 +41,10 @@ export const planFork: Partial<Catalogue> = {
   "planFork.noSource": "Nessuna fonte",
   "planFork.total.estimate": "{money} {per}, include stime",
   "planFork.total.none": "Nessun costo",
-  "planFork.totalOnMac": "Totale sul tuo Mac",
-  "planFork.moreOnMac": "{count, plural, one {1 altro sul tuo Mac} other {# altri sul tuo Mac}}",
-  "planFork.hiddenText": "Aprilo sul tuo Mac per leggerlo",
+  "planFork.totalOnMac": "Totale sul tuo computer",
+  "planFork.moreOnMac":
+    "{count, plural, one {1 altro sul tuo computer} other {# altri sul tuo computer}}",
+  "planFork.hiddenText": "Aprilo sul tuo computer per leggerlo",
   "planFork.tradeoff": "Guadagni: {gain}. Rinunci a: {giveUp}",
   "planFork.period.once": "una tantum",
   "planFork.period.month": "al mese",
@@ -91,7 +92,7 @@ export const planFork: Partial<Catalogue> = {
   "planFork.take.sendToo": "Invia anche",
   "planFork.take.sendAria": "Invia anche: {summary}",
   "planFork.take.newRecipient": "Nuovo destinatario",
-  "planFork.take.withheld": "Questo elemento si vede solo sul tuo Mac.",
+  "planFork.take.withheld": "Questo elemento si vede solo sul tuo computer.",
   "planFork.take.withheldTitle": "Un elemento preparato dai tuoi Messaggi",
   "planFork.take.continue": "Psyche inizia i passaggi restanti e chiede prima di ogni azione",
   "planFork.take.mismatch":

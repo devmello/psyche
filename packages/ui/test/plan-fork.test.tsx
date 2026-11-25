@@ -235,10 +235,12 @@ describe("the Plans view", () => {
       },
     });
     const compare = await screen.findByTestId("plan-compare");
-    expect(within(compare).getByTestId("total-fbr_austin").textContent).toBe("Total on your Mac");
+    expect(within(compare).getByTestId("total-fbr_austin").textContent).toBe(
+      "Total on your computer",
+    );
     expect(within(compare).queryByText(/Austin costs more/)).toBeNull();
     expect(
-      within(screen.getByTestId("lane-fbr_austin")).getByText("Open on your Mac to read this"),
+      within(screen.getByTestId("lane-fbr_austin")).getByText("Open on your computer to read this"),
     ).toBeTruthy();
   });
 });
