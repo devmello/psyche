@@ -28,7 +28,14 @@ describe("tasks: the server-only staging field", () => {
       try {
         const clock = new FakeClock();
         const first = testEngine({ clock, db: testDb(clock, t.file) });
-        const task = await first.engine.create({ ...base, mode: "unattended", staging });
+        // A fork block goes with the fork origin, and only with it (fork-a-plan F1).
+        const origin = staging.kind === "fork" ? { createdFrom: "fork" as const } : {};
+        const task = await first.engine.create({
+          ...base,
+          ...origin,
+          mode: "unattended",
+          staging,
+        });
         first.db.sqlite.close();
         const second = testEngine({ clock, db: testDb(clock, t.file) });
         expect(second.engine.getRecord(task.id)?.staging).toEqual(staging);
@@ -163,7 +170,7 @@ describe("worker: a staging task", () => {
 
   it("does not run when the sink provider declines the block", async () => {
     const { engine, loop, pool } = setup(() => undefined);
-    await engine.create({ ...base, mode: "unattended", staging: FORK });
+    await engine.create({ ...base, createdFrom: "fork", mode: "unattended", staging: FORK });
     await pool.runOnce();
     expect(loop.turns).toHaveLength(0);
   });

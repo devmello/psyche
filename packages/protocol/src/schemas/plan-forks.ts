@@ -35,7 +35,7 @@ export const ForkCite = Type.Object(
     /** Absent in what the model files; the Gateway fills it for each cite that checks out. */
     source: Type.Optional(ForkCiteSource),
   },
-  { $id: "ForkCite" },
+  { $id: "ForkCite", additionalProperties: false },
 );
 export type ForkCite = Static<typeof ForkCite>;
 
@@ -55,7 +55,7 @@ export const ForkStep = Type.Object(
     /** A live staged item of this branch; the Gateway drops it otherwise. */
     stagedId: Type.Optional(Id),
   },
-  { $id: "ForkStep" },
+  { $id: "ForkStep", additionalProperties: false },
 );
 export type ForkStep = Static<typeof ForkStep>;
 
@@ -72,7 +72,7 @@ export const ForkCost = Type.Object(
     cites: Cites,
     unsourced: Unsourced,
   },
-  { $id: "ForkCost" },
+  { $id: "ForkCost", additionalProperties: false },
 );
 export type ForkCost = Static<typeof ForkCost>;
 
@@ -86,7 +86,7 @@ export const ForkDateItem = Type.Object(
     cites: Cites,
     unsourced: Unsourced,
   },
-  { $id: "ForkDateItem" },
+  { $id: "ForkDateItem", additionalProperties: false },
 );
 export type ForkDateItem = Static<typeof ForkDateItem>;
 
@@ -100,7 +100,7 @@ export const ForkPerson = Type.Object(
     cites: Cites,
     unsourced: Unsourced,
   },
-  { $id: "ForkPerson" },
+  { $id: "ForkPerson", additionalProperties: false },
 );
 export type ForkPerson = Static<typeof ForkPerson>;
 
@@ -112,7 +112,7 @@ export const ForkTradeoff = Type.Object(
     cites: Cites,
     unsourced: Unsourced,
   },
-  { $id: "ForkTradeoff" },
+  { $id: "ForkTradeoff", additionalProperties: false },
 );
 export type ForkTradeoff = Static<typeof ForkTradeoff>;
 
@@ -124,13 +124,13 @@ export const ForkRisk = Type.Object(
     cites: Cites,
     unsourced: Unsourced,
   },
-  { $id: "ForkRisk" },
+  { $id: "ForkRisk", additionalProperties: false },
 );
 export type ForkRisk = Static<typeof ForkRisk>;
 
 export const ForkOpenQuestion = Type.Object(
   { id: ItemId, text: Type.String({ maxLength: 200 }) },
-  { $id: "ForkOpenQuestion" },
+  { $id: "ForkOpenQuestion", additionalProperties: false },
 );
 export type ForkOpenQuestion = Static<typeof ForkOpenQuestion>;
 
@@ -149,7 +149,7 @@ export const ForkReport = Type.Object(
     risks: Type.Array(ForkRisk, { maxItems: 10 }),
     openQuestions: Type.Array(ForkOpenQuestion, { maxItems: 8 }),
   },
-  { $id: "ForkReport" },
+  { $id: "ForkReport", additionalProperties: false },
 );
 export type ForkReport = Static<typeof ForkReport>;
 

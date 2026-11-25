@@ -18,6 +18,8 @@ public enum AlertCategory: String, CaseIterable, Sendable {
     case finished = "psyche.finished"
     /// "Reconnect to answer": replaces an approval notification when the Mac could not be reached.
     case reconnect = "psyche.reconnect"
+    /// Night shift: changes prepared overnight are ready to review. No buttons: the tap opens the review.
+    case review = "psyche.review"
 }
 
 public enum AlertAction: String, Sendable {
@@ -90,7 +92,7 @@ public enum AlertPolicy {
             return AlertPayload(
                 id: item.id, title: "A \(what) needs your review", body: "Open Psyche to see the details",
                 category: category, level: .active, threadID: item.threadID)
-        case .question, .finished, .reconnect:
+        case .question, .finished, .reconnect, .review:
             return AlertPayload(
                 id: item.id, title: "Psyche has a question", body: item.title, category: .question, level: .active,
                 threadID: item.threadID, route: item.threadID.map { "/chat/\($0)" })
@@ -116,6 +118,17 @@ public enum AlertPolicy {
         AlertPayload(id: id, title: "Couldn't answer", body: message, category: .reconnect, level: .active)
     }
 
+    /// One note per Night shift review (the id is the review's, so the ledger announces it once): "ready to review",
+    /// never what is in it. A mail draft's text must not reach a lock screen. The tap opens the review.
+    public static func nightShiftReady(reviewID: String) -> AlertPayload {
+        AlertPayload(
+            id: nightShiftAlertID(reviewID: reviewID), title: "Prepared overnight",
+            body: "Changes are ready for you to review.", category: .review, level: .active,
+            route: "/home?review=\(reviewID)")
+    }
+
+    public static func nightShiftAlertID(reviewID: String) -> String { "nightshift-\(reviewID)" }
+
     /// The action buttons a category offers, in order. Approve needs authentication; Deny is destructive;
     /// Review and Open bring the app forward.
     public static func actions(for category: AlertCategory) -> [AlertAction] {
@@ -123,7 +136,7 @@ public enum AlertPolicy {
         case .approvalWrite: [.approve, .deny]
         case .approvalReview: [.review]
         case .question, .reconnect: [.open]
-        case .finished: []
+        case .finished, .review: []
         }
     }
 
@@ -131,7 +144,7 @@ public enum AlertPolicy {
     public static func isWaitingOnOwner(_ category: AlertCategory) -> Bool {
         switch category {
         case .approvalWrite, .approvalReview, .question, .reconnect: true
-        case .finished: false
+        case .finished, .review: false
         }
     }
 }

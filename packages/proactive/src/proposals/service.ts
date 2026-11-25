@@ -1,9 +1,4 @@
-import {
-  type AgentToolRegistration,
-  bindingHash,
-  paramsHash,
-  type ToolRunContext,
-} from "@psyche/agent-core";
+import { type AgentToolRegistration, bindingHash, paramsHash } from "@psyche/agent-core";
 import type { PolicyBatchInput, PolicyCall } from "@psyche/permissions";
 import {
   type ActionCall,
@@ -22,6 +17,7 @@ import {
   type TaintSource,
 } from "@psyche/protocol";
 import { ulid } from "ulid";
+import { runChild } from "../exec/run-children.ts";
 import { type SqliteDatabase, toIso } from "../sqlite.ts";
 import { ProposalStore, type StoredProposal, toActionProposal } from "./store.ts";
 
@@ -421,73 +417,31 @@ export class ProposalService {
     const runId = `batch_${p.id}`;
     const threadId = p.threadId ?? (await this.#o.mainThread());
     for (const [index, child] of children.entries()) {
-      const c = child.call;
-      const reg = this.#o.tools.get(c.tool);
-      if (reg === undefined) {
-        results.push({ index, status: "failed", error: `unknown tool ${c.tool}` });
-        continue;
-      }
-      // The broker's stored call is what runs: its params must still hash to what it decided.
-      if (paramsHash(c.params) !== c.paramsHash) {
-        results.push({ index, status: "failed", error: "the call changed after it was approved" });
-        continue;
-      }
-      const verified = await this.#o.broker.verifyBinding(
-        child.approval.id,
-        child.approval.bindingHash,
-      );
-      if (!verified.ok) {
-        results.push({ index, status: "failed", error: `approval ${verified.reason}` });
-        continue;
-      }
-      const callId = `${p.id}:${index}`;
-      const controller = new AbortController();
-      const ctx: ToolRunContext = {
-        callId,
-        threadId,
-        runId,
-        taint: p.taint,
-        ...(p.taintSources === undefined ? {} : { taintSources: p.taintSources }),
-        permissionMode: "balanced",
-        mode: "attended",
-        approvalId: child.approval.id,
-        authority: {
-          rule: `approval:${child.approval.id}`,
-          bindingHash: child.approval.bindingHash,
-          approvalId: child.approval.id,
-          scope: "once",
+      // The shared executor (exec/run-children.ts); a mid-flight throw stays `failed` here.
+      const out = await runChild(
+        { tools: this.#o.tools, broker: this.#o.broker },
+        { ...child, callId: `${p.id}:${index}` },
+        {
+          threadId,
+          runId,
+          taint: p.taint,
+          ...(p.taintSources === undefined ? {} : { taintSources: p.taintSources }),
         },
-        signal: controller.signal,
-        onUpdate: () => {},
-      };
-      try {
-        const r =
-          "run" in reg && reg.run !== undefined
-            ? await reg.run(structuredClone(c.params), ctx)
-            : await reg.execute(callId, structuredClone(c.params), controller.signal, () => {});
-        let receiptId = r.receiptId;
-        if (receiptId === undefined) {
-          receiptId = (
-            await this.#o.broker.recordReceipt({
-              kind: child.approval.kind,
-              outcome: r.isError === true ? "failed" : "ok",
-              summary: child.summary,
-              toolCallId: callId,
-              approvalId: child.approval.id,
-            })
-          ).id;
-        }
+      );
+      if (out.status === "ok") {
         results.push({
           index,
-          status: r.isError === true ? "failed" : "ok",
-          ...(r.isError === true ? { error: errorText(r.output) } : {}),
-          receiptId,
+          status: "ok",
+          ...(out.receiptId === undefined ? {} : { receiptId: out.receiptId }),
         });
-      } catch (err) {
+      } else {
         results.push({
           index,
           status: "failed",
-          error: err instanceof Error ? err.message.slice(0, 300) : "failed",
+          error: out.error,
+          ...("receiptId" in out && out.receiptId !== undefined
+            ? { receiptId: out.receiptId }
+            : {}),
         });
       }
     }
@@ -499,14 +453,5 @@ export class ProposalService {
         ok === children.length && children.length > 0 ? "done" : ok === 0 ? "failed" : "partial",
       finishedAt: this.#now(),
     });
-  }
-}
-
-function errorText(output: unknown): string {
-  if (typeof output === "string") return output.slice(0, 300);
-  try {
-    return JSON.stringify(output).slice(0, 300);
-  } catch {
-    return "failed";
   }
 }

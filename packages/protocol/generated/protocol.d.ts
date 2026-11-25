@@ -9062,6 +9062,7 @@ export interface StagedAction {
     toolCallId?:   null | string;
     updatedAt:     string;
     why?:          null | string;
+    withheld?:     Withheld;
 }
 
 export type StagedActionDomain = "mail" | "calendar" | "reminders" | "files";
@@ -9097,6 +9098,8 @@ export interface StagedActionSend {
 
 export type StagedActionStatus = "ready" | "stale" | "superseded" | "applied" | "failed" | "uncertain" | "skipped" | "dismissed" | "expired" | "undone";
 
+export type Withheld = "messages";
+
 export interface NightShiftReviewGetParams {
     reviewId: string;
 }
@@ -9127,9 +9130,12 @@ export type NightShiftReviewStatus = "none" | "ready" | "partial" | "applied" | 
 export type NightShiftNightStatus = "running" | "done" | "stopped" | "skipped" | "empty";
 
 export interface NightShiftRunNowResult {
-    reason?: string;
-    started: boolean;
+    outcome?: NightShiftRunNowResultOutcome;
+    reason?:  string;
+    started:  boolean;
 }
+
+export type NightShiftRunNowResultOutcome = "off" | "already" | "skipped" | "no_candidates" | "empty" | "done" | "stopped";
 
 export interface NightShiftStatusResult {
     enabled:        boolean;
@@ -13759,7 +13765,7 @@ export interface Task {
     workspace?:    TaskWorkspace;
 }
 
-export type TaskOrigin = "chat" | "automation" | "idea" | "goal" | "channel" | "subagent";
+export type TaskOrigin = "chat" | "automation" | "idea" | "goal" | "channel" | "subagent" | "fork";
 
 export interface TaskPlan {
     approvedAt?: null | string;

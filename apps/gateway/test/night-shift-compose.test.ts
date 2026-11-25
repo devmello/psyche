@@ -1,9 +1,15 @@
 import { AgentToolRegistry } from "@psyche/agent-core";
 import { appendMessage, createThread, getThread, openDb, setSetting } from "@psyche/db";
 import type { ToolLookup } from "@psyche/proactive";
+import type { StagedAction } from "@psyche/protocol";
 import { FakeClock } from "@psyche/testing";
 import { describe, expect, it } from "vitest";
-import { composeNightShift, MESSAGES_ITEM_LINE } from "../src/compose/night-shift.ts";
+import {
+  composeNightShift,
+  forRemote,
+  MESSAGES_ITEM_LINE,
+  personalizeNightShiftItem,
+} from "../src/compose/night-shift.ts";
 import { connectorToolLookup } from "../src/compose/proactive.ts";
 import type { Call } from "../src/context.ts";
 
@@ -16,7 +22,7 @@ const GOOD = {
   idleMinutes: 60,
 };
 
-function rig(calendarEvents: Record<string, unknown[]> = {}) {
+function rig(calendarEvents: Record<string, unknown[]> = {}, state: typeof GOOD = GOOD) {
   const clock = new FakeClock(START);
   const db = openDb(":memory:", { now: () => new Date(clock.now()).toISOString() });
   setSetting(db, "nightShift.enabled", true);
@@ -74,7 +80,7 @@ function rig(calendarEvents: Record<string, unknown[]> = {}) {
     registry,
     lookup: () => connectorToolLookup(registry) as ToolLookup,
     keepAwake: { acquire: () => () => undefined },
-    readState: async () => GOOD,
+    readState: async () => state,
     timeZone: () => "UTC",
     connectors: async () => [
       // A custom connector registered first, then the real one.
@@ -104,6 +110,49 @@ const overlapping = [
     attendees: [],
   },
 ];
+
+describe("Night shift runNow feedback", () => {
+  const run = (r: ReturnType<typeof rig>) =>
+    r.ns.defs["nightShift.runNow"]?.run({} as Call, {} as never);
+
+  it("says there is nothing to do when no candidates turn up", async () => {
+    const r = rig({});
+    await r.ns.start();
+    expect(await run(r)).toMatchObject({ started: false, outcome: "no_candidates" });
+    expect(r.created).toHaveLength(0);
+  });
+
+  it("says why a gate refused the run, and that it is off", async () => {
+    const low = rig({ apple: overlapping }, { ...GOOD, onAc: false, batteryPct: 5 });
+    await low.ns.start();
+    expect(await run(low)).toMatchObject({ started: false, outcome: "skipped", reason: "battery" });
+    const off = rig({ apple: overlapping });
+    setSetting(off.db, "nightShift.enabled", false);
+    expect(await run(off)).toMatchObject({ started: false, outcome: "off" });
+  });
+
+  it("answers started for a run with work (the control for the refusals above)", async () => {
+    const r = rig({ apple: overlapping });
+    await r.ns.start();
+    const out = await run(r);
+    expect(out).toMatchObject({ started: true });
+    expect(out).not.toMatchObject({ outcome: "no_candidates" });
+    expect(r.created.length).toBeGreaterThan(0);
+  });
+
+  it("status.latest shows the last night even when nothing was staged for review", async () => {
+    const r = rig({ apple: overlapping });
+    await r.ns.start();
+    const out = await r.ns.service.run({ manual: true });
+    const night = out.night;
+    if (night === undefined) throw new Error("no night");
+    r.db.sqlite
+      .prepare("UPDATE night_shift_nights SET review_status = 'none' WHERE id = ?")
+      .run(night.id);
+    const s = await r.ns.defs["nightShift.status"]?.run({} as Call, {} as never);
+    expect(s).toMatchObject({ latest: { id: night.id, reviewStatus: "none" } });
+  });
+});
 
 describe("Night shift in the Gateway", () => {
   it("jobs run in their own thread and never see the main chat (control: main has the message)", async () => {
@@ -199,5 +248,45 @@ describe("Night shift in the Gateway", () => {
     expect(remote.items.find((i) => i.id === "s2")).toEqual(
       desktop.items.find((i) => i.id === "s2"),
     );
+  });
+});
+
+describe("Night shift items for remote readers (W5)", () => {
+  const SECRET = "Pick up Mia from the dentist at 4";
+  const item = (sourceKind: "message" | "email") =>
+    ({
+      id: "s1",
+      nightId: "n1",
+      seq: 0,
+      domain: "reminders",
+      targetKey: "k",
+      tool: "reminders_create",
+      summary: SECRET,
+      why: "From a thread",
+      params: { title: SECRET },
+      status: "failed",
+      taint: true,
+      taintSources: [{ sourceKind, origin: "x" }],
+      result: { refs: ["rem_1"], receiptId: "rcpt_1", error: `Reminders refused "${SECRET}"` },
+    }) as unknown as StagedAction;
+
+  it("forRemote clears an item from Messages' result error and keeps its refs and receipt", () => {
+    const out = forRemote(item("message"));
+    expect(out.result).toEqual({ refs: ["rem_1"], receiptId: "rcpt_1" });
+    expect(JSON.stringify(out)).not.toContain(SECRET);
+  });
+
+  it("nightShift.item.updated: the full item only for the desktop shell on this Mac", () => {
+    const payload = { item: item("message") };
+    // The local desktop shell: the shared frame as published.
+    expect(personalizeNightShiftItem(payload, { local: true })).toBeUndefined();
+    // A paired phone, the web, a remote desktop shell, a Gateway part with no reader.
+    for (const reader of [{ local: false }, {}]) {
+      const out = personalizeNightShiftItem(payload, reader);
+      expect(out?.item).toMatchObject({ withheld: "messages", summary: MESSAGES_ITEM_LINE });
+      expect(JSON.stringify(out)).not.toContain(SECRET);
+    }
+    // Control: an item with no Messages taint is the same for everyone.
+    expect(personalizeNightShiftItem({ item: item("email") }, { local: false })).toBeUndefined();
   });
 });

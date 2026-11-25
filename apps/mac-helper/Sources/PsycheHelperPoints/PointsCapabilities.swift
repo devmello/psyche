@@ -10,8 +10,8 @@ import PsycheProtocol
 /// Psyche points (docs/design/psyche-points-2026.md): the helper half. This target may import
 /// `PsycheHelperCore`, `PsycheAXRead`, `PsycheCapture` and `PsycheAXEnable`, never `PsycheHelperSystem`,
 /// so nothing here can post an event or perform an AX action. `scripts/check-points-boundary.sh`
-/// enforces it. W3 is perception: `points.windows`, `points.session` and `points.end`. Showing the
-/// overlay (`points.show`, W4) and the vision fallback (`points.look`, W5) come later.
+/// enforces it. W3 is perception (`points.windows`, `points.session`, `points.end`), W4 the overlay
+/// (`points.show`), W5 the vision fallback (`points.look`): they read and draw, and never act.
 ///
 /// `make` takes exactly two closures, `isComputerBusy` (a computer-use session holds the lock) and
 /// `isRecording` (a teach recording runs): Points refuses to start while either is true. The reverse
@@ -48,7 +48,7 @@ public enum PointsCapabilities {
                 sideEffect: .none,
                 inputSchema: Schema.object(
                     ["sessionId": Schema.string(maxLength: 80),
-                     "target": Schema.object(["fieldId": Schema.string(maxLength: 40)], required: ["fieldId"], additional: true),
+                     "target": Schema.object(["fieldId": Schema.string(maxLength: 40)], additional: true),
                      "kind": Schema.string(enum: ["fill", "choose", "check", "review", "next_page", "skip", "info", "self"]),
                      "note": Schema.string(maxLength: 1000),
                      "value": Schema.string(maxLength: 1000),
@@ -60,6 +60,19 @@ public enum PointsCapabilities {
                 let p = try ctx.decode(PointsShowParams.self)
                 let shown = try await host.show(p)
                 return CapabilityOutput(try JSONValue(encoding: PointsShowResult(shown: shown)))
+            },
+            Capability(CapabilitySpec(
+                name: "points.look",
+                description: "Owner only, Host only. One picture of the session's window ONLY (never the screen), for the owner's own Let Psyche look press: `actionId` is the id on that press's action event, valid once. Every known sensitive field is painted solid before the picture leaves the helper. Refused under Secure Event Input, for an app Points refuses, and for an unknown, used or old id.",
+                sideEffect: .read,
+                inputSchema: Schema.object(
+                    ["sessionId": Schema.string(maxLength: 80), "actionId": Schema.string(maxLength: 80)],
+                    required: ["sessionId", "actionId"]),
+                permissions: [.screenRecording]
+            )) { ctx in
+                let p = try ctx.decode(PointsLookParams.self)
+                let result = try await host.look(p)
+                return CapabilityOutput(try JSONValue(encoding: result))
             },
             Capability(CapabilitySpec(
                 name: "points.end",
@@ -99,10 +112,19 @@ final class PointsHost: @unchecked Sendable {
     func show(_ p: PointsShowParams) async throws -> Bool {
         let c = lock.withLock { sessions[p.sessionID] }
         guard let c else { throw CapabilityError(.notFound, reason: "no_session", "No points session with that id") }
-        guard let fieldId = p.target.fieldID else {
-            throw CapabilityError.invalidParams("target needs a fieldId (screenshot boxes arrive with points.look)", field: "target")
+        // A field the helper holds, or a box drawn on the last picture (vision mode); never both.
+        if let fieldId = p.target.fieldID {
+            guard p.target.box == nil else { throw CapabilityError.invalidParams("target is a fieldId or a box, not both", field: "target") }
+            return try await c.show(p, fieldId: fieldId)
         }
-        return try await c.show(p, fieldId: fieldId)
+        return try await c.showBox(p)
+    }
+
+    /// `points.look`: the session `p.sessionID` (the id of its `points.session` call) takes one masked picture.
+    func look(_ p: PointsLookParams) async throws -> PointsLookResult {
+        let c = lock.withLock { sessions[p.sessionID] }
+        guard let c else { throw CapabilityError(.notFound, reason: "no_session", "No points session with that id") }
+        return try await c.look(actionId: p.actionID)
     }
 
     func runSession(_ ctx: InvocationContext) async throws -> CapabilityOutput {

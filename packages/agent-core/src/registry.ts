@@ -268,9 +268,16 @@ export const SUBAGENT_WITHHELD = new Set([
   "specialist.spawn",
   "specialist.status",
   "specialist.report",
+  // A subagent of a fork branch inherits the branch's staging, but only the branch files its report.
+  "fork_report",
 ]);
 /** Tools offered only in plan mode. */
 export const PLAN_ONLY = new Set(["exit_plan_mode"]);
+/**
+ * Tools offered only in a plan-fork branch's run (fork-a-plan-2026 §3.2): the branch's report.
+ * Hidden everywhere else, like `PLAN_ONLY` outside plan mode.
+ */
+export const FORK_ONLY = new Set(["fork_report"]);
 /**
  * `none` tools still withheld in plan mode: a task would run outside the plan's read-only mode
  * (`TaskCreateInput` carries no permission mode).
@@ -294,6 +301,8 @@ export interface ActiveToolsInput {
   subagent?: boolean;
   /** A background specialist's run (specialists §4.3): see `SPECIALIST_WITHHELD`. */
   specialist?: boolean;
+  /** A plan-fork branch's run (fork-a-plan §3.1): `FORK_ONLY` tools are offered. */
+  fork?: boolean;
   /** Per-tool user toggles (C3): `false` hides the tool. */
   toggles?: Record<string, boolean>;
   /** Narrowing from `before_prompt_build` hooks; never widens. */
@@ -355,6 +364,7 @@ function hiddenReason(name: string, spec: ToolSpec, input: ActiveToolsInput): st
   if (input.subagent === true && (SUBAGENT_WITHHELD.has(name) || spec.targetKind === "recipient")) {
     return "not available to subagents";
   }
+  if (FORK_ONLY.has(name) && input.fork !== true) return "only for plan forks";
   if (SPECIALIST_ONLY.has(name) && input.specialist !== true) return "only for specialists";
   if (input.specialist === true && SPECIALIST_WITHHELD.has(name)) {
     return "not available to specialists";
