@@ -949,7 +949,8 @@ export function maskPointsShapes(text: string): string {
  * chips. The teach rule only matches a whole value of 12 to 24 words, so a phrase inside other
  * text needs this backstop. Two-letter words (a, of, to) break a run, so prose rarely matches.
  */
-const WORD_RUN = /(?<![\p{L}\p{N}])(?:(?:\d{1,2}[.)]\s*)?[a-z]{3,8}(?![\p{L}\p{N}])[\s,;]*){12,}/giu;
+const WORD_RUN =
+  /(?<![\p{L}\p{N}])(?:(?:\d{1,2}[.)]\s*)?[a-z]{3,8}(?![\p{L}\p{N}])[\s,;]*){12,}/giu;
 
 /**
  * Words that name a wallet recovery phrase or a private key, in the shipped languages (en, es, fr,
