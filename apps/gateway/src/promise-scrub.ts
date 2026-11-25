@@ -41,7 +41,7 @@ export function viewerOfCall(call: Call): PromiseViewer {
     full:
       call.identity.role === "client" &&
       call.identity.desktopShell === true &&
-      call.conn.peer.remoteLoopback === true,
+      call.conn?.peer?.remoteLoopback === true,
   };
 }
 
