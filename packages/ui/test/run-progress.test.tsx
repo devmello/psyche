@@ -149,7 +149,7 @@ describe("RunStepLog rail", () => {
     expect(log.getAttribute("data-waiting")).toBeNull();
   });
 
-  it("makes a step waiting on the owner unmistakable", () => {
+  it("marks a step waiting on the owner with one amber dot, no chip", () => {
     renderRail([
       tool("a", "done", "Drafted the email", NOW - 50_000, NOW - 40_000),
       {
@@ -162,7 +162,8 @@ describe("RunStepLog rail", () => {
     ]);
     const log = screen.getByTestId("run-step-log");
     const waiting = log.querySelector('li[data-state="waiting"]') as HTMLElement;
-    expect(within(waiting).getByText("Needs you")).toBeTruthy();
+    expect(within(waiting).queryByText("Needs you")).toBeNull();
+    expect(waiting.className).not.toContain("bg-approval-surface");
     expect(within(waiting).getByText("0:12")).toBeTruthy();
     expect(log.getAttribute("data-waiting")).toBe("true");
     expect(screen.getByTestId("chat-working").textContent).toBe("Wren is waiting for you");
