@@ -1,4 +1,5 @@
-import { listDevices } from "@psyche/db";
+import { getSetting, listDevices } from "@psyche/db";
+import { localizeOsText, osLabel, osTextLanguage } from "@psyche/notifications";
 import {
   AUTH_KINDS,
   approvalCode,
@@ -368,11 +369,19 @@ export function composeHelper(services: ComposeServices, setup: HelperSetup = {}
     if (token === undefined || h === undefined || a.status !== "pending") return;
     const c = client(h.nodeId);
     if (c === undefined) return;
-    const { title, body, approvable } = approvalNotificationCard(a, hostWords(h.kind));
+    const card = approvalNotificationCard(a, hostWords(h.kind));
+    const { approvable } = card;
+    // The banner's fixed words follow the owner's UI language (English when unset or unknown).
+    const lang = osTextLanguage(
+      getSetting(services.db, "ui.language")?.value,
+      Intl.DateTimeFormat().resolvedOptions().locale,
+    );
+    const title = localizeOsText(card.title, lang);
+    const body = localizeOsText(card.body, lang);
     deliveries.set(a.id, { approval: a, token, nodeId: h.nodeId });
     const deny = {
       id: "deny",
-      label: "Deny",
+      label: osLabel("deny", lang),
       destructive: true,
       authenticationRequired: false,
       textInput: false,
@@ -394,7 +403,7 @@ export function composeHelper(services: ComposeServices, setup: HelperSetup = {}
           ? [
               {
                 id: "approve",
-                label: "Approve",
+                label: osLabel("approve", lang),
                 destructive: false,
                 // A payment's owner sheet comes from the helper, once; macOS's own "unlock first"
                 // requirement would be a second prompt. The kinds that used to need presence
