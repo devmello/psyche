@@ -17,6 +17,15 @@ extension AppleAppsCapabilities {
         var path: String
         var to: String
         var name: String?
+        /// Night shift: the identities recorded when the move was staged. When present the move is
+        /// done by descriptor (`renameatx_np`, never path-based) and only if all three still match.
+        var expect: FilesMoveExpect?
+    }
+    /// Decimal `st_dev:st_ino`, as the Gateway prints Node's `fstat({ bigint: true })`.
+    struct FilesMoveExpect: Decodable {
+        var sourceId: String
+        var sourceParentId: String
+        var destParentId: String
     }
     struct FilesMove: Decodable { var items: [FilesMoveItem] }
     struct FilesRename: Decodable {
@@ -80,6 +89,12 @@ extension AppleAppsCapabilities {
                 sideEffect: .write, targetKind: .path,
                 inputSchema: Schema.object(["items": Schema.array(Schema.object([
                     "path": Schema.string(), "to": Schema.string("Destination folder (granted)"), "name": Schema.string("New file name", maxLength: 255),
+                    "expect": Schema.object([
+                        "sourceId": Schema.string("st_dev:st_ino of the file", maxLength: 64),
+                        "sourceParentId": Schema.string("st_dev:st_ino of its folder", maxLength: 64),
+                        "destParentId": Schema.string("st_dev:st_ino of the destination folder", maxLength: 64),
+                    ], required: ["sourceId", "sourceParentId", "destParentId"],
+                    description: "Identities recorded when the move was staged; any mismatch refuses the item"),
                 ], required: ["path", "to"]), maxItems: FilesWave1.maxMove)], required: ["items"]),
                 receiptKind: "connector_action"
             )) { ctx in
@@ -87,7 +102,7 @@ extension AppleAppsCapabilities {
                 guard (1...FilesWave1.maxMove).contains(p.items.count) else { throw CapabilityError.invalidParams("1–100 items", field: "items") }
                 let roots = b.roots()
                 // Check every item first, so a refusal moves nothing.
-                var plan: [(from: String, to: String)] = []
+                var plan: [(from: String, to: String, dir: String, name: String, expect: FilesMoveExpect?)] = []
                 var targets = Set<String>()
                 for it in p.items {
                     let from = try FilesWave1.item(it.path, roots: roots)
@@ -100,10 +115,28 @@ extension AppleAppsCapabilities {
                     guard to != from, lstat(to, &st) != 0, targets.insert(to.lowercased()).inserted else {
                         throw CapabilityError(.conflict, reason: "file_exists", "\(name) already exists in \(it.to)", details: ["path": .string(to)])
                     }
-                    plan.append((from, to))
+                    // Identity checked up front too, so an item that changed since staging moves nothing.
+                    if let e = it.expect { try IdentityMove.verified(from: from, dir: dir, expect: e, moved: []) { _, _, _ in } }
+                    plan.append((from, to, dir, name, it.expect))
                 }
                 var moved: [JSONValue] = []
                 for m in plan {
+                    if let e = m.expect {
+                        // Re-checked immediately before the move, by descriptor; never falls back to a path move.
+                        try IdentityMove.verified(from: m.from, dir: m.dir, expect: e, moved: moved) { srcfd, srcName, dstfd in
+                            guard renameatx_np(srcfd, srcName, dstfd, m.name, UInt32(RENAME_EXCL)) == 0 else {
+                                let err = errno
+                                if err == EEXIST {
+                                    throw CapabilityError(.conflict, reason: "file_exists", "\(m.name) already exists in the destination folder",
+                                                          details: ["moved": .array(moved), "failed": .string(m.from), "path": .string(m.to)])
+                                }
+                                throw CapabilityError(.unavailable, reason: "move_failed", "Could not move \(srcName)",
+                                                      details: ["moved": .array(moved), "failed": .string(m.from), "errno": .number(Double(err))])
+                            }
+                        }
+                        moved.append(["from": .string(m.from), "to": .string(m.to)])
+                        continue
+                    }
                     do { try FileManager.default.moveItem(atPath: m.from, toPath: m.to) } catch {
                         throw CapabilityError(.unavailable, reason: "move_failed", "Could not move \((m.from as NSString).lastPathComponent)",
                                               details: ["moved": .array(moved), "failed": .string(m.from)])
@@ -156,5 +189,44 @@ extension AppleAppsCapabilities {
                 return CapabilityOutput(["trashed": .array(trashed)], receipt: ReceiptDraft(outcome: .ok, summary: "Moved \(trashed.count) item(s) to the Trash"))
             },
         ]
+    }
+}
+
+/// Night shift's descriptor-based check for `files.move` items that carry `expect` (closes the
+/// path TOCTOU between staging and the owner's morning apply).
+enum IdentityMove {
+    /// `"<st_dev>:<st_ino>"`. macOS `dev_t` is a signed Int32, widened as signed: Node's bigint
+    /// stats are a BigInt64Array, so even a (theoretical) negative device would print negative there,
+    /// and real devices are positive, where both spellings agree.
+    static func id(_ st: stat) -> String { "\(Int64(st.st_dev)):\(st.st_ino)" }
+
+    /// Opens the source's folder and the destination folder (never through a symlink as the last
+    /// component), checks both and the source file against `expect`, then runs `body` with the open
+    /// descriptors. Both descriptors are closed on every path.
+    static func verified(from: String, dir: String, expect: AppleAppsCapabilities.FilesMoveExpect, moved: [JSONValue],
+                         _ body: (_ srcfd: Int32, _ srcName: String, _ dstfd: Int32) throws -> Void) throws {
+        let srcDir = (from as NSString).deletingLastPathComponent, srcName = (from as NSString).lastPathComponent
+        func refuse(_ reason: String, _ message: String) -> CapabilityError {
+            CapabilityError(.conflict, reason: reason, message, details: ["moved": .array(moved), "failed": .string(from)])
+        }
+        let flags = O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC
+        let srcfd = open(srcDir, flags)
+        guard srcfd >= 0 else { throw refuse("unopenable", "Could not open the folder of \(srcName)") }
+        defer { close(srcfd) }
+        let dstfd = open(dir, flags)
+        guard dstfd >= 0 else { throw refuse("unopenable", "Could not open the destination folder for \(srcName)") }
+        defer { close(dstfd) }
+        var st = stat()
+        guard fstat(srcfd, &st) == 0, id(st) == expect.sourceParentId else {
+            throw refuse("identity_mismatch", "The folder of \(srcName) changed since the move was staged")
+        }
+        guard fstat(dstfd, &st) == 0, id(st) == expect.destParentId else {
+            throw refuse("identity_mismatch", "The destination folder for \(srcName) changed since the move was staged")
+        }
+        guard fstatat(srcfd, srcName, &st, AT_SYMLINK_NOFOLLOW) == 0, (st.st_mode & S_IFMT) == S_IFREG, st.st_nlink == 1,
+              id(st) == expect.sourceId else {
+            throw refuse("identity_mismatch", "\(srcName) changed since the move was staged")
+        }
+        try body(srcfd, srcName, dstfd)
     }
 }
