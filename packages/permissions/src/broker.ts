@@ -2120,12 +2120,12 @@ export class PsychePermissionBroker implements PermissionBroker {
       seen.add(itemId);
       const d = await this.decide(c.call, input.context);
       const kind = d.approvalKind ?? c.call.kind ?? inferApprovalKind(c.call.tool);
-      const verdict = refuseStagedChild(c, d, kind);
+      const verdict = refuseStagedChild(c, d, kind, input.connectorIds);
       if (verdict !== undefined) {
         refuse(verdict.reason, verdict.message);
         continue;
       }
-      if (isStagedSend(c, d)) {
+      if (isStagedSend(c, d, input.connectorIds)) {
         sends += 1;
         // The row names who the call itself goes to, never the caller's own list.
         sendTo.set(

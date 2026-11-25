@@ -247,6 +247,11 @@ export interface StagedApplyChildInput {
 
 /** `requestStagedApply` input. */
 export interface PolicyStagedApplyInput {
+  /**
+   * The live connector ids, from the connector registry on the server, never from a client. A
+   * tool registered as `mcp__<id>__<tool>` is the bare tool only when `<id>` is in this set.
+   */
+  connectorIds: ReadonlySet<string>;
   title: string;
   children: StagedApplyChildInput[];
   context: PolicyContext;

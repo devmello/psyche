@@ -28,6 +28,8 @@ import {
 const flags = (id: string): PolicyCall =>
   call("mail_set_flags", "write", undefined, { params: { ids: [id], read: true } });
 
+const IDS: ReadonlySet<string> = new Set(["apple", "google"]);
+
 let n = 0;
 const item = (
   c: PolicyCall,
@@ -73,6 +75,7 @@ function stage(
     context: { ...CTX, taint },
     requestedBy: { runId: CTX.runId, taskId: null, threadId: CTX.threadId },
     surfaces: ["desktop", "telegram:42"],
+    connectorIds: IDS,
     ...(details === undefined ? {} : { details: details as never }),
   });
 }
@@ -140,6 +143,47 @@ describe("requestStagedApply: refused children (§3.1, §3.2, §5.4)", () => {
     {
       name: "a reminder whose tool name is money-like",
       child: () => item(exact("reminders_create_refund", "write", { title: "Pay rent" })),
+      reason: "money_intent",
+    },
+    ...(
+      [
+        ["mcp__evil__gmail_send", ["a@x.com"]],
+        ["mcp__stripe__mail_send_draft", ["a@x.com"]],
+        ["mcp__apple__mail_send", ["a@x.com"]],
+      ] as const
+    ).map(
+      ([tool, to]): Row => ({
+        name: `a send as ${tool} (id not live, or not a send tool of that id)`,
+        child: () =>
+          item(
+            exact(
+              tool,
+              "destructive",
+              { to: [...to] },
+              { kind: "send_email", target: recipient(to[0]) },
+            ),
+            {
+              explicitSend: true,
+              recipients: [...to],
+            },
+          ),
+        reason: ["send_not_explicit", "destructive", "denied"],
+      }),
+    ),
+    {
+      name: "an undo through an mcp tool of an id that is not live",
+      child: () =>
+        item(exact("mcp__evil__calendar_delete_event", "destructive", { id: "evt_1" }), {
+          undo: { createdId: "evt_1" },
+        }),
+      reason: ["undo_unbound", "destructive", "denied"],
+    },
+    {
+      name: "a reminder of an mcp id that is not live is scanned (mcp__stripe__reminders_create)",
+      child: () =>
+        item(exact("mcp__stripe__reminders_create", "write", { title: "Pay rent" }), {
+          summary: "Pay rent",
+        }),
       reason: "money_intent",
     },
     {
@@ -693,6 +737,65 @@ describe("requestStagedApply: near-misses that must be allowed", () => {
         }),
     },
     {
+      name: "mcp__apple__mail_send_draft with the id live",
+      child: () =>
+        item(
+          exact(
+            "mcp__apple__mail_send_draft",
+            "destructive",
+            { draftId: "d1", to: ["b@y.com", "a@x.com"], subject: "s", bodySha256: "h" },
+            { kind: "send_email", target: recipient("a@x.com,b@y.com") },
+          ),
+          { explicitSend: true, recipients: ["a@x.com", "b@y.com"] },
+        ),
+    },
+    {
+      name: "mcp__google__gmail_send with the id live",
+      child: () =>
+        item(
+          exact(
+            "mcp__google__gmail_send",
+            "destructive",
+            { to: ["Dana <Dana@X.com>"], subject: "s", body: "b" },
+            { kind: "send_email", target: recipient("dana@x.com") },
+          ),
+          { explicitSend: true, recipients: ["dana@x.com"] },
+        ),
+    },
+    {
+      name: "mcp__apple__calendar_delete_event undo with its real account target",
+      child: () =>
+        item(
+          exact(
+            "mcp__apple__calendar_delete_event",
+            "destructive",
+            { id: "evt_7", span: "this" },
+            { target: { kind: "account", value: "apple" } },
+          ),
+          { undo: { createdId: "evt_7" } },
+        ),
+    },
+    {
+      name: "mcp__google__calendar_delete_event undo with the Google shape",
+      child: () =>
+        item(
+          exact(
+            "mcp__google__calendar_delete_event",
+            "destructive",
+            { calendarId: "primary", eventId: "evt_8", sendUpdates: "none" },
+            { target: { kind: "account", value: "me@gmail.com" } },
+          ),
+          { undo: { createdId: "evt_8", calendarId: "primary" } },
+        ),
+    },
+    {
+      name: "mcp__apple__reminders_create titled Pay rent",
+      child: () =>
+        item(exact("mcp__apple__reminders_create", "write", { title: "Pay rent" }), {
+          summary: "Pay rent",
+        }),
+    },
+    {
       name: "an Apple undo delete with its real account target",
       child: () =>
         item(
@@ -975,6 +1078,7 @@ describe("requestStagedApply: the approval", () => {
   it("carries taint to the card and every child", async () => {
     const h = makeBroker();
     const issued = await h.broker.requestStagedApply({
+      connectorIds: IDS,
       title: "Apply 1 prepared change",
       children: [item(flags("m1"))],
       context: { ...CTX, taint: true },
@@ -1063,6 +1167,7 @@ describe("requestStagedApply: minted children", () => {
     const b1 = sqliteBroker(db, clock);
     const kids = [item(flags("m1")), item(flags("m2"))];
     const issued = await b1.requestStagedApply({
+      connectorIds: IDS,
       title: "Apply 2 prepared changes",
       children: kids,
       context: CTX,
@@ -1083,5 +1188,17 @@ describe("requestStagedApply: minted children", () => {
       kids.map((k) => k.itemId),
     );
     expect(children.every((c) => c.approval.status === "approved")).toBe(true);
+  });
+});
+
+describe("requestStagedApply: connector tool names", () => {
+  it("unwraps only live connector ids, mirroring the registry's id sanitising", async () => {
+    const { bareToolName } = await import("../src/staged-apply.ts");
+    const live = new Set(["apple", "my.connector_1"]);
+    expect(bareToolName("mcp__apple__reminders_create", live)).toBe("reminders_create");
+    expect(bareToolName("mcp__my-connector-1__gmail_send", live)).toBe("gmail_send");
+    expect(bareToolName("mcp__evil__gmail_send", live)).toBe("mcp__evil__gmail_send");
+    expect(bareToolName("gmail_send", live)).toBe("gmail_send");
+    expect(bareToolName("mcp__apple__x", new Set())).toBe("mcp__apple__x");
   });
 });

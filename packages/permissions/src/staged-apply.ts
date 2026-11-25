@@ -44,6 +44,23 @@ const UNDO_TOOLS: Readonly<Record<string, UndoTool>> = {
   reminders_delete: { idKeys: ["id"], extras: {} },
 };
 
+/**
+ * The bare tool name a registered name stands for, or the name itself when it is not a
+ * connector's. A connector's tools register as `mcp__<id>__<tool>` (`toolName` in the connector
+ * registry, which replaces characters outside `[a-z0-9-]` in the id); only an id in the live
+ * `connectorIds` unwraps. Any other `mcp__` name (a third-party MCP server) is returned as it is,
+ * so it never equals a bare list entry.
+ */
+export function bareToolName(tool: string, connectorIds: ReadonlySet<string>): string {
+  const m = /^mcp__([a-z0-9-]*)__(.+)$/.exec(tool);
+  if (m === null) return tool;
+  const seg = m[1] ?? "";
+  for (const id of connectorIds) {
+    if (id.replace(/[^a-z0-9-]/g, "-") === seg) return m[2] ?? tool;
+  }
+  return tool;
+}
+
 const MAX_STRINGS = 500;
 const MAX_DEPTH = 8;
 
@@ -111,8 +128,13 @@ export function callRecipients(call: PolicyCall): string[] {
 }
 
 /** Whether one call is a well-formed undo delete of `undo.createdId` and nothing else. */
-function undoBound(call: PolicyCall, undo: NonNullable<StagedApplyChildInput["undo"]>): boolean {
-  const spec = UNDO_TOOLS[call.tool];
+function undoBound(
+  call: PolicyCall,
+  undo: NonNullable<StagedApplyChildInput["undo"]>,
+  connectorIds: ReadonlySet<string>,
+): boolean {
+  const bare = bareToolName(call.tool, connectorIds);
+  const spec = Object.hasOwn(UNDO_TOOLS, bare) ? UNDO_TOOLS[bare] : undefined;
   const created = undo.createdId;
   if (spec === undefined || typeof created !== "string" || created === "") return false;
   const p = paramsOf(call);
@@ -147,15 +169,21 @@ const REMINDER_TOOLS: ReadonlySet<string> = new Set([
   "reminders_update",
   "reminders_complete",
 ]);
-export function isReminderTool(tool: string): boolean {
-  return REMINDER_TOOLS.has(tool);
+export function isReminderTool(tool: string, connectorIds: ReadonlySet<string>): boolean {
+  return REMINDER_TOOLS.has(bareToolName(tool, connectorIds));
 }
 
 /** The money check of §3.1: tool name, summary, and every string the call carries, both forms. */
-export function stagedMoneyIntent(child: StagedApplyChildInput, decided: PolicyCall): boolean {
+export function stagedMoneyIntent(
+  child: StagedApplyChildInput,
+  decided: PolicyCall,
+  connectorIds: ReadonlySet<string>,
+): boolean {
   if (isMoneyToolName(decided.tool) || isMoneyToolName(child.call.tool)) return true;
   // A reminder's words (a title like "Pay rent") are skipped: both forms must be a reminder tool.
-  if (isReminderTool(decided.tool) && isReminderTool(child.call.tool)) return false;
+  if (isReminderTool(decided.tool, connectorIds) && isReminderTool(child.call.tool, connectorIds)) {
+    return false;
+  }
   if (isMoneyText(child.summary)) return true;
   // The call as given and as the hooks rewrote it: either one looking like a payment refuses.
   for (const c of [child.call, decided]) {
@@ -183,8 +211,15 @@ export function stagedKinds(
 }
 
 /** Whether a kept child is a send (by its exact tool name; a send never passes any other way). */
-export function isStagedSend(child: StagedApplyChildInput, d: PolicyDecision): boolean {
-  return STAGED_SEND_TOOLS.has(d.call.tool) && d.call.tool === child.call.tool;
+export function isStagedSend(
+  child: StagedApplyChildInput,
+  d: PolicyDecision,
+  connectorIds: ReadonlySet<string>,
+): boolean {
+  return (
+    d.call.tool === child.call.tool &&
+    STAGED_SEND_TOOLS.has(bareToolName(d.call.tool, connectorIds))
+  );
 }
 
 export interface StagedVerdict {
@@ -206,6 +241,7 @@ export function refuseStagedChild(
   child: StagedApplyChildInput,
   d: PolicyDecision,
   kind: ApprovalKind,
+  connectorIds: ReadonlySet<string>,
 ): StagedVerdict | undefined {
   const tool = d.call.tool;
   const kinds = stagedKinds(child, d, kind);
@@ -213,7 +249,7 @@ export function refuseStagedChild(
   const se = d.sideEffect;
 
   // §3.1.
-  if (stagedMoneyIntent(child, d.call)) {
+  if (stagedMoneyIntent(child, d.call, connectorIds)) {
     return { reason: "money_intent", message: "this looks like a payment" };
   }
   if (d.decision === "deny") {
@@ -241,7 +277,7 @@ export function refuseStagedChild(
   // §3.2: a send is allowed only on a send tool's exact name, with the kind the registry gives
   // it, when the owner ticked it and the recipients are the call's own.
   const sendKind = any(SEND_KINDS);
-  if (isStagedSend(child, d)) {
+  if (isStagedSend(child, d, connectorIds)) {
     const own = callRecipients(d.call);
     const given = [
       ...new Set(
@@ -267,7 +303,11 @@ export function refuseStagedChild(
     if (child.undo === undefined) {
       return { reason: "destructive", message: "deletes are never applied in bulk" };
     }
-    if (sendKind || !undoBound(child.call, child.undo) || !undoBound(d.call, child.undo)) {
+    if (
+      sendKind ||
+      !undoBound(child.call, child.undo, connectorIds) ||
+      !undoBound(d.call, child.undo, connectorIds)
+    ) {
       return {
         reason: "undo_unbound",
         message: "an undo may only delete what Night shift created",
