@@ -3,6 +3,7 @@ import ApplicationServices
 import Carbon.HIToolbox
 import CoreGraphics
 import Foundation
+import PsycheAXRead
 import PsycheHelperCore
 
 /// A thread that runs a run loop for a source's observer and tap. `start` returns once `install`
