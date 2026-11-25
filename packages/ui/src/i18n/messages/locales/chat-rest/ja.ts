@@ -44,6 +44,9 @@ export const chatRest: Partial<Catalogue> = {
   "chat.attach.remove": "{name}を削除",
   "chat.attach.uploading": "{name}をアップロード中",
   "chat.attach.failed": "{name}をアップロードできませんでした",
+  "chat.attach.retry": "{name}のアップロードを再試行",
+  "chat.attach.blockedByFailed":
+    "アップロードできなかったファイルがあります。再試行するか削除すると送信できます。",
   "chat.attach.dismiss": "閉じる",
   "chat.attach.refused.image":
     "{name}: このモデルは画像を読み取れないため、添付できるのはドキュメント（PDF、Word、Excel、テキスト）のみです",

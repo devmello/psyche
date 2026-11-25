@@ -316,7 +316,9 @@ export function useThreads(options: { includeArchived?: boolean } = {}) {
     ...s,
     threads: {
       ...s.threads,
+      // Keep lastMessage and automation: rename, pin and archive must not wipe them.
       [thread.id]: {
+        ...s.threads[thread.id],
         thread,
         activity: s.threads[thread.id]?.activity ?? {
           running: 0,
