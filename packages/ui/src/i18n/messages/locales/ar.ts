@@ -1991,6 +1991,7 @@ export const ar: Partial<Catalogue> = {
   "settings.mcp.network": "يستخدم الشبكة",
   "settings.mcp.added": "تمت إضافة {name}.",
   "settings.mcp.removed": "تمت إزالة {name}.",
+  "settings.openPage.failed": "تعذّر على Psyche فتح الصفحة ({reason}).",
   "settings.mcp.secretNotDeleted": "تعذّر على Psyche حذف سرّ محفوظ ({reason}). أعد المحاولة لإزالته.",
   "settings.mcp.denied": "لم تتم إضافة {name}.",
   "settings.mcp.lapsed": "انقضت الموافقة. افحص الخادم مرة أخرى لإضافته.",
@@ -2953,6 +2954,9 @@ export const ar: Partial<Catalogue> = {
   "onboarding.done.checking": "جارٍ فحص الإعداد…",
   "onboarding.done.checks": "فحوصات الإعداد",
   "onboarding.done.ok": "سليم",
+  "onboarding.done.failed": "فشل",
+  "onboarding.done.notChecked": "لم يُفحص",
+  "onboarding.done.fixModel": "أصلح في خطوة النموذج",
   "onboarding.done.check": "فحص",
   "onboarding.model.idPlaceholder": "{provider}/model-name",
 
@@ -3592,6 +3596,13 @@ export const ar: Partial<Catalogue> = {
   "web.setup.helperOk": "متصل.",
   "web.setup.helperWarn": "غير متصل بعد. ينتظره استخدام الكمبيوتر والإشعارات.",
   "web.setup.model": "النموذج",
+  "web.setup.modelRefused": "{ref}: رفض المزوّد المفتاح ({error}). لم يُحتفظ بالمفتاح.",
+  "web.setup.modelNotChecked": "{ref}: المفتاح محفوظ، لكن تعذّر الوصول إلى المزوّد لفحصه.",
+  "web.setup.modelSkipped":
+    "{ref}: لم يُضف أي مفتاح، لذا لن ترد المحادثة بعد. أضف واحدًا في الإعدادات ← النماذج.",
+  "web.gate.loading": "جارٍ تشغيل Psyche",
+  "web.gate.error": "تعذّر على Psyche التحقق من اكتمال الإعداد.",
+  "web.gate.retry": "حاول مرة أخرى",
   "web.setup.modelNone": "لم يُختر شيء. أضف نموذجًا في الإعدادات ← النموذج والمزوّدون.",
   "web.setup.modelOk": "{ref}، والمفتاح في الخزنة.",
   "web.setup.modelUnbound": "{ref} غير مرتبط بعد.",
@@ -3776,6 +3787,7 @@ export const ar: Partial<Catalogue> = {
   "web.browser.clearConfirm":
     "مسح ملفات تعريف الارتباط وبيانات المواقع لملف تعريف {profile, select, clean {بلا تسجيل دخول} other {الوكيل}}؟",
   "web.browser.cleared": "تم مسح بيانات التصفح.",
+  "web.browser.clearFailed": "تعذّر مسح بيانات التصفح.",
   "web.browser.clearData": "مسح بيانات التصفح",
 
   "web.command.model": "اختيار النموذج لهذه المحادثة",

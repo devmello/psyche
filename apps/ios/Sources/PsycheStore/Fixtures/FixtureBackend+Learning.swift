@@ -6,6 +6,8 @@ struct LearningState: Sendable {
     var claims = FixtureData.claims
     var changes = FixtureData.recentChanges
     var feedback = FixtureData.feedback
+    var held = FixtureData.heldItems
+    var senderTrust = FixtureData.senderTrust
 }
 
 extension FixtureBackend {

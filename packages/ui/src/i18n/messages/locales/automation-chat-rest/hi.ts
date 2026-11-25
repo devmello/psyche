@@ -7,6 +7,7 @@ export const automationChatRest: Partial<Catalogue> = {
   "automationChat.runs.aria": "{title}, {n, plural, one {# रन} other {# रन}}, आखिरी रन {status}",
   "automationChat.schedule": "शेड्यूल्ड",
   "automationChat.runNow": "अभी चलाएँ",
+  "automationChat.runStarted": "रन शुरू हो गया।",
   "automationChat.empty": "अभी कोई रन नहीं। यह ऑटोमेशन जब भी चलता है, यहाँ दिखता है।",
   "automationChat.loading": "रन लोड हो रहे हैं",
   "automationChat.failed": "Psyche रन लोड नहीं कर सका",

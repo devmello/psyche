@@ -37,7 +37,8 @@ const mail = { digest: true, prep: true, followups: false, voice: false, notes: 
 const settingWrites = (calls: { method: string; params: unknown }[]) =>
   calls
     .filter((c) => c.method === "settings.set")
-    .map((c) => c.params as { key: string; value: unknown });
+    .map((c) => c.params as { key: string; value: unknown })
+    .filter((w) => w.key !== "ui.onboarding.progress");
 
 describe("completeOnboarding and the mail decision screen (§7.5)", () => {
   it("writes one setting per switch before it marks onboarding done", async () => {
@@ -53,6 +54,20 @@ describe("completeOnboarding and the mail decision screen (§7.5)", () => {
       ["meetings.notes.enabled", true],
     ]);
     expect(writes.at(-1)?.key).toBe("ui.onboarding.completedAt");
+  });
+
+  it("clears the saved You answers from the progress once onboarding is done", async () => {
+    const { p, calls } = platform();
+    await completeOnboarding(p, result());
+    const writes = calls
+      .filter((c) => c.method === "settings.set")
+      .map((c) => c.params as { key: string; value: string });
+    const progress = writes.filter((w) => w.key === "ui.onboarding.progress");
+    expect(progress).toHaveLength(1);
+    expect(JSON.parse(progress[0]?.value ?? "{}")).toEqual({ step: "done", done: [] });
+    expect(writes.findIndex((w) => w.key === "ui.onboarding.completedAt")).toBeLessThan(
+      writes.findIndex((w) => w.key === "ui.onboarding.progress"),
+    );
   });
 
   it("a re-run keeps the digest time the owner chose in Settings", async () => {

@@ -1945,6 +1945,7 @@ export const hi: Partial<Catalogue> = {
   "settings.mcp.network": "नेटवर्क उपयोग करता है",
   "settings.mcp.added": "{name} जोड़ा गया।",
   "settings.mcp.removed": "{name} हटाया गया।",
+  "settings.openPage.failed": "Psyche पेज नहीं खोल सका ({reason})।",
   "settings.mcp.secretNotDeleted":
     "Psyche सहेजा गया गुप्त मान नहीं हटा सका ({reason})। हटाने के लिए फिर से कोशिश करें।",
   "settings.mcp.denied": "{name} नहीं जोड़ा गया।",
@@ -2898,6 +2899,9 @@ export const hi: Partial<Catalogue> = {
   "onboarding.done.checking": "सेटअप की जाँच हो रही है…",
   "onboarding.done.checks": "सेटअप जाँचें",
   "onboarding.done.ok": "ठीक",
+  "onboarding.done.failed": "विफल",
+  "onboarding.done.notChecked": "जाँचा नहीं गया",
+  "onboarding.done.fixModel": "मॉडल चरण में ठीक करें",
   "onboarding.done.check": "जाँच",
   "onboarding.model.idPlaceholder": "{provider}/model-name",
 
@@ -3538,6 +3542,13 @@ export const hi: Partial<Catalogue> = {
   "web.setup.helperOk": "कनेक्टेड।",
   "web.setup.helperWarn": "अभी कनेक्टेड नहीं। कंप्यूटर उपयोग और सूचनाएँ इसकी प्रतीक्षा करती हैं।",
   "web.setup.model": "मॉडल",
+  "web.setup.modelRefused": "{ref}: प्रदाता ने कुंजी अस्वीकार कर दी ({error})। कुंजी रखी नहीं गई।",
+  "web.setup.modelNotChecked": "{ref}: कुंजी सहेजी गई है, लेकिन जाँचने के लिए प्रदाता तक पहुँचा नहीं जा सका।",
+  "web.setup.modelSkipped":
+    "{ref}: कोई कुंजी नहीं जोड़ी गई, इसलिए चैट अभी जवाब नहीं देगी। सेटिंग्स → मॉडल में जोड़ें।",
+  "web.gate.loading": "Psyche शुरू हो रहा है",
+  "web.gate.error": "Psyche यह जाँच नहीं सका कि सेटअप पूरा हुआ या नहीं।",
+  "web.gate.retry": "फिर कोशिश करें",
   "web.setup.modelNone": "कोई नहीं चुना गया। सेटिंग्ज़ → मॉडल और प्रदाता में एक जोड़ें।",
   "web.setup.modelOk": "{ref}, कुंजी वॉल्ट में।",
   "web.setup.modelUnbound": "{ref} अभी बाइंड नहीं है।",
@@ -3722,6 +3733,7 @@ export const hi: Partial<Catalogue> = {
   "web.browser.clearConfirm":
     "{profile, select, clean {लॉग-आउट} other {एजेंट}} प्रोफ़ाइल के कुकी और साइट डेटा साफ़ करें?",
   "web.browser.cleared": "ब्राउज़िंग डेटा साफ़ किया गया।",
+  "web.browser.clearFailed": "ब्राउज़िंग डेटा साफ़ नहीं हो सका।",
   "web.browser.clearData": "ब्राउज़िंग डेटा साफ़ करें",
 
   "web.command.model": "इस थ्रेड के लिए मॉडल चुनें",

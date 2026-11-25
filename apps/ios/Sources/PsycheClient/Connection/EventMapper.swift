@@ -105,7 +105,7 @@ struct EventMapper {
         case "settings.changed", "persona.updated":
             return ([.changed(.settings)], .none)
         // `library.item.changed` is an upload or delete from another device.
-        case "artifact.updated", "library.item.changed", "library.item.created", "library.item.updated", "library.item.deleted":
+        case "artifact.updated", "library.item.changed":
             return ([.changed(.library)], .none)
         case "device.updated":
             if let device = p["device"], device["id"]?.string == ownDeviceID, device["revokedAt"]?.string != nil {

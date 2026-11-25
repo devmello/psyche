@@ -56,13 +56,27 @@ struct GatewayGrantsTests {
         #expect(grants[3].subject == .email(recipients: "z@x.com", account: "acct"))
         #expect(grants[4].subject == .prepNotes)
         #expect(grants[5].subject == .named("linear.create_issue"))
-        #expect(grants[6].subject == .hostProgram(program: "git", folder: "/Users/me/proj", exactArguments: false))
-        #expect(grants[7].subject == .hostProgram(program: "git status", folder: "/p", exactArguments: true))
+        #expect(grants[6].subject == .hostProgram(program: "git", executable: "/usr/bin/git", folder: "/Users/me/proj", exactArguments: false))
+        #expect(grants[7].subject == .hostProgram(program: "git status", executable: "/usr/bin/git", folder: "/p", exactArguments: true))
         #expect(grants[8].subject == .command("ls -la", folder: "/tmp"))
         #expect(grants[9].subject == .calendar(id: "work"))
         #expect(grants[10].subject == .calendar(id: nil))
         #expect(grants[11].subject == .other("weird|key"))
         #expect(gateway.received.first { $0.method == "grants.list" }?.params == .object(["includeRevoked": .bool(true)]))
+    }
+
+    @Test func aHostProgramShowsItsFullExecutablePathSoLookalikesDiffer() async throws {
+        let (backend, _) = try await live { g in
+            g.on("grants.list") { _ in .success(.object(["grants": .array([
+                Self.grant("a", kind: "exec_host", subject: .object(["hostProgram": .object(["executable": "/usr/bin/git", "folder": "/p"])])),
+                Self.grant("b", kind: "exec_host", subject: .object(["hostProgram": .object(["executable": "/tmp/x/git", "folder": "/p"])])),
+                Self.grant("c", kind: "mcp_tool", subject: .object(["tool": "t"])),
+            ])])) }
+        }
+        let grants = try await backend.standingGrants()
+        #expect(grants[0].subject.detail == "/usr/bin/git")
+        #expect(grants[1].subject.detail == "/tmp/x/git")
+        #expect(grants[2].subject.detail == nil)
     }
 
     @Test func statusComesFromRevokedAtAndExpiry() async throws {

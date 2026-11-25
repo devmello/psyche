@@ -2,6 +2,7 @@ import type { StarterFolderId } from "@psyche/protocol";
 import type { ScopeMode } from "../settings/ConnectorsSection.tsx";
 import type { MacHelperStatus } from "../settings/MacHelperStatus.tsx";
 import type { ProviderKind, TccPermission, TccState, ToolCheck } from "../settings/types.ts";
+import type { OnboardingAnswers } from "./progress.ts";
 
 /** Onboarding (UI design §3.19): the steps, the shell callbacks and the result. */
 
@@ -125,7 +126,11 @@ export interface OnboardingExtrasProps {
   /** Saves the reviewed items as the owner's memory; resolves with how many were saved. */
   onCommitImport?: (items: ImportedMemory[]) => Promise<number>;
   /** Called whenever the step changes or a step is finished, so a restart resumes. */
-  onProgress?: (progress: { step: OnboardingStepId; done: OnboardingStepId[] }) => void;
+  onProgress?: (progress: {
+    step: OnboardingStepId;
+    done: OnboardingStepId[];
+    answers?: OnboardingAnswers;
+  }) => void;
   /** Steps a re-run leaves out because they are already set up. */
   completed?: readonly OnboardingStepId[];
   /** A re-run: the agent's name and look are edited in Settings, so the You step omits them. */
@@ -208,7 +213,7 @@ export interface OnboardingShellProps extends OnboardingExtrasProps {
   /** Runs the tool-calling check on the chosen model. */
   onCheckModel?: (
     choice: Omit<ModelChoice, "toolCheck">,
-  ) => Promise<"passed" | "failed"> | "passed" | "failed";
+  ) => Promise<"passed" | "failed" | "untested"> | "passed" | "failed" | "untested";
   /** VM mode needs macOS 15+ on Apple silicon; `false` disables the option with a reason. */
   vmAvailable?: boolean;
   /**
@@ -244,6 +249,9 @@ export type SavedKey = string | { keyRef: string; recoveryKey?: string; refused?
 export interface SetupCheck {
   id: string;
   label: string;
-  state: "ok" | "warn";
+  /** `fail`: refused or broken; `unchecked`: could not be verified (not a pass). */
+  state: "ok" | "warn" | "fail" | "unchecked";
   detail: string;
+  /** The step that fixes it; Done shows a link back to it. */
+  fixStep?: OnboardingStepId;
 }

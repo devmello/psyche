@@ -1949,6 +1949,7 @@ export const fr: Partial<Catalogue> = {
   "settings.mcp.network": "Utilise le réseau",
   "settings.mcp.added": "{name} ajouté.",
   "settings.mcp.removed": "{name} retiré.",
+  "settings.openPage.failed": "Psyche n'a pas pu ouvrir la page ({reason}).",
   "settings.mcp.secretNotDeleted":
     "Psyche n'a pas pu supprimer un secret enregistré ({reason}). Réessayez pour le retirer.",
   "settings.mcp.denied": "{name} n’a pas été ajouté.",
@@ -2941,6 +2942,9 @@ export const fr: Partial<Catalogue> = {
   "onboarding.done.checking": "Vérification de la configuration…",
   "onboarding.done.checks": "Vérifications de la configuration",
   "onboarding.done.ok": "OK",
+  "onboarding.done.failed": "Échec",
+  "onboarding.done.notChecked": "Non vérifié",
+  "onboarding.done.fixModel": "Corriger à l'étape Modèle",
   "onboarding.done.check": "Vérification",
   "onboarding.model.idPlaceholder": "{provider}/nom-du-modèle",
 
@@ -3604,6 +3608,15 @@ export const fr: Partial<Catalogue> = {
   "web.setup.helperWarn":
     "Pas encore connecté. L’utilisation de l’ordinateur et les notifications l’attendent.",
   "web.setup.model": "Modèle",
+  "web.setup.modelRefused":
+    "{ref} : le fournisseur a refusé la clé ({error}). La clé n'a pas été conservée.",
+  "web.setup.modelNotChecked":
+    "{ref} : la clé est enregistrée, mais le fournisseur n'a pas pu être joint pour la vérifier.",
+  "web.setup.modelSkipped":
+    "{ref} : aucune clé ajoutée, le chat ne répondra donc pas encore. Ajoutez-en une dans Réglages → Modèles.",
+  "web.gate.loading": "Démarrage de Psyche",
+  "web.gate.error": "Psyche n'a pas pu vérifier si la configuration est terminée.",
+  "web.gate.retry": "Réessayer",
   "web.setup.modelNone":
     "Aucun modèle choisi. Ajoutez-en un dans Réglages → Modèle et fournisseurs.",
   "web.setup.modelOk": "{ref}, clé dans le coffre.",
@@ -3786,6 +3799,7 @@ export const fr: Partial<Catalogue> = {
   "web.browser.clearConfirm":
     "Effacer les cookies et les données de sites du profil {profile, select, clean {déconnecté} other {de l’agent}} ?",
   "web.browser.cleared": "Données de navigation effacées.",
+  "web.browser.clearFailed": "Impossible d’effacer les données de navigation.",
   "web.browser.clearData": "Effacer les données de navigation",
   "web.command.model": "Choisir le modèle de cette discussion",
   "web.command.schedule": "Planifier une tâche ou un rappel",

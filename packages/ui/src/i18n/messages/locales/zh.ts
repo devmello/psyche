@@ -1931,6 +1931,7 @@ export const zh: Partial<Catalogue> = {
   "settings.mcp.network": "使用网络",
   "settings.mcp.added": "已添加 {name}。",
   "settings.mcp.removed": "已移除 {name}。",
+  "settings.openPage.failed": "Psyche 无法打开该页面（{reason}）。",
   "settings.mcp.secretNotDeleted": "Psyche 无法删除一个已保存的密钥（{reason}）。重试以将其移除。",
   "settings.mcp.denied": "未添加 {name}。",
   "settings.mcp.lapsed": "批准已失效。请重新检查服务器以添加。",
@@ -2848,6 +2849,9 @@ export const zh: Partial<Catalogue> = {
   "onboarding.done.checking": "正在检查设置…",
   "onboarding.done.checks": "设置检查",
   "onboarding.done.ok": "正常",
+  "onboarding.done.failed": "失败",
+  "onboarding.done.notChecked": "未检查",
+  "onboarding.done.fixModel": "在“模型”步骤中修复",
   "onboarding.done.check": "检查",
   "onboarding.model.idPlaceholder": "{provider}/model-name",
 
@@ -3473,6 +3477,12 @@ export const zh: Partial<Catalogue> = {
   "web.setup.helperOk": "已连接。",
   "web.setup.helperWarn": "尚未连接。电脑使用和通知需要等待它。",
   "web.setup.model": "模型",
+  "web.setup.modelRefused": "{ref}：提供商拒绝了该密钥（{error}）。密钥未被保留。",
+  "web.setup.modelNotChecked": "{ref}：密钥已保存，但无法连接提供商进行检查。",
+  "web.setup.modelSkipped": "{ref}：未添加密钥，因此聊天暂时无法回复。请在设置 → 模型中添加。",
+  "web.gate.loading": "正在启动 Psyche",
+  "web.gate.error": "Psyche 无法确认设置是否已完成。",
+  "web.gate.retry": "重试",
   "web.setup.modelNone": "尚未选择。请在“设置 → 模型与提供商”中添加。",
   "web.setup.modelOk": "{ref}，密钥已在保险库中。",
   "web.setup.modelUnbound": "{ref} 尚未绑定。",
@@ -3653,6 +3663,7 @@ export const zh: Partial<Catalogue> = {
   "web.browser.clearConfirm":
     "要清除{profile, select, clean {登出状态} other {代理}}描述文件的 Cookie 和网站数据吗？",
   "web.browser.cleared": "浏览数据已清除。",
+  "web.browser.clearFailed": "无法清除浏览数据。",
   "web.browser.clearData": "清除浏览数据",
 
   "web.command.model": "为此会话选择模型",

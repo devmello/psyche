@@ -105,6 +105,15 @@ export function trustedSiteOf(
   return { origin, display: origin.replace(/^https:\/\//, ""), subdomains: subdomains === true };
 }
 
+/**
+ * The full executable path of a host-program grant, for a second line under `grantSubject`: the
+ * subject shows the basename only, which makes `/tmp/x/git` look like `/usr/bin/git`. Null otherwise.
+ */
+export function grantExecutable(g: Grant): string | null {
+  const hp = g.subject.hostProgram as { executable?: unknown } | null | undefined;
+  return g.kind === "exec_host" && hp && typeof hp.executable === "string" ? hp.executable : null;
+}
+
 /** One line naming exactly what a grant covers. */
 export function grantSubject(g: Grant): string {
   const s = g.subject;
@@ -476,6 +485,11 @@ export function PermissionsPanel({
                       <span className={g.revokedAt ? "text-muted-foreground line-through" : ""}>
                         {grantSubject(g)}
                       </span>
+                      {grantExecutable(g) ? (
+                        <span className="block break-all font-mono text-callout text-muted-foreground">
+                          {grantExecutable(g)}
+                        </span>
+                      ) : null}
                     </TableCell>
                     <TableCell>
                       {scopeLabel(g.scope)}

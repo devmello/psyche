@@ -491,6 +491,10 @@ export interface InboxViewProps {
   error?: string | null;
   onRetryLoad?: () => void;
   onMarkAllRead?: () => void;
+  /** Older notifications exist beyond the ones listed. */
+  hasMore?: boolean;
+  loadingMore?: boolean;
+  onLoadMore?: () => void;
   /** The empty state's one action. */
   onOpenActivity?: () => void;
   /** Renders a row; defaults to a plain `InboxRow` (no Gateway). */
@@ -507,6 +511,9 @@ export function InboxView({
   error = null,
   onRetryLoad,
   onMarkAllRead,
+  hasMore = false,
+  loadingMore = false,
+  onLoadMore,
   onOpenActivity,
   renderRow,
   rowProps,
@@ -576,6 +583,19 @@ export function InboxView({
             </ul>
           </section>
         ))}
+        {hasMore && onLoadMore ? (
+          <div>
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              disabled={loadingMore}
+              onClick={onLoadMore}
+            >
+              {t("screens.feedback.showOlder")}
+            </Button>
+          </div>
+        ) : null}
       </fieldset>
     );
   }
@@ -634,7 +654,10 @@ function ConnectedInboxRow({
       .finally(() => setBusy(false));
   };
   const read = () => {
-    if (n.readAt == null) void markRead([n.id]).catch(() => {});
+    if (n.readAt == null)
+      void markRead([n.id]).catch((err: unknown) =>
+        toast.error(t("screens.inbox.markFailed", { reason: describeError(err) })),
+      );
   };
   return (
     <InboxRow
@@ -756,12 +779,22 @@ export function InboxScreen({ now: fixedNow, onOpen }: InboxScreenProps): ReactE
       loadingDelayMs={150}
       error={inbox.all.length === 0 ? inbox.error : null}
       onRetryLoad={inbox.reload}
+      hasMore={inbox.hasMore}
+      loadingMore={inbox.loadingMore}
+      onLoadMore={() =>
+        void inbox.loadMore().catch((err: unknown) => {
+          toast.error(
+            t("screens.inbox.failed", {
+              what: t("screens.inbox.loadFailed"),
+              reason: describeError(err),
+            }),
+          );
+        })
+      }
       onMarkAllRead={() => {
-        const ids = inbox.unread.map((n) => n.id);
-        if (ids.length > 0)
-          inbox.markRead(ids).catch((err: unknown) => {
-            toast.error(t("screens.inbox.markFailed", { reason: describeError(err) }));
-          });
+        inbox.markAllRead().catch((err: unknown) => {
+          toast.error(t("screens.inbox.markFailed", { reason: describeError(err) }));
+        });
       }}
       onOpenActivity={() => navigate?.("/overview#now")}
       renderRow={(n, { primary }) => {
@@ -779,7 +812,13 @@ export function InboxScreen({ now: fixedNow, onOpen }: InboxScreenProps): ReactE
           <SpecialistInboxRow
             notification={n}
             now={now}
-            onMarkRead={() => void inbox.markRead([n.id]).catch(() => {})}
+            onMarkRead={() =>
+              void inbox
+                .markRead([n.id])
+                .catch((err: unknown) =>
+                  toast.error(t("screens.inbox.markFailed", { reason: describeError(err) })),
+                )
+            }
             fallback={row}
           />
         ) : (

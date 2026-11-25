@@ -98,6 +98,7 @@ export const scheduledA: Partial<Catalogue> = {
     "{title}, {n, plural, one {# execução} other {# execuções}}, última execução {status}",
   "automationChat.schedule": "Agendado",
   "automationChat.runNow": "Executar agora",
+  "automationChat.runStarted": "Execução iniciada.",
   "automationChat.empty":
     "Ainda não há execuções. Cada vez que esta automação rodar, ela aparece aqui.",
   "automationChat.loading": "Carregando as execuções",

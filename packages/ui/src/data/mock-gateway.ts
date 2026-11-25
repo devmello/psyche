@@ -1897,13 +1897,23 @@ export class MockGateway implements GatewayClient {
 
     "approvals.list": (p) => {
       const statuses = p.status ?? ["pending"];
-      const approvals = this.world.approvals.filter((a) => statuses.includes(a.status));
+      // Newest first and cursor-paged (default 50), like the Gateway.
+      const matching = this.world.approvals
+        .filter((a) => statuses.includes(a.status))
+        .sort((a, b) => b.requestedAt.localeCompare(a.requestedAt));
+      const start = p.cursor === undefined ? 0 : Number.parseInt(p.cursor, 10);
+      const limit = p.limit ?? 50;
+      const approvals = matching.slice(start, start + limit);
       const answerTokens: Record<string, string> = {};
       for (const a of approvals) {
         const t = this.world.answerTokens[a.id];
         if (a.status === "pending" && t !== undefined) answerTokens[a.id] = t;
       }
-      return { approvals, answerTokens, nextCursor: null };
+      return {
+        approvals,
+        answerTokens,
+        nextCursor: start + limit < matching.length ? String(start + limit) : null,
+      };
     },
     "approvals.get": (p) => {
       const approval = this.find(this.world.approvals, p.approvalId, "approval");
@@ -2700,14 +2710,22 @@ export class MockGateway implements GatewayClient {
       return { goal };
     },
 
-    "notifications.list": (p) => ({
-      notifications: this.world.notifications.filter(
-        (n) =>
-          (p.unreadOnly !== true || n.readAt == null) &&
-          (p.unresolvedOnly !== true || n.resolvedAt == null),
-      ),
-      nextCursor: null,
-    }),
+    "notifications.list": (p) => {
+      // Newest first and cursor-paged (default 50), like the Gateway.
+      const matching = this.world.notifications
+        .filter(
+          (n) =>
+            (p.unreadOnly !== true || n.readAt == null) &&
+            (p.unresolvedOnly !== true || n.resolvedAt == null),
+        )
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+      const start = p.cursor === undefined ? 0 : Number.parseInt(p.cursor, 10);
+      const limit = p.limit ?? 50;
+      return {
+        notifications: matching.slice(start, start + limit),
+        nextCursor: start + limit < matching.length ? String(start + limit) : null,
+      };
+    },
     "notifications.markRead": (p) => {
       let updated = 0;
       this.world.notifications = this.world.notifications.map((n) => {

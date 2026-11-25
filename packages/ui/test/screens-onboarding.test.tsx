@@ -358,6 +358,57 @@ describe("First run from scratch", () => {
     expect(confirms.at(-1)?.params).toEqual({ lastGroup: "IJKL" });
   });
 
+  it("shows the recovery key gate after a rejected first paste and an accepted second one", async () => {
+    let calls = 0;
+    setup({
+      step: "model",
+      onSaveKey: async () => {
+        calls += 1;
+        if (calls === 1) {
+          // The vault was created, then the key was rejected: the error carries the recovery key.
+          throw Object.assign(new Error("that is not an Anthropic API key"), {
+            recoveryKey: "ABCD-EFGH-IJKL",
+          });
+        }
+        return { keyRef: "model-anthropic" };
+      },
+    });
+    await userEvent.type(screen.getByLabelText("API key"), "wrong");
+    await userEvent.click(screen.getByRole("button", { name: "Save to vault" }));
+    expect((await screen.findByTestId("vault-recovery-key")).textContent).toContain(
+      "ABCD-EFGH-IJKL",
+    );
+    expect((screen.getByRole("button", { name: "Next" }) as HTMLButtonElement).disabled).toBe(true);
+
+    await userEvent.type(screen.getByLabelText("API key"), "sk-ant-right");
+    await userEvent.click(screen.getByRole("button", { name: "Save to vault" }));
+    await waitFor(() => expect(calls).toBe(2));
+    // Still shown, and Next still held, until the owner confirms it is saved.
+    expect(screen.getByTestId("vault-recovery-key").textContent).toContain("ABCD-EFGH-IJKL");
+    expect((screen.getByRole("button", { name: "Next" }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it("Done shows a refused key as a failure and its link goes back to the Model step", async () => {
+    setup({
+      defaultStep: "done",
+      onVerify: async () => [
+        {
+          id: "model",
+          label: "Model",
+          state: "fail",
+          detail: "the provider refused the key",
+          fixStep: "model",
+        },
+        { id: "other", label: "Other", state: "unchecked", detail: "could not check" },
+      ],
+    });
+    await screen.findByText("the provider refused the key");
+    expect(screen.getByText("Failed")).toBeTruthy();
+    expect(screen.getByText("Not checked")).toBeTruthy();
+    await userEvent.click(screen.getByRole("button", { name: "Fix in the Model step" }));
+    expect(heading().textContent).toContain("Choose a model");
+  });
+
   it("copies the recovery key through the host's clipboard and says so (#507)", async () => {
     const writeClipboard = vi.fn(async (_text: string) => {});
     setup(

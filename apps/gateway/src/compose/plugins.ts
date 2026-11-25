@@ -4,7 +4,7 @@ import { getSetting, type PsycheDb } from "@psyche/db";
 import type { PsycheNotifier } from "@psyche/notifications";
 import type { PsychePermissionBroker } from "@psyche/permissions";
 import { createPluginsHandlers, PluginManager } from "@psyche/plugins";
-import type { PermissionBroker } from "@psyche/protocol";
+import type { EventPayload, PermissionBroker } from "@psyche/protocol";
 import type { Logger } from "../log.ts";
 import type { Gateway } from "../server.ts";
 import { mountParamsOnly } from "./handlers.ts";
@@ -32,6 +32,8 @@ export interface PluginsSetup {
   notifier: Pick<PsycheNotifier, "notify">;
   loop: PsycheAgentLoop;
   logger?: Logger;
+  /** Publishes `plugins.changed` so Settings reloads the list after an approved install or switch. */
+  publish?: (event: "plugins.changed", payload: EventPayload<"plugins.changed">) => void;
 }
 
 export function composePlugins(setup: PluginsSetup): ComposedPart & { manager: PluginManager } {
@@ -42,6 +44,7 @@ export function composePlugins(setup: PluginsSetup): ComposedPart & { manager: P
     registry: setup.loop.plugins,
     enabled,
     surfaces: ["desktop", "web"],
+    onChange: (name, change) => setup.publish?.("plugins.changed", { name, change }),
     log: (message, data) => setup.logger?.log("info", `plugins: ${message}`, data ?? {}),
   });
   let unsubscribe: (() => void) | undefined;
