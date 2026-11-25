@@ -13552,7 +13552,7 @@ export interface Task {
     workspace?:    TaskWorkspace;
 }
 
-export type TaskOrigin = "chat" | "automation" | "idea" | "goal" | "channel" | "subagent";
+export type TaskOrigin = "chat" | "automation" | "idea" | "goal" | "channel" | "subagent" | "fork";
 
 export interface TaskPlan {
     approvedAt?: null | string;

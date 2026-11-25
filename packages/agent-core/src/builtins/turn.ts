@@ -17,6 +17,7 @@ import {
 } from "../questions.ts";
 import { type AgentToolRegistration, defineTool, type ToolRunContext } from "../registry.ts";
 import type { SpecialistTurnApi } from "../specialists.ts";
+import type { ForkReportTurnApi } from "./fork-report.ts";
 import type { HarnessTurnApi } from "./harness.ts";
 
 /** What the loop lends its turn tools: blocks, the checklist, questions and plan approval. */
@@ -35,6 +36,8 @@ export interface TurnApi {
   harnessActionDone?: HarnessTurnApi["harnessActionDone"];
   /** Background specialists (specialists §4): spawn, report, status. */
   specialists?: SpecialistTurnApi;
+  /** `fork_report` (fork-a-plan §4.1): present only in a plan-fork branch's run. */
+  forkReport?: ForkReportTurnApi;
   /** Deferred tools of this run (`AgentLoopOptions.deferTool`); absent when nothing is deferred. */
   deferredTools?: DeferredToolsApi;
   /** Runs a subagent to completion (C6); its result comes back as this tool's result. */

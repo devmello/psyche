@@ -322,6 +322,13 @@ export class SqliteTaskEngine implements TaskEngine {
     if (staging !== null && (input.mode ?? "attended") !== "unattended") {
       throw new PsycheError("invalid_params", "a staging task runs unattended");
     }
+    // A `fork`-origin task is a plan-fork branch and must carry a `fork` staging block
+    // (fork-a-plan-2026 §3.1): without one it would run a branch with real writes, and with a
+    // night block it would stage a branch's calls into a night. The other direction is not
+    // checked here: the origin only picks the worker pool, the block is what makes a staging run.
+    if (input.createdFrom === "fork" && staging?.kind !== "fork") {
+      throw new PsycheError("invalid_params", "a fork task carries a fork staging block");
+    }
     const id = this.#newId();
     const now = this.#iso();
     const event = this.#tx(() => {

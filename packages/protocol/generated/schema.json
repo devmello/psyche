@@ -52061,7 +52061,8 @@
         "idea",
         "goal",
         "channel",
-        "subagent"
+        "subagent",
+        "fork"
       ],
       "type": "string"
     },

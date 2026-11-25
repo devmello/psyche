@@ -1963,7 +1963,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
         }),
     }),
     // Specialist jobs run in their own pool, so they never take the chat tasks' slots.
-    claim: { excludeOrigins: ["subagent"] },
+    // Plan-fork branches run in their own pool (F2); until it exists none runs here.
+    claim: { excludeOrigins: ["subagent", "fork"] },
   });
   // Background specialists (specialists §4.5): their own slots (Settings, 1–6, default 3), FIFO,
   // at most 2 running per parent thread; a job parked on the owner frees its slot.
