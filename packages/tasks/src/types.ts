@@ -4,6 +4,7 @@ import type {
   JsonObject,
   Question,
   RunMode,
+  Staging,
   Task,
   TaskAction,
   TaskCreateInput,
@@ -57,12 +58,23 @@ export interface TaskRecord {
   budget: TaskBudget | null;
   awaiting: Awaiting | null;
   resume: ResumeItem[];
+  /**
+   * Engine-only, like `runMode`: it is never on the wire `Task`. The worker runs a task that has
+   * it as a staging run (night-shift-2026 §2.2).
+   */
+  staging: Staging | null;
 }
 
 export interface CreateTaskInput extends TaskCreateInput {
   /** Defaults to `attended`; automation and heartbeat runs are `unattended`. */
   mode?: RunMode;
   budget?: TaskBudget;
+  /**
+   * Server-only (night-shift-2026 §2.2): the task's runs only prepare changes. It is not on the
+   * protocol's `TaskCreateInput`, no `tasks.*` method accepts it and the `task.start` tool cannot
+   * set it. A staging task is always `unattended`.
+   */
+  staging?: Staging;
 }
 
 /** `TaskActionInput` with an optional raw payload stored through the level-3 store. */
