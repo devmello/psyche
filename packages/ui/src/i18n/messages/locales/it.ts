@@ -416,8 +416,6 @@ export const it: Partial<Catalogue> = {
     "Caricamento {what, select, approval {dell’approvazione} question {della domanda} receipt {della ricevuta} artifact {dell’artefatto} file {del file} task {dell’attività} plan {del piano} other {dell’elemento}}",
   "blocks.message.missing":
     "Psyche non è riuscito a caricare {what, select, approval {questa approvazione} question {questa domanda} receipt {questa ricevuta} artifact {questo artefatto} file {questo file} task {questa attività} plan {questo piano} other {questo elemento}}.",
-  "blocks.message.waitingApproval": "In attesa della tua approvazione",
-  "blocks.message.reviewApproval": "Esamina l’approvazione: {summary}",
   "blocks.details.none": "nessuno",
   "blocks.details.argumentsList": "Argomenti: {args}",
   "blocks.details.command": "Comando",
@@ -722,11 +720,7 @@ export const it: Partial<Catalogue> = {
   "agent.header.running": "{n, number} in corso",
   "agent.header.needYou":
     "{n, plural, one {# richiede la tua attenzione} other {# richiedono la tua attenzione}}",
-  "agent.header.modeLabel": "Modalità permessi: {mode}",
-  "agent.header.modeLead": "Modalità permessi:",
   "agent.header.modelLabel": "Modello: {model}",
-  "agent.header.modelLead": "Modello:",
-  "agent.header.notifications": "Notifiche, {n, number} non lette",
   "agent.header.menuSheet": "Approvazioni e memoria",
   "agent.header.changeModel": "Cambia modello…",
   "agent.header.exportMarkdown": "Esporta come Markdown",

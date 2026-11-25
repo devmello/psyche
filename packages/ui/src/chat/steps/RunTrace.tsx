@@ -90,14 +90,12 @@ export function RunTrace({
         <div className="flex min-h-7 items-center gap-2 text-callout text-label-secondary">
           <span className="text-headline text-label-primary">{persona.name}</span>
           <span aria-hidden="true">·</span>
-          {active?.status === "waiting" ? (
-            <span className="font-medium text-approval-text" data-testid="trace-waiting">
-              {t("chat.steps.needsYou")}
-            </span>
-          ) : (
-            <span>{t("chat.steps.working")}</span>
+          {active?.status === "waiting" ? null : (
+            <>
+              <span>{t("chat.steps.working")}</span>
+              <span aria-hidden="true">·</span>
+            </>
           )}
-          <span aria-hidden="true">·</span>
           <LiveDuration
             startedAt={Date.parse(run.startedAt)}
             {...(fixedNow === undefined ? {} : { now: fixedNow })}

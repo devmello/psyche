@@ -459,8 +459,6 @@ export const ar: Partial<Catalogue> = {
     "جارٍ تحميل {what, select, approval {الموافقة} question {السؤال} receipt {الإيصال} artifact {المُخرَج} file {الملف} task {المهمة} plan {الخطة} other {العنصر}}",
   "blocks.message.missing":
     "تعذّر على Psyche تحميل {what, select, approval {هذه الموافقة} question {هذا السؤال} receipt {هذا الإيصال} artifact {هذا المُخرَج} file {هذا الملف} task {هذه المهمة} plan {هذه الخطة} other {هذا العنصر}}.",
-  "blocks.message.waitingApproval": "بانتظار موافقتك",
-  "blocks.message.reviewApproval": "مراجعة الموافقة: {summary}",
 
   "blocks.details.none": "لا شيء",
   "blocks.details.argumentsList": "الوسيطات: {args}",
@@ -782,11 +780,7 @@ export const ar: Partial<Catalogue> = {
   "agent.header.running": "{n, number} قيد التشغيل",
   "agent.header.needYou":
     "{n, plural, one {# بحاجة إليك} two {# بحاجة إليك} few {# بحاجة إليك} many {# بحاجة إليك} other {# بحاجة إليك} zero {# بحاجة إليك}}",
-  "agent.header.modeLabel": "وضع الأذونات: {mode}",
-  "agent.header.modeLead": "وضع الأذونات:",
   "agent.header.modelLabel": "النموذج: {model}",
-  "agent.header.modelLead": "النموذج:",
-  "agent.header.notifications": "الإشعارات، {n, number} غير مقروء",
   "agent.header.menuSheet": "الموافقات والذاكرة",
   "agent.header.changeModel": "تغيير النموذج…",
   "agent.header.exportMarkdown": "تصدير بصيغة Markdown",

@@ -419,8 +419,6 @@ export const de: Partial<Catalogue> = {
     "{what, select, approval {Genehmigung} question {Frage} receipt {Beleg} artifact {Artefakt} file {Datei} task {Aufgabe} plan {Plan} other {Element}} wird geladen",
   "blocks.message.missing":
     "Psyche konnte {what, select, approval {diese Genehmigung} question {diese Frage} receipt {diesen Beleg} artifact {dieses Artefakt} file {diese Datei} task {diese Aufgabe} plan {diesen Plan} other {dieses Element}} nicht laden.",
-  "blocks.message.waitingApproval": "Wartet auf deine Genehmigung",
-  "blocks.message.reviewApproval": "Genehmigung prüfen: {summary}",
 
   "blocks.details.none": "keine",
   "blocks.details.argumentsList": "Argumente: {args}",
@@ -746,11 +744,7 @@ export const de: Partial<Catalogue> = {
   "agent.header.stateLead": "{state}:",
   "agent.header.running": "{n, number} laufen",
   "agent.header.needYou": "{n, plural, one {# braucht dich} other {# brauchen dich}}",
-  "agent.header.modeLabel": "Berechtigungsmodus: {mode}",
-  "agent.header.modeLead": "Berechtigungsmodus:",
   "agent.header.modelLabel": "Modell: {model}",
-  "agent.header.modelLead": "Modell:",
-  "agent.header.notifications": "Mitteilungen, {n, number} ungelesen",
   "agent.header.menuSheet": "Genehmigungen und Gedächtnis",
   "agent.header.changeModel": "Modell ändern …",
   "agent.header.exportMarkdown": "Als Markdown exportieren",

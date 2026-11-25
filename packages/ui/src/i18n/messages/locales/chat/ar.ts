@@ -138,7 +138,6 @@ export const chat: Partial<Catalogue> = {
   "chat.steps.answered": "أُجيب: {question}",
   "chat.steps.earlier":
     "{n, plural, zero {لا خطوات سابقة مكتملة} one {خطوة سابقة مكتملة} two {خطوتان سابقتان مكتملتان} few {# خطوات سابقة مكتملة} many {# خطوة سابقة مكتملة} other {# خطوة سابقة مكتملة}}",
-  "chat.steps.needsYou": "بانتظارك",
   "chat.steps.writing": "جارٍ كتابة الرد…",
   "chat.steps.thinking": "تفكير: {text}",
   "chat.steps.thinkingEmpty": "جارٍ التفكير…",
@@ -167,7 +166,6 @@ export const chat: Partial<Catalogue> = {
   "chat.steps.helper":
     "مساعد · {n, plural, zero {لا خطوات} one {خطوة واحدة} two {خطوتان} few {# خطوات} many {# خطوة} other {# خطوة}} · {duration}",
   "chat.steps.helperLive": "مساعد",
-  "chat.steps.reviewApproval": "مراجعة الموافقة",
   "chat.steps.reviewQuestion": "الانتقال إلى السؤال",
   "chat.steps.frame": "عرض ما رآه {name}",
   "chat.steps.timeline": "الجدول الزمني",

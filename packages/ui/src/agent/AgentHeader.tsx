@@ -1,18 +1,10 @@
 import type { PermissionMode } from "@psyche/protocol";
-import {
-  Bell,
-  ChevronDown,
-  Download,
-  Ellipsis,
-  Eraser,
-  PanelRight,
-  ShieldCheck,
-} from "lucide-react";
-import * as m from "motion/react-m";
+import { Download, Ellipsis, Eraser, LoaderCircle, PanelRight } from "lucide-react";
 import type { ReactElement, ReactNode } from "react";
 import { AVATAR_STATE_LABEL, Avatar, type AvatarState } from "../avatar/Avatar.tsx";
 import { DISCLOSURE_KEY, type DisclosureLevel } from "../blocks/disclosure.tsx";
 import type { ExportFormat } from "../chat/ExportMenu.tsx";
+import { isSwitchMode, SWITCH_MODES } from "../chat/mode-switch.ts";
 import { Button } from "../components/ui/button.tsx";
 import {
   DropdownMenu,
@@ -26,11 +18,10 @@ import {
   DropdownMenuShortcut,
   DropdownMenuTrigger,
 } from "../components/ui/dropdown-menu.tsx";
-import { ToolbarGroup } from "../components/ui/toolbar.tsx";
-import { useNotifications, useStoreState } from "../data/index.ts";
+import { useStoreState } from "../data/index.ts";
 import { t } from "../i18n/core.ts";
-import { fade, Presence } from "../motion/index.ts";
 import { GatewayChip } from "../shell/GatewayChip.tsx";
+import { SHORTCUTS } from "../shell/shortcuts.ts";
 import { usePersona } from "../slots.tsx";
 import { useAgentStatus } from "./useAgentState.ts";
 
@@ -80,12 +71,6 @@ function snippetSaysState(snippet: string, state: AvatarState): boolean {
   return snippet.toLowerCase().startsWith(AVATAR_STATE_LABEL[state].toLowerCase());
 }
 
-/** One segment of the toolbar's mode / model pill group (§4, §5.2). */
-const SEGMENT =
-  "inline-flex h-7 cursor-default items-center gap-1 rounded-full px-3 text-body text-label-primary transition-colors duration-(--duration-micro) ease-(--ease-standard) outline-none hover:bg-fill-tertiary focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset aria-expanded:bg-fill-secondary [&_svg]:size-3.5 [&_svg]:text-label-secondary";
-/** The same segment when there is no handler: text, not a disabled control. */
-const SEGMENT_STATIC = "inline-flex h-7 items-center gap-1 px-3 text-body text-label-secondary";
-
 export interface AgentHeaderProps {
   /** Opens the agent sheet (avatar click). */
   onOpenSheet: () => void;
@@ -95,7 +80,8 @@ export interface AgentHeaderProps {
   onModeChange?: (mode: PermissionMode) => void;
   model?: string;
   onOpenModelPicker?: () => void;
-  onOpenInbox?: () => void;
+  /** The status control's target (the amber count): the approvals list. Defaults to the sheet. */
+  onOpenApprovals?: () => void;
   incognito?: boolean;
   paused?: boolean;
   /** Export the open thread (⋯ → Export: Markdown / JSON / HTML, §3.2). */
@@ -134,7 +120,7 @@ export function AgentHeader({
   onModeChange,
   model,
   onOpenModelPicker,
-  onOpenInbox,
+  onOpenApprovals,
   incognito = false,
   paused = false,
   onExport,
@@ -150,7 +136,6 @@ export function AgentHeader({
 }: AgentHeaderProps): ReactElement {
   const persona = usePersona();
   const status = useAgentStatus({ incognito, paused });
-  const { unread } = useNotifications();
   // The snippet names the current work (§3.1); "needs you" is the avatar's count and a counter.
   const step = useStoreState((s) => {
     const task = status.taskId ? s.tasks[status.taskId] : undefined;
@@ -158,7 +143,7 @@ export function AgentHeader({
     return task.checklist.find((c) => c.status === "in_progress")?.text ?? task.title;
   });
   const snippet = status.state !== "offline" && step !== null ? step : status.snippet;
-  const pills = mode !== undefined || model !== undefined;
+  const modeChoices = SWITCH_MODES;
   return (
     <div
       role="toolbar"
@@ -181,7 +166,6 @@ export function AgentHeader({
           creature={persona.creature}
           {...(persona.imageSrc ? { imageSrc: persona.imageSrc } : {})}
           state={status.state}
-          count={status.needsYou}
           size={28}
           decorative
         />
@@ -196,239 +180,201 @@ export function AgentHeader({
           </span>
         ) : null}
         {/*
-          One polite live region around the snippet (C13: the region holds the button, it is
-          not on it). The state word is said once (#555). The text cross-fades in place at a
-          fixed width (motion.md §3: it never moves).
+          One polite live region for the state (C13). The state word is said once (#555); sighted
+          owners get the one status control on the right (the amber count, or the quiet spinner),
+          so the snippet is spoken, not drawn, and the header never says "working" twice.
         */}
-        <div
-          role="status"
-          aria-live="polite"
-          data-testid="agent-status"
-          className="relative min-w-0 max-w-[36ch] flex-1"
-        >
-          <button
-            type="button"
-            className="block w-full cursor-default truncate rounded-sm text-start text-callout text-label-secondary outline-none hover:text-label-primary focus-visible:ring-2 focus-visible:ring-ring"
-            onClick={() =>
-              status.taskId && onOpenTask ? onOpenTask(status.taskId) : onOpenSheet()
-            }
-          >
-            {snippetSaysState(snippet, status.state) ? null : (
-              <span className="sr-only">
-                {t("agent.header.stateLead", { state: AVATAR_STATE_LABEL[status.state] })}{" "}
-              </span>
-            )}
-            <Presence mode="popLayout" initial={false}>
-              <m.span key={snippet} className="inline" {...fade}>
-                {snippet}
-              </m.span>
-            </Presence>
-          </button>
+        <div role="status" aria-live="polite" data-testid="agent-status" className="sr-only">
+          {snippetSaysState(snippet, status.state) ? null : (
+            <span>{t("agent.header.stateLead", { state: AVATAR_STATE_LABEL[status.state] })} </span>
+          )}
+          {snippet}
         </div>
       </div>
-      {status.running > 0 || status.needsYou > 0 ? (
-        // Wide enough for it beside the pills: by the toolbar's own width, not the window's, since a
-        // pane can leave the chat column narrow in a wide window.
-        <p className="hidden shrink-0 items-center gap-2 text-callout text-label-secondary @[40rem]:flex">
-          {status.running > 0 ? (
-            <span>{t("agent.header.running", { n: status.running })}</span>
-          ) : null}
-          {status.needsYou > 0 && step !== null ? (
-            <button
-              type="button"
-              onClick={onOpenSheet}
-              className="cursor-default rounded-sm text-approval-text outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              {t("agent.header.needYou", { n: status.needsYou })}
-            </button>
-          ) : null}
-        </p>
-      ) : null}
       {context}
-      {pills ? (
-        // The mode and model pills are one Liquid Glass group (liquid-glass.md §6.3); the row
-        // itself has no material.
-        <ToolbarGroup className="shrink-0" data-testid="toolbar-pills">
-          {mode ? (
-            onModeChange ? (
-              <DropdownMenu>
-                <DropdownMenuTrigger
-                  className={SEGMENT}
-                  aria-label={t("agent.header.modeLabel", { mode: MODE_LABEL[mode] })}
-                  aria-keyshortcuts="Meta+Shift+M"
-                >
-                  <ShieldCheck aria-hidden="true" />
-                  {MODE_LABEL[mode]}
-                  <ChevronDown aria-hidden="true" />
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuRadioGroup
-                    value={mode}
-                    onValueChange={(m) => onModeChange(m as PermissionMode)}
-                  >
-                    {(Object.keys(MODE_LABEL) as PermissionMode[]).map((m) => (
-                      <DropdownMenuRadioItem key={m} value={m}>
-                        {MODE_LABEL[m]}
-                      </DropdownMenuRadioItem>
-                    ))}
-                  </DropdownMenuRadioGroup>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            ) : (
-              <span className={SEGMENT_STATIC}>
-                <ShieldCheck className="size-3.5" aria-hidden="true" />
-                <span className="sr-only">{t("agent.header.modeLead")} </span>
-                {MODE_LABEL[mode]}
-              </span>
-            )
-          ) : null}
-          {mode && model ? (
-            <span className="h-4 w-px shrink-0 bg-separator" aria-hidden="true" />
-          ) : null}
-          {model ? (
-            onOpenModelPicker ? (
-              <button
-                type="button"
-                className={SEGMENT}
-                onClick={onOpenModelPicker}
-                aria-label={t("agent.header.modelLabel", { model: modelLabel(model) })}
-                title={model}
-                aria-keyshortcuts="Meta+Shift+I"
-              >
-                {modelLabel(model)}
-                <ChevronDown aria-hidden="true" />
-              </button>
-            ) : (
-              <span className={SEGMENT_STATIC} title={model}>
-                <span className="sr-only">{t("agent.header.modelLead")} </span>
-                {modelLabel(model)}
-              </span>
-            )
-          ) : null}
-        </ToolbarGroup>
-      ) : null}
-      <ToolbarGroup className="shrink-0" data-testid="toolbar-actions">
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          className="relative rounded-full"
-          onClick={onOpenInbox}
-          aria-label={t("agent.header.notifications", { n: unread.length })}
+      {status.needsYou > 0 ? (
+        // The one status: an amber dot and how many wait. It opens the approvals list; Home's
+        // "Needs you" and the sidebar badge say the same elsewhere, so the header says it once.
+        <button
+          type="button"
+          onClick={onOpenApprovals ?? onOpenSheet}
+          className="inline-flex h-7 shrink-0 cursor-default items-center gap-1.5 rounded-full px-2.5 text-callout text-label-primary outline-none transition-colors duration-(--duration-micro) ease-(--ease-standard) hover:bg-fill-tertiary focus-visible:ring-2 focus-visible:ring-ring"
+          aria-label={t("agent.header.needYou", { n: status.needsYou })}
+          data-testid="header-status"
         >
-          <Bell aria-hidden="true" />
-          {unread.length > 0 ? (
-            <span
-              className="absolute -top-0.5 -end-0.5 min-w-4 rounded-full bg-accent-9 px-1 text-center text-[11px] leading-4 text-accent-contrast tabular-nums"
-              aria-hidden="true"
-            >
-              {unread.length}
-            </span>
+          <span className="size-2 rounded-full bg-approval" aria-hidden="true" />
+          <span className="tabular-nums">{status.needsYou}</span>
+        </button>
+      ) : status.running > 0 ? (
+        <button
+          type="button"
+          onClick={() => (status.taskId && onOpenTask ? onOpenTask(status.taskId) : onOpenSheet())}
+          className="inline-flex size-7 shrink-0 cursor-default items-center justify-center rounded-full text-label-secondary outline-none hover:bg-fill-tertiary focus-visible:ring-2 focus-visible:ring-ring"
+          aria-label={t("agent.header.running", { n: status.running })}
+          data-testid="header-status"
+        >
+          <LoaderCircle className="size-4 motion-safe:animate-spin" aria-hidden="true" />
+        </button>
+      ) : null}
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          render={
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              className="rounded-full"
+              aria-label={t("common.more")}
+            />
+          }
+        >
+          <Ellipsis aria-hidden="true" />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="min-w-56">
+          {mode ? (
+            <DropdownMenuGroup data-testid="mode-menu">
+              <DropdownMenuLabel className="flex items-center justify-between gap-4">
+                {t("chat.modeSwitch.label")}
+                <DropdownMenuShortcut>
+                  {SHORTCUTS.find((x) => x.id === "permissionMode")?.keys}
+                </DropdownMenuShortcut>
+              </DropdownMenuLabel>
+              {onModeChange ? (
+                <DropdownMenuRadioGroup
+                  value={mode}
+                  aria-keyshortcuts="Meta+Shift+M"
+                  onValueChange={(next) => {
+                    if (isSwitchMode(next)) onModeChange(next);
+                  }}
+                >
+                  {modeChoices.map((choice) => (
+                    <DropdownMenuRadioItem
+                      key={choice}
+                      value={choice}
+                      className={choice === "full" ? undefined : "capitalize"}
+                    >
+                      {MODE_LABEL[choice]}
+                    </DropdownMenuRadioItem>
+                  ))}
+                </DropdownMenuRadioGroup>
+              ) : (
+                <DropdownMenuItem disabled>{MODE_LABEL[mode]}</DropdownMenuItem>
+              )}
+              <p
+                className="max-w-64 px-2 pb-1 text-callout text-label-secondary"
+                data-testid="mode-menu-auto-explainer"
+              >
+                {t("chat.modeSwitch.autoExplainer")}
+              </p>
+            </DropdownMenuGroup>
           ) : null}
-        </Button>
-        <DropdownMenu>
-          <DropdownMenuTrigger
-            render={
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                className="rounded-full"
-                aria-label={t("common.more")}
-              />
-            }
-          >
-            <Ellipsis aria-hidden="true" />
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="min-w-56">
-            <DropdownMenuItem onClick={onOpenSheet}>
-              <PanelRight aria-hidden="true" /> {t("agent.header.menuSheet")}
-              <DropdownMenuShortcut>{t("chat.toolbar.keySheet")}</DropdownMenuShortcut>
-            </DropdownMenuItem>
-            {onOpenModelPicker ? (
-              <DropdownMenuItem onClick={onOpenModelPicker}>
-                {t("agent.header.changeModel")}
+          {onOpenModelPicker ? (
+            <>
+              {mode ? <DropdownMenuSeparator /> : null}
+              <DropdownMenuItem
+                onClick={onOpenModelPicker}
+                aria-keyshortcuts="Meta+Shift+I"
+                aria-label={
+                  model
+                    ? t("agent.header.modelLabel", { model: modelLabel(model) })
+                    : t("agent.header.changeModel")
+                }
+              >
+                <span className="flex min-w-0 flex-col">
+                  {t("agent.header.changeModel")}
+                  {model ? (
+                    <span className="text-callout text-label-secondary" title={model}>
+                      {modelLabel(model)}
+                    </span>
+                  ) : null}
+                </span>
                 <DropdownMenuShortcut>{t("chat.toolbar.keyModel")}</DropdownMenuShortcut>
               </DropdownMenuItem>
-            ) : null}
-            {disclosure !== undefined && onDisclosureChange ? (
-              <>
-                <DropdownMenuSeparator />
-                <DropdownMenuGroup>
-                  <DropdownMenuLabel>{t("chat.toolbar.view")}</DropdownMenuLabel>
-                  <DropdownMenuRadioGroup
-                    value={String(disclosure)}
-                    onValueChange={(v) => onDisclosureChange(Number(v) as DisclosureLevel)}
-                  >
-                    {LEVELS.map((level) => (
-                      <DropdownMenuRadioItem key={level} value={String(level)}>
-                        {t(`chat.toolbar.view.${DISCLOSURE_KEY[level]}`)}
-                        {level === 0 ? (
-                          <DropdownMenuShortcut>{t("chat.toolbar.keyView")}</DropdownMenuShortcut>
-                        ) : null}
-                      </DropdownMenuRadioItem>
-                    ))}
-                  </DropdownMenuRadioGroup>
-                </DropdownMenuGroup>
-              </>
-            ) : null}
-            {onContextLimits || onCompact ? (
-              <>
-                <DropdownMenuSeparator />
-                {onContextLimits ? (
-                  <DropdownMenuItem onClick={onContextLimits}>
-                    {t("context.limits.menu")}
-                  </DropdownMenuItem>
-                ) : null}
-                {onCompact ? (
-                  <DropdownMenuItem onClick={onCompact}>
-                    {t("context.meter.compactNow")}
-                  </DropdownMenuItem>
-                ) : null}
-              </>
-            ) : null}
-            {onExport ? (
-              <>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => onExport("markdown")}>
-                  <Download aria-hidden="true" /> {t("agent.header.exportMarkdown")}
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => onExport("json")}>
-                  <Download aria-hidden="true" /> {t("agent.header.exportJson")}
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => onExport("html")}>
-                  <Download aria-hidden="true" /> {t("agent.header.exportHtml")}
-                </DropdownMenuItem>
-              </>
-            ) : null}
-            {menu ? (
-              <>
-                <DropdownMenuSeparator />
-                {menu}
-              </>
-            ) : null}
-            {onClearChat ? (
-              <>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  variant="destructive"
-                  disabled={clearChatDisabled}
-                  onClick={onClearChat}
-                  data-testid="clear-chat-item"
+            </>
+          ) : null}
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={onOpenSheet}>
+            <PanelRight aria-hidden="true" /> {t("agent.header.menuSheet")}
+            <DropdownMenuShortcut>{t("chat.toolbar.keySheet")}</DropdownMenuShortcut>
+          </DropdownMenuItem>
+          {disclosure !== undefined && onDisclosureChange ? (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuGroup>
+                <DropdownMenuLabel>{t("chat.toolbar.view")}</DropdownMenuLabel>
+                <DropdownMenuRadioGroup
+                  value={String(disclosure)}
+                  onValueChange={(v) => onDisclosureChange(Number(v) as DisclosureLevel)}
                 >
-                  <Eraser aria-hidden="true" />
-                  <span className="flex min-w-0 flex-col">
-                    {t("chat.clear.menu")}
-                    {clearChatDisabled ? (
-                      <span className="text-callout text-label-secondary">
-                        {t("chat.clear.menuBusy", { persona: persona.name })}
-                      </span>
-                    ) : null}
-                  </span>
+                  {LEVELS.map((level) => (
+                    <DropdownMenuRadioItem key={level} value={String(level)}>
+                      {t(`chat.toolbar.view.${DISCLOSURE_KEY[level]}`)}
+                      {level === 0 ? (
+                        <DropdownMenuShortcut>{t("chat.toolbar.keyView")}</DropdownMenuShortcut>
+                      ) : null}
+                    </DropdownMenuRadioItem>
+                  ))}
+                </DropdownMenuRadioGroup>
+              </DropdownMenuGroup>
+            </>
+          ) : null}
+          {onContextLimits || onCompact ? (
+            <>
+              <DropdownMenuSeparator />
+              {onContextLimits ? (
+                <DropdownMenuItem onClick={onContextLimits}>
+                  {t("context.limits.menu")}
                 </DropdownMenuItem>
-              </>
-            ) : null}
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </ToolbarGroup>
+              ) : null}
+              {onCompact ? (
+                <DropdownMenuItem onClick={onCompact}>
+                  {t("context.meter.compactNow")}
+                </DropdownMenuItem>
+              ) : null}
+            </>
+          ) : null}
+          {onExport ? (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => onExport("markdown")}>
+                <Download aria-hidden="true" /> {t("agent.header.exportMarkdown")}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onExport("json")}>
+                <Download aria-hidden="true" /> {t("agent.header.exportJson")}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onExport("html")}>
+                <Download aria-hidden="true" /> {t("agent.header.exportHtml")}
+              </DropdownMenuItem>
+            </>
+          ) : null}
+          {menu ? (
+            <>
+              <DropdownMenuSeparator />
+              {menu}
+            </>
+          ) : null}
+          {onClearChat ? (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                variant="destructive"
+                disabled={clearChatDisabled}
+                onClick={onClearChat}
+                data-testid="clear-chat-item"
+              >
+                <Eraser aria-hidden="true" />
+                <span className="flex min-w-0 flex-col">
+                  {t("chat.clear.menu")}
+                  {clearChatDisabled ? (
+                    <span className="text-callout text-label-secondary">
+                      {t("chat.clear.menuBusy", { persona: persona.name })}
+                    </span>
+                  ) : null}
+                </span>
+              </DropdownMenuItem>
+            </>
+          ) : null}
+        </DropdownMenuContent>
+      </DropdownMenu>
     </div>
   );
 }
