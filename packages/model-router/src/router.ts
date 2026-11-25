@@ -655,7 +655,7 @@ export class ModelRouter implements ModelProvider {
           yield fin;
           return;
         }
-        const err = outcome?.error ?? errorFromFinish(fin.error);
+        const err = (outcome as CallOutcome | undefined)?.error ?? errorFromFinish(fin.error);
         if (err.kind === "cancelled") {
           yield { type: "finish", reason: "cancelled" };
           return;

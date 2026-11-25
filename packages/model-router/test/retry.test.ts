@@ -16,7 +16,10 @@ type Attempt = ModelEvent[] | { fail: ModelErrorKind; retryAfterSec?: number };
 class Scripted implements ModelProvider {
   readonly id = "alpha";
   calls = 0;
-  constructor(private readonly attempts: Attempt[]) {}
+  readonly attempts: Attempt[];
+  constructor(attempts: Attempt[]) {
+    this.attempts = attempts;
+  }
   async *stream(_r: ModelRequest, options?: ModelCallOptions): AsyncIterable<ModelEvent> {
     const a = this.attempts[Math.min(this.calls, this.attempts.length - 1)] as Attempt;
     this.calls += 1;
