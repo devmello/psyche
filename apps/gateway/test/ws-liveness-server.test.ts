@@ -18,7 +18,7 @@ describe("server ping", () => {
     await new Promise<void>((resolve) => dead.ws.once("close", () => resolve()));
     await new Promise((r) => setTimeout(r, 20));
     expect(open(t)).toHaveLength(0);
-    expect(t.gateway.context.connections().size).toBe(0);
+    expect([...t.gateway.context.connections()]).toHaveLength(0);
   });
 
   it("keeps a peer that answers pings (positive control)", async () => {

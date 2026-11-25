@@ -1,4 +1,4 @@
-import type { PsycheDb } from "../types.ts";
+import type { PsycheDb } from "../open.ts";
 
 /**
  * Long-term growth control for the operational history tables (terminal tasks and their
