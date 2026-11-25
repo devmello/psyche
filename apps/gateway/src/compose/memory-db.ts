@@ -474,7 +474,8 @@ export function resolveMemoryStore(o: {
           const rebuilt = syncSchema(db, o.db.sqlite, MEMORY_STORE_TABLES);
           if (rebuilt.length > 0) o.log?.(`memory: updated ${rebuilt.join(", ")}`);
           // Data-only migrations of the moved tables have their own step (wave 2A).
-          if (applyTrustLeakToEncrypted(db)) o.log?.("memory: moved untrusted facts to review");
+          if (applyTrustLeakToEncrypted(db, o.db.sqlite))
+            o.log?.("memory: moved untrusted facts to review");
         } else {
           await moveIn(db, fresh);
         }

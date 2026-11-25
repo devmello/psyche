@@ -1651,7 +1651,19 @@ export class GraphStore {
         )
       : this.#factRows(entity.id, true, input.attribute);
     const same = current.find((r) => normalizeName(r.value) === normalizeName(value));
-    if (same !== undefined && trustRank(same.provenance) >= trustRank(input.provenance)) {
+    if (same !== undefined && isLowerRanked(input.provenance, same.provenance)) {
+      // A lower-ranked source repeating a value only adds its source id: it never changes the
+      // higher-ranked row's expiry, evidence or provenance (a third party cannot make an owner
+      // fact expire).
+      const merged = [...new Set([...(JSON.parse(same.sources) as string[]), ...sources])];
+      if (merged.length !== (JSON.parse(same.sources) as string[]).length) {
+        this.#db
+          .prepare("UPDATE graph_facts SET sources = ? WHERE id = ?")
+          .run(JSON.stringify(merged), same.id);
+      }
+      return { fact: toFact(this.#factRow(same.id) as FactRow), superseded: null };
+    }
+    if (same !== undefined) {
       // Refresh the evidence; an expiring inference gets a new year (§4.3 expiry).
       const merged = [...new Set([...(JSON.parse(same.sources) as string[]), ...sources])];
       this.#db
@@ -1678,6 +1690,34 @@ export class GraphStore {
       !byStateMachine &&
       isLowerRanked(input.provenance, prior.provenance);
     const pending = input.provenance === "untrusted" || lower;
+    if (pending && single && input.provenance === "untrusted") {
+      // One suggestion per (entity, attribute): a reworded value from the next pass replaces the
+      // older unreviewed one in place instead of piling up in Review. Rows from the extraction
+      // pipeline (extractor set, cited) are never rewritten here.
+      const older = this.#db
+        .prepare(
+          `SELECT * FROM graph_facts WHERE entity_id = ? AND attribute = ? AND review = 'pending'
+             AND provenance = 'untrusted' AND extractor IS NULL AND retracted_at IS NULL
+           ORDER BY recorded_at DESC, id DESC LIMIT 1`,
+        )
+        .get(entity.id, input.attribute) as FactRow | undefined;
+      if (older !== undefined && normalizeName(older.value) !== normalizeName(value)) {
+        this.#db
+          .prepare(
+            "UPDATE graph_facts SET value = ?, sources = ?, evidence = ?, confidence = ?, last_seen_at = ?, updated_at = ? WHERE id = ?",
+          )
+          .run(
+            value,
+            JSON.stringify(sources),
+            evidence,
+            Math.min(1, Math.max(0, input.confidence ?? 0.6)),
+            now,
+            now,
+            older.id,
+          );
+        return { fact: toFact(this.#factRow(older.id) as FactRow), superseded: null };
+      }
+    }
     if (pending) {
       const norm = normalizeName(value);
       const dup = (

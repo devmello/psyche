@@ -111,6 +111,50 @@ describe("setFact trust rules (memory wave 2A)", () => {
     expect(graph.facts(sam).map((f) => f.value)).toEqual(["Initech"]);
   });
 
+  it("three reworded untrusted next steps keep one pending row with the latest value", () => {
+    const project = graph.createEntity({ kind: "project", name: "Offsite" }).id;
+    for (const [i, v] of ["send the deck", "email the deck out", "get the deck sent"].entries())
+      graph.setFact({
+        entityId: project,
+        attribute: "next_step",
+        value: v,
+        provenance: "untrusted",
+        sources: [`int_${i}`],
+      });
+    const pending = env.db.sqlite
+      .prepare(
+        "SELECT value, sources FROM graph_facts WHERE attribute = 'next_step' AND review = 'pending'",
+      )
+      .all() as { value: string; sources: string }[];
+    expect(pending).toHaveLength(1);
+    expect(pending[0]?.value).toBe("get the deck sent");
+    expect(JSON.parse(pending[0]?.sources ?? "[]")).toEqual(["int_2"]);
+    expect(graph.facts(project)).toEqual([]);
+  });
+
+  it("a system value repeated by an agent is not a conflict (one ranking on both checks)", () => {
+    const sys = set("city", "Berlin", "system");
+    const again = set("city", "Berlin", "agent", ["int_9"]);
+    expect(again?.fact.id).toBe(sys?.fact.id);
+    expect(em.reviewItems().items).toHaveLength(0);
+    expect(rows("city")).toHaveLength(1);
+  });
+
+  it("a lower-ranked repeat of an owner value only adds its source: no expiry, no provenance change", () => {
+    const owner = set("city", "SF", "owner", ["owner_feedback"]);
+    const q = "SELECT valid_to, provenance, evidence, updated_at FROM graph_facts WHERE id = ?";
+    const before = env.db.sqlite.prepare(q).get(owner?.fact.id);
+    expect(before).toMatchObject({ valid_to: null, provenance: "owner" });
+    set("city", "SF", "untrusted", ["int_7"]);
+    set("city", "SF", "agent", ["int_8"]);
+    expect(env.db.sqlite.prepare(q).get(owner?.fact.id)).toEqual(before);
+    const sources = env.db.sqlite
+      .prepare("SELECT sources FROM graph_facts WHERE id = ?")
+      .get(owner?.fact.id) as { sources: string };
+    expect(JSON.parse(sources.sources)).toEqual(["owner_feedback", "int_7", "int_8"]);
+    expect(rows("city")).toHaveLength(1);
+  });
+
   it("the owner can still replace an agent or untrusted value", () => {
     set("employer", "Acme", "agent");
     const owner = set("employer", "Initech", "owner");

@@ -13,6 +13,7 @@ import { DEFAULT_MIGRATIONS_DIR, openDb, runMigrations } from "@psyche/db";
 import { FakeClock } from "@psyche/testing";
 import Database from "better-sqlite3";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { EverythingStore } from "../src/graph/everything.ts";
 import { GraphStore } from "../src/graph/store.ts";
 import { copyTables, MEMORY_STORE_TABLES, newKey, openEncrypted } from "../src/secure/encrypted.ts";
 import {
@@ -165,31 +166,112 @@ describe("migrations and the encrypted store", () => {
     expect(offending).toEqual([]);
   });
 
-  it("the trust-leak migration has a step for the encrypted file: moves once, then leaves owner decisions alone", () => {
-    const { plain, enc } = setup();
-    const ent = (plain.prepare("SELECT id FROM graph_entities LIMIT 1").get() as { id: string }).id;
-    const t = "2026-10-20T00:00:00.000Z";
-    const add = (id: string, provenance: string) =>
-      enc
-        .prepare(
-          `INSERT INTO graph_facts (id, entity_id, attribute, value, provenance, confidence, valid_from,
-             recorded_at, created_at, updated_at) VALUES (?, ?, 'city', ?, ?, 0.4, ?, ?, ?, ?)`,
-        )
-        .run(id, ent, id, provenance, t, t, t, t);
-    add("leaked", "untrusted");
-    add("ownerfact", "owner");
-    const review = (id: string) =>
-      (enc.prepare("SELECT review FROM graph_facts WHERE id = ?").get(id) as { review: string })
+  describe("the trust-leak data step for the encrypted file", () => {
+    const APPLIED = "2026-11-01T00:00:00.000Z";
+    const reviewOf = (db: Database.Database, id: string) =>
+      (db.prepare("SELECT review FROM graph_facts WHERE id = ?").get(id) as { review: string })
         .review;
-    expect(applyTrustLeakToEncrypted(enc)).toBe(true);
-    expect(review("leaked")).toBe("pending");
-    expect(review("ownerfact")).toBe("accepted");
-    // The owner confirms it; the next open does not move it back.
-    enc.prepare("UPDATE graph_facts SET review = 'accepted' WHERE id = 'leaked'").run();
-    expect(applyTrustLeakToEncrypted(enc)).toBe(false);
-    expect(review("leaked")).toBe("accepted");
-    enc.close();
-    plain.close();
+    const supersededOf = (db: Database.Database, id: string) =>
+      (
+        db.prepare("SELECT superseded_by FROM graph_facts WHERE id = ?").get(id) as {
+          superseded_by: string | null;
+        }
+      ).superseded_by;
+
+    /** A migrated plain file where the owner confirmed a third-party value that replaced Acme. */
+    function confirmed() {
+      const { plain } = setup();
+      plain
+        .prepare("UPDATE _migrations SET applied_at = ? WHERE id LIKE '%memory_trust-leak'")
+        .run(APPLIED);
+      const g = new GraphStore({ sqlite: plain, clock });
+      const em = new EverythingStore({ sqlite: plain, graph: g, clock });
+      const sam = (plain.prepare("SELECT id FROM graph_entities LIMIT 1").get() as { id: string })
+        .id;
+      const acme = g.setFact({
+        entityId: sam,
+        attribute: "employer",
+        value: "Acme",
+        provenance: "agent",
+        sources: ["i1"],
+      });
+      const init = g.setFact({
+        entityId: sam,
+        attribute: "employer",
+        value: "Initech",
+        provenance: "untrusted",
+        sources: ["i2"],
+      });
+      expect(init?.fact.review).toBe("pending");
+      em.decide(init?.fact.id as string, "confirm");
+      return { plain, g, sam, acmeId: acme?.fact.id as string, initId: init?.fact.id as string };
+    }
+
+    it("a fact confirmed after the upgrade stays accepted when encryption is switched on", () => {
+      const { plain, acmeId, initId } = confirmed();
+      expect(reviewOf(plain, initId)).toBe("accepted");
+      expect(supersededOf(plain, acmeId)).toBe(initId);
+      const enc = openEncrypted(join(dir, "m2.sqlite"), newKey());
+      copyTables(enc, plain, MEMORY_STORE_TABLES);
+      // The backup table moved with the rows, so the step is already done.
+      expect(applyTrustLeakToEncrypted(enc, plain)).toBe(false);
+      // Even in an encrypted file made without the marker, the cutoff protects the confirmed row.
+      enc.prepare("DELETE FROM memory_migration_backup_2026_11").run();
+      expect(applyTrustLeakToEncrypted(enc, plain)).toBe(true);
+      expect(reviewOf(enc, initId)).toBe("accepted");
+      expect(supersededOf(enc, acmeId)).toBe(initId);
+      enc.close();
+      plain.close();
+    });
+
+    it("survives encryption off and on again", () => {
+      const { plain, acmeId, initId } = confirmed();
+      const enc = openEncrypted(join(dir, "m3.sqlite"), newKey());
+      copyTables(enc, plain, MEMORY_STORE_TABLES);
+      copyBack(enc, plain, MEMORY_STORE_TABLES);
+      enc.close();
+      const again = openEncrypted(join(dir, "m4.sqlite"), newKey());
+      copyTables(again, plain, MEMORY_STORE_TABLES);
+      expect(applyTrustLeakToEncrypted(again, plain)).toBe(false);
+      expect(reviewOf(again, initId)).toBe("accepted");
+      expect(supersededOf(again, acmeId)).toBe(initId);
+      expect(
+        again
+          .prepare("SELECT 1 FROM memory_migration_backup_2026_11 WHERE id LIKE 'applied:%'")
+          .get(),
+      ).toBeDefined();
+      again.close();
+      plain.close();
+    });
+
+    it("moves a leaked row in a store that was encrypted before the upgrade, once", () => {
+      const { plain, enc } = setup();
+      plain
+        .prepare("UPDATE _migrations SET applied_at = ? WHERE id LIKE '%memory_trust-leak'")
+        .run(APPLIED);
+      // An encrypted file that predates the migration has neither the backup table nor its marker.
+      enc.exec("DROP TABLE memory_migration_backup_2026_11");
+      const ent = (enc.prepare("SELECT id FROM graph_entities LIMIT 1").get() as { id: string }).id;
+      const t = "2026-10-20T00:00:00.000Z";
+      const add = (id: string, provenance: string) =>
+        enc
+          .prepare(
+            `INSERT INTO graph_facts (id, entity_id, attribute, value, provenance, confidence, valid_from,
+               recorded_at, created_at, updated_at) VALUES (?, ?, 'city', ?, ?, 0.4, ?, ?, ?, ?)`,
+          )
+          .run(id, ent, id, provenance, t, t, t, t);
+      add("leaked", "untrusted");
+      add("ownerfact", "owner");
+      expect(applyTrustLeakToEncrypted(enc, plain)).toBe(true);
+      expect(reviewOf(enc, "leaked")).toBe("pending");
+      expect(reviewOf(enc, "ownerfact")).toBe("accepted");
+      // The owner confirms it; the next open does not move it back.
+      enc.prepare("UPDATE graph_facts SET review = 'accepted' WHERE id = 'leaked'").run();
+      expect(applyTrustLeakToEncrypted(enc, plain)).toBe(false);
+      expect(reviewOf(enc, "leaked")).toBe("accepted");
+      enc.close();
+      plain.close();
+    });
   });
 
   it("every exempt rebuild that backfills rows has a real step for the encrypted file", () => {

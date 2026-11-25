@@ -95,17 +95,34 @@ export const ENCRYPTED_DATA_STEPS: readonly string[] = ["202611250900_memory_tru
  * Memory wave 2A (202611250900_memory_trust-leak.sql) for the encrypted file: facts the graph
  * model pass saved as accepted from other people's mail move to pending. The migration only
  * reaches the plain file, where the moved tables are empty once the store is encrypted, so the
- * same SQL runs here, once: the backup table (created in the encrypted file) marks it done, so
- * a fact the owner later confirms is never moved again. Returns true when it ran.
+ * same SQL runs here, once. The backup table is a moved table, so it travels with the rows; its
+ * `applied:` row marks the move done (copied from the plain file, or written here), and a fact
+ * the owner later confirms is never moved again. Only rows last updated before the migration was
+ * applied to `plain` match, so a fact confirmed after the upgrade (which bumps `updated_at`)
+ * stays accepted even in an encrypted file that was made later. Returns true when it ran.
  */
-export function applyTrustLeakToEncrypted(enc: SqlConn): boolean {
+export function applyTrustLeakToEncrypted(enc: SqlConn, plain: SqlConn): boolean {
   const has = (name: string) =>
     enc.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?").get(name) !==
     undefined;
   if (!has("graph_facts") || !has("graph_citations")) return false;
-  if (has("memory_migration_backup_2026_11")) return false;
-  const sql = readFileSync(join(DEFAULT_MIGRATIONS_DIR, ENCRYPTED_DATA_STEPS[0] as string), "utf8");
+  const file = ENCRYPTED_DATA_STEPS[0] as string;
+  if (
+    has("memory_migration_backup_2026_11") &&
+    enc
+      .prepare("SELECT 1 FROM memory_migration_backup_2026_11 WHERE id = 'applied:202611250900'")
+      .get() !== undefined
+  )
+    return false;
+  const applied = plain
+    .prepare("SELECT applied_at FROM _migrations WHERE id = ?")
+    .get(file.replace(/\.sql$/, "")) as { applied_at: string } | undefined;
+  if (applied === undefined) return false;
+  const sql = readFileSync(join(DEFAULT_MIGRATIONS_DIR, file), "utf8");
   enc.transaction(() => {
+    enc.exec("CREATE TEMP TABLE IF NOT EXISTS trust_leak_cutoff (value TEXT)");
+    enc.exec("DELETE FROM temp.trust_leak_cutoff");
+    enc.prepare("INSERT INTO temp.trust_leak_cutoff (value) VALUES (?)").run(applied.applied_at);
     enc.exec(sql);
   })();
   return true;

@@ -110,7 +110,11 @@ describe("202611250900 memory trust leak", () => {
     expect(count(sqlite, "review = 'pending'")).toBe(4);
     expect(
       (
-        sqlite.prepare("SELECT count(*) AS n FROM memory_migration_backup_2026_11").get() as {
+        sqlite
+          .prepare(
+            "SELECT count(*) AS n FROM memory_migration_backup_2026_11 WHERE id NOT LIKE 'applied:%'",
+          )
+          .get() as {
           n: number;
         }
       ).n,
@@ -145,7 +149,11 @@ describe("202611250900 memory trust leak", () => {
     expect(reviews(sqlite)).toEqual(once);
     expect(
       (
-        sqlite.prepare("SELECT count(*) AS n FROM memory_migration_backup_2026_11").get() as {
+        sqlite
+          .prepare(
+            "SELECT count(*) AS n FROM memory_migration_backup_2026_11 WHERE id NOT LIKE 'applied:%'",
+          )
+          .get() as {
           n: number;
         }
       ).n,
@@ -160,6 +168,75 @@ describe("202611250900 memory trust leak", () => {
     expect(rollbackMemoryTrustLeak(sqlite)).toBe(1);
     expect(reviews(sqlite).leak1).toBe("discarded");
     expect(reviews(sqlite).leak2).toBe("accepted");
+  });
+
+  /** A fact row added by hand; `superseded_by` is set after, so order does not matter. */
+  const addFact = (
+    sqlite: Database.Database,
+    id: string,
+    attribute: string,
+    value: string,
+    provenance: string,
+    supersededBy: string | null = null,
+  ) => {
+    sqlite
+      .prepare(
+        `INSERT INTO graph_facts (id, entity_id, attribute, value, provenance, confidence, valid_from,
+           recorded_at, created_at, updated_at, review) VALUES (?, 'e1', ?, ?, ?, 0.5, ?, ?, ?, ?, 'accepted')`,
+      )
+      .run(id, attribute, value, provenance, T, T, T, T);
+    if (supersededBy !== null)
+      sqlite
+        .prepare("UPDATE graph_facts SET superseded_by = ?, valid_to = ? WHERE id = ?")
+        .run(supersededBy, T, id);
+  };
+  const current = (sqlite: Database.Database, attribute: string) =>
+    (
+      sqlite
+        .prepare(
+          "SELECT value FROM graph_facts WHERE entity_id = 'e1' AND attribute = ? AND superseded_by IS NULL AND retracted_at IS NULL AND review IN ('accepted','auto_accepted','edited') ORDER BY value",
+        )
+        .all(attribute) as { value: string }[]
+    ).map((r) => r.value);
+
+  it("walks a chain of leaks back to the newest trusted value", () => {
+    const { sqlite, migrate } = seeded();
+    // Acme (agent) <- u1 (untrusted) <- u2 (untrusted, current); only u2 moves.
+    addFact(sqlite, "u2", "term", "Spring", "untrusted");
+    addFact(sqlite, "u1", "term", "Summer", "untrusted", "u2");
+    addFact(sqlite, "acme", "term", "Fall", "agent", "u1");
+    // A retracted trusted value further back is not chosen.
+    sqlite.prepare("UPDATE graph_facts SET retracted_at = ? WHERE id = 'acme'").run(T);
+    addFact(sqlite, "older", "term", "Winter", "agent", "acme");
+    expect(current(sqlite, "term")).toEqual(["Spring"]);
+    migrate();
+    expect(current(sqlite, "term")).toEqual(["Winter"]);
+    expect(reviews(sqlite).u2).toBe("pending");
+    expect(rollbackMemoryTrustLeak(sqlite)).toBe(4);
+    expect(current(sqlite, "term")).toEqual(["Spring"]);
+  });
+
+  it("rollback after a newer owner write leaves one current value, the owner's", () => {
+    const { sqlite, migrate } = seeded();
+    addFact(sqlite, "u1", "term", "Spring", "untrusted");
+    addFact(sqlite, "acme", "term", "Fall", "agent", "u1");
+    migrate();
+    expect(current(sqlite, "term")).toEqual(["Fall"]);
+    // The owner sets a new value after the migration; it replaces the restored one.
+    addFact(sqlite, "globex", "term", "Globex", "owner");
+    sqlite.prepare("UPDATE graph_facts SET superseded_by = 'globex' WHERE id = 'acme'").run();
+    expect(rollbackMemoryTrustLeak(sqlite)).toBe(3);
+    expect(current(sqlite, "term")).toEqual(["Globex"]);
+    expect(reviews(sqlite).u1).toBe("pending");
+  });
+
+  it("rollback keeps a leaked value pending when the owner has since set another", () => {
+    const { sqlite, migrate } = seeded();
+    migrate();
+    addFact(sqlite, "paris", "city", "Paris", "owner");
+    rollbackMemoryTrustLeak(sqlite);
+    expect(reviews(sqlite).leak1).toBe("pending");
+    expect(current(sqlite, "city")).toEqual(["Paris"]);
   });
 
   it("rollback without the backup table is a no-op", () => {

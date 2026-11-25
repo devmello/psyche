@@ -345,6 +345,7 @@ export const memoryMigrationBackup202611 = sqliteTable("memory_migration_backup_
   lastSeenAt: text("last_seen_at"),
   priorId: text("prior_id"),
   priorValidTo: text("prior_valid_to"),
+  priorSupersededBy: text("prior_superseded_by"),
   movedAt: text("moved_at").notNull(),
 });
 
