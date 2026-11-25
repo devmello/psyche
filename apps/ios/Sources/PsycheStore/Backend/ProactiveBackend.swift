@@ -9,6 +9,10 @@ import Foundation
 
 public protocol ProactiveBackend: Sendable {
     func feed() async throws -> FeedSnapshot
+    /// A page of the feed after `cursor` (nil is the first page). `nextCursor` nil is the last page.
+    func feedPage(cursor: String?) async throws -> FeedSnapshot
+    /// A page of proposed ideas after `cursor` (nil is the first page).
+    func ideasPage(cursor: String?) async throws -> IdeaPage
     /// Makes the brief now instead of at its schedule (the Feed's first-run state) and returns the posts it made.
     /// A model call, so it can take a while. Throws `BackendError.slowDown` when this phone is out of model budget.
     func generateFeed() async throws -> [FeedCard]
@@ -53,6 +57,16 @@ public protocol ProactiveBackend: Sendable {
     func unlinkGoal(goalID: String, _ target: GoalLinkTarget) async throws
 }
 
+extension ProactiveBackend {
+    public func feedPage(cursor: String?) async throws -> FeedSnapshot {
+        cursor == nil ? try await feed() : FeedSnapshot(cards: [])
+    }
+
+    public func ideasPage(cursor: String?) async throws -> IdeaPage {
+        cursor == nil ? IdeaPage(items: try await ideas()) : IdeaPage(items: [])
+    }
+}
+
 // MARK: Feed
 
 public enum FeedFeedback: String, Sendable, Equatable { case like, save, notInterested = "not_interested" }
@@ -73,8 +87,17 @@ public struct FeedCard: Sendable, Equatable, Identifiable {
     public var sources: [FeedSource]
     public var createdAt: Date?
     public var feedback: FeedFeedback?
+    /// The Gateway keeps posts the owner marked "not interested" or hid by source; they do not show.
+    public var hiddenByFeedback: Bool
 
-    public init(id: String, title: String, body: String, sources: [FeedSource] = [], createdAt: Date? = nil, feedback: FeedFeedback? = nil) {
+    /// True for a post that must stay off every list: marked not interested here, or hidden on another device.
+    public var isDismissed: Bool { hiddenByFeedback || feedback == .notInterested }
+
+    public init(
+        id: String, title: String, body: String, sources: [FeedSource] = [], createdAt: Date? = nil, feedback: FeedFeedback? = nil,
+        hiddenByFeedback: Bool = false
+    ) {
+        self.hiddenByFeedback = hiddenByFeedback
         self.id = id
         self.title = title
         self.body = body
@@ -87,9 +110,12 @@ public struct FeedCard: Sendable, Equatable, Identifiable {
 public struct FeedSnapshot: Sendable, Equatable {
     public var cards: [FeedCard]
     public var nextBriefAt: Date?
-    public init(cards: [FeedCard], nextBriefAt: Date? = nil) {
+    /// Set while older posts remain ("Load older").
+    public var nextCursor: String?
+    public init(cards: [FeedCard], nextBriefAt: Date? = nil, nextCursor: String? = nil) {
         self.cards = cards
         self.nextBriefAt = nextBriefAt
+        self.nextCursor = nextCursor
     }
     public static let skeleton = FeedSnapshot(cards: (0..<3).map { FeedCard(id: "sk\($0)", title: "Loading the feed", body: "Loading the feed") })
 }
@@ -97,6 +123,15 @@ public struct FeedSnapshot: Sendable, Equatable {
 // MARK: Ideas
 
 public enum IdeaDismissReason: String, Sendable, Equatable { case notNow = "not_now", notInterested = "not_interested" }
+
+public struct IdeaPage: Sendable, Equatable {
+    public var items: [IdeaItem]
+    public var nextCursor: String?
+    public init(items: [IdeaItem], nextCursor: String? = nil) {
+        self.items = items
+        self.nextCursor = nextCursor
+    }
+}
 
 public struct IdeaItem: Sendable, Equatable, Identifiable {
     public var id: String

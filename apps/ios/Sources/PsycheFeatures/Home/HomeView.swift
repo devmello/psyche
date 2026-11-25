@@ -6,6 +6,7 @@ import SwiftUI
 
 struct HomeView: View {
     @State private var model: HomeModel
+    @State private var proactive: ProactiveHomeModel
     @State private var ask = ""
     /// The same on-device dictation as the Chat composer (the mockup's mic in the Ask field).
     @State private var dictation = Dictation()
@@ -19,6 +20,7 @@ struct HomeView: View {
     init(store: any PsycheBackend) {
         self.store = store
         _model = State(initialValue: HomeModel(store: store))
+        _proactive = State(initialValue: ProactiveHomeModel(store: store))
     }
 
     var body: some View {
@@ -49,7 +51,11 @@ struct HomeView: View {
             await model.load()
             await model.observe()
         }
-        .refreshable { await model.load() }
+        .refreshable {
+            async let sections: Void = proactive.load()
+            await model.load()
+            await sections
+        }
         #if DEBUG
         // Screenshots without a swipe: `-psycheHomeScroll pinned` brings the Pinned section into view.
         .onChange(of: model.pinnedWidgets.count) { _, count in
@@ -128,7 +134,7 @@ struct HomeView: View {
         if !model.pinnedWidgets.isEmpty { pinned(model.pinnedWidgets).transition(rise) }
         FollowupsHomeSections(store: store)
         SpacesHomeSection(store: store)
-        ProactiveHomeSections(store: store)
+        ProactiveHomeSections(model: proactive)
         more
     }
 
