@@ -30516,6 +30516,7 @@ public struct PointsShowResult: Codable, Sendable {
 
 // MARK: - PointsStartParams
 public struct PointsStartParams: Codable, Sendable {
+    public let closingNote: String?
     public let entry: PointsEntry
     public let goal: String?
     public let goalSource: GoalSource?
@@ -30525,6 +30526,7 @@ public struct PointsStartParams: Codable, Sendable {
     public let window: String
 
     public enum CodingKeys: String, CodingKey {
+        case closingNote = "closingNote"
         case entry = "entry"
         case goal = "goal"
         case goalSource = "goalSource"
@@ -30534,7 +30536,8 @@ public struct PointsStartParams: Codable, Sendable {
         case window = "window"
     }
 
-    public init(entry: PointsEntry, goal: String? = nil, goalSource: GoalSource? = nil, locale: String, strings: PointsCardStrings, threadID: String? = nil, window: String) {
+    public init(closingNote: String? = nil, entry: PointsEntry, goal: String? = nil, goalSource: GoalSource? = nil, locale: String, strings: PointsCardStrings, threadID: String? = nil, window: String) {
+        self.closingNote = closingNote
         self.entry = entry
         self.goal = goal
         self.goalSource = goalSource

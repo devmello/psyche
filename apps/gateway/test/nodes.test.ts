@@ -386,6 +386,66 @@ describe("node registry", () => {
     expect(res).toMatchObject({ ok: true, result: { a: 1 } });
   });
 
+  it("never reaches Psyche points' helper capabilities through nodes.invoke, on any node kind", async () => {
+    const POINTS = [
+      ["points.windows", {}],
+      ["points.session", { window: "1:0" }],
+      ["points.show", { sessionId: "s" }],
+      ["points.look", { sessionId: "s", actionId: "a" }],
+      ["points.end", { sessionId: "s" }],
+    ] as const;
+    const handlers: FakeNodeHandler[] = [
+      { capability: { name: "system.echo", sideEffect: "none" }, run: (p) => p },
+      ...POINTS.map(([name]) => ({
+        capability: { name, sideEffect: "none" as const },
+        run: () => "should never run",
+      })),
+    ];
+    // The Host's Mac helper, the Host's Windows helper and an ordinary paired node.
+    for (const family of ["mac-helper", "win-helper", "psyche-node"] as const) {
+      broker = new RecordingBroker({ armDelayMs: 0, policy: { default: "allow" } });
+      t = await startTestGateway({ broker });
+      desk = await desktopClient(t.gateway);
+      const n =
+        family === "psyche-node"
+          ? await FakeNode.connectRemote(t.gateway, { handlers })
+          : await FakeNode.connect(t.gateway.config.nodeSocketPath, {
+              origin: t.gateway.origin,
+              secret: t.gateway.handshakeSecret,
+              handlers,
+              deviceFamily: family,
+            });
+      try {
+        for (const [capability, params] of POINTS) {
+          const res = await desk.request(
+            "nodes.invoke",
+            { nodeId: n.nodeId, capability, params },
+            ik(),
+          );
+          expect(res, `${family} ${capability}`).toMatchObject({
+            ok: false,
+            error: { code: "forbidden" },
+          });
+        }
+        expect(n.invocations).toEqual([]);
+        expect(broker.decisions).toHaveLength(0);
+        // Positive control: the paired node answers an ordinary capability.
+        if (family === "psyche-node") {
+          const ok = await desk.request(
+            "nodes.invoke",
+            { nodeId: n.nodeId, capability: "system.echo", params: { a: 1 } },
+            ik(),
+          );
+          expect(ok).toMatchObject({ ok: true });
+        }
+      } finally {
+        await n.close().catch(() => {});
+        desk.close();
+        await t.cleanup();
+      }
+    }
+  });
+
   it("never reaches helper-internal capabilities such as vault.unlock", async () => {
     const { desk, node } = await setup({ policy: { default: "allow" } }, true);
     const res = await desk.request(
