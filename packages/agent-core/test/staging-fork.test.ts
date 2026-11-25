@@ -8,14 +8,7 @@ import type {
   Target,
 } from "@psyche/protocol";
 import { describe, expect, it } from "vitest";
-import { forkReportTool } from "../src/builtins/fork-report.ts";
-import { FORK_ONLY } from "../src/registry.ts";
-import {
-  FORK_REPORT_TOOL,
-  NEVER_STAGED_KINDS,
-  readVerdict,
-  STAGING_NONE_ALLOWED,
-} from "../src/staging.ts";
+import { NEVER_STAGED_KINDS } from "../src/staging.ts";
 import {
   call,
   calls,
