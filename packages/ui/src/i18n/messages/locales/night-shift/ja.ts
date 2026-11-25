@@ -89,4 +89,17 @@ export const nightShift: Partial<Catalogue> = {
   "settings.key.nightShift.expiryDays": "ナイトシフトの有効期間",
   "settings.key.nightShift.notify": "準備ができたら知らせる",
   "settings.key.nightShift.consentedAt": "ナイトシフトへの同意",
+  "nightShift.row.withheld":
+    "メッセージ由来の項目です。見るにはお使いのコンピュータでPsycheを開いてください。",
+  "nightShift.status.applying": "適用中…",
+  "nightShift.send.gmail": "Gmailの下書きは送信前に確認できないため、Gmailから送信してください。",
+  "nightShift.send.reply":
+    "返信の保存済み下書きは、確認した内容と照合できないため、Mailから送信してください。",
+  "nightShift.send.other": "ここからは送信できません。",
+  "nightShift.status.sent": "送信済み",
+  "nightShift.status.undoRefused": "元に戻せませんでした。適用後に内容が変わっています。",
+  "nightShift.status.sendNotSent":
+    "下書きは保存されましたが、何も送信されていません。Mailから送信できます。",
+  "nightShift.status.sendUnsure":
+    "下書きは保存されました。送信が完了したか確認できません。Mailの送信済みを確認してください。",
 };

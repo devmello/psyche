@@ -21,6 +21,7 @@ import {
   reconcile,
   seedSelection,
   selectAll,
+  sendBlock,
   toggleItem,
   toggleSend,
 } from "../src/night-shift/model.ts";
@@ -185,12 +186,12 @@ describe("previews are plain text (pure)", () => {
 });
 
 describe("the approval check (pure)", () => {
-  const payload = {
+  const expected = {
     items: [
       { itemId: "a", bindingHash: "h1" },
       { itemId: "b", bindingHash: "h2" },
     ],
-    sends: [{ itemId: "a", sendHash: "s1" }],
+    sends: [{ itemId: "a", recipients: ["x@example.com", "Y@example.com"] }],
   };
   const approval = (rows: unknown[], over: Partial<ApprovalRequest> = {}) =>
     ({
@@ -200,37 +201,97 @@ describe("the approval check (pure)", () => {
       details: { items: rows },
       ...over,
     }) as unknown as ApprovalRequest;
+  const draft = (itemId: string, bindingHash: string) => ({
+    itemId,
+    tool: "mail_draft",
+    summary: `S ${itemId}`,
+    bindingHash,
+  });
+  const sendRow = (itemId: string, send: unknown, extra: object = {}) => ({
+    itemId: `${itemId}:send`,
+    tool: "mail_send_draft",
+    summary: "Send to x@example.com",
+    // The broker's own staged-send binding: never compared with anything the client holds.
+    bindingHash: "sha256:broker-owned",
+    send,
+    ...extra,
+  });
   const good = [
-    { itemId: "a", bindingHash: "h1" },
-    { itemId: "b", bindingHash: "h2" },
-    { itemId: "a", sendHash: "s1" },
+    draft("a", "h1"),
+    draft("b", "h2"),
+    sendRow("a", { to: ["y@example.com", "x@example.com"] }),
   ];
 
   it("accepts exactly the ticked set, in any order", () => {
-    expect(checkApproval(approval(good), payload).ok).toBe(true);
-    expect(checkApproval(approval([...good].reverse()), payload).ok).toBe(true);
+    expect(checkApproval(approval(good), expected).ok).toBe(true);
+    expect(checkApproval(approval([...good].reverse()), expected).ok).toBe(true);
   });
 
   it.each([
-    ["an extra item", [...good, { itemId: "c", bindingHash: "h3" }]],
+    ["an extra item", [...good, draft("c", "h3")]],
     ["a missing item", good.slice(1)],
     ["a missing send", good.slice(0, 2)],
-    ["a different binding hash", [{ itemId: "a", bindingHash: "hX" }, ...good.slice(1)]],
-    ["a different send hash", [...good.slice(0, 2), { itemId: "a", sendHash: "sX" }]],
-    ["a send nobody ticked", [...good, { itemId: "b", sendHash: "s2" }]],
-    ["a duplicated row", [...good, good[0]]],
-    ["no hash at all", [{ itemId: "a" }, { itemId: "b" }, { itemId: "a", sendHash: "s1" }]],
+    ["a different binding hash", [draft("a", "hX"), ...good.slice(1)]],
+    ["a send nobody ticked", [...good, sendRow("b", { to: ["x@example.com"] })]],
+    ["a duplicated item row", [...good, good[0]]],
+    ["a duplicated send row", [...good, good[2]]],
+    ["an item row with no hash", [{ itemId: "a" }, ...good.slice(1)]],
+    [
+      "a send to other recipients",
+      [...good.slice(0, 2), sendRow("a", { to: ["eve@example.com"] })],
+    ],
+    [
+      "a send with an extra recipient",
+      [
+        ...good.slice(0, 2),
+        sendRow("a", { to: ["x@example.com", "y@example.com", "eve@example.com"] }),
+      ],
+    ],
+    ["a send row without a send", [...good.slice(0, 2), sendRow("a", undefined)]],
+    ["a send with no recipients that was not withheld", [...good.slice(0, 2), sendRow("a", {})]],
+    [
+      "a send whose draft is not ticked",
+      [good[1], sendRow("a", { to: ["x@example.com", "y@example.com"] })],
+    ],
   ])("refuses %s", (_name, rows) => {
-    expect(checkApproval(approval(rows), payload).ok).toBe(false);
+    expect(checkApproval(approval(rows), expected).ok).toBe(false);
+  });
+
+  it("accepts a withheld send that names nobody, only when the row says it is withheld", () => {
+    const rows = (withheld: boolean) => [
+      draft("a", "h1"),
+      draft("b", "h2"),
+      sendRow("a", {}, withheld ? { withheld: "messages" } : {}),
+    ];
+    expect(checkApproval(approval(rows(true)), expected).ok).toBe(true);
+    expect(checkApproval(approval(rows(false)), expected).ok).toBe(false);
+  });
+
+  it("lets a refused item's rows be missing, but never lets a row be added", () => {
+    const refused = new Set(["a"]);
+    // The send for "a" was refused: the draft stays, the send row is gone.
+    expect(checkApproval(approval(good.slice(0, 2)), { ...expected, refused }).ok).toBe(true);
+    // The draft refused too: both rows gone.
+    expect(checkApproval(approval([good[1]]), { ...expected, refused }).ok).toBe(true);
+    // Missing without a refusal, and extras with one: no.
+    expect(checkApproval(approval(good.slice(0, 2)), expected).ok).toBe(false);
+    expect(checkApproval(approval([...good, draft("c", "h3")]), { ...expected, refused }).ok).toBe(
+      false,
+    );
+    // The rows of an item that was refused must still be the ones the owner saw.
+    expect(checkApproval(approval([draft("a", "hX"), good[1]]), { ...expected, refused }).ok).toBe(
+      false,
+    );
   });
 
   it("refuses another kind, a decided approval and a details without items", () => {
-    expect(checkApproval(approval(good, { kind: "batch" }), payload).ok).toBe(false);
-    expect(checkApproval(approval(good, { status: "approved" }), payload).ok).toBe(false);
-    expect(checkApproval({ ...approval(good), details: {} } as ApprovalRequest, payload).ok).toBe(
+    expect(checkApproval(approval(good, { kind: "batch" }), expected).ok).toBe(false);
+    expect(checkApproval(approval(good, { status: "approved" }), expected).ok).toBe(false);
+    expect(checkApproval({ ...approval(good), details: {} } as ApprovalRequest, expected).ok).toBe(
       false,
     );
-    expect(checkApproval(approval([{ itemId: 3 }]), payload).ok).toBe(false);
+    expect(checkApproval(approval([{ itemId: 3 }]), expected).ok).toBe(false);
+    expect(checkApproval(approval([]), { items: [], sends: [] }).ok).toBe(false);
   });
 
   it("an undo is checked by item ids", () => {
@@ -238,6 +299,38 @@ describe("the approval check (pure)", () => {
     expect(checkApproval(approval([{ itemId: "a" }, { itemId: "z" }]), { undo: ["a"] }).ok).toBe(
       false,
     );
+  });
+});
+
+describe("who can send, who can tick (pure)", () => {
+  const draftOf = (tool: string) => ({ ...byId(I.reply), tool });
+  it("Send it too is for a new Apple Mail draft only", () => {
+    const sel = toggleItem(EMPTY_SELECTION, byId(I.reply));
+    expect(sendBlock(draftOf("mail_draft"), sel)).toBeNull();
+    expect(sendBlock(draftOf("mcp__apple__mail_create_draft"), sel)).toBeNull();
+    expect(sendBlock(draftOf("gmail_create_draft"), sel)).toBe("gmail");
+    expect(sendBlock(draftOf("mcp__google__gmail_create_draft"), sel)).toBe("gmail");
+    expect(sendBlock(draftOf("mail_reply_draft"), sel)).toBe("reply");
+    expect(sendBlock(draftOf("calendar_update_event"), sel)).toBe("other");
+    // And a tick on one of those never survives, even set directly.
+    const gmail = draftOf("gmail_create_draft");
+    expect(toggleSend(toggleItem(EMPTY_SELECTION, gmail), gmail).sends.size).toBe(0);
+    expect(
+      toggleSend(toggleItem(EMPTY_SELECTION, draftOf("mail_draft")), draftOf("mail_draft")).sends
+        .size,
+    ).toBe(1);
+  });
+
+  it("a withheld item or one mid-apply can't be ticked", () => {
+    const withheld = { ...byId(I.event), withheld: "messages" as const };
+    const applying = { ...byId(I.event), approvalId: "appr_1" };
+    expect(toggleItem(EMPTY_SELECTION, withheld).ticked.size).toBe(0);
+    expect(toggleItem(EMPTY_SELECTION, applying).ticked.size).toBe(0);
+    expect(selectAll(EMPTY_SELECTION, [withheld, applying]).ticked.size).toBe(0);
+    expect(toggleItem(EMPTY_SELECTION, byId(I.event)).ticked.size).toBe(1);
+    // A tick on an item that is bound to an apply meanwhile is dropped from the payload.
+    const sel = toggleItem(EMPTY_SELECTION, byId(I.event));
+    expect(buildApply(sel, [applying]).items).toEqual([]);
   });
 });
 
@@ -296,6 +389,97 @@ describe("the review sheet", () => {
     expect(apply.sends).toEqual([{ itemId: I.long, sendHash: byId(I.long).send?.contentHash }]);
   });
 
+  it("Send it too is off, with a reason, for a reply draft and a Gmail draft", async () => {
+    setup(sheet(), (w) => {
+      const reply = w.items.find((i) => i.id === I.reply) as StagedAction;
+      reply.tool = "mcp__google__gmail_create_draft";
+    });
+    // Marco's is a reply draft, Dana's was made a Gmail draft.
+    const marco = await row(I.plain);
+    expect(disabled(box(marco, /Send it too/))).toBe(true);
+    expect(within(marco).getByText(/reply’s saved draft can’t be checked/)).toBeTruthy();
+    const dana = await row(I.reply);
+    expect(disabled(box(dana, /Send it too/))).toBe(true);
+    expect(within(dana).getByText(/Gmail draft can’t be checked/)).toBeTruthy();
+    // Positive control: a new Apple Mail draft that is ticked and not cut can be sent.
+    expect(disabled(box(await row(I.long), /Send it too/))).toBe(true);
+    const draft = within(await row(I.long));
+    expect(draft.getByText(/Show the full draft/)).toBeTruthy();
+  });
+
+  it("a send is its own row in the approval and is answered when it matches", async () => {
+    const { user, calls, gateway } = setup(sheet());
+    const dana = await row(I.reply);
+    const spy = calls();
+    await user.click(box(dana, /Send it too/));
+    await user.click(screen.getByRole("button", { name: /^Apply selected/ }));
+    await waitFor(() => expect(spy.mock.calls.some((c) => c[0] === "approvals.answer")).toBe(true));
+    const approval = gateway().world.approvals.find((a) => a.kind === "staged_apply");
+    const rows = (approval?.details as { items: { itemId: string }[] }).items.map((r) => r.itemId);
+    expect(rows).toContain(`${I.reply}:send`);
+    expect(rows).toContain(I.reply);
+    const approved = await screen.findByTestId("night-shift-approved");
+    expect(approved.textContent).toContain("Send to dana@example.com");
+    // The send ran and is shown.
+    await waitFor(() => expect(within(dana).getByText("Sent")).toBeTruthy());
+  });
+
+  it("an item from Messages is a localized line, can't be ticked, and shows no text", async () => {
+    setup(sheet(), (w) => {
+      const e = w.items.find((i) => i.id === I.event) as StagedAction;
+      e.withheld = "messages";
+      e.summary = "An item from your Messages. Open Psyche on this Mac to see it.";
+      e.preview = null;
+      e.why = "SECRET-WHY";
+    });
+    const r = await row(I.event);
+    expect(
+      within(r).getByText(/An item from your Messages\. Open Psyche on your computer/),
+    ).toBeTruthy();
+    expect(r.textContent).not.toContain("Open Psyche on this Mac");
+    expect(r.textContent).not.toContain("SECRET-WHY");
+    expect(disabled(within(r).getByRole("checkbox"))).toBe(true);
+    expect(within(r).queryByRole("button", { name: "Show details" })).toBeNull();
+    // Select all skips it.
+    await userEvent.click(screen.getByRole("button", { name: "Select all" }));
+    expect(checked(within(r).getByRole("checkbox"))).toBe(false);
+  });
+
+  it("an item bound to an open apply is shown as being applied and can't be ticked", async () => {
+    const { user } = setup(sheet(), (w) => {
+      const e = w.items.find((i) => i.id === I.event) as StagedAction;
+      e.approvalId = "appr_open";
+    });
+    const r = await row(I.event);
+    expect(within(r).getByText("Being applied…")).toBeTruthy();
+    expect(disabled(within(r).getByRole("checkbox"))).toBe(true);
+    await user.click(screen.getByRole("button", { name: "Select all" }));
+    expect(checked(within(r).getByRole("checkbox"))).toBe(false);
+  });
+
+  it("says undo refused and send before_effect in plain words, not the Gateway's text", async () => {
+    setup(sheet(), (w) => {
+      const e = w.items.find((i) => i.id === I.event) as StagedAction;
+      e.status = "applied";
+      e.appliedAt = "2026-10-18T09:00:00Z";
+      e.result = { error: "undo refused: reminder changed (rem_123)" };
+      const d = w.items.find((i) => i.id === I.reply) as StagedAction;
+      d.status = "applied";
+      d.result = { error: "send before_effect: binding_mismatch draft_42" };
+      const l = w.items.find((i) => i.id === I.long) as StagedAction;
+      l.status = "applied";
+      l.result = { error: "send: helper timeout" };
+    });
+    const ev = await row(I.event);
+    expect(within(ev).getByText("Not undone: it changed after it was applied.")).toBeTruthy();
+    expect(ev.textContent).not.toContain("rem_123");
+    const d = await row(I.reply);
+    expect(within(d).getByText(/The draft was saved, but nothing was sent/)).toBeTruthy();
+    expect(d.textContent).not.toContain("binding_mismatch");
+    const l = await row(I.long);
+    expect(within(l).getByText(/Not sure the send finished/)).toBeTruthy();
+  });
+
   it("a stale item has no usable box and says why", async () => {
     setup(sheet());
     const stale = await row(I.stale);
@@ -309,6 +493,9 @@ describe("the review sheet", () => {
       const reply = w.items.find((i) => i.id === I.reply) as StagedAction;
       reply.summary = "Reply <b>now</b>";
       reply.preview = {
+        kind: "mail",
+        title: "Draft",
+        truncated: false,
         rows: [
           {
             label: "Body",
@@ -368,7 +555,12 @@ describe("the review sheet", () => {
         details: {
           items: [
             ...(a.details as { items: unknown[] }).items,
-            { itemId: I.file, bindingHash: byId(I.file).bindingHash },
+            {
+              itemId: I.file,
+              tool: "files_move",
+              summary: "x",
+              bindingHash: byId(I.file).bindingHash,
+            },
           ],
         },
       }),
@@ -380,7 +572,13 @@ describe("the review sheet", () => {
         details: {
           items: [
             ...(a.details as { items: unknown[] }).items,
-            { itemId: I.reply, sendHash: byId(I.reply).send?.contentHash },
+            {
+              itemId: `${I.reply}:send`,
+              tool: "mail_send_draft",
+              summary: "x",
+              bindingHash: "sha256:broker",
+              send: { to: byId(I.reply).send?.recipients },
+            },
           ],
         },
       }),

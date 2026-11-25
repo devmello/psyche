@@ -95,4 +95,17 @@ export const nightShift: Partial<Catalogue> = {
   "settings.key.nightShift.expiryDays": "Caducidad del turno de noche",
   "settings.key.nightShift.notify": "Avisarme cuando esté listo",
   "settings.key.nightShift.consentedAt": "Consentimiento del turno de noche",
+  "nightShift.row.withheld": "Un elemento de tus Mensajes. Abre Psyche en tu ordenador para verlo.",
+  "nightShift.status.applying": "Aplicándose…",
+  "nightShift.send.gmail":
+    "Un borrador de Gmail no se puede comprobar antes de enviarlo. Envíalo desde Gmail.",
+  "nightShift.send.reply":
+    "El borrador guardado de una respuesta no se puede comparar con lo que viste. Envíalo desde Mail.",
+  "nightShift.send.other": "Esto no se puede enviar desde aquí.",
+  "nightShift.status.sent": "Enviado",
+  "nightShift.status.undoRefused": "No deshecho: cambió después de aplicarse.",
+  "nightShift.status.sendNotSent":
+    "El borrador se guardó, pero no se envió nada. Puedes enviarlo desde Mail.",
+  "nightShift.status.sendUnsure":
+    "El borrador se guardó. No está claro si el envío terminó. Revisa Enviados en Mail.",
 };

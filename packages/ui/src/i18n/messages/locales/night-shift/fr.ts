@@ -92,4 +92,18 @@ export const nightShift: Partial<Catalogue> = {
   "settings.key.nightShift.expiryDays": "Expiration de l’équipe de nuit",
   "settings.key.nightShift.notify": "Me prévenir quand c’est prêt",
   "settings.key.nightShift.consentedAt": "Consentement à l’équipe de nuit",
+  "nightShift.row.withheld":
+    "Un élément de vos Messages. Ouvrez Psyche sur votre ordinateur pour le voir.",
+  "nightShift.status.applying": "Application en cours…",
+  "nightShift.send.gmail":
+    "Un brouillon Gmail ne peut pas être vérifié avant l’envoi. Envoyez-le depuis Gmail.",
+  "nightShift.send.reply":
+    "Le brouillon enregistré d’une réponse ne peut pas être comparé à ce que vous avez vu. Envoyez-le depuis Mail.",
+  "nightShift.send.other": "Cela ne peut pas être envoyé d’ici.",
+  "nightShift.status.sent": "Envoyé",
+  "nightShift.status.undoRefused": "Non annulé : cela a changé après l’application.",
+  "nightShift.status.sendNotSent":
+    "Le brouillon a été enregistré, mais rien n’a été envoyé. Vous pouvez l’envoyer depuis Mail.",
+  "nightShift.status.sendUnsure":
+    "Le brouillon a été enregistré. Impossible de dire si l’envoi s’est terminé. Vérifiez Envoyés dans Mail.",
 };

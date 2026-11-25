@@ -101,18 +101,50 @@ export const EMPTY_SELECTION: Selection = {
   refused: new Map(),
 };
 
-/** Only a `ready` item the Gateway has not refused. Stale, applied and the rest never. */
-export function tickable(item: StagedAction, sel: Selection): boolean {
-  return item.status === "ready" && !sel.refused.has(item.id);
+/** The name of a tool without its `mcp__<connector>__` prefix. */
+export function bareTool(tool: string): string {
+  return /^mcp__.+?__([A-Za-z0-9_-]+)$/.exec(tool)?.[1] ?? tool;
 }
 
-export type SendBlock = "draft" | "truncated" | null;
+/** An item the Gateway handed over without its text: it comes from the owner's Messages. */
+export const isWithheld = (item: StagedAction): boolean => item.withheld === "messages";
+
+/** An item bound to an open apply approval (status `ready`, `approvalId` set): being applied. */
+export const isApplying = (item: StagedAction): boolean =>
+  item.status === "ready" && item.approvalId != null;
+
+/**
+ * Only a `ready` item that is not being applied, not withheld (Messages items are applied on the
+ * Mac only; the Gateway refuses them anyway) and not refused. Stale, applied and the rest never.
+ */
+export function tickable(item: StagedAction, sel: Selection): boolean {
+  return (
+    item.status === "ready" && !isApplying(item) && !isWithheld(item) && !sel.refused.has(item.id)
+  );
+}
+
+/**
+ * "Send it too" works only for a new Apple Mail draft (`mail_draft`, `mail_create_draft`). A Gmail
+ * draft can't be read back to check it, and a reply's saved draft can't be checked against what
+ * was shown, so the Gateway refuses both sends and the draft still applies.
+ */
+export function sendSupport(item: StagedAction): "ok" | "gmail" | "reply" | "other" {
+  const tool = bareTool(item.tool);
+  if (tool === "mail_draft" || tool === "mail_create_draft") return "ok";
+  if (tool === "gmail_create_draft") return "gmail";
+  if (tool === "mail_reply_draft") return "reply";
+  return "other";
+}
+
+export type SendBlock = "draft" | "truncated" | "gmail" | "reply" | "other" | null;
 
 /**
  * Why "Send it too" is off for this item: its draft is not ticked, or the preview is cut and the
  * owner has not opened the full draft. `null` when the box may be ticked.
  */
 export function sendBlock(item: StagedAction, sel: Selection): SendBlock {
+  const support = sendSupport(item);
+  if (support !== "ok") return support;
   if (!sel.ticked.has(item.id)) return "draft";
   if (isTruncated(readPreview(item.preview)) && sel.opened.get(item.id) !== item.bindingHash)
     return "truncated";
@@ -120,7 +152,7 @@ export function sendBlock(item: StagedAction, sel: Selection): SendBlock {
 }
 
 export const hasSend = (item: StagedAction): boolean =>
-  item.send !== null && item.status === "ready";
+  item.send != null && item.status === "ready" && !isApplying(item) && !isWithheld(item);
 
 /**
  * Drops whatever no longer holds against the items now on screen: a tick on an item that went
@@ -226,13 +258,19 @@ export function buildApply(sel: Selection, items: readonly StagedAction[]): Appl
 
 // --- The approval check -------------------------------------------------------------------------
 
+/** Suffix of the extra `details.items` row a ticked send adds: `<itemId>:send`. */
+export const SEND_SUFFIX = ":send";
+
 /** What an approval row may show: these keys of `details.items` and no others. */
 export interface ApprovalRow {
   itemId: string;
+  tool: string | null;
   bindingHash: string | null;
-  sendHash: string | null;
   summary: string | null;
-  recipients: string[];
+  /** The Gateway withheld this row's text: it comes from the owner's Messages. */
+  withheld: boolean;
+  /** A send row: the recipients (`send.to`), or null when withheld (`send: {}`). */
+  send: { to: string[] | null } | null;
 }
 
 /**
@@ -246,51 +284,113 @@ export function approvalRows(approval: ApprovalRequest): ApprovalRow[] | null {
   const rows: ApprovalRow[] = [];
   for (const r of raw) {
     if (!isRecord(r) || typeof r.itemId !== "string") return null;
+    let send: ApprovalRow["send"] = null;
+    if (isRecord(r.send)) {
+      send = {
+        to: Array.isArray(r.send.to)
+          ? r.send.to.map(text).filter((x): x is string => x !== null)
+          : null,
+      };
+    }
     rows.push({
       itemId: r.itemId,
+      tool: text(r.tool),
       bindingHash: typeof r.bindingHash === "string" ? r.bindingHash : null,
-      sendHash: typeof r.sendHash === "string" ? r.sendHash : null,
       summary: text(r.summary),
-      recipients: Array.isArray(r.recipients)
-        ? r.recipients.map(text).filter((x): x is string => x !== null)
-        : [],
+      withheld: r.withheld === "messages",
+      send,
     });
   }
   return rows;
 }
 
+/** What the apply approval must cover: the ticked items, and the ticked sends with their recipients. */
+export interface ExpectedApply {
+  items: { itemId: string; bindingHash: string }[];
+  sends: { itemId: string; recipients: string[] }[];
+  /**
+   * Item ids the Gateway refused in `refused[]`. A refusal names the item for both its draft and
+   * its send, so for these ids a row may be missing; no row may ever be added.
+   */
+  refused?: ReadonlySet<string>;
+}
+
+/** The expected approval set for a payload that is about to be sent (or was, minus refusals). */
+export function expectedApply(
+  payload: ApplyPayload,
+  items: readonly StagedAction[],
+  refused: ReadonlySet<string> = new Set(),
+): ExpectedApply {
+  const byId = new Map(items.map((i) => [i.id, i]));
+  return {
+    refused,
+    items: payload.items,
+    sends: payload.sends.map((s) => ({
+      itemId: s.itemId,
+      recipients: byId.get(s.itemId)?.send?.recipients ?? [],
+    })),
+  };
+}
+
+const canon = (xs: readonly string[]) => xs.map((x) => x.trim().toLowerCase()).sort();
+
 /**
- * Whether the approval is for exactly what was sent (§3.3). The set of `details.items` must
- * equal the ticked items (id and binding hash) plus the ticked sends (id and send hash): no row
- * missing, none extra, none twice, none with another hash. For an undo there are no hashes to
- * compare, so the ids must match. Returns the reason on a mismatch.
+ * Whether the approval is for exactly what was sent (§3.3), as the Gateway shapes it
+ * (`details.items[] = {itemId, tool, summary, bindingHash, withheld?, send?}`):
+ * - the rows that are not sends must be the ticked items, id and binding hash, no more, no
+ *   fewer, none twice;
+ * - the `<itemId>:send` rows must be the ticked sends, by item id, none twice; a send row's own
+ *   `bindingHash` is the broker's and is not compared;
+ * - a send row's `send.to`, when present, must equal the recipients the owner saw; `send: {}` is
+ *   accepted only on a withheld row.
+ * For an undo there are no hashes to compare, so the ids must match. Returns the reason on a
+ * mismatch.
  */
 export function checkApproval(
   approval: ApprovalRequest,
-  expected: ApplyPayload | { undo: readonly string[] },
+  expected: ExpectedApply | { undo: readonly string[] },
 ): { ok: true; rows: ApprovalRow[] } | { ok: false; reason: string } {
   if (approval.kind !== "staged_apply") return { ok: false, reason: "kind" };
   if (approval.status !== "pending") return { ok: false, reason: "status" };
   const rows = approvalRows(approval);
   if (rows === null) return { ok: false, reason: "items" };
-  let want: string[];
-  let got: string[];
+  const fail = { ok: false, reason: "mismatch" } as const;
   if ("undo" in expected) {
-    want = expected.undo.map((id) => `u|${id}`);
-    got = rows.map((r) => `u|${r.itemId}`);
-  } else {
-    want = [
-      ...expected.items.map((i) => `i|${i.itemId}|${i.bindingHash}`),
-      ...expected.sends.map((s) => `s|${s.itemId}|${s.sendHash}`),
-    ];
-    got = rows.map((r) =>
-      r.sendHash !== null ? `s|${r.itemId}|${r.sendHash}` : `i|${r.itemId}|${r.bindingHash ?? ""}`,
-    );
+    const want = expected.undo.map((id) => id).sort();
+    const got = rows.map((r) => r.itemId).sort();
+    if (want.length === 0 || want.length !== got.length || want.some((k, i) => k !== got[i]))
+      return fail;
+    return { ok: true, rows };
   }
-  want.sort();
-  got.sort();
-  if (want.length === 0 || want.length !== got.length || want.some((k, i) => k !== got[i]))
-    return { ok: false, reason: "mismatch" };
+  const itemRows = rows.filter((r) => !r.itemId.endsWith(SEND_SUFFIX));
+  const sendRows = rows.filter((r) => r.itemId.endsWith(SEND_SUFFIX));
+  const refused = expected.refused ?? new Set<string>();
+  const wantItems = new Map(expected.items.map((i) => [i.itemId, i.bindingHash]));
+  const gotItems = new Set<string>();
+  for (const r of itemRows) {
+    // Not ticked, another hash, or twice: not what the owner saw.
+    if (wantItems.get(r.itemId) !== r.bindingHash || gotItems.has(r.itemId)) return fail;
+    gotItems.add(r.itemId);
+  }
+  for (const id of wantItems.keys()) if (!gotItems.has(id) && !refused.has(id)) return fail;
+  if (gotItems.size === 0) return fail;
+  const wantSends = new Set(expected.sends.map((s) => s.itemId));
+  const gotSends = new Set<string>();
+  for (const r of sendRows) {
+    const id = r.itemId.slice(0, -SEND_SUFFIX.length);
+    if (!wantSends.has(id) || gotSends.has(id)) return fail;
+    gotSends.add(id);
+  }
+  for (const id of wantSends) if (!gotSends.has(id) && !refused.has(id)) return fail;
+  const recipients = new Map(expected.sends.map((s) => [s.itemId, s.recipients]));
+  for (const r of sendRows) {
+    if (r.send === null) return fail;
+    const id = r.itemId.slice(0, -SEND_SUFFIX.length);
+    if (r.send.to === null) {
+      if (!r.withheld) return fail;
+    } else if (canon(r.send.to).join("\n") !== canon(recipients.get(id) ?? []).join("\n"))
+      return fail;
+  }
   return { ok: true, rows };
 }
 

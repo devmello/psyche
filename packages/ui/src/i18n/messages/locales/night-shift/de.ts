@@ -93,4 +93,19 @@ export const nightShift: Partial<Catalogue> = {
   "settings.key.nightShift.expiryDays": "Nachtschicht-Ablauf",
   "settings.key.nightShift.notify": "Sag mir Bescheid, wenn es fertig ist",
   "settings.key.nightShift.consentedAt": "Nachtschicht-Einwilligung",
+  "nightShift.row.withheld":
+    "Ein Eintrag aus deinen Nachrichten. Öffne Psyche auf deinem Computer, um ihn zu sehen.",
+  "nightShift.status.applying": "Wird angewendet …",
+  "nightShift.send.gmail":
+    "Ein Gmail-Entwurf lässt sich vor dem Senden nicht prüfen. Sende ihn aus Gmail.",
+  "nightShift.send.reply":
+    "Der gespeicherte Entwurf einer Antwort lässt sich nicht mit dem abgleichen, was du gesehen hast. Sende ihn aus Mail.",
+  "nightShift.send.other": "Das kann von hier nicht gesendet werden.",
+  "nightShift.status.sent": "Gesendet",
+  "nightShift.status.undoRefused":
+    "Nicht rückgängig gemacht: Es hat sich nach dem Anwenden geändert.",
+  "nightShift.status.sendNotSent":
+    "Der Entwurf wurde gespeichert, aber nichts wurde gesendet. Du kannst ihn aus Mail senden.",
+  "nightShift.status.sendUnsure":
+    "Der Entwurf wurde gespeichert. Unklar, ob das Senden abgeschlossen wurde. Prüfe „Gesendet“ in Mail.",
 };

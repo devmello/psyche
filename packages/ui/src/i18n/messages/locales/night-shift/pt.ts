@@ -92,4 +92,18 @@ export const nightShift: Partial<Catalogue> = {
   "settings.key.nightShift.expiryDays": "Expiração do turno da noite",
   "settings.key.nightShift.notify": "Avisar quando estiver pronto",
   "settings.key.nightShift.consentedAt": "Consentimento do turno da noite",
+  "nightShift.row.withheld":
+    "Um item das suas Mensagens. Abra o Psyche no seu computador para vê-lo.",
+  "nightShift.status.applying": "Sendo aplicado…",
+  "nightShift.send.gmail":
+    "Um rascunho do Gmail não pode ser conferido antes do envio. Envie pelo Gmail.",
+  "nightShift.send.reply":
+    "O rascunho salvo de uma resposta não pode ser comparado com o que você viu. Envie pelo Mail.",
+  "nightShift.send.other": "Isso não pode ser enviado daqui.",
+  "nightShift.status.sent": "Enviado",
+  "nightShift.status.undoRefused": "Não desfeito: mudou depois de aplicado.",
+  "nightShift.status.sendNotSent":
+    "O rascunho foi salvo, mas nada foi enviado. Você pode enviá-lo pelo Mail.",
+  "nightShift.status.sendUnsure":
+    "O rascunho foi salvo. Não está claro se o envio terminou. Confira Enviados no Mail.",
 };

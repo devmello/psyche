@@ -93,4 +93,18 @@ export const nightShift: Partial<Catalogue> = {
   "settings.key.nightShift.expiryDays": "Scadenza del turno di notte",
   "settings.key.nightShift.notify": "Avvisami quando è pronto",
   "settings.key.nightShift.consentedAt": "Consenso al turno di notte",
+  "nightShift.row.withheld":
+    "Un elemento dei tuoi Messaggi. Apri Psyche sul tuo computer per vederlo.",
+  "nightShift.status.applying": "Applicazione in corso…",
+  "nightShift.send.gmail":
+    "Una bozza di Gmail non si può controllare prima dell’invio. Invia da Gmail.",
+  "nightShift.send.reply":
+    "La bozza salvata di una risposta non si può confrontare con ciò che hai visto. Invia da Mail.",
+  "nightShift.send.other": "Non si può inviare da qui.",
+  "nightShift.status.sent": "Inviato",
+  "nightShift.status.undoRefused": "Non annullato: è cambiato dopo l’applicazione.",
+  "nightShift.status.sendNotSent":
+    "La bozza è stata salvata, ma non è stato inviato nulla. Puoi inviarla da Mail.",
+  "nightShift.status.sendUnsure":
+    "La bozza è stata salvata. Non è chiaro se l’invio sia finito. Controlla Inviati in Mail.",
 };

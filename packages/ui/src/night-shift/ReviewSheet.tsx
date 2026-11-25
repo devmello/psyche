@@ -43,10 +43,12 @@ function Notice({ notice }: { notice: ReviewNotice }): ReactElement {
       {/* Only what the approval itself lists: its summaries, never any other detail key. */}
       <ul className="list-disc ps-5" data-testid="night-shift-approved">
         {notice.rows.map((r) => (
-          <li key={`${r.itemId}:${r.sendHash ?? ""}`}>
-            {r.sendHash !== null && r.recipients.length > 0
-              ? t("nightShift.send.to", { recipients: r.recipients.join(", ") })
-              : (r.summary ?? r.itemId)}
+          <li key={r.itemId}>
+            {r.withheld
+              ? t("nightShift.row.withheld")
+              : r.send !== null && r.send.to !== null
+                ? t("nightShift.send.to", { recipients: r.send.to.join(", ") })
+                : (r.summary ?? r.itemId)}
           </li>
         ))}
       </ul>

@@ -9,6 +9,7 @@ import { cn } from "../lib/utils.ts";
 import {
   hasNewRecipient,
   hasSend,
+  isWithheld,
   readPreview,
   type Selection,
   sendBlock,
@@ -29,30 +30,63 @@ export interface ItemRowProps {
   onUndo: () => void;
 }
 
+/** Errors the Gateway writes with a fixed prefix, said in plain words; the rest of the text is dropped. */
+export function resultLines(item: StagedAction): { text: string; bad: boolean }[] {
+  const error = item.result?.error;
+  const lines: { text: string; bad: boolean }[] = [];
+  if (item.result?.refs?.some((r) => r.startsWith("sent:")))
+    lines.push({ text: t("nightShift.status.sent"), bad: false });
+  if (error?.startsWith("undo refused:"))
+    lines.push({ text: t("nightShift.status.undoRefused"), bad: true });
+  else if (error?.startsWith("send before_effect:"))
+    lines.push({ text: t("nightShift.status.sendNotSent"), bad: true });
+  else if (error?.startsWith("send:"))
+    lines.push({ text: t("nightShift.status.sendUnsure"), bad: true });
+  return lines;
+}
+
 /** The line a finished or refused item shows in place of its tick. */
 function StatusLine({ item, refused }: { item: StagedAction; refused: string | undefined }) {
   const reason = item.result?.error;
-  let line: string | null = null;
-  let tone = "text-label-secondary";
-  if (refused !== undefined) {
-    line = t("nightShift.row.refused", { reason: refused });
-    tone = "text-destructive";
-  } else if (item.status === "applied") line = t("nightShift.status.applied");
-  else if (item.status === "failed") {
-    line = reason ? t("nightShift.status.failed", { reason }) : t("nightShift.status.failedPlain");
-    tone = "text-destructive";
-  } else if (item.status === "uncertain")
-    line = t("nightShift.status.uncertain", { domain: item.domain });
-  else if (item.status === "stale") line = reason ?? t("nightShift.row.staleDefault");
-  else if (item.status === "skipped") line = t("nightShift.status.skipped");
-  else if (item.status === "expired") line = t("nightShift.status.expired");
-  else if (item.status === "dismissed") line = t("nightShift.status.dismissed");
-  else if (item.status === "undone") line = t("nightShift.status.undone");
-  if (line === null) return null;
+  const typed = resultLines(item).length > 0 && item.status === "applied";
+  const lines: { text: string; bad: boolean }[] = [];
+  if (refused !== undefined)
+    lines.push({ text: t("nightShift.row.refused", { reason: refused }), bad: true });
+  else if (item.status === "ready" && item.approvalId != null)
+    lines.push({ text: t("nightShift.status.applying"), bad: false });
+  else if (item.status === "applied")
+    lines.push({ text: t("nightShift.status.applied"), bad: false });
+  else if (item.status === "failed")
+    lines.push({
+      text: reason ? t("nightShift.status.failed", { reason }) : t("nightShift.status.failedPlain"),
+      bad: true,
+    });
+  else if (item.status === "uncertain")
+    lines.push({ text: t("nightShift.status.uncertain", { domain: item.domain }), bad: false });
+  else if (item.status === "stale")
+    lines.push({ text: reason ?? t("nightShift.row.staleDefault"), bad: false });
+  else if (item.status === "skipped")
+    lines.push({ text: t("nightShift.status.skipped"), bad: false });
+  else if (item.status === "expired")
+    lines.push({ text: t("nightShift.status.expired"), bad: false });
+  else if (item.status === "dismissed")
+    lines.push({ text: t("nightShift.status.dismissed"), bad: false });
+  else if (item.status === "undone")
+    lines.push({ text: t("nightShift.status.undone"), bad: false });
+  if (typed || item.status === "uncertain") lines.push(...resultLines(item));
+  if (lines.length === 0) return null;
   return (
-    <p className={cn("text-callout", tone)} data-testid="night-shift-status">
-      {line}
-    </p>
+    <>
+      {lines.map((l) => (
+        <p
+          key={l.text}
+          className={cn("text-callout", l.bad ? "text-destructive" : "text-label-secondary")}
+          data-testid="night-shift-status"
+        >
+          {l.text}
+        </p>
+      ))}
+    </>
   );
 }
 
@@ -74,7 +108,8 @@ export function ItemRow({
 }: ItemRowProps): ReactElement {
   const [expanded, setExpanded] = useState(false);
   const id = useId();
-  const preview = readPreview(item.preview);
+  const withheld = isWithheld(item);
+  const preview = readPreview(withheld ? null : item.preview);
   const canTick = tickable(item, selection);
   const ticked = selection.ticked.has(item.id);
   const send = hasSend(item) ? item.send : null;
@@ -90,13 +125,17 @@ export function ItemRow({
       <div className="flex items-start gap-3">
         <Checkbox
           className="mt-1"
-          aria-label={t("nightShift.row.select", { summary: item.summary })}
+          aria-label={t("nightShift.row.select", {
+            summary: withheld ? t("nightShift.row.withheld") : item.summary,
+          })}
           checked={ticked}
           disabled={!canTick || busy}
           onCheckedChange={() => onToggle()}
         />
         <div className="flex min-w-0 flex-1 flex-col gap-1">
-          <p className="text-body text-label-primary">{item.summary}</p>
+          <p className="text-body text-label-primary">
+            {withheld ? t("nightShift.row.withheld") : item.summary}
+          </p>
           {item.status === "stale" || item.taint || newRecipient || preview.replyAll ? (
             <div className="flex flex-wrap gap-1.5">
               {item.status === "stale" ? (
@@ -113,7 +152,7 @@ export function ItemRow({
               ) : null}
             </div>
           ) : null}
-          {item.why ? (
+          {item.why && !withheld ? (
             <p className="text-callout text-label-secondary">
               {t("nightShift.row.why", { why: item.why })}
             </p>
@@ -174,6 +213,11 @@ export function ItemRow({
           {block === "truncated" ? (
             <p className="ps-6 text-callout text-label-secondary">
               {t("nightShift.send.needsFull")}
+            </p>
+          ) : null}
+          {block === "gmail" || block === "reply" || block === "other" ? (
+            <p className="ps-6 text-callout text-label-secondary">
+              {t(`nightShift.send.${block}`)}
             </p>
           ) : null}
         </div>

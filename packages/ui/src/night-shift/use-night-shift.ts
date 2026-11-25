@@ -4,10 +4,12 @@ import { useCall, useGatewayQuery } from "../data/index.ts";
 import { t } from "../i18n/core.ts";
 import { describeError } from "../i18n/errors.ts";
 import {
-  type ApplyPayload,
   type ApprovalRow,
   buildApply,
   checkApproval,
+  type ExpectedApply,
+  expectedApply,
+  isApplying,
   markOpened,
   markRefused,
   reconcile,
@@ -79,7 +81,7 @@ export function useNightShiftReview(reviewId: string | null) {
         answerToken?: string | undefined;
         refused: NightShiftRefused[];
       },
-      expected: ApplyPayload | { undo: readonly string[] },
+      expected: ExpectedApply | { undo: readonly string[] },
     ): Promise<void> => {
       const { approval, answerToken, refused } = result;
       if (approval === undefined || answerToken === undefined) {
@@ -112,10 +114,7 @@ export function useNightShiftReview(reviewId: string | null) {
       const result = await call("nightShift.apply", { reviewId, ...payload });
       // What the Gateway refused is not part of what the approval must cover.
       const gone = new Set(result.refused.map((r) => r.itemId));
-      const expected: ApplyPayload = {
-        items: payload.items.filter((i) => !gone.has(i.itemId)),
-        sends: payload.sends.filter((s) => !gone.has(s.itemId)),
-      };
+      const expected = expectedApply(payload, items, gone);
       edit((s) => markRefused(s, result.refused));
       await answerIfBound(result, expected);
     } catch (err) {
@@ -149,7 +148,7 @@ export function useNightShiftReview(reviewId: string | null) {
   const dismissRest = useCallback(async (): Promise<void> => {
     if (reviewId === null || busy) return;
     const ids = items
-      .filter((i) => i.status === "ready" && !selection.ticked.has(i.id))
+      .filter((i) => i.status === "ready" && !isApplying(i) && !selection.ticked.has(i.id))
       .map((i) => i.id);
     if (ids.length === 0) return;
     setBusy(true);

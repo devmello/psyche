@@ -89,4 +89,16 @@ export const nightShift: Partial<Catalogue> = {
   "settings.key.nightShift.expiryDays": "나이트 시프트 만료",
   "settings.key.nightShift.notify": "준비되면 알림",
   "settings.key.nightShift.consentedAt": "나이트 시프트 동의",
+  "nightShift.row.withheld":
+    "메시지에서 온 항목입니다. 보려면 사용 중인 컴퓨터에서 Psyche를 여세요.",
+  "nightShift.status.applying": "적용하는 중…",
+  "nightShift.send.gmail": "Gmail 초안은 보내기 전에 확인할 수 없으니 Gmail에서 보내세요.",
+  "nightShift.send.reply": "답장의 저장된 초안은 본 내용과 대조할 수 없으니 Mail에서 보내세요.",
+  "nightShift.send.other": "여기에서는 보낼 수 없습니다.",
+  "nightShift.status.sent": "보냄",
+  "nightShift.status.undoRefused": "실행 취소하지 못했습니다. 적용한 뒤에 내용이 바뀌었습니다.",
+  "nightShift.status.sendNotSent":
+    "초안은 저장되었지만 아무것도 보내지 않았습니다. Mail에서 보낼 수 있습니다.",
+  "nightShift.status.sendUnsure":
+    "초안이 저장되었습니다. 보내기가 끝났는지 확실하지 않습니다. Mail의 보낸 편지함을 확인하세요.",
 };

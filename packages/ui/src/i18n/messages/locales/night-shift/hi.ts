@@ -89,4 +89,14 @@ export const nightShift: Partial<Catalogue> = {
   "settings.key.nightShift.expiryDays": "नाइट शिफ़्ट समाप्ति",
   "settings.key.nightShift.notify": "तैयार होने पर बताएँ",
   "settings.key.nightShift.consentedAt": "नाइट शिफ़्ट की सहमति",
+  "nightShift.row.withheld": "आपके संदेशों का एक आइटम। इसे देखने के लिए अपने कंप्यूटर पर Psyche खोलें।",
+  "nightShift.status.applying": "लागू हो रहा है…",
+  "nightShift.send.gmail": "Gmail ड्राफ़्ट को भेजने से पहले जाँचा नहीं जा सकता, इसलिए इसे Gmail से भेजें।",
+  "nightShift.send.reply":
+    "जवाब के सहेजे ड्राफ़्ट को आपके देखे हुए से मिलाया नहीं जा सकता, इसलिए इसे Mail से भेजें।",
+  "nightShift.send.other": "इसे यहाँ से नहीं भेजा जा सकता।",
+  "nightShift.status.sent": "भेजा गया",
+  "nightShift.status.undoRefused": "वापस नहीं किया गया: लागू होने के बाद यह बदल गया।",
+  "nightShift.status.sendNotSent": "ड्राफ़्ट सहेजा गया, लेकिन कुछ भेजा नहीं गया। आप इसे Mail से भेज सकते हैं।",
+  "nightShift.status.sendUnsure": "ड्राफ़्ट सहेजा गया। पक्का नहीं कि भेजना पूरा हुआ। Mail में भेजे गए देखें।",
 };

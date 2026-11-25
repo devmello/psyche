@@ -86,4 +86,17 @@ export const nightShift = {
   "settings.key.nightShift.expiryDays": "Night shift expiry",
   "settings.key.nightShift.notify": "Tell me when it’s ready",
   "settings.key.nightShift.consentedAt": "Night shift consent",
+  "nightShift.row.withheld": "An item from your Messages. Open Psyche on your computer to see it.",
+  "nightShift.status.applying": "Being applied…",
+  "nightShift.send.gmail":
+    "A Gmail draft can’t be checked before sending, so send this one from Gmail.",
+  "nightShift.send.reply":
+    "A reply’s saved draft can’t be checked against what you saw, so send it from Mail.",
+  "nightShift.send.other": "This can’t be sent from here.",
+  "nightShift.status.sent": "Sent",
+  "nightShift.status.undoRefused": "Not undone: it changed after it was applied.",
+  "nightShift.status.sendNotSent":
+    "The draft was saved, but nothing was sent. You can send it from Mail.",
+  "nightShift.status.sendUnsure":
+    "The draft was saved. Not sure the send finished. Check Sent in Mail.",
 } as const;

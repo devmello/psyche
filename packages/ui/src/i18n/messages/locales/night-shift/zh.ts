@@ -88,4 +88,13 @@ export const nightShift: Partial<Catalogue> = {
   "settings.key.nightShift.expiryDays": "夜班过期时间",
   "settings.key.nightShift.notify": "准备好后通知我",
   "settings.key.nightShift.consentedAt": "夜班同意",
+  "nightShift.row.withheld": "来自信息的项目。请在你的电脑上打开 Psyche 查看。",
+  "nightShift.status.applying": "正在应用…",
+  "nightShift.send.gmail": "Gmail 草稿无法在发送前核对，请从 Gmail 发送。",
+  "nightShift.send.reply": "回复的已保存草稿无法与你看到的内容核对，请从“邮件”发送。",
+  "nightShift.send.other": "无法从这里发送。",
+  "nightShift.status.sent": "已发送",
+  "nightShift.status.undoRefused": "未撤销：应用之后它发生了变化。",
+  "nightShift.status.sendNotSent": "草稿已保存，但没有发送任何内容。你可以从“邮件”发送。",
+  "nightShift.status.sendUnsure": "草稿已保存。不确定发送是否完成。请在“邮件”中查看“已发送”。",
 };

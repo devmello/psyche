@@ -127,9 +127,13 @@ export function nightShiftFixture(): NightShiftWorld {
     item(NIGHT_IDS.items.reply, {
       seq: 1,
       domain: "mail",
+      tool: "mail_draft",
       summary: "Reply to Dana about the Thursday review",
       why: "Dana asked on Monday whether Thursday still works.",
       preview: {
+        kind: "mail",
+        title: "Draft a reply",
+        truncated: false,
         rows: [
           { label: "To", value: "dana@example.com" },
           { label: "Subject", value: "Re: Thursday review" },
@@ -141,6 +145,7 @@ export function nightShiftFixture(): NightShiftWorld {
     item(NIGHT_IDS.items.long, {
       seq: 2,
       domain: "mail",
+      tool: "mail_draft",
       summary: "Reply all to the vendor thread about the revised plan",
       why: "The vendor sent a revised plan on Tuesday.",
       taint: true,
@@ -165,14 +170,19 @@ export function nightShiftFixture(): NightShiftWorld {
     item(NIGHT_IDS.items.plain, {
       seq: 3,
       domain: "mail",
+      tool: "mail_reply_draft",
       summary: "Follow up with Marco about the quote",
       preview: {
+        kind: "mail",
+        title: "Draft a reply",
+        truncated: false,
         rows: [
           { label: "To", value: "marco@example.com" },
           { label: "Subject", value: "Re: Quote" },
           { label: "Body", value: "Any news on the quote? No rush." },
         ],
       },
+      send: { recipients: ["marco@example.com"], contentHash: fakeSha("send:marco") },
     }),
     item(NIGHT_IDS.items.stale, {
       seq: 4,
@@ -180,7 +190,12 @@ export function nightShiftFixture(): NightShiftWorld {
       status: "stale",
       summary: "Reply to Priya about the invoice",
       result: { error: "A new message arrived in the thread." },
-      preview: { rows: [{ label: "To", value: "priya@example.com" }] },
+      preview: {
+        kind: "mail",
+        title: "Draft a reply",
+        truncated: false,
+        rows: [{ label: "To", value: "priya@example.com" }],
+      },
       send: { recipients: ["priya@example.com"], contentHash: fakeSha("send:priya") },
     }),
     item(NIGHT_IDS.items.event, {
@@ -191,6 +206,9 @@ export function nightShiftFixture(): NightShiftWorld {
       summary: "Move Focus time to 14:00",
       inverse: { restore: true },
       preview: {
+        kind: "calendar",
+        title: "Change an event",
+        truncated: false,
         rows: [
           { label: "Starts", value: "Thu 13:00 -> Thu 14:00" },
           { label: "Ends", value: "Thu 15:00 -> Thu 16:00" },
@@ -205,6 +223,9 @@ export function nightShiftFixture(): NightShiftWorld {
       summary: "File invoice-0412.pdf under Taxes/2026",
       inverse: { moveBack: true },
       preview: {
+        kind: "file",
+        title: "Move a file",
+        truncated: false,
         rows: [
           { label: "From", value: "~/Downloads/invoice-0412.pdf" },
           { label: "To", value: "~/Documents/Taxes/2026/invoice-0412.pdf" },
@@ -219,6 +240,9 @@ export function nightShiftFixture(): NightShiftWorld {
       summary: "Remind you to call the dentist on Friday",
       inverse: { delete: true },
       preview: {
+        kind: "reminder",
+        title: "Add a reminder",
+        truncated: false,
         rows: [
           { label: "Title", value: "Call the dentist" },
           { label: "Due", value: "Fri 09:00" },
@@ -299,6 +323,19 @@ function mint(
 
 let seq = 0;
 
+/** As `sendRefusal` in the Gateway: only a new Apple Mail draft can be sent from here. */
+function sendRefusal(tool: string): string | undefined {
+  const bare = /^mcp__.+?__([A-Za-z0-9_-]+)$/.exec(tool)?.[1] ?? tool;
+  if (bare === "gmail_create_draft")
+    return "Gmail drafts can't be read back to check them before sending: send it from Gmail";
+  if (bare === "mail_reply_draft")
+    return "a reply's saved draft can't be checked against what you saw: send it from Mail";
+  return undefined;
+}
+
+/** What the Gateway's card says in place of an item made from Messages. */
+const MESSAGES_LINE = "An item from your Messages. Open Psyche on your computer to see it.";
+
 export function nightShiftHandlers(ctx: NightShiftMockContext): Handlers {
   return {
     "nightShift.status": () => {
@@ -333,32 +370,51 @@ export function nightShiftHandlers(ctx: NightShiftMockContext): Handlers {
               : found.bindingHash !== a.bindingHash
                 ? "That item changed since you looked."
                 : (w.refuse?.[a.itemId] ?? null);
-        if (why !== null) refused.push({ itemId: a.itemId, reason: why });
-        else
+        if (why !== null || found === undefined) {
+          refused.push({ itemId: a.itemId, reason: why ?? "That item is gone." });
+          continue;
+        }
+        const hide = found.withheld === "messages";
+        items.push({
+          itemId: a.itemId,
+          tool: found.tool,
+          bindingHash: a.bindingHash,
+          summary: hide ? MESSAGES_LINE : found.summary,
+          ...(hide ? { withheld: "messages" } : {}),
+        });
+        const send = p.sends.find((s) => s.itemId === a.itemId);
+        if (send === undefined) continue;
+        const cannot = sendRefusal(found.tool);
+        if (cannot !== undefined) {
+          refused.push({ itemId: a.itemId, reason: cannot });
+        } else if (found.send?.contentHash !== send.sendHash) {
+          refused.push({ itemId: a.itemId, reason: "the send doesn't match the draft" });
+        } else {
           items.push({
-            itemId: a.itemId,
-            bindingHash: a.bindingHash,
-            summary: found?.summary ?? "",
+            itemId: `${a.itemId}:send`,
+            tool: "mail_send_draft",
+            bindingHash: fakeSha(`staged-send:${a.itemId}:${send.sendHash}`),
+            summary: hide ? MESSAGES_LINE : `Send to ${found.send.recipients.join(", ")}`,
+            ...(hide ? { withheld: "messages" } : {}),
+            send: hide ? {} : { to: found.send.recipients },
           });
-      }
-      for (const s of p.sends) {
-        const found = w.items.find((i) => i.id === s.itemId);
-        if (found?.send?.contentHash !== s.sendHash || found.status !== "ready")
-          refused.push({ itemId: s.itemId, reason: "That draft changed since you looked." });
-        else
-          items.push({
-            itemId: s.itemId,
-            sendHash: s.sendHash,
-            recipients: found.send.recipients,
-            summary: `Send to ${found.send.recipients.join(", ")}`,
-          });
+        }
       }
       if (items.length === 0) return { refused };
       seq += 1;
-      return {
-        ...mint(ctx, `apply_${seq}`, `Apply ${items.length} prepared changes`, items, false),
-        refused,
-      };
+      const minted = mint(
+        ctx,
+        `apply_${seq}`,
+        `Apply ${items.length} prepared changes`,
+        items,
+        false,
+      );
+      // The items are bound to the open approval: ready, but being applied.
+      for (const row of items) {
+        const held = w.items.find((i) => i.id === String(row.itemId));
+        if (held) save(ctx, { ...held, approvalId: minted.approval.id });
+      }
+      return { ...minted, refused };
     },
     "nightShift.undo": (p) => {
       const w = ctx.world();
@@ -368,7 +424,7 @@ export function nightShiftHandlers(ctx: NightShiftMockContext): Handlers {
         const found = w.items.find((i) => i.id === id);
         if (found?.status !== "applied" || found.inverse === null)
           refused.push({ itemId: id, reason: "That can't be undone." });
-        else items.push({ itemId: id, summary: `Undo: ${found.summary}` });
+        else items.push({ itemId: id, tool: found.tool, summary: `Undo: ${found.summary}` });
       }
       if (items.length === 0) return { refused };
       seq += 1;
@@ -409,16 +465,26 @@ export function settleNightShift(ctx: NightShiftMockContext, approval: ApprovalR
   if (approval.kind !== "staged_apply") return;
   const w = ctx.world();
   const rows = (approval.details as { items?: Record<string, unknown>[] }).items ?? [];
-  if (approval.status !== "approved") return;
+  if (approval.status !== "approved") {
+    // A card that was denied or expired frees the items it held.
+    for (const row of rows) {
+      const held = w.items.find((i) => i.id === String(row.itemId));
+      if (held?.status === "ready" && held.approvalId === approval.id)
+        save(ctx, { ...held, approvalId: null });
+    }
+    return;
+  }
   const now = ctx.now();
   for (const row of rows) {
     const id = String(row.itemId);
-    const found = w.items.find((i) => i.id === id);
-    if (found === undefined) continue;
-    if (typeof row.sendHash === "string") {
-      save(ctx, { ...found, result: { ...found.result, refs: ["sent"] } });
+    if (id.endsWith(":send")) {
+      const draft = w.items.find((i) => i.id === id.slice(0, -":send".length));
+      if (draft !== undefined)
+        save(ctx, { ...draft, result: { ...draft.result, refs: ["sent:draft_1"] } });
       continue;
     }
+    const found = w.items.find((i) => i.id === id);
+    if (found === undefined) continue;
     if (found.status === "applied") {
       // An undo.
       save(ctx, { ...found, status: "undone" });

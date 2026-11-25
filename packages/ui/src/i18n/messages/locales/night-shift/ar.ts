@@ -92,4 +92,14 @@ export const nightShift: Partial<Catalogue> = {
   "settings.key.nightShift.expiryDays": "انتهاء صلاحية الوردية الليلية",
   "settings.key.nightShift.notify": "أخبرني عندما يكون جاهزًا",
   "settings.key.nightShift.consentedAt": "موافقة الوردية الليلية",
+  "nightShift.row.withheld": "عنصر من رسائلك. افتح Psyche على حاسوبك لرؤيته.",
+  "nightShift.status.applying": "جارٍ التطبيق…",
+  "nightShift.send.gmail": "لا يمكن التحقق من مسودة Gmail قبل الإرسال، لذا أرسلها من Gmail.",
+  "nightShift.send.reply": "لا يمكن مطابقة المسودة المحفوظة لرد مع ما رأيته، لذا أرسلها من Mail.",
+  "nightShift.send.other": "لا يمكن إرسال هذا من هنا.",
+  "nightShift.status.sent": "أُرسل",
+  "nightShift.status.undoRefused": "لم يُتراجع عنه: تغيّر بعد التطبيق.",
+  "nightShift.status.sendNotSent": "حُفظت المسودة، لكن لم يُرسل شيء. يمكنك إرسالها من Mail.",
+  "nightShift.status.sendUnsure":
+    "حُفظت المسودة. لست متأكدًا من اكتمال الإرسال. تحقق من المرسلة في Mail.",
 };
