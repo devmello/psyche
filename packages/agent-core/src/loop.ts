@@ -44,6 +44,8 @@ import {
   type SideEffect,
   type SkillLoader,
   type SpecialistSpec,
+  type StagedCall,
+  type StagingRun,
   type StartTurnInput,
   type Surface,
   type TaintSource,
@@ -173,6 +175,7 @@ import {
   toolAllowed,
   wrapUpMessage,
 } from "./specialists.ts";
+import { refusedOutput, stagedOutput, stageVerdict } from "./staging.ts";
 import {
   emptyThreadState,
   InMemoryThreadStateStore,
@@ -695,6 +698,11 @@ interface RunState {
   emit: (event: AgentEvent) => void;
   /** Set for a subagent run: no questions, messaging, approvals or nesting (C6). */
   subagent?: { parentRunId: string; maxSteps: number };
+  /**
+   * A staging run (night-shift-2026 §2.2): writes are recorded, not run. Set by the server from
+   * the task; a subagent inherits its parent's, so delegation never leaves staging.
+   */
+  staging?: StagingRun;
   /** The run's Space, fixed at run start (spaces-2026 §5.1, SR3). */
   space?: RunSpace;
   /** Subagents of this run currently in flight. */
@@ -1118,6 +1126,10 @@ export class PsycheAgentLoop implements AgentLoop {
       ...(child === undefined
         ? {}
         : { subagent: { parentRunId: child.parent.runId, maxSteps: child.maxSteps } }),
+      // Staging is the server's: the task worker sets it, and a child run copies its parent's.
+      ...((child === undefined ? input.staging : child.parent.staging) === undefined
+        ? {}
+        : { staging: child === undefined ? input.staging : child.parent.staging }),
     };
     this.#runs.set(runId, run);
     this.#ranHere.add(runId);
@@ -3165,6 +3177,14 @@ export class PsycheAgentLoop implements AgentLoop {
       if (run.subagent !== undefined) {
         return this.#finishBlocked(run, gated, NO_APPROVAL_AUTHORITY);
       }
+      if (run.staging !== undefined) {
+        // A staging run raises and awaits no cards: a hook that asks is a block.
+        return this.#finishBlocked(
+          run,
+          gated,
+          `blocked: hook approval ${r.approvalId} is not awaited in a staging run`,
+        );
+      }
       if (run.mode === "unattended") {
         // Nobody is there to answer: the hook's request stays queued (C8).
         return this.#finishBlocked(run, gated, `deferred: hook approval ${r.approvalId} queued`);
@@ -3293,6 +3313,86 @@ export class PsycheAgentLoop implements AgentLoop {
         };
         gated.desc = desc;
       }
+    }
+    if (run.staging !== undefined && decision.decision !== "deny") {
+      // Staging (night-shift-2026 §2.2): after the broker decided, before anything dispatches or
+      // asks. Reads run as usual, except a read that would ask: a staging run raises no cards.
+      // A write is recorded through the sink or refused; a live grant, an `allow` and an `ask`
+      // all land here alike, so no grant ever runs anything overnight.
+      const staging = run.staging;
+      const isRead = sideEffect === "none" || sideEffect === "read";
+      if (!isRead || decision.decision === "ask") {
+        const verdict = isRead
+          ? ({ stage: false, reason: "read_would_ask" } as const)
+          : stageVerdict({
+              tool: call.name,
+              sideEffect,
+              kind,
+              approvalKind: decision.approvalKind,
+              target,
+              summary: desc.summary,
+              args,
+              connectorRule: desc.connectorRule,
+            });
+        if (!verdict.stage) return this.#stagingRefused(run, gated, verdict.reason);
+        const binding =
+          decision.bindingHash ??
+          intentBinding ??
+          bindingHash(kind ?? "connector_action", { tool: call.name, paramsHash: hash });
+        const staged: StagedCall = {
+          staging: staging.staging,
+          runId: run.runId,
+          ...(run.taskId === undefined ? {} : { taskId: run.taskId }),
+          toolCallId: call.id,
+          tool: call.name,
+          connector: verdict.connector,
+          sideEffect,
+          ...(kind === undefined ? {} : { kind }),
+          ...(target === undefined ? {} : { target }),
+          params: structuredClone(args),
+          paramsHash: hash,
+          bindingHash: binding,
+          ...(grantKey === undefined ? {} : { grantKey }),
+          summary: desc.summary ?? call.name,
+          decisionRule: decision.rule,
+          taint: run.taint,
+          taintSources: structuredClone(dedupeSources(run.taintSources)),
+        };
+        let stagedId: string | undefined;
+        try {
+          const r = await staging.sink.stage(staged);
+          stagedId = r.staged === true && typeof r.stagedId === "string" ? r.stagedId : undefined;
+        } catch (err) {
+          this.#checkAbort(run);
+          stagedId = undefined;
+          void err;
+        }
+        this.#checkAbort(run);
+        if (stagedId === undefined) return this.#stagingRefused(run, gated, "sink_refused");
+        const output = stagedOutput(staging.staging, stagedId);
+        const message = `staged: ${desc.summary ?? call.name}`;
+        this.#noteBlocked(run, call, message, gated);
+        this.#toolEvent(
+          run,
+          call.id,
+          call.name,
+          "blocked",
+          message,
+          undefined,
+          this.#details(gated, "trusted"),
+        );
+        const part: ModelPart = {
+          type: "tool_result",
+          callId: call.id,
+          name: call.name,
+          output,
+          isError: false,
+          provenance: "trusted",
+        };
+        await this.#persist(run, gated, "blocked", part, undefined);
+        return { done: part };
+      }
+      // A read: falls through to the allow dispatch below.
     }
     if (decision.decision === "ask" && run.subagent !== undefined) {
       // Subagents have no approval authority (C6): the parent decides whether to ask.
@@ -3622,6 +3722,33 @@ export class PsycheAgentLoop implements AgentLoop {
     }
   }
 
+  /** A staging run refused the call: nothing ran, no card was raised. The model gets a note only. */
+  async #stagingRefused(run: RunState, gated: Gated, reason: string): Promise<GateOutcome> {
+    const staging = run.staging as StagingRun;
+    const call = gated.call;
+    const message = `not staged (${reason}): ${gated.desc.summary ?? call.name}`;
+    this.#noteBlocked(run, call, message, gated);
+    this.#toolEvent(
+      run,
+      call.id,
+      call.name,
+      "blocked",
+      message,
+      undefined,
+      this.#details(gated, "trusted"),
+    );
+    const part: ModelPart = {
+      type: "tool_result",
+      callId: call.id,
+      name: call.name,
+      output: refusedOutput(staging.staging),
+      isError: true,
+      provenance: "trusted",
+    };
+    await this.#persist(run, gated, "blocked", part, undefined);
+    return { done: part };
+  }
+
   async #finishBlocked(
     run: RunState,
     gated: Gated,
@@ -3890,6 +4017,10 @@ export class PsycheAgentLoop implements AgentLoop {
     const host = this.#o.specialists as SpecialistHost;
     return {
       spawn: async (req, toolCallId) => {
+        if (run.staging !== undefined) {
+          // A specialist is a task that runs outside this run's staging: never from a staging run.
+          throw new PsycheError("forbidden", "a staging run cannot start specialists");
+        }
         if (run.specialistJob !== undefined || run.subagent !== undefined) {
           throw new PsycheError("forbidden", "specialists and subagents cannot start specialists");
         }
