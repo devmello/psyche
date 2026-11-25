@@ -10,6 +10,7 @@ import type { Call, HandlerDef } from "../context.ts";
 import { LAN_SETTING, parseLanSettings } from "../lan/settings.ts";
 import { HOST_HELPER_PIN_SETTING } from "../nodes/registry.ts";
 import { requireFreshPresence } from "../presence-gate.ts";
+import { isPromiseSourceKey, requireDesktopShell } from "../promise-scrub.ts";
 import { redactMcpServers } from "../redact.ts";
 import { INTERNAL_SETTING_PREFIX } from "../state-version.ts";
 import { isNarrowing } from "./settings-narrowing.ts";
@@ -265,6 +266,10 @@ export const settingsHandlers: Record<string, HandlerDef> = {
           { details: { reason: "use_mcp_methods" } },
         );
       }
+      // Which sources the promise ledger reads (mail, Messages, meetings, chat) is the owner's
+      // call on this Mac: a remote device can neither switch one on nor off (promise scrub).
+      if (isPromiseSourceKey(key))
+        requireDesktopShell(call, "Choosing the sources promises are read from");
       // `gateway.lan` is stored in its normalized form, and a malformed or wildcard value is
       // refused before anything (including the presence card) is created for it.
       let value = key === LAN_SETTING ? parseLanSettings(params.value) : params.value;

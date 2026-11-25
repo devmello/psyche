@@ -1,7 +1,23 @@
 import { type MethodParams, type MethodResult, PsycheError } from "@psyche/protocol";
 import type { SqliteMemoryStore } from "../store.ts";
 import type { CardSync } from "./cards.ts";
+import {
+  type LoopViewer,
+  type LoopVisibility,
+  loopsForViewer,
+  scrubLoopForRemote,
+} from "./loop-visibility.ts";
 import type { GraphStore } from "./store.ts";
+
+export {
+  createLoopVisibility,
+  type LoopViewer,
+  type LoopVisibility,
+  loopForViewer,
+  loopsForViewer,
+  REMOTE_LOOP_VIEWER,
+  scrubLoopForRemote,
+} from "./loop-visibility.ts";
 
 /**
  * `memory.entities.*`, `memory.loops.*` and `memory.graph.status` (docs/memory/people-and-projects-2026.md
@@ -39,8 +55,14 @@ export type GraphMethod =
   | "memory.graph.blocklist.add"
   | "memory.graph.blocklist.remove";
 
+/**
+ * `viewer` is read by `memory.loops.*` and `memory.entities.get` (its open loops): a caller that
+ * is not the desktop shell passes `{ full: false }` and gets the remote scrub of the promise
+ * ledger (docs/design/promise-ledger-2026.md section 7.2). Left out, the call is an in-process one
+ * and sees everything; the Gateway always passes it for a connection.
+ */
 export type GraphHandlers = {
-  [M in GraphMethod]: (params: MethodParams<M>) => Promise<MethodResult<M>>;
+  [M in GraphMethod]: (params: MethodParams<M>, viewer?: LoopViewer) => Promise<MethodResult<M>>;
 };
 
 export const GRAPH_METHODS: readonly GraphMethod[] = [
@@ -80,6 +102,8 @@ export interface GraphHandlerOptions {
   memory?: SqliteMemoryStore;
   /** The `memory.graph` settings and the last model pass, for `memory.graph.status`. */
   settings?: () => Parameters<GraphStore["status"]>[0];
+  /** Which loops a remote viewer may see; without it a remote viewer sees none (fail closed). */
+  loopVisibility?: LoopVisibility;
 }
 
 function notFound(): never {
@@ -114,11 +138,15 @@ export function createGraphHandlers(
       };
     },
 
-    async "memory.entities.get"(p) {
+    async "memory.entities.get"(p, viewer) {
       const id = graph.resolveMerged(p.id);
       const detail = graph.detail(id, await etag(id));
       if (detail === undefined) notFound();
-      return detail;
+      if (viewer === undefined || viewer.full) return detail;
+      return {
+        ...detail,
+        openLoops: loopsForViewer(detail.openLoops, viewer, options.loopVisibility),
+      };
     },
 
     async "memory.entities.interactions"(p) {
@@ -301,7 +329,7 @@ export function createGraphHandlers(
       return { removed: result.removed, cardPath: result.cardPath, dryRun };
     },
 
-    async "memory.loops.list"(p) {
+    async "memory.loops.list"(p, viewer) {
       const limit = p.limit ?? 100;
       const loops = graph.loops({
         ...(p.status === undefined ? {} : { status: p.status }),
@@ -312,17 +340,25 @@ export function createGraphHandlers(
         ...(p.cursor === undefined ? {} : { after: p.cursor }),
         limit,
       });
-      return { loops, nextCursor: cursorOf(loops, limit) };
+      // The cursor follows the unfiltered page, so a hidden loop never shortens the walk.
+      const nextCursor = cursorOf(loops, limit);
+      if (viewer === undefined || viewer.full) return { loops, nextCursor };
+      return { loops: loopsForViewer(loops, viewer, options.loopVisibility), nextCursor };
     },
 
-    async "memory.loops.update"(p) {
+    async "memory.loops.update"(p, viewer) {
+      const remote = viewer !== undefined && !viewer.full;
+      // A hidden loop is unknown to a remote viewer: nothing is written, and the answer is the
+      // one for an id that does not exist.
+      if (remote && options.loopVisibility?.remoteVisible([p.id]).has(p.id) !== true)
+        throw new PsycheError("not_found", "no such loop");
       const loop = graph.updateLoop(p.id, {
         ...(p.status === undefined ? {} : { status: p.status }),
         ...(p.dueAt === undefined ? {} : { dueAt: p.dueAt }),
         ...(p.text === undefined ? {} : { text: p.text }),
       });
       await refresh(loop.counterpartId, loop.projectId);
-      return { loop };
+      return { loop: remote ? scrubLoopForRemote(loop) : loop };
     },
 
     async "memory.graph.status"() {
