@@ -211,6 +211,8 @@ export function OnboardingFlow({
     ...initial.owner,
   });
   const [habits, setHabits] = useState<HabitChoices>(initial.habits ?? HABIT_DEFAULTS);
+  // Off unless the owner turns it on here; a re-run never reads it back (it is a Settings choice).
+  const [nightShift, setNightShift] = useState(false);
   const [memory, setMemory] = useState<MemoryChoices>(initial.memory ?? MEMORY_CHOICE_DEFAULTS);
   const resumeConnector = (account: ConnectedAccount) => {
     const c = liveConnectors.find((x) => x.id === account.connectorId);
@@ -266,7 +268,9 @@ export function OnboardingFlow({
     ...(steps.includes("model") ? {} : { modelKept: true }),
     ...(mailConnected ? { mail } : {}),
     owner,
-    ...(memorySkipped ? {} : { habits, memory }),
+    ...(memorySkipped
+      ? {}
+      : { habits, memory, ...(nightShift ? { nightShift: true as const } : {}) }),
     ...(sharedFolders.length === 0 ? {} : { sharedFolders }),
     ...(touchIdRegistered === undefined ? {} : { touchIdRegistered }),
   };
@@ -596,6 +600,8 @@ export function OnboardingFlow({
             persona={name}
             habits={habits}
             onHabitsChange={setHabits}
+            nightShift={nightShift}
+            onNightShiftChange={setNightShift}
             memory={memory}
             onMemoryChange={setMemory}
             {...(onPreviewImport ? { onPreviewImport } : {})}

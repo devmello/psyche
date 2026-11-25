@@ -70,6 +70,10 @@ export const onboardingRest: Partial<Catalogue> = {
   "onboarding.you.agent": "내 에이전트",
   "onboarding.you.customize": "모양 사용자 지정",
   "onboarding.you.more": "나에 대해 더 알려 주기",
+  "onboarding.restore.title": "백업에서 복원",
+  "onboarding.restore.where":
+    "백업은 $PSYCHE_HOME/backups에 저장됩니다. 새 컴퓨터에서 복원하려면 Gateway를 중지하고 다음을 실행하세요:",
+  "onboarding.restore.unlock": "그런 다음 복구 키로 보관함을 잠금 해제하세요.",
   "onboarding.memory.habitsLead":
     "{name}이(가) 매일 하는 일과 메모리에 보관하는 내용을 선택하십시오. 모두 설정에서 변경할 수 있습니다.",
   "onboarding.memory.bring": "ChatGPT 또는 Claude에서 메모리 가져오기",

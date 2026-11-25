@@ -3,8 +3,8 @@ import { Check, ExternalLink, Loader } from "lucide-react";
 import { type ReactElement, useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "../../components/ui/button.tsx";
 import { useStore } from "../../data/index.ts";
-import { t } from "../../i18n/core.ts";
-import { describeError, errorCode } from "../../i18n/errors.ts";
+import { isMessageId, t } from "../../i18n/core.ts";
+import { codeSentence, describeError, errorCode } from "../../i18n/errors.ts";
 import { useSlots } from "../../slots.tsx";
 import type { ScopeMode } from "./ConnectorsSection.tsx";
 
@@ -45,7 +45,13 @@ export type ConnectState =
 
 /** A connector's wait on a macOS grant (#549, #570): `config.permission` as the UI reads it. */
 export interface ConnectorPermission {
+  /** The English path the Gateway wrote: the fallback when `kind` and `app` give no localized one. */
   settingsPath: string;
+  /** The grant's kind (`automation`, `calendars`, `none`...) and the app, which word the path. */
+  kind: string | null;
+  app: string | null;
+  /** The machine reason behind `reason`, said in the active language when the catalogue has it. */
+  reasonCode: string | null;
   /** `denied` (allow it in System Settings) or `notDetermined` (macOS has not asked yet). */
   state: string;
   /** Psyche asked macOS on the last try, and what the helper said when nothing came of it. */
@@ -60,10 +66,40 @@ export function permissionOf(c: Connector): ConnectorPermission | null {
   const o = p as Record<string, unknown>;
   return {
     settingsPath: typeof o.settingsPath === "string" ? o.settingsPath : "",
+    kind: typeof o.kind === "string" ? o.kind : null,
+    app: typeof o.app === "string" ? o.app : null,
+    reasonCode: typeof o.reasonCode === "string" && o.reasonCode !== "" ? o.reasonCode : null,
     state: typeof o.state === "string" ? o.state : "denied",
     requested: o.requested === true,
     reason: typeof o.reason === "string" && o.reason !== "" ? o.reason : null,
   };
+}
+
+/**
+ * Where to allow a denied grant, in the active language: built from the grant's kind and app, so
+ * it follows the owner's language and System Settings' own names. Anything it cannot word (a
+ * Windows path, an older Gateway that sent no kind) shows the Gateway's English text.
+ */
+export function settingsPathText(p: ConnectorPermission): string {
+  if (p.kind === "automation" && p.app !== null) {
+    const id = `settings.connectors.app.${p.app}`;
+    return t("settings.connect.path.automation", { app: isMessageId(id) ? t(id) : p.app });
+  }
+  if (p.kind === "calendars" || p.kind === "reminders" || p.kind === "contacts") {
+    return t("settings.connect.path.privacy", { pane: t(`settings.connectors.grant.${p.kind}`) });
+  }
+  if (p.kind === "none" && (p.app === "shortcuts" || p.app === "files")) {
+    return t(`settings.connect.path.${p.app}`);
+  }
+  return p.settingsPath;
+}
+
+/** Why macOS showed no prompt: the catalogue's sentence for the helper's reason, else its text. */
+export function noPromptText(p: ConnectorPermission): string | null {
+  if (!p.requested) return null;
+  const sentence = p.reasonCode === null ? null : codeSentence(p.reasonCode);
+  if (sentence !== null) return sentence;
+  return p.reason === null ? null : t("settings.connect.noPrompt", { reason: p.reason });
 }
 
 /**
@@ -83,16 +119,14 @@ export function PermissionNotice({
         {permission.state === "denied" ? (
           <>
             {t("settings.connect.needsPermission", { name })}{" "}
-            <span className="font-medium">{permission.settingsPath}</span>
+            <span className="font-medium">{settingsPathText(permission)}</span>
           </>
         ) : (
           t("settings.connect.notAskedYet", { name })
         )}
       </p>
-      {permission.requested && permission.reason ? (
-        <p className="text-muted-foreground">
-          {t("settings.connect.noPrompt", { reason: permission.reason })}
-        </p>
+      {noPromptText(permission) !== null ? (
+        <p className="text-muted-foreground">{noPromptText(permission)}</p>
       ) : null}
     </>
   );

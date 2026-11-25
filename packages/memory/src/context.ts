@@ -190,6 +190,7 @@ export async function memoryRecall(
   ]);
   const hits = await store.search(query, { limit: limit * 3, provenance: ["owner", "agent"] });
   const out: string[] = [];
+  const recalled: string[] = [];
   for (const h of hits) {
     if (out.length >= limit || room <= 0) break;
     if (injected.has(h.chunk.source)) continue;
@@ -198,6 +199,9 @@ export async function memoryRecall(
     const line = `- [${h.chunk.source}] ${cut(text, Math.min(400, room))}`;
     room -= line.length;
     out.push(line);
+    recalled.push(h.chunk.id);
   }
+  // Counted like a `memory_search` recall, so dreaming can promote what keeps being useful.
+  store.recordRecall(recalled, query);
   return out;
 }

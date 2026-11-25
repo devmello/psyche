@@ -20,3 +20,10 @@ export function missingOf(err: unknown): MissingPermission | undefined {
 export function missingHint(missing: MissingPermission): string {
   return `Missing permission: ${JSON.stringify(missing)}. Ask the owner with ${REQUEST_PERMISSION_TOOL} ({"need": <that object>, "reason": "<why, in one sentence>"}) and retry only if it is granted.`;
 }
+
+/** `details.reason` of a thrown PsycheError, when it looks like a machine reason (`needs_helper`). */
+export function reasonOf(err: unknown): string | undefined {
+  if (!(err instanceof PsycheError)) return undefined;
+  const r = (err.details as { reason?: unknown } | undefined)?.reason;
+  return typeof r === "string" && /^[a-z][a-z0-9_]{0,63}$/.test(r) ? r : undefined;
+}

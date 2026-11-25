@@ -103,6 +103,16 @@ export class FakeMemoryStore implements MemoryStore {
     return f === undefined ? undefined : { path: p, content: f.content, etag: f.etag };
   }
 
+  contentProvenance(path: string): Provenance {
+    return this.#files.get(normalizePath(path))?.provenance ?? "owner";
+  }
+
+  /** Test seam: mark a file's content as `provenance` (e.g. an untrusted persona file). */
+  setProvenance(path: string, provenance: Provenance): void {
+    const f = this.#files.get(normalizePath(path));
+    if (f !== undefined) f.provenance = provenance;
+  }
+
   async writeFile(path: string, content: string, options: MemoryWriteOptions): Promise<MemoryFile> {
     const p = normalizePath(path);
     const isProtected = (PROTECTED_MEMORY_FILES as readonly string[]).includes(p);

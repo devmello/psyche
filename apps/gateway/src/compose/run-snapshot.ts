@@ -1,5 +1,5 @@
 import { type FeedService, runSnapshot } from "@psyche/proactive";
-import { SCHEDULED_RUNS_ROUTE } from "@psyche/protocol";
+import { RUN_SNAPSHOT_BODY, SCHEDULED_RUNS_ROUTE } from "@psyche/protocol";
 import type { Deliverer } from "@psyche/scheduler";
 
 const BODY_MAX = 400;
@@ -16,7 +16,7 @@ function bodyOf(
   if (summary !== "") {
     return summary.length > BODY_MAX ? `${summary.slice(0, BODY_MAX - 1)}…` : summary;
   }
-  return result.status === "done" ? "The run finished." : "The run did not finish.";
+  return result.status === "done" ? RUN_SNAPSHOT_BODY.done : RUN_SNAPSHOT_BODY.failed;
 }
 
 /**

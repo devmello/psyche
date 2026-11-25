@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { chmodSync, lstatSync, mkdirSync, writeFileSync } from "node:fs";
+import { chmodSync, lstatSync, mkdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, dirname, join } from "node:path";
 import { PsycheError } from "@psyche/protocol";
@@ -126,18 +126,32 @@ export function ensureSocketDir(socketPath: string, home: string): void {
  * (Windows only: the named pipe it relays guest connections into). One line, LF-terminated.
  */
 export function writeGuestPointer(home: string, guestPath: string): void {
-  const file = join(home, "run", "guest-socket");
-  writeFileSync(file, `${guestPath}\n`, { mode: 0o600 });
-  chmodSync(file, 0o600);
+  writePointerAtomically(join(home, "run", "guest-socket"), guestPath);
 }
 
 /**
  * Records the node endpoint for local clients (the mac / win helper, psyche-node) in
  * `$PSYCHE_HOME/run/node-socket`: a Unix socket path, or on Windows the named pipe
  * (`\\.\pipe\psyche-node-<hash>`). One line, LF-terminated.
+ *
+ * Written to a new file and renamed over the old one, never rewritten in place: a helper that
+ * reads it mid-write would see it empty and dial the default path, and its watcher of `run/`
+ * hears a rename (a new entry) but not a write into a file that already exists, which is what a
+ * Gateway that crashed and started again used to do.
  */
 export function writeSocketPointer(home: string, socketPath: string): void {
-  const file = join(home, "run", "node-socket");
-  writeFileSync(file, `${socketPath}\n`, { mode: 0o600 });
-  chmodSync(file, 0o600);
+  writePointerAtomically(join(home, "run", "node-socket"), socketPath);
+}
+
+function writePointerAtomically(file: string, value: string): void {
+  const tmp = `${file}.${process.pid}.${Date.now()}.tmp`;
+  try {
+    // `wx`: a fresh file of this process's own, never one somebody put there.
+    writeFileSync(tmp, `${value}\n`, { mode: 0o600, flag: "wx" });
+    chmodSync(tmp, 0o600);
+    renameSync(tmp, file);
+  } catch (err) {
+    rmSync(tmp, { force: true });
+    throw err;
+  }
 }

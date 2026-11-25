@@ -244,7 +244,7 @@ describe("a security setting approved with a passkey (issue #79)", () => {
     // is no scope control to pick from: the single Allow action is the one-time scope.
     expect(within(banner).queryByRole("combobox")).toBeNull();
     expect(within(banner).queryByRole("radio")).toBeNull();
-    const button = within(banner).getByRole("button", { name: "Allow with scope" });
+    const button = within(banner).getByRole("button", { name: "Allow" });
     await waitFor(() => expect((button as HTMLButtonElement).disabled).toBe(false));
     fireEvent.click(button, { detail: 1 }); // a pointer click; the card ignores keyboard clicks
 

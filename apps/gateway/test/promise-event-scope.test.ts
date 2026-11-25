@@ -1,9 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { eventScope } from "../src/event-bus.ts";
+import { eventScope, SCRUBBED_EVENTS } from "../src/event-bus.ts";
 
 describe("promise.updated fan-out", () => {
-  it("is admin-only until the remote-viewer scrub (W5) lands", () => {
-    expect(eventScope("promise.updated")).toBe("operator.admin");
+  it("is operator.read now that each subscriber gets its own scrubbed form (W5)", () => {
+    expect(eventScope("promise.updated")).toBe("operator.read");
+  });
+
+  it("is never sent as the shared frame: it is personalised per subscriber", () => {
+    expect(SCRUBBED_EVENTS.has("promise.updated")).toBe(true);
+    expect(SCRUBBED_EVENTS.has("memory.loop.updated")).toBe(true);
   });
 
   it("leaves the generic loop event on its usual scope (positive control)", () => {

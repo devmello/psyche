@@ -196,6 +196,8 @@ export interface SourceStatus {
   state: SourceState;
   /** Why it cannot run now (`unavailable`) or the last error. */
   detail?: string;
+  /** A machine reason for `detail`, which viewers say in the owner's language. */
+  reason?: string;
   items: number;
   /** Epoch ms of the last pass that wrote or checked this source. */
   lastIndexedAt?: number;

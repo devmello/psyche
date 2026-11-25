@@ -178,7 +178,7 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.notifications.description": "Quand Psyche peut vous interrompre.",
   "settings.notifications.group.quietHours": "Heures calmes",
   "settings.notifications.quietHours.hint":
-    "Retient les notifications jusqu’à la fin de la plage. Les approbations urgentes passent quand même.",
+    "Retient les notifications jusqu'à la fin de la plage. Les approbations urgentes passent quand même. Le passage de nuit de la mémoire a ses propres heures, dans les réglages de la mémoire.",
   "settings.key.ui.onboarding.progress": "Progression de l’intégration",
   "settings.key.permissions.liftedFloors": "Actions autorisées sans demander pour {id}",
   "settings.key.specialists.maxConcurrent": "Spécialistes simultanés",

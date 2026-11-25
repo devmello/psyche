@@ -87,7 +87,7 @@ final class SearchUITests: PsycheUITestCase {
         let hit = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Pay rent for November")).firstMatch
         waitFor(hit)
         hit.tap()
-        waitFor(app.segmentedControls.buttons["To-do"], 5)
+        waitFor(app.buttons["To-do"].firstMatch, 5)
         // The Memory page is showing (its title); on iPad the floating tab bar can be hidden at this moment.
         waitFor(app.staticTexts["Memory"], 5)
     }

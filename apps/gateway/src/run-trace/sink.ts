@@ -180,6 +180,15 @@ function errorText(output: unknown): string {
   }
 }
 
+/** The machine reason a failed tool's output carries (`reason`, or `details.reason`), if any. */
+export function reasonOfOutput(output: unknown): string | undefined {
+  if (output === null || typeof output !== "object") return undefined;
+  const o = output as { reason?: unknown; details?: { reason?: unknown } | null };
+  for (const r of [o.reason, o.details?.reason])
+    if (typeof r === "string" && /^[a-z][a-z0-9_]{0,63}$/.test(r)) return r;
+  return undefined;
+}
+
 /** A payload body under the 1 MB cap: the head and tail with a marker past it (§4.5). */
 function capPayload(
   text: string,
@@ -351,6 +360,7 @@ export class RunTraceSink {
           id,
           kind: "text",
           status: "running",
+          labelKey: "reply",
           label: "Writing a reply",
           doneLabel: "Wrote a reply",
           startedAt: at,
@@ -413,6 +423,7 @@ export class RunTraceSink {
           id,
           kind: "artifact",
           status: "ok",
+          labelKey: "file",
           label: "Making a file",
           doneLabel: "Made a file",
           startedAt: at,
@@ -706,6 +717,7 @@ export class RunTraceSink {
       result.isError === true && step.status === "failed"
         ? clip(this.#redact(errorText(result.output)), 1000)
         : "";
+    const reason = why === "" ? undefined : reasonOfOutput(result.output);
     this.#put(t, {
       ...step,
       ...(why === ""
@@ -715,6 +727,7 @@ export class RunTraceSink {
               code: step.error?.code ?? "tool_failed",
               message: why,
               retryable: step.error?.retryable ?? true,
+              ...(reason === undefined ? {} : { details: { reason } }),
             },
           }),
       ...(input === undefined && output === undefined
@@ -863,6 +876,7 @@ export class RunTraceSink {
         id,
         kind: "thinking",
         status: "running",
+        labelKey: "thinking",
         label: "Thinking",
         doneLabel: "Thought",
         startedAt: at,
@@ -878,6 +892,7 @@ export class RunTraceSink {
       ...(prev ?? {
         id,
         kind: "thinking",
+        labelKey: "thinking",
         label: "Thinking",
         doneLabel: "Thought",
         startedAt: at,
@@ -1034,6 +1049,7 @@ export class RunTraceSink {
       id,
       kind: "model",
       status: "ok",
+      labelKey: "model",
       label: "Model call",
       startedAt: t.modelSince,
       endedAt: at,

@@ -115,4 +115,6 @@ export const notices: Partial<Catalogue> = {
   "notice.automation.interrupted.title": "{title} は中断されました",
   "notice.automation.interrupted.body":
     "実行中に Psyche が再起動したため、一部がすでに実行された可能性があります。結果を確認し、必要ならもう一度実行してください。",
+  "notice.promise.due.title": "もうすぐ期限の約束があります",
+  "notice.promise.due.body": "Psyche を開いて、どの約束か確認してください。",
 };

@@ -1,6 +1,7 @@
 import type { Catalogue } from "../index.ts";
 import { actionErrors } from "./action-errors/ja.ts";
 import { agentRest } from "./agent-rest/ja.ts";
+import { approvalsW3 } from "./approvals-w3/ja.ts";
 import { auditRest } from "./audit-rest/ja.ts";
 import { automationChatRest } from "./automationChat-rest/ja.ts";
 import { blocksRest } from "./blocks-rest/ja.ts";
@@ -37,6 +38,7 @@ import { memoryPrivacyRest } from "./memoryPrivacy-rest/ja.ts";
 import { memoryReviewRest } from "./memoryReview-rest/ja.ts";
 import { memorySurfacesRest } from "./memorySurfaces-rest/ja.ts";
 import { memoryWorkRest } from "./memoryWork-rest/ja.ts";
+import { nightShift } from "./night-shift/ja.ts";
 import { notices } from "./notices/ja.ts";
 import { nudgesRest } from "./nudges-rest/ja.ts";
 import { onboardingRest } from "./onboarding-rest/ja.ts";
@@ -189,6 +191,30 @@ export const ja: Partial<Catalogue> = {
     "アプリに未保存の変更があります。どうするかをあなたが決めるまで Psyche は待ちます。",
   "errors.reason.checkout_needs_desktop":
     "Psyche のブラウザで支払うには、Psyche デスクトップアプリをこのホストに接続する必要があります。",
+  "errors.reason.permission_missing":
+    "Psyche Helper にはまだこの操作に必要な macOS の権限がありません。システム設定 → プライバシーとセキュリティで許可してから、もう一度お試しください。",
+  "errors.reason.permission_denied":
+    "Psyche Helper にはこの操作が許可されていません。システム設定 → プライバシーとセキュリティでオンにしてから、もう一度お試しください。",
+  "errors.reason.automation_denied":
+    "Psyche Helper にはこのアプリを操作する許可がありません。システム設定 → プライバシーとセキュリティ → オートメーションでオンにしてから、もう一度お試しください。",
+  "errors.reason.automation_not_granted":
+    "Psyche Helper はまだこのアプリを操作できません。もう一度試して、macOS に聞かれたら「OK」を選んでください。",
+  "errors.reason.full_disk_access_missing":
+    "メッセージを読むには、Psyche Helper にフルディスクアクセスが必要です。システム設定 → プライバシーとセキュリティ → フルディスクアクセスでオンにしてから、Psyche Helper を再起動してください。",
+  "errors.reason.prompt_refused_by_macos":
+    "macOS が許可の確認を表示しませんでした。代わりにシステム設定 → プライバシーとセキュリティで Psyche Helper を許可してください。",
+  "errors.reason.app_not_running":
+    "そのアプリが開いていません。開いてから、もう一度お試しください。",
+  "errors.reason.needs_helper":
+    "これには Psyche Helper が必要ですが、実行されていません。設定 → デバイスで再起動してください。",
+  "errors.reason.apple_not_connected":
+    "Apple のアプリはまだ接続されていません。設定 → コネクタで接続してください。",
+  "errors.reason.no_folder_shared":
+    "共有しているフォルダがまだありません。設定 → ファイルアクセスで共有してください。",
+  "errors.reason.memory_opening":
+    "メモリはまだ開いているところです。少し待ってからもう一度お試しください。",
+  "errors.reason.outlook_object_model_guard":
+    "Windows が最新のウイルス対策ソフトを検出していないため、Outlook は他のプログラムによるメールの読み取りと送信をブロックしています。Windows セキュリティをオンにするか、Outlook → ファイル → オプション → トラストセンターで「プログラムによるアクセス」を「警告を表示しない」に設定してから、もう一度お試しください。",
   "errors.reason.no_chromium":
     "Psyche のブラウザにはこのホストの Chromium が必要です。インストールするか、PSYCHE_CHROMIUM を設定してください。",
   "errors.reason.chromium_sandbox":
@@ -212,6 +238,14 @@ export const ja: Partial<Catalogue> = {
   "errors.tab_not_found": "そのブラウザタブは閉じられています。",
   "errors.method_not_allowed": "ブラウザがその操作を許可していません。",
   "errors.presence_required": "先にパスキーまたはMacヘルパーで本人確認を行ってください。",
+  "errors.presence_unavailable_here":
+    "承認するには、そのコンピュータの前に誰かがいる必要があります。デスクトップにサインインして、もう一度お試しください。",
+  "errors.presence_agent_missing":
+    "このデスクトップではパスワードの確認画面が動いていないため、本人確認ができません。",
+  "errors.presence_policy_missing":
+    "このコンピュータは、まだ本人確認ができる設定になっていません。Psycheの承認ポリシーをインストールして、もう一度お試しください。",
+  "errors.presence_not_enforced":
+    "このコンピュータはパスワードを求めずに承認してしまうため、本人確認ができません。",
   "errors.offline": "Psycheに接続できません。",
   "errors.unknown": "問題が起きました。",
 
@@ -1793,6 +1827,12 @@ export const ja: Partial<Catalogue> = {
   "settings.computerUse.helperAccess.offline":
     "Psyche Helper が起動していないため、権限を読み取れません。Psyche と一緒に起動します。オフラインのままなら Psyche を終了して開き直してください。",
   "settings.computerUse.helperAccess.allow": "Psyche Helper を許可",
+  "settings.computerUse.helperAccess.lost":
+    "アップデート後などに、macOS が Psyche Helper のこの権限を外しました。システム設定で Psyche Helper をいったんオフにしてからオンに戻し、Psyche Helper を再起動してください。",
+  "settings.computerUse.helperAccess.restartToApply":
+    "この権限は Psyche Helper の再起動後に有効になります。",
+  "settings.computerUse.helperAccess.restart": "Psyche Helper を再起動",
+  "settings.computerUse.helperAccess.restartFor": "Psyche Helper を再起動して{name}を有効にする",
   "settings.computerUse.helperAccess.allowFor": "{name} を Psyche Helper に許可",
   "settings.computerUse.title": "コンピュータ操作",
   "settings.computerUse.description":
@@ -1801,6 +1841,10 @@ export const ja: Partial<Catalogue> = {
   "settings.computerUse.loadLabel": "コンピュータ操作",
   "settings.computerUse.macPermissions": "macOSの権限",
   "settings.computerUse.openSystemSettings": "システム設定を開く",
+  "settings.computerUse.fullDiskAccess.name": "フルディスクアクセス",
+  "settings.computerUse.fullDiskAccess.why":
+    "{persona} があなたのメッセージを読めるようにします。macOS はこれについて確認を出しません。リストに Psyche Helper を追加してください。",
+  "settings.computerUse.fullDiskAccess.open": "システム設定でフルディスクアクセスを開く",
   "settings.computerUse.apps": "アプリ",
   "settings.computerUse.enabledHint":
     "オフにすると下のすべてのアプリが停止します。各アプリは初回使用時に確認されます。",
@@ -2779,6 +2823,12 @@ export const ja: Partial<Catalogue> = {
   "settings.connect.notAskedYet":
     "{name}は設定されていますが、macOSはまだ確認を求めていません。「再確認」を押すと、Mac上にmacOSの確認が表示されます。",
   "settings.connect.noPrompt": "macOSが確認を表示しませんでした：{reason}",
+  "settings.connect.path.automation":
+    "システム設定 → プライバシーとセキュリティ → オートメーション → Psyche (Helper) → {app}",
+  "settings.connect.path.privacy":
+    "システム設定 → プライバシーとセキュリティ → {pane} → Psyche (Helper)",
+  "settings.connect.path.shortcuts": "ショートカット App",
+  "settings.connect.path.files": "設定 → Psyche のファイルアクセス",
   "settings.connect.checkAgain": "再確認",
   "settings.connectors.status.needsPermission": "許可が必要",
   "settings.connectors.catalog.connected": "{name}（接続済み）",
@@ -3977,6 +4027,8 @@ export const ja: Partial<Catalogue> = {
   ...computerWatch,
   // Psyche points (docs/design/psyche-points-2026.md §9)
   ...points,
+  // Approvals wave W3 (card choices, Allowed list)
+  ...approvalsW3,
   // Gateway-authored notices (inbox notifications, security alerts)
   ...notices,
   // Settings > Computer use > Separate desktop (Linux)
@@ -3984,6 +4036,7 @@ export const ja: Partial<Catalogue> = {
   // Windows variants of the sandbox PC, voice keys and platform terms
   ...windowsPlatform202611,
   ...mailFollowups,
+  ...nightShift,
   ...keepAwake,
   ...friction,
   ...update,

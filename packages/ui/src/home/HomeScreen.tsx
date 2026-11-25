@@ -2,6 +2,8 @@ import { type ReactElement, useEffect, useState } from "react";
 import { useNotifications } from "../data/index.ts";
 import { activeI18n, t } from "../i18n/core.ts";
 import { QuietThreadsSection } from "../mail-followups/QuietThreadsSection.tsx";
+import { NightShiftSection } from "../night-shift/NightShiftSection.tsx";
+import { ReviewSheet } from "../night-shift/ReviewSheet.tsx";
 import { FeedScreen } from "../screens/feed/FeedScreen.tsx";
 import { ScreenToolbar } from "../screens/feed/ScreenToolbar.tsx";
 import { needsYou } from "../screens/inbox/InboxScreen.tsx";
@@ -34,6 +36,11 @@ export interface HomeScreenProps {
    * exists leaves the owner at Today.
    */
   post?: string;
+  /**
+   * `/home?review=<id>`: the Night shift review sheet is open over Home (`latest` is the review
+   * waiting now). Closing it goes back to `/home`.
+   */
+  review?: string;
   /** Fixed clock (stories, tests). */
   now?: number;
 }
@@ -52,6 +59,7 @@ export function HomeScreen({
   instructionsOpen,
   anchor,
   post,
+  review,
   now,
 }: HomeScreenProps): ReactElement {
   const { navigate: slotNavigate } = useSlots();
@@ -89,6 +97,7 @@ export function HomeScreen({
             drawn leaves no gap, because the rule belongs to whichever section follows. */}
         <div className="flex flex-col [&>*+*]:mt-10 [&>*+*]:border-t [&>*+*]:border-separator [&>*+*]:pt-10">
           <NeedsYouSection onNavigate={navigate} {...clock} />
+          <NightShiftSection onNavigate={navigate} accent={!waiting} />
           <PinnedWidgets />
           <HomeSpacesSection onNavigate={navigate} {...clock} />
           <FeedScreen
@@ -108,6 +117,7 @@ export function HomeScreen({
           <MoreSection onNavigate={navigate} />
         </div>
       </div>
+      {review ? <ReviewSheet review={review} onClose={() => navigate("/home")} {...clock} /> : null}
     </div>
   );
 }

@@ -138,7 +138,7 @@ export const settings: Partial<Catalogue> = {
   "settings.notifications.description": "متى يجوز لـ Psyche مقاطعتك.",
   "settings.notifications.group.quietHours": "ساعات الهدوء",
   "settings.notifications.quietHours.hint":
-    "تحتجز الإشعارات حتى تنتهي الفترة. تصل الموافقات العاجلة مع ذلك.",
+    "يؤجّل الإشعارات حتى تنتهي الفترة. تصل الموافقات العاجلة رغم ذلك. للمرور الليلي للذاكرة ساعاته الخاصة في إعدادات الذاكرة.",
   "settings.key.ui.onboarding.progress": "تقدّم الإعداد الأولي",
   "settings.key.permissions.liftedFloors": "إجراءات مسموح بها دون سؤال لـ {id}",
   "settings.key.specialists.maxConcurrent": "عدد المختصين في وقت واحد",

@@ -178,7 +178,7 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.notifications.description": "Wann Psyche dich unterbrechen darf.",
   "settings.notifications.group.quietHours": "Ruhezeiten",
   "settings.notifications.quietHours.hint":
-    "Hält Mitteilungen bis zum Ende des Zeitfensters zurück. Zeitkritische Genehmigungen kommen trotzdem durch.",
+    "Hält Benachrichtigungen zurück, bis das Zeitfenster endet. Zeitkritische Freigaben kommen trotzdem durch. Der nächtliche Gedächtnis-Durchlauf hat eigene Zeiten in den Gedächtnis-Einstellungen.",
   "settings.key.ui.onboarding.progress": "Fortschritt der Einführung",
   "settings.key.permissions.liftedFloors": "Ohne Nachfragen erlaubte Aktionen für {id}",
   "settings.key.specialists.maxConcurrent": "Spezialisten gleichzeitig",

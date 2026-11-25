@@ -127,7 +127,7 @@ export const settingsA: Partial<Catalogue> = {
   "settings.notifications.description": "Quando o Psyche pode interromper você.",
   "settings.notifications.group.quietHours": "Horário de silêncio",
   "settings.notifications.quietHours.hint":
-    "Retém as notificações até o horário terminar. Aprovações urgentes continuam chegando.",
+    "Retém as notificações até o fim da janela. As aprovações urgentes continuam chegando. A passagem noturna da memória tem horários próprios, nas configurações da memória.",
   "settings.key.ui.onboarding.progress": "Progresso da introdução",
   "settings.key.permissions.liftedFloors": "Ações permitidas sem perguntar para {id}",
   "settings.key.specialists.maxConcurrent": "Especialistas ao mesmo tempo",

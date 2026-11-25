@@ -411,6 +411,33 @@ export function composeNightShift(setup: NightShiftSetup) {
       connectorTypes,
     );
 
+  /** The hashes of a call a stager rewrote follow the tool's own binding fields. */
+  const rehash = (
+    tool: string,
+    args: Record<string, unknown>,
+    kind: string,
+  ): { paramsHash: string; bindingHash: string } | undefined => {
+    const reg = setup.registry.get(tool);
+    if (reg === undefined) return undefined;
+    let fields: unknown;
+    try {
+      fields = reg.describeCall?.(structuredClone(args), {
+        runId: "night-shift",
+      })?.bindingFields;
+    } catch {
+      return undefined;
+    }
+    const p = paramsHash(args);
+    return {
+      paramsHash: p,
+      bindingHash: bindingHash(kind, {
+        tool,
+        paramsHash: p,
+        ...(fields === undefined ? {} : { fields }),
+      }),
+    };
+  };
+
   const service = new NightShiftService({
     clock,
     timezone: setup.timeZone,
@@ -438,27 +465,7 @@ export function composeNightShift(setup: NightShiftSetup) {
         whyFor,
         ...(setup.redact === undefined ? {} : { redact: setup.redact }),
         // The hashes of a call the stager rewrote follow the tool's own binding fields.
-        rehash: (tool, args, kind) => {
-          const reg = setup.registry.get(tool);
-          if (reg === undefined) return undefined;
-          let fields: unknown;
-          try {
-            fields = reg.describeCall?.(structuredClone(args), {
-              runId: "night-shift",
-            })?.bindingFields;
-          } catch {
-            return undefined;
-          }
-          const p = paramsHash(args);
-          return {
-            paramsHash: p,
-            bindingHash: bindingHash(kind, {
-              tool,
-              paramsHash: p,
-              ...(fields === undefined ? {} : { fields }),
-            }),
-          };
-        },
+        rehash,
         onRefused: (info) =>
           setup.logger?.log("warn", "night shift refused a staged call", { ...info }),
       }),
@@ -684,6 +691,17 @@ export function composeNightShift(setup: NightShiftSetup) {
   };
 
   return {
+    /**
+     * What Fork a plan reuses to stage a branch's writes (fork-a-plan-2026 §3.1, §10): the same
+     * adapters over the same read registry, the same connector types and the same rehash.
+     */
+    stagerParts: {
+      adapters: adaptersFor,
+      connectors: () => connectorTypes,
+      domains: domainsOn,
+      rehash,
+      refresh: refreshConnectors,
+    },
     service,
     applier,
     prune,

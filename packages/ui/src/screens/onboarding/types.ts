@@ -180,6 +180,8 @@ export interface OnboardingResult {
   owner?: OwnerProfile;
   /** Habit switches, when that step was reached. */
   habits?: import("./habits.ts").HabitChoices;
+  /** Present (true) only when the owner turned on the optional "Prepare things overnight?" card. */
+  nightShift?: true;
   /** Work tracking and people in the brief, when the Memory step was reached. */
   memory?: MemoryChoices;
   /**

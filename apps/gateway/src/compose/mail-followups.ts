@@ -19,6 +19,16 @@ import {
 import type { ResolvedChatContext } from "../context.ts";
 import { defangFence } from "../session/fence.ts";
 import { mountParamsOnly } from "./handlers.ts";
+import {
+  addressOf,
+  displayName,
+  GMAIL_ID,
+  isAutomatedSender,
+  ms,
+  normalizeSubject,
+  output,
+  str,
+} from "./mail-threads.ts";
 import { ownerQuietHours } from "./quiet-hours.ts";
 import type { ComposedPart } from "./services.ts";
 import { workflowSettings } from "./workflow-settings.ts";
@@ -36,6 +46,9 @@ import { workflowSettings } from "./workflow-settings.ts";
  * fences and invisible text, and snippets and bodies are used only to look for a question mark:
  * they are never stored or shown.
  */
+
+// The helpers moved to `mail-threads.ts`; the old import path keeps working.
+export { addressOf, displayName, isAutomatedSender, normalizeSubject };
 
 export const MAIL_FOLLOWUPS_STATE_KEY = "mail.followups.state";
 
@@ -78,18 +91,10 @@ export interface QuietThread extends MailFollowupItem {
   mailbox?: string;
 }
 
-const AUTOMATED =
-  /(^|[<\s.\-_])(no-?reply|do-?not-?reply|donotreply|mailer-daemon|postmaster|notifications?|newsletter|bounce)([@.\-_>]|$)/i;
-
 /** Whether the wait has run out: `waitDays` business days after the last message. */
 export function waitedLongEnough(lastAt: number, now: number, waitDays: number): boolean {
   return addBusinessDays(lastAt, waitDays) <= now;
 }
-
-export const isAutomatedSender = (who: string): boolean => AUTOMATED.test(who);
-
-/** Gmail's thread ids are opaque hex; anything else is not passed on as an id. */
-const GMAIL_ID = /^[A-Za-z0-9_-]{1,64}$/;
 
 const threadId = (t: Pick<RawThread, "source" | "key" | "lastAt">): string =>
   `mf_${createHash("sha256").update(`${t.source}|${t.key}|${t.lastAt}`).digest("hex").slice(0, 32)}`;
@@ -135,29 +140,6 @@ export function detectQuiet(
   return out.sort((a, b) => a.lastAt - b.lastAt).slice(0, MAIL_FOLLOWUPS_MAX);
 }
 
-/** "Re: Fwd: Lunch?" and "Lunch?" are one thread. */
-export const normalizeSubject = (s: string): string =>
-  s
-    .toLowerCase()
-    .replace(/^(\s*(re|fwd?|aw|sv|tr)\s*:\s*)+/i, "")
-    .replace(/\s+/g, " ")
-    .trim();
-
-/** The bare address of "Name <a@b.c>" or "a@b.c", lower case. */
-export function addressOf(from: string): string {
-  const m = /<([^>]+)>/.exec(from);
-  return (m?.[1] ?? from).trim().toLowerCase();
-}
-
-/** "Name <a@b.c>" to "Name"; an address stays an address. */
-export function displayName(from: string): string {
-  const name = from
-    .replace(/<[^>]*>/, "")
-    .replace(/["']/g, "")
-    .trim();
-  return name === "" ? addressOf(from) : name;
-}
-
 interface Msg {
   /** "sent" came from a Sent mailbox, so the owner wrote it. */
   box: "sent" | "in";
@@ -199,15 +181,6 @@ function groupMessages(msgs: readonly Msg[], source: Source): (RawThread & { las
   }
   return out;
 }
-
-function output<T>(r: unknown, key: string): T[] {
-  if (Array.isArray(r)) return r as T[];
-  const inner = (r as Record<string, unknown> | null)?.[key];
-  return Array.isArray(inner) ? (inner as T[]) : [];
-}
-
-const str = (v: unknown): string => (typeof v === "string" ? v : "");
-const ms = (v: unknown): number => (typeof v === "string" ? Date.parse(v) : Number.NaN);
 
 export interface MailFollowupsDeps {
   db: PsycheDb;

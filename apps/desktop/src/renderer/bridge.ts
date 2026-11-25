@@ -270,6 +270,7 @@ function fullDesktopPlatform(b: PsycheBridge): ShellPlatform {
       status: () =>
         b.permissions.status() as Promise<Partial<Record<PermissionKind, PermissionState>>>,
       request: (kind) => b.permissions.request(kind) as Promise<PermissionState>,
+      openFullDiskAccess: () => b.permissions.openFullDiskAccess() as Promise<boolean>,
       helperStatus: () => b.permissions.helperStatus() as Promise<HelperPermissionsState>,
       helperRequest: (kind) => b.permissions.helperRequest(kind) as Promise<HelperPermissionsState>,
     },
