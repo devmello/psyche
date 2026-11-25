@@ -1624,12 +1624,15 @@ export class MockGateway implements GatewayClient {
       };
     },
 
-    "chat.history": (p) => ({
-      messages: this.world.messages
+    "chat.history": (p) => {
+      const all = this.world.messages
         .filter((m) => m.threadId === p.threadId)
-        .sort((a, b) => a.seq - b.seq),
-      nextCursor: null,
-    }),
+        .sort((a, b) => a.seq - b.seq);
+      // Newest page first; the cursor is how many of the oldest messages are still unread.
+      const end = p.cursor === undefined ? all.length : Number(p.cursor);
+      const start = Math.max(0, end - (p.limit ?? 100));
+      return { messages: all.slice(start, end), nextCursor: start > 0 ? String(start) : null };
+    },
     "chat.send": (p) => {
       const busy = this.world.runs.some((r) => r.threadId === p.threadId && r.status === "running");
       const about =
