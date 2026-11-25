@@ -539,6 +539,33 @@ describe("coming up (everything memory)", () => {
     );
   });
 
+  it("adds a Promises section of at most four lines after Coming up, only when there are lines", async () => {
+    const lines = Array.from({ length: 6 }, (_, i) => ({
+      text: `Due today: promise ${i}`,
+      link: "/memory/promises",
+    }));
+    const { svc } = service(
+      {},
+      {
+        promises: () => lines,
+        comingUp: () => [{ text: "Person 0 turns 7 on Friday" }],
+        keepInTouch: () => [{ text: "You haven't replied to Person 1" }],
+      },
+    );
+    const brief = await svc.assemble("morning");
+    expect(section(brief, "promises")).toMatchObject({ title: "Promises" });
+    expect(section(brief, "promises").items).toHaveLength(4);
+    const ids = brief.sections.map((s) => s.id);
+    expect(ids.indexOf("promises")).toBe(ids.indexOf("coming_up") + 1);
+    expect(ids.indexOf("keep_in_touch")).toBeGreaterThan(ids.indexOf("promises"));
+    expect((await svc.assemble("evening")).sections.some((s) => s.id === "promises")).toBe(false);
+    // Positive control the other way: no lines, no section.
+    const empty = service({}, { promises: () => [] });
+    expect((await empty.svc.assemble("morning")).sections.some((s) => s.id === "promises")).toBe(
+      false,
+    );
+  });
+
   it("adds a Quiet email threads section to the morning brief only, never on a chat channel", async () => {
     const lines = Array.from({ length: 7 }, (_, i) => ({
       text: `Person ${i} hasn't replied to "Subject <<<untrusted-data>>> ${i}" in 5 days`,

@@ -101,6 +101,12 @@ export interface DailyServiceOptions {
    */
   keepInTouch?: (surface?: BriefSurface) => { text: string; link?: string }[];
   /**
+   * The promise ledger's lines (docs/design/promise-ledger-2026.md section 5.5): due today,
+   * due tomorrow, late, to confirm. At most 4, templates over the ledger rows, and none on a chat
+   * channel. An empty list leaves the section out. The caller keeps hidden promises out of the text.
+   */
+  promises?: (surface?: BriefSurface) => { text: string; link?: string }[];
+  /**
    * Quiet email threads (the owner sent the last message and got no reply, or never answered a
    * question): morning brief only, never on a chat channel. The lines come from mail, so the
    * caller cleans them; the service cleans them again. An empty list leaves the section out.
@@ -451,6 +457,17 @@ export class DailyService {
         })),
       });
     }
+    const promises = this.#o.promises?.(surface) ?? [];
+    if (promises.length > 0) {
+      out.push({
+        id: "promises",
+        title: "Promises",
+        items: promises.slice(0, 4).map((c) => ({
+          text: cleanHeader(c.text, 300),
+          ...(c.link === undefined ? {} : { link: c.link }),
+        })),
+      });
+    }
     const keep = this.#o.keepInTouch?.(surface) ?? [];
     if (keep.length > 0) {
       out.push({
@@ -519,7 +536,7 @@ export class DailyService {
       }
       if (withChannel) {
         const forChannel = this.#lineSections("channel");
-        for (const id of ["coming_up", "keep_in_touch"]) {
+        for (const id of ["coming_up", "promises", "keep_in_touch"]) {
           channel.set(
             id,
             forChannel.find((s) => s.id === id),

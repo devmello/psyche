@@ -50,6 +50,13 @@ export * from "./profile-fields.ts";
 export * from "./profile-sections.ts";
 export * from "./promises/cues.ts";
 export * from "./promises/dedupe.ts";
+export {
+  hasConfidentDue as hasConfidentPromiseDue,
+  localDay as promiseLocalDay,
+  localTime as promiseLocalTime,
+  startOfDay as promiseStartOfDay,
+  warnAt as promiseWarnAt,
+} from "./promises/due.ts";
 export * from "./promises/due-text.ts";
 export * from "./promises/lane.ts";
 export * from "./promises/lifecycle.ts";
