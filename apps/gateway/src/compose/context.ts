@@ -165,6 +165,19 @@ export function createContext(deps: ContextDeps) {
       })
       .catch(() => undefined);
     lastMessage.set(c.compactionId, message?.id ?? null);
+    // The meter shows the last model call's prompt: after a compaction it is the old, bigger one
+    // until the next turn. Count the compaction and show the size it left the prompt at.
+    const stored = getSetting(db, usageKey(c.threadId))?.value as ContextUsage | undefined;
+    if (stored !== undefined) {
+      const usage: ContextUsage = {
+        ...stored,
+        promptTokens: c.tokensAfter,
+        estimated: true,
+        compactions: stored.compactions + 1,
+      };
+      setSetting(db, usageKey(c.threadId), usage);
+      deps.publish("thread.context.updated", { usage }, c.threadId);
+    }
   };
   const lastMessage = new Map<string, string | null>();
 

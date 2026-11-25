@@ -69,6 +69,18 @@ function send(
 ) {
   const thread = requireThread(call, params.threadId);
   assertWritableThread(thread, "written to");
+  // Blank text starts a model run for nothing, unless something else rides with it (a file, a
+  // capture, a card, a redo): the protocol's minLength counts spaces.
+  if (
+    params.content.trim() === "" &&
+    !params.attachments?.length &&
+    !params.attachedFiles?.length &&
+    params.screen === undefined &&
+    params.context === undefined &&
+    params.redo === undefined
+  ) {
+    throw new PsycheError("invalid_params", "the message is empty");
+  }
   // Checked and described by `prepareAttachedFiles`, and the skills it names read, before the
   // transaction opened.
   const prepared = call.prepared as ChatPrepared | undefined;
