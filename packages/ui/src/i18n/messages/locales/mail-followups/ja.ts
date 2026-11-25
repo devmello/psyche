@@ -15,4 +15,5 @@ export const mailFollowups: Partial<Catalogue> = {
   "mailFollowups.thread.title": "メールのフォローアップ",
   "chat.composer.placeholderMail": "このやり取りについて質問",
   "daily.section.quiet_threads": "止まっているメールのやり取り",
+  "daily.section.night_shift": "ナイトシフト",
 };
