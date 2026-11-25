@@ -260,6 +260,7 @@ export const chat = {
   "chat.thread.exported": "Exported this thread as {format}.",
   "chat.thread.nothingRunning": "Nothing is running in this chat.",
   "chat.thread.stopped": "Stopped.",
+  "chat.stopped.label": "Stopped",
   "chat.runFailed.credential":
     "Psyche couldn't reply: your model's API key is missing or was refused. Add or fix it in Settings → Models.",
   "chat.runFailed.generic": "Psyche couldn't finish this reply.",

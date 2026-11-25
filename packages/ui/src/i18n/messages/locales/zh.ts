@@ -390,6 +390,7 @@ export const zh: Partial<Catalogue> = {
   "chat.thread.exported": "已将此会话导出为 {format}。",
   "chat.thread.nothingRunning": "本聊天中没有正在运行的内容。",
   "chat.thread.stopped": "已停止。",
+  "chat.stopped.label": "已停止",
   "chat.runFailed.credential":
     "Psyche 无法回复：你的模型 API 密钥缺失或被拒绝。请在“设置 → 模型”中添加或修正。",
   "chat.runFailed.generic": "Psyche 无法完成此回复。",
@@ -517,6 +518,7 @@ export const zh: Partial<Catalogue> = {
   "blocks.approval.status.denied": "已拒绝{hasWhen, select, true { · {when}} other {}}",
   "blocks.approval.status.declinedInChat": "已拒绝 — 你在聊天中回复了",
   "blocks.approval.status.expired": "已过期。未执行任何操作。",
+  "blocks.approval.expiredLine": "已过期 · 未执行任何操作",
   "blocks.approval.status.voidedBecause": "已作废：{reason}",
   "blocks.approval.status.voided": "已作废。参数已更改。",
   "blocks.approval.taint": "本轮读取了不可信内容",

@@ -80,6 +80,9 @@ export function RunTrace({
   if (live)
     return (
       <m.section
+        // A key per state: the live rows leave at once instead of sharing a layout animation
+        // with the summary that replaces them (the two drew over each other).
+        key="live"
         layout
         transition={motionSpring(spring.smooth)}
         aria-label={listLabel}
@@ -132,6 +135,7 @@ export function RunTrace({
   const expanded = open || summary.tone === "failed";
   return (
     <m.section
+      key="done"
       layout
       transition={motionSpring(spring.smooth)}
       aria-label={listLabel}

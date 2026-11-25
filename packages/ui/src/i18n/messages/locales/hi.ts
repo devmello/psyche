@@ -364,6 +364,7 @@ export const hi: Partial<Catalogue> = {
   "chat.thread.exported": "इस थ्रेड को {format} के रूप में एक्सपोर्ट किया गया।",
   "chat.thread.nothingRunning": "इस चैट में कुछ नहीं चल रहा।",
   "chat.thread.stopped": "रोक दिया गया।",
+  "chat.stopped.label": "रोका गया",
   "chat.runFailed.credential":
     "Psyche जवाब नहीं दे सका: आपके मॉडल की API कुंजी मौजूद नहीं है या अस्वीकार कर दी गई। इसे सेटिंग्ज़ → मॉडल में जोड़ें या ठीक करें।",
   "chat.runFailed.generic": "Psyche यह जवाब पूरा नहीं कर सका।",
@@ -491,6 +492,7 @@ export const hi: Partial<Catalogue> = {
   "blocks.approval.status.denied": "अस्वीकृत{hasWhen, select, true { · {when}} other {}}",
   "blocks.approval.status.declinedInChat": "अस्वीकृत — आपने चैट में जवाब दिया",
   "blocks.approval.status.expired": "समय-सीमा समाप्त। कुछ नहीं किया गया।",
+  "blocks.approval.expiredLine": "समय समाप्त · कुछ नहीं किया गया",
   "blocks.approval.status.voidedBecause": "निरस्त: {reason}",
   "blocks.approval.status.voided": "निरस्त। आर्ग्युमेंट बदल गए।",
   "blocks.approval.taint": "इस टर्न में अविश्वसनीय सामग्री पढ़ी गई",

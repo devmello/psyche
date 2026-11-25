@@ -366,6 +366,7 @@ export const it: Partial<Catalogue> = {
   "chat.thread.exported": "Thread esportato come {format}.",
   "chat.thread.nothingRunning": "Niente è in esecuzione in questa chat.",
   "chat.thread.stopped": "Interrotto.",
+  "chat.stopped.label": "Interrotto",
   "chat.runFailed.credential":
     "Psyche non è riuscito a rispondere: la chiave API del modello manca o è stata rifiutata. Aggiungila o correggila in Impostazioni → Modelli.",
   "chat.runFailed.generic": "Psyche non è riuscito a completare questa risposta.",
@@ -489,6 +490,7 @@ export const it: Partial<Catalogue> = {
   "blocks.approval.status.denied": "Negato{hasWhen, select, true { · {when}} other {}}",
   "blocks.approval.status.declinedInChat": "Rifiutato: hai risposto in chat",
   "blocks.approval.status.expired": "Scaduto. Non è stato fatto nulla.",
+  "blocks.approval.expiredLine": "Scaduta · non è stato fatto nulla",
   "blocks.approval.status.voidedBecause": "Annullato: {reason}",
   "blocks.approval.status.voided": "Annullato. Gli argomenti sono cambiati.",
   "blocks.approval.taint": "questo turno ha letto contenuti non attendibili",
