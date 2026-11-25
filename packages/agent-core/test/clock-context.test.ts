@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { clockContextProvider, clockLine, parseAtInstant, scheduleTool } from "../src/index.ts";
+import { harness } from "./harness.ts";
 
 describe("clock context", () => {
   const now = Date.parse("2026-11-25T23:42:00Z");
@@ -79,5 +80,25 @@ describe("schedule tool, one-time form", () => {
     await expect(
       tool.run?.({ title: "x", prompt: "y" }, { threadId: "t1" } as never),
     ).rejects.toThrow(/at/);
+  });
+});
+
+describe("one live zone for the loop's schedule tool", () => {
+  it("a bare `at` follows the owner's zone as it changes, not the zone at boot", async () => {
+    let zone = "America/Los_Angeles";
+    const h = harness({ loop: { timeZone: () => zone } });
+    const tool = h.loop.registry.get("schedule");
+    const call = () =>
+      tool?.run?.({ title: "Reminder: x", at: "2026-11-26T09:00", prompt: "Tell the owner x" }, {
+        threadId: "t1",
+      } as never);
+    await call();
+    zone = "Asia/Tokyo";
+    await call();
+    const stored = (await h.scheduler.list()).map((a) => [a.schedule, a.timezone]);
+    expect(stored).toEqual([
+      ["2026-11-26T17:00:00.000Z", "America/Los_Angeles"],
+      ["2026-11-26T00:00:00.000Z", "Asia/Tokyo"],
+    ]);
   });
 });

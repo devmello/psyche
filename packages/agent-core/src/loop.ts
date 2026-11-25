@@ -468,8 +468,8 @@ export interface AgentLoopOptions {
   hooks?: HookRegistry | HookMap;
   clock?: Clock;
   ids?: IdSource;
-  /** IANA zone for daily notes (default UTC). */
-  timeZone?: string;
+  /** IANA zone for daily notes, `schedule` and the clock (default UTC). A getter follows the owner's zone as it changes. */
+  timeZone?: string | (() => string);
   basePrompt?: string;
   budgets?: Partial<ContextBudgets>;
   compaction?: Partial<CompactionPolicy>;
@@ -917,9 +917,14 @@ export class PsycheAgentLoop implements AgentLoop {
     if (options.builtins !== false) this.#registerBuiltins();
   }
 
+  #zone(): string {
+    const z = this.#o.timeZone;
+    return typeof z === "function" ? z() : (z ?? "UTC");
+  }
+
   #registerBuiltins(): void {
     const o = this.#o;
-    const tz = o.timeZone ?? "UTC";
+    const tz = (): string => this.#zone();
     const tools: AgentToolRegistration[] = [...turnTools(), appNavigateTool];
     if (o.memory !== undefined)
       tools.push(memoryTool(o.memory, { clock: this.#clock, timeZone: tz }));
@@ -2158,7 +2163,7 @@ export class PsycheAgentLoop implements AgentLoop {
     const notes = await readDailyNotes(
       this.#o.memory,
       run.dailyNotes?.at ?? this.#clock.now(),
-      this.#o.timeZone ?? "UTC",
+      this.#zone(),
       this.#budgets.dailyNote,
     );
     run.dailyNotes = this.#keepNotes(run, notes);
@@ -2171,7 +2176,7 @@ export class PsycheAgentLoop implements AgentLoop {
       permissionMode: run.permissionMode,
       runMode: run.mode,
       now: this.#clock.now(),
-      timeZone: this.#o.timeZone ?? "UTC",
+      timeZone: this.#zone(),
       ...(run.thread.summary === undefined ? {} : { summary: run.thread.summary }),
       budgets: this.#budgets,
       dailyNotes: run.dailyNotes,

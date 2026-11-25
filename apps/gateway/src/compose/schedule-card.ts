@@ -5,10 +5,10 @@ import type { ApprovalRequestInput, PermissionBroker } from "@psyche/protocol";
 /**
  * The schedule approval card in plain words. The agent's `schedule` tool carries a cron
  * expression, a kind and an internal prompt; the owner is asked about when and what. This turns
- * `0 9 26 11 *` into "tomorrow at 9:00 AM", in the owner's language and zone, and moves the raw
- * fields out of the card's rows into its "Details" disclosure (a `…Ref` key, see
- * `isLevel2Key` in packages/ui/src/blocks/approval-details.tsx). The binding is untouched: it
- * hashes the real arguments, so what the owner approves is what runs.
+ * `0 9 26 11 *` into "Every year on November 26 at 9:00 AM", in the owner's language and zone. The
+ * raw kind, cron and zone go to the card's "Details" disclosure (a `…Ref` key, see `isLevel2Key`
+ * in packages/ui/src/blocks/approval-details.tsx); the prompt the run will follow never does, it
+ * is the "What it will do" row. The binding is untouched: it hashes the real arguments.
  */
 
 type Words = {
@@ -26,6 +26,12 @@ type Words = {
   monthly: string;
   /** Anything else */
   fallback: string;
+  /** "Every year on {date} at {time}": a cron with a day and a month fires every year */
+  yearly: string;
+  /** "Run {title} ({when})": a run that is more than a reminder */
+  run: string;
+  /** "Run on a schedule: {title}" */
+  runPlain: string;
 };
 
 export const SCHEDULE_WORDS: Readonly<Record<OsTextLanguage, Words>> = {
@@ -37,6 +43,9 @@ export const SCHEDULE_WORDS: Readonly<Record<OsTextLanguage, Words>> = {
     weekly: "Every {days} at {time}",
     monthly: "On day {day} of every month at {time}",
     fallback: "On a schedule",
+    yearly: "Every year on {date} at {time}",
+    run: "Run {title} ({when})",
+    runPlain: "Run on a schedule: {title}",
   },
   ar: {
     remind: "تذكيرك {when}: {title}",
@@ -46,6 +55,9 @@ export const SCHEDULE_WORDS: Readonly<Record<OsTextLanguage, Words>> = {
     weekly: "كل {days} في {time}",
     monthly: "في اليوم {day} من كل شهر في {time}",
     fallback: "وفق جدول زمني",
+    yearly: "كل عام في {date} في {time}",
+    run: "تشغيل {title} ({when})",
+    runPlain: "تشغيل وفق جدول زمني: {title}",
   },
   de: {
     remind: "Erinnerung an dich {when}: {title}",
@@ -55,6 +67,9 @@ export const SCHEDULE_WORDS: Readonly<Record<OsTextLanguage, Words>> = {
     weekly: "Jeden {days} um {time}",
     monthly: "Am {day}. jedes Monats um {time}",
     fallback: "Nach Zeitplan",
+    yearly: "Jedes Jahr am {date} um {time}",
+    run: "{title} ausführen ({when})",
+    runPlain: "Nach Zeitplan ausführen: {title}",
   },
   es: {
     remind: "Recordarte {when}: {title}",
@@ -64,6 +79,9 @@ export const SCHEDULE_WORDS: Readonly<Record<OsTextLanguage, Words>> = {
     weekly: "Cada {days} a las {time}",
     monthly: "El día {day} de cada mes a las {time}",
     fallback: "Según un horario",
+    yearly: "Cada año el {date} a las {time}",
+    run: "Ejecutar {title} ({when})",
+    runPlain: "Ejecutar según un horario: {title}",
   },
   fr: {
     remind: "Vous rappeler {when} : {title}",
@@ -73,6 +91,9 @@ export const SCHEDULE_WORDS: Readonly<Record<OsTextLanguage, Words>> = {
     weekly: "Chaque {days} à {time}",
     monthly: "Le {day} de chaque mois à {time}",
     fallback: "Selon un calendrier",
+    yearly: "Chaque année le {date} à {time}",
+    run: "Exécuter {title} ({when})",
+    runPlain: "Exécuter selon un calendrier : {title}",
   },
   hi: {
     remind: "आपको याद दिलाएँ {when}: {title}",
@@ -82,6 +103,9 @@ export const SCHEDULE_WORDS: Readonly<Record<OsTextLanguage, Words>> = {
     weekly: "हर {days} {time}",
     monthly: "हर महीने की {day} तारीख़ को {time}",
     fallback: "एक शेड्यूल पर",
+    yearly: "हर साल {date} को {time}",
+    run: "{title} चलाएँ ({when})",
+    runPlain: "शेड्यूल पर चलाएँ: {title}",
   },
   it: {
     remind: "Ricordarti {when}: {title}",
@@ -91,6 +115,9 @@ export const SCHEDULE_WORDS: Readonly<Record<OsTextLanguage, Words>> = {
     weekly: "Ogni {days} alle {time}",
     monthly: "Il giorno {day} di ogni mese alle {time}",
     fallback: "Secondo un programma",
+    yearly: "Ogni anno il {date} alle {time}",
+    run: "Esegui {title} ({when})",
+    runPlain: "Esegui secondo un programma: {title}",
   },
   ja: {
     remind: "{when}にリマインド: {title}",
@@ -100,6 +127,9 @@ export const SCHEDULE_WORDS: Readonly<Record<OsTextLanguage, Words>> = {
     weekly: "毎週{days} {time}",
     monthly: "毎月{day}日 {time}",
     fallback: "スケジュールに従って",
+    yearly: "毎年{date} {time}",
+    run: "{title}を実行（{when}）",
+    runPlain: "スケジュールで実行: {title}",
   },
   ko: {
     remind: "{when}에 알림: {title}",
@@ -109,6 +139,9 @@ export const SCHEDULE_WORDS: Readonly<Record<OsTextLanguage, Words>> = {
     weekly: "매주 {days} {time}",
     monthly: "매월 {day}일 {time}",
     fallback: "일정에 따라",
+    yearly: "매년 {date} {time}",
+    run: "{title} 실행 ({when})",
+    runPlain: "일정에 따라 실행: {title}",
   },
   pt: {
     remind: "Lembrar você {when}: {title}",
@@ -118,6 +151,9 @@ export const SCHEDULE_WORDS: Readonly<Record<OsTextLanguage, Words>> = {
     weekly: "Toda {days} às {time}",
     monthly: "No dia {day} de cada mês às {time}",
     fallback: "Em um cronograma",
+    yearly: "Todo ano em {date} às {time}",
+    run: "Executar {title} ({when})",
+    runPlain: "Executar em um cronograma: {title}",
   },
   zh: {
     remind: "{when}提醒你：{title}",
@@ -127,6 +163,9 @@ export const SCHEDULE_WORDS: Readonly<Record<OsTextLanguage, Words>> = {
     weekly: "每{days} {time}",
     monthly: "每月{day}日 {time}",
     fallback: "按计划",
+    yearly: "每年{date} {time}",
+    run: "运行{title}（{when}）",
+    runPlain: "按计划运行：{title}",
   },
 };
 
@@ -148,6 +187,8 @@ export interface ScheduleCardEnv {
   language: OsTextLanguage;
   /** A BCP 47 tag for Intl (day names, the 12 or 24 hour clock). */
   locale: string;
+  /** The owner's zone: a time given in another zone is converted to it or names its zone. */
+  ownerZone: string;
 }
 
 const INT = /^\d{1,2}$/;
@@ -199,9 +240,6 @@ function dayText(ms: number, timeZone: string, env: ScheduleCardEnv): string {
 const clock = (ms: number, timeZone: string, locale: string): string =>
   new Intl.DateTimeFormat(locale, { timeZone, hour: "numeric", minute: "2-digit" }).format(ms);
 
-const cap = (text: string, locale: string): string =>
-  text === "" ? text : text.charAt(0).toLocaleUpperCase(locale) + text.slice(1);
-
 /**
  * The schedule in words: "Tomorrow at 9:00 AM", "Every weekday at 9:00 AM", or the fallback
  * "On a schedule" for anything a person would not say in one line (steps like every 5 minutes,
@@ -210,8 +248,13 @@ const cap = (text: string, locale: string): string =>
 export function scheduleWords(input: ScheduleCardInput, env: ScheduleCardEnv): string {
   const w = SCHEDULE_WORDS[env.language];
   const tz = input.timezone;
+  // Another zone than the owner's is named, never dropped; an exact instant is converted instead.
+  const zoneNote = tz === env.ownerZone ? "" : ` (${tz})`;
   const at = (ms: number) =>
-    fill(w.at, { day: dayText(ms, tz, env), time: clock(ms, tz, env.locale) });
+    fill(w.at, {
+      day: dayText(ms, env.ownerZone, env),
+      time: clock(ms, env.ownerZone, env.locale),
+    });
   try {
     if (input.at !== undefined) {
       const ms = parseAtInstant(input.at, tz);
@@ -228,9 +271,9 @@ export function scheduleWords(input: ScheduleCardInput, env: ScheduleCardEnv): s
     if (dom === "*" && month === "*") {
       const days = cronDays(dow);
       if (days === undefined || days.size === 0) return w.fallback;
-      if (days.size === 7) return fill(w.daily, { time });
+      if (days.size === 7) return fill(w.daily, { time }) + zoneNote;
       if ([1, 2, 3, 4, 5].every((d) => days.has(d)) && days.size === 5) {
-        return fill(w.weekdays, { time });
+        return fill(w.weekdays, { time }) + zoneNote;
       }
       const names = [1, 2, 3, 4, 5, 6, 0]
         .filter((d) => days.has(d))
@@ -240,35 +283,58 @@ export function scheduleWords(input: ScheduleCardInput, env: ScheduleCardEnv): s
           ),
         );
       const list = new Intl.ListFormat(env.locale, { type: "conjunction" }).format(names);
-      return fill(w.weekly, { days: list, time });
+      return fill(w.weekly, { days: list, time }) + zoneNote;
     }
     if (dow !== "*" || !INT.test(dom) || Number(dom) < 1 || Number(dom) > 31) return w.fallback;
-    if (month === "*") return fill(w.monthly, { day: dom, time });
+    if (month === "*") return fill(w.monthly, { day: dom, time }) + zoneNote;
     if (!INT.test(month) || Number(month) < 1 || Number(month) > 12) return w.fallback;
-    // A date with no year: the next one at or after now, this year or the next.
-    const [year] = ymd(env.now, tz);
-    for (const y of [year as number, (year as number) + 1]) {
-      const iso = `${y}-${month.padStart(2, "0")}-${dom.padStart(2, "0")}T${hour.padStart(2, "0")}:${min.padStart(2, "0")}`;
-      const ms = parseAtInstant(iso, tz);
-      if (ms !== undefined && ms >= env.now - 60_000) return at(ms);
-    }
-    return w.fallback;
+    // Day and month with no year fire every year, so it is said that way.
+    const date = new Intl.DateTimeFormat(env.locale, {
+      timeZone: "UTC",
+      month: "long",
+      day: "numeric",
+    }).format(Date.UTC(2000, Number(month) - 1, Number(dom)));
+    return fill(w.yearly, { date, time }) + zoneNote;
   } catch {
     return w.fallback;
   }
 }
 
 const REMINDER_PREFIX = /^\s*(?:reminder|remind me)\s*[:\-–—]?\s*/i;
+const NOTIFY_LEAD =
+  /^\s*(?:send (?:the owner |me |them )?a (?:notification|notice|message|reminder)(?: now)?|notify (?:the owner|me)|tell (?:the owner|me)|remind (?:the owner|me)(?: now)?)\s*(?:to|that|about|:|-|–|—)?\s*/i;
+const squash = (t: string): string =>
+  t
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .trim();
 
-/** The card's title: "Remind you tomorrow at 9:00 AM: call the dentist". */
-export function scheduleSummary(input: ScheduleCardInput, env: ScheduleCardEnv): string {
+/**
+ * The run is only a reminder when its prompt is a short "tell the owner X" and X is the title's own
+ * words. Anything else (a read, a send, a longer instruction) is a run, and the card says so.
+ */
+export function isPlainReminder(title: string, prompt: string | undefined): boolean {
+  if (prompt === undefined || prompt.length > 160 || /[\n\r]/.test(prompt)) return false;
+  if (!NOTIFY_LEAD.test(prompt)) return false;
+  const rest = squash(prompt.replace(NOTIFY_LEAD, ""));
+  const named = squash(title.replace(REMINDER_PREFIX, ""));
+  return rest !== "" && named !== "" && named.includes(rest);
+}
+
+/** The card's title: "Remind you tomorrow at 9:00 AM: call the dentist", or what the run is. */
+export function scheduleSummary(
+  input: ScheduleCardInput & { prompt?: string | undefined },
+  env: ScheduleCardEnv,
+): string {
   const w = SCHEDULE_WORDS[env.language];
   const when = scheduleWords(input, env);
-  const prefixed = REMINDER_PREFIX.test(input.title);
   const title = input.title.replace(REMINDER_PREFIX, "").trim() || input.title.trim();
-  return prefixed && input.at !== undefined
-    ? fill(w.remind, { when, title })
-    : `${cap(when, env.locale)}: ${title}`;
+  if (input.at !== undefined && when !== w.fallback && isPlainReminder(input.title, input.prompt)) {
+    return fill(w.remind, { when, title });
+  }
+  return when === w.fallback
+    ? fill(w.runPlain, { title: input.title.trim() })
+    : fill(w.run, { title: input.title.trim(), when });
 }
 
 export interface ScheduleCardDeps {
@@ -292,7 +358,7 @@ function envOf(deps: ScheduleCardDeps): ScheduleCardEnv {
   } catch {
     locale = language;
   }
-  return { now: deps.now(), language, locale };
+  return { now: deps.now(), language, locale, ownerZone: deps.zone() };
 }
 
 /**
@@ -322,7 +388,7 @@ export function withScheduleCard<B extends PermissionBroker>(broker: B, deps: Sc
           let when: string;
           try {
             env = envOf(deps);
-            summary = scheduleSummary(card, env);
+            summary = scheduleSummary({ ...card, prompt: str(p.prompt) }, env);
             when = scheduleWords(card, env);
           } catch {
             return target.requestApproval(input);
@@ -333,13 +399,13 @@ export function withScheduleCard<B extends PermissionBroker>(broker: B, deps: Sc
             summary,
             details: {
               ...rest,
-              params: { when },
+              // What the run will do stays a visible row: the title is the model's own words.
+              params: { when, whatItWillDo: str(p.prompt) ?? "" },
               rawScheduleRef: JSON.stringify({
                 kind: card.at === undefined ? card.kind : "reminder",
                 at: card.at,
                 schedule: card.schedule,
                 timezone: card.timezone,
-                prompt: str(p.prompt),
               }),
             },
           });

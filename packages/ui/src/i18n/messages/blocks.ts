@@ -216,6 +216,8 @@ export const blocks = {
   "blocks.approval.whyMode": "{mode} mode asks before it {effect}.",
   "blocks.details.params": "Details",
   "blocks.details.reason": "Reason",
+  "blocks.details.when": "When",
+  "blocks.details.whatItWillDo": "What it will do",
   "blocks.approval.titlePending": "Approval needed",
   "blocks.approval.title": "Approval",
   "blocks.approval.expiresIn": "expires in {countdown}",

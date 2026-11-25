@@ -114,7 +114,7 @@ function numbered(content: string, range?: number[]): string {
 
 export interface MemoryToolOptions {
   clock: Clock;
-  timeZone: string;
+  timeZone: string | (() => string);
 }
 
 export function memoryTool(store: MemoryStore, options: MemoryToolOptions): AgentToolRegistration {
@@ -152,7 +152,10 @@ export function memoryTool(store: MemoryStore, options: MemoryToolOptions): Agen
           ...(etag === undefined ? {} : { etag }),
           ...(ctx.approvalId === undefined ? {} : { approvalId: ctx.approvalId }),
         });
-      const today = localDate(options.clock.now(), options.timeZone);
+      const today = localDate(
+        options.clock.now(),
+        typeof options.timeZone === "function" ? options.timeZone() : options.timeZone,
+      );
       switch (p.command) {
         case "view": {
           const path = workspacePath(p.path);
@@ -333,7 +336,10 @@ export function parseAtInstant(text: string, timeZone: string): number | undefin
   }
 }
 
-export function scheduleTool(scheduler: Scheduler, defaultTimeZone: string): AgentToolRegistration {
+export function scheduleTool(
+  scheduler: Scheduler,
+  defaultTimeZone: string | (() => string),
+): AgentToolRegistration {
   return defineTool({
     name: "schedule",
     description:
@@ -355,7 +361,8 @@ export function scheduleTool(scheduler: Scheduler, defaultTimeZone: string): Age
       summary: `Schedule "${p.title}" (${p.at ?? p.schedule ?? "no time given"})`,
     }),
     run: async (p, ctx) => {
-      const timezone = p.timezone ?? defaultTimeZone;
+      const timezone =
+        p.timezone ?? (typeof defaultTimeZone === "function" ? defaultTimeZone() : defaultTimeZone);
       let fields: { kind: "cron" | "interval" | "reminder"; schedule: string };
       if (p.at !== undefined) {
         const ms = parseAtInstant(p.at, timezone);

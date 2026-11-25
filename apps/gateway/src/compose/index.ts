@@ -1944,7 +1944,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     scheduler: withoutAgentRecordingSchedules(scheduler, skills.recorded),
     registry,
     clock,
-    ...(timeZone === undefined ? {} : { timeZone }),
+    timeZone: () => timeZone,
     approvalSurfaces: ["desktop", "web"],
     resumeApproval: (q) => deferredResume.claim(q),
     skills: skills.loader,
