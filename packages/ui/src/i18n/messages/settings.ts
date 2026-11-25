@@ -1135,6 +1135,12 @@ export const settings = {
   "settings.computerUse.helperAccess.offline":
     "Psyche Helper isn't running, so its permissions can't be read. It starts with Psyche; quit and reopen Psyche if it stays offline.",
   "settings.computerUse.helperAccess.allow": "Allow Psyche Helper",
+  "settings.computerUse.helperAccess.lost":
+    "macOS dropped this permission for Psyche Helper, usually after an update: in System Settings, turn Psyche Helper off and on again, then restart it.",
+  "settings.computerUse.helperAccess.restartToApply":
+    "macOS applies this permission once Psyche Helper restarts.",
+  "settings.computerUse.helperAccess.restart": "Restart Psyche Helper",
+  "settings.computerUse.helperAccess.restartFor": "Restart Psyche Helper to apply {name}",
   "settings.computerUse.helperAccess.allowFor": "Allow Psyche Helper for {name}",
   "settings.computerUse.title": "Computer use",
   "settings.computerUse.description": "{persona} can use apps on this Mac only where you allow it.",

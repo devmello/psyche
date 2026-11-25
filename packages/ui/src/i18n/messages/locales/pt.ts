@@ -152,6 +152,21 @@ export const pt: Partial<Catalogue> = {
     "Um app tem alterações não salvas. O Psyche espera você decidir o que fazer com elas.",
   "errors.reason.checkout_needs_desktop":
     "Para pagar no navegador do Psyche, o app de desktop do Psyche precisa estar conectado a este host.",
+  "errors.reason.permission_missing":
+    "O Psyche Helper ainda não tem a permissão do macOS para isto. Permita em Ajustes do Sistema → Privacidade e Segurança e tente de novo.",
+  "errors.reason.permission_denied":
+    "O Psyche Helper não tem permissão para fazer isto. Ative em Ajustes do Sistema → Privacidade e Segurança e tente de novo.",
+  "errors.reason.automation_denied":
+    "O Psyche Helper não tem permissão para controlar este app. Ative em Ajustes do Sistema → Privacidade e Segurança → Automação e tente de novo.",
+  "errors.reason.automation_not_granted":
+    "O Psyche Helper ainda não pode controlar este app. Tente de novo e escolha OK quando o macOS perguntar.",
+  "errors.reason.full_disk_access_missing":
+    "O Psyche Helper precisa de Acesso Total ao Disco para ler o Mensagens. Ative em Ajustes do Sistema → Privacidade e Segurança → Acesso Total ao Disco e reinicie o Psyche Helper.",
+  "errors.reason.prompt_refused_by_macos":
+    "O macOS não mostrou o pedido de permissão. Permita o Psyche Helper em Ajustes do Sistema → Privacidade e Segurança.",
+  "errors.reason.app_not_running": "Esse app não está aberto. Abra-o e tente de novo.",
+  "errors.reason.needs_helper":
+    "Isto precisa do Psyche Helper, que não está em execução. Reinicie-o em Ajustes → Dispositivos.",
   "errors.reason.no_chromium":
     "O navegador do Psyche precisa do Chromium neste host. Instale-o ou defina PSYCHE_CHROMIUM.",
   "errors.reason.chromium_sandbox":
@@ -1766,6 +1781,12 @@ export const pt: Partial<Catalogue> = {
   "settings.computerUse.helperAccess.offline":
     "O Psyche Helper não está em execução, então não dá para ler as permissões dele. Ele inicia com o Psyche; feche e reabra o Psyche se continuar offline.",
   "settings.computerUse.helperAccess.allow": "Permitir o Psyche Helper",
+  "settings.computerUse.helperAccess.lost":
+    "O macOS removeu esta permissão do Psyche Helper, normalmente após uma atualização: em Ajustes do Sistema, desative e ative o Psyche Helper de novo e depois reinicie-o.",
+  "settings.computerUse.helperAccess.restartToApply":
+    "O macOS aplica esta permissão quando o Psyche Helper reinicia.",
+  "settings.computerUse.helperAccess.restart": "Reiniciar o Psyche Helper",
+  "settings.computerUse.helperAccess.restartFor": "Reiniciar o Psyche Helper para aplicar {name}",
   "settings.computerUse.helperAccess.allowFor": "Permitir o Psyche Helper para {name}",
   "settings.computerUse.title": "Uso do computador",
   "settings.computerUse.description":

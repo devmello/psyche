@@ -37,6 +37,13 @@ export interface HelperPermissionRowProps {
   offline?: boolean;
   /** Asks the helper for the permission (its prompt, then its pane in System Settings). */
   onAllow?: ((permission: TccPermission) => void) | undefined;
+  /**
+   * Why a grant the owner gave may not show: `lost` (macOS dropped it, usually after an update)
+   * or `restart` (asked for in the running helper, applied once it restarts).
+   */
+  notice?: "lost" | "restart" | undefined;
+  /** Restarts Psyche Helper; shown with a notice. */
+  onRestart?: (() => void) | undefined;
 }
 
 /**
@@ -49,7 +56,56 @@ export function HelperPermissionRow({
   persona,
   offline = false,
   onAllow,
+  notice,
+  onRestart,
 }: HelperPermissionRowProps): ReactElement {
+  const showNotice = !offline && state !== "granted" && notice !== undefined;
+  return (
+    <div className="flex flex-col gap-1">
+      <HelperPermissionLine
+        permission={permission}
+        state={state}
+        persona={persona}
+        offline={offline}
+        onAllow={onAllow}
+      />
+      {showNotice ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-callout text-muted-foreground" role="status">
+            {notice === "lost"
+              ? t("settings.computerUse.helperAccess.lost")
+              : t("settings.computerUse.helperAccess.restartToApply")}
+          </span>
+          {onRestart ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="xs"
+              className="ms-auto"
+              onClick={onRestart}
+              aria-label={t("settings.computerUse.helperAccess.restartFor", {
+                name: TCC_LABEL[permission].name,
+              })}
+            >
+              {t("settings.computerUse.helperAccess.restart")}
+            </Button>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function HelperPermissionLine({
+  permission,
+  state,
+  persona,
+  offline,
+  onAllow,
+}: Pick<
+  HelperPermissionRowProps,
+  "permission" | "state" | "persona" | "offline" | "onAllow"
+>): ReactElement {
   return (
     <div className="flex flex-wrap items-center gap-2">
       <span className="font-medium">{TCC_LABEL[permission].name}</span>

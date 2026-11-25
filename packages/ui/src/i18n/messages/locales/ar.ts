@@ -224,6 +224,21 @@ export const ar: Partial<Catalogue> = {
     "يحتوي تطبيق على تغييرات غير محفوظة. ينتظر Psyche أن تقرر ما يحدث لها.",
   "errors.reason.checkout_needs_desktop":
     "يتطلب الدفع في متصفح Psyche أن يكون تطبيق Psyche لسطح المكتب متصلاً بهذا المضيف.",
+  "errors.reason.permission_missing":
+    "لا يملك Psyche Helper بعدُ إذن macOS لهذا. اسمح به في إعدادات النظام ← الخصوصية والأمن، ثم حاول مجددًا.",
+  "errors.reason.permission_denied":
+    "غير مسموح لـ Psyche Helper بفعل هذا. فعّله في إعدادات النظام ← الخصوصية والأمن، ثم حاول مجددًا.",
+  "errors.reason.automation_denied":
+    "غير مسموح لـ Psyche Helper بالتحكم في هذا التطبيق. فعّله في إعدادات النظام ← الخصوصية والأمن ← الأتمتة، ثم حاول مجددًا.",
+  "errors.reason.automation_not_granted":
+    "لا يستطيع Psyche Helper التحكم في هذا التطبيق بعد. حاول مجددًا واختر «موافق» عندما يسأل macOS.",
+  "errors.reason.full_disk_access_missing":
+    "يحتاج Psyche Helper إلى الوصول الكامل إلى القرص لقراءة الرسائل. فعّله في إعدادات النظام ← الخصوصية والأمن ← الوصول الكامل إلى القرص، ثم أعد تشغيل Psyche Helper.",
+  "errors.reason.prompt_refused_by_macos":
+    "لم يعرض macOS طلب الإذن. اسمح لـ Psyche Helper في إعدادات النظام ← الخصوصية والأمن بدلًا من ذلك.",
+  "errors.reason.app_not_running": "هذا التطبيق غير مفتوح. افتحه ثم حاول مجددًا.",
+  "errors.reason.needs_helper":
+    "يحتاج هذا إلى Psyche Helper، وهو لا يعمل الآن. أعد تشغيله من الإعدادات ← الأجهزة.",
   "errors.reason.no_chromium":
     "يحتاج متصفح Psyche إلى Chromium على هذا المضيف. ثبّته أو اضبط PSYCHE_CHROMIUM.",
   "errors.reason.chromium_sandbox":
@@ -1847,6 +1862,12 @@ export const ar: Partial<Catalogue> = {
   "settings.computerUse.helperAccess.offline":
     "Psyche Helper لا يعمل، لذا تتعذّر قراءة أذوناته. يبدأ مع Psyche؛ أغلق Psyche وأعد فتحه إن بقي غير متصل.",
   "settings.computerUse.helperAccess.allow": "السماح لـ Psyche Helper",
+  "settings.computerUse.helperAccess.lost":
+    "أزال macOS هذا الإذن من Psyche Helper، غالبًا بعد تحديث: في إعدادات النظام، أوقف Psyche Helper ثم شغّله مجددًا، ثم أعد تشغيله.",
+  "settings.computerUse.helperAccess.restartToApply":
+    "يطبّق macOS هذا الإذن عند إعادة تشغيل Psyche Helper.",
+  "settings.computerUse.helperAccess.restart": "إعادة تشغيل Psyche Helper",
+  "settings.computerUse.helperAccess.restartFor": "إعادة تشغيل Psyche Helper لتطبيق {name}",
   "settings.computerUse.helperAccess.allowFor": "السماح لـ Psyche Helper بـ {name}",
   "settings.computerUse.title": "استخدام الكمبيوتر",
   "settings.computerUse.description":

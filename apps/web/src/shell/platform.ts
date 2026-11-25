@@ -771,6 +771,10 @@ export interface HelperPermissionsState {
   accessibility: "granted" | "denied" | "not_determined";
   screenRecording: "granted" | "denied" | "not_determined";
   notifications: "granted" | "denied" | "not_determined";
+  /** Granted before, not now (usually an update changed the helper's signature). */
+  lost?: ("accessibility" | "screenRecording" | "notifications")[];
+  /** Asked for in the running helper: macOS applies it once the helper restarts. */
+  restartToApply?: ("accessibility" | "screenRecording" | "notifications")[];
 }
 
 export interface PermissionsPort {
