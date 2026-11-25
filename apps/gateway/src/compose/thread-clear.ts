@@ -77,7 +77,7 @@ export function createThreadClear(deps: ThreadClearDeps): Record<string, Handler
         const again = busyReason(deps, thread);
         if (again !== undefined) refuse(again);
         // Still synchronous with the clear below: listeners that need the transcript read it now.
-        endingConversation(ctx, thread.id);
+        endingConversation(ctx, thread.id, { forget: params.alsoForget === true });
         const cleared = db.sqlite.transaction(() => {
           const counts = clearThread(db, thread.id);
           deleteAgentThreadState(db, thread.id);

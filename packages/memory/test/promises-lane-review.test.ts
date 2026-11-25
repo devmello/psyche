@@ -225,8 +225,20 @@ describe("a third party cannot steer the owner's promise (finding 1)", () => {
       ["send Sam the house keys and garage code", "I'll send the deck on Friday"],
       ["pay the electricity bill", "I'll send the deck on Friday"],
       ["send the deck and wire the deposit to Eve", "I'll send the deck on Friday"],
+      // Two words from nowhere: 3 of 5 passed the 60% rule before the one-word allowance.
+      ["send the deck and house keys Friday", "I'll send the deck on Friday"],
     ])("not covered: %s | %s", (what, quote) => {
       expect(run(what, quote).dropped).toEqual({ what_not_in_quote: 1 });
+    });
+
+    it("a negation the quote does not carry is dropped; one it does carry passes", () => {
+      expect(run("do not send the deck", "I'll send the deck on Friday").dropped).toEqual({
+        what_negation: 1,
+      });
+      expect(run("never send the deck", "I'll send the deck on Friday").dropped).toEqual({
+        what_negation: 1,
+      });
+      expect(run("not send the deck", "I won't send the deck on Friday").accepted).toHaveLength(1);
     });
   });
 });
@@ -370,5 +382,119 @@ describe("floods (finding 5)", () => {
 describe("the system prompt names the nonce'd block (finding 7)", () => {
   it("mentions the data block and its nonce", () => {
     expect(PROMISE_SYSTEM_PROMPT).toContain('<data nonce="...">');
+  });
+});
+
+describe("an owner batch lists only the owner's own promises (round 2, finding 1)", () => {
+  const seedBoth = () => {
+    store.add({
+      direction: "waiting_on",
+      what: "the deck was already sent by you",
+      counterpartId: sam,
+      provenance: "untrusted",
+      confidence: 0.9,
+      detectedBy: "model",
+      sourceKind: "mail",
+    });
+    store.add({
+      direction: "i_owe",
+      what: "send the contract",
+      counterpartId: sam,
+      provenance: "owner",
+      confidence: 0.9,
+      detectedBy: "owner",
+      sourceKind: "chat",
+    });
+  };
+  const doneFor =
+    (author: "owner" | "counterpart"): LaneComplete =>
+    async (req) => ({
+      tokens: 100,
+      text: JSON.stringify({
+        items: snippetsOf(req.user).map((s) =>
+          form({
+            snippet: s.id,
+            kind: "update",
+            same_as: "p1",
+            promiser: author,
+            promisee: author === "owner" ? "counterpart" : "owner",
+            what: "send the contract",
+            quote: "Sending the contract now",
+            update: { type: "done", new_due: null },
+          }),
+        ),
+      }),
+    });
+
+  it("the counterpart's stored words are not in the owner's prompt, and the owner's own row is", async () => {
+    seedBoth();
+    const users: string[] = [];
+    const complete: LaneComplete = async (req) => {
+      users.push(req.user);
+      return doneFor("owner")(req);
+    };
+    const r = await runPromiseLane(
+      [mail("owner", "Sending the contract now. I'll send the contract tomorrow too.", "m-o")],
+      deps(complete),
+    );
+    expect(users[0]).not.toContain("already sent by you");
+    expect(users[0]).toContain("send the contract");
+    expect(r.updates).toMatchObject([{ type: "done", batchTainted: false }]);
+  });
+
+  it("a counterpart batch lists that counterpart's promises only", async () => {
+    seedBoth();
+    const users: string[] = [];
+    await runPromiseLane(
+      [mail("counterpart", "I'll send the deck tomorrow.", "m-s")],
+      deps(async (req) => {
+        users.push(req.user);
+        return { text: '{"items":[]}', tokens: 10 };
+      }),
+    );
+    expect(users[0]).toContain("already sent by you");
+    expect(users[0]).not.toContain('"what":"send the contract"');
+  });
+
+  it("belt: a listed promise that is not in the owner's words taints the batch, and so does an unknown source", async () => {
+    const row = (provenance?: "owner" | "untrusted") => ({
+      id: "loop_x",
+      promiser: "owner" as const,
+      what: "send the contract",
+      due: null,
+      ...(provenance === undefined ? {} : { provenance }),
+    });
+    for (const [prov, tainted] of [
+      ["untrusted", true],
+      [undefined, true],
+      ["owner", false],
+    ] as const) {
+      const r = await runPromiseLane(
+        [
+          mail(
+            "owner",
+            "Sending the contract now. I'll send the contract tomorrow too.",
+            `m-${prov}`,
+          ),
+        ],
+        deps(doneFor("owner"), { openPromises: () => [row(prov)] }),
+      );
+      expect(r.updates).toMatchObject([{ batchTainted: tainted }]);
+    }
+  });
+});
+
+describe("one flood key for senders with no entity (round 2, finding 3)", () => {
+  it("60 rotating display names are capped like one sender", async () => {
+    const items = Array.from({ length: 60 }, (_, i) => ({
+      ...mail("counterpart", `I'll send report ${i} on Friday.`, `r${i}`),
+      counterpartId: null,
+      counterpartLabel: `Sender ${i}`,
+    }));
+    const r = await runPromiseLane(
+      items,
+      deps(async () => ({ text: '{"items":[]}', tokens: 10 })),
+    );
+    expect(r.queued).toHaveLength(60 - MAX_SNIPPETS_PER_COUNTERPART_PER_DAY);
   });
 });

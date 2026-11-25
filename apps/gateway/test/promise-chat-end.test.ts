@@ -90,16 +90,59 @@ describe("promise lane at thread end, through the real thread store", () => {
     ]);
   });
 
-  it("delete: the same, and the assistant's own promise is never read", async () => {
+  it("a plain clear extracts, and never reads the assistant's own promise", async () => {
+    const { owner, runs } = await start();
+    const side = (await owner.call<{ thread: Thread }>("threads.create", { kind: "side" }, ik()))
+      .thread;
+    await turn(owner, side.id, "I'll review the draft tonight.");
+    await owner.call("threads.clear", { threadId: side.id, alsoForget: false }, ik());
+    await settle();
+    expect(runs).toHaveLength(1);
+    expect(runs[0]?.map((i) => i.text)).toEqual(["I'll review the draft tonight."]);
+    expect(JSON.stringify(runs)).not.toContain("summary");
+  });
+
+  it("deleting the chat skips it: the owner chose to remove it", async () => {
     const { owner, runs } = await start();
     const side = (await owner.call<{ thread: Thread }>("threads.create", { kind: "side" }, ik()))
       .thread;
     await turn(owner, side.id, "I'll review the draft tonight.");
     await owner.call("threads.delete", { threadId: side.id }, ik());
     await settle();
-    expect(runs).toHaveLength(1);
-    expect(runs[0]?.map((i) => i.text)).toEqual(["I'll review the draft tonight."]);
-    expect(JSON.stringify(runs)).not.toContain("summary");
+    expect(runs).toEqual([]);
+  });
+
+  it("Clear chat with 'also forget' skips it", async () => {
+    const { owner, runs } = await start();
+    const main = (await owner.call<{ thread: Thread }>("threads.create", { kind: "main" }, ik()))
+      .thread;
+    await turn(owner, main.id, "I'll review the draft tonight.");
+    await owner.call("threads.clear", { threadId: main.id, alsoForget: true }, ik());
+    await settle();
+    expect(runs).toEqual([]);
+  });
+
+  it("the snapshot holds only the last 30 of the owner's turns", async () => {
+    const { composed: c, owner } = await start();
+    const main = (await owner.call<{ thread: Thread }>("threads.create", { kind: "main" }, ik()))
+      .thread;
+    for (let i = 0; i < 34; i++) {
+      c.db.sqlite
+        .prepare(
+          "INSERT INTO messages (id, thread_id, seq, role, blocks, provenance, created_at) VALUES (?, ?, ?, 'user', ?, 'owner', ?)",
+        )
+        .run(
+          `m${i}`,
+          main.id,
+          i,
+          JSON.stringify([{ type: "text", md: `note ${i}` }]),
+          "2026-11-24T09:00:00.000Z",
+        );
+    }
+    const turns = snapshotThread(c.db, main.id)?.turns ?? [];
+    expect(turns).toHaveLength(30);
+    expect(turns[0]?.text).toBe("note 4");
+    expect(turns.at(-1)?.text).toBe("note 33");
   });
 
   it("a channel thread's user turn is ignored", async () => {

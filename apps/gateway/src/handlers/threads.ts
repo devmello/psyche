@@ -25,7 +25,7 @@ import {
   type ThreadPreview,
 } from "@psyche/protocol";
 import { automationIdOfThreadKey } from "@psyche/scheduler";
-import type { Call, HandlerDef } from "../context.ts";
+import type { Call, HandlerDef, ThreadEndingWhy } from "../context.ts";
 import { assertWritableThread, importConversations } from "../session/imported-threads.ts";
 
 /** The owner's one persistent main thread (feature E1). */
@@ -181,7 +181,7 @@ function patch(
  */
 export async function removeThread(call: Call, threadId: string): Promise<void> {
   const { ctx } = call;
-  endingConversation(ctx, threadId);
+  endingConversation(ctx, threadId, { deleted: true });
   await ctx.sessions.closeThread(threadId, () => {
     deleteThread(ctx.db, threadId);
     deleteAgentThreadState(ctx.db, threadId);
@@ -195,10 +195,14 @@ export async function removeThread(call: Call, threadId: string): Promise<void> 
  * The conversation is about to end (Clear chat or delete is the next synchronous step): listeners
  * that need the transcript take a snapshot now. A listener never fails the clear or the delete.
  */
-export function endingConversation(ctx: Call["ctx"], threadId: string): void {
+export function endingConversation(
+  ctx: Call["ctx"],
+  threadId: string,
+  why: ThreadEndingWhy = {},
+): void {
   for (const listener of ctx.threadEnding ?? []) {
     try {
-      listener(threadId);
+      listener(threadId, why);
     } catch {
       // Swallowed on purpose.
     }

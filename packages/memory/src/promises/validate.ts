@@ -64,10 +64,21 @@ function stem(w: string): string {
   return w.replace(/(?:ing|ed|es|s)$/u, "");
 }
 
-const stems = (text: string): Set<string> => new Set([...contentWords(text)].map(stem));
+/** A negation in the text. It is a content word here: "do not send" is not "send". */
+const NEGATION =
+  /(?<![\p{L}\p{N}])(?:not|no|never|cannot|(?:don|doesn|won|can|isn|aren|didn)['’]?t)(?![\p{L}\p{N}])/iu;
+const NEG = "\u0000neg";
+
+const stems = (text: string): Set<string> => {
+  const out = new Set([...contentWords(text)].map(stem));
+  if (NEGATION.test(text.normalize("NFKC"))) out.add(NEG);
+  return out;
+};
 
 /** Share of `what`'s content words that must also be in the quote. */
 export const MIN_WHAT_COVERAGE = 0.6;
+/** Content words of `what` that may be missing from the quote. */
+export const MAX_UNCOVERED_WORDS = 1;
 
 /**
  * What the promise says must come from the quote. A quote with no content words ("I'll", "to the")
@@ -80,8 +91,13 @@ function coverageProblem(what: string, quote: string): string | undefined {
   if (q.size === 0) return "quote_no_content";
   const w = stems(what);
   if (w.size === 0) return "what_no_content";
+  // A promise the quote does not negate cannot be a negated one.
+  if (w.has(NEG) && !q.has(NEG)) return "what_negation";
   let hit = 0;
   for (const word of w) if (q.has(word)) hit += 1;
+  // At most one word may come from somewhere other than the quote ("the Q3 deck"), and no more
+  // than 40% overall.
+  if (w.size - hit > MAX_UNCOVERED_WORDS) return "what_not_in_quote";
   return hit / w.size >= MIN_WHAT_COVERAGE ? undefined : "what_not_in_quote";
 }
 

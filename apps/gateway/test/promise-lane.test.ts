@@ -239,6 +239,49 @@ describe("redaction built for the lane (finding 6): a card, an SSN and a one-tim
   });
 });
 
+describe("a recovery phrase never reaches the model", () => {
+  const PHRASE =
+    "abandon ability absorb abstract access accident account acquire across action actor adult";
+
+  it("twelve plain words in a row are masked by the lane's redactor; a bare one sends them", async () => {
+    const send = async (redact: (t: string) => string) => {
+      const seen: string[] = [];
+      await runPromiseLane(
+        [
+          {
+            source: "mail",
+            sourceRef: "m1",
+            threadId: "t1",
+            author: "counterpart",
+            counterpartId: sam,
+            counterpartLabel: "Sam Lee",
+            sentAt: "2026-11-24T10:12:00.000Z",
+            text: `I'll send the deck on Friday. Backup: ${PHRASE}.`,
+          },
+        ],
+        {
+          store,
+          redact,
+          ownerNames: ["Sam"],
+          zone: "UTC",
+          budget: new PromiseBudget({ clock, zone: "UTC" }),
+          complete: async (req) => {
+            seen.push(req.user);
+            return { text: '{"items":[]}', tokens: 10 };
+          },
+        },
+      );
+      return seen.join("\n");
+    };
+    const masked = await send(promiseRedactor(new SecretRedactor()));
+    expect(masked).toContain("send the deck on Friday");
+    expect(masked).not.toContain("abandon");
+    expect(masked).not.toContain("absorb");
+    expect(masked).not.toContain("actor adult");
+    expect(await send((t) => new SecretRedactor().redact(t))).toContain("abandon ability");
+  });
+});
+
 describe("graphLoopWriter: every person the name could mean", () => {
   it("an ambiguous name that includes a muted or excluded person gets no promise", async () => {
     const sam2 = graph.createEntity({ kind: "person", name: "Sam Park" }).id;

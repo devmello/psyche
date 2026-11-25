@@ -39,6 +39,11 @@ export interface OpenPromise {
   what: string;
   /** `YYYY-MM-DD` or null. */
   due: string | null;
+  /**
+   * Whose words the stored `what` came from. Anything but `owner` is someone else's text, and a
+   * batch that lists it is tainted. Absent counts as not the owner's.
+   */
+  provenance?: "owner" | "agent" | "untrusted" | "system";
 }
 
 export interface LaneSnippet {

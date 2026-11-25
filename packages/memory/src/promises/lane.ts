@@ -345,22 +345,41 @@ const CITATION_SOURCE: Record<LaneSource, PromiseCitationInput["source"]> = {
   chat: "chats",
 };
 
-function openPromisesFor(store: PromiseStore, counterpartId: string | null): OpenPromise[] {
+/**
+ * The promises a batch may be shown. An owner batch lists only the owner's own (`i_owe`) and a
+ * counterpart batch only that counterpart's (`waiting_on`): each side is shown its own kind of
+ * text, so the other person's stored words never ride into the owner's prompt.
+ */
+function openPromisesFor(
+  store: PromiseStore,
+  counterpartId: string | null,
+  side: "owner" | "counterpart",
+): OpenPromise[] {
   if (counterpartId === null) return [];
-  return store
-    .list("all", { entityId: counterpartId, limit: 100 })
-    .filter((p) => ["suggested", "open", "snoozed", "broken"].includes(p.state))
-    .slice(-10)
-    .map((p) => ({
-      id: p.id,
-      promiser: p.direction === "i_owe" ? ("owner" as const) : ("counterpart" as const),
-      what: p.text,
-      due: p.dueAt === null || p.dueAt === undefined ? null : p.dueAt.slice(0, 10),
-    }));
+  return (
+    store
+      // "all", not "yours" or "theirs": those views leave out `suggested`, which is what the
+      // counterpart's own promises usually are.
+      .list("all", { entityId: counterpartId, limit: 100 })
+      .filter((p) => p.direction === (side === "owner" ? "i_owe" : "waiting_on"))
+      .filter((p) => ["suggested", "open", "snoozed", "broken"].includes(p.state))
+      .slice(-10)
+      .map((p) => ({
+        id: p.id,
+        promiser: p.direction === "i_owe" ? ("owner" as const) : ("counterpart" as const),
+        what: p.text,
+        due: p.dueAt === null || p.dueAt === undefined ? null : p.dueAt.slice(0, 10),
+        provenance: p.provenance,
+      }))
+  );
 }
 
-const groupKey = (s: LaneSnippet): string =>
-  s.counterpartId ?? (s.counterpartLabel === null ? "none" : `label:${s.counterpartLabel}`);
+/**
+ * Who a snippet's author is, for grouping and the flood cap. A sender with no entity shares one
+ * key whatever display name it uses: a name is the sender's to choose, so rotating names must not
+ * buy a fresh allowance.
+ */
+const groupKey = (s: LaneSnippet): string => s.counterpartId ?? "unresolved";
 
 /**
  * Batches within the call limits; a group's snippets may spread over two batches. The owner's
@@ -543,9 +562,15 @@ export async function extractSnippets(
     const groups: PromptGroup[] = keys.map((key) => {
       const members = batch.filter((s) => groupKey(s) === key);
       const cid = members[0]?.counterpartId ?? null;
-      const open =
-        cid === null ? [] : (deps.openPromises?.(cid) ?? openPromisesFor(deps.store, cid));
-      return { key, open, snippets: members };
+      const side = members[0]?.author === "owner" ? "owner" : "counterpart";
+      const want = side === "owner" ? "owner" : "counterpart";
+      const listed =
+        cid === null
+          ? []
+          : (deps.openPromises?.(cid) ?? openPromisesFor(deps.store, cid, side)).filter(
+              (o) => o.promiser === want,
+            );
+      return { key, open: listed, snippets: members };
     });
     const prompt = buildLanePrompt(groups, {
       ownerNames: deps.ownerNames,
@@ -586,7 +611,9 @@ export async function extractSnippets(
       checked.accepted,
       deps,
       report,
-      batch.some((x) => x.author !== "owner"),
+      // Tainted by someone else's snippet, or by any listed promise that is not the owner's words.
+      batch.some((x) => x.author !== "owner") ||
+        groups.some((g) => g.open.some((o) => o.provenance !== "owner")),
     );
   }
   return report;

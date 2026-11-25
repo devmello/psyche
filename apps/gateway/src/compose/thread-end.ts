@@ -1,6 +1,7 @@
-import { getThread, listAllMessages, type PsycheDb } from "@psyche/db";
+import { getThread, listMessagesPage, type PsycheDb } from "@psyche/db";
 import { type LaneItem, ownWords } from "@psyche/memory";
 import type { ThreadKind } from "@psyche/protocol";
+import type { ThreadEndingWhy } from "../context.ts";
 import type { Logger } from "../log.ts";
 
 /**
@@ -26,6 +27,9 @@ export function endSessionQuietly(
 }
 
 /** One of the owner's own typed turns in a finished conversation. */
+const MAX_CHAT_TURNS = 30;
+const MAX_SNAPSHOT_PAGES = 5;
+
 export interface EndedTurn {
   id: string;
   text: string;
@@ -46,11 +50,22 @@ export interface ChatSnapshot {
 export function snapshotThread(db: PsycheDb, threadId: string): ChatSnapshot | undefined {
   const thread = getThread(db, threadId);
   if (thread === undefined) return undefined;
+  // Newest first, page by page, until the last 30 of the owner's own turns are in hand.
   const turns: EndedTurn[] = [];
-  for (const m of listAllMessages(db, threadId)) {
-    if (m.role !== "user" || m.provenance !== "owner" || m.channelRef !== null) continue;
-    const text = m.blocks.map((b) => (b.type === "text" ? b.md : "")).join("\n");
-    turns.push({ id: m.id, text, at: m.createdAt });
+  let before: number | undefined;
+  for (let page = 0; page < MAX_SNAPSHOT_PAGES && turns.length < MAX_CHAT_TURNS; page++) {
+    const got = listMessagesPage(db, threadId, {
+      limit: 100,
+      ...(before === undefined ? {} : { beforeSeq: before }),
+    });
+    for (const m of [...got.messages].reverse()) {
+      if (m.role !== "user" || m.provenance !== "owner" || m.channelRef !== null) continue;
+      if (turns.length >= MAX_CHAT_TURNS) break;
+      const text = m.blocks.map((b) => (b.type === "text" ? b.md : "")).join("\n");
+      turns.unshift({ id: m.id, text, at: m.createdAt });
+    }
+    if (got.nextBeforeSeq === null) break;
+    before = got.nextBeforeSeq;
   }
   return { kind: thread.kind, turns };
 }
@@ -65,7 +80,6 @@ export interface PromiseChatDeps {
   log?: Logger;
 }
 
-const MAX_CHAT_TURNS = 30;
 /** A longer turn is most likely a pasted mail or document, not the owner's own words. */
 const MAX_CHAT_TURN_CHARS = 2_000;
 /** Snapshots held at once (a thread that never reports `ended` cannot grow this). */
@@ -99,13 +113,16 @@ export function ownChatText(text: string): string {
  * delete has already happened.
  */
 export function promiseChatOnThreadEnd(deps: PromiseChatDeps): {
-  ending: (threadId: string) => void;
+  ending: (threadId: string, why?: ThreadEndingWhy) => void;
   ended: (threadId: string) => void;
 } {
   const pending = new Map<string, ChatSnapshot>();
   return {
-    ending: (threadId) => {
+    ending: (threadId, why) => {
       try {
+        // The owner chose to remove this chat (delete, or Clear chat with "also forget"): it is
+        // not read for promises either.
+        if (why?.forget === true || why?.deleted === true) return;
         if (!deps.enabled()) return;
         const snap = deps.snapshot(threadId);
         if (snap === undefined || !READABLE_KINDS.has(snap.kind)) return;

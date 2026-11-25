@@ -37,6 +37,12 @@ import type { StateSeal } from "./security/state-seal.ts";
 import type { SessionController } from "./session/controller.ts";
 import type { UpdateGate } from "./update-gate.ts";
 
+/** Why a conversation is ending: the owner removed it (`deleted`), or asked to forget it too. */
+export interface ThreadEndingWhy {
+  forget?: boolean;
+  deleted?: boolean;
+}
+
 /**
  * Model policy for thread writes (architecture §4.4, security §7.2): which models may run a
  * thread in `auto`, and the model router's per-thread pin. The composition root supplies it.
@@ -332,7 +338,7 @@ export interface GatewayContext {
    * removes the messages, so a listener that needs the transcript (the promise lane reads the
    * owner's own turns) can take a snapshot. It must not await, and a failure never stops the clear.
    */
-  readonly threadEnding: Set<(threadId: string) => void>;
+  readonly threadEnding: Set<(threadId: string, why?: ThreadEndingWhy) => void>;
   /** Per-reader pass over messages that carry a life answer (`chat.history`, `chat.message`, exports). */
   readonly messageScrub: MessageScrub;
   serverOrigin(): string;
