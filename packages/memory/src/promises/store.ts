@@ -545,6 +545,18 @@ export class PromiseStore {
     };
   }
 
+  /**
+   * Another source says a promise already tracked (the model's explicit `same_as`, design 3.4
+   * rule 2): a citation and a `source_added` event instead of a row, and the more explicit due
+   * date. The caller has checked the promise belongs to the same counterpart and direction.
+   */
+  mention(id: string, input: PromiseInput): PromiseRow {
+    const loop = this.#must(id);
+    // A promise closed since the model saw it takes no new mention.
+    if (!["suggested", "open", "snoozed", "broken"].includes(loop.status)) return this.#row(loop);
+    return this.#mention(loop, input);
+  }
+
   /** `addLoop` found the exact promise already there (or filtered the text). */
   #exactOrRejected(input: PromiseInput, counterpart: string | null, text: string): AddResult {
     const key = sha256(
