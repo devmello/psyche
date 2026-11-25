@@ -1,3 +1,4 @@
+import Observation
 import PsycheBlocks
 import PsycheClient
 import PsycheDesign
@@ -128,6 +129,19 @@ private struct EmptyLine: View {
     }
 }
 
+/// "Load more" under a page that has older entries. An explicit tap, so a long Feed is never fetched by scrolling.
+@MainActor @ViewBuilder
+private func loadMoreButton(loading: Bool, _ action: @escaping () async -> Void) -> some View {
+    if loading {
+        ProgressView().frame(maxWidth: .infinity).padding(.vertical, 8)
+    } else {
+        Button(String(localized: "Load more", bundle: .module)) { Task { await action() } }
+            .proactiveAction()
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 8)
+    }
+}
+
 private struct ActionError: View {
     let message: String?
     var body: some View {
@@ -164,6 +178,7 @@ struct FeedView: View {
             } else {
                 ForEach(snapshot.cards) { card in cardView(card) }
             }
+            if snapshot.nextCursor != nil { loadMoreButton(loading: model.loadingOlder) { await model.loadOlder() } }
             if let next = snapshot.nextBriefAt {
                 Text("Next brief \(ProactiveText.when(next))", bundle: .module).font(.footnote).foregroundStyle(PsycheColor.muted)
             }
@@ -263,6 +278,7 @@ struct IdeasView: View {
                         }
                     }
                 }
+                if model.nextCursor != nil { loadMoreButton(loading: model.loadingOlder) { await model.loadOlder() } }
             }
             ActionError(message: model.actionError)
         }
@@ -808,23 +824,49 @@ struct ScheduledView: View {
 
 // MARK: Home sections
 
-/// Feed, Ideas and Goals on Home: the top few of each, with "See all" to the full page. Empty ones aren't drawn,
-/// and a section that fails to load is left out rather than breaking Home.
-struct ProactiveHomeSections: View {
-    @State private var feed: FeedModel
-    @State private var ideas: IdeasModel
-    @State private var goals: GoalsModel
-    @Environment(Router.self) private var router
+/// Feed, Ideas and Goals on Home's models, kept by Home so its pull to refresh can reload them with the rest.
+@MainActor @Observable
+final class ProactiveHomeModel {
+    let feed: FeedModel
+    let ideas: IdeasModel
+    let goals: GoalsModel
 
-    init(store: any PsycheBackend) {
-        _feed = State(initialValue: FeedModel(store: store))
-        _ideas = State(initialValue: IdeasModel(store: store))
-        _goals = State(initialValue: GoalsModel(store: store))
+    init(store: any PsycheBackend, reloadDelay: Duration = proactiveReloadDelay) {
+        feed = FeedModel(store: store, reloadDelay: reloadDelay)
+        ideas = IdeasModel(store: store, reloadDelay: reloadDelay)
+        goals = GoalsModel(store: store, reloadDelay: reloadDelay)
     }
+
+    func load() async {
+        async let a: Void = feed.load()
+        async let b: Void = ideas.load()
+        async let c: Void = goals.load()
+        _ = await (a, b, c)
+    }
+
+    /// Each section reloads on its change events and on a resync, until the view goes away.
+    func observe() async {
+        async let a: Void = feed.observe()
+        async let b: Void = ideas.observe()
+        async let c: Void = goals.observe()
+        _ = await (a, b, c)
+    }
+
+    /// Goals on Home are the ones still in play; done goals stay on the Goals page.
+    var homeGoals: [GoalItem] { (goals.phase.value ?? []).filter { $0.status != "done" } }
+}
+
+/// Feed, Ideas and Goals on Home: the top few of each, with "See all" to the full page. Empty ones aren't drawn,
+/// and a section that fails to load is left out rather than breaking Home. They reload on change events, on a
+/// resync, on Home's pull to refresh, and once the connection goes live after a cold launch.
+struct ProactiveHomeSections: View {
+    let model: ProactiveHomeModel
+    @Environment(Router.self) private var router
+    @Environment(Session.self) private var session
 
     var body: some View {
         VStack(alignment: .leading, spacing: PsycheMetrics.sectionSpacing) {
-            if let cards = feed.phase.value?.cards, !cards.isEmpty {
+            if let cards = model.feed.phase.value?.cards, !cards.isEmpty {
                 section(String(localized: "Feed", bundle: .module), count: cards.count, route: .feed) {
                     ForEach(Array(cards.prefix(3).enumerated()), id: \.element.id) { index, card in
                         if index > 0 { HairlineDivider() }
@@ -832,7 +874,7 @@ struct ProactiveHomeSections: View {
                     }
                 }
             }
-            if let items = ideas.phase.value, !items.isEmpty {
+            if let items = model.ideas.phase.value, !items.isEmpty {
                 section(String(localized: "Ideas", bundle: .module), count: items.count, route: .ideas) {
                     ForEach(Array(items.prefix(2).enumerated()), id: \.element.id) { index, idea in
                         if index > 0 { HairlineDivider() }
@@ -840,9 +882,10 @@ struct ProactiveHomeSections: View {
                     }
                 }
             }
-            if let items = goals.phase.value, !items.isEmpty {
-                section(String(localized: "Goals", bundle: .module), count: items.count, route: .goals) {
-                    ForEach(Array(items.prefix(3).enumerated()), id: \.element.id) { index, goal in
+            let goals = model.homeGoals
+            if !goals.isEmpty {
+                section(String(localized: "Goals", bundle: .module), count: goals.count, route: .goals) {
+                    ForEach(Array(goals.prefix(3).enumerated()), id: \.element.id) { index, goal in
                         if index > 0 { HairlineDivider() }
                         row(goal.title, detail: ProactiveText.goalStatus(goal.status))
                     }
@@ -850,10 +893,12 @@ struct ProactiveHomeSections: View {
             }
         }
         .task {
-            async let a: Void = feed.load()
-            async let b: Void = ideas.load()
-            async let c: Void = goals.load()
-            _ = await (a, b, c)
+            await model.load()
+            await model.observe()
+        }
+        // A cold launch can load these while still connecting; they fill in once the Gateway answers.
+        .onChange(of: session.state) { _, state in
+            if state == .live { Task { await model.load() } }
         }
     }
 
