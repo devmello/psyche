@@ -137,23 +137,14 @@ struct SpacesHomeSection: View {
     }
 
     private func spaceRow(_ space: SpaceItem) -> some View {
-        Button { router.homePath.append(.space(id: space.id)) } label: {
-            HStack(spacing: 12) {
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(space.name).font(.body).lineLimit(1)
-                    if !space.description.isEmpty {
-                        Text(space.description).font(.footnote).foregroundStyle(.secondary).lineLimit(2)
-                    }
+        NavigationLink { RouteView(route: .space(id: space.id)) } label: {
+            VStack(alignment: .leading, spacing: 3) {
+                Text(space.name).font(.body).lineLimit(1)
+                if !space.description.isEmpty {
+                    Text(space.description).font(.footnote).foregroundStyle(.secondary).lineLimit(2)
                 }
-                Spacer(minLength: 0)
-                Image(systemName: "chevron.right")
-                    .font(.footnote.weight(.semibold))
-                    .foregroundStyle(.tertiary)
-                    .accessibilityHidden(true)
             }
-            .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
     }
 }
 

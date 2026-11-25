@@ -87,14 +87,15 @@ final class HomeUITests: PsycheUITestCase {
     func testEveryMorePageOpens() {
         launch()
         continueAfterFailure = true
-        let more = app.buttons["home.more"].firstMatch
+        let more = app.descendants(matching: .any)["home.more"].firstMatch
+        scrollTo(more, maxSwipes: 12)
         waitFor(more)
         more.tap()
         for title in ["Inbox", "Scheduled", "Overview", "To-do", "Keep in touch", "Pinned", "Follow-ups", "Spaces", "Feed", "Ideas", "Goals"] {
             let row = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", title)).firstMatch
             tapWhenHittable(row)
             let bar = app.navigationBars[title]
-            XCTAssertTrue(bar.waitForExistence(timeout: 8), "\(title) page did not open")
+            XCTAssertTrue(bar.waitForExistence(timeout: 8), "\(title) page did not open; bars: \(app.navigationBars.allElementsBoundByIndex.map { $0.identifier }) texts: \(app.staticTexts.allElementsBoundByIndex.prefix(6).map { $0.label })")
             if bar.exists { bar.buttons.firstMatch.tap() }
             waitFor(app.navigationBars["More"], 5)
         }
@@ -119,7 +120,8 @@ final class HomeUITests: PsycheUITestCase {
 
     func testMoreRowOpensTheMorePage() {
         launch()
-        let more = app.buttons["home.more"].firstMatch
+        let more = app.descendants(matching: .any)["home.more"].firstMatch
+        scrollTo(more, maxSwipes: 12)
         waitFor(more)
         more.tap()
         waitFor(text("Keep in touch"))

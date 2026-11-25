@@ -61,17 +61,9 @@ struct HomeMorePage: View {
 
     /// A row that pushes a route on Home's stack, with the system chevron.
     private func routeRow(_ title: String, _ symbol: String, _ route: Route, badge: Int = 0) -> some View {
-        Button { router.homePath.append(route) } label: {
-            HStack {
-                row(title, symbol, count: badge)
-                Image(systemName: "chevron.right")
-                    .font(.footnote.weight(.semibold))
-                    .foregroundStyle(.tertiary)
-                    .accessibilityHidden(true)
-            }
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
+        // A destination link, not a path push: a route pushed on Home's path from this page replaces the pages
+        // pushed as destinations (Back would skip More), and a value link finds no destination from here.
+        NavigationLink { RouteView(route: route) } label: { row(title, symbol, count: badge) }
     }
 
     private func row(_ title: String, _ symbol: String, count: Int?) -> some View {
