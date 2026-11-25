@@ -1148,6 +1148,10 @@ export const settings = {
   "settings.computerUse.loadLabel": "computer use",
   "settings.computerUse.macPermissions": "macOS permissions",
   "settings.computerUse.openSystemSettings": "Open System Settings",
+  "settings.computerUse.fullDiskAccess.name": "Full Disk Access",
+  "settings.computerUse.fullDiskAccess.why":
+    "lets {persona} read your Messages. macOS has no prompt for it: add Psyche Helper to the list.",
+  "settings.computerUse.fullDiskAccess.open": "Open Full Disk Access in System Settings",
   "settings.computerUse.appsHint": "How far Psyche may go in each app.",
   "settings.computerUse.apps": "Apps",
   "settings.computerUse.enabledHint":
@@ -3055,6 +3059,12 @@ export const settings = {
   "settings.connect.notAskedYet":
     "{name} is set up, but macOS has not asked you yet. Check again shows the macOS prompt on the Mac.",
   "settings.connect.noPrompt": "macOS did not show a prompt: {reason}",
+  "settings.connect.path.automation":
+    "System Settings → Privacy & Security → Automation → Psyche (Helper) → {app}",
+  "settings.connect.path.privacy":
+    "System Settings → Privacy & Security → {pane} → Psyche (Helper)",
+  "settings.connect.path.shortcuts": "the Shortcuts app",
+  "settings.connect.path.files": "Settings → File access in Psyche",
   "settings.connect.checkAgain": "Check again",
   "settings.connectors.status.needsPermission": "Needs permission",
   "settings.connectors.catalog.connected": "{name} (connected)",

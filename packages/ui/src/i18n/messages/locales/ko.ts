@@ -205,6 +205,13 @@ export const ko: Partial<Catalogue> = {
   "errors.reason.app_not_running": "해당 앱이 열려 있지 않습니다. 앱을 연 다음 다시 시도하세요.",
   "errors.reason.needs_helper":
     "이 작업에는 Psyche Helper가 필요하지만 실행 중이 아닙니다. 설정 → 기기에서 재시작하세요.",
+  "errors.reason.apple_not_connected":
+    "Apple 앱이 아직 연결되지 않았습니다. 설정 → 커넥터에서 연결하세요.",
+  "errors.reason.no_folder_shared":
+    "공유된 폴더가 아직 없습니다. 설정 → 파일 접근에서 폴더를 공유하세요.",
+  "errors.reason.memory_opening": "메모리를 아직 여는 중입니다. 잠시 후 다시 시도하세요.",
+  "errors.reason.outlook_object_model_guard":
+    "Windows가 최신 바이러스 백신을 확인하지 못해 Outlook이 다른 프로그램의 메일 읽기와 보내기를 막고 있습니다. Windows 보안을 켜거나 Outlook → 파일 → 옵션 → 보안 센터에서 ‘프로그래밍 방식 액세스’를 ‘경고 안 함’으로 설정한 다음 다시 시도하세요.",
   "errors.reason.no_chromium":
     "Psyche 브라우저에는 이 호스트의 Chromium이 필요합니다. 설치하거나 PSYCHE_CHROMIUM을 설정하세요.",
   "errors.reason.chromium_sandbox":
@@ -1821,6 +1828,10 @@ export const ko: Partial<Catalogue> = {
   "settings.computerUse.loadLabel": "컴퓨터 사용",
   "settings.computerUse.macPermissions": "macOS 권한",
   "settings.computerUse.openSystemSettings": "시스템 설정 열기",
+  "settings.computerUse.fullDiskAccess.name": "전체 디스크 접근 권한",
+  "settings.computerUse.fullDiskAccess.why":
+    "{persona}이(가) 메시지를 읽을 수 있게 합니다. macOS는 이에 대해 허용 창을 띄우지 않습니다. 목록에 Psyche Helper를 추가하세요.",
+  "settings.computerUse.fullDiskAccess.open": "시스템 설정에서 전체 디스크 접근 권한 열기",
   "settings.computerUse.apps": "앱",
   "settings.computerUse.enabledHint":
     "끄면 아래의 모든 앱이 중지됩니다. 각 앱은 처음 사용할 때 묻습니다.",
@@ -2780,6 +2791,11 @@ export const ko: Partial<Catalogue> = {
   "settings.connect.notAskedYet":
     "{name}이(가) 설정되었지만 macOS가 아직 묻지 않았습니다. 다시 확인을 누르면 Mac에 macOS 확인 창이 표시됩니다.",
   "settings.connect.noPrompt": "macOS가 확인 창을 표시하지 않았습니다: {reason}",
+  "settings.connect.path.automation":
+    "시스템 설정 → 개인정보 보호 및 보안 → 자동화 → Psyche (Helper) → {app}",
+  "settings.connect.path.privacy": "시스템 설정 → 개인정보 보호 및 보안 → {pane} → Psyche (Helper)",
+  "settings.connect.path.shortcuts": "단축어 앱",
+  "settings.connect.path.files": "설정 → Psyche의 파일 접근",
   "settings.connect.checkAgain": "다시 확인",
   "settings.connectors.status.needsPermission": "권한 필요",
   "settings.connectors.catalog.connected": "{name} (연결됨)",

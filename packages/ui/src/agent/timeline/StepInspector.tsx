@@ -8,6 +8,7 @@ import { Button } from "../../components/ui/button.tsx";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs.tsx";
 import { useRunStep } from "../../data/runs.ts";
 import { t } from "../../i18n/core.ts";
+import { stepErrorText } from "../../i18n/errors.ts";
 import type { MessageId } from "../../i18n/index.ts";
 import { formatTime } from "../../lib/format.ts";
 import { tokens as formatTokens, usd } from "../../screens/settings/UsageSection.tsx";
@@ -219,7 +220,7 @@ export function StepInspector({
                   <span className="text-danger-text">
                     {t("agent.timeline.error", {
                       code: step.error.code,
-                      message: step.error.message,
+                      message: stepErrorText(step.error),
                     })}
                   </span>
                 </Field>
@@ -318,7 +319,7 @@ export function StepInspector({
             {step.error ? (
               <p className="rounded-md bg-danger-surface px-3 py-2 text-body">
                 <span className="font-mono text-danger-text">{step.error.code}</span>
-                {` · ${step.error.message}`}
+                {` · ${stepErrorText(step.error)}`}
               </p>
             ) : null}
             {loading && detail === null ? (
@@ -382,7 +383,7 @@ export function StepInspector({
                           <span className="text-label-secondary">
                             {t("agent.timeline.error", {
                               code: a.error.code,
-                              message: a.error.message,
+                              message: stepErrorText(a.error),
                             })}
                           </span>
                         ) : null}

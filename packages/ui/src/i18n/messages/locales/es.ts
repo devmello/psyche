@@ -167,6 +167,14 @@ export const es: Partial<Catalogue> = {
   "errors.reason.app_not_running": "Esa app no está abierta. Ábrela e inténtalo de nuevo.",
   "errors.reason.needs_helper":
     "Esto necesita Psyche Helper, que no se está ejecutando. Reinícialo en Ajustes → Dispositivos.",
+  "errors.reason.apple_not_connected":
+    "Las apps de Apple aún no están conectadas. Conéctalas en Ajustes → Conectores.",
+  "errors.reason.no_folder_shared":
+    "Aún no se comparte ninguna carpeta. Comparte una en Ajustes → Acceso a archivos.",
+  "errors.reason.memory_opening":
+    "La memoria aún se está abriendo. Inténtalo de nuevo en un momento.",
+  "errors.reason.outlook_object_model_guard":
+    "Outlook impide que otros programas lean el correo o envíen, porque Windows no detecta un antivirus actualizado. Activa Seguridad de Windows o establece «Acceso mediante programación» en «Nunca advertir» en Outlook → Archivo → Opciones → Centro de confianza, e inténtalo de nuevo.",
   "errors.reason.no_chromium":
     "El navegador de Psyche necesita Chromium en este host. Instálalo o define PSYCHE_CHROMIUM.",
   "errors.reason.chromium_sandbox":
@@ -1851,6 +1859,10 @@ export const es: Partial<Catalogue> = {
   "settings.computerUse.loadLabel": "el uso del ordenador",
   "settings.computerUse.macPermissions": "Permisos de macOS",
   "settings.computerUse.openSystemSettings": "Abrir Ajustes del Sistema",
+  "settings.computerUse.fullDiskAccess.name": "Acceso total al disco",
+  "settings.computerUse.fullDiskAccess.why":
+    "permite que {persona} lea tus mensajes. macOS no lo pide con un aviso: añade Psyche Helper a la lista.",
+  "settings.computerUse.fullDiskAccess.open": "Abrir Acceso total al disco en Ajustes del Sistema",
   "settings.computerUse.apps": "Apps",
   "settings.computerUse.enabledHint":
     "Desactivado detiene todas las apps de abajo. Cada app se consulta la primera vez que se usa.",
@@ -2862,6 +2874,12 @@ export const es: Partial<Catalogue> = {
   "settings.connect.notAskedYet":
     "{name} está configurado, pero macOS aún no te lo ha pedido. Volver a comprobar muestra el aviso de macOS en el Mac.",
   "settings.connect.noPrompt": "macOS no mostró ningún aviso: {reason}",
+  "settings.connect.path.automation":
+    "Ajustes del Sistema → Privacidad y seguridad → Automatización → Psyche (Helper) → {app}",
+  "settings.connect.path.privacy":
+    "Ajustes del Sistema → Privacidad y seguridad → {pane} → Psyche (Helper)",
+  "settings.connect.path.shortcuts": "la app Atajos",
+  "settings.connect.path.files": "Ajustes → Acceso a archivos en Psyche",
   "settings.connect.checkAgain": "Volver a comprobar",
   "settings.connectors.status.needsPermission": "Necesita permiso",
   "settings.connectors.catalog.connected": "{name} (conectado)",

@@ -135,7 +135,7 @@ import {
   workflowGroupOf,
 } from "./evidence.ts";
 import { type HookMap, HookRegistry } from "./hooks.ts";
-import { missingHint, missingOf } from "./missing-permission.ts";
+import { missingHint, missingOf, reasonOf } from "./missing-permission.ts";
 import {
   type AgentPlugin,
   AgentPluginRegistry,
@@ -3904,6 +3904,8 @@ export class PsycheAgentLoop implements AgentLoop {
       result = {
         output: {
           error: errorMessage(err),
+          // A helper or connector refusal's machine reason, so the trace can say it in words.
+          ...(reasonOf(err) === undefined ? {} : { reason: reasonOf(err) }),
           ...(missing === undefined ? {} : { missing, hint: missingHint(missing) }),
         },
         isError: true,

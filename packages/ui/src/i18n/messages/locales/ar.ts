@@ -239,6 +239,13 @@ export const ar: Partial<Catalogue> = {
   "errors.reason.app_not_running": "هذا التطبيق غير مفتوح. افتحه ثم حاول مجددًا.",
   "errors.reason.needs_helper":
     "يحتاج هذا إلى Psyche Helper، وهو لا يعمل الآن. أعد تشغيله من الإعدادات ← الأجهزة.",
+  "errors.reason.apple_not_connected":
+    "تطبيقات Apple غير متصلة بعد. اربطها من الإعدادات ← الموصّلات.",
+  "errors.reason.no_folder_shared":
+    "لم تتم مشاركة أي مجلد بعد. شارك مجلدًا من الإعدادات ← الوصول إلى الملفات.",
+  "errors.reason.memory_opening": "الذاكرة قيد الفتح. حاول مجددًا بعد لحظة.",
+  "errors.reason.outlook_object_model_guard":
+    "يمنع Outlook البرامج الأخرى من قراءة البريد أو إرساله لأن Windows لا يبلّغ عن برنامج مكافحة فيروسات محدَّث. فعّل أمان Windows، أو اضبط «الوصول البرمجي» على «عدم التحذير أبدًا» في Outlook ← ملف ← خيارات ← مركز التوثيق، ثم حاول مجددًا.",
   "errors.reason.no_chromium":
     "يحتاج متصفح Psyche إلى Chromium على هذا المضيف. ثبّته أو اضبط PSYCHE_CHROMIUM.",
   "errors.reason.chromium_sandbox":
@@ -1876,6 +1883,10 @@ export const ar: Partial<Catalogue> = {
   "settings.computerUse.loadLabel": "استخدام الكمبيوتر",
   "settings.computerUse.macPermissions": "أذونات macOS",
   "settings.computerUse.openSystemSettings": "فتح إعدادات النظام",
+  "settings.computerUse.fullDiskAccess.name": "الوصول الكامل إلى القرص",
+  "settings.computerUse.fullDiskAccess.why":
+    "يتيح لـ {persona} قراءة رسائلك. لا يعرض macOS طلب إذن له: أضف Psyche Helper إلى القائمة.",
+  "settings.computerUse.fullDiskAccess.open": "فتح «الوصول الكامل إلى القرص» في إعدادات النظام",
   "settings.computerUse.apps": "التطبيقات",
   "settings.computerUse.enabledHint":
     "الإيقاف يوقف كل التطبيقات أدناه. يُسأل عن كل تطبيق عند أول استخدام.",
@@ -2849,6 +2860,11 @@ export const ar: Partial<Catalogue> = {
   "settings.connect.notAskedYet":
     "{name} مُعَدّ، لكن macOS لم يسألك بعد. «فحص مرة أخرى» يعرض مطالبة macOS على الـ Mac.",
   "settings.connect.noPrompt": "لم يعرض macOS مطالبة: {reason}",
+  "settings.connect.path.automation":
+    "إعدادات النظام ← الخصوصية والأمن ← الأتمتة ← Psyche (Helper) ← {app}",
+  "settings.connect.path.privacy": "إعدادات النظام ← الخصوصية والأمن ← {pane} ← Psyche (Helper)",
+  "settings.connect.path.shortcuts": "تطبيق الاختصارات",
+  "settings.connect.path.files": "الإعدادات ← الوصول إلى الملفات في Psyche",
   "settings.connect.checkAgain": "فحص مرة أخرى",
   "settings.connectors.status.needsPermission": "يحتاج إلى إذن",
   "settings.connectors.catalog.connected": "{name} (متصل)",

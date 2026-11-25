@@ -1849,6 +1849,8 @@ function registerIpc(): void {
   handle(IPC.permissionsRequest, (_event, arg) => {
     if (integrityBlocked) throw new Error(integrityMessage);
     const kind = str(IPC.permissionsRequest, rec(IPC.permissionsRequest, arg).kind, "kind", 32);
+    // Not a permission macOS can ask for or report: only its System Settings pane is opened.
+    if (kind === "fullDiskAccess") return permissions.openFullDiskAccess();
     if (!(PERMISSION_KINDS as readonly string[]).includes(kind)) {
       throw new Error(`${IPC.permissionsRequest}: unknown permission ${kind}`);
     }

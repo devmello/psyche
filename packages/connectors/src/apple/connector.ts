@@ -1696,16 +1696,21 @@ const OUTLOOK_GUARD_MESSAGE =
 const isOutlookGuard = (e: { details?: Record<string, unknown> } | undefined) =>
   e?.details?.reason === "outlook_object_model_guard";
 
+const REASON_CODE = /^[a-z][a-z0-9_]{0,63}$/;
+
 /** What `config.permission` holds while the grant is missing (the UI's "Needs permission"). */
 export function applePermission(
   app: AppleApp,
   state: string,
-  extra: { requested?: boolean; reason?: string } = {},
+  extra: { requested?: boolean; reason?: string; reasonCode?: string } = {},
   platform: AppleHostPlatform = "macos",
 ): Record<string, string | boolean> {
   const p = permissionOf(app, platform);
   return {
     kind: p.kind,
+    // The app, so viewers word the System Settings path in the owner's language (`settingsPath`
+    // is the English fallback).
+    app,
     ...(p.target === undefined ? {} : { target: p.target }),
     state,
     settingsPath: p.path,
@@ -1716,6 +1721,10 @@ export function applePermission(
     // #570: Psyche asked macOS this time, and what the helper said when no grant came of it.
     ...(extra.requested === true ? { requested: true } : {}),
     ...(extra.reason ? { reason: extra.reason.slice(0, 300) } : {}),
+    // The machine reason behind `reason`, which viewers say in the owner's language.
+    ...(extra.reasonCode && REASON_CODE.test(extra.reasonCode)
+      ? { reasonCode: extra.reasonCode }
+      : {}),
   };
 }
 
@@ -2019,7 +2028,10 @@ class AppleConnector implements Connector {
       permission,
       permissionAction: null,
     });
-    const waiting = (state: string, extra: { requested?: boolean; reason?: string } = {}) => {
+    const waiting = (
+      state: string,
+      extra: { requested?: boolean; reason?: string; reasonCode?: string } = {},
+    ) => {
       this.#waiting = true;
       return {
         ...base,
@@ -2056,6 +2068,7 @@ class AppleConnector implements Connector {
     // permissions.request; Automation through the probe, whose first Apple Event asks.
     let requested = false;
     let reason: string | undefined;
+    let reasonCode: string | undefined;
     if (
       before !== "granted" &&
       p.kind !== "automation" &&
@@ -2068,9 +2081,14 @@ class AppleConnector implements Connector {
         { timeoutMs: 180_000 },
       );
       const status = (r.result as { status?: unknown } | undefined)?.status;
-      if (!r.ok) reason = r.error?.message;
-      else if (typeof status === "string" && status !== "granted")
+      if (!r.ok) {
+        reason = r.error?.message;
+        const code = r.error?.details?.reason;
+        reasonCode = typeof code === "string" ? code : undefined;
+      } else if (typeof status === "string" && status !== "granted") {
         reason = `macOS answered "${status}"`;
+        reasonCode = "prompt_refused_by_macos";
+      }
     }
     // The probe verifies (and for Automation is the request): the helper waits while a prompt
     // is up, so allow the owner some time.
@@ -2087,7 +2105,10 @@ class AppleConnector implements Connector {
     // Outlook's object model guard is no grant the owner gives Psyche: it is lifted in Windows
     // Security or Outlook's Trust Center, not in an Automation list.
     if (windows && isOutlookGuard(res.error)) {
-      return waiting("denied", { reason: OUTLOOK_GUARD_MESSAGE });
+      return waiting("denied", {
+        reason: OUTLOOK_GUARD_MESSAGE,
+        reasonCode: "outlook_object_model_guard",
+      });
     }
     if (!isPermissionError(res.error)) {
       throw new PsycheError(
@@ -2098,6 +2119,10 @@ class AppleConnector implements Connector {
     }
     if (p.kind === "automation" && before !== "granted") requested = true;
     reason ??= res.error?.message;
+    if (reasonCode === undefined) {
+      const code = res.error?.details?.reason;
+      reasonCode = typeof code === "string" ? code : undefined;
+    }
     const after = await this.#grant(h).catch(() => "unknown");
     const helperReason = String(res.error?.details?.reason ?? "");
     const state =
@@ -2107,7 +2132,11 @@ class AppleConnector implements Connector {
           ? "notDetermined"
           : "denied";
     if (state === "denied") await openSettings();
-    return waiting(state, { requested, ...(reason === undefined ? {} : { reason }) });
+    return waiting(state, {
+      requested,
+      ...(reason === undefined ? {} : { reason }),
+      ...(reasonCode === undefined ? {} : { reasonCode }),
+    });
   }
 
   /** The grant's state without prompting: `granted`, `denied`, `notDetermined` or `unknown`. */

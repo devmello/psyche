@@ -205,6 +205,14 @@ export const ja: Partial<Catalogue> = {
     "そのアプリが開いていません。開いてから、もう一度お試しください。",
   "errors.reason.needs_helper":
     "これには Psyche Helper が必要ですが、実行されていません。設定 → デバイスで再起動してください。",
+  "errors.reason.apple_not_connected":
+    "Apple のアプリはまだ接続されていません。設定 → コネクタで接続してください。",
+  "errors.reason.no_folder_shared":
+    "共有しているフォルダがまだありません。設定 → ファイルアクセスで共有してください。",
+  "errors.reason.memory_opening":
+    "メモリはまだ開いているところです。少し待ってからもう一度お試しください。",
+  "errors.reason.outlook_object_model_guard":
+    "Windows が最新のウイルス対策ソフトを検出していないため、Outlook は他のプログラムによるメールの読み取りと送信をブロックしています。Windows セキュリティをオンにするか、Outlook → ファイル → オプション → トラストセンターで「プログラムによるアクセス」を「警告を表示しない」に設定してから、もう一度お試しください。",
   "errors.reason.no_chromium":
     "Psyche のブラウザにはこのホストの Chromium が必要です。インストールするか、PSYCHE_CHROMIUM を設定してください。",
   "errors.reason.chromium_sandbox":
@@ -1823,6 +1831,10 @@ export const ja: Partial<Catalogue> = {
   "settings.computerUse.loadLabel": "コンピュータ操作",
   "settings.computerUse.macPermissions": "macOSの権限",
   "settings.computerUse.openSystemSettings": "システム設定を開く",
+  "settings.computerUse.fullDiskAccess.name": "フルディスクアクセス",
+  "settings.computerUse.fullDiskAccess.why":
+    "{persona} があなたのメッセージを読めるようにします。macOS はこれについて確認を出しません。リストに Psyche Helper を追加してください。",
+  "settings.computerUse.fullDiskAccess.open": "システム設定でフルディスクアクセスを開く",
   "settings.computerUse.apps": "アプリ",
   "settings.computerUse.enabledHint":
     "オフにすると下のすべてのアプリが停止します。各アプリは初回使用時に確認されます。",
@@ -2801,6 +2813,12 @@ export const ja: Partial<Catalogue> = {
   "settings.connect.notAskedYet":
     "{name}は設定されていますが、macOSはまだ確認を求めていません。「再確認」を押すと、Mac上にmacOSの確認が表示されます。",
   "settings.connect.noPrompt": "macOSが確認を表示しませんでした：{reason}",
+  "settings.connect.path.automation":
+    "システム設定 → プライバシーとセキュリティ → オートメーション → Psyche (Helper) → {app}",
+  "settings.connect.path.privacy":
+    "システム設定 → プライバシーとセキュリティ → {pane} → Psyche (Helper)",
+  "settings.connect.path.shortcuts": "ショートカット App",
+  "settings.connect.path.files": "設定 → Psyche のファイルアクセス",
   "settings.connect.checkAgain": "再確認",
   "settings.connectors.status.needsPermission": "許可が必要",
   "settings.connectors.catalog.connected": "{name}（接続済み）",

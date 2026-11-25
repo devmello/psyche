@@ -128,6 +128,13 @@ export function ComputerUseSettings({ platform }: { platform: ShellPlatform }): 
       helperOffline={helperPort ? helper.offline : false}
       helperNotices={helperPort && helper.state ? helperNoticesOf(helper.state) : {}}
       {...(helperPort && launch ? { onRestartHelper: restartHelper } : {})}
+      {...(platform.permissions?.openFullDiskAccess
+        ? {
+            onOpenFullDiskAccess: () => {
+              void platform.permissions?.openFullDiskAccess?.().catch(() => undefined);
+            },
+          }
+        : {})}
       {...(platform.permissions
         ? {
             onOpenSystemSettings: (p: TccPermission) => {
