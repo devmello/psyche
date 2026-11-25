@@ -3,6 +3,7 @@ import { asRecord } from "../../src/night-shift/adapters/common.ts";
 import {
   checkSendRecipe,
   draftContentHash,
+  hasHiddenContent,
   mailAdapter,
 } from "../../src/night-shift/adapters/mail.ts";
 import type { CaptureOk, MailDraftInfo, StagedCall } from "../../src/night-shift/adapters/types.ts";
@@ -179,7 +180,13 @@ describe("send recipe", () => {
     if (d) r.drafts.set("d-1", d);
     return r;
   }
-  const input = { draftId: "d-1", expectedHash: hash, threadId: "t-1", expectedRecipients };
+  const input = {
+    draftId: "d-1",
+    expectedHash: hash,
+    threadId: "t-1",
+    expectedRecipients,
+    stagedBody: "ok",
+  };
 
   it("sends an unchanged draft and lists the recipients", async () => {
     expect(await checkSendRecipe(reg(draft), input)).toEqual({
@@ -243,7 +250,18 @@ describe("send recipe", () => {
   it("refuses a read-back draft with hidden characters", async () => {
     const hidden = { ...draft, body: "ok\u200b" };
     expect(
-      await checkSendRecipe(reg(hidden), { ...input, expectedHash: draftContentHash(hidden) }),
+      await checkSendRecipe(reg(hidden), {
+        ...input,
+        stagedBody: hidden.body,
+        expectedHash: draftContentHash(hidden),
+      }),
+    ).toEqual({ ok: false, reason: "hidden_content" });
+    const hiddenSubject = { ...draft, subject: "Re: a\u034fb" };
+    expect(
+      await checkSendRecipe(reg(hiddenSubject), {
+        ...input,
+        expectedHash: draftContentHash(hiddenSubject),
+      }),
     ).toEqual({ ok: false, reason: "hidden_content" });
   });
 });
@@ -355,4 +373,141 @@ describe("sendable fields are never shortened", () => {
       false,
     );
   });
+});
+
+describe("hidden content (interleaved invisibles)", () => {
+  const letters = [..."hello"];
+  const HIDDEN_ROWS: Array<[string, string]> = [
+    ["a variation selector after each letter", letters.map((c) => `${c}\uFE0F`).join("")],
+    ["a variation selector after one letter", "a\uFE0Fb"],
+    ["VS-supplement U+E0100 after each letter", letters.map((c) => `${c}\u{E0100}`).join("")],
+    ["combining grapheme joiner", "pa\u034fy"],
+    ["Hangul filler", "pay\u3164now"],
+    ["Hangul choseong filler", "pay\u115fnow"],
+    ["zero width non-joiner between letters", "a\u200cb"],
+    ["zero width joiner after a letter", "a\u200db"],
+    ["left-to-right mark", "a\u200eb"],
+    ["byte order mark inside text", "a\ufeffb"],
+    ["a joiner at the start of the text", "\u200d\u{1F44D}"],
+    ["two joiners in a row after an emoji", "\u{1F468}\u200d\u200d\u{1F469}"],
+  ];
+  const OK_ROWS: Array<[string, string]> = [
+    ["plain text", "Sounds good, see you at 3pm."],
+    ["emoji with VS16", "\u{1F44D}\uFE0F ok"],
+    ["a family ZWJ sequence", "\u{1F468}\u200d\u{1F469}\u200d\u{1F467} see you"],
+    ["accented and CJK text", "caf\u00e9 \u4f60\u597d"],
+    ["line breaks", "line one\nline two"],
+  ];
+
+  it.each(HIDDEN_ROWS)("refuses %s", (_n, text) => {
+    expect(hasHiddenContent(text)).toBe(true);
+  });
+  it.each(OK_ROWS)("allows %s (positive control)", (_n, text) => {
+    expect(hasHiddenContent(text)).toBe(false);
+  });
+
+  it("capture refuses them in subject and body, and accepts the emoji rows", async () => {
+    const { adapter } = setup();
+    for (const [, text] of HIDDEN_ROWS) {
+      expect(await adapter.capture(reply({ body: text }))).toEqual({
+        ok: false,
+        reason: "hidden_content",
+      });
+      expect(await adapter.capture(reply({ subject: `Re: ${text}` }))).toEqual({
+        ok: false,
+        reason: "hidden_content",
+      });
+    }
+    for (const [, text] of OK_ROWS) {
+      expect((await adapter.capture(reply({ body: text }))).ok).toBe(true);
+    }
+  });
+
+  it("at send, a quoted original with a ZWNJ is allowed; the owner's own text is not", async () => {
+    const r = new FakeRegistry();
+    r.threads.set("t-1", thread());
+    const quoted: MailDraftInfo = {
+      to: ["ann@x.com"],
+      cc: [],
+      bcc: [],
+      subject: "Re: plan",
+      body: "ok\n\n> On Monday Ann wrote:\n> caf\u200ce",
+      inReplyTo: "<m-9@x>",
+      attachments: [],
+    };
+    r.drafts.set("d-1", quoted);
+    const base = {
+      draftId: "d-1",
+      expectedHash: draftContentHash(quoted),
+      threadId: "t-1",
+      expectedRecipients: ["ann@x.com"],
+    };
+    expect(await checkSendRecipe(r, { ...base, stagedBody: "ok" })).toEqual({
+      ok: true,
+      recipients: ["ann@x.com"],
+    });
+    expect(await checkSendRecipe(r, { ...base, stagedBody: "ok\u200c" })).toEqual({
+      ok: false,
+      reason: "hidden_content",
+    });
+  });
+});
+
+// R2-1: every adapter judges the bare tool name, whatever the connector prefix.
+describe("connector-prefixed names are judged like bare ones (mail)", () => {
+  const PREFIXES = ["", "mcp__apple__", "mcp__google__"];
+  it.each(PREFIXES)("prefix %j: reply-all resolves recipients through the registry", async (p) => {
+    const reg = new FakeRegistry();
+    reg.threads.set("t-1", thread());
+    reg.threads.set("t-m-9", thread({ threadId: "t-m-9" }));
+    reg.replyTo.set("m-9", ["eve@evil.com"]); // Reply-To hijack
+    let asked = 0;
+    const inner = reg.mailReplyRecipients.bind(reg);
+    reg.mailReplyRecipients = async (ref) => {
+      asked++;
+      return inner(ref);
+    };
+    const a = mailAdapter(reg);
+    const hijacked = await a.capture({
+      tool: `${p}mail_reply_draft`,
+      args: { id: "m-9", body: "ok", replyAll: true },
+    });
+    expect(hijacked).toEqual({ ok: false, reason: "recipient_added" });
+    expect(asked).toBe(1);
+    reg.replyTo.set("m-9", ["ann@x.com"]);
+    expect(
+      (await a.capture({ tool: `${p}mail_reply_draft`, args: { id: "m-9", body: "ok" } })).ok,
+    ).toBe(true);
+  });
+
+  it.each(PREFIXES)(
+    "prefix %j: forwards, added recipients and hidden text are refused",
+    async (p) => {
+      const { adapter } = setup();
+      const rows: Array<[StagedCall, string]> = [
+        [
+          { tool: `${p}mail_forward_draft`, args: { id: "m-9", to: ["ann@x.com"] } },
+          "forward_refused",
+        ],
+        [
+          { tool: `${p}gmail_create_draft`, args: { ...reply().args, to: ["eve@evil.com"] } },
+          "recipient_added",
+        ],
+        [
+          { tool: `${p}gmail_create_draft`, args: { ...reply().args, body: "a\u034fb" } },
+          "hidden_content",
+        ],
+        [
+          { tool: `${p}mail_draft`, args: { to: ["ann@x.com"], subject: "s", body: "b" } },
+          "no_thread",
+        ],
+      ];
+      for (const [call, reason] of rows) {
+        expect(await adapter.capture(call)).toEqual({ ok: false, reason });
+      }
+      expect(
+        (await adapter.capture({ tool: `${p}gmail_create_draft`, args: reply().args })).ok,
+      ).toBe(true);
+    },
+  );
 });

@@ -9,7 +9,7 @@ import {
 } from "node:fs";
 import { homedir } from "node:os";
 import { basename, dirname, isAbsolute, join, sep } from "node:path";
-import { asRecord, preview, str } from "./common.ts";
+import { asRecord, bareTool, preview, str, toolPrefix } from "./common.ts";
 import type {
   Adapter,
   CaptureContext,
@@ -272,7 +272,7 @@ interface Op {
 
 function parseOp(call: StagedCall, deps: FilesDeps): Op | Refusal {
   const a = call.args;
-  if (call.tool === "files_rename") {
+  if (bareTool(call) === "files_rename") {
     const path = expandHome(a.path, deps);
     const name = str(a.name);
     const bad = badPath(path);
@@ -295,9 +295,9 @@ function parseOp(call: StagedCall, deps: FilesDeps): Op | Refusal {
 
 /** Split a multi-item `files_move` into one call per file, which is what `capture` accepts. */
 export function splitFilesCall(call: StagedCall): StagedCall[] {
-  if (call.tool !== "files_move" || !Array.isArray(call.args.items)) return [call];
+  if (bareTool(call) !== "files_move" || !Array.isArray(call.args.items)) return [call];
   return (call.args.items as unknown[]).map((it) => ({
-    tool: "files_move",
+    tool: call.tool,
     args: { items: [it] },
   }));
 }
@@ -336,8 +336,11 @@ function pre(c: CaptureOk): FilePre | undefined {
   return p as unknown as FilePre;
 }
 
-function moveCall(sourcePath: string, to: string, name: string): StagedCall {
-  return { tool: "files_move", args: { items: [{ path: sourcePath, to, name }] } };
+function moveCall(tool: string, sourcePath: string, to: string, name: string): StagedCall {
+  return {
+    tool: `${toolPrefix(tool)}files_move`,
+    args: { items: [{ path: sourcePath, to, name }] },
+  };
 }
 
 export function filesAdapter(deps: FilesDeps): Adapter {
@@ -362,10 +365,10 @@ export function filesAdapter(deps: FilesDeps): Adapter {
     }
     if (sourceReal !== undefined) {
       for (const p of ctx?.pending ?? []) {
-        if (!TOOLS.includes(p.call.tool as (typeof TOOLS)[number])) continue;
+        if (!TOOLS.includes(bareTool(p.call) as (typeof TOOLS)[number])) continue;
         const e = pre(p.capture);
         if (!e || foldName(e.destPath) !== foldName(sourceReal)) continue;
-        return fold(e, p.capture, parent, name, destPath);
+        return fold(e, p.capture, parent, name, destPath, p.call.tool);
       }
     }
 
@@ -408,6 +411,7 @@ export function filesAdapter(deps: FilesDeps): Adapter {
     parent: DestParent,
     name: string,
     destPath: string,
+    tool: string,
   ): CaptureResult {
     const bad = inRw(parent.real, deps) ?? hiddenRefusal(earlier.sourceReal, parent.real, deps);
     if (bad) return { ok: false, reason: bad.reason };
@@ -429,7 +433,7 @@ export function filesAdapter(deps: FilesDeps): Adapter {
       ok: true,
       target: earlierCap.target,
       folds: [earlierCap.target],
-      call: moveCall(earlier.sourcePath, parent.real, name),
+      call: moveCall(tool, earlier.sourcePath, parent.real, name),
       precondition: merged as unknown as Json,
       before: earlierCap.before,
     };
@@ -473,18 +477,18 @@ export function filesAdapter(deps: FilesDeps): Adapter {
 
     preview(call, capture) {
       const p = pre(capture);
-      const rename = call.tool === "files_rename";
+      const rename = bareTool(call) === "files_rename";
       return preview("file", rename ? "Rename a file" : "Move a file", [
         ["From", p?.sourceReal ?? "?"],
         ["To", p?.destPath ?? "?"],
       ]);
     },
 
-    inverse(_call, capture): InverseCall | undefined {
+    inverse(call, capture): InverseCall | undefined {
       const p = pre(capture);
       if (!p) return undefined;
       return {
-        tool: "files_move",
+        tool: `${toolPrefix(call.tool)}files_move`,
         args: {
           items: [{ path: p.destPath, to: dirname(p.sourceReal), name: basename(p.sourceReal) }],
         },

@@ -6,7 +6,12 @@ import { event, FakeRegistry } from "./adapters-registry.ts";
 function setup() {
   const reg = new FakeRegistry();
   reg.events.set("e-1", event());
-  return { reg, adapter: calendarAdapter(reg) };
+  const flavors: Record<string, "apple" | "google" | "microsoft"> = {
+    apple: "apple",
+    google: "google",
+    microsoft: "microsoft",
+  };
+  return { reg, adapter: calendarAdapter(reg, { flavorOf: (id) => flavors[id] }) };
 }
 
 // Apple-shaped (flat) calls, as bare tool names.

@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { canonicalAddress } from "@psyche/connectors";
-import { asRecord, preview, type RowInput, stable, str, strList } from "./common.ts";
+import { asRecord, bareTool, preview, type RowInput, stable, str, strList } from "./common.ts";
 import type {
   Adapter,
   CaptureResult,
@@ -56,14 +56,18 @@ function strictList(v: unknown): string[] | undefined {
 }
 
 /**
- * Hidden or invisible characters in text a recipient will read: format characters (`\p{Cf}`: zero
- * width joiners, bidi controls), tag characters, ZWSP, word joiner, soft hyphen, Arabic letter
- * mark, and runs of variation selectors (a single VS16 is an ordinary emoji).
+ * Hidden or invisible characters in text a recipient will read. Anything that is a
+ * `Default_Ignorable_Code_Point` (zero width and joiner characters, soft hyphen, variation
+ * selectors, tag characters, the combining grapheme joiner, the Hangul filler, bidi controls) or a
+ * format character (`\p{Cf}`) is refused, wherever it sits. The one exception is what emoji need:
+ * a zero width joiner or VS16 directly after an `Extended_Pictographic` character, so a thumbs up
+ * with VS16 and a family sequence pass while a variation selector after a letter does not.
  */
-const HIDDEN = /[\p{Cf}\u{E0000}-\u{E007F}​⁠­؜]|[︀-️\u{E0100}-\u{E01EF}]{2,}/u;
+const VISIBLE_ONLY =
+  /^(?:[^\p{Default_Ignorable_Code_Point}\p{Cf}]|(?<=\p{Extended_Pictographic})[\u200D\uFE0F])*$/u;
 
 export function hasHiddenContent(text: string): boolean {
-  return HIDDEN.test(text);
+  return !VISIBLE_ONLY.test(text);
 }
 
 const FORWARD_SUBJECT = /^\s*(fwd?|fw|wg|tr|rv)\s*:/i;
@@ -87,8 +91,9 @@ export function mailAdapter(registry: ReadRegistry): Adapter {
     args: Record<string, unknown>;
   }): Promise<CaptureResult> {
     const a = call.args;
+    const bare = bareTool(call);
     // Forwards are an exfiltration path. Refuse by tool name, subject, flag and any attachment.
-    if (/forward/i.test(call.tool)) return { ok: false, reason: "forward_refused" };
+    if (/forward/i.test(bare)) return { ok: false, reason: "forward_refused" };
     if (typeof a.subject === "string" && FORWARD_SUBJECT.test(a.subject)) {
       return { ok: false, reason: "forward_refused" };
     }
@@ -113,7 +118,7 @@ export function mailAdapter(registry: ReadRegistry): Adapter {
     const bcc = strictList(a.bcc);
     if (!to || !cc || !bcc) return { ok: false, reason: "bad_recipients" };
 
-    const reply = call.tool === "mail_reply_draft";
+    const reply = bare === "mail_reply_draft";
     const ref = reply
       ? { messageId: str(a.id), mailbox: str(a.mailbox), account: str(a.account) }
       : { threadId: str(a.threadId) };
@@ -276,6 +281,8 @@ export async function checkSendRecipe(
     expectedHash: string;
     threadId: string;
     expectedRecipients: string[];
+    /** The staged body: the owner's own text. The draft's body also holds the quoted original. */
+    stagedBody: string;
   },
 ): Promise<SendCheck> {
   let draft: MailDraftInfo | null;
@@ -297,7 +304,9 @@ export async function checkSendRecipe(
   } catch {
     return { ok: false, reason: "bad_recipients" };
   }
-  if (hasHiddenContent(draft.subject) || hasHiddenContent(draft.body)) {
+  // Only the owner's part is judged: quoted mail may carry joiners we did not write and cannot
+  // change. The hash still binds the whole draft.
+  if (hasHiddenContent(draft.subject) || hasHiddenContent(input.stagedBody)) {
     return { ok: false, reason: "hidden_content" };
   }
   if (hash !== input.expectedHash) return { ok: false, reason: "draft_changed" };

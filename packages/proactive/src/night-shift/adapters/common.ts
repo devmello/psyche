@@ -1,7 +1,7 @@
 import type { Json, Preview, PreviewRow } from "./types.ts";
 
 /** C0/C1 controls (U+0085 NEL included), line and paragraph separators and bidi overrides. */
-const UNSAFE = /[\p{Cc}\p{Zl}\p{Zp}‎‏‪-‮⁦-⁩]/gu;
+const UNSAFE = /[\p{Cc}\p{Zl}\p{Zp}\u200E\u200F\u202A-\u202E\u2066-\u2069]/gu;
 
 /** Plain text for a preview: no control or line-breaking characters. `max` caps the length. */
 export function plain(value: unknown, max = 500): string {
@@ -61,4 +61,23 @@ export function stable(v: Json): string {
 
 export function asRecord(v: Json | undefined): Record<string, Json> {
   return v !== null && typeof v === "object" && !Array.isArray(v) ? v : {};
+}
+
+/**
+ * `mcp__google__calendar_create_event` to `{ connector: "google", bare: "calendar_create_event" }`.
+ * Every adapter compares the bare name, through this one helper, never the raw `call.tool`.
+ */
+export function splitTool(tool: string): { connector?: string; bare: string } {
+  const m = /^mcp__(.+?)__([A-Za-z0-9_-]+)$/.exec(tool);
+  return m ? { connector: m[1], bare: m[2] as string } : { bare: tool };
+}
+
+/** The bare tool name of a call. */
+export function bareTool(call: { tool: string }): string {
+  return splitTool(call.tool).bare;
+}
+
+/** The `mcp__<connector>__` part of a tool name, or "" for a bare name. Inverses keep it. */
+export function toolPrefix(tool: string): string {
+  return tool.slice(0, tool.length - splitTool(tool).bare.length);
 }

@@ -1,4 +1,4 @@
-import { asRecord, preview, str } from "./common.ts";
+import { asRecord, bareTool, preview, str, toolPrefix } from "./common.ts";
 import type {
   Adapter,
   CaptureResult,
@@ -50,7 +50,7 @@ async function resolveId(
 }
 
 function fieldKeys(call: StagedCall): string[] {
-  if (call.tool === "reminders_complete") return ["completed"];
+  if (bareTool(call) === "reminders_complete") return ["completed"];
   return Object.keys(call.args)
     .filter((k) => !NON_FIELD.has(k))
     .sort();
@@ -62,7 +62,7 @@ export function remindersAdapter(registry: ReadRegistry): Adapter {
 
     async capture(call): Promise<CaptureResult> {
       const a = call.args;
-      if (call.tool === "reminders_create") {
+      if (bareTool(call) === "reminders_create") {
         const title = str(a.title);
         if (!title) return { ok: false, reason: "bad_reminder" };
         const listId = str(a.listId);
@@ -123,14 +123,14 @@ export function remindersAdapter(registry: ReadRegistry): Adapter {
 
     preview(call, capture) {
       const a = call.args;
-      if (call.tool === "reminders_create") {
+      if (bareTool(call) === "reminders_create") {
         return preview("reminder", "Add a reminder", [
           ["Title", a.title],
           ["Due", a.due],
           ["Notes", a.notes],
         ]);
       }
-      if (call.tool === "reminders_complete") {
+      if (bareTool(call) === "reminders_complete") {
         return preview(
           "reminder",
           a.completed === false ? "Reopen a reminder" : "Complete a reminder",
@@ -148,31 +148,35 @@ export function remindersAdapter(registry: ReadRegistry): Adapter {
     },
 
     inverse(call, capture, created): InverseCall | undefined {
-      if (call.tool === "reminders_create") {
+      if (bareTool(call) === "reminders_create") {
         if (!created?.id) return undefined;
-        return { tool: "reminders_delete", args: { id: created.id }, destructive: true };
-      }
-      if (call.tool === "reminders_complete") {
         return {
-          tool: "reminders_complete",
+          tool: `${toolPrefix(call.tool)}reminders_delete`,
+          args: { id: created.id },
+          destructive: true,
+        };
+      }
+      if (bareTool(call) === "reminders_complete") {
+        return {
+          tool: `${toolPrefix(call.tool)}reminders_complete`,
           args: { id: capture.target, completed: call.args.completed === false },
         };
       }
       return {
-        tool: "reminders_update",
+        tool: `${toolPrefix(call.tool)}reminders_update`,
         args: { id: capture.target, ...asRecord(capture.before) },
       };
     },
 
     async postState(call, capture, created): Promise<Json> {
-      const id = call.tool === "reminders_create" ? created?.id : capture.target;
+      const id = bareTool(call) === "reminders_create" ? created?.id : capture.target;
       if (!id) return null;
       const r = await readReminder(registry, id);
       return r === "unreadable" || !r ? null : { modifiedAt: r.modifiedAt };
     },
 
     async checkInverse(call, capture, post, created): Promise<CheckResult> {
-      const id = call.tool === "reminders_create" ? created?.id : capture.target;
+      const id = bareTool(call) === "reminders_create" ? created?.id : capture.target;
       if (!id) return { fresh: false, reason: "no_created_id" };
       const r = await readReminder(registry, id);
       if (r === "unreadable") return { fresh: false, reason: "reminders_unreadable" };

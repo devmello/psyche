@@ -1,4 +1,7 @@
-import { asRecord, preview, type RowInput, str } from "./common.ts";
+import { asRecord, preview, type RowInput, splitTool, str, toolPrefix } from "./common.ts";
+
+export { splitTool };
+
 import type {
   Adapter,
   CalendarEventInfo,
@@ -31,16 +34,12 @@ const TOOLS = ["calendar_create_event", "calendar_update_event"] as const;
 export type CalendarFlavor = "apple" | "google" | "microsoft";
 
 export interface CalendarDeps {
-  /** Which connector type a connector id belongs to. Unknown ids are judged by call shape only. */
+  /**
+   * The type of a live connector id, from the connector registry. Never guessed from the name. A
+   * prefixed call whose connector is not known here is refused; a bare name is judged by shape.
+   */
   flavorOf?: (connectorId: string) => CalendarFlavor | undefined;
 }
-
-const defaultFlavorOf = (id: string): CalendarFlavor | undefined => {
-  if (/google/i.test(id)) return "google";
-  if (/microsoft|outlook|graph/i.test(id)) return "microsoft";
-  if (/apple/i.test(id)) return "apple";
-  return undefined;
-};
 
 const FLAT_KEYS = [
   "calendarId",
@@ -64,12 +63,6 @@ const EVENT_KEYS = [
   "attendees",
   "recurrence",
 ] as const;
-
-/** `mcp__google__calendar_create_event` to `{ connector: "google", bare: "calendar_create_event" }`. */
-export function splitTool(tool: string): { connector?: string; bare: string } {
-  const m = /^mcp__(.+?)__([A-Za-z0-9_-]+)$/.exec(tool);
-  return m ? { connector: m[1], bare: m[2] as string } : { bare: tool };
-}
 
 interface Norm {
   shape: "flat" | "event";
@@ -102,7 +95,8 @@ function norm(call: StagedCall, deps: CalendarDeps): Norm | Refusal {
   if (!TOOLS.includes(bare as (typeof TOOLS)[number])) return { reason: "unknown_tool" };
   const create = bare === "calendar_create_event";
   const a = call.args;
-  const flavor = connector ? (deps.flavorOf ?? defaultFlavorOf)(connector) : undefined;
+  const flavor = connector ? deps.flavorOf?.(connector) : undefined;
+  if (connector && !flavor) return { reason: "unknown_connector" };
   const eventShaped = "event" in a;
   if (flavor === "apple" && eventShaped) return { reason: "shape_mismatch" };
   if ((flavor === "google" || flavor === "microsoft") && !eventShaped) {
@@ -309,7 +303,7 @@ export function calendarAdapter(registry: ReadRegistry, deps: CalendarDeps = {})
         // Deleting needs the id the applied create returned; without it there is no inverse.
         if (!created?.id) return undefined;
         return {
-          tool: call.tool.replace("create_event", "delete_event"),
+          tool: `${toolPrefix(call.tool)}calendar_delete_event`,
           args:
             n.shape === "flat"
               ? { id: created.id }
