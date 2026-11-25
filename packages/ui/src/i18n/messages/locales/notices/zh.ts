@@ -94,4 +94,10 @@ export const notices: Partial<Catalogue> = {
   "notice.machine.offline.title": "{name} 已离线",
   "notice.machine.offline.body":
     "有一个任务正在等待使用它，{name} 恢复后会继续。你也可以取消这个任务。",
+  "notice.automation.needsApproval.title": "{title} 正在等待你的批准",
+  "notice.automation.needsApproval.body":
+    "批准已过期，所以它停了下来。打开“批准”查看它需要什么，然后再运行一次。",
+  "notice.automation.interrupted.title": "{title} 被中断了",
+  "notice.automation.interrupted.body":
+    "运行时 Psyche 重新启动了，可能已经完成了一部分。请查看结果，需要的话再运行一次。",
 };

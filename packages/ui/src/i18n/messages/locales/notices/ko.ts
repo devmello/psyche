@@ -99,4 +99,10 @@ export const notices: Partial<Catalogue> = {
   "notice.machine.offline.title": "{name}이(가) 오프라인 상태입니다",
   "notice.machine.offline.body":
     "작업이 이 컴퓨터를 사용하려고 기다리고 있으며 {name}이(가) 돌아오면 계속됩니다. 작업을 취소할 수도 있습니다.",
+  "notice.automation.needsApproval.title": "{title}이(가) 승인을 기다리고 있습니다",
+  "notice.automation.needsApproval.body":
+    "승인 시간이 지나 중단되었습니다. 승인 화면을 열어 필요한 내용을 확인한 뒤 다시 실행하세요.",
+  "notice.automation.interrupted.title": "{title}이(가) 중단되었습니다",
+  "notice.automation.interrupted.body":
+    "실행 중에 Psyche가 다시 시작되어 일부가 이미 처리되었을 수 있습니다. 결과를 확인하고 필요하면 다시 실행하세요.",
 };

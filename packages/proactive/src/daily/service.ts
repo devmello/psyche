@@ -7,7 +7,13 @@ import { staticSnapshot } from "../feed/service.ts";
 import { dailySnapshot } from "../feed/snapshots.ts";
 import type { FeedStore, StoredPost } from "../feed/store.ts";
 import type { SchedulerLike } from "../jobs.ts";
-import { jobMarker, type LaunchResult, type ProactiveJob, parseJobMarker } from "../jobs.ts";
+import {
+  BeforeEffectError,
+  jobMarker,
+  type LaunchResult,
+  type ProactiveJob,
+  parseJobMarker,
+} from "../jobs.ts";
 import { classifyBatch, cleanHeader } from "../mail/classify.ts";
 import type { MailItem } from "../mail/presort.ts";
 import { readTool } from "../mail/tools.ts";
@@ -108,7 +114,8 @@ export interface DailyServiceOptions {
   prepLink?: (event: { id: string; title: string; start: string }) => string | undefined;
   /** Channel surfaces (`imessage:<peer>`) the card is also delivered to when `daily.messages` is on. */
   channelSurfaces?: () => string[];
-  timezone?: string;
+  /** A function so a zone change (travel) reaches "today" without a restart. */
+  timezone?: string | (() => string);
   newId?: () => string;
   onFeedEvent?: (event: { event: "feed.updated"; payload: { posts: unknown[] } }) => void;
   onError?: (error: unknown) => void;
@@ -145,7 +152,8 @@ export class DailyService {
   }
 
   get #tz(): string {
-    return this.#o.timezone ?? ZONE_FALLBACK;
+    const z = this.#o.timezone;
+    return (typeof z === "function" ? z() : z) ?? ZONE_FALLBACK;
   }
 
   /** A tool call that never throws: a missing or failing connector is an absent section. */
@@ -642,7 +650,10 @@ export class DailyService {
     const o = this.#o;
     const settings = o.settings();
     const channels = settings.notify && settings.messages ? (o.channelSurfaces?.() ?? []) : [];
-    const { brief, channel } = await this.#build(kind, channels.length > 0);
+    // Building reads and asks the model; nothing is posted yet, so a failure here is retryable.
+    const { brief, channel } = await this.#build(kind, channels.length > 0).catch((e: unknown) => {
+      throw new BeforeEffectError(e);
+    });
     const dedupe = `daily:${kind}:${brief.date}`;
     const now = new Date(o.clock.now()).toISOString();
     const id = o.newId?.() ?? `post_${ulid(o.clock.now())}`;

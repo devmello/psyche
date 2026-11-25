@@ -14,6 +14,22 @@ export interface LaunchResult {
   status: "done" | "no_reply" | "failed" | "cancelled";
   summary: string | null;
   taskId?: string;
+  /** True when the job failed before it did anything visible, so a retry is safe. */
+  noSideEffects?: boolean;
+  /** The error's own message, kept apart from `summary` (which the owner sees). */
+  errorDetail?: string;
+}
+
+/**
+ * Thrown by a job that failed before its first side effect (it had only read things). The
+ * launcher reports `noSideEffects`, so the scheduler's 1/5/15 minute retry applies to a
+ * transient provider error. The message of `cause` rides along as `errorDetail`.
+ */
+export class BeforeEffectError extends Error {
+  constructor(cause: unknown) {
+    super(cause instanceof Error ? cause.message : String(cause), { cause });
+    this.name = "BeforeEffectError";
+  }
 }
 
 export interface LaunchRequest {
@@ -92,7 +108,15 @@ export function withProactiveJobs<R extends LaunchRequest, Run>(
       if (job !== undefined) {
         const result = job.run(request).catch((e: unknown): LaunchResult => {
           options.onError?.(e);
-          return { status: "failed", summary: `${job.name} failed` };
+          // The summary the owner sees stays generic (the error may name a path or a key); the
+          // detail rides along so the scheduler can tell a transient provider error from a bug.
+          const detail = e instanceof Error ? e.message : String(e);
+          return {
+            status: "failed",
+            summary: `${job.name} failed`,
+            ...(detail === "" ? {} : { errorDetail: detail }),
+            ...(e instanceof BeforeEffectError ? { noSideEffects: true } : {}),
+          };
         });
         return { result };
       }

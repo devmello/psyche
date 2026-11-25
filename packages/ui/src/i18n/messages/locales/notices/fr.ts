@@ -107,4 +107,10 @@ export const notices: Partial<Catalogue> = {
   "notice.machine.offline.title": "{name} est hors ligne",
   "notice.machine.offline.body":
     "Une tâche attend de l'utiliser et reprendra quand {name} sera de retour. Vous pouvez aussi annuler la tâche.",
+  "notice.automation.needsApproval.title": "{title} attend ton approbation",
+  "notice.automation.needsApproval.body":
+    "Il s'est arrêté parce que l'approbation a expiré. Ouvre Approbations pour voir ce qu'il demande, puis relance-le.",
+  "notice.automation.interrupted.title": "{title} a été interrompu",
+  "notice.automation.interrupted.body":
+    "Psyche a redémarré pendant son exécution et il en a peut-être déjà fait une partie. Vérifie le résultat, puis relance-le si besoin.",
 };

@@ -104,4 +104,10 @@ export const notices = {
   "notice.machine.offline.title": "{name} went offline",
   "notice.machine.offline.body":
     "A task is waiting to use it and goes on when {name} is back. You can also cancel the task.",
+  "notice.automation.needsApproval.title": "{title} is waiting for your approval",
+  "notice.automation.needsApproval.body":
+    "It stopped because the approval ran out. Open Approvals to see what it needs, then run it again.",
+  "notice.automation.interrupted.title": "{title} was interrupted",
+  "notice.automation.interrupted.body":
+    "Psyche restarted while it was running, and it may have done part of it. Check the result, then run it again if you need to.",
 } as const;

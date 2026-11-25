@@ -17,6 +17,10 @@ export interface RunResult {
    * dispatched). Anything else, including unknown, is treated as "may have acted": never retried.
    */
   noSideEffects?: boolean;
+  /** An unattended run stopped because its approval expired unanswered; the owner is told once. */
+  needsApproval?: boolean;
+  /** The failure's own message when `summary` is deliberately generic; used to tell a transient provider error. */
+  errorDetail?: string;
 }
 
 export interface AutomationRunRequest {

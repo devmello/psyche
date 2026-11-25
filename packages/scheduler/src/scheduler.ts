@@ -61,7 +61,7 @@ export interface SqliteSchedulerOptions {
   watchFetch?: WatchFetch;
   openInputRequests?: OpenInputRequests;
   /** Used when an automation is created without a timezone. */
-  defaultTimezone?: string;
+  defaultTimezone?: string | (() => string | undefined);
   /** The host timer never sleeps longer than this, so clock jumps are noticed. Default 5 min. */
   maxTimerMs?: number;
   /** A watch fetch that takes longer is aborted and counts as a failure. Default 30 s. */
@@ -76,6 +76,8 @@ export interface SqliteSchedulerOptions {
 /** More missed ticks than this are still one run; the count stops here. */
 export const MAX_COALESCE = 10_000;
 const SUMMARY_MAX = 4_000;
+/** The summary of a run a restart cut off; a second one for the same time is not run again. */
+export const INTERRUPTED_SUMMARY = "Interrupted by a restart";
 const SESSION_TARGET = /^(main|isolated|named:[A-Za-z0-9_.:-]{1,64})$/;
 
 type Pending = Omit<SchedulerEvent, "stateVersion">;
@@ -170,6 +172,11 @@ export class SqliteScheduler implements Scheduler {
   }
 
   // --- internals --------------------------------------------------------------------------------
+
+  #defaultZone(): string {
+    const z = this.#o.defaultTimezone;
+    return (typeof z === "function" ? z() : z) ?? "UTC";
+  }
 
   #iso(ms: number = this.clock.now()): string {
     return new Date(ms).toISOString();
@@ -340,7 +347,7 @@ export class SqliteScheduler implements Scheduler {
   async create(input: CreateAutomationInput): Promise<Automation> {
     const a = {
       ...input,
-      timezone: input.timezone ?? this.#o.defaultTimezone ?? "UTC",
+      timezone: input.timezone ?? this.#defaultZone(),
       sessionTarget: input.sessionTarget ?? "isolated",
       delivery: input.delivery ?? {},
       scratch: input.scratch ?? null,
@@ -787,7 +794,7 @@ export class SqliteScheduler implements Scheduler {
       row.trigger !== "manual" &&
       automation.kind !== "watch" &&
       (row.attempt ?? 0) < MAX_RETRIES &&
-      isTransientModelError(result.summary ?? "")
+      isTransientModelError(`${result.errorDetail ?? ""} ${result.summary ?? ""}`)
     );
   }
 
@@ -882,6 +889,23 @@ export class SqliteScheduler implements Scheduler {
         if (result.status === "done" && a.kind !== "watch") {
           notificationId =
             (await this.#o.deliverer?.deliver(a, finished, result))?.notificationId ?? null;
+        } else if (result.needsApproval === true && this.#o.notifier !== undefined) {
+          // The approval ran out with nobody answering: say so once; the next run asks again.
+          const n = await this.#o.notifier.notify({
+            kind: "task_failed",
+            title: `${a.title} is waiting for your approval`,
+            body: "It stopped because the approval ran out. Open Approvals to see what it needs, then run it again.",
+            message: {
+              titleKey: "notice.automation.needsApproval.title",
+              bodyKey: "notice.automation.needsApproval.body",
+              params: { title: a.title },
+            },
+            route: SCHEDULED_RUNS_ROUTE,
+            dedupeKey: `automation:${a.id}:needs_approval`,
+            keepExisting: true,
+            ...(result.taskId === undefined ? {} : { taskId: result.taskId }),
+          });
+          notificationId = n.id;
         } else if (result.status === "failed" && this.#o.notifier !== undefined) {
           const n = await this.#o.notifier.notify({
             kind: "task_failed",
@@ -1094,7 +1118,7 @@ export class SqliteScheduler implements Scheduler {
     const fields = {
       title: "Heartbeat",
       schedule,
-      timezone: options.timezone ?? this.#o.defaultTimezone ?? "UTC",
+      timezone: options.timezone ?? this.#defaultZone(),
       sessionTarget: "main",
       delivery: {},
       prompt: options.prompt ?? HEARTBEAT_PROMPT,
@@ -1174,6 +1198,7 @@ export class SqliteScheduler implements Scheduler {
     const stale = this.#db.sqlite
       .prepare("SELECT * FROM automation_runs WHERE status = 'running'")
       .all() as RunRow[];
+    const interrupted: Promise<void>[] = [];
     for (const r of stale) {
       if (r.retry_at != null) {
         this.#armRetry(r.id, Date.parse(r.retry_at));
@@ -1181,15 +1206,58 @@ export class SqliteScheduler implements Scheduler {
       }
       const followed = this.#o.launcher?.reattach?.(runFromRow(r));
       if (followed === undefined) {
-        this.#track(
-          this.#finish(r.id, { status: "cancelled", summary: "Interrupted by a restart" }),
-        );
+        interrupted.push(this.#recoverInterrupted(r).catch((e) => this.#error(e)));
       } else {
         this.#track(followed.then((result) => this.#finish(r.id, result)));
       }
     }
+    // Finished before the tick below, or a rerun would find its own automation busy.
+    await Promise.all(interrupted);
     await this.tick();
     await this.flushEvents();
+  }
+
+  /**
+   * A run a restart cut off that has nothing to follow (an in-process job such as the morning
+   * brief: no task). A scheduled one is made due again, once: its automation's next time goes
+   * back to the time this run was for, and `start()` ticks right after. A run already redone
+   * after an earlier restart, an event run or any other run is not repeated: the owner is told.
+   */
+  async #recoverInterrupted(r: RunRow): Promise<void> {
+    await this.#finish(r.id, { status: "cancelled", summary: INTERRUPTED_SUMMARY });
+    const automation = this.#rowOrUndefined(r.automation_id);
+    if (automation === undefined || r.trigger === "manual") return;
+    const again =
+      r.trigger === "schedule" &&
+      automation.enabled === 1 &&
+      this.#db.sqlite
+        .prepare(
+          "SELECT 1 FROM automation_runs WHERE automation_id = ? AND scheduled_for = ? AND id != ? AND status = 'cancelled' AND summary = ? LIMIT 1",
+        )
+        .get(r.automation_id, r.scheduled_for, r.id, INTERRUPTED_SUMMARY) === undefined;
+    if (again) {
+      this.#db.sqlite
+        .prepare(
+          "UPDATE automations SET next_run_at = ?, updated_at = ? WHERE id = ? AND (next_run_at IS NULL OR next_run_at > ?)",
+        )
+        .run(r.scheduled_for, this.#iso(), r.automation_id, r.scheduled_for);
+      return;
+    }
+    await this.#o.notifier
+      ?.notify({
+        kind: "task_failed",
+        title: `${automation.title} was interrupted`,
+        body: "Psyche restarted while it was running, and it may have done part of it. Check the result, then run it again if you need to.",
+        message: {
+          titleKey: "notice.automation.interrupted.title",
+          bodyKey: "notice.automation.interrupted.body",
+          params: { title: automation.title },
+        },
+        route: SCHEDULED_RUNS_ROUTE,
+        dedupeKey: `automation:${automation.id}:interrupted`,
+        keepExisting: true,
+      })
+      .catch((e) => this.#error(e));
   }
 
   stop(): void {

@@ -100,4 +100,10 @@ export const notices: Partial<Catalogue> = {
   "notice.machine.offline.title": "{name} がオフラインになりました",
   "notice.machine.offline.body":
     "タスクがこのコンピュータを使うために待っています。{name} が戻ると続きます。タスクをキャンセルすることもできます。",
+  "notice.automation.needsApproval.title": "{title} はあなたの承認を待っています",
+  "notice.automation.needsApproval.body":
+    "承認の期限が切れたため停止しました。「承認」を開いて必要な内容を確認し、もう一度実行してください。",
+  "notice.automation.interrupted.title": "{title} は中断されました",
+  "notice.automation.interrupted.body":
+    "実行中に Psyche が再起動したため、一部がすでに実行された可能性があります。結果を確認し、必要ならもう一度実行してください。",
 };

@@ -107,4 +107,10 @@ export const notices: Partial<Catalogue> = {
   "notice.machine.offline.title": "{name} ist offline",
   "notice.machine.offline.body":
     "Eine Aufgabe wartet darauf, ihn zu nutzen, und läuft weiter, sobald {name} wieder da ist. Du kannst die Aufgabe auch abbrechen.",
+  "notice.automation.needsApproval.title": "{title} wartet auf deine Freigabe",
+  "notice.automation.needsApproval.body":
+    "Es wurde angehalten, weil die Freigabe abgelaufen ist. Öffne die Freigaben, um zu sehen, was es braucht, und starte es dann erneut.",
+  "notice.automation.interrupted.title": "{title} wurde unterbrochen",
+  "notice.automation.interrupted.body":
+    "Psyche wurde neu gestartet, während es lief, und hat vielleicht einen Teil schon erledigt. Prüfe das Ergebnis und starte es bei Bedarf erneut.",
 };
