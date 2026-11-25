@@ -1663,7 +1663,7 @@ export class GraphStore {
       }
       return { fact: toFact(this.#factRow(same.id) as FactRow), superseded: null };
     }
-    if (same !== undefined) {
+    if (same !== undefined && same.provenance === input.provenance) {
       // Refresh the evidence; an expiring inference gets a new year (§4.3 expiry).
       const merged = [...new Set([...(JSON.parse(same.sources) as string[]), ...sources])];
       this.#db
@@ -1675,6 +1675,9 @@ export class GraphStore {
     }
     const prior = current[0];
     const single = !MULTI_VALUED.has(input.attribute);
+    // A higher-ranked write of a value a lower-ranked source already holds replaces that row, so
+    // the owner restating an agent or untrusted value owns it (a later agent write is a conflict).
+    const replaced = single ? prior : same;
     // A status change made by the state machine (work.ts) is code, not a model: it follows the
     // owner's last word by design.
     const byStateMachine =
@@ -1698,6 +1701,8 @@ export class GraphStore {
         .prepare(
           `SELECT * FROM graph_facts WHERE entity_id = ? AND attribute = ? AND review = 'pending'
              AND provenance = 'untrusted' AND extractor IS NULL AND retracted_at IS NULL
+             AND id NOT IN (SELECT id FROM memory_migration_backup_2026_11)
+             AND NOT EXISTS (SELECT 1 FROM graph_citations c WHERE c.target_kind = 'fact' AND c.target_id = graph_facts.id)
            ORDER BY recorded_at DESC, id DESC LIMIT 1`,
         )
         .get(entity.id, input.attribute) as FactRow | undefined;
@@ -1765,12 +1770,12 @@ export class GraphStore {
           pending ? now : null,
           pending ? now : null,
         );
-      if (!pending && prior !== undefined && single) {
+      if (!pending && replaced !== undefined) {
         this.#db
           .prepare(
             "UPDATE graph_facts SET superseded_by = ?, valid_to = ?, updated_at = ? WHERE id = ?",
           )
-          .run(id, now, now, prior.id);
+          .run(id, now, now, replaced.id);
       }
       if (!pending) this.#cacheWorkFact(entity, input, value, deadlineAt, now);
     })();
@@ -1778,7 +1783,7 @@ export class GraphStore {
     this.#touched(entity.id, ["facts"]);
     return {
       fact: toFact(this.#factRow(id) as FactRow),
-      superseded: prior !== undefined && single ? prior.id : null,
+      superseded: replaced === undefined ? null : replaced.id,
     };
   }
 

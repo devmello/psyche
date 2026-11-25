@@ -184,6 +184,12 @@ describe("migrations and the encrypted store", () => {
       plain
         .prepare("UPDATE _migrations SET applied_at = ? WHERE id LIKE '%memory_trust-leak'")
         .run(APPLIED);
+      // The upgrade ran on a store that had facts, so the migration left its marker.
+      plain
+        .prepare(
+          "INSERT OR IGNORE INTO memory_migration_backup_2026_11 (id, review, moved_at) VALUES ('applied:202611250900', 'applied', ?)",
+        )
+        .run(APPLIED);
       const g = new GraphStore({ sqlite: plain, clock });
       const em = new EverythingStore({ sqlite: plain, graph: g, clock });
       const sam = (plain.prepare("SELECT id FROM graph_entities LIMIT 1").get() as { id: string })

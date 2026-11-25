@@ -89,6 +89,9 @@ WHERE id IN (SELECT id FROM memory_migration_backup_2026_11)
 
 DROP TABLE temp.trust_leak_cutoff;
 
--- Marks the move as done wherever the backup table goes (the encrypted store reads it).
+-- Marks the move as done wherever the backup table goes (the encrypted store reads it). Written
+-- only when there are facts: a store with no data must still look empty to the encrypted-store
+-- move (it resumes after a clear by checking that the plain tables are empty).
 INSERT OR IGNORE INTO memory_migration_backup_2026_11 (id, review, moved_at)
-VALUES ('applied:202611250900', 'applied', strftime('%Y-%m-%dT%H:%M:%fZ', 'now'));
+SELECT 'applied:202611250900', 'applied', strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+WHERE EXISTS (SELECT 1 FROM graph_facts);

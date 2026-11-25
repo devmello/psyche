@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { DEFAULT_MIGRATIONS_DIR, rollbackMemoryTrustLeak } from "@psyche/db";
 import { FakeClock } from "@psyche/testing";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { EverythingStore } from "../src/graph/everything.ts";
@@ -28,6 +31,9 @@ const set = (
   provenance: "owner" | "agent" | "untrusted" | "system",
   sources: string[] = [],
 ) => graph.setFact({ entityId: sam, attribute, value, provenance, sources });
+
+const rowOf = (id: string) =>
+  env.db.sqlite.prepare("SELECT value, review FROM graph_facts WHERE id = ?").get(id);
 
 const rows = (attribute: string) =>
   env.db.sqlite
@@ -153,6 +159,68 @@ describe("setFact trust rules (memory wave 2A)", () => {
       .get(owner?.fact.id) as { sources: string };
     expect(JSON.parse(sources.sources)).toEqual(["owner_feedback", "int_7", "int_8"]);
     expect(rows("city")).toHaveLength(1);
+  });
+
+  it("an owner restating an agent value owns it; a later agent write is a conflict, not a replacement", () => {
+    const agent = set("employer", "Acme", "agent", ["int_1"]);
+    const owner = set("employer", "Acme", "owner");
+    expect(owner?.fact.provenance).toBe("owner");
+    expect(owner?.fact.review).toBe("accepted");
+    expect(owner?.superseded).toBe(agent?.fact.id);
+    const later = set("employer", "Globex", "agent", ["int_2"]);
+    expect(later?.fact.review).toBe("pending");
+    expect(graph.facts(sam).map((f) => [f.value, f.provenance])).toEqual([["Acme", "owner"]]);
+    expect(em.reviewItems().items).toHaveLength(1);
+    expect(em.reviewItems().items[0]?.change).toBe("conflict");
+  });
+
+  it("an owner restating a leaked untrusted value owns it too", () => {
+    env.db.sqlite
+      .prepare(
+        `INSERT INTO graph_facts (id, entity_id, attribute, value, provenance, confidence, valid_from,
+           recorded_at, created_at, updated_at) VALUES ('leak', ?, 'city', 'Lisbon', 'untrusted', 0.4,
+           '2026-10-01T00:00:00.000Z', '2026-10-01T00:00:00.000Z', '2026-10-01T00:00:00.000Z',
+           '2026-10-01T00:00:00.000Z')`,
+      )
+      .run(sam);
+    const owner = set("city", "Lisbon", "owner");
+    expect(owner?.fact.provenance).toBe("owner");
+    expect(owner?.fact.review).toBe("accepted");
+    expect(owner?.superseded).toBe("leak");
+    expect(graph.facts(sam).map((f) => [f.value, f.provenance])).toEqual([["Lisbon", "owner"]]);
+    // Multi-valued attributes: the restated value is replaced, not doubled.
+    set("preference" as "city", "tea", "agent");
+    set("preference" as "city", "tea", "owner");
+    expect(graph.facts(sam).filter((f) => f.attribute === "preference")).toHaveLength(1);
+  });
+
+  it("a reworded suggestion after the migration does not rewrite a migrated row, and rollback restores the original", () => {
+    env.db.sqlite
+      .prepare(
+        `INSERT INTO graph_facts (id, entity_id, attribute, value, provenance, confidence, valid_from,
+           recorded_at, created_at, updated_at) VALUES ('leak', ?, 'next_step', 'send the deck',
+           'untrusted', 0.4, '2026-10-01T00:00:00.000Z', '2026-10-01T00:00:00.000Z',
+           '2026-10-01T00:00:00.000Z', '2026-10-01T00:00:00.000Z')`,
+      )
+      .run(sam);
+    env.db.sqlite.exec(
+      readFileSync(join(DEFAULT_MIGRATIONS_DIR, "202611250900_memory_trust-leak.sql"), "utf8"),
+    );
+    expect(rows("next_step")).toMatchObject([{ review: "pending", value: "send the deck" }]);
+    const reworded = graph.setFact({
+      entityId: sam,
+      attribute: "next_step",
+      value: "email the deck out",
+      provenance: "untrusted",
+    });
+    expect(reworded?.fact.id).not.toBe("leak");
+    expect(rowOf("leak")).toMatchObject({ value: "send the deck", review: "pending" });
+    expect(rollbackMemoryTrustLeak(env.db.sqlite)).toBe(1);
+    expect(rowOf("leak")).toMatchObject({ value: "send the deck", review: "accepted" });
+    expect(rowOf(reworded?.fact.id as string)).toMatchObject({
+      value: "email the deck out",
+      review: "pending",
+    });
   });
 
   it("the owner can still replace an agent or untrusted value", () => {

@@ -239,6 +239,29 @@ describe("202611250900 memory trust leak", () => {
     expect(current(sqlite, "city")).toEqual(["Paris"]);
   });
 
+  it("writes its marker only when there are facts, so an empty store still looks empty", () => {
+    const { sqlite, migrate } = seeded();
+    const marker = () =>
+      sqlite
+        .prepare("SELECT 1 FROM memory_migration_backup_2026_11 WHERE id LIKE 'applied:%'")
+        .get();
+    migrate();
+    expect(marker()).toBeDefined();
+    sqlite.exec(
+      "DELETE FROM graph_citations; DELETE FROM graph_facts; DELETE FROM memory_migration_backup_2026_11",
+    );
+    sqlite.exec(readFileSync(join(DEFAULT_MIGRATIONS_DIR, NEW), "utf8"));
+    expect(marker()).toBeUndefined();
+    expect(count(sqlite, "1 = 1")).toBe(0);
+    expect(
+      (
+        sqlite.prepare("SELECT count(*) AS n FROM memory_migration_backup_2026_11").get() as {
+          n: number;
+        }
+      ).n,
+    ).toBe(0);
+  });
+
   it("rollback without the backup table is a no-op", () => {
     const db = new Database(":memory:");
     expect(rollbackMemoryTrustLeak(db)).toBe(0);
