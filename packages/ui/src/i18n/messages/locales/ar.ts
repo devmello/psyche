@@ -216,6 +216,9 @@ export const ar: Partial<Catalogue> = {
   "errors.reason.secret_required": "يحتاج العميل المختلف إلى سر عميل خاص به.",
   "errors.reason.project_private":
     "هذا المشروع خاص، لذا لا يمكن أن تكون له مساحة. أوقف «إبقاء خاصًا» أولًا.",
+  "errors.reason.entity_exists": "هذا الشخص أو الجهة أو المكان موجود بالفعل في الذاكرة.",
+  "errors.reason.setting_unknown": "هذا الإعداد غير معروف.",
+  "errors.reason.setting_invalid": "قيمة هذا الإعداد غير صالحة.",
   "errors.reason.model_budget":
     "طلبات كثيرة جدًا من هذا الجهاز. حاول مرة أخرى بعد {minutes, plural, zero {أقل من دقيقة} one {دقيقة واحدة} two {دقيقتين} few {# دقائق} many {# دقيقة} other {# دقيقة}}.",
   "errors.reason.updating": "سيعيد Psyche التشغيل الآن لتثبيت تحديث. حاول مرة أخرى بعد لحظة.",
@@ -744,6 +747,18 @@ export const ar: Partial<Catalogue> = {
   "agent.mode.manual": "يدوي",
   "agent.mode.balanced": "متوازن",
   "agent.mode.auto": "تلقائي",
+  "agent.mode.full": "وصول كامل",
+  "chat.commands.full.hint": "on | off",
+  "chat.commands.full.description": "تشغيل الوصول الكامل أو إيقافه في هذه المحادثة",
+  "chat.commands.usageFull": "الاستخدام: /full [on | off]",
+  "chat.args.mode.full": "ينفّذ دون أن يسأل، باستثناء الإرسال والدفع",
+  "chat.args.full.on": "التنفيذ دون سؤال، باستثناء الإرسال والدفع",
+  "chat.args.full.off": "العودة إلى المتوازن",
+  "chat.thread.fullAccessOn":
+    "الوصول الكامل مفعّل في هذه المحادثة. الإرسال إلى أشخاص آخرين والدفع ما زالا يطلبان الإذن.",
+  "chat.thread.fullAccessOff": "الوصول الكامل متوقف. عادت هذه المحادثة إلى الوضع المتوازن.",
+  "chat.fullAccess.banner": "وصول كامل: ينفّذ Psyche دون أن يسأل، باستثناء الإرسال والدفع.",
+  "chat.fullAccess.turnOff": "إيقاف",
   "agent.mode.plan": "تخطيط",
 
   "agent.state.idle": "خامل",
@@ -3477,6 +3492,7 @@ export const ar: Partial<Catalogue> = {
   "screens.goals.suggest.none": "لا يوجد اقتراح هذه المرة. حاول لاحقًا.",
   "screens.ideas.start": "ابدأ",
   "screens.ideas.snooze": "تأجيل",
+  "screens.ideas.options": "المزيد لـ {title}",
   "screens.ideas.badge.checkin": "متابعة",
   "screens.ideas.badge.resume": "هل تستأنف؟",
   "screens.goals.checkinFrequency": "المتابعة",

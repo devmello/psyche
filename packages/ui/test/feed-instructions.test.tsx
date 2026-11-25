@@ -98,7 +98,8 @@ describe("merging after a conflict (S15: feedback rewrites interests.md in place
 describe("the Feed instructions sheet (issue #614)", () => {
   it("opens from the toolbar, saves the text and the interests, and generates now", async () => {
     const { user, callsTo, gw, navigate } = setup(<FeedScreen />);
-    await user.click(await screen.findByRole("button", { name: "What should I write about" }));
+    await user.click(await screen.findByRole("button", { name: "Today options" }));
+    await user.click(await screen.findByRole("menuitem", { name: "What should I write about" }));
     expect(navigate).toHaveBeenCalledWith("/home/instructions");
     const sheet = await screen.findByRole("dialog", { name: "What should I write about" });
     const text = await within(sheet).findByRole("textbox", {
@@ -129,7 +130,8 @@ describe("the Feed instructions sheet (issue #614)", () => {
 
   it("puts focus in the instructions box once it loads, not on Generate now", async () => {
     const { user } = setup(<FeedScreen />);
-    await user.click(await screen.findByRole("button", { name: "What should I write about" }));
+    await user.click(await screen.findByRole("button", { name: "Today options" }));
+    await user.click(await screen.findByRole("menuitem", { name: "What should I write about" }));
     const sheet = await screen.findByRole("dialog", { name: "What should I write about" });
     const text = await within(sheet).findByRole("textbox", {
       name: "What should the feed write about?",
@@ -191,7 +193,8 @@ describe("the Feed instructions sheet (issue #614)", () => {
 describe("Schedule over the Feed (issue #614)", () => {
   it("opens Scheduled, where the brief's routine lives", async () => {
     const { user, navigate } = setup(<FeedScreen />);
-    await user.click(await screen.findByRole("button", { name: "Schedule" }));
+    await user.click(await screen.findByRole("button", { name: "Today options" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Schedule" }));
     expect(navigate).toHaveBeenCalledWith("/scheduled");
     expect(agentSheetRoute("/agent/upcoming?from=%2Ffeed")).toEqual({
       tab: "upcoming",

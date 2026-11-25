@@ -3,6 +3,7 @@
 export * from "./handlers.ts";
 export * from "./notice.ts";
 export * from "./notifier.ts";
+export * from "./os-text.ts";
 export * from "./quiet-hours.ts";
 export * from "./routing.ts";
 export * from "./sqlite-store.ts";

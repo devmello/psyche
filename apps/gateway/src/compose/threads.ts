@@ -1,6 +1,7 @@
 import { getThread, type PsycheDb, updateThread } from "@psyche/db";
 import { DEFAULT_AUTO_MODE_ALLOWLIST } from "@psyche/model-router";
 import {
+  fullAccessThreadRefusal,
   type ModelProvider,
   type ModelRef,
   type PermissionMode,
@@ -8,6 +9,34 @@ import {
   type Thread,
 } from "@psyche/protocol";
 import type { Call, HandlerDef, ThreadModelPolicy } from "../context.ts";
+
+/**
+ * Full access (owner, 2026-11-25): turned on only in the owner's own chats (never a channel,
+ * automation, Night shift, specialist or imported thread), and only from the Mac app or a device
+ * paired with admin scope. Turning it off (any other mode) needs nothing more than the usual
+ * `operator.write`: one tap from any paired device.
+ */
+export function assertFullAccessAllowed(
+  call: Call,
+  thread: { kind: string; imported?: unknown; sessionKey?: unknown },
+): void {
+  const refusal = fullAccessThreadRefusal(thread);
+  if (refusal !== undefined) {
+    throw new PsycheError(
+      "forbidden",
+      "Full access works only in your own chats, not in channel, automation, background or imported threads.",
+      { details: { reason: "full_access_thread", refusal } },
+    );
+  }
+  const onHost = call.identity.desktopShell === true && call.conn.peer.remoteLoopback === true;
+  if (!onHost && !call.identity.scopes.includes("operator.admin")) {
+    throw new PsycheError(
+      "forbidden",
+      "Only the Mac app or a device paired as admin can turn on Full access.",
+      { details: { reason: "full_access_device" } },
+    );
+  }
+}
 
 /**
  * `threads.update` (composer `/model` and `/plan`, the mode and model pills; feature C9, B2).
@@ -63,6 +92,7 @@ export function threadSettingsHandlers(pins: ModelPins): Record<string, HandlerD
         if (thread === undefined) {
           throw new PsycheError("not_found", `thread ${params.threadId} not found`);
         }
+        if (params.permissionMode === "full") assertFullAccessAllowed(call, thread);
         const modelRef: ModelRef | null =
           (params.modelRef === undefined ? thread.modelRef : params.modelRef) ?? null;
         // A thread without a pin runs on the router's default chat model, so Auto is judged

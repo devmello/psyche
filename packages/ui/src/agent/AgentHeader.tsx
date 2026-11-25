@@ -47,6 +47,9 @@ export const MODE_LABEL: Record<PermissionMode, string> = {
   get plan() {
     return t("agent.mode.plan");
   },
+  get full() {
+    return t("agent.mode.full");
+  },
 };
 
 const ACRONYMS = new Set(["gpt", "glm", "llm", "ai", "vl"]);

@@ -179,6 +179,9 @@ export const ja: Partial<Catalogue> = {
     "別のクライアントには、そのクライアント専用のシークレットが必要です。",
   "errors.reason.project_private":
     "このプロジェクトは非公開のため、Spaceを持てません。先に「非公開にする」をオフにしてください。",
+  "errors.reason.entity_exists": "すでにメモリにあります。",
+  "errors.reason.setting_unknown": "この設定は存在しません。",
+  "errors.reason.setting_invalid": "この設定には無効な値です。",
   "errors.reason.model_budget":
     "このデバイスからのリクエストが多すぎます。{minutes, plural, other {#分}}後にもう一度お試しください。",
   "errors.reason.updating":
@@ -689,6 +692,18 @@ export const ja: Partial<Catalogue> = {
   "agent.mode.manual": "手動",
   "agent.mode.balanced": "バランス",
   "agent.mode.auto": "自動",
+  "agent.mode.full": "フルアクセス",
+  "chat.commands.full.hint": "on | off",
+  "chat.commands.full.description": "このチャットのフルアクセスをオンまたはオフにする",
+  "chat.commands.usageFull": "使い方: /full [on | off]",
+  "chat.args.mode.full": "送信と支払い以外は確認せずに実行します",
+  "chat.args.full.on": "送信と支払い以外は確認せずに実行する",
+  "chat.args.full.off": "バランスに戻す",
+  "chat.thread.fullAccessOn":
+    "このチャットでフルアクセスがオンです。他の人への送信と支払いは引き続き確認します。",
+  "chat.thread.fullAccessOff": "フルアクセスはオフです。このチャットはバランスに戻りました。",
+  "chat.fullAccess.banner": "フルアクセス: Psyche は送信と支払い以外を確認せずに実行します。",
+  "chat.fullAccess.turnOff": "オフにする",
   "agent.mode.plan": "プラン",
   "agent.state.idle": "待機中",
   "agent.state.working": "作業中",
@@ -3449,6 +3464,7 @@ export const ja: Partial<Catalogue> = {
   "screens.goals.suggest.none": "今回は提案がありませんでした。あとでもう一度お試しください。",
   "screens.ideas.start": "開始",
   "screens.ideas.snooze": "あとで通知",
+  "screens.ideas.options": "{title} のその他の操作",
   "screens.ideas.badge.checkin": "チェックイン",
   "screens.ideas.badge.resume": "再開しますか？",
   "screens.goals.checkinFrequency": "チェックイン",

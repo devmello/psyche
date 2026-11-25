@@ -33,6 +33,8 @@ export const windows: Partial<Record<MessageId, string>> = {
   "blocks.details.runsNoSandbox": "on your PC, and the sandbox is not set up ({reason})",
   "blocks.permission.need.capability": "Turn on Run commands on this PC",
   "blocks.permission.need.macos_access": "Give {connector} access in Windows Settings",
+  "settings.notifications.helper.denied": "Notifications are off in Windows Settings",
+  "settings.notifications.helper.openSettings": "Open Windows Settings",
   "blocks.permission.openSystemSettings": "Open Windows Settings",
   "blocks.approval.answerOnHost":
     "Answer on {host}, or set up Windows Hello for approvals on this computer in Settings → Devices.",

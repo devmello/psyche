@@ -12,6 +12,7 @@ import {
   loopsForViewer,
   scrubLoopForRemote,
 } from "./loop-visibility.ts";
+import { normalizeName } from "./normalize.ts";
 import type { GraphStore } from "./store.ts";
 
 export {
@@ -27,6 +28,9 @@ export {
   runLoopRemoteVisibleBackfill,
   scrubLoopForRemote,
 } from "./loop-visibility.ts";
+
+/** Kinds whose name is who they are: a second "Dana Whitfield" is the same person. */
+const DEDUPED_KINDS: ReadonlySet<string> = new Set(["person", "org", "place"]);
 
 /**
  * `memory.entities.*`, `memory.loops.*` and `memory.graph.status` (docs/memory/people-and-projects-2026.md
@@ -173,6 +177,32 @@ export function createGraphHandlers(
     },
 
     async "memory.entities.create"(p) {
+      // A person, organisation or place named like one Memory already has is that one: refuse
+      // with the existing id so a client can offer "Already in Memory, open it?" (QA 2026-11-25).
+      // `allowDuplicate` is the owner's "create anyway".
+      if (p.allowDuplicate !== true && DEDUPED_KINDS.has(p.kind)) {
+        const names = new Set([normalizeName(p.name), ...(p.aliases ?? []).map(normalizeName)]);
+        names.delete("");
+        let existing = graph
+          .listEntities([p.kind])
+          .find((e) => [e.name, ...e.aliases].some((n) => names.has(normalizeName(n))));
+        for (const ident of p.identifiers ?? []) {
+          if (ident.kind !== "email" || existing !== undefined) continue;
+          const owner = graph.resolveIdentifier("email", ident.value);
+          const hit = owner === undefined ? undefined : graph.getEntity(graph.resolveMerged(owner));
+          if (hit?.status === "active" && hit.kind === p.kind) existing = hit;
+        }
+        if (existing !== undefined) {
+          throw new PsycheError("conflict", `${existing.name} is already in Memory.`, {
+            details: {
+              reason: "entity_exists",
+              entityId: existing.id,
+              name: existing.name,
+              kind: existing.kind,
+            },
+          });
+        }
+      }
       const entity = graph.createEntity({
         kind: p.kind,
         name: p.name,

@@ -293,6 +293,14 @@ export function spaceFolderHandlers(deps: SpaceFolderHandlerDeps): Record<string
         // Both only ever narrow at run time (SR5): the mode is capped by the owner's global
         // setting, and the connector scope only leaves tools out.
         if (p.defaultPermissionMode !== undefined) {
+          // Full access is turned on in one chat at a time (owner, 2026-11-25), never for a Space.
+          if (p.defaultPermissionMode === "full") {
+            throw new PsycheError(
+              "invalid_params",
+              "Full access is turned on in a chat, not as a Space's default mode.",
+              { details: { reason: "full_access_thread" } },
+            );
+          }
           db.sqlite
             .prepare("UPDATE spaces SET default_permission_mode = ? WHERE id = ?")
             .run(p.defaultPermissionMode, p.spaceId);

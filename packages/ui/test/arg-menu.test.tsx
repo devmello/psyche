@@ -147,8 +147,8 @@ describe("argument popup (other commands)", () => {
     await userEvent.type(await box(), "/mode ");
     const list = await popup("mode");
     const rows = within(list).getAllByRole("option");
-    expect(rows).toHaveLength(4);
-    for (const [i, mode] of ["manual", "balanced", "auto", "plan"].entries()) {
+    expect(rows).toHaveLength(5);
+    for (const [i, mode] of ["manual", "balanced", "auto", "full", "plan"].entries()) {
       expect(rows[i]?.textContent?.startsWith(mode)).toBe(true);
     }
     expect(within(list).getByRole("option", { name: /balanced/ }).textContent).toContain(

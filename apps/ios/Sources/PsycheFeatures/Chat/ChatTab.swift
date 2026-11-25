@@ -30,11 +30,9 @@ struct ChatTab: View {
                     if let id = router.selectedThread {
                         ThreadView(id: id, store: store).id(id)
                     } else {
-                        VStack(spacing: 8) {
-                            MothAvatar(size: 44)
-                            Text("Pick a chat", bundle: .module).font(.psycheRow).foregroundStyle(PsycheColor.muted)
+                        ContentUnavailableView {
+                            Label(String(localized: "Pick a chat", bundle: .module), systemImage: "bubble.left")
                         }
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
                         .psycheScreen()
                     }
                 }
@@ -58,6 +56,7 @@ struct ThreadListView: View {
     @State private var renaming: ChatThreadSummary?
     @State private var renameText = ""
     @State private var deleting: ChatThreadSummary?
+    @State private var query = ""
     @Binding var selection: String?
     /// Shown again after a back swipe on a phone, when the same row is tapped twice.
     @Binding var column: NavigationSplitViewColumn
@@ -80,7 +79,14 @@ struct ThreadListView: View {
                     .listRowBackground(Color.clear)
                     .listRowSeparator(.hidden)
             }
-            PhaseView(phase: model.phase, skeleton: .skeleton, retry: model.load) { threads in
+            PhaseView(phase: model.phase, skeleton: .skeleton, retry: model.load) { all in
+                let threads = matching(all)
+                let archived = matching(model.archived)
+                if searching && threads.isEmpty && archived.isEmpty {
+                    ContentUnavailableView.search(text: query)
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
+                }
                 ForEach(threads) { thread in
                     // Only a side-by-side layout shows a selected row; on a phone the thread covers the list.
                     let selected = sideBySide && selection == thread.id
@@ -88,8 +94,7 @@ struct ThreadListView: View {
                         .buttonStyle(.plain)
                         .badge(thread.statusKind == .needsYou ? Text("Needs you", bundle: .module) : nil)
                         .accessibilityAddTraits(selected ? .isSelected : [])
-                        .listRowBackground(selected ? PsycheColor.fill : PsycheColor.sheet)
-                        .listRowSeparatorTint(PsycheColor.hairline)
+                        .listRowBackground(selected ? PsycheColor.fill : nil)
                         .contextMenu {
                             if !thread.isMain, !spaces.spaces.isEmpty {
                                 MoveToSpaceMenu(model: spaces, thread: thread) { await model.load() }
@@ -129,13 +134,11 @@ struct ThreadListView: View {
                         }
                 }
                 // Archived chats sit below the list; a row opens the chat, and a swipe brings it back.
-                if !model.archived.isEmpty {
+                if !archived.isEmpty {
                     Section(String(localized: "Archived", bundle: .module)) {
-                        ForEach(model.archived) { thread in
+                        ForEach(archived) { thread in
                             Button { selection = thread.id; column = .detail } label: { ThreadRow(thread: thread) }
                                 .buttonStyle(.plain)
-                                .listRowBackground(PsycheColor.sheet)
-                                .listRowSeparatorTint(PsycheColor.hairline)
                                 .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                                     Button { Task { await model.restore(thread) } } label: {
                                         Label(String(localized: "Restore", bundle: .module), systemImage: "arrow.uturn.backward")
@@ -151,7 +154,6 @@ struct ThreadListView: View {
                                 }
                             }
                             .disabled(model.loadingMoreArchived)
-                            .listRowBackground(PsycheColor.sheet)
                         }
                     }
                 }
@@ -167,6 +169,7 @@ struct ThreadListView: View {
                 }
             }
         }
+        .listStyle(.plain)
         .scrollContentBackground(.hidden)
         .psycheScreen()
         .navigationTitle(String(localized: "Chat", bundle: .module))
@@ -174,6 +177,7 @@ struct ThreadListView: View {
         .toolbarTitleMenu {
             if !spaces.spaces.isEmpty { SpaceTargetItems(model: spaces) }
         }
+        .searchable(text: $query, prompt: String(localized: "Search chats", bundle: .module))
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Button { Task { selection = await newChat() ?? selection } } label: {
@@ -216,6 +220,15 @@ struct ThreadListView: View {
         }
         .task { await spaces.observe() }
         .refreshable { await model.resync() }
+    }
+
+    private var searching: Bool { !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+
+    /// The chats whose title matches the search field (all of them while it is empty).
+    private func matching(_ threads: [ChatThreadSummary]) -> [ChatThreadSummary] {
+        let needle = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !needle.isEmpty else { return threads }
+        return threads.filter { $0.title.localizedStandardContains(needle) }
     }
 
     private var errorShown: Binding<Bool> {

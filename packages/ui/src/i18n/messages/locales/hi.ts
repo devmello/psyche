@@ -176,6 +176,9 @@ export const hi: Partial<Catalogue> = {
   "errors.reason.secret_required": "दूसरे क्लाइंट को अपना क्लाइंट सीक्रेट चाहिए।",
   "errors.reason.project_private":
     "वह प्रोजेक्ट निजी है, इसलिए उसका Space नहीं हो सकता। पहले निजी रखें बंद करें।",
+  "errors.reason.entity_exists": "यह पहले से मेमोरी में है।",
+  "errors.reason.setting_unknown": "यह सेटिंग मौजूद नहीं है।",
+  "errors.reason.setting_invalid": "इस सेटिंग के लिए यह मान मान्य नहीं है।",
   "errors.reason.model_budget":
     "इस डिवाइस से बहुत अधिक अनुरोध हुए हैं। {minutes, plural, one {# मिनट} other {# मिनट}} बाद फिर कोशिश करें।",
   "errors.reason.updating":
@@ -703,6 +706,17 @@ export const hi: Partial<Catalogue> = {
   "agent.mode.manual": "मैन्युअल",
   "agent.mode.balanced": "संतुलित",
   "agent.mode.auto": "ऑटो",
+  "agent.mode.full": "पूरी पहुँच",
+  "chat.commands.full.hint": "on | off",
+  "chat.commands.full.description": "इस चैट में पूरी पहुँच चालू या बंद करें",
+  "chat.commands.usageFull": "उपयोग: /full [on | off]",
+  "chat.args.mode.full": "भेजने और भुगतान को छोड़कर बिना पूछे काम करता है",
+  "chat.args.full.on": "भेजने और भुगतान को छोड़कर बिना पूछे काम करें",
+  "chat.args.full.off": "संतुलित पर वापस जाएँ",
+  "chat.thread.fullAccessOn": "इस चैट में पूरी पहुँच चालू है। दूसरों को भेजना और भुगतान अब भी पूछते हैं।",
+  "chat.thread.fullAccessOff": "पूरी पहुँच बंद है। यह चैट फिर से संतुलित पर है।",
+  "chat.fullAccess.banner": "पूरी पहुँच: Psyche भेजने और भुगतान को छोड़कर बिना पूछे काम करता है।",
+  "chat.fullAccess.turnOff": "बंद करें",
   "agent.mode.plan": "प्लान",
 
   "agent.state.idle": "निष्क्रिय",
@@ -3420,6 +3434,7 @@ export const hi: Partial<Catalogue> = {
   "screens.goals.suggest.none": "इस बार कोई सुझाव नहीं। बाद में फिर कोशिश करें।",
   "screens.ideas.start": "शुरू करें",
   "screens.ideas.snooze": "बाद में याद दिलाएँ",
+  "screens.ideas.options": "{title} के लिए और विकल्प",
   "screens.ideas.badge.checkin": "चेक-इन",
   "screens.ideas.badge.resume": "फिर से शुरू करें?",
   "screens.goals.checkinFrequency": "चेक-इन",

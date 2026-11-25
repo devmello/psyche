@@ -168,6 +168,8 @@ export const threads = sqliteTable("threads", {
   importKey: text("import_key"),
   /** The Space this chat is in (migration 202611201000); NULL for none. */
   spaceId: text("space_id"),
+  /** 1 while the owner has Full access on in this chat (migration 202611251000): mode `full`. */
+  fullAccess: integer("full_access").notNull().default(0),
 });
 
 export const messages = sqliteTable("messages", {

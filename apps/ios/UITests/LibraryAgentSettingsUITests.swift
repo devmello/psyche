@@ -5,7 +5,9 @@ final class LibraryUITests: PsycheUITestCase {
         launch()
         openTab("Library")
         waitFor(match("lease-2026.pdf"))
-        for (section, item) in [("Images", "Quartz sample.jpg"), ("Artifacts", "Kitchen budget"), ("Downloads", "renters-policy-2026.pdf"), ("Documents", "lease-2026.pdf")] {
+        for (section, item) in [("Images", "Quartz sample.jpg"), ("Artifacts", "Q3 review"), ("Downloads", "renters-policy-2026.pdf"), ("Documents", "lease-2026.pdf")] {
+            // The sections sit behind the toolbar filter menu.
+            app.buttons["Filter"].firstMatch.tap()
             app.buttons[section].firstMatch.tap()
             waitFor(match(item), 5)
         }
@@ -18,7 +20,7 @@ final class LibraryUITests: PsycheUITestCase {
         waitFor(app.staticTexts["Delete this file?"].firstMatch, 5)
         tapWhenHittable(lastButton("Delete"))
         // Back on the list, the item is gone.
-        waitFor(app.buttons["Documents"].firstMatch, 10)
+        waitFor(app.buttons["Filter"].firstMatch, 10)
         waitGone(app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "lease-2026.pdf")).firstMatch, 5)
     }
 

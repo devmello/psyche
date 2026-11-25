@@ -4,6 +4,7 @@ export const agent = {
   "agent.mode.balanced": "balanced",
   "agent.mode.auto": "auto",
   "agent.mode.plan": "plan",
+  "agent.mode.full": "Full access",
 
   "agent.state.idle": "idle",
   "agent.state.working": "working",
