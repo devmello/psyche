@@ -26,6 +26,19 @@ export function memoryViewerOf(call: Call): AnswerViewer {
   return cli ? { ...v, desktop: true } : v;
 }
 
+/**
+ * Workspace files a connection that may not open Memory can still read: exactly the persona file,
+ * whose content `memory.persona.get` returns to it already. An allowlist of one exact name, folded
+ * the way APFS folds (case and Unicode); any other spelling or path is refused, never resolved.
+ */
+const REMOTE_READABLE_FILES: ReadonlySet<string> = new Set(["identity.md"]);
+
+const fold = (s: string): string =>
+  s.normalize("NFKC").toLowerCase().toUpperCase().toLowerCase().normalize("NFKC");
+
+export const isRemoteReadablePath = (path: string): boolean =>
+  REMOTE_READABLE_FILES.has(fold(path));
+
 /** True when this viewer may open a Memory-source passage: the one rule, `forViewer`'s. */
 export const mayReadMemoryChunks = (viewer: AnswerViewer): boolean =>
   forViewer({ source: "memory" }, viewer) !== undefined;
@@ -113,6 +126,33 @@ export function mountMemoryHandlers(
     run: async (call: Call, params: never) => {
       if (!mayReadMemoryChunks(memoryViewerOf(call))) return { hits: [] };
       return handlers["memory.search"](params);
+    },
+  };
+  // Workspace files (USER.md, MEMORY.md, people/*, memory/*) are Memory passages too: search hides
+  // them from a connection that may not open Memory, so reading or listing them does the same.
+  // The one thing it still gets is the persona file, which `memory.persona.get` already returns.
+  out["memory.read"] = {
+    run: async (call: Call, params: never) => {
+      if (!mayReadMemoryChunks(memoryViewerOf(call))) {
+        const path = (params as { path?: unknown }).path;
+        if (typeof path !== "string" || !isRemoteReadablePath(path))
+          throw new PsycheError(
+            "forbidden",
+            "Memory files open in the Psyche app on the Host only",
+            {
+              details: { reason: "not_desktop" },
+            },
+          );
+      }
+      return handlers["memory.read"](params);
+    },
+  };
+  out["memory.files.list"] = {
+    run: async (call: Call, params: never) => {
+      const res = await handlers["memory.files.list"](params);
+      if (mayReadMemoryChunks(memoryViewerOf(call))) return res;
+      // Only the files this connection may read: the names of people and projects are Memory too.
+      return { ...res, files: res.files.filter((f) => isRemoteReadablePath(f.path)) };
     },
   };
   out["memory.explain"] = {

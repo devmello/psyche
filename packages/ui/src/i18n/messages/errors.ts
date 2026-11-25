@@ -49,6 +49,8 @@ export const errors = {
   "errors.reason.secret_required": "A different client needs its own client secret.",
   "errors.reason.project_private":
     "That project is Keep private, so it can't have a Space. Turn off Keep private first.",
+  "errors.reason.setting_unknown": "That setting does not exist.",
+  "errors.reason.setting_invalid": "That value is not valid for this setting.",
   "errors.reason.model_budget":
     "Too many requests from this device. Try again in {minutes, plural, one {# minute} other {# minutes}}.",
   "errors.reason.updating":

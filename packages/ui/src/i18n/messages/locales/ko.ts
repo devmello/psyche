@@ -179,6 +179,8 @@ export const ko: Partial<Catalogue> = {
   "errors.reason.secret_required": "다른 클라이언트에는 해당 클라이언트의 보안 비밀이 필요합니다.",
   "errors.reason.project_private":
     "이 프로젝트는 비공개라서 Space를 가질 수 없습니다. 먼저 비공개 유지를 끄세요.",
+  "errors.reason.setting_unknown": "존재하지 않는 설정입니다.",
+  "errors.reason.setting_invalid": "이 설정에 사용할 수 없는 값입니다.",
   "errors.reason.model_budget":
     "이 기기에서 요청이 너무 많습니다. {minutes, plural, other {#분}} 후에 다시 시도하세요.",
   "errors.reason.updating":

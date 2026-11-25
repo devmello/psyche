@@ -21739,6 +21739,8 @@ public struct Note: Codable, Sendable {
 public struct MemoryEntitiesCreateParams: Codable, Sendable {
     /// Other names
     public let aliases: [String]?
+    /// Create even when a person, organisation or place with the same name or email exists
+    public let allowDuplicate: Bool?
     public let dueAt: String?
     /// Emails, phones, handles; refused if another entity has one
     public let identifiers: [MemoryEntitiesCreateParamsIdentifier]?
@@ -21752,6 +21754,7 @@ public struct MemoryEntitiesCreateParams: Codable, Sendable {
 
     public enum CodingKeys: String, CodingKey {
         case aliases = "aliases"
+        case allowDuplicate = "allowDuplicate"
         case dueAt = "dueAt"
         case identifiers = "identifiers"
         case kind = "kind"
@@ -21761,8 +21764,9 @@ public struct MemoryEntitiesCreateParams: Codable, Sendable {
         case projectType = "projectType"
     }
 
-    public init(aliases: [String]? = nil, dueAt: String? = nil, identifiers: [MemoryEntitiesCreateParamsIdentifier]? = nil, kind: SearchEntityType, name: String, memoryEntitiesCreateParamsPrivate: Bool? = nil, projectStatus: GraphProjectStatus? = nil, projectType: GraphProjectType? = nil) {
+    public init(aliases: [String]? = nil, allowDuplicate: Bool? = nil, dueAt: String? = nil, identifiers: [MemoryEntitiesCreateParamsIdentifier]? = nil, kind: SearchEntityType, name: String, memoryEntitiesCreateParamsPrivate: Bool? = nil, projectStatus: GraphProjectStatus? = nil, projectType: GraphProjectType? = nil) {
         self.aliases = aliases
+        self.allowDuplicate = allowDuplicate
         self.dueAt = dueAt
         self.identifiers = identifiers
         self.kind = kind
