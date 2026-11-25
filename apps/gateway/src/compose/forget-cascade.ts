@@ -3,6 +3,7 @@ import {
   applyGraphForget,
   applyGraphReset,
   applyLessonForget,
+  assertGraphResetReady,
   type ForgetCascade,
   type ForgetCounts,
   type GraphResetCounts,
@@ -98,11 +99,15 @@ export function composeGraphReset(deps: ForgetCascadeDeps) {
     preview(): GraphResetCounts {
       return previewGraphReset(deps.graphSqlite());
     },
-    async apply(): Promise<GraphResetCounts> {
-      const graph = deps.graph();
-      if (graph === undefined)
+    /** Throws before anything is erased when the memory database is not ready. */
+    ready(): void {
+      if (deps.graph() === undefined)
         throw new PsycheError("unavailable", "the memory graph is not ready");
-      const counts = applyGraphReset(deps.graphSqlite(), graph);
+      assertGraphResetReady(deps.graphSqlite());
+    },
+    async apply(): Promise<GraphResetCounts> {
+      this.ready();
+      const counts = applyGraphReset(deps.graphSqlite());
       graphDocs.purgeMemoryDocs(() => true, { dryRun: false });
       deps.searchIndex()?.purgeMemoryDocs(() => true, { dryRun: false });
       return counts;

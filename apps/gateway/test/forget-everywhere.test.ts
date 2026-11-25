@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -554,5 +555,209 @@ describe("forget everywhere", () => {
       .all();
     expect(docs).toEqual([]);
     expect(leaks(c.db.sqlite)).toEqual([]);
+  });
+});
+
+describe("forget everywhere: what each entry point reaches", () => {
+  const sqlOf = (c: ComposedGateway) => c.db.sqlite;
+  const count = (c: ComposedGateway, t: string) =>
+    (sqlOf(c).prepare(`SELECT count(*) AS n FROM ${t}`).get() as { n: number }).n;
+
+  async function samWorld(c: ComposedGateway) {
+    const g = c.people.graph;
+    const sam = g.createEntity({
+      kind: "person",
+      name: "Sam",
+      identifiers: [{ kind: "email", value: "sam@example.com" }],
+      source: "owner",
+      linkedBy: "owner",
+    });
+    const samLee = g.createEntity({ kind: "person", name: "Sam Lee", source: "owner" });
+    const pat = g.createEntity({ kind: "person", name: "Pat", source: "owner" });
+    g.setFact({ entityId: sam.id, attribute: "city", value: "Oslo", provenance: "owner" });
+    g.setFact({ entityId: samLee.id, attribute: "city", value: "Rome", provenance: "owner" });
+    g.setFact({
+      entityId: pat.id,
+      attribute: "note",
+      value: "Sam's birthday is in May",
+      provenance: "owner",
+    });
+    c.teaching.service.store.insertLesson({
+      kind: "style",
+      origin: "stated",
+      statement: "Replies to Sam are short",
+      scope: {},
+      destination: { type: "file", path: "AGENTS.md", section: "How I write", lineId: "ls_s" },
+      previous: null,
+      value: "Replies to Sam are short",
+      sources: [],
+      confidence: 0.8,
+      status: "active",
+    });
+    await c.memory.appendDailyNote({ text: "Lunch with Sam", provenance: "owner" });
+    return { g, sam, samLee, pat };
+  }
+
+  it("Forget person (memory.entities.forget) forgets that person only; /forget cascades (control)", async () => {
+    composed = await compose();
+    const c = composed;
+    const desk = await adminClient(c.gateway);
+    clients.push(desk);
+    const { g, sam, samLee, pat } = await samWorld(c);
+    expect(count(c, "lessons")).toBe(1);
+
+    await desk.call("memory.entities.forget", { id: sam.id }, ik());
+    // Sam's own entity, facts and identifiers go (and the Markdown lines, as before).
+    expect(g.getEntity(sam.id)).toBeUndefined();
+    expect(g.isBlocked("email", "sam@example.com")).toBe(true);
+    for (const path of await c.memory.listFiles("memory/")) {
+      expect((await c.memory.readFile(path))?.content ?? "").not.toMatch(/Lunch with Sam/);
+    }
+    // Must refuse: nothing beyond that person is touched.
+    expect(g.getEntity(samLee.id)?.name).toBe("Sam Lee");
+    expect(g.facts(samLee.id).map((f) => f.value)).toEqual(["Rome"]);
+    expect(g.facts(pat.id).map((f) => f.value)).toEqual(["Sam's birthday is in May"]);
+    expect(count(c, "lessons")).toBe(1);
+    expect(
+      sqlOf(c).prepare("SELECT 1 FROM memory_state WHERE key = 'forget.suppress'").get(),
+    ).toBeUndefined();
+
+    // Control: the desktop's /forget Sam is the everywhere forget.
+    await desk.call("memory.forget", { subject: "Sam" }, ik());
+    expect(g.getEntity(samLee.id)).toBeUndefined();
+    expect(g.facts(pat.id)).toEqual([]);
+    expect(
+      (sqlOf(c).prepare("SELECT status FROM lessons").get() as { status: string }).status,
+    ).toBe("forgotten");
+  });
+
+  it("an entity named like a common word cannot be used to forget anything else", async () => {
+    composed = await compose();
+    const c = composed;
+    const desk = await adminClient(c.gateway);
+    clients.push(desk);
+    const { g, pat } = await samWorld(c);
+    await c.memory.writeFileAsOwner("SOUL.md", "# Soul\n\nI keep the things I like.\n");
+    await c.memory.idle();
+    const the = g.createEntity({ kind: "person", name: "the", source: "owner" });
+    const snapshot = () => ({
+      facts: count(c, "graph_facts"),
+      lessons: count(c, "lessons"),
+      chunks: count(c, "memory_chunks"),
+      entities: count(c, "graph_entities"),
+    });
+    const before = snapshot();
+    await desk.call("memory.entities.forget", { id: the.id }, ik());
+    expect(g.getEntity(the.id)).toBeUndefined(); // that entity itself goes
+    expect(snapshot()).toEqual({ ...before, entities: before.entities - 1 });
+    expect(g.facts(pat.id)).toHaveLength(1);
+    // And the direct forget of a stopword is refused, preview and forget alike.
+    for (const w of ["the", "The", "my", "is"]) {
+      for (const method of ["memory.forget.preview", "memory.forget"] as const) {
+        const res = await desk.request(method, { subject: w }, ik());
+        expect(res.ok, `${method} ${w}`).toBe(false);
+        expect((res.error as { code: string }).code).toBe("invalid_params");
+      }
+    }
+  });
+
+  it("forgets a two-character CJK name; refuses one character and two Latin letters", async () => {
+    composed = await compose();
+    const c = composed;
+    const desk = await adminClient(c.gateway);
+    clients.push(desk);
+    await c.memory.appendDailyNote({ text: "和李明一起吃饭", provenance: "owner" });
+    await c.memory.appendDailyNote({ text: "Bought tea", provenance: "owner" });
+    const ok = await desk.call<{ counts: { markdownLines: number } }>(
+      "memory.forget",
+      { subject: "李明" },
+      ik(),
+    );
+    expect(ok.counts.markdownLines).toBe(1);
+    for (const subject of ["李", "ab"]) {
+      const res = await desk.request("memory.forget", { subject }, ik());
+      expect(res.ok, subject).toBe(false);
+      expect((res.error as { code: string }).code).toBe("invalid_params");
+    }
+    const paths = await c.memory.listFiles("memory/");
+    const text = (await Promise.all(paths.map((p) => c.memory.readFile(p))))
+      .map((f) => f?.content)
+      .join("\n");
+    expect(text).toContain("Bought tea");
+    expect(text).not.toContain("李明");
+  });
+
+  it("writes a keyed hash only when a persona or skill chunk matched, and never a bare SHA-256", async () => {
+    composed = await compose();
+    const c = composed;
+    const desk = await adminClient(c.gateway);
+    clients.push(desk);
+    await c.memory.appendDailyNote({ text: "Met Jordan", provenance: "owner" });
+    await c.memory.writeFileAsOwner("SOUL.md", "# Soul\n\nA teacher called Casey taught me.\n");
+    await c.memory.idle();
+    const suppress = () =>
+      sqlOf(c).prepare("SELECT value FROM memory_state WHERE key = 'forget.suppress'").get() as
+        | { value: string }
+        | undefined;
+    // No persona chunk names Jordan: nothing is written (a name list cannot reverse it).
+    await desk.call("memory.forget", { subject: "Jordan" }, ik());
+    expect(suppress()).toBeUndefined();
+    // One does: a keyed entry is written, not the SHA-256 of the words.
+    await desk.call("memory.forget", { subject: "Casey" }, ik());
+    const entry = JSON.parse(suppress()?.value ?? "[]") as { k: number; h: string }[];
+    expect(entry).toHaveLength(1);
+    expect(entry[0]?.h).not.toBe(createHash("sha256").update("casey").digest("hex"));
+    expect(entry[0]?.h).toMatch(/^[0-9a-f]{64}$/);
+    const key = readFileSync(join(home, "workspace", ".psyche", "forget.key"), "utf8").trim();
+    expect(key).toMatch(/^[0-9a-f]{64}$/);
+    expect(JSON.stringify(entry)).not.toMatch(/casey/i);
+  });
+
+  it("memory.reset is refused, with nothing erased, when the graph tables are not ready", async () => {
+    composed = await compose();
+    const c = composed;
+    const desk = await adminClient(c.gateway);
+    clients.push(desk);
+    await c.memory.appendDailyNote({ text: "Keep this note", provenance: "owner" });
+    // Control: a ready store resets (see the reset test above). Now break the backup table.
+    sqlOf(c).exec("DROP TABLE memory_migration_backup_2026_11");
+    const res = await desk.request("memory.reset", {}, ik());
+    expect(res.ok).toBe(false);
+    expect((res.error as { code: string }).code).toBe("unavailable");
+    expect(JSON.stringify(res)).toMatch(/Nothing was erased/);
+    expect((await c.memory.listFiles("memory/")).length).toBeGreaterThan(0);
+    expect(count(c, "memory_chunks")).toBeGreaterThan(0);
+  });
+
+  it("the agent forgets a small plain thing alone; anything wide needs approval", async () => {
+    composed = await compose();
+    const c = composed;
+    await samWorld(c);
+    // Control: a small, plain, unrelated phrase goes through with no approval.
+    await c.memory.appendDailyNote({ text: "Bought oolong tea", provenance: "owner" });
+    const small = await c.memory.forget("oolong", { actor: "agent", dryRun: true });
+    expect(small.counts?.markdownLines).toBe(1);
+    await c.memory.forget("oolong", { actor: "agent" });
+    // Must refuse: a person (graph entity) or a lesson is in the way.
+    for (const phrase of ["Sam", "Replies to Sam"]) {
+      await expect(c.memory.forget(phrase, { actor: "agent" })).rejects.toMatchObject({
+        code: "approval_required",
+      });
+    }
+    expect(c.people.graph.listEntities(["person"]).map((e) => e.name)).toContain("Sam");
+    // Must refuse: a short phrase, even with nothing behind it.
+    await c.memory.appendDailyNote({ text: "Ate pie", provenance: "owner" });
+    await expect(c.memory.forget("pie", { actor: "agent" })).rejects.toMatchObject({
+      code: "approval_required",
+    });
+    // Must refuse: more than 20 rows.
+    for (let i = 0; i < 25; i++) {
+      await c.memory.appendDailyNote({ text: `Visited Lisbon stop ${i}`, provenance: "owner" });
+    }
+    await expect(c.memory.forget("Lisbon", { actor: "agent" })).rejects.toMatchObject({
+      code: "approval_required",
+    });
+    // The owner (no actor) is not held to these.
+    await c.memory.forget("Lisbon");
   });
 });

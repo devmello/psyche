@@ -1,4 +1,5 @@
 import { holdSecureDelete } from "@psyche/db";
+import { PsycheError } from "@psyche/protocol";
 import type Database from "better-sqlite3";
 import { type ForgetCounts, type ForgetMatcher, mentions } from "../forget-cascade.ts";
 import { factKeyHash, type GraphStore } from "./store.ts";
@@ -497,26 +498,60 @@ const resetCounts = (db: Database.Database): GraphResetCounts => {
  * `memory.reset` for the graph and the extraction tables: entities (the owner's too), facts,
  * relations, interactions, loops, suggestions, corrections, citations and the quarantine, with
  * the free pages zeroed. Kept: the owner's exclusion rules and trusted senders (settings, hashes),
- * the extraction run log and `memory_extracted_items` (hashes of what was read, no text): without
- * them the next pass would read the same mail again and bring the memory straight back.
+ * the blocklist, the connector cursors and the "this is wrong" corrections (hashes), the
+ * extraction run log and `memory_extracted_items` (hashes of what was read, no text): without
+ * them the next poll would read the same mail again, bring blocklisted people back and relearn
+ * what the owner marked wrong.
  */
 export function previewGraphReset(db: Database.Database): GraphResetCounts {
   return resetCounts(db);
 }
 
-export function applyGraphReset(db: Database.Database, graph: GraphStore): GraphResetCounts {
+const RESET_TABLES = [
+  "graph_entities",
+  "graph_facts",
+  "graph_citations",
+  "memory_quarantine",
+  "memory_migration_backup_2026_11",
+  "graph_blocklist",
+  "graph_cursors",
+  "graph_feedback",
+];
+
+/** Refuses (before anything else is erased) when the graph tables are not all there. */
+export function assertGraphResetReady(db: Database.Database): void {
+  const have = new Set(
+    (
+      db.prepare("SELECT name FROM sqlite_master WHERE type = 'table'").all() as { name: string }[]
+    ).map((r) => r.name),
+  );
+  const missing = RESET_TABLES.filter((t) => !have.has(t));
+  if (missing.length > 0) {
+    throw new PsycheError(
+      "unavailable",
+      `Memory can't be reset yet: the memory database is not ready (${missing[0]} is missing). Nothing was erased.`,
+    );
+  }
+}
+
+export function applyGraphReset(db: Database.Database): GraphResetCounts {
+  assertGraphResetReady(db);
   const counts = resetCounts(db);
   const release = holdSecureDelete(db);
   try {
     db.transaction(() => {
       db.exec(
-        "DELETE FROM graph_citations; DELETE FROM memory_quarantine; DELETE FROM memory_migration_backup_2026_11;",
+        `DELETE FROM graph_citations; DELETE FROM memory_quarantine; DELETE FROM memory_migration_backup_2026_11;
+         DELETE FROM graph_loops; DELETE FROM graph_participants; DELETE FROM graph_interactions;
+         DELETE FROM graph_suggestions; DELETE FROM memory_work_undo;
+         DELETE FROM graph_feedback WHERE kind NOT IN ('wrong_fact', 'wrong_edge');
+         DELETE FROM graph_fts; UPDATE graph_entities SET merged_into = NULL; DELETE FROM graph_entities;`,
       );
     })();
+    db.exec("INSERT INTO graph_fts (graph_fts) VALUES ('optimize')");
+    if (db.name !== ":memory:") db.pragma("wal_checkpoint(TRUNCATE)");
   } finally {
     release();
   }
-  // The graph's own wipe (loops, interactions, suggestions, corrections, blocklist, entities).
-  graph.forgetAll(false);
   return counts;
 }

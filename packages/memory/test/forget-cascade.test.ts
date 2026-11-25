@@ -1,10 +1,13 @@
+import { createHash } from "node:crypto";
 import { openDb, type PsycheDb } from "@psyche/db";
 import { FakeClock } from "@psyche/testing";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   forgetMatcher,
+  isStopword,
   isSuppressed,
   mentions,
+  minForgetChars,
   phraseHash,
   suppressionFor,
   wordsOf,
@@ -66,15 +69,16 @@ describe("forgetMatcher", () => {
 });
 
 describe("hashed suppression of persona chunks", () => {
+  const KEY = "k".repeat(64);
   const list = (...phrases: string[]) =>
-    phrases.map((p) => suppressionFor(p)).filter((s) => s !== undefined);
+    phrases.map((p) => suppressionFor(p, KEY)).filter((s) => s !== undefined);
   it.each([
     ["Jordan", "A teacher called Jordan taught me kindness."],
     ["Jordan", "jordan's notes"],
     ["Jordan Lee", "Ask Jordan  Lee first."],
     ["李明", "和李明一起吃饭"],
   ])("%j suppresses %j", (phrase, text) => {
-    expect(isSuppressed(text, list(phrase))).toBe(true);
+    expect(isSuppressed(text, list(phrase), KEY)).toBe(true);
   });
   it.each([
     ["Jordan", "Jordana taught me kindness."],
@@ -82,13 +86,50 @@ describe("hashed suppression of persona chunks", () => {
     ["Jordan Lee", "Jordan alone"],
     ["李明", "和李华一起吃饭"],
   ])("%j leaves %j", (phrase, text) => {
-    expect(isSuppressed(text, list(phrase))).toBe(false);
+    expect(isSuppressed(text, list(phrase), KEY)).toBe(false);
   });
-  it("keeps no plaintext: an entry is a word count and a hash", () => {
-    const s = suppressionFor("Jordan Lee");
-    expect(s).toEqual({ k: 2, h: phraseHash(wordsOf("jordan lee")) });
+  it("keeps no plaintext, and the hash is keyed: another install's key gives another hash", () => {
+    const s = suppressionFor("Jordan Lee", KEY);
+    expect(s).toEqual({ k: 2, h: phraseHash(KEY, wordsOf("jordan lee")) });
     expect(JSON.stringify(s)).not.toMatch(/jordan/i);
+    // Not the bare SHA-256 of the words: a list of names cannot be hashed and compared.
+    expect(s?.h).not.toBe(createHash("sha256").update("jordan lee").digest("hex"));
+    expect(suppressionFor("Jordan Lee", "z".repeat(64))?.h).not.toBe(s?.h);
+    // A list made with one key matches nothing under another.
+    expect(isSuppressed("Ask Jordan Lee", list("Jordan Lee"), "z".repeat(64))).toBe(false);
   });
+});
+
+describe("what a forget refuses", () => {
+  it.each([
+    "the",
+    "The",
+    "a",
+    "an",
+    "and",
+    "or",
+    "i",
+    "me",
+    "my",
+    "you",
+    "it",
+    "of",
+    "to",
+    "in",
+    "on",
+    "at",
+    "is",
+  ])("%j is a stopword", (w) => expect(isStopword(w)).toBe(true));
+  it.each(["Jordan", "the Jordans", "Theo", "isle", "on call", "李明"])("%j is not", (w) =>
+    expect(isStopword(w)).toBe(false),
+  );
+  it.each([
+    ["李明", 2],
+    ["李", 2],
+    ["ab", 3],
+    ["Jordan", 3],
+    ["ab李", 2],
+  ])("the fewest characters for %j is %d", (w, n) => expect(minForgetChars(w)).toBe(n));
 });
 
 describe("graph forget and reset", () => {
@@ -158,7 +199,7 @@ describe("graph forget and reset", () => {
       .run();
     const counts = previewGraphReset(db.sqlite);
     expect(counts).toMatchObject({ entities: 1, facts: 1, citations: 1, quarantine: 1 });
-    expect(applyGraphReset(db.sqlite, g)).toEqual(counts);
+    expect(applyGraphReset(db.sqlite)).toEqual(counts);
     expect(previewGraphReset(db.sqlite)).toEqual({
       entities: 0,
       facts: 0,
@@ -168,5 +209,57 @@ describe("graph forget and reset", () => {
       citations: 0,
       quarantine: 0,
     });
+  });
+
+  it("reset keeps the blocklist, cursors, wrong-fact corrections, exclusions and trusted senders", () => {
+    const ghost = g.createEntity({
+      kind: "person",
+      name: "Ghost",
+      identifiers: [{ kind: "email", value: "ghost@example.com" }],
+      source: "owner",
+      linkedBy: "owner",
+    });
+    const pat = person("Pat");
+    g.setFact({ entityId: pat.id, attribute: "note", value: "wrong", provenance: "owner" });
+    const fact = g.facts(pat.id)[0];
+    g.retractFact(fact?.id ?? "");
+    g.forget(ghost.id); // blocklists the address (a hash)
+    db.sqlite
+      .prepare("INSERT INTO graph_cursors (source, cursor, updated_at) VALUES ('mail', '{}', 'x')")
+      .run();
+    db.sqlite
+      .prepare(
+        "INSERT INTO graph_exclusions (kind, value_hash, mode, created_at) VALUES ('domain', 'h', 'exclude', 'x')",
+      )
+      .run();
+    expect(g.isBlocked("email", "ghost@example.com")).toBe(true);
+    applyGraphReset(db.sqlite);
+    const n = (t: string) =>
+      (db.sqlite.prepare(`SELECT count(*) AS n FROM ${t}`).get() as { n: number }).n;
+    expect(n("graph_entities")).toBe(0);
+    expect(n("graph_facts")).toBe(0);
+    // A poll after the reset still cannot bring the forgotten person back (must refuse)...
+    expect(g.isBlocked("email", "ghost@example.com")).toBe(true);
+    expect(() =>
+      g.createEntity({
+        kind: "person",
+        name: "Ghost",
+        identifiers: [{ kind: "email", value: "ghost@example.com" }],
+        linkedBy: "rule",
+        source: "mail",
+      }),
+    ).toThrow(/forgotten/);
+    // ...and reads from where it stopped, not from the start.
+    expect(n("graph_cursors")).toBe(1);
+    expect(n("graph_exclusions")).toBe(1);
+    expect(
+      (
+        db.sqlite
+          .prepare("SELECT count(*) AS n FROM graph_feedback WHERE kind = 'wrong_fact'")
+          .get() as {
+          n: number;
+        }
+      ).n,
+    ).toBe(1);
   });
 });

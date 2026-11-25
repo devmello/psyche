@@ -1,4 +1,4 @@
-import { sha256Hex } from "./support.ts";
+import { createHmac } from "node:crypto";
 
 /**
  * Forget everywhere (memory wave 3A). One phrase, one matching rule, every store.
@@ -10,6 +10,31 @@ import { sha256Hex } from "./support.ts";
  */
 
 export const MIN_FORGET_CHARS = 3;
+/** A phrase in a script written without spaces (Han, Kana, Hangul, Thai...) carries more in a character. */
+export const MIN_FORGET_CHARS_UNSPACED = 2;
+
+/** Words too common to forget on their own: they would match half of memory and every persona chunk. */
+const STOPWORDS = new Set([
+  "the",
+  "a",
+  "an",
+  "and",
+  "or",
+  "i",
+  "me",
+  "my",
+  "you",
+  "it",
+  "of",
+  "to",
+  "in",
+  "on",
+  "at",
+  "is",
+]);
+
+/** A single word that is on the short stopword list. */
+export const isStopword = (phrase: string): boolean => STOPWORDS.has(phrase.trim().toLowerCase());
 
 /** A forgotten phrase and the pattern that matches it (no `g` flag, so `test` is stateless). */
 export interface ForgetMatcher {
@@ -24,7 +49,7 @@ const oneLine = (s: string): string => s.replace(/\s+/g, " ").trim();
  * bounded by "the next character is not a letter" (`和李明一起` holds `李明`), so no boundary is
  * asked on that side.
  */
-const UNSPACED =
+export const UNSPACED =
   /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Thai}\p{Script=Lao}\p{Script=Khmer}\p{Script=Myanmar}]/u;
 
 export function forgetMatcher(subject: string): ForgetMatcher {
@@ -155,7 +180,8 @@ export const wordsOf = (text: string): string[] =>
   (text.normalize("NFKC").toLowerCase().match(WORD) ?? []).slice(0, 5_000);
 
 /** Hash of a phrase's words; the phrase itself is never stored. */
-export const phraseHash = (words: readonly string[]): string => sha256Hex(words.join(" "));
+export const phraseHash = (key: string, words: readonly string[]): string =>
+  keyed(key, words.join(" "));
 
 export interface Suppression {
   /** Number of words in the phrase (or of characters, with `c`). */
@@ -167,37 +193,45 @@ export interface Suppression {
 
 export const MAX_SUPPRESSIONS = 500;
 
+/** The fewest characters a forget accepts: code points, fewer for scripts without spaces. */
+export const minForgetChars = (phrase: string): number =>
+  UNSPACED.test(phrase) ? MIN_FORGET_CHARS_UNSPACED : MIN_FORGET_CHARS;
+
+/** Keyed hash (HMAC-SHA-256) of a normalised phrase: the key is this install's own secret. */
+const keyed = (key: string, text: string): string =>
+  createHmac("sha256", key).update(text).digest("hex");
+
 const charsOf = (text: string): string[] => [...text.normalize("NFKC").toLowerCase()];
 
 /** The suppression entry for a phrase, or undefined when it has no word to match on. */
-export function suppressionFor(phrase: string): Suppression | undefined {
+export function suppressionFor(phrase: string, key: string): Suppression | undefined {
   if (UNSPACED.test(phrase)) {
     const chars = charsOf(phrase.replace(/\s+/g, " ").trim());
     return chars.length === 0 || chars.length > 60
       ? undefined
-      : { k: chars.length, h: sha256Hex(chars.join("")), c: 1 };
+      : { k: chars.length, h: keyed(key, chars.join("")), c: 1 };
   }
   const words = wordsOf(phrase);
   return words.length === 0 || words.length > 12
     ? undefined
-    : { k: words.length, h: phraseHash(words) };
+    : { k: words.length, h: phraseHash(key, words) };
 }
 
 /** Whether `text` holds one of the suppressed phrases as a run of whole words. */
-export function isSuppressed(text: string, list: readonly Suppression[]): boolean {
+export function isSuppressed(text: string, list: readonly Suppression[], key: string): boolean {
   if (list.length === 0) return false;
   const words = wordsOf(text);
   for (const k of new Set(list.filter((s) => s.c !== 1).map((s) => s.k))) {
     const hashes = new Set(list.filter((s) => s.c !== 1 && s.k === k).map((s) => s.h));
     for (let i = 0; i + k <= words.length; i++) {
-      if (hashes.has(phraseHash(words.slice(i, i + k)))) return true;
+      if (hashes.has(phraseHash(key, words.slice(i, i + k)))) return true;
     }
   }
   const chars = list.some((s) => s.c === 1) ? charsOf(text) : [];
   for (const k of new Set(list.filter((s) => s.c === 1).map((s) => s.k))) {
     const hashes = new Set(list.filter((s) => s.c === 1 && s.k === k).map((s) => s.h));
     for (let i = 0; i + k <= chars.length; i++) {
-      if (hashes.has(sha256Hex(chars.slice(i, i + k).join("")))) return true;
+      if (hashes.has(keyed(key, chars.slice(i, i + k).join("")))) return true;
     }
   }
   return false;

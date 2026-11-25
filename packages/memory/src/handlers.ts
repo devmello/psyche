@@ -88,6 +88,8 @@ export interface MemoryHandlerOptions {
    */
   graphReset?: {
     preview(): GraphResetCounts;
+    /** Throws, before anything is erased, when the graph store is not ready. */
+    ready(): void;
     apply(): Promise<GraphResetCounts>;
   };
 }
@@ -238,6 +240,8 @@ export function createMemoryHandlers(
 
     async "memory.reset"(p) {
       const dryRun = p.dryRun === true;
+      // The graph must be able to go too: refuse before the workspace is touched.
+      if (!dryRun) options.graphReset?.ready();
       const result = await store.reset({ dryRun });
       if (!dryRun) options.teaching?.clear();
       const graph = dryRun ? options.graphReset?.preview() : await options.graphReset?.apply();

@@ -366,7 +366,8 @@ export function createGraphHandlers(
         // Mentions of the person in notes go too (the UI showed the dry-run counts first).
         const name = result.names[0];
         if (options.memory !== undefined && name !== undefined && name.trim().length >= 3) {
-          await options.memory.forget(name).catch(() => undefined);
+          // This person only: the same-name cascade (graph, lessons, search) is `/forget`'s.
+          await options.memory.forget(name, { cascade: false }).catch(() => undefined);
         }
       }
       return { removed: result.removed, cardPath: result.cardPath, dryRun };
