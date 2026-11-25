@@ -42,6 +42,13 @@ export const TextBlock = Type.Object(
      * owner's language. `md` stays the English fallback for clients that do not know the id.
      */
     noteKey: Type.Optional(Type.String({ maxLength: 64 })),
+    /**
+     * A one-tap action on a note the Gateway writes. `retry_last_message`: the restart note's
+     * "Try again" resends the owner's message `messageId` (the one the stopped turn answered).
+     */
+    noteAction: Type.Optional(
+      Type.Object({ kind: Type.Literal("retry_last_message"), messageId: Id }),
+    ),
   },
   { $id: "TextBlock" },
 );

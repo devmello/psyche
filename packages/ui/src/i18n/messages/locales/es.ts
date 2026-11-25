@@ -451,6 +451,7 @@ export const es: Partial<Catalogue> = {
   "blocks.approval.scope.hostProgram": "Permitir siempre {program} en {folder}",
   "blocks.approval.scope.hostProgramExact":
     "Permitir siempre {program} con exactamente estos argumentos en {folder}",
+  "blocks.approval.scope.hostProgramSession": "Permitir {program} en {folder} durante este chat",
   "blocks.approval.scope.site": "Permitir en este sitio",
   "blocks.approval.scope.session": "Permitir en esta sesión",
   "blocks.approval.scope.always": "Permitir siempre",

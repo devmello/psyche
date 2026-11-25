@@ -476,6 +476,7 @@ export const hi: Partial<Catalogue> = {
   "blocks.approval.scope.hostProgram": "{folder} में {program} हमेशा अनुमति दें",
   "blocks.approval.scope.hostProgramExact":
     "{folder} में {program} को ठीक इन्हीं आर्गुमेंट के साथ हमेशा अनुमति दें",
+  "blocks.approval.scope.hostProgramSession": "इस चैट के लिए {folder} में {program} की अनुमति दें",
   "blocks.approval.scope.site": "इस साइट के लिए अनुमति दें",
   "blocks.approval.scope.session": "इस सत्र के लिए अनुमति दें",
   "blocks.approval.scope.always": "हमेशा अनुमति दें",

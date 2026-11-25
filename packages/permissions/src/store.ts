@@ -361,7 +361,7 @@ export class SqlitePermissionStore implements PermissionStore {
     this.#db
       .prepare(
         `UPDATE grants SET expires_at = ?, use_count = ?, last_used_at = ?, last_used_binding_hash = ?,
-           revoked_at = ?, revoked_reason = ?, updated_at = ? WHERE id = ?`,
+           revoked_at = ?, revoked_reason = ?, session_id = ?, updated_at = ? WHERE id = ?`,
       )
       .run(
         g.expiresAt,
@@ -370,6 +370,7 @@ export class SqlitePermissionStore implements PermissionStore {
         rec.meta.lastUsedBindingHash,
         g.revokedAt,
         rec.meta.revokedReason,
+        rec.meta.sessionId,
         new Date().toISOString(),
         g.id,
       );

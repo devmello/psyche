@@ -474,6 +474,7 @@ export const ko: Partial<Catalogue> = {
   "blocks.approval.scope.trustSiteSubdomains": "이 사이트와 하위 도메인은 항상 허용 ({site})",
   "blocks.approval.scope.hostProgram": "{folder}에서 {program} 항상 허용",
   "blocks.approval.scope.hostProgramExact": "{folder}에서 정확히 이 인수로 {program} 항상 허용",
+  "blocks.approval.scope.hostProgramSession": "이 채팅에서 {folder}의 {program} 허용",
   "blocks.approval.scope.site": "이 사이트에 허용",
   "blocks.approval.scope.session": "이 세션에 허용",
   "blocks.approval.scope.always": "항상 허용",

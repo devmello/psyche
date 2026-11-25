@@ -190,8 +190,10 @@ export function allowedScopes(
   // A folder is granted for this conversation (`once`) or kept in Settings until revoked (`always`).
   if (kind === "folder_access") return ["once", "always"];
   if (kind === "credential_fill") return ["once", "site"];
-  // Security §5.4: exec_host offers `once` or an `always` bound to exact argv + cwd + binary.
-  if (kind === "exec_host") return ["once", "always"];
+  // Security §5.4: exec_host offers `once` or an `always` bound to exact argv + cwd + binary. The
+  // broker offers `session` ("for this chat") only on a card that offers a program grant, and an
+  // answer with it must ask for that grant: never an exact-command session grant.
+  if (kind === "exec_host") return ["once", "session", "always"];
   if (sideEffect === "destructive") return ["once", "task", "always"];
   return ALL_SCOPES;
 }

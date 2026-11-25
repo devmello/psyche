@@ -2,13 +2,14 @@ import {
   appendMessage,
   failOpenRunSteps,
   finishRun,
+  getRun,
   listRunsByStatus,
   markAllNodesOffline,
   markInterruptedToolCalls,
   type PsycheDb,
   settleRunToolCalls,
 } from "@psyche/db";
-import { GATEWAY_RESTART_NOTE } from "@psyche/protocol";
+import { type ApprovalRequest, GATEWAY_RESTART_NOTE, type Message } from "@psyche/protocol";
 import type { Logger } from "./log.ts";
 
 export const RESTART_ERROR = "gateway_restart";
@@ -48,25 +49,7 @@ export function recoverAfterRestart(db: PsycheDb, log: Logger): RecoveryReport {
         .prepare("UPDATE threads SET active_writer_run_id = NULL, updated_at = ? WHERE id = ?")
         .run(db.now(), id);
       report.releasedThreads.push(id);
-      if (report.failedRuns.includes(runId)) {
-        appendMessage(
-          db,
-          {
-            threadId: id,
-            role: "system",
-            blocks: [
-              {
-                type: "text",
-                md: GATEWAY_RESTART_NOTE.md,
-                noteKey: GATEWAY_RESTART_NOTE.key,
-              },
-            ],
-            provenance: "system",
-            runId,
-          },
-          { expectedWriterRunId: null },
-        );
-      }
+      if (report.failedRuns.includes(runId)) appendRestartNote(db, id, runId);
     }
     markAllNodesOffline(db);
   })();
@@ -78,4 +61,74 @@ export function recoverAfterRestart(db: PsycheDb, log: Logger): RecoveryReport {
     });
   }
   return report;
+}
+
+/** The owner's last message in the thread, the one the stopped turn was answering. */
+function lastOwnerMessageId(db: PsycheDb, threadId: string): string | undefined {
+  const row = db.sqlite
+    .prepare(
+      "SELECT id FROM messages WHERE thread_id = ? AND role = 'user' ORDER BY seq DESC LIMIT 1",
+    )
+    .get(threadId) as { id: string } | undefined;
+  return row?.id;
+}
+
+/** The restart note, with a one-tap "Try again" that resends the owner's last message. */
+function appendRestartNote(db: PsycheDb, threadId: string, runId: string): void {
+  const retryOf = lastOwnerMessageId(db, threadId);
+  const block: Message["blocks"][number] = {
+    type: "text",
+    md: GATEWAY_RESTART_NOTE.md,
+    noteKey: GATEWAY_RESTART_NOTE.key,
+    ...(retryOf === undefined
+      ? {}
+      : { noteAction: { kind: "retry_last_message" as const, messageId: retryOf } }),
+  };
+  appendMessage(
+    db,
+    { threadId, role: "system", blocks: [block], provenance: "system", runId },
+    { expectedWriterRunId: null },
+  );
+}
+
+/**
+ * Chat turns that waited on an approval card when the Gateway stopped (audit section 3, owner's D1).
+ * The loop that awaited the card died with the process, so a re-issued card would have nobody
+ * behind it: approving it would do nothing and the run would stay "waiting" for good. Each such
+ * run finishes as `failed: gateway_restart` with the restart note and its "Try again", and the
+ * returned run ids go to `broker.reissue({ stopRuns })`, which invalidates their cards instead of
+ * re-issuing them. Only an owner chat card that nothing set aside counts: an unattended run's
+ * set-aside card and a task's card keep today's re-issue, because their resume needs it.
+ * `alreadyFailed` are the runs the boot sweep failed (`running` when the process died).
+ */
+export function stopRunsWaitingOnApproval(
+  db: PsycheDb,
+  pending: readonly ApprovalRequest[],
+  alreadyFailed: readonly string[],
+  log: Logger,
+): Set<string> {
+  const stopped = new Set<string>();
+  db.sqlite.transaction(() => {
+    for (const a of pending) {
+      const runId = a.requestedBy.runId;
+      if (runId == null || stopped.has(runId)) continue;
+      if (a.status !== "pending" || a.setAside === true || a.requestedBy.taskId != null) continue;
+      const run = getRun(db, runId);
+      if (run === undefined) continue;
+      if (alreadyFailed.includes(runId)) {
+        stopped.add(runId);
+        continue;
+      }
+      if (run.status !== "awaiting_approval") continue;
+      finishRun(db, runId, { status: "failed", error: RESTART_ERROR });
+      settleRunToolCalls(db, runId);
+      failOpenRunSteps(db, runId);
+      appendRestartNote(db, run.threadId, runId);
+      stopped.add(runId);
+    }
+  })();
+  if (stopped.size > 0) {
+    log.log("warn", "stopped chat turns waiting on an approval", { runs: stopped.size });
+  }
+  return stopped;
 }

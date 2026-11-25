@@ -150,6 +150,17 @@ export const TaintSource = Type.Object(
 );
 export type TaintSource = Static<typeof TaintSource>;
 
+/**
+ * Why a phone cannot answer a card (`approvals.get` with `wantToken`): `payment` is approved on
+ * the Mac with Touch ID or a password, `paired_after` is a card the phone can ask a token for
+ * (it was raised before this phone paired), `too_long` shows only in part on a phone, and
+ * `mac_only` stays on the Mac (a saved login, pairing, a policy change, a capability or a skill).
+ */
+export const NeedsMacReason = StringEnum(["payment", "paired_after", "too_long", "mac_only"], {
+  $id: "NeedsMacReason",
+});
+export type NeedsMacReason = Static<typeof NeedsMacReason>;
+
 export const RiskClass = StringEnum(["routine", "sensitive"], { $id: "RiskClass" });
 export type RiskClass = Static<typeof RiskClass>;
 
