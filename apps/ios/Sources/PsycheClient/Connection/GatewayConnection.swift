@@ -135,6 +135,10 @@ public enum IdentityCheck {
             serverOrigin: challenge.serverOrigin, devicePublicKey: devicePublicKey)
         else { return .failure(.badSignature) }
         var certSPKI: String?
+        // A Gateway pinned by certificate (a v2 link) is only ever reached through that certificate.
+        if pin.certSPKI != nil {
+            guard case .selfSigned? = certificate else { return .failure(.certMissing) }
+        }
         if case .selfSigned(let observed)? = certificate {
             guard let vouched = challenge.lanCertSpki, let certSignature = challenge.lanCertSignature else {
                 return .failure(.certMissing)
