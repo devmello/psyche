@@ -32,7 +32,10 @@ export interface FakeNodeHandler {
     params: unknown,
     emit: (data: unknown) => void,
     approvalId?: string,
+    invocationId?: string,
   ) => unknown | Promise<unknown>;
+  /** Called when the Gateway sends `node.cancel` for an invocation of this capability. */
+  onCancel?: (invocationId: string) => void;
   /** Send a receipt with the result. */
   receipt?: { outcome: "ok" | "failed" | "uncertain"; summary: string };
   /** Accept the invocation and never answer (timeouts, disconnects). */
@@ -66,7 +69,16 @@ interface Wire {
  * one `node.result`.
  */
 export class FakeNode {
-  readonly invocations: { capability: string; params: unknown; approvalId?: string }[] = [];
+  readonly invocations: {
+    capability: string;
+    params: unknown;
+    approvalId?: string;
+  }[] = [];
+  /** The invocation id the Gateway sent for each call, in order. */
+  readonly calls: { capability: string; invocationId: string }[] = [];
+  /** `node.cancel` frames received, by invocation id. */
+  readonly cancels: string[] = [];
+  readonly #capOf = new Map<string, string>();
   nodeId = "";
   readonly #wire: Wire;
   readonly #handlers: Map<string, FakeNodeHandler>;
@@ -207,8 +219,19 @@ export class FakeNode {
       this.#waiting.delete(frame.id);
       return;
     }
+    if (frame.type === "req" && frame.method === "node.cancel") {
+      const id = String(frame.params?.invocationId ?? "");
+      this.cancels.push(id);
+      this.#handlers.get(this.#capOf.get(id) ?? "")?.onCancel?.(id);
+      this.#wire.write(
+        JSON.stringify({ type: "res", id: frame.id, ok: true, payload: { ok: true } }),
+      );
+      return;
+    }
     if (frame.type !== "req" || frame.method !== "node.invoke") return;
     const { invocationId, capability, params, approvalId } = frame.params;
+    this.#capOf.set(invocationId, capability);
+    this.calls.push({ capability, invocationId });
     this.invocations.push({ capability, params, ...(approvalId ? { approvalId } : {}) });
     this.#wire.write(
       JSON.stringify({ type: "res", id: frame.id, ok: true, payload: { accepted: true } }),
@@ -218,7 +241,9 @@ export class FakeNode {
     void (async () => {
       const emit = (data: unknown) => void this.request("node.event", { invocationId, data });
       try {
-        const result = handler?.run ? await handler.run(params, emit, approvalId) : null;
+        const result = handler?.run
+          ? await handler.run(params, emit, approvalId, invocationId)
+          : null;
         await this.request("node.result", {
           invocationId,
           ok: true,

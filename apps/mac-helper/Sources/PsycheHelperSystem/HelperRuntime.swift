@@ -49,6 +49,7 @@ public final class HelperRuntime: @unchecked Sendable {
         // J8 phase 2: "Record in an app" (AX events of one granted app; desktop shell only, via the Gateway).
         let teachApp = AppTeachCapabilities.live(computer: computer, environment: environment, log: log)
         computer.isRecording = { [teachApp] in teachApp.activeId != nil }
+        computer.isPointing = { PointsActivity.shared.isActive }
         handlers += AppTeachCapabilities.make(teachApp, computer: computer)
         handlers += extraHandlers
         registry = CapabilityRegistry(handlers)

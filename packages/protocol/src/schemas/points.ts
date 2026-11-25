@@ -379,6 +379,12 @@ export const PointsStartParams = Type.Object(
     entry: PointsEntry,
     locale: Type.String({ minLength: 2, maxLength: 35 }),
     strings: PointsCardStrings,
+    /**
+     * The closing thread note's text in the owner's language, with `{app}`, `{pages}` and
+     * `{fields}` ("Pointed you through {app}: {pages} pages, {fields} fields."), sent by the
+     * desktop from its messages. Without it the Gateway leaves no note: it has no catalogue.
+     */
+    closingNote: Type.Optional(Type.String({ minLength: 1, maxLength: 200 })),
   },
   { $id: "PointsStartParams", ...Strict },
 );
