@@ -72,9 +72,23 @@ public final class Router {
             tab = .memory
             memoryPath = [route]
         }
-        if let path = defaults.string(forKey: "psycheOpen") { open(appPath: path) }
+        // Queued, not applied: the root view applies it once, after its first layout (`applyQueuedLaunchRoute`).
+        queuedLaunchRoute = defaults.string(forKey: "psycheOpen")
         #endif
     }
+
+    #if DEBUG
+    /// `-psycheOpen <path>` from the launch line, waiting for the root view. Applied once, then cleared.
+    var queuedLaunchRoute: String?
+
+    /// The single place the DEBUG launch route is applied. The root view calls it once after its first layout, so a
+    /// route can't be applied before the tabs exist, or twice.
+    func applyQueuedLaunchRoute() {
+        guard let path = queuedLaunchRoute else { return }
+        queuedLaunchRoute = nil
+        open(appPath: path)
+    }
+    #endif
 
     /// Home's Ask field: open the main thread with the composer focused.
     func askPsyche(_ text: String) {
@@ -192,7 +206,7 @@ extension Router {
         case "approval": sheet = items.first { $0.approval != nil }.map { .approval($0) }
         case "question": sheet = items.first { $0.question != nil }.map { .question($0) }
         case "agent": sheet = .agent
-        default: open(appPath: "/" + name)
+        default: break  // a route: applied once by `applyQueuedLaunchRoute`, never here
         }
     }
 }

@@ -46,9 +46,7 @@ public struct RootView: View {
         // psyche://<route> only, never a Gateway URL or key (docs/design/ios-app-2026.md §4).
         #if DEBUG
         // `simctl launch … -psycheOpen /chat/thr_q3` opens a route without a tap (screenshots, demos).
-        .task {
-            if let path = UserDefaults.standard.string(forKey: "psycheOpen") { router.open(appPath: path) }
-        }
+        .task { router.applyQueuedLaunchRoute() }
         #endif
         .onOpenURL { url in
             guard url.scheme == "psyche", let host = url.host else { return }
