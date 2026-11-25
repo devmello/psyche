@@ -400,3 +400,80 @@ export function refusedOutput(staging: Staging, reason?: string) {
     note: reason === "read_ask" ? readAskNote(staging) : refusalNote(staging),
   };
 }
+
+// --- The per-job toolset (night-shift-2026 §3.1) --------------------------------------------------
+
+/** Connector types whose tools a Night shift job may see (the same set the adapters accept). */
+export const STAGING_CONNECTOR_TYPES: ReadonlySet<string> = new Set([
+  "apple",
+  "google",
+  "microsoft",
+  "mail",
+]);
+
+/**
+ * The reads a job gets per domain, exact bare names. Messages, Contacts, notes, attachments and the
+ * "selected message" are not here: §7 reads only what a candidate needs.
+ */
+export const STAGING_DOMAIN_READS: Readonly<Record<Stageable["domain"], ReadonlySet<string>>> = {
+  mail: new Set([
+    "mail_search",
+    "mail_read",
+    "mail_search_messages",
+    "mail_read_message",
+    "mail_mailboxes",
+    "mail_list_mailboxes",
+    "gmail_search_threads",
+    "gmail_read_thread",
+  ]),
+  calendar: new Set(["calendar_list_calendars", "calendar_list_events", "calendar_free_busy"]),
+  reminders: new Set(["reminders_list_lists", "reminders_list"]),
+  files: new Set(["files_recent"]),
+};
+
+/** Built-in reads that serve the files domain only (granted folders, never anywhere else). */
+const FILES_BUILTIN_READS: ReadonlySet<string> = new Set(["read_file", "list_dir"]);
+
+export interface StagingToolInput {
+  /** The registered tool name. */
+  tool: string;
+  sideEffect: SideEffect;
+  /** The live connector's type (`apple`, `google`, ...) for an `mcp__<id>__` tool, else undefined. */
+  connectorType?: string | undefined;
+  /** The domains the owner turned on. */
+  domains: ReadonlySet<string>;
+}
+
+/**
+ * Whether a tool is registered for a staging task at all. An allowlist: browser, computer use, exec,
+ * MCP servers, `web.*`, `machine_files`, `location_current`, connector authoring, delegation and every
+ * connector of another type are absent, whatever their side effect says. A connector tool is visible
+ * only for an enabled domain: its exact stageable writes (and only as `write`) and its exact reads.
+ */
+export function stagingToolVisible(input: StagingToolInput): boolean {
+  if (DELEGATION_TOOLS.has(input.tool)) return false;
+  // `find_capability` queries the online registry with model-chosen text: not overnight.
+  if (input.tool === "find_capability") return false;
+  const named = connectorToolName(input.tool);
+  if (named === undefined) {
+    if (STAGING_NONE_ALLOWED.has(input.tool)) return true;
+    return (
+      FILES_BUILTIN_READS.has(input.tool) &&
+      input.domains.has("files") &&
+      (input.sideEffect === "read" || input.sideEffect === "none")
+    );
+  }
+  if (input.connectorType === undefined || !STAGING_CONNECTOR_TYPES.has(input.connectorType)) {
+    return false;
+  }
+  const write = STAGEABLE_TOOLS.get(named.tool);
+  if (write !== undefined) return input.domains.has(write.domain) && input.sideEffect === "write";
+  for (const [domain, reads] of Object.entries(STAGING_DOMAIN_READS)) {
+    if (reads.has(named.tool)) {
+      return (
+        input.domains.has(domain) && (input.sideEffect === "read" || input.sideEffect === "none")
+      );
+    }
+  }
+  return false;
+}

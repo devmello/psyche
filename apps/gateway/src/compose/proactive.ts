@@ -173,6 +173,8 @@ export interface ProactiveSetup {
   keepInTouch?: () => { text: string; link?: string }[];
   /** Quiet email threads' lines for the morning brief (`compose/mail-followups.ts`). */
   quietThreads?: () => Promise<{ text: string; link?: string }[]>;
+  /** Night shift's one brief line (counts only), or nothing (`compose/night-shift.ts`). */
+  nightShift?: () => { text: string; link?: string } | undefined;
   /** The people graph while it is on: prep reads people and loops, notes add loops. */
   graph?: () => GraphStore | undefined;
   /**
@@ -188,6 +190,8 @@ export interface ProactiveSetup {
 }
 
 export interface ComposedProactive {
+  /** The daily follow-ups store (Night shift's reminder candidates until the promise ledger). */
+  readonly followups: FollowupStore;
   /** Binds Search's lookup and open check for catch-up source chips; unbound, a line has none. */
   useCatchUpSources(sources: GistSources): void;
   readonly goals: GoalsService;
@@ -613,6 +617,7 @@ export function composeProactive(setup: ProactiveSetup): ComposedProactive {
     timezone: dailyTz,
     ...(setup.learned === undefined ? {} : { learned: setup.learned }),
     ...(setup.quietThreads === undefined ? {} : { quietThreads: setup.quietThreads }),
+    ...(setup.nightShift === undefined ? {} : { nightShift: setup.nightShift }),
     // Every memory line in the brief goes through `surfaceFilter` (birthdays, life events, people).
     ...briefLines(setup, catchup),
     ...(catchup === undefined ? {} : { catchUp: catchup.daily }),
@@ -770,6 +775,7 @@ export function composeProactive(setup: ProactiveSetup): ComposedProactive {
     scheduling,
     focus,
     daily,
+    followups,
     handlers: {
       ...mountParamsOnly(dailyHandlers as never),
       ...mountParamsOnly(createGoalHandlers(goals) as never),

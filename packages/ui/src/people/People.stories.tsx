@@ -6,7 +6,7 @@ import { EntityCard, PersonCard, ProjectCard } from "./EntityCard.tsx";
 import { EntityRow } from "./EntityRow.tsx";
 import { PeopleSheetSection } from "./PeopleSheetSection.tsx";
 import { SuggestionCard } from "./SuggestionCard.tsx";
-import type { EntityView, GraphLoopStatus } from "./types.ts";
+import type { EntityView, GraphLoopWriteStatus } from "./types.ts";
 
 /** People and projects (docs/memory/people-and-projects-2026.md §6.4, §6.5) on fixtures. */
 
@@ -37,7 +37,7 @@ function LiveCard({ initial }: { initial: EntityView }): ReactElement {
       onRetractFact={(e, fact) =>
         setEntity({ ...e, facts: e.facts.filter((f) => f.id !== fact.id) })
       }
-      onUpdateLoop={(e, loop, status: GraphLoopStatus) =>
+      onUpdateLoop={(e, loop, status: GraphLoopWriteStatus) =>
         setEntity({ ...e, loops: e.loops.map((l) => (l.id === loop.id ? { ...l, status } : l)) })
       }
       onSaveNotes={(e, notes) => setEntity({ ...e, notes })}

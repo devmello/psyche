@@ -32,6 +32,8 @@ export interface TrayModel {
   usagePercentRemaining: number | null;
   /** The accelerators registered now, shown beside their items ("" or unset: none). */
   shortcuts?: { quickEntry?: string; askScreen?: string };
+  /** `points.enabled`: the Psyche points row shows only while it is on (off until the owner's pass). */
+  pointsEnabled?: boolean;
 }
 
 export interface TrayActions {
@@ -41,11 +43,20 @@ export interface TrayActions {
   /** Ask about my screen (docs/design/screen-ask-2026.md §2). */
   /** Absent where Ask about screen is off (a client of another computer's Gateway). */
   askScreen?(): void;
+  /**
+   * Point me through this window… (docs/design/psyche-points-2026.md §6.2): hides Psyche, targets
+   * the window behind and opens the start sheet. Absent off a Mac and for a client of another
+   * computer's Gateway.
+   */
+  pointsStart?(): void;
   openApprovals(): void;
   closeWindow(): void;
   quitApp(): void;
   quitEntirely(): void;
 }
+
+/** The Psyche points row. Like the other tray rows it is English; localizing them is out of scope. */
+export const POINTS_TRAY_LABEL = "Point me through this window…";
 
 /** The tray's status row, in Psyche's name (#539); dev and external runs say so for developers. */
 export function gatewayRowLabel(run: GatewayRunState): string {
@@ -100,6 +111,9 @@ export function trayTemplate(m: TrayModel, a: TrayActions): MenuItemConstructorO
     { label: "Quick entry", ...accel(keys.quickEntry), click: a.quickEntry },
     ...(a.askScreen
       ? [{ label: "Ask about screen", ...accel(keys.askScreen), click: a.askScreen }]
+      : []),
+    ...(a.pointsStart && m.pointsEnabled === true
+      ? [{ label: POINTS_TRAY_LABEL, click: a.pointsStart }]
       : []),
     { type: "separator" },
     { label: gatewayRowLabel(m.run), enabled: false },

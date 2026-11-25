@@ -1,6 +1,7 @@
 import AppKit
 import ApplicationServices
 import Foundation
+import PsycheAXRead
 import PsycheHelperCore
 import PsycheProtocol
 
@@ -25,6 +26,16 @@ public final class ComputerUse: @unchecked Sendable {
     private let log: HelperLog
     /// True while the owner is recording a demonstration: the agent does not drive the computer then.
     public var isRecording: @Sendable () -> Bool = { false }
+
+    /// True while a Psyche points session runs (docs/design/psyche-points-2026.md §4.3 item 4): the
+    /// agent does not act on a form the owner is filling. Wired to `PointsActivity` by `HelperRuntime`.
+    public var isPointing: @Sendable () -> Bool = { false }
+
+    func refuseWhilePointing() throws {
+        if isPointing() {
+            throw CapabilityError(.conflict, reason: "points_active", "Psyche points is helping the owner with a window; computer use waits until it ends", retryable: true)
+        }
+    }
 
     func refuseWhileRecording() throws {
         if isRecording() {
@@ -81,6 +92,12 @@ public final class ComputerUse: @unchecked Sendable {
     /// Session lock for one mutating call. The Gateway must name the session (the run id): a
     /// shared default would let one Esc block every later run, or let runs share a lock.
     func beginAction(session: String?) throws {
+        // The check and the session take are one step against a Points session starting (7d).
+        try PointsActivity.gate.withLock { try beginActionLocked(session: session) }
+    }
+
+    private func beginActionLocked(session: String?) throws {
+        try refuseWhilePointing()
         try refuseWhileRecording()
         guard let session, !session.isEmpty, session.count <= 128 else {
             throw CapabilityError.invalidParams("session (the run id) is required for computer actions", field: "session")

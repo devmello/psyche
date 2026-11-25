@@ -41,6 +41,7 @@ import { PlanForksMethods } from "./plan-forks.ts";
 import { PluginsMethods } from "./plugins.ts";
 import { PointsMethods } from "./points.ts";
 import { FeedMethods, GoalsMethods, IdeasMethods } from "./proactive.ts";
+import { PromisesMethods } from "./promises.ts";
 import { QuestionsMethods } from "./questions.ts";
 import { ArtifactsMethods, ReceiptsMethods } from "./receipts.ts";
 import { RunsMethods } from "./runs.ts";
@@ -196,6 +197,7 @@ export const Methods = {
   ...InsightsMethods,
   ...DailyMethods,
   ...MailFollowupMethods,
+  ...PromisesMethods,
   ...NightShiftMethods,
   ...PlanForksMethods,
   ...NudgeMethods,

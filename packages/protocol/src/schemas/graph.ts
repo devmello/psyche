@@ -419,10 +419,21 @@ export const GraphInteraction = Type.Object(
 );
 export type GraphInteraction = Static<typeof GraphInteraction>;
 
-export const GraphLoopStatus = StringEnum(["suggested", "open", "snoozed", "done", "dismissed"], {
-  $id: "GraphLoopStatus",
-});
+export const GraphLoopStatus = StringEnum(
+  ["suggested", "open", "snoozed", "done", "broken", "released", "dismissed"],
+  { $id: "GraphLoopStatus" },
+);
 export type GraphLoopStatus = Static<typeof GraphLoopStatus>;
+
+/**
+ * What a client may set with `memory.loops.update`: the original five. `broken` and `released`
+ * are written only by the ledger, with its bookkeeping (`promises.act`, the sweep).
+ */
+export const GraphLoopWriteStatus = StringEnum(
+  ["suggested", "open", "snoozed", "done", "dismissed"],
+  { $id: "GraphLoopWriteStatus" },
+);
+export type GraphLoopWriteStatus = Static<typeof GraphLoopWriteStatus>;
 
 /** An open loop: something the owner owes, or is waiting on (§4.6). */
 export const GraphLoop = Type.Object(
@@ -442,7 +453,9 @@ export const GraphLoop = Type.Object(
     createdAt: IsoDateTime,
     closedAt: Nullable(IsoDateTime),
     closedBy: Nullable(
-      StringEnum(["owner", "reply_seen", "due_passed"], { $id: "GraphLoopClosedBy" }),
+      StringEnum(["owner", "reply_seen", "due_passed", "auto", "aged_out", "released"], {
+        $id: "GraphLoopClosedBy",
+      }),
     ),
   },
   { $id: "GraphLoop" },

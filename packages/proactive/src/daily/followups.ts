@@ -212,3 +212,49 @@ export class FollowupStore {
     return next;
   }
 }
+
+/** Set once every `daily.followups.items` entry is in the ledger (design 2.2). */
+export const FOLLOWUPS_MIGRATED_KEY = "promises.migrated.dailyFollowups";
+
+/** The ledger side of the migration: `PromiseStore.importFollowup` in `@psyche/memory`. */
+export interface FollowupLedgerSink {
+  importFollowup(item: DailyFollowup): "added" | "exists" | "skipped";
+}
+
+export interface FollowupMigrationResult {
+  /** True when the marker was already set and nothing ran. */
+  alreadyMigrated: boolean;
+  added: number;
+  existing: number;
+  skipped: number;
+}
+
+/**
+ * Moves the settings-JSON follow-ups into the promise ledger as `i_owe` loops with basis
+ * `promise` (an awaiting-reply item becomes an `ask`). Safe to run twice: the marker stops a
+ * second pass, and the sink is idempotent per follow-up id, so a run that failed halfway (the
+ * marker is set last) finishes on the next start without duplicates. The old list stays in
+ * settings, untouched, for one release.
+ */
+export function migrateFollowupsToLedger(
+  kv: KeyValue,
+  sink: FollowupLedgerSink,
+): FollowupMigrationResult {
+  if (kv.get(FOLLOWUPS_MIGRATED_KEY) === true)
+    return { alreadyMigrated: true, added: 0, existing: 0, skipped: 0 };
+  const items = kv.get(FOLLOWUPS_KEY);
+  const result: FollowupMigrationResult = {
+    alreadyMigrated: false,
+    added: 0,
+    existing: 0,
+    skipped: 0,
+  };
+  for (const item of Array.isArray(items) ? (items as DailyFollowup[]) : []) {
+    const r = sink.importFollowup(item);
+    if (r === "added") result.added += 1;
+    else if (r === "exists") result.existing += 1;
+    else result.skipped += 1;
+  }
+  kv.set(FOLLOWUPS_MIGRATED_KEY, true);
+  return result;
+}

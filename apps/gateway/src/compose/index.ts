@@ -229,6 +229,7 @@ import {
   restoreModelSettings,
   settingsKeyValue,
 } from "./model-settings.ts";
+import { composeNightShift } from "./night-shift.ts";
 import { NotificationActions } from "./notification-actions.ts";
 import { composeNudges } from "./nudges.ts";
 import { composeOnePasswordSetup, type OnePasswordSetupOptions } from "./onepassword-setup.ts";
@@ -241,6 +242,7 @@ import { composePeople, type People } from "./people.ts";
 import { graphSourceAdapters } from "./people-sources.ts";
 import { phoneLocationTool } from "./phone-location.ts";
 import { composePlugins } from "./plugins.ts";
+import { composePoints, type PointsOptions } from "./points.ts";
 import { type ComposedProactive, composeProactive, connectorToolLookup } from "./proactive.ts";
 import {
   folderAccessEnv,
@@ -414,6 +416,8 @@ export interface ComposeOptions
   hostTerminal?: HostTerminalOptions;
   /** Ask about my screen is always mounted; this swaps what takes the capture (default: the Mac helper). */
   screenAsk?: ScreenAskOptions;
+  /** Psyche points: tests shorten the idle end and fake the Memory lines (the model is the primary). */
+  points?: Pick<PointsOptions, "idleMs" | "memoryLines">;
   /**
    * Passkey assertions for approvals that require authentication (purchase, credential fill,
    * host exec; security §3.7). Helper (Touch ID) assertions go to the helper part's verifier.
@@ -1544,6 +1548,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     // A terminal on the Host (remote-gateway design §4.2, R4): admin + presence, per device.
     hostTerminalPart(gwOptions.hostTerminal),
     composeScreenAsk(gwOptions.screenAsk),
+    // Psyche points, you click (psyche-points-2026 W7): the desktop shell only, off until the owner turns it on.
+    composePoints({ provider, model: modelRef, ...gwOptions.points }),
     // Canvas artifacts (chat-experience-2026 §4.3): the version store and `artifact.*` tools.
     composeArtifacts,
     // Generative-UI widgets (generative-ui-2026): snapshots by id; tools arrive in P3.
@@ -1941,6 +1947,19 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       subagent: ctx.subagent,
     }),
   );
+  // Night shift (docs/design/night-shift-2026.md): composed after Proactive; the pool reaches it
+  // through this ref for a staging task's sink, its toolset and its usage meter.
+  let nightShiftRef: ReturnType<typeof composeNightShift> | undefined;
+  const taskTrace = taskRunTrace({
+    db,
+    sink: () => gatewayRef?.context.runTrace,
+    publish,
+    modelRef,
+    onError: (err) =>
+      gwOptions.logger?.log("warn", "task run trace failed", {
+        code: PsycheError.from(err).code,
+      }),
+  });
   const pool = new TaskWorkerPool({
     engine: tasks,
     loop,
@@ -1948,20 +1967,21 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     broker,
     notifier,
     tools: registry,
+    stagingSinkFor: (staging) => nightShiftRef?.sinkFor(staging),
+    stagingToolsFor: (staging) => nightShiftRef?.toolsFor(staging),
     ...(taskPollMs === undefined ? {} : { pollMs: taskPollMs }),
     canClaim: () => updateGate.accepting(),
     // Run trace §4.2: each task turn is its own run (ULID), recorded like a chat turn.
     newRunId: () => db.newId(),
-    trace: taskRunTrace({
-      db,
-      sink: () => gatewayRef?.context.runTrace,
-      publish,
-      modelRef,
-      onError: (err) =>
-        gwOptions.logger?.log("warn", "task run trace failed", {
-          code: PsycheError.from(err).code,
-        }),
-    }),
+    trace: {
+      start: (turn) => taskTrace.start(turn),
+      event: (turn, ev) => {
+        // Night shift meters its own jobs' spend from their usage events.
+        if (ev.type === "usage") nightShiftRef?.meter(turn.taskId, ev.usage, turn.runId);
+        taskTrace.event(turn, ev);
+      },
+      end: (turn, outcome, error) => taskTrace.end(turn, outcome, error),
+    },
     // Specialist jobs run in their own pool, so they never take the chat tasks' slots.
     // Plan-fork branches run in their own pool (F2); until it exists none runs here.
     claim: { excludeOrigins: ["subagent", "fork"] },
@@ -2063,6 +2083,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       return nudges.keepInTouch();
     },
     quietThreads: () => mailFollowups.briefLines(),
+    nightShift: () => nightShiftRef?.briefLine(),
     // Catching up and `memory.catchup.*` (MW4): the graph, and what the agent may read of it.
     catchup: { graph: people.graph, em: everything.store, access: people.agentAccess },
     // Ideas proposes folding a skill's lessons into it once it has three (teaching loop §6).
@@ -2104,6 +2125,26 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   })) {
     registry.register(tool);
   }
+  nightShiftRef = composeNightShift({
+    db,
+    clock,
+    scheduler,
+    notifier,
+    tasks: tasks as never,
+    poke: () => pool.poke(),
+    registry,
+    lookup: () => connectorToolLookup(registry),
+    keepAwake,
+    readState: () => readSystemState(),
+    timeZone: () => timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone,
+    connectors: async () => (connectorsPart === undefined ? [] : connectorsPart.registry.list()),
+    folders: () => rawBroker.grantedFolders(),
+    mailCandidates: () => mailFollowups.nightCandidates(),
+    followups: proactive.followups,
+    redact: (text) => redactor.redact(text),
+    publish: (event, payload) => publish(event as never, payload as never),
+    ...(gwOptions.logger === undefined ? {} : { logger: gwOptions.logger }),
+  });
   // #557: web.search / web.fetch on every surface (read-only, untrusted output).
   const webTools = composeWebTools(
     {
@@ -2171,7 +2212,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
             withProactiveJobs(
               proactive.launcher(createTaskLauncher({ engine: tasks, pool }), pool),
               {
-                jobs: [everything.job],
+                jobs: [everything.job, ...(nightShiftRef === undefined ? [] : [nightShiftRef.job])],
               },
             ),
             {
@@ -2567,6 +2608,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     ),
     ...mountParamsOnly(createNotificationHandlers(notifier) as never),
     ...proactive.handlers,
+    ...(nightShiftRef?.defs ?? {}),
     ...capabilities.handlers,
     ...questionHandlers(loop, tasks),
     ...receiptHandlers(broker),
@@ -2856,6 +2898,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   // Phrases still queued by a Forget before the last shutdown resume here.
   traceScrub.start();
   await proactive.start();
+  await nightShiftRef?.start();
   const systemZone = new SystemZone();
   const effectiveZone = () => timeZone ?? systemZone.zone;
   await ensureWeeklyCardAutomation(scheduler, { timezone: effectiveZone() });

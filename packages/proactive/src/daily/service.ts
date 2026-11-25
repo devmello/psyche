@@ -108,6 +108,12 @@ export interface DailyServiceOptions {
   quietThreads?: () =>
     | Promise<{ text: string; link?: string }[]>
     | { text: string; link?: string }[];
+  /**
+   * Night shift's one line (docs/design/night-shift-2026.md §5.5): "Night shift prepared 6 changes:
+   * ..." with a link to the review. Counts and a template only, never message text. Absent, or
+   * returning nothing, leaves the section out. Morning brief only, never on a chat channel.
+   */
+  nightShift?: () => { text: string; link?: string } | undefined;
   /** Work memory: Catching up, Worked on today and the due-soon notification (MW4). */
   catchUp?: DailyCatchUp;
   /** Link to the prep note for a calendar event, when meeting prep made one. */
@@ -519,6 +525,25 @@ export class DailyService {
             forChannel.find((s) => s.id === id),
           );
         }
+      }
+      let night: { text: string; link?: string } | undefined;
+      try {
+        night = this.#o.nightShift?.();
+      } catch (err) {
+        this.#o.onError?.(err);
+      }
+      if (night !== undefined) {
+        sections.push({
+          id: "night_shift",
+          title: "Night shift",
+          items: [
+            {
+              text: cleanHeader(night.text, 200),
+              ...(night.link === undefined ? {} : { link: night.link }),
+            },
+          ],
+        });
+        if (withChannel) channel.set("night_shift", undefined);
       }
       const learned = this.#o.learned?.();
       if (learned !== undefined) {

@@ -322,6 +322,8 @@ export {
 export { MemoryScreen, type MemoryScreenProps } from "./memory-page/MemoryScreen.tsx";
 export { FPS_PROBE_KEY, medianFps, startFpsProbe } from "./motion/fps-probe.ts";
 export * from "./overview/index.ts";
+// Psyche points (docs/design/psyche-points-2026.md): the start sheet, the offer card, the provider.
+export * from "./points/index.ts";
 // Deep research: progress view and cited report.
 export * from "./research/index.ts";
 export {
@@ -456,6 +458,8 @@ export {
   type EditorSlotProps,
   type GatewayEntry,
   type GatewaysSlot,
+  type PointsHelperState,
+  type PointsPort,
   type SandboxPcSlot,
   type SandboxPcState,
   type UiSlots,

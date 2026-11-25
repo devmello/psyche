@@ -8,6 +8,7 @@ export const CAFFEINATE_PATH = "/usr/bin/caffeinate";
 
 /** The part of a child process the hold needs. */
 export interface PowerProcess {
+  // biome-ignore lint/suspicious/noConfusingVoidType: a fake may return nothing
   kill(): boolean | void;
   on(event: "exit" | "error", listener: (...args: unknown[]) => void): unknown;
   unref?(): void;
@@ -38,6 +39,7 @@ export interface KeepAwakeOptions {
 export class KeepAwake {
   readonly #o: KeepAwakeOptions;
   #proc: PowerProcess | undefined;
+  #holds = 0;
 
   constructor(options: KeepAwakeOptions) {
     this.#o = options;
@@ -51,13 +53,33 @@ export class KeepAwake {
   /** Brings the hold in line with the toggle and the active runs. Call on every run or setting change. */
   sync(): void {
     const platform = this.#o.platform ?? process.platform;
-    const want = platform === "darwin" && this.#o.enabled() && this.#o.activeRuns() > 0;
+    const want =
+      platform === "darwin" && ((this.#o.enabled() && this.#o.activeRuns() > 0) || this.#holds > 0);
     if (want && this.#proc === undefined) this.#start();
     else if (!want && this.#proc !== undefined) this.#release();
   }
 
+  /**
+   * A hold for one caller's own run (Night shift, docs/design/night-shift-2026.md §4.2), whatever
+   * `scheduled.keepAwake` says. The caller decides when it may ask (Night shift only on AC power) and
+   * calls the returned release when its run ends; releasing twice does nothing. It is the same
+   * `caffeinate -i -w <pid>` as above: no new kind of power assertion.
+   */
+  acquire(): () => void {
+    this.#holds += 1;
+    this.sync();
+    let released = false;
+    return () => {
+      if (released) return;
+      released = true;
+      this.#holds -= 1;
+      this.sync();
+    };
+  }
+
   /** Releases the hold (the Gateway is stopping). */
   stop(): void {
+    this.#holds = 0;
     this.#release();
   }
 

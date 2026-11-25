@@ -17,5 +17,7 @@ export const mailFollowups: Partial<Catalogue> = {
   "mailFollowups.thread.title": "Acompanhamento de e-mail",
   "chat.composer.placeholderMail": "Pergunte sobre esta conversa",
   "daily.section.quiet_threads": "Conversas de e-mail paradas",
+  "daily.section.promises": "Promessas",
+  "screens.inbox.kind.promise_due": "Promessa a vencer",
   "daily.section.night_shift": "Turno da noite",
 };

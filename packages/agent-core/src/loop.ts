@@ -2056,6 +2056,17 @@ export class PsycheAgentLoop implements AgentLoop {
     deferredTools: ToolSpec[];
   }> {
     const toggles = this.#o.toolToggles?.(run.threadId);
+    // A staging run's own toolset (night-shift-2026 §3.1): every other tool is not registered for it.
+    const stagingAllowed = run.staging?.toolAllowed;
+    const stagingAllow =
+      stagingAllowed === undefined
+        ? undefined
+        : new Set(
+            this.registry
+              .list()
+              .map((t) => t.name)
+              .filter((n) => stagingAllowed(n)),
+          );
     let { tools, hidden } = this.registry.active({
       permissionMode: run.permissionMode,
       runMode: run.mode,
@@ -2063,6 +2074,7 @@ export class PsycheAgentLoop implements AgentLoop {
       specialist: run.specialistJob !== undefined,
       fork: run.staging?.staging.kind === "fork",
       ...(toggles === undefined ? {} : { toggles }),
+      ...(stagingAllow === undefined ? {} : { allow: stagingAllow }),
     });
     const job = run.specialistJob;
     if (job !== undefined) {
@@ -2288,6 +2300,10 @@ export class PsycheAgentLoop implements AgentLoop {
           const why = spaceHides(run.space, name);
           if (why !== undefined) {
             out.unavailable.push({ name, why });
+            continue;
+          }
+          if (run.staging?.toolAllowed?.(name) === false) {
+            out.unavailable.push({ name, why: "not available in a staging run" });
             continue;
           }
           // A tool that registered after this step's assembly (an install just approved).

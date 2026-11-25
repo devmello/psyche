@@ -89,6 +89,12 @@ export interface TaskWorkerPoolOptions {
    * turn fails before the model is called, never running the task unstaged.
    */
   stagingSinkFor?: (staging: Staging, task: Task) => StagingSink | undefined;
+  /**
+   * The staging task's own toolset (night-shift-2026 §3.1): a tool this returns false for is not
+   * registered for the run. Without it the run sees the loop's usual tools (the staging gate still
+   * refuses every write that is not staged).
+   */
+  stagingToolsFor?: (staging: Staging, task: Task) => ((tool: string) => boolean) | undefined;
 }
 
 /** One turn of a task: its own run. */
@@ -433,7 +439,12 @@ export class TaskWorkerPool {
             "a staging task has no sink to record into: it was not run",
           );
         }
-        staging = { staging: record.staging, sink };
+        const toolAllowed = this.#o.stagingToolsFor?.(record.staging, record.task);
+        staging = {
+          staging: record.staging,
+          sink,
+          ...(toolAllowed === undefined ? {} : { toolAllowed }),
+        };
       }
       const stream = loop.startTurn({
         ...(staging === undefined ? {} : { staging }),
