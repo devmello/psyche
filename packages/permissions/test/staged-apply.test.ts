@@ -128,6 +128,36 @@ describe("requestStagedApply: refused children (§3.1, §3.2, §5.4)", () => {
       child: () => item(call("stripe.refund", "write")),
       reason: "money_intent",
     },
+    ...(["mail_reply_draft", "calendar_create_event"] as const).flatMap((tool) =>
+      ["Pay rent", "Pay the plumber $120"].map(
+        (text): Row => ({
+          name: `"${text}" in ${tool} (only reminders may carry money words)`,
+          child: () => item(exact(tool, "write", { title: text, body: text }), { summary: text }),
+          reason: "money_intent",
+        }),
+      ),
+    ),
+    {
+      name: "a reminder whose tool name is money-like",
+      child: () => item(exact("reminders_create_refund", "write", { title: "Pay rent" })),
+      reason: "money_intent",
+    },
+    {
+      name: "a reminder-shaped tool through MCP",
+      child: () =>
+        item(exact("mcp__x__reminders_create", "write", { title: "Pay rent" }), {
+          summary: "Pay rent",
+        }),
+      reason: ["money_intent", "denied", "device_only_kind"],
+    },
+    {
+      name: "a reminder item with a financial side effect",
+      child: () =>
+        item(exact("reminders_create", "financial", { title: "Pay rent" }), {
+          summary: "Pay rent",
+        }),
+      reason: ["financial", "denied", "money_intent"],
+    },
     {
       name: "a payment summary on a plain write",
       child: () => item(flags("m1"), { summary: "Pay $50 to Dana" }),
@@ -559,6 +589,20 @@ describe("requestStagedApply: near-misses that must be allowed", () => {
       child: () =>
         item(call("mail_set_flags", "write", undefined, { params: { note: "git checkout main" } })),
     },
+    ...(
+      [
+        "reminders_create",
+        "reminders_update",
+        "reminders_complete",
+        "apple.reminders_create",
+      ] as const
+    ).flatMap((tool) =>
+      ["Pay rent", "Pay the plumber $120"].map((title) => ({
+        name: `a ${tool} item titled "${title}"`,
+        child: () =>
+          item(exact(tool, "write", { title, notes: title }), { summary: `Reminder: ${title}` }),
+      })),
+    ),
     {
       name: "a reminder about a person",
       child: () => item(call("reminders_create", "write"), { summary: "Reminder: call Dana at 5" }),

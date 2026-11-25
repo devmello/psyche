@@ -125,9 +125,21 @@ function undoBound(call: PolicyCall, undo: NonNullable<StagedApplyChildInput["un
   return true;
 }
 
+/**
+ * Reminder tools, bare or behind a one-segment connector prefix (`apple.reminders_create`).
+ * A reminder can't move money, so its words are not scanned for money text (owner decision
+ * 2026-11-24). Its tool name and every other rule still apply. An MCP tool never qualifies.
+ */
+const REMINDER_TOOL = /^(?:[a-z0-9_-]+\.)?reminders_(?:create|update|complete)$/;
+export function isReminderTool(tool: string): boolean {
+  return !tool.startsWith("mcp__") && REMINDER_TOOL.test(tool);
+}
+
 /** The money check of §3.1: tool name, summary, and every string the call carries, both forms. */
 export function stagedMoneyIntent(child: StagedApplyChildInput, decided: PolicyCall): boolean {
   if (isMoneyToolName(decided.tool) || isMoneyToolName(child.call.tool)) return true;
+  // A reminder's words (a title like "Pay rent") are skipped: both forms must be a reminder tool.
+  if (isReminderTool(decided.tool) && isReminderTool(child.call.tool)) return false;
   if (isMoneyText(child.summary)) return true;
   // The call as given and as the hooks rewrote it: either one looking like a payment refuses.
   for (const c of [child.call, decided]) {
