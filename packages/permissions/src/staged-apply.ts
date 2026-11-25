@@ -1,7 +1,13 @@
 import type { ApprovalKind } from "@psyche/protocol";
 import { isMoneyText, isMoneyToolName } from "@psyche/protocol/money-intent";
+import { SEND_KINDS } from "./connector-matrix.ts";
 import { AUTH_KINDS, DEVICE_ONLY_KINDS, inferApprovalKind, SEVERITY } from "./kinds.ts";
-import type { PolicyDecision, StagedApplyChildInput, StagedApplyRefusalReason } from "./types.ts";
+import type {
+  PolicyCall,
+  PolicyDecision,
+  StagedApplyChildInput,
+  StagedApplyRefusalReason,
+} from "./types.ts";
 
 /**
  * Per-child rules of `requestStagedApply` (docs/design/night-shift-2026.md §3.1, §3.2, §5.4).
@@ -9,8 +15,35 @@ import type { PolicyDecision, StagedApplyChildInput, StagedApplyRefusalReason } 
  * is left out of the approval, or undefined when it may stay.
  */
 
-/** Destructive tools an undo may call, matched on the last name segment (`apple.calendar_delete_event`). */
-const UNDO_DESTRUCTIVE_TOOLS = new Set(["calendar_delete_event", "reminders_delete"]);
+/**
+ * Tools that may carry a send, by exact full name (night-shift §3.2). A `kind` label never makes
+ * a tool a send, so `mail_delete` labelled `send_email` meets the destructive rule instead.
+ */
+export const STAGED_SEND_TOOLS: ReadonlySet<string> = new Set([
+  "mail_send_draft",
+  "gmail_send",
+  "mail_send",
+  "node.mail.send_draft",
+]);
+
+interface UndoTool {
+  /** The tool's own id fields; the one(s) present must hold the created id. */
+  idKeys: readonly string[];
+  /** Other fields the call may carry, each with the only value it may have. */
+  extras: Readonly<Record<string, "calendar" | readonly string[]>>;
+}
+
+/**
+ * Destructive tools an undo may call, by exact full name, with every field they may carry. An
+ * undo selects one thing by id and nothing else: any other selector refuses (night-shift §5.4).
+ */
+const UNDO_TOOLS: Readonly<Record<string, UndoTool>> = {
+  calendar_delete_event: {
+    idKeys: ["id", "eventId"],
+    extras: { span: ["this"], sendUpdates: ["none"], calendarId: "calendar" },
+  },
+  reminders_delete: { idKeys: ["id"], extras: {} },
+};
 
 const MAX_STRINGS = 500;
 const MAX_DEPTH = 8;
@@ -40,27 +73,73 @@ export function callStrings(
   return { strings: out, truncated };
 }
 
-/** Whether `needle` is one of the string values (or keys) of a call's params. */
-function carriesString(params: unknown, needle: string): boolean {
-  return callStrings(params).strings.includes(needle);
+/** Lower-cased, trimmed addresses of a string or a list of them. */
+function addresses(v: unknown): string[] {
+  const list = typeof v === "string" ? [v] : Array.isArray(v) ? v : [];
+  return list.filter((x): x is string => typeof x === "string").map((x) => x.trim().toLowerCase());
 }
 
-export function lastSegment(tool: string): string {
-  const parts = tool.split(/[.:]|__/);
-  return parts[parts.length - 1] ?? tool;
+function paramsOf(call: PolicyCall): Record<string, unknown> | undefined {
+  const p = call.params;
+  return typeof p === "object" && p !== null && !Array.isArray(p)
+    ? (p as Record<string, unknown>)
+    : undefined;
 }
 
-/** The money check of §3.1: tool name, summary, and every string the call carries. */
-export function stagedMoneyIntent(child: StagedApplyChildInput, tool: string): boolean {
-  if (isMoneyToolName(tool) || isMoneyToolName(child.call.tool)) return true;
+/**
+ * Who a send goes to, from the call itself: `to`, `cc`, `bcc` and a recipient target, normalised,
+ * lower-cased, de-duplicated, in order. The caller's own list never decides it.
+ */
+export function callRecipients(call: PolicyCall): string[] {
+  const p = paramsOf(call) ?? {};
+  const out = [
+    ...addresses(p.to),
+    ...addresses(p.cc),
+    ...addresses(p.bcc),
+    ...(call.target?.kind === "recipient" ? addresses(call.target.value) : []),
+  ].filter((x) => x !== "");
+  return [...new Set(out)];
+}
+
+/** Whether one call is a well-formed undo delete of `undo.createdId` and nothing else. */
+function undoBound(call: PolicyCall, undo: NonNullable<StagedApplyChildInput["undo"]>): boolean {
+  const spec = UNDO_TOOLS[call.tool];
+  const created = undo.createdId;
+  if (spec === undefined || typeof created !== "string" || created === "") return false;
+  const p = paramsOf(call);
+  if (p === undefined) return false;
+  const target = call.target?.value;
+  const ids = spec.idKeys.filter((k) => k in p);
+  if (ids.length === 0 && target === undefined) return false;
+  // The id the tool reads, and the target, are the created id: values only, never key names.
+  if (ids.some((k) => p[k] !== created)) return false;
+  if (target !== undefined && target !== created) return false;
+  for (const [k, v] of Object.entries(p)) {
+    if (spec.idKeys.includes(k)) continue;
+    const allowed = spec.extras[k];
+    if (allowed === undefined || typeof v !== "string") return false;
+    if (allowed === "calendar") {
+      if (undo.calendarId === undefined || v !== undo.calendarId) return false;
+    } else if (!allowed.includes(v)) return false;
+  }
+  return true;
+}
+
+/** The money check of §3.1: tool name, summary, and every string the call carries, both forms. */
+export function stagedMoneyIntent(child: StagedApplyChildInput, decided: PolicyCall): boolean {
+  if (isMoneyToolName(decided.tool) || isMoneyToolName(child.call.tool)) return true;
   if (isMoneyText(child.summary)) return true;
-  const { strings, truncated } = callStrings(child.call.params, [child.call.target?.value]);
-  // A call too big to read in full fails closed.
-  if (truncated) return true;
-  return strings.some((s) => isMoneyText(s));
+  // The call as given and as the hooks rewrote it: either one looking like a payment refuses.
+  for (const c of [child.call, decided]) {
+    const { strings, truncated } = callStrings(c.params, [c.target?.value]);
+    // A call too big to read in full fails closed.
+    if (truncated) return true;
+    if (strings.some((x) => isMoneyText(x))) return true;
+  }
+  return false;
 }
 
-/** The kinds a child can be read as: the resolved one, the decision's, the declared and the inferred. */
+/** The kinds a child can be read as: the resolved, the decision's, the declared and the inferred. */
 export function stagedKinds(
   child: StagedApplyChildInput,
   d: PolicyDecision,
@@ -75,10 +154,20 @@ export function stagedKinds(
   ]);
 }
 
+/** Whether a kept child is a send (by its exact tool name; a send never passes any other way). */
+export function isStagedSend(child: StagedApplyChildInput, d: PolicyDecision): boolean {
+  return STAGED_SEND_TOOLS.has(d.call.tool) && d.call.tool === child.call.tool;
+}
+
 export interface StagedVerdict {
   reason: StagedApplyRefusalReason;
   message: string;
 }
+
+const SEND_NOT_EXPLICIT: StagedVerdict = {
+  reason: "send_not_explicit",
+  message: "a send needs its own tick and its recipients",
+};
 
 /**
  * Why a decided child is refused, or undefined when it may be part of the approval.
@@ -96,7 +185,7 @@ export function refuseStagedChild(
   const se = d.sideEffect;
 
   // §3.1.
-  if (stagedMoneyIntent(child, tool)) {
+  if (stagedMoneyIntent(child, d.call)) {
     return { reason: "money_intent", message: "this looks like a payment" };
   }
   if (d.decision === "deny") {
@@ -121,36 +210,36 @@ export function refuseStagedChild(
     return { reason: "device_only_kind", message: "this needs its own approval on the Mac" };
   }
 
-  // §3.2: a send only when the owner ticked it and it says who gets it.
-  if (kinds.has("send_email")) {
-    const recipients = child.recipients;
+  // §3.2: a send is allowed only on a send tool's exact name, with the kind the registry gives
+  // it, when the owner ticked it and the recipients are the call's own.
+  const sendKind = any(SEND_KINDS);
+  if (isStagedSend(child, d)) {
+    const own = callRecipients(d.call);
+    const given = [
+      ...new Set(
+        (child.recipients ?? []).map((r) => (typeof r === "string" ? r.trim().toLowerCase() : "")),
+      ),
+    ];
     const explicit =
       child.explicitSend === true &&
       child.undo === undefined &&
-      Array.isArray(recipients) &&
-      recipients.length > 0 &&
-      recipients.every((r) => typeof r === "string" && r.trim() !== "");
-    if (!explicit) {
-      return {
-        reason: "send_not_explicit",
-        message: "a send needs its own tick and its recipients",
-      };
-    }
-    return undefined;
+      kinds.has("send_email") &&
+      !kinds.has("message_send") &&
+      own.length > 0 &&
+      given.length === own.length &&
+      own.every((r) => given.includes(r));
+    return explicit ? undefined : SEND_NOT_EXPLICIT;
   }
+  // A send kind on any other tool never passes: a label does not make a tool a send. Messages
+  // and the like are not stageable.
+  if (sendKind && SEVERITY[se] < SEVERITY.destructive) return SEND_NOT_EXPLICIT;
 
   // §5.4: a destructive child is only an undo of something Night shift created.
   if (SEVERITY[se] >= SEVERITY.destructive) {
     if (child.undo === undefined) {
       return { reason: "destructive", message: "deletes are never applied in bulk" };
     }
-    const created = child.undo.createdId;
-    if (
-      typeof created !== "string" ||
-      created === "" ||
-      !UNDO_DESTRUCTIVE_TOOLS.has(lastSegment(tool)) ||
-      !carriesString(d.call.params, created)
-    ) {
+    if (sendKind || !undoBound(child.call, child.undo) || !undoBound(d.call, child.undo)) {
       return {
         reason: "undo_unbound",
         message: "an undo may only delete what Night shift created",
@@ -159,7 +248,7 @@ export function refuseStagedChild(
     return undefined;
   }
   if (se !== "write") {
-    return { reason: "not_write", message: "only changes can be applied" };
+    return { reason: "not_write", message: `only changes can be applied (${tool})` };
   }
   return undefined;
 }

@@ -1,3 +1,4 @@
+import { sha256 } from "@psyche/audit";
 import { FakeClock } from "@psyche/testing";
 import { describe, expect, it } from "vitest";
 import {
@@ -6,7 +7,16 @@ import {
   type StagedApplyChildInput,
   type StagedApplyRefusalReason,
 } from "../src/index.ts";
-import { CTX, call, DEVICE, makeBroker, memoryDb, recipient, sqliteBroker } from "./helpers.ts";
+import {
+  CTX,
+  call,
+  DEVICE,
+  makeBroker,
+  memoryDb,
+  OWNER,
+  recipient,
+  sqliteBroker,
+} from "./helpers.ts";
 
 /**
  * `requestStagedApply` (docs/design/night-shift-2026.md §3.1-§3.3, §5.4): one approval for the
@@ -29,8 +39,27 @@ const item = (
   ...extra,
 });
 
-const send = (to = "dana@example.com"): PolicyCall =>
-  call("email.send", "destructive", recipient(to), { kind: "send_email" });
+/** A call whose params are exactly what the tool takes (the `call` helper adds `tool` and `target`). */
+const exact = (
+  tool: string,
+  sideEffect: PolicyCall["sideEffect"],
+  params: Record<string, unknown>,
+  extra: Partial<PolicyCall> = {},
+): PolicyCall => ({
+  tool,
+  sideEffect,
+  params,
+  paramsHash: sha256(JSON.stringify(params)),
+  ...extra,
+});
+
+const send = (to: string | string[] = "dana@example.com", extra: Record<string, unknown> = {}) => {
+  const list = Array.isArray(to) ? to : [to];
+  return call("gmail_send", "destructive", recipient(list[0] ?? ""), {
+    kind: "send_email",
+    params: { to: list, subject: "Re: lunch", ...extra },
+  });
+};
 
 function stage(
   h: ReturnType<typeof makeBroker>,
@@ -182,7 +211,10 @@ describe("requestStagedApply: refused children (§3.1, §3.2, §5.4)", () => {
       name: "a send relabelled as a file write",
       child: () =>
         item(
-          call("email.send", "destructive", recipient("dana@example.com"), { kind: "file_write" }),
+          call("gmail_send", "destructive", recipient("dana@example.com"), {
+            kind: "file_write",
+            params: { to: ["dana@example.com"] },
+          }),
           {
             recipients: ["dana@example.com"],
           },
@@ -208,14 +240,13 @@ describe("requestStagedApply: refused children (§3.1, §3.2, §5.4)", () => {
     },
     {
       name: "a calendar delete that is not an undo",
-      child: () =>
-        item(call("calendar_delete_event", "destructive", undefined, { params: { id: "evt_1" } })),
+      child: () => item(exact("calendar_delete_event", "destructive", { id: "evt_1" })),
       reason: "destructive",
     },
     {
       name: "an undo whose created id is not in the call",
       child: () =>
-        item(call("calendar_delete_event", "destructive", undefined, { params: { id: "evt_9" } }), {
+        item(exact("calendar_delete_event", "destructive", { id: "evt_9" }), {
           undo: { createdId: "evt_1" },
         }),
       reason: "undo_unbound",
@@ -223,7 +254,7 @@ describe("requestStagedApply: refused children (§3.1, §3.2, §5.4)", () => {
     {
       name: "an undo with an empty created id",
       child: () =>
-        item(call("calendar_delete_event", "destructive", undefined, { params: { id: "" } }), {
+        item(exact("calendar_delete_event", "destructive", { id: "" }), {
           undo: { createdId: "" },
         }),
       reason: "undo_unbound",
@@ -231,7 +262,7 @@ describe("requestStagedApply: refused children (§3.1, §3.2, §5.4)", () => {
     {
       name: "an undo on a tool that is not a Night shift delete",
       child: () =>
-        item(call("mail_delete", "destructive", undefined, { params: { id: "evt_1" } }), {
+        item(exact("mail_delete", "destructive", { id: "evt_1" }), {
           undo: { createdId: "evt_1" },
         }),
       reason: "undo_unbound",
@@ -239,10 +270,209 @@ describe("requestStagedApply: refused children (§3.1, §3.2, §5.4)", () => {
     {
       name: "an undo that deletes a file",
       child: () =>
-        item(call("delete_file", "destructive", undefined, { params: { path: "evt_1" } }), {
+        item(exact("delete_file", "destructive", { path: "evt_1" }), {
           undo: { createdId: "evt_1" },
         }),
       reason: ["undo_unbound", "denied", "device_only_kind"],
+    },
+    // §3.2 review round 1: a label never makes a tool a send
+    ...(
+      [
+        ["mail_delete", "destructive"],
+        ["node.shortcuts.run", "destructive"],
+        ["calendar_delete_event", "destructive"],
+        ["node.files.trash", "destructive"],
+        ["gmail_trash", "destructive"],
+        ["mail_set_flags", "write"],
+      ] as const
+    ).map(
+      ([tool, se]): Row => ({
+        name: `${tool} labelled send_email with explicitSend`,
+        child: () =>
+          item(
+            exact(
+              tool,
+              se,
+              { id: "evt_1", to: ["a@x.org"] },
+              {
+                kind: "send_email",
+                target: recipient("a@x.org"),
+              },
+            ),
+            { explicitSend: true, recipients: ["a@x.org"] },
+          ),
+        reason: [
+          "destructive",
+          "send_not_explicit",
+          "denied",
+          "device_only_kind",
+          "authentication",
+        ],
+      }),
+    ),
+    ...(["message_send", "send_email"] as const).map(
+      (kind): Row => ({
+        name: `a write on a non-send tool labelled ${kind}`,
+        child: () =>
+          item(exact("mail_set_flags", "write", { ids: ["m1"] }, { kind }), {
+            explicitSend: true,
+            recipients: ["a@x.org"],
+          }),
+        reason: ["send_not_explicit", "denied"],
+      }),
+    ),
+    {
+      name: "a send tool labelled message_send",
+      child: () =>
+        item(exact("gmail_send", "destructive", { to: ["a@x.org"] }, { kind: "message_send" }), {
+          explicitSend: true,
+          recipients: ["a@x.org"],
+        }),
+      reason: ["send_not_explicit", "denied"],
+    },
+    {
+      name: "a send whose given recipients differ from the call's own",
+      child: () =>
+        item(send(["a@x.org", "b@x.org"]), { explicitSend: true, recipients: ["a@x.org"] }),
+      reason: "send_not_explicit",
+    },
+    {
+      name: "a send whose given recipients name someone the call does not",
+      child: () =>
+        item(send("a@x.org"), { explicitSend: true, recipients: ["a@x.org", "c@x.org"] }),
+      reason: "send_not_explicit",
+    },
+    {
+      name: "a send with a hidden bcc the caller left out",
+      child: () =>
+        item(send("a@x.org", { bcc: ["boss@x.org"] }), {
+          explicitSend: true,
+          recipients: ["a@x.org"],
+        }),
+      reason: "send_not_explicit",
+    },
+    {
+      name: "a send with no recipient in the call itself",
+      child: () =>
+        item(exact("gmail_send", "destructive", { subject: "x" }, { kind: "send_email" }), {
+          explicitSend: true,
+          recipients: ["a@x.org"],
+        }),
+      reason: "send_not_explicit",
+    },
+    // §5.4 review round 1: the undo is bound to the tool's own id field, nothing else
+    {
+      name: "an undo whose created id is the calendar id, not the event id (probe: primary)",
+      child: () =>
+        item(
+          exact("calendar_delete_event", "destructive", { id: "evt_9", calendarId: "primary" }),
+          {
+            undo: { createdId: "primary" },
+          },
+        ),
+      reason: "undo_unbound",
+    },
+    {
+      name: "an undo whose created id is only a key name",
+      child: () =>
+        item(exact("calendar_delete_event", "destructive", { id: "evt_9", evt_1: true }), {
+          undo: { createdId: "evt_1" },
+        }),
+      reason: "undo_unbound",
+    },
+    {
+      name: "an undo whose created id appears in a note field",
+      child: () =>
+        item(exact("calendar_delete_event", "destructive", { id: "evt_9", note: "evt_1" }), {
+          undo: { createdId: "evt_1" },
+        }),
+      reason: "undo_unbound",
+    },
+    {
+      name: "an undo with span future",
+      child: () =>
+        item(exact("calendar_delete_event", "destructive", { id: "evt_1", span: "future" }), {
+          undo: { createdId: "evt_1" },
+        }),
+      reason: "undo_unbound",
+    },
+    {
+      name: "an undo that notifies attendees",
+      child: () =>
+        item(
+          exact("calendar_delete_event", "destructive", { eventId: "evt_1", sendUpdates: "all" }),
+          {
+            undo: { createdId: "evt_1" },
+          },
+        ),
+      reason: "undo_unbound",
+    },
+    {
+      name: "an undo naming a calendar the created event is not known to be in",
+      child: () =>
+        item(
+          exact("calendar_delete_event", "destructive", { eventId: "evt_1", calendarId: "work" }),
+          {
+            undo: { createdId: "evt_1" },
+          },
+        ),
+      reason: "undo_unbound",
+    },
+    {
+      name: "an undo naming another calendar than the stored one",
+      child: () =>
+        item(
+          exact("calendar_delete_event", "destructive", { eventId: "evt_1", calendarId: "work" }),
+          {
+            undo: { createdId: "evt_1", calendarId: "home" },
+          },
+        ),
+      reason: "undo_unbound",
+    },
+    {
+      name: "an undo with both id fields, one of them another event",
+      child: () =>
+        item(exact("calendar_delete_event", "destructive", { id: "evt_1", eventId: "evt_2" }), {
+          undo: { createdId: "evt_1" },
+        }),
+      reason: "undo_unbound",
+    },
+    {
+      name: "an undo whose target is another thing",
+      child: () =>
+        item(
+          exact(
+            "calendar_delete_event",
+            "destructive",
+            { id: "evt_1" },
+            { target: recipient("evt_2") },
+          ),
+          {
+            undo: { createdId: "evt_1" },
+          },
+        ),
+      reason: "undo_unbound",
+    },
+    {
+      name: "an undo with an extra selector on a reminder",
+      child: () =>
+        item(exact("reminders_delete", "destructive", { id: "rem_1", list: "all" }), {
+          undo: { createdId: "rem_1" },
+        }),
+      reason: "undo_unbound",
+    },
+    {
+      name: "an undo through a connector prefix (exact names only)",
+      child: () =>
+        item(exact("apple.calendar_delete_event", "destructive", { id: "evt_2" }), {
+          undo: { createdId: "evt_2" },
+        }),
+      reason: ["undo_unbound", "destructive", "denied"],
+    },
+    {
+      name: "a money word in a Google-shaped param of a plain write",
+      child: () => item(exact("mail_set_flags", "write", { ids: ["m1"], note: "Pay $20 now" })),
+      reason: "money_intent",
     },
     // read and none are not changes
     {
@@ -339,31 +569,54 @@ describe("requestStagedApply: near-misses that must be allowed", () => {
     },
     {
       name: "an explicit send to two recipients",
-      child: () => item(send(), { explicitSend: true, recipients: ["a@x.org", "b@x.org"] }),
+      child: () =>
+        item(send(["a@x.org", "b@x.org"]), {
+          explicitSend: true,
+          recipients: ["a@x.org", "b@x.org"],
+        }),
     },
     {
       name: "an undo delete of an event Night shift created",
       child: () =>
-        item(call("calendar_delete_event", "destructive", undefined, { params: { id: "evt_1" } }), {
+        item(exact("calendar_delete_event", "destructive", { id: "evt_1" }), {
           undo: { createdId: "evt_1" },
         }),
     },
     {
       name: "an undo delete of a reminder Night shift created",
       child: () =>
-        item(call("reminders_delete", "destructive", undefined, { params: { id: "rem_7" } }), {
+        item(exact("reminders_delete", "destructive", { id: "rem_7" }), {
           undo: { createdId: "rem_7" },
         }),
     },
     {
-      name: "an undo delete through a connector prefix",
+      name: "an undo delete with the calendar the event was created in",
       child: () =>
         item(
-          call("apple.calendar_delete_event", "destructive", undefined, {
-            params: { id: "evt_2" },
+          exact("calendar_delete_event", "destructive", {
+            eventId: "evt_3",
+            calendarId: "work",
+            span: "this",
+            sendUpdates: "none",
           }),
-          { undo: { createdId: "evt_2" } },
+          { undo: { createdId: "evt_3", calendarId: "work" } },
         ),
+    },
+    {
+      name: "a send whose recipients differ only in case and spacing",
+      child: () =>
+        item(send(["Dana@Example.com"]), {
+          explicitSend: true,
+          recipients: [" dana@example.com "],
+        }),
+    },
+    {
+      name: "a send with to, cc and bcc all listed",
+      child: () =>
+        item(send("a@x.org", { cc: ["b@x.org"], bcc: ["c@x.org"] }), {
+          explicitSend: true,
+          recipients: ["c@x.org", "b@x.org", "a@x.org"],
+        }),
     },
   ];
 
@@ -445,7 +698,10 @@ describe("requestStagedApply: the approval", () => {
     const h = makeBroker();
     const issued = await stage(h, [
       item(flags("m1")),
-      item(send(), { explicitSend: true, recipients: ["dana@example.com", "lee@example.com"] }),
+      item(send(["dana@example.com", "lee@example.com"]), {
+        explicitSend: true,
+        recipients: ["dana@example.com", "lee@example.com"],
+      }),
     ]);
     const a = issued.approval;
     expect(a).toMatchObject({
@@ -460,18 +716,56 @@ describe("requestStagedApply: the approval", () => {
     expect(items[1]?.send).toEqual({ to: ["dana@example.com", "lee@example.com"] });
   });
 
-  it("a set of writes only is not device-only (positive control for the send case)", async () => {
+  it("the send row names the call's own recipients, lower-cased, not the caller's list", async () => {
     const h = makeBroker();
-    const a = (await stage(h, [item(flags("m1"))])).approval;
-    expect(a.deviceOnly).toBe(false);
-    expect(a.sideEffect).toBe("write");
+    const issued = await stage(h, [
+      item(send(["Dana@Example.com"], { cc: ["LEE@example.com"] }), {
+        explicitSend: true,
+        recipients: ["lee@example.com", " DANA@example.com"],
+      }),
+    ]);
+    const items = (issued.approval.details as { items: { send?: { to: string[] } }[] }).items;
+    expect(items[0]?.send).toEqual({ to: ["dana@example.com", "lee@example.com"] });
+  });
+
+  it("refuses a payment that only appears in the call a hook rewrote", async () => {
+    const hook = {
+      name: "rewrite",
+      beforeToolCall: (c: PolicyCall) =>
+        (c.params as { ids?: string[] }).ids?.[0] === "m_rewritten"
+          ? { rewrite: { ...c, params: { ...(c.params as object), note: "Send $500 to Bob" } } }
+          : undefined,
+    };
+    const h = makeBroker({ hooks: [hook] });
+    const issued = await stage(h, [item(flags("m1")), item(flags("m_rewritten"))]);
+    expect(issued.refused).toMatchObject([{ index: 1, reason: "money_intent" }]);
+  });
+
+  it("a set of writes only is still device-only, but a write (no destructive class)", async () => {
+    const h = makeBroker();
+    const issued = await stage(h, [item(flags("m1"))]);
+    expect(issued.approval).toMatchObject({ deviceOnly: true, sideEffect: "write" });
+    // No chat token exists, and a chat answer is refused: the review lives in the apps only.
+    expect(Object.keys(issued.answerTokens).some((k) => k.startsWith("telegram"))).toBe(false);
+    h.clock.advance(500);
+    await expect(
+      h.broker.answer({
+        approvalId: issued.approval.id,
+        answerToken: issued.answerTokens.desktop ?? "",
+        decision: "approve",
+        scope: "once",
+        decidedBy: OWNER,
+      }),
+    ).rejects.toMatchObject({ code: "forbidden" });
+    // Positive control: a paired device answers it with a plain tap.
+    expect((await answer(h, issued)).status).toBe("approved");
   });
 
   it("an undo delete makes the set device-only", async () => {
     const h = makeBroker();
     const a = (
       await stage(h, [
-        item(call("calendar_delete_event", "destructive", undefined, { params: { id: "evt_1" } }), {
+        item(exact("calendar_delete_event", "destructive", { id: "evt_1" }), {
           undo: { createdId: "evt_1" },
         }),
       ])

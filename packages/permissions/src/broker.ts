@@ -139,7 +139,7 @@ import { receiptGrantBinding, receiptGrantId } from "./receipt-grant.ts";
 import { requesterKey, requesterSurfaces } from "./requester.ts";
 import type { RevocationLedger } from "./revocations.ts";
 import { riskClassFor } from "./risk.ts";
-import { refuseStagedChild, stagedKinds } from "./staged-apply.ts";
+import { callRecipients, isStagedSend, refuseStagedChild } from "./staged-apply.ts";
 import {
   MemoryPermissionStore,
   type PermissionStore,
@@ -2125,11 +2125,12 @@ export class PsychePermissionBroker implements PermissionBroker {
         refuse(verdict.reason, verdict.message);
         continue;
       }
-      if (stagedKinds(c, d, kind).has("send_email")) {
+      if (isStagedSend(c, d)) {
         sends += 1;
+        // The row names who the call itself goes to, never the caller's own list.
         sendTo.set(
           itemId,
-          (c.recipients ?? []).map((r) => sanitizeDisplay(r).slice(0, 120)),
+          callRecipients(d.call).map((r) => sanitizeDisplay(r).slice(0, 120)),
         );
       } else if (SEVERITY[d.sideEffect] >= SEVERITY.destructive) undoDeletes += 1;
       children.push({
@@ -2175,7 +2176,8 @@ export class PsychePermissionBroker implements PermissionBroker {
       sideEffect: destructive ? "destructive" : "write",
       surfaces: input.surfaces,
       scopesOffered: ["once"],
-      ...(destructive ? { deviceOnly: true as const } : {}),
+      // The review exists only in the Mac and iOS apps: never delivered to a chat (still a tap).
+      deviceOnly: true as const,
       taint: input.context.taint,
       ...(input.taintSources === undefined ? {} : { taintSources: input.taintSources }),
       ttlMs: STAGED_APPLY_TTL_MS,

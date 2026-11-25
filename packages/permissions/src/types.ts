@@ -242,7 +242,7 @@ export interface StagedApplyChildInput {
   /** The addresses a send goes to; a send with none is refused. */
   recipients?: string[];
   /** An undo inverse (§5.4); `createdId` is the id of what Night shift created. */
-  undo?: { createdId: string };
+  undo?: { createdId: string; calendarId?: string };
 }
 
 /** `requestStagedApply` input. */
