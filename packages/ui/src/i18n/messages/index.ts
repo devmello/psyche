@@ -43,6 +43,7 @@ import { overviewGrowth } from "./overview-growth.ts";
 import { passwordPresence } from "./password-presence.ts";
 import { people } from "./people.ts";
 import { platform } from "./platform.ts";
+import { points } from "./points.ts";
 import { research } from "./research.ts";
 import { sandboxPc } from "./sandbox-pc.ts";
 import { scheduled } from "./scheduled.ts";
@@ -138,6 +139,7 @@ export const en = {
   ...securityState,
   ...linuxAccess,
   ...computerWatch,
+  ...points,
   ...notices,
   ...separateDesktop,
   ...keepAwake,

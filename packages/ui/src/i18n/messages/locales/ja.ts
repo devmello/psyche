@@ -46,6 +46,7 @@ import { overviewShared } from "./overview-shared/ja.ts";
 import { passwordPresence } from "./password-presence/ja.ts";
 import { peopleRest } from "./people-rest/ja.ts";
 import { personDataRest } from "./personData-rest/ja.ts";
+import { points } from "./points/ja.ts";
 import { researchRest } from "./research-rest/ja.ts";
 import { scheduledForm } from "./scheduled-form/ja.ts";
 import { scheduledRest } from "./scheduled-rest/ja.ts";
@@ -3974,6 +3975,8 @@ export const ja: Partial<Catalogue> = {
   ...linuxAccess,
   // the Virtual screen watch pane (docs/design/linux-desktop-2026.md §7.5)
   ...computerWatch,
+  // Psyche points (docs/design/psyche-points-2026.md §9)
+  ...points,
   // Gateway-authored notices (inbox notifications, security alerts)
   ...notices,
   // Settings > Computer use > Separate desktop (Linux)
