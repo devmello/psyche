@@ -554,9 +554,15 @@ export function useThread(threadId: string | null) {
          * other senders leave it off.
          */
         resolveSkills?: boolean;
+        /**
+         * Sending one queued message by hand ("Send now") leaves the others held after a Stop.
+         * Any other send is the owner carrying on, so what Stop held goes out after it.
+         */
+        keepQueueParked?: boolean;
       } = {},
     ) => {
       if (threadId === null) return;
+      if (options.keepQueueParked !== true) store.resumeQueued(threadId);
       const mode = options.mode ?? "followUp";
       // Remote windows: while the Gateway can't be reached the message waits in the outbox and
       // goes out on reconnect, once (its key is kept). Messages with a file or a context chip
@@ -649,11 +655,17 @@ export function useThread(threadId: string | null) {
       store.update((s) => ({ ...s, queue: s.queue.filter((q) => q.id !== id) })),
     cancel: async () => {
       if (threadId === null) return;
+      // Stop means stop: the follow-ups waiting behind this run do not start the moment it ends.
+      store.parkQueued(threadId);
       await store.call("chat.cancel", { threadId });
     },
-    loadOlder: async () => {
-      if (threadId === null) return;
-      await loadOlderMessages(store, threadId);
+    /** Sends a follow-up Stop held; `undefined` releases every held one of this thread. */
+    resumeQueued: (id?: string) => {
+      if (threadId !== null) store.resumeQueued(threadId, id);
+    },
+    loadOlder: async (): Promise<boolean> => {
+      if (threadId === null) return false;
+      return loadOlderMessages(store, threadId);
     },
     exportAs: (format: "markdown" | "json") =>
       threadId === null
@@ -665,20 +677,23 @@ export function useThread(threadId: string | null) {
 const EMPTY: readonly Message[] = [];
 
 /** Loads the page of a thread's history before what is loaded; false when there is none. */
-export async function loadOlderMessages(store: GatewayStore, threadId: string): Promise<boolean> {
-  const cursor = store.getState().historyCursor[threadId];
-  if (cursor == null) return false;
-  const page = await store.call("chat.history", { threadId, cursor, limit: 100 });
-  store.update((s) => {
-    const byId = new Map((s.messages[threadId] ?? []).map((m) => [m.id, m]));
-    for (const m of page.messages) if (!byId.has(m.id)) byId.set(m.id, m);
-    return {
-      ...s,
-      messages: { ...s.messages, [threadId]: [...byId.values()].sort((a, b) => a.seq - b.seq) },
-      historyCursor: { ...s.historyCursor, [threadId]: page.nextCursor ?? null },
-    };
+export function loadOlderMessages(store: GatewayStore, threadId: string): Promise<boolean> {
+  // One page at a time: the scroll sentinel and a focus request may ask together.
+  return sharedLoad(store, `older:${threadId}`, async () => {
+    const cursor = store.getState().historyCursor[threadId];
+    if (cursor == null) return false;
+    const page = await store.call("chat.history", { threadId, cursor, limit: 100 });
+    store.update((s) => {
+      const byId = new Map((s.messages[threadId] ?? []).map((m) => [m.id, m]));
+      for (const m of page.messages) if (!byId.has(m.id)) byId.set(m.id, m);
+      return {
+        ...s,
+        messages: { ...s.messages, [threadId]: [...byId.values()].sort((a, b) => a.seq - b.seq) },
+        historyCursor: { ...s.historyCursor, [threadId]: page.nextCursor ?? null },
+      };
+    });
+    return true;
   });
-  return true;
 }
 
 const NO_CONTEXT: ThreadContextEntry = { usage: null };

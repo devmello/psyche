@@ -1,4 +1,5 @@
 import {
+  appendMessage,
   createRun,
   createThread,
   getNode,
@@ -150,7 +151,30 @@ describe("S01 review regressions", () => {
     upsertToolCall(db, { id: "tc_wait", runId: waiting.id, tool: "email.send", status: "pending" });
     const running = createRun(db, { threadId: th.id, modelRef: "fake/m" });
     upsertToolCall(db, { id: "tc_run", runId: running.id, tool: "fs.write", status: "running" });
+    const msg = appendMessage(
+      db,
+      {
+        threadId: th.id,
+        role: "agent",
+        blocks: [
+          {
+            type: "tool_call",
+            toolCallId: "tc_run",
+            tool: "fs.write",
+            status: "running",
+            level1: "x",
+          },
+        ],
+        provenance: "agent",
+        runId: running.id,
+      },
+      { expectedWriterRunId: null },
+    );
     recoverAfterRestart(db, silentLogger);
+    // The transcript says what the row says: nothing keeps spinning after a restart.
+    expect(listAllMessages(db, th.id).find((m) => m.id === msg.id)?.blocks[0]).toMatchObject({
+      status: "uncertain",
+    });
     expect(getToolCall(db, "tc_wait")?.status).toBe("pending");
     expect(getToolCall(db, "tc_run")?.status).toBe("uncertain");
     expect(getRun(db, waiting.id)?.status).toBe("awaiting_approval");
