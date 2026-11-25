@@ -255,8 +255,20 @@ describe("maintenance, vacuum and compaction", () => {
     expect(db.sqlite.pragma("freelist_count", { simple: true })).toBe(before);
   });
 
+  it("compaction is refused when the disk can't hold a full copy", () => {
+    const db = fileDb();
+    db.sqlite.pragma("auto_vacuum = NONE");
+    db.sqlite.exec("VACUUM");
+    expect(compactDatabase(ctxOf(db), () => 1024)).toEqual({ ok: false, reason: "disk" });
+    expect(db.sqlite.pragma("auto_vacuum", { simple: true })).toBe(0);
+  });
+
   it("compaction is refused while a run is active and reclaims space when idle", () => {
     const db = fileDb();
+    // A legacy database: the owner's Compact converts it to INCREMENTAL.
+    db.sqlite.pragma("auto_vacuum = NONE");
+    db.sqlite.exec("VACUUM");
+    expect(db.sqlite.pragma("auto_vacuum", { simple: true })).toBe(0);
     const thread = createThread(db, { kind: "main", sessionKey: "owner:main" });
     db.sqlite.exec("CREATE TABLE bulk (v BLOB)");
     const ins = db.sqlite.prepare("INSERT INTO bulk VALUES (?)");
@@ -275,6 +287,7 @@ describe("maintenance, vacuum and compaction", () => {
     expect(r.ok).toBe(true);
     if (r.ok) expect(r.savedBytes).toBeGreaterThan(1_000_000);
     expect(compactEstimate(db).reclaimableBytes).toBe(0);
+    expect(db.sqlite.pragma("auto_vacuum", { simple: true })).toBe(2);
   });
 
   it("the audit chain verifies identically after history trimming", async () => {

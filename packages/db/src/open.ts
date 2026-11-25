@@ -65,7 +65,7 @@ export function openDb(path: string, opts: OpenDbOptions = {}): PsycheDb {
   const filePath = memory ? path : resolve(path);
 
   // auto_vacuum only takes effect on a database that has no tables yet; an existing one is
-  // converted once by the Gateway's maintenance pass (VACUUM), never at open.
+  // converted by the owner's "Compact database" (auto_vacuum = INCREMENTAL, then VACUUM), never at open.
   const fresh = !readonly && (memory || !existsSync(filePath) || statSync(filePath).size === 0);
 
   if (!memory && !readonly) {

@@ -266,7 +266,9 @@ export function composeStorage(services: ComposeServices): ComposedPart {
             "conflict",
             r.reason === "busy"
               ? "Psyche is working on something. Compact the database when it has finished."
-              : "This database cannot be compacted.",
+              : r.reason === "disk"
+                ? "There isn't enough free disk space to compact the database."
+                : "This database cannot be compacted.",
           );
         }
         return { durationMs: r.ms, savedBytes: r.savedBytes };

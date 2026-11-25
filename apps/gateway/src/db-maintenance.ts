@@ -1,4 +1,5 @@
-import { existsSync, statSync } from "node:fs";
+import { existsSync, statfsSync, statSync } from "node:fs";
+import { dirname } from "node:path";
 import { performance } from "node:perf_hooks";
 import {
   getRetentionState,
@@ -149,6 +150,13 @@ function fileSize(path: string): number {
   return existsSync(path) ? statSync(path).size : 0;
 }
 
+const COMPACT_DISK_MARGIN = 64 * 1024 * 1024;
+
+function freeDiskBytes(dir: string): number {
+  const s = statfsSync(dir);
+  return Number(s.bavail) * Number(s.bsize);
+}
+
 export interface CompactEstimate {
   dbBytes: number;
   /** `freelist_count x page_size`: what a VACUUM would give back at most. */
@@ -172,12 +180,21 @@ export function compactEstimate(db: PsycheDb): CompactEstimate {
  */
 export function compactDatabase(
   ctx: Pick<GatewayContext, "db" | "log">,
-): { ok: true; ms: number; savedBytes: number } | { ok: false; reason: "busy" | "memory" } {
+  freeBytesOf: (dir: string) => number = freeDiskBytes,
+):
+  | { ok: true; ms: number; savedBytes: number }
+  | { ok: false; reason: "busy" | "memory" | "disk" } {
   const { db } = ctx;
   if (db.path === ":memory:") return { ok: false, reason: "memory" };
   if (!dbIsIdle(db)) return { ok: false, reason: "busy" };
   const before = fileSize(db.path) + fileSize(`${db.path}-wal`);
+  // A WAL-mode VACUUM writes a full copy and grows the WAL: refuse rather than fill the volume.
+  if (freeBytesOf(dirname(db.path)) < 2 * before + COMPACT_DISK_MARGIN) {
+    return { ok: false, reason: "disk" };
+  }
   const started = performance.now();
+  // Converts a database created before INCREMENTAL was the default; a no-op on a new one.
+  db.sqlite.pragma("auto_vacuum = INCREMENTAL");
   db.sqlite.exec("VACUUM");
   db.sqlite.pragma("wal_checkpoint(TRUNCATE)");
   const ms = Math.round(performance.now() - started);
