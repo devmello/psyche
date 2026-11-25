@@ -1650,6 +1650,10 @@
 //   let storageClearCacheParams = try? JSONDecoder().decode(StorageClearCacheParams.self, from: jsonData)
 //   let storageClearTarget = try? JSONDecoder().decode(StorageClearTarget.self, from: jsonData)
 //   let storageCleared = try? JSONDecoder().decode(StorageCleared.self, from: jsonData)
+//   let storageCompactEstimate = try? JSONDecoder().decode(StorageCompactEstimate.self, from: jsonData)
+//   let storageCompactEstimateParams = try? JSONDecoder().decode(StorageCompactEstimateParams.self, from: jsonData)
+//   let storageCompactParams = try? JSONDecoder().decode(StorageCompactParams.self, from: jsonData)
+//   let storageCompacted = try? JSONDecoder().decode(StorageCompacted.self, from: jsonData)
 //   let storageUsage = try? JSONDecoder().decode(StorageUsage.self, from: jsonData)
 //   let storageUsageParams = try? JSONDecoder().decode(StorageUsageParams.self, from: jsonData)
 //   let taintSource = try? JSONDecoder().decode(TaintSource.self, from: jsonData)
@@ -37659,6 +37663,41 @@ public struct StorageCleared: Codable, Sendable {
     }
 }
 
+// MARK: - StorageCompactEstimate
+public struct StorageCompactEstimate: Codable, Sendable {
+    public let dbBytes: Int
+    public let idle: Bool
+    public let reclaimableBytes: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case dbBytes = "dbBytes"
+        case idle = "idle"
+        case reclaimableBytes = "reclaimableBytes"
+    }
+
+    public init(dbBytes: Int, idle: Bool, reclaimableBytes: Int) {
+        self.dbBytes = dbBytes
+        self.idle = idle
+        self.reclaimableBytes = reclaimableBytes
+    }
+}
+
+// MARK: - StorageCompacted
+public struct StorageCompacted: Codable, Sendable {
+    public let durationMS: Int
+    public let savedBytes: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case durationMS = "durationMs"
+        case savedBytes = "savedBytes"
+    }
+
+    public init(durationMS: Int, savedBytes: Int) {
+        self.durationMS = durationMS
+        self.savedBytes = savedBytes
+    }
+}
+
 // MARK: - StorageUsage
 public struct StorageUsage: Codable, Sendable {
     public let categories: [StorageCategory]
@@ -43314,6 +43353,8 @@ public typealias SpacesMigrationOfferParams = [String: JSONAny]
 public typealias SpecialistsListParams = [String: JSONAny]
 public typealias SpeechEngineDownloadParams = [String: JSONAny]
 public typealias SpeechEngineStatusParams = [String: JSONAny]
+public typealias StorageCompactEstimateParams = [String: JSONAny]
+public typealias StorageCompactParams = [String: JSONAny]
 public typealias StorageUsageParams = [String: JSONAny]
 public typealias TeachAppAppsParams = [String: JSONAny]
 public typealias TeachAppCancelParams = [String: JSONAny]
