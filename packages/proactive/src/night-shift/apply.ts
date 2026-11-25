@@ -116,6 +116,8 @@ export interface ApplyAnswer {
 
 type Op = "apply" | "undo";
 
+const sha256Hex = (s: string) => createHash("sha256").update(s, "utf8").digest("hex");
+
 /** The send tool for a draft tool, with the draft's connector prefix. */
 export function sendToolFor(draftTool: string): string | undefined {
   const bare = bareTool({ tool: draftTool });
@@ -129,12 +131,35 @@ export function sendToolFor(draftTool: string): string | undefined {
 
 const SEND_SUFFIX = ":send";
 
-/** A draft's id from the draft tool's output or receipt refs. */
-function draftIdOf(output: unknown): string | undefined {
+/**
+ * A draft's id from the draft tool's output: the Mac helper answers `{draft: {draftId, ...,
+ * bodySha256}}` (`MailDraftRecord`), Gmail `{draftId, messageId, threadId}`.
+ */
+export function draftIdOf(output: unknown): string | undefined {
   const o = asRecord(output as Json);
-  for (const k of ["draftId", "id"]) if (typeof o[k] === "string" && o[k] !== "") return o[k];
   const d = asRecord(o.draft as Json);
-  return typeof d.id === "string" && d.id !== "" ? d.id : undefined;
+  for (const v of [d.draftId, o.draftId, d.id]) if (typeof v === "string" && v !== "") return v;
+  return undefined;
+}
+
+/** The `bodySha256` the draft tool reported, when it reported one (the Mac helper does). */
+function draftBodyHashOf(output: unknown): string | undefined {
+  const d = asRecord(asRecord(output as Json).draft as Json);
+  return typeof d.bodySha256 === "string" && d.bodySha256 !== "" ? d.bodySha256 : undefined;
+}
+
+/**
+ * Exactly the Mac helper's `MailWave1.bodyHash`: CRLF and CR become LF, surrounding whitespace and
+ * newlines are trimmed, then sha256 hex of the UTF-8. `mail_send_draft` binds and re-checks it.
+ */
+const SWIFT_TRIM =
+  /^[\p{Zs}\t\n\v\f\r\u0085\u2028\u2029]+|[\p{Zs}\t\n\v\f\r\u0085\u2028\u2029]+$/gu;
+
+export function appleBodySha256(body: string): string {
+  // Swift's `.whitespacesAndNewlines`: Zs, tab, U+000A-U+000D, NEL, U+2028, U+2029 (not U+FEFF,
+  // which JS `trim()` would also take, and NEL, which `trim()` would keep).
+  const normalized = body.replace(/\r\n/g, "\n").replace(/\r/g, "\n").replace(SWIFT_TRIM, "");
+  return sha256Hex(normalized);
 }
 
 /** The id a create returned (event, reminder), from its output. */
@@ -149,8 +174,6 @@ function createdIdOf(output: unknown): string | undefined {
   }
   return undefined;
 }
-
-const sha256Hex = (s: string) => createHash("sha256").update(s).digest("hex");
 
 interface StoredInverse {
   call?: StagedCall;
@@ -583,7 +606,7 @@ export class NightShiftApply {
     const threadId = await this.#d.threadId(nightId);
     const runId = `night_${op}_${nightId}`;
     const ctx = { threadId, runId, taint: a.taint, taintSources: a.taintSources ?? [] };
-    const drafts = new Map<string, { draftId?: string; ok: boolean }>();
+    const drafts = new Map<string, { draftId?: string; bodySha256?: string; ok: boolean }>();
     for (const child of children) {
       const childId = child.approval.requestedBy.toolCallId ?? "";
       if (childId.endsWith(SEND_SUFFIX)) {
@@ -637,9 +660,12 @@ export class NightShiftApply {
         { uncertainOnThrow: true },
       );
       this.#record(item, out, op, adapter, cap);
+      const draftId = out.status === "ok" ? draftIdOf(out.output) : undefined;
+      const bodySha256 = out.status === "ok" ? draftBodyHashOf(out.output) : undefined;
       drafts.set(item.id, {
         ok: out.status === "ok",
-        ...(out.status === "ok" ? { draftId: draftIdOf(out.output) } : {}),
+        ...(draftId === undefined ? {} : { draftId }),
+        ...(bodySha256 === undefined ? {} : { bodySha256 }),
       });
     }
     this.#settle(nightId);
@@ -722,7 +748,7 @@ export class NightShiftApply {
   async #runSend(
     child: { approval: ApprovalRequest; call: PolicyCall; summary: string },
     itemId: string,
-    drafts: Map<string, { draftId?: string; ok: boolean }>,
+    drafts: Map<string, { draftId?: string; bodySha256?: string; ok: boolean }>,
     ctx: { threadId: string; runId: string; taint: boolean; taintSources: TaintSource[] },
   ): Promise<void> {
     const item = this.#d.store.getStagedAction(itemId);
@@ -770,6 +796,11 @@ export class NightShiftApply {
       return fail("draft_changed");
     }
     const bare = bareTool({ tool: sendTool });
+    const bodySha256 = appleBodySha256(saved.body);
+    // What the helper said it saved must be what reads back (a draft edited in between differs).
+    if (draft.bodySha256 !== undefined && draft.bodySha256.toLowerCase() !== bodySha256) {
+      return fail("draft_changed");
+    }
     const args: Record<string, unknown> =
       bare === "gmail_send"
         ? {
@@ -785,7 +816,7 @@ export class NightShiftApply {
             to: saved.to,
             ...(saved.cc.length === 0 ? {} : { cc: saved.cc }),
             subject: saved.subject,
-            bodySha256: sha256Hex(saved.body),
+            bodySha256,
           };
     const sendId = `${item.id}${SEND_SUFFIX}`;
     const call = this.#rebuild(item, { tool: sendTool, args }, sendId);
