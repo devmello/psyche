@@ -160,10 +160,21 @@ describe("Full access never starts by another route", () => {
 
   it("threads.create with full from a paired device without admin scope is refused", async () => {
     const { mac, phone } = await boot();
-    const res = await phone.request("threads.create", { kind: "side", permissionMode: "full" }, ik());
-    expect(res.error).toMatchObject({ code: "forbidden", details: { reason: "full_access_device" } });
+    const res = await phone.request(
+      "threads.create",
+      { kind: "side", permissionMode: "full" },
+      ik(),
+    );
+    expect(res.error).toMatchObject({
+      code: "forbidden",
+      details: { reason: "full_access_device" },
+    });
     // Control: the Mac app may.
-    const made = await mac.call<Json>("threads.create", { kind: "side", permissionMode: "full" }, ik());
+    const made = await mac.call<Json>(
+      "threads.create",
+      { kind: "side", permissionMode: "full" },
+      ik(),
+    );
     expect(made.thread.permissionMode).toBe("full");
   });
 
@@ -174,7 +185,12 @@ describe("Full access never starts by another route", () => {
     ).thread;
     const at = appendMessage(
       db,
-      { threadId: source.id, role: "user", blocks: [{ type: "text", md: "hi" }], provenance: "owner" },
+      {
+        threadId: source.id,
+        role: "user",
+        blocks: [{ type: "text", md: "hi" }],
+        provenance: "owner",
+      },
       { expectedWriterRunId: null },
     );
     const fork = (
@@ -225,6 +241,11 @@ describe("file tools never read the owner's private stores", () => {
     "Library/Messages",
     "Library/Mail",
     "Library/Application Support/Claude",
+    "Library/Application Support/Slack",
+    "Library/Application Support/discord",
+    "Library/Application Support/Signal",
+    ".claude.json",
+    ".zsh_sessions",
     ".codex",
     ".gemini",
     ".zsh_history",

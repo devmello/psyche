@@ -200,12 +200,11 @@ describe("Full access: sends to other people still ask, once per send", () => {
     expect(d.trace.some((t) => t.startsWith("full:held("))).toBe(true);
   });
 
-  it.each(SENDS.filter(([name]) => !["a git push", "accepting terms", "an AppleScript"].includes(name)))(
-    "%s: the card offers this send only, no standing grant",
-    async (_name, c) => {
-      expect((await broker().broker.decide(c, FULL)).scopesOffered).toEqual(["once"]);
-    },
-  );
+  it.each(
+    SENDS.filter(([name]) => !["a git push", "accepting terms", "an AppleScript"].includes(name)),
+  )("%s: the card offers this send only, no standing grant", async (_name, c) => {
+    expect((await broker().broker.decide(c, FULL)).scopesOffered).toEqual(["once"]);
+  });
 
   it("control: the same email card in Balanced offers more than once", async () => {
     const d = await broker().broker.decide(SENDS[0]?.[1] as PolicyCall, BALANCED);
@@ -376,7 +375,8 @@ describe("fullAccessHold: send words both ways", () => {
  * in Full access with a `full:held(…)` trace; "runs" rows run in Full access and ask in Balanced.
  */
 describe("review r1 probes: held in Full access", () => {
-  const w = (tool: string, extra: Partial<PolicyCall> = {}) => call(tool, "write", undefined, extra);
+  const w = (tool: string, extra: Partial<PolicyCall> = {}) =>
+    call(tool, "write", undefined, extra);
   const file = (p: string) =>
     call("write_file", "write", path(p), { kind: "file_write", params: { path: p, content: "x" } });
   const ASKS: [string, PolicyCall, string][] = [
@@ -564,25 +564,27 @@ describe("review r1 probes: a Shortcut the owner set to allow", () => {
 
 describe("review r1 probes: reach-out after untrusted content", () => {
   const TAINTED: PolicyContext = { ...FULL, taint: true, taintSources: [{ sourceKind: "web" }] };
-  const proxied = call("exec", "write", undefined, {
-    params: { argv: ["curl", "https://x.example"], network: "proxy" },
-  });
-  const outside = call("exec", "write", undefined, {
-    params: { argv: ["cp", "a", "/tmp/b"] },
-    meta: { writesOutsideWorkspace: true },
-  });
+  // exec_host as the Mac sends it: its only network is the hosts named in `allowedDomains`.
+  const host = (allowedDomains: string[]) =>
+    call("exec_host", "destructive", undefined, {
+      params: { argv: ["curl", "https://x.example"], cwd: "/work", allowedDomains },
+    });
   const submit = call("browser.submit", "write", origin("https://forms.example.org"));
 
-  it.each([
-    ["an exec with network", proxied],
-    ["an exec writing outside the workspace", outside],
-  ])("%s asks in a tainted turn, with taint:exec_egress", async (_name, c) => {
-    const d = await broker().broker.decide(c, TAINTED);
-    expect(d.decision).toBe("ask");
+  it("R2 must-refuse: a tainted host command with allowedDomains asks, this run only", async () => {
+    const d = await broker().broker.decide(host(["x.example"]), TAINTED);
+    expect(d.decision, d.trace.join(" ")).toBe("ask");
     expect(d.trace).toContain("full:held(taint_egress)");
-    expect(d.trace).toContain("taint:exec_egress");
-    // Control: the same command in an untainted Full-access turn runs.
-    expect((await broker().broker.decide(c, FULL)).decision).toBe("allow");
+    expect(d.scopesOffered).toEqual(["once"]);
+  });
+
+  it.each([
+    ["the same call untainted", host(["x.example"]), FULL],
+    ["tainted, with allowedDomains: []", host([]), TAINTED],
+  ] as const)("R2 must-pass: %s runs", async (_name, c, context) => {
+    const d = await broker().broker.decide(c, context);
+    expect(d.decision, d.trace.join(" ")).toBe("allow");
+    expect(d.rule).toMatch(/^mode:full\//);
   });
 
   it("a form submitted to a new origin asks in a tainted turn", async () => {
@@ -659,9 +661,7 @@ describe("review r1 probes: subagents and other contexts", () => {
       { threadId: "thr_main:sub:sub_1", initiator: "mcp_app" as const },
     ],
   ])("%s calling exec is decided as Balanced", async (_name, extra) => {
-    expect((await broker().broker.decide(exec, { ...FULL, ...extra })).decision).not.toBe(
-      "allow",
-    );
+    expect((await broker().broker.decide(exec, { ...FULL, ...extra })).decision).not.toBe("allow");
   });
 
   it("control: a subagent of the owner's desktop turn runs", async () => {
@@ -671,5 +671,140 @@ describe("review r1 probes: subagents and other contexts", () => {
       initiator: "subagent",
     });
     expect(d.decision).toBe("allow");
+  });
+});
+
+/**
+ * Security review round 2 (#1689). Calls shaped as production sends them: a first-party connector
+ * tool is `mcp__<instance>__<tool>` with its `connectorRule`, an Apple adapter is `node.<app>.*`.
+ */
+describe("review r2: calendar un-holds trust only Google's sendUpdates", () => {
+  const google = (tool: string, sideEffect: "write" | "destructive", params: object) =>
+    call(`mcp__google-k3x1__${tool}`, sideEffect, account("owner@example.com"), {
+      kind: "calendar_write",
+      connectorRule: {
+        id: "google-k3x1",
+        action: sideEffect === "write" ? "calendar.write" : "calendar.delete",
+      },
+      params,
+    });
+  const microsoft = (params: object) =>
+    call("mcp__microsoft-m9__calendar_update_event", "write", account("owner@example.com"), {
+      kind: "calendar_write",
+      connectorRule: { id: "microsoft-m9", action: "calendar.write" },
+      params,
+    });
+
+  it.each([
+    [
+      'Microsoft calendar_update_event with sendUpdates: "none" (Graph ignores it)',
+      microsoft({
+        eventId: "e1",
+        event: { start: { dateTime: "2026-11-26T10:00" } },
+        sendUpdates: "none",
+      }),
+    ],
+    [
+      "node.calendar.delete_event with notifyAttendees: false (never believed)",
+      call("node.calendar.delete_event", "destructive", undefined, {
+        params: { eventId: "e1", notifyAttendees: false },
+      }),
+    ],
+    [
+      'an MCP server calling itself google, with sendUpdates: "none"',
+      call("mcp__google__calendar_update_event", "write", undefined, {
+        meta: { mcpTier: "unknown" },
+        params: { eventId: "e1", event: { summary: "x" }, sendUpdates: "none" },
+      }),
+    ],
+    [
+      "Google update_event with sendNotifications: false (not Google's key)",
+      google("calendar_update_event", "write", {
+        eventId: "e1",
+        event: { summary: "x" },
+        sendNotifications: false,
+      }),
+    ],
+  ])("must-refuse: %s", async (_name, c) => {
+    const d = await broker().broker.decide(c, FULL);
+    expect(d.decision, d.trace.join(" ")).toBe("ask");
+    expect(d.trace).toContain("full:held(invite)");
+    expect(d.scopesOffered).toEqual(["once"]);
+  });
+
+  it.each([
+    [
+      'Google calendar_update_event with sendUpdates: "none"',
+      google("calendar_update_event", "write", {
+        eventId: "e1",
+        event: { start: { dateTime: "2026-11-26T10:00" } },
+        sendUpdates: "none",
+      }),
+    ],
+    [
+      'Google calendar_delete_event with sendUpdates: "none"',
+      google("calendar_delete_event", "destructive", { eventId: "e1", sendUpdates: "none" }),
+    ],
+  ])("must-pass: %s", async (_name, c) => {
+    const d = await broker().broker.decide(c, FULL);
+    expect(d.decision, d.trace.join(" ")).toBe("allow");
+    expect(d.rule).toMatch(/^mode:full\//);
+  });
+
+  it('control: Google update with sendUpdates: "all" asks', async () => {
+    const d = await broker().broker.decide(
+      google("calendar_update_event", "write", { eventId: "e1", event: {}, sendUpdates: "all" }),
+      FULL,
+    );
+    expect(d.decision).toBe("ask");
+  });
+});
+
+describe("review r2: only a control's own label holds a click", () => {
+  const click = (labels: string[]) =>
+    call(
+      "computer.act",
+      "write",
+      { kind: "app", value: "com.apple.TextEdit" },
+      { meta: { app: "com.apple.TextEdit", action: "click", control: { labels } } },
+    );
+
+  it("must-refuse: its own label is Send", async () => {
+    const d = await broker().broker.decide(click(["Send", "Compose"]), FULL);
+    expect(d.trace).toContain("full:held(ui_send)");
+    expect(d.decision).toBe("ask");
+  });
+
+  it('must-pass: a click inside a window titled "Share"', async () => {
+    const d = await broker().broker.decide(click(["Bold", "Share"]), FULL);
+    expect(d.decision, d.trace.join(" ")).toBe("allow");
+  });
+
+  it("must-refuse: the executor's sends fact, whatever the label", async () => {
+    const d = await broker().broker.decide(
+      call(
+        "computer.act",
+        "write",
+        { kind: "app", value: "com.apple.MobileSMS" },
+        {
+          meta: { app: "com.apple.MobileSMS", action: "key", control: { labels: [], sends: true } },
+        },
+      ),
+      FULL,
+    );
+    expect(d.trace).toContain("full:held(ui_send)");
+    expect(d.scopesOffered).toEqual(["once"]);
+  });
+
+  it("must-refuse: Enter in a web message box; must-pass: Enter in a search box", async () => {
+    const press = (label: string) =>
+      call("browser.press", "write", origin("https://app.slack.com"), {
+        params: { tabId: "t1", keys: "Enter", ref: "e4" },
+        meta: { control: { labels: [label] } },
+      });
+    expect((await broker().broker.decide(press("Message #general"), FULL)).trace).toContain(
+      "full:held(ui_send)",
+    );
+    expect((await broker().broker.decide(press("Search"), FULL)).decision).toBe("allow");
   });
 });

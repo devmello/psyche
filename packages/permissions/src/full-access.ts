@@ -94,7 +94,14 @@ const SEND_NOUNS = new Set(["message", "messages", "email", "emails", "mail", "c
  * `permissions_create`): a send only with a creating or changing verb, so `screenshare_status`
  * stays ordinary.
  */
-const SHARED_NOUNS = new Set(["issue", "issues", "status", "statuses", "permission", "permissions"]);
+const SHARED_NOUNS = new Set([
+  "issue",
+  "issues",
+  "status",
+  "statuses",
+  "permission",
+  "permissions",
+]);
 
 const CREATE_VERBS = new Set([
   "create",
@@ -234,11 +241,27 @@ function notifiesPeople(call: PolicyCall): boolean {
   return false;
 }
 
-/** The call says outright that nobody is told (`sendUpdates: "none"`). */
-function updatesOff(call: PolicyCall): boolean {
-  return scopes(call).some((s) =>
-    UPDATE_KEYS.some((k) => s[k] === "none" || s[k] === false),
+/**
+ * A Google calendar connector's call (instance `google` or `google-<n>`, with the connector's own
+ * action key and no MCP tier: an MCP server can't name itself one).
+ */
+function googleConnector(call: PolicyCall): boolean {
+  return (
+    call.meta?.mcpTier === undefined &&
+    call.connectorRule !== undefined &&
+    /^google(-[a-z0-9-]+)?$/.test(call.connectorRule.id)
   );
+}
+
+/**
+ * The call says outright that nobody is told: only Google's `sendUpdates: "none"`, which its
+ * executor passes to the Calendar API. Microsoft Graph and Apple Calendar ignore such keys, and
+ * the params are the model's, so no other key or tool is believed.
+ */
+function updatesOff(call: PolicyCall): boolean {
+  if (!googleConnector(call)) return false;
+  const p = record(call.params) ?? {};
+  return p.sendUpdates === "none";
 }
 
 /**
@@ -250,19 +273,38 @@ export function fullAccessThreadOf(threadId: string): string {
   return i < 0 ? threadId : threadId.slice(0, i);
 }
 
-/** A click (browser or computer use) on a control the Gateway read as a send button. */
+/** A control's own label that is a send verb (`Send`, `Post reply`), not a paragraph. */
+export function isSendLabel(label: unknown): boolean {
+  if (typeof label !== "string") return false;
+  const words = sendWords(label);
+  return words.length > 0 && words.length <= 4 && words.some((w) => SEND_LABEL_WORDS.has(w));
+}
+
+/** A text box whose Enter sends (`Message #general`, `Reply…`, `Write a comment`). */
+const MESSAGE_BOX_WORDS = new Set(["message", "reply", "comment", "chat", "tweet", "post"]);
+
+/**
+ * An action (browser or computer use) the Gateway read as a send: a click on a control whose own
+ * label is a send verb, Enter in a message box, or the executor's own `sends` fact (Return in
+ * Messages, a menu item named Send). Only the control's own label counts (and the far end of a
+ * drag): a click inside a window titled "Share" is not a send.
+ */
 export function sendControl(call: PolicyCall): boolean {
+  const control = call.meta?.control;
+  if (control?.sends === true) return true;
+  const own = [control?.labels?.[0], ...(control?.alsoLabels ?? [])];
+  if (call.tool === "browser.press") {
+    const keys = record(call.params)?.keys;
+    const enter = typeof keys === "string" && /(^|[\s+])enter($|\s)/i.test(keys);
+    return (
+      enter &&
+      own.some((l) => typeof l === "string" && sendWords(l).some((w) => MESSAGE_BOX_WORDS.has(w)))
+    );
+  }
   const click =
-    /^(browser|computer)\.(click|double_click|press)$/.test(call.tool) ||
+    /^(browser|computer)\.(click|double_click)$/.test(call.tool) ||
     (call.tool.startsWith("computer.") && call.meta?.action === "click");
-  if (!click) return false;
-  const labels = [...(call.meta?.control?.labels ?? []), ...(call.meta?.control?.alsoLabels ?? [])];
-  return labels.some((label) => {
-    if (typeof label !== "string") return false;
-    const words = sendWords(label);
-    // A button's own words, not a paragraph that happens to say "share".
-    return words.length > 0 && words.length <= 4 && words.some((w) => SEND_LABEL_WORDS.has(w));
-  });
+  return click && own.some(isSendLabel);
 }
 
 /** A Shortcut being run, whatever names it (`shortcuts_run`, `node.shortcuts.run`, MCP). */
@@ -305,7 +347,11 @@ export function fullAccessHold(
   // (Microsoft Graph always tells them; a delete cancels the meeting for them).
   const calendar = kind === "calendar_write" || words.includes("calendar");
   if (calendar && words.some((w) => CHANGE_WORDS.has(w)) && !updatesOff(call)) return "invite";
-  if (["consent", "oauth_consent", "accept_terms"].some((w) => words.includes(w) || joined.includes(w)))
+  if (
+    ["consent", "oauth_consent", "accept_terms"].some(
+      (w) => words.includes(w) || joined.includes(w),
+    )
+  )
     return "consent";
   // Psyche's own browser and computer-use tools name an action, not what it reaches
   // (`browser.submit`, `computer.type`): a send there is a click on a send control (`ui_send`,

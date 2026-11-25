@@ -1383,11 +1383,15 @@ function fullAccessEngineHold(
   if (own !== undefined) return own;
   if (f.runsLater !== undefined) return "runs_later";
   if (!f.tainted) return undefined;
-  const network = (call.params as { network?: unknown } | undefined)?.network;
+  const p = (call.params ?? {}) as { network?: unknown; allowedDomains?: unknown };
+  // The sandbox container's network switch (`network: "proxy"`), and on the Mac exec_host's only
+  // way out: the hosts it names in `allowedDomains`.
+  const domains = Array.isArray(p.allowedDomains) && p.allowedDomains.length > 0;
   if (
     (f.kind === "exec" || f.kind === "exec_host") &&
     (call.meta?.network === "proxy" ||
-      network === "proxy" ||
+      p.network === "proxy" ||
+      domains ||
       call.meta?.writesOutsideWorkspace === true)
   )
     return "taint_egress";

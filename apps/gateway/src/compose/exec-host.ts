@@ -53,7 +53,7 @@ import { hostWords } from "@psyche/protocol/host-words";
 import { type CliDriver, type CliResult, nodeCliDriver } from "@psyche/sandbox";
 import { Type } from "@sinclair/typebox";
 import type { MachineExecHook } from "./machine-exec.ts";
-import { browserProfiles, folderAccessEnv } from "./protected-paths.ts";
+import { browserProfiles, folderAccessEnv, privateHomeRoots } from "./protected-paths.ts";
 import type { SrtResolver } from "./srt.ts";
 
 /**
@@ -686,6 +686,27 @@ export function reviewedRunDenyWrite(repoRoot: string, cwdReal: string): string[
 }
 
 /**
+ * What a host command Full access ran without a card never writes, in its folder: the git
+ * internals that run code later or point git elsewhere (`REVIEWED_GIT_DENY`, any `rebase-*`) of
+ * every repository at any depth, and launch config at any depth. Unlike a reviewed run, the rest
+ * of each `.git` (objects, index, refs) stays writable, so `git commit` works in a nested repo.
+ */
+export function fullRunDenyWrite(root: string, cwdReal: string): string[] {
+  const roots = [...new Set([root, cwdReal])];
+  const git = anyCaseGlob(".git");
+  const launch = [...REVIEWED_LAUNCH_DIRS, ...LAUNCH_CONFIG_FILES];
+  return [
+    ...roots.flatMap((r) => REVIEWED_GIT_DENY.map((n) => join(r, ".git", n))),
+    ...roots.map((r) => `${join(r, ".git")}/${anyCaseGlob("rebase-")}*`),
+    ...REVIEWED_GIT_DENY.map((n) => `${root}/**/${git}/${anyCaseGlob(n)}`),
+    `${root}/**/${git}/${anyCaseGlob("rebase-")}*`,
+    ...roots.flatMap((r) => launch.map((n) => join(r, n))),
+    ...launch.map((n) => `${root}/**/${anyCaseGlob(n)}`),
+    `${root}/**/*${anyCaseGlob(".code-workspace")}`,
+  ];
+}
+
+/**
  * The repository root a reviewed run may write (`gitRepoRoot`), or undefined: never a root that
  * srt would read as a glob, and never the owner's home or a folder above it (a dotfiles
  * repository would let a reviewed run write `.zshrc`).
@@ -760,6 +781,9 @@ export function execHostSrtSettings(input: {
           h(".ssh"),
           h("Library", "Keychains"),
           ...browserProfiles(input.userHome),
+          // Messages, Mail, shell history, chat apps' and other AI tools' tokens: the file
+          // tools' list (`privateHomeRoots`).
+          ...privateHomeRoots(input.userHome),
           ...(platform === "linux"
             ? linuxPsycheDenyRead(input.userHome, input.linuxEnv ?? process.env)
             : []),
@@ -1520,7 +1544,7 @@ export function execHostTool(deps: ExecHostDeps): AgentToolRegistration {
         ...(reviewed !== undefined
           ? { denyWrite: reviewedRunDenyWrite(reviewed.repoRoot, real) }
           : fullRun
-            ? { denyWrite: reviewedRunDenyWrite(folder.path, real) }
+            ? { denyWrite: fullRunDenyWrite(folder.path, real) }
             : {}),
         ...(confineRead === undefined ? {} : { confineRead }),
         allowedDomains: readOnly ? [] : domains,

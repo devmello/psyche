@@ -4868,6 +4868,8 @@ export function controlFacts(c: ControlFacts): ControlFacts {
     ...(str(c.role, 64) === undefined ? {} : { role: str(c.role, 64) as string }),
     ...(c.submits === true ? { submits: true } : {}),
     ...(c.unreadable === true ? { unreadable: true } : {}),
+    // A send the executor read (Return in Messages, a Send menu item): Full access holds it.
+    ...(c.sends === true ? { sends: true } : {}),
     ...(str(c.formMethod, 16) === undefined ? {} : { formMethod: str(c.formMethod, 16) as string }),
     ...(str(c.formAction) === undefined ? {} : { formAction: str(c.formAction) as string }),
     ...(str(c.pageUrl) === undefined ? {} : { pageUrl: str(c.pageUrl) as string }),

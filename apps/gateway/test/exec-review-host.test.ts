@@ -1,6 +1,6 @@
 import { mkdirSync, mkdtempSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, matchesGlob } from "node:path";
 import type { AgentToolRegistration, ToolRunContext } from "@psyche/agent-core";
 import { createPermissionBroker, EXEC_REVIEW_RULE } from "@psyche/permissions";
 import type { ToolCallDescription } from "@psyche/protocol";
@@ -228,9 +228,64 @@ describe.skipIf(!mac)("exec_host in Full access (#1689 review r1, item 6)", () =
     ]) {
       expect(fs.denyWrite).toContain(p);
     }
-    // Any repository below the folder: its `.git` (hooks, config) is never writable.
-    expect(fs.denyWrite.some((p) => p.startsWith(`${folder}/*/**/`))).toBe(true);
-    expect(fs.denyWrite.some((p) => p.startsWith(`${folder}/**/`))).toBe(true);
+  });
+
+  // srt reads each entry as a glob; a denied folder covers everything under it.
+  const denied = (list: string[], p: string) =>
+    list.some((g) => matchesGlob(p, g) || matchesGlob(p, `${g}/**`));
+
+  it.each([
+    // The cwd is another folder: a nested repository's hooks are still out of reach (r2 item 5).
+    join(repo, ".git", "hooks", "pre-commit"),
+    join(repo, ".git", "config"),
+    join(repo, ".git", "info", "attributes"),
+    join(repo, ".git", "modules", "lib", "config"),
+    join(repo, ".git", "worktrees", "w", "commondir"),
+    join(repo, ".git", "commondir"),
+    join(repo, ".git", "rebase-merge", "git-rebase-todo"),
+    join(repo, ".git", "rebase-apply", "patch"),
+    join(repo, ".GIT", "HOOKS", "post-checkout"),
+    join(repo, ".envrc"),
+    join(repo, ".vscode", "tasks.json"),
+  ])("must-refuse: writing %s from another folder", async (p) => {
+    const fs = await runAs({ rule: "mode:full/destructive", bindingHash: "sha256:x" });
+    expect(denied(fs.denyWrite, p), fs.denyWrite.join("\n")).toBe(true);
+  });
+
+  it.each([
+    join(repo, ".git", "objects", "ab", "cdef0123"),
+    join(repo, ".git", "index"),
+    join(repo, ".git", "refs", "heads", "main"),
+    join(repo, ".git", "HEAD"),
+    join(repo, ".git", "COMMIT_EDITMSG"),
+    join(repo, ".git", "logs", "HEAD"),
+    join(repo, "src", "main.c"),
+  ])("must-pass: %s stays writable, so git commit works in a nested repo", async (p) => {
+    const fs = await runAs({ rule: "mode:full/destructive", bindingHash: "sha256:x" });
+    expect(denied(fs.denyWrite, p)).toBe(false);
+  });
+
+  it("r2 item 4: the sandbox reads none of the owner's private stores; Documents it does", async () => {
+    started = [];
+    const fs = (await runAs({ rule: "mode:full/destructive", bindingHash: "sha256:x" })) as {
+      denyRead?: string[];
+    };
+    const deny = fs.denyRead ?? [];
+    for (const p of [
+      join(home, ".codex", "auth.json"),
+      join(home, ".zsh_history"),
+      join(home, ".zsh_sessions", "x.session"),
+      join(home, ".claude.json"),
+      join(home, ".gemini", "oauth_creds.json"),
+      join(home, "Library", "Messages", "chat.db"),
+      join(home, "Library", "Mail", "V10"),
+      join(home, "Library", "Application Support", "Slack", "Cookies"),
+      join(home, "Library", "Application Support", "discord", "Local Storage"),
+      join(home, "Library", "Application Support", "Signal", "config.json"),
+    ]) {
+      expect(denied(deny, p), p).toBe(true);
+    }
+    expect(denied(deny, join(home, "Documents", "x"))).toBe(false);
   });
 
   it("control: a command allowed another way (Auto's classifier) keeps its folder's usual rules", async () => {

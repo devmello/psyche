@@ -41,13 +41,20 @@ export function browserProfiles(home: string): string[] {
  * file tool reads them, in any mode (Full access's home root included).
  */
 export function privateHomeRoots(home: string): string[] {
+  const support = (...p: string[]) => join(home, "Library", "Application Support", ...p);
   return [
     join(home, "Library", "Messages"),
     join(home, "Library", "Mail"),
-    join(home, "Library", "Application Support", "Claude"),
+    support("Claude"),
+    // Chat apps' sign-in tokens and local message stores.
+    support("Slack"),
+    support("discord"),
+    support("Signal"),
+    join(home, ".claude.json"),
     join(home, ".codex"),
     join(home, ".gemini"),
     join(home, ".zsh_history"),
+    join(home, ".zsh_sessions"),
     join(home, ".bash_history"),
   ];
 }
