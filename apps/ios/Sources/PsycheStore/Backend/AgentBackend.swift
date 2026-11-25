@@ -24,7 +24,7 @@ public protocol AgentBackend: Sendable {
     /// The frames Psyche saw during a run (`runs.frames`). Metadata only; the images come from `runFrameImage`.
     func runFrames(runID: String) async throws -> [RunFrameRef]
     /// The JPEG of one frame (`runs.frame`). Throws when the frame has expired.
-    func runFrameImage(runID: String, seq: Int) async throws -> Data
+    func runFrameImage(runID: String, seq: Int, size: RunFrameSize) async throws -> Data
 }
 
 public struct UpcomingItem: Sendable, Equatable, Identifiable {

@@ -116,7 +116,7 @@ struct GatewayBackendTests {
             ])])])) }
             g.on("tasks.list") { _ in .success(.object(["tasks": .array([.object([
                 "id": "tk1", "title": "Reconcile receipts", "goal": "g", "createdAt": "2030-01-01T08:00:00Z",
-                "checklist": .array([.object(["text": "Collect", "status": "done"]), .object(["text": "Match", "status": "running"]), .object(["text": "Report", "status": "pending"])]),
+                "checklist": .array([.object(["text": "Collect", "status": "completed"]), .object(["text": "Match", "status": "in_progress"]), .object(["text": "Report", "status": "pending"])]),
             ])])])) }
             // daily.* and nudges.* are not answered: those sections stay empty instead of failing Home.
         }
@@ -136,13 +136,13 @@ struct GatewayBackendTests {
             g.on("approvals.get") { _ in .success(.object(["approval": .object(["id": "ap1", "status": "pending", "deviceOnly": .bool(false), "requiresAuthentication": .bool(false)]), "answerToken": "tok"])) }
             g.on("approvals.answer") { req in
                 let p = req.params
-                answered.add("\(p?["decision"]?.stringValue ?? "")|\(p?["answerToken"]?.stringValue ?? "")|\(p?["scope"]?.stringValue ?? "-")|\(req.idempotencyKey ?? "nokey")")
+                answered.add("\(p?["decision"]?.stringValue ?? "")|\(p?["answerToken"]?.stringValue ?? "")|\(p?["scope"]?.stringValue ?? "-")|\(req.idempotencyKey == nil ? "nokey" : "key")")
                 return .success(.object([:]))
             }
         }
         try await backend.answerApproval(id: "ap1", decision: .allow)
         try await backend.answerApproval(id: "ap1", decision: .deny)
-        #expect(answered.all == ["approve|tok|once|nokey", "deny|tok|-|nokey"])
+        #expect(answered.all == ["approve|tok|once|key", "deny|tok|-|key"])
     }
 
     @Test func aDeviceOnlyApprovalIsAPlainTapOnThePhone() async throws {
