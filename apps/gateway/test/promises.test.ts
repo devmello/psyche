@@ -11,7 +11,7 @@ import {
   type PromiseRow,
 } from "@psyche/memory";
 import type { ToolLookup } from "@psyche/proactive";
-import type { Notification } from "@psyche/protocol";
+import type { ModelEvent, ModelRequest, Notification } from "@psyche/protocol";
 import { FakeClock, FakeModelProvider } from "@psyche/testing";
 import { afterEach, describe, expect, it } from "vitest";
 import { type ComposedGateway, composeGateway } from "../src/compose/index.ts";
@@ -55,8 +55,9 @@ const THEIR_QUOTE = "I will send the signed contract by Wednesday";
 /** A model that answers from the snippets it is shown: it finds two promises in two sentences. */
 function lanePromises(): FakeModelProvider {
   const provider = new FakeModelProvider();
-  const answer = (request: { messages: { parts: { text?: string }[] }[] }) => {
-    const text = request.messages[0]?.parts[0]?.text ?? "";
+  const answer = (request: ModelRequest): ModelEvent[] => {
+    const part = request.messages[0]?.parts[0] as { text?: string } | undefined;
+    const text = part?.text ?? "";
     const json = JSON.parse(text.slice(text.indexOf("\n") + 1, text.lastIndexOf("\n"))) as {
       groups: { snippets: { id: string; text: string }[] }[];
     };
