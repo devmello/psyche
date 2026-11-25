@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { defineTool, type TurnToolContext } from "@psyche/agent-core";
-import { getSetting, getThread } from "@psyche/db";
+import { getSetting, getThread, listAllMessages } from "@psyche/db";
 import { parseLearned, readHeader } from "@psyche/memory";
 import { appCap } from "@psyche/permissions";
 import {
@@ -32,6 +32,7 @@ import {
 import { hostWords } from "@psyche/protocol/host-words";
 import {
   classifyPointsValue,
+  maskPointsShapes,
   type PointsMemoryLine,
   sanitizePointsNote,
   sanitizePointsValue,
@@ -190,7 +191,9 @@ export interface PointsOptions {
 }
 
 interface Session {
+  /** The helper's own handle: the invocation id of its `points.session` call. */
   id: string;
+  closingNote: string | undefined;
   deviceId: string;
   app: { bundleId: string; name: string };
   entry: Static<typeof PointsStartParams>["entry"];
@@ -314,11 +317,12 @@ export function composePoints(opts: PointsOptions) {
       if (s.ended) return;
       s.ended = true;
       if (s.idle !== undefined) clearTimeout(s.idle);
-      s.abort.abort();
-      // Best effort: the helper removes its overlay when the invocation is cancelled too.
+      // Best effort. `points.end` goes first: aborting then sends the helper `node.cancel` for the
+      // session's invocation, after which the helper no longer knows the session.
       void s.node
         .invoke("points.end", { sessionId: s.id }, { timeoutMs: CALL_TIMEOUT_MS })
         .catch(() => undefined);
+      s.abort.abort();
       if (active === s) active = undefined;
       s.state = "ended";
       send(s, { reason });
@@ -337,14 +341,24 @@ export function composePoints(opts: PointsOptions) {
         s.deviceId,
       );
       if (s.looks > 0) audit("points.looked", { sessionId: s.id, count: s.looks }, s.deviceId);
-      if (s.entry === "chat" && s.threadId !== undefined && s.pages.size > 0) {
+      if (
+        s.entry === "chat" &&
+        s.threadId !== undefined &&
+        s.pages.size > 0 &&
+        s.closingNote !== undefined
+      ) {
         try {
-          const name = sanitizePointsValue(s.app.name, 80);
+          // The owner's language comes from the desktop; the app name is the helper's, so
+          // Markdown characters are removed from it.
+          const name = sanitizePointsValue(s.app.name, 80).replace(/[\\`*_~<>[\]()#|!]/gu, "");
           noteHeldMessage(
             services,
             s.threadId,
             null,
-            `Pointed you through ${name}: ${s.pages.size} ${s.pages.size === 1 ? "page" : "pages"}, ${s.pointed.size} ${s.pointed.size === 1 ? "field" : "fields"}.`,
+            s.closingNote
+              .replaceAll("{app}", name)
+              .replaceAll("{pages}", String(s.pages.size))
+              .replaceAll("{fields}", String(s.pointed.size)),
           );
         } catch {
           // The note is a courtesy: a thread that moved on never stops the session from ending.
@@ -382,7 +396,7 @@ export function composePoints(opts: PointsOptions) {
     });
 
     /** One `usage` row per call: tokens and the model, never content. */
-    const recordUsage = (usage: { input: number; output: number }) => {
+    const recordUsage = (usage: { input: number; output: number }, job = "points.plan") => {
       try {
         db.sqlite
           .prepare(
@@ -391,7 +405,7 @@ export function composePoints(opts: PointsOptions) {
           )
           .run(
             db.newId(),
-            "points.plan",
+            job,
             opts.model,
             Math.max(0, Math.trunc(usage.input)),
             Math.max(0, Math.trunc(usage.output)),
@@ -409,13 +423,8 @@ export function composePoints(opts: PointsOptions) {
       if (fp === undefined) return;
       const gate = s.tracker.beginPlan(prepared.stats.estimatedInputTokens);
       if (!gate.ok) return;
-      try {
-        // The same per-device budget every model-calling method is held to.
-        gateway?.context.deviceModelCalls.admit(s.deviceId);
-      } catch {
-        s.tracker.failPlan(fp);
-        return;
-      }
+      // The desktop shell is exempt from the per-device model budget, like every desktop method;
+      // the session's own cap (30 calls, 300k tokens) is the limit.
       s.modelCalls += 1;
       const result = await requestPointsPlan({ ...planDeps(), provider: opts.provider }, input, {
         signal: s.abort.signal,
@@ -596,6 +605,22 @@ export function composePoints(opts: PointsOptions) {
       return out.windows;
     };
 
+    /** Whether a `points_offer` block with this goal is in the thread. */
+    const wasOffered = (threadId: string, goal: string): boolean => {
+      const want = sanitizePointsValue(goal, POINTS_LIMITS.goalMax);
+      try {
+        return listAllMessages(db, threadId).some((m) =>
+          m.blocks.some(
+            (b) =>
+              b.type === "points_offer" &&
+              sanitizePointsValue(b.goal, POINTS_LIMITS.goalMax) === want,
+          ),
+        );
+      } catch {
+        return false;
+      }
+    };
+
     const ownerApps = () => getSetting(db, COMPUTER_USE_APPS)?.value;
 
     const handlers: Record<string, HandlerDef> = {
@@ -645,6 +670,12 @@ export function composePoints(opts: PointsOptions) {
                   ...(refusal === "permission_missing" ? { needs: "accessibility" } : {}),
                 },
               });
+            // A goal that is the agent's own offer text is model text, whatever the client says.
+            const offered =
+              params.threadId !== undefined &&
+              params.goal !== undefined &&
+              wasOffered(params.threadId, params.goal);
+            const goalSource = offered ? "offer" : params.goalSource;
             const goal =
               params.goal === undefined
                 ? undefined
@@ -658,7 +689,11 @@ export function composePoints(opts: PointsOptions) {
               },
               entry: params.entry,
               threadId: params.threadId,
-              goal: params.goalSource === "owner" && goal !== "" ? goal : undefined,
+              goal: goalSource === "owner" && goal !== "" ? goal : undefined,
+              closingNote:
+                params.closingNote === undefined
+                  ? undefined
+                  : sanitizePointsValue(params.closingNote, 200),
               locale: params.locale,
               strings,
               tracker: new PointsStepTracker(),
@@ -695,6 +730,12 @@ export function composePoints(opts: PointsOptions) {
               {
                 signal: session.abort.signal,
                 timeoutMs: SESSION_TIMEOUT_MS,
+                // The helper keys the session by this invocation id: points.show and points.end
+                // name it, and aborting sends the helper node.cancel so it stops reading.
+                cancelOnAbort: true,
+                onInvocationId: (id) => {
+                  session.id = id;
+                },
                 onEvent: (ev) => {
                   session.chain = session.chain
                     .then(() => onEvent(session, ev.data))
@@ -745,7 +786,12 @@ export function composePoints(opts: PointsOptions) {
       "points.stop": {
         run(call: Call, params: { sessionId: string }) {
           assertPointsCaller(call);
-          if (active === undefined || active === "starting" || active.id !== params.sessionId)
+          if (
+            active === undefined ||
+            active === "starting" ||
+            active.id !== params.sessionId ||
+            active.deviceId !== call.identity.deviceId
+          )
             return { ended: false };
           end(active, "stop");
           return { ended: true };
@@ -754,7 +800,12 @@ export function composePoints(opts: PointsOptions) {
       "points.status": {
         run(call: Call) {
           assertPointsCaller(call);
-          if (active === undefined || active === "starting") return {};
+          if (
+            active === undefined ||
+            active === "starting" ||
+            active.deviceId !== call.identity.deviceId
+          )
+            return {};
           return {
             session: {
               sessionId: active.id,
@@ -793,8 +844,9 @@ export function composePoints(opts: PointsOptions) {
           // sensitive fields masked) exactly as for a plan.
           const prepared = preparePointsPlan(planDeps(), planInput(s, s.digest));
           const base = prepared.request.messages[0]?.parts[0];
+          // Redact, then mask secret shapes (a card, an SSN), then cut: the same order as the goal.
           const question = sanitizePointsValue(
-            services.redactor.redact(sanitizePointsValue(params.text, 100_000)),
+            maskPointsShapes(services.redactor.redact(sanitizePointsValue(params.text, 100_000))),
             POINTS_LIMITS.askMax,
           );
           const text = `${base?.type === "text" ? base.text : ""}\nOwner's question (their words): ${JSON.stringify(question)}`;
@@ -827,7 +879,7 @@ export function composePoints(opts: PointsOptions) {
             s.abort.signal.removeEventListener("abort", stop);
             if (usage.input === 0) usage.input = prepared.stats.estimatedInputTokens;
             s.tracker.budget.settle(usage.input);
-            recordUsage(usage);
+            recordUsage(usage, "points.ask");
           }
           return { answer: sanitizePointsNote(answer, POINTS_LIMITS.askMax) };
         },

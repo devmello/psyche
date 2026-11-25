@@ -2,7 +2,7 @@ import { mkdtempSync, readdirSync, readFileSync, rmSync, statSync } from "node:f
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { gunzipSync, gzipSync } from "node:zlib";
-import { setSetting, updateDevice } from "@psyche/db";
+import { appendMessage, setSetting, updateDevice } from "@psyche/db";
 import type { ModelEvent, NodeClient, NodeInvokeResult, PointsDigest } from "@psyche/protocol";
 import { FakeModelProvider } from "@psyche/testing";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -116,6 +116,8 @@ const reply = (plan: unknown = PLAN): ModelEvent[] => [
 ];
 
 interface Rig {
+  /** The live helper session: the invocation id of its `points.session` call (the real contract). */
+  sessionId?: string | undefined;
   windows: unknown[];
   emit?: (data: unknown) => void;
   finish?: (v: unknown) => void;
@@ -140,15 +142,28 @@ const HELPER: FakeNodeHandler[] = [
   },
   {
     capability: { name: "points.session", sideEffect: "read", streaming: true },
-    run: (_p, emit) =>
-      new Promise((resolve) => {
+    run: (_p, emit, _a, invocationId) =>
+      new Promise((resolve, reject) => {
+        // The real helper holds one session and refuses a second (`points_active`).
+        if (rig.sessionId !== undefined)
+          return reject(Object.assign(new Error("points_active"), { code: "points_active" }));
+        rig.sessionId = invocationId;
         rig.emit = emit;
         rig.finish = resolve;
       }),
+    onCancel: (id) => {
+      if (rig.sessionId === id) {
+        rig.sessionId = undefined;
+        rig.finish?.({ ended: "cancelled" });
+      }
+    },
   },
   {
     capability: { name: "points.show", sideEffect: "none" },
     run: (p) => {
+      // Sessions are keyed by invocation id: any other id finds no session.
+      if ((p as { sessionId?: string }).sessionId !== rig.sessionId)
+        throw Object.assign(new Error("no session"), { code: "not_found" });
       rig.shows.push(p as Rig["shows"][number]);
       return { shown: true };
     },
@@ -157,7 +172,11 @@ const HELPER: FakeNodeHandler[] = [
   {
     capability: { name: "points.end", sideEffect: "none" },
     run: (p) => {
+      if ((p as { sessionId?: string }).sessionId !== rig.sessionId)
+        throw Object.assign(new Error("no session"), { code: "not_found" });
       rig.ended.push(p);
+      rig.sessionId = undefined;
+      rig.finish?.({ ended: "end" });
       return {};
     },
   },
@@ -197,6 +216,7 @@ async function setup(
   rig.ended = [];
   rig.emit = undefined;
   rig.finish = undefined;
+  rig.sessionId = undefined;
   home = mkdtempSync(join(tmpdir(), "psyche-points-"));
   model = new FakeModelProvider().script(opts.script ?? [reply(), reply()]);
   composed = await composeGateway({
@@ -565,14 +585,19 @@ describe("one session at a time", () => {
       { kind: "main" },
       ik(),
     );
-    const s = await begin(desk, { entry: "chat", threadId: thread.id });
+    rig.windows = [win(101, "com.apple.Safari", "Saf*ari [x](http://e.test)")];
+    const s = await begin(desk, {
+      entry: "chat",
+      threadId: thread.id,
+      closingNote: "Pointed you through {app}: {pages} pages, {fields} fields.",
+    });
     await desk.call("points.stop", { sessionId: s.sessionId }, ik());
     const { messages } = await desk.call<{ messages: { blocks: { md?: string }[] }[] }>(
       "chat.history",
       { threadId: thread.id },
     );
     const texts = messages.flatMap((m) => m.blocks.map((b) => b.md ?? ""));
-    expect(texts).toContain("Pointed you through Safari: 1 page, 1 field.");
+    expect(texts).toContain("Pointed you through Safari xhttp://e.test: 1 pages, 1 fields.");
     for (const t of texts) {
       expect(t).not.toContain(SECRET);
       for (const l of LABELS) expect(t).not.toContain(l);
@@ -581,7 +606,7 @@ describe("one session at a time", () => {
 });
 
 describe("model calls", () => {
-  it("each plan call is counted in usage and held to the device's model budget", async () => {
+  it("each plan call is counted in usage; the desktop shell is exempt from the device budget", async () => {
     const { c, desk } = await setup({ modelBudget: { burstCalls: 1 } });
     await begin(desk);
     const rows = () =>
@@ -590,16 +615,10 @@ describe("model calls", () => {
         .all() as { job: string; m: string; input: number; output: number }[];
     expect(model.requests.length).toBe(1);
     expect(rows()).toEqual([{ job: "points.plan", m: "fake/model", input: 120, output: 40 }]);
-    // A second page needs a second call, and the device's burst budget is spent: no call is made.
+    // A second page is a second call, and the one-call device burst budget does not stop it.
     rig.emit?.({ type: "digest", digest: digest("fp2") });
-    await vi.waitFor(() =>
-      expect(
-        desk.eventsNamed("points.updated").some((e) => (e.payload as { page?: number }).page === 2),
-      ).toBe(true),
-    );
-    await new Promise((r) => setTimeout(r, 100));
-    expect(model.requests.length).toBe(1);
-    expect(rows().length).toBe(1);
+    await vi.waitFor(() => expect(model.requests.length).toBe(2));
+    await vi.waitFor(() => expect(rows().length).toBe(2));
   });
 
   it("the plan request has no tools, and a second page costs one more call (control)", async () => {
@@ -654,13 +673,137 @@ describe("model calls", () => {
     expect(answer).toBe("It is where your street goes.");
     expect(model.requests.length).toBe(2);
     expect(model.requests[1]?.tools).toBeUndefined();
-    expect(
+    const n = (job: string) =>
       (
-        c.db.sqlite.prepare("SELECT count(*) AS n FROM usage WHERE job = 'points.plan'").get() as {
+        c.db.sqlite.prepare("SELECT count(*) AS n FROM usage WHERE job = ?").get(job) as {
           n: number;
         }
-      ).n,
-    ).toBe(2);
+      ).n;
+    expect([n("points.plan"), n("points.ask")]).toEqual([1, 1]);
+  });
+
+  it("the question is masked like the goal: a card and an SSN never reach the provider", async () => {
+    const { desk } = await setup({ script: [reply(), reply({ ...PLAN, steps: [] })] });
+    const s = await begin(desk);
+    const card = ["4111", "1111", "1111", "1111"].join(" ");
+    const ssn = ["123", "45", "6789"].join("-");
+    await desk.call(
+      "points.ask",
+      { sessionId: s.sessionId, text: `my card ${card} and SSN ${ssn}, ok?` },
+      ik(),
+    );
+    const ask = JSON.stringify(model.requests[1]);
+    expect(ask).not.toContain(card);
+    expect(ask).not.toContain(ssn);
+    // Control: the street in the question does go (it is not a secret shape).
+    await desk.call("points.ask", { sessionId: s.sessionId, text: `I am at ${SECRET}` }, ik());
+    expect(JSON.stringify(model.requests[2])).toContain(SECRET);
+  });
+});
+
+describe("the helper session is the invocation's", () => {
+  it("points.show and points.end carry the invocation id, which is the session id", async () => {
+    const { desk } = await setup();
+    const s = await begin(desk);
+    const inv = helper?.calls.find((i) => i.capability === "points.session");
+    expect(inv?.invocationId).toBeDefined();
+    expect(s.sessionId).toBe(inv?.invocationId);
+    expect(rig.shows.length).toBeGreaterThan(0);
+    for (const i of helper?.invocations.filter((x) => x.capability === "points.show") ?? [])
+      expect((i.params as { sessionId: string }).sessionId).toBe(inv?.invocationId);
+    await desk.call("points.stop", { sessionId: s.sessionId }, ik());
+    await vi.waitFor(() => expect(rig.ended).toEqual([{ sessionId: inv?.invocationId }]));
+  });
+
+  it("stop, idle and a disconnect each cancel the helper's points.session call", async () => {
+    // Stop.
+    const a = await setup();
+    const s = await begin(a.desk);
+    await a.desk.call("points.stop", { sessionId: s.sessionId }, ik());
+    await vi.waitFor(() => expect(helper?.cancels).toEqual([s.sessionId]));
+    expect(rig.sessionId).toBeUndefined();
+    // The helper is free again: a second start is not refused as points_active.
+    const again = a.desk.call("points.start", startParams(), ik());
+    await vi.waitFor(() => expect(rig.emit).toBeDefined());
+    (rig as Rig).emit?.({ type: "digest", digest: digest("fp-b") });
+    await again;
+    for (const c of clients.splice(0)) c.close();
+    await (helper as FakeNode | null)?.close();
+    helper = null;
+    await (composed as ComposedGateway | null)?.stop("test");
+    composed = null;
+    rmSync(home, { recursive: true, force: true });
+
+    // Idle.
+    const b = await setup({ idleMs: 250 });
+    const s2 = await begin(b.desk);
+    await vi.waitFor(() => expect(helper?.cancels).toEqual([s2.sessionId]), { timeout: 3000 });
+    expect(rig.sessionId).toBeUndefined();
+    for (const c of clients.splice(0)) c.close();
+    await (helper as FakeNode | null)?.close();
+    helper = null;
+    await (composed as ComposedGateway | null)?.stop("test");
+    composed = null;
+    rmSync(home, { recursive: true, force: true });
+
+    // The starting device disconnects.
+    const d = await setup();
+    const s3 = await begin(d.desk);
+    d.desk.close();
+    await vi.waitFor(() => expect(helper?.cancels).toEqual([s3.sessionId]), { timeout: 3000 });
+  });
+
+  it("another device cannot stop or read the first device's session", async () => {
+    const { c, desk } = await setup();
+    const s = await begin(desk);
+    const other = await adminClient(c.gateway);
+    clients.push(other);
+    expect(await other.call("points.stop", { sessionId: s.sessionId }, ik())).toEqual({
+      ended: false,
+    });
+    expect(await other.call("points.status", {})).toEqual({});
+    expect(helper?.cancels).toEqual([]);
+    // Control: the starting device sees and stops it.
+    expect(await desk.call("points.status", {})).toMatchObject({
+      session: { sessionId: s.sessionId },
+    });
+    expect(await desk.call("points.stop", { sessionId: s.sessionId }, ik())).toEqual({
+      ended: true,
+    });
+  });
+
+  it("a goal the agent offered in this thread is model text whatever goalSource says", async () => {
+    const { c, desk } = await setup({ script: [reply(), reply()] });
+    const { thread } = await desk.call<{ thread: { id: string } }>(
+      "threads.create",
+      { kind: "main" },
+      ik(),
+    );
+    appendMessage(
+      c.db,
+      {
+        threadId: thread.id,
+        role: "agent",
+        blocks: [{ type: "points_offer", goal: "OFFERED purpose text" }],
+        provenance: "agent",
+        runId: null,
+      },
+      { expectedWriterRunId: null },
+    );
+    await begin(desk, { entry: "chat", threadId: thread.id, goal: "OFFERED purpose text" });
+    expect(JSON.stringify(model.requests[0])).not.toContain("OFFERED purpose text");
+    expect(JSON.stringify(model.requests[0])).toContain("(none given)");
+  });
+
+  it("control: an owner-typed goal in the same thread reaches the plan call", async () => {
+    const { desk } = await setup();
+    const { thread } = await desk.call<{ thread: { id: string } }>(
+      "threads.create",
+      { kind: "main" },
+      ik(),
+    );
+    await begin(desk, { entry: "chat", threadId: thread.id, goal: "typed by the owner" });
+    expect(JSON.stringify(model.requests[0])).toContain("typed by the owner");
   });
 });
 
