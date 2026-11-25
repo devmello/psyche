@@ -15,12 +15,18 @@ import { toolCallBindingHash } from "@psyche/protocol/binding";
 import { SqliteTaskEngine } from "@psyche/tasks";
 import { FakeClock } from "@psyche/testing";
 import { describe, expect, it } from "vitest";
-import { DEVICE, makeBroker } from "../../../packages/permissions/test/helpers.ts";
+import {
+  CTX,
+  DEVICE,
+  makeBroker,
+  call as policyCall,
+} from "../../../packages/permissions/test/helpers.ts";
 import { composeForks } from "../src/compose/forks.ts";
 import { composeNightShift } from "../src/compose/night-shift.ts";
 import { connectorToolLookup } from "../src/compose/proactive.ts";
+import { createThreadClear } from "../src/compose/thread-clear.ts";
 import type { Call } from "../src/context.ts";
-import { createPlanForkHandlers } from "../src/handlers/plan-forks.ts";
+import { createPlanForkHandlers, PLAN_CONTINUE_PENDING } from "../src/handlers/plan-forks.ts";
 import { Idempotency, paramsHash } from "../src/idempotency.ts";
 
 /**
@@ -97,6 +103,8 @@ async function rig() {
   });
   await forks.start();
   const turns: { threadId: string; content: string; taintSources: unknown[] }[] = [];
+  // Whether the parent chat has a run: `startTurn` starts nothing then (it never queues).
+  const parent = { busy: false };
   pf = createPlanForkHandlers({
     db,
     clock,
@@ -106,6 +114,7 @@ async function rig() {
     tasks: engine,
     surfaceOf: () => "desktop",
     startTurn: (i) => {
+      if (parent.busy) return false;
       turns.push(i);
       return true;
     },
@@ -134,7 +143,7 @@ async function rig() {
     if (key === undefined) return go();
     return idem.run({ deviceId: DEVICE.deviceId, method, key }, paramsHash(params), go, true);
   };
-  return { db, clock, engine, h, ns, forks, pf, ran, turns, main, msg, run, desktop };
+  return { db, clock, engine, h, ns, forks, pf, ran, turns, parent, main, msg, run, desktop };
 }
 
 type Rig = Awaited<ReturnType<typeof rig>>;
@@ -291,6 +300,82 @@ describe("planForks end to end (F4)", () => {
     expect(turn?.content).not.toContain("Call the movers");
     expect(turn?.content).not.toContain("Pack the books");
     expect(turn?.content).toMatch(/```json\n/);
+
+    // That turn's first unstaged write asks, in Auto mode too: the broker sees the turn's taint,
+    // a card is created and nothing runs until the owner taps it.
+    const write = policyCall("mcp__apple__reminders_create", "write", undefined, {
+      params: { title: "Email the landlord", listId: "L" },
+    });
+    const parentCtx = {
+      ...CTX,
+      threadId: r.main.id,
+      runId: "run_parent",
+      taskId: undefined,
+      permissionMode: "auto" as const,
+      taint: true,
+      taintSources: turn?.taintSources as never,
+    };
+    const d = await r.h.broker.decide(write, parentCtx);
+    expect(d.decision).toBe("ask");
+    const ranBefore = r.ran.length;
+    const card = await r.h.broker.requestApproval({
+      kind: d.approvalKind ?? "tool_call",
+      summary: "Remind: Email the landlord",
+      details: {},
+      bindingHash: d.bindingHash ?? "",
+      grantKey: d.grantKey ?? "",
+      requestedBy: { runId: "run_parent", taskId: null, threadId: r.main.id },
+      sideEffect: "write",
+      surfaces: ["desktop"],
+      taint: true,
+    } as never);
+    const pending = await r.h.broker.list({ status: "pending" });
+    expect(pending.map((a) => a.id)).toContain(card.approval.id);
+    expect(r.ran).toHaveLength(ranBefore);
+  });
+
+  it("a busy parent chat leaves Continue on the taken plan; tapping it starts the tainted turn once", async () => {
+    const r = await rig();
+    const f = await readyFork(r);
+    r.parent.busy = true;
+    const out = (await r.run("planForks.take", {
+      forkId: f.forkId,
+      branchId: f.a.id,
+      items: [{ itemId: f.itemA.id, bindingHash: f.itemA.bindingHash }],
+      sends: [],
+      continue: true,
+    })) as { approval?: { id: string }; answerToken?: string };
+    r.clock.advance(500);
+    await r.h.broker.answer({
+      approvalId: out.approval?.id ?? "",
+      answerToken: out.answerToken ?? "",
+      decision: "approve",
+      scope: "once",
+      decidedBy: DEVICE,
+    });
+    for (let i = 0; i < 10 && getPlanFork(r.db, f.forkId)?.status !== "taken"; i++) await tick(r);
+    // Nothing was queued (a queued follow-up would drop the taint); the plan says Continue.
+    expect(getPlanFork(r.db, f.forkId)).toMatchObject({
+      status: "taken",
+      error: PLAN_CONTINUE_PENDING,
+    });
+    expect(r.turns).toEqual([]);
+    const cont = { forkId: f.forkId, branchId: f.a.id, items: [], sends: [], continue: true };
+    // Still busy: refused, and Continue stays.
+    await expect(r.run("planForks.take", cont)).rejects.toThrow(/busy/);
+    expect(getPlanFork(r.db, f.forkId)?.error).toBe(PLAN_CONTINUE_PENDING);
+    r.parent.busy = false;
+    // A double tap starts one turn.
+    await Promise.all([r.run("planForks.take", cont), r.run("planForks.take", cont)]);
+    expect(r.turns).toHaveLength(1);
+    expect(r.turns[0]?.taintSources).toEqual([
+      { sourceKind: "web", origin: "https://example.com/austin" },
+    ]);
+    expect(r.turns[0]?.content).toContain("Email the landlord about the lease");
+    expect(getPlanFork(r.db, f.forkId)?.error).toBeNull();
+    // Another branch, or a plan with nothing pending, is not a Continue.
+    await expect(r.run("planForks.take", { ...cont, branchId: f.b.id })).rejects.toThrow(/taken/);
+    expect(r.turns).toHaveLength(1);
   });
 
   it("a declined approval leaves the fork ready and applies nothing", async () => {
@@ -350,8 +435,26 @@ describe("planForks end to end (F4)", () => {
       ],
     })) as { fork: { id: string }; branches: { threadId: string }[] };
     expect(getPlanFork(r.db, created.fork.id)?.status).toBe("running");
-    r.pf.onThreadEnding(r.main.id);
+    // Through the real `threads.clear` handler, wired to the fork's thread-ending hook as the
+    // composed Gateway wires it.
+    const clear = createThreadClear({
+      db: r.db,
+      audit: r.h.audit,
+      broker: r.h.broker,
+      isRunning: () => false,
+    })["threads.clear"];
+    const ctx = {
+      db: r.db,
+      threadEnding: new Set([(id: string) => r.pf.onThreadEnding(id)]),
+      threadEnded: new Set(),
+      bus: { bumpStateVersion: () => {}, publish: () => {} },
+      memory: null,
+    };
+    expect(
+      await clear?.run({ ...r.desktop, ctx } as never, { threadId: r.main.id } as never),
+    ).toEqual({ ok: true });
     await tick(r);
+    expect(listAllMessages(r.db, r.main.id)).toEqual([]);
     expect(getPlanFork(r.db, created.fork.id)).toBeNull();
     const tasks = await r.engine.list({});
     expect(tasks.every((t) => t.status === "cancelled")).toBe(true);

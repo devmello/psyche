@@ -48,6 +48,7 @@ import {
 import type { Call, ChatRedo, HandlerDef } from "../context.ts";
 import type { Gateway } from "../server.ts";
 import { assertWritableThread } from "../session/imported-threads.ts";
+import { withoutForkTasks } from "./fork-hidden.ts";
 import { surfaceOf } from "./handlers.ts";
 import type { ComposedPart } from "./services.ts";
 import { userProfileConfig } from "./user-profile.ts";
@@ -388,7 +389,8 @@ export function composeTeaching(deps: TeachingComposeDeps): ComposedTeaching {
   handlers["growth.summary"] = {
     run: async (_call: Call, params: MethodParams<"growth.summary">) => {
       const approvals = await deps.broker.list();
-      const tasks = (await deps.tasks.list()) as Task[];
+      // A plan fork's branches are hidden work, never growth (fork-a-plan-2026 §2.3).
+      const tasks = withoutForkTasks(db, (await deps.tasks.list()) as Task[]);
       const automations = db.sqlite
         .prepare("SELECT id, title, created_at, system FROM automations")
         .all() as { id: string; title: string; created_at: string; system: number }[];

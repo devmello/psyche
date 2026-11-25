@@ -382,6 +382,24 @@ Design: `docs/design/night-shift-2026.md` §3. In the morning the owner ticks th
 - **Children.** On approval one approved, once-only child is minted per kept item with `requestedBy.toolCallId` = the item id (the connector registry's `toolCallId === callId` check). Each is consumed once by `verifyBinding` and checked again by the connector. Taint carries from the set to the card and every child. `batchChildren(approvalId)` reads them for both kinds.
 - **Tests.** `packages/permissions/test/staged-apply.test.ts`: a table row for every refusal class with near-misses that must be allowed, the approval fields, the bulk refusal, the send and undo device-only rule, and the minted children on in-memory and real SQLite.
 
+**Plan forks.** Design: `docs/design/fork-a-plan-2026.md`. Code: `apps/gateway/src/handlers/plan-forks.ts` and `apps/gateway/src/compose/fork-hidden.ts`.
+
+- **Branches.** Each branch of a fork is a staging run (`staging: {kind: "fork", forkId, branchId}`) in a hidden thread. Its writes land in `staged_actions` with `fork_branch_id` set, and nothing in it touches the world.
+- **Take.** `planForks.take` goes through the Night shift apply module (`NightShiftApply.applyFork`, source `{kind: "fork", id, forkId}`), so the owner's selection is one `staged_apply` approval with every rule above: `once`, sensitive, no presence, device-only, the refusals, and the client's `details.items` hash check (`stagedApplyMatchesSelection`). A declined or expired approval leaves the fork `ready`. When it applies, the other branches' items are dismissed and their tasks cancelled.
+- **The parent turn.** The remaining Psyche steps go to the parent chat as fenced leading context, never as the owner's words, with the branch's `taintSources` (or `{sourceKind: "plan_fork"}` when the branch was tainted with none). Grants and Auto shortcuts therefore don't apply, and the turn's first unstaged write asks. If the chat has a run, nothing is queued, because a queued follow-up would drop the taint. The fork keeps `error = "continue_pending"`, and the `plan_taken` card's Continue calls `planForks.take` again with no items. That second call is claimed with a compare-and-set, so a double tap starts one turn.
+- **Remote viewers (viewer.ts rule).** Only the desktop shell sees a branch that read Memory, Messages or Contacts.
+  - `planForks.get` and `planForks.list` go through `scrubForViewer`.
+  - The router (`connection.ts`, `forkThreadRefusal`) refuses any other caller a method naming a restricted fork thread by `threadId`, `threadIds` or a run's `runId` (`threads.get`, `chat.history`, the run trace, exports, sends), with `forbidden` and `details.reason = "fork_owner_only"`. A restricted thread is a branch that read owner-only data, a branch that has not reported yet, or a digest thread of one. A fork session key with no branch behind it also counts.
+  - The event personaliser drops a fork thread's events and fork task updates for every reader that is not local.
+  - `tasks.list`, `tasks.get` and `tasks.actions` strip a fork task's goal, summary, outcome, plan, checklist and taint origins, and its Activity.
+  - `search.query` drops hits under fork threads.
+- **Exclusions.** Every consumer keys on the fork origin (a `plan_fork_branches` row, `created_from = 'fork'`) and on both session prefixes (`fork-branch:`, `fork-digest:`): `threads.list`, the search indexer and its backfill, the learner's `admit`, daily notes (`memoryWritesOff`), thread-end promise extraction (`snapshotThread`), the daily brief's task lines and `growth.summary`.
+- **Clear chat.** `threads.clear` and `threads.delete` on the parent cancel its live forks and delete the branch and digest threads (`threadEnding`).
+- **Tests.**
+  - `apps/gateway/test/plan-forks.test.ts`: the end to end flow, the busy-parent Continue, and clear chat through the real handler.
+  - `fork-exclusions.test.ts`: every consumer, and the viewer and router rules with a desktop control.
+  - `plan-forks-mounted.test.ts`: the composed router.
+
 ### 3.16 Promise scrub
 
 Design: `docs/design/promise-ledger-2026.md` §7.2. A promise is the owner's own commitment, but its text, its quote and the name of the other person come from third parties, and a promise can come from Messages. Owner rules (2026-11-24): a remote viewer cannot open Memory, Messages or Contacts; a promise sourced from Messages is never `remote_visible`; only the desktop shell sees quotes from owner-only sources. Code: `apps/gateway/src/promise-scrub.ts` and `packages/memory/src/graph/loop-visibility.ts`.

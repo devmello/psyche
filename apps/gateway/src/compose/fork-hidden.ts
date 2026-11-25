@@ -1,5 +1,5 @@
 import { getThread, isForkThread, type PsycheDb } from "@psyche/db";
-import type { Task } from "@psyche/protocol";
+import { isForkSessionKey, PsycheError, type Task } from "@psyche/protocol";
 import type { Call, HandlerDef } from "../context.ts";
 
 /**
@@ -36,6 +36,114 @@ export function memoryWritesOff(db: PsycheDb): (threadId: string) => boolean {
 /** A fork task: by origin, or because it runs in a fork's hidden thread. */
 export function isForkTask(db: PsycheDb, task: Pick<Task, "createdFrom" | "threadId">): boolean {
   return task.createdFrom === "fork" || isForkThread(db, task.threadId);
+}
+
+/** Tasks without a fork's hidden work: the daily brief's task lines and `growth.summary`. */
+export function withoutForkTasks<T extends Pick<Task, "createdFrom" | "threadId">>(
+  db: PsycheDb,
+  tasks: readonly T[],
+): T[] {
+  return tasks.filter((t) => !isForkTask(db, t));
+}
+
+/** The learner never reads a fork's hidden thread: a branch turn is a hypothesis, not a fact. */
+export function learnerSkipsThread(
+  db: PsycheDb,
+  thread: { id: string; sessionKey: string },
+): boolean {
+  return isForkSessionKey(thread.sessionKey) || isForkThread(db, thread.id);
+}
+
+/**
+ * Whether a caller that is not the desktop shell may not see this fork thread at all, by the
+ * `viewer.ts` rule (§4.4): a branch thread whose branch read Memory, Messages or Contacts, or
+ * has not filed its report yet (what it read is not settled), and a forced report's digest
+ * thread of such a branch. A fork session key with no branch behind it fails closed. Any other
+ * thread is not restricted here.
+ */
+export function forkThreadRestricted(db: PsycheDb, threadId: string): boolean {
+  const row = db.sqlite
+    .prepare("SELECT session_key AS key, parent_thread_id AS parent FROM threads WHERE id = ?")
+    .get(threadId) as { key: string; parent: string | null } | undefined;
+  if (row === undefined) return false;
+  const branchOf = (tid: string) =>
+    db.sqlite
+      .prepare("SELECT status, read_owner_only AS r FROM plan_fork_branches WHERE thread_id = ?")
+      .get(tid) as { status: string; r: number } | undefined;
+  const restricted = (b: { status: string; r: number }) => b.status !== "reported" || b.r === 1;
+  const own = branchOf(threadId);
+  if (own !== undefined) return restricted(own);
+  if (!isForkSessionKey(row.key)) return false;
+  const parent = row.parent === null ? undefined : branchOf(row.parent);
+  return parent === undefined ? true : restricted(parent);
+}
+
+/**
+ * The router's check before any method runs (`connection.ts`): a caller that is not the desktop
+ * shell is refused a method that names a restricted fork thread, by `threadId`, `threadIds` or a
+ * `runId` of a run in one (threads.get, chat.history, the run trace, exports, sends). The
+ * `planForks.*` methods name the parent chat and scrub their own answers.
+ */
+export function forkThreadRefusal(
+  db: PsycheDb,
+  method: string,
+  params: unknown,
+  desktop: boolean,
+): void {
+  if (desktop || method.startsWith("planForks.")) return;
+  const p = (params ?? {}) as Record<string, unknown>;
+  const ids: string[] = [];
+  if (typeof p.threadId === "string") ids.push(p.threadId);
+  if (Array.isArray(p.threadIds))
+    for (const t of p.threadIds) if (typeof t === "string") ids.push(t);
+  if (typeof p.runId === "string") {
+    const run = db.sqlite.prepare("SELECT thread_id AS t FROM runs WHERE id = ?").get(p.runId) as
+      | { t: string }
+      | undefined;
+    if (run !== undefined) ids.push(run.t);
+  }
+  for (const id of ids) {
+    if (forkThreadRestricted(db, id)) {
+      throw new PsycheError("forbidden", "this plan's working can be opened only on your Mac", {
+        details: { reason: "fork_owner_only" },
+      });
+    }
+  }
+}
+
+/**
+ * The event personaliser's rule: a subscriber that is not the desktop shell on this Mac gets no
+ * event of a fork's hidden thread (its live messages, runs and steps) and no fork task update
+ * (its goal holds read excerpts). It gets `planFork.updated`, which names the parent chat only.
+ */
+export function forkEventHidden(
+  db: PsycheDb,
+  payload: unknown,
+  reader: { local?: boolean },
+  cache: Map<string, boolean>,
+): boolean {
+  if (reader.local === true) return false;
+  const p = (payload ?? {}) as Record<string, Record<string, unknown> | string | undefined>;
+  const task = p.task as { createdFrom?: unknown; threadId?: unknown } | undefined;
+  if (task?.createdFrom === "fork") return true;
+  const candidates = [
+    p.threadId,
+    (p.message as { threadId?: unknown } | undefined)?.threadId,
+    (p.thread as { id?: unknown } | undefined)?.id,
+    (p.run as { threadId?: unknown } | undefined)?.threadId,
+    task?.threadId,
+  ];
+  for (const c of candidates) {
+    if (typeof c !== "string") continue;
+    let fork = cache.get(c);
+    if (fork === undefined) {
+      fork = isForkThread(db, c);
+      if (cache.size > 5000) cache.clear();
+      cache.set(c, fork);
+    }
+    if (fork) return true;
+  }
+  return false;
 }
 
 /**

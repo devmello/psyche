@@ -4,7 +4,6 @@ import {
   getLibraryItem,
   getSetting,
   getThread,
-  isForkThread,
   listMessagesPage,
   type PsycheDb,
   setSetting,
@@ -33,9 +32,9 @@ import type {
   Surface,
   WorkNoteItem,
 } from "@psyche/protocol";
-import { isForkSessionKey } from "@psyche/protocol";
 import type { SecretRedactor } from "@psyche/vault";
 import { resolveAttachments } from "../session/attachments.ts";
+import { learnerSkipsThread } from "./fork-hidden.ts";
 import { learnGate } from "./user-profile-gate.ts";
 
 /**
@@ -623,7 +622,7 @@ export function createUserProfile(deps: UserProfileDeps) {
     const thread = getThread(db, threadId);
     if (thread === undefined || thread.kind === "incognito") return undefined;
     // A plan fork's branch turns are hypotheses ("assume we move"), never facts about the owner.
-    if (isForkSessionKey(thread.sessionKey) || isForkThread(db, thread.id)) return undefined;
+    if (learnerSkipsThread(db, thread)) return undefined;
     return config;
   };
 

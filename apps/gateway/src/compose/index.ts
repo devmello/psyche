@@ -129,6 +129,7 @@ import { DerivedKeyStore, type PaymentBroker, SecretRedactor, type Vault } from 
 import { type DocumentsHandle, documentBridge } from "../artifacts/bridge.ts";
 import { resolveConfig } from "../config.ts";
 import type { HandlerDef } from "../context.ts";
+import { SKIP_EVENT } from "../event-bus.ts";
 import { createPlanForkHandlers, type ModelText } from "../handlers/plan-forks.ts";
 import type { PublicRoute, WebhookRoute } from "../http.ts";
 import { createLogger } from "../log.ts";
@@ -193,7 +194,7 @@ import { feedContextResolver } from "./feed-context.ts";
 import { filesHandlers } from "./files.ts";
 import { migrateFilesConnector } from "./files-migration.ts";
 import { repointFolders, withFolder, withRecordedReal, withRecordedRef } from "./folder-access.ts";
-import { memoryWritesOff, withForkTaskScrub } from "./fork-hidden.ts";
+import { forkEventHidden, memoryWritesOff, withForkTaskScrub } from "./fork-hidden.ts";
 import { composeForks, FORK_POOL_CLAIM, threadModelPrice } from "./forks.ts";
 import { usesSandboxPc } from "./guest-sandbox.ts";
 import {
@@ -2954,7 +2955,10 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   webTools.refresh();
   // approval.created carries each approver's own surface token (issue #50, security §3.7):
   // only to devices that hold operator.approvals, and only their surface's token.
+  const forkThreadCache = new Map<string, boolean>();
   gateway.bus.setPersonalizer((event, payload, sub) => {
+    // A plan fork's hidden threads and tasks reach only the desktop shell on this Mac (§4.4).
+    if (forkEventHidden(db, payload, sub.reader, forkThreadCache)) return SKIP_EVENT;
     // A life answer in a transcript is read again for each subscriber (a remote window gets no
     // Messages chips); a subscriber with no identity (a Gateway part) is read as the least trusted.
     if (event === "chat.message")

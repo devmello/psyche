@@ -64,6 +64,7 @@ import { ulid } from "ulid";
 import type { Call, HandlerDef } from "../context.ts";
 import type { Logger } from "../log.ts";
 import { type CatchupDeps, composeCatchup } from "./catchup.ts";
+import { withoutForkTasks } from "./fork-hidden.ts";
 import { mountParamsOnly, surfaceOf } from "./handlers.ts";
 import { type HelperAvailability, isNeedsHelper } from "./helper-availability.ts";
 import { type ComposedMeetings, composeMeetings, graphPrepHooks } from "./meetings.ts";
@@ -625,18 +626,18 @@ export function composeProactive(setup: ProactiveSetup): ComposedProactive {
     prepLink: (e) => meetingPrep?.prepLinkFor(e),
     activity: {
       openTasks: async () =>
-        (
+        withoutForkTasks(
+          db,
           await tasks.list({
             status: ["queued", "running", "awaiting_input", "awaiting_approval", "paused"],
-          })
+          }),
         )
           // Plan-fork branches are hidden work (fork-a-plan-2026 §2.3): never a brief line.
-          .filter((t) => t.createdFrom !== "automation" && t.createdFrom !== "fork")
+          .filter((t) => t.createdFrom !== "automation")
           .slice(0, 20)
           .map((t) => ({ id: t.id, title: t.title, link: `/tasks/${t.id}` })),
       doneBetween: async (from, to) => {
-        const done = (await tasks.list({ status: ["done"] }))
-          .filter((t) => t.createdFrom !== "fork")
+        const done = withoutForkTasks(db, await tasks.list({ status: ["done"] }))
           .filter((t) => {
             const at = Date.parse(t.completedAt ?? "");
             return at >= from && at <= to;
