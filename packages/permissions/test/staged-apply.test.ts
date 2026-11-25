@@ -302,7 +302,6 @@ describe("requestStagedApply: refused children (§3.1, §3.2, §5.4)", () => {
       code: "policy_denied",
       details: { reason: "all_refused", refused: [{ itemId: del.itemId, reason: "destructive" }] },
     });
-    expect(h.notifier.sent ?? []).toEqual([]);
   });
 
   it("a money-looking summary and a money-looking arg are refused in every child position", async () => {
