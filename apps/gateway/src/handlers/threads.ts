@@ -379,6 +379,7 @@ export const threadsHandlers: Record<string, HandlerDef> = {
       params: {
         kind?: ThreadKind;
         includeArchived?: boolean;
+        archivedOnly?: boolean;
         pinnedOnly?: boolean;
         spaceId?: string;
         query?: string;
@@ -395,6 +396,7 @@ export const threadsHandlers: Record<string, HandlerDef> = {
         ...(params.includeArchived === undefined
           ? {}
           : { includeArchived: params.includeArchived }),
+        ...(params.archivedOnly === undefined ? {} : { archivedOnly: params.archivedOnly }),
         ...(params.pinnedOnly === undefined ? {} : { pinnedOnly: params.pinnedOnly }),
         ...(params.spaceId === undefined ? {} : { spaceId: params.spaceId }),
         hideEmptyChats: true,

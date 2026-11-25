@@ -169,9 +169,14 @@ extension GatewayBackend {
         _ = try await call("threads.restore", .obj(["threadId": .string(id)]))
     }
 
-    public func archivedThreads() async throws -> [ChatThreadSummary] {
-        let result = try await call("threads.list", .obj(["includeArchived": .bool(true), "limit": .number(Self.pageSize)]))
-        return (result["threads"]?.array ?? []).compactMap(Self.summary(from:)).filter(\.isArchived)
+    public func archivedThreadPage(cursor: String?) async throws -> ThreadPage {
+        // `archivedOnly` makes the Gateway filter and page the archived chats itself, so they are not cut off
+        // behind the newest threads of every kind.
+        var params: [String: JSONValue] = ["archivedOnly": .bool(true), "limit": .number(Self.pageSize)]
+        if let cursor { params["cursor"] = .string(cursor) }
+        let result = try await call("threads.list", .object(params))
+        let rows = (result["threads"]?.array ?? []).compactMap(Self.summary(from:))
+        return ThreadPage(threads: rows, nextCursor: result["nextCursor"]?.string)
     }
 
     public func giveFeedback(threadID: String, messageID: String, helpful: Bool) async throws {

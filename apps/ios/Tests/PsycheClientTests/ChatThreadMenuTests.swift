@@ -78,21 +78,24 @@ struct ChatThreadMenuTests {
         #expect(h.gateway.received.first { $0.method == "threads.restore" }?.params?["threadId"]?.string == "thr_2")
     }
 
-    @Test func archivedChatsAreTheArchivedRowsOfAListThatIncludesThem() async throws {
+    @Test func archivedChatsAskForTheArchivedFilterAndPageWithTheCursor() async throws {
         let (backend, h) = try await live { g in
             g.on("threads.list") { _ in
                 .success(.object(["threads": .array([
-                    .object(["thread": .object(["id": "thr_live", "kind": "side", "title": "Live", "archivedAt": .null])]),
                     .object(["thread": .object([
                         "id": "thr_old", "kind": "side", "title": "Old", "archivedAt": "2026-11-20T10:00:00.000Z",
                     ])]),
-                ])]))
+                ]), "nextCursor": "60"]))
             }
         }
-        let archived = try await backend.archivedThreads()
-        #expect(archived.map(\.id) == ["thr_old"])
-        #expect(archived.first?.isArchived == true)
-        #expect(h.gateway.received.first { $0.method == "threads.list" }?.params?["includeArchived"] == .bool(true))
+        let page = try await backend.archivedThreadPage(cursor: nil)
+        #expect(page.threads.map(\.id) == ["thr_old"])
+        #expect(page.threads.first?.isArchived == true)
+        #expect(page.nextCursor == "60")
+        _ = try await backend.archivedThreadPage(cursor: "60")
+        let calls = h.gateway.received.filter { $0.method == "threads.list" }
+        #expect(calls.first?.params?["archivedOnly"] == .bool(true))
+        #expect(calls.last?.params?["cursor"] == .string("60"))
     }
 
     @Test func thumbsSendTheTargetAndTheKind() async throws {

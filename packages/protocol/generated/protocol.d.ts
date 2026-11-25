@@ -13454,6 +13454,7 @@ export interface ThreadsImportParams {
 }
 
 export interface ThreadsListParams {
+    archivedOnly?: boolean;
     /**
      * Opaque cursor
      */

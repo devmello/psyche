@@ -54,10 +54,35 @@ final class InboxModel {
     func observe() async {
         for await event in store.events() {
             switch event {
-            case .changed(.home), .resynced: await load()
+            // Live events fire in bursts while Psyche works: refresh quietly (page one merged into what is loaded)
+            // instead of throwing away the pages the owner scrolled to. A resync is rare and loads in full.
+            case .changed(.home): refreshSoon()
+            case .resynced: await refreshNow()
             default: break
             }
         }
+    }
+
+    /// How long a burst of events must be quiet before the inbox refreshes.
+    @ObservationIgnored var refreshDelay: Duration = .milliseconds(400)
+    @ObservationIgnored private var refreshTask: Task<Void, Never>?
+
+    private func refreshSoon() {
+        refreshTask?.cancel()
+        refreshTask = Task { [weak self] in
+            guard let self else { return }
+            try? await Task.sleep(for: self.refreshDelay)
+            guard !Task.isCancelled else { return }
+            await self.refreshNow()
+        }
+    }
+
+    /// Re-reads the inbox without losing the pages loaded: page one is merged in, older pages and the scroll position stay.
+    func refreshNow() async {
+        async let home = try? store.home()
+        await pager.refresh()
+        needsYou = await home?.needsYou ?? needsYou
+        await refreshCancellable()
     }
 
     /// Marks read now (the list updates at once), then tells the Gateway.
@@ -66,7 +91,15 @@ final class InboxModel {
         pager.edit { items in
             if let index = items.firstIndex(where: { $0.id == item.id }) { items[index].read = true }
         }
-        try? await store.markRead(ids: [item.id])
+        do {
+            try await store.markRead(ids: [item.id])
+        } catch {
+            // Put the row back to unread and say so, the way the inbox shows its other errors.
+            pager.edit { items in
+                if let index = items.firstIndex(where: { $0.id == item.id }) { items[index].read = false }
+            }
+            actionError = error.localizedDescription
+        }
     }
 
     /// Taps one of a notice's own buttons. The Gateway's answer decides what the row shows next, so it reloads

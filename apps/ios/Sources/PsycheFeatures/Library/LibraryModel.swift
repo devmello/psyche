@@ -28,6 +28,7 @@ final class LibraryModel {
                 return (page.items, page.nextCursor)
             }
         }
+        for pager in pagers.values { pager.arrange = { LibraryPaging.newestFirst($0) } }
         self.pagers = pagers
     }
 
@@ -70,7 +71,10 @@ final class LibraryModel {
     func observe() async {
         for await event in store.events() {
             switch event {
-            case .changed(.library), .resynced: await load()
+            // An upload elsewhere or a burst of changes merges page one into the loaded pages, so the list and
+            // its scroll position stay; a resync does the same at once.
+            case .changed(.library): pager.refreshSoon()
+            case .resynced: await pager.refresh()
             default: break
             }
         }

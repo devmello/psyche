@@ -142,6 +142,16 @@ struct ThreadListView: View {
                                     .tint(PsycheColor.muted)
                                 }
                         }
+                        if model.archivedCursor != nil {
+                            Button { Task { await model.loadMoreArchived() } } label: {
+                                HStack {
+                                    Text(String(localized: "Load older chats", bundle: .module))
+                                    if model.loadingMoreArchived { ProgressView() }
+                                }
+                            }
+                            .disabled(model.loadingMoreArchived)
+                            .listRowBackground(PsycheColor.sheet)
+                        }
                     }
                 }
                 // The last row's neighbour: the next page loads when it appears. Its id is the cursor, so each

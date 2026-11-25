@@ -38103,6 +38103,7 @@ public struct ThreadsImportParams: Codable, Sendable {
 
 // MARK: - ThreadsListParams
 public struct ThreadsListParams: Codable, Sendable {
+    public let archivedOnly: Bool?
     /// Opaque cursor
     public let cursor: String?
     public let includeArchived: Bool?
@@ -38114,6 +38115,7 @@ public struct ThreadsListParams: Codable, Sendable {
     public let spaceID: String?
 
     public enum CodingKeys: String, CodingKey {
+        case archivedOnly = "archivedOnly"
         case cursor = "cursor"
         case includeArchived = "includeArchived"
         case kind = "kind"
@@ -38123,7 +38125,8 @@ public struct ThreadsListParams: Codable, Sendable {
         case spaceID = "spaceId"
     }
 
-    public init(cursor: String? = nil, includeArchived: Bool? = nil, kind: ThreadKind? = nil, limit: Int? = nil, pinnedOnly: Bool? = nil, query: String? = nil, spaceID: String? = nil) {
+    public init(archivedOnly: Bool? = nil, cursor: String? = nil, includeArchived: Bool? = nil, kind: ThreadKind? = nil, limit: Int? = nil, pinnedOnly: Bool? = nil, query: String? = nil, spaceID: String? = nil) {
+        self.archivedOnly = archivedOnly
         self.cursor = cursor
         self.includeArchived = includeArchived
         self.kind = kind

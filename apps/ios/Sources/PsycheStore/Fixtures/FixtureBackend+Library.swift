@@ -8,6 +8,15 @@ struct LibraryState: Sendable {
     var counter = 0
     /// Files written for items that have one on the phone (generated at first use, uploads as received).
     var files: [String: URL] = [:]
+    /// When set, the next uploads fail as "unreachable" until `failUploadsAsUnreachable(false)` (tests of waiting files).
+    var uploadsUnreachable = false
+}
+
+extension FixtureBackend {
+    /// Makes uploads fail as if the Mac were not reachable (or stops doing so).
+    public func failUploadsAsUnreachable(_ on: Bool) {
+        libraryState.uploadsUnreachable = on
+    }
 }
 
 extension FixtureBackend: LibraryBackend {
@@ -56,6 +65,7 @@ extension FixtureBackend: LibraryBackend {
     /// Reports progress in a few steps so the upload row moves; the bytes are kept in the caches directory
     /// so an uploaded file opens with Quick Look.
     public func upload(_ file: UploadFile, progress: @escaping @Sendable (Double) -> Void) async throws -> LibraryItem {
+        if libraryState.uploadsUnreachable { throw BackendError.unreachable }
         for step in 0...4 {
             progress(Double(step) / 5)
             try await Task.sleep(for: .milliseconds(160))

@@ -141,6 +141,8 @@ export const ThreadsMethods = {
     params: Type.Object({
       kind: Type.Optional(ThreadKind),
       includeArchived: Type.Optional(Type.Boolean()),
+      /** Only archived threads, paged by `cursor` (wins over includeArchived). */
+      archivedOnly: Type.Optional(Type.Boolean()),
       pinnedOnly: Type.Optional(Type.Boolean()),
       /** Only threads in this Space (spaces §4.2). */
       spaceId: Type.Optional(Id),
