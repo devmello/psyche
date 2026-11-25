@@ -13,8 +13,8 @@ import { Value } from "@sinclair/typebox/value";
  *   whose first segment is no namespace (`no.such.key`), or that is a bare namespace holding a
  *   value (`appearance = 42`), is refused with `details.reason: "setting_unknown"`.
  * - **Feature validators** (`registerSettingValidator`) own one prefix and check or normalise the
- *   value themselves: Night shift (`nightShift.*`) and Promises (`promises.*`) register theirs
- *   rather than having their rules copied here.
+ *   value themselves. Nothing calls it yet: `nightShift.*` (#1681) and `promises.*` (#1680) are
+ *   open namespaces until those PRs register their validators, so their rules are not copied here.
  *
  * Both reasons have a catalogue sentence (`errors.reason.setting_unknown`,
  * `errors.reason.setting_invalid`), so every client words them in the owner's language. The
@@ -34,7 +34,27 @@ export interface SettingRule {
 export type SettingValidator = (key: string, value: unknown) => unknown;
 
 const HHMM = /^([01]\d|2[0-3]):[0-5]\d$/;
-const HEX_COLOR = /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
+const NAMED_COLORS = new Set(
+  "aliceblue antiquewhite aqua aquamarine azure beige bisque black blanchedalmond blue blueviolet brown burlywood cadetblue chartreuse chocolate coral cornflowerblue cornsilk crimson cyan darkblue darkcyan darkgoldenrod darkgray darkgreen darkgrey darkkhaki darkmagenta darkolivegreen darkorange darkorchid darkred darksalmon darkseagreen darkslateblue darkslategray darkslategrey darkturquoise darkviolet deeppink deepskyblue dimgray dimgrey dodgerblue firebrick floralwhite forestgreen fuchsia gainsboro ghostwhite gold goldenrod gray green greenyellow grey honeydew hotpink indianred indigo ivory khaki lavender lavenderblush lawngreen lemonchiffon lightblue lightcoral lightcyan lightgoldenrodyellow lightgray lightgreen lightgrey lightpink lightsalmon lightseagreen lightskyblue lightslategray lightslategrey lightsteelblue lightyellow lime limegreen linen magenta maroon mediumaquamarine mediumblue mediumorchid mediumpurple mediumseagreen mediumslateblue mediumspringgreen mediumturquoise mediumvioletred midnightblue mintcream mistyrose moccasin navajowhite navy oldlace olive olivedrab orange orangered orchid palegoldenrod palegreen paleturquoise palevioletred papayawhip peachpuff peru pink plum powderblue purple rebeccapurple red rosybrown royalblue saddlebrown salmon sandybrown seagreen seashell sienna silver skyblue slateblue slategray slategrey snow springgreen steelblue tan teal thistle tomato turquoise violet wheat white whitesmoke yellow yellowgreen".split(
+    " ",
+  ),
+);
+const COLOR_FUNCTION =
+  /^(?:oklch|oklab|lch|lab|hsla?|hwb|rgba?|color)\(\s*[0-9a-z.+\-%/,\s]{1,100}\)$/i;
+const HEX_COLOR = /^#(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i;
+
+/**
+ * A CSS color the Appearance picker can send: hex, a color function (`oklch(0.6 0.19 255)` is what
+ * six of the eight presets are) or a named color. A server copy of the UI's `isValidSeed`
+ * (packages/ui/src/theme/generate.ts), which parses with colorjs.io; this one is syntactic, with
+ * a length cap, so a value the picker offers is never rolled back.
+ */
+export function isCssColor(value: string): boolean {
+  if (value.length > 120) return false;
+  return (
+    HEX_COLOR.test(value) || COLOR_FUNCTION.test(value) || NAMED_COLORS.has(value.toLowerCase())
+  );
+}
 const MESSAGE_LANGUAGES = [
   "ar",
   "de",
@@ -99,8 +119,9 @@ const locale = (): SettingRule => ({
 const EXACT: Record<string, SettingRule> = {
   "appearance.theme": literals("auto", "system", "light", "dark"),
   "appearance.accentSeed": {
-    schema: Type.String({ pattern: HEX_COLOR.source }),
-    expected: 'a color such as "#2c5aa0"',
+    schema: Type.String({ minLength: 1, maxLength: 120 }),
+    expected: 'a CSS color such as "#2c5aa0" or "oklch(0.6 0.19 255)"',
+    check: (v) => (typeof v === "string" && isCssColor(v.trim()) ? undefined : "not a color"),
   },
   "appearance.gray": { schema: Type.String({ minLength: 1, maxLength: 40 }), expected: "a name" },
   "appearance.contrast": literals("standard", "high"),
@@ -142,7 +163,7 @@ const EXACT: Record<string, SettingRule> = {
 
 /**
  * The first segment of every key the app uses. Under these, subkeys are open. `nightShift` and
- * `promises` are validated by their own feature (see {@link registerSettingValidator}).
+ * `promises` are open too, until their features register validators (see {@link registerSettingValidator}).
  */
 const NAMESPACES = [
   "agent",
@@ -163,6 +184,7 @@ const NAMESPACES = [
   "exec",
   "feed",
   "gateway",
+  "general",
   "harness",
   "identityLinks",
   "locale",
@@ -190,6 +212,7 @@ const NAMESPACES = [
   "threads",
   "tools",
   "ui",
+  "updates",
   "usage",
   "vault",
   "vm",

@@ -174,6 +174,7 @@ export const it: Partial<Catalogue> = {
   "errors.reason.secret_required": "Un client diverso richiede il proprio segreto del client.",
   "errors.reason.project_private":
     "Quel progetto è privato, quindi non può avere uno Space. Disattiva prima Mantieni privato.",
+  "errors.reason.entity_exists": "È già nella memoria.",
   "errors.reason.setting_unknown": "Questa impostazione non esiste.",
   "errors.reason.setting_invalid": "Questo valore non è valido per l'impostazione.",
   "errors.reason.model_budget":

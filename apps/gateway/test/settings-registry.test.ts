@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { PsycheError } from "@psyche/protocol";
@@ -37,7 +37,11 @@ const BAD: [string, unknown, "setting_invalid" | "setting_unknown"][] = [
   // Near misses for each rule.
   ["appearance.theme", "purple", "setting_invalid"],
   ["appearance.theme", 1, "setting_invalid"],
-  ["appearance.accentSeed", "blue", "setting_invalid"],
+  ["appearance.accentSeed", "notacolor", "setting_invalid"],
+  ["appearance.accentSeed", 42, "setting_invalid"],
+  ["appearance.accentSeed", "", "setting_invalid"],
+  ["appearance.accentSeed", "x".repeat(1000), "setting_invalid"],
+  ["appearance.accentSeed", `#${"a".repeat(1000)}`, "setting_invalid"],
   ["appearance.zoom", 5000, "setting_invalid"],
   ["appearance.reduceMotion", "sometimes", "setting_invalid"],
   ["ui.language", "tlh", "setting_invalid"],
@@ -54,6 +58,11 @@ const GOOD: [string, unknown][] = [
   ["appearance.theme", "dark"],
   ["appearance.theme", null],
   ["appearance.accentSeed", "#2c5aa0"],
+  ["appearance.accentSeed", "oklch(0.6 0.19 255)"],
+  ["appearance.accentSeed", "oklch(0.62 0.2 350)"],
+  ["appearance.accentSeed", "tomato"],
+  ["general.keepRunningAfterLogout", true],
+  ["updates.channel", "beta"],
   ["appearance.zoom", 110],
   ["appearance.reduceMotion", "system"],
   ["appearance.reduceMotion", true],
@@ -117,6 +126,43 @@ describe("SettingsRegistry", () => {
     }
     for (const t of ["xx-NOPE", "xx", "en-QQ", "", "not a tag"]) {
       expect(isKnownLocaleTag(t)).toBe(false);
+    }
+  });
+});
+
+const UI = join(import.meta.dirname, "..", "..", "..", "packages", "ui", "src");
+
+describe("what the clients write is never refused", () => {
+  it("every accent preset the Appearance picker offers is accepted", () => {
+    const src = readFileSync(join(UI, "screens", "settings", "AppearanceSection.tsx"), "utf8");
+    const seeds = [...src.matchAll(/accent\("[a-z]+",\s*("[^"]+"|[A-Z_]+)\)/g)].map((m) =>
+      m[1] === "DEFAULT_ACCENT_SEED" ? "#2c5aa0" : (m[1] as string).slice(1, -1),
+    );
+    expect(seeds.length).toBe(8);
+    expect(seeds.filter((s) => s.startsWith("oklch(")).length).toBe(6);
+    for (const seed of seeds) {
+      expect(() => reg().validate("appearance.accentSeed", seed), seed).not.toThrow();
+    }
+  });
+
+  it("every key the Settings screens label, and the desktop and web hosts' own keys, is known", () => {
+    const labels = readFileSync(join(UI, "screens", "settings", "setting-labels.ts"), "utf8");
+    const keys = [...labels.matchAll(/^\s+"([a-zA-Z]+(?:\.[A-Za-z0-9_]+)+)",$/gm)].map((m) => m[1]);
+    expect(keys.length).toBeGreaterThan(100);
+    const r = reg();
+    const unknown = keys.filter((k) => !r.isKnown(k as string));
+    expect(unknown).toEqual([]);
+    for (const k of [
+      "general.keepRunningAfterLogout", // apps/desktop/src/platform/linger.ts
+      "updates.channel", // apps/desktop/src/main/update-flow.ts
+      "appearance.zoom",
+      "appearance.showInDock",
+      "appearance.openAtLogin",
+      "points.enabled",
+      "gateway.lan",
+      "permissions.mode",
+    ]) {
+      expect(r.isKnown(k), k).toBe(true);
     }
   });
 });

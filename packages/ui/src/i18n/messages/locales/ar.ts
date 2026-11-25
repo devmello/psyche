@@ -214,6 +214,7 @@ export const ar: Partial<Catalogue> = {
   "errors.reason.secret_required": "يحتاج العميل المختلف إلى سر عميل خاص به.",
   "errors.reason.project_private":
     "هذا المشروع خاص، لذا لا يمكن أن تكون له مساحة. أوقف «إبقاء خاصًا» أولًا.",
+  "errors.reason.entity_exists": "هذا الشخص أو الجهة أو المكان موجود بالفعل في الذاكرة.",
   "errors.reason.setting_unknown": "هذا الإعداد غير معروف.",
   "errors.reason.setting_invalid": "قيمة هذا الإعداد غير صالحة.",
   "errors.reason.model_budget":

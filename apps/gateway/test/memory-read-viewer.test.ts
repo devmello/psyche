@@ -42,6 +42,11 @@ function build() {
       updatedAt: "2026-10-18T00:00:00.000Z",
     })),
     "memory.files.list": vi.fn(async () => ({ files: FILES })),
+    "memory.forget": vi.fn(async () => ({
+      retractedClaimIds: ["clm_1"],
+      removedChunkIds: ["chk_1"],
+      files: ["USER.md"],
+    })),
   };
   const mounted = mountMemoryHandlers(
     handlers as unknown as MemoryHandlers,
@@ -67,6 +72,10 @@ const REFUSED_PATHS = [
   "IDENTITY.md/",
   "IDENTITY.md ",
   "notes/IDENTITY.md",
+  "\u0131dent\u0131ty.md", // dotless i
+  "\uFF29\uFF24\uFF25\uFF2E\uFF34\uFF29\uFF34\uFF39.md", // full-width letters
+  "IDENTITY.\uFF4D\uFF44", // full-width extension
+  "IDENT\u0130TY.md", // dotted capital I
   "",
 ];
 const ALLOWED_PATHS = ["IDENTITY.md", "identity.md", "Identity.MD"];
@@ -102,8 +111,17 @@ describe("memory.read per connection (handlers)", () => {
 
   it.each(ALLOWED_PATHS)("a phone still reads the persona file as %s", async (path) => {
     const { run } = build();
-    expect(await run("memory.read", phone, { path })).toMatchObject({ path });
+    expect(await run("memory.read", phone, { path })).toMatchObject({ path: "IDENTITY.md" });
   });
+
+  it.each(ALLOWED_PATHS)(
+    "%s is read as the literal IDENTITY.md, never as the spelling sent",
+    async (path) => {
+      const { run, handlers } = build();
+      await run("memory.read", phone, { path });
+      expect(handlers["memory.read"]).toHaveBeenCalledWith({ path: "IDENTITY.md" });
+    },
+  );
 
   it("a missing file is refused like an existing one (no existence oracle)", async () => {
     const { run } = build();
@@ -116,6 +134,33 @@ describe("memory.read per connection (handlers)", () => {
     expect(b.code).toBe(a.code);
     expect(b.message).toBe(a.message);
   });
+});
+
+describe("memory.forget per connection (handlers)", () => {
+  const PARAMS = [
+    { subject: "chemotherapy", dryRun: true },
+    { subject: "chemotherapy", dryRun: false },
+    { subject: "chemotherapy" },
+  ];
+
+  it.each(PARAMS)("desktop app and Host CLI forget %j as before (positive control)", async (p) => {
+    for (const c of [desktop, hostCli]) {
+      const { run, handlers } = build();
+      expect(await run("memory.forget", c, p)).toMatchObject({ files: ["USER.md"] });
+      expect(handlers["memory.forget"]).toHaveBeenCalledWith(p);
+    }
+  });
+
+  for (const [who, c] of OTHERS) {
+    it.each(PARAMS)(`refuses %j for ${who} and never touches the store`, async (p) => {
+      const { run, handlers } = build();
+      await expect(run("memory.forget", c, p)).rejects.toMatchObject({
+        code: "forbidden",
+        details: { reason: "not_desktop" },
+      });
+      expect(handlers["memory.forget"]).not.toHaveBeenCalled();
+    });
+  }
 });
 
 describe("memory.files.list per connection (handlers)", () => {
@@ -180,6 +225,24 @@ describe("memory.read through the composed Gateway", () => {
     const deskList = await desk.call<{ files: { path: string }[] }>("memory.files.list", {});
     expect(phoneList.files.map((f) => f.path)).not.toContain("USER.md");
     expect(deskList.files.map((f) => f.path)).toContain("USER.md");
+    // memory.forget is no word oracle for the phone; the desktop's dry run finds the file.
+    for (const dryRun of [true, false]) {
+      const f = await phoneClient.request("memory.forget", { subject: "oolong", dryRun }, ik());
+      expect(f.ok).toBe(false);
+      expect((f.error as { code: string }).code).toBe("forbidden");
+    }
+    const dry = await desk.call<{ files: string[] }>(
+      "memory.forget",
+      {
+        subject: "oolong",
+        dryRun: true,
+      },
+      ik(),
+    );
+    expect(dry.files).toContain("USER.md");
+    expect(
+      (await desk.call<{ content: string }>("memory.read", { path: "USER.md" })).content,
+    ).toContain("oolong");
     // What iOS keeps: the persona and the claims list still answer for the phone.
     expect((await phoneClient.request("memory.persona.get", {})).ok).toBe(true);
     expect((await phoneClient.request("memory.claims.list", {})).ok).toBe(true);

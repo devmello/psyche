@@ -174,6 +174,7 @@ export const hi: Partial<Catalogue> = {
   "errors.reason.secret_required": "दूसरे क्लाइंट को अपना क्लाइंट सीक्रेट चाहिए।",
   "errors.reason.project_private":
     "वह प्रोजेक्ट निजी है, इसलिए उसका Space नहीं हो सकता। पहले निजी रखें बंद करें।",
+  "errors.reason.entity_exists": "यह पहले से मेमोरी में है।",
   "errors.reason.setting_unknown": "यह सेटिंग मौजूद नहीं है।",
   "errors.reason.setting_invalid": "इस सेटिंग के लिए यह मान मान्य नहीं है।",
   "errors.reason.model_budget":

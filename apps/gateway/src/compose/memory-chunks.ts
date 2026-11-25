@@ -31,13 +31,15 @@ export function memoryViewerOf(call: Call): AnswerViewer {
  * whose content `memory.persona.get` returns to it already. An allowlist of one exact name, folded
  * the way APFS folds (case and Unicode); any other spelling or path is refused, never resolved.
  */
-const REMOTE_READABLE_FILES: ReadonlySet<string> = new Set(["identity.md"]);
+const PERSONA_FILE = "IDENTITY.md";
 
-const fold = (s: string): string =>
-  s.normalize("NFKC").toLowerCase().toUpperCase().toLowerCase().normalize("NFKC");
-
+/**
+ * ASCII case-insensitive only: no Unicode folding, so `ıdentıty.md`, `ＩＤＥＮＴＩＴＹ.md` and
+ * `IDENTITY.ｍｄ` are different files and are refused. A path that passes is read as the literal
+ * {@link PERSONA_FILE}, never as the spelling the caller sent.
+ */
 export const isRemoteReadablePath = (path: string): boolean =>
-  REMOTE_READABLE_FILES.has(fold(path));
+  /^[iI][dD][eE][nN][tT][iI][tT][yY]\.[mM][dD]$/.test(path);
 
 /** True when this viewer may open a Memory-source passage: the one rule, `forViewer`'s. */
 export const mayReadMemoryChunks = (viewer: AnswerViewer): boolean =>
@@ -144,7 +146,21 @@ export function mountMemoryHandlers(
             },
           );
       }
+      // A connection that may not open Memory reads the persona file by its one literal name.
+      if (!mayReadMemoryChunks(memoryViewerOf(call)))
+        return handlers["memory.read"]({ ...(params as object), path: PERSONA_FILE } as never);
       return handlers["memory.read"](params);
+    },
+  };
+  // `memory.forget` reports which files, chunks and claims match a word (`dryRun`) or deletes the
+  // lines: a word-level oracle over files this connection cannot read. Same refusal as `memory.export`.
+  out["memory.forget"] = {
+    run: async (call: Call, params: never) => {
+      if (!mayReadMemoryChunks(memoryViewerOf(call)))
+        throw new PsycheError("forbidden", "Memory forgets from the Psyche app on the Host only", {
+          details: { reason: "not_desktop" },
+        });
+      return handlers["memory.forget"](params);
     },
   };
   out["memory.files.list"] = {
