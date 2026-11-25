@@ -106,6 +106,12 @@ import type { GraphWorld } from "../fixtures/people.ts";
 import { appleShortcuts, connectorCatalogue } from "../fixtures/settings.ts";
 import { AUTHOR_KEY, type MockSkillSource } from "../fixtures/skills.ts";
 import { applyOpsLocal } from "../lib/artifact-ops.ts";
+import {
+  type NightShiftMockContext,
+  type NightShiftWorld,
+  nightShiftHandlers,
+  settleNightShift,
+} from "../night-shift/mock-night-shift.ts";
 import type { ConnectionState, GatewayClient, GatewayEvent, RequestOptions } from "./client.ts";
 import { isEmptyUserChat } from "./empty-chat.ts";
 import { toBase64 } from "./files.ts";
@@ -217,6 +223,8 @@ export interface MockWorld {
   /** Batch proposals (`proposals.*`) and the calls that fail when one runs, by proposal id. */
   proposals?: ActionProposal[];
   proposalFailures?: Record<string, Record<number, string>>;
+  /** Night shift (`nightShift.*`, docs/design/night-shift-2026.md); absent → off, nothing prepared. */
+  nightShift?: NightShiftWorld;
   skills: SkillDetails[];
   skillSources: Record<string, MockSkillSource>;
   skillDrafts: SkillDraft[];
@@ -1367,6 +1375,19 @@ export class MockGateway implements GatewayClient {
     };
   }
 
+  private nightShiftContext(): NightShiftMockContext {
+    return {
+      world: () => {
+        this.world.nightShift ??= { enabled: false, night: null, items: [] };
+        return this.world.nightShift;
+      },
+      approvals: () => this.world.approvals,
+      answerTokens: () => this.world.answerTokens,
+      now: () => this.now(),
+      emit: (event, payload) => this.emit(event, payload),
+    };
+  }
+
   private readonly handlers: { [M in MethodName]?: (params: MethodParams<M>) => unknown } = {
     ...graphHandlers({
       graph: () => {
@@ -1385,6 +1406,7 @@ export class MockGateway implements GatewayClient {
       now: () => this.now(),
     }),
     ...proposalHandlers(this.proposalContext()),
+    ...nightShiftHandlers(this.nightShiftContext()),
     ...spacesHandlers({
       world: () => {
         this.world.spaces ??= emptySpaces();
@@ -1949,6 +1971,7 @@ export class MockGateway implements GatewayClient {
       this.replace("approvals", decided);
       this.emit("approval.updated", { approval: decided });
       settleBatch(this.proposalContext(), decided);
+      settleNightShift(this.nightShiftContext(), decided);
       return { approval: decided, grant: null };
     },
     // The desktop's Allow on a Touch ID card: the helper signs (here: always), the broker answers.

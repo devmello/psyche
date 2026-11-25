@@ -37,6 +37,7 @@ import { memoryPrivacyRest } from "./memoryPrivacy-rest/ko.ts";
 import { memoryReviewRest } from "./memoryReview-rest/ko.ts";
 import { memorySurfacesRest } from "./memorySurfaces-rest/ko.ts";
 import { memoryWorkRest } from "./memoryWork-rest/ko.ts";
+import { nightShift } from "./night-shift/ko.ts";
 import { notices } from "./notices/ko.ts";
 import { nudgesRest } from "./nudges-rest/ko.ts";
 import { onboardingRest } from "./onboarding-rest/ko.ts";
@@ -3947,6 +3948,7 @@ export const ko: Partial<Catalogue> = {
   // Windows variants of the sandbox PC, voice keys and platform terms
   ...windowsPlatform202611,
   ...mailFollowups,
+  ...nightShift,
   ...keepAwake,
   ...friction,
   ...update,

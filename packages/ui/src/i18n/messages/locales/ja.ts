@@ -37,6 +37,7 @@ import { memoryPrivacyRest } from "./memoryPrivacy-rest/ja.ts";
 import { memoryReviewRest } from "./memoryReview-rest/ja.ts";
 import { memorySurfacesRest } from "./memorySurfaces-rest/ja.ts";
 import { memoryWorkRest } from "./memoryWork-rest/ja.ts";
+import { nightShift } from "./night-shift/ja.ts";
 import { notices } from "./notices/ja.ts";
 import { nudgesRest } from "./nudges-rest/ja.ts";
 import { onboardingRest } from "./onboarding-rest/ja.ts";
@@ -3974,6 +3975,7 @@ export const ja: Partial<Catalogue> = {
   // Windows variants of the sandbox PC, voice keys and platform terms
   ...windowsPlatform202611,
   ...mailFollowups,
+  ...nightShift,
   ...keepAwake,
   ...friction,
   ...update,

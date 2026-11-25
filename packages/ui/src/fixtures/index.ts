@@ -50,6 +50,7 @@ import type {
 } from "@psyche/protocol";
 import type { ReviewWorld } from "../data/mock-review.ts";
 import type { SpacesWorld } from "../data/mock-spaces.ts";
+import type { NightShiftWorld } from "../night-shift/mock-night-shift.ts";
 import { answerTokens, approvals, grants } from "./approvals.ts";
 import { messages, runs, threads, toolCalls } from "./chat.ts";
 import { fileTree, type MockFileNode } from "./files.ts";
@@ -228,6 +229,8 @@ export interface FixtureWorld {
   /** Batch proposals (`proposals.*`) and which calls fail when one runs (`fixtures/workflows.ts`). */
   proposals?: ActionProposal[];
   proposalFailures?: Record<string, Record<number, string>>;
+  /** Night shift (`night-shift/mock.ts`: `nightShiftFixture()`); absent → off. */
+  nightShift?: NightShiftWorld;
   /** Background specialists (`fixtures/specialists.ts`). */
   specialistRoles?: SpecialistRole[];
   specialistJobs?: SpecialistJob[];

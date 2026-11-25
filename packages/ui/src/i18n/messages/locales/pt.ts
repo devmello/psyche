@@ -22,6 +22,7 @@ import { mailMeetings } from "./mail-meetings/pt.ts";
 import { memoryA } from "./memory-a/pt.ts";
 import { memoryB } from "./memory-b/pt.ts";
 import { memoryMap } from "./memory-map/pt.ts";
+import { nightShift } from "./night-shift/pt.ts";
 import { notices } from "./notices/pt.ts";
 import { overview } from "./overview/pt.ts";
 import { overviewGrowth } from "./overview-growth/pt.ts";
@@ -3958,6 +3959,7 @@ export const pt: Partial<Catalogue> = {
   // Windows variants of the sandbox PC, voice keys and platform terms
   ...windowsPlatform202611,
   ...mailFollowups,
+  ...nightShift,
   ...keepAwake,
   ...friction,
   ...update,

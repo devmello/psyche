@@ -193,7 +193,10 @@ function initialRoute(): string {
   if (p === "/" || p.endsWith("index.html")) return "/chat";
   // The Overview keeps its period in the URL (`?period=`), so a reload or a shared link reproduces
   // the view (docs/design/agent-overview-2026.md §5.1).
-  return /^\/(overview|agent)(\/|$)/.test(p) ? p + (globalThis.location?.search ?? "") : p;
+  const search = globalThis.location?.search ?? "";
+  // A Night shift review deep link (`/home?review=<id>`) reopens the sheet on reload.
+  if (p === "/home" && /[?&]review=/.test(search)) return p + search;
+  return /^\/(overview|agent)(\/|$)/.test(p) ? p + search : p;
 }
 
 function useWindowWidth(): number {
