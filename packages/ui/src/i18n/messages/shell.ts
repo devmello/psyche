@@ -136,7 +136,6 @@ export const shell = {
   "shell.search.preview": "Preview",
   "shell.search.hintSideChat": "open in a side chat",
   "shell.search.keyCtrlEnter": "Ctrl ↵",
-  "shell.search.actionHint": "Runs this command.",
   "shell.search.open": "Open",
   "shell.search.openInSideChat": "Open in a side chat",
   "shell.search.keyCmdL": "⌘L",

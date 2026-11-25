@@ -1063,7 +1063,6 @@ export const de: Partial<Catalogue> = {
   "shell.search.preview": "Vorschau",
   "shell.search.hintSideChat": "in einem Nebenchat öffnen",
   "shell.search.keyCtrlEnter": "Ctrl ↵",
-  "shell.search.actionHint": "Führt diesen Befehl aus.",
   "shell.search.open": "Öffnen",
   "shell.search.openInSideChat": "In einem Nebenchat öffnen",
   "shell.compact.threads": "Threads",

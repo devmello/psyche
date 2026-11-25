@@ -145,6 +145,11 @@ export function shortActions(
   return [...head, { id: SHOW_ALL_ID, label: t("shell.palette.showAll"), run: onShowAll }];
 }
 
+/** Commands have nothing to preview beyond their name, so the pane is left out for them. */
+function hasPreview(item: SurfaceItem): boolean {
+  return item.kind !== "action";
+}
+
 export function surfaceGroups(
   hits: readonly SearchHit[],
   actions: readonly PaletteAction[],
@@ -779,7 +784,7 @@ export function SearchSurface({
           ) : null}
           {results}
         </div>
-        {preview && current ? (
+        {preview && current && hasPreview(current) ? (
           <aside
             aria-label={t("shell.search.preview")}
             className={cn(
@@ -1001,16 +1006,8 @@ function SurfacePreview({
       </>
     );
   }
-  if (item.kind === "action") {
-    return (
-      <>
-        <p className="text-title-3 text-label-primary">{item.action.label}</p>
-        <p className="text-callout text-label-secondary">
-          {item.action.disabledReason ?? t("shell.search.actionHint")}
-        </p>
-      </>
-    );
-  }
+  // Commands have no preview (`hasPreview`); this narrows the type for the hit below.
+  if (item.kind === "action") return <></>;
   const { hit } = item;
   const Icon = SCOPE_ICON[hit.scope];
   const sourceOnly = isSourceHit(hit);

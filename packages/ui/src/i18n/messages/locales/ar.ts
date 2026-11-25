@@ -1089,7 +1089,6 @@ export const ar: Partial<Catalogue> = {
   "shell.search.preview": "معاينة",
   "shell.search.hintSideChat": "فتح في دردشة جانبية",
   "shell.search.keyCtrlEnter": "Ctrl ↵",
-  "shell.search.actionHint": "يشغّل هذا الأمر.",
   "shell.search.open": "فتح",
   "shell.search.openInSideChat": "فتح في دردشة جانبية",
   "shell.compact.threads": "المحادثات",

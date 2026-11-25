@@ -597,12 +597,15 @@ export function LibraryView({
   now,
   ...actions
 }: LibraryViewProps): ReactElement {
-  const ids = { show: useId(), type: useId(), date: useId() };
+  const ids = { show: useId(), type: useId(), task: useId(), date: useId() };
   const showSkeleton = useDelayedFlag(loading, loadingDelayMs);
   const [selected, setSelected] = useState<string | null>(null);
   const inSection = items.filter((i) => sectionOf(i) === section);
   const shown = applyFilters(inSection, filters, now);
   const types = [...new Set(inSection.map(fileType))].sort();
+  const taskIds = [
+    ...new Set(inSection.map((i) => i.taskId).filter((t): t is string => t != null)),
+  ];
   const active =
     (filters.type !== null ? 1 : 0) +
     (filters.taskId !== null ? 1 : 0) +
@@ -829,6 +832,24 @@ export function LibraryView({
               {types.map((type) => (
                 <option key={type} value={type}>
                   {type}
+                </option>
+              ))}
+            </NativeSelect>,
+          )}
+          {labelled(
+            ids.task,
+            t("screens.library.sourceTask"),
+            <NativeSelect
+              id={ids.task}
+              size="sm"
+              className="max-w-48"
+              value={filters.taskId ?? ""}
+              onChange={(e) => setFilter({ taskId: e.target.value === "" ? null : e.target.value })}
+            >
+              <option value="">{t("screens.library.anyTask")}</option>
+              {taskIds.map((tid) => (
+                <option key={tid} value={tid}>
+                  {taskTitles[tid] ?? tid}
                 </option>
               ))}
             </NativeSelect>,

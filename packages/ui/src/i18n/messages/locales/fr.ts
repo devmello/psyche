@@ -1027,7 +1027,6 @@ export const fr: Partial<Catalogue> = {
   "shell.search.preview": "Aperçu",
   "shell.search.hintSideChat": "ouvrir dans une discussion annexe",
   "shell.search.keyCtrlEnter": "Ctrl ↵",
-  "shell.search.actionHint": "Exécute cette commande.",
   "shell.search.open": "Ouvrir",
   "shell.search.openInSideChat": "Ouvrir dans une discussion annexe",
   "shell.compact.threads": "Discussions",

@@ -1034,7 +1034,6 @@ export const ko: Partial<Catalogue> = {
   "shell.search.preview": "미리보기",
   "shell.search.hintSideChat": "사이드 채팅에서 열기",
   "shell.search.keyCtrlEnter": "Ctrl ↵",
-  "shell.search.actionHint": "이 명령을 실행합니다.",
   "shell.search.open": "열기",
   "shell.search.openInSideChat": "사이드 채팅에서 열기",
   "shell.compact.threads": "스레드",

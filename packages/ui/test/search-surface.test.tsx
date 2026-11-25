@@ -329,7 +329,7 @@ describe("⌘K opens as one field (Spotlight-style)", () => {
     expect(run).toHaveBeenCalled();
   });
 
-  it("has no footer key hints and no Run button in the preview", () => {
+  it("has no footer key hints, and no preview pane for a plain command", () => {
     render(
       <StoryWorld>
         <Surface
@@ -339,12 +339,19 @@ describe("⌘K opens as one field (Spotlight-style)", () => {
         />
       </StoryWorld>,
     );
-    // Positive control: the preview of the highlighted command is on screen.
-    expect(
-      within(screen.getByTestId("search-preview")).getByText("Open the dentist pane"),
-    ).toBeTruthy();
+    // One column: a command has nothing to preview, so there is no pane and no Run button.
+    expect(screen.queryByTestId("search-preview")).toBeNull();
     expect(screen.queryByTestId("search-hints")).toBeNull();
     expect(screen.queryByRole("button", { name: "Run" })).toBeNull();
+  });
+
+  it("keeps the preview pane for a result that has one", () => {
+    render(
+      <StoryWorld>
+        <Surface preview />
+      </StoryWorld>,
+    );
+    expect(screen.getByTestId("search-preview")).toBeTruthy();
   });
 });
 

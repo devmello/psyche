@@ -1035,7 +1035,6 @@ export const ja: Partial<Catalogue> = {
   "shell.search.preview": "プレビュー",
   "shell.search.hintSideChat": "サイドチャットで開く",
   "shell.search.keyCtrlEnter": "Ctrl ↵",
-  "shell.search.actionHint": "このコマンドを実行します。",
   "shell.search.open": "開く",
   "shell.search.openInSideChat": "サイドチャットで開く",
   "shell.compact.threads": "スレッド",

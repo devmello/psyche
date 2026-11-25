@@ -8,4 +8,6 @@ export const desktopSimple = {
   "memory.page.kind.work": "Work",
   "memory.page.search": "Search Memory",
   "memory.page.moreMenu": "Memory menu",
+  "screens.library.sourceTask": "Source task",
+  "screens.library.anyTask": "Any task",
 };

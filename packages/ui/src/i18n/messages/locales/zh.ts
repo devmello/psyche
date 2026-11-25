@@ -1063,7 +1063,6 @@ export const zh: Partial<Catalogue> = {
   "shell.search.preview": "预览",
   "shell.search.hintSideChat": "在支线聊天中打开",
   "shell.search.keyCtrlEnter": "Ctrl ↵",
-  "shell.search.actionHint": "运行此命令。",
   "shell.search.open": "打开",
   "shell.search.openInSideChat": "在支线聊天中打开",
   "shell.compact.threads": "会话",

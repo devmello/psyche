@@ -1047,7 +1047,6 @@ export const hi: Partial<Catalogue> = {
   "shell.search.preview": "प्रीव्यू",
   "shell.search.hintSideChat": "साइड चैट में खोलें",
   "shell.search.keyCtrlEnter": "Ctrl ↵",
-  "shell.search.actionHint": "यह कमांड चलाता है।",
   "shell.search.open": "खोलें",
   "shell.search.openInSideChat": "साइड चैट में खोलें",
   "shell.compact.threads": "थ्रेड",

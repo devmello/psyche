@@ -7,4 +7,6 @@ export const desktopSimple: Partial<Catalogue> = {
   "memory.page.kind.work": "काम",
   "memory.page.search": "मेमोरी में खोजें",
   "memory.page.moreMenu": "मेमोरी मेनू",
+  "screens.library.sourceTask": "स्रोत टास्क",
+  "screens.library.anyTask": "कोई भी टास्क",
 };

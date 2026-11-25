@@ -1001,7 +1001,6 @@ export const pt: Partial<Catalogue> = {
   "shell.search.preview": "Pré-visualização",
   "shell.search.hintSideChat": "abrir em uma conversa paralela",
   "shell.search.keyCtrlEnter": "Ctrl ↵",
-  "shell.search.actionHint": "Executa este comando.",
   "shell.search.open": "Abrir",
   "shell.search.openInSideChat": "Abrir em uma conversa paralela",
   "shell.compact.threads": "Conversas",

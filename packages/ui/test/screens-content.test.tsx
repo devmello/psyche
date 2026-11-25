@@ -339,11 +339,27 @@ describe("LibraryScreen", () => {
         .getAllByRole("option")
         .map((o) => o.textContent),
     ).toEqual(expect.arrayContaining(["Artifacts", "System files"]));
-    // Three rows: Show, Type, Date.
+    // Four rows: Show, Type, Source task, Date.
     expect(screen.getByLabelText("Type")).toBeTruthy();
+    expect(screen.getByLabelText("Source task")).toBeTruthy();
     expect(screen.getByLabelText("Date")).toBeTruthy();
     await user.selectOptions(show, "Artifacts");
     expect(await screen.findByText("half-marathon-plan.pdf")).toBeTruthy();
+  });
+
+  it("filters by source task from the popover", async () => {
+    const { user } = setup(<LibraryScreen now={STORY_NOW} section="artifacts" />);
+    await screen.findByText("half-marathon-plan.pdf");
+    const before = screen.getAllByRole("article").length;
+    await user.click(screen.getByRole("button", { name: "Filter" }));
+    const task = (await screen.findByLabelText("Source task")) as HTMLSelectElement;
+    const options = within(task).getAllByRole("option");
+    expect(options[0]?.textContent).toBe("Any task");
+    expect(options.length).toBeGreaterThan(1);
+    await user.selectOptions(task, (options[1] as HTMLOptionElement).value);
+    expect(screen.getAllByRole("article").length).toBeLessThan(before);
+    await user.selectOptions(task, "");
+    expect(screen.getAllByRole("article").length).toBe(before);
   });
 
   it("switches tabs and opens system files in the editor", async () => {
