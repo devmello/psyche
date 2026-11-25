@@ -170,5 +170,21 @@ export function runLinkRoute(runId: string): string {
   return `/overview/run/${encodeURIComponent(runId)}`;
 }
 
+/**
+ * The generic Feed text of a finished automation run that has no summary of its own. The Feed
+ * stored these English lines; clients show them in the owner's language (matched exactly, so
+ * older posts are covered too).
+ */
+export const RUN_SNAPSHOT_BODY = {
+  done: "The run finished.",
+  failed: "The run did not finish.",
+} as const;
+
+/** The note a restart leaves in a thread whose turn was cut off (`TextBlock.noteKey`). */
+export const GATEWAY_RESTART_NOTE = {
+  key: "gateway_restart",
+  md: "The Gateway restarted during this turn, so it was stopped.",
+} as const;
+
 export const SCHEDULED_RUNS_ROUTE = "/scheduled?tab=runs";
 export const MEMORY_REVIEW_ROUTE = "/memory/review";

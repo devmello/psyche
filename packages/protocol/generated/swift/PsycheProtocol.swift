@@ -1414,6 +1414,7 @@
 //   let runStepAttempt = try? JSONDecoder().decode(RunStepAttempt.self, from: jsonData)
 //   let runStepError = try? JSONDecoder().decode(RunStepError.self, from: jsonData)
 //   let runStepKind = try? JSONDecoder().decode(RunStepKind.self, from: jsonData)
+//   let runStepLabelKey = try? JSONDecoder().decode(RunStepLabelKey.self, from: jsonData)
 //   let runStepPayload = try? JSONDecoder().decode(RunStepPayload.self, from: jsonData)
 //   let runStepStatus = try? JSONDecoder().decode(RunStepStatus.self, from: jsonData)
 //   let runSummary = try? JSONDecoder().decode(RunSummary.self, from: jsonData)
@@ -10053,6 +10054,7 @@ public struct ChatBlockPayload: Codable, Sendable {
 // MARK: - Block
 public struct Block: Codable, Sendable {
     public let md: String?
+    public let noteKey: String?
     public let type: BlockType
     /// One-line status shown in the transcript
     public let level1: String?
@@ -10107,6 +10109,7 @@ public struct Block: Codable, Sendable {
 
     public enum CodingKeys: String, CodingKey {
         case md = "md"
+        case noteKey = "noteKey"
         case type = "type"
         case level1 = "level1"
         case status = "status"
@@ -10157,8 +10160,9 @@ public struct Block: Codable, Sendable {
         case branchID = "branchId"
     }
 
-    public init(md: String? = nil, type: BlockType, level1: String? = nil, status: ToolCallStatus? = nil, tool: String? = nil, toolCallID: String? = nil, planID: String? = nil, items: [ItemElement]? = nil, approvalID: String? = nil, inputRequestID: String? = nil, artifactID: String? = nil, preview: String? = nil, libraryItemID: String? = nil, id: String? = nil, kind: BlockKind? = nil, source: String? = nil, title: String? = nil, url: String? = nil, receiptID: String? = nil, taskID: String? = nil, actions: [WrapUpAction]? = nil, ask: String? = nil, recap: String? = nil, cited: [String]? = nil, answer: String? = nil, factIDS: [String]? = nil, facts: [LifeFactHit]? = nil, model: ModelEnum? = nil, passageIDS: [String]? = nil, passages: [LifeAnswerPassage]? = nil, question: String? = nil, compactionID: String? = nil, droppedPins: [String]? = nil, keptPins: [String]? = nil, replaced: Replaced? = nil, summary: CompactionSummary? = nil, tokensAfter: Int? = nil, tokensBefore: Int? = nil, trigger: BlockTrigger? = nil, feedbackID: String? = nil, lessonID: String? = nil, messageID: String? = nil, statement: String? = nil, proposal: DailyWorkflowProposal? = nil, route: String? = nil, goal: String? = nil, widgetID: String? = nil, forkID: String? = nil, branchID: String? = nil) {
+    public init(md: String? = nil, noteKey: String? = nil, type: BlockType, level1: String? = nil, status: ToolCallStatus? = nil, tool: String? = nil, toolCallID: String? = nil, planID: String? = nil, items: [ItemElement]? = nil, approvalID: String? = nil, inputRequestID: String? = nil, artifactID: String? = nil, preview: String? = nil, libraryItemID: String? = nil, id: String? = nil, kind: BlockKind? = nil, source: String? = nil, title: String? = nil, url: String? = nil, receiptID: String? = nil, taskID: String? = nil, actions: [WrapUpAction]? = nil, ask: String? = nil, recap: String? = nil, cited: [String]? = nil, answer: String? = nil, factIDS: [String]? = nil, facts: [LifeFactHit]? = nil, model: ModelEnum? = nil, passageIDS: [String]? = nil, passages: [LifeAnswerPassage]? = nil, question: String? = nil, compactionID: String? = nil, droppedPins: [String]? = nil, keptPins: [String]? = nil, replaced: Replaced? = nil, summary: CompactionSummary? = nil, tokensAfter: Int? = nil, tokensBefore: Int? = nil, trigger: BlockTrigger? = nil, feedbackID: String? = nil, lessonID: String? = nil, messageID: String? = nil, statement: String? = nil, proposal: DailyWorkflowProposal? = nil, route: String? = nil, goal: String? = nil, widgetID: String? = nil, forkID: String? = nil, branchID: String? = nil) {
         self.md = md
+        self.noteKey = noteKey
         self.type = type
         self.level1 = level1
         self.status = status
@@ -32845,6 +32849,7 @@ public struct RunStep: Codable, Sendable {
     public let inputRequestID: String?
     public let kind: RunStepKind
     public let label: String
+    public let labelKey: RunStepLabelKey?
     public let machine: ComputerMachineRef?
     public let memoryPath: String?
     public let modelRef: String?
@@ -32879,6 +32884,7 @@ public struct RunStep: Codable, Sendable {
         case inputRequestID = "inputRequestId"
         case kind = "kind"
         case label = "label"
+        case labelKey = "labelKey"
         case machine = "machine"
         case memoryPath = "memoryPath"
         case modelRef = "modelRef"
@@ -32898,7 +32904,7 @@ public struct RunStep: Codable, Sendable {
         case usage = "usage"
     }
 
-    public init(approvalID: String? = nil, artifactID: String? = nil, attempt: Int, attempts: [RunStepAttempt]? = nil, childRunID: String? = nil, doneLabel: String? = nil, endedAt: String? = nil, error: RunStepError? = nil, frames: Frames? = nil, groupID: String? = nil, id: String, inputRequestID: String? = nil, kind: RunStepKind, label: String, machine: ComputerMachineRef? = nil, memoryPath: String? = nil, modelRef: String? = nil, parentStepID: String? = nil, payloadRef: PayloadRef? = nil, preview: Preview? = nil, progress: Progress? = nil, receiptID: String? = nil, runID: String, seq: Int, startedAt: String, status: RunStepStatus, target: String? = nil, taskID: String? = nil, text: Text? = nil, toolCallID: String? = nil, usage: Usage? = nil) {
+    public init(approvalID: String? = nil, artifactID: String? = nil, attempt: Int, attempts: [RunStepAttempt]? = nil, childRunID: String? = nil, doneLabel: String? = nil, endedAt: String? = nil, error: RunStepError? = nil, frames: Frames? = nil, groupID: String? = nil, id: String, inputRequestID: String? = nil, kind: RunStepKind, label: String, labelKey: RunStepLabelKey? = nil, machine: ComputerMachineRef? = nil, memoryPath: String? = nil, modelRef: String? = nil, parentStepID: String? = nil, payloadRef: PayloadRef? = nil, preview: Preview? = nil, progress: Progress? = nil, receiptID: String? = nil, runID: String, seq: Int, startedAt: String, status: RunStepStatus, target: String? = nil, taskID: String? = nil, text: Text? = nil, toolCallID: String? = nil, usage: Usage? = nil) {
         self.approvalID = approvalID
         self.artifactID = artifactID
         self.attempt = attempt
@@ -32913,6 +32919,7 @@ public struct RunStep: Codable, Sendable {
         self.inputRequestID = inputRequestID
         self.kind = kind
         self.label = label
+        self.labelKey = labelKey
         self.machine = machine
         self.memoryPath = memoryPath
         self.modelRef = modelRef
@@ -32969,6 +32976,13 @@ public struct Frames: Codable, Sendable {
         self.first = first
         self.last = last
     }
+}
+
+public enum RunStepLabelKey: String, Codable, Sendable {
+    case file = "file"
+    case model = "model"
+    case reply = "reply"
+    case thinking = "thinking"
 }
 
 // MARK: - PayloadRef
@@ -40733,15 +40747,18 @@ public struct TerminalSessionWriteParams: Codable, Sendable {
 // MARK: - TextBlock
 public struct TextBlock: Codable, Sendable {
     public let md: String
+    public let noteKey: String?
     public let type: TextBlockType
 
     public enum CodingKeys: String, CodingKey {
         case md = "md"
+        case noteKey = "noteKey"
         case type = "type"
     }
 
-    public init(md: String, type: TextBlockType) {
+    public init(md: String, noteKey: String? = nil, type: TextBlockType) {
         self.md = md
+        self.noteKey = noteKey
         self.type = type
     }
 }
