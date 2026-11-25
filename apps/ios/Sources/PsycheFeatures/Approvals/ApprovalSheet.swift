@@ -142,7 +142,7 @@ struct ApprovalSheet: View {
                 if !session.state.canAnswer {
                     Text("Reconnect to answer", bundle: .module).font(.footnote).foregroundStyle(.secondary)
                 }
-                HStack(spacing: 10) {
+                AnswerButtonRow {
                     // Deny stays on a card the phone holds an answer for (refusing shows nothing the card doesn't); off
                     // when it holds none (a payment, a card kept on the Mac), where it could only fail.
                     SecondaryAnswerButton(title: String(localized: "Deny", bundle: .module)) { answer(.deny) }

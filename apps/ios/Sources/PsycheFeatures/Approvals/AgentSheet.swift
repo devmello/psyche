@@ -37,7 +37,7 @@ struct AgentSheet: View {
                     }
                     .pickerStyle(.segmented)
                     .listRowBackground(Color.clear)
-                    .listRowInsets(EdgeInsets())
+                    .listRowInsets(EdgeInsets(top: 0, leading: 16, bottom: 8, trailing: 16))
                 }
                 if let error = model.error {
                     Section { StatusDot(.failed, error, textColor: .primary) }
@@ -186,15 +186,18 @@ struct AgentSheet: View {
         }
         .padding(.vertical, 2)
         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-            Button(role: .destructive) { cancelling = task } label: {
-                Label(String(localized: "Cancel", bundle: .module), systemImage: "xmark")
+            // Away from home there is nothing to cancel with: the action is not offered.
+            if session.state.canAnswer {
+                Button(role: .destructive) { cancelling = task } label: {
+                    Label(String(localized: "Cancel", bundle: .module), systemImage: "xmark")
+                }
             }
-            .disabled(!session.state.canAnswer)
         }
         .contextMenu {
             Button { openedTaskID = task.id } label: { Label(String(localized: "Open", bundle: .module), systemImage: "arrow.up.right") }
-            Button(role: .destructive) { cancelling = task } label: { Label(String(localized: "Cancel", bundle: .module), systemImage: "xmark") }
-                .disabled(!session.state.canAnswer)
+            if session.state.canAnswer {
+                Button(role: .destructive) { cancelling = task } label: { Label(String(localized: "Cancel", bundle: .module), systemImage: "xmark") }
+            }
         }
     }
 
