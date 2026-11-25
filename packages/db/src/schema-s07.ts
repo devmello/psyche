@@ -338,6 +338,16 @@ export const memoryQuarantine = sqliteTable("memory_quarantine", {
   decidedAt: text("decided_at"),
 });
 
+export const memoryMigrationBackup202611 = sqliteTable("memory_migration_backup_2026_11", {
+  id: text("id").primaryKey(),
+  review: text("review").notNull(),
+  firstSeenAt: text("first_seen_at"),
+  lastSeenAt: text("last_seen_at"),
+  priorId: text("prior_id"),
+  priorValidTo: text("prior_valid_to"),
+  movedAt: text("moved_at").notNull(),
+});
+
 export const memoryWorkUndo = sqliteTable("memory_work_undo", {
   factId: text("fact_id").primaryKey(),
   entityId: text("entity_id").notNull(),
@@ -515,6 +525,7 @@ export const s07Schema = {
   memoryRuns,
   memoryQuarantine,
   memoryWorkUndo,
+  memoryMigrationBackup202611,
   graphExclusions,
   memoryClaimSubjects,
   memoryNeverRules,

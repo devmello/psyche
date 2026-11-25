@@ -48,6 +48,7 @@ import { classifySensitivity } from "../extraction/sensitivity.ts";
 import { blockingKinds, looksLikeInstruction } from "../filters.ts";
 import { trustRank } from "../provenance.ts";
 import { safeName } from "./clean.ts";
+import { isLowerRanked } from "./fact-rank.ts";
 import { createMemoryMapBuilder } from "./map.ts";
 import { blockHash, normalizeIdentifier, normalizeName, sha256, slugify } from "./normalize.ts";
 import {
@@ -1661,19 +1662,39 @@ export class GraphStore {
       return { fact: toFact(this.#factRow(same.id) as FactRow), superseded: null };
     }
     const prior = current[0];
-    if (prior !== undefined && !MULTI_VALUED.has(input.attribute)) {
-      // A model never overrides what the owner said. A status change made by the state machine
-      // (work.ts) is code, not a model: it follows the owner's last word by design.
-      const byStateMachine =
-        input.attribute === "status" &&
-        input.provenance === "system" &&
-        input.subjectKind === "deterministic";
-      if (
-        !byStateMachine &&
-        trustRank(prior.provenance) > trustRank(input.provenance) &&
-        prior.provenance === "owner"
-      ) {
-        return undefined;
+    const single = !MULTI_VALUED.has(input.attribute);
+    // A status change made by the state machine (work.ts) is code, not a model: it follows the
+    // owner's last word by design.
+    const byStateMachine =
+      input.attribute === "status" &&
+      input.provenance === "system" &&
+      input.subjectKind === "deterministic";
+    // One rule with proposeFact (§4.5): third-party text (`untrusted`) is always pending, since
+    // this path carries no checked citation; and a lower-ranked value never replaces a
+    // higher-ranked one, it becomes one conflict review item for the owner.
+    const lower =
+      prior !== undefined &&
+      single &&
+      !byStateMachine &&
+      isLowerRanked(input.provenance, prior.provenance);
+    const pending = input.provenance === "untrusted" || lower;
+    if (pending) {
+      const norm = normalizeName(value);
+      const dup = (
+        this.#db
+          .prepare(
+            "SELECT * FROM graph_facts WHERE entity_id = ? AND attribute = ? AND review = 'pending' AND retracted_at IS NULL",
+          )
+          .all(entity.id, input.attribute) as FactRow[]
+      ).find((r) => normalizeName(r.value) === norm);
+      if (dup !== undefined) {
+        const merged = [...new Set([...(JSON.parse(dup.sources) as string[]), ...sources])];
+        this.#db
+          .prepare(
+            "UPDATE graph_facts SET last_seen_at = ?, sources = ?, evidence = COALESCE(?, evidence), updated_at = ? WHERE id = ?",
+          )
+          .run(now, JSON.stringify(merged), evidence, now, dup.id);
+        return { fact: toFact(this.#factRow(dup.id) as FactRow), superseded: null };
       }
     }
     const id = this.#id("fact");
@@ -1681,8 +1702,9 @@ export class GraphStore {
       this.#db
         .prepare(
           `INSERT INTO graph_facts (id, entity_id, attribute, value, provenance, confidence, sources, evidence,
-             valid_from, valid_to, recorded_at, created_at, updated_at, subject_kind)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+             valid_from, valid_to, recorded_at, created_at, updated_at, subject_kind, review,
+             first_seen_at, last_seen_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         )
         .run(
           id,
@@ -1699,20 +1721,24 @@ export class GraphStore {
           now,
           now,
           input.subjectKind ?? "owner_stated",
+          pending ? "pending" : "accepted",
+          pending ? now : null,
+          pending ? now : null,
         );
-      if (prior !== undefined && !MULTI_VALUED.has(input.attribute)) {
+      if (!pending && prior !== undefined && single) {
         this.#db
           .prepare(
             "UPDATE graph_facts SET superseded_by = ?, valid_to = ?, updated_at = ? WHERE id = ?",
           )
           .run(id, now, now, prior.id);
       }
-      this.#cacheWorkFact(entity, input, value, deadlineAt, now);
+      if (!pending) this.#cacheWorkFact(entity, input, value, deadlineAt, now);
     })();
+    if (pending) return { fact: toFact(this.#factRow(id) as FactRow), superseded: null };
     this.#touched(entity.id, ["facts"]);
     return {
       fact: toFact(this.#factRow(id) as FactRow),
-      superseded: prior !== undefined && !MULTI_VALUED.has(input.attribute) ? prior.id : null,
+      superseded: prior !== undefined && single ? prior.id : null,
     };
   }
 

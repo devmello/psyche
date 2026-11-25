@@ -16,9 +16,11 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { GraphStore } from "../src/graph/store.ts";
 import { copyTables, MEMORY_STORE_TABLES, newKey, openEncrypted } from "../src/secure/encrypted.ts";
 import {
+  applyTrustLeakToEncrypted,
   clearPlain,
   copyBack,
   ENCRYPTED_BACKFILLS,
+  ENCRYPTED_DATA_STEPS,
   restorePlain,
   syncSchema,
   tableChecksums,
@@ -146,7 +148,13 @@ describe("migrations and the encrypted store", () => {
     const dir = join(import.meta.dirname, "..", "..", "db", "migrations");
     const moved = MEMORY_STORE_TABLES.join("|");
     const offending = readdirSync(dir)
-      .filter((f) => f.endsWith(".sql") && f > BEFORE_EM9 && !ROW_PRESERVING_REBUILDS.has(f))
+      .filter(
+        (f) =>
+          f.endsWith(".sql") &&
+          f > BEFORE_EM9 &&
+          !ROW_PRESERVING_REBUILDS.has(f) &&
+          !ENCRYPTED_DATA_STEPS.includes(f),
+      )
       .filter((f) =>
         new RegExp(`\\b(UPDATE|INSERT\\s+INTO|DELETE\\s+FROM)\\s+"?(${moved})\\b`, "i").test(
           readFileSync(join(dir, f), "utf8"),
@@ -155,6 +163,33 @@ describe("migrations and the encrypted store", () => {
     // A migration that must change rows of a moved table needs a step in syncSchema's caller
     // that applies the same change to the encrypted file; add it, then list the file here.
     expect(offending).toEqual([]);
+  });
+
+  it("the trust-leak migration has a step for the encrypted file: moves once, then leaves owner decisions alone", () => {
+    const { plain, enc } = setup();
+    const ent = (plain.prepare("SELECT id FROM graph_entities LIMIT 1").get() as { id: string }).id;
+    const t = "2026-10-20T00:00:00.000Z";
+    const add = (id: string, provenance: string) =>
+      enc
+        .prepare(
+          `INSERT INTO graph_facts (id, entity_id, attribute, value, provenance, confidence, valid_from,
+             recorded_at, created_at, updated_at) VALUES (?, ?, 'city', ?, ?, 0.4, ?, ?, ?, ?)`,
+        )
+        .run(id, ent, id, provenance, t, t, t, t);
+    add("leaked", "untrusted");
+    add("ownerfact", "owner");
+    const review = (id: string) =>
+      (enc.prepare("SELECT review FROM graph_facts WHERE id = ?").get(id) as { review: string })
+        .review;
+    expect(applyTrustLeakToEncrypted(enc)).toBe(true);
+    expect(review("leaked")).toBe("pending");
+    expect(review("ownerfact")).toBe("accepted");
+    // The owner confirms it; the next open does not move it back.
+    enc.prepare("UPDATE graph_facts SET review = 'accepted' WHERE id = 'leaked'").run();
+    expect(applyTrustLeakToEncrypted(enc)).toBe(false);
+    expect(review("leaked")).toBe("accepted");
+    enc.close();
+    plain.close();
   });
 
   it("every exempt rebuild that backfills rows has a real step for the encrypted file", () => {

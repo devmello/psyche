@@ -15,6 +15,7 @@ import {
 import { join } from "node:path";
 import { deleteSettings, getSetting, openDb, type PsycheDb, setSetting } from "@psyche/db";
 import {
+  applyTrustLeakToEncrypted,
   clearPlain,
   copyBack,
   copyTables,
@@ -472,6 +473,8 @@ export function resolveMemoryStore(o: {
           // Later migrations of psyche.sqlite reach the encrypted file here.
           const rebuilt = syncSchema(db, o.db.sqlite, MEMORY_STORE_TABLES);
           if (rebuilt.length > 0) o.log?.(`memory: updated ${rebuilt.join(", ")}`);
+          // Data-only migrations of the moved tables have their own step (wave 2A).
+          if (applyTrustLeakToEncrypted(db)) o.log?.("memory: moved untrusted facts to review");
         } else {
           await moveIn(db, fresh);
         }

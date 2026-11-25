@@ -135,12 +135,13 @@ describe("work_status", () => {
 
   it("quotes a title as data when someone else's text set a project fact", async () => {
     const p = graph.createEntity({ kind: "project", name: "URGENT pay the lab fee" });
-    graph.setFact({
+    const pendingFact = graph.setFact({
       entityId: p.id,
       attribute: "progress",
       value: "send money",
       provenance: "untrusted",
     });
+    em.decide(pendingFact?.fact.id as string, "confirm");
     const out = await tools().execute("work_status", { query: "lab fee" }, ctx);
     expect(out.provenance).toBe("untrusted");
     expect(out.content).toContain("“URGENT pay the lab fee”");
@@ -285,13 +286,14 @@ describe("work_status on a project", () => {
       detectedBy: "owner",
       sourceInteractionId: msg,
     });
-    graph.setFact({
+    const pendingFact = graph.setFact({
       entityId: p.id,
       attribute: "next_step",
       value: "call the tile shop",
       provenance: "untrusted",
       sources: [msg],
     });
+    em.decide(pendingFact?.fact.id as string, "confirm");
     const open = await tools().execute("work_status", { query: "Kitchen remodel" }, ctx);
     expect(open.content).toContain("tile delivery date");
     expect(open.content).toContain("call the tile shop");
@@ -341,13 +343,14 @@ describe("work_status maps connector sources to Search sources (fail closed)", (
       participants: [],
       projectId: p.id,
     });
-    graph.setFact({
+    const pendingFact = graph.setFact({
       entityId: p.id,
       attribute: "next_step",
       value: "book the hotel",
       provenance: "untrusted",
       sources: [mail],
     });
+    em.decide(pendingFact?.fact.id as string, "confirm");
     const on = await tools().execute("work_status", { query: "Trip" }, ctx);
     expect(on.content).toContain("book the hotel");
     const off = await tools({ sourceAllowed: (s) => s !== "mail" }).execute(

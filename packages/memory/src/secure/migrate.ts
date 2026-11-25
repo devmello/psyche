@@ -1,4 +1,7 @@
 import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { DEFAULT_MIGRATIONS_DIR } from "@psyche/db";
 import { PsycheError } from "@psyche/protocol";
 import { type RowConn, streamRows } from "./encrypted.ts";
 
@@ -81,6 +84,32 @@ export const PROMISE_LEDGER_BACKFILL = `UPDATE graph_loops SET
 export const ENCRYPTED_BACKFILLS: Readonly<Record<string, string>> = {
   "202611241000_memory_promises.sql": "graph_loops",
 };
+
+/**
+ * Data-only migrations of a moved table that have their own step for the encrypted file (the
+ * lint in encrypted-migrate.test.ts exempts them): file names.
+ */
+export const ENCRYPTED_DATA_STEPS: readonly string[] = ["202611250900_memory_trust-leak.sql"];
+
+/**
+ * Memory wave 2A (202611250900_memory_trust-leak.sql) for the encrypted file: facts the graph
+ * model pass saved as accepted from other people's mail move to pending. The migration only
+ * reaches the plain file, where the moved tables are empty once the store is encrypted, so the
+ * same SQL runs here, once: the backup table (created in the encrypted file) marks it done, so
+ * a fact the owner later confirms is never moved again. Returns true when it ran.
+ */
+export function applyTrustLeakToEncrypted(enc: SqlConn): boolean {
+  const has = (name: string) =>
+    enc.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?").get(name) !==
+    undefined;
+  if (!has("graph_facts") || !has("graph_citations")) return false;
+  if (has("memory_migration_backup_2026_11")) return false;
+  const sql = readFileSync(join(DEFAULT_MIGRATIONS_DIR, ENCRYPTED_DATA_STEPS[0] as string), "utf8");
+  enc.transaction(() => {
+    enc.exec(sql);
+  })();
+  return true;
+}
 
 /** Rebuilds the tables of `enc` whose definition differs from `plain`'s. Returns their names. */
 export function syncSchema(enc: SqlConn, plain: SqlConn, tables: readonly string[]): string[] {
