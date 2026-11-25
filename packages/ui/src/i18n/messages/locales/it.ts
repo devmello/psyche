@@ -1794,13 +1794,19 @@ export const it: Partial<Catalogue> = {
   "settings.computerUse.tccState.granted": "Consentito",
   "settings.computerUse.tccState.denied": "Negato",
   "settings.computerUse.tccState.not_determined": "Non ancora richiesto",
+  "settings.computerUse.tccState.offline": "Assistente offline",
+  "settings.computerUse.helperAccess.hint":
+    "Il controllo del computer gira in Psyche Helper. Attiva «Psyche Helper», non «Psyche».",
+  "settings.computerUse.helperAccess.offline":
+    "Psyche Helper non è in esecuzione, quindi non si possono leggere i suoi permessi. Si avvia con Psyche; chiudi e riapri Psyche se resta offline.",
+  "settings.computerUse.helperAccess.allow": "Consenti a Psyche Helper",
+  "settings.computerUse.helperAccess.allowFor": "Consenti a Psyche Helper: {name}",
   "settings.computerUse.title": "Uso del computer",
   "settings.computerUse.description":
     "{persona} può usare le app su questo Mac solo dove lo consenti.",
   "settings.computerUse.escStops": "interrompe l’uso del computer in qualsiasi momento.",
   "settings.computerUse.loadLabel": "l’uso del computer",
   "settings.computerUse.macPermissions": "Permessi di macOS",
-  "settings.computerUse.openSystemSettingsFor": "Apri Impostazioni di Sistema per {name}",
   "settings.computerUse.openSystemSettings": "Apri Impostazioni di Sistema",
   "settings.computerUse.apps": "App",
   "settings.computerUse.enabledHint":

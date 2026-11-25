@@ -1,11 +1,17 @@
-import type { MemoryRecallStatus, MemoryStoreStatus, MethodResult } from "@psyche/protocol";
+import type {
+  MemoryRecallStatus,
+  MemoryStoreStatus,
+  MethodResult,
+  ThreadListEntry,
+} from "@psyche/protocol";
 import { MEMORY_REVIEW_ROUTE } from "@psyche/protocol";
 import { Download, Trash2 } from "lucide-react";
-import { type ReactElement, type ReactNode, useId, useState } from "react";
+import { type ReactElement, type ReactNode, useCallback, useEffect, useId, useState } from "react";
 import { Button } from "../../components/ui/button.tsx";
 import { Input } from "../../components/ui/input.tsx";
 import { Label } from "../../components/ui/label.tsx";
 import { useCall, useGatewayQuery } from "../../data/hooks.ts";
+import { collectAllPages } from "../../data/list-pages.ts";
 import { t } from "../../i18n/core.ts";
 import { useMemoryReview } from "../../memory/hooks.ts";
 import { usePersona, useSlots } from "../../slots.tsx";
@@ -568,9 +574,23 @@ export function DataControlsSection({ onExportReady }: DataControlsSectionProps)
   const threads = useGatewayQuery("threads.list", { includeArchived: true });
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<DataControlsPanelProps["notice"]>(null);
-  const archived = (threads.data?.threads ?? []).filter(
-    (t) => t.thread.archivedAt !== null && t.thread.archivedAt !== undefined,
-  );
+  // Every archived chat, across all pages of `threads.list` (the Gateway caps a page at 50).
+  const [archived, setArchived] = useState<ThreadListEntry[]>([]);
+  const loadArchived = useCallback(async () => {
+    const all = await collectAllPages(async (cursor) => {
+      const r = await call("threads.list", {
+        includeArchived: true,
+        ...(cursor === undefined ? {} : { cursor }),
+      });
+      return { items: r.threads, nextCursor: r.nextCursor };
+    });
+    setArchived(
+      all.filter((t) => t.thread.archivedAt !== null && t.thread.archivedAt !== undefined),
+    );
+  }, [call]);
+  useEffect(() => {
+    loadArchived().catch(() => undefined);
+  }, [loadArchived]);
 
   const act = useAction(setBusy, setNotice);
 
@@ -596,9 +616,24 @@ export function DataControlsSection({ onExportReady }: DataControlsSectionProps)
       }
       onDeleteArchived={() =>
         void act(async () => {
-          for (const t of archived) await call("threads.delete", { threadId: t.thread.id });
-          threads.reload();
-          return t("settings.data.deleted", { n: archived.length });
+          // One failed chat does not stop the rest; the list is re-read either way.
+          let deleted = 0;
+          let failure: unknown = null;
+          try {
+            for (const entry of archived) {
+              try {
+                await call("threads.delete", { threadId: entry.thread.id });
+                deleted += 1;
+              } catch (err) {
+                failure ??= err;
+              }
+            }
+          } finally {
+            threads.reload();
+            loadArchived().catch(() => undefined);
+          }
+          if (failure !== null) throw failure;
+          return t("settings.data.deleted", { n: deleted });
         }, "delete")
       }
       onReset={() =>

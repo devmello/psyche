@@ -1833,13 +1833,19 @@ export const ar: Partial<Catalogue> = {
   "settings.computerUse.tccState.granted": "ممنوح",
   "settings.computerUse.tccState.denied": "مرفوض",
   "settings.computerUse.tccState.not_determined": "لم يُطلب بعد",
+  "settings.computerUse.tccState.offline": "المساعد غير متصل",
+  "settings.computerUse.helperAccess.hint":
+    "يعمل التحكم بالكمبيوتر داخل Psyche Helper. فعّل «Psyche Helper» وليس «Psyche».",
+  "settings.computerUse.helperAccess.offline":
+    "Psyche Helper لا يعمل، لذا تتعذّر قراءة أذوناته. يبدأ مع Psyche؛ أغلق Psyche وأعد فتحه إن بقي غير متصل.",
+  "settings.computerUse.helperAccess.allow": "السماح لـ Psyche Helper",
+  "settings.computerUse.helperAccess.allowFor": "السماح لـ Psyche Helper بـ {name}",
   "settings.computerUse.title": "استخدام الكمبيوتر",
   "settings.computerUse.description":
     "يمكن لـ {persona} استخدام التطبيقات على هذا الـ Mac حيث تسمح له فقط.",
   "settings.computerUse.escStops": "يوقف استخدام الكمبيوتر في أي وقت.",
   "settings.computerUse.loadLabel": "استخدام الكمبيوتر",
   "settings.computerUse.macPermissions": "أذونات macOS",
-  "settings.computerUse.openSystemSettingsFor": "فتح إعدادات النظام لـ {name}",
   "settings.computerUse.openSystemSettings": "فتح إعدادات النظام",
   "settings.computerUse.apps": "التطبيقات",
   "settings.computerUse.enabledHint":

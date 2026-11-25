@@ -32,6 +32,11 @@ export interface FeedSourceFailure {
 export interface FeedViewProps {
   posts: readonly FeedPost[];
   nextBriefAt: string | null;
+  /** More posts exist past the loaded ones (`feed.list` `nextCursor`). */
+  hasMore?: boolean;
+  loadingMore?: boolean;
+  /** Fetches the next page of posts. */
+  onLoadMore?: () => void;
   loading?: boolean;
   /** Skeletons appear after this delay (150 ms in the connected screen, §3.0). */
   loadingDelayMs?: number;
@@ -76,6 +81,9 @@ const LANDED_MS = 1800;
 export function FeedView({
   posts,
   nextBriefAt,
+  hasMore = false,
+  loadingMore = false,
+  onLoadMore,
   loading = false,
   loadingDelayMs = 0,
   error = null,
@@ -217,9 +225,26 @@ export function FeedView({
           <ShowMore
             hidden={ordered.length - collapseAfter}
             expanded={expanded}
-            onToggle={() => setExpanded((v) => !v)}
+            onToggle={() => {
+              const open = !expanded;
+              setExpanded(open);
+              // Showing more fetches the next page, not only what is already loaded.
+              if (open && hasMore) onLoadMore?.();
+            }}
             controls="feed-posts"
           />
+        ) : null}
+        {hasMore && onLoadMore && (collapseAfter === undefined || expanded) ? (
+          <div className="flex justify-center pt-2">
+            <button
+              type="button"
+              className="text-accent-11 underline"
+              disabled={loadingMore}
+              onClick={onLoadMore}
+            >
+              {t("audit.loadMore")}
+            </button>
+          </div>
         ) : null}
         {/* The end marker (§5.6): one centred line with 48 px of space above. */}
         {cut ? null : (
@@ -463,6 +488,9 @@ export function FeedScreen({
           : {})}
         {...(onAsk ? { onAsk } : {})}
         {...(sourceFailures ? { sourceFailures } : {})}
+        hasMore={feed.hasMore}
+        loadingMore={feed.loadingMore}
+        onLoadMore={() => void feed.loadMore().catch(() => undefined)}
       />
       <FeedSourcesSheet open={sourcesOpen} onClose={() => setSourcesOpen(false)} />
       {onEditInstructions ? null : (

@@ -161,6 +161,10 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.key.notifications.quietHours.start": "शांति इस समय से",
   "settings.key.notifications.quietHours.end": "शांति इस समय तक",
   "settings.notifications.title": "नोटिफ़िकेशन",
+  "settings.notifications.helper.title": "Psyche Helper की सूचनाएँ",
+  "settings.notifications.helper.hint":
+    "स्वीकृति की सूचनाएँ Psyche Helper से आती हैं। उसे इन्हें दिखाने की अनुमति दें, ताकि विंडो बंद होने पर भी स्वीकृतियाँ आप तक पहुँचें।",
+  "settings.notifications.helper.allow": "Psyche Helper की सूचनाओं की अनुमति दें",
   "settings.notifications.description": "Psyche कब आपको टोक सकता है।",
   "settings.notifications.group.quietHours": "शांत घंटे",
   "settings.notifications.quietHours.hint":

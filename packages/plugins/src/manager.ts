@@ -129,6 +129,8 @@ export interface PluginManagerOptions {
     onExit: (r: string) => void;
   }) => PluginHost;
   log?: (message: string, data?: Record<string, string>) => void;
+  /** Called after the plugin list changed (an install, a switch, a removal). Never throws into the caller. */
+  onChange?: (name: string, change: "installed" | "enabled" | "disabled" | "removed") => void;
 }
 
 interface Running {
@@ -319,7 +321,16 @@ export class PluginManager {
       approvalId,
       externalRefs: { plugin: name, hash: p.hash },
     });
+    this.#changed(name, "installed");
     return this.#summary(name, lock.plugins[name] as LockEntry);
+  }
+
+  #changed(name: string, change: "installed" | "enabled" | "disabled" | "removed"): void {
+    try {
+      this.#o.onChange?.(name, change);
+    } catch {
+      // A listener failure must not fail the change that already landed.
+    }
   }
 
   // --- switches --------------------------------------------------------------------------------
@@ -335,6 +346,7 @@ export class PluginManager {
     this.#writeLock(lock);
     this.#failed.delete(name);
     await this.sync();
+    this.#changed(name, enabled ? "enabled" : "disabled");
     return this.#summary(name, entry);
   }
 
@@ -348,6 +360,7 @@ export class PluginManager {
     // Retried: on Windows a scanner may still hold a file of the folder for a moment.
     rmSync(join(this.#o.dir, name), { recursive: true, force: true, maxRetries: 5 });
     this.#failed.delete(name);
+    this.#changed(name, "removed");
   }
 
   list(): PluginSummarySchema[] {
