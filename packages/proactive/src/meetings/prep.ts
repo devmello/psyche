@@ -759,6 +759,8 @@ export class MeetingPrepService {
   job(): ProactiveJob {
     return {
       name: "meeting prep",
+      // Reads and proposes only: safe to run again after a restart cut it off.
+      rerunOnInterrupt: true,
       matches: (a) => parseJobMarker(a.prompt)?.job === MEETING_PREP_JOB,
       run: async (request): Promise<LaunchResult> => {
         const arg = parseJobMarker(request.automation.prompt)?.arg ?? "";

@@ -37,6 +37,7 @@ export interface Launcher<R = LaunchRequest, Run = unknown> {
   launch(request: R): Promise<{ taskId?: string; result: Promise<LaunchResult> }>;
   reattach?(run: Run): Promise<LaunchResult> | undefined;
   cancel?(run: Run, reason: string): Promise<void>;
+  rerunOnInterrupt?(automation: Automation): boolean;
 }
 
 export interface SchedulerLike {
@@ -100,6 +101,8 @@ export function withDreaming<R extends LaunchRequest, Run>(
       );
       return { result };
     },
+    // Dreaming consolidates the store and is safe to run again.
+    rerunOnInterrupt: (a) => isDreamingAutomation(a) || inner.rerunOnInterrupt?.(a) === true,
     ...(inner.reattach === undefined ? {} : { reattach: (run: Run) => inner.reattach?.(run) }),
     ...(inner.cancel === undefined
       ? {}

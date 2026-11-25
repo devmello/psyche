@@ -33,8 +33,18 @@ function setup() {
   return { clock, engine, loop, broker, pool };
 }
 
-const newTask = (engine: SqliteTaskEngine, createdFrom: "chat" | "automation" = "chat") =>
-  engine.create({ threadId: THREAD, title: "t", goal: "g", createdFrom });
+const newTask = (
+  engine: SqliteTaskEngine,
+  createdFrom: "chat" | "automation" | "subagent" = "chat",
+  mode?: "unattended",
+) =>
+  engine.create({
+    threadId: THREAD,
+    title: "t",
+    goal: "g",
+    createdFrom,
+    ...(mode ? { mode } : {}),
+  });
 
 describe("sleep and wake: a running turn is never claimed again", () => {
   it("an expired lease on a task this pool is running is not claimed by an idle slot", async () => {
@@ -107,9 +117,9 @@ describe("sleep and wake: a running turn is never claimed again", () => {
 });
 
 describe("approvals of unattended runs", () => {
-  async function parked(createdFrom: "chat" | "automation") {
+  async function parked(createdFrom: "chat" | "automation" | "subagent", mode?: "unattended") {
     const s = setup();
-    const task = await newTask(s.engine, createdFrom);
+    const task = await newTask(s.engine, createdFrom, mode);
     const next = s.loop.nextTurn();
     const report = s.pool.runOnce();
     const turn = await next;
@@ -132,7 +142,7 @@ describe("approvals of unattended runs", () => {
   }
 
   it("an automation run whose approval expires ends as needing approval and is not re-queued", async () => {
-    const { clock, engine, pool, task } = await parked("automation");
+    const { clock, engine, pool, task } = await parked("automation", "unattended");
     clock.advance(APPROVAL_TTL_MS + 1);
     await flush();
     const t = await engine.get(task.id);
@@ -140,6 +150,15 @@ describe("approvals of unattended runs", () => {
     expect(t?.outcome?.result).toBe(NEEDS_APPROVAL_RESULT);
     // No second turn raises the same card.
     expect(await pool.runOnce()).toBeUndefined();
+  });
+
+  it("a specialist job an automation started (subagent, unattended) ends the same way", async () => {
+    const { clock, engine, task } = await parked("subagent", "unattended");
+    clock.advance(APPROVAL_TTL_MS + 1);
+    await flush();
+    const t = await engine.get(task.id);
+    expect(t?.status).toBe("cancelled");
+    expect(t?.outcome?.result).toBe(NEEDS_APPROVAL_RESULT);
   });
 
   it("positive control: a chat task's expired approval still re-queues the step", async () => {

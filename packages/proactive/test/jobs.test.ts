@@ -253,3 +253,26 @@ describe("in-process job retry", () => {
     expect((await notifier.list())[0]?.body).toBe("morning brief failed");
   });
 });
+
+describe("rerunOnInterrupt", () => {
+  const mk = (name: string, flag?: boolean): ProactiveJob => ({
+    name,
+    ...(flag === undefined ? {} : { rerunOnInterrupt: flag }),
+    matches: (a) => parseJobMarker(a.prompt)?.job === name,
+    run: async () => ({ status: "no_reply", summary: "" }),
+  });
+  const automation = (job: string) =>
+    ({ prompt: jobMarker(job, "x"), kind: "cron" }) as Parameters<
+      ProactiveJob["matches"]
+    >[0] as never;
+
+  it("is true only for a job that opted in; an unflagged job and an unknown automation are not rerun", () => {
+    const l = withProactiveJobs(new RecordingLauncher() as never, {
+      jobs: [mk("reads", true), mk("plain"), mk("explicit-no", false)],
+    });
+    expect(l.rerunOnInterrupt?.(automation("reads"))).toBe(true);
+    expect(l.rerunOnInterrupt?.(automation("plain"))).toBe(false);
+    expect(l.rerunOnInterrupt?.(automation("explicit-no"))).toBe(false);
+    expect(l.rerunOnInterrupt?.(automation("other"))).toBe(false);
+  });
+});

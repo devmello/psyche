@@ -1042,8 +1042,8 @@ export class SqliteTaskEngine implements TaskEngine {
           )
           .run(this.#iso(), taskId, awaiting.stepId);
       }
-      if (approval.status === "expired" && row.created_from === "automation") {
-        // Nobody answered an unattended run: end it as needing approval instead of re-queueing
+      if (approval.status === "expired" && row.run_mode === "unattended") {
+        // Nobody answered an unattended run (an automation, or a specialist job one started): end it as needing approval instead of re-queueing
         // the step, which would raise the same card again and keep the automation busy for good.
         this.#setStatus(row, "cancelled", {
           summary: NEEDS_APPROVAL_SUMMARY,

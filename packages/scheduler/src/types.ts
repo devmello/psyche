@@ -48,6 +48,11 @@ export interface RunLauncher {
   launch(request: AutomationRunRequest): Promise<LaunchedRun>;
   /** After a restart: follow a run that was still `running` (its task may still be alive). */
   reattach?(run: AutomationRun): Promise<RunResult> | undefined;
+  /**
+   * After a restart cut off a run with nothing to follow (an in-process job): may it run again?
+   * Only a job that reads and proposes says yes; otherwise the owner is told it was interrupted.
+   */
+  rerunOnInterrupt?(automation: Automation): boolean;
   /** Stop a run (its automation was deleted). */
   cancel?(run: AutomationRun, reason: string): Promise<void>;
 }

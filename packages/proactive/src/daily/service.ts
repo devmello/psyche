@@ -826,6 +826,7 @@ export class DailyService {
   jobs(): ProactiveJob[] {
     return (["morning", "evening"] as const).map((kind) => ({
       name: kind === "morning" ? "morning brief" : "evening wrap-up",
+      rerunOnInterrupt: true,
       matches: (a) => parseJobMarker(a.prompt)?.job === jobFor(kind),
       run: async (): Promise<LaunchResult> => {
         if (kind === "morning") await this.scanMail().catch((e) => this.#o.onError?.(e));

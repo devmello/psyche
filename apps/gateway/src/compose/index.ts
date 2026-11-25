@@ -1682,6 +1682,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       return launcher.launch(request);
     },
     reattach: (run) => launcher?.reattach?.(run),
+    rerunOnInterrupt: (a) => launcher?.rerunOnInterrupt?.(a) === true,
     cancel: async (run, reason) => launcher?.cancel?.(run, reason),
   };
   const scheduler = new SqliteScheduler({

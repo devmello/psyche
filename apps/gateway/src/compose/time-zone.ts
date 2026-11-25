@@ -4,7 +4,7 @@
  * zone until a restart. Changing `process.env.TZ` (setting or deleting it) makes Node detect the
  * zone again from the system (`/etc/localtime`); `refresh()` does that and reports whether it moved.
  *
- * A zone the process was started with (`TZ` in its environment) is the owner's choice and is not
+ * A zone the process was started with (`TZ` in its environment, even an empty one) is the owner's choice and is not
  * touched.
  */
 export interface SystemZoneOptions {
@@ -22,7 +22,8 @@ export class SystemZone {
   constructor(options: SystemZoneOptions = {}) {
     this.#env = options.env ?? process.env;
     this.#current = options.current ?? (() => Intl.DateTimeFormat().resolvedOptions().timeZone);
-    this.#pinned = this.#env.TZ !== undefined && this.#env.TZ !== "";
+    // An empty TZ is set too (it means UTC), so it is the owner's choice like any other.
+    this.#pinned = this.#env.TZ !== undefined;
     this.#last = this.#current();
   }
 

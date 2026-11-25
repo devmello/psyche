@@ -43,6 +43,18 @@ describe("SystemZone", () => {
     expect(env.TZ).toBe("Europe/London");
   });
 
+  it("an empty TZ (UTC) counts as set and is never deleted", () => {
+    const system = { zone: "America/New_York" };
+    const env: Record<string, string | undefined> = { TZ: "" };
+    const z = new SystemZone({
+      env,
+      current: () => (env.TZ === "" ? "UTC" : (env.TZ ?? system.zone)),
+    });
+    system.zone = "Asia/Tokyo";
+    expect(z.refresh()).toMatchObject({ changed: false, zone: "UTC" });
+    expect(env.TZ).toBe("");
+  });
+
   it("with Node itself: setting then deleting TZ re-detects the zone", () => {
     const saved = process.env.TZ;
     try {

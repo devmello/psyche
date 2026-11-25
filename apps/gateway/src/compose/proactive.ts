@@ -241,6 +241,7 @@ export function helperGated(job: ProactiveJob, helper: HelperBackoff | undefined
   if (helper === undefined) return job;
   return {
     name: job.name,
+    ...(job.rerunOnInterrupt === undefined ? {} : { rerunOnInterrupt: job.rerunOnInterrupt }),
     matches: (a) => job.matches(a),
     run: async (request): Promise<LaunchResult> => {
       helper.state.observe(helper.connected());

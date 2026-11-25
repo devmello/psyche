@@ -44,6 +44,8 @@ export interface Launcher<R extends LaunchRequest = LaunchRequest, Run = unknown
   launch(request: R): Promise<{ taskId?: string; result: Promise<LaunchResult> }>;
   reattach?(run: Run): Promise<LaunchResult> | undefined;
   cancel?(run: Run, reason: string): Promise<void>;
+  /** After a restart cut off a run with nothing to follow: may it run again? Default no. */
+  rerunOnInterrupt?(automation: Automation): boolean;
 }
 
 /** What this package needs from the scheduler (`SqliteScheduler` and `FakeScheduler` both fit). */
@@ -58,6 +60,12 @@ export interface SchedulerLike {
 /** One in-process job: `matches` by the automation's prompt marker, `run` returns the outcome. */
 export interface ProactiveJob {
   readonly name: string;
+  /**
+   * Set only for a job that reads and proposes (cards, notices, approvals) and never acts on its
+   * own: a restart that cut a scheduled run short then runs it again once. Unset, the owner is
+   * told it was interrupted instead.
+   */
+  readonly rerunOnInterrupt?: boolean;
   matches(automation: Pick<Automation, "prompt" | "kind">): boolean;
   run(request: LaunchRequest): Promise<LaunchResult>;
 }
@@ -124,6 +132,12 @@ export function withProactiveJobs<R extends LaunchRequest, Run>(
         return options.heartbeat.launch(request);
       }
       return inner.launch(request);
+    },
+    rerunOnInterrupt(automation) {
+      const job = options.jobs.find((j) => j.matches(automation));
+      return job === undefined
+        ? inner.rerunOnInterrupt?.(automation) === true
+        : job.rerunOnInterrupt === true;
     },
     ...(inner.reattach === undefined ? {} : { reattach: (run: Run) => inner.reattach?.(run) }),
     ...(inner.cancel === undefined

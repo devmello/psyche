@@ -1230,6 +1230,11 @@ export class SqliteScheduler implements Scheduler {
     const again =
       r.trigger === "schedule" &&
       automation.enabled === 1 &&
+      // A watch only reads a page and compares; a job reruns only when its launcher says it may.
+      (automation.kind === "watch" ||
+        this.#o.launcher?.rerunOnInterrupt?.(
+          automationFromRow(automation, this.#watchRow(automation.id)),
+        ) === true) &&
       this.#db.sqlite
         .prepare(
           "SELECT 1 FROM automation_runs WHERE automation_id = ? AND scheduled_for = ? AND id != ? AND status = 'cancelled' AND summary = ? LIMIT 1",

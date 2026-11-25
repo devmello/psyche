@@ -291,6 +291,8 @@ export class NotesFolderWatcher {
   job(): ProactiveJob {
     return {
       name: "recordings folder",
+      // Reads and proposes only: safe to run again after a restart cut it off.
+      rerunOnInterrupt: true,
       matches: (a) => parseJobMarker(a.prompt)?.job === NOTES_FOLDER_JOB,
       run: async (_request: LaunchRequest): Promise<LaunchResult> => {
         try {

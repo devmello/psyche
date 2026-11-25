@@ -332,6 +332,8 @@ export class VoiceService {
   job(): ProactiveJob {
     return {
       name: "mail voice",
+      // Reads and proposes only: safe to run again after a restart cut it off.
+      rerunOnInterrupt: true,
       matches: (a) => parseJobMarker(a.prompt)?.job === MAIL_VOICE_JOB,
       run: async (): Promise<LaunchResult> => {
         const p = await this.refresh();

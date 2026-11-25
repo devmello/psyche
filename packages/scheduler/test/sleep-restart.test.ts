@@ -15,6 +15,8 @@ const T0 = Date.parse("2026-11-24T05:00:00Z");
 /** An in-process job: no task, and its result never arrives (the process dies first). */
 class HangingLauncher implements RunLauncher {
   readonly requests: AutomationRunRequest[] = [];
+  /** Jobs that read and propose only say yes; any other (and any future) job is not rerun. */
+  rerunOnInterrupt = (_: unknown): boolean => true;
   async launch(request: AutomationRunRequest) {
     this.requests.push(request);
     return { result: new Promise<never>(() => {}) };
@@ -42,6 +44,7 @@ describe("a scheduled run a restart cut off", () => {
   it("becomes due again once and runs, with no notification", async () => {
     const { db, a } = await interrupted();
     const second = setup({ start: T0 + HOUR + 20_000, db, timers: asleep });
+    second.launcher.rerunOnInterrupt = () => true;
     await second.scheduler.start();
     await second.scheduler.idle();
     const runs = second.scheduler.runs(a.id).runs;
@@ -72,6 +75,8 @@ describe("a scheduled run a restart cut off", () => {
     second.scheduler.stop();
     // Third boot.
     const third = setup({ start: T0 + HOUR + 40_000, db, timers: asleep });
+    // It would rerun (the job opted in); the second cut-off is what stops it.
+    third.launcher.rerunOnInterrupt = () => true;
     await third.scheduler.start();
     await third.scheduler.idle();
     expect(third.launcher.requests).toHaveLength(0);
@@ -81,6 +86,20 @@ describe("a scheduled run a restart cut off", () => {
     expect(notices[0]?.message?.titleKey).toBe("notice.automation.interrupted.title");
     expect(notices[0]?.message?.params).toEqual({ title: BASE.title });
     expect(third.scheduler.isRunning(a.id)).toBe(false);
+  });
+
+  it("a job that does not opt in is not rerun: the owner is told", async () => {
+    const { db, a } = await interrupted();
+    const second = setup({ start: T0 + HOUR + 20_000, db, timers: asleep });
+    second.launcher.rerunOnInterrupt = () => false;
+    await second.scheduler.start();
+    await second.scheduler.idle();
+    expect(second.launcher.requests).toHaveLength(0);
+    const notices = await second.notifier.list();
+    expect(notices.map((n) => n.message?.titleKey)).toEqual([
+      "notice.automation.interrupted.title",
+    ]);
+    expect(second.scheduler.isRunning(a.id)).toBe(false);
   });
 
   it("a manual run is not repeated and does not notify", async () => {
