@@ -16,6 +16,8 @@ struct SessionPairingEscapeTests {
         private var _forgets = 0
         private var _cancels = 0
         var failOnForget = false
+        /// What the driver says to show after the owner cancels (an earlier pairing that carries on says `.connecting`).
+        var afterCancel: ConnectionState = .unpaired
         init() { (stream, sink) = AsyncStream.makeStream() }
         var forgets: Int { lock.withLock { _forgets } }
         var cancels: Int { lock.withLock { _cancels } }
@@ -34,7 +36,10 @@ struct SessionPairingEscapeTests {
         func preview(code: String) throws -> PairingPreview? {
             PairingPreview(hostName: "Studio Mac", host: "studio-mac.local", fingerprint: "7F3A 91C2 E04B", transport: .lan)
         }
-        func cancelPairing() async { script.noteCancel() }
+        func cancelPairing() async -> ConnectionState {
+            script.noteCancel()
+            return script.afterCancel
+        }
         func forgetGateway() async throws {
             script.noteForget()
             if script.failOnForget { throw TransportClosed() }
@@ -85,6 +90,37 @@ struct SessionPairingEscapeTests {
         #expect(session.state == .unpaired)
         #expect(session.pairingAttempt == nil)
         #expect(script.cancels == 1)
+    }
+
+    @Test func aFailedAttemptThatPutAnEarlierPairingBackLeavesThePairingScreen() async {
+        let script = Script()
+        let session = Session(driver: ScriptedDriver(script: script))
+        session.beginPairing(code: "psyche-pair:v2:x")
+        session.confirmPairing()
+        script.push(.unreachable(.awayFromHome))
+        await settle()
+        #expect(session.pairingAttempt != nil)
+        // The client restored the earlier pairing and said why; the screen must not keep saying "can't reach <new Mac>".
+        script.sink.yield(.pairingFailed("Couldn't reach the Mac in that pairing link. Your earlier connection is unchanged."))
+        script.push(.connecting)
+        await settle()
+        #expect(session.pairingAttempt == nil)
+        #expect(session.state == .connecting)
+    }
+
+    @Test func cancellingNeverLeavesAPairedPhoneOnTheScanner() async {
+        let script = Script()
+        script.afterCancel = .connecting  // the client put the earlier pairing back
+        let session = Session(driver: ScriptedDriver(script: script))
+        session.beginPairing(code: "psyche-pair:v2:x")
+        session.confirmPairing()
+        script.push(.connecting)
+        await settle()
+        session.cancelPairing()
+        #expect(session.state == .unpaired, "the scanner shows at once")
+        await settle()
+        #expect(session.state == .connecting, "and goes away when the earlier pairing carries on")
+        #expect(session.pairingAttempt == nil)
     }
 
     @Test func theAttemptEndsOnceTheMacAnswersOrTheClientGivesUp() async {

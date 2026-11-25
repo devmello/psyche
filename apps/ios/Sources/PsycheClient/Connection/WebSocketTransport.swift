@@ -15,11 +15,14 @@ public protocol WebSocketTransport: Sendable {
     /// How the TLS certificate of this connection was accepted. Nil when there is no TLS to speak of
     /// (`ws://` to loopback in development, and test transports).
     var peerCertificate: PeerCertificate? { get }
+    /// True when the connection was cancelled because the server presented a certificate that is not the pinned one.
+    var pinRefused: Bool { get }
 }
 
 extension WebSocketTransport {
     public func ping() async throws {}
     public var peerCertificate: PeerCertificate? { nil }
+    public var pinRefused: Bool { false }
 }
 
 /// How the certificate of a TLS connection was accepted.
@@ -71,6 +74,7 @@ public final class URLSessionTransport: WebSocketTransport, @unchecked Sendable 
     }
 
     public var peerCertificate: PeerCertificate? { delegate.peerCertificate }
+    public var pinRefused: Bool { delegate.pinRefused }
 
     public func send(_ frame: Data) async throws {
         try await task.send(.string(String(decoding: frame, as: UTF8.self)))
@@ -125,6 +129,7 @@ final class TrustDelegate: NSObject, URLSessionDelegate, @unchecked Sendable {
     private let trust: TransportTrust
     private let lock = NSLock()
     private var certificate: PeerCertificate?
+    private var _pinRefused = false
 
     init(trust: TransportTrust) {
         self.trust = trust
@@ -134,6 +139,18 @@ final class TrustDelegate: NSObject, URLSessionDelegate, @unchecked Sendable {
         lock.lock()
         defer { lock.unlock() }
         return certificate
+    }
+
+    var pinRefused: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return _pinRefused
+    }
+
+    private func notePinRefused() {
+        lock.lock()
+        _pinRefused = true
+        lock.unlock()
     }
 
     private func record(_ value: PeerCertificate) {
@@ -164,6 +181,9 @@ final class TrustDelegate: NSObject, URLSessionDelegate, @unchecked Sendable {
         case .pinned(let spki):
             record(.selfSigned(spki: spki))
             completionHandler(.useCredential, URLCredential(trust: serverTrust))
+        case .pinMismatch:
+            notePinRefused()
+            completionHandler(.cancelAuthenticationChallenge, nil)
         case .refuse:
             completionHandler(.cancelAuthenticationChallenge, nil)
         }
@@ -174,6 +194,8 @@ final class TrustDelegate: NSObject, URLSessionDelegate, @unchecked Sendable {
         case system
         /// The Gateway's own certificate, accepted for the SPKI pin shown.
         case pinned(spki: String)
+        /// A pin is stored and the server presented a readable certificate that is not it.
+        case pinMismatch
         case refuse
     }
 
@@ -187,9 +209,8 @@ final class TrustDelegate: NSObject, URLSessionDelegate, @unchecked Sendable {
     /// - Otherwise only a chain the system trusts.
     static func decide(trust: TransportTrust, leafCertificate: Data?, systemTrusts: () -> Bool) -> Decision {
         if trust.allowSelfSigned, let pinned = trust.pinnedSPKI {
-            guard let leaf = leafCertificate, let spki = CertificatePin.spki(ofCertificate: leaf), spki == pinned
-            else { return .refuse }
-            return .pinned(spki: spki)
+            guard let leaf = leafCertificate, let spki = CertificatePin.spki(ofCertificate: leaf) else { return .refuse }
+            return spki == pinned ? .pinned(spki: spki) : .pinMismatch
         }
         if systemTrusts() { return .system }
         guard trust.allowSelfSigned, let leaf = leafCertificate, let spki = CertificatePin.spki(ofCertificate: leaf)

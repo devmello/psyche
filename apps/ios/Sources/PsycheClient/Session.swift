@@ -56,7 +56,9 @@ public final class Session {
                     if next != .unpaired { self.pairingPreview = nil }
                     self.settlePairingAttempt(for: next)
                 case .pairingFailed(let message):
+                    // The client has given the attempt up (and put an earlier pairing back, if there was one).
                     self.pairingError = message
+                    self.pairingAttempt = nil
                 }
             }
         }
@@ -146,7 +148,13 @@ public final class Session {
         scannedCode = nil
         state = .unpaired
         let driver = driver
-        Task { await driver.cancelPairing() }
+        // An earlier working pairing that was never given up carries on: the client says so, and the scanner must not
+        // stay up over a phone that is still paired.
+        Task { [weak self] in
+            let next = await driver.cancelPairing()
+            guard let self, self.state == .unpaired, next != .unpaired else { return }
+            self.state = next
+        }
     }
 
     /// This phone was removed ("Remove this phone" in Settings, after `devices.revoke`). Keys, cache and

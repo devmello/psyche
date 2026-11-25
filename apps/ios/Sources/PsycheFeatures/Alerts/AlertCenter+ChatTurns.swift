@@ -17,6 +17,7 @@ extension AlertCenter {
 
     /// A chat event from the live stream.
     func handleChat(_ event: ChatEvent) async {
+        guard !retired else { return }
         if case .run(let threadID, let update) = event, !update.isChat, let task = update.taskID {
             taskThreads[task] = threadID  // which chat a task belongs to, for the no-duplicates rule
         }
@@ -103,6 +104,7 @@ extension AlertCenter {
         let stale = staleDate(from: now)
         guard chatActivities.start(threadID: id, content: content, staleDate: stale) else { return }
         chatWatching.insert(id)
+        ownedChatActivities.insert(id)
         chatContents[id] = content
         chatPushes[id] = now
         chatStaleDates[id] = stale

@@ -84,6 +84,9 @@ public actor GatewayClient {
     private let deps: GatewayClientDependencies
 
     private var endpoint: GatewayEndpoint?
+    /// Whether `endpoint` is one a connection has proven (saved after a handshake passed `IdentityCheck`). A `psyche-pair:v2`
+    /// link carries the Gateway's key before any proof, so a key alone says nothing about a working pairing.
+    private var endpointProven = false
     /// The working pairing, kept aside while a new link is being tried; put back if the attempt fails.
     private var previousEndpoint: GatewayEndpoint?
     /// A pairing attempt (link scanned, Gateway not yet proven paired) is under way.
@@ -118,6 +121,7 @@ public actor GatewayClient {
         location = dependencies.locationProvider.map { PhoneLocationNode(provider: $0, foreground: foreground) }
         resync = Resync(lastStateVersion: Self.loadStateVersion(dependencies.stateDirectory))
         endpoint = dependencies.endpointStore.load()
+        endpointProven = endpoint != nil  // only a proven endpoint is ever saved
         state = endpoint == nil ? .unpaired : .connecting
     }
 
@@ -269,8 +273,9 @@ public actor GatewayClient {
         Task { await old?.close() }
         // A working pairing stays on disk and in `previousEndpoint` until the new Gateway is proven and paired,
         // so a link that fails (expired, denied, unreachable, cancelled) costs nothing.
-        if previousEndpoint == nil, let current = endpoint, !current.identityKey.isEmpty { previousEndpoint = current }
+        if previousEndpoint == nil, let current = endpoint, endpointProven, !current.identityKey.isEmpty { previousEndpoint = current }
         endpoint = link.endpoint
+        endpointProven = false
         setupToken = link.setupToken
         pairingInProgress = true
         set(.connecting)
@@ -296,9 +301,11 @@ public actor GatewayClient {
             }
             // Nothing working to go back to: the link's unproven endpoint must not stay in memory or on disk.
             endpoint = nil
+            endpointProven = false
             deps.endpointStore.clear()
         } else {
             endpoint = deps.endpointStore.load()
+            endpointProven = endpoint != nil
         }
         set(.unpaired)
     }
@@ -309,6 +316,7 @@ public actor GatewayClient {
         guard let previous = previousEndpoint else { return false }
         previousEndpoint = nil
         endpoint = previous
+        endpointProven = true
         try? deps.endpointStore.save(previous)  // a pending pin may have written the new one
         return true
     }
@@ -523,7 +531,9 @@ public actor GatewayClient {
                 if action == .stop { return }
                 try? await Task.sleep(for: .seconds(deps.backoff.delay(attempt: attempt)))
                 attempt += 1
-            case .refused:
+            case .refused, .certChanged:
+                var reason = RefusalReason.identityMismatch
+                if case .certChanged = outcome { reason = .identityChanged }
                 if pairingInProgress, restorePreviousEndpoint() {
                     pairingInProgress = false
                     setupToken = nil
@@ -531,7 +541,7 @@ public actor GatewayClient {
                     set(.connecting)
                     continue
                 }
-                set(.refused(.identityMismatch))
+                set(.refused(reason))
                 return
             case .unreachable:
                 if pairingInProgress, restorePreviousEndpoint() {
@@ -559,6 +569,8 @@ public actor GatewayClient {
         case pending(code: String)
         case denied(String, tokenInvalid: Bool, code: String?, provenPinned: Bool)
         case refused
+        /// The pinned certificate was not the one presented (or a saved pin names no local address).
+        case certChanged
         case unreachable
     }
 
@@ -571,7 +583,7 @@ public actor GatewayClient {
         // that certificate and no other, with no fallback to the system's trust. Everything else, Tailscale included,
         // needs a chain the system trusts.
         let pinnedSPKI = endpoint.lanCertSpki
-        if pinnedSPKI != nil, LanHost.lanOrigin(endpoint.url) == nil { return .unreachable }
+        if pinnedSPKI != nil, LanHost.lanOrigin(endpoint.url) == nil { return .certChanged }
         let transport = deps.transportFactory(
             url, TransportTrust(allowSelfSigned: pinnedSPKI != nil, pinnedSPKI: pinnedSPKI))
         let connection = GatewayConnection(
@@ -615,8 +627,10 @@ public actor GatewayClient {
         } catch ConnectionFailure.identityMismatch {
             return .refused
         } catch {
+            // The server answered, but with another certificate than the pinned one: not a Mac that is off.
+            let pinRefused = transport.pinRefused
             await connection.close()
-            return .unreachable
+            return pinRefused ? .certChanged : .unreachable
         }
     }
 
@@ -633,6 +647,7 @@ public actor GatewayClient {
             if pinned.lanCertSpki == nil { pinned.lanCertSpki = proven.certSPKI }
         }
         self.endpoint = pinned
+        endpointProven = true  // `IdentityCheck` passed on this connection
         if paired {
             if let previous = previousEndpoint, Self.gatewayBinding(previous) != Self.gatewayBinding(pinned) {
                 await wipeLocalData()

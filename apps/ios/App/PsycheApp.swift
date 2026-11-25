@@ -136,8 +136,13 @@ struct PsycheApp: App {
                 let restored = liveBehindDemo ?? AppModel.live()
                 liveBehindDemo = nil
                 restored.session.clearDemoRequests()
+                let demo = model
                 model = restored
+                // Re-point the notification delegate and the island's Approve/Deny at the live center (it installed
+                // them once already, so this is not a no-op), then retire the demo's: its activities and
+                // notifications go, and nothing it still holds can be answered.
                 model.alerts.installSystemHooks()
+                Task { await demo.alerts.retire() }
                 model.session.setActive(scenePhase == .active)
                 model.alerts.setAppActive(scenePhase == .active)
             }

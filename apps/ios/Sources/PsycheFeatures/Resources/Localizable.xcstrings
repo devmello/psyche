@@ -57899,6 +57899,148 @@
           }
         }
       }
+    },
+    "This Mac's identity changed.": {
+      "extractionState": "extracted_with_value",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This Mac's identity changed."
+          }
+        },
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "تغيّرت هوية هذا الـ Mac."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die Identität dieses Mac hat sich geändert."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La identidad de este Mac ha cambiado."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L’identité de ce Mac a changé."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "इस Mac की पहचान बदल गई है।"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L’identità di questo Mac è cambiata."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "この Mac の ID が変わりました。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "이 Mac의 ID가 바뀌었어요."
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A identidade deste Mac mudou."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "此 Mac 的身份已更改。"
+          }
+        }
+      }
+    },
+    "The Mac at this address didn't present the certificate this phone pinned when it paired, so Psyche stopped. Nothing was sent to it.": {
+      "extractionState": "extracted_with_value",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The Mac at this address didn't present the certificate this phone pinned when it paired, so Psyche stopped. Nothing was sent to it."
+          }
+        },
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "لم يقدّم جهاز Mac على هذا العنوان الشهادة التي ثبّتها هذا الهاتف عند الاقتران، لذا توقف Psyche. لم يُرسَل إليه أي شيء."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Der Mac unter dieser Adresse hat nicht das Zertifikat vorgelegt, das dieses iPhone beim Koppeln festgehalten hat. Psyche hat angehalten. Es wurde nichts an ihn gesendet."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El Mac de esta dirección no presentó el certificado que este teléfono fijó al emparejarse, así que Psyche se detuvo. No se le envió nada."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le Mac à cette adresse n’a pas présenté le certificat que ce téléphone avait épinglé lors de l’association, donc Psyche s’est arrêté. Rien ne lui a été envoyé."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "इस पते के Mac ने वह प्रमाणपत्र नहीं दिखाया जिसे इस फ़ोन ने पेयर करते समय पिन किया था, इसलिए Psyche रुक गया। उसे कुछ नहीं भेजा गया।"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Il Mac a questo indirizzo non ha presentato il certificato che questo telefono aveva fissato all’abbinamento, quindi Psyche si è fermato. Non gli è stato inviato nulla."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "このアドレスの Mac は、この iPhone がペアリング時に固定した証明書を提示しなかったため、Psyche は停止しました。何も送信していません。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "이 주소의 Mac이 이 휴대폰이 페어링 때 고정한 인증서를 제시하지 않아 Psyche가 멈췄어요. 아무것도 전송하지 않았어요."
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O Mac neste endereço não apresentou o certificado que este telefone fixou ao parear, então o Psyche parou. Nada foi enviado a ele."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "此地址上的 Mac 没有出示此手机在配对时固定的证书，因此 Psyche 已停止。没有向它发送任何内容。"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

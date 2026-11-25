@@ -22,8 +22,8 @@ public struct RootView: View {
             switch session.state {
             case .unpaired, .pending, .revoked:
                 PairingFlow().transition(.opacity)
-            case .refused:
-                RefusedView().transition(.opacity)
+            case .refused(let reason):
+                RefusedView(reason: reason).transition(.opacity)
             case .connecting, .unreachable:
                 // A pairing that never reached the Mac has nothing to show: say so and offer Cancel. An earlier
                 // pairing that lost its connection keeps its cached tabs.

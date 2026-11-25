@@ -46,6 +46,10 @@ public enum UnreachableReason: Equatable, Sendable {
 public enum RefusalReason: Equatable, Sendable {
     /// The Gateway's identity-key signature did not match the pinned key.
     case identityMismatch
+    /// The Mac at the pinned address answered with another certificate than the one this phone pinned (a Mac that was
+    /// reset or reinstalled has a new one), or a saved pin no longer names a local-network address. The old pin is
+    /// kept; only the owner's "Pair again" with a new link replaces it.
+    case identityChanged
 }
 
 public struct PendingApproval: Equatable, Sendable {

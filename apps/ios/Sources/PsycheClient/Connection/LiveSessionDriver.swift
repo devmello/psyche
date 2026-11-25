@@ -38,6 +38,9 @@ public struct LiveSessionDriver: SessionDriver {
     }
 
     public func setActive(_ active: Bool) async { await client.setActive(active) }
-    public func cancelPairing() async { await client.cancelPairing() }
+    public func cancelPairing() async -> ConnectionState {
+        await client.cancelPairing()
+        return await client.currentState
+    }
     public func forgetGateway() async throws { try await client.forgetGateway() }
 }

@@ -72,6 +72,15 @@ public final class AlertCenter {
     private var lastContent: [String: TaskActivityContent] = [:]
     private var titles: [String: String] = [:]
     private var delegate: NotificationDelegate?
+    /// The center whose delegate and island handler are installed now (`installSystemHooks`), for tests.
+    static weak var hookOwner: AlertCenter?
+    /// Set by `retire()`: this center posts, answers and starts nothing more.
+    private(set) var retired = false
+    /// What this center itself started or posted, so `retire()` ends only that (the system's list of activities and
+    /// notifications is shared with the center that replaces it).
+    private var ownedTaskActivities: Set<String> = []
+    var ownedChatActivities: Set<String> = []
+    private var postedIDs: Set<String> = []
 
     // Chat replies that run long (AlertCenter+ChatTurns.swift).
     let chatActivities: any ChatTurnActivityHost
@@ -171,11 +180,14 @@ public final class AlertCenter {
 
     // MARK: - App hooks
 
-    /// Installs the notification delegate and the categories. Call once, early in launch (no permission needed).
+    /// Points the notification delegate, the categories and the island's Approve/Deny at this center. Call early in
+    /// launch (no permission needed), and again whenever the app swaps which center is on screen (the demo and back):
+    /// it always re-points, so a taps on a lock-screen button or the island is answered by the center the owner is
+    /// looking at, never by one that was replaced.
     public func installSystemHooks() {
-        guard delegate == nil else { return }
-        let delegate = NotificationDelegate(center: self)
+        let delegate = self.delegate ?? NotificationDelegate(center: self)
         self.delegate = delegate
+        Self.hookOwner = self
         #if os(iOS)
         let center = UNUserNotificationCenter.current()
         center.delegate = delegate
@@ -184,6 +196,37 @@ public final class AlertCenter {
         IslandAnswers.handler = { [weak self] id, approve in
             await self?.answerFromIsland(id, approve: approve)
         }
+    }
+
+    /// This center is being replaced (the demo is entered or left). It stops watching, ends the activities and removes
+    /// the notifications it made itself, and lets go of its delegate, so nothing it showed can be answered later.
+    public func retire() async {
+        retired = true
+        observer?.cancel()
+        observer = nil
+        connectionWatcher?.cancel()
+        connectionWatcher = nil
+        scheduledSync?.cancel()
+        chatCatchUp?.cancel()
+        for timer in chatStartTimers.values { timer.cancel() }
+        chatStartTimers.removeAll()
+        delegate = nil
+        if Self.hookOwner === self { Self.hookOwner = nil }
+        for id in ownedTaskActivities { await activities.end(taskID: id, final: nil, dismissAfter: 0) }
+        for id in ownedChatActivities { await chatActivities.end(threadID: id, final: nil, dismissAfter: 0) }
+        ownedTaskActivities.removeAll()
+        ownedChatActivities.removeAll()
+        watching.removeAll()
+        chatWatching.removeAll()
+        offer = nil
+        await notifier.removeDelivered(ids: Array(postedIDs))
+        postedIDs.removeAll()
+    }
+
+    private func post(_ payload: AlertPayload) async {
+        guard !retired else { return }
+        postedIDs.insert(payload.id)
+        await notifier.post(payload)
     }
 
     public func setAppActive(_ active: Bool) {
@@ -219,7 +262,7 @@ public final class AlertCenter {
 
     /// Starts watching the backend's events. Safe to call again; the shell calls it once the phone is paired.
     public func start() {
-        guard observer == nil else { return }
+        guard observer == nil, !retired else { return }
         connectionWatcher = Task { [weak self] in
             guard let self else { return }
             for await live in self.connection.liveStates() {
@@ -305,6 +348,7 @@ public final class AlertCenter {
 
     /// Home's Watch button and the offer. Returns a quiet message when it could not start.
     public func watch(_ task: RunningTask) async -> String? {
+        guard !retired else { return nil }
         await loadSettings()
         guard liveActivitiesOn else { return String(localized: "Live Activities are off. Turn them on in Settings.", bundle: .module) }
         guard activities.isEnabled else { return String(localized: "Live Activities are off for Psyche in the iOS Settings app.", bundle: .module) }
@@ -317,6 +361,7 @@ public final class AlertCenter {
         let stale = staleDate(from: now)
         guard activities.start(taskID: task.id, content: content, staleDate: stale) else { return "Couldn't start the Live Activity." }
         watching.insert(task.id)
+        ownedTaskActivities.insert(task.id)
         lastContent[task.id] = content
         lastPush[task.id] = now
         staleDates[task.id] = stale
@@ -348,6 +393,7 @@ public final class AlertCenter {
 
     /// One pass: read Home, announce what is new, clear what was answered elsewhere, update the activities.
     func sync(_ mode: SyncMode) async {
+        guard !retired else { return }
         guard let home = try? await store.home() else { return }
         let running = Set(home.running.map(\.id))
         let previous = Set(await ledger.knownRunning())
@@ -544,7 +590,7 @@ public final class AlertCenter {
                 status = await notifier.authorization()
             }
             guard status == .allowed, await ledger.claim(item.id) else { continue }
-            await notifier.post(AlertPolicy.payload(for: item))
+            await post(AlertPolicy.payload(for: item))
             #if canImport(UIKit) && os(iOS)
             if mode == .live && appActive { UINotificationFeedbackGenerator().notificationOccurred(.warning) }
             #endif
@@ -555,7 +601,7 @@ public final class AlertCenter {
         guard settings.notifications, await notifier.authorization() == .allowed else { return }
         for run in recent where vanished.contains(run.id) && run.outcome != .cancelled {
             let payload = AlertPolicy.finished(taskID: run.id, title: run.title, failed: run.outcome == .failed)
-            if await ledger.claim(payload.id) { await notifier.post(payload) }
+            if await ledger.claim(payload.id) { await post(payload) }
         }
     }
 
@@ -581,6 +627,7 @@ public final class AlertCenter {
 
     /// A tap on a notification or one of its buttons.
     func handle(_ incoming: IncomingNotification) async {
+        guard !retired else { return }
         switch AlertAction(rawValue: incoming.actionID) {
         // Re-checked against the Gateway's fresh state, like the island: a device-only or presence-gated
         // card is never approved from a lock-screen button, whatever category the notification had.
@@ -612,7 +659,7 @@ public final class AlertCenter {
         refresh: Bool = false
     ) async {
         guard await connection.ensureLive(timeout: .seconds(6)) else {
-            await notifier.post(AlertPolicy.reconnect(for: id))
+            await post(AlertPolicy.reconnect(for: id))
             await connection.release(appActive: appActive)
             return
         }
@@ -637,7 +684,7 @@ public final class AlertCenter {
             let item = (try? await store.home())?.needsYou.first { $0.id == id }
             guard let item, allowed(item) else {
                 // Not answerable from here any more (or the check could not run): say so, don't go quiet.
-                await notifier.post(couldNotAnswer(id, "Open Psyche to answer this one."))
+                await post(couldNotAnswer(id, "Open Psyche to answer this one."))
                 return
             }
         }
@@ -645,11 +692,11 @@ public final class AlertCenter {
             try await store.answerApproval(id: id, decision: decision)
             await notifier.removeDelivered(ids: [id])
         } catch BackendError.unreachable {
-            await notifier.post(AlertPolicy.reconnect(for: id))
+            await post(AlertPolicy.reconnect(for: id))
         } catch BackendError.notFound {
             await notifier.removeDelivered(ids: [id])
         } catch {
-            await notifier.post(couldNotAnswer(id, error.localizedDescription))
+            await post(couldNotAnswer(id, error.localizedDescription))
         }
     }
 
@@ -662,6 +709,7 @@ public final class AlertCenter {
     /// task with a Live Activity running (what the island draws its buttons for; the system keeps that list
     /// across a relaunch), and that it may be answered there.
     func answerFromIsland(_ id: String, approve: Bool) async {
+        guard !retired else { return }
         let watched = Set(activities.answerableTaskIDs)
         await answer(id, approve ? .allow : .deny, onlyIf: { item in
             guard let task = item.taskID, watched.contains(task) else { return false }
@@ -680,6 +728,7 @@ public final class AlertCenter {
     /// What a background app refresh does: connect briefly, read approvals and running tasks, announce what is new
     /// (de-duplicated by id), update any running activity, and let go.
     func backgroundCheck() async {
+        guard !retired else { return }
         await loadSettings()
         guard settings.notifications else { return }
         guard await connection.ensureLive(timeout: .seconds(10)) else {

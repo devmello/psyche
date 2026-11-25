@@ -15,6 +15,17 @@ final class PairingEscapeUITests: PsycheUITestCase {
         XCTAssertFalse(match("This isn't your Gateway").exists)
     }
 
+    func testAChangedMacIdentityCanBePairedAgain() {
+        launch("identityChanged")
+        waitFor(match("This Mac's identity changed."))
+        let pairAgain = app.buttons["Pair again"]
+        waitFor(pairAgain)
+        pairAgain.tap()
+        waitFor(match("Pair this phone again?"))
+        app.buttons.matching(identifier: "Pair again").allElementsBoundByIndex.last?.tap()
+        waitFor(match("Pair with your Mac"))
+    }
+
     private func base64URL(_ data: Data) -> String {
         data.base64EncodedString().replacingOccurrences(of: "+", with: "-").replacingOccurrences(of: "/", with: "_")
             .replacingOccurrences(of: "=", with: "")

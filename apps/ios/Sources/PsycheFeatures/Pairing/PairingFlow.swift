@@ -280,10 +280,11 @@ struct PairingProgressView: View {
     }
 }
 
-/// `refused(.identityMismatch)`: a full-screen stop (companion M1 acceptance 2). Nothing is ever sent to the Mac that
+/// `refused(.identityMismatch)` or `refused(.identityChanged)`: a full-screen stop (companion M1 acceptance 2). Nothing is ever sent to the Mac that
 /// answered, and the phone doesn't retry it. The way out is to forget the saved Gateway and pair again, because the
 /// usual cause is a Mac that was reset or reinstalled and so has a new identity.
 struct RefusedView: View {
+    let reason: RefusalReason
     @Environment(Session.self) private var session
     @State private var confirming = false
     @State private var working = false
@@ -291,9 +292,16 @@ struct RefusedView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             MothAvatar(size: 64)
-            Text("This isn't your Gateway.", bundle: .module).psycheTitle(.title).foregroundStyle(PsycheColor.text)
-            Text("The Mac that answered isn't the one this phone was paired with, so Psyche stopped. Nothing was sent to it.", bundle: .module)
-                .font(.subheadline).foregroundStyle(PsycheColor.muted)
+            switch reason {
+            case .identityMismatch:
+                Text("This isn't your Gateway.", bundle: .module).psycheTitle(.title).foregroundStyle(PsycheColor.text)
+                Text("The Mac that answered isn't the one this phone was paired with, so Psyche stopped. Nothing was sent to it.", bundle: .module)
+                    .font(.subheadline).foregroundStyle(PsycheColor.muted)
+            case .identityChanged:
+                Text("This Mac's identity changed.", bundle: .module).psycheTitle(.title).foregroundStyle(PsycheColor.text)
+                Text("The Mac at this address didn't present the certificate this phone pinned when it paired, so Psyche stopped. Nothing was sent to it.", bundle: .module)
+                    .font(.subheadline).foregroundStyle(PsycheColor.muted)
+            }
             Text("If you reset or reinstalled Psyche on your Mac, it has a new identity, and this phone has to pair with it again.", bundle: .module)
                 .font(.subheadline).foregroundStyle(PsycheColor.muted)
             Spacer(minLength: 0)

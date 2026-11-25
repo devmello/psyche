@@ -48,26 +48,39 @@ struct PairingLinkV2Tests {
         #expect(parsed.fingerprint.count == 14)
     }
 
-    @Test(arguments: [
-        ("https://studio-mac.local", "https://studio-mac.local"),
-        ("https://studio-mac.local/", "https://studio-mac.local"),
-        ("https://studio-mac.local:8443", "https://studio-mac.local:8443"),
-        ("https://studio-mac.local.", "https://studio-mac.local."),
-        ("https://a.b-c.local:1", "https://a.b-c.local:1"),
-        ("https://10.0.0.5", "https://10.0.0.5"),
-        ("https://10.255.255.255:7443", "https://10.255.255.255:7443"),
-        ("https://172.16.0.1", "https://172.16.0.1"),
-        ("https://172.31.255.255", "https://172.31.255.255"),
-        ("https://192.168.1.20:7443/", "https://192.168.1.20:7443"),
-        ("https://[fd12:3456::1]", "https://[fd12:3456::1]"),
-        ("https://[fd12:3456::1]:8443", "https://[fd12:3456::1]:8443"),
-        ("https://[fc00::1]/", "https://[fc00::1]"),
-        ("https://[fdff:ffff:ffff:ffff:ffff:ffff:ffff:ffff]", "https://[fdff:ffff:ffff:ffff:ffff:ffff:ffff:ffff]"),
-    ])
-    func acceptsTheHostsTheMacMayNameAndNormalizesTheOrigin(text: String, origin: String) throws {
-        let parsed = try PairingLink.parse(Self.link(Self.fields(url: text)))
-        #expect(parsed.gatewayURL == origin)
-        #expect(LanHost.lanOrigin(origin) == origin, "the stored origin must pass the connect-time check too")
+    /// The table the TypeScript parser is tested against (`packages/protocol/test/lan-origin-vectors.test.ts`): one
+    /// file for both, so the phone accepts what the Mac makes and nothing else. A row the phone refuses although
+    /// `URL.origin` writes it (`tsAccepts`, port 0) is the only place Swift may be stricter.
+    struct Vectors: Decodable {
+        struct Origin: Decodable, CustomTestStringConvertible {
+            var text: String
+            var ok: Bool
+            var normalized: String?
+            var tsAccepts: Bool?
+            var testDescription: String { text }
+        }
+        struct Host: Decodable, CustomTestStringConvertible {
+            var host: String
+            var kind: String?
+            var testDescription: String { host }
+        }
+        var origins: [Origin]
+        var hosts: [Host]
+
+        static let shared: Vectors = {
+            let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+                .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+            let file = root.appendingPathComponent("packages/protocol/test/vectors/lan-origin.json")
+            return try! JSONDecoder().decode(Vectors.self, from: Data(contentsOf: file))
+        }()
+    }
+
+    @Test(arguments: Vectors.shared.origins.filter(\.ok))
+    func acceptsTheHostsTheMacMayNameAndNormalizesTheOrigin(row: Vectors.Origin) throws {
+        let parsed = try PairingLink.parse(Self.link(Self.fields(url: row.text)))
+        #expect(parsed.gatewayURL == row.normalized)
+        #expect(LanHost.lanOrigin(row.text) == row.normalized)
+        #expect(LanHost.lanOrigin(parsed.gatewayURL) == parsed.gatewayURL, "the stored origin must pass the connect-time check too")
     }
 
     @Test func aV1LinkStillParsesAndNeverPinsACertificate() throws {
@@ -80,30 +93,20 @@ struct PairingLinkV2Tests {
 
     // MARK: - What must be refused
 
-    /// Every row names a host the Gateway never listens on or a spelling `URL.origin` never writes.
-    @Test(arguments: [
-        // link-local (IPv4 and IPv6), with and without a zone id
-        "https://169.254.10.20", "https://[fe80::1]", "https://[fe80::1%25en0]", "https://[fe80::1%en0]", "https://studio-mac.local%25en0",
-        // global and documentation IPv6, mapped IPv4, loopback, unspecified, multicast
-        "https://[2001:db8::1]", "https://[2606:4700::1111]", "https://[::ffff:10.0.0.1]", "https://[::1]", "https://[::]", "https://[ff02::1]",
-        // public IPv4, loopback, carrier-grade NAT, the edges of the private blocks
-        "https://8.8.8.8", "https://127.0.0.1", "https://100.64.0.1", "https://172.15.0.1", "https://172.32.0.1", "https://192.169.0.1",
-        "https://11.0.0.1", "https://0.0.0.0", "https://localhost",
-        // names that are not mDNS names
-        "https://example.com", "https://studio-mac.tail1234.ts.net", "https://studio-mac.local.example.com", "https://local", "https://.local",
-        "https://a_b.local", "https://-a.local", "https://a-.local", "https://studio mac.local",
-        // not written as URL.origin writes it
-        "https://Studio-Mac.local", "https://STUDIO-MAC.LOCAL", "https://[FD12:3456::1]", "https://[fd12:0:0:0:0:0:0:1]",
-        "https://[fd12:3456:0:0:0:0:0:1]", "https://[fd12::0:1]", "https://[fd12:3456::1.2.3.4]", "https://010.0.0.1", "https://10.0.0.05",
-        "https://10.1", "https://10.0.0.5:443", "https://10.0.0.5:0", "https://10.0.0.5:08443", "https://10.0.0.5:65536", "https://10.0.0.5:abc",
-        "https://10.0.0.5:", "https://[fd12::1]:", "HTTPS://10.0.0.5",
-        // wrong scheme, credentials, path, query, fragment, more than an origin
-        "http://10.0.0.5", "wss://10.0.0.5", "10.0.0.5", "//10.0.0.5", "https://user@10.0.0.5", "https://user:pw@10.0.0.5", "https://10.0.0.5/x",
-        "https://10.0.0.5//", "https://10.0.0.5?x=1", "https://10.0.0.5#x", "https://10.0.0.5\\x", "https://10.0.0.5 ", " https://10.0.0.5",
-        "https://10.0.0.5\n", "https://[fd12::1", "https://fd12::1", "https://10.0.0.5:7443:7443", "", "https://",
-    ])
-    func refusesAnyOtherAddress(url: String) {
-        #expect(Self.problem(Self.fields(url: url)) == "bad_field:gatewayUrl", "\(url)")
+    /// Every row names a host the Gateway never listens on or a spelling `URL.origin` never writes. Port 0 is the one
+    /// row `URL.origin` does write: the phone refuses it on its own (`tsAccepts` in the table).
+    @Test(arguments: Vectors.shared.origins.filter { !$0.ok })
+    func refusesAnyOtherAddress(row: Vectors.Origin) {
+        #expect(Self.problem(Self.fields(url: row.text)) == "bad_field:gatewayUrl", "\(row.text)")
+    }
+
+    @Test func theTableHasTheRowsThatMatter() {
+        let refused = Set(Vectors.shared.origins.filter { !$0.ok }.map(\.text))
+        // link-local, global IPv6, public IPv4, a zone id, a trailing-dot dotted-decimal host, port 0
+        for text in ["https://[fe80::1]", "https://[2001:db8::1]", "https://8.8.8.8", "https://[fe80::1%25en0]", "https://10.0.0.5.", "https://10.0.0.5:0"] {
+            #expect(refused.contains(text), "\(text)")
+        }
+        #expect(Vectors.shared.origins.filter(\.ok).count >= 14)
     }
 
     @Test func refusesAnOriginOverTheSizeLimit() {
@@ -177,23 +180,17 @@ struct PairingLinkV2Tests {
         #expect(PairingLinkTests.problem(PairingLink.prefix + body)?.hasPrefix("extra_fields") == true)
     }
 
-    // MARK: - Which hosts count as this network (the table `lan-address.test.ts` runs)
+    // MARK: - Which hosts count as this network (the same table `lan-address` is tested with)
 
-    @Test(arguments: [
-        ("studio-mac.local", LanHost.Kind.mdns), ("STUDIO-MAC.LOCAL", .mdns), ("studio-mac.local.", .mdns), ("10.0.0.1", .ipv4Private),
-        ("172.20.1.1", .ipv4Private), ("192.168.0.9", .ipv4Private), ("[fd00::1]", .ipv6UniqueLocal), ("fc12::9", .ipv6UniqueLocal),
-    ])
-    func classifiesLocalNetworkHosts(host: String, kind: LanHost.Kind) {
-        #expect(LanHost.kind(of: host) == kind)
-    }
-
-    @Test(arguments: [
-        "", ".", "fe80::1", "[fe80::1]", "fe80::1%en0", "169.254.1.1", "2001:db8::1", "::ffff:10.0.0.1", "::1", "127.0.0.1", "8.8.8.8",
-        "100.64.0.1", "10.0.0", "10.0.0.256", "10.0.0.1.1", "01.0.0.1", "local", "example.com", "a..local", "10.0.0.5%en0", "fd00::1%en0",
-        "[fd00::1%25en0]", "fd00:::1", "fd00::1::2", "1:2:3:4:5:6:7:8:9", "fd00:1:2:3:4:5:6:7:8",
-    ])
-    func refusesEverythingElse(host: String) {
-        #expect(LanHost.kind(of: host) == nil, "\(host)")
+    @Test(arguments: Vectors.shared.hosts)
+    func classifiesHostsLikeTheTypeScriptParser(row: Vectors.Host) {
+        let kind: LanHost.Kind? = switch row.kind {
+        case "mdns": .mdns
+        case "ipv4-private": .ipv4Private
+        case "ipv6-unique-local": .ipv6UniqueLocal
+        default: nil
+        }
+        #expect(LanHost.kind(of: row.host) == kind, "\(row.host)")
     }
 }
 
@@ -219,8 +216,8 @@ struct PinnedCertificateTests {
     @Test func anyOtherCertificateIsRefusedEvenWhenTheSystemTrustsIt() {
         let trust = TransportTrust(allowSelfSigned: true, pinnedSPKI: Self.other)
         // A pin mismatch is final: no fall back to the system's answer, whichever way it goes.
-        #expect(decide(trust, leaf: Self.der, systemTrusts: false) == .refuse)
-        #expect(decide(trust, leaf: Self.der, systemTrusts: true) == .refuse)
+        #expect(decide(trust, leaf: Self.der, systemTrusts: false) == .pinMismatch)
+        #expect(decide(trust, leaf: Self.der, systemTrusts: true) == .pinMismatch)
     }
 
     @Test func aPinnedGatewayThatPresentsNothingReadableIsRefused() {
@@ -321,12 +318,22 @@ struct PinnedCertificateTests {
         var all: [TransportTrust] { lock.withLock { trusts } }
     }
 
-    private func client(_ gateway: FakeGateway, captured: Captured) -> GatewayClient {
+    /// A socket that never opens. `pinRefused` says whether TLS was cancelled by the pin check.
+    private struct DeadTransport: WebSocketTransport {
+        var pinRefused: Bool
+        func send(_ frame: Data) async throws { throw TransportClosed() }
+        func receive() async throws -> Data { throw TransportClosed() }
+        func close() {}
+    }
+
+    private func client(
+        _ gateway: FakeGateway, captured: Captured, transport: (@Sendable () -> any WebSocketTransport)? = nil
+    ) -> GatewayClient {
         let dir = FileManager.default.temporaryDirectory.appendingPathComponent("client-v2-\(UUID().uuidString)")
         return GatewayClient(dependencies: GatewayClientDependencies(
             endpointStore: EndpointStore(directory: dir), identityStore: DeviceIdentityStore(store: MemorySecretStore()),
             outbox: Outbox(directory: dir),
-            transportFactory: { _, trust in captured.add(trust); return gateway.makeTransport() },
+            transportFactory: { _, trust in captured.add(trust); return transport?() ?? gateway.makeTransport() },
             reachability: FakeReachability(resolvesHost: true, local: true),
             backoff: Backoff(base: 0.02, cap: 0.05, random: { 0 }), deviceName: "Test iPhone", stateDirectory: dir,
             backgroundGrace: .milliseconds(80), pendingRecheck: .milliseconds(40),
@@ -373,10 +380,51 @@ struct PinnedCertificateTests {
             certPin: PairingLinkV2Tests.pin)
         await h.setActive(true)
         await h.beginPairing(link)
-        let state = await GatewayClientTests.wait(h, for: { if case .unreachable = $0 { true } else { false } }, seconds: 5)
-        #expect(state != nil)
+        // Not "unreachable forever": the saved pin no longer names a local-network address, so the phone says so.
+        let state = await GatewayClientTests.wait(h, for: { $0 == .refused(.identityChanged) }, seconds: 5)
+        #expect(state == .refused(.identityChanged))
         #expect(captured.all.isEmpty)
         await h.cancelPairing()
+        await h.setActive(false)
+    }
+
+    @Test func aChangedCertificateIsAnIdentityChangeNotAMacThatIsOff() async throws {
+        let captured = Captured()
+        let h = client(FakeGateway(), captured: captured, transport: { DeadTransport(pinRefused: true) })
+        let link = try PairingLink.parse(PairingLinkV2Tests.link(PairingLinkV2Tests.fields(url: "https://studio-mac.local")))
+        await h.setActive(true)
+        await h.beginPairing(link)
+        let state = await GatewayClientTests.wait(h, for: { $0 == .refused(.identityChanged) }, seconds: 5)
+        #expect(state == .refused(.identityChanged))
+        // The old pin is kept, never replaced: the next dial still demands the same certificate.
+        #expect(captured.all.allSatisfy { $0.pinnedSPKI == PairingLinkV2Tests.pin })
+        await h.setActive(false)
+    }
+
+    @Test func aMacThatIsOffStaysUnreachableAndNotRefused() async throws {
+        let h = client(FakeGateway(), captured: Captured(), transport: { DeadTransport(pinRefused: false) })
+        let link = try PairingLink.parse(PairingLinkV2Tests.link(PairingLinkV2Tests.fields(url: "https://studio-mac.local")))
+        await h.setActive(true)
+        await h.beginPairing(link)
+        let state = await GatewayClientTests.wait(h, for: { if case .unreachable = $0 { true } else { false } }, seconds: 5)
+        #expect(state != nil)
+        await h.cancelPairing()
+        await h.setActive(false)
+    }
+
+    @Test func aLinkTheLinkCarriesAKeyForIsNotAWorkingPairingUntilAConnectionProvesIt() async throws {
+        // Two v2 links in a row, neither ever reached: cancelling must not "restore" the first, whose key came from the
+        // link and was never proven. Nothing is paired, so the scanner comes back.
+        let h = client(FakeGateway(), captured: Captured(), transport: { DeadTransport(pinRefused: false) })
+        let first = try PairingLink.parse(PairingLinkV2Tests.link(PairingLinkV2Tests.fields(url: "https://studio-one.local")))
+        let second = try PairingLink.parse(PairingLinkV2Tests.link(PairingLinkV2Tests.fields(url: "https://studio-two.local")))
+        await h.setActive(true)
+        await h.beginPairing(first)
+        await h.beginPairing(second)
+        _ = await GatewayClientTests.wait(h, for: { if case .unreachable = $0 { true } else { false } }, seconds: 5)
+        await h.cancelPairing()
+        #expect(await h.currentState == .unpaired)
+        #expect(await h.pairedEndpoint == nil)
         await h.setActive(false)
     }
 }

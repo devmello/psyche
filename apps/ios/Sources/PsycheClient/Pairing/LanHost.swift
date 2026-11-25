@@ -149,6 +149,9 @@ public enum LanHost {
             host = String(parts[0])
             if parts.count == 2 { portText = String(parts[1]) }
             guard host == host.lowercased(), let k = kind(of: host), k != .ipv6UniqueLocal else { return nil }
+            // `10.0.0.5.` is a DNS name to the system resolver, not a literal, and `URL.origin` writes it without the
+            // dot: only a `.local` name may end in one.
+            if k == .ipv4Private, host.hasSuffix(".") { return nil }
         }
         var result = "https://\(host)"
         if let portText {
