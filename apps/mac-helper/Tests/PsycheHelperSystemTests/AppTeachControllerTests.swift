@@ -251,4 +251,24 @@ struct AppTeachControllerTests {
         // No screenshot capability anywhere in the group.
         #expect(!names.contains { $0.contains("screenshot") })
     }
+
+    @Test func recordingWaitsWhileAPointsSessionRuns() async throws {
+        let computer = makeComputerUse(installer: FakeTapInstaller())
+        let activity = PointsActivity()
+        computer.isPointing = { activity.isActive }
+        let teach = controller()
+        let start = try #require(AppTeachCapabilities.make(teach, computer: computer).first { $0.spec.name == "teach.record.start" })
+        let ctx = InvocationContext(invocationId: "i", capability: "teach.record.start", params: ["bundleId": .string(mail)], approvalId: nil, emit: { _ in })
+        #expect(activity.begin("points-1"))
+        do {
+            _ = try await start.invoke(ctx)
+            Issue.record("recording must wait while points runs")
+        } catch let e as CapabilityError {
+            #expect(e.reason == "points_active")
+        }
+        #expect(teach.activeId == nil)
+        activity.end("points-1")
+        _ = try await start.invoke(ctx)  // positive control: it starts once points ended
+        #expect(teach.activeId != nil)
+    }
 }

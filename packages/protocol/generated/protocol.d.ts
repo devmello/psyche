@@ -2986,6 +2986,8 @@ export interface Block {
     route?:        string;
     goal?:         string;
     widgetId?:     string;
+    forkId?:       string;
+    branchId?:     string;
 }
 
 export interface WrapUpAction {
@@ -3125,7 +3127,7 @@ export interface CompactionSummary {
 
 export type BlockTrigger = "auto" | "manual";
 
-export type BlockType = "text" | "tool_call" | "plan" | "checklist" | "approval" | "question" | "artifact" | "file" | "context" | "receipt" | "task" | "wrap_up" | "related_threads" | "sources" | "life_answer" | "compaction" | "learned" | "taught" | "work_note" | "specialist_result" | "automation_workflow" | "app_link" | "points_offer" | "ui";
+export type BlockType = "text" | "tool_call" | "plan" | "checklist" | "approval" | "question" | "artifact" | "file" | "context" | "receipt" | "task" | "wrap_up" | "related_threads" | "sources" | "life_answer" | "compaction" | "learned" | "taught" | "work_note" | "specialist_result" | "automation_workflow" | "app_link" | "points_offer" | "ui" | "plan_fork" | "plan_taken";
 
 export interface ChatCancelParams {
     runId?:   string;
@@ -9711,6 +9713,293 @@ export interface PlanBlock {
 
 export type PlanBlockType = "plan";
 
+export interface PlanForkBlock {
+    forkId: string;
+    type:   PlanForkBlockType;
+}
+
+export type PlanForkBlockType = "plan_fork";
+
+export interface PlanForkUpdate {
+    branches: PlanForkUpdateBranch[];
+    forkId:   string;
+    spentUsd: number;
+    status:   PlanForkStatus;
+    threadId: string;
+}
+
+export interface PlanForkUpdateBranch {
+    id:     string;
+    status: PlanForkBranchStatus;
+    step?:  string;
+}
+
+export type PlanForkBranchStatus = "queued" | "running" | "reported" | "failed" | "cancelled" | "budget_stopped";
+
+export type PlanForkStatus = "running" | "comparing" | "ready" | "taken" | "dismissed" | "expired" | "cancelled" | "failed";
+
+export interface PlanForksCancelParams {
+    branchId?: string;
+    forkId:    string;
+}
+
+export interface PlanForksCancelResult {
+    cancelled: number;
+}
+
+export interface PlanForksCreateParams {
+    branches:  PlanForkOption[];
+    messageId: string;
+    threadId:  string;
+}
+
+export interface PlanForkOption {
+    label:   string;
+    premise: string;
+}
+
+export interface PlanForksCreateResult {
+    branches: PlanForkBranch[];
+    fork:     PlanFork;
+}
+
+export interface PlanForkBranch {
+    createdAt:     string;
+    error?:        null | string;
+    finishedAt?:   null | string;
+    forkId:        string;
+    id:            string;
+    label:         string;
+    ord:           number;
+    premise:       string;
+    readOwnerOnly: boolean;
+    report?:       ForkReport | null;
+    scrub?:        PlanForkScrub;
+    spentUsd:      number;
+    startedAt?:    null | string;
+    status:        PlanForkBranchStatus;
+    taint:         boolean;
+    taintSources:  TaintSource[];
+    taskId?:       null | string;
+    threadId:      string;
+    tokens:        number;
+    updatedAt:     string;
+}
+
+export interface ForkReport {
+    costs:         ForkCost[];
+    dates:         ForkDateItem[];
+    openQuestions: ForkOpenQuestion[];
+    people:        ForkPerson[];
+    risks:         ForkRisk[];
+    steps:         ForkStep[];
+    summary:       string;
+    tradeoffs:     ForkTradeoff[];
+}
+
+export interface ForkCost {
+    amount:     number;
+    basis?:     string;
+    cites:      ForkCite[];
+    currency:   string;
+    estimate:   boolean;
+    id:         string;
+    label:      string;
+    period:     ForkCostPeriod;
+    unsourced?: boolean;
+}
+
+export interface ForkCite {
+    callId:  string;
+    ref:     string;
+    source?: ForkCiteSource;
+}
+
+export type ForkCiteSource = "memory" | "mail" | "calendar" | "contacts" | "messages" | "web" | "files";
+
+export type ForkCostPeriod = "once" | "month" | "year";
+
+export interface ForkDateItem {
+    cites:      ForkCite[];
+    date:       string;
+    estimate:   boolean;
+    id:         string;
+    kind:       ForkDateKind;
+    label:      string;
+    unsourced?: boolean;
+}
+
+export type ForkDateKind = "deadline" | "event" | "milestone";
+
+export interface ForkOpenQuestion {
+    id:   string;
+    text: string;
+}
+
+export interface ForkPerson {
+    cites:      ForkCite[];
+    effect:     string;
+    id:         string;
+    name:       string;
+    personId?:  string;
+    unsourced?: boolean;
+}
+
+export interface ForkRisk {
+    cites:      ForkCite[];
+    id:         string;
+    likelihood: ForkRiskLikelihood;
+    text:       string;
+    unsourced?: boolean;
+}
+
+export type ForkRiskLikelihood = "low" | "medium" | "high";
+
+export interface ForkStep {
+    id:        string;
+    stagedId?: string;
+    text:      string;
+    when?:     string;
+    who:       ForkStepWho;
+}
+
+export type ForkStepWho = "psyche" | "you";
+
+export interface ForkTradeoff {
+    cites:      ForkCite[];
+    gain?:      string;
+    giveUp:     string;
+    id:         string;
+    unsourced?: boolean;
+}
+
+export interface PlanForkScrub {
+    hiddenItems:  number;
+    textHidden:   boolean;
+    totalsHidden: boolean;
+}
+
+export interface PlanFork {
+    budgetUsd:          number;
+    comparison?:        PlanComparison | null;
+    createdAt:          string;
+    createdByDeviceId?: null | string;
+    error?:             null | string;
+    expiresAt?:         null | string;
+    finishedAt?:        null | string;
+    forkMessageId?:     null | string;
+    id:                 string;
+    spentUsd:           number;
+    status:             PlanForkStatus;
+    takeApprovalId?:    null | string;
+    takenBranchId?:     null | string;
+    threadId:           string;
+    tokens:             number;
+    updatedAt:          string;
+}
+
+export interface PlanComparison {
+    betterIf: PlanComparisonBetterIf[];
+    headline: string;
+    rows:     PlanComparisonRow[];
+}
+
+export interface PlanComparisonBetterIf {
+    branchId: string;
+    text:     string;
+}
+
+export interface PlanComparisonRow {
+    cells:     PlanComparisonCell[];
+    differs:   boolean;
+    dimension: PlanComparisonDimension;
+    label:     string;
+}
+
+export interface PlanComparisonCell {
+    branchId: string;
+    itemIds:  string[];
+    note?:    string;
+}
+
+export type PlanComparisonDimension = "cost" | "dates" | "people" | "tradeoffs" | "risks" | "open";
+
+export interface PlanForksDismissParams {
+    forkId: string;
+}
+
+export interface PlanForksDismissResult {
+    dismissed: boolean;
+}
+
+export interface PlanForksEstimateParams {
+    branches: PlanForkOption[];
+    threadId: string;
+}
+
+export interface PlanForksEstimateResult {
+    budgetUsd: number;
+    maxTokens: number;
+    maxUsd?:   number | null;
+}
+
+export interface PlanForksGetParams {
+    forkId: string;
+}
+
+export interface PlanForksGetResult {
+    branches: PlanForkBranch[];
+    fork:     PlanFork;
+}
+
+export interface PlanForksListParams {
+    threadId: string;
+}
+
+export interface PlanForksListResult {
+    forks: PlanFork[];
+}
+
+export interface PlanForksRetryBranchParams {
+    branchId: string;
+    forkId:   string;
+}
+
+export interface PlanForksRetryBranchResult {
+    branch: PlanForkBranch;
+}
+
+export interface PlanForksSuggestParams {
+    messageId: string;
+    threadId:  string;
+}
+
+export interface PlanForksSuggestResult {
+    options: PlanForkOption[];
+}
+
+export interface PlanForksTakeParams {
+    branchId: string;
+    continue: boolean;
+    forkId:   string;
+    items:    NightShiftApplyItem[];
+    sends:    NightShiftApplySend[];
+}
+
+export interface PlanForksTakeResult {
+    answerToken?: string;
+    approval?:    ApprovalRequest;
+    refused:      NightShiftRefused[];
+}
+
+export interface PlanTakenBlock {
+    branchId: string;
+    forkId:   string;
+    type:     PlanTakenBlockType;
+}
+
+export type PlanTakenBlockType = "plan_taken";
+
 export interface PluginsChangedPayload {
     change: PluginsChangedPayloadChange;
     name:   string;
@@ -10058,13 +10347,14 @@ export interface PointsShowResult {
 }
 
 export interface PointsStartParams {
-    entry:       PointsEntry;
-    goal?:       string;
-    goalSource?: GoalSource;
-    locale:      string;
-    strings:     PointsCardStrings;
-    threadId?:   string;
-    window:      string;
+    closingNote?: string;
+    entry:        PointsEntry;
+    goal?:        string;
+    goalSource?:  GoalSource;
+    locale:       string;
+    strings:      PointsCardStrings;
+    threadId?:    string;
+    window:       string;
 }
 
 export type PointsEntry = "chat" | "palette" | "tray";

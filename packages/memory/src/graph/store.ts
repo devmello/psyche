@@ -254,7 +254,86 @@ export interface LoopInput {
   provenance: Provenance;
   confidence?: number;
   detectedBy: GraphLoop["detectedBy"];
+  /** Promise ledger fields (all optional; the defaults are the v2 column defaults). */
+  basis?: LoopBasis;
+  whatAction?: LoopAction | null;
+  dueText?: string | null;
+  dueKind?: LoopDueKind;
+  dueConfidence?: number | null;
+  proposedDueAt?: string | null;
+  snoozedUntil?: string | null;
+  threadKey?: string | null;
+  sourceKind?: LoopSourceKind | null;
+  counterpartLabel?: string | null;
+  /** Overrides the computed `dedupe_key`: used by the follow-ups import so a re-run is a no-op. */
+  dedupeKey?: string;
+  createdAt?: string;
+  closedAt?: string | null;
+  closedBy?: GraphLoop["closedBy"];
 }
+
+export type LoopBasis = "promise" | "ask" | "request";
+export type LoopAction = "send" | "reply" | "meet" | "do";
+export type LoopDueKind = "explicit" | "inferred" | "none";
+export type LoopSourceKind = "mail" | "messages" | "meeting" | "chat" | "manual";
+
+/** The ledger columns of a loop, beside the plain `GraphLoop`. */
+export interface LoopLedger {
+  basis: LoopBasis;
+  whatAction: LoopAction | null;
+  dueText: string | null;
+  dueKind: LoopDueKind;
+  dueConfidence: number | null;
+  proposedDueAt: string | null;
+  snoozedUntil: string | null;
+  brokenAt: string | null;
+  warnedAt: string | null;
+  nudgeCount: number;
+  lastNudgeAt: string | null;
+  threadKey: string | null;
+  sourceKind: LoopSourceKind | null;
+  counterpartLabel: string | null;
+  remoteVisible: boolean;
+  dedupeKey: string;
+  updatedAt: string;
+}
+
+/** What `patchLoop` may change. `remoteVisible` is deliberately absent (the scrub owns it). */
+export interface LoopPatch {
+  status?: GraphLoopStatus;
+  dueAt?: string | null;
+  text?: string;
+  closedAt?: string | null;
+  closedBy?: GraphLoop["closedBy"];
+  dueText?: string | null;
+  dueKind?: LoopDueKind;
+  dueConfidence?: number | null;
+  proposedDueAt?: string | null;
+  snoozedUntil?: string | null;
+  brokenAt?: string | null;
+  warnedAt?: string | null;
+  nudgeCount?: number;
+  lastNudgeAt?: string | null;
+  whatAction?: LoopAction | null;
+}
+
+const LOOP_PATCH_COLUMNS: Record<keyof LoopPatch, string> = {
+  status: "status",
+  dueAt: "due_at",
+  text: "text",
+  closedAt: "closed_at",
+  closedBy: "closed_by",
+  dueText: "due_text",
+  dueKind: "due_kind",
+  dueConfidence: "due_confidence",
+  proposedDueAt: "proposed_due_at",
+  snoozedUntil: "snoozed_until",
+  brokenAt: "broken_at",
+  warnedAt: "warned_at",
+  nudgeCount: "nudge_count",
+  lastNudgeAt: "last_nudge_at",
+  whatAction: "what_action",
+};
 
 interface EntityRow {
   id: string;
@@ -338,6 +417,22 @@ interface LoopRow {
   created_at: string;
   closed_at: string | null;
   closed_by: GraphLoop["closedBy"] | null;
+  updated_at: string;
+  basis: LoopBasis;
+  what_action: LoopAction | null;
+  due_text: string | null;
+  due_kind: LoopDueKind;
+  due_confidence: number | null;
+  proposed_due_at: string | null;
+  snoozed_until: string | null;
+  broken_at: string | null;
+  warned_at: string | null;
+  nudge_count: number;
+  last_nudge_at: string | null;
+  thread_key: string | null;
+  source_kind: LoopSourceKind | null;
+  counterpart_label: string | null;
+  remote_visible: number;
 }
 
 function fail(code: PsycheError["code"], message: string): never {
@@ -507,6 +602,28 @@ function toEdge(r: EdgeRow): GraphEdge {
     validTo: r.valid_to,
     supersededBy: r.superseded_by,
     retractedAt: r.retracted_at,
+  };
+}
+
+function toLoopLedger(r: LoopRow): LoopLedger {
+  return {
+    basis: r.basis,
+    whatAction: r.what_action,
+    dueText: r.due_text,
+    dueKind: r.due_kind,
+    dueConfidence: r.due_confidence,
+    proposedDueAt: r.proposed_due_at,
+    snoozedUntil: r.snoozed_until,
+    brokenAt: r.broken_at,
+    warnedAt: r.warned_at,
+    nudgeCount: r.nudge_count,
+    lastNudgeAt: r.last_nudge_at,
+    threadKey: r.thread_key,
+    sourceKind: r.source_kind,
+    counterpartLabel: r.counterpart_label,
+    remoteVisible: r.remote_visible === 1,
+    dedupeKey: r.dedupe_key,
+    updatedAt: r.updated_at,
   };
 }
 
@@ -2244,7 +2361,8 @@ export class GraphStore {
       input.counterpartId === undefined || input.counterpartId === null
         ? null
         : this.resolveMerged(input.counterpartId);
-    const dedupe = sha256(`${input.direction}\n${counterpart ?? ""}\n${normalizeName(text)}`);
+    const dedupe =
+      input.dedupeKey ?? sha256(`${input.direction}\n${counterpart ?? ""}\n${normalizeName(text)}`);
     const prior = this.#db
       .prepare("SELECT * FROM graph_loops WHERE dedupe_key = ? ORDER BY created_at DESC LIMIT 1")
       .get(dedupe) as LoopRow | undefined;
@@ -2252,11 +2370,14 @@ export class GraphStore {
       return undefined;
     const id = this.#id("loop");
     const now = this.#now();
+    const dueAt = input.dueAt ?? null;
     this.#db
       .prepare(
         `INSERT INTO graph_loops (id, direction, text, evidence, counterpart_id, project_id, due_at, status,
-           source_interaction_id, provenance, confidence, detected_by, dedupe_key, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+           source_interaction_id, provenance, confidence, detected_by, dedupe_key, created_at, updated_at,
+           closed_at, closed_by, basis, what_action, due_text, due_kind, due_confidence, proposed_due_at,
+           snoozed_until, thread_key, source_kind, counterpart_label)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .run(
         id,
@@ -2265,15 +2386,31 @@ export class GraphStore {
         clip(input.evidence, EVIDENCE_CHARS),
         counterpart,
         input.projectId ?? null,
-        input.dueAt ?? null,
+        dueAt,
         status,
         input.sourceInteractionId ?? null,
         input.provenance,
         Math.min(1, Math.max(0, input.confidence ?? 0.6)),
         input.detectedBy,
         dedupe,
+        input.createdAt ?? now,
         now,
-        now,
+        input.closedAt ?? null,
+        input.closedAt === undefined || input.closedAt === null
+          ? null
+          : (input.closedBy ?? "owner"),
+        input.basis ?? "request",
+        input.whatAction ?? null,
+        input.dueText === undefined || input.dueText === null ? null : input.dueText.slice(0, 120),
+        input.dueKind ?? (dueAt === null ? "none" : "explicit"),
+        input.dueConfidence === undefined ? (dueAt === null ? null : 0.8) : input.dueConfidence,
+        input.proposedDueAt ?? null,
+        input.snoozedUntil ?? null,
+        input.threadKey ?? null,
+        input.sourceKind ?? null,
+        input.counterpartLabel === undefined || input.counterpartLabel === null
+          ? null
+          : input.counterpartLabel.slice(0, 200),
       );
     // Visible to a remote viewer unless the source is Messages (promise scrub, loop-visibility.ts).
     markLoopRemoteVisible(this.#db, id);
@@ -2286,6 +2423,38 @@ export class GraphStore {
   getLoop(id: string): GraphLoop | undefined {
     const row = this.#loopRow(id);
     return row === undefined ? undefined : toLoop(row);
+  }
+
+  /** The loop with its promise ledger columns (the ledger's own read). */
+  getLoopLedger(id: string): (GraphLoop & LoopLedger) | undefined {
+    const row = this.#loopRow(id);
+    return row === undefined ? undefined : { ...toLoop(row), ...toLoopLedger(row) };
+  }
+
+  /**
+   * The ledger's write path: sets the named columns, bumps `updated_at`, emits
+   * `memory.loop.updated`. Not reachable from a client; `promises/store.ts` decides what may change
+   * and writes the history.
+   */
+  patchLoop(id: string, patch: LoopPatch): GraphLoop & LoopLedger {
+    const row = this.#loopRow(id);
+    if (row === undefined) fail("not_found", "no such loop");
+    const sets: string[] = [];
+    const values: unknown[] = [];
+    for (const [key, value] of Object.entries(patch) as [keyof LoopPatch, unknown][]) {
+      const column = LOOP_PATCH_COLUMNS[key];
+      if (column === undefined || value === undefined) continue;
+      sets.push(`${column} = ?`);
+      values.push(value);
+    }
+    sets.push("updated_at = ?");
+    values.push(this.#now());
+    this.#db.prepare(`UPDATE graph_loops SET ${sets.join(", ")} WHERE id = ?`).run(...values, id);
+    const next = this.#loopRow(id) as LoopRow;
+    const loop = toLoop(next);
+    this.#emit({ event: "memory.loop.updated", payload: { loop } });
+    if (row.counterpart_id !== null) this.#touched(row.counterpart_id, ["loops"]);
+    return { ...loop, ...toLoopLedger(next) };
   }
 
   updateLoop(

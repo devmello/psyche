@@ -332,3 +332,69 @@ Use a fresh macOS user account, or reset first:
 | 14.18 | Ad-hoc → ad-hoc upgrade | System Settings still shows the old toggles on, but `permissions.status` reports them missing. `tccutil reset All com.psyche.helper`, restart the helper, grant again → works. Doctor warns about ad-hoc signing |
 | 14.19 | Move Psyche.app to the Trash while it runs | The helper exits within 30 s; nothing relaunches it |
 | 14.20 | Downgrade (older DMG) | Same as 14.16. Developer ID grants are kept |
+
+## 15. Psyche points overlay (W4)
+
+Psyche points shows a ring and a note card next to the field the owner fills next. It must never click, type, take keyboard focus or activate anything. Design: `docs/design/psyche-points-2026.md` §4. Until the Gateway wiring (W7) lands, drive `points.windows`, `points.session` and `points.show` from a test client on the node socket, using a throwaway form (a local HTML page with a name, employer, city and a password field is enough) and never a real account. The card's button text comes from the `strings` the client sends: use `{app}`, `{label}`, `{n}` and `{total}` placeholders in a few of them and check they are filled.
+
+Run the whole table in Safari and again in Chrome. Rows 15.20 to 15.25 also need a second display, Spaces and a full-screen app.
+
+### Windows and focus
+
+| # | Step | Expect |
+| --- | --- | --- |
+| 15.1 | Start a session on the form window, then `points.show` for the first field (kind `fill`, a note, a value, two sources, step 1 of 3) | A 3 pt ink ring 4 pt outside the field and a 300 pt wide card beside it. The ring does not cover the field, so the text you type stays readable |
+| 15.2 | Click into the field and type | The text goes into the field. The page's caret stays, Psyche Helper never becomes the frontmost app (the menu bar still names the browser), no Dock icon |
+| 15.3 | Press Tab and Shift-Tab, use arrow keys and Cmd-L while the card is up | The browser behaves as without Psyche. The card takes no key input |
+| 15.4 | Click the ring area and the field through it | The click reaches the field: the pointer layer ignores the mouse |
+| 15.5 | Click a card button (Skip) while the browser is frontmost and the form field is focused | One click is enough (no activation click). The field keeps focus and its caret. The client receives `{type: "action", action: "skip"}` |
+| 15.6 | Click the card's text area and its empty margins | Nothing happens to the form. Focus stays in the field |
+| 15.7 | Activity Monitor, the helper's row | CPU near 0 while idle, no new Dock icon, no extra process |
+| 15.8 | Cmd-Tab and Mission Control | The ring and card are not listed as windows or apps and do not get in the way |
+
+### The card
+
+| # | Step | Expect |
+| --- | --- | --- |
+| 15.9 | Show a step with a value, `sources` and a warning | Rows in order: app name, note, the value in a monospace chip, the warning, the sources and the step count (`1/3`), then the buttons |
+| 15.10 | Show a step with a very long note and a long warning | The card never grows past 160 pt. The note is cut with an ellipsis |
+| 15.11 | Show a field the helper judged sensitive (a password or card number) with a `value` | No value is drawn |
+| 15.12 | Show a `self` step on a Pay button | The card says the fixed pay-button text from the strings, not the model's note |
+| 15.13 | Press Hide note | The card collapses to a small pill with the step count. Press it and the card is back |
+| 15.14 | Press Stuck? | The three stuck choices replace the buttons. Each sends its `stuck_*` action. Press Stuck? again and the normal buttons return |
+| 15.15 | Press Looks wrong?, Back, Next (kind `next_page`) and Ask in Psyche | Each sends its action (`wrong`, `back`, `next`, `ask`) and does nothing else |
+| 15.16 | Turn on Increase Contrast, then Reduce Motion, in System Settings › Accessibility › Display | The ring is 5 pt. With Reduce Motion the ring and card appear at once, with no fade |
+| 15.17 | Type in the target field | The card dims to 40% and clicks go through it. One second after the last keystroke it is back at full strength and clickable |
+| 15.18 | Scroll the page until the field is off screen | The ring turns into an edge chevron at the window edge and the card shows the "scroll to {label}" text. Scroll back and the ring returns to the field |
+| 15.19 | Resize and move the browser window | The ring and card follow within a moment. The card never sits on the field or on the next two fields |
+
+### Displays, Spaces and full screen
+
+| # | Step | Expect |
+| --- | --- | --- |
+| 15.20 | Two displays: drag the window so it spans both, with the field on the second display | A pointer layer on each display the field touches, the card on the display that holds the field. Mixed Retina and non-Retina look the same size |
+| 15.21 | Unplug or reconfigure a display during a session | The panels rebuild on the remaining display, no stray ring is left behind |
+| 15.22 | Switch to another Space, then back | The ring and card are gone while the window is not on the active Space and return when it is |
+| 15.23 | Switch to Mail (Cmd-Tab), then back to the browser | The ring and card vanish while Mail is in front and return when the browser is |
+| 15.24 | Put the browser into full screen (green button) and show a step | The ring and card show over the full-screen Space. The menu-bar item may be hidden there: Stop on the card and Esc still work |
+| 15.25 | Minimise the window, then restore it | Hidden while minimised, back after |
+
+### Stopping
+
+| # | Step | Expect |
+| --- | --- | --- |
+| 15.26 | While a session runs | The menu bar shows "◉ Pointing: <app>" (the `menuBarTitle` string) with a Stop row. It is gone after the session ends |
+| 15.27 | Choose Stop in the menu-bar item | The overlay disappears at once and the client receives `action: stop` and then `ended` |
+| 15.28 | Press a bare Esc with the browser in front | The session ends (`ended`, reason `stop`). The browser still received the Esc (a date picker closes, for example) |
+| 15.29 | Press Shift-Esc, Cmd-Esc, or Esc with another app in front | The session keeps running |
+| 15.30 | Press Stop on the card | Same as 15.27 |
+| 15.31 | Quit the target app, or close its window | The overlay is gone and the session ends |
+| 15.32 | `log stream --predicate 'subsystem == "com.psyche.helper"'` during all of the above | No note text, values, labels or field titles in the log. No key characters |
+
+### What the guarantee rules out
+
+| # | Step | Expect |
+| --- | --- | --- |
+| 15.33 | `apps/mac-helper/scripts/check-points-boundary.sh` | "all checks passed": no pasteboard write, no event posting, no activation, no key-window call and no `characters` read in `PsycheHelperPoints` |
+| 15.34 | Run a normal `computer.click` while a session runs | Refused with `conflict/points_active` |
+| 15.35 | Copy something, run a whole session, paste | Your clipboard is unchanged: the helper never writes it (Copy is not in the helper; see the PR note) |
