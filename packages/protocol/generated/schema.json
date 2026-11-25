@@ -808,7 +808,7 @@
         "sideEffecting": false
       },
       {
-        "description": "Runs an automation now, outside its schedule. Side-effecting: a duplicate would run it twice.",
+        "description": "Runs an automation now, outside its schedule. `runId` is the agent run that does the work (open it with runs.get and runs.steps), null when it has not started one yet or never will. Side-effecting: a duplicate would run it twice.",
         "name": "automations.run",
         "params": "#/$defs/AutomationsRunParams",
         "result": "#/$defs/AutomationsRunResult",
@@ -4336,7 +4336,7 @@
         "sideEffecting": false
       },
       {
-        "description": "Creates a thread (default kind main). Side-effecting: a retried key returns the same thread.",
+        "description": "Creates a thread (default kind side; kind main returns the one main chat and ignores the other parameters). Side-effecting: a retried key returns the same thread.",
         "name": "threads.create",
         "params": "#/$defs/ThreadsCreateParams",
         "result": "#/$defs/ThreadResult",
@@ -35896,6 +35896,38 @@
       "properties": {
         "started": {
           "type": "boolean"
+        },
+        "outcome": {
+          "anyOf": [
+            {
+              "const": "off",
+              "type": "string"
+            },
+            {
+              "const": "already",
+              "type": "string"
+            },
+            {
+              "const": "skipped",
+              "type": "string"
+            },
+            {
+              "const": "no_candidates",
+              "type": "string"
+            },
+            {
+              "const": "empty",
+              "type": "string"
+            },
+            {
+              "const": "done",
+              "type": "string"
+            },
+            {
+              "const": "stopped",
+              "type": "string"
+            }
+          ]
         },
         "reason": {
           "maxLength": 200,
