@@ -1025,6 +1025,7 @@ export function composeEverything(deps: EverythingDeps): Everything {
   /** The scheduled job (Scheduled → Everything memory): same pass, and "Run now" works there. */
   const job: ProactiveJob = {
     name: "everything memory",
+    rerunOnInterrupt: true,
     matches: (a) => parseJobMarker(a.prompt)?.job === JOB,
     async run(request): Promise<LaunchResult> {
       const manual = (request.run as { trigger?: string }).trigger === "manual";

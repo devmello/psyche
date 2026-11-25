@@ -14,6 +14,22 @@ export interface LaunchResult {
   status: "done" | "no_reply" | "failed" | "cancelled";
   summary: string | null;
   taskId?: string;
+  /** True when the job failed before it did anything visible, so a retry is safe. */
+  noSideEffects?: boolean;
+  /** The error's own message, kept apart from `summary` (which the owner sees). */
+  errorDetail?: string;
+}
+
+/**
+ * Thrown by a job that failed before its first side effect (it had only read things). The
+ * launcher reports `noSideEffects`, so the scheduler's 1/5/15 minute retry applies to a
+ * transient provider error. The message of `cause` rides along as `errorDetail`.
+ */
+export class BeforeEffectError extends Error {
+  constructor(cause: unknown) {
+    super(cause instanceof Error ? cause.message : String(cause), { cause });
+    this.name = "BeforeEffectError";
+  }
 }
 
 export interface LaunchRequest {
@@ -28,6 +44,8 @@ export interface Launcher<R extends LaunchRequest = LaunchRequest, Run = unknown
   launch(request: R): Promise<{ taskId?: string; result: Promise<LaunchResult> }>;
   reattach?(run: Run): Promise<LaunchResult> | undefined;
   cancel?(run: Run, reason: string): Promise<void>;
+  /** After a restart cut off a run with nothing to follow: may it run again? Default no. */
+  rerunOnInterrupt?(automation: Automation): boolean;
 }
 
 /** What this package needs from the scheduler (`SqliteScheduler` and `FakeScheduler` both fit). */
@@ -42,6 +60,12 @@ export interface SchedulerLike {
 /** One in-process job: `matches` by the automation's prompt marker, `run` returns the outcome. */
 export interface ProactiveJob {
   readonly name: string;
+  /**
+   * Set only for a job that reads and proposes (cards, notices, approvals) and never acts on its
+   * own: a restart that cut a scheduled run short then runs it again once. Unset, the owner is
+   * told it was interrupted instead.
+   */
+  readonly rerunOnInterrupt?: boolean;
   matches(automation: Pick<Automation, "prompt" | "kind">): boolean;
   run(request: LaunchRequest): Promise<LaunchResult>;
 }
@@ -92,7 +116,15 @@ export function withProactiveJobs<R extends LaunchRequest, Run>(
       if (job !== undefined) {
         const result = job.run(request).catch((e: unknown): LaunchResult => {
           options.onError?.(e);
-          return { status: "failed", summary: `${job.name} failed` };
+          // The summary the owner sees stays generic (the error may name a path or a key); the
+          // detail rides along so the scheduler can tell a transient provider error from a bug.
+          const detail = e instanceof Error ? e.message : String(e);
+          return {
+            status: "failed",
+            summary: `${job.name} failed`,
+            ...(detail === "" ? {} : { errorDetail: detail }),
+            ...(e instanceof BeforeEffectError ? { noSideEffects: true } : {}),
+          };
         });
         return { result };
       }
@@ -100,6 +132,12 @@ export function withProactiveJobs<R extends LaunchRequest, Run>(
         return options.heartbeat.launch(request);
       }
       return inner.launch(request);
+    },
+    rerunOnInterrupt(automation) {
+      const job = options.jobs.find((j) => j.matches(automation));
+      return job === undefined
+        ? inner.rerunOnInterrupt?.(automation) === true
+        : job.rerunOnInterrupt === true;
     },
     ...(inner.reattach === undefined ? {} : { reattach: (run: Run) => inner.reattach?.(run) }),
     ...(inner.cancel === undefined

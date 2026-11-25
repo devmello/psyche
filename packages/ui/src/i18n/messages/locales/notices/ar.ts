@@ -101,4 +101,10 @@ export const notices: Partial<Catalogue> = {
   "notice.machine.offline.title": "انقطع اتصال {name}",
   "notice.machine.offline.body":
     "توجد مهمة تنتظر استخدامه، وستتابع عندما يعود {name}. يمكنك أيضاً إلغاء المهمة.",
+  "notice.automation.needsApproval.title": "{title} ينتظر موافقتك",
+  "notice.automation.needsApproval.body":
+    "توقف لأن الموافقة انتهت صلاحيتها. افتح الموافقات لترى ما يحتاجه، ثم شغّله مرة أخرى.",
+  "notice.automation.interrupted.title": "تمت مقاطعة {title}",
+  "notice.automation.interrupted.body":
+    "أُعيد تشغيل Psyche أثناء تشغيله وربما أنجز جزءًا منه. تحقق من النتيجة، ثم شغّله مرة أخرى إن لزم.",
 };

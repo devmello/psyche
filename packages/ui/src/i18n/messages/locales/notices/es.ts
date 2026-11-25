@@ -110,4 +110,10 @@ export const notices: Partial<Catalogue> = {
   "notice.machine.offline.title": "{name} se desconectó",
   "notice.machine.offline.body":
     "Una tarea espera para usarlo y seguirá cuando {name} vuelva. También puedes cancelar la tarea.",
+  "notice.automation.needsApproval.title": "{title} está esperando tu aprobación",
+  "notice.automation.needsApproval.body":
+    "Se detuvo porque la aprobación caducó. Abre Aprobaciones para ver qué necesita y vuelve a ejecutarlo.",
+  "notice.automation.interrupted.title": "{title} se interrumpió",
+  "notice.automation.interrupted.body":
+    "Psyche se reinició mientras se ejecutaba y puede que ya haya hecho una parte. Revisa el resultado y vuelve a ejecutarlo si hace falta.",
 };

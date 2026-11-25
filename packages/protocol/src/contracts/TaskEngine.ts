@@ -69,6 +69,12 @@ export interface ClaimOptions {
    * running, so one conversation can't hold every slot (docs/agent/specialists-2026.md §4.5).
    */
   perParentLimit?: number;
+  /**
+   * Never take over these tasks while they are `running` (a queued one is claimed as usual). A
+   * pool passes the tasks it is already running: after a sleep their wall-clock lease has run
+   * out, and without this an idle slot would claim its own task again.
+   */
+  excludeTaskIds?: readonly string[];
 }
 
 export interface CheckpointInput {

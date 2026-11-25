@@ -8,6 +8,7 @@ import { SqliteTaskEngine, TaskWorkerPool } from "@psyche/tasks";
 import { createIdGenerator, FakeAgentLoop, FakeClock, FakeNotifier } from "@psyche/testing";
 import { describe, expect, it } from "vitest";
 import {
+  BeforeEffectError,
   cadenceKind,
   HEARTBEAT_TASK_BUDGET,
   jobMarker,
@@ -187,5 +188,91 @@ describe("withProactiveJobs", () => {
     expect(cadenceKind("0 8 * * 1")).toBe("cron");
     expect(cadenceKind("PT30M")).toBe("interval");
     expect(cadenceKind("P1D")).toBe("interval");
+  });
+});
+
+describe("in-process job retry", () => {
+  async function runJob(error: Error) {
+    const clock = new FakeClock(T0);
+    const db = testDb(clock);
+    const notifier = new FakeNotifier({ clock });
+    const job: ProactiveJob = {
+      name: "morning brief",
+      matches: (a) => parseJobMarker(a.prompt)?.job === "brief",
+      run: async () => {
+        throw error;
+      },
+    };
+    const scheduler = new SqliteScheduler({
+      db,
+      clock,
+      timers: asleep,
+      random: () => 0,
+      launcher: withProactiveJobs(new RecordingLauncher(), { jobs: [job] }),
+      sessions: createDbSessionResolver(db),
+      notifier,
+    });
+    const a = await scheduler.create({
+      kind: "cron",
+      title: "Morning brief",
+      prompt: jobMarker("brief", "daily"),
+      system: true,
+      schedule: "0 7 * * *",
+      timezone: "UTC",
+    });
+    // A scheduled run: manual runs are never retried.
+    clock.advance(24 * 3_600_000);
+    await scheduler.wake();
+    await scheduler.idle();
+    return { run: scheduler.runs(a.id).runs[0], notifier, scheduler };
+  }
+
+  it("a transient provider error before any side effect waits for the 1 minute retry", async () => {
+    const { run, notifier, scheduler } = await runJob(
+      new BeforeEffectError(new Error("529 overloaded_error")),
+    );
+    expect(run?.status).toBe("running");
+    expect(run?.attempt).toBe(1);
+    expect(run?.retryAt).toBeDefined();
+    expect(scheduler.activeRunCount()).toBe(1);
+    expect((await notifier.list()).filter((n) => n.kind === "task_failed")).toEqual([]);
+  });
+
+  it("the same error from a job that may have acted is not retried (positive control)", async () => {
+    const { run } = await runJob(new Error("529 overloaded_error"));
+    expect(run?.status).toBe("failed");
+    expect(run?.retryAt).toBeUndefined();
+  });
+
+  it("a bug before any side effect is not retried, and the owner's text stays generic", async () => {
+    const { run, notifier } = await runJob(
+      new BeforeEffectError(new Error("TypeError: x is undefined at /Users/me/file.ts")),
+    );
+    expect(run?.status).toBe("failed");
+    expect(run?.summary).toBe("morning brief failed");
+    expect((await notifier.list())[0]?.body).toBe("morning brief failed");
+  });
+});
+
+describe("rerunOnInterrupt", () => {
+  const mk = (name: string, flag?: boolean): ProactiveJob => ({
+    name,
+    ...(flag === undefined ? {} : { rerunOnInterrupt: flag }),
+    matches: (a) => parseJobMarker(a.prompt)?.job === name,
+    run: async () => ({ status: "no_reply", summary: "" }),
+  });
+  const automation = (job: string) =>
+    ({ prompt: jobMarker(job, "x"), kind: "cron" }) as Parameters<
+      ProactiveJob["matches"]
+    >[0] as never;
+
+  it("is true only for a job that opted in; an unflagged job and an unknown automation are not rerun", () => {
+    const l = withProactiveJobs(new RecordingLauncher() as never, {
+      jobs: [mk("reads", true), mk("plain"), mk("explicit-no", false)],
+    });
+    expect(l.rerunOnInterrupt?.(automation("reads"))).toBe(true);
+    expect(l.rerunOnInterrupt?.(automation("plain"))).toBe(false);
+    expect(l.rerunOnInterrupt?.(automation("explicit-no"))).toBe(false);
+    expect(l.rerunOnInterrupt?.(automation("other"))).toBe(false);
   });
 });
