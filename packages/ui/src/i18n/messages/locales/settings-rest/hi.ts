@@ -146,6 +146,8 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.notifications.helper.hint":
     "स्वीकृति की सूचनाएँ Psyche Helper से आती हैं। उसे इन्हें दिखाने की अनुमति दें, ताकि विंडो बंद होने पर भी स्वीकृतियाँ आप तक पहुँचें।",
   "settings.notifications.helper.allow": "Psyche Helper की सूचनाओं की अनुमति दें",
+  "settings.notifications.helper.denied": "सिस्टम सेटिंग्स में सूचनाएँ बंद हैं",
+  "settings.notifications.helper.openSettings": "सिस्टम सेटिंग्स खोलें",
   "settings.notifications.description": "Psyche कब आपको टोक सकता है।",
   "settings.notifications.group.quietHours": "शांत घंटे",
   "settings.notifications.quietHours.hint":

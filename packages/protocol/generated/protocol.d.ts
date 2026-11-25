@@ -13019,7 +13019,7 @@ export interface Space {
 
 export type SpaceCreatedFrom = "owner" | "proposal" | "project" | "migration";
 
-export type PermissionMode = "plan" | "manual" | "balanced" | "auto";
+export type PermissionMode = "plan" | "manual" | "balanced" | "auto" | "full";
 
 export interface SpaceTracker {
     addedBy:      AddedBy;

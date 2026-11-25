@@ -7,8 +7,7 @@ import SwiftUI
 import UniformTypeIdentifiers
 import VisionKit
 
-/// The + button: a floating glass control (chrome, so it gets Liquid Glass) with a menu of where files
-/// come from. This is the Library screen's one ink fill.
+/// The toolbar + menu: where files come from (Photos, Files, the scanner, a voice memo).
 struct UploadMenuButton: View {
     let onFiles: ([UploadFile]) -> Void
 
@@ -28,11 +27,7 @@ struct UploadMenuButton: View {
                 .disabled(!VNDocumentCameraViewController.isSupported)
             Button { showVoiceMemo = true } label: { Label(String(localized: "Voice memo", bundle: .module), systemImage: "mic") }
         } label: {
-            Image(systemName: "plus")
-                .font(.system(size: 22, weight: .semibold))
-                .foregroundStyle(.white)
-                .frame(width: 56, height: 56)
-                .glassEffect(.regular.tint(PsycheColor.ink).interactive(), in: .circle)
+            Label(String(localized: "Add to Library", bundle: .module), systemImage: "plus")
         }
         .accessibilityLabel(String(localized: "Add to Library", bundle: .module))
         .photosPicker(isPresented: $showPhotos, selection: $photos, maxSelectionCount: 10, matching: .images)

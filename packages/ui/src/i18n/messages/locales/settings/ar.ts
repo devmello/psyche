@@ -114,6 +114,8 @@ export const settings: Partial<Catalogue> = {
   "settings.notifications.helper.hint":
     "تصل إشعارات الموافقة عبر Psyche Helper. اسمح له بإظهارها لتصلك الموافقات حين تكون النافذة مغلقة.",
   "settings.notifications.helper.allow": "السماح بإشعارات Psyche Helper",
+  "settings.notifications.helper.denied": "الإشعارات متوقفة في إعدادات النظام",
+  "settings.notifications.helper.openSettings": "فتح إعدادات النظام",
   "settings.notifications.description": "متى يجوز لـ Psyche مقاطعتك.",
   "settings.notifications.group.quietHours": "ساعات الهدوء",
   "settings.notifications.quietHours.hint":

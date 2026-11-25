@@ -48,3 +48,31 @@ describe("Settings → Notifications", () => {
     expect(onChange).toHaveBeenCalledWith("notifications.quietHours.start", "23:30");
   });
 });
+
+describe("Settings → Notifications → helper permission", () => {
+  it("says notifications are off and opens System Settings when denied", async () => {
+    const onAllow = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <NotificationsPanel
+        values={{}}
+        onChange={() => {}}
+        helperNotifications={{ state: "denied", onAllow }}
+      />,
+    );
+    expect(screen.getByText("Notifications are off in System Settings")).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "Open System Settings" }));
+    expect(onAllow).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows no such line when granted", () => {
+    render(
+      <NotificationsPanel
+        values={{}}
+        onChange={() => {}}
+        helperNotifications={{ state: "granted", onAllow: () => {} }}
+      />,
+    );
+    expect(screen.queryByText("Notifications are off in System Settings")).toBeNull();
+  });
+});

@@ -83,38 +83,17 @@ describe("agent notes", () => {
       { kind: "main" },
       ik(),
     );
-    /** Approves the card for a memory call (a write: balanced mode asks) once it has armed. */
-    const approveCard = async () => {
-      const until = Date.now() + 10_000;
-      for (;;) {
-        const card = owner.events
-          .filter((e) => e.event === "approval.created")
-          .map((e) => e.payload as { approval: { id: string }; answerToken?: string })
-          .find((p) => p.answerToken !== undefined);
-        if (card !== undefined) {
-          await new Promise((r) => setTimeout(r, 450)); // cards arm after 400 ms
-          await owner.call("approvals.answer", {
-            approvalId: card.approval.id,
-            answerToken: card.answerToken,
-            decision: "approve",
-            scope: "once",
-          });
-          return;
-        }
-        if (Date.now() > until) throw new Error("no approval card");
-        await new Promise((r) => setTimeout(r, 25));
-      }
-    };
-    const ask = async (content: string, approve = false) => {
+    const ask = async (content: string) => {
       const before = model.requests.length;
       await owner.call("chat.send", { threadId: thread.id, content }, ik());
-      if (approve) await approveCard();
       await gw.gateway.context.sessions.idle();
       return JSON.stringify(model.requests.slice(before));
     };
 
-    // 1. The agent writes a note with the memory tool.
-    const first = await ask("please export the report", true);
+    // 1. The agent writes a note with the memory tool: its own memory folder, no card in
+    // Balanced (owner, 2026-11-25).
+    const first = await ask("please export the report");
+    expect(owner.events.filter((e) => e.event === "approval.created")).toEqual([]);
     expect(first).toContain(DEFAULT_BASE_PROMPT.slice(0, 40));
     expect((await gw.memory.readFile("memory/agent/tool-quirks.md"))?.content).toContain("flaky");
     await gw.memory.idle();

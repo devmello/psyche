@@ -9,6 +9,8 @@ import type { MessageId } from "../index.ts";
 export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<MessageId, string>>>>> =
   {
     ar: {
+      "settings.notifications.helper.denied": "الإشعارات متوقفة في الإعدادات",
+      "settings.notifications.helper.openSettings": "فتح الإعدادات",
       "settings.remoteSetup.problem.maybe_claimed":
         "قد يكون الخادم قد أُعدّ بالفعل مع هذا الكمبيوتر. اتصل برابط اقتران أو شغّل `psyche devices link` على الخادم.",
       "notice.security.changed.body":
@@ -404,6 +406,9 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "وافق على البطاقة بكلمة المرور أو مفتاح مرور، ثم اضغط الزر مرة أخرى.",
     },
     de: {
+      "settings.notifications.helper.denied":
+        "Mitteilungen sind in den Einstellungen ausgeschaltet",
+      "settings.notifications.helper.openSettings": "Einstellungen öffnen",
       "settings.remoteSetup.problem.maybe_claimed":
         "Der Server ist möglicherweise schon mit diesem Computer eingerichtet. Verbinde dich mit einem Kopplungslink oder führe `psyche devices link` auf dem Server aus.",
       "notice.security.changed.body":
@@ -822,6 +827,9 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "Bestätige die Karte mit deinem Passwort oder einem Passkey und tippe dann erneut auf die Taste.",
     },
     es: {
+      "settings.notifications.helper.denied":
+        "Las notificaciones están desactivadas en Configuración",
+      "settings.notifications.helper.openSettings": "Abrir Configuración",
       "settings.remoteSetup.problem.maybe_claimed":
         "Es posible que el servidor ya esté configurado con este equipo. Conéctate con un enlace de emparejamiento o ejecuta `psyche devices link` en el servidor.",
       "notice.security.changed.body":
@@ -1244,6 +1252,9 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "Aprueba la tarjeta con tu contraseña o una llave de acceso y vuelve a pulsar el botón.",
     },
     fr: {
+      "settings.notifications.helper.denied":
+        "Les notifications sont désactivées dans les Paramètres",
+      "settings.notifications.helper.openSettings": "Ouvrir les Paramètres",
       "settings.remoteSetup.problem.maybe_claimed":
         "Le serveur est peut-être déjà configuré avec cet ordinateur. Connectez-vous avec un lien d'appairage ou exécutez `psyche devices link` sur le serveur.",
       "notice.security.changed.body":
@@ -1668,6 +1679,8 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "Approuvez la carte avec votre mot de passe ou une clé d’accès, puis appuyez de nouveau sur le bouton.",
     },
     hi: {
+      "settings.notifications.helper.denied": "सेटिंग्ज़ में सूचनाएँ बंद हैं",
+      "settings.notifications.helper.openSettings": "सेटिंग्ज़ खोलें",
       "settings.remoteSetup.problem.maybe_claimed":
         "हो सकता है सर्वर पहले ही इस कंप्यूटर के साथ सेट हो चुका हो। पेयरिंग लिंक से कनेक्ट करें या सर्वर पर `psyche devices link` चलाएँ।",
       "notice.security.changed.body":
@@ -2060,6 +2073,8 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "web.security.needsApproval": "अपने पासवर्ड या पासकी से कार्ड को मंज़ूरी दें, फिर बटन दोबारा दबाएँ।",
     },
     it: {
+      "settings.notifications.helper.denied": "Le notifiche sono disattivate in Impostazioni",
+      "settings.notifications.helper.openSettings": "Apri Impostazioni",
       "settings.remoteSetup.problem.maybe_claimed":
         "Il server potrebbe essere già configurato con questo computer. Collegati con un link di abbinamento o esegui `psyche devices link` sul server.",
       "notice.security.changed.body":
@@ -2478,6 +2493,8 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "Approva la scheda con la tua password o una passkey, poi premi di nuovo il pulsante.",
     },
     ja: {
+      "settings.notifications.helper.denied": "通知は設定でオフになっています",
+      "settings.notifications.helper.openSettings": "設定を開く",
       "settings.remoteSetup.problem.maybe_claimed":
         "サーバーはすでにこのコンピューターで設定済みかもしれません。ペアリングリンクで接続するか、サーバーで `psyche devices link` を実行してください。",
       "notice.security.changed.body":
@@ -2895,6 +2912,8 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "パスワードまたはパスキーでカードを承認してから、もう一度ボタンを押してください。",
     },
     ko: {
+      "settings.notifications.helper.denied": "설정에서 알림이 꺼져 있습니다",
+      "settings.notifications.helper.openSettings": "설정 열기",
       "settings.remoteSetup.problem.maybe_claimed":
         "서버가 이미 이 컴퓨터로 설정되었을 수 있습니다. 페어링 링크로 연결하거나 서버에서 `psyche devices link`를 실행하세요.",
       "notice.security.changed.body":
@@ -3294,6 +3313,8 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "사용자 암호나 패스키로 카드를 승인한 다음 버튼을 다시 누르세요.",
     },
     pt: {
+      "settings.notifications.helper.denied": "As notificações estão desativadas nas Configurações",
+      "settings.notifications.helper.openSettings": "Abrir Configurações",
       "settings.remoteSetup.problem.maybe_claimed":
         "O servidor pode já estar configurado com este computador. Conecte-se com um link de pareamento ou execute `psyche devices link` no servidor.",
       "notice.security.changed.body":
@@ -3705,6 +3726,8 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "Aprove o cartão com a sua senha ou uma chave-senha e toque no botão de novo.",
     },
     zh: {
+      "settings.notifications.helper.denied": "通知已在设置中关闭",
+      "settings.notifications.helper.openSettings": "打开设置",
       "settings.remoteSetup.problem.maybe_claimed":
         "该服务器可能已经与这台计算机完成设置。请使用配对链接连接，或在服务器上运行 `psyche devices link`。",
       "notice.security.changed.body":

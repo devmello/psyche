@@ -50,7 +50,8 @@ function setup(
 
 /** Opens the Sources sheet from the Feed header and waits for its list to load. */
 async function openSources(user: ReturnType<typeof userEvent.setup>) {
-  await user.click(await screen.findByRole("button", { name: "Sources" }));
+  await user.click(await screen.findByRole("button", { name: "Today options" }));
+  await user.click(await screen.findByRole("menuitem", { name: "Sources" }));
   return screen.findByRole("dialog", { name: "Feed sources" });
 }
 

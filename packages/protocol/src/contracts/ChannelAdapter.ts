@@ -13,6 +13,7 @@ export interface ChannelCapabilities {
   polls: boolean;
   reactions: boolean;
   voiceNotes: boolean;
+  /** Files and images the adapter can SEND (inbound ones are fetched through `fetchAttachment`). */
   attachments: boolean;
   groups: boolean;
   maxMessageChars?: number;

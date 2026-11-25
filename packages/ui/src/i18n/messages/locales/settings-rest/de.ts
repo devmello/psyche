@@ -152,6 +152,9 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.notifications.helper.hint":
     "Freigabe-Benachrichtigungen kommen über Psyche Helper. Erlaube ihm, sie anzuzeigen, damit Freigaben dich auch bei geschlossenem Fenster erreichen.",
   "settings.notifications.helper.allow": "Benachrichtigungen von Psyche Helper erlauben",
+  "settings.notifications.helper.denied":
+    "Mitteilungen sind in den Systemeinstellungen ausgeschaltet",
+  "settings.notifications.helper.openSettings": "Systemeinstellungen öffnen",
   "settings.notifications.description": "Wann Psyche dich unterbrechen darf.",
   "settings.notifications.group.quietHours": "Ruhezeiten",
   "settings.notifications.quietHours.hint":

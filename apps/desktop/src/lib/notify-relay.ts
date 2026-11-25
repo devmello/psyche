@@ -42,6 +42,13 @@ export interface RelayDecision {
 const URGENT = new Set(["approval", "input_needed"]);
 const PASSIVE = new Set(["proactive", "briefing"]);
 
+/**
+ * How long the helper gets to record `delivered.notification` before the desktop shows the toast
+ * itself. The helper can be online and still refuse (`permission_not_determined`, an ad-hoc
+ * signature), and a refused notification must not vanish.
+ */
+export const HELPER_GRACE_MS = 3_000;
+
 /** How long a notification waits for the first helper presence check (about 2 s). */
 export const PRESENCE_HOLD_MS = 2_000;
 
@@ -121,6 +128,44 @@ export class NotificationRelay {
     };
   }
 
+  /**
+   * For a notification `decide` left to the helper: after `HELPER_GRACE_MS` re-reads it, and when
+   * the helper did not record a delivery (and nobody read or resolved it meanwhile) shows the
+   * Electron toast once. A delivered one stays quiet, so there is never a double banner.
+   */
+  graceFallback(
+    n: PsycheNotification,
+    fetchLatest: (id: string) => Promise<PsycheNotification | undefined>,
+    show: (d: RelayDecision) => void,
+    graceMs: number = HELPER_GRACE_MS,
+  ): void {
+    setTimeout(() => {
+      void fetchLatest(n.id).then(
+        (cur) => {
+          if (cur === undefined || this.remote) return;
+          if (cur.readAt !== null || cur.resolvedAt !== null) return;
+          if (cur.delivered.notification !== undefined) return;
+          if (this.seen.has(cur.id)) return;
+          this.seen.add(cur.id);
+          show(this.toast(cur));
+        },
+        () => undefined,
+      );
+    }, graceMs);
+  }
+
+  private toast(n: PsycheNotification): RelayDecision {
+    const route =
+      n.route && isAppRoute(n.route) ? n.route : n.approvalId ? "/agent/approvals" : "/inbox";
+    return {
+      show: true,
+      title: n.title.slice(0, 120),
+      body: n.body.slice(0, 400),
+      route,
+      urgency: URGENT.has(n.kind) ? "critical" : PASSIVE.has(n.kind) ? "low" : "normal",
+    };
+  }
+
   decide(n: PsycheNotification): RelayDecision {
     if (this.remote) return { show: false, reason: "host_routes" };
     if (!n.surfaces.includes("notification")) return { show: false, reason: "not_os_surface" };
@@ -131,14 +176,6 @@ export class NotificationRelay {
     if (this.seen.has(n.id)) return { show: false, reason: "duplicate" };
     this.seen.add(n.id);
     if (this.seen.size > 2_000) this.seen.delete(this.seen.values().next().value as string);
-    const route =
-      n.route && isAppRoute(n.route) ? n.route : n.approvalId ? "/agent/approvals" : "/inbox";
-    return {
-      show: true,
-      title: n.title.slice(0, 120),
-      body: n.body.slice(0, 400),
-      route,
-      urgency: URGENT.has(n.kind) ? "critical" : PASSIVE.has(n.kind) ? "low" : "normal",
-    };
+    return this.toast(n);
   }
 }

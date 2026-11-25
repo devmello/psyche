@@ -112,6 +112,9 @@ export const settingsA: Partial<Catalogue> = {
   "settings.notifications.helper.hint":
     "As notificações de aprovação chegam pelo Psyche Helper. Permita que ele as mostre para receber aprovações com a janela fechada.",
   "settings.notifications.helper.allow": "Permitir notificações do Psyche Helper",
+  "settings.notifications.helper.denied":
+    "As notificações estão desativadas nos Ajustes do Sistema",
+  "settings.notifications.helper.openSettings": "Abrir Ajustes do Sistema",
   "settings.notifications.description": "Quando o Psyche pode interromper você.",
   "settings.notifications.group.quietHours": "Horário de silêncio",
   "settings.notifications.quietHours.hint":

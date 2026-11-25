@@ -973,3 +973,39 @@ describe("read_file shrink loop", () => {
     expect(d).toContain("up to 40k characters per call");
   });
 });
+
+describe("Full access's home root (#1689 review r1, item 10)", () => {
+  const scopes: (boolean | undefined)[] = [];
+  const withFull = () =>
+    toolset({
+      folders: (scope) => {
+        scopes.push(scope?.fullAccess);
+        return scope?.fullAccess === true ? [...folders, { path: outside, mode: "rw" }] : folders;
+      },
+    });
+  const read = (over: Partial<ToolRunContext>) =>
+    withFull().run(
+      "read_file",
+      { path: join(outside, "secret.txt") },
+      ctx({ threadId: "thr_1", runId: "run_1", permissionMode: "full", mode: "attended", ...over }),
+    );
+
+  it("the owner's own Full-access turn gets it", async () => {
+    scopes.length = 0;
+    await expect(read({})).resolves.toMatchObject({ output: { text: "vault key" } });
+    expect(scopes).toContain(true);
+  });
+
+  it.each([
+    ["an MCP App's page", { initiator: "mcp_app" as const }],
+    ["an unattended run", { mode: "unattended" as const }],
+    [
+      "the owner through Telegram",
+      { requester: { role: "owner" as const, channel: "telegram", senderId: "1" } },
+    ],
+  ])("%s doesn't", async (_name, over) => {
+    scopes.length = 0;
+    await expect(read(over)).rejects.toMatchObject({ code: "forbidden" });
+    expect(scopes).not.toContain(true);
+  });
+});

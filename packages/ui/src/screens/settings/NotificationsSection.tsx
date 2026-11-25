@@ -87,6 +87,21 @@ export function NotificationsPanel({
                 <span className="text-callout text-muted-foreground">
                   {t("settings.computerUse.helperAccess.offline")}
                 </span>
+              ) : helperNotifications.state === "denied" ? (
+                <>
+                  <span className="text-callout text-muted-foreground">
+                    {t("settings.notifications.helper.denied")}
+                  </span>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="xs"
+                    className="ms-auto"
+                    onClick={helperNotifications.onAllow}
+                  >
+                    {t("settings.notifications.helper.openSettings")}
+                  </Button>
+                </>
               ) : helperNotifications.state !== "granted" ? (
                 <Button
                   type="button"

@@ -8,6 +8,8 @@ export const WINDOWS_LOCALES: Readonly<
   Record<string, Readonly<Partial<Record<MessageId, string>>>>
 > = {
   ar: {
+    "settings.notifications.helper.denied": "الإشعارات متوقفة في إعدادات Windows",
+    "settings.notifications.helper.openSettings": "فتح إعدادات Windows",
     "notice.security.changed.body":
       "غيّر برنامج على هذا الكمبيوتر {count, plural, =1 {سجل أمان واحدًا} other {# سجل أمان}} (الأجهزة والمفاتيح والصلاحيات أو الإعدادات) دون المرور عبر Psyche{times, plural, =0 {} =1 {} other {، # مرة حتى الآن}}. أعاد Psyche ما تغيّر كما كان. إن لم تكن أنت من فعل ذلك، فافحص الكمبيوتر بحثًا عن برامج غير مرغوب فيها.",
     "notice.security.untrusted.body":
@@ -37,6 +39,9 @@ export const WINDOWS_LOCALES: Readonly<
       "وافق على البطاقة بـ Windows Hello أو مفتاح مرور، ثم اضغط الزر مرة أخرى.",
   },
   de: {
+    "settings.notifications.helper.denied":
+      "Mitteilungen sind in den Windows-Einstellungen ausgeschaltet",
+    "settings.notifications.helper.openSettings": "Windows-Einstellungen öffnen",
     "notice.security.changed.body":
       "Ein Programm auf diesem PC hat {count, plural, =1 {# Sicherheitseintrag} other {# Sicherheitseinträge}} (Geräte, Schlüssel, Freigaben oder Einstellungen) an Psyche vorbei geändert{times, plural, =0 {} =1 {} other {, bisher # Mal}}. Psyche hat {count, plural, =1 {ihn} other {sie}} wiederhergestellt. Wenn du das nicht warst, prüfe den PC auf unerwünschte Software.",
     "notice.security.untrusted.body":
@@ -67,6 +72,9 @@ export const WINDOWS_LOCALES: Readonly<
       "Bestätige die Karte mit Windows Hello oder einem Passkey und tippe dann erneut auf die Taste.",
   },
   es: {
+    "settings.notifications.helper.denied":
+      "Las notificaciones están desactivadas en la Configuración de Windows",
+    "settings.notifications.helper.openSettings": "Abrir Configuración de Windows",
     "notice.security.changed.body":
       "Un programa de este PC cambió {count, plural, =1 {# registro de seguridad} other {# registros de seguridad}} (dispositivos, claves, permisos o ajustes) sin pasar por Psyche{times, plural, =0 {} =1 {} other {, # veces hasta ahora}}. Psyche {count, plural, =1 {lo restauró} other {los restauró}}. Si no fuiste tú, revisa el PC en busca de software no deseado.",
     "notice.security.untrusted.body":
@@ -97,6 +105,9 @@ export const WINDOWS_LOCALES: Readonly<
       "Aprueba la tarjeta con Windows Hello o una llave de acceso y vuelve a pulsar el botón.",
   },
   fr: {
+    "settings.notifications.helper.denied":
+      "Les notifications sont désactivées dans les Paramètres Windows",
+    "settings.notifications.helper.openSettings": "Ouvrir les Paramètres Windows",
     "notice.security.changed.body":
       "Un programme de ce PC a modifié {count, plural, =1 {# donnée de sécurité} other {# données de sécurité}} (appareils, clés, autorisations ou réglages) sans passer par Psyche{times, plural, =0 {} =1 {} other {, # fois jusqu’ici}}. Psyche {count, plural, =1 {l’a rétablie} other {les a rétablies}}. Si ce n’était pas vous, recherchez un logiciel indésirable sur ce PC.",
     "notice.security.untrusted.body":
@@ -127,6 +138,8 @@ export const WINDOWS_LOCALES: Readonly<
       "Approuvez la carte avec Windows Hello ou une clé d’accès, puis appuyez de nouveau sur le bouton.",
   },
   hi: {
+    "settings.notifications.helper.denied": "Windows सेटिंग्स में सूचनाएँ बंद हैं",
+    "settings.notifications.helper.openSettings": "Windows सेटिंग्स खोलें",
     "notice.security.changed.body":
       "इस PC पर एक प्रोग्राम ने Psyche के बिना {count, plural, =1 {# सुरक्षा रिकॉर्ड} other {# सुरक्षा रिकॉर्ड}} बदल दिए (डिवाइस, कुंजियाँ, अनुमतियाँ या सेटिंग्स){times, plural, =0 {} =1 {} other {, अब तक # बार}}। Psyche ने {count, plural, =1 {उसे} other {उन्हें}} वापस पहले जैसा कर दिया। अगर यह आपने नहीं किया, तो PC में अनचाहे सॉफ़्टवेयर की जाँच करें।",
     "notice.security.untrusted.body":
@@ -155,6 +168,9 @@ export const WINDOWS_LOCALES: Readonly<
     "web.security.needsApproval": "Windows Hello या पासकी से कार्ड को मंज़ूरी दें, फिर बटन दोबारा दबाएँ।",
   },
   it: {
+    "settings.notifications.helper.denied":
+      "Le notifiche sono disattivate nelle Impostazioni di Windows",
+    "settings.notifications.helper.openSettings": "Apri Impostazioni di Windows",
     "notice.security.changed.body":
       "Un programma su questo PC ha modificato {count, plural, =1 {# dato di sicurezza} other {# dati di sicurezza}} (dispositivi, chiavi, autorizzazioni o impostazioni) senza passare da Psyche{times, plural, =0 {} =1 {} other {, # volte finora}}. Psyche {count, plural, =1 {l’ha ripristinato} other {li ha ripristinati}}. Se non sei stato tu, controlla il PC per software indesiderato.",
     "notice.security.untrusted.body":
@@ -185,6 +201,8 @@ export const WINDOWS_LOCALES: Readonly<
       "Approva la scheda con Windows Hello o una passkey, poi premi di nuovo il pulsante.",
   },
   ja: {
+    "settings.notifications.helper.denied": "通知は Windows の設定でオフになっています",
+    "settings.notifications.helper.openSettings": "Windows の設定を開く",
     "notice.security.changed.body":
       "この PC 上のプログラムが Psyche を通さずに、セキュリティ記録（デバイス、キー、権限または設定）を {count, plural, other {# 件}}変更しました{times, plural, =0 {} =1 {} other {（これまでに # 回）}}。Psyche は元に戻しました。心当たりがない場合は、PC に不要なソフトウェアがないか確認してください。",
     "notice.security.untrusted.body":
@@ -215,6 +233,8 @@ export const WINDOWS_LOCALES: Readonly<
       "Windows Hello またはパスキーでカードを承認してから、もう一度ボタンを押してください。",
   },
   ko: {
+    "settings.notifications.helper.denied": "Windows 설정에서 알림이 꺼져 있습니다",
+    "settings.notifications.helper.openSettings": "Windows 설정 열기",
     "notice.security.changed.body":
       "이 PC의 프로그램이 Psyche를 거치지 않고 보안 기록(기기, 키, 권한 또는 설정) {count}건을 변경했습니다{times, plural, =0 {} =1 {} other {(지금까지 #회)}}. Psyche가 원래대로 되돌렸습니다. 본인이 한 일이 아니라면 PC에 원치 않는 소프트웨어가 있는지 확인하세요.",
     "notice.security.untrusted.body":
@@ -244,6 +264,9 @@ export const WINDOWS_LOCALES: Readonly<
       "Windows Hello나 패스키로 카드를 승인한 다음 버튼을 다시 누르세요.",
   },
   pt: {
+    "settings.notifications.helper.denied":
+      "As notificações estão desativadas nas Configurações do Windows",
+    "settings.notifications.helper.openSettings": "Abrir Configurações do Windows",
     "notice.security.changed.body":
       "Um programa neste PC alterou {count, plural, =1 {# registro de segurança} other {# registros de segurança}} (dispositivos, chaves, permissões ou configurações) sem passar pelo Psyche{times, plural, =0 {} =1 {} other {, # vezes até agora}}. O Psyche os restaurou. Se não foi você, verifique se há software indesejado no PC.",
     "notice.security.untrusted.body":
@@ -274,6 +297,8 @@ export const WINDOWS_LOCALES: Readonly<
       "Aprove o cartão com Windows Hello ou uma chave de acesso e toque no botão de novo.",
   },
   zh: {
+    "settings.notifications.helper.denied": "通知已在 Windows 设置中关闭",
+    "settings.notifications.helper.openSettings": "打开 Windows 设置",
     "notice.security.changed.body":
       "这台 PC 上的某个程序绕过 Psyche 更改了 {count} 条安全记录（设备、密钥、授权或设置）{times, plural, =0 {} =1 {} other {，累计 # 次}}。Psyche 已将其恢复。如果不是你做的，请检查这台 PC 上是否有不需要的软件。",
     "notice.security.untrusted.body":

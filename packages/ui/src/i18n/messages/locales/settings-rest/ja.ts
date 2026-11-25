@@ -149,6 +149,8 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.notifications.helper.hint":
     "承認の通知は Psyche Helper 経由で届きます。ウインドウを閉じていても承認が届くよう、通知の表示を許可してください。",
   "settings.notifications.helper.allow": "Psyche Helper の通知を許可",
+  "settings.notifications.helper.denied": "通知はシステム設定でオフになっています",
+  "settings.notifications.helper.openSettings": "システム設定を開く",
   "settings.notifications.description": "Psycheが割り込んでよいタイミング。",
   "settings.notifications.group.quietHours": "おやすみ時間",
   "settings.notifications.quietHours.hint":

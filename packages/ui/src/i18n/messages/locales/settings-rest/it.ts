@@ -151,6 +151,9 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.notifications.helper.hint":
     "Le notifiche di approvazione arrivano tramite Psyche Helper. Consentigli di mostrarle, così le approvazioni ti raggiungono a finestra chiusa.",
   "settings.notifications.helper.allow": "Consenti le notifiche di Psyche Helper",
+  "settings.notifications.helper.denied":
+    "Le notifiche sono disattivate in Impostazioni di Sistema",
+  "settings.notifications.helper.openSettings": "Apri Impostazioni di Sistema",
   "settings.notifications.description": "Quando Psyche può interromperti.",
   "settings.notifications.group.quietHours": "Ore di silenzio",
   "settings.notifications.quietHours.hint":

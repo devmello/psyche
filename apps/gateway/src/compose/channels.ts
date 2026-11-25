@@ -1,12 +1,13 @@
 import { createHash } from "node:crypto";
 import { chmodSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { requesterFromRoute } from "@psyche/agent-core";
+import { requesterFromRoute, type TurnContextProvider } from "@psyche/agent-core";
 import {
   type ChannelInboundEvent,
   type ChannelLogger,
   ChannelService,
   type ChannelsApi,
+  channelCapabilityNote,
   createChannelsApi,
   DiscordAdapter,
   type DiscordAdapterOptions,
@@ -47,6 +48,7 @@ import {
   getSetting,
   getThread,
   getWidgets,
+  type PsycheDb,
   updateThread,
 } from "@psyche/db";
 import {
@@ -1642,6 +1644,29 @@ export function composeChannels(
       await service.stopAll();
       for (const channel of service.listChannels()) await service.detach(channel.id);
       gateway = null;
+    },
+  };
+}
+
+/**
+ * A trusted turn context for a chat on an adapter that cannot send files: one system-authored line
+ * (from the adapter's own capability flags) so the agent does not offer attachments there. It
+ * adds nothing for adapters that can send them, and nothing outside channel threads.
+ */
+export function channelCapabilityProvider(db: PsycheDb): TurnContextProvider {
+  return {
+    name: "channel-capabilities",
+    async provide({ threadId }) {
+      const thread = getThread(db, threadId);
+      if (thread?.kind !== "channel") return undefined;
+      const type = /^channel:([a-z]+):/.exec(thread.sessionKey ?? "")?.[1];
+      const note = type === undefined ? undefined : channelCapabilityNote(type);
+      if (note === undefined) return undefined;
+      return {
+        trusted: true,
+        source: { sourceKind: "channel" },
+        sections: [{ title: "This chat", text: note }],
+      };
     },
   };
 }

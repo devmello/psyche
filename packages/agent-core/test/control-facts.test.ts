@@ -45,4 +45,8 @@ describe("controlFacts", () => {
     });
     expect(out.labels).toHaveLength(12);
   });
+  it("keeps the sends fact Full access holds on, and only a real true", () => {
+    expect(controlFacts({ labels: [], sends: true }).sends).toBe(true);
+    expect(controlFacts({ labels: [], sends: "yes" } as never).sends).toBeUndefined();
+  });
 });
