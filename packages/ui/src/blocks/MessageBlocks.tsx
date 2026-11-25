@@ -27,6 +27,7 @@ import { displaySummary } from "../lib/cards.ts";
 import { cn } from "../lib/utils.ts";
 import { MapBlock } from "../map/MapBlock.tsx";
 import { fade, motionSpring, Presence, spring } from "../motion/index.ts";
+import { PlanForkCard, PlanTakenLine } from "../plan-fork/ForkCard.tsx";
 import { PointsOfferCard } from "../points/PointsOfferCard.tsx";
 import { foldResearch } from "../research/model.ts";
 import { ResearchProgress } from "../research/ResearchProgress.tsx";
@@ -521,6 +522,10 @@ registerBlock("specialist_result", {
 });
 registerBlock("app_link", {
   View: ({ block }) => <AppLinkBlockView block={block} />,
+});
+registerBlock("plan_fork", { View: ({ block }) => <PlanForkCard forkId={block.forkId} /> });
+registerBlock("plan_taken", {
+  View: ({ block }) => <PlanTakenLine forkId={block.forkId} branchId={block.branchId} />,
 });
 registerBlock("points_offer", {
   View: ({ block, ctx }) => <PointsOfferCard block={block} threadId={ctx.message.threadId} />,

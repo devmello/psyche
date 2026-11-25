@@ -1035,6 +1035,9 @@ export class GatewayStore {
             [`${e.payload.nodeId}/${e.payload.guest.name}`]: e.payload,
           },
         };
+      case "planFork.updated":
+        // Ids and states only: the fork, its branches and its list are read again.
+        return invalidate(s, ["planForks."]);
       case "device.updated":
         return invalidate(s, ["devices."]);
       case "pairing.requested":

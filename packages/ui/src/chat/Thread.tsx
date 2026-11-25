@@ -26,6 +26,13 @@ import {
 import { t } from "../i18n/core.ts";
 import { describeError } from "../i18n/errors.ts";
 import { LayoutMotion, Presence } from "../motion/index.ts";
+import {
+  PlanForkNavContext,
+  PlanForkStartSheet,
+  PlansView,
+  parseCompareArg,
+  registerForkChat,
+} from "../plan-fork/index.ts";
 
 import { usePersona, useSlots } from "../slots.tsx";
 import { SpaceComposerChip } from "../spaces/SpaceSwitcher.tsx";
@@ -87,6 +94,8 @@ export interface ChatThreadProps {
   /** Transcript view mode (E11): 0 tools collapsed, 1 actions, 2 raw I/O. Uncontrolled when absent. */
   disclosure?: DisclosureLevel;
   onDisclosureChange?: (level: DisclosureLevel) => void;
+  /** Opens the Plans view of this fork on mount (`/chat/<id>?fork=<forkId>`). */
+  forkId?: string;
 }
 
 /** `/incognito [first message]` typed in the composer (UI design §3.2, feature E9). */
@@ -174,10 +183,37 @@ export function ChatThread({
   now,
   disclosure,
   onDisclosureChange,
+  forkId: initialForkId,
 }: ChatThreadProps): ReactElement {
   const view = useThread(threadId);
   const { fork, create, newChat } = useThreads();
   const call = useCall();
+  // Fork a plan (docs/design/fork-a-plan-2026.md §5.1): the start sheet and the Plans view, which
+  // replaces the transcript until Back.
+  const [forkSheet, setForkSheet] = useState<{ message: Message; labels: string[] } | null>(null);
+  const [plansFork, setPlansFork] = useState<string | null>(initialForkId ?? null);
+  useEffect(() => setPlansFork(initialForkId ?? null), [initialForkId]);
+  const startForkPlan = useCallback(
+    (message: Message, labels: string[] = []) => setForkSheet({ message, labels }),
+    [],
+  );
+  const forkMessagesRef = useRef(view.messages);
+  forkMessagesRef.current = view.messages;
+  useEffect(
+    () =>
+      registerForkChat({
+        threadId,
+        start: () => {
+          const last = forkMessagesRef.current.at(-1);
+          if (last !== undefined) startForkPlan(last);
+        },
+      }),
+    [threadId, startForkPlan],
+  );
+  const forkNav = useMemo(
+    () => ({ start: startForkPlan, openPlans: setPlansFork }),
+    [startForkPlan],
+  );
   const { navigate, openArtifact, pathOfFile } = useSlots();
   const { state: connection } = useConnection();
   const tasks = useStoreState((s) => s.tasks);
@@ -605,6 +641,15 @@ export function ChatThread({
         openThread(forked.id);
         return;
       }
+      case "compare": {
+        const last = view.messages.at(-1);
+        if (last === undefined) {
+          setNotice({ kind: "info", text: t("planFork.nothingToFork") });
+          return;
+        }
+        startForkPlan(last, parseCompareArg(arg));
+        return;
+      }
       case "incognito": {
         // A memory-only side chat that expires after 24 h (E9); the first message goes there.
         const created = await create({ kind: "incognito", parentThreadId: threadId });
@@ -854,273 +899,307 @@ export function ChatThread({
     call,
   });
 
+  const forkSheetEl =
+    forkSheet === null ? null : (
+      <PlanForkStartSheet
+        open
+        onOpenChange={(o) => !o && setForkSheet(null)}
+        threadId={threadId}
+        messageId={forkSheet.message.id}
+        labels={forkSheet.labels}
+        incognito={incognitoThread}
+        onStarted={() => setForkSheet(null)}
+      />
+    );
+  if (plansFork !== null) {
+    return (
+      <PlanForkNavContext.Provider value={forkNav}>
+        <PlansView
+          forkId={plansFork}
+          onBack={() => setPlansFork(null)}
+          onOpenTranscript={(id) => navigate?.(`/chat/${id}`)}
+          onTaken={() => setPlansFork(null)}
+        />
+        {forkSheetEl}
+      </PlanForkNavContext.Provider>
+    );
+  }
+
   return (
-    <DisclosureProvider
-      {...(disclosure === undefined ? {} : { level: disclosure })}
-      {...(onDisclosureChange === undefined ? {} : { onLevelChange: onDisclosureChange })}
-    >
-      <AssistantRuntimeProvider runtime={runtime}>
-        <LayoutMotion>
-          {/*
+    <PlanForkNavContext.Provider value={forkNav}>
+      <DisclosureProvider
+        {...(disclosure === undefined ? {} : { level: disclosure })}
+        {...(onDisclosureChange === undefined ? {} : { onLevelChange: onDisclosureChange })}
+      >
+        <AssistantRuntimeProvider runtime={runtime}>
+          <LayoutMotion>
+            {/*
             #548: only the message viewport scrolls. `min-h-0` lets the root shrink below its
             content in a flex column; `flex-1` fills the column when the parent is flex,
             `h-full` when it is a block. The composer stack floats over the transcript's end
             (redesign-2026 §5.2), so the root is the positioning context.
           */}
-          <ThreadPrimitive.Root className="@container/chat relative flex h-full min-h-0 min-w-[min(100%,var(--chat-min-width))] flex-1 flex-col overflow-hidden bg-canvas">
-            {offline ? <OfflineBanner state={connection} waiting={outbox.enabled} /> : null}
-            {incognitoThread ? (
-              <p
-                role="note"
-                className="shrink-0 border-b border-dashed border-separator px-4 py-1.5 text-footnote text-label-secondary @xl/chat:px-6 @5xl/chat:px-10"
+            <ThreadPrimitive.Root className="@container/chat relative flex h-full min-h-0 min-w-[min(100%,var(--chat-min-width))] flex-1 flex-col overflow-hidden bg-canvas">
+              {offline ? <OfflineBanner state={connection} waiting={outbox.enabled} /> : null}
+              {incognitoThread ? (
+                <p
+                  role="note"
+                  className="shrink-0 border-b border-dashed border-separator px-4 py-1.5 text-footnote text-label-secondary @xl/chat:px-6 @5xl/chat:px-10"
+                >
+                  {t("chat.incognito.notice")}
+                </p>
+              ) : null}
+              <ThreadPrimitive.Viewport
+                ref={viewportRef}
+                autoScroll={false}
+                className="chat-surface min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 @xl/chat:px-6 @5xl/chat:px-10 [mask-image:linear-gradient(to_bottom,transparent_0,black_24px,black_calc(100%_-_24px),transparent_100%)]"
+                style={{
+                  paddingBottom: stackHeight + 24,
+                  scrollPaddingBottom: stackHeight + 24,
+                  // The sentinel keeps the reader in place itself (EarlierMessages).
+                  overflowAnchor: "none",
+                }}
+                data-testid="chat-viewport"
+                aria-label={t("chat.thread.conversation")}
+                role="log"
               >
-                {t("chat.incognito.notice")}
-              </p>
-            ) : null}
-            <ThreadPrimitive.Viewport
-              ref={viewportRef}
-              autoScroll={false}
-              className="chat-surface min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 @xl/chat:px-6 @5xl/chat:px-10 [mask-image:linear-gradient(to_bottom,transparent_0,black_24px,black_calc(100%_-_24px),transparent_100%)]"
-              style={{
-                paddingBottom: stackHeight + 24,
-                scrollPaddingBottom: stackHeight + 24,
-                // The sentinel keeps the reader in place itself (EarlierMessages).
-                overflowAnchor: "none",
-              }}
-              data-testid="chat-viewport"
-              aria-label={t("chat.thread.conversation")}
-              role="log"
-            >
-              {/*
+                {/*
                 Short conversations sit just above the composer, as in a messaging app; long
                 ones scroll. The column grows with the chat container (container queries, so a docked
                 side pane shrinks it): text holds a 72–90ch measure, wide content and the composer use
                 the full column.
               */}
-              <div
-                ref={columnRef}
-                className="mx-auto flex min-h-full w-full max-w-(--chat-wide) flex-col justify-end pt-6"
-                data-testid="conversation-column"
-              >
-                {empty ? <EmptyThread /> : null}
-                <EarlierMessagesRow
-                  sentinel={earlier.sentinel}
-                  hasMore={view.hasMore}
-                  loading={earlier.loading}
-                  failed={earlier.failed}
-                  onRetry={earlier.retry}
-                />
-                <TranscriptSkeleton loading={view.loading && display.length === 0} />
-                <ThreadBlocksProvider index={blockIndex}>
-                  <ThreadPrimitive.Messages>
-                    {({ message }) => {
-                      const [d] = getExternalStoreMessages<DisplayMessage>(message);
-                      if (d === undefined) return null;
-                      const m = d.message;
-                      const prev = display[display.indexOf(d) - 1]?.message;
-                      const next = display[display.indexOf(d) + 1]?.message;
-                      // The run's specialists follow its last message.
-                      const spawns =
-                        m.runId != null && next?.runId !== m.runId
-                          ? spawnsByRun.byRun.get(m.runId)
-                          : undefined;
-                      const lead = m.blocks[0];
-                      const fromTask =
-                        m.role === "agent" && m.runId === null && lead?.type === "task"
-                          ? (tasks[lead.taskId] ?? null)
-                          : null;
-                      const failed = failures.get(m.id) ?? [];
-                      // The run's steps sit once, above its first agent message (§3.2's anchor).
-                      const runAnchor =
-                        m.role === "agent" &&
-                        m.runId != null &&
-                        (prev?.runId !== m.runId || prev?.role !== "agent") &&
-                        (tracedRuns.has(m.runId) ||
-                          m.runId === stepRun?.id ||
-                          m.blocks.some((b) => b.type === "tool_call" || b.type === "approval"));
-                      return (
-                        <>
-                          {runAnchor && m.runId ? (
-                            <RunTrace
-                              runId={m.runId}
-                              incognito={incognitoThread}
-                              onStop={() => void view.cancel()}
-                              {...(now === undefined ? {} : { now })}
+                <div
+                  ref={columnRef}
+                  className="mx-auto flex min-h-full w-full max-w-(--chat-wide) flex-col justify-end pt-6"
+                  data-testid="conversation-column"
+                >
+                  {empty ? <EmptyThread /> : null}
+                  <EarlierMessagesRow
+                    sentinel={earlier.sentinel}
+                    hasMore={view.hasMore}
+                    loading={earlier.loading}
+                    failed={earlier.failed}
+                    onRetry={earlier.retry}
+                  />
+                  <TranscriptSkeleton loading={view.loading && display.length === 0} />
+                  <ThreadBlocksProvider index={blockIndex}>
+                    <ThreadPrimitive.Messages>
+                      {({ message }) => {
+                        const [d] = getExternalStoreMessages<DisplayMessage>(message);
+                        if (d === undefined) return null;
+                        const m = d.message;
+                        const prev = display[display.indexOf(d) - 1]?.message;
+                        const next = display[display.indexOf(d) + 1]?.message;
+                        // The run's specialists follow its last message.
+                        const spawns =
+                          m.runId != null && next?.runId !== m.runId
+                            ? spawnsByRun.byRun.get(m.runId)
+                            : undefined;
+                        const lead = m.blocks[0];
+                        const fromTask =
+                          m.role === "agent" && m.runId === null && lead?.type === "task"
+                            ? (tasks[lead.taskId] ?? null)
+                            : null;
+                        const failed = failures.get(m.id) ?? [];
+                        // The run's steps sit once, above its first agent message (§3.2's anchor).
+                        const runAnchor =
+                          m.role === "agent" &&
+                          m.runId != null &&
+                          (prev?.runId !== m.runId || prev?.role !== "agent") &&
+                          (tracedRuns.has(m.runId) ||
+                            m.runId === stepRun?.id ||
+                            m.blocks.some((b) => b.type === "tool_call" || b.type === "approval"));
+                        return (
+                          <>
+                            {runAnchor && m.runId ? (
+                              <RunTrace
+                                runId={m.runId}
+                                incognito={incognitoThread}
+                                onStop={() => void view.cancel()}
+                                {...(now === undefined ? {} : { now })}
+                              />
+                            ) : null}
+                            <MessageView
+                              message={m}
+                              {...(importedThread ? { imported: true } : {})}
+                              streamingText={d.streamingText}
+                              quoted={
+                                m.replyToMessageId ? (byId.get(m.replyToMessageId) ?? null) : null
+                              }
+                              fromTask={fromTask}
+                              pinChecklist={m.id === latestChecklistId}
+                              showHeader={
+                                prev?.role !== "agent" ||
+                                fromTask !== null ||
+                                prev.runId !== m.runId
+                              }
+                              {...(importedThread
+                                ? {}
+                                : {
+                                    onReply: setQuoting,
+                                    onFork: (msg: Message) => void fork(threadId, msg.id),
+                                    onForkPlan: (msg: Message) => startForkPlan(msg),
+                                    onEdit: (msg: Message, text: string) =>
+                                      void editAndResend(msg, text),
+                                  })}
+                              onJumpTo={(id) =>
+                                document
+                                  .getElementById(`message-${id}`)
+                                  ?.scrollIntoView({ block: "center" })
+                              }
+                              {...(importedThread
+                                ? {}
+                                : { onWrapUpAction: (text: string) => void view.send(text) })}
                             />
-                          ) : null}
-                          <MessageView
-                            message={m}
-                            {...(importedThread ? { imported: true } : {})}
-                            streamingText={d.streamingText}
-                            quoted={
-                              m.replyToMessageId ? (byId.get(m.replyToMessageId) ?? null) : null
-                            }
-                            fromTask={fromTask}
-                            pinChecklist={m.id === latestChecklistId}
-                            showHeader={
-                              prev?.role !== "agent" || fromTask !== null || prev.runId !== m.runId
-                            }
-                            {...(importedThread
-                              ? {}
-                              : {
-                                  onReply: setQuoting,
-                                  onFork: (msg: Message) => void fork(threadId, msg.id),
-                                  onEdit: (msg: Message, text: string) =>
-                                    void editAndResend(msg, text),
-                                })}
-                            onJumpTo={(id) =>
-                              document
-                                .getElementById(`message-${id}`)
-                                ?.scrollIntoView({ block: "center" })
-                            }
-                            {...(importedThread
-                              ? {}
-                              : { onWrapUpAction: (text: string) => void view.send(text) })}
-                          />
-                          {failed.map((run) => (
-                            <RunFailure key={run.id} run={run} />
-                          ))}
-                          {spawns ? (
-                            <SpecialistSpawns jobs={spawns} roles={specialistRoles} />
-                          ) : null}
-                        </>
-                      );
-                    }}
-                  </ThreadPrimitive.Messages>
-                </ThreadBlocksProvider>
-                {stepRun && !activeAnchored ? (
-                  <RunTrace
-                    runId={stepRun.id}
-                    incognito={incognitoThread}
-                    onStop={() => void view.cancel()}
-                    {...(now === undefined ? {} : { now })}
-                  />
-                ) : null}
-                <SpecialistSpawns jobs={spawnsByRun.rest} roles={specialistRoles} />
-                <WidgetDrafts threadId={threadId} />
-                {showSteps ? (
-                  <RunStepLog
-                    persona={persona.name}
-                    run={stepRun}
-                    steps={steps}
-                    {...(now === undefined ? {} : { now })}
-                  />
-                ) : null}
-              </div>
-            </ThreadPrimitive.Viewport>
-            <div
-              ref={stackRef}
-              className="chat-surface pointer-events-none absolute inset-x-0 bottom-0 px-4 @xl/chat:px-6 @5xl/chat:px-10 pb-4"
-              data-testid="composer-stack"
-            >
-              <div className="pointer-events-auto mx-auto flex w-full max-w-(--chat-wide) flex-col gap-2">
-                <Presence>{away ? <JumpToLatest key="jump" onJump={jump} /> : null}</Presence>
-                <ComposerPrefill />
-                <ConnectedClearChatDialog threadId={threadId} />
-                <ComposerDraft threadId={threadId} setText={restoreText} />
-                <ComposerBusyWatch
-                  threadId={threadId}
-                  attachments={attachments.attach?.chips.length ?? 0}
-                />
-                {empty ? <ComposerSuggestions /> : null}
-                <ApprovalDock
-                  threadId={threadId}
-                  {...(view.thread ? { mode: view.thread.thread.permissionMode } : {})}
-                  {...(now === undefined ? {} : { now })}
-                />
-                <OutboxQueue
-                  items={outbox.waiting}
-                  onRemove={outbox.remove}
-                  onSendNow={outbox.sendNow}
-                />
-                <FollowUpQueue
-                  items={view.queue}
-                  onRemove={view.removeQueued}
-                  onRetry={view.retryQueued}
-                  onSendNow={(q, m) => {
-                    view.removeQueued(q.id);
-                    view
-                      .send(q.content, {
-                        mode: m,
-                        replyToMessageId: q.replyToMessageId,
-                        keepQueueParked: true,
-                        ...(q.attachments && q.attachments.length > 0
-                          ? { attachments: q.attachments }
-                          : {}),
-                        ...(q.attachedFiles && q.attachedFiles.length > 0
-                          ? { attachedFiles: q.attachedFiles }
-                          : {}),
-                      })
-                      .catch((err: unknown) => {
-                        // The run settled or the chat is busy: the item goes back to the queue.
-                        store.update((s) =>
-                          s.queue.some((x) => x.id === q.id) ? s : { ...s, queue: [q, ...s.queue] },
+                            {failed.map((run) => (
+                              <RunFailure key={run.id} run={run} />
+                            ))}
+                            {spawns ? (
+                              <SpecialistSpawns jobs={spawns} roles={specialistRoles} />
+                            ) : null}
+                          </>
                         );
-                        setNotice({
-                          kind: "error",
-                          text: t("chat.thread.sendFailed", { reason: describeError(err) }),
-                        });
-                      });
-                  }}
-                  onSendQueued={view.resumeQueued}
-                />
-                {notice ? <NoticeBar notice={notice} onDismiss={() => setNotice(null)} /> : null}
-                {view.thread ? (
-                  <ModeSwitch
-                    mode={view.thread.thread.permissionMode}
-                    modelRef={view.thread.thread.modelRef ?? null}
-                    listed={models.data}
-                    disabled={composerOff}
-                    onSelect={(m, ref) =>
-                      applyModeChoice(
-                        (method, params) =>
-                          call(method as "threads.update", params as { threadId: string }),
-                        { id: threadId, kind: threadKind },
-                        m,
-                        ref,
-                      )
-                    }
-                  />
-                ) : null}
-                <SpaceComposerChip threadId={threadId} />
-                {importedThread ? (
-                  <p
-                    role="note"
-                    className="m-0 rounded-md bg-fill-quaternary px-3 py-2 text-callout text-label-secondary"
-                  >
-                    {t("shell.threads.importedReadOnly")}
-                  </p>
-                ) : (
-                  <VoiceComposer
+                      }}
+                    </ThreadPrimitive.Messages>
+                  </ThreadBlocksProvider>
+                  {stepRun && !activeAnchored ? (
+                    <RunTrace
+                      runId={stepRun.id}
+                      incognito={incognitoThread}
+                      onStop={() => void view.cancel()}
+                      {...(now === undefined ? {} : { now })}
+                    />
+                  ) : null}
+                  <SpecialistSpawns jobs={spawnsByRun.rest} roles={specialistRoles} />
+                  <WidgetDrafts threadId={threadId} />
+                  {showSteps ? (
+                    <RunStepLog
+                      persona={persona.name}
+                      run={stepRun}
+                      steps={steps}
+                      {...(now === undefined ? {} : { now })}
+                    />
+                  ) : null}
+                </div>
+              </ThreadPrimitive.Viewport>
+              <div
+                ref={stackRef}
+                className="chat-surface pointer-events-none absolute inset-x-0 bottom-0 px-4 @xl/chat:px-6 @5xl/chat:px-10 pb-4"
+                data-testid="composer-stack"
+              >
+                <div className="pointer-events-auto mx-auto flex w-full max-w-(--chat-wide) flex-col gap-2">
+                  <Presence>{away ? <JumpToLatest key="jump" onJump={jump} /> : null}</Presence>
+                  <ComposerPrefill />
+                  <ConnectedClearChatDialog threadId={threadId} />
+                  <ComposerDraft threadId={threadId} setText={restoreText} />
+                  <ComposerBusyWatch
                     threadId={threadId}
-                    persona={persona.name}
-                    running={view.running}
-                    disabled={composerOff}
-                    quoting={quoting}
-                    onClearQuote={() => setQuoting(null)}
-                    {...(askContext
-                      ? {
-                          context: {
-                            kind: askContext.ref.kind,
-                            title: askContext.title,
-                            source: askContext.source,
-                            onRemove: clearAskContext,
-                          },
-                        }
-                      : {})}
-                    mode={mode}
-                    argContext={argContext}
-                    onStop={() => void view.cancel()}
-                    {...(attachments.attach ? { attach: attachments.attach } : {})}
-                    sendBlocked={attachments.uploading || attachments.failed}
-                    {...(onDictate ? { onDictate } : {})}
+                    attachments={attachments.attach?.chips.length ?? 0}
                   />
-                )}
+                  {empty ? <ComposerSuggestions /> : null}
+                  <ApprovalDock
+                    threadId={threadId}
+                    {...(view.thread ? { mode: view.thread.thread.permissionMode } : {})}
+                    {...(now === undefined ? {} : { now })}
+                  />
+                  <OutboxQueue
+                    items={outbox.waiting}
+                    onRemove={outbox.remove}
+                    onSendNow={outbox.sendNow}
+                  />
+                  <FollowUpQueue
+                    items={view.queue}
+                    onRemove={view.removeQueued}
+                    onRetry={view.retryQueued}
+                    onSendNow={(q, m) => {
+                      view.removeQueued(q.id);
+                      view
+                        .send(q.content, {
+                          mode: m,
+                          replyToMessageId: q.replyToMessageId,
+                          keepQueueParked: true,
+                          ...(q.attachments && q.attachments.length > 0
+                            ? { attachments: q.attachments }
+                            : {}),
+                          ...(q.attachedFiles && q.attachedFiles.length > 0
+                            ? { attachedFiles: q.attachedFiles }
+                            : {}),
+                        })
+                        .catch((err: unknown) => {
+                          // The run settled or the chat is busy: the item goes back to the queue.
+                          store.update((s) =>
+                            s.queue.some((x) => x.id === q.id)
+                              ? s
+                              : { ...s, queue: [q, ...s.queue] },
+                          );
+                          setNotice({
+                            kind: "error",
+                            text: t("chat.thread.sendFailed", { reason: describeError(err) }),
+                          });
+                        });
+                    }}
+                    onSendQueued={view.resumeQueued}
+                  />
+                  {notice ? <NoticeBar notice={notice} onDismiss={() => setNotice(null)} /> : null}
+                  {view.thread ? (
+                    <ModeSwitch
+                      mode={view.thread.thread.permissionMode}
+                      modelRef={view.thread.thread.modelRef ?? null}
+                      listed={models.data}
+                      disabled={composerOff}
+                      onSelect={(m, ref) =>
+                        applyModeChoice(
+                          (method, params) =>
+                            call(method as "threads.update", params as { threadId: string }),
+                          { id: threadId, kind: threadKind },
+                          m,
+                          ref,
+                        )
+                      }
+                    />
+                  ) : null}
+                  <SpaceComposerChip threadId={threadId} />
+                  {importedThread ? (
+                    <p
+                      role="note"
+                      className="m-0 rounded-md bg-fill-quaternary px-3 py-2 text-callout text-label-secondary"
+                    >
+                      {t("shell.threads.importedReadOnly")}
+                    </p>
+                  ) : (
+                    <VoiceComposer
+                      threadId={threadId}
+                      persona={persona.name}
+                      running={view.running}
+                      disabled={composerOff}
+                      quoting={quoting}
+                      onClearQuote={() => setQuoting(null)}
+                      {...(askContext
+                        ? {
+                            context: {
+                              kind: askContext.ref.kind,
+                              title: askContext.title,
+                              source: askContext.source,
+                              onRemove: clearAskContext,
+                            },
+                          }
+                        : {})}
+                      mode={mode}
+                      argContext={argContext}
+                      onStop={() => void view.cancel()}
+                      {...(attachments.attach ? { attach: attachments.attach } : {})}
+                      sendBlocked={attachments.uploading || attachments.failed}
+                      {...(onDictate ? { onDictate } : {})}
+                    />
+                  )}
+                </div>
               </div>
-            </div>
-          </ThreadPrimitive.Root>
-        </LayoutMotion>
-      </AssistantRuntimeProvider>
-    </DisclosureProvider>
+            </ThreadPrimitive.Root>
+          </LayoutMotion>
+        </AssistantRuntimeProvider>
+      </DisclosureProvider>
+      {forkSheetEl}
+    </PlanForkNavContext.Provider>
   );
 }

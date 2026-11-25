@@ -46,6 +46,7 @@ import { overviewShared } from "./overview-shared/ja.ts";
 import { passwordPresence } from "./password-presence/ja.ts";
 import { peopleRest } from "./people-rest/ja.ts";
 import { personDataRest } from "./personData-rest/ja.ts";
+import { planFork } from "./plan-fork/ja.ts";
 import { points } from "./points/ja.ts";
 import { researchRest } from "./research-rest/ja.ts";
 import { scheduledForm } from "./scheduled-form/ja.ts";
@@ -3977,6 +3978,8 @@ export const ja: Partial<Catalogue> = {
   ...computerWatch,
   // Psyche points (docs/design/psyche-points-2026.md §9)
   ...points,
+  // Fork a plan (docs/design/fork-a-plan-2026.md §9)
+  ...planFork,
   // Gateway-authored notices (inbox notifications, security alerts)
   ...notices,
   // Settings > Computer use > Separate desktop (Linux)
