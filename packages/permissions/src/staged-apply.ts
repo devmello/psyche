@@ -22,7 +22,6 @@ import type {
 export const STAGED_SEND_TOOLS: ReadonlySet<string> = new Set([
   "mail_send_draft",
   "gmail_send",
-  "mail_send",
   "node.mail.send_draft",
 ]);
 
@@ -73,10 +72,20 @@ export function callStrings(
   return { strings: out, truncated };
 }
 
-/** Lower-cased, trimmed addresses of a string or a list of them. */
-function addresses(v: unknown): string[] {
+/** The bare, lower-cased address of `Name <a@b.c>` or `a@b.c`, as the mail connectors canonicalise it. */
+export function bareAddress(value: string): string {
+  const v = value.trim();
+  const m = /^(.*?)\s*<([^<>]+)>$/.exec(v);
+  return (m === null ? v : (m[2] ?? "")).trim().toLowerCase();
+}
+
+/** Bare addresses of a string or a list of them; `split` also cuts each on `,` (a send target). */
+function addresses(v: unknown, split = false): string[] {
   const list = typeof v === "string" ? [v] : Array.isArray(v) ? v : [];
-  return list.filter((x): x is string => typeof x === "string").map((x) => x.trim().toLowerCase());
+  return list
+    .filter((x): x is string => typeof x === "string")
+    .flatMap((x) => (split ? x.split(",") : [x]))
+    .map(bareAddress);
 }
 
 function paramsOf(call: PolicyCall): Record<string, unknown> | undefined {
@@ -96,7 +105,7 @@ export function callRecipients(call: PolicyCall): string[] {
     ...addresses(p.to),
     ...addresses(p.cc),
     ...addresses(p.bcc),
-    ...(call.target?.kind === "recipient" ? addresses(call.target.value) : []),
+    ...(call.target?.kind === "recipient" ? addresses(call.target.value, true) : []),
   ].filter((x) => x !== "");
   return [...new Set(out)];
 }
@@ -108,7 +117,9 @@ function undoBound(call: PolicyCall, undo: NonNullable<StagedApplyChildInput["un
   if (spec === undefined || typeof created !== "string" || created === "") return false;
   const p = paramsOf(call);
   if (p === undefined) return false;
-  const target = call.target?.value;
+  // An `account` target only names the connector (every real delete carries one): it says
+  // nothing about the item, so it is ignored. Any other target kind must be the created id.
+  const target = call.target?.kind === "account" ? undefined : call.target?.value;
   const ids = spec.idKeys.filter((k) => k in p);
   if (ids.length === 0 && target === undefined) return false;
   // The id the tool reads, and the target, are the created id: values only, never key names.
@@ -116,7 +127,7 @@ function undoBound(call: PolicyCall, undo: NonNullable<StagedApplyChildInput["un
   if (target !== undefined && target !== created) return false;
   for (const [k, v] of Object.entries(p)) {
     if (spec.idKeys.includes(k)) continue;
-    const allowed = spec.extras[k];
+    const allowed = Object.hasOwn(spec.extras, k) ? spec.extras[k] : undefined;
     if (allowed === undefined || typeof v !== "string") return false;
     if (allowed === "calendar") {
       if (undo.calendarId === undefined || v !== undo.calendarId) return false;
@@ -126,13 +137,18 @@ function undoBound(call: PolicyCall, undo: NonNullable<StagedApplyChildInput["un
 }
 
 /**
- * Reminder tools, bare or behind a one-segment connector prefix (`apple.reminders_create`).
- * A reminder can't move money, so its words are not scanned for money text (owner decision
- * 2026-11-24). Its tool name and every other rule still apply. An MCP tool never qualifies.
+ * Reminder tools, by exact name: the Apple, Google Tasks and Microsoft To Do connectors all
+ * register these bare names. A reminder can't move money, so its words are not scanned for money
+ * text (owner decision 2026-11-24). Its tool name and every other rule still apply, and a
+ * prefixed or MCP name (`stripe.reminders_create`) is scanned like any other tool.
  */
-const REMINDER_TOOL = /^(?:[a-z0-9_-]+\.)?reminders_(?:create|update|complete)$/;
+const REMINDER_TOOLS: ReadonlySet<string> = new Set([
+  "reminders_create",
+  "reminders_update",
+  "reminders_complete",
+]);
 export function isReminderTool(tool: string): boolean {
-  return !tool.startsWith("mcp__") && REMINDER_TOOL.test(tool);
+  return REMINDER_TOOLS.has(tool);
 }
 
 /** The money check of §3.1: tool name, summary, and every string the call carries, both forms. */
@@ -229,7 +245,7 @@ export function refuseStagedChild(
     const own = callRecipients(d.call);
     const given = [
       ...new Set(
-        (child.recipients ?? []).map((r) => (typeof r === "string" ? r.trim().toLowerCase() : "")),
+        (child.recipients ?? []).map((r) => (typeof r === "string" ? bareAddress(r) : "")),
       ),
     ];
     const explicit =

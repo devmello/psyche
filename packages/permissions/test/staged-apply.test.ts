@@ -143,6 +143,72 @@ describe("requestStagedApply: refused children (§3.1, §3.2, §5.4)", () => {
       reason: "money_intent",
     },
     {
+      name: "a prefixed reminder tool is scanned like any other (stripe.reminders_create)",
+      child: () =>
+        item(exact("stripe.reminders_create", "write", { title: "Pay rent" }), {
+          summary: "Pay rent",
+        }),
+      reason: "money_intent",
+    },
+    {
+      name: "a direct mail_send (no saved draft) is not on the send allowlist",
+      child: () =>
+        item(exact("mail_send", "destructive", { to: ["a@x.com"] }, { kind: "send_email" }), {
+          explicitSend: true,
+          recipients: ["a@x.com"],
+        }),
+      reason: ["send_not_explicit", "destructive", "denied"],
+    },
+    {
+      name: "an undo with a prototype key as a field",
+      child: () =>
+        item(
+          exact(
+            "calendar_delete_event",
+            "destructive",
+            JSON.parse('{"id":"evt_1","__proto__":"x"}'),
+          ),
+          { undo: { createdId: "evt_1" } },
+        ),
+      reason: "undo_unbound",
+    },
+    {
+      name: "an undo with a constructor field",
+      child: () =>
+        item(exact("reminders_delete", "destructive", { id: "rem_1", constructor: "x" }), {
+          undo: { createdId: "rem_1" },
+        }),
+      reason: "undo_unbound",
+    },
+    {
+      name: "an undo whose item-kind target is another event",
+      child: () =>
+        item(
+          exact(
+            "calendar_delete_event",
+            "destructive",
+            { id: "evt_1" },
+            { target: { kind: "origin", value: "evt_2" } },
+          ),
+          { undo: { createdId: "evt_1" } },
+        ),
+      reason: ["undo_unbound", "denied"],
+    },
+    {
+      name: "an undo with only an account target and no id field",
+      child: () =>
+        item(
+          exact(
+            "calendar_delete_event",
+            "destructive",
+            {},
+            { target: { kind: "account", value: "apple.calendar" } },
+          ),
+          { undo: { createdId: "apple.calendar" } },
+        ),
+      reason: "undo_unbound",
+    },
+    {
       name: "a reminder-shaped tool through MCP",
       child: () =>
         item(exact("mcp__x__reminders_create", "write", { title: "Pay rent" }), {
@@ -589,14 +655,7 @@ describe("requestStagedApply: near-misses that must be allowed", () => {
       child: () =>
         item(call("mail_set_flags", "write", undefined, { params: { note: "git checkout main" } })),
     },
-    ...(
-      [
-        "reminders_create",
-        "reminders_update",
-        "reminders_complete",
-        "apple.reminders_create",
-      ] as const
-    ).flatMap((tool) =>
+    ...(["reminders_create", "reminders_update", "reminders_complete"] as const).flatMap((tool) =>
       ["Pay rent", "Pay the plumber $120"].map((title) => ({
         name: `a ${tool} item titled "${title}"`,
         child: () =>
@@ -632,6 +691,84 @@ describe("requestStagedApply: near-misses that must be allowed", () => {
         item(exact("reminders_delete", "destructive", { id: "rem_7" }), {
           undo: { createdId: "rem_7" },
         }),
+    },
+    {
+      name: "an Apple undo delete with its real account target",
+      child: () =>
+        item(
+          exact(
+            "calendar_delete_event",
+            "destructive",
+            { id: "evt_5", span: "this" },
+            { kind: "calendar_write", target: { kind: "account", value: "apple.calendar" } },
+          ),
+          { undo: { createdId: "evt_5" } },
+        ),
+    },
+    {
+      name: "an Apple reminder undo with its real account target",
+      child: () =>
+        item(
+          exact(
+            "reminders_delete",
+            "destructive",
+            { id: "rem_5" },
+            { target: { kind: "account", value: "apple.reminders" } },
+          ),
+          { undo: { createdId: "rem_5" } },
+        ),
+    },
+    {
+      name: "a Google undo delete with its real account target",
+      child: () =>
+        item(
+          exact(
+            "calendar_delete_event",
+            "destructive",
+            { calendarId: "primary", eventId: "evt_6", sendUpdates: "none" },
+            { kind: "calendar_write", target: { kind: "account", value: "me@gmail.com" } },
+          ),
+          { undo: { createdId: "evt_6", calendarId: "primary" } },
+        ),
+    },
+    {
+      name: "mail_send_draft to two people with the real sorted, comma-joined target",
+      child: () =>
+        item(
+          exact(
+            "mail_send_draft",
+            "destructive",
+            { draftId: "d1", to: ["b@y.com", "a@x.com"], subject: "s", bodySha256: "h" },
+            { kind: "send_email", target: recipient("a@x.com,b@y.com") },
+          ),
+          { explicitSend: true, recipients: ["a@x.com", "b@y.com"] },
+        ),
+    },
+    {
+      name: "gmail_send to a display-name address with the bare target",
+      child: () =>
+        item(
+          exact(
+            "gmail_send",
+            "destructive",
+            { to: ["Dana <Dana@X.com>"], subject: "s", body: "b" },
+            { kind: "send_email", target: recipient("dana@x.com") },
+          ),
+          { explicitSend: true, recipients: ["Dana <Dana@X.com>"] },
+        ),
+    },
+    {
+      name: "a send whose caller list is bare while the call has display names",
+      child: () =>
+        item(
+          exact(
+            "gmail_send",
+            "destructive",
+            { to: ["Dana <dana@x.com>"], cc: ["Lee <lee@x.com>"] },
+            { kind: "send_email", target: recipient("dana@x.com,lee@x.com") },
+          ),
+          { explicitSend: true, recipients: ["dana@x.com", "lee@x.com"] },
+        ),
     },
     {
       name: "an undo delete with the calendar the event was created in",
@@ -770,6 +907,23 @@ describe("requestStagedApply: the approval", () => {
     ]);
     const items = (issued.approval.details as { items: { send?: { to: string[] } }[] }).items;
     expect(items[0]?.send).toEqual({ to: ["dana@example.com", "lee@example.com"] });
+  });
+
+  it("the card shows bare addresses, cut from a display name and a joined target", async () => {
+    const h = makeBroker();
+    const issued = await stage(h, [
+      item(
+        exact(
+          "gmail_send",
+          "destructive",
+          { to: ["Dana <Dana@X.com>"], cc: ["lee@x.com"] },
+          { kind: "send_email", target: recipient("dana@x.com,lee@x.com") },
+        ),
+        { explicitSend: true, recipients: ["dana@x.com", "lee@x.com"] },
+      ),
+    ]);
+    const items = (issued.approval.details as { items: { send?: { to: string[] } }[] }).items;
+    expect(items[0]?.send).toEqual({ to: ["dana@x.com", "lee@x.com"] });
   });
 
   it("refuses a payment that only appears in the call a hook rewrote", async () => {
