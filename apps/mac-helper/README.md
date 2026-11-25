@@ -289,6 +289,18 @@ What the desktop's "Record in an app" uses (docs/design/teach-by-showing-2026.md
 - **Source:** an `AXObserver` on the app for focus, value-changed and menu-item notifications, plus a listen-only mouse tap limited to that app for presses (AX has no press notification). `AXValue` is read only for a field that passed the secure-field and sensitive-word checks. The decisions are pure and tested with recorded events (`AppTeachTests.swift`); the live source is checked by hand.
 - **No screenshots.** Keyboard shortcuts, Return and Tab, drag and scroll are not recorded.
 
+### Psyche points: perception (W3)
+
+docs/design/psyche-points-2026.md. The overlay that points at the next form field; it never clicks or types. These capabilities only read one window's accessibility tree (through `PsycheAXRead`; `scripts/check-points-boundary.sh` keeps the target from linking anything that acts). Host only, Mac only, called by the Gateway for the owner's desktop shell.
+
+| Capability | Side effect | Notes |
+| --- | --- | --- |
+| `points.windows` | read | Windows Points could help with: `{windows: [{app, title, pid, windowIndex, frontmost, refusal?}]}`, from AX (no Screen Recording). `refusal` is `never_app`, `fixed_off`, `terminal_or_ide`, `owner_off` or `permission_missing` (section 2.2 of the design) |
+| `points.session` | read, streaming (needs Accessibility) | `{window: "<pid>:<windowIndex>", strings}`. Streams `digest`, `field`, `focus`, `page`, `visible` and `ended` events until cancelled or `points.end`. The session id is this call's invocation id. Refused with `computer_busy` or `recording_active` while the agent drives the computer or the owner records, `points_active` for a second session, `points_refused` for an app of section 2.2. While it runs, computer actions and `teach.record.start` answer `points_active` |
+| `points.end` | none | `{sessionId}`. Idempotent |
+
+A field the judge calls sensitive (`AppTeachPolicy` words plus the Points words and card tokens, tested against `packages/protocol/test/fixtures/points-sensitive.json`) never has its `AXValue` read; a value is sent once, when the owner leaves a plain field.
+
 ## Name in macOS (#541)
 
 macOS prompts, System Settings › Privacy & Security, Finder and Activity Monitor show the helper as **Psyche (Helper)**: "“Psyche (Helper)” would like to control this computer using accessibility features". The prompt text below the title starts with "Psyche …", from the usage strings.
