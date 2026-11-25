@@ -270,16 +270,29 @@ describe("slash commands (C9)", () => {
     expect(notice.textContent).toContain("Model: anthropic/claude-sonnet-5-5");
   });
 
-  it("an unknown command explains itself and sends nothing; // sends a literal slash", async () => {
+  it("an unknown /word is sent as a normal message; // sends a literal slash", async () => {
     const { gateway } = renderMain();
-    await userEvent.type(await box(), "/frobnicate{Escape}{Enter}");
-    expect(await screen.findByRole("alert")).toBeTruthy();
-    expect(gateway.calls.some((c) => c.method === "chat.send")).toBe(false);
-    await userEvent.type(await box(), "//etc/hosts is a file{Enter}");
+    await userEvent.type(await box(), "/tmp is full, clean it up{Enter}");
     await waitFor(() =>
       expect(gateway.calls.find((c) => c.method === "chat.send")?.params).toMatchObject({
+        content: "/tmp is full, clean it up",
+      }),
+    );
+    await userEvent.type(await box(), "//etc/hosts is a file{Enter}");
+    await waitFor(() =>
+      expect(gateway.calls.filter((c) => c.method === "chat.send").at(-1)?.params).toMatchObject({
         content: "/etc/hosts is a file",
       }),
+    );
+  });
+
+  it("a malformed known command explains itself, sends nothing and keeps what was typed", async () => {
+    const { gateway } = renderMain();
+    await userEvent.type(await box(), "/model gpt{Escape}{Enter}");
+    expect(await screen.findByRole("alert")).toBeTruthy();
+    expect(gateway.calls.some((c) => c.method === "chat.send")).toBe(false);
+    await waitFor(() =>
+      expect((screen.getByRole("textbox") as HTMLTextAreaElement).value).toBe("/model gpt"),
     );
   });
 

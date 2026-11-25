@@ -38,6 +38,7 @@ import { ConnectedClearChatDialog, requestClearChat } from "./ClearChatDialog.ts
 import type { ArgContext } from "./command-args.ts";
 import { type CommandName, parseCommand } from "./commands.ts";
 import { ComposerBusyWatch } from "./composer-busy.ts";
+import { ComposerDraft, getDraft, setDraftQuote } from "./composer-drafts.ts";
 import { EarlierMessagesRow, useLoadEarlier } from "./EarlierMessages.tsx";
 import { FollowUpQueue } from "./FollowUpQueue.tsx";
 import {
@@ -199,6 +200,9 @@ export function ChatThread({
   const runningTool = useRunningTool(threadId);
   const persona = usePersona();
   const [quoting, setQuoting] = useState<Message | null>(null);
+  // The reply target is part of the draft: it comes back with the thread, and goes on a send.
+  const quoteRestored = useRef(false);
+  const restoreText = useRef<((text: string) => void) | null>(null);
   const [mode, setMode] = useState<QueueMode>("followUp");
   const [notice, setNotice] = useState<CommandNotice | null>(null);
   const offline = connection !== "open";
@@ -233,6 +237,7 @@ export function ChatThread({
     support,
     (file, signal) => uploadFile(call as GatewayCall, file, { threadId, signal }),
     nativeAttach,
+    threadId,
   );
   // "Send to chat" (the Library) hands items to this new chat's composer; it takes them once.
   const handedItems = useStoreState((s) =>
@@ -246,6 +251,23 @@ export function ChatThread({
       s.composerAttachments?.threadId === threadId ? { ...s, composerAttachments: null } : s,
     );
   }, [handedItems, addLibraryItems, store, threadId]);
+
+  useEffect(() => {
+    if (!quoteRestored.current) {
+      const id = getDraft(threadId).quoteId;
+      if (id === null) {
+        quoteRestored.current = true;
+        return;
+      }
+      const saved = view.messages.find((m) => m.id === id);
+      if (saved) {
+        quoteRestored.current = true;
+        setQuoting(saved);
+      }
+      return;
+    }
+    setDraftQuote(threadId, quoting?.id ?? null);
+  }, [threadId, quoting, view.messages]);
 
   const display = useMemo<DisplayMessage[]>(() => {
     const byId = new Map(view.messages.map((m) => [m.id, m]));
@@ -398,6 +420,8 @@ export function ChatThread({
       if (text === "") return;
       const parsed = parseCommand(text);
       if (parsed.type === "error") {
+        // A malformed command: what was typed goes back in the composer to fix.
+        restoreText.current?.(text);
         setNotice({ kind: "error", text: parsed.message });
         return;
       }
@@ -993,6 +1017,7 @@ export function ChatThread({
                 <Presence>{away ? <JumpToLatest key="jump" onJump={jump} /> : null}</Presence>
                 <ComposerPrefill />
                 <ConnectedClearChatDialog threadId={threadId} />
+                <ComposerDraft threadId={threadId} setText={restoreText} />
                 <ComposerBusyWatch
                   threadId={threadId}
                   attachments={attachments.attach?.chips.length ?? 0}
@@ -1014,11 +1039,28 @@ export function ChatThread({
                   onRetry={view.retryQueued}
                   onSendNow={(q, m) => {
                     view.removeQueued(q.id);
-                    void view.send(q.content, {
-                      mode: m,
-                      replyToMessageId: q.replyToMessageId,
-                      keepQueueParked: true,
-                    });
+                    view
+                      .send(q.content, {
+                        mode: m,
+                        replyToMessageId: q.replyToMessageId,
+                        keepQueueParked: true,
+                        ...(q.attachments && q.attachments.length > 0
+                          ? { attachments: q.attachments }
+                          : {}),
+                        ...(q.attachedFiles && q.attachedFiles.length > 0
+                          ? { attachedFiles: q.attachedFiles }
+                          : {}),
+                      })
+                      .catch((err: unknown) => {
+                        // The run settled or the chat is busy: the item goes back to the queue.
+                        store.update((s) =>
+                          s.queue.some((x) => x.id === q.id) ? s : { ...s, queue: [q, ...s.queue] },
+                        );
+                        setNotice({
+                          kind: "error",
+                          text: t("chat.thread.sendFailed", { reason: describeError(err) }),
+                        });
+                      });
                   }}
                   onSendQueued={view.resumeQueued}
                 />
@@ -1070,7 +1112,7 @@ export function ChatThread({
                     argContext={argContext}
                     onStop={() => void view.cancel()}
                     {...(attachments.attach ? { attach: attachments.attach } : {})}
-                    sendBlocked={attachments.uploading}
+                    sendBlocked={attachments.uploading || attachments.failed}
                     {...(onDictate ? { onDictate } : {})}
                   />
                 )}

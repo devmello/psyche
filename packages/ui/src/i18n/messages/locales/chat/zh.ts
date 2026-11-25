@@ -43,6 +43,8 @@ export const chat: Partial<Catalogue> = {
   "chat.attach.remove": "移除 {name}",
   "chat.attach.uploading": "正在上传 {name}",
   "chat.attach.failed": "{name} 上传失败",
+  "chat.attach.retry": "重试上传 {name}",
+  "chat.attach.blockedByFailed": "有文件上传失败。请重试或移除它，然后再发送。",
   "chat.attach.dismiss": "忽略",
   "chat.attach.refused.image":
     "{name}：此模型无法读取图片，因此只能附加文档（PDF、Word、Excel、文本）",

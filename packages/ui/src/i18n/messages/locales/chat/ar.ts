@@ -46,6 +46,8 @@ export const chat: Partial<Catalogue> = {
   "chat.attach.remove": "إزالة {name}",
   "chat.attach.uploading": "جارٍ رفع {name}",
   "chat.attach.failed": "تعذّر رفع {name}",
+  "chat.attach.retry": "إعادة محاولة رفع {name}",
+  "chat.attach.blockedByFailed": "تعذّر رفع ملف. أعد المحاولة أو أزله لتتمكن من الإرسال.",
   "chat.attach.dismiss": "تجاهل",
   "chat.attach.refused.image":
     "{name}: لا يستطيع هذا النموذج قراءة الصور، لذا يمكن إرفاق المستندات فقط (PDF وWord وExcel والنصوص)",
