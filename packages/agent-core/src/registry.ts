@@ -51,6 +51,8 @@ export interface ToolRunContext {
   authority?: ToolCallAuthority;
   /** Who asked for the turn (security §9); absent means the owner. */
   requester?: Requester;
+  /** Who started the turn when not the owner or the agent (`mcp_app`: an MCP App's page). */
+  initiator?: "mcp_app";
   signal: AbortSignal;
   /** Characters the loop keeps of this call's result (JSON-escaped); a paged tool sizes its page to it. */
   resultBudgetChars?: number;

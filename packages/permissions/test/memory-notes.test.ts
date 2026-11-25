@@ -67,12 +67,11 @@ describe("memory tool: no card for the agent's own memory in Balanced", () => {
     expect(d.decision, d.trace.join(" ")).toBe("allow");
   });
 
-  it("an automation's workflow state runs without a card", async () => {
+  it("control: an automation's workflow state still asks (any workflow's state, not the run's own)", async () => {
     const d = await decide(
       call("automation_state_set", "write", undefined, { params: { group: "evening", data: {} } }),
     );
-    expect(d.decision).toBe("allow");
-    expect(d.rule).toBe("workspace:automation_state");
+    expect(d.decision).toBe("ask");
   });
 
   it.each([

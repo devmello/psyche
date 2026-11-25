@@ -53,7 +53,7 @@ import { hostWords } from "@psyche/protocol/host-words";
 import { type CliDriver, type CliResult, nodeCliDriver } from "@psyche/sandbox";
 import { Type } from "@sinclair/typebox";
 import type { MachineExecHook } from "./machine-exec.ts";
-import { folderAccessEnv } from "./protected-paths.ts";
+import { browserProfiles, folderAccessEnv } from "./protected-paths.ts";
 import type { SrtResolver } from "./srt.ts";
 
 /**
@@ -532,18 +532,6 @@ export function resolveExecutable(
 }
 
 /** Browser profiles beyond `defaultDenyRead`'s Chrome, Firefox and Safari. */
-function browserProfiles(home: string): string[] {
-  const s = (...p: string[]) => join(home, "Library", "Application Support", ...p);
-  return [
-    s("BraveSoftware"),
-    s("Microsoft Edge"),
-    s("Arc"),
-    s("Chromium"),
-    s("Vivaldi"),
-    join(home, "Library", "Containers", "com.apple.Safari"),
-  ];
-}
-
 /** What `linuxPsycheDenyRead` reads and makes on disk (a test seam). */
 export interface LinuxDenyFs {
   lstat(path: string): { isDirectory(): boolean; uid: number; mode: number };
@@ -656,6 +644,9 @@ const REVIEWED_GIT_DENY = [
  * `rustc-wrapper`), whole, since a skill, a command or an agent there runs later too.
  */
 const REVIEWED_LAUNCH_DIRS = [...new Set([...LAUNCH_CONFIG_DIRS, ...LAUNCH_CONFIG_PAIR_DIRS])];
+
+/** The engine's rule for a call Full access allowed without a card (`mode:full/<side effect>`). */
+const FULL_ACCESS_RULE_PREFIX = "mode:full/";
 
 /** Characters srt reads as glob syntax: a repository root holding one is never reviewed. */
 const GLOB_META = /[[\]*?{}\\]/;
@@ -1503,6 +1494,20 @@ export function execHostTool(deps: ExecHostDeps): AgentToolRegistration {
       }
     }
     if (!unsandboxed && "path" in srt) {
+      // Full access runs host commands without a card, so they get a reviewed run's limits on
+      // code that runs later: no git hooks or config, no `.envrc`, no editor tasks or launch
+      // config anywhere in the folder (security §5.4).
+      const fullRun =
+        reviewed === undefined &&
+        ctx.approvalId === undefined &&
+        ctx.authority?.rule?.startsWith(FULL_ACCESS_RULE_PREFIX) === true;
+      if (fullRun && GLOB_META.test(folder.path)) {
+        await cleanup();
+        throw new PsycheError(
+          "forbidden",
+          "The shared folder's path has glob characters, so its git hooks and launch config can't be protected; the command needs approval",
+        );
+      }
       const profile = execHostSrtSettings({
         psycheHome: deps.home,
         userHome,
@@ -1512,9 +1517,11 @@ export function execHostTool(deps: ExecHostDeps): AgentToolRegistration {
           folder.mode === "rw" && !readOnly && program === undefined
             ? [reviewed === undefined ? folder.path : reviewed.repoRoot]
             : [],
-        ...(reviewed === undefined
-          ? {}
-          : { denyWrite: reviewedRunDenyWrite(reviewed.repoRoot, real) }),
+        ...(reviewed !== undefined
+          ? { denyWrite: reviewedRunDenyWrite(reviewed.repoRoot, real) }
+          : fullRun
+            ? { denyWrite: reviewedRunDenyWrite(folder.path, real) }
+            : {}),
         ...(confineRead === undefined ? {} : { confineRead }),
         allowedDomains: readOnly ? [] : domains,
         homeDotEntries: homeDotEntries(userHome),

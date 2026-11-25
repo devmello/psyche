@@ -1,8 +1,20 @@
-import { createThread, getThread, openDb } from "@psyche/db";
+import { appendMessage, createThread, getThread, openDb } from "@psyche/db";
 import type { DeviceScope, ModelProvider, ThreadKind } from "@psyche/protocol";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
+import { browserProfiles, protectedRoots } from "../src/compose/protected-paths.ts";
 import { modelPinsFor, threadSettingsHandlers } from "../src/compose/threads.ts";
 import type { Call } from "../src/context.ts";
+import { spaceFolderHandlers } from "../src/spaces/folders.ts";
+import { spacesHandlers } from "../src/spaces/handlers.ts";
+import {
+  adminClient,
+  desktopClient,
+  ik,
+  remoteClient,
+  startTestGateway,
+  type TestClient,
+  type TestGateway,
+} from "./helpers.ts";
 
 /**
  * Full access (owner, 2026-11-25) is set only in the owner's own chats, and only from the Mac app
@@ -117,5 +129,116 @@ describe("threads.update permissionMode full: who and where", () => {
     expect(t.mode()).toBe("full");
     await t.set("plan");
     expect(t.mode()).toBe("plan");
+  });
+});
+
+/** #1689 review r1, item 12: the other ways a thread could start in Full access. */
+describe("Full access never starts by another route", () => {
+  let g: TestGateway | null = null;
+  const clients: TestClient[] = [];
+  afterEach(async () => {
+    for (const c of clients.splice(0)) c.close();
+    await g?.cleanup();
+    g = null;
+  });
+  // biome-ignore lint/suspicious/noExplicitAny: loose JSON payloads read by the assertions
+  type Json = Record<string, any>;
+  const boot = async () => {
+    g = await startTestGateway({
+      handlers: {
+        ...spacesHandlers(),
+        ...spaceFolderHandlers({ broker: () => undefined, home: "/tmp/psyche-full-access-test" }),
+        ...threadSettingsHandlers(modelPinsFor(router)),
+      },
+    });
+    const mac = await desktopClient(g.gateway);
+    const phone = await remoteClient(g.gateway);
+    const admin = await adminClient(g.gateway);
+    clients.push(mac, phone, admin);
+    return { db: g.gateway.context.db, mac, phone, admin };
+  };
+
+  it("threads.create with full from a paired device without admin scope is refused", async () => {
+    const { mac, phone } = await boot();
+    const res = await phone.request("threads.create", { kind: "side", permissionMode: "full" }, ik());
+    expect(res.error).toMatchObject({ code: "forbidden", details: { reason: "full_access_device" } });
+    // Control: the Mac app may.
+    const made = await mac.call<Json>("threads.create", { kind: "side", permissionMode: "full" }, ik());
+    expect(made.thread.permissionMode).toBe("full");
+  });
+
+  it("a fork of a Full-access chat starts in Balanced", async () => {
+    const { db, mac } = await boot();
+    const source = (
+      await mac.call<Json>("threads.create", { kind: "side", permissionMode: "full" }, ik())
+    ).thread;
+    const at = appendMessage(
+      db,
+      { threadId: source.id, role: "user", blocks: [{ type: "text", md: "hi" }], provenance: "owner" },
+      { expectedWriterRunId: null },
+    );
+    const fork = (
+      await mac.call<Json>("threads.fork", { threadId: source.id, messageId: at.id }, ik())
+    ).thread;
+    expect(fork.id).not.toBe(source.id);
+    expect(fork.permissionMode).toBe("balanced");
+  });
+
+  it("a Space's default mode can't be full", async () => {
+    const { admin } = await boot();
+    const space = (await admin.call<Json>("spaces.create", { name: "Kitchen" }, ik())).space;
+    const res = await admin.request(
+      "spaces.settings.set",
+      { spaceId: space.id, defaultPermissionMode: "full" },
+      ik(),
+    );
+    expect(res.ok).not.toBe(true);
+    expect(res.error).toMatchObject({ details: { reason: "full_access_thread" } });
+  });
+
+  it("threads.newChat reusing an empty Full-access chat doesn't carry Full access over", async () => {
+    const { mac } = await boot();
+    const first = await mac.call<Json>("threads.newChat", { kind: "side" }, ik());
+    expect(first.reused).toBe(false);
+    await mac.call("threads.update", { threadId: first.thread.id, permissionMode: "full" }, ik());
+    const again = await mac.call<Json>(
+      "threads.newChat",
+      { kind: "side", preferThreadId: first.thread.id },
+      ik(),
+    );
+    expect(again.reused).toBe(true);
+    expect(again.thread.id).toBe(first.thread.id);
+    expect(again.thread.permissionMode).toBe("balanced");
+  });
+});
+
+/** #1689 review r1, item 9: what no file tool reads, Full access's home root included. */
+describe("file tools never read the owner's private stores", () => {
+  const H = "/Users/o";
+  it.each([
+    "Library/Application Support/BraveSoftware",
+    "Library/Application Support/Microsoft Edge",
+    "Library/Application Support/Arc",
+    "Library/Application Support/Chromium",
+    "Library/Application Support/Vivaldi",
+    "Library/Containers/com.apple.Safari",
+    "Library/Messages",
+    "Library/Mail",
+    "Library/Application Support/Claude",
+    ".codex",
+    ".gemini",
+    ".zsh_history",
+    ".bash_history",
+  ])("~/%s is protected", (rel) => {
+    expect(protectedRoots(`${H}/.psyche`, "darwin", H)).toContain(`${H}/${rel}`);
+  });
+
+  it("exec_host's sandbox denies the same browser profiles (one list)", () => {
+    const roots = protectedRoots(`${H}/.psyche`, "darwin", H);
+    for (const p of browserProfiles(H)) expect(roots).toContain(p);
+  });
+
+  it("control: the owner's documents are not", () => {
+    expect(protectedRoots(`${H}/.psyche`, "darwin", H)).not.toContain(`${H}/Documents`);
   });
 });

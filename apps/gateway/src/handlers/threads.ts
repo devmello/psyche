@@ -343,9 +343,16 @@ export const threadsHandlers: Record<string, HandlerDef> = {
           params.spaceId !== undefined &&
           spaceMode !== undefined &&
           MODE_STRICTNESS[spaceMode] < MODE_STRICTNESS[reuse.permissionMode ?? "balanced"];
+        // A new chat never starts in Full access: an empty chat left in it starts over in the
+        // mode a new chat gets (Full access is turned on per chat, by the owner, each time).
+        const leftFull = reuse.permissionMode === "full";
         const thread = updateThread(db, reuse.id, {
           spaceId: params.spaceId ?? null,
-          ...(narrower ? { permissionMode: spaceMode } : {}),
+          ...(leftFull
+            ? { permissionMode: spaceMode ?? "balanced" }
+            : narrower
+              ? { permissionMode: spaceMode }
+              : {}),
         }) as Thread;
         return { thread, reused: true };
       }

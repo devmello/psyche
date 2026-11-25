@@ -252,3 +252,50 @@ describe("subagents (C6)", () => {
     expect(seen.some((e) => e.event.type === "chat.delta")).toBe(true);
   });
 });
+
+describe("subagents in a Full-access thread (#1689 review r1)", () => {
+  const turn = () => {
+    const h = harness({
+      script: [
+        call("s1", "subagent.spawn", spawn("s1", "build").input),
+        call("n1", "noop", {}),
+        say("built"),
+        say("ok"),
+      ],
+    });
+    h.loop.registry.register({ spec: spec("noop", "write"), execute: recorder().execute });
+    return h;
+  };
+  const childCtx = (h: ReturnType<typeof harness>) =>
+    h.broker.decisions.find((d) => d.call.tool === "noop")?.ctx;
+
+  it("a subagent of the owner's Telegram turn keeps the requester and is decided as Balanced", async () => {
+    const h = turn();
+    await runTurn(h, "build it", {
+      permissionMode: "full",
+      requester: { role: "owner", channel: "telegram", senderId: "1" },
+    });
+    const ctx = childCtx(h);
+    expect(ctx?.runId).toContain(":sub:");
+    expect(ctx?.permissionMode).toBe("balanced");
+    expect(ctx?.requester).toMatchObject({ role: "owner", channel: "telegram" });
+  });
+
+  it("control: a subagent of the owner's desktop turn keeps Full access", async () => {
+    const h = turn();
+    await runTurn(h, "build it", { permissionMode: "full" });
+    const ctx = childCtx(h);
+    expect(ctx?.runId).toContain(":sub:");
+    expect(ctx?.permissionMode).toBe("full");
+    expect(ctx?.requester).toBeUndefined();
+  });
+
+  it("an unattended run in a Full-access thread starts as Balanced", async () => {
+    const h = harness({ script: [call("n1", "noop", {}), say("ok")] });
+    h.loop.registry.register({ spec: spec("noop", "write"), execute: recorder().execute });
+    await runTurn(h, "nightly", { permissionMode: "full", mode: "unattended" });
+    expect(h.broker.decisions.find((d) => d.call.tool === "noop")?.ctx.permissionMode).toBe(
+      "balanced",
+    );
+  });
+});

@@ -329,6 +329,7 @@ export function fileTools(options: FileToolsOptions = {}): AgentToolRegistration
       permissionMode: ctx.permissionMode,
       unattended: ctx.mode === "unattended",
       ...(ctx.requester === undefined ? {} : { requester: ctx.requester }),
+      ...(ctx.initiator === undefined ? {} : { initiator: ctx.initiator }),
     });
     const folders = options.folders?.({
       threadId: ctx.threadId,

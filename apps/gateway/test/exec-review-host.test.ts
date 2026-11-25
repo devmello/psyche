@@ -194,3 +194,48 @@ describe("exec (the sandbox container) and the exec reviewer", () => {
     });
   });
 });
+
+describe.skipIf(!mac)("exec_host in Full access (#1689 review r1, item 6)", () => {
+  const settingsOf = (i: number) =>
+    ((started[i]?.settings ?? {}) as { filesystem: { allowWrite: string[]; denyWrite: string[] } })
+      .filesystem;
+  const runAs = async (authority: ToolRunContext["authority"], approvalId?: string) => {
+    started = [];
+    const t = await ready(tool(), { argv: ["make"], cwd: plain });
+    const out = t.run?.(
+      { argv: ["make"], cwd: plain },
+      ctx({
+        permissionMode: "full",
+        ...(authority === undefined ? {} : { authority }),
+        ...(approvalId === undefined ? {} : { approvalId }),
+      }),
+    );
+    await vi.waitFor(() => expect(started.length).toBe(1));
+    finish({});
+    await out;
+    return settingsOf(0);
+  };
+
+  it("a command Full access ran without a card can't write hooks, .envrc or editor tasks", async () => {
+    const fs = await runAs({ rule: "mode:full/destructive", bindingHash: "sha256:x" });
+    expect(fs.allowWrite).toContain(folder);
+    for (const p of [
+      join(folder, ".envrc"),
+      join(folder, ".vscode"),
+      join(plain, ".envrc"),
+      join(plain, ".vscode"),
+      join(folder, ".git", "hooks"),
+    ]) {
+      expect(fs.denyWrite).toContain(p);
+    }
+    // Any repository below the folder: its `.git` (hooks, config) is never writable.
+    expect(fs.denyWrite.some((p) => p.startsWith(`${folder}/*/**/`))).toBe(true);
+    expect(fs.denyWrite.some((p) => p.startsWith(`${folder}/**/`))).toBe(true);
+  });
+
+  it("control: a command allowed another way (Auto's classifier) keeps its folder's usual rules", async () => {
+    const fs = await runAs({ rule: "classifier:allow", bindingHash: "sha256:x" });
+    expect(fs.allowWrite).toContain(folder);
+    expect(fs.denyWrite).not.toContain(join(folder, ".envrc"));
+  });
+});

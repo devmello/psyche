@@ -949,6 +949,11 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     // Full access (owner, 2026-11-25): the file tools reach the owner's home folder in a
     // Full-access chat turn; protected roots and the prohibitions still refuse inside it.
     fullAccessRoots: () => [homedir()],
+    // Turning Full access off mid-run applies from the next tool call (downgrade only).
+    threadFullAccess: (threadId) => {
+      const thread = getThread(db, threadId);
+      return thread === undefined ? undefined : thread.permissionMode === "full";
+    },
     presence: {
       // Presence fails closed while the security records are untrusted; the registered keys
       // and passkeys it checks against are verified first.
