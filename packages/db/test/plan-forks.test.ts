@@ -62,7 +62,7 @@ function setup() {
     {
       threadId: parent.id,
       role: "user",
-      blocks: [{ type: "text", text: "Move?" }],
+      blocks: [{ type: "text", md: "Move?" }],
       provenance: "owner",
     },
     { expectedWriterRunId: null },
