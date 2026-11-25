@@ -73,11 +73,12 @@ export const APP_TOP_LEVEL_ROUTES = [
   "settings",
   "can-do",
   "onboarding",
+  "spaces",
 ] as const;
 
 /**
- * `/spaces` and `/spaces/<id>` (docs/design/spaces-2026.md section 4.2). Not in
- * `APP_TOP_LEVEL_ROUTES` until the screen exists (S5); the id is a plain token, never a query.
+ * `/spaces` and `/spaces/<id>` (docs/design/spaces-2026.md section 4.2). The
+ * screen exists (S5), so it is in `APP_TOP_LEVEL_ROUTES`; the id is a plain token, never a query.
  */
 export const APP_SPACES_ROUTE = "spaces";
 const SPACE_ID = /^[A-Za-z0-9_-]{1,64}$/;

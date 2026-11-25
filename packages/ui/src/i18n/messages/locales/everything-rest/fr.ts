@@ -112,8 +112,10 @@ export const everythingRest: Partial<Catalogue> = {
     "Aussi les faits encore en attente de vérification, marqués comme non confirmés.",
   "everything.agent.sensitive": "L’agent peut voir les faits sensibles",
   "everything.schedule.title": "Planning de nuit",
-  "everything.schedule.quietStart": "Début des heures calmes",
-  "everything.schedule.quietEnd": "Fin des heures calmes",
+  "everything.schedule.quietStart": "Début du passage de nuit",
+  "everything.schedule.quietEnd": "Fin du passage de nuit",
+  "everything.schedule.hint":
+    "Quand Psyche peut lire et ranger ce qu'elle a appris. Ce ne sont pas les heures calmes des notifications.",
   "everything.schedule.battery": "Exécuter sur batterie",
   "everything.schedule.batteryHint":
     "Désactivé : uniquement sur secteur, hors mode économie d’énergie et pendant votre absence.",
@@ -136,7 +138,8 @@ export const everythingRest: Partial<Catalogue> = {
   "everything.run.reason.low_power": "Pas maintenant : le mode économie d’énergie est activé.",
   "everything.run.reason.thermal": "Pas maintenant : le Mac est trop chaud.",
   "everything.run.reason.not_idle": "Pas maintenant : vous utilisez le Mac.",
-  "everything.run.reason.outside_quiet_hours": "Pas maintenant : en dehors des heures calmes.",
+  "everything.run.reason.outside_quiet_hours":
+    "Pas maintenant : en dehors des heures du passage de nuit.",
   "everything.run.reason.local_not_confirmed":
     "Confirmez d’abord l’avertissement de mémoire du modèle local.",
   "everything.run.reason.low_memory":

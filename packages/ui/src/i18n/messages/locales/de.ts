@@ -223,6 +223,14 @@ export const de: Partial<Catalogue> = {
   "errors.method_not_allowed": "Der Browser erlaubt diese Aktion nicht.",
   "errors.presence_required":
     "Bestätige zuerst mit einem Passkey oder dem Mac-Helfer, dass du es bist.",
+  "errors.presence_unavailable_here":
+    "Dafür muss jemand am Computer sitzen. Melde dich an seinem Desktop an und versuche es erneut.",
+  "errors.presence_agent_missing":
+    "Auf diesem Desktop läuft keine Passwortabfrage, daher lässt sich nicht bestätigen, dass du es bist.",
+  "errors.presence_policy_missing":
+    "Dieser Computer ist noch nicht dafür eingerichtet, zu bestätigen, dass du es bist. Installiere die Freigaberichtlinie von Psyche und versuche es erneut.",
+  "errors.presence_not_enforced":
+    "Dieser Computer würde ohne Passwortabfrage freigeben, daher lässt sich nicht bestätigen, dass du es bist.",
   "errors.offline": "Psyche ist nicht erreichbar.",
   "errors.unknown": "Etwas ist schiefgelaufen.",
 

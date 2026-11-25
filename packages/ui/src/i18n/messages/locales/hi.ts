@@ -227,6 +227,14 @@ export const hi: Partial<Catalogue> = {
   "errors.tab_not_found": "वह ब्राउज़र टैब बंद है।",
   "errors.method_not_allowed": "ब्राउज़र उस कार्रवाई की अनुमति नहीं देता।",
   "errors.presence_required": "पहले पासकी या Mac हेल्पर पर पुष्टि करें कि यह आप ही हैं।",
+  "errors.presence_unavailable_here":
+    "इसे मंज़ूर करने के लिए कंप्यूटर के पास किसी का होना ज़रूरी है। उसके डेस्कटॉप पर साइन इन करके फिर कोशिश करें।",
+  "errors.presence_agent_missing":
+    "इस डेस्कटॉप पर पासवर्ड प्रॉम्प्ट नहीं चल रहा, इसलिए पुष्टि नहीं हो सकती कि यह आप हैं।",
+  "errors.presence_policy_missing":
+    "यह कंप्यूटर अभी यह पुष्टि करने के लिए तैयार नहीं है कि यह आप हैं। Psyche की अनुमोदन नीति इंस्टॉल करके फिर कोशिश करें।",
+  "errors.presence_not_enforced":
+    "यह कंप्यूटर पासवर्ड पूछे बिना मंज़ूरी दे देता, इसलिए पुष्टि नहीं हो सकती कि यह आप हैं।",
   "errors.offline": "Psyche तक पहुँच नहीं हो पा रही।",
   "errors.unknown": "कुछ गड़बड़ हो गई।",
 

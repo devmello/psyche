@@ -1,5 +1,5 @@
 import type { SkillDraft } from "@psyche/protocol";
-import { t, useSlots } from "@psyche/ui";
+import { describeError, t, useSlots } from "@psyche/ui";
 import { type ReactElement, useEffect, useState } from "react";
 import { useShell } from "../context.tsx";
 import type { BrowserPort, TeachCapture } from "../platform.ts";
@@ -148,9 +148,7 @@ export function TeachReview(props: {
       void store.refresh();
     } catch (err) {
       setPhase("review");
-      setError(
-        t("web.teach.review.saveFailed", { reason: err instanceof Error ? err.message : "" }),
-      );
+      setError(t("web.teach.review.saveFailed", { reason: describeError(err) }));
     }
   };
 

@@ -8,7 +8,7 @@ import { Button } from "../../components/ui/button.tsx";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs.tsx";
 import { useRunStep } from "../../data/runs.ts";
 import { t } from "../../i18n/core.ts";
-import { stepErrorText } from "../../i18n/errors.ts";
+import { describeStepError } from "../../i18n/errors.ts";
 import type { MessageId } from "../../i18n/index.ts";
 import { formatTime } from "../../lib/format.ts";
 import { tokens as formatTokens, usd } from "../../screens/settings/UsageSection.tsx";
@@ -217,12 +217,7 @@ export function StepInspector({
               ) : null}
               {step.error ? (
                 <Field label={t("agent.timeline.status.failed")}>
-                  <span className="text-danger-text">
-                    {t("agent.timeline.error", {
-                      code: step.error.code,
-                      message: stepErrorText(step.error),
-                    })}
-                  </span>
+                  <span className="text-danger-text">{describeStepError(step.error)}</span>
                 </Field>
               ) : null}
             </dl>
@@ -318,8 +313,7 @@ export function StepInspector({
           <TabsContent value="output" className="flex flex-col gap-2">
             {step.error ? (
               <p className="rounded-md bg-danger-surface px-3 py-2 text-body">
-                <span className="font-mono text-danger-text">{step.error.code}</span>
-                {` · ${stepErrorText(step.error)}`}
+                <span className="text-danger-text">{describeStepError(step.error)}</span>
               </p>
             ) : null}
             {loading && detail === null ? (
@@ -380,12 +374,7 @@ export function StepInspector({
                           })}
                         </span>
                         {a.error ? (
-                          <span className="text-label-secondary">
-                            {t("agent.timeline.error", {
-                              code: a.error.code,
-                              message: stepErrorText(a.error),
-                            })}
-                          </span>
+                          <span className="text-label-secondary">{describeStepError(a.error)}</span>
                         ) : null}
                       </li>
                     );

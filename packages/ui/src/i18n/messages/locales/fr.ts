@@ -219,6 +219,14 @@ export const fr: Partial<Catalogue> = {
   "errors.method_not_allowed": "Le navigateur n’autorise pas cette action.",
   "errors.presence_required":
     "Confirmez d’abord que c’est bien vous avec une clé d’accès ou l’assistant Mac.",
+  "errors.presence_unavailable_here":
+    "Il faut quelqu'un devant l'ordinateur pour approuver. Ouvre une session sur son bureau et réessaie.",
+  "errors.presence_agent_missing":
+    "Aucune invite de mot de passe n'est active sur ce bureau, donc impossible de confirmer que c'est toi.",
+  "errors.presence_policy_missing":
+    "Cet ordinateur n'est pas encore prêt à confirmer que c'est toi. Installe la règle d'approbation de Psyche et réessaie.",
+  "errors.presence_not_enforced":
+    "Cet ordinateur approuverait sans demander de mot de passe, donc impossible de confirmer que c'est toi.",
   "errors.offline": "Psyche est injoignable.",
   "errors.unknown": "Un problème est survenu.",
 

@@ -16,8 +16,7 @@ import { projectPrivateError, SpaceStore } from "./store.ts";
 /**
  * `spaces.*` handlers (docs/design/spaces-2026.md §4.2), wave S1: the Space itself, links, moving
  * chats and automations, and proposals. Not here, by wave:
- * - S2: `spaces.folders.*` and `spaces.settings.set` (they stay unregistered, so they answer
- *   `not_implemented`);
+ * - S2: `spaces.folders.*` and `spaces.settings.set` are registered by `./folders.ts`;
  * - S4: `spaces.trackers.*` and `spaces.open`;
  * - S3: `spaces.context.preview`.
  */

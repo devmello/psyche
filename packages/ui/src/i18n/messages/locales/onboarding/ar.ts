@@ -71,6 +71,10 @@ export const onboarding: Partial<Catalogue> = {
   "onboarding.you.agent": "وكيلك",
   "onboarding.you.customize": "تخصيص المظهر",
   "onboarding.you.more": "المزيد عنك",
+  "onboarding.restore.title": "الاستعادة من نسخة احتياطية",
+  "onboarding.restore.where":
+    "تُحفظ النسخ الاحتياطية في $PSYCHE_HOME/backups. للاستعادة على حاسوب جديد، أوقف Gateway ثم نفّذ:",
+  "onboarding.restore.unlock": "بعد ذلك افتح قفل الخزنة بمفتاح الاسترداد الخاص بها.",
   "onboarding.memory.habitsLead":
     "اختر ما يفعله {name} كل يوم وما يحتفظ به في الذاكرة. يمكن تغيير كل ذلك في الإعدادات.",
   "onboarding.memory.bring": "جلب الذاكرة من ChatGPT أو Claude",
