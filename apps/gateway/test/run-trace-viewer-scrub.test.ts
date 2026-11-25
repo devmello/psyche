@@ -41,7 +41,12 @@ afterEach(async () => {
   t = null;
 });
 
-const record = (runId: string, id: string, tool: string, params: Record<string, unknown>): ToolCall => ({
+const record = (
+  runId: string,
+  id: string,
+  tool: string,
+  params: Record<string, unknown>,
+): ToolCall => ({
   id,
   runId,
   messageId: null,
