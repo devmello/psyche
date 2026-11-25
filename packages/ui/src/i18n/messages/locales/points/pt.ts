@@ -1,0 +1,80 @@
+import type { Catalogue } from "../../index.ts";
+
+/** Psyche points (pt); merged into `../pt.ts`. */
+export const points: Partial<Catalogue> = {
+  "points.sheet.title": "Guie-me por um formulário",
+  "points.sheet.description":
+    "Escolha uma janela e a Psyche aponta o próximo campo a preencher. Você faz os cliques e a digitação.",
+  "points.sheet.windows.label": "Janela",
+  "points.sheet.windows.loading": "Procurando janelas…",
+  "points.sheet.windows.empty": "Nenhuma janela para apontar. Abra o formulário e tente de novo.",
+  "points.sheet.windows.error":
+    "Não foi possível listar suas janelas. Verifique se o Psyche Helper está em execução e tente de novo.",
+  "points.sheet.windows.retry": "Tentar de novo",
+  "points.sheet.window.untitled": "Janela sem título",
+  "points.sheet.window.frontmost": "Na frente",
+  "points.refusal.never_app": "A Psyche não aponta neste app.",
+  "points.refusal.fixed_off": "Este app é proibido para a Psyche.",
+  "points.refusal.terminal_or_ide": "Terminais e editores de código não são formulários.",
+  "points.refusal.owner_off": "Você desativou este app nos Ajustes.",
+  "points.refusal.not_a_window": "A Psyche não consegue ler esta janela.",
+  "points.refusal.permission_missing": "Permita Acessibilidade para ler esta janela.",
+  "points.sheet.goal.label": "Para que serve este formulário? (opcional)",
+  "points.sheet.goal.placeholder": "Declaração de imposto de 2026, declaração conjunta",
+  "points.sheet.data.provider":
+    "Para guiar você, a Psyche envia a {provider} os rótulos do formulário e o que você digita, exceto senhas e números de cartão, banco e documentos.",
+  "points.sheet.data.local": "Isso fica neste computador.",
+  "points.sheet.data.providerFallback": "seu provedor de modelo",
+  "points.sheet.payments":
+    "Em páginas de pagamento a Psyche só dá orientações. Esses campos você preenche sozinho.",
+  "points.sheet.permission.hint":
+    "A Psyche lê a janela pela Acessibilidade. Permita-a para o Psyche Helper para começar.",
+  "points.sheet.start": "Começar a apontar",
+  "points.sheet.starting": "Iniciando…",
+  "points.sheet.cancel": "Cancelar",
+  "points.sheet.startFailed": "Não foi possível começar a apontar. Tente de novo.",
+  "points.sheet.session.active": "Apontando em {app}",
+  "points.sheet.session.stop": "Parar de apontar",
+  "points.state.reading": "Lendo o formulário…",
+  "points.state.pointing": "Campo {step} de {of}",
+  "points.state.paused": "Em pausa",
+  "points.needs.screenRecording.title": "Deixar a Psyche olhar precisa de Gravação de tela",
+  "points.needs.screenRecording.hint":
+    "A Psyche envia uma imagem desta janela só quando você toca em Deixar a Psyche olhar.",
+  "points.needs.done": "Concluir",
+  "points.offer.button": "Guie-me",
+  "points.offer.hint": "A Psyche mostra onde olhar. Você clica e digita.",
+  "points.offer.elsewhere":
+    "Inicie o Psyche points no computador onde a Psyche roda: pressione {keys} e escolha Guie-me por um formulário.",
+  "points.palette.start": "Guie-me por um formulário",
+  "points.palette.keywords":
+    "psyche points seta guiar formulário preencher impostos visto papelada ajuda",
+  "points.settings.title": "Psyche points",
+  "points.settings.description":
+    "Escolha uma janela e a Psyche aponta o próximo campo a preencher. Ela nunca clica nem digita.",
+  "points.settings.enabledHint":
+    "Adiciona Guie-me por um formulário à paleta de comandos e ao menu da barra de menus.",
+  "settings.key.points.enabled": "Guie-me por formulários",
+  "points.card.back": "Voltar",
+  "points.card.skip": "Pular",
+  "points.card.next": "Avançar",
+  "points.card.looksWrong": "Parece errado?",
+  "points.card.stuck": "Travou?",
+  "points.card.stuckMissing": "Não tenho isso",
+  "points.card.stuckUnclear": "Não entendi",
+  "points.card.stuckBlocked": "Não deixa eu fazer",
+  "points.card.askInPsyche": "Perguntar na Psyche…",
+  "points.card.letLook": "Deixar a Psyche olhar",
+  "points.card.stop": "Parar",
+  "points.card.hideNote": "Ocultar nota",
+  "points.card.copy": "Copiar",
+  "points.card.selfFill": "Este você preenche: {label}",
+  "points.card.selfFillPlain": "Este você preenche",
+  "points.card.payButton": "Este botão paga. Confira o valor e decida você mesmo.",
+  "points.card.unknownValue": "A Psyche não conhece este dado.",
+  "points.card.scrollTo": "Role para baixo até {label}",
+  "points.card.menuBarTitle": "◉ Apontando: {app}",
+  "points.card.stepFormat": "{n}/{total}",
+  "points.card.visionBadge": "Usando uma imagem desta janela",
+  "points.card.followWindow": "Seguir esta janela",
+};

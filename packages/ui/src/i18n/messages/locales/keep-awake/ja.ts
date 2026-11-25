@@ -25,6 +25,14 @@ export const keepAwake: Partial<Catalogue> = {
   "settings.storage.clear": "消去…",
   "settings.storage.cleared": "消去しました。{size} を解放しました。",
   "settings.storage.clearFailed": "ストレージを消去できませんでした（{reason}）。",
+  "settings.storage.compact.title": "データベースを最適化",
+  "settings.storage.compact.hint":
+    "データベースは {size} で、最大 {reclaimable} を解放できます。実行中は Psyche が少し止まります。",
+  "settings.storage.compact.button": "最適化",
+  "settings.storage.compact.running": "最適化中…",
+  "settings.storage.compact.done": "{seconds} 秒で最適化し、{size} を解放しました。",
+  "settings.storage.compact.failed": "データベースを最適化できませんでした（{reason}）。",
+  "settings.storage.compact.busy": "Psyche は作業中です。終わってからもう一度お試しください。",
   "settings.storage.failed": "ストレージ使用量を読み取れませんでした（{reason}）。",
   "settings.storage.confirm.title": "キャッシュと古い録画を消去しますか？",
   "settings.storage.confirm.body":

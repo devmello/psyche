@@ -4051,6 +4051,22 @@
         "sideEffecting": true
       },
       {
+        "description": "Side-effecting. Compacts the database (VACUUM, then a WAL checkpoint). Psyche pauses while it runs. Refused with `conflict` while a run, task or scheduled run is active, so none is interrupted.",
+        "name": "storage.compact",
+        "params": "#/$defs/StorageCompactParams",
+        "result": "#/$defs/StorageCompacted",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
+        "description": "The database's size, how much a compaction could give back, and whether one can run now.",
+        "name": "storage.compactEstimate",
+        "params": "#/$defs/StorageCompactEstimateParams",
+        "result": "#/$defs/StorageCompactEstimate",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
         "description": "Disk use under the Gateway's data folder by category (database, memory index, attachments and Library, browser profiles, recordings, logs, caches, other). Sizes only; symbolic links are not followed.",
         "name": "storage.usage",
         "params": "#/$defs/StorageUsageParams",
@@ -50982,7 +50998,9 @@
         },
         "preview": {
           "anyOf": [
-            {},
+            {
+              "$ref": "#/$defs/StagedPreview"
+            },
             {
               "type": "null"
             }
@@ -51197,6 +51215,67 @@
       ],
       "type": "string"
     },
+    "StagedPreview": {
+      "properties": {
+        "kind": {
+          "enum": [
+            "mail",
+            "calendar",
+            "reminder",
+            "file"
+          ],
+          "type": "string"
+        },
+        "title": {
+          "maxLength": 200,
+          "type": "string"
+        },
+        "rows": {
+          "items": {
+            "$ref": "#/$defs/StagedPreviewRow"
+          },
+          "maxItems": 40,
+          "type": "array"
+        },
+        "truncated": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "kind",
+        "title",
+        "rows",
+        "truncated"
+      ],
+      "type": "object"
+    },
+    "StagedPreviewRow": {
+      "properties": {
+        "label": {
+          "maxLength": 60,
+          "type": "string"
+        },
+        "value": {
+          "type": "string"
+        },
+        "truncated": {
+          "const": true,
+          "type": "boolean"
+        },
+        "badge": {
+          "enum": [
+            "new_recipient",
+            "reply_all"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "label",
+        "value"
+      ],
+      "type": "object"
+    },
     "StarterFolderId": {
       "enum": [
         "documents",
@@ -51278,6 +51357,52 @@
       "required": [
         "cleared",
         "freedBytes"
+      ],
+      "type": "object"
+    },
+    "StorageCompactEstimate": {
+      "properties": {
+        "dbBytes": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "reclaimableBytes": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "idle": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "dbBytes",
+        "reclaimableBytes",
+        "idle"
+      ],
+      "type": "object"
+    },
+    "StorageCompactEstimateParams": {
+      "properties": {},
+      "type": "object"
+    },
+    "StorageCompactParams": {
+      "properties": {},
+      "type": "object"
+    },
+    "StorageCompacted": {
+      "properties": {
+        "durationMs": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "savedBytes": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "durationMs",
+        "savedBytes"
       ],
       "type": "object"
     },

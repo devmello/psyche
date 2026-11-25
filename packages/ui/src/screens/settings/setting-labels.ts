@@ -41,6 +41,7 @@ const LABELLED_KEYS = [
   "nudges.sensitivity",
   "nudges.phrasing",
   "computerUse.enabled",
+  "points.enabled",
   "computerUse.apps",
   "computerUse.linuxRevoke",
   "computerUse.defaultMachine",

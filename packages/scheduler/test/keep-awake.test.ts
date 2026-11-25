@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CAFFEINATE_PATH, KeepAwake, type PowerProcess } from "../src/index.ts";
+import { KeepAwake, type PowerProcess } from "../src/index.ts";
 
 /** A fake power API: records each caffeinate start and lets the test end it. */
 function fakePower() {
@@ -130,5 +130,36 @@ describe("keep-awake hold", () => {
     keep.sync();
     expect(keep.holding()).toBe(false);
     expect(errors).toHaveLength(1);
+  });
+});
+
+describe("keep-awake acquire (Night shift's own hold)", () => {
+  it("holds for the caller's run even with the setting off, with the same caffeinate -i, and releases once", () => {
+    const { keep, power } = harness({ enabled: false });
+    const release = keep.acquire();
+    expect(keep.holding()).toBe(true);
+    expect(power.started).toHaveLength(1);
+    expect(power.started[0]?.args).toEqual(["-i", "-w", "4242"]);
+    release();
+    release();
+    expect(keep.holding()).toBe(false);
+    expect(power.started[0]?.proc.killed).toBe(1);
+  });
+
+  it("another run's release does not drop it, and its release does not drop the other's hold", () => {
+    const { keep, state } = harness({ enabled: true, runs: 1 });
+    keep.sync();
+    const release = keep.acquire();
+    state.runs = 0;
+    keep.sync();
+    expect(keep.holding()).toBe(true);
+    release();
+    expect(keep.holding()).toBe(false);
+  });
+
+  it("is a no-op off macOS (positive control: darwin holds above)", () => {
+    const { keep } = harness({ platform: "linux" });
+    keep.acquire();
+    expect(keep.holding()).toBe(false);
   });
 });

@@ -40,6 +40,7 @@ import {
   type HandlerDef,
   type ThreadModelPolicy,
 } from "./context.ts";
+import { runDbMaintenance } from "./db-maintenance.ts";
 import { LockedPermissionBroker, UnavailableAgentLoop } from "./defaults.ts";
 import { EventBus } from "./event-bus.ts";
 import { HANDLERS } from "./handlers/index.ts";
@@ -91,6 +92,7 @@ import { TransportGate } from "./transport-gate.ts";
 import { NdjsonDecoder } from "./transports/ndjson.ts";
 import { type PeerChecker, type PeerResult, peerResultOf } from "./transports/peer-check.ts";
 import { UpdateGate } from "./update-gate.ts";
+import { WS_PING_INTERVAL_MS, watchLiveness } from "./ws-liveness.ts";
 
 /**
  * From package.json, like the CLI's: changesets versions every workspace package together, so
@@ -211,6 +213,8 @@ export interface GatewayOptions {
   publicRoutes?: Readonly<Record<string, PublicRoute>>;
   /** Run the retention sweep on this interval (0 disables the timer; tests call it directly). */
   retentionIntervalMs?: number;
+  /** Server ping interval for WebSocket peers; a missed pong ends the socket (0 disables). */
+  wsPingIntervalMs?: number;
   /**
    * The run trace's redactor (composition root: the vault's `SecretRedactor` and credential-like
    * URL parameters). Every stored or streamed step text goes through it (run trace §4.6).
@@ -647,6 +651,7 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
         {
           send: (f) => ws.readyState === ws.OPEN && ws.send(f),
           close: (r) => ws.close(1000, r.slice(0, 120)),
+          terminate: () => ws.terminate(),
           bufferedAmount: () => ws.bufferedAmount,
         },
         ctx,
@@ -660,6 +665,15 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
           () => conn.phase === "pending",
         );
       }
+      const stopLiveness = watchLiveness(
+        ws,
+        options.wsPingIntervalMs ?? WS_PING_INTERVAL_MS,
+        () => {
+          ctx.log.log("info", "websocket peer unresponsive", { conn: conn.id });
+          conn.terminate("ping timeout");
+          connections.delete(conn);
+        },
+      );
       ws.on("message", (data, isBinary) => {
         if (isBinary) {
           conn.close("binary frames are not supported");
@@ -668,6 +682,7 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
         void conn.handleRaw(data.toString());
       });
       ws.on("close", () => {
+        stopLiveness();
         conn.close("socket closed");
         connections.delete(conn);
       });
@@ -876,13 +891,16 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
   ctx.sessions.drainAll();
   // An update that never came (cancelled, or timed out): queued follow-ups start again.
   const stopWatchingGate = ctx.updateGate.onReopen(() => ctx.sessions.drainAll());
+  // Boot runs the cheap retention only; history trimming and compaction wait for the hourly timer.
   runRetention(ctx);
   const intervalMs = options.retentionIntervalMs ?? RETENTION_INTERVAL_MS;
   const retentionTimer =
     intervalMs > 0
       ? setInterval(() => {
           // Not while an app update is being prepared: the files are about to be handed over.
-          if (ctx.updateGate.accepting()) runRetention(ctx);
+          if (!ctx.updateGate.accepting()) return;
+          runRetention(ctx);
+          runDbMaintenance(ctx);
         }, intervalMs)
       : null;
   retentionTimer?.unref();

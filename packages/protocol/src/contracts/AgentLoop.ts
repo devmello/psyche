@@ -186,6 +186,12 @@ export interface StagingSink {
 export interface StagingRun {
   staging: Staging;
   sink: StagingSink;
+  /**
+   * The per-job toolset (night-shift-2026 §3.1): when set, a tool for which it returns false is not
+   * registered for the run at all (not offered, not loadable, not callable). The W1 gate stays the
+   * second layer. A subagent of the run inherits it.
+   */
+  toolAllowed?: (tool: string) => boolean;
 }
 
 /** A tool call the loop is about to dispatch (`StartTurnInput.beforeDispatch`). */

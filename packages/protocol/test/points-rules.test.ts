@@ -8,6 +8,8 @@ import {
   classifyPointsValue,
   filterPointsMemoryLine,
   groundPointsValue,
+  isPointsRecoveryPhrasePage,
+  maskPointsShapes,
   type PointsFieldFacts,
   type PointsPageFacts,
   parsePointsDates,
@@ -562,4 +564,80 @@ describe("points review round 1 (fixture rows)", () => {
     for (const label of ["SᅟSN", "SᅠSN", "SﾠSN", "S͏SN", "Ρassword", "Α-Number"])
       expect(classifyPointsField({ label }), label).not.toBeNull();
   });
+});
+
+describe("maskPointsShapes", () => {
+  const masked: [string, string][] = [
+    ["SSN on file: 123-45-6789.", "123-45-6789"],
+    ["Card 4111111111111111.", "4111111111111111"],
+    ["Ref 123456789", "123456789"],
+    ["IBAN DE89370400440532013000", "DE89370400440532013000"],
+    ["Card 4111 1111 1111 1111 declined", "1111 1111"],
+    ["Acct 123-45-6789", "123-45-6789"],
+    ["Reference ４１１１１１１１１１１１１１１１", "4111"],
+  ];
+  it.each(masked)("masks the shape in %s", (text, secret) => {
+    const out = maskPointsShapes(text);
+    expect(out).not.toContain(secret);
+    expect(out).toContain("…");
+  });
+
+  it.each([
+    "94103-1234",
+    "+1 415 555 0100",
+    "Fill in your legal name and date of birth.",
+    "Part 1. Information about you",
+    "Form I-130, part 3",
+    "Tax year 2026",
+  ])("leaves %s as it is", (text) => {
+    expect(maskPointsShapes(text)).toBe(text);
+  });
+});
+
+describe("recovery phrase pages and word runs", () => {
+  const PHRASE =
+    "1. abandon 2. ability 3. able 4. about 5. above 6. absent 7. absorb 8. abstract 9. absurd 10. abuse 11. access 12. accident";
+
+  it("masks a numbered phrase inside ordinary text, and one without numbers", () => {
+    const out = maskPointsShapes(`Note these: ${PHRASE}. Then go on to the form.`);
+    expect(out).not.toContain("abandon");
+    expect(out).not.toContain("accident");
+    expect(out).toContain("Then go on to the form");
+    const plain = maskPointsShapes(PHRASE.replace(/\d+\. /gu, ""));
+    expect(plain).not.toContain("absurd");
+    const upper = maskPointsShapes(PHRASE.replace(/\d+\. /gu, "").toUpperCase());
+    expect(upper).not.toContain("ABSURD");
+  });
+
+  it.each([
+    "Please enter your full legal name exactly as it appears on your passport or national identity card here",
+    "Fill in your legal name and date of birth.",
+    "one two three four five six seven eight nine ten eleven",
+  ])("leaves ordinary text alone: %s", (text) => {
+    expect(maskPointsShapes(text)).toBe(text);
+  });
+
+  it.each([
+    "Confirm Secret Recovery Phrase",
+    "Your seed phrase",
+    "Frase semilla",
+    "Phrase de r\u00e9cup\u00e9ration",
+    "Wiederherstellungsphrase eingeben",
+    "Frase di recupero",
+    "Frase de recupera\u00e7\u00e3o",
+    "\u30b7\u30fc\u30c9\u30d5\u30ec\u30fc\u30ba",
+    "\ube44\uacf5\uac1c \ud0a4",
+    "\u52a9\u8bb0\u8bcd",
+    "\u0639\u0628\u0627\u0631\u0629 \u0627\u0644\u0627\u0633\u062a\u0631\u062f\u0627\u062f",
+    "Enter your private key",
+  ])("names a recovery phrase: %s", (text) => {
+    expect(isPointsRecoveryPhrasePage([text])).toBe(true);
+  });
+
+  it.each([
+    "Private details about you",
+    "Recovery email address",
+    "Key dates",
+    "Passport photo upload",
+  ])("does not for %s", (text) => {});
 });

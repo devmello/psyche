@@ -188,7 +188,10 @@ export interface ThreadPageOptions extends ListThreadsOptions {
   readonly hideEmptyChats?: boolean;
   /** Case-insensitive substring of the title. */
   readonly query?: string;
-  /** Leave out an automation run's own work thread: its automation's chat lists it instead. */
+  /**
+   * Leave out an automation run's own work thread (its automation's chat lists it instead) and a
+   * Night shift night's thread (`night-shift:<id>`, never shown as a chat).
+   */
   readonly hideRunThreads?: boolean;
   /** Offset cursor from a previous page. */
   readonly offset?: number;
@@ -213,10 +216,13 @@ export function listThreadsPage(
     opts.pinnedOnly ? eq(threads.pinned, 1) : undefined,
     opts.spaceId === undefined
       ? undefined
-      : and(eq(threads.spaceId, opts.spaceId), sql`${threads.sessionKey} NOT LIKE 'cron:%'`),
+      : and(
+          eq(threads.spaceId, opts.spaceId),
+          sql`${threads.sessionKey} NOT LIKE 'cron:%' AND ${threads.sessionKey} NOT LIKE 'night-shift:%'`,
+        ),
     opts.hideEmptyChats ? sql`NOT (${emptyUserChat})` : undefined,
     opts.hideRunThreads
-      ? sql`NOT (${threads.kind} = 'automation' AND ${threads.sessionKey} LIKE 'cron:%')`
+      ? sql`NOT (${threads.kind} = 'automation' AND (${threads.sessionKey} LIKE 'cron:%' OR ${threads.sessionKey} LIKE 'night-shift:%'))`
       : undefined,
     escaped === undefined
       ? undefined

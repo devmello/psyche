@@ -46,6 +46,7 @@ import {
   useSyncExternalStore,
 } from "react";
 import { renderMcpApp } from "../compose/mcp-app.tsx";
+import { PointsHost, pointsPortOf } from "../compose/points.tsx";
 import { autoModeBlockedBy, type ListedAutoModels } from "./auto-mode.ts";
 import { ChatView, PERMISSION_MODES, QuickEntry } from "./components/Chat.tsx";
 import {
@@ -645,9 +646,11 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
   const pathOfFile = platform.dialogs?.pathOfFile;
   const remoteHost = platform.chrome?.remote?.hostName;
   const gatewaysPort = platform.gateways;
+  const pointsPort = useMemo(() => pointsPortOf(platform), [platform]);
   const kitSlots = useMemo<UiSlots>(
     () => ({
       navigate,
+      ...(pointsPort === undefined ? {} : { points: pointsPort }),
       prefillComposer,
       openInPsyche,
       openSideChat,
@@ -680,6 +683,7 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
       platform.chrome?.remote,
       remoteHost,
       gatewaysPort,
+      pointsPort,
       platform.windows,
       platform.app,
       dispatch,
@@ -1228,194 +1232,200 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
     slots.agentSheet?.({ route: sheetRoute, presentation, navigate, onClose: closeSheet }) ?? null;
   return (
     <UiSlotsProvider value={kitSlots}>
-      <ShellMotion>
-        <div
-          className="app-frame"
-          data-testid="app-frame"
-          // Unified chrome on the desktop (#597; redesign §4): the bar is a drag strip over the
-          // sidebar only (the traffic lights sit in its material) and each screen's toolbar is
-          // the drag region over the canvas.
-          // `inset` (macOS traffic lights, top left) or `overlay` (Windows caption buttons, top
-          // right): shell-layout.css keeps each clear.
-          data-chrome={inset && !compact ? frameKind(platform.chrome) : undefined}
-          // Compact keeps the plain bar on top; under Windows' caption buttons it still needs
-          // their room on the right.
-          data-frame={compact ? frameKind(platform.chrome) : undefined}
-          // A hidden sidebar or the narrow rail leaves the traffic lights over the toolbars,
-          // which then start after them (#624).
-          data-toolbar-lead={lead.toolbar === null ? undefined : ""}
-          style={
-            {
-              "--chrome-lead": `${lead.lead}px`,
-              ...(lead.toolbar === null ? {} : { "--toolbar-lead": `${lead.toolbar}px` }),
-            } as CSSProperties
-          }
-        >
-          <a className="skip-link" href="#main">
-            {t("web.shell.skipToContent")}
-          </a>
-          <TitleBar chrome={platform.chrome}>
-            {/* A side chat names where it came from (redesign §5.4). */}
-            {forkedFrom ? (
-              <span
-                className="title-fork"
-                role="img"
-                aria-label={t("shell.sidebar.forkedFrom", { parent: forkedFrom })}
-                title={t("shell.sidebar.forkedFrom", { parent: forkedFrom })}
-              >
-                ↳
-              </span>
-            ) : null}
-            <span className="title">{barTitle}</span>
-            {/* Connected is the quiet default; only other states earn a chip (docs/06 §3.0). */}
-            {status.phase === "paired" ? null : (
-              <span data-no-drag="">
-                <GatewayPill status={status} />
-              </span>
-            )}
-          </TitleBar>
-          {compact ? (
-            <CompactTopBar
-              onOpenThreads={() => setDrawerOpen(true)}
-              onOpenSearch={() => setOverlay("palette")}
-              {...(onChat ? {} : { title: barTitle })}
-              {...(onChat && thread
-                ? {
-                    mode: thread.permissionMode,
-                    onModeChange: setPermissionMode,
-                    model: thread.modelRef,
-                    onOpenModelPicker: () => setOverlay("model"),
-                  }
-                : {})}
-            />
-          ) : null}
+      <PointsHost platform={platform}>
+        <ShellMotion>
           <div
-            className="shell shell-sidebar-layout"
-            data-compact={compact}
-            data-sidebar={compact ? "drawer" : sidebarOpen ? "open" : "collapsed"}
-            data-sidebar-mode={sidebarMode}
-            data-testid="shell"
+            className="app-frame"
+            data-testid="app-frame"
+            // Unified chrome on the desktop (#597; redesign §4): the bar is a drag strip over the
+            // sidebar only (the traffic lights sit in its material) and each screen's toolbar is
+            // the drag region over the canvas.
+            // `inset` (macOS traffic lights, top left) or `overlay` (Windows caption buttons, top
+            // right): shell-layout.css keeps each clear.
+            data-chrome={inset && !compact ? frameKind(platform.chrome) : undefined}
+            // Compact keeps the plain bar on top; under Windows' caption buttons it still needs
+            // their room on the right.
+            data-frame={compact ? frameKind(platform.chrome) : undefined}
+            // A hidden sidebar or the narrow rail leaves the traffic lights over the toolbars,
+            // which then start after them (#624).
+            data-toolbar-lead={lead.toolbar === null ? undefined : ""}
+            style={
+              {
+                "--chrome-lead": `${lead.lead}px`,
+                ...(lead.toolbar === null ? {} : { "--toolbar-lead": `${lead.toolbar}px` }),
+              } as CSSProperties
+            }
           >
-            {compact ? null : (
-              // `rail-slot` is what the native-glass spike (desktop main/glass.ts) makes clear.
-              <SidebarPresence
-                open={sidebarOpen}
-                className="sidebar-slot rail-slot"
-                testId="sidebar-slot"
-              >
-                {sidebar}
-              </SidebarPresence>
-            )}
-            <ReflowColumn
-              id="main"
-              tabIndex={-1}
-              aria-label={barTitle}
-              className="shell-content"
-              data-testid="content"
-            >
-              {inset ? null : showSidebarButton}
-              {/* The chat has no visible page title (docs/a11y-audit.md L2). */}
-              {onChat ? <h1 className="sr-only">{barTitle}</h1> : null}
-              <OfflineBanner
-                status={status}
-                pairingGrace={pairingGrace}
-                {...(gatewayRun ? { run: gatewayRun } : {})}
-                {...(platform.gateway.showLogs
-                  ? { onShowLogs: () => void platform.gateway.showLogs?.() }
+            <a className="skip-link" href="#main">
+              {t("web.shell.skipToContent")}
+            </a>
+            <TitleBar chrome={platform.chrome}>
+              {/* A side chat names where it came from (redesign §5.4). */}
+              {forkedFrom ? (
+                <span
+                  className="title-fork"
+                  role="img"
+                  aria-label={t("shell.sidebar.forkedFrom", { parent: forkedFrom })}
+                  title={t("shell.sidebar.forkedFrom", { parent: forkedFrom })}
+                >
+                  ↳
+                </span>
+              ) : null}
+              <span className="title">{barTitle}</span>
+              {/* Connected is the quiet default; only other states earn a chip (docs/06 §3.0). */}
+              {status.phase === "paired" ? null : (
+                <span data-no-drag="">
+                  <GatewayPill status={status} />
+                </span>
+              )}
+            </TitleBar>
+            {compact ? (
+              <CompactTopBar
+                onOpenThreads={() => setDrawerOpen(true)}
+                onOpenSearch={() => setOverlay("palette")}
+                {...(onChat ? {} : { title: barTitle })}
+                {...(onChat && thread
+                  ? {
+                      mode: thread.permissionMode,
+                      onModeChange: setPermissionMode,
+                      model: thread.modelRef,
+                      onOpenModelPicker: () => setOverlay("model"),
+                    }
                   : {})}
               />
-              {/* Security changes made outside Psyche, on every screen (security-state-integrity §7.3). */}
-              {status.phase === "paired" ? <SecurityStateBanner platform={platform} /> : null}
-              <RouteTransition>
-                {onChat ? (
-                  // Keyed by the route's thread: `/chat` stays one view while the main chat loads.
-                  <ThreadCrossfade threadId={routeThreadId ?? "main"} className="shell-route">
-                    {content}
-                  </ThreadCrossfade>
-                ) : (
-                  <div className="shell-route">{content}</div>
-                )}
-              </RouteTransition>
-              {docked ? null : sheetFor("overlay")}
-            </ReflowColumn>
-            {paneKey ? (
-              <PaneArea
-                layout={layout}
-                layoutKey={paneKey}
-                threadId={threadId ?? paneKey}
-                width={width}
-                contentWidth={env().contentWidth ?? width}
-                covered={overlay !== null}
-                dispatch={dispatch}
-                {...(slots.pane ? { renderPane: slots.pane, navigate } : {})}
-              />
             ) : null}
-            {docked ? (
-              <PanePresence
-                className="agent-sheet-presence"
-                style={{ width: AGENT_PANEL_WIDTH }}
-                testId="agent-sheet-column"
+            <div
+              className="shell shell-sidebar-layout"
+              data-compact={compact}
+              data-sidebar={compact ? "drawer" : sidebarOpen ? "open" : "collapsed"}
+              data-sidebar-mode={sidebarMode}
+              data-testid="shell"
+            >
+              {compact ? null : (
+                // `rail-slot` is what the native-glass spike (desktop main/glass.ts) makes clear.
+                <SidebarPresence
+                  open={sidebarOpen}
+                  className="sidebar-slot rail-slot"
+                  testId="sidebar-slot"
+                >
+                  {sidebar}
+                </SidebarPresence>
+              )}
+              <ReflowColumn
+                id="main"
+                tabIndex={-1}
+                aria-label={barTitle}
+                className="shell-content"
+                data-testid="content"
               >
-                {sheetRoute === null ? null : sheetFor("inline")}
-              </PanePresence>
-            ) : null}
-            {compact ? (
-              <div className="tab-bar-slot" data-testid="rail">
-                <TabBar active={destinationFor(base)} onNavigate={navigate} />
-              </div>
-            ) : null}
-            {slots.palette ? (
-              slots.palette({
-                open: overlay === "palette",
-                onClose: () => setOverlay(null),
-                navigate,
-                actions,
-                onOpenInSideChat: openSideChat,
-              })
-            ) : overlay === "palette" ? (
-              <CommandPalette
-                actions={actions}
-                onClose={() => setOverlay(null)}
-                onNavigate={navigate}
-              />
-            ) : null}
-            {overlay === "shortcuts" ? <ShortcutSheet onClose={() => setOverlay(null)} /> : null}
-            <MeetingRecord />
-            {overlay === "model" ? (
-              <ModelPicker
-                current={thread?.modelRef ?? null}
-                onClose={() => {
-                  setOverlay(null);
-                  setFocusToken((n) => n + 1);
-                }}
-                onPick={(modelRef) => {
-                  if (!thread) return;
-                  void store.updateThread(thread.id, { modelRef }, t("web.toast.modelUnsupported"));
-                }}
-              />
-            ) : null}
-            <Toasts />
-          </div>
-          <ThreadsDrawer open={compact && drawerOpen} onOpenChange={setDrawerOpen}>
-            {threadsFor((id) => {
-              setDrawerOpen(false);
-              openThread(id);
-            })}
-          </ThreadsDrawer>
-          {/* Last in the tree on purpose: Electron resolves drag regions in tree order, so the
+                {inset ? null : showSidebarButton}
+                {/* The chat has no visible page title (docs/a11y-audit.md L2). */}
+                {onChat ? <h1 className="sr-only">{barTitle}</h1> : null}
+                <OfflineBanner
+                  status={status}
+                  pairingGrace={pairingGrace}
+                  {...(gatewayRun ? { run: gatewayRun } : {})}
+                  {...(platform.gateway.showLogs
+                    ? { onShowLogs: () => void platform.gateway.showLogs?.() }
+                    : {})}
+                />
+                {/* Security changes made outside Psyche, on every screen (security-state-integrity §7.3). */}
+                {status.phase === "paired" ? <SecurityStateBanner platform={platform} /> : null}
+                <RouteTransition>
+                  {onChat ? (
+                    // Keyed by the route's thread: `/chat` stays one view while the main chat loads.
+                    <ThreadCrossfade threadId={routeThreadId ?? "main"} className="shell-route">
+                      {content}
+                    </ThreadCrossfade>
+                  ) : (
+                    <div className="shell-route">{content}</div>
+                  )}
+                </RouteTransition>
+                {docked ? null : sheetFor("overlay")}
+              </ReflowColumn>
+              {paneKey ? (
+                <PaneArea
+                  layout={layout}
+                  layoutKey={paneKey}
+                  threadId={threadId ?? paneKey}
+                  width={width}
+                  contentWidth={env().contentWidth ?? width}
+                  covered={overlay !== null}
+                  dispatch={dispatch}
+                  {...(slots.pane ? { renderPane: slots.pane, navigate } : {})}
+                />
+              ) : null}
+              {docked ? (
+                <PanePresence
+                  className="agent-sheet-presence"
+                  style={{ width: AGENT_PANEL_WIDTH }}
+                  testId="agent-sheet-column"
+                >
+                  {sheetRoute === null ? null : sheetFor("inline")}
+                </PanePresence>
+              ) : null}
+              {compact ? (
+                <div className="tab-bar-slot" data-testid="rail">
+                  <TabBar active={destinationFor(base)} onNavigate={navigate} />
+                </div>
+              ) : null}
+              {slots.palette ? (
+                slots.palette({
+                  open: overlay === "palette",
+                  onClose: () => setOverlay(null),
+                  navigate,
+                  actions,
+                  onOpenInSideChat: openSideChat,
+                })
+              ) : overlay === "palette" ? (
+                <CommandPalette
+                  actions={actions}
+                  onClose={() => setOverlay(null)}
+                  onNavigate={navigate}
+                />
+              ) : null}
+              {overlay === "shortcuts" ? <ShortcutSheet onClose={() => setOverlay(null)} /> : null}
+              <MeetingRecord />
+              {overlay === "model" ? (
+                <ModelPicker
+                  current={thread?.modelRef ?? null}
+                  onClose={() => {
+                    setOverlay(null);
+                    setFocusToken((n) => n + 1);
+                  }}
+                  onPick={(modelRef) => {
+                    if (!thread) return;
+                    void store.updateThread(
+                      thread.id,
+                      { modelRef },
+                      t("web.toast.modelUnsupported"),
+                    );
+                  }}
+                />
+              ) : null}
+              <Toasts />
+            </div>
+            <ThreadsDrawer open={compact && drawerOpen} onOpenChange={setDrawerOpen}>
+              {threadsFor((id) => {
+                setDrawerOpen(false);
+                openThread(id);
+              })}
+            </ThreadsDrawer>
+            {/* Last in the tree on purpose: Electron resolves drag regions in tree order, so the
               screens' drag toolbars (later than the title bar) would otherwise turn the toggle
               into a drag area while the sidebar is hidden, and its clicks would do nothing. */}
-          {inset && !compact ? (
-            <div
-              className="titlebar-toggle"
-              data-testid="titlebar-toggle"
-              style={{ left: titleBarInset(platform.chrome), height: TITLEBAR_HEIGHT }}
-            >
-              {chromeToggles}
-            </div>
-          ) : null}
-        </div>
-      </ShellMotion>
+            {inset && !compact ? (
+              <div
+                className="titlebar-toggle"
+                data-testid="titlebar-toggle"
+                style={{ left: titleBarInset(platform.chrome), height: TITLEBAR_HEIGHT }}
+              >
+                {chromeToggles}
+              </div>
+            ) : null}
+          </div>
+        </ShellMotion>
+      </PointsHost>
     </UiSlotsProvider>
   );
 }

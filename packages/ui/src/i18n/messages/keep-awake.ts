@@ -25,6 +25,15 @@ export const keepAwake = {
   "settings.storage.clear": "Clear…",
   "settings.storage.cleared": "Cleared. {size} freed.",
   "settings.storage.clearFailed": "Couldn't clear storage ({reason}).",
+  "settings.storage.compact.title": "Compact database",
+  "settings.storage.compact.hint":
+    "Database {size}, up to {reclaimable} can be given back. Psyche pauses for a moment while it runs.",
+  "settings.storage.compact.button": "Compact",
+  "settings.storage.compact.running": "Compacting…",
+  "settings.storage.compact.done": "Compacted in {seconds} s, {size} saved.",
+  "settings.storage.compact.failed": "Couldn't compact the database ({reason}).",
+  "settings.storage.compact.busy":
+    "Psyche is working on something. Try again when it has finished.",
   "settings.storage.failed": "Couldn't read storage use ({reason}).",
   "settings.storage.confirm.title": "Clear caches and old recordings?",
   "settings.storage.confirm.body":

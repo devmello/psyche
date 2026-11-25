@@ -41,6 +41,7 @@ import { overviewGrowth } from "./overview-growth/zh.ts";
 import { overviewShared } from "./overview-shared/zh.ts";
 import { passwordPresence } from "./password-presence/zh.ts";
 import { people } from "./people/zh.ts";
+import { points } from "./points/zh.ts";
 import { research } from "./research/zh.ts";
 import { scheduled } from "./scheduled/zh.ts";
 import { scheduledForm } from "./scheduled-form/zh.ts";
@@ -3878,6 +3879,8 @@ export const zh: Partial<Catalogue> = {
   ...linuxAccess,
   // the Virtual screen watch pane (docs/design/linux-desktop-2026.md §7.5)
   ...computerWatch,
+  // Psyche points (docs/design/psyche-points-2026.md §9)
+  ...points,
   // Gateway-authored notices (inbox notifications, security alerts)
   ...notices,
   // Settings > Computer use > Separate desktop (Linux)

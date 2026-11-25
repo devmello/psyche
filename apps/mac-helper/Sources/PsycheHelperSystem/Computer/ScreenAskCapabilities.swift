@@ -2,6 +2,8 @@ import AppKit
 import ApplicationServices
 import CoreGraphics
 import Foundation
+import PsycheAXRead
+import PsycheCapture
 import PsycheHelperCore
 import PsycheProtocol
 @preconcurrency import ScreenCaptureKit
@@ -64,7 +66,7 @@ public enum ScreenAskCapabilities {
         if p.mode == .window, target == nil { return result(context, refusal: .noWindow) }
         guard CGPreflightScreenCaptureAccess() else { return result(context, refusal: .permissionMissing) }
 
-        let content = try await ScreenshotCapabilities.shareable()
+        let content = try await WindowCapture.shareable()
         let running = NSWorkspace.shared.runningApplications
         let excludedApps = content.applications.filter { a in
             psyche.contains(a.processID)
@@ -100,7 +102,7 @@ public enum ScreenAskCapabilities {
         config.capturesAudio = false
         if let source { config.sourceRect = source }
         let image = try await SCScreenshotManager.captureImage(contentFilter: filter, configuration: config)
-        let (data, _) = try ScreenshotCapabilities.encode(image, png: false)
+        let (data, _) = try WindowCapture.encode(image, png: false)
         return ScreenContextResult(context: context, height: image.height, image: data.base64EncodedString(), refusal: nil, width: image.width)
     }
 
