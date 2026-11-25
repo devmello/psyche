@@ -256,6 +256,51 @@ describe("scrubForViewer", () => {
       expect(out.comparison?.rows[0]?.cells[0]?.itemIds).toEqual(["k2"]);
     });
 
+    it.each([
+      ["a hidden item is the only difference", "memory", false],
+      ["the visible items differ too", "web", true],
+    ])("recomputes differs over visible items: %s", (_n, hiddenSource, want) => {
+      const k = (id: string, amount: number, cites: ForkCite[]) => ({
+        id,
+        label: id,
+        amount,
+        currency: "USD",
+        period: "month" as const,
+        estimate: false,
+        cites,
+      });
+      // Branch A shows 100 and a second item; branch B shows 100 only. The second item is the
+      // only difference, so hiding it must flip `differs` to false for a remote viewer.
+      const hiddenCite: ForkCite = {
+        callId: "c",
+        ref: "r",
+        source: hiddenSource as "memory" | "web",
+      };
+      const a = report({ costs: [k("k1", 100, [web]), k("k2", 500, [hiddenCite])] });
+      const b = report({ costs: [k("k1", 100, [web])] });
+      const cmp: PlanComparison = {
+        headline: "",
+        rows: [
+          {
+            dimension: "cost",
+            label: "",
+            differs: true,
+            cells: [
+              { branchId: "A", itemIds: ["k1", "k2"] },
+              { branchId: "B", itemIds: ["k1"] },
+            ],
+          },
+        ],
+        betterIf: [],
+      };
+      const view = { branches: [branch("A", a), branch("B", b)], comparison: cmp };
+      const remoteOut = scrubForViewer(view, remote);
+      expect(remoteOut.comparison?.rows[0]?.differs).toBe(hiddenSource === "memory" ? false : true);
+      expect(remoteOut.comparison?.rows[0]?.differs).toBe(want === false ? false : true);
+      // Positive control: the desktop shell keeps the full-row value.
+      expect(scrubForViewer(view, desktop).comparison?.rows[0]?.differs).toBe(true);
+    });
+
     it("shows totals when every item in them is visible, per currency", () => {
       const r = report({
         costs: [

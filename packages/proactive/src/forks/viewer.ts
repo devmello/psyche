@@ -5,7 +5,7 @@ import type {
   PlanForkBranch,
   PlanForkScrub,
 } from "@psyche/protocol";
-import { itemsOf } from "./comparison.ts";
+import { dimensionDiffers, itemsOf } from "./comparison.ts";
 import { OWNER_ONLY_SOURCES } from "./report-check.ts";
 import { type CostTotal, computeTotals } from "./totals.ts";
 
@@ -154,11 +154,9 @@ export function scrubForViewer(view: ForkView, viewer: Viewer | undefined): Scru
     textHidden ||= anyOwner;
     comparison = {
       headline: anyOwner ? "" : view.comparison.headline,
-      rows: view.comparison.rows.map((row) => ({
-        ...row,
+      rows: view.comparison.rows.map((row) => {
         // A cell that names an item the viewer cannot see loses it; its note goes with the branch.
-        label: anyOwner ? "" : row.label,
-        cells: row.cells.map((cell) => {
+        const cells = row.cells.map((cell) => {
           const shown = visibleIds.get(cell.branchId);
           const ids = new Set(shown ? itemsOf(shown, row.dimension).map((i) => i.id) : []);
           const { note: _note, ...rest } = cell;
@@ -166,8 +164,21 @@ export function scrubForViewer(view: ForkView, viewer: Viewer | undefined): Scru
           return ownerBranches.has(cell.branchId) || cell.note === undefined
             ? next
             : { ...next, note: cell.note };
-        }),
-      })),
+        });
+        return {
+          ...row,
+          label: anyOwner ? "" : row.label,
+          cells,
+          // `differs` is one bit about the full row: recompute it over what this viewer sees.
+          differs: dimensionDiffers(
+            row.dimension,
+            [...visibleIds].map(([branchId, report]) => ({
+              report,
+              itemIds: cells.find((c) => c.branchId === branchId)?.itemIds ?? [],
+            })),
+          ),
+        };
+      }),
       betterIf: view.comparison.betterIf.map((b) =>
         ownerBranches.has(b.branchId) ? { ...b, text: "" } : b,
       ),
