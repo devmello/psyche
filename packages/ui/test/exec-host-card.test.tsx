@@ -109,6 +109,7 @@ describe("exec_host card", () => {
       "UNSANDBOXED",
     );
     expect(screen.queryByRole("button", { name: /Always/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: "More options…" })).toBeNull();
     expect(screen.getByText("Without the sandbox, only Allow once is offered.")).toBeTruthy();
     await userEvent.click(allow());
     await waitFor(() =>
@@ -173,6 +174,7 @@ describe("exec_host card on Windows (no host sandbox)", () => {
         "UNSANDBOXED",
       );
       expect(screen.queryByRole("button", { name: /Always/ })).toBeNull();
+      expect(screen.queryByRole("button", { name: "More options…" })).toBeNull();
       await userEvent.click(allow());
       await waitFor(() =>
         expect(onAnswer).toHaveBeenCalledWith("approve", "once", { unsandboxed: "UNSANDBOXED" }),

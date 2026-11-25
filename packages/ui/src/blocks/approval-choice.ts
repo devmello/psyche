@@ -20,6 +20,11 @@ export interface Choice {
   value: AllowScope;
   /** What the choice covers, in plain words. It is the label of the button that sends `value`. */
   label: string;
+  /**
+   * The card's data could not say what this grant covers, so the label is the honest wide
+   * reading. A vague choice is never the second choice; it stays under More options.
+   */
+  vague?: boolean;
 }
 
 /** The origin a first-read card offers to trust, as the Gateway computed it. */
@@ -84,9 +89,16 @@ export function toolPhrase(tool: string): string {
   return words(tool);
 }
 
-/** A payment (a purchase, or money moving): never an "always", whatever the card offers. */
+/**
+ * A payment, or a card that needs presence: never a lasting choice, whatever the card offers.
+ * Presence is for payments only, so a card that asks for it is treated like one.
+ */
 export function isPaymentCard(approval: ApprovalRequest): boolean {
-  return approval.kind === "purchase" || approval.sideEffect === "financial";
+  return (
+    approval.kind === "purchase" ||
+    approval.sideEffect === "financial" ||
+    approval.requiresAuthentication
+  );
 }
 
 /** Kinds with their own binding table (`packages/permissions/src/binding.ts`), not {tool, target}. */
@@ -109,43 +121,121 @@ const DEDICATED_KINDS: readonly string[] = [
 
 const asText = (v: unknown): string | null => (typeof v === "string" && v !== "" ? v : null);
 
+const folderOf = (path: string): string => {
+  const cut = path.replace(/\/+$/, "").lastIndexOf("/");
+  return cut > 0 ? path.slice(0, cut) : path;
+};
+
 /**
- * The words for an "Always allow" on this card, from what its grant key really covers
- * (security §3.3, audit §1.3): the same exact command, the recipient set, the tool with any
- * arguments, or the same tool for the same target.
+ * What a lasting grant on this card covers, in words that follow "Allow": the recipient set, the
+ * tool with any arguments, the exact command, the path, the app. Null when the card's own data
+ * cannot say it, so no lifetime or "always" is ever worded without its reach. The reach is what
+ * the grant key covers (`packages/permissions/src/binding.ts`), not what the call did.
  */
-export function alwaysLabel(approval: ApprovalRequest): string {
+export function reachPhrase(approval: ApprovalRequest, site: string | null): string | null {
   const d = approval.details as Record<string, unknown>;
-  if (approval.kind === "batch") return t("blocks.approval.scope.prepNotes");
-  if (approval.kind === "send_email" && approval.target?.kind === "recipient") {
-    const recipients = splitRecipients(approval.target.value);
-    const account = parseSendGrantKey(approval.grantKey)?.account ?? null;
-    if (recipients.length > 0) {
-      return account !== null
-        ? t("blocks.approval.alwaysRecipientFrom", { recipients: recipients.join(", "), account })
-        : t("blocks.approval.alwaysRecipient", { recipients: recipients.join(", ") });
-    }
-  }
   const tool = asText(d.tool);
   const target = approval.target ? (approval.target.display ?? approval.target.value) : null;
-  // MCP tools and connector actions: the grant is the tool, whatever its arguments.
-  if ((approval.kind === "mcp_tool" || approval.kind === "connector_action") && tool !== null) {
-    return t("approvals.choice.alwaysTool", { tool: toolPhrase(tool) });
+  switch (approval.kind) {
+    case "send_email": {
+      if (approval.target?.kind !== "recipient") return null;
+      const recipients = splitRecipients(approval.target.value);
+      if (recipients.length === 0) return null;
+      const account = parseSendGrantKey(approval.grantKey)?.account ?? null;
+      return account !== null
+        ? t("approvals.what.send", { recipients: recipients.join(", "), account })
+        : t("approvals.what.sendAny", { recipients: recipients.join(", ") });
+    }
+    case "mcp_tool":
+    case "connector_action":
+      // The grant is the tool, whatever its arguments.
+      return tool === null ? null : t("approvals.what.tool", { tool: toolPhrase(tool) });
+    case "exec":
+    case "exec_host":
+      // Bound to the exact argv, cwd and binary.
+      return t("approvals.what.exec");
+    case "file_write": {
+      // The grant is {root, operation}: any content, at that path or under that folder.
+      if (target === null) return null;
+      const root = asText(d.root);
+      const operation = asText(d.operation);
+      if (root !== null && root !== target) {
+        return operation !== null
+          ? t("approvals.what.writeIn", { operation, folder: root })
+          : t("approvals.what.filesIn", { folder: root });
+      }
+      if (root !== null) return t("approvals.what.writeTarget", { target });
+      // The card does not carry the grant root, which can be the folder: say the wider reading.
+      return t("approvals.what.filesIn", { folder: folderOf(target) });
+    }
+    case "message_send": {
+      const recipient = asText(d.recipient);
+      const channel = asText(d.channel);
+      return recipient !== null && channel !== null
+        ? t("approvals.what.message", { recipient, channel })
+        : null;
+    }
+    case "calendar_write": {
+      const calendar = asText(d.calendar);
+      const operation = asText(d.operation);
+      return calendar !== null && operation !== null
+        ? t("approvals.what.calendar", { calendar, operation })
+        : null;
+    }
+    case "computer_action": {
+      const app = asText(d.app);
+      return app === null ? null : t("approvals.what.computer", { app });
+    }
+    case "new_origin":
+      return site === null ? null : t("approvals.what.site", { site });
+    case "credential_fill": {
+      const item = asText(d.itemName);
+      return item !== null && site !== null ? t("approvals.what.fill", { item, site }) : null;
+    }
+    default:
+      // The generic grant key is {tool, target}.
+      if (DEDICATED_KINDS.includes(approval.kind) || tool === null) return null;
+      return target !== null
+        ? t("approvals.what.toolFor", { tool: toolPhrase(tool), target })
+        : t("approvals.what.tool", { tool: toolPhrase(tool) });
   }
-  // A host or sandbox command: the grant is bound to the exact argv, cwd and binary.
-  if (approval.kind === "exec" || approval.kind === "exec_host") {
-    return t("approvals.choice.alwaysExec");
+}
+
+type Lifetime = "always" | "session" | "task" | "site";
+
+/** A lasting choice named by its lifetime and its reach; vague (and said so) without a reach. */
+function lastingChoice(value: Lifetime, approval: ApprovalRequest, site: string | null): Choice {
+  if (value === "always" && approval.kind === "batch") {
+    return { value, label: t("blocks.approval.scope.prepNotes") };
   }
-  if (approval.kind === "file_write" && target !== null) {
-    return t("approvals.choice.alwaysWrite", { target });
+  const what = reachPhrase(approval, site);
+  if (what === null) {
+    return {
+      value,
+      vague: true,
+      label:
+        value === "site"
+          ? t("approvals.reach.vague.site", { site: site ?? "" })
+          : t(`approvals.reach.vague.${value}`),
+    };
   }
-  // The generic grant key is {tool, target}; the kinds with their own binding say it less exactly.
-  if (!DEDICATED_KINDS.includes(approval.kind) && tool !== null) {
-    return target !== null
-      ? t("approvals.choice.alwaysToolFor", { tool: toolPhrase(tool), target })
-      : t("approvals.choice.alwaysTool", { tool: toolPhrase(tool) });
+  if (value === "site") {
+    return {
+      value,
+      label: what.includes(site ?? "\u0000")
+        ? t("approvals.reach.siteIn", { what })
+        : t("approvals.reach.siteOn", { what, site: site ?? "" }),
+    };
   }
-  return t("approvals.choice.alwaysSame");
+  return { value, label: t(`approvals.reach.${value}`, { what }) };
+}
+
+/** What a card offers once the card's own rules narrow it (a tainted floored card: once only). */
+export function cardOffered(approval: ApprovalRequest): readonly GrantScope[] {
+  const floor = floorClassOf(approval.kind, approval.sideEffect);
+  return floor !== null && approval.taint
+    ? approval.scopesOffered.filter((s) => s === "once")
+    : approval.scopesOffered;
 }
 
 export interface ChoiceOptions {
@@ -190,11 +280,9 @@ export function buildChoices(
           },
         ]
       : []),
-    ...(offered.includes("task")
-      ? [{ value: "task" as const, label: t("approvals.choice.task") }]
-      : []),
+    ...(offered.includes("task") ? [lastingChoice("task", approval, opts.site)] : []),
     ...(offered.includes("site") && opts.site !== null
-      ? [{ value: "site" as const, label: t("approvals.choice.site", { site: opts.site }) }]
+      ? [lastingChoice("site", approval, opts.site)]
       : []),
     ...(trust !== null
       ? [
@@ -238,14 +326,14 @@ export function buildChoices(
         ]
       : []),
     ...(offered.includes("session") && !unsandboxed
-      ? [{ value: "session" as const, label: t("approvals.choice.session") }]
+      ? [lastingChoice("session", approval, opts.site)]
       : []),
-    ...(offered.includes("always") && !unsandboxed
+    // A separate-desktop share is once only: its labels never stand in for an "always".
+    ...(offered.includes("always") && !unsandboxed && opts.sdShare !== true
       ? [
-          {
-            value: "always" as const,
-            label: folderScope("always") ?? alwaysLabel(approval),
-          },
+          folderScope("always") !== null
+            ? { value: "always" as const, label: folderScope("always") as string }
+            : lastingChoice("always", approval, opts.site),
         ]
       : []),
   ];
@@ -278,7 +366,9 @@ export function splitChoices(
   if (payment) return { allow, second: null, more: [] };
   const rest = choices.filter((c) => c.value !== allowValue);
   const second =
-    SECOND_ORDER.map((v) => rest.find((c) => c.value === v)).find((c) => c !== undefined) ?? null;
+    SECOND_ORDER.map((v) => rest.find((c) => c.value === v && c.vague !== true)).find(
+      (c) => c !== undefined,
+    ) ?? null;
   return { allow, second, more: rest.filter((c) => c !== second) };
 }
 
@@ -291,10 +381,24 @@ export function defaultAllow(approval: ApprovalRequest): AllowScope {
   );
 }
 
+/** The choices the full card shows: what plain Allow sends, the one second choice, the rest. */
+export function cardChoices(
+  approval: ApprovalRequest,
+  opts: ChoiceOptions,
+): { allow: Choice | null; second: Choice | null; more: Choice[] } {
+  const choices = buildChoices(approval, cardOffered(approval), opts);
+  return splitChoices(
+    choices,
+    defaultAllow(approval),
+    isPaymentCard(approval) || opts.onceOnly === true,
+  );
+}
+
 /**
- * The choices an Inbox or Home row can send without opening the card: the same ones the card
- * offers, minus an "always" that lifts a floor (a send, a delete: the card confirms that first) and
- * minus any lasting choice on a tainted card, which offers Allow once only.
+ * The choices an Inbox or Home row can send without opening the card. A send, a delete, a payment
+ * or a card that needs presence gets plain Allow (once) only: its lasting choices live on the full
+ * card, where the recipients, the body and the confirm are in view. Other cards keep their
+ * reach-labelled lasting choices, never a Space or a program (they need the card's own picks).
  */
 export function inlineChoices(approval: ApprovalRequest): {
   allow: Choice | null;
@@ -302,23 +406,19 @@ export function inlineChoices(approval: ApprovalRequest): {
   more: Choice[];
   all: Choice[];
 } {
-  const floor = floorClassOf(approval.kind, approval.sideEffect);
-  const offered =
-    floor !== null && approval.taint
-      ? approval.scopesOffered.filter((s) => s === "once")
-      : approval.scopesOffered.filter((s) => !(floor !== null && s === "always"));
   const site = (() => {
     if (approval.target?.kind === "origin") return approval.target.display ?? approval.target.value;
     const d = approval.details as Record<string, unknown>;
     const o = d.origin ?? d.currentOrigin;
     return typeof o === "string" ? o.replace(/^https?:\/\//, "") : null;
   })();
-  const choices = buildChoices(approval, offered, { site });
-  const parts = splitChoices(choices, defaultAllow(approval), isPaymentCard(approval));
-  return {
-    ...parts,
-    all: [...(parts.second ? [parts.second] : []), ...parts.more],
-  };
+  const onceOnly =
+    floorClassOf(approval.kind, approval.sideEffect) !== null || isPaymentCard(approval);
+  const parts = cardChoices(approval, { site, onceOnly });
+  const drop = (c: Choice) => c.value !== "space" && c.value !== "program";
+  const second = parts.second !== null && drop(parts.second) ? parts.second : null;
+  const more = parts.more.filter(drop);
+  return { allow: parts.allow, second, more, all: [...(second ? [second] : []), ...more] };
 }
 
 /** The scope and extras a choice sends. */

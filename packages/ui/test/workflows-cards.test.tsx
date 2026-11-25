@@ -310,6 +310,7 @@ describe("BatchCard", () => {
     expect(screen.getByText("Mark read: Weekly digest (Acme)")).toBeTruthy();
     // The broker offers a batch "always" only for prep notes; this one did not.
     expect(screen.queryByRole("button", { name: /always/i })).toBeNull();
+    expect(screen.queryByRole("button", { name: "More options…" })).toBeNull();
     const deny = screen.getByRole("button", { name: "Deny" });
     const allow = screen.getByRole("button", { name: "Allow" });
     expect(deny.compareDocumentPosition(allow) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();

@@ -46,9 +46,11 @@ const allow = () => screen.getByRole("button", { name: "Allow" });
 describe("first-read card: Always for this site", () => {
   it("offers it when the Gateway offered it, and answers once with trustSite", async () => {
     const onAnswer = show(readApproval({ details: offered }));
-    // The chat scope is the one second choice; the site choices sit under More options.
-    expect(screen.queryByRole("button", { name: /^Always for this site \(/ })).toBeNull();
-    await userEvent.click(screen.getByRole("button", { name: "More options…" }));
+    // The card does not say what a chat-long grant would cover (no origin on it), so the site
+    // choice is the second one; the vague chat choice stays under More options.
+    expect(screen.getByTestId("approval-second-choice").textContent).toBe(
+      "Always for this site (docs.example.org)",
+    );
     await userEvent.click(
       screen.getByRole("button", { name: "Always for this site (docs.example.org)" }),
     );

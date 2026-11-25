@@ -90,6 +90,7 @@ describe("approval card by keyboard", () => {
       ...pending,
       kind: "mcp_tool" as const,
       sideEffect: "write" as const,
+      details: { tool: "mcp__notion__create_page", params: {} },
       taint: false,
       scopesOffered: ["once" as const, "session" as const],
     };
@@ -97,7 +98,9 @@ describe("approval card by keyboard", () => {
     render(
       <ApprovalCard approval={approval} canAnswer now={NOW} armDelayMs={0} onAnswer={onAnswer} />,
     );
-    const second = screen.getByRole("button", { name: "For the rest of this chat" });
+    const second = screen.getByRole("button", {
+      name: "Allow Notion › create page, with any arguments for the rest of this chat",
+    });
     await userEvent.click(second);
     await waitFor(() => expect(onAnswer).toHaveBeenCalledTimes(1));
     expect(onAnswer.mock.calls[0]?.[1]).toBe("session");

@@ -244,7 +244,13 @@ function ApprovalControls({
     !a.requiresAuthentication &&
     state?.canAnswer &&
     !state.stale;
-  const lasting = inline ? inlineChoices(a).all : [];
+  const inlineSet = inline ? inlineChoices(a) : null;
+  const lasting = inlineSet?.all ?? [];
+  // The label says what plain Approve sends: once, unless the card offers no once.
+  const approveLabel =
+    inlineSet?.allow != null && inlineSet.allow.value !== "once"
+      ? t("approvals.inbox.approveWith", { label: inlineSet.allow.label, summary: a.summary })
+      : t("screens.inbox.approveLabel", { summary: a.summary });
   return (
     <>
       {countdown}
@@ -267,7 +273,7 @@ function ApprovalControls({
             variant={primary ? "default" : "outline"}
             disabled={busy || !armed}
             onClick={() => onApprove?.(n)}
-            aria-label={t("screens.inbox.approveLabel", { summary: a.summary })}
+            aria-label={approveLabel}
           >
             {t("screens.inbox.approve")}
           </Button>

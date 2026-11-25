@@ -40,11 +40,10 @@ import {
 import {
   type AllowScope,
   answerFor,
-  buildChoices,
+  cardChoices,
+  cardOffered,
   defaultAllow,
-  isPaymentCard,
   spaceOffer,
-  splitChoices,
 } from "./approval-choice.ts";
 import { ApprovalDetails, ApprovalIds } from "./approval-details.tsx";
 import { plainHeader, voidedText } from "./approval-plain.ts";
@@ -501,10 +500,7 @@ export function ApprovalCard({
   // A send / destructive / financial card (§3.12): Always allow lifts its floor for this call
   // class, so it confirms first, and a tainted one never offers it (§3.6).
   const floor = floorClassOf(approval.kind, approval.sideEffect);
-  const offered =
-    floor !== null && approval.taint
-      ? approval.scopesOffered.filter((s) => s === "once")
-      : approval.scopesOffered;
+  const offered = cardOffered(approval);
   const liftConfirm = useLiftFloorConfirm(persona, "card");
 
   const submit = async (
@@ -651,7 +647,11 @@ export function ApprovalCard({
   const permissionLabel = enables
     ? t("blocks.permission.enable")
     : t("blocks.permission.checkAgain");
-  const choices = buildChoices(approval, offered, {
+  const {
+    allow: allowChoice,
+    second,
+    more,
+  } = cardChoices(approval, {
     site,
     unsandboxed,
     folderWords: isFolder,
@@ -659,11 +659,6 @@ export function ApprovalCard({
     onceOnly: onceOnlyHere,
     ...(isPermission ? { permissionLabel } : {}),
   });
-  const {
-    allow: allowChoice,
-    second,
-    more,
-  } = splitChoices(choices, allowValue, isPaymentCard(approval) || onceOnlyHere);
   const allowLabel = isPermission
     ? permissionLabel
     : allowChoice !== null && allowChoice.value !== "once"

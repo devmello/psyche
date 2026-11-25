@@ -61,7 +61,8 @@ function show(a: ApprovalRequest) {
 
 const recipientChoice = (name: string | RegExp = /^Always allow sending to/) =>
   screen.queryByRole("button", { name });
-const allow = () => screen.getByRole("button", { name: /^(Allow|For this task)$/ });
+const allow = () =>
+  screen.getByRole("button", { name: /^(Allow|Allow sending to .* for this task)$/ });
 
 describe("Always allow for this recipient on an email send card", () => {
   it("names the one recipient and the account on the one second choice", () => {
@@ -143,7 +144,21 @@ describe("Always allow for this recipient on an email send card", () => {
   });
 
   it("without a recipient set it does not claim one (control: with it, the names show)", () => {
+    const control = render(
+      <UiSlotsProvider value={{}}>
+        <ApprovalCard
+          approval={sendApproval(["jane@example.com"], { to: ["jane@example.com"] })}
+          canAnswer
+          now={NOW}
+          armDelayMs={0}
+          onAnswer={vi.fn()}
+        />
+      </UiSlotsProvider>,
+    );
+    expect(recipientChoice()).toBeTruthy();
+    control.unmount();
     show(sendApproval(["jane@example.com"], { to: ["jane@example.com"] }, { target: undefined }));
     expect(recipientChoice()).toBeNull();
+    expect(screen.queryByTestId("approval-second-choice")).toBeNull();
   });
 });

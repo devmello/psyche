@@ -258,13 +258,16 @@ describe("answer failures on the card", () => {
     expect(onAnswer).toHaveBeenCalledTimes(1);
   });
 
-  it("from the window Touch ID approves once only, so no lasting choice is offered (control: elsewhere it is)", async () => {
-    const a = approval({ requiresAuthentication: true, scopesOffered: ["once", "always"] });
-    const view = (touchIdOnceOnly: boolean, onAnswer = vi.fn(async () => undefined)) =>
+  it("a card that needs presence never shows a lasting choice (control: without presence it does)", async () => {
+    const view = (
+      over: Partial<ApprovalRequest>,
+      touchIdOnceOnly: boolean,
+      onAnswer = vi.fn(async () => undefined),
+    ) =>
       render(
         <UiSlotsProvider value={{ persona: { name: "Wren", creature: "moth" }, touchIdOnceOnly }}>
           <ApprovalCard
-            approval={a}
+            approval={approval({ scopesOffered: ["once", "session", "always"], ...over })}
             persona="Wren"
             canAnswer
             now={NOW}
@@ -274,15 +277,21 @@ describe("answer failures on the card", () => {
           />
         </UiSlotsProvider>,
       );
-    const control = view(false);
-    expect(screen.getByRole("button", { name: /^Always allow/ })).toBeTruthy();
+    // The control: the same card with no presence step offers its lasting choices.
+    const control = view({ requiresAuthentication: false }, false);
+    expect(screen.getByTestId("approval-second-choice")).toBeTruthy();
     control.unmount();
-    const onAnswer = vi.fn(async () => undefined);
-    view(true, onAnswer);
-    expect(screen.queryByTestId("approval-second-choice")).toBeNull();
-    expect(screen.queryByRole("button", { name: /Always allow/ })).toBeNull();
-    await userEvent.click(allow());
-    await waitFor(() => expect(onAnswer).toHaveBeenCalledWith("approve", "once", undefined));
+    // With presence, from any window: no lasting choice and no More options.
+    for (const onceOnly of [false, true]) {
+      const onAnswer = vi.fn(async () => undefined);
+      const { unmount } = view({ requiresAuthentication: true }, onceOnly, onAnswer);
+      expect(screen.queryByTestId("approval-second-choice")).toBeNull();
+      expect(screen.queryByRole("button", { name: /Always|rest of this chat/ })).toBeNull();
+      expect(screen.queryByRole("button", { name: "More options…" })).toBeNull();
+      await userEvent.click(allow());
+      await waitFor(() => expect(onAnswer).toHaveBeenCalledWith("approve", "once", undefined));
+      unmount();
+    }
   });
 
   it("shows the approval code the Touch ID sheet names", () => {

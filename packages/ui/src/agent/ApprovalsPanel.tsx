@@ -255,9 +255,12 @@ export function ApprovalsPanel({
   now: fixedNow,
   decided = false,
   currentThreadId = null,
+  onShowInChat,
 }: {
   now?: number;
   decided?: boolean;
+  /** The modal sheet closes itself when a row sends the owner to the card in the chat. */
+  onShowInChat?: () => void;
   /**
    * The chat open beside the sheet. Its cards are answered on the card in that chat (one approval,
    * shown once), so here they are rows that link to it; other threads' cards stay answerable.
@@ -387,7 +390,10 @@ export function ApprovalsPanel({
                   title={displaySummary(v.approval)}
                   detail={t("approvals.thread.detail")}
                   trailing={t("approvals.thread.show")}
-                  onOpen={() => focusApproval(v.approval.id)}
+                  onOpen={() => {
+                    onShowInChat?.();
+                    focusApproval(v.approval.id);
+                  }}
                   openLabel={t("approvals.thread.showNamed", {
                     summary: displaySummary(v.approval),
                   })}

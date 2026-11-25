@@ -214,6 +214,8 @@ export interface AgentSheetBodyProps {
   escapeAnywhere?: boolean;
   /** The chat open beside the sheet: its approval cards are answered there, not twice here. */
   currentThreadId?: string | null;
+  /** Called when "Show in chat" is used: the modal sheet closes so the card is in view. */
+  onShowInChat?: () => void;
 }
 
 /** The two segments behind the avatar (agent-overview-2026 §4.1), also used by `/agent/*` routes. */
@@ -228,6 +230,7 @@ export function AgentSheetBody({
   onClose,
   escapeAnywhere = true,
   currentThreadId = null,
+  onShowInChat,
 }: AgentSheetBodyProps): ReactElement {
   // Escape closes the page unless something on top (a dialog, a menu) already handled it.
   useEffect(() => {
@@ -309,6 +312,7 @@ export function AgentSheetBody({
               {...(now === undefined ? {} : { now })}
               {...(view === "decided" ? { decided: true } : {})}
               currentThreadId={currentThreadId}
+              {...(onShowInChat ? { onShowInChat } : {})}
             />
           </TabsContent>
           <TabsContent value="soul">
@@ -413,7 +417,7 @@ export function AgentSheet({
           />
         </SheetHeader>
         <div className="flex min-h-0 flex-1 flex-col px-5">
-          <AgentSheetBody {...body} header={false} />
+          <AgentSheetBody {...body} header={false} onShowInChat={() => onOpenChange(false)} />
         </div>
       </SheetContent>
     </Sheet>

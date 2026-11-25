@@ -4,7 +4,7 @@ import { Button } from "../../components/ui/button.tsx";
 import { t } from "../../i18n/core.ts";
 import { formatRelative } from "../../lib/format.ts";
 import { grantSubject } from "./PermissionsSection.tsx";
-import { EmptyNotice, Group } from "./shared.tsx";
+import { EmptyNotice, ErrorNotice, Group } from "./shared.tsx";
 
 /** What the owner has allowed for good, in the order the list shows it. */
 export const ALLOWED_GROUPS = ["sites", "folders", "commands", "sends", "tools", "spaces"] as const;
@@ -65,11 +65,14 @@ export function AllowedList({
   now,
   onRevoke,
   revoking,
+  error = null,
 }: {
   grants: readonly Grant[];
   now: number;
   onRevoke?: (grant: Grant) => void;
   revoking?: ReadonlySet<string> | undefined;
+  /** A Remove that failed, shown with the rows (not only in Details). */
+  error?: string | null;
 }): ReactElement {
   const live = grants.filter(
     (g) =>
@@ -79,6 +82,7 @@ export function AllowedList({
   );
   return (
     <Group title={t("approvals.allowed.title")} description={t("approvals.allowed.description")}>
+      {error ? <ErrorNotice what={error} did={t("settings.permissions.grantUnchanged")} /> : null}
       {live.length === 0 ? (
         <EmptyNotice text={t("approvals.allowed.empty")} />
       ) : (

@@ -22,7 +22,7 @@ function approval(over: Partial<ApprovalRequest>): ApprovalRequest {
     kind: "connector_action",
     sideEffect: "destructive",
     summary: "Delete the note “Groceries” in Notes",
-    details: {},
+    details: { tool: "mcp__notion__delete_note" },
     deviceOnly: true,
     taint: false,
     scopesOffered: ["once", "task", "always"],
@@ -48,7 +48,9 @@ function show(a: ApprovalRequest) {
 }
 
 const alwaysChoice = () =>
-  screen.getByRole("button", { name: "Always allow this same kind of action" });
+  screen.getByRole("button", {
+    name: "Always allow Notion › delete note, with any arguments",
+  });
 const allow = () => screen.getByRole("button", { name: "Allow" });
 
 describe("Always allow on a floored card (§3.12)", () => {

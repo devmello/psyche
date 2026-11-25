@@ -266,6 +266,7 @@ export function PermissionsPanel({
           now={clock}
           {...(onRevoke ? { onRevoke } : {})}
           revoking={revoking}
+          error={revokeError}
         />
 
         {/* One grouped list per connector, rows per action (redesign §5.8). */}

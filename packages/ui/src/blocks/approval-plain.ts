@@ -20,16 +20,32 @@ const SEND_KINDS: readonly string[] = ["send_email", "message_send"];
  * undone", "Moves money"), instead of the raw side-effect word. Null when the request says
  * nothing about it.
  */
-export function plainEffect(a: Pick<ApprovalRequest, "kind" | "sideEffect">): string | null {
+export function plainEffect(
+  a: Pick<ApprovalRequest, "kind" | "sideEffect"> & { details?: ApprovalRequest["details"] },
+): string {
   if (a.kind === "purchase" || a.sideEffect === "financial") return t("approvals.effect.money");
   if (SEND_KINDS.includes(a.kind)) return t("approvals.effect.sends");
+  // A command on this computer is the stronger line: it can reach the internet, or at least run
+  // outside the sandbox.
+  if (a.kind === "exec_host" && reachesNetwork(a.details)) return t("approvals.effect.network");
   if (a.sideEffect === "destructive") return t("approvals.effect.irreversible");
+  if (a.kind === "exec_host") return t("approvals.effect.hostRun");
+  if (a.kind === "git_push") return t("approvals.effect.publishes");
   if (a.sideEffect === "write") {
     return FILE_KINDS.includes(a.kind) ? t("approvals.effect.files") : t("approvals.effect.write");
   }
   if (a.sideEffect === "read") return t("approvals.effect.read");
   if (a.sideEffect === "none") return t("approvals.effect.none");
-  return null;
+  // Nothing said about it: a neutral line, never an empty one.
+  return t("approvals.effect.unknown");
+}
+
+/** An exec_host card that allows network: allowed domains, or a `network` other than none. */
+function reachesNetwork(details: ApprovalRequest["details"] | undefined): boolean {
+  const d = (details ?? {}) as Record<string, unknown>;
+  if (Array.isArray(d.allowedDomains) && d.allowedDomains.length > 0) return true;
+  const n = d.network;
+  return n === true || (typeof n === "string" && n !== "" && n !== "none");
 }
 
 /**
@@ -38,7 +54,9 @@ export function plainEffect(a: Pick<ApprovalRequest, "kind" | "sideEffect">): st
  * Gateway wrote it (`cardHeader` is shared with the channels).
  */
 export function plainHeader(
-  a: Pick<ApprovalRequest, "kind" | "sideEffect" | "taint">,
+  a: Pick<ApprovalRequest, "kind" | "sideEffect" | "taint"> & {
+    details?: ApprovalRequest["details"];
+  },
   templateLine: string,
 ): string {
   const title = templateLine.split(" · ")[0] ?? templateLine;
