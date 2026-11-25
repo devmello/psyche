@@ -35,6 +35,7 @@ import { MachineInfo } from "./schemas/machines.ts";
 import { MemoryChangeSource, MemoryJob, PersonaIdentity } from "./schemas/memory.ts";
 import { NightShiftNight, StagedAction } from "./schemas/night-shift.ts";
 import { ApprovalRequest, Receipt } from "./schemas/permissions.ts";
+import { PlanForkUpdate } from "./schemas/plan-forks.ts";
 import { PointsAskRequestedPayload, PointsUpdatedPayload } from "./schemas/points.ts";
 import { PromiseView } from "./schemas/promises.ts";
 import { ResearchProgressEvent } from "./schemas/research.ts";
@@ -472,6 +473,11 @@ export const Events = {
   "nightShift.item.updated": defineEvent({
     payload: Type.Object({ item: StagedAction }),
     description: "One prepared item changed status (stale, applied, failed, undone, dismissed...).",
+  }),
+  "planFork.updated": defineEvent({
+    payload: PlanForkUpdate,
+    description:
+      "A plan fork or one of its branches changed state or spend. Ids and states only, never report text: clients fetch with planForks.get.",
   }),
   "goal.updated": defineEvent({
     payload: Type.Object({ goal: Goal }),

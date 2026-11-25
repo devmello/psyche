@@ -29,6 +29,7 @@ export * from "./repos/night-shift.ts";
 export * from "./repos/nodes.ts";
 export * from "./repos/pairing.ts";
 export * from "./repos/passkeys.ts";
+export * from "./repos/plan-forks.ts";
 export * from "./repos/run-steps.ts";
 export * from "./repos/runs.ts";
 export * from "./repos/settings.ts";

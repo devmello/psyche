@@ -242,6 +242,7 @@ import { composePeople, type People } from "./people.ts";
 import { graphSourceAdapters } from "./people-sources.ts";
 import { phoneLocationTool } from "./phone-location.ts";
 import { composePlugins } from "./plugins.ts";
+import { composePoints, type PointsOptions } from "./points.ts";
 import { type ComposedProactive, composeProactive, connectorToolLookup } from "./proactive.ts";
 import {
   folderAccessEnv,
@@ -415,6 +416,8 @@ export interface ComposeOptions
   hostTerminal?: HostTerminalOptions;
   /** Ask about my screen is always mounted; this swaps what takes the capture (default: the Mac helper). */
   screenAsk?: ScreenAskOptions;
+  /** Psyche points: tests shorten the idle end and fake the Memory lines (the model is the primary). */
+  points?: Pick<PointsOptions, "idleMs" | "memoryLines">;
   /**
    * Passkey assertions for approvals that require authentication (purchase, credential fill,
    * host exec; security §3.7). Helper (Touch ID) assertions go to the helper part's verifier.
@@ -1545,6 +1548,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     // A terminal on the Host (remote-gateway design §4.2, R4): admin + presence, per device.
     hostTerminalPart(gwOptions.hostTerminal),
     composeScreenAsk(gwOptions.screenAsk),
+    // Psyche points, you click (psyche-points-2026 W7): the desktop shell only, off until the owner turns it on.
+    composePoints({ provider, model: modelRef, ...gwOptions.points }),
     // Canvas artifacts (chat-experience-2026 §4.3): the version store and `artifact.*` tools.
     composeArtifacts,
     // Generative-UI widgets (generative-ui-2026): snapshots by id; tools arrive in P3.
