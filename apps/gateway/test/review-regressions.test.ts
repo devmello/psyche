@@ -4,10 +4,12 @@ import {
   createThread,
   getNode,
   getRun,
+  getRunStep,
   getToolCall,
   listAllMessages,
   updateDevice,
   updateRun,
+  upsertRunStep,
   upsertToolCall,
 } from "@psyche/db";
 import type { AgentEvent, AgentLoop, StartTurnInput, Thread } from "@psyche/protocol";
@@ -178,6 +180,40 @@ describe("S01 review regressions", () => {
     expect(getToolCall(db, "tc_wait")?.status).toBe("pending");
     expect(getToolCall(db, "tc_run")?.status).toBe("uncertain");
     expect(getRun(db, waiting.id)?.status).toBe("awaiting_approval");
+  });
+
+  it("recovery closes the open steps of a run it fails, and leaves a suspended run's steps (bug 10)", async () => {
+    t = await startTestGateway();
+    const db = t.gateway.context.db;
+    const th = createThread(db, { kind: "side", sessionKey: "s" });
+    const step = (runId: string, id: string, seq: number, status: "running" | "ok" | "waiting") =>
+      upsertRunStep(db, {
+        id,
+        runId,
+        seq,
+        kind: "tool",
+        status,
+        label: "Searching",
+        startedAt: "2026-11-25T10:00:00.000Z",
+        endedAt: status === "ok" ? "2026-11-25T10:00:01.000Z" : null,
+        attempt: 1,
+      });
+    const cut = createRun(db, { threadId: th.id, modelRef: "fake/m" });
+    step(cut.id, "stp_done", 1, "ok");
+    step(cut.id, "stp_open", 2, "running");
+    const waiting = createRun(db, { threadId: th.id, modelRef: "fake/m" });
+    updateRun(db, waiting.id, { status: "awaiting_approval" });
+    step(waiting.id, "stp_wait", 1, "waiting");
+    recoverAfterRestart(db, silentLogger);
+    expect(getRun(db, cut.id)?.status).toBe("failed");
+    expect(getRunStep(db, cut.id, "stp_open")).toMatchObject({
+      status: "failed",
+      error: { code: "interrupted" },
+    });
+    expect(getRunStep(db, cut.id, "stp_open")?.endedAt).toBeTruthy();
+    // A finished step is untouched, and so is the step of a run that is only waiting (controls).
+    expect(getRunStep(db, cut.id, "stp_done")?.status).toBe("ok");
+    expect(getRunStep(db, waiting.id, "stp_wait")?.status).toBe("waiting");
   });
 
   it("retention keeps an expired incognito thread with a suspended run (finding 5)", async () => {

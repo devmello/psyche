@@ -976,6 +976,21 @@ export class SqliteScheduler implements Scheduler {
     }));
   }
 
+  /**
+   * The agent run (the run trace's id, for `runs.get` and `runs.steps`) that did an automation
+   * run's work. It is set once the task's first turn starts, so it is `null` before that and for
+   * a run that never started a turn. `ended` tells a poller to stop waiting.
+   */
+  agentRunOf(runId: string): { agentRunId: string | null; ended: boolean } {
+    const row = this.#db.sqlite
+      .prepare("SELECT run_id, status FROM automation_runs WHERE id = ?")
+      .get(runId) as { run_id: string | null; status: string } | undefined;
+    return {
+      agentRunId: row?.run_id ?? null,
+      ended: row === undefined || row.status !== "running",
+    };
+  }
+
   /** Run history, newest first (`automations.runs`). */
   runs(automationId: string, page: { cursor?: string; limit?: number } = {}) {
     this.#row(automationId);
