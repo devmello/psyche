@@ -3428,6 +3428,7 @@ export const hi: Partial<Catalogue> = {
   "screens.goals.suggest.none": "इस बार कोई सुझाव नहीं। बाद में फिर कोशिश करें।",
   "screens.ideas.start": "शुरू करें",
   "screens.ideas.snooze": "बाद में याद दिलाएँ",
+  "screens.ideas.options": "{title} के लिए और विकल्प",
   "screens.ideas.badge.checkin": "चेक-इन",
   "screens.ideas.badge.resume": "फिर से शुरू करें?",
   "screens.goals.checkinFrequency": "चेक-इन",

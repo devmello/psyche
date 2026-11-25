@@ -3500,6 +3500,7 @@ export const fr: Partial<Catalogue> = {
   "screens.goals.suggest.none": "Aucune suggestion cette fois. Réessayez plus tard.",
   "screens.ideas.start": "Démarrer",
   "screens.ideas.snooze": "Reporter",
+  "screens.ideas.options": "Plus pour {title}",
   "screens.ideas.badge.checkin": "Point d'étape",
   "screens.ideas.badge.resume": "Reprendre ?",
   "screens.goals.checkinFrequency": "Point d'étape",

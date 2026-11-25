@@ -3458,6 +3458,7 @@ export const ja: Partial<Catalogue> = {
   "screens.goals.suggest.none": "今回は提案がありませんでした。あとでもう一度お試しください。",
   "screens.ideas.start": "開始",
   "screens.ideas.snooze": "あとで通知",
+  "screens.ideas.options": "{title} のその他の操作",
   "screens.ideas.badge.checkin": "チェックイン",
   "screens.ideas.badge.resume": "再開しますか？",
   "screens.goals.checkinFrequency": "チェックイン",

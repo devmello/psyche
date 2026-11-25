@@ -1,6 +1,6 @@
 import type { Idea, NudgeAction } from "@psyche/protocol";
-import { ArrowUp, Plus } from "lucide-react";
-import { type ReactElement, type ReactNode, useState } from "react";
+import { ArrowUp, ChevronRight, Plus } from "lucide-react";
+import { type ReactElement, type ReactNode, useId, useState } from "react";
 import { toast } from "sonner";
 import { scheduleSentence } from "../agent/UpcomingPanel.tsx";
 import { usePrefillComposer } from "../chat/prefill.ts";
@@ -19,6 +19,7 @@ import { t } from "../i18n/core.ts";
 import { describeError } from "../i18n/errors.ts";
 import { formatRelative } from "../lib/format.ts";
 import { useNow } from "../lib/use-now.ts";
+import { cn } from "../lib/utils.ts";
 import { ListItem } from "../motion/index.ts";
 import { NudgeActions } from "../nudges/NudgeActions.tsx";
 import { useUpcomingEntries } from "../overview/useUpcomingEntries.ts";
@@ -92,18 +93,7 @@ export function NeedsYouSection({
   const waiting = notifications + asks.length;
   if (waiting === 0) return null;
   return (
-    <ScreenSection
-      id="needs-you"
-      title={t("home.needsYou")}
-      large
-      needsYou
-      meta={t("home.needsYou.count", { n: waiting })}
-      actions={
-        <Button type="button" size="sm" variant="ghost" onClick={() => onNavigate("/inbox")}>
-          {t("home.needsYou.all")}
-        </Button>
-      }
-    >
+    <ScreenSection id="needs-you" title={t("home.needsYou")} large needsYou>
       <PastDueAsks items={asks} busy={busy} onAct={act} onOpen={onNavigate} />
       <NeedsYouList {...(fixedNow === undefined ? {} : { now: fixedNow })} />
     </ScreenSection>
@@ -150,14 +140,8 @@ export function SuggestionsSection({
   if (n === 0) return null;
   const shown = limit === undefined || expanded ? all : all.slice(0, limit);
   return (
-    <ScreenSection
-      id="suggestions"
-      title={t("home.suggestions")}
-      large
-      description={t("home.suggestions.hint")}
-      meta={t("home.suggestions.count", { n })}
-    >
-      <ul id="suggestions-list" aria-label={t("home.suggestions")} className="flex flex-col gap-3">
+    <ScreenSection id="suggestions" title={t("home.suggestions")} large>
+      <ul id="suggestions-list" aria-label={t("home.suggestions")} className="flex flex-col gap-1">
         {shown.map((item, i) => (
           <ListItem key={suggestionKey(item)} index={i}>
             {item.kind === "spaceMigration" ? (
@@ -276,17 +260,7 @@ export function ComingUpSection({
       </RowList>
     );
   return (
-    <ScreenSection
-      id="coming-up"
-      title={t("home.comingUp")}
-      large
-      description={t("home.comingUp.hint")}
-      actions={
-        <Button type="button" size="sm" variant="ghost" onClick={() => onNavigate("/scheduled")}>
-          {t("home.comingUp.all")}
-        </Button>
-      }
-    >
+    <ScreenSection id="coming-up" title={t("home.comingUp")}>
       {body}
     </ScreenSection>
   );
@@ -319,24 +293,17 @@ export function GoalsSection({
     <ScreenSection
       id="goals"
       title={t("home.goals")}
-      large
-      description={t("home.goals.hint")}
       actions={
-        <>
-          <Button
-            type="button"
-            size="icon-sm"
-            variant="ghost"
-            aria-label={t("screens.goals.add")}
-            title={t("screens.goals.add")}
-            onClick={() => setAdding(true)}
-          >
-            <Plus aria-hidden="true" />
-          </Button>
-          <Button type="button" size="sm" variant="ghost" onClick={() => onNavigate("/goals")}>
-            {t("home.goals.all")}
-          </Button>
-        </>
+        <Button
+          type="button"
+          size="icon-sm"
+          variant="ghost"
+          aria-label={t("screens.goals.add")}
+          title={t("screens.goals.add")}
+          onClick={() => setAdding(true)}
+        >
+          <Plus aria-hidden="true" />
+        </Button>
       }
     >
       {body}
@@ -360,11 +327,11 @@ const NUDGES_SHOWN = 3;
 export function KeepInTouchSection({
   onNavigate,
   limit = NUDGES_SHOWN,
-  showPeopleLink = true,
+  showPeopleLink = false,
 }: {
   onNavigate: (to: string) => void;
   limit?: number;
-  /** People's own copy of the section leaves the link out. */
+  /** A link on to People; off by default, the sidebar has it. */
   showPeopleLink?: boolean;
 }): ReactElement | null {
   const call = useCall();
@@ -376,8 +343,6 @@ export function KeepInTouchSection({
     <ScreenSection
       id="keep-in-touch"
       title={t("home.keepInTouch")}
-      large
-      description={t("home.keepInTouch.hint")}
       {...(showPeopleLink
         ? {
             actions: (
@@ -504,53 +469,101 @@ export function AskSection({
   );
 }
 
+const MORE_KEY = "psyche.home.more";
+/** The Home sections that live under More, for `/home#<id>` links that must open it. */
+export const MORE_ANCHORS: readonly string[] = [
+  "more",
+  "pinned",
+  "spaces",
+  "coming-up",
+  "goals",
+  "quiet-threads",
+  "keep-in-touch",
+];
+
+function readOpen(): boolean {
+  try {
+    return window.localStorage.getItem(MORE_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
 /**
- * Everything else, one quiet line at the foot of Home: the deeper pages (run Timelines, Scheduled,
- * notifications, memory, the brief's settings) stay reachable without a sidebar row each
- * (consolidation-2026 §7). Plain links, not a list of cards: it is the end of the page, not a section.
+ * Everything quieter, one disclosure at the foot of Home, closed until the owner opens it (and
+ * remembered): the trackers (Spaces, Coming up, Goals, Quiet threads, Keep in touch), then the
+ * deeper pages as plain links. Nothing here has a sidebar row (consolidation-2026 §7).
  */
-export function MoreSection({ onNavigate }: { onNavigate: (to: string) => void }): ReactElement {
+export function MoreSection({
+  onNavigate,
+  children,
+  open: openOnArrival = false,
+}: {
+  onNavigate: (to: string) => void;
+  /** The trackers, drawn only while open (a closed More fetches nothing). */
+  children?: ReactNode;
+  /** Opens on arrival, for a link to one of its sections. */
+  open?: boolean;
+}): ReactElement {
   const persona = usePersona();
-  const links: readonly { label: string; hint: string; route: string }[] = [
-    {
-      label: t("overview.title", { name: persona.name }),
-      hint: t("home.more.overview"),
-      route: "/overview",
-    },
-    { label: t("shell.rail.scheduled"), hint: t("home.more.scheduled"), route: "/scheduled" },
-    { label: t("screens.inbox.title"), hint: t("home.more.inbox"), route: "/inbox" },
-    { label: t("home.more.brief"), hint: t("home.more.briefHint"), route: "/home/instructions" },
-    {
-      label: t("agent.sheet.soul"),
-      hint: t("home.more.soul", { name: persona.name }),
-      route: "/agent/soul",
-    },
-    {
-      label: t("home.more.memoryReview"),
-      hint: t("home.more.review"),
-      route: "/memory/review",
-    },
+  const [open, setOpen] = useState(() => openOnArrival || readOpen());
+  const panelId = useId();
+  const toggle = () => {
+    const next = !open;
+    setOpen(next);
+    try {
+      window.localStorage.setItem(MORE_KEY, next ? "1" : "0");
+    } catch {
+      // Private window or blocked storage: it just starts closed next time.
+    }
+  };
+  const links: readonly { label: string; route: string }[] = [
+    { label: t("overview.title", { name: persona.name }), route: "/overview" },
+    { label: t("shell.rail.scheduled"), route: "/scheduled" },
+    { label: t("screens.inbox.title"), route: "/inbox" },
+    { label: t("home.more.brief"), route: "/home/instructions" },
+    { label: t("agent.sheet.soul"), route: "/agent/soul" },
+    { label: t("home.more.memoryReview"), route: "/memory/review" },
   ];
   return (
-    <nav
+    <section
       id="more"
-      aria-label={t("home.more")}
       data-testid="section-more"
-      className="flex flex-wrap items-center gap-x-1 gap-y-1"
+      aria-label={t("home.more")}
+      className="flex flex-col"
     >
-      {links.map((r) => (
-        <Button
-          key={r.route}
-          type="button"
-          size="sm"
-          variant="ghost"
-          title={r.hint}
-          className="text-label-secondary"
-          onClick={() => onNavigate(r.route)}
-        >
-          {r.label}
-        </Button>
-      ))}
-    </nav>
+      <button
+        type="button"
+        aria-expanded={open}
+        aria-controls={panelId}
+        onClick={toggle}
+        className="-ms-1 flex h-9 w-fit items-center gap-1 rounded-md px-1 text-callout text-label-secondary outline-none transition-colors hover:text-label-primary focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        <ChevronRight
+          aria-hidden="true"
+          className={cn("size-4 transition-transform reduced:transition-none", open && "rotate-90")}
+        />
+        {t("home.more")}
+      </button>
+      {open ? (
+        <div id={panelId} className="flex flex-col gap-10 pt-6">
+          {children}
+          <nav aria-label={t("home.more.pages")} className="flex flex-wrap gap-x-1 gap-y-1">
+            {links.map((r) => (
+              <Button
+                key={r.route}
+                type="button"
+                size="sm"
+                variant="ghost"
+                className="text-label-secondary"
+                onClick={() => onNavigate(r.route)}
+              >
+                {r.label}
+              </Button>
+            ))}
+          </nav>
+        </div>
+      ) : null}
+    </section>
   );
 }

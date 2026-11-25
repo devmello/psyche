@@ -3364,6 +3364,7 @@ export const zh: Partial<Catalogue> = {
   "screens.goals.suggest.none": "这次没有建议。请稍后再试。",
   "screens.ideas.start": "开始",
   "screens.ideas.snooze": "稍后提醒",
+  "screens.ideas.options": "{title} 的更多操作",
   "screens.ideas.badge.checkin": "例行检查",
   "screens.ideas.badge.resume": "要继续吗？",
   "screens.goals.checkinFrequency": "例行检查",

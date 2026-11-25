@@ -71,8 +71,9 @@ describe("feed kind derivation (s12 gap 5)", () => {
 describe("FeedScreen", () => {
   it("renders the bounded brief with kind labels, sources and the end marker", async () => {
     const { user } = setup(<FeedScreen onAsk={() => {}} />);
-    expect(await screen.findByText("7 posts")).toBeTruthy();
-    const briefing = screen.getByRole("article", { name: "Two things before your 10:00" });
+    const briefing = await screen.findByRole("article", { name: "Two things before your 10:00" });
+    // No "7 posts" count beside the heading: the header is the title and its menu.
+    expect(screen.queryByText("7 posts")).toBeNull();
     expect(within(briefing).getByText("Briefing")).toBeTruthy();
     expect(within(briefing).getByText("Sources (3)")).toBeTruthy();
     for (const name of ["Like", "Save", "Ask about this"]) {
@@ -138,7 +139,8 @@ describe("FeedScreen", () => {
   it("navigates to the instructions editor and asks about a post", async () => {
     const onAsk = vi.fn();
     const { navigate, user } = setup(<FeedScreen onAsk={onAsk} />);
-    await user.click(await screen.findByRole("button", { name: "What should I write about" }));
+    await user.click(await screen.findByRole("button", { name: "Today options" }));
+    await user.click(await screen.findByRole("menuitem", { name: "What should I write about" }));
     expect(navigate).toHaveBeenCalledWith("/home/instructions");
     // The instructions sheet opens over Home (#614); close it to get back to the posts.
     await screen.findByRole("dialog", { name: "What should I write about" });
@@ -181,6 +183,10 @@ describe("Ideas, as Home's Suggestions", () => {
     const card = await screen.findByRole("article", {
       name: "Cancel the unused streaming subscription",
     });
+    // One line: the title and what it is. The evidence and effort open under it.
+    expect(within(card).queryByText("Because")).toBeNull();
+    expect(within(card).queryByRole("checkbox")).toBeNull();
+    await user.click(within(card).getByRole("button", { name: /^Cancel the unused/ }));
     expect(within(card).getByText("Because")).toBeTruthy();
     expect(within(card).getByText(/~10 min · needs 1 approval/)).toBeTruthy();
     await user.click(within(card).getByRole("checkbox", { name: "Make recurring" }));
@@ -203,7 +209,8 @@ describe("Ideas, as Home's Suggestions", () => {
   it("dismisses with a reason from the menu", async () => {
     const { callsTo, user } = setup(<SuggestionsSection accent />);
     const card = await screen.findByRole("article", { name: "Friday afternoon week review" });
-    await user.click(within(card).getByRole("button", { name: "Dismiss" }));
+    expect(within(card).queryByRole("button", { name: "Dismiss" })).toBeNull();
+    await user.click(within(card).getByRole("button", { name: /^More for / }));
     await user.click(await screen.findByRole("menuitem", { name: "Never from this source" }));
     await waitFor(() =>
       expect(callsTo("ideas.dismiss")[0]?.params).toEqual({
@@ -216,15 +223,23 @@ describe("Ideas, as Home's Suggestions", () => {
   it("links evidence and opens skill drafts and edits", async () => {
     const onEdit = vi.fn();
     const { navigate, user } = setup(<SuggestionsSection accent onEdit={onEdit} />);
+    const open = async (name: RegExp) => {
+      const row = await screen.findByRole("article", { name });
+      await user.click(within(row).getByRole("button", { expanded: false, name }));
+      return row;
+    };
+    const card = await open(/^Friday afternoon week review/);
     await user.click(await screen.findByRole("button", { name: /3 Fridays/ }));
     expect(navigate).toHaveBeenCalledWith(`/chat/${IDS.threads.main}`);
-    await user.click(screen.getByRole("button", { name: "View SKILL.md" }));
+    await user.click(within(card).getByRole("button", { name: /^More for / }));
+    await user.click(await screen.findByRole("menuitem", { name: "Edit" }));
+    expect(onEdit).toHaveBeenCalledWith(expect.objectContaining({ id: IDS.ideas.automation }));
+    const skillRow = screen.getByRole("article", { name: /^Skill draft/ });
+    await user.click(within(skillRow).getByRole("button", { name: /^More for / }));
+    await user.click(await screen.findByRole("menuitem", { name: "View SKILL.md" }));
     expect(navigate).toHaveBeenCalledWith(
       `/agent/soul?file=${encodeURIComponent("skills/weekly-expense-export/SKILL.md")}`,
     );
-    const card = screen.getByRole("article", { name: "Friday afternoon week review" });
-    await user.click(within(card).getByRole("button", { name: "Edit" }));
-    expect(onEdit).toHaveBeenCalledWith(expect.objectContaining({ id: IDS.ideas.automation }));
     // Automation ideas already recur, and skill drafts never do: neither has the toggle.
     expect(within(card).queryByRole("checkbox")).toBeNull();
     expect(within(card).getByText(/Repeats on the schedule it proposes/)).toBeTruthy();

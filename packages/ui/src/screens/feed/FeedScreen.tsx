@@ -1,11 +1,17 @@
 import type { FeedPost } from "@psyche/protocol";
-import { CalendarClock, CircleAlert, Loader, PenLine, Rss } from "lucide-react";
+import { CalendarClock, CircleAlert, Ellipsis, Loader, PenLine, Rss } from "lucide-react";
 import { type ReactElement, type ReactNode, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useAskAboutFeedItem } from "../../chat/ask-about.ts";
 import { ErrorState, LoadingCards, useDelayedFlag } from "../../components/page.tsx";
 import { ShowMore } from "../../components/show-more.tsx";
 import { Button } from "../../components/ui/button.tsx";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "../../components/ui/dropdown-menu.tsx";
 import { useFeed, useSettings } from "../../data/hooks.ts";
 import { t } from "../../i18n/core.ts";
 import { describeError } from "../../i18n/errors.ts";
@@ -18,7 +24,7 @@ import { FeedInstructionsSheet } from "./FeedInstructionsSheet.tsx";
 import { type FeedFeedbackValue, FeedPostCard } from "./FeedPostCard.tsx";
 import { FeedSourcesSheet } from "./FeedSourcesSheet.tsx";
 import { feedKind, feedTopic, primarySource } from "./feed-post.ts";
-import { ScreenSection, ToolbarLabel } from "./ScreenToolbar.tsx";
+import { ScreenSection } from "./ScreenToolbar.tsx";
 
 /** A source the brief could not read (the protocol has no field for it yet; see the report). */
 export interface FeedSourceFailure {
@@ -256,46 +262,39 @@ export function FeedView({
     );
   }
 
-  const actions = (
-    <>
-      {onEditSources ? (
-        <Button
-          type="button"
-          size="sm"
-          variant="ghost"
-          title={t("screens.feed.sourcesEditor.button")}
-          onClick={onEditSources}
+  // Configuration, not reading: one quiet "..." menu instead of three buttons in the header.
+  const actions =
+    onEditSources || onEditInstructions || onSchedule ? (
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          aria-label={t("home.today.options")}
+          title={t("home.today.options")}
+          render={<Button type="button" size="icon-sm" variant="ghost" />}
         >
-          <Rss aria-hidden="true" />
-          <ToolbarLabel>{t("screens.feed.sourcesEditor.button")}</ToolbarLabel>
-        </Button>
-      ) : null}
-      {onEditInstructions ? (
-        <Button
-          type="button"
-          size="sm"
-          variant="ghost"
-          title={t("screens.feed.instructions")}
-          onClick={onEditInstructions}
-        >
-          <PenLine aria-hidden="true" />
-          <ToolbarLabel>{t("screens.feed.instructions")}</ToolbarLabel>
-        </Button>
-      ) : null}
-      {onSchedule ? (
-        <Button
-          type="button"
-          size="sm"
-          variant="ghost"
-          title={t("screens.feed.schedule")}
-          onClick={onSchedule}
-        >
-          <CalendarClock aria-hidden="true" />
-          <ToolbarLabel>{t("screens.feed.schedule")}</ToolbarLabel>
-        </Button>
-      ) : null}
-    </>
-  );
+          <Ellipsis aria-hidden="true" />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-60">
+          {onEditSources ? (
+            <DropdownMenuItem onClick={onEditSources}>
+              <Rss aria-hidden="true" />
+              {t("screens.feed.sourcesEditor.button")}
+            </DropdownMenuItem>
+          ) : null}
+          {onEditInstructions ? (
+            <DropdownMenuItem onClick={onEditInstructions}>
+              <PenLine aria-hidden="true" />
+              {t("screens.feed.instructions")}
+            </DropdownMenuItem>
+          ) : null}
+          {onSchedule ? (
+            <DropdownMenuItem onClick={onSchedule}>
+              <CalendarClock aria-hidden="true" />
+              {t("screens.feed.schedule")}
+            </DropdownMenuItem>
+          ) : null}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    ) : null;
   const content = (
     <>
       {settled ? lead : null}
@@ -334,14 +333,7 @@ export function FeedView({
   );
 
   return (
-    <ScreenSection
-      id="today"
-      title={t("home.today")}
-      large
-      description={t("home.today.hint")}
-      {...(settled && posts.length > 0 ? { meta: t("home.today.posts", { n: posts.length }) } : {})}
-      actions={actions}
-    >
+    <ScreenSection id="today" title={t("home.today")} large {...(actions ? { actions } : {})}>
       {content}
     </ScreenSection>
   );
