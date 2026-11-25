@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 import type { ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -25,22 +25,89 @@ function setup(ui: ReactElement, edit?: (w: FixtureWorld) => void) {
 
 const section = (id: string) => screen.findByTestId(`section-${id}`);
 
+/** Opens "More on Home" (the quieter sections live in it) and returns it. */
+async function openMore(user: ReturnType<typeof userEvent.setup>): Promise<HTMLElement> {
+  const more = await section("more");
+  const toggle = within(more).getByRole("button", { name: "More" });
+  if (toggle.getAttribute("aria-expanded") !== "true") await user.click(toggle);
+  return more;
+}
+
+beforeEach(() => {
+  window.localStorage.clear();
+});
+
 describe("Home", () => {
-  it("puts what needs you first, amber, with a way to the whole inbox", async () => {
-    const { navigate, user } = setup(<HomeScreen now={STORY_NOW} />);
+  it("puts what needs you first, amber, with one heading and no count or link beside it", async () => {
+    setup(<HomeScreen now={STORY_NOW} />);
     const needs = await section("needs-you");
     expect(within(needs).getByRole("heading", { name: "Needs you" })).toBeTruthy();
     expect(await within(needs).findByRole("button", { name: /^Approve/ })).toBeTruthy();
-    await user.click(within(needs).getByRole("button", { name: "All notifications" }));
-    expect(navigate).toHaveBeenCalledWith("/inbox");
+    expect(within(needs).queryByRole("button", { name: "All notifications" })).toBeNull();
+    expect(within(needs).queryByText(/\d+ waiting/)).toBeNull();
   });
 
-  it("holds the brief, suggestions, coming up and goals that used to be pages", async () => {
-    setup(<HomeScreen now={STORY_NOW} />);
-    for (const id of ["today", "suggestions", "coming-up", "goals", "more"])
-      expect(await section(id)).toBeTruthy();
+  it("holds the brief and suggestions above the fold, and the trackers behind More", async () => {
+    const { user } = setup(<HomeScreen now={STORY_NOW} />);
+    for (const id of ["today", "suggestions", "more"]) expect(await section(id)).toBeTruthy();
     const today = await section("today");
     await waitFor(() => expect(within(today).getAllByRole("listitem").length).toBeGreaterThan(0));
+    // Closed: nothing of the trackers is drawn, and no subtitle sits under a heading.
+    for (const id of ["coming-up", "goals", "keep-in-touch"])
+      expect(screen.queryByTestId(`section-${id}`)).toBeNull();
+    expect(screen.queryByText("Your brief, written each morning")).toBeNull();
+    await openMore(user);
+    expect(await section("coming-up")).toBeTruthy();
+    expect(await section("goals")).toBeTruthy();
+  });
+
+  it("remembers that More is open", async () => {
+    const first = setup(<HomeScreen now={STORY_NOW} />);
+    await openMore(first.user);
+    cleanup();
+    setup(<HomeScreen now={STORY_NOW} />);
+    const more = await section("more");
+    expect(within(more).getByRole("button", { name: "More" }).getAttribute("aria-expanded")).toBe(
+      "true",
+    );
+    expect(await section("goals")).toBeTruthy();
+  });
+
+  it("opens More on arrival at a link to one of its sections", async () => {
+    setup(<HomeScreen now={STORY_NOW} anchor="coming-up" />);
+    expect(await section("coming-up")).toBeTruthy();
+  });
+
+  it("puts the Today header's three settings in one menu", async () => {
+    const { navigate, user } = setup(<HomeScreen now={STORY_NOW} />);
+    const today = await section("today");
+    for (const name of ["Sources", "What should I write about", "Schedule"])
+      expect(within(today).queryByRole("button", { name })).toBeNull();
+    await user.click(await within(today).findByRole("button", { name: "Today options" }));
+    expect(await screen.findByRole("menuitem", { name: "Sources" })).toBeTruthy();
+    expect(screen.getByRole("menuitem", { name: "What should I write about" })).toBeTruthy();
+    await user.click(screen.getByRole("menuitem", { name: "Schedule" }));
+    expect(navigate).toHaveBeenLastCalledWith("/scheduled");
+  });
+
+  it("draws each suggestion as one row with one action, the rest in its menu", async () => {
+    const { user } = setup(<HomeScreen now={STORY_NOW} />);
+    const suggestions = await section("suggestions");
+    await waitFor(() =>
+      expect(
+        within(suggestions).queryAllByRole("button", { name: "Do it" }).length,
+      ).toBeGreaterThan(0),
+    );
+    const row = within(suggestions)
+      .getAllByRole("button", { name: "Do it" })[0]
+      ?.closest("article");
+    expect(row).toBeTruthy();
+    const inRow = within(row as HTMLElement);
+    for (const name of ["Edit", "Dismiss"])
+      expect(inRow.queryByRole("button", { name })).toBeNull();
+    expect(inRow.queryByRole("checkbox")).toBeNull();
+    await user.click(inRow.getByRole("button", { name: /^More for / }));
+    expect(await screen.findByRole("menuitem", { name: "Not now" })).toBeTruthy();
   });
 
   it("gives the accent to the first Approve, so the first idea is an outline button", async () => {
@@ -56,13 +123,15 @@ describe("Home", () => {
 
   it("opens a goal's page and Scheduled from their rows", async () => {
     const { navigate, user } = setup(<HomeScreen now={STORY_NOW} />);
+    await openMore(user);
     const goals = await section("goals");
     const first = await within(goals).findAllByRole("button", { name: /.+/ });
     const row = first.find((b) => b.closest("li") !== null) as HTMLElement;
     await user.click(row);
     expect(navigate.mock.calls.at(-1)?.[0]).toMatch(/^\/goals\/.+/);
     const comingUp = await section("coming-up");
-    await user.click(within(comingUp).getByRole("button", { name: "Scheduled" }));
+    const rows = within(comingUp).getAllByRole("button", { name: /on Scheduled$/ });
+    await user.click(rows[0] as HTMLElement);
     expect(navigate).toHaveBeenLastCalledWith("/scheduled");
   });
 
@@ -83,7 +152,7 @@ describe("Home", () => {
 
 describe("Home's reading order and length", () => {
   it("lists the sections in one order, top to bottom", async () => {
-    setup(<HomeScreen now={STORY_NOW} />, (w) => {
+    const { user } = setup(<HomeScreen now={STORY_NOW} />, (w) => {
       w.review = {
         ...(w.review ?? { items: [], quarantine: [], runs: [] }),
         nudges: {
@@ -109,11 +178,12 @@ describe("Home's reading order and length", () => {
       "needs-you",
       "today",
       "suggestions",
+      "more",
       "coming-up",
       "goals",
       "keep-in-touch",
-      "more",
     ];
+    await openMore(user);
     for (const id of ids) await section(id);
     const order = [...document.querySelectorAll("[data-testid^='section-']")].map((e) =>
       e.getAttribute("data-testid")?.replace("section-", ""),
@@ -144,9 +214,10 @@ describe("Home's reading order and length", () => {
     const { navigate, user } = setup(<HomeScreen now={STORY_NOW} />, (w) => {
       w.feed = [];
     });
-    const more = await section("more");
+    await section("more");
     await new Promise((r) => setTimeout(r, 100));
     expect(screen.queryByTestId("section-today")).toBeNull();
+    const more = await openMore(user);
     await user.click(within(more).getByRole("button", { name: "Brief settings" }));
     expect(navigate).toHaveBeenLastCalledWith("/home/instructions");
   });
@@ -233,8 +304,6 @@ describe("Home's reading order and length", () => {
     expect(block.innerHTML).not.toMatch(/approval|amber/);
     // The question is not repeated as a line of Catching up.
     expect(block.textContent).not.toContain("Did you finish");
-    // It counts toward what is waiting.
-    expect(within(needs).getByText(/waiting/).textContent).toMatch(/^\d+ waiting$/);
   });
 
   it("answers the question with Still working, and it leaves Needs you", async () => {
@@ -357,7 +426,7 @@ describe("Home's one way in (consolidation-2026 §7)", () => {
 
   it("keeps the deeper pages one step away under More", async () => {
     const { navigate, user } = setup(<HomeScreen now={STORY_NOW} />);
-    const more = await section("more");
+    const more = await openMore(user);
     await user.click(within(more).getByRole("button", { name: /^Scheduled/ }));
     expect(navigate).toHaveBeenLastCalledWith("/scheduled");
     for (const name of [/^Wren & you/, /^Inbox/, /^Soul/, /^Memory review/])

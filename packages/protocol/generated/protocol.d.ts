@@ -7183,7 +7183,11 @@ export interface MemoryEntitiesCreateParams {
      * Other names
      */
     aliases?: string[];
-    dueAt?:   string;
+    /**
+     * Create even when a person, organisation or place with the same name or email exists
+     */
+    allowDuplicate?: boolean;
+    dueAt?:          string;
     /**
      * Emails, phones, handles; refused if another entity has one
      */
@@ -13015,7 +13019,7 @@ export interface Space {
 
 export type SpaceCreatedFrom = "owner" | "proposal" | "project" | "migration";
 
-export type PermissionMode = "plan" | "manual" | "balanced" | "auto";
+export type PermissionMode = "plan" | "manual" | "balanced" | "auto" | "full";
 
 export interface SpaceTracker {
     addedBy:      AddedBy;

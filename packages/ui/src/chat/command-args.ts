@@ -142,7 +142,15 @@ export function currentModel(ctx: ArgContext): string | null {
   return ctx.modelRef ?? ctx.models?.roles.primary ?? null;
 }
 
-const MODES: readonly PermissionMode[] = ["manual", "balanced", "auto", "plan"];
+const MODES: readonly PermissionMode[] = ["manual", "balanced", "auto", "full", "plan"];
+
+/** `/full`: on (the default with no argument) or off, back to Balanced. */
+export function fullOptions(): ArgOption[] {
+  return [
+    { value: "on", detail: t("chat.args.full.on") },
+    { value: "off", detail: t("chat.args.full.off") },
+  ];
+}
 
 /**
  * `/mode`: the permission modes, each with a one-line description. Auto is greyed when the

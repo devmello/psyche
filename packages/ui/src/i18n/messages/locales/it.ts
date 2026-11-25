@@ -177,6 +177,9 @@ export const it: Partial<Catalogue> = {
   "errors.reason.secret_required": "Un client diverso richiede il proprio segreto del client.",
   "errors.reason.project_private":
     "Quel progetto è privato, quindi non può avere uno Space. Disattiva prima Mantieni privato.",
+  "errors.reason.entity_exists": "È già nella memoria.",
+  "errors.reason.setting_unknown": "Questa impostazione non esiste.",
+  "errors.reason.setting_invalid": "Questo valore non è valido per l'impostazione.",
   "errors.reason.model_budget":
     "Troppe richieste da questo dispositivo. Riprova tra {minutes, plural, one {# minuto} other {# minuti}}.",
   "errors.reason.updating":
@@ -687,6 +690,19 @@ export const it: Partial<Catalogue> = {
   "agent.mode.manual": "manuale",
   "agent.mode.balanced": "bilanciata",
   "agent.mode.auto": "automatica",
+  "agent.mode.full": "Accesso completo",
+  "chat.commands.full.hint": "on | off",
+  "chat.commands.full.description": "Attiva o disattiva l'accesso completo in questa chat",
+  "chat.commands.usageFull": "Uso: /full [on | off]",
+  "chat.args.mode.full": "Agisce senza chiedere, tranne invii e pagamenti",
+  "chat.args.full.on": "Agire senza chiedere, tranne invii e pagamenti",
+  "chat.args.full.off": "Torna a Bilanciato",
+  "chat.thread.fullAccessOn":
+    "L'accesso completo è attivo in questa chat. Gli invii ad altre persone e i pagamenti chiedono ancora.",
+  "chat.thread.fullAccessOff": "L'accesso completo è disattivato. Questa chat torna a Bilanciato.",
+  "chat.fullAccess.banner":
+    "Accesso completo: Psyche agisce senza chiedere, tranne invii e pagamenti.",
+  "chat.fullAccess.turnOff": "Disattiva",
   "agent.mode.plan": "piano",
   "agent.state.idle": "inattivo",
   "agent.state.working": "al lavoro",
@@ -3477,6 +3493,7 @@ export const it: Partial<Catalogue> = {
   "screens.goals.suggest.none": "Nessun suggerimento stavolta. Riprova più tardi.",
   "screens.ideas.start": "Inizia",
   "screens.ideas.snooze": "Rimanda",
+  "screens.ideas.options": "Altro per {title}",
   "screens.ideas.badge.checkin": "Check-in",
   "screens.ideas.badge.resume": "Riprendere?",
   "screens.goals.checkinFrequency": "Check-in",

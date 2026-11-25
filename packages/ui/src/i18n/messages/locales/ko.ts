@@ -182,6 +182,9 @@ export const ko: Partial<Catalogue> = {
   "errors.reason.secret_required": "다른 클라이언트에는 해당 클라이언트의 보안 비밀이 필요합니다.",
   "errors.reason.project_private":
     "이 프로젝트는 비공개라서 Space를 가질 수 없습니다. 먼저 비공개 유지를 끄세요.",
+  "errors.reason.entity_exists": "이미 메모리에 있습니다.",
+  "errors.reason.setting_unknown": "존재하지 않는 설정입니다.",
+  "errors.reason.setting_invalid": "이 설정에 사용할 수 없는 값입니다.",
   "errors.reason.model_budget":
     "이 기기에서 요청이 너무 많습니다. {minutes, plural, other {#분}} 후에 다시 시도하세요.",
   "errors.reason.updating":
@@ -687,6 +690,18 @@ export const ko: Partial<Catalogue> = {
   "agent.mode.manual": "수동",
   "agent.mode.balanced": "균형",
   "agent.mode.auto": "자동",
+  "agent.mode.full": "전체 접근",
+  "chat.commands.full.hint": "on | off",
+  "chat.commands.full.description": "이 채팅에서 전체 접근을 켜거나 끕니다",
+  "chat.commands.usageFull": "사용법: /full [on | off]",
+  "chat.args.mode.full": "보내기와 결제를 빼고 묻지 않고 실행합니다",
+  "chat.args.full.on": "보내기와 결제를 빼고 묻지 않고 실행",
+  "chat.args.full.off": "균형으로 돌아가기",
+  "chat.thread.fullAccessOn":
+    "이 채팅에서 전체 접근이 켜져 있습니다. 다른 사람에게 보내기와 결제는 계속 묻습니다.",
+  "chat.thread.fullAccessOff": "전체 접근이 꺼졌습니다. 이 채팅은 균형으로 돌아갔습니다.",
+  "chat.fullAccess.banner": "전체 접근: Psyche가 보내기와 결제를 빼고 묻지 않고 실행합니다.",
+  "chat.fullAccess.turnOff": "끄기",
   "agent.mode.plan": "계획",
   "agent.state.idle": "대기 중",
   "agent.state.working": "작업 중",
@@ -3411,6 +3426,7 @@ export const ko: Partial<Catalogue> = {
   "screens.goals.suggest.none": "이번에는 제안이 없습니다. 나중에 다시 시도해 주세요.",
   "screens.ideas.start": "시작",
   "screens.ideas.snooze": "다시 알림",
+  "screens.ideas.options": "{title} 더 보기",
   "screens.ideas.badge.checkin": "체크인",
   "screens.ideas.badge.resume": "다시 시작할까요?",
   "screens.goals.checkinFrequency": "체크인",

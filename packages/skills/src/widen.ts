@@ -9,7 +9,7 @@ export interface Widened {
   specialist?: string[];
 }
 
-const MODE_ORDER = ["plan", "manual", "balanced", "auto"];
+const MODE_ORDER = ["plan", "manual", "balanced", "auto", "full"];
 
 const added = (x: readonly string[], y: readonly string[]) => x.filter((v) => !y.includes(v));
 

@@ -163,6 +163,9 @@ export const fr: Partial<Catalogue> = {
   "errors.reason.secret_required": "Un autre client a besoin de son propre secret client.",
   "errors.reason.project_private":
     "Ce projet est privé, il ne peut donc pas avoir de Space. Désactivez d’abord Garder privé.",
+  "errors.reason.entity_exists": "C'est déjà dans la mémoire.",
+  "errors.reason.setting_unknown": "Ce réglage n'existe pas.",
+  "errors.reason.setting_invalid": "Cette valeur n'est pas valide pour ce réglage.",
   "errors.reason.model_budget":
     "Trop de requêtes depuis cet appareil. Réessayez dans {minutes, plural, one {# minute} other {# minutes}}.",
   "errors.reason.updating":
@@ -678,6 +681,20 @@ export const fr: Partial<Catalogue> = {
   "agent.mode.manual": "manuel",
   "agent.mode.balanced": "équilibré",
   "agent.mode.auto": "auto",
+  "agent.mode.full": "Accès complet",
+  "chat.commands.full.hint": "on | off",
+  "chat.commands.full.description": "Activer ou désactiver l'accès complet dans cette discussion",
+  "chat.commands.usageFull": "Utilisation : /full [on | off]",
+  "chat.args.mode.full": "Agit sans demander, sauf pour les envois et les paiements",
+  "chat.args.full.on": "Agir sans demander, sauf pour les envois et les paiements",
+  "chat.args.full.off": "Revenir à Équilibré",
+  "chat.thread.fullAccessOn":
+    "L'accès complet est activé dans cette discussion. Les envois à d'autres personnes et les paiements demandent toujours.",
+  "chat.thread.fullAccessOff":
+    "L'accès complet est désactivé. Cette discussion repasse en Équilibré.",
+  "chat.fullAccess.banner":
+    "Accès complet : Psyche agit sans demander, sauf pour les envois et les paiements.",
+  "chat.fullAccess.turnOff": "Désactiver",
   "agent.mode.plan": "plan",
   "agent.state.idle": "inactif",
   "agent.state.working": "au travail",
@@ -3478,6 +3495,7 @@ export const fr: Partial<Catalogue> = {
   "screens.goals.suggest.none": "Aucune suggestion cette fois. Réessayez plus tard.",
   "screens.ideas.start": "Démarrer",
   "screens.ideas.snooze": "Reporter",
+  "screens.ideas.options": "Plus pour {title}",
   "screens.ideas.badge.checkin": "Point d'étape",
   "screens.ideas.badge.resume": "Reprendre ?",
   "screens.goals.checkinFrequency": "Point d'étape",

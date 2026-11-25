@@ -49,15 +49,15 @@ struct PhaseView<Value: Sendable, Content: View>: View {
         case .loaded(let value):
             content(value).transition(Self.stageTransition)
         case .failed(let message):
-            VStack(spacing: 12) {
-                Text("Couldn't load this", bundle: .module).font(.headline).foregroundStyle(PsycheColor.text)
-                Text(message).font(.subheadline).foregroundStyle(PsycheColor.muted)
+            ContentUnavailableView {
+                Label(String(localized: "Couldn't load this", bundle: .module), systemImage: "exclamationmark.triangle")
+            } description: {
+                Text(message)
+            } actions: {
                 Button(String(localized: "Try again", bundle: .module)) { Task { await retry() } }
-                    .buttonStyle(.psycheOutline)
-                    .frame(maxWidth: 220)
+                    .buttonStyle(.bordered)
             }
             .frame(maxWidth: .infinity)
-            .padding(.vertical, 40)
             .transition(Self.stageTransition)
         }
     }

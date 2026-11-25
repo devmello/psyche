@@ -608,6 +608,7 @@ export const screens = {
   "screens.goals.suggest.none": "No suggestion this time. Try again later.",
   "screens.ideas.start": "Start",
   "screens.ideas.snooze": "Snooze",
+  "screens.ideas.options": "More for {title}",
   "screens.ideas.badge.checkin": "Check-in",
   "screens.ideas.badge.resume": "Resume?",
   "screens.goals.checkinFrequency": "Check in",

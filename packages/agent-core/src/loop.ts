@@ -18,6 +18,7 @@ import {
   type DecisionResult,
   type EffectiveContextLimits,
   EMPTY_USAGE,
+  fullAccessIgnored,
   type InputRequest,
   type MemoryStore,
   type ModelCapabilities,
@@ -1103,20 +1104,33 @@ export class PsycheAgentLoop implements AgentLoop {
         : ownerSent
           ? this.#o.spaceFor?.(threadId)
           : undefined;
+    // A subagent acts for its parent's turn: an MCP App's page or a channel's sender stays the
+    // one behind its calls (Full access, the card scopes and the requester limits follow).
+    const initiator = input.proposedCall?.initiator ?? child?.parent.initiator;
+    // Full access reaches only the owner's attended chat turn (`fullAccessIgnored`): any other
+    // run in a Full-access thread runs, and spawns, as Balanced.
+    const permissionMode: PermissionMode =
+      input.permissionMode === "full" &&
+      fullAccessIgnored({
+        permissionMode: input.permissionMode,
+        unattended: input.mode === "unattended",
+        ...(initiator === undefined ? {} : { initiator }),
+        ...(requester === undefined ? {} : { requester }),
+      }) !== undefined
+        ? "balanced"
+        : input.permissionMode;
     const run: RunState = {
       ...(space === undefined ? {} : { space }),
       runId,
       threadId,
       ...(input.taskId === undefined ? {} : { taskId: input.taskId }),
       mode: input.mode,
-      permissionMode: input.permissionMode,
+      permissionMode,
       // Only the owner's words name targets the agent may act on (security §3.6, §9).
       // Only the typed words: never the Gateway's context (preamble, quote, forwarded text).
       ownerText: ownerSent && input.ownerWords !== false ? ownerTypedText(input) : "",
       ...(input.proposedCall === undefined ? {} : { proposedCall: input.proposedCall }),
-      ...(input.proposedCall?.initiator === undefined
-        ? {}
-        : { initiator: input.proposedCall.initiator }),
+      ...(initiator === undefined ? {} : { initiator }),
       ownerAttached: ownerSent && (input.input.attachments?.length ?? 0) > 0,
       ...(requester === undefined ? {} : { requester }),
       ...(input.beforeDispatch === undefined ? {} : { beforeDispatch: input.beforeDispatch }),
@@ -3970,6 +3984,7 @@ export class PsycheAgentLoop implements AgentLoop {
       ...(g.approvalId === undefined ? {} : { approvalId: g.approvalId }),
       ...(g.authority === undefined ? {} : { authority: structuredClone(g.authority) }),
       ...(run.requester === undefined ? {} : { requester: structuredClone(run.requester) }),
+      ...(run.initiator === undefined ? {} : { initiator: run.initiator }),
       signal: run.abort.signal,
       resultBudgetChars: this.#o.maxToolResultChars ?? 50_000,
       onUpdate: (update) => this.#toolEvent(run, call.id, call.name, "running", level1, update),
@@ -4623,6 +4638,11 @@ export class PsycheAgentLoop implements AgentLoop {
           input: { text: brief },
           mode: parent.mode,
           permissionMode: parent.permissionMode,
+          // The parent turn's requester (a channel sender, a designated person) is the child's
+          // too: its limits, its taint and Full access's context rules apply to the subagent.
+          ...(parent.requester === undefined
+            ? {}
+            : { requester: structuredClone(parent.requester) }),
           signal: parent.abort.signal,
         },
         (event) => {
@@ -4935,6 +4955,8 @@ export function controlFacts(c: ControlFacts): ControlFacts {
     ...(str(c.role, 64) === undefined ? {} : { role: str(c.role, 64) as string }),
     ...(c.submits === true ? { submits: true } : {}),
     ...(c.unreadable === true ? { unreadable: true } : {}),
+    // A send the executor read (Return in Messages, a Send menu item): Full access holds it.
+    ...(c.sends === true ? { sends: true } : {}),
     ...(str(c.formMethod, 16) === undefined ? {} : { formMethod: str(c.formMethod, 16) as string }),
     ...(str(c.formAction) === undefined ? {} : { formAction: str(c.formAction) as string }),
     ...(str(c.pageUrl) === undefined ? {} : { pageUrl: str(c.pageUrl) as string }),

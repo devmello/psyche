@@ -1,8 +1,7 @@
 import type { Idea, IdeaDismissReason } from "@psyche/protocol";
-import { ChevronDown, Clock, FileText, Repeat } from "lucide-react";
+import { Clock, Ellipsis, Repeat } from "lucide-react";
 import { type ReactElement, useId, useState } from "react";
 import { Markdown } from "../../blocks/Markdown.tsx";
-import { Badge } from "../../components/ui/badge.tsx";
 import { Button } from "../../components/ui/button.tsx";
 import { Checkbox } from "../../components/ui/checkbox.tsx";
 import {
@@ -115,17 +114,31 @@ export interface IdeaCardProps {
   /** The idea is being accepted or dismissed. */
   busy?: boolean;
   /**
-   * The one card whose "Do it" is the accent primary: the first in the list (one primary per
-   * view). Every other card shows the secondary button.
+   * The one row whose "Do it" is the accent primary: the first in the list (one primary per
+   * view). Every other row shows the outline button.
    */
   prominent?: boolean;
   className?: string;
 }
 
+/** The first line of an idea's body as plain text: no markdown marks, links as their text. */
+export function plainFirstLine(markdown: string): string {
+  for (const raw of markdown.split("\n")) {
+    const line = raw
+      .replace(/!?\[([^\]]*)\]\([^)]*\)/g, "$1")
+      .replace(/^[\s>#*+-]+/, "")
+      .replace(/[*_`]/g, "")
+      .trim();
+    if (line !== "") return line;
+  }
+  return "";
+}
+
 /**
- * Idea card (docs/design/redesign-2026.md §5.6): a level-1 card without an outline. Title
- * (text-title-2), "Because:" evidence linked to its source, effort and approvals as callout
- * metadata, the recurring toggle with its cadence, then Do it / Edit / Dismiss trailing.
+ * A suggestion as one quiet row: the title, one line of what it is, and one action ("Do it", or
+ * "Start" on a goal card). Edit, the dismiss reasons and "make recurring" sit in the "..." menu;
+ * the whole body, the "Because" evidence and the effort open under the row when the title is
+ * pressed (keyboard: Enter on the title).
  */
 export function IdeaCard({
   idea,
@@ -139,8 +152,10 @@ export function IdeaCard({
   className,
 }: IdeaCardProps): ReactElement {
   const titleId = useId();
+  const detailId = useId();
   const recurringId = useId();
   const cadenceId = useId();
+  const [open, setOpen] = useState(false);
   const [recurring, setRecurring] = useState(false);
   const [cadence, setCadence] = useState<RecurringCadence>("monthly");
   const schedule = RECURRING_CADENCES.find((c) => c.id === cadence)?.schedule;
@@ -149,6 +164,18 @@ export function IdeaCard({
   const goalCard = goalCardKind(idea);
   const canRecur = RECURRABLE.has(idea.kind) && goalCard === null;
   const evidence = readEvidence(idea.evidence);
+  const goalLabel =
+    goalCard === "resume"
+      ? t("screens.ideas.badge.resume")
+      : goalCard === "checkin"
+        ? t("screens.ideas.badge.checkin")
+        : null;
+  const summary = plainFirstLine(idea.bodyMd);
+  // One secondary line: the goal card's question, then what it is about.
+  const secondary = [goalLabel, summary === "" ? idea.effort : summary]
+    .filter((x): x is string => x !== null && x !== "")
+    .join(" · ");
+  const cannotDismiss = busy || onDismiss === undefined;
 
   return (
     <article
@@ -156,85 +183,25 @@ export function IdeaCard({
       aria-busy={busy || undefined}
       data-prominent={prominent || undefined}
       className={cn(
-        "flex flex-col gap-3 rounded-lg bg-surface-raised p-4 shadow-elevation-1",
+        "flex flex-col rounded-lg transition-colors hover:bg-fill-quaternary",
         className,
       )}
     >
-      <div className="flex flex-col gap-1">
-        <div className="flex flex-wrap items-start gap-2">
-          <h2 id={titleId} className="min-w-0 flex-1 text-title-2 text-label-primary">
+      <div className="flex min-h-11 items-center gap-2 ps-2.5 pe-1">
+        <button
+          type="button"
+          aria-expanded={open}
+          aria-controls={detailId}
+          onClick={() => setOpen((v) => !v)}
+          className="flex min-w-0 flex-1 flex-col justify-center rounded-sm py-1.5 text-start outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <span id={titleId} className="truncate text-body text-label-primary">
             {idea.title}
-          </h2>
-          <Badge variant={idea.kind === "skill" ? "accent" : "muted"}>
-            {goalCard === "resume"
-              ? t("screens.ideas.badge.resume")
-              : goalCard === "checkin"
-                ? t("screens.ideas.badge.checkin")
-                : IDEA_KIND_LABEL[idea.kind]}
-          </Badge>
-        </div>
-        {idea.bodyMd.trim() !== "" ? (
-          <Markdown className="text-reading text-label-primary">{idea.bodyMd}</Markdown>
-        ) : null}
-      </div>
-      <EvidenceLine items={evidence} {...(onOpenRoute ? { onOpenRoute } : {})} />
-      <p className="flex items-center gap-1.5 text-callout text-label-secondary">
-        <Clock className="size-4 shrink-0" aria-hidden="true" />
-        <span>
-          <span className="sr-only">{t("screens.ideas.effort")} </span>
-          {idea.effort}
-        </span>
-      </p>
-      {canRecur ? (
-        <div className="flex flex-wrap items-center gap-2">
-          <Checkbox
-            id={recurringId}
-            checked={recurring}
-            disabled={busy}
-            onCheckedChange={(checked) => setRecurring(checked === true)}
-          />
-          <Label htmlFor={recurringId} className="text-body font-normal">
-            {t("screens.ideas.makeRecurring")}
-          </Label>
-          <label htmlFor={cadenceId} className="sr-only">
-            {t("screens.ideas.cadence")}
-          </label>
-          <NativeSelect
-            id={cadenceId}
-            size="sm"
-            value={cadence}
-            disabled={busy}
-            onChange={(e) => {
-              const next = RECURRING_CADENCES.find((c) => c.id === e.target.value);
-              if (next) setCadence(next.id);
-            }}
-          >
-            {RECURRING_CADENCES.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.label}
-              </option>
-            ))}
-          </NativeSelect>
-        </div>
-      ) : idea.kind === "automation" ? (
-        <p className="flex items-center gap-1.5 text-callout text-label-secondary">
-          <Repeat className="size-4 shrink-0" aria-hidden="true" />
-          {t("screens.ideas.repeats")}
-        </p>
-      ) : null}
-      <div className="flex flex-wrap items-center justify-end gap-1.5">
-        {isSkill && onViewSkill ? (
-          <Button
-            type="button"
-            size="sm"
-            variant="ghost"
-            className="me-auto"
-            onClick={() => onViewSkill(idea)}
-          >
-            <FileText aria-hidden="true" />
-            {t("screens.ideas.viewSkill")}
-          </Button>
-        ) : null}
+          </span>
+          {secondary !== "" ? (
+            <span className="truncate text-callout text-label-secondary">{secondary}</span>
+          ) : null}
+        </button>
         <Button
           type="button"
           size="sm"
@@ -251,56 +218,117 @@ export function IdeaCard({
         >
           {goalCard === null ? t("screens.ideas.accept") : t("screens.ideas.start")}
         </Button>
-        {goalCard !== null ? (
-          <Button
-            type="button"
-            size="sm"
-            variant="ghost"
-            disabled={busy || onDismiss === undefined}
-            onClick={() => onDismiss?.(idea, "not_now")}
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            disabled={busy}
+            aria-label={t("screens.ideas.options", { title: idea.title })}
+            title={t("screens.ideas.options", { title: idea.title })}
+            render={<Button type="button" size="icon-sm" variant="ghost" />}
           >
-            {t("screens.ideas.snooze")}
-          </Button>
-        ) : null}
-        <Button
-          type="button"
-          size="sm"
-          variant="ghost"
-          disabled={busy || onEdit === undefined}
-          hidden={goalCard !== null}
-          onClick={() => onEdit?.(idea)}
-        >
-          {t("common.edit")}
-        </Button>
-        {goalCard !== null ? (
-          <Button
-            type="button"
-            size="sm"
-            variant="ghost"
-            disabled={busy || onDismiss === undefined}
-            onClick={() => onDismiss?.(idea, "not_interested")}
-          >
-            {t("common.dismiss")}
-          </Button>
-        ) : (
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              disabled={busy || onDismiss === undefined}
-              render={<Button type="button" size="sm" variant="ghost" />}
-            >
-              {t("common.dismiss")}
-              <ChevronDown aria-hidden="true" />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-52">
-              {DISMISS_OPTIONS.map((o) => (
-                <DropdownMenuItem key={o.reason} onClick={() => onDismiss?.(idea, o.reason)}>
+            <Ellipsis aria-hidden="true" />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-56">
+            {goalCard === null && onEdit !== undefined ? (
+              <DropdownMenuItem onClick={() => onEdit(idea)}>{t("common.edit")}</DropdownMenuItem>
+            ) : null}
+            {isSkill && onViewSkill ? (
+              <DropdownMenuItem onClick={() => onViewSkill(idea)}>
+                {t("screens.ideas.viewSkill")}
+              </DropdownMenuItem>
+            ) : null}
+            {canRecur ? (
+              <DropdownMenuItem
+                onClick={() => {
+                  setRecurring(true);
+                  setOpen(true);
+                }}
+              >
+                {t("screens.ideas.makeRecurring")}
+              </DropdownMenuItem>
+            ) : null}
+            {goalCard === null ? (
+              DISMISS_OPTIONS.map((o) => (
+                <DropdownMenuItem
+                  key={o.reason}
+                  disabled={cannotDismiss}
+                  onClick={() => onDismiss?.(idea, o.reason)}
+                >
                   {o.label}
                 </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        )}
+              ))
+            ) : (
+              <>
+                <DropdownMenuItem
+                  disabled={cannotDismiss}
+                  onClick={() => onDismiss?.(idea, "not_now")}
+                >
+                  {t("screens.ideas.snooze")}
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  disabled={cannotDismiss}
+                  onClick={() => onDismiss?.(idea, "not_interested")}
+                >
+                  {t("common.dismiss")}
+                </DropdownMenuItem>
+              </>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
+      {open ? (
+        <div id={detailId} className="flex flex-col gap-3 px-2.5 pt-1 pb-3">
+          {idea.bodyMd.trim() !== "" ? (
+            <Markdown className="text-reading text-label-primary">{idea.bodyMd}</Markdown>
+          ) : null}
+          <EvidenceLine items={evidence} {...(onOpenRoute ? { onOpenRoute } : {})} />
+          <p className="flex items-center gap-1.5 text-callout text-label-secondary">
+            <Clock className="size-4 shrink-0" aria-hidden="true" />
+            <span>
+              <span className="sr-only">{t("screens.ideas.effort")} </span>
+              {idea.effort}
+            </span>
+            <span aria-hidden="true">·</span>
+            <span>{IDEA_KIND_LABEL[idea.kind]}</span>
+          </p>
+          {canRecur ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <Checkbox
+                id={recurringId}
+                checked={recurring}
+                disabled={busy}
+                onCheckedChange={(checked) => setRecurring(checked === true)}
+              />
+              <Label htmlFor={recurringId} className="text-body font-normal">
+                {t("screens.ideas.makeRecurring")}
+              </Label>
+              <label htmlFor={cadenceId} className="sr-only">
+                {t("screens.ideas.cadence")}
+              </label>
+              <NativeSelect
+                id={cadenceId}
+                size="sm"
+                value={cadence}
+                disabled={busy}
+                onChange={(e) => {
+                  const next = RECURRING_CADENCES.find((c) => c.id === e.target.value);
+                  if (next) setCadence(next.id);
+                }}
+              >
+                {RECURRING_CADENCES.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.label}
+                  </option>
+                ))}
+              </NativeSelect>
+            </div>
+          ) : idea.kind === "automation" ? (
+            <p className="flex items-center gap-1.5 text-callout text-label-secondary">
+              <Repeat className="size-4 shrink-0" aria-hidden="true" />
+              {t("screens.ideas.repeats")}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
     </article>
   );
 }

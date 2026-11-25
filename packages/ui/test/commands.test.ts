@@ -6,6 +6,7 @@ describe("composer commands (C9)", () => {
     expect(COMMANDS.map((c) => c.name)).toEqual([
       "model",
       "mode",
+      "full",
       "new",
       "btw",
       "fork",
@@ -54,8 +55,8 @@ describe("composer commands (C9)", () => {
   });
 
   it("matches a partial name and completes with a space only when an argument follows", () => {
-    expect(matchCommands("/").length).toBe(16);
-    expect(matchCommands("/f").map((c) => c.name)).toEqual(["fork", "forget"]);
+    expect(matchCommands("/").length).toBe(17);
+    expect(matchCommands("/f").map((c) => c.name)).toEqual(["full", "fork", "forget"]);
     expect(matchCommands("/f x")).toEqual([]);
     expect(matchCommands("/cl").map((c) => c.name)).toEqual(["clear"]);
     expect(matchCommands("hi")).toEqual([]);

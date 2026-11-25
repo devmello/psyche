@@ -143,6 +143,9 @@ export const es: Partial<Catalogue> = {
   "errors.reason.secret_required": "Un cliente distinto necesita su propio secreto de cliente.",
   "errors.reason.project_private":
     "Ese proyecto es privado, así que no puede tener un Space. Desactiva Mantener privado primero.",
+  "errors.reason.entity_exists": "Ya está en la memoria.",
+  "errors.reason.setting_unknown": "Este ajuste no existe.",
+  "errors.reason.setting_invalid": "Este valor no es válido para el ajuste.",
   "errors.reason.model_budget":
     "Demasiadas solicitudes desde este dispositivo. Inténtalo de nuevo en {minutes, plural, one {# minuto} other {# minutos}}.",
   "errors.reason.updating":
@@ -683,6 +686,18 @@ export const es: Partial<Catalogue> = {
   "agent.mode.manual": "manual",
   "agent.mode.balanced": "equilibrado",
   "agent.mode.auto": "automático",
+  "agent.mode.full": "Acceso total",
+  "chat.commands.full.hint": "on | off",
+  "chat.commands.full.description": "Activa o desactiva el acceso total en este chat",
+  "chat.commands.usageFull": "Uso: /full [on | off]",
+  "chat.args.mode.full": "Actúa sin preguntar, salvo envíos y pagos",
+  "chat.args.full.on": "Actuar sin preguntar, salvo envíos y pagos",
+  "chat.args.full.off": "Volver a Equilibrado",
+  "chat.thread.fullAccessOn":
+    "El acceso total está activado en este chat. Los envíos a otras personas y los pagos siguen pidiendo permiso.",
+  "chat.thread.fullAccessOff": "El acceso total está desactivado. Este chat vuelve a Equilibrado.",
+  "chat.fullAccess.banner": "Acceso total: Psyche actúa sin preguntar, salvo envíos y pagos.",
+  "chat.fullAccess.turnOff": "Desactivar",
   "agent.mode.plan": "plan",
 
   "agent.state.idle": "inactivo",
@@ -3498,6 +3513,7 @@ export const es: Partial<Catalogue> = {
   "screens.goals.suggest.none": "Sin sugerencia esta vez. Inténtalo más tarde.",
   "screens.ideas.start": "Empezar",
   "screens.ideas.snooze": "Posponer",
+  "screens.ideas.options": "Más sobre {title}",
   "screens.ideas.badge.checkin": "Revisión",
   "screens.ideas.badge.resume": "¿Retomar?",
   "screens.goals.checkinFrequency": "Revisar",

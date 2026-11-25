@@ -166,6 +166,9 @@ export const de: Partial<Catalogue> = {
   "errors.reason.secret_required": "Ein anderer Client braucht sein eigenes Client-Secret.",
   "errors.reason.project_private":
     "Dieses Projekt ist privat, daher kann es keinen Space haben. Schalte zuerst „Privat halten“ aus.",
+  "errors.reason.entity_exists": "Das gibt es bereits im Gedächtnis.",
+  "errors.reason.setting_unknown": "Diese Einstellung gibt es nicht.",
+  "errors.reason.setting_invalid": "Dieser Wert ist für die Einstellung nicht gültig.",
   "errors.reason.model_budget":
     "Zu viele Anfragen von diesem Gerät. Versuche es in {minutes, plural, one {# Minute} other {# Minuten}} erneut.",
   "errors.reason.updating":
@@ -710,6 +713,19 @@ export const de: Partial<Catalogue> = {
   "agent.mode.manual": "manuell",
   "agent.mode.balanced": "ausgewogen",
   "agent.mode.auto": "automatisch",
+  "agent.mode.full": "Vollzugriff",
+  "chat.commands.full.hint": "on | off",
+  "chat.commands.full.description": "Vollzugriff in diesem Chat ein- oder ausschalten",
+  "chat.commands.usageFull": "Verwendung: /full [on | off]",
+  "chat.args.mode.full": "Handelt ohne Rückfrage, außer bei Nachrichten und Zahlungen",
+  "chat.args.full.on": "Ohne Rückfrage handeln, außer bei Nachrichten und Zahlungen",
+  "chat.args.full.off": "Zurück zu Ausgewogen",
+  "chat.thread.fullAccessOn":
+    "Vollzugriff ist in diesem Chat an. Nachrichten an andere und Zahlungen fragen weiterhin nach.",
+  "chat.thread.fullAccessOff": "Vollzugriff ist aus. Dieser Chat ist wieder ausgewogen.",
+  "chat.fullAccess.banner":
+    "Vollzugriff: Psyche handelt ohne Rückfrage, außer bei Nachrichten und Zahlungen.",
+  "chat.fullAccess.turnOff": "Ausschalten",
   "agent.mode.plan": "planen",
 
   "agent.state.idle": "inaktiv",
@@ -3541,6 +3557,7 @@ export const de: Partial<Catalogue> = {
   "screens.goals.suggest.none": "Diesmal kein Vorschlag. Versuch es später noch einmal.",
   "screens.ideas.start": "Starten",
   "screens.ideas.snooze": "Später erinnern",
+  "screens.ideas.options": "Mehr zu {title}",
   "screens.ideas.badge.checkin": "Check-in",
   "screens.ideas.badge.resume": "Fortsetzen?",
   "screens.goals.checkinFrequency": "Check-in",

@@ -65,6 +65,8 @@ export const MEMORY_STORE_TABLES = [
   "memory_extracted_items",
   // Undo records for work lines (no text, no foreign keys): runRetention deletes old ones.
   "memory_work_undo",
+  // Backup of the wave 2A trust-leak migration: it travels with the rows it describes.
+  "memory_migration_backup_2026_11",
   "memory_claim_subjects",
   "memory_fts",
   "graph_fts",

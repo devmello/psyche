@@ -21,6 +21,45 @@ import { DESKTOP_APP_NAME } from "./desktop-launch.ts";
 export const LINUX_SYSTEM_ROOTS: readonly string[] = ["/run", "/proc", "/sys"];
 
 /**
+ * The browser profiles `defaultDenyRead` doesn't list (cookies, saved logins, history): one list
+ * for host commands (`exec_host`) and the file tools.
+ */
+export function browserProfiles(home: string): string[] {
+  const s = (...p: string[]) => join(home, "Library", "Application Support", ...p);
+  return [
+    s("BraveSoftware"),
+    s("Microsoft Edge"),
+    s("Arc"),
+    s("Chromium"),
+    s("Vivaldi"),
+    join(home, "Library", "Containers", "com.apple.Safari"),
+  ];
+}
+
+/**
+ * The owner's messages, mail, shell history and other AI tools' sign-ins and transcripts: no
+ * file tool reads them, in any mode (Full access's home root included).
+ */
+export function privateHomeRoots(home: string): string[] {
+  const support = (...p: string[]) => join(home, "Library", "Application Support", ...p);
+  return [
+    join(home, "Library", "Messages"),
+    join(home, "Library", "Mail"),
+    support("Claude"),
+    // Chat apps' sign-in tokens and local message stores.
+    support("Slack"),
+    support("discord"),
+    support("Signal"),
+    join(home, ".claude.json"),
+    join(home, ".codex"),
+    join(home, ".gemini"),
+    join(home, ".zsh_history"),
+    join(home, ".zsh_sessions"),
+    join(home, ".bash_history"),
+  ];
+}
+
+/**
  * Paths no file tool or Files-pane method reads or writes, whatever folder the owner granted
  * (security §5.3, #285): all of `$PSYCHE_HOME` (vault slots, state, audit, browser profiles,
  * the workspace files only the memory tool may change), `~/.ssh` and the other credential stores
@@ -41,7 +80,8 @@ export function protectedRoots(
   // run `npx` from `~/.npm-global`.
   const cliDirs = CLI_HOME_DIRS.map((segments) => join(userHome, ...segments));
   const linux = platform === "linux" ? [...LINUX_SYSTEM_ROOTS, ...psycheServerTarballRoot()] : [];
-  for (const p of [...defaultDenyRead(psycheHome, platform), ...cliDirs, ...linux]) {
+  const personal = [...browserProfiles(userHome), ...privateHomeRoots(userHome)];
+  for (const p of [...defaultDenyRead(psycheHome, platform), ...cliDirs, ...personal, ...linux]) {
     out.add(p);
     try {
       out.add(realpathSync(p));
