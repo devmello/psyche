@@ -29428,6 +29428,7 @@ public struct PointsShowResult: Codable, Sendable {
 public struct PointsStartParams: Codable, Sendable {
     public let entry: PointsEntry
     public let goal: String?
+    public let goalSource: GoalSource?
     public let locale: String
     public let strings: PointsCardStrings
     public let threadID: String?
@@ -29436,15 +29437,17 @@ public struct PointsStartParams: Codable, Sendable {
     public enum CodingKeys: String, CodingKey {
         case entry = "entry"
         case goal = "goal"
+        case goalSource = "goalSource"
         case locale = "locale"
         case strings = "strings"
         case threadID = "threadId"
         case window = "window"
     }
 
-    public init(entry: PointsEntry, goal: String? = nil, locale: String, strings: PointsCardStrings, threadID: String? = nil, window: String) {
+    public init(entry: PointsEntry, goal: String? = nil, goalSource: GoalSource? = nil, locale: String, strings: PointsCardStrings, threadID: String? = nil, window: String) {
         self.entry = entry
         self.goal = goal
+        self.goalSource = goalSource
         self.locale = locale
         self.strings = strings
         self.threadID = threadID
@@ -29456,6 +29459,11 @@ public enum PointsEntry: String, Codable, Sendable {
     case chat = "chat"
     case palette = "palette"
     case tray = "tray"
+}
+
+public enum GoalSource: String, Codable, Sendable {
+    case offer = "offer"
+    case owner = "owner"
 }
 
 // MARK: - PointsStartResult

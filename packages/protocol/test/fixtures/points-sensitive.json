@@ -334,6 +334,312 @@
       "label": "Number",
       "help": "Your passport number is on the photo page",
       "reason": "identity"
+    },
+    {
+      "label": "S​SN",
+      "reason": "identity"
+    },
+    {
+      "label": "CV​V",
+      "reason": "payment"
+    },
+    {
+      "label": "C​ard number",
+      "reason": "payment"
+    },
+    {
+      "label": "Social​ security number",
+      "reason": "identity"
+    },
+    {
+      "label": "Kre​ditkarte",
+      "reason": "payment"
+    },
+    {
+      "label": "Pаssword",
+      "reason": "password"
+    },
+    {
+      "label": "Раssport number",
+      "reason": "identity"
+    },
+    {
+      "label": "ЅЅN",
+      "reason": "identity"
+    },
+    {
+      "label": "S S N",
+      "reason": "identity"
+    },
+    {
+      "label": "S.S.N.",
+      "reason": "identity"
+    },
+    {
+      "label": "C V V",
+      "reason": "payment"
+    },
+    {
+      "label": "P a s s w o r d",
+      "reason": "password"
+    },
+    {
+      "label": "IB AN",
+      "reason": "payment"
+    },
+    {
+      "label": "SㅤSN",
+      "reason": "identity"
+    },
+    {
+      "label": "S⠀SN",
+      "reason": "identity"
+    },
+    {
+      "label": "Card",
+      "help": "Card​number",
+      "reason": "payment"
+    },
+    {
+      "label": "Mother’s maiden name",
+      "reason": "secret"
+    },
+    {
+      "label": "Mother´s maiden name",
+      "reason": "secret"
+    },
+    {
+      "label": "Driver’s license number",
+      "reason": "identity"
+    },
+    {
+      "label": "Mom's maiden name",
+      "reason": "secret"
+    },
+    {
+      "label": "Maiden name",
+      "reason": "secret"
+    },
+    {
+      "label": "What was the name of your first pet?",
+      "reason": "secret"
+    },
+    {
+      "label": "In what city were you born?",
+      "reason": "secret"
+    },
+    {
+      "label": "Name of your first school",
+      "reason": "secret"
+    },
+    {
+      "label": "Challenge question",
+      "reason": "secret"
+    },
+    {
+      "label": "Challenge answer",
+      "reason": "secret"
+    },
+    {
+      "label": "Recovery question",
+      "reason": "secret"
+    },
+    {
+      "label": "Answer",
+      "nearbyText": ["What was your first pet’s name?"],
+      "reason": "secret"
+    },
+    {
+      "label": "Driving licence number",
+      "reason": "identity"
+    },
+    {
+      "label": "DL number",
+      "reason": "identity"
+    },
+    {
+      "label": "License #",
+      "reason": "identity"
+    },
+    {
+      "label": "Licence number",
+      "reason": "identity"
+    },
+    {
+      "label": "Alien number",
+      "reason": "identity"
+    },
+    {
+      "label": "USCIS number",
+      "reason": "identity"
+    },
+    {
+      "label": "A#",
+      "reason": "identity"
+    },
+    {
+      "label": "I-94 number",
+      "reason": "identity"
+    },
+    {
+      "label": "EIN",
+      "reason": "identity"
+    },
+    {
+      "label": "Employer ID number",
+      "reason": "identity"
+    },
+    {
+      "label": "Last four digits of your Social",
+      "reason": "identity"
+    },
+    {
+      "label": "Steuernummer",
+      "reason": "identity"
+    },
+    {
+      "label": "PAN",
+      "reason": "identity"
+    },
+    {
+      "label": "PAN number",
+      "reason": "identity"
+    },
+    {
+      "label": "個人番号",
+      "reason": "identity"
+    },
+    {
+      "label": "Personnummer",
+      "reason": "identity"
+    },
+    {
+      "label": "Medicare number",
+      "reason": "identity"
+    },
+    {
+      "label": "NHS number",
+      "reason": "identity"
+    },
+    {
+      "label": "暗証番号",
+      "reason": "secret"
+    },
+    {
+      "label": "كلمة السر",
+      "reason": "password"
+    },
+    {
+      "label": "Passport photo page number",
+      "reason": "identity"
+    },
+    {
+      "label": "Number from your passport photo page",
+      "reason": "identity"
+    },
+    {
+      "label": "Passport",
+      "placeholder": "photo page number",
+      "reason": "identity"
+    },
+    {
+      "label": "Scanned passport: number",
+      "reason": "identity"
+    },
+    {
+      "label": "Passport copy number",
+      "reason": "identity"
+    },
+    {
+      "label": "Exp. date",
+      "reason": "payment"
+    },
+    {
+      "label": "MM/YY",
+      "reason": "payment"
+    },
+    {
+      "label": "Valid thru",
+      "reason": "payment"
+    },
+    {
+      "label": "Security digits",
+      "reason": "one_time_code"
+    },
+    {
+      "label": "CID",
+      "reason": "payment"
+    },
+    {
+      "label": "3-digit code on the back",
+      "reason": "one_time_code"
+    },
+    {
+      "label": "Enter the 6-digit code",
+      "reason": "one_time_code"
+    },
+    {
+      "label": "Confirmation code",
+      "reason": "one_time_code"
+    },
+    {
+      "label": "Login code",
+      "reason": "one_time_code"
+    },
+    {
+      "label": "Text message code",
+      "reason": "one_time_code"
+    },
+    {
+      "label": "Código",
+      "reason": "one_time_code"
+    },
+    {
+      "label": "Introduce el código",
+      "reason": "one_time_code"
+    },
+    {
+      "label": "Codice",
+      "reason": "one_time_code"
+    },
+    {
+      "label": "コードを入力",
+      "reason": "one_time_code"
+    },
+    {
+      "label": "Reference",
+      "identifier": "security_answer",
+      "reason": "secret"
+    },
+    {
+      "label": "Reference",
+      "identifier": "mothersMaidenName",
+      "reason": "secret"
+    },
+    {
+      "label": "Reference",
+      "identifier": "otpCode",
+      "reason": "one_time_code"
+    },
+    {
+      "label": "Reference",
+      "identifier": "itin",
+      "reason": "identity"
+    },
+    {
+      "label": "Reference",
+      "identifier": "aNumber",
+      "reason": "identity"
+    },
+    {
+      "label": "Reference",
+      "identifier": "steuer_id",
+      "reason": "identity"
+    },
+    {
+      "label": "Reference",
+      "identifier": "pan",
+      "reason": "identity"
     }
   ],
   "mustNotBeSensitive": [
@@ -465,6 +771,45 @@
     },
     {
       "label": "Area code"
+    },
+    {
+      "label": "Pass type"
+    },
+    {
+      "label": "Pass holder"
+    },
+    {
+      "label": "Pass date"
+    },
+    {
+      "label": "Pass mark"
+    },
+    {
+      "label": "Student card number"
+    },
+    {
+      "label": "Membership card number"
+    },
+    {
+      "label": "SIM card number"
+    },
+    {
+      "label": "Upload your passport photo"
+    },
+    {
+      "label": "Country code"
+    },
+    {
+      "label": "City of birth"
+    },
+    {
+      "label": "Place of birth"
+    },
+    {
+      "label": "Name on card"
+    },
+    {
+      "label": "Employee ID"
     }
   ],
   "acceptedFalseMatches": [
@@ -563,6 +908,40 @@
         "value": "123456",
         "label": "Verification code",
         "reason": "one_time_code"
+      },
+      {
+        "value": "４１１１１１１１１１１１１１１１",
+        "reason": "payment"
+      },
+      {
+        "value": "4111.1111.1111.1111",
+        "reason": "payment"
+      },
+      {
+        "value": "4111/1111/1111/1111",
+        "reason": "payment"
+      },
+      {
+        "value": "123/45/6789",
+        "reason": "identity"
+      },
+      {
+        "value": "１２３-４５-６７８９",
+        "reason": "identity"
+      },
+      {
+        "value": "1985 123456789",
+        "reason": "identity"
+      },
+      {
+        "value": "123456",
+        "label": "Código de acceso",
+        "reason": "one_time_code"
+      },
+      {
+        "value": "123456",
+        "label": "コード",
+        "reason": "one_time_code"
       }
     ],
     "mustNotBe": [
@@ -604,5 +983,38 @@
         "label": "Area code"
       }
     ]
-  }
+  },
+  "memoryRefused": [
+    "My mother’s maiden name is Doe",
+    "My social: 123456789",
+    "My tax number is 123456789",
+    "My DL is D1234567",
+    "My PAN is ABCDE1234F",
+    "Visa ４１１１１１１１１１１１１１１１",
+    "Visa 4111.1111.1111.1111",
+    "Social 123/45/6789",
+    "Answer to my security Q: Rex"
+  ],
+  "memoryAllowed": ["I was born in Springfield", "My employer is Acme", "Home city: Springfield"],
+  "notesRedacted": [
+    {
+      "note": "Your card 4111 1111 1111 1111",
+      "mustNotContain": ["4111", "1111"]
+    },
+    {
+      "note": "SSN 123-45-6789",
+      "mustNotContain": ["6789", "123"]
+    },
+    {
+      "note": "Type 123456789 here",
+      "mustNotContain": ["123456789"]
+    }
+  ],
+  "linksStripped": [
+    "evil.zip/login",
+    "evil.mov",
+    "192.168.1.1/login",
+    "evil。com",
+    "www。evil。com"
+  ]
 }

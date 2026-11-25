@@ -10034,15 +10034,18 @@ export interface PointsShowResult {
 }
 
 export interface PointsStartParams {
-    entry:     PointsEntry;
-    goal?:     string;
-    locale:    string;
-    strings:   PointsCardStrings;
-    threadId?: string;
-    window:    string;
+    entry:       PointsEntry;
+    goal?:       string;
+    goalSource?: GoalSource;
+    locale:      string;
+    strings:     PointsCardStrings;
+    threadId?:   string;
+    window:      string;
 }
 
 export type PointsEntry = "chat" | "palette" | "tray";
+
+export type GoalSource = "owner" | "offer";
 
 export interface PointsStartResult {
     app:       PointsStartResultApp;

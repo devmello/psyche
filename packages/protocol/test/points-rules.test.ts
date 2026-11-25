@@ -36,6 +36,10 @@ const fixture = JSON.parse(
   mustBeSensitive: Row[];
   mustNotBeSensitive: Row[];
   acceptedFalseMatches: Row[];
+  memoryRefused: string[];
+  memoryAllowed: string[];
+  notesRedacted: { note: string; mustNotContain: string[] }[];
+  linksStripped: string[];
   directionsOnlyPages: PointsPageFacts[];
   ordinaryPages: PointsPageFacts[];
   valueShapes: {
@@ -503,7 +507,7 @@ describe("points sanitizer", () => {
     const out = sanitizePointsNote("😀".repeat(200), 10);
     expect(Array.from(out)).toHaveLength(10);
     expect(out.endsWith("…")).toBe(true);
-    expect(Array.from(sanitizePointsNote("x".repeat(500)))).toHaveLength(140);
+    expect(Array.from(sanitizePointsNote("word ".repeat(100)))).toHaveLength(140);
   });
 
   it("hint: kept when plain, dropped when it holds a digit in any script", () => {
@@ -516,7 +520,46 @@ describe("points sanitizer", () => {
   });
 
   it("hint: is cut at 100 characters, and a link in it goes", () => {
-    expect(Array.from(sanitizePointsHint("x".repeat(300)) ?? "")).toHaveLength(100);
+    expect(Array.from(sanitizePointsHint("word ".repeat(100)) ?? "")).toHaveLength(100);
     expect(sanitizePointsHint("See https://evil.example for it")).toBe("See for it");
+  });
+});
+
+describe("points review round 1 (fixture rows)", () => {
+  it.each(fixture.memoryRefused.map((t) => [t] as const))("memory refuses: %s", (text) => {
+    const r = filterPointsMemoryLine({ id: "memory:m1", text, trusted: true });
+    expect(r.ok, text).toBe(false);
+  });
+  it.each(fixture.memoryAllowed.map((t) => [t] as const))("memory still passes: %s", (text) => {
+    expect(filterPointsMemoryLine({ id: "memory:m1", text, trusted: true }).ok, text).toBe(true);
+  });
+  it("memory: a secret past the 500 character cut is still caught", () => {
+    const text = `${"I like walking. ".repeat(40)}My social: 123456789`;
+    expect(filterPointsMemoryLine({ id: "memory:m1", text, trusted: true }).ok).toBe(false);
+  });
+  it.each(fixture.notesRedacted.map((r) => [r.note, r] as const))("note redacts: %s", (_n, r) => {
+    const out = sanitizePointsNote(r.note);
+    for (const bad of r.mustNotContain) expect(out).not.toContain(bad);
+    expect(out).toContain("…");
+    expect(sanitizePointsHint(r.note)).toBeNull();
+  });
+  it("note: ordinary numbers stay", () => {
+    expect(sanitizePointsNote("Box 3 on your W-2, 2026, page 12")).toBe(
+      "Box 3 on your W-2, 2026, page 12",
+    );
+  });
+  it.each(fixture.linksStripped.map((t) => [t] as const))("note strips the link: %s", (link) => {
+    expect(sanitizePointsNote(`Go to ${link} now`)).toBe("Go to now");
+  });
+  it("note: a CJK sentence with full stops is not a link", () => {
+    expect(sanitizePointsNote("名前を入力。次へ進む")).toBe("名前を入力。次へ進む");
+  });
+  it("a zip is not a shape, a nine-number run in a longer run is", () => {
+    expect(classifyPointsValue("62704")).toBeNull();
+    expect(classifyPointsValue("12345 6789")).toBe("identity");
+  });
+  it("the invisible and lookalike classes are judged: Hangul fillers, CGJ, Greek and Cyrillic", () => {
+    for (const label of ["SᅟSN", "SᅠSN", "SﾠSN", "S͏SN", "Ρassword", "Α-Number"])
+      expect(classifyPointsField({ label }), label).not.toBeNull();
   });
 });

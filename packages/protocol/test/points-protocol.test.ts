@@ -244,6 +244,22 @@ describe("points protocol: shapes", () => {
     expect(new RegExp(pointsSchemas.POINTS_FIELD_ID_PATTERN).test("f1; click")).toBe(false);
   });
 
+  it("a start says where the goal came from, and the offer part takes no other key", () => {
+    const ok = {
+      window: "w1",
+      goal: "x",
+      goalSource: "offer",
+      entry: "chat",
+      locale: "en",
+      strings: STRINGS,
+    };
+    expect(validateParams("points.start", ok)).toMatchObject({ goalSource: "offer" });
+    expect(() => validateParams("points.start", { ...ok, goalSource: "model" })).toThrow();
+    expect(
+      (PointsOfferBlock as unknown as { additionalProperties?: boolean }).additionalProperties,
+    ).toBe(false);
+  });
+
   it("the offer part carries a goal and starts nothing", () => {
     expect(Object.keys((PointsOfferBlock as unknown as Schema).properties ?? {}).sort()).toEqual([
       "goal",

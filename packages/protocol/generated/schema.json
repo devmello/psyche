@@ -38268,6 +38268,7 @@
       "type": "string"
     },
     "PointsOfferBlock": {
+      "additionalProperties": false,
       "properties": {
         "type": {
           "const": "points_offer",
@@ -38629,6 +38630,13 @@
         },
         "goal": {
           "maxLength": 500,
+          "type": "string"
+        },
+        "goalSource": {
+          "enum": [
+            "owner",
+            "offer"
+          ],
           "type": "string"
         },
         "threadId": {

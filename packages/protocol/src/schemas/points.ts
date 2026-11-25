@@ -368,6 +368,13 @@ export const PointsStartParams = Type.Object(
   {
     window: Type.String({ minLength: 1, maxLength: 80 }),
     goal: Type.Optional(Type.String({ maxLength: POINTS_LIMITS.goalMax })),
+    /**
+     * Where the goal's words come from. `owner`: the owner typed or edited it in the start sheet.
+     * `offer`: it is the agent's `points_offer` text, passed on unedited, so it is model text, not
+     * the owner's words: it is no grounding source and no Memory query (W6 enforces it). Absent
+     * with a goal counts as `offer`.
+     */
+    goalSource: Type.Optional(StringEnum(["owner", "offer"])),
     threadId: Type.Optional(Id),
     entry: PointsEntry,
     locale: Type.String({ minLength: 2, maxLength: 35 }),
@@ -580,5 +587,5 @@ export const PointsEndResult = Type.Object({}, { $id: "PointsEndResult", ...Stri
  */
 export const PointsOfferBlock = Type.Object(
   { type: Type.Literal("points_offer"), goal: Type.String({ maxLength: POINTS_LIMITS.goalMax }) },
-  { $id: "PointsOfferBlock" },
+  { $id: "PointsOfferBlock", ...Strict },
 );

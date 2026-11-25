@@ -68,7 +68,7 @@ export const POINTS_SENSITIVE_WORDS: readonly { reason: Reason; source: string }
       "contrasena|clave de acceso",
       "mot de passe|identifiant de connexion",
       "kennwort|passwort",
-      "パスワード|비밀번호|密码|密碼",
+      "パスワード|비밀번호|密码|密碼|كلمة السر|كلمه السر",
       "पासवर्ड|كلمة المرور|كلمه المرور",
     ].join("|"),
   },
@@ -83,6 +83,8 @@ export const POINTS_SENSITIVE_WORDS: readonly { reason: Reason; source: string }
       "codigo de verificacao|verificacao em duas etapas|autenticacao em dois fatores|codigo de uso unico",
       "認証コード|確認コード|二要素|二段階認証|ワンタイム",
       "인증\\s?번호|인증\\s?코드|2단계|일회용",
+      "\\d[- ]?digit (?:code|number|pin)|confirmation code|login code|sign[- ]?in code|(?:text|sms) (?:message )?code|verification|security digits",
+      "\\bcodigo\\b(?! postal)|\\bcodice\\b(?! fiscale)|コード|코드|代码|代碼|\u0915\u094b\u0921|\u0631\u0645\u0632",
       "验证码|驗證碼|两步验证|兩步驟驗證|动态密码|動態密碼",
       "सत्यापन कोड|ओटीपी|दो-चरण",
       "رمز التحقق|رمز التأكيد|المصادقة الثنائية",
@@ -92,7 +94,7 @@ export const POINTS_SENSITIVE_WORDS: readonly { reason: Reason; source: string }
     reason: "payment",
     source: [
       // English
-      "\\bcvv2?\\b|\\bcvc2?\\b|\\bccv\\b|card verification|\\bcard (?:security )?code\\b|credit card|debit card",
+      "\\bexp\\b|\\bmm ?/ ?yy|valid (?:thru|through|until|to)\\b|\\bcid\\b|code on the back|(?:back|rear) of (?:your |the )?card|\\bcvv2?\\b|\\bcvc2?\\b|\\bccv\\b|card verification|\\bcard (?:security )?code\\b|credit card|debit card",
       "routing\\s*(?:no\\b|#|transit)|\\baba\\b number|transit number|\\bbsb\\b|\\bifsc\\b|\\bbic\\b|\\bacct\\b|account no\\b|bank account",
       "direct deposit",
       // es
@@ -121,7 +123,7 @@ export const POINTS_SENSITIVE_WORDS: readonly { reason: Reason; source: string }
     reason: "identity",
     source: [
       // English: the US paperwork forms ask for these by name
-      "a[- ]?number|alien registration|\\bitin\\b|\\bein\\b number|employer identification|social insurance|national insurance|\\bnino\\b|\\bsin number\\b|\\baadhaar\\b|visa (?:control )?number|taxpayer identification|tax identification",
+      "a[- ]?number|\\ba ?#|alien (?:registration )?(?:number|no\\b)|\\buscis\\b|\\bi-?94\\b|\\bein\\b|employer id|\\bsocial\\b(?! (?:media|network|club|worker|event))|last (?:4|four) (?:digits|of)|\\bpan\\b|personnummer|burgerservicenummer|medicare|\\bnhs\\b|tax (?:number|no\\b|#)|steuernummer|steuer[- ]?nr|driving licen[cs]e|driver licen[cs]e|licen[cs]e\\s*(?:number|no\\b|num\\b|#)|\\bdl\\b|\\balien registration|\\bitin\\b|\\bein\\b number|employer identification|social insurance|national insurance|\\bnino\\b|\\bsin number\\b|\\baadhaar\\b|visa (?:control )?number|taxpayer identification|tax identification",
       // es
       "pasaporte|\\bdni\\b|\\bnie\\b|\\bnif\\b|\\bcurp\\b|seguro social|documento de identidad|identificacion fiscal|licencia de conducir|permiso de conducir",
       // fr
@@ -133,7 +135,7 @@ export const POINTS_SENSITIVE_WORDS: readonly { reason: Reason; source: string }
       // pt
       "passaporte|\\bcpf\\b|\\bcnh\\b|seguro social|carteira de motorista|identificacao fiscal",
       // ja
-      "パスポート|マイナンバー|社会保骜|運転免許|在留カード|旅券",
+      "パスポート|マイナンバー|個人番号|社会保障|運転免許|在留カード|旅券",
       // ko
       "여권|주민등록|외국인등록|운전면허",
       // zh
@@ -148,9 +150,10 @@ export const POINTS_SENSITIVE_WORDS: readonly { reason: Reason; source: string }
     reason: "secret",
     source: [
       // A security question's answer unlocks an account like a password does.
-      "security[- ]question|secret[- ]question|security[- ]answer|memorable (?:word|information)|mother'?s maiden",
+      "security[- ]question|security q\\b|secret[- ]question|security[- ]answer|memorable (?:word|information)|(?:mother|mom|mum|father|dad)'?s maiden|maiden name",
+      "challenge (?:question|answer)|recovery (?:question|answer)|your first (?:pet|school|car|teacher|job|street|phone|concert|kiss)|first pet|name of your (?:first|childhood|best)|in what (?:city|town|country) (?:were|was) you|what (?:was|is) the name of your|what (?:was|is) your (?:first|mother|father|favou?rite|childhood|oldest)",
       "pregunta de seguridad|pregunta secreta|question de securite|question secrete|code secret|sicherheitsfrage|geheimzahl|domanda di sicurezza|codice segreto|pergunta de seguranca|pergunta secreta",
-      "セキュリティの質問|秘密の質問|보안\\s?질문|安全问题|安全問題|密保",
+      "暗証番号|セキュリティの質問|秘密の質問|보안\\s?질문|安全问题|安全問題|密保",
       "सुरक्षा प्रश्न|سؤال الأمان",
     ].join("|"),
   },
@@ -164,12 +167,10 @@ const POINTS_WORDS = POINTS_SENSITIVE_WORDS.map((w) => ({
 /**
  * Narrow phrases that share a word with a sensitive label and are not one. Each is removed from
  * the text before the words run, so anything else the label says still counts ("Library card
- * PIN" is still a PIN). They are phrases, never whole labels or word classes.
+ * PIN" is still a PIN). They are phrases, never whole labels or word classes, and they are removed
+ * from each text on its own, never from the joined label and placeholder.
  */
 export const POINTS_BENIGN_PHRASES: readonly string[] = [
-  // A passport photo or scan is a file, not the number; "upload your passport number" is still a number.
-  "passport[- ]?(?:photo|picture|image|scan|upload|copy|file|attachment)s?",
-  "(?:upload|attach|scan)(?:ned|ed)?[- ]+(?:(?:your|a|an|the|of|my|copy|copies)[- ]+){0,3}passport(?![- ]*(?:number|no\\b|num\\b|#|id\\b))",
   // A card that is not a payment card: the same list the payment rule uses (an ID card number is an
   // identity number, so `id` stays out).
   `(?:${[...NOT_PAYMENT_CARD]
@@ -181,31 +182,170 @@ export const POINTS_BENIGN_PHRASES: readonly string[] = [
 ];
 const BENIGN = POINTS_BENIGN_PHRASES.map((s) => new RegExp(s, "giu"));
 
+/**
+ * A passport photo or scan is a file, not the number. It is let go only when the same text says
+ * nothing about a number or an id, and not when it is the photo page ("passport photo page number"
+ * is where the number is).
+ */
+const PASSPORT_FILE =
+  /passport[- ]?(?:photo|picture|image|scan|upload|copy|file|attachment)s?|(?:upload|attach|scan)(?:ned|ed)?[- ]+(?:(?:your|a|an|the|of|my|copy|copies)[- ]+){0,3}passport/giu;
+const PASSPORT_KEEP =
+  /\b(?:number|no|num|nr|id|numero|nummer)\b|#|photo[- ]?page|data[- ]?page|bio(?:graphic)?[- ]?page|\bpage\b/iu;
+
 const COMBINING_MARKS = /\p{M}+/gu;
+/** Characters that draw nothing: format controls, zero-width and filler characters, braille blank. */
+const INVISIBLE = /[\p{Default_Ignorable_Code_Point}\p{Cf}⠀]/gu;
+const APOSTROPHES = /[’‘ʼ´`′‵ʹ＇]/gu;
 
-/** NFKC, lower case, single spaces: how every rule here reads text. */
+/**
+ * NFKC, lower case, single spaces: how every rule here reads text. Invisible characters (zero
+ * width, the Hangul fillers, U+2800) are removed first so they cannot split a word, and every
+ * apostrophe is folded to `'` before NFKC, which would turn U+00B4 into a space and an accent.
+ */
 export function foldPointsText(text: string): string {
-  return text.normalize("NFKC").toLowerCase().replace(/\s+/gu, " ").trim();
-}
-
-function neutralise(text: string): string {
-  let out = foldPointsText(text);
-  for (const re of BENIGN) out = out.replace(re, " ");
-  return out;
+  return text
+    .replace(INVISIBLE, "")
+    .replace(APOSTROPHES, "'")
+    .normalize("NFKC")
+    .replace(INVISIBLE, "")
+    .toLowerCase()
+    .replace(/\s+/gu, " ")
+    .trim();
 }
 
 function stripAccents(text: string): string {
   return text.normalize("NFD").replace(COMBINING_MARKS, "").normalize("NFC");
 }
 
-/** The reason the words in some text mark a field sensitive, or `null`. */
-function reasonOfText(raw: string, identifier?: string): Reason | null {
-  if (raw === "" && (identifier ?? "") === "") return null;
-  const text = neutralise(raw);
-  const plain = stripAccents(text);
-  const teach = classifyTeachField({ label: text, ...(identifier ? { name: identifier } : {}) });
+/** Cyrillic, Greek and a few other letters that look like a Latin one, mapped to it. */
+const CONFUSABLES: Record<string, string> = {
+  а: "a",
+  е: "e",
+  о: "o",
+  р: "p",
+  с: "c",
+  у: "y",
+  х: "x",
+  ѕ: "s",
+  і: "i",
+  ј: "j",
+  һ: "h",
+  к: "k",
+  м: "m",
+  т: "t",
+  н: "h",
+  в: "b",
+  ԁ: "d",
+  ԛ: "q",
+  ԝ: "w",
+  г: "r",
+  з: "3",
+  б: "6",
+  и: "u",
+  зе: "ze",
+  α: "a",
+  β: "b",
+  ε: "e",
+  η: "n",
+  ι: "i",
+  κ: "k",
+  ν: "v",
+  ο: "o",
+  ρ: "p",
+  τ: "t",
+  υ: "u",
+  χ: "x",
+  ω: "w",
+  γ: "y",
+  μ: "u",
+  ı: "i",
+  ɱ: "m",
+  ɡ: "g",
+  ɑ: "a",
+  ȷ: "j",
+  ǀ: "l",
+  ӏ: "l",
+  І: "i",
+  ℓ: "l",
+};
+
+function skeleton(text: string): string {
+  return Array.from(text, (c) => CONFUSABLES[c] ?? c).join("");
+}
+
+/** `S S N`, `S.S.N.`, `IB AN`: runs of tokens of at most two letters, joined. */
+function joinShortRuns(text: string): string {
+  const parts = text.split(/([ .\-_]+)/u);
+  const out: string[] = [];
+  let i = 0;
+  while (i < parts.length) {
+    const tok = parts[i] ?? "";
+    if (/^\p{L}{1,2}$/u.test(tok)) {
+      let j = i;
+      let joined = "";
+      let n = 0;
+      while (j < parts.length && /^\p{L}{1,2}$/u.test(parts[j] ?? "")) {
+        joined += parts[j];
+        n += 1;
+        const sep = parts[j + 1];
+        if (
+          sep !== undefined &&
+          /^[ .\-_]+$/u.test(sep) &&
+          /^\p{L}{1,2}$/u.test(parts[j + 2] ?? "")
+        )
+          j += 2;
+        else break;
+      }
+      if (n >= 2) {
+        out.push(joined);
+        i = j + 1;
+        continue;
+      }
+    }
+    out.push(tok);
+    i += 1;
+  }
+  return out.join("");
+}
+
+/** Every reading of a text the rules judge: folded, without accents, as a Latin skeleton, with short runs joined. */
+function variantsOf(raw: string): string[] {
+  const folded = foldPointsText(raw);
+  const plain = stripAccents(folded);
+  const skel = skeleton(plain);
+  return [...new Set([folded, plain, skel, joinShortRuns(skel)])].filter((v) => v !== "");
+}
+
+function neutralise(text: string): string {
+  let out = text;
+  for (const re of BENIGN) out = out.replace(re, " ");
+  if (!PASSPORT_KEEP.test(out)) out = out.replace(PASSPORT_FILE, " ");
+  return out;
+}
+
+/** `mothersMaidenName`, `security_answer`, `otpCode`: an identifier read as words. */
+function identifierWords(id: string): string {
+  return id
+    .replace(/([\p{Ll}\p{N}])(\p{Lu})/gu, "$1 $2")
+    .replace(/(\p{Lu})(\p{Lu}\p{Ll})/gu, "$1 $2")
+    .replace(/[_\-.[\]:]+/gu, " ");
+}
+
+function reasonOfVariant(v: string): Reason | null {
+  const text = neutralise(v);
+  const teach = classifyTeachField({ label: text });
   if (teach !== null) return teach;
-  for (const w of POINTS_WORDS) if (w.re.test(text) || w.re.test(plain)) return w.reason;
+  for (const w of POINTS_WORDS) if (w.re.test(text)) return w.reason;
+  return null;
+}
+
+/** The reason the words in one text mark a field sensitive, or `null`. Each text on its own. */
+function reasonOfText(raw: string | undefined): Reason | null {
+  if (raw === undefined || raw === "") return null;
+  for (const v of variantsOf(raw)) {
+    const r = reasonOfVariant(v);
+    if (r !== null) return r;
+  }
   return null;
 }
 
@@ -225,6 +365,9 @@ export function classifyPointsPage(page: PointsPageFacts): "directions_only" | n
 /**
  * The reason a field is sensitive, or `null`. Decided from the field alone, before any value is
  * read. `page` is the result of `classifyPointsPage`: on a directions-only page every field is.
+ * The label, placeholder, help, identifier, group titles and nearby texts are each judged on
+ * their own, in every reading `variantsOf` makes of them (invisible characters removed,
+ * lookalike letters mapped, spaced-out letters joined).
  */
 export function classifyPointsField(
   f: PointsFieldFacts,
@@ -233,18 +376,18 @@ export function classifyPointsField(
   if (f.secure === true) return "secure_field";
   if (page === "directions_only") return "directions_only";
   const own = [f.label, f.placeholder, f.help].filter((x): x is string => typeof x === "string");
-  const direct = reasonOfText(own.join(" "), f.identifier);
-  if (direct !== null) return direct;
+  for (const t of own) {
+    const r = reasonOfText(t);
+    if (r !== null) return r;
+  }
+  if (f.identifier !== undefined) {
+    const r = reasonOfText(identifierWords(f.identifier)) ?? reasonOfText(f.identifier);
+    if (r !== null) return r;
+  }
   // The payment rule's own tokens (autocomplete `cc-*`, "credit card", "cvv"), as it reads them.
-  if (
-    isPaymentField({
-      autocomplete: f.autocomplete,
-      name: f.identifier,
-      label: f.label,
-      placeholder: f.placeholder,
-    })
-  )
-    return "payment";
+  const texts = own.flatMap(variantsOf);
+  if (isPaymentField({ autocomplete: f.autocomplete, name: f.identifier })) return "payment";
+  for (const t of texts) if (isPaymentField({ label: t })) return "payment";
   if (f.autocomplete !== undefined) {
     const auto = classifyTeachField({ autocomplete: f.autocomplete });
     if (auto !== null) return auto;
@@ -259,7 +402,7 @@ export function classifyPointsField(
 
 /** An IBAN: country, two check digits, up to 30 alphanumerics, and a valid mod 97 check. */
 function isIban(value: string): boolean {
-  const s = value.replace(/[ -]/gu, "").toUpperCase();
+  const s = value.replace(/[ ./_-]/gu, "").toUpperCase();
   if (!/^[A-Z]{2}\d{2}[A-Z0-9]{11,30}$/u.test(s)) return false;
   const moved = s.slice(4) + s.slice(0, 4);
   let rem = 0;
@@ -270,25 +413,98 @@ function isIban(value: string): boolean {
   return rem === 1;
 }
 
+function luhnOk(digits: string): boolean {
+  let sum = 0;
+  let dbl = false;
+  for (let i = digits.length - 1; i >= 0; i -= 1) {
+    let n = digits.charCodeAt(i) - 48;
+    if (dbl) {
+      n *= 2;
+      if (n > 9) n -= 9;
+    }
+    sum += n;
+    dbl = !dbl;
+  }
+  return sum % 10 === 0;
+}
+
+const isDecimalDigit = (cp: number) => /^\p{Nd}$/u.test(String.fromCodePoint(cp));
+
+/** Every decimal digit of any script as 0-9. NFKC already does the full-width and maths ones. */
+function asciiDigits(text: string): string {
+  return Array.from(text, (ch) => {
+    const cp = ch.codePointAt(0) ?? 0;
+    if (cp < 128 || !isDecimalDigit(cp)) return ch;
+    let start = cp;
+    while (isDecimalDigit(start - 1)) start -= 1;
+    return String((cp - start) % 10);
+  }).join("");
+}
+
+/** The text a value shape is judged on: no invisible characters, NFKC, ASCII digits. */
+function shapeText(text: string): string {
+  return asciiDigits(text.replace(INVISIBLE, "").normalize("NFKC").replace(INVISIBLE, ""));
+}
+
+/** Digit groups joined by a separator: `4111 1111`, `123/45/6789`, `4111.1111`, `12_34`. */
+const DIGIT_GROUP = /\d+/gu;
+const GROUP_SEPARATOR = /^[ ./_　-]*$/u;
+
+/**
+ * Where a text holds a card number (13 to 19 digits that pass Luhn) or a nine-digit run (an SSN
+ * or tax id), however the digits are grouped. A nine-digit run counts even when it sits in a longer
+ * run of groups (`1985 123456789`): every start group is tried.
+ */
+function digitShapes(
+  text: string,
+): { start: number; end: number; reason: "payment" | "identity" }[] {
+  const groups = [...text.matchAll(DIGIT_GROUP)].map((m) => ({
+    start: m.index ?? 0,
+    end: (m.index ?? 0) + m[0].length,
+    digits: m[0],
+  }));
+  const out: { start: number; end: number; reason: "payment" | "identity" }[] = [];
+  for (let i = 0; i < groups.length; i += 1) {
+    let all = "";
+    for (let j = i; j < groups.length; j += 1) {
+      const g = groups[j];
+      const prev = groups[j - 1];
+      if (g === undefined) break;
+      if (j > i && prev !== undefined && !GROUP_SEPARATOR.test(text.slice(prev.end, g.start)))
+        break;
+      all += g.digits;
+      if (all.length > 19) break;
+      const first = groups[i];
+      if (first === undefined) break;
+      if (all.length === 9) out.push({ start: first.start, end: g.end, reason: "identity" });
+      else if (all.length >= 13 && luhnOk(all))
+        out.push({ start: first.start, end: g.end, reason: "payment" });
+    }
+  }
+  return out;
+}
+
 /** "ZIP code", "Postal code", "Area code": a short number next to "code" that is not a secret. */
 const POSTAL_CODE_LABEL =
   /\b(?:zip|postal|post|area|country|dial(?:l)?ing|plz)[- ]?(?:code)?\b|郵便番号|邮政编码|邮编|우편번호|पिन कोड|الرمز البريدي/giu;
 
 /**
  * A value that is a secret whatever field it is in: the teach value shapes (a Luhn card number,
- * `ddd-dd-dddd`, a token, a seed phrase, a bare code next to "code" or "pin"), an IBAN, and a
- * nine-digit run or spaced SSN. A hit drops the value and marks the field `value_shape`.
+ * a token, a seed phrase, a bare code next to "code" or "pin"), an IBAN, a card number or a
+ * nine-digit run with any grouping (`4111.1111.1111.1111`, `123/45/6789`), in full-width or any
+ * script's digits, and a four to eight digit value in a field whose label is a one-time-code
+ * word in any shipped language. A hit drops the value and marks the field `value_shape`.
  */
 export function classifyPointsValue(value: string, label = ""): PointsSensitiveReason | null {
-  const teach = classifyTeachValue(value, label.replace(POSTAL_CODE_LABEL, " "));
+  const v = shapeText(value).trim();
+  const l = label.replace(POSTAL_CODE_LABEL, " ");
+  const teach = classifyTeachValue(v, l) ?? classifyTeachValue(value, l);
   if (teach !== null) return teach;
-  const v = value.trim();
-  if (/\b[A-Za-z]{2}\d{2}(?:[ -]?[A-Za-z0-9]){11,30}\b/u.test(v)) {
-    for (const m of v.matchAll(/\b[A-Za-z]{2}\d{2}(?:[ -]?[A-Za-z0-9]){11,30}\b/gu))
-      if (isIban(m[0])) return "payment";
-  }
-  if (/\b\d{3}[ .]\d{2}[ .]\d{4}\b/u.test(v)) return "identity";
-  if (/^\d{9}$/u.test(v)) return "identity";
+  for (const m of v.matchAll(/(?<![A-Za-z0-9])[A-Za-z]{2}\d{2}(?:[ ./_-]?[A-Za-z0-9]){11,30}/gu))
+    if (isIban(m[0])) return "payment";
+  const shape = digitShapes(v)[0];
+  if (shape !== undefined) return shape.reason;
+  if (/^\d{4,8}$/u.test(v) && reasonOfText(l) === "one_time_code") return "one_time_code";
   return null;
 }
 
@@ -326,7 +542,7 @@ export type PointsMemoryRefusal =
 const MEMORY_ID = /^(?:memory|profile):[A-Za-z0-9_.:-]{1,64}$/u;
 /** Kinds Psyche never brings out of Memory, even when the owner told it (§3.3.3). */
 const MEMORY_KIND_WORDS =
-  /\b(?:ssn|social security|passport|credit|debit|card|account|iban|routing|pin|cvv|cvc|password|passcode|itin|licen[cs]e|secret|token|api key|seed phrase)\b/iu;
+  /\b(?:ssn|social|passport|credit|debit|card|account|iban|routing|pin|cvv|cvc|password|passcode|itin|licen[cs]e|secret|token|api key|seed phrase|tax (?:number|no|id)|tax ?#|steuernummer|pan|dl|security q|maiden|ein|nino|aadhaar|medicare|nhs)\b|tax ?#|steuernummer/iu;
 
 /** Whether one Memory line may go to the model: trusted, with an id, no sensitive value or kind. */
 export function filterPointsMemoryLine(
@@ -334,16 +550,16 @@ export function filterPointsMemoryLine(
 ): { ok: true; text: string } | { ok: false; reason: PointsMemoryRefusal } {
   if (!line.trusted) return { ok: false, reason: "untrusted" };
   if (!MEMORY_ID.test(line.id)) return { ok: false, reason: "bad_id" };
-  const text = sanitizePointsValue(line.text);
-  if (text === "") return { ok: false, reason: "empty" };
-  if (classifyPointsValue(text) !== null) return { ok: false, reason: "sensitive_value" };
-  const folded = neutralise(text);
+  // Judge the whole line, then cut it: a secret past the cut must not slip by.
+  const full = sanitizePointsValue(line.text, Number.MAX_SAFE_INTEGER);
+  if (full === "") return { ok: false, reason: "empty" };
+  if (classifyPointsValue(full) !== null) return { ok: false, reason: "sensitive_value" };
   if (
-    reasonOfText(text) !== null ||
-    MEMORY_KIND_WORDS.test(folded) ||
-    MEMORY_KIND_WORDS.test(stripAccents(folded))
+    reasonOfText(full) !== null ||
+    variantsOf(full).some((v) => MEMORY_KIND_WORDS.test(neutralise(v)))
   )
     return { ok: false, reason: "sensitive_kind" };
+  const text = sanitizePointsValue(full);
   return { ok: true, text };
 }
 
@@ -588,7 +804,7 @@ export function groundPointsValue(
 
 /** Control and line-break characters become a space; format, private-use and lone surrogates vanish. */
 const TO_SPACE = /[\p{Cc}\p{Zl}\p{Zp}]/gu;
-const TO_NOTHING = /[\p{Cf}\p{Co}\p{Cs}]/gu;
+const TO_NOTHING = /[\p{Default_Ignorable_Code_Point}\p{Cf}\p{Co}\p{Cs}\u2800]/gu;
 
 function stripUnsafeChars(text: string): string {
   return text.replace(TO_SPACE, " ").replace(TO_NOTHING, "");
@@ -598,8 +814,34 @@ const EMAIL = /[^\s@<>()[\]"']+@[^\s@<>()[\]"']+\.[^\s@<>()[\]"']+/gu;
 const URL_WITH_SCHEME = /\b[a-z][a-z0-9+.-]{1,20}:(?:\/\/|\\\\)\S+/giu;
 const URL_SCHEME_ONLY = /\b(?:mailto|tel|sms|data|javascript|file|facetime|x-apple[a-z.-]*):\S*/giu;
 const URL_WWW = /\bwww\.\S+/giu;
-const URL_BARE =
-  /\b(?:[a-z0-9-]+\.)+(?:com|org|net|gov|edu|io|co|us|uk|de|fr|es|it|jp|cn|kr|in|app|dev|info|biz|xyz|me|ly|to|ru|br|ca|au|nl|ch|se|no|eu|cc|tv|ai|ink|link|click|top|site|online|shop|store|page|cloud|tech)\b(?:[/:?#]\S*)?/giu;
+/** Any dotted name whose last label is two or more letters (or punycode): `evil.zip`, `a.b.example`. */
+const URL_DOTTED =
+  /(?<![\p{L}\p{N}_-])(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+(?:[a-z]{2,}|xn--[a-z0-9-]+)(?![a-z0-9-])(?:[/:?#]\S*)?/giu;
+const URL_IPV4 = /(?<![\d.])\d{1,3}(?:\.\d{1,3}){3}(?![\d])(?:[/:?#]\S*)?/gu;
+/** An ideographic full stop between two address characters is a dot (`evil。com`). */
+const DOT_LOOKALIKE = /(?<=[a-z0-9-])[。｡．](?=[a-z0-9-])/giu;
+
+/**
+ * Every substring a value shape flags (a card number, a nine-digit run, an IBAN, a token) is
+ * replaced by an ellipsis, so a model note cannot carry a secret the value rules would drop.
+ */
+function redactShapes(text: string): string {
+  let out = text;
+  const ranges = digitShapes(out).sort((a, b) => b.start - a.start);
+  let floor = Number.POSITIVE_INFINITY;
+  for (const r of ranges) {
+    if (r.end > floor) continue;
+    out = `${out.slice(0, r.start)}…${out.slice(r.end)}`;
+    floor = r.start;
+  }
+  out = out.replace(/(?<![A-Za-z0-9])[A-Za-z]{2}\d{2}(?:[ ./_-]?[A-Za-z0-9]){11,30}/gu, (m) =>
+    isIban(m) ? "…" : m,
+  );
+  return out
+    .split(/(\s+)/u)
+    .map((w) => (/\S/u.test(w) && classifyTeachValue(w) !== null ? "…" : w))
+    .join("");
+}
 
 /**
  * Model text as the card draws it: plain text. No control, format or bidi characters (NEL, LS,
@@ -614,10 +856,12 @@ export function sanitizePointsNote(text: string, max = 140): string {
     .map((line) => line.replace(/^\s*(?:#{1,6}|>|[-*+])\s+/u, ""))
     .join(" ");
   t = stripUnsafeChars(t).normalize("NFKC");
-  t = stripUnsafeChars(t);
+  t = asciiDigits(stripUnsafeChars(t));
+  t = redactShapes(t);
+  t = t.replace(DOT_LOOKALIKE, ".");
   t = t.replace(/!?\[([^\]]*)\]\([^)]*\)/gu, "$1");
   t = t.replace(EMAIL, " ").replace(URL_WITH_SCHEME, " ").replace(URL_SCHEME_ONLY, " ");
-  t = t.replace(URL_WWW, " ").replace(URL_BARE, " ");
+  t = t.replace(URL_WWW, " ").replace(URL_IPV4, " ").replace(URL_DOTTED, " ");
   t = t
     .replace(/<[^>\n]*>/gu, " ")
     .replace(/[*`~|]/gu, "")
