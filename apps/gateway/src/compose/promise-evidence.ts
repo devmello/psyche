@@ -14,6 +14,7 @@ import {
   parseMailMeta,
   readConnectorTool,
   str,
+  withRead,
 } from "./mail-threads.ts";
 
 /**
@@ -45,8 +46,6 @@ export interface EvidenceDeps {
   connectors: () => readonly ConnectorRef[] | Promise<readonly ConnectorRef[]>;
   /** The live Mac helper for Messages; undefined while none is connected. */
   helper?: () => EvidenceHelper | undefined;
-  /** The owner's own addresses, lower case. */
-  ownerAddresses: () => ReadonlySet<string>;
   /** An address or handle to a person's entity id, or null when it is nobody the owner knows. */
   resolve: (contact: string) => string | null;
   logger?: { log(level: "warn", msg: string, fields?: Record<string, unknown>): void };
@@ -72,16 +71,64 @@ const gmailDate = (t: number): string => new Date(t).toISOString().slice(0, 10).
 
 // --- mail -------------------------------------------------------------------------------------
 
+/** How one mail connector family lists its Sent mailbox, searches, and reads a full message. */
+interface BoxedFlavor {
+  listBoxes: string;
+  /** The Sent mailboxes among the list: by role where the backend has one, else the exact name. */
+  sentBoxes(list: unknown): Record<string, unknown>[];
+  search: string;
+  /** Search params for a mailbox row; undefined searches the inbox. */
+  boxParams(box: Record<string, unknown>): Record<string, unknown>;
+  limitKey: string;
+  read: string;
+  readParams(raw: Record<string, unknown>): Record<string, unknown>;
+}
+
+const APPLE_SENT = /^sent( (messages|mail|items))?$/i;
+const APPLE: BoxedFlavor = {
+  listBoxes: "mail_mailboxes",
+  sentBoxes: (list) =>
+    output<Record<string, unknown>>(list, "mailboxes").filter((b) =>
+      APPLE_SENT.test(str(b.name).trim()),
+    ),
+  search: "mail_search",
+  boxParams: (b) => ({
+    mailbox: str(b.name),
+    ...(str(b.account) === "" ? {} : { account: str(b.account) }),
+  }),
+  limitKey: "limit",
+  read: "mail_read",
+  readParams: (raw) => ({
+    id: str(raw.id),
+    maxLength: 100,
+    ...(str(raw.mailbox) === "" ? {} : { mailbox: str(raw.mailbox) }),
+    ...(str(raw.account) === "" ? {} : { account: str(raw.account) }),
+  }),
+};
+const IMAP: BoxedFlavor = {
+  listBoxes: "mail_list_mailboxes",
+  sentBoxes: (list) =>
+    output<Record<string, unknown>>(list, "mailboxes").filter((b) => b.role === "sent"),
+  search: "mail_search_messages",
+  boxParams: (b) => ({ mailbox: str(b.id) }),
+  limitKey: "maxResults",
+  read: "mail_read_message",
+  readParams: (raw) => ({
+    id: str(raw.id),
+    ...(str(raw.mailbox) === "" ? {} : { mailbox: str(raw.mailbox) }),
+  }),
+};
+
 async function readMail(
   deps: EvidenceDeps,
   tools: ToolLookup,
   q: EvidenceQuery,
   connectors: readonly ConnectorRef[],
 ): Promise<MailMeta[]> {
-  const owner = deps.ownerAddresses();
   const out: MailMeta[] = [];
   const wanted = new Set(q.person.addresses.map((a) => a.toLowerCase()).filter(safeAddress));
   const involves = (m: MailMeta): boolean => wanted.has(m.from) || m.to.some((a) => wanted.has(a));
+  const since = new Date(q.sinceMs).toISOString();
   const safe = async <T>(label: string, fn: () => Promise<T>): Promise<T | undefined> => {
     try {
       return await fn();
@@ -93,6 +140,33 @@ async function readMail(
       return undefined;
     }
   };
+
+  /** Search rows into `MailMeta`, newest first, reading each full message for recipients and files. */
+  const collect = async (
+    c: ConnectorRef,
+    f: BoxedFlavor,
+    params: Record<string, unknown>,
+    sentBox: boolean,
+  ): Promise<void> => {
+    const found = await safe(f.search, () =>
+      readConnectorTool(tools, c.id, f.search, { ...params, since, [f.limitKey]: 30 }),
+    );
+    const rows = output<Record<string, unknown>>(found, "messages")
+      .map((raw) => ({ raw, meta: parseMailMeta(raw, { sentBox }) }))
+      .filter((x): x is { raw: Record<string, unknown>; meta: MailMeta } => x.meta !== undefined)
+      .filter((x) => x.meta.at > q.sinceMs)
+      .sort((a, b) => b.meta.at - a.meta.at)
+      .slice(0, MAX_READS);
+    for (const { raw, meta } of rows) {
+      // Apple summaries carry no recipients and no attachments: read the message before judging.
+      const read = await safe(f.read, () =>
+        readConnectorTool(tools, c.id, f.read, f.readParams(raw)),
+      );
+      const full = withRead(meta, read);
+      if (involves(full)) out.push(full);
+    }
+  };
+
   for (const c of connectorsOf(connectors, MAIL_CONNECTOR_TYPES)) {
     if (c.type === "google") {
       const threadIds = new Set<string>();
@@ -114,52 +188,18 @@ async function readMail(
           readConnectorTool(tools, c.id, "gmail_read_thread", { threadId }),
         );
         for (const raw of output<unknown>(th, "messages")) {
-          const m = parseMailMeta(raw, { ownerAddresses: owner, threadKey: threadId });
+          const m = parseMailMeta(raw, { threadKey: threadId });
           if (m !== undefined) out.push(m);
         }
       }
-    } else if (c.type === "apple:mail") {
-      const since = new Date(q.sinceMs).toISOString();
-      const found = await safe("mail_search", () =>
-        readConnectorTool(tools, c.id, "mail_search", { since, limit: 50 }),
-      );
-      let reads = 0;
-      for (const raw of output<Record<string, unknown>>(found, "messages")) {
-        const sentBox = /sent/i.test(str(raw.mailbox));
-        const m = parseMailMeta(raw, { ownerAddresses: owner, sentBox });
-        if (m === undefined || !involves(m)) continue;
-        if (m.fromOwner && m.attachments.length === 0 && reads < MAX_READS) {
-          reads++;
-          const read = await safe("mail_read", () =>
-            readConnectorTool(tools, c.id, "mail_read", {
-              id: str(raw.id),
-              maxLength: 100,
-              ...(str(raw.mailbox) === "" ? {} : { mailbox: str(raw.mailbox) }),
-              ...(str(raw.account) === "" ? {} : { account: str(raw.account) }),
-            }),
-          );
-          const withFiles = parseMailMeta(
-            { ...raw, attachments: (read as Record<string, unknown> | undefined)?.attachments },
-            { ownerAddresses: owner, sentBox },
-          );
-          out.push(withFiles ?? m);
-        } else out.push(m);
-      }
-    } else {
-      const found = await safe("mail_search_messages", () =>
-        readConnectorTool(tools, c.id, "mail_search_messages", {
-          since: new Date(q.sinceMs).toISOString(),
-          maxResults: 50,
-        }),
-      );
-      for (const raw of output<Record<string, unknown>>(found, "messages")) {
-        const m = parseMailMeta(raw, {
-          ownerAddresses: owner,
-          sentBox: /sent/i.test(str(raw.mailbox)),
-        });
-        if (m !== undefined && involves(m)) out.push(m);
-      }
+      continue;
     }
+    // Apple Mail, and IMAP, JMAP and Outlook (the shared `mail_*` tools): the owner's mail is only
+    // what sits in the account's own Sent mailbox, and the other side's is searched by sender.
+    const f = c.type === "apple:mail" ? APPLE : IMAP;
+    const boxes = await safe(f.listBoxes, () => readConnectorTool(tools, c.id, f.listBoxes, {}));
+    for (const box of f.sentBoxes(boxes).slice(0, 3)) await collect(c, f, f.boxParams(box), true);
+    for (const addr of [...wanted].slice(0, 3)) await collect(c, f, { from: addr }, false);
   }
   return out.filter((m) => m.at > q.sinceMs);
 }
@@ -185,10 +225,10 @@ export function messagesEvidence(
     const fromOwner = raw.isFromMe === true;
     const handle = str((raw.sender as Record<string, unknown> | null | undefined)?.handle);
     const sender = fromOwner ? null : resolve(handle);
-    const attachments = output<Record<string, unknown>>(raw.attachments, "attachments")
+    const files = output<Record<string, unknown>>(raw.attachments, "attachments")
       .filter((a) => a.isSticker !== true && a.isVoiceNote !== true)
-      .map((a) => str(a.filename).trim())
-      .filter((n) => n !== "");
+      .map((a) => ({ name: str(a.filename).trim(), mime: str(a.mimeType) }))
+      .filter((f) => f.name !== "");
     const chatId = str(raw.chatId) || null;
     const ref = `messages:${guid}`;
     sent.push({
@@ -196,9 +236,12 @@ export function messagesEvidence(
       channel: "messages",
       ref,
       threadKey: chatId,
+      // `isFromMe` is the helper's own record of who sent it.
+      fromOwner,
       toEntityIds: fromOwner ? [person.entityId] : [],
       ...(sender === null ? {} : { fromEntityId: sender }),
-      attachments,
+      attachments: files.map((f) => f.name),
+      attachmentMimes: files.map((f) => f.mime),
       links: [],
     });
     replies.push({

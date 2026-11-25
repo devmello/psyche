@@ -37,7 +37,6 @@ describe("mail-threads helpers (moved out of mail-followups)", () => {
 });
 
 describe("mail evidence", () => {
-  const owner = new Set([OWNER]);
   it("reads attachments off a Gmail message and tells the owner's mail apart", () => {
     const m = parseMailMeta(
       {
@@ -46,9 +45,10 @@ describe("mail evidence", () => {
         from: "Me <me@example.com>",
         to: "Sam <sam@example.com>",
         date: new Date(MON + DAY).toISOString(),
+        labelIds: ["SENT"],
         attachments: [{ filename: "deck.pdf" }, { filename: "logo.png", inline: true }],
       },
-      { ownerAddresses: owner },
+      {},
     );
     expect(m).toMatchObject({ fromOwner: true, attachments: ["deck.pdf"], threadKey: "t1" });
     const ev = mailEvidence(m ? [m] : [], resolve);
@@ -57,8 +57,63 @@ describe("mail evidence", () => {
   });
 
   it("drops malformed rows", () => {
-    expect(parseMailMeta({ id: "x" }, { ownerAddresses: owner })).toBeUndefined();
-    expect(parseMailMeta("nope", { ownerAddresses: owner })).toBeUndefined();
+    expect(parseMailMeta({ id: "x" })).toBeUndefined();
+    expect(parseMailMeta("nope")).toBeUndefined();
+  });
+});
+
+describe("the owner is whoever the mailbox says, never the From header", () => {
+  const row = (o: Record<string, unknown>) => ({
+    id: "g9",
+    threadId: "thread-1",
+    from: OWNER,
+    to: SAM_ADDR,
+    date: new Date(MON + DAY).toISOString(),
+    attachments: [{ filename: "budget-deck.pdf", mimeType: "application/pdf" }],
+    ...o,
+  });
+
+  it("a spoofed From: me@ in the INBOX is nobody's send", () => {
+    const m = parseMailMeta(row({ labelIds: ["INBOX", "UNREAD"] }));
+    expect(m?.fromOwner).toBe(false);
+    const ev = mailEvidence(m ? [m] : [], resolve);
+    expect(ev.sent[0]).toMatchObject({ fromOwner: false, toEntityIds: [] });
+    const loop = {
+      direction: "i_owe" as const,
+      whatAction: "send" as const,
+      text: "send Sam the budget deck",
+      counterpartId: SAM,
+      threadKey: "thread-1",
+    };
+    expect(
+      evaluateDone(loop, ev, { afterMs: MON, askSuppressed: false, askOpen: false }).kind,
+    ).toBe("none");
+    // Positive control: the same row labelled SENT is the owner's, and closes it.
+    const own = parseMailMeta(row({ labelIds: ["SENT"] }));
+    const ev2 = mailEvidence(own ? [own] : [], resolve);
+    expect(
+      evaluateDone(loop, ev2, { afterMs: MON, askSuppressed: false, askOpen: false }).kind,
+    ).toBe("auto");
+    // Sent to oneself (SENT and INBOX) is not a send to Sam either.
+    expect(parseMailMeta(row({ labelIds: ["SENT", "INBOX"] }))?.fromOwner).toBe(false);
+  });
+
+  it("a stranger's mail to Sam that copies the owner records no recipients", () => {
+    const m = parseMailMeta(
+      row({ from: "eve@evil.test", to: `${SAM_ADDR}, ${OWNER}`, labelIds: ["INBOX"] }),
+    );
+    const ev = mailEvidence(m ? [m] : [], resolve);
+    expect(ev.sent[0]).toMatchObject({ fromOwner: false, toEntityIds: [] });
+  });
+
+  it("inline pictures are not attachments", () => {
+    const m = parseMailMeta(
+      row({
+        labelIds: ["INBOX"],
+        attachments: [{ filename: "image001.png", mimeType: "image/png", inline: true }],
+      }),
+    );
+    expect(m?.attachments).toEqual([]);
   });
 });
 
@@ -131,10 +186,12 @@ describe("collectDoneEvidence looks tools up by connector id", () => {
     messages: [
       {
         id: "g1",
+        threadId: "thread-1",
         from: OWNER,
         to: SAM_ADDR,
         date: new Date(MON + DAY).toISOString(),
-        attachments: [{ filename: "budget-deck.pdf" }],
+        labelIds: ["SENT"],
+        attachments: [{ filename: "budget-deck.pdf", mimeType: "application/pdf" }],
       },
     ],
   };
@@ -159,7 +216,6 @@ describe("collectDoneEvidence looks tools up by connector id", () => {
       clock: new FakeClock(MON + 2 * DAY),
       tools: () => lookup,
       connectors: () => connectors,
-      ownerAddresses: () => new Set([OWNER]),
       resolve,
     };
     return { deps, calls };
@@ -223,5 +279,171 @@ describe("collectDoneEvidence looks tools up by connector id", () => {
     );
     const ev = await collectDoneEvidence(deps, query);
     expect(ev.sent).toEqual([]);
+  });
+});
+
+describe("Apple Mail and IMAP, with the connectors' real output shapes", () => {
+  const make = (
+    tools: Record<string, (p: Record<string, unknown>) => unknown>,
+    connectors: { id: string; type: string; status: string }[],
+  ) => {
+    const calls: { tool: string; params: Record<string, unknown> }[] = [];
+    const lookup: ToolLookup = {
+      get: (name) => {
+        const fn = tools[name];
+        if (fn === undefined) return undefined;
+        return {
+          run: async (params: Record<string, unknown>) => {
+            calls.push({ tool: name, params });
+            return { output: fn(params), provenance: "untrusted" as const };
+          },
+        } as never;
+      },
+    };
+    const deps: EvidenceDeps = {
+      clock: new FakeClock(MON + 2 * DAY),
+      tools: () => lookup,
+      connectors: () => connectors,
+      resolve,
+    };
+    return { deps, calls };
+  };
+  const query = {
+    person: { entityId: SAM, addresses: [SAM_ADDR], handles: [] },
+    threadKey: null,
+    sinceMs: MON,
+  };
+  const loop = {
+    direction: "i_owe" as const,
+    whatAction: "send" as const,
+    text: "send Sam the budget deck",
+    counterpartId: SAM,
+    threadKey: null,
+  };
+  const verdict = (ev: Awaited<ReturnType<typeof collectDoneEvidence>>) =>
+    evaluateDone(loop, ev, { afterMs: MON, askSuppressed: false, askOpen: false }).kind;
+  const when = new Date(MON + DAY).toISOString();
+
+  it("Apple Mail: searches the Sent mailbox by exact name, reads the message for recipients and files", async () => {
+    const summary = (mailbox: string, id: string) => ({
+      id,
+      mailbox,
+      account: "iCloud",
+      subject: "Budget",
+      from: `Me <${OWNER}>`,
+      date: when,
+      read: true,
+    });
+    const { deps, calls } = make(
+      {
+        // The shapes the helper returns: summaries have no `to`; `mail_read` wraps `message`.
+        "mcp__apple-mail__mail_mailboxes": () => ({
+          mailboxes: [
+            { name: "Sent Messages", account: "iCloud" },
+            { name: "Presentations", account: "iCloud" },
+            { name: "Unsent", account: "iCloud" },
+          ],
+        }),
+        "mcp__apple-mail__mail_search": (p) =>
+          p.mailbox === "Sent Messages"
+            ? { messages: [summary("Sent Messages", "41")] }
+            : { messages: [] },
+        "mcp__apple-mail__mail_read": () => ({
+          message: {
+            summary: summary("Sent Messages", "41"),
+            to: [`Sam Lee <${SAM_ADDR}>`],
+            cc: [],
+            body: "",
+            truncated: false,
+            attachments: [{ name: "budget-deck.pdf", size: 10, mimeType: "application/pdf" }],
+          },
+        }),
+      },
+      [{ id: "apple-mail", type: "apple:mail", status: "connected" }],
+    );
+    const ev = await collectDoneEvidence(deps, query);
+    expect(verdict(ev)).toBe("auto");
+    const boxes = calls.filter((c) => c.tool.endsWith("mail_search")).map((c) => c.params.mailbox);
+    expect(boxes).toContain("Sent Messages");
+    expect(boxes).not.toContain("Presentations");
+    expect(boxes).not.toContain("Unsent");
+  });
+
+  it("Apple Mail: a message in a folder named Unsent or Presentations is not the owner's", async () => {
+    const { deps } = make(
+      {
+        "mcp__apple-mail__mail_mailboxes": () => ({
+          mailboxes: [{ name: "Presentations", account: "iCloud" }],
+        }),
+        "mcp__apple-mail__mail_search": () => ({
+          messages: [
+            {
+              id: "7",
+              mailbox: "Presentations",
+              account: "iCloud",
+              subject: "x",
+              from: OWNER,
+              date: when,
+              read: true,
+            },
+          ],
+        }),
+        "mcp__apple-mail__mail_read": () => ({
+          message: { to: [SAM_ADDR], attachments: [{ name: "budget-deck.pdf" }] },
+        }),
+      },
+      [{ id: "apple-mail", type: "apple:mail", status: "connected" }],
+    );
+    const ev = await collectDoneEvidence(deps, query);
+    expect(ev.sent.every((m) => !m.fromOwner)).toBe(true);
+    expect(verdict(ev)).toBe("none");
+  });
+
+  it("IMAP: the Sent mailbox by role, then the full message's attachments", async () => {
+    const { deps } = make(
+      {
+        "mcp__imap-1__mail_list_mailboxes": () => ({
+          mailboxes: [
+            { id: "INBOX", name: "INBOX", role: "inbox" },
+            { id: "Sent", name: "Sent", role: "sent" },
+          ],
+        }),
+        "mcp__imap-1__mail_search_messages": (p) =>
+          p.mailbox === "Sent"
+            ? {
+                messages: [
+                  {
+                    id: "55",
+                    mailbox: "Sent",
+                    threadId: "t9",
+                    subject: "Budget",
+                    from: OWNER,
+                    to: SAM_ADDR,
+                    date: when,
+                    snippet: "",
+                    unread: false,
+                    flags: ["seen"],
+                  },
+                ],
+              }
+            : { messages: [] },
+        "mcp__imap-1__mail_read_message": () => ({
+          id: "55",
+          to: SAM_ADDR,
+          attachments: [
+            {
+              partId: "2",
+              filename: "budget-deck.pdf",
+              mimeType: "application/pdf",
+              size: 9,
+              tooLarge: false,
+            },
+          ],
+        }),
+      },
+      [{ id: "imap-1", type: "imap", status: "connected" }],
+    );
+    const ev = await collectDoneEvidence(deps, query);
+    expect(verdict(ev)).toBe("auto");
   });
 });

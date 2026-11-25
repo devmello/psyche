@@ -160,14 +160,15 @@ export function decide(
         by,
         nowMs,
         by === "owner" ? "owner" : "auto",
-        by === "auto" ? "auto_done" : "status",
+        by === "owner" ? "status" : "auto_done",
       );
     }
     case "reopen": {
       if (loop.status !== "done" && loop.status !== "dismissed" && loop.status !== "released")
         return bad("only a closed promise can be reopened");
       const closedAt = parseMs(loop.closedAt) ?? nowMs;
-      const undo = loop.status === "done" && loop.closedBy === "auto";
+      const undo =
+        loop.status === "done" && (loop.closedBy === "auto" || loop.closedBy === "reply_seen");
       if (undo && nowMs - closedAt > UNDO_AUTO_DONE_DAYS * DAY_MS)
         return bad("an automatic done can be undone for 7 days");
       return {

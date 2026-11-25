@@ -23,12 +23,19 @@ export interface SentItem {
   ref: string;
   /** The thread (mail thread key, chat id) the message is in, when the source knows it. */
   threadKey?: string | null;
-  /** Entity ids of the recipients, resolved by the caller. Unresolvable people are left out. */
+  /**
+   * The owner wrote it, as the source itself records (a Sent mailbox, the SENT label, `isFromMe`),
+   * never from a From header. Only such a message can close an `i_owe` promise.
+   */
+  fromOwner: boolean;
+  /** Entity ids of the recipients, for the owner's own messages only; empty for anyone else's. */
   toEntityIds: string[];
   /** Entity id of the sender, resolved by the caller. */
   fromEntityId?: string | null;
-  /** Attachment file names. */
+  /** Attachment file names (inline images are left out by the reader). */
   attachments: string[];
+  /** Their MIME types, same order; "" when the source did not say. */
+  attachmentMimes?: string[];
   /** Link texts or URLs' labels the message carries. */
   links: string[];
 }
@@ -170,8 +177,25 @@ function sharesWord(what: string, name: string): boolean {
 /** The thing a message delivered: its attachments and links, by name. */
 const deliverables = (m: SentItem): string[] => [...m.attachments, ...m.links];
 
-/** Whether a send's deliverables answer the promise: a shared content word, or exactly one. */
+const IMAGE_EXT = /\.(png|jpe?g|gif|heic|heif|webp|tiff?|bmp|svg)$/i;
+const NAMES_IMAGE =
+  /\b(photos?|pictures?|pics?|images?|screenshots?|headshots?|logos?|jpe?g|png)\b/i;
+
+/** Whether every attachment is a picture and there is no link: a signature image looks like this. */
+function onlyImages(m: SentItem): boolean {
+  if (m.links.length > 0 || m.attachments.length === 0) return false;
+  return m.attachments.every(
+    (n, i) =>
+      (m.attachmentMimes?.[i] ?? "").toLowerCase().startsWith("image/") || IMAGE_EXT.test(n),
+  );
+}
+
+/**
+ * Whether a send's deliverables answer the promise: a shared content word, or exactly one. A
+ * lone picture does not, unless the promise itself is about a photo or image.
+ */
 function delivers(what: string, m: SentItem): string | undefined {
+  if (onlyImages(m) && !NAMES_IMAGE.test(what)) return undefined;
   const items = deliverables(m);
   const hit = items.find((n) => sharesWord(what, n));
   if (hit !== undefined) return hit;
@@ -234,7 +258,9 @@ export function evaluateDone(
   }
 
   if (loop.direction === "i_owe") {
-    const mine = sent.filter((m) => toPromisee(loop, m));
+    // Only the owner's own messages count: someone else's reply, a stranger's mail that copies the
+    // owner, or a photo Sam sent into the chat is never the owner keeping a promise.
+    const mine = sent.filter((m) => m.fromOwner && toPromisee(loop, m));
     if (action === "send" || action === null) {
       const ok = mine
         .map((m) => ({ m, name: delivers(loop.text, m) }))
@@ -284,10 +310,15 @@ export function evaluateDone(
   const them = (id: string | null | undefined): boolean =>
     typeof loop.counterpartId === "string" && id === loop.counterpartId;
   if (action === "send" || action === null) {
-    const theirSends = sent.filter((m) => them(m.fromEntityId));
-    const delivered = latest(theirSends.filter((m) => deliverables(m).length > 0));
+    const theirSends = sent.filter((m) => !m.fromOwner && them(m.fromEntityId));
+    const isFile = (m: SentItem) =>
+      deliverables(m).length > 0 && !(onlyImages(m) && !NAMES_IMAGE.test(loop.text));
+    const delivered = latest(theirSends.filter(isFile));
     if (delivered !== undefined)
       return auto(ref(delivered, deliverables(delivered)[0] ?? "", "counterpart"));
+    // Only a picture (their signature) came: not a delivery, but worth a question.
+    const picture = latest(theirSends.filter((m) => deliverables(m).length > 0));
+    if (picture !== undefined) return askIf("unclear_attachment", ref(picture, "", "counterpart"));
     // They wrote, but sent nothing: ask. (A reply is not a delivery for a `send` promise.)
     const bare = latest(theirSends);
     if (bare !== undefined) return askIf("no_attachment", ref(bare, "", "counterpart"));
@@ -295,7 +326,9 @@ export function evaluateDone(
     if (reply !== undefined) return askIf("no_attachment", ref(reply, "", "counterpart"));
   }
   if (action === "reply") {
-    const r = latest(replies.filter((x) => !x.fromOwner && inThread(loop, x.threadKey)));
+    const r = latest(
+      replies.filter((x) => !x.fromOwner && them(x.fromEntityId) && inThread(loop, x.threadKey)),
+    );
     if (r !== undefined) return auto(ref(r, "", "counterpart"), "reply_seen");
   }
   const own = latest(modelDone.filter((m) => m.author === "owner"));
@@ -306,7 +339,15 @@ export function evaluateDone(
 }
 
 /** "Marked done: you sent deck.pdf on Thu", from the citation quote the store keeps. */
-export function doneQuote(e: DoneEvidenceRef, who: string): string {
+export function doneQuote(evidence: DoneEvidenceRef, who: string): string {
+  // A file name is someone's text: no control characters or angle brackets in the quote.
+  const plain = [...evidence.label]
+    .map((ch) =>
+      ch.charCodeAt(0) < 32 || ch.charCodeAt(0) === 127 || ch === "<" || ch === ">" ? " " : ch,
+    )
+    .join("")
+    .trim();
+  const e = { ...evidence, label: plain };
   if (e.channel === "calendar") return `${who} scheduled ${e.label}`;
   if (e.label === "") return e.by === "owner" ? "you replied" : `${who} replied`;
   return e.by === "owner" ? `you sent ${e.label}` : `${who} sent ${e.label}`;

@@ -743,25 +743,28 @@ export class PromiseStore {
     input: PromiseActionInput,
     opts: { citation?: PromiseCitationInput } = {},
   ): PromiseRow {
-    const loop = this.#must(id);
-    const lastAsk = this.#lastAsk(id);
-    const decision = decide(loop, input, {
-      nowMs: this.#now(),
-      ...(lastAsk === undefined ? {} : { lastAsk }),
-    });
-    const citationId = opts.citation === undefined ? null : this.addCitation(id, opts.citation);
-    const next = this.#graph.patchLoop(id, decision.patch);
-    if (decision.event !== null)
-      this.#event(
-        id,
-        decision.event.kind,
-        decision.event.from,
-        decision.event.to,
-        decision.event.by,
-        citationId,
-      );
-    if (decision.feedback !== undefined) this.#writeFeedback(decision.feedback, loop);
-    return this.#row(next);
+    // One transaction: a citation without its status change (or the reverse) is never left behind.
+    return this.#db.transaction(() => {
+      const loop = this.#must(id);
+      const lastAsk = this.#lastAsk(id);
+      const decision = decide(loop, input, {
+        nowMs: this.#now(),
+        ...(lastAsk === undefined ? {} : { lastAsk }),
+      });
+      const citationId = opts.citation === undefined ? null : this.addCitation(id, opts.citation);
+      const next = this.#graph.patchLoop(id, decision.patch);
+      if (decision.event !== null)
+        this.#event(
+          id,
+          decision.event.kind,
+          decision.event.from,
+          decision.event.to,
+          decision.event.by,
+          citationId,
+        );
+      if (decision.feedback !== undefined) this.#writeFeedback(decision.feedback, loop);
+      return this.#row(next);
+    })();
   }
 
   // --- sweep -----------------------------------------------------------------------------------

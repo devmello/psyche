@@ -40,6 +40,7 @@ const sent = (o: Partial<SentItem> = {}): SentItem => ({
   channel: "mail",
   ref: "mail:1",
   threadKey: THREAD,
+  fromOwner: true,
   toEntityIds: [SAM],
   attachments: ["budget-deck.pdf"],
   links: [],
@@ -101,6 +102,7 @@ describe("evaluateDone: each row of 4.2 fires", () => {
   it("theirs, send: the counterpart sent an attachment", () => {
     const l = loop({ direction: "waiting_on", text: "Sam sends the signed contract" });
     const theirs = sent({
+      fromOwner: false,
       fromEntityId: SAM,
       toEntityIds: [],
       attachments: ["signed-contract.pdf"],
@@ -170,6 +172,7 @@ describe("evaluateDone: near-misses never close it", () => {
   it("the counterpart's attachment from a different person does not close theirs", () => {
     const l = loop({ direction: "waiting_on", text: "Sam sends the signed contract" });
     const dana = sent({
+      fromOwner: false,
       fromEntityId: DANA,
       toEntityIds: [],
       attachments: ["signed-contract.pdf"],
@@ -215,6 +218,79 @@ describe("evaluateDone: near-misses never close it", () => {
         ),
       ),
     ).toBe("none");
+  });
+
+  it("someone else's message never closes the owner's send promise", () => {
+    // Probe 1: Sam replies in the thread with notes.pdf.
+    const samReply = sent({
+      fromOwner: false,
+      fromEntityId: SAM,
+      toEntityIds: [],
+      attachments: ["notes.pdf"],
+    });
+    // Probe 2: a stranger mails To: Sam with the owner on Cc. Even a reader that filled in the
+    // recipients does not make it the owner's send.
+    const stranger = sent({
+      fromOwner: false,
+      fromEntityId: DANA,
+      attachments: ["budget-deck.pdf"],
+    });
+    // Probe 3: Sam's photo arrives in the Messages chat.
+    const photo = sent({
+      channel: "messages",
+      ref: "messages:1",
+      fromOwner: false,
+      fromEntityId: SAM,
+      toEntityIds: [],
+      attachments: ["IMG_0042.heic"],
+      attachmentMimes: ["image/heic"],
+    });
+    for (const m of [samReply, stranger, photo])
+      expect(kind(evaluateDone(loop(), ev({ sent: [m] }), ctx()))).toBe("none");
+    // Positive control: the same file sent by the owner closes it.
+    const own = { ...samReply, fromOwner: true, toEntityIds: [SAM] };
+    expect(kind(evaluateDone(loop(), ev({ sent: [own] }), ctx()))).toBe("auto");
+  });
+
+  it("waiting_on needs the counterpart as sender and the owner not to be", () => {
+    const l = loop({ direction: "waiting_on", text: "Sam sends the signed contract" });
+    const fromSam = sent({
+      fromOwner: false,
+      fromEntityId: SAM,
+      toEntityIds: [],
+      attachments: ["signed-contract.pdf"],
+    });
+    expect(kind(evaluateDone(l, ev({ sent: [fromSam] }), ctx()))).toBe("auto");
+    // The owner's own send is not Sam delivering, even if a reader tagged Sam as the sender.
+    expect(kind(evaluateDone(l, ev({ sent: [{ ...fromSam, fromOwner: true }] }), ctx()))).toBe(
+      "none",
+    );
+    // A stranger's reply in the thread does not close a reply promise; Sam's does.
+    const lr = loop({ direction: "waiting_on", whatAction: "reply", text: "Sam answers" });
+    const stranger = reply({ fromOwner: false, fromEntityId: DANA });
+    expect(kind(evaluateDone(lr, ev({ replies: [stranger] }), ctx()))).toBe("none");
+    const sam = reply({ fromOwner: false, fromEntityId: SAM });
+    expect(kind(evaluateDone(lr, ev({ replies: [sam] }), ctx()))).toBe("auto");
+  });
+
+  it("a lone picture is a signature, not the deck: it asks", () => {
+    const png = { attachments: ["image001.png"], attachmentMimes: ["image/png"] };
+    expect(evaluateDone(loop(), ev({ sent: [sent(png)] }), ctx())).toMatchObject({
+      kind: "ask",
+      reason: "unclear_attachment",
+    });
+    // Waiting on Sam's contract and only his signature image arrives.
+    const l = loop({ direction: "waiting_on", text: "Sam sends the signed contract" });
+    const theirs = sent({ fromOwner: false, fromEntityId: SAM, toEntityIds: [], ...png });
+    expect(kind(evaluateDone(l, ev({ sent: [theirs] }), ctx()))).toBe("ask");
+    // Controls: the promise is about a photo, or a document comes with it.
+    const photo = loop({ text: "send Sam the photo from Friday" });
+    expect(kind(evaluateDone(photo, ev({ sent: [sent(png)] }), ctx()))).toBe("auto");
+    const both = sent({
+      attachments: ["image001.png", "deck.pdf"],
+      attachmentMimes: ["image/png", "application/pdf"],
+    });
+    expect(kind(evaluateDone(loop(), ev({ sent: [both] }), ctx()))).toBe("auto");
   });
 
   it("a do promise is never closed by a signal, even the owner's own words", () => {
@@ -325,6 +401,61 @@ describe("applyDoneSignals on the ledger", () => {
     expect(applyDoneSignals(store, id, plain, "Sam").kind).toBe("none");
     clock.advance(4 * DAY);
     expect(applyDoneSignals(store, id, plain, "Sam").kind).toBe("ask");
+  });
+
+  it("a reply_seen done is undoable for 7 days, like the other automatic dones", () => {
+    const r = store.add({
+      direction: "waiting_on",
+      what: "Sam answers about the lease",
+      counterpartId: SAM_ID,
+      provenance: "untrusted",
+      confidence: 0.8,
+      detectedBy: "model",
+      sourceKind: "mail",
+      threadKey: THREAD,
+      whatAction: "reply",
+    });
+    if (r.kind !== "created") throw new Error("not created");
+    const rid = r.promise.id;
+    store.act(rid, { action: "confirm" });
+    clock.set(MON + DAY);
+    const theirReply: ReplyItem = reply({ fromOwner: false, fromEntityId: SAM_ID });
+    expect(applyDoneSignals(store, rid, ev({ replies: [theirReply] }), "Sam")).toMatchObject({
+      kind: "done",
+      closedBy: "reply_seen",
+    });
+    expect(store.get(rid)).toMatchObject({ status: "done", closedBy: "reply_seen" });
+    clock.advance(2 * DAY);
+    store.act(rid, { action: "reopen" });
+    expect(store.events(rid).some((e) => e.kind === "undo")).toBe(true);
+    // The same reply does not close it again.
+    expect(applyDoneSignals(store, rid, ev({ replies: [theirReply] }), "Sam").kind).toBe("none");
+    // And after 7 days the undo window is gone.
+    clock.advance(DAY);
+    const later = reply({ at: clock.now() + 1, fromOwner: false, fromEntityId: SAM_ID });
+    clock.advance(10);
+    expect(applyDoneSignals(store, rid, ev({ replies: [later] }), "Sam").kind).toBe("done");
+    clock.advance(8 * DAY);
+    expect(() => store.act(rid, { action: "reopen" })).toThrow(/7 days/);
+  });
+
+  it("a refused action leaves no citation behind", () => {
+    store.act(id, { action: "done" });
+    const before = store.citations(id).length;
+    const evidence = {
+      channel: "mail" as const,
+      ref: "r",
+      quote: "q",
+      provenance: "owner" as const,
+    };
+    expect(() =>
+      store.act(
+        id,
+        { action: "done" },
+        { citation: { source: evidence.channel, sourceRef: "r", quote: "q", provenance: "owner" } },
+      ),
+    ).toThrow();
+    expect(store.citations(id)).toHaveLength(before);
   });
 
   it("skips a promise that is already closed", () => {

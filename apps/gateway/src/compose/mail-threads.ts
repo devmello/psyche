@@ -106,35 +106,43 @@ export interface MailMeta {
   from: string;
   to: string[];
   at: number;
-  /** The owner wrote it (a Sent mailbox, a SENT label, or the owner's own address). */
+  /**
+   * The owner wrote it: it sits in a Sent mailbox, or Gmail labels it SENT and not INBOX. Never
+   * the From header, which anyone can forge.
+   */
   fromOwner: boolean;
   attachments: string[];
+  attachmentMimes: string[];
   links: string[];
   link?: string;
 }
 
-const names = (v: unknown): string[] =>
-  (Array.isArray(v) ? v : []).flatMap((a): string[] => {
-    if (typeof a === "string") return a.trim() === "" ? [] : [a.trim()];
-    if (a !== null && typeof a === "object") {
-      const o = a as Record<string, unknown>;
-      const n = str(o.filename) || str(o.fileName) || str(o.name) || str(o.title);
-      // Inline images (signatures, tracking pixels) are not something the owner sent.
-      if (o.inline === true || o.isInline === true) return [];
-      return n.trim() === "" ? [] : [n.trim()];
-    }
-    return [];
+/** Attachments as the connectors list them: Gmail and IMAP `filename`, Apple Mail `name`. */
+export function attachmentList(v: unknown): { name: string; mime: string }[] {
+  return (Array.isArray(v) ? v : []).flatMap((a): { name: string; mime: string }[] => {
+    if (typeof a === "string") return a.trim() === "" ? [] : [{ name: a.trim(), mime: "" }];
+    if (a === null || typeof a !== "object") return [];
+    const o = a as Record<string, unknown>;
+    // Inline pictures (signatures, tracking pixels) are not something anyone sent.
+    if (o.inline === true || o.isInline === true) return [];
+    const name = (str(o.filename) || str(o.fileName) || str(o.name) || str(o.title)).trim();
+    return name === "" ? [] : [{ name, mime: str(o.mimeType) || str(o.mime) }];
   });
+}
 
 const splitAddrs = (v: unknown): string[] =>
   (Array.isArray(v) ? v.map((x) => str(x)) : str(v).split(","))
     .map((x) => addressOf(x))
     .filter((x) => x !== "");
 
-/** A connector's message (Gmail, Apple Mail, IMAP) as `MailMeta`; anything malformed is dropped. */
+/**
+ * A connector's message summary (Gmail thread message, Apple Mail or IMAP search row) as
+ * `MailMeta`; anything malformed is dropped. `sentBox` is true only for rows read out of the
+ * account's Sent mailbox.
+ */
 export function parseMailMeta(
   raw: unknown,
-  opts: { ownerAddresses: ReadonlySet<string>; threadKey?: string | null; sentBox?: boolean },
+  opts: { threadKey?: string | null; sentBox?: boolean } = {},
 ): MailMeta | undefined {
   if (raw === null || typeof raw !== "object") return undefined;
   const m = raw as Record<string, unknown>;
@@ -143,11 +151,9 @@ export function parseMailMeta(
   const from = addressOf(str(m.from));
   if (id === "" || Number.isNaN(at) || from === "") return undefined;
   const labels = Array.isArray(m.labelIds) ? (m.labelIds as unknown[]) : [];
-  const fromOwner =
-    opts.ownerAddresses.has(from) ||
-    opts.sentBox === true ||
-    (labels.includes("SENT") && !labels.includes("INBOX"));
+  const fromOwner = opts.sentBox === true || (labels.includes("SENT") && !labels.includes("INBOX"));
   const link = str(m.link);
+  const files = attachmentList(m.attachments);
   return {
     id,
     threadKey: opts.threadKey ?? (str(m.threadId) || null),
@@ -155,9 +161,32 @@ export function parseMailMeta(
     to: splitAddrs(m.to),
     at,
     fromOwner,
-    attachments: names(m.attachments),
-    links: names(m.links),
+    attachments: files.map((f) => f.name),
+    attachmentMimes: files.map((f) => f.mime),
+    links: [],
     ...(link === "" ? {} : { link }),
+  };
+}
+
+/**
+ * Adds what a full read of one message knows: recipients and attachments. Apple Mail wraps it
+ * as `{ message: { to, attachments: [{ name, mimeType }] } }`; IMAP and JMAP return the message
+ * itself with `attachments: [{ filename, mimeType }]`.
+ */
+export function withRead(meta: MailMeta, read: unknown): MailMeta {
+  const wrapped = (read as Record<string, unknown> | null | undefined)?.message;
+  const r = (wrapped !== null && typeof wrapped === "object" ? wrapped : read) as
+    | Record<string, unknown>
+    | null
+    | undefined;
+  if (r === null || r === undefined || typeof r !== "object") return meta;
+  const files = attachmentList(r.attachments);
+  const to = splitAddrs(r.to);
+  return {
+    ...meta,
+    to: to.length > 0 ? to : meta.to,
+    attachments: files.map((f) => f.name),
+    attachmentMimes: files.map((f) => f.mime),
   };
 }
 
@@ -177,16 +206,22 @@ export function mailEvidence(
     if (seen.has(m.id)) continue;
     seen.add(m.id);
     const ref = m.link ?? `mail:${m.id}`;
-    const to = [...new Set(m.to.map(resolve).filter((x): x is string => x !== null))];
+    // Recipients count for the owner's own mail only; a stranger's mail that copies the owner is
+    // not the owner sending anything.
+    const to = m.fromOwner
+      ? [...new Set(m.to.map(resolve).filter((x): x is string => x !== null))]
+      : [];
     const sender = m.fromOwner ? null : resolve(m.from);
     sent.push({
       at: m.at,
       channel: "mail",
       ref,
       threadKey: m.threadKey,
+      fromOwner: m.fromOwner,
       toEntityIds: to,
       ...(sender === null ? {} : { fromEntityId: sender }),
       attachments: m.attachments,
+      attachmentMimes: m.attachmentMimes,
       links: m.links,
     });
     replies.push({
