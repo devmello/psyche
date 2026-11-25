@@ -58,6 +58,16 @@ Rules:
 - Do not repeat values the owner marked wrong.
 - If nothing is known, use an empty list or null.`;
 
+/**
+ * The same prompt without loops, for the pass while the promise ledger is on (design 2.1): the
+ * promise lane is then the only place a promise is extracted, so there is no double extraction.
+ * Facts, gists, the summary and the project fields are unchanged.
+ */
+export const GRAPH_SYSTEM_PROMPT_NO_LOOPS = GRAPH_SYSTEM_PROMPT.replace(
+  /"loops": \[\{[^\n]*?\}\], /,
+  "",
+).replace(/^- loops:[^\n]*\n/m, "");
+
 interface ModelOutput {
   summary?: unknown;
   facts?: unknown;
@@ -81,7 +91,14 @@ function quote(text: string): string {
 export async function runGraphModelPass(
   graph: GraphStore,
   config: GraphModelConfig,
-  options: { clock?: Clock; excerpts?: OwnerExcerpts; signal?: AbortSignal; only?: string[] } = {},
+  options: {
+    clock?: Clock;
+    excerpts?: OwnerExcerpts;
+    signal?: AbortSignal;
+    only?: string[];
+    /** `promises.enabled`: the promise lane owns loops, so the pass neither asks for nor writes them. */
+    ledgerOn?: boolean;
+  } = {},
 ): Promise<ModelPassReport> {
   const report: ModelPassReport = {
     entities: 0,
@@ -93,6 +110,7 @@ export async function runGraphModelPass(
     tokens: 0,
     deferred: 0,
   };
+  const system = options.ledgerOn === true ? GRAPH_SYSTEM_PROMPT_NO_LOOPS : GRAPH_SYSTEM_PROMPT;
   const maxEntities = config.maxEntitiesPerNight ?? 200;
   const maxTokens = config.maxTokensPerNight ?? 150_000;
   const pending =
@@ -164,7 +182,7 @@ The owner's own words: ${JSON.stringify(input.ownerExcerpts)}
       for await (const event of config.provider.stream(
         {
           model: config.model,
-          system: GRAPH_SYSTEM_PROMPT,
+          system,
           messages: [{ role: "user", parts: [{ type: "text", text: prompt }] }],
           toolChoice: "none",
           maxOutputTokens: 800,
@@ -182,7 +200,7 @@ The owner's own words: ${JSON.stringify(input.ownerExcerpts)}
       continue;
     }
     report.tokens +=
-      used > 0 ? used : Math.ceil((prompt.length + GRAPH_SYSTEM_PROMPT.length + reply.length) / 4);
+      used > 0 ? used : Math.ceil((prompt.length + system.length + reply.length) / 4);
     report.entities++;
     const parsed = parseOutput(reply);
     if (parsed === undefined) {
@@ -223,7 +241,8 @@ The owner's own words: ${JSON.stringify(input.ownerExcerpts)}
       if (written === undefined) report.dropped++;
       else report.facts++;
     }
-    for (const l of Array.isArray(parsed.loops) ? parsed.loops : []) {
+    // With the ledger on, a loop in the reply is ignored even if the model wrote one anyway.
+    for (const l of options.ledgerOn === true || !Array.isArray(parsed.loops) ? [] : parsed.loops) {
       const loop = l as {
         direction?: unknown;
         text?: unknown;

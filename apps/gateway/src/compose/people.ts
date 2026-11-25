@@ -212,6 +212,8 @@ export interface People {
 export function composePeople(deps: PeopleDeps): People {
   const { db, clock, memory } = deps;
   const settings = () => graphSettings(getSetting(db, GRAPH_SETTING)?.value);
+  /** `promises.enabled`: the promise lane extracts promises, so the model pass stops asking for loops. */
+  const ledgerOn = (): boolean => getSetting(db, "promises.enabled")?.value === true;
   const index = new SqliteSearchIndex(db.sqlite, { now: () => clock.now() });
   let graph: GraphStore | undefined;
   const reindex = async (id: string) => {
@@ -361,7 +363,7 @@ export function composePeople(deps: PeopleDeps): People {
         maxEntitiesPerNight: AFTER_RUN_ENTITIES,
         maxTokensPerNight: AFTER_RUN_TOKENS,
       },
-      { clock, only: ids },
+      { clock, only: ids, ledgerOn: ledgerOn() },
     );
     for (const id of ids) {
       const e = store.getEntity(id);
@@ -462,7 +464,7 @@ export function composePeople(deps: PeopleDeps): People {
           maxEntitiesPerNight: s.model.maxEntitiesPerNight,
           maxTokensPerNight: s.model.maxTokensPerNight,
         },
-        { clock },
+        { clock, ledgerOn: ledgerOn() },
       );
       lastPass = {
         at: new Date(clock.now()).toISOString(),

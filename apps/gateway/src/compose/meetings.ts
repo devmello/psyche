@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import { basename, extname, join } from "node:path";
 import type { AgentToolRegistry } from "@psyche/agent-core";
 import { getLibraryItem, type PsycheDb } from "@psyche/db";
-import type { GraphStore } from "@psyche/memory";
+import type { GraphStore, PromiseStore } from "@psyche/memory";
 import {
   type AudioCapture,
   type CapturedAudio,
@@ -92,6 +92,13 @@ export interface MeetingsSetup {
   capture?: () => AudioCapture | undefined;
   /** The people graph while `memory.graph` is on: "they owe you" loops land there. */
   graph?: () => GraphStore | undefined;
+  /**
+   * The promise ledger (`promises.enabled`). `undefined`: the ledger is off and "they owe you"
+   * loops go to the graph as before. `"off"`: the ledger is on but meetings are not a source
+   * (`promises.sources.meetings`), so nothing is written. A target: loops are written to the
+   * ledger with a citation to the meeting.
+   */
+  promises?: () => MeetingLedgerTarget | "off" | undefined;
   /** The bundle ids of the running apps from the helper, for ending Record meeting on app quit. */
   runningApps?: () => Promise<readonly string[] | undefined>;
   ownerAddresses: () => Promise<string[]>;
@@ -134,7 +141,14 @@ export function composeMeetings(setup: MeetingsSetup): ComposedMeetings {
     ...(setup.primaryIsRemote === undefined ? {} : { primaryIsRemote: setup.primaryIsRemote }),
     ...(setup.transcriber === undefined ? {} : { transcriber: setup.transcriber }),
     ...(setup.proposals === undefined ? {} : { proposals: setup.proposals }),
-    ...(setup.graph === undefined ? {} : { addLoop: graphLoopWriter(setup.graph) }),
+    ...(setup.graph === undefined
+      ? {}
+      : {
+          addLoop: graphLoopWriter(
+            setup.graph,
+            ...(setup.promises === undefined ? [] : [setup.promises]),
+          ),
+        }),
     ...(setup.timezone === undefined ? {} : { timezone: setup.timezone }),
     ...(setup.onFeedEvent === undefined ? {} : { onFeedEvent: setup.onFeedEvent }),
     onError: (err) =>
@@ -501,26 +515,64 @@ export function graphPrepHooks(graph: () => GraphStore | undefined): {
   };
 }
 
+export interface MeetingLedgerTarget {
+  store: PromiseStore;
+  /** `promises.state.muted`: nobody here gets a promise tracked. */
+  mutedEntities?: ReadonlySet<string>;
+}
+
 /**
  * "They owe you" loops from meeting notes (§4.6 step 3): the counterpart is the one active person
  * whose name matches; a transcript is other people's words, so the graph keeps such a loop
- * suggested until the owner confirms it.
+ * suggested until the owner confirms it. With the promise ledger on, the loop is a ledger promise
+ * (basis `promise`, source `meeting`, a citation to the meeting) and the store makes it
+ * `suggested` because it is someone else's promise.
  */
 export function graphLoopWriter(
   graph: () => GraphStore | undefined,
+  ledger?: () => MeetingLedgerTarget | "off" | undefined,
 ): (loop: TheyOweLoop) => Promise<{ id: string } | undefined> {
   return async (loop) => {
     const g = graph();
     if (g === undefined) return undefined;
+    const mode = ledger?.();
+    if (mode === "off") return undefined;
     const name = loop.counterpart.trim().toLowerCase();
     const matches = g
       .search(loop.counterpart, { kinds: ["person"], limit: 5 })
       .filter((p) => !p.isOwner && p.name.trim().toLowerCase().startsWith(name));
+    const counterpartId = matches.length === 1 ? (matches[0]?.id ?? null) : null;
+    const text = matches.length === 1 ? loop.text : `${loop.counterpart}: ${loop.text}`;
+    if (mode !== undefined) {
+      if (counterpartId !== null && mode.mutedEntities?.has(counterpartId) === true)
+        return undefined;
+      const sourceRef = `meeting:${loop.meetingId ?? "notes"}`;
+      const quote = loop.evidence ?? loop.text;
+      const added = mode.store.add({
+        direction: "waiting_on",
+        what: text.slice(0, 120),
+        counterpartId,
+        counterpartLabel: loop.counterpart.slice(0, 80),
+        ...(loop.dueAt === null
+          ? { dueKind: "none" as const }
+          : { dueAt: loop.dueAt, dueKind: "explicit" as const, dueConfidence: 0.7 }),
+        provenance: loop.provenance,
+        confidence: 0.7,
+        detectedBy: "model",
+        sourceKind: "meeting",
+        threadKey: sourceRef,
+        evidence: loop.evidence,
+        citation: { source: "notes", sourceRef, quote, provenance: loop.provenance },
+      });
+      return added.kind === "created" || added.kind === "merged"
+        ? { id: added.promise.id }
+        : undefined;
+    }
     const created = g.addLoop({
       direction: "waiting_on",
-      text: matches.length === 1 ? loop.text : `${loop.counterpart}: ${loop.text}`,
+      text,
       evidence: loop.evidence,
-      counterpartId: matches.length === 1 ? (matches[0]?.id ?? null) : null,
+      counterpartId,
       dueAt: loop.dueAt,
       status: "open",
       provenance: loop.provenance,
