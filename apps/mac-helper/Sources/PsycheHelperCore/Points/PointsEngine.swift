@@ -43,6 +43,8 @@ public final class PointsEngine<S: PointsAXSource>: @unchecked Sendable {
 
     private var ids = PointsFieldIds<Node>()
     private var records: [String: PointsFieldRecord<Node>] = [:]
+    /// Field ids in tree order, for "the next two planned fields" (the overlay keeps its card off them).
+    private var order: [String] = []
     /// Every node ever judged sensitive this session, with its reason. A node in here is never read again.
     private var latched: [Node: PointsSensitiveReason] = [:]
     private var sensitiveFill: [Node: PointsFieldFill] = [:]
@@ -262,6 +264,7 @@ public final class PointsEngine<S: PointsAXSource>: @unchecked Sendable {
             lastSummary = sum
             emit(PointsSessionEvent(digest: read.digest, type: .digest))
         }
+        if !watched.isEmpty { refreshFrames() }  // the overlay follows a relayout too
         if let node = pendingFocus, let id = ids.existingId(for: node), records[id] != nil {
             pendingFocus = nil
             focusedId = id
@@ -273,6 +276,7 @@ public final class PointsEngine<S: PointsAXSource>: @unchecked Sendable {
         var next: [String: PointsFieldRecord<Node>] = [:]
         for r in read.records { next[r.id] = r }
         records = next
+        order = read.records.map(\.id)
         for r in read.records { if let why = r.sensitive { latched[r.node] = why } }
         if let f = read.records.first(where: { $0.focused }) { focusedId = f.id }
         // Keep the commit memory of fields still on the page.
@@ -298,8 +302,65 @@ public final class PointsEngine<S: PointsAXSource>: @unchecked Sendable {
         if !frames.isEmpty { onFrames?(frames) }
     }
 
+    // MARK: The overlay's view of the target (W4)
+
+    /// The ids of the `count` fields after `id` in tree order (links are not planned fields).
+    public func nextFieldIds(after id: String, count: Int) -> [String] {
+        guard let i = order.firstIndex(of: id) else { return [] }
+        return Array(order[(i + 1)...].filter { records[$0]?.role != .link }.prefix(count))
+    }
+
+    /// Reads fresh frames (attributes only: a field's value is never read here).
+    public func targetInfo(for id: String) -> PointsTargetInfo? {
+        guard var r = records[id] else { return nil }
+        if let f = source.attributes(r.node).frame {
+            r.frame = f
+            records[id] = r
+        }
+        let nextIds = nextFieldIds(after: id, count: 2)
+        var nextFrames: [CGRect] = []
+        for n in nextIds {
+            guard var nr = records[n] else { continue }
+            if let f = source.attributes(nr.node).frame { nr.frame = f; records[n] = nr }
+            if let f = nr.frame { nextFrames.append(f) }
+        }
+        return PointsTargetInfo(
+            fieldId: id, label: r.label, role: r.role, sensitive: r.sensitive != nil || latched[r.node] != nil, frame: r.frame,
+            nextIds: nextIds, nextFrames: nextFrames, windowFrame: windowFrame())
+    }
+
+    public func windowFrame() -> CGRect? {
+        guard let w = source.windowRoot() else { return nil }
+        return source.attributes(w).frame
+    }
+
     // Test and diagnostics access (no values).
     public func record(_ id: String) -> PointsFieldRecord<Node>? { records[id] }
     public func fieldId(for node: Node) -> String? { ids.existingId(for: node) }
+}
+
+/// What the overlay needs about the field it points at: frames and a label, never a value.
+public struct PointsTargetInfo: Sendable, Equatable {
+    public var fieldId: String
+    public var label: String
+    public var role: PointsFieldRole
+    /// A sensitive field never gets a suggested value on the card.
+    public var sensitive: Bool
+    public var frame: CGRect?
+    /// Frames of the next two fields after the target, in tree order.
+    public var nextIds: [String]
+    public var nextFrames: [CGRect]
+    public var windowFrame: CGRect?
+
+    public init(fieldId: String, label: String, role: PointsFieldRole, sensitive: Bool, frame: CGRect?, nextIds: [String], nextFrames: [CGRect], windowFrame: CGRect?) {
+        self.fieldId = fieldId
+        self.label = label
+        self.role = role
+        self.sensitive = sensitive
+        self.frame = frame
+        self.nextIds = nextIds
+        self.nextFrames = nextFrames
+        self.windowFrame = windowFrame
+    }
 }
 

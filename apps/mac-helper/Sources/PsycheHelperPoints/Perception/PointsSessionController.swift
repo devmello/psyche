@@ -52,8 +52,12 @@ final class PointsSessionController: @unchecked Sendable {
     private let exited = DispatchSemaphore(value: 0)
     /// Set once the stream is finished: nothing is yielded after it (stop does not wait on the observer thread).
     private let closedGate: LockedFlag
+    /// The overlay (W4): panels, menu-bar item and Esc monitor, all on the main queue.
+    private let overlay: PointsOverlayHost
+    /// The field the card points at, so a value change there dims the card.
+    private var shownTarget: String?
 
-    init(sessionId: String, app: NSRunningApplication, window: AXUIElement, target: PointsTarget, teamId: String?) {
+    init(sessionId: String, app: NSRunningApplication, window: AXUIElement, target: PointsTarget, teamId: String?, strings: PointsCardStrings) {
         self.sessionId = sessionId
         pid = app.processIdentifier
         bundleId = target.bundleId
@@ -66,7 +70,20 @@ final class PointsSessionController: @unchecked Sendable {
         let c = cont!
         let closed = LockedFlag()
         closedGate = closed
-        engine = PointsEngine(source: source, target: target) { if !closed.isSet { c.yield($0) } }
+        let host = PointsOverlayHost(strings: strings, appName: target.appName, pid: app.processIdentifier)
+        overlay = host
+        engine = PointsEngine(source: source, target: target) { event in
+            if !closed.isSet { c.yield(event) }
+            if event.type == .visible, let v = event.visible { host.setEngineVisible(v) }
+        }
+        // Frames of the fields the card keeps off, after a scroll, a move or a relayout.
+        engine.onFrames = { [weak self] frames in
+            guard let self else { return }
+            self.overlay.frames(frames, window: self.engine.windowFrame())
+        }
+        host.bind(
+            onAction: { [weak self] a in self?.cardAction(a) },
+            onStop: { [weak self] in self?.cardAction(.stop) })
     }
 
     static func now() -> Double { ProcessInfo.processInfo.systemUptime }
@@ -107,11 +124,13 @@ final class PointsSessionController: @unchecked Sendable {
         }
         lock.withLock { started = true }
         installScrollMonitor()
+        overlay.begin()
         return true
     }
 
     private func finish() {
         removeScrollMonitor()
+        overlay.close()
         if closedGate.testAndSet() { continuation.finish() }
         exited.signal()
     }
@@ -123,6 +142,9 @@ final class PointsSessionController: @unchecked Sendable {
             stopped = true
             return loop
         }
+        // The overlay goes now too, not when the observer thread gets round to it: a hung app read must not
+        // leave a ghost card or a menu-bar item after Stop. Idempotent.
+        overlay.close()
         // End the stream here, on the caller's thread: a hung app must not keep the session slot or
         // computer use locked out. The observer thread (if it is alive) only tears its watches down.
         if closedGate.testAndSet() {
@@ -134,6 +156,40 @@ final class PointsSessionController: @unchecked Sendable {
             engine.end(reason)
             CFRunLoopStop(CFRunLoopGetCurrent())
         }
+    }
+
+    // MARK: Overlay (W4)
+
+    /// A card button, the menu-bar item or Esc. The Gateway sees the action; Stop also ends the session here,
+    /// so the owner is never left with a card whose session is gone.
+    func cardAction(_ action: PointsCardAction) {
+        if closedGate.isSet { return }
+        continuation.yield(PointsSessionEvent(action: action, type: .action))
+        if action == .stop { stop(.stop) }
+    }
+
+    /// `points.show`: reads the field's fresh frame on the observer thread, then hands the step to the
+    /// overlay. False when the target is not on screen right now (it appears when it is).
+    func show(_ p: PointsShowParams, fieldId: String) async throws -> Bool {
+        let run: CFRunLoop? = lock.withLock { stopped ? nil : loop }
+        guard let run else { throw CapabilityError(.notFound, reason: "session_ended", "That session is over") }
+        let info: PointsTargetInfo? = await withCheckedContinuation { (cont: CheckedContinuation<PointsTargetInfo?, Never>) in
+            let once = ResumeOnce(cont)
+            perform(on: run) { [self] in
+                let i = engine.targetInfo(for: fieldId)
+                if let i { engine.setWatched([fieldId] + i.nextIds) }
+                once.resume(i)
+            }
+            DispatchQueue.global().asyncAfter(deadline: .now() + 2) { once.resume(nil) }
+        }
+        guard let info else { throw CapabilityError(.notFound, reason: "field_gone", "That field is not on the page any more") }
+        lock.withLock { shownTarget = fieldId }
+        let step = PointsShownStep(
+            kind: p.kind, note: PointsCardText.clean(p.note, max: 300), value: p.value.map { PointsCardText.clean($0, max: 200) },
+            sources: (p.sources ?? []).prefix(3).map { PointsCardText.clean($0, max: 60) }.filter { !$0.isEmpty },
+            warning: p.warning.map { PointsCardText.clean($0, max: 200) }, n: max(1, p.step.n), of: max(1, p.step.of), info: info)
+        overlay.show(step)
+        return info.frame != nil
     }
 
     /// Waits for the thread to finish (tests, clean shutdown).
@@ -214,7 +270,10 @@ final class PointsSessionController: @unchecked Sendable {
             let focused = source.focusedElement()
             if let f = focused?.element { watchField(f) } else { unwatchField() }
             deliver(.focusChanged(focused))
-        case kAXValueChangedNotification: deliver(.valueChanged(AXKey(element: element)))
+        case kAXValueChangedNotification:
+            let key = AXKey(element: element)
+            if let id = engine.fieldId(for: key), id == lock.withLock({ shownTarget }) { overlay.typing() }
+            deliver(.valueChanged(key))
         case "AXLoadComplete", kAXTitleChangedNotification, kAXLayoutChangedNotification: deliver(.layoutChanged)
         case kAXUIElementDestroyedNotification:
             if CFEqual(element, source.window) { deliver(.windowDestroyed) } else { deliver(.destroyed(AXKey(element: element))) }
@@ -336,6 +395,23 @@ final class PointsSessionController: @unchecked Sendable {
             return true
         }
         if go { perform { [self] in deliver(.geometryChanged) } }
+    }
+}
+
+/// Resumes a continuation once, from whichever of two paths gets there first.
+final class ResumeOnce<T: Sendable>: @unchecked Sendable {
+    private let lock = NSLock()
+    private var cont: CheckedContinuation<T, Never>?
+
+    init(_ cont: CheckedContinuation<T, Never>) { self.cont = cont }
+
+    func resume(_ value: T) {
+        let c = lock.withLock { () -> CheckedContinuation<T, Never>? in
+            let c = cont
+            cont = nil
+            return c
+        }
+        c?.resume(returning: value)
     }
 }
 
