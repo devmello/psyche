@@ -171,6 +171,24 @@ struct PointsOverlayTests {
         #expect(!o.modelForTests(step()).showLook)
     }
 
+    @Test func theEyeBadgeShowsOnlyWhileVisionModeIsOn() {
+        let o = overlay()
+        #expect(!o.modelForTests(step()).showVision)
+        o.setVision(true)
+        #expect(o.modelForTests(step()).showVision)
+        o.setVision(false)
+        #expect(!o.modelForTests(step()).showVision)
+
+        let card = PointsCardView(frame: .zero)
+        var m = PointsCardModel(
+            appName: "Safari", note: "n", suggestion: nil, warning: nil, sources: [], stepText: "1/2", showNext: false, strings: Self.strings)
+        _ = card.layout(m) {}
+        #expect(card.eyeLabelsForTests.isEmpty)
+        m.showVision = true
+        _ = card.layout(m) {}
+        #expect(card.eyeLabelsForTests == [Self.strings.visionBadge], "read aloud with the Gateway's visionBadge string")
+    }
+
     @Test func theLookButtonSendsTheLookAction() {
         // The card's buttons come from the model; the look button is the one with the look string.
         let card = PointsCardView(frame: .zero)

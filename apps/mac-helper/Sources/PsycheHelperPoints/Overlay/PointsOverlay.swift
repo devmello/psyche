@@ -61,6 +61,7 @@ final class PointsOverlay {
     private var windowFrame: CGRect?
     private var engineVisible = true
     private var lookOffer = false
+    private var visionOn = false
     private var dimmer = PointsDimmer()
     private var dimGeneration = 0
     private var cardShown = false
@@ -173,6 +174,13 @@ final class PointsOverlay {
         if step != nil { present() }
     }
 
+    /// Vision mode on or off: the eye badge on the card.
+    func setVision(_ v: Bool) {
+        guard v != visionOn else { return }
+        visionOn = v
+        if step != nil { present() }
+    }
+
     func setEngineVisible(_ v: Bool) {
         engineVisible = v
         present()
@@ -235,7 +243,7 @@ final class PointsOverlay {
         return PointsCardModel(
             appName: appName, note: PointsCardText.clean(note, max: 300), hint: hint, suggestion: suggestion, warning: s.warning, sources: s.sources,
             stepText: PointsCardText.fill(strings.stepFormat, n: s.n, total: s.of), showNext: s.kind == .nextPage, strings: strings,
-            showLook: lookOffer && !s.info.sensitive)
+            showLook: lookOffer && !s.info.sensitive, showVision: visionOn)
     }
 
     /// Pure placement for the current step on the given displays.

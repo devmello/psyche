@@ -429,4 +429,7 @@ Run the whole table in Safari and again in Chrome. Rows 15.20 to 15.25 also need
 | 15.58 | Minimise the window, press look, call `points.look` | Refused (`mask_unavailable` or `no_window`), never a picture of something else |
 | 15.59 | A form with a password field nested very deeply in groups (a long accessibility path) | `unavailable/mask_unavailable` rather than a picture with that field unpainted |
 | 15.60 | After a look, `points.show` with a `box` on a page that has since turned into a checkout page | The card says the fixed "You fill this yourself" text and shows no value, whatever the note and value were |
+| 15.62 | A page whose card field sits in an iframe or a canvas (AX cannot see it) but shows a "Payment details" heading or "Card number" text; show a step | No Let Psyche look button, and `points.look` is refused with `directions_only` |
+| 15.63 | In an ordinary field labelled "Number", type a test card number (4111 1111 1111 1111), then look on a page where the tree is sparse | The field is painted black in the picture. Clear it and look again: it is not painted |
+| 15.64 | After a successful look, show another step | A small eye shows on the card, and VoiceOver reads the `visionBadge` string for it. It goes away on a page with a usable tree (3 or more fields) |
 | 15.61 | `log stream --predicate 'subsystem == "com.psyche.helper"'` during a look | No image data, labels, titles or values in the log. No picture file appears on disk |

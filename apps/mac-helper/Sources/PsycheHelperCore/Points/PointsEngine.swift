@@ -40,6 +40,8 @@ public final class PointsEngine<S: PointsAXSource>: @unchecked Sendable {
     private let emit: (PointsSessionEvent) -> Void
     /// Frames of the watched fields, after a scroll or a move (for the overlay, W4).
     public var onFrames: (([String: CGRect]) -> Void)?
+    /// Called with each full read's own directions-only verdict, before its digest is emitted.
+    public var onDirectionsOnly: ((Bool) -> Void)?
 
     private var ids = PointsFieldIds<Node>()
     private var records: [String: PointsFieldRecord<Node>] = [:]
@@ -283,6 +285,7 @@ public final class PointsEngine<S: PointsAXSource>: @unchecked Sendable {
         order = read.records.map(\.id)
         lastTruncated = read.digest.truncated == true
         lastDirectionsOnly = read.directionsOnly
+        onDirectionsOnly?(read.directionsOnly)
         for r in read.records { if let why = r.sensitive { latched[r.node] = why } }
         if let f = read.records.first(where: { $0.focused }) { focusedId = f.id }
         // Keep the commit memory of fields still on the page.
@@ -349,6 +352,16 @@ public final class PointsEngine<S: PointsAXSource>: @unchecked Sendable {
         var complete = !lastTruncated && !windowMinimized
         for id in order {
             guard var r = records[id] else { continue }
+            // A card-shaped value in an ordinary field ("Number" = "4111 ...") is as private as a card
+            // field. The value of a field the judge called plain may be read; it is classified here and
+            // dropped at once, never kept or sent.
+            if r.sensitive == nil, latched[r.node] == nil, !r.directionsOnly, r.role != .button, r.role != .link,
+               let v = source.fieldValue(of: r.node), PointsValueRules.classify(v, label: r.label) != nil
+            {
+                latched[r.node] = .valueShape
+                r.sensitive = .valueShape
+                records[id] = r
+            }
             guard r.sensitive != nil || latched[r.node] != nil || r.directionsOnly else { continue }
             if let f = source.attributes(r.node).frame {
                 r.frame = f

@@ -74,5 +74,6 @@ final class PointsOverlayHost: @unchecked Sendable {
     func frames(_ frames: [String: CGRect], window: CGRect?) { onMain { $0.update(frames: frames, window: window) } }
     func setEngineVisible(_ v: Bool) { onMain { $0.setEngineVisible(v) } }
     func setLookOffer(_ v: Bool) { onMain { $0.setLookOffer(v) } }
+    func setVision(_ v: Bool) { onMain { $0.setVision(v) } }
     func typing() { onMain { $0.typing() } }
 }

@@ -80,6 +80,10 @@ final class PointsSessionController: @unchecked Sendable {
         let closed = LockedFlag()
         closedGate = closed
         let visionFlag = LockedFlag()
+        // Starts strict: no offer until a read says the page is not directions-only.
+        let dirOnlyFlag = LockedFlag()
+        dirOnlyFlag.set()
+        let sparseFlag = LockedFlag()
         vision = visionFlag
         self.tokens = tokens
         let host = PointsOverlayHost(strings: strings, appName: target.appName, pid: app.processIdentifier)
@@ -90,11 +94,16 @@ final class PointsSessionController: @unchecked Sendable {
             // A page with a usable tree ends vision mode (§3.1): three or more fillable fields.
             if event.type == .digest, let d = event.digest {
                 let fillable = d.fields.filter { $0.role != .link && $0.role != .button }.count
-                if fillable >= 3 { visionFlag.clear() }
-                // Let Psyche look is offered when the tree is sparse and the page is not directions-only (§3.1).
-                let directionsOnly = d.insecure == true || d.fields.contains { $0.sensitive == .directionsOnly }
-                host.setLookOffer(fillable < 3 && !directionsOnly)
+                if fillable >= 3 { visionFlag.clear(); host.setVision(false) }
+                // Let Psyche look is offered when the tree is sparse and the read's own verdict says the page is
+                // not directions-only (§3.1); that verdict arrives just before this digest.
+                sparseFlag.update(fillable < 3)
+                host.setLookOffer(sparseFlag.isSet && !dirOnlyFlag.isSet)
             }
+        }
+        engine.onDirectionsOnly = { v in
+            dirOnlyFlag.update(v)
+            host.setLookOffer(sparseFlag.isSet && !v)
         }
         // Frames of the fields the card keeps off, after a scroll, a move or a relayout.
         engine.onFrames = { [weak self] frames in
@@ -230,6 +239,7 @@ final class PointsSessionController: @unchecked Sendable {
         let outcome = try await looker.look(actionId: actionId)
         lock.withLock { lastLook = outcome.record }
         vision.set()
+        overlay.setVision(true)
         return outcome.result
     }
 
@@ -529,6 +539,7 @@ final class LockedFlag: @unchecked Sendable {
     func set() { lock.withLock { value = true } }
     /// Sets the flag; true if this call was the one that set it.
     func clear() { lock.withLock { value = false } }
+    func update(_ v: Bool) { lock.withLock { value = v } }
     func testAndSet() -> Bool { lock.withLock { let was = value; value = true; return !was } }
     var isSet: Bool { lock.withLock { value } }
 }

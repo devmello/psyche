@@ -93,6 +93,7 @@ public enum PointsDigestBuilder {
         var truncated = false
         var candidates: [Candidate<S.Node>] = []
         var headings: [String] = []
+        var pageTexts: [String] = []
         var instructionParts: [String] = []
         var instructionChars = 0
         var webURL: String?
@@ -116,6 +117,7 @@ public enum PointsDigestBuilder {
             switch a.role {
             case "AXStaticText":
                 if let t = clip(a.text, 300) {
+                    if pageTexts.count < 400 { pageTexts.append(String(t.prefix(200))) }
                     // The text after an invalid field is its error text.
                     if let idx = lastCandidate, candidates[idx].attrs.invalid == true, candidates[idx].errorText == nil {
                         candidates[idx].errorText = clip(t, 200)
@@ -130,6 +132,9 @@ public enum PointsDigestBuilder {
                 }
                 return
             case "AXHeading":
+                if let t = clip(a.text ?? a.title ?? a.description, 120) {
+                    if pageTexts.count < 400 { pageTexts.append(t) }
+                }
                 if let t = clip(a.text ?? a.title ?? a.description, 120), !looksLikeSecret(t) {
                     currentHeading = t
                     if headings.count < 40 { headings.append(t) }
@@ -186,7 +191,8 @@ public enum PointsDigestBuilder {
         let (host, path, insecure) = splitURL(webURL)
         let title = clip(rootAttrs.title, 200) ?? clip(target.windowTitle, 200) ?? ""
         let page = PointsPageFacts(
-            url: webURL, host: host, title: title, hasPaymentFields: judged.contains(.payment), insecure: insecure)
+            url: webURL, host: host, title: title, hasPaymentFields: judged.contains(.payment), insecure: insecure,
+            texts: pageTexts)
         let directionsOnly = PointsSensitiveJudge.isDirectionsOnly(page)
 
         var records: [PointsFieldRecord<S.Node>] = []
