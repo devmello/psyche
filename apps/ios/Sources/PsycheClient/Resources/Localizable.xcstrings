@@ -7668,6 +7668,77 @@
           }
         }
       }
+    },
+    "An item from your Messages. Open on your Mac to apply.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "عنصر من رسائلك. افتحه على جهاز Mac لتطبيقه."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ein Eintrag aus deinen Nachrichten. Öffne ihn auf deinem Mac, um ihn anzuwenden."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "An item from your Messages. Open on your Mac to apply."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un elemento de tus Mensajes. Ábrelo en tu Mac para aplicarlo."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un élément de vos Messages. Ouvrez-le sur votre Mac pour l’appliquer."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "आपके Messages का एक आइटम। इसे लागू करने के लिए अपने Mac पर खोलें।"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un elemento dei tuoi Messaggi. Aprilo sul tuo Mac per applicarlo."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "メッセージからの項目です。適用するにはMacで開いてください。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "메시지에서 온 항목입니다. 적용하려면 Mac에서 여세요."
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Um item das suas Mensagens. Abra no seu Mac para aplicá-lo."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "来自“信息”的项目。请在 Mac 上打开以应用。"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

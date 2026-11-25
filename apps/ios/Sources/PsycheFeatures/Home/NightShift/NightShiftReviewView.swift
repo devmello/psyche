@@ -20,6 +20,9 @@ struct NightShiftReviewView: View {
             VStack(alignment: .leading, spacing: PsycheMetrics.sectionSpacing) {
                 ConnectionBanner(state: session.state, lastSyncedAt: session.lastSyncedAt)
                 if let banner = model.banner { bannerView(banner) }
+                if let expiresAt = model.expiresAt, !model.items.isEmpty {
+                    EvidenceLine([String(localized: "Items expire \(expiresAt.formatted(.dateTime.weekday().hour().minute()))", bundle: .module)])
+                }
                 PhaseView(phase: model.phase, skeleton: Self.skeleton, retry: model.load) { review in
                     content(review)
                 }
@@ -79,14 +82,19 @@ struct NightShiftReviewView: View {
                     .accessibilityLabel(Text("Apply this change", bundle: .module))
                     .accessibilityValue(ticked ? Text("On", bundle: .module) : Text("Off", bundle: .module))
                 VStack(alignment: .leading, spacing: 6) {
-                    Text(verbatim: item.summary).font(.psycheRow).foregroundStyle(selectable ? PsycheColor.text : PsycheColor.muted)
+                    // An item from Messages is drawn as our own localized line: the Gateway's text is only a fallback.
+                    Text(verbatim: item.withheldMessages ? NightShiftText.withheldLine : item.summary)
+                        .font(.psycheRow).foregroundStyle(selectable ? PsycheColor.text : PsycheColor.muted)
                     badges(item)
                     if let why = item.why, !why.isEmpty { EvidenceLine([why]) }
                     status(item)
-                    if item.needsMac {
+                    if item.withheldMessages {
+                        Text("Open on your Mac to apply", bundle: .module)
+                            .font(.footnote).foregroundStyle(PsycheColor.muted)
+                    } else if item.needsMac {
                         Text("Too long to review here. Open it on your Mac.", bundle: .module)
                             .font(.footnote).foregroundStyle(PsycheColor.muted)
-                    } else if item.status == .ready || item.status == .stale {
+                    } else if (item.status == .ready || item.status == .stale) && !item.rows.isEmpty {
                         Button {
                             if expanded { open.remove(item.id) } else { open.insert(item.id) }
                         } label: {
@@ -101,7 +109,7 @@ struct NightShiftReviewView: View {
                     if expanded && !item.needsMac { details(item) }
                 }
             }
-            if item.send != nil, item.status == .ready, !item.needsMac { sendBox(item) }
+            if item.canOfferSend, item.status == .ready, !item.needsMac, !item.withheldMessages, !item.applying { sendBox(item) }
         }
         .padding(PsycheMetrics.rowPadding)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -130,15 +138,30 @@ struct NightShiftReviewView: View {
     @ViewBuilder
     private func status(_ item: NightShiftItem) -> some View {
         switch item.status {
-        case .applied: StatusDot(.done, String(localized: "Applied", bundle: .module))
-        case .failed: StatusDot(.failed, item.reason ?? String(localized: "Failed", bundle: .module))
+        case .applied:
+            if item.sent { StatusDot(.done, String(localized: "Applied and sent", bundle: .module)) }
+            else { StatusDot(.done, String(localized: "Applied", bundle: .module)) }
+            if item.canUndo {
+                Button { Task { await model.undo(item) } } label: {
+                    Text("Undo", bundle: .module).font(.footnote.weight(.semibold))
+                }
+                .buttonStyle(.plain).foregroundStyle(PsycheColor.inkText)
+                .disabled(model.busy || !session.state.canAnswer)
+            }
+        case .failed: StatusDot(.failed, NightShiftText.failedNote(item.reason))
         case .uncertain: StatusDot(.needsYou, String(localized: "Check in the app", bundle: .module))
         case .stale, .superseded:
             Text(verbatim: item.reason ?? String(localized: "This changed since it was prepared.", bundle: .module))
                 .font(.footnote).foregroundStyle(PsycheColor.muted)
         case .skipped: StatusDot(.neutral, String(localized: "Skipped", bundle: .module))
         case .undone: StatusDot(.neutral, String(localized: "Undone", bundle: .module))
-        case .ready, .dismissed, .expired: EmptyView()
+        case .ready:
+            // An apply is open for it right now: it can't be ticked or dismissed until that settles.
+            if item.applying { StatusDot(.needsYou, String(localized: "Applying…", bundle: .module)) }
+        case .dismissed, .expired: EmptyView()
+        }
+        if let note = NightShiftText.resultNote(item) {
+            Text(verbatim: note).font(.footnote).foregroundStyle(PsycheColor.muted)
         }
         if let refusal = model.selection.refused[item.id] {
             Text(verbatim: refusal.isEmpty ? String(localized: "Psyche left this one out.", bundle: .module) : refusal)
@@ -148,17 +171,18 @@ struct NightShiftReviewView: View {
 
     // MARK: Details (plain text)
 
+    /// The preview's rows, in the order the Gateway sent them. A draft's body shows its whole text once opened.
     private func details(_ item: NightShiftItem) -> some View {
         let full = model.selection.expanded.contains(item.id)
         return VStack(alignment: .leading, spacing: 8) {
-            if !item.recipients.isEmpty { field(String(localized: "To", bundle: .module), item.recipients.joined(separator: ", ")) }
-            if let subject = item.subject, !subject.isEmpty { field(String(localized: "Subject", bundle: .module), subject) }
-            if let text = (full ? item.fullBody : nil) ?? item.body, !text.isEmpty {
-                Text(verbatim: text)
-                    .font(.callout)
-                    .foregroundStyle(PsycheColor.text)
-                    .textSelection(.enabled)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+            ForEach(Array(item.rows.enumerated()), id: \.offset) { _, row in
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(verbatim: row.label).font(.footnote).foregroundStyle(PsycheColor.muted)
+                    Text(verbatim: full && row.label == "Body" ? (item.fullBody ?? row.value) : row.value)
+                        .font(.callout).foregroundStyle(PsycheColor.text)
+                        .textSelection(.enabled)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
             }
             if item.truncated {
                 if full {
@@ -173,25 +197,6 @@ struct NightShiftReviewView: View {
                         .font(.footnote).foregroundStyle(PsycheColor.muted)
                 }
             }
-            ForEach(Array(item.lines.enumerated()), id: \.offset) { _, line in lineRow(line) }
-        }
-    }
-
-    private func field(_ label: String, _ value: String) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(verbatim: label).font(.footnote).foregroundStyle(PsycheColor.muted)
-            Text(verbatim: value).font(.callout).foregroundStyle(PsycheColor.text)
-        }
-    }
-
-    @ViewBuilder
-    private func lineRow(_ line: NightShiftLine) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            if !line.label.isEmpty { Text(verbatim: line.label).font(.footnote).foregroundStyle(PsycheColor.muted) }
-            if let before = line.before {
-                Text(verbatim: before).font(.callout).foregroundStyle(PsycheColor.muted).strikethrough(line.after != nil)
-            }
-            if let after = line.after { Text(verbatim: after).font(.callout).foregroundStyle(PsycheColor.text) }
         }
     }
 

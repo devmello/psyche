@@ -50,7 +50,7 @@ struct NightShiftAlertsTests {
         let model = NightShiftCardModel(store: FixtureBackend())
         await model.load()
         #expect(model.reviewID == FixtureData.nightShiftReviewID)
-        #expect(model.status?.counts == NightShiftCounts(mail: 2, calendar: 1, reminders: 1, files: 1))
+        #expect(model.status?.counts == NightShiftCounts(mail: 3, calendar: 1, reminders: 2, files: 1))
         // The first lines are ready items only (the stale one is not offered), at most three.
         #expect(model.firstLines.count == 3)
         #expect(!model.firstLines.contains("Add the design review"))

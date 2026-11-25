@@ -66,6 +66,37 @@ enum NightShiftText {
         return parts.joined(separator: " · ")
     }
 
+    /// The generic line for an item made from the owner's Messages (the Gateway shows a phone only a fallback of it).
+    static var withheldLine: String {
+        String(localized: "An item from your Messages. Open on your Mac to apply.", bundle: .module)
+    }
+
+    /// The Gateway's result notes are English and start with a fixed prefix; each one the phone knows is drawn in the
+    /// app's language: a refused undo, a send that stopped before anything left the Mac, a send that may not have gone.
+    static func localizedResult(_ reason: String?) -> String? {
+        guard let reason else { return nil }
+        if reason.hasPrefix("undo refused:") {
+            return String(localized: "Couldn't undo this. It changed after it was applied.", bundle: .module)
+        }
+        if reason.hasPrefix("send before_effect:") {
+            return String(localized: "The draft was saved but not sent. Nothing left your Mac.", bundle: .module)
+        }
+        if reason.hasPrefix("send:") {
+            return String(localized: "The draft was saved. The send may not have gone through: check Mail.", bundle: .module)
+        }
+        return nil
+    }
+
+    /// A line under an item that is not failed (an applied item whose undo was refused, or whose send stopped).
+    static func resultNote(_ item: NightShiftItem) -> String? {
+        item.status == .failed ? nil : localizedResult(item.reason)
+    }
+
+    /// What a failed item says: a known note in the app's language, else the Gateway's own words.
+    static func failedNote(_ reason: String?) -> String {
+        localizedResult(reason) ?? reason ?? String(localized: "Failed", bundle: .module)
+    }
+
     static func title(_ domain: NightShiftDomain) -> String {
         switch domain {
         case .mail: String(localized: "Replies", bundle: .module)

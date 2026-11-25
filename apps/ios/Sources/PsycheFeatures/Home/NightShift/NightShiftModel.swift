@@ -81,7 +81,12 @@ final class NightShiftReviewModel {
         items.filter { $0.domain == domain && $0.status != .dismissed && $0.status != .expired }
     }
 
-    var canDismissRest: Bool { items.contains { $0.status == .ready } }
+    /// Ready items with no apply open for them: what Dismiss the rest may take.
+    private var dismissible: [NightShiftItem] { items.filter { $0.status == .ready && !$0.applying } }
+    var canDismissRest: Bool { !dismissible.isEmpty }
+
+    /// The review's own expiry, as the Gateway holds it.
+    var expiresAt: Date? { phase.value?.expiresAt }
 
     func load() async {
         if phase.value == nil { phase = .loading }
@@ -138,6 +143,26 @@ final class NightShiftReviewModel {
         await load()
     }
 
+    /// Undo an applied item (within a day). The Gateway refuses it at run time if the target changed since.
+    func undo(_ item: NightShiftItem) async {
+        guard !busy, item.canUndo else { return }
+        busy = true
+        defer { busy = false }
+        banner = nil
+        do {
+            switch try await store.undoNightShift(itemIDs: [item.id]) {
+            case .answered(let refused): banner = refused.isEmpty ? .applying(1) : .failure(refused.first?.reason ?? "")
+            case .needsMac: banner = .needsMac
+            case .nothingApproved(let refused): banner = .failure(refused.first?.reason ?? "")
+            }
+        } catch NightShiftApplyError.mismatch {
+            banner = .mismatch
+        } catch {
+            banner = .failure(error.localizedDescription)
+        }
+        await load()
+    }
+
     /// Dismiss the rest: every item still ready. Runs nothing.
     func dismissRest() async {
         guard !busy else { return }
@@ -145,7 +170,7 @@ final class NightShiftReviewModel {
         defer { busy = false }
         banner = nil
         do {
-            try await store.dismissNightShift(reviewID: reviewID, itemIDs: nil)
+            try await store.dismissNightShift(reviewID: reviewID, itemIDs: dismissible.map(\.id))
             selection.clear()
         } catch {
             banner = .failure(error.localizedDescription)

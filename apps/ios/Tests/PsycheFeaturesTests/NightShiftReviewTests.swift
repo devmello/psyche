@@ -9,13 +9,61 @@ import Testing
 @MainActor
 struct NightShiftReviewTests {
     static func draft(
-        _ id: String, truncated: Bool = false, fullBody: String? = "the whole draft", send: Bool = true,
-        status: NightShiftItemStatus = .ready, needsMac: Bool = false
+        _ id: String, tool: String = "mail_draft", truncated: Bool = false, fullBody: String? = "the whole draft",
+        send: Bool = true, status: NightShiftItemStatus = .ready, needsMac: Bool = false, applying: Bool = false
     ) -> NightShiftItem {
         NightShiftItem(
-            id: id, domain: .mail, status: status, summary: "Reply \(id)", bindingHash: "h-\(id)", truncated: truncated,
-            body: "the start", fullBody: fullBody,
-            send: send ? NightShiftSend(recipients: ["a@x.example"], contentHash: "c-\(id)") : nil, needsMac: needsMac)
+            id: id, domain: .mail, status: status, tool: tool, summary: "Reply \(id)", bindingHash: "h-\(id)",
+            rows: [NightShiftRow(label: "Body", value: "the start", truncated: truncated)], truncated: truncated,
+            fullBody: fullBody, send: send ? NightShiftSend(recipients: ["a@x.example"], contentHash: "c-\(id)") : nil,
+            needsMac: needsMac, applying: applying)
+    }
+
+    // MARK: Withheld, applying and send-kind rules (W5 contract)
+
+    @Test func aWithheldItemAndAnItemBeingAppliedCannotBeTicked() {
+        let withheld = NightShiftItem(id: "m", domain: .reminders, summary: "x", bindingHash: "h", withheldMessages: true)
+        let busy = Self.draft("b", applying: true)
+        var selection = NightShiftSelection()
+        selection.toggle(withheld)
+        selection.toggle(busy)
+        selection.selectAll([withheld, busy])
+        #expect(selection.ticked.isEmpty)
+        #expect(selection.request(reviewID: "n1", items: [withheld, busy]).isEmpty)
+        // Positive control: the same two, plain, tick.
+        selection.selectAll([Self.draft("a"), Self.draft("c")])
+        #expect(selection.ticked == ["a", "c"])
+    }
+
+    @Test(arguments: [("gmail_create_draft", false), ("mail_reply_draft", false), ("mail_draft", true), ("mail_create_draft", true)])
+    func aSendBoxOnlyOpensForANewAppleMailDraft(_ tool: String, _ allowed: Bool) {
+        let item = Self.draft("a", tool: tool)
+        var selection = NightShiftSelection()
+        selection.toggle(item)
+        selection.toggleSend(item)
+        #expect(selection.canTickSend(item) == allowed)
+        #expect(selection.sendTicked.contains("a") == allowed)
+        // The draft itself still applies either way, and a send is never in the request when it isn't allowed.
+        #expect(selection.request(reviewID: "n1", items: [item]).items.count == 1)
+        #expect(selection.request(reviewID: "n1", items: [item]).sends.count == (allowed ? 1 : 0))
+    }
+
+    @Test func aTickedSendCarriesTheRecipientsTheOwnerSaw() {
+        let item = Self.draft("a")
+        var selection = NightShiftSelection()
+        selection.toggle(item)
+        selection.toggleSend(item)
+        let request = selection.request(reviewID: "n1", items: [item])
+        #expect(request.sends == [NightShiftTick(itemID: "a", hash: "c-a", recipients: ["a@x.example"])])
+    }
+
+    @Test func theLocalizedResultNotesCoverUndoRefusedAndSendErrors() {
+        #expect(NightShiftText.localizedResult("undo refused: the reminder changed") != nil)
+        #expect(NightShiftText.localizedResult("send before_effect: draft changed") != nil)
+        #expect(NightShiftText.localizedResult("send: helper timed out") != nil)
+        // Control: anything else is the Gateway's own text, not one of ours.
+        #expect(NightShiftText.localizedResult("move_failed") == nil)
+        #expect(NightShiftText.localizedResult(nil) == nil)
     }
 
     // MARK: 3. Select all never ticks a send; a truncated draft must be opened first
@@ -38,7 +86,7 @@ struct NightShiftReviewTests {
         selection.toggleSend(items[0])
         selection.selectAll(items)
         #expect(selection.sendTicked == ["a"])
-        #expect(selection.request(reviewID: "n1", items: items).sends == [NightShiftTick(itemID: "a", hash: "c-a")])
+        #expect(selection.request(reviewID: "n1", items: items).sends == [NightShiftTick(itemID: "a", hash: "c-a", recipients: ["a@x.example"])])
     }
 
     @Test func aSendIsOffByDefaultAndNeedsItsDraftTicked() {
@@ -217,5 +265,6 @@ private struct Refusing: NightShiftBackend, LiveUpdates {
         if let error { throw error }
         return outcome
     }
+    func undoNightShift(itemIDs: [String]) async throws -> NightShiftApplyOutcome { outcome }
     func dismissNightShift(reviewID: String, itemIDs: [String]?) async throws {}
 }

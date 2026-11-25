@@ -63977,6 +63977,574 @@
           }
         }
       }
+    },
+    "An item from your Messages. Open on your Mac to apply.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "عنصر من رسائلك. افتحه على جهاز Mac لتطبيقه."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ein Eintrag aus deinen Nachrichten. Öffne ihn auf deinem Mac, um ihn anzuwenden."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "An item from your Messages. Open on your Mac to apply."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un elemento de tus Mensajes. Ábrelo en tu Mac para aplicarlo."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un élément de vos Messages. Ouvrez-le sur votre Mac pour l’appliquer."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "आपके Messages का एक आइटम। इसे लागू करने के लिए अपने Mac पर खोलें।"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un elemento dei tuoi Messaggi. Aprilo sul tuo Mac per applicarlo."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "メッセージからの項目です。適用するにはMacで開いてください。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "메시지에서 온 항목입니다. 적용하려면 Mac에서 여세요."
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Um item das suas Mensagens. Abra no seu Mac para aplicá-lo."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "来自“信息”的项目。请在 Mac 上打开以应用。"
+          }
+        }
+      }
+    },
+    "Open on your Mac to apply": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "افتحه على جهاز Mac لتطبيقه"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zum Anwenden auf deinem Mac öffnen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open on your Mac to apply"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ábrelo en tu Mac para aplicarlo"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ouvrez-le sur votre Mac pour l’appliquer"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "लागू करने के लिए अपने Mac पर खोलें"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aprilo sul tuo Mac per applicarlo"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "適用するにはMacで開く"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "적용하려면 Mac에서 열기"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abra no seu Mac para aplicar"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "在 Mac 上打开以应用"
+          }
+        }
+      }
+    },
+    "Applied and sent": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "تم التطبيق والإرسال"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Angewendet und gesendet"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Applied and sent"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aplicado y enviado"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Appliqué et envoyé"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "लागू किया गया और भेजा गया"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Applicato e inviato"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "適用して送信しました"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "적용 및 전송됨"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aplicado e enviado"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已应用并发送"
+          }
+        }
+      }
+    },
+    "Applying…": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "جارٍ التطبيق…"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wird angewendet …"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Applying…"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aplicando…"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Application en cours…"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "लागू किया जा रहा है…"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Applicazione in corso…"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "適用中…"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "적용 중…"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aplicando…"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在应用…"
+          }
+        }
+      }
+    },
+    "Couldn't undo this. It changed after it was applied.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "تعذّر التراجع عن هذا. فقد تغيّر بعد تطبيقه."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Das ließ sich nicht rückgängig machen. Es wurde nach dem Anwenden geändert."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn't undo this. It changed after it was applied."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo deshacer. Cambió después de aplicarse."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible d’annuler. Cela a changé après l’application."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "इसे पूर्ववत नहीं किया जा सका। लागू करने के बाद यह बदल गया।"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossibile annullare. È cambiato dopo l’applicazione."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "取り消せませんでした。適用後に変更されています。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "실행 취소할 수 없습니다. 적용한 뒤에 변경되었습니다."
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Não foi possível desfazer. Mudou depois de aplicado."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法撤销。应用之后它已发生变化。"
+          }
+        }
+      }
+    },
+    "The draft was saved but not sent. Nothing left your Mac.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "تم حفظ المسودة لكن لم يتم إرسالها. لم يغادر شيء جهاز Mac."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Der Entwurf wurde gesichert, aber nicht gesendet. Nichts hat deinen Mac verlassen."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The draft was saved but not sent. Nothing left your Mac."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El borrador se guardó pero no se envió. No salió nada de tu Mac."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le brouillon est enregistré mais n’a pas été envoyé. Rien n’a quitté votre Mac."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "मसौदा सहेजा गया लेकिन भेजा नहीं गया। आपके Mac से कुछ भी बाहर नहीं गया।"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La bozza è stata salvata ma non inviata. Dal tuo Mac non è uscito nulla."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "下書きは保存されましたが、送信されていません。Macから何も送られていません。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "초안은 저장되었지만 전송되지 않았습니다. Mac에서 나간 것은 없습니다."
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O rascunho foi salvo, mas não foi enviado. Nada saiu do seu Mac."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "草稿已保存但未发送。没有任何内容离开你的 Mac。"
+          }
+        }
+      }
+    },
+    "The draft was saved. The send may not have gone through: check Mail.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "تم حفظ المسودة. قد لا يكون الإرسال قد تم: تحقق من تطبيق البريد."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Der Entwurf wurde gesichert. Das Senden ist möglicherweise nicht durchgegangen: Prüfe Mail."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The draft was saved. The send may not have gone through: check Mail."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El borrador se guardó. Puede que el envío no se haya completado: revisa Mail."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le brouillon est enregistré. L’envoi n’a peut-être pas abouti : vérifiez Mail."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "मसौदा सहेजा गया। हो सकता है भेजना पूरा न हुआ हो: Mail में जाँचें।"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La bozza è stata salvata. L’invio potrebbe non essere andato a buon fine: controlla Mail."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "下書きは保存されました。送信が完了していない可能性があります。メールを確認してください。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "초안이 저장되었습니다. 전송이 완료되지 않았을 수 있으니 Mail을 확인하세요."
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O rascunho foi salvo. O envio pode não ter sido concluído: confira o Mail."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "草稿已保存。发送可能未成功：请在“邮件”中确认。"
+          }
+        }
+      }
+    },
+    "Items expire %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "تنتهي صلاحية العناصر %@"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Einträge laufen ab: %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Items expire %@"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Los elementos caducan: %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les éléments expirent : %@"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "आइटम की समय-सीमा खत्म होगी: %@"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gli elementi scadono: %@"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "項目の有効期限: %@"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "항목 만료: %@"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Os itens expiram: %@"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "项目到期时间：%@"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

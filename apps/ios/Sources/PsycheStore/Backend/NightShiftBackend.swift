@@ -16,6 +16,9 @@ public protocol NightShiftBackend: Sendable {
     /// Requests the one approval for what was ticked and, when this phone may answer it, answers it. Before the answer
     /// it checks that the approval binds exactly the calls that were ticked (`NightShiftApplyError.mismatch` when not).
     func applyNightShift(_ request: NightShiftApplyRequest) async throws -> NightShiftApplyOutcome
+    /// Requests the approval that undoes applied items (within a day) and answers it. The approval must list exactly the
+    /// items asked for. An undo the Gateway refuses at run time leaves the item applied, with its reason.
+    func undoNightShift(itemIDs: [String]) async throws -> NightShiftApplyOutcome
     /// Dismisses the given items, or every item still ready when `itemIDs` is nil. Runs nothing.
     func dismissNightShift(reviewID: String, itemIDs: [String]?) async throws
 }
@@ -69,16 +72,27 @@ public struct NightShiftStatus: Sendable, Equatable {
     }
 }
 
-/// One before/after row of a prepared change ("Start: 9:00 -> 9:30", "Moves to: Receipts/Oct"). Plain text.
-public struct NightShiftLine: Sendable, Equatable {
-    public var label: String
-    public var before: String?
-    public var after: String?
+/// One row of an item's preview, in the order the Gateway sends them (`StagedPreview.rows`). Plain text. A calendar change
+/// carries its before and after inside `value` ("9:00 -> 9:30").
+public struct NightShiftRow: Sendable, Equatable {
+    public enum Badge: String, Sendable, Equatable {
+        /// An address the owner has never written to.
+        case newRecipient = "new_recipient"
+        /// The draft answers everyone on the thread.
+        case replyAll = "reply_all"
+    }
 
-    public init(label: String, before: String? = nil, after: String? = nil) {
+    public var label: String
+    public var value: String
+    /// `value` is a shortened form of the real text.
+    public var truncated: Bool
+    public var badge: Badge?
+
+    public init(label: String, value: String, truncated: Bool = false, badge: Badge? = nil) {
         self.label = label
-        self.before = before
-        self.after = after
+        self.value = value
+        self.truncated = truncated
+        self.badge = badge
     }
 }
 
@@ -98,7 +112,10 @@ public struct NightShiftItem: Sendable, Equatable, Identifiable {
     public var id: String
     public var domain: NightShiftDomain
     public var status: NightShiftItemStatus
-    /// One line. Mail-derived text is untrusted.
+    /// The Gateway's tool name (`mail_draft`, `gmail_create_draft`, ...): decides whether a send may be offered.
+    public var tool: String
+    /// One line. Mail-derived text is untrusted. For a withheld item it is the Gateway's English fallback; the screen
+    /// draws its own localized line instead.
     public var summary: String
     /// One sentence from the Gateway, already stripped of owner-only sources; never an instruction.
     public var why: String?
@@ -106,55 +123,67 @@ public struct NightShiftItem: Sendable, Equatable, Identifiable {
     public var bindingHash: String
     /// Built from other people's mail: the row says so.
     public var untrusted: Bool
-    /// The draft would go to an address the owner has never written to. Shown as a badge, always.
-    public var newRecipient: Bool
-    /// The draft answers everyone on the thread. Shown as a badge, always.
-    public var replyAll: Bool
-    /// The preview of the draft body is cut short: the full text must be opened before its send box can be ticked.
+    /// Made from the owner's Messages: this phone saw only a generic line, and the Gateway refuses an apply or undo of
+    /// it from here. The Mac applies it.
+    public var withheldMessages: Bool
+    /// The preview's rows, as sent.
+    public var rows: [NightShiftRow]
+    /// Some row was shortened: the whole draft must be opened before its send box can be ticked.
     public var truncated: Bool
-    public var recipients: [String]
-    public var subject: String?
-    /// The body as the preview carries it (possibly cut short).
-    public var body: String?
     /// The whole draft text, when the item carries it. Nil with `truncated` keeps the send box off for good.
     public var fullBody: String?
-    public var lines: [NightShiftLine]
     public var send: NightShiftSend?
     /// Its details are too large to show here: read and apply it on the Mac.
     public var needsMac: Bool
-    /// Why it is `stale` or `failed`, in the Gateway's words.
+    /// `approvalId` is set on a ready item: an apply is open for it right now.
+    public var applying: Bool
+    /// The Gateway's note on the result: why it is stale, failed or refused to undo.
     public var reason: String?
+    /// A send of this draft went (`result.refs` holds `sent:<draftId>`).
+    public var sent: Bool
+    /// Applied less than a day ago with an inverse recorded: Undo may be offered.
+    public var canUndo: Bool
 
     public init(
-        id: String, domain: NightShiftDomain, status: NightShiftItemStatus = .ready, summary: String, why: String? = nil,
-        bindingHash: String, untrusted: Bool = false, newRecipient: Bool = false, replyAll: Bool = false,
-        truncated: Bool = false, recipients: [String] = [], subject: String? = nil, body: String? = nil,
-        fullBody: String? = nil, lines: [NightShiftLine] = [], send: NightShiftSend? = nil, needsMac: Bool = false,
-        reason: String? = nil
+        id: String, domain: NightShiftDomain, status: NightShiftItemStatus = .ready, tool: String = "mail_draft",
+        summary: String, why: String? = nil, bindingHash: String, untrusted: Bool = false, withheldMessages: Bool = false,
+        rows: [NightShiftRow] = [], truncated: Bool = false, fullBody: String? = nil, send: NightShiftSend? = nil,
+        needsMac: Bool = false, applying: Bool = false, reason: String? = nil, sent: Bool = false, canUndo: Bool = false
     ) {
         self.id = id
         self.domain = domain
         self.status = status
+        self.tool = tool
         self.summary = summary
         self.why = why
         self.bindingHash = bindingHash
         self.untrusted = untrusted
-        self.newRecipient = newRecipient
-        self.replyAll = replyAll
+        self.withheldMessages = withheldMessages
+        self.rows = rows
         self.truncated = truncated
-        self.recipients = recipients
-        self.subject = subject
-        self.body = body
         self.fullBody = fullBody
-        self.lines = lines
         self.send = send
         self.needsMac = needsMac
+        self.applying = applying
         self.reason = reason
+        self.sent = sent
+        self.canUndo = canUndo
     }
 
-    /// Only a `ready` item that can be read in full here may be ticked. Stale, superseded, failed and the rest
-    /// cannot, and neither can one that needs the Mac.
-    public var canTick: Bool { status == .ready && !needsMac }
+    /// The draft is a new Apple Mail draft: the only kind whose saved draft can be read back and checked before a send.
+    /// Gmail drafts and replies are refused by the Gateway with a reason, so no send box is offered for them.
+    public var canOfferSend: Bool {
+        guard send != nil else { return false }
+        let bare = tool.split(separator: "__").last.map(String.init) ?? tool
+        return bare == "mail_draft" || bare == "mail_create_draft"
+    }
+
+    public var newRecipient: Bool { rows.contains { $0.badge == .newRecipient } }
+    public var replyAll: Bool { rows.contains { $0.badge == .replyAll } }
+
+    /// Only a `ready` item that can be read in full here, with no apply open for it, may be ticked. Stale, superseded,
+    /// failed and the rest cannot, and neither can one that needs the Mac or was withheld from this phone.
+    public var canTick: Bool { status == .ready && !needsMac && !withheldMessages && !applying }
 
     /// The draft can be read in full: its preview is not cut, or the whole text is here.
     public var hasFullText: Bool { !truncated || fullBody != nil }
@@ -175,14 +204,17 @@ public struct NightShiftReview: Sendable, Equatable {
     }
 }
 
-/// One ticked call: the item and the hash the owner saw it with.
+/// One ticked call: the item and the hash the owner saw it with. A send also carries the recipients the owner saw, which
+/// the approval's `<itemId>:send` row must repeat.
 public struct NightShiftTick: Sendable, Equatable {
     public var itemID: String
     public var hash: String
+    public var recipients: [String]
 
-    public init(itemID: String, hash: String) {
+    public init(itemID: String, hash: String, recipients: [String] = []) {
         self.itemID = itemID
         self.hash = hash
+        self.recipients = recipients
     }
 }
 
@@ -248,7 +280,7 @@ public struct NightShiftSelection: Sendable, Equatable {
 
     /// A send needs its draft ticked, and the whole draft read when the preview was cut short.
     public func canTickSend(_ item: NightShiftItem) -> Bool {
-        guard item.send != nil, canTick(item), ticked.contains(item.id) else { return false }
+        guard item.canOfferSend, canTick(item), ticked.contains(item.id) else { return false }
         return !item.truncated || (item.fullBody != nil && expanded.contains(item.id))
     }
 
@@ -308,7 +340,7 @@ public struct NightShiftSelection: Sendable, Equatable {
         for item in items where ticked.contains(item.id) && canTick(item) {
             picked.append(NightShiftTick(itemID: item.id, hash: item.bindingHash))
             if sendTicked.contains(item.id), canTickSend(item), let send = item.send {
-                sends.append(NightShiftTick(itemID: item.id, hash: send.contentHash))
+                sends.append(NightShiftTick(itemID: item.id, hash: send.contentHash, recipients: send.recipients))
             }
         }
         return NightShiftApplyRequest(reviewID: reviewID, items: picked, sends: sends)
