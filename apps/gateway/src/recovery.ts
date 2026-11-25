@@ -5,6 +5,7 @@ import {
   markAllNodesOffline,
   markInterruptedToolCalls,
   type PsycheDb,
+  settleRunToolCalls,
 } from "@psyche/db";
 import type { Logger } from "./log.ts";
 
@@ -29,6 +30,8 @@ export function recoverAfterRestart(db: PsycheDb, log: Logger): RecoveryReport {
     report.uncertainToolCalls = markInterruptedToolCalls(db).map((c) => c.id);
     for (const run of listRunsByStatus(db, ["running"])) {
       finishRun(db, run.id, { status: "failed", error: RESTART_ERROR });
+      // The calls are `uncertain` now; the run's committed tool blocks must say so too.
+      settleRunToolCalls(db, run.id);
       report.failedRuns.push(run.id);
     }
     const owned = db.sqlite

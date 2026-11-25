@@ -136,9 +136,11 @@ function ToolRunItems({ blocks }: { blocks: readonly ToolCallBlock[] }): ReactEl
   const items = useStoreState((s) =>
     blocks.map((b): ToolCallItem => {
       const call = s.toolCalls[b.toolCallId] ?? null;
+      const runStatus = call === null ? undefined : s.runs[call.runId]?.status;
       return {
         block: b,
         call,
+        settled: runStatus === "done" || runStatus === "failed" || runStatus === "cancelled",
         receipt: call?.receiptId ? (s.receipts[call.receiptId] ?? null) : null,
       };
     }),
