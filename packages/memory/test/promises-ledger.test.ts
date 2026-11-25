@@ -16,6 +16,7 @@ import {
   PromiseStore,
 } from "../src/promises/store.ts";
 import { copyTables, MEMORY_STORE_TABLES, newKey, openEncrypted } from "../src/secure/encrypted.ts";
+import { syncSchema } from "../src/secure/migrate.ts";
 
 const MON = Date.parse("2026-11-23T09:00:00.000Z");
 const DAY = 86_400_000;
@@ -45,8 +46,7 @@ function make(backend: "plain" | "encrypted", file = false): Env {
   let close = () => plain.close();
   if (backend === "encrypted") {
     const enc = openEncrypted(join(dir, "memory.sqlite"), newKey());
-    // `memory_work_undo` is not in MEMORY_STORE_TABLES, but EverythingStore.runRetention needs it.
-    copyTables(enc, plain.sqlite, [...MEMORY_STORE_TABLES, "memory_work_undo"]);
+    copyTables(enc, plain.sqlite, MEMORY_STORE_TABLES);
     plain.close();
     sqlite = enc;
     close = () => enc.close();
@@ -755,7 +755,17 @@ describe.each(["plain", "encrypted"] as const)("promise ledger on the %s store",
       };
       expect(em.runRetention(policy).promises).toBeUndefined();
       expect(e.store.get(sug.id)).toBeDefined();
+      // The undo table is part of the moved set, so retention also runs on the encrypted file.
+      e.sqlite
+        .prepare("INSERT INTO memory_work_undo (fact_id, entity_id, created_at) VALUES (?, ?, ?)")
+        .run("f_old", e.sam, new Date(e.clock.now() - 10 * DAY).toISOString());
+      e.sqlite
+        .prepare("INSERT INTO memory_work_undo (fact_id, entity_id, created_at) VALUES (?, ?, ?)")
+        .run("f_new", e.sam, new Date(e.clock.now() - DAY).toISOString());
       const r = em.runRetention({ ...policy, promises: {} });
+      expect(e.sqlite.prepare("SELECT fact_id FROM memory_work_undo").all()).toEqual([
+        { fact_id: "f_new" },
+      ]);
       expect(r.promises).toMatchObject({ suggestedExpired: 1 });
       expect(e.store.get(sug.id)).toBeUndefined();
     });
@@ -812,6 +822,23 @@ describe.each(["plain", "encrypted"] as const)("promise ledger on the %s store",
       spy.mockRestore();
       expect(Number(e.sqlite.pragma("secure_delete", { simple: true }))).toBe(before);
     });
+  });
+});
+
+describe("memory_work_undo in the encrypted store", () => {
+  it("is a moved table, and an encrypted file made before it gains it from syncSchema", () => {
+    expect(MEMORY_STORE_TABLES).toContain("memory_work_undo");
+    const plain = openDb(":memory:");
+    const enc = openEncrypted(join(dir, "old.sqlite"), newKey());
+    copyTables(
+      enc,
+      plain.sqlite,
+      MEMORY_STORE_TABLES.filter((t) => t !== "memory_work_undo"),
+    );
+    expect(syncSchema(enc, plain.sqlite, MEMORY_STORE_TABLES)).toContain("memory_work_undo");
+    expect(enc.prepare("SELECT count(*) n FROM memory_work_undo").get()).toEqual({ n: 0 });
+    enc.close();
+    plain.close();
   });
 });
 
