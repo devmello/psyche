@@ -55,6 +55,7 @@ export * from "./promises/lane.ts";
 export * from "./promises/lifecycle.ts";
 export * from "./promises/prompt.ts";
 export * from "./promises/schema.ts";
+export * from "./promises/signals.ts";
 export * from "./promises/store.ts";
 export * from "./promises/thresholds.ts";
 export * from "./promises/validate.ts";
