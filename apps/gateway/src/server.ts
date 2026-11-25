@@ -890,6 +890,7 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
   ctx.sessions.drainAll();
   // An update that never came (cancelled, or timed out): queued follow-ups start again.
   const stopWatchingGate = ctx.updateGate.onReopen(() => ctx.sessions.drainAll());
+  // Boot runs the cheap retention only; history trimming and compaction wait for the hourly timer.
   runRetention(ctx);
   const intervalMs = options.retentionIntervalMs ?? RETENTION_INTERVAL_MS;
   const retentionTimer =

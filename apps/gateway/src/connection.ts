@@ -46,9 +46,9 @@ export interface Transport {
 }
 
 /**
- * A paired subscriber with more than this many bytes queued on its socket is not keeping up (a
- * phone that slept or lost Wi-Fi without a FIN). Its socket is terminated: the client reconnects
- * and resyncs through `stateVersion`, and the Gateway stops holding frames for it.
+ * A paired subscriber with more than this many bytes queued on its socket gets no bus events
+ * until it drains (it then gets one resync marker). Replies are never held back: one reply (a
+ * run export) can be larger than this. Terminated only when the buffer stops draining for 30 s.
  */
 export const MAX_SUBSCRIBER_BUFFER_BYTES = 4 * 1024 * 1024;
 
@@ -132,6 +132,7 @@ export class Connection implements LiveConnection {
   #claim: ClaimSession | null = null;
   #unsubscribe: (() => void) | null = null;
   #sink: FrameSink | null = null;
+  #guardTimer: ReturnType<typeof setInterval> | null = null;
   #pendingTimer: NodeJS.Timeout | null = null;
   /** Set by a handshake that ends in `denied`: close once the reply is out. */
   #closeAfterReply: string | null = null;
@@ -255,6 +256,7 @@ export class Connection implements LiveConnection {
     this.#phase = "closed";
     this.#unsubscribe?.();
     this.#unsubscribe = null;
+    if (this.#guardTimer) clearInterval(this.#guardTimer);
     if (this.#pendingTimer) clearTimeout(this.#pendingTimer);
     for (const [, out] of this.#outbound) {
       clearTimeout(out.timer);
@@ -691,18 +693,21 @@ export class Connection implements LiveConnection {
     if (result.phase === "paired" && identity) {
       this.#phase = "paired";
       this.#identity = identity;
-      const sink: FrameSink = guardSlowSubscriber({
+      const guard = guardSlowSubscriber({
         send: (frame) => this.#send(frame),
         bufferedAmount: () => this.bufferedAmount(),
         limit: MAX_SUBSCRIBER_BUFFER_BYTES,
-        onOverflow: (bytes) => {
+        onStuck: (bytes) => {
           this.#ctx.log.log("warn", "slow subscriber dropped", {
             conn: this.id,
             bufferedBytes: bytes,
           });
-          this.terminate("subscriber buffer full");
+          this.terminate("subscriber buffer stuck");
         },
       });
+      const sink: FrameSink = guard.sink;
+      this.#guardTimer = setInterval(guard.check, 5000);
+      this.#guardTimer.unref();
       this.#sink = sink;
       this.#unsubscribe = ctx.bus.subscribe(
         identity.scopes,

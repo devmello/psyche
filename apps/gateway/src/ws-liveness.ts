@@ -1,28 +1,72 @@
 /** Server ping cadence for WebSocket peers. A peer that misses one round is dropped. */
 export const WS_PING_INTERVAL_MS = 20_000;
 
+/** A subscriber whose buffer shows no drain progress for this long is terminated. */
+export const STUCK_BUFFER_MS = 30_000;
+
+export interface SlowGuard {
+  /** The bus sink: sends, or pauses (drops) events while the socket is backed up. */
+  sink: (frame: string) => void;
+  /** Call periodically: resumes a drained subscriber (sending the resync marker) or ends a stuck one. */
+  check: () => void;
+}
+
 /**
- * Wraps an event subscriber's sink: once the peer's socket has more than `limit` bytes queued, the
- * frame is not sent and `onOverflow` runs (it terminates the connection; the client reconnects
- * and resyncs through `stateVersion`). Frames after the overflow are dropped too.
+ * Wraps an event subscriber's sink. Above `limit` queued bytes, bus frames are paused (dropped;
+ * the bus already counted their `seq`, so the client sees a gap). Once the buffer drains to the
+ * limit, the last dropped frame is sent as the resync marker: its `seq` gap makes the client
+ * refetch through the existing stateVersion resync. If the buffer stays above the limit with no
+ * drain progress for `stuckMs`, `onStuck` runs. Replies do not pass through here, so a large
+ * reply is never dropped.
  */
 export function guardSlowSubscriber(opts: {
   send: (frame: string) => void;
   bufferedAmount: () => number;
   limit: number;
-  onOverflow: (bufferedBytes: number) => void;
-}): (frame: string) => void {
-  let dropped = false;
-  return (frame) => {
-    if (dropped) return;
+  onStuck: (bufferedBytes: number) => void;
+  stuckMs?: number;
+  now?: () => number;
+}): SlowGuard {
+  const now = opts.now ?? (() => Date.now());
+  const stuckMs = opts.stuckMs ?? STUCK_BUFFER_MS;
+  let paused = false;
+  let last: string | null = null;
+  let lowest = 0;
+  let progressAt = 0;
+  let ended = false;
+  const check = (): void => {
+    if (!paused || ended) return;
     const bytes = opts.bufferedAmount();
-    if (bytes > opts.limit) {
-      dropped = true;
-      opts.onOverflow(bytes);
+    if (bytes <= opts.limit) {
+      paused = false;
+      if (last !== null) opts.send(last);
+      last = null;
+    } else if (bytes < lowest) {
+      lowest = bytes;
+      progressAt = now();
+    } else if (now() - progressAt >= stuckMs) {
+      ended = true;
+      opts.onStuck(bytes);
+    }
+  };
+  const sink = (frame: string): void => {
+    if (ended) return;
+    if (paused) {
+      check();
+      if (paused) {
+        last = frame;
+        return;
+      }
+    } else if (opts.bufferedAmount() > opts.limit) {
+      paused = true;
+      lowest = opts.bufferedAmount();
+      progressAt = now();
+      last = frame;
       return;
     }
     opts.send(frame);
   };
+  return { sink, check };
 }
 
 /** The slice of a `ws` socket the liveness check needs. */

@@ -1,24 +1,24 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { createRun, createThread, insertLibraryItem, openDb, type PsycheDb } from "@psyche/db";
+import { createRun, createThread, openDb, type PsycheDb } from "@psyche/db";
 import { FakeModelProvider } from "@psyche/testing";
 import { afterEach, describe, expect, it } from "vitest";
 import { composeGateway } from "../src/compose/index.ts";
 import type { GatewayContext } from "../src/context.ts";
 import {
-  HISTORY_RETENTION_DAYS,
-  maybeVacuum,
+  compactDatabase,
+  compactEstimate,
   pruneHistory,
   runDbMaintenance,
+  safeCutoff,
 } from "../src/db-maintenance.ts";
 import { silentLogger } from "../src/log.ts";
-import { runRetention } from "../src/retention.ts";
 
 const DAY = 86_400_000;
 const NOW = new Date("2027-03-01T12:00:00.000Z");
-const old = new Date(NOW.getTime() - (HISTORY_RETENTION_DAYS + 5) * DAY).toISOString();
-const recent = new Date(NOW.getTime() - 10 * DAY).toISOString();
+const ago = (days: number) => new Date(NOW.getTime() - days * DAY).toISOString();
+const BIG = JSON.stringify({ blob: "x".repeat(2000) });
 
 const dirs: string[] = [];
 const dbs: PsycheDb[] = [];
@@ -32,12 +32,23 @@ function tmp(): string {
   dirs.push(d);
   return d;
 }
-
 function memDb(): PsycheDb {
   const db = openDb(":memory:");
   dbs.push(db);
   return db;
 }
+function fileDb(): PsycheDb {
+  const db = openDb(join(tmp(), "p.db"));
+  dbs.push(db);
+  return db;
+}
+const ctxOf = (db: PsycheDb) =>
+  ({
+    db,
+    log: silentLogger,
+    now: () => NOW,
+    bus: { bumpStateVersion: () => 1 },
+  }) as unknown as GatewayContext;
 
 function addTask(db: PsycheDb, threadId: string, id: string, status: string, at: string): void {
   db.sqlite
@@ -48,164 +59,225 @@ function addTask(db: PsycheDb, threadId: string, id: string, status: string, at:
     .run(id, threadId, status, at, at, status === "running" ? null : at);
   db.sqlite
     .prepare(
-      `INSERT INTO task_checkpoints (id, task_id, step_id, idx, replay_safe, status, created_at, updated_at)
-       VALUES (?, ?, 's', 0, 1, 'done', ?, ?)`,
+      `INSERT INTO task_checkpoints (id, task_id, step_id, idx, replay_safe, status, payload, created_at, updated_at)
+       VALUES (?, ?, 's', 0, 1, 'done', ?, ?, ?)`,
     )
-    .run(`cp_${id}`, id, at, at);
-}
-
-function addNotification(
-  db: PsycheDb,
-  id: string,
-  at: string,
-  o: { read?: boolean; resolved?: boolean; kind?: string; taskId?: string } = {},
-): void {
+    .run(`cp_${id}`, id, BIG, at, at);
   db.sqlite
     .prepare(
-      `INSERT INTO notifications (id, kind, title, body, task_id, read_at, resolved_at, seq, created_at, updated_at)
-       VALUES (?, ?, 't', 'b', ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO task_actions (id, task_id, idx, level1, level2, created_at)
+       VALUES (?, ?, 0, 'summary line', ?, ?)`,
     )
-    .run(
-      id,
-      o.kind ?? "system",
-      o.taskId ?? null,
-      o.read ? at : null,
-      o.resolved ? at : null,
-      Math.floor(Math.random() * 1e9),
-      at,
-      at,
-    );
+    .run(`ac_${id}`, id, JSON.stringify({ tool: "web.fetch", params: "x".repeat(2000) }), at);
 }
 
+const one = <T>(db: PsycheDb, sql: string, ...p: unknown[]) =>
+  db.sqlite.prepare(sql).get(...p) as T;
 const count = (db: PsycheDb, table: string): number =>
-  (db.sqlite.prepare(`SELECT COUNT(*) AS n FROM ${table}`).get() as { n: number }).n;
-const has = (db: PsycheDb, table: string, id: string): boolean =>
-  db.sqlite.prepare(`SELECT 1 FROM ${table} WHERE id = ?`).get(id) !== undefined;
+  one<{ n: number }>(db, `SELECT COUNT(*) AS n FROM ${table}`).n;
+const payloadOf = (db: PsycheDb, id: string) =>
+  one<{ payload: string | null }>(
+    db,
+    "SELECT payload FROM task_checkpoints WHERE id = ?",
+    `cp_${id}`,
+  ).payload;
+const level2Of = (db: PsycheDb, id: string) =>
+  one<{ level2: string }>(db, "SELECT level2 FROM task_actions WHERE id = ?", `ac_${id}`).level2;
 
-describe("history retention", () => {
-  it("deletes old terminal tasks with their checkpoints and keeps everything referenced or live", () => {
+describe("history trimming keeps every row", () => {
+  it("trims checkpoint payloads of tasks finished over 30 days ago, nothing else", () => {
     const db = memDb();
     const thread = createThread(db, { kind: "main", sessionKey: "owner:main" });
-    for (const id of ["old_done", "old_failed", "old_cancelled"])
-      addTask(db, thread.id, id, id.slice(4), old);
-    addTask(db, thread.id, "recent_done", "done", recent);
-    addTask(db, thread.id, "old_running", "running", old);
-    addTask(db, thread.id, "old_paused", "paused", old);
-    addTask(db, thread.id, "old_receipt", "done", old);
-    addTask(db, thread.id, "old_library", "done", old);
-    addTask(db, thread.id, "old_open_notice", "done", old);
-    db.sqlite
-      .prepare(
-        `INSERT INTO receipts (id, kind, task_id, outcome, summary, created_at, updated_at)
-         VALUES ('rc1', 'email.send', 'old_receipt', 'ok', 's', ?, ?)`,
-      )
-      .run(old, old);
-    insertLibraryItem(db, {
-      kind: "document",
-      name: "report.pdf",
-      mime: "application/pdf",
-      path: "agent/report.pdf",
-      size: 1,
-      sha256: "x",
-      origin: "agent",
-      taskId: "old_library",
-    });
-    addNotification(db, "n_open", old, { kind: "approval", taskId: "old_open_notice" });
-    // A run that points at a pruned task is cleared, never left dangling.
+    addTask(db, thread.id, "old_done", "done", ago(40));
+    addTask(db, thread.id, "old_failed", "failed", ago(40));
+    addTask(db, thread.id, "recent_done", "done", ago(5));
+    addTask(db, thread.id, "old_running", "running", ago(40));
+    addTask(db, thread.id, "old_paused", "paused", ago(40));
+    // The clock guard needs recent activity.
+    addTask(db, thread.id, "now_task", "queued", ago(0));
     const run = createRun(db, { threadId: thread.id, modelRef: "fake/model" }).id;
-    db.sqlite
-      .prepare("UPDATE runs SET status = 'done', task_id = 'old_done' WHERE id = ?")
-      .run(run);
+    db.sqlite.prepare("UPDATE runs SET task_id = 'old_done' WHERE id = ?").run(run);
+    const tasksBefore = count(db, "tasks");
 
     const r = pruneHistory(db, NOW);
-    expect(r.tasks).toBe(3);
-    for (const id of ["old_done", "old_failed", "old_cancelled"]) {
-      expect(has(db, "tasks", id)).toBe(false);
-      expect(has(db, "task_checkpoints", `cp_${id}`)).toBe(false);
-    }
-    for (const id of [
-      "recent_done",
-      "old_running",
-      "old_paused",
-      "old_receipt",
-      "old_library",
-      "old_open_notice",
-    ]) {
-      expect(has(db, "tasks", id)).toBe(true);
-      expect(has(db, "task_checkpoints", `cp_${id}`)).toBe(true);
-    }
-    expect(has(db, "receipts", "rc1")).toBe(true);
-    expect(count(db, "library_items")).toBe(1);
-    expect(count(db, "threads")).toBe(1);
-    const runRow = db.sqlite.prepare("SELECT task_id FROM runs WHERE id = ?").get(run) as {
-      task_id: string | null;
-    };
-    expect(runRow.task_id).toBeNull();
+    expect(r.checkpoints).toBe(2);
+    expect(payloadOf(db, "old_done")).toBeNull();
+    expect(payloadOf(db, "old_failed")).toBeNull();
+    for (const id of ["recent_done", "old_running", "old_paused", "now_task"])
+      expect(payloadOf(db, id)).toBe(BIG);
+    // Rows stay, and so do the pointers to them.
+    expect(count(db, "tasks")).toBe(tasksBefore);
+    expect(count(db, "task_checkpoints")).toBe(tasksBefore);
+    expect(one<{ task_id: string }>(db, "SELECT task_id FROM runs WHERE id = ?", run).task_id).toBe(
+      "old_done",
+    );
   });
 
-  it("deletes read or resolved notifications, keeps unresolved approvals and recent ones", () => {
+  it("trims action detail after 90 days but keeps the row, summary and tool name", () => {
     const db = memDb();
-    addNotification(db, "n_resolved", old, { resolved: true, kind: "approval" });
-    addNotification(db, "n_read", old, { read: true });
-    addNotification(db, "n_unread", old);
-    addNotification(db, "n_read_approval", old, { read: true, kind: "approval" });
-    addNotification(db, "n_recent", recent, { resolved: true });
-    expect(pruneHistory(db, NOW).notifications).toBe(2);
-    expect(has(db, "notifications", "n_resolved")).toBe(false);
-    expect(has(db, "notifications", "n_read")).toBe(false);
-    for (const id of ["n_unread", "n_read_approval", "n_recent"])
-      expect(has(db, "notifications", id)).toBe(true);
+    const thread = createThread(db, { kind: "main", sessionKey: "owner:main" });
+    addTask(db, thread.id, "ancient", "done", ago(100));
+    addTask(db, thread.id, "month", "done", ago(40));
+    addTask(db, thread.id, "now_task", "queued", ago(0));
+    expect(pruneHistory(db, NOW).actions).toBe(1);
+    expect(JSON.parse(level2Of(db, "ancient"))).toEqual({ tool: "web.fetch" });
+    expect(level2Of(db, "month").length).toBeGreaterThan(512);
+    expect(
+      one<{ level1: string }>(db, "SELECT level1 FROM task_actions WHERE id = 'ac_ancient'").level1,
+    ).toBe("summary line");
+    expect(count(db, "task_actions")).toBe(3);
   });
 
-  it("prunes finished scheduler runs but keeps the newest per automation and running ones", () => {
+  it("trims event lists of finished scheduler runs, not running ones", () => {
     const db = memDb();
     db.sqlite.pragma("foreign_keys = OFF");
+    const thread = createThread(db, { kind: "main", sessionKey: "owner:main" });
+    addTask(db, thread.id, "now_task", "queued", ago(0));
     const ins = db.sqlite.prepare(
-      `INSERT INTO automation_runs (id, automation_id, trigger, scheduled_for, started_at, status, created_at)
-       VALUES (?, ?, 'schedule', ?, ?, ?, ?)`,
+      `INSERT INTO automation_runs (id, automation_id, trigger, scheduled_for, started_at, status, created_at, events)
+       VALUES (?, 'au', 'event', ?, ?, ?, ?, '[{"a":1}]')`,
     );
-    const at = (d: number) => new Date(NOW.getTime() - d * DAY).toISOString();
-    ins.run("a1", "auto1", at(200), at(200), "done", at(200));
-    ins.run("a2", "auto1", at(150), at(150), "failed", at(150));
-    ins.run("a3", "auto1", at(120), at(120), "done", at(120)); // newest of auto1: kept
-    ins.run("b1", "auto2", at(300), at(300), "running", at(300));
-    ins.run("c1", "auto3", at(10), at(10), "done", at(10));
-    expect(pruneHistory(db, NOW).automationRuns).toBe(2);
-    expect(["a1", "a2"].some((id) => has(db, "automation_runs", id))).toBe(false);
-    for (const id of ["a3", "b1", "c1"]) expect(has(db, "automation_runs", id)).toBe(true);
+    ins.run("done_old", ago(100), ago(100), "done", ago(100));
+    ins.run("running_old", ago(100), ago(100), "running", ago(100));
+    ins.run("done_new", ago(5), ago(5), "done", ago(5));
+    expect(pruneHistory(db, NOW).runEvents).toBe(1);
+    const ev = (id: string) =>
+      one<{ events: string | null }>(db, "SELECT events FROM automation_runs WHERE id = ?", id)
+        .events;
+    expect(ev("done_old")).toBeNull();
+    expect(ev("running_old")).not.toBeNull();
+    expect(ev("done_new")).not.toBeNull();
+    expect(count(db, "automation_runs")).toBe(3);
   });
 
-  it("is batched and bounded in time on a large database", () => {
+  it("a batch on 20k tasks with references walks an index and stays under 250 ms", () => {
     const db = memDb();
-    const ins = db.sqlite.prepare(
-      `INSERT INTO notifications (id, kind, title, body, read_at, seq, created_at, updated_at)
-       VALUES (?, 'system', 't', 'b', ?, ?, ?, ?)`,
-    );
+    const thread = createThread(db, { kind: "main", sessionKey: "owner:main" });
     db.sqlite.transaction(() => {
-      for (let i = 0; i < 20_000; i++) ins.run(`n${i}`, old, i, old, old);
+      for (let i = 0; i < 20_000; i++) {
+        const id = `t${i}`;
+        const at = ago(60 + (i % 20));
+        addTask(db, thread.id, id, "done", at);
+        db.sqlite
+          .prepare(
+            `INSERT INTO receipts (id, kind, task_id, outcome, summary, created_at, updated_at)
+             VALUES (?, 'k', ?, 'ok', 's', ?, ?)`,
+          )
+          .run(`rc${i}`, id, at, at);
+      }
     })();
-    // A clock that jumps 100 ms per check: the budget ends the pass after a few batches.
-    let t = 0;
-    const clock = () => (t += 100);
-    const first = pruneHistory(db, NOW, { batch: 500, budgetMs: 350, clock });
-    expect(first.truncated).toBe(true);
-    expect(first.notifications).toBe(1500);
-    expect(count(db, "notifications")).toBe(18_500);
-    // With the real clock the pass stays within its budget and the next passes finish the work.
-    const started = Date.now();
-    let passes = 0;
-    while (count(db, "notifications") > 0 && passes < 200) {
-      const r = pruneHistory(db, NOW, { batch: 500, budgetMs: 250 });
-      expect(r.notifications).toBeGreaterThan(0);
-      passes += 1;
-    }
-    expect(count(db, "notifications")).toBe(0);
-    expect(Date.now() - started).toBeLessThan(30_000);
+    addTask(db, thread.id, "now_task", "queued", ago(0));
+    const plan = db.sqlite
+      .prepare(
+        `EXPLAIN QUERY PLAN SELECT rowid, updated_at, id FROM task_checkpoints INDEXED BY task_checkpoints_bulky_idx
+         WHERE payload IS NOT NULL AND length(payload) > 512 AND updated_at < ? ORDER BY updated_at, rowid LIMIT 200`,
+      )
+      .all(ago(30)) as { detail: string }[];
+    expect(plan.map((p) => p.detail).join(" ")).toContain("task_checkpoints_bulky_idx");
+    expect(plan.map((p) => p.detail).join(" ")).not.toContain("TEMP B-TREE");
+
+    const t0 = performance.now();
+    const r = pruneHistory(db, NOW, {
+      batch: 200,
+      budgetMs: 1,
+      clock: (() => {
+        let n = 0;
+        return () => (n++ < 3 ? 0 : 99);
+      })(),
+    });
+    const ms = performance.now() - t0;
+    expect(r.checkpoints).toBeGreaterThanOrEqual(200);
+    expect(ms).toBeLessThan(250);
+    // Real clock: one pass is bounded by its budget and the next passes make progress.
+    const t1 = performance.now();
+    const r2 = pruneHistory(db, NOW, { batch: 200, budgetMs: 100 });
+    expect(performance.now() - t1).toBeLessThan(600);
+    expect(r2.checkpoints).toBeGreaterThan(0);
   });
 });
 
-describe("retention with the audit log", () => {
-  it("keeps the audit chain verifiable after history is pruned", async () => {
+describe("clock safety", () => {
+  it("a forward clock jump of a year prunes nothing", () => {
+    const db = memDb();
+    const thread = createThread(db, { kind: "main", sessionKey: "owner:main" });
+    addTask(db, thread.id, "recent", "done", ago(5));
+    addTask(db, thread.id, "mid", "done", ago(20));
+    const jumped = new Date(NOW.getTime() + 365 * DAY);
+    const r = pruneHistory(db, jumped);
+    expect(r.skipped).toBe("clock");
+    expect(r.checkpoints + r.actions + r.runEvents).toBe(0);
+    expect(payloadOf(db, "recent")).toBe(BIG);
+    expect(payloadOf(db, "mid")).toBe(BIG);
+  });
+
+  it("a stored cutoff advances by at most elapsed time plus a day per pass", () => {
+    const db = memDb();
+    let mono = 1000;
+    const first = safeCutoff(db, "x", NOW, 30, () => mono);
+    expect(first).toBe(ago(30));
+    mono += 3_600_000; // one hour passed on the monotonic clock
+    const later = new Date(NOW.getTime() + 200 * DAY);
+    const next = Date.parse(safeCutoff(db, "x", later, 30, () => mono));
+    expect(next).toBeLessThanOrEqual(Date.parse(first) + 3_600_000 + DAY);
+    expect(next).toBeGreaterThan(Date.parse(first));
+  });
+});
+
+describe("maintenance, vacuum and compaction", () => {
+  it("new databases are INCREMENTAL with a WAL size limit; maintenance reclaims pages", () => {
+    const db = fileDb();
+    expect(db.sqlite.pragma("auto_vacuum", { simple: true })).toBe(2);
+    expect(db.sqlite.pragma("journal_size_limit", { simple: true })).toBe(67108864);
+    db.sqlite.exec("CREATE TABLE bulk (v BLOB)");
+    const ins = db.sqlite.prepare("INSERT INTO bulk VALUES (?)");
+    db.sqlite.transaction(() => {
+      for (let i = 0; i < 400; i++) ins.run(Buffer.alloc(8192, 1));
+    })();
+    db.sqlite.exec("DELETE FROM bulk");
+    const free = () => db.sqlite.pragma("freelist_count", { simple: true }) as number;
+    const before = free();
+    runDbMaintenance(ctxOf(db));
+    expect(free()).toBeLessThan(before);
+  });
+
+  it("never runs a full VACUUM on its own: a legacy database keeps its free pages", () => {
+    const db = fileDb();
+    db.sqlite.pragma("auto_vacuum = NONE");
+    db.sqlite.exec("VACUUM");
+    db.sqlite.exec("CREATE TABLE bulk (v BLOB)");
+    const ins = db.sqlite.prepare("INSERT INTO bulk VALUES (?)");
+    db.sqlite.transaction(() => {
+      for (let i = 0; i < 200; i++) ins.run(Buffer.alloc(8192, 1));
+    })();
+    db.sqlite.exec("DELETE FROM bulk");
+    const before = db.sqlite.pragma("freelist_count", { simple: true }) as number;
+    runDbMaintenance(ctxOf(db));
+    expect(db.sqlite.pragma("freelist_count", { simple: true })).toBe(before);
+  });
+
+  it("compaction is refused while a run is active and reclaims space when idle", () => {
+    const db = fileDb();
+    const thread = createThread(db, { kind: "main", sessionKey: "owner:main" });
+    db.sqlite.exec("CREATE TABLE bulk (v BLOB)");
+    const ins = db.sqlite.prepare("INSERT INTO bulk VALUES (?)");
+    db.sqlite.transaction(() => {
+      for (let i = 0; i < 400; i++) ins.run(Buffer.alloc(8192, 1));
+    })();
+    db.sqlite.exec("DELETE FROM bulk");
+    const live = createRun(db, { threadId: thread.id, modelRef: "fake/model" });
+    db.sqlite.prepare("UPDATE runs SET status = 'running' WHERE id = ?").run(live.id);
+    expect(compactEstimate(db).idle).toBe(false);
+    expect(compactDatabase(ctxOf(db))).toEqual({ ok: false, reason: "busy" });
+    db.sqlite.prepare("UPDATE runs SET status = 'done' WHERE id = ?").run(live.id);
+    const est = compactEstimate(db);
+    expect(est.reclaimableBytes).toBeGreaterThan(1_000_000);
+    const r = compactDatabase(ctxOf(db));
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.savedBytes).toBeGreaterThan(1_000_000);
+    expect(compactEstimate(db).reclaimableBytes).toBe(0);
+  });
+
+  it("the audit chain verifies identically after history trimming", async () => {
     const home = tmp();
     const composed = await composeGateway({
       env: {},
@@ -217,94 +289,22 @@ describe("retention with the audit log", () => {
       model: { provider: new FakeModelProvider(), model: "fake/model" },
     });
     try {
-      for (let i = 0; i < 3; i++) {
+      for (let i = 0; i < 3; i++)
         await composed.audit.append({
           kind: "config.changed",
           actor: { type: "system" },
           data: { key: `k${i}` },
         });
-      }
       const ctx = composed.gateway.context;
       const thread = createThread(ctx.db, { kind: "main", sessionKey: "owner:main" });
-      addTask(ctx.db, thread.id, "t_old", "done", old);
-      addNotification(ctx.db, "n_old", old, { resolved: true });
+      addTask(ctx.db, thread.id, "t_old", "done", ago(100));
+      addTask(ctx.db, thread.id, "t_now", "queued", ago(0));
       const before = await composed.audit.verify();
       expect(before.ok).toBe(true);
-      const report = runRetention(ctx);
-      expect(report.history.tasks).toBe(1);
-      expect(report.history.notifications).toBe(1);
-      const after = await composed.audit.verify();
-      expect(after).toEqual(before);
+      expect(runDbMaintenance(ctx).checkpoints).toBe(1);
+      expect(await composed.audit.verify()).toEqual(before);
     } finally {
       await composed.stop("test");
     }
-  });
-});
-
-/** A database as the owner has it today: created before auto_vacuum was set. */
-function legacyDb(path: string): PsycheDb {
-  const first = openDb(path);
-  first.sqlite.pragma("auto_vacuum = NONE");
-  first.sqlite.exec("VACUUM");
-  first.close();
-  const db = openDb(path);
-  dbs.push(db);
-  return db;
-}
-
-const ctxOf = (db: PsycheDb) => ({ db, log: silentLogger }) as unknown as GatewayContext;
-
-describe("auto_vacuum and VACUUM", () => {
-  it("a new database is INCREMENTAL, a legacy one is not", () => {
-    const home = tmp();
-    const fresh = openDb(join(home, "fresh.db"));
-    dbs.push(fresh);
-    expect(fresh.sqlite.pragma("auto_vacuum", { simple: true })).toBe(2);
-    const legacy = legacyDb(join(home, "legacy.db"));
-    expect(legacy.sqlite.pragma("auto_vacuum", { simple: true })).toBe(0);
-    expect(maybeVacuum(ctxOf(fresh))).toBe("not-needed");
-  });
-
-  it("converts a legacy database when idle and enough disk is free", () => {
-    const db = legacyDb(join(tmp(), "legacy.db"));
-    const thread = createThread(db, { kind: "main", sessionKey: "owner:main" });
-    addTask(db, thread.id, "keep", "done", recent);
-    expect(maybeVacuum(ctxOf(db), () => 1e12)).toBe("done");
-    expect(db.sqlite.pragma("auto_vacuum", { simple: true })).toBe(2);
-    expect(has(db, "tasks", "keep")).toBe(true);
-    expect(maybeVacuum(ctxOf(db), () => 1e12)).toBe("not-needed");
-  });
-
-  it("is skipped while a run is active, and runs once it ends", () => {
-    const db = legacyDb(join(tmp(), "legacy.db"));
-    const thread = createThread(db, { kind: "main", sessionKey: "owner:main" });
-    const live = createRun(db, { threadId: thread.id, modelRef: "fake/model" });
-    db.sqlite.prepare("UPDATE runs SET status = 'running' WHERE id = ?").run(live.id);
-    expect(maybeVacuum(ctxOf(db), () => 1e12)).toBe("skipped-busy");
-    expect(db.sqlite.pragma("auto_vacuum", { simple: true })).toBe(0);
-    db.sqlite.prepare("UPDATE runs SET status = 'done' WHERE id = ?").run(live.id);
-    expect(maybeVacuum(ctxOf(db), () => 1e12)).toBe("done");
-  });
-
-  it("is skipped when the disk cannot hold the copy", () => {
-    const db = legacyDb(join(tmp(), "legacy.db"));
-    expect(maybeVacuum(ctxOf(db), () => 1024)).toBe("skipped-low-disk");
-    expect(db.sqlite.pragma("auto_vacuum", { simple: true })).toBe(0);
-  });
-
-  it("maintenance reclaims freed pages on an INCREMENTAL database and checkpoints", () => {
-    const db = openDb(join(tmp(), "fresh.db"));
-    dbs.push(db);
-    db.sqlite.exec("CREATE TABLE bulk (v BLOB)");
-    const ins = db.sqlite.prepare("INSERT INTO bulk VALUES (?)");
-    db.sqlite.transaction(() => {
-      for (let i = 0; i < 400; i++) ins.run(Buffer.alloc(8192, 1));
-    })();
-    db.sqlite.exec("DELETE FROM bulk");
-    const free = () => db.sqlite.pragma("freelist_count", { simple: true }) as number;
-    const before = free();
-    expect(before).toBeGreaterThan(300);
-    expect(runDbMaintenance(ctxOf(db)).vacuum).toBe("not-needed");
-    expect(free()).toBeLessThan(before);
   });
 });

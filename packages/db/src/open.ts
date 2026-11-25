@@ -81,6 +81,8 @@ export function openDb(path: string, opts: OpenDbOptions = {}): PsycheDb {
       // hand freed pages back with `incremental_vacuum` instead of a full VACUUM.
       if (fresh) sqlite.pragma("auto_vacuum = INCREMENTAL");
       if (!memory) sqlite.pragma("journal_mode = WAL");
+      // A checkpoint truncates the WAL back to this size, so one big write cannot leave a huge file.
+      sqlite.pragma("journal_size_limit = 67108864");
       sqlite.pragma("synchronous = NORMAL");
       // FAST zeroes deleted cells inside a b-tree page. It does not zero pages that go to the
       // freelist (overflow chains of large rows, merged full-text segments). The Forget paths
