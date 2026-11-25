@@ -24,6 +24,7 @@ import {
 } from "./auth.ts";
 import { serverBuild } from "./build-info.ts";
 import type { ClaimHelloInput, ClaimSession } from "./claim/mode.ts";
+import { forkThreadRefusal, isDesktopViewer } from "./compose/fork-hidden.ts";
 import type { Call, GatewayContext, HandlerDef, LiveConnection } from "./context.ts";
 import type { EventFilter, FrameSink } from "./event-bus.ts";
 import { isLocalAdminCli } from "./handlers/devices.ts";
@@ -361,6 +362,14 @@ export class Connection implements LiveConnection {
     const budgeted =
       spec.callsModel || (spec.callsModelWhen as ((p: unknown) => boolean) | undefined)?.(params);
     const def: HandlerDef | undefined = HANDLERS[method] ?? this.#ctx.extraHandlers[method];
+    // A plan fork's working (its branch threads and their runs) stays on this Mac when it read
+    // Memory, Messages or Contacts (fork-a-plan-2026 §4.4): refused for every other caller.
+    forkThreadRefusal(
+      this.#ctx.db,
+      method,
+      params,
+      isDesktopViewer({ identity, conn: this } as never),
+    );
     if (def === undefined) {
       throw new PsycheError("not_implemented", `${method} is not implemented yet`);
     }

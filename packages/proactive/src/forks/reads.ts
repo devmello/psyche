@@ -1,6 +1,6 @@
 import { FORK_FETCH_TOOL, FORK_SEARCH_TOOL } from "@psyche/agent-core";
 import type { ForkCiteSource, StagingReadCall, StagingReads, TaintSource } from "@psyche/protocol";
-import type { BranchCall } from "./report-check.ts";
+import { type BranchCall, OWNER_ONLY_SOURCES, READ_CLASSES } from "./report-check.ts";
 
 /**
  * A branch's read guard (docs/design/fork-a-plan-2026.md §3.2, §4.2). One per branch run:
@@ -75,10 +75,14 @@ export class BranchReads implements StagingReads {
   readonly #outputLimit: (() => number | undefined) | undefined;
   readonly #beforeModel: ((inputTokens: number) => boolean) | undefined;
   readonly #onFinish: ((run: { taint: boolean; taintSources: TaintSource[] }) => void) | undefined;
+  readonly #onOwnerOnly: (() => void) | undefined;
+  #ownerOnlySeen = false;
 
   constructor(
     opts: {
       onTaint?: (sources: readonly TaintSource[]) => void;
+      /** The first successful read of Memory, Messages or Contacts (the branch row's mark). */
+      onOwnerOnly?: () => void;
       /** The money check before each model call (`StagingReads.beforeModelCall`). */
       beforeModel?: (inputTokens: number) => boolean;
       /** The output limit every call is sent with (`StagingReads.outputLimit`). */
@@ -91,6 +95,7 @@ export class BranchReads implements StagingReads {
     this.#beforeModel = opts.beforeModel;
     this.#outputLimit = opts.outputLimit;
     this.#onFinish = opts.onFinish;
+    this.#onOwnerOnly = opts.onOwnerOnly;
   }
 
   outputLimit(): number | undefined {
@@ -111,6 +116,19 @@ export class BranchReads implements StagingReads {
   }
 
   observe(call: StagingReadCall): void {
+    // The same rule as the report check's `readOwnerOnly`, recorded before anything else (the
+    // call record below is bounded; this mark is not).
+    const source = citeSourceOf(call.tool);
+    if (
+      !this.#ownerOnlySeen &&
+      call.ok &&
+      READ_CLASSES.has(call.sideEffect) &&
+      source !== null &&
+      OWNER_ONLY_SOURCES.has(source)
+    ) {
+      this.#ownerOnlySeen = true;
+      this.#onOwnerOnly?.();
+    }
     // A search that failed returned nothing a fetch may rely on.
     if (call.tool === FORK_SEARCH_TOOL && call.ok) {
       for (const u of searchResultUrls(call.output)) {

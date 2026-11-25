@@ -93,6 +93,8 @@ export interface ForkStore {
       error?: string | null;
       taint?: boolean;
       taintSources?: readonly TaintSource[];
+      /** Only ever set to true (an owner-only read was seen). */
+      readOwnerOnly?: true;
       spentUsd?: number;
       tokens?: number;
       startedAt?: string | null;
@@ -313,6 +315,67 @@ export class ForkService {
     this.#publish(forkId);
   }
 
+  /**
+   * `planForks.retryBranch` (§2.4): a failed branch gets a fresh task inside what is left of its
+   * share. The caller allows it once per branch. A fork that had failed for want of two reports
+   * runs again; the one-live-fork-per-thread index refuses it when another fork of the thread runs.
+   * The branch's old task is never adopted (that would end it again at once).
+   */
+  async retryBranch(forkId: string, branchId: string): Promise<PlanForkBranch> {
+    const fork = this.#d.store.getFork(forkId);
+    if (fork === null) throw new PsycheError("not_found", "no such fork");
+    const branches = this.#d.store.listBranches(forkId);
+    const b = branches.find((x) => x.id === branchId);
+    if (b === undefined) throw new PsycheError("not_found", "no such branch");
+    if (b.status !== "failed" && b.status !== "budget_stopped") {
+      throw new PsycheError("conflict", "only a branch that failed can be retried");
+    }
+    const failedFork = fork.status === "failed" && fork.error === "fewer_than_two_reports";
+    if (fork.status !== "running" && !failedFork) {
+      throw new PsycheError("conflict", `the fork is ${fork.status}`);
+    }
+    const budget = this.#budgetOf(fork, branches.length);
+    const left = Math.min(
+      budget.split.branchShareUsd - budget.branchUsed(b.id).usd,
+      budget.split.budgetUsd - budget.state.spentUsd,
+    );
+    if (!(left > 0.005)) throw new PsycheError("conflict", "no budget is left for this branch");
+    if (failedFork) {
+      try {
+        this.#d.store.updateFork(forkId, { status: "running", error: null, finishedAt: null });
+      } catch {
+        throw new PsycheError("conflict", "another plan of this chat is running");
+      }
+    }
+    this.#cancelRequested.delete(b.id);
+    this.#budgetStopped.delete(b.id);
+    this.#reads.delete(b.id);
+    this.#d.store.updateBranch(b.id, {
+      status: "queued",
+      error: null,
+      taskId: null,
+      startedAt: null,
+      finishedAt: null,
+    });
+    const price = this.#d.modelPrice?.(b.threadId);
+    const task = await this.#d.tasks.create({
+      threadId: b.threadId,
+      title: `${BRANCH_TITLE_PREFIX}${plainLabel(b.label)}`,
+      goal: buildBranchGoal({ label: b.label, premise: b.premise }),
+      createdFrom: "fork",
+      mode: "unattended",
+      budget: branchCaps(budget.split, branches.length, {
+        ...(price === undefined ? {} : { usdPerToken: price.inputPerToken }),
+      }),
+      staging: { kind: "fork", forkId, branchId: b.id },
+    });
+    this.#taskRefs.set(task.id, { forkId, branchId: b.id, lane: "branch" });
+    const updated = this.#d.store.updateBranch(b.id, { taskId: task.id });
+    this.#d.poke();
+    this.#publish(forkId);
+    return updated ?? { ...b, status: "queued", taskId: task.id };
+  }
+
   // --- The report ---------------------------------------------------------------------------
 
   /**
@@ -529,6 +592,15 @@ export class ForkService {
         beforeModel: (inputTokens) => this.#stepFits(branchId, inputTokens),
         outputLimit: () => this.#outputLimit(branchId),
         onFinish: (run) => this.#saveRunTaint(branchId, run),
+        // Written the moment it happens, not at report time: the in-memory record is lost on a
+        // retry or a restart, the row's mark is not (§4.4). It only ever goes up.
+        onOwnerOnly: () => {
+          try {
+            this.#d.store.updateBranch(branchId, { readOwnerOnly: true });
+          } catch (err) {
+            this.#warn("branch owner-only mark not saved", err);
+          }
+        },
         onTaint: (sources) => {
           try {
             this.#d.store.updateBranch(branchId, { taint: true, taintSources: sources });

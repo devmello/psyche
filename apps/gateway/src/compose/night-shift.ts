@@ -13,6 +13,7 @@ import {
   createThread,
   getNight,
   getNightByDate,
+  getPlanForkBranch,
   getSetting,
   getStagedAction,
   insertNight,
@@ -21,6 +22,7 @@ import {
   listNights,
   listStagedActions,
   listStagedActionsByApproval,
+  listStagedActionsForBranch,
   type PsycheDb,
   pruneClosedNights,
   unbindStagedApproval,
@@ -28,7 +30,13 @@ import {
   updateStagedAction,
 } from "@psyche/db";
 import type { PsycheNotifier } from "@psyche/notifications";
-import type { ApplyBroker, ApplyStore, GateState, NightShiftCaller } from "@psyche/proactive";
+import type {
+  ApplyBroker,
+  ApplySource,
+  ApplyStore,
+  GateState,
+  NightShiftCaller,
+} from "@psyche/proactive";
 import {
   type CalendarEventInput,
   type CandidateSource,
@@ -55,6 +63,7 @@ import {
   type ToolLookup,
 } from "@psyche/proactive";
 import type {
+  ApprovalRequest,
   Clock,
   MethodParams,
   MethodResult,
@@ -135,6 +144,15 @@ export interface NightShiftSetup {
   broker?: ApplyBroker;
   /** The calling device's approval surface: tokens go to it only. */
   surfaceOf?: (deviceId: string) => Surface;
+  /**
+   * A plan fork's Take settled (fork-a-plan-2026 §3.4): the apply ran, or the approval was
+   * declined, expired or invalidated. `planForks.*` moves the fork on from here.
+   */
+  onForkApplySettled?: (
+    source: Extract<ApplySource, { kind: "fork" }>,
+    approval: ApprovalRequest,
+    outcome: "applied" | "not_approved",
+  ) => void;
 }
 
 const TERMINAL = new Set(["done", "failed", "cancelled"]);
@@ -650,6 +668,17 @@ export function composeNightShift(setup: NightShiftSetup) {
             setup.logger?.log("warn", "night shift apply failed", {
               code: PsycheError.from(err).code,
             }),
+          // Fork a plan's Take (fork-a-plan-2026 §3.4, §10): the same apply path, with the
+          // branch's items, run in the branch's own hidden thread, never the owner's chat.
+          listForBranch: (branchId) => listStagedActionsForBranch(db, branchId),
+          forkThreadId: async (branchId) => {
+            const branch = getPlanForkBranch(db, branchId);
+            if (branch === null) throw new PsycheError("not_found", "no such plan branch");
+            return branch.threadId;
+          },
+          onSourceSettled: (source, approval, outcome) => {
+            if (source.kind === "fork") setup.onForkApplySettled?.(source, approval, outcome);
+          },
         });
   const applyDefs: Record<string, HandlerDef> = {};
   if (applier !== undefined) {
