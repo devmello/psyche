@@ -122,7 +122,7 @@ export function scrubForViewer(view: ForkView, viewer: Viewer | undefined): Scru
 
   const branches = view.branches.map((b): PlanForkBranch => {
     if (b.readOwnerOnly) ownerBranches.add(b.id);
-    if (b.report === null) {
+    if (b.report === null || b.report === undefined) {
       totals.push({ branchId: b.id, costs: [] });
       return { ...b, scrub: NO_SCRUB };
     }
