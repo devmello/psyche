@@ -122,12 +122,12 @@ describe("model pass (§5.2–§5.4)", () => {
     expect(report).toMatchObject({ entities: 1, facts: 2, loops: 2, tokens: 1000 });
     expect(report.dropped).toBe(5);
     const facts = graph.facts(sam).map((f) => [f.attribute, f.value, f.provenance]);
-    expect(facts).toEqual(
-      expect.arrayContaining([
-        ["team", "Product", "agent"],
-        ["city", "Berlin", "untrusted"],
-      ]),
-    );
+    expect(facts).toEqual(expect.arrayContaining([["team", "Product", "agent"]]));
+    // A fact from the other person's mail is pending review, never part of what is known.
+    expect(facts).not.toContainEqual(["city", "Berlin", "untrusted"]);
+    expect(graph.history(sam, "city").facts).toMatchObject([
+      { value: "Berlin", provenance: "untrusted", review: "pending" },
+    ]);
     expect(facts.map((f) => f[0])).not.toEqual(expect.arrayContaining(["relationship_to_owner"]));
     const loops = graph.loops({ entityId: sam });
     expect(loops.find((l) => l.text === "Send Sam the revised budget")).toMatchObject({
