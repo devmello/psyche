@@ -15,6 +15,8 @@ struct UploadJob: Identifiable, Equatable {
 final class LibraryModel {
     var section: LibrarySection = .documents
     private(set) var uploads: [UploadJob] = []
+    /// Why the last delete failed; the screen shows it once.
+    private(set) var deleteError: String?
     private let store: any PsycheBackend
     /// One list per section: each keeps its own pages, next cursor and failed page.
     private let pagers: [LibrarySection: PagedRows<PsycheStore.LibraryItem>]
@@ -79,6 +81,21 @@ final class LibraryModel {
             }
         }
     }
+
+    // MARK: Delete
+
+    /// Deletes a file here and on the Mac, then drops its row.
+    func delete(_ item: PsycheStore.LibraryItem) async {
+        do {
+            try await store.deleteLibraryItem(id: item.id)
+            await ThumbnailLoader.shared.forget(item.id)
+            for pager in pagers.values { pager.edit { $0.removeAll { $0.id == item.id } } }
+        } catch {
+            deleteError = error.localizedDescription
+        }
+    }
+
+    func clearDeleteError() { deleteError = nil }
 
     // MARK: Uploads
 

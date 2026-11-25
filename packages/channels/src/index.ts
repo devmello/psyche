@@ -12,6 +12,7 @@ export * from "./adapters/webchat.ts";
 export * from "./adapters/whatsapp/index.ts";
 export * from "./api.ts";
 export * from "./approvals.ts";
+export * from "./capability-text.ts";
 export * from "./commands.ts";
 export * from "./format/approval-card.ts";
 export * from "./format/chunk.ts";

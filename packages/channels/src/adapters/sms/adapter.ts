@@ -124,7 +124,7 @@ export class SmsAdapter implements ChannelAdapter {
       polls: false,
       reactions: false,
       voiceNotes: false,
-      attachments: true,
+      attachments: false,
       groups: false,
       maxMessageChars: SMS_MAX_MESSAGE_CHARS,
       typing: false,

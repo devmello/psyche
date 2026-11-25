@@ -174,6 +174,7 @@ import {
   toolEffectChange,
 } from "./changes.ts";
 import { ChannelConversations } from "./channel-conversations.ts";
+import { channelCapabilityProvider } from "./channels.ts";
 import { type ComposedComputer, composeComputer } from "./computer.ts";
 import { CONNECTOR_MATRIX_PREFIX } from "./connector-matrix.ts";
 import { macHelper } from "./connectors.ts";
@@ -753,6 +754,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     // Quiet hours (#953): a getter, so a change in Settings applies to the next notification.
     // The connected clients that opted in are read per notification, so a reconnect applies.
     routing: () => ({ ...ownerRouting(), deviceTargets: deviceNotes.targets() }),
+    // The owner's UI language: the fixed English notification sentences are stored translated.
+    language: () => getSetting(db, "ui.language")?.value,
     adapters: [createDeviceSurface({ send: (id, toast) => deviceNotes.send(id, toast) })],
   });
   // Every security alert reaches the owner's inbox: the desktop, the Mac's notification and the
@@ -1929,6 +1932,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       ...(people === undefined ? [] : [people.recall]),
       memoryRecall.recall,
       artifactContextProvider(db),
+      channelCapabilityProvider(db),
       automationIntentProvider(),
     ],
     contextLimits: context.contextLimits,
@@ -3165,6 +3169,7 @@ export { CallContexts } from "./call-context.ts";
 export {
   type ChannelsSetup,
   type ComposedChannels,
+  channelCapabilityProvider,
   channelsSetupFromEnv,
   composeChannels,
   type TelegramSetup,
