@@ -3524,6 +3524,7 @@ export const es: Partial<Catalogue> = {
   "screens.goals.suggest.none": "Sin sugerencia esta vez. Inténtalo más tarde.",
   "screens.ideas.start": "Empezar",
   "screens.ideas.snooze": "Posponer",
+  "screens.ideas.options": "Más sobre {title}",
   "screens.ideas.badge.checkin": "Revisión",
   "screens.ideas.badge.resume": "¿Retomar?",
   "screens.goals.checkinFrequency": "Revisar",
