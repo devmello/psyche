@@ -50998,7 +50998,9 @@
         },
         "preview": {
           "anyOf": [
-            {},
+            {
+              "$ref": "#/$defs/StagedPreview"
+            },
             {
               "type": "null"
             }
@@ -51212,6 +51214,67 @@
         "undone"
       ],
       "type": "string"
+    },
+    "StagedPreview": {
+      "properties": {
+        "kind": {
+          "enum": [
+            "mail",
+            "calendar",
+            "reminder",
+            "file"
+          ],
+          "type": "string"
+        },
+        "title": {
+          "maxLength": 200,
+          "type": "string"
+        },
+        "rows": {
+          "items": {
+            "$ref": "#/$defs/StagedPreviewRow"
+          },
+          "maxItems": 40,
+          "type": "array"
+        },
+        "truncated": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "kind",
+        "title",
+        "rows",
+        "truncated"
+      ],
+      "type": "object"
+    },
+    "StagedPreviewRow": {
+      "properties": {
+        "label": {
+          "maxLength": 60,
+          "type": "string"
+        },
+        "value": {
+          "type": "string"
+        },
+        "truncated": {
+          "const": true,
+          "type": "boolean"
+        },
+        "badge": {
+          "enum": [
+            "new_recipient",
+            "reply_all"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "label",
+        "value"
+      ],
+      "type": "object"
     },
     "StarterFolderId": {
       "enum": [

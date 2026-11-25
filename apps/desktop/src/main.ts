@@ -150,6 +150,8 @@ import {
   PERMISSION_KINDS,
   type PermissionKind,
 } from "./main/permissions/permissions.ts";
+import { PointsSetting } from "./main/points/setting.ts";
+import { targetBehind } from "./main/points/target-behind.ts";
 import { HAS_UNSENT_TEXT, releaseHiddenAfterMs } from "./main/release.ts";
 import { confirmReplaceKey } from "./main/replace-key-dialog.ts";
 import { guardRestoredByHand } from "./main/restore-check.ts";
@@ -488,6 +490,7 @@ let thisDeviceId: string | undefined;
 let hud: HudWindow | undefined;
 let screenAsk: ScreenAskWindow | undefined;
 let screenAskShortcut: ScreenAskShortcut | undefined;
+let pointsSetting: PointsSetting | undefined;
 let dictation: DictationService | undefined;
 const relay = new NotificationRelay();
 const zoom = new ZoomController({
@@ -573,6 +576,20 @@ function command(c: ShellCommand): void {
     return;
   }
   target.send(IPC.shellCommand, c);
+}
+
+/**
+ * Menu bar → Point me through this window…: hide Psyche, find the window that was behind it, and
+ * open the start sheet with it chosen. Start stays the owner's click in the sheet.
+ */
+async function pointsFromTray(): Promise<void> {
+  if (pointsSetting?.enabled !== true) return;
+  const target = await targetBehind({
+    hide: () => app.hide(),
+    windows: () => requireGateway().call("points.windows", {}),
+    sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+  });
+  command({ type: "points", ...(target === undefined ? {} : { window: target }) });
 }
 
 function openDeepLink(route: string | null): void {
@@ -1928,6 +1945,7 @@ function onGatewayEvent(e: {
   if (!remoteGateway) {
     dictation?.onEvent(e.event, e.payload);
     screenAskShortcut?.onEvent(e.event, e.payload);
+    pointsSetting?.onEvent(e.event, e.payload);
     quickEntryShortcut?.onEvent(e.event, e.payload);
   }
   const p = e.payload as Record<string, unknown>;
@@ -2245,6 +2263,7 @@ void app.whenReady().then(async () => {
         // The tray shows the shortcuts that ended up registered.
         void screenAskShortcut?.load().then(() => tray?.update({ shortcuts: shownShortcuts() }));
         void quickEntryShortcut?.load();
+        void pointsSetting?.load();
       }
       void bootstrapAdminIfNeeded({
         packaged: app.isPackaged,
@@ -2512,6 +2531,10 @@ void app.whenReady().then(async () => {
         newSideChat: () => command({ type: "newSideChat" }),
         quickEntry: () => windows?.toggleQuickEntry(),
         ...(remoteGateway ? {} : { askScreen: () => screenAsk?.trigger() }),
+        // Psyche points: this Mac's own windows, so never for a client of another Gateway.
+        ...(remoteGateway || !isMac()
+          ? {}
+          : { pointsStart: () => void pointsFromTray().catch(() => undefined) }),
         openApprovals: () => command({ type: "navigate", route: "/agent/approvals" }),
         closeWindow: () => windows?.main()?.close(),
         quitApp: () => app.quit(),
@@ -2548,6 +2571,12 @@ void app.whenReady().then(async () => {
   });
   screenAskShortcut.apply(screenAskShortcut.settings);
   tray?.update({ shortcuts: shownShortcuts() });
+  pointsSetting = new PointsSetting({
+    call: (m, p) => requireGateway().call(m, p),
+    onChange: (pointsEnabled) => tray?.update({ pointsEnabled }),
+    warn: (m) => console.warn(`[points] ${m}`),
+    disabled: remoteGateway || !isMac(),
+  });
   if (!remoteGateway) {
     app.dock?.setMenu(
       Menu.buildFromTemplate([
