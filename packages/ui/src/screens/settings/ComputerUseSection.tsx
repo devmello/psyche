@@ -166,8 +166,13 @@ export function appsFromSettings(values: Readonly<Record<string, unknown>>): Com
 export interface ComputerUsePanelProps extends SettingsFormProps, LoadProps {
   persona: string;
   tcc: Partial<Record<TccPermission, TccState>>;
-  /** Opens System Settings at the pane for `permission` (the shell asks macOS). */
+  /**
+   * Asks for `permission` for Psyche Helper, the process that does computer use (macOS keeps each
+   * app's grant apart): its prompt, then its pane in System Settings.
+   */
   onOpenSystemSettings?: (permission: TccPermission) => void;
+  /** Psyche Helper is not connected: its permissions are unknown, never shown as Granted. */
+  helperOffline?: boolean;
   /** Linux computers the owner paired: with any, the page offers a computer picker. */
   machines?: readonly MachineInfo[];
 }
@@ -179,6 +184,7 @@ export function ComputerUsePanel({
   persona,
   tcc,
   onOpenSystemSettings,
+  helperOffline = false,
   machines = [],
   loading,
   error,
@@ -250,29 +256,40 @@ export function ComputerUsePanel({
               />
             ) : (
               <>
+                <p className="text-callout text-muted-foreground">
+                  {helperOffline
+                    ? t("settings.computerUse.helperAccess.offline")
+                    : t("settings.computerUse.helperAccess.hint")}
+                </p>
                 {(["accessibility", "screenRecording"] as const).map((p) => {
                   const state = tcc[p] ?? "not_determined";
                   return (
                     <div key={p} className="flex flex-wrap items-center gap-2">
                       <span className="font-medium">{TCC_LABEL[p].name}</span>
-                      <StatusChip tone={TCC_TONE[state]}>
-                        {t(`settings.computerUse.tccState.${state}`)}
-                      </StatusChip>
+                      {helperOffline ? (
+                        <StatusChip tone="neutral">
+                          {t("settings.computerUse.tccState.offline")}
+                        </StatusChip>
+                      ) : (
+                        <StatusChip tone={TCC_TONE[state]}>
+                          {t(`settings.computerUse.tccState.${state}`)}
+                        </StatusChip>
+                      )}
                       <span className="text-callout text-muted-foreground">
                         {TCC_LABEL[p].why(persona)}
                       </span>
-                      {state !== "granted" && onOpenSystemSettings ? (
+                      {!helperOffline && state !== "granted" && onOpenSystemSettings ? (
                         <Button
                           type="button"
                           variant="outline"
                           size="xs"
                           className="ms-auto"
                           onClick={() => onOpenSystemSettings(p)}
-                          aria-label={t("settings.computerUse.openSystemSettingsFor", {
+                          aria-label={t("settings.computerUse.helperAccess.allowFor", {
                             name: TCC_LABEL[p].name,
                           })}
                         >
-                          {t("settings.computerUse.openSystemSettings")}
+                          {t("settings.computerUse.helperAccess.allow")}
                         </Button>
                       ) : null}
                     </div>
@@ -344,11 +361,13 @@ export function ComputerUsePanel({
 export interface ComputerUseSectionProps {
   tcc?: Partial<Record<TccPermission, TccState>>;
   onOpenSystemSettings?: (permission: TccPermission) => void;
+  helperOffline?: boolean;
 }
 
 export function ComputerUseSection({
   tcc = {},
   onOpenSystemSettings,
+  helperOffline = false,
 }: ComputerUseSectionProps): ReactElement {
   const form = useSettingsForm();
   const persona = usePersona();
@@ -375,6 +394,7 @@ export function ComputerUseSection({
         needsApproval={form.needsApproval}
         persona={persona.name}
         tcc={tcc}
+        helperOffline={helperOffline}
         machines={machines}
         loading={form.loading && Object.keys(form.values).length === 0}
         error={form.error}

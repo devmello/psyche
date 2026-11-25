@@ -2463,6 +2463,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       events: rawBroker,
       notifier,
       loop,
+      publish,
       ...(gwOptions.logger === undefined ? {} : { logger: gwOptions.logger }),
     }),
   );

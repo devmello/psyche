@@ -204,6 +204,8 @@ export async function clearStorage(
   targets: readonly StorageClearTarget[],
   now = Date.now(),
   db?: PsycheDb,
+  /** Called with the id of each Library row removed, so clients drop it (`library.item.changed`). */
+  onLibraryRemoved?: (itemId: string) => void,
 ): Promise<MethodResult<"storage.clearCache">> {
   const wanted = new Set(targets.filter((t) => CLEARABLE.has(t)));
   const cleared: StorageClearTarget[] = [];
@@ -224,9 +226,15 @@ export async function clearStorage(
       if (!gone.has(r.id)) continue;
       freedBytes += r.bytes;
       // The Library row of a recording whose folder is gone would dangle.
-      db?.sqlite
+      if (db === undefined) continue;
+      const path = recordingLibraryPath(r.id);
+      const rows = db.sqlite
+        .prepare("SELECT id FROM library_items WHERE kind = 'recording' AND path = ?")
+        .all(path) as { id: string }[] | undefined;
+      db.sqlite
         .prepare("DELETE FROM library_items WHERE kind = 'recording' AND path = ?")
-        .run(recordingLibraryPath(r.id));
+        .run(path);
+      for (const row of rows ?? []) onLibraryRemoved?.(row.id);
     }
     cleared.push("recordings");
   }
@@ -239,7 +247,7 @@ export function composeStorage(services: ComposeServices): ComposedPart {
   const handlers: Record<string, HandlerDef> = {
     "storage.usage": { run: () => storageUsage(home) },
     "storage.clearCache": {
-      run: async (_call: Call, params: MethodParams<"storage.clearCache">) => {
+      run: async (call: Call, params: MethodParams<"storage.clearCache">) => {
         if (clearing) return { cleared: [], freedBytes: 0 };
         clearing = true;
         try {
@@ -248,6 +256,7 @@ export function composeStorage(services: ComposeServices): ComposedPart {
             params.targets ?? ["caches", "recordings"],
             Date.now(),
             services.db,
+            (itemId) => call.emit("library.item.changed", { itemId, change: "deleted" }),
           );
           services.logger?.log("info", "storage cleared", {
             cleared: result.cleared.join(","),

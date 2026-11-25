@@ -159,6 +159,9 @@ export const IPC = {
   dictationCheckHotkey: "psyche:dictation:check-hotkey",
   permissionsStatus: "psyche:permissions:status",
   permissionsRequest: "psyche:permissions:request",
+  // The Mac helper's own Accessibility and Screen Recording (Settings -> Computer use).
+  helperPermissionsStatus: "psyche:helper-permissions:status",
+  helperPermissionsRequest: "psyche:helper-permissions:request",
   dictationOpenAccessibility: "psyche:dictation:open-accessibility",
   // Voice conversation (docs/voice/voice-mode-2026.md §4.1, §4.7): main → app renderers. The
   // voice key from the helper's watch, and screen lock / sleep, which end a conversation.
@@ -507,6 +510,8 @@ export const REMOTE_REFUSED_CHANNELS: ReadonlySet<string> = new Set([
   IPC.teachAppStatus,
   IPC.dialogPickFolder,
   IPC.permissionsRequest,
+  IPC.helperPermissionsStatus,
+  IPC.helperPermissionsRequest,
   IPC.helperLaunch,
   // The sandbox PC is this computer's: a client of another Gateway never turns it on.
   IPC.sandboxPcGetState,

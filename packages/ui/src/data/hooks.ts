@@ -50,6 +50,7 @@ import {
   put,
   putMany,
   type QueuedFollowUp,
+  replaceLibraryWindow,
   type StreamingMessage,
   type ThreadContextEntry,
   type UiState,
@@ -1185,16 +1186,78 @@ export function useQuestions(filter: { threadId?: string } = {}) {
 
 // --- Tasks ------------------------------------------------------------------------------------
 
+/**
+ * Cursor state for a Gateway list the hooks page through (`nextCursor`). The cursor belongs to one
+ * filter `key`: a cursor from another filter reads as "no more pages".
+ */
+function usePaging(key: string) {
+  const [state, setState] = useState<{ key: string; cursor: string | null; loading: boolean }>({
+    key,
+    cursor: null,
+    loading: false,
+  });
+  const current = state.key === key ? state : { key, cursor: null, loading: false };
+  const set = useCallback(
+    (cursor: string | null) =>
+      setState((s) => ({ key, cursor, loading: s.key === key ? s.loading : false })),
+    [key],
+  );
+  const setLoading = useCallback(
+    (loading: boolean) => setState((s) => ({ ...s, key, loading })),
+    [key],
+  );
+  return { cursor: current.cursor, loading: current.loading, set, setLoading };
+}
+
+/**
+ * Loads the rest of a paged list one page after another, capped at `maxPages` (a picker or a
+ * title lookup, not a full list). A failed page stops the chain: the list keeps what it has, and
+ * the hook does not retry in a loop. Screens that show a list page it with a "Load older" button.
+ */
+export function useLoadRemaining(
+  page: { hasMore: boolean; loadingMore: boolean; loadMore: () => Promise<void> },
+  maxPages = 10,
+): void {
+  const failed = useRef(false);
+  const pages = useRef(0);
+  useEffect(() => {
+    if (!page.hasMore || page.loadingMore || failed.current || pages.current >= maxPages) return;
+    pages.current += 1;
+    page.loadMore().catch(() => {
+      failed.current = true;
+    });
+  });
+}
+
 export function useTasks(filter: { threadId?: string } = {}) {
   const store = useStore();
   const tasks = useStoreState((s) => s.tasks);
-  const load = useLoader(`tasks:${filter.threadId ?? "*"}`, async (st) => {
+  const key = `tasks:${filter.threadId ?? "*"}`;
+  const paging = usePaging(key);
+  const load = useLoader(key, async (st) => {
     const version = st.version();
     const res = await st.call("tasks.list", {
       ...(filter.threadId === undefined ? {} : { threadId: filter.threadId }),
     });
+    paging.set(res.nextCursor ?? null);
     st.update((s) => putMany(s, "tasks", res.tasks, version));
   });
+  /** Fetches the page after the one held and merges it by id (the Gateway caps a page at 50). */
+  const loadMore = async () => {
+    if (paging.cursor === null || paging.loading) return;
+    paging.setLoading(true);
+    try {
+      const version = store.version();
+      const res = await store.call("tasks.list", {
+        ...(filter.threadId === undefined ? {} : { threadId: filter.threadId }),
+        cursor: paging.cursor,
+      });
+      paging.set(res.nextCursor ?? null);
+      store.update((s) => putMany(s, "tasks", res.tasks, version));
+    } finally {
+      paging.setLoading(false);
+    }
+  };
   const all = useMemo(
     () =>
       Object.values(tasks)
@@ -1206,7 +1269,17 @@ export function useTasks(filter: { threadId?: string } = {}) {
   const needsYou = all.filter(
     (t) => t.status === "awaiting_approval" || t.status === "awaiting_input",
   );
-  return { ...load, all, running, needsYou, ...taskActions(store) };
+  return {
+    ...load,
+    all,
+    running,
+    needsYou,
+    /** More tasks after the loaded pages (`tasks.list` `nextCursor`). */
+    hasMore: paging.cursor !== null,
+    loadingMore: paging.loading,
+    loadMore,
+    ...taskActions(store),
+  };
 }
 
 function taskActions(store: GatewayStore) {
@@ -1477,13 +1550,48 @@ export function useVmGuests(): VmUpdatedPayload[] {
 }
 
 export function useLibrary(filter: MethodParams<"library.list"> = {}) {
+  const store = useStore();
   const items = useStoreState((s) => s.library);
   const key = JSON.stringify(filter);
+  const paging = usePaging(`library:${key}`);
   const load = useLoader(`library:${key}`, async (st) => {
     const version = st.version();
     const res = await st.call("library.list", filter);
-    st.update((s) => putMany(s, "library", res.items, version));
+    const filtered =
+      filter.threadId !== undefined ||
+      filter.taskId !== undefined ||
+      filter.query !== undefined ||
+      filter.quarantined !== undefined ||
+      filter.cursor !== undefined;
+    // A head reload replaces the loaded window (rows the Gateway dropped go away) and resets the
+    // cursor to the head's, so "Load older" starts again from the same place the window ends.
+    paging.set(res.nextCursor ?? null);
+    st.update((s) =>
+      replaceLibraryWindow(
+        s,
+        res.items,
+        {
+          ...(filter.kind === undefined ? {} : { kind: filter.kind }),
+          filtered,
+          hasMore: res.nextCursor !== null && res.nextCursor !== undefined,
+        },
+        version,
+      ),
+    );
   });
+  /** Fetches the page after the one held and merges it by id (the Gateway caps a page at 200). */
+  const loadMore = async () => {
+    if (paging.cursor === null || paging.loading) return;
+    paging.setLoading(true);
+    try {
+      const version = store.version();
+      const res = await store.call("library.list", { ...filter, cursor: paging.cursor });
+      paging.set(res.nextCursor ?? null);
+      store.update((s) => putMany(s, "library", res.items, version));
+    } finally {
+      paging.setLoading(false);
+    }
+  };
   const list = useMemo(
     () =>
       Object.values(items)
@@ -1491,7 +1599,14 @@ export function useLibrary(filter: MethodParams<"library.list"> = {}) {
         .sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
     [items, filter.kind],
   );
-  return { ...load, items: list };
+  return {
+    ...load,
+    items: list,
+    /** More Library items after the loaded pages (`library.list` `nextCursor`). */
+    hasMore: paging.cursor !== null,
+    loadingMore: paging.loading,
+    loadMore,
+  };
 }
 
 // --- Proactive surfaces -----------------------------------------------------------------------
@@ -1500,14 +1615,29 @@ export function useFeed() {
   const store = useStore();
   const feed = useStoreState((s) => s.feed);
   const nextBriefAt = useStoreState((s) => s.nextBriefAt);
+  const paging = usePaging("feed");
   const load = useLoader("feed", async (st) => {
     const version = st.version();
     const res = await st.call("feed.list", {});
+    paging.set(res.nextCursor ?? null);
     st.update((s) => ({
       ...putMany(s, "feed", res.posts, version),
       nextBriefAt: res.nextBriefAt ?? null,
     }));
   });
+  /** The next page of posts (`feed.list` `nextCursor`), merged by id; the brief time is kept. */
+  const loadMore = async () => {
+    if (paging.cursor === null || paging.loading) return;
+    paging.setLoading(true);
+    try {
+      const version = store.version();
+      const res = await store.call("feed.list", { cursor: paging.cursor });
+      paging.set(res.nextCursor ?? null);
+      store.update((s) => putMany(s, "feed", res.posts, version));
+    } finally {
+      paging.setLoading(false);
+    }
+  };
   const posts = useMemo(
     () =>
       Object.values(feed)
@@ -1519,6 +1649,10 @@ export function useFeed() {
     ...load,
     posts,
     nextBriefAt,
+    /** More posts after the loaded pages; `loadMore` fetches the next one. */
+    hasMore: paging.cursor !== null,
+    loadingMore: paging.loading,
+    loadMore,
     /** Generates the first (or next) brief now (`feed.generate`). */
     generate: async () => {
       const version = store.version();

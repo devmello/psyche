@@ -121,7 +121,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "settings.computerUse.description":
         "يمكن لـ {persona} استخدام التطبيقات على هذا الكمبيوتر حيث تسمح له فقط.",
       "settings.computerUse.macPermissions": "أذونات سطح المكتب",
-      "settings.computerUse.openSystemSettingsFor": "فتح الإعدادات لـ {name}",
       "settings.computerUse.openSystemSettings": "فتح الإعدادات",
       "settings.trusted.loading": "جارٍ قراءتها من هذا الكمبيوتر…",
       "settings.trusted.noHelper": "افتح Psyche على الكمبيوتر الخاص بك لسردها: يقرؤها المساعد.",
@@ -527,7 +526,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "settings.computerUse.description":
         "{persona} kann Apps auf diesem Computer nur dort verwenden, wo du es erlaubst.",
       "settings.computerUse.macPermissions": "Desktop-Berechtigungen",
-      "settings.computerUse.openSystemSettingsFor": "Einstellungen für {name} öffnen",
       "settings.computerUse.openSystemSettings": "Einstellungen öffnen",
       "settings.trusted.loading": "Werden von diesem Computer gelesen …",
       "settings.trusted.noHelper":
@@ -951,7 +949,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "settings.computerUse.description":
         "{persona} solo puede usar las apps de este ordenador donde tú lo permitas.",
       "settings.computerUse.macPermissions": "Permisos del escritorio",
-      "settings.computerUse.openSystemSettingsFor": "Abrir Configuración para {name}",
       "settings.computerUse.openSystemSettings": "Abrir Configuración",
       "settings.trusted.loading": "Leyéndolos de este ordenador…",
       "settings.trusted.noHelper": "Abre Psyche en tu ordenador para verlos: el asistente los lee.",
@@ -1377,7 +1374,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "settings.computerUse.description":
         "{persona} ne peut utiliser les apps de cet ordinateur que là où vous l’autorisez.",
       "settings.computerUse.macPermissions": "Autorisations du bureau",
-      "settings.computerUse.openSystemSettingsFor": "Ouvrir les Paramètres pour {name}",
       "settings.computerUse.openSystemSettings": "Ouvrir les Paramètres",
       "settings.trusted.loading": "Lecture depuis cet ordinateur…",
       "settings.trusted.noHelper":
@@ -1795,7 +1791,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "settings.computerUse.description":
         "{persona} इस कंप्यूटर पर ऐप केवल वहीं उपयोग कर सकता है जहाँ आप अनुमति दें।",
       "settings.computerUse.macPermissions": "डेस्कटॉप अनुमतियाँ",
-      "settings.computerUse.openSystemSettingsFor": "{name} के लिए सेटिंग्ज़ खोलें",
       "settings.computerUse.openSystemSettings": "सेटिंग्ज़ खोलें",
       "settings.trusted.loading": "इस कंप्यूटर से पढ़ा जा रहा है…",
       "settings.trusted.noHelper": "उन्हें सूचीबद्ध करने के लिए अपने कंप्यूटर पर Psyche खोलें: हेल्पर उन्हें पढ़ता है।",
@@ -2198,7 +2193,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "settings.computerUse.description":
         "{persona} può usare le app su questo computer solo dove lo consenti.",
       "settings.computerUse.macPermissions": "Permessi del desktop",
-      "settings.computerUse.openSystemSettingsFor": "Apri Impostazioni per {name}",
       "settings.computerUse.openSystemSettings": "Apri Impostazioni",
       "settings.trusted.loading": "Lettura da questo computer…",
       "settings.trusted.noHelper": "Apri Psyche sul tuo computer per elencarli: li legge l’helper.",
@@ -2620,7 +2614,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "settings.computerUse.description":
         "{persona}は、あなたが許可した範囲でのみこのコンピュータのアプリを使用できます。",
       "settings.computerUse.macPermissions": "デスクトップの権限",
-      "settings.computerUse.openSystemSettingsFor": "{name}の設定を開く",
       "settings.computerUse.openSystemSettings": "設定を開く",
       "settings.trusted.loading": "このコンピュータから読み込んでいます…",
       "settings.trusted.noHelper":
@@ -3037,7 +3030,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "settings.computerUse.description":
         "{persona}은(는) 사용자가 허용한 범위에서만 이 컴퓨터의 앱을 사용할 수 있습니다.",
       "settings.computerUse.macPermissions": "데스크톱 권한",
-      "settings.computerUse.openSystemSettingsFor": "{name}에 대한 설정 열기",
       "settings.computerUse.openSystemSettings": "설정 열기",
       "settings.trusted.loading": "이 컴퓨터에서 읽는 중…",
       "settings.trusted.noHelper":
@@ -3444,7 +3436,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "settings.computerUse.description":
         "{persona} pode usar apps neste computador somente onde você permitir.",
       "settings.computerUse.macPermissions": "Permissões da área de trabalho",
-      "settings.computerUse.openSystemSettingsFor": "Abrir Configurações para {name}",
       "settings.computerUse.openSystemSettings": "Abrir Configurações",
       "settings.trusted.loading": "Lendo-os deste computador…",
       "settings.trusted.noHelper": "Abra o Psyche no seu computador para vê-los: o auxiliar os lê.",
@@ -3847,7 +3838,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "还没有渠道。连接 Telegram 或 Slack，即可在离开这台电脑时联系 {persona}。",
       "settings.computerUse.description": "{persona} 只能在你允许的范围内使用这台电脑上的 App。",
       "settings.computerUse.macPermissions": "桌面权限",
-      "settings.computerUse.openSystemSettingsFor": "打开{name}的设置",
       "settings.computerUse.openSystemSettings": "打开设置",
       "settings.trusted.loading": "正在从这台电脑读取…",
       "settings.trusted.noHelper": "请在电脑上打开 Psyche 以列出它们：由助手读取。",
