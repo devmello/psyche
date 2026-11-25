@@ -334,6 +334,16 @@
         "payload": "#/$defs/PluginsChangedPayload"
       },
       {
+        "description": "The owner pressed Ask in Psyche… on the Points card, sent only to the device that started the session.",
+        "name": "points.ask_requested",
+        "payload": "#/$defs/PointsAskRequestedPayload"
+      },
+      {
+        "description": "A Psyche points session changed state (reading, pointing, paused, ended), page or step, or needs a permission, sent only to the device that started it. Counts and states only, never titles or values.",
+        "name": "points.updated",
+        "payload": "#/$defs/PointsUpdatedPayload"
+      },
+      {
         "description": "A batch proposal was created, sent for approval, ran (per-call results), was dismissed, expired or offered an undo (mail and meeting workflows §8.1).",
         "name": "proposal.updated",
         "payload": "#/$defs/ProposalUpdatedPayload"
@@ -3072,6 +3082,46 @@
         "result": "#/$defs/PluginsSetEnabledResult",
         "scope": "operator.admin",
         "sideEffecting": true
+      },
+      {
+        "description": "Desktop shell only: the owner's own question about the form (Ask in Psyche…), answered with one model call that has no tools.",
+        "name": "points.ask",
+        "params": "#/$defs/PointsAskParams",
+        "result": "#/$defs/PointsAskResult",
+        "scope": "operator.admin",
+        "sideEffecting": false
+      },
+      {
+        "description": "Side-effecting. Desktop shell only, Host Mac only: starts one Points session on the window the owner picked, with an optional goal and the card's fixed strings. The result carries no title or values.",
+        "name": "points.start",
+        "params": "#/$defs/PointsStartParams",
+        "result": "#/$defs/PointsStartResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
+        "description": "Desktop shell only: the running Points session's app, state, page, step and whether vision mode is on.",
+        "name": "points.status",
+        "params": "#/$defs/PointsStatusParams",
+        "result": "#/$defs/PointsStatusResult",
+        "scope": "operator.admin",
+        "sideEffecting": false
+      },
+      {
+        "description": "Desktop shell only: ends the Points session and removes its overlay.",
+        "name": "points.stop",
+        "params": "#/$defs/PointsStopParams",
+        "result": "#/$defs/PointsStopResult",
+        "scope": "operator.admin",
+        "sideEffecting": false
+      },
+      {
+        "description": "Desktop shell only, Host Mac only: the windows the owner can pick for Psyche points (app, title through Accessibility, and why one is refused). No Screen Recording needed.",
+        "name": "points.windows",
+        "params": "#/$defs/PointsWindowsParams",
+        "result": "#/$defs/PointsWindowsResult",
+        "scope": "operator.admin",
+        "sideEffecting": false
       },
       {
         "description": "Requests the one batch approval for a proposal (kind batch, bound to the ordered list of calls, once only). The calls run after the approval is answered. Side-effecting.",
@@ -12173,6 +12223,9 @@
         },
         {
           "$ref": "#/$defs/AppLinkBlock"
+        },
+        {
+          "$ref": "#/$defs/PointsOfferBlock"
         },
         {
           "$ref": "#/$defs/UiBlock"
@@ -37092,6 +37145,1219 @@
       },
       "required": [
         "plugin"
+      ],
+      "type": "object"
+    },
+    "PointsAskParams": {
+      "additionalProperties": false,
+      "properties": {
+        "sessionId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "text": {
+          "maxLength": 1000,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "sessionId",
+        "text"
+      ],
+      "type": "object"
+    },
+    "PointsAskRequestedPayload": {
+      "additionalProperties": false,
+      "properties": {
+        "sessionId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "sessionId"
+      ],
+      "type": "object"
+    },
+    "PointsAskResult": {
+      "additionalProperties": false,
+      "properties": {
+        "answer": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "answer"
+      ],
+      "type": "object"
+    },
+    "PointsCardAction": {
+      "enum": [
+        "back",
+        "skip",
+        "wrong",
+        "stuck_missing",
+        "stuck_unclear",
+        "stuck_blocked",
+        "ask",
+        "look",
+        "next",
+        "follow_window",
+        "stop"
+      ],
+      "type": "string"
+    },
+    "PointsCardStrings": {
+      "additionalProperties": false,
+      "properties": {
+        "back": {
+          "maxLength": 80,
+          "type": "string"
+        },
+        "skip": {
+          "maxLength": 80,
+          "type": "string"
+        },
+        "next": {
+          "maxLength": 80,
+          "type": "string"
+        },
+        "looksWrong": {
+          "maxLength": 80,
+          "type": "string"
+        },
+        "stuck": {
+          "maxLength": 80,
+          "type": "string"
+        },
+        "stuckMissing": {
+          "maxLength": 80,
+          "type": "string"
+        },
+        "stuckUnclear": {
+          "maxLength": 80,
+          "type": "string"
+        },
+        "stuckBlocked": {
+          "maxLength": 80,
+          "type": "string"
+        },
+        "askInPsyche": {
+          "maxLength": 80,
+          "type": "string"
+        },
+        "letLook": {
+          "maxLength": 80,
+          "type": "string"
+        },
+        "stop": {
+          "maxLength": 80,
+          "type": "string"
+        },
+        "hideNote": {
+          "maxLength": 80,
+          "type": "string"
+        },
+        "copy": {
+          "maxLength": 80,
+          "type": "string"
+        },
+        "selfFill": {
+          "maxLength": 80,
+          "type": "string"
+        },
+        "selfFillPlain": {
+          "maxLength": 80,
+          "type": "string"
+        },
+        "payButton": {
+          "maxLength": 80,
+          "type": "string"
+        },
+        "unknownValue": {
+          "maxLength": 80,
+          "type": "string"
+        },
+        "scrollTo": {
+          "maxLength": 80,
+          "type": "string"
+        },
+        "menuBarTitle": {
+          "maxLength": 80,
+          "type": "string"
+        },
+        "stepFormat": {
+          "maxLength": 80,
+          "type": "string"
+        },
+        "visionBadge": {
+          "maxLength": 80,
+          "type": "string"
+        },
+        "followWindow": {
+          "maxLength": 80,
+          "type": "string"
+        }
+      },
+      "required": [
+        "back",
+        "skip",
+        "next",
+        "looksWrong",
+        "stuck",
+        "stuckMissing",
+        "stuckUnclear",
+        "stuckBlocked",
+        "askInPsyche",
+        "letLook",
+        "stop",
+        "hideNote",
+        "copy",
+        "selfFill",
+        "selfFillPlain",
+        "payButton",
+        "unknownValue",
+        "scrollTo",
+        "menuBarTitle",
+        "stepFormat",
+        "visionBadge",
+        "followWindow"
+      ],
+      "type": "object"
+    },
+    "PointsDerivation": {
+      "enum": [
+        "exact",
+        "case",
+        "date_format",
+        "name_part",
+        "address_part"
+      ],
+      "type": "string"
+    },
+    "PointsDigest": {
+      "additionalProperties": false,
+      "properties": {
+        "app": {
+          "additionalProperties": false,
+          "properties": {
+            "bundleId": {
+              "maxLength": 200,
+              "type": "string"
+            },
+            "name": {
+              "maxLength": 120,
+              "type": "string"
+            }
+          },
+          "required": [
+            "bundleId",
+            "name"
+          ],
+          "type": "object"
+        },
+        "windowTitle": {
+          "maxLength": 200,
+          "type": "string"
+        },
+        "host": {
+          "maxLength": 253,
+          "type": "string"
+        },
+        "path": {
+          "maxLength": 500,
+          "type": "string"
+        },
+        "insecure": {
+          "type": "boolean"
+        },
+        "headings": {
+          "items": {
+            "maxLength": 120,
+            "type": "string"
+          },
+          "maxItems": 40,
+          "type": "array"
+        },
+        "instructions": {
+          "maxLength": 2000,
+          "type": "string"
+        },
+        "fingerprint": {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "fields": {
+          "items": {
+            "$ref": "#/$defs/PointsField"
+          },
+          "maxItems": 300,
+          "type": "array"
+        },
+        "truncated": {
+          "type": "boolean"
+        },
+        "tree": {
+          "enum": [
+            "ok",
+            "sparse"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "app",
+        "windowTitle",
+        "headings",
+        "instructions",
+        "fingerprint",
+        "fields",
+        "tree"
+      ],
+      "type": "object"
+    },
+    "PointsDoneWhen": {
+      "enum": [
+        "submit",
+        "next_page",
+        "none"
+      ],
+      "type": "string"
+    },
+    "PointsEndParams": {
+      "additionalProperties": false,
+      "properties": {
+        "sessionId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "sessionId"
+      ],
+      "type": "object"
+    },
+    "PointsEndReason": {
+      "enum": [
+        "stop",
+        "window_closed",
+        "app_quit",
+        "app_changed",
+        "idle",
+        "computer_use",
+        "recording",
+        "helper_lost",
+        "gateway_lost",
+        "error"
+      ],
+      "type": "string"
+    },
+    "PointsEndResult": {
+      "additionalProperties": false,
+      "properties": {},
+      "type": "object"
+    },
+    "PointsEntry": {
+      "enum": [
+        "chat",
+        "palette",
+        "tray"
+      ],
+      "type": "string"
+    },
+    "PointsExpectShape": {
+      "enum": [
+        "date",
+        "email",
+        "phone",
+        "postal",
+        "digits",
+        "oneOf"
+      ],
+      "type": "string"
+    },
+    "PointsField": {
+      "additionalProperties": false,
+      "properties": {
+        "fieldId": {
+          "pattern": "^f[0-9]{1,6}$",
+          "type": "string"
+        },
+        "role": {
+          "$ref": "#/$defs/PointsFieldRole"
+        },
+        "label": {
+          "maxLength": 120,
+          "type": "string"
+        },
+        "path": {
+          "items": {
+            "maxLength": 120,
+            "type": "string"
+          },
+          "maxItems": 8,
+          "type": "array"
+        },
+        "required": {
+          "type": "boolean"
+        },
+        "invalid": {
+          "type": "boolean"
+        },
+        "errorText": {
+          "maxLength": 200,
+          "type": "string"
+        },
+        "options": {
+          "items": {
+            "maxLength": 120,
+            "type": "string"
+          },
+          "maxItems": 40,
+          "type": "array"
+        },
+        "frame": {
+          "$ref": "#/$defs/PointsRect"
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "focused": {
+          "type": "boolean"
+        },
+        "state": {
+          "$ref": "#/$defs/PointsFieldFill"
+        },
+        "sensitive": {
+          "$ref": "#/$defs/PointsSensitiveReason"
+        },
+        "value": {
+          "maxLength": 500,
+          "type": "string"
+        }
+      },
+      "required": [
+        "fieldId",
+        "role",
+        "label",
+        "path",
+        "state"
+      ],
+      "type": "object"
+    },
+    "PointsFieldFill": {
+      "enum": [
+        "empty",
+        "filled",
+        "unknown"
+      ],
+      "type": "string"
+    },
+    "PointsFieldRole": {
+      "enum": [
+        "text",
+        "multiline",
+        "number",
+        "date",
+        "checkbox",
+        "radio",
+        "popup",
+        "combobox",
+        "button",
+        "link"
+      ],
+      "type": "string"
+    },
+    "PointsHelperWindow": {
+      "additionalProperties": false,
+      "properties": {
+        "pid": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "windowIndex": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "app": {
+          "additionalProperties": false,
+          "properties": {
+            "bundleId": {
+              "maxLength": 200,
+              "type": "string"
+            },
+            "name": {
+              "maxLength": 120,
+              "type": "string"
+            }
+          },
+          "required": [
+            "bundleId",
+            "name"
+          ],
+          "type": "object"
+        },
+        "title": {
+          "maxLength": 200,
+          "type": "string"
+        },
+        "frontmost": {
+          "type": "boolean"
+        },
+        "refusal": {
+          "$ref": "#/$defs/PointsRefusal"
+        }
+      },
+      "required": [
+        "pid",
+        "windowIndex",
+        "app",
+        "title",
+        "frontmost"
+      ],
+      "type": "object"
+    },
+    "PointsHelperWindowsResult": {
+      "additionalProperties": false,
+      "properties": {
+        "windows": {
+          "items": {
+            "$ref": "#/$defs/PointsHelperWindow"
+          },
+          "maxItems": 200,
+          "type": "array"
+        }
+      },
+      "required": [
+        "windows"
+      ],
+      "type": "object"
+    },
+    "PointsLookParams": {
+      "additionalProperties": false,
+      "properties": {
+        "sessionId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "actionId": {
+          "maxLength": 80,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "sessionId",
+        "actionId"
+      ],
+      "type": "object"
+    },
+    "PointsLookResult": {
+      "additionalProperties": false,
+      "properties": {
+        "image": {
+          "anyOf": [
+            {
+              "contentEncoding": "base64",
+              "description": "JPEG of the target window only",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "width": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "height": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "pointsPerPixel": {
+          "minimum": 0,
+          "type": "number"
+        },
+        "masked": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "width",
+        "height",
+        "pointsPerPixel",
+        "masked"
+      ],
+      "type": "object"
+    },
+    "PointsNeeds": {
+      "enum": [
+        "accessibility",
+        "screenRecording"
+      ],
+      "type": "string"
+    },
+    "PointsOfferBlock": {
+      "properties": {
+        "type": {
+          "const": "points_offer",
+          "type": "string"
+        },
+        "goal": {
+          "maxLength": 500,
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "goal"
+      ],
+      "type": "object"
+    },
+    "PointsPlan": {
+      "additionalProperties": false,
+      "properties": {
+        "page": {
+          "additionalProperties": false,
+          "properties": {
+            "title": {
+              "maxLength": 120,
+              "type": "string"
+            },
+            "summary": {
+              "maxLength": 200,
+              "type": "string"
+            }
+          },
+          "required": [
+            "title",
+            "summary"
+          ],
+          "type": "object"
+        },
+        "steps": {
+          "items": {
+            "$ref": "#/$defs/PointsStep"
+          },
+          "maxItems": 300,
+          "type": "array"
+        },
+        "done_when": {
+          "$ref": "#/$defs/PointsDoneWhen"
+        }
+      },
+      "required": [
+        "page",
+        "steps",
+        "done_when"
+      ],
+      "type": "object"
+    },
+    "PointsRect": {
+      "additionalProperties": false,
+      "properties": {
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        },
+        "width": {
+          "minimum": 0,
+          "type": "number"
+        },
+        "height": {
+          "minimum": 0,
+          "type": "number"
+        }
+      },
+      "required": [
+        "x",
+        "y",
+        "width",
+        "height"
+      ],
+      "type": "object"
+    },
+    "PointsRefusal": {
+      "enum": [
+        "never_app",
+        "fixed_off",
+        "terminal_or_ide",
+        "owner_off",
+        "not_a_window",
+        "permission_missing"
+      ],
+      "type": "string"
+    },
+    "PointsSensitiveReason": {
+      "enum": [
+        "password",
+        "payment",
+        "one_time_code",
+        "identity",
+        "secret",
+        "secure_field",
+        "value_shape",
+        "directions_only"
+      ],
+      "type": "string"
+    },
+    "PointsSessionEvent": {
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "$ref": "#/$defs/PointsSessionEventType"
+        },
+        "digest": {
+          "$ref": "#/$defs/PointsDigest"
+        },
+        "fieldId": {
+          "pattern": "^f[0-9]{1,6}$",
+          "type": "string"
+        },
+        "state": {
+          "$ref": "#/$defs/PointsFieldFill"
+        },
+        "value": {
+          "maxLength": 500,
+          "type": "string"
+        },
+        "action": {
+          "$ref": "#/$defs/PointsCardAction"
+        },
+        "actionId": {
+          "maxLength": 80,
+          "minLength": 1,
+          "type": "string"
+        },
+        "visible": {
+          "type": "boolean"
+        },
+        "reason": {
+          "$ref": "#/$defs/PointsEndReason"
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "type": "object"
+    },
+    "PointsSessionEventType": {
+      "enum": [
+        "digest",
+        "field",
+        "focus",
+        "page",
+        "action",
+        "visible",
+        "ended"
+      ],
+      "type": "string"
+    },
+    "PointsSessionParams": {
+      "additionalProperties": false,
+      "properties": {
+        "window": {
+          "maxLength": 80,
+          "minLength": 1,
+          "type": "string"
+        },
+        "strings": {
+          "$ref": "#/$defs/PointsCardStrings"
+        }
+      },
+      "required": [
+        "window",
+        "strings"
+      ],
+      "type": "object"
+    },
+    "PointsSessionStatus": {
+      "additionalProperties": false,
+      "properties": {
+        "sessionId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "app": {
+          "additionalProperties": false,
+          "properties": {
+            "bundleId": {
+              "maxLength": 200,
+              "type": "string"
+            },
+            "name": {
+              "maxLength": 120,
+              "type": "string"
+            }
+          },
+          "required": [
+            "bundleId",
+            "name"
+          ],
+          "type": "object"
+        },
+        "state": {
+          "$ref": "#/$defs/PointsState"
+        },
+        "page": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "step": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "of": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "vision": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "sessionId",
+        "app",
+        "state",
+        "page",
+        "step",
+        "of",
+        "vision"
+      ],
+      "type": "object"
+    },
+    "PointsShowKind": {
+      "enum": [
+        "fill",
+        "choose",
+        "check",
+        "skip",
+        "self",
+        "review",
+        "next_page",
+        "info"
+      ],
+      "type": "string"
+    },
+    "PointsShowParams": {
+      "additionalProperties": false,
+      "properties": {
+        "sessionId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "target": {
+          "$ref": "#/$defs/PointsShowTarget"
+        },
+        "kind": {
+          "$ref": "#/$defs/PointsShowKind"
+        },
+        "note": {
+          "maxLength": 140,
+          "type": "string"
+        },
+        "value": {
+          "maxLength": 500,
+          "type": "string"
+        },
+        "sources": {
+          "items": {
+            "maxLength": 80,
+            "type": "string"
+          },
+          "maxItems": 4,
+          "type": "array"
+        },
+        "step": {
+          "additionalProperties": false,
+          "properties": {
+            "n": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "of": {
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "n",
+            "of"
+          ],
+          "type": "object"
+        },
+        "warning": {
+          "maxLength": 140,
+          "type": "string"
+        }
+      },
+      "required": [
+        "sessionId",
+        "target",
+        "kind",
+        "note",
+        "step"
+      ],
+      "type": "object"
+    },
+    "PointsShowResult": {
+      "additionalProperties": false,
+      "properties": {
+        "shown": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "shown"
+      ],
+      "type": "object"
+    },
+    "PointsShowTarget": {
+      "additionalProperties": false,
+      "properties": {
+        "fieldId": {
+          "pattern": "^f[0-9]{1,6}$",
+          "type": "string"
+        },
+        "box": {
+          "$ref": "#/$defs/PointsRect"
+        },
+        "imageSize": {
+          "additionalProperties": false,
+          "properties": {
+            "width": {
+              "minimum": 1,
+              "type": "integer"
+            },
+            "height": {
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "width",
+            "height"
+          ],
+          "type": "object"
+        }
+      },
+      "type": "object"
+    },
+    "PointsStartParams": {
+      "additionalProperties": false,
+      "properties": {
+        "window": {
+          "maxLength": 80,
+          "minLength": 1,
+          "type": "string"
+        },
+        "goal": {
+          "maxLength": 500,
+          "type": "string"
+        },
+        "threadId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "entry": {
+          "$ref": "#/$defs/PointsEntry"
+        },
+        "locale": {
+          "maxLength": 35,
+          "minLength": 2,
+          "type": "string"
+        },
+        "strings": {
+          "$ref": "#/$defs/PointsCardStrings"
+        }
+      },
+      "required": [
+        "window",
+        "entry",
+        "locale",
+        "strings"
+      ],
+      "type": "object"
+    },
+    "PointsStartResult": {
+      "additionalProperties": false,
+      "properties": {
+        "sessionId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "app": {
+          "additionalProperties": false,
+          "properties": {
+            "bundleId": {
+              "maxLength": 200,
+              "type": "string"
+            },
+            "name": {
+              "maxLength": 120,
+              "type": "string"
+            }
+          },
+          "required": [
+            "bundleId",
+            "name"
+          ],
+          "type": "object"
+        }
+      },
+      "required": [
+        "sessionId",
+        "app"
+      ],
+      "type": "object"
+    },
+    "PointsState": {
+      "enum": [
+        "reading",
+        "pointing",
+        "paused",
+        "ended"
+      ],
+      "type": "string"
+    },
+    "PointsStatusParams": {
+      "additionalProperties": false,
+      "properties": {},
+      "type": "object"
+    },
+    "PointsStatusResult": {
+      "additionalProperties": false,
+      "properties": {
+        "session": {
+          "$ref": "#/$defs/PointsSessionStatus"
+        }
+      },
+      "type": "object"
+    },
+    "PointsStep": {
+      "additionalProperties": false,
+      "properties": {
+        "fieldId": {
+          "pattern": "^f[0-9]{1,6}$",
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/$defs/PointsStepKind"
+        },
+        "note": {
+          "maxLength": 140,
+          "type": "string"
+        },
+        "value": {
+          "maxLength": 500,
+          "type": "string"
+        },
+        "option": {
+          "maxLength": 120,
+          "type": "string"
+        },
+        "sources": {
+          "items": {
+            "maxLength": 80,
+            "type": "string"
+          },
+          "maxItems": 4,
+          "type": "array"
+        },
+        "derivation": {
+          "$ref": "#/$defs/PointsDerivation"
+        },
+        "expect": {
+          "additionalProperties": false,
+          "properties": {
+            "shape": {
+              "$ref": "#/$defs/PointsExpectShape"
+            },
+            "detail": {
+              "maxLength": 100,
+              "type": "string"
+            }
+          },
+          "required": [
+            "shape"
+          ],
+          "type": "object"
+        }
+      },
+      "required": [
+        "fieldId",
+        "kind",
+        "note"
+      ],
+      "type": "object"
+    },
+    "PointsStepKind": {
+      "enum": [
+        "fill",
+        "choose",
+        "check",
+        "skip",
+        "self",
+        "review",
+        "next_page"
+      ],
+      "type": "string"
+    },
+    "PointsStopParams": {
+      "additionalProperties": false,
+      "properties": {
+        "sessionId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "sessionId"
+      ],
+      "type": "object"
+    },
+    "PointsStopResult": {
+      "additionalProperties": false,
+      "properties": {
+        "ended": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "ended"
+      ],
+      "type": "object"
+    },
+    "PointsUpdatedPayload": {
+      "additionalProperties": false,
+      "properties": {
+        "sessionId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "state": {
+          "$ref": "#/$defs/PointsState"
+        },
+        "page": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "step": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "of": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "vision": {
+          "type": "boolean"
+        },
+        "needs": {
+          "$ref": "#/$defs/PointsNeeds"
+        },
+        "reason": {
+          "$ref": "#/$defs/PointsEndReason"
+        }
+      },
+      "required": [
+        "sessionId",
+        "state",
+        "page",
+        "step",
+        "of",
+        "vision"
+      ],
+      "type": "object"
+    },
+    "PointsWindow": {
+      "additionalProperties": false,
+      "properties": {
+        "ref": {
+          "maxLength": 80,
+          "minLength": 1,
+          "type": "string"
+        },
+        "app": {
+          "additionalProperties": false,
+          "properties": {
+            "bundleId": {
+              "maxLength": 200,
+              "type": "string"
+            },
+            "name": {
+              "maxLength": 120,
+              "type": "string"
+            }
+          },
+          "required": [
+            "bundleId",
+            "name"
+          ],
+          "type": "object"
+        },
+        "title": {
+          "maxLength": 200,
+          "type": "string"
+        },
+        "frontmost": {
+          "type": "boolean"
+        },
+        "refusal": {
+          "$ref": "#/$defs/PointsRefusal"
+        }
+      },
+      "required": [
+        "ref",
+        "app",
+        "title",
+        "frontmost"
+      ],
+      "type": "object"
+    },
+    "PointsWindowsParams": {
+      "additionalProperties": false,
+      "properties": {},
+      "type": "object"
+    },
+    "PointsWindowsResult": {
+      "additionalProperties": false,
+      "properties": {
+        "windows": {
+          "items": {
+            "$ref": "#/$defs/PointsWindow"
+          },
+          "maxItems": 200,
+          "type": "array"
+        }
+      },
+      "required": [
+        "windows"
       ],
       "type": "object"
     },

@@ -21,6 +21,7 @@ const MODEL_CALLERS = [
   "memory.life.answer",
   "meetings.record.stop",
   "models.check",
+  "points.ask",
   "spaces.trackers.refresh",
   "tasks.resume",
   "tasks.retry",

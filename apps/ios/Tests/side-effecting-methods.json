@@ -140,6 +140,7 @@
   "plugins.proposeInstall",
   "plugins.remove",
   "plugins.setEnabled",
+  "points.start",
   "proposals.approve",
   "proposals.dismiss",
   "proposals.undo",

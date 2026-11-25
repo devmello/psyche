@@ -1,0 +1,608 @@
+{
+  "about": "Psyche points, sensitive-field probe table (docs/design/psyche-points-2026.md §5.1). Shared by packages/protocol/test/points-rules.test.ts and the Mac helper's judge (W3, PointsSensitiveFixtureTests). A false match fails safe (the field only gets 'You fill this yourself'); a false miss shows a value for a secret. Every review finding becomes a row. Keys: label, optional placeholder, help, identifier, autocomplete, secure, path (group and sheet titles above), nearbyText; page rows use url, host, title, hasPaymentFields, insecure.",
+  "mustBeSensitive": [
+    {
+      "label": "Password",
+      "reason": "password"
+    },
+    {
+      "label": "Password hint",
+      "reason": "password"
+    },
+    {
+      "label": "Passcode",
+      "reason": "password"
+    },
+    {
+      "label": "Pass",
+      "reason": "password"
+    },
+    {
+      "label": "Mot de passe",
+      "reason": "password"
+    },
+    {
+      "label": "Contraseña",
+      "reason": "password"
+    },
+    {
+      "label": "Passwort",
+      "reason": "password"
+    },
+    {
+      "label": "Senha",
+      "reason": "password"
+    },
+    {
+      "label": "パスワード",
+      "reason": "password"
+    },
+    {
+      "label": "비밀번호",
+      "reason": "password"
+    },
+    {
+      "label": "密码",
+      "reason": "password"
+    },
+    {
+      "label": "पासवर्ड",
+      "reason": "password"
+    },
+    {
+      "label": "كلمة المرور",
+      "reason": "password"
+    },
+    {
+      "label": "One-time code",
+      "reason": "one_time_code"
+    },
+    {
+      "label": "Verification code",
+      "reason": "one_time_code"
+    },
+    {
+      "label": "Code de vérification",
+      "reason": "one_time_code"
+    },
+    {
+      "label": "Verifizierungscode",
+      "reason": "one_time_code"
+    },
+    {
+      "label": "Código de verificación",
+      "reason": "one_time_code"
+    },
+    {
+      "label": "認証コード",
+      "reason": "one_time_code"
+    },
+    {
+      "label": "인증번호",
+      "reason": "one_time_code"
+    },
+    {
+      "label": "验证码",
+      "reason": "one_time_code"
+    },
+    {
+      "label": "رمز التحقق",
+      "reason": "one_time_code"
+    },
+    {
+      "label": "Enter the 6 digits",
+      "path": ["Two-factor authentication"],
+      "reason": "one_time_code"
+    },
+    {
+      "label": "Code",
+      "path": ["Sign in", "Two-factor authentication"],
+      "reason": "one_time_code"
+    },
+    {
+      "label": "Card number",
+      "reason": "payment"
+    },
+    {
+      "label": "Credit card",
+      "reason": "payment"
+    },
+    {
+      "label": "Card number",
+      "autocomplete": "cc-number",
+      "reason": "payment"
+    },
+    {
+      "label": "Number",
+      "autocomplete": "cc-number",
+      "reason": "payment"
+    },
+    {
+      "label": "CVV",
+      "reason": "payment"
+    },
+    {
+      "label": "CVC",
+      "reason": "payment"
+    },
+    {
+      "label": "Security code",
+      "reason": "one_time_code"
+    },
+    {
+      "label": "Expiration date",
+      "reason": "payment"
+    },
+    {
+      "label": "IBAN",
+      "reason": "payment"
+    },
+    {
+      "label": "Routing number",
+      "reason": "payment"
+    },
+    {
+      "label": "Routing no.",
+      "reason": "payment"
+    },
+    {
+      "label": "Account number (for direct deposit)",
+      "reason": "payment"
+    },
+    {
+      "label": "Bank account",
+      "reason": "payment"
+    },
+    {
+      "label": "Sort code",
+      "reason": "payment"
+    },
+    {
+      "label": "Número de tarjeta",
+      "reason": "payment"
+    },
+    {
+      "label": "Numéro de carte",
+      "reason": "payment"
+    },
+    {
+      "label": "Kartennummer",
+      "reason": "payment"
+    },
+    {
+      "label": "Kontonummer",
+      "reason": "payment"
+    },
+    {
+      "label": "Numero di carta",
+      "reason": "payment"
+    },
+    {
+      "label": "Número do cartão",
+      "reason": "payment"
+    },
+    {
+      "label": "カード番号",
+      "reason": "payment"
+    },
+    {
+      "label": "카드 번호",
+      "reason": "payment"
+    },
+    {
+      "label": "银行卡号",
+      "reason": "payment"
+    },
+    {
+      "label": "कार्ड नंबर",
+      "reason": "payment"
+    },
+    {
+      "label": "رقم البطاقة",
+      "reason": "payment"
+    },
+    {
+      "label": "SSN",
+      "reason": "identity"
+    },
+    {
+      "label": "Social Security number",
+      "reason": "identity"
+    },
+    {
+      "label": "Passport No.",
+      "reason": "identity"
+    },
+    {
+      "label": "Passport number",
+      "reason": "identity"
+    },
+    {
+      "label": "Upload your passport number",
+      "reason": "identity"
+    },
+    {
+      "label": "A-Number",
+      "reason": "identity"
+    },
+    {
+      "label": "Alien registration number",
+      "reason": "identity"
+    },
+    {
+      "label": "ITIN",
+      "reason": "identity"
+    },
+    {
+      "label": "Employer identification number",
+      "reason": "identity"
+    },
+    {
+      "label": "Driver's license number",
+      "reason": "identity"
+    },
+    {
+      "label": "Reisepassnummer",
+      "reason": "identity"
+    },
+    {
+      "label": "Pasaporte",
+      "reason": "identity"
+    },
+    {
+      "label": "Numéro de passeport",
+      "reason": "identity"
+    },
+    {
+      "label": "Passaporto",
+      "reason": "identity"
+    },
+    {
+      "label": "Codice fiscale",
+      "reason": "identity"
+    },
+    {
+      "label": "パスポート番号",
+      "reason": "identity"
+    },
+    {
+      "label": "여권번호",
+      "reason": "identity"
+    },
+    {
+      "label": "护照号码",
+      "reason": "identity"
+    },
+    {
+      "label": "पासपोर्ट नंबर",
+      "reason": "identity"
+    },
+    {
+      "label": "رقم جواز السفر",
+      "reason": "identity"
+    },
+    {
+      "label": "PIN",
+      "reason": "secret"
+    },
+    {
+      "label": "Library card PIN",
+      "reason": "secret"
+    },
+    {
+      "label": "Security question answer",
+      "reason": "secret"
+    },
+    {
+      "label": "Answer",
+      "nearbyText": ["Security question"],
+      "reason": "secret"
+    },
+    {
+      "label": "Sicherheitsfrage",
+      "reason": "secret"
+    },
+    {
+      "label": "Recovery phrase",
+      "reason": "secret"
+    },
+    {
+      "label": "API key",
+      "reason": "secret"
+    },
+    {
+      "label": "Full name",
+      "secure": true,
+      "reason": "secure_field"
+    },
+    {
+      "label": "",
+      "secure": true,
+      "reason": "secure_field"
+    },
+    {
+      "label": "Number",
+      "identifier": "ssn",
+      "reason": "identity"
+    },
+    {
+      "label": "Value",
+      "placeholder": "XXX-XX-XXXX SSN",
+      "reason": "identity"
+    },
+    {
+      "label": "Number",
+      "help": "Your passport number is on the photo page",
+      "reason": "identity"
+    }
+  ],
+  "mustNotBeSensitive": [
+    {
+      "label": "Passport photo upload"
+    },
+    {
+      "label": "Upload a scan of your passport"
+    },
+    {
+      "label": "Library card number"
+    },
+    {
+      "label": "Loyalty card number"
+    },
+    {
+      "label": "Card title"
+    },
+    {
+      "label": "Card holder's city"
+    },
+    {
+      "label": "Cardholder name"
+    },
+    {
+      "label": "Pass note"
+    },
+    {
+      "label": "Pass-through entity"
+    },
+    {
+      "label": "Passenger name"
+    },
+    {
+      "label": "Number of dependents"
+    },
+    {
+      "label": "Account name"
+    },
+    {
+      "label": "Account holder name"
+    },
+    {
+      "label": "Tax year"
+    },
+    {
+      "label": "Filing status"
+    },
+    {
+      "label": "First name"
+    },
+    {
+      "label": "Date of birth"
+    },
+    {
+      "label": "Home address"
+    },
+    {
+      "label": "Street address line 2"
+    },
+    {
+      "label": "City"
+    },
+    {
+      "label": "ZIP code"
+    },
+    {
+      "label": "Employer name"
+    },
+    {
+      "label": "Phone number"
+    },
+    {
+      "label": "Email address"
+    },
+    {
+      "label": "Country of citizenship"
+    },
+    {
+      "label": "Nombre completo"
+    },
+    {
+      "label": "Nom de famille"
+    },
+    {
+      "label": "Vorname"
+    },
+    {
+      "label": "Cognome"
+    },
+    {
+      "label": "Endereço"
+    },
+    {
+      "label": "氏名"
+    },
+    {
+      "label": "이름"
+    },
+    {
+      "label": "姓名"
+    },
+    {
+      "label": "पता"
+    },
+    {
+      "label": "الاسم الكامل"
+    },
+    {
+      "label": "Tarjeta de biblioteca"
+    },
+    {
+      "label": "Last name",
+      "path": ["Applicant", "Personal information"]
+    },
+    {
+      "label": "Email",
+      "nearbyText": ["We will send updates to this address"]
+    },
+    {
+      "label": "Card",
+      "autocomplete": "off"
+    },
+    {
+      "label": "Postal code"
+    },
+    {
+      "label": "ZIP code"
+    },
+    {
+      "label": "Area code"
+    }
+  ],
+  "acceptedFalseMatches": [
+    {
+      "label": "Lease expiration date",
+      "reason": "payment",
+      "why": "teach words match 'expir'; fails safe"
+    },
+    {
+      "label": "Name as it appears on your passport",
+      "reason": "identity",
+      "why": "a name field that mentions the passport; fails safe"
+    }
+  ],
+  "directionsOnlyPages": [
+    {
+      "url": "https://secure.example.com/checkout"
+    },
+    {
+      "url": "https://shop.example.com/cart/payment"
+    },
+    {
+      "url": "https://www.irs.gov/payments"
+    },
+    {
+      "host": "www.chase.com"
+    },
+    {
+      "host": "www.schwab.com",
+      "url": "https://www.schwab.com/account"
+    },
+    {
+      "url": "http://forms.example.org/apply"
+    },
+    {
+      "insecure": true
+    },
+    {
+      "hasPaymentFields": true
+    },
+    {
+      "title": "Checkout"
+    }
+  ],
+  "ordinaryPages": [
+    {
+      "url": "https://travel.state.gov/content/travel/en/us-visas.html"
+    },
+    {
+      "url": "https://www.uscis.gov/i-130"
+    },
+    {
+      "url": "https://example.com/forms/application"
+    },
+    {
+      "host": "example.org",
+      "title": "Application form"
+    },
+    {}
+  ],
+  "valueShapes": {
+    "mustBeSensitive": [
+      {
+        "value": "4111 1111 1111 1111",
+        "reason": "payment"
+      },
+      {
+        "value": "123-45-6789",
+        "reason": "identity"
+      },
+      {
+        "value": "123 45 6789",
+        "reason": "identity"
+      },
+      {
+        "value": "123456789",
+        "reason": "identity"
+      },
+      {
+        "value": "GB82 WEST 1234 5698 7654 32",
+        "reason": "payment"
+      },
+      {
+        "value": "DE89370400440532013000",
+        "reason": "payment"
+      },
+      {
+        "value": "sk-abcdefghijklmnopqrstuvwxyz",
+        "reason": "secret"
+      },
+      {
+        "value": "abandon ability able about above absent absorb abstract absurd abuse access accident",
+        "reason": "secret"
+      },
+      {
+        "value": "123456",
+        "label": "Verification code",
+        "reason": "one_time_code"
+      }
+    ],
+    "mustNotBe": [
+      {
+        "value": "1428 Elm Street"
+      },
+      {
+        "value": "Springfield"
+      },
+      {
+        "value": "03/04/1985"
+      },
+      {
+        "value": "Acme Corp"
+      },
+      {
+        "value": "90210"
+      },
+      {
+        "value": "123456",
+        "label": "ZIP code"
+      },
+      {
+        "value": "GB12 not an iban at all"
+      },
+      {
+        "value": "John Q Public"
+      },
+      {
+        "value": "62704",
+        "label": "ZIP code"
+      },
+      {
+        "value": "12345",
+        "label": "Postal code"
+      },
+      {
+        "value": "415",
+        "label": "Area code"
+      }
+    ]
+  }
+}
