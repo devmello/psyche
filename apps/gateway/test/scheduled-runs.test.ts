@@ -21,7 +21,11 @@ const NOW = Date.parse("2026-10-28T15:00:00Z");
 const TZ = "America/Los_Angeles";
 
 /** A scheduler whose launcher answers per automation title; `hold` runs stay running. */
-function setup(outcomes: Record<string, RunResult | "hold" | "throw"> = {}) {
+function setup(
+  outcomes: Record<string, RunResult | "hold" | "throw"> = {},
+  /** What the task worker does when the run starts: it names the agent run on the automation run. */
+  onLaunch?: (db: ReturnType<typeof openDb>, automationRunId: string) => void,
+) {
   const clock = new FakeClock(NOW);
   const db = openDb(":memory:");
   const notifier = new FakeNotifier({ clock });
@@ -29,6 +33,7 @@ function setup(outcomes: Record<string, RunResult | "hold" | "throw"> = {}) {
   const inner: RunLauncher = {
     async launch(request) {
       launched.push(request.automation.title);
+      onLaunch?.(db, request.run.id);
       const o = outcomes[request.automation.title] ?? { status: "done", summary: "ok" };
       if (o === "throw") throw new Error("the worker pool is gone");
       return {
@@ -62,7 +67,7 @@ function setup(outcomes: Record<string, RunResult | "hold" | "throw"> = {}) {
   return {
     scheduler,
     handlers,
-    auto: createAutomationHandlers(scheduler),
+    auto: createAutomationHandlers(scheduler, { agentRunWaitMs: 300 }),
     taskStatuses,
     pending,
     paused,
@@ -90,12 +95,32 @@ describe("Run now (automations.run)", () => {
     const { scheduler, auto, handlers, launched } = setup();
     const a = await scheduler.create(owner("Friday recap"));
     const res = await auto["automations.run"]({ automationId: a.id });
-    expect(res.runId).toBeTruthy();
     expect(res.taskId).toBe("task_1");
+    // No agent run was started (a fake launcher), and the automation run's own id is not one.
+    expect(res.runId).toBeNull();
     await scheduler.idle();
     expect(launched).toEqual(["Friday recap"]);
     const { runs } = await handlers["scheduled.runs"]({});
     expect(runs[0]).toMatchObject({ trigger: "manual", state: "succeeded", group: "owner" });
+  });
+
+  it("returns the agent run's id, the one runs.get opens, not the automation run's", async () => {
+    const { scheduler, auto } = setup({ "Friday recap": "hold" }, (db, automationRunId) => {
+      // The task worker creates the run a moment after launch.
+      setTimeout(
+        () =>
+          db.sqlite
+            .prepare("UPDATE automation_runs SET run_id = 'run_agent_1' WHERE id = ?")
+            .run(automationRunId),
+        60,
+      );
+    });
+    const a = await scheduler.create(owner("Friday recap"));
+    const res = await auto["automations.run"]({ automationId: a.id });
+    expect(res.runId).toBe("run_agent_1");
+    const [stored] = scheduler.allRuns({ automationId: a.id });
+    expect(stored?.run.id).not.toBe(res.runId);
+    expect(stored?.run.runId).toBe("run_agent_1");
   });
 
   it("runs a built-in routine, even while it is paused in Scheduled", async () => {

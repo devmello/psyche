@@ -36,12 +36,24 @@ const EVENT_SCOPE: Partial<Record<EventName, DeviceScope | null>> = {
   // A shell on the Host: only an admin device ever receives its output.
   "terminal.output": "operator.admin",
   "terminal.exit": "operator.admin",
-  // Promise ledger (docs/design/promise-ledger-2026.md section 7.2): until W5 (the remote-viewer
-  // scrub and its per-subscriber personaliser) lands, only admin devices receive it. W5 relaxes
-  // this to operator.read. No `promise_due` emitter may merge before W5.
-  "promise.updated": "operator.admin",
+  // `promise.updated` is operator.read, like `promises.list` it mirrors: every subscriber gets the
+  // promise as `promise-scrub.ts` personalises it (SCRUBBED_EVENTS below), and none for a hidden
+  // one. It was operator.admin until that personaliser landed (promise ledger W5).
   "gateway.shutdown": null,
 };
+
+/**
+ * Events whose payload names the owner's third-party text (a promise, a loop's quoted sentence).
+ * They are never sent as the shared frame: each subscriber gets the personalizer's answer, and a
+ * bus with no personalizer, or one that answers `undefined`, sends these to nobody (fail closed).
+ */
+export const SCRUBBED_EVENTS: ReadonlySet<EventName> = new Set<EventName>([
+  "promise.updated",
+  "memory.loop.updated",
+]);
+
+/** What a personalizer returns to say: this subscriber gets no frame for this event. */
+export const SKIP_EVENT = Symbol("skip-event");
 
 export function eventScope(event: EventName): DeviceScope | null {
   const scope = EVENT_SCOPE[event];
@@ -156,12 +168,15 @@ export class EventBus {
     for (const [sink, sub] of this.#subscribers) {
       if (requiredScope !== null && !sub.scopes.includes(requiredScope)) continue;
       if (!matches(sub.filter, event, threadId)) continue;
-      sub.seq += 1;
       const own = this.#personalizer?.(event, payload, {
         deviceId: sub.deviceId,
         scopes: sub.scopes,
         reader: sub.reader,
       });
+      // A skipped event leaves no gap in this subscriber's own `seq`.
+      if (own === SKIP_EVENT) continue;
+      if (own === undefined && SCRUBBED_EVENTS.has(event)) continue;
+      sub.seq += 1;
       sink(
         JSON.stringify(
           eventFrame(
@@ -187,6 +202,8 @@ export class EventBus {
    * they belong to the device that asked). Scope and `events.subscribe` filters still apply.
    */
   publishToDevice<E extends EventName>(deviceId: string, event: E, payload: EventPayload<E>): void {
+    // These are personalised per subscriber in `publish`; a direct send would skip the scrub.
+    if (SCRUBBED_EVENTS.has(event)) return;
     this.#seq += 1;
     const requiredScope = eventScope(event);
     for (const [sink, sub] of this.#subscribers) {

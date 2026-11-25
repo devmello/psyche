@@ -1,6 +1,6 @@
 import { PsycheError } from "@psyche/protocol";
 import { GatewayRequestError } from "../data/client.ts";
-import { activeI18n, isMessageId } from "./core.ts";
+import { activeI18n, type I18n, isMessageId } from "./core.ts";
 
 /** The Gateway's `details.reason` of an error, when it names one. */
 function errorReason(err: unknown): string | null {
@@ -72,14 +72,57 @@ export function errorSummary(err: unknown): string {
 }
 
 /**
- * What the UI says about a failed run step. A step's error is stored as plain `{ code, message }`
- * (no `Error`), so it cannot go through `describeError`: English shows the step's own message,
- * any other language the code's catalogue sentence, and never the raw code.
+ * The catalogue sentence for a bare reason or code a record kept (a connector's
+ * `lastSync.error` is `unavailable`, `timeout`, or a helper reason such as `automation_denied`),
+ * reason first; null when the catalogue has neither, so the caller shows what it has.
  */
-export function describeStepError(error: { code: string; message: string }): string {
+export function codeSentence(codeOrReason: string, i18n: I18n = activeI18n()): string | null {
+  if (!/^[a-z][a-z0-9_]{0,63}$/.test(codeOrReason)) return null;
+  for (const id of [`errors.reason.${codeOrReason}`, `errors.${codeOrReason}`]) {
+    if (isMessageId(id)) return i18n.t(id);
+  }
+  return null;
+}
+
+/**
+ * What a run step's error says: the sentence for its machine `details.reason` in the owner's
+ * language, else the connector's own `message` (an older Gateway sends no reason, and a reason
+ * the catalogue has no sentence for falls back too).
+ */
+export function stepErrorText(error: {
+  code?: string;
+  retryable?: boolean;
+  message: string;
+  details?: { reason?: string | undefined } | undefined;
+}): string {
+  const reason = error.details?.reason;
+  return (reason === undefined ? null : codeSentence(reason)) ?? error.message;
+}
+
+/** A source status line's reason in words, else the Gateway's English `detail`. */
+export function reasonText(reason: string | undefined, fallback: string): string {
+  return (reason === undefined ? null : codeSentence(reason)) ?? fallback;
+}
+
+/**
+ * What the UI says about a failed run step, never the raw code. The sentence for the step's
+ * machine reason when the catalogue has one; else, in English, the step's own message; in any
+ * other language the code's catalogue sentence (or `errors.unknown`).
+ */
+export function describeStepError(error: {
+  code: string;
+  message: string;
+  details?: unknown;
+}): string {
   const i18n = activeI18n();
+  const d = error.details;
+  const reason =
+    typeof d === "object" && d !== null && typeof (d as { reason?: unknown }).reason === "string"
+      ? (d as { reason: string }).reason
+      : undefined;
+  const bySentence = reason === undefined ? null : codeSentence(reason, i18n);
+  if (bySentence !== null) return bySentence;
   const detail = error.message.trim();
   if (i18n.messageLocale === "en" && detail) return detail;
-  const id = `errors.${error.code}`;
-  return isMessageId(id) ? i18n.t(id) : i18n.t("errors.unknown");
+  return codeSentence(error.code, i18n) ?? i18n.t("errors.unknown");
 }

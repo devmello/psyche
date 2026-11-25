@@ -21,6 +21,16 @@ describe("describeStepError", () => {
     expect(text).not.toContain("polkit");
   });
 
+  it("prefers the sentence for the step's machine reason, in any language", () => {
+    setActiveI18n(createI18n({ locale: "en-US" }));
+    const text = describeStepError({
+      code: "unavailable",
+      message: "raw english",
+      details: { reason: "updating" },
+    });
+    expect(text).toBe("Psyche is about to restart to install an update. Try again in a moment.");
+  });
+
   it("says something went wrong for a code the catalogue does not know", () => {
     setActiveI18n({ ...createI18n({ locale: "en-US" }), messageLocale: "xx" });
     expect(describeStepError({ code: "made_up_code", message: "x" })).toBe("Something went wrong.");

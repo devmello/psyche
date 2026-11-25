@@ -5,6 +5,7 @@ import {
   assignProjects,
   CardSync,
   createGraphHandlers,
+  createLoopVisibility,
   EverythingStore,
   ensureDreamingAutomation,
   entityRecall,
@@ -18,6 +19,7 @@ import {
   isGraphCard,
   type Launcher,
   type LaunchRequest,
+  type LoopVisibility,
   type MeetingPrep,
   type MemoryEvent,
   type ModelPassReport,
@@ -25,6 +27,7 @@ import {
   type NightlyStep,
   runGraphModelPass,
   runGraphPoll,
+  runLoopRemoteVisibleBackfill,
   type SchedulerLike,
   type SqliteMemoryStore,
   suggestProjects,
@@ -48,6 +51,7 @@ import {
 } from "@psyche/search";
 import type { Call, HandlerDef } from "../context.ts";
 import { accountFullName } from "../platform.ts";
+import { type PromiseViewer, viewerOfCall } from "../promise-scrub.ts";
 import type { Gateway } from "../server.ts";
 import { everythingSettings } from "./everything.ts";
 import { mountParamsOnly } from "./handlers.ts";
@@ -175,6 +179,8 @@ export interface People {
   readonly agentAccess: () => AgentMemoryAccess;
   readonly cards: CardSync;
   readonly handlers: GraphHandlers;
+  /** Which loops and promises a remote viewer may see (promise scrub; `remote_visible`). */
+  readonly loopVisibility: LoopVisibility;
   readonly settings: () => GraphSettings;
   /** Owner edits of card files reach the graph (wire to the memory store's `onEvent`). */
   onMemoryEvent(event: MemoryEvent): void;
@@ -212,6 +218,8 @@ export interface People {
 export function composePeople(deps: PeopleDeps): People {
   const { db, clock, memory } = deps;
   const settings = () => graphSettings(getSetting(db, GRAPH_SETTING)?.value);
+  /** `promises.enabled`: the promise lane extracts promises, so the model pass stops asking for loops. */
+  const ledgerOn = (): boolean => getSetting(db, "promises.enabled")?.value === true;
   const index = new SqliteSearchIndex(db.sqlite, { now: () => clock.now() });
   let graph: GraphStore | undefined;
   const reindex = async (id: string) => {
@@ -240,6 +248,13 @@ export function composePeople(deps: PeopleDeps): People {
   const store = graph;
   let gistSources: GistSources | undefined;
   store.backfillTitleTrust();
+  // Loops written before `remote_visible` was set stay visible to the owner's own devices unless
+  // they have a Messages marker (promise scrub). Once, in code so the encrypted store gets it too.
+  // The cursor is set only once it finished: a failure is retried at the next start.
+  runLoopRemoteVisibleBackfill(deps.memorySqlite ?? db.sqlite, {
+    get: (name) => store.cursor(name),
+    set: (name, value) => store.setCursor(name, value),
+  });
   // Conversation gists follow the same sensitive-class switches as learned facts (§2.6).
   store.setSensitiveSwitches(
     () => everythingSettings(getSetting(db, EVERYTHING_MEMORY_SETTING_KEY)?.value).sensitive,
@@ -255,7 +270,9 @@ export function composePeople(deps: PeopleDeps): People {
     entities: number;
     tokens: number;
   } | null;
+  const loopVisibility = createLoopVisibility(deps.memorySqlite ?? db.sqlite);
   const base = createGraphHandlers(store, {
+    loopVisibility,
     cards,
     memory,
     settings: () => {
@@ -361,7 +378,7 @@ export function composePeople(deps: PeopleDeps): People {
         maxEntitiesPerNight: AFTER_RUN_ENTITIES,
         maxTokensPerNight: AFTER_RUN_TOKENS,
       },
-      { clock, only: ids },
+      { clock, only: ids, ledgerOn: ledgerOn() },
     );
     for (const id of ids) {
       const e = store.getEntity(id);
@@ -462,7 +479,7 @@ export function composePeople(deps: PeopleDeps): People {
           maxEntitiesPerNight: s.model.maxEntitiesPerNight,
           maxTokensPerNight: s.model.maxTokensPerNight,
         },
-        { clock },
+        { clock, ledgerOn: ledgerOn() },
       );
       lastPass = {
         at: new Date(clock.now()).toISOString(),
@@ -587,6 +604,7 @@ export function composePeople(deps: PeopleDeps): People {
     cards,
     recall,
     handlers,
+    loopVisibility,
     settings,
     useGistSources(sources) {
       gistSources = sources;
@@ -613,7 +631,7 @@ export function composePeople(deps: PeopleDeps): People {
       const interval = deps.pollIntervalMs ?? DEFAULT_GRAPH_POLL_MS;
       return {
         handlers: withGistSources(
-          mountParamsOnly(handlers as never),
+          withLoopViewer(mountParamsOnly(handlers as never), handlers),
           () => gistSources,
           (id) => store.externalRefOf(id),
         ),
@@ -643,6 +661,25 @@ export function composePeople(deps: PeopleDeps): People {
       };
     },
   };
+}
+
+/** The `memory.*` methods that carry loops, which read who is asking (promise scrub). */
+const LOOP_METHODS = ["memory.loops.list", "memory.loops.update", "memory.entities.get"] as const;
+
+/**
+ * Passes the caller's view to the loop methods: the desktop shell sees everything, every other
+ * caller gets the remote scrub (`promise-scrub.ts`). Never read from the request params.
+ */
+export function withLoopViewer(
+  mounted: Record<string, HandlerDef>,
+  handlers: GraphHandlers,
+): Record<string, HandlerDef> {
+  const out = { ...mounted };
+  for (const name of LOOP_METHODS) {
+    const run = handlers[name] as (params: never, viewer: PromiseViewer) => Promise<unknown>;
+    out[name] = { run: (call: Call, params: never) => run(params, viewerOfCall(call)) };
+  }
+  return out;
 }
 
 /**

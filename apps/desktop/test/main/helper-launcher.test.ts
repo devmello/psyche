@@ -96,14 +96,17 @@ describe("HelperLauncher", () => {
         },
         pairTimeoutMs: 3_000,
       });
-    await make("/x/psyche-helper\n").restart();
+    await make(`${join(appPath, "Contents", "MacOS", "psyche-helper")}\n`).restart();
     expect(killed).toEqual([4242]);
     expect(calls.some((c) => c[0] === "/usr/bin/open")).toBe(true);
-    // Some other program's pid in the lock file is never signalled.
-    killed.length = 0;
-    paired = true;
-    await make("/usr/bin/some-other\n").restart();
-    expect(killed).toEqual([]);
+    // Some other program's pid in the lock file is never signalled, nor another psyche-helper
+    // (a dev build, another home's bundle) that reused the pid.
+    for (const other of ["/usr/bin/some-other\n", "/x/psyche-helper\n", "psyche-helper\n"]) {
+      killed.length = 0;
+      paired = true;
+      await make(other).restart();
+      expect(killed, other).toEqual([]);
+    }
   });
 
   it("launches once, waits for it to pair, and does not relaunch while paired", async () => {

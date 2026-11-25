@@ -37,6 +37,7 @@ import { memoryRest } from "./memory-rest/it.ts";
 import { memoryReviewRest } from "./memory-review-rest/it.ts";
 import { memorySurfacesRest } from "./memory-surfaces-rest/it.ts";
 import { memoryWorkRest } from "./memory-work-rest/it.ts";
+import { nightShift } from "./night-shift/it.ts";
 import { notices } from "./notices/it.ts";
 import { nudgesRest } from "./nudges-rest/it.ts";
 import { onboardingRest } from "./onboarding-rest/it.ts";
@@ -186,6 +187,28 @@ export const it: Partial<Catalogue> = {
     "Un’app ha modifiche non salvate. Psyche aspetta che tu decida cosa farne.",
   "errors.reason.checkout_needs_desktop":
     "Per pagare nel browser di Psyche, l’app desktop di Psyche deve essere collegata a questo host.",
+  "errors.reason.permission_missing":
+    "Psyche Helper non ha ancora il permesso di macOS per questo. Consentilo in Impostazioni di Sistema → Privacy e sicurezza, poi riprova.",
+  "errors.reason.permission_denied":
+    "Psyche Helper non è autorizzato a farlo. Attivalo in Impostazioni di Sistema → Privacy e sicurezza, poi riprova.",
+  "errors.reason.automation_denied":
+    "Psyche Helper non è autorizzato a controllare questa app. Attivalo in Impostazioni di Sistema → Privacy e sicurezza → Automazione, poi riprova.",
+  "errors.reason.automation_not_granted":
+    "Psyche Helper non può ancora controllare questa app. Riprova e scegli OK quando macOS lo chiede.",
+  "errors.reason.full_disk_access_missing":
+    "Psyche Helper ha bisogno dell'accesso completo al disco per leggere Messaggi. Attivalo in Impostazioni di Sistema → Privacy e sicurezza → Accesso completo al disco, poi riavvia Psyche Helper.",
+  "errors.reason.prompt_refused_by_macos":
+    "macOS non ha mostrato la richiesta di permesso. Consenti Psyche Helper in Impostazioni di Sistema → Privacy e sicurezza.",
+  "errors.reason.app_not_running": "Quell'app non è aperta. Aprila, poi riprova.",
+  "errors.reason.needs_helper":
+    "Serve Psyche Helper, che non è in esecuzione. Riavvialo in Impostazioni → Dispositivi.",
+  "errors.reason.apple_not_connected":
+    "Le app Apple non sono ancora collegate. Collegale in Impostazioni → Connettori.",
+  "errors.reason.no_folder_shared":
+    "Nessuna cartella è ancora condivisa. Condividine una in Impostazioni → Accesso ai file.",
+  "errors.reason.memory_opening": "La memoria si sta ancora aprendo. Riprova tra un momento.",
+  "errors.reason.outlook_object_model_guard":
+    "Outlook impedisce ad altri programmi di leggere la posta o di inviare, perché Windows non segnala un antivirus aggiornato. Attiva Sicurezza di Windows oppure imposta «Accesso programmatico» su «Non avvisare mai» in Outlook → File → Opzioni → Centro protezione, poi riprova.",
   "errors.reason.no_chromium":
     "Il browser di Psyche ha bisogno di Chromium su questo host. Installalo o imposta PSYCHE_CHROMIUM.",
   "errors.reason.chromium_sandbox":
@@ -1816,6 +1839,12 @@ export const it: Partial<Catalogue> = {
   "settings.computerUse.helperAccess.offline":
     "Psyche Helper non è in esecuzione, quindi non si possono leggere i suoi permessi. Si avvia con Psyche; chiudi e riapri Psyche se resta offline.",
   "settings.computerUse.helperAccess.allow": "Consenti a Psyche Helper",
+  "settings.computerUse.helperAccess.lost":
+    "macOS ha revocato questo permesso a Psyche Helper, di solito dopo un aggiornamento: in Impostazioni di Sistema disattiva e riattiva Psyche Helper, poi riavvialo.",
+  "settings.computerUse.helperAccess.restartToApply":
+    "macOS applica questo permesso al riavvio di Psyche Helper.",
+  "settings.computerUse.helperAccess.restart": "Riavvia Psyche Helper",
+  "settings.computerUse.helperAccess.restartFor": "Riavvia Psyche Helper per applicare {name}",
   "settings.computerUse.helperAccess.allowFor": "Consenti a Psyche Helper: {name}",
   "settings.computerUse.title": "Uso del computer",
   "settings.computerUse.description":
@@ -1824,6 +1853,11 @@ export const it: Partial<Catalogue> = {
   "settings.computerUse.loadLabel": "l’uso del computer",
   "settings.computerUse.macPermissions": "Permessi di macOS",
   "settings.computerUse.openSystemSettings": "Apri Impostazioni di Sistema",
+  "settings.computerUse.fullDiskAccess.name": "Accesso completo al disco",
+  "settings.computerUse.fullDiskAccess.why":
+    "permette a {persona} di leggere i tuoi messaggi. macOS non lo chiede con un avviso: aggiungi Psyche Helper all'elenco.",
+  "settings.computerUse.fullDiskAccess.open":
+    "Apri Accesso completo al disco in Impostazioni di Sistema",
   "settings.computerUse.apps": "App",
   "settings.computerUse.enabledHint":
     "Disattivandolo si bloccano tutte le app qui sotto. Per ogni app viene chiesto al primo uso.",
@@ -2824,6 +2858,12 @@ export const it: Partial<Catalogue> = {
   "settings.connect.notAskedYet":
     "{name} è configurato, ma macOS non te l’ha ancora chiesto. Controlla di nuovo mostra la richiesta di macOS sul Mac.",
   "settings.connect.noPrompt": "macOS non ha mostrato alcuna richiesta: {reason}",
+  "settings.connect.path.automation":
+    "Impostazioni di Sistema → Privacy e sicurezza → Automazione → Psyche (Helper) → {app}",
+  "settings.connect.path.privacy":
+    "Impostazioni di Sistema → Privacy e sicurezza → {pane} → Psyche (Helper)",
+  "settings.connect.path.shortcuts": "l'app Comandi rapidi",
+  "settings.connect.path.files": "Impostazioni → Accesso ai file in Psyche",
   "settings.connect.checkAgain": "Controlla di nuovo",
   "settings.connectors.status.needsPermission": "Richiede un permesso",
   "settings.connectors.catalog.connected": "{name} (collegato)",
@@ -4035,6 +4075,7 @@ export const it: Partial<Catalogue> = {
   // Windows variants of the sandbox PC, voice keys and platform terms
   ...windowsPlatform202611,
   ...mailFollowups,
+  ...nightShift,
   ...keepAwake,
   ...friction,
   ...update,

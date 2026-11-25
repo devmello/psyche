@@ -113,4 +113,6 @@ export const notices: Partial<Catalogue> = {
   "notice.automation.interrupted.title": "تمت مقاطعة {title}",
   "notice.automation.interrupted.body":
     "أُعيد تشغيل Psyche أثناء تشغيله وربما أنجز جزءًا منه. تحقق من النتيجة، ثم شغّله مرة أخرى إن لزم.",
+  "notice.promise.due.title": "وعد يحين موعده قريبًا",
+  "notice.promise.due.body": "افتح Psyche لمعرفة أيّ وعد هو.",
 };

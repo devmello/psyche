@@ -122,4 +122,6 @@ export const notices: Partial<Catalogue> = {
   "notice.automation.interrupted.title": "{title} wurde unterbrochen",
   "notice.automation.interrupted.body":
     "Psyche wurde neu gestartet, während es lief, und hat vielleicht einen Teil schon erledigt. Prüfe das Ergebnis und starte es bei Bedarf erneut.",
+  "notice.promise.due.title": "Ein Versprechen ist bald fällig",
+  "notice.promise.due.body": "Öffne Psyche, um zu sehen, welches.",
 };
