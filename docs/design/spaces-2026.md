@@ -1,6 +1,6 @@
 # Spaces: lasting workspaces for a project, its files, chats and trackers (2026)
 
-Status: plan, 2026-11-20. Nothing is built. The owner decisions SP1–SP12 in §11 are open, and each has a recommendation. Inputs:
+Status: plan, 2026-11-20; built since (Spaces ship in the app: `/spaces`, the `spaces.*` methods, folders, trackers). Kept as the design record. The owner decisions SP1–SP12 in §11 are open, and each has a recommendation. Inputs:
 
 - The parity audits of 2026-11-20 against Claude Cowork and Meta Muse. A lasting workspace is the largest gap the two share: Cowork row 9 and row 28 ("Projects"), Muse row 13 ("Spaces").
 - [consolidation-2026.md](consolidation-2026.md) and [home-2026.md](home-2026.md): five places, no new sidebar rows, one reading order on Home.

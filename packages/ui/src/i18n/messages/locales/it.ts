@@ -1,6 +1,7 @@
 import type { Catalogue } from "../index.ts";
 import { actionErrors } from "./action-errors/it.ts";
 import { agentRest } from "./agent-rest/it.ts";
+import { approvalsW3 } from "./approvals-w3/it.ts";
 import { auditRest } from "./audit-rest/it.ts";
 import { automationChatRest } from "./automation-chat-rest/it.ts";
 import { blocksRest } from "./blocks-rest/it.ts";
@@ -233,6 +234,14 @@ export const it: Partial<Catalogue> = {
   "errors.method_not_allowed": "Il browser non consente questa azione.",
   "errors.presence_required":
     "Prima conferma la tua identità con una passkey o con l’helper per Mac.",
+  "errors.presence_unavailable_here":
+    "Per approvare serve qualcuno davanti al computer. Accedi al suo desktop e riprova.",
+  "errors.presence_agent_missing":
+    "Su questo desktop non è attiva alcuna richiesta di password, quindi non posso confermare che sei tu.",
+  "errors.presence_policy_missing":
+    "Questo computer non è ancora configurato per confermare che sei tu. Installa la policy di approvazione di Psyche e riprova.",
+  "errors.presence_not_enforced":
+    "Questo computer approverebbe senza chiedere una password, quindi non posso confermare che sei tu.",
   "errors.offline": "Psyche non è raggiungibile.",
   "errors.unknown": "Qualcosa è andato storto.",
   "chat.quote.text": '"{text}"',
@@ -4060,6 +4069,8 @@ export const it: Partial<Catalogue> = {
   ...computerWatch,
   // Psyche points (docs/design/psyche-points-2026.md §9)
   ...points,
+  // Approvals wave W3 (card choices, Allowed list)
+  ...approvalsW3,
   // Gateway-authored notices (inbox notifications, security alerts)
   ...notices,
   // Settings > Computer use > Separate desktop (Linux)

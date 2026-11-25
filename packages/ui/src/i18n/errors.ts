@@ -103,3 +103,26 @@ export function stepErrorText(error: {
 export function reasonText(reason: string | undefined, fallback: string): string {
   return (reason === undefined ? null : codeSentence(reason)) ?? fallback;
 }
+
+/**
+ * What the UI says about a failed run step, never the raw code. The sentence for the step's
+ * machine reason when the catalogue has one; else, in English, the step's own message; in any
+ * other language the code's catalogue sentence (or `errors.unknown`).
+ */
+export function describeStepError(error: {
+  code: string;
+  message: string;
+  details?: unknown;
+}): string {
+  const i18n = activeI18n();
+  const d = error.details;
+  const reason =
+    typeof d === "object" && d !== null && typeof (d as { reason?: unknown }).reason === "string"
+      ? (d as { reason: string }).reason
+      : undefined;
+  const bySentence = reason === undefined ? null : codeSentence(reason, i18n);
+  if (bySentence !== null) return bySentence;
+  const detail = error.message.trim();
+  if (i18n.messageLocale === "en" && detail) return detail;
+  return codeSentence(error.code, i18n) ?? i18n.t("errors.unknown");
+}

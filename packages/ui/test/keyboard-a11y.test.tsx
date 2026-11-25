@@ -67,7 +67,7 @@ describe("chat column by keyboard", () => {
 });
 
 describe("approval card by keyboard", () => {
-  it("the scope select changes the lifetime and ⌘Return allows the chosen one", async () => {
+  it("⌘Return allows the plain Allow (once)", async () => {
     const pending = createFixtureWorld().approvals.find((a) => a.status === "pending");
     if (!pending) throw new Error("no pending approval");
     // A tainted send offers Allow once only (security §3.6, §3.12): use an untainted copy.
@@ -76,16 +76,34 @@ describe("approval card by keyboard", () => {
     render(
       <ApprovalCard approval={approval} canAnswer now={NOW} armDelayMs={0} onAnswer={onAnswer} />,
     );
-    const scope = screen.getByRole("combobox", { name: "Allow for" }) as HTMLSelectElement;
-    expect(scope.value).toBe("once");
-    const other = [...scope.options].find((o) => o.value !== "once");
-    if (!other) throw new Error("fixture offers one scope only");
-    await userEvent.selectOptions(scope, other.value);
-    expect(scope.value).toBe(other.value);
+    screen.getByRole("button", { name: "Allow" }).focus();
     await userEvent.keyboard("{Meta>}{Enter}{/Meta}");
     await waitFor(() => expect(onAnswer).toHaveBeenCalled());
     expect(onAnswer.mock.calls[0]?.[0]).toBe("approve");
-    expect(onAnswer.mock.calls[0]?.[1]).toBe(other.value);
+    expect(onAnswer.mock.calls[0]?.[1]).toBe("once");
+  });
+
+  it("the one second choice is a button that sends exactly the scope it names", async () => {
+    const pending = createFixtureWorld().approvals.find((a) => a.status === "pending");
+    if (!pending) throw new Error("no pending approval");
+    const approval = {
+      ...pending,
+      kind: "mcp_tool" as const,
+      sideEffect: "write" as const,
+      details: { tool: "mcp__notion__create_page", params: {} },
+      taint: false,
+      scopesOffered: ["once" as const, "session" as const],
+    };
+    const onAnswer = vi.fn();
+    render(
+      <ApprovalCard approval={approval} canAnswer now={NOW} armDelayMs={0} onAnswer={onAnswer} />,
+    );
+    const second = screen.getByRole("button", {
+      name: "Allow Notion › create page, with any arguments for the rest of this chat",
+    });
+    await userEvent.click(second);
+    await waitFor(() => expect(onAnswer).toHaveBeenCalledTimes(1));
+    expect(onAnswer.mock.calls[0]?.[1]).toBe("session");
   });
 });
 

@@ -13,6 +13,7 @@ import type {
   RunOutcome,
   SideEffect,
   Staging,
+  StagingReads,
   StagingRun,
   StagingSink,
   Task,
@@ -95,6 +96,11 @@ export interface TaskWorkerPoolOptions {
    * refuses every write that is not staged).
    */
   stagingToolsFor?: (staging: Staging, task: Task) => ((tool: string) => boolean) | undefined;
+  /**
+   * The staging task's read guard (fork-a-plan-2026 §3.2): a plan-fork branch's `web.fetch` is
+   * held to its own search results, and its finished reads are recorded for the report's cites.
+   */
+  stagingReadsFor?: (staging: Staging, task: Task) => StagingReads | undefined;
 }
 
 /** One turn of a task: its own run. */
@@ -440,10 +446,12 @@ export class TaskWorkerPool {
           );
         }
         const toolAllowed = this.#o.stagingToolsFor?.(record.staging, record.task);
+        const reads = this.#o.stagingReadsFor?.(record.staging, record.task);
         staging = {
           staging: record.staging,
           sink,
           ...(toolAllowed === undefined ? {} : { toolAllowed }),
+          ...(reads === undefined ? {} : { reads }),
         };
       }
       const stream = loop.startTurn({

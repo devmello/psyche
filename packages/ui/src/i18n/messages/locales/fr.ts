@@ -1,6 +1,7 @@
 import type { Catalogue } from "../index.ts";
 import { actionErrors } from "./action-errors/fr.ts";
 import { agentRest } from "./agent-rest/fr.ts";
+import { approvalsW3 } from "./approvals-w3/fr.ts";
 import { auditRest } from "./audit-rest/fr.ts";
 import { blocksRest } from "./blocks-rest/fr.ts";
 import { canvas } from "./canvas/fr.ts";
@@ -219,6 +220,14 @@ export const fr: Partial<Catalogue> = {
   "errors.method_not_allowed": "Le navigateur n’autorise pas cette action.",
   "errors.presence_required":
     "Confirmez d’abord que c’est bien vous avec une clé d’accès ou l’assistant Mac.",
+  "errors.presence_unavailable_here":
+    "Il faut quelqu'un devant l'ordinateur pour approuver. Ouvre une session sur son bureau et réessaie.",
+  "errors.presence_agent_missing":
+    "Aucune invite de mot de passe n'est active sur ce bureau, donc impossible de confirmer que c'est toi.",
+  "errors.presence_policy_missing":
+    "Cet ordinateur n'est pas encore prêt à confirmer que c'est toi. Installe la règle d'approbation de Psyche et réessaie.",
+  "errors.presence_not_enforced":
+    "Cet ordinateur approuverait sans demander de mot de passe, donc impossible de confirmer que c'est toi.",
   "errors.offline": "Psyche est injoignable.",
   "errors.unknown": "Un problème est survenu.",
 
@@ -4068,6 +4077,8 @@ export const fr: Partial<Catalogue> = {
   ...computerWatch,
   // Psyche points (docs/design/psyche-points-2026.md §9)
   ...points,
+  // Approvals wave W3 (card choices, Allowed list)
+  ...approvalsW3,
   // Gateway-authored notices (inbox notifications, security alerts)
   ...notices,
   // Settings > Computer use > Separate desktop (Linux)

@@ -163,6 +163,20 @@ describe("re-run is pre-filled and leaves out only what is set", () => {
     );
   });
 
+  it("offers Restore from a backup on first run only, with the command and where backups live", async () => {
+    flow({});
+    await userEvent.click(screen.getByText("Restore from a backup"));
+    expect(screen.getByTestId("onboarding-restore").textContent).toContain(
+      "psyche backup restore $PSYCHE_HOME/backups/<file>",
+    );
+    expect(screen.getByTestId("onboarding-restore").textContent).toContain("$PSYCHE_HOME/backups");
+  });
+
+  it("does not offer Restore from a backup when setup runs again", () => {
+    flow({ rerun: true });
+    expect(screen.queryByText("Restore from a backup")).toBeNull();
+  });
+
   it("says the model is kept, and the result says so", async () => {
     const { onComplete } = flow({ completed: ["model"], rerun: true, defaultStep: "done" });
     expect(screen.getByText("Unchanged")).toBeTruthy();

@@ -173,7 +173,7 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.notifications.description": "Quando Psyche può interromperti.",
   "settings.notifications.group.quietHours": "Ore di silenzio",
   "settings.notifications.quietHours.hint":
-    "Trattiene le notifiche fino alla fine della fascia. Le approvazioni urgenti arrivano comunque.",
+    "Trattiene le notifiche fino alla fine della fascia. Le approvazioni urgenti arrivano comunque. Il passaggio notturno della memoria ha orari propri, nelle impostazioni della memoria.",
   "settings.key.ui.onboarding.progress": "Avanzamento della configurazione iniziale",
   "settings.key.permissions.liftedFloors": "Azioni consentite senza chiedere per {id}",
   "settings.key.specialists.maxConcurrent": "Specialisti contemporaneamente",

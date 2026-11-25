@@ -49,8 +49,7 @@ enum SpacesText {
 
 // MARK: Home section
 
-/// Home's Spaces section, after Pinned: one row per Space, then a quiet "Suggested" group and the archived Spaces.
-/// Not drawn while there is nothing to show or the load failed.
+/// Home's Spaces page, behind More: one row per Space, then a quiet "Suggested" group and the archived Spaces.
 struct SpacesHomeSection: View {
     @State private var model: SpacesListModel
     @Environment(Router.self) private var router
@@ -58,17 +57,31 @@ struct SpacesHomeSection: View {
     init(store: any PsycheBackend) { _model = State(initialValue: SpacesListModel(store: store)) }
 
     var body: some View {
-        // A container that always exists, so `.task` runs even while there is nothing to show yet. A `Group` that is
-        // empty before the first load never realizes its task, so no Space ever loads (the Home section stayed hidden).
-        VStack(alignment: .leading, spacing: 0) {
-            if !model.spaces.isEmpty || !model.proposals.isEmpty || !model.archived.isEmpty {
-                VStack(alignment: .leading, spacing: PsycheMetrics.sectionSpacing) {
-                    if !model.spaces.isEmpty { spaceList }
-                    if !model.proposals.isEmpty { suggested }
-                    if !model.archived.isEmpty { archivedList }
+        List {
+            if model.spaces.isEmpty && model.proposals.isEmpty && model.archived.isEmpty {
+                ContentUnavailableView(String(localized: "No Spaces yet", bundle: .module), systemImage: "square.stack")
+                    .listRowBackground(Color.clear)
+            }
+            if !model.spaces.isEmpty {
+                Section {
+                    ForEach(model.spaces) { space in spaceRow(space) }
+                } header: {
+                    Text("Spaces", bundle: .module)
+                }
+            }
+            if !model.proposals.isEmpty { suggested }
+            if !model.archived.isEmpty {
+                Section {
+                    ForEach(model.archived) { space in spaceRow(space) }
+                } header: {
+                    Text("Archived", bundle: .module)
                 }
             }
         }
+        .homeListStyle()
+        .navigationTitle(String(localized: "Spaces", bundle: .module))
+        .psycheInlineTitle()
+        .refreshable { await model.load() }
         .task {
             await model.load()
             await model.observe()
@@ -84,78 +97,54 @@ struct SpacesHomeSection: View {
         Binding(get: { model.actionError != nil }, set: { if !$0 { model.clearError() } })
     }
 
-    private var spaceList: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            SectionHeader(String(localized: "Spaces", bundle: .module), count: model.spaces.count)
-            PaperCard {
-                ForEach(Array(model.spaces.prefix(6).enumerated()), id: \.element.id) { index, space in
-                    if index > 0 { HairlineDivider() }
-                    Button { router.homePath.append(.space(id: space.id)) } label: { row(space) }
-                        .buttonStyle(.plain)
-                }
-            }
-        }
-    }
-
     private var suggested: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            SectionHeader(String(localized: "Suggested", bundle: .module), count: model.proposals.count)
-            PaperCard {
-                ForEach(Array(model.proposals.enumerated()), id: \.element.id) { index, proposal in
-                    if index > 0 { HairlineDivider() }
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text(verbatim: proposal.name).font(.psycheRow).foregroundStyle(PsycheColor.text).lineLimit(2)
-                        if !proposal.reason.isEmpty { EvidenceLine([proposal.reason]) }
-                        if !proposal.chatTitles.isEmpty { EvidenceLine([proposal.chatTitles.joined(separator: ", ")]) }
-                        if proposal.untrusted { EvidenceLine([SpacesText.untrustedSuggestion]) }
-                        HStack(spacing: 20) {
-                            Button(String(localized: "Create", bundle: .module)) {
-                                Task { _ = await model.accept(proposal) }
-                            }
-                            .font(.subheadline.weight(.medium)).foregroundStyle(PsycheColor.inkText)
-                            Button(String(localized: "Not now", bundle: .module)) {
-                                Task { await model.dismiss(proposal) }
-                            }
-                            .font(.subheadline.weight(.medium)).foregroundStyle(PsycheColor.muted)
-                        }
-                        .buttonStyle(.plain)
-                        .padding(.top, 2)
+        Section {
+            ForEach(model.proposals) { proposal in
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(verbatim: proposal.name).font(.body).lineLimit(2)
+                    if !proposal.reason.isEmpty { Text(proposal.reason).font(.footnote).foregroundStyle(.secondary) }
+                    if !proposal.chatTitles.isEmpty {
+                        Text(proposal.chatTitles.joined(separator: ", ")).font(.footnote).foregroundStyle(.secondary)
                     }
-                    .padding(PsycheMetrics.rowPadding)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                    if proposal.untrusted {
+                        Text(SpacesText.untrustedSuggestion).font(.footnote).foregroundStyle(.secondary)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .swipeActions(edge: .leading) {
+                    Button { Task { _ = await model.accept(proposal) } } label: {
+                        Label(String(localized: "Create", bundle: .module), systemImage: "plus")
+                    }
+                    .tint(.accentColor)
+                }
+                .swipeActions(edge: .trailing) {
+                    Button { Task { await model.dismiss(proposal) } } label: {
+                        Label(String(localized: "Not now", bundle: .module), systemImage: "xmark")
+                    }
+                }
+                .contextMenu {
+                    Button { Task { _ = await model.accept(proposal) } } label: {
+                        Label(String(localized: "Create", bundle: .module), systemImage: "plus")
+                    }
+                    Button { Task { await model.dismiss(proposal) } } label: {
+                        Label(String(localized: "Not now", bundle: .module), systemImage: "xmark")
+                    }
                 }
             }
+        } header: {
+            Text("Suggested", bundle: .module)
         }
     }
 
-    private var archivedList: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            SectionHeader(String(localized: "Archived", bundle: .module), count: model.archived.count)
-            PaperCard {
-                ForEach(Array(model.archived.enumerated()), id: \.element.id) { index, space in
-                    if index > 0 { HairlineDivider() }
-                    Button { router.homePath.append(.space(id: space.id)) } label: { row(space) }
-                        .buttonStyle(.plain)
-                }
-            }
-        }
-    }
-
-    private func row(_ space: SpaceItem) -> some View {
-        HStack(spacing: 12) {
+    private func spaceRow(_ space: SpaceItem) -> some View {
+        NavigationLink { RouteView(route: .space(id: space.id)) } label: {
             VStack(alignment: .leading, spacing: 3) {
-                Text(space.name).font(.psycheRow).foregroundStyle(PsycheColor.text).lineLimit(1)
-                if !space.description.isEmpty { EvidenceLine([space.description]) }
+                Text(space.name).font(.body).lineLimit(1)
+                if !space.description.isEmpty {
+                    Text(space.description).font(.footnote).foregroundStyle(.secondary).lineLimit(2)
+                }
             }
-            Spacer(minLength: 0)
-            Image(systemName: "chevron.right")
-                .font(.footnote.weight(.semibold))
-                .foregroundStyle(PsycheColor.muted.opacity(0.7))
-                .accessibilityHidden(true)
         }
-        .padding(PsycheMetrics.rowPadding)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .contentShape(Rectangle())
     }
 }
 

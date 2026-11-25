@@ -238,6 +238,17 @@ describe("run trace sink", () => {
     const [thinking, model1, a, b, spawn, retried, approval, mail, model2] = got.steps as RunStep[];
     // The thinking step is the chat.reasoning step; its kept text is redacted and only in runs.step.
     expect(thinking?.id).toBe("rsn_trace_1");
+    // Fixed wordings carry a key the UI words in the owner's language; the English stays as the
+    // fallback. A tool step, whose label comes from the tool, has no key (control).
+    expect(thinking).toMatchObject({ labelKey: "thinking", label: "Thinking" });
+    expect(model1).toMatchObject({ labelKey: "model", label: "Model call" });
+    expect(got.steps.at(-1)).toMatchObject({
+      kind: "text",
+      labelKey: "reply",
+      label: "Writing a reply",
+      doneLabel: "Wrote a reply",
+    });
+    expect(a?.labelKey).toBeUndefined();
     expect(thinking?.text?.full).toBeUndefined();
     const detail = await owner.call<{ step: RunStep }>("runs.step", {
       runId,

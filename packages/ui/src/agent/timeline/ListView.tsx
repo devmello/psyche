@@ -4,7 +4,7 @@ import { StatusGlyph, stepStatusKind } from "../../components/status.tsx";
 import { LiveDuration } from "../../components/steps/LiveDuration.tsx";
 import { Input } from "../../components/ui/input.tsx";
 import { t } from "../../i18n/core.ts";
-import { stepErrorText } from "../../i18n/errors.ts";
+import { describeStepError } from "../../i18n/errors.ts";
 import type { MessageId } from "../../i18n/index.ts";
 import { formatTime } from "../../lib/format.ts";
 import { cn } from "../../lib/utils.ts";
@@ -61,7 +61,7 @@ export function ListView({
           {rows.map((row) => {
             const s = row.step;
             const preview =
-              (s?.error ? stepErrorText(s.error) : undefined) ??
+              (s?.error ? describeStepError(s.error) : undefined) ??
               s?.text?.summary ??
               s?.preview?.output;
             const selected = row.id === selectedId;

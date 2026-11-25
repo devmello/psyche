@@ -69,21 +69,20 @@ function show(a: ApprovalRequest, slots: UiSlots = {}, onAnswer = vi.fn()) {
   return onAnswer;
 }
 
-const allow = () => screen.getByRole("button", { name: "Allow with scope" });
+const allow = () => screen.getByRole("button", { name: "Allow" });
 
 describe("exec_host card", () => {
   it("shows the exact argv, cwd, env, resolved program and that it runs in the sandbox", () => {
-    show(execHost("srt"));
+    show(execHost("srt", { requiresAuthentication: false }));
     expect(screen.getByText("npm")).toBeTruthy();
     expect(screen.getByText("test")).toBeTruthy();
     expect(screen.getByText("/Users/me/Projects/app")).toBeTruthy();
     expect(screen.getByText("CI=1")).toBeTruthy();
     expect(screen.getByText("/opt/homebrew/Cellar/node/24.1.0/bin/npm")).toBeTruthy();
     expect(screen.getByText(/in the sandbox: it cannot read Psyche's vault/)).toBeTruthy();
-    // One control set: the scope rides on Allow, then Deny / Allow at the bottom.
-    for (const name of ["Allow once", "Always allow"]) {
-      expect(screen.getByRole("option", { name })).toBeTruthy();
-    }
+    // One control set: Deny, one lasting choice named by what it covers, then Allow.
+    expect(screen.getByRole("button", { name: "Always allow this exact command" })).toBeTruthy();
+    expect(screen.queryByRole("option")).toBeNull();
     expect(screen.getAllByRole("button", { name: "Deny" })).toHaveLength(1);
     expect(screen.queryByRole("radio")).toBeNull();
   });
@@ -109,7 +108,8 @@ describe("exec_host card", () => {
       screen.getByRole("textbox", { name: "Type UNSANDBOXED to run without the sandbox" }),
       "UNSANDBOXED",
     );
-    expect(screen.queryByRole("option", { name: /Always/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Always/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: "More options…" })).toBeNull();
     expect(screen.getByText("Without the sandbox, only Allow once is offered.")).toBeTruthy();
     await userEvent.click(allow());
     await waitFor(() =>
@@ -173,7 +173,8 @@ describe("exec_host card on Windows (no host sandbox)", () => {
         screen.getByRole("textbox", { name: /Type UNSANDBOXED/ }),
         "UNSANDBOXED",
       );
-      expect(screen.queryByRole("option", { name: /Always/ })).toBeNull();
+      expect(screen.queryByRole("button", { name: /Always/ })).toBeNull();
+      expect(screen.queryByRole("button", { name: "More options…" })).toBeNull();
       await userEvent.click(allow());
       await waitFor(() =>
         expect(onAnswer).toHaveBeenCalledWith("approve", "once", { unsandboxed: "UNSANDBOXED" }),
@@ -238,7 +239,7 @@ describe("permission request card", () => {
     expect(screen.getByText("to run your tests")).toBeTruthy();
     expect(screen.getByText(/Each action still asks you/)).toBeTruthy();
     expect(screen.getByText(/Touch ID|passkey/i)).toBeTruthy();
-    await userEvent.click(screen.getByRole("button", { name: "Allow with scope" }));
+    await userEvent.click(screen.getByRole("button", { name: "Enable" }));
     await waitFor(() => expect(onAnswer).toHaveBeenCalledWith("approve", "once", undefined));
   });
 
@@ -253,7 +254,7 @@ describe("permission request card", () => {
     const onAnswer = show(permission(need, false), { permissionAction });
     await userEvent.click(screen.getByRole("button", { name: "Open System Settings" }));
     expect(permissionAction).toHaveBeenCalledWith(need, "open");
-    await userEvent.click(screen.getByRole("button", { name: "Allow with scope" }));
+    await userEvent.click(screen.getByRole("button", { name: "Check again" }));
     await waitFor(() => expect(onAnswer).toHaveBeenCalled());
     expect(permissionAction).toHaveBeenLastCalledWith(need, "check");
   });
@@ -354,7 +355,8 @@ describe("one control set, friendly taint, one reason (shared by every approval 
     expect(screen.getByTestId("taint-note").textContent).toBe(
       "Earlier in this chat The agent read example.com, so only Allow once is offered.",
     );
-    expect(screen.queryByRole("combobox", { name: "Allow for" })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Always/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: "More options…" })).toBeNull();
     expect(screen.getAllByRole("button", { name: "Deny" })).toHaveLength(1);
     expect(screen.queryByRole("radio")).toBeNull();
   });

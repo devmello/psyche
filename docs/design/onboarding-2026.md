@@ -134,4 +134,4 @@ what can be turned on, not a reset.
 
 Choosing Reminders lists or folders for work, the digest and wrap-up times, the people switches
 for Home and notifications, and the remote-gateway pairing stay in Settings. The first-run welcome
-screen and "Restore from a backup" in `docs/copy/onboarding.md` are separate work.
+screen is separate work. "Restore from a backup" is a disclosure on the first step (first run only) that shows the `psyche backup restore` command and where backups live.

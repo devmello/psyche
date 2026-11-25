@@ -3,6 +3,7 @@ import { AppWindow, ShieldAlert } from "lucide-react";
 import { type ReactElement, useCallback, useEffect, useState } from "react";
 import { useStore } from "../data/index.ts";
 import { t } from "../i18n/core.ts";
+import { describeError } from "../i18n/errors.ts";
 import { useSlots } from "../slots.tsx";
 
 /** An approval card's whole life, plus time for the tool to run after the tap. */
@@ -53,7 +54,7 @@ export function McpAppPanel({
           { timeoutMs: MCP_APP_CALL_TIMEOUT_MS },
         );
       } catch (err) {
-        throw new Error(err instanceof Error ? err.message : t("widgets.app.callFailed"));
+        throw new Error(err instanceof Error ? describeError(err) : t("widgets.app.callFailed"));
       }
     },
     [store, toolCallId],

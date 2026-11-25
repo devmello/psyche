@@ -258,7 +258,7 @@ export const settings = {
   "settings.notifications.description": "When Psyche may interrupt you.",
   "settings.notifications.group.quietHours": "Quiet hours",
   "settings.notifications.quietHours.hint":
-    "Holds notifications until the window ends. Time-sensitive approvals still come through.",
+    "Holds notifications until the window ends. Time-sensitive approvals still come through. The overnight memory pass has its own hours, in the Memory settings.",
   "settings.key.voice.engine": "Speech engine",
   "settings.key.voice.conversation.enabled": "Talk with Psyche",
   "settings.key.voice.conversation.key": "Voice key",
@@ -657,7 +657,7 @@ export const settings = {
     "Touch ID or the passkey didn't confirm it's you. Try again.",
   "settings.approval.loading": "Loading the approval…",
 
-  // A connector's per-action rules (ActionMatrix.tsx, RadioTableRow.tsx).
+  // A connector's per-action rules (ActionMatrix.tsx).
   "settings.actions.rule.allow": "Allow",
   "settings.actions.rule.ask": "Ask",
   "settings.actions.rule.deny": "Deny",

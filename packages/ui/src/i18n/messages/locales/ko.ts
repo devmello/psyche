@@ -1,6 +1,7 @@
 import type { Catalogue } from "../index.ts";
 import { actionErrors } from "./action-errors/ko.ts";
 import { agentRest } from "./agent-rest/ko.ts";
+import { approvalsW3 } from "./approvals-w3/ko.ts";
 import { auditRest } from "./audit-rest/ko.ts";
 import { automationChatRest } from "./automationChat-rest/ko.ts";
 import { blocksRest } from "./blocks-rest/ko.ts";
@@ -235,6 +236,14 @@ export const ko: Partial<Catalogue> = {
   "errors.tab_not_found": "해당 브라우저 탭이 닫혔습니다.",
   "errors.method_not_allowed": "브라우저에서 해당 동작을 허용하지 않습니다.",
   "errors.presence_required": "먼저 패스키 또는 Mac 도우미에서 본인임을 확인하십시오.",
+  "errors.presence_unavailable_here":
+    "승인하려면 컴퓨터 앞에 누군가 있어야 합니다. 해당 데스크톱에 로그인한 뒤 다시 시도하세요.",
+  "errors.presence_agent_missing":
+    "이 데스크톱에는 비밀번호 확인 창이 실행 중이지 않아 본인 여부를 확인할 수 없습니다.",
+  "errors.presence_policy_missing":
+    "이 컴퓨터는 아직 본인 확인을 할 수 있도록 설정되지 않았습니다. Psyche 승인 정책을 설치한 뒤 다시 시도하세요.",
+  "errors.presence_not_enforced":
+    "이 컴퓨터는 비밀번호를 묻지 않고 승인해 버리므로 본인 여부를 확인할 수 없습니다.",
   "errors.offline": "Psyche에 연결할 수 없습니다.",
   "errors.unknown": "문제가 발생했습니다.",
 
@@ -3988,6 +3997,8 @@ export const ko: Partial<Catalogue> = {
   ...computerWatch,
   // Psyche points (docs/design/psyche-points-2026.md §9)
   ...points,
+  // Approvals wave W3 (card choices, Allowed list)
+  ...approvalsW3,
   // Gateway-authored notices (inbox notifications, security alerts)
   ...notices,
   // Settings > Computer use > Separate desktop (Linux)

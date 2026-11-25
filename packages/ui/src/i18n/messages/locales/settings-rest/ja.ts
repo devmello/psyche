@@ -172,7 +172,7 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.notifications.description": "Psycheが割り込んでよいタイミング。",
   "settings.notifications.group.quietHours": "おやすみ時間",
   "settings.notifications.quietHours.hint":
-    "設定した時間が終わるまで通知を保留します。時間に制約のある承認は通常どおり届きます。",
+    "時間帯が終わるまで通知を保留します。急ぎの承認は届きます。夜間のメモリ処理には、メモリ設定に別の時間帯があります。",
   "settings.key.ui.onboarding.progress": "オンボーディングの進行状況",
   "settings.key.permissions.liftedFloors": "{id}で確認なしに許可する操作",
   "settings.key.specialists.maxConcurrent": "同時に動くスペシャリスト数",

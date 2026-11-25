@@ -73,11 +73,12 @@ export const APP_TOP_LEVEL_ROUTES = [
   "settings",
   "can-do",
   "onboarding",
+  "spaces",
 ] as const;
 
 /**
- * `/spaces` and `/spaces/<id>` (docs/design/spaces-2026.md section 4.2). Not in
- * `APP_TOP_LEVEL_ROUTES` until the screen exists (S5); the id is a plain token, never a query.
+ * `/spaces` and `/spaces/<id>` (docs/design/spaces-2026.md section 4.2). The
+ * screen exists (S5), so it is in `APP_TOP_LEVEL_ROUTES`; the id is a plain token, never a query.
  */
 export const APP_SPACES_ROUTE = "spaces";
 const SPACE_ID = /^[A-Za-z0-9_-]{1,64}$/;
@@ -169,6 +170,22 @@ export function chatLinkRoute(link: {
 export function runLinkRoute(runId: string): string {
   return `/overview/run/${encodeURIComponent(runId)}`;
 }
+
+/**
+ * The generic Feed text of a finished automation run that has no summary of its own. The Feed
+ * stored these English lines; clients show them in the owner's language (matched exactly, so
+ * older posts are covered too).
+ */
+export const RUN_SNAPSHOT_BODY = {
+  done: "The run finished.",
+  failed: "The run did not finish.",
+} as const;
+
+/** The note a restart leaves in a thread whose turn was cut off (`TextBlock.noteKey`). */
+export const GATEWAY_RESTART_NOTE = {
+  key: "gateway_restart",
+  md: "The Gateway restarted during this turn, so it was stopped.",
+} as const;
 
 export const SCHEDULED_RUNS_ROUTE = "/scheduled?tab=runs";
 export const MEMORY_REVIEW_ROUTE = "/memory/review";
