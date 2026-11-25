@@ -83,9 +83,43 @@ final class HomeUITests: PsycheUITestCase {
         waitFor(needsYouRow("Pay the electricity bill"))
     }
 
+    /// Every More page opens and draws its navigation title. Never touches an approval.
+    func testEveryMorePageOpens() {
+        launch()
+        continueAfterFailure = true
+        let more = app.buttons["home.more"].firstMatch
+        waitFor(more)
+        more.tap()
+        for title in ["Inbox", "Scheduled", "Overview", "To-do", "Keep in touch", "Pinned", "Follow-ups", "Spaces", "Feed", "Ideas", "Goals"] {
+            let row = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", title)).firstMatch
+            tapWhenHittable(row)
+            let bar = app.navigationBars[title]
+            XCTAssertTrue(bar.waitForExistence(timeout: 8), "\(title) page did not open")
+            if bar.exists { bar.buttons.firstMatch.tap() }
+            waitFor(app.navigationBars["More"], 5)
+        }
+    }
+
+    func testTodaySwipeSnoozeAndRunningContextMenu() {
+        launch()
+        let running = app.staticTexts["Drafting the Q3 review summary"]
+        waitFor(running)
+        running.press(forDuration: 1.2)
+        waitFor(app.buttons["Watch"], 5)
+        app.buttons["Watch"].tap()
+        let row = app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "Rent is due Friday")).firstMatch
+        scrollTo(row)
+        waitFor(row)
+        row.swipeLeft()
+        let snooze = app.buttons["Snooze"].firstMatch
+        waitFor(snooze, 5)
+        snooze.tap()
+        waitGone(row, 8)
+    }
+
     func testMoreRowOpensTheMorePage() {
         launch()
-        let more = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "More")).firstMatch
+        let more = app.buttons["home.more"].firstMatch
         waitFor(more)
         more.tap()
         waitFor(text("Keep in touch"))
