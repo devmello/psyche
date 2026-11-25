@@ -231,7 +231,6 @@ final class SearchModel {
 /// The field is the system's (at the bottom on iPhone); the results are paper.
 struct SearchView: View {
     @State private var model: SearchModel
-    @Environment(\.horizontalSizeClass) private var sizeClass
     @Environment(Router.self) private var router
 
     init(store: any PsycheBackend) {
@@ -272,8 +271,7 @@ struct SearchView: View {
         .sheet(item: $model.viewer) { viewer in PassageSheet(viewer: viewer) }
         .navigationTitle(String(localized: "Search", bundle: .module))
         .psycheLargeTitle()
-        // iPhone: the search tab's field sits at the bottom (system). iPad: a field that is always shown, not a
-        // toolbar button, so the tab opens ready to type.
+        // A field that is always shown under the title, not a toolbar button, so the tab opens ready to type.
         .searchable(text: $model.query, placement: fieldPlacement, prompt: String(localized: "Search or ask", bundle: .module))
         .onSubmit(of: .search) {
             model.remember()
@@ -305,7 +303,8 @@ struct SearchView: View {
 
     private var fieldPlacement: SearchFieldPlacement {
         #if os(iOS)
-        sizeClass == .regular ? .navigationBarDrawer(displayMode: .always) : .automatic
+        // Always shown, under the large title: the default hides the field until the page is pulled down.
+        .navigationBarDrawer(displayMode: .always)
         #else
         .automatic  // the package's macOS test build; the app is iOS only
         #endif

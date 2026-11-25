@@ -5,7 +5,7 @@ final class LibraryUITests: PsycheUITestCase {
         launch()
         openTab("Library")
         waitFor(match("lease-2026.pdf"))
-        for (section, item) in [("Images", "Quartz sample.jpg"), ("Artifacts", "Kitchen budget"), ("Downloads", "renters-policy-2026.pdf"), ("Documents", "lease-2026.pdf")] {
+        for (section, item) in [("Images", "Quartz sample.jpg"), ("Artifacts", "Q3 review"), ("Downloads", "renters-policy-2026.pdf"), ("Documents", "lease-2026.pdf")] {
             // The sections sit behind the toolbar filter menu.
             app.buttons["Filter"].firstMatch.tap()
             app.buttons[section].firstMatch.tap()
