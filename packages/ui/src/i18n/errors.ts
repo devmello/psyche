@@ -90,6 +90,8 @@ export function codeSentence(codeOrReason: string, i18n: I18n = activeI18n()): s
  * the catalogue has no sentence for falls back too).
  */
 export function stepErrorText(error: {
+  code?: string;
+  retryable?: boolean;
   message: string;
   details?: { reason?: string | undefined } | undefined;
 }): string {
