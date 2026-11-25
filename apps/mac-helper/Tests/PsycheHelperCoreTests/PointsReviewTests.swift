@@ -83,6 +83,24 @@ struct PointsLatchTests {
         #expect(sink.events.allSatisfy { $0.value == nil })
     }
 
+    @Test func secureInputTurnedOnAfterFocusIsCaughtOnTheValueChange() {
+        let src = FakePointsSource()
+        let a = src.add(role: "AXTextField", title: "Custom", value: "", count: 14)
+        let b = src.add(role: "AXTextField", title: "Other", value: "")
+        let (engine, sink) = make(src)
+        engine.begin(at: 0)
+        src.focused = a
+        engine.notify(.focusChanged(a), at: 1)  // Secure Event Input is still off here
+        src.resetReads()
+        src.secureInput = true  // a paste or autofill into a custom password field
+        src.values[a] = "hunter2hunter2"
+        engine.notify(.valueChanged(a), at: 1.05)
+        src.focused = b
+        engine.notify(.focusChanged(b), at: 1.1)  // tab away inside the 300 ms
+        #expect(src.valueReads.isEmpty, "0 value reads")
+        #expect(sink.events.allSatisfy { $0.value == nil })
+    }
+
     @Test func aRelabelToCardNumberBeforeTheReReadIsJudgedAtCommit() {
         let src = FakePointsSource()
         let a = src.add(role: "AXTextField", title: "Reference", value: "")
@@ -145,5 +163,30 @@ struct PointsLatchTests {
         let read = try #require(PointsDigestBuilder.read(source: src, target: .fake, ids: &ids, budget: -1))
         #expect(read.digest.truncated == true)
         #expect(read.digest.fields.count < 50)
+    }
+}
+
+@Suite("Points session limit")
+struct PointsSessionLimitTests {
+    final class Clock: @unchecked Sendable {
+        let lock = NSLock()
+        var asked: [UInt64] = []
+        var expired = 0
+    }
+
+    @Test func endsASessionAfterThirtyMinutesOnTheInjectedClock() async {
+        #expect(PointsSessionLimit.maxSeconds == 1800)
+        let c = Clock()
+        let t = PointsSessionLimit.watch(sleep: { s in c.lock.withLock { c.asked.append(s) }; return true }, onExpire: { c.lock.withLock { c.expired += 1 } })
+        await t.value
+        #expect(c.asked == [1800] && c.expired == 1)
+    }
+
+    @Test func aCancelledWatchNeverExpires() async {
+        let c = Clock()
+        let t = PointsSessionLimit.watch(sleep: { _ in false }, onExpire: { c.lock.withLock { c.expired += 1 } })
+        t.cancel()
+        await t.value
+        #expect(c.expired == 0)
     }
 }

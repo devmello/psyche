@@ -103,16 +103,14 @@ final class PointsHost: @unchecked Sendable {
         }
         let window = windows[ref.index]
         // Busy check and slot take in one step, against a computer action taking its session (7d).
-        try PointsActivity.gate.withLock {
+        try activity.begin(ctx.invocationId) {
             if isComputerBusy() {
-                throw CapabilityError(.conflict, reason: "computer_busy", "The agent is using the computer; pointing waits until it is done", retryable: true)
+                return CapabilityError(.conflict, reason: "computer_busy", "The agent is using the computer; pointing waits until it is done", retryable: true)
             }
             if isRecording() {
-                throw CapabilityError(.conflict, reason: "recording_active", "A recording is running; pointing waits until it stops", retryable: true)
+                return CapabilityError(.conflict, reason: "recording_active", "A recording is running; pointing waits until it stops", retryable: true)
             }
-            guard activity.begin(ctx.invocationId) else {
-                throw CapabilityError(.conflict, reason: "points_active", "Psyche points is already helping with a window")
-            }
+            return nil
         }
         let target = PointsTarget(
             bundleId: bundleId, appName: String((app.localizedName ?? bundleId).prefix(120)), pid: ref.pid,
@@ -131,10 +129,7 @@ final class PointsHost: @unchecked Sendable {
             throw CapabilityError.unavailable("points_unavailable", "Could not read that window's accessibility tree", retryable: true)
         }
         // A helper-side limit: a session never outlives 30 minutes, even if the Gateway forgets it.
-        let limit = _Concurrency.Task { [controller] in
-            try? await _Concurrency.Task.sleep(nanoseconds: Self.maxSessionSeconds * 1_000_000_000)
-            controller.stop(.idle)
-        }
+        let limit = PointsSessionLimit.watch { [controller] in controller.stop(.idle) }
         defer { limit.cancel() }
         await withTaskCancellationHandler {
             for await event in controller.events {

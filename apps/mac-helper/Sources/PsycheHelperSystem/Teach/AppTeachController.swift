@@ -227,10 +227,13 @@ public enum AppTeachCapabilities {
                 guard computer.sessions.activeSession == nil else {
                     throw CapabilityError(.conflict, reason: "computer_busy", "The agent is using the computer; recording waits until it is done", retryable: true)
                 }
-                guard !computer.isPointing() else {
-                    throw CapabilityError(.conflict, reason: "points_active", "Psyche points is helping with a window; recording waits until it ends", retryable: true)
+                // The Points check and the recording start are one step under the shared gate.
+                let started = try PointsActivity.gate.withLock { () throws -> (id: String, app: AppTeachStep.App) in
+                    guard !computer.isPointing() else {
+                        throw CapabilityError(.conflict, reason: "points_active", "Psyche points is helping with a window; recording waits until it ends", retryable: true)
+                    }
+                    return try teach.begin(bundleId: p.bundleId)
                 }
-                let started = try teach.begin(bundleId: p.bundleId)
                 return CapabilityOutput(
                     ["sessionId": .string(started.id), "app": ["bundleId": .string(started.app.bundleId), "name": .string(started.app.name)]],
                     receipt: ReceiptDraft(outcome: .ok, summary: "Started recording in \(started.app.name)")

@@ -23,6 +23,35 @@ describe("points rule tables shared with the Mac helper", () => {
     );
   });
 
+  const dir = join(dirname(fileURLToPath(import.meta.url)), "..", "src");
+  const full = JSON.parse(readFileSync(file, "utf8")) as {
+    confusables: Record<string, string>;
+    venueDomains: string[];
+  };
+
+  it("matches the confusables table in points-rules.ts", () => {
+    const src = readFileSync(join(dir, "points-rules.ts"), "utf8");
+    const blocks: string[] = [];
+    const first = src.match(/const CONFUSABLES[^=]*=\s*\{([\s\S]*?)\n\};/);
+    if (first?.[1] !== undefined) blocks.push(first[1]);
+    for (const m of src.matchAll(/Object\.assign\(CONFUSABLES, \{([\s\S]*?)\n\}\);/g))
+      if (m[1] !== undefined) blocks.push(m[1]);
+    const got: Record<string, string> = {};
+    for (const body of blocks)
+      for (const l of body.matchAll(/^\s*([^\s:/][^:]*?):\s*"([^"]*)",?\s*$/gm))
+        got[(l[1] ?? "").trim()] = l[2] ?? "";
+    expect(Object.keys(got).length).toBeGreaterThan(50);
+    expect(full.confusables).toEqual(got);
+  });
+
+  it("matches HOST_VENUES in financial-block.ts", () => {
+    const src = readFileSync(join(dir, "financial-block.ts"), "utf8");
+    const body = src.match(/const HOST_VENUES[^=]*=\s*\{([\s\S]*?)\n\};/)?.[1] ?? "";
+    const hosts = [...body.matchAll(/"([^"]+)"/g)].map((m) => m[1]);
+    expect(hosts.length).toBeGreaterThan(100);
+    expect(full.venueDomains).toEqual(hosts);
+  });
+
   it("matches POINTS_BENIGN_PHRASES", () => {
     expect(json.benign).toEqual([...POINTS_BENIGN_PHRASES]);
   });

@@ -107,7 +107,9 @@ public final class PointsEngine<S: PointsAXSource>: @unchecked Sendable {
         switch n {
         case .focusChanged(let node): focusChanged(node, at: now)
         case .valueChanged(let node):
-            if let id = ids.existingId(for: node), records[id] != nil { coalescer.valueChanged(fieldId: id, at: now) }
+            // Judge again on every change: Secure Event Input can come on after focus (a paste or autofill
+            // into a custom password field), and the settle or a quick tab-away must not read it.
+            if let id = ids.existingId(for: node), records[id] != nil, stillPlain(id) { coalescer.valueChanged(fieldId: id, at: now) }
         case .layoutChanged: coalescer.layoutChanged(at: now)
         case .destroyed(let node):
             if let node, ids.existingId(for: node) == nil { return }  // some other element of the app

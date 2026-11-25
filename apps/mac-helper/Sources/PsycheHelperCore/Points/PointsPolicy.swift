@@ -44,6 +44,15 @@ public final class PointsActivity: @unchecked Sendable {
         }
     }
 
+    /// Takes the slot only when `busy` finds nothing in the way, as one step under `gate`: a computer
+    /// action (which takes the same gate) can never start in the gap between the check and the slot.
+    public func begin(_ id: String, unlessBusy busy: () -> CapabilityError?) throws {
+        try Self.gate.withLock {
+            if let e = busy() { throw e }
+            guard begin(id) else { throw CapabilityError(.conflict, reason: "points_active", "Psyche points is already helping with a window") }
+        }
+    }
+
     /// Frees the slot if `id` holds it. Returns whether it did.
     @discardableResult
     public func end(_ id: String) -> Bool {
@@ -55,4 +64,21 @@ public final class PointsActivity: @unchecked Sendable {
     }
 
     public var activeId: String? { lock.withLock { holder } }
+}
+
+/// A Points session never outlives 30 minutes, even if the Gateway forgets it.
+public enum PointsSessionLimit {
+    public static let maxSeconds: UInt64 = 30 * 60
+
+    /// `sleep` returns true when the wait completed (false: cancelled). Tests pass a clock of their own.
+    @discardableResult
+    public static func watch(
+        seconds: UInt64 = maxSeconds,
+        sleep: @escaping @Sendable (UInt64) async -> Bool = { s in (try? await _Concurrency.Task.sleep(nanoseconds: s * 1_000_000_000)) != nil },
+        onExpire: @escaping @Sendable () -> Void
+    ) -> _Concurrency.Task<Void, Never> {
+        _Concurrency.Task {
+            if await sleep(seconds), !_Concurrency.Task.isCancelled { onExpire() }
+        }
+    }
 }

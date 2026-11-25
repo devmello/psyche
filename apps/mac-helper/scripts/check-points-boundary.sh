@@ -233,7 +233,13 @@ fi
 testable_hits="$(grep -rn --include='*.swift' '@testable' Sources/PsycheHelper 2>/dev/null || true)"
 if [ -n "$testable_hits" ]; then fail "the executable uses @testable: $testable_hits"; else ok "the executable does not use @testable"; fi
 cdecl_hits="$(grep -rnE --include='*.swift' '@_cdecl|@_silgen_name|@_dynamicReplacement|@_expose|@_spi' "${src_dirs[@]}" 2>/dev/null || true)"
-if [ -n "$cdecl_hits" ]; then fail "guarded source declares an exported or dynamic entry point: $cdecl_hits"; else ok "no @_cdecl, @_silgen_name or @_dynamicReplacement in guarded sources"; fi
+# The executable reaches Points internals through none of these either (a `@_silgen_name` declaration in
+# main.swift binds an internal Points symbol by name). Nothing in it uses them today; an exception would be
+# allowed by exact line here, with a comment saying why.
+exe_hits="$(grep -rnE --include='*.swift' '@_cdecl|@_silgen_name|@_dynamicReplacement|@_expose|@_spi|dlsym|NSClassFromString' Sources/PsycheHelper 2>/dev/null || true)"
+objc_hits="$(grep -rnE --include='*.swift' '@objc|@_objcImplementation' Sources/PsycheHelperPoints 2>/dev/null || true)"
+cdecl_hits="${cdecl_hits}${exe_hits:+$'\n'$exe_hits}${objc_hits:+$'\n'$objc_hits}"
+if [ -n "$cdecl_hits" ]; then fail "an exported, dynamic or by-name entry point: $cdecl_hits"; else ok "no @_cdecl, @_silgen_name, dlsym or NSClassFromString in guarded sources or main.swift, no @objc in Points"; fi
 
 # ---- 7. positive control -------------------------------------------------------------------------
 sys_syms="$(undefined_symbols PsycheHelperSystem)"

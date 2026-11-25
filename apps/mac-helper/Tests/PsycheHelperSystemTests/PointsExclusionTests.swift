@@ -58,4 +58,39 @@ struct PointsExclusionTests {
         let src = try String(contentsOf: dir.appendingPathComponent("Sources/PsycheHelperSystem/HelperRuntime.swift"), encoding: .utf8)
         #expect(src.contains("computer.isPointing = { PointsActivity.shared.isActive }"))
     }
+
+    @Test func aComputerActionStartingInTheGapIsRefused() throws {
+        let cu = makeComputerUse(installer: FakeTapInstaller())
+        let activity = PointsActivity()
+        cu.isPointing = { activity.isActive }
+        let inGap = DispatchSemaphore(value: 0)
+        let go = DispatchSemaphore(value: 0)
+        final class Box: @unchecked Sendable { var error: CapabilityError? }
+        let box = Box()
+        let started = DispatchSemaphore(value: 0)
+        // Points: the busy check passes, then the thread stalls before the slot is taken.
+        Thread.detachNewThread {
+            try? activity.begin("points-1") {
+                inGap.signal()
+                go.wait()
+                return nil
+            }
+            started.signal()
+        }
+        inGap.wait()
+        // A computer action tries to begin in that gap: it must wait for the gate, then see the slot taken.
+        let done = DispatchSemaphore(value: 0)
+        Thread.detachNewThread {
+            do { try cu.beginAction(session: "run-gap") } catch { box.error = error as? CapabilityError }
+            done.signal()
+        }
+        Thread.sleep(forTimeInterval: 0.15)
+        #expect(done.wait(timeout: .now() + 0.01) == .timedOut, "the action waits on the gate")
+        go.signal()
+        started.wait()
+        done.wait()
+        #expect(box.error?.reason == "points_active")
+        #expect(cu.sessions.activeSession == nil)
+        #expect(activity.isActive)
+    }
 }
