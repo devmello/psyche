@@ -30,6 +30,7 @@ import { memoryReviewRest } from "./memoryReview-rest/de.ts";
 import { memorySurfacesRest } from "./memorySurfaces-rest/de.ts";
 import { memoryWorkRest } from "./memoryWork-rest/de.ts";
 import { miscRest } from "./misc-rest/de.ts";
+import { nightShift } from "./night-shift/de.ts";
 import { notices } from "./notices/de.ts";
 import { nudgesRest } from "./nudges-rest/de.ts";
 import { onboardingRest } from "./onboarding-rest/de.ts";
@@ -4109,6 +4110,7 @@ export const de: Partial<Catalogue> = {
   // Windows variants of the sandbox PC, voice keys and platform terms
   ...windowsPlatform202611,
   ...mailFollowups,
+  ...nightShift,
   ...keepAwake,
   ...friction,
   ...update,

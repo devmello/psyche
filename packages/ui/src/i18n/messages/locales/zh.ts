@@ -33,6 +33,7 @@ import { memoryMap } from "./memory-map/zh.ts";
 import { memoryPage } from "./memory-page/zh.ts";
 import { memoryReview } from "./memory-review/zh.ts";
 import { memorySettings } from "./memory-settings/zh.ts";
+import { nightShift } from "./night-shift/zh.ts";
 import { notices } from "./notices/zh.ts";
 import { nudges } from "./nudges/zh.ts";
 import { onboarding } from "./onboarding/zh.ts";
@@ -3888,6 +3889,7 @@ export const zh: Partial<Catalogue> = {
   // Windows variants of the sandbox PC, voice keys and platform terms
   ...windowsPlatform202611,
   ...mailFollowups,
+  ...nightShift,
   ...keepAwake,
   ...friction,
   ...update,

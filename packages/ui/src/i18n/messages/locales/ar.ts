@@ -33,6 +33,7 @@ import { memoryMap } from "./memory-map/ar.ts";
 import { memoryPage } from "./memory-page/ar.ts";
 import { memoryReview } from "./memory-review/ar.ts";
 import { memorySettings } from "./memory-settings/ar.ts";
+import { nightShift } from "./night-shift/ar.ts";
 import { notices } from "./notices/ar.ts";
 import { nudges } from "./nudges/ar.ts";
 import { onboarding } from "./onboarding/ar.ts";
@@ -4014,6 +4015,7 @@ export const ar: Partial<Catalogue> = {
   // Windows variants of the sandbox PC, voice keys and platform terms
   ...windowsPlatform202611,
   ...mailFollowups,
+  ...nightShift,
   ...keepAwake,
   ...friction,
   ...update,
