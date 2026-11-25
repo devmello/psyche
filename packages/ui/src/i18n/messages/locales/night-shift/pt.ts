@@ -45,7 +45,7 @@ export const nightShift: Partial<Catalogue> = {
   "nightShift.status.failed": "Falhou: {reason}",
   "nightShift.status.failedPlain": "Falhou",
   "nightShift.status.uncertain":
-    "{domain, select, mail {Não está claro se terminou. Confira no Mail.} calendar {Não está claro se terminou. Confira na Agenda.} files {Não está claro se terminou. Confira no Finder.} other {Não está claro se terminou. Confira em Lembretes.}}",
+    "{domain, select, mail {Não está claro se terminou. Confira no Mail.} calendar {Não está claro se terminou. Confira na Agenda.} files {Não está claro se terminou. Confira a pasta.} other {Não está claro se terminou. Confira em Lembretes.}}",
   "nightShift.status.skipped": "Ignorado",
   "nightShift.status.expired": "Expirado",
   "nightShift.status.dismissed": "Descartado",

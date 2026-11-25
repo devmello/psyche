@@ -41,7 +41,7 @@ export const nightShift: Partial<Catalogue> = {
   "nightShift.status.failed": "失败：{reason}",
   "nightShift.status.failedPlain": "失败",
   "nightShift.status.uncertain":
-    "{domain, select, mail {不确定是否已完成。请在“邮件”中查看。} calendar {不确定是否已完成。请在“日历”中查看。} files {不确定是否已完成。请在“访达”中查看。} other {不确定是否已完成。请在“提醒事项”中查看。}}",
+    "{domain, select, mail {不确定是否已完成。请在“邮件”中查看。} calendar {不确定是否已完成。请在“日历”中查看。} files {不确定是否已完成。请查看文件夹。} other {不确定是否已完成。请在“提醒事项”中查看。}}",
   "nightShift.status.skipped": "已跳过",
   "nightShift.status.expired": "已过期",
   "nightShift.status.dismissed": "已忽略",

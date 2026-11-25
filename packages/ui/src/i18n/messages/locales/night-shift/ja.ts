@@ -42,7 +42,7 @@ export const nightShift: Partial<Catalogue> = {
   "nightShift.status.failed": "失敗: {reason}",
   "nightShift.status.failedPlain": "失敗",
   "nightShift.status.uncertain":
-    "{domain, select, mail {完了したか確認できません。メールで確認してください。} calendar {完了したか確認できません。カレンダーで確認してください。} files {完了したか確認できません。Finderで確認してください。} other {完了したか確認できません。リマインダーで確認してください。}}",
+    "{domain, select, mail {完了したか確認できません。メールで確認してください。} calendar {完了したか確認できません。カレンダーで確認してください。} files {完了したか確認できません。フォルダを確認してください。} other {完了したか確認できません。リマインダーで確認してください。}}",
   "nightShift.status.skipped": "スキップ",
   "nightShift.status.expired": "期限切れ",
   "nightShift.status.dismissed": "却下",

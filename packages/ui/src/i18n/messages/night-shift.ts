@@ -39,7 +39,7 @@ export const nightShift = {
   "nightShift.status.failed": "Failed: {reason}",
   "nightShift.status.failedPlain": "Failed",
   "nightShift.status.uncertain":
-    "{domain, select, mail {Not sure this finished. Check in Mail.} calendar {Not sure this finished. Check in Calendar.} files {Not sure this finished. Check in Finder.} other {Not sure this finished. Check in Reminders.}}",
+    "{domain, select, mail {Not sure this finished. Check in Mail.} calendar {Not sure this finished. Check in Calendar.} files {Not sure this finished. Check the folder.} other {Not sure this finished. Check in Reminders.}}",
   "nightShift.status.skipped": "Skipped",
   "nightShift.status.expired": "Expired",
   "nightShift.status.dismissed": "Dismissed",

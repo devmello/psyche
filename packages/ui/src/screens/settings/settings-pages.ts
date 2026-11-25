@@ -270,6 +270,7 @@ export function paneForKey(key: string): SettingsPaneId | null {
     meetings: "mail",
     workflows: "mail",
     daily: "daily",
+    nightShift: "daily",
     scheduled: "daily",
     vault: "credentials",
     channels: "channels",
