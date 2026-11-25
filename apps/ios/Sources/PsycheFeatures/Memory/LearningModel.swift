@@ -10,7 +10,8 @@ final class LearningModel {
     /// The most a note may hold (memory.remember takes up to 4000 characters).
     nonisolated static let noteLimit = 4000
 
-    private(set) var lessons: LoadPhase<[LessonItem]> = .idle
+    /// What Psyche learned, a page at a time, newest first (memory.lessons.list).
+    let lessons: PagedRows<LessonItem>
     private(set) var claims: LoadPhase<[ClaimItem]> = .idle
     private(set) var changes: LoadPhase<[RecentChange]> = .idle
     /// Shown in an alert when a write from a list fails.
@@ -25,6 +26,10 @@ final class LearningModel {
 
     init(store: any PsycheBackend) {
         self.store = store
+        lessons = PagedRows { cursor in
+            let page = try await store.lessonsPage(cursor: cursor)
+            return (page.lessons, page.nextCursor)
+        }
         feedback = PagedRows { cursor in
             let page = try await store.feedbackPage(cursor: cursor)
             return (page.events, page.nextCursor)
@@ -34,12 +39,7 @@ final class LearningModel {
     // MARK: Reads
 
     func loadLessons() async {
-        if lessons.value == nil { lessons = .loading }
-        do {
-            lessons = .loaded(try await store.lessons())
-        } catch {
-            if lessons.value == nil { lessons = .failed(error.localizedDescription) }
-        }
+        await lessons.reload()
     }
 
     func loadClaims() async {
@@ -62,7 +62,7 @@ final class LearningModel {
 
     /// The lesson as it is now, so a detail page shows a confirm or an edit at once. Nil once it is gone.
     func lesson(id: String) -> LessonItem? {
-        lessons.value?.first { $0.id == id }
+        lessons.rows.first { $0.id == id }
     }
 
     // MARK: Lessons
@@ -131,6 +131,16 @@ final class LearningModel {
     }
 
     // MARK: Helpers
+
+    /// Runs `reload` whenever Memory changed or the connection resynced, until the view goes away.
+    func follow(_ reload: @escaping @MainActor () async -> Void) async {
+        for await event in store.events() {
+            switch event {
+            case .changed(.memory), .resynced: await reload()
+            default: break
+            }
+        }
+    }
 
     private func write(_ work: () async throws -> Void) async {
         do {
