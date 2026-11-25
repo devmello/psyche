@@ -4,7 +4,7 @@ import {
   draftContentHash,
   mailAdapter,
 } from "../../src/night-shift/adapters/mail.ts";
-import type { CaptureOk, MailDraftInfo } from "../../src/night-shift/adapters/types.ts";
+import type { CaptureOk, MailDraftInfo, StagedCall } from "../../src/night-shift/adapters/types.ts";
 import { FakeRegistry, thread } from "./adapters-registry.ts";
 
 function setup() {
@@ -13,7 +13,7 @@ function setup() {
   return { reg, adapter: mailAdapter(reg) };
 }
 
-const reply = (extra: Record<string, unknown> = {}) => ({
+const reply = (extra: Record<string, unknown> = {}): StagedCall => ({
   tool: "gmail_create_draft",
   args: {
     threadId: "t-1",
@@ -38,7 +38,7 @@ describe("mail adapter capture", () => {
     expect(r).toMatchObject({ ok: true, target: "t-m-5" });
   });
 
-  const REFUSED: Array<[string, ReturnType<typeof reply>, string]> = [
+  const REFUSED: Array<[string, StagedCall, string]> = [
     ["added to", reply({ to: ["ann@x.com", "eve@evil.com"] }), "recipient_added"],
     ["added cc", reply({ cc: ["eve@evil.com"] }), "recipient_added"],
     ["added bcc", reply({ bcc: ["eve@evil.com"] }), "recipient_added"],

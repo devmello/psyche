@@ -2,6 +2,7 @@ import { asRecord, preview, str } from "./common.ts";
 import type {
   Adapter,
   CalendarEventInfo,
+  CaptureResult,
   CheckResult,
   InverseCall,
   Json,
@@ -51,7 +52,7 @@ export function calendarAdapter(registry: ReadRegistry): Adapter {
   return {
     tools: TOOLS,
 
-    async capture(call) {
+    async capture(call): Promise<CaptureResult> {
       const a = call.args;
       if (hasPeople(a)) return { ok: false, reason: "attendees_refused" };
 

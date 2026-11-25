@@ -1,6 +1,7 @@
 import { asRecord, preview, str } from "./common.ts";
 import type {
   Adapter,
+  CaptureResult,
   CheckResult,
   InverseCall,
   Json,
@@ -59,7 +60,7 @@ export function remindersAdapter(registry: ReadRegistry): Adapter {
   return {
     tools: TOOLS,
 
-    async capture(call) {
+    async capture(call): Promise<CaptureResult> {
       const a = call.args;
       if (call.tool === "reminders_create") {
         const title = str(a.title);

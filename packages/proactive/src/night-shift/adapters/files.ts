@@ -134,10 +134,7 @@ function inRw(real: string, deps: FilesDeps): Refusal | undefined {
 function readSource(path: string): { real: string; id: Identity } | Refusal {
   let fd: number;
   try {
-    fd = openSync(
-      path,
-      constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK | constants.O_CLOEXEC,
-    );
+    fd = openSync(path, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
   } catch (err) {
     const code = (err as NodeJS.ErrnoException).code;
     return { reason: code === "ENOENT" ? "source_gone" : "source_unopenable" };
