@@ -18,28 +18,44 @@ extension GatewayBackend {
     public func memory() async throws -> MemorySnapshot {
         async let assignments = settled { try await self.entities(kind: "assignment", limit: 100) }
         async let loops = settled { try await self.openLoops() }
-        async let projects = settled { try await self.entities(kind: "project", limit: 50) }
-        async let people = optional { try await self.entities(kind: "person", limit: 40) }
+        // entities.search has no cursor; 100 is its ceiling, so projects and people past that are not listed.
+        async let projects = settled { try await self.entities(kind: "project", limit: 100) }
+        async let people = optional { try await self.entities(kind: "person", limit: 100) }
         async let catchup = optional { try await self.catchUp() }
         let (a, l, p) = await (assignments, loops, projects)
         if case .failure(let error) = a, case .failure = l, case .failure = p { throw error }
 
         let now = Date.now
         let catchUpItems = await catchup ?? []
-        let progress = await self.projectProgress(try? p.get())
+        let fetchedProjects = (try? p.get()) ?? []
+        // The first ten get their progress now; the rest are listed without it and read as their rows appear.
+        let progress = await self.projectProgress(Array(fetchedProjects.prefix(Self.eagerProgress)))
+        let pending = Set(fetchedProjects.dropFirst(Self.eagerProgress).compactMap { $0["id"]?.string })
         let todos = Self.todos(
             assignments: (try? a.get()) ?? [], loops: (try? l.get()) ?? [], catchUp: catchUpItems,
-            projectNames: progress.projectNameByChild, loopProjectNames: Self.names(try? p.get()), now: now)
-        let projectRows = (try? p.get() ?? [])?.compactMap { entity in
-            progress.byProject[entity["id"]?.string ?? ""].map { Self.projectItem(entity, progress: $0) }
-        } ?? []
+            projectNames: progress.projectNameByChild, loopProjectNames: Self.names(fetchedProjects), now: now)
+        // Every fetched project is listed; progress is shown only where it was read.
+        let projectRows = fetchedProjects.compactMap { entity -> ProjectItem? in
+            guard let id = entity["id"]?.string, !id.isEmpty else { return nil }
+            return Self.projectItem(entity, progress: progress.byProject[id])
+        }
         let peopleRows = (await people ?? []).filter { $0["isOwner"]?.bool != true && $0["status"]?.string != "merged" }
             .compactMap(Self.personItem)
         let leftOff = catchUpItems.first(where: { $0["resume"] != nil }).flatMap(Self.leftOff)
             ?? catchUpItems.first.flatMap(Self.leftOff)
         return MemorySnapshot(
             todos: todos, projects: projectRows, people: peopleRows,
-            leftOff: leftOff ?? LeftOff(title: "", text: "", evidence: []))  // empty: the card isn't drawn
+            leftOff: leftOff ?? LeftOff(title: "", text: "", evidence: []),  // empty: the card isn't drawn
+            progressPending: pending)
+    }
+
+    /// One project's row with its progress (memory.entities.get), for a row listed with progress pending.
+    public func projectRow(id: String) async throws -> ProjectItem {
+        let head = try await call("memory.entities.get", .obj(["id": .string(id)]))
+        guard let entity = head["entity"], entity["id"]?.string == id else { throw BackendError.notFound }
+        let children = Self.children(of: id, in: head)
+        let facts = (head["facts"]?.array ?? []).filter { Self.workAttributes.contains($0["attribute"]?.string ?? "") }
+        return Self.projectItem(entity, progress: Self.progress(children: children, facts: facts))
     }
 
     public func setTodo(id: String, done: Bool) async throws {
@@ -211,10 +227,21 @@ extension GatewayBackend {
         return (result["entities"]?.array ?? []).filter { $0["status"]?.string != "archived" && $0["status"]?.string != "merged" }
     }
 
+    /// Open "I owe" loops, followed through the Gateway's cursor: 100 a page, at most 10 pages.
     func openLoops() async throws -> [JSONValue] {
-        let result = try await call(
-            "memory.loops.list", .obj(["status": .array(["open"]), "direction": "i_owe", "limit": .number(60)]))
-        return result["loops"]?.array ?? []
+        var loops: [JSONValue] = []
+        var cursor: String?
+        for _ in 0..<10 {
+            var params: [String: JSONValue] = [
+                "status": .array(["open"]), "direction": "i_owe", "limit": .number(100),
+            ]
+            if let cursor { params["cursor"] = .string(cursor) }
+            let result = try await call("memory.loops.list", .object(params))
+            loops += result["loops"]?.array ?? []
+            guard let next = result["nextCursor"]?.string else { break }
+            cursor = next
+        }
+        return loops
     }
 
     func catchUp() async throws -> [JSONValue] {
@@ -234,33 +261,40 @@ extension GatewayBackend {
         var projectNameByChild: [String: String] = [:]
     }
 
-    /// One `memory.entities.get` per project (at most 10, each optional), for its handed-in count.
-    func projectProgress(_ projects: [JSONValue]?) async -> ProjectProgress {
+    /// One `memory.entities.get` per project, in batches of 10, for its handed-in count. Every project gets its
+    /// read; a project whose read fails has no entry, so its row shows without progress rather than disappearing.
+    func projectProgress(_ projects: [JSONValue]) async -> ProjectProgress {
         var out = ProjectProgress()
-        let wanted = (projects ?? []).prefix(10)
-        let details: [(JSONValue, JSONValue?)] = await withTaskGroup(of: (Int, JSONValue, JSONValue?).self) { group in
-            for (index, entity) in wanted.enumerated() {
-                group.addTask {
-                    let detail = await self.optional { try await self.call("memory.entities.get", .obj(["id": entity["id"] ?? .null])) }
-                    return (index, entity, detail)
+        for start in stride(from: 0, to: projects.count, by: Self.progressBatch) {
+            let batch = Array(projects[start..<min(start + Self.progressBatch, projects.count)])
+            let details: [(JSONValue, JSONValue?)] = await withTaskGroup(of: (Int, JSONValue, JSONValue?).self) { group in
+                for (index, entity) in batch.enumerated() {
+                    group.addTask {
+                        let detail = await self.optional { try await self.call("memory.entities.get", .obj(["id": entity["id"] ?? .null])) }
+                        return (index, entity, detail)
+                    }
                 }
+                var collected: [(Int, JSONValue, JSONValue?)] = []
+                for await item in group { collected.append(item) }
+                return collected.sorted { $0.0 < $1.0 }.map { ($0.1, $0.2) }
             }
-            var collected: [(Int, JSONValue, JSONValue?)] = []
-            for await item in group { collected.append(item) }
-            return collected.sorted { $0.0 < $1.0 }.map { ($0.1, $0.2) }
-        }
-        for (entity, detail) in details {
-            guard let id = entity["id"]?.string else { continue }
-            guard let detail else { out.byProject[id] = Progress(done: 0, total: 0, note: nil); continue }
-            let children = Self.children(of: id, in: detail)
-            let facts = (detail["facts"]?.array ?? []).filter { Self.workAttributes.contains($0["attribute"]?.string ?? "") }
-            out.byProject[id] = Self.progress(children: children, facts: facts)
-            for child in children {
-                if let childID = child["id"]?.string, let name = entity["name"]?.string { out.projectNameByChild[childID] = name }
+            for (entity, detail) in details {
+                guard let id = entity["id"]?.string, let detail else { continue }
+                let children = Self.children(of: id, in: detail)
+                let facts = (detail["facts"]?.array ?? []).filter { Self.workAttributes.contains($0["attribute"]?.string ?? "") }
+                out.byProject[id] = Self.progress(children: children, facts: facts)
+                for child in children {
+                    if let childID = child["id"]?.string, let name = entity["name"]?.string { out.projectNameByChild[childID] = name }
+                }
             }
         }
         return out
     }
+
+    /// Project reads in flight at once.
+    static let progressBatch = 10
+    /// Projects whose progress is read on every Memory load. Later ones are read as their rows appear.
+    static let eagerProgress = 10
 
     // MARK: - Mapping
 
@@ -376,20 +410,25 @@ extension GatewayBackend {
         return Progress(done: done, total: children.count, note: note)
     }
 
-    static func projectItem(_ entity: JSONValue, progress: Progress) -> ProjectItem {
+    /// A project row. `progress` is nil when its read failed: the row then says only what the entity itself says.
+    static func projectItem(_ entity: JSONValue, progress: Progress?) -> ProjectItem {
+        let paused = entity["projectStatus"]?.string == "paused"
         var detail: String
-        if progress.total > 0 {
+        if let progress, progress.total > 0 {
             detail = String(localized: "\(progress.done) of \(progress.total) done", bundle: .module)
             if let note = progress.note { detail += " · " + note }
+        } else if let progress {
+            detail = progress.note ?? (paused ? String(localized: "Paused", bundle: .module) : String(localized: "No to-dos yet", bundle: .module))
         } else {
-            detail = progress.note ?? (entity["projectStatus"]?.string == "paused" ? String(localized: "Paused", bundle: .module) : String(localized: "No to-dos yet", bundle: .module))
+            detail = paused ? String(localized: "Paused", bundle: .module) : ""
         }
-        if let due = WireFormat.date(entity["dueAt"]?.string), progress.total == 0 || progress.note == nil {
+        let showsDue = progress.map { $0.total == 0 || $0.note == nil } ?? true
+        if let due = WireFormat.date(entity["dueAt"]?.string), showsDue {
             detail += (detail.isEmpty ? "" : " · ") + String(localized: "Due \(due.formatted(.dateTime.month(.abbreviated).day()))", bundle: .module)
         }
         return ProjectItem(
             id: entity["id"]?.string ?? "", title: entity["name"]?.string ?? "Untitled", detail: detail,
-            fraction: progress.fraction)
+            fraction: progress?.fraction ?? 0)
     }
 
     /// People rows carry the name, the subtitle and the date of the last contact: no facts.

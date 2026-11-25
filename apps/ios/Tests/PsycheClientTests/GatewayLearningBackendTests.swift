@@ -33,6 +33,12 @@ struct GatewayLearningBackendTests {
         }
     }
 
+    /// One live lesson row as memory.lessons.list sends it.
+    static func lessonRow(_ id: String) -> JSONValue {
+        .object(["id": .string(id), "statement": .string("Line \(id)."), "value": "v", "previous": .null,
+                 "confidence": .number(0.9), "status": "active"])
+    }
+
     func live(_ configure: (FakeGateway) -> Void) async throws -> (GatewayBackend, GatewayClientTests.Harness) {
         let gateway = FakeGateway()
         configure(gateway)
@@ -86,18 +92,76 @@ struct GatewayLearningBackendTests {
         #expect(seen.params(of: "memory.lessons.forget") == [.object(["lessonId": "les_1"])])
     }
 
-    @Test func claimsListsOnlyTheOnesWaitingForTheOwner() async throws {
+    @Test func claimsListsOnlyTheOnesTheOwnerCanConfirm() async throws {
         let (backend, _) = try await live { g in
             g.on("memory.claims.list") { _ in .success(.object(["claims": .array([
                 .object(["id": "clm_1", "text": "Due in March.", "confidence": .number(0.4), "kind": "fact",
-                         "retractedAt": .null, "supersededBy": .null]),
+                         "provenance": "agent", "retractedAt": .null, "supersededBy": .null]),
                 .object(["id": "clm_2", "text": "Retracted.", "confidence": .number(0.6), "kind": "fact",
-                         "retractedAt": "2026-11-20T10:00:00.000Z", "supersededBy": .null]),
+                         "provenance": "agent", "retractedAt": "2026-11-20T10:00:00.000Z", "supersededBy": .null]),
                 .object(["id": "clm_3", "text": "Superseded.", "confidence": .number(0.6), "kind": "fact",
-                         "retractedAt": .null, "supersededBy": "clm_9"]),
+                         "provenance": "agent", "retractedAt": .null, "supersededBy": "clm_9"]),
+                .object(["id": "clm_4", "text": "Owner's own.", "confidence": .number(0.9), "kind": "fact",
+                         "provenance": "owner", "retractedAt": .null, "supersededBy": .null]),
+                .object(["id": "clm_5", "text": "From a web page.", "confidence": .number(0.5), "kind": "fact",
+                         "provenance": "untrusted", "retractedAt": .null, "supersededBy": .null]),
+                .object(["id": "clm_6", "text": "From the system.", "confidence": .number(0.5), "kind": "fact",
+                         "provenance": "system", "retractedAt": .null, "supersededBy": .null]),
             ])])) }
         }
         #expect(try await backend.claims() == [ClaimItem(id: "clm_1", text: "Due in March.", confidence: 0.4)])
+    }
+
+    /// Confirming a claim makes an owner claim that supersedes it. After the reload the old claim is superseded and
+    /// the owner's new one is not waiting, so the To confirm list is empty.
+    @Test func aConfirmedClaimIsGoneAfterTheReload() async throws {
+        let seen = Seen()
+        let before: JSONValue = .object(["claims": .array([
+            .object(["id": "clm_1", "text": "Due in March.", "confidence": .number(0.4), "kind": "fact",
+                     "provenance": "agent", "retractedAt": .null, "supersededBy": .null]),
+        ])])
+        let after: JSONValue = .object(["claims": .array([
+            .object(["id": "clm_1", "text": "Due in March.", "confidence": .number(0.4), "kind": "fact",
+                     "provenance": "agent", "retractedAt": .null, "supersededBy": "clm_9"]),
+            .object(["id": "clm_9", "text": "Due in March.", "confidence": .number(0.9), "kind": "fact",
+                     "provenance": "owner", "retractedAt": .null, "supersededBy": .null]),
+        ])])
+        let (backend, _) = try await live { g in
+            g.on("memory.claims.list") { _ in
+                .success(seen.count(of: "memory.claims.confirm") > 0 ? after : before)
+            }
+            g.on("memory.claims.confirm") { req in
+                seen.record(req.method, req.params)
+                return .success(.object(["claim": .object(["id": "clm_9"])]))
+            }
+        }
+        #expect(try await backend.claims().map(\.id) == ["clm_1"])
+        try await backend.confirmClaim(id: "clm_1")
+        #expect(try await backend.claims().isEmpty)
+    }
+
+    @Test func lessonsPagesFollowTheGatewayCursor() async throws {
+        let seen = Seen()
+        let (backend, _) = try await live { g in
+            g.on("memory.lessons.list") { req in
+                seen.record(req.method, req.params)
+                if req.params?["cursor"]?.string == "page-2" {
+                    return .success(.object(["lessons": .array([GatewayLearningBackendTests.lessonRow("les_2")]), "nextCursor": .null]))
+                }
+                return .success(.object(["lessons": .array([GatewayLearningBackendTests.lessonRow("les_1")]), "nextCursor": "page-2"]))
+            }
+        }
+        let first = try await backend.lessonsPage(cursor: nil)
+        #expect(first.lessons.map(\.id) == ["les_1"])
+        #expect(first.nextCursor == "page-2")
+        let second = try await backend.lessonsPage(cursor: first.nextCursor)
+        #expect(second.lessons.map(\.id) == ["les_2"])
+        #expect(second.nextCursor == nil)
+        let sent = seen.params(of: "memory.lessons.list")
+        #expect(sent.count == 2)
+        #expect(sent.allSatisfy { $0["status"] == .array([.string("proposed"), .string("active"), .string("confirmed")]) })
+        #expect(sent.first?["cursor"] == nil)
+        #expect(sent.last?["cursor"] == "page-2")
     }
 
     @Test func confirmingAClaimSendsItsId() async throws {
