@@ -419,7 +419,9 @@ describe("the review sheet", () => {
     await user.click(screen.getByRole("button", { name: /^Apply selected/ }));
     await waitFor(() => expect(spy.mock.calls.some((c) => c[0] === "approvals.answer")).toBe(true));
     const approval = gateway().world.approvals.find((a) => a.kind === "staged_apply");
-    const rows = (approval?.details as { items: { itemId: string }[] }).items.map((r) => r.itemId);
+    const rows = (((approval?.details ?? {}) as { items?: { itemId: string }[] }).items ?? []).map(
+      (r) => r.itemId,
+    );
     expect(rows).toContain(`${I.reply}:send`);
     expect(rows).toContain(I.reply);
     const approved = await screen.findByTestId("night-shift-approved");
