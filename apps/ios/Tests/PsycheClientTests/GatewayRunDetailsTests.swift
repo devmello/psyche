@@ -88,7 +88,24 @@ struct GatewayRunDetailsTests {
         #expect(frames.map { $0.seq } == [1, 2])
         #expect(frames[0].stepID == "stp_1")
         #expect(frames[1].stepID == nil && frames[1].expired)
-        #expect(try await backend.runFrameImage(runID: "run_1", seq: 1) == png)
+        #expect(try await backend.runFrameImage(runID: "run_1", seq: 1, size: .thumb) == png)
+    }
+
+    /// `runs.frame` requires `size: "thumb" | "full"` (packages/protocol/src/methods/runs.ts).
+    @Test func aFrameRequestCarriesTheSizeTheProtocolRequires() async throws {
+        let (backend, h) = try await GatewayBackendTests().live { g in
+            g.on("runs.frame") { req in
+                guard let size = req.params?["size"]?.string, ["thumb", "full"].contains(size) else {
+                    return .failure(WireError(code: "invalid_params", message: "size is required"))
+                }
+                return .success(.object(["mime": "image/jpeg", "dataBase64": .string(Data([1]).base64EncodedString())]))
+            }
+        }
+        _ = try await backend.runFrameImage(runID: "run_1", seq: 3, size: .thumb)
+        _ = try await backend.runFrameImage(runID: "run_1", seq: 3, size: .full)
+        let sent = h.gateway.received.filter { $0.method == "runs.frame" }
+        #expect(sent.map { $0.params?["size"]?.string } == ["thumb", "full"])
+        #expect(sent.allSatisfy { $0.params?["runId"]?.string == "run_1" && $0.params?["seq"]?.double == 3 })
     }
 }
 

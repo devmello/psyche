@@ -276,8 +276,37 @@ export function OnboardingFlow({
   progressRef.current = onProgress;
   // biome-ignore lint/correctness/useExhaustiveDependencies: runs when the step changes
   useEffect(() => {
-    progressRef.current?.({ step: current, done: steps.slice(0, steps.indexOf(current)) });
+    progressRef.current?.({
+      step: current,
+      done: steps.slice(0, steps.indexOf(current)),
+      answers: answersRef.current,
+    });
   }, [current]);
+  // The You step's answers go with the progress, so a relaunch restores them (not secrets).
+  const answers = { persona, owner };
+  const answersRef = useRef(answers);
+  answersRef.current = answers;
+  const currentRef = useRef(current);
+  currentRef.current = current;
+  const stepsRef = useRef(steps);
+  stepsRef.current = steps;
+  const answersKey = JSON.stringify(answers);
+  const firstAnswers = useRef(true);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: runs when the answers change
+  useEffect(() => {
+    if (firstAnswers.current) {
+      firstAnswers.current = false;
+      return;
+    }
+    const timer = setTimeout(() => {
+      progressRef.current?.({
+        step: currentRef.current,
+        done: stepsRef.current.slice(0, stepsRef.current.indexOf(currentRef.current)),
+        answers: answersRef.current,
+      });
+    }, 800);
+    return () => clearTimeout(timer);
+  }, [answersKey]);
 
   const allow = async (p: TccPermission) => {
     if (!onRequestPermission) {
@@ -367,6 +396,10 @@ export function OnboardingFlow({
           }
           setModel((m) => ({ ...m, keyRef }));
         } catch (err) {
+          // A vault this paste created has a recovery key that is shown once, even when the key
+          // itself was rejected: hold it until the owner confirms it is saved.
+          const rk = (err as { recoveryKey?: unknown } | null)?.recoveryKey;
+          if (typeof rk === "string" && rk !== "") setRecoveryKey((cur) => cur ?? rk);
           setKeyError(t("onboarding.keyFailed", { reason: describeError(err) }));
         }
       }
@@ -623,6 +656,7 @@ export function OnboardingFlow({
             result={result}
             helperConnected={helper?.kind === "paired"}
             {...(checks === null ? {} : { checks })}
+            onFix={(fix) => go(fix)}
           />
         ) : null}
       </section>
