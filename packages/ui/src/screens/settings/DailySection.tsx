@@ -4,7 +4,7 @@ import type {
   DailyAutomationTemplate,
   DailyFollowup,
 } from "@psyche/protocol";
-import { type ReactElement, type ReactNode, useCallback, useState } from "react";
+import { type ReactElement, type ReactNode, useCallback, useEffect, useId, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "../../components/ui/button.tsx";
 import { Input } from "../../components/ui/input.tsx";
@@ -20,6 +20,7 @@ import {
   ErrorNotice,
   Group,
   LoadGate,
+  num,
   SectionFrame,
   type SettingsFormProps,
   SwitchField,
@@ -45,6 +46,227 @@ export const DAILY_DEFAULTS = {
 } as const;
 
 const SENSITIVITIES = ["low", "normal", "high"] as const;
+
+/**
+ * Night shift (docs/design/night-shift-2026.md §8), written by the same `settings.set`. Off until
+ * the owner turns it on; turning it on stores `nightShift.consentedAt`. Enabling it grants
+ * nothing, because applying still asks.
+ */
+export const NIGHT_SHIFT_DEFAULTS = {
+  "nightShift.enabled": false,
+  "nightShift.window.start": "01:00",
+  "nightShift.window.end": "05:00",
+  "nightShift.domains.mail": true,
+  "nightShift.domains.calendar": true,
+  "nightShift.domains.reminders": true,
+  "nightShift.domains.files": true,
+  "nightShift.budgetUsd": 0.5,
+  "nightShift.expiryDays": 3,
+  "nightShift.notify": true,
+} as const;
+
+const NIGHT_DOMAINS = ["mail", "calendar", "reminders", "files"] as const;
+const BUDGET_MIN = 0.05;
+const BUDGET_MAX = 5;
+
+const toMinutes = (hhmm: string): number => {
+  const [h = "0", m = "0"] = hhmm.split(":");
+  return Number(h) * 60 + Number(m);
+};
+
+/** Whether a window (it may run past midnight) lasts at least an hour. */
+export function windowLongEnough(start: string, end: string): boolean {
+  return (toMinutes(end) - toMinutes(start) + 1440) % 1440 >= 60;
+}
+
+function BudgetRow({
+  value,
+  disabled,
+  onCommit,
+}: {
+  value: number;
+  disabled: boolean;
+  onCommit: (v: number) => void;
+}): ReactElement {
+  const id = useId();
+  const [draft, setDraft] = useState(String(value));
+  useEffect(() => setDraft(String(value)), [value]);
+  const commit = () => {
+    const n = Number(draft);
+    if (!Number.isFinite(n) || draft.trim() === "") return setDraft(String(value));
+    const clamped = Math.min(BUDGET_MAX, Math.max(BUDGET_MIN, Math.round(n * 100) / 100));
+    setDraft(String(clamped));
+    if (clamped !== value) onCommit(clamped);
+  };
+  return (
+    <div className="flex flex-wrap items-center gap-3">
+      <div className="flex min-w-0 flex-1 flex-col">
+        <label htmlFor={id} className="text-body text-label-primary">
+          {t("settings.nightShift.budget")}
+        </label>
+        <span className="text-callout text-label-secondary">
+          {t("settings.nightShift.budget.hint")}
+        </span>
+      </div>
+      <Input
+        id={id}
+        type="number"
+        inputMode="decimal"
+        min={BUDGET_MIN}
+        max={BUDGET_MAX}
+        step={0.05}
+        value={draft}
+        disabled={disabled}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") commit();
+        }}
+        className="h-7 w-24 tabular-nums"
+      />
+    </div>
+  );
+}
+
+/**
+ * What "Try it now" says when it did not start: the `outcome` the Gateway names (`off`,
+ * `already`, `skipped`, `no_candidates`), in plain words. A Gateway that sends no outcome (or one
+ * this does not know) gets the generic line; the Gateway's own `reason` text is never shown.
+ */
+export function runNowMessage(r: { started: boolean; outcome?: unknown }): string {
+  switch (r.outcome) {
+    case "off":
+      return t("settings.nightShift.runNow.off");
+    case "already":
+      return t("settings.nightShift.runNow.already");
+    case "skipped":
+      return t("settings.nightShift.runNow.skipped");
+    case "no_candidates":
+      return t("settings.nightShift.runNow.nothing");
+    default:
+      return t("settings.nightShift.tryNow.failed");
+  }
+}
+
+export interface NightShiftGroupProps extends Pick<SettingsFormProps, "values" | "onChange"> {
+  onTryNow?: () => void;
+  onOpenFiles?: () => void;
+}
+
+/** The "Night shift" group of Settings → Daily. */
+export function NightShiftGroup({
+  values,
+  onChange,
+  onTryNow,
+  onOpenFiles,
+}: NightShiftGroupProps): ReactElement {
+  const d = NIGHT_SHIFT_DEFAULTS;
+  const on = bool(values, "nightShift.enabled", d["nightShift.enabled"]);
+  const start = str(values, "nightShift.window.start", d["nightShift.window.start"]);
+  const end = str(values, "nightShift.window.end", d["nightShift.window.end"]);
+  const [windowError, setWindowError] = useState(false);
+  const expiry = String(num(values, "nightShift.expiryDays", d["nightShift.expiryDays"]));
+  const commitTime = (key: "nightShift.window.start" | "nightShift.window.end", v: string) => {
+    const ok =
+      key === "nightShift.window.start" ? windowLongEnough(v, end) : windowLongEnough(start, v);
+    setWindowError(!ok);
+    if (ok) onChange(key, v);
+  };
+  return (
+    <Group title={t("settings.nightShift.group")} description={t("settings.nightShift.groupHint")}>
+      <SwitchField
+        label={t("settings.key.nightShift.enabled")}
+        description={t("settings.nightShift.enabled.hint", { start, end })}
+        settingKey="nightShift.enabled"
+        checked={on}
+        onChange={(v) => {
+          onChange("nightShift.enabled", v);
+          if (v) onChange("nightShift.consentedAt", new Date().toISOString());
+        }}
+      />
+      <TimeRow
+        label={t("settings.nightShift.window.start")}
+        value={start}
+        disabled={!on}
+        onCommit={(v) => commitTime("nightShift.window.start", v)}
+      />
+      <TimeRow
+        label={t("settings.nightShift.window.end")}
+        value={end}
+        disabled={!on}
+        onCommit={(v) => commitTime("nightShift.window.end", v)}
+      />
+      {windowError ? (
+        <p role="alert" className="text-callout text-destructive">
+          {t("settings.nightShift.window.short")}
+        </p>
+      ) : null}
+      <p className="text-body text-label-primary">{t("settings.nightShift.domains")}</p>
+      {NIGHT_DOMAINS.map((domain) => (
+        <SwitchField
+          key={domain}
+          label={t(`settings.key.nightShift.domains.${domain}`)}
+          {...(domain === "files"
+            ? {
+                description: (
+                  <>
+                    {t("settings.nightShift.files.hint")}{" "}
+                    {onOpenFiles ? (
+                      <button
+                        type="button"
+                        className="cursor-default text-accent-11 hover:underline"
+                        onClick={onOpenFiles}
+                      >
+                        {t("settings.nightShift.files.link")}
+                      </button>
+                    ) : null}
+                  </>
+                ),
+              }
+            : {})}
+          settingKey={`nightShift.domains.${domain}`}
+          checked={bool(values, `nightShift.domains.${domain}`, true)}
+          disabled={!on}
+          onChange={(v) => onChange(`nightShift.domains.${domain}`, v)}
+        />
+      ))}
+      <BudgetRow
+        value={num(values, "nightShift.budgetUsd", d["nightShift.budgetUsd"])}
+        disabled={!on}
+        onCommit={(v) => onChange("nightShift.budgetUsd", v)}
+      />
+      <div className="flex flex-wrap items-center gap-3">
+        <label htmlFor="night-shift-expiry" className="min-w-0 flex-1 text-body text-label-primary">
+          {t("settings.nightShift.expiry")}
+        </label>
+        <NativeSelect
+          id="night-shift-expiry"
+          value={expiry}
+          disabled={!on}
+          onChange={(e) => onChange("nightShift.expiryDays", Number(e.target.value))}
+        >
+          {[1, 2, 3, 4, 5, 6, 7].map((n) => (
+            <option key={n} value={String(n)}>
+              {t("settings.nightShift.expiry.days", { n })}
+            </option>
+          ))}
+        </NativeSelect>
+      </div>
+      <SwitchField
+        label={t("settings.key.nightShift.notify")}
+        settingKey="nightShift.notify"
+        checked={bool(values, "nightShift.notify", true)}
+        disabled={!on}
+        onChange={(v) => onChange("nightShift.notify", v)}
+      />
+      {onTryNow ? (
+        <Button type="button" size="sm" variant="secondary" disabled={!on} onClick={onTryNow}>
+          {t("settings.nightShift.tryNow")}
+        </Button>
+      ) : null}
+    </Group>
+  );
+}
 
 export interface FollowupsListProps {
   followups: readonly DailyFollowup[];
@@ -272,6 +494,8 @@ export interface DailyPanelProps extends Pick<SettingsFormProps, "values" | "onC
   error?: string | null;
   onRetry?: () => void;
   onPreview?: (kind: "morning" | "evening") => void;
+  onTryNightShift?: () => void;
+  onOpenFiles?: () => void;
   children?: ReactNode;
 }
 
@@ -287,6 +511,8 @@ export function DailyPanel({
   error = null,
   onRetry,
   onPreview,
+  onTryNightShift,
+  onOpenFiles,
   children,
 }: DailyPanelProps): ReactElement {
   const briefOn = flag(values, "daily.brief.enabled");
@@ -419,6 +645,12 @@ export function DailyPanel({
             </NativeSelect>
           </div>
         </Group>
+        <NightShiftGroup
+          values={values}
+          onChange={onChange}
+          {...(onTryNightShift ? { onTryNow: onTryNightShift } : {})}
+          {...(onOpenFiles ? { onOpenFiles } : {})}
+        />
         {children}
       </LoadGate>
     </SectionFrame>
@@ -454,6 +686,14 @@ export function DailySection(): ReactElement {
         loading={form.loading && Object.keys(form.values).length === 0}
         error={form.error}
         onRetry={form.reload}
+        onTryNightShift={() =>
+          void call("nightShift.runNow", {})
+            .then((r) => {
+              if (!r.started) toast.message(runNowMessage(r));
+            })
+            .catch((err: unknown) => fail("settings.nightShift.tryNow.failed", err))
+        }
+        {...(navigate ? { onOpenFiles: () => navigate("/settings/files") } : {})}
         onPreview={(kind) =>
           void call("daily.run", { kind }).catch((err: unknown) =>
             fail("settings.daily.runFailed", err),

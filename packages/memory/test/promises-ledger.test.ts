@@ -148,7 +148,8 @@ describe.each(["plain", "encrypted"] as const)("promise ledger on the %s store",
         threadKey: "tk",
         sourceKind: "mail",
         counterpartLabel: "Sam",
-        remoteVisible: false,
+        // A mail promise has no Messages marker, so the W5 scrub lets a remote viewer see it.
+        remoteVisible: true,
         nudgeCount: 0,
         state: "open",
       });

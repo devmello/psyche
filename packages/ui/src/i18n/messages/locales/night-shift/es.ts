@@ -1,0 +1,115 @@
+import type { Catalogue } from "../../index.ts";
+
+/** Night shift: Home card, review sheet, Settings and onboarding (es); merged into `../es.ts`. */
+export const nightShift: Partial<Catalogue> = {
+  "nightShift.section.title": "Preparado durante la noche",
+  "nightShift.section.review": "Revisar",
+  "nightShift.section.more": "+{n} más",
+  "nightShift.count.mail":
+    "{n, plural, one {# borrador de respuesta} other {# borradores de respuesta}}",
+  "nightShift.count.calendar":
+    "{n, plural, one {# corrección de calendario} other {# correcciones de calendario}}",
+  "nightShift.count.files":
+    "{n, plural, one {# documento archivado} other {# documentos archivados}}",
+  "nightShift.count.reminders": "{n, plural, one {# recordatorio} other {# recordatorios}}",
+  "nightShift.review.title": "Preparado durante la noche",
+  "nightShift.review.description":
+    "Todavía no ha pasado nada. Marca lo que quieras y aplícalo. Solo se hace lo marcado.",
+  "nightShift.review.expires": "Los cambios que no revises caducan el {date}.",
+  "nightShift.review.empty": "No hay nada pendiente de revisar.",
+  "nightShift.review.loadFailed": "No se pudo cargar la revisión.",
+  "nightShift.review.mismatch":
+    "Lo preparado para aplicar no coincide con lo que marcaste, así que no se aplicó nada. Cierra la revisión, ábrela de nuevo y vuelve a intentarlo.",
+  "nightShift.review.sendsHint":
+    "«Seleccionar todo» nunca envía nada. Cada envío tiene su propia casilla.",
+  "nightShift.domain.mail": "Borradores de respuesta",
+  "nightShift.domain.calendar": "Correcciones de calendario",
+  "nightShift.domain.files": "Documentos archivados",
+  "nightShift.domain.reminders": "Recordatorios",
+  "nightShift.row.select": "Seleccionar: {summary}",
+  "nightShift.row.show": "Mostrar detalles",
+  "nightShift.row.hide": "Ocultar detalles",
+  "nightShift.row.why": "Por qué: {why}",
+  "nightShift.row.staleDefault": "Esto cambió después de prepararse.",
+  "nightShift.row.refused": "No aplicado: {reason}",
+  "nightShift.row.cut":
+    "La vista previa está cortada. Abre el original en su app para leer el resto.",
+  "nightShift.badge.stale": "Desactualizado",
+  "nightShift.badge.untrusted": "Fuente no fiable",
+  "nightShift.badge.newRecipient": "Destinatario nuevo",
+  "nightShift.badge.replyAll": "Responder a todos",
+  "nightShift.send.label": "Enviar también",
+  "nightShift.send.to": "Enviar a {recipients}",
+  "nightShift.send.needsDraft": "Marca primero el borrador.",
+  "nightShift.send.needsFull": "Muestra el borrador completo para activarlo.",
+  "nightShift.status.applied": "Aplicado",
+  "nightShift.status.failed": "Falló: {reason}",
+  "nightShift.status.failedPlain": "Falló",
+  "nightShift.status.uncertain":
+    "{domain, select, mail {No está claro si terminó. Compruébalo en Mail.} calendar {No está claro si terminó. Compruébalo en Calendario.} files {No está claro si terminó. Comprueba la carpeta.} other {No está claro si terminó. Compruébalo en Recordatorios.}}",
+  "nightShift.status.skipped": "Omitido",
+  "nightShift.status.expired": "Caducado",
+  "nightShift.status.dismissed": "Descartado",
+  "nightShift.status.undone": "Deshecho",
+  "nightShift.status.stale": "No aplicado",
+  "nightShift.undo": "Deshacer",
+  "nightShift.footer.selectAll": "Seleccionar todo",
+  "nightShift.footer.apply": "Aplicar selección ({n})",
+  "nightShift.footer.applying": "Aplicando…",
+  "nightShift.footer.dismissRest": "Descartar el resto",
+  "nightShift.notice.approved": "Aprobaste:",
+  "nightShift.notice.refused": "{n} no se pudieron aplicar.",
+  "nightShift.notice.nothing": "No se aplicó nada.",
+  "nightShift.palette.review": "Revisar los cambios de la noche",
+  "nightShift.palette.keywords":
+    "turno de noche preparado durante la noche borradores aplicar mañana",
+  "nightShift.onboarding.title": "¿Preparar cosas durante la noche?",
+  "nightShift.onboarding.body":
+    "Durante la noche, {persona} puede redactar respuestas, arreglar choques de calendario, archivar documentos y crear recordatorios. Para ello lee tu correo, tu calendario, tus recordatorios y las carpetas que compartiste. No pasa nada hasta que revises y pulses Aplicar.",
+  "settings.nightShift.group": "Turno de noche",
+  "settings.nightShift.groupHint":
+    "Durante la noche, Psyche prepara cambios: borradores de respuesta, correcciones de calendario, documentos archivados y recordatorios. No pasa nada hasta que pulses Aplicar por la mañana.",
+  "settings.nightShift.enabled.hint":
+    "Entre las {start} y las {end} lee tu correo, tu calendario, tus recordatorios y tus carpetas compartidas, y guarda lo que cambiaría. No se envía ni se cambia nada hasta que lo revises y lo apliques.",
+  "settings.nightShift.window.start": "Inicio de la franja",
+  "settings.nightShift.window.end": "Fin de la franja",
+  "settings.nightShift.window.short": "La franja debe durar al menos una hora.",
+  "settings.nightShift.domains": "Qué prepara",
+  "settings.nightShift.files.hint":
+    "Archivar también necesita una carpeta que Psyche pueda modificar.",
+  "settings.nightShift.files.link": "Acceso a carpetas",
+  "settings.nightShift.budget": "Presupuesto por noche (USD)",
+  "settings.nightShift.budget.hint": "Se detiene al llegar a esta cantidad. De 0,05 a 5.",
+  "settings.nightShift.expiry": "Olvidar los cambios sin revisar después de",
+  "settings.nightShift.expiry.days": "{n, plural, one {# día} other {# días}}",
+  "settings.nightShift.tryNow": "Probar ahora",
+  "settings.nightShift.tryNow.failed": "No se pudo iniciar.",
+  "settings.key.nightShift.enabled": "Preparar cosas durante la noche",
+  "settings.key.nightShift.window.start": "Inicio de la franja del turno de noche",
+  "settings.key.nightShift.window.end": "Fin de la franja del turno de noche",
+  "settings.key.nightShift.domains.mail": "Preparar borradores de respuesta",
+  "settings.key.nightShift.domains.calendar": "Preparar correcciones de calendario",
+  "settings.key.nightShift.domains.reminders": "Preparar recordatorios",
+  "settings.key.nightShift.domains.files": "Preparar el archivado",
+  "settings.key.nightShift.budgetUsd": "Presupuesto del turno de noche",
+  "settings.key.nightShift.expiryDays": "Caducidad del turno de noche",
+  "settings.key.nightShift.notify": "Avisarme cuando esté listo",
+  "settings.key.nightShift.consentedAt": "Consentimiento del turno de noche",
+  "nightShift.row.withheld": "Un elemento de tus Mensajes. Abre Psyche en tu ordenador para verlo.",
+  "nightShift.status.applying": "Aplicándose…",
+  "nightShift.send.gmail":
+    "Un borrador de Gmail no se puede comprobar antes de enviarlo. Envíalo desde Gmail.",
+  "nightShift.send.reply":
+    "El borrador guardado de una respuesta no se puede comparar con lo que viste. Envíalo desde Mail.",
+  "nightShift.send.other": "Esto no se puede enviar desde aquí.",
+  "nightShift.status.sent": "Enviado",
+  "nightShift.status.undoRefused": "No deshecho: cambió después de aplicarse.",
+  "nightShift.status.sendNotSent":
+    "El borrador se guardó, pero no se envió nada. Puedes enviarlo desde Mail.",
+  "nightShift.status.sendUnsure":
+    "El borrador se guardó. No está claro si el envío terminó. Revisa Enviados en Mail.",
+  "settings.nightShift.runNow.off": "El turno de noche está desactivado.",
+  "settings.nightShift.runNow.already": "Ya se ejecutó esta noche.",
+  "settings.nightShift.runNow.skipped": "Omitido esta noche.",
+  "settings.nightShift.runNow.nothing": "Nada que hacer esta noche.",
+};
