@@ -227,6 +227,9 @@ public enum AppTeachCapabilities {
                 guard computer.sessions.activeSession == nil else {
                     throw CapabilityError(.conflict, reason: "computer_busy", "The agent is using the computer; recording waits until it is done", retryable: true)
                 }
+                guard !computer.isPointing() else {
+                    throw CapabilityError(.conflict, reason: "points_active", "Psyche points is helping with a window; recording waits until it ends", retryable: true)
+                }
                 let started = try teach.begin(bundleId: p.bundleId)
                 return CapabilityOutput(
                     ["sessionId": .string(started.id), "app": ["bundleId": .string(started.app.bundleId), "name": .string(started.app.name)]],

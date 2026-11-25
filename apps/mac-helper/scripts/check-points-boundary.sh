@@ -197,23 +197,41 @@ else
   ok "PsycheAXEnable links only its pinned non-Swift symbols"
 fi
 
-# ---- 3c. the Points object's exports ------------------------------------------------------------
-# main.swift gives Points nothing today, and the label check in step 2 cannot see argument TYPES: a
-# closure `(Double, Double) -> Bool` would let main.swift post a click inside it. So the exported
-# surface of PsycheHelperPoints is pinned: PointsCapabilities.make() with no arguments (plus its
-# type metadata). W3 MUST update this pin when it adds the closures, to
-#   make(isComputerBusy: @escaping @Sendable () -> Bool, isRecording: @escaping @Sendable () -> Bool)
-# and every other exported Points symbol it adds (reviewed one by one, never by loosening this).
-points_exports_want='_$s18PsycheHelperPoints0C12CapabilitiesO4makeSay0aB4Core17CapabilityHandler_pGyFZ
+# ---- 3c. the Points public surface --------------------------------------------------------------
+# main.swift hands Points only closures, and the label check in step 2 cannot see argument TYPES: a
+# closure `(Double, Double) -> Bool` would let main.swift post a click inside it. So the PUBLIC surface
+# of PsycheHelperPoints is pinned to exactly
+#   PointsCapabilities.make(isComputerBusy: @escaping @Sendable () -> Bool, isRecording: @escaping @Sendable () -> Bool)
+# in two ways: (a) the `public` / `open` / `package` declarations in the target's sources are exactly those two lines,
+# and (b) the object exports exactly the make symbol (with that signature) and the type metadata of
+# PointsCapabilities among the symbols named for it. Internal declarations are exported by a debug build
+# too (SwiftPM compiles with -enable-testing), so `nm` alone cannot tell them from public ones; they are
+# unreachable from main.swift unless it uses `@testable import`, which (c) bans. W3 added the
+# two closures; any new public Points API must change this pin in review, never by loosening it.
+public_want='public enum PointsCapabilities {
+public static func make(isComputerBusy: @escaping @Sendable () -> Bool, isRecording: @escaping @Sendable () -> Bool) -> [any CapabilityHandler] {'
+public_decls="$(grep -rhE --include='*.swift' '^[[:space:]]*(@[A-Za-z_]+(\([^)]*\))?[[:space:]]+)*(public|open|package)([[:space:]]|\()' Sources/PsycheHelperPoints | sed 's/^[[:space:]]*//' | sort)"
+public_want_sorted="$(printf '%s\n' "$public_want" | sort)"
+if [ "$public_decls" != "$public_want_sorted" ]; then
+  fail "PsycheHelperPoints public declarations changed (this pin must be updated in review): found: $(echo "$public_decls" | tr '\n' '|')"
+else
+  ok "PsycheHelperPoints declares only PointsCapabilities.make(isComputerBusy:isRecording:) as public"
+fi
+points_exports_want='_$s18PsycheHelperPoints0C12CapabilitiesO4make14isComputerBusy0F9RecordingSay0aB4Core17CapabilityHandler_pGSbyYbc_SbyYbctFZ
 _$s18PsycheHelperPoints0C12CapabilitiesOMa
 _$s18PsycheHelperPoints0C12CapabilitiesOMn
 _$s18PsycheHelperPoints0C12CapabilitiesON'
-points_exports="$(objects_of PsycheHelperPoints | while IFS= read -r o; do nm -gU "$o" 2>/dev/null; done | awk 'NF == 3 { print $3 }' | sort -u)"
+points_exports="$(objects_of PsycheHelperPoints | while IFS= read -r o; do nm -gU "$o" 2>/dev/null; done | awk 'NF == 3 { print $3 }' | grep -F '0C12Capabilities' | sort -u)"
 if [ "$points_exports" != "$points_exports_want" ]; then
-  fail "PsycheHelperPoints exports changed (W3 must update the pin in this script): found $(echo "$points_exports" | tr '\n' ' ')"
+  fail "PsycheHelperPoints exports for PointsCapabilities changed (the pin in this script must be updated in review): found $(echo "$points_exports" | tr '\n' ' ')"
 else
-  ok "PsycheHelperPoints exports only PointsCapabilities.make() with no arguments"
+  ok "PsycheHelperPoints exports PointsCapabilities.make(isComputerBusy:isRecording:) with exactly two () -> Bool closures"
 fi
+# (c) the executable cannot reach Points internals, and Points has no exported C entry points.
+testable_hits="$(grep -rn --include='*.swift' '@testable' Sources/PsycheHelper 2>/dev/null || true)"
+if [ -n "$testable_hits" ]; then fail "the executable uses @testable: $testable_hits"; else ok "the executable does not use @testable"; fi
+cdecl_hits="$(grep -rnE --include='*.swift' '@_cdecl|@_silgen_name|@_dynamicReplacement|@_expose|@_spi' "${src_dirs[@]}" 2>/dev/null || true)"
+if [ -n "$cdecl_hits" ]; then fail "guarded source declares an exported or dynamic entry point: $cdecl_hits"; else ok "no @_cdecl, @_silgen_name or @_dynamicReplacement in guarded sources"; fi
 
 # ---- 7. positive control -------------------------------------------------------------------------
 sys_syms="$(undefined_symbols PsycheHelperSystem)"
