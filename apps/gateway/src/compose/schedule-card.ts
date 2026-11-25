@@ -302,7 +302,7 @@ export function scheduleWords(input: ScheduleCardInput, env: ScheduleCardEnv): s
 
 const REMINDER_PREFIX = /^\s*(?:reminder|remind me)\s*[:\-–—]?\s*/i;
 const NOTIFY_LEAD =
-  /^\s*(?:send (?:the owner |me |them )?a (?:notification|notice|message|reminder)(?: now)?|notify (?:the owner|me)|tell (?:the owner|me)|remind (?:the owner|me)(?: now)?)\s*(?:to|that|about|:|-|–|—)?\s*/i;
+  /^\s*(?:send (?:the owner|me) a (?:notification|notice|message|reminder)(?: now)?|notify (?:the owner|me)|tell (?:the owner|me)|remind (?:the owner|me)(?: now)?)\s*(?:to|that|about|:|-|–|—)?\s*/i;
 const squash = (t: string): string =>
   t
     .toLowerCase()
@@ -316,7 +316,10 @@ const squash = (t: string): string =>
 export function isPlainReminder(title: string, prompt: string | undefined): boolean {
   if (prompt === undefined || prompt.length > 160 || /[\n\r]/.test(prompt)) return false;
   if (!NOTIFY_LEAD.test(prompt)) return false;
-  const rest = squash(prompt.replace(NOTIFY_LEAD, ""));
+  const tail = prompt.replace(NOTIFY_LEAD, "");
+  // One short instruction: no second sentence, no "then ...".
+  if (/[.;!?]\s*\S/.test(tail) || /\b(?:then|and also)\b/i.test(tail)) return false;
+  const rest = squash(tail);
   const named = squash(title.replace(REMINDER_PREFIX, ""));
   return rest !== "" && named !== "" && named.includes(rest);
 }
