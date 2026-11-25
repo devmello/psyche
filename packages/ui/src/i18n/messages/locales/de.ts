@@ -707,9 +707,9 @@ export const de: Partial<Catalogue> = {
   "context.limits.errorMin": "Gib eine ganze Zahl von mindestens {min, number} ein.",
 
   // agent
-  "agent.mode.manual": "manuell",
-  "agent.mode.balanced": "ausgewogen",
-  "agent.mode.auto": "automatisch",
+  "agent.mode.manual": "Manuell",
+  "agent.mode.balanced": "Ausgewogen",
+  "agent.mode.auto": "Automatisch",
   "agent.mode.full": "Vollzugriff",
   "chat.commands.full.hint": "on | off",
   "chat.commands.full.description": "Vollzugriff in diesem Chat ein- oder ausschalten",
@@ -723,7 +723,7 @@ export const de: Partial<Catalogue> = {
   "chat.fullAccess.banner":
     "Vollzugriff: Psyche handelt ohne Rückfrage, außer bei Nachrichten und Zahlungen.",
   "chat.fullAccess.turnOff": "Ausschalten",
-  "agent.mode.plan": "planen",
+  "agent.mode.plan": "Planen",
 
   "agent.state.idle": "inaktiv",
   "agent.state.working": "arbeitet",

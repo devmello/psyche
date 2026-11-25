@@ -684,9 +684,9 @@ export const it: Partial<Catalogue> = {
   "context.limits.errorWindow":
     "Inserisci un numero intero da {min, number} a {max, number} (la finestra del modello).",
   "context.limits.errorMin": "Inserisci un numero intero di almeno {min, number}.",
-  "agent.mode.manual": "manuale",
-  "agent.mode.balanced": "bilanciata",
-  "agent.mode.auto": "automatica",
+  "agent.mode.manual": "Manuale",
+  "agent.mode.balanced": "Bilanciata",
+  "agent.mode.auto": "Automatica",
   "agent.mode.full": "Accesso completo",
   "chat.commands.full.hint": "on | off",
   "chat.commands.full.description": "Attiva o disattiva l'accesso completo in questa chat",
@@ -700,7 +700,7 @@ export const it: Partial<Catalogue> = {
   "chat.fullAccess.banner":
     "Accesso completo: Psyche agisce senza chiedere, tranne invii e pagamenti.",
   "chat.fullAccess.turnOff": "Disattiva",
-  "agent.mode.plan": "piano",
+  "agent.mode.plan": "Piano",
   "agent.state.idle": "inattivo",
   "agent.state.working": "al lavoro",
   "agent.state.needsYou": "richiede la tua attenzione",

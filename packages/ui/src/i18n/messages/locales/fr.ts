@@ -675,9 +675,9 @@ export const fr: Partial<Catalogue> = {
     "Saisissez un nombre entier de {min, number} à {max, number} (la fenêtre du modèle).",
   "context.limits.errorMin": "Saisissez un nombre entier d’au moins {min, number}.",
 
-  "agent.mode.manual": "manuel",
-  "agent.mode.balanced": "équilibré",
-  "agent.mode.auto": "auto",
+  "agent.mode.manual": "Manuel",
+  "agent.mode.balanced": "Équilibré",
+  "agent.mode.auto": "Auto",
   "agent.mode.full": "Accès complet",
   "chat.commands.full.hint": "on | off",
   "chat.commands.full.description": "Activer ou désactiver l'accès complet dans cette discussion",
@@ -692,7 +692,7 @@ export const fr: Partial<Catalogue> = {
   "chat.fullAccess.banner":
     "Accès complet : Psyche agit sans demander, sauf pour les envois et les paiements.",
   "chat.fullAccess.turnOff": "Désactiver",
-  "agent.mode.plan": "plan",
+  "agent.mode.plan": "Plan",
   "agent.state.idle": "inactif",
   "agent.state.working": "au travail",
   "agent.state.needsYou": "a besoin de vous",

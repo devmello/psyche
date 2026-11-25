@@ -229,7 +229,7 @@ export function AgentHeader({
         >
           <Ellipsis aria-hidden="true" />
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="min-w-56">
+        <DropdownMenuContent align="end" className="w-72 min-w-56 bg-popover! backdrop-blur-none!">
           {mode ? (
             <DropdownMenuGroup data-testid="mode-menu">
               <DropdownMenuLabel className="flex items-center justify-between gap-4">
@@ -247,11 +247,7 @@ export function AgentHeader({
                   }}
                 >
                   {modeChoices.map((choice) => (
-                    <DropdownMenuRadioItem
-                      key={choice}
-                      value={choice}
-                      className={choice === "full" ? undefined : "capitalize"}
-                    >
+                    <DropdownMenuRadioItem key={choice} value={choice}>
                       {MODE_LABEL[choice]}
                     </DropdownMenuRadioItem>
                   ))}
@@ -260,7 +256,7 @@ export function AgentHeader({
                 <DropdownMenuItem disabled>{MODE_LABEL[mode]}</DropdownMenuItem>
               )}
               <p
-                className="max-w-64 px-2 pb-1 text-callout text-label-secondary"
+                className="px-2 pb-1 text-callout whitespace-normal text-label-secondary"
                 data-testid="mode-menu-auto-explainer"
               >
                 {t("chat.modeSwitch.autoExplainer")}

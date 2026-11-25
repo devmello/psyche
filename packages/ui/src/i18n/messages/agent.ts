@@ -1,9 +1,9 @@
 /** The agent header and sheet: activity, approvals, upcoming, soul and memory (`agent/`, `avatar/`). */
 export const agent = {
-  "agent.mode.manual": "manual",
-  "agent.mode.balanced": "balanced",
-  "agent.mode.auto": "auto",
-  "agent.mode.plan": "plan",
+  "agent.mode.manual": "Manual",
+  "agent.mode.balanced": "Balanced",
+  "agent.mode.auto": "Auto",
+  "agent.mode.plan": "Plan",
   "agent.mode.full": "Full access",
 
   "agent.state.idle": "idle",
