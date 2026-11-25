@@ -15,6 +15,7 @@ import {
   ComingUpSection,
   GoalsSection,
   KeepInTouchSection,
+  MORE_ANCHORS,
   MoreSection,
   NeedsYouSection,
   SuggestionsSection,
@@ -39,13 +40,13 @@ export interface HomeScreenProps {
 }
 
 /**
- * Home (docs/design/home-2026.md): one column, read top to bottom, each part ruled off from the
- * next. "Ask {persona} anything" first (with things to try on a first visit); then what needs
- * you; your pinned widgets; Today's brief (Catching up, then the posts); Suggestions; and the
- * quieter trackers, Coming up, Goals and Keep in touch; a line of links to the deeper pages at
- * the foot (consolidation-2026 §7: simple first, powerful one step away). Each section is the
- * component its old page used, and a section with nothing to say is not drawn, so a first visit
- * is the Ask field and a footer. Long lists stop at a few and say how many more there are.
+ * Home (docs/design/home-2026.md): one calm column, read top to bottom. "Ask {persona} anything"
+ * first (with things to try on a first visit); then what needs you; Today's brief (Catching up,
+ * then the posts); Suggestions as one-line rows; and a closed "More" holding the quieter parts
+ * (pinned widgets, Spaces, Coming up, Goals, Quiet threads, Keep in touch) and the links to the
+ * deeper pages (consolidation-2026 §7: simple first, powerful one step away). A section with
+ * nothing to say is not drawn, so a first visit is the Ask field and "More". Long lists stop at
+ * a few and say how many more there are.
  */
 export function HomeScreen({
   onNavigate,
@@ -83,30 +84,32 @@ export function HomeScreen({
         title={t("home.title")}
         meta={activeI18n().date(mountedAt, { weekday: "long", month: "long", day: "numeric" })}
       />
-      <div className="mx-auto flex w-full max-w-[calc(720px+3rem)] flex-col gap-10 px-4 pt-4 pb-16 md:px-6">
+      <div className="mx-auto flex w-full max-w-[calc(720px+3rem)] flex-col gap-12 px-4 pt-4 pb-16 md:px-6">
         <AskSection onNavigate={navigate} accent={!waiting} />
-        {/* One column. A rule and generous space mark each section's edge; a section that is not
-            drawn leaves no gap, because the rule belongs to whichever section follows. */}
-        <div className="flex flex-col [&>*+*]:mt-10 [&>*+*]:border-t [&>*+*]:border-separator [&>*+*]:pt-10">
-          <NeedsYouSection onNavigate={navigate} {...clock} />
+        {/* One calm column: the four things that matter, then a closed "More". Space, not rules,
+            marks each section's edge; a section with nothing to say is not drawn. */}
+        <NeedsYouSection onNavigate={navigate} {...clock} />
+        <FeedScreen
+          onCloseInstructions={() => navigate("/home")}
+          collapseAfter={3}
+          hideWhenEmpty
+          {...(post === undefined ? {} : { focusPostId: post, focusTick: repeat })}
+          {...(lead ? { lead } : {})}
+          {...(instructionsOpen === undefined ? {} : { instructionsOpen })}
+          {...clock}
+        />
+        <SuggestionsSection accent={!waiting} limit={2} onNavigate={navigate} />
+        <MoreSection
+          onNavigate={navigate}
+          open={anchor !== undefined && MORE_ANCHORS.includes(anchor)}
+        >
           <PinnedWidgets />
           <HomeSpacesSection onNavigate={navigate} {...clock} />
-          <FeedScreen
-            onCloseInstructions={() => navigate("/home")}
-            collapseAfter={3}
-            hideWhenEmpty
-            {...(post === undefined ? {} : { focusPostId: post, focusTick: repeat })}
-            {...(lead ? { lead } : {})}
-            {...(instructionsOpen === undefined ? {} : { instructionsOpen })}
-            {...clock}
-          />
-          <SuggestionsSection accent={!waiting} limit={2} onNavigate={navigate} />
           <ComingUpSection onNavigate={navigate} {...clock} />
           <GoalsSection onNavigate={navigate} />
           <QuietThreadsSection limit={2} />
           <KeepInTouchSection onNavigate={navigate} limit={2} />
-          <MoreSection onNavigate={navigate} />
-        </div>
+        </MoreSection>
       </div>
     </div>
   );

@@ -3430,6 +3430,7 @@ export const ar: Partial<Catalogue> = {
   "screens.goals.suggest.none": "لا يوجد اقتراح هذه المرة. حاول لاحقًا.",
   "screens.ideas.start": "ابدأ",
   "screens.ideas.snooze": "تأجيل",
+  "screens.ideas.options": "المزيد لـ {title}",
   "screens.ideas.badge.checkin": "متابعة",
   "screens.ideas.badge.resume": "هل تستأنف؟",
   "screens.goals.checkinFrequency": "المتابعة",

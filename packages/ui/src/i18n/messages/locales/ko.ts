@@ -3375,6 +3375,7 @@ export const ko: Partial<Catalogue> = {
   "screens.goals.suggest.none": "이번에는 제안이 없습니다. 나중에 다시 시도해 주세요.",
   "screens.ideas.start": "시작",
   "screens.ideas.snooze": "다시 알림",
+  "screens.ideas.options": "{title} 더 보기",
   "screens.ideas.badge.checkin": "체크인",
   "screens.ideas.badge.resume": "다시 시작할까요?",
   "screens.goals.checkinFrequency": "체크인",
