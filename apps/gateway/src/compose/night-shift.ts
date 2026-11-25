@@ -9,6 +9,7 @@ import {
   stagingToolVisible,
 } from "@psyche/agent-core";
 import {
+  bindStagedApproval,
   createThread,
   getNight,
   getNightByDate,
@@ -16,27 +17,35 @@ import {
   getStagedAction,
   insertNight,
   insertStagedAction,
+  listBoundStagedActions,
   listNights,
   listStagedActions,
+  listStagedActionsByApproval,
   type PsycheDb,
+  pruneClosedNights,
+  unbindStagedApproval,
   updateNight,
   updateStagedAction,
 } from "@psyche/db";
 import type { PsycheNotifier } from "@psyche/notifications";
-import type { GateState } from "@psyche/proactive";
+import type { ApplyBroker, ApplyStore, GateState, NightShiftCaller } from "@psyche/proactive";
 import {
   type CalendarEventInput,
   type CandidateSource,
   calendarOverlapCandidates,
   createAdapters,
+  createNightShiftHandlers,
   createReadRegistry,
   createStager,
   type FollowupInput,
   type FollowupStore,
   fileCandidates,
   followupsSource,
+  fromMessages,
+  MESSAGES_ITEM_LINE,
   type NightJobInput,
   type NightNotice,
+  NightShiftApply,
   NightShiftService,
   type NightStore,
   quietThreadCandidates,
@@ -54,7 +63,7 @@ import type {
   Task,
   Usage,
 } from "@psyche/protocol";
-import { PsycheError } from "@psyche/protocol";
+import { PsycheError, type Surface } from "@psyche/protocol";
 import type { KeepAwake } from "@psyche/scheduler";
 import type { Call, HandlerDef } from "../context.ts";
 
@@ -122,6 +131,10 @@ export interface NightShiftSetup {
   publish?: (event: string, payload: unknown) => void;
   logger?: { log(level: "warn", msg: string, fields?: Record<string, unknown>): void };
   pollMs?: number;
+  /** The Permission Broker: apply, undo and their children (W5). Absent: those methods refuse. */
+  broker?: ApplyBroker;
+  /** The calling device's approval surface: tokens go to it only. */
+  surfaceOf?: (deviceId: string) => Surface;
 }
 
 const TERMINAL = new Set(["done", "failed", "cancelled"]);
@@ -145,7 +158,7 @@ const PREVIEW_KIND = {
 } as const;
 
 /** What a remote caller sees in place of an item made from Messages (the owner rule: no Messages on remote devices). */
-export const MESSAGES_ITEM_LINE = "An item from your Messages. Open Psyche on this Mac to see it.";
+export { MESSAGES_ITEM_LINE };
 
 /**
  * An item whose taint includes `message` keeps its counts, kind and status for a caller that is not
@@ -153,9 +166,14 @@ export const MESSAGES_ITEM_LINE = "An item from your Messages. Open Psyche on th
  * the undo data are replaced or cleared.
  */
 export function forRemote(item: StagedAction): StagedAction {
-  if (!item.taintSources.some((t) => t.sourceKind === "message")) return item;
+  if (!fromMessages(item)) return item;
+  // The result keeps its refs and receipt; an error may quote the item (a provider's message).
+  const result = item.result == null ? item.result : { ...item.result };
+  if (result != null) delete result.error;
   return {
     ...item,
+    result,
+    withheld: "messages",
     summary: MESSAGES_ITEM_LINE,
     why: null,
     params: null,
@@ -170,6 +188,19 @@ export function forRemote(item: StagedAction): StagedAction {
       truncated: false,
     },
   };
+}
+
+/**
+ * The `nightShift.item.updated` payload for one bus subscriber: the full item only for the
+ * desktop shell on this Mac's loopback, `forRemote` for every other one (a part with no reader
+ * included). Undefined sends the shared frame as it is.
+ */
+export function personalizeNightShiftItem(
+  payload: { item: StagedAction },
+  reader: { local?: boolean },
+): { item: StagedAction } | undefined {
+  if (reader.local === true || !fromMessages(payload.item)) return undefined;
+  return { ...payload, item: forRemote(payload.item) };
 }
 
 /** The night's own work thread (an automation-kind thread keyed by the night), created once. */
@@ -187,6 +218,18 @@ function nightThread(db: PsycheDb, nightId: string): string {
       titleSource: "user",
     }).id
   );
+}
+
+/** The apply path's store: the night store plus the approval compare-and-set (W5). */
+export function applyStoreFor(db: PsycheDb): ApplyStore {
+  return {
+    ...nightStoreFor(db),
+    bindApproval: (ids, approvalId, from) => bindStagedApproval(db, ids, approvalId, from),
+    unbindApproval: (approvalId, status) => unbindStagedApproval(db, approvalId, status),
+    listByApproval: (approvalId) => listStagedActionsByApproval(db, approvalId),
+    listBound: () => listBoundStagedActions(db),
+    setInverse: (id, inverse) => void updateStagedAction(db, id, { inverse }),
+  };
 }
 
 export function nightStoreFor(db: PsycheDb): NightStore {
@@ -354,6 +397,20 @@ export function composeNightShift(setup: NightShiftSetup) {
     );
   };
 
+  /** Read-only tools of a connector, as a registry: never a write method. */
+  const readRegistryFor = (connectorId: string | undefined) =>
+    createReadRegistry({
+      reads: readsFor(connectorId),
+      now: () => clock.now(),
+      ownerAddresses: () => ownerAddrs,
+    });
+  const adaptersFor = (connectorId: string | undefined) =>
+    createAdapters(
+      readRegistryFor(connectorId),
+      { grants: () => setup.folders().map((f) => ({ root: f.path, mode: f.mode })) },
+      connectorTypes,
+    );
+
   const service = new NightShiftService({
     clock,
     timezone: setup.timeZone,
@@ -375,19 +432,7 @@ export function composeNightShift(setup: NightShiftSetup) {
         nightId,
         store,
         allowTask,
-        adapters: (connectorId) =>
-          createAdapters(
-            // Read-only tools of the staged call's own connector: never a write method.
-            createReadRegistry({
-              reads: readsFor(connectorId),
-              now: () => clock.now(),
-              ownerAddresses: () => ownerAddrs,
-            }),
-            {
-              grants: () => setup.folders().map((f) => ({ root: f.path, mode: f.mode })),
-            },
-            connectorTypes,
-          ),
+        adapters: adaptersFor,
         connectors: () => connectorTypes,
         domains: domainsOn,
         whyFor,
@@ -570,8 +615,67 @@ export function composeNightShift(setup: NightShiftSetup) {
     };
   };
 
-  /** The Gateway's handler table for the read side of `nightShift.*`. */
+  // Apply, undo and dismiss (W5): one staged_apply approval, children run in the night's thread.
+  const applier =
+    setup.broker === undefined
+      ? undefined
+      : new NightShiftApply({
+          clock,
+          store: applyStoreFor(db),
+          broker: setup.broker,
+          tools: setup.registry as never,
+          adapters: adaptersFor,
+          connectors: () => connectorTypes,
+          connectorIds: () => new Set(connectorTypes.keys()),
+          threadId: async (nightId) => {
+            await refreshConnectors().catch(() => undefined);
+            return nightThread(db, nightId);
+          },
+          // The full item: the bus personalizer gives every subscriber but the desktop shell on
+          // this Mac `forRemote(item)` (`personalizeNightShiftItem`).
+          onItem: (item) => setup.publish?.("nightShift.item.updated", { item }),
+          onNight: (id) => {
+            const n = store.getNight(id);
+            if (n !== null)
+              setup.publish?.("nightShift.updated", { night: { ...n, candidates: null } });
+          },
+          onError: (err) =>
+            setup.logger?.log("warn", "night shift apply failed", {
+              code: PsycheError.from(err).code,
+            }),
+        });
+  const applyDefs: Record<string, HandlerDef> = {};
+  if (applier !== undefined) {
+    for (const [name, fn] of Object.entries(createNightShiftHandlers(applier))) {
+      applyDefs[name] = {
+        run: (call: Call, params: never) =>
+          (fn as (p: unknown, c: NightShiftCaller) => Promise<unknown>)(params, {
+            surface: setup.surfaceOf?.(call.identity.deviceId) ?? "desktop",
+            local: call.identity.desktopShell === true && call.conn.peer.remoteLoopback === true,
+          }),
+      };
+    }
+  }
+  /** Retention (§7): closed reviews go 30 days after they close; receipts are kept. */
+  const prune = () => {
+    try {
+      pruneClosedNights(db, new Date(clock.now() - 30 * 86_400_000).toISOString());
+    } catch (err) {
+      setup.logger?.log("warn", "night shift prune failed", { code: PsycheError.from(err).code });
+    }
+  };
+  const baseJob = service.job();
+  const job: typeof baseJob = {
+    ...baseJob,
+    run: async (...args: Parameters<typeof baseJob.run>) => {
+      prune();
+      return baseJob.run(...args);
+    },
+  };
+
+  /** The Gateway's handler table for `nightShift.*`. */
   const defs: Record<string, HandlerDef> = {
+    ...applyDefs,
     "nightShift.status": { run: () => status() },
     "nightShift.review.get": {
       run: (call: Call, params: never) => reviewGet(call, params as never),
@@ -581,7 +685,9 @@ export function composeNightShift(setup: NightShiftSetup) {
 
   return {
     service,
-    job: service.job(),
+    applier,
+    prune,
+    job,
     /** `TaskWorkerPool.stagingSinkFor`. */
     sinkFor: (staging: Staging) =>
       staging.kind === "night" ? service.sinkFor(staging.nightId) : undefined,
@@ -592,6 +698,12 @@ export function composeNightShift(setup: NightShiftSetup) {
     reviewGet,
     async start() {
       await refreshConnectors().catch(() => undefined);
+      prune();
+      await applier?.recover().catch((err) =>
+        setup.logger?.log("warn", "night shift apply recovery failed", {
+          code: PsycheError.from(err).code,
+        }),
+      );
       await service.ensureAutomation().catch((err) =>
         setup.logger?.log("warn", "night shift schedule sync failed", {
           code: PsycheError.from(err).code,

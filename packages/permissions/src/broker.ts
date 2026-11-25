@@ -139,7 +139,14 @@ import { receiptGrantBinding, receiptGrantId } from "./receipt-grant.ts";
 import { requesterKey, requesterSurfaces } from "./requester.ts";
 import type { RevocationLedger } from "./revocations.ts";
 import { riskClassFor } from "./risk.ts";
-import { callRecipients, isStagedSend, refuseStagedChild } from "./staged-apply.ts";
+import {
+  bareToolName,
+  callRecipients,
+  isStagedSend,
+  refuseStagedChild,
+  STAGED_SEND_TOOLS,
+  stagedSendBindingHash,
+} from "./staged-apply.ts";
 import {
   MemoryPermissionStore,
   type PermissionStore,
@@ -2102,6 +2109,7 @@ export class PsychePermissionBroker implements PermissionBroker {
     const refused: StagedApplyRefusal[] = [];
     const seen = new Set<string>();
     const sendTo = new Map<string, string[]>();
+    const withheld = new Set<string>();
     let sends = 0;
     let undoDeletes = 0;
     for (const [i, c] of input.children.entries()) {
@@ -2133,6 +2141,7 @@ export class PsychePermissionBroker implements PermissionBroker {
           callRecipients(d.call).map((r) => sanitizeDisplay(r).slice(0, 120)),
         );
       } else if (SEVERITY[d.sideEffect] >= SEVERITY.destructive) undoDeletes += 1;
+      if (c.withheld === "messages") withheld.add(itemId);
       children.push({
         call: structuredClone(d.call),
         kind,
@@ -2162,13 +2171,19 @@ export class PsychePermissionBroker implements PermissionBroker {
         title: input.title,
         count: children.length,
         // Set by the broker after the caller's details, so a caller's own `items` never shows.
-        items: children.map((c) => ({
-          itemId: c.itemId ?? "",
-          tool: c.call.tool,
-          summary: c.summary,
-          bindingHash: c.bindingHash,
-          ...(sendTo.has(c.itemId ?? "") ? { send: { to: sendTo.get(c.itemId ?? "") ?? [] } } : {}),
-        })),
+        // A withheld item (from Messages) names no recipients: every paired device sees the card.
+        items: children.map((c) => {
+          const id = c.itemId ?? "";
+          const hide = withheld.has(id);
+          return {
+            itemId: id,
+            tool: c.call.tool,
+            summary: c.summary,
+            bindingHash: c.bindingHash,
+            ...(hide ? { withheld: "messages" } : {}),
+            ...(sendTo.has(id) ? { send: hide ? {} : { to: sendTo.get(id) ?? [] } } : {}),
+          };
+        }),
       },
       bindingHash: hash,
       grantKey: `staged_apply|${hash}`,
@@ -2187,6 +2202,103 @@ export class PsychePermissionBroker implements PermissionBroker {
     });
     await this.#afterIssue(issued.approval);
     return { ...issued, refused };
+  }
+
+  /**
+   * The second half of a staged send (night-shift §3.2). The owner's one tap approved a send child
+   * bound to the draft's content hash and recipients (`stagedSendBindingHash`), not to a draft id.
+   * Once Night shift has saved the draft and read it back with the same content hash, this turns
+   * that child into the approval for the exact send call: the child must be an approved, unconsumed
+   * `staged_apply` child for `itemId`, the call must be the same send tool to the same recipients,
+   * and `sendHash` with those must give the child's own binding. The child is consumed here (once),
+   * and the new approval is once-only, device-only, bound to `call.bindingHash` (the connector
+   * re-derives it from the arguments, so a wrong hash only fails) and carries the item's id.
+   */
+  async bindStagedSend(input: {
+    childApprovalId: string;
+    itemId: string;
+    sendHash: string;
+    call: PolicyCall;
+    connectorIds: ReadonlySet<string>;
+  }): Promise<ApprovalRequest> {
+    this.#sweep();
+    const now = this.clock.now();
+    const issued = this.#store.transaction((): ApprovalRequest | string => {
+      const rec = this.#store.getApproval(input.childApprovalId);
+      if (rec === undefined) return "not_found";
+      const a = rec.approval;
+      if (rec.revoked || a.status !== "approved") return "not_approved";
+      if (rec.consumedAt !== null) return "consumed";
+      if (now >= Date.parse(a.expiresAt)) return "expired";
+      const parentId = a.details?.batchApprovalId;
+      const parent = typeof parentId === "string" ? this.#store.getApproval(parentId) : undefined;
+      if (parent?.approval.kind !== "staged_apply" || parent.approval.status !== "approved") {
+        return "not_staged";
+      }
+      if (a.details?.itemId !== input.itemId || a.requestedBy.toolCallId !== input.itemId) {
+        return "another_item";
+      }
+      const stored = rec.input.call;
+      if (stored === undefined || stored.tool !== input.call.tool) return "another_tool";
+      if (!STAGED_SEND_TOOLS.has(bareToolName(input.call.tool, input.connectorIds))) {
+        return "not_a_send";
+      }
+      const own = callRecipients(input.call);
+      const was = callRecipients(stored);
+      if (own.length === 0 || own.length !== was.length || !own.every((r) => was.includes(r))) {
+        return "recipients_changed";
+      }
+      if (stagedSendBindingHash(input.call.tool, input.sendHash, own) !== a.bindingHash) {
+        return "binding_mismatch";
+      }
+      if (typeof input.call.bindingHash !== "string" || input.call.bindingHash === "") {
+        return "no_binding";
+      }
+      rec.consumedAt = new Date(now).toISOString();
+      this.#store.updateApproval(rec);
+      const at = new Date(now).toISOString();
+      const approval: ApprovalRequest = {
+        ...structuredClone(a),
+        id: `${a.id}:send`,
+        details: { ...structuredClone(a.details ?? {}), sendOf: a.id },
+        bindingHash: input.call.bindingHash,
+        grantKey: input.call.grantKey ?? a.grantKey,
+        deviceOnly: true,
+        requiresAuthentication: false,
+        status: "approved",
+        scopeGranted: "once",
+        decidedAt: at,
+        expiresAt: new Date(
+          Math.min(Date.parse(a.expiresAt), now + BATCH_CHILD_TTL_MS),
+        ).toISOString(),
+        grantId: null,
+      };
+      this.#store.insertApproval({
+        approval,
+        tokens: [],
+        input: {
+          ...structuredClone(rec.input),
+          bindingHash: approval.bindingHash,
+          grantKey: approval.grantKey,
+          call: structuredClone(input.call),
+          details: approval.details,
+        },
+        consumedAt: null,
+        revoked: false,
+        bootId: this.#bootId,
+      });
+      return structuredClone(approval);
+    });
+    if (typeof issued === "string") {
+      await this.#log(
+        "binding.mismatch",
+        { type: "system" },
+        { approvalId: input.childApprovalId },
+        { reason: `staged_send:${issued}` },
+      );
+      fail("binding_mismatch", `the staged send can't be bound (${issued})`, { reason: issued });
+    }
+    return issued;
   }
 
   async requestApproval(input: PolicyApprovalInput): Promise<IssuedApproval> {

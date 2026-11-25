@@ -98,6 +98,7 @@ import {
   type PermissionBroker,
   PsycheError,
   type SecurityAlert,
+  type StagedAction,
   type Task,
   TERMINAL_TASK_STATUSES,
 } from "@psyche/protocol";
@@ -229,7 +230,7 @@ import {
   restoreModelSettings,
   settingsKeyValue,
 } from "./model-settings.ts";
-import { composeNightShift } from "./night-shift.ts";
+import { composeNightShift, personalizeNightShiftItem } from "./night-shift.ts";
 import { NotificationActions } from "./notification-actions.ts";
 import { composeNudges } from "./nudges.ts";
 import { composeOnePasswordSetup, type OnePasswordSetupOptions } from "./onepassword-setup.ts";
@@ -1983,7 +1984,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       end: (turn, outcome, error) => taskTrace.end(turn, outcome, error),
     },
     // Specialist jobs run in their own pool, so they never take the chat tasks' slots.
-    claim: { excludeOrigins: ["subagent"] },
+    // Plan-fork branches run in their own pool (F2); until it exists none runs here.
+    claim: { excludeOrigins: ["subagent", "fork"] },
   });
   // Background specialists (specialists §4.5): their own slots (Settings, 1–6, default 3), FIFO,
   // at most 2 running per parent thread; a job parked on the owner frees its slot.
@@ -2142,6 +2144,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     followups: proactive.followups,
     redact: (text) => redactor.redact(text),
     publish: (event, payload) => publish(event as never, payload as never),
+    broker: rawBroker,
+    surfaceOf: (deviceId) => surfaceOf(db, deviceId),
     ...(gwOptions.logger === undefined ? {} : { logger: gwOptions.logger }),
   });
   // #557: web.search / web.fetch on every surface (read-only, untrusted output).
@@ -2778,6 +2782,9 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     // Messages chips); a subscriber with no identity (a Gateway part) is read as the least trusted.
     if (event === "chat.message")
       return personalizeMessageEvent(gateway.context, payload as { message: Message }, sub.reader);
+    // A Night shift item made from Messages reaches only the desktop shell on this Mac in full.
+    if (event === "nightShift.item.updated")
+      return personalizeNightShiftItem(payload as { item: StagedAction }, sub.reader);
     if (event !== "approval.created" || sub.deviceId === null) return undefined;
     if (!sub.scopes.includes("operator.approvals")) return undefined;
     const p = payload as { approval: { id: string } };

@@ -2,6 +2,7 @@ import { homedir } from "node:os";
 import { normalize, sep } from "node:path";
 import { getSetting, getSettings, setSetting } from "@psyche/db";
 import { assertFolderGrantable } from "@psyche/permissions";
+import { validateNightShiftSetting } from "@psyche/proactive";
 import { isAdminSettingKey, PsycheError } from "@psyche/protocol";
 import { normalizeBrowserAgentSetting } from "../compose/browser-agent-settings.ts";
 import { normalizeMachineSetting } from "../compose/computer-settings.ts";
@@ -274,6 +275,8 @@ export const settingsHandlers: Record<string, HandlerDef> = {
       // The agent browser's sign-in mode, sites and dev ports: validated, and refused while an
       // environment variable sets the same value (process.env is the Gateway's own environment).
       value = normalizeBrowserAgentSetting(key, value, process.env);
+      // Night shift's keys: only the known ones, each with its type and range (§8).
+      value = validateNightShiftSetting(key, value);
       if (key.startsWith(INTERNAL_SETTING_PREFIX)) {
         throw new PsycheError(
           "invalid_params",

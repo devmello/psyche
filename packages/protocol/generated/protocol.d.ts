@@ -9063,6 +9063,7 @@ export interface StagedAction {
     toolCallId?:   null | string;
     updatedAt:     string;
     why?:          null | string;
+    withheld?:     Withheld;
 }
 
 export type StagedActionDomain = "mail" | "calendar" | "reminders" | "files";
@@ -9097,6 +9098,8 @@ export interface StagedActionSend {
 }
 
 export type StagedActionStatus = "ready" | "stale" | "superseded" | "applied" | "failed" | "uncertain" | "skipped" | "dismissed" | "expired" | "undone";
+
+export type Withheld = "messages";
 
 export interface NightShiftReviewGetParams {
     reviewId: string;
@@ -13766,7 +13769,7 @@ export interface Task {
     workspace?:    TaskWorkspace;
 }
 
-export type TaskOrigin = "chat" | "automation" | "idea" | "goal" | "channel" | "subagent";
+export type TaskOrigin = "chat" | "automation" | "idea" | "goal" | "channel" | "subagent" | "fork";
 
 export interface TaskPlan {
     approvedAt?: null | string;

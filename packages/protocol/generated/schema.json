@@ -22312,6 +22312,7 @@
       "type": "object"
     },
     "ForkCite": {
+      "additionalProperties": false,
       "properties": {
         "callId": {
           "maxLength": 80,
@@ -22346,6 +22347,7 @@
       "type": "string"
     },
     "ForkCost": {
+      "additionalProperties": false,
       "properties": {
         "id": {
           "maxLength": 40,
@@ -22405,6 +22407,7 @@
       "type": "string"
     },
     "ForkDateItem": {
+      "additionalProperties": false,
       "properties": {
         "id": {
           "maxLength": 40,
@@ -22456,6 +22459,7 @@
       "type": "string"
     },
     "ForkOpenQuestion": {
+      "additionalProperties": false,
       "properties": {
         "id": {
           "maxLength": 40,
@@ -22474,6 +22478,7 @@
       "type": "object"
     },
     "ForkPerson": {
+      "additionalProperties": false,
       "properties": {
         "id": {
           "maxLength": 40,
@@ -22514,6 +22519,7 @@
       "type": "object"
     },
     "ForkReport": {
+      "additionalProperties": false,
       "properties": {
         "summary": {
           "maxLength": 600,
@@ -22582,6 +22588,7 @@
       "type": "object"
     },
     "ForkRisk": {
+      "additionalProperties": false,
       "properties": {
         "id": {
           "maxLength": 40,
@@ -22623,6 +22630,7 @@
       "type": "string"
     },
     "ForkStep": {
+      "additionalProperties": false,
       "properties": {
         "id": {
           "maxLength": 40,
@@ -22663,6 +22671,7 @@
       "type": "string"
     },
     "ForkTradeoff": {
+      "additionalProperties": false,
       "properties": {
         "id": {
           "maxLength": 40,
@@ -52497,6 +52506,12 @@
           "maxItems": 20,
           "type": "array"
         },
+        "withheld": {
+          "enum": [
+            "messages"
+          ],
+          "type": "string"
+        },
         "status": {
           "$ref": "#/$defs/StagedActionStatus"
         },
@@ -53326,7 +53341,8 @@
         "idea",
         "goal",
         "channel",
-        "subagent"
+        "subagent",
+        "fork"
       ],
       "type": "string"
     },
