@@ -1,0 +1,80 @@
+import type { Catalogue } from "../../index.ts";
+
+/** Psyche points (it); merged into `../it.ts`. */
+export const points: Partial<Catalogue> = {
+  "points.sheet.title": "Guidami in un modulo",
+  "points.sheet.description":
+    "Scegli una finestra e Psyche indica il prossimo campo da compilare. Clic e digitazione sono tuoi.",
+  "points.sheet.windows.label": "Finestra",
+  "points.sheet.windows.loading": "Ricerca delle finestre…",
+  "points.sheet.windows.empty": "Nessuna finestra da indicare. Apri il modulo e riprova.",
+  "points.sheet.windows.error":
+    "Impossibile elencare le finestre. Controlla che Psyche Helper sia in esecuzione e riprova.",
+  "points.sheet.windows.retry": "Riprova",
+  "points.sheet.window.untitled": "Finestra senza titolo",
+  "points.sheet.window.frontmost": "In primo piano",
+  "points.refusal.never_app": "Psyche non indica in questa app.",
+  "points.refusal.fixed_off": "Questa app è off limits per Psyche.",
+  "points.refusal.terminal_or_ide": "I terminali e gli editor di codice non sono moduli.",
+  "points.refusal.owner_off": "Hai disattivato questa app nelle Impostazioni.",
+  "points.refusal.not_a_window": "Psyche non può leggere questa finestra.",
+  "points.refusal.permission_missing": "Consenti Accessibilità per leggere questa finestra.",
+  "points.sheet.goal.label": "A cosa serve questo modulo? (facoltativo)",
+  "points.sheet.goal.placeholder": "Dichiarazione dei redditi 2026, dichiarazione congiunta",
+  "points.sheet.data.provider":
+    "Per guidarti, Psyche invia a {provider} le etichette del modulo e ciò che digiti, tranne password e numeri di carta, conto e documento.",
+  "points.sheet.data.local": "Resta su questo computer.",
+  "points.sheet.data.providerFallback": "il tuo fornitore di modelli",
+  "points.sheet.payments":
+    "Nelle pagine di pagamento Psyche dà solo indicazioni. Quei campi li compili tu.",
+  "points.sheet.permission.hint":
+    "Psyche legge la finestra tramite Accessibilità. Consentila per Psyche Helper per iniziare.",
+  "points.sheet.start": "Inizia a indicare",
+  "points.sheet.starting": "Avvio…",
+  "points.sheet.cancel": "Annulla",
+  "points.sheet.startFailed": "Impossibile iniziare a indicare. Riprova.",
+  "points.sheet.session.active": "Indica in {app}",
+  "points.sheet.session.stop": "Smetti di indicare",
+  "points.state.reading": "Lettura del modulo…",
+  "points.state.pointing": "Campo {step} di {of}",
+  "points.state.paused": "In pausa",
+  "points.needs.screenRecording.title": "Lascia guardare Psyche richiede Registrazione schermo",
+  "points.needs.screenRecording.hint":
+    "Psyche invia un'immagine di questa finestra solo quando premi Lascia guardare Psyche.",
+  "points.needs.done": "Fatto",
+  "points.offer.button": "Guidami",
+  "points.offer.hint": "Psyche mostra dove guardare. Tu clicchi e digiti.",
+  "points.offer.elsewhere":
+    "Avvia Psyche points sul computer dove gira Psyche: premi {keys}, poi scegli Guidami in un modulo.",
+  "points.palette.start": "Guidami in un modulo",
+  "points.palette.keywords":
+    "psyche points freccia guida modulo compilare tasse visto pratiche aiuto",
+  "points.settings.title": "Psyche points",
+  "points.settings.description":
+    "Scegli una finestra e Psyche indica il prossimo campo da compilare. Non clicca né digita mai.",
+  "points.settings.enabledHint":
+    "Aggiunge Guidami in un modulo alla palette dei comandi e al menu della barra dei menu.",
+  "settings.key.points.enabled": "Guidami nei moduli",
+  "points.card.back": "Indietro",
+  "points.card.skip": "Salta",
+  "points.card.next": "Avanti",
+  "points.card.looksWrong": "Sembra sbagliato?",
+  "points.card.stuck": "Bloccato?",
+  "points.card.stuckMissing": "Non ce l'ho",
+  "points.card.stuckUnclear": "Non capisco",
+  "points.card.stuckBlocked": "Non me lo lascia fare",
+  "points.card.askInPsyche": "Chiedi in Psyche…",
+  "points.card.letLook": "Lascia guardare Psyche",
+  "points.card.stop": "Interrompi",
+  "points.card.hideNote": "Nascondi nota",
+  "points.card.copy": "Copia",
+  "points.card.selfFill": "Questo lo compili tu: {label}",
+  "points.card.selfFillPlain": "Questo lo compili tu",
+  "points.card.payButton": "Questo pulsante paga. Controlla l'importo, poi decidi tu.",
+  "points.card.unknownValue": "Psyche non conosce questo dato.",
+  "points.card.scrollTo": "Scorri in basso fino a {label}",
+  "points.card.menuBarTitle": "◉ Indica: {app}",
+  "points.card.stepFormat": "{n}/{total}",
+  "points.card.visionBadge": "Usa un'immagine di questa finestra",
+  "points.card.followWindow": "Segui questa finestra",
+};

@@ -15,5 +15,7 @@ export const mailFollowups: Partial<Catalogue> = {
   "mailFollowups.thread.title": "메일 후속 조치",
   "chat.composer.placeholderMail": "이 대화에 대해 질문하기",
   "daily.section.quiet_threads": "답이 없는 메일 대화",
+  "daily.section.promises": "약속",
+  "screens.inbox.kind.promise_due": "약속 기한",
   "daily.section.night_shift": "나이트 시프트",
 };

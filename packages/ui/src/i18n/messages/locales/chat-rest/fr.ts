@@ -46,6 +46,9 @@ export const chatRest: Partial<Catalogue> = {
   "chat.attach.remove": "Retirer {name}",
   "chat.attach.uploading": "Envoi de {name}",
   "chat.attach.failed": "{name} n’a pas pu être envoyé",
+  "chat.attach.retry": "Réessayer d’envoyer {name}",
+  "chat.attach.blockedByFailed":
+    "Un fichier n’a pas pu être envoyé. Réessayez ou retirez-le pour envoyer.",
   "chat.attach.dismiss": "Ignorer",
   "chat.attach.refused.image":
     "{name} : ce modèle ne peut pas lire les images, seuls les documents (PDF, Word, Excel, texte) peuvent donc être joints",

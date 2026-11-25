@@ -24,6 +24,14 @@ export const keepAwake: Partial<Catalogue> = {
   "settings.storage.clear": "مسح…",
   "settings.storage.cleared": "تم المسح. تم تحرير {size}.",
   "settings.storage.clearFailed": "تعذّر مسح التخزين ({reason}).",
+  "settings.storage.compact.title": "ضغط قاعدة البيانات",
+  "settings.storage.compact.hint":
+    "حجم قاعدة البيانات {size}، ويمكن استرجاع ما يصل إلى {reclaimable}. يتوقف Psyche لحظة أثناء التنفيذ.",
+  "settings.storage.compact.button": "ضغط",
+  "settings.storage.compact.running": "جارٍ الضغط…",
+  "settings.storage.compact.done": "اكتمل الضغط في {seconds} ث، وتم توفير {size}.",
+  "settings.storage.compact.failed": "تعذّر ضغط قاعدة البيانات ({reason}).",
+  "settings.storage.compact.busy": "Psyche مشغول بمهمة. حاول مجددًا بعد انتهائها.",
   "settings.storage.failed": "تعذّرت قراءة استخدام التخزين ({reason}).",
   "settings.storage.confirm.title": "هل تريد مسح ذاكرات التخزين المؤقت والتسجيلات القديمة؟",
   "settings.storage.confirm.body":

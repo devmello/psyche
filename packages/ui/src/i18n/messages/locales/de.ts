@@ -38,6 +38,7 @@ import { overviewGrowth } from "./overview-growth/de.ts";
 import { overviewShared } from "./overview-shared/de.ts";
 import { passwordPresence } from "./password-presence/de.ts";
 import { peopleRest } from "./people-rest/de.ts";
+import { points } from "./points/de.ts";
 import { researchRest } from "./research-rest/de.ts";
 import { scheduledForm } from "./scheduled-form/de.ts";
 import { scheduledRest } from "./scheduled-rest/de.ts";
@@ -225,6 +226,12 @@ export const de: Partial<Catalogue> = {
   "chat.queue.notSent": "nicht gesendet",
   "chat.queue.retry": "„{content}“ erneut senden",
   "chat.queue.remove": "Wartende Nachricht „{content}“ entfernen",
+  "chat.thread.loadingEarlier": "Frühere Nachrichten werden geladen",
+  "chat.thread.loadEarlierFailed": "Frühere Nachrichten konnten nicht geladen werden.",
+  "chat.thread.focusNotFound": "Diese Nachricht wurde in diesem Chat nicht gefunden.",
+  "chat.queue.parked": "nach Stopp pausiert",
+  "chat.queue.sendQueued": "Wartende senden",
+  "chat.queue.sendQueuedLabel": "Wartende Nachricht „{content}“ senden",
 
   "chat.commands.model.hint": "anbieter/modell",
   "chat.commands.model.description": "Modell für diesen Thread wählen",
@@ -503,6 +510,7 @@ export const de: Partial<Catalogue> = {
   "blocks.toolRun.status.failed": "fehlgeschlagen",
   "blocks.toolRun.status.uncertain": "Ergebnis unbekannt",
   "blocks.toolRun.status.blocked": "blockiert",
+  "blocks.toolRun.status.stopped": "gestoppt",
   "blocks.toolRun.summary": "{count, plural, one {# Aktion} other {# Aktionen}} · {families}",
   "blocks.toolRun.untrustedOutput": "nicht vertrauenswürdige Ausgabe",
   "blocks.toolRun.trustedOutput": "vertrauenswürdige Ausgabe",
@@ -4092,6 +4100,8 @@ export const de: Partial<Catalogue> = {
   ...linuxAccess,
   // the Virtual screen watch pane (docs/design/linux-desktop-2026.md §7.5)
   ...computerWatch,
+  // Psyche points (docs/design/psyche-points-2026.md §9)
+  ...points,
   // Gateway-authored notices (inbox notifications, security alerts)
   ...notices,
   // Settings > Computer use > Separate desktop (Linux)

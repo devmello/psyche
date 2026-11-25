@@ -386,7 +386,9 @@ describe("queue modes", () => {
     const db = t.gateway.context.db;
     expect(getRun(db, first.runId)?.status).toBe("cancelled");
     expect(getRun(db, second.runId)?.status).toBe("done");
-    expect(texts(thread.id)).toEqual(["one", "two", "fresh"]);
+    // The interrupted run's partial reply is kept (it lands after the message that interrupted).
+    expect(texts(thread.id).sort()).toEqual(["fresh", "one", "partial", "two"]);
+    expect(texts(thread.id)).not.toContain("stale");
     expect(broker.revoked).toContain(first.runId);
   });
 });
@@ -485,6 +487,47 @@ describe("chat.cancel", () => {
     expect(agent.cancels).toContain(sent.runId);
     expect(texts(thread.id)).toEqual(["go", "thinking"]);
     expect(await c.call("chat.cancel", { threadId: thread.id })).toEqual({ cancelled: false });
+  });
+
+  it("settles the run's open tool calls: read-only ones fail, the rest are uncertain", async () => {
+    const c = await setup();
+    const thread = await newThread(c);
+    const running = (id: string, sideEffect: "read" | "write") => ({
+      type: "tool_call" as const,
+      toolCallId: id,
+      tool: "browser.navigate",
+      status: "running" as const,
+      level1: id,
+      details: { sideEffect },
+    });
+    agent.script([
+      { type: "chat.delta", messageId: "a1", delta: "Working" },
+      running("tc-read", "read"),
+      running("tc-write", "write"),
+      { type: "wait", gate: "never" },
+    ]);
+    const sent = await c.call<{ runId: string }>(
+      "chat.send",
+      { threadId: thread.id, content: "go" },
+      ik(),
+    );
+    await vi.waitFor(() => expect(c.eventsNamed("tool_call.updated")).toHaveLength(2));
+    await c.call("chat.cancel", { threadId: thread.id });
+    await t.gateway.context.sessions.idle();
+    const rows = t.gateway.context.db.sqlite
+      .prepare("SELECT id, status FROM tool_calls WHERE run_id = ? ORDER BY id")
+      .all(sent.runId);
+    expect(rows).toEqual([
+      { id: "tc-read", status: "failed" },
+      { id: "tc-write", status: "uncertain" },
+    ]);
+    const blocks = transcript(thread.id)
+      .flatMap((m) => m.blocks)
+      .flatMap((b) => (b.type === "tool_call" ? [[b.toolCallId, b.status]] : []));
+    expect(blocks).toEqual([
+      ["tc-read", "failed"],
+      ["tc-write", "uncertain"],
+    ]);
   });
 });
 

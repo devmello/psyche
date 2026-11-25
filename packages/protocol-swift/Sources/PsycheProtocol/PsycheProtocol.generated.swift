@@ -677,6 +677,7 @@
 //   let graphLoopDirection = try? JSONDecoder().decode(GraphLoopDirection.self, from: jsonData)
 //   let graphLoopDirectionFilter = try? JSONDecoder().decode(GraphLoopDirectionFilter.self, from: jsonData)
 //   let graphLoopStatus = try? JSONDecoder().decode(GraphLoopStatus.self, from: jsonData)
+//   let graphLoopWriteStatus = try? JSONDecoder().decode(GraphLoopWriteStatus.self, from: jsonData)
 //   let graphParticipantRole = try? JSONDecoder().decode(GraphParticipantRole.self, from: jsonData)
 //   let graphProjectStatus = try? JSONDecoder().decode(GraphProjectStatus.self, from: jsonData)
 //   let graphProjectType = try? JSONDecoder().decode(GraphProjectType.self, from: jsonData)
@@ -1262,6 +1263,39 @@
 //   let presenceVerifierKind = try? JSONDecoder().decode(PresenceVerifierKind.self, from: jsonData)
 //   let presenceVerifierState = try? JSONDecoder().decode(PresenceVerifierState.self, from: jsonData)
 //   let probedModel = try? JSONDecoder().decode(ProbedModel.self, from: jsonData)
+//   let promiseActAction = try? JSONDecoder().decode(PromiseActAction.self, from: jsonData)
+//   let promiseAction = try? JSONDecoder().decode(PromiseAction.self, from: jsonData)
+//   let promiseBasis = try? JSONDecoder().decode(PromiseBasis.self, from: jsonData)
+//   let promiseCitation = try? JSONDecoder().decode(PromiseCitation.self, from: jsonData)
+//   let promiseCitationSource = try? JSONDecoder().decode(PromiseCitationSource.self, from: jsonData)
+//   let promiseClosedBy = try? JSONDecoder().decode(PromiseClosedBy.self, from: jsonData)
+//   let promiseDirection = try? JSONDecoder().decode(PromiseDirection.self, from: jsonData)
+//   let promiseDraftIntent = try? JSONDecoder().decode(PromiseDraftIntent.self, from: jsonData)
+//   let promiseDueKind = try? JSONDecoder().decode(PromiseDueKind.self, from: jsonData)
+//   let promiseEvent = try? JSONDecoder().decode(PromiseEvent.self, from: jsonData)
+//   let promiseEventBy = try? JSONDecoder().decode(PromiseEventBy.self, from: jsonData)
+//   let promiseEventKind = try? JSONDecoder().decode(PromiseEventKind.self, from: jsonData)
+//   let promiseListView = try? JSONDecoder().decode(PromiseListView.self, from: jsonData)
+//   let promiseSourceKind = try? JSONDecoder().decode(PromiseSourceKind.self, from: jsonData)
+//   let promiseState = try? JSONDecoder().decode(PromiseState.self, from: jsonData)
+//   let promiseSummary = try? JSONDecoder().decode(PromiseSummary.self, from: jsonData)
+//   let promiseUpcoming = try? JSONDecoder().decode(PromiseUpcoming.self, from: jsonData)
+//   let promiseUpdatedPayload = try? JSONDecoder().decode(PromiseUpdatedPayload.self, from: jsonData)
+//   let promiseView = try? JSONDecoder().decode(PromiseView.self, from: jsonData)
+//   let promisesActParams = try? JSONDecoder().decode(PromisesActParams.self, from: jsonData)
+//   let promisesActResult = try? JSONDecoder().decode(PromisesActResult.self, from: jsonData)
+//   let promisesAddParams = try? JSONDecoder().decode(PromisesAddParams.self, from: jsonData)
+//   let promisesAddResult = try? JSONDecoder().decode(PromisesAddResult.self, from: jsonData)
+//   let promisesDeleteParams = try? JSONDecoder().decode(PromisesDeleteParams.self, from: jsonData)
+//   let promisesDeleteResult = try? JSONDecoder().decode(PromisesDeleteResult.self, from: jsonData)
+//   let promisesGetParams = try? JSONDecoder().decode(PromisesGetParams.self, from: jsonData)
+//   let promisesGetResult = try? JSONDecoder().decode(PromisesGetResult.self, from: jsonData)
+//   let promisesListParams = try? JSONDecoder().decode(PromisesListParams.self, from: jsonData)
+//   let promisesListResult = try? JSONDecoder().decode(PromisesListResult.self, from: jsonData)
+//   let promisesMuteParams = try? JSONDecoder().decode(PromisesMuteParams.self, from: jsonData)
+//   let promisesMuteResult = try? JSONDecoder().decode(PromisesMuteResult.self, from: jsonData)
+//   let promisesSummaryParams = try? JSONDecoder().decode(PromisesSummaryParams.self, from: jsonData)
+//   let promisesSummaryResult = try? JSONDecoder().decode(PromisesSummaryResult.self, from: jsonData)
 //   let proposalUpdatedPayload = try? JSONDecoder().decode(ProposalUpdatedPayload.self, from: jsonData)
 //   let proposalsApproveParams = try? JSONDecoder().decode(ProposalsApproveParams.self, from: jsonData)
 //   let proposalsApproveResult = try? JSONDecoder().decode(ProposalsApproveResult.self, from: jsonData)
@@ -1644,12 +1678,18 @@
 //   let stagedActionResult = try? JSONDecoder().decode(StagedActionResult.self, from: jsonData)
 //   let stagedActionSend = try? JSONDecoder().decode(StagedActionSend.self, from: jsonData)
 //   let stagedActionStatus = try? JSONDecoder().decode(StagedActionStatus.self, from: jsonData)
+//   let stagedPreview = try? JSONDecoder().decode(StagedPreview.self, from: jsonData)
+//   let stagedPreviewRow = try? JSONDecoder().decode(StagedPreviewRow.self, from: jsonData)
 //   let starterFolderID = try? JSONDecoder().decode(StarterFolderID.self, from: jsonData)
 //   let storageCategory = try? JSONDecoder().decode(StorageCategory.self, from: jsonData)
 //   let storageCategoryID = try? JSONDecoder().decode(StorageCategoryID.self, from: jsonData)
 //   let storageClearCacheParams = try? JSONDecoder().decode(StorageClearCacheParams.self, from: jsonData)
 //   let storageClearTarget = try? JSONDecoder().decode(StorageClearTarget.self, from: jsonData)
 //   let storageCleared = try? JSONDecoder().decode(StorageCleared.self, from: jsonData)
+//   let storageCompactEstimate = try? JSONDecoder().decode(StorageCompactEstimate.self, from: jsonData)
+//   let storageCompactEstimateParams = try? JSONDecoder().decode(StorageCompactEstimateParams.self, from: jsonData)
+//   let storageCompactParams = try? JSONDecoder().decode(StorageCompactParams.self, from: jsonData)
+//   let storageCompacted = try? JSONDecoder().decode(StorageCompacted.self, from: jsonData)
 //   let storageUsage = try? JSONDecoder().decode(StorageUsage.self, from: jsonData)
 //   let storageUsageParams = try? JSONDecoder().decode(StorageUsageParams.self, from: jsonData)
 //   let taintSource = try? JSONDecoder().decode(TaintSource.self, from: jsonData)
@@ -10412,6 +10452,7 @@ public enum BlockKind: String, Codable, Sendable {
     case lifeAnswer = "life_answer"
     case mailFollowup = "mail_followup"
     case memoryEntity = "memory_entity"
+    case promise = "promise"
     case searchHit = "search_hit"
 }
 
@@ -11002,23 +11043,36 @@ public struct ChatAttachedFile: Codable, Sendable {
 // MARK: - ChatContextRef
 public struct ChatContextRef: Codable, Sendable {
     public let id: String
+    public let intent: PromiseDraftIntent?
     public let kind: BlockKind
+    public let proposedDue: String?
     public let scope: String?
     public let title: String?
 
     public enum CodingKeys: String, CodingKey {
         case id = "id"
+        case intent = "intent"
         case kind = "kind"
+        case proposedDue = "proposedDue"
         case scope = "scope"
         case title = "title"
     }
 
-    public init(id: String, kind: BlockKind, scope: String? = nil, title: String? = nil) {
+    public init(id: String, intent: PromiseDraftIntent? = nil, kind: BlockKind, proposedDue: String? = nil, scope: String? = nil, title: String? = nil) {
         self.id = id
+        self.intent = intent
         self.kind = kind
+        self.proposedDue = proposedDue
         self.scope = scope
         self.title = title
     }
+}
+
+public enum PromiseDraftIntent: String, Codable, Sendable {
+    case doIt = "do_it"
+    case nudge = "nudge"
+    case releaseNote = "release_note"
+    case renegotiate = "renegotiate"
 }
 
 // MARK: - ChatFromWidget
@@ -15433,6 +15487,7 @@ public enum DailySectionID: String, Codable, Sendable {
     case learned = "learned"
     case mail = "mail"
     case nightShift = "night_shift"
+    case promises = "promises"
     case quietThreads = "quiet_threads"
     case tomorrow = "tomorrow"
     case weather = "weather"
@@ -15618,12 +15673,12 @@ public struct DigestLoop: Codable, Sendable {
 // MARK: - GraphLoop
 public struct GraphLoop: Codable, Sendable {
     public let closedAt: String?
-    public let closedBy: GraphLoopClosedBy?
+    public let closedBy: PromiseClosedBy?
     public let confidence: Double
     public let counterpartID: String?
     public let createdAt: String
     public let detectedBy: GraphLoopDetectedBy
-    public let direction: GraphLoopDirectionFilter
+    public let direction: PromiseDirection
     public let dueAt: String?
     public let evidence: String?
     public let id: String
@@ -15651,7 +15706,7 @@ public struct GraphLoop: Codable, Sendable {
         case text = "text"
     }
 
-    public init(closedAt: String? = nil, closedBy: GraphLoopClosedBy? = nil, confidence: Double, counterpartID: String? = nil, createdAt: String, detectedBy: GraphLoopDetectedBy, direction: GraphLoopDirectionFilter, dueAt: String? = nil, evidence: String? = nil, id: String, projectID: String? = nil, provenance: Provenance, sourceInteractionID: String? = nil, status: GraphLoopStatus, text: String) {
+    public init(closedAt: String? = nil, closedBy: PromiseClosedBy? = nil, confidence: Double, counterpartID: String? = nil, createdAt: String, detectedBy: GraphLoopDetectedBy, direction: PromiseDirection, dueAt: String? = nil, evidence: String? = nil, id: String, projectID: String? = nil, provenance: Provenance, sourceInteractionID: String? = nil, status: GraphLoopStatus, text: String) {
         self.closedAt = closedAt
         self.closedBy = closedBy
         self.confidence = confidence
@@ -15670,9 +15725,12 @@ public struct GraphLoop: Codable, Sendable {
     }
 }
 
-public enum GraphLoopClosedBy: String, Codable, Sendable {
+public enum PromiseClosedBy: String, Codable, Sendable {
+    case agedOut = "aged_out"
+    case auto = "auto"
     case duePassed = "due_passed"
     case owner = "owner"
+    case released = "released"
     case replySeen = "reply_seen"
 }
 
@@ -15683,15 +15741,17 @@ public enum GraphLoopDetectedBy: String, Codable, Sendable {
     case rule = "rule"
 }
 
-public enum GraphLoopDirectionFilter: String, Codable, Sendable {
+public enum PromiseDirection: String, Codable, Sendable {
     case iOwe = "i_owe"
     case waitingOn = "waiting_on"
 }
 
 public enum GraphLoopStatus: String, Codable, Sendable {
+    case broken = "broken"
     case dismissed = "dismissed"
     case done = "done"
     case graphLoopStatusOpen = "open"
+    case released = "released"
     case snoozed = "snoozed"
     case suggested = "suggested"
 }
@@ -23767,7 +23827,7 @@ public struct MemoryLoopUpdatedPayload: Codable, Sendable {
 public struct MemoryLoopsListParams: Codable, Sendable {
     /// Opaque cursor
     public let cursor: String?
-    public let direction: GraphLoopDirectionFilter?
+    public let direction: PromiseDirection?
     public let dueBefore: String?
     public let entityID: String?
     public let limit: Int?
@@ -23785,7 +23845,7 @@ public struct MemoryLoopsListParams: Codable, Sendable {
         case status = "status"
     }
 
-    public init(cursor: String? = nil, direction: GraphLoopDirectionFilter? = nil, dueBefore: String? = nil, entityID: String? = nil, limit: Int? = nil, projectID: String? = nil, status: [GraphLoopStatus]? = nil) {
+    public init(cursor: String? = nil, direction: PromiseDirection? = nil, dueBefore: String? = nil, entityID: String? = nil, limit: Int? = nil, projectID: String? = nil, status: [GraphLoopStatus]? = nil) {
         self.cursor = cursor
         self.direction = direction
         self.dueBefore = dueBefore
@@ -23817,7 +23877,7 @@ public struct MemoryLoopsUpdateParams: Codable, Sendable {
     /// null clears it
     public let dueAt: String?
     public let id: String
-    public let status: GraphLoopStatus?
+    public let status: GraphLoopWriteStatus?
     /// Rephrase it
     public let text: String?
 
@@ -23828,12 +23888,20 @@ public struct MemoryLoopsUpdateParams: Codable, Sendable {
         case text = "text"
     }
 
-    public init(dueAt: String? = nil, id: String, status: GraphLoopStatus? = nil, text: String? = nil) {
+    public init(dueAt: String? = nil, id: String, status: GraphLoopWriteStatus? = nil, text: String? = nil) {
         self.dueAt = dueAt
         self.id = id
         self.status = status
         self.text = text
     }
+}
+
+public enum GraphLoopWriteStatus: String, Codable, Sendable {
+    case dismissed = "dismissed"
+    case done = "done"
+    case graphLoopWriteStatusOpen = "open"
+    case snoozed = "snoozed"
+    case suggested = "suggested"
 }
 
 // MARK: - MemoryLoopsUpdateResult
@@ -26505,7 +26573,7 @@ public struct StagedAction: Codable, Sendable {
     public let params: JSONAny?
     public let paramsHash: String
     public let precondition: JSONAny?
-    public let preview: JSONAny?
+    public let preview: StagedPreview?
     public let result: StagedActionResult?
     public let send: StagedActionSend?
     public let seq: Int
@@ -26554,7 +26622,7 @@ public struct StagedAction: Codable, Sendable {
         case why = "why"
     }
 
-    public init(appliedAt: String? = nil, approvalID: String? = nil, bindingHash: String, createdAt: String, domain: StagedActionDomain, forkBranchID: String? = nil, id: String, inverse: JSONAny? = nil, kind: String, nightID: String? = nil, params: JSONAny? = nil, paramsHash: String, precondition: JSONAny? = nil, preview: JSONAny? = nil, result: StagedActionResult? = nil, send: StagedActionSend? = nil, seq: Int, sideEffect: String, status: StagedActionStatus, summary: String, taint: Bool, taintSources: [TaintSource], target: JSONAny? = nil, targetKey: String, taskID: String? = nil, tool: String, toolCallID: String? = nil, updatedAt: String, why: String? = nil) {
+    public init(appliedAt: String? = nil, approvalID: String? = nil, bindingHash: String, createdAt: String, domain: StagedActionDomain, forkBranchID: String? = nil, id: String, inverse: JSONAny? = nil, kind: String, nightID: String? = nil, params: JSONAny? = nil, paramsHash: String, precondition: JSONAny? = nil, preview: StagedPreview? = nil, result: StagedActionResult? = nil, send: StagedActionSend? = nil, seq: Int, sideEffect: String, status: StagedActionStatus, summary: String, taint: Bool, taintSources: [TaintSource], target: JSONAny? = nil, targetKey: String, taskID: String? = nil, tool: String, toolCallID: String? = nil, updatedAt: String, why: String? = nil) {
         self.appliedAt = appliedAt
         self.approvalID = approvalID
         self.bindingHash = bindingHash
@@ -26592,6 +26660,62 @@ public enum StagedActionDomain: String, Codable, Sendable {
     case files = "files"
     case mail = "mail"
     case reminders = "reminders"
+}
+
+// MARK: - StagedPreview
+public struct StagedPreview: Codable, Sendable {
+    public let kind: StagedPreviewKind
+    public let rows: [StagedPreviewRow]
+    public let title: String
+    public let truncated: Bool
+
+    public enum CodingKeys: String, CodingKey {
+        case kind = "kind"
+        case rows = "rows"
+        case title = "title"
+        case truncated = "truncated"
+    }
+
+    public init(kind: StagedPreviewKind, rows: [StagedPreviewRow], title: String, truncated: Bool) {
+        self.kind = kind
+        self.rows = rows
+        self.title = title
+        self.truncated = truncated
+    }
+}
+
+public enum StagedPreviewKind: String, Codable, Sendable {
+    case calendar = "calendar"
+    case file = "file"
+    case mail = "mail"
+    case reminder = "reminder"
+}
+
+// MARK: - StagedPreviewRow
+public struct StagedPreviewRow: Codable, Sendable {
+    public let badge: Badge?
+    public let label: String
+    public let truncated: Bool?
+    public let value: String
+
+    public enum CodingKeys: String, CodingKey {
+        case badge = "badge"
+        case label = "label"
+        case truncated = "truncated"
+        case value = "value"
+    }
+
+    public init(badge: Badge? = nil, label: String, truncated: Bool? = nil, value: String) {
+        self.badge = badge
+        self.label = label
+        self.truncated = truncated
+        self.value = value
+    }
+}
+
+public enum Badge: String, Codable, Sendable {
+    case newRecipient = "new_recipient"
+    case replyAll = "reply_all"
 }
 
 // MARK: - StagedActionResult
@@ -27296,6 +27420,7 @@ public enum NotificationKind: String, Codable, Sendable {
     case briefing = "briefing"
     case inputNeeded = "input_needed"
     case proactive = "proactive"
+    case promiseDue = "promise_due"
     case reminder = "reminder"
     case specialistResult = "specialist_result"
     case system = "system"
@@ -29843,6 +29968,561 @@ public enum UpdateGateState: String, Codable, Sendable {
     case draining = "draining"
     case ready = "ready"
     case updateGateStateOpen = "open"
+}
+
+// MARK: - PromiseUpdatedPayload
+public struct PromiseUpdatedPayload: Codable, Sendable {
+    public let promise: PromiseView
+
+    public enum CodingKeys: String, CodingKey {
+        case promise = "promise"
+    }
+
+    public init(promise: PromiseView) {
+        self.promise = promise
+    }
+}
+
+// MARK: - PromiseView
+public struct PromiseView: Codable, Sendable {
+    public let basis: PromiseBasis
+    public let brokenAt: String?
+    public let citations: [PromiseCitation]?
+    public let closedAt: String?
+    public let closedBy: PromiseClosedBy?
+    public let confidence: Double
+    public let counterpartID: String?
+    public let counterpartLabel: String?
+    public let createdAt: String
+    public let direction: PromiseDirection
+    public let dueAt: String?
+    public let dueConfidence: Double?
+    public let dueKind: PromiseDueKind
+    public let dueText: String?
+    public let events: [PromiseEvent]?
+    public let id: String
+    public let lastNudgeAt: String?
+    public let link: String?
+    public let nudgeCount: Int
+    public let projectID: String?
+    public let proposedDueAt: String?
+    public let provenance: Provenance
+    public let snoozedUntil: String?
+    public let sourceKind: PromiseSourceKind?
+    public let state: PromiseState
+    public let status: GraphLoopStatus
+    public let warnedAt: String?
+    public let what: String
+    public let whatAction: PromiseAction?
+
+    public enum CodingKeys: String, CodingKey {
+        case basis = "basis"
+        case brokenAt = "brokenAt"
+        case citations = "citations"
+        case closedAt = "closedAt"
+        case closedBy = "closedBy"
+        case confidence = "confidence"
+        case counterpartID = "counterpartId"
+        case counterpartLabel = "counterpartLabel"
+        case createdAt = "createdAt"
+        case direction = "direction"
+        case dueAt = "dueAt"
+        case dueConfidence = "dueConfidence"
+        case dueKind = "dueKind"
+        case dueText = "dueText"
+        case events = "events"
+        case id = "id"
+        case lastNudgeAt = "lastNudgeAt"
+        case link = "link"
+        case nudgeCount = "nudgeCount"
+        case projectID = "projectId"
+        case proposedDueAt = "proposedDueAt"
+        case provenance = "provenance"
+        case snoozedUntil = "snoozedUntil"
+        case sourceKind = "sourceKind"
+        case state = "state"
+        case status = "status"
+        case warnedAt = "warnedAt"
+        case what = "what"
+        case whatAction = "whatAction"
+    }
+
+    public init(basis: PromiseBasis, brokenAt: String? = nil, citations: [PromiseCitation]? = nil, closedAt: String? = nil, closedBy: PromiseClosedBy? = nil, confidence: Double, counterpartID: String? = nil, counterpartLabel: String? = nil, createdAt: String, direction: PromiseDirection, dueAt: String? = nil, dueConfidence: Double? = nil, dueKind: PromiseDueKind, dueText: String? = nil, events: [PromiseEvent]? = nil, id: String, lastNudgeAt: String? = nil, link: String? = nil, nudgeCount: Int, projectID: String? = nil, proposedDueAt: String? = nil, provenance: Provenance, snoozedUntil: String? = nil, sourceKind: PromiseSourceKind? = nil, state: PromiseState, status: GraphLoopStatus, warnedAt: String? = nil, what: String, whatAction: PromiseAction? = nil) {
+        self.basis = basis
+        self.brokenAt = brokenAt
+        self.citations = citations
+        self.closedAt = closedAt
+        self.closedBy = closedBy
+        self.confidence = confidence
+        self.counterpartID = counterpartID
+        self.counterpartLabel = counterpartLabel
+        self.createdAt = createdAt
+        self.direction = direction
+        self.dueAt = dueAt
+        self.dueConfidence = dueConfidence
+        self.dueKind = dueKind
+        self.dueText = dueText
+        self.events = events
+        self.id = id
+        self.lastNudgeAt = lastNudgeAt
+        self.link = link
+        self.nudgeCount = nudgeCount
+        self.projectID = projectID
+        self.proposedDueAt = proposedDueAt
+        self.provenance = provenance
+        self.snoozedUntil = snoozedUntil
+        self.sourceKind = sourceKind
+        self.state = state
+        self.status = status
+        self.warnedAt = warnedAt
+        self.what = what
+        self.whatAction = whatAction
+    }
+}
+
+public enum PromiseBasis: String, Codable, Sendable {
+    case ask = "ask"
+    case promise = "promise"
+    case request = "request"
+}
+
+// MARK: - PromiseCitation
+public struct PromiseCitation: Codable, Sendable {
+    public let id: String
+    public let observedAt: String
+    public let provenance: Provenance
+    public let quote: String
+    public let source: PromiseCitationSource
+    public let sourceRef: String
+
+    public enum CodingKeys: String, CodingKey {
+        case id = "id"
+        case observedAt = "observedAt"
+        case provenance = "provenance"
+        case quote = "quote"
+        case source = "source"
+        case sourceRef = "sourceRef"
+    }
+
+    public init(id: String, observedAt: String, provenance: Provenance, quote: String, source: PromiseCitationSource, sourceRef: String) {
+        self.id = id
+        self.observedAt = observedAt
+        self.provenance = provenance
+        self.quote = quote
+        self.source = source
+        self.sourceRef = sourceRef
+    }
+}
+
+public enum PromiseCitationSource: String, Codable, Sendable {
+    case chats = "chats"
+    case mail = "mail"
+    case messages = "messages"
+    case notes = "notes"
+    case transcripts = "transcripts"
+}
+
+public enum PromiseDueKind: String, Codable, Sendable {
+    case explicit = "explicit"
+    case inferred = "inferred"
+    case none = "none"
+}
+
+// MARK: - PromiseEvent
+public struct PromiseEvent: Codable, Sendable {
+    public let at: String
+    public let by: PromiseEventBy
+    public let citationID: String?
+    public let from: String?
+    public let id: String
+    public let kind: PromiseEventKind
+    public let to: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case at = "at"
+        case by = "by"
+        case citationID = "citationId"
+        case from = "from"
+        case id = "id"
+        case kind = "kind"
+        case to = "to"
+    }
+
+    public init(at: String, by: PromiseEventBy, citationID: String? = nil, from: String? = nil, id: String, kind: PromiseEventKind, to: String? = nil) {
+        self.at = at
+        self.by = by
+        self.citationID = citationID
+        self.from = from
+        self.id = id
+        self.kind = kind
+        self.to = to
+    }
+}
+
+public enum PromiseEventBy: String, Codable, Sendable {
+    case auto = "auto"
+    case model = "model"
+    case owner = "owner"
+    case rule = "rule"
+}
+
+public enum PromiseEventKind: String, Codable, Sendable {
+    case asked = "asked"
+    case autoDone = "auto_done"
+    case confirmed = "confirmed"
+    case created = "created"
+    case dueChanged = "due_changed"
+    case dueProposed = "due_proposed"
+    case nudgeDrafted = "nudge_drafted"
+    case nudgeSent = "nudge_sent"
+    case sourceAdded = "source_added"
+    case status = "status"
+    case undo = "undo"
+    case warned = "warned"
+}
+
+public enum PromiseSourceKind: String, Codable, Sendable {
+    case chat = "chat"
+    case mail = "mail"
+    case manual = "manual"
+    case meeting = "meeting"
+    case messages = "messages"
+}
+
+public enum PromiseState: String, Codable, Sendable {
+    case broken = "broken"
+    case dismissed = "dismissed"
+    case done = "done"
+    case dueSoon = "due_soon"
+    case promiseStateOpen = "open"
+    case released = "released"
+    case snoozed = "snoozed"
+    case suggested = "suggested"
+}
+
+public enum PromiseAction: String, Codable, Sendable {
+    case meet = "meet"
+    case promiseActionDo = "do"
+    case reply = "reply"
+    case send = "send"
+}
+
+// MARK: - PromisesActParams
+public struct PromisesActParams: Codable, Sendable {
+    public let action: PromiseActAction
+    public let id: String
+
+    public enum CodingKeys: String, CodingKey {
+        case action = "action"
+        case id = "id"
+    }
+
+    public init(action: PromiseActAction, id: String) {
+        self.action = action
+        self.id = id
+    }
+}
+
+// MARK: - PromiseActAction
+public struct PromiseActAction: Codable, Sendable {
+    public let type: PromiseActActionType
+    public let until: String?
+    public let dueAt: String?
+    public let days: Int?
+    public let answer: Answer?
+
+    public enum CodingKeys: String, CodingKey {
+        case type = "type"
+        case until = "until"
+        case dueAt = "dueAt"
+        case days = "days"
+        case answer = "answer"
+    }
+
+    public init(type: PromiseActActionType, until: String? = nil, dueAt: String? = nil, days: Int? = nil, answer: Answer? = nil) {
+        self.type = type
+        self.until = until
+        self.dueAt = dueAt
+        self.days = days
+        self.answer = answer
+    }
+}
+
+public enum Answer: String, Codable, Sendable {
+    case notYet = "not_yet"
+    case yes = "yes"
+}
+
+public enum PromiseActActionType: String, Codable, Sendable {
+    case acceptProposed = "accept_proposed"
+    case answer = "answer"
+    case confirm = "confirm"
+    case dismiss = "dismiss"
+    case done = "done"
+    case moreTime = "more_time"
+    case notPromise = "not_promise"
+    case rejectProposed = "reject_proposed"
+    case release = "release"
+    case reopen = "reopen"
+    case setDue = "set_due"
+    case snooze = "snooze"
+}
+
+// MARK: - PromisesActResult
+public struct PromisesActResult: Codable, Sendable {
+    public let promise: PromiseView
+
+    public enum CodingKeys: String, CodingKey {
+        case promise = "promise"
+    }
+
+    public init(promise: PromiseView) {
+        self.promise = promise
+    }
+}
+
+// MARK: - PromisesAddParams
+public struct PromisesAddParams: Codable, Sendable {
+    public let counterpartID: String?
+    public let direction: PromiseDirection
+    public let dueAt: String?
+    public let what: String
+
+    public enum CodingKeys: String, CodingKey {
+        case counterpartID = "counterpartId"
+        case direction = "direction"
+        case dueAt = "dueAt"
+        case what = "what"
+    }
+
+    public init(counterpartID: String? = nil, direction: PromiseDirection, dueAt: String? = nil, what: String) {
+        self.counterpartID = counterpartID
+        self.direction = direction
+        self.dueAt = dueAt
+        self.what = what
+    }
+}
+
+// MARK: - PromisesAddResult
+public struct PromisesAddResult: Codable, Sendable {
+    public let promise: PromiseView
+
+    public enum CodingKeys: String, CodingKey {
+        case promise = "promise"
+    }
+
+    public init(promise: PromiseView) {
+        self.promise = promise
+    }
+}
+
+// MARK: - PromisesDeleteParams
+public struct PromisesDeleteParams: Codable, Sendable {
+    public let id: String
+
+    public enum CodingKeys: String, CodingKey {
+        case id = "id"
+    }
+
+    public init(id: String) {
+        self.id = id
+    }
+}
+
+// MARK: - PromisesDeleteResult
+public struct PromisesDeleteResult: Codable, Sendable {
+    public let ok: Bool
+
+    public enum CodingKeys: String, CodingKey {
+        case ok = "ok"
+    }
+
+    public init(ok: Bool) {
+        self.ok = ok
+    }
+}
+
+// MARK: - PromisesGetParams
+public struct PromisesGetParams: Codable, Sendable {
+    public let id: String
+
+    public enum CodingKeys: String, CodingKey {
+        case id = "id"
+    }
+
+    public init(id: String) {
+        self.id = id
+    }
+}
+
+// MARK: - PromisesGetResult
+public struct PromisesGetResult: Codable, Sendable {
+    public let promise: PromiseView
+
+    public enum CodingKeys: String, CodingKey {
+        case promise = "promise"
+    }
+
+    public init(promise: PromiseView) {
+        self.promise = promise
+    }
+}
+
+// MARK: - PromisesListParams
+public struct PromisesListParams: Codable, Sendable {
+    /// Opaque cursor
+    public let cursor: String?
+    public let dueBefore: String?
+    public let entityID: String?
+    public let limit: Int?
+    public let view: PromiseListView
+
+    public enum CodingKeys: String, CodingKey {
+        case cursor = "cursor"
+        case dueBefore = "dueBefore"
+        case entityID = "entityId"
+        case limit = "limit"
+        case view = "view"
+    }
+
+    public init(cursor: String? = nil, dueBefore: String? = nil, entityID: String? = nil, limit: Int? = nil, view: PromiseListView) {
+        self.cursor = cursor
+        self.dueBefore = dueBefore
+        self.entityID = entityID
+        self.limit = limit
+        self.view = view
+    }
+}
+
+public enum PromiseListView: String, Codable, Sendable {
+    case all = "all"
+    case closed = "closed"
+    case confirm = "confirm"
+    case theirs = "theirs"
+    case yours = "yours"
+}
+
+// MARK: - PromisesListResult
+public struct PromisesListResult: Codable, Sendable {
+    public let hiddenCount: Int
+    public let nextCursor: String?
+    public let promises: [PromiseView]
+
+    public enum CodingKeys: String, CodingKey {
+        case hiddenCount = "hiddenCount"
+        case nextCursor = "nextCursor"
+        case promises = "promises"
+    }
+
+    public init(hiddenCount: Int, nextCursor: String? = nil, promises: [PromiseView]) {
+        self.hiddenCount = hiddenCount
+        self.nextCursor = nextCursor
+        self.promises = promises
+    }
+}
+
+// MARK: - PromisesMuteParams
+public struct PromisesMuteParams: Codable, Sendable {
+    public let entityID: String?
+    public let muted: Bool
+    public let threadRef: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case entityID = "entityId"
+        case muted = "muted"
+        case threadRef = "threadRef"
+    }
+
+    public init(entityID: String? = nil, muted: Bool, threadRef: String? = nil) {
+        self.entityID = entityID
+        self.muted = muted
+        self.threadRef = threadRef
+    }
+}
+
+// MARK: - PromisesMuteResult
+public struct PromisesMuteResult: Codable, Sendable {
+    public let ok: Bool
+
+    public enum CodingKeys: String, CodingKey {
+        case ok = "ok"
+    }
+
+    public init(ok: Bool) {
+        self.ok = ok
+    }
+}
+
+// MARK: - PromisesSummaryResult
+public struct PromisesSummaryResult: Codable, Sendable {
+    public let summary: PromiseSummary
+
+    public enum CodingKeys: String, CodingKey {
+        case summary = "summary"
+    }
+
+    public init(summary: PromiseSummary) {
+        self.summary = summary
+    }
+}
+
+// MARK: - PromiseSummary
+public struct PromiseSummary: Codable, Sendable {
+    public let dueSoon: Int
+    public let enabled: Bool
+    public let hiddenCount: Int
+    public let late: Int
+    public let missed: Int
+    public let nextDueAt: String?
+    public let theirs: Int
+    public let toConfirm: Int
+    public let upcoming: [PromiseUpcoming]
+    public let yours: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case dueSoon = "dueSoon"
+        case enabled = "enabled"
+        case hiddenCount = "hiddenCount"
+        case late = "late"
+        case missed = "missed"
+        case nextDueAt = "nextDueAt"
+        case theirs = "theirs"
+        case toConfirm = "toConfirm"
+        case upcoming = "upcoming"
+        case yours = "yours"
+    }
+
+    public init(dueSoon: Int, enabled: Bool, hiddenCount: Int, late: Int, missed: Int, nextDueAt: String? = nil, theirs: Int, toConfirm: Int, upcoming: [PromiseUpcoming], yours: Int) {
+        self.dueSoon = dueSoon
+        self.enabled = enabled
+        self.hiddenCount = hiddenCount
+        self.late = late
+        self.missed = missed
+        self.nextDueAt = nextDueAt
+        self.theirs = theirs
+        self.toConfirm = toConfirm
+        self.upcoming = upcoming
+        self.yours = yours
+    }
+}
+
+// MARK: - PromiseUpcoming
+public struct PromiseUpcoming: Codable, Sendable {
+    public let id: String
+    public let title: String
+    public let warnAt: String
+
+    public enum CodingKeys: String, CodingKey {
+        case id = "id"
+        case title = "title"
+        case warnAt = "warnAt"
+    }
+
+    public init(id: String, title: String, warnAt: String) {
+        self.id = id
+        self.title = title
+        self.warnAt = warnAt
+    }
 }
 
 // MARK: - ProposalUpdatedPayload
@@ -37659,6 +38339,41 @@ public struct StorageCleared: Codable, Sendable {
     }
 }
 
+// MARK: - StorageCompactEstimate
+public struct StorageCompactEstimate: Codable, Sendable {
+    public let dbBytes: Int
+    public let idle: Bool
+    public let reclaimableBytes: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case dbBytes = "dbBytes"
+        case idle = "idle"
+        case reclaimableBytes = "reclaimableBytes"
+    }
+
+    public init(dbBytes: Int, idle: Bool, reclaimableBytes: Int) {
+        self.dbBytes = dbBytes
+        self.idle = idle
+        self.reclaimableBytes = reclaimableBytes
+    }
+}
+
+// MARK: - StorageCompacted
+public struct StorageCompacted: Codable, Sendable {
+    public let durationMS: Int
+    public let savedBytes: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case durationMS = "durationMs"
+        case savedBytes = "savedBytes"
+    }
+
+    public init(durationMS: Int, savedBytes: Int) {
+        self.durationMS = durationMS
+        self.savedBytes = savedBytes
+    }
+}
+
 // MARK: - StorageUsage
 public struct StorageUsage: Codable, Sendable {
     public let categories: [StorageCategory]
@@ -43302,6 +44017,7 @@ public typealias PasskeysReauthBeginParams = [String: JSONAny]
 public typealias PasskeysRegisterBeginParams = [String: JSONAny]
 public typealias PaymentsLinkSignInParams = [String: JSONAny]
 public typealias PaymentsLinkStatusParams = [String: JSONAny]
+public typealias PromisesSummaryParams = [String: JSONAny]
 public typealias SandboxSetupParams = [String: JSONAny]
 public typealias ScheduledListParams = [String: JSONAny]
 public typealias SearchReindexParams = [String: JSONAny]
@@ -43314,6 +44030,8 @@ public typealias SpacesMigrationOfferParams = [String: JSONAny]
 public typealias SpecialistsListParams = [String: JSONAny]
 public typealias SpeechEngineDownloadParams = [String: JSONAny]
 public typealias SpeechEngineStatusParams = [String: JSONAny]
+public typealias StorageCompactEstimateParams = [String: JSONAny]
+public typealias StorageCompactParams = [String: JSONAny]
 public typealias StorageUsageParams = [String: JSONAny]
 public typealias TeachAppAppsParams = [String: JSONAny]
 public typealias TeachAppCancelParams = [String: JSONAny]

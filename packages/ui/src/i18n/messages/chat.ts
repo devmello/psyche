@@ -32,6 +32,12 @@ export const chat = {
   "chat.queue.notSent": "not sent",
   "chat.queue.retry": 'Retry sending "{content}"',
   "chat.queue.remove": 'Remove queued message "{content}"',
+  "chat.thread.loadingEarlier": "Loading earlier messages",
+  "chat.thread.loadEarlierFailed": "Couldn't load earlier messages.",
+  "chat.thread.focusNotFound": "Couldn't find that message in this chat.",
+  "chat.queue.parked": "paused after Stop",
+  "chat.queue.sendQueued": "Send queued",
+  "chat.queue.sendQueuedLabel": 'Send queued message "{content}"',
 
   "chat.commands.model.hint": "provider/model",
   "chat.commands.model.description": "Pick this thread's model",
@@ -106,6 +112,8 @@ export const chat = {
   "chat.attach.remove": "Remove {name}",
   "chat.attach.uploading": "Uploading {name}",
   "chat.attach.failed": "{name} didn't upload",
+  "chat.attach.retry": "Retry uploading {name}",
+  "chat.attach.blockedByFailed": "A file didn't upload. Retry or remove it to send.",
   "chat.attach.dismiss": "Dismiss",
   "chat.attach.refused.image":
     "{name}: this model can't read images, so only documents (PDF, Word, Excel, text) can be attached",

@@ -41,6 +41,7 @@ import { overviewGrowth } from "./overview-growth/ar.ts";
 import { overviewShared } from "./overview-shared/ar.ts";
 import { passwordPresence } from "./password-presence/ar.ts";
 import { people } from "./people/ar.ts";
+import { points } from "./points/ar.ts";
 import { research } from "./research/ar.ts";
 import { scheduled } from "./scheduled/ar.ts";
 import { scheduledForm } from "./scheduled-form/ar.ts";
@@ -270,6 +271,12 @@ export const ar: Partial<Catalogue> = {
   "chat.queue.notSent": "لم تُرسل",
   "chat.queue.retry": "إعادة محاولة إرسال «{content}»",
   "chat.queue.remove": "إزالة الرسالة «{content}» من قائمة الانتظار",
+  "chat.thread.loadingEarlier": "جارٍ تحميل الرسائل السابقة",
+  "chat.thread.loadEarlierFailed": "تعذّر تحميل الرسائل السابقة.",
+  "chat.thread.focusNotFound": "تعذّر العثور على تلك الرسالة في هذه المحادثة.",
+  "chat.queue.parked": "متوقفة مؤقتًا بعد الإيقاف",
+  "chat.queue.sendQueued": "إرسال الرسالة المنتظرة",
+  "chat.queue.sendQueuedLabel": "إرسال الرسالة «{content}» من قائمة الانتظار",
 
   "chat.commands.model.hint": "المزوّد/النموذج",
   "chat.commands.model.description": "اختيار نموذج هذه المحادثة",
@@ -544,6 +551,7 @@ export const ar: Partial<Catalogue> = {
   "blocks.toolRun.status.failed": "فشل",
   "blocks.toolRun.status.uncertain": "النتيجة غير معروفة",
   "blocks.toolRun.status.blocked": "محظور",
+  "blocks.toolRun.status.stopped": "تم إيقافه",
   "blocks.toolRun.summary":
     "{count, plural, zero {لا إجراءات} one {إجراء واحد} two {إجراءان} few {# إجراءات} many {# إجراءً} other {# إجراء}} · {families}",
   "blocks.toolRun.untrustedOutput": "مخرجات غير موثوقة",
@@ -3997,6 +4005,8 @@ export const ar: Partial<Catalogue> = {
   ...linuxAccess,
   // the Virtual screen watch pane (docs/design/linux-desktop-2026.md §7.5)
   ...computerWatch,
+  // Psyche points (docs/design/psyche-points-2026.md §9)
+  ...points,
   // Gateway-authored notices (inbox notifications, security alerts)
   ...notices,
   // Settings > Computer use > Separate desktop (Linux)
