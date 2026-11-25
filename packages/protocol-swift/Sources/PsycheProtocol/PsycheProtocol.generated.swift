@@ -1597,6 +1597,8 @@
 //   let stagedActionResult = try? JSONDecoder().decode(StagedActionResult.self, from: jsonData)
 //   let stagedActionSend = try? JSONDecoder().decode(StagedActionSend.self, from: jsonData)
 //   let stagedActionStatus = try? JSONDecoder().decode(StagedActionStatus.self, from: jsonData)
+//   let stagedPreview = try? JSONDecoder().decode(StagedPreview.self, from: jsonData)
+//   let stagedPreviewRow = try? JSONDecoder().decode(StagedPreviewRow.self, from: jsonData)
 //   let starterFolderID = try? JSONDecoder().decode(StarterFolderID.self, from: jsonData)
 //   let storageCategory = try? JSONDecoder().decode(StorageCategory.self, from: jsonData)
 //   let storageCategoryID = try? JSONDecoder().decode(StorageCategoryID.self, from: jsonData)
@@ -26454,7 +26456,7 @@ public struct StagedAction: Codable, Sendable {
     public let params: JSONAny?
     public let paramsHash: String
     public let precondition: JSONAny?
-    public let preview: JSONAny?
+    public let preview: StagedPreview?
     public let result: StagedActionResult?
     public let send: StagedActionSend?
     public let seq: Int
@@ -26503,7 +26505,7 @@ public struct StagedAction: Codable, Sendable {
         case why = "why"
     }
 
-    public init(appliedAt: String? = nil, approvalID: String? = nil, bindingHash: String, createdAt: String, domain: StagedActionDomain, forkBranchID: String? = nil, id: String, inverse: JSONAny? = nil, kind: String, nightID: String? = nil, params: JSONAny? = nil, paramsHash: String, precondition: JSONAny? = nil, preview: JSONAny? = nil, result: StagedActionResult? = nil, send: StagedActionSend? = nil, seq: Int, sideEffect: String, status: StagedActionStatus, summary: String, taint: Bool, taintSources: [TaintSource], target: JSONAny? = nil, targetKey: String, taskID: String? = nil, tool: String, toolCallID: String? = nil, updatedAt: String, why: String? = nil) {
+    public init(appliedAt: String? = nil, approvalID: String? = nil, bindingHash: String, createdAt: String, domain: StagedActionDomain, forkBranchID: String? = nil, id: String, inverse: JSONAny? = nil, kind: String, nightID: String? = nil, params: JSONAny? = nil, paramsHash: String, precondition: JSONAny? = nil, preview: StagedPreview? = nil, result: StagedActionResult? = nil, send: StagedActionSend? = nil, seq: Int, sideEffect: String, status: StagedActionStatus, summary: String, taint: Bool, taintSources: [TaintSource], target: JSONAny? = nil, targetKey: String, taskID: String? = nil, tool: String, toolCallID: String? = nil, updatedAt: String, why: String? = nil) {
         self.appliedAt = appliedAt
         self.approvalID = approvalID
         self.bindingHash = bindingHash
@@ -26541,6 +26543,62 @@ public enum StagedActionDomain: String, Codable, Sendable {
     case files = "files"
     case mail = "mail"
     case reminders = "reminders"
+}
+
+// MARK: - StagedPreview
+public struct StagedPreview: Codable, Sendable {
+    public let kind: StagedPreviewKind
+    public let rows: [StagedPreviewRow]
+    public let title: String
+    public let truncated: Bool
+
+    public enum CodingKeys: String, CodingKey {
+        case kind = "kind"
+        case rows = "rows"
+        case title = "title"
+        case truncated = "truncated"
+    }
+
+    public init(kind: StagedPreviewKind, rows: [StagedPreviewRow], title: String, truncated: Bool) {
+        self.kind = kind
+        self.rows = rows
+        self.title = title
+        self.truncated = truncated
+    }
+}
+
+public enum StagedPreviewKind: String, Codable, Sendable {
+    case calendar = "calendar"
+    case file = "file"
+    case mail = "mail"
+    case reminder = "reminder"
+}
+
+// MARK: - StagedPreviewRow
+public struct StagedPreviewRow: Codable, Sendable {
+    public let badge: Badge?
+    public let label: String
+    public let truncated: Bool?
+    public let value: String
+
+    public enum CodingKeys: String, CodingKey {
+        case badge = "badge"
+        case label = "label"
+        case truncated = "truncated"
+        case value = "value"
+    }
+
+    public init(badge: Badge? = nil, label: String, truncated: Bool? = nil, value: String) {
+        self.badge = badge
+        self.label = label
+        self.truncated = truncated
+        self.value = value
+    }
+}
+
+public enum Badge: String, Codable, Sendable {
+    case newRecipient = "new_recipient"
+    case replyAll = "reply_all"
 }
 
 // MARK: - StagedActionResult
