@@ -26523,6 +26523,7 @@ public struct StagedAction: Codable, Sendable {
     public let toolCallID: String?
     public let updatedAt: String
     public let why: String?
+    public let withheld: Withheld?
 
     public enum CodingKeys: String, CodingKey {
         case appliedAt = "appliedAt"
@@ -26554,9 +26555,10 @@ public struct StagedAction: Codable, Sendable {
         case toolCallID = "toolCallId"
         case updatedAt = "updatedAt"
         case why = "why"
+        case withheld = "withheld"
     }
 
-    public init(appliedAt: String? = nil, approvalID: String? = nil, bindingHash: String, createdAt: String, domain: StagedActionDomain, forkBranchID: String? = nil, id: String, inverse: JSONAny? = nil, kind: String, nightID: String? = nil, params: JSONAny? = nil, paramsHash: String, precondition: JSONAny? = nil, preview: StagedPreview? = nil, result: StagedActionResult? = nil, send: StagedActionSend? = nil, seq: Int, sideEffect: String, status: StagedActionStatus, summary: String, taint: Bool, taintSources: [TaintSource], target: JSONAny? = nil, targetKey: String, taskID: String? = nil, tool: String, toolCallID: String? = nil, updatedAt: String, why: String? = nil) {
+    public init(appliedAt: String? = nil, approvalID: String? = nil, bindingHash: String, createdAt: String, domain: StagedActionDomain, forkBranchID: String? = nil, id: String, inverse: JSONAny? = nil, kind: String, nightID: String? = nil, params: JSONAny? = nil, paramsHash: String, precondition: JSONAny? = nil, preview: StagedPreview? = nil, result: StagedActionResult? = nil, send: StagedActionSend? = nil, seq: Int, sideEffect: String, status: StagedActionStatus, summary: String, taint: Bool, taintSources: [TaintSource], target: JSONAny? = nil, targetKey: String, taskID: String? = nil, tool: String, toolCallID: String? = nil, updatedAt: String, why: String? = nil, withheld: Withheld? = nil) {
         self.appliedAt = appliedAt
         self.approvalID = approvalID
         self.bindingHash = bindingHash
@@ -26586,6 +26588,7 @@ public struct StagedAction: Codable, Sendable {
         self.toolCallID = toolCallID
         self.updatedAt = updatedAt
         self.why = why
+        self.withheld = withheld
     }
 }
 
@@ -26698,6 +26701,10 @@ public enum StagedActionStatus: String, Codable, Sendable {
     case superseded = "superseded"
     case uncertain = "uncertain"
     case undone = "undone"
+}
+
+public enum Withheld: String, Codable, Sendable {
+    case messages = "messages"
 }
 
 // MARK: - NightShiftReviewGetParams

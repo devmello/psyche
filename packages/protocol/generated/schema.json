@@ -49946,6 +49946,12 @@
           "maxItems": 20,
           "type": "array"
         },
+        "withheld": {
+          "enum": [
+            "messages"
+          ],
+          "type": "string"
+        },
         "status": {
           "$ref": "#/$defs/StagedActionStatus"
         },

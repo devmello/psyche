@@ -1,5 +1,6 @@
 import type { ApprovalKind } from "@psyche/protocol";
 import { isMoneyText, isMoneyToolName } from "@psyche/protocol/money-intent";
+import { bindingHash as bindingHashFor } from "./binding.ts";
 import { SEND_KINDS } from "./connector-matrix.ts";
 import { AUTH_KINDS, DEVICE_ONLY_KINDS, inferApprovalKind, SEVERITY } from "./kinds.ts";
 import type {
@@ -319,4 +320,21 @@ export function refuseStagedChild(
     return { reason: "not_write", message: `only changes can be applied (${tool})` };
   }
   return undefined;
+}
+
+/**
+ * The binding of a staged send child (night-shift §3.2): the send tool, the saved draft's content
+ * hash the owner approved (`sendHash`) and the recipients, never a draft id (the draft does not
+ * exist yet when the owner taps). `bindStagedSend` turns it into the exact send call once the
+ * saved draft is read back and hashes to the same content.
+ */
+export function stagedSendBindingHash(
+  tool: string,
+  contentHash: string,
+  recipients: readonly string[],
+): string {
+  return bindingHashFor("send_email", {
+    tool,
+    stagedSend: { contentHash, recipients: [...new Set(recipients.map(bareAddress))].sort() },
+  });
 }

@@ -2137,6 +2137,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     followups: proactive.followups,
     redact: (text) => redactor.redact(text),
     publish: (event, payload) => publish(event as never, payload as never),
+    broker: rawBroker,
+    surfaceOf: (deviceId) => surfaceOf(db, deviceId),
     ...(gwOptions.logger === undefined ? {} : { logger: gwOptions.logger }),
   });
   // #557: web.search / web.fetch on every surface (read-only, untrusted output).

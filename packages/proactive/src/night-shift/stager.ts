@@ -87,7 +87,11 @@ export const hasCapture = (item: Pick<StagedAction, "precondition">): boolean =>
 const stableJson = (v: unknown): string => stable(v as Json);
 
 /** The send an item may offer: only a mail draft, bound to what reaches the recipients. */
-function sendFor(tool: string, call: StagedCall, cap: CaptureOk): StagedAction["send"] | undefined {
+export function sendFor(
+  tool: string,
+  call: StagedCall,
+  cap: CaptureOk,
+): StagedAction["send"] | undefined {
   if (
     !/^(mail_reply_draft|mail_draft|mail_create_draft|gmail_create_draft)$/.test(bareTool({ tool }))
   ) {
@@ -222,7 +226,7 @@ export function createStager(deps: StagerDeps): StagingSink {
       seq,
       domain,
       targetKey: result.target,
-      tool: call.tool,
+      tool: storedCall.tool,
       kind: call.kind ?? "connector_action",
       sideEffect: call.sideEffect,
       target: call.target ?? null,
