@@ -685,6 +685,18 @@ export const es: Partial<Catalogue> = {
   "agent.mode.manual": "manual",
   "agent.mode.balanced": "equilibrado",
   "agent.mode.auto": "automático",
+  "agent.mode.full": "Acceso total",
+  "chat.commands.full.hint": "on | off",
+  "chat.commands.full.description": "Activa o desactiva el acceso total en este chat",
+  "chat.commands.usageFull": "Uso: /full [on | off]",
+  "chat.args.mode.full": "Actúa sin preguntar, salvo envíos y pagos",
+  "chat.args.full.on": "Actuar sin preguntar, salvo envíos y pagos",
+  "chat.args.full.off": "Volver a Equilibrado",
+  "chat.thread.fullAccessOn":
+    "El acceso total está activado en este chat. Los envíos a otras personas y los pagos siguen pidiendo permiso.",
+  "chat.thread.fullAccessOff": "El acceso total está desactivado. Este chat vuelve a Equilibrado.",
+  "chat.fullAccess.banner": "Acceso total: Psyche actúa sin preguntar, salvo envíos y pagos.",
+  "chat.fullAccess.turnOff": "Desactivar",
   "agent.mode.plan": "plan",
 
   "agent.state.idle": "inactivo",

@@ -1,7 +1,7 @@
 import { hashCanonical } from "@psyche/audit";
 import type { CallContext } from "@psyche/browser";
 import { getMachineByDevice, getSetting, listNodes } from "@psyche/db";
-import { type AppTier, appIdAliases, bindingHash } from "@psyche/permissions";
+import { type AppTier, appIdAliases, bindingHash, isSendLabel } from "@psyche/permissions";
 import {
   APPROVAL_TTL_MS,
   type ApprovalRequest,
@@ -2854,6 +2854,13 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
       unwatched(p.app) ||
       (p.action === "menu" && (p.path ?? "").split(">").some((seg) => riskyLabel(seg))) ||
       (p.action === "press" && riskyLabel(p.press?.replace(/^custom:/, "")));
+    // A send to other people: Return or ⌘Return in a messaging or mail app, typed text ending a
+    // line there, a menu item or pressed control named Send. Full access keeps its card for it.
+    const sends =
+      (p.action === "key" && p.keys !== undefined && isSendChord(p.app, p.keys)) ||
+      (p.action === "type" && isSendApp(p.app) && /[\r\n]/.test(p.text ?? "")) ||
+      (p.action === "menu" && (p.path ?? "").split(">").some((seg) => isSendLabel(seg.trim()))) ||
+      (p.action === "press" && isSendLabel(p.press?.replace(/^custom:/, "")));
     const what =
       p.action === "type"
         ? "Type text"
@@ -2899,6 +2906,7 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
         control: {
           labels: controlLabels(p, p.ref === undefined ? undefined : seenElement(p, p.ref)?.label),
           ...(activatesUnseen(p) ? { unreadable: true } : {}),
+          ...(sends ? { sends: true } : {}),
         },
       },
       summary: placed(p, `${unwatched(p.app) ? "While you're away: " : ""}${what} in ${p.app}`),

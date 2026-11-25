@@ -10,6 +10,7 @@ import {
   type ArgSpec,
   currentModel,
   exportOptions,
+  fullOptions,
   modelOptions,
   modeOptions,
 } from "./command-args.ts";
@@ -17,6 +18,7 @@ import {
 export type CommandName =
   | "model"
   | "mode"
+  | "full"
   | "new"
   | "btw"
   | "fork"
@@ -75,6 +77,7 @@ export const COMMANDS: readonly CommandInfo[] = [
     options: modeOptions,
     current: (ctx) => ctx.permissionMode,
   }),
+  command("full", "optional", { kind: "enum", options: fullOptions }),
   command("new", "none"),
   command("btw", "required"),
   command("fork", "optional"),
@@ -120,9 +123,12 @@ export function parseCommand(input: string): CommandParse {
   if (
     name === "mode" &&
     arg !== "" &&
-    !["manual", "balanced", "auto", "plan"].includes(arg.toLowerCase())
+    !["manual", "balanced", "auto", "full", "plan"].includes(arg.toLowerCase())
   ) {
     return { type: "error", message: t("chat.commands.usageMode") };
+  }
+  if (name === "full" && arg !== "" && arg.toLowerCase() !== "on" && arg.toLowerCase() !== "off") {
+    return { type: "error", message: t("chat.commands.usageFull") };
   }
   if (
     name === "export" &&
@@ -132,7 +138,11 @@ export function parseCommand(input: string): CommandParse {
   ) {
     return { type: "error", message: t("chat.commands.usageExport") };
   }
-  return { type: "command", name: info.name, arg: name === "mode" ? arg.toLowerCase() : arg };
+  return {
+    type: "command",
+    name: info.name,
+    arg: name === "mode" || name === "full" ? arg.toLowerCase() : arg,
+  };
 }
 
 /** Commands for the autocomplete menu while the composer holds only `/` plus a partial name. */

@@ -712,6 +712,19 @@ export const de: Partial<Catalogue> = {
   "agent.mode.manual": "manuell",
   "agent.mode.balanced": "ausgewogen",
   "agent.mode.auto": "automatisch",
+  "agent.mode.full": "Vollzugriff",
+  "chat.commands.full.hint": "on | off",
+  "chat.commands.full.description": "Vollzugriff in diesem Chat ein- oder ausschalten",
+  "chat.commands.usageFull": "Verwendung: /full [on | off]",
+  "chat.args.mode.full": "Handelt ohne Rückfrage, außer bei Nachrichten und Zahlungen",
+  "chat.args.full.on": "Ohne Rückfrage handeln, außer bei Nachrichten und Zahlungen",
+  "chat.args.full.off": "Zurück zu Ausgewogen",
+  "chat.thread.fullAccessOn":
+    "Vollzugriff ist in diesem Chat an. Nachrichten an andere und Zahlungen fragen weiterhin nach.",
+  "chat.thread.fullAccessOff": "Vollzugriff ist aus. Dieser Chat ist wieder ausgewogen.",
+  "chat.fullAccess.banner":
+    "Vollzugriff: Psyche handelt ohne Rückfrage, außer bei Nachrichten und Zahlungen.",
+  "chat.fullAccess.turnOff": "Ausschalten",
   "agent.mode.plan": "planen",
 
   "agent.state.idle": "inaktiv",

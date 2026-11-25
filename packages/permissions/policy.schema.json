@@ -10,7 +10,7 @@
     "defaultMode": {
       "$id": "PermissionMode",
       "type": "string",
-      "enum": ["plan", "manual", "balanced", "auto"]
+      "enum": ["plan", "manual", "balanced", "auto", "full"]
     },
     "grants": {
       "additionalProperties": false,

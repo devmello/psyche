@@ -4,7 +4,7 @@ import { type FileHandle, lstat, mkdir, open, readdir, rename, rm } from "node:f
 import { basename, dirname, join } from "node:path";
 import { type AgentToolRegistration, defineTool, type ToolRunContext } from "@psyche/agent-core";
 import { absoluteHostPathPattern, isUnderHostPath, launchConfigEntry } from "@psyche/hostfs";
-import { type ProvenanceOut, PsycheError } from "@psyche/protocol";
+import { fullAccessApplies, type ProvenanceOut, PsycheError } from "@psyche/protocol";
 import { routineWritePath } from "@psyche/protocol/routine-path";
 import { Type } from "@sinclair/typebox";
 import { cardDiff } from "./diff.ts";
@@ -147,7 +147,15 @@ export interface FileToolsOptions {
    * The owner's granted folders (`permissions.policy.folders`), read on every call. When set,
    * the executors refuse paths outside them (and writes outside `rw` ones) behind the broker.
    */
-  folders?: (scope?: { threadId: string; runId?: string }) => readonly GrantedFolder[] | undefined;
+  folders?: (scope?: {
+    threadId: string;
+    runId?: string;
+    /**
+     * The run is an owner's attended chat turn in a Full-access thread (`fullAccessApplies`):
+     * the Gateway adds Full access's root (the owner's home folder) for it.
+     */
+    fullAccess?: boolean;
+  }) => readonly GrantedFolder[] | undefined;
   /**
    * Locations refused for every read and write whatever is granted: Psyche's own home and the
    * owner's credential stores (security §5.3, #285).
@@ -317,7 +325,17 @@ export function fileTools(options: FileToolsOptions = {}): AgentToolRegistration
     isProtectedPath(path, options.protectedRoots?.(), options.ownDirs?.(), options.carveOuts?.());
   const granted = (path: string, access: "read" | "write", ctx: ToolRunContext) => {
     // The conversation's own roots (`request_permission`, "Allow once") count too.
-    const folders = options.folders?.({ threadId: ctx.threadId, runId: ctx.runId });
+    const fullAccess = fullAccessApplies({
+      permissionMode: ctx.permissionMode,
+      unattended: ctx.mode === "unattended",
+      ...(ctx.requester === undefined ? {} : { requester: ctx.requester }),
+      ...(ctx.initiator === undefined ? {} : { initiator: ctx.initiator }),
+    });
+    const folders = options.folders?.({
+      threadId: ctx.threadId,
+      runId: ctx.runId,
+      ...(fullAccess ? { fullAccess } : {}),
+    });
     let wp: WriteProtection | undefined;
     if (access === "write") {
       const raw = options.writeProtectedRoots?.() ?? [];
