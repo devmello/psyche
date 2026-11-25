@@ -52,6 +52,7 @@ import { securityState } from "./security-state/ar.ts";
 import { selfConnectors } from "./self-connectors/ar.ts";
 import { separateDesktop } from "./separate-desktop/ar.ts";
 import { settings } from "./settings/ar.ts";
+import { settingsDrill } from "./settings-drill/ar.ts";
 import { settingsLanguage } from "./settings-language/ar.ts";
 import { settingsSections } from "./settings-sections/ar.ts";
 import { shell } from "./shell/ar.ts";
@@ -2319,8 +2320,6 @@ export const ar: Partial<Catalogue> = {
   "settings.model.role.imageHint": "تغييرات الصورة الرمزية؛ «لا شيء» يعني المخلوقات المضمّنة",
   "settings.model.addProvider": "إضافة مزوّد",
   "settings.model.title": "النموذج والمزوّدون",
-  "settings.model.description":
-    "يُستخدم النموذج الذي تختاره كما اخترته. إذا فشل، يخبرك Psyche بذلك بدلًا من اللجوء إلى بديل.",
   "settings.model.loadLabel": "مزوّدو النماذج",
   "settings.model.providers": "المزوّدون",
   "settings.model.listFailed": "تعذّر على Psyche سرد النماذج ({reason}).",
@@ -2352,13 +2351,10 @@ export const ar: Partial<Catalogue> = {
   "settings.model.runCheckOn": "تشغيل فحص استدعاء الأدوات على {name}",
   "settings.model.runCheck": "تشغيل الفحص",
   "settings.model.roles": "أدوار النماذج",
-  "settings.model.rolesHint":
-    "يستخدم كل دور نموذجًا واحدًا. النماذج التي تفشل في فحص استدعاء الأدوات تكون للدردشة فقط.",
   "settings.model.none": "لا شيء",
   "settings.model.choose": "اختر نموذجًا",
   "settings.model.chatOnlyOption": "{name} (دردشة فقط)",
   "settings.model.local": "النماذج المحلية",
-  "settings.model.localHint": "شغّل النماذج على هذا الـ Mac باستخدام Ollama أو LM Studio.",
   "settings.model.err.use": "تعذّر على Psyche استخدام {name} ({reason}).",
   "settings.model.err.probe": "تعذّر على Psyche فحص نقطة النهاية ({reason}).",
   "settings.model.err.check": "تعذّر على Psyche تشغيل الفحص ({reason}).",
@@ -2411,8 +2407,6 @@ export const ar: Partial<Catalogue> = {
   "settings.permissions.subject.emailFrom": "إلى {recipients} من {account}",
   "settings.permissions.subject.calendarNamed": "التقويم {id}",
   "settings.permissions.subject.calendar": "التقويم",
-  "settings.permissions.title": "الأذونات",
-  "settings.permissions.description": "ما يعمل من تلقاء نفسه، وما يسأل أولًا، وما لا يحدث أبدًا.",
   "settings.permissions.loadLabel": "الأذونات",
   "settings.permissions.defaultModeTitle": "الوضع الافتراضي للمحادثات الجديدة",
   "settings.permissions.execReview":
@@ -4059,6 +4053,7 @@ export const ar: Partial<Catalogue> = {
   ...points,
   // Approvals wave W3 (card choices, Allowed list)
   ...approvalsW3,
+  ...settingsDrill,
   // Gateway-authored notices (inbox notifications, security alerts)
   ...notices,
   // Settings > Computer use > Separate desktop (Linux)

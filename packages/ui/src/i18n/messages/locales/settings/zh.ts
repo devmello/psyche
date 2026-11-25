@@ -3,27 +3,11 @@ import type { Catalogue } from "../../index.ts";
 /** settings strings (zh); merged into `../zh.ts`. */
 export const settings: Partial<Catalogue> = {
   "settings.shared.advanced": "高级",
-  "settings.nav.inPage": "在{page}中",
   "settings.nav.essentials": "基本设置",
   "settings.nav.learning": "基础",
   "settings.search.count": "{count, plural, other {# 个结果}}",
   "settings.search.result.page": "页面",
   "settings.page.essentials": "基本设置",
-  "settings.page.essentials.description":
-    "大多数人都会做的几个选择。每项都有安全的默认值，其余设置在下方各页面。",
-  "settings.page.general.description":
-    "{persona}的外观、身份、何时可以打扰你，以及你如何与它交流。",
-  "settings.page.model.description": "{persona}用来思考的模型、所用的密钥及费用。",
-  "settings.page.connectors.description": "{persona}能访问的 App 和账户，以及它会搜索其中哪些。",
-  "settings.page.memory.description": "{persona}记住什么、从哪里学习，以及你如何控制。",
-  "settings.page.daily.description":
-    "你的早间简报与晚间总结、自动化、技能，以及{persona}可调用的专员。",
-  "settings.page.permissions.description":
-    "{persona}在这台 Mac 上无需询问就可执行的操作，以及它一定会停下来问你的地方。",
-  "settings.page.data.description": "哪些内容保留在这台 Mac 上、保留多久、导出、备份以及重新开始。",
-  "settings.page.devices.description":
-    "你的其他设备、Gateway 服务器，以及你不在时如何联系{persona}。",
-  "settings.page.about.description": "版本、健康检查和日志。",
   "settings.essentials.title": "基本设置",
   "settings.essentials.description":
     "大多数人都会做的几个选择，每项都有安全的默认值。需要更多信息时，{persona}会来问你。",
@@ -153,12 +137,8 @@ export const settings: Partial<Catalogue> = {
   "settings.doctor.memory": "记忆",
   "settings.doctor.memoryPaused": "记忆已暂停：不会记住任何新内容。",
   "settings.doctor.memoryOk": "记忆中有 {files, plural, other {# 个文件}}。",
-  "settings.appearance.description": "适用于你已配对的所有设备。",
   "settings.appearance.colors": "颜色",
-  "settings.appearance.colorsHint": "浅色或深色，以及你的强调色。",
   "settings.appearance.comfort": "舒适度",
-  "settings.appearance.comfortHint": "对眼睛和动态效果更友好。",
-  "settings.appearance.backgroundHint": "关闭窗口后 Psyche 是否继续运行。",
   "settings.appearance.advancedHint": "灰度色调、自定义颜色、文字方向、对比度检查",
   "settings.appearance.fineTune": "微调颜色",
   "settings.appearance.fineTuneHint": "适合想要精确外观的人。",
@@ -695,7 +675,6 @@ export const settings: Partial<Catalogue> = {
   "settings.access.reconnectFailed": "{name} 又被移动了，或无法重新连接。列表已刷新。",
   "settings.access.reconnectBlocked":
     "{name} 已被移动，但无法安全地重新连接：某条规则或其中的文件夹仍指向旧位置。请撤销后重新共享。",
-  "settings.model.advancedHint": "上下文上限、本地模型",
   "settings.permissions.subject.prepNotes": "标题为“Prep:”的备忘录（会议准备）",
   "settings.permissions.specificConnectors": "特定连接器的权限在“连接器”中它自己的页面上设置。",
   "settings.permissions.openConnectors": "打开连接器",

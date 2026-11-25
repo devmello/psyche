@@ -38,6 +38,7 @@ import { settingsA } from "./settings-a/pt.ts";
 import { settingsB } from "./settings-b/pt.ts";
 import { settingsC } from "./settings-c/pt.ts";
 import { settingsD } from "./settings-d/pt.ts";
+import { settingsDrill } from "./settings-drill/pt.ts";
 import { settingsE } from "./settings-e/pt.ts";
 import { spaces } from "./spaces/pt.ts";
 import { specialistsA } from "./specialists-a/pt.ts";
@@ -2243,8 +2244,6 @@ export const pt: Partial<Catalogue> = {
   "settings.model.role.imageHint": "Alterações de avatar; nenhum significa as criaturas incluídas",
   "settings.model.addProvider": "Adicionar um provedor",
   "settings.model.title": "Modelo e provedores",
-  "settings.model.description":
-    "Um modelo que você escolhe é usado como escolhido. Se falhar, o Psyche avisa em vez de recorrer a outro.",
   "settings.model.loadLabel": "provedores de modelos",
   "settings.model.providers": "Provedores",
   "settings.model.listFailed": "O Psyche não conseguiu listar os modelos ({reason}).",
@@ -2278,13 +2277,10 @@ export const pt: Partial<Catalogue> = {
   "settings.model.runCheckOn": "Executar a verificação de chamada de ferramentas em {name}",
   "settings.model.runCheck": "Executar verificação",
   "settings.model.roles": "Funções dos modelos",
-  "settings.model.rolesHint":
-    "Cada função usa um modelo. Modelos que falham na verificação de chamada de ferramentas são somente conversa.",
   "settings.model.none": "Nenhum",
   "settings.model.choose": "Escolher um modelo",
   "settings.model.chatOnlyOption": "{name} (somente conversa)",
   "settings.model.local": "Modelos locais",
-  "settings.model.localHint": "Execute modelos neste Mac com o Ollama ou o LM Studio.",
   "settings.model.err.use": "O Psyche não conseguiu usar {name} ({reason}).",
   "settings.model.err.probe": "O Psyche não conseguiu verificar o endpoint ({reason}).",
   "settings.model.err.check": "O Psyche não conseguiu executar a verificação ({reason}).",
@@ -2340,9 +2336,6 @@ export const pt: Partial<Catalogue> = {
   "settings.permissions.subject.emailFrom": "para {recipients} de {account}",
   "settings.permissions.subject.calendarNamed": "calendário {id}",
   "settings.permissions.subject.calendar": "calendário",
-  "settings.permissions.title": "Permissões",
-  "settings.permissions.description":
-    "O que é executado sozinho, o que pergunta antes e o que nunca acontece.",
   "settings.permissions.loadLabel": "permissões",
   "settings.permissions.defaultModeTitle": "Modo padrão para novas conversas",
   "settings.permissions.execReview":
@@ -4014,6 +4007,7 @@ export const pt: Partial<Catalogue> = {
   ...points,
   // Approvals wave W3 (card choices, Allowed list)
   ...approvalsW3,
+  ...settingsDrill,
   // Gateway-authored notices (inbox notifications, security alerts)
   ...notices,
   // Settings > Computer use > Separate desktop (Linux)

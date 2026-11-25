@@ -55,6 +55,7 @@ import { scheduledRest } from "./scheduled-rest/ko.ts";
 import { screensRest } from "./screens-rest/ko.ts";
 import { securityState } from "./security-state/ko.ts";
 import { separateDesktop } from "./separate-desktop/ko.ts";
+import { settingsDrill } from "./settings-drill/ko.ts";
 import { settingsRest } from "./settings-rest/ko.ts";
 import { shellRest } from "./shell-rest/ko.ts";
 import { spaces } from "./spaces/ko.ts";
@@ -2257,8 +2258,6 @@ export const ko: Partial<Catalogue> = {
   "settings.model.role.imageHint": "아바타 변경, 없으면 내장 크리처 사용",
   "settings.model.addProvider": "제공업체 추가",
   "settings.model.title": "모델 및 제공업체",
-  "settings.model.description":
-    "선택한 모델이 그대로 사용됩니다. 실패하면 Psyche는 다른 모델로 대체하지 않고 실패를 알립니다.",
   "settings.model.loadLabel": "모델 제공업체",
   "settings.model.providers": "제공업체",
   "settings.model.listFailed": "Psyche가 모델 목록을 가져올 수 없습니다({reason}).",
@@ -2291,13 +2290,10 @@ export const ko: Partial<Catalogue> = {
   "settings.model.runCheckOn": "{name}에서 도구 호출 점검 실행",
   "settings.model.runCheck": "점검 실행",
   "settings.model.roles": "모델 역할",
-  "settings.model.rolesHint":
-    "각 역할은 모델 하나를 사용합니다. 도구 호출 점검에 실패한 모델은 채팅 전용입니다.",
   "settings.model.none": "없음",
   "settings.model.choose": "모델 선택",
   "settings.model.chatOnlyOption": "{name} (채팅 전용)",
   "settings.model.local": "로컬 모델",
-  "settings.model.localHint": "Ollama 또는 LM Studio로 이 Mac에서 모델을 실행합니다.",
   "settings.model.err.use": "Psyche가 {name}을(를) 사용할 수 없습니다({reason}).",
   "settings.model.err.probe": "Psyche가 엔드포인트를 점검할 수 없습니다({reason}).",
   "settings.model.err.check": "Psyche가 점검을 실행할 수 없습니다({reason}).",
@@ -2347,8 +2343,6 @@ export const ko: Partial<Catalogue> = {
   "settings.permissions.subject.emailFrom": "{recipients}에게, 계정 {account}",
   "settings.permissions.subject.calendarNamed": "캘린더 {id}",
   "settings.permissions.subject.calendar": "캘린더",
-  "settings.permissions.title": "권한",
-  "settings.permissions.description": "자동으로 실행되는 것, 먼저 묻는 것, 절대 하지 않는 것.",
   "settings.permissions.loadLabel": "권한",
   "settings.permissions.defaultModeTitle": "새 스레드의 기본 모드",
   "settings.permissions.execReview": "자동 모드에서 안전한 터미널 명령을 검토자가 승인하도록 허용",
@@ -4002,6 +3996,7 @@ export const ko: Partial<Catalogue> = {
   ...points,
   // Approvals wave W3 (card choices, Allowed list)
   ...approvalsW3,
+  ...settingsDrill,
   // Gateway-authored notices (inbox notifications, security alerts)
   ...notices,
   // Settings > Computer use > Separate desktop (Linux)

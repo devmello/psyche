@@ -55,6 +55,7 @@ import { scheduledRest } from "./scheduled-rest/hi.ts";
 import { screensRest } from "./screens-rest/hi.ts";
 import { securityState } from "./security-state/hi.ts";
 import { separateDesktop } from "./separate-desktop/hi.ts";
+import { settingsDrill } from "./settings-drill/hi.ts";
 import { settingsRest } from "./settings-rest/hi.ts";
 import { shellRest } from "./shell-rest/hi.ts";
 import { spaces } from "./spaces/hi.ts";
@@ -2267,8 +2268,6 @@ export const hi: Partial<Catalogue> = {
   "settings.model.role.imageHint": "अवतार बदलाव; कोई नहीं का मतलब बंडल किए गए प्राणी",
   "settings.model.addProvider": "प्रदाता जोड़ें",
   "settings.model.title": "मॉडल और प्रदाता",
-  "settings.model.description":
-    "आपके चुने गए मॉडल का उपयोग वैसे ही होता है। अगर यह विफल होता है, तो Psyche फ़ॉलबैक करने के बजाय ऐसा बताता है।",
   "settings.model.loadLabel": "मॉडल प्रदाता",
   "settings.model.providers": "प्रदाता",
   "settings.model.listFailed": "Psyche मॉडल सूचीबद्ध नहीं कर सका ({reason})।",
@@ -2300,13 +2299,10 @@ export const hi: Partial<Catalogue> = {
   "settings.model.runCheckOn": "{name} पर टूल-कॉलिंग जाँच चलाएँ",
   "settings.model.runCheck": "जाँच चलाएँ",
   "settings.model.roles": "मॉडल भूमिकाएँ",
-  "settings.model.rolesHint":
-    "हर भूमिका एक मॉडल उपयोग करती है। टूल-कॉलिंग जाँच में विफल मॉडल केवल चैट के लिए हैं।",
   "settings.model.none": "कोई नहीं",
   "settings.model.choose": "मॉडल चुनें",
   "settings.model.chatOnlyOption": "{name} (केवल चैट)",
   "settings.model.local": "लोकल मॉडल",
-  "settings.model.localHint": "Ollama या LM Studio से इस Mac पर मॉडल चलाएँ।",
   "settings.model.err.use": "Psyche {name} का उपयोग नहीं कर सका ({reason})।",
   "settings.model.err.probe": "Psyche एंडपॉइंट जाँच नहीं सका ({reason})।",
   "settings.model.err.check": "Psyche जाँच नहीं चला सका ({reason})।",
@@ -2359,8 +2355,6 @@ export const hi: Partial<Catalogue> = {
   "settings.permissions.subject.emailFrom": "{recipients} को, {account} से",
   "settings.permissions.subject.calendarNamed": "कैलेंडर {id}",
   "settings.permissions.subject.calendar": "कैलेंडर",
-  "settings.permissions.title": "अनुमतियाँ",
-  "settings.permissions.description": "क्या अपने आप चलता है, क्या पहले पूछता है और क्या कभी नहीं होता।",
   "settings.permissions.loadLabel": "अनुमतियाँ",
   "settings.permissions.defaultModeTitle": "नए थ्रेड के लिए डिफ़ॉल्ट मोड",
   "settings.permissions.execReview": "ऑटो मोड में सुरक्षित टर्मिनल कमांड को समीक्षक से मंज़ूर होने दें",
@@ -4004,6 +3998,7 @@ export const hi: Partial<Catalogue> = {
   ...points,
   // Approvals wave W3 (card choices, Allowed list)
   ...approvalsW3,
+  ...settingsDrill,
   // Gateway-authored notices (inbox notifications, security alerts)
   ...notices,
   // Settings > Computer use > Separate desktop (Linux)

@@ -47,6 +47,7 @@ import { scheduledRest } from "./scheduled-rest/de.ts";
 import { screensRest } from "./screens-rest/de.ts";
 import { securityState } from "./security-state/de.ts";
 import { separateDesktop } from "./separate-desktop/de.ts";
+import { settingsDrill } from "./settings-drill/de.ts";
 import { settingsRest } from "./settings-rest/de.ts";
 import { shellRest } from "./shell-rest/de.ts";
 import { spaces } from "./spaces/de.ts";
@@ -2337,8 +2338,6 @@ export const de: Partial<Catalogue> = {
   "settings.model.role.imageHint": "Avatar-Änderungen; „Keines“ bedeutet die mitgelieferten Wesen",
   "settings.model.addProvider": "Anbieter hinzufügen",
   "settings.model.title": "Modell & Anbieter",
-  "settings.model.description":
-    "Ein von dir gewähltes Modell wird so verwendet. Wenn es fehlschlägt, sagt Psyche das, statt auf ein anderes auszuweichen.",
   "settings.model.loadLabel": "Modellanbieter",
   "settings.model.providers": "Anbieter",
   "settings.model.listFailed": "Psyche konnte die Modelle nicht auflisten ({reason}).",
@@ -2373,13 +2372,10 @@ export const de: Partial<Catalogue> = {
   "settings.model.runCheckOn": "Werkzeugaufruf-Prüfung für {name} ausführen",
   "settings.model.runCheck": "Prüfung ausführen",
   "settings.model.roles": "Modellrollen",
-  "settings.model.rolesHint":
-    "Jede Rolle verwendet ein Modell. Modelle, die die Werkzeugaufruf-Prüfung nicht bestehen, sind nur für Chat.",
   "settings.model.none": "Keines",
   "settings.model.choose": "Modell wählen",
   "settings.model.chatOnlyOption": "{name} (nur Chat)",
   "settings.model.local": "Lokale Modelle",
-  "settings.model.localHint": "Führe Modelle auf diesem Mac mit Ollama oder LM Studio aus.",
   "settings.model.err.use": "Psyche konnte {name} nicht verwenden ({reason}).",
   "settings.model.err.probe": "Psyche konnte den Endpunkt nicht prüfen ({reason}).",
   "settings.model.err.check": "Psyche konnte die Prüfung nicht ausführen ({reason}).",
@@ -2436,9 +2432,6 @@ export const de: Partial<Catalogue> = {
   "settings.permissions.subject.emailFrom": "an {recipients} von {account}",
   "settings.permissions.subject.calendarNamed": "Kalender {id}",
   "settings.permissions.subject.calendar": "Kalender",
-  "settings.permissions.title": "Berechtigungen",
-  "settings.permissions.description":
-    "Was von selbst läuft, was zuerst fragt und was nie passiert.",
   "settings.permissions.loadLabel": "Berechtigungen",
   "settings.permissions.defaultModeTitle": "Standardmodus für neue Threads",
   "settings.permissions.execReview":
@@ -4159,6 +4152,7 @@ export const de: Partial<Catalogue> = {
   ...points,
   // Approvals wave W3 (card choices, Allowed list)
   ...approvalsW3,
+  ...settingsDrill,
   // Gateway-authored notices (inbox notifications, security alerts)
   ...notices,
   // Settings > Computer use > Separate desktop (Linux)
