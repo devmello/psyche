@@ -83,7 +83,7 @@ private struct VoiceMemoPanel: View {
                     .foregroundStyle(.secondary)
             case .recording(let since):
                 Text(since, style: .timer)
-                    .font(.system(size: 48, weight: .semibold).monospacedDigit())
+                    .font(.largeTitle.weight(.semibold).monospacedDigit())
                     .accessibilityLabel(String(localized: "Elapsed time", bundle: .module))
                 Text("Recording", bundle: .module)
                     .foregroundStyle(.secondary)
@@ -105,7 +105,7 @@ private struct VoiceMemoPanel: View {
                     .foregroundStyle(.secondary)
             case .saved(let saved):
                 Image(systemName: "checkmark.circle.fill")
-                    .font(.system(size: 44))
+                    .font(.largeTitle)
                     .foregroundStyle(PsycheColor.ink)
                 Text("Saved to Library", bundle: .module)
                     .font(.headline)

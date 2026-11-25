@@ -103,7 +103,8 @@ public struct InitialsAvatar: View {
 
     public var body: some View {
         Text(initials)
-            .font(.system(size: size * 0.4, weight: .semibold))
+            .font(size >= 40 ? .callout.weight(.semibold) : .caption2.weight(.semibold))
+            .lineLimit(1).minimumScaleFactor(0.5)
             .foregroundStyle(PsycheColor.muted)
             .frame(width: size, height: size)
             .background(PsycheColor.fill, in: Circle())
