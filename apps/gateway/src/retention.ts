@@ -16,6 +16,7 @@ import {
 } from "@psyche/db";
 import { SCREEN_CAPTURE_TTL_MS } from "@psyche/protocol";
 import type { GatewayContext } from "./context.ts";
+import { type HistoryPruneReport, pruneHistory } from "./db-maintenance.ts";
 
 /** Default for the `cleanupPeriodDays` setting (data model §12). */
 export const DEFAULT_CLEANUP_PERIOD_DAYS = 30;
@@ -40,6 +41,8 @@ export interface RetentionReport {
   thinking: number;
   /** Frames whose image was removed. */
   frames: number;
+  /** Terminal tasks, scheduler runs and read or resolved notifications past 90 days. */
+  history: HistoryPruneReport;
 }
 
 /** Run trace §4.3: Off · 1 · 7 · 30 days; Off (0) keeps only the summary line. */
@@ -135,6 +138,7 @@ export function runRetention(ctx: GatewayContext): RetentionReport {
     idempotencyRecords: 0,
     thinking: 0,
     frames: 0,
+    history: { tasks: 0, automationRuns: 0, notifications: 0, truncated: false },
   };
   let frameFiles: { runId: string; seq: number; path: string }[] = [];
   db.sqlite.transaction(() => {
@@ -211,6 +215,22 @@ export function runRetention(ctx: GatewayContext): RetentionReport {
         code: (err as { code?: string }).code ?? null,
       });
     }
+  }
+  // Operational history past 90 days, in small batches under a time budget.
+  try {
+    report.history = pruneHistory(db, now);
+    const h = report.history;
+    if (h.tasks + h.automationRuns + h.notifications > 0) {
+      bus.bumpStateVersion();
+      ctx.log.log("info", "history pruned", {
+        tasks: h.tasks,
+        automationRuns: h.automationRuns,
+        notifications: h.notifications,
+        truncated: h.truncated,
+      });
+    }
+  } catch (err) {
+    ctx.log.log("warn", "history not pruned", { code: (err as { code?: string }).code ?? null });
   }
   for (const threadId of [...report.expiredThreads, ...report.emptyChats])
     bus.publish("thread.deleted", { threadId }, threadId);

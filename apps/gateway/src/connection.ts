@@ -31,13 +31,26 @@ import { HANDLERS } from "./handlers/index.ts";
 import { paramsHash } from "./idempotency.ts";
 import { readerOf } from "./message-scrub.ts";
 import { methodPresence, requireFreshPresence } from "./presence-gate.ts";
+import { guardSlowSubscriber } from "./ws-liveness.ts";
 
 export interface Transport {
   send(frame: string): void;
   close(reason: string): void;
+  /**
+   * Drops the socket now, without the closing handshake (a dead or hopelessly slow peer never
+   * answers it). Absent when the transport has no such thing: `close` is used instead.
+   */
+  terminate?(reason: string): void;
   /** Bytes queued on the socket (WebSockets); absent when the transport cannot tell. */
   bufferedAmount?(): number;
 }
+
+/**
+ * A paired subscriber with more than this many bytes queued on its socket is not keeping up (a
+ * phone that slept or lost Wi-Fi without a FIN). Its socket is terminated: the client reconnects
+ * and resyncs through `stateVersion`, and the Gateway stops holding frames for it.
+ */
+export const MAX_SUBSCRIBER_BUFFER_BYTES = 4 * 1024 * 1024;
 
 /** Reply id used when a malformed request carried no usable id. */
 export const UNKNOWN_FRAME_ID = "_unknown";
@@ -229,6 +242,14 @@ export class Connection implements LiveConnection {
     this.#closeAfterReply = reason;
   }
 
+  /** Closes without waiting for the peer: a dead socket, or one that is not draining. */
+  terminate(reason: string): void {
+    this.#hard = true;
+    this.close(reason);
+  }
+
+  #hard = false;
+
   close(reason: string): void {
     if (this.#phase === "closed") return;
     this.#phase = "closed";
@@ -242,7 +263,8 @@ export class Connection implements LiveConnection {
     this.#outbound.clear();
     if (this.#identity?.role === "node") this.#ctx.nodes.detach(this);
     else if (this.#identity !== null) this.#ctx.nodes.detachPhone(this);
-    this.#transport.close(reason);
+    if (this.#hard && this.#transport.terminate) this.#transport.terminate(reason);
+    else this.#transport.close(reason);
     const deviceId = this.#identity?.deviceId;
     if (deviceId !== undefined) {
       const stillThere = [...this.#ctx.connections()].some(
@@ -669,7 +691,18 @@ export class Connection implements LiveConnection {
     if (result.phase === "paired" && identity) {
       this.#phase = "paired";
       this.#identity = identity;
-      const sink: FrameSink = (frame) => this.#send(frame);
+      const sink: FrameSink = guardSlowSubscriber({
+        send: (frame) => this.#send(frame),
+        bufferedAmount: () => this.bufferedAmount(),
+        limit: MAX_SUBSCRIBER_BUFFER_BYTES,
+        onOverflow: (bytes) => {
+          this.#ctx.log.log("warn", "slow subscriber dropped", {
+            conn: this.id,
+            bufferedBytes: bytes,
+          });
+          this.terminate("subscriber buffer full");
+        },
+      });
       this.#sink = sink;
       this.#unsubscribe = ctx.bus.subscribe(
         identity.scopes,

@@ -20,6 +20,7 @@ export {
 export * from "./repos/artifacts.ts";
 export * from "./repos/chat-queue.ts";
 export * from "./repos/devices.ts";
+export * from "./repos/history-prune.ts";
 export * from "./repos/idempotency.ts";
 export * from "./repos/library.ts";
 export * from "./repos/machines.ts";
