@@ -1911,6 +1911,7 @@ export const pt: Partial<Catalogue> = {
   "settings.mcp.network": "Usa a rede",
   "settings.mcp.added": "{name} foi adicionado.",
   "settings.mcp.removed": "{name} foi removido.",
+  "settings.openPage.failed": "O Psyche não conseguiu abrir a página ({reason}).",
   "settings.mcp.secretNotDeleted":
     "O Psyche não conseguiu apagar um segredo salvo ({reason}). Tente de novo para removê-lo.",
   "settings.mcp.denied": "{name} não foi adicionado.",

@@ -1,8 +1,10 @@
 import type { LinkSetupReason, LinkSetupStatus } from "@psyche/protocol";
 import { type ReactElement, type ReactNode, useContext, useState } from "react";
+import { toast } from "sonner";
 import { Button } from "../../components/ui/button.tsx";
 import { useCall } from "../../data/hooks.ts";
 import { t } from "../../i18n/core.ts";
+import { describeError } from "../../i18n/errors.ts";
 import { useSlots } from "../../slots.tsx";
 import { approvalIdOf, messageOf, SettingsApprovalContext } from "./shared.tsx";
 
@@ -318,7 +320,10 @@ function SignInLink({ href, children }: { href: string; children: ReactNode }): 
       className="text-accent-11 underline underline-offset-2"
       onClick={(e) => {
         e.preventDefault();
-        if (openExternal) void openExternal(href).catch(() => {});
+        if (openExternal)
+          void openExternal(href).catch((err: unknown) =>
+            toast.error(t("settings.openPage.failed", { reason: describeError(err) })),
+          );
         else globalThis.open?.(href, "_blank", "noopener,noreferrer");
       }}
     >
