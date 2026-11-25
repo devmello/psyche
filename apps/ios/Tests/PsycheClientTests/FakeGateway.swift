@@ -30,6 +30,15 @@ final class FakeGateway: @unchecked Sendable {
     static let origin = "https://studio-mac.tail1234.ts.net"
     static let nonce = "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8"
 
+    /// Methods the Gateway refuses without an idempotencyKey, generated from the protocol
+    /// (`node .claude/scripts/gen-ios-side-effecting.mjs`; `packages/protocol/test/ios-side-effecting.test.ts` checks it is fresh).
+    static let sideEffectingMethods: Set<String> = {
+        let url = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+            .appendingPathComponent("side-effecting-methods.json")
+        let data = try! Data(contentsOf: url)
+        return Set(try! JSONDecoder().decode([String].self, from: data))
+    }()
+
     private let lock = NSLock()
     private var _behavior: Behavior
     private var _lie: Lie
@@ -144,7 +153,11 @@ final class FakeGateway: @unchecked Sendable {
             transport.reply(req.id, .success(result))
         default:
             let handler = lock.withLock { _handlers[req.method] }
-            if let handler {
+            if Self.sideEffectingMethods.contains(req.method), req.idempotencyKey?.isEmpty != false {
+                // As the real Gateway does (apps/gateway/src/connection.ts).
+                transport.reply(req.id, .failure(WireError(
+                    code: "invalid_params", message: "\(req.method) is side-effecting and needs an idempotencyKey")))
+            } else if let handler {
                 transport.reply(req.id, handler(req))
             } else if !req.method.hasPrefix("silent.") {
                 transport.reply(req.id, .failure(WireError(code: "unknown_method", message: "no such method")))

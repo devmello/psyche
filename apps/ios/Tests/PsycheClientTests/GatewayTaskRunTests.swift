@@ -132,8 +132,8 @@ struct GatewayTaskRunTests {
         try await backend.retryTask(id: "task_1")
         try await backend.steerTask(id: "task_1", text: "Use the Q3 file")
         #expect(sent.all == [
-            "tasks.pause|task_1|-|nokey",
-            "tasks.resume|task_1|-|nokey",
+            "tasks.pause|task_1|-|key",
+            "tasks.resume|task_1|-|key",
             "tasks.retry|task_1|-|key",
             "tasks.steer|task_1|Use the Q3 file|key",
         ])

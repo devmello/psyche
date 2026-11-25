@@ -24,9 +24,9 @@ extension GatewayBackend {
         return (result["frames"]?.array ?? []).compactMap(Self.runFrameRef)
     }
 
-    public func runFrameImage(runID: String, seq: Int) async throws -> Data {
+    public func runFrameImage(runID: String, seq: Int, size: RunFrameSize) async throws -> Data {
         let result = try await call(
-            "runs.frame", .obj(["runId": .string(runID), "seq": .number(Double(seq))]))
+            "runs.frame", .obj(["runId": .string(runID), "seq": .number(Double(seq)), "size": .string(size.rawValue)]))
         guard let encoded = result["dataBase64"]?.string, let data = Data(base64Encoded: encoded) else {
             throw BackendError.notFound
         }
