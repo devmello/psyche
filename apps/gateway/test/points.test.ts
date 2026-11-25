@@ -512,7 +512,7 @@ describe("one session at a time", () => {
     rig.emit = undefined;
     const again = desk.call("points.start", startParams(), ik());
     await vi.waitFor(() => expect(rig.emit).toBeDefined());
-    rig.emit?.({ type: "digest", digest: digest("fp-again") });
+    (rig as Rig).emit?.({ type: "digest", digest: digest("fp-again") });
     await again;
   });
 
@@ -593,7 +593,9 @@ describe("model calls", () => {
     // A second page needs a second call, and the device's burst budget is spent: no call is made.
     rig.emit?.({ type: "digest", digest: digest("fp2") });
     await vi.waitFor(() =>
-      expect(desk.eventsNamed("points.updated").some((e) => e.payload.page === 2)).toBe(true),
+      expect(
+        desk.eventsNamed("points.updated").some((e) => (e.payload as { page?: number }).page === 2),
+      ).toBe(true),
     );
     await new Promise((r) => setTimeout(r, 100));
     expect(model.requests.length).toBe(1);
