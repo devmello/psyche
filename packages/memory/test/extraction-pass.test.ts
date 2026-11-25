@@ -525,6 +525,28 @@ describe("the nightly pass over owner-authored items", () => {
     expect(called).toBe(false);
   });
 
+  it("hands the graph pass the people it read about, and nobody else", async () => {
+    const lee = graph.createEntity({ kind: "person", name: "Lee Park" });
+    doc({ body: "Dana Reyes loves climbing, we should go this weekend." });
+    provider.enqueue([
+      { type: "text_delta", text: factJson([]) },
+      { type: "finish", reason: "stop" },
+    ]);
+    let seen: string[] = [];
+    await runEverythingPass(
+      deps({
+        graphModelPass: async (_left, covered) => {
+          seen = [...covered];
+          return { tokens: 0 };
+        },
+      }),
+    );
+    const dana = graph.search("Dana Reyes", { kinds: ["person"], limit: 1 })[0]?.id;
+    expect(dana).toBeDefined();
+    expect(seen).toEqual([dana]);
+    expect(seen).not.toContain(lee.id);
+  });
+
   it("owner-authored sensitive facts stay off by default", async () => {
     doc({ body: "Dana Reyes was diagnosed with asthma last year, poor thing." });
     provider.enqueue([

@@ -339,7 +339,7 @@ import { SystemZone } from "./time-zone.ts";
 import { uninstallHandlers } from "./uninstall.ts";
 import { updateHandlers } from "./update.ts";
 import { usageSummaryHandlers } from "./usage-summary.ts";
-import { createUserProfile } from "./user-profile.ts";
+import { cheapLearnerModel, createUserProfile } from "./user-profile.ts";
 import { composeVault, maskingLogger, type VaultSetup, vaultSetupFromEnv } from "./vault.ts";
 import { viewHandlers } from "./view.ts";
 import { type ComposedVirtualScreen, composeVirtualScreen } from "./virtual-screen.ts";
@@ -1437,9 +1437,14 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       const e = searchRef?.embedder();
       return e === undefined ? undefined : asMemoryEmbedder(e);
     },
+    // One nightly budget: the people graph's model pass runs inside this pass's window, on the
+    // tokens it leaves, for the people it did not read about (the graph's own nightly step then
+    // skips its model pass).
+    graphModelPass: (left, covered) => people.modelPass(left, covered),
     announce: (card) => void proactive.feed.postNotice({ ...card, reason: "memory learned" }),
     ...(gwOptions.logger === undefined ? {} : { logger: gwOptions.logger }),
   });
+  people.useModelWindow(() => everything.ownsGraphPass());
   // Relationship nudges: off until the owner consents; cards are silent Feed posts.
   const nudges = composeNudges({
     db,
@@ -1768,6 +1773,11 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     provider,
     model: utility ?? modelRef,
     active: utility !== undefined,
+    // Chat learning runs on a cheap model only (the owner's utility pick or the provider's cheap
+    // default), never on the primary; with none it does not learn from chats at all.
+    cheapModel: () => (router === undefined ? utility : cheapLearnerModel(router)),
+    now: () => clock.now(),
+    ...(gwOptions.logger === undefined ? {} : { logger: gwOptions.logger }),
     // One learner call per thread per half minute; quicker turns are sent together.
     // (Tests run with background off and learn on every turn.)
     minIntervalMs: background ? 30_000 : 0,

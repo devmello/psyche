@@ -51,6 +51,7 @@ import { accountFullName } from "../platform.ts";
 import type { Gateway } from "../server.ts";
 import { everythingSettings } from "./everything.ts";
 import { mountParamsOnly } from "./handlers.ts";
+import { budgetedProvider } from "./nightly-budget.ts";
 import { MAX_DOC_ID_CHARS } from "./search-open.ts";
 import type { ComposedPart } from "./services.ts";
 
@@ -204,6 +205,18 @@ export interface People {
   afterRun(): Promise<ModelPassReport | undefined>;
   /** The nightly graph step, for tests. */
   readonly nightly: NightlyStep;
+  /**
+   * The model pass inside everything memory's nightly window (one shared token budget): runs the
+   * graph model pass within `tokensLeft` for the pending entities that `covered` does not hold,
+   * and returns what it spent (never more than `tokensLeft`).
+   */
+  modelPass(tokensLeft: number, covered: ReadonlySet<string>): Promise<{ tokens: number }>;
+  /**
+   * Binds whether everything memory's nightly pass runs the model pass now. While it does, the
+   * graph's own nightly step does retention and projects only: the model pass runs once, inside
+   * that window, on the shared budget.
+   */
+  useModelWindow(owns: () => boolean): void;
   /** Entity recall (§6.3) for the agent loop's `contextProviders`. */
   readonly recall: TurnContextProvider;
   part(scheduler: SchedulerLike, timezone: string): ComposedPart;
@@ -448,6 +461,66 @@ export function composePeople(deps: PeopleDeps): People {
     }
   };
 
+  /** Re-renders the cards of the entities a pass changed. */
+  const flushCards = async (ids: Iterable<string>) => {
+    for (const id of ids) {
+      const entity = store.getEntity(id);
+      if (entity === undefined || (entity.kind !== "person" && entity.kind !== "project")) continue;
+      if (entity.cardPath != null || entity.summary != null)
+        await cards.write(id).catch(() => undefined);
+    }
+  };
+  const recordPass = (report: ModelPassReport) => {
+    lastPass = {
+      at: new Date(clock.now()).toISOString(),
+      entities: report.entities,
+      tokens: report.tokens,
+    };
+    store.setCursor(LAST_PASS_CURSOR, lastPass);
+  };
+  let modelWindowOwned: () => boolean = () => false;
+
+  /**
+   * The model pass for everything memory's window: the entities its own pass already read items
+   * about are left out, and the graph pass spends at most `tokensLeft` (a hard limit on every
+   * call), within its own per-night caps.
+   */
+  const modelPass = async (
+    tokensLeft: number,
+    covered: ReadonlySet<string>,
+  ): Promise<{ tokens: number }> => {
+    const s = settings();
+    if (!s.enabled || !s.model.nightly) return { tokens: 0 };
+    const limit = Math.min(Math.floor(tokensLeft), s.model.maxTokensPerNight);
+    if (limit <= 0) return { tokens: 0 };
+    const cap = s.model.maxEntitiesPerNight;
+    const pending = store
+      .pendingForModel(cap * 2 + covered.size)
+      .filter((p) => !covered.has(p.id))
+      .slice(0, cap * 2);
+    if (pending.length === 0) return { tokens: 0 };
+    const own = touched === null;
+    if (own) touched = new Set();
+    try {
+      const provider = budgetedProvider(deps.provider, limit);
+      const report = await runGraphModelPass(
+        store,
+        {
+          provider,
+          model: deps.model,
+          maxEntitiesPerNight: cap,
+          maxTokensPerNight: limit,
+        },
+        { clock, only: pending.map((p) => p.id), ledgerOn: ledgerOn() },
+      );
+      recordPass({ ...report, tokens: provider.spent() });
+      await flushCards(touched ?? []);
+      return { tokens: provider.spent() };
+    } finally {
+      if (own) touched = null;
+    }
+  };
+
   const nightly: NightlyStep = async () => {
     const s = settings();
     if (!s.enabled || !s.model.nightly) return undefined;
@@ -456,30 +529,26 @@ export function composePeople(deps: PeopleDeps): People {
       store.retention();
       const assigned = assignProjects(store, clock);
       const suggested = suggestProjects(store, clock);
-      const report = await runGraphModelPass(
-        store,
-        {
-          provider: deps.provider,
-          model: deps.model,
-          maxEntitiesPerNight: s.model.maxEntitiesPerNight,
-          maxTokensPerNight: s.model.maxTokensPerNight,
-        },
-        { clock, ledgerOn: ledgerOn() },
-      );
-      lastPass = {
-        at: new Date(clock.now()).toISOString(),
-        entities: report.entities,
-        tokens: report.tokens,
-      };
-      store.setCursor(LAST_PASS_CURSOR, lastPass);
-      for (const id of touched) {
-        const entity = store.getEntity(id);
-        if (entity === undefined || (entity.kind !== "person" && entity.kind !== "project"))
-          continue;
-        if (entity.cardPath != null || entity.summary != null)
-          await cards.write(id).catch(() => undefined);
-      }
-      return `people graph: ${report.entities} updated, ${report.facts} facts, ${report.loops} loops, ${assigned.assigned + suggested.suggestions} project changes${report.deferred > 0 ? `, ${report.deferred} left for tomorrow` : ""}`;
+      // While everything memory's window owns the model pass, it runs there (after its own pass,
+      // on the shared budget, skipping the entities it covered): never twice in one night.
+      const report = modelWindowOwned()
+        ? undefined
+        : await runGraphModelPass(
+            store,
+            {
+              provider: deps.provider,
+              model: deps.model,
+              maxEntitiesPerNight: s.model.maxEntitiesPerNight,
+              maxTokensPerNight: s.model.maxTokensPerNight,
+            },
+            { clock, ledgerOn: ledgerOn() },
+          );
+      if (report !== undefined) recordPass(report);
+      await flushCards(touched);
+      const projects = assigned.assigned + suggested.suggestions;
+      if (report === undefined)
+        return `people graph: ${projects} project changes, model pass runs with everything memory`;
+      return `people graph: ${report.entities} updated, ${report.facts} facts, ${report.loops} loops, ${projects} project changes${report.deferred > 0 ? `, ${report.deferred} left for tomorrow` : ""}`;
     } finally {
       touched = null;
     }
@@ -609,6 +678,10 @@ export function composePeople(deps: PeopleDeps): People {
     afterRun,
     meetingPrep: (query) => meetingPrep(store, { ...query, now: clock.now() }),
     nightly,
+    modelPass,
+    useModelWindow(owns) {
+      modelWindowOwned = owns;
+    },
     part(scheduler, timezone) {
       let unsubscribe: (() => void) | undefined;
       let timer: ReturnType<typeof setInterval> | undefined;
