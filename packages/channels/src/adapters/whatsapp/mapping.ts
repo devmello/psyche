@@ -216,3 +216,13 @@ export function mapWaMessage(m: WaMessage, ctx: MapContext): MappedMessage {
   };
   return { kind: "message", message };
 }
+
+/**
+ * When WhatsApp says the message was sent (epoch ms, from its `timestamp` in seconds); 0 when
+ * missing or not a number. Never the webhook's arrival time: a message sent before an approval
+ * card and delivered late must not look like an answer to it.
+ */
+export function waSentAt(message: { timestamp?: unknown }): number {
+  const ms = Number(message.timestamp) * 1000;
+  return Number.isFinite(ms) && ms > 0 ? ms : 0;
+}

@@ -98,6 +98,17 @@ export function mapFiles(files: SlackFile[] | undefined): ChannelAttachment[] {
 }
 
 /**
+ * When Slack says the message was sent (epoch ms), from its own `ts` (for an edit, the edited
+ * message's `ts`); 0 when missing or not a number. Never the Gateway's arrival time: a message
+ * sent before an approval card and delivered late must not look like an answer to it.
+ */
+export function slackSentAt(event: SlackMessageEvent): number {
+  const ts = event.subtype === "message_changed" ? event.message?.ts : event.ts;
+  const ms = Number(ts) * 1000;
+  return Number.isFinite(ms) && ms > 0 ? ms : 0;
+}
+
+/**
  * One Slack `message` event → an inbound message, or undefined when it is not a person's
  * message (bots, Psyche itself, joins, deletions). `message_changed` becomes an edit.
  */

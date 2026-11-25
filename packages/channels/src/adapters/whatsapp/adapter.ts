@@ -25,6 +25,7 @@ import {
   mapWaMessage,
   parseApprovalButtonId,
   type WaNotification,
+  waSentAt,
 } from "./mapping.ts";
 
 /**
@@ -354,7 +355,7 @@ export class WhatsAppAdapter implements ChannelAdapter {
       for (const m of Array.isArray(value.messages) ? value.messages : []) {
         const mapped = mapWaMessage(m, {
           account: this.account,
-          receivedAt: now,
+          receivedAt: waSentAt(m),
           contacts,
           ownText: (id) => this.#ownTexts.get(id),
         });

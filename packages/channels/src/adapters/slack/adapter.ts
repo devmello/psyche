@@ -21,6 +21,7 @@ import {
   SLACK_USER_ID,
   type SlackIdentity,
   type SlackMessageEvent,
+  slackSentAt,
 } from "./mapping.ts";
 
 /**
@@ -460,7 +461,7 @@ export class SlackAdapter implements ChannelAdapter {
   async #onEvent(event: SlackMessageEvent): Promise<void> {
     const me = this.#me;
     if (me === undefined) return;
-    const inbound = mapMessageEvent(event, me, this.account, this.#clock.now());
+    const inbound = mapMessageEvent(event, me, this.account, slackSentAt(event));
     if (inbound === undefined) return;
     // Reply in the thread the person wrote in; in a channel, a root mention starts a thread.
     const raw = event.subtype === "message_changed" ? event.message : event;

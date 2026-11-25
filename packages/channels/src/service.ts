@@ -230,9 +230,16 @@ export class ChannelService {
   }
 
   #noteOutbound(channelId: string, chatId: string): number {
-    if (this.#lastOut.size >= 500) this.#lastOut.clear();
     this.#outSeq += 1;
-    this.#lastOut.set(`${channelId}|${chatId}`, this.#outSeq);
+    const key = `${channelId}|${chatId}`;
+    // Oldest out first (a Map keeps insertion order): never clear them all, which would make
+    // every card look like the newest message.
+    this.#lastOut.delete(key);
+    this.#lastOut.set(key, this.#outSeq);
+    if (this.#lastOut.size > 500) {
+      const oldest = this.#lastOut.keys().next().value;
+      if (oldest !== undefined) this.#lastOut.delete(oldest);
+    }
     return this.#outSeq;
   }
 
