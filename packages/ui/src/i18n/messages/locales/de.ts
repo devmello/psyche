@@ -3648,6 +3648,8 @@ export const de: Partial<Catalogue> = {
   "web.files.choose": "Ordner wählen …",
   "web.onboarding.title": "Psyche einrichten",
   "web.onboarding.saveError": "Dein Agent konnte nicht gesichert werden: {error}",
+  "web.onboarding.hostOnly":
+    "Name deines Agenten und was er über dich weiß, richtest du in der Psyche-App auf dem Host ein. Hier ist nichts weiter zu tun.",
 
   "web.bytes.b": "{n} B",
   "web.bytes.kb": "{n} KB",
@@ -3847,6 +3849,8 @@ export const de: Partial<Catalogue> = {
   "web.banner.starting": "Psyche startet …",
   "web.banner.pairing":
     "Bestätige dieses Gerät von einem gekoppelten Gerät aus, um fortzufahren. Kopplungscode",
+  "web.banner.pairingHow":
+    "Zum Bestätigen öffne in der Psyche-App auf dem Host Einstellungen → Geräte, oder führe auf dem Host im Terminal psyched devices approve {code} aus.",
   "web.banner.denied": "Diesem Gerät wurde der Zugriff auf Psyche verweigert.",
   "web.banner.offline":
     "Psyche ist gerade nicht erreichbar. Aufgaben laufen weiter; dieses Fenster verbindet sich von selbst neu.",

@@ -3509,6 +3509,8 @@ export const hi: Partial<Catalogue> = {
   "web.files.choose": "फ़ोल्डर चुनें…",
   "web.onboarding.title": "Psyche सेट अप करें",
   "web.onboarding.saveError": "आपका एजेंट सेव नहीं हो सका: {error}",
+  "web.onboarding.hostOnly":
+    "आपके एजेंट का नाम और वह आपके बारे में क्या जानता है, होस्ट पर Psyche ऐप में सेट होता है। यहाँ और कुछ करने की ज़रूरत नहीं है।",
 
   "web.bytes.b": "{n} B",
   "web.bytes.kb": "{n} KB",
@@ -3700,6 +3702,8 @@ export const hi: Partial<Catalogue> = {
   "web.banner.showLogs": "लॉग दिखाएँ",
   "web.banner.starting": "Psyche शुरू हो रहा है…",
   "web.banner.pairing": "जारी रखने के लिए इस डिवाइस को किसी पेयर किए गए डिवाइस से स्वीकृत करें। पेयरिंग कोड",
+  "web.banner.pairingHow":
+    "इसे मंज़ूर करने के लिए होस्ट पर Psyche ऐप में सेटिंग → डिवाइस खोलें, या होस्ट के Terminal में psyched devices approve {code} चलाएँ।",
   "web.banner.denied": "इस डिवाइस को Psyche तक पहुँच से वंचित किया गया।",
   "web.banner.offline":
     "Psyche तक अभी पहुँच नहीं हो पा रही। टास्क चलते रहते हैं; यह विंडो अपने आप फिर से कनेक्ट हो जाती है।",

@@ -285,6 +285,8 @@ export function OfflineBanner({
     return (
       <div className="banner" role="status" data-testid="pairing-banner">
         {t("web.banner.pairing")} <code>{status.pairingCode}</code>
+        <br />
+        {t("web.banner.pairingHow", { code: status.pairingCode ?? "" })}
       </div>
     );
   if (status.phase === "denied")

@@ -85,6 +85,8 @@ describe("psyched commands once an admin exists", () => {
     const r = await cli(["devices", "approve", code]);
     expect(r.code).toBe(3);
     expect(r.lines[0]).toMatch(/^waiting: this applies at /);
+    // The plain line: when this device can be used (the browser cannot know this time).
+    expect(r.lines[1]).toMatch(/^This device can be used from .+\./);
     expect(getDevice(gw.gateway.context.db, "laptop")?.pairedAt).toBeNull();
     const s = await state(admin);
     expect(s.recoveries[0]).toMatchObject({

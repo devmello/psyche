@@ -3444,6 +3444,8 @@ export const zh: Partial<Catalogue> = {
   "web.files.choose": "选取文件夹…",
   "web.onboarding.title": "设置 Psyche",
   "web.onboarding.saveError": "无法存储你的代理：{error}",
+  "web.onboarding.hostOnly":
+    "代理的名字和它对你的了解,请在主机上的 Psyche 应用中设置。这里无需再做任何事。",
 
   "web.bytes.b": "{n} B",
   "web.bytes.kb": "{n} KB",
@@ -3627,6 +3629,8 @@ export const zh: Partial<Catalogue> = {
   "web.banner.showLogs": "显示日志",
   "web.banner.starting": "Psyche 正在启动…",
   "web.banner.pairing": "请从已配对的设备批准此设备以继续。配对码",
+  "web.banner.pairingHow":
+    "要批准它,请在主机的 Psyche 应用中打开“设置 → 设备”,或在主机的终端运行 psyched devices approve {code}。",
   "web.banner.denied": "此设备被拒绝访问 Psyche。",
   "web.banner.offline": "目前无法连接到 Psyche。任务会继续运行，此窗口将自动重新连接。",
   "web.gateway.phase":

@@ -31,6 +31,8 @@ export const web = {
   "web.files.choose": "Choose a folder…",
   "web.onboarding.title": "Set up Psyche",
   "web.onboarding.saveError": "Could not save your agent: {error}",
+  "web.onboarding.hostOnly":
+    "Your agent's name and what it knows about you are set up in the Psyche app on the Host. There is nothing more to do here.",
 
   "web.bytes.b": "{n} B",
   "web.bytes.kb": "{n} KB",
@@ -240,6 +242,8 @@ export const web = {
   "web.banner.showLogs": "Show logs",
   "web.banner.starting": "Psyche is starting…",
   "web.banner.pairing": "Approve this device from a paired device to continue. Pairing code",
+  "web.banner.pairingHow":
+    "To approve it, open Settings → Devices in the Psyche app on the Host, or run psyched devices approve {code} in Terminal on the Host.",
   "web.banner.denied": "This device was denied access to Psyche.",
   "web.banner.offline":
     "Psyche isn't reachable right now. Tasks keep running; this window reconnects on its own.",

@@ -153,6 +153,9 @@ async function submit(
       }
       if (row.status === "waiting") {
         out(row.outcome ?? `waiting until ${row.not_before}`);
+        // A second admin device waits by design; say when it can be used (the browser cannot know).
+        if (op === "devices.approve" && row.not_before)
+          out(`This device can be used from ${new Date(row.not_before).toString()}.`);
         return CLI_EXIT.waiting;
       }
       out(`error: ${row.outcome ?? "refused"}`);

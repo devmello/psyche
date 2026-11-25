@@ -83,4 +83,11 @@ describe("the pairing banner on the desktop (#539)", () => {
     render(<Probe status={pending} desktop={false} />);
     expect(screen.getByTestId("pairing-banner").textContent).toContain("K7Q");
   });
+
+  it("says how to approve: Settings → Devices, or the CLI command with the code", () => {
+    render(<Probe status={pending} desktop={false} />);
+    const text = screen.getByTestId("pairing-banner").textContent ?? "";
+    expect(text).toContain("Settings → Devices");
+    expect(text).toContain("psyched devices approve K7Q");
+  });
 });

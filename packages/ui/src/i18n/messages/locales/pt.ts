@@ -3521,6 +3521,8 @@ export const pt: Partial<Catalogue> = {
   "web.files.choose": "Escolher uma pasta…",
   "web.onboarding.title": "Configurar o Psyche",
   "web.onboarding.saveError": "Não foi possível salvar seu agente: {error}",
+  "web.onboarding.hostOnly":
+    "O nome do seu agente e o que ele sabe sobre você são definidos no app Psyche do host. Não há mais nada a fazer aqui.",
   "web.bytes.b": "{n} B",
   "web.bytes.kb": "{n} KB",
   "web.bytes.mb": "{n} MB",
@@ -3712,6 +3714,8 @@ export const pt: Partial<Catalogue> = {
   "web.banner.starting": "O Psyche está iniciando…",
   "web.banner.pairing":
     "Aprove este dispositivo a partir de um dispositivo pareado para continuar. Código de pareamento",
+  "web.banner.pairingHow":
+    "Para aprovar, abra Ajustes → Dispositivos no app Psyche do host, ou execute psyched devices approve {code} no Terminal do host.",
   "web.banner.denied": "O acesso deste dispositivo ao Psyche foi negado.",
   "web.banner.offline":
     "O Psyche não está acessível no momento. As tarefas continuam em execução; esta janela reconecta sozinha.",

@@ -58,21 +58,37 @@ function identityBody(body: string, a: OnboardingAnswers): string {
   return [`${a.name} is ${owner}'s personal agent: ${a.creature}.`, ...rest].join("\n");
 }
 
+/** The Gateway refused a Memory file because this viewer is not the Host's desktop app. */
+export function isNotDesktopRefusal(err: unknown): boolean {
+  const e = err as { code?: unknown; details?: { reason?: unknown } } | null;
+  return e?.code === "forbidden" && e.details?.reason === "not_desktop";
+}
+
 let seq = 0;
 const key = (path: string) => `onboarding:${path}:${Date.now()}:${++seq}`;
 
 export async function writeOnboarding(call: GatewayCall, a: OnboardingAnswers): Promise<string[]> {
   const written: string[] = [];
+  // A viewer that may not open Memory (a browser, a phone, a remote Mac) cannot write these files.
+  // Skipping them is the answer, not an error: the Host's Psyche app sets them up. The Gateway's
+  // check stays as it is.
+  let hostOnly = false;
   const update = async (path: string, edit: (current: string) => string) => {
-    const current = (await call("memory.read", { path })) as { content: string; etag?: string };
-    const content = edit(current.content);
-    if (content === current.content) return;
-    await call(
-      "memory.write",
-      { path, content, ...(current.etag === undefined ? {} : { etag: current.etag }) },
-      { idempotencyKey: key(path) },
-    );
-    written.push(path);
+    if (hostOnly) return;
+    try {
+      const current = (await call("memory.read", { path })) as { content: string; etag?: string };
+      const content = edit(current.content);
+      if (content === current.content) return;
+      await call(
+        "memory.write",
+        { path, content, ...(current.etag === undefined ? {} : { etag: current.etag }) },
+        { idempotencyKey: key(path) },
+      );
+      written.push(path);
+    } catch (err) {
+      if (!isNotDesktopRefusal(err)) throw err;
+      hostOnly = true;
+    }
   };
 
   if (!a.skipIdentity)

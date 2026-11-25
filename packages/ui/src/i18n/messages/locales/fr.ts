@@ -3583,6 +3583,8 @@ export const fr: Partial<Catalogue> = {
   "web.files.choose": "Choisir un dossier…",
   "web.onboarding.title": "Configurer Psyche",
   "web.onboarding.saveError": "Impossible d’enregistrer votre agent : {error}",
+  "web.onboarding.hostOnly":
+    "Le nom de ton agent et ce qu'il sait de toi se règlent dans l'app Psyche de l'hôte. Il n'y a rien d'autre à faire ici.",
   "web.bytes.b": "{n} o",
   "web.bytes.kb": "{n} Ko",
   "web.bytes.mb": "{n} Mo",
@@ -3777,6 +3779,8 @@ export const fr: Partial<Catalogue> = {
   "web.banner.starting": "Psyche démarre…",
   "web.banner.pairing":
     "Approuvez cet appareil depuis un appareil jumelé pour continuer. Code de jumelage",
+  "web.banner.pairingHow":
+    "Pour l'approuver, ouvre Réglages → Appareils dans l'app Psyche de l'hôte, ou lance psyched devices approve {code} dans Terminal sur l'hôte.",
   "web.banner.denied": "L’accès à Psyche a été refusé à cet appareil.",
   "web.banner.offline":
     "Psyche est injoignable pour le moment. Les tâches continuent ; cette fenêtre se reconnecte toute seule.",

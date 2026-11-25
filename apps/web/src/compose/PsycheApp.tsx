@@ -421,16 +421,21 @@ export async function completeOnboarding(
   const call = (m: string, p: unknown, o?: { idempotencyKey?: string }) =>
     platform.gateway.call(m, p, o ?? {});
   const owner = result.owner;
-  await writeOnboarding(call, {
-    name: result.persona.name,
-    creature: result.persona.creatureDescription || result.persona.creatureId,
-    tagline: result.persona.tagline,
-    ...(options.rerun ? { skipIdentity: true } : {}),
-    ...(owner?.name.trim() ? { ownerName: owner.name.trim() } : {}),
-    ...(owner?.timeZone.trim() ? { timeZone: owner.timeZone.trim() } : {}),
-    ...(owner?.work.trim() ? { work: owner.work.trim() } : {}),
-    ...(owner?.city.trim() ? { city: owner.city.trim() } : {}),
-  });
+  // A browser is not the Host's desktop app: the Gateway keeps Memory files from it, so the agent's
+  // name and the owner's facts are set up in the Psyche app on the Host (the onboarding page says
+  // so). The Electron app is `desktop` and unchanged; a remote Mac that the Gateway refuses is
+  // caught inside `writeOnboarding`.
+  if (platform.kind !== "web")
+    await writeOnboarding(call, {
+      name: result.persona.name,
+      creature: result.persona.creatureDescription || result.persona.creatureId,
+      tagline: result.persona.tagline,
+      ...(options.rerun ? { skipIdentity: true } : {}),
+      ...(owner?.name.trim() ? { ownerName: owner.name.trim() } : {}),
+      ...(owner?.timeZone.trim() ? { timeZone: owner.timeZone.trim() } : {}),
+      ...(owner?.work.trim() ? { work: owner.work.trim() } : {}),
+      ...(owner?.city.trim() ? { city: owner.city.trim() } : {}),
+    });
   if (result.habits) await saveHabits(call, result.habits);
   if (result.nightShift) await saveNightShift(call);
   if (result.memory) await saveMemory(call, result.memory);
@@ -809,6 +814,14 @@ export function PsycheApp({ platform }: { platform: ShellPlatform }): ReactEleme
               className="mx-auto mt-4 w-full max-w-4xl px-6 text-danger-text sm:px-10"
             >
               {error}
+            </p>
+          ) : null}
+          {platform.kind === "web" ? (
+            <p
+              className="mx-auto mt-4 w-full max-w-4xl px-6 text-label-secondary sm:px-10"
+              data-testid="onboarding-host-only"
+            >
+              {t("web.onboarding.hostOnly")}
             </p>
           ) : null}
           <ServerSetupEntry platform={platform} />

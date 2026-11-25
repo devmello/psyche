@@ -3541,6 +3541,8 @@ export const ja: Partial<Catalogue> = {
   "web.files.choose": "フォルダを選択…",
   "web.onboarding.title": "Psycheを設定",
   "web.onboarding.saveError": "エージェントを保存できませんでした：{error}",
+  "web.onboarding.hostOnly":
+    "エージェントの名前とあなたについて知っていることは、ホストの Psyche アプリで設定します。ここでやることはもうありません。",
   "web.bytes.b": "{n} B",
   "web.bytes.kb": "{n} KB",
   "web.bytes.mb": "{n} MB",
@@ -3730,6 +3732,8 @@ export const ja: Partial<Catalogue> = {
   "web.banner.starting": "Psycheを起動中…",
   "web.banner.pairing":
     "続行するには、ペアリング済みのデバイスからこのデバイスを承認してください。ペアリングコード",
+  "web.banner.pairingHow":
+    "承認するには、ホストの Psyche アプリで「設定 → デバイス」を開くか、ホストのターミナルで psyched devices approve {code} を実行してください。",
   "web.banner.denied": "このデバイスはPsycheへのアクセスを拒否されました。",
   "web.banner.offline":
     "現在Psycheに接続できません。タスクは実行され続け、このウインドウは自動的に再接続します。",
