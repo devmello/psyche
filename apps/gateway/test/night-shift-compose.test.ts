@@ -3,7 +3,7 @@ import { appendMessage, createThread, getThread, openDb, setSetting } from "@psy
 import type { ToolLookup } from "@psyche/proactive";
 import { FakeClock } from "@psyche/testing";
 import { describe, expect, it } from "vitest";
-import { composeNightShift } from "../src/compose/night-shift.ts";
+import { composeNightShift, MESSAGES_ITEM_LINE } from "../src/compose/night-shift.ts";
 import { connectorToolLookup } from "../src/compose/proactive.ts";
 import type { Call } from "../src/context.ts";
 
@@ -147,7 +147,7 @@ describe("Night shift in the Gateway", () => {
     void store;
     r.db.sqlite
       .prepare(
-        "INSERT INTO staged_actions (id, night_id, seq, domain, target_key, tool, kind, side_effect, params_hash, binding_hash, summary, why, taint, taint_sources, status, created_at, updated_at) VALUES ('s1', ?, 0, 'reminders', 'k', 't', 'connector_action', 'write', 'h', 'b', 'sum', 'From a Messages thread', 1, ?, 'ready', ?, ?)",
+        "INSERT INTO staged_actions (id, night_id, seq, domain, target_key, tool, kind, side_effect, params_hash, binding_hash, summary, why, taint, taint_sources, status, created_at, updated_at) VALUES ('s1', ?, 0, 'reminders', 'k', 't', 'connector_action', 'write', 'h', 'b', 'Pay the invoice', 'From a Messages thread', 1, ?, 'ready', ?, ?)",
       )
       .run(
         night.id,
@@ -155,6 +155,14 @@ describe("Night shift in the Gateway", () => {
         "2026-11-25T02:00:00Z",
         "2026-11-25T02:00:00Z",
       );
+    r.db.sqlite
+      .prepare("UPDATE staged_actions SET params = ? WHERE id = 's1'")
+      .run(JSON.stringify({ title: "Pay the invoice" }));
+    r.db.sqlite
+      .prepare(
+        "INSERT INTO staged_actions (id, night_id, seq, domain, target_key, tool, kind, side_effect, params_hash, binding_hash, summary, why, taint, taint_sources, status, created_at, updated_at) VALUES ('s2', ?, 1, 'reminders', 'k2', 't', 'connector_action', 'write', 'h', 'b', 'Water the plants', 'You asked', 0, '[]', 'ready', ?, ?)",
+      )
+      .run(night.id, "2026-11-25T02:00:00Z", "2026-11-25T02:00:00Z");
     r.db.sqlite
       .prepare("UPDATE night_shift_nights SET review_status = 'ready' WHERE id = ?")
       .run(night.id);
@@ -169,7 +177,27 @@ describe("Night shift in the Gateway", () => {
     const desktop = await get(true);
     expect(remote.night.candidates).toBeNull();
     expect(desktop.night.candidates).toBeNull();
-    expect(remote.items.find((i) => i.id === "s1")?.why).toBeNull();
-    expect(desktop.items.find((i) => i.id === "s1")?.why).toBe("From a Messages thread");
+    const r1 = remote.items.find((i) => i.id === "s1");
+    const d1 = desktop.items.find((i) => i.id === "s1");
+    // A remote device gets the kind, domain and status, and a generic line: nothing of the item.
+    expect(r1).toMatchObject({
+      domain: "reminders",
+      status: "ready",
+      why: null,
+      params: null,
+      summary: MESSAGES_ITEM_LINE,
+      preview: { kind: "reminder", title: MESSAGES_ITEM_LINE, rows: [] },
+    });
+    expect(JSON.stringify(r1)).not.toContain("Pay the invoice");
+    // The desktop shell sees all of it (positive control).
+    expect(d1).toMatchObject({
+      why: "From a Messages thread",
+      summary: "Pay the invoice",
+      params: { title: "Pay the invoice" },
+    });
+    // An item with no Messages taint is the same for both callers.
+    expect(remote.items.find((i) => i.id === "s2")).toEqual(
+      desktop.items.find((i) => i.id === "s2"),
+    );
   });
 });

@@ -98,6 +98,13 @@ function sendFor(tool: string, call: StagedCall, cap: CaptureOk): StagedAction["
     ? (pre.recipients as unknown[]).filter((r): r is string => typeof r === "string")
     : [];
   if (recipients.length === 0) return undefined;
+  // W5 rebuilds: a reply's real `Re: ...` subject and its `In-Reply-To` Message-ID header exist only
+  // once Mail or Gmail saves the draft (the capture holds neither: Apple's `mail_reply_draft` takes no
+  // subject and the thread read has no Message-ID). So for a reply this hash binds the staged content
+  // (the recipient sets, the owner's body, the thread) with the thread id standing in for the
+  // header; W5 recomputes `draftContentHash` from the saved draft and compares it with what the
+  // owner saw. Until then it fails closed: any difference refuses the send. A new draft carries its
+  // own subject, so its hash uses it.
   // W3's one recipe (`draftContentHash`): to, cc and bcc apart, subject, body, in-reply-to and
   // attachments. A reply's `to` is the resolved recipient set minus the explicit cc and bcc.
   const norm = (v: unknown): string[] =>

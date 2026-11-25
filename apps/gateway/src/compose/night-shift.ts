@@ -45,7 +45,15 @@ import {
   type SchedulerLike,
   type ToolLookup,
 } from "@psyche/proactive";
-import type { Clock, MethodParams, MethodResult, Staging, Task, Usage } from "@psyche/protocol";
+import type {
+  Clock,
+  MethodParams,
+  MethodResult,
+  StagedAction,
+  Staging,
+  Task,
+  Usage,
+} from "@psyche/protocol";
 import { PsycheError } from "@psyche/protocol";
 import type { KeepAwake } from "@psyche/scheduler";
 import type { Call, HandlerDef } from "../context.ts";
@@ -125,6 +133,41 @@ export function readOnlyLookup(inner: ToolLookup | undefined): ToolLookup {
       const reg = inner?.get(name);
       if (reg === undefined) return undefined;
       return reg.spec.sideEffect === "read" || reg.spec.sideEffect === "none" ? reg : undefined;
+    },
+  };
+}
+
+const PREVIEW_KIND = {
+  mail: "mail",
+  calendar: "calendar",
+  reminders: "reminder",
+  files: "file",
+} as const;
+
+/** What a remote caller sees in place of an item made from Messages (the owner rule: no Messages on remote devices). */
+export const MESSAGES_ITEM_LINE = "An item from your Messages. Open Psyche on this Mac to see it.";
+
+/**
+ * An item whose taint includes `message` keeps its counts, kind and status for a caller that is not
+ * the desktop shell on this Mac, and nothing else: summary, preview, params, why, the capture and
+ * the undo data are replaced or cleared.
+ */
+export function forRemote(item: StagedAction): StagedAction {
+  if (!item.taintSources.some((t) => t.sourceKind === "message")) return item;
+  return {
+    ...item,
+    summary: MESSAGES_ITEM_LINE,
+    why: null,
+    params: null,
+    target: null,
+    precondition: null,
+    inverse: null,
+    send: null,
+    preview: {
+      kind: PREVIEW_KIND[item.domain],
+      title: MESSAGES_ITEM_LINE,
+      rows: [],
+      truncated: false,
     },
   };
 }
@@ -490,11 +533,7 @@ export function composeNightShift(setup: NightShiftSetup) {
     const items = store
       .listStagedActions(night.id)
       .slice(0, 200)
-      .map((i) =>
-        !desktop && i.taintSources.some((t) => t.sourceKind === "message")
-          ? { ...i, why: null }
-          : i,
-      );
+      .map((i) => (desktop ? i : forRemote(i)));
     return { night: { ...night, candidates: null }, items };
   };
 
