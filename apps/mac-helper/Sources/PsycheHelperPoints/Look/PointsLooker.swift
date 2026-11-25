@@ -75,12 +75,24 @@ final class PointsLooker: Sendable {
         guard before.complete, let window = before.window else {
             throw CapabilityError(.unavailable, reason: "mask_unavailable", "Could not tell where the private fields are, so no picture was taken", retryable: true)
         }
+        // A payment, plain-http or venue page is directions only (§2.2): no picture of it, whatever is masked.
+        if before.directionsOnly {
+            throw CapabilityError(.forbidden, reason: "directions_only", "This page is shown as directions only; Psyche does not look at it")
+        }
         let shot = try await env.capture(pid, window)
         // The keyboard may have gone secure while the frame was taken: drop it.
         try PointsLookGate.checkNow(secureInput: env.secureInput, bundleId: bundleId, settings: env.settings())
         let after = await maskFrames()
+        if after.directionsOnly {
+            throw CapabilityError(.forbidden, reason: "directions_only", "This page is shown as directions only; Psyche does not look at it")
+        }
         guard after.complete, let windowAfter = after.window, PointsGeometry.sameWindow(window, windowAfter), PointsGeometry.sameWindow(window, shot.frame) else {
             throw CapabilityError(.conflict, reason: "window_moved", "The window moved while the picture was taken; try again", retryable: true)
+        }
+        // A scroll during the capture leaves the picture somewhere between the two reads: the masks would
+        // not sit on the fields. Any frame that moved by more than the mask margin means no picture.
+        if PointsFrameDrift.moved(before.frames, after.frames) {
+            throw CapabilityError(.conflict, reason: "page_moved", "The page moved while the picture was taken; try again", retryable: true)
         }
         // Frames from before and after the capture: a field that appeared meanwhile is painted too.
         var frames = before.frames

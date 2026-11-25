@@ -163,6 +163,8 @@ struct PointsCardModel {
     var stepText: String
     var showNext: Bool
     var strings: PointsCardStrings?
+    /// Offer Let Psyche look: the tree is sparse and the page is not directions-only.
+    var showLook = false
 }
 
 /// A button that works on the first click, without the helper becoming the active app, and that is
@@ -348,6 +350,7 @@ final class PointsCardView: NSView {
             } else {
                 items = [(s.back, .back, false)]
                 if m.showNext { items.append((s.next, .next, true)) }
+                if m.showLook { items.append((s.letLook, .look, false)) }
                 items += [(s.skip, .skip, false), (s.looksWrong, .wrong, false), (s.stuck, nil, false), (s.askInPsyche, .ask, false), (s.stop, .stop, false)]
             }
             var x = pad

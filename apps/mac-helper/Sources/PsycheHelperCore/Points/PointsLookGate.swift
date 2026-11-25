@@ -20,11 +20,20 @@ public final class PointsActionTokens: @unchecked Sendable {
     private var spent: [String] = []
 
     public init(
-        clock: @escaping @Sendable () -> Double = { ProcessInfo.processInfo.systemUptime },
+        clock: @escaping @Sendable () -> Double = { PointsActionTokens.continuousNow() },
         makeId: @escaping @Sendable () -> String = { "act-" + UUID().uuidString.lowercased() }
     ) {
         self.clock = clock
         self.makeId = makeId
+    }
+
+    /// Seconds on a clock that keeps counting while the Mac sleeps (`systemUptime` does not): an id minted
+    /// before a night's sleep is stale in the morning.
+    public static func continuousNow() -> Double { Double(clock_gettime_nsec_np(CLOCK_MONOTONIC)) / 1_000_000_000 }
+
+    /// Whether the owner's press of `action` mints a look id: look always, next only in vision mode.
+    public static func mints(_ action: PointsCardAction, visionMode: Bool) -> Bool {
+        action == .look || (action == .next && visionMode)
     }
 
     public func issue() -> String {
@@ -81,5 +90,29 @@ public enum PointsLookGate {
             throw CapabilityError(
                 .forbidden, reason: "points_refused", "Psyche points does not look at this app", details: ["refusal": .string(refusal.rawValue)])
         }
+    }
+}
+
+
+/// What a vision-mode box may carry (§5.1): a suggested value only for a box the helper has reason to
+/// believe is an ordinary field. A box over a painted frame, a mask that could not be re-read, or a
+/// directions-only page gets none, and a value shaped like a secret never goes.
+public enum PointsBoxPolicy {
+    public static func value(_ value: String?, touchesMask: Bool, masksComplete: Bool, directionsOnly: Bool) -> String? {
+        guard let v = value, !touchesMask, masksComplete, !directionsOnly else { return nil }
+        return PointsValueRules.classify(v) == nil ? v : nil
+    }
+}
+
+/// Whether two reads of the sensitive frames, one before and one after a capture, describe the same page:
+/// every frame has a partner within `slack` points in the other read (the mask padding).
+public enum PointsFrameDrift {
+    public static func moved(_ a: [CGRect], _ b: [CGRect], slack: CGFloat = PointsLookGeometry.maskPadding) -> Bool {
+        func near(_ x: CGRect, _ y: CGRect) -> Bool {
+            abs(x.minX - y.minX) <= slack && abs(x.minY - y.minY) <= slack && abs(x.maxX - y.maxX) <= slack && abs(x.maxY - y.maxY) <= slack
+        }
+        for f in a where !b.contains(where: { near(f, $0) }) { return true }
+        for f in b where !a.contains(where: { near(f, $0) }) { return true }
+        return false
     }
 }

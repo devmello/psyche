@@ -60,6 +60,7 @@ final class PointsOverlay {
     private var frames: [String: CGRect] = [:]
     private var windowFrame: CGRect?
     private var engineVisible = true
+    private var lookOffer = false
     private var dimmer = PointsDimmer()
     private var dimGeneration = 0
     private var cardShown = false
@@ -165,6 +166,13 @@ final class PointsOverlay {
         present()
     }
 
+    /// Whether the card offers Let Psyche look (sparse tree, page not directions-only).
+    func setLookOffer(_ v: Bool) {
+        guard v != lookOffer else { return }
+        lookOffer = v
+        if step != nil { present() }
+    }
+
     func setEngineVisible(_ v: Bool) {
         engineVisible = v
         present()
@@ -226,7 +234,8 @@ final class PointsOverlay {
         if suggestion == nil, s.kind == .fill, !s.info.sensitive { suggestion = strings.unknownValue }
         return PointsCardModel(
             appName: appName, note: PointsCardText.clean(note, max: 300), hint: hint, suggestion: suggestion, warning: s.warning, sources: s.sources,
-            stepText: PointsCardText.fill(strings.stepFormat, n: s.n, total: s.of), showNext: s.kind == .nextPage, strings: strings)
+            stepText: PointsCardText.fill(strings.stepFormat, n: s.n, total: s.of), showNext: s.kind == .nextPage, strings: strings,
+            showLook: lookOffer && !s.info.sensitive)
     }
 
     /// Pure placement for the current step on the given displays.

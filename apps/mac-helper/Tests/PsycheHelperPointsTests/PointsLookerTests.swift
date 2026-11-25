@@ -161,11 +161,9 @@ struct PointsLookerTests {
         for (x, y) in [(110, 220), (400, 300), (10, 10)] { #expect(Fixture.isWhite(Fixture.pixel(image, x, y)), "(\(x), \(y))") }
     }
 
-    @Test func aFieldThatAppearedDuringTheCaptureIsPaintedToo() async throws {
-        // The second read (after the capture) sees one more field than the first.
+    /// A looker whose two mask reads (before and after the capture) are given.
+    private func twoReads(_ first: PointsMaskFrames, _ second: PointsMaskFrames) -> (PointsLooker, PointsActionTokens, Box<CGImage?>) {
         let reads = Counter()
-        let first = PointsMaskFrames(window: window, frames: [password], complete: true)
-        let second = PointsMaskFrames(window: window, frames: [password, card], complete: true)
         let tokens = PointsActionTokens()
         let painted = Box<CGImage?>(nil)
         let env = PointsLookEnvironment(
@@ -175,10 +173,62 @@ struct PointsLookerTests {
         let looker = PointsLooker(
             pid: 42, bundleId: "com.apple.Safari", tokens: tokens, environment: env,
             maskFrames: { reads.bump(); return reads.value == 1 ? first : second })
+        return (looker, tokens, painted)
+    }
+
+    private func reason(_ looker: PointsLooker, _ tokens: PointsActionTokens) async -> String? {
+        do { _ = try await looker.look(actionId: tokens.issue()); return nil } catch let e as CapabilityError { return e.reason } catch { return "other" }
+    }
+
+    @Test func aFieldThatAppearedDuringTheCaptureMeansNoPicture() async {
+        let (looker, tokens, painted) = twoReads(
+            PointsMaskFrames(window: window, frames: [password], complete: true),
+            PointsMaskFrames(window: window, frames: [password, card], complete: true))
+        #expect(await reason(looker, tokens) == "page_moved")
+        #expect(painted.value == nil, "nothing was encoded")
+    }
+
+    @Test func aScrollDuringTheCaptureMeansNoPictureAndIsRetryable() async {
+        // The password field moved 100 pt between the two reads: the picture is somewhere in between.
+        let (looker, tokens, painted) = twoReads(
+            PointsMaskFrames(window: window, frames: [password], complete: true),
+            PointsMaskFrames(window: window, frames: [password.offsetBy(dx: 0, dy: 100)], complete: true))
+        do {
+            _ = try await looker.look(actionId: tokens.issue())
+            Issue.record("expected a refusal")
+        } catch let e as CapabilityError {
+            #expect(e.reason == "page_moved" && e.retryable)
+        } catch { Issue.record("other error") }
+        #expect(painted.value == nil)
+    }
+
+    @Test func aDriftWithinTheMaskMarginIsPaintedAtBothPositions() async throws {
+        // Control for the two above: a 4 pt drift is inside the 6 pt margin, and both places are painted.
+        let (looker, tokens, painted) = twoReads(
+            PointsMaskFrames(window: window, frames: [password], complete: true),
+            PointsMaskFrames(window: window, frames: [password.offsetBy(dx: 0, dy: 4)], complete: true))
         _ = try await looker.look(actionId: tokens.issue())
         let image = try #require(painted.value)
-        #expect(Fixture.isBlack(Fixture.pixel(image, 60, 60)))
-        #expect(Fixture.isBlack(Fixture.pixel(image, 60, 160)))
+        // Local y of the field: 50..70; moved copy 54..74; padded together 44..80.
+        for y in [45, 60, 79] { #expect(Fixture.isBlack(Fixture.pixel(image, 100, y)), "y \(y)") }
+        #expect(Fixture.isWhite(Fixture.pixel(image, 100, 100)))
+    }
+
+    @Test func aDirectionsOnlyPageIsNeverLookedAt() async {
+        // Checkout, plain http: and venue pages: every field is sensitive, and no picture is taken.
+        let r = rig()
+        r.masks.value = PointsMaskFrames(window: window, frames: [password], complete: true, directionsOnly: true)
+        #expect(await refusal(r, r.tokens.issue()) == "directions_only")
+        #expect(r.captures.value == 0)
+        // Control: the same page not directions-only is looked at.
+        r.masks.value = PointsMaskFrames(window: window, frames: [password], complete: true, directionsOnly: false)
+        #expect(await refusal(r, r.tokens.issue()) == nil)
+        // A page that turns directions-only during the capture is refused too, and nothing is encoded.
+        let (looker, tokens, painted) = twoReads(
+            PointsMaskFrames(window: window, frames: [password], complete: true),
+            PointsMaskFrames(window: window, frames: [password], complete: true, directionsOnly: true))
+        #expect(await reason(looker, tokens) == "directions_only")
+        #expect(painted.value == nil)
     }
 
     @Test func aMaskThatCannotBeTrustedMeansNoPicture() async {

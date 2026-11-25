@@ -161,6 +161,32 @@ struct PointsOverlayTests {
         #expect(o.modelForTests(step(value: nil, sensitive: true)).suggestion == nil)
     }
 
+    @Test func letPsycheLookIsOfferedOnlyOnASparsePageAndNotOnASensitiveField() {
+        let o = overlay()
+        #expect(!o.modelForTests(step()).showLook, "off until the controller says the tree is sparse")
+        o.setLookOffer(true)
+        #expect(o.modelForTests(step()).showLook)
+        #expect(!o.modelForTests(step(sensitive: true)).showLook, "never beside a sensitive field")
+        o.setLookOffer(false)
+        #expect(!o.modelForTests(step()).showLook)
+    }
+
+    @Test func theLookButtonSendsTheLookAction() {
+        // The card's buttons come from the model; the look button is the one with the look string.
+        let card = PointsCardView(frame: .zero)
+        var m = PointsCardModel(
+            appName: "Safari", note: "n", suggestion: nil, warning: nil, sources: [], stepText: "1/2", showNext: false, strings: Self.strings)
+        _ = card.layout(m) {}
+        #expect(!card.buttonTitlesForTests.contains("Let Psyche look"))
+        m.showLook = true
+        _ = card.layout(m) {}
+        #expect(card.buttonTitlesForTests.contains("Let Psyche look"))
+        var got: [PointsCardAction] = []
+        card.onAction = { got.append($0) }
+        card.pressForTests("Let Psyche look")
+        #expect(got == [.look])
+    }
+
     @Test func theCardFillsItsPlaceholdersFromTheGatewayStrings() {
         let o = overlay()
         let m = o.modelForTests(step())

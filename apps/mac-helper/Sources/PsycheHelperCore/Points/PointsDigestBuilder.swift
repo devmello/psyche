@@ -105,7 +105,7 @@ public enum PointsDigestBuilder {
         var currentHeading: String?
 
         func visit(_ node: S.Node, depth: Int, groups: [String], parent: Int?, recent: inout [String], lastCandidate: inout Int?) {
-            guard visited < maxVisit, depth <= maxDepth else { truncated = visited >= maxVisit || truncated; return }
+            guard visited < maxVisit, depth <= maxDepth else { truncated = true; return }
             if ProcessInfo.processInfo.systemUptime > deadline { truncated = true; return }
             visited += 1
             var childParent = parent

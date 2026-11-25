@@ -54,6 +54,8 @@ public final class PointsEngine<S: PointsAXSource>: @unchecked Sendable {
     private var lastSummary: Data?
     /// The latest full read hit a cap, so fields may exist that the helper never saw.
     private var lastTruncated = true
+    /// The latest full read found a directions-only page (§2.2): no picture is taken of it.
+    private var lastDirectionsOnly = true
     private var focusedId: String?
     private var pendingFocus: Node?
     private var watched: [String] = []
@@ -280,6 +282,7 @@ public final class PointsEngine<S: PointsAXSource>: @unchecked Sendable {
         records = next
         order = read.records.map(\.id)
         lastTruncated = read.digest.truncated == true
+        lastDirectionsOnly = read.directionsOnly
         for r in read.records { if let why = r.sensitive { latched[r.node] = why } }
         if let f = read.records.first(where: { $0.focused }) { focusedId = f.id }
         // Keep the commit memory of fields still on the page.
@@ -338,10 +341,12 @@ public final class PointsEngine<S: PointsAXSource>: @unchecked Sendable {
     /// failed, hit a cap, or a sensitive field has no frame. The caller then takes no picture.
     public func maskFrames(at now: Double) -> PointsMaskFrames {
         lastTruncated = true
+        lastDirectionsOnly = true  // a failed read counts as the strictest page
         fullRead(at: now)
-        guard !ended, let window = windowFrame() else { return PointsMaskFrames(window: nil, frames: [], complete: false) }
+        guard !ended, let window = windowFrame() else { return PointsMaskFrames(window: nil, frames: [], complete: false, directionsOnly: true) }
         var frames: [CGRect] = []
-        var complete = !lastTruncated
+        // A minimized window has nothing to show, and a capture of it would be of something else.
+        var complete = !lastTruncated && !windowMinimized
         for id in order {
             guard var r = records[id] else { continue }
             guard r.sensitive != nil || latched[r.node] != nil || r.directionsOnly else { continue }
@@ -353,7 +358,7 @@ public final class PointsEngine<S: PointsAXSource>: @unchecked Sendable {
                 complete = false
             }
         }
-        return PointsMaskFrames(window: window, frames: frames, complete: complete)
+        return PointsMaskFrames(window: window, frames: frames, complete: complete, directionsOnly: lastDirectionsOnly)
     }
 
     public func windowFrame() -> CGRect? {
@@ -398,10 +403,13 @@ public struct PointsMaskFrames: Sendable, Equatable {
     public var window: CGRect?
     public var frames: [CGRect]
     public var complete: Bool
+    /// The page is on the directions-only list (§2.2): money context, plain http:, a venue host.
+    public var directionsOnly: Bool
 
-    public init(window: CGRect?, frames: [CGRect], complete: Bool) {
+    public init(window: CGRect?, frames: [CGRect], complete: Bool, directionsOnly: Bool = false) {
         self.window = window
         self.frames = frames
         self.complete = complete
+        self.directionsOnly = directionsOnly
     }
 }

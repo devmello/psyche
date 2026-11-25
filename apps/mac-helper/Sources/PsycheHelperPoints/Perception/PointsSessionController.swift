@@ -88,7 +88,13 @@ final class PointsSessionController: @unchecked Sendable {
             if !closed.isSet { c.yield(event) }
             if event.type == .visible, let v = event.visible { host.setEngineVisible(v) }
             // A page with a usable tree ends vision mode (§3.1): three or more fillable fields.
-            if event.type == .digest, let d = event.digest, d.fields.filter({ $0.role != .link && $0.role != .button }).count >= 3 { visionFlag.clear() }
+            if event.type == .digest, let d = event.digest {
+                let fillable = d.fields.filter { $0.role != .link && $0.role != .button }.count
+                if fillable >= 3 { visionFlag.clear() }
+                // Let Psyche look is offered when the tree is sparse and the page is not directions-only (§3.1).
+                let directionsOnly = d.insecure == true || d.fields.contains { $0.sensitive == .directionsOnly }
+                host.setLookOffer(fillable < 3 && !directionsOnly)
+            }
         }
         // Frames of the fields the card keeps off, after a scroll, a move or a relayout.
         engine.onFrames = { [weak self] frames in
@@ -134,6 +140,8 @@ final class PointsSessionController: @unchecked Sendable {
         }
         t.name = "com.psyche.helper.points-ax"
         t.qualityOfService = .userInitiated
+        // A deep tree recurses deep: the default 512 KiB secondary-thread stack is not enough.
+        t.stackSize = 8 << 20
         t.start()
         guard ready.wait(timeout: .now() + 5) == .success, ok.isSet else {
             stop(.error)
@@ -182,7 +190,7 @@ final class PointsSessionController: @unchecked Sendable {
     func cardAction(_ action: PointsCardAction) {
         if closedGate.isSet { return }
         // The owner's Let Psyche look press (and Next while vision mode is on) mints the one id a look answers to.
-        let actionId: String? = (action == .look || (action == .next && vision.isSet)) ? tokens.issue() : nil
+        let actionId: String? = PointsActionTokens.mints(action, visionMode: vision.isSet) ? tokens.issue() : nil
         continuation.yield(PointsSessionEvent(action: action, actionID: actionId, type: .action))
         if action == .stop { stop(.stop) }
     }
@@ -271,13 +279,22 @@ final class PointsSessionController: @unchecked Sendable {
         else {
             throw CapabilityError.invalidParams("the box is not on the window", field: "target")
         }
-        let sensitive = PointsBoxMapping.touchesAny(rect, in: last.masks)
+        // The masks may be stale (a scroll, a relayout): check the box against the old and the fresh frames,
+        // and against the page as it is now.
+        let fresh = await maskFrames()
+        let touches = PointsBoxMapping.touchesAny(rect, in: last.masks + fresh.frames)
+        let sensitive = touches || !fresh.complete || fresh.directionsOnly
         let info = PointsTargetInfo(
             fieldId: "box", label: "", role: .text, sensitive: sensitive, frame: rect, nextIds: [], nextFrames: [], windowFrame: last.window)
         lock.withLock { shownTarget = nil }
         var step = Self.step(p, info: info)
-        // Backstop: a value shaped like a secret is dropped even when the box touches no mask.
-        if let v = step.value, sensitive || PointsValueRules.classify(v) != nil { step.value = nil }
+        step.value = PointsBoxPolicy.value(step.value, touchesMask: touches, masksComplete: fresh.complete, directionsOnly: fresh.directionsOnly)
+        if fresh.directionsOnly {
+            // Directions only: the fixed "You fill this yourself" copy, whatever the Gateway wrote.
+            step.kind = .pointsShowKindSelf
+            step.note = ""
+            step.warning = nil
+        }
         overlay.show(step)
         return true
     }

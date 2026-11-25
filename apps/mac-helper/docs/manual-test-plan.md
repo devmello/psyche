@@ -423,4 +423,10 @@ Run the whole table in Safari and again in Chrome. Rows 15.20 to 15.25 also need
 | 15.51 | `points.show` with a box around the painted password field and a `value` | The ring and the note show, and no suggestion is drawn: a box that touches a painted field never gets a value |
 | 15.52 | `points.show` with a box before any look, then after moving the window | `conflict/no_look`, then `conflict/window_moved` |
 | 15.53 | Window across two displays, field on the second one, `points.show` with a box on it | The ring draws on the display that holds the box |
-| 15.54 | `log stream --predicate 'subsystem == "com.psyche.helper"'` during a look | No image data, labels, titles or values in the log. No picture file appears on disk |
+| 15.55 | Show a step (kind `info`) on a window whose tree is sparse (fewer than 3 fillable fields, for example a PDF or a canvas form) | The card has a Let Psyche look button. Press it: the client receives an `action: look` event with an `actionId`. On an ordinary form with 3 or more fields the button is absent |
+| 15.56 | Show a step on a checkout page (a Card number field) or a plain `http:` page with a sparse tree | No Let Psyche look button. A `points.look` with any id is refused with `forbidden/directions_only`, and no picture is taken |
+| 15.57 | Press look, then scroll the page while `points.look` runs | `conflict/page_moved` (retryable), no picture. Press look again with the page still: it works |
+| 15.58 | Minimise the window, press look, call `points.look` | Refused (`mask_unavailable` or `no_window`), never a picture of something else |
+| 15.59 | A form with a password field nested very deeply in groups (a long accessibility path) | `unavailable/mask_unavailable` rather than a picture with that field unpainted |
+| 15.60 | After a look, `points.show` with a `box` on a page that has since turned into a checkout page | The card says the fixed "You fill this yourself" text and shows no value, whatever the note and value were |
+| 15.61 | `log stream --predicate 'subsystem == "com.psyche.helper"'` during a look | No image data, labels, titles or values in the log. No picture file appears on disk |
