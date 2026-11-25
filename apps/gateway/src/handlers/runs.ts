@@ -29,6 +29,7 @@ import type { Call, HandlerDef } from "../context.ts";
 import { removeFrameFile, runRecordingsDir } from "../retention.ts";
 import {
   fullViewOfCall,
+  runSource,
   type StepClassifier,
   scrubPayloads,
   scrubStep,
@@ -52,8 +53,18 @@ function scrubberOf(call: Call): StepClassifier | null {
   return storeClassifier(call.ctx.db, (id) => call.ctx.runTrace.toolOf(id));
 }
 
-const stepsFor = (cls: StepClassifier | null, steps: RunStep[]): RunStep[] =>
-  cls === null ? steps : steps.map((s) => scrubStep(s, stepSource(s, cls)));
+/**
+ * Whether a remote viewer's thinking text of this run is withheld: the run made an owner-only call,
+ * or one that cannot be classified (the model restates what it read in its thinking).
+ */
+const thinkingHiddenOf = (cls: StepClassifier, runId: string): boolean =>
+  runSource(runId, cls) !== null;
+
+function stepsFor(cls: StepClassifier | null, runId: string, steps: RunStep[]): RunStep[] {
+  if (cls === null) return steps;
+  const thinking = steps.some((s) => s.kind === "thinking") && thinkingHiddenOf(cls, runId);
+  return steps.map((s) => scrubStep(s, stepSource(s, cls), thinking));
+}
 /** Exports larger than this go to the Library instead of inline (§4.4). */
 export const EXPORT_INLINE_BYTES = 8 * 1024 * 1024;
 const ACTIVITY_BUCKETS = 12;
@@ -145,18 +156,21 @@ function traceInput(db: PsycheDb, run: Run, cls: StepClassifier | null): TraceRu
   }
   const payloads: Record<string, { input?: unknown; output?: unknown }> = {};
   const thinking: Record<string, string> = {};
+  const hideThinking = cls !== null && thinkingHiddenOf(cls, run.id);
   for (const s of steps) {
     if (s.payloadRef !== undefined) {
       const { truncated: _t, ...p } = stepPayloads(db, s.id);
       payloads[s.id] = cls === null ? p : scrubPayloads(s, stepSource(s, cls, p), p);
     }
-    if (s.kind === "thinking") {
+    if (s.kind === "thinking" && !hideThinking) {
       const full = getRunStep(db, run.id, s.id)?.text?.full;
       if (full !== undefined) thinking[s.id] = full;
     }
   }
   if (cls !== null) {
-    const shown = steps.map((s) => scrubStep(s, stepSource(s, cls, payloadsOf(db, s))));
+    const shown = steps.map((s) =>
+      scrubStep(s, stepSource(s, cls, payloadsOf(db, s)), hideThinking),
+    );
     return { run, steps: shown, tools, payloads, thinking };
   }
   return { run, steps, tools, payloads, thinking };
@@ -253,7 +267,7 @@ export const runsHandlers: Record<string, HandlerDef> = {
       const run = requireRun(db, params.runId);
       return {
         run,
-        steps: stepsFor(scrubberOf(call), listRunSteps(db, run.id, { limit: STEPS_PAGE })),
+        steps: stepsFor(scrubberOf(call), run.id, listRunSteps(db, run.id, { limit: STEPS_PAGE })),
         children: listRuns(db, { parentRunId: run.id, limit: 100 }).reverse(),
       };
     },
@@ -268,7 +282,7 @@ export const runsHandlers: Record<string, HandlerDef> = {
         limit,
       });
       return {
-        steps: stepsFor(scrubberOf(call), steps),
+        steps: stepsFor(scrubberOf(call), params.runId, steps),
         nextSeq: steps.length === limit ? (steps.at(-1)?.seq ?? null) : null,
       };
     },
@@ -327,7 +341,11 @@ export const runsHandlers: Record<string, HandlerDef> = {
       if (cls === null) return { step, ...payloads, truncated };
       const source = stepSource(step, cls, payloads);
       return {
-        step: scrubStep(step, source),
+        step: scrubStep(
+          step,
+          source,
+          step.kind === "thinking" && thinkingHiddenOf(cls, params.runId),
+        ),
         ...scrubPayloads(step, source, payloads),
         truncated,
       };

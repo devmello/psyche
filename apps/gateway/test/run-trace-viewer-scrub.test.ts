@@ -1,5 +1,5 @@
 import { updateDevice } from "@psyche/db";
-import type { RunStep, ToolCall } from "@psyche/protocol";
+import type { AgentEvent, RunStep, ToolCall } from "@psyche/protocol";
 import { afterEach, describe, expect, it } from "vitest";
 import type { Call } from "../src/context.ts";
 import { runsHandlers } from "../src/handlers/runs.ts";
@@ -8,6 +8,7 @@ import {
   bareToolName,
   ownerOnlySourceOfTool,
   scrubModelPayloads,
+  THINKING_HIDDEN,
 } from "../src/run-trace/viewer-scrub.ts";
 import { GatedAgentLoop } from "./agent.ts";
 import {
@@ -315,6 +316,22 @@ describe("ownerOnlySourceOfTool", () => {
     ["remember", "memory"],
     ["memory_recall", "memory"],
     ["entity_recall", "memory"],
+    // R1: the people graph's tools list open loops without the remote-visibility filter.
+    ["people_lookup", "memory"],
+    ["waiting_on", "memory"],
+    ["meeting_prep", "memory"],
+    ["project_brief", "memory"],
+    ["work_status", "memory"],
+    ["loop_update", "memory"],
+    // R1: mail tools that are not `mail_`-prefixed.
+    ["mail.draft_reply", "mail"],
+    ["mail.propose_times", "mail"],
+    ["shop_parse_order_email", "mail"],
+    ["mcp__apple__messages_send", "messages"],
+    ["contacts_read", "contacts"],
+    ["MEMORY", "memory"],
+    ["ｍｅｍｏｒｙ", "memory"],
+    ["messages", "messages"],
   ];
   const ORDINARY = [
     "web_search",
@@ -328,8 +345,12 @@ describe("ownerOnlySourceOfTool", () => {
     "browser.read_text",
     "memoryless_tool",
     "mailbox_cleaner",
-    "messages",
     "search_everything",
+    "obsidian_read",
+    "thread_read",
+    "thread_message",
+    "goals.list",
+    "feed.list",
   ];
   it.each(OWNER_ONLY)("%s is owner-only (%s)", (tool, source) => {
     expect(ownerOnlySourceOfTool(tool)).toBe(source);
@@ -345,6 +366,17 @@ describe("ownerOnlySourceOfTool", () => {
     expect(ownerOnlySourceOfTool("search_everything", '{"id":"Memory:people/alice.md"}')).toBe(
       "memory",
     );
+    // R1: mail documents are owner-only too.
+    expect(
+      ownerOnlySourceOfTool("search_everything", '{"hits":[{"id":"mail:apple:acct:1"}]}'),
+    ).toBe("mail");
+    // A word that only ends in a source name is not an id.
+    expect(
+      ownerOnlySourceOfTool(
+        "search_everything",
+        '{"hits":[{"id":"files:/a","snippet":"gmail:x"}]}',
+      ),
+    ).toBeNull();
   });
   it("bareToolName strips any connector prefix and folds", () => {
     expect(bareToolName("mcp__srv_with_underscores__contacts_search")).toBe("contacts_search");
@@ -370,5 +402,151 @@ describe("scrubModelPayloads", () => {
     // Positive controls: the reply text and an ordinary call's input stay.
     expect(text).toContain("Here is the plan");
     expect(text).toContain(WEB_QUERY);
+  });
+});
+
+/**
+ * R1 finding 1: a helper's calls are never in `tool_calls`; its spawn step is classified from the
+ * helper run's own trace steps. R1 finding 3: a run that made an owner-only call withholds its
+ * thinking text from remote viewers.
+ */
+async function helperSetup(childTool: "contacts_search" | "web_search") {
+  const agent = new GatedAgentLoop();
+  t = await startTestGateway({ agent });
+  const gw = t.gateway;
+  const desk = await desktopClient(gw);
+  const ios = await pairedRemote(gw, "ios");
+  clients.push(desk, ios);
+  const { thread } = await desk.call<{ thread: { id: string } }>(
+    "threads.create",
+    { kind: "main" },
+    ik(),
+  );
+  const sink = gw.context.runTrace;
+  let parentRun = "";
+  const info = () => ({
+    id: "sub_1",
+    runId: `${parentRun}:sub:sub_1`,
+    parentRunId: parentRun,
+    parentThreadId: thread.id,
+    threadId: `${thread.id}:sub:sub_1`,
+    context: "fresh" as const,
+    title: "Look someone up",
+    status: "running" as const,
+  });
+  const helper = (event: Record<string, unknown>) => ({
+    type: "do" as const,
+    fn: () => sink.subagent(info(), { ...event, runId: info().runId } as AgentEvent),
+  });
+  const owner = childTool === "contacts_search";
+  const tool = owner ? "mcp__apple-contacts__contacts_search" : "web_search";
+  const helperOut = owner ? { contacts: [OWNER_SECRET] } : WEB_OUTPUT;
+  const spawnOut = owner ? `Found: ${OWNER_SECRET}` : `Found: ${WEB_OUTPUT}`;
+  const thought = owner ? `${OWNER_SECRET} is the number to use.` : `${WEB_OUTPUT} it seems.`;
+  agent.script([
+    { type: "do", fn: () => (parentRun = agent.turns.at(-1)?.runId ?? "") },
+    {
+      type: "tool_call",
+      toolCallId: "tc_sub",
+      tool: "subagent.spawn",
+      status: "running",
+      level1: "Subagent: Look someone up",
+    },
+    helper({ type: "tool_call", toolCallId: "tc_h1", tool, status: "running", level1: "Reading" }),
+    helper({ type: "tool_call", toolCallId: "tc_h1", tool, status: "ok", level1: "Reading" }),
+    {
+      type: "do",
+      fn: () =>
+        sink.toolResult(record(info().runId, "tc_h1", tool, { q: "Alice" }), {
+          output: helperOut,
+          provenance: "untrusted",
+        }),
+    },
+    helper({ type: "end", outcome: "final" }),
+    {
+      type: "tool_call",
+      toolCallId: "tc_sub",
+      tool: "subagent.spawn",
+      status: "ok",
+      level1: "Subagent: Look someone up",
+    },
+    {
+      type: "do",
+      fn: () =>
+        sink.toolResult(record(parentRun, "tc_sub", "subagent.spawn", { title: "Look" }), {
+          output: spawnOut,
+          provenance: "untrusted",
+        }),
+    },
+    // Thinking after the helper answered: it restates the result.
+    { type: "reasoning", messageId: "m1", stepId: "rsn_r1", delta: thought, done: true },
+    { type: "end", outcome: "final" },
+  ]);
+  await desk.call("chat.send", { threadId: thread.id, content: "Find Alice" }, ik());
+  await gw.context.sessions.idle();
+  const steps = (await desk.call<{ steps: RunStep[] }>("runs.get", { runId: parentRun })).steps;
+  const spawn = steps.find((x) => x.toolCallId === "tc_sub") as RunStep;
+  const thinking = steps.find((x) => x.kind === "thinking") as RunStep;
+  expect(spawn.childRunId).toBeDefined();
+  return { gw, desk, ios, runId: parentRun, spawn, thinking };
+}
+
+/** Everything iOS (or the desktop) can read of the parent run, as one string per surface. */
+async function parentSurfaces(c: TestClient, s: Awaited<ReturnType<typeof helperSetup>>) {
+  const exp = async (format: string) => {
+    const r = await c.call<{ dataBase64: string }>("runs.export", { runId: s.runId, format });
+    return Buffer.from(r.dataBase64, "base64").toString("utf8");
+  };
+  await c.waitForEvent(
+    (e) => e.event === "run.step" && (e.payload as { step: RunStep }).step.kind === "thinking",
+  );
+  return {
+    "runs.get": JSON.stringify(await c.call("runs.get", { runId: s.runId })),
+    "runs.steps": JSON.stringify(await c.call("runs.steps", { runId: s.runId })),
+    "runs.step spawn": JSON.stringify(
+      await c.call("runs.step", { runId: s.runId, stepId: s.spawn.id }),
+    ),
+    "runs.step thinking": JSON.stringify(
+      await c.call("runs.step", { runId: s.runId, stepId: s.thinking.id }),
+    ),
+    "runs.get helper": JSON.stringify(
+      await c.call("runs.get", { runId: s.spawn.childRunId as string }),
+    ),
+    "runs.export json": await exp("psyche-trace+json"),
+    "run.step event": JSON.stringify(c.eventsNamed("run.step")),
+  };
+}
+
+describe("run trace viewer scrub R1: helper runs and thinking", () => {
+  it("a helper that read Contacts hides its spawn result and the run's thinking from iOS", async () => {
+    const s = await helperSetup("contacts_search");
+    for (const [surface, text] of Object.entries(await parentSurfaces(s.ios, s))) {
+      expect(text, surface).not.toContain("555 0100");
+      expect(text, surface).not.toContain("is the number to use");
+    }
+    const get = await s.ios.call<{ steps: RunStep[] }>("runs.get", { runId: s.runId });
+    expect(get.steps.find((x) => x.kind === "thinking")?.text?.summary).toBe(THINKING_HIDDEN);
+    const one = await s.ios.call<{ step: RunStep }>("runs.step", {
+      runId: s.runId,
+      stepId: s.thinking.id,
+    });
+    expect(one.step.text?.full).toBeUndefined();
+    expect(get.steps.find((x) => x.toolCallId === "tc_sub")?.status).toBe("ok");
+    // Positive control: the desktop shell reads all of it.
+    const desk = await parentSurfaces(s.desk, s);
+    expect(desk["runs.step spawn"]).toContain("555 0100");
+    expect(desk["runs.step thinking"]).toContain("is the number to use");
+    expect(desk["runs.export json"]).toContain("is the number to use");
+  });
+
+  it("a helper that only searched the web keeps its result and the run's thinking on iOS", async () => {
+    const s = await helperSetup("web_search");
+    const got = await parentSurfaces(s.ios, s);
+    expect(got["runs.step spawn"]).toContain(`Found: ${WEB_OUTPUT}`);
+    expect(got["runs.step thinking"]).toContain("it seems");
+    expect(got["runs.get"]).toContain("it seems");
+    expect(got["runs.export json"]).toContain("it seems");
+    expect(got["runs.get helper"]).toContain(WEB_OUTPUT);
+    expect(got["runs.get"]).not.toContain(THINKING_HIDDEN);
   });
 });

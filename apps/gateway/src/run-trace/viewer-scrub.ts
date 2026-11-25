@@ -1,6 +1,7 @@
-import type { PsycheDb } from "@psyche/db";
+import { listRunSteps, type PsycheDb } from "@psyche/db";
+import { GRAPH_TOOL_NAMES } from "@psyche/memory";
 import { citeSourceOf } from "@psyche/proactive";
-import type { RunStep } from "@psyche/protocol";
+import { RUN_STEP_LIMITS, type RunStep } from "@psyche/protocol";
 import { OWNER_ONLY_SOURCES, SEARCH_EVERYTHING_TOOL } from "@psyche/search";
 import { isDesktopViewer } from "../compose/fork-hidden.ts";
 import type { Call } from "../context.ts";
@@ -25,11 +26,43 @@ export type OwnerOnlySource = "messages" | "contacts" | "memory" | "mail" | "unk
 const OWNER_ONLY: ReadonlySet<string> = new Set<string>([...OWNER_ONLY_SOURCES, "mail"]);
 
 /**
- * Agent-core builtins that read or write the Memory workspace by their own names (`memory`, the
- * Markdown memory tool; `remember`). Connector and recall tools are classified by
- * `citeSourceOf`, the fork read guard's rule, so both stay in step.
+ * Memory tools by their registered names: the agent-core builtins that read or write the Memory
+ * workspace (`memory`, `remember`) and the people graph's tools (`GRAPH_TOOL_NAMES`: people,
+ * projects, open loops, meeting prep). Connector and recall tools are classified by `citeSourceOf`,
+ * the fork read guard's rule, so both stay in step.
  */
-const MEMORY_BUILTINS: ReadonlySet<string> = new Set(["memory", "remember"]);
+const MEMORY_TOOLS: ReadonlySet<string> = new Set<string>([
+  "memory",
+  "remember",
+  ...GRAPH_TOOL_NAMES,
+]);
+
+/**
+ * A source named as a whole word of the tool name, split on `_`, `.` and `-`: `mail.draft_reply`,
+ * `shop_parse_order_email`, `memory_search`, `messages`. `mailbox` and `memoryless` are other
+ * words. Owner-only by name: a tool that only says it is about mail is hidden.
+ */
+const SOURCE_WORDS: Readonly<Record<string, OwnerOnlySource>> = {
+  mail: "mail",
+  email: "mail",
+  gmail: "mail",
+  outlook: "mail",
+  inbox: "mail",
+  memory: "memory",
+  memories: "memory",
+  messages: "messages",
+  imessage: "messages",
+  sms: "messages",
+  contacts: "contacts",
+};
+
+function sourceByWord(bare: string): OwnerOnlySource | null {
+  for (const word of bare.split(/[._-]+/)) {
+    const hit = Object.hasOwn(SOURCE_WORDS, word) ? SOURCE_WORDS[word] : undefined;
+    if (hit !== undefined) return hit;
+  }
+  return null;
+}
 
 const LABEL: Record<OwnerOnlySource, string> = {
   messages: "Messages",
@@ -56,8 +89,11 @@ export function bareToolName(tool: string): string {
   return bare.normalize("NFKC").toLowerCase().toUpperCase().toLowerCase().normalize("NFKC");
 }
 
-/** Text that names an owner-only search document (`messages:…`, `contacts:…`, `memory:…`). */
-const OWNER_DOC = new RegExp(`(?:${OWNER_ONLY_SOURCES.join("|")}):`, "i");
+/**
+ * Text that names an owner-only search document id (`messages:…`, `contacts:…`, `memory:…`,
+ * `mail:…`) at the start of a value: after a quote, a bracket, a comma, a space or the start.
+ */
+const OWNER_DOC = new RegExp(`(?:^|["'\\s(\\[,])(${[...OWNER_ONLY].join("|")}):`, "i");
 
 /**
  * The owner-only source a tool reads or writes, or `null` for an ordinary tool. `search_everything`
@@ -66,11 +102,13 @@ const OWNER_DOC = new RegExp(`(?:${OWNER_ONLY_SOURCES.join("|")}):`, "i");
  */
 export function ownerOnlySourceOfTool(tool: string, content?: string): OwnerOnlySource | null {
   const bare = bareToolName(tool);
-  if (MEMORY_BUILTINS.has(bare)) return "memory";
+  if (MEMORY_TOOLS.has(bare)) return "memory";
   if (bare === SEARCH_EVERYTHING_TOOL) {
     const m = content === undefined ? null : OWNER_DOC.exec(content);
-    return m === null ? null : (m[0].slice(0, -1).toLowerCase() as OwnerOnlySource);
+    return m === null ? null : ((m[1] ?? "").toLowerCase() as OwnerOnlySource);
   }
+  const word = sourceByWord(bare);
+  if (word !== null) return word;
   const source = citeSourceOf(bare);
   return source !== null && OWNER_ONLY.has(source) ? (source as OwnerOnlySource) : null;
 }
@@ -84,8 +122,12 @@ export const fullViewOfReader = (reader: Reader): boolean => reader.local === tr
 export interface StepClassifier {
   /** The tool a call ran, from the sink's memory or the store; `undefined` when unknown. */
   toolOf(toolCallId: string): string | undefined;
-  /** A helper run's tool calls (its own steps), for a spawn step's output. */
-  toolsOfRun(runId: string): readonly string[] | undefined;
+  /**
+   * A run's own trace steps (a helper's, for its spawn step; a run's, for its thinking), or
+   * `undefined` when they cannot be read. Helper calls are never in `tool_calls`: only their steps
+   * name them, through `toolOf`.
+   */
+  stepsOfRun(runId: string): readonly RunStep[] | undefined;
 }
 
 /** The store's answers for {@link StepClassifier}. */
@@ -106,13 +148,9 @@ export function storeClassifier(
         return undefined;
       }
     },
-    toolsOfRun(runId) {
+    stepsOfRun(runId) {
       try {
-        return (
-          db.sqlite.prepare("SELECT tool FROM tool_calls WHERE run_id = ?").all(runId) as {
-            tool: string;
-          }[]
-        ).map((r) => r.tool);
+        return listRunSteps(db, runId, { limit: RUN_STEP_LIMITS.stepsPerRun });
       } catch {
         return undefined;
       }
@@ -134,9 +172,13 @@ const contentOf = (step: RunStep, payloads?: { input?: unknown; output?: unknown
   return parts.join("\n");
 };
 
+/** How deep helper runs are followed; a deeper one counts as private. */
+const MAX_DEPTH = 3;
+
 /**
  * Which owner-only source a step shows, or `null`. Fails closed: a tool step whose tool cannot be
- * read is `unknown`, and so is a helper's spawn step whose helper run's calls cannot be read.
+ * read is `unknown`. A helper's spawn step follows its helper run ({@link runSource}), whose result
+ * can quote what the helper read; a spawn step with output and no helper run yet is `unknown`.
  */
 export function stepSource(
   step: RunStep,
@@ -148,28 +190,52 @@ export function stepSource(
   if (step.toolCallId !== undefined) {
     const tool = cls.toolOf(step.toolCallId);
     if (tool === undefined) return "unknown";
+    // In a helper run only the clipped preview is at hand, never the search results: private.
+    if (depth > 0 && bareToolName(tool) === SEARCH_EVERYTHING_TOOL) return "unknown";
     const own = ownerOnlySourceOfTool(tool, contentOf(step, payloads));
     if (own !== null) return own;
   } else if (step.kind === "tool") {
     return "unknown";
   }
-  // A helper's result can quote what the helper read: its spawn step follows its run's calls.
-  if (step.kind === "subagent" && step.childRunId !== undefined) {
-    if (depth >= 3) return "unknown";
-    const tools = cls.toolsOfRun(step.childRunId);
-    if (tools === undefined) return "unknown";
-    for (const t of tools) {
-      // The helper's search results are not at hand here: its search counts as private.
-      const own = bareToolName(t) === SEARCH_EVERYTHING_TOOL ? "unknown" : ownerOnlySourceOfTool(t);
-      if (own !== null) return own;
-    }
+  if (step.kind !== "subagent") return null;
+  if (step.childRunId !== undefined) return runSource(step.childRunId, cls, depth + 1);
+  const answered =
+    step.preview?.output !== undefined ||
+    step.payloadRef?.output !== undefined ||
+    payloads?.output !== undefined;
+  return answered ? "unknown" : null;
+}
+
+/**
+ * The first owner-only source any step of a run shows, its helpers' runs included, or `null`.
+ * A run with no readable steps, or deeper than {@link MAX_DEPTH}, is `unknown`.
+ */
+export function runSource(runId: string, cls: StepClassifier, depth = 0): OwnerOnlySource | null {
+  if (depth > MAX_DEPTH) return "unknown";
+  const steps = cls.stepsOfRun(runId);
+  if (steps === undefined || steps.length === 0) return "unknown";
+  for (const s of steps) {
+    const own = stepSource(s, cls, undefined, depth);
+    if (own !== null) return own;
   }
   return null;
 }
 
+/** What a hidden thinking step says instead of its summary. */
+export const THINKING_HIDDEN = "Thinking: hidden on this device";
+
 /** A step as a remote viewer sees it, given its source (from {@link stepSource}). */
-export function scrubStep(step: RunStep, source: OwnerOnlySource | null): RunStep {
+export function scrubStep(
+  step: RunStep,
+  source: OwnerOnlySource | null,
+  /** The run made an owner-only (or unclassifiable) call: its thinking can restate the results. */
+  thinkingHidden = false,
+): RunStep {
   const { memoryPath: _m, ...rest } = step;
+  if (step.kind === "thinking" && thinkingHidden && rest.text !== undefined) {
+    const { full: _f, summary: _s, ...text } = rest.text;
+    return { ...rest, text: { ...text, summary: THINKING_HIDDEN } };
+  }
   if (source === null) return rest;
   const { doneLabel: _d, target: _t, preview, progress, error, ...kept } = rest;
   const hidden = hiddenText(source);
@@ -246,5 +312,14 @@ export function personalizeRunStep(
   cls: StepClassifier,
 ): { runId: string; step: RunStep } {
   if (fullViewOfReader(reader)) return payload;
-  return { ...payload, step: scrubStep(payload.step, stepSource(payload.step, cls)) };
+  // One publish asks for each subscriber in turn: every remote one gets the same scrub.
+  const known = remoteMemo.get(payload);
+  if (known !== undefined) return known;
+  const step = payload.step;
+  const thinkingHidden = step.kind === "thinking" && runSource(payload.runId, cls) !== null;
+  const out = { ...payload, step: scrubStep(step, stepSource(step, cls), thinkingHidden) };
+  remoteMemo.set(payload, out);
+  return out;
 }
+
+const remoteMemo = new WeakMap<object, { runId: string; step: RunStep }>();
