@@ -165,8 +165,13 @@ struct FeedView: View {
     @State private var expanded: Set<String> = []
     @State private var confirming: URL?
     @Environment(\.openURL) private var openURL
+    /// A post to open on arrival (`/feed/<id>`, a daily brief, mail digest, meeting prep or notes notification).
+    private let focusPostID: String?
 
-    init(store: any PsycheBackend) { _model = State(initialValue: FeedModel(store: store)) }
+    init(store: any PsycheBackend, focusPostID: String? = nil) {
+        _model = State(initialValue: FeedModel(store: store))
+        self.focusPostID = focusPostID
+    }
 
     var body: some View {
         ProactivePage(
@@ -183,6 +188,10 @@ struct FeedView: View {
                 Text("Next brief \(ProactiveText.when(next))", bundle: .module).font(.footnote).foregroundStyle(PsycheColor.muted)
             }
             ActionError(message: model.actionError)
+        }
+        .task(id: focusPostID) {
+            // The post a notification names opens expanded; the card's id is the post id.
+            if let id = focusPostID { expanded.insert(id) }
         }
         .confirmationDialog(
             String(localized: "Open this link?", bundle: .module), isPresented: Binding(get: { confirming != nil }, set: { if !$0 { confirming = nil } }),
@@ -291,8 +300,14 @@ struct GoalsView: View {
     @State private var model: GoalsModel
     @State private var showing = false
     @State private var adding = false
+    @Environment(Router.self) private var router
+    /// A goal to open on arrival (`/goals/<id>`, a goal notification). Its sheet opens and loads that goal.
+    private let openGoalID: String?
 
-    init(store: any PsycheBackend) { _model = State(initialValue: GoalsModel(store: store)) }
+    init(store: any PsycheBackend, openGoalID: String? = nil) {
+        _model = State(initialValue: GoalsModel(store: store))
+        self.openGoalID = openGoalID
+    }
 
     var body: some View {
         ProactivePage(
@@ -323,8 +338,17 @@ struct GoalsView: View {
                 Text("Set a goal's plan and check-in cadence on your Mac.", bundle: .module).font(.footnote).foregroundStyle(PsycheColor.muted)
             }
         }
-        .sheet(isPresented: $showing, onDismiss: model.close) {
+        .sheet(isPresented: $showing, onDismiss: {
+            model.close()
+            router.runDeferredOpen()
+        }) {
             GoalSheet(model: model)
+        }
+        .task(id: openGoalID) {
+            guard let id = openGoalID else { return }
+            showing = true
+            // Only the id is used to load; the goal's fields come from the detail.
+            await model.open(GoalItem(id: id, title: "", category: "", status: ""))
         }
         .sheet(isPresented: $adding) {
             AddGoalSheet { draft in try await model.create(draft) }
@@ -559,8 +583,9 @@ private struct GoalSheet: View {
         Group {
             if case .task(let id) = link {
                 Button {
+                    // The goal sheet is dismissing: its onDismiss opens the task's run page once it is gone.
                     dismiss()
-                    router.open(appPath: "/task/\(id)")
+                    router.deferOpen(appPath: "/task/\(id)")
                 } label: {
                     label
                 }

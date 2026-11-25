@@ -10,7 +10,7 @@ struct ProactiveModelTests {
         #expect(Route(appPath: "/feed") == .feed)
         #expect(Route(appPath: "/ideas") == .ideas)
         #expect(Route(appPath: "/goals") == .goals)
-        #expect(Route(appPath: "/goals/g1") == .project(id: "g1"))
+        #expect(Route(appPath: "/goals/g1") == .goal(id: "g1"))
     }
 
     @Test func notInterestedTakesTheCardOffAndSaveKeepsItMarked() async {
