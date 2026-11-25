@@ -17,4 +17,5 @@ export const mailFollowups: Partial<Catalogue> = {
   "daily.section.quiet_threads": "沉寂的邮件往来",
   "daily.section.promises": "承诺",
   "screens.inbox.kind.promise_due": "承诺到期",
+  "daily.section.night_shift": "夜班",
 };

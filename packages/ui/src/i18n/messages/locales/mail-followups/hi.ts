@@ -18,4 +18,5 @@ export const mailFollowups: Partial<Catalogue> = {
   "daily.section.quiet_threads": "शांत पड़े ईमेल थ्रेड",
   "daily.section.promises": "वादे",
   "screens.inbox.kind.promise_due": "वादा देय",
+  "daily.section.night_shift": "रात की शिफ्ट",
 };

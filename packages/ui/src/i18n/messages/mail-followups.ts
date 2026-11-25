@@ -17,4 +17,5 @@ export const mailFollowups = {
   "daily.section.quiet_threads": "Quiet email threads",
   "daily.section.promises": "Promises",
   "screens.inbox.kind.promise_due": "Promise due",
+  "daily.section.night_shift": "Night shift",
 } as const;

@@ -19,4 +19,5 @@ export const mailFollowups: Partial<Catalogue> = {
   "daily.section.quiet_threads": "Fils de mails restés sans suite",
   "daily.section.promises": "Promesses",
   "screens.inbox.kind.promise_due": "Promesse à tenir",
+  "daily.section.night_shift": "Équipe de nuit",
 };

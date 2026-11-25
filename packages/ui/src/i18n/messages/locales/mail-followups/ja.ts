@@ -17,4 +17,5 @@ export const mailFollowups: Partial<Catalogue> = {
   "daily.section.quiet_threads": "止まっているメールのやり取り",
   "daily.section.promises": "約束",
   "screens.inbox.kind.promise_due": "約束の期限",
+  "daily.section.night_shift": "ナイトシフト",
 };

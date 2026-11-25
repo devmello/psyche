@@ -19,4 +19,5 @@ export const mailFollowups: Partial<Catalogue> = {
   "daily.section.quiet_threads": "محادثات بريد متوقفة",
   "daily.section.promises": "الوعود",
   "screens.inbox.kind.promise_due": "وعد مستحق",
+  "daily.section.night_shift": "الوردية الليلية",
 };
