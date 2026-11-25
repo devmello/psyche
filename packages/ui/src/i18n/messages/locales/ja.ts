@@ -46,6 +46,7 @@ import { overviewShared } from "./overview-shared/ja.ts";
 import { passwordPresence } from "./password-presence/ja.ts";
 import { peopleRest } from "./people-rest/ja.ts";
 import { personDataRest } from "./personData-rest/ja.ts";
+import { points } from "./points/ja.ts";
 import { researchRest } from "./research-rest/ja.ts";
 import { scheduledForm } from "./scheduled-form/ja.ts";
 import { scheduledRest } from "./scheduled-rest/ja.ts";
@@ -235,6 +236,12 @@ export const ja: Partial<Catalogue> = {
   "chat.queue.notSent": "未送信",
   "chat.queue.retry": "「{content}」の送信を再試行",
   "chat.queue.remove": "待機中のメッセージ「{content}」を削除",
+  "chat.thread.loadingEarlier": "以前のメッセージを読み込み中",
+  "chat.thread.loadEarlierFailed": "以前のメッセージを読み込めませんでした。",
+  "chat.thread.focusNotFound": "このチャットでそのメッセージが見つかりませんでした。",
+  "chat.queue.parked": "停止後に一時停止中",
+  "chat.queue.sendQueued": "待機中のものを送信",
+  "chat.queue.sendQueuedLabel": "待機中のメッセージ「{content}」を送信",
   "chat.commands.model.hint": "プロバイダ/モデル",
   "chat.commands.model.description": "このスレッドのモデルを選択",
   "chat.commands.new.description": "新しいサイドチャットを開始",
@@ -500,6 +507,7 @@ export const ja: Partial<Catalogue> = {
   "blocks.toolRun.status.failed": "失敗",
   "blocks.toolRun.status.uncertain": "結果不明",
   "blocks.toolRun.status.blocked": "ブロック済み",
+  "blocks.toolRun.status.stopped": "停止済み",
   "blocks.toolRun.summary": "{count, plural, other {#件のアクション}} · {families}",
   "blocks.toolRun.untrustedOutput": "信頼されていない出力",
   "blocks.toolRun.trustedOutput": "信頼された出力",
@@ -3967,6 +3975,8 @@ export const ja: Partial<Catalogue> = {
   ...linuxAccess,
   // the Virtual screen watch pane (docs/design/linux-desktop-2026.md §7.5)
   ...computerWatch,
+  // Psyche points (docs/design/psyche-points-2026.md §9)
+  ...points,
   // Gateway-authored notices (inbox notifications, security alerts)
   ...notices,
   // Settings > Computer use > Separate desktop (Linux)

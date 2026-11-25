@@ -106,9 +106,8 @@ export function parseCommand(input: string): CommandParse {
   const name = m[1] as string;
   const arg = (m[2] ?? "").trim();
   const info = COMMANDS.find((c) => c.name === name);
-  if (info === undefined) {
-    return { type: "error", message: t("chat.commands.unknown", { name }) };
-  }
+  // Not one of ours ("/tmp is full, clean it up"): it is text for the agent, not a mistyped command.
+  if (info === undefined) return { type: "message", text: input };
   if (info.arity === "none" && arg !== "") {
     return { type: "error", message: t("chat.commands.noArgs", { name }) };
   }

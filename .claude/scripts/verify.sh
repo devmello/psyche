@@ -372,6 +372,8 @@ if [ "$swift" = 1 ]; then
     wait_for_swift_builds
     run "swift-test:$pkg" bash -c "cd '$pkg' && swift build && swift test"
   done
+  # Psyche points never clicks: the helper's target boundary (docs/design/psyche-points-2026.md §4.3). It also links packages/protocol-swift.
+  if grep -qE '^(apps/mac-helper|packages/protocol-swift)/' <<<"$changed"; then wait_for_swift_builds; run "points-boundary" bash apps/mac-helper/scripts/check-points-boundary.sh; fi
   # The iOS package's test targets (host macOS, no simulator, no UI tests). It also depends on
   # packages/protocol-swift, so a protocol change runs it too.
   if grep -qE '^(apps/ios|packages/protocol-swift)/' <<<"$changed"; then

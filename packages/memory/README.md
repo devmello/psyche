@@ -21,16 +21,16 @@ Docs: architecture §2 principle 6 and §4.8, data model §7, security §8, ADR-
 
 ## Workspace layout
 
-| Path | Role | Written by |
-| --- | --- | --- |
-| `SOUL.md`, `IDENTITY.md`, `AGENTS.md`, `USER.md` | persona, injected every session (see sessions below) | owner; agent only with an approved `memory_protected_write` |
-| `MEMORY.md` | curated memory, private sessions only | dreaming (the only writer besides the owner) |
-| `memory/YYYY-MM-DD.md` | daily notes, indexed; today and yesterday injected | anyone, append-only (owner may edit) |
-| `memory/*.md`, other `*.md` | topic notes, imports (`memory/imports/`) | anyone |
-| `interests.md` | the Feed's interest ledger (S15 reads it) | agent, owner |
-| `BOOTSTRAP.md` | first-run ritual, copied only into a fresh workspace, never re-created | the agent may only delete it |
-| `DREAMS.md` | dreaming diary, not indexed | dreaming |
-| `skills/` | workspace skills (S16); not indexed as memory | owner |
+| Path                                             | Role                                                                   | Written by                                                  |
+| ------------------------------------------------ | ---------------------------------------------------------------------- | ----------------------------------------------------------- |
+| `SOUL.md`, `IDENTITY.md`, `AGENTS.md`, `USER.md` | persona, injected every session (see sessions below)                   | owner; agent only with an approved `memory_protected_write` |
+| `MEMORY.md`                                      | curated memory, private sessions only                                  | dreaming (the only writer besides the owner)                |
+| `memory/YYYY-MM-DD.md`                           | daily notes, indexed; today and yesterday injected                     | anyone, append-only (owner may edit)                        |
+| `memory/*.md`, other `*.md`                      | topic notes, imports (`memory/imports/`)                               | anyone                                                      |
+| `interests.md`                                   | the Feed's interest ledger (S15 reads it)                              | agent, owner                                                |
+| `BOOTSTRAP.md`                                   | first-run ritual, copied only into a fresh workspace, never re-created | the agent may only delete it                                |
+| `DREAMS.md`                                      | dreaming diary, not indexed                                            | dreaming                                                    |
+| `skills/`                                        | workspace skills (S16); not indexed as memory                          | owner                                                       |
 
 Templates come from `templates/` (S20). `{{token}}` placeholders are substituted at copy time with the onboarding values or the defaults in `templates/README.md` (`{{cred:…}}` is never touched). Hidden entries (`.git`, `.DS_Store`) are never listed, indexed, read or written through the store; `reset` keeps them.
 
@@ -90,6 +90,7 @@ Nightly at 03:00 local, as a system automation in `@psyche/scheduler` (`ensureDr
 ## People and projects graph (in progress, #651)
 
 `GraphStore` (`src/graph/store.ts`) holds the graph from docs/memory/people-and-projects-2026.md in the main database (migration `202610251200_memory_graph.sql`):
+
 - entities (person, org, project, place) and identifiers as merge keys (`normalize.ts`: Gmail folding, E.164, machine, role and bulk senders);
 - facts and relations from the allowlists, with provenance, evidence, validity, supersession and history. Owner-only attributes and labels, sensitive and instruction-like values are refused, and a model never overrides the owner;
 - interactions as pointers (no bodies), following the source's deletions;
@@ -99,6 +100,7 @@ Nightly at 03:00 local, as a system automation in `@psyche/scheduler` (`ensureDr
 - retention, status, export and reset.
 
 `cards.ts` renders each entity as `people/<slug>.md` / `projects/<slug>.md` (≤ 2,000 characters; hidden `<!--f:id-->` / `<!--l:id-->` markers). `CardSync` writes cards as a job; the agent cannot write them. It also turns the owner's edits back into corrections: changed or added facts become owner facts, deleted lines are retractions, ticked loops are done, deleted loops are dismissed, Notes are kept verbatim, and front-matter emails and phones are linked (or suggested for merging when they belong to someone else). `ingest.ts` (`GraphIngester`) is the deterministic pass over connector-neutral records:
+
 - Contacts are owner facts (title, birthday, works-at, related names), and Contacts re-ingest respects the owner's corrections.
 - Mail creates people past the threshold, skips bulk, machine and role senders, marks shared addresses, records direction, and applies the 3-day no-reply rule with reply-closes.
 - Calendar attendees become people, never rooms.

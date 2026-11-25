@@ -8,7 +8,7 @@ import Testing
 /// The Dynamic Island's Deny and Approve (`AnswerApprovalIntent`) go through `AlertCenter.answerFromIsland`,
 /// which answers only a plain write approval that belongs to a task with a Live Activity running, re-checked
 /// against what is waiting. A presence-gated one (the payment) is never answered from there, whatever id arrives.
-@MainActor
+@MainActor @Suite(.serialized)
 struct IslandAnswerTests {
     private let demo = FixtureBackend.demoApprovalID
 

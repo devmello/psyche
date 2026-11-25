@@ -3,7 +3,7 @@ import PsycheHelperCore
 import PsycheProtocol
 import Testing
 
-private let allKinds: [NotificationKind] = [.approval, .inputNeeded, .taskDone, .taskFailed, .proactive, .briefing, .reminder, .system, .specialistResult]
+private let allKinds: [NotificationKind] = [.approval, .inputNeeded, .taskDone, .taskFailed, .proactive, .briefing, .reminder, .system, .specialistResult, .promiseDue]
 
 private func params(_ kind: NotificationKind, id: String = "ntf_1", title: String = "Title", body: String = "Body") -> NotifyShowParams {
     NotifyShowParams(id: id, kind: kind, title: title, body: body)
@@ -49,6 +49,7 @@ struct NotificationCategoryTests {
             .briefing: ("psyche.open", ["open"]),
             .system: ("psyche.open", ["open"]),
             .specialistResult: ("psyche.open", ["open"]),
+            .promiseDue: ("psyche.open", ["open"]),
         ]
         for kind in allKinds {
             let plan = try NotificationPlan.make(params(kind))
@@ -151,7 +152,7 @@ struct NotificationLimitsTests {
     @Test func interruptionDefaults() throws {
         let expected: [NotificationKind: NotifyInterruptionLevel] = [
             .approval: .timeSensitive, .inputNeeded: .timeSensitive, .proactive: .passive, .briefing: .passive,
-            .taskDone: .active, .taskFailed: .active, .reminder: .active, .system: .active, .specialistResult: .active,
+            .taskDone: .active, .taskFailed: .active, .reminder: .active, .system: .active, .specialistResult: .active, .promiseDue: .active,
         ]
         for kind in allKinds {
             let plan = try NotificationPlan.make(params(kind))

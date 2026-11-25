@@ -1,4 +1,4 @@
-import { chmodSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, statSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import Database from "better-sqlite3";
 import { type BetterSQLite3Database, drizzle } from "drizzle-orm/better-sqlite3";
@@ -64,6 +64,10 @@ export function openDb(path: string, opts: OpenDbOptions = {}): PsycheDb {
   const readonly = opts.readonly ?? false;
   const filePath = memory ? path : resolve(path);
 
+  // auto_vacuum only takes effect on a database that has no tables yet; an existing one is
+  // converted by the owner's "Compact database" (auto_vacuum = INCREMENTAL, then VACUUM), never at open.
+  const fresh = !readonly && (memory || !existsSync(filePath) || statSync(filePath).size === 0);
+
   if (!memory && !readonly) {
     ensureDir(dirname(filePath));
     if (!existsSync(filePath)) writeFileSync(filePath, "", { mode: FILE_MODE, flag: "wx" });
@@ -73,7 +77,12 @@ export function openDb(path: string, opts: OpenDbOptions = {}): PsycheDb {
   const sqlite = new Database(filePath, readonly ? { readonly: true, fileMustExist: true } : {});
   try {
     if (!readonly) {
+      // Before journal_mode: the first write fixes the mode. INCREMENTAL lets the retention job
+      // hand freed pages back with `incremental_vacuum` instead of a full VACUUM.
+      if (fresh) sqlite.pragma("auto_vacuum = INCREMENTAL");
       if (!memory) sqlite.pragma("journal_mode = WAL");
+      // A checkpoint truncates the WAL back to this size, so one big write cannot leave a huge file.
+      sqlite.pragma("journal_size_limit = 67108864");
       sqlite.pragma("synchronous = NORMAL");
       // FAST zeroes deleted cells inside a b-tree page. It does not zero pages that go to the
       // freelist (overflow chains of large rows, merged full-text segments). The Forget paths

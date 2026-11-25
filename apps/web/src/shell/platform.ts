@@ -470,6 +470,11 @@ export type ShellCommand =
   | { type: "navigate"; route: string }
   | { type: "newSideChat" }
   | { type: "palette" }
+  /**
+   * The menu-bar row "Point me through this window…" (Psyche points): opens the start sheet, with
+   * the window main found behind Psyche chosen when it is still listed. Starts nothing.
+   */
+  | { type: "points"; window?: string }
   /** ⌘W: closes a pop-out or quick-entry window, or leaves the current thread view. */
   | { type: "closeThreadView" }
   /** A pane's pop-out window was closed: dock the pane again (main window only). */

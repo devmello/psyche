@@ -99,6 +99,18 @@ export function notifications(): Notification[] {
       readAt: "2026-10-01T09:00:00Z",
       createdAt: "2026-10-01T08:12:00Z",
     }),
+    // A warning before the owner breaks their own promise (docs/design/promise-ledger-2026.md §5.1).
+    notification({
+      id: N.promiseDue,
+      kind: "promise_due",
+      title: "Due tomorrow: send Dana the budget",
+      body: "You said Monday.",
+      route: "/inbox",
+      actions: [{ id: "open", label: "Open" }],
+      surfaces: ["desktop", "notification"],
+      delivered: { desktop: "2026-10-01T16:00:00Z", notification: "2026-10-01T16:00:01Z" },
+      createdAt: "2026-10-01T16:00:00Z",
+    }),
     notification({
       id: N.proactive,
       kind: "proactive",

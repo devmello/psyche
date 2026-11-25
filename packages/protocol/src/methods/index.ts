@@ -39,7 +39,9 @@ import { NudgeMethods } from "./nudges.ts";
 import { PasskeysMethods } from "./passkeys.ts";
 import { PlanForksMethods } from "./plan-forks.ts";
 import { PluginsMethods } from "./plugins.ts";
+import { PointsMethods } from "./points.ts";
 import { FeedMethods, GoalsMethods, IdeasMethods } from "./proactive.ts";
+import { PromisesMethods } from "./promises.ts";
 import { QuestionsMethods } from "./questions.ts";
 import { ArtifactsMethods, ReceiptsMethods } from "./receipts.ts";
 import { RunsMethods } from "./runs.ts";
@@ -104,6 +106,7 @@ export * from "./nudges.ts";
 export * from "./passkeys.ts";
 export * from "./plan-forks.ts";
 export * from "./plugins.ts";
+export * from "./points.ts";
 export * from "./proactive.ts";
 export * from "./questions.ts";
 export * from "./receipts.ts";
@@ -179,6 +182,7 @@ export const Methods = {
   ...RunsMethods,
   ...DictationMethods,
   ...TeachAppMethods,
+  ...PointsMethods,
   ...AttentionMethods,
   ...SkillsMethods,
   ...ConnectorBundleMethods,
@@ -193,6 +197,7 @@ export const Methods = {
   ...InsightsMethods,
   ...DailyMethods,
   ...MailFollowupMethods,
+  ...PromisesMethods,
   ...NightShiftMethods,
   ...PlanForksMethods,
   ...NudgeMethods,

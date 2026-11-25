@@ -279,6 +279,19 @@ struct SettingsSheet: View {
                 .buttonStyle(.plain)
         }
 
+        if session.isDemo {
+            section(
+                String(localized: "Demo", bundle: .module),
+                footer: String(localized: "You're looking at sample content. Exit to go back to pairing with your Mac.", bundle: .module)
+            ) {
+                Button {
+                    dismiss()
+                    session.exitDemo()
+                } label: { actionRow(String(localized: "Exit demo", bundle: .module), destructive: false) }
+                    .buttonStyle(.plain)
+            }
+        }
+
         section(String(localized: "Gateway", bundle: .module)) {
             Button { confirmingRepair = true } label: { actionRow(String(localized: "Re-pair with your Mac", bundle: .module), destructive: false) }
                 .buttonStyle(.plain)

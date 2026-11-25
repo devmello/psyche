@@ -959,6 +959,9 @@ importers:
       '@psyche/agent-core':
         specifier: workspace:*
         version: link:../agent-core
+      '@psyche/connectors':
+        specifier: workspace:*
+        version: link:../connectors
       '@psyche/permissions':
         specifier: workspace:*
         version: link:../permissions

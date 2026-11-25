@@ -2,6 +2,7 @@ import AppKit
 import CoreGraphics
 import Foundation
 import ImageIO
+import PsycheCapture
 import PsycheHelperCore
 import PsycheProtocol
 @preconcurrency import ScreenCaptureKit
@@ -96,31 +97,9 @@ public enum ScreenshotCapabilities {
         }
     }
 
-    static func shareable() async throws -> SCShareableContent {
-        do {
-            return try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
-        } catch {
-            if !CGPreflightScreenCaptureAccess() { throw CapabilityError.permissionMissing(.screenRecording) }
-            throw CapabilityError(.unavailable, reason: "capture_failed", "ScreenCaptureKit could not list content", retryable: true)
-        }
-    }
+    static func shareable() async throws -> SCShareableContent { try await WindowCapture.shareable() }
 
-    /// JPEG down the quality ladder until it fits the frame budget (PNG when asked and it fits).
-    static func encode(_ image: CGImage, png: Bool) throws -> (Data, String) {
-        func write(_ type: UTType, quality: Double?) -> Data? {
-            let out = NSMutableData()
-            guard let dest = CGImageDestinationCreateWithData(out, type.identifier as CFString, 1, nil) else { return nil }
-            var props: [CFString: Any] = [:]
-            if let quality { props[kCGImageDestinationLossyCompressionQuality] = quality }
-            CGImageDestinationAddImage(dest, image, props as CFDictionary)
-            return CGImageDestinationFinalize(dest) ? out as Data : nil
-        }
-        if png, let d = write(.png, quality: nil), d.count <= CaptureHygiene.maxEncodedBytes { return (d, "image/png") }
-        for q in CaptureHygiene.jpegQualityLadder {
-            if let d = write(.jpeg, quality: q), d.count <= CaptureHygiene.maxEncodedBytes { return (d, "image/jpeg") }
-        }
-        throw CapabilityError(.unavailable, reason: "image_too_large", "The screenshot does not fit the frame budget; lower maxWidth")
-    }
+    static func encode(_ image: CGImage, png: Bool) throws -> (Data, String) { try WindowCapture.encode(image, png: png) }
 
     // MARK: User-initiated capture
 

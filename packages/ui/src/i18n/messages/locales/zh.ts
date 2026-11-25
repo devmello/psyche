@@ -41,6 +41,7 @@ import { overviewGrowth } from "./overview-growth/zh.ts";
 import { overviewShared } from "./overview-shared/zh.ts";
 import { passwordPresence } from "./password-presence/zh.ts";
 import { people } from "./people/zh.ts";
+import { points } from "./points/zh.ts";
 import { research } from "./research/zh.ts";
 import { scheduled } from "./scheduled/zh.ts";
 import { scheduledForm } from "./scheduled-form/zh.ts";
@@ -264,6 +265,12 @@ export const zh: Partial<Catalogue> = {
   "chat.queue.notSent": "未发送",
   "chat.queue.retry": "重新发送“{content}”",
   "chat.queue.remove": "移除已排队的消息“{content}”",
+  "chat.thread.loadingEarlier": "正在加载更早的消息",
+  "chat.thread.loadEarlierFailed": "无法加载更早的消息。",
+  "chat.thread.focusNotFound": "在此聊天中找不到该消息。",
+  "chat.queue.parked": "停止后已暂停",
+  "chat.queue.sendQueued": "发送排队消息",
+  "chat.queue.sendQueuedLabel": "发送已排队的消息“{content}”",
 
   "chat.commands.model.hint": "提供商/模型",
   "chat.commands.model.description": "选择此会话使用的模型",
@@ -531,6 +538,7 @@ export const zh: Partial<Catalogue> = {
   "blocks.toolRun.status.failed": "失败",
   "blocks.toolRun.status.uncertain": "结果未知",
   "blocks.toolRun.status.blocked": "已阻止",
+  "blocks.toolRun.status.stopped": "已停止",
   "blocks.toolRun.summary": "{count, plural, other {# 个操作}} · {families}",
   "blocks.toolRun.untrustedOutput": "不可信输出",
   "blocks.toolRun.trustedOutput": "可信输出",
@@ -3871,6 +3879,8 @@ export const zh: Partial<Catalogue> = {
   ...linuxAccess,
   // the Virtual screen watch pane (docs/design/linux-desktop-2026.md §7.5)
   ...computerWatch,
+  // Psyche points (docs/design/psyche-points-2026.md §9)
+  ...points,
   // Gateway-authored notices (inbox notifications, security alerts)
   ...notices,
   // Settings > Computer use > Separate desktop (Linux)

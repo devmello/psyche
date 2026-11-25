@@ -27,6 +27,7 @@ import { overview } from "./overview/pt.ts";
 import { overviewGrowth } from "./overview-growth/pt.ts";
 import { overviewShared } from "./overview-shared/pt.ts";
 import { passwordPresence } from "./password-presence/pt.ts";
+import { points } from "./points/pt.ts";
 import { scheduledA } from "./scheduled-a/pt.ts";
 import { scheduledForm } from "./scheduled-form/pt.ts";
 import { securityState } from "./security-state/pt.ts";
@@ -198,6 +199,12 @@ export const pt: Partial<Catalogue> = {
   "chat.queue.notSent": "não enviada",
   "chat.queue.retry": "Tentar enviar “{content}” novamente",
   "chat.queue.remove": "Remover a mensagem “{content}” da fila",
+  "chat.thread.loadingEarlier": "Carregando mensagens anteriores",
+  "chat.thread.loadEarlierFailed": "Não foi possível carregar as mensagens anteriores.",
+  "chat.thread.focusNotFound": "Não foi possível encontrar essa mensagem neste chat.",
+  "chat.queue.parked": "em pausa após parar",
+  "chat.queue.sendQueued": "Enviar da fila",
+  "chat.queue.sendQueuedLabel": "Enviar a mensagem “{content}” da fila",
   "chat.commands.model.hint": "provedor/modelo",
   "chat.commands.model.description": "Escolher o modelo desta conversa",
   "chat.commands.new.description": "Iniciar uma nova conversa paralela",
@@ -462,6 +469,7 @@ export const pt: Partial<Catalogue> = {
   "blocks.toolRun.status.failed": "falhou",
   "blocks.toolRun.status.uncertain": "resultado desconhecido",
   "blocks.toolRun.status.blocked": "bloqueada",
+  "blocks.toolRun.status.stopped": "interrompida",
   "blocks.toolRun.summary": "{count, plural, one {# ação} other {# ações}} · {families}",
   "blocks.toolRun.untrustedOutput": "saída não confiável",
   "blocks.toolRun.trustedOutput": "saída confiável",
@@ -3951,6 +3959,8 @@ export const pt: Partial<Catalogue> = {
   ...linuxAccess,
   // the Virtual screen watch pane (docs/design/linux-desktop-2026.md §7.5)
   ...computerWatch,
+  // Psyche points (docs/design/psyche-points-2026.md §9)
+  ...points,
   // Gateway-authored notices (inbox notifications, security alerts)
   ...notices,
   // Settings > Computer use > Separate desktop (Linux)

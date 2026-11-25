@@ -1,6 +1,8 @@
 import AppKit
 import ApplicationServices
 import Foundation
+import PsycheAXEnable
+import PsycheAXRead
 import PsycheHelperCore
 import PsycheProtocol
 
@@ -85,7 +87,7 @@ final class AXEngine: @unchecked Sendable {
         AXUIElementSetMessagingTimeout(ae, Self.messagingTimeout)
         if Self.isElectron(app) {
             // Wakes Chromium's AX tree. Its getter always reads false, so set it on every attach.
-            _ = AXUIElementSetAttributeValue(ae, "AXManualAccessibility" as CFString, kCFBooleanTrue)
+            enableManualAccessibility(pid: app.processIdentifier)
         }
         return ae
     }
@@ -244,9 +246,7 @@ final class AXEngine: @unchecked Sendable {
     /// Where keyboard input would go right now: the system-wide focused element's pid and whether
     /// it is a secure text field.
     static func keyboardFocus() -> (pid: pid_t?, secure: Bool) {
-        let sys = AXUIElementCreateSystemWide()
-        guard let f = AX.element(AX.attr(sys, "AXFocusedUIElement")) else { return (nil, false) }
-        return (AX.pid(f), AX.string(AX.attr(f, "AXSubrole")) == "AXSecureTextField")
+        AXKeyboardFocus.current()
     }
 
     struct Hit {

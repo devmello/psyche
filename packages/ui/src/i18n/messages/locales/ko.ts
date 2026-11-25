@@ -46,6 +46,7 @@ import { overviewShared } from "./overview-shared/ko.ts";
 import { passwordPresence } from "./password-presence/ko.ts";
 import { peopleRest } from "./people-rest/ko.ts";
 import { personDataRest } from "./personData-rest/ko.ts";
+import { points } from "./points/ko.ts";
 import { researchRest } from "./research-rest/ko.ts";
 import { scheduledForm } from "./scheduled-form/ko.ts";
 import { scheduledRest } from "./scheduled-rest/ko.ts";
@@ -236,6 +237,12 @@ export const ko: Partial<Catalogue> = {
   "chat.queue.notSent": "전송되지 않음",
   "chat.queue.retry": "“{content}” 다시 보내기",
   "chat.queue.remove": "대기 중인 메시지 “{content}” 제거",
+  "chat.thread.loadingEarlier": "이전 메시지를 불러오는 중",
+  "chat.thread.loadEarlierFailed": "이전 메시지를 불러오지 못했습니다.",
+  "chat.thread.focusNotFound": "이 채팅에서 해당 메시지를 찾을 수 없습니다.",
+  "chat.queue.parked": "중지 후 일시 중지됨",
+  "chat.queue.sendQueued": "대기 중인 메시지 보내기",
+  "chat.queue.sendQueuedLabel": "대기 중인 메시지 “{content}” 보내기",
   "chat.commands.model.hint": "제공업체/모델",
   "chat.commands.model.description": "이 스레드의 모델 선택",
   "chat.commands.new.description": "새 사이드 채팅 시작",
@@ -498,6 +505,7 @@ export const ko: Partial<Catalogue> = {
   "blocks.toolRun.status.failed": "실패",
   "blocks.toolRun.status.uncertain": "결과 알 수 없음",
   "blocks.toolRun.status.blocked": "차단됨",
+  "blocks.toolRun.status.stopped": "중지됨",
   "blocks.toolRun.summary": "{count, plural, other {#개의 동작}} · {families}",
   "blocks.toolRun.untrustedOutput": "신뢰할 수 없는 출력",
   "blocks.toolRun.trustedOutput": "신뢰할 수 있는 출력",
@@ -3940,6 +3948,8 @@ export const ko: Partial<Catalogue> = {
   ...linuxAccess,
   // the Virtual screen watch pane (docs/design/linux-desktop-2026.md §7.5)
   ...computerWatch,
+  // Psyche points (docs/design/psyche-points-2026.md §9)
+  ...points,
   // Gateway-authored notices (inbox notifications, security alerts)
   ...notices,
   // Settings > Computer use > Separate desktop (Linux)

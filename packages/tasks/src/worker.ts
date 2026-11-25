@@ -12,6 +12,9 @@ import type {
   PermissionMode,
   RunOutcome,
   SideEffect,
+  Staging,
+  StagingRun,
+  StagingSink,
   Task,
   TaskCheckpoint,
   TaskLease,
@@ -80,6 +83,18 @@ export interface TaskWorkerPoolOptions {
    * fails the turn.
    */
   trace?: TaskTurnTrace;
+  /**
+   * Where a staging task's writes go (night-shift-2026 §2.2). A task with a `staging` block runs
+   * only when this returns a sink for it; with none, or with a task that is not unattended, the
+   * turn fails before the model is called, never running the task unstaged.
+   */
+  stagingSinkFor?: (staging: Staging, task: Task) => StagingSink | undefined;
+  /**
+   * The staging task's own toolset (night-shift-2026 §3.1): a tool this returns false for is not
+   * registered for the run. Without it the run sees the loop's usual tools (the staging gate still
+   * refuses every write that is not staged).
+   */
+  stagingToolsFor?: (staging: Staging, task: Task) => ((tool: string) => boolean) | undefined;
 }
 
 /** One turn of a task: its own run. */
@@ -415,7 +430,24 @@ export class TaskWorkerPool {
 
     try {
       const permissionMode = (await this.#o.permissionModeFor?.(record.task)) ?? "balanced";
+      let staging: StagingRun | undefined;
+      if (record.staging !== null) {
+        const sink = this.#o.stagingSinkFor?.(record.staging, record.task);
+        if (sink === undefined || record.runMode !== "unattended") {
+          throw new PsycheError(
+            "unavailable",
+            "a staging task has no sink to record into: it was not run",
+          );
+        }
+        const toolAllowed = this.#o.stagingToolsFor?.(record.staging, record.task);
+        staging = {
+          staging: record.staging,
+          sink,
+          ...(toolAllowed === undefined ? {} : { toolAllowed }),
+        };
+      }
       const stream = loop.startTurn({
+        ...(staging === undefined ? {} : { staging }),
         threadId: record.task.threadId,
         runId,
         taskId,

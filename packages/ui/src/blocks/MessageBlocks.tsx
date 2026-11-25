@@ -27,6 +27,7 @@ import { displaySummary } from "../lib/cards.ts";
 import { cn } from "../lib/utils.ts";
 import { MapBlock } from "../map/MapBlock.tsx";
 import { fade, motionSpring, Presence, spring } from "../motion/index.ts";
+import { PointsOfferCard } from "../points/PointsOfferCard.tsx";
 import { foldResearch } from "../research/model.ts";
 import { ResearchProgress } from "../research/ResearchProgress.tsx";
 import { usePersona, useSlots } from "../slots.tsx";
@@ -136,9 +137,11 @@ function ToolRunItems({ blocks }: { blocks: readonly ToolCallBlock[] }): ReactEl
   const items = useStoreState((s) =>
     blocks.map((b): ToolCallItem => {
       const call = s.toolCalls[b.toolCallId] ?? null;
+      const runStatus = call === null ? undefined : s.runs[call.runId]?.status;
       return {
         block: b,
         call,
+        settled: runStatus === "done" || runStatus === "failed" || runStatus === "cancelled",
         receipt: call?.receiptId ? (s.receipts[call.receiptId] ?? null) : null,
       };
     }),
@@ -518,6 +521,9 @@ registerBlock("specialist_result", {
 });
 registerBlock("app_link", {
   View: ({ block }) => <AppLinkBlockView block={block} />,
+});
+registerBlock("points_offer", {
+  View: ({ block, ctx }) => <PointsOfferCard block={block} threadId={ctx.message.threadId} />,
 });
 registerBlock("automation_workflow", {
   View: ({ block }) => <AutomationWorkflowBlockView proposal={block.proposal} />,

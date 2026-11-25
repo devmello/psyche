@@ -4,6 +4,7 @@ import { CompactionSummary } from "./context.ts";
 import { DailyWorkflowProposal } from "./daily.ts";
 import { LifeAnswerPassage, LifeFactHit } from "./everything-memory.ts";
 import { LearnedFact } from "./memory.ts";
+import { PointsOfferBlock } from "./points.ts";
 import { AnswerSource } from "./sources.ts";
 
 /** Message content blocks (data model §9.1). Discriminated on `type`. */
@@ -77,7 +78,14 @@ export const FileBlock = Type.Object(
 export const ContextBlock = Type.Object(
   {
     type: Type.Literal("context"),
-    kind: StringEnum(["feed_item", "search_hit", "memory_entity", "life_answer", "mail_followup"]),
+    kind: StringEnum([
+      "feed_item",
+      "search_hit",
+      "memory_entity",
+      "life_answer",
+      "mail_followup",
+      "promise",
+    ]),
     id: Id,
     title: Type.String({ maxLength: 300 }),
     url: Type.Optional(Type.String({ maxLength: 2000 })),
@@ -335,6 +343,7 @@ export const Block = Type.Union(
     SpecialistResultBlock,
     AutomationWorkflowBlock,
     AppLinkBlock,
+    PointsOfferBlock,
     UiBlock,
     PlanForkBlock,
     PlanTakenBlock,

@@ -691,6 +691,7 @@
 //   let graphLoopDirection = try? JSONDecoder().decode(GraphLoopDirection.self, from: jsonData)
 //   let graphLoopDirectionFilter = try? JSONDecoder().decode(GraphLoopDirectionFilter.self, from: jsonData)
 //   let graphLoopStatus = try? JSONDecoder().decode(GraphLoopStatus.self, from: jsonData)
+//   let graphLoopWriteStatus = try? JSONDecoder().decode(GraphLoopWriteStatus.self, from: jsonData)
 //   let graphParticipantRole = try? JSONDecoder().decode(GraphParticipantRole.self, from: jsonData)
 //   let graphProjectStatus = try? JSONDecoder().decode(GraphProjectStatus.self, from: jsonData)
 //   let graphProjectType = try? JSONDecoder().decode(GraphProjectType.self, from: jsonData)
@@ -1253,6 +1254,53 @@
 //   let pluginsRemoveParams = try? JSONDecoder().decode(PluginsRemoveParams.self, from: jsonData)
 //   let pluginsSetEnabledParams = try? JSONDecoder().decode(PluginsSetEnabledParams.self, from: jsonData)
 //   let pluginsSetEnabledResult = try? JSONDecoder().decode(PluginsSetEnabledResult.self, from: jsonData)
+//   let pointsAskParams = try? JSONDecoder().decode(PointsAskParams.self, from: jsonData)
+//   let pointsAskRequestedPayload = try? JSONDecoder().decode(PointsAskRequestedPayload.self, from: jsonData)
+//   let pointsAskResult = try? JSONDecoder().decode(PointsAskResult.self, from: jsonData)
+//   let pointsCardAction = try? JSONDecoder().decode(PointsCardAction.self, from: jsonData)
+//   let pointsCardStrings = try? JSONDecoder().decode(PointsCardStrings.self, from: jsonData)
+//   let pointsDerivation = try? JSONDecoder().decode(PointsDerivation.self, from: jsonData)
+//   let pointsDigest = try? JSONDecoder().decode(PointsDigest.self, from: jsonData)
+//   let pointsDoneWhen = try? JSONDecoder().decode(PointsDoneWhen.self, from: jsonData)
+//   let pointsEndParams = try? JSONDecoder().decode(PointsEndParams.self, from: jsonData)
+//   let pointsEndReason = try? JSONDecoder().decode(PointsEndReason.self, from: jsonData)
+//   let pointsEndResult = try? JSONDecoder().decode(PointsEndResult.self, from: jsonData)
+//   let pointsEntry = try? JSONDecoder().decode(PointsEntry.self, from: jsonData)
+//   let pointsExpectShape = try? JSONDecoder().decode(PointsExpectShape.self, from: jsonData)
+//   let pointsField = try? JSONDecoder().decode(PointsField.self, from: jsonData)
+//   let pointsFieldFill = try? JSONDecoder().decode(PointsFieldFill.self, from: jsonData)
+//   let pointsFieldRole = try? JSONDecoder().decode(PointsFieldRole.self, from: jsonData)
+//   let pointsHelperWindow = try? JSONDecoder().decode(PointsHelperWindow.self, from: jsonData)
+//   let pointsHelperWindowsResult = try? JSONDecoder().decode(PointsHelperWindowsResult.self, from: jsonData)
+//   let pointsLookParams = try? JSONDecoder().decode(PointsLookParams.self, from: jsonData)
+//   let pointsLookResult = try? JSONDecoder().decode(PointsLookResult.self, from: jsonData)
+//   let pointsNeeds = try? JSONDecoder().decode(PointsNeeds.self, from: jsonData)
+//   let pointsOfferBlock = try? JSONDecoder().decode(PointsOfferBlock.self, from: jsonData)
+//   let pointsPlan = try? JSONDecoder().decode(PointsPlan.self, from: jsonData)
+//   let pointsRect = try? JSONDecoder().decode(PointsRect.self, from: jsonData)
+//   let pointsRefusal = try? JSONDecoder().decode(PointsRefusal.self, from: jsonData)
+//   let pointsSensitiveReason = try? JSONDecoder().decode(PointsSensitiveReason.self, from: jsonData)
+//   let pointsSessionEvent = try? JSONDecoder().decode(PointsSessionEvent.self, from: jsonData)
+//   let pointsSessionEventType = try? JSONDecoder().decode(PointsSessionEventType.self, from: jsonData)
+//   let pointsSessionParams = try? JSONDecoder().decode(PointsSessionParams.self, from: jsonData)
+//   let pointsSessionStatus = try? JSONDecoder().decode(PointsSessionStatus.self, from: jsonData)
+//   let pointsShowKind = try? JSONDecoder().decode(PointsShowKind.self, from: jsonData)
+//   let pointsShowParams = try? JSONDecoder().decode(PointsShowParams.self, from: jsonData)
+//   let pointsShowResult = try? JSONDecoder().decode(PointsShowResult.self, from: jsonData)
+//   let pointsShowTarget = try? JSONDecoder().decode(PointsShowTarget.self, from: jsonData)
+//   let pointsStartParams = try? JSONDecoder().decode(PointsStartParams.self, from: jsonData)
+//   let pointsStartResult = try? JSONDecoder().decode(PointsStartResult.self, from: jsonData)
+//   let pointsState = try? JSONDecoder().decode(PointsState.self, from: jsonData)
+//   let pointsStatusParams = try? JSONDecoder().decode(PointsStatusParams.self, from: jsonData)
+//   let pointsStatusResult = try? JSONDecoder().decode(PointsStatusResult.self, from: jsonData)
+//   let pointsStep = try? JSONDecoder().decode(PointsStep.self, from: jsonData)
+//   let pointsStepKind = try? JSONDecoder().decode(PointsStepKind.self, from: jsonData)
+//   let pointsStopParams = try? JSONDecoder().decode(PointsStopParams.self, from: jsonData)
+//   let pointsStopResult = try? JSONDecoder().decode(PointsStopResult.self, from: jsonData)
+//   let pointsUpdatedPayload = try? JSONDecoder().decode(PointsUpdatedPayload.self, from: jsonData)
+//   let pointsWindow = try? JSONDecoder().decode(PointsWindow.self, from: jsonData)
+//   let pointsWindowsParams = try? JSONDecoder().decode(PointsWindowsParams.self, from: jsonData)
+//   let pointsWindowsResult = try? JSONDecoder().decode(PointsWindowsResult.self, from: jsonData)
 //   let policyRule = try? JSONDecoder().decode(PolicyRule.self, from: jsonData)
 //   let prepareUpdateResult = try? JSONDecoder().decode(PrepareUpdateResult.self, from: jsonData)
 //   let presenceAssertion = try? JSONDecoder().decode(PresenceAssertion.self, from: jsonData)
@@ -1262,6 +1310,39 @@
 //   let presenceVerifierKind = try? JSONDecoder().decode(PresenceVerifierKind.self, from: jsonData)
 //   let presenceVerifierState = try? JSONDecoder().decode(PresenceVerifierState.self, from: jsonData)
 //   let probedModel = try? JSONDecoder().decode(ProbedModel.self, from: jsonData)
+//   let promiseActAction = try? JSONDecoder().decode(PromiseActAction.self, from: jsonData)
+//   let promiseAction = try? JSONDecoder().decode(PromiseAction.self, from: jsonData)
+//   let promiseBasis = try? JSONDecoder().decode(PromiseBasis.self, from: jsonData)
+//   let promiseCitation = try? JSONDecoder().decode(PromiseCitation.self, from: jsonData)
+//   let promiseCitationSource = try? JSONDecoder().decode(PromiseCitationSource.self, from: jsonData)
+//   let promiseClosedBy = try? JSONDecoder().decode(PromiseClosedBy.self, from: jsonData)
+//   let promiseDirection = try? JSONDecoder().decode(PromiseDirection.self, from: jsonData)
+//   let promiseDraftIntent = try? JSONDecoder().decode(PromiseDraftIntent.self, from: jsonData)
+//   let promiseDueKind = try? JSONDecoder().decode(PromiseDueKind.self, from: jsonData)
+//   let promiseEvent = try? JSONDecoder().decode(PromiseEvent.self, from: jsonData)
+//   let promiseEventBy = try? JSONDecoder().decode(PromiseEventBy.self, from: jsonData)
+//   let promiseEventKind = try? JSONDecoder().decode(PromiseEventKind.self, from: jsonData)
+//   let promiseListView = try? JSONDecoder().decode(PromiseListView.self, from: jsonData)
+//   let promiseSourceKind = try? JSONDecoder().decode(PromiseSourceKind.self, from: jsonData)
+//   let promiseState = try? JSONDecoder().decode(PromiseState.self, from: jsonData)
+//   let promiseSummary = try? JSONDecoder().decode(PromiseSummary.self, from: jsonData)
+//   let promiseUpcoming = try? JSONDecoder().decode(PromiseUpcoming.self, from: jsonData)
+//   let promiseUpdatedPayload = try? JSONDecoder().decode(PromiseUpdatedPayload.self, from: jsonData)
+//   let promiseView = try? JSONDecoder().decode(PromiseView.self, from: jsonData)
+//   let promisesActParams = try? JSONDecoder().decode(PromisesActParams.self, from: jsonData)
+//   let promisesActResult = try? JSONDecoder().decode(PromisesActResult.self, from: jsonData)
+//   let promisesAddParams = try? JSONDecoder().decode(PromisesAddParams.self, from: jsonData)
+//   let promisesAddResult = try? JSONDecoder().decode(PromisesAddResult.self, from: jsonData)
+//   let promisesDeleteParams = try? JSONDecoder().decode(PromisesDeleteParams.self, from: jsonData)
+//   let promisesDeleteResult = try? JSONDecoder().decode(PromisesDeleteResult.self, from: jsonData)
+//   let promisesGetParams = try? JSONDecoder().decode(PromisesGetParams.self, from: jsonData)
+//   let promisesGetResult = try? JSONDecoder().decode(PromisesGetResult.self, from: jsonData)
+//   let promisesListParams = try? JSONDecoder().decode(PromisesListParams.self, from: jsonData)
+//   let promisesListResult = try? JSONDecoder().decode(PromisesListResult.self, from: jsonData)
+//   let promisesMuteParams = try? JSONDecoder().decode(PromisesMuteParams.self, from: jsonData)
+//   let promisesMuteResult = try? JSONDecoder().decode(PromisesMuteResult.self, from: jsonData)
+//   let promisesSummaryParams = try? JSONDecoder().decode(PromisesSummaryParams.self, from: jsonData)
+//   let promisesSummaryResult = try? JSONDecoder().decode(PromisesSummaryResult.self, from: jsonData)
 //   let proposalUpdatedPayload = try? JSONDecoder().decode(ProposalUpdatedPayload.self, from: jsonData)
 //   let proposalsApproveParams = try? JSONDecoder().decode(ProposalsApproveParams.self, from: jsonData)
 //   let proposalsApproveResult = try? JSONDecoder().decode(ProposalsApproveResult.self, from: jsonData)
@@ -1644,12 +1725,18 @@
 //   let stagedActionResult = try? JSONDecoder().decode(StagedActionResult.self, from: jsonData)
 //   let stagedActionSend = try? JSONDecoder().decode(StagedActionSend.self, from: jsonData)
 //   let stagedActionStatus = try? JSONDecoder().decode(StagedActionStatus.self, from: jsonData)
+//   let stagedPreview = try? JSONDecoder().decode(StagedPreview.self, from: jsonData)
+//   let stagedPreviewRow = try? JSONDecoder().decode(StagedPreviewRow.self, from: jsonData)
 //   let starterFolderID = try? JSONDecoder().decode(StarterFolderID.self, from: jsonData)
 //   let storageCategory = try? JSONDecoder().decode(StorageCategory.self, from: jsonData)
 //   let storageCategoryID = try? JSONDecoder().decode(StorageCategoryID.self, from: jsonData)
 //   let storageClearCacheParams = try? JSONDecoder().decode(StorageClearCacheParams.self, from: jsonData)
 //   let storageClearTarget = try? JSONDecoder().decode(StorageClearTarget.self, from: jsonData)
 //   let storageCleared = try? JSONDecoder().decode(StorageCleared.self, from: jsonData)
+//   let storageCompactEstimate = try? JSONDecoder().decode(StorageCompactEstimate.self, from: jsonData)
+//   let storageCompactEstimateParams = try? JSONDecoder().decode(StorageCompactEstimateParams.self, from: jsonData)
+//   let storageCompactParams = try? JSONDecoder().decode(StorageCompactParams.self, from: jsonData)
+//   let storageCompacted = try? JSONDecoder().decode(StorageCompacted.self, from: jsonData)
 //   let storageUsage = try? JSONDecoder().decode(StorageUsage.self, from: jsonData)
 //   let storageUsageParams = try? JSONDecoder().decode(StorageUsageParams.self, from: jsonData)
 //   let taintSource = try? JSONDecoder().decode(TaintSource.self, from: jsonData)
@@ -10013,6 +10100,7 @@ public struct Block: Codable, Sendable {
     public let statement: String?
     public let proposal: DailyWorkflowProposal?
     public let route: String?
+    public let goal: String?
     public let widgetID: String?
     public let forkID: String?
     public let branchID: String?
@@ -10063,12 +10151,13 @@ public struct Block: Codable, Sendable {
         case statement = "statement"
         case proposal = "proposal"
         case route = "route"
+        case goal = "goal"
         case widgetID = "widgetId"
         case forkID = "forkId"
         case branchID = "branchId"
     }
 
-    public init(md: String? = nil, type: BlockType, level1: String? = nil, status: ToolCallStatus? = nil, tool: String? = nil, toolCallID: String? = nil, planID: String? = nil, items: [ItemElement]? = nil, approvalID: String? = nil, inputRequestID: String? = nil, artifactID: String? = nil, preview: String? = nil, libraryItemID: String? = nil, id: String? = nil, kind: BlockKind? = nil, source: String? = nil, title: String? = nil, url: String? = nil, receiptID: String? = nil, taskID: String? = nil, actions: [WrapUpAction]? = nil, ask: String? = nil, recap: String? = nil, cited: [String]? = nil, answer: String? = nil, factIDS: [String]? = nil, facts: [LifeFactHit]? = nil, model: ModelEnum? = nil, passageIDS: [String]? = nil, passages: [LifeAnswerPassage]? = nil, question: String? = nil, compactionID: String? = nil, droppedPins: [String]? = nil, keptPins: [String]? = nil, replaced: Replaced? = nil, summary: CompactionSummary? = nil, tokensAfter: Int? = nil, tokensBefore: Int? = nil, trigger: BlockTrigger? = nil, feedbackID: String? = nil, lessonID: String? = nil, messageID: String? = nil, statement: String? = nil, proposal: DailyWorkflowProposal? = nil, route: String? = nil, widgetID: String? = nil, forkID: String? = nil, branchID: String? = nil) {
+    public init(md: String? = nil, type: BlockType, level1: String? = nil, status: ToolCallStatus? = nil, tool: String? = nil, toolCallID: String? = nil, planID: String? = nil, items: [ItemElement]? = nil, approvalID: String? = nil, inputRequestID: String? = nil, artifactID: String? = nil, preview: String? = nil, libraryItemID: String? = nil, id: String? = nil, kind: BlockKind? = nil, source: String? = nil, title: String? = nil, url: String? = nil, receiptID: String? = nil, taskID: String? = nil, actions: [WrapUpAction]? = nil, ask: String? = nil, recap: String? = nil, cited: [String]? = nil, answer: String? = nil, factIDS: [String]? = nil, facts: [LifeFactHit]? = nil, model: ModelEnum? = nil, passageIDS: [String]? = nil, passages: [LifeAnswerPassage]? = nil, question: String? = nil, compactionID: String? = nil, droppedPins: [String]? = nil, keptPins: [String]? = nil, replaced: Replaced? = nil, summary: CompactionSummary? = nil, tokensAfter: Int? = nil, tokensBefore: Int? = nil, trigger: BlockTrigger? = nil, feedbackID: String? = nil, lessonID: String? = nil, messageID: String? = nil, statement: String? = nil, proposal: DailyWorkflowProposal? = nil, route: String? = nil, goal: String? = nil, widgetID: String? = nil, forkID: String? = nil, branchID: String? = nil) {
         self.md = md
         self.type = type
         self.level1 = level1
@@ -10114,6 +10203,7 @@ public struct Block: Codable, Sendable {
         self.statement = statement
         self.proposal = proposal
         self.route = route
+        self.goal = goal
         self.widgetID = widgetID
         self.forkID = forkID
         self.branchID = branchID
@@ -10415,6 +10505,7 @@ public enum BlockKind: String, Codable, Sendable {
     case lifeAnswer = "life_answer"
     case mailFollowup = "mail_followup"
     case memoryEntity = "memory_entity"
+    case promise = "promise"
     case searchHit = "search_hit"
 }
 
@@ -10519,6 +10610,7 @@ public enum BlockType: String, Codable, Sendable {
     case plan = "plan"
     case planFork = "plan_fork"
     case planTaken = "plan_taken"
+    case pointsOffer = "points_offer"
     case question = "question"
     case receipt = "receipt"
     case relatedThreads = "related_threads"
@@ -11006,23 +11098,36 @@ public struct ChatAttachedFile: Codable, Sendable {
 // MARK: - ChatContextRef
 public struct ChatContextRef: Codable, Sendable {
     public let id: String
+    public let intent: PromiseDraftIntent?
     public let kind: BlockKind
+    public let proposedDue: String?
     public let scope: String?
     public let title: String?
 
     public enum CodingKeys: String, CodingKey {
         case id = "id"
+        case intent = "intent"
         case kind = "kind"
+        case proposedDue = "proposedDue"
         case scope = "scope"
         case title = "title"
     }
 
-    public init(id: String, kind: BlockKind, scope: String? = nil, title: String? = nil) {
+    public init(id: String, intent: PromiseDraftIntent? = nil, kind: BlockKind, proposedDue: String? = nil, scope: String? = nil, title: String? = nil) {
         self.id = id
+        self.intent = intent
         self.kind = kind
+        self.proposedDue = proposedDue
         self.scope = scope
         self.title = title
     }
+}
+
+public enum PromiseDraftIntent: String, Codable, Sendable {
+    case doIt = "do_it"
+    case nudge = "nudge"
+    case releaseNote = "release_note"
+    case renegotiate = "renegotiate"
 }
 
 // MARK: - ChatFromWidget
@@ -15437,6 +15542,7 @@ public enum DailySectionID: String, Codable, Sendable {
     case learned = "learned"
     case mail = "mail"
     case nightShift = "night_shift"
+    case promises = "promises"
     case quietThreads = "quiet_threads"
     case tomorrow = "tomorrow"
     case weather = "weather"
@@ -15622,12 +15728,12 @@ public struct DigestLoop: Codable, Sendable {
 // MARK: - GraphLoop
 public struct GraphLoop: Codable, Sendable {
     public let closedAt: String?
-    public let closedBy: GraphLoopClosedBy?
+    public let closedBy: PromiseClosedBy?
     public let confidence: Double
     public let counterpartID: String?
     public let createdAt: String
     public let detectedBy: GraphLoopDetectedBy
-    public let direction: GraphLoopDirectionFilter
+    public let direction: PromiseDirection
     public let dueAt: String?
     public let evidence: String?
     public let id: String
@@ -15655,7 +15761,7 @@ public struct GraphLoop: Codable, Sendable {
         case text = "text"
     }
 
-    public init(closedAt: String? = nil, closedBy: GraphLoopClosedBy? = nil, confidence: Double, counterpartID: String? = nil, createdAt: String, detectedBy: GraphLoopDetectedBy, direction: GraphLoopDirectionFilter, dueAt: String? = nil, evidence: String? = nil, id: String, projectID: String? = nil, provenance: Provenance, sourceInteractionID: String? = nil, status: GraphLoopStatus, text: String) {
+    public init(closedAt: String? = nil, closedBy: PromiseClosedBy? = nil, confidence: Double, counterpartID: String? = nil, createdAt: String, detectedBy: GraphLoopDetectedBy, direction: PromiseDirection, dueAt: String? = nil, evidence: String? = nil, id: String, projectID: String? = nil, provenance: Provenance, sourceInteractionID: String? = nil, status: GraphLoopStatus, text: String) {
         self.closedAt = closedAt
         self.closedBy = closedBy
         self.confidence = confidence
@@ -15674,9 +15780,12 @@ public struct GraphLoop: Codable, Sendable {
     }
 }
 
-public enum GraphLoopClosedBy: String, Codable, Sendable {
+public enum PromiseClosedBy: String, Codable, Sendable {
+    case agedOut = "aged_out"
+    case auto = "auto"
     case duePassed = "due_passed"
     case owner = "owner"
+    case released = "released"
     case replySeen = "reply_seen"
 }
 
@@ -15687,15 +15796,17 @@ public enum GraphLoopDetectedBy: String, Codable, Sendable {
     case rule = "rule"
 }
 
-public enum GraphLoopDirectionFilter: String, Codable, Sendable {
+public enum PromiseDirection: String, Codable, Sendable {
     case iOwe = "i_owe"
     case waitingOn = "waiting_on"
 }
 
 public enum GraphLoopStatus: String, Codable, Sendable {
+    case broken = "broken"
     case dismissed = "dismissed"
     case done = "done"
     case graphLoopStatusOpen = "open"
+    case released = "released"
     case snoozed = "snoozed"
     case suggested = "suggested"
 }
@@ -23771,7 +23882,7 @@ public struct MemoryLoopUpdatedPayload: Codable, Sendable {
 public struct MemoryLoopsListParams: Codable, Sendable {
     /// Opaque cursor
     public let cursor: String?
-    public let direction: GraphLoopDirectionFilter?
+    public let direction: PromiseDirection?
     public let dueBefore: String?
     public let entityID: String?
     public let limit: Int?
@@ -23789,7 +23900,7 @@ public struct MemoryLoopsListParams: Codable, Sendable {
         case status = "status"
     }
 
-    public init(cursor: String? = nil, direction: GraphLoopDirectionFilter? = nil, dueBefore: String? = nil, entityID: String? = nil, limit: Int? = nil, projectID: String? = nil, status: [GraphLoopStatus]? = nil) {
+    public init(cursor: String? = nil, direction: PromiseDirection? = nil, dueBefore: String? = nil, entityID: String? = nil, limit: Int? = nil, projectID: String? = nil, status: [GraphLoopStatus]? = nil) {
         self.cursor = cursor
         self.direction = direction
         self.dueBefore = dueBefore
@@ -23821,7 +23932,7 @@ public struct MemoryLoopsUpdateParams: Codable, Sendable {
     /// null clears it
     public let dueAt: String?
     public let id: String
-    public let status: GraphLoopStatus?
+    public let status: GraphLoopWriteStatus?
     /// Rephrase it
     public let text: String?
 
@@ -23832,12 +23943,20 @@ public struct MemoryLoopsUpdateParams: Codable, Sendable {
         case text = "text"
     }
 
-    public init(dueAt: String? = nil, id: String, status: GraphLoopStatus? = nil, text: String? = nil) {
+    public init(dueAt: String? = nil, id: String, status: GraphLoopWriteStatus? = nil, text: String? = nil) {
         self.dueAt = dueAt
         self.id = id
         self.status = status
         self.text = text
     }
+}
+
+public enum GraphLoopWriteStatus: String, Codable, Sendable {
+    case dismissed = "dismissed"
+    case done = "done"
+    case graphLoopWriteStatusOpen = "open"
+    case snoozed = "snoozed"
+    case suggested = "suggested"
 }
 
 // MARK: - MemoryLoopsUpdateResult
@@ -26509,7 +26628,7 @@ public struct StagedAction: Codable, Sendable {
     public let params: JSONAny?
     public let paramsHash: String
     public let precondition: JSONAny?
-    public let preview: JSONAny?
+    public let preview: StagedPreview?
     public let result: StagedActionResult?
     public let send: StagedActionSend?
     public let seq: Int
@@ -26558,7 +26677,7 @@ public struct StagedAction: Codable, Sendable {
         case why = "why"
     }
 
-    public init(appliedAt: String? = nil, approvalID: String? = nil, bindingHash: String, createdAt: String, domain: StagedActionDomain, forkBranchID: String? = nil, id: String, inverse: JSONAny? = nil, kind: String, nightID: String? = nil, params: JSONAny? = nil, paramsHash: String, precondition: JSONAny? = nil, preview: JSONAny? = nil, result: StagedActionResult? = nil, send: StagedActionSend? = nil, seq: Int, sideEffect: String, status: StagedActionStatus, summary: String, taint: Bool, taintSources: [TaintSource], target: JSONAny? = nil, targetKey: String, taskID: String? = nil, tool: String, toolCallID: String? = nil, updatedAt: String, why: String? = nil) {
+    public init(appliedAt: String? = nil, approvalID: String? = nil, bindingHash: String, createdAt: String, domain: StagedActionDomain, forkBranchID: String? = nil, id: String, inverse: JSONAny? = nil, kind: String, nightID: String? = nil, params: JSONAny? = nil, paramsHash: String, precondition: JSONAny? = nil, preview: StagedPreview? = nil, result: StagedActionResult? = nil, send: StagedActionSend? = nil, seq: Int, sideEffect: String, status: StagedActionStatus, summary: String, taint: Bool, taintSources: [TaintSource], target: JSONAny? = nil, targetKey: String, taskID: String? = nil, tool: String, toolCallID: String? = nil, updatedAt: String, why: String? = nil) {
         self.appliedAt = appliedAt
         self.approvalID = approvalID
         self.bindingHash = bindingHash
@@ -26596,6 +26715,62 @@ public enum StagedActionDomain: String, Codable, Sendable {
     case files = "files"
     case mail = "mail"
     case reminders = "reminders"
+}
+
+// MARK: - StagedPreview
+public struct StagedPreview: Codable, Sendable {
+    public let kind: StagedPreviewKind
+    public let rows: [StagedPreviewRow]
+    public let title: String
+    public let truncated: Bool
+
+    public enum CodingKeys: String, CodingKey {
+        case kind = "kind"
+        case rows = "rows"
+        case title = "title"
+        case truncated = "truncated"
+    }
+
+    public init(kind: StagedPreviewKind, rows: [StagedPreviewRow], title: String, truncated: Bool) {
+        self.kind = kind
+        self.rows = rows
+        self.title = title
+        self.truncated = truncated
+    }
+}
+
+public enum StagedPreviewKind: String, Codable, Sendable {
+    case calendar = "calendar"
+    case file = "file"
+    case mail = "mail"
+    case reminder = "reminder"
+}
+
+// MARK: - StagedPreviewRow
+public struct StagedPreviewRow: Codable, Sendable {
+    public let badge: Badge?
+    public let label: String
+    public let truncated: Bool?
+    public let value: String
+
+    public enum CodingKeys: String, CodingKey {
+        case badge = "badge"
+        case label = "label"
+        case truncated = "truncated"
+        case value = "value"
+    }
+
+    public init(badge: Badge? = nil, label: String, truncated: Bool? = nil, value: String) {
+        self.badge = badge
+        self.label = label
+        self.truncated = truncated
+        self.value = value
+    }
+}
+
+public enum Badge: String, Codable, Sendable {
+    case newRecipient = "new_recipient"
+    case replyAll = "reply_all"
 }
 
 // MARK: - StagedActionResult
@@ -27300,6 +27475,7 @@ public enum NotificationKind: String, Codable, Sendable {
     case briefing = "briefing"
     case inputNeeded = "input_needed"
     case proactive = "proactive"
+    case promiseDue = "promise_due"
     case reminder = "reminder"
     case specialistResult = "specialist_result"
     case system = "system"
@@ -29588,6 +29764,1030 @@ public struct PluginsSetEnabledResult: Codable, Sendable {
     }
 }
 
+// MARK: - PointsAskParams
+public struct PointsAskParams: Codable, Sendable {
+    public let sessionID: String
+    public let text: String
+
+    public enum CodingKeys: String, CodingKey {
+        case sessionID = "sessionId"
+        case text = "text"
+    }
+
+    public init(sessionID: String, text: String) {
+        self.sessionID = sessionID
+        self.text = text
+    }
+}
+
+// MARK: - PointsAskRequestedPayload
+public struct PointsAskRequestedPayload: Codable, Sendable {
+    public let sessionID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case sessionID = "sessionId"
+    }
+
+    public init(sessionID: String) {
+        self.sessionID = sessionID
+    }
+}
+
+// MARK: - PointsAskResult
+public struct PointsAskResult: Codable, Sendable {
+    public let answer: String
+
+    public enum CodingKeys: String, CodingKey {
+        case answer = "answer"
+    }
+
+    public init(answer: String) {
+        self.answer = answer
+    }
+}
+
+// MARK: - PointsEndParams
+public struct PointsEndParams: Codable, Sendable {
+    public let sessionID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case sessionID = "sessionId"
+    }
+
+    public init(sessionID: String) {
+        self.sessionID = sessionID
+    }
+}
+
+// MARK: - PointsEndResult
+public struct PointsEndResult: Codable, Sendable {
+
+    public init() {
+    }
+}
+
+// MARK: - PointsHelperWindowsResult
+public struct PointsHelperWindowsResult: Codable, Sendable {
+    public let windows: [PointsHelperWindow]
+
+    public enum CodingKeys: String, CodingKey {
+        case windows = "windows"
+    }
+
+    public init(windows: [PointsHelperWindow]) {
+        self.windows = windows
+    }
+}
+
+// MARK: - PointsHelperWindow
+public struct PointsHelperWindow: Codable, Sendable {
+    public let app: PointsHelperWindowApp
+    public let frontmost: Bool
+    public let pid: Int
+    public let refusal: PointsRefusal?
+    public let title: String
+    public let windowIndex: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case app = "app"
+        case frontmost = "frontmost"
+        case pid = "pid"
+        case refusal = "refusal"
+        case title = "title"
+        case windowIndex = "windowIndex"
+    }
+
+    public init(app: PointsHelperWindowApp, frontmost: Bool, pid: Int, refusal: PointsRefusal? = nil, title: String, windowIndex: Int) {
+        self.app = app
+        self.frontmost = frontmost
+        self.pid = pid
+        self.refusal = refusal
+        self.title = title
+        self.windowIndex = windowIndex
+    }
+}
+
+// MARK: - PointsHelperWindowApp
+public struct PointsHelperWindowApp: Codable, Sendable {
+    public let bundleID: String
+    public let name: String
+
+    public enum CodingKeys: String, CodingKey {
+        case bundleID = "bundleId"
+        case name = "name"
+    }
+
+    public init(bundleID: String, name: String) {
+        self.bundleID = bundleID
+        self.name = name
+    }
+}
+
+public enum PointsRefusal: String, Codable, Sendable {
+    case fixedOff = "fixed_off"
+    case neverApp = "never_app"
+    case notAWindow = "not_a_window"
+    case ownerOff = "owner_off"
+    case permissionMissing = "permission_missing"
+    case terminalOrIDE = "terminal_or_ide"
+}
+
+// MARK: - PointsLookParams
+public struct PointsLookParams: Codable, Sendable {
+    public let actionID: String
+    public let sessionID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case actionID = "actionId"
+        case sessionID = "sessionId"
+    }
+
+    public init(actionID: String, sessionID: String) {
+        self.actionID = actionID
+        self.sessionID = sessionID
+    }
+}
+
+// MARK: - PointsLookResult
+public struct PointsLookResult: Codable, Sendable {
+    public let height: Int
+    public let image: String?
+    public let masked: Bool
+    public let pointsPerPixel: Double
+    public let width: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case height = "height"
+        case image = "image"
+        case masked = "masked"
+        case pointsPerPixel = "pointsPerPixel"
+        case width = "width"
+    }
+
+    public init(height: Int, image: String? = nil, masked: Bool, pointsPerPixel: Double, width: Int) {
+        self.height = height
+        self.image = image
+        self.masked = masked
+        self.pointsPerPixel = pointsPerPixel
+        self.width = width
+    }
+}
+
+// MARK: - PointsOfferBlock
+public struct PointsOfferBlock: Codable, Sendable {
+    public let goal: String
+    public let type: PointsOfferBlockType
+
+    public enum CodingKeys: String, CodingKey {
+        case goal = "goal"
+        case type = "type"
+    }
+
+    public init(goal: String, type: PointsOfferBlockType) {
+        self.goal = goal
+        self.type = type
+    }
+}
+
+public enum PointsOfferBlockType: String, Codable, Sendable {
+    case pointsOffer = "points_offer"
+}
+
+// MARK: - PointsPlan
+public struct PointsPlan: Codable, Sendable {
+    public let doneWhen: PointsDoneWhen
+    public let page: Page
+    public let steps: [PointsStep]
+
+    public enum CodingKeys: String, CodingKey {
+        case doneWhen = "done_when"
+        case page = "page"
+        case steps = "steps"
+    }
+
+    public init(doneWhen: PointsDoneWhen, page: Page, steps: [PointsStep]) {
+        self.doneWhen = doneWhen
+        self.page = page
+        self.steps = steps
+    }
+}
+
+public enum PointsDoneWhen: String, Codable, Sendable {
+    case nextPage = "next_page"
+    case none = "none"
+    case submit = "submit"
+}
+
+// MARK: - Page
+public struct Page: Codable, Sendable {
+    public let summary: String
+    public let title: String
+
+    public enum CodingKeys: String, CodingKey {
+        case summary = "summary"
+        case title = "title"
+    }
+
+    public init(summary: String, title: String) {
+        self.summary = summary
+        self.title = title
+    }
+}
+
+// MARK: - PointsStep
+public struct PointsStep: Codable, Sendable {
+    public let derivation: PointsDerivation?
+    public let expect: Expect?
+    public let fieldID: String
+    public let kind: PointsStepKind
+    public let note: String
+    public let option: String?
+    public let sources: [String]?
+    public let value: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case derivation = "derivation"
+        case expect = "expect"
+        case fieldID = "fieldId"
+        case kind = "kind"
+        case note = "note"
+        case option = "option"
+        case sources = "sources"
+        case value = "value"
+    }
+
+    public init(derivation: PointsDerivation? = nil, expect: Expect? = nil, fieldID: String, kind: PointsStepKind, note: String, option: String? = nil, sources: [String]? = nil, value: String? = nil) {
+        self.derivation = derivation
+        self.expect = expect
+        self.fieldID = fieldID
+        self.kind = kind
+        self.note = note
+        self.option = option
+        self.sources = sources
+        self.value = value
+    }
+}
+
+public enum PointsDerivation: String, Codable, Sendable {
+    case addressPart = "address_part"
+    case dateFormat = "date_format"
+    case exact = "exact"
+    case namePart = "name_part"
+    case pointsDerivationCase = "case"
+}
+
+// MARK: - Expect
+public struct Expect: Codable, Sendable {
+    public let detail: String?
+    public let shape: PointsExpectShape
+
+    public enum CodingKeys: String, CodingKey {
+        case detail = "detail"
+        case shape = "shape"
+    }
+
+    public init(detail: String? = nil, shape: PointsExpectShape) {
+        self.detail = detail
+        self.shape = shape
+    }
+}
+
+public enum PointsExpectShape: String, Codable, Sendable {
+    case date = "date"
+    case digits = "digits"
+    case email = "email"
+    case oneOf = "oneOf"
+    case phone = "phone"
+    case postal = "postal"
+}
+
+public enum PointsStepKind: String, Codable, Sendable {
+    case check = "check"
+    case choose = "choose"
+    case fill = "fill"
+    case nextPage = "next_page"
+    case pointsStepKindSelf = "self"
+    case review = "review"
+    case skip = "skip"
+}
+
+// MARK: - PointsSessionEvent
+public struct PointsSessionEvent: Codable, Sendable {
+    public let action: PointsCardAction?
+    public let actionID: String?
+    public let digest: PointsDigest?
+    public let fieldID: String?
+    public let reason: PointsEndReason?
+    public let state: PointsFieldFill?
+    public let type: PointsSessionEventType
+    public let value: String?
+    public let visible: Bool?
+
+    public enum CodingKeys: String, CodingKey {
+        case action = "action"
+        case actionID = "actionId"
+        case digest = "digest"
+        case fieldID = "fieldId"
+        case reason = "reason"
+        case state = "state"
+        case type = "type"
+        case value = "value"
+        case visible = "visible"
+    }
+
+    public init(action: PointsCardAction? = nil, actionID: String? = nil, digest: PointsDigest? = nil, fieldID: String? = nil, reason: PointsEndReason? = nil, state: PointsFieldFill? = nil, type: PointsSessionEventType, value: String? = nil, visible: Bool? = nil) {
+        self.action = action
+        self.actionID = actionID
+        self.digest = digest
+        self.fieldID = fieldID
+        self.reason = reason
+        self.state = state
+        self.type = type
+        self.value = value
+        self.visible = visible
+    }
+}
+
+public enum PointsCardAction: String, Codable, Sendable {
+    case ask = "ask"
+    case back = "back"
+    case followWindow = "follow_window"
+    case look = "look"
+    case next = "next"
+    case skip = "skip"
+    case stop = "stop"
+    case stuckBlocked = "stuck_blocked"
+    case stuckMissing = "stuck_missing"
+    case stuckUnclear = "stuck_unclear"
+    case wrong = "wrong"
+}
+
+// MARK: - PointsDigest
+public struct PointsDigest: Codable, Sendable {
+    public let app: PointsDigestApp
+    public let fields: [PointsField]
+    public let fingerprint: String
+    public let headings: [String]
+    public let host: String?
+    public let insecure: Bool?
+    public let instructions: String
+    public let path: String?
+    public let tree: Tree
+    public let truncated: Bool?
+    public let windowTitle: String
+
+    public enum CodingKeys: String, CodingKey {
+        case app = "app"
+        case fields = "fields"
+        case fingerprint = "fingerprint"
+        case headings = "headings"
+        case host = "host"
+        case insecure = "insecure"
+        case instructions = "instructions"
+        case path = "path"
+        case tree = "tree"
+        case truncated = "truncated"
+        case windowTitle = "windowTitle"
+    }
+
+    public init(app: PointsDigestApp, fields: [PointsField], fingerprint: String, headings: [String], host: String? = nil, insecure: Bool? = nil, instructions: String, path: String? = nil, tree: Tree, truncated: Bool? = nil, windowTitle: String) {
+        self.app = app
+        self.fields = fields
+        self.fingerprint = fingerprint
+        self.headings = headings
+        self.host = host
+        self.insecure = insecure
+        self.instructions = instructions
+        self.path = path
+        self.tree = tree
+        self.truncated = truncated
+        self.windowTitle = windowTitle
+    }
+}
+
+// MARK: - PointsDigestApp
+public struct PointsDigestApp: Codable, Sendable {
+    public let bundleID: String
+    public let name: String
+
+    public enum CodingKeys: String, CodingKey {
+        case bundleID = "bundleId"
+        case name = "name"
+    }
+
+    public init(bundleID: String, name: String) {
+        self.bundleID = bundleID
+        self.name = name
+    }
+}
+
+// MARK: - PointsField
+public struct PointsField: Codable, Sendable {
+    public let enabled: Bool?
+    public let errorText: String?
+    public let fieldID: String
+    public let focused: Bool?
+    public let frame: PointsRect?
+    public let invalid: Bool?
+    public let label: String
+    public let options: [String]?
+    public let path: [String]
+    public let pointsFieldRequired: Bool?
+    public let role: PointsFieldRole
+    public let sensitive: PointsSensitiveReason?
+    public let state: PointsFieldFill
+    public let value: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case enabled = "enabled"
+        case errorText = "errorText"
+        case fieldID = "fieldId"
+        case focused = "focused"
+        case frame = "frame"
+        case invalid = "invalid"
+        case label = "label"
+        case options = "options"
+        case path = "path"
+        case pointsFieldRequired = "required"
+        case role = "role"
+        case sensitive = "sensitive"
+        case state = "state"
+        case value = "value"
+    }
+
+    public init(enabled: Bool? = nil, errorText: String? = nil, fieldID: String, focused: Bool? = nil, frame: PointsRect? = nil, invalid: Bool? = nil, label: String, options: [String]? = nil, path: [String], pointsFieldRequired: Bool? = nil, role: PointsFieldRole, sensitive: PointsSensitiveReason? = nil, state: PointsFieldFill, value: String? = nil) {
+        self.enabled = enabled
+        self.errorText = errorText
+        self.fieldID = fieldID
+        self.focused = focused
+        self.frame = frame
+        self.invalid = invalid
+        self.label = label
+        self.options = options
+        self.path = path
+        self.pointsFieldRequired = pointsFieldRequired
+        self.role = role
+        self.sensitive = sensitive
+        self.state = state
+        self.value = value
+    }
+}
+
+// MARK: - PointsRect
+public struct PointsRect: Codable, Sendable {
+    public let height: Double
+    public let width: Double
+    public let x: Double
+    public let y: Double
+
+    public enum CodingKeys: String, CodingKey {
+        case height = "height"
+        case width = "width"
+        case x = "x"
+        case y = "y"
+    }
+
+    public init(height: Double, width: Double, x: Double, y: Double) {
+        self.height = height
+        self.width = width
+        self.x = x
+        self.y = y
+    }
+}
+
+public enum PointsFieldRole: String, Codable, Sendable {
+    case button = "button"
+    case checkbox = "checkbox"
+    case combobox = "combobox"
+    case date = "date"
+    case link = "link"
+    case multiline = "multiline"
+    case number = "number"
+    case popup = "popup"
+    case radio = "radio"
+    case text = "text"
+}
+
+public enum PointsSensitiveReason: String, Codable, Sendable {
+    case directionsOnly = "directions_only"
+    case identity = "identity"
+    case oneTimeCode = "one_time_code"
+    case password = "password"
+    case payment = "payment"
+    case secret = "secret"
+    case secureField = "secure_field"
+    case valueShape = "value_shape"
+}
+
+public enum PointsFieldFill: String, Codable, Sendable {
+    case empty = "empty"
+    case filled = "filled"
+    case unknown = "unknown"
+}
+
+public enum Tree: String, Codable, Sendable {
+    case ok = "ok"
+    case sparse = "sparse"
+}
+
+public enum PointsEndReason: String, Codable, Sendable {
+    case appChanged = "app_changed"
+    case appQuit = "app_quit"
+    case computerUse = "computer_use"
+    case error = "error"
+    case gatewayLost = "gateway_lost"
+    case helperLost = "helper_lost"
+    case idle = "idle"
+    case recording = "recording"
+    case stop = "stop"
+    case windowClosed = "window_closed"
+}
+
+public enum PointsSessionEventType: String, Codable, Sendable {
+    case action = "action"
+    case digest = "digest"
+    case ended = "ended"
+    case field = "field"
+    case focus = "focus"
+    case page = "page"
+    case visible = "visible"
+}
+
+// MARK: - PointsSessionParams
+public struct PointsSessionParams: Codable, Sendable {
+    public let strings: PointsCardStrings
+    public let window: String
+
+    public enum CodingKeys: String, CodingKey {
+        case strings = "strings"
+        case window = "window"
+    }
+
+    public init(strings: PointsCardStrings, window: String) {
+        self.strings = strings
+        self.window = window
+    }
+}
+
+// MARK: - PointsCardStrings
+public struct PointsCardStrings: Codable, Sendable {
+    public let askInPsyche: String
+    public let back: String
+    public let copy: String
+    public let followWindow: String
+    public let hideNote: String
+    public let letLook: String
+    public let looksWrong: String
+    public let menuBarTitle: String
+    public let next: String
+    public let payButton: String
+    public let scrollTo: String
+    public let selfFill: String
+    public let selfFillPlain: String
+    public let skip: String
+    public let stepFormat: String
+    public let stop: String
+    public let stuck: String
+    public let stuckBlocked: String
+    public let stuckMissing: String
+    public let stuckUnclear: String
+    public let unknownValue: String
+    public let visionBadge: String
+
+    public enum CodingKeys: String, CodingKey {
+        case askInPsyche = "askInPsyche"
+        case back = "back"
+        case copy = "copy"
+        case followWindow = "followWindow"
+        case hideNote = "hideNote"
+        case letLook = "letLook"
+        case looksWrong = "looksWrong"
+        case menuBarTitle = "menuBarTitle"
+        case next = "next"
+        case payButton = "payButton"
+        case scrollTo = "scrollTo"
+        case selfFill = "selfFill"
+        case selfFillPlain = "selfFillPlain"
+        case skip = "skip"
+        case stepFormat = "stepFormat"
+        case stop = "stop"
+        case stuck = "stuck"
+        case stuckBlocked = "stuckBlocked"
+        case stuckMissing = "stuckMissing"
+        case stuckUnclear = "stuckUnclear"
+        case unknownValue = "unknownValue"
+        case visionBadge = "visionBadge"
+    }
+
+    public init(askInPsyche: String, back: String, copy: String, followWindow: String, hideNote: String, letLook: String, looksWrong: String, menuBarTitle: String, next: String, payButton: String, scrollTo: String, selfFill: String, selfFillPlain: String, skip: String, stepFormat: String, stop: String, stuck: String, stuckBlocked: String, stuckMissing: String, stuckUnclear: String, unknownValue: String, visionBadge: String) {
+        self.askInPsyche = askInPsyche
+        self.back = back
+        self.copy = copy
+        self.followWindow = followWindow
+        self.hideNote = hideNote
+        self.letLook = letLook
+        self.looksWrong = looksWrong
+        self.menuBarTitle = menuBarTitle
+        self.next = next
+        self.payButton = payButton
+        self.scrollTo = scrollTo
+        self.selfFill = selfFill
+        self.selfFillPlain = selfFillPlain
+        self.skip = skip
+        self.stepFormat = stepFormat
+        self.stop = stop
+        self.stuck = stuck
+        self.stuckBlocked = stuckBlocked
+        self.stuckMissing = stuckMissing
+        self.stuckUnclear = stuckUnclear
+        self.unknownValue = unknownValue
+        self.visionBadge = visionBadge
+    }
+}
+
+// MARK: - PointsShowParams
+public struct PointsShowParams: Codable, Sendable {
+    public let kind: PointsShowKind
+    public let note: String
+    public let sessionID: String
+    public let sources: [String]?
+    public let step: PointsShowParamsStep
+    public let target: PointsShowTarget
+    public let value: String?
+    public let warning: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case kind = "kind"
+        case note = "note"
+        case sessionID = "sessionId"
+        case sources = "sources"
+        case step = "step"
+        case target = "target"
+        case value = "value"
+        case warning = "warning"
+    }
+
+    public init(kind: PointsShowKind, note: String, sessionID: String, sources: [String]? = nil, step: PointsShowParamsStep, target: PointsShowTarget, value: String? = nil, warning: String? = nil) {
+        self.kind = kind
+        self.note = note
+        self.sessionID = sessionID
+        self.sources = sources
+        self.step = step
+        self.target = target
+        self.value = value
+        self.warning = warning
+    }
+}
+
+public enum PointsShowKind: String, Codable, Sendable {
+    case check = "check"
+    case choose = "choose"
+    case fill = "fill"
+    case info = "info"
+    case nextPage = "next_page"
+    case pointsShowKindSelf = "self"
+    case review = "review"
+    case skip = "skip"
+}
+
+// MARK: - PointsShowParamsStep
+public struct PointsShowParamsStep: Codable, Sendable {
+    public let n: Int
+    public let of: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case n = "n"
+        case of = "of"
+    }
+
+    public init(n: Int, of: Int) {
+        self.n = n
+        self.of = of
+    }
+}
+
+// MARK: - PointsShowTarget
+public struct PointsShowTarget: Codable, Sendable {
+    public let box: PointsRect?
+    public let fieldID: String?
+    public let imageSize: ImageSize?
+
+    public enum CodingKeys: String, CodingKey {
+        case box = "box"
+        case fieldID = "fieldId"
+        case imageSize = "imageSize"
+    }
+
+    public init(box: PointsRect? = nil, fieldID: String? = nil, imageSize: ImageSize? = nil) {
+        self.box = box
+        self.fieldID = fieldID
+        self.imageSize = imageSize
+    }
+}
+
+// MARK: - ImageSize
+public struct ImageSize: Codable, Sendable {
+    public let height: Int
+    public let width: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case height = "height"
+        case width = "width"
+    }
+
+    public init(height: Int, width: Int) {
+        self.height = height
+        self.width = width
+    }
+}
+
+// MARK: - PointsShowResult
+public struct PointsShowResult: Codable, Sendable {
+    public let shown: Bool
+
+    public enum CodingKeys: String, CodingKey {
+        case shown = "shown"
+    }
+
+    public init(shown: Bool) {
+        self.shown = shown
+    }
+}
+
+// MARK: - PointsStartParams
+public struct PointsStartParams: Codable, Sendable {
+    public let entry: PointsEntry
+    public let goal: String?
+    public let goalSource: GoalSource?
+    public let locale: String
+    public let strings: PointsCardStrings
+    public let threadID: String?
+    public let window: String
+
+    public enum CodingKeys: String, CodingKey {
+        case entry = "entry"
+        case goal = "goal"
+        case goalSource = "goalSource"
+        case locale = "locale"
+        case strings = "strings"
+        case threadID = "threadId"
+        case window = "window"
+    }
+
+    public init(entry: PointsEntry, goal: String? = nil, goalSource: GoalSource? = nil, locale: String, strings: PointsCardStrings, threadID: String? = nil, window: String) {
+        self.entry = entry
+        self.goal = goal
+        self.goalSource = goalSource
+        self.locale = locale
+        self.strings = strings
+        self.threadID = threadID
+        self.window = window
+    }
+}
+
+public enum PointsEntry: String, Codable, Sendable {
+    case chat = "chat"
+    case palette = "palette"
+    case tray = "tray"
+}
+
+public enum GoalSource: String, Codable, Sendable {
+    case offer = "offer"
+    case owner = "owner"
+}
+
+// MARK: - PointsStartResult
+public struct PointsStartResult: Codable, Sendable {
+    public let app: PointsStartResultApp
+    public let sessionID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case app = "app"
+        case sessionID = "sessionId"
+    }
+
+    public init(app: PointsStartResultApp, sessionID: String) {
+        self.app = app
+        self.sessionID = sessionID
+    }
+}
+
+// MARK: - PointsStartResultApp
+public struct PointsStartResultApp: Codable, Sendable {
+    public let bundleID: String
+    public let name: String
+
+    public enum CodingKeys: String, CodingKey {
+        case bundleID = "bundleId"
+        case name = "name"
+    }
+
+    public init(bundleID: String, name: String) {
+        self.bundleID = bundleID
+        self.name = name
+    }
+}
+
+// MARK: - PointsStatusParams
+public struct PointsStatusParams: Codable, Sendable {
+
+    public init() {
+    }
+}
+
+// MARK: - PointsStatusResult
+public struct PointsStatusResult: Codable, Sendable {
+    public let session: PointsSessionStatus?
+
+    public enum CodingKeys: String, CodingKey {
+        case session = "session"
+    }
+
+    public init(session: PointsSessionStatus? = nil) {
+        self.session = session
+    }
+}
+
+// MARK: - PointsSessionStatus
+public struct PointsSessionStatus: Codable, Sendable {
+    public let app: PointsSessionStatusApp
+    public let of: Int
+    public let page: Int
+    public let sessionID: String
+    public let state: PointsState
+    public let step: Int
+    public let vision: Bool
+
+    public enum CodingKeys: String, CodingKey {
+        case app = "app"
+        case of = "of"
+        case page = "page"
+        case sessionID = "sessionId"
+        case state = "state"
+        case step = "step"
+        case vision = "vision"
+    }
+
+    public init(app: PointsSessionStatusApp, of: Int, page: Int, sessionID: String, state: PointsState, step: Int, vision: Bool) {
+        self.app = app
+        self.of = of
+        self.page = page
+        self.sessionID = sessionID
+        self.state = state
+        self.step = step
+        self.vision = vision
+    }
+}
+
+// MARK: - PointsSessionStatusApp
+public struct PointsSessionStatusApp: Codable, Sendable {
+    public let bundleID: String
+    public let name: String
+
+    public enum CodingKeys: String, CodingKey {
+        case bundleID = "bundleId"
+        case name = "name"
+    }
+
+    public init(bundleID: String, name: String) {
+        self.bundleID = bundleID
+        self.name = name
+    }
+}
+
+public enum PointsState: String, Codable, Sendable {
+    case ended = "ended"
+    case paused = "paused"
+    case pointing = "pointing"
+    case reading = "reading"
+}
+
+// MARK: - PointsStopParams
+public struct PointsStopParams: Codable, Sendable {
+    public let sessionID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case sessionID = "sessionId"
+    }
+
+    public init(sessionID: String) {
+        self.sessionID = sessionID
+    }
+}
+
+// MARK: - PointsStopResult
+public struct PointsStopResult: Codable, Sendable {
+    public let ended: Bool
+
+    public enum CodingKeys: String, CodingKey {
+        case ended = "ended"
+    }
+
+    public init(ended: Bool) {
+        self.ended = ended
+    }
+}
+
+// MARK: - PointsUpdatedPayload
+public struct PointsUpdatedPayload: Codable, Sendable {
+    public let needs: PointsNeeds?
+    public let of: Int
+    public let page: Int
+    public let reason: PointsEndReason?
+    public let sessionID: String
+    public let state: PointsState
+    public let step: Int
+    public let vision: Bool
+
+    public enum CodingKeys: String, CodingKey {
+        case needs = "needs"
+        case of = "of"
+        case page = "page"
+        case reason = "reason"
+        case sessionID = "sessionId"
+        case state = "state"
+        case step = "step"
+        case vision = "vision"
+    }
+
+    public init(needs: PointsNeeds? = nil, of: Int, page: Int, reason: PointsEndReason? = nil, sessionID: String, state: PointsState, step: Int, vision: Bool) {
+        self.needs = needs
+        self.of = of
+        self.page = page
+        self.reason = reason
+        self.sessionID = sessionID
+        self.state = state
+        self.step = step
+        self.vision = vision
+    }
+}
+
+public enum PointsNeeds: String, Codable, Sendable {
+    case accessibility = "accessibility"
+    case screenRecording = "screenRecording"
+}
+
+// MARK: - PointsWindowsParams
+public struct PointsWindowsParams: Codable, Sendable {
+
+    public init() {
+    }
+}
+
+// MARK: - PointsWindowsResult
+public struct PointsWindowsResult: Codable, Sendable {
+    public let windows: [PointsWindow]
+
+    public enum CodingKeys: String, CodingKey {
+        case windows = "windows"
+    }
+
+    public init(windows: [PointsWindow]) {
+        self.windows = windows
+    }
+}
+
+// MARK: - PointsWindow
+public struct PointsWindow: Codable, Sendable {
+    public let app: PointsWindowApp
+    public let frontmost: Bool
+    public let ref: String
+    public let refusal: PointsRefusal?
+    public let title: String
+
+    public enum CodingKeys: String, CodingKey {
+        case app = "app"
+        case frontmost = "frontmost"
+        case ref = "ref"
+        case refusal = "refusal"
+        case title = "title"
+    }
+
+    public init(app: PointsWindowApp, frontmost: Bool, ref: String, refusal: PointsRefusal? = nil, title: String) {
+        self.app = app
+        self.frontmost = frontmost
+        self.ref = ref
+        self.refusal = refusal
+        self.title = title
+    }
+}
+
+// MARK: - PointsWindowApp
+public struct PointsWindowApp: Codable, Sendable {
+    public let bundleID: String
+    public let name: String
+
+    public enum CodingKeys: String, CodingKey {
+        case bundleID = "bundleId"
+        case name = "name"
+    }
+
+    public init(bundleID: String, name: String) {
+        self.bundleID = bundleID
+        self.name = name
+    }
+}
+
 // MARK: - PolicyRule
 public struct PolicyRule: Codable, Sendable {
     public let createdAt: String
@@ -29733,6 +30933,561 @@ public enum UpdateGateState: String, Codable, Sendable {
     case draining = "draining"
     case ready = "ready"
     case updateGateStateOpen = "open"
+}
+
+// MARK: - PromiseUpdatedPayload
+public struct PromiseUpdatedPayload: Codable, Sendable {
+    public let promise: PromiseView
+
+    public enum CodingKeys: String, CodingKey {
+        case promise = "promise"
+    }
+
+    public init(promise: PromiseView) {
+        self.promise = promise
+    }
+}
+
+// MARK: - PromiseView
+public struct PromiseView: Codable, Sendable {
+    public let basis: PromiseBasis
+    public let brokenAt: String?
+    public let citations: [PromiseCitation]?
+    public let closedAt: String?
+    public let closedBy: PromiseClosedBy?
+    public let confidence: Double
+    public let counterpartID: String?
+    public let counterpartLabel: String?
+    public let createdAt: String
+    public let direction: PromiseDirection
+    public let dueAt: String?
+    public let dueConfidence: Double?
+    public let dueKind: PromiseDueKind
+    public let dueText: String?
+    public let events: [PromiseEvent]?
+    public let id: String
+    public let lastNudgeAt: String?
+    public let link: String?
+    public let nudgeCount: Int
+    public let projectID: String?
+    public let proposedDueAt: String?
+    public let provenance: Provenance
+    public let snoozedUntil: String?
+    public let sourceKind: PromiseSourceKind?
+    public let state: PromiseState
+    public let status: GraphLoopStatus
+    public let warnedAt: String?
+    public let what: String
+    public let whatAction: PromiseAction?
+
+    public enum CodingKeys: String, CodingKey {
+        case basis = "basis"
+        case brokenAt = "brokenAt"
+        case citations = "citations"
+        case closedAt = "closedAt"
+        case closedBy = "closedBy"
+        case confidence = "confidence"
+        case counterpartID = "counterpartId"
+        case counterpartLabel = "counterpartLabel"
+        case createdAt = "createdAt"
+        case direction = "direction"
+        case dueAt = "dueAt"
+        case dueConfidence = "dueConfidence"
+        case dueKind = "dueKind"
+        case dueText = "dueText"
+        case events = "events"
+        case id = "id"
+        case lastNudgeAt = "lastNudgeAt"
+        case link = "link"
+        case nudgeCount = "nudgeCount"
+        case projectID = "projectId"
+        case proposedDueAt = "proposedDueAt"
+        case provenance = "provenance"
+        case snoozedUntil = "snoozedUntil"
+        case sourceKind = "sourceKind"
+        case state = "state"
+        case status = "status"
+        case warnedAt = "warnedAt"
+        case what = "what"
+        case whatAction = "whatAction"
+    }
+
+    public init(basis: PromiseBasis, brokenAt: String? = nil, citations: [PromiseCitation]? = nil, closedAt: String? = nil, closedBy: PromiseClosedBy? = nil, confidence: Double, counterpartID: String? = nil, counterpartLabel: String? = nil, createdAt: String, direction: PromiseDirection, dueAt: String? = nil, dueConfidence: Double? = nil, dueKind: PromiseDueKind, dueText: String? = nil, events: [PromiseEvent]? = nil, id: String, lastNudgeAt: String? = nil, link: String? = nil, nudgeCount: Int, projectID: String? = nil, proposedDueAt: String? = nil, provenance: Provenance, snoozedUntil: String? = nil, sourceKind: PromiseSourceKind? = nil, state: PromiseState, status: GraphLoopStatus, warnedAt: String? = nil, what: String, whatAction: PromiseAction? = nil) {
+        self.basis = basis
+        self.brokenAt = brokenAt
+        self.citations = citations
+        self.closedAt = closedAt
+        self.closedBy = closedBy
+        self.confidence = confidence
+        self.counterpartID = counterpartID
+        self.counterpartLabel = counterpartLabel
+        self.createdAt = createdAt
+        self.direction = direction
+        self.dueAt = dueAt
+        self.dueConfidence = dueConfidence
+        self.dueKind = dueKind
+        self.dueText = dueText
+        self.events = events
+        self.id = id
+        self.lastNudgeAt = lastNudgeAt
+        self.link = link
+        self.nudgeCount = nudgeCount
+        self.projectID = projectID
+        self.proposedDueAt = proposedDueAt
+        self.provenance = provenance
+        self.snoozedUntil = snoozedUntil
+        self.sourceKind = sourceKind
+        self.state = state
+        self.status = status
+        self.warnedAt = warnedAt
+        self.what = what
+        self.whatAction = whatAction
+    }
+}
+
+public enum PromiseBasis: String, Codable, Sendable {
+    case ask = "ask"
+    case promise = "promise"
+    case request = "request"
+}
+
+// MARK: - PromiseCitation
+public struct PromiseCitation: Codable, Sendable {
+    public let id: String
+    public let observedAt: String
+    public let provenance: Provenance
+    public let quote: String
+    public let source: PromiseCitationSource
+    public let sourceRef: String
+
+    public enum CodingKeys: String, CodingKey {
+        case id = "id"
+        case observedAt = "observedAt"
+        case provenance = "provenance"
+        case quote = "quote"
+        case source = "source"
+        case sourceRef = "sourceRef"
+    }
+
+    public init(id: String, observedAt: String, provenance: Provenance, quote: String, source: PromiseCitationSource, sourceRef: String) {
+        self.id = id
+        self.observedAt = observedAt
+        self.provenance = provenance
+        self.quote = quote
+        self.source = source
+        self.sourceRef = sourceRef
+    }
+}
+
+public enum PromiseCitationSource: String, Codable, Sendable {
+    case chats = "chats"
+    case mail = "mail"
+    case messages = "messages"
+    case notes = "notes"
+    case transcripts = "transcripts"
+}
+
+public enum PromiseDueKind: String, Codable, Sendable {
+    case explicit = "explicit"
+    case inferred = "inferred"
+    case none = "none"
+}
+
+// MARK: - PromiseEvent
+public struct PromiseEvent: Codable, Sendable {
+    public let at: String
+    public let by: PromiseEventBy
+    public let citationID: String?
+    public let from: String?
+    public let id: String
+    public let kind: PromiseEventKind
+    public let to: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case at = "at"
+        case by = "by"
+        case citationID = "citationId"
+        case from = "from"
+        case id = "id"
+        case kind = "kind"
+        case to = "to"
+    }
+
+    public init(at: String, by: PromiseEventBy, citationID: String? = nil, from: String? = nil, id: String, kind: PromiseEventKind, to: String? = nil) {
+        self.at = at
+        self.by = by
+        self.citationID = citationID
+        self.from = from
+        self.id = id
+        self.kind = kind
+        self.to = to
+    }
+}
+
+public enum PromiseEventBy: String, Codable, Sendable {
+    case auto = "auto"
+    case model = "model"
+    case owner = "owner"
+    case rule = "rule"
+}
+
+public enum PromiseEventKind: String, Codable, Sendable {
+    case asked = "asked"
+    case autoDone = "auto_done"
+    case confirmed = "confirmed"
+    case created = "created"
+    case dueChanged = "due_changed"
+    case dueProposed = "due_proposed"
+    case nudgeDrafted = "nudge_drafted"
+    case nudgeSent = "nudge_sent"
+    case sourceAdded = "source_added"
+    case status = "status"
+    case undo = "undo"
+    case warned = "warned"
+}
+
+public enum PromiseSourceKind: String, Codable, Sendable {
+    case chat = "chat"
+    case mail = "mail"
+    case manual = "manual"
+    case meeting = "meeting"
+    case messages = "messages"
+}
+
+public enum PromiseState: String, Codable, Sendable {
+    case broken = "broken"
+    case dismissed = "dismissed"
+    case done = "done"
+    case dueSoon = "due_soon"
+    case promiseStateOpen = "open"
+    case released = "released"
+    case snoozed = "snoozed"
+    case suggested = "suggested"
+}
+
+public enum PromiseAction: String, Codable, Sendable {
+    case meet = "meet"
+    case promiseActionDo = "do"
+    case reply = "reply"
+    case send = "send"
+}
+
+// MARK: - PromisesActParams
+public struct PromisesActParams: Codable, Sendable {
+    public let action: PromiseActAction
+    public let id: String
+
+    public enum CodingKeys: String, CodingKey {
+        case action = "action"
+        case id = "id"
+    }
+
+    public init(action: PromiseActAction, id: String) {
+        self.action = action
+        self.id = id
+    }
+}
+
+// MARK: - PromiseActAction
+public struct PromiseActAction: Codable, Sendable {
+    public let type: PromiseActActionType
+    public let until: String?
+    public let dueAt: String?
+    public let days: Int?
+    public let answer: Answer?
+
+    public enum CodingKeys: String, CodingKey {
+        case type = "type"
+        case until = "until"
+        case dueAt = "dueAt"
+        case days = "days"
+        case answer = "answer"
+    }
+
+    public init(type: PromiseActActionType, until: String? = nil, dueAt: String? = nil, days: Int? = nil, answer: Answer? = nil) {
+        self.type = type
+        self.until = until
+        self.dueAt = dueAt
+        self.days = days
+        self.answer = answer
+    }
+}
+
+public enum Answer: String, Codable, Sendable {
+    case notYet = "not_yet"
+    case yes = "yes"
+}
+
+public enum PromiseActActionType: String, Codable, Sendable {
+    case acceptProposed = "accept_proposed"
+    case answer = "answer"
+    case confirm = "confirm"
+    case dismiss = "dismiss"
+    case done = "done"
+    case moreTime = "more_time"
+    case notPromise = "not_promise"
+    case rejectProposed = "reject_proposed"
+    case release = "release"
+    case reopen = "reopen"
+    case setDue = "set_due"
+    case snooze = "snooze"
+}
+
+// MARK: - PromisesActResult
+public struct PromisesActResult: Codable, Sendable {
+    public let promise: PromiseView
+
+    public enum CodingKeys: String, CodingKey {
+        case promise = "promise"
+    }
+
+    public init(promise: PromiseView) {
+        self.promise = promise
+    }
+}
+
+// MARK: - PromisesAddParams
+public struct PromisesAddParams: Codable, Sendable {
+    public let counterpartID: String?
+    public let direction: PromiseDirection
+    public let dueAt: String?
+    public let what: String
+
+    public enum CodingKeys: String, CodingKey {
+        case counterpartID = "counterpartId"
+        case direction = "direction"
+        case dueAt = "dueAt"
+        case what = "what"
+    }
+
+    public init(counterpartID: String? = nil, direction: PromiseDirection, dueAt: String? = nil, what: String) {
+        self.counterpartID = counterpartID
+        self.direction = direction
+        self.dueAt = dueAt
+        self.what = what
+    }
+}
+
+// MARK: - PromisesAddResult
+public struct PromisesAddResult: Codable, Sendable {
+    public let promise: PromiseView
+
+    public enum CodingKeys: String, CodingKey {
+        case promise = "promise"
+    }
+
+    public init(promise: PromiseView) {
+        self.promise = promise
+    }
+}
+
+// MARK: - PromisesDeleteParams
+public struct PromisesDeleteParams: Codable, Sendable {
+    public let id: String
+
+    public enum CodingKeys: String, CodingKey {
+        case id = "id"
+    }
+
+    public init(id: String) {
+        self.id = id
+    }
+}
+
+// MARK: - PromisesDeleteResult
+public struct PromisesDeleteResult: Codable, Sendable {
+    public let ok: Bool
+
+    public enum CodingKeys: String, CodingKey {
+        case ok = "ok"
+    }
+
+    public init(ok: Bool) {
+        self.ok = ok
+    }
+}
+
+// MARK: - PromisesGetParams
+public struct PromisesGetParams: Codable, Sendable {
+    public let id: String
+
+    public enum CodingKeys: String, CodingKey {
+        case id = "id"
+    }
+
+    public init(id: String) {
+        self.id = id
+    }
+}
+
+// MARK: - PromisesGetResult
+public struct PromisesGetResult: Codable, Sendable {
+    public let promise: PromiseView
+
+    public enum CodingKeys: String, CodingKey {
+        case promise = "promise"
+    }
+
+    public init(promise: PromiseView) {
+        self.promise = promise
+    }
+}
+
+// MARK: - PromisesListParams
+public struct PromisesListParams: Codable, Sendable {
+    /// Opaque cursor
+    public let cursor: String?
+    public let dueBefore: String?
+    public let entityID: String?
+    public let limit: Int?
+    public let view: PromiseListView
+
+    public enum CodingKeys: String, CodingKey {
+        case cursor = "cursor"
+        case dueBefore = "dueBefore"
+        case entityID = "entityId"
+        case limit = "limit"
+        case view = "view"
+    }
+
+    public init(cursor: String? = nil, dueBefore: String? = nil, entityID: String? = nil, limit: Int? = nil, view: PromiseListView) {
+        self.cursor = cursor
+        self.dueBefore = dueBefore
+        self.entityID = entityID
+        self.limit = limit
+        self.view = view
+    }
+}
+
+public enum PromiseListView: String, Codable, Sendable {
+    case all = "all"
+    case closed = "closed"
+    case confirm = "confirm"
+    case theirs = "theirs"
+    case yours = "yours"
+}
+
+// MARK: - PromisesListResult
+public struct PromisesListResult: Codable, Sendable {
+    public let hiddenCount: Int
+    public let nextCursor: String?
+    public let promises: [PromiseView]
+
+    public enum CodingKeys: String, CodingKey {
+        case hiddenCount = "hiddenCount"
+        case nextCursor = "nextCursor"
+        case promises = "promises"
+    }
+
+    public init(hiddenCount: Int, nextCursor: String? = nil, promises: [PromiseView]) {
+        self.hiddenCount = hiddenCount
+        self.nextCursor = nextCursor
+        self.promises = promises
+    }
+}
+
+// MARK: - PromisesMuteParams
+public struct PromisesMuteParams: Codable, Sendable {
+    public let entityID: String?
+    public let muted: Bool
+    public let threadRef: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case entityID = "entityId"
+        case muted = "muted"
+        case threadRef = "threadRef"
+    }
+
+    public init(entityID: String? = nil, muted: Bool, threadRef: String? = nil) {
+        self.entityID = entityID
+        self.muted = muted
+        self.threadRef = threadRef
+    }
+}
+
+// MARK: - PromisesMuteResult
+public struct PromisesMuteResult: Codable, Sendable {
+    public let ok: Bool
+
+    public enum CodingKeys: String, CodingKey {
+        case ok = "ok"
+    }
+
+    public init(ok: Bool) {
+        self.ok = ok
+    }
+}
+
+// MARK: - PromisesSummaryResult
+public struct PromisesSummaryResult: Codable, Sendable {
+    public let summary: PromiseSummary
+
+    public enum CodingKeys: String, CodingKey {
+        case summary = "summary"
+    }
+
+    public init(summary: PromiseSummary) {
+        self.summary = summary
+    }
+}
+
+// MARK: - PromiseSummary
+public struct PromiseSummary: Codable, Sendable {
+    public let dueSoon: Int
+    public let enabled: Bool
+    public let hiddenCount: Int
+    public let late: Int
+    public let missed: Int
+    public let nextDueAt: String?
+    public let theirs: Int
+    public let toConfirm: Int
+    public let upcoming: [PromiseUpcoming]
+    public let yours: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case dueSoon = "dueSoon"
+        case enabled = "enabled"
+        case hiddenCount = "hiddenCount"
+        case late = "late"
+        case missed = "missed"
+        case nextDueAt = "nextDueAt"
+        case theirs = "theirs"
+        case toConfirm = "toConfirm"
+        case upcoming = "upcoming"
+        case yours = "yours"
+    }
+
+    public init(dueSoon: Int, enabled: Bool, hiddenCount: Int, late: Int, missed: Int, nextDueAt: String? = nil, theirs: Int, toConfirm: Int, upcoming: [PromiseUpcoming], yours: Int) {
+        self.dueSoon = dueSoon
+        self.enabled = enabled
+        self.hiddenCount = hiddenCount
+        self.late = late
+        self.missed = missed
+        self.nextDueAt = nextDueAt
+        self.theirs = theirs
+        self.toConfirm = toConfirm
+        self.upcoming = upcoming
+        self.yours = yours
+    }
+}
+
+// MARK: - PromiseUpcoming
+public struct PromiseUpcoming: Codable, Sendable {
+    public let id: String
+    public let title: String
+    public let warnAt: String
+
+    public enum CodingKeys: String, CodingKey {
+        case id = "id"
+        case title = "title"
+        case warnAt = "warnAt"
+    }
+
+    public init(id: String, title: String, warnAt: String) {
+        self.id = id
+        self.title = title
+        self.warnAt = warnAt
+    }
 }
 
 // MARK: - ProposalUpdatedPayload
@@ -36726,7 +38481,7 @@ public struct SpacesUpdateParams: Codable, Sendable {
 public struct SpecialistProgressPayload: Codable, Sendable {
     public let budget: RunBudget
     public let runID: String
-    public let step: Step
+    public let step: SpecialistProgressPayloadStep
     public let taskID: String
 
     public enum CodingKeys: String, CodingKey {
@@ -36736,7 +38491,7 @@ public struct SpecialistProgressPayload: Codable, Sendable {
         case taskID = "taskId"
     }
 
-    public init(budget: RunBudget, runID: String, step: Step, taskID: String) {
+    public init(budget: RunBudget, runID: String, step: SpecialistProgressPayloadStep, taskID: String) {
         self.budget = budget
         self.runID = runID
         self.step = step
@@ -36744,8 +38499,8 @@ public struct SpecialistProgressPayload: Codable, Sendable {
     }
 }
 
-// MARK: - Step
-public struct Step: Codable, Sendable {
+// MARK: - SpecialistProgressPayloadStep
+public struct SpecialistProgressPayloadStep: Codable, Sendable {
     public let id: String
     public let label: String
     public let status: String
@@ -37546,6 +39301,41 @@ public struct StorageCleared: Codable, Sendable {
     public init(cleared: [StorageClearTarget], freedBytes: Int) {
         self.cleared = cleared
         self.freedBytes = freedBytes
+    }
+}
+
+// MARK: - StorageCompactEstimate
+public struct StorageCompactEstimate: Codable, Sendable {
+    public let dbBytes: Int
+    public let idle: Bool
+    public let reclaimableBytes: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case dbBytes = "dbBytes"
+        case idle = "idle"
+        case reclaimableBytes = "reclaimableBytes"
+    }
+
+    public init(dbBytes: Int, idle: Bool, reclaimableBytes: Int) {
+        self.dbBytes = dbBytes
+        self.idle = idle
+        self.reclaimableBytes = reclaimableBytes
+    }
+}
+
+// MARK: - StorageCompacted
+public struct StorageCompacted: Codable, Sendable {
+    public let durationMS: Int
+    public let savedBytes: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case durationMS = "durationMs"
+        case savedBytes = "savedBytes"
+    }
+
+    public init(durationMS: Int, savedBytes: Int) {
+        self.durationMS = durationMS
+        self.savedBytes = savedBytes
     }
 }
 
@@ -43192,6 +44982,7 @@ public typealias PasskeysReauthBeginParams = [String: JSONAny]
 public typealias PasskeysRegisterBeginParams = [String: JSONAny]
 public typealias PaymentsLinkSignInParams = [String: JSONAny]
 public typealias PaymentsLinkStatusParams = [String: JSONAny]
+public typealias PromisesSummaryParams = [String: JSONAny]
 public typealias SandboxSetupParams = [String: JSONAny]
 public typealias ScheduledListParams = [String: JSONAny]
 public typealias SearchReindexParams = [String: JSONAny]
@@ -43204,6 +44995,8 @@ public typealias SpacesMigrationOfferParams = [String: JSONAny]
 public typealias SpecialistsListParams = [String: JSONAny]
 public typealias SpeechEngineDownloadParams = [String: JSONAny]
 public typealias SpeechEngineStatusParams = [String: JSONAny]
+public typealias StorageCompactEstimateParams = [String: JSONAny]
+public typealias StorageCompactParams = [String: JSONAny]
 public typealias StorageUsageParams = [String: JSONAny]
 public typealias TeachAppAppsParams = [String: JSONAny]
 public typealias TeachAppCancelParams = [String: JSONAny]

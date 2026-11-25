@@ -11,6 +11,8 @@ import type {
   ModelRoles,
   PluginProposalSchema,
   PluginSummarySchema,
+  PointsSessionStatus,
+  PointsWindow,
 } from "@psyche/protocol";
 import {
   AGENT_NOTES_DIR,
@@ -130,6 +132,12 @@ export interface MockBrowserRecording {
 }
 
 export interface MockWorld {
+  /** The Host's OS as `gateway.info` reports it (absent = not said, like an older Gateway). */
+  hostOs?: "macos" | "windows" | "linux";
+  /** The windows `points.windows` lists (Psyche points, stories and tests; absent = none). */
+  pointsWindows?: PointsWindow[];
+  /** The running Psyche points session (`points.start` sets it, `points.stop` clears it). */
+  pointsSession?: PointsSessionStatus;
   /** Linux computers paired as machines (absent = none): `machines.list`. */
   machines?: MachineInfo[];
   /** Browser recordings (absent = none). */
@@ -1624,12 +1632,15 @@ export class MockGateway implements GatewayClient {
       };
     },
 
-    "chat.history": (p) => ({
-      messages: this.world.messages
+    "chat.history": (p) => {
+      const all = this.world.messages
         .filter((m) => m.threadId === p.threadId)
-        .sort((a, b) => a.seq - b.seq),
-      nextCursor: null,
-    }),
+        .sort((a, b) => a.seq - b.seq);
+      // Newest page first; the cursor is how many of the oldest messages are still unread.
+      const end = p.cursor === undefined ? all.length : Number(p.cursor);
+      const start = Math.max(0, end - (p.limit ?? 100));
+      return { messages: all.slice(start, end), nextCursor: start > 0 ? String(start) : null };
+    },
     "chat.send": (p) => {
       const busy = this.world.runs.some((r) => r.threadId === p.threadId && r.status === "running");
       const about =
@@ -2921,6 +2932,12 @@ export class MockGateway implements GatewayClient {
       ],
       totalBytes: 422_000_000,
     }),
+    "storage.compactEstimate": () => ({
+      dbBytes: 48_000_000,
+      reclaimableBytes: 9_000_000,
+      idle: true,
+    }),
+    "storage.compact": () => ({ durationMs: 1800, savedBytes: 9_000_000 }),
     "storage.clearCache": () => ({
       cleared: ["caches" as const, "recordings" as const],
       freedBytes: 46_000_000,
@@ -4591,7 +4608,54 @@ export class MockGateway implements GatewayClient {
       hostName: "studio-mac",
       publicOrigin: "https://studio-mac.tail1234.ts.net",
       trustedProxy: true,
+      ...(this.world.hostOs === undefined ? {} : { hostOs: this.world.hostOs }),
     }),
+    "points.windows": () => ({ windows: this.world.pointsWindows ?? [] }),
+    "points.start": (p) => {
+      const win = (this.world.pointsWindows ?? []).find((w) => w.ref === p.window);
+      if (win === undefined) return fail("not_found", "No such window");
+      if (win.refusal !== undefined)
+        return fail("invalid_params", `Psyche can't point here: ${win.refusal}`);
+      if (this.world.pointsSession !== undefined)
+        return fail("conflict", "A Points session is running");
+      const session = {
+        sessionId: this.id("pts"),
+        app: win.app,
+        state: "reading" as const,
+        page: 0,
+        step: 0,
+        of: 0,
+        vision: false,
+      };
+      this.world.pointsSession = session;
+      this.emit("points.updated", {
+        sessionId: session.sessionId,
+        state: "reading",
+        page: 0,
+        step: 0,
+        of: 0,
+        vision: false,
+      });
+      return { sessionId: session.sessionId, app: win.app };
+    },
+    "points.stop": (p) => {
+      const session = this.world.pointsSession;
+      if (session === undefined || session.sessionId !== p.sessionId)
+        return fail("not_found", "No such Points session");
+      delete this.world.pointsSession;
+      this.emit("points.updated", {
+        sessionId: session.sessionId,
+        state: "ended",
+        page: session.page,
+        step: session.step,
+        of: session.of,
+        vision: session.vision,
+        reason: "stop",
+      });
+      return { ended: true as const };
+    },
+    "points.status": () =>
+      this.world.pointsSession === undefined ? {} : { session: this.world.pointsSession },
     "devices.setupToken.create": (p) => {
       const machine = p.purpose === "machine";
       const scopes = machine ? [] : (p.scopes ?? []);

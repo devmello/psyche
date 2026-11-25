@@ -36,6 +36,8 @@ import { MemoryChangeSource, MemoryJob, PersonaIdentity } from "./schemas/memory
 import { NightShiftNight, StagedAction } from "./schemas/night-shift.ts";
 import { ApprovalRequest, Receipt } from "./schemas/permissions.ts";
 import { PlanForkUpdate } from "./schemas/plan-forks.ts";
+import { PointsAskRequestedPayload, PointsUpdatedPayload } from "./schemas/points.ts";
+import { PromiseView } from "./schemas/promises.ts";
 import { ResearchProgressEvent } from "./schemas/research.ts";
 import { RunStep } from "./schemas/runs.ts";
 import { SpaceProposal } from "./schemas/spaces.ts";
@@ -381,6 +383,11 @@ export const Events = {
     payload: Type.Object({ loop: GraphLoop }),
     description: "An open loop was created, confirmed, completed, snoozed or dismissed.",
   }),
+  "promise.updated": defineEvent({
+    payload: Type.Object({ promise: PromiseView }),
+    description:
+      "A promise was created, confirmed, re-dated, warned about, completed, broken or released. Personalised per subscriber: a remote subscriber gets the scrubbed form, and nothing for a hidden promise.",
+  }),
   "memory.suggestion.created": defineEvent({
     payload: Type.Object({ suggestion: GraphSuggestion }),
     description: "The graph suggests a merge or a project for the owner to confirm.",
@@ -526,6 +533,16 @@ export const Events = {
     payload: DictationKeyPayload,
     description:
       "The watched hold-to-talk key went down or up (dictation.watch), sent only to the watching device.",
+  }),
+  "points.updated": defineEvent({
+    payload: PointsUpdatedPayload,
+    description:
+      "A Psyche points session changed state (reading, pointing, paused, ended), page or step, or needs a permission, sent only to the device that started it. Counts and states only, never titles or values.",
+  }),
+  "points.ask_requested": defineEvent({
+    payload: PointsAskRequestedPayload,
+    description:
+      "The owner pressed Ask in Psyche… on the Points card, sent only to the device that started the session.",
   }),
   "terminal.output": defineEvent({
     payload: TerminalOutputPayload,

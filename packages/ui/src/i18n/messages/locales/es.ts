@@ -27,6 +27,7 @@ import { overview } from "./overview/es.ts";
 import { overviewGrowth } from "./overview-growth/es.ts";
 import { overviewShared } from "./overview-shared/es.ts";
 import { passwordPresence } from "./password-presence/es.ts";
+import { points } from "./points/es.ts";
 import { scheduledA } from "./scheduled-a/es.ts";
 import { scheduledForm } from "./scheduled-form/es.ts";
 import { securityState } from "./security-state/es.ts";
@@ -201,6 +202,12 @@ export const es: Partial<Catalogue> = {
   "chat.queue.notSent": "no enviado",
   "chat.queue.retry": "Reintentar el envío de «{content}»",
   "chat.queue.remove": "Quitar de la cola el mensaje «{content}»",
+  "chat.thread.loadingEarlier": "Cargando mensajes anteriores",
+  "chat.thread.loadEarlierFailed": "No se pudieron cargar los mensajes anteriores.",
+  "chat.thread.focusNotFound": "No se encontró ese mensaje en este chat.",
+  "chat.queue.parked": "en pausa tras detener",
+  "chat.queue.sendQueued": "Enviar en cola",
+  "chat.queue.sendQueuedLabel": "Enviar el mensaje en cola «{content}»",
 
   "chat.commands.model.hint": "proveedor/modelo",
   "chat.commands.model.description": "Elegir el modelo de esta conversación",
@@ -477,6 +484,7 @@ export const es: Partial<Catalogue> = {
   "blocks.toolRun.status.failed": "fallido",
   "blocks.toolRun.status.uncertain": "resultado desconocido",
   "blocks.toolRun.status.blocked": "bloqueado",
+  "blocks.toolRun.status.stopped": "detenido",
   "blocks.toolRun.summary": "{count, plural, one {# acción} other {# acciones}} · {families}",
   "blocks.toolRun.untrustedOutput": "salida no fiable",
   "blocks.toolRun.trustedOutput": "salida fiable",
@@ -4048,6 +4056,8 @@ export const es: Partial<Catalogue> = {
   ...linuxAccess,
   // the Virtual screen watch pane (docs/design/linux-desktop-2026.md §7.5)
   ...computerWatch,
+  // Psyche points (docs/design/psyche-points-2026.md §9)
+  ...points,
   // Gateway-authored notices (inbox notifications, security alerts)
   ...notices,
   // Settings > Computer use > Separate desktop (Linux)

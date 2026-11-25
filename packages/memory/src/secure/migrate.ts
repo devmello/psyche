@@ -54,6 +54,34 @@ const columns = (db: SqlConn, schema: string, table: string): string[] =>
 const count = (db: SqlConn, schema: string, table: string): number =>
   (db.prepare(`SELECT count(*) AS n FROM ${schema}.${quote(table)}`).get() as { n: number }).n;
 
+/**
+ * The promise ledger's backfill (202611241000_memory_promises.sql), for the encrypted file.
+ * `syncSchema` rebuilds a table by the columns old and new share, so the migration's own CASE
+ * backfill never reaches an encrypted store; this applies the same rules to its rows, in the same
+ * transaction as the rebuild. Keep it identical to the migration's INSERT ... SELECT. The lint
+ * in encrypted-migrate.test.ts cannot see an `INSERT ... CASE` backfill, so a migration like this
+ * must be listed in `ENCRYPTED_BACKFILLS`, and a test checks the step does its job.
+ */
+export const PROMISE_LEDGER_BACKFILL = `UPDATE graph_loops SET
+  basis = CASE
+    WHEN direction = 'waiting_on' AND detected_by = 'rule' THEN 'ask'
+    WHEN detected_by = 'model' OR (SELECT i.kind FROM graph_interactions i
+      WHERE i.id = graph_loops.source_interaction_id) = 'meeting' THEN 'promise'
+    ELSE 'request'
+  END,
+  due_kind = CASE WHEN due_at IS NULL THEN 'none' ELSE 'explicit' END,
+  due_confidence = CASE WHEN due_at IS NULL THEN NULL ELSE 0.8 END,
+  thread_key = (SELECT i.thread_key FROM graph_interactions i
+    WHERE i.id = graph_loops.source_interaction_id),
+  source_kind = (SELECT CASE i.kind WHEN 'mail' THEN 'mail' WHEN 'message' THEN 'messages'
+      WHEN 'meeting' THEN 'meeting' WHEN 'chat' THEN 'chat' ELSE NULL END
+    FROM graph_interactions i WHERE i.id = graph_loops.source_interaction_id)`;
+
+/** Migrations whose row backfill `syncSchema` replays on the encrypted file: file -> table. */
+export const ENCRYPTED_BACKFILLS: Readonly<Record<string, string>> = {
+  "202611241000_memory_promises.sql": "graph_loops",
+};
+
 /** Rebuilds the tables of `enc` whose definition differs from `plain`'s. Returns their names. */
 export function syncSchema(enc: SqlConn, plain: SqlConn, tables: readonly string[]): string[] {
   const want = new Map(master(plain).map((r) => [`${r.type}:${r.name}`, r]));
@@ -64,6 +92,11 @@ export function syncSchema(enc: SqlConn, plain: SqlConn, tables: readonly string
     return w !== undefined && w.sql !== have.get(`table:${t}`)?.sql;
   });
   if (drifted.length === 0) return [];
+  // The loops table is about to gain the ledger's columns: its rows need the backfill once.
+  const ledgerBackfill =
+    drifted.includes("graph_loops") &&
+    have.has("table:graph_loops") &&
+    !columns(enc, "main", "graph_loops").includes("basis");
   enc.exec("PRAGMA foreign_keys=OFF");
   enc.exec("PRAGMA legacy_alter_table=ON");
   try {
@@ -121,6 +154,7 @@ export function syncSchema(enc: SqlConn, plain: SqlConn, tables: readonly string
           if ((r.type === "index" || r.type === "trigger") && r.tbl_name === t)
             enc.exec(r.sql as string);
       }
+      if (ledgerBackfill) enc.exec(PROMISE_LEDGER_BACKFILL);
       const broken = enc.pragma("foreign_key_check") as unknown[];
       if (broken.length > 0) throw new PsycheError("internal", "the rebuild broke a foreign key");
     })();

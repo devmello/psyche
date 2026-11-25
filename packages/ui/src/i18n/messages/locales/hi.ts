@@ -46,6 +46,7 @@ import { overviewShared } from "./overview-shared/hi.ts";
 import { passwordPresence } from "./password-presence/hi.ts";
 import { peopleRest } from "./people-rest/hi.ts";
 import { personDataRest } from "./person-data-rest/hi.ts";
+import { points } from "./points/hi.ts";
 import { researchRest } from "./research-rest/hi.ts";
 import { scheduledForm } from "./scheduled-form/hi.ts";
 import { scheduledRest } from "./scheduled-rest/hi.ts";
@@ -232,6 +233,12 @@ export const hi: Partial<Catalogue> = {
   "chat.queue.notSent": "भेजा नहीं गया",
   "chat.queue.retry": "“{content}” फिर से भेजने की कोशिश करें",
   "chat.queue.remove": "कतार से संदेश “{content}” हटाएँ",
+  "chat.thread.loadingEarlier": "पहले के संदेश लोड हो रहे हैं",
+  "chat.thread.loadEarlierFailed": "पहले के संदेश लोड नहीं हो सके।",
+  "chat.thread.focusNotFound": "इस चैट में वह संदेश नहीं मिला।",
+  "chat.queue.parked": "रोकने के बाद रुका हुआ",
+  "chat.queue.sendQueued": "कतार का संदेश भेजें",
+  "chat.queue.sendQueuedLabel": "कतार का संदेश “{content}” भेजें",
 
   "chat.commands.model.hint": "provider/model",
   "chat.commands.model.description": "इस थ्रेड का मॉडल चुनें",
@@ -504,6 +511,7 @@ export const hi: Partial<Catalogue> = {
   "blocks.toolRun.status.failed": "विफल",
   "blocks.toolRun.status.uncertain": "परिणाम अज्ञात",
   "blocks.toolRun.status.blocked": "रोका गया",
+  "blocks.toolRun.status.stopped": "बंद किया गया",
   "blocks.toolRun.summary": "{count, plural, one {# कार्रवाई} other {# कार्रवाइयाँ}} · {families}",
   "blocks.toolRun.untrustedOutput": "अविश्वसनीय आउटपुट",
   "blocks.toolRun.trustedOutput": "विश्वसनीय आउटपुट",
@@ -3944,6 +3952,8 @@ export const hi: Partial<Catalogue> = {
   ...linuxAccess,
   // the Virtual screen watch pane (docs/design/linux-desktop-2026.md §7.5)
   ...computerWatch,
+  // Psyche points (docs/design/psyche-points-2026.md §9)
+  ...points,
   // Gateway-authored notices (inbox notifications, security alerts)
   ...notices,
   // Settings > Computer use > Separate desktop (Linux)

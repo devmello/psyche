@@ -66,7 +66,14 @@ export const securityAlerts = sqliteTable("security_alerts", {
   acknowledgedByDeviceId: text("acknowledged_by_device_id"),
 });
 
+/** The retention job's small key/value state (migrations/202611241000_gateway_retention-indexes.sql). */
+export const retentionState = sqliteTable("retention_state", {
+  key: text("key").primaryKey(),
+  value: text("value").notNull(),
+});
+
 export const securitySchema = {
+  retentionState,
   securitySeal,
   securityLedger,
   securityRequests,

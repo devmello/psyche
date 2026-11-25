@@ -182,6 +182,7 @@ export type ChipAction =
   | { type: "uploaded"; key: string; itemId: string }
   | { type: "granted"; key: string; path: string }
   | { type: "failed"; key: string }
+  | { type: "retry"; key: string }
   | { type: "remove"; key: string }
   | { type: "clear" };
 
@@ -208,6 +209,10 @@ export function chipsReducer(
       return chips.map((c) =>
         c.key === action.key && c.status === "uploading" ? { ...c, status: "error" } : c,
       );
+    case "retry":
+      return chips.map((c) =>
+        c.key === action.key && c.status === "error" ? { ...c, status: "uploading" } : c,
+      );
     case "remove":
       return chips.filter((c) => c.key !== action.key);
     case "clear":
@@ -227,9 +232,14 @@ export function attachedPaths(chips: readonly AttachmentChip[]): { path: string 
   );
 }
 
-/** Sending waits for the uploads; a failed chip does not block it (it is not sent). */
+/** Sending waits for the uploads. */
 export function uploading(chips: readonly AttachmentChip[]): boolean {
   return chips.some((c) => c.status === "uploading");
+}
+
+/** A failed chip blocks sending: it would be dropped silently. Retry or remove it first. */
+export function hasFailed(chips: readonly AttachmentChip[]): boolean {
+  return chips.some((c) => c.status === "error");
 }
 
 /** Reads a file in `UPLOAD_CHUNK_BYTES` pieces into `library.upload`; returns the item's id. */
