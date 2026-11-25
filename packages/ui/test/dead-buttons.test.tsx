@@ -62,13 +62,15 @@ describe("Memory → Export button", () => {
 describe("Feed header buttons (Home's Today section)", () => {
   it("“What should I write about” opens the brief's instructions", async () => {
     const { navigate, user } = mount(<FeedScreen />);
-    await user.click(await screen.findByRole("button", { name: /^What should I write about$/ }));
+    await user.click(await screen.findByRole("button", { name: "Today options" }));
+    await user.click(await screen.findByRole("menuitem", { name: /^What should I write about$/ }));
     expect(navigate).toHaveBeenCalledWith("/home/instructions");
   });
 
   it("“Schedule” opens the Scheduled screen", async () => {
     const { navigate, user } = mount(<FeedScreen />);
-    await user.click(await screen.findByRole("button", { name: /^Schedule$/ }));
+    await user.click(await screen.findByRole("button", { name: "Today options" }));
+    await user.click(await screen.findByRole("menuitem", { name: /^Schedule$/ }));
     expect(navigate).toHaveBeenCalledWith("/scheduled");
   });
 });
