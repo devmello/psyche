@@ -15,12 +15,15 @@ struct SessionPairingEscapeTests {
         private let lock = NSLock()
         private var _forgets = 0
         private var _cancels = 0
+        private var _retries = 0
         var failOnForget = false
         /// What the driver says to show after the owner cancels (an earlier pairing that carries on says `.connecting`).
         var afterCancel: ConnectionState = .unpaired
         init() { (stream, sink) = AsyncStream.makeStream() }
         var forgets: Int { lock.withLock { _forgets } }
         var cancels: Int { lock.withLock { _cancels } }
+        var retries: Int { lock.withLock { _retries } }
+        func noteRetry() { lock.withLock { _retries += 1 } }
         func noteForget() { lock.withLock { _forgets += 1 } }
         func noteCancel() { lock.withLock { _cancels += 1 } }
         func push(_ state: ConnectionState) { sink.yield(.state(state)) }
@@ -40,6 +43,7 @@ struct SessionPairingEscapeTests {
             script.noteCancel()
             return script.afterCancel
         }
+        func retryConnection() async { script.noteRetry() }
         func forgetGateway() async throws {
             script.noteForget()
             if script.failOnForget { throw TransportClosed() }
@@ -67,6 +71,18 @@ struct SessionPairingEscapeTests {
         await session.forgetGateway()
         #expect(session.state == .unpaired)
         #expect(session.pairingError != nil)
+    }
+
+    @Test func tryAgainFromTheIdentityChangedScreenAsksTheClientToDialNow() async {
+        let script = Script()
+        let session = Session(driver: ScriptedDriver(script: script, initial: .refused(.identityChanged)))
+        session.retryConnection()
+        await settle()
+        #expect(script.retries == 1)
+        #expect(session.state == .refused(.identityChanged), "the state moves only when the client says so")
+        script.push(.live)
+        await settle()
+        #expect(session.state == .live)
     }
 
     // MARK: A first pairing that never reaches the Mac

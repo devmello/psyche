@@ -255,10 +255,22 @@ public actor GatewayClient {
     private func startRunLoopIfNeeded() {
         guard runLoop == nil, wantsConnection, endpoint != nil else { return }
         switch state {
+        // A different device at the pinned address is not final (a café network, a spoofed name, a taken address):
+        // the loop keeps going and recovers when the real Mac answers.
+        case .refused(.identityChanged): break
         case .refused, .revoked, .unpaired: return
         default: break
         }
         runLoop = Task { await self.run() }
+    }
+
+    /// "Try again" on the identity-changed screen: dials now instead of waiting out the backoff. Nothing is replaced:
+    /// the same pin is demanded.
+    public func retryNow() {
+        guard case .refused(.identityChanged) = state else { return }
+        runLoop?.cancel()
+        runLoop = nil
+        startRunLoopIfNeeded()
     }
 
     // MARK: - Pairing
@@ -507,7 +519,7 @@ public actor GatewayClient {
     private func run() async {
         var attempt = 0
         while !Task.isCancelled, wantsConnection, let endpoint {
-            if case .unreachable = state {} else if case .pending = state {} else { set(.connecting) }
+            if case .unreachable = state {} else if case .pending = state {} else if case .refused(.identityChanged) = state {} else { set(.connecting) }
             let token = setupToken
             let outcome = await connectOnce(endpoint: endpoint, setupToken: token)
             if Task.isCancelled { return }
@@ -542,7 +554,11 @@ public actor GatewayClient {
                     continue
                 }
                 set(.refused(reason))
-                return
+                // A wrong certificate is not final: keep dialing with the usual backoff, so the phone goes live by itself
+                // once the pinned certificate and key are seen again. The pin is never replaced.
+                if reason == .identityMismatch { return }
+                try? await Task.sleep(for: .seconds(deps.backoff.delay(attempt: attempt)))
+                attempt += 1
             case .unreachable:
                 if pairingInProgress, restorePreviousEndpoint() {
                     pairingInProgress = false

@@ -17,7 +17,9 @@ final class PairingEscapeUITests: PsycheUITestCase {
 
     func testAChangedMacIdentityCanBePairedAgain() {
         launch("identityChanged")
-        waitFor(match("This Mac's identity changed."))
+        waitFor(match("Psyche can't confirm your Mac."))
+        // "Try again" is the primary button; "Pair again" is behind a confirm.
+        waitFor(app.buttons["Try again"])
         let pairAgain = app.buttons["Pair again"]
         waitFor(pairAgain)
         pairAgain.tap()

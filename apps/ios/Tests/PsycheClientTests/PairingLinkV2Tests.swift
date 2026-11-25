@@ -327,7 +327,8 @@ struct PinnedCertificateTests {
     }
 
     private func client(
-        _ gateway: FakeGateway, captured: Captured, transport: (@Sendable () -> any WebSocketTransport)? = nil
+        _ gateway: FakeGateway, captured: Captured, transport: (@Sendable () -> any WebSocketTransport)? = nil,
+        backoff: Backoff = Backoff(base: 0.02, cap: 0.05, random: { 0 })
     ) -> GatewayClient {
         let dir = FileManager.default.temporaryDirectory.appendingPathComponent("client-v2-\(UUID().uuidString)")
         return GatewayClient(dependencies: GatewayClientDependencies(
@@ -335,7 +336,7 @@ struct PinnedCertificateTests {
             outbox: Outbox(directory: dir),
             transportFactory: { _, trust in captured.add(trust); return transport?() ?? gateway.makeTransport() },
             reachability: FakeReachability(resolvesHost: true, local: true),
-            backoff: Backoff(base: 0.02, cap: 0.05, random: { 0 }), deviceName: "Test iPhone", stateDirectory: dir,
+            backoff: backoff, deviceName: "Test iPhone", stateDirectory: dir,
             backgroundGrace: .milliseconds(80), pendingRecheck: .milliseconds(40),
             keptPingInterval: .seconds(180), keptPingTimeout: .seconds(10),
             shareInbox: nil, onWipe: {}, libraryCache: dir.appendingPathComponent("LibraryCache")))
@@ -398,6 +399,91 @@ struct PinnedCertificateTests {
         #expect(state == .refused(.identityChanged))
         // The old pin is kept, never replaced: the next dial still demands the same certificate.
         #expect(captured.all.allSatisfy { $0.pinnedSPKI == PairingLinkV2Tests.pin })
+        await h.setActive(false)
+    }
+
+    /// The first `wrong` dials reach another device (TLS cancelled by the pin check); after that the real Mac answers.
+    private func wrongThenReal(_ wrong: Int, gateway: FakeGateway, calls: Calls) -> @Sendable () -> any WebSocketTransport {
+        { calls.next() <= wrong ? DeadTransport(pinRefused: true) : gateway.makeTransport() }
+    }
+
+    private final class Calls: @unchecked Sendable {
+        private let lock = NSLock()
+        private var n = 0
+        func next() -> Int { lock.withLock { n += 1; return n } }
+        var count: Int { lock.withLock { n } }
+    }
+
+    private func realMac() -> FakeGateway {
+        let gateway = FakeGateway()
+        gateway.servedOrigin = "https://studio-mac.local"
+        gateway.certificate = .selfSigned(spki: PairingLinkV2Tests.pin)
+        return gateway
+    }
+
+    private func realLink() throws -> PairingLink {
+        var fields = PairingLinkV2Tests.fields(url: "https://studio-mac.local")
+        fields["gatewayKey"] = FakeGateway.publicKey
+        return try PairingLink.parse(PairingLinkV2Tests.link(fields))
+    }
+
+    @Test func aWrongDeviceAtTheAddressIsNotFinalTheRealMacBringsThePhoneBackWithoutARelaunch() async throws {
+        let calls = Calls()
+        let captured = Captured()
+        let gateway = realMac()
+        let h = client(gateway, captured: captured, transport: wrongThenReal(3, gateway: gateway, calls: calls))
+        await h.setActive(true)
+        await h.beginPairing(try realLink())
+        let refused = await GatewayClientTests.wait(h, for: { $0 == .refused(.identityChanged) }, seconds: 5)
+        #expect(refused == .refused(.identityChanged))
+        // Nothing was sent to the wrong device and nothing was replaced: every dial demanded the same certificate.
+        #expect(await GatewayClientTests.wait(h, for: { $0 == .live }, seconds: 10) == .live)
+        #expect(calls.count == 4)
+        #expect(captured.all.allSatisfy { $0.pinnedSPKI == PairingLinkV2Tests.pin })
+        #expect(await h.pairedEndpoint?.lanCertSpki == PairingLinkV2Tests.pin)
+        await h.setActive(false)
+    }
+
+    @Test func theRunLoopKeepsDialingWhileTheIdentityIsChanged() async throws {
+        let calls = Calls()
+        let h = client(FakeGateway(), captured: Captured(), transport: { _ = calls.next(); return DeadTransport(pinRefused: true) })
+        await h.setActive(true)
+        await h.beginPairing(try PairingLink.parse(PairingLinkV2Tests.link(PairingLinkV2Tests.fields(url: "https://studio-mac.local"))))
+        for _ in 0..<100 where calls.count < 4 { try await Task.sleep(for: .milliseconds(50)) }
+        #expect(calls.count >= 4, "a single wrong handshake must not stop the loop")
+        #expect(await h.currentState == .refused(.identityChanged))
+        await h.setActive(false)
+    }
+
+    @Test func tryAgainDialsAtOnceInsteadOfWaitingOutTheBackoff() async throws {
+        let calls = Calls()
+        let gateway = realMac()
+        // A backoff of half a minute: only "Try again" can make the second dial happen within this test.
+        let h = client(gateway, captured: Captured(), transport: wrongThenReal(1, gateway: gateway, calls: calls),
+                       backoff: Backoff(base: 30, cap: 30, random: { 0 }))
+        await h.setActive(true)
+        await h.beginPairing(try realLink())
+        #expect(await GatewayClientTests.wait(h, for: { $0 == .refused(.identityChanged) }, seconds: 5) == .refused(.identityChanged))
+        try await Task.sleep(for: .milliseconds(300))
+        #expect(calls.count == 1)
+        await h.retryNow()
+        #expect(await GatewayClientTests.wait(h, for: { $0 == .live }, seconds: 5) == .live)
+        #expect(calls.count == 2)
+        await h.setActive(false)
+    }
+
+    @Test func tryAgainDoesNothingOutsideTheIdentityChangedScreen() async throws {
+        let calls = Calls()
+        let h = client(FakeGateway(), captured: Captured(), transport: { _ = calls.next(); return DeadTransport(pinRefused: false) },
+                       backoff: Backoff(base: 30, cap: 30, random: { 0 }))
+        await h.setActive(true)
+        await h.beginPairing(try PairingLink.parse(PairingLinkV2Tests.link(PairingLinkV2Tests.fields(url: "https://studio-mac.local"))))
+        _ = await GatewayClientTests.wait(h, for: { if case .unreachable = $0 { true } else { false } }, seconds: 5)
+        let before = calls.count
+        await h.retryNow()
+        try await Task.sleep(for: .milliseconds(200))
+        #expect(calls.count == before)
+        await h.cancelPairing()
         await h.setActive(false)
     }
 

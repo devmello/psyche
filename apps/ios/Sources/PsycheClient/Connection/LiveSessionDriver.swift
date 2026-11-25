@@ -43,4 +43,5 @@ public struct LiveSessionDriver: SessionDriver {
         return await client.currentState
     }
     public func forgetGateway() async throws { try await client.forgetGateway() }
+    public func retryConnection() async { await client.retryNow() }
 }

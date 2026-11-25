@@ -60456,144 +60456,144 @@
         }
       }
     },
-    "This Mac's identity changed.": {
+    "Psyche can't confirm your Mac.": {
       "extractionState": "extracted_with_value",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "This Mac's identity changed."
+            "value": "Psyche can't confirm your Mac."
           }
         },
         "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "تغيّرت هوية هذا الـ Mac."
+            "value": "لا يستطيع Psyche التأكد من جهاز Mac."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Die Identität dieses Mac hat sich geändert."
+            "value": "Psyche kann deinen Mac nicht bestätigen."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "La identidad de este Mac ha cambiado."
+            "value": "Psyche no puede confirmar tu Mac."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "L’identité de ce Mac a changé."
+            "value": "Psyche ne peut pas confirmer ton Mac."
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "इस Mac की पहचान बदल गई है।"
+            "value": "Psyche आपके Mac की पुष्टि नहीं कर पा रहा।"
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "L’identità di questo Mac è cambiata."
+            "value": "Psyche non riesce a confermare il tuo Mac."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "この Mac の ID が変わりました。"
+            "value": "Psyche は Mac を確認できません。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "이 Mac의 ID가 바뀌었어요."
+            "value": "Psyche가 Mac을 확인할 수 없어요."
           }
         },
         "pt": {
           "stringUnit": {
             "state": "translated",
-            "value": "A identidade deste Mac mudou."
+            "value": "O Psyche não consegue confirmar seu Mac."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "此 Mac 的身份已更改。"
+            "value": "Psyche 无法确认你的 Mac。"
           }
         }
       }
     },
-    "The Mac at this address didn't present the certificate this phone pinned when it paired, so Psyche stopped. Nothing was sent to it.": {
+    "Psyche found a different device at your Mac's address, so it sent nothing. If you're on another network, or another device took this address, Psyche keeps trying. Pair again only if you reset or reinstalled Psyche on your Mac.": {
       "extractionState": "extracted_with_value",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The Mac at this address didn't present the certificate this phone pinned when it paired, so Psyche stopped. Nothing was sent to it."
+            "value": "Psyche found a different device at your Mac's address, so it sent nothing. If you're on another network, or another device took this address, Psyche keeps trying. Pair again only if you reset or reinstalled Psyche on your Mac."
           }
         },
         "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "لم يقدّم جهاز Mac على هذا العنوان الشهادة التي ثبّتها هذا الهاتف عند الاقتران، لذا توقف Psyche. لم يُرسَل إليه أي شيء."
+            "value": "عثر Psyche على جهاز مختلف على عنوان جهاز Mac، لذا لم يرسل شيئًا. إذا كنت على شبكة أخرى، أو أخذ جهاز آخر هذا العنوان، يواصل Psyche المحاولة. اقترن من جديد فقط إذا أعدت ضبط Psyche على جهاز Mac أو أعدت تثبيته."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Der Mac unter dieser Adresse hat nicht das Zertifikat vorgelegt, das dieses iPhone beim Koppeln festgehalten hat. Psyche hat angehalten. Es wurde nichts an ihn gesendet."
+            "value": "Psyche hat unter der Adresse deines Mac ein anderes Gerät gefunden und nichts gesendet. Bist du in einem anderen Netzwerk oder hat ein anderes Gerät diese Adresse übernommen, versucht Psyche es weiter. Koppeln nur erneut, wenn du Psyche auf deinem Mac zurückgesetzt oder neu installiert hast."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "El Mac de esta dirección no presentó el certificado que este teléfono fijó al emparejarse, así que Psyche se detuvo. No se le envió nada."
+            "value": "Psyche encontró un dispositivo distinto en la dirección de tu Mac, así que no envió nada. Si estás en otra red, o si otro dispositivo tomó esta dirección, Psyche sigue intentándolo. Vuelve a emparejar solo si restableciste o reinstalaste Psyche en tu Mac."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Le Mac à cette adresse n’a pas présenté le certificat que ce téléphone avait épinglé lors de l’association, donc Psyche s’est arrêté. Rien ne lui a été envoyé."
+            "value": "Psyche a trouvé un autre appareil à l’adresse de ton Mac et n’a rien envoyé. Si tu es sur un autre réseau, ou si un autre appareil a pris cette adresse, Psyche réessaie. Associe à nouveau seulement si tu as réinitialisé ou réinstallé Psyche sur ton Mac."
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "इस पते के Mac ने वह प्रमाणपत्र नहीं दिखाया जिसे इस फ़ोन ने पेयर करते समय पिन किया था, इसलिए Psyche रुक गया। उसे कुछ नहीं भेजा गया।"
+            "value": "Psyche को आपके Mac के पते पर कोई दूसरा डिवाइस मिला, इसलिए उसने कुछ नहीं भेजा। अगर आप किसी दूसरे नेटवर्क पर हैं, या किसी और डिवाइस ने यह पता ले लिया है, तो Psyche कोशिश करता रहेगा। फिर से पेयर तभी करें जब आपने अपने Mac पर Psyche रीसेट या दोबारा इंस्टॉल किया हो।"
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "Il Mac a questo indirizzo non ha presentato il certificato che questo telefono aveva fissato all’abbinamento, quindi Psyche si è fermato. Non gli è stato inviato nulla."
+            "value": "Psyche ha trovato un dispositivo diverso all’indirizzo del tuo Mac e non ha inviato nulla. Se sei su un’altra rete, o un altro dispositivo ha preso questo indirizzo, Psyche continua a riprovare. Abbina di nuovo solo se hai ripristinato o reinstallato Psyche sul Mac."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "このアドレスの Mac は、この iPhone がペアリング時に固定した証明書を提示しなかったため、Psyche は停止しました。何も送信していません。"
+            "value": "Mac のアドレスに別のデバイスがあったため、Psyche は何も送信していません。別のネットワークにいる場合や、別のデバイスがこのアドレスを使っている場合は、Psyche が再試行を続けます。Mac で Psyche をリセットまたは再インストールした場合にのみ、もう一度ペアリングしてください。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "이 주소의 Mac이 이 휴대폰이 페어링 때 고정한 인증서를 제시하지 않아 Psyche가 멈췄어요. 아무것도 전송하지 않았어요."
+            "value": "Mac의 주소에서 다른 기기가 발견되어 Psyche가 아무것도 보내지 않았어요. 다른 네트워크에 있거나 다른 기기가 이 주소를 쓰고 있다면 Psyche가 계속 시도해요. Mac에서 Psyche를 초기화했거나 다시 설치했을 때만 다시 페어링하세요."
           }
         },
         "pt": {
           "stringUnit": {
             "state": "translated",
-            "value": "O Mac neste endereço não apresentou o certificado que este telefone fixou ao parear, então o Psyche parou. Nada foi enviado a ele."
+            "value": "O Psyche encontrou um dispositivo diferente no endereço do seu Mac e não enviou nada. Se você está em outra rede, ou outro dispositivo pegou esse endereço, o Psyche continua tentando. Pareie de novo só se você redefiniu ou reinstalou o Psyche no seu Mac."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "此地址上的 Mac 没有出示此手机在配对时固定的证书，因此 Psyche 已停止。没有向它发送任何内容。"
+            "value": "Psyche 在你的 Mac 的地址上发现了另一台设备，因此没有发送任何内容。如果你在另一个网络，或其他设备占用了这个地址，Psyche 会继续重试。只有在你重置或重新安装了 Mac 上的 Psyche 时，才需要重新配对。"
           }
         }
       }

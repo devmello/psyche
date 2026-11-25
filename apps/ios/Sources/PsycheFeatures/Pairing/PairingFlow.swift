@@ -298,16 +298,27 @@ struct RefusedView: View {
                 Text("The Mac that answered isn't the one this phone was paired with, so Psyche stopped. Nothing was sent to it.", bundle: .module)
                     .font(.subheadline).foregroundStyle(PsycheColor.muted)
             case .identityChanged:
-                Text("This Mac's identity changed.", bundle: .module).psycheTitle(.title).foregroundStyle(PsycheColor.text)
-                Text("The Mac at this address didn't present the certificate this phone pinned when it paired, so Psyche stopped. Nothing was sent to it.", bundle: .module)
+                Text("Psyche can't confirm your Mac.", bundle: .module).psycheTitle(.title).foregroundStyle(PsycheColor.text)
+                Text("Psyche found a different device at your Mac's address, so it sent nothing. If you're on another network, or another device took this address, Psyche keeps trying. Pair again only if you reset or reinstalled Psyche on your Mac.", bundle: .module)
                     .font(.subheadline).foregroundStyle(PsycheColor.muted)
             }
-            Text("If you reset or reinstalled Psyche on your Mac, it has a new identity, and this phone has to pair with it again.", bundle: .module)
-                .font(.subheadline).foregroundStyle(PsycheColor.muted)
+            if reason == .identityMismatch {
+                Text("If you reset or reinstalled Psyche on your Mac, it has a new identity, and this phone has to pair with it again.", bundle: .module)
+                    .font(.subheadline).foregroundStyle(PsycheColor.muted)
+            }
             Spacer(minLength: 0)
-            Button(String(localized: "Pair again", bundle: .module)) { confirming = true }
-                .buttonStyle(.psycheInk)
-                .disabled(working)
+            if reason == .identityChanged {
+                // Primary: dial again now. The phone also keeps trying by itself, and goes back to normal when the real Mac answers.
+                Button(String(localized: "Try again", bundle: .module)) { session.retryConnection() }
+                    .buttonStyle(.psycheInk)
+                Button(String(localized: "Pair again", bundle: .module)) { confirming = true }
+                    .buttonStyle(.psycheOutline)
+                    .disabled(working)
+            } else {
+                Button(String(localized: "Pair again", bundle: .module)) { confirming = true }
+                    .buttonStyle(.psycheInk)
+                    .disabled(working)
+            }
         }
         .padding(.horizontal, 28)
         .padding(.top, 56)

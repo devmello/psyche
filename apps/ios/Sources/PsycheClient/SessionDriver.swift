@@ -45,6 +45,8 @@ public protocol SessionDriver: Sendable {
     func cancelPairing() async -> ConnectionState
     /// Forgets the saved Gateway so the phone can pair with another (or a reset) Mac. The fixture has nothing to forget.
     func forgetGateway() async throws
+    /// Dials again now (the identity-changed screen's "Try again").
+    func retryConnection() async
 }
 
 extension SessionDriver {
@@ -53,6 +55,7 @@ extension SessionDriver {
     public func setActive(_ active: Bool) async {}
     public func cancelPairing() async -> ConnectionState { .unpaired }
     public func forgetGateway() async throws {}
+    public func retryConnection() async {}
 }
 
 /// A scripted driver for previews, screenshots and the skeleton. It accepts any code that looks like

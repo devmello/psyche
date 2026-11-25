@@ -167,6 +167,12 @@ public final class Session {
         state = .revoked
     }
 
+    /// "Try again" on the identity-changed screen: the client dials at once.
+    public func retryConnection() {
+        let driver = driver
+        Task { await driver.retryConnection() }
+    }
+
     /// "Pair again" on the refused screen: the saved Gateway is forgotten (keys, endpoint, outbox and cache are wiped)
     /// and the scanner comes back. A key that could not be deleted from the Keychain is reported on the scanner.
     public func forgetGateway() async {
