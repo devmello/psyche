@@ -11,8 +11,11 @@ export interface KeepableNotification {
 
 export class NotificationKeeper<T extends KeepableNotification> {
   private readonly live = new Set<T>();
+  private readonly cap: number;
 
-  constructor(private readonly cap = 50) {}
+  constructor(cap = 50) {
+    this.cap = cap;
+  }
 
   /** How many instances are still held. */
   get size(): number {
