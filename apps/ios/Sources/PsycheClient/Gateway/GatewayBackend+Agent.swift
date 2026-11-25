@@ -36,7 +36,7 @@ extension GatewayBackend {
         let result = try await call("automations.upcoming", .obj(["limit": .number(8)]))
         return (result["items"]?.array ?? []).compactMap { item in
             guard let id = item["id"]?.string, item["kind"]?.string != "input_request", item["enabled"]?.bool != false else { return nil }
-            let when = item["nextRunAt"]?.string.map { WireFormat.time($0) } ?? item["trigger"]?.string ?? ""
+            let when = item["nextRunAt"]?.string.map { WireFormat.time($0) } ?? ""
             let schedule = item["schedule"]?.string
             return PsycheStore.UpcomingItem(
                 id: id, title: item["title"]?.string ?? String(localized: "Scheduled", bundle: .module),

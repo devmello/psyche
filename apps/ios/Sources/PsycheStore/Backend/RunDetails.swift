@@ -58,6 +58,9 @@ public struct RunStepPage: Sendable, Equatable {
 }
 
 /// One frame from `runs.frames`: a screenshot Psyche saw, placed on the step it belongs to.
+/// Which rendition of a run frame to fetch (`runs.frame` requires one).
+public enum RunFrameSize: String, Sendable { case thumb, full }
+
 public struct RunFrameRef: Sendable, Equatable, Identifiable {
     public var seq: Int
     public var stepID: String?
