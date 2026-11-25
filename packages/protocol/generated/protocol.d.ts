@@ -9066,6 +9066,7 @@ export interface StagedAction {
     toolCallId?:   null | string;
     updatedAt:     string;
     why?:          null | string;
+    withheld?:     Withheld;
 }
 
 export type StagedActionDomain = "mail" | "calendar" | "reminders" | "files";
@@ -9101,6 +9102,8 @@ export interface StagedActionSend {
 
 export type StagedActionStatus = "ready" | "stale" | "superseded" | "applied" | "failed" | "uncertain" | "skipped" | "dismissed" | "expired" | "undone";
 
+export type Withheld = "messages";
+
 export interface NightShiftReviewGetParams {
     reviewId: string;
 }
@@ -9131,9 +9134,12 @@ export type NightShiftReviewStatus = "none" | "ready" | "partial" | "applied" | 
 export type NightShiftNightStatus = "running" | "done" | "stopped" | "skipped" | "empty";
 
 export interface NightShiftRunNowResult {
-    reason?: string;
-    started: boolean;
+    outcome?: NightShiftRunNowResultOutcome;
+    reason?:  string;
+    started:  boolean;
 }
+
+export type NightShiftRunNowResultOutcome = "off" | "already" | "skipped" | "no_candidates" | "empty" | "done" | "stopped";
 
 export interface NightShiftStatusResult {
     enabled:        boolean;
@@ -10841,8 +10847,17 @@ export type Attribute = boolean | number | string;
 
 export interface RunStepError {
     code:      string;
+    details?:  RunStepErrorDetails;
     message:   string;
     retryable: boolean;
+}
+
+export interface RunStepErrorDetails {
+    /**
+     * A machine reason (`automation_denied`, `needs_helper`), which viewers say in the owner's
+     * language; `message` is the fallback
+     */
+    reason: string;
 }
 
 export type RunStepKind = "thinking" | "model" | "tool" | "approval" | "question" | "subagent" | "text" | "memory" | "artifact" | "note";
@@ -11974,7 +11989,12 @@ export interface SearchSourceStatus {
      */
     ocr:        boolean;
     processing: SearchProcessing;
-    state:      SearchSourceState;
+    /**
+     * A machine reason for `detail` (`full_disk_access_missing`), which viewers say in the
+     * owner's language; `detail` is the fallback
+     */
+    reason?: string;
+    state:   SearchSourceState;
     /**
      * Text indexed for this source
      */
@@ -11995,13 +12015,13 @@ export interface SecurityAlertsAcknowledgeResult {
 export interface SecurityAlert {
     acknowledgedAt?: null | string;
     createdAt:       string;
-    details:         Details;
+    details:         SecurityAlertDetails;
     id:              string;
     kind:            SecurityAlertKind;
     severity:        SecurityAlertSeverity;
 }
 
-export interface Details {
+export interface SecurityAlertDetails {
     admins?:  number;
     changes?: SecurityStateChange[];
     /**
@@ -13763,7 +13783,7 @@ export interface Task {
     workspace?:    TaskWorkspace;
 }
 
-export type TaskOrigin = "chat" | "automation" | "idea" | "goal" | "channel" | "subagent";
+export type TaskOrigin = "chat" | "automation" | "idea" | "goal" | "channel" | "subagent" | "fork";
 
 export interface TaskPlan {
     approvedAt?: null | string;

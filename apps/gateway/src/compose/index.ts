@@ -88,6 +88,7 @@ import {
   EVERYTHING_MEMORY_SETTING_KEY,
   type EventName,
   type EventPayload,
+  type GraphLoop,
   type IssuedApproval,
   isUnattendedTask,
   MEMORY_RECALL_MODE_SETTING,
@@ -95,9 +96,12 @@ import {
   type Message,
   type ModelProvider,
   type ModelRef,
+  type Notification,
   type PermissionBroker,
+  type PromiseView,
   PsycheError,
   type SecurityAlert,
+  type StagedAction,
   type Task,
   TERMINAL_TASK_STATUSES,
 } from "@psyche/protocol";
@@ -127,6 +131,12 @@ import type { PublicRoute, WebhookRoute } from "../http.ts";
 import { createLogger } from "../log.ts";
 import { personalizeMessageEvent } from "../message-scrub.ts";
 import { openGatewayDb, purgePreUpdateSnapshots, releaseGatewayLock } from "../pre-update.ts";
+import {
+  personalizeLoopEvent,
+  personalizeNotificationEvent,
+  personalizePromiseEvent,
+  withNotificationScrub,
+} from "../promise-scrub.ts";
 import { TraceScrubWorker } from "../run-trace/forget-scrub.ts";
 import { taskRunTrace } from "../run-trace/tasks.ts";
 import { alertNotice, alertNotifyDecision } from "../security/alerts.ts";
@@ -229,7 +239,7 @@ import {
   restoreModelSettings,
   settingsKeyValue,
 } from "./model-settings.ts";
-import { composeNightShift } from "./night-shift.ts";
+import { composeNightShift, personalizeNightShiftItem } from "./night-shift.ts";
 import { NotificationActions } from "./notification-actions.ts";
 import { composeNudges } from "./nudges.ts";
 import { composeOnePasswordSetup, type OnePasswordSetupOptions } from "./onepassword-setup.ts";
@@ -1407,6 +1417,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     ...(background ? {} : { pollIntervalMs: 0, afterRunDelayMs: 0 }),
     ...(gwOptions.logger === undefined ? {} : { logger: gwOptions.logger }),
   });
+  // A remote desktop's OS notifications about a promise follow the same scrub.
+  deviceNotes.bindPromiseVisibility(people.loopVisibility);
   // Everything memory (#1010): review and quarantine handlers, and the nightly pass.
   const everything = composeEverything({
     db,
@@ -1983,7 +1995,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       end: (turn, outcome, error) => taskTrace.end(turn, outcome, error),
     },
     // Specialist jobs run in their own pool, so they never take the chat tasks' slots.
-    claim: { excludeOrigins: ["subagent"] },
+    // Plan-fork branches run in their own pool (F2); until it exists none runs here.
+    claim: { excludeOrigins: ["subagent", "fork"] },
   });
   // Background specialists (specialists §4.5): their own slots (Settings, 1–6, default 3), FIFO,
   // at most 2 running per parent thread; a job parked on the owner frees its slot.
@@ -2142,6 +2155,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     followups: proactive.followups,
     redact: (text) => redactor.redact(text),
     publish: (event, payload) => publish(event as never, payload as never),
+    broker: rawBroker,
+    surfaceOf: (deviceId) => surfaceOf(db, deviceId),
     ...(gwOptions.logger === undefined ? {} : { logger: gwOptions.logger }),
   });
   // #557: web.search / web.fetch on every surface (read-only, untrusted output).
@@ -2605,7 +2620,10 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
         },
       }) as never,
     ),
-    ...mountParamsOnly(createNotificationHandlers(notifier) as never),
+    ...withNotificationScrub(
+      mountParamsOnly(createNotificationHandlers(notifier) as never),
+      () => people?.loopVisibility,
+    ),
     ...proactive.handlers,
     ...(nightShiftRef?.defs ?? {}),
     ...capabilities.handlers,
@@ -2778,6 +2796,34 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     // Messages chips); a subscriber with no identity (a Gateway part) is read as the least trusted.
     if (event === "chat.message")
       return personalizeMessageEvent(gateway.context, payload as { message: Message }, sub.reader);
+    // A promise or a loop is read again for each subscriber (promise scrub): the desktop shell
+    // gets it whole, a remote one the stripped form, and a hidden one nothing. With the graph not
+    // composed, nobody gets it.
+    if (event === "promise.updated")
+      return personalizePromiseEvent(
+        payload as { promise: PromiseView },
+        sub.reader,
+        people?.loopVisibility,
+      );
+    if (event === "memory.loop.updated")
+      return personalizeLoopEvent(
+        payload as { loop: GraphLoop },
+        sub.reader,
+        people?.loopVisibility,
+      );
+    if (
+      event === "notification.created" ||
+      event === "notification.updated" ||
+      event === "notification.resolved"
+    )
+      return personalizeNotificationEvent(
+        payload as { notification: Notification },
+        sub.reader,
+        people?.loopVisibility,
+      );
+    // A Night shift item made from Messages reaches only the desktop shell on this Mac in full.
+    if (event === "nightShift.item.updated")
+      return personalizeNightShiftItem(payload as { item: StagedAction }, sub.reader);
     if (event !== "approval.created" || sub.deviceId === null) return undefined;
     if (!sub.scopes.includes("operator.approvals")) return undefined;
     const p = payload as { approval: { id: string } };

@@ -183,6 +183,43 @@ describe("truthful status", () => {
     expect(steps.every((s) => s.status !== "running")).toBe(true);
   });
 
+  it("keeps a helper refusal's machine reason on the step error, and only a reason-shaped one", async () => {
+    const { agent, gw, turn, get } = await setup();
+    const result = (callId: string, output: unknown) =>
+      gw.context.runTrace.toolResult(record(agent.turns.at(-1)?.runId as string, callId), {
+        output,
+        isError: true,
+        provenance: "trusted",
+      });
+    const fail = (id: string) =>
+      [
+        { type: "tool_call", toolCallId: id, tool: "mail.list", status: "running", level1: "Mail" },
+        { type: "tool_call", toolCallId: id, tool: "mail.list", status: "failed", level1: "Mail" },
+      ] as const;
+    agent.script([
+      ...fail("tc_r1"),
+      {
+        type: "do",
+        fn: () => result("tc_r1", { error: "Mail: raw helper text", reason: "automation_denied" }),
+      },
+      ...fail("tc_r2"),
+      // Not an identifier: free text must never be passed off as a machine reason.
+      { type: "do", fn: () => result("tc_r2", { error: "boom", reason: "Not allowed, sorry" }) },
+      ...fail("tc_r3"),
+      { type: "do", fn: () => result("tc_r3", { error: "no reason at all" }) },
+      { type: "end", outcome: "final" },
+    ]);
+    const { steps } = await get(await turn());
+    const byId = (n: number) => steps.filter((s) => s.kind === "tool")[n]?.error;
+    expect(byId(0)).toMatchObject({
+      message: "Mail: raw helper text",
+      details: { reason: "automation_denied" },
+    });
+    expect(byId(1)?.message).toBe("boom");
+    expect(byId(1)).not.toHaveProperty("details");
+    expect(byId(2)).not.toHaveProperty("details");
+  });
+
   it("a run that failed with no failing step gets a failed step that says why", async () => {
     const { agent, turn, get } = await setup();
     agent.script([

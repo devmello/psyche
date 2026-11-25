@@ -1,5 +1,6 @@
 import type { ApprovalKind } from "@psyche/protocol";
 import { isMoneyText, isMoneyToolName } from "@psyche/protocol/money-intent";
+import { bindingHash as bindingHashFor } from "./binding.ts";
 import { SEND_KINDS } from "./connector-matrix.ts";
 import { AUTH_KINDS, DEVICE_ONLY_KINDS, inferApprovalKind, SEVERITY } from "./kinds.ts";
 import type {
@@ -163,11 +164,14 @@ function undoBound(
  * register these bare names. A reminder can't move money, so its words are not scanned for money
  * text (owner decision 2026-11-24). Its tool name and every other rule still apply, and a
  * prefixed or MCP name (`stripe.reminders_create`) is scanned like any other tool.
+ * `reminders_delete` is here for the undo ("Undo: Pay rent $1,200"): a destructive child is still
+ * refused unless it is an undo bound to the reminder Night shift created (§5.4, `undoBound`).
  */
 const REMINDER_TOOLS: ReadonlySet<string> = new Set([
   "reminders_create",
   "reminders_update",
   "reminders_complete",
+  "reminders_delete",
 ]);
 export function isReminderTool(tool: string, connectorIds: ReadonlySet<string>): boolean {
   return REMINDER_TOOLS.has(bareToolName(tool, connectorIds));
@@ -319,4 +323,21 @@ export function refuseStagedChild(
     return { reason: "not_write", message: `only changes can be applied (${tool})` };
   }
   return undefined;
+}
+
+/**
+ * The binding of a staged send child (night-shift §3.2): the send tool, the saved draft's content
+ * hash the owner approved (`sendHash`) and the recipients, never a draft id (the draft does not
+ * exist yet when the owner taps). `bindStagedSend` turns it into the exact send call once the
+ * saved draft is read back and hashes to the same content.
+ */
+export function stagedSendBindingHash(
+  tool: string,
+  contentHash: string,
+  recipients: readonly string[],
+): string {
+  return bindingHashFor("send_email", {
+    tool,
+    stagedSend: { contentHash, recipients: [...new Set(recipients.map(bareAddress))].sort() },
+  });
 }

@@ -1,8 +1,34 @@
-import { type MethodParams, type MethodResult, PsycheError } from "@psyche/protocol";
+import {
+  type GraphLoop,
+  type MethodParams,
+  type MethodResult,
+  PsycheError,
+} from "@psyche/protocol";
 import type { SqliteMemoryStore } from "../store.ts";
 import type { CardSync } from "./cards.ts";
 import { normalizeName } from "./normalize.ts";
 import type { GraphStore } from "./store.ts";
+
+import {
+  type LoopViewer,
+  type LoopVisibility,
+  loopsForViewer,
+  scrubLoopForRemote,
+} from "./loop-visibility.ts";
+
+export {
+  backfillLoopRemoteVisible,
+  createLoopVisibility,
+  LOOP_BACKFILL_CURSOR,
+  type LoopViewer,
+  type LoopVisibility,
+  loopForViewer,
+  loopsForViewer,
+  markLoopRemoteVisible,
+  REMOTE_LOOP_VIEWER,
+  runLoopRemoteVisibleBackfill,
+  scrubLoopForRemote,
+} from "./loop-visibility.ts";
 
 /** Kinds whose name is who they are: a second "Dana Whitfield" is the same person. */
 const DEDUPED_KINDS: ReadonlySet<string> = new Set(["person", "org", "place"]);
@@ -43,8 +69,14 @@ export type GraphMethod =
   | "memory.graph.blocklist.add"
   | "memory.graph.blocklist.remove";
 
+/**
+ * `viewer` is read by `memory.loops.*` and `memory.entities.get` (its open loops): a caller that
+ * is not the desktop shell passes `{ full: false }` and gets the remote scrub of the promise
+ * ledger (docs/design/promise-ledger-2026.md section 7.2). Left out, the call is an in-process one
+ * and sees everything; the Gateway always passes it for a connection.
+ */
 export type GraphHandlers = {
-  [M in GraphMethod]: (params: MethodParams<M>) => Promise<MethodResult<M>>;
+  [M in GraphMethod]: (params: MethodParams<M>, viewer?: LoopViewer) => Promise<MethodResult<M>>;
 };
 
 export const GRAPH_METHODS: readonly GraphMethod[] = [
@@ -84,11 +116,17 @@ export interface GraphHandlerOptions {
   memory?: SqliteMemoryStore;
   /** The `memory.graph` settings and the last model pass, for `memory.graph.status`. */
   settings?: () => Parameters<GraphStore["status"]>[0];
+  /** Which loops a remote viewer may see; without it a remote viewer sees none (fail closed). */
+  loopVisibility?: LoopVisibility;
 }
 
 function notFound(): never {
   throw new PsycheError("not_found", "no such entity");
 }
+
+/** How many rows a remote viewer's list reads at a time, and how many reads at most. */
+const SCAN_PAGE = 200;
+const MAX_SCAN_PAGES = 50;
 
 function cursorOf(items: { id: string }[], limit: number): string | null {
   return items.length >= limit ? (items.at(-1)?.id ?? null) : null;
@@ -118,11 +156,15 @@ export function createGraphHandlers(
       };
     },
 
-    async "memory.entities.get"(p) {
+    async "memory.entities.get"(p, viewer) {
       const id = graph.resolveMerged(p.id);
       const detail = graph.detail(id, await etag(id));
       if (detail === undefined) notFound();
-      return detail;
+      if (viewer === undefined || viewer.full) return detail;
+      return {
+        ...detail,
+        openLoops: loopsForViewer(detail.openLoops, viewer, options.loopVisibility),
+      };
     },
 
     async "memory.entities.interactions"(p) {
@@ -331,28 +373,61 @@ export function createGraphHandlers(
       return { removed: result.removed, cardPath: result.cardPath, dryRun };
     },
 
-    async "memory.loops.list"(p) {
+    async "memory.loops.list"(p, viewer) {
       const limit = p.limit ?? 100;
-      const loops = graph.loops({
+      const filter = {
         ...(p.status === undefined ? {} : { status: p.status }),
         ...(p.direction === undefined ? {} : { direction: p.direction }),
         ...(p.entityId === undefined ? {} : { entityId: p.entityId }),
         ...(p.projectId === undefined ? {} : { projectId: p.projectId }),
         ...(p.dueBefore === undefined ? {} : { dueBefore: p.dueBefore }),
-        ...(p.cursor === undefined ? {} : { after: p.cursor }),
-        limit,
-      });
-      return { loops, nextCursor: cursorOf(loops, limit) };
+      };
+      if (viewer === undefined || viewer.full) {
+        const loops = graph.loops({
+          ...filter,
+          ...(p.cursor === undefined ? {} : { after: p.cursor }),
+          limit,
+        });
+        return { loops, nextCursor: cursorOf(loops, limit) };
+      }
+      // A remote viewer pages over the visible rows only: the cursor is the id of the last loop
+      // it was given, never of one it may not know exists. Hidden rows are skipped, not counted.
+      const shown: GraphLoop[] = [];
+      let after = p.cursor;
+      let more = true;
+      for (let i = 0; i < MAX_SCAN_PAGES && shown.length < limit && more; i += 1) {
+        const page = graph.loops({
+          ...filter,
+          ...(after === undefined ? {} : { after }),
+          limit: SCAN_PAGE,
+        });
+        more = page.length >= SCAN_PAGE;
+        for (const l of loopsForViewer(page, viewer, options.loopVisibility)) {
+          if (shown.length < limit) shown.push(l);
+        }
+        const last = page.at(-1);
+        if (last === undefined) break;
+        after = last.id;
+      }
+      return {
+        loops: shown,
+        nextCursor: shown.length >= limit ? (shown.at(-1)?.id ?? null) : null,
+      };
     },
 
-    async "memory.loops.update"(p) {
+    async "memory.loops.update"(p, viewer) {
+      const remote = viewer !== undefined && !viewer.full;
+      // A hidden loop is unknown to a remote viewer: nothing is written, and the answer is the
+      // one for an id that does not exist.
+      if (remote && options.loopVisibility?.remoteVisible([p.id]).has(p.id) !== true)
+        throw new PsycheError("not_found", "no such loop");
       const loop = graph.updateLoop(p.id, {
         ...(p.status === undefined ? {} : { status: p.status }),
         ...(p.dueAt === undefined ? {} : { dueAt: p.dueAt }),
         ...(p.text === undefined ? {} : { text: p.text }),
       });
       await refresh(loop.counterpartId, loop.projectId);
-      return { loop };
+      return { loop: remote ? scrubLoopForRemote(loop) : loop };
     },
 
     async "memory.graph.status"() {

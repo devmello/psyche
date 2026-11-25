@@ -12,6 +12,10 @@
 
 CI fails when the generated files are stale (`pnpm protocol:check`).
 
+## Fork a plan (F1: loop and registry)
+
+- `TaskOrigin` gains `fork` (a plan-fork branch's task); `tasks.created_from` is rebuilt to allow it. The loop's `staging` origin union already carried `{kind:"fork", forkId, branchId}`; it is set by the server only, and a `fork` task must carry it.
+
 ## Fork a plan (F0: protocol and DB)
 
 - New methods `planForks.suggest`, `planForks.estimate`, `planForks.create`, `planForks.get`, `planForks.list`, `planForks.cancel`, `planForks.retryBranch`, `planForks.take`, `planForks.dismiss` (create, cancel, retryBranch, take and dismiss are side-effecting; take needs `operator.approvals`; suggest, create and retryBranch call a model). New event `planFork.updated` (ids and states only). New block types `plan_fork` and `plan_taken`. New types `PlanFork`, `PlanForkBranch`, `ForkReport`, `PlanComparison` and friends, and `FORK_SETTING_DEFAULTS` (`forks.budgetUsd` 1.00, `forks.expiryDays` 7, `forks.suggestOptions` true). Tables `plan_forks` and `plan_fork_branches`; deleting a branch deletes its `staged_actions`. No Gateway handlers yet: calls return `not_implemented`. Design: `docs/design/fork-a-plan-2026.md`.

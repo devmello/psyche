@@ -808,7 +808,7 @@
         "sideEffecting": false
       },
       {
-        "description": "Runs an automation now, outside its schedule. Side-effecting: a duplicate would run it twice.",
+        "description": "Runs an automation now, outside its schedule. `runId` is the agent run that does the work (open it with runs.get and runs.steps), null when it has not started one yet or never will. Side-effecting: a duplicate would run it twice.",
         "name": "automations.run",
         "params": "#/$defs/AutomationsRunParams",
         "result": "#/$defs/AutomationsRunResult",
@@ -4336,7 +4336,7 @@
         "sideEffecting": false
       },
       {
-        "description": "Creates a thread (default kind main). Side-effecting: a retried key returns the same thread.",
+        "description": "Creates a thread (default kind side; kind main returns the one main chat and ignores the other parameters). Side-effecting: a retried key returns the same thread.",
         "name": "threads.create",
         "params": "#/$defs/ThreadsCreateParams",
         "result": "#/$defs/ThreadResult",
@@ -22312,6 +22312,7 @@
       "type": "object"
     },
     "ForkCite": {
+      "additionalProperties": false,
       "properties": {
         "callId": {
           "maxLength": 80,
@@ -22346,6 +22347,7 @@
       "type": "string"
     },
     "ForkCost": {
+      "additionalProperties": false,
       "properties": {
         "id": {
           "maxLength": 40,
@@ -22405,6 +22407,7 @@
       "type": "string"
     },
     "ForkDateItem": {
+      "additionalProperties": false,
       "properties": {
         "id": {
           "maxLength": 40,
@@ -22456,6 +22459,7 @@
       "type": "string"
     },
     "ForkOpenQuestion": {
+      "additionalProperties": false,
       "properties": {
         "id": {
           "maxLength": 40,
@@ -22474,6 +22478,7 @@
       "type": "object"
     },
     "ForkPerson": {
+      "additionalProperties": false,
       "properties": {
         "id": {
           "maxLength": 40,
@@ -22514,6 +22519,7 @@
       "type": "object"
     },
     "ForkReport": {
+      "additionalProperties": false,
       "properties": {
         "summary": {
           "maxLength": 600,
@@ -22582,6 +22588,7 @@
       "type": "object"
     },
     "ForkRisk": {
+      "additionalProperties": false,
       "properties": {
         "id": {
           "maxLength": 40,
@@ -22623,6 +22630,7 @@
       "type": "string"
     },
     "ForkStep": {
+      "additionalProperties": false,
       "properties": {
         "id": {
           "maxLength": 40,
@@ -22663,6 +22671,7 @@
       "type": "string"
     },
     "ForkTradeoff": {
+      "additionalProperties": false,
       "properties": {
         "id": {
           "maxLength": 40,
@@ -35892,6 +35901,38 @@
         "started": {
           "type": "boolean"
         },
+        "outcome": {
+          "anyOf": [
+            {
+              "const": "off",
+              "type": "string"
+            },
+            {
+              "const": "already",
+              "type": "string"
+            },
+            {
+              "const": "skipped",
+              "type": "string"
+            },
+            {
+              "const": "no_candidates",
+              "type": "string"
+            },
+            {
+              "const": "empty",
+              "type": "string"
+            },
+            {
+              "const": "done",
+              "type": "string"
+            },
+            {
+              "const": "stopped",
+              "type": "string"
+            }
+          ]
+        },
         "reason": {
           "maxLength": 200,
           "type": "string"
@@ -43762,6 +43803,22 @@
         },
         "retryable": {
           "type": "boolean"
+        },
+        "details": {
+          "additionalProperties": false,
+          "properties": {
+            "reason": {
+              "description": "A machine reason (`automation_denied`, `needs_helper`), which viewers say in the owner's language; `message` is the fallback",
+              "maxLength": 64,
+              "minLength": 1,
+              "pattern": "^[a-z][a-z0-9_]*$",
+              "type": "string"
+            }
+          },
+          "required": [
+            "reason"
+          ],
+          "type": "object"
         }
       },
       "required": [
@@ -46341,6 +46398,13 @@
         },
         "detail": {
           "description": "Why it cannot run, or the last error",
+          "type": "string"
+        },
+        "reason": {
+          "description": "A machine reason for `detail` (`full_disk_access_missing`), which viewers say in the owner's language; `detail` is the fallback",
+          "maxLength": 64,
+          "minLength": 1,
+          "pattern": "^[a-z][a-z0-9_]*$",
           "type": "string"
         },
         "items": {
@@ -52457,6 +52521,12 @@
           "maxItems": 20,
           "type": "array"
         },
+        "withheld": {
+          "enum": [
+            "messages"
+          ],
+          "type": "string"
+        },
         "status": {
           "$ref": "#/$defs/StagedActionStatus"
         },
@@ -53286,7 +53356,8 @@
         "idea",
         "goal",
         "channel",
-        "subagent"
+        "subagent",
+        "fork"
       ],
       "type": "string"
     },

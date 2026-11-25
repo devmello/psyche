@@ -45,6 +45,7 @@ import {
   type SkillLoader,
   type SpecialistSpec,
   type StagedCall,
+  type Staging,
   type StagingRun,
   type StartTurnInput,
   type Surface,
@@ -68,6 +69,11 @@ import {
   automationStateSetTool,
   proposeAutomationTool,
 } from "./builtins/automation.ts";
+import {
+  type ForkReportHost,
+  type ForkReportTurnApi,
+  forkReportTool,
+} from "./builtins/fork-report.ts";
 import {
   type HarnessAction,
   type HarnessGateResult,
@@ -135,7 +141,7 @@ import {
   workflowGroupOf,
 } from "./evidence.ts";
 import { type HookMap, HookRegistry } from "./hooks.ts";
-import { missingHint, missingOf } from "./missing-permission.ts";
+import { missingHint, missingOf, reasonOf } from "./missing-permission.ts";
 import {
   type AgentPlugin,
   AgentPluginRegistry,
@@ -526,6 +532,11 @@ export interface AgentLoopOptions {
    */
   specialists?: SpecialistHost;
   /**
+   * Plan forks (fork-a-plan-2026 §4.1): where a branch's `fork_report` goes. With it, registers
+   * `fork_report`, which only a run with a `fork` staging origin is offered or may use.
+   */
+  forkReports?: ForkReportHost;
+  /**
    * The Space a run in this thread works in (spaces-2026 §5.1): read once at run start and fixed
    * for the run (SR3). Only owner runs get one (SR11); a subagent inherits its parent's.
    */
@@ -707,6 +718,8 @@ interface RunState {
   space?: RunSpace;
   /** Subagents of this run currently in flight. */
   children: number;
+  /** A plan-fork branch run has filed its one `fork_report` (fork-a-plan §4.1). */
+  forkReported?: boolean;
   /** Set when this run is a background specialist's job (specialists §4.2–§4.3). */
   specialistJob?: {
     taskId: string;
@@ -912,6 +925,7 @@ export class PsycheAgentLoop implements AgentLoop {
     if (o.notifier !== undefined) tools.push(notifyTool(o.notifier));
     tools.push(harnessDelegateTool(this.harnesses));
     if (o.specialists !== undefined && o.tasks !== undefined) tools.push(...specialistTools());
+    if (o.forkReports !== undefined) tools.push(forkReportTool);
     if (o.deferTool !== undefined) tools.push(toolSearchTool, loadToolsTool);
     for (const tool of tools) {
       if (this.registry.get(tool.spec.name) === undefined) this.registry.register(tool);
@@ -2058,6 +2072,7 @@ export class PsycheAgentLoop implements AgentLoop {
       runMode: run.mode,
       subagent: run.subagent !== undefined,
       specialist: run.specialistJob !== undefined,
+      fork: run.staging?.staging.kind === "fork",
       ...(toggles === undefined ? {} : { toggles }),
       ...(stagingAllow === undefined ? {} : { allow: stagingAllow }),
     });
@@ -2164,6 +2179,7 @@ export class PsycheAgentLoop implements AgentLoop {
           runMode: run.mode,
           subagent: run.subagent !== undefined,
           specialist: run.specialistJob !== undefined,
+          fork: run.staging?.staging.kind === "fork",
           ...(toggles === undefined ? {} : { toggles }),
           allow: new Set(tools.map((t) => t.spec.name).filter((n) => allow.has(n))),
         }));
@@ -3385,10 +3401,16 @@ export class PsycheAgentLoop implements AgentLoop {
           sideEffect,
           args,
           connectorRule: desc.connectorRule,
+          staging: staging.staging,
         }).run;
       if (!readOk) {
         const verdict = isRead
-          ? ({ stage: false, reason: "read_not_run" } as const)
+          ? ({
+              stage: false,
+              // A read that would ask is its own reason: a fork tells the model to list it as an
+              // open question (fork-a-plan §3.3).
+              reason: decision.decision === "ask" ? "read_ask" : "read_not_run",
+            } as const)
           : stageVerdict({
               tool: call.name,
               sideEffect,
@@ -3806,7 +3828,7 @@ export class PsycheAgentLoop implements AgentLoop {
       type: "tool_result",
       callId: call.id,
       name: call.name,
-      output: refusedOutput(staging.staging),
+      output: refusedOutput(staging.staging, reason),
       isError: true,
       provenance: "trusted",
     };
@@ -3904,6 +3926,8 @@ export class PsycheAgentLoop implements AgentLoop {
       result = {
         output: {
           error: errorMessage(err),
+          // A helper or connector refusal's machine reason, so the trace can say it in words.
+          ...(reasonOf(err) === undefined ? {} : { reason: reasonOf(err) }),
           ...(missing === undefined ? {} : { missing, hint: missingHint(missing) }),
         },
         isError: true,
@@ -4076,6 +4100,45 @@ export class PsycheAgentLoop implements AgentLoop {
   }
 
   // --- Turn tools -------------------------------------------------------------------------------
+
+  /**
+   * `fork_report` for one branch run (fork-a-plan §4.1): one report per run, for a run that is not
+   * a subagent's. A second call is refused and nothing is filed twice.
+   */
+  #forkReportApi(
+    run: RunState,
+    toolCallId: string,
+    origin: Extract<Staging, { kind: "fork" }>,
+  ): ForkReportTurnApi {
+    const host = this.#o.forkReports as ForkReportHost;
+    return {
+      file: async (report) => {
+        if (run.subagent !== undefined) {
+          throw new PsycheError("forbidden", "only the branch itself files its report");
+        }
+        if (run.forkReported === true) {
+          throw new PsycheError("conflict", "the report was already filed");
+        }
+        // Claimed before the host runs, so two calls in one step cannot both file.
+        run.forkReported = true;
+        try {
+          await host.file({
+            forkId: origin.forkId,
+            branchId: origin.branchId,
+            runId: run.runId,
+            toolCallId,
+            report,
+          });
+        } catch (err) {
+          // Not the host's message (a store error can carry a path); the model may try once more.
+          run.forkReported = false;
+          if (err instanceof PsycheError && err.code === "invalid_params") throw err;
+          throw new PsycheError("internal", "the report could not be saved; try once more");
+        }
+        return { filed: true as const };
+      },
+    };
+  }
 
   /** `specialist.*` for one run (specialists §4.1–§4.2). */
   #specialistApi(run: RunState): SpecialistTurnApi {
@@ -4369,6 +4432,9 @@ export class PsycheAgentLoop implements AgentLoop {
       ask: (questions) => this.#ask(run, questions),
       spawnSubagent: (input) => this.#spawn(run, toolCallId, input),
       ...(this.#o.specialists === undefined ? {} : { specialists: this.#specialistApi(run) }),
+      ...(this.#o.forkReports === undefined || run.staging?.staging.kind !== "fork"
+        ? {}
+        : { forkReport: this.#forkReportApi(run, toolCallId, run.staging.staging) }),
       gateHarnessAction: (harnessId, callId, action) =>
         this.#gateHarness(run, harnessId, callId, action),
       harnessActionDone: (actionId, outcome, summary) =>

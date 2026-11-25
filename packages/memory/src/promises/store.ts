@@ -545,6 +545,18 @@ export class PromiseStore {
     };
   }
 
+  /**
+   * Another source says a promise already tracked (the model's explicit `same_as`, design 3.4
+   * rule 2): a citation and a `source_added` event instead of a row, and the more explicit due
+   * date. The caller has checked the promise belongs to the same counterpart and direction.
+   */
+  mention(id: string, input: PromiseInput): PromiseRow {
+    const loop = this.#must(id);
+    // A promise closed since the model saw it takes no new mention.
+    if (!["suggested", "open", "snoozed", "broken"].includes(loop.status)) return this.#row(loop);
+    return this.#mention(loop, input);
+  }
+
   /** `addLoop` found the exact promise already there (or filtered the text). */
   #exactOrRejected(input: PromiseInput, counterpart: string | null, text: string): AddResult {
     const key = sha256(
@@ -697,6 +709,15 @@ export class PromiseStore {
     return last;
   }
 
+  /** Whether the promise's current done is the one an `auto_done` event recorded. */
+  #closedByAutoDone(loop: LedgerLoop): boolean {
+    if (loop.status !== "done") return false;
+    const closedAt = parseMs(loop.closedAt);
+    return this.events(loop.id).some(
+      (e) => e.kind === "auto_done" && e.to === "done" && Date.parse(e.at) === closedAt,
+    );
+  }
+
   /** Records a question to the owner ("Did Sam send it?", "Still on?"). */
   recordAsk(id: string, question: "done" | "still_on"): void {
     this.#must(id);
@@ -709,24 +730,63 @@ export class PromiseStore {
     return ask !== undefined && ask.answered === "not_yet" && this.#now() - ask.at < 3 * DAY_MS;
   }
 
-  act(id: string, input: PromiseActionInput): PromiseRow {
-    const loop = this.#must(id);
-    const lastAsk = this.#lastAsk(id);
-    const decision = decide(loop, input, {
-      nowMs: this.#now(),
-      ...(lastAsk === undefined ? {} : { lastAsk }),
-    });
-    const next = this.#graph.patchLoop(id, decision.patch);
-    if (decision.event !== null)
-      this.#event(
-        id,
-        decision.event.kind,
-        decision.event.from,
-        decision.event.to,
-        decision.event.by,
-      );
-    if (decision.feedback !== undefined) this.#writeFeedback(decision.feedback, loop);
-    return this.#row(next);
+  /** Whether a `done` question was asked and not answered yet (no second card for it). */
+  doneAskOpen(id: string): boolean {
+    const ask = this.#lastAsk(id);
+    return ask !== undefined && ask.question === "done" && ask.answered === undefined;
+  }
+
+  /** When the promise was first cited: done signals only count what came after it. */
+  firstCitationAt(id: string): number | undefined {
+    const row = this.#db
+      .prepare(
+        "SELECT MIN(observed_at) AS at FROM graph_citations WHERE target_kind = 'loop' AND target_id = ?",
+      )
+      .get(id) as { at: string | null } | undefined;
+    const at = row?.at === null || row?.at === undefined ? undefined : Date.parse(row.at);
+    if (at !== undefined && !Number.isNaN(at)) return at;
+    return parseMs(this.#must(id).createdAt) ?? undefined;
+  }
+
+  /** When an automatic done was last undone, if ever: the signal that closed it must not re-fire. */
+  lastUndoAt(id: string): number | undefined {
+    let last: number | undefined;
+    // An undo, or any reopen of a closed promise (a `reply_seen` done reopens as a plain status).
+    for (const e of this.events(id)) {
+      const reopened = e.kind === "status" && e.to === "open" && e.from === "done";
+      if (e.kind === "undo" || reopened) last = Date.parse(e.at);
+    }
+    return last;
+  }
+
+  act(
+    id: string,
+    input: PromiseActionInput,
+    opts: { citation?: PromiseCitationInput } = {},
+  ): PromiseRow {
+    // One transaction: a citation without its status change (or the reverse) is never left behind.
+    return this.#db.transaction(() => {
+      const loop = this.#must(id);
+      const lastAsk = this.#lastAsk(id);
+      const decision = decide(loop, input, {
+        nowMs: this.#now(),
+        autoDone: this.#closedByAutoDone(loop),
+        ...(lastAsk === undefined ? {} : { lastAsk }),
+      });
+      const citationId = opts.citation === undefined ? null : this.addCitation(id, opts.citation);
+      const next = this.#graph.patchLoop(id, decision.patch);
+      if (decision.event !== null)
+        this.#event(
+          id,
+          decision.event.kind,
+          decision.event.from,
+          decision.event.to,
+          decision.event.by,
+          citationId,
+        );
+      if (decision.feedback !== undefined) this.#writeFeedback(decision.feedback, loop);
+      return this.#row(next);
+    })();
   }
 
   // --- sweep -----------------------------------------------------------------------------------

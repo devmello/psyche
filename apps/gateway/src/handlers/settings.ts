@@ -2,6 +2,7 @@ import { homedir } from "node:os";
 import { normalize, sep } from "node:path";
 import { getSetting, getSettings, setSetting } from "@psyche/db";
 import { assertFolderGrantable } from "@psyche/permissions";
+import { validateNightShiftSetting } from "@psyche/proactive";
 import { isAdminSettingKey, PsycheError } from "@psyche/protocol";
 import { normalizeBrowserAgentSetting } from "../compose/browser-agent-settings.ts";
 import { normalizeMachineSetting } from "../compose/computer-settings.ts";
@@ -10,6 +11,7 @@ import type { Call, HandlerDef } from "../context.ts";
 import { LAN_SETTING, parseLanSettings } from "../lan/settings.ts";
 import { HOST_HELPER_PIN_SETTING } from "../nodes/registry.ts";
 import { requireFreshPresence } from "../presence-gate.ts";
+import { isPromiseSourceKey, requireDesktopShell } from "../promise-scrub.ts";
 import { redactMcpServers } from "../redact.ts";
 import { settingsRegistry } from "../settings-registry.ts";
 import { INTERNAL_SETTING_PREFIX } from "../state-version.ts";
@@ -266,6 +268,13 @@ export const settingsHandlers: Record<string, HandlerDef> = {
           { details: { reason: "use_mcp_methods" } },
         );
       }
+      // Which sources the promise ledger reads (mail, Messages, meetings, chat) is the owner's
+      // call on this Mac: a remote device can neither switch one on nor off (promise scrub).
+      if (isPromiseSourceKey(key))
+        requireDesktopShell(
+          call,
+          "Changing what the promise ledger reads, whom it mutes, or whether it is on",
+        );
       // `gateway.lan` is stored in its normalized form, and a malformed or wildcard value is
       // refused before anything (including the presence card) is created for it.
       let value = key === LAN_SETTING ? parseLanSettings(params.value) : params.value;
@@ -275,6 +284,8 @@ export const settingsHandlers: Record<string, HandlerDef> = {
       // The agent browser's sign-in mode, sites and dev ports: validated, and refused while an
       // environment variable sets the same value (process.env is the Gateway's own environment).
       value = normalizeBrowserAgentSetting(key, value, process.env);
+      // Night shift's keys: only the known ones, each with its type and range (§8).
+      value = validateNightShiftSetting(key, value);
       if (key.startsWith(INTERNAL_SETTING_PREFIX)) {
         throw new PsycheError(
           "invalid_params",

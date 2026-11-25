@@ -387,6 +387,7 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
     skillReferences: { resolve: null },
     chatFiles: { attach: null, attached: null },
     threadEnded: new Set(),
+    threadEnding: new Set(),
     messageScrub: { scrub: null, heal: null },
     limits,
     failedChallenges: new RateLimiter(limits.failedChallengesPerMinute, 60_000, () =>

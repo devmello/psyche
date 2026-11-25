@@ -1,5 +1,13 @@
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { createHelperPermissions } from "../../src/main/permissions/helper-permissions.ts";
+import {
+  createHelperPermissions,
+  fileGrantMemory,
+  type GrantMemory,
+  type HelperPermissionKind,
+} from "../../src/main/permissions/helper-permissions.ts";
 
 type Row = { permission: string; status: string };
 
@@ -121,5 +129,108 @@ describe("helper permissions (Settings → Computer use)", () => {
       () => "denied",
     );
     expect((await perms.status()).notifications).toBe("denied");
+  });
+});
+
+describe("helper permissions: lost grants and restart to apply", () => {
+  /** `rows` answers `permissions.status`; `memory` is the desktop's record of past grants. */
+  function withMemory(rows: () => Row[], remembered: HelperPermissionKind[] = []) {
+    const store = { kinds: [...remembered], saves: 0 };
+    const memory: GrantMemory = {
+      load: () => [...store.kinds],
+      save: (k) => {
+        store.kinds = [...k];
+        store.saves += 1;
+      },
+    };
+    const invoke = async (capability: string) => {
+      if (capability === "permissions.status") return { permissions: rows() };
+      if (capability === "notify.authorization_status") return { authorization: "notDetermined" };
+      return { status: "prompted" };
+    };
+    return { store, perms: createHelperPermissions({ invoke, memory }) };
+  }
+
+  it("remembers a grant and flags it once macOS reads it as not asked (an update changed the signature)", async () => {
+    let ax = "granted";
+    const { perms, store } = withMemory(() => [{ permission: "accessibility", status: ax }]);
+    // Positive control: a granted row is remembered and nothing is lost.
+    expect((await perms.status()).lost).toBeUndefined();
+    expect(store.kinds).toEqual(["accessibility"]);
+    ax = "notDetermined";
+    expect((await perms.status()).lost).toEqual(["accessibility"]);
+    // It stays flagged until granted again, then clears.
+    expect((await perms.status()).lost).toEqual(["accessibility"]);
+    ax = "granted";
+    expect((await perms.status()).lost).toBeUndefined();
+  });
+
+  it("does not flag a kind that was never granted, or one the owner turned off (denied)", async () => {
+    const { perms } = withMemory(
+      () => [
+        { permission: "accessibility", status: "notDetermined" },
+        { permission: "screenRecording", status: "denied" },
+      ],
+      ["screenRecording"],
+    );
+    expect((await perms.status()).lost).toBeUndefined();
+  });
+
+  it("an offline helper loses nothing and writes nothing", async () => {
+    let saves = 0;
+    const perms = createHelperPermissions({
+      invoke: async () => {
+        throw new Error("offline");
+      },
+      memory: {
+        load: () => ["accessibility"],
+        save: () => {
+          saves += 1;
+        },
+      },
+    });
+    expect(await perms.status()).toEqual({
+      helper: "offline",
+      accessibility: "not_determined",
+      screenRecording: "not_determined",
+      notifications: "not_determined",
+    });
+    expect(saves).toBe(0);
+  });
+
+  it("asks for a helper restart after a Screen Recording request that is still not granted", async () => {
+    let sr = "notDetermined";
+    const { perms } = withMemory(() => [
+      { permission: "screenRecording", status: sr },
+      { permission: "accessibility", status: "notDetermined" },
+    ]);
+    // Accessibility applies live: no restart.
+    expect((await perms.request("accessibility")).restartToApply).toBeUndefined();
+    expect((await perms.request("screenRecording")).restartToApply).toEqual(["screenRecording"]);
+    expect((await perms.status()).restartToApply).toEqual(["screenRecording"]);
+    // A new helper process reads the grant afresh.
+    perms.helperRestarted();
+    expect((await perms.status()).restartToApply).toBeUndefined();
+    // And once granted, the hint goes on its own.
+    await perms.request("screenRecording");
+    sr = "granted";
+    expect((await perms.status()).restartToApply).toBeUndefined();
+  });
+
+  it("the file memory survives a reload and ignores junk", () => {
+    const dir = mkdtempSync(join(tmpdir(), "psyche-grants-"));
+    try {
+      const file = join(dir, "sub", "helper-grants.json");
+      const memory = fileGrantMemory(() => file);
+      expect(memory.load()).toEqual([]);
+      memory.save(["accessibility", "screenRecording"]);
+      expect(fileGrantMemory(() => file).load()).toEqual(["accessibility", "screenRecording"]);
+      writeFileSync(file, JSON.stringify({ granted: ["accessibility", "rootAccess", 3] }));
+      expect(memory.load()).toEqual(["accessibility"]);
+      writeFileSync(file, "{not json");
+      expect(memory.load()).toEqual([]);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });

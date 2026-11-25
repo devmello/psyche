@@ -34,6 +34,12 @@ export * from "./prohibitions.ts";
 export * from "./receipt-grant.ts";
 export * from "./requester.ts";
 export * from "./revocations.ts";
+export {
+  bareToolName,
+  callRecipients,
+  STAGED_SEND_TOOLS,
+  stagedSendBindingHash,
+} from "./staged-apply.ts";
 export * from "./store.ts";
 export * from "./targets.ts";
 export * from "./trusted-sites.ts";

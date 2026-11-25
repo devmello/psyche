@@ -63,6 +63,27 @@ export const errors = {
     "An app has unsaved changes. Psyche waits for you to decide what happens to them.",
   "errors.reason.checkout_needs_desktop":
     "Paying in Psyche's browser needs the Psyche desktop app connected to this Host.",
+  "errors.reason.permission_missing":
+    "Psyche Helper doesn't have the macOS permission for this yet. Allow it in System Settings → Privacy & Security, then try again.",
+  "errors.reason.permission_denied":
+    "Psyche Helper isn't allowed to do this. Turn it on in System Settings → Privacy & Security, then try again.",
+  "errors.reason.automation_denied":
+    "Psyche Helper isn't allowed to control this app. Turn it on in System Settings → Privacy & Security → Automation, then try again.",
+  "errors.reason.automation_not_granted":
+    "Psyche Helper isn't allowed to control this app yet. Try again and choose OK when macOS asks.",
+  "errors.reason.full_disk_access_missing":
+    "Psyche Helper needs Full Disk Access to read Messages. Turn it on in System Settings → Privacy & Security → Full Disk Access, then restart Psyche Helper.",
+  "errors.reason.prompt_refused_by_macos":
+    "macOS didn't show the permission prompt. Allow Psyche Helper in System Settings → Privacy & Security instead.",
+  "errors.reason.app_not_running": "That app isn't open. Open it, then try again.",
+  "errors.reason.needs_helper":
+    "This needs Psyche Helper, which isn't running. Restart it in Settings → Devices.",
+  "errors.reason.apple_not_connected":
+    "Apple apps aren't connected yet. Connect them in Settings → Connectors.",
+  "errors.reason.no_folder_shared": "No folder is shared yet. Share one in Settings → File access.",
+  "errors.reason.memory_opening": "Memory is still opening. Try again in a moment.",
+  "errors.reason.outlook_object_model_guard":
+    "Outlook blocks other programs from reading mail or sending, because Windows reports no up-to-date antivirus. Turn on Windows Security, or set Programmatic Access to “Never warn me” in Outlook → File → Options → Trust Center, then try again.",
   "errors.reason.no_chromium":
     "Psyche's browser needs Chromium on this Host. Install it, or set PSYCHE_CHROMIUM.",
   "errors.reason.chromium_sandbox":

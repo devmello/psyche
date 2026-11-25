@@ -243,6 +243,12 @@ export interface StagedApplyChildInput {
   recipients?: string[];
   /** An undo inverse (§5.4); `createdId` is the id of what Night shift created. */
   undo?: { createdId: string; calendarId?: string };
+  /**
+   * The item came from Messages (owner rule: no Messages text on remote devices). The caller's
+   * summary is already generic; `details.items[]` carries `withheld` and no send recipients, and
+   * the Mac app shows the real text from `nightShift.review.get` by `itemId`.
+   */
+  withheld?: "messages";
 }
 
 /** `requestStagedApply` input. */
