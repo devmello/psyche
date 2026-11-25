@@ -42,6 +42,12 @@ export const notices: Partial<Catalogue> = {
     "{reason, select, account_changed {커넥터가 이제 다른 계정으로 로그인합니다. 이전 계정에 묶인 작업은 중단되었습니다.} disconnected {커넥터 연결이 끊어졌습니다. 해당 커넥터가 필요한 작업은 중단되었습니다.} scope_changed {커넥터가 이제 읽기 전용입니다. 이를 통한 대기 중인 작업은 중단되었습니다.} other {커넥터의 접근 권한이 취소되었습니다. 계속 사용하려면 다시 로그인하세요.}}",
   "notice.connector.reconnect.title": "다시 연결해야 합니다",
   "notice.connector.reconnect.body": "커넥터가 접근 권한을 잃었습니다. 다시 로그인하세요.",
+  "notice.connector.syncFailing.title": "{name} 동기화가 되지 않습니다",
+  "notice.connector.syncFailing.body":
+    "{name} 동기화가 여러 번 연속 실패했습니다 ({reason}). Psyche가 계속 다시 시도합니다. 설정 › 커넥터에서 확인하세요.",
+  "notice.connector.testingExpired.title": "Google에서 로그아웃되었습니다",
+  "notice.connector.testingExpired.body":
+    "Psyche OAuth 앱이 테스트 모드인 동안 Google은 7일 후 로그아웃합니다. Google Cloud에서 OAuth 앱을 게시하면 해결되며, 그다음 설정 › 커넥터에서 Google을 다시 연결하세요.",
   "notice.attention.paused.title": "작업이 기다리고 있습니다",
   "notice.attention.paused.body":
     "민감한 앱이나 사이트에서 {tool} 직전에 멈췄습니다. Psyche로 돌아올 때까지 기다립니다.",

@@ -61,6 +61,7 @@ import { stateSealFor } from "../security/state-seal.ts";
 import type { Gateway } from "../server.ts";
 import { createChangeRecorder } from "./changes.ts";
 import { connectorMatrixSync } from "./connector-matrix.ts";
+import { ConnectorSync } from "./connector-sync.ts";
 import { fetchLimit, taskOrigins } from "./fetch-origins.ts";
 import { googleClientStore } from "./google-client.ts";
 import { approvedInstallReason, reportApprovedInstallFailed } from "./install-failed.ts";
@@ -87,6 +88,8 @@ function connectorStoreFor(db: ComposeServices["db"]): ConnectorStore {
 export const DEFAULT_SYNC_INTERVAL_MS = 3 * 60_000;
 
 export interface ConnectorsSetup {
+  /** One connector's sync is cut off after this long (default 60 s). */
+  syncTimeoutMs?: number;
   /** Replaces the default factories (Google, IMAP, JMAP, plus web search / fetch when configured). */
   factories?: ConnectorFactory[];
   /** The IMAP backend's dialer (tests: the connector's fake servers). */
@@ -349,6 +352,11 @@ export function composeConnectors(
     floorLifted: (id, action) => floorLifted(services.rawBroker.policy.liftedFloors?.[id], action),
     onEvent: (event) => {
       onConnectorEvent(services, event);
+      void connectorStatusNotices(services, registry, event).catch((err) =>
+        services.logger?.log("warn", "connector notification failed", {
+          code: PsycheError.from(err).code,
+        }),
+      );
       void publishUpdate(event);
       setup.onEvent?.(event);
     },
@@ -550,32 +558,14 @@ export function composeConnectors(
 
   const interval = setup.syncIntervalMs ?? DEFAULT_SYNC_INTERVAL_MS;
   let timer: ReturnType<typeof setInterval> | undefined;
-  let syncing = false;
-  const syncAll = async () => {
-    // A slow provider never stacks sync rounds.
-    if (syncing) return;
-    syncing = true;
-    try {
-      for (const record of await registry.list()) {
-        // Waiting on a macOS grant (#549): re-check it, so the row flips once it is allowed.
-        if (record.status === "needs_auth" && typeof record.config.permission === "object") {
-          await registry.status(record.id).catch(() => undefined);
-          continue;
-        }
-        if (record.status !== "connected") continue;
-        try {
-          await registry.sync(record.id);
-        } catch (err) {
-          log?.log("warn", "connector sync failed", {
-            connectorId: record.id,
-            code: PsycheError.from(err).code,
-          });
-        }
-      }
-    } finally {
-      syncing = false;
-    }
-  };
+  const sync = new ConnectorSync({
+    registry,
+    now: () => services.clock.now(),
+    intervalMs: interval,
+    ...(setup.syncTimeoutMs === undefined ? {} : { timeoutMs: setup.syncTimeoutMs }),
+    log: (message, fields) => log?.log("warn", message, fields),
+  });
+  const syncAll = () => sync.runOnce();
 
   const unregisterFreeTime = services.tools.register(freeTimeTool(services, registry));
   // Settings → Connectors rules reach the broker and the executor (#747).
@@ -620,7 +610,10 @@ export function composeConnectors(
       if (interval <= 0) return;
       timer = setInterval(() => {
         // Not while an app update is being prepared (`gateway.prepareUpdate`).
-        if (gateway?.context.updateGate.accepting() !== false) void syncAll();
+        if (gateway?.context.updateGate.accepting() !== false)
+          syncAll().catch((err) =>
+            log?.log("warn", "connector sync round failed", { code: PsycheError.from(err).code }),
+          );
       }, interval);
       timer.unref?.();
     },
@@ -839,17 +832,6 @@ function onConnectorEvent(services: ComposeServices, event: ConnectorEvent): voi
         status: event.status,
         at,
       });
-      if (event.status === "needs_auth") {
-        notify(services, {
-          title: "Reconnect needed",
-          body: "A connector lost access and needs you to sign in again.",
-          message: {
-            titleKey: "notice.connector.reconnect.title",
-            bodyKey: "notice.connector.reconnect.body",
-          },
-          dedupeKey: `connector:${event.connectorId}:needs_auth`,
-        });
-      }
       return;
     case "synced":
       log?.log("debug", "connector synced", {
@@ -857,6 +839,11 @@ function onConnectorEvent(services: ComposeServices, event: ConnectorEvent): voi
         changes: event.changes,
         full: event.full,
       });
+      // A resync stopped at its cap: the owner's mail past it is not imported (Gmail 404 fallback).
+      if (event.truncated)
+        log?.log("warn", "connector resync hit its cap; older mail was not imported", {
+          connectorId: event.connectorId,
+        });
       return;
     case "matrix_changed":
       log?.log("info", "connector action matrix changed", { connectorId: event.connectorId });
@@ -868,6 +855,75 @@ function onConnectorEvent(services: ComposeServices, event: ConnectorEvent): voi
         keys: event.keys.slice(0, 20).join(","),
       });
       return;
+  }
+}
+
+/** The open notices a connector's health raises, found again by their ids and connector. */
+const HEALTH_NOTICES = new Set([
+  "notice.connector.reconnect.title",
+  "notice.connector.testingExpired.title",
+  "notice.connector.syncFailing.title",
+]);
+
+/**
+ * Tells the owner when a connector needs them (sign-in lost, a Google Testing-mode expiry, a sync
+ * that keeps failing) and takes the notice away once it is connected again. One open notice per
+ * connector and kind (`dedupeKey`); resolving is matched on the notice's own ids, so it also works
+ * after a Gateway restart.
+ */
+export async function connectorStatusNotices(
+  services: ComposeServices,
+  registry: Pick<ConnectorRegistry, "get">,
+  event: ConnectorEvent,
+): Promise<void> {
+  if (event.type !== "status") return;
+  const id = event.connectorId;
+  if (event.status === "connected") {
+    const open = await services.notifier.list({ unresolvedOnly: true, kind: "system" });
+    for (const n of open) {
+      const m = n.message;
+      if (m === undefined || !HEALTH_NOTICES.has(m.titleKey) || m.params?.connectorId !== id)
+        continue;
+      await services.notifier.resolve(n.id).catch(() => undefined);
+    }
+    return;
+  }
+  if (event.status === "needs_auth") {
+    const expired = event.reason === "testing_mode_expired";
+    notify(services, {
+      title: expired ? "Google signed you out" : "Reconnect needed",
+      body: expired
+        ? "Google signs you out after 7 days while the Psyche OAuth app is in Testing mode. Publish the OAuth app in Google Cloud to stop this, then reconnect Google in Settings › Connectors."
+        : "A connector lost access and needs you to sign in again.",
+      message: {
+        titleKey: expired
+          ? "notice.connector.testingExpired.title"
+          : "notice.connector.reconnect.title",
+        bodyKey: expired
+          ? "notice.connector.testingExpired.body"
+          : "notice.connector.reconnect.body",
+        params: { connectorId: id },
+      },
+      dedupeKey: `connector:${id}:needs_auth`,
+    });
+    return;
+  }
+  if (event.status === "error") {
+    const record = await registry.get(id).catch(() => undefined);
+    // Only a sync that keeps failing: other `error`s (a connector that cannot be created) show in
+    // Settings already.
+    if (record === undefined || record.lastSync?.syncFailing !== true) return;
+    const reason = String(record.lastSync.error ?? "unknown").slice(0, 40);
+    notify(services, {
+      title: `${record.label} isn't syncing`,
+      body: `${record.label} failed to sync several times in a row (${reason}). Psyche keeps retrying. Open Settings › Connectors to check it.`,
+      message: {
+        titleKey: "notice.connector.syncFailing.title",
+        bodyKey: "notice.connector.syncFailing.body",
+        params: { connectorId: id, name: record.label.slice(0, 60), reason },
+      },
+      dedupeKey: `connector:${id}:sync_failing`,
+    });
   }
 }
 

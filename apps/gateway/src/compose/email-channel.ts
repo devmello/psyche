@@ -67,6 +67,41 @@ export function emailSetupFromEnv(
   };
 }
 
+/** Messages read per poll; the rest wait for the next one. */
+export const EMAIL_POLL_BATCH = 50;
+
+/**
+ * The ids this poll reads and the cursor to save after them. When more than a batch arrived the
+ * cursor stops right after the last id read (IMAP: `uidNext` = that uid + 1), so the rest come
+ * back on the next poll instead of being passed over. Ids that are not numeric uids cannot be
+ * resumed from, so those polls read everything.
+ */
+export function pollBatch(
+  ids: string[],
+  cursor: JsonObject,
+): { batch: string[]; cursor: JsonObject } {
+  if (ids.length <= EMAIL_POLL_BATCH) return { batch: ids, cursor };
+  const uids = ids.map(Number);
+  const inbox = cursor.inbox;
+  if (
+    !uids.every((u) => Number.isInteger(u) && u >= 0) ||
+    inbox === null ||
+    typeof inbox !== "object" ||
+    Array.isArray(inbox)
+  ) {
+    return { batch: ids, cursor };
+  }
+  const order = ids
+    .map((id, i) => ({ id, uid: uids[i] as number }))
+    .sort((a, b) => a.uid - b.uid)
+    .slice(0, EMAIL_POLL_BATCH);
+  const last = order[order.length - 1]?.uid as number;
+  return {
+    batch: order.map((o) => o.id),
+    cursor: { ...cursor, inbox: { ...inbox, uidNext: last + 1 } },
+  };
+}
+
 export function mailEmailTransport(services: ComposeServices, setup: EmailSetup): EmailTransport {
   const backend = setup.backend ?? new ImapBackend(setup.imap);
   const account = setup.address;
@@ -89,9 +124,23 @@ export function mailEmailTransport(services: ComposeServices, setup: EmailSetup)
     async poll(cursor) {
       return withSession(async (s) => {
         const r = await s.sync(cursor);
+        const { batch, cursor: next } = pollBatch(r.newMessageIds, r.cursor as JsonObject);
         const messages: EmailInbound[] = [];
-        for (const id of r.newMessageIds.slice(0, 50)) {
-          const v = await s.read({ id });
+        let failed = 0;
+        for (const id of batch) {
+          let v: Awaited<ReturnType<MailSession["read"]>>;
+          try {
+            v = await s.read({ id });
+          } catch (err) {
+            // One unreadable message must not block the others (it is skipped, not retried
+            // forever); if none could be read the session itself is the problem, so fail the
+            // poll and keep the cursor where it was.
+            failed += 1;
+            services.logger?.log("warn", "email channel could not read a message; skipped", {
+              code: PsycheError.from(err).code,
+            });
+            continue;
+          }
           const from = bareAddress(v.from);
           if (from === undefined) continue;
           const name = /^\s*"?([^"<]+?)"?\s*</.exec(v.from)?.[1]?.trim();
@@ -113,7 +162,12 @@ export function mailEmailTransport(services: ComposeServices, setup: EmailSetup)
             })),
           });
         }
-        return { messages, cursor: r.cursor as JsonObject };
+        if (failed > 0 && failed === batch.length) {
+          throw new PsycheError("unavailable", "the email channel could not read any new message", {
+            retryable: true,
+          });
+        }
+        return { messages, cursor: next };
       });
     },
 
