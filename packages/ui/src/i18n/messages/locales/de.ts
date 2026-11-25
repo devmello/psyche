@@ -165,6 +165,9 @@ export const de: Partial<Catalogue> = {
   "errors.reason.secret_required": "Ein anderer Client braucht sein eigenes Client-Secret.",
   "errors.reason.project_private":
     "Dieses Projekt ist privat, daher kann es keinen Space haben. Schalte zuerst „Privat halten“ aus.",
+  "errors.reason.entity_exists": "Das gibt es bereits im Gedächtnis.",
+  "errors.reason.setting_unknown": "Diese Einstellung gibt es nicht.",
+  "errors.reason.setting_invalid": "Dieser Wert ist für die Einstellung nicht gültig.",
   "errors.reason.model_budget":
     "Zu viele Anfragen von diesem Gerät. Versuche es in {minutes, plural, one {# Minute} other {# Minuten}} erneut.",
   "errors.reason.updating":

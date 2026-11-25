@@ -179,6 +179,9 @@ export const ja: Partial<Catalogue> = {
     "別のクライアントには、そのクライアント専用のシークレットが必要です。",
   "errors.reason.project_private":
     "このプロジェクトは非公開のため、Spaceを持てません。先に「非公開にする」をオフにしてください。",
+  "errors.reason.entity_exists": "すでにメモリにあります。",
+  "errors.reason.setting_unknown": "この設定は存在しません。",
+  "errors.reason.setting_invalid": "この設定には無効な値です。",
   "errors.reason.model_budget":
     "このデバイスからのリクエストが多すぎます。{minutes, plural, other {#分}}後にもう一度お試しください。",
   "errors.reason.updating":
