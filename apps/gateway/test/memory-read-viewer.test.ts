@@ -107,8 +107,11 @@ describe("memory.read per connection (handlers)", () => {
 
   it("a missing file is refused like an existing one (no existence oracle)", async () => {
     const { run } = build();
-    const a = await run("memory.read", phone, { path: "USER.md" }).catch((e) => e);
-    const b = await run("memory.read", phone, { path: "no/such/file.md" }).catch((e) => e);
+    type Refusal = { code: string; message: string };
+    const a = (await run("memory.read", phone, { path: "USER.md" }).catch((e) => e)) as Refusal;
+    const b = (await run("memory.read", phone, { path: "no/such/file.md" }).catch(
+      (e) => e,
+    )) as Refusal;
     expect(a.code).toBe("forbidden");
     expect(b.code).toBe(a.code);
     expect(b.message).toBe(a.message);

@@ -199,7 +199,7 @@ const NAMESPACES = [
 ] as const;
 
 /** Namespaces that hold exactly one key (`locale`, `cleanupPeriodDays`) or whose root may hold a value. */
-const LEAF_ROOTS = new Set<string>(["locale", "cleanupPeriodDays"]);
+const LEAF_ROOTS = new Set<string>(["locale", "cleanupPeriodDays", "identityLinks"]);
 
 export class SettingsRegistry {
   readonly #exact = new Map<string, SettingRule>(Object.entries(EXACT));

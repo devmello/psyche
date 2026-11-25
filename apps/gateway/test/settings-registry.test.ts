@@ -21,7 +21,7 @@ const reasonOf = (fn: () => unknown): string | undefined => {
   try {
     fn();
   } catch (err) {
-    return (err as PsycheError).details?.["reason"] as string | undefined;
+    return ((err as PsycheError).details as { reason?: string } | undefined)?.reason;
   }
   return undefined;
 };
