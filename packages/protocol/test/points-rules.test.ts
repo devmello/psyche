@@ -605,6 +605,8 @@ describe("recovery phrase pages and word runs", () => {
     expect(out).toContain("Then go on to the form");
     const plain = maskPointsShapes(PHRASE.replace(/\d+\. /gu, ""));
     expect(plain).not.toContain("absurd");
+    const upper = maskPointsShapes(PHRASE.replace(/\d+\. /gu, "").toUpperCase());
+    expect(upper).not.toContain("ABSURD");
   });
 
   it.each([
