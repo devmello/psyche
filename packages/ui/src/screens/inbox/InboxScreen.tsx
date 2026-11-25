@@ -654,7 +654,10 @@ function ConnectedInboxRow({
       .finally(() => setBusy(false));
   };
   const read = () => {
-    if (n.readAt == null) void markRead([n.id]).catch(() => {});
+    if (n.readAt == null)
+      void markRead([n.id]).catch((err: unknown) =>
+        toast.error(t("screens.inbox.markFailed", { reason: describeError(err) })),
+      );
   };
   return (
     <InboxRow
@@ -809,7 +812,13 @@ export function InboxScreen({ now: fixedNow, onOpen }: InboxScreenProps): ReactE
           <SpecialistInboxRow
             notification={n}
             now={now}
-            onMarkRead={() => void inbox.markRead([n.id]).catch(() => {})}
+            onMarkRead={() =>
+              void inbox
+                .markRead([n.id])
+                .catch((err: unknown) =>
+                  toast.error(t("screens.inbox.markFailed", { reason: describeError(err) })),
+                )
+            }
             fallback={row}
           />
         ) : (

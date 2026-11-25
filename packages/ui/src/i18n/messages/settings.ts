@@ -1479,6 +1479,7 @@ export const settings = {
   "settings.mcp.network": "Uses the network",
   "settings.mcp.added": "Added {name}.",
   "settings.mcp.removed": "Removed {name}.",
+  "settings.openPage.failed": "Psyche couldn't open the page ({reason}).",
   "settings.mcp.secretNotDeleted":
     "Psyche couldn't delete a saved secret ({reason}). Try again to remove it.",
   "settings.mcp.denied": "{name} was not added.",
