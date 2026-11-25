@@ -234,7 +234,8 @@ export class PromiseBudget {
   /** Counts one snippet of `key`'s text for today; false when that person is over the daily cap. */
   takeSnippet(key: string, cap = MAX_SNIPPETS_PER_COUNTERPART_PER_DAY): boolean {
     this.#roll();
-    const by = (this.#usage.counterparts ??= {});
+    const by = this.#usage.counterparts ?? {};
+    this.#usage.counterparts = by;
     if ((by[key] ?? 0) >= cap) return false;
     by[key] = (by[key] ?? 0) + 1;
     return true;

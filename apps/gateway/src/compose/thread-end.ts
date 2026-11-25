@@ -80,10 +80,14 @@ export function ownChatText(text: string): string {
     .split(/\r?\n/)
     .filter((l) => !/^\s*>/.test(l))
     .join("\n");
-  return ownWords(stripped)
-    .replace(/\u0001/g, " ")
-    .replace(/[ \t]+/g, " ")
-    .trim();
+  return (
+    ownWords(stripped)
+      // `ownWords` marks each removed block with U+0001.
+      .split(String.fromCharCode(1))
+      .join(" ")
+      .replace(/[ \t]+/g, " ")
+      .trim()
+  );
 }
 
 /**
