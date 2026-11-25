@@ -15,7 +15,7 @@ import { type Staging, stagedApplyMatchesSelection } from "@psyche/protocol";
 import { toolCallBindingHash } from "@psyche/protocol/binding";
 import { SqliteTaskEngine } from "@psyche/tasks";
 import { FakeClock } from "@psyche/testing";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   CTX,
   DEVICE,
@@ -618,5 +618,83 @@ describe("planForks R1 fixes", () => {
     expect(listStagedActionsForBranch(r.db, f.b.id)[0]?.status).toBe("dismissed");
     // A take after the plan is taken is refused as before.
     await expect(takeOf(f.b.id, f.itemB)).rejects.toMatchObject({ code: "conflict" });
+  });
+
+  it("a Take whose claim went stale while issuing loses the final compare-and-set: its card is withdrawn and its items unbound", async () => {
+    const r = await rig();
+    const f = await readyFork(r);
+    const takeOf = (branchId: string, item: { id: string; bindingHash: string }, key?: string) =>
+      r.run(
+        "planForks.take",
+        {
+          forkId: f.forkId,
+          branchId,
+          items: [{ itemId: item.id, bindingHash: item.bindingHash }],
+          sends: [],
+          continue: false,
+        },
+        key,
+      ) as Promise<{ approval?: { id: string }; answerToken?: string }>;
+    // Issuing the first Take is slow: it waits on a gate we open later.
+    const applier = r.ns.applier as NonNullable<typeof r.ns.applier>;
+    const real = applier.applyFork.bind(applier);
+    let open: () => void = () => {};
+    const gate = new Promise<void>((res) => {
+      open = res;
+    });
+    let calls = 0;
+    const spy = vi.spyOn(applier, "applyFork").mockImplementation(async (...args) => {
+      calls += 1;
+      if (calls === 1) await gate;
+      return real(...args);
+    });
+    const firstSettled = takeOf(f.a.id, f.itemA, "k-slow").then(
+      (v) => ({ ok: true as const, v }),
+      (e: unknown) => ({ ok: false as const, e }),
+    );
+    await tick(r);
+    // Past the stale limit: a second Take claims the same fork and wins.
+    r.clock.advance(61_000);
+    const second = await takeOf(f.b.id, f.itemB);
+    expect(second.approval?.id).toBeDefined();
+    open();
+    const lost = await firstSettled;
+    expect(lost.ok).toBe(false);
+    expect((lost as { e: unknown }).e).toMatchObject({ code: "conflict" });
+    spy.mockRestore();
+
+    // The loser's card is closed, its item unbound, and the fork points at the winner.
+    const itemA = listStagedActionsForBranch(r.db, f.a.id)[0];
+    expect(itemA?.status).toBe("ready");
+    expect(itemA?.approvalId ?? null).toBeNull();
+    expect(getPlanFork(r.db, f.forkId)?.takeApprovalId).toBe(second.approval?.id);
+    const pending = (await r.h.broker.list({ status: "pending" })).map((a) => a.id);
+    expect(pending).toEqual([second.approval?.id]);
+    const closed = (await r.h.broker.list({})).filter((a) => a.id !== second.approval?.id);
+    expect(closed.map((a) => a.status)).toEqual(["invalidated"]);
+    // Approving the revoked card does nothing.
+    r.clock.advance(500);
+    await r.h.broker
+      .answer({
+        approvalId: closed[0]?.id ?? "",
+        answerToken: "x",
+        decision: "approve",
+        scope: "once",
+        decidedBy: DEVICE,
+      })
+      .catch(() => undefined);
+    await tick(r);
+    expect(r.ran).toEqual([]);
+    expect(getPlanFork(r.db, f.forkId)?.status).toBe("ready");
+    // The winner is untouched and still applies.
+    await r.h.broker.answer({
+      approvalId: second.approval?.id ?? "",
+      answerToken: second.answerToken ?? "",
+      decision: "approve",
+      scope: "once",
+      decidedBy: DEVICE,
+    });
+    for (let i = 0; i < 10 && getPlanFork(r.db, f.forkId)?.status !== "taken"; i++) await tick(r);
+    expect(r.ran).toEqual([{ tool: "reminders_create", callId: f.itemB.id }]);
   });
 });
