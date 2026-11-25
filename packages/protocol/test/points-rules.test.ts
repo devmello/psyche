@@ -8,6 +8,7 @@ import {
   classifyPointsValue,
   filterPointsMemoryLine,
   groundPointsValue,
+  maskPointsShapes,
   type PointsFieldFacts,
   type PointsPageFacts,
   parsePointsDates,
@@ -561,5 +562,33 @@ describe("points review round 1 (fixture rows)", () => {
   it("the invisible and lookalike classes are judged: Hangul fillers, CGJ, Greek and Cyrillic", () => {
     for (const label of ["SᅟSN", "SᅠSN", "SﾠSN", "S͏SN", "Ρassword", "Α-Number"])
       expect(classifyPointsField({ label }), label).not.toBeNull();
+  });
+});
+
+describe("maskPointsShapes", () => {
+  const masked: [string, string][] = [
+    ["SSN on file: 123-45-6789.", "123-45-6789"],
+    ["Card 4111111111111111.", "4111111111111111"],
+    ["Ref 123456789", "123456789"],
+    ["IBAN DE89370400440532013000", "DE89370400440532013000"],
+    ["Card 4111 1111 1111 1111 declined", "1111 1111"],
+    ["Acct 123-45-6789", "123-45-6789"],
+    ["Reference ４１１１１１１１１１１１１１１１", "4111"],
+  ];
+  it.each(masked)("masks the shape in %s", (text, secret) => {
+    const out = maskPointsShapes(text);
+    expect(out).not.toContain(secret);
+    expect(out).toContain("…");
+  });
+
+  it.each([
+    "94103-1234",
+    "+1 415 555 0100",
+    "Fill in your legal name and date of birth.",
+    "Part 1. Information about you",
+    "Form I-130, part 3",
+    "Tax year 2026",
+  ])("leaves %s as it is", (text) => {
+    expect(maskPointsShapes(text)).toBe(text);
   });
 });

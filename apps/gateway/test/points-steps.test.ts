@@ -136,12 +136,12 @@ describe("budget caps", () => {
 
   it("says which cap stopped it", () => {
     const calls = new PointsBudget({ maxCalls: 1 });
-    calls.begin();
-    expect(calls.begin()).toEqual({ ok: false, reason: "calls" });
+    calls.begin(0);
+    expect(calls.begin(0)).toEqual({ ok: false, reason: "calls" });
     const tokens = new PointsBudget();
-    tokens.begin();
+    tokens.begin(0);
     tokens.settle(POINTS_BUDGET_LIMITS.maxInputTokens);
-    expect(tokens.begin()).toEqual({ ok: false, reason: "tokens" });
+    expect(tokens.begin(0)).toEqual({ ok: false, reason: "tokens" });
     expect(tokens.exhausted()).toBe("tokens");
   });
 
@@ -163,12 +163,12 @@ describe("budget caps", () => {
     };
     const t = new PointsStepTracker({ budget: new PointsBudget({ maxCalls: 1 }) });
     t.observe(PAGE_A());
-    expect(t.beginPlan()).toEqual({ ok: true });
+    expect(t.beginPlan(0)).toEqual({ ok: true });
     const r = await requestPointsPlan(deps, { digest: PAGE_A(), strings: STRINGS });
     if (r.ok) t.completePlan("A", r.plan, r.usage);
     // A new page at the cap: no call, no plan for it.
     t.observe(PAGE_B());
-    expect(t.beginPlan()).toEqual({ ok: false, reason: "calls" });
+    expect(t.beginPlan(0)).toEqual({ ok: false, reason: "calls" });
     expect(t.target()).toEqual({ type: "no_plan" });
     // The owner goes back to page A: its last plan still points.
     t.observe(PAGE_A());
@@ -236,7 +236,7 @@ describe("multi-page replay", () => {
     await r.show(a);
     await r.show(PAGE_B());
     const second = JSON.stringify(r.provider.requests[1]?.messages);
-    expect(second).toContain("Earlier pages");
+    expect(second).toContain("earlierPages");
     expect(second).toContain('\\"title\\":\\"Page A\\",\\"fields\\":5');
     expect(second).not.toContain('Ada Lovelace\\"}');
     expect(r.tracker.earlierPages()).toEqual([{ title: "Page A", fields: 5 }]);
@@ -264,16 +264,16 @@ describe("multi-page replay", () => {
       if (!r.ok) t.failPlan(d.fingerprint, r.usage);
     }
     expect(calls).toBe(2);
-    expect(t.beginPlan()).toEqual({ ok: false, reason: "failed" });
+    expect(t.beginPlan(0)).toEqual({ ok: false, reason: "failed" });
     expect(t.target()).toEqual({ type: "no_plan" });
   });
 
   it("allows only one call in flight for a page", () => {
     const t = new PointsStepTracker();
-    expect(t.beginPlan()).toEqual({ ok: false, reason: "no_page" });
+    expect(t.beginPlan(0)).toEqual({ ok: false, reason: "no_page" });
     t.observe(PAGE_A());
-    expect(t.beginPlan()).toEqual({ ok: true });
-    expect(t.beginPlan()).toEqual({ ok: false, reason: "in_flight" });
+    expect(t.beginPlan(0)).toEqual({ ok: true });
+    expect(t.beginPlan(0)).toEqual({ ok: false, reason: "in_flight" });
   });
 
   it("keeps at most 50 pages and never drops the one on screen", () => {
@@ -510,5 +510,44 @@ describe("mistakes", () => {
     ).toBeUndefined();
     expect(t.invalid("f2", "Required")).toEqual({ fieldId: "f2", quote: "Required" });
     expect(t.invalid("f2", "   ")).toBeUndefined();
+  });
+});
+
+describe("quoting a form error", () => {
+  it("never quotes a sensitive field that has no step in the plan", async () => {
+    const r = rig([
+      {
+        page: { title: "t", summary: "s" },
+        steps: [{ fieldId: "f1", kind: "fill", note: "Name" }],
+        done_when: "none",
+      },
+    ]);
+    await r.show(page("S", [field("f1", "Name"), field("f2", "Social Security number")]));
+    expect(r.tracker.invalid("f2", "Password hunter2 too short")).toBeUndefined();
+    expect(r.tracker.invalid("f1", "Required")).toEqual({ fieldId: "f1", quote: "Required" });
+  });
+
+  it("never quotes a field it does not know", async () => {
+    const r = rig([PLAN_A]);
+    await r.show(PAGE_A());
+    expect(r.tracker.invalid("f99", "Required")).toBeUndefined();
+  });
+
+  it("keeps a field sensitive once it was judged so, even if a later read says otherwise", async () => {
+    const r = rig([PLAN_A]);
+    await r.show(page("S", [field("f2", "Social Security number")]));
+    r.tracker.observe(page("S", [field("f2", "Number")]));
+    expect(r.tracker.invalid("f2", "Required")).toBeUndefined();
+  });
+});
+
+describe("the call estimate is required", () => {
+  it("cannot be left out", () => {
+    const t = new PointsStepTracker();
+    t.observe(PAGE_A());
+    // @ts-expect-error the estimate has no default
+    t.beginPlan();
+    // @ts-expect-error the estimate has no default
+    new PointsBudget().begin();
   });
 });

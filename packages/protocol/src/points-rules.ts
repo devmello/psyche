@@ -934,6 +934,16 @@ function redactShapes(text: string): string {
 }
 
 /**
+ * Page or owner text on its way to a model provider with every secret shape masked: an SSN or
+ * nine-digit run, a card number, an IBAN, a token or a seed phrase becomes `…`. It is read in its
+ * NFKC, ASCII-digit view (full-width and other scripts' digits included), so the output is that
+ * view with the shapes blanked. Call it before any cut: a cut value no longer matches a shape.
+ */
+export function maskPointsShapes(text: string): string {
+  return redactShapes(shapeText(text));
+}
+
+/**
  * Model text as the card draws it: plain text. No control, format or bidi characters (NEL, LS,
  * PS, the bidi overrides and isolates, zero-width characters), no links or email addresses, no
  * Markdown or tags, one line, cut at `max` code points. Control characters go first and the

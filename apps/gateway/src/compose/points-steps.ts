@@ -4,7 +4,11 @@ import {
   parsePointsDates,
   sanitizePointsNote,
 } from "@psyche/protocol/points-rules";
-import type { PointsCheckedPlan, PointsCheckedStep } from "./points-plan.ts";
+import {
+  judgePointsFields,
+  type PointsCheckedPlan,
+  type PointsCheckedStep,
+} from "./points-plan.ts";
 
 /**
  * Psyche points, the step tracker and the budget (docs/design/psyche-points-2026.md §3.4, §7, W6).
@@ -62,7 +66,7 @@ export class PointsBudget {
    * Take one call. `estimatedInput` is checked against what is left, so one big request cannot
    * step over the cap. The call counts from here, whether or not it succeeds.
    */
-  begin(estimatedInput = 0): { ok: true } | { ok: false; reason: PointsBudgetRefusal } {
+  begin(estimatedInput: number): { ok: true } | { ok: false; reason: PointsBudgetRefusal } {
     const stop = this.exhausted();
     if (stop !== null) return { ok: false, reason: stop };
     if (this.#inputTokens + Math.max(0, estimatedInput) > this.#limits.maxInputTokens)
@@ -140,6 +144,8 @@ interface PageState {
   inFlight: boolean;
   /** Error texts already pointed at, per field. */
   quoted: Map<string, string>;
+  /** Per field: whether it is known to be sensitive. A field not here is unknown. */
+  sensitive: Map<string, boolean>;
 }
 
 export type PointsPageChange = "new" | "same" | "returned";
@@ -204,6 +210,12 @@ export class PointsStepTracker {
     page.title = sanitizePointsNote(digest.windowTitle, 120);
     page.fieldCount = digest.fields.length;
     for (const f of digest.fields) page.states.set(f.fieldId, f.state);
+    // The helper's judgement and the Gateway's own; once sensitive, always sensitive.
+    for (const j of judgePointsFields(digest).judged)
+      page.sensitive.set(
+        j.field.fieldId,
+        page.sensitive.get(j.field.fieldId) === true || j.reason !== null,
+      );
     const previous = this.#current;
     this.#current = page;
     if (previous === page) return "same";
@@ -226,6 +238,7 @@ export class PointsStepTracker {
       failures: 0,
       inFlight: false,
       quoted: new Map(),
+      sensitive: new Map(),
     };
     this.#pages.set(digest.fingerprint, page);
     return page;
@@ -259,7 +272,7 @@ export class PointsStepTracker {
    * seen again never costs a call. `failed` stops a loop on a page whose plan keeps failing. The
    * budget is taken here, so one gate covers the cap.
    */
-  beginPlan(estimatedInput = 0): PointsPlanGate {
+  beginPlan(estimatedInput: number): PointsPlanGate {
     const page = this.#current;
     if (page === undefined) return { ok: false, reason: "no_page" };
     if (page.plan !== undefined) return { ok: false, reason: "has_plan" };
@@ -471,6 +484,8 @@ export class PointsStepTracker {
   invalid(fieldId: string, errorText: string): { fieldId: string; quote: string } | undefined {
     const page = this.#current;
     if (page === undefined) return undefined;
+    // Only a field known to be non-sensitive is quoted: an unknown one never is.
+    if (page.sensitive.get(fieldId) !== false) return undefined;
     const planned = page.order.find((s) => s.fieldId === fieldId);
     if (planned?.sensitive !== undefined) return undefined;
     const quote = sanitizePointsNote(errorText, 200);
