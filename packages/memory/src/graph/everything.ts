@@ -28,6 +28,11 @@ import { monotonicFactory } from "ulid";
 import { oneLine } from "../daily.ts";
 import { blockingKinds, detectSensitive, looksLikeInstruction } from "../filters.ts";
 import {
+  type PromiseRetention,
+  type PromiseRetentionResult,
+  retainPromises,
+} from "../promises/store.ts";
+import {
   blockHash,
   hasHiddenChars,
   normalizeIdentifier,
@@ -242,6 +247,8 @@ export interface RetentionPolicy {
   untrustedAcceptedMonths: number;
   quarantineDays: number;
   runLogDays: number;
+  /** The promise ledger's retention (design 7.1). Left out, promises are not touched. */
+  promises?: PromiseRetention;
 }
 
 export interface RetentionResult {
@@ -250,6 +257,7 @@ export interface RetentionResult {
   discardedDeleted: number;
   quarantineDeleted: number;
   runsDeleted: number;
+  promises?: PromiseRetentionResult;
 }
 
 export interface EverythingStoreOptions {
@@ -1752,12 +1760,18 @@ export class EverythingStore {
       const runsDeleted = this.#db
         .prepare("DELETE FROM memory_runs WHERE started_at < ?")
         .run(iso(nowMs - policy.runLogDays * DAY_MS)).changes;
+      // The ledger runs its own secure deletes; they nest inside this block's hold.
+      const promises =
+        policy.promises === undefined
+          ? undefined
+          : retainPromises(this.#db, nowMs, policy.promises);
       return {
         pendingExpired: pending.length,
         untrustedExpired,
         discardedDeleted: discarded.length,
         quarantineDeleted,
         runsDeleted,
+        ...(promises === undefined ? {} : { promises }),
       };
     });
   }
