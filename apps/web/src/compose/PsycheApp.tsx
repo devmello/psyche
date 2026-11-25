@@ -77,7 +77,7 @@ import { DesktopHelperBanner, fixTouchId } from "./helper.tsx";
 import { kitClient } from "./kit-client.ts";
 import { renderLibraryThumbnail } from "./library-thumbnails.tsx";
 import { writeOnboarding } from "./onboarding.ts";
-import { saveHabits, saveMemory } from "./onboarding-host.ts";
+import { saveHabits, saveMemory, saveProgress } from "./onboarding-host.ts";
 import { useRemotePresence } from "./remote-presence.tsx";
 import {
   ClaimLanChoice,
@@ -451,6 +451,8 @@ export async function completeOnboarding(
     { key: ONBOARDED_KEY, value: now().toISOString() },
     { idempotencyKey: `onboarding:done:${now().getTime()}` },
   );
+  // The You answers kept for a resumed onboarding must not outlive USER.md: leave only the step.
+  await saveProgress(call, { step: "done", done: [] }).catch(() => undefined);
   if (!options.rerun) await greetMainChat(call, now);
   // A server this computer just claimed (design §3.6): last, since off can end this connection.
   if (options.keepLan !== undefined) await finishClaim(call, options.keepLan, now);
@@ -654,7 +656,13 @@ export function PsycheApp({ platform }: { platform: ShellPlatform }): ReactEleme
   const [persona, reloadPersona] = useWorkspacePersona(platform);
   const claimLan = useClaimLanChoice(platform, gate === "onboarding");
 
-  const [gatePhase, setGatePhase] = useState<string>("idle");
+  // Once the Gateway has been unreachable or unapproved, the shell stays up until it is paired:
+  // the transient connecting/challenge/verifying phases of each retry must not swap the body.
+  const [shellLatched, setShellLatched] = useState(false);
+  const noteGatePhase = (phase: string) => {
+    if (GATE_SHELL_PHASES.has(phase)) setShellLatched(true);
+    else if (phase === "paired") setShellLatched(false);
+  };
   const [gateNonce, setGateNonce] = useState(0);
   // biome-ignore lint/correctness/useExhaustiveDependencies: gateNonce re-runs the check (Retry)
   useEffect(() => {
@@ -663,7 +671,7 @@ export function PsycheApp({ platform }: { platform: ShellPlatform }): ReactEleme
     let timer: ReturnType<typeof setTimeout> | undefined;
     const check = async () => {
       const status = await platform.gateway.getStatus();
-      if (!cancelled) setGatePhase(status.phase);
+      if (!cancelled) noteGatePhase(status.phase);
       if (status.phase !== "paired") return;
       const res = (await platform.gateway.call("settings.get", { keys: [ONBOARDED_KEY] })) as {
         settings: Record<string, unknown>;
@@ -695,7 +703,7 @@ export function PsycheApp({ platform }: { platform: ShellPlatform }): ReactEleme
     void retry();
     let paired = false;
     const off = platform.gateway.onStatus((s) => {
-      if (!cancelled) setGatePhase(s.phase);
+      if (!cancelled) noteGatePhase(s.phase);
       if (s.phase === "paired" && !paired) void retry();
       paired = s.phase === "paired";
     });
@@ -850,7 +858,7 @@ export function PsycheApp({ platform }: { platform: ShellPlatform }): ReactEleme
         </button>
       </div>
     );
-  } else if (gate === "loading" && !GATE_SHELL_PHASES.has(gatePhase)) {
+  } else if (gate === "loading" && !shellLatched) {
     // Not known yet whether onboarding is done: a neutral splash, never the app (its empty main
     // chat would greet before the owner has set anything up).
     body = (

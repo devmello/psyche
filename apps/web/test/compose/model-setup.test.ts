@@ -342,6 +342,9 @@ describe("onboarding model setup: rejected and refused keys", () => {
     expect(err).toBeInstanceOf(Error);
     expect((err as { recoveryKey?: string }).recoveryKey).toBe("AAAA-BBBB-CCCC");
     expect((err as Error).message).not.toContain("AAAA-BBBB-CCCC");
+    // Hidden from JSON.stringify and spreads, so a later log of the error cannot leak it.
+    expect(JSON.stringify(err)).not.toContain("AAAA-BBBB-CCCC");
+    expect(Object.keys(err as object)).not.toContain("recoveryKey");
   });
 
   it("puts no recovery key on the error when the vault already existed", async () => {

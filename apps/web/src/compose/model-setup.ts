@@ -64,7 +64,12 @@ export async function saveProviderKey(
     // The vault was created above and its recovery key is shown once: a rejected key must not
     // lose it. The flow reads it off the error and holds it until the owner confirms.
     if (vault.recoveryKey !== undefined && err !== null && typeof err === "object") {
-      (err as { recoveryKey?: string }).recoveryKey = vault.recoveryKey;
+      // Non-enumerable: a later JSON.stringify(err) or a spread of the error cannot leak it.
+      Object.defineProperty(err, "recoveryKey", {
+        value: vault.recoveryKey,
+        enumerable: false,
+        configurable: true,
+      });
     }
     throw err;
   }

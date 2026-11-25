@@ -428,6 +428,34 @@ describe("the composed app on the web host (A8)", () => {
     await waitFor(() => expect(screen.queryByTestId("gate-loading")).toBeNull());
   });
 
+  it("keeps the shell up through connecting ticks while the Gateway is down", async () => {
+    const { platform } = webPlatform();
+    const call = platform.gateway.call;
+    platform.gateway.call = async (method, params, options) =>
+      method === "settings.get" ? new Promise(() => {}) : call(method, params, options);
+    let emit: ((s: GatewayStatus) => void) | undefined;
+    platform.gateway.onStatus = (cb) => {
+      emit = cb;
+      return () => {};
+    };
+    const view = render(<PsycheApp platform={platform} />);
+    await screen.findByTestId("gate-loading");
+    const st = (phase: GatewayStatus["phase"]): GatewayStatus => ({
+      phase,
+      health: "ok",
+      attempt: 1,
+    });
+    act(() => emit?.(st("disconnected")));
+    await waitFor(() => expect(screen.queryByTestId("gate-loading")).toBeNull());
+    const shell = view.container.querySelector("[data-testid]:not([data-testid^='gate'])");
+    expect(shell).not.toBeNull();
+    for (const phase of ["connecting", "challenge", "verifying", "disconnected", "connecting"]) {
+      act(() => emit?.(st(phase as GatewayStatus["phase"])));
+      expect(screen.queryByTestId("gate-loading")).toBeNull();
+      expect(shell?.isConnected).toBe(true);
+    }
+  });
+
   it("retries a failed settings.get with backoff, then shows an error with Retry", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     try {
