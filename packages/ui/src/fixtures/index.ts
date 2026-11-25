@@ -30,6 +30,8 @@ import type {
   OnePasswordSetupStatus,
   PairingRequest,
   PluginSummarySchema,
+  PointsSessionStatus,
+  PointsWindow,
   Receipt,
   Run,
   RunFrame,
@@ -113,6 +115,12 @@ export {
 export { subscriptionUsageSummary, usageSummary } from "./usage.ts";
 
 export interface FixtureWorld {
+  /** The Host's OS as `gateway.info` reports it (absent = not said, like an older Gateway). */
+  hostOs?: "macos" | "windows" | "linux";
+  /** The windows `points.windows` lists (Psyche points; absent = none). */
+  pointsWindows?: PointsWindow[];
+  /** The running Psyche points session (`points.start` sets it, `points.stop` clears it). */
+  pointsSession?: PointsSessionStatus;
   threads: ThreadListEntry[];
   messages: Message[];
   runs: Run[];

@@ -9,6 +9,7 @@ import { t } from "../i18n/core.ts";
 import { keysLabel } from "../lib/keys.ts";
 import { memoryHref } from "../memory-page/kinds.ts";
 import { ConnectedEntityCard } from "../people/ConnectedEntityCard.tsx";
+import { usePoints } from "../points/PointsContext.tsx";
 import { LIBRARY_SECTIONS } from "../screens/library/library-items.ts";
 import { SearchSurface, useMinWidth, useSearchSurface } from "../screens/search/SearchSurface.tsx";
 import { SETTINGS_SECTIONS } from "../screens/settings/SettingsScreen.tsx";
@@ -317,8 +318,20 @@ export function CommandPalette({
   );
   const mainBusy = useStoreState((s) => mainId !== null && selectChatBusy(s, mainId));
   const spaceActions = useSpacePaletteActions(open, onNavigate);
+  // Psyche points (docs/design/psyche-points-2026.md §6.2): offered only where it can run.
+  const points = usePoints();
   const kitActions: PaletteAction[] = [
     ...spaceActions,
+    ...(points.available
+      ? [
+          {
+            id: "points-start",
+            label: t("points.palette.start"),
+            keywords: t("points.palette.keywords"),
+            run: () => points.open({ entry: "palette" }),
+          },
+        ]
+      : []),
     ...(prefill
       ? [
           {

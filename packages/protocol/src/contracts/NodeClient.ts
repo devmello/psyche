@@ -20,6 +20,10 @@ export interface NodeInvokeOptions {
   signal?: AbortSignal;
   onEvent?: (event: NodeInvokeEvent) => void;
   timeoutMs?: number;
+  /** Called synchronously with the invocation id the registry sent the node (a streaming session keys on it). */
+  onInvocationId?: (invocationId: string) => void;
+  /** On abort, also send the node `node.cancel` for this invocation (default: only settle here). */
+  cancelOnAbort?: boolean;
 }
 
 export interface NodeReceipt {

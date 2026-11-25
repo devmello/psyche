@@ -47,6 +47,7 @@ import { overviewShared } from "./overview-shared/ko.ts";
 import { passwordPresence } from "./password-presence/ko.ts";
 import { peopleRest } from "./people-rest/ko.ts";
 import { personDataRest } from "./personData-rest/ko.ts";
+import { points } from "./points/ko.ts";
 import { researchRest } from "./research-rest/ko.ts";
 import { scheduledForm } from "./scheduled-form/ko.ts";
 import { scheduledRest } from "./scheduled-rest/ko.ts";
@@ -3948,6 +3949,8 @@ export const ko: Partial<Catalogue> = {
   ...linuxAccess,
   // the Virtual screen watch pane (docs/design/linux-desktop-2026.md §7.5)
   ...computerWatch,
+  // Psyche points (docs/design/psyche-points-2026.md §9)
+  ...points,
   // Gateway-authored notices (inbox notifications, security alerts)
   ...notices,
   // Settings > Computer use > Separate desktop (Linux)

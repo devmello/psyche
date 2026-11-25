@@ -63,6 +63,8 @@ export const MEMORY_STORE_TABLES = [
   "memory_never_rules",
   "memory_trusted_senders",
   "memory_extracted_items",
+  // Undo records for work lines (no text, no foreign keys): runRetention deletes old ones.
+  "memory_work_undo",
   "memory_claim_subjects",
   "memory_fts",
   "graph_fts",
