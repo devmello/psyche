@@ -16,6 +16,7 @@ import { Button } from "../components/ui/button.tsx";
 import { Skeleton } from "../components/ui/skeleton.tsx";
 import { useGatewayQuery } from "../data/index.ts";
 import { t } from "../i18n/core.ts";
+import { describeError } from "../i18n/errors.ts";
 import { formatDate } from "../lib/format.ts";
 import { useTeaching } from "./hooks.ts";
 
@@ -161,5 +162,5 @@ export function FeedbackList(): ReactElement {
 }
 
 function errorText(e: unknown): string {
-  return e instanceof Error ? e.message : String(e);
+  return describeError(e);
 }

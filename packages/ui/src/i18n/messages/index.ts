@@ -1,6 +1,7 @@
 import { actionErrors } from "./action-errors.ts";
 import { agent } from "./agent.ts";
 import { agentNotes } from "./agent-notes.ts";
+import { approvals } from "./approvals.ts";
 import { audit } from "./audit.ts";
 import { automationChat } from "./automation-chat.ts";
 import { blocks } from "./blocks.ts";
@@ -35,6 +36,7 @@ import { memoryMap } from "./memory-map.ts";
 import { memoryPage } from "./memory-page.ts";
 import { memoryReview } from "./memory-review.ts";
 import { memorySettings } from "./memory-settings.ts";
+import { nightShift } from "./night-shift.ts";
 import { notices } from "./notices.ts";
 import { nudges } from "./nudges.ts";
 import { onboarding } from "./onboarding.ts";
@@ -92,6 +94,7 @@ export const en = {
   ...daily,
   ...nudges,
   ...mailFollowups,
+  ...nightShift,
   ...shell,
   ...settings,
   ...settingsLanguage,
@@ -140,6 +143,7 @@ export const en = {
   ...linuxAccess,
   ...computerWatch,
   ...points,
+  ...approvals,
   ...notices,
   ...separateDesktop,
   ...keepAwake,

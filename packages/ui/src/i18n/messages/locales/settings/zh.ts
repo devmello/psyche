@@ -127,9 +127,12 @@ export const settings: Partial<Catalogue> = {
   "settings.notifications.helper.hint":
     "审批通知通过 Psyche Helper 送达。请允许它显示通知，这样窗口关闭时也能收到审批。",
   "settings.notifications.helper.allow": "允许 Psyche Helper 通知",
+  "settings.notifications.helper.denied": "通知已在“系统设置”中关闭",
+  "settings.notifications.helper.openSettings": "打开系统设置",
   "settings.notifications.description": "Psyche 何时可以打扰你。",
   "settings.notifications.group.quietHours": "免打扰时段",
-  "settings.notifications.quietHours.hint": "时段结束前暂存通知。时间紧迫的批准仍会送达。",
+  "settings.notifications.quietHours.hint":
+    "在时段结束前暂缓通知。紧急审批仍会送达。夜间记忆处理在记忆设置中有自己的时段。",
   "settings.key.ui.onboarding.progress": "引导进度",
   "settings.key.permissions.liftedFloors": "{id}无需询问即可执行的操作",
   "settings.key.specialists.maxConcurrent": "同时运行的专员数",

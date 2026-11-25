@@ -29,6 +29,8 @@ const read = (rel: string) => readFileSync(resolve(PKG, "../..", rel), "utf8");
 const reachable = new Set<string>([
   ...RAIL_ITEMS.map((i) => i.route),
   ...DEFAULT_ACTIONS.flatMap((a) => (a.route === undefined ? [] : [a.route])),
+  // The palette's Spaces entries are built from the Spaces list (`useSpacePaletteActions`).
+  "/spaces",
 ]);
 const base = (route: string) => route.split("?")[0] as string;
 

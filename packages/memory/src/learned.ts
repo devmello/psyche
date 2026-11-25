@@ -141,3 +141,82 @@ export function removeLearned(
 export function learnedLine(content: string, factId: string): string | undefined {
   return content.split("\n").find((l) => factIdOf(l) === factId);
 }
+
+// --- The prompt view ---------------------------------------------------------------------------
+
+/** `- 2026-11-01 superseded by 2026-11-05: text` (a directive the owner replaced). */
+const SUPERSEDED_DIRECTIVE = /^- \d{4}-\d{2}-\d{2} superseded by \d{4}-\d{2}-\d{2}: /;
+/** The machine tag a profile-section bullet carries: ` <!--lf_… -->`. */
+const SECTION_TAG = /\s*<!--lf_[a-z0-9]{6,32} [^>]*-->\s*$/;
+
+export interface UserPromptView {
+  text: string;
+  /** True when lines or characters were cut to fit the budget. */
+  truncated: boolean;
+}
+
+/**
+ * The compact view of `USER.md` the prompt carries (audit P6): the owner-written sections first,
+ * unchanged apart from the machine tag on profile-section bullets and directives the owner
+ * replaced; then the Learned lines newest first as `- date text`, with their `[lf_… thread:… kind]`
+ * tags dropped, as many as fit in `budget` characters. A cut leaves a marker naming how many
+ * lines are shown. The file on disk is never rewritten; this only builds prompt text.
+ *
+ * The owner part alone can exceed the budget: it is then cut from the head with a marker, and
+ * no Learned line is shown.
+ */
+export function compactUserView(
+  content: string,
+  budget: number,
+  label = "USER.md",
+): UserPromptView {
+  const lines = content.trimEnd().split("\n");
+  const owner: string[] = [];
+  const learned: { date: string; text: string; at: number }[] = [];
+  let inLearned = false;
+  let sawHeading = false;
+  lines.forEach((raw, at) => {
+    const line = raw.trimEnd();
+    if (line.trim() === LEARNED_HEADING) {
+      inLearned = true;
+      sawHeading = true;
+      return;
+    }
+    if (line.startsWith("## ")) inLearned = false;
+    if (SUPERSEDED_DIRECTIVE.test(line)) return;
+    const m = inLearned ? LINE.exec(line) : null;
+    if (m !== null) {
+      learned.push({ date: m[1] as string, text: (m[7] as string).trim(), at });
+      return;
+    }
+    owner.push(line.replace(SECTION_TAG, ""));
+  });
+  // Newest first; among the same date the line appended last wins.
+  learned.sort((a, b) => (a.date === b.date ? b.at - a.at : a.date < b.date ? 1 : -1));
+  const ownerText = owner
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trimEnd();
+  if (ownerText.length > budget) {
+    const kept = ownerText.slice(0, budget);
+    return {
+      text: `${kept}\n[truncated: ${label} owner sections are ${ownerText.length.toLocaleString("en-US")} characters; the first ${budget.toLocaleString("en-US")} are shown. The full file is in the workspace.]`,
+      truncated: true,
+    };
+  }
+  const head =
+    sawHeading || learned.length > 0 ? `${ownerText}\n\n${LEARNED_HEADING}\n` : ownerText;
+  const shown: string[] = [];
+  let used = head.length;
+  for (const l of learned) {
+    const row = `- ${l.date} ${l.text}`;
+    if (used + row.length + 1 > budget) break;
+    shown.push(row);
+    used += row.length + 1;
+  }
+  const cut = learned.length - shown.length;
+  const body = shown.join("\n");
+  if (cut === 0) return { text: `${head}${body}`.trimEnd(), truncated: false };
+  const marker = `[truncated: ${label} has ${learned.length.toLocaleString("en-US")} learned lines; the newest ${shown.length.toLocaleString("en-US")} are shown, ${cut.toLocaleString("en-US")} older left out. The full file is in the workspace.]`;
+  return { text: `${head}${body}${body === "" ? "" : "\n"}${marker}`, truncated: true };
+}

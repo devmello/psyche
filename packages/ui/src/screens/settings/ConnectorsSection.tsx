@@ -651,6 +651,15 @@ export interface ConnectorsSectionProps {
 
 export type ConnectorsView = "mcp" | "add-mcp";
 
+/**
+ * The connectors to re-check when the window gets focus: those whose macOS grant was denied,
+ * which the owner fixes in System Settings and then comes back. A denied grant cannot raise a
+ * prompt, so the check is silent; one macOS has not asked about yet waits for Check again.
+ */
+export function connectorsToRecheck(connectors: readonly Connector[]): Connector[] {
+  return connectors.filter((c) => c.status === "needs_auth" && permissionOf(c)?.state === "denied");
+}
+
 export function ConnectorsSection({
   persona,
   view,
@@ -699,6 +708,18 @@ export function ConnectorsSection({
   };
   // Check again asks macOS when it has not decided yet (#570), not just re-reading the state.
   const check = (c: Connector) => void reconnect(c, "check");
+  // The owner comes back from System Settings: re-check each grant macOS had denied.
+  const recheck = useRef(check);
+  recheck.current = check;
+  const listed = useRef(connectors);
+  listed.current = connectors;
+  useEffect(() => {
+    const onFocus = () => {
+      for (const c of connectorsToRecheck(listed.current)) recheck.current(c);
+    };
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, []);
   // Connect drives the real sign-in unless the host supplies its own (#505).
   const flow = useConnectorConnect();
   const builtIn = props.onConnect === undefined;

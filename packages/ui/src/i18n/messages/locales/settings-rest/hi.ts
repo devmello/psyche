@@ -165,10 +165,12 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.notifications.helper.hint":
     "स्वीकृति की सूचनाएँ Psyche Helper से आती हैं। उसे इन्हें दिखाने की अनुमति दें, ताकि विंडो बंद होने पर भी स्वीकृतियाँ आप तक पहुँचें।",
   "settings.notifications.helper.allow": "Psyche Helper की सूचनाओं की अनुमति दें",
+  "settings.notifications.helper.denied": "सिस्टम सेटिंग्स में सूचनाएँ बंद हैं",
+  "settings.notifications.helper.openSettings": "सिस्टम सेटिंग्स खोलें",
   "settings.notifications.description": "Psyche कब आपको टोक सकता है।",
   "settings.notifications.group.quietHours": "शांत घंटे",
   "settings.notifications.quietHours.hint":
-    "इस अवधि के खत्म होने तक नोटिफ़िकेशन रोके रखता है। समय-संवेदनशील स्वीकृतियाँ फिर भी आती हैं।",
+    "समय-सीमा खत्म होने तक सूचनाएँ रोककर रखता है। समय-संवेदनशील अनुमतियाँ फिर भी आती हैं। रात के मेमोरी पास के घंटे अलग हैं, मेमोरी सेटिंग्स में।",
   "settings.key.ui.onboarding.progress": "ऑनबोर्डिंग की प्रगति",
   "settings.key.permissions.liftedFloors": "{id} के लिए बिना पूछे अनुमत कार्रवाइयाँ",
   "settings.key.specialists.maxConcurrent": "एक साथ स्पेशलिस्ट",

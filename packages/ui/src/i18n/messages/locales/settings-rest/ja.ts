@@ -169,10 +169,12 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.notifications.helper.hint":
     "承認の通知は Psyche Helper 経由で届きます。ウインドウを閉じていても承認が届くよう、通知の表示を許可してください。",
   "settings.notifications.helper.allow": "Psyche Helper の通知を許可",
+  "settings.notifications.helper.denied": "通知はシステム設定でオフになっています",
+  "settings.notifications.helper.openSettings": "システム設定を開く",
   "settings.notifications.description": "Psycheが割り込んでよいタイミング。",
   "settings.notifications.group.quietHours": "おやすみ時間",
   "settings.notifications.quietHours.hint":
-    "設定した時間が終わるまで通知を保留します。時間に制約のある承認は通常どおり届きます。",
+    "時間帯が終わるまで通知を保留します。急ぎの承認は届きます。夜間のメモリ処理には、メモリ設定に別の時間帯があります。",
   "settings.key.ui.onboarding.progress": "オンボーディングの進行状況",
   "settings.key.permissions.liftedFloors": "{id}で確認なしに許可する操作",
   "settings.key.specialists.maxConcurrent": "同時に動くスペシャリスト数",

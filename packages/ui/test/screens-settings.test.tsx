@@ -1261,7 +1261,7 @@ describe("Security settings need approval with presence (security §10)", () => 
 
   async function approve(banner: HTMLElement) {
     await waitFor(() => expect(within(banner).queryByText("Loading the approval…")).toBeNull());
-    const button = within(banner).getByRole("button", { name: "Allow with scope" });
+    const button = within(banner).getByRole("button", { name: "Allow" });
     await waitFor(() => expect((button as HTMLButtonElement).disabled).toBe(false));
     await userEvent.click(button);
   }

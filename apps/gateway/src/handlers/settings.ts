@@ -11,7 +11,9 @@ import type { Call, HandlerDef } from "../context.ts";
 import { LAN_SETTING, parseLanSettings } from "../lan/settings.ts";
 import { HOST_HELPER_PIN_SETTING } from "../nodes/registry.ts";
 import { requireFreshPresence } from "../presence-gate.ts";
+import { isPromiseSourceKey, requireDesktopShell } from "../promise-scrub.ts";
 import { redactMcpServers } from "../redact.ts";
+import { settingsRegistry } from "../settings-registry.ts";
 import { INTERNAL_SETTING_PREFIX } from "../state-version.ts";
 import { isNarrowing } from "./settings-narrowing.ts";
 
@@ -266,6 +268,13 @@ export const settingsHandlers: Record<string, HandlerDef> = {
           { details: { reason: "use_mcp_methods" } },
         );
       }
+      // Which sources the promise ledger reads (mail, Messages, meetings, chat) is the owner's
+      // call on this Mac: a remote device can neither switch one on nor off (promise scrub).
+      if (isPromiseSourceKey(key))
+        requireDesktopShell(
+          call,
+          "Changing what the promise ledger reads, whom it mutes, or whether it is on",
+        );
       // `gateway.lan` is stored in its normalized form, and a malformed or wildcard value is
       // refused before anything (including the presence card) is created for it.
       let value = key === LAN_SETTING ? parseLanSettings(params.value) : params.value;
@@ -286,6 +295,8 @@ export const settingsHandlers: Record<string, HandlerDef> = {
       if (isAdminSettingKey(key) && !call.identity.scopes.includes("operator.admin")) {
         throw new PsycheError("forbidden", `Changing ${key} requires operator.admin`);
       }
+      // Known keys only, with typed values (settings-registry.ts). Before any card is made.
+      value = settingsRegistry.validate(key, value);
       let foldersAtStart: string[] | undefined;
       if (key === "permissions.policy") {
         value = expandPolicyFolders(value, getSetting(call.ctx.db, key)?.value);

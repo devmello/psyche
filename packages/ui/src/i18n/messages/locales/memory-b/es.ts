@@ -54,8 +54,10 @@ export const memoryB: Partial<Catalogue> = {
     "También los datos que aún esperan revisión, marcados como no confirmados.",
   "everything.agent.sensitive": "El agente puede ver datos sensibles",
   "everything.schedule.title": "Horario nocturno",
-  "everything.schedule.quietStart": "Inicio de las horas de silencio",
-  "everything.schedule.quietEnd": "Fin de las horas de silencio",
+  "everything.schedule.quietStart": "Inicio del pase nocturno",
+  "everything.schedule.quietEnd": "Fin del pase nocturno",
+  "everything.schedule.hint":
+    "Cuándo puede Psyche leer y ordenar lo que aprendió. No son las horas de silencio de las notificaciones.",
   "everything.schedule.battery": "Ejecutar con batería",
   "everything.schedule.batteryHint":
     "Desactivado: solo con el cargador conectado, sin el modo de bajo consumo y mientras estás ausente.",
@@ -78,7 +80,7 @@ export const memoryB: Partial<Catalogue> = {
   "everything.run.reason.low_power": "Ahora no: el modo de bajo consumo está activado.",
   "everything.run.reason.thermal": "Ahora no: el Mac está demasiado caliente.",
   "everything.run.reason.not_idle": "Ahora no: estás usando el Mac.",
-  "everything.run.reason.outside_quiet_hours": "Ahora no: fuera de las horas de silencio.",
+  "everything.run.reason.outside_quiet_hours": "Ahora no: fuera del horario del pase nocturno.",
   "everything.run.reason.local_not_confirmed":
     "Confirma primero el aviso de memoria del modelo local.",
   "everything.run.reason.low_memory":

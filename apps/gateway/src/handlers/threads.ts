@@ -26,7 +26,7 @@ import {
 } from "@psyche/protocol";
 import { automationIdOfThreadKey } from "@psyche/scheduler";
 import { assertFullAccessAllowed } from "../compose/threads.ts";
-import type { Call, HandlerDef } from "../context.ts";
+import type { Call, HandlerDef, ThreadEndingWhy } from "../context.ts";
 import { assertWritableThread, importConversations } from "../session/imported-threads.ts";
 
 /** The owner's one persistent main thread (feature E1). */
@@ -182,6 +182,7 @@ function patch(
  */
 export async function removeThread(call: Call, threadId: string): Promise<void> {
   const { ctx } = call;
+  endingConversation(ctx, threadId, { deleted: true });
   await ctx.sessions.closeThread(threadId, () => {
     deleteThread(ctx.db, threadId);
     deleteAgentThreadState(ctx.db, threadId);
@@ -189,6 +190,24 @@ export async function removeThread(call: Call, threadId: string): Promise<void> 
   });
   endConversation(ctx, threadId);
   ctx.bus.publish("thread.deleted", { threadId }, threadId);
+}
+
+/**
+ * The conversation is about to end (Clear chat or delete is the next synchronous step): listeners
+ * that need the transcript take a snapshot now. A listener never fails the clear or the delete.
+ */
+export function endingConversation(
+  ctx: Call["ctx"],
+  threadId: string,
+  why: ThreadEndingWhy = {},
+): void {
+  for (const listener of ctx.threadEnding ?? []) {
+    try {
+      listener(threadId, why);
+    } catch {
+      // Swallowed on purpose.
+    }
+  }
 }
 
 /** The conversation is over (cleared or deleted): what was granted to it alone ends. */
@@ -264,7 +283,8 @@ export const threadsHandlers: Record<string, HandlerDef> = {
       },
     ) {
       const { db } = call.ctx;
-      const kind = params.kind ?? "main";
+      // A missing kind is a new side chat: it must never answer with the existing main thread.
+      const kind = params.kind ?? "side";
       if (kind !== "main" && kind !== "side" && kind !== "incognito") {
         throw new PsycheError(
           "invalid_params",
@@ -343,9 +363,16 @@ export const threadsHandlers: Record<string, HandlerDef> = {
           params.spaceId !== undefined &&
           spaceMode !== undefined &&
           MODE_STRICTNESS[spaceMode] < MODE_STRICTNESS[reuse.permissionMode ?? "balanced"];
+        // A new chat never starts in Full access: an empty chat left in it starts over in the
+        // mode a new chat gets (Full access is turned on per chat, by the owner, each time).
+        const leftFull = reuse.permissionMode === "full";
         const thread = updateThread(db, reuse.id, {
           spaceId: params.spaceId ?? null,
-          ...(narrower ? { permissionMode: spaceMode } : {}),
+          ...(leftFull
+            ? { permissionMode: spaceMode ?? "balanced" }
+            : narrower
+              ? { permissionMode: spaceMode }
+              : {}),
         }) as Thread;
         return { thread, reused: true };
       }

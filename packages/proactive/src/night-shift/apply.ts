@@ -21,10 +21,10 @@ import {
 import { toolCallBindingHash } from "@psyche/protocol/binding";
 import { type ChildBroker, type ChildOutcome, runChild } from "../exec/run-children.ts";
 import type { ToolLookup } from "../proposals/service.ts";
-import { asRecord, bareTool, splitTool, stable, toolPrefix } from "./adapters/common.ts";
-import { adapterFor, type ConnectorTypes } from "./adapters/index.ts";
-import { hasHiddenContent } from "./adapters/mail.ts";
-import type { Adapter, CaptureOk, Json, StagedCall } from "./adapters/types.ts";
+import { asRecord, bareTool, splitTool, stable, toolPrefix } from "../staged/adapters/common.ts";
+import { adapterFor, type ConnectorTypes } from "../staged/adapters/index.ts";
+import { hasHiddenContent } from "../staged/adapters/mail.ts";
+import type { Adapter, CaptureOk, Json, StagedCall } from "../staged/adapters/types.ts";
 import { callFromItem, captureFromItem, sendFor } from "./stager.ts";
 import type { NightStore } from "./store.ts";
 

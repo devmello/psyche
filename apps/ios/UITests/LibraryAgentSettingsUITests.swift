@@ -5,7 +5,9 @@ final class LibraryUITests: PsycheUITestCase {
         launch()
         openTab("Library")
         waitFor(match("lease-2026.pdf"))
-        for (section, item) in [("Images", "Quartz sample.jpg"), ("Artifacts", "Kitchen budget"), ("Downloads", "renters-policy-2026.pdf"), ("Documents", "lease-2026.pdf")] {
+        for (section, item) in [("Images", "Quartz sample.jpg"), ("Artifacts", "Q3 review"), ("Downloads", "renters-policy-2026.pdf"), ("Documents", "lease-2026.pdf")] {
+            // The sections sit behind the toolbar filter menu.
+            app.buttons["Filter"].firstMatch.tap()
             app.buttons[section].firstMatch.tap()
             waitFor(match(item), 5)
         }
@@ -18,7 +20,7 @@ final class LibraryUITests: PsycheUITestCase {
         waitFor(app.staticTexts["Delete this file?"].firstMatch, 5)
         tapWhenHittable(lastButton("Delete"))
         // Back on the list, the item is gone.
-        waitFor(app.buttons["Documents"].firstMatch, 10)
+        waitFor(app.buttons["Filter"].firstMatch, 10)
         waitGone(app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "lease-2026.pdf")).firstMatch, 5)
     }
 
@@ -31,6 +33,17 @@ final class LibraryUITests: PsycheUITestCase {
         waitFor(app.buttons["Photos"], 5)
         waitFor(app.buttons["Files"], 5)
         waitFor(app.buttons["Scan document"], 5)
+    }
+}
+
+extension PsycheUITestCase {
+    /// The agent sheet's running-task row, scrolled into view (the sheet opens at a medium detent): Cancel is behind
+    /// its trailing swipe.
+    var runningTaskRow: XCUIElement {
+        let title = app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", "Drafting the Q3 review summary")).firstMatch
+        _ = title.waitForExistence(timeout: 10)
+        for _ in 0..<4 where !title.isHittable { app.swipeUp() }
+        return title
     }
 }
 
@@ -47,13 +60,15 @@ final class AgentSheetUITests: PsycheUITestCase {
             segments.buttons[name].tap()
         }
         waitFor(match("Drafting the Q3 review summary"), 5)
+        // Cancel is a swipe action on the running task's row (and in its context menu).
+        runningTaskRow.swipeLeft()
         app.buttons["Cancel"].firstMatch.tap()
         // "Keep running" is the dialog's cancel role, which iPhone draws as a tap-outside; "Cancel task" is the action.
         let confirm = app.buttons["Cancel task"]
         waitFor(confirm, 5)
         confirm.tap()
-        // The running task leaves the sheet's Now list, so its Cancel button is gone.
-        waitGone(app.buttons["Cancel"].firstMatch, 8)
+        // The dialog closes once the Gateway took the cancel.
+        waitGone(confirm, 8)
     }
 }
 
@@ -68,7 +83,7 @@ final class SettingsUITests: PsycheUITestCase {
         toggle.switches.firstMatch.exists ? toggle.switches.firstMatch.tap() : toggle.tap()
         XCTAssertNotEqual(toggle.value as? String, before)
         let after = toggle.value as? String
-        app.buttons["Done"].tap()
+        app.navigationBars["Settings"].buttons["Done"].tap()
         waitGone(app.navigationBars["Settings"], 5)
         openSettings()
         let again = app.switches["Face ID for approvals"]
@@ -112,12 +127,17 @@ final class StatesUITests: PsycheUITestCase {
         // Home rows say why they can't be opened and are not buttons.
         waitFor(match("reconnect to answer"))
         XCTAssertFalse(needsYouRow("Pay the electricity bill").exists)
-        // The agent sheet's Cancel is off too.
+        // The agent sheet's Cancel is gone too.
         let avatar = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Open Psyche's activity")).firstMatch
         avatar.tap()
-        let cancel = app.buttons["Cancel"].firstMatch
-        waitFor(cancel)
-        XCTAssertFalse(cancel.isEnabled)
+        waitFor(app.staticTexts["Drafting the Q3 review summary"].firstMatch)
+        let row = runningTaskRow
+        let rowFrame = row.frame
+        row.swipeLeft()
+        // Away from home Cancel is not offered on the sheet's row (the live test above is the positive control; the
+        // Home card behind the sheet has its own Cancel, so look only where the row is).
+        let cancels = app.buttons.matching(identifier: "Cancel").allElementsBoundByIndex
+        XCTAssertFalse(cancels.contains { $0.frame.intersects(rowFrame) })
     }
 
     func testUnpairedShowsPairingAndTryItEntersTheApp() {

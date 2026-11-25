@@ -172,10 +172,13 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.notifications.helper.hint":
     "Freigabe-Benachrichtigungen kommen über Psyche Helper. Erlaube ihm, sie anzuzeigen, damit Freigaben dich auch bei geschlossenem Fenster erreichen.",
   "settings.notifications.helper.allow": "Benachrichtigungen von Psyche Helper erlauben",
+  "settings.notifications.helper.denied":
+    "Mitteilungen sind in den Systemeinstellungen ausgeschaltet",
+  "settings.notifications.helper.openSettings": "Systemeinstellungen öffnen",
   "settings.notifications.description": "Wann Psyche dich unterbrechen darf.",
   "settings.notifications.group.quietHours": "Ruhezeiten",
   "settings.notifications.quietHours.hint":
-    "Hält Mitteilungen bis zum Ende des Zeitfensters zurück. Zeitkritische Genehmigungen kommen trotzdem durch.",
+    "Hält Benachrichtigungen zurück, bis das Zeitfenster endet. Zeitkritische Freigaben kommen trotzdem durch. Der nächtliche Gedächtnis-Durchlauf hat eigene Zeiten in den Gedächtnis-Einstellungen.",
   "settings.key.ui.onboarding.progress": "Fortschritt der Einführung",
   "settings.key.permissions.liftedFloors": "Ohne Nachfragen erlaubte Aktionen für {id}",
   "settings.key.specialists.maxConcurrent": "Spezialisten gleichzeitig",

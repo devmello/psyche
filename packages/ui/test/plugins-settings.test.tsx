@@ -164,7 +164,7 @@ describe("Settings → Plugins", () => {
     const pick = vi.fn(async () => "/Users/me/plugins/neat");
     const gateway = setup(undefined, pick);
     await userEvent.click(await screen.findByRole("button", { name: "Install from folder…" }));
-    const card = await screen.findByRole("button", { name: "Allow with scope" });
+    const card = await screen.findByRole("button", { name: "Allow" });
     expect(methods(gateway())).not.toContain("plugins.install");
     await waitFor(() => expect((card as HTMLButtonElement).disabled).toBe(false));
     await userEvent.click(card);
@@ -202,7 +202,7 @@ describe("Settings → Plugins", () => {
     const gateway = setup(undefined, pick);
     gateway().failNext("plugins.install", "unavailable", "the plugin store is locked");
     await userEvent.click(await screen.findByRole("button", { name: "Install from folder…" }));
-    const card = await screen.findByRole("button", { name: "Allow with scope" });
+    const card = await screen.findByRole("button", { name: "Allow" });
     await waitFor(() => expect((card as HTMLButtonElement).disabled).toBe(false));
     await userEvent.click(card);
     expect(

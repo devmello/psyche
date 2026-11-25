@@ -5,6 +5,7 @@ import {
   assignProjects,
   CardSync,
   createGraphHandlers,
+  createLoopVisibility,
   EverythingStore,
   ensureDreamingAutomation,
   entityRecall,
@@ -18,6 +19,7 @@ import {
   isGraphCard,
   type Launcher,
   type LaunchRequest,
+  type LoopVisibility,
   type MeetingPrep,
   type MemoryEvent,
   type ModelPassReport,
@@ -25,6 +27,7 @@ import {
   type NightlyStep,
   runGraphModelPass,
   runGraphPoll,
+  runLoopRemoteVisibleBackfill,
   type SchedulerLike,
   type SqliteMemoryStore,
   suggestProjects,
@@ -48,9 +51,11 @@ import {
 } from "@psyche/search";
 import type { Call, HandlerDef } from "../context.ts";
 import { accountFullName } from "../platform.ts";
+import { type PromiseViewer, viewerOfCall } from "../promise-scrub.ts";
 import type { Gateway } from "../server.ts";
 import { everythingSettings } from "./everything.ts";
 import { mountParamsOnly } from "./handlers.ts";
+import { budgetedProvider } from "./nightly-budget.ts";
 import { MAX_DOC_ID_CHARS } from "./search-open.ts";
 import type { ComposedPart } from "./services.ts";
 
@@ -175,6 +180,8 @@ export interface People {
   readonly agentAccess: () => AgentMemoryAccess;
   readonly cards: CardSync;
   readonly handlers: GraphHandlers;
+  /** Which loops and promises a remote viewer may see (promise scrub; `remote_visible`). */
+  readonly loopVisibility: LoopVisibility;
   readonly settings: () => GraphSettings;
   /** Owner edits of card files reach the graph (wire to the memory store's `onEvent`). */
   onMemoryEvent(event: MemoryEvent): void;
@@ -204,6 +211,18 @@ export interface People {
   afterRun(): Promise<ModelPassReport | undefined>;
   /** The nightly graph step, for tests. */
   readonly nightly: NightlyStep;
+  /**
+   * The model pass inside everything memory's nightly window (one shared token budget): runs the
+   * graph model pass within `tokensLeft` for the pending entities that `covered` does not hold,
+   * and returns what it spent (never more than `tokensLeft`).
+   */
+  modelPass(tokensLeft: number, covered: ReadonlySet<string>): Promise<{ tokens: number }>;
+  /**
+   * Binds whether everything memory's nightly pass runs the model pass now. While it does, the
+   * graph's own nightly step does retention and projects only: the model pass runs once, inside
+   * that window, on the shared budget.
+   */
+  useModelWindow(owns: () => boolean): void;
   /** Entity recall (§6.3) for the agent loop's `contextProviders`. */
   readonly recall: TurnContextProvider;
   part(scheduler: SchedulerLike, timezone: string): ComposedPart;
@@ -212,6 +231,8 @@ export interface People {
 export function composePeople(deps: PeopleDeps): People {
   const { db, clock, memory } = deps;
   const settings = () => graphSettings(getSetting(db, GRAPH_SETTING)?.value);
+  /** `promises.enabled`: the promise lane extracts promises, so the model pass stops asking for loops. */
+  const ledgerOn = (): boolean => getSetting(db, "promises.enabled")?.value === true;
   const index = new SqliteSearchIndex(db.sqlite, { now: () => clock.now() });
   let graph: GraphStore | undefined;
   const reindex = async (id: string) => {
@@ -240,6 +261,13 @@ export function composePeople(deps: PeopleDeps): People {
   const store = graph;
   let gistSources: GistSources | undefined;
   store.backfillTitleTrust();
+  // Loops written before `remote_visible` was set stay visible to the owner's own devices unless
+  // they have a Messages marker (promise scrub). Once, in code so the encrypted store gets it too.
+  // The cursor is set only once it finished: a failure is retried at the next start.
+  runLoopRemoteVisibleBackfill(deps.memorySqlite ?? db.sqlite, {
+    get: (name) => store.cursor(name),
+    set: (name, value) => store.setCursor(name, value),
+  });
   // Conversation gists follow the same sensitive-class switches as learned facts (§2.6).
   store.setSensitiveSwitches(
     () => everythingSettings(getSetting(db, EVERYTHING_MEMORY_SETTING_KEY)?.value).sensitive,
@@ -255,7 +283,9 @@ export function composePeople(deps: PeopleDeps): People {
     entities: number;
     tokens: number;
   } | null;
+  const loopVisibility = createLoopVisibility(deps.memorySqlite ?? db.sqlite);
   const base = createGraphHandlers(store, {
+    loopVisibility,
     cards,
     memory,
     settings: () => {
@@ -361,7 +391,7 @@ export function composePeople(deps: PeopleDeps): People {
         maxEntitiesPerNight: AFTER_RUN_ENTITIES,
         maxTokensPerNight: AFTER_RUN_TOKENS,
       },
-      { clock, only: ids },
+      { clock, only: ids, ledgerOn: ledgerOn() },
     );
     for (const id of ids) {
       const e = store.getEntity(id);
@@ -446,6 +476,66 @@ export function composePeople(deps: PeopleDeps): People {
     }
   };
 
+  /** Re-renders the cards of the entities a pass changed. */
+  const flushCards = async (ids: Iterable<string>) => {
+    for (const id of ids) {
+      const entity = store.getEntity(id);
+      if (entity === undefined || (entity.kind !== "person" && entity.kind !== "project")) continue;
+      if (entity.cardPath != null || entity.summary != null)
+        await cards.write(id).catch(() => undefined);
+    }
+  };
+  const recordPass = (report: ModelPassReport) => {
+    lastPass = {
+      at: new Date(clock.now()).toISOString(),
+      entities: report.entities,
+      tokens: report.tokens,
+    };
+    store.setCursor(LAST_PASS_CURSOR, lastPass);
+  };
+  let modelWindowOwned: () => boolean = () => false;
+
+  /**
+   * The model pass for everything memory's window: the entities its own pass already read items
+   * about are left out, and the graph pass spends at most `tokensLeft` (a hard limit on every
+   * call), within its own per-night caps.
+   */
+  const modelPass = async (
+    tokensLeft: number,
+    covered: ReadonlySet<string>,
+  ): Promise<{ tokens: number }> => {
+    const s = settings();
+    if (!s.enabled || !s.model.nightly) return { tokens: 0 };
+    const limit = Math.min(Math.floor(tokensLeft), s.model.maxTokensPerNight);
+    if (limit <= 0) return { tokens: 0 };
+    const cap = s.model.maxEntitiesPerNight;
+    const pending = store
+      .pendingForModel(cap * 2 + covered.size)
+      .filter((p) => !covered.has(p.id))
+      .slice(0, cap * 2);
+    if (pending.length === 0) return { tokens: 0 };
+    const own = touched === null;
+    if (own) touched = new Set();
+    try {
+      const provider = budgetedProvider(deps.provider, limit);
+      const report = await runGraphModelPass(
+        store,
+        {
+          provider,
+          model: deps.model,
+          maxEntitiesPerNight: cap,
+          maxTokensPerNight: limit,
+        },
+        { clock, only: pending.map((p) => p.id), ledgerOn: ledgerOn() },
+      );
+      recordPass({ ...report, tokens: provider.spent() });
+      await flushCards(touched ?? []);
+      return { tokens: provider.spent() };
+    } finally {
+      if (own) touched = null;
+    }
+  };
+
   const nightly: NightlyStep = async () => {
     const s = settings();
     if (!s.enabled || !s.model.nightly) return undefined;
@@ -454,30 +544,26 @@ export function composePeople(deps: PeopleDeps): People {
       store.retention();
       const assigned = assignProjects(store, clock);
       const suggested = suggestProjects(store, clock);
-      const report = await runGraphModelPass(
-        store,
-        {
-          provider: deps.provider,
-          model: deps.model,
-          maxEntitiesPerNight: s.model.maxEntitiesPerNight,
-          maxTokensPerNight: s.model.maxTokensPerNight,
-        },
-        { clock },
-      );
-      lastPass = {
-        at: new Date(clock.now()).toISOString(),
-        entities: report.entities,
-        tokens: report.tokens,
-      };
-      store.setCursor(LAST_PASS_CURSOR, lastPass);
-      for (const id of touched) {
-        const entity = store.getEntity(id);
-        if (entity === undefined || (entity.kind !== "person" && entity.kind !== "project"))
-          continue;
-        if (entity.cardPath != null || entity.summary != null)
-          await cards.write(id).catch(() => undefined);
-      }
-      return `people graph: ${report.entities} updated, ${report.facts} facts, ${report.loops} loops, ${assigned.assigned + suggested.suggestions} project changes${report.deferred > 0 ? `, ${report.deferred} left for tomorrow` : ""}`;
+      // While everything memory's window owns the model pass, it runs there (after its own pass,
+      // on the shared budget, skipping the entities it covered): never twice in one night.
+      const report = modelWindowOwned()
+        ? undefined
+        : await runGraphModelPass(
+            store,
+            {
+              provider: deps.provider,
+              model: deps.model,
+              maxEntitiesPerNight: s.model.maxEntitiesPerNight,
+              maxTokensPerNight: s.model.maxTokensPerNight,
+            },
+            { clock, ledgerOn: ledgerOn() },
+          );
+      if (report !== undefined) recordPass(report);
+      await flushCards(touched);
+      const projects = assigned.assigned + suggested.suggestions;
+      if (report === undefined)
+        return `people graph: ${projects} project changes, model pass runs with everything memory`;
+      return `people graph: ${report.entities} updated, ${report.facts} facts, ${report.loops} loops, ${projects} project changes${report.deferred > 0 ? `, ${report.deferred} left for tomorrow` : ""}`;
     } finally {
       touched = null;
     }
@@ -587,6 +673,7 @@ export function composePeople(deps: PeopleDeps): People {
     cards,
     recall,
     handlers,
+    loopVisibility,
     settings,
     useGistSources(sources) {
       gistSources = sources;
@@ -607,13 +694,17 @@ export function composePeople(deps: PeopleDeps): People {
     afterRun,
     meetingPrep: (query) => meetingPrep(store, { ...query, now: clock.now() }),
     nightly,
+    modelPass,
+    useModelWindow(owns) {
+      modelWindowOwned = owns;
+    },
     part(scheduler, timezone) {
       let unsubscribe: (() => void) | undefined;
       let timer: ReturnType<typeof setInterval> | undefined;
       const interval = deps.pollIntervalMs ?? DEFAULT_GRAPH_POLL_MS;
       return {
         handlers: withGistSources(
-          mountParamsOnly(handlers as never),
+          withLoopViewer(mountParamsOnly(handlers as never), handlers),
           () => gistSources,
           (id) => store.externalRefOf(id),
         ),
@@ -643,6 +734,25 @@ export function composePeople(deps: PeopleDeps): People {
       };
     },
   };
+}
+
+/** The `memory.*` methods that carry loops, which read who is asking (promise scrub). */
+const LOOP_METHODS = ["memory.loops.list", "memory.loops.update", "memory.entities.get"] as const;
+
+/**
+ * Passes the caller's view to the loop methods: the desktop shell sees everything, every other
+ * caller gets the remote scrub (`promise-scrub.ts`). Never read from the request params.
+ */
+export function withLoopViewer(
+  mounted: Record<string, HandlerDef>,
+  handlers: GraphHandlers,
+): Record<string, HandlerDef> {
+  const out = { ...mounted };
+  for (const name of LOOP_METHODS) {
+    const run = handlers[name] as (params: never, viewer: PromiseViewer) => Promise<unknown>;
+    out[name] = { run: (call: Call, params: never) => run(params, viewerOfCall(call)) };
+  }
+  return out;
 }
 
 /**

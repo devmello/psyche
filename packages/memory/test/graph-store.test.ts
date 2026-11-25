@@ -260,13 +260,19 @@ describe("facts (§4.3)", () => {
     });
     expect(b?.superseded).toBe(a?.fact.id);
     expect(b?.fact.sources).toEqual(["owner_feedback:lesson:L1"]);
-    expect(
-      g.setFact({ entityId: sam.id, attribute: "role", value: "Intern", provenance: "agent" }),
-    ).toBeUndefined();
+    // Not silently dropped: it becomes one pending conflict, and does not change what is known.
+    const intern = g.setFact({
+      entityId: sam.id,
+      attribute: "role",
+      value: "Intern",
+      provenance: "agent",
+    });
+    expect(intern?.fact.review).toBe("pending");
+    expect(intern?.superseded).toBeNull();
     expect(g.facts(sam.id).map((f) => [f.attribute, f.value])).toEqual([
       ["role", "Head of product"],
     ]);
-    const history = g.history(sam.id, "role").facts;
+    const history = g.history(sam.id, "role").facts.filter((f) => f.review === "accepted");
     expect(history.map((f) => f.value)).toEqual(["Head of product", "Designer"]);
     expect(history[1]?.supersededBy).toBe(b?.fact.id);
     expect(history[1]?.validTo).not.toBeNull();

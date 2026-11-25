@@ -168,10 +168,12 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.notifications.helper.hint":
     "승인 알림은 Psyche Helper를 통해 도착합니다. 창이 닫혀 있어도 승인 요청을 받을 수 있도록 알림 표시를 허용해 주세요.",
   "settings.notifications.helper.allow": "Psyche Helper 알림 허용",
+  "settings.notifications.helper.denied": "시스템 설정에서 알림이 꺼져 있습니다",
+  "settings.notifications.helper.openSettings": "시스템 설정 열기",
   "settings.notifications.description": "Psyche가 방해해도 되는 시간입니다.",
   "settings.notifications.group.quietHours": "방해 금지 시간",
   "settings.notifications.quietHours.hint":
-    "설정한 시간이 끝날 때까지 알림을 보류합니다. 시간이 중요한 승인은 그대로 전달됩니다.",
+    "시간대가 끝날 때까지 알림을 보류합니다. 시간이 중요한 승인은 그대로 전달됩니다. 야간 메모리 처리의 시간은 메모리 설정에 따로 있습니다.",
   "settings.key.ui.onboarding.progress": "온보딩 진행 상황",
   "settings.key.permissions.liftedFloors": "{id}에서 묻지 않고 허용하는 작업",
   "settings.key.specialists.maxConcurrent": "동시에 실행할 전문가 수",

@@ -135,7 +135,7 @@ Fixed in the follow-up PR ("every Settings button does something, or is gone"):
   credentials (VM mode), and Server's VM start/stop (no Gateway method; VM mode is that pane).
   The keys stay in the protocol; a control comes back when its reader exists.
 
-Still open: quiet hours twice (different meanings, §5), and about 75 controls explained only by
+Quiet hours twice: resolved in copy. The two settings now have distinct labels, "Do not disturb hours" (Notifications, when Psyche may interrupt) and "Memory pass hours" (Everything memory, when the nightly pass may run); behaviour unchanged. Still open: about 75 controls explained only by
 their group's description.
 
 ## 7. Essentials, safe defaults, and access by asking

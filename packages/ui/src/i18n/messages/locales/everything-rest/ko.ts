@@ -110,8 +110,10 @@ export const everythingRest: Partial<Catalogue> = {
   "everything.agent.allHint": "검토 대기 중인 사실도 미확인으로 표시해 포함합니다.",
   "everything.agent.sensitive": "에이전트가 민감한 사실을 볼 수 있게 허용",
   "everything.schedule.title": "야간 일정",
-  "everything.schedule.quietStart": "방해 금지 시간 시작",
-  "everything.schedule.quietEnd": "방해 금지 시간 종료",
+  "everything.schedule.quietStart": "야간 처리 시작",
+  "everything.schedule.quietEnd": "야간 처리 종료",
+  "everything.schedule.hint":
+    "Psyche가 배운 내용을 읽고 정리해도 되는 시간입니다. 알림의 방해 금지 시간과는 별개입니다.",
   "everything.schedule.battery": "배터리 사용 중에도 실행",
   "everything.schedule.batteryHint":
     "꺼짐: 전원이 연결되어 있고, 저전력 모드가 아니며, 자리를 비운 동안에만 실행합니다.",
@@ -135,8 +137,7 @@ export const everythingRest: Partial<Catalogue> = {
   "everything.run.reason.low_power": "지금은 실행할 수 없습니다: 저전력 모드가 켜져 있습니다.",
   "everything.run.reason.thermal": "지금은 실행할 수 없습니다: Mac의 온도가 너무 높습니다.",
   "everything.run.reason.not_idle": "지금은 실행할 수 없습니다: Mac을 사용 중입니다.",
-  "everything.run.reason.outside_quiet_hours":
-    "지금은 실행할 수 없습니다: 방해 금지 시간이 아닙니다.",
+  "everything.run.reason.outside_quiet_hours": "지금은 실행하지 않음: 야간 처리 시간이 아닙니다.",
   "everything.run.reason.local_not_confirmed": "먼저 로컬 모델의 메모리 경고를 확인하십시오.",
   "everything.run.reason.low_memory":
     "지금은 실행할 수 없습니다: 로컬 모델에 쓸 여유 메모리가 부족합니다.",

@@ -24,7 +24,12 @@ import {
   execReviewFacts,
   reviewFailClosed,
 } from "./exec-review.ts";
-import { fullAccessHold } from "./full-access.ts";
+import {
+  FULL_ACCESS_SEND_HOLDS,
+  type FullAccessHold,
+  fullAccessHold,
+  fullAccessThreadOf,
+} from "./full-access.ts";
 import { classifyHostCommand, READ_ONLY_RULE } from "./host-readonly.ts";
 import {
   ALL_SCOPES,
@@ -126,6 +131,12 @@ export interface EngineDeps {
    * granted folder but under one of these runs in a Full-access turn. Absent: none.
    */
   fullAccessRoots?(): readonly string[];
+  /**
+   * Whether the thread is still in Full access now (`threads.update` may have turned it off mid
+   * run): `false` decides the call as Balanced, subagents of the thread included. Downgrade only:
+   * `true` or `undefined` (unknown thread) never turns Full access on. Absent: no live check.
+   */
+  threadFullAccess?(threadId: string): boolean | undefined;
   /**
    * Folders the owner allowed for one conversation only (`folder_access`, scope `once`), and with
    * a run id, the folders of the Space that run was bound to at its start (spaces-2026 §5.3).
@@ -490,13 +501,29 @@ export class PolicyEngine {
     const state = dry === undefined ? d.task(ctx) : dryTask(dry, d, ctx);
     // Full access (owner, 2026-11-25; `full-access.ts`): only the owner's attended chat turn gets
     // it, and a held call (a send, a payment, a credential, …) is decided exactly as in Balanced.
-    const fullIgnored = ctx.permissionMode === "full" ? fullAccessIgnored(ctx) : undefined;
+    const fullIgnored: string | undefined =
+      ctx.permissionMode === "full"
+        ? (fullAccessIgnored(ctx) ??
+          (ctx.threadId !== undefined &&
+          d.threadFullAccess?.(fullAccessThreadOf(ctx.threadId)) === false
+            ? "turned_off"
+            : undefined))
+        : undefined;
     if (fullIgnored !== undefined) trace.push(`full:ignored(${fullIgnored})`);
     const fullHeld =
       ctx.permissionMode === "full" && fullIgnored === undefined
-        ? // A label never un-holds a call: the tool's own inferred kind counts too.
-          (fullAccessHold(call, kind, se) ??
-          (inferred === kind ? undefined : fullAccessHold(call, inferred, se)))
+        ? fullAccessEngineHold(call, {
+            kind,
+            inferred,
+            se,
+            runsLater,
+            tainted,
+            ownerAllowed: ownerMatrixAllows(p, call),
+            newTarget: (() => {
+              const tk = targetKey(call);
+              return ctx.newTarget ?? (tk === undefined ? true : !state.approvedTargets.has(tk));
+            })(),
+          })
         : undefined;
     if (fullHeld !== undefined) trace.push(`full:held(${fullHeld})`);
     const mode =
@@ -756,17 +783,10 @@ export class PolicyEngine {
         fullLifts: true,
       });
     }
-    // Psyche's own notes and workflow state (owner, 2026-11-25): writes to the agent's memory
-    // folder and to an automation's shared state file have no effect outside Psyche, so they run
-    // like a write in a granted folder (Manual still asks, plan mode still refuses, a tainted
-    // turn still asks for a new target).
+    // Psyche's own notes (owner, 2026-11-25): a write to the agent's memory folder has no effect
+    // outside Psyche, so it runs like a write in a granted folder (Manual still asks, plan mode
+    // still refuses, a tainted turn still asks for a new target).
     if (notes === "notes") allowances.push({ rule: "memory:agent_notes" });
-    if (
-      call.tool === "automation_state_set" &&
-      call.kind === undefined &&
-      call.target === undefined
-    )
-      allowances.push({ rule: "workspace:automation_state" });
     if (kind === "git_push") {
       // A push publishes commits with the owner's credentials: never silent, never reusable (V10).
       floors.push({ rule: "git:push", reason: "pushes always ask", scopes: ["once"] });
@@ -943,6 +963,7 @@ export class PolicyEngine {
         (kind === "exec" || kind === "exec_host") &&
         (call.meta?.network === "proxy" ||
           (binding.fields as { network?: string }).network === "proxy" ||
+          (call.params as { network?: unknown } | undefined)?.network === "proxy" ||
           call.meta?.writesOutsideWorkspace === true)
       ) {
         escalation = {
@@ -973,6 +994,9 @@ export class PolicyEngine {
       // Tainted send / destructive / financial cards offer `once` only (§3.6, §3.12).
       if (tainted && floored !== undefined) s = s.filter((x) => x === "once");
       if (unbound) s = s.filter((x) => x === "once");
+      // Full access: a send to other people is one tap per send, never a standing grant (owner).
+      if (fullHeld !== undefined && FULL_ACCESS_SEND_HOLDS.includes(fullHeld))
+        s = s.filter((x) => x === "once");
       if (ctx.taskId === undefined) s = s.filter((x) => x !== "task");
       if (kind !== "credential_fill" && origin === undefined) s = s.filter((x) => x !== "site");
       return s.length === 0 ? (["once"] as GrantScope[]) : s;
@@ -1316,5 +1340,62 @@ function writesRunLater(call: PolicyCall): "git_internals" | "launch_config" | u
   ].filter((v): v is string => typeof v === "string");
   if (paths.some(isGitInternalPath)) return "git_internals";
   if (paths.some((v) => launchConfigEntry(v) !== undefined)) return "launch_config";
+  return undefined;
+}
+
+/** The owner's own `allow` for this call in Settings → Connectors (matrix or legacy name). */
+function ownerMatrixAllows(p: CompiledPolicy, call: PolicyCall): boolean {
+  const connector =
+    call.connectorRule ??
+    call.meta?.connector ??
+    mcpConnector(call.tool) ??
+    appleAppConnector(call.tool);
+  if (connector === undefined) return false;
+  const matrix = p.config.connectors?.[connector.id];
+  const legacy = appleAppAction(call.tool)?.action ?? mcpConnector(call.tool)?.action;
+  const configured =
+    matrixRule(matrix, connector.action) ??
+    (legacy === undefined ? undefined : matrixRule(matrix, legacy));
+  return configured === "allow";
+}
+
+/**
+ * Why a Full-access call keeps its Balanced card: the call's own holds (`fullAccessHold`, under
+ * the effective kind and the tool's inferred kind, so a label never un-holds a call), then code
+ * that runs later (git hooks, `.envrc`, editor tasks), then reach-out after untrusted content: a
+ * command with network or outside writes, a form submitted to a new target.
+ */
+function fullAccessEngineHold(
+  call: PolicyCall,
+  f: {
+    kind: ApprovalKind;
+    inferred: ApprovalKind;
+    se: SideEffect;
+    runsLater: string | undefined;
+    tainted: boolean;
+    ownerAllowed: boolean;
+    newTarget: boolean;
+  },
+): FullAccessHold | undefined {
+  const own =
+    fullAccessHold(call, f.kind, f.se, f.ownerAllowed) ??
+    (f.inferred === f.kind ? undefined : fullAccessHold(call, f.inferred, f.se, f.ownerAllowed));
+  if (own !== undefined) return own;
+  if (f.runsLater !== undefined) return "runs_later";
+  if (!f.tainted) return undefined;
+  const p = (call.params ?? {}) as { network?: unknown; allowedDomains?: unknown };
+  // The sandbox container's network switch (`network: "proxy"`), and on the Mac exec_host's only
+  // way out: the hosts it names in `allowedDomains`.
+  const domains = Array.isArray(p.allowedDomains) && p.allowedDomains.length > 0;
+  if (
+    (f.kind === "exec" || f.kind === "exec_host") &&
+    (call.meta?.network === "proxy" ||
+      p.network === "proxy" ||
+      domains ||
+      call.meta?.writesOutsideWorkspace === true)
+  )
+    return "taint_egress";
+  if ((f.kind === "browser_submit" || call.tool === "browser.submit") && f.newTarget)
+    return "taint_submit";
   return undefined;
 }

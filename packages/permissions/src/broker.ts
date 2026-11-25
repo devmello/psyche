@@ -302,6 +302,8 @@ export interface PermissionBrokerOptions {
    * Full-access turn reach paths under them without a folder grant. Absent: none.
    */
   fullAccessRoots?: () => readonly string[];
+  /** Whether a thread is still in Full access now (downgrade only; `EngineDeps`). */
+  threadFullAccess?: (threadId: string) => boolean | undefined;
   /** Gateway UI origins the agent may never act on (design-03, design-19). */
   gatewayOrigins?: string[];
   presence?: PresenceVerifier;
@@ -652,6 +654,9 @@ export class PsychePermissionBroker implements PermissionBroker {
       ...(options.fullAccessRoots === undefined
         ? {}
         : { fullAccessRoots: options.fullAccessRoots }),
+      ...(options.threadFullAccess === undefined
+        ? {}
+        : { threadFullAccess: options.threadFullAccess }),
       gatewayOrigins,
       onClassified: (ctx, call, label, reason, breaker) =>
         this.#onClassified(ctx, call, label, reason, breaker),

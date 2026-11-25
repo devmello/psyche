@@ -1,6 +1,8 @@
+import type { LoopVisibility } from "@psyche/memory";
 import type { DeviceToast } from "@psyche/notifications";
 import type { Surface } from "@psyche/protocol";
 import type { Call, HandlerDef, LiveConnection } from "../context.ts";
+import { scrubDeviceToast } from "../promise-scrub.ts";
 import type { Gateway } from "../server.ts";
 import type { ComposedPart } from "./services.ts";
 
@@ -16,6 +18,15 @@ import type { ComposedPart } from "./services.ts";
 export class DeviceNotifications {
   readonly #registered = new Map<string, { deviceId: string; conn: LiveConnection }>();
   #gateway: Gateway | null = null;
+  #promises: LoopVisibility | undefined;
+
+  /**
+   * Which promises a remote device may be told about (promise scrub, `promise-scrub.ts`). Until it
+   * is bound a `promise_due` toast is not sent to any device.
+   */
+  bindPromiseVisibility(vis: LoopVisibility | undefined): void {
+    this.#promises = vis;
+  }
 
   bind(gateway: Gateway | null): void {
     this.#gateway = gateway;
@@ -44,7 +55,10 @@ export class DeviceNotifications {
   /** Sends one toast to a device; `false` when it is not connected and opted in. */
   send(deviceId: string, toast: DeviceToast): boolean {
     if (!this.#live().has(deviceId) || this.#gateway === null) return false;
-    this.#gateway.bus.publishToDevice(deviceId, "notification.device", toast);
+    // Whatever the notifier built, a remote device only gets the scrubbed form of a promise toast.
+    const out = scrubDeviceToast(toast, this.#promises);
+    if (out === null) return false;
+    this.#gateway.bus.publishToDevice(deviceId, "notification.device", out);
     return true;
   }
 }

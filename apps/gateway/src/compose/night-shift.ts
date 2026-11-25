@@ -411,6 +411,33 @@ export function composeNightShift(setup: NightShiftSetup) {
       connectorTypes,
     );
 
+  /** The hashes of a call a stager rewrote follow the tool's own binding fields. */
+  const rehash = (
+    tool: string,
+    args: Record<string, unknown>,
+    kind: string,
+  ): { paramsHash: string; bindingHash: string } | undefined => {
+    const reg = setup.registry.get(tool);
+    if (reg === undefined) return undefined;
+    let fields: unknown;
+    try {
+      fields = reg.describeCall?.(structuredClone(args), {
+        runId: "night-shift",
+      })?.bindingFields;
+    } catch {
+      return undefined;
+    }
+    const p = paramsHash(args);
+    return {
+      paramsHash: p,
+      bindingHash: bindingHash(kind, {
+        tool,
+        paramsHash: p,
+        ...(fields === undefined ? {} : { fields }),
+      }),
+    };
+  };
+
   const service = new NightShiftService({
     clock,
     timezone: setup.timeZone,
@@ -438,27 +465,7 @@ export function composeNightShift(setup: NightShiftSetup) {
         whyFor,
         ...(setup.redact === undefined ? {} : { redact: setup.redact }),
         // The hashes of a call the stager rewrote follow the tool's own binding fields.
-        rehash: (tool, args, kind) => {
-          const reg = setup.registry.get(tool);
-          if (reg === undefined) return undefined;
-          let fields: unknown;
-          try {
-            fields = reg.describeCall?.(structuredClone(args), {
-              runId: "night-shift",
-            })?.bindingFields;
-          } catch {
-            return undefined;
-          }
-          const p = paramsHash(args);
-          return {
-            paramsHash: p,
-            bindingHash: bindingHash(kind, {
-              tool,
-              paramsHash: p,
-              ...(fields === undefined ? {} : { fields }),
-            }),
-          };
-        },
+        rehash,
         onRefused: (info) =>
           setup.logger?.log("warn", "night shift refused a staged call", { ...info }),
       }),
@@ -534,15 +541,16 @@ export function composeNightShift(setup: NightShiftSetup) {
     return c;
   };
 
+  /** How long `runNow` waits for a run that cannot start to say so. */
+  const RUN_NOW_GRACE_MS = 1500;
+
   const status = async (): Promise<MethodResult<"nightShift.status">> => {
     const s = settings();
     const ready = [...store.listNights("ready"), ...store.listNights("partial")].sort((a, b) =>
       b.night.localeCompare(a.night),
     )[0];
-    const latest = store
-      .listNights()
-      .filter((n) => n.reviewStatus !== "none")
-      .at(-1);
+    // The last night, even an empty one (reviewStatus none): "Try it now" must show what it did.
+    const latest = store.listNights().at(-1);
     return {
       enabled: s.enabled,
       nextWindowAt: s.enabled ? nextWindowAt(clock.now(), setup.timeZone(), s.window.start) : null,
@@ -583,13 +591,35 @@ export function composeNightShift(setup: NightShiftSetup) {
   };
 
   const runNow = async (): Promise<MethodResult<"nightShift.runNow">> => {
-    if (!settings().enabled) return { started: false, reason: "Night shift is off" };
-    void service.run({ manual: true }).catch((err) =>
-      setup.logger?.log("warn", "night shift run failed", {
-        code: PsycheError.from(err).code,
-      }),
+    if (!settings().enabled) {
+      return { started: false, outcome: "off", reason: "Night shift is off" };
+    }
+    const settled = service.run({ manual: true }).then(
+      (r) => r,
+      (err) => {
+        setup.logger?.log("warn", "night shift run failed", {
+          code: PsycheError.from(err).code,
+        });
+        return undefined;
+      },
     );
-    return { started: true };
+    // A run that cannot start settles at once (already running, a gate, nothing to do): say so.
+    // One that is really going takes minutes, so it is answered as started.
+    const early = await Promise.race([
+      settled,
+      new Promise<undefined>((r) => setTimeout(() => r(undefined), RUN_NOW_GRACE_MS)),
+    ]);
+    if (early === undefined) return { started: true };
+    const refused =
+      early.outcome === "off" ||
+      early.outcome === "already" ||
+      early.outcome === "skipped" ||
+      early.outcome === "no_candidates";
+    return {
+      started: !refused,
+      outcome: early.outcome,
+      ...(early.reason === undefined ? {} : { reason: early.reason.slice(0, 200) }),
+    };
   };
 
   // Apply, undo and dismiss (W5): one staged_apply approval, children run in the night's thread.
@@ -661,6 +691,17 @@ export function composeNightShift(setup: NightShiftSetup) {
   };
 
   return {
+    /**
+     * What Fork a plan reuses to stage a branch's writes (fork-a-plan-2026 §3.1, §10): the same
+     * adapters over the same read registry, the same connector types and the same rehash.
+     */
+    stagerParts: {
+      adapters: adaptersFor,
+      connectors: () => connectorTypes,
+      domains: domainsOn,
+      rehash,
+      refresh: refreshConnectors,
+    },
     service,
     applier,
     prune,

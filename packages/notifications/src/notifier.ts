@@ -11,6 +11,7 @@ import {
 } from "@psyche/protocol";
 import { monotonicFactory } from "ulid";
 import { cleanNoticeMessage } from "./notice.ts";
+import { localizeOsText, type OsTextLanguage, osTextLanguage } from "./os-text.ts";
 import { interruptionFor, planDelivery, type RoutingConfig, resolveSurfaces } from "./routing.ts";
 import { MemoryNotificationStore, type NotificationStore } from "./store.ts";
 import type { DeliveryContext, DeliveryOutcome, SurfaceAdapter } from "./surfaces.ts";
@@ -33,6 +34,11 @@ export interface NotifierOptions {
    * to wait for them). `await`: `notify` waits for them, which tests use.
    */
   delivery?: "background" | "await";
+  /**
+   * The owner's UI language (`ui.language`), read per notification. The Gateway's fixed English
+   * sentences are translated to it before they are stored and sent; unset or unknown is English.
+   */
+  language?: () => unknown;
 }
 
 export interface ListPageParams {
@@ -102,6 +108,7 @@ export class PsycheNotifier implements Notifier {
   readonly #listeners = new Set<(e: NotifierEvent) => void>();
   readonly #awaitDelivery: boolean;
   readonly #bootedAt: number;
+  readonly #language: (() => unknown) | undefined;
   /** `<notificationId>\0<surface>` of deliveries whose adapter call is running. */
   readonly #inFlight = new Set<string>();
   readonly #background = new Set<Promise<void>>();
@@ -119,11 +126,28 @@ export class PsycheNotifier implements Notifier {
     this.#onAction = options.onAction;
     this.#awaitDelivery = options.delivery === "await";
     this.#bootedAt = this.#clock.now();
+    this.#language = options.language;
   }
 
   /** Resolves when every background delivery started so far has finished. */
   async settled(): Promise<void> {
     while (this.#background.size > 0) await Promise.all([...this.#background]);
+  }
+
+  #localized(input: NotifyInput): NotifyInput {
+    if (this.#language === undefined) return input;
+    let lang: OsTextLanguage;
+    try {
+      lang = osTextLanguage(this.#language(), Intl.DateTimeFormat().resolvedOptions().locale);
+    } catch {
+      return input;
+    }
+    if (lang === "en") return input;
+    return {
+      ...input,
+      title: localizeOsText(input.title, lang),
+      body: localizeOsText(input.body, lang),
+    };
   }
 
   #dedupeKey(input: NotifyInput): string | null {
@@ -171,7 +195,8 @@ export class PsycheNotifier implements Notifier {
     };
   }
 
-  async notify(input: NotifyInput): Promise<Notification> {
+  async notify(raw: NotifyInput): Promise<Notification> {
+    const input = this.#localized(raw);
     const now = this.#clock.now();
     const routing = this.#routing();
     const dedupeKey = this.#dedupeKey(input);

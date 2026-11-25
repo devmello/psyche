@@ -170,10 +170,13 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.notifications.helper.hint":
     "Le notifiche di approvazione arrivano tramite Psyche Helper. Consentigli di mostrarle, così le approvazioni ti raggiungono a finestra chiusa.",
   "settings.notifications.helper.allow": "Consenti le notifiche di Psyche Helper",
+  "settings.notifications.helper.denied":
+    "Le notifiche sono disattivate in Impostazioni di Sistema",
+  "settings.notifications.helper.openSettings": "Apri Impostazioni di Sistema",
   "settings.notifications.description": "Quando Psyche può interromperti.",
   "settings.notifications.group.quietHours": "Ore di silenzio",
   "settings.notifications.quietHours.hint":
-    "Trattiene le notifiche fino alla fine della fascia. Le approvazioni urgenti arrivano comunque.",
+    "Trattiene le notifiche fino alla fine della fascia. Le approvazioni urgenti arrivano comunque. Il passaggio notturno della memoria ha orari propri, nelle impostazioni della memoria.",
   "settings.key.ui.onboarding.progress": "Avanzamento della configurazione iniziale",
   "settings.key.permissions.liftedFloors": "Azioni consentite senza chiedere per {id}",
   "settings.key.specialists.maxConcurrent": "Specialisti contemporaneamente",

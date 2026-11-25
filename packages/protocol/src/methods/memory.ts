@@ -463,12 +463,18 @@ export const MemoryMethods = {
       private: Type.Optional(
         Type.Boolean({ description: "Keep private: shown on its Memory page only" }),
       ),
+      allowDuplicate: Type.Optional(
+        Type.Boolean({
+          description:
+            "Create even when a person, organisation or place with the same name or email exists",
+        }),
+      ),
     }),
     result: Type.Object({ entity: GraphEntity }),
     scope: "operator.write",
     sideEffecting: true,
     description:
-      "The owner creates a person, organisation, project, course, assignment, event or place. dueAt, projectType (project or course) and private apply to work items. Side-effecting.",
+      'The owner creates a person, organisation, project, course, assignment, event or place. dueAt, projectType (project or course) and private apply to work items. A person, organisation or place whose name, alias or email matches an active one fails `conflict` with details { reason: "entity_exists", entityId, name, kind } unless allowDuplicate is true. Side-effecting.',
   }),
   "memory.entities.update": defineMethod({
     params: Type.Object({

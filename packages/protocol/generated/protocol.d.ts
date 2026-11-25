@@ -2930,8 +2930,9 @@ export interface ChatBlockPayload {
 }
 
 export interface Block {
-    md?:  string;
-    type: BlockType;
+    md?:      string;
+    noteKey?: string;
+    type:     BlockType;
     /**
      * One-line status shown in the transcript
      */
@@ -7182,7 +7183,11 @@ export interface MemoryEntitiesCreateParams {
      * Other names
      */
     aliases?: string[];
-    dueAt?:   string;
+    /**
+     * Create even when a person, organisation or place with the same name or email exists
+     */
+    allowDuplicate?: boolean;
+    dueAt?:          string;
     /**
      * Emails, phones, handles; refused if another entity has one
      */
@@ -9130,9 +9135,12 @@ export type NightShiftReviewStatus = "none" | "ready" | "partial" | "applied" | 
 export type NightShiftNightStatus = "running" | "done" | "stopped" | "skipped" | "empty";
 
 export interface NightShiftRunNowResult {
-    reason?: string;
-    started: boolean;
+    outcome?: NightShiftRunNowResultOutcome;
+    reason?:  string;
+    started:  boolean;
 }
+
+export type NightShiftRunNowResultOutcome = "off" | "already" | "skipped" | "no_candidates" | "empty" | "done" | "stopped";
 
 export interface NightShiftStatusResult {
     enabled:        boolean;
@@ -10840,8 +10848,17 @@ export type Attribute = boolean | number | string;
 
 export interface RunStepError {
     code:      string;
+    details?:  RunStepErrorDetails;
     message:   string;
     retryable: boolean;
+}
+
+export interface RunStepErrorDetails {
+    /**
+     * A machine reason (`automation_denied`, `needs_helper`), which viewers say in the owner's
+     * language; `message` is the fallback
+     */
+    reason: string;
 }
 
 export type RunStepKind = "thinking" | "model" | "tool" | "approval" | "question" | "subagent" | "text" | "memory" | "artifact" | "note";
@@ -11116,6 +11133,7 @@ export interface RunStep {
     inputRequestId?: string;
     kind:            RunStepKind;
     label:           string;
+    labelKey?:       RunStepLabelKey;
     machine?:        ComputerMachineRef;
     memoryPath?:     string;
     modelRef?:       string;
@@ -11149,6 +11167,8 @@ export interface Frames {
     first: number;
     last:  number;
 }
+
+export type RunStepLabelKey = "reply" | "file" | "model" | "thinking";
 
 export interface PayloadRef {
     input?:  string;
@@ -11973,7 +11993,12 @@ export interface SearchSourceStatus {
      */
     ocr:        boolean;
     processing: SearchProcessing;
-    state:      SearchSourceState;
+    /**
+     * A machine reason for `detail` (`full_disk_access_missing`), which viewers say in the
+     * owner's language; `detail` is the fallback
+     */
+    reason?: string;
+    state:   SearchSourceState;
     /**
      * Text indexed for this source
      */
@@ -11994,13 +12019,13 @@ export interface SecurityAlertsAcknowledgeResult {
 export interface SecurityAlert {
     acknowledgedAt?: null | string;
     createdAt:       string;
-    details:         Details;
+    details:         SecurityAlertDetails;
     id:              string;
     kind:            SecurityAlertKind;
     severity:        SecurityAlertSeverity;
 }
 
-export interface Details {
+export interface SecurityAlertDetails {
     admins?:  number;
     changes?: SecurityStateChange[];
     /**
@@ -13762,7 +13787,7 @@ export interface Task {
     workspace?:    TaskWorkspace;
 }
 
-export type TaskOrigin = "chat" | "automation" | "idea" | "goal" | "channel" | "subagent";
+export type TaskOrigin = "chat" | "automation" | "idea" | "goal" | "channel" | "subagent" | "fork";
 
 export interface TaskPlan {
     approvedAt?: null | string;
@@ -14172,8 +14197,9 @@ export interface TerminalSessionWriteParams {
 }
 
 export interface TextBlock {
-    md:   string;
-    type: TextBlockType;
+    md:       string;
+    noteKey?: string;
+    type:     TextBlockType;
 }
 
 export type TextBlockType = "text";

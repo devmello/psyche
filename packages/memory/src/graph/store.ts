@@ -48,6 +48,8 @@ import { classifySensitivity } from "../extraction/sensitivity.ts";
 import { blockingKinds, looksLikeInstruction } from "../filters.ts";
 import { trustRank } from "../provenance.ts";
 import { safeName } from "./clean.ts";
+import { isLowerRanked } from "./fact-rank.ts";
+import { markLoopRemoteVisible } from "./loop-visibility.ts";
 import { createMemoryMapBuilder } from "./map.ts";
 import { blockHash, normalizeIdentifier, normalizeName, sha256, slugify } from "./normalize.ts";
 import {
@@ -1650,7 +1652,19 @@ export class GraphStore {
         )
       : this.#factRows(entity.id, true, input.attribute);
     const same = current.find((r) => normalizeName(r.value) === normalizeName(value));
-    if (same !== undefined && trustRank(same.provenance) >= trustRank(input.provenance)) {
+    if (same !== undefined && isLowerRanked(input.provenance, same.provenance)) {
+      // A lower-ranked source repeating a value only adds its source id: it never changes the
+      // higher-ranked row's expiry, evidence or provenance (a third party cannot make an owner
+      // fact expire).
+      const merged = [...new Set([...(JSON.parse(same.sources) as string[]), ...sources])];
+      if (merged.length !== (JSON.parse(same.sources) as string[]).length) {
+        this.#db
+          .prepare("UPDATE graph_facts SET sources = ? WHERE id = ?")
+          .run(JSON.stringify(merged), same.id);
+      }
+      return { fact: toFact(this.#factRow(same.id) as FactRow), superseded: null };
+    }
+    if (same !== undefined && same.provenance === input.provenance) {
       // Refresh the evidence; an expiring inference gets a new year (§4.3 expiry).
       const merged = [...new Set([...(JSON.parse(same.sources) as string[]), ...sources])];
       this.#db
@@ -1661,19 +1675,72 @@ export class GraphStore {
       return { fact: toFact(this.#factRow(same.id) as FactRow), superseded: null };
     }
     const prior = current[0];
-    if (prior !== undefined && !MULTI_VALUED.has(input.attribute)) {
-      // A model never overrides what the owner said. A status change made by the state machine
-      // (work.ts) is code, not a model: it follows the owner's last word by design.
-      const byStateMachine =
-        input.attribute === "status" &&
-        input.provenance === "system" &&
-        input.subjectKind === "deterministic";
-      if (
-        !byStateMachine &&
-        trustRank(prior.provenance) > trustRank(input.provenance) &&
-        prior.provenance === "owner"
-      ) {
-        return undefined;
+    const single = !MULTI_VALUED.has(input.attribute);
+    // A higher-ranked write of a value a lower-ranked source already holds replaces that row, so
+    // the owner restating an agent or untrusted value owns it (a later agent write is a conflict).
+    const replaced = single ? prior : same;
+    // A status change made by the state machine (work.ts) is code, not a model: it follows the
+    // owner's last word by design.
+    const byStateMachine =
+      input.attribute === "status" &&
+      input.provenance === "system" &&
+      input.subjectKind === "deterministic";
+    // One rule with proposeFact (§4.5): third-party text (`untrusted`) is always pending, since
+    // this path carries no checked citation; and a lower-ranked value never replaces a
+    // higher-ranked one, it becomes one conflict review item for the owner.
+    const lower =
+      prior !== undefined &&
+      single &&
+      !byStateMachine &&
+      isLowerRanked(input.provenance, prior.provenance);
+    const pending = input.provenance === "untrusted" || lower;
+    if (pending && single && input.provenance === "untrusted") {
+      // One suggestion per (entity, attribute): a reworded value from the next pass replaces the
+      // older unreviewed one in place instead of piling up in Review. Rows from the extraction
+      // pipeline (extractor set, cited) are never rewritten here.
+      const older = this.#db
+        .prepare(
+          `SELECT * FROM graph_facts WHERE entity_id = ? AND attribute = ? AND review = 'pending'
+             AND provenance = 'untrusted' AND extractor IS NULL AND retracted_at IS NULL
+             AND id NOT IN (SELECT id FROM memory_migration_backup_2026_11)
+             AND NOT EXISTS (SELECT 1 FROM graph_citations c WHERE c.target_kind = 'fact' AND c.target_id = graph_facts.id)
+           ORDER BY recorded_at DESC, id DESC LIMIT 1`,
+        )
+        .get(entity.id, input.attribute) as FactRow | undefined;
+      if (older !== undefined && normalizeName(older.value) !== normalizeName(value)) {
+        this.#db
+          .prepare(
+            "UPDATE graph_facts SET value = ?, sources = ?, evidence = ?, confidence = ?, last_seen_at = ?, updated_at = ? WHERE id = ?",
+          )
+          .run(
+            value,
+            JSON.stringify(sources),
+            evidence,
+            Math.min(1, Math.max(0, input.confidence ?? 0.6)),
+            now,
+            now,
+            older.id,
+          );
+        return { fact: toFact(this.#factRow(older.id) as FactRow), superseded: null };
+      }
+    }
+    if (pending) {
+      const norm = normalizeName(value);
+      const dup = (
+        this.#db
+          .prepare(
+            "SELECT * FROM graph_facts WHERE entity_id = ? AND attribute = ? AND review = 'pending' AND retracted_at IS NULL",
+          )
+          .all(entity.id, input.attribute) as FactRow[]
+      ).find((r) => normalizeName(r.value) === norm);
+      if (dup !== undefined) {
+        const merged = [...new Set([...(JSON.parse(dup.sources) as string[]), ...sources])];
+        this.#db
+          .prepare(
+            "UPDATE graph_facts SET last_seen_at = ?, sources = ?, evidence = COALESCE(?, evidence), updated_at = ? WHERE id = ?",
+          )
+          .run(now, JSON.stringify(merged), evidence, now, dup.id);
+        return { fact: toFact(this.#factRow(dup.id) as FactRow), superseded: null };
       }
     }
     const id = this.#id("fact");
@@ -1681,8 +1748,9 @@ export class GraphStore {
       this.#db
         .prepare(
           `INSERT INTO graph_facts (id, entity_id, attribute, value, provenance, confidence, sources, evidence,
-             valid_from, valid_to, recorded_at, created_at, updated_at, subject_kind)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+             valid_from, valid_to, recorded_at, created_at, updated_at, subject_kind, review,
+             first_seen_at, last_seen_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         )
         .run(
           id,
@@ -1699,20 +1767,24 @@ export class GraphStore {
           now,
           now,
           input.subjectKind ?? "owner_stated",
+          pending ? "pending" : "accepted",
+          pending ? now : null,
+          pending ? now : null,
         );
-      if (prior !== undefined && !MULTI_VALUED.has(input.attribute)) {
+      if (!pending && replaced !== undefined) {
         this.#db
           .prepare(
             "UPDATE graph_facts SET superseded_by = ?, valid_to = ?, updated_at = ? WHERE id = ?",
           )
-          .run(id, now, now, prior.id);
+          .run(id, now, now, replaced.id);
       }
-      this.#cacheWorkFact(entity, input, value, deadlineAt, now);
+      if (!pending) this.#cacheWorkFact(entity, input, value, deadlineAt, now);
     })();
+    if (pending) return { fact: toFact(this.#factRow(id) as FactRow), superseded: null };
     this.#touched(entity.id, ["facts"]);
     return {
       fact: toFact(this.#factRow(id) as FactRow),
-      superseded: prior !== undefined && !MULTI_VALUED.has(input.attribute) ? prior.id : null,
+      superseded: replaced === undefined ? null : replaced.id,
     };
   }
 
@@ -2411,6 +2483,8 @@ export class GraphStore {
           ? null
           : input.counterpartLabel.slice(0, 200),
       );
+    // Visible to a remote viewer unless the source is Messages (promise scrub, loop-visibility.ts).
+    markLoopRemoteVisible(this.#db, id);
     const loop = toLoop(this.#loopRow(id) as LoopRow);
     this.#emit({ event: "memory.loop.updated", payload: { loop } });
     if (counterpart !== null) this.#touched(counterpart, ["loops"]);

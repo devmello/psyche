@@ -51,6 +51,8 @@ export interface ToolRunContext {
   authority?: ToolCallAuthority;
   /** Who asked for the turn (security §9); absent means the owner. */
   requester?: Requester;
+  /** Who started the turn when not the owner or the agent (`mcp_app`: an MCP App's page). */
+  initiator?: "mcp_app";
   signal: AbortSignal;
   /** Characters the loop keeps of this call's result (JSON-escaped); a paged tool sizes its page to it. */
   resultBudgetChars?: number;
@@ -268,9 +270,27 @@ export const SUBAGENT_WITHHELD = new Set([
   "specialist.spawn",
   "specialist.status",
   "specialist.report",
+  // A subagent of a fork branch inherits the branch's staging, but only the branch files its report.
+  "fork_report",
 ]);
+/**
+ * Names only a built-in may register (fork-a-plan-2026 §3.2): `fork_report` files a branch's
+ * report, so a plugin, MCP bridge or connector registering the bare name would shadow it.
+ */
+export const RESERVED_TOOL_NAMES: ReadonlySet<string> = new Set(["fork_report"]);
+const BUILTIN_REGISTRATIONS = new WeakSet<object>();
+/** Marks a registration as the built-in that owns a reserved name. */
+export function markBuiltinRegistration<T extends object>(registration: T): T {
+  BUILTIN_REGISTRATIONS.add(registration);
+  return registration;
+}
 /** Tools offered only in plan mode. */
 export const PLAN_ONLY = new Set(["exit_plan_mode"]);
+/**
+ * Tools offered only in a plan-fork branch's run (fork-a-plan-2026 §3.2): the branch's report.
+ * Hidden everywhere else, like `PLAN_ONLY` outside plan mode.
+ */
+export const FORK_ONLY = new Set(["fork_report"]);
 /**
  * `none` tools still withheld in plan mode: a task would run outside the plan's read-only mode
  * (`TaskCreateInput` carries no permission mode).
@@ -294,6 +314,8 @@ export interface ActiveToolsInput {
   subagent?: boolean;
   /** A background specialist's run (specialists §4.3): see `SPECIALIST_WITHHELD`. */
   specialist?: boolean;
+  /** A plan-fork branch's run (fork-a-plan §3.1): `FORK_ONLY` tools are offered. */
+  fork?: boolean;
   /** Per-tool user toggles (C3): `false` hides the tool. */
   toggles?: Record<string, boolean>;
   /** Narrowing from `before_prompt_build` hooks; never widens. */
@@ -324,6 +346,10 @@ export class AgentToolRegistry implements ToolRegistry {
   register(registration: ToolRegistration | AgentToolRegistration): Unsubscribe {
     const name = registration.spec.name;
     if (!TOOL_NAME.test(name)) throw new PsycheError("invalid_params", `invalid tool name ${name}`);
+    if (RESERVED_TOOL_NAMES.has(name) && !BUILTIN_REGISTRATIONS.has(registration)) {
+      // A third party must not take a built-in's name, before or after the built-in registers.
+      throw new PsycheError("invalid_params", `tool name ${name} is reserved`);
+    }
     if (this.#tools.has(name)) throw new PsycheError("conflict", `tool ${name} already registered`);
     this.#tools.set(name, registration);
     return () => {
@@ -355,6 +381,7 @@ function hiddenReason(name: string, spec: ToolSpec, input: ActiveToolsInput): st
   if (input.subagent === true && (SUBAGENT_WITHHELD.has(name) || spec.targetKind === "recipient")) {
     return "not available to subagents";
   }
+  if (FORK_ONLY.has(name) && input.fork !== true) return "only for plan forks";
   if (SPECIALIST_ONLY.has(name) && input.specialist !== true) return "only for specialists";
   if (input.specialist === true && SPECIALIST_WITHHELD.has(name)) {
     return "not available to specialists";

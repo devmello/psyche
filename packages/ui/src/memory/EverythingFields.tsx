@@ -15,6 +15,7 @@ import { Input } from "../components/ui/input.tsx";
 import { NativeSelect } from "../components/ui/native-select.tsx";
 import { useGatewayQuery } from "../data/hooks.ts";
 import { t } from "../i18n/core.ts";
+import { describeError } from "../i18n/errors.ts";
 import { appleReason, appleUsable } from "../screens/settings/apple-status.ts";
 import { LearnMore } from "../screens/settings/LearnMore.tsx";
 import { Group, RadioField, SwitchField } from "../screens/settings/shared.tsx";
@@ -258,7 +259,7 @@ export function SourceFields({
           source: s,
           message: t("everything.sources.enableFailed", {
             source: t(`everything.source.${s}`),
-            reason: err instanceof Error ? err.message : String(err),
+            reason: describeError(err),
           }),
         }),
       )

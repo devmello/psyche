@@ -18,6 +18,7 @@ import {
   type DecisionResult,
   type EffectiveContextLimits,
   EMPTY_USAGE,
+  fullAccessIgnored,
   type InputRequest,
   type MemoryStore,
   type ModelCapabilities,
@@ -45,6 +46,7 @@ import {
   type SkillLoader,
   type SpecialistSpec,
   type StagedCall,
+  type Staging,
   type StagingRun,
   type StartTurnInput,
   type Surface,
@@ -68,6 +70,11 @@ import {
   automationStateSetTool,
   proposeAutomationTool,
 } from "./builtins/automation.ts";
+import {
+  type ForkReportHost,
+  type ForkReportTurnApi,
+  forkReportTool,
+} from "./builtins/fork-report.ts";
 import {
   type HarnessAction,
   type HarnessGateResult,
@@ -135,7 +142,7 @@ import {
   workflowGroupOf,
 } from "./evidence.ts";
 import { type HookMap, HookRegistry } from "./hooks.ts";
-import { missingHint, missingOf } from "./missing-permission.ts";
+import { missingHint, missingOf, reasonOf } from "./missing-permission.ts";
 import {
   type AgentPlugin,
   AgentPluginRegistry,
@@ -175,7 +182,15 @@ import {
   toolAllowed,
   wrapUpMessage,
 } from "./specialists.ts";
-import { readVerdict, refusedOutput, stagedOutput, stageVerdict } from "./staging.ts";
+import {
+  FORK_FETCH_TOOL,
+  FORK_REPORT_TOOL,
+  forkFetchAllowed,
+  readVerdict,
+  refusedOutput,
+  stagedOutput,
+  stageVerdict,
+} from "./staging.ts";
 import {
   emptyThreadState,
   InMemoryThreadStateStore,
@@ -526,6 +541,11 @@ export interface AgentLoopOptions {
    */
   specialists?: SpecialistHost;
   /**
+   * Plan forks (fork-a-plan-2026 §4.1): where a branch's `fork_report` goes. With it, registers
+   * `fork_report`, which only a run with a `fork` staging origin is offered or may use.
+   */
+  forkReports?: ForkReportHost;
+  /**
    * The Space a run in this thread works in (spaces-2026 §5.1): read once at run start and fixed
    * for the run (SR3). Only owner runs get one (SR11); a subagent inherits its parent's.
    */
@@ -707,6 +727,8 @@ interface RunState {
   space?: RunSpace;
   /** Subagents of this run currently in flight. */
   children: number;
+  /** A plan-fork branch run has filed its one `fork_report` (fork-a-plan §4.1). */
+  forkReported?: boolean;
   /** Set when this run is a background specialist's job (specialists §4.2–§4.3). */
   specialistJob?: {
     taskId: string;
@@ -912,6 +934,7 @@ export class PsycheAgentLoop implements AgentLoop {
     if (o.notifier !== undefined) tools.push(notifyTool(o.notifier));
     tools.push(harnessDelegateTool(this.harnesses));
     if (o.specialists !== undefined && o.tasks !== undefined) tools.push(...specialistTools());
+    if (o.forkReports !== undefined) tools.push(forkReportTool);
     if (o.deferTool !== undefined) tools.push(toolSearchTool, loadToolsTool);
     for (const tool of tools) {
       if (this.registry.get(tool.spec.name) === undefined) this.registry.register(tool);
@@ -1081,20 +1104,33 @@ export class PsycheAgentLoop implements AgentLoop {
         : ownerSent
           ? this.#o.spaceFor?.(threadId)
           : undefined;
+    // A subagent acts for its parent's turn: an MCP App's page or a channel's sender stays the
+    // one behind its calls (Full access, the card scopes and the requester limits follow).
+    const initiator = input.proposedCall?.initiator ?? child?.parent.initiator;
+    // Full access reaches only the owner's attended chat turn (`fullAccessIgnored`): any other
+    // run in a Full-access thread runs, and spawns, as Balanced.
+    const permissionMode: PermissionMode =
+      input.permissionMode === "full" &&
+      fullAccessIgnored({
+        permissionMode: input.permissionMode,
+        unattended: input.mode === "unattended",
+        ...(initiator === undefined ? {} : { initiator }),
+        ...(requester === undefined ? {} : { requester }),
+      }) !== undefined
+        ? "balanced"
+        : input.permissionMode;
     const run: RunState = {
       ...(space === undefined ? {} : { space }),
       runId,
       threadId,
       ...(input.taskId === undefined ? {} : { taskId: input.taskId }),
       mode: input.mode,
-      permissionMode: input.permissionMode,
+      permissionMode,
       // Only the owner's words name targets the agent may act on (security §3.6, §9).
       // Only the typed words: never the Gateway's context (preamble, quote, forwarded text).
       ownerText: ownerSent && input.ownerWords !== false ? ownerTypedText(input) : "",
       ...(input.proposedCall === undefined ? {} : { proposedCall: input.proposedCall }),
-      ...(input.proposedCall?.initiator === undefined
-        ? {}
-        : { initiator: input.proposedCall.initiator }),
+      ...(initiator === undefined ? {} : { initiator }),
       ownerAttached: ownerSent && (input.input.attachments?.length ?? 0) > 0,
       ...(requester === undefined ? {} : { requester }),
       ...(input.beforeDispatch === undefined ? {} : { beforeDispatch: input.beforeDispatch }),
@@ -1389,6 +1425,16 @@ export class PsycheAgentLoop implements AgentLoop {
         .then(() => this.#o.onOwnerTurn?.(turn))
         .catch(() => undefined);
     }
+    if (run.staging?.reads?.finish !== undefined) {
+      try {
+        run.staging.reads.finish({
+          taint: run.taint,
+          taintSources: structuredClone(dedupeSources(run.taintSources)),
+        });
+      } catch {
+        // A failing guard never fails the end of a run.
+      }
+    }
     for (const plugin of this.plugins.with("agent_end", "agentEnd")) {
       // Observers: a failing or slow plugin changes nothing.
       await withDeadline(
@@ -1460,6 +1506,23 @@ export class PsycheAgentLoop implements AgentLoop {
       // exactly like a model's call. It is consumed here so a retry of the loop never re-proposes it.
       const proposed = run.proposedCall;
       run.proposedCall = undefined;
+      // A plan-fork branch is held to its money share before each call (fork-a-plan §6): the
+      // estimate of this request's input is checked before anything is sent.
+      const stepGuard = run.staging?.reads?.beforeModelCall;
+      if (proposed === undefined && stepGuard !== undefined) {
+        let fits = false;
+        try {
+          fits = stepGuard.call(run.staging?.reads, {
+            inputTokens: estimateContextTokens(system, sent, tools),
+          });
+        } catch {
+          fits = false;
+        }
+        if (!fits) {
+          this.#marker(run, "[stopped: the next model call would pass this branch's budget]");
+          throw new RunEnd("failed", "budget_precheck");
+        }
+      }
       let step =
         proposed === undefined
           ? await this.#callModel(run, system, tools, cache)
@@ -2058,6 +2121,7 @@ export class PsycheAgentLoop implements AgentLoop {
       runMode: run.mode,
       subagent: run.subagent !== undefined,
       specialist: run.specialistJob !== undefined,
+      fork: run.staging?.staging.kind === "fork",
       ...(toggles === undefined ? {} : { toggles }),
       ...(stagingAllow === undefined ? {} : { allow: stagingAllow }),
     });
@@ -2164,6 +2228,7 @@ export class PsycheAgentLoop implements AgentLoop {
           runMode: run.mode,
           subagent: run.subagent !== undefined,
           specialist: run.specialistJob !== undefined,
+          fork: run.staging?.staging.kind === "fork",
           ...(toggles === undefined ? {} : { toggles }),
           allow: new Set(tools.map((t) => t.spec.name).filter((n) => allow.has(n))),
         }));
@@ -2761,6 +2826,9 @@ export class PsycheAgentLoop implements AgentLoop {
         ? {}
         : { systemStableLength: cache.systemStableLength }),
       messages: this.#requestMessages(run),
+      ...(run.staging?.reads?.outputLimit?.() === undefined
+        ? {}
+        : { maxOutputTokens: run.staging.reads.outputLimit() as number }),
       ...(tools.length === 0 ? {} : { tools }),
       // Only beside the tools they belong to: a tool-free call loads nothing.
       ...(tools.length === 0 ||
@@ -3368,6 +3436,18 @@ export class PsycheAgentLoop implements AgentLoop {
         gated.desc = desc;
       }
     }
+    if (
+      run.staging?.staging.kind === "fork" &&
+      call.name === FORK_REPORT_TOOL &&
+      decision.decision === "ask"
+    ) {
+      // A branch's report is its deliverable: it writes only the branch's own row, through the
+      // host's checks, and a plan fork raises no cards (fork-a-plan §3.3). Were policy to ask about
+      // it, the branch could never file and would hang on a card nobody sees, so the filing is
+      // allowed (a `deny` above still blocks it, and the branch then ends `no_report`).
+      decision = { ...decision, decision: "allow", rule: "fork:report" };
+      gated.decision = decision;
+    }
     if (run.staging !== undefined && decision.decision !== "deny") {
       // Staging (night-shift-2026 §2.2): after the broker decided, before anything dispatches or
       // asks. Reads run as usual, except a read that would ask: a staging run raises no cards.
@@ -3377,7 +3457,7 @@ export class PsycheAgentLoop implements AgentLoop {
       const isRead = sideEffect === "none" || sideEffect === "read";
       // `none` is not read-only (memory writes, tools that raise cards): only a read-class call or
       // an exact-listed `none` tool may dispatch; the rest is refused like any other write.
-      const readOk =
+      const readRuns =
         isRead &&
         decision.decision !== "ask" &&
         readVerdict({
@@ -3385,10 +3465,29 @@ export class PsycheAgentLoop implements AgentLoop {
           sideEffect,
           args,
           connectorRule: desc.connectorRule,
+          staging: staging.staging,
         }).run;
+      // A fork's `web.fetch` runs only for a URL a `web.search` of the same branch returned
+      // (fork-a-plan §3.2). No guard on the run means no fetch: it fails closed.
+      const fetchOk =
+        !readRuns ||
+        staging.staging.kind !== "fork" ||
+        call.name !== FORK_FETCH_TOOL ||
+        forkFetchAllowed(staging, args);
+      const readOk = readRuns && fetchOk;
       if (!readOk) {
         const verdict = isRead
-          ? ({ stage: false, reason: "read_not_run" } as const)
+          ? ({
+              stage: false,
+              // A read that would ask is its own reason: a fork tells the model to list it as an
+              // open question (fork-a-plan §3.3).
+              reason:
+                decision.decision === "ask"
+                  ? "read_ask"
+                  : readRuns && !fetchOk
+                    ? "fetch_url"
+                    : "read_not_run",
+            } as const)
           : stageVerdict({
               tool: call.name,
               sideEffect,
@@ -3806,7 +3905,7 @@ export class PsycheAgentLoop implements AgentLoop {
       type: "tool_result",
       callId: call.id,
       name: call.name,
-      output: refusedOutput(staging.staging),
+      output: refusedOutput(staging.staging, reason),
       isError: true,
       provenance: "trusted",
     };
@@ -3885,6 +3984,7 @@ export class PsycheAgentLoop implements AgentLoop {
       ...(g.approvalId === undefined ? {} : { approvalId: g.approvalId }),
       ...(g.authority === undefined ? {} : { authority: structuredClone(g.authority) }),
       ...(run.requester === undefined ? {} : { requester: structuredClone(run.requester) }),
+      ...(run.initiator === undefined ? {} : { initiator: run.initiator }),
       signal: run.abort.signal,
       resultBudgetChars: this.#o.maxToolResultChars ?? 50_000,
       onUpdate: (update) => this.#toolEvent(run, call.id, call.name, "running", level1, update),
@@ -3904,6 +4004,8 @@ export class PsycheAgentLoop implements AgentLoop {
       result = {
         output: {
           error: errorMessage(err),
+          // A helper or connector refusal's machine reason, so the trace can say it in words.
+          ...(reasonOf(err) === undefined ? {} : { reason: reasonOf(err) }),
           ...(missing === undefined ? {} : { missing, hint: missingHint(missing) }),
         },
         isError: true,
@@ -3945,6 +4047,22 @@ export class PsycheAgentLoop implements AgentLoop {
           provenance: result.provenance,
         }) ?? Promise.resolve(),
       ).catch(() => undefined);
+    }
+    if (run.staging?.reads !== undefined) {
+      // The branch's guard learns what each read returned (the URLs of a search, the cites' proof).
+      try {
+        run.staging.reads.observe({
+          callId: call.id,
+          tool: call.name,
+          sideEffect: g.sideEffect,
+          args: structuredClone(g.args),
+          output: structuredClone(result.output),
+          ok: result.isError !== true,
+          provenance: result.provenance,
+        });
+      } catch {
+        // A failing guard never fails the call; it only learns less.
+      }
     }
     if (result.provenance === "untrusted") {
       this.#taint(run, {
@@ -4076,6 +4194,51 @@ export class PsycheAgentLoop implements AgentLoop {
   }
 
   // --- Turn tools -------------------------------------------------------------------------------
+
+  /**
+   * `fork_report` for one branch run (fork-a-plan §4.1): one report per run, for a run that is not
+   * a subagent's. A second call is refused and nothing is filed twice.
+   */
+  #forkReportApi(
+    run: RunState,
+    toolCallId: string,
+    origin: Extract<Staging, { kind: "fork" }>,
+  ): ForkReportTurnApi {
+    const host = this.#o.forkReports as ForkReportHost;
+    return {
+      file: async (report) => {
+        if (run.subagent !== undefined) {
+          throw new PsycheError("forbidden", "only the branch itself files its report");
+        }
+        if (run.forkReported === true) {
+          throw new PsycheError("conflict", "the report was already filed");
+        }
+        // Claimed before the host runs, so two calls in one step cannot both file.
+        run.forkReported = true;
+        try {
+          await host.file({
+            forkId: origin.forkId,
+            branchId: origin.branchId,
+            runId: run.runId,
+            toolCallId,
+            report,
+          });
+        } catch (err) {
+          // Not the host's message (a store error can carry a path); the model may try once more.
+          if (err instanceof PsycheError && err.code === "conflict") {
+            // The host already holds this branch's report (a host that committed and then threw,
+            // or a run that restarted): the run is done filing, never a second time.
+            run.forkReported = true;
+            throw new PsycheError("conflict", "the report was already filed");
+          }
+          run.forkReported = false;
+          if (err instanceof PsycheError && err.code === "invalid_params") throw err;
+          throw new PsycheError("internal", "the report could not be saved; try once more");
+        }
+        return { filed: true as const };
+      },
+    };
+  }
 
   /** `specialist.*` for one run (specialists §4.1–§4.2). */
   #specialistApi(run: RunState): SpecialistTurnApi {
@@ -4369,6 +4532,9 @@ export class PsycheAgentLoop implements AgentLoop {
       ask: (questions) => this.#ask(run, questions),
       spawnSubagent: (input) => this.#spawn(run, toolCallId, input),
       ...(this.#o.specialists === undefined ? {} : { specialists: this.#specialistApi(run) }),
+      ...(this.#o.forkReports === undefined || run.staging?.staging.kind !== "fork"
+        ? {}
+        : { forkReport: this.#forkReportApi(run, toolCallId, run.staging.staging) }),
       gateHarnessAction: (harnessId, callId, action) =>
         this.#gateHarness(run, harnessId, callId, action),
       harnessActionDone: (actionId, outcome, summary) =>
@@ -4472,6 +4638,11 @@ export class PsycheAgentLoop implements AgentLoop {
           input: { text: brief },
           mode: parent.mode,
           permissionMode: parent.permissionMode,
+          // The parent turn's requester (a channel sender, a designated person) is the child's
+          // too: its limits, its taint and Full access's context rules apply to the subagent.
+          ...(parent.requester === undefined
+            ? {}
+            : { requester: structuredClone(parent.requester) }),
           signal: parent.abort.signal,
         },
         (event) => {
@@ -4784,6 +4955,8 @@ export function controlFacts(c: ControlFacts): ControlFacts {
     ...(str(c.role, 64) === undefined ? {} : { role: str(c.role, 64) as string }),
     ...(c.submits === true ? { submits: true } : {}),
     ...(c.unreadable === true ? { unreadable: true } : {}),
+    // A send the executor read (Return in Messages, a Send menu item): Full access holds it.
+    ...(c.sends === true ? { sends: true } : {}),
     ...(str(c.formMethod, 16) === undefined ? {} : { formMethod: str(c.formMethod, 16) as string }),
     ...(str(c.formAction) === undefined ? {} : { formAction: str(c.formAction) as string }),
     ...(str(c.pageUrl) === undefined ? {} : { pageUrl: str(c.pageUrl) as string }),

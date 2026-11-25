@@ -99,39 +99,6 @@ extension View {
     }
 }
 
-/// A quiet search field on paper, for "Search within Memory".
-struct PaperSearchField: View {
-    let prompt: String
-    @Binding var text: String
-
-    var body: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "magnifyingglass").font(.subheadline).foregroundStyle(PsycheColor.muted)
-                .accessibilityHidden(true)
-            TextField(prompt, text: $text)
-                .font(.callout)
-                #if os(iOS)
-                .textInputAutocapitalization(.never)
-                #endif
-                .autocorrectionDisabled()
-                .submitLabel(.search)
-            if !text.isEmpty {
-                Button { text = "" } label: {
-                    Image(systemName: "xmark.circle.fill").foregroundStyle(PsycheColor.muted)
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(String(localized: "Clear search", bundle: .module))
-            }
-        }
-        .padding(.horizontal, 14)
-        .frame(minHeight: 44)
-        .background(PsycheColor.sheet, in: RoundedRectangle(cornerRadius: PsycheMetrics.cardRadius, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: PsycheMetrics.cardRadius, style: .continuous)
-                .strokeBorder(PsycheColor.rule, lineWidth: 1))
-    }
-}
-
 /// The quiet note under pages that are read-mostly on the phone.
 struct EditOnMacNote: View {
     let text: String

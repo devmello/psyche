@@ -24,6 +24,7 @@ export * from "./repos/history-prune.ts";
 export * from "./repos/idempotency.ts";
 export * from "./repos/library.ts";
 export * from "./repos/machines.ts";
+export * from "./repos/memory-trust-rollback.ts";
 export * from "./repos/messages.ts";
 export * from "./repos/night-shift.ts";
 export * from "./repos/nodes.ts";

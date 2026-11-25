@@ -71,6 +71,10 @@ export const onboardingRest: Partial<Catalogue> = {
   "onboarding.you.agent": "आपका एजेंट",
   "onboarding.you.customize": "रूप-रंग बदलें",
   "onboarding.you.more": "आपके बारे में और",
+  "onboarding.restore.title": "बैकअप से पुनर्स्थापित करें",
+  "onboarding.restore.where":
+    "बैकअप $PSYCHE_HOME/backups में रखे जाते हैं। नए कंप्यूटर पर पुनर्स्थापित करने के लिए Gateway को रोकें और यह चलाएँ:",
+  "onboarding.restore.unlock": "फिर वॉल्ट को उसकी रिकवरी कुंजी से अनलॉक करें।",
   "onboarding.memory.habitsLead":
     "चुनें कि {name} हर दिन क्या करे और मेमोरी में क्या रखे। यह सब सेटिंग्ज़ में बदला जा सकता है।",
   "onboarding.memory.bring": "ChatGPT या Claude से मेमोरी लाएँ",

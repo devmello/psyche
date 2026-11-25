@@ -27,7 +27,6 @@ export interface TrayModel {
   status: GatewayStatus;
   run: GatewayRunState;
   pendingApprovals: number;
-  firstApproval?: string;
   /** Percent remaining from the usage ledger; null until the Gateway reports it. */
   usagePercentRemaining: number | null;
   /** The accelerators registered now, shown beside their items ("" or unset: none). */
@@ -101,7 +100,8 @@ export function trayTemplate(m: TrayModel, a: TrayActions): MenuItemConstructorO
     },
     m.pendingApprovals > 0
       ? {
-          label: `Needs you (${m.pendingApprovals})${m.firstApproval ? `: ${m.firstApproval.slice(0, 40)}` : ""}`,
+          // The count only: the card itself is shown once, in the chat (approvals wave W3).
+          label: `Needs you (${m.pendingApprovals})`,
           click: a.openApprovals,
         }
       : { label: "Nothing needs you", enabled: false },
