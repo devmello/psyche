@@ -68,6 +68,11 @@ export const RunStepAttempt = Type.Object(
 );
 export type RunStepAttempt = Static<typeof RunStepAttempt>;
 
+export const RunStepLabelKey = StringEnum(["reply", "file", "model", "thinking"], {
+  $id: "RunStepLabelKey",
+});
+export type RunStepLabelKey = Static<typeof RunStepLabelKey>;
+
 export const RunStep = Type.Object(
   {
     /** `stp_…`; a thinking step's id is its `chat.reasoning` stepId. */
@@ -84,6 +89,11 @@ export const RunStep = Type.Object(
     label: Type.String({ maxLength: RUN_STEP_LIMITS.labelChars }),
     /** The past-tense form once ended ("Searched flights"). */
     doneLabel: Type.Optional(Type.String({ maxLength: RUN_STEP_LIMITS.labelChars })),
+    /**
+     * Set on steps whose wording is fixed ("Writing a reply"): clients word them in the owner's
+     * language and fall back to `label` / `doneLabel` (older rows have no key).
+     */
+    labelKey: Type.Optional(RunStepLabelKey),
     /** A domain, file or recipient, redacted. */
     target: Type.Optional(Type.String({ maxLength: RUN_STEP_LIMITS.targetChars })),
     /** The machine this step ran on; absent means the Host. */

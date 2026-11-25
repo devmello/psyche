@@ -34,7 +34,15 @@ export const WrapUpAction = Type.Object(
 );
 
 export const TextBlock = Type.Object(
-  { type: Type.Literal("text"), md: Type.String() },
+  {
+    type: Type.Literal("text"),
+    md: Type.String(),
+    /**
+     * A note the Gateway writes (the restart note): the id of the sentence clients show in the
+     * owner's language. `md` stays the English fallback for clients that do not know the id.
+     */
+    noteKey: Type.Optional(Type.String({ maxLength: 64 })),
+  },
   { $id: "TextBlock" },
 );
 export const ToolCallBlock = Type.Object(

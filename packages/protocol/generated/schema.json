@@ -43558,6 +43558,9 @@
           "maxLength": 160,
           "type": "string"
         },
+        "labelKey": {
+          "$ref": "#/$defs/RunStepLabelKey"
+        },
         "target": {
           "maxLength": 120,
           "type": "string"
@@ -43811,6 +43814,15 @@
         "memory",
         "artifact",
         "note"
+      ],
+      "type": "string"
+    },
+    "RunStepLabelKey": {
+      "enum": [
+        "reply",
+        "file",
+        "model",
+        "thinking"
       ],
       "type": "string"
     },
@@ -54413,6 +54425,10 @@
           "type": "string"
         },
         "md": {
+          "type": "string"
+        },
+        "noteKey": {
+          "maxLength": 64,
           "type": "string"
         }
       },
