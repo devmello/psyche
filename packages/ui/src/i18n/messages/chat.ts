@@ -112,6 +112,8 @@ export const chat = {
   "chat.attach.remove": "Remove {name}",
   "chat.attach.uploading": "Uploading {name}",
   "chat.attach.failed": "{name} didn't upload",
+  "chat.attach.retry": "Retry uploading {name}",
+  "chat.attach.blockedByFailed": "A file didn't upload. Retry or remove it to send.",
   "chat.attach.dismiss": "Dismiss",
   "chat.attach.refused.image":
     "{name}: this model can't read images, so only documents (PDF, Word, Excel, text) can be attached",

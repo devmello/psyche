@@ -703,8 +703,10 @@ export class NodeRegistry {
     options: NodeInvokeOptions = {},
   ): Promise<NodeInvokeResult> {
     const invocationId = this.#ctx.db.newId();
+    options.onInvocationId?.(invocationId);
     return new Promise<NodeInvokeResult>((resolve) => {
       let settled = false;
+      let sent = false;
       const finish = (r: NodeInvokeResult) => {
         if (settled) return;
         settled = true;
@@ -713,8 +715,12 @@ export class NodeRegistry {
         this.#invocations.delete(invocationId);
         resolve(r);
       };
-      const onAbort = () =>
+      const onAbort = () => {
+        // Opt-in: tell the node to stop the work too (a streaming session would otherwise run on).
+        if (options.cancelOnAbort === true && sent && !settled)
+          conn.request("node.cancel", { invocationId }).catch(() => undefined);
         finish({ ok: false, error: { code: "cancelled", message: "invocation aborted" } });
+      };
       const timer = setTimeout(
         () => finish({ ok: false, error: { code: "timeout", message: `${capability} timed out` } }),
         options.timeoutMs ?? NODE_INVOKE_TIMEOUT_MS,
@@ -728,6 +734,7 @@ export class NodeRegistry {
         seq: 0,
         resolve: finish,
       });
+      sent = true;
       conn
         .request("node.invoke", {
           invocationId,

@@ -339,6 +339,11 @@
         "payload": "#/$defs/PersonaUpdatedPayload"
       },
       {
+        "description": "A plan fork or one of its branches changed state or spend. Ids and states only, never report text: clients fetch with planForks.get.",
+        "name": "planFork.updated",
+        "payload": "#/$defs/PlanForkUpdate"
+      },
+      {
         "description": "A code plugin was installed (after its approved card), switched on or off, or removed, so Settings reloads the plugin list (a hint, not state).",
         "name": "plugins.changed",
         "payload": "#/$defs/PluginsChangedPayload"
@@ -3099,6 +3104,78 @@
         "sideEffecting": false
       },
       {
+        "description": "Stops one branch, or every branch when branchId is absent. Filed reports are kept and staged items are dismissed. Side-effecting: requires idempotencyKey.",
+        "name": "planForks.cancel",
+        "params": "#/$defs/PlanForksCancelParams",
+        "result": "#/$defs/PlanForksCancelResult",
+        "scope": "operator.write",
+        "sideEffecting": true
+      },
+      {
+        "description": "Forks the thread at the message: one hidden branch thread and one task per option, each working its option out read-only. Refused on incognito, channel, automation and subagent threads, while a run is writing, and while another fork of the thread runs. Side-effecting: requires idempotencyKey.",
+        "name": "planForks.create",
+        "params": "#/$defs/PlanForksCreateParams",
+        "result": "#/$defs/PlanForksCreateResult",
+        "scope": "operator.write",
+        "sideEffecting": true
+      },
+      {
+        "description": "Ends a ready fork and dismisses its staged items. Runs nothing. Side-effecting: requires idempotencyKey.",
+        "name": "planForks.dismiss",
+        "params": "#/$defs/PlanForksDismissParams",
+        "result": "#/$defs/PlanForksDismissResult",
+        "scope": "operator.write",
+        "sideEffecting": true
+      },
+      {
+        "description": "The worst-case cost of forking this thread into these options: 'Up to about $0.40'.",
+        "name": "planForks.estimate",
+        "params": "#/$defs/PlanForksEstimateParams",
+        "result": "#/$defs/PlanForksEstimateResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "One fork with its branches and the comparison. For a caller that is not the desktop shell, items that cite owner-only sources, totals that include them and model-written text are withheld (each branch's scrub says how much).",
+        "name": "planForks.get",
+        "params": "#/$defs/PlanForksGetParams",
+        "result": "#/$defs/PlanForksGetResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "The forks of a thread, newest first, without branches.",
+        "name": "planForks.list",
+        "params": "#/$defs/PlanForksListParams",
+        "result": "#/$defs/PlanForksListResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Re-queues a failed branch, once per branch and only within what is left of the fork's budget. Side-effecting: requires idempotencyKey.",
+        "name": "planForks.retryBranch",
+        "params": "#/$defs/PlanForksRetryBranchParams",
+        "result": "#/$defs/PlanForksRetryBranchResult",
+        "scope": "operator.write",
+        "sideEffecting": true
+      },
+      {
+        "description": "Suggests two options for the start sheet from the thread, with one utility-model call. Nothing is stored; the owner edits the suggestion before starting.",
+        "name": "planForks.suggest",
+        "params": "#/$defs/PlanForksSuggestParams",
+        "result": "#/$defs/PlanForksSuggestResult",
+        "scope": "operator.write",
+        "sideEffecting": false
+      },
+      {
+        "description": "Takes one branch's plan: requests the one staged_apply approval for the ticked items, bound to their binding hashes. With no items there is no approval and the plan is taken at once. The client must check the approval's item hashes equal its selection before approvals.answer. Side-effecting: requires idempotencyKey; a replay returns the same approval and token.",
+        "name": "planForks.take",
+        "params": "#/$defs/PlanForksTakeParams",
+        "result": "#/$defs/PlanForksTakeResult",
+        "scope": "operator.approvals",
+        "sideEffecting": true
+      },
+      {
         "description": "A staged install (manifest, files, findings) for its approval card.",
         "name": "plugins.getProposal",
         "params": "#/$defs/PluginsGetProposalParams",
@@ -4049,6 +4126,22 @@
         "result": "#/$defs/StorageCleared",
         "scope": "operator.admin",
         "sideEffecting": true
+      },
+      {
+        "description": "Side-effecting. Compacts the database (VACUUM, then a WAL checkpoint). Psyche pauses while it runs. Refused with `conflict` while a run, task or scheduled run is active, so none is interrupted.",
+        "name": "storage.compact",
+        "params": "#/$defs/StorageCompactParams",
+        "result": "#/$defs/StorageCompacted",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
+        "description": "The database's size, how much a compaction could give back, and whether one can run now.",
+        "name": "storage.compactEstimate",
+        "params": "#/$defs/StorageCompactEstimateParams",
+        "result": "#/$defs/StorageCompactEstimate",
+        "scope": "operator.read",
+        "sideEffecting": false
       },
       {
         "description": "Disk use under the Gateway's data folder by category (database, memory index, attachments and Library, browser profiles, recordings, logs, caches, other). Sizes only; symbolic links are not followed.",
@@ -12349,6 +12442,12 @@
         },
         {
           "$ref": "#/$defs/UiBlock"
+        },
+        {
+          "$ref": "#/$defs/PlanForkBlock"
+        },
+        {
+          "$ref": "#/$defs/PlanTakenBlock"
         }
       ]
     },
@@ -22209,6 +22308,390 @@
         "etag",
         "modifiedAt",
         "size"
+      ],
+      "type": "object"
+    },
+    "ForkCite": {
+      "properties": {
+        "callId": {
+          "maxLength": 80,
+          "minLength": 1,
+          "type": "string"
+        },
+        "ref": {
+          "maxLength": 500,
+          "minLength": 1,
+          "type": "string"
+        },
+        "source": {
+          "$ref": "#/$defs/ForkCiteSource"
+        }
+      },
+      "required": [
+        "callId",
+        "ref"
+      ],
+      "type": "object"
+    },
+    "ForkCiteSource": {
+      "enum": [
+        "memory",
+        "mail",
+        "calendar",
+        "contacts",
+        "messages",
+        "web",
+        "files"
+      ],
+      "type": "string"
+    },
+    "ForkCost": {
+      "properties": {
+        "id": {
+          "maxLength": 40,
+          "minLength": 1,
+          "type": "string"
+        },
+        "label": {
+          "maxLength": 80,
+          "type": "string"
+        },
+        "amount": {
+          "type": "number"
+        },
+        "currency": {
+          "maxLength": 3,
+          "minLength": 3,
+          "type": "string"
+        },
+        "period": {
+          "$ref": "#/$defs/ForkCostPeriod"
+        },
+        "estimate": {
+          "type": "boolean"
+        },
+        "basis": {
+          "maxLength": 200,
+          "type": "string"
+        },
+        "cites": {
+          "items": {
+            "$ref": "#/$defs/ForkCite"
+          },
+          "maxItems": 8,
+          "type": "array"
+        },
+        "unsourced": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "label",
+        "amount",
+        "currency",
+        "period",
+        "estimate",
+        "cites"
+      ],
+      "type": "object"
+    },
+    "ForkCostPeriod": {
+      "enum": [
+        "once",
+        "month",
+        "year"
+      ],
+      "type": "string"
+    },
+    "ForkDateItem": {
+      "properties": {
+        "id": {
+          "maxLength": 40,
+          "minLength": 1,
+          "type": "string"
+        },
+        "label": {
+          "maxLength": 80,
+          "type": "string"
+        },
+        "date": {
+          "maxLength": 40,
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}(T[0-9:.+\\-Z]+)?$",
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/$defs/ForkDateKind"
+        },
+        "estimate": {
+          "type": "boolean"
+        },
+        "cites": {
+          "items": {
+            "$ref": "#/$defs/ForkCite"
+          },
+          "maxItems": 8,
+          "type": "array"
+        },
+        "unsourced": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "label",
+        "date",
+        "kind",
+        "estimate",
+        "cites"
+      ],
+      "type": "object"
+    },
+    "ForkDateKind": {
+      "enum": [
+        "deadline",
+        "event",
+        "milestone"
+      ],
+      "type": "string"
+    },
+    "ForkOpenQuestion": {
+      "properties": {
+        "id": {
+          "maxLength": 40,
+          "minLength": 1,
+          "type": "string"
+        },
+        "text": {
+          "maxLength": 200,
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "text"
+      ],
+      "type": "object"
+    },
+    "ForkPerson": {
+      "properties": {
+        "id": {
+          "maxLength": 40,
+          "minLength": 1,
+          "type": "string"
+        },
+        "personId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "name": {
+          "maxLength": 80,
+          "type": "string"
+        },
+        "effect": {
+          "maxLength": 200,
+          "type": "string"
+        },
+        "cites": {
+          "items": {
+            "$ref": "#/$defs/ForkCite"
+          },
+          "maxItems": 8,
+          "type": "array"
+        },
+        "unsourced": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "effect",
+        "cites"
+      ],
+      "type": "object"
+    },
+    "ForkReport": {
+      "properties": {
+        "summary": {
+          "maxLength": 600,
+          "type": "string"
+        },
+        "steps": {
+          "items": {
+            "$ref": "#/$defs/ForkStep"
+          },
+          "maxItems": 20,
+          "type": "array"
+        },
+        "costs": {
+          "items": {
+            "$ref": "#/$defs/ForkCost"
+          },
+          "maxItems": 20,
+          "type": "array"
+        },
+        "dates": {
+          "items": {
+            "$ref": "#/$defs/ForkDateItem"
+          },
+          "maxItems": 20,
+          "type": "array"
+        },
+        "people": {
+          "items": {
+            "$ref": "#/$defs/ForkPerson"
+          },
+          "maxItems": 20,
+          "type": "array"
+        },
+        "tradeoffs": {
+          "items": {
+            "$ref": "#/$defs/ForkTradeoff"
+          },
+          "maxItems": 12,
+          "type": "array"
+        },
+        "risks": {
+          "items": {
+            "$ref": "#/$defs/ForkRisk"
+          },
+          "maxItems": 10,
+          "type": "array"
+        },
+        "openQuestions": {
+          "items": {
+            "$ref": "#/$defs/ForkOpenQuestion"
+          },
+          "maxItems": 8,
+          "type": "array"
+        }
+      },
+      "required": [
+        "summary",
+        "steps",
+        "costs",
+        "dates",
+        "people",
+        "tradeoffs",
+        "risks",
+        "openQuestions"
+      ],
+      "type": "object"
+    },
+    "ForkRisk": {
+      "properties": {
+        "id": {
+          "maxLength": 40,
+          "minLength": 1,
+          "type": "string"
+        },
+        "text": {
+          "maxLength": 200,
+          "type": "string"
+        },
+        "likelihood": {
+          "$ref": "#/$defs/ForkRiskLikelihood"
+        },
+        "cites": {
+          "items": {
+            "$ref": "#/$defs/ForkCite"
+          },
+          "maxItems": 8,
+          "type": "array"
+        },
+        "unsourced": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "text",
+        "likelihood",
+        "cites"
+      ],
+      "type": "object"
+    },
+    "ForkRiskLikelihood": {
+      "enum": [
+        "low",
+        "medium",
+        "high"
+      ],
+      "type": "string"
+    },
+    "ForkStep": {
+      "properties": {
+        "id": {
+          "maxLength": 40,
+          "minLength": 1,
+          "type": "string"
+        },
+        "text": {
+          "maxLength": 200,
+          "type": "string"
+        },
+        "who": {
+          "$ref": "#/$defs/ForkStepWho"
+        },
+        "when": {
+          "maxLength": 40,
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}(T[0-9:.+\\-Z]+)?$",
+          "type": "string"
+        },
+        "stagedId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "text",
+        "who"
+      ],
+      "type": "object"
+    },
+    "ForkStepWho": {
+      "enum": [
+        "psyche",
+        "you"
+      ],
+      "type": "string"
+    },
+    "ForkTradeoff": {
+      "properties": {
+        "id": {
+          "maxLength": 40,
+          "minLength": 1,
+          "type": "string"
+        },
+        "gain": {
+          "maxLength": 160,
+          "type": "string"
+        },
+        "giveUp": {
+          "maxLength": 160,
+          "type": "string"
+        },
+        "cites": {
+          "items": {
+            "$ref": "#/$defs/ForkCite"
+          },
+          "maxItems": 8,
+          "type": "array"
+        },
+        "unsourced": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "giveUp",
+        "cites"
       ],
       "type": "object"
     },
@@ -37383,6 +37866,908 @@
       ],
       "type": "object"
     },
+    "PlanComparison": {
+      "properties": {
+        "headline": {
+          "maxLength": 200,
+          "type": "string"
+        },
+        "rows": {
+          "items": {
+            "$ref": "#/$defs/PlanComparisonRow"
+          },
+          "maxItems": 24,
+          "type": "array"
+        },
+        "betterIf": {
+          "items": {
+            "$ref": "#/$defs/PlanComparisonBetterIf"
+          },
+          "maxItems": 4,
+          "type": "array"
+        }
+      },
+      "required": [
+        "headline",
+        "rows",
+        "betterIf"
+      ],
+      "type": "object"
+    },
+    "PlanComparisonBetterIf": {
+      "properties": {
+        "branchId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "text": {
+          "maxLength": 160,
+          "type": "string"
+        }
+      },
+      "required": [
+        "branchId",
+        "text"
+      ],
+      "type": "object"
+    },
+    "PlanComparisonCell": {
+      "properties": {
+        "branchId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "itemIds": {
+          "items": {
+            "maxLength": 40,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 20,
+          "type": "array"
+        },
+        "note": {
+          "maxLength": 160,
+          "type": "string"
+        }
+      },
+      "required": [
+        "branchId",
+        "itemIds"
+      ],
+      "type": "object"
+    },
+    "PlanComparisonDimension": {
+      "enum": [
+        "cost",
+        "dates",
+        "people",
+        "tradeoffs",
+        "risks",
+        "open"
+      ],
+      "type": "string"
+    },
+    "PlanComparisonRow": {
+      "properties": {
+        "dimension": {
+          "$ref": "#/$defs/PlanComparisonDimension"
+        },
+        "label": {
+          "maxLength": 80,
+          "type": "string"
+        },
+        "cells": {
+          "items": {
+            "$ref": "#/$defs/PlanComparisonCell"
+          },
+          "maxItems": 4,
+          "type": "array"
+        },
+        "differs": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "dimension",
+        "label",
+        "cells",
+        "differs"
+      ],
+      "type": "object"
+    },
+    "PlanFork": {
+      "properties": {
+        "id": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "threadId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "forkMessageId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "status": {
+          "$ref": "#/$defs/PlanForkStatus"
+        },
+        "error": {
+          "anyOf": [
+            {
+              "maxLength": 300,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "budgetUsd": {
+          "minimum": 0,
+          "type": "number"
+        },
+        "spentUsd": {
+          "minimum": 0,
+          "type": "number"
+        },
+        "tokens": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "comparison": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PlanComparison"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "takenBranchId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "takeApprovalId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "createdByDeviceId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "expiresAt": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "createdAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "updatedAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "finishedAt": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "threadId",
+        "status",
+        "budgetUsd",
+        "spentUsd",
+        "tokens",
+        "createdAt",
+        "updatedAt"
+      ],
+      "type": "object"
+    },
+    "PlanForkBlock": {
+      "properties": {
+        "type": {
+          "const": "plan_fork",
+          "type": "string"
+        },
+        "forkId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "forkId"
+      ],
+      "type": "object"
+    },
+    "PlanForkBranch": {
+      "properties": {
+        "id": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "forkId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "ord": {
+          "maximum": 3,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "label": {
+          "maxLength": 40,
+          "minLength": 1,
+          "type": "string"
+        },
+        "premise": {
+          "maxLength": 280,
+          "minLength": 1,
+          "type": "string"
+        },
+        "threadId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "taskId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "status": {
+          "$ref": "#/$defs/PlanForkBranchStatus"
+        },
+        "error": {
+          "anyOf": [
+            {
+              "maxLength": 300,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "report": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ForkReport"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "readOwnerOnly": {
+          "type": "boolean"
+        },
+        "taint": {
+          "type": "boolean"
+        },
+        "taintSources": {
+          "items": {
+            "$ref": "#/$defs/TaintSource"
+          },
+          "maxItems": 20,
+          "type": "array"
+        },
+        "spentUsd": {
+          "minimum": 0,
+          "type": "number"
+        },
+        "tokens": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "scrub": {
+          "$ref": "#/$defs/PlanForkScrub"
+        },
+        "startedAt": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "finishedAt": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "createdAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "updatedAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "forkId",
+        "ord",
+        "label",
+        "premise",
+        "threadId",
+        "status",
+        "readOwnerOnly",
+        "taint",
+        "taintSources",
+        "spentUsd",
+        "tokens",
+        "createdAt",
+        "updatedAt"
+      ],
+      "type": "object"
+    },
+    "PlanForkBranchStatus": {
+      "enum": [
+        "queued",
+        "running",
+        "reported",
+        "failed",
+        "cancelled",
+        "budget_stopped"
+      ],
+      "type": "string"
+    },
+    "PlanForkOption": {
+      "properties": {
+        "label": {
+          "maxLength": 40,
+          "minLength": 1,
+          "type": "string"
+        },
+        "premise": {
+          "maxLength": 280,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "label",
+        "premise"
+      ],
+      "type": "object"
+    },
+    "PlanForkScrub": {
+      "properties": {
+        "hiddenItems": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "textHidden": {
+          "type": "boolean"
+        },
+        "totalsHidden": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "hiddenItems",
+        "textHidden",
+        "totalsHidden"
+      ],
+      "type": "object"
+    },
+    "PlanForkStatus": {
+      "enum": [
+        "running",
+        "comparing",
+        "ready",
+        "taken",
+        "dismissed",
+        "expired",
+        "cancelled",
+        "failed"
+      ],
+      "type": "string"
+    },
+    "PlanForkUpdate": {
+      "properties": {
+        "forkId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "threadId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/$defs/PlanForkStatus"
+        },
+        "branches": {
+          "items": {
+            "$ref": "#/$defs/PlanForkUpdateBranch"
+          },
+          "maxItems": 4,
+          "type": "array"
+        },
+        "spentUsd": {
+          "minimum": 0,
+          "type": "number"
+        }
+      },
+      "required": [
+        "forkId",
+        "threadId",
+        "status",
+        "branches",
+        "spentUsd"
+      ],
+      "type": "object"
+    },
+    "PlanForkUpdateBranch": {
+      "properties": {
+        "id": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/$defs/PlanForkBranchStatus"
+        },
+        "step": {
+          "maxLength": 120,
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "status"
+      ],
+      "type": "object"
+    },
+    "PlanForksCancelParams": {
+      "properties": {
+        "forkId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "branchId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "forkId"
+      ],
+      "type": "object"
+    },
+    "PlanForksCancelResult": {
+      "properties": {
+        "cancelled": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "cancelled"
+      ],
+      "type": "object"
+    },
+    "PlanForksCreateParams": {
+      "properties": {
+        "threadId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "messageId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "branches": {
+          "items": {
+            "$ref": "#/$defs/PlanForkOption"
+          },
+          "maxItems": 4,
+          "minItems": 2,
+          "type": "array"
+        }
+      },
+      "required": [
+        "threadId",
+        "messageId",
+        "branches"
+      ],
+      "type": "object"
+    },
+    "PlanForksCreateResult": {
+      "properties": {
+        "fork": {
+          "$ref": "#/$defs/PlanFork"
+        },
+        "branches": {
+          "items": {
+            "$ref": "#/$defs/PlanForkBranch"
+          },
+          "maxItems": 4,
+          "type": "array"
+        }
+      },
+      "required": [
+        "fork",
+        "branches"
+      ],
+      "type": "object"
+    },
+    "PlanForksDismissParams": {
+      "properties": {
+        "forkId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "forkId"
+      ],
+      "type": "object"
+    },
+    "PlanForksDismissResult": {
+      "properties": {
+        "dismissed": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "dismissed"
+      ],
+      "type": "object"
+    },
+    "PlanForksEstimateParams": {
+      "properties": {
+        "threadId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "branches": {
+          "items": {
+            "$ref": "#/$defs/PlanForkOption"
+          },
+          "maxItems": 4,
+          "minItems": 2,
+          "type": "array"
+        }
+      },
+      "required": [
+        "threadId",
+        "branches"
+      ],
+      "type": "object"
+    },
+    "PlanForksEstimateResult": {
+      "properties": {
+        "maxUsd": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "maxTokens": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "budgetUsd": {
+          "minimum": 0,
+          "type": "number"
+        }
+      },
+      "required": [
+        "maxTokens",
+        "budgetUsd"
+      ],
+      "type": "object"
+    },
+    "PlanForksGetParams": {
+      "properties": {
+        "forkId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "forkId"
+      ],
+      "type": "object"
+    },
+    "PlanForksGetResult": {
+      "properties": {
+        "fork": {
+          "$ref": "#/$defs/PlanFork"
+        },
+        "branches": {
+          "items": {
+            "$ref": "#/$defs/PlanForkBranch"
+          },
+          "maxItems": 4,
+          "type": "array"
+        }
+      },
+      "required": [
+        "fork",
+        "branches"
+      ],
+      "type": "object"
+    },
+    "PlanForksListParams": {
+      "properties": {
+        "threadId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "threadId"
+      ],
+      "type": "object"
+    },
+    "PlanForksListResult": {
+      "properties": {
+        "forks": {
+          "items": {
+            "$ref": "#/$defs/PlanFork"
+          },
+          "maxItems": 50,
+          "type": "array"
+        }
+      },
+      "required": [
+        "forks"
+      ],
+      "type": "object"
+    },
+    "PlanForksRetryBranchParams": {
+      "properties": {
+        "forkId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "branchId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "forkId",
+        "branchId"
+      ],
+      "type": "object"
+    },
+    "PlanForksRetryBranchResult": {
+      "properties": {
+        "branch": {
+          "$ref": "#/$defs/PlanForkBranch"
+        }
+      },
+      "required": [
+        "branch"
+      ],
+      "type": "object"
+    },
+    "PlanForksSuggestParams": {
+      "properties": {
+        "threadId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "messageId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "threadId",
+        "messageId"
+      ],
+      "type": "object"
+    },
+    "PlanForksSuggestResult": {
+      "properties": {
+        "options": {
+          "items": {
+            "$ref": "#/$defs/PlanForkOption"
+          },
+          "maxItems": 2,
+          "type": "array"
+        }
+      },
+      "required": [
+        "options"
+      ],
+      "type": "object"
+    },
+    "PlanForksTakeParams": {
+      "properties": {
+        "forkId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "branchId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "items": {
+          "items": {
+            "$ref": "#/$defs/NightShiftApplyItem"
+          },
+          "maxItems": 50,
+          "type": "array"
+        },
+        "sends": {
+          "items": {
+            "$ref": "#/$defs/NightShiftApplySend"
+          },
+          "maxItems": 50,
+          "type": "array"
+        },
+        "continue": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "forkId",
+        "branchId",
+        "items",
+        "sends",
+        "continue"
+      ],
+      "type": "object"
+    },
+    "PlanForksTakeResult": {
+      "properties": {
+        "approval": {
+          "$ref": "#/$defs/ApprovalRequest"
+        },
+        "answerToken": {
+          "$ref": "#/$defs/SurfaceAnswerToken"
+        },
+        "refused": {
+          "items": {
+            "$ref": "#/$defs/NightShiftRefused"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "refused"
+      ],
+      "type": "object"
+    },
     "PlanStep": {
       "properties": {
         "id": {
@@ -37417,6 +38802,32 @@
         "skipped"
       ],
       "type": "string"
+    },
+    "PlanTakenBlock": {
+      "properties": {
+        "type": {
+          "const": "plan_taken",
+          "type": "string"
+        },
+        "forkId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "branchId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "forkId",
+        "branchId"
+      ],
+      "type": "object"
     },
     "PluginAdds": {
       "properties": {
@@ -38743,6 +40154,11 @@
         },
         "strings": {
           "$ref": "#/$defs/PointsCardStrings"
+        },
+        "closingNote": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string"
         }
       },
       "required": [
@@ -50982,7 +52398,9 @@
         },
         "preview": {
           "anyOf": [
-            {},
+            {
+              "$ref": "#/$defs/StagedPreview"
+            },
             {
               "type": "null"
             }
@@ -51197,6 +52615,67 @@
       ],
       "type": "string"
     },
+    "StagedPreview": {
+      "properties": {
+        "kind": {
+          "enum": [
+            "mail",
+            "calendar",
+            "reminder",
+            "file"
+          ],
+          "type": "string"
+        },
+        "title": {
+          "maxLength": 200,
+          "type": "string"
+        },
+        "rows": {
+          "items": {
+            "$ref": "#/$defs/StagedPreviewRow"
+          },
+          "maxItems": 40,
+          "type": "array"
+        },
+        "truncated": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "kind",
+        "title",
+        "rows",
+        "truncated"
+      ],
+      "type": "object"
+    },
+    "StagedPreviewRow": {
+      "properties": {
+        "label": {
+          "maxLength": 60,
+          "type": "string"
+        },
+        "value": {
+          "type": "string"
+        },
+        "truncated": {
+          "const": true,
+          "type": "boolean"
+        },
+        "badge": {
+          "enum": [
+            "new_recipient",
+            "reply_all"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "label",
+        "value"
+      ],
+      "type": "object"
+    },
     "StarterFolderId": {
       "enum": [
         "documents",
@@ -51278,6 +52757,52 @@
       "required": [
         "cleared",
         "freedBytes"
+      ],
+      "type": "object"
+    },
+    "StorageCompactEstimate": {
+      "properties": {
+        "dbBytes": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "reclaimableBytes": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "idle": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "dbBytes",
+        "reclaimableBytes",
+        "idle"
+      ],
+      "type": "object"
+    },
+    "StorageCompactEstimateParams": {
+      "properties": {},
+      "type": "object"
+    },
+    "StorageCompactParams": {
+      "properties": {},
+      "type": "object"
+    },
+    "StorageCompacted": {
+      "properties": {
+        "durationMs": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "savedBytes": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "durationMs",
+        "savedBytes"
       ],
       "type": "object"
     },

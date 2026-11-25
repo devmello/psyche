@@ -31,6 +31,10 @@ export interface StoragePanelProps {
   onRetry?: () => void;
   /** Runs the clear after the owner confirms; resolves with the bytes freed. */
   onClear?: () => Promise<number>;
+  /** The database's size and what a compaction could give back; null hides the row. */
+  compact?: { dbBytes: number; reclaimableBytes: number; idle: boolean } | null;
+  /** Runs the compaction; resolves with its duration and the bytes saved. */
+  onCompact?: () => Promise<{ durationMs: number; savedBytes: number }>;
   /** Opens with the confirm showing (stories and tests). */
   defaultConfirming?: boolean;
 }
@@ -42,8 +46,36 @@ export function StoragePanel({
   error = null,
   onRetry,
   onClear,
+  compact = null,
+  onCompact,
   defaultConfirming = false,
 }: StoragePanelProps): ReactElement {
+  const [compacting, setCompacting] = useState(false);
+  const [compactNotice, setCompactNotice] = useState<{ kind: "ok" | "error"; text: string } | null>(
+    null,
+  );
+  const runCompact = async (): Promise<void> => {
+    if (!onCompact) return;
+    setCompacting(true);
+    setCompactNotice(null);
+    try {
+      const r = await onCompact();
+      setCompactNotice({
+        kind: "ok",
+        text: t("settings.storage.compact.done", {
+          seconds: (r.durationMs / 1000).toFixed(1),
+          size: formatBytes(r.savedBytes),
+        }),
+      });
+    } catch (err) {
+      setCompactNotice({
+        kind: "error",
+        text: t("settings.storage.compact.failed", { reason: messageOf(err) }),
+      });
+    } finally {
+      setCompacting(false);
+    }
+  };
   const [confirming, setConfirming] = useState(defaultConfirming);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
@@ -107,6 +139,42 @@ export function StoragePanel({
               <span className="tabular-nums">{formatBytes(totalBytes)}</span>
             </li>
           </ul>
+          {compact !== null && onCompact ? (
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex flex-col">
+                <span className="font-medium">{t("settings.storage.compact.title")}</span>
+                <span className="text-label-secondary">
+                  {compact.idle
+                    ? t("settings.storage.compact.hint", {
+                        size: formatBytes(compact.dbBytes),
+                        reclaimable: formatBytes(compact.reclaimableBytes),
+                      })
+                    : t("settings.storage.compact.busy")}
+                </span>
+              </div>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={compacting || !compact.idle}
+                onClick={() => void runCompact()}
+              >
+                {compacting
+                  ? t("settings.storage.compact.running")
+                  : t("settings.storage.compact.button")}
+              </Button>
+            </div>
+          ) : null}
+          {compactNotice ? (
+            <p
+              role={compactNotice.kind === "error" ? "alert" : "status"}
+              className={
+                compactNotice.kind === "error" ? "text-danger-text" : "text-label-secondary"
+              }
+            >
+              {compactNotice.text}
+            </p>
+          ) : null}
           {confirming ? (
             <div
               role="alertdialog"
@@ -150,6 +218,7 @@ export function StoragePanel({
 export function StorageSection(): ReactElement {
   const call = useCall();
   const q = useGatewayQuery("storage.usage", {});
+  const est = useGatewayQuery("storage.compactEstimate", {});
   return (
     <StoragePanel
       categories={q.data?.categories ?? null}
@@ -157,6 +226,15 @@ export function StorageSection(): ReactElement {
       loading={q.loading}
       error={q.error}
       onRetry={q.reload}
+      compact={est.data ?? null}
+      onCompact={async () => {
+        try {
+          return await call("storage.compact", {});
+        } finally {
+          est.reload();
+          q.reload();
+        }
+      }}
       onClear={async () => {
         const r = await call("storage.clearCache", {});
         q.reload();

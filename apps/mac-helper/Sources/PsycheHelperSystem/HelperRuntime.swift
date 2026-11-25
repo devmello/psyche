@@ -12,7 +12,13 @@ public final class HelperRuntime: @unchecked Sendable {
 
     /// `identity` is the device identity the helper paired with; it signs presence assertions after
     /// the owner passed the system sheet.
-    public init(identity: DeviceIdentity, log: HelperLog = HelperLog(), environment: [String: String] = ProcessInfo.processInfo.environment) {
+    ///
+    /// `extraHandlers` are capability groups the executable assembles from targets that must not
+    /// link `PsycheHelperSystem` (Psyche points, docs/design/psyche-points-2026.md §4.3).
+    public init(
+        identity: DeviceIdentity, log: HelperLog = HelperLog(), environment: [String: String] = ProcessInfo.processInfo.environment,
+        extraHandlers: [any CapabilityHandler] = []
+    ) {
         self.log = log
         computer = ComputerUse(environment: environment, log: log)
         let presence = DeviceIdentityPresence(identity: identity)
@@ -43,7 +49,9 @@ public final class HelperRuntime: @unchecked Sendable {
         // J8 phase 2: "Record in an app" (AX events of one granted app; desktop shell only, via the Gateway).
         let teachApp = AppTeachCapabilities.live(computer: computer, environment: environment, log: log)
         computer.isRecording = { [teachApp] in teachApp.activeId != nil }
+        computer.isPointing = { PointsActivity.shared.isActive }
         handlers += AppTeachCapabilities.make(teachApp, computer: computer)
+        handlers += extraHandlers
         registry = CapabilityRegistry(handlers)
     }
 

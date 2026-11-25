@@ -80,10 +80,15 @@ export interface RawThread {
   /** The last message's text, used only to look for a question. */
   snippet: string;
   link?: string;
+  /** The last message's id and mailbox, for a reply tool (Apple Mail; Night shift reads them). */
+  messageId?: string;
+  mailbox?: string;
 }
 
 export interface QuietThread extends MailFollowupItem {
   lastAt: number;
+  messageId?: string;
+  mailbox?: string;
 }
 
 /** Whether the wait has run out: `waitDays` business days after the last message. */
@@ -128,6 +133,8 @@ export function detectQuiet(
       ...(t.source === "gmail" && GMAIL_ID.test(t.key) ? { gmailThreadId: t.key } : {}),
       untrusted: true,
       lastAt: t.lastAt,
+      ...(t.messageId === undefined ? {} : { messageId: t.messageId }),
+      ...(t.mailbox === undefined ? {} : { mailbox: t.mailbox }),
     });
   }
   return out.sort((a, b) => a.lastAt - b.lastAt).slice(0, MAIL_FOLLOWUPS_MAX);
@@ -197,6 +204,19 @@ export interface MailFollowups {
   readonly handlers: Handlers;
   /** The brief's lines (at most three), marking them shown. Empty in quiet hours, when off, or without mail. */
   briefLines(): Promise<{ text: string; link?: string }[]>;
+  /** The quiet threads Night shift may prepare replies for, with the ids a reply tool needs. */
+  nightCandidates(): Promise<
+    {
+      source: string;
+      threadId?: string;
+      messageId?: string;
+      mailbox?: string;
+      subject: string;
+      who: string;
+      kind: "no_reply" | "unanswered_question";
+      daysQuiet: number;
+    }[]
+  >;
   /**
    * `chat.send.context` of kind `mail_followup`: the Gateway reads the thread by id from what it
    * showed, builds a fenced preamble, and the turn starts tainted with an email source. The owner's
@@ -476,7 +496,13 @@ export function composeMailFollowups(deps: MailFollowupsDeps): MailFollowups {
           if (who === "" && to !== "") who = to;
         } else snippet = sanitizeMailText(str(full?.body), 600);
       }
-      out.push({ ...t, who, snippet });
+      out.push({
+        ...t,
+        who,
+        snippet,
+        messageId: last.id,
+        ...(last.mailbox === undefined ? {} : { mailbox: last.mailbox }),
+      });
     }
     return out;
   };
@@ -535,7 +561,12 @@ export function composeMailFollowups(deps: MailFollowupsDeps): MailFollowups {
       return e === undefined || (e.dismissed !== true && (e.snoozedUntil ?? 0) <= now);
     });
 
-  const toItem = ({ lastAt: _lastAt, ...item }: QuietThread): MailFollowupItem => item;
+  const toItem = ({
+    lastAt: _lastAt,
+    messageId: _messageId,
+    mailbox: _mailbox,
+    ...item
+  }: QuietThread): MailFollowupItem => item;
 
   const handlers: Handlers = {
     async "mailFollowups.list"() {
@@ -599,6 +630,24 @@ export function composeMailFollowups(deps: MailFollowupsDeps): MailFollowups {
   return {
     handlers,
     resolveContext,
+    /**
+     * The quiet threads Night shift may prepare replies for: the same list the Home card shows
+     * (not snoozed or dismissed), with the ids a reply tool needs. Empty while the setting is off.
+     */
+    async nightCandidates() {
+      if (!settings().enabled) return [];
+      const now = clock.now();
+      return visible(await all(), readState(), now).map((t) => ({
+        source: t.source,
+        ...(t.gmailThreadId === undefined ? {} : { threadId: t.gmailThreadId }),
+        ...(t.messageId === undefined ? {} : { messageId: t.messageId }),
+        ...(t.mailbox === undefined ? {} : { mailbox: t.mailbox }),
+        subject: t.subject,
+        who: t.who,
+        kind: t.kind,
+        daysQuiet: t.daysQuiet,
+      }));
+    },
     async briefLines() {
       if (!settings().enabled) return [];
       const now = clock.now();

@@ -76,4 +76,35 @@ export const StorageMethods = {
     description:
       "Side-effecting. Empties the rebuildable caches (converted documents and thumbnails) and deletes finished browser recordings older than 7 days together with their Library entries. Recordings still in progress, and every other category, are untouched.",
   }),
+  "storage.compactEstimate": defineMethod({
+    params: Type.Object({}),
+    result: Type.Object(
+      {
+        /** The database file plus its WAL. */
+        dbBytes: Type.Integer({ minimum: 0 }),
+        /** `freelist_count x page_size`: the most a compaction can give back. */
+        reclaimableBytes: Type.Integer({ minimum: 0 }),
+        /** False while a run, task or scheduler run is active: compaction is refused then. */
+        idle: Type.Boolean(),
+      },
+      { $id: "StorageCompactEstimate" },
+    ),
+    scope: "operator.read",
+    description:
+      "The database's size, how much a compaction could give back, and whether one can run now.",
+  }),
+  "storage.compact": defineMethod({
+    params: Type.Object({}),
+    result: Type.Object(
+      {
+        durationMs: Type.Integer({ minimum: 0 }),
+        savedBytes: Type.Integer({ minimum: 0 }),
+      },
+      { $id: "StorageCompacted" },
+    ),
+    scope: "operator.admin",
+    sideEffecting: true,
+    description:
+      "Side-effecting. Compacts the database (VACUUM, then a WAL checkpoint). Psyche pauses while it runs. Refused with `conflict` while a run, task or scheduled run is active, so none is interrupted.",
+  }),
 } as const;

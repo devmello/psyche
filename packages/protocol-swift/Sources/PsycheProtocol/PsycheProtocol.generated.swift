@@ -604,6 +604,20 @@
 //   let filesStarterFoldersResult = try? JSONDecoder().decode(FilesStarterFoldersResult.self, from: jsonData)
 //   let filesWriteParams = try? JSONDecoder().decode(FilesWriteParams.self, from: jsonData)
 //   let filesWriteResult = try? JSONDecoder().decode(FilesWriteResult.self, from: jsonData)
+//   let forkCite = try? JSONDecoder().decode(ForkCite.self, from: jsonData)
+//   let forkCiteSource = try? JSONDecoder().decode(ForkCiteSource.self, from: jsonData)
+//   let forkCost = try? JSONDecoder().decode(ForkCost.self, from: jsonData)
+//   let forkCostPeriod = try? JSONDecoder().decode(ForkCostPeriod.self, from: jsonData)
+//   let forkDateItem = try? JSONDecoder().decode(ForkDateItem.self, from: jsonData)
+//   let forkDateKind = try? JSONDecoder().decode(ForkDateKind.self, from: jsonData)
+//   let forkOpenQuestion = try? JSONDecoder().decode(ForkOpenQuestion.self, from: jsonData)
+//   let forkPerson = try? JSONDecoder().decode(ForkPerson.self, from: jsonData)
+//   let forkReport = try? JSONDecoder().decode(ForkReport.self, from: jsonData)
+//   let forkRisk = try? JSONDecoder().decode(ForkRisk.self, from: jsonData)
+//   let forkRiskLikelihood = try? JSONDecoder().decode(ForkRiskLikelihood.self, from: jsonData)
+//   let forkStep = try? JSONDecoder().decode(ForkStep.self, from: jsonData)
+//   let forkStepWho = try? JSONDecoder().decode(ForkStepWho.self, from: jsonData)
+//   let forkTradeoff = try? JSONDecoder().decode(ForkTradeoff.self, from: jsonData)
 //   let frame = try? JSONDecoder().decode(Frame.self, from: jsonData)
 //   let gatedCapability = try? JSONDecoder().decode(GatedCapability.self, from: jsonData)
 //   let gatewayClaimFinishParams = try? JSONDecoder().decode(GatewayClaimFinishParams.self, from: jsonData)
@@ -1188,8 +1202,41 @@
 //   let phoneLocation = try? JSONDecoder().decode(PhoneLocation.self, from: jsonData)
 //   let pickableModelRole = try? JSONDecoder().decode(PickableModelRole.self, from: jsonData)
 //   let planBlock = try? JSONDecoder().decode(PlanBlock.self, from: jsonData)
+//   let planComparison = try? JSONDecoder().decode(PlanComparison.self, from: jsonData)
+//   let planComparisonBetterIf = try? JSONDecoder().decode(PlanComparisonBetterIf.self, from: jsonData)
+//   let planComparisonCell = try? JSONDecoder().decode(PlanComparisonCell.self, from: jsonData)
+//   let planComparisonDimension = try? JSONDecoder().decode(PlanComparisonDimension.self, from: jsonData)
+//   let planComparisonRow = try? JSONDecoder().decode(PlanComparisonRow.self, from: jsonData)
+//   let planFork = try? JSONDecoder().decode(PlanFork.self, from: jsonData)
+//   let planForkBlock = try? JSONDecoder().decode(PlanForkBlock.self, from: jsonData)
+//   let planForkBranch = try? JSONDecoder().decode(PlanForkBranch.self, from: jsonData)
+//   let planForkBranchStatus = try? JSONDecoder().decode(PlanForkBranchStatus.self, from: jsonData)
+//   let planForkOption = try? JSONDecoder().decode(PlanForkOption.self, from: jsonData)
+//   let planForkScrub = try? JSONDecoder().decode(PlanForkScrub.self, from: jsonData)
+//   let planForkStatus = try? JSONDecoder().decode(PlanForkStatus.self, from: jsonData)
+//   let planForkUpdate = try? JSONDecoder().decode(PlanForkUpdate.self, from: jsonData)
+//   let planForkUpdateBranch = try? JSONDecoder().decode(PlanForkUpdateBranch.self, from: jsonData)
+//   let planForksCancelParams = try? JSONDecoder().decode(PlanForksCancelParams.self, from: jsonData)
+//   let planForksCancelResult = try? JSONDecoder().decode(PlanForksCancelResult.self, from: jsonData)
+//   let planForksCreateParams = try? JSONDecoder().decode(PlanForksCreateParams.self, from: jsonData)
+//   let planForksCreateResult = try? JSONDecoder().decode(PlanForksCreateResult.self, from: jsonData)
+//   let planForksDismissParams = try? JSONDecoder().decode(PlanForksDismissParams.self, from: jsonData)
+//   let planForksDismissResult = try? JSONDecoder().decode(PlanForksDismissResult.self, from: jsonData)
+//   let planForksEstimateParams = try? JSONDecoder().decode(PlanForksEstimateParams.self, from: jsonData)
+//   let planForksEstimateResult = try? JSONDecoder().decode(PlanForksEstimateResult.self, from: jsonData)
+//   let planForksGetParams = try? JSONDecoder().decode(PlanForksGetParams.self, from: jsonData)
+//   let planForksGetResult = try? JSONDecoder().decode(PlanForksGetResult.self, from: jsonData)
+//   let planForksListParams = try? JSONDecoder().decode(PlanForksListParams.self, from: jsonData)
+//   let planForksListResult = try? JSONDecoder().decode(PlanForksListResult.self, from: jsonData)
+//   let planForksRetryBranchParams = try? JSONDecoder().decode(PlanForksRetryBranchParams.self, from: jsonData)
+//   let planForksRetryBranchResult = try? JSONDecoder().decode(PlanForksRetryBranchResult.self, from: jsonData)
+//   let planForksSuggestParams = try? JSONDecoder().decode(PlanForksSuggestParams.self, from: jsonData)
+//   let planForksSuggestResult = try? JSONDecoder().decode(PlanForksSuggestResult.self, from: jsonData)
+//   let planForksTakeParams = try? JSONDecoder().decode(PlanForksTakeParams.self, from: jsonData)
+//   let planForksTakeResult = try? JSONDecoder().decode(PlanForksTakeResult.self, from: jsonData)
 //   let planStep = try? JSONDecoder().decode(PlanStep.self, from: jsonData)
 //   let planStepStatus = try? JSONDecoder().decode(PlanStepStatus.self, from: jsonData)
+//   let planTakenBlock = try? JSONDecoder().decode(PlanTakenBlock.self, from: jsonData)
 //   let pluginAdds = try? JSONDecoder().decode(PluginAdds.self, from: jsonData)
 //   let pluginCapability = try? JSONDecoder().decode(PluginCapability.self, from: jsonData)
 //   let pluginManifest = try? JSONDecoder().decode(PluginManifest.self, from: jsonData)
@@ -1678,12 +1725,18 @@
 //   let stagedActionResult = try? JSONDecoder().decode(StagedActionResult.self, from: jsonData)
 //   let stagedActionSend = try? JSONDecoder().decode(StagedActionSend.self, from: jsonData)
 //   let stagedActionStatus = try? JSONDecoder().decode(StagedActionStatus.self, from: jsonData)
+//   let stagedPreview = try? JSONDecoder().decode(StagedPreview.self, from: jsonData)
+//   let stagedPreviewRow = try? JSONDecoder().decode(StagedPreviewRow.self, from: jsonData)
 //   let starterFolderID = try? JSONDecoder().decode(StarterFolderID.self, from: jsonData)
 //   let storageCategory = try? JSONDecoder().decode(StorageCategory.self, from: jsonData)
 //   let storageCategoryID = try? JSONDecoder().decode(StorageCategoryID.self, from: jsonData)
 //   let storageClearCacheParams = try? JSONDecoder().decode(StorageClearCacheParams.self, from: jsonData)
 //   let storageClearTarget = try? JSONDecoder().decode(StorageClearTarget.self, from: jsonData)
 //   let storageCleared = try? JSONDecoder().decode(StorageCleared.self, from: jsonData)
+//   let storageCompactEstimate = try? JSONDecoder().decode(StorageCompactEstimate.self, from: jsonData)
+//   let storageCompactEstimateParams = try? JSONDecoder().decode(StorageCompactEstimateParams.self, from: jsonData)
+//   let storageCompactParams = try? JSONDecoder().decode(StorageCompactParams.self, from: jsonData)
+//   let storageCompacted = try? JSONDecoder().decode(StorageCompacted.self, from: jsonData)
 //   let storageUsage = try? JSONDecoder().decode(StorageUsage.self, from: jsonData)
 //   let storageUsageParams = try? JSONDecoder().decode(StorageUsageParams.self, from: jsonData)
 //   let taintSource = try? JSONDecoder().decode(TaintSource.self, from: jsonData)
@@ -10049,6 +10102,8 @@ public struct Block: Codable, Sendable {
     public let route: String?
     public let goal: String?
     public let widgetID: String?
+    public let forkID: String?
+    public let branchID: String?
 
     public enum CodingKeys: String, CodingKey {
         case md = "md"
@@ -10098,9 +10153,11 @@ public struct Block: Codable, Sendable {
         case route = "route"
         case goal = "goal"
         case widgetID = "widgetId"
+        case forkID = "forkId"
+        case branchID = "branchId"
     }
 
-    public init(md: String? = nil, type: BlockType, level1: String? = nil, status: ToolCallStatus? = nil, tool: String? = nil, toolCallID: String? = nil, planID: String? = nil, items: [ItemElement]? = nil, approvalID: String? = nil, inputRequestID: String? = nil, artifactID: String? = nil, preview: String? = nil, libraryItemID: String? = nil, id: String? = nil, kind: BlockKind? = nil, source: String? = nil, title: String? = nil, url: String? = nil, receiptID: String? = nil, taskID: String? = nil, actions: [WrapUpAction]? = nil, ask: String? = nil, recap: String? = nil, cited: [String]? = nil, answer: String? = nil, factIDS: [String]? = nil, facts: [LifeFactHit]? = nil, model: ModelEnum? = nil, passageIDS: [String]? = nil, passages: [LifeAnswerPassage]? = nil, question: String? = nil, compactionID: String? = nil, droppedPins: [String]? = nil, keptPins: [String]? = nil, replaced: Replaced? = nil, summary: CompactionSummary? = nil, tokensAfter: Int? = nil, tokensBefore: Int? = nil, trigger: BlockTrigger? = nil, feedbackID: String? = nil, lessonID: String? = nil, messageID: String? = nil, statement: String? = nil, proposal: DailyWorkflowProposal? = nil, route: String? = nil, goal: String? = nil, widgetID: String? = nil) {
+    public init(md: String? = nil, type: BlockType, level1: String? = nil, status: ToolCallStatus? = nil, tool: String? = nil, toolCallID: String? = nil, planID: String? = nil, items: [ItemElement]? = nil, approvalID: String? = nil, inputRequestID: String? = nil, artifactID: String? = nil, preview: String? = nil, libraryItemID: String? = nil, id: String? = nil, kind: BlockKind? = nil, source: String? = nil, title: String? = nil, url: String? = nil, receiptID: String? = nil, taskID: String? = nil, actions: [WrapUpAction]? = nil, ask: String? = nil, recap: String? = nil, cited: [String]? = nil, answer: String? = nil, factIDS: [String]? = nil, facts: [LifeFactHit]? = nil, model: ModelEnum? = nil, passageIDS: [String]? = nil, passages: [LifeAnswerPassage]? = nil, question: String? = nil, compactionID: String? = nil, droppedPins: [String]? = nil, keptPins: [String]? = nil, replaced: Replaced? = nil, summary: CompactionSummary? = nil, tokensAfter: Int? = nil, tokensBefore: Int? = nil, trigger: BlockTrigger? = nil, feedbackID: String? = nil, lessonID: String? = nil, messageID: String? = nil, statement: String? = nil, proposal: DailyWorkflowProposal? = nil, route: String? = nil, goal: String? = nil, widgetID: String? = nil, forkID: String? = nil, branchID: String? = nil) {
         self.md = md
         self.type = type
         self.level1 = level1
@@ -10148,6 +10205,8 @@ public struct Block: Codable, Sendable {
         self.route = route
         self.goal = goal
         self.widgetID = widgetID
+        self.forkID = forkID
+        self.branchID = branchID
     }
 }
 
@@ -10549,6 +10608,8 @@ public enum BlockType: String, Codable, Sendable {
     case learned = "learned"
     case lifeAnswer = "life_answer"
     case plan = "plan"
+    case planFork = "plan_fork"
+    case planTaken = "plan_taken"
     case pointsOffer = "points_offer"
     case question = "question"
     case receipt = "receipt"
@@ -26567,7 +26628,7 @@ public struct StagedAction: Codable, Sendable {
     public let params: JSONAny?
     public let paramsHash: String
     public let precondition: JSONAny?
-    public let preview: JSONAny?
+    public let preview: StagedPreview?
     public let result: StagedActionResult?
     public let send: StagedActionSend?
     public let seq: Int
@@ -26616,7 +26677,7 @@ public struct StagedAction: Codable, Sendable {
         case why = "why"
     }
 
-    public init(appliedAt: String? = nil, approvalID: String? = nil, bindingHash: String, createdAt: String, domain: StagedActionDomain, forkBranchID: String? = nil, id: String, inverse: JSONAny? = nil, kind: String, nightID: String? = nil, params: JSONAny? = nil, paramsHash: String, precondition: JSONAny? = nil, preview: JSONAny? = nil, result: StagedActionResult? = nil, send: StagedActionSend? = nil, seq: Int, sideEffect: String, status: StagedActionStatus, summary: String, taint: Bool, taintSources: [TaintSource], target: JSONAny? = nil, targetKey: String, taskID: String? = nil, tool: String, toolCallID: String? = nil, updatedAt: String, why: String? = nil) {
+    public init(appliedAt: String? = nil, approvalID: String? = nil, bindingHash: String, createdAt: String, domain: StagedActionDomain, forkBranchID: String? = nil, id: String, inverse: JSONAny? = nil, kind: String, nightID: String? = nil, params: JSONAny? = nil, paramsHash: String, precondition: JSONAny? = nil, preview: StagedPreview? = nil, result: StagedActionResult? = nil, send: StagedActionSend? = nil, seq: Int, sideEffect: String, status: StagedActionStatus, summary: String, taint: Bool, taintSources: [TaintSource], target: JSONAny? = nil, targetKey: String, taskID: String? = nil, tool: String, toolCallID: String? = nil, updatedAt: String, why: String? = nil) {
         self.appliedAt = appliedAt
         self.approvalID = approvalID
         self.bindingHash = bindingHash
@@ -26654,6 +26715,62 @@ public enum StagedActionDomain: String, Codable, Sendable {
     case files = "files"
     case mail = "mail"
     case reminders = "reminders"
+}
+
+// MARK: - StagedPreview
+public struct StagedPreview: Codable, Sendable {
+    public let kind: StagedPreviewKind
+    public let rows: [StagedPreviewRow]
+    public let title: String
+    public let truncated: Bool
+
+    public enum CodingKeys: String, CodingKey {
+        case kind = "kind"
+        case rows = "rows"
+        case title = "title"
+        case truncated = "truncated"
+    }
+
+    public init(kind: StagedPreviewKind, rows: [StagedPreviewRow], title: String, truncated: Bool) {
+        self.kind = kind
+        self.rows = rows
+        self.title = title
+        self.truncated = truncated
+    }
+}
+
+public enum StagedPreviewKind: String, Codable, Sendable {
+    case calendar = "calendar"
+    case file = "file"
+    case mail = "mail"
+    case reminder = "reminder"
+}
+
+// MARK: - StagedPreviewRow
+public struct StagedPreviewRow: Codable, Sendable {
+    public let badge: Badge?
+    public let label: String
+    public let truncated: Bool?
+    public let value: String
+
+    public enum CodingKeys: String, CodingKey {
+        case badge = "badge"
+        case label = "label"
+        case truncated = "truncated"
+        case value = "value"
+    }
+
+    public init(badge: Badge? = nil, label: String, truncated: Bool? = nil, value: String) {
+        self.badge = badge
+        self.label = label
+        self.truncated = truncated
+        self.value = value
+    }
+}
+
+public enum Badge: String, Codable, Sendable {
+    case newRecipient = "new_recipient"
+    case replyAll = "reply_all"
 }
 
 // MARK: - StagedActionResult
@@ -28408,6 +28525,916 @@ public enum PlanBlockType: String, Codable, Sendable {
     case plan = "plan"
 }
 
+// MARK: - PlanForkBlock
+public struct PlanForkBlock: Codable, Sendable {
+    public let forkID: String
+    public let type: PlanForkBlockType
+
+    public enum CodingKeys: String, CodingKey {
+        case forkID = "forkId"
+        case type = "type"
+    }
+
+    public init(forkID: String, type: PlanForkBlockType) {
+        self.forkID = forkID
+        self.type = type
+    }
+}
+
+public enum PlanForkBlockType: String, Codable, Sendable {
+    case planFork = "plan_fork"
+}
+
+// MARK: - PlanForkUpdate
+public struct PlanForkUpdate: Codable, Sendable {
+    public let branches: [PlanForkUpdateBranch]
+    public let forkID: String
+    public let spentUsd: Double
+    public let status: PlanForkStatus
+    public let threadID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case branches = "branches"
+        case forkID = "forkId"
+        case spentUsd = "spentUsd"
+        case status = "status"
+        case threadID = "threadId"
+    }
+
+    public init(branches: [PlanForkUpdateBranch], forkID: String, spentUsd: Double, status: PlanForkStatus, threadID: String) {
+        self.branches = branches
+        self.forkID = forkID
+        self.spentUsd = spentUsd
+        self.status = status
+        self.threadID = threadID
+    }
+}
+
+// MARK: - PlanForkUpdateBranch
+public struct PlanForkUpdateBranch: Codable, Sendable {
+    public let id: String
+    public let status: PlanForkBranchStatus
+    public let step: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case id = "id"
+        case status = "status"
+        case step = "step"
+    }
+
+    public init(id: String, status: PlanForkBranchStatus, step: String? = nil) {
+        self.id = id
+        self.status = status
+        self.step = step
+    }
+}
+
+public enum PlanForkBranchStatus: String, Codable, Sendable {
+    case budgetStopped = "budget_stopped"
+    case cancelled = "cancelled"
+    case failed = "failed"
+    case queued = "queued"
+    case reported = "reported"
+    case running = "running"
+}
+
+public enum PlanForkStatus: String, Codable, Sendable {
+    case cancelled = "cancelled"
+    case comparing = "comparing"
+    case dismissed = "dismissed"
+    case expired = "expired"
+    case failed = "failed"
+    case ready = "ready"
+    case running = "running"
+    case taken = "taken"
+}
+
+// MARK: - PlanForksCancelParams
+public struct PlanForksCancelParams: Codable, Sendable {
+    public let branchID: String?
+    public let forkID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case branchID = "branchId"
+        case forkID = "forkId"
+    }
+
+    public init(branchID: String? = nil, forkID: String) {
+        self.branchID = branchID
+        self.forkID = forkID
+    }
+}
+
+// MARK: - PlanForksCancelResult
+public struct PlanForksCancelResult: Codable, Sendable {
+    public let cancelled: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case cancelled = "cancelled"
+    }
+
+    public init(cancelled: Int) {
+        self.cancelled = cancelled
+    }
+}
+
+// MARK: - PlanForksCreateParams
+public struct PlanForksCreateParams: Codable, Sendable {
+    public let branches: [PlanForkOption]
+    public let messageID: String
+    public let threadID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case branches = "branches"
+        case messageID = "messageId"
+        case threadID = "threadId"
+    }
+
+    public init(branches: [PlanForkOption], messageID: String, threadID: String) {
+        self.branches = branches
+        self.messageID = messageID
+        self.threadID = threadID
+    }
+}
+
+// MARK: - PlanForkOption
+public struct PlanForkOption: Codable, Sendable {
+    public let label: String
+    public let premise: String
+
+    public enum CodingKeys: String, CodingKey {
+        case label = "label"
+        case premise = "premise"
+    }
+
+    public init(label: String, premise: String) {
+        self.label = label
+        self.premise = premise
+    }
+}
+
+// MARK: - PlanForksCreateResult
+public struct PlanForksCreateResult: Codable, Sendable {
+    public let branches: [PlanForkBranch]
+    public let fork: PlanFork
+
+    public enum CodingKeys: String, CodingKey {
+        case branches = "branches"
+        case fork = "fork"
+    }
+
+    public init(branches: [PlanForkBranch], fork: PlanFork) {
+        self.branches = branches
+        self.fork = fork
+    }
+}
+
+// MARK: - PlanForkBranch
+public struct PlanForkBranch: Codable, Sendable {
+    public let createdAt: String
+    public let error: String?
+    public let finishedAt: String?
+    public let forkID: String
+    public let id: String
+    public let label: String
+    public let ord: Int
+    public let premise: String
+    public let readOwnerOnly: Bool
+    public let report: ForkReport?
+    public let scrub: PlanForkScrub?
+    public let spentUsd: Double
+    public let startedAt: String?
+    public let status: PlanForkBranchStatus
+    public let taint: Bool
+    public let taintSources: [TaintSource]
+    public let taskID: String?
+    public let threadID: String
+    public let tokens: Int
+    public let updatedAt: String
+
+    public enum CodingKeys: String, CodingKey {
+        case createdAt = "createdAt"
+        case error = "error"
+        case finishedAt = "finishedAt"
+        case forkID = "forkId"
+        case id = "id"
+        case label = "label"
+        case ord = "ord"
+        case premise = "premise"
+        case readOwnerOnly = "readOwnerOnly"
+        case report = "report"
+        case scrub = "scrub"
+        case spentUsd = "spentUsd"
+        case startedAt = "startedAt"
+        case status = "status"
+        case taint = "taint"
+        case taintSources = "taintSources"
+        case taskID = "taskId"
+        case threadID = "threadId"
+        case tokens = "tokens"
+        case updatedAt = "updatedAt"
+    }
+
+    public init(createdAt: String, error: String? = nil, finishedAt: String? = nil, forkID: String, id: String, label: String, ord: Int, premise: String, readOwnerOnly: Bool, report: ForkReport? = nil, scrub: PlanForkScrub? = nil, spentUsd: Double, startedAt: String? = nil, status: PlanForkBranchStatus, taint: Bool, taintSources: [TaintSource], taskID: String? = nil, threadID: String, tokens: Int, updatedAt: String) {
+        self.createdAt = createdAt
+        self.error = error
+        self.finishedAt = finishedAt
+        self.forkID = forkID
+        self.id = id
+        self.label = label
+        self.ord = ord
+        self.premise = premise
+        self.readOwnerOnly = readOwnerOnly
+        self.report = report
+        self.scrub = scrub
+        self.spentUsd = spentUsd
+        self.startedAt = startedAt
+        self.status = status
+        self.taint = taint
+        self.taintSources = taintSources
+        self.taskID = taskID
+        self.threadID = threadID
+        self.tokens = tokens
+        self.updatedAt = updatedAt
+    }
+}
+
+// MARK: - ForkReport
+public struct ForkReport: Codable, Sendable {
+    public let costs: [ForkCost]
+    public let dates: [ForkDateItem]
+    public let openQuestions: [ForkOpenQuestion]
+    public let people: [ForkPerson]
+    public let risks: [ForkRisk]
+    public let steps: [ForkStep]
+    public let summary: String
+    public let tradeoffs: [ForkTradeoff]
+
+    public enum CodingKeys: String, CodingKey {
+        case costs = "costs"
+        case dates = "dates"
+        case openQuestions = "openQuestions"
+        case people = "people"
+        case risks = "risks"
+        case steps = "steps"
+        case summary = "summary"
+        case tradeoffs = "tradeoffs"
+    }
+
+    public init(costs: [ForkCost], dates: [ForkDateItem], openQuestions: [ForkOpenQuestion], people: [ForkPerson], risks: [ForkRisk], steps: [ForkStep], summary: String, tradeoffs: [ForkTradeoff]) {
+        self.costs = costs
+        self.dates = dates
+        self.openQuestions = openQuestions
+        self.people = people
+        self.risks = risks
+        self.steps = steps
+        self.summary = summary
+        self.tradeoffs = tradeoffs
+    }
+}
+
+// MARK: - ForkCost
+public struct ForkCost: Codable, Sendable {
+    public let amount: Double
+    public let basis: String?
+    public let cites: [ForkCite]
+    public let currency: String
+    public let estimate: Bool
+    public let id: String
+    public let label: String
+    public let period: ForkCostPeriod
+    public let unsourced: Bool?
+
+    public enum CodingKeys: String, CodingKey {
+        case amount = "amount"
+        case basis = "basis"
+        case cites = "cites"
+        case currency = "currency"
+        case estimate = "estimate"
+        case id = "id"
+        case label = "label"
+        case period = "period"
+        case unsourced = "unsourced"
+    }
+
+    public init(amount: Double, basis: String? = nil, cites: [ForkCite], currency: String, estimate: Bool, id: String, label: String, period: ForkCostPeriod, unsourced: Bool? = nil) {
+        self.amount = amount
+        self.basis = basis
+        self.cites = cites
+        self.currency = currency
+        self.estimate = estimate
+        self.id = id
+        self.label = label
+        self.period = period
+        self.unsourced = unsourced
+    }
+}
+
+// MARK: - ForkCite
+public struct ForkCite: Codable, Sendable {
+    public let callID: String
+    public let ref: String
+    public let source: ForkCiteSource?
+
+    public enum CodingKeys: String, CodingKey {
+        case callID = "callId"
+        case ref = "ref"
+        case source = "source"
+    }
+
+    public init(callID: String, ref: String, source: ForkCiteSource? = nil) {
+        self.callID = callID
+        self.ref = ref
+        self.source = source
+    }
+}
+
+public enum ForkCiteSource: String, Codable, Sendable {
+    case calendar = "calendar"
+    case contacts = "contacts"
+    case files = "files"
+    case mail = "mail"
+    case memory = "memory"
+    case messages = "messages"
+    case web = "web"
+}
+
+public enum ForkCostPeriod: String, Codable, Sendable {
+    case month = "month"
+    case once = "once"
+    case year = "year"
+}
+
+// MARK: - ForkDateItem
+public struct ForkDateItem: Codable, Sendable {
+    public let cites: [ForkCite]
+    public let date: String
+    public let estimate: Bool
+    public let id: String
+    public let kind: ForkDateKind
+    public let label: String
+    public let unsourced: Bool?
+
+    public enum CodingKeys: String, CodingKey {
+        case cites = "cites"
+        case date = "date"
+        case estimate = "estimate"
+        case id = "id"
+        case kind = "kind"
+        case label = "label"
+        case unsourced = "unsourced"
+    }
+
+    public init(cites: [ForkCite], date: String, estimate: Bool, id: String, kind: ForkDateKind, label: String, unsourced: Bool? = nil) {
+        self.cites = cites
+        self.date = date
+        self.estimate = estimate
+        self.id = id
+        self.kind = kind
+        self.label = label
+        self.unsourced = unsourced
+    }
+}
+
+public enum ForkDateKind: String, Codable, Sendable {
+    case deadline = "deadline"
+    case event = "event"
+    case milestone = "milestone"
+}
+
+// MARK: - ForkOpenQuestion
+public struct ForkOpenQuestion: Codable, Sendable {
+    public let id: String
+    public let text: String
+
+    public enum CodingKeys: String, CodingKey {
+        case id = "id"
+        case text = "text"
+    }
+
+    public init(id: String, text: String) {
+        self.id = id
+        self.text = text
+    }
+}
+
+// MARK: - ForkPerson
+public struct ForkPerson: Codable, Sendable {
+    public let cites: [ForkCite]
+    public let effect: String
+    public let id: String
+    public let name: String
+    public let personID: String?
+    public let unsourced: Bool?
+
+    public enum CodingKeys: String, CodingKey {
+        case cites = "cites"
+        case effect = "effect"
+        case id = "id"
+        case name = "name"
+        case personID = "personId"
+        case unsourced = "unsourced"
+    }
+
+    public init(cites: [ForkCite], effect: String, id: String, name: String, personID: String? = nil, unsourced: Bool? = nil) {
+        self.cites = cites
+        self.effect = effect
+        self.id = id
+        self.name = name
+        self.personID = personID
+        self.unsourced = unsourced
+    }
+}
+
+// MARK: - ForkRisk
+public struct ForkRisk: Codable, Sendable {
+    public let cites: [ForkCite]
+    public let id: String
+    public let likelihood: ForkRiskLikelihood
+    public let text: String
+    public let unsourced: Bool?
+
+    public enum CodingKeys: String, CodingKey {
+        case cites = "cites"
+        case id = "id"
+        case likelihood = "likelihood"
+        case text = "text"
+        case unsourced = "unsourced"
+    }
+
+    public init(cites: [ForkCite], id: String, likelihood: ForkRiskLikelihood, text: String, unsourced: Bool? = nil) {
+        self.cites = cites
+        self.id = id
+        self.likelihood = likelihood
+        self.text = text
+        self.unsourced = unsourced
+    }
+}
+
+public enum ForkRiskLikelihood: String, Codable, Sendable {
+    case high = "high"
+    case low = "low"
+    case medium = "medium"
+}
+
+// MARK: - ForkStep
+public struct ForkStep: Codable, Sendable {
+    public let id: String
+    public let stagedID: String?
+    public let text: String
+    public let when: String?
+    public let who: ForkStepWho
+
+    public enum CodingKeys: String, CodingKey {
+        case id = "id"
+        case stagedID = "stagedId"
+        case text = "text"
+        case when = "when"
+        case who = "who"
+    }
+
+    public init(id: String, stagedID: String? = nil, text: String, when: String? = nil, who: ForkStepWho) {
+        self.id = id
+        self.stagedID = stagedID
+        self.text = text
+        self.when = when
+        self.who = who
+    }
+}
+
+public enum ForkStepWho: String, Codable, Sendable {
+    case psyche = "psyche"
+    case you = "you"
+}
+
+// MARK: - ForkTradeoff
+public struct ForkTradeoff: Codable, Sendable {
+    public let cites: [ForkCite]
+    public let gain: String?
+    public let giveUp: String
+    public let id: String
+    public let unsourced: Bool?
+
+    public enum CodingKeys: String, CodingKey {
+        case cites = "cites"
+        case gain = "gain"
+        case giveUp = "giveUp"
+        case id = "id"
+        case unsourced = "unsourced"
+    }
+
+    public init(cites: [ForkCite], gain: String? = nil, giveUp: String, id: String, unsourced: Bool? = nil) {
+        self.cites = cites
+        self.gain = gain
+        self.giveUp = giveUp
+        self.id = id
+        self.unsourced = unsourced
+    }
+}
+
+// MARK: - PlanForkScrub
+public struct PlanForkScrub: Codable, Sendable {
+    public let hiddenItems: Int
+    public let textHidden: Bool
+    public let totalsHidden: Bool
+
+    public enum CodingKeys: String, CodingKey {
+        case hiddenItems = "hiddenItems"
+        case textHidden = "textHidden"
+        case totalsHidden = "totalsHidden"
+    }
+
+    public init(hiddenItems: Int, textHidden: Bool, totalsHidden: Bool) {
+        self.hiddenItems = hiddenItems
+        self.textHidden = textHidden
+        self.totalsHidden = totalsHidden
+    }
+}
+
+// MARK: - PlanFork
+public struct PlanFork: Codable, Sendable {
+    public let budgetUsd: Double
+    public let comparison: PlanComparison?
+    public let createdAt: String
+    public let createdByDeviceID: String?
+    public let error: String?
+    public let expiresAt: String?
+    public let finishedAt: String?
+    public let forkMessageID: String?
+    public let id: String
+    public let spentUsd: Double
+    public let status: PlanForkStatus
+    public let takeApprovalID: String?
+    public let takenBranchID: String?
+    public let threadID: String
+    public let tokens: Int
+    public let updatedAt: String
+
+    public enum CodingKeys: String, CodingKey {
+        case budgetUsd = "budgetUsd"
+        case comparison = "comparison"
+        case createdAt = "createdAt"
+        case createdByDeviceID = "createdByDeviceId"
+        case error = "error"
+        case expiresAt = "expiresAt"
+        case finishedAt = "finishedAt"
+        case forkMessageID = "forkMessageId"
+        case id = "id"
+        case spentUsd = "spentUsd"
+        case status = "status"
+        case takeApprovalID = "takeApprovalId"
+        case takenBranchID = "takenBranchId"
+        case threadID = "threadId"
+        case tokens = "tokens"
+        case updatedAt = "updatedAt"
+    }
+
+    public init(budgetUsd: Double, comparison: PlanComparison? = nil, createdAt: String, createdByDeviceID: String? = nil, error: String? = nil, expiresAt: String? = nil, finishedAt: String? = nil, forkMessageID: String? = nil, id: String, spentUsd: Double, status: PlanForkStatus, takeApprovalID: String? = nil, takenBranchID: String? = nil, threadID: String, tokens: Int, updatedAt: String) {
+        self.budgetUsd = budgetUsd
+        self.comparison = comparison
+        self.createdAt = createdAt
+        self.createdByDeviceID = createdByDeviceID
+        self.error = error
+        self.expiresAt = expiresAt
+        self.finishedAt = finishedAt
+        self.forkMessageID = forkMessageID
+        self.id = id
+        self.spentUsd = spentUsd
+        self.status = status
+        self.takeApprovalID = takeApprovalID
+        self.takenBranchID = takenBranchID
+        self.threadID = threadID
+        self.tokens = tokens
+        self.updatedAt = updatedAt
+    }
+}
+
+// MARK: - PlanComparison
+public struct PlanComparison: Codable, Sendable {
+    public let betterIf: [PlanComparisonBetterIf]
+    public let headline: String
+    public let rows: [PlanComparisonRow]
+
+    public enum CodingKeys: String, CodingKey {
+        case betterIf = "betterIf"
+        case headline = "headline"
+        case rows = "rows"
+    }
+
+    public init(betterIf: [PlanComparisonBetterIf], headline: String, rows: [PlanComparisonRow]) {
+        self.betterIf = betterIf
+        self.headline = headline
+        self.rows = rows
+    }
+}
+
+// MARK: - PlanComparisonBetterIf
+public struct PlanComparisonBetterIf: Codable, Sendable {
+    public let branchID: String
+    public let text: String
+
+    public enum CodingKeys: String, CodingKey {
+        case branchID = "branchId"
+        case text = "text"
+    }
+
+    public init(branchID: String, text: String) {
+        self.branchID = branchID
+        self.text = text
+    }
+}
+
+// MARK: - PlanComparisonRow
+public struct PlanComparisonRow: Codable, Sendable {
+    public let cells: [PlanComparisonCell]
+    public let differs: Bool
+    public let dimension: PlanComparisonDimension
+    public let label: String
+
+    public enum CodingKeys: String, CodingKey {
+        case cells = "cells"
+        case differs = "differs"
+        case dimension = "dimension"
+        case label = "label"
+    }
+
+    public init(cells: [PlanComparisonCell], differs: Bool, dimension: PlanComparisonDimension, label: String) {
+        self.cells = cells
+        self.differs = differs
+        self.dimension = dimension
+        self.label = label
+    }
+}
+
+// MARK: - PlanComparisonCell
+public struct PlanComparisonCell: Codable, Sendable {
+    public let branchID: String
+    public let itemIDS: [String]
+    public let note: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case branchID = "branchId"
+        case itemIDS = "itemIds"
+        case note = "note"
+    }
+
+    public init(branchID: String, itemIDS: [String], note: String? = nil) {
+        self.branchID = branchID
+        self.itemIDS = itemIDS
+        self.note = note
+    }
+}
+
+public enum PlanComparisonDimension: String, Codable, Sendable {
+    case cost = "cost"
+    case dates = "dates"
+    case people = "people"
+    case planComparisonDimensionOpen = "open"
+    case risks = "risks"
+    case tradeoffs = "tradeoffs"
+}
+
+// MARK: - PlanForksDismissParams
+public struct PlanForksDismissParams: Codable, Sendable {
+    public let forkID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case forkID = "forkId"
+    }
+
+    public init(forkID: String) {
+        self.forkID = forkID
+    }
+}
+
+// MARK: - PlanForksDismissResult
+public struct PlanForksDismissResult: Codable, Sendable {
+    public let dismissed: Bool
+
+    public enum CodingKeys: String, CodingKey {
+        case dismissed = "dismissed"
+    }
+
+    public init(dismissed: Bool) {
+        self.dismissed = dismissed
+    }
+}
+
+// MARK: - PlanForksEstimateParams
+public struct PlanForksEstimateParams: Codable, Sendable {
+    public let branches: [PlanForkOption]
+    public let threadID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case branches = "branches"
+        case threadID = "threadId"
+    }
+
+    public init(branches: [PlanForkOption], threadID: String) {
+        self.branches = branches
+        self.threadID = threadID
+    }
+}
+
+// MARK: - PlanForksEstimateResult
+public struct PlanForksEstimateResult: Codable, Sendable {
+    public let budgetUsd: Double
+    public let maxTokens: Int
+    public let maxUsd: Double?
+
+    public enum CodingKeys: String, CodingKey {
+        case budgetUsd = "budgetUsd"
+        case maxTokens = "maxTokens"
+        case maxUsd = "maxUsd"
+    }
+
+    public init(budgetUsd: Double, maxTokens: Int, maxUsd: Double? = nil) {
+        self.budgetUsd = budgetUsd
+        self.maxTokens = maxTokens
+        self.maxUsd = maxUsd
+    }
+}
+
+// MARK: - PlanForksGetParams
+public struct PlanForksGetParams: Codable, Sendable {
+    public let forkID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case forkID = "forkId"
+    }
+
+    public init(forkID: String) {
+        self.forkID = forkID
+    }
+}
+
+// MARK: - PlanForksGetResult
+public struct PlanForksGetResult: Codable, Sendable {
+    public let branches: [PlanForkBranch]
+    public let fork: PlanFork
+
+    public enum CodingKeys: String, CodingKey {
+        case branches = "branches"
+        case fork = "fork"
+    }
+
+    public init(branches: [PlanForkBranch], fork: PlanFork) {
+        self.branches = branches
+        self.fork = fork
+    }
+}
+
+// MARK: - PlanForksListParams
+public struct PlanForksListParams: Codable, Sendable {
+    public let threadID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case threadID = "threadId"
+    }
+
+    public init(threadID: String) {
+        self.threadID = threadID
+    }
+}
+
+// MARK: - PlanForksListResult
+public struct PlanForksListResult: Codable, Sendable {
+    public let forks: [PlanFork]
+
+    public enum CodingKeys: String, CodingKey {
+        case forks = "forks"
+    }
+
+    public init(forks: [PlanFork]) {
+        self.forks = forks
+    }
+}
+
+// MARK: - PlanForksRetryBranchParams
+public struct PlanForksRetryBranchParams: Codable, Sendable {
+    public let branchID: String
+    public let forkID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case branchID = "branchId"
+        case forkID = "forkId"
+    }
+
+    public init(branchID: String, forkID: String) {
+        self.branchID = branchID
+        self.forkID = forkID
+    }
+}
+
+// MARK: - PlanForksRetryBranchResult
+public struct PlanForksRetryBranchResult: Codable, Sendable {
+    public let branch: PlanForkBranch
+
+    public enum CodingKeys: String, CodingKey {
+        case branch = "branch"
+    }
+
+    public init(branch: PlanForkBranch) {
+        self.branch = branch
+    }
+}
+
+// MARK: - PlanForksSuggestParams
+public struct PlanForksSuggestParams: Codable, Sendable {
+    public let messageID: String
+    public let threadID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case messageID = "messageId"
+        case threadID = "threadId"
+    }
+
+    public init(messageID: String, threadID: String) {
+        self.messageID = messageID
+        self.threadID = threadID
+    }
+}
+
+// MARK: - PlanForksSuggestResult
+public struct PlanForksSuggestResult: Codable, Sendable {
+    public let options: [PlanForkOption]
+
+    public enum CodingKeys: String, CodingKey {
+        case options = "options"
+    }
+
+    public init(options: [PlanForkOption]) {
+        self.options = options
+    }
+}
+
+// MARK: - PlanForksTakeParams
+public struct PlanForksTakeParams: Codable, Sendable {
+    public let branchID: String
+    public let planForksTakeParamsContinue: Bool
+    public let forkID: String
+    public let items: [NightShiftApplyItem]
+    public let sends: [NightShiftApplySend]
+
+    public enum CodingKeys: String, CodingKey {
+        case branchID = "branchId"
+        case planForksTakeParamsContinue = "continue"
+        case forkID = "forkId"
+        case items = "items"
+        case sends = "sends"
+    }
+
+    public init(branchID: String, planForksTakeParamsContinue: Bool, forkID: String, items: [NightShiftApplyItem], sends: [NightShiftApplySend]) {
+        self.branchID = branchID
+        self.planForksTakeParamsContinue = planForksTakeParamsContinue
+        self.forkID = forkID
+        self.items = items
+        self.sends = sends
+    }
+}
+
+// MARK: - PlanForksTakeResult
+public struct PlanForksTakeResult: Codable, Sendable {
+    public let answerToken: String?
+    public let approval: ApprovalRequest?
+    public let refused: [NightShiftRefused]
+
+    public enum CodingKeys: String, CodingKey {
+        case answerToken = "answerToken"
+        case approval = "approval"
+        case refused = "refused"
+    }
+
+    public init(answerToken: String? = nil, approval: ApprovalRequest? = nil, refused: [NightShiftRefused]) {
+        self.answerToken = answerToken
+        self.approval = approval
+        self.refused = refused
+    }
+}
+
+// MARK: - PlanTakenBlock
+public struct PlanTakenBlock: Codable, Sendable {
+    public let branchID: String
+    public let forkID: String
+    public let type: PlanTakenBlockType
+
+    public enum CodingKeys: String, CodingKey {
+        case branchID = "branchId"
+        case forkID = "forkId"
+        case type = "type"
+    }
+
+    public init(branchID: String, forkID: String, type: PlanTakenBlockType) {
+        self.branchID = branchID
+        self.forkID = forkID
+        self.type = type
+    }
+}
+
+public enum PlanTakenBlockType: String, Codable, Sendable {
+    case planTaken = "plan_taken"
+}
+
 // MARK: - PluginsChangedPayload
 public struct PluginsChangedPayload: Codable, Sendable {
     public let change: PluginsChangedPayloadChange
@@ -29489,6 +30516,7 @@ public struct PointsShowResult: Codable, Sendable {
 
 // MARK: - PointsStartParams
 public struct PointsStartParams: Codable, Sendable {
+    public let closingNote: String?
     public let entry: PointsEntry
     public let goal: String?
     public let goalSource: GoalSource?
@@ -29498,6 +30526,7 @@ public struct PointsStartParams: Codable, Sendable {
     public let window: String
 
     public enum CodingKeys: String, CodingKey {
+        case closingNote = "closingNote"
         case entry = "entry"
         case goal = "goal"
         case goalSource = "goalSource"
@@ -29507,7 +30536,8 @@ public struct PointsStartParams: Codable, Sendable {
         case window = "window"
     }
 
-    public init(entry: PointsEntry, goal: String? = nil, goalSource: GoalSource? = nil, locale: String, strings: PointsCardStrings, threadID: String? = nil, window: String) {
+    public init(closingNote: String? = nil, entry: PointsEntry, goal: String? = nil, goalSource: GoalSource? = nil, locale: String, strings: PointsCardStrings, threadID: String? = nil, window: String) {
+        self.closingNote = closingNote
         self.entry = entry
         self.goal = goal
         self.goalSource = goalSource
@@ -38277,6 +39307,41 @@ public struct StorageCleared: Codable, Sendable {
     }
 }
 
+// MARK: - StorageCompactEstimate
+public struct StorageCompactEstimate: Codable, Sendable {
+    public let dbBytes: Int
+    public let idle: Bool
+    public let reclaimableBytes: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case dbBytes = "dbBytes"
+        case idle = "idle"
+        case reclaimableBytes = "reclaimableBytes"
+    }
+
+    public init(dbBytes: Int, idle: Bool, reclaimableBytes: Int) {
+        self.dbBytes = dbBytes
+        self.idle = idle
+        self.reclaimableBytes = reclaimableBytes
+    }
+}
+
+// MARK: - StorageCompacted
+public struct StorageCompacted: Codable, Sendable {
+    public let durationMS: Int
+    public let savedBytes: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case durationMS = "durationMs"
+        case savedBytes = "savedBytes"
+    }
+
+    public init(durationMS: Int, savedBytes: Int) {
+        self.durationMS = durationMS
+        self.savedBytes = savedBytes
+    }
+}
+
 // MARK: - StorageUsage
 public struct StorageUsage: Codable, Sendable {
     public let categories: [StorageCategory]
@@ -43933,6 +44998,8 @@ public typealias SpacesMigrationOfferParams = [String: JSONAny]
 public typealias SpecialistsListParams = [String: JSONAny]
 public typealias SpeechEngineDownloadParams = [String: JSONAny]
 public typealias SpeechEngineStatusParams = [String: JSONAny]
+public typealias StorageCompactEstimateParams = [String: JSONAny]
+public typealias StorageCompactParams = [String: JSONAny]
 public typealias StorageUsageParams = [String: JSONAny]
 public typealias TeachAppAppsParams = [String: JSONAny]
 public typealias TeachAppCancelParams = [String: JSONAny]

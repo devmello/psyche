@@ -1,5 +1,7 @@
 import { cleanup, configure } from "@testing-library/react";
 import { afterEach } from "vitest";
+import { clearAllDrafts } from "../src/chat/composer-drafts.ts";
+import { resetAttachmentScopes } from "../src/chat/useAttachments.ts";
 import { createI18n, setActiveI18n, setDefaultTimeZone } from "../src/i18n/core.ts";
 
 // findBy* and waitFor give up after 1 s by default; on a loaded CI runner widget and connector
@@ -55,4 +57,7 @@ Element.prototype.setPointerCapture ??= () => {};
 
 afterEach(() => {
   cleanup();
+  // Composer drafts and chips are kept per thread for the session; a test starts clean.
+  resetAttachmentScopes();
+  clearAllDrafts();
 });

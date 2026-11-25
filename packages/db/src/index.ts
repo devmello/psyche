@@ -20,6 +20,7 @@ export {
 export * from "./repos/artifacts.ts";
 export * from "./repos/chat-queue.ts";
 export * from "./repos/devices.ts";
+export * from "./repos/history-prune.ts";
 export * from "./repos/idempotency.ts";
 export * from "./repos/library.ts";
 export * from "./repos/machines.ts";
@@ -28,6 +29,7 @@ export * from "./repos/night-shift.ts";
 export * from "./repos/nodes.ts";
 export * from "./repos/pairing.ts";
 export * from "./repos/passkeys.ts";
+export * from "./repos/plan-forks.ts";
 export * from "./repos/run-steps.ts";
 export * from "./repos/runs.ts";
 export * from "./repos/settings.ts";

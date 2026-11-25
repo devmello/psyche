@@ -59,7 +59,7 @@ export function stagedActionFromRow(row: StagedActionRow): StagedAction {
     paramsHash: row.paramsHash,
     bindingHash: row.bindingHash,
     summary: row.summary,
-    preview: parse<unknown>(row.preview),
+    preview: parse<StagedAction["preview"]>(row.preview),
     why: row.why,
     precondition: parse<unknown>(row.precondition),
     inverse: parse<unknown>(row.inverse),
