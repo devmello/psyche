@@ -26,7 +26,7 @@ export interface StepRowProps {
   repeats?: number;
   /** Nesting under a helper or a parallel group (0 or 1). */
   level?: 0 | 1;
-  /** Right of the label, before the time: a frame thumbnail, a "Waiting for your approval ↓". */
+  /** Right of the label, before the time: a frame thumbnail, a frame. */
   accessory?: ReactNode;
   /** Disclosure content (the preview, the parameters); the row gets a chevron when present. */
   children?: ReactNode;
@@ -67,7 +67,7 @@ export function StepRow({
   const running = status === "running" || status === "thinking";
   const hasDetail = children !== undefined && children !== null;
   const rail = glyphState(status);
-  const waiting = rail === "waiting";
+  const _waiting = rail === "waiting";
   const motionProps = enter && !reduce ? fadeRise : {};
   const head = (
     <>
@@ -104,11 +104,6 @@ export function StepRow({
         ) : null}
       </span>
       {accessory}
-      {waiting ? (
-        <span className="shrink-0 text-callout font-medium text-approval-text">
-          {t("chat.steps.needsYou")}
-        </span>
-      ) : null}
       {startedAt !== undefined ? (
         <LiveDuration
           startedAt={startedAt}
@@ -126,7 +121,6 @@ export function StepRow({
       layout={reduce ? false : "position"}
       className={cn(
         "relative flex flex-col",
-        waiting && "my-0.5 rounded-md bg-approval-surface ring-1 ring-approval-border",
         level === 1 && "ms-5 border-s border-separator ps-3",
         className,
       )}

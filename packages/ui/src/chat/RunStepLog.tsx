@@ -349,7 +349,7 @@ function ThinkingStep({
  * - The step in progress has the one moving mark (an ink dot with a halo), a plain-language
  *   label ("Reading Q3 notes.pdf") and its elapsed time, ticking.
  * - A finished step settles to a quiet check with its duration.
- * - A step waiting on the owner is the only filled marker, on an amber row tagged "Needs you";
+ * - A step waiting on the owner is the only filled marker, with one amber dot;
  *   it is never folded away.
  * - Finished steps beyond the last two fold into "n earlier steps done"; failures stay in view.
  * - "No response for 42 s" appears after 30 s of silence, so a frozen run is visible.
@@ -438,29 +438,20 @@ export function RunStepLog({
               <m.li
                 key={step.id}
                 layout="position"
-                className={cn(
-                  "relative flex flex-col text-body",
-                  state === "waiting" &&
-                    "-ms-2 my-0.5 rounded-md bg-approval-surface ps-2 pe-2 ring-1 ring-approval-border",
-                )}
+                className={cn("relative flex flex-col text-body")}
                 data-step={step.kind}
                 data-status={step.status}
                 data-state={state}
                 data-now={isNow ? "true" : undefined}
                 {...fade}
               >
-                <RailLine show={more} state={state} inset={state === "waiting"} />
+                <RailLine show={more} state={state} />
                 <div className="flex items-start gap-2">
                   <span className="flex h-7 items-center">
                     <RailNode state={state} />
                   </span>
                   {step.kind === "thinking" ? <ThinkingStep step={step} current={isNow} /> : label}
                   <span className="sr-only">{t(`chat.steps.status.${step.status}`)}</span>
-                  {state === "waiting" ? (
-                    <span className="shrink-0 text-callout font-medium leading-7 text-approval-text">
-                      {t("chat.steps.needsYou")}
-                    </span>
-                  ) : null}
                   {timed && (state === "current" || state === "waiting") ? (
                     <LiveDuration
                       startedAt={step.at}
@@ -495,8 +486,10 @@ export function RunStepLog({
         role="status"
         aria-live="polite"
         className={cn(
-          "mt-1 flex items-center gap-2 text-callout",
-          current?.status === "waiting" ? "text-approval-text" : "text-label-secondary",
+          "mt-1 flex items-center gap-2 text-callout text-label-secondary",
+          // Waiting on the owner is spoken here, not drawn: the approval card is the one visible
+          // announcement and the step keeps its one amber dot.
+          current?.status === "waiting" && "sr-only",
         )}
         data-testid="chat-working"
       >

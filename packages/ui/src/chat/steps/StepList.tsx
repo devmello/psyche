@@ -1,7 +1,5 @@
 import type { RunStep } from "@psyche/protocol";
-import { ArrowDown } from "lucide-react";
 import { type ReactElement, useEffect, useRef, useState } from "react";
-import { focusApproval } from "../../blocks/ApprovalCard.tsx";
 import { useDisclosure } from "../../blocks/disclosure.tsx";
 import { formatStepDuration } from "../../components/steps/LiveDuration.tsx";
 import { StepRow } from "../../components/steps/StepRow.tsx";
@@ -202,19 +200,7 @@ export function StepItem({
     ) : undefined;
   // A row with detail is a disclosure button: the frame goes inside the detail, never nested.
   const accessory =
-    step.kind === "approval" && step.status === "waiting" && step.approvalId ? (
-      <button
-        type="button"
-        onClick={(e) => {
-          e.stopPropagation();
-          if (step.approvalId) focusApproval(step.approvalId);
-        }}
-        className="inline-flex size-6 shrink-0 cursor-default items-center justify-center rounded-sm text-approval-text outline-none hover:bg-fill-tertiary focus-visible:ring-2 focus-visible:ring-ring"
-        aria-label={t("chat.steps.reviewApproval")}
-      >
-        <ArrowDown className="size-3.5" aria-hidden="true" />
-      </button>
-    ) : detail === undefined ? (
+    detail === undefined ? (
       <>
         {frame}
         {ends ? <StepFeedback step={step} floating /> : null}

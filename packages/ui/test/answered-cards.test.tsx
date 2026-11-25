@@ -227,10 +227,13 @@ describe("answered approval receipts", () => {
     expect(row.textContent).toContain("Denied: Run npm test");
   });
 
-  it("leaves a pending approval as the pointer to the dock", async () => {
+  it("leaves a pending approval to the dock: the transcript adds no pointer or chip", async () => {
     thread((w) => approvalWorld(w, "ap_wait", { summary: "Send it", status: "pending" }));
     const log = await screen.findByRole("log", { name: "Conversation" });
-    expect(await within(log).findByText("Waiting for your approval")).toBeTruthy();
+    expect(await screen.findByTestId("approval-dock")).toBeTruthy();
+    expect(within(log).queryByText("Waiting for your approval")).toBeNull();
+    expect(within(log).queryByText("Needs you")).toBeNull();
+    expect(within(log).queryByRole("button", { name: /^Review approval:/ })).toBeNull();
     expect(within(log).queryByTestId("approval-result")).toBeNull();
     expect(within(log).queryByRole("button", { name: /details/i })).toBeNull();
   });
