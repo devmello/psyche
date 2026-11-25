@@ -17,12 +17,14 @@ import type { GraphStore } from "./store.ts";
 export {
   backfillLoopRemoteVisible,
   createLoopVisibility,
+  LOOP_BACKFILL_CURSOR,
   type LoopViewer,
   type LoopVisibility,
   loopForViewer,
   loopsForViewer,
   markLoopRemoteVisible,
   REMOTE_LOOP_VIEWER,
+  runLoopRemoteVisibleBackfill,
   scrubLoopForRemote,
 } from "./loop-visibility.ts";
 

@@ -6,6 +6,8 @@ import { createGraphHandlers } from "../src/graph/handlers.ts";
 import {
   backfillLoopRemoteVisible,
   createLoopVisibility,
+  LOOP_BACKFILL_CURSOR,
+  runLoopRemoteVisibleBackfill,
   scrubLoopForRemote,
 } from "../src/graph/loop-visibility.ts";
 import { GraphStore } from "../src/graph/store.ts";
@@ -352,5 +354,27 @@ describe("the owner's own devices keep their loops (iOS-shaped)", () => {
       { full: true },
     );
     expect(full.nextCursor).toBe(full.loops.at(-1)?.id);
+  });
+
+  it("a backfill that throws leaves the cursor unset, and the next start runs it", () => {
+    const { legacy } = seedIos();
+    db.sqlite.prepare("UPDATE graph_loops SET remote_visible = 0").run();
+    const cursor = {
+      get: (name: string) => g.cursor(name),
+      set: (name: string, value: unknown) => g.setCursor(name, value),
+    };
+    // First start: the update fails (the column is missing for a moment).
+    db.sqlite.exec("ALTER TABLE graph_loops RENAME COLUMN remote_visible TO rv_gone");
+    expect(runLoopRemoteVisibleBackfill(db.sqlite, cursor)).toBe(false);
+    expect(g.cursor(LOOP_BACKFILL_CURSOR)).toBeUndefined();
+    // Next start: it works, runs, and only then sets the cursor.
+    db.sqlite.exec("ALTER TABLE graph_loops RENAME COLUMN rv_gone TO remote_visible");
+    expect(runLoopRemoteVisibleBackfill(db.sqlite, cursor)).toBe(true);
+    expect(rv(legacy)).toBe(1);
+    expect(g.cursor(LOOP_BACKFILL_CURSOR)).toBeDefined();
+    // Once the cursor is set it is not run again (positive control).
+    db.sqlite.prepare("UPDATE graph_loops SET remote_visible = 0 WHERE id = ?").run(legacy);
+    expect(runLoopRemoteVisibleBackfill(db.sqlite, cursor)).toBe(true);
+    expect(rv(legacy)).toBe(0);
   });
 });

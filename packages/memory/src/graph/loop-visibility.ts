@@ -63,15 +63,33 @@ export function markLoopRemoteVisible(sqlite: Database.Database, id: string): vo
  * many rows changed. It runs in code, not in a migration, so the encrypted store gets it too.
  */
 export function backfillLoopRemoteVisible(sqlite: Database.Database): number {
-  try {
-    return sqlite
-      .prepare(
-        `UPDATE graph_loops AS l SET remote_visible = 1
+  return sqlite
+    .prepare(
+      `UPDATE graph_loops AS l SET remote_visible = 1
           WHERE l.remote_visible = 0 AND ${NO_MESSAGES_MARKER}`,
-      )
-      .run().changes;
+    )
+    .run().changes;
+}
+
+/** The cursor that says the backfill finished. */
+export const LOOP_BACKFILL_CURSOR = "loop_remote_visible_backfill";
+
+/**
+ * Runs the backfill once. The cursor is set only after it finished without an error: a failure
+ * leaves it unset, so the next start tries again instead of hiding old loops for good. Never
+ * throws; returns whether the backfill is done.
+ */
+export function runLoopRemoteVisibleBackfill(
+  sqlite: Database.Database,
+  cursor: { get(name: string): unknown; set(name: string, value: unknown): void },
+): boolean {
+  if (cursor.get(LOOP_BACKFILL_CURSOR) !== undefined) return true;
+  try {
+    const changed = backfillLoopRemoteVisible(sqlite);
+    cursor.set(LOOP_BACKFILL_CURSOR, { changed });
+    return true;
   } catch {
-    return 0;
+    return false;
   }
 }
 

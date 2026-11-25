@@ -3,7 +3,6 @@ import { getSetting, getThread, type PsycheDb, setSetting } from "@psyche/db";
 import {
   type AgentMemoryAccess,
   assignProjects,
-  backfillLoopRemoteVisible,
   CardSync,
   createGraphHandlers,
   createLoopVisibility,
@@ -28,6 +27,7 @@ import {
   type NightlyStep,
   runGraphModelPass,
   runGraphPoll,
+  runLoopRemoteVisibleBackfill,
   type SchedulerLike,
   type SqliteMemoryStore,
   suggestProjects,
@@ -248,10 +248,11 @@ export function composePeople(deps: PeopleDeps): People {
   store.backfillTitleTrust();
   // Loops written before `remote_visible` was set stay visible to the owner's own devices unless
   // they have a Messages marker (promise scrub). Once, in code so the encrypted store gets it too.
-  if (store.cursor("loop_remote_visible_backfill") === undefined) {
-    const changed = backfillLoopRemoteVisible(deps.memorySqlite ?? db.sqlite);
-    store.setCursor("loop_remote_visible_backfill", { changed });
-  }
+  // The cursor is set only once it finished: a failure is retried at the next start.
+  runLoopRemoteVisibleBackfill(deps.memorySqlite ?? db.sqlite, {
+    get: (name) => store.cursor(name),
+    set: (name, value) => store.setCursor(name, value),
+  });
   // Conversation gists follow the same sensitive-class switches as learned facts (§2.6).
   store.setSensitiveSwitches(
     () => everythingSettings(getSetting(db, EVERYTHING_MEMORY_SETTING_KEY)?.value).sensitive,
