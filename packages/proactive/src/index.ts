@@ -102,6 +102,12 @@ export {
   type SourceReport,
 } from "./feed/sources.ts";
 export { FeedStore, type StoredPost } from "./feed/store.ts";
+export * from "./forks/budget.ts";
+export * from "./forks/prompt.ts";
+export * from "./forks/reads.ts";
+export * from "./forks/service.ts";
+export * from "./forks/stager.ts";
+export * from "./forks/toolset.ts";
 export {
   type CheckinInput,
   createNextStepProposer,
@@ -349,6 +355,7 @@ export {
 } from "./proposals/service.ts";
 export { ProposalStore, type StoredProposal, toActionProposal } from "./proposals/store.ts";
 export type { SqliteDatabase, SqliteStatement } from "./sqlite.ts";
+export { type MeterState, UsageMeter } from "./staged/meter.ts";
 export {
   feedTools,
   goalTools,

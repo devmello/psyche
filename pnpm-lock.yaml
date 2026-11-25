@@ -573,6 +573,9 @@ importers:
       '@psyche/hostfs':
         specifier: workspace:*
         version: link:../hostfs
+      '@psyche/memory':
+        specifier: workspace:*
+        version: link:../memory
       '@psyche/protocol':
         specifier: workspace:*
         version: link:../protocol

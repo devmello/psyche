@@ -15,8 +15,24 @@ export type AutomationHandlers = {
   [M in AutomationMethod]: (params: MethodParams<M>) => Promise<MethodResult<M>>;
 };
 
+const AGENT_RUN_WAIT_MS = 1_500;
+const AGENT_RUN_POLL_MS = 25;
+
+async function agentRunIdOf(scheduler: SqliteScheduler, automationRunId: string, waitMs: number) {
+  const deadline = Date.now() + waitMs;
+  for (;;) {
+    const { agentRunId, ended } = scheduler.agentRunOf(automationRunId);
+    if (agentRunId !== null) return agentRunId;
+    if (ended || Date.now() >= deadline) return null;
+    await new Promise((r) => setTimeout(r, AGENT_RUN_POLL_MS));
+  }
+}
+
 /** `automations.*` handlers for the Gateway to mount (S01 validates params and scopes first). */
-export function createAutomationHandlers(scheduler: SqliteScheduler): AutomationHandlers {
+export function createAutomationHandlers(
+  scheduler: SqliteScheduler,
+  options: { agentRunWaitMs?: number } = {},
+): AutomationHandlers {
   const strip = <T extends Record<string, unknown>>(o: T): Partial<T> =>
     Object.fromEntries(Object.entries(o).filter(([, v]) => v !== undefined)) as Partial<T>;
   return {
@@ -51,7 +67,12 @@ export function createAutomationHandlers(scheduler: SqliteScheduler): Automation
     },
     "automations.run": async (p) => {
       const { run, taskId } = await scheduler.trigger(p.automationId);
-      return { runId: run.id, taskId };
+      // `runId` is the agent run (what `runs.get` and `runs.steps` open), not the automation run's
+      // own id. The task's first turn creates it a moment after launch, so wait briefly for it.
+      return {
+        runId: await agentRunIdOf(scheduler, run.id, options.agentRunWaitMs ?? AGENT_RUN_WAIT_MS),
+        taskId,
+      };
     },
     "automations.cancelRetry": async (p) => ({ run: await scheduler.cancelRetry(p.runId) }),
     "automations.runs": async (p) =>

@@ -30,6 +30,21 @@ struct NodeDaemonBackoffTests {
         }
     }
 
+    @Test func aSessionThatDropsRightAfterPairingBacksOffAndAHealthyOneResets() {
+        let b = NodeDaemon.Backoff()
+        var failures = 0
+        var delays: [TimeInterval] = []
+        for _ in 0..<8 {
+            let step = NodeDaemon.afterServed(failures: failures, lasted: 0.2, backoff: b)
+            failures = step.failures
+            delays.append(step.delay)
+        }
+        #expect(delays == [0.5, 1, 2, 4, 8, 16, 30, 30])
+        // Control: a session that held for a while starts the schedule over.
+        let healthy = NodeDaemon.afterServed(failures: failures, lasted: 60, backoff: b)
+        #expect(healthy.failures == 0 && healthy.delay == 0.5)
+    }
+
     private func daemon(home: String = NSTemporaryDirectory()) -> NodeDaemon {
         NodeDaemon(
             identity: DeviceIdentity(), registry: CapabilityRegistry([]), preflight: NoPreflight(), log: HelperLog(echo: { _ in }),

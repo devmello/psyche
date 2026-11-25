@@ -1,0 +1,87 @@
+/**
+ * Approvals wave W3 (desktop): the card's second choice, its plain header line, the sentences for
+ * a voided or expired card, Undo, the Agent sheet row for this chat, the Inbox Allow menu and
+ * Settings → Permissions → Allowed.
+ */
+export const approvals = {
+  "approvals.more": "More options…",
+
+  "approvals.effect.files": "Changes files",
+  "approvals.effect.sends": "Sends to someone",
+  "approvals.effect.irreversible": "Can't be undone",
+  "approvals.effect.money": "Moves money",
+  "approvals.effect.write": "Changes something",
+  "approvals.effect.read": "Reads information",
+  "approvals.effect.none": "Only looks",
+  "approvals.effect.untrusted": "After reading untrusted content",
+
+  "approvals.expired": "Expired. Nothing was done. Ask again if you still want it.",
+  "approvals.void.changed":
+    "This changed before you answered, so it was set aside. Nothing was done.",
+  "approvals.void.runCancelled": "Cancelled because the task stopped. Nothing was done.",
+  "approvals.void.restart": "Psyche restarted before you answered. Nothing was done.",
+  "approvals.void.other": "This request is no longer needed. Nothing was done.",
+
+  "approvals.undo.always": "Always allowed",
+  "approvals.undo.session": "Allowed for this chat",
+  "approvals.undo.site": "Allowed for this site",
+  "approvals.undo.task": "Allowed for this task",
+  "approvals.undo.button": "Undo",
+  "approvals.undo.done": "Undone. Psyche will ask again.",
+
+  "approvals.thread.detail": "Answer it on the card in the chat",
+  "approvals.thread.show": "Show in chat",
+  "approvals.thread.showNamed": "Show the card for {summary} in the chat",
+
+  "approvals.inbox.allowMenu": "More ways to allow: {summary}",
+
+  "approvals.allowed.title": "Allowed",
+  "approvals.allowed.description":
+    "What Psyche can do without asking. Remove one and it asks again.",
+  "approvals.allowed.empty":
+    "Nothing is allowed for good yet. When you pick an Always choice on an approval, it shows here.",
+  "approvals.allowed.details": "Details",
+  "approvals.allowed.group.sites": "Sites",
+  "approvals.allowed.group.folders": "Folders",
+  "approvals.allowed.group.commands": "Commands",
+  "approvals.allowed.group.sends": "Sends",
+  "approvals.allowed.group.tools": "Apps and tools",
+  "approvals.allowed.group.spaces": "Spaces",
+  "approvals.allowed.scope.always": "Always",
+  "approvals.allowed.scope.session": "This chat",
+  "approvals.allowed.scope.site": "This site",
+  "approvals.allowed.scope.task": "This task",
+  "approvals.allowed.runs": "runs {what}",
+  "approvals.allowed.sends": "sends {what}",
+  "approvals.allowed.used": "used {n, plural, one {# time} other {# times}}",
+  "approvals.allowed.last": "last {when}",
+  "approvals.allowed.remove": "Remove",
+  "approvals.allowed.removeNamed": "Remove {name}",
+  "approvals.reach.always": "Always allow {what}",
+  "approvals.reach.session": "Allow {what} for the rest of this chat",
+  "approvals.reach.task": "Allow {what} for this task",
+  "approvals.reach.siteIn": "Allow {what}, this site only",
+  "approvals.reach.siteOn": "Allow {what} on {site}",
+  "approvals.reach.vague.always": "Always allow any action of this kind",
+  "approvals.reach.vague.session": "Allow any action of this kind for the rest of this chat",
+  "approvals.reach.vague.task": "Allow any action of this kind for this task",
+  "approvals.reach.vague.site": "Allow any action of this kind on {site}",
+  "approvals.what.send": "sending to {recipients} from {account}",
+  "approvals.what.sendAny": "sending to {recipients}",
+  "approvals.what.tool": "{tool}, with any arguments",
+  "approvals.what.toolFor": "{tool} for {target}",
+  "approvals.what.exec": "this exact command",
+  "approvals.what.writeTarget": "writing to {target}, any content",
+  "approvals.what.writeIn": "{operation} in {folder}",
+  "approvals.what.filesIn": "writing to files in {folder}, any content",
+  "approvals.what.message": "messages to {recipient} on {channel}",
+  "approvals.what.calendar": "{operation} in calendar {calendar}",
+  "approvals.what.computer": "{app}, any action at this level",
+  "approvals.what.site": "opening {site}",
+  "approvals.what.fill": "filling {item} on {site}",
+  "approvals.effect.network": "Can reach the internet",
+  "approvals.effect.hostRun": "Runs on this computer",
+  "approvals.effect.publishes": "Publishes your commits",
+  "approvals.effect.unknown": "Needs your OK",
+  "approvals.inbox.approveWith": "Approve, {label}: {summary}",
+} as const;

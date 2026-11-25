@@ -16,10 +16,15 @@ export const PERMISSION_KINDS: readonly PermissionKind[] = [
   "microphone",
 ];
 
-export const PRIVACY_PANE: Record<"accessibility" | "screenRecording" | "microphone", string> = {
+export const PRIVACY_PANE: Record<
+  "accessibility" | "screenRecording" | "microphone" | "fullDiskAccess",
+  string
+> = {
   accessibility: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility",
   screenRecording: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture",
   microphone: "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone",
+  // Messages (chat.db) is readable only with it; macOS never prompts, the owner adds the helper.
+  fullDiskAccess: "x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles",
 };
 
 /** Settings → Privacy & security → Microphone ("Let desktop apps access your microphone"). */
@@ -172,7 +177,18 @@ export function createPermissions(deps: PermissionDeps) {
     return out;
   }
 
-  return { status, request, statusAll };
+  /**
+   * Opens System Settings › Privacy & Security › Full Disk Access, where Psyche Helper is added
+   * to read Messages. macOS has no prompt or status API for it, so this only opens the pane;
+   * `false` off the Mac, where there is none.
+   */
+  async function openFullDiskAccess(): Promise<boolean> {
+    if (!mac) return false;
+    await deps.openExternal(PRIVACY_PANE.fullDiskAccess);
+    return true;
+  }
+
+  return { status, request, statusAll, openFullDiskAccess };
 }
 
 export type Permissions = ReturnType<typeof createPermissions>;

@@ -11,6 +11,7 @@ import {
 import { Button } from "../../components/ui/button.tsx";
 import { useCall } from "../../data/hooks.ts";
 import { t } from "../../i18n/core.ts";
+import { describeError } from "../../i18n/errors.ts";
 import { Group } from "./shared.tsx";
 
 /**
@@ -37,8 +38,7 @@ export function checkApiKeyDraft(raw: string): "empty" | "whitespace" | null {
   return /\s/.test(v) ? "whitespace" : null;
 }
 
-const messageOf = (err: unknown): string =>
-  err instanceof Error && err.message !== "" ? err.message : String(err);
+const messageOf = (err: unknown): string => describeError(err);
 
 function statusLine(s: ApiKeyStatus): string {
   if (s.source === "env") {

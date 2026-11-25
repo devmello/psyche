@@ -37,7 +37,7 @@ function show(a: ApprovalRequest, slots: UiSlots, onAnswer = vi.fn(async () => u
   return onAnswer;
 }
 
-const allow = () => screen.getByRole("button", { name: "Allow with scope" }) as HTMLButtonElement;
+const allow = () => screen.getByRole("button", { name: "Allow" }) as HTMLButtonElement;
 
 describe("risky card on a remote client", () => {
   const risky = () => approval({ requiresAuthentication: true });

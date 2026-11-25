@@ -69,6 +69,10 @@ export const onboarding: Partial<Catalogue> = {
   "onboarding.you.agent": "你的代理",
   "onboarding.you.customize": "自定义外观",
   "onboarding.you.more": "更多关于你",
+  "onboarding.restore.title": "从备份恢复",
+  "onboarding.restore.where":
+    "备份保存在 $PSYCHE_HOME/backups。要在新电脑上恢复，请先停止 Gateway，然后运行：",
+  "onboarding.restore.unlock": "然后用恢复密钥解锁保险库。",
   "onboarding.memory.habitsLead":
     "选择{name}每天做什么，以及它在记忆中保留什么。所有这些都可以在“设置”中更改。",
   "onboarding.memory.bring": "从 ChatGPT 或 Claude 导入记忆",

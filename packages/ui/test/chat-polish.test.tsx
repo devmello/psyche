@@ -91,7 +91,7 @@ describe("ApprovalCard (§3.3)", () => {
     const details = await screen.findByRole("menuitemcheckbox", { name: "Details" });
     expect(details.getAttribute("aria-checked")).toBe("false");
     const deny = screen.getByRole("button", { name: "Deny" });
-    const allow = screen.getByRole("button", { name: "Allow with scope" });
+    const allow = screen.getByRole("button", { name: "Allow" });
     await userEvent.click(details);
     expect(card.textContent).toContain(a.bindingHash);
     // Opening Details never moves the buttons: the panel renders after them.

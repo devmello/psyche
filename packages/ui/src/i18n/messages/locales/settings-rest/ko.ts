@@ -171,7 +171,7 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.notifications.description": "Psyche가 방해해도 되는 시간입니다.",
   "settings.notifications.group.quietHours": "방해 금지 시간",
   "settings.notifications.quietHours.hint":
-    "설정한 시간이 끝날 때까지 알림을 보류합니다. 시간이 중요한 승인은 그대로 전달됩니다.",
+    "시간대가 끝날 때까지 알림을 보류합니다. 시간이 중요한 승인은 그대로 전달됩니다. 야간 메모리 처리의 시간은 메모리 설정에 따로 있습니다.",
   "settings.key.ui.onboarding.progress": "온보딩 진행 상황",
   "settings.key.permissions.liftedFloors": "{id}에서 묻지 않고 허용하는 작업",
   "settings.key.specialists.maxConcurrent": "동시에 실행할 전문가 수",

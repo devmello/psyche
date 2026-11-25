@@ -1,3 +1,4 @@
+import { compactUserView } from "@psyche/memory/learned";
 import type {
   ContextSection,
   MemoryStore,
@@ -213,6 +214,10 @@ export function applyBudget(
   return { text: keep === "head" ? `${kept}\n${marker}` : `${marker}\n${kept}`, truncated: true };
 }
 
+export function withheldMarker(path: string): string {
+  return `[withheld: ${path} contains untrusted content and is not injected. The owner can review it in Soul & Memory.]`;
+}
+
 export function missingMarker(path: string): string {
   return `[missing: ${path} does not exist in the workspace]`;
 }
@@ -238,11 +243,28 @@ async function personaSections(
       });
       continue;
     }
+    // Defence in depth (security §8): untrusted text never enters the persona block, the trust
+    // root. Writes to these files are approval-gated, so this should not happen; if it does, the
+    // file is withheld, not trimmed.
+    if (memory?.contentProvenance?.(path) === "untrusted") {
+      sections.push({
+        id,
+        kind: "persona",
+        title,
+        source: path,
+        text: withheldMarker(path),
+      });
+      continue;
+    }
     const fileBudget = path === "USER.md" ? budgets.userMd : budgets.perFile;
     const budget = Math.max(0, Math.min(fileBudget, remaining));
     const content = file.content.trimEnd();
     const label = budget < fileBudget ? `${path} (60k persona total reached)` : path;
-    const { text, truncated } = applyBudget(label, content, budget);
+    // USER.md goes in as a compact view: the newest Learned lines survive the cut, not the oldest.
+    const { text, truncated } =
+      path === "USER.md"
+        ? compactUserView(content, budget, label)
+        : applyBudget(label, content, budget);
     remaining -= Math.min(content.length, budget);
     sections.push({
       id,

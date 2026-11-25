@@ -4,12 +4,13 @@ import PsycheDesign
 import PsycheStore
 import SwiftUI
 
+/// Home at a glance: an inset-grouped list under a native large title with three sections (Needs you, Running,
+/// Today) and one More row. Everything else (inbox, to-dos, nudges, pinned widgets, follow-ups, Spaces, Feed, Ideas,
+/// Goals) is behind More and the toolbar menu. Chat and Search own asking, so Home has no Ask field.
 struct HomeView: View {
     @State private var model: HomeModel
     @State private var proactive: ProactiveHomeModel
-    @State private var ask = ""
-    /// The same on-device dictation as the Chat composer (the mockup's mic in the Ask field).
-    @State private var dictation = Dictation()
+    @State private var nightShift: NightShiftCardModel
     @Environment(Session.self) private var session
     @Environment(Router.self) private var router
     @Environment(\.alerts) private var alerts
@@ -21,132 +22,117 @@ struct HomeView: View {
         self.store = store
         _model = State(initialValue: HomeModel(store: store))
         _proactive = State(initialValue: ProactiveHomeModel(store: store))
+        _nightShift = State(initialValue: NightShiftCardModel(store: store))
     }
 
     var body: some View {
-        ScrollViewReader { proxy in
-        ScrollView {
-            VStack(alignment: .leading, spacing: PsycheMetrics.sectionSpacing) {
-                PageHeader(String(localized: "Home", bundle: .module), eyebrow: Date.now.formatted(.dateTime.weekday(.wide).month(.wide).day())) {
-                    AgentButton(needsYou: !(model.phase.value?.needsYou.isEmpty ?? true), glass: true)
-                }
+        List {
+            if session.state != .live {
                 ConnectionBanner(state: session.state, lastSyncedAt: session.lastSyncedAt)
-                askField
-                PhaseView(phase: model.phase, skeleton: .skeleton, retry: model.load) { snapshot in
-                    sections(snapshot)
-                }
+                    .listRowInsets(EdgeInsets())
+                    .listRowBackground(Color.clear)
             }
-            .padding(.horizontal, PsycheMetrics.pagePadding)
-            .padding(.top, 8)
-            .padding(.bottom, 24)
-            // Sections and rows that appear or go (an approval answered elsewhere, a task finishing) fade and
-            // the gap closes on the smooth spring; nothing else on the page animates (spec §4.1).
-            .psycheAnimation(.smooth, value: listIdentity)
+            PhaseView(phase: model.phase, skeleton: .skeleton, retry: model.load) { snapshot in
+                sections(snapshot)
+            }
         }
-        .psycheScreen()
-        .psycheHidesNavigationBar()
+        .homeListStyle()
+        .navigationTitle(String(localized: "Home", bundle: .module))
+        #if os(iOS)
+        .navigationBarTitleDisplayMode(.large)
+        #endif
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                AgentButton(needsYou: !(model.phase.value?.needsYou.isEmpty ?? true))
+            }
+            ToolbarItem(placement: .secondaryAction) { shortcuts }
+        }
         .overlay(alignment: .bottom) { notice }
         .psycheAnimation(.smooth, value: model.notice)
+        // Rows that appear or go (an approval answered elsewhere, a task finishing) animate on the smooth spring.
+        .psycheAnimation(.smooth, value: listIdentity)
         .task {
             await model.load()
             await model.observe()
+        }
+        .task {
+            await nightShift.load()
+            await nightShift.observe()
         }
         .refreshable {
             async let sections: Void = proactive.load()
             await model.load()
             await sections
         }
-        #if DEBUG
-        // Screenshots without a swipe: `-psycheHomeScroll pinned` brings the Pinned section into view.
-        .onChange(of: model.pinnedWidgets.count) { _, count in
-            guard count > 0, UserDefaults.standard.string(forKey: "psycheHomeScroll") == "pinned" else { return }
-            Task { try? await Task.sleep(for: .milliseconds(400)); motion.perform(.gentle) { proxy.scrollTo("pinned", anchor: .top) } }
-        }
-        #endif
-        }
     }
 
-    // MARK: Ask Psyche
+    // MARK: Sections
 
-    private var askField: some View {
-        HStack(spacing: 10) {
-            TextField(String(localized: "Ask Psyche anything", bundle: .module), text: $ask)
-                .font(.callout)
-                .submitLabel(.send)
-                .onSubmit(submitAsk)
-            if ask.isEmpty || dictation.isActive {
-                let active = dictation.isActive
-                Button {
-                    dictation.toggle { transcript in ask = transcript }
-                } label: {
-                    Image(systemName: active ? "waveform" : "mic")
-                        .font(.system(size: 17))
-                        .foregroundStyle(active ? PsycheColor.text : PsycheColor.muted)
-                        .symbolEffect(.variableColor.iterative, isActive: active && !motion.reduced)
-                        .frame(width: 32, height: 32)
-                        .contentShape(Circle())
-                }
-                .accessibilityLabel(active ? String(localized: "Stop dictation", bundle: .module) : String(localized: "Dictate", bundle: .module))
-            }
-            if !ask.isEmpty && !dictation.isActive {
-                Button(action: submitAsk) {
-                    Image(systemName: "arrow.up.circle.fill")
-                        .font(.title2)
-                        .foregroundStyle(PsycheColor.inkText)
-                }
-                .accessibilityLabel(String(localized: "Ask", bundle: .module))
-            }
-        }
-        .padding(.horizontal, 16)
-        .frame(minHeight: 48)
-        .background(PsycheColor.sheet, in: RoundedRectangle(cornerRadius: PsycheMetrics.cardRadius, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: PsycheMetrics.cardRadius, style: .continuous)
-                .strokeBorder(PsycheColor.rule, lineWidth: 1))
-    }
-
-    private func submitAsk() {
-        dictation.stop()
-        let text = ask.trimmingCharacters(in: .whitespacesAndNewlines)
-        ask = ""
-        router.askPsyche(text)
-    }
-
-    // MARK: Sections (empty ones aren't drawn)
-
-    /// What is on the page, by id: a change here is a section or row appearing or leaving.
+    /// What is on the page, by id: a change here is a row appearing or leaving.
     private var listIdentity: [String] {
         guard let snapshot = model.phase.value else { return [] }
         return snapshot.needsYou.map(\.id) + snapshot.running.map(\.id) + snapshot.today.map(\.id)
-            + model.comingUp.map(\.id) + model.laterTodos.map(\.id) + snapshot.keepInTouch.map(\.id)
-            + model.pinnedWidgets.map(\.id)
     }
 
+    /// Empty sections aren't drawn; with all three empty, an empty state says so.
     @ViewBuilder
     private func sections(_ snapshot: HomeSnapshot) -> some View {
-        let rise = motion.transition(.rise)
-        if !snapshot.needsYou.isEmpty { needsYou(snapshot.needsYou).transition(rise) }
-        if !snapshot.running.isEmpty { running(snapshot.running).transition(rise) }
-        if !snapshot.today.isEmpty { today(snapshot.today).transition(rise) }
-        if !model.comingUp.isEmpty { todos(String(localized: "Coming up", bundle: .module), model.comingUp).transition(rise) }
-        if !model.laterTodos.isEmpty { todos(String(localized: "To-do", bundle: .module), model.laterTodos).transition(rise) }
-        if !snapshot.keepInTouch.isEmpty { keepInTouch(snapshot.keepInTouch).transition(rise) }
-        if !model.pinnedWidgets.isEmpty { pinned(model.pinnedWidgets).transition(rise) }
-        FollowupsHomeSections(store: store)
-        SpacesHomeSection(store: store)
-        ProactiveHomeSections(model: proactive)
-        more
+        if !snapshot.needsYou.isEmpty { needsYou(snapshot.needsYou) }
+        NightShiftHomeSection(model: nightShift)
+        if !snapshot.running.isEmpty { running(snapshot.running) }
+        if !snapshot.today.isEmpty { today(snapshot.today) }
+        if snapshot.needsYou.isEmpty && snapshot.running.isEmpty && snapshot.today.isEmpty && nightShift.reviewID == nil {
+            Section {
+                ContentUnavailableView {
+                    Label(String(localized: "All caught up", bundle: .module), systemImage: "checkmark.circle")
+                } description: {
+                    Text("Nothing needs you right now.", bundle: .module)
+                }
+                .listRowBackground(Color.clear)
+            }
+        }
+        Section {
+            NavigationLink {
+                HomeMorePage(store: store, model: model, proactive: proactive)
+            } label: {
+                HStack {
+                    Label(String(localized: "More", bundle: .module), systemImage: "ellipsis.circle")
+                    if model.unreadInbox > 0 {
+                        Spacer(minLength: 0)
+                        Text(model.unreadInbox, format: .number).foregroundStyle(.secondary)
+                    }
+                }
+            }
+            .accessibilityIdentifier("home.more")
+        }
+    }
+
+    /// Inbox, Scheduled and Overview, and Settings, one tap from the toolbar.
+    private var shortcuts: some View {
+        Menu {
+            Button { router.homePath.append(.inbox) } label: {
+                Label(String(localized: "Inbox", bundle: .module), systemImage: "tray")
+            }
+            Button { router.homePath.append(.scheduled) } label: {
+                Label(String(localized: "Scheduled", bundle: .module), systemImage: "clock")
+            }
+            Button { router.homePath.append(.overview) } label: {
+                Label(String(localized: "Overview", bundle: .module), systemImage: "square.grid.2x2")
+            }
+            Divider()
+            Button { router.sheet = .settings } label: {
+                Label(String(localized: "Settings", bundle: .module), systemImage: "gearshape")
+            }
+        } label: {
+            Label(String(localized: "More options", bundle: .module), systemImage: "ellipsis")
+        }
     }
 
     private func needsYou(_ items: [NeedsYouItem]) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            SectionHeader(String(localized: "Needs you", bundle: .module), count: items.count, needsYou: true)
-            PaperCard {
-                ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
-                    if index > 0 { HairlineDivider() }
-                    needsYouRow(item).transition(motion.transition(.rise))
-                }
-            }
+        Section {
+            ForEach(items) { item in needsYouRow(item) }
+        } header: {
+            Text("Needs you", bundle: .module)
         }
     }
 
@@ -154,9 +140,10 @@ struct HomeView: View {
     private func needsYouRow(_ item: NeedsYouItem) -> some View {
         let canAnswer = session.state.canAnswer
         let kind = item.kind.label
-        let evidence = canAnswer ? [kind, item.source, item.time] : [kind, String(localized: "reconnect to answer", bundle: .module)]
-        let row = NeedsYouRow(title: item.title, evidence: evidence, showsChevron: canAnswer)
+        let caption = canAnswer ? [kind, item.source, item.time] : [kind, String(localized: "reconnect to answer", bundle: .module)]
+        let row = HomeRow(title: item.title, caption: caption)
         if canAnswer {
+            // A plain tap opens the approval or question; nothing else stands between the owner and the answer.
             Button { router.open(item) } label: { row }.buttonStyle(.plain)
         } else {
             row.accessibilityElement(children: .combine)
@@ -164,29 +151,36 @@ struct HomeView: View {
     }
 
     private func running(_ tasks: [RunningTask]) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            SectionHeader(String(localized: "Running", bundle: .module))
+        Section {
             ForEach(tasks) { task in
-                PaperCard(padding: 14) {
-                    VStack(alignment: .leading, spacing: 10) {
-                        HStack(alignment: .firstTextBaseline, spacing: 12) {
-                            Text(task.title).font(.psycheRow).foregroundStyle(PsycheColor.text)
-                            Spacer(minLength: 0)
-                            if alerts?.watching.contains(task.id) == true {
-                                Text("Watching", bundle: .module)
-                                    .font(.subheadline.weight(.medium))
-                                    .foregroundStyle(PsycheColor.muted)
-                            } else {
-                                Button(String(localized: "Watch", bundle: .module)) { watch(task) }
-                                    .font(.subheadline.weight(.medium))
-                                    .foregroundStyle(PsycheColor.muted)
-                            }
-                        }
-                        ProgressBar(fraction: task.fraction)
-                        EvidenceLine([String(localized: "Step \(task.step) of \(task.stepCount)", bundle: .module), task.detail, task.elapsed])
+                let watching = alerts?.watching.contains(task.id) == true
+                NavigationLink {
+                    TaskRunView(store: store, taskID: task.id)
+                } label: {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(task.title).font(.body)
+                        ProgressView(value: task.fraction)
+                        HomeCaption(
+                            [String(localized: "Step \(task.step) of \(task.stepCount)", bundle: .module), task.detail, task.elapsed]
+                                + (watching ? [String(localized: "Watching", bundle: .module)] : []))
                     }
+                    .padding(.vertical, 2)
+                }
+                .swipeActions(edge: .trailing) {
+                    if !watching { watchButton(task).tint(.accentColor) }
+                }
+                .contextMenu {
+                    if !watching { watchButton(task) }
                 }
             }
+        } header: {
+            Text("Running", bundle: .module)
+        }
+    }
+
+    private func watchButton(_ task: RunningTask) -> some View {
+        Button { watch(task) } label: {
+            Label(String(localized: "Watch", bundle: .module), systemImage: "eye")
         }
     }
 
@@ -199,162 +193,47 @@ struct HomeView: View {
     }
 
     private func today(_ items: [BriefItem]) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            SectionHeader(String(localized: "Today", bundle: .module))
-            VStack(alignment: .leading, spacing: 14) {
-                ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
-                    if index > 0 { HairlineDivider() }
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(item.text).font(.psycheRow).foregroundStyle(PsycheColor.text)
-                        EvidenceLine(item.evidenceLabel, item.evidence)
-                        followupActions(item)
+        Section {
+            ForEach(items) { item in
+                HomeRow(title: item.text, caption: [item.evidenceLabel] + item.evidence)
+                    .swipeActions(edge: .trailing) {
+                        Button { Task { await model.actOnFollowup(item, .done) } } label: {
+                            Label(String(localized: "Done", bundle: .module), systemImage: "checkmark")
+                        }
+                        .tint(.green)
+                        Button { Task { await model.actOnFollowup(item, .snooze) } } label: {
+                            Label(String(localized: "Snooze", bundle: .module), systemImage: "moon.zzz")
+                        }
+                        .tint(.indigo)
                     }
-                }
-                Text("That's everything for today.", bundle: .module)
-                    .font(.system(.footnote, design: .serif).italic())
-                    .foregroundStyle(PsycheColor.muted)
-                    .frame(maxWidth: .infinity)
-                    .padding(.top, 4)
+                    .contextMenu { followupMenu(item) }
+                    .disabled(model.followupsBusy.contains(item.id))
+                    .accessibilityIdentifier("today.followup.\(item.id)")
             }
-            .padding(.horizontal, 2)
+        } header: {
+            Text("Today", bundle: .module)
         }
     }
 
-    /// A Today follow-up's actions: Done, and a menu with Snooze (tomorrow or a week) and Dismiss, as the desktop's.
-    /// The row leaves Today once the Gateway accepts; a refusal shows its words in the quiet line.
-    private func followupActions(_ item: BriefItem) -> some View {
-        HStack(spacing: 18) {
-            Button(String(localized: "Done", bundle: .module)) {
-                Task { await model.actOnFollowup(item, .done) }
-            }
-            .accessibilityIdentifier("today.followup.done.\(item.id)")
-            Menu {
-                Menu(String(localized: "Snooze", bundle: .module)) {
-                    Button(String(localized: "Until tomorrow", bundle: .module)) {
-                        Task { await model.actOnFollowup(item, .snooze) }
-                    }
-                    Button(String(localized: "For a week", bundle: .module)) {
-                        let week = Calendar.current.date(byAdding: .day, value: 7, to: .now)
-                        Task { await model.actOnFollowup(item, .snooze, until: week) }
-                    }
-                }
-                Button(String(localized: "Dismiss", bundle: .module), role: .destructive) {
-                    Task { await model.actOnFollowup(item, .dismiss) }
-                }
-            } label: {
-                Text("More", bundle: .module)
-            }
-            .accessibilityIdentifier("today.followup.menu.\(item.id)")
+    /// A Today follow-up's actions, as the desktop's: Done, Snooze (tomorrow or a week) and Dismiss. The row leaves
+    /// Today once the Gateway accepts; a refusal shows its words in the quiet line.
+    @ViewBuilder
+    private func followupMenu(_ item: BriefItem) -> some View {
+        Button { Task { await model.actOnFollowup(item, .done) } } label: {
+            Label(String(localized: "Done", bundle: .module), systemImage: "checkmark")
         }
-        .font(.subheadline.weight(.medium))
-        .foregroundStyle(PsycheColor.muted)
-        .buttonStyle(.plain)
-        .disabled(model.followupsBusy.contains(item.id))
-        .padding(.top, 4)
-    }
-
-    private func todos(_ title: String, _ items: [TodoItem]) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            SectionHeader(title)
-            PaperCard {
-                ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
-                    if index > 0 { HairlineDivider() }
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text(item.title).font(.psycheRow).foregroundStyle(PsycheColor.text)
-                        EvidenceLine([item.meta])
-                    }
-                    .padding(PsycheMetrics.rowPadding)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .accessibilityElement(children: .combine)
-                    .transition(motion.transition(.rise))
-                }
-            }
+        Button { Task { await model.actOnFollowup(item, .snooze) } } label: {
+            Label(String(localized: "Until tomorrow", bundle: .module), systemImage: "moon.zzz")
         }
-    }
-
-    private func keepInTouch(_ nudges: [Nudge]) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            SectionHeader(String(localized: "Keep in touch", bundle: .module))
-            PaperCard {
-                ForEach(Array(nudges.enumerated()), id: \.element.id) { index, nudge in
-                    if index > 0 { HairlineDivider() }
-                    nudgeRow(nudge)
-                }
-            }
+        Button {
+            let week = Calendar.current.date(byAdding: .day, value: 7, to: .now)
+            Task { await model.actOnFollowup(item, .snooze, until: week) }
+        } label: {
+            Label(String(localized: "For a week", bundle: .module), systemImage: "calendar")
         }
-    }
-
-    private func nudgeRow(_ nudge: Nudge) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 12) {
-                InitialsAvatar(nudge.initials, size: 36)
-                Text(nudge.text).font(.psycheRow).foregroundStyle(PsycheColor.text)
-            }
-            HStack(spacing: 20) {
-                Button(String(localized: "Start a message", bundle: .module)) {
-                    router.askPsyche(nudge.draft ?? "Help me reach out. \(nudge.text)")
-                    Task { await model.act(on: nudge, .startMessage) }
-                }
-                .foregroundStyle(PsycheColor.inkText)
-                Button(String(localized: "Snooze", bundle: .module)) { Task { await model.act(on: nudge, .snooze) } }
-                Button(String(localized: "Mute", bundle: .module)) { Task { await model.act(on: nudge, .mute) } }
-            }
-            .font(.subheadline.weight(.medium))
-            .foregroundStyle(PsycheColor.muted)
-            .buttonStyle(.plain)
-            .padding(.leading, 48)
+        Button(role: .destructive) { Task { await model.actOnFollowup(item, .dismiss) } } label: {
+            Label(String(localized: "Dismiss", bundle: .module), systemImage: "xmark")
         }
-        .padding(PsycheMetrics.rowPadding)
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    // MARK: Pinned
-
-    /// Up to 6 widgets, below the fold, drawn by the native widget renderer (live, open and reply only).
-    private func pinned(_ widgets: [WidgetSnapshot]) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            SectionHeader(String(localized: "Pinned", bundle: .module), count: widgets.count).id("pinned")
-            LazyVStack(alignment: .leading, spacing: 12) {
-                ForEach(widgets) { widget in
-                    WidgetView(snapshot: widget, backend: store, surface: .overview)
-                }
-            }
-        }
-    }
-
-    // MARK: More
-
-    private var more: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            SectionHeader(String(localized: "More", bundle: .module))
-            PaperCard {
-                moreRow("Inbox", systemImage: "tray", route: .inbox, trailing: model.unreadInbox > 0 ? "\(model.unreadInbox) new" : nil)
-                HairlineDivider()
-                moreRow("Scheduled", systemImage: "clock", route: .scheduled)
-                HairlineDivider()
-                moreRow("Overview", systemImage: "square.grid.2x2", route: .overview)
-            }
-        }
-    }
-
-    private func moreRow(_ title: String, systemImage: String, route: Route, trailing: String? = nil) -> some View {
-        Button { router.homePath.append(route) } label: {
-            HStack(spacing: 12) {
-                Image(systemName: systemImage)
-                    .font(.body).foregroundStyle(PsycheColor.muted).frame(width: 22)
-                    .accessibilityHidden(true)
-                Text(title).font(.psycheRow).foregroundStyle(PsycheColor.text)
-                Spacer(minLength: 0)
-                if let trailing { Text(trailing).font(.psycheMono(.caption)).foregroundStyle(PsycheColor.muted) }
-                Image(systemName: "chevron.right")
-                    .font(.footnote.weight(.semibold))
-                    .foregroundStyle(PsycheColor.muted.opacity(0.7))
-                    .accessibilityHidden(true)
-            }
-            .padding(PsycheMetrics.rowPadding)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
     }
 
     // MARK: Notice
@@ -364,13 +243,38 @@ struct HomeView: View {
         if let message = model.notice {
             Text(message)
                 .font(.subheadline)
-                .foregroundStyle(PsycheColor.text)
                 .padding(.horizontal, 18)
                 .padding(.vertical, 12)
                 .glassEffect(.regular, in: .capsule)
-                .padding(.bottom, 96)
+                .padding(.bottom, 24)
                 .transition(motion.transition(.toast))
         }
+    }
+}
+
+/// A title with a quiet caption under it, in system styles: the row Needs you and Today share.
+struct HomeRow: View {
+    let title: String
+    let caption: [String]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(title).font(.body).multilineTextAlignment(.leading)
+            HomeCaption(caption)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .contentShape(Rectangle())
+    }
+}
+
+/// Secondary text in the system's caption style (not the mono evidence line): wraps at word breaks at AX5.
+struct HomeCaption: View {
+    private let text: String
+
+    init(_ parts: [String]) { text = parts.filter { !$0.isEmpty }.joined(separator: " · ") }
+
+    var body: some View {
+        Text(text).font(.footnote).foregroundStyle(.secondary)
     }
 }
 

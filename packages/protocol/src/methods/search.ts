@@ -299,6 +299,15 @@ export const SearchSourceStatus = Type.Object(
       $id: "SearchSourceState",
     }),
     detail: Type.Optional(Type.String({ description: "Why it cannot run, or the last error" })),
+    reason: Type.Optional(
+      Type.String({
+        minLength: 1,
+        maxLength: 64,
+        pattern: "^[a-z][a-z0-9_]*$",
+        description:
+          "A machine reason for `detail` (`full_disk_access_missing`), which viewers say in the owner's language; `detail` is the fallback",
+      }),
+    ),
     items: Type.Integer({ minimum: 0 }),
     lastIndexedAt: Type.Optional(Type.Integer({ minimum: 0, description: "Epoch ms" })),
     textBytes: Type.Integer({ minimum: 0, description: "Text indexed for this source" }),

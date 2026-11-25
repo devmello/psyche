@@ -49,6 +49,7 @@ import { blockingKinds, looksLikeInstruction } from "../filters.ts";
 import { trustRank } from "../provenance.ts";
 import { safeName } from "./clean.ts";
 import { isLowerRanked } from "./fact-rank.ts";
+import { markLoopRemoteVisible } from "./loop-visibility.ts";
 import { createMemoryMapBuilder } from "./map.ts";
 import { blockHash, normalizeIdentifier, normalizeName, sha256, slugify } from "./normalize.ts";
 import {
@@ -2482,6 +2483,8 @@ export class GraphStore {
           ? null
           : input.counterpartLabel.slice(0, 200),
       );
+    // Visible to a remote viewer unless the source is Messages (promise scrub, loop-visibility.ts).
+    markLoopRemoteVisible(this.#db, id);
     const loop = toLoop(this.#loopRow(id) as LoopRow);
     this.#emit({ event: "memory.loop.updated", payload: { loop } });
     if (counterpart !== null) this.#touched(counterpart, ["loops"]);

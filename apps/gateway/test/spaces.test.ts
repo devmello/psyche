@@ -99,7 +99,7 @@ describe("spaces: create, rename, list", () => {
     expect(dup).toMatchObject({ ok: false, error: { code: "conflict" } });
   });
 
-  it("answers not_found for an unknown Space, and not_implemented for S2's folders and settings", async () => {
+  it("answers not_found for an unknown Space, and, in this S1-only fixture, not_implemented for the folders and settings methods (spaces/folders.ts registers them in the composed Gateway)", async () => {
     const { c } = await start();
     expect(await c.request("spaces.get", { spaceId: "nope" })).toMatchObject({
       ok: false,
