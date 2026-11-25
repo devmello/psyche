@@ -38,7 +38,12 @@ describe("composer commands (C9)", () => {
   });
 
   it("explains usage errors instead of sending them", () => {
-    expect(parseCommand("/frobnicate")).toMatchObject({ type: "error" });
+    // Not a command of ours: the text goes to the agent as typed.
+    expect(parseCommand("/frobnicate")).toEqual({ type: "message", text: "/frobnicate" });
+    expect(parseCommand("/tmp is full, clean it up")).toEqual({
+      type: "message",
+      text: "/tmp is full, clean it up",
+    });
     expect(parseCommand("/remember")).toMatchObject({
       type: "error",
       message: "Usage: /remember <fact>",

@@ -122,7 +122,7 @@ type MenuItem = { kind: "command"; info: CommandInfo } | { kind: "skill"; skill:
 /** The item the next message is about (Feed "Ask about this"): a removable chip. */
 export interface ComposerContextChip {
   /** A search result gets its own icon and prompt; the default is a Feed item. */
-  kind?: "feed_item" | "search_hit" | "memory_entity" | "life_answer" | "mail_followup";
+  kind?: "feed_item" | "search_hit" | "memory_entity" | "life_answer" | "mail_followup" | "promise";
   title: string;
   /** Source name or host. */
   source: string | null;
@@ -369,6 +369,15 @@ export function Composer({
               </button>
             </div>
           ) : null}
+          {attach?.chips.some((c) => c.status === "error") ? (
+            <p
+              role="status"
+              data-testid="attach-blocked"
+              className="m-0 mx-2 mt-2 text-callout text-danger-text"
+            >
+              {t("chat.attach.blockedByFailed")}
+            </p>
+          ) : null}
           {attach && attach.chips.length > 0 ? (
             <ul
               aria-label={t("chat.attach.list")}
@@ -400,6 +409,16 @@ export function Composer({
                       <Icon className="size-3.5 shrink-0 text-label-secondary" aria-hidden="true" />
                     )}
                     <span className="min-w-0 truncate text-label-primary">{c.name}</span>
+                    {c.status === "error" ? (
+                      <button
+                        type="button"
+                        onClick={() => attach.onRetry(c.key)}
+                        aria-label={t("chat.attach.retry", { name: c.name })}
+                        className="shrink-0 cursor-default rounded-sm px-1 text-accent-11 hover:bg-fill-tertiary"
+                      >
+                        {t("common.retry")}
+                      </button>
+                    ) : null}
                     <button
                       type="button"
                       onClick={() => attach.onRemove(c.key)}
@@ -529,6 +548,10 @@ export function Composer({
               </Button>
             ) : (
               <ComposerPrimitive.Send
+                // A click on Send takes focus; the next message is typed in the same field.
+                onClick={() =>
+                  document.querySelector<HTMLTextAreaElement>("[data-composer-input]")?.focus()
+                }
                 render={
                   <Button
                     size="icon-sm"

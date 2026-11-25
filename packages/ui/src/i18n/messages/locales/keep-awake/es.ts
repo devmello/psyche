@@ -25,6 +25,14 @@ export const keepAwake: Partial<Catalogue> = {
   "settings.storage.clear": "Borrar…",
   "settings.storage.cleared": "Borrado. Se liberaron {size}.",
   "settings.storage.clearFailed": "No se pudo borrar el almacenamiento ({reason}).",
+  "settings.storage.compact.title": "Compactar la base de datos",
+  "settings.storage.compact.hint":
+    "Base de datos: {size}, se pueden recuperar hasta {reclaimable}. Psyche se detiene un momento mientras tanto.",
+  "settings.storage.compact.button": "Compactar",
+  "settings.storage.compact.running": "Compactando…",
+  "settings.storage.compact.done": "Compactada en {seconds} s, {size} liberados.",
+  "settings.storage.compact.failed": "No se pudo compactar la base de datos ({reason}).",
+  "settings.storage.compact.busy": "Psyche está ocupado. Vuelve a intentarlo cuando termine.",
   "settings.storage.failed": "No se pudo leer el uso de almacenamiento ({reason}).",
   "settings.storage.confirm.title": "¿Borrar cachés y grabaciones antiguas?",
   "settings.storage.confirm.body":

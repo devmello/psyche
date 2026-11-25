@@ -39,6 +39,9 @@ export const DEFAULT_SURFACES: Readonly<Record<NotificationKind, readonly Surfac
   system: ["desktop", "web"],
   // A specialist's one result card (docs/agent/specialists-2026.md §6.2): like a finished task.
   specialist_result: ["desktop", "web", "notification"],
+  // A warning before the owner breaks their own promise (docs/design/promise-ledger-2026.md
+  // §5.1). The OS gets it; chat channels do not (it names a person).
+  promise_due: ["desktop", "web", "notification"],
 };
 
 export const DEFAULT_CHANNEL_KINDS: readonly NotificationKind[] = [
@@ -61,6 +64,7 @@ export const DEFAULT_INTERRUPTION: Readonly<Record<NotificationKind, Interruptio
   reminder: "passive",
   system: "passive",
   specialist_result: "active",
+  promise_due: "active",
 };
 
 export function resolveSurfaces(

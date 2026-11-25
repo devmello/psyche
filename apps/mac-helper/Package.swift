@@ -25,10 +25,22 @@ let package = Package(
         // registry, AX snapshot building over an abstract tree, tiers, hygiene rules, key wrapping.
         // Everything here is unit-tested without TCC grants.
         .target(name: "PsycheHelperCore", dependencies: [protocolProduct, wireProduct]),
+        // Psyche points boundary (docs/design/psyche-points-2026.md §4.3). These targets can read the
+        // screen but never act on it: none of them depends on PsycheHelperSystem, which holds
+        // Input (CGEvent posting) and AXEngine.perform/set. scripts/check-points-boundary.sh
+        // enforces the graph, the linked symbols and the selectors.
+        // Read-only AX helpers (copy, attr, string, frame, pid, focus).
+        .target(name: "PsycheAXRead"),
+        // Window listing and encoding (ScreenCaptureKit, ImageIO).
+        .target(name: "PsycheCapture", dependencies: ["PsycheHelperCore"]),
+        // The one AXUIElementSetAttributeValue call: AXManualAccessibility on an app element.
+        .target(name: "PsycheAXEnable"),
+        // Perception, overlay and the points.* group (W3+). Empty stub in W2.
+        .target(name: "PsycheHelperPoints", dependencies: ["PsycheHelperCore", "PsycheAXRead", "PsycheCapture", "PsycheAXEnable", protocolProduct, wireProduct]),
         // Live adapters over Apple frameworks (AX, CGEvent, ScreenCaptureKit, Keychain,
         // UserNotifications, Speech, AVFoundation, Apple Events) and the capability groups.
-        .target(name: "PsycheHelperSystem", dependencies: ["PsycheHelperCore", protocolProduct, wireProduct]),
-        .executableTarget(name: "PsycheHelper", dependencies: ["PsycheHelperSystem", "PsycheHelperCore", protocolProduct, wireProduct]),
+        .target(name: "PsycheHelperSystem", dependencies: ["PsycheHelperCore", "PsycheAXRead", "PsycheCapture", "PsycheAXEnable", protocolProduct, wireProduct]),
+        .executableTarget(name: "PsycheHelper", dependencies: ["PsycheHelperSystem", "PsycheHelperPoints", "PsycheHelperCore", protocolProduct, wireProduct]),
         .testTarget(name: "PsycheHelperCoreTests", dependencies: ["PsycheHelperCore", protocolProduct, wireProduct]),
         .testTarget(name: "PsycheHelperSystemTests", dependencies: ["PsycheHelperSystem", "PsycheHelperCore", protocolProduct, wireProduct]),
     ]

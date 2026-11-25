@@ -31,13 +31,26 @@ import { HANDLERS } from "./handlers/index.ts";
 import { paramsHash } from "./idempotency.ts";
 import { readerOf } from "./message-scrub.ts";
 import { methodPresence, requireFreshPresence } from "./presence-gate.ts";
+import { guardSlowSubscriber } from "./ws-liveness.ts";
 
 export interface Transport {
   send(frame: string): void;
   close(reason: string): void;
+  /**
+   * Drops the socket now, without the closing handshake (a dead or hopelessly slow peer never
+   * answers it). Absent when the transport has no such thing: `close` is used instead.
+   */
+  terminate?(reason: string): void;
   /** Bytes queued on the socket (WebSockets); absent when the transport cannot tell. */
   bufferedAmount?(): number;
 }
+
+/**
+ * A paired subscriber with more than this many bytes queued on its socket gets no bus events
+ * until it drains (it then gets one resync marker). Replies are never held back: one reply (a
+ * run export) can be larger than this. Terminated only when the buffer stops draining for 30 s.
+ */
+export const MAX_SUBSCRIBER_BUFFER_BYTES = 4 * 1024 * 1024;
 
 /** Reply id used when a malformed request carried no usable id. */
 export const UNKNOWN_FRAME_ID = "_unknown";
@@ -119,6 +132,7 @@ export class Connection implements LiveConnection {
   #claim: ClaimSession | null = null;
   #unsubscribe: (() => void) | null = null;
   #sink: FrameSink | null = null;
+  #guardTimer: ReturnType<typeof setInterval> | null = null;
   #pendingTimer: NodeJS.Timeout | null = null;
   /** Set by a handshake that ends in `denied`: close once the reply is out. */
   #closeAfterReply: string | null = null;
@@ -229,11 +243,20 @@ export class Connection implements LiveConnection {
     this.#closeAfterReply = reason;
   }
 
+  /** Closes without waiting for the peer: a dead socket, or one that is not draining. */
+  terminate(reason: string): void {
+    this.#hard = true;
+    this.close(reason);
+  }
+
+  #hard = false;
+
   close(reason: string): void {
     if (this.#phase === "closed") return;
     this.#phase = "closed";
     this.#unsubscribe?.();
     this.#unsubscribe = null;
+    if (this.#guardTimer) clearInterval(this.#guardTimer);
     if (this.#pendingTimer) clearTimeout(this.#pendingTimer);
     for (const [, out] of this.#outbound) {
       clearTimeout(out.timer);
@@ -242,7 +265,8 @@ export class Connection implements LiveConnection {
     this.#outbound.clear();
     if (this.#identity?.role === "node") this.#ctx.nodes.detach(this);
     else if (this.#identity !== null) this.#ctx.nodes.detachPhone(this);
-    this.#transport.close(reason);
+    if (this.#hard && this.#transport.terminate) this.#transport.terminate(reason);
+    else this.#transport.close(reason);
     const deviceId = this.#identity?.deviceId;
     if (deviceId !== undefined) {
       const stillThere = [...this.#ctx.connections()].some(
@@ -669,7 +693,21 @@ export class Connection implements LiveConnection {
     if (result.phase === "paired" && identity) {
       this.#phase = "paired";
       this.#identity = identity;
-      const sink: FrameSink = (frame) => this.#send(frame);
+      const guard = guardSlowSubscriber({
+        send: (frame) => this.#send(frame),
+        bufferedAmount: () => this.bufferedAmount(),
+        limit: MAX_SUBSCRIBER_BUFFER_BYTES,
+        onStuck: (bytes) => {
+          this.#ctx.log.log("warn", "slow subscriber dropped", {
+            conn: this.id,
+            bufferedBytes: bytes,
+          });
+          this.terminate("subscriber buffer stuck");
+        },
+      });
+      const sink: FrameSink = guard.sink;
+      this.#guardTimer = setInterval(guard.check, 5000);
+      this.#guardTimer.unref();
       this.#sink = sink;
       this.#unsubscribe = ctx.bus.subscribe(identity.scopes, sink, identity.deviceId, {
         ...readerOf(identity),

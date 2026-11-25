@@ -3082,7 +3082,7 @@ export type WorkNoteAttribute = "status" | "deadline" | "progress" | "stopped_at
 
 export type ChecklistItemStatus = "pending" | "in_progress" | "completed";
 
-export type BlockKind = "feed_item" | "search_hit" | "memory_entity" | "life_answer" | "mail_followup";
+export type BlockKind = "feed_item" | "search_hit" | "memory_entity" | "life_answer" | "mail_followup" | "promise";
 
 /**
  * The kind of model that made the answer
@@ -3293,11 +3293,15 @@ export interface ChatAttachedFile {
 }
 
 export interface ChatContextRef {
-    id:     string;
-    kind:   BlockKind;
-    scope?: string;
-    title?: string;
+    id:           string;
+    intent?:      PromiseDraftIntent;
+    kind:         BlockKind;
+    proposedDue?: string;
+    scope?:       string;
+    title?:       string;
 }
+
+export type PromiseDraftIntent = "nudge" | "renegotiate" | "release_note" | "do_it";
 
 export interface ChatFromWidget {
     widgetId: string;
@@ -4980,7 +4984,7 @@ export interface DailySection {
     unavailable?: boolean;
 }
 
-export type DailySectionID = "calendar" | "mail" | "due" | "followups" | "weather" | "done" | "open" | "tomorrow" | "learned" | "coming_up" | "keep_in_touch" | "quiet_threads" | "catching_up" | "worked_on" | "night_shift";
+export type DailySectionID = "calendar" | "mail" | "due" | "followups" | "weather" | "done" | "open" | "tomorrow" | "learned" | "coming_up" | "keep_in_touch" | "quiet_threads" | "catching_up" | "worked_on" | "promises" | "night_shift";
 
 export interface InboxDigest {
     accounts: string[];
@@ -5045,12 +5049,12 @@ export interface DigestLoop {
 
 export interface GraphLoop {
     closedAt?:            null | string;
-    closedBy?:            GraphLoopClosedBy | null;
+    closedBy?:            PromiseClosedBy | null;
     confidence:           number;
     counterpartId?:       null | string;
     createdAt:            string;
     detectedBy:           GraphLoopDetectedBy;
-    direction:            GraphLoopDirectionFilter;
+    direction:            PromiseDirection;
     dueAt?:               null | string;
     evidence?:            null | string;
     id:                   string;
@@ -5061,16 +5065,16 @@ export interface GraphLoop {
     text:                 string;
 }
 
-export type GraphLoopClosedBy = "owner" | "reply_seen" | "due_passed";
+export type PromiseClosedBy = "owner" | "reply_seen" | "due_passed" | "auto" | "aged_out" | "released";
 
 /**
  * Who attached it to the entity; model links count only after the owner confirms
  */
 export type GraphLoopDetectedBy = "rule" | "model" | "owner";
 
-export type GraphLoopDirectionFilter = "i_owe" | "waiting_on";
+export type PromiseDirection = "i_owe" | "waiting_on";
 
-export type GraphLoopStatus = "suggested" | "open" | "snoozed" | "done" | "dismissed";
+export type GraphLoopStatus = "suggested" | "open" | "snoozed" | "done" | "broken" | "released" | "dismissed";
 
 export interface MeetingNotes {
     actionItems:       MeetingActionItem[];
@@ -7993,7 +7997,7 @@ export interface MemoryLoopsListParams {
      * Opaque cursor
      */
     cursor?:    string;
-    direction?: GraphLoopDirectionFilter;
+    direction?: PromiseDirection;
     dueBefore?: string;
     entityId?:  string;
     limit?:     number;
@@ -8015,12 +8019,14 @@ export interface MemoryLoopsUpdateParams {
      */
     dueAt?:  null | string;
     id:      string;
-    status?: GraphLoopStatus;
+    status?: GraphLoopWriteStatus;
     /**
      * Rephrase it
      */
     text?: string;
 }
+
+export type GraphLoopWriteStatus = "suggested" | "open" | "snoozed" | "done" | "dismissed";
 
 export interface MemoryLoopsUpdateResult {
     loop: GraphLoop;
@@ -9311,7 +9317,7 @@ export interface NotificationAction {
     labelKey?: string;
 }
 
-export type NotificationKind = "approval" | "input_needed" | "task_done" | "task_failed" | "proactive" | "briefing" | "reminder" | "system" | "specialist_result";
+export type NotificationKind = "approval" | "input_needed" | "task_done" | "task_failed" | "proactive" | "briefing" | "reminder" | "system" | "specialist_result" | "promise_due";
 
 export interface NoticeMessage {
     /**
@@ -10211,6 +10217,177 @@ export interface Checkpointed {
 }
 
 export type UpdateGateState = "open" | "draining" | "ready";
+
+export interface PromiseUpdatedPayload {
+    promise: PromiseView;
+}
+
+export interface PromiseView {
+    basis:             PromiseBasis;
+    brokenAt?:         null | string;
+    citations?:        PromiseCitation[];
+    closedAt?:         null | string;
+    closedBy?:         PromiseClosedBy | null;
+    confidence:        number;
+    counterpartId?:    null | string;
+    counterpartLabel?: null | string;
+    createdAt:         string;
+    direction:         PromiseDirection;
+    dueAt?:            null | string;
+    dueConfidence?:    number | null;
+    dueKind:           PromiseDueKind;
+    dueText?:          null | string;
+    events?:           PromiseEvent[];
+    id:                string;
+    lastNudgeAt?:      null | string;
+    link?:             string;
+    nudgeCount:        number;
+    projectId?:        null | string;
+    proposedDueAt?:    null | string;
+    provenance:        Provenance;
+    snoozedUntil?:     null | string;
+    sourceKind?:       PromiseSourceKind | null;
+    state:             PromiseState;
+    status:            GraphLoopStatus;
+    warnedAt?:         null | string;
+    what:              string;
+    whatAction?:       PromiseAction | null;
+}
+
+export type PromiseBasis = "promise" | "ask" | "request";
+
+export interface PromiseCitation {
+    id:         string;
+    observedAt: string;
+    provenance: Provenance;
+    quote:      string;
+    source:     PromiseCitationSource;
+    sourceRef:  string;
+}
+
+export type PromiseCitationSource = "mail" | "messages" | "notes" | "chats" | "transcripts";
+
+export type PromiseDueKind = "explicit" | "inferred" | "none";
+
+export interface PromiseEvent {
+    at:          string;
+    by:          PromiseEventBy;
+    citationId?: null | string;
+    from?:       null | string;
+    id:          string;
+    kind:        PromiseEventKind;
+    to?:         null | string;
+}
+
+export type PromiseEventBy = "owner" | "auto" | "model" | "rule";
+
+export type PromiseEventKind = "created" | "confirmed" | "source_added" | "due_changed" | "due_proposed" | "status" | "warned" | "asked" | "nudge_drafted" | "nudge_sent" | "auto_done" | "undo";
+
+export type PromiseSourceKind = "mail" | "messages" | "meeting" | "chat" | "manual";
+
+export type PromiseState = "suggested" | "open" | "due_soon" | "snoozed" | "broken" | "done" | "released" | "dismissed";
+
+export type PromiseAction = "send" | "reply" | "meet" | "do";
+
+export interface PromisesActParams {
+    action: PromiseActAction;
+    id:     string;
+}
+
+export interface PromiseActAction {
+    type:    PromiseActActionType;
+    until?:  string;
+    dueAt?:  null | string;
+    days?:   number;
+    answer?: Answer;
+}
+
+export type Answer = "yes" | "not_yet";
+
+export type PromiseActActionType = "confirm" | "not_promise" | "done" | "reopen" | "release" | "dismiss" | "snooze" | "set_due" | "more_time" | "accept_proposed" | "reject_proposed" | "answer";
+
+export interface PromisesActResult {
+    promise: PromiseView;
+}
+
+export interface PromisesAddParams {
+    counterpartId?: string;
+    direction:      PromiseDirection;
+    dueAt?:         null | string;
+    what:           string;
+}
+
+export interface PromisesAddResult {
+    promise: PromiseView;
+}
+
+export interface PromisesDeleteParams {
+    id: string;
+}
+
+export interface PromisesDeleteResult {
+    ok: boolean;
+}
+
+export interface PromisesGetParams {
+    id: string;
+}
+
+export interface PromisesGetResult {
+    promise: PromiseView;
+}
+
+export interface PromisesListParams {
+    /**
+     * Opaque cursor
+     */
+    cursor?:    string;
+    dueBefore?: string;
+    entityId?:  string;
+    limit?:     number;
+    view:       PromiseListView;
+}
+
+export type PromiseListView = "yours" | "theirs" | "confirm" | "closed" | "all";
+
+export interface PromisesListResult {
+    hiddenCount: number;
+    nextCursor?: null | string;
+    promises:    PromiseView[];
+}
+
+export interface PromisesMuteParams {
+    entityId?:  string;
+    muted:      boolean;
+    threadRef?: string;
+}
+
+export interface PromisesMuteResult {
+    ok: boolean;
+}
+
+export interface PromisesSummaryResult {
+    summary: PromiseSummary;
+}
+
+export interface PromiseSummary {
+    dueSoon:     number;
+    enabled:     boolean;
+    hiddenCount: number;
+    late:        number;
+    missed:      number;
+    nextDueAt?:  null | string;
+    theirs:      number;
+    toConfirm:   number;
+    upcoming:    PromiseUpcoming[];
+    yours:       number;
+}
+
+export interface PromiseUpcoming {
+    id:     string;
+    title:  string;
+    warnAt: string;
+}
 
 export interface ProposalUpdatedPayload {
     proposal: ActionProposal;
@@ -13184,6 +13361,17 @@ export type StorageClearTarget = "caches" | "recordings";
 export interface StorageCleared {
     cleared:    StorageClearTarget[];
     freedBytes: number;
+}
+
+export interface StorageCompactEstimate {
+    dbBytes:          number;
+    idle:             boolean;
+    reclaimableBytes: number;
+}
+
+export interface StorageCompacted {
+    durationMs: number;
+    savedBytes: number;
 }
 
 export interface StorageUsage {

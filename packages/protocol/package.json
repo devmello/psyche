@@ -22,6 +22,10 @@
       "types": "./src/money-intent.ts",
       "default": "./src/money-intent.ts"
     },
+    "./points-rules": {
+      "types": "./src/points-rules.ts",
+      "default": "./src/points-rules.ts"
+    },
     "./browser-agent": {
       "types": "./src/browser-agent.ts",
       "default": "./src/browser-agent.ts"

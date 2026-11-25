@@ -448,13 +448,13 @@ One migration, `<ts>_memory_promises.sql`. Its first line is `-- migrate: foreig
 - `status` CHECK adds `broken` and `released`;
 - `closed_by` CHECK adds `auto`, `aged_out` and `released`;
 - new columns:
-  - `basis` (`promise` | `ask` | `request`). Backfill: rule `waiting_on` → `ask`, model and meeting `i_owe` → `promise`, others → `request`;
+  - `basis` (`promise` | `ask` | `request`). Backfill: rule `waiting_on` → `ask`; any model-written loop, or one whose source is a meeting, in either direction → `promise` (a `waiting_on` one is the other person's promise to the owner); everything else → `request`. The same rules fill `due_kind` (`explicit`, confidence 0.8, when `due_at` is set), `thread_key` and `source_kind` from the source interaction. Status is not touched: a backfilled other-person promise that was never confirmed is already `suggested` (the store's untrusted-open rule), which is the To confirm state, and one the owner confirmed stays `open`. The encrypted store gets the same backfill from `syncSchema` (`ENCRYPTED_BACKFILLS`), because a rebuild there copies only shared columns;
   - `what_action` (`send` | `reply` | `meet` | `do`);
   - `due_text`, `due_kind` (`explicit` | `inferred` | `none`), `due_confidence`, `proposed_due_at`;
   - `snoozed_until`, `broken_at`, `warned_at`;
   - `nudge_count`, `last_nudge_at`;
   - `thread_key`, `source_kind`, `counterpart_label`;
-  - `remote_visible` (0 or 1, default 0);
+  - `remote_visible` (0 or 1, default 0), with `CHECK (source_kind IS NOT 'messages' OR remote_visible = 0)`: a Messages-sourced promise is never remote-visible;
 - indexes on `(status, due_at)` and `(counterpart_id, status)`.
 
 **Other tables:**

@@ -9,7 +9,7 @@ import type {
   EntityView,
   FactView,
   GraphFactAttribute,
-  GraphLoopStatus,
+  GraphLoopWriteStatus,
   LoopView,
   ProjectStatus,
   WorkStatus,
@@ -70,7 +70,7 @@ export interface EntityCardState {
   busy: boolean;
   setFact: (entity: EntityView, attribute: GraphFactAttribute, value: string) => void;
   retractFact: (entity: EntityView, fact: FactView) => void;
-  updateLoop: (entity: EntityView, loop: LoopView, status: GraphLoopStatus) => void;
+  updateLoop: (entity: EntityView, loop: LoopView, status: GraphLoopWriteStatus) => void;
   setStatus: (entity: EntityView, status: ProjectStatus) => void;
   /** An assignment's status (§3.4): the owner's word, written as a `status` fact. */
   setWorkStatus: (entity: EntityView, status: WorkStatus) => void;

@@ -2924,6 +2924,12 @@ export class MockGateway implements GatewayClient {
       ],
       totalBytes: 422_000_000,
     }),
+    "storage.compactEstimate": () => ({
+      dbBytes: 48_000_000,
+      reclaimableBytes: 9_000_000,
+      idle: true,
+    }),
+    "storage.compact": () => ({ durationMs: 1800, savedBytes: 9_000_000 }),
     "storage.clearCache": () => ({
       cleared: ["caches" as const, "recordings" as const],
       freedBytes: 46_000_000,

@@ -24,6 +24,14 @@ export const keepAwake: Partial<Catalogue> = {
   "settings.storage.clear": "비우기…",
   "settings.storage.cleared": "비웠습니다. {size}를 확보했습니다.",
   "settings.storage.clearFailed": "저장 공간을 비우지 못했습니다({reason}).",
+  "settings.storage.compact.title": "데이터베이스 최적화",
+  "settings.storage.compact.hint":
+    "데이터베이스 {size}, 최대 {reclaimable}를 되돌릴 수 있습니다. 실행하는 동안 Psyche가 잠시 멈춥니다.",
+  "settings.storage.compact.button": "최적화",
+  "settings.storage.compact.running": "최적화하는 중…",
+  "settings.storage.compact.done": "{seconds}초 만에 최적화했고 {size}를 확보했습니다.",
+  "settings.storage.compact.failed": "데이터베이스를 최적화하지 못했습니다({reason}).",
+  "settings.storage.compact.busy": "Psyche가 작업 중입니다. 끝난 뒤에 다시 시도하세요.",
   "settings.storage.failed": "저장 공간 사용량을 읽지 못했습니다({reason}).",
   "settings.storage.confirm.title": "캐시와 오래된 녹화를 비울까요?",
   "settings.storage.confirm.body":

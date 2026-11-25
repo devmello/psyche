@@ -26,6 +26,14 @@ export const keepAwake: Partial<Catalogue> = {
   "settings.storage.clear": "Svuota…",
   "settings.storage.cleared": "Svuotato. Liberati {size}.",
   "settings.storage.clearFailed": "Impossibile svuotare l'archiviazione ({reason}).",
+  "settings.storage.compact.title": "Compatta il database",
+  "settings.storage.compact.hint":
+    "Database: {size}, fino a {reclaimable} recuperabili. Psyche si ferma un momento durante l'operazione.",
+  "settings.storage.compact.button": "Compatta",
+  "settings.storage.compact.running": "Compattazione…",
+  "settings.storage.compact.done": "Compattato in {seconds} s, {size} risparmiati.",
+  "settings.storage.compact.failed": "Impossibile compattare il database ({reason}).",
+  "settings.storage.compact.busy": "Psyche è occupato. Riprova quando ha finito.",
   "settings.storage.failed": "Impossibile leggere l'uso dell'archiviazione ({reason}).",
   "settings.storage.confirm.title": "Svuotare le cache e le vecchie registrazioni?",
   "settings.storage.confirm.body":
