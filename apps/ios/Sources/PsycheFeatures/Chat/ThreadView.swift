@@ -24,6 +24,7 @@ struct ThreadView: View {
     @Environment(\.alerts) private var alerts
     private let motion = MotionContext()
     @Namespace private var glass
+    @ScaledMetric(relativeTo: .body) private var jumpSize: CGFloat = 44
     @Environment(\.horizontalSizeClass) private var sizeClass
     @Environment(\.threadIsFrontmost) private var frontmost
 
@@ -116,9 +117,9 @@ struct ThreadView: View {
                 GlassEffectContainer {
                     Button(action: jumpToLatest) {
                         Image(systemName: "arrow.down")
-                            .font(.system(size: 15, weight: .semibold))
+                            .font(.subheadline.weight(.semibold))
                             .foregroundStyle(PsycheColor.text)
-                            .frame(width: 44, height: 44)
+                            .frame(width: jumpSize, height: jumpSize)
                             .contentShape(Circle())
                     }
                     .glassEffect(.regular.interactive(), in: .circle)
@@ -284,7 +285,7 @@ struct ThreadView: View {
             Task { await model.giveFeedback(messageID: messageID, helpful: helpful) }
         } label: {
             Image(systemName: selected ? "\(symbol).fill" : symbol)
-                .font(.system(size: 15))
+                .font(.subheadline)
                 .foregroundStyle(selected ? PsycheColor.inkText : PsycheColor.muted)
                 .frame(width: 36, height: 32)
                 .contentShape(Rectangle())

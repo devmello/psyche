@@ -1,24 +1,30 @@
 import SwiftUI
+#if canImport(UIKit)
+import UIKit
+#elseif canImport(AppKit)
+import AppKit
+#endif
 
 /// The "ink" palette (docs/design/ios-app-2026.md §9): paper and ink, amber for "needs you".
-/// Every color lives in Resources/Colors.xcassets with a light and a dark variant.
+/// Neutrals map to system semantic colors, so dark mode and Increase Contrast follow the system. Ink, amber and
+/// the status colors live in Resources/Colors.xcassets with a light and a dark variant.
 ///
 /// Rules: one ink fill per screen; amber means needs-you and nothing else; green and red are
 /// status dots only; no gradients, no glows.
 public enum PsycheColor {
-    /// Screen background.
-    public static let paper = Color("paper", bundle: .module)
-    /// Cards and grouped rows.
-    public static let sheet = Color("sheet", bundle: .module)
+    /// Screen background: the system grouped background.
+    public static let paper = Color(platform: .systemGroupedBackground)
+    /// Cards and grouped rows: the secondary grouped background.
+    public static let sheet = Color(platform: .secondarySystemGroupedBackground)
     /// Borders of inputs and outline buttons, the grabber.
-    public static let rule = Color("rule", bundle: .module)
-    /// Hairlines between rows and around cards (lighter than `rule`).
-    public static let hairline = Color("hairline", bundle: .module)
+    public static let rule = Color(platform: .separator)
+    /// Hairlines between rows and around cards.
+    public static let hairline = Color(platform: .separator)
     /// Quiet fills: avatars, segmented tracks, user bubbles.
-    public static let fill = Color("fill", bundle: .module)
-    public static let text = Color("text", bundle: .module)
+    public static let fill = Color(platform: .tertiarySystemFill)
+    public static let text = Color.primary
     /// Evidence lines, timestamps, section headers.
-    public static let muted = Color("muted", bundle: .module)
+    public static let muted = Color.secondary
     /// The one filled control per screen (Send, Allow). Light #2C5AA0, dark #3766AD.
     public static let ink = Color("ink", bundle: .module)
     /// Ink as text, links and the moth's wings. Light #2C5AA0, dark #9AB9E9.
@@ -44,4 +50,29 @@ public enum PsycheMetrics {
     public static let cardRadius: CGFloat = 14
     public static let approvalRadius: CGFloat = 16
     public static let rowPadding = EdgeInsets(top: 12, leading: 14, bottom: 12, trailing: 14)
+}
+
+extension Color {
+    fileprivate enum Semantic {
+        case systemGroupedBackground, secondarySystemGroupedBackground, separator, tertiarySystemFill
+    }
+
+    /// A system semantic color. On macOS (package tests only) the nearest AppKit equivalent.
+    fileprivate init(platform semantic: Semantic) {
+        #if canImport(UIKit)
+        switch semantic {
+        case .systemGroupedBackground: self.init(uiColor: .systemGroupedBackground)
+        case .secondarySystemGroupedBackground: self.init(uiColor: .secondarySystemGroupedBackground)
+        case .separator: self.init(uiColor: .separator)
+        case .tertiarySystemFill: self.init(uiColor: .tertiarySystemFill)
+        }
+        #else
+        switch semantic {
+        case .systemGroupedBackground: self.init(nsColor: .windowBackgroundColor)
+        case .secondarySystemGroupedBackground: self.init(nsColor: .controlBackgroundColor)
+        case .separator: self.init(nsColor: .separatorColor)
+        case .tertiarySystemFill: self.init(nsColor: .quaternarySystemFill)
+        }
+        #endif
+    }
 }

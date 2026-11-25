@@ -229,7 +229,7 @@ private struct PendingView: View {
                 // The step waiting on the owner is amber (needs you); a finished one is a gray check.
                 Circle().fill(done ? PsycheColor.muted : PsycheColor.amber)
                 if done {
-                    Image(systemName: "checkmark").font(.system(size: 11, weight: .bold)).foregroundStyle(PsycheColor.sheet)
+                    Image(systemName: "checkmark").font(.caption2.weight(.bold)).dynamicTypeSize(...DynamicTypeSize.xxxLarge).foregroundStyle(PsycheColor.sheet)
                 } else {
                     Text("2").font(.caption.weight(.semibold)).foregroundStyle(Color.black.opacity(0.8))
                 }

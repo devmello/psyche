@@ -86,6 +86,7 @@ struct ThreadListView: View {
                     let selected = sideBySide && selection == thread.id
                     Button { selection = thread.id; column = .detail } label: { ThreadRow(thread: thread) }
                         .buttonStyle(.plain)
+                        .badge(thread.statusKind == .needsYou ? Text("Needs you", bundle: .module) : nil)
                         .accessibilityAddTraits(selected ? .isSelected : [])
                         .listRowBackground(selected ? PsycheColor.fill : PsycheColor.sheet)
                         .listRowSeparatorTint(PsycheColor.hairline)
@@ -169,11 +170,11 @@ struct ThreadListView: View {
         .scrollContentBackground(.hidden)
         .psycheScreen()
         .navigationTitle(String(localized: "Chat", bundle: .module))
+        // The Space new chats go into: a tap on the title, instead of a toolbar button.
+        .toolbarTitleMenu {
+            if !spaces.spaces.isEmpty { SpaceTargetItems(model: spaces) }
+        }
         .toolbar {
-            ToolbarItem(placement: .primaryAction) { AgentButton(needsYou: model.phase.value?.contains { $0.statusKind == .needsYou } ?? false) }
-            if !spaces.spaces.isEmpty {
-                ToolbarItem(placement: .primaryAction) { SpaceTargetMenu(model: spaces) }
-            }
             ToolbarItem(placement: .primaryAction) {
                 Button { Task { selection = await newChat() ?? selection } } label: {
                     Label(String(localized: "New chat", bundle: .module), systemImage: "square.and.pencil")
