@@ -70,3 +70,16 @@ export function errorSummary(err: unknown): string {
   const id = code === null ? null : `errors.${code}`;
   return id !== null && isMessageId(id) ? activeI18n().t(id) : activeI18n().t("errors.unknown");
 }
+
+/**
+ * What the UI says about a failed run step. A step's error is stored as plain `{ code, message }`
+ * (no `Error`), so it cannot go through `describeError`: English shows the step's own message,
+ * any other language the code's catalogue sentence, and never the raw code.
+ */
+export function describeStepError(error: { code: string; message: string }): string {
+  const i18n = activeI18n();
+  const detail = error.message.trim();
+  if (i18n.messageLocale === "en" && detail) return detail;
+  const id = `errors.${error.code}`;
+  return isMessageId(id) ? i18n.t(id) : i18n.t("errors.unknown");
+}

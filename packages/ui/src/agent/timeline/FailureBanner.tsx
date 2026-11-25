@@ -3,6 +3,7 @@ import { CircleAlert } from "lucide-react";
 import type { ReactElement } from "react";
 import { Button } from "../../components/ui/button.tsx";
 import { t } from "../../i18n/core.ts";
+import { describeStepError } from "../../i18n/errors.ts";
 import { stepLabel } from "./model.ts";
 
 /**
@@ -56,13 +57,13 @@ export function FailureBanner({
             >
               {t("agent.timeline.failure.message", {
                 step: label,
-                message: step.error?.message ?? stepLabel(step),
+                message: step.error ? describeStepError(step.error) : stepLabel(step),
               })}
             </button>
           ) : (
             t("agent.timeline.failure.message", {
               step: label,
-              message: step.error?.message ?? stepLabel(step),
+              message: step.error ? describeStepError(step.error) : stepLabel(step),
             })
           )}
         </dd>

@@ -175,6 +175,14 @@ export const pt: Partial<Catalogue> = {
   "errors.method_not_allowed": "O navegador não permite essa ação.",
   "errors.presence_required":
     "Confirme que é você com uma chave-senha ou no assistente do Mac primeiro.",
+  "errors.presence_unavailable_here":
+    "Para aprovar, é preciso alguém diante do computador. Entre na área de trabalho dele e tente de novo.",
+  "errors.presence_agent_missing":
+    "Esta área de trabalho não tem nenhum pedido de senha ativo, então não consegue confirmar que é você.",
+  "errors.presence_policy_missing":
+    "Este computador ainda não está configurado para confirmar que é você. Instale a política de aprovação da Psyche e tente de novo.",
+  "errors.presence_not_enforced":
+    "Este computador aprovaria sem pedir senha, então não consegue confirmar que é você.",
   "errors.offline": "O Psyche não está acessível.",
   "errors.unknown": "Algo deu errado.",
 

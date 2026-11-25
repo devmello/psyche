@@ -51,9 +51,9 @@ function WithThreads({ children }: { children: ReactNode }): ReactElement {
 }
 
 describe("routes", () => {
-  it("keeps Spaces off the sidebar and out of the top-level route list", () => {
+  it("keeps Spaces off the sidebar, and lists it as a top-level route for app_navigate", () => {
     expect(RAIL_ITEMS.map((i) => i.id)).not.toContain("spaces");
-    expect(APP_TOP_LEVEL_ROUTES as readonly string[]).not.toContain("spaces");
+    expect(APP_TOP_LEVEL_ROUTES as readonly string[]).toContain("spaces");
     expect(destinationFor("/spaces")).toBe("home");
     expect(destinationFor("/spaces/spc_kitchen")).toBe("home");
     expect(resolveAppRoute("/spaces/spc_kitchen")).toBe("/spaces/spc_kitchen");

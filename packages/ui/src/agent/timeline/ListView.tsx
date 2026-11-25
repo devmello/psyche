@@ -4,6 +4,7 @@ import { StatusGlyph, stepStatusKind } from "../../components/status.tsx";
 import { LiveDuration } from "../../components/steps/LiveDuration.tsx";
 import { Input } from "../../components/ui/input.tsx";
 import { t } from "../../i18n/core.ts";
+import { describeStepError } from "../../i18n/errors.ts";
 import type { MessageId } from "../../i18n/index.ts";
 import { formatTime } from "../../lib/format.ts";
 import { cn } from "../../lib/utils.ts";
@@ -59,7 +60,10 @@ export function ListView({
         <ul aria-label={t("agent.timeline.steps.label")} className="min-h-0 flex-1 overflow-y-auto">
           {rows.map((row) => {
             const s = row.step;
-            const preview = s?.error?.message ?? s?.text?.summary ?? s?.preview?.output;
+            const preview =
+              (s?.error ? describeStepError(s.error) : undefined) ??
+              s?.text?.summary ??
+              s?.preview?.output;
             const selected = row.id === selectedId;
             return (
               <li key={row.id}>

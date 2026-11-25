@@ -4,6 +4,7 @@ import {
   autoExplainerSeen,
   autoModeBlockedBy,
   autoModeSuggestion,
+  describeError,
   isAutoModelRefusal,
   type ListedModels,
   markAutoExplainerSeen,
@@ -603,7 +604,7 @@ export function ModeSwitch(props: {
     } catch (err) {
       const refusal = isAutoModelRefusal(err);
       if (refusal !== null) setOffer(refusal);
-      else setError(err instanceof Error ? err.message : String(err));
+      else setError(describeError(err));
     } finally {
       setBusy(false);
     }
