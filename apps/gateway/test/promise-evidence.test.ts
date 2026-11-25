@@ -86,13 +86,21 @@ describe("the owner is whoever the mailbox says, never the From header", () => {
       threadKey: "thread-1",
     };
     expect(
-      evaluateDone(loop, ev, { afterMs: MON, askSuppressed: false, askOpen: false }).kind,
+      evaluateDone(
+        loop,
+        { ...ev, events: [] },
+        { afterMs: MON, askSuppressed: false, askOpen: false },
+      ).kind,
     ).toBe("none");
     // Positive control: the same row labelled SENT is the owner's, and closes it.
     const own = parseMailMeta(row({ labelIds: ["SENT"] }));
     const ev2 = mailEvidence(own ? [own] : [], resolve);
     expect(
-      evaluateDone(loop, ev2, { afterMs: MON, askSuppressed: false, askOpen: false }).kind,
+      evaluateDone(
+        loop,
+        { ...ev2, events: [] },
+        { afterMs: MON, askSuppressed: false, askOpen: false },
+      ).kind,
     ).toBe("auto");
     // Sent to oneself (SENT and INBOX) is not a send to Sam either.
     expect(parseMailMeta(row({ labelIds: ["SENT", "INBOX"] }))?.fromOwner).toBe(false);
@@ -243,7 +251,11 @@ describe("collectDoneEvidence looks tools up by connector id", () => {
       counterpartId: SAM,
       threadKey: "thread-1",
     };
-    const v = evaluateDone(loop, ev, { afterMs: MON, askSuppressed: false, askOpen: false });
+    const v = evaluateDone(
+      loop,
+      { ...ev, events: [] },
+      { afterMs: MON, askSuppressed: false, askOpen: false },
+    );
     expect(v.kind).toBe("auto");
   });
 
@@ -321,7 +333,11 @@ describe("Apple Mail and IMAP, with the connectors' real output shapes", () => {
     threadKey: null,
   };
   const verdict = (ev: Awaited<ReturnType<typeof collectDoneEvidence>>) =>
-    evaluateDone(loop, ev, { afterMs: MON, askSuppressed: false, askOpen: false }).kind;
+    evaluateDone(
+      loop,
+      { ...ev, events: [] },
+      { afterMs: MON, askSuppressed: false, askOpen: false },
+    ).kind;
   const when = new Date(MON + DAY).toISOString();
 
   it("Apple Mail: searches the Sent mailbox by exact name, reads the message for recipients and files", async () => {
