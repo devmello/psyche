@@ -129,7 +129,7 @@ export type ConnectorEvent =
       previousAccount: string | null;
       account: string | null;
     }
-  | { type: "synced"; connectorId: string; changes: number; full: boolean }
+  | { type: "synced"; connectorId: string; changes: number; full: boolean; truncated?: boolean }
   | { type: "matrix_changed"; connectorId: string; matrix: Record<string, ActionRule> }
   /** `connectors.configure` changed the record's settings (#727); the instance was re-created. */
   | {
@@ -223,6 +223,8 @@ export interface SyncResult {
   changes: number;
   full: boolean;
   cursor: JsonObject;
+  /** A resync stopped at its cap with mail left behind; the Gateway logs it. */
+  truncated?: boolean;
 }
 
 export interface ConnectorHealth {
