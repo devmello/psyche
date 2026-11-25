@@ -38,6 +38,14 @@ public protocol MemoryBackend: Sendable {
     func feedbackPage(cursor: String?) async throws -> FeedbackPage
     /// Deletes one piece of feedback; lessons made only from it are forgotten (feedback.delete).
     func deleteFeedback(id: String) async throws
+    /// Held-back items still waiting for the owner (memory.quarantine.list), a page at a time, newest first.
+    func heldItemsPage(cursor: String?) async throws -> HeldItemsPage
+    /// Releases, discards or blocks the sender of one held item (memory.quarantine.decide).
+    func decideHeldItem(id: String, action: HeldItemAction) async throws
+    /// The senders the Mac offers to trust, and the ones already trusted (memory.senders.list).
+    func senderTrust() async throws -> [SenderTrustRow]
+    /// Trusts, declines or revokes one sender (memory.senders.decide).
+    func decideSender(entityID: String, decision: SenderDecision) async throws
     /// Claims Psyche is not sure of and waits on (memory.claims.list).
     func claims() async throws -> [ClaimItem]
     /// "Right" on a claim (memory.claims.confirm): it becomes the owner's.
@@ -80,6 +88,10 @@ extension MemoryBackend {
     public func forgetLesson(id: String) async throws { throw BackendError.notFound }
     public func feedbackPage(cursor: String?) async throws -> FeedbackPage { throw BackendError.notFound }
     public func deleteFeedback(id: String) async throws { throw BackendError.notFound }
+    public func heldItemsPage(cursor: String?) async throws -> HeldItemsPage { throw BackendError.notFound }
+    public func decideHeldItem(id: String, action: HeldItemAction) async throws { throw BackendError.notFound }
+    public func senderTrust() async throws -> [SenderTrustRow] { throw BackendError.notFound }
+    public func decideSender(entityID: String, decision: SenderDecision) async throws { throw BackendError.notFound }
     public func claims() async throws -> [ClaimItem] { throw BackendError.notFound }
     public func confirmClaim(id: String) async throws { throw BackendError.notFound }
     public func recentChanges() async throws -> [RecentChange] { throw BackendError.notFound }
