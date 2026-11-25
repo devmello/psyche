@@ -10,6 +10,7 @@ import SwiftUI
 struct HomeView: View {
     @State private var model: HomeModel
     @State private var proactive: ProactiveHomeModel
+    @State private var nightShift: NightShiftCardModel
     @Environment(Session.self) private var session
     @Environment(Router.self) private var router
     @Environment(\.alerts) private var alerts
@@ -21,6 +22,7 @@ struct HomeView: View {
         self.store = store
         _model = State(initialValue: HomeModel(store: store))
         _proactive = State(initialValue: ProactiveHomeModel(store: store))
+        _nightShift = State(initialValue: NightShiftCardModel(store: store))
     }
 
     var body: some View {
@@ -53,6 +55,10 @@ struct HomeView: View {
             await model.load()
             await model.observe()
         }
+        .task {
+            await nightShift.load()
+            await nightShift.observe()
+        }
         .refreshable {
             async let sections: Void = proactive.load()
             await model.load()
@@ -72,9 +78,10 @@ struct HomeView: View {
     @ViewBuilder
     private func sections(_ snapshot: HomeSnapshot) -> some View {
         if !snapshot.needsYou.isEmpty { needsYou(snapshot.needsYou) }
+        NightShiftHomeSection(model: nightShift)
         if !snapshot.running.isEmpty { running(snapshot.running) }
         if !snapshot.today.isEmpty { today(snapshot.today) }
-        if snapshot.needsYou.isEmpty && snapshot.running.isEmpty && snapshot.today.isEmpty {
+        if snapshot.needsYou.isEmpty && snapshot.running.isEmpty && snapshot.today.isEmpty && nightShift.reviewID == nil {
             Section {
                 ContentUnavailableView {
                     Label(String(localized: "All caught up", bundle: .module), systemImage: "checkmark.circle")

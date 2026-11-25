@@ -37,6 +37,9 @@ export interface AttachmentInfo {
   attachmentId?: string;
   /** Larger than `MAX_ATTACHMENT_BYTES`; listed only. */
   tooLarge: boolean;
+  /** An inline picture (a signature image, a logo): `inline`, or a `Content-ID` without `attachment`. */
+  inline?: boolean;
+  contentId?: string;
 }
 
 export interface ParsedBody {
@@ -136,6 +139,13 @@ export function parsePayload(payload: GmailPart | undefined): ParsedBody {
         tooLarge: size > MAX_ATTACHMENT_BYTES,
       };
       if (typeof part.body?.attachmentId === "string") info.attachmentId = part.body.attachmentId;
+      const contentId = (header(part.headers, "Content-ID") ?? "").replace(/[<>\s]/g, "");
+      if (contentId !== "") info.contentId = contentId.slice(0, 200);
+      // Apple Mail marks real documents `inline` too, so only pictures count as inline.
+      const inlineish =
+        disposition.startsWith("inline") ||
+        (contentId !== "" && !disposition.startsWith("attachment"));
+      if (inlineish && mime.startsWith("image/")) info.inline = true;
       attachments.push(info);
       return;
     }

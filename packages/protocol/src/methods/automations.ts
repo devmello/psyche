@@ -95,7 +95,7 @@ export const AutomationsMethods = {
     scope: "operator.write",
     sideEffecting: true,
     description:
-      "Runs an automation now, outside its schedule. Side-effecting: a duplicate would run it twice.",
+      "Runs an automation now, outside its schedule. `runId` is the agent run that does the work (open it with runs.get and runs.steps), null when it has not started one yet or never will. Side-effecting: a duplicate would run it twice.",
   }),
   "automations.cancelRetry": defineMethod({
     params: Type.Object({ runId: Id }),

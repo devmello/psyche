@@ -297,6 +297,8 @@ const bridge = {
   permissions: {
     status: () => invoke(IPC.permissionsStatus),
     request: (kind: string) => invoke(IPC.permissionsRequest, { kind }),
+    /** Opens System Settings › Full Disk Access (Messages), which has no prompt or status. */
+    openFullDiskAccess: () => invoke(IPC.permissionsRequest, { kind: "fullDiskAccess" }),
     /** The helper's own grants ("Psyche Helper"), which computer use needs. */
     helperStatus: () => invoke(IPC.helperPermissionsStatus),
     helperRequest: (kind: string) => invoke(IPC.helperPermissionsRequest, { kind }),

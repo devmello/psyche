@@ -56,6 +56,17 @@ public final class NodeDaemon: @unchecked Sendable {
         case failed
     }
 
+    /// A session that lasts at least this long counts as healthy and resets the back-off.
+    static let healthySession: TimeInterval = 10
+
+    /// The next failure count and base delay after a session that `lasted` seconds before the
+    /// Gateway closed it: a healthy one starts over at `initial`; a short one keeps climbing the
+    /// capped schedule, so a drop right after pairing cannot loop at the initial 0.5 s.
+    static func afterServed(failures: Int, lasted: TimeInterval, backoff: Backoff) -> (failures: Int, delay: TimeInterval) {
+        if lasted >= healthySession { return (0, backoff.initial) }
+        return (failures + 1, backoff.delay(afterFailures: failures))
+    }
+
     /// The shortest pause before an immediate reconnect after a Gateway-up signal.
     static let minRetryGap: TimeInterval = 0.25
 
@@ -97,10 +108,15 @@ public final class NodeDaemon: @unchecked Sendable {
             let delay: TimeInterval
             var denied = false
             let baseline = RunFingerprint.read(environment: environment)
+            let began = Date()
             switch runOnce() {
             case .served:
-                failures = 0
-                delay = backoff.initial
+                // A connection that drops right after pairing is not a healthy session: back off
+                // like a failure instead of reconnecting every half second.
+                let step = Self.afterServed(
+                    failures: failures, lasted: Date().timeIntervalSince(began), backoff: backoff)
+                failures = step.failures
+                delay = step.delay
             case .pending:
                 delay = backoff.jittered(backoff.pendingRetry, random: random())
             case .denied:

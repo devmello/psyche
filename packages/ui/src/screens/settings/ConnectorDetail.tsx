@@ -11,6 +11,7 @@ import {
 } from "../../components/ui/alert-dialog.tsx";
 import { Button } from "../../components/ui/button.tsx";
 import { t } from "../../i18n/core.ts";
+import { codeSentence } from "../../i18n/errors.ts";
 import { formatRelative } from "../../lib/format.ts";
 import type { ActionRule } from "./ActionMatrix.tsx";
 import { CapabilityCard } from "./ConnectorCapabilities.tsx";
@@ -47,10 +48,15 @@ export function lastUsed(c: Connector): string | null {
   return typeof at === "string" ? at : null;
 }
 
-/** The reason a failing connector gave, if it left one (`lastSync.error`). */
-function failureReason(c: Connector): string | null {
+/**
+ * The reason a failing connector gave, if it left one (`lastSync.error`): the Gateway keeps a
+ * bare code there (`unavailable`), so it is said in words, in the owner's language, when the
+ * catalogue has a sentence for it.
+ */
+export function failureReason(c: Connector): string | null {
   const e = c.lastSync?.error;
-  return typeof e === "string" && e !== "" ? e : null;
+  if (typeof e !== "string" || e === "") return null;
+  return codeSentence(e) ?? e;
 }
 
 /** A button that asks before it removes: the destructive action lives in the detail, not the row. */

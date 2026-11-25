@@ -381,7 +381,11 @@ export class HelperLauncher {
       const ps = await this.opts
         .run("/bin/ps", ["-p", String(pid), "-o", "comm="])
         .catch(() => undefined);
-      if (ps?.code === 0 && ps.stdout.includes("psyche-helper")) {
+      // Exactly the bundled helper's executable, as `stopForQuit` checks: the lock file keeps its
+      // last pid after an exit, and a reused pid may be another psyche-helper (another home, a dev
+      // build) or any other program.
+      const exe = helperExecutable(this.opts.appPath as string);
+      if (ps?.code === 0 && ps.stdout.trim() === exe) {
         try {
           (this.opts.kill ?? process.kill)(pid, "SIGTERM");
         } catch {
@@ -487,6 +491,24 @@ export class HelperLauncher {
       await sleep(1_000);
     }
     this.set({ kind: "offline", reason: "it did not connect to the Gateway" });
+  }
+
+  /**
+   * Something that often brings the helper back just happened: this app paired with the Gateway
+   * again (the Gateway restarted or updated) or the Mac woke. Retries that failed while the
+   * Gateway was away (each one counted as "did not connect") no longer say anything, so the
+   * back-off starts over and an offline helper is tried now, not up to 10 minutes later.
+   */
+  kick(): Promise<void> {
+    if (this.state.kind === "unbundled" || this.stopped || this.opts.blocked?.()) {
+      return Promise.resolve();
+    }
+    this.retryFailures = 0;
+    if (this.state.kind !== "offline" || this.launching) return this.launching ?? Promise.resolve();
+    // A modified app or a bad signature is not fixed by trying again.
+    if (/modified|signature/.test(this.state.reason ?? "")) return Promise.resolve();
+    this.clearRetry();
+    return this.launch();
   }
 
   /**

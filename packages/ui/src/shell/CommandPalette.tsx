@@ -208,6 +208,16 @@ export const DEFAULT_ACTIONS: readonly PaletteAction[] = [
     route: `/library/${section.id}`,
   })),
   {
+    id: "night-shift-review",
+    get label() {
+      return t("nightShift.palette.review");
+    },
+    get keywords() {
+      return t("nightShift.palette.keywords");
+    },
+    route: "/home?review=latest",
+  },
+  {
     id: "can-do",
     get label() {
       return t("shell.palette.canDo");

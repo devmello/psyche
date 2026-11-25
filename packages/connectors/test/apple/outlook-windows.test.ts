@@ -271,6 +271,8 @@ describe("Outlook through the Windows helper", () => {
       state: "denied",
       settingsPath: expect.stringContaining("Trust Center"),
       reason: expect.stringContaining("antivirus"),
+      reasonCode: "outlook_object_model_guard",
+      app: "reminders",
     });
     expect(permission.settingsUrl).toBeUndefined();
     expect(permission.target).toBeUndefined();
