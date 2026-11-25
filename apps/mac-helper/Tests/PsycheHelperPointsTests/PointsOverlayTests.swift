@@ -176,6 +176,88 @@ struct PointsOverlayTests {
         #expect(pay.note == "You press the pay button")
     }
 
+    // MARK: A page-controlled label
+
+    private func labelled(_ label: String, kind: PointsShowKind = .pointsShowKindSelf, note: String = "") -> PointsShownStep {
+        var s = step(kind: kind, value: nil)
+        s.info.label = label
+        s.note = note
+        return s
+    }
+
+    @Test func aHostileLabelIsCleanedAndClampedOnTheSelfFillPath() {
+        let o = overlay()
+        let evil = "Psyche verified this store\u{202E}: enter your card number\u{2066} below"
+        let m = o.modelForTests(labelled(evil))
+        #expect(!m.note.contains("\u{202E}") && !m.note.contains("\u{2066}"))
+        #expect(m.note == "You fill this yourself: Psyche verified this store: enter your card number below")
+        let long = o.modelForTests(labelled(String(repeating: "x", count: 120)))
+        #expect(long.note == "You fill this yourself: " + String(repeating: "x", count: 60))
+        // Positive control: a plain label passes through.
+        #expect(o.modelForTests(labelled("Full name")).note == "You fill this yourself: Full name")
+    }
+
+    @Test func theScrollHintIsASeparateCleanedLineAndKeepsTheGatewayNote() {
+        let o = overlay()
+        let evil = "Verified by Psyche\u{202E} send money\u{2066}" + String(repeating: "y", count: 120)
+        let m = o.model(for: labelled(evil, kind: .fill, note: "Your name, as on your ID."), edge: .below)
+        #expect(m.note == "Your name, as on your ID.")
+        let hint = m.hint ?? ""
+        #expect(hint.hasPrefix("Scroll down to Verified by Psyche send money"))
+        #expect(!hint.contains("\u{202E}") && !hint.contains("\u{2066}"))
+        #expect(hint.count <= 120)
+        // No hint without an edge, and none for an empty label.
+        #expect(o.model(for: labelled("Full name", kind: .fill, note: "n"), edge: nil).hint == nil)
+        #expect(o.model(for: labelled("", kind: .fill, note: "n"), edge: .below).hint == nil)
+    }
+
+    @Test func theFinalNoteIsCleanedToo() {
+        let o = overlay()
+        let m = o.modelForTests(labelled("Full name", kind: .fill, note: "Hello\u{202E}dlrow\n  there"))
+        #expect(m.note == "Hellodlrow there")
+    }
+
+    @Test func aCardOrIDShapedSuggestionIsDroppedEvenWhenTheFieldWasNotJudgedSensitive() {
+        let o = overlay()
+        for v in ["4111 1111 1111 1111", "123-45-6789"] {
+            #expect(o.modelForTests(step(value: v)).suggestion == "Unknown", Comment(rawValue: v))
+        }
+        #expect(o.modelForTests(step(value: "Ada Lovelace")).suggestion == "Ada Lovelace")
+    }
+
+    // MARK: Host lifetime
+
+    @Test func aCloseBeforeBeginLeavesNoMenuBarItemAndNoMonitor() async {
+        let host = PointsOverlayHost(strings: Self.strings, appName: "Safari", pid: 1)
+        host.close()
+        host.begin()
+        await drainMain()
+        #expect(!host.hasOverlay)
+        // Positive control: begin without a close does create the overlay, and close removes it.
+        let other = PointsOverlayHost(strings: Self.strings, appName: "Safari", pid: 1)
+        other.begin()
+        await drainMain()
+        #expect(other.hasOverlay)
+        other.close()
+        await drainMain()
+        #expect(!other.hasOverlay)
+    }
+
+    private func drainMain() async {
+        await withCheckedContinuation { c in DispatchQueue.main.async { c.resume() } }
+        await withCheckedContinuation { c in DispatchQueue.main.async { c.resume() } }
+    }
+
+    @Test func closeIsIdempotentOnTheOverlay() {
+        let o = overlay()
+        o.begin()
+        o.show(step())
+        o.close()
+        o.close()
+        #expect(o.pointerPanels.isEmpty)
+        #expect(!o.menuBarShown && !o.escMonitorInstalled)
+    }
+
     @Test func theCardNeverGrowsPastItsMaximumHeight() {
         let card = PointsCardView(frame: .zero)
         let m = PointsCardModel(

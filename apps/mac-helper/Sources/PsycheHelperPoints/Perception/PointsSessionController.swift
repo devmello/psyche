@@ -142,6 +142,9 @@ final class PointsSessionController: @unchecked Sendable {
             stopped = true
             return loop
         }
+        // The overlay goes now too, not when the observer thread gets round to it: a hung app read must not
+        // leave a ghost card or a menu-bar item after Stop. Idempotent.
+        overlay.close()
         // End the stream here, on the caller's thread: a hung app must not keep the session slot or
         // computer use locked out. The observer thread (if it is alive) only tears its watches down.
         if closedGate.testAndSet() {

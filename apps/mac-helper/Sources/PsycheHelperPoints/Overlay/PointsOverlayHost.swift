@@ -11,6 +11,8 @@ final class PointsOverlayHost: @unchecked Sendable {
     private let appName: String
     private let pid: pid_t
     private let lock = NSLock()
+    /// Set by close(): a begin() that arrives after it does nothing (no menu-bar item, no Esc monitor).
+    private var closed = false
     private var onAction: (@Sendable (PointsCardAction) -> Void)?
     private var onStop: (@Sendable () -> Void)?
 
@@ -39,7 +41,7 @@ final class PointsOverlayHost: @unchecked Sendable {
     func begin() {
         DispatchQueue.main.async { [self] in
             MainActor.assumeIsolated {
-                guard overlay == nil else { return }
+                guard overlay == nil, !lock.withLock({ closed }) else { return }
                 let o = PointsOverlay(strings: strings, appName: appName, pid: pid)
                 o.onAction = { [weak self] a in
                     let f = self?.lock.withLock { self?.onAction }
@@ -56,6 +58,7 @@ final class PointsOverlayHost: @unchecked Sendable {
     }
 
     func close() {
+        lock.withLock { closed = true }
         DispatchQueue.main.async { [self] in
             MainActor.assumeIsolated {
                 overlay?.close()
@@ -63,6 +66,9 @@ final class PointsOverlayHost: @unchecked Sendable {
             }
         }
     }
+
+    /// Main queue only (tests read it after draining the queue).
+    var hasOverlay: Bool { overlay != nil }
 
     func show(_ step: PointsShownStep) { onMain { $0.show(step) } }
     func frames(_ frames: [String: CGRect], window: CGRect?) { onMain { $0.update(frames: frames, window: window) } }

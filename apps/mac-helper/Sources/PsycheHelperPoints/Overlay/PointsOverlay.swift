@@ -208,25 +208,24 @@ final class PointsOverlay {
     // MARK: Layout
 
     func model(for s: PointsShownStep, edge: PointsGeometry.Edge?) -> PointsCardModel {
+        // The field's label comes from the page (an aria-label can say anything): clean it before it is
+        // put in a sentence of Psyche's own, and never let it replace the Gateway's note.
+        let label = PointsCardText.clean(s.info.label, max: 60)
         var note = s.note
-        if note.isEmpty {
-            switch s.kind {
-            case .pointsShowKindSelf:
-                note = s.info.label.isEmpty
-                    ? strings.selfFillPlain
-                    : PointsCardText.fill(strings.selfFill, label: s.info.label)
-            default: break
-            }
+        if note.isEmpty, s.kind == .pointsShowKindSelf {
+            note = label.isEmpty ? strings.selfFillPlain : PointsCardText.fill(strings.selfFill, label: label)
         }
-        // A scrolled-away field says so, with the field's name.
-        if edge != nil, !s.info.label.isEmpty { note = PointsCardText.fill(strings.scrollTo, label: s.info.label) }
+        // A scrolled-away field gets a separate hint line; the note stays.
+        let hint: String? = edge != nil && !label.isEmpty ? PointsCardText.clean(PointsCardText.fill(strings.scrollTo, label: label), max: 120) : nil
         // A payment button is pressed by the owner: its fixed copy, whatever else came.
         if s.info.role == .button, s.kind == .pointsShowKindSelf { note = strings.payButton }
-        // Never a suggestion for a sensitive field, whatever the Gateway sent.
+        // Never a suggestion for a sensitive field, whatever the Gateway sent, and not one that is shaped
+        // like a card number, an ID or a secret even if the field was not judged sensitive.
         var suggestion: String? = s.info.sensitive ? nil : s.value
+        if let v = suggestion, PointsValueRules.classify(v, label: label) != nil { suggestion = nil }
         if suggestion == nil, s.kind == .fill, !s.info.sensitive { suggestion = strings.unknownValue }
         return PointsCardModel(
-            appName: appName, note: note, suggestion: suggestion, warning: s.warning, sources: s.sources,
+            appName: appName, note: PointsCardText.clean(note, max: 300), hint: hint, suggestion: suggestion, warning: s.warning, sources: s.sources,
             stepText: PointsCardText.fill(strings.stepFormat, n: s.n, total: s.of), showNext: s.kind == .nextPage, strings: strings)
     }
 
@@ -268,7 +267,7 @@ final class PointsOverlay {
         let edge = windowFrame.flatMap { PointsGeometry.offscreenEdge(target: target, window: $0) }
         // Rebuild the rows only when the content changed: a scroll must not replace a button under the mouse.
         let m = model(for: s, edge: edge)
-        let key = [m.note, m.suggestion ?? "", m.warning ?? "", m.sources.joined(separator: "|"), m.stepText, String(m.showNext),
+        let key = [m.note, m.hint ?? "", m.suggestion ?? "", m.warning ?? "", m.sources.joined(separator: "|"), m.stepText, String(m.showNext),
                    String(cardPanel.cardView.collapsed), String(cardPanel.cardView.stuckOpen)].joined(separator: "\u{1}")
         let size: CGSize
         if key == lastKey, let lastSize {

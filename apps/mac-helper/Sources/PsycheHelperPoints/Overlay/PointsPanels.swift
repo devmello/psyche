@@ -154,6 +154,8 @@ final class PointsPointerView: NSView {
 struct PointsCardModel {
     var appName: String
     var note: String
+    /// A scrolled-away field's scroll-to line, apart from the note.
+    var hint: String?
     /// The suggestion, shown as a monospace chip. Never set for a sensitive field.
     var suggestion: String?
     var warning: String?
@@ -312,6 +314,7 @@ final class PointsCardView: NSView {
             addSubview(hide)
         }
         y += 20 + Self.rowGap
+        if let h = m.hint, !h.isEmpty { place(label(h, size: 11, weight: .medium, color: pointsInk, lines: 1, width: w)) }
         // 2. the note
         place(label(m.note, size: 13, lines: noteLines, width: w))
         // 3. the suggestion, as a monospace chip (no Copy here: see PointsCapabilities)
