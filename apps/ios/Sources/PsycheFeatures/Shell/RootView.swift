@@ -61,6 +61,8 @@ public struct RootView: View {
             router.open(appPath: "/" + host + url.path)
         }
         .psycheFade(PsycheMotion.Duration.medium, value: session.state.needsPairing)
+        // Ink is the app tint at the root, so the pairing screens and anything presented from here share it.
+        .tint(PsycheColor.inkText)
     }
 }
 
@@ -150,18 +152,19 @@ struct MainTabs: View {
             switch sheet {
             case .approval(let item):
                 if let detail = item.approval {
-                    ApprovalSheet(item: item, detail: detail)
+                    ApprovalSheet(item: item, detail: detail).tint(PsycheColor.inkText)
                 }
             case .question(let item):
                 if let detail = item.question {
-                    QuestionSheet(item: item, detail: detail)
+                    QuestionSheet(item: item, detail: detail).tint(PsycheColor.inkText)
                 }
             case .agent:
                 // The sheet grows out of the avatar that opened it (a zoom from the toolbar button).
                 AgentSheet(store: store)
+                    .tint(PsycheColor.inkText)
                     .psycheZoomDestination(id: AgentButton.zoomID, in: zoom)
             case .settings:
-                SettingsSheet(store: store)
+                SettingsSheet(store: store).tint(PsycheColor.inkText)
             }
         }
     }
