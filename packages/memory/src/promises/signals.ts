@@ -187,7 +187,7 @@ const inThread = (loop: DoneLoop, threadKey: string | null | undefined): boolean
 /** Whether the owner's message went to the promisee: same thread, or the promisee is a recipient. */
 const toPromisee = (loop: DoneLoop, m: SentItem): boolean =>
   inThread(loop, m.threadKey) ||
-  (loop.counterpartId !== null && m.toEntityIds.includes(loop.counterpartId));
+  (typeof loop.counterpartId === "string" && m.toEntityIds.includes(loop.counterpartId));
 
 const latest = <T extends { at: number }>(xs: T[]): T | undefined =>
   xs.reduce<T | undefined>((a, b) => (a === undefined || b.at > a.at ? b : a), undefined);
@@ -253,7 +253,7 @@ export function evaluateDone(
           e.createdByOwner &&
           e.createdAt !== null &&
           e.createdAt > ctx.afterMs &&
-          loop.counterpartId !== null &&
+          typeof loop.counterpartId === "string" &&
           e.attendeeEntityIds.includes(loop.counterpartId),
       );
       const e = evs.reduce<CalendarItem | undefined>(
@@ -282,7 +282,7 @@ export function evaluateDone(
 
   // waiting_on: the counterpart's own act.
   const them = (id: string | null | undefined): boolean =>
-    loop.counterpartId !== null && id === loop.counterpartId;
+    typeof loop.counterpartId === "string" && id === loop.counterpartId;
   if (action === "send" || action === null) {
     const theirSends = sent.filter((m) => them(m.fromEntityId));
     const delivered = latest(theirSends.filter((m) => deliverables(m).length > 0));
