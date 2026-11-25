@@ -40,6 +40,8 @@ public final class PointsEngine<S: PointsAXSource>: @unchecked Sendable {
     private let emit: (PointsSessionEvent) -> Void
     /// Frames of the watched fields, after a scroll or a move (for the overlay, W4).
     public var onFrames: (([String: CGRect]) -> Void)?
+    /// Called with each full read's own directions-only verdict, before its digest is emitted.
+    public var onDirectionsOnly: ((Bool) -> Void)?
 
     private var ids = PointsFieldIds<Node>()
     private var records: [String: PointsFieldRecord<Node>] = [:]
@@ -52,6 +54,10 @@ public final class PointsEngine<S: PointsAXSource>: @unchecked Sendable {
     private var lastNow: Double = 0
     private var lastFingerprint: String?
     private var lastSummary: Data?
+    /// The latest full read hit a cap, so fields may exist that the helper never saw.
+    private var lastTruncated = true
+    /// The latest full read found a directions-only page (§2.2): no picture is taken of it.
+    private var lastDirectionsOnly = true
     private var focusedId: String?
     private var pendingFocus: Node?
     private var watched: [String] = []
@@ -277,6 +283,9 @@ public final class PointsEngine<S: PointsAXSource>: @unchecked Sendable {
         for r in read.records { next[r.id] = r }
         records = next
         order = read.records.map(\.id)
+        lastTruncated = read.digest.truncated == true
+        lastDirectionsOnly = read.directionsOnly
+        onDirectionsOnly?(read.directionsOnly)
         for r in read.records { if let why = r.sensitive { latched[r.node] = why } }
         if let f = read.records.first(where: { $0.focused }) { focusedId = f.id }
         // Keep the commit memory of fields still on the page.
@@ -329,6 +338,42 @@ public final class PointsEngine<S: PointsAXSource>: @unchecked Sendable {
             nextIds: nextIds, nextFrames: nextFrames, windowFrame: windowFrame())
     }
 
+    /// Every frame a picture of the window must paint over (§5.2), from a fresh read of the tree: the fields
+    /// judged sensitive now or earlier this session, and every field of a directions-only page. Reads frames
+    /// only, never a value. `complete` is false when a mask cannot be trusted to cover everything: the read
+    /// failed, hit a cap, or a sensitive field has no frame. The caller then takes no picture.
+    public func maskFrames(at now: Double) -> PointsMaskFrames {
+        lastTruncated = true
+        lastDirectionsOnly = true  // a failed read counts as the strictest page
+        fullRead(at: now)
+        guard !ended, let window = windowFrame() else { return PointsMaskFrames(window: nil, frames: [], complete: false, directionsOnly: true) }
+        var frames: [CGRect] = []
+        // A minimized window has nothing to show, and a capture of it would be of something else.
+        var complete = !lastTruncated && !windowMinimized
+        for id in order {
+            guard var r = records[id] else { continue }
+            // A card-shaped value in an ordinary field ("Number" = "4111 ...") is as private as a card
+            // field. The value of a field the judge called plain may be read; it is classified here and
+            // dropped at once, never kept or sent.
+            if r.sensitive == nil, latched[r.node] == nil, !r.directionsOnly, r.role != .button, r.role != .link,
+               let v = source.fieldValue(of: r.node), PointsValueRules.classify(v, label: r.label) != nil
+            {
+                latched[r.node] = .valueShape
+                r.sensitive = .valueShape
+                records[id] = r
+            }
+            guard r.sensitive != nil || latched[r.node] != nil || r.directionsOnly else { continue }
+            if let f = source.attributes(r.node).frame {
+                r.frame = f
+                records[id] = r
+                frames.append(f)
+            } else {
+                complete = false
+            }
+        }
+        return PointsMaskFrames(window: window, frames: frames, complete: complete, directionsOnly: lastDirectionsOnly)
+    }
+
     public func windowFrame() -> CGRect? {
         guard let w = source.windowRoot() else { return nil }
         return source.attributes(w).frame
@@ -364,3 +409,20 @@ public struct PointsTargetInfo: Sendable, Equatable {
     }
 }
 
+
+
+/// The frames to paint over a picture of the window, in AX space. No labels, no values.
+public struct PointsMaskFrames: Sendable, Equatable {
+    public var window: CGRect?
+    public var frames: [CGRect]
+    public var complete: Bool
+    /// The page is on the directions-only list (§2.2): money context, plain http:, a venue host.
+    public var directionsOnly: Bool
+
+    public init(window: CGRect?, frames: [CGRect], complete: Bool, directionsOnly: Bool = false) {
+        self.window = window
+        self.frames = frames
+        self.complete = complete
+        self.directionsOnly = directionsOnly
+    }
+}
