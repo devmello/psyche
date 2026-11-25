@@ -1,6 +1,7 @@
 import type { Catalogue } from "../index.ts";
 import { actionErrors } from "./action-errors/hi.ts";
 import { agentRest } from "./agent-rest/hi.ts";
+import { approvalsW3 } from "./approvals-w3/hi.ts";
 import { auditRest } from "./audit-rest/hi.ts";
 import { automationChatRest } from "./automation-chat-rest/hi.ts";
 import { blocksRest } from "./blocks-rest/hi.ts";
@@ -3998,6 +3999,8 @@ export const hi: Partial<Catalogue> = {
   ...computerWatch,
   // Psyche points (docs/design/psyche-points-2026.md §9)
   ...points,
+  // Approvals wave W3 (card choices, Allowed list)
+  ...approvalsW3,
   // Gateway-authored notices (inbox notifications, security alerts)
   ...notices,
   // Settings > Computer use > Separate desktop (Linux)

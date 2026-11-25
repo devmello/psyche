@@ -62,7 +62,7 @@ const unresolved = (details: Record<string, unknown>) =>
     details: { requestedPath: "~/Downloads", reason: "to list it", access: "ro", ...details },
   });
 
-const allow = () => screen.getByRole("button", { name: "Allow with scope" });
+const allow = () => screen.getByRole("button", { name: "Allow" });
 
 describe("folder-access card", () => {
   it("pre-fills the requested folder by name with its full path, and Allow is enabled", async () => {
@@ -79,17 +79,14 @@ describe("folder-access card", () => {
     );
   });
 
-  it("shows the reason and access once, and the scope rides on Allow", async () => {
+  it("shows the reason and access once, with Always as the one second choice", async () => {
     const onAnswer = show(folderApproval(), async () => null);
     expect(screen.getAllByText("to read the build notes")).toHaveLength(1);
     expect(screen.getByText("Read and write")).toBeTruthy();
-    for (const name of ["Just this chat", "Always, this folder and below"]) {
-      expect(screen.getByRole("option", { name })).toBeTruthy();
-    }
     expect(screen.getAllByRole("button", { name: "Deny" })).toHaveLength(1);
     expect(screen.queryByRole("radio")).toBeNull();
-    await userEvent.selectOptions(screen.getByRole("combobox", { name: "Allow for" }), "always");
-    await userEvent.click(allow());
+    expect(screen.queryByRole("combobox")).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: "Always, this folder and below" }));
     await waitFor(() =>
       expect(onAnswer).toHaveBeenCalledWith("approve", "always", {
         folderPath: "/Users/me/Projects/app",
@@ -195,8 +192,8 @@ describe("folder-access card", () => {
       vi.fn(),
       "Psyche",
     );
-    expect(screen.queryByRole("combobox", { name: "Allow for" })).toBeNull();
-    expect(screen.queryByRole("option", { name: "Always allow" })).toBeNull();
+    expect(screen.queryByRole("button", { name: /^Always/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: "More options…" })).toBeNull();
     expect(screen.getByTestId("taint-note").textContent).toBe(
       "Earlier in this chat Psyche read a transcript and canvas.ucsc.edu and used Reminders, so only Allow once is offered.",
     );
@@ -228,20 +225,16 @@ describe('"Allow in this Space" (spaces-2026 §5.3)', () => {
 
   it("is offered beside once and always, naming the Space, and sent as once plus inSpace", async () => {
     const onAnswer = show(inSpace(), async () => null);
-    for (const name of [
-      "Just this chat",
-      "Allow in Kitchen remodel",
-      "Always, this folder and below",
-    ]) {
-      expect(screen.getByRole("option", { name })).toBeTruthy();
-    }
+    // Always is the second choice; the Space sits under More options.
+    expect(screen.getByRole("button", { name: "Always, this folder and below" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Allow in Kitchen remodel" })).toBeNull();
     expect(screen.queryByTestId("space-automations")).toBeNull();
-    await userEvent.selectOptions(screen.getByRole("combobox", { name: "Allow for" }), "space");
+    await userEvent.click(screen.getByRole("button", { name: "More options…" }));
     // Who else gets the folder: the Space's automations, read-only here.
     expect(screen.getByTestId("space-automations").textContent).toBe(
       "Psyche's automations in Kitchen remodel can read this folder too.",
     );
-    await userEvent.click(allow());
+    await userEvent.click(screen.getByRole("button", { name: "Allow in Kitchen remodel" }));
     await waitFor(() =>
       expect(onAnswer).toHaveBeenCalledWith("approve", "once", {
         folderPath: "/Users/me/Projects/app",
@@ -260,7 +253,7 @@ describe('"Allow in this Space" (spaces-2026 §5.3)', () => {
       }),
       async () => null,
     );
-    await userEvent.selectOptions(screen.getByRole("combobox", { name: "Allow for" }), "space");
+    await userEvent.click(screen.getByRole("button", { name: "More options…" }));
     expect(screen.getByTestId("space-automations").textContent).toBe(
       "Psyche's automations in Kitchen remodel can read and write in this folder too.",
     );
@@ -268,11 +261,12 @@ describe('"Allow in this Space" (spaces-2026 §5.3)', () => {
 
   it("is not offered on a card outside a Space", () => {
     show(folderApproval(), async () => null);
-    expect(screen.queryByRole("option", { name: /^Allow in / })).toBeNull();
+    expect(screen.queryByRole("button", { name: /^Allow in / })).toBeNull();
   });
 
   it("a tainted card never offers it, even when details name a Space", () => {
     show(inSpace({ taint: true, scopesOffered: ["once"] }), async () => null);
-    expect(screen.queryByRole("option", { name: /^Allow in / })).toBeNull();
+    expect(screen.queryByRole("button", { name: /^Allow in / })).toBeNull();
+    expect(screen.queryByRole("button", { name: "More options…" })).toBeNull();
   });
 });

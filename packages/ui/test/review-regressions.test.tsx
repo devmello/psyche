@@ -41,7 +41,7 @@ describe("ApprovalCard keyboard safety", () => {
         armDelayMs={0}
       />,
     );
-    const allow = screen.getByRole("button", { name: "Allow with scope" });
+    const allow = screen.getByRole("button", { name: "Allow" });
     allow.focus();
     await userEvent.keyboard("{Enter}");
     await userEvent.keyboard(" ");

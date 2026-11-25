@@ -180,7 +180,7 @@ describe("HelperOfflineBanner with a verifier enrolled", () => {
     expect(card.textContent).toContain("Which Psyche Helper to use");
     expect(card.textContent).not.toContain("devices.hostHelperDeviceId needs");
     await waitFor(() => expect(within(card).queryByText("Loading the approval…")).toBeNull());
-    const allow = within(card).getByRole("button", { name: "Allow with scope" });
+    const allow = within(card).getByRole("button", { name: "Allow" });
     await waitFor(() => expect((allow as HTMLButtonElement).disabled).toBe(false));
     await userEvent.click(allow);
     await waitFor(() => expect(writes).toHaveLength(2));

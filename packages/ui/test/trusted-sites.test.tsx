@@ -41,16 +41,19 @@ function show(approval: ApprovalRequest, onAnswer = vi.fn()) {
 }
 
 const offered = { trustSite: { origin: "https://docs.example.org", subdomains: true } };
-const allow = () => screen.getByRole("button", { name: "Allow with scope" });
+const allow = () => screen.getByRole("button", { name: "Allow" });
 
 describe("first-read card: Always for this site", () => {
   it("offers it when the Gateway offered it, and answers once with trustSite", async () => {
     const onAnswer = show(readApproval({ details: offered }));
-    await userEvent.selectOptions(
-      screen.getByRole("combobox"),
+    // The card does not say what a chat-long grant would cover (no origin on it), so the site
+    // choice is the second one; the vague chat choice stays under More options.
+    expect(screen.getByTestId("approval-second-choice").textContent).toBe(
       "Always for this site (docs.example.org)",
     );
-    await userEvent.click(allow());
+    await userEvent.click(
+      screen.getByRole("button", { name: "Always for this site (docs.example.org)" }),
+    );
     await waitFor(() =>
       expect(onAnswer).toHaveBeenCalledWith("approve", "once", { trustSite: "origin" }),
     );
@@ -58,30 +61,34 @@ describe("first-read card: Always for this site", () => {
 
   it("the subdomain choice sends subdomains", async () => {
     const onAnswer = show(readApproval({ details: offered }));
-    await userEvent.selectOptions(
-      screen.getByRole("combobox"),
-      "Always for this site and its subdomains (docs.example.org)",
+    await userEvent.click(screen.getByRole("button", { name: "More options…" }));
+    await userEvent.click(
+      screen.getByRole("button", {
+        name: "Always for this site and its subdomains (docs.example.org)",
+      }),
     );
-    await userEvent.click(allow());
     await waitFor(() =>
       expect(onAnswer).toHaveBeenCalledWith("approve", "once", { trustSite: "subdomains" }),
     );
   });
 
-  it("does not offer the subdomain choice when the card did not", () => {
+  it("does not offer the subdomain choice when the card did not", async () => {
     show(
       readApproval({
         details: { trustSite: { origin: "https://project.example.org", subdomains: false } },
       }),
     );
-    expect(screen.getByRole("option", { name: /^Always for this site \(/ })).toBeTruthy();
-    expect(screen.queryByRole("option", { name: /and its subdomains/ })).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: "More options…" }));
+    expect(screen.getByRole("button", { name: /^Always for this site \(/ })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /and its subdomains/ })).toBeNull();
   });
 
-  it("does not offer it without the Gateway's offer (control: with it, it shows)", () => {
+  it("does not offer it without the Gateway's offer (control: with it, it shows)", async () => {
     show(readApproval({ details: {} }));
-    expect(screen.queryByRole("option", { name: /Always for this site \(/ })).toBeNull();
-    expect(screen.getByRole("option", { name: "Allow once" })).toBeTruthy();
+    await userEvent.click(screen.getByRole("button", { name: "More options…" }));
+    expect(screen.queryByRole("button", { name: /Always for this site \(/ })).toBeNull();
+    // The control: the same menu does list the card's own site choice.
+    expect(screen.getByRole("button", { name: /^Always allow/ })).toBeTruthy();
   });
 
   it("a plain Allow once sends no trustSite", async () => {

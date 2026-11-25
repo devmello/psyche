@@ -104,7 +104,7 @@ describe("Edit a server", () => {
     expect(methods(gateway())).not.toContain("vault.add");
     expect(methods(gateway())).not.toContain("mcp.add");
 
-    const allow = within(card).getByRole("button", { name: "Allow with scope" });
+    const allow = within(card).getByRole("button", { name: "Allow" });
     await waitFor(() => expect((allow as HTMLButtonElement).disabled).toBe(false));
     await userEvent.click(allow);
     expect(await screen.findByText("Updated Files.")).toBeTruthy();

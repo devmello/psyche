@@ -238,6 +238,8 @@ export interface ShellSlots {
     presentation: "inline" | "overlay";
     navigate: (to: string) => void;
     onClose: () => void;
+    /** The chat open under the sheet (null off Chat): its approval cards are answered there. */
+    threadId?: string | null;
   }) => ReactNode;
   /** The sidebar (redesign §5.1): destinations, threads and the persona footer. */
   sidebar?: (props: SidebarSlotProps) => ReactNode;
@@ -1232,7 +1234,13 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
   });
   const closeSheet = () => navigate(onChat && threadId ? `/chat/${threadId}` : baseRef.current);
   const sheetFor = (presentation: "inline" | "overlay") =>
-    slots.agentSheet?.({ route: sheetRoute, presentation, navigate, onClose: closeSheet }) ?? null;
+    slots.agentSheet?.({
+      route: sheetRoute,
+      presentation,
+      navigate,
+      onClose: closeSheet,
+      threadId: onChat ? threadId : null,
+    }) ?? null;
   return (
     <UiSlotsProvider value={kitSlots}>
       <PointsHost platform={platform}>
