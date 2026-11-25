@@ -1,0 +1,248 @@
+{
+  "_comment": "expect: markers (case-insensitive substrings), one per fact that should be recalled; a marker counts as found when an injected line contains it. stale: markers of superseded facts; an injected line with one is counted as a stale hit. Empty expect means nothing applies and nothing should be injected. Every line without an expect marker counts as irrelevant.",
+  "queries": [
+    {
+      "id": "d01",
+      "category": "direct",
+      "q": "What coffee does Jordan drink?",
+      "expect": ["oat flat white"]
+    },
+    {
+      "id": "d02",
+      "category": "direct",
+      "q": "Which airline do I book flights with?",
+      "expect": ["skyline air"]
+    },
+    {
+      "id": "d03",
+      "category": "direct",
+      "q": "What is the Wi-Fi network called?",
+      "expect": ["harbor-5"]
+    },
+    {
+      "id": "d04",
+      "category": "direct",
+      "q": "When is the Lakeside half marathon?",
+      "expect": ["lakeside half marathon"]
+    },
+    {
+      "id": "d05",
+      "category": "direct",
+      "q": "What wood is the garden shed made of?",
+      "expect": ["cedar boards"]
+    },
+    { "id": "d06", "category": "direct", "q": "Where is the router?", "expect": ["hall closet"] },
+    {
+      "id": "d07",
+      "category": "direct",
+      "q": "When is the Brightwell standup?",
+      "expect": ["9:30 in the orion room"]
+    },
+    {
+      "id": "d08",
+      "category": "direct",
+      "q": "What editor and theme do I use?",
+      "expect": ["neovim with the gruvbox"]
+    },
+    { "id": "d09", "category": "direct", "q": "Who is my accountant?", "expect": ["lena fischer"] },
+    {
+      "id": "d10",
+      "category": "direct",
+      "q": "What do I read before bed?",
+      "expect": ["the overstory"]
+    },
+    {
+      "id": "d11",
+      "category": "direct",
+      "q": "Which database did the Heron team choose for the ledger?",
+      "expect": ["postgres instead of mysql"]
+    },
+    { "id": "d12", "category": "direct", "q": "What time do I go to sleep?", "expect": ["22:30"] },
+    {
+      "id": "d13",
+      "category": "direct",
+      "q": "What keyboard layout did I try recently?",
+      "expect": ["colemak keyboard layout"]
+    },
+    {
+      "id": "d14",
+      "category": "direct",
+      "q": "What did I ask about the weather in Ashford?",
+      "expect": ["weather in ashford"]
+    },
+
+    {
+      "id": "p01",
+      "category": "paraphrase",
+      "q": "How do I like my morning brew?",
+      "expect": ["oat flat white"]
+    },
+    {
+      "id": "p02",
+      "category": "paraphrase",
+      "q": "Any food I must avoid when suggesting restaurants?",
+      "expect": ["allergic to shellfish"]
+    },
+    {
+      "id": "p03",
+      "category": "paraphrase",
+      "q": "What do I do for exercise in the evenings?",
+      "expect": ["bouldering at boulder works"]
+    },
+    {
+      "id": "p04",
+      "category": "paraphrase",
+      "q": "What seat should you pick when booking my plane ticket?",
+      "expect": ["aisle seats"]
+    },
+    {
+      "id": "p05",
+      "category": "paraphrase",
+      "q": "Which hours are protected for focused work?",
+      "expect": ["no meetings before 10am"]
+    },
+    {
+      "id": "p06",
+      "category": "paraphrase",
+      "q": "What kind of tunes do I put on while programming?",
+      "expect": ["jazz while coding"]
+    },
+    {
+      "id": "p07",
+      "category": "paraphrase",
+      "q": "How often does the automobile need servicing?",
+      "expect": ["12000 km"]
+    },
+    {
+      "id": "p08",
+      "category": "paraphrase",
+      "q": "Do I prefer rail over flying?",
+      "expect": ["prefers trains to planes"]
+    },
+
+    {
+      "id": "n01",
+      "category": "people",
+      "q": "Tell me about Maya",
+      "expect": ["maya okafor is my sister"]
+    },
+    {
+      "id": "n02",
+      "category": "people",
+      "q": "Who is Dev Raman?",
+      "expect": ["dev raman is my manager"]
+    },
+    {
+      "id": "n03",
+      "category": "people",
+      "q": "When is Priya Nair's next appointment?",
+      "expect": ["priya nair is my dentist"]
+    },
+    {
+      "id": "n04",
+      "category": "people",
+      "q": "Who looks after my plants?",
+      "expect": ["tomas eriksen"]
+    },
+    {
+      "id": "n05",
+      "category": "people",
+      "q": "When is Dev Raman's birthday?",
+      "expect": ["dev raman's birthday is on 4 september"]
+    },
+    {
+      "id": "n06",
+      "category": "people",
+      "q": "How old is Ines turning?",
+      "expect": ["ines turns seven"]
+    },
+    {
+      "id": "n07",
+      "category": "people",
+      "q": "Who is Dr. Alvarez?",
+      "expect": ["vet is dr. alvarez"]
+    },
+    {
+      "id": "n08",
+      "category": "people",
+      "q": "Which flight did I book for Maya's birthday?",
+      "expect": ["skyline air flight to lisbon"]
+    },
+
+    {
+      "id": "o01",
+      "category": "old_vs_new",
+      "q": "Where do I live?",
+      "expect": ["linden road"],
+      "stale": ["quarry street"]
+    },
+    {
+      "id": "o02",
+      "category": "old_vs_new",
+      "q": "Which tool does my team use to track tickets?",
+      "expect": ["tracks tickets in linear"],
+      "stale": ["jira"]
+    },
+    {
+      "id": "o03",
+      "category": "old_vs_new",
+      "q": "What phone do I have?",
+      "expect": ["pixel 9"],
+      "stale": ["iphone 12"]
+    },
+    {
+      "id": "o04",
+      "category": "old_vs_new",
+      "q": "What is my job title?",
+      "expect": ["staff engineer"],
+      "stale": ["senior engineer"]
+    },
+    {
+      "id": "o05",
+      "category": "old_vs_new",
+      "q": "What is my street address now?",
+      "expect": ["linden road"],
+      "stale": ["quarry street"]
+    },
+
+    {
+      "id": "x01",
+      "category": "distractor",
+      "q": "When does Project Heron launch?",
+      "expect": ["project heron is the invoicing rewrite"]
+    },
+    {
+      "id": "x02",
+      "category": "distractor",
+      "q": "What is Dev's role at Brightwell?",
+      "expect": ["dev raman is my manager"]
+    },
+    {
+      "id": "x03",
+      "category": "distractor",
+      "q": "Which Maya is my relative?",
+      "expect": ["maya okafor is my sister"]
+    },
+    {
+      "id": "x04",
+      "category": "distractor",
+      "q": "Does Biscuit take any medicine?",
+      "expect": ["heartworm tablet"]
+    },
+    {
+      "id": "x05",
+      "category": "distractor",
+      "q": "What was decided at the Heron retro?",
+      "expect": ["postgres instead of mysql"]
+    },
+
+    { "id": "e01", "category": "none", "q": "hello", "expect": [] },
+    { "id": "e02", "category": "none", "q": "thanks!", "expect": [] },
+    { "id": "e03", "category": "none", "q": "What is 17 times 23?", "expect": [] },
+    { "id": "e04", "category": "none", "q": "Write a haiku about autumn rain", "expect": [] },
+    { "id": "e05", "category": "none", "q": "What is the capital of France?", "expect": [] },
+    { "id": "e06", "category": "none", "q": "How do I reverse a string in Python?", "expect": [] },
+    { "id": "e07", "category": "none", "q": "Explain how photosynthesis works", "expect": [] },
+    { "id": "e08", "category": "none", "q": "ok sounds good", "expect": [] }
+  ]
+}

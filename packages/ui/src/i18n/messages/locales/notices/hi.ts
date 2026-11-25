@@ -112,4 +112,6 @@ export const notices: Partial<Catalogue> = {
   "notice.automation.interrupted.title": "{title} बीच में रुक गया",
   "notice.automation.interrupted.body":
     "चलते समय Psyche फिर से शुरू हुआ और हो सकता है इसका कुछ हिस्सा हो चुका हो। नतीजा देखें, ज़रूरत हो तो इसे दोबारा चलाएँ।",
+  "notice.promise.due.title": "एक वादे की समय-सीमा नज़दीक है",
+  "notice.promise.due.body": "कौन-सा है, यह देखने के लिए Psyche खोलें।",
 };

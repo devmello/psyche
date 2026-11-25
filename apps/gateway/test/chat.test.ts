@@ -647,6 +647,15 @@ describe("threads", () => {
     const inc = await newThread(c, { kind: "incognito" });
     expect(inc.expiresAt).not.toBeNull();
     expect((await c.request("threads.create", { kind: "channel" }, ik())).ok).toBe(false);
+    // Without a kind it is a new side chat (the control: kind main above is the one main thread).
+    const bare = await newThread(c, { title: "Plan the trip" });
+    expect(bare.kind).toBe("side");
+    expect(bare.id).not.toBe(main1.id);
+    expect(bare.title).toBe("Plan the trip");
+    await c.call("threads.delete", { threadId: bare.id }, ik());
+    expect(await c.call("threads.get", { threadId: main1.id })).toMatchObject({
+      thread: { id: main1.id },
+    });
 
     const list = await c.call<{ threads: { thread: Thread; activity: object }[] }>(
       "threads.list",

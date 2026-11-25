@@ -31,6 +31,24 @@ function deps(over: Partial<PermissionDeps> = {}) {
   };
 }
 
+describe("Full Disk Access pane", () => {
+  it("opens the Privacy_AllFiles pane on a Mac, and nothing elsewhere", async () => {
+    const mac = deps();
+    expect(await createPermissions(mac.d).openFullDiskAccess()).toBe(true);
+    expect(mac.opened).toEqual([PRIVACY_PANE.fullDiskAccess]);
+    // The same deep-link shape as the other panes, with the Full Disk Access anchor.
+    expect(PRIVACY_PANE.fullDiskAccess).toBe(
+      "x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles",
+    );
+    expect(PRIVACY_PANE.fullDiskAccess.split("?")[0]).toBe(
+      PRIVACY_PANE.accessibility.split("?")[0],
+    );
+    const other = deps({ platform: "linux" });
+    expect(await createPermissions(other.d).openFullDiskAccess()).toBe(false);
+    expect(other.opened).toEqual([]);
+  });
+});
+
 describe("macOS permissions (issue #384)", () => {
   it("prompts for Accessibility and opens its pane while it is still off", async () => {
     const t = deps();

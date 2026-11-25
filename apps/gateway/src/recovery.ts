@@ -1,5 +1,6 @@
 import {
   appendMessage,
+  failOpenRunSteps,
   finishRun,
   listRunsByStatus,
   markAllNodesOffline,
@@ -32,6 +33,8 @@ export function recoverAfterRestart(db: PsycheDb, log: Logger): RecoveryReport {
       finishRun(db, run.id, { status: "failed", error: RESTART_ERROR });
       // The calls are `uncertain` now; the run's committed tool blocks must say so too.
       settleRunToolCalls(db, run.id);
+      // The trace too: an open step under a failed run would show as running forever.
+      failOpenRunSteps(db, run.id);
       report.failedRuns.push(run.id);
     }
     const owned = db.sqlite

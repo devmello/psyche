@@ -88,6 +88,7 @@ import {
   EVERYTHING_MEMORY_SETTING_KEY,
   type EventName,
   type EventPayload,
+  type GraphLoop,
   type IssuedApproval,
   isUnattendedTask,
   MEMORY_RECALL_MODE_SETTING,
@@ -95,7 +96,9 @@ import {
   type Message,
   type ModelProvider,
   type ModelRef,
+  type Notification,
   type PermissionBroker,
+  type PromiseView,
   PsycheError,
   type SecurityAlert,
   type StagedAction,
@@ -128,6 +131,12 @@ import type { PublicRoute, WebhookRoute } from "../http.ts";
 import { createLogger } from "../log.ts";
 import { personalizeMessageEvent } from "../message-scrub.ts";
 import { openGatewayDb, purgePreUpdateSnapshots, releaseGatewayLock } from "../pre-update.ts";
+import {
+  personalizeLoopEvent,
+  personalizeNotificationEvent,
+  personalizePromiseEvent,
+  withNotificationScrub,
+} from "../promise-scrub.ts";
 import { TraceScrubWorker } from "../run-trace/forget-scrub.ts";
 import { taskRunTrace } from "../run-trace/tasks.ts";
 import { alertNotice, alertNotifyDecision } from "../security/alerts.ts";
@@ -1408,6 +1417,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     ...(background ? {} : { pollIntervalMs: 0, afterRunDelayMs: 0 }),
     ...(gwOptions.logger === undefined ? {} : { logger: gwOptions.logger }),
   });
+  // A remote desktop's OS notifications about a promise follow the same scrub.
+  deviceNotes.bindPromiseVisibility(people.loopVisibility);
   // Everything memory (#1010): review and quarantine handlers, and the nightly pass.
   const everything = composeEverything({
     db,
@@ -2609,7 +2620,10 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
         },
       }) as never,
     ),
-    ...mountParamsOnly(createNotificationHandlers(notifier) as never),
+    ...withNotificationScrub(
+      mountParamsOnly(createNotificationHandlers(notifier) as never),
+      () => people?.loopVisibility,
+    ),
     ...proactive.handlers,
     ...(nightShiftRef?.defs ?? {}),
     ...capabilities.handlers,
@@ -2782,6 +2796,31 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     // Messages chips); a subscriber with no identity (a Gateway part) is read as the least trusted.
     if (event === "chat.message")
       return personalizeMessageEvent(gateway.context, payload as { message: Message }, sub.reader);
+    // A promise or a loop is read again for each subscriber (promise scrub): the desktop shell
+    // gets it whole, a remote one the stripped form, and a hidden one nothing. With the graph not
+    // composed, nobody gets it.
+    if (event === "promise.updated")
+      return personalizePromiseEvent(
+        payload as { promise: PromiseView },
+        sub.reader,
+        people?.loopVisibility,
+      );
+    if (event === "memory.loop.updated")
+      return personalizeLoopEvent(
+        payload as { loop: GraphLoop },
+        sub.reader,
+        people?.loopVisibility,
+      );
+    if (
+      event === "notification.created" ||
+      event === "notification.updated" ||
+      event === "notification.resolved"
+    )
+      return personalizeNotificationEvent(
+        payload as { notification: Notification },
+        sub.reader,
+        people?.loopVisibility,
+      );
     // A Night shift item made from Messages reaches only the desktop shell on this Mac in full.
     if (event === "nightShift.item.updated")
       return personalizeNightShiftItem(payload as { item: StagedAction }, sub.reader);

@@ -8,6 +8,9 @@
  * Psyche.app's own grants (Ask about screen) stay with `createPermissions`.
  */
 
+import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { dirname } from "node:path";
+
 export type HelperPermissionKind = "accessibility" | "screenRecording" | "notifications";
 export type HelperPermissionState = "granted" | "denied" | "not_determined";
 
@@ -18,6 +21,19 @@ export interface HelperPermissionsStatus {
   screenRecording: HelperPermissionState;
   /** Approval notifications through the helper (`notify.*`); not asked is the usual first state. */
   notifications: HelperPermissionState;
+  /**
+   * Granted to this helper before, not granted now, and not turned off on purpose (`denied`).
+   * On the free signing path the usual cause is an update: macOS ties a grant to the helper's
+   * code signature, keeps the switch on in System Settings, and still answers "not allowed".
+   * Present only when non-empty.
+   */
+  lost?: HelperPermissionKind[];
+  /**
+   * Asked for in the running helper and still not granted: macOS applies a new Screen Recording
+   * grant to a process only once it restarts, so the row offers "Restart Psyche Helper".
+   * Present only when non-empty.
+   */
+  restartToApply?: HelperPermissionKind[];
 }
 
 export const HELPER_PERMISSION_KINDS: readonly HelperPermissionKind[] = [
@@ -26,9 +42,45 @@ export const HELPER_PERMISSION_KINDS: readonly HelperPermissionKind[] = [
   "notifications",
 ];
 
+/** The kinds seen granted, kept by the desktop (never under `~/.psyche`, never by the helper). */
+export interface GrantMemory {
+  load(): HelperPermissionKind[];
+  save(kinds: HelperPermissionKind[]): void;
+}
+
 export interface HelperPermissionsDeps {
   /** Invokes a capability on this computer's helper; rejects when it is not online. */
   invoke(capability: string, params: unknown): Promise<unknown>;
+  /** Which kinds this helper was ever seen granted (survives app restarts and updates). */
+  memory?: GrantMemory;
+}
+
+const isKind = (k: unknown): k is HelperPermissionKind =>
+  typeof k === "string" && (HELPER_PERMISSION_KINDS as readonly string[]).includes(k);
+
+/** A JSON file in the app's user data; a missing or unreadable file remembers nothing. */
+export function fileGrantMemory(path: () => string): GrantMemory {
+  return {
+    load() {
+      try {
+        const raw = JSON.parse(readFileSync(path(), "utf8")) as { granted?: unknown };
+        return Array.isArray(raw.granted) ? raw.granted.filter(isKind) : [];
+      } catch {
+        return [];
+      }
+    },
+    save(kinds) {
+      try {
+        const file = path();
+        mkdirSync(dirname(file), { recursive: true });
+        const tmp = `${file}.${process.pid}.tmp`;
+        writeFileSync(tmp, `${JSON.stringify({ granted: kinds })}\n`, { mode: 0o600 });
+        renameSync(tmp, file);
+      } catch {
+        // Best effort: without it only the "lost after an update" hint is missing.
+      }
+    },
+  };
 }
 
 const OFFLINE: HelperPermissionsStatus = {
@@ -57,14 +109,33 @@ function stateOf(result: unknown, kind: HelperPermissionKind): HelperPermissionS
   return row?.status === "denied" ? "denied" : "not_determined";
 }
 
+type Snapshot = Omit<HelperPermissionsStatus, "lost" | "restartToApply">;
+
 export function createHelperPermissions(deps: HelperPermissionsDeps) {
+  /** Kinds asked for in the running helper process; cleared once granted or the helper restarts. */
+  const askedThisRun = new Set<HelperPermissionKind>();
+
+  /**
+   * Remembers what is granted now and answers what was granted before but reads "not asked" now.
+   * `denied` (the owner turned it off) is not a loss. A kind stays remembered until granted
+   * again, so the hint shows on every read until the owner fixes it.
+   */
+  function lostSince(now: Snapshot): HelperPermissionKind[] {
+    if (!deps.memory) return [];
+    const before = deps.memory.load();
+    const union = HELPER_PERMISSION_KINDS.filter((k) => before.includes(k) || now[k] === "granted");
+    if (union.length !== before.length) deps.memory.save(union);
+    return HELPER_PERMISSION_KINDS.filter((k) => before.includes(k) && now[k] === "not_determined");
+  }
+
   async function status(): Promise<HelperPermissionsStatus> {
+    let now: Snapshot;
     try {
       const result = await deps.invoke("permissions.status", {});
       const notifications = await deps
         .invoke("notify.authorization_status", {})
         .then(notificationState, () => "not_determined" as const);
-      return {
+      now = {
         helper: "online",
         accessibility: stateOf(result, "accessibility"),
         screenRecording: stateOf(result, "screenRecording"),
@@ -73,6 +144,14 @@ export function createHelperPermissions(deps: HelperPermissionsDeps) {
     } catch {
       return { ...OFFLINE };
     }
+    for (const k of [...askedThisRun]) if (now[k] === "granted") askedThisRun.delete(k);
+    const lost = lostSince(now);
+    const restartToApply = [...askedThisRun];
+    return {
+      ...now,
+      ...(lost.length > 0 ? { lost } : {}),
+      ...(restartToApply.length > 0 ? { restartToApply } : {}),
+    };
   }
 
   /**
@@ -93,6 +172,8 @@ export function createHelperPermissions(deps: HelperPermissionsDeps) {
           ...(kind === "screenRecording" ? { purpose: "vision_fallback" } : {}),
         })
     ).catch(() => undefined);
+    // Only Screen Recording waits for a restart: Accessibility is read live (`AXIsProcessTrusted`).
+    if (kind === "screenRecording") askedThisRun.add(kind);
     const after = await status();
     if (after.helper === "online" && after[kind] !== "granted") {
       await deps.invoke("permissions.open_settings", { permission: kind }).catch(() => undefined);
@@ -100,5 +181,10 @@ export function createHelperPermissions(deps: HelperPermissionsDeps) {
     return after;
   }
 
-  return { status, request };
+  /** The helper process was (re)started: a new process reads every grant afresh. */
+  function helperRestarted(): void {
+    askedThisRun.clear();
+  }
+
+  return { status, request, helperRestarted };
 }

@@ -33,6 +33,8 @@ public enum Route: Hashable, Sendable {
     case feedPost(id: String)
     /// A Space page (`/spaces/<id>`), pushed from Home.
     case space(id: String)
+    /// A Night shift review (`/home?review=<id>`, the "Prepared overnight" card and its notification), pushed from Home.
+    case nightShift(id: String)
     /// A running task or its run page (`psyche://task/<id>`, `/tasks/<id>`, the Live Activity's tap target): opens
     /// the agent sheet on that task's run page.
     case task(id: String)
@@ -72,6 +74,8 @@ public enum Route: Hashable, Sendable {
             } else {
                 self = .file(id: parts[1])
             }
+        case ("home", 1) where Self.queryValue("review", in: query) != nil:
+            self = .nightShift(id: Self.queryValue("review", in: query) ?? "")
         case ("home", 1): self = .tab(.home)
         case ("chat", 1): self = .tab(.chat)
         case ("memory", 1): self = .tab(.memory)

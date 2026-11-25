@@ -63,6 +63,8 @@ export function MemoryStep({
   persona,
   habits,
   onHabitsChange,
+  nightShift = false,
+  onNightShiftChange,
   memory,
   onMemoryChange,
   onPreviewImport,
@@ -72,6 +74,9 @@ export function MemoryStep({
   persona: string;
   habits: HabitChoices;
   onHabitsChange: (next: HabitChoices) => void;
+  /** The optional Night shift card (off unless the owner turns it on); absent: no card. */
+  nightShift?: boolean;
+  onNightShiftChange?: (on: boolean) => void;
   memory: MemoryChoices;
   onMemoryChange: (next: MemoryChoices) => void;
   onPreviewImport?: OnboardingExtrasProps["onPreviewImport"];
@@ -115,6 +120,21 @@ export function MemoryStep({
           />
         </div>
       </Block>
+
+      {onNightShiftChange ? (
+        <Block
+          title={t("nightShift.onboarding.title")}
+          description={t("nightShift.onboarding.body", { persona })}
+        >
+          <div className={GROUP_ROWS} data-testid="onboarding-night-shift">
+            <SwitchField
+              label={t("settings.key.nightShift.enabled")}
+              checked={nightShift}
+              onChange={onNightShiftChange}
+            />
+          </div>
+        </Block>
+      ) : null}
 
       <Block title={t("onboarding.work.title")}>
         <div className={GROUP_ROWS} data-testid="onboarding-work">
