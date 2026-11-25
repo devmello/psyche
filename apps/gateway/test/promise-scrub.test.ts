@@ -588,7 +588,7 @@ describe("events", () => {
       bus.subscribe(["operator.read"], (f) => sink.push(f), "dev", readerFor(v));
 
     it("promise.updated needs only operator.read, and each subscriber gets its own form", () => {
-      const bus = new EventBus();
+      const bus = new EventBus(0, () => {});
       bus.setPersonalizer((event, payload, sub) =>
         event === "promise.updated"
           ? personalizePromiseEvent(payload as { promise: PromiseView }, sub.reader, vis())
@@ -611,7 +611,7 @@ describe("events", () => {
     it.each(["promise.updated", "memory.loop.updated"] as const)(
       "%s is sent to nobody while no personalizer is installed",
       (event) => {
-        const bus = new EventBus();
+        const bus = new EventBus(0, () => {});
         const sink: string[] = [];
         frames(bus, VIEWERS["desktop shell"] as ViewerDef, sink);
         if (event === "promise.updated") bus.publish(event, { promise: view("mail", true) });
@@ -621,7 +621,7 @@ describe("events", () => {
     );
 
     it("a personalizer that answers undefined does not fall back to the shared frame", () => {
-      const bus = new EventBus();
+      const bus = new EventBus(0, () => {});
       bus.setPersonalizer(() => undefined);
       const sink: string[] = [];
       frames(bus, VIEWERS.iOS as ViewerDef, sink);
@@ -630,7 +630,7 @@ describe("events", () => {
     });
 
     it("publishToDevice never carries these events", () => {
-      const bus = new EventBus();
+      const bus = new EventBus(0, () => {});
       const sink: string[] = [];
       frames(bus, VIEWERS.iOS as ViewerDef, sink);
       bus.publishToDevice("dev", "promise.updated", { promise: view("mail", true) });
@@ -638,7 +638,7 @@ describe("events", () => {
     });
 
     it("other events are unchanged (positive control)", () => {
-      const bus = new EventBus();
+      const bus = new EventBus(0, () => {});
       const sink: string[] = [];
       frames(bus, VIEWERS.iOS as ViewerDef, sink);
       bus.publish("gateway.shutdown", {} as never);
