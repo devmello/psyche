@@ -4,8 +4,8 @@ import { FakeClock } from "@psyche/testing";
 import { describe, expect, it } from "vitest";
 import { createPermissionHandlers } from "../src/handlers.ts";
 import type {
-  ApprovalRequestInput,
   PermissionBrokerOptions,
+  PolicyApprovalInput,
   PolicyCall,
   PolicyContext,
   PsychePermissionBroker,
@@ -175,7 +175,7 @@ const phoneDevices = () =>
     dev_node: { scopes: ["node", "operator.approvals"], role: "node" },
   });
 
-function raise(h: Harness, over: Partial<ApprovalRequestInput> & { offMac?: boolean } = {}) {
+function raise(h: Harness, over: Partial<PolicyApprovalInput> & { offMac?: boolean } = {}) {
   return h.broker.requestApproval({
     kind: "connector_action",
     summary: "Create an event",
@@ -257,7 +257,7 @@ describe("a token on request for a paired phone", () => {
     ).toEqual({});
   });
 
-  const NO_TOKEN: [string, Partial<ApprovalRequestInput> & { offMac?: boolean }, string][] = [
+  const NO_TOKEN: [string, Partial<PolicyApprovalInput> & { offMac?: boolean }, string][] = [
     ["a payment (financial)", { sideEffect: "financial", kind: "connector_action" }, "payment"],
     ["a purchase", { kind: "purchase", sideEffect: "financial" }, "payment"],
     ["a card that needs a presence step", { requireAuthentication: true } as never, "payment"],
@@ -367,7 +367,12 @@ describe("a token on request for a paired phone", () => {
 const hintOf = (a: { details: unknown }) =>
   (a.details as { grantHint?: { count: number; days: number; scope: string } }).grantHint;
 
-async function card(h: Harness, c: PolicyCall, ctx: PolicyContext, details: object = {}) {
+async function card(
+  h: Harness,
+  c: PolicyCall,
+  ctx: PolicyContext,
+  details: Record<string, unknown> = {},
+) {
   const d = await h.broker.decide(c, ctx);
   if (d.decision !== "ask" || d.approvalKind === undefined) throw new Error(`no ask: ${d.rule}`);
   return h.broker.requestApproval({
