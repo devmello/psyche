@@ -160,4 +160,4 @@ export function composeForks(setup: ForkSetup) {
 }
 
 /** The fork pool's claim: only `fork` tasks. The chat and specialist pools exclude them. */
-export const FORK_POOL_CLAIM = { origins: ["fork"] } as const;
+export const FORK_POOL_CLAIM: { origins: "fork"[] } = { origins: ["fork"] };
