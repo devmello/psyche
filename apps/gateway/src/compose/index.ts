@@ -45,6 +45,7 @@ import {
   CliAdapter,
   type CliAdapterDeps,
   createModelRouter,
+  Prices as ForkPrices,
   isLocalKind,
   isSubscriptionKind,
   type KeySource,
@@ -128,6 +129,7 @@ import { DerivedKeyStore, type PaymentBroker, SecretRedactor, type Vault } from 
 import { type DocumentsHandle, documentBridge } from "../artifacts/bridge.ts";
 import { resolveConfig } from "../config.ts";
 import type { HandlerDef } from "../context.ts";
+import { createPlanForkHandlers, type ModelText } from "../handlers/plan-forks.ts";
 import type { PublicRoute, WebhookRoute } from "../http.ts";
 import { createLogger } from "../log.ts";
 import { personalizeMessageEvent } from "../message-scrub.ts";
@@ -191,7 +193,8 @@ import { feedContextResolver } from "./feed-context.ts";
 import { filesHandlers } from "./files.ts";
 import { migrateFilesConnector } from "./files-migration.ts";
 import { repointFolders, withFolder, withRecordedReal, withRecordedRef } from "./folder-access.ts";
-import { composeForks, FORK_POOL_CLAIM } from "./forks.ts";
+import { memoryWritesOff, withForkTaskScrub } from "./fork-hidden.ts";
+import { composeForks, FORK_POOL_CLAIM, threadModelPrice } from "./forks.ts";
 import { usesSandboxPc } from "./guest-sandbox.ts";
 import {
   mountParamsOnly,
@@ -1938,8 +1941,9 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       const change = toolEffectChange(e);
       if (change !== undefined) void changes.record(change);
     },
-    // Incognito threads are memory-only (E9, security §8): the loop never flushes them.
-    isIncognito: (threadId) => getThread(db, threadId)?.kind === "incognito",
+    // Incognito threads are memory-only (E9, security §8): the loop never flushes them. A plan
+    // fork's hidden threads never reach daily notes either (fork-a-plan-2026 §2.3).
+    isIncognito: memoryWritesOff(db),
     // Progressive disclosure: only the core tools' schemas ride in every request (capabilities.ts).
     deferTool: deferToolFor(db),
     specialists,
@@ -1986,6 +1990,9 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   // Plan forks (docs/design/fork-a-plan-2026.md): composed right after Night shift, whose adapters
   // they share; the fork pool reaches them through this ref.
   let forksRef: ReturnType<typeof composeForks> | undefined;
+  // `planForks.*` (F4): composed after the forks; Night shift's apply hook and the comparison
+  // pass reach it through this ref.
+  let planForksRef: ReturnType<typeof createPlanForkHandlers> | undefined;
   const taskTrace = taskRunTrace({
     db,
     sink: () => gatewayRef?.context.runTrace,
@@ -2209,6 +2216,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     publish: (event, payload) => publish(event as never, payload as never),
     broker: rawBroker,
     surfaceOf: (deviceId) => surfaceOf(db, deviceId),
+    onForkApplySettled: (source, approval, outcome) =>
+      planForksRef?.onApplySettled(source, approval, outcome),
     ...(gwOptions.logger === undefined ? {} : { logger: gwOptions.logger }),
   });
   forksRef = composeForks({
@@ -2221,10 +2230,88 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     router,
     redact: (text) => redactor.redact(text),
     publish: (event, payload) => publish(event as never, payload as never),
+    onCompare: (forkId) => planForksRef?.compare(forkId),
     ...(gwOptions.logger === undefined ? {} : { logger: gwOptions.logger }),
   });
   // The report host the loop files each branch's one report to (fork_report, F1).
   forkReportHost.current = forksRef.service.reports;
+  /** One model call, no tools: the comparison pass (thread model) and the suggestion (utility). */
+  const oneShot =
+    (pick: (threadId: string) => string): ModelText =>
+    async (threadId, req) => {
+      const ctl = new AbortController();
+      const timer = setTimeout(() => ctl.abort(), 60_000);
+      try {
+        let text = "";
+        let costUsd = 0;
+        let tokens = 0;
+        for await (const e of provider.stream(
+          {
+            model: pick(threadId) as never,
+            system: req.system,
+            messages: [{ role: "user", parts: [{ type: "text", text: req.user }] }],
+            maxOutputTokens: req.maxOutputTokens,
+            temperature: 0,
+            cache: "none",
+          },
+          { signal: ctl.signal },
+        )) {
+          if (e.type === "text_delta") text += e.text;
+          if (e.type === "usage") {
+            costUsd += e.usage.costUsd ?? 0;
+            tokens += (e.usage.input ?? 0) + (e.usage.output ?? 0);
+          }
+          if (e.type === "finish" && e.reason !== "stop" && e.reason !== "length") return undefined;
+        }
+        return { text, costUsd, tokens };
+      } finally {
+        clearTimeout(timer);
+      }
+    };
+  const forkPrices = new ForkPrices();
+  planForksRef = createPlanForkHandlers({
+    db,
+    clock,
+    service: forksRef.service,
+    applier: nightShiftRef.applier,
+    broker: rawBroker,
+    tasks,
+    surfaceOf: (deviceId) => surfaceOf(db, deviceId),
+    publish: (event, payload, threadId) => publish(event as never, payload as never, threadId),
+    // The parent turn after Take (fork-a-plan §3.4 step 4): tainted with the branch's sources, the
+    // plan as leading (untrusted) context. A busy chat starts nothing: a queued follow-up would
+    // drop the taint.
+    startTurn: (input) => {
+      const gw = gatewayRef;
+      if (gw === null || gw === undefined) return false;
+      if (gw.context.sessions.activeRunId(input.threadId) !== null) return false;
+      const events: Array<() => void> = [];
+      const after: Array<() => void> = [];
+      db.sqlite.transaction(() =>
+        gw.context.sessions.send(
+          {
+            threadId: input.threadId,
+            content: input.content,
+            leadingContext: input.leadingContext,
+            deviceId: input.deviceId,
+            taintSources: input.taintSources,
+          },
+          {
+            emit: (event, payload, tid) => events.push(() => gw.bus.publish(event, payload, tid)),
+            afterCommit: (fn) => after.push(fn),
+          },
+        ),
+      )();
+      for (const fn of events) fn();
+      for (const fn of after) fn();
+      return true;
+    },
+    compareModel: oneShot((threadId) => router?.threadModel(threadId) ?? modelRef),
+    suggestModel: oneShot(() => utility ?? modelRef),
+    modelPrice: (threadId) => threadModelPrice(router, forkPrices, threadId),
+    redact: (text) => redactor.redact(text),
+    ...(gwOptions.logger === undefined ? {} : { logger: gwOptions.logger }),
+  });
   // #557: web.search / web.fetch on every surface (read-only, untrusted output).
   const webTools = composeWebTools(
     {
@@ -2640,13 +2727,17 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
           loop.effectiveContextLimits(threadId, getThread(db, threadId)?.modelRef ?? undefined),
       ) as never,
     ),
-    ...mountParamsOnly(
-      createTaskHandlers({
-        engine: tasks,
-        pool,
-        pools: [specialistPool, forkPool],
-        broker,
-      }) as never,
+    // A fork task's goal holds read excerpts: only the desktop shell sees it (fork-a-plan §4.4).
+    ...withForkTaskScrub(
+      db,
+      mountParamsOnly(
+        createTaskHandlers({
+          engine: tasks,
+          pool,
+          pools: [specialistPool, forkPool],
+          broker,
+        }) as never,
+      ),
     ),
     ...mountParamsOnly(
       taskUpdateHandlers({
@@ -2697,6 +2788,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     ),
     ...proactive.handlers,
     ...(nightShiftRef?.defs ?? {}),
+    ...(planForksRef?.defs ?? {}),
     ...capabilities.handlers,
     ...questionHandlers(loop, tasks),
     ...receiptHandlers(broker),
@@ -3010,6 +3102,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   gateway.context.chatFiles.attached = (threadId) => rawBroker.attachedFiles(threadId);
   // Clear chat and delete end the conversation: its "Allow once" folders and attached files go.
   gateway.context.threadEnded.add(endSessionQuietly(rawBroker, gwOptions.logger));
+  // Clear chat and delete cancel the chat's plan forks and remove their hidden threads (§8).
+  gateway.context.threadEnding.add((threadId) => planForksRef?.onThreadEnding(threadId));
   gateway.context.messageScrub.scrub = (message, who) => everything.lifeChat.scrub(message, who);
   // Phrases still queued by a Forget before the last shutdown resume here.
   traceScrub.start();

@@ -630,11 +630,13 @@ export function composeProactive(setup: ProactiveSetup): ComposedProactive {
             status: ["queued", "running", "awaiting_input", "awaiting_approval", "paused"],
           })
         )
-          .filter((t) => t.createdFrom !== "automation")
+          // Plan-fork branches are hidden work (fork-a-plan-2026 §2.3): never a brief line.
+          .filter((t) => t.createdFrom !== "automation" && t.createdFrom !== "fork")
           .slice(0, 20)
           .map((t) => ({ id: t.id, title: t.title, link: `/tasks/${t.id}` })),
       doneBetween: async (from, to) => {
         const done = (await tasks.list({ status: ["done"] }))
+          .filter((t) => t.createdFrom !== "fork")
           .filter((t) => {
             const at = Date.parse(t.completedAt ?? "");
             return at >= from && at <= to;

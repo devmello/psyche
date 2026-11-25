@@ -52,6 +52,7 @@ import type { Logger } from "../log.ts";
 import type { Gateway } from "../server.ts";
 import { markImportedHits } from "../session/imported-threads.ts";
 import { DeferredOpen } from "./deferred-open.ts";
+import { isForkThread, scrubForkSearchHits } from "./fork-hidden.ts";
 import { hiddenSearchPrefixes, scrubSearchForViewer } from "./memory-chunks.ts";
 import type { PageReadHub } from "./page-reads.ts";
 import { openSearchDatabase } from "./search-db.ts";
@@ -361,6 +362,8 @@ function buildSearch(deps: SearchDeps, sqlite: PsycheDb["sqlite"]): ComposedSear
   const indexer = new SearchIndexer(index, {
     lookupThread: async (id) => getThread(deps.db, id),
     lookupTask: (id) => deps.tasks.get(id),
+    // A plan fork's hidden threads and tasks are never indexed (fork-a-plan-2026 §2.3).
+    isForkThread: (id) => isForkThread(deps.db, id),
     senderOf: async (message, thread) =>
       messageSender(message, thread, { owner: await ownerName() }),
     onError: (err, event) =>
@@ -676,14 +679,18 @@ function buildSearch(deps: SearchDeps, sqlite: PsycheDb["sqlite"]): ComposedSear
   const handlers: Record<string, HandlerDef> = {
     "search.query": {
       run: async (call, params: never) =>
-        scrubSearchForViewer(
+        scrubForkSearchHits(
           call,
-          markImportedHits(
-            call.ctx.db,
-            await api["search.query"](params, {
-              viewer: OWNER,
-              excludeIdPrefixes: hiddenSearchPrefixes(call),
-            }),
+          call.ctx.db,
+          scrubSearchForViewer(
+            call,
+            markImportedHits(
+              call.ctx.db,
+              await api["search.query"](params, {
+                viewer: OWNER,
+                excludeIdPrefixes: hiddenSearchPrefixes(call),
+              }),
+            ),
           ),
         ),
     },
