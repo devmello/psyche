@@ -50,6 +50,7 @@ import {
   put,
   putMany,
   type QueuedFollowUp,
+  replaceLibraryWindow,
   type StreamingMessage,
   type ThreadContextEntry,
   type UiState,
@@ -1482,7 +1483,24 @@ export function useLibrary(filter: MethodParams<"library.list"> = {}) {
   const load = useLoader(`library:${key}`, async (st) => {
     const version = st.version();
     const res = await st.call("library.list", filter);
-    st.update((s) => putMany(s, "library", res.items, version));
+    const filtered =
+      filter.threadId !== undefined ||
+      filter.taskId !== undefined ||
+      filter.query !== undefined ||
+      filter.quarantined !== undefined ||
+      filter.cursor !== undefined;
+    st.update((s) =>
+      replaceLibraryWindow(
+        s,
+        res.items,
+        {
+          ...(filter.kind === undefined ? {} : { kind: filter.kind }),
+          filtered,
+          hasMore: res.nextCursor !== null && res.nextCursor !== undefined,
+        },
+        version,
+      ),
+    );
   });
   const list = useMemo(
     () =>
