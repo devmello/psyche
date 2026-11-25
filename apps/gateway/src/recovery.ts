@@ -8,6 +8,7 @@ import {
   type PsycheDb,
   settleRunToolCalls,
 } from "@psyche/db";
+import { GATEWAY_RESTART_NOTE } from "@psyche/protocol";
 import type { Logger } from "./log.ts";
 
 export const RESTART_ERROR = "gateway_restart";
@@ -54,7 +55,11 @@ export function recoverAfterRestart(db: PsycheDb, log: Logger): RecoveryReport {
             threadId: id,
             role: "system",
             blocks: [
-              { type: "text", md: "The Gateway restarted during this turn, so it was stopped." },
+              {
+                type: "text",
+                md: GATEWAY_RESTART_NOTE.md,
+                noteKey: GATEWAY_RESTART_NOTE.key,
+              },
             ],
             provenance: "system",
             runId,

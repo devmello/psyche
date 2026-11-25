@@ -1,6 +1,7 @@
 import type { Run, RunStep, RunStepStatus, Usage } from "@psyche/protocol";
 import { type Gap, type Interval, idleGaps } from "../../components/timeline/scale.ts";
 import type { BarKind, BarSegment } from "../../components/timeline/Timeline.tsx";
+import { runStepText } from "../../i18n/run-text.ts";
 
 /**
  * The Timeline's row model (docs/design/run-trace-2026.md §3.3), pure so the waterfall, the List
@@ -58,6 +59,7 @@ export function ms(iso: string | null | undefined): number | null {
 
 export function stepLabel(step: RunStep): string {
   const ended = step.endedAt !== null && step.status !== "running" && step.status !== "waiting";
+  if (step.labelKey !== undefined) return runStepText(step, ended);
   return ended && step.doneLabel ? step.doneLabel : step.label;
 }
 

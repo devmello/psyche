@@ -21,6 +21,7 @@ import {
 } from "../components/ui/dropdown-menu.tsx";
 import { Textarea } from "../components/ui/textarea.tsx";
 import { t } from "../i18n/core.ts";
+import { systemNoteText } from "../i18n/run-text.ts";
 import { formatTime } from "../lib/format.ts";
 import { cn } from "../lib/utils.ts";
 import { usePersona } from "../slots.tsx";
@@ -106,7 +107,7 @@ export function MessageView({
         {message.blocks.map((b, i) =>
           b.type === "text" ? (
             // biome-ignore lint/suspicious/noArrayIndexKey: blocks have no ids and never reorder
-            <p key={i}>{b.md}</p>
+            <p key={i}>{systemNoteText(b)}</p>
           ) : b.type === "compaction" ? (
             <CompactionMessage key={b.compactionId} message={message} block={b} />
           ) : b.type === "specialist_result" ? (
