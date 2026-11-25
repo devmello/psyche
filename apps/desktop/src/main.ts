@@ -79,6 +79,7 @@ import {
 import { LanDiscovery } from "./lib/lan-discovery.ts";
 import { createPinnedFetch, createPinnedWebSocket, PinnedChannel } from "./lib/lan-tls.ts";
 import { checkLibraryReveal, revealLibraryItem } from "./lib/library-reveal.ts";
+import { NotificationKeeper } from "./lib/notify-keep.ts";
 import { NotificationRelay } from "./lib/notify-relay.ts";
 import { createPairLinkInbox, isPairLinkUrl, PAIR_LINK_SCHEME } from "./lib/pair-link.ts";
 import { pairingEdge } from "./lib/pairing-edge.ts";
@@ -1881,9 +1882,11 @@ function showNotification(
 ): void {
   if (!Notification.isSupported()) return;
   const n = new Notification({ title, body, silent: urgency === "low", urgency });
-  n.on("click", () => command({ type: "navigate", route }));
-  n.show();
+  // Held by osNotifications until clicked, closed or failed, so its click still lands.
+  osNotifications.show(n, () => command({ type: "navigate", route }));
 }
+
+const osNotifications = new NotificationKeeper<Notification>();
 
 let pending: ApprovalRequest[] = [];
 
@@ -1928,9 +1931,10 @@ function onGatewayEvent(e: {
       showNotification(d.title, d.body, d.route, d.urgency);
   }
   if (e.event === "notification.created") {
-    const d = relay.decide(p.notification as PsycheNotification);
-    if (d.show && d.title && d.body && d.route)
-      showNotification(d.title, d.body, d.route, d.urgency);
+    relay.offer(p.notification as PsycheNotification, (d) => {
+      if (d.show && d.title && d.body && d.route)
+        showNotification(d.title, d.body, d.route, d.urgency);
+    });
   }
   if (e.event === "approval.created" || e.event === "approval.updated") {
     const a = p.approval as ApprovalRequest;
@@ -1959,8 +1963,8 @@ let helperNotificationsChecked = false;
 
 async function refreshHelperPresence(): Promise<void> {
   const helpers = await onlineHostHelpers();
-  relay.helperOnline = helpers.some((n) =>
-    (n.capabilities ?? []).some((c) => c.name?.startsWith("notify.")),
+  relay.setPresence(
+    helpers.some((n) => (n.capabilities ?? []).some((c) => c.name?.startsWith("notify."))),
   );
   if (relay.helperOnline && !helperNotificationsChecked) {
     helperNotificationsChecked = true;
