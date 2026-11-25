@@ -38,6 +38,7 @@ import { NotificationsMethods } from "./notifications.ts";
 import { NudgeMethods } from "./nudges.ts";
 import { PasskeysMethods } from "./passkeys.ts";
 import { PluginsMethods } from "./plugins.ts";
+import { PointsMethods } from "./points.ts";
 import { FeedMethods, GoalsMethods, IdeasMethods } from "./proactive.ts";
 import { PromisesMethods } from "./promises.ts";
 import { QuestionsMethods } from "./questions.ts";
@@ -103,6 +104,7 @@ export * from "./notifications.ts";
 export * from "./nudges.ts";
 export * from "./passkeys.ts";
 export * from "./plugins.ts";
+export * from "./points.ts";
 export * from "./proactive.ts";
 export * from "./questions.ts";
 export * from "./receipts.ts";
@@ -178,6 +180,7 @@ export const Methods = {
   ...RunsMethods,
   ...DictationMethods,
   ...TeachAppMethods,
+  ...PointsMethods,
   ...AttentionMethods,
   ...SkillsMethods,
   ...ConnectorBundleMethods,

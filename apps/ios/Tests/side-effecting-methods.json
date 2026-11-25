@@ -144,6 +144,7 @@
   "plugins.proposeInstall",
   "plugins.remove",
   "plugins.setEnabled",
+  "points.start",
   "promises.act",
   "promises.add",
   "promises.delete",

@@ -4,6 +4,7 @@ import { CompactionSummary } from "./context.ts";
 import { DailyWorkflowProposal } from "./daily.ts";
 import { LifeAnswerPassage, LifeFactHit } from "./everything-memory.ts";
 import { LearnedFact } from "./memory.ts";
+import { PointsOfferBlock } from "./points.ts";
 import { AnswerSource } from "./sources.ts";
 
 /** Message content blocks (data model §9.1). Discriminated on `type`. */
@@ -327,6 +328,7 @@ export const Block = Type.Union(
     SpecialistResultBlock,
     AutomationWorkflowBlock,
     AppLinkBlock,
+    PointsOfferBlock,
     UiBlock,
   ],
   { $id: "Block" },
