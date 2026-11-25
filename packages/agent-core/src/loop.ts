@@ -1442,15 +1442,31 @@ export class PsycheAgentLoop implements AgentLoop {
       // Older tool images become notes in the thread itself, in batches (cache-stable prefix).
       run.thread.messages = keepRecentToolImages(run.thread.messages);
       const { system, tools, cache } = await this.#prepare(run);
-      const sent = this.#requestMessages(run).slice();
+      let sent = this.#requestMessages(run).slice();
+      const metered = run.contextCalls.length;
       // A widget button's call is the first step (generative-ui-2026 §6.2); it is gated below
       // exactly like a model's call. It is consumed here so a retry of the loop never re-proposes it.
       const proposed = run.proposedCall;
       run.proposedCall = undefined;
-      const step =
+      let step =
         proposed === undefined
           ? await this.#callModel(run, system, tools, cache)
           : this.#proposedStep(proposed);
+      // The provider says the prompt is too long although our estimate said it fit: fold the
+      // thread now and send the step once more. A second overflow fails the turn as before.
+      if (
+        proposed === undefined &&
+        step.finish === "error" &&
+        step.parts.length === 0 &&
+        isContextOverflow(step.error)
+      ) {
+        const again = await this.#compactAfterOverflow(run);
+        if (again !== undefined) {
+          run.contextCalls.length = metered;
+          sent = this.#requestMessages(run).slice();
+          step = await this.#callModel(run, again.system, again.tools, again.cache);
+        }
+      }
       if (step.parts.length > 0) run.thread.messages.push({ role: "assistant", parts: step.parts });
       run.emit({ type: "usage", runId: run.runId, usage: { ...run.usage } });
       if (proposed === undefined) await this.#modelCallPersist(run, system, tools, sent, step);
@@ -1925,6 +1941,25 @@ export class PsycheAgentLoop implements AgentLoop {
   }
 
   // --- Context ----------------------------------------------------------------------------------
+
+  /** Force a compaction after a context-length error; the rebuilt prompt, or undefined if nothing folded. */
+  async #compactAfterOverflow(
+    run: RunState,
+  ): Promise<{ system: string; tools: ToolSpec[]; cache: PromptCache } | undefined> {
+    const built = await this.#assemble(run);
+    const limits = await this.#limitsFor(run.threadId, run.model);
+    run.limits = limits;
+    const estimate = estimateContextTokens(built.system, this.#requestMessages(run), built.tools);
+    const prefix = {
+      system: built.system,
+      systemStableLength: built.systemStableLength,
+      tools: built.tools,
+      deferredTools: built.tools.length === 0 ? [] : built.deferredTools,
+    };
+    if (!(await this.#compact(run, estimate, limits.contextWindow, "auto", prefix)))
+      return undefined;
+    return this.#prepare(run);
+  }
 
   async #prepare(
     run: RunState,
@@ -4610,6 +4645,11 @@ function ownerTypedText(input: StartTurnInput): string {
  * A steer or follow-up as a text part: `author: "owner"` only when the owner typed it and the run
  * is the owner's own (same rule as the turn's first message).
  */
+/** A model error text (`<kind>: ...`) that says the prompt was too long. */
+function isContextOverflow(error: string | undefined): boolean {
+  return error !== undefined && /^context_overflow\b/.test(error);
+}
+
 function ownerPart(run: RunState, s: { text: string; ownerWords: boolean }): ModelPart {
   return s.ownerWords && run.ownerRun
     ? { type: "text", text: s.text, author: "owner" }
