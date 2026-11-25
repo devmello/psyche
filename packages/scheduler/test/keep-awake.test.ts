@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CAFFEINATE_PATH, KeepAwake, type PowerProcess } from "../src/index.ts";
+import { KeepAwake, type PowerProcess } from "../src/index.ts";
 
 /** A fake power API: records each caffeinate start and lets the test end it. */
 function fakePower() {

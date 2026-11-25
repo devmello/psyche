@@ -8,6 +8,7 @@ export const CAFFEINATE_PATH = "/usr/bin/caffeinate";
 
 /** The part of a child process the hold needs. */
 export interface PowerProcess {
+  // biome-ignore lint/suspicious/noConfusingVoidType: a fake may return nothing
   kill(): boolean | void;
   on(event: "exit" | "error", listener: (...args: unknown[]) => void): unknown;
   unref?(): void;
