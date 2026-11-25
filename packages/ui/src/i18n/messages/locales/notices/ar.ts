@@ -39,6 +39,12 @@ export const notices: Partial<Catalogue> = {
     "{reason, select, account_changed {يسجّل موصّل الدخول الآن إلى حساب مختلف. أُوقف العمل المرتبط بالحساب القديم.} disconnected {فُصل موصّل. أُوقف العمل الذي كان يحتاج إليه.} scope_changed {أصبح موصّل للقراءة فقط. أُوقفت الإجراءات المعلّقة عبره.} other {أُلغي وصول موصّل. سجّل الدخول من جديد لمواصلة استخدامه.}}",
   "notice.connector.reconnect.title": "يلزم إعادة الاتصال",
   "notice.connector.reconnect.body": "فقد موصّل إمكانية الوصول ويلزمك تسجيل الدخول من جديد.",
+  "notice.connector.syncFailing.title": "{name} لا تتم مزامنته",
+  "notice.connector.syncFailing.body":
+    "فشلت مزامنة {name} عدة مرات متتالية ({reason}). يواصل Psyche المحاولة. تحقق من ذلك في الإعدادات › الموصلات.",
+  "notice.connector.testingExpired.title": "سجّل Google خروجك",
+  "notice.connector.testingExpired.body":
+    "يسجّل Google خروجك بعد 7 أيام ما دام تطبيق OAuth الخاص بـ Psyche في وضع الاختبار. انشر تطبيق OAuth في Google Cloud لإيقاف ذلك، ثم أعد ربط Google من الإعدادات › الموصلات.",
   "notice.attention.paused.title": "مهمة تنتظرك",
   "notice.attention.paused.body":
     "توقفت مؤقتًا قبل {tool} على تطبيق أو موقع حساس إلى أن تعود إلى Psyche.",

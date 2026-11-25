@@ -39,6 +39,12 @@ export const notices: Partial<Catalogue> = {
     "{reason, select, account_changed {एक कनेक्टर अब किसी दूसरे खाते में साइन इन करता है। पुराने खाते से जुड़ा काम रोक दिया गया।} disconnected {एक कनेक्टर डिस्कनेक्ट हो गया। जिस काम को उसकी ज़रूरत थी वह रोक दिया गया।} scope_changed {एक कनेक्टर अब केवल पढ़ने के लिए है। उसके ज़रिए लंबित कार्रवाइयाँ रोक दी गईं।} other {एक कनेक्टर की पहुँच रद्द कर दी गई। उसका उपयोग जारी रखने के लिए फिर से साइन इन करें।}}",
   "notice.connector.reconnect.title": "फिर से कनेक्ट करना होगा",
   "notice.connector.reconnect.body": "एक कनेक्टर की पहुँच खत्म हो गई है; आपको फिर से साइन इन करना होगा।",
+  "notice.connector.syncFailing.title": "{name} सिंक नहीं हो रहा है",
+  "notice.connector.syncFailing.body":
+    "{name} लगातार कई बार सिंक नहीं हो सका ({reason})। Psyche कोशिश करता रहेगा। सेटिंग › कनेक्टर में जाँचें।",
+  "notice.connector.testingExpired.title": "Google ने आपको साइन आउट कर दिया",
+  "notice.connector.testingExpired.body":
+    "जब तक Psyche का OAuth ऐप टेस्टिंग मोड में है, Google 7 दिन बाद आपको साइन आउट कर देता है। इसे रोकने के लिए Google Cloud में OAuth ऐप प्रकाशित करें, फिर सेटिंग › कनेक्टर में Google को दोबारा जोड़ें।",
   "notice.attention.paused.title": "एक टास्क आपका इंतज़ार कर रहा है",
   "notice.attention.paused.body":
     "किसी संवेदनशील ऐप या साइट पर {tool} से पहले रोक दिया गया, जब तक आप Psyche में वापस नहीं आते।",

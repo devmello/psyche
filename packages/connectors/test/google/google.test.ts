@@ -441,6 +441,95 @@ describe("sync", () => {
   });
 });
 
+describe("Gmail sync does not skip mail", () => {
+  const quietCalendar = (g: FakeGoogle) =>
+    g.route("GET", "/calendar/v3/calendars/primary/events", {
+      items: [],
+      nextSyncToken: "sync-1",
+    });
+
+  it("keeps historyId until every history page is read, then continues from the page token", async () => {
+    const { g, registry } = await connected();
+    quietCalendar(g);
+    const seen: (string | null)[] = [];
+    let pages = 0;
+    g.route("GET", "/gmail/v1/users/me/history", ({ url }: { url: URL }) => {
+      seen.push(url.searchParams.get("pageToken"));
+      expect(url.searchParams.get("startHistoryId")).toBe("9001");
+      pages += 1;
+      const last = pages === 22; // 20 pages, then 2 more on the next sync
+      return Response.json({
+        history: [{ messagesAdded: [{ message: { id: `m${pages}` } }] }],
+        historyId: "9500",
+        ...(last ? {} : { nextPageToken: `tok-${pages}` }),
+      });
+    });
+    const live = registry.instance("google-1");
+    const first = await live?.sync?.({ gmail: { historyId: "9001" }, calendars: { primary: "" } });
+    expect(pages).toBe(20);
+    expect(first?.cursor).toMatchObject({ gmail: { historyId: "9001", pageToken: "tok-20" } });
+    expect(first?.changes).toBe(20);
+
+    const second = await live?.sync?.(first?.cursor ?? null);
+    expect(seen[20]).toBe("tok-20"); // resumed where it stopped
+    expect(pages).toBe(22);
+    expect(second?.cursor).toMatchObject({ gmail: { historyId: "9500" } });
+    expect((second?.cursor as { gmail: Record<string, unknown> }).gmail).not.toHaveProperty(
+      "pageToken",
+    );
+    expect(second?.changes).toBe(2);
+  });
+
+  it("after a 404 imports mail back to the last completed sync, not just the latest 100", async () => {
+    const { g, registry } = await connected();
+    quietCalendar(g);
+    g.route("GET", "/gmail/v1/users/me/history", () =>
+      Response.json(fixture("history-not-found"), { status: 404 }),
+    );
+    const queries: (string | null)[] = [];
+    g.route("GET", "/gmail/v1/users/me/messages", ({ url }: { url: URL }) => {
+      queries.push(url.searchParams.get("q"));
+      const page = url.searchParams.get("pageToken") === "p2" ? 2 : 1;
+      return Response.json({
+        messages: Array.from({ length: page === 1 ? 100 : 40 }, (_, i) => ({
+          id: `m${page}-${i}`,
+        })),
+        ...(page === 1 ? { nextPageToken: "p2" } : {}),
+      });
+    });
+    const syncedAt = g.clock.now() - 3 * 24 * 60 * 60 * 1000;
+    const r = await registry.instance("google-1")?.sync?.({
+      gmail: { historyId: "1", syncedAt },
+      calendars: { primary: "" },
+    });
+    expect(queries[0]).toBe(`after:${Math.floor(syncedAt / 1000)}`);
+    expect(r?.changes).toBe(140);
+    expect(r).toMatchObject({ full: true, cursor: { gmail: { historyId: "9001" } } });
+    expect(r).not.toHaveProperty("truncated");
+  });
+
+  it("says so when the resync hits its cap, and the registry passes that on", async () => {
+    const { g, registry, events } = await connected();
+    quietCalendar(g);
+    g.route("GET", "/gmail/v1/users/me/history", () =>
+      Response.json(fixture("history-not-found"), { status: 404 }),
+    );
+    let page = 0;
+    g.route("GET", "/gmail/v1/users/me/messages", () => {
+      page += 1;
+      return Response.json({
+        messages: Array.from({ length: 100 }, (_, i) => ({ id: `m${page}-${i}` })),
+        nextPageToken: `p${page + 1}`,
+      });
+    });
+    await registry.sync("google-1"); // first sync: the latest 100, saves a cursor
+    const r = await registry.sync("google-1"); // history gone (404): resync, capped
+    expect(r.truncated).toBe(true);
+    expect(r.changes).toBe(1000);
+    expect(events).toContainEqual(expect.objectContaining({ type: "synced", truncated: true }));
+  });
+});
+
 describe("Calendar", () => {
   it("lists events only in bounded ranges, queries free/busy, and creates events with a calendar binding", async () => {
     const approvals: Record<string, string> = {};

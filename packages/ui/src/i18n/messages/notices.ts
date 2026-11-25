@@ -43,6 +43,12 @@ export const notices = {
     "{reason, select, account_changed {A connector now signs in to a different account. Work bound to the old account was stopped.} disconnected {A connector was disconnected. Work that needed it was stopped.} scope_changed {A connector is now read-only. Pending actions through it were stopped.} other {A connector's access was revoked. Sign in again to keep using it.}}",
   "notice.connector.reconnect.title": "Reconnect needed",
   "notice.connector.reconnect.body": "A connector lost access and needs you to sign in again.",
+  "notice.connector.syncFailing.title": "{name} isn't syncing",
+  "notice.connector.syncFailing.body":
+    "{name} failed to sync several times in a row ({reason}). Psyche keeps retrying. Open Settings › Connectors to check it.",
+  "notice.connector.testingExpired.title": "Google signed you out",
+  "notice.connector.testingExpired.body":
+    "Google signs you out after 7 days while the Psyche OAuth app is in Testing mode. Publish the OAuth app in Google Cloud to stop this, then reconnect Google in Settings › Connectors.",
   "notice.attention.paused.title": "A task is waiting for you",
   "notice.attention.paused.body":
     "Paused before {tool} on a sensitive app or site until you are back in Psyche.",

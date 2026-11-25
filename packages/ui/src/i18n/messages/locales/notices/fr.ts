@@ -42,6 +42,12 @@ export const notices: Partial<Catalogue> = {
   "notice.connector.reconnect.title": "Reconnexion nécessaire",
   "notice.connector.reconnect.body":
     "Un connecteur a perdu l’accès et vous devez vous reconnecter.",
+  "notice.connector.syncFailing.title": "{name} ne se synchronise pas",
+  "notice.connector.syncFailing.body":
+    "La synchronisation de {name} a échoué plusieurs fois de suite ({reason}). Psyche continue d'essayer. Vérifiez dans Réglages › Connecteurs.",
+  "notice.connector.testingExpired.title": "Google vous a déconnecté",
+  "notice.connector.testingExpired.body":
+    "Google vous déconnecte après 7 jours tant que l'app OAuth de Psyche est en mode test. Publiez l'app OAuth dans Google Cloud pour y mettre fin, puis reconnectez Google dans Réglages › Connecteurs.",
   "notice.attention.paused.title": "Une tâche vous attend",
   "notice.attention.paused.body":
     "En pause avant {tool} sur une app ou un site sensible, jusqu’à votre retour dans Psyche.",

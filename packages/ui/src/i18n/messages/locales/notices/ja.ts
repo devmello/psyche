@@ -40,6 +40,12 @@ export const notices: Partial<Catalogue> = {
   "notice.connector.reconnect.title": "再接続が必要です",
   "notice.connector.reconnect.body":
     "コネクタがアクセスを失いました。もう一度サインインしてください。",
+  "notice.connector.syncFailing.title": "{name} が同期されていません",
+  "notice.connector.syncFailing.body":
+    "{name} の同期が続けて失敗しました ({reason})。Psyche は再試行を続けます。設定 › コネクタで確認してください。",
+  "notice.connector.testingExpired.title": "Google からサインアウトされました",
+  "notice.connector.testingExpired.body":
+    "Psyche の OAuth アプリがテストモードの間、Google は 7 日後にサインアウトします。Google Cloud で OAuth アプリを公開すると解消します。そのあと設定 › コネクタで Google を再接続してください。",
   "notice.attention.paused.title": "タスクがあなたを待っています",
   "notice.attention.paused.body":
     "機密性の高いアプリやサイトで {tool} の前に一時停止しています。Psyche に戻るまで待機します。",

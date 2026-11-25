@@ -41,6 +41,12 @@ export const notices: Partial<Catalogue> = {
     "{reason, select, account_changed {Un connettore ora accede a un altro account. Il lavoro legato al vecchio account è stato fermato.} disconnected {Un connettore è stato disconnesso. Il lavoro che ne aveva bisogno è stato fermato.} scope_changed {Un connettore ora è di sola lettura. Le azioni in sospeso tramite esso sono state fermate.} other {L’accesso di un connettore è stato revocato. Accedi di nuovo per continuare a usarlo.}}",
   "notice.connector.reconnect.title": "Serve riconnettersi",
   "notice.connector.reconnect.body": "Un connettore ha perso l’accesso e devi accedere di nuovo.",
+  "notice.connector.syncFailing.title": "{name} non si sincronizza",
+  "notice.connector.syncFailing.body":
+    "{name} non è riuscito a sincronizzarsi più volte di fila ({reason}). Psyche continua a riprovare. Controlla in Impostazioni › Connettori.",
+  "notice.connector.testingExpired.title": "Google ti ha disconnesso",
+  "notice.connector.testingExpired.body":
+    "Google ti disconnette dopo 7 giorni finché l'app OAuth di Psyche è in modalità di test. Pubblica l'app OAuth in Google Cloud per evitarlo, poi ricollega Google in Impostazioni › Connettori.",
   "notice.attention.paused.title": "Un’attività ti aspetta",
   "notice.attention.paused.body":
     "In pausa prima di {tool} su un’app o un sito sensibile, finché non torni in Psyche.",
