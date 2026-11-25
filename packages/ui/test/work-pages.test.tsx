@@ -763,22 +763,22 @@ describe("a to-do with no project", () => {
   });
 });
 
-describe("tracking a course end to end", () => {
-  /** A host that follows `onNavigate` the way the app does, so one test can walk the pages. */
-  function Host(): ReactElement {
-    const [route, setRoute] = useState("/memory?kind=projects");
-    const url = new URL(route, "http://psyche.local");
-    const entity = url.searchParams.get("entity");
-    return (
-      <MemoryScreen
-        now={STORY_NOW}
-        kind={parseMemoryKind(url.searchParams.get("kind"))}
-        {...(entity ? { entity } : {})}
-        onNavigate={setRoute}
-      />
-    );
-  }
+/** A host that follows `onNavigate` the way the app does, so one test can walk the pages. */
+function Host(): ReactElement {
+  const [route, setRoute] = useState("/memory?kind=projects");
+  const url = new URL(route, "http://psyche.local");
+  const entity = url.searchParams.get("entity");
+  return (
+    <MemoryScreen
+      now={STORY_NOW}
+      kind={parseMemoryKind(url.searchParams.get("kind"))}
+      {...(entity ? { entity } : {})}
+      onNavigate={setRoute}
+    />
+  );
+}
 
+describe("tracking a course end to end", () => {
   it("adds a course, gives it a term, links a folder, adds an assignment, works it and finishes it", async () => {
     const { callsTo, user } = setup(<Host />);
 
