@@ -9044,7 +9044,7 @@ export interface StagedAction {
     params?:       unknown;
     paramsHash:    string;
     precondition?: unknown;
-    preview?:      unknown;
+    preview?:      StagedPreview | null;
     result?:       StagedActionResult | null;
     send?:         StagedActionSend | null;
     seq:           number;
@@ -9063,6 +9063,24 @@ export interface StagedAction {
 }
 
 export type StagedActionDomain = "mail" | "calendar" | "reminders" | "files";
+
+export interface StagedPreview {
+    kind:      StagedPreviewKind;
+    rows:      StagedPreviewRow[];
+    title:     string;
+    truncated: boolean;
+}
+
+export type StagedPreviewKind = "mail" | "calendar" | "reminder" | "file";
+
+export interface StagedPreviewRow {
+    badge?:     Badge;
+    label:      string;
+    truncated?: boolean;
+    value:      string;
+}
+
+export type Badge = "new_recipient" | "reply_all";
 
 export interface StagedActionResult {
     error?:     string;
