@@ -12690,6 +12690,17 @@ export interface StorageCleared {
     freedBytes: number;
 }
 
+export interface StorageCompactEstimate {
+    dbBytes:          number;
+    idle:             boolean;
+    reclaimableBytes: number;
+}
+
+export interface StorageCompacted {
+    durationMs: number;
+    savedBytes: number;
+}
+
 export interface StorageUsage {
     categories: StorageCategory[];
     partial?:   boolean;

@@ -10,7 +10,9 @@ import type {
   StorageCategoryId,
   StorageClearTarget,
 } from "@psyche/protocol";
+import { PsycheError } from "@psyche/protocol";
 import type { Call, HandlerDef } from "../context.ts";
+import { compactDatabase, compactEstimate } from "../db-maintenance.ts";
 import type { ComposedPart, ComposeServices } from "./services.ts";
 
 /**
@@ -246,6 +248,30 @@ export function composeStorage(services: ComposeServices): ComposedPart {
   let clearing = false;
   const handlers: Record<string, HandlerDef> = {
     "storage.usage": { run: () => storageUsage(home) },
+    "storage.compactEstimate": {
+      run: () => {
+        if (services.db === undefined) return { dbBytes: 0, reclaimableBytes: 0, idle: false };
+        return compactEstimate(services.db);
+      },
+    },
+    "storage.compact": {
+      run: () => {
+        if (services.db === undefined) {
+          throw new PsycheError("unavailable", "The database is not available.");
+        }
+        const log = services.logger ?? { log: () => {} };
+        const r = compactDatabase({ db: services.db, log });
+        if (!r.ok) {
+          throw new PsycheError(
+            "conflict",
+            r.reason === "busy"
+              ? "Psyche is working on something. Compact the database when it has finished."
+              : "This database cannot be compacted.",
+          );
+        }
+        return { durationMs: r.ms, savedBytes: r.savedBytes };
+      },
+    },
     "storage.clearCache": {
       run: async (call: Call, params: MethodParams<"storage.clearCache">) => {
         if (clearing) return { cleared: [], freedBytes: 0 };

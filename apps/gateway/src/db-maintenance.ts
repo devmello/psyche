@@ -160,7 +160,7 @@ export function compactEstimate(db: PsycheDb): CompactEstimate {
   const pageSize = db.sqlite.pragma("page_size", { simple: true }) as number;
   const free = db.sqlite.pragma("freelist_count", { simple: true }) as number;
   return {
-    dbBytes: db.path === ":memory:" ? 0 : fileSize(db.path),
+    dbBytes: db.path === ":memory:" ? 0 : fileSize(db.path) + fileSize(`${db.path}-wal`),
     reclaimableBytes: free * pageSize,
     idle: dbIsIdle(db),
   };
@@ -171,7 +171,7 @@ export function compactEstimate(db: PsycheDb): CompactEstimate {
  * or scheduler run is active. Never called by a timer.
  */
 export function compactDatabase(
-  ctx: GatewayContext,
+  ctx: Pick<GatewayContext, "db" | "log">,
 ): { ok: true; ms: number; savedBytes: number } | { ok: false; reason: "busy" | "memory" } {
   const { db } = ctx;
   if (db.path === ":memory:") return { ok: false, reason: "memory" };
