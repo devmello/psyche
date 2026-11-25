@@ -19,6 +19,7 @@ struct ThreadView: View {
     @State private var renameText = ""
     @State private var renaming = false
     @State private var confirmingClear = false
+    @State private var confirmingFullAccess = false
     @Environment(Router.self) private var router
     @Environment(Session.self) private var session
     @Environment(\.alerts) private var alerts
@@ -155,20 +156,26 @@ struct ThreadView: View {
         // swipe it can stay in the tree behind the list, and a hidden-bar preference would stay with it.
         .toolbarVisibility(sizeClass == .compact && frontmost ? .hidden : .automatic, for: .tabBar)
         #endif
-        .safeAreaInset(edge: .bottom) {
-            Composer(
-                composer: composer, isRunning: model.isRunning,
-                // A file cannot join a reply that is running (the Gateway refuses it), so while one runs
-                // the attachments wait for the reply to end.
-                canSend: composer.canSend && session.state.canAnswer && !(model.isRunning && !composer.attachments.isEmpty),
-                focused: $composerFocused, queue: model.queue, runMode: model.runMode, setRunMode: model.setRunMode,
-                removeQueued: { item in Task { await model.removeQueued(item) } }, send: send, stop: model.cancel)
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            VStack(spacing: 0) {
+                if model.isFullAccess { fullAccessBar }
+                composerView
+            }
         }
         .sensoryFeedback(.impact(weight: .light), trigger: model.sentCount)
         .alert(String(localized: "Couldn't do that", bundle: .module), isPresented: actionErrorShown) {
             Button(String(localized: "OK", bundle: .module)) { model.clearActionError() }
         } message: {
             Text(model.actionError ?? "")
+        }
+        .confirmationDialog(
+            String(localized: "Turn on Full access?", bundle: .module), isPresented: $confirmingFullAccess,
+            titleVisibility: .visible
+        ) {
+            Button(String(localized: "Turn on", bundle: .module)) { Task { await model.setFullAccess(true) } }
+            Button(String(localized: "Cancel", bundle: .module), role: .cancel) {}
+        } message: {
+            Text(String(localized: "In this chat, Psyche will act without asking, except for sending to other people and payments, which still ask.", bundle: .module))
         }
         .alert(String(localized: "Rename chat", bundle: .module), isPresented: $renaming) {
             TextField(String(localized: "Title", bundle: .module), text: $renameText)
@@ -213,6 +220,36 @@ struct ThreadView: View {
         .onDisappear { composer.dictation.stop() }
     }
 
+    /// The persistent bar above the composer while the chat is in Full access, with a one-tap way back to Balanced.
+    private var fullAccessBar: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 10) {
+            Text(String(localized: "Full access: Psyche acts without asking, except sends and payments.", bundle: .module))
+                .font(.footnote)
+                .foregroundStyle(PsycheColor.text)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            Button(String(localized: "Turn off", bundle: .module)) { Task { await model.setFullAccess(false) } }
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(PsycheColor.inkText)
+                .buttonStyle(.plain)
+                .frame(minHeight: 32)
+        }
+        .padding(.horizontal, PsycheMetrics.pagePadding)
+        .padding(.vertical, 8)
+        .background(PsycheColor.inkSoft)
+        .overlay(alignment: .top) { Divider() }
+        .accessibilityElement(children: .contain)
+    }
+
+    private var composerView: some View {
+            Composer(
+                composer: composer, isRunning: model.isRunning,
+                // A file cannot join a reply that is running (the Gateway refuses it), so while one runs
+                // the attachments wait for the reply to end.
+                canSend: composer.canSend && session.state.canAnswer && !(model.isRunning && !composer.attachments.isEmpty),
+                focused: $composerFocused, queue: model.queue, runMode: model.runMode, setRunMode: model.setRunMode,
+                removeQueued: { item in Task { await model.removeQueued(item) } }, send: send, stop: model.cancel)
+    }
+
     /// Chat-level actions: rename, fork from the latest reply, compact and clear. Fork needs a finished reply to
     /// fork from; compact and clear wait while Psyche runs (the Gateway refuses them then anyway).
     private var chatMenu: some View {
@@ -228,6 +265,17 @@ struct ThreadView: View {
                     Task { if let newID = await model.fork(atMessage: messageID) { router.openThread(newID) } }
                 } label: {
                     Label(String(localized: "Fork chat", bundle: .module), systemImage: "arrow.triangle.branch")
+                }
+            }
+            if model.canToggleFullAccess {
+                Toggle(isOn: Binding(
+                    get: { model.isFullAccess },
+                    set: { on in
+                        // Turning it on shows the plain confirmation first; turning it off is one tap.
+                        if on { confirmingFullAccess = true } else { Task { await model.setFullAccess(false) } }
+                    })
+                ) {
+                    Label(String(localized: "Full access", bundle: .module), systemImage: "bolt.shield")
                 }
             }
             Button { Task { await model.compact() } } label: {

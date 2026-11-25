@@ -21,6 +21,9 @@ public protocol ChatBackend: Sendable {
     func archiveThread(id: String) async throws
     /// Set the chat's title (`threads.rename`). The Gateway refuses an empty title.
     func renameThread(id: String, title: String) async throws
+    /// Turns Full access on or off for one chat (`threads.update` with `permissionMode`). Off puts the chat back to
+    /// Balanced. A refusal (a non-admin phone, a channel chat) throws with the Gateway's words.
+    func setFullAccess(threadID: String, enabled: Bool) async throws
     /// Delete a side chat and its messages (`threads.delete`). Receipts and audit entries are kept.
     func deleteThread(id: String) async throws
     /// The chat as a Markdown transcript, for sharing (`chat.export`).
@@ -215,11 +218,20 @@ public struct ChatThread: Sendable, Equatable, Identifiable {
     public var items: [ChatItem]
     /// Where the next older page starts; nil when the transcript's first message is loaded.
     public var olderCursor: String?
+    /// The chat's permission mode as the Gateway names it ("balanced", "full", ...).
+    public var permissionMode: String
+    /// False for a chat the Gateway refuses Full access in (channel, automation, subagent, imported).
+    public var fullAccessAllowed: Bool
+
+    /// True while the chat is in Full access.
+    public var isFullAccess: Bool { permissionMode == ThreadFullAccess.mode }
 
     public init(
         id: String, title: String, status: String, statusKind: ChatThreadSummary.Status, items: [ChatItem],
-        olderCursor: String? = nil
+        olderCursor: String? = nil, permissionMode: String = "balanced", fullAccessAllowed: Bool = true
     ) {
+        self.permissionMode = permissionMode
+        self.fullAccessAllowed = fullAccessAllowed
         self.id = id
         self.title = title
         self.status = status
@@ -345,4 +357,18 @@ extension ChatThread {
             .assistant(id: "sk1", text: "Placeholder text for a message that wraps across two or three lines in the thread.", streaming: false),
             .toolCall(id: "sk2", symbol: "doc", summary: "Placeholder tool call summary"),
         ])
+}
+
+
+/// Which chats can be in Full access. This mirrors the Gateway's `fullAccessThreadRefusal` (only the owner's own
+/// chats), read from the thread's own fields: `kind`, `imported` and `sessionKey`. The Gateway still decides.
+public enum ThreadFullAccess {
+    public static let mode = "full"
+    static let ownerKinds: Set<String> = ["main", "side", "incognito"]
+
+    /// A missing field counts as refused, so the toggle stays hidden rather than offering something that fails.
+    public static func isAllowed(kind: String?, imported: Bool, sessionKey: String?) -> Bool {
+        guard let kind, ownerKinds.contains(kind), !imported, let sessionKey else { return false }
+        return sessionKey == "owner" || sessionKey == "main" || sessionKey.hasPrefix("owner:") || sessionKey.hasPrefix("main:")
+    }
 }
