@@ -13,6 +13,10 @@ struct ChatState: Sendable {
     var archived: [ChatThreadSummary] = []
     /// The next fork, clear, compact or feedback call fails with this message, once.
     var failNextThreadAction: String?
+    /// Tests: the next archived-chats read fails, once.
+    var failNextArchivedRead = false
+    /// Tests: sends are accepted as queued (the phone is offline) and do not reach a reply.
+    var queueSends = false
     /// Thumbs given on replies, by message id (true is helpful).
     var feedback: [String: Bool] = [:]
 }
@@ -88,6 +92,7 @@ extension FixtureBackend: ChatBackend {
         let threadID = draft.threadID ?? FixtureData.mainThreadID
         let item = ChatItem.user(id: draft.clientID, text: draft.text)
         appendItem(item, to: threadID)
+        if chatState.queueSends { return SentMessage(threadID: threadID, messageID: draft.clientID, delivery: .queued) }
         publish(.chat(.item(threadID: threadID, item: item)))
         chatState.cancelled.remove(threadID)
         Task { await self.streamReply(in: threadID, to: draft.text, attachments: draft.attachmentIDs.count) }
@@ -155,9 +160,24 @@ extension FixtureBackend: ChatBackend {
         publish(.changed(.threads))
     }
 
-    public func archivedThreads() async throws -> [ChatThreadSummary] {
+    /// Makes the next archived-chats read fail, once.
+    public func failArchivedReads() { chatState.failNextArchivedRead = true }
+
+    /// Makes sends come back as queued (waiting in the outbox) and skips the fixture's reply.
+    public func queueNextSends(_ on: Bool) { chatState.queueSends = on }
+
+    public func archivedThreadPage(cursor: String?) async throws -> ThreadPage {
         await pause()
-        return chatState.archived
+        if chatState.failNextArchivedRead {
+            chatState.failNextArchivedRead = false
+            throw BackendError.unreachable
+        }
+        let count = chatState.archived.count
+        let start = min(max(Int(cursor ?? "") ?? 0, 0), count)
+        let end = min(start + ChatPaging.threadPageSize, count)
+        return ThreadPage(
+            threads: Array(chatState.archived[start..<end]),
+            nextCursor: end < count ? String(end) : nil)
     }
 
     public func restoreThread(id: String) async throws {

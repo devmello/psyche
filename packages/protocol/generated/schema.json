@@ -50519,6 +50519,9 @@
         "includeArchived": {
           "type": "boolean"
         },
+        "archivedOnly": {
+          "type": "boolean"
+        },
         "pinnedOnly": {
           "type": "boolean"
         },
