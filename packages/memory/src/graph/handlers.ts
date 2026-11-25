@@ -6,15 +6,14 @@ import {
 } from "@psyche/protocol";
 import type { SqliteMemoryStore } from "../store.ts";
 import type { CardSync } from "./cards.ts";
-import { normalizeName } from "./normalize.ts";
-import type { GraphStore } from "./store.ts";
-
 import {
   type LoopViewer,
   type LoopVisibility,
   loopsForViewer,
   scrubLoopForRemote,
 } from "./loop-visibility.ts";
+import { normalizeName } from "./normalize.ts";
+import type { GraphStore } from "./store.ts";
 
 export {
   backfillLoopRemoteVisible,
