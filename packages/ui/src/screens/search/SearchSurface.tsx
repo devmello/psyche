@@ -958,7 +958,7 @@ function SurfacePreview({
   onOpen: () => void;
   onSideChat?: () => void;
   renderEntityPreview?: (entity: EntitySummary) => ReactNode;
-}): ReactElement {
+}): ReactElement | null {
   if (item.kind === "fact") {
     return (
       <>
@@ -1007,7 +1007,7 @@ function SurfacePreview({
     );
   }
   // Commands have no preview (`hasPreview`); this narrows the type for the hit below.
-  if (item.kind === "action") return <></>;
+  if (item.kind === "action") return null;
   const { hit } = item;
   const Icon = SCOPE_ICON[hit.scope];
   const sourceOnly = isSourceHit(hit);
