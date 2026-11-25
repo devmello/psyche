@@ -907,6 +907,14 @@ export function composePromises(deps: PromisesDeps): Promises {
     };
     if (!settings().enabled) return out;
     const s = store();
+    // Retention runs here, once a local day with no model: the nightly memory pass only gets
+    // this far when its model, power and quiet-hours gates open (design 7.1).
+    const today = localDayKey();
+    if (get("promises.state.retainedDay") !== today) {
+      const r = settings();
+      s.retain({ retentionDays: r.retentionDays, pendingDays: 30, quoteDays: 30 });
+      put("promises.state.retainedDay", today);
+    }
     // Done signals first: a promise already kept is never marked broken or warned about.
     const sig = await runSignals(s);
     out.done = sig.done;

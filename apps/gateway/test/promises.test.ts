@@ -1094,7 +1094,7 @@ describe("the mail reader asks the right questions", () => {
     });
     await readMailBatch(mailDeps(lookup, "imap", "i1"), SINCE);
     const searches = calls.filter((c) => c.tool === "mail_search_messages").map((c) => c.params);
-    expect(searches[0]).toMatchObject({ mailbox: "box-sent", maxResults: 100 });
+    expect(searches[0]).toMatchObject({ mailbox: "box-sent", maxResults: 50 });
     expect(searches).toHaveLength(2);
   });
 
@@ -1400,5 +1400,78 @@ describe("the warning cap is the owner's local day", () => {
     const { notices, p } = await world();
     await p.sweep();
     expect(notices.filter((n) => n.kind === "promise_due")).toHaveLength(1);
+  });
+});
+
+describe("retention runs from the sweep, once a local day, with no model", () => {
+  it("the model set to None still deletes an old closed row; a second sweep the same day does not run it again", async () => {
+    const { clock, db, sam, p } = await boot(lanePromises());
+    setSetting(db, "memory.everything", { enabled: true, model: { default: { kind: "none" } } });
+    const c = composed as ComposedGateway;
+    expect(c.everything.answerModel()).toBeUndefined();
+    const closedAgo = (what: string, days: number) => {
+      const r = p.store().add({
+        direction: "i_owe",
+        what,
+        counterpartId: sam,
+        counterpartLabel: "Sam Lee",
+        dueKind: "none",
+        provenance: "owner",
+        confidence: 1,
+        detectedBy: "owner",
+        sourceKind: "mail",
+        threadKey: `t-${what}`,
+        citation: {
+          source: "mail",
+          sourceRef: `message:<${what}>`,
+          quote: what,
+          provenance: "owner",
+        },
+      });
+      if (r.kind !== "created") throw new Error("no");
+      p.store().act(r.promise.id, { action: "done" });
+      c.gateway.context.db.sqlite
+        .prepare("UPDATE graph_loops SET closed_at = ? WHERE id = ?")
+        .run(new Date(clock.now() - days * 86_400_000).toISOString(), r.promise.id);
+      return r.promise.id;
+    };
+    const first = closedAgo("first old one", 200);
+    const recent = closedAgo("recent one", 10);
+    await p.sweep();
+    expect(p.store().get(first)).toBeUndefined();
+    expect(p.store().get(recent)).toBeDefined();
+    // The same local day: it has run, so a row that is old now is still there.
+    const second = closedAgo("second old one", 200);
+    await p.sweep();
+    expect(p.store().get(second)).toBeDefined();
+    // The next local day it runs again.
+    clock.advance(26 * 3_600_000);
+    await p.sweep();
+    expect(p.store().get(second)).toBeUndefined();
+  });
+
+  it("with the ledger off nothing is deleted", async () => {
+    const { clock, db, sam, p } = await boot(lanePromises());
+    const r = p.store().add({
+      direction: "i_owe",
+      what: "old one",
+      counterpartId: sam,
+      counterpartLabel: "Sam Lee",
+      dueKind: "none",
+      provenance: "owner",
+      confidence: 1,
+      detectedBy: "owner",
+      sourceKind: "mail",
+      threadKey: "t-old",
+      citation: { source: "mail", sourceRef: "message:<old>", quote: "old", provenance: "owner" },
+    });
+    if (r.kind !== "created") throw new Error("no");
+    p.store().act(r.promise.id, { action: "done" });
+    (composed as ComposedGateway).gateway.context.db.sqlite
+      .prepare("UPDATE graph_loops SET closed_at = ? WHERE id = ?")
+      .run(new Date(clock.now() - 400 * 86_400_000).toISOString(), r.promise.id);
+    setSetting(db, "promises.enabled", false);
+    await p.sweep();
+    expect(p.store().get(r.promise.id)).toBeDefined();
   });
 });
