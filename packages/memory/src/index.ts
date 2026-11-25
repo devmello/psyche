@@ -49,6 +49,7 @@ export * from "./profile-fields.ts";
 export * from "./profile-sections.ts";
 export * from "./promises/dedupe.ts";
 export * from "./promises/lifecycle.ts";
+export * from "./promises/signals.ts";
 export * from "./promises/store.ts";
 export * from "./promises/thresholds.ts";
 export * from "./provenance.ts";

@@ -709,13 +709,47 @@ export class PromiseStore {
     return ask !== undefined && ask.answered === "not_yet" && this.#now() - ask.at < 3 * DAY_MS;
   }
 
-  act(id: string, input: PromiseActionInput): PromiseRow {
+  /** Whether a `done` question was asked and not answered yet (no second card for it). */
+  doneAskOpen(id: string): boolean {
+    const ask = this.#lastAsk(id);
+    return ask !== undefined && ask.question === "done" && ask.answered === undefined;
+  }
+
+  /** When the promise was first cited: done signals only count what came after it. */
+  firstCitationAt(id: string): number | undefined {
+    const row = this.#db
+      .prepare(
+        "SELECT MIN(observed_at) AS at FROM graph_citations WHERE target_kind = 'loop' AND target_id = ?",
+      )
+      .get(id) as { at: string | null } | undefined;
+    const at = row?.at === null || row?.at === undefined ? undefined : Date.parse(row.at);
+    if (at !== undefined && !Number.isNaN(at)) return at;
+    return parseMs(this.#must(id).createdAt) ?? undefined;
+  }
+
+  /** When an automatic done was last undone, if ever: the signal that closed it must not re-fire. */
+  lastUndoAt(id: string): number | undefined {
+    let last: number | undefined;
+    // An undo, or any reopen of a closed promise (a `reply_seen` done reopens as a plain status).
+    for (const e of this.events(id)) {
+      const reopened = e.kind === "status" && e.to === "open" && e.from === "done";
+      if (e.kind === "undo" || reopened) last = Date.parse(e.at);
+    }
+    return last;
+  }
+
+  act(
+    id: string,
+    input: PromiseActionInput,
+    opts: { citation?: PromiseCitationInput } = {},
+  ): PromiseRow {
     const loop = this.#must(id);
     const lastAsk = this.#lastAsk(id);
     const decision = decide(loop, input, {
       nowMs: this.#now(),
       ...(lastAsk === undefined ? {} : { lastAsk }),
     });
+    const citationId = opts.citation === undefined ? null : this.addCitation(id, opts.citation);
     const next = this.#graph.patchLoop(id, decision.patch);
     if (decision.event !== null)
       this.#event(
@@ -724,6 +758,7 @@ export class PromiseStore {
         decision.event.from,
         decision.event.to,
         decision.event.by,
+        citationId,
       );
     if (decision.feedback !== undefined) this.#writeFeedback(decision.feedback, loop);
     return this.#row(next);
