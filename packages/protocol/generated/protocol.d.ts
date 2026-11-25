@@ -10844,8 +10844,17 @@ export type Attribute = boolean | number | string;
 
 export interface RunStepError {
     code:      string;
+    details?:  RunStepErrorDetails;
     message:   string;
     retryable: boolean;
+}
+
+export interface RunStepErrorDetails {
+    /**
+     * A machine reason (`automation_denied`, `needs_helper`), which viewers say in the owner's
+     * language; `message` is the fallback
+     */
+    reason: string;
 }
 
 export type RunStepKind = "thinking" | "model" | "tool" | "approval" | "question" | "subagent" | "text" | "memory" | "artifact" | "note";
@@ -11980,7 +11989,12 @@ export interface SearchSourceStatus {
      */
     ocr:        boolean;
     processing: SearchProcessing;
-    state:      SearchSourceState;
+    /**
+     * A machine reason for `detail` (`full_disk_access_missing`), which viewers say in the
+     * owner's language; `detail` is the fallback
+     */
+    reason?: string;
+    state:   SearchSourceState;
     /**
      * Text indexed for this source
      */
@@ -12001,13 +12015,13 @@ export interface SecurityAlertsAcknowledgeResult {
 export interface SecurityAlert {
     acknowledgedAt?: null | string;
     createdAt:       string;
-    details:         Details;
+    details:         SecurityAlertDetails;
     id:              string;
     kind:            SecurityAlertKind;
     severity:        SecurityAlertSeverity;
 }
 
-export interface Details {
+export interface SecurityAlertDetails {
     admins?:  number;
     changes?: SecurityStateChange[];
     /**

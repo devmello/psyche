@@ -1,6 +1,7 @@
 import { type DecisionContext, PsycheError, type ToolCallIntent } from "@psyche/protocol";
 import { describe, expect, it } from "vitest";
 import { missingOf } from "../src/index.ts";
+import { reasonOf } from "../src/missing-permission.ts";
 import { call, harness, resultsIn, runTurn, say, spec } from "./harness.ts";
 
 /**
@@ -58,5 +59,37 @@ describe("missing permissions", () => {
     const bad = new PsycheError("forbidden", "no", { details: { missing: { need: "root" } } });
     expect(missingOf(bad)).toBeUndefined();
     expect(missingOf(new Error("plain"))).toBeUndefined();
+  });
+
+  it("passes a refusal's machine reason to the tool result, and only a reason-shaped one", async () => {
+    const h = harness();
+    const refuse = (name: string, reason: unknown) =>
+      h.loop.registry.register({
+        spec: spec(name, "read"),
+        execute: async () => ({ output: {}, provenance: "trusted" }),
+        run: async () => {
+          throw new PsycheError("unavailable", "Mail: raw helper text", { details: { reason } });
+        },
+      });
+    refuse("mail_a", "automation_denied");
+    refuse("mail_b", "Not allowed, sorry");
+    h.provider.script([call("a1", "mail_a", {}), call("b1", "mail_b", {}), say("Done.")]);
+    await runTurn(h, "check mail");
+    const results = resultsIn(h.provider.requests.at(-1));
+    expect(results.get("a1")?.output).toMatchObject({
+      error: expect.stringContaining("raw helper text"),
+      reason: "automation_denied",
+    });
+    expect(results.get("b1")?.output).not.toHaveProperty("reason");
+  });
+
+  it("reasonOf reads details.reason of a PsycheError only", () => {
+    const e = (details: unknown) => new PsycheError("unavailable", "x", { details } as never);
+    expect(reasonOf(e({ reason: "needs_helper" }))).toBe("needs_helper");
+    expect(reasonOf(e({ reason: "has space" }))).toBeUndefined();
+    expect(reasonOf(e({}))).toBeUndefined();
+    expect(reasonOf(Object.assign(new Error("x"), { details: { reason: "needs_helper" } }))).toBe(
+      undefined,
+    );
   });
 });

@@ -3,7 +3,7 @@ import { type ReactElement, useState } from "react";
 import { Button } from "../../components/ui/button.tsx";
 import { useSearchSources } from "../../data/hooks.ts";
 import { t } from "../../i18n/core.ts";
-import { describeError } from "../../i18n/errors.ts";
+import { describeError, reasonText } from "../../i18n/errors.ts";
 import { formatRelative } from "../../lib/format.ts";
 import { isWindows } from "../../lib/platform.ts";
 import { bool, Group, type SettingsValues, StatusChip, SwitchField } from "./shared.tsx";
@@ -51,12 +51,16 @@ export function sourceStateText(s: SearchSourceStatus): {
       return { text: t("settings.searchSources.state.off"), tone: "neutral" };
     case "unavailable":
       return {
-        text: t("settings.searchSources.state.unavailable", { why: s.detail ?? "" }),
+        text: t("settings.searchSources.state.unavailable", {
+          why: reasonText(s.reason, s.detail ?? ""),
+        }),
         tone: "approval",
       };
     case "error":
       return {
-        text: t("settings.searchSources.state.error", { why: s.detail ?? "" }),
+        text: t("settings.searchSources.state.error", {
+          why: reasonText(s.reason, s.detail ?? ""),
+        }),
         tone: "danger",
       };
     case "indexing":

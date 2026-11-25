@@ -72,7 +72,8 @@ struct EventMapper {
         case "approval.created", "approval.updated", "question.created", "question.updated":
             return ([.changed(.home), .changed(.activity)], .none)
         case "notification.created", "notification.updated", "notification.resolved", "notification.opened",
-             "feed.post", "feed.updated", "idea.updated", "goal.updated", "proposal.updated":
+             "feed.post", "feed.updated", "idea.updated", "goal.updated", "proposal.updated",
+             "nightShift.updated", "nightShift.item.updated":
             return ([.changed(.home)], .none)
         case "run.updated":
             // A chat run starting or ending is what a long reply's Live Activity follows; the rest is the same

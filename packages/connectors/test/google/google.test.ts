@@ -234,6 +234,41 @@ describe("Gmail threads and parsing hardening", () => {
     expect(messages[2]?.warnings).toContain("unknown charset x-made-up; decoded as UTF-8");
   });
 
+  it("marks inline signature pictures, not attached documents", () => {
+    const hdr = (name: string, value: string) => ({ name, value });
+    const parsed = parsePayload({
+      mimeType: "multipart/mixed",
+      parts: [
+        {
+          partId: "1",
+          mimeType: "image/png",
+          filename: "image001.png",
+          headers: [hdr("Content-ID", "<sig@x>"), hdr("Content-Disposition", "inline")],
+          body: { attachmentId: "a1", size: 10 },
+        },
+        {
+          partId: "2",
+          mimeType: "application/pdf",
+          filename: "deck.pdf",
+          headers: [hdr("Content-Disposition", "attachment; filename=deck.pdf")],
+          body: { attachmentId: "a2", size: 10 },
+        },
+        {
+          partId: "3",
+          mimeType: "image/jpeg",
+          filename: "photo.jpg",
+          headers: [hdr("Content-Disposition", "attachment")],
+          body: { attachmentId: "a3", size: 10 },
+        },
+      ],
+    } as never);
+    expect(parsed.attachments.map((x) => [x.filename, x.inline === true])).toEqual([
+      ["image001.png", true],
+      ["deck.pdf", false],
+      ["photo.jpg", false],
+    ]);
+  });
+
   it("bounds depth, part count and body size", () => {
     let deep: Record<string, unknown> = { mimeType: "text/plain", body: { data: "aGk" } };
     for (let i = 0; i < 40; i++) deep = { mimeType: "multipart/mixed", parts: [deep] };

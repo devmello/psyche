@@ -51,6 +51,20 @@ export const RunStepError = Type.Object(
     code: Type.String({ minLength: 1, maxLength: 64 }),
     message: Type.String({ maxLength: 1000 }),
     retryable: Type.Boolean(),
+    details: Type.Optional(
+      Type.Object(
+        {
+          reason: Type.String({
+            minLength: 1,
+            maxLength: 64,
+            pattern: "^[a-z][a-z0-9_]*$",
+            description:
+              "A machine reason (`automation_denied`, `needs_helper`), which viewers say in the owner's language; `message` is the fallback",
+          }),
+        },
+        { additionalProperties: false },
+      ),
+    ),
   },
   { $id: "RunStepError" },
 );

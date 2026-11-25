@@ -9,6 +9,7 @@
  *   strip at the top right, since a browser has no title-bar overlay);
  * - `material=mica`: the Mica flag (a gradient stands in for the desktop wallpaper behind it);
  * - `onboarding=1`: start in onboarding instead of the main chat;
+ * - `nightShift=1`: a Night shift review is waiting (try `route=/home` and `route=/home?review=latest`);
  * - `apps=1`: the host has a permissions port and a paired helper (desktop-only rows show).
  *
  * Never part of a build: vite only serves it in dev.
@@ -23,6 +24,7 @@ import {
   windowsDevices,
   windowsNodes,
 } from "../../../packages/ui/src/fixtures/index.ts";
+import { nightShiftFixture } from "../../../packages/ui/src/night-shift/mock-night-shift.ts";
 import { ONBOARDED_KEY, PsycheApp } from "../src/compose/PsycheApp.tsx";
 import type { ShellPlatform, WindowChrome } from "../src/shell/platform.ts";
 import { browserStorage } from "../src/shell/platform.ts";
@@ -53,6 +55,7 @@ if (q.get("devices") === "windows") {
   world.devices = windowsDevices();
   world.nodes = windowsNodes();
 }
+if (q.get("nightShift") === "1") world.nightShift = nightShiftFixture();
 const mock = new MockGateway(world, { now: () => FIXTURE_NOW });
 
 const platform: ShellPlatform = {
