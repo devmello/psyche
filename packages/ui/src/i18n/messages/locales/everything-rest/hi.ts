@@ -107,8 +107,10 @@ export const everythingRest: Partial<Catalogue> = {
   "everything.agent.allHint": "वे तथ्य भी जो अभी समीक्षा की प्रतीक्षा में हैं, अपुष्ट के रूप में चिह्नित।",
   "everything.agent.sensitive": "एजेंट संवेदनशील तथ्य देख सकता है",
   "everything.schedule.title": "रात का शेड्यूल",
-  "everything.schedule.quietStart": "शांत घंटों की शुरुआत",
-  "everything.schedule.quietEnd": "शांत घंटों का अंत",
+  "everything.schedule.quietStart": "रात के पास की शुरुआत",
+  "everything.schedule.quietEnd": "रात के पास का अंत",
+  "everything.schedule.hint":
+    "Psyche कब सीखी हुई बातें पढ़कर व्यवस्थित कर सकती है। यह सूचनाओं के शांत घंटे नहीं हैं।",
   "everything.schedule.battery": "बैटरी पर चलाएँ",
   "everything.schedule.batteryHint":
     "बंद: सिर्फ़ तब जब Mac चार्जर से लगा हो, लो पावर मोड में न हो, और आप दूर हों।",
@@ -131,7 +133,7 @@ export const everythingRest: Partial<Catalogue> = {
   "everything.run.reason.low_power": "अभी नहीं: लो पावर मोड चालू है।",
   "everything.run.reason.thermal": "अभी नहीं: Mac बहुत गर्म है।",
   "everything.run.reason.not_idle": "अभी नहीं: आप Mac इस्तेमाल कर रहे हैं।",
-  "everything.run.reason.outside_quiet_hours": "अभी नहीं: शांत घंटों के बाहर।",
+  "everything.run.reason.outside_quiet_hours": "अभी नहीं: रात के पास के घंटों से बाहर।",
   "everything.run.reason.local_not_confirmed": "पहले लोकल मॉडल की मेमोरी चेतावनी की पुष्टि करें।",
   "everything.run.reason.low_memory": "अभी नहीं: लोकल मॉडल के लिए खाली मेमोरी पर्याप्त नहीं है।",
   "everything.run.reason.no_owner_entity": "लोग में आपका अपना कार्ड अभी सेट अप नहीं है।",

@@ -193,11 +193,13 @@ function RoutedAgentSheet({
   presentation,
   navigate,
   onClose,
+  threadId = null,
 }: {
   route: string | null;
   presentation: "inline" | "overlay";
   navigate: (to: string) => void;
   onClose: () => void;
+  threadId?: string | null;
 }): ReactElement | null {
   const routed = route === null ? null : agentSheetRoute(route);
   // Activity, Upcoming and Growth moved to the Overview (agent-overview-2026 §3): the old
@@ -219,6 +221,7 @@ function RoutedAgentSheet({
     ...(sheet.view === undefined ? {} : { view: sheet.view }),
     ...(sheet.file === undefined ? {} : { file: sheet.file }),
     onClose: close,
+    currentThreadId: threadId,
   };
   return presentation === "inline" ? (
     <AgentSheetPanel {...body} />

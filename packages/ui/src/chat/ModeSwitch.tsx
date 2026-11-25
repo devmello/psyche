@@ -1,5 +1,6 @@
 import { type ReactElement, useState } from "react";
 import { t } from "../i18n/core.ts";
+import { describeError } from "../i18n/errors.ts";
 import { SegmentedRadio } from "../screens/settings/SegmentedRadio.tsx";
 import {
   autoExplainerSeen,
@@ -73,7 +74,7 @@ export function ModeSwitch({
     } catch (err) {
       const refusal = isAutoModelRefusal(err);
       if (refusal !== null) setOffer(refusal);
-      else setError(err instanceof Error ? err.message : String(err));
+      else setError(describeError(err));
     } finally {
       setBusy(false);
     }

@@ -1,6 +1,7 @@
 import type { Catalogue } from "../index.ts";
 import { actionErrors } from "./action-errors/ja.ts";
 import { agentRest } from "./agent-rest/ja.ts";
+import { approvalsW3 } from "./approvals-w3/ja.ts";
 import { auditRest } from "./audit-rest/ja.ts";
 import { automationChatRest } from "./automationChat-rest/ja.ts";
 import { blocksRest } from "./blocks-rest/ja.ts";
@@ -240,6 +241,14 @@ export const ja: Partial<Catalogue> = {
   "errors.tab_not_found": "そのブラウザタブは閉じられています。",
   "errors.method_not_allowed": "ブラウザがその操作を許可していません。",
   "errors.presence_required": "先にパスキーまたはMacヘルパーで本人確認を行ってください。",
+  "errors.presence_unavailable_here":
+    "承認するには、そのコンピュータの前に誰かがいる必要があります。デスクトップにサインインして、もう一度お試しください。",
+  "errors.presence_agent_missing":
+    "このデスクトップではパスワードの確認画面が動いていないため、本人確認ができません。",
+  "errors.presence_policy_missing":
+    "このコンピュータは、まだ本人確認ができる設定になっていません。Psycheの承認ポリシーをインストールして、もう一度お試しください。",
+  "errors.presence_not_enforced":
+    "このコンピュータはパスワードを求めずに承認してしまうため、本人確認ができません。",
   "errors.offline": "Psycheに接続できません。",
   "errors.unknown": "問題が起きました。",
 
@@ -4021,6 +4030,8 @@ export const ja: Partial<Catalogue> = {
   ...computerWatch,
   // Psyche points (docs/design/psyche-points-2026.md §9)
   ...points,
+  // Approvals wave W3 (card choices, Allowed list)
+  ...approvalsW3,
   // Gateway-authored notices (inbox notifications, security alerts)
   ...notices,
   // Settings > Computer use > Separate desktop (Linux)

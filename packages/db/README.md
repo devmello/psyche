@@ -48,6 +48,6 @@ The single relational store (ADR-004): `$PSYCHE_HOME/state/psyche.sqlite`, opene
 
 ## What is stubbed
 
-- Backup / restore (A4: `psyche backup`, age-encrypted archives) — not implemented.
+- Backup / restore: `psyche backup` (age-encrypted archives) lives in `apps/cli` (`src/commands/backup.ts`), not in this package.
 - The retention job and restart recovery live in `apps/gateway` (`src/retention.ts`, `src/recovery.ts`) on top of these repos.
 - No usage-ledger repo yet (S03).

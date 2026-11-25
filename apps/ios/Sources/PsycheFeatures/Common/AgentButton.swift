@@ -16,7 +16,7 @@ struct AgentButton: View {
         Button { router.sheet = .agent } label: { label }
             .buttonStyle(.plain)
             .psycheZoomSource(id: Self.zoomID, in: zoom)
-            .accessibilityLabel(needsYou ? String(localized: "Open Psyche's activity, something needs you", bundle: .module) : "Open Psyche's activity")
+            .accessibilityLabel(needsYou ? String(localized: "Open Psyche's activity, something needs you", bundle: .module) : String(localized: "Open Psyche's activity", bundle: .module))
             .contextMenu {
                 Button { router.sheet = .settings } label: { Label(String(localized: "Settings", bundle: .module), systemImage: "gearshape") }
             }

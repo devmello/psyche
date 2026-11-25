@@ -2930,8 +2930,9 @@ export interface ChatBlockPayload {
 }
 
 export interface Block {
-    md?:  string;
-    type: BlockType;
+    md?:      string;
+    noteKey?: string;
+    type:     BlockType;
     /**
      * One-line status shown in the transcript
      */
@@ -11132,6 +11133,7 @@ export interface RunStep {
     inputRequestId?: string;
     kind:            RunStepKind;
     label:           string;
+    labelKey?:       RunStepLabelKey;
     machine?:        ComputerMachineRef;
     memoryPath?:     string;
     modelRef?:       string;
@@ -11165,6 +11167,8 @@ export interface Frames {
     first: number;
     last:  number;
 }
+
+export type RunStepLabelKey = "reply" | "file" | "model" | "thinking";
 
 export interface PayloadRef {
     input?:  string;
@@ -14193,8 +14197,9 @@ export interface TerminalSessionWriteParams {
 }
 
 export interface TextBlock {
-    md:   string;
-    type: TextBlockType;
+    md:       string;
+    noteKey?: string;
+    type:     TextBlockType;
 }
 
 export type TextBlockType = "text";

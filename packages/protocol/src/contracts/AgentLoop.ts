@@ -192,6 +192,46 @@ export interface StagingRun {
    * second layer. A subagent of the run inherits it.
    */
   toolAllowed?: (tool: string) => boolean;
+  /**
+   * A plan-fork branch's read guard (fork-a-plan-2026 §3.2): `allowFetch` decides whether a
+   * `web.fetch` URL may run, `observe` sees every finished call of the run (what a search returned,
+   * the stored results a report's cites are checked against). Absent on a night run. A fork run
+   * with no guard cannot fetch.
+   */
+  reads?: StagingReads;
+}
+
+/** What a staged run's read guard is told about one finished call. */
+export interface StagingReadCall {
+  callId: string;
+  tool: string;
+  sideEffect: SideEffect;
+  args: unknown;
+  output: unknown;
+  /** The call did not end in an error. */
+  ok: boolean;
+  /** How far the result may be trusted; `untrusted` taints the run. */
+  provenance?: string;
+}
+
+export interface StagingReads {
+  allowFetch(url: unknown): boolean;
+  observe(call: StagingReadCall): void;
+  /**
+   * Asked before each model call of the run, with the estimated input tokens of the request: false
+   * refuses the step and the run ends (the branch's money share would be exceeded).
+   */
+  beforeModelCall?(step: { inputTokens: number }): boolean;
+  /**
+   * The output limit every model call of the run is sent with. `beforeModelCall` reserves exactly
+   * this much output, so its estimate is an upper bound on the call.
+   */
+  outputLimit?(): number | undefined;
+  /**
+   * Told once as the run ends, with the run's own taint (the transcript it started from, the
+   * task's taint, context providers and what it read), so a stored row carries the real value.
+   */
+  finish?(run: { taint: boolean; taintSources: TaintSource[] }): void;
 }
 
 /** A tool call the loop is about to dispatch (`StartTurnInput.beforeDispatch`). */

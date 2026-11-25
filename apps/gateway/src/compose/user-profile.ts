@@ -6,6 +6,7 @@ import {
   getThread,
   listMessagesPage,
   type PsycheDb,
+  setSetting,
 } from "@psyche/db";
 import {
   type AppliedWork,
@@ -33,6 +34,7 @@ import type {
 } from "@psyche/protocol";
 import type { SecretRedactor } from "@psyche/vault";
 import { resolveAttachments } from "../session/attachments.ts";
+import { learnGate } from "./user-profile-gate.ts";
 
 /**
  * Learning about the owner (#509). After each owner-authored turn (agent-core `onOwnerTurn`:
@@ -56,12 +58,24 @@ import { resolveAttachments } from "../session/attachments.ts";
  * (`LEARN_DOC_SYSTEM`) that distills it into a short profile, never the file pasted whole. Items
  * that came from anywhere else (downloads, connectors, channels, the agent) are never read here.
  *
+ * Cost (memory audit P7): a deterministic pre-gate (`user-profile-gate.ts`: first-person cues, a
+ * work hint, an attachment, or a non-Latin script) decides before any model call; calls run on a
+ * cheap model only (`cheapModel`: the owner's utility pick or the provider's cheap default, never
+ * the primary; with none, chats are not learned from at all, and mail and calendar learning are
+ * unaffected); and at most `LEARNER_DAILY_CAP` calls a local day, counted in the settings row
+ * `memory.learner.usage`. Past the cap the learner skips quietly. `status()` and a one-line log
+ * report which mode it is in; there is no UI for it.
+ *
  * Setting `memory.userProfile` `{enabled (default true), review: "auto" (default) | "ask"}`:
  * `ask` turns each turn's facts into a `memory_protected_write` card first. Incognito threads
  * never contribute.
  */
 
 export const USER_PROFILE_SETTING = "memory.userProfile";
+/** `{day: "YYYY-MM-DD" (the owner's local day), count}`: learner model calls made today. */
+export const LEARNER_USAGE_SETTING = "memory.learner.usage";
+/** Learner model calls per local day (chat learning past it stops quietly until tomorrow). */
+export const LEARNER_DAILY_CAP = 150;
 /** Facts one message may propose. */
 const MAX_FACTS = 5;
 /** Facts one uploaded document may propose (a resume is a profile, not one fact). */
@@ -238,6 +252,19 @@ export interface UserProfileDeps {
   /** False when no utility model is configured: the evaluator never runs. */
   active: boolean;
   /**
+   * The cheap model the learner may use, resolved on every call: the owner's utility pick or the
+   * provider's cheap default, never the primary model. `undefined` means there is none, and the
+   * learner does not learn from chats at all (mail and calendar learning are unaffected). When
+   * this is not given, `model` is the cheap model and `active` says whether there is one.
+   */
+  cheapModel?: () => ModelRef | undefined;
+  /** Learner calls per local day (default `LEARNER_DAILY_CAP`). */
+  dailyCap?: number;
+  now?: () => number;
+  /** The owner's time zone, for what counts as a day (default: `work.timeZone`, else the system's). */
+  timeZone?: () => string;
+  logger?: { log(level: "warn", msg: string, fields?: Record<string, unknown>): void };
+  /**
    * At most one learner call per thread in this window (default 0: every turn). Turns that arrive
    * sooner are held and sent together in one call when the window ends, so a quick back-and-forth
    * costs one call, not one per message.
@@ -265,8 +292,97 @@ export interface UserProfileDeps {
   };
 }
 
+/** The local calendar day (`YYYY-MM-DD`) of `now` in `timeZone` (UTC when the zone is unknown). */
+export function localDay(now: number, timeZone: string): string {
+  let tz = timeZone;
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: tz });
+  } catch {
+    tz = "UTC";
+  }
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: tz,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(now);
+}
+
+/**
+ * The only model the chat learner may call on a router: the owner's utility pick or the provider's
+ * cheap default (`utilityRef`), never the primary model. `undefined` means the learner does not
+ * learn from chats. A utility role that is unset and resolves to the primary (a free local primary
+ * model) counts as none: the owner decided the learner never falls back to the primary.
+ */
+export function cheapLearnerModel(router: {
+  utilityRef(): ModelRef | undefined;
+  role(role: "primary" | "utility"): { model: ModelRef } | undefined;
+}): ModelRef | undefined {
+  const ref = router.utilityRef();
+  if (ref === undefined) return undefined;
+  if (router.role("utility") === undefined && ref === router.role("primary")?.model)
+    return undefined;
+  return ref;
+}
+
 export function createUserProfile(deps: UserProfileDeps) {
   const { db } = deps;
+  const now = () => deps.now?.() ?? deps.work?.now() ?? Date.now();
+  const zone = () =>
+    deps.timeZone?.() ?? deps.work?.timeZone() ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const cap = deps.dailyCap ?? LEARNER_DAILY_CAP;
+
+  /** The cheap model, or undefined: then the learner makes no chat call at all. */
+  const cheap = (): ModelRef | undefined =>
+    deps.cheapModel !== undefined ? deps.cheapModel() : deps.active ? deps.model : undefined;
+
+  const usage = (): { day: string; count: number } => {
+    const day = localDay(now(), zone());
+    const v = getSetting(db, LEARNER_USAGE_SETTING)?.value as
+      | { day?: unknown; count?: unknown }
+      | undefined;
+    return { day, count: v?.day === day && typeof v.count === "number" ? v.count : 0 };
+  };
+
+  let warnedNoModel = false;
+  let warnedCapDay = "";
+  /**
+   * Takes one call from today's allowance, and says which model to call. `undefined` (quietly)
+   * when there is no cheap model or the day's cap is spent. Counted before the call: a failed
+   * call may still have cost something.
+   */
+  const reserve = (): ModelRef | undefined => {
+    const model = cheap();
+    if (model === undefined) {
+      if (!warnedNoModel) {
+        warnedNoModel = true;
+        deps.logger?.log("warn", "chat learning is off: no cheap model is configured");
+      }
+      return undefined;
+    }
+    const u = usage();
+    if (u.count >= cap) {
+      if (warnedCapDay !== u.day) {
+        warnedCapDay = u.day;
+        deps.logger?.log("warn", "chat learning paused: the daily cap is spent", { cap });
+      }
+      return undefined;
+    }
+    setSetting(db, LEARNER_USAGE_SETTING, { day: u.day, count: u.count + 1 });
+    return model;
+  };
+
+  /** What the learner is doing, for logs and tests (not shown in any UI). */
+  const status = () => {
+    const model = cheap();
+    const u = usage();
+    return {
+      mode: model === undefined ? ("off_no_cheap_model" as const) : ("on" as const),
+      model,
+      usedToday: u.count,
+      cap,
+    };
+  };
 
   const extract = async (
     text: string,
@@ -275,10 +391,12 @@ export function createUserProfile(deps: UserProfileDeps) {
     raw?: (reply: string) => void,
     maxOutputTokens = MAX_OUT_TEXT,
   ) => {
+    const model = reserve();
+    if (model === undefined) return [];
     let out = "";
     for await (const e of deps.provider.stream(
       {
-        model: deps.model,
+        model,
         system,
         messages: [{ role: "user", parts: [{ type: "text", text }] }],
         // A short extraction: capped output, no thinking, and a unique tail that is never re-read.
@@ -436,22 +554,29 @@ export function createUserProfile(deps: UserProfileDeps) {
       deps.work?.graph() !== undefined &&
       looksLikeWork(text);
     let typedReply = "";
-    const typed =
-      text.length < 8
-        ? []
-        : asksWork && deps.work !== undefined
-          ? await extract(
-              `${todayLine(deps.work.now(), deps.work.timeZone())}\n\n${text}`,
-              `${LEARN_SYSTEM}${LEARN_WORK_ADDENDUM}`,
-              MAX_FACTS,
-              (r) => {
-                typedReply = r;
-              },
-              MAX_OUT_WORK,
-            )
-          : await extract(text);
+    // The deterministic pre-gate: a message with no first-person cue, work hint or attachment
+    // never costs a model call.
+    const worth = learnGate(text, {
+      work: looksLikeWork(text),
+      ...(turn.attached === true ? { attached: true } : {}),
+    });
+    const typed = !worth
+      ? []
+      : asksWork && deps.work !== undefined
+        ? await extract(
+            `${todayLine(deps.work.now(), deps.work.timeZone())}\n\n${text}`,
+            `${LEARN_SYSTEM}${LEARN_WORK_ADDENDUM}`,
+            MAX_FACTS,
+            (r) => {
+              typedReply = r;
+            },
+            MAX_OUT_WORK,
+          )
+        : await extract(text);
     const uploads =
-      turn.attached === true ? deps.redactor.redact(await ownerUploads(turn.threadId)).trim() : "";
+      turn.attached === true && cheap() !== undefined
+        ? deps.redactor.redact(await ownerUploads(turn.threadId)).trim()
+        : "";
     const fromDocs =
       uploads === ""
         ? []
@@ -568,5 +693,5 @@ export function createUserProfile(deps: UserProfileDeps) {
     },
   };
 
-  return { onOwnerTurn, handlers };
+  return { onOwnerTurn, handlers, status };
 }

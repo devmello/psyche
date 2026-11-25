@@ -259,8 +259,10 @@ export const memoryReview = {
   "everything.agent.allHint": "Also facts still waiting for review, marked as unconfirmed.",
   "everything.agent.sensitive": "Agent can see sensitive facts",
   "everything.schedule.title": "Overnight schedule",
-  "everything.schedule.quietStart": "Quiet hours start",
-  "everything.schedule.quietEnd": "Quiet hours end",
+  "everything.schedule.quietStart": "Overnight pass starts",
+  "everything.schedule.quietEnd": "Overnight pass ends",
+  "everything.schedule.hint":
+    "When Psyche may read and organise what it learned. This is not the notification Quiet hours.",
   "everything.schedule.battery": "Run on battery",
   "everything.schedule.batteryHint":
     "Off: only while plugged in, not in Low Power Mode, and while you are away.",
@@ -283,7 +285,7 @@ export const memoryReview = {
   "everything.run.reason.low_power": "Not now: Low Power Mode is on.",
   "everything.run.reason.thermal": "Not now: the Mac is too warm.",
   "everything.run.reason.not_idle": "Not now: you are using the Mac.",
-  "everything.run.reason.outside_quiet_hours": "Not now: outside quiet hours.",
+  "everything.run.reason.outside_quiet_hours": "Not now: outside the overnight pass hours.",
   "everything.run.reason.local_not_confirmed": "Confirm the local model's memory warning first.",
   "everything.run.reason.low_memory": "Not now: not enough free memory for the local model.",
   "everything.run.reason.no_owner_entity": "Your own card in People is not set up yet.",

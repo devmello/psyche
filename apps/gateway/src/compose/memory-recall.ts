@@ -3,6 +3,7 @@ import { getSetting, getThread, type PsycheDb } from "@psyche/db";
 import {
   type Embedder,
   memoryRecall,
+  queryRecall,
   recentAgentNotes,
   type SqliteMemoryStore,
 } from "@psyche/memory";
@@ -33,7 +34,9 @@ import { type SemanticEngines, semanticConfig } from "./search-semantic.ts";
  * - `builtin`: the on-device model if it is already downloaded (turning on semantic search
  *   downloads it), loaded on the first embed and freed after a minute idle, so idle RAM stays
  *   where it was. Nothing is downloaded from here.
- * In `markdown` mode the section carries only the agent's own recent notes (`memory/agent/`).
+ * In `markdown` mode the section carries the agent's notes (`memory/agent/`) and MEMORY.md bullets
+ * that match the question (BM25, nothing below a word-overlap threshold); the newest notes only
+ * if the index is unavailable.
  * Without one (model missing, role blocked) recall still runs and matches words only (FTS5),
  * the status says why (`text_only` + `fallback`). Memory changes reindex as they happen.
  */
@@ -183,6 +186,18 @@ export function createMemoryRecall(deps: MemoryRecallDeps) {
     return applying;
   };
 
+  /** Question-dependent BM25 over agent notes and MEMORY.md; recent notes if the index is gone. */
+  const markdownRecall = async (text: string): Promise<string[]> => {
+    try {
+      if (memory.embeddingCounts().chunks > 0) {
+        return await queryRecall(memory, text, { limit: 5, maxChars: 1_100 });
+      }
+    } catch {
+      // The index is unavailable: fall back to the newest notes below.
+    }
+    return recentAgentNotes(memory, { limit: 5, maxChars: 1_100 });
+  };
+
   const recall: TurnContextProvider = {
     name: "memory_recall",
     async provide(input) {
@@ -192,7 +207,7 @@ export function createMemoryRecall(deps: MemoryRecallDeps) {
       const lines =
         status.mode === "embeddings"
           ? await memoryRecall(memory, input.text, { limit: 5, maxChars: 1_100 })
-          : await recentAgentNotes(memory, { limit: 5, maxChars: 1_100 });
+          : await markdownRecall(input.text);
       if (lines.length === 0) return undefined;
       return {
         sections: [{ title: RECALL_TITLE, text: lines.join("\n") }],

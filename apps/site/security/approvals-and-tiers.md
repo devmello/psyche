@@ -24,7 +24,7 @@ Cards are built from the structured arguments of the call, never from text the a
 The Allow buttons arm 400 ms after the card appears, so a stray click cannot approve it. Return never approves.
 
 ::: info Screenshot placeholder
-An approval card for "Send email · destructive after reading untrusted content", with To, Subject, the Body behind View, the binding hash and the Deny / Allow with scope buttons.
+An approval card for "Send email · destructive after reading untrusted content", with To, Subject, the Body behind View, the binding hash and the Deny and Allow buttons, with one lasting choice beside them.
 :::
 
 ## Approvals only your devices can answer

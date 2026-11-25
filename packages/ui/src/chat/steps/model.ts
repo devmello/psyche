@@ -3,6 +3,7 @@ import { type StepStatusKind, stepStatusKind } from "../../components/status.tsx
 import { formatStepDuration } from "../../components/steps/LiveDuration.tsx";
 import { t } from "../../i18n/core.ts";
 import type { MessageId } from "../../i18n/messages/index.ts";
+import { runStepText } from "../../i18n/run-text.ts";
 
 /**
  * The chat's steps (docs/design/run-trace-2026.md §3.2, T2) as rows, from a run's `RunStep`s.
@@ -26,7 +27,7 @@ export function stepLabel(step: RunStep): string {
     const summary = step.text?.summary?.trim();
     return summary ? t("chat.steps.thinking", { text: summary }) : t("chat.steps.thinkingEmpty");
   }
-  const label = ended(step) ? (step.doneLabel ?? step.label) : step.label;
+  const label = runStepText(step, ended(step));
   // A step on a paired computer says so ("Opened Firefox on lab-box"); the Host's steps don't.
   return step.machine === undefined
     ? label

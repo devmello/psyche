@@ -120,8 +120,8 @@ final class SettingsModel {
     }
 }
 
-/// The phone's own settings (docs/design/ios-app-2026.md §4.7). Everything else says "Change this on
-/// your Mac": the phone has no admin scope.
+/// The phone's own settings (docs/design/ios-app-2026.md §4.7): a native grouped `Form`. Everything else says
+/// "Change this on your Mac": the phone has no admin scope.
 struct SettingsSheet: View {
     @State private var model: SettingsModel
     @Environment(Session.self) private var session
@@ -138,28 +138,23 @@ struct SettingsSheet: View {
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: PsycheMetrics.sectionSpacing) {
-                    switch model.phase {
-                    case .idle, .loading:
-                        content(.skeleton).redacted(reason: .placeholder).allowsHitTesting(false)
-                    case .loaded(let loaded):
-                        content(loaded)
-                    case .failed(let message):
-                        VStack(spacing: 12) {
-                            Text("Couldn't load this", bundle: .module).font(.headline)
-                            Text(message).font(.subheadline).foregroundStyle(PsycheColor.muted)
-                            Button(String(localized: "Try again", bundle: .module)) { Task { await model.load() } }
-                                .buttonStyle(.psycheOutline).frame(maxWidth: 220)
-                        }
-                        .frame(maxWidth: .infinity).padding(.vertical, 40)
+            Group {
+                switch model.phase {
+                case .idle, .loading:
+                    Form { content(.skeleton) }.redacted(reason: .placeholder).allowsHitTesting(false)
+                case .loaded(let loaded):
+                    Form { content(loaded) }
+                case .failed(let message):
+                    ContentUnavailableView {
+                        Label(String(localized: "Couldn't load this", bundle: .module), systemImage: "exclamationmark.triangle")
+                    } description: {
+                        Text(message)
+                    } actions: {
+                        Button(String(localized: "Try again", bundle: .module)) { Task { await model.load() } }
+                            .buttonStyle(.bordered)
                     }
                 }
-                .padding(.horizontal, PsycheMetrics.pagePadding)
-                .padding(.top, 8)
-                .padding(.bottom, 32)
             }
-            .psycheScreen()
             .navigationTitle(String(localized: "Settings", bundle: .module))
             .psycheInlineTitle()
             .toolbar {
@@ -224,118 +219,104 @@ struct SettingsSheet: View {
         let device = loaded.device
         let settings = loaded.settings
 
-        section(String(localized: "This phone", bundle: .module)) {
-            infoRow(String(localized: "Name", bundle: .module), device.name)
-            infoRow(String(localized: "Access", bundle: .module), device.scopes.joined(separator: ", "))
-            infoRow(String(localized: "Gateway", bundle: .module), device.gatewayHost, mono: true, stacked: true)
-            infoRow(String(localized: "Fingerprint", bundle: .module), device.gatewayFingerprint, mono: true, stacked: true)
-            infoRow(String(localized: "Connection", bundle: .module), device.transport, last: true)
+        Section(String(localized: "This phone", bundle: .module)) {
+            LabeledContent(String(localized: "Name", bundle: .module), value: device.name)
+            // Access, Gateway, Fingerprint and the transport are one tap away, not on the first screen.
+            NavigationLink {
+                ConnectionDetailView(device: device)
+            } label: {
+                LabeledContent(String(localized: "Connection", bundle: .module), value: device.transport)
+            }
         }
 
-        section(String(localized: "Notifications", bundle: .module), footer: Self.notificationsFooter) {
-            toggleRow(String(localized: "Notifications", bundle: .module), isOn: notificationsBinding(settings))
-            toggleRow(String(localized: "Live Activities", bundle: .module), isOn: liveActivitiesBinding(settings), disabled: !settings.notifications)
-            toggleRow(
-                String(localized: "Task titles on the Lock Screen", bundle: .module), isOn: binding(\.taskTitlesOnLockScreen, settings),
-                disabled: !settings.notifications || !settings.liveActivities, last: true)
+        Section {
+            Toggle(String(localized: "Notifications", bundle: .module), isOn: notificationsBinding(settings))
+            Toggle(String(localized: "Live Activities", bundle: .module), isOn: liveActivitiesBinding(settings))
+                .disabled(!settings.notifications)
+            Toggle(String(localized: "Task titles on the Lock Screen", bundle: .module), isOn: binding(\.taskTitlesOnLockScreen, settings))
+                .disabled(!settings.notifications || !settings.liveActivities)
+        } header: {
+            Text("Notifications", bundle: .module)
+        } footer: {
+            Text(Self.notificationsFooter)
         }
 
         stayConnectedSection(settings)
 
-        section(
-            String(localized: "Location", bundle: .module),
-            footer: String(
-                localized: "Off by default. When on, Psyche on your Mac can ask where this phone is, but only while Psyche is open on this phone. It never tracks you in the background or keeps a history of where you've been, and your location goes only to your Mac.",
+        Section {
+            Toggle(String(localized: "Share location with Psyche", bundle: .module), isOn: shareLocationBinding(settings))
+        } header: {
+            Text("Location", bundle: .module)
+        } footer: {
+            Text(
+                "Off by default. When on, Psyche on your Mac can ask where this phone is, but only while Psyche is open on this phone. It never tracks you in the background or keeps a history of where you've been, and your location goes only to your Mac.",
                 bundle: .module)
-        ) {
-            toggleRow(
-                String(localized: "Share location with Psyche", bundle: .module), isOn: shareLocationBinding(settings), last: true)
         }
 
-        section("Approvals", footer: String(localized: "Asks for Face ID before you allow a risky action from this phone.", bundle: .module)) {
-            toggleRow(String(localized: "Face ID for approvals", bundle: .module), isOn: binding(\.faceIDForApprovals, settings), last: true)
+        // The Face ID toggle only changes how the phone asks before a risky action. Approving stays one tap.
+        Section {
+            Toggle(String(localized: "Face ID for approvals", bundle: .module), isOn: binding(\.faceIDForApprovals, settings))
+        } header: {
+            Text("Approvals", bundle: .module)
+        } footer: {
+            Text("Asks for Face ID before you allow a risky action from this phone.", bundle: .module)
         }
 
-        section(String(localized: "Model", bundle: .module)) {
-            NavigationLink { DefaultModelView(store: store) } label: {
-                linkRow(String(localized: "Default model", bundle: .module))
-            }
-            .buttonStyle(.plain)
-            NavigationLink { UsageView(store: store) } label: {
-                linkRow(String(localized: "Usage", bundle: .module), last: true)
-            }
-            .buttonStyle(.plain)
+        Section(String(localized: "Model", bundle: .module)) {
+            NavigationLink(String(localized: "Default model", bundle: .module)) { DefaultModelView(store: store) }
+            NavigationLink(String(localized: "Usage", bundle: .module)) { UsageView(store: store) }
         }
 
         computersSection(loaded.machines)
 
-        section(String(localized: "Standing permissions", bundle: .module)) {
-            NavigationLink { StandingPermissionsView(store: store) } label: { actionRow(String(localized: "Standing permissions", bundle: .module), destructive: false) }
-                .buttonStyle(.plain)
-        }
-
-        section(String(localized: "Skills", bundle: .module)) {
-            NavigationLink { SkillsView(store: store) } label: { actionRow(String(localized: "Skills", bundle: .module), destructive: false) }
-                .buttonStyle(.plain)
+        Section {
+            NavigationLink(String(localized: "Standing permissions", bundle: .module)) { StandingPermissionsView(store: store) }
+            NavigationLink(String(localized: "Skills", bundle: .module)) { SkillsView(store: store) }
         }
 
         if session.isDemo {
-            section(
-                String(localized: "Demo", bundle: .module),
-                footer: String(localized: "You're looking at sample content. Exit to go back to pairing with your Mac.", bundle: .module)
-            ) {
-                Button {
+            Section {
+                Button(String(localized: "Exit demo", bundle: .module)) {
                     dismiss()
                     session.exitDemo()
-                } label: { actionRow(String(localized: "Exit demo", bundle: .module), destructive: false) }
-                    .buttonStyle(.plain)
+                }
+            } header: {
+                Text("Demo", bundle: .module)
+            } footer: {
+                Text("You're looking at sample content. Exit to go back to pairing with your Mac.", bundle: .module)
             }
         }
 
-        section(String(localized: "Gateway", bundle: .module)) {
-            Button { confirmingRepair = true } label: { actionRow(String(localized: "Re-pair with your Mac", bundle: .module), destructive: false) }
-                .buttonStyle(.plain)
-            HairlineDivider()
-            Button { confirmingRemove = true } label: { actionRow(String(localized: "Remove this phone", bundle: .module), destructive: true) }
-                .buttonStyle(.plain)
+        Section(String(localized: "Gateway", bundle: .module)) {
+            Button(String(localized: "Re-pair with your Mac", bundle: .module)) { confirmingRepair = true }
+            Button(String(localized: "Remove this phone", bundle: .module), role: .destructive) { confirmingRemove = true }
                 .disabled(model.removing)
         }
 
-        section(String(localized: "Appearance", bundle: .module)) {
-            infoRow("Theme", String(localized: "Follows your system", bundle: .module), last: true)
+        Section {
+            LabeledContent(String(localized: "Version", bundle: .module)) {
+                Text(Self.version).font(.psycheMono(.footnote))
+            }
+        } header: {
+            Text("About", bundle: .module)
+        } footer: {
+            Text("Change everything else on your Mac, in Settings.", bundle: .module)
         }
-
-        section(String(localized: "About", bundle: .module)) {
-            infoRow(String(localized: "Version", bundle: .module), Self.version, mono: true, last: true)
-        }
-
-        EditOnMacNote(text: String(localized: "Change everything else on your Mac, in Settings.", bundle: .module))
     }
 
     /// "Computers Psyche can use": read-only. Adding or pairing one is done on the Mac.
     private func computersSection(_ machines: [MachineSummary]) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            SectionHeader(String(localized: "Computers Psyche can use", bundle: .module))
-            PaperStack {
-                if machines.isEmpty {
-                    Text("No computers added yet.", bundle: .module)
-                        .font(.subheadline).foregroundStyle(PsycheColor.muted)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(PsycheMetrics.rowPadding)
-                } else {
-                    ForEach(Array(machines.enumerated()), id: \.element.id) { index, machine in
-                        VStack(spacing: 0) {
-                            HStack(alignment: .firstTextBaseline, spacing: 12) {
-                                Text(machine.name).font(.psycheRow).foregroundStyle(PsycheColor.text)
-                                Spacer(minLength: 12)
-                                Self.statusText(machine.status)
-                                    .font(.subheadline).foregroundStyle(PsycheColor.muted)
-                            }
-                            .padding(PsycheMetrics.rowPadding)
-                            if index < machines.count - 1 { HairlineDivider() }
-                        }
-                        .accessibilityElement(children: .combine)
+        Section(String(localized: "Computers Psyche can use", bundle: .module)) {
+            if machines.isEmpty {
+                Text("No computers added yet.", bundle: .module).foregroundStyle(.secondary)
+            } else {
+                ForEach(machines, id: \.id) { machine in
+                    LabeledContent {
+                        Self.statusText(machine.status)
+                    } label: {
+                        Text(machine.name)
                     }
+                    .accessibilityElement(children: .combine)
                 }
             }
         }
@@ -351,110 +332,20 @@ struct SettingsSheet: View {
 
     /// "Stay connected while a task runs" (off by default), its battery note, and what it has cost today.
     private func stayConnectedSection(_ settings: PhoneSettings) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            SectionHeader(String(localized: "Background", bundle: .module))
-            PaperStack {
-                Toggle(isOn: binding(\.stayConnectedWhileRunning, settings)) {
-                    Text("Stay connected while a task runs", bundle: .module)
-                }
-                .font(.psycheRow)
-                .foregroundStyle(PsycheColor.text)
-                .tint(PsycheColor.muted)
-                .disabled(!settings.notifications || !settings.liveActivities)
-                .padding(PsycheMetrics.rowPadding)
-                .accessibilityIdentifier("stayConnectedToggle")
-                HairlineDivider()
-                AwakeTodayRow(alerts: alerts, isOn: settings.stayConnectedWhileRunning)
+        Section {
+            Toggle(isOn: binding(\.stayConnectedWhileRunning, settings)) {
+                Text("Stay connected while a task runs", bundle: .module)
             }
+            .disabled(!settings.notifications || !settings.liveActivities)
+            .accessibilityIdentifier("stayConnectedToggle")
+            AwakeTodayRow(alerts: alerts, isOn: settings.stayConnectedWhileRunning)
+        } header: {
+            Text("Background", bundle: .module)
+        } footer: {
             Text(
                 "Keeps Psyche running in the background, with a silent audio session, only while a task or chat reply you're watching runs or waits for you. It uses some battery, and stops on Low Power Mode or when the battery is below 20 percent and unplugged.",
-                bundle: .module
-            )
-            .font(.footnote).foregroundStyle(PsycheColor.muted).padding(.horizontal, 2)
+                bundle: .module)
         }
-    }
-
-    private func section<Body: View>(
-        _ title: String, footer: String? = nil, @ViewBuilder content: () -> Body
-    ) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            SectionHeader(title)
-            PaperStack { content() }
-            if let footer {
-                Text(footer).font(.footnote).foregroundStyle(PsycheColor.muted).padding(.horizontal, 2)
-            }
-        }
-    }
-
-    /// A label and its value. Long values (host, fingerprint) go under the label so they never truncate.
-    private func infoRow(
-        _ title: String, _ value: String, mono: Bool = false, stacked: Bool = false, last: Bool = false
-    ) -> some View {
-        let valueText = Text(value)
-            .font(mono ? .psycheMono(.footnote) : .subheadline)
-            .foregroundStyle(PsycheColor.muted)
-            .textSelection(.enabled)
-            .fixedSize(horizontal: false, vertical: true)
-        return VStack(spacing: 0) {
-            Group {
-                if stacked {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(title).font(.psycheRow).foregroundStyle(PsycheColor.text)
-                        valueText
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                } else {
-                    HStack(alignment: .firstTextBaseline, spacing: 12) {
-                        Text(title).font(.psycheRow).foregroundStyle(PsycheColor.text)
-                        Spacer(minLength: 12)
-                        valueText.multilineTextAlignment(.trailing)
-                    }
-                }
-            }
-            .padding(PsycheMetrics.rowPadding)
-            if !last { HairlineDivider() }
-        }
-        .accessibilityElement(children: .combine)
-    }
-
-    private func toggleRow(_ title: String, isOn: Binding<Bool>, disabled: Bool = false, last: Bool = false) -> some View {
-        VStack(spacing: 0) {
-            Toggle(title, isOn: isOn)
-                .font(.psycheRow)
-                .foregroundStyle(PsycheColor.text)
-                .tint(PsycheColor.muted)  // a quiet track: the ink fill is for the screen's one action
-                .disabled(disabled)
-                .padding(PsycheMetrics.rowPadding)
-            if !last { HairlineDivider() }
-        }
-    }
-
-    /// A row that opens a screen: its title, then a disclosure chevron.
-    private func linkRow(_ title: String, last: Bool = false) -> some View {
-        VStack(spacing: 0) {
-            HStack {
-                Text(title).font(.psycheRow.weight(.medium)).foregroundStyle(PsycheColor.text)
-                Spacer(minLength: 0)
-                Image(systemName: "chevron.right")
-                    .font(.footnote.weight(.semibold))
-                    .foregroundStyle(PsycheColor.muted)
-            }
-            .padding(PsycheMetrics.rowPadding)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .contentShape(Rectangle())
-            if !last { HairlineDivider() }
-        }
-    }
-
-    private func actionRow(_ title: String, destructive: Bool) -> some View {
-        HStack {
-            Text(title).font(.psycheRow.weight(.medium))
-                .foregroundStyle(destructive ? PsycheColor.red : PsycheColor.inkText)
-            Spacer(minLength: 0)
-        }
-        .padding(PsycheMetrics.rowPadding)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .contentShape(Rectangle())
     }
 
     /// Turning notifications on asks iOS for permission (the only place besides the first approval that does);
@@ -536,8 +427,7 @@ private struct AwakeTodayRow: View {
             Spacer(minLength: 0)
         }
         .font(.subheadline)
-        .foregroundStyle(PsycheColor.muted)
-        .padding(PsycheMetrics.rowPadding)
+        .foregroundStyle(.secondary)
         .accessibilityIdentifier("keptAwakeToday")
         .task(id: isOn) {
             while !Task.isCancelled {
@@ -545,5 +435,31 @@ private struct AwakeTodayRow: View {
                 try? await Task.sleep(for: .seconds(isOn ? 30 : 3600))
             }
         }
+    }
+}
+
+
+/// The connection details that used to fill the first screen: access, the Gateway and its fingerprint.
+private struct ConnectionDetailView: View {
+    let device: DeviceInfo
+
+    var body: some View {
+        Form {
+            LabeledContent(String(localized: "Access", bundle: .module), value: device.scopes.joined(separator: ", "))
+            LabeledContent(String(localized: "Connection", bundle: .module), value: device.transport)
+            stacked(String(localized: "Gateway", bundle: .module), device.gatewayHost)
+            stacked(String(localized: "Fingerprint", bundle: .module), device.gatewayFingerprint)
+        }
+        .navigationTitle(String(localized: "Connection", bundle: .module))
+        .psycheInlineTitle()
+    }
+
+    /// Long values (host, fingerprint) go under the label so they never truncate.
+    private func stacked(_ title: String, _ value: String) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title).font(.subheadline).foregroundStyle(.secondary)
+            Text(value).font(.psycheMono(.footnote)).textSelection(.enabled)
+        }
+        .accessibilityElement(children: .combine)
     }
 }

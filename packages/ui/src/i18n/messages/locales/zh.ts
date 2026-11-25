@@ -2,6 +2,7 @@ import type { Catalogue } from "../index.ts";
 import { actionErrors } from "./action-errors/zh.ts";
 import { agent } from "./agent/zh.ts";
 import { agentNotes } from "./agent-notes/zh.ts";
+import { approvalsW3 } from "./approvals-w3/zh.ts";
 import { audit } from "./audit/zh.ts";
 import { automationChat } from "./automation-chat/zh.ts";
 import { blocks } from "./blocks/zh.ts";
@@ -263,6 +264,11 @@ export const zh: Partial<Catalogue> = {
   "errors.tab_not_found": "该浏览器标签页已关闭。",
   "errors.method_not_allowed": "浏览器不允许该操作。",
   "errors.presence_required": "请先通过通行密钥或 Mac 助手确认是你本人。",
+  "errors.presence_unavailable_here": "批准需要有人在这台电脑前。请登录它的桌面后重试。",
+  "errors.presence_agent_missing": "这个桌面没有运行密码提示，所以无法确认是你本人。",
+  "errors.presence_policy_missing":
+    "这台电脑还没有设置好确认你本人的功能。请安装 Psyche 的批准策略后重试。",
+  "errors.presence_not_enforced": "这台电脑不会要求输入密码就批准，所以无法确认是你本人。",
   "errors.offline": "无法连接到 Psyche。",
   "errors.unknown": "出了点问题。",
 
@@ -3919,6 +3925,8 @@ export const zh: Partial<Catalogue> = {
   ...computerWatch,
   // Psyche points (docs/design/psyche-points-2026.md §9)
   ...points,
+  // Approvals wave W3 (card choices, Allowed list)
+  ...approvalsW3,
   // Gateway-authored notices (inbox notifications, security alerts)
   ...notices,
   // Settings > Computer use > Separate desktop (Linux)

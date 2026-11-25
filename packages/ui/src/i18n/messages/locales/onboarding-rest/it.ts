@@ -75,6 +75,10 @@ export const onboardingRest: Partial<Catalogue> = {
   "onboarding.you.agent": "Il tuo agente",
   "onboarding.you.customize": "Personalizza l’aspetto",
   "onboarding.you.more": "Altro su di te",
+  "onboarding.restore.title": "Ripristina da un backup",
+  "onboarding.restore.where":
+    "I backup sono in $PSYCHE_HOME/backups. Per ripristinare su un nuovo computer, ferma il Gateway ed esegui:",
+  "onboarding.restore.unlock": "Poi sblocca il caveau con la sua chiave di recupero.",
   "onboarding.memory.habitsLead":
     "Scegli cosa fa {name} ogni giorno e cosa conserva in memoria. Tutto si può cambiare in Impostazioni.",
   "onboarding.memory.bring": "Porta la memoria da ChatGPT o Claude",

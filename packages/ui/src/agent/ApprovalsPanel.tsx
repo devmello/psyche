@@ -2,7 +2,7 @@ import type { Grant } from "@psyche/protocol";
 import { ChevronRight } from "lucide-react";
 import { type ReactElement, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { ApprovalCard } from "../blocks/ApprovalCard.tsx";
+import { ApprovalCard, focusApproval } from "../blocks/ApprovalCard.tsx";
 import { answerFailureText, classifyAnswerError } from "../blocks/answer-error.ts";
 import { otherSurfacesFor } from "../blocks/approval-surfaces.ts";
 import { PermissionActionsProvider } from "../blocks/permission-actions.tsx";
@@ -254,9 +254,18 @@ export function DeferredList({
 export function ApprovalsPanel({
   now: fixedNow,
   decided = false,
+  currentThreadId = null,
+  onShowInChat,
 }: {
   now?: number;
   decided?: boolean;
+  /** The modal sheet closes itself when a row sends the owner to the card in the chat. */
+  onShowInChat?: () => void;
+  /**
+   * The chat open beside the sheet. Its cards are answered on the card in that chat (one approval,
+   * shown once), so here they are rows that link to it; other threads' cards stay answerable.
+   */
+  currentThreadId?: string | null;
 }): ReactElement {
   const now = useNow(1000, fixedNow);
   const {
@@ -316,6 +325,10 @@ export function ApprovalsPanel({
     return () => cancelAnimationFrame(frame);
   }, [decided]);
   const overview = routeLink("/overview", slots.navigate);
+  const inThisChat = live.filter(
+    (v) => currentThreadId !== null && v.approval.requestedBy.threadId === currentThreadId,
+  );
+  const elsewhere = live.filter((v) => !inThisChat.includes(v));
   const empty = live.length === 0 && questions.open.length === 0 && deferred.length === 0;
 
   return (
@@ -340,7 +353,7 @@ export function ApprovalsPanel({
         ) : (
           <PermissionActionsProvider>
             <div className="flex flex-col gap-3">
-              {live.map((v) => {
+              {elsewhere.map((v) => {
                 const task = v.approval.requestedBy.taskId
                   ? tasks[v.approval.requestedBy.taskId]
                   : undefined;
@@ -367,6 +380,28 @@ export function ApprovalsPanel({
             </div>
           </PermissionActionsProvider>
         )}
+        {inThisChat.length > 0 ? (
+          <ul className="flex flex-col" data-testid="approvals-in-this-chat">
+            {inThisChat.map((v) => (
+              <li key={v.approval.id}>
+                <Row
+                  glyph="waiting"
+                  glyphLabel={t("agent.activity.waitingAnswer")}
+                  title={displaySummary(v.approval)}
+                  detail={t("approvals.thread.detail")}
+                  trailing={t("approvals.thread.show")}
+                  onOpen={() => {
+                    onShowInChat?.();
+                    focusApproval(v.approval.id);
+                  }}
+                  openLabel={t("approvals.thread.showNamed", {
+                    summary: displaySummary(v.approval),
+                  })}
+                />
+              </li>
+            ))}
+          </ul>
+        ) : null}
       </section>
 
       {questions.open.length > 0 ? (

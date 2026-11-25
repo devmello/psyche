@@ -39,6 +39,14 @@ export const errors = {
   "errors.tab_not_found": "That browser tab is closed.",
   "errors.method_not_allowed": "The browser doesn't allow that action.",
   "errors.presence_required": "Confirm it's you on a passkey or the Mac helper first.",
+  "errors.presence_unavailable_here":
+    "Approving this needs someone at the computer. Sign in to its desktop and try again.",
+  "errors.presence_agent_missing":
+    "This desktop has no password prompt running, so it can't confirm it's you.",
+  "errors.presence_policy_missing":
+    "This computer isn't set up to confirm it's you yet. Install Psyche's approval policy and try again.",
+  "errors.presence_not_enforced":
+    "This computer would approve without asking for a password, so it can't confirm it's you.",
   "errors.offline": "Psyche isn't reachable.",
   "errors.unknown": "Something went wrong.",
   // A more specific sentence for a code, chosen by the Gateway's `details.reason` (describeError).

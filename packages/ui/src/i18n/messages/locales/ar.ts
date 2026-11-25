@@ -2,6 +2,7 @@ import type { Catalogue } from "../index.ts";
 import { actionErrors } from "./action-errors/ar.ts";
 import { agent } from "./agent/ar.ts";
 import { agentNotes } from "./agent-notes/ar.ts";
+import { approvalsW3 } from "./approvals-w3/ar.ts";
 import { audit } from "./audit/ar.ts";
 import { automationChat } from "./automation-chat/ar.ts";
 import { blocks } from "./blocks/ar.ts";
@@ -270,6 +271,14 @@ export const ar: Partial<Catalogue> = {
   "errors.tab_not_found": "علامة تبويب المتصفح تلك مغلقة.",
   "errors.method_not_allowed": "لا يسمح المتصفح بهذا الإجراء.",
   "errors.presence_required": "أكّد أنك أنت عبر مفتاح مرور أو مساعد Mac أولًا.",
+  "errors.presence_unavailable_here":
+    "تحتاج الموافقة إلى شخص أمام الحاسوب. سجّل الدخول إلى سطح مكتبه وحاول مرة أخرى.",
+  "errors.presence_agent_missing":
+    "لا توجد نافذة لطلب كلمة المرور تعمل على سطح المكتب هذا، لذا لا يمكن التأكد من أنك أنت.",
+  "errors.presence_policy_missing":
+    "هذا الحاسوب غير مهيّأ بعد للتأكد من أنك أنت. ثبّت سياسة الموافقة في Psyche وحاول مرة أخرى.",
+  "errors.presence_not_enforced":
+    "كان هذا الحاسوب سيوافق دون طلب كلمة مرور، لذا لا يمكن التأكد من أنك أنت.",
   "errors.offline": "تعذّر الوصول إلى Psyche.",
   "errors.unknown": "حدث خطأ ما.",
 
@@ -4048,6 +4057,8 @@ export const ar: Partial<Catalogue> = {
   ...computerWatch,
   // Psyche points (docs/design/psyche-points-2026.md §9)
   ...points,
+  // Approvals wave W3 (card choices, Allowed list)
+  ...approvalsW3,
   // Gateway-authored notices (inbox notifications, security alerts)
   ...notices,
   // Settings > Computer use > Separate desktop (Linux)

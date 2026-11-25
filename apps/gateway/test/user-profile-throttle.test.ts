@@ -110,7 +110,7 @@ describe("profile learner batching", () => {
     const s = setup({ minIntervalMs: 30_000 });
     const secret = "Qz7pLm2Xw9Rt4Kv8";
     s.redactor.add(secret);
-    const pad = "a ".repeat(1995); // the secret starts at offset 3990
+    const pad = `my ${"a ".repeat(1995)}`; // a first-person cue, then the secret starts at offset 3993
     await s.turn(`${pad}${secret} tail`); // immediate path
     await s.turn(`${pad}${secret} tail`); // held, then flushed with the next
     await s.turn("I live in Lisbon.");
@@ -128,7 +128,7 @@ describe("profile learner batching", () => {
     expect(key).toHaveLength(32);
     s.redactor.add(key);
     await s.turn("My sister is Maya."); // immediate; opens the window
-    await s.turn(`please use ${key.slice(0, 19)}`);
+    await s.turn(`my deploy: please use ${key.slice(0, 19)}`);
     await s.turn(`${key.slice(19)} for the deploy`);
     await vi.advanceTimersByTimeAsync(31_000);
     expect(s.requests).toHaveLength(2);
@@ -139,8 +139,8 @@ describe("profile learner batching", () => {
 
   it("bounds the held buffer by dropping the oldest turn whole, never slicing one", async () => {
     const s = setup({ minIntervalMs: 30_000 });
-    await s.turn("first, opens the window");
-    const big = (c: string) => `${c} ${c.repeat(2998)}`; // 3,000 characters
+    await s.turn("My first message opens the window");
+    const big = (c: string) => `my ${c} ${c.repeat(2995)}`; // 3,000 characters
     await s.turn(big("a"));
     await s.turn(big("b"));
     await s.turn(big("c"));

@@ -7,7 +7,7 @@ import { formatStepDuration } from "../../components/steps/LiveDuration.tsx";
 import { StepRow } from "../../components/steps/StepRow.tsx";
 import { useRunFrames, useRunStep, useRunSteps, useStoreState } from "../../data/index.ts";
 import { t } from "../../i18n/core.ts";
-import { stepErrorText } from "../../i18n/errors.ts";
+import { describeStepError } from "../../i18n/errors.ts";
 import { parseNotVerified } from "../../lib/verdict.ts";
 import { usePersona, useSlots } from "../../slots.tsx";
 import { StepFeedback } from "../../teaching/StepFeedback.tsx";
@@ -169,7 +169,7 @@ export function StepItem({
       ? (() => {
           const v = parseNotVerified(step.error.message);
           if (v === undefined)
-            return <p className="text-danger-text">{stepErrorText(step.error)}</p>;
+            return <p className="text-danger-text">{describeStepError(step.error)}</p>;
           return (
             <div className="flex flex-col gap-1">
               <p className="text-label-primary">

@@ -9,7 +9,7 @@ export {
   setDefaultTimeZone,
   t,
 } from "./core.ts";
-export { describeError, errorCode, errorSummary } from "./errors.ts";
+export { describeError, describeStepError, errorCode, errorSummary } from "./errors.ts";
 export { I18nProvider, type I18nProviderProps, useI18n } from "./I18nProvider.tsx";
 export {
   canonicalLocale,

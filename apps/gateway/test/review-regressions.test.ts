@@ -216,6 +216,32 @@ describe("S01 review regressions", () => {
     expect(getRunStep(db, waiting.id, "stp_wait")?.status).toBe("waiting");
   });
 
+  it("recovery's restart note carries a key the UI words, and only for the run it failed", async () => {
+    t = await startTestGateway();
+    const db = t.gateway.context.db;
+    const cutThread = createThread(db, { kind: "side", sessionKey: "s-cut" });
+    const cut = createRun(db, { threadId: cutThread.id, modelRef: "fake/m" });
+    const waitThread = createThread(db, { kind: "side", sessionKey: "s-wait" });
+    const waiting = createRun(db, { threadId: waitThread.id, modelRef: "fake/m" });
+    updateRun(db, waiting.id, { status: "awaiting_approval" });
+    db.sqlite
+      .prepare("UPDATE threads SET active_writer_run_id = ? WHERE id = ?")
+      .run(cut.id, cutThread.id);
+    db.sqlite
+      .prepare("UPDATE threads SET active_writer_run_id = ? WHERE id = ?")
+      .run(waiting.id, waitThread.id);
+    recoverAfterRestart(db, silentLogger);
+    const notes = (threadId: string) =>
+      listAllMessages(db, threadId).filter((m) => m.role === "system");
+    expect(notes(cutThread.id)[0]?.blocks[0]).toEqual({
+      type: "text",
+      md: "The Gateway restarted during this turn, so it was stopped.",
+      noteKey: "gateway_restart",
+    });
+    // Control: a suspended run was not stopped, so its thread gets no note.
+    expect(notes(waitThread.id)).toEqual([]);
+  });
+
   it("retention keeps an expired incognito thread with a suspended run (finding 5)", async () => {
     let clock = Date.parse("2026-10-19T12:00:00.000Z");
     t = await startTestGateway({ now: () => new Date(clock) });

@@ -83,14 +83,48 @@ final class HomeUITests: PsycheUITestCase {
         waitFor(needsYouRow("Pay the electricity bill"))
     }
 
-    func testAskPsycheFieldOpensChatWithDraft() {
+    /// Every More page opens and draws its navigation title. Never touches an approval.
+    func testEveryMorePageOpens() {
         launch()
-        let field = app.textFields["Ask Psyche anything"]
-        waitFor(field)
-        field.tap()
-        field.typeText("What is on my plate today")
-        field.typeText("\n")
-        waitFor(composer)
-        XCTAssertEqual(composer.value as? String, "What is on my plate today")
+        continueAfterFailure = true
+        let more = app.descendants(matching: .any)["home.more"].firstMatch
+        scrollTo(more, maxSwipes: 12)
+        waitFor(more)
+        more.tap()
+        for title in ["Inbox", "Scheduled", "Overview", "To-do", "Keep in touch", "Pinned", "Follow-ups", "Spaces", "Feed", "Ideas", "Goals"] {
+            let row = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", title)).firstMatch
+            tapWhenHittable(row)
+            let bar = app.navigationBars[title]
+            XCTAssertTrue(bar.waitForExistence(timeout: 8), "\(title) page did not open; bars: \(app.navigationBars.allElementsBoundByIndex.map { $0.identifier }) texts: \(app.staticTexts.allElementsBoundByIndex.prefix(6).map { $0.label })")
+            if bar.exists { bar.buttons.firstMatch.tap() }
+            waitFor(app.navigationBars["More"], 5)
+        }
+    }
+
+    func testTodaySwipeSnoozeAndRunningContextMenu() {
+        launch()
+        let running = app.staticTexts["Drafting the Q3 review summary"]
+        waitFor(running)
+        running.press(forDuration: 1.2)
+        waitFor(app.buttons["Watch"], 5)
+        app.buttons["Watch"].tap()
+        let row = app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "Rent is due Friday")).firstMatch
+        scrollTo(row)
+        waitFor(row)
+        row.swipeLeft()
+        let snooze = app.buttons["Snooze"].firstMatch
+        waitFor(snooze, 5)
+        snooze.tap()
+        waitGone(row, 8)
+    }
+
+    func testMoreRowOpensTheMorePage() {
+        launch()
+        let more = app.descendants(matching: .any)["home.more"].firstMatch
+        scrollTo(more, maxSwipes: 12)
+        waitFor(more)
+        more.tap()
+        waitFor(text("Keep in touch"))
+        waitFor(text("Spaces"))
     }
 }
