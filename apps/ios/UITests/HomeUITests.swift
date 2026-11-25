@@ -83,14 +83,12 @@ final class HomeUITests: PsycheUITestCase {
         waitFor(needsYouRow("Pay the electricity bill"))
     }
 
-    func testAskPsycheFieldOpensChatWithDraft() {
+    func testMoreRowOpensTheMorePage() {
         launch()
-        let field = app.textFields["Ask Psyche anything"]
-        waitFor(field)
-        field.tap()
-        field.typeText("What is on my plate today")
-        field.typeText("\n")
-        waitFor(composer)
-        XCTAssertEqual(composer.value as? String, "What is on my plate today")
+        let more = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "More")).firstMatch
+        waitFor(more)
+        more.tap()
+        waitFor(text("Keep in touch"))
+        waitFor(text("Spaces"))
     }
 }

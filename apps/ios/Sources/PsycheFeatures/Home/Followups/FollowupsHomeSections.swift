@@ -3,8 +3,8 @@ import PsycheDesign
 import PsycheStore
 import SwiftUI
 
-/// Home's "Follow-ups" (quiet email threads) and "Suggestions" (batch proposals) sections. Each is drawn only when it
-/// has something to show. Approve is one plain tap; Undo sits on an approved suggestion for 30 seconds.
+/// Home's "Follow-ups" (quiet email threads) and "Suggestions" (batch proposals), a page behind More. Each section is
+/// drawn only when it has something to show. Approve is one plain tap; Undo sits on an approved suggestion for 30 seconds.
 struct FollowupsHomeSections: View {
     @State private var model: FollowupsModel
     @State private var open: Suggestion?
@@ -18,16 +18,25 @@ struct FollowupsHomeSections: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: PsycheMetrics.sectionSpacing) {
+        List {
+            if model.followups.isEmpty && model.suggestions.isEmpty && model.undoable.isEmpty {
+                ContentUnavailableView {
+                    Label(String(localized: "No follow-ups", bundle: .module), systemImage: "arrowshape.turn.up.left")
+                } description: {
+                    Text("Quiet email threads and Psyche's suggestions show up here.", bundle: .module)
+                }
+                .listRowBackground(Color.clear)
+            }
             if !model.followups.isEmpty { followUps(model.followups) }
             if !model.suggestions.isEmpty || !model.undoable.isEmpty { suggestions }
             if let error = model.error {
-                Text(error)
-                    .font(.footnote)
-                    .foregroundStyle(PsycheColor.muted)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                Section { Text(error).font(.footnote).foregroundStyle(.secondary) }
             }
         }
+        .homeListStyle()
+        .navigationTitle(String(localized: "Follow-ups", bundle: .module))
+        .psycheInlineTitle()
+        .refreshable { await model.load() }
         .task {
             await model.load()
             await model.observe()
@@ -41,14 +50,10 @@ struct FollowupsHomeSections: View {
     // MARK: Follow-ups
 
     private func followUps(_ items: [MailFollowup]) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            SectionHeader(String(localized: "Follow-ups", bundle: .module), count: items.count)
-            PaperCard {
-                ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
-                    if index > 0 { HairlineDivider() }
-                    followUpRow(item)
-                }
-            }
+        Section {
+            ForEach(items) { item in followUpRow(item) }
+        } header: {
+            Text("Follow-ups", bundle: .module)
         }
     }
 
@@ -59,30 +64,32 @@ struct FollowupsHomeSections: View {
         case .noReply: String(localized: "\(who) hasn’t replied in \(days) days", bundle: .module)
         case .unansweredQuestion: String(localized: "\(who) asked you something \(days) days ago", bundle: .module)
         }
-        let waiting = model.busy.contains(item.id)
-        return VStack(alignment: .leading, spacing: 10) {
-            VStack(alignment: .leading, spacing: 3) {
-                Text(line).font(.psycheRow).foregroundStyle(PsycheColor.text)
-                Text(item.subject)
-                    .font(.subheadline)
-                    .foregroundStyle(PsycheColor.muted)
-                    .lineLimit(1)
-            }
-            HStack(spacing: 20) {
-                Button(String(localized: "Snooze", bundle: .module)) {
-                    Task { await model.act(on: item, .snooze) }
-                }
-                Button(String(localized: "Dismiss", bundle: .module)) {
-                    Task { await model.act(on: item, .dismiss) }
-                }
-            }
-            .font(.subheadline.weight(.medium))
-            .foregroundStyle(PsycheColor.muted)
-            .buttonStyle(.plain)
-            .disabled(waiting || !session.state.canAnswer)
+        let enabled = !model.busy.contains(item.id) && session.state.canAnswer
+        return VStack(alignment: .leading, spacing: 3) {
+            Text(line).font(.body)
+            Text(item.subject).font(.footnote).foregroundStyle(.secondary).lineLimit(1)
         }
-        .padding(PsycheMetrics.rowPadding)
         .frame(maxWidth: .infinity, alignment: .leading)
+        .swipeActions(edge: .trailing) {
+            Button(role: .destructive) { Task { await model.act(on: item, .dismiss) } } label: {
+                Label(String(localized: "Dismiss", bundle: .module), systemImage: "xmark")
+            }
+            .disabled(!enabled)
+            Button { Task { await model.act(on: item, .snooze) } } label: {
+                Label(String(localized: "Snooze", bundle: .module), systemImage: "moon.zzz")
+            }
+            .tint(.indigo)
+            .disabled(!enabled)
+        }
+        .contextMenu {
+            Button { Task { await model.act(on: item, .snooze) } } label: {
+                Label(String(localized: "Snooze", bundle: .module), systemImage: "moon.zzz")
+            }
+            Button(role: .destructive) { Task { await model.act(on: item, .dismiss) } } label: {
+                Label(String(localized: "Dismiss", bundle: .module), systemImage: "xmark")
+            }
+        }
+        .disabled(!enabled)
         .accessibilityElement(children: .contain)
     }
 
@@ -90,48 +97,46 @@ struct FollowupsHomeSections: View {
 
     private var suggestions: some View {
         let now = Date.now
-        return VStack(alignment: .leading, spacing: 8) {
-            SectionHeader(String(localized: "Suggestions", bundle: .module), count: model.suggestions.count)
-            PaperCard {
-                ForEach(Array(model.openUndo(at: now).enumerated()), id: \.element.id) { index, window in
-                    if index > 0 { HairlineDivider() }
-                    doneRow(window)
-                }
-                ForEach(Array(model.suggestions.enumerated()), id: \.element.id) { index, suggestion in
-                    if index > 0 || !model.openUndo(at: now).isEmpty { HairlineDivider() }
-                    suggestionRow(suggestion)
-                }
-            }
+        return Section {
+            ForEach(model.openUndo(at: now)) { window in doneRow(window) }
+            ForEach(model.suggestions) { suggestion in suggestionRow(suggestion) }
+        } header: {
+            Text("Suggestions", bundle: .module)
         }
     }
 
     private func suggestionRow(_ suggestion: Suggestion) -> some View {
-        let waiting = model.busy.contains(suggestion.id)
-        return VStack(alignment: .leading, spacing: 10) {
-            Button { open = suggestion } label: {
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(suggestion.title).font(.psycheRow).foregroundStyle(PsycheColor.text)
-                    EvidenceLine([why(suggestion)])
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .contentShape(Rectangle())
+        let enabled = !model.busy.contains(suggestion.id) && session.state.canAnswer
+        return Button { open = suggestion } label: {
+            VStack(alignment: .leading, spacing: 3) {
+                Text(suggestion.title).font(.body).multilineTextAlignment(.leading)
+                Text(why(suggestion)).font(.footnote).foregroundStyle(.secondary)
             }
-            .buttonStyle(.plain)
-            HStack(spacing: 20) {
-                // Approve opens the sheet, where every call is on screen before the one tap.
-                Button(String(localized: "Approve", bundle: .module)) { open = suggestion }
-                    .foregroundStyle(PsycheColor.inkText)
-                Button(String(localized: "Dismiss", bundle: .module)) {
-                    Task { await model.dismiss(suggestion) }
-                }
-                .foregroundStyle(PsycheColor.muted)
-            }
-            .font(.subheadline.weight(.medium))
-            .buttonStyle(.plain)
-            .disabled(waiting || !session.state.canAnswer)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
         }
-        .padding(PsycheMetrics.rowPadding)
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .buttonStyle(.plain)
+        // Approve opens the sheet, where every call is on screen before the one tap.
+        .swipeActions(edge: .leading) {
+            Button { open = suggestion } label: {
+                Label(String(localized: "Approve", bundle: .module), systemImage: "checkmark")
+            }
+            .tint(.accentColor)
+        }
+        .swipeActions(edge: .trailing) {
+            Button(role: .destructive) { Task { await model.dismiss(suggestion) } } label: {
+                Label(String(localized: "Dismiss", bundle: .module), systemImage: "xmark")
+            }
+        }
+        .contextMenu {
+            Button { open = suggestion } label: {
+                Label(String(localized: "Approve", bundle: .module), systemImage: "checkmark")
+            }
+            Button(role: .destructive) { Task { await model.dismiss(suggestion) } } label: {
+                Label(String(localized: "Dismiss", bundle: .module), systemImage: "xmark")
+            }
+        }
+        .disabled(!enabled)
     }
 
     /// An approved suggestion, with Undo while its window is open.
@@ -139,22 +144,18 @@ struct FollowupsHomeSections: View {
         let waiting = model.busy.contains(window.id)
         return HStack(alignment: .firstTextBaseline, spacing: 12) {
             VStack(alignment: .leading, spacing: 3) {
-                Text(window.suggestion.title).font(.psycheRow).foregroundStyle(PsycheColor.text)
-                EvidenceLine([String(localized: "Done", bundle: .module)])
+                Text(window.suggestion.title).font(.body)
+                Text("Done", bundle: .module).font(.footnote).foregroundStyle(.secondary)
             }
             Spacer(minLength: 0)
             if window.suggestion.canUndo {
                 Button(String(localized: "Undo", bundle: .module)) {
                     Task { await model.undo(window) }
                 }
-                .font(.subheadline.weight(.medium))
-                .foregroundStyle(PsycheColor.muted)
-                .buttonStyle(.plain)
+                .buttonStyle(.borderless)
                 .disabled(waiting || !session.state.canAnswer)
             }
         }
-        .padding(PsycheMetrics.rowPadding)
-        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private func why(_ suggestion: Suggestion) -> String {
