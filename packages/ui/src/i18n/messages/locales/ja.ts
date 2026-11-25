@@ -1935,6 +1935,7 @@ export const ja: Partial<Catalogue> = {
   "settings.mcp.network": "ネットワークを使用",
   "settings.mcp.added": "{name}を追加しました。",
   "settings.mcp.removed": "{name}を削除しました。",
+  "settings.openPage.failed": "ページを開けませんでした（{reason}）。",
   "settings.mcp.secretNotDeleted":
     "保存済みのシークレットを削除できませんでした（{reason}）。もう一度試して削除してください。",
   "settings.mcp.denied": "{name}は追加されませんでした。",
