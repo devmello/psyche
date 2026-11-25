@@ -519,14 +519,18 @@ describe("reads never count against anyone", () => {
         approval: expect.anything(),
       });
     }
-    const rejected = (await h.audit.query({} as never)).filter((e) =>
-      String(e.type).includes("answer_rejected"),
+    const rejected = (await h.audit.query({} as never)).filter(
+      (e) => e.kind === "approval.answer_rejected",
     );
     expect(rejected).toHaveLength(0);
     // Control: explicitly asking for a token is a refusal, and it is audited.
     await expect(
       handlers["approvals.get"]({ approvalId: issued.approval.id, wantToken: true }, caller),
     ).rejects.toThrow();
+    const after = (await h.audit.query({} as never)).filter(
+      (e) => e.kind === "approval.answer_rejected",
+    );
+    expect(after).toHaveLength(1);
   });
 });
 
