@@ -17,4 +17,5 @@ export const mailFollowups: Partial<Catalogue> = {
   "mailFollowups.thread.title": "متابعة بريد",
   "chat.composer.placeholderMail": "اسأل عن هذه المحادثة",
   "daily.section.quiet_threads": "محادثات بريد متوقفة",
+  "daily.section.night_shift": "الوردية الليلية",
 };
