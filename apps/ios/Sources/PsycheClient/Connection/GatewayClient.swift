@@ -84,6 +84,9 @@ public actor GatewayClient {
     private let deps: GatewayClientDependencies
 
     private var endpoint: GatewayEndpoint?
+    /// Whether `endpoint` is one a connection has proven (saved after a handshake passed `IdentityCheck`). A `psyche-pair:v2`
+    /// link carries the Gateway's key before any proof, so a key alone says nothing about a working pairing.
+    private var endpointProven = false
     /// The working pairing, kept aside while a new link is being tried; put back if the attempt fails.
     private var previousEndpoint: GatewayEndpoint?
     /// A pairing attempt (link scanned, Gateway not yet proven paired) is under way.
@@ -121,6 +124,7 @@ public actor GatewayClient {
         location = dependencies.locationProvider.map { PhoneLocationNode(provider: $0, foreground: foreground) }
         resync = Resync(lastStateVersion: Self.loadStateVersion(dependencies.stateDirectory))
         endpoint = dependencies.endpointStore.load()
+        endpointProven = endpoint != nil  // only a proven endpoint is ever saved
         state = endpoint == nil ? .unpaired : .connecting
     }
 
@@ -254,10 +258,22 @@ public actor GatewayClient {
     private func startRunLoopIfNeeded() {
         guard runLoop == nil, wantsConnection, endpoint != nil else { return }
         switch state {
+        // A different device at the pinned address is not final (a café network, a spoofed name, a taken address):
+        // the loop keeps going and recovers when the real Mac answers.
+        case .refused(.identityChanged): break
         case .refused, .revoked, .unpaired: return
         default: break
         }
         runLoop = Task { await self.run() }
+    }
+
+    /// "Try again" on the identity-changed screen: dials now instead of waiting out the backoff. Nothing is replaced:
+    /// the same pin is demanded.
+    public func retryNow() {
+        guard case .refused(.identityChanged) = state else { return }
+        runLoop?.cancel()
+        runLoop = nil
+        startRunLoopIfNeeded()
     }
 
     // MARK: - Pairing
@@ -272,8 +288,9 @@ public actor GatewayClient {
         Task { await old?.close() }
         // A working pairing stays on disk and in `previousEndpoint` until the new Gateway is proven and paired,
         // so a link that fails (expired, denied, unreachable, cancelled) costs nothing.
-        if previousEndpoint == nil, let current = endpoint, !current.identityKey.isEmpty { previousEndpoint = current }
+        if previousEndpoint == nil, let current = endpoint, endpointProven, !current.identityKey.isEmpty { previousEndpoint = current }
         endpoint = link.endpoint
+        endpointProven = false
         setupToken = link.setupToken
         pairingInProgress = true
         set(.connecting)
@@ -299,9 +316,11 @@ public actor GatewayClient {
             }
             // Nothing working to go back to: the link's unproven endpoint must not stay in memory or on disk.
             endpoint = nil
+            endpointProven = false
             deps.endpointStore.clear()
         } else {
             endpoint = deps.endpointStore.load()
+            endpointProven = endpoint != nil
         }
         set(.unpaired)
     }
@@ -312,6 +331,7 @@ public actor GatewayClient {
         guard let previous = previousEndpoint else { return false }
         previousEndpoint = nil
         endpoint = previous
+        endpointProven = true
         try? deps.endpointStore.save(previous)  // a pending pin may have written the new one
         return true
     }
@@ -536,7 +556,7 @@ public actor GatewayClient {
     private func run() async {
         var attempt = 0
         while !Task.isCancelled, wantsConnection, let endpoint {
-            if case .unreachable = state {} else if case .pending = state {} else { set(.connecting) }
+            if case .unreachable = state {} else if case .pending = state {} else if case .refused(.identityChanged) = state {} else { set(.connecting) }
             let token = setupToken
             let outcome = await connectOnce(endpoint: endpoint, setupToken: token)
             if Task.isCancelled { return }
@@ -560,7 +580,9 @@ public actor GatewayClient {
                 if action == .stop { return }
                 try? await Task.sleep(for: .seconds(deps.backoff.delay(attempt: attempt)))
                 attempt += 1
-            case .refused:
+            case .refused, .certChanged:
+                var reason = RefusalReason.identityMismatch
+                if case .certChanged = outcome { reason = .identityChanged }
                 if pairingInProgress, restorePreviousEndpoint() {
                     pairingInProgress = false
                     setupToken = nil
@@ -568,8 +590,12 @@ public actor GatewayClient {
                     set(.connecting)
                     continue
                 }
-                set(.refused(.identityMismatch))
-                return
+                set(.refused(reason))
+                // A wrong certificate is not final: keep dialing with the usual backoff, so the phone goes live by itself
+                // once the pinned certificate and key are seen again. The pin is never replaced.
+                if reason == .identityMismatch { return }
+                try? await Task.sleep(for: .seconds(deps.backoff.delay(attempt: attempt)))
+                attempt += 1
             case .unreachable:
                 if pairingInProgress, restorePreviousEndpoint() {
                     pairingInProgress = false
@@ -596,6 +622,8 @@ public actor GatewayClient {
         case pending(code: String)
         case denied(String, tokenInvalid: Bool, code: String?, provenPinned: Bool)
         case refused
+        /// The pinned certificate was not the one presented (or a saved pin names no local address).
+        case certChanged
         case unreachable
     }
 
@@ -603,10 +631,14 @@ public actor GatewayClient {
         guard let url = URLSessionTransport.socketURL(forOrigin: endpoint.url) else { return .unreachable }
         let identity: DeviceIdentity
         do { identity = try await deps.identityStore.identity() } catch { return .unreachable }
-        // A self-signed certificate is accepted for capture on the local network only; Tailscale and everything
-        // else needs a chain the system trusts.
+        // A self-signed certificate is accepted only for a Gateway with a stored SPKI pin (a `psyche-pair:v2` link, or a
+        // pairing that captured one) and only at an address that is on a local network; the connection then accepts
+        // that certificate and no other, with no fallback to the system's trust. Everything else, Tailscale included,
+        // needs a chain the system trusts.
+        let pinnedSPKI = endpoint.lanCertSpki
+        if pinnedSPKI != nil, LanHost.lanOrigin(endpoint.url) == nil { return .certChanged }
         let transport = deps.transportFactory(
-            url, TransportTrust(allowSelfSigned: endpoint.transport == .lan, pinnedSPKI: endpoint.lanCertSpki))
+            url, TransportTrust(allowSelfSigned: pinnedSPKI != nil, pinnedSPKI: pinnedSPKI))
         let connection = GatewayConnection(
             endpoint: endpoint, identity: identity, deviceName: deps.deviceName, transport: transport)
         do {
@@ -648,8 +680,10 @@ public actor GatewayClient {
         } catch ConnectionFailure.identityMismatch {
             return .refused
         } catch {
+            // The server answered, but with another certificate than the pinned one: not a Mac that is off.
+            let pinRefused = transport.pinRefused
             await connection.close()
-            return .unreachable
+            return pinRefused ? .certChanged : .unreachable
         }
     }
 
@@ -666,6 +700,7 @@ public actor GatewayClient {
             if pinned.lanCertSpki == nil { pinned.lanCertSpki = proven.certSPKI }
         }
         self.endpoint = pinned
+        endpointProven = true  // `IdentityCheck` passed on this connection
         if paired {
             if let previous = previousEndpoint, Self.gatewayBinding(previous) != Self.gatewayBinding(pinned) {
                 await wipeLocalData()

@@ -10,6 +10,9 @@ import PsycheWire
 /// comes from a person pointing the camera at a code or pasting one.
 public struct PairingLink: Equatable, Sendable {
     public static let prefix = "psyche-pair:v1:"
+    /// The link for a Gateway on the local network (`PAIRING_LINK_PREFIX_V2`): a self-signed certificate, so it carries
+    /// the Gateway's identity key and the SPKI pin of that certificate.
+    public static let prefixV2 = "psyche-pair:v2:"
 
     /// `https://host[:port]`, normalized: no credentials, path, query or fragment, and never loopback.
     public let gatewayURL: String
@@ -21,6 +24,23 @@ public struct PairingLink: Equatable, Sendable {
     public let setupToken: String
     /// The Host's name with invisible characters removed, as the confirm screen shows it.
     public let hostName: String
+    /// v2 only: the Gateway's raw identity key (base64url, 32 bytes), pinned at once. `gatewayFingerprint` is its hash.
+    public let gatewayKey: String?
+    /// v2 only: SHA-256 (base64url) of the SPKI of the Gateway's self-signed LAN certificate. The phone refuses any
+    /// other certificate before it writes a byte, and never falls back to the system's trust for this Gateway.
+    public let certPin: String?
+
+    public init(
+        gatewayURL: String, gatewayFingerprint: String, setupToken: String, hostName: String,
+        gatewayKey: String? = nil, certPin: String? = nil
+    ) {
+        self.gatewayURL = gatewayURL
+        self.gatewayFingerprint = gatewayFingerprint
+        self.setupToken = setupToken
+        self.hostName = hostName
+        self.gatewayKey = gatewayKey
+        self.certPin = certPin
+    }
 
     public enum ParseError: Error, Equatable, LocalizedError {
         case notAPairingLink
@@ -58,6 +78,7 @@ public struct PairingLink: Equatable, Sendable {
     private static let maxURLChars = 300
     private static let maxHostName = 64
     private static let fields: Set<String> = ["gatewayUrl", "gatewayFingerprint", "setupToken", "hostName"]
+    private static let fieldsV2: Set<String> = ["gatewayUrl", "gatewayKey", "certPin", "setupToken", "hostName"]
 
     public static func parse(_ text: String) throws -> PairingLink {
         let link = text.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -66,17 +87,20 @@ public struct PairingLink: Equatable, Sendable {
         guard link.lowercased().hasPrefix("psyche-pair:") else { throw ParseError.notAPairingLink }
         let rest = String(link.dropFirst("psyche-pair:".count))
         guard let colon = rest.firstIndex(of: ":") else { throw ParseError.damaged }
-        guard rest[..<colon] == "v1" else { throw ParseError.unsupportedVersion }
+        let version = rest[..<colon]
+        guard version == "v1" || version == "v2" else { throw ParseError.unsupportedVersion }
         let body = String(rest[rest.index(after: colon)...])
         guard isBase64URL(body), body.utf8.count % 4 != 1, let data = Base64URL.decode(body),
               String(data: data, encoding: .utf8) != nil,
               let json = try? JSONSerialization.jsonObject(with: data), let object = json as? [String: Any]
         else { throw ParseError.damaged }
-        if let extra = object.keys.sorted().first(where: { !fields.contains($0) }) { throw ParseError.extraField(extra) }
+        let allowed = version == "v2" ? fieldsV2 : fields
+        if let extra = object.keys.sorted().first(where: { !allowed.contains($0) }) { throw ParseError.extraField(extra) }
         func field(_ key: String) throws -> String {
             guard let value = object[key] as? String else { throw ParseError.badField(key) }
             return value
         }
+        if version == "v2" { return try parseV2(field: field) }
         let url = try field("gatewayUrl"), fingerprint = try field("gatewayFingerprint")
         let token = try field("setupToken"), host = try field("hostName")
         guard isFingerprint(fingerprint) else { throw ParseError.badField("gatewayFingerprint") }
@@ -85,6 +109,28 @@ public struct PairingLink: Equatable, Sendable {
         guard url.utf16.count <= maxURLChars else { throw ParseError.badGatewayURL(String(localized: "too long", bundle: .module)) }
         return PairingLink(
             gatewayURL: try origin(url), gatewayFingerprint: fingerprint, setupToken: token, hostName: cleaned)
+    }
+
+    /// The v2 fields, checked as `checkPayloadV2` in `packages/protocol/src/pairing-link.ts` checks them, in its
+    /// order: a LAN origin (`LanHost.lanOrigin`), a 32-byte base64url Gateway key and certificate pin with
+    /// canonical trailing bits, the setup token, a host name.
+    private static func parseV2(field: (String) throws -> String) throws -> PairingLink {
+        let url = try field("gatewayUrl"), key = try field("gatewayKey"), pin = try field("certPin")
+        let token = try field("setupToken"), host = try field("hostName")
+        guard url.utf16.count <= maxURLChars, let origin = LanHost.lanOrigin(url) else { throw ParseError.badField("gatewayUrl") }
+        guard isBase64URL32Bytes(key), let fingerprint = fingerprint(ofKey: key) else { throw ParseError.badField("gatewayKey") }
+        guard isBase64URL32Bytes(pin) else { throw ParseError.badField("certPin") }
+        guard isSetupToken(token) else { throw ParseError.badField("setupToken") }
+        guard let cleaned = cleanHostName(host) else { throw ParseError.badField("hostName") }
+        return PairingLink(
+            gatewayURL: origin, gatewayFingerprint: fingerprint, setupToken: token, hostName: cleaned,
+            gatewayKey: key, certPin: pin)
+    }
+
+    /// 43 base64url characters that decode to exactly 32 bytes and re-encode to the same text (zero trailing bits).
+    static func isBase64URL32Bytes(_ text: String) -> Bool {
+        guard text.utf8.count == 43, isBase64URL(text), let raw = Base64URL.decode(text), raw.count == 32 else { return false }
+        return Base64URL.encode(raw) == text
     }
 
     /// `sha256:` and 64 lowercase hex characters.
@@ -195,12 +241,14 @@ public struct PairingLink: Equatable, Sendable {
         }.joined(separator: " ")
     }
 
-    public var transport: GatewayEndpoint.Transport { host.hasSuffix(".ts.net") ? .tailscale : .lan }
+    public var transport: GatewayEndpoint.Transport { certPin != nil || !host.hasSuffix(".ts.net") ? .lan : .tailscale }
 
-    /// The endpoint to pin. It holds the link's fingerprint until the first connect proves a key.
+    /// The endpoint to pin. A v1 link holds only the key's fingerprint until the first connect proves a key; a v2 link
+    /// pins the key and the certificate at once.
     public var endpoint: GatewayEndpoint {
         GatewayEndpoint(
             host: host, fingerprint: fingerprint, transport: transport,
-            url: gatewayURL, identityKey: "", hostName: hostName, linkFingerprint: gatewayFingerprint)
+            url: gatewayURL, identityKey: gatewayKey ?? "", hostName: hostName, linkFingerprint: gatewayFingerprint,
+            lanCertSpki: certPin)
     }
 }

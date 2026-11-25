@@ -102,6 +102,8 @@ export interface LiveConnection {
   closeAfterReply?(reason: string): void;
   /** Bytes queued on the socket and not yet sent (WebSockets only; 0 otherwise). */
   bufferedAmount(): number;
+  /** Closes now, without the closing handshake (dead peer, slow subscriber). */
+  terminate?(reason: string): void;
   setEventFilter(filter: EventFilter | null): void;
   /** Gateway → peer request (node protocol); resolves with the `res` payload. */
   request(method: string, params: unknown, timeoutMs?: number): Promise<unknown>;

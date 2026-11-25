@@ -9,8 +9,10 @@ import {
   getThread,
   listMessagesPage,
   listQueue,
+  listToolCallsForRun,
   releaseWriter,
   removeQueued,
+  settleRunToolCalls,
   takeNextQueued,
   threadsWithQueuedMessages,
   updateRun,
@@ -373,7 +375,10 @@ export class SessionController {
     const old = finishRun(db, active, { status: "cancelled", error: "interrupted" });
     hooks.emit("run.updated", { run: old }, thread.id);
     // Registered before #admit's start, so the old turn is detached and aborted first.
-    hooks.afterCommit(() => this.#stopRun(thread.id, active, "interrupted"));
+    hooks.afterCommit(() => {
+      this.#stopRun(thread.id, active, "interrupted");
+      this.#settleRun(thread.id, active);
+    });
     const { messageId, run } = this.#admit(
       thread,
       input.content,
@@ -617,6 +622,7 @@ export class SessionController {
         this.#bump();
         return finished;
       })();
+      this.#settleRun(threadId, active);
       bus.publish("run.updated", { run }, threadId);
       if (opts.drain !== false) this.#drain(threadId);
     }
@@ -824,14 +830,14 @@ export class SessionController {
     };
 
     /** Writes one committed message; `false` when the run lost the transcript. */
-    const commit = (msg: PendingMessage): boolean => {
+    const commit = (msg: PendingMessage, writer: string | null = runId): boolean => {
       if (msg.blocks.length === 0) return true;
       try {
         const message: Message = db.sqlite.transaction(() => {
           const m = appendMessage(
             db,
             { id: msg.id, threadId, role: "agent", blocks: msg.blocks, provenance: "agent", runId },
-            { expectedWriterRunId: runId },
+            { expectedWriterRunId: writer },
           );
           const toolIds = msg.blocks.flatMap((b) => (b.type === "tool_call" ? [b.toolCallId] : []));
           for (const id of toolIds) {
@@ -948,9 +954,33 @@ export class SessionController {
     }
     if (turn.detached) {
       this.#ctx.runTrace.end(runId, "cancelled");
+      // Stopped, superseded or shutting down: what the agent had said so far is kept as a message
+      // of this run (the run itself says it was cancelled), and its open tool calls are settled.
+      // The transcript may now belong to another run or to none, so the guard is checked against
+      // whoever holds it at this moment (the write is synchronous, nothing can change it between).
+      try {
+        const holder = this.activeRunId(threadId);
+        this.#settleBlocks(
+          runId,
+          [...pending.values()].flatMap((m) => m.blocks),
+        );
+        for (const agentMessageId of order) {
+          const msg = pending.get(agentMessageId);
+          if (msg && !commit(msg, holder)) break;
+        }
+        this.#settleRun(threadId, runId);
+      } catch (err) {
+        this.#warn("could not keep the partial reply", err);
+      }
       return;
     }
 
+    if (outcome.status === "cancelled" || outcome.status === "failed") {
+      this.#settleBlocks(
+        runId,
+        [...pending.values()].flatMap((m) => m.blocks),
+      );
+    }
     for (const agentMessageId of order) {
       const msg = pending.get(agentMessageId);
       if (msg && !commit(msg)) return;
@@ -967,8 +997,39 @@ export class SessionController {
       this.#bump();
       return finished;
     })();
+    if (outcome.status === "cancelled" || outcome.status === "failed") {
+      this.#settleRun(threadId, runId);
+    }
     bus.publish("run.updated", { run }, threadId);
     if (outcome.status === "cancelled") await this.#revoke(runId, "cancelled");
+  }
+
+  /**
+   * A run that ended cancelled or failed leaves no tool call running: the rows and the committed
+   * blocks settle (see `settleRunToolCalls`) and each change is published.
+   */
+  #settleRun(threadId: string, runId: string): void {
+    const { db, bus } = this.#ctx;
+    const settled = settleRunToolCalls(db, runId);
+    if (settled.calls.length === 0 && settled.messages.length === 0) return;
+    this.#bump();
+    for (const toolCall of settled.calls) bus.publish("tool_call.updated", { toolCall }, threadId);
+    for (const message of settled.messages) bus.publish("chat.message", { message }, threadId);
+  }
+
+  /** Marks the open tool blocks of messages not yet committed the way `#settleRun` will. */
+  #settleBlocks(runId: string, blocks: Block[]): void {
+    const calls = new Map(listToolCallsForRun(this.#ctx.db, runId).map((c) => [c.id, c]));
+    for (const b of blocks) {
+      if (b.type !== "tool_call" || (b.status !== "pending" && b.status !== "running")) continue;
+      const call = calls.get(b.toolCallId);
+      const open = call === undefined || call.status === "pending" || call.status === "running";
+      b.status = open
+        ? call !== undefined && call.sideEffect !== "none" && call.sideEffect !== "read"
+          ? "uncertain"
+          : "failed"
+        : call.status;
+    }
   }
 
   #apply(

@@ -98,6 +98,7 @@ import {
   type PermissionBroker,
   PsycheError,
   type SecurityAlert,
+  type StagedAction,
   type Task,
   TERMINAL_TASK_STATUSES,
 } from "@psyche/protocol";
@@ -229,6 +230,7 @@ import {
   restoreModelSettings,
   settingsKeyValue,
 } from "./model-settings.ts";
+import { composeNightShift, personalizeNightShiftItem } from "./night-shift.ts";
 import { NotificationActions } from "./notification-actions.ts";
 import { composeNudges } from "./nudges.ts";
 import { composeOnePasswordSetup, type OnePasswordSetupOptions } from "./onepassword-setup.ts";
@@ -1941,6 +1943,19 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       subagent: ctx.subagent,
     }),
   );
+  // Night shift (docs/design/night-shift-2026.md): composed after Proactive; the pool reaches it
+  // through this ref for a staging task's sink, its toolset and its usage meter.
+  let nightShiftRef: ReturnType<typeof composeNightShift> | undefined;
+  const taskTrace = taskRunTrace({
+    db,
+    sink: () => gatewayRef?.context.runTrace,
+    publish,
+    modelRef,
+    onError: (err) =>
+      gwOptions.logger?.log("warn", "task run trace failed", {
+        code: PsycheError.from(err).code,
+      }),
+  });
   const pool = new TaskWorkerPool({
     engine: tasks,
     loop,
@@ -1948,20 +1963,21 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     broker,
     notifier,
     tools: registry,
+    stagingSinkFor: (staging) => nightShiftRef?.sinkFor(staging),
+    stagingToolsFor: (staging) => nightShiftRef?.toolsFor(staging),
     ...(taskPollMs === undefined ? {} : { pollMs: taskPollMs }),
     canClaim: () => updateGate.accepting(),
     // Run trace §4.2: each task turn is its own run (ULID), recorded like a chat turn.
     newRunId: () => db.newId(),
-    trace: taskRunTrace({
-      db,
-      sink: () => gatewayRef?.context.runTrace,
-      publish,
-      modelRef,
-      onError: (err) =>
-        gwOptions.logger?.log("warn", "task run trace failed", {
-          code: PsycheError.from(err).code,
-        }),
-    }),
+    trace: {
+      start: (turn) => taskTrace.start(turn),
+      event: (turn, ev) => {
+        // Night shift meters its own jobs' spend from their usage events.
+        if (ev.type === "usage") nightShiftRef?.meter(turn.taskId, ev.usage, turn.runId);
+        taskTrace.event(turn, ev);
+      },
+      end: (turn, outcome, error) => taskTrace.end(turn, outcome, error),
+    },
     // Specialist jobs run in their own pool, so they never take the chat tasks' slots.
     claim: { excludeOrigins: ["subagent"] },
   });
@@ -2062,6 +2078,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       return nudges.keepInTouch();
     },
     quietThreads: () => mailFollowups.briefLines(),
+    nightShift: () => nightShiftRef?.briefLine(),
     // Catching up and `memory.catchup.*` (MW4): the graph, and what the agent may read of it.
     catchup: { graph: people.graph, em: everything.store, access: people.agentAccess },
     // Ideas proposes folding a skill's lessons into it once it has three (teaching loop §6).
@@ -2103,6 +2120,28 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   })) {
     registry.register(tool);
   }
+  nightShiftRef = composeNightShift({
+    db,
+    clock,
+    scheduler,
+    notifier,
+    tasks: tasks as never,
+    poke: () => pool.poke(),
+    registry,
+    lookup: () => connectorToolLookup(registry),
+    keepAwake,
+    readState: () => readSystemState(),
+    timeZone: () => timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone,
+    connectors: async () => (connectorsPart === undefined ? [] : connectorsPart.registry.list()),
+    folders: () => rawBroker.grantedFolders(),
+    mailCandidates: () => mailFollowups.nightCandidates(),
+    followups: proactive.followups,
+    redact: (text) => redactor.redact(text),
+    publish: (event, payload) => publish(event as never, payload as never),
+    broker: rawBroker,
+    surfaceOf: (deviceId) => surfaceOf(db, deviceId),
+    ...(gwOptions.logger === undefined ? {} : { logger: gwOptions.logger }),
+  });
   // #557: web.search / web.fetch on every surface (read-only, untrusted output).
   const webTools = composeWebTools(
     {
@@ -2170,7 +2209,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
             withProactiveJobs(
               proactive.launcher(createTaskLauncher({ engine: tasks, pool }), pool),
               {
-                jobs: [everything.job],
+                jobs: [everything.job, ...(nightShiftRef === undefined ? [] : [nightShiftRef.job])],
               },
             ),
             {
@@ -2566,6 +2605,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     ),
     ...mountParamsOnly(createNotificationHandlers(notifier) as never),
     ...proactive.handlers,
+    ...(nightShiftRef?.defs ?? {}),
     ...capabilities.handlers,
     ...questionHandlers(loop, tasks),
     ...receiptHandlers(broker),
@@ -2736,6 +2776,9 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     // Messages chips); a subscriber with no identity (a Gateway part) is read as the least trusted.
     if (event === "chat.message")
       return personalizeMessageEvent(gateway.context, payload as { message: Message }, sub.reader);
+    // A Night shift item made from Messages reaches only the desktop shell on this Mac in full.
+    if (event === "nightShift.item.updated")
+      return personalizeNightShiftItem(payload as { item: StagedAction }, sub.reader);
     if (event !== "approval.created" || sub.deviceId === null) return undefined;
     if (!sub.scopes.includes("operator.approvals")) return undefined;
     const p = payload as { approval: { id: string } };
@@ -2855,6 +2898,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   // Phrases still queued by a Forget before the last shutdown resume here.
   traceScrub.start();
   await proactive.start();
+  await nightShiftRef?.start();
   const systemZone = new SystemZone();
   const effectiveZone = () => timeZone ?? systemZone.zone;
   await ensureWeeklyCardAutomation(scheduler, { timezone: effectiveZone() });

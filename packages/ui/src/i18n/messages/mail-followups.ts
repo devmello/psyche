@@ -15,5 +15,7 @@ export const mailFollowups = {
   "mailFollowups.thread.title": "Email follow-up",
   "chat.composer.placeholderMail": "Ask about this thread",
   "daily.section.quiet_threads": "Quiet email threads",
+  "daily.section.promises": "Promises",
+  "screens.inbox.kind.promise_due": "Promise due",
   "daily.section.night_shift": "Night shift",
 } as const;

@@ -2984,6 +2984,7 @@ export interface Block {
     statement?:    null | string;
     proposal?:     DailyWorkflowProposal;
     route?:        string;
+    goal?:         string;
     widgetId?:     string;
 }
 
@@ -3081,7 +3082,7 @@ export type WorkNoteAttribute = "status" | "deadline" | "progress" | "stopped_at
 
 export type ChecklistItemStatus = "pending" | "in_progress" | "completed";
 
-export type BlockKind = "feed_item" | "search_hit" | "memory_entity" | "life_answer" | "mail_followup";
+export type BlockKind = "feed_item" | "search_hit" | "memory_entity" | "life_answer" | "mail_followup" | "promise";
 
 /**
  * The kind of model that made the answer
@@ -3124,7 +3125,7 @@ export interface CompactionSummary {
 
 export type BlockTrigger = "auto" | "manual";
 
-export type BlockType = "text" | "tool_call" | "plan" | "checklist" | "approval" | "question" | "artifact" | "file" | "context" | "receipt" | "task" | "wrap_up" | "related_threads" | "sources" | "life_answer" | "compaction" | "learned" | "taught" | "work_note" | "specialist_result" | "automation_workflow" | "app_link" | "ui";
+export type BlockType = "text" | "tool_call" | "plan" | "checklist" | "approval" | "question" | "artifact" | "file" | "context" | "receipt" | "task" | "wrap_up" | "related_threads" | "sources" | "life_answer" | "compaction" | "learned" | "taught" | "work_note" | "specialist_result" | "automation_workflow" | "app_link" | "points_offer" | "ui";
 
 export interface ChatCancelParams {
     runId?:   string;
@@ -3292,11 +3293,15 @@ export interface ChatAttachedFile {
 }
 
 export interface ChatContextRef {
-    id:     string;
-    kind:   BlockKind;
-    scope?: string;
-    title?: string;
+    id:           string;
+    intent?:      PromiseDraftIntent;
+    kind:         BlockKind;
+    proposedDue?: string;
+    scope?:       string;
+    title?:       string;
 }
+
+export type PromiseDraftIntent = "nudge" | "renegotiate" | "release_note" | "do_it";
 
 export interface ChatFromWidget {
     widgetId: string;
@@ -4979,7 +4984,7 @@ export interface DailySection {
     unavailable?: boolean;
 }
 
-export type DailySectionID = "calendar" | "mail" | "due" | "followups" | "weather" | "done" | "open" | "tomorrow" | "learned" | "coming_up" | "keep_in_touch" | "quiet_threads" | "catching_up" | "worked_on" | "night_shift";
+export type DailySectionID = "calendar" | "mail" | "due" | "followups" | "weather" | "done" | "open" | "tomorrow" | "learned" | "coming_up" | "keep_in_touch" | "quiet_threads" | "catching_up" | "worked_on" | "promises" | "night_shift";
 
 export interface InboxDigest {
     accounts: string[];
@@ -5044,12 +5049,12 @@ export interface DigestLoop {
 
 export interface GraphLoop {
     closedAt?:            null | string;
-    closedBy?:            GraphLoopClosedBy | null;
+    closedBy?:            PromiseClosedBy | null;
     confidence:           number;
     counterpartId?:       null | string;
     createdAt:            string;
     detectedBy:           GraphLoopDetectedBy;
-    direction:            GraphLoopDirectionFilter;
+    direction:            PromiseDirection;
     dueAt?:               null | string;
     evidence?:            null | string;
     id:                   string;
@@ -5060,16 +5065,16 @@ export interface GraphLoop {
     text:                 string;
 }
 
-export type GraphLoopClosedBy = "owner" | "reply_seen" | "due_passed";
+export type PromiseClosedBy = "owner" | "reply_seen" | "due_passed" | "auto" | "aged_out" | "released";
 
 /**
  * Who attached it to the entity; model links count only after the owner confirms
  */
 export type GraphLoopDetectedBy = "rule" | "model" | "owner";
 
-export type GraphLoopDirectionFilter = "i_owe" | "waiting_on";
+export type PromiseDirection = "i_owe" | "waiting_on";
 
-export type GraphLoopStatus = "suggested" | "open" | "snoozed" | "done" | "dismissed";
+export type GraphLoopStatus = "suggested" | "open" | "snoozed" | "done" | "broken" | "released" | "dismissed";
 
 export interface MeetingNotes {
     actionItems:       MeetingActionItem[];
@@ -7992,7 +7997,7 @@ export interface MemoryLoopsListParams {
      * Opaque cursor
      */
     cursor?:    string;
-    direction?: GraphLoopDirectionFilter;
+    direction?: PromiseDirection;
     dueBefore?: string;
     entityId?:  string;
     limit?:     number;
@@ -8014,12 +8019,14 @@ export interface MemoryLoopsUpdateParams {
      */
     dueAt?:  null | string;
     id:      string;
-    status?: GraphLoopStatus;
+    status?: GraphLoopWriteStatus;
     /**
      * Rephrase it
      */
     text?: string;
 }
+
+export type GraphLoopWriteStatus = "suggested" | "open" | "snoozed" | "done" | "dismissed";
 
 export interface MemoryLoopsUpdateResult {
     loop: GraphLoop;
@@ -9037,7 +9044,7 @@ export interface StagedAction {
     params?:       unknown;
     paramsHash:    string;
     precondition?: unknown;
-    preview?:      unknown;
+    preview?:      StagedPreview | null;
     result?:       StagedActionResult | null;
     send?:         StagedActionSend | null;
     seq:           number;
@@ -9053,9 +9060,28 @@ export interface StagedAction {
     toolCallId?:   null | string;
     updatedAt:     string;
     why?:          null | string;
+    withheld?:     Withheld;
 }
 
 export type StagedActionDomain = "mail" | "calendar" | "reminders" | "files";
+
+export interface StagedPreview {
+    kind:      StagedPreviewKind;
+    rows:      StagedPreviewRow[];
+    title:     string;
+    truncated: boolean;
+}
+
+export type StagedPreviewKind = "mail" | "calendar" | "reminder" | "file";
+
+export interface StagedPreviewRow {
+    badge?:     Badge;
+    label:      string;
+    truncated?: boolean;
+    value:      string;
+}
+
+export type Badge = "new_recipient" | "reply_all";
 
 export interface StagedActionResult {
     error?:     string;
@@ -9069,6 +9095,8 @@ export interface StagedActionSend {
 }
 
 export type StagedActionStatus = "ready" | "stale" | "superseded" | "applied" | "failed" | "uncertain" | "skipped" | "dismissed" | "expired" | "undone";
+
+export type Withheld = "messages";
 
 export interface NightShiftReviewGetParams {
     reviewId: string;
@@ -9289,7 +9317,7 @@ export interface NotificationAction {
     labelKey?: string;
 }
 
-export type NotificationKind = "approval" | "input_needed" | "task_done" | "task_failed" | "proactive" | "briefing" | "reminder" | "system" | "specialist_result";
+export type NotificationKind = "approval" | "input_needed" | "task_done" | "task_failed" | "proactive" | "briefing" | "reminder" | "system" | "specialist_result" | "promise_due";
 
 export interface NoticeMessage {
     /**
@@ -9805,6 +9833,322 @@ export interface PluginsSetEnabledResult {
     plugin: PluginSummary;
 }
 
+export interface PointsAskParams {
+    sessionId: string;
+    text:      string;
+}
+
+export interface PointsAskRequestedPayload {
+    sessionId: string;
+}
+
+export interface PointsAskResult {
+    answer: string;
+}
+
+export interface PointsEndParams {
+    sessionId: string;
+}
+
+export interface PointsEndResult {
+}
+
+export interface PointsHelperWindowsResult {
+    windows: PointsHelperWindow[];
+}
+
+export interface PointsHelperWindow {
+    app:         PointsHelperWindowApp;
+    frontmost:   boolean;
+    pid:         number;
+    refusal?:    PointsRefusal;
+    title:       string;
+    windowIndex: number;
+}
+
+export interface PointsHelperWindowApp {
+    bundleId: string;
+    name:     string;
+}
+
+export type PointsRefusal = "never_app" | "fixed_off" | "terminal_or_ide" | "owner_off" | "not_a_window" | "permission_missing";
+
+export interface PointsLookParams {
+    actionId:  string;
+    sessionId: string;
+}
+
+export interface PointsLookResult {
+    height:         number;
+    image?:         null | string;
+    masked:         boolean;
+    pointsPerPixel: number;
+    width:          number;
+}
+
+export interface PointsOfferBlock {
+    goal: string;
+    type: PointsOfferBlockType;
+}
+
+export type PointsOfferBlockType = "points_offer";
+
+export interface PointsPlan {
+    done_when: PointsDoneWhen;
+    page:      Page;
+    steps:     PointsStep[];
+}
+
+export type PointsDoneWhen = "submit" | "next_page" | "none";
+
+export interface Page {
+    summary: string;
+    title:   string;
+}
+
+export interface PointsStep {
+    derivation?: PointsDerivation;
+    expect?:     Expect;
+    fieldId:     string;
+    kind:        PointsStepKind;
+    note:        string;
+    option?:     string;
+    sources?:    string[];
+    value?:      string;
+}
+
+export type PointsDerivation = "exact" | "case" | "date_format" | "name_part" | "address_part";
+
+export interface Expect {
+    detail?: string;
+    shape:   PointsExpectShape;
+}
+
+export type PointsExpectShape = "date" | "email" | "phone" | "postal" | "digits" | "oneOf";
+
+export type PointsStepKind = "fill" | "choose" | "check" | "skip" | "self" | "review" | "next_page";
+
+export interface PointsSessionEvent {
+    action?:   PointsCardAction;
+    actionId?: string;
+    digest?:   PointsDigest;
+    fieldId?:  string;
+    reason?:   PointsEndReason;
+    state?:    PointsFieldFill;
+    type:      PointsSessionEventType;
+    value?:    string;
+    visible?:  boolean;
+}
+
+export type PointsCardAction = "back" | "skip" | "wrong" | "stuck_missing" | "stuck_unclear" | "stuck_blocked" | "ask" | "look" | "next" | "follow_window" | "stop";
+
+export interface PointsDigest {
+    app:          PointsDigestApp;
+    fields:       PointsField[];
+    fingerprint:  string;
+    headings:     string[];
+    host?:        string;
+    insecure?:    boolean;
+    instructions: string;
+    path?:        string;
+    tree:         Tree;
+    truncated?:   boolean;
+    windowTitle:  string;
+}
+
+export interface PointsDigestApp {
+    bundleId: string;
+    name:     string;
+}
+
+export interface PointsField {
+    enabled?:   boolean;
+    errorText?: string;
+    fieldId:    string;
+    focused?:   boolean;
+    frame?:     PointsRect;
+    invalid?:   boolean;
+    label:      string;
+    options?:   string[];
+    path:       string[];
+    required?:  boolean;
+    role:       PointsFieldRole;
+    sensitive?: PointsSensitiveReason;
+    state:      PointsFieldFill;
+    value?:     string;
+}
+
+export interface PointsRect {
+    height: number;
+    width:  number;
+    x:      number;
+    y:      number;
+}
+
+export type PointsFieldRole = "text" | "multiline" | "number" | "date" | "checkbox" | "radio" | "popup" | "combobox" | "button" | "link";
+
+export type PointsSensitiveReason = "password" | "payment" | "one_time_code" | "identity" | "secret" | "secure_field" | "value_shape" | "directions_only";
+
+export type PointsFieldFill = "empty" | "filled" | "unknown";
+
+export type Tree = "ok" | "sparse";
+
+export type PointsEndReason = "stop" | "window_closed" | "app_quit" | "app_changed" | "idle" | "computer_use" | "recording" | "helper_lost" | "gateway_lost" | "error";
+
+export type PointsSessionEventType = "digest" | "field" | "focus" | "page" | "action" | "visible" | "ended";
+
+export interface PointsSessionParams {
+    strings: PointsCardStrings;
+    window:  string;
+}
+
+export interface PointsCardStrings {
+    askInPsyche:   string;
+    back:          string;
+    copy:          string;
+    followWindow:  string;
+    hideNote:      string;
+    letLook:       string;
+    looksWrong:    string;
+    menuBarTitle:  string;
+    next:          string;
+    payButton:     string;
+    scrollTo:      string;
+    selfFill:      string;
+    selfFillPlain: string;
+    skip:          string;
+    stepFormat:    string;
+    stop:          string;
+    stuck:         string;
+    stuckBlocked:  string;
+    stuckMissing:  string;
+    stuckUnclear:  string;
+    unknownValue:  string;
+    visionBadge:   string;
+}
+
+export interface PointsShowParams {
+    kind:      PointsShowKind;
+    note:      string;
+    sessionId: string;
+    sources?:  string[];
+    step:      PointsShowParamsStep;
+    target:    PointsShowTarget;
+    value?:    string;
+    warning?:  string;
+}
+
+export type PointsShowKind = "fill" | "choose" | "check" | "skip" | "self" | "review" | "next_page" | "info";
+
+export interface PointsShowParamsStep {
+    n:  number;
+    of: number;
+}
+
+export interface PointsShowTarget {
+    box?:       PointsRect;
+    fieldId?:   string;
+    imageSize?: ImageSize;
+}
+
+export interface ImageSize {
+    height: number;
+    width:  number;
+}
+
+export interface PointsShowResult {
+    shown: boolean;
+}
+
+export interface PointsStartParams {
+    entry:       PointsEntry;
+    goal?:       string;
+    goalSource?: GoalSource;
+    locale:      string;
+    strings:     PointsCardStrings;
+    threadId?:   string;
+    window:      string;
+}
+
+export type PointsEntry = "chat" | "palette" | "tray";
+
+export type GoalSource = "owner" | "offer";
+
+export interface PointsStartResult {
+    app:       PointsStartResultApp;
+    sessionId: string;
+}
+
+export interface PointsStartResultApp {
+    bundleId: string;
+    name:     string;
+}
+
+export interface PointsStatusParams {
+}
+
+export interface PointsStatusResult {
+    session?: PointsSessionStatus;
+}
+
+export interface PointsSessionStatus {
+    app:       PointsSessionStatusApp;
+    of:        number;
+    page:      number;
+    sessionId: string;
+    state:     PointsState;
+    step:      number;
+    vision:    boolean;
+}
+
+export interface PointsSessionStatusApp {
+    bundleId: string;
+    name:     string;
+}
+
+export type PointsState = "reading" | "pointing" | "paused" | "ended";
+
+export interface PointsStopParams {
+    sessionId: string;
+}
+
+export interface PointsStopResult {
+    ended: boolean;
+}
+
+export interface PointsUpdatedPayload {
+    needs?:    PointsNeeds;
+    of:        number;
+    page:      number;
+    reason?:   PointsEndReason;
+    sessionId: string;
+    state:     PointsState;
+    step:      number;
+    vision:    boolean;
+}
+
+export type PointsNeeds = "accessibility" | "screenRecording";
+
+export interface PointsWindowsParams {
+}
+
+export interface PointsWindowsResult {
+    windows: PointsWindow[];
+}
+
+export interface PointsWindow {
+    app:       PointsWindowApp;
+    frontmost: boolean;
+    ref:       string;
+    refusal?:  PointsRefusal;
+    title:     string;
+}
+
+export interface PointsWindowApp {
+    bundleId: string;
+    name:     string;
+}
+
 export interface PolicyRule {
     createdAt: string;
     effect:    Decision;
@@ -9873,6 +10217,177 @@ export interface Checkpointed {
 }
 
 export type UpdateGateState = "open" | "draining" | "ready";
+
+export interface PromiseUpdatedPayload {
+    promise: PromiseView;
+}
+
+export interface PromiseView {
+    basis:             PromiseBasis;
+    brokenAt?:         null | string;
+    citations?:        PromiseCitation[];
+    closedAt?:         null | string;
+    closedBy?:         PromiseClosedBy | null;
+    confidence:        number;
+    counterpartId?:    null | string;
+    counterpartLabel?: null | string;
+    createdAt:         string;
+    direction:         PromiseDirection;
+    dueAt?:            null | string;
+    dueConfidence?:    number | null;
+    dueKind:           PromiseDueKind;
+    dueText?:          null | string;
+    events?:           PromiseEvent[];
+    id:                string;
+    lastNudgeAt?:      null | string;
+    link?:             string;
+    nudgeCount:        number;
+    projectId?:        null | string;
+    proposedDueAt?:    null | string;
+    provenance:        Provenance;
+    snoozedUntil?:     null | string;
+    sourceKind?:       PromiseSourceKind | null;
+    state:             PromiseState;
+    status:            GraphLoopStatus;
+    warnedAt?:         null | string;
+    what:              string;
+    whatAction?:       PromiseAction | null;
+}
+
+export type PromiseBasis = "promise" | "ask" | "request";
+
+export interface PromiseCitation {
+    id:         string;
+    observedAt: string;
+    provenance: Provenance;
+    quote:      string;
+    source:     PromiseCitationSource;
+    sourceRef:  string;
+}
+
+export type PromiseCitationSource = "mail" | "messages" | "notes" | "chats" | "transcripts";
+
+export type PromiseDueKind = "explicit" | "inferred" | "none";
+
+export interface PromiseEvent {
+    at:          string;
+    by:          PromiseEventBy;
+    citationId?: null | string;
+    from?:       null | string;
+    id:          string;
+    kind:        PromiseEventKind;
+    to?:         null | string;
+}
+
+export type PromiseEventBy = "owner" | "auto" | "model" | "rule";
+
+export type PromiseEventKind = "created" | "confirmed" | "source_added" | "due_changed" | "due_proposed" | "status" | "warned" | "asked" | "nudge_drafted" | "nudge_sent" | "auto_done" | "undo";
+
+export type PromiseSourceKind = "mail" | "messages" | "meeting" | "chat" | "manual";
+
+export type PromiseState = "suggested" | "open" | "due_soon" | "snoozed" | "broken" | "done" | "released" | "dismissed";
+
+export type PromiseAction = "send" | "reply" | "meet" | "do";
+
+export interface PromisesActParams {
+    action: PromiseActAction;
+    id:     string;
+}
+
+export interface PromiseActAction {
+    type:    PromiseActActionType;
+    until?:  string;
+    dueAt?:  null | string;
+    days?:   number;
+    answer?: Answer;
+}
+
+export type Answer = "yes" | "not_yet";
+
+export type PromiseActActionType = "confirm" | "not_promise" | "done" | "reopen" | "release" | "dismiss" | "snooze" | "set_due" | "more_time" | "accept_proposed" | "reject_proposed" | "answer";
+
+export interface PromisesActResult {
+    promise: PromiseView;
+}
+
+export interface PromisesAddParams {
+    counterpartId?: string;
+    direction:      PromiseDirection;
+    dueAt?:         null | string;
+    what:           string;
+}
+
+export interface PromisesAddResult {
+    promise: PromiseView;
+}
+
+export interface PromisesDeleteParams {
+    id: string;
+}
+
+export interface PromisesDeleteResult {
+    ok: boolean;
+}
+
+export interface PromisesGetParams {
+    id: string;
+}
+
+export interface PromisesGetResult {
+    promise: PromiseView;
+}
+
+export interface PromisesListParams {
+    /**
+     * Opaque cursor
+     */
+    cursor?:    string;
+    dueBefore?: string;
+    entityId?:  string;
+    limit?:     number;
+    view:       PromiseListView;
+}
+
+export type PromiseListView = "yours" | "theirs" | "confirm" | "closed" | "all";
+
+export interface PromisesListResult {
+    hiddenCount: number;
+    nextCursor?: null | string;
+    promises:    PromiseView[];
+}
+
+export interface PromisesMuteParams {
+    entityId?:  string;
+    muted:      boolean;
+    threadRef?: string;
+}
+
+export interface PromisesMuteResult {
+    ok: boolean;
+}
+
+export interface PromisesSummaryResult {
+    summary: PromiseSummary;
+}
+
+export interface PromiseSummary {
+    dueSoon:     number;
+    enabled:     boolean;
+    hiddenCount: number;
+    late:        number;
+    missed:      number;
+    nextDueAt?:  null | string;
+    theirs:      number;
+    toConfirm:   number;
+    upcoming:    PromiseUpcoming[];
+    yours:       number;
+}
+
+export interface PromiseUpcoming {
+    id:     string;
+    title:  string;
+    warnAt: string;
+}
 
 export interface ProposalUpdatedPayload {
     proposal: ActionProposal;
@@ -12526,11 +13041,11 @@ export interface SpacesUpdateParams {
 export interface SpecialistProgressPayload {
     budget: RunBudget;
     runId:  string;
-    step:   Step;
+    step:   SpecialistProgressPayloadStep;
     taskId: string;
 }
 
-export interface Step {
+export interface SpecialistProgressPayloadStep {
     id:     string;
     label:  string;
     status: string;
@@ -12846,6 +13361,17 @@ export type StorageClearTarget = "caches" | "recordings";
 export interface StorageCleared {
     cleared:    StorageClearTarget[];
     freedBytes: number;
+}
+
+export interface StorageCompactEstimate {
+    dbBytes:          number;
+    idle:             boolean;
+    reclaimableBytes: number;
+}
+
+export interface StorageCompacted {
+    durationMs: number;
+    savedBytes: number;
 }
 
 export interface StorageUsage {

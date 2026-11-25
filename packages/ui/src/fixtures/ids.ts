@@ -172,6 +172,7 @@ export const IDS = {
     taskDone: "ntf_done_price_watch",
     taskFailed: "ntf_failed_sub_audit",
     specialistResult: "ntf_specialist_apartments",
+    promiseDue: "ntf_promise_due",
     proactive: "ntf_idea_subscription",
     briefing: "ntf_brief_ready",
     reminder: "ntf_reminder_checkin",

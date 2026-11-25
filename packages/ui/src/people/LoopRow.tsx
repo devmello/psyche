@@ -6,14 +6,14 @@ import { t } from "../i18n/core.ts";
 import { formatDate } from "../lib/format.ts";
 import { cn } from "../lib/utils.ts";
 import { ProvenanceGlyph } from "./glyphs.tsx";
-import type { GraphLoopStatus, LoopView } from "./types.ts";
+import type { GraphLoopWriteStatus, LoopView } from "./types.ts";
 
 export interface LoopRowProps {
   loop: LoopView;
   now: number;
   /** Hide the counterpart (on that person's own card). */
   hideCounterpart?: boolean;
-  onUpdate?: (loop: LoopView, status: GraphLoopStatus) => void;
+  onUpdate?: (loop: LoopView, status: GraphLoopWriteStatus) => void;
   onOpenLink?: (link: string) => void;
   busy?: boolean;
 }

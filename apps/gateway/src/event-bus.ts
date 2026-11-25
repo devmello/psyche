@@ -36,6 +36,10 @@ const EVENT_SCOPE: Partial<Record<EventName, DeviceScope | null>> = {
   // A shell on the Host: only an admin device ever receives its output.
   "terminal.output": "operator.admin",
   "terminal.exit": "operator.admin",
+  // Promise ledger (docs/design/promise-ledger-2026.md section 7.2): until W5 (the remote-viewer
+  // scrub and its per-subscriber personaliser) lands, only admin devices receive it. W5 relaxes
+  // this to operator.read. No `promise_due` emitter may merge before W5.
+  "promise.updated": "operator.admin",
   "gateway.shutdown": null,
 };
 

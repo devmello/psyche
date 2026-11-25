@@ -42,9 +42,44 @@ export interface RelayDecision {
 const URGENT = new Set(["approval", "input_needed"]);
 const PASSIVE = new Set(["proactive", "briefing"]);
 
+/** How long a notification waits for the first helper presence check (about 2 s). */
+export const PRESENCE_HOLD_MS = 2_000;
+
 export class NotificationRelay {
   private readonly seen = new Set<string>();
   helperOnline = false;
+  /** False until the first presence check lands. Until then a toast could double the helper's. */
+  presenceKnown = false;
+  private held: { n: PsycheNotification; show: (d: RelayDecision) => void }[] = [];
+  private holdTimer: ReturnType<typeof setTimeout> | undefined;
+
+  /**
+   * Decides a notification now, or holds it until the first presence check lands, or
+   * `PRESENCE_HOLD_MS` passes, whichever comes first. The decision is the same either way.
+   */
+  offer(n: PsycheNotification, show: (d: RelayDecision) => void): void {
+    if (this.presenceKnown) {
+      show(this.decide(n));
+      return;
+    }
+    this.held.push({ n, show });
+    this.holdTimer ??= setTimeout(() => this.flush(), PRESENCE_HOLD_MS);
+  }
+
+  /** The first (or a later) helper presence check: records it and decides what was held. */
+  setPresence(helperOnline: boolean): void {
+    this.helperOnline = helperOnline;
+    this.presenceKnown = true;
+    this.flush();
+  }
+
+  private flush(): void {
+    if (this.holdTimer !== undefined) clearTimeout(this.holdTimer);
+    this.holdTimer = undefined;
+    const held = this.held;
+    this.held = [];
+    for (const h of held) h.show(this.decide(h.n));
+  }
   /**
    * A client of another computer's Gateway: the Host routes OS notifications to it as
    * `notification.device` events (quiet hours and interruption levels applied there), so the

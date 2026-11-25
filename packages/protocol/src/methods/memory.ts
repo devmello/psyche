@@ -36,6 +36,7 @@ import {
   GraphInteraction,
   GraphLoop,
   GraphLoopStatus,
+  GraphLoopWriteStatus,
   GraphProjectStatus,
   GraphProjectType,
   GraphRelationshipLabel,
@@ -639,7 +640,7 @@ export const MemoryMethods = {
   "memory.loops.list": defineMethod({
     params: Type.Object({
       status: Type.Optional(
-        Type.Array(GraphLoopStatus, { maxItems: 5, description: "Default suggested and open" }),
+        Type.Array(GraphLoopStatus, { maxItems: 7, description: "Default suggested and open" }),
       ),
       direction: Type.Optional(
         StringEnum(["i_owe", "waiting_on"], { $id: "GraphLoopDirectionFilter" }),
@@ -657,7 +658,7 @@ export const MemoryMethods = {
   "memory.loops.update": defineMethod({
     params: Type.Object({
       id: Id,
-      status: Type.Optional(GraphLoopStatus),
+      status: Type.Optional(GraphLoopWriteStatus),
       dueAt: Type.Optional(
         Type.Union([IsoDateTime, Type.Null()], { description: "null clears it" }),
       ),

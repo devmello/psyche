@@ -191,7 +191,7 @@ export class SpaceStore {
     const chats = this.#db.sqlite
       // An automation's run threads are not chats of the Space (they stay in the run history).
       .prepare(
-        "SELECT count(*) AS n FROM threads WHERE space_id = ? AND archived_at IS NULL AND session_key NOT LIKE 'cron:%'",
+        "SELECT count(*) AS n FROM threads WHERE space_id = ? AND archived_at IS NULL AND session_key NOT LIKE 'cron:%' AND session_key NOT LIKE 'night-shift:%'",
       )
       .get(spaceId) as { n: number };
     const trackers = this.#db.sqlite
@@ -204,7 +204,7 @@ export class SpaceStore {
   lastActivityAt(spaceId: string): string | null {
     const row = this.#db.sqlite
       .prepare(
-        "SELECT max(coalesce(last_message_at, created_at)) AS at FROM threads WHERE space_id = ? AND session_key NOT LIKE 'cron:%'",
+        "SELECT max(coalesce(last_message_at, created_at)) AS at FROM threads WHERE space_id = ? AND session_key NOT LIKE 'cron:%' AND session_key NOT LIKE 'night-shift:%'",
       )
       .get(spaceId) as { at: string | null };
     return row.at;
