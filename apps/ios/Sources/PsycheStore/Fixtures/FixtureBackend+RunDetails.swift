@@ -52,7 +52,7 @@ extension FixtureBackend {
         return FixtureData.runFrames
     }
 
-    public func runFrameImage(runID: String, seq: Int) async throws -> Data {
+    public func runFrameImage(runID: String, seq: Int, size: RunFrameSize) async throws -> Data {
         await pause()
         guard runID == FixtureData.runID, FixtureData.runFrames.contains(where: { $0.seq == seq }) else {
             throw BackendError.notFound

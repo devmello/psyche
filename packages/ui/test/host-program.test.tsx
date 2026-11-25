@@ -4,7 +4,11 @@ import { userEvent } from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { ApprovalCard } from "../src/blocks/ApprovalCard.tsx";
 import { createFixtureWorld, FIXTURE_NOW } from "../src/fixtures/index.ts";
-import { grantSubject, PermissionsPanel } from "../src/screens/settings/PermissionsSection.tsx";
+import {
+  grantExecutable,
+  grantSubject,
+  PermissionsPanel,
+} from "../src/screens/settings/PermissionsSection.tsx";
 import { UiSlotsProvider } from "../src/slots.tsx";
 
 /**
@@ -96,6 +100,8 @@ function programGrant(): Grant {
 describe("Settings → Permissions: program grants", () => {
   it("names the program and folder, and Revoke revokes it", async () => {
     expect(grantSubject(programGrant())).toBe("rg in /Users/me/project, any arguments");
+    expect(grantExecutable(programGrant())).toBe(OFFER.hostProgram.executable);
+    expect(grantExecutable({ ...programGrant(), kind: "exec" })).toBeNull();
     const onRevoke = vi.fn();
     render(
       <UiSlotsProvider value={{}}>

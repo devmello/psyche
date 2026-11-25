@@ -82,6 +82,9 @@ struct StandingPermissionsModelTests {
         await #expect(throws: BackendError.refused("This phone needs admin access to revoke.")) {
             try await store.revokeGrant(id: "grt_mail")
         }
+        let after = try await store.standingGrants().first { $0.id == "grt_mail" }
+        #expect(after?.status() == .active)
+        #expect(after?.revokedAt == nil)
     }
 
     @Test func aRefusedRevokeShowsTheGatewaysWordsInlineAndKeepsTheList() async throws {
@@ -115,8 +118,18 @@ struct StandingPermissionsModelTests {
         #expect(model.phase.value?.first?.status() == .revoked)
         #expect(await store.revokeCalls == ["g1", "g1"])
     }
+
+    @Test func aRevokeThatSucceededStaysRevokedWhenTheRereadFails() async throws {
+        let store = MockGrants(grants: sample(), admin: true)
+        let model = StandingPermissionsModel(store: store)
+        await model.load()
+        await store.setListError(.unreachable)
+        await model.revoke(sample()[0])
+        #expect(model.phase.value?.first?.status() == .revoked)
+    }
 }
 
 extension MockGrants {
+    fileprivate func setListError(_ error: BackendError?) { listError = error }
     fileprivate func setRevokeError(_ error: BackendError?) { revokeError = error }
 }

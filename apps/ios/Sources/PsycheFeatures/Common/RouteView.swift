@@ -26,6 +26,7 @@ struct RouteView: View {
         case .learning: LessonsView(store: store)
         case .claims: ClaimsView(store: store)
         case .recentChanges: RecentChangesView(store: store)
+        case .reviewQueue: HeldBackView(store: store)
         case .memoryFile(let path): MemoryFileView(path: path, store: store)
         case .entity(let id): EntityRouteView(id: id, store: store)
         case .inbox: InboxView(store: store)

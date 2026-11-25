@@ -1939,6 +1939,7 @@ export const ko: Partial<Catalogue> = {
   "settings.mcp.network": "네트워크 사용",
   "settings.mcp.added": "{name}을(를) 추가했습니다.",
   "settings.mcp.removed": "{name}을(를) 제거했습니다.",
+  "settings.openPage.failed": "페이지를 열지 못했습니다({reason}).",
   "settings.mcp.secretNotDeleted":
     "저장된 비밀 값을 삭제하지 못했습니다({reason}). 다시 시도해 제거하세요.",
   "settings.mcp.denied": "{name}은(는) 추가되지 않았습니다.",
@@ -2893,6 +2894,9 @@ export const ko: Partial<Catalogue> = {
   "onboarding.done.checking": "설정을 점검하는 중…",
   "onboarding.done.checks": "설정 점검",
   "onboarding.done.ok": "정상",
+  "onboarding.done.failed": "실패",
+  "onboarding.done.notChecked": "확인 안 됨",
+  "onboarding.done.fixModel": "모델 단계에서 해결",
   "onboarding.done.check": "점검",
   "onboarding.model.idPlaceholder": "{provider}/model-name",
 
@@ -3542,6 +3546,14 @@ export const ko: Partial<Catalogue> = {
   "web.setup.helperOk": "연결되었습니다.",
   "web.setup.helperWarn": "아직 연결되지 않았습니다. 컴퓨터 사용과 알림은 연결을 기다립니다.",
   "web.setup.model": "모델",
+  "web.setup.modelRefused": "{ref}: 공급자가 키를 거부했습니다({error}). 키는 보관되지 않았습니다.",
+  "web.setup.modelNotChecked":
+    "{ref}: 키는 저장되었지만 확인을 위해 공급자에 연결할 수 없었습니다.",
+  "web.setup.modelSkipped":
+    "{ref}: 추가된 키가 없어 채팅이 아직 응답하지 않습니다. 설정 → 모델에서 추가하세요.",
+  "web.gate.loading": "Psyche 시작 중",
+  "web.gate.error": "설정이 끝났는지 확인하지 못했습니다.",
+  "web.gate.retry": "다시 시도",
   "web.setup.modelNone": "선택된 모델이 없습니다. 설정 → 모델 및 제공업체에서 추가하십시오.",
   "web.setup.modelOk": "{ref}, 키는 금고에 있습니다.",
   "web.setup.modelUnbound": "{ref}은(는) 아직 연결되지 않았습니다.",

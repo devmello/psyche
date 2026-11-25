@@ -1974,6 +1974,7 @@ export const es: Partial<Catalogue> = {
   "settings.mcp.network": "Usa la red",
   "settings.mcp.added": "Se añadió {name}.",
   "settings.mcp.removed": "Se quitó {name}.",
+  "settings.openPage.failed": "Psyche no pudo abrir la página ({reason}).",
   "settings.mcp.secretNotDeleted":
     "Psyche no pudo borrar un secreto guardado ({reason}). Vuelve a intentarlo para quitarlo.",
   "settings.mcp.denied": "{name} no se añadió.",
@@ -2976,6 +2977,9 @@ export const es: Partial<Catalogue> = {
   "onboarding.done.checking": "Comprobando la configuración…",
   "onboarding.done.checks": "Comprobaciones de la configuración",
   "onboarding.done.ok": "OK",
+  "onboarding.done.failed": "Fallido",
+  "onboarding.done.notChecked": "Sin comprobar",
+  "onboarding.done.fixModel": "Corregir en el paso Modelo",
   "onboarding.done.check": "Comprobación",
   "onboarding.model.idPlaceholder": "{provider}/nombre-del-modelo",
 
@@ -3638,6 +3642,15 @@ export const es: Partial<Catalogue> = {
   "web.setup.helperWarn":
     "Aún no está conectado. El uso del ordenador y las notificaciones lo esperan.",
   "web.setup.model": "Modelo",
+  "web.setup.modelRefused":
+    "{ref}: el proveedor rechazó la clave ({error}). La clave no se conservó.",
+  "web.setup.modelNotChecked":
+    "{ref}: la clave está guardada, pero no se pudo contactar con el proveedor para comprobarla.",
+  "web.setup.modelSkipped":
+    "{ref}: no se añadió ninguna clave, así que el chat aún no responderá. Añade una en Ajustes → Modelos.",
+  "web.gate.loading": "Iniciando Psyche",
+  "web.gate.error": "Psyche no pudo comprobar si la configuración ha terminado.",
+  "web.gate.retry": "Reintentar",
   "web.setup.modelNone": "Ninguno elegido. Añade uno en Ajustes → Modelo y proveedores.",
   "web.setup.modelOk": "{ref}, clave en la bóveda.",
   "web.setup.modelUnbound": "{ref} aún no está vinculado.",

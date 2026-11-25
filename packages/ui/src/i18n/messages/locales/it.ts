@@ -1959,6 +1959,7 @@ export const it: Partial<Catalogue> = {
   "settings.mcp.network": "Usa la rete",
   "settings.mcp.added": "{name} aggiunto.",
   "settings.mcp.removed": "{name} rimosso.",
+  "settings.openPage.failed": "Psyche non è riuscito ad aprire la pagina ({reason}).",
   "settings.mcp.secretNotDeleted":
     "Psyche non è riuscito a eliminare un segreto salvato ({reason}). Riprova per rimuoverlo.",
   "settings.mcp.denied": "{name} non è stato aggiunto.",
@@ -2950,6 +2951,9 @@ export const it: Partial<Catalogue> = {
   "onboarding.done.checking": "Verifica della configurazione…",
   "onboarding.done.checks": "Verifiche della configurazione",
   "onboarding.done.ok": "OK",
+  "onboarding.done.failed": "Non riuscito",
+  "onboarding.done.notChecked": "Non verificato",
+  "onboarding.done.fixModel": "Correggi nel passaggio Modello",
   "onboarding.done.check": "Verifica",
   "onboarding.model.idPlaceholder": "{provider}/nome-modello",
   "screens.search.scope.threads": "Thread",
@@ -3607,6 +3611,15 @@ export const it: Partial<Catalogue> = {
   "web.setup.helperOk": "Connesso.",
   "web.setup.helperWarn": "Non ancora connesso. L’uso del computer e le notifiche lo attendono.",
   "web.setup.model": "Modello",
+  "web.setup.modelRefused":
+    "{ref}: il provider ha rifiutato la chiave ({error}). La chiave non è stata conservata.",
+  "web.setup.modelNotChecked":
+    "{ref}: la chiave è salvata, ma il provider non era raggiungibile per verificarla.",
+  "web.setup.modelSkipped":
+    "{ref}: nessuna chiave aggiunta, quindi la chat non risponderà ancora. Aggiungine una in Impostazioni → Modelli.",
+  "web.gate.loading": "Avvio di Psyche",
+  "web.gate.error": "Psyche non è riuscito a verificare se la configurazione è completata.",
+  "web.gate.retry": "Riprova",
   "web.setup.modelNone": "Nessuno scelto. Aggiungine uno in Impostazioni → Modello e fornitori.",
   "web.setup.modelOk": "{ref}, chiave nella cassaforte.",
   "web.setup.modelUnbound": "{ref} non è ancora associato.",

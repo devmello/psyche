@@ -1999,6 +1999,7 @@ export const de: Partial<Catalogue> = {
   "settings.mcp.network": "Verwendet das Netzwerk",
   "settings.mcp.added": "{name} hinzugefügt.",
   "settings.mcp.removed": "{name} entfernt.",
+  "settings.openPage.failed": "Psyche konnte die Seite nicht öffnen ({reason}).",
   "settings.mcp.secretNotDeleted":
     "Psyche konnte ein gespeichertes Geheimnis nicht löschen ({reason}). Erneut versuchen, um es zu entfernen.",
   "settings.mcp.denied": "{name} wurde nicht hinzugefügt.",
@@ -3006,6 +3007,9 @@ export const de: Partial<Catalogue> = {
   "onboarding.done.checking": "Einrichtung wird geprüft …",
   "onboarding.done.checks": "Einrichtungsprüfungen",
   "onboarding.done.ok": "OK",
+  "onboarding.done.failed": "Fehlgeschlagen",
+  "onboarding.done.notChecked": "Nicht geprüft",
+  "onboarding.done.fixModel": "Im Schritt Modell beheben",
   "onboarding.done.check": "Prüfung",
   "onboarding.model.idPlaceholder": "{provider}/modellname",
 
@@ -3677,6 +3681,15 @@ export const de: Partial<Catalogue> = {
   "web.setup.helperOk": "Verbunden.",
   "web.setup.helperWarn": "Noch nicht verbunden. Computersteuerung und Mitteilungen warten darauf.",
   "web.setup.model": "Modell",
+  "web.setup.modelRefused":
+    "{ref}: Der Anbieter hat den Schlüssel abgelehnt ({error}). Der Schlüssel wurde nicht behalten.",
+  "web.setup.modelNotChecked":
+    "{ref}: Der Schlüssel ist gespeichert, aber der Anbieter war zur Prüfung nicht erreichbar.",
+  "web.setup.modelSkipped":
+    "{ref}: Kein Schlüssel hinzugefügt, der Chat antwortet noch nicht. Füge einen unter Einstellungen → Modelle hinzu.",
+  "web.gate.loading": "Psyche startet",
+  "web.gate.error": "Psyche konnte nicht prüfen, ob die Einrichtung abgeschlossen ist.",
+  "web.gate.retry": "Erneut versuchen",
   "web.setup.modelNone":
     "Keines gewählt. Füge eines unter „Einstellungen“ → „Modell & Anbieter“ hinzu.",
   "web.setup.modelOk": "{ref}, Schlüssel im Tresor.",

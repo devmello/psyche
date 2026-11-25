@@ -12,7 +12,7 @@ enum GrantWording {
         case .origin(let host): host
         case .prepNotes: String(localized: "Notes titled “Prep:” (meeting prep)", bundle: .module)
         case .named(let name): name
-        case .hostProgram(let program, let folder, let exact):
+        case .hostProgram(let program, _, let folder, let exact):
             exact
                 ? String(localized: "\(program) in \(folder), exactly these arguments", bundle: .module)
                 : String(localized: "\(program) in \(folder), any arguments", bundle: .module)
@@ -98,6 +98,11 @@ final class StandingPermissionsModel {
                 bundle: .module)
             return
         }
+        // The Gateway kept the revoke: show it now, so a re-read that fails can't leave a stale Active row.
+        if case .loaded(var grants) = phase, let index = grants.firstIndex(where: { $0.id == grant.id }) {
+            grants[index].revokedAt = grants[index].revokedAt ?? .now
+            phase = .loaded(grants)
+        }
         await load()
     }
 }
@@ -160,15 +165,17 @@ struct StandingPermissionsView: View {
         .confirmationDialog(
             confirming.map { String(localized: "Revoke “\(GrantWording.subject($0.subject))”?", bundle: .module) } ?? "",
             isPresented: Binding(get: { confirming != nil }, set: { if !$0 { confirming = nil } }),
-            titleVisibility: .visible
-        ) {
-            Button(String(localized: "Revoke", bundle: .module), role: .destructive) {
-                if let grant = confirming { Task { await model.revoke(grant) } }
-                confirming = nil
+            titleVisibility: .visible, presenting: confirming
+        ) { grant in
+            Button(String(localized: "Revoke", bundle: .module), role: .destructive) { Task { await model.revoke(grant) } }
+            Button(String(localized: "Cancel", bundle: .module), role: .cancel) {}
+        } message: { grant in
+            if let detail = grant.subject.detail {
+                Text(verbatim: detail) + Text(verbatim: "\n")
+                    + Text("Psyche will ask again the next time it needs this.", bundle: .module)
+            } else {
+                Text("Psyche will ask again the next time it needs this.", bundle: .module)
             }
-            Button(String(localized: "Cancel", bundle: .module), role: .cancel) { confirming = nil }
-        } message: {
-            Text("Psyche will ask again the next time it needs this.", bundle: .module)
         }
     }
 
@@ -181,10 +188,22 @@ struct StandingPermissionsView: View {
                     .fixedSize(horizontal: false, vertical: true)
                 Text("\(GrantWording.kind(grant.kind)) · \(GrantWording.scope(grant.scope))")
                     .font(.footnote).foregroundStyle(PsycheColor.muted)
+                if let detail = grant.subject.detail {
+                    Text(detail).font(.system(.footnote, design: .monospaced)).foregroundStyle(PsycheColor.muted)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
                 Text(usage(grant)).font(.footnote).foregroundStyle(PsycheColor.muted)
+                if status == .active, model.isAdmin {
+                    Button(String(localized: "Revoke", bundle: .module)) { confirming = grant }
+                        .buttonStyle(.bordered).controlSize(.small).fixedSize()
+                        .padding(.top, 4)
+                        .disabled(model.revoking != nil)
+                        .accessibilityLabel(String(localized: "Revoke permission: \(name)", bundle: .module))
+                        .accessibilityIdentifier("grants.revoke.\(grant.id)")
+                }
             }
             Spacer(minLength: 8)
-            trailing(grant, status: status, name: name)
+            statusLabel(status)
         }
         .padding(PsycheMetrics.rowPadding)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -192,20 +211,11 @@ struct StandingPermissionsView: View {
     }
 
     @ViewBuilder
-    private func trailing(_ grant: StandingGrant, status: GrantStatus, name: String) -> some View {
+    private func statusLabel(_ status: GrantStatus) -> some View {
         switch status {
-        case .revoked:
-            Text("Revoked", bundle: .module).font(.subheadline).foregroundStyle(PsycheColor.muted)
-        case .expired:
-            Text("Expired", bundle: .module).font(.subheadline).foregroundStyle(PsycheColor.muted)
-        case .active:
-            if model.isAdmin {
-                Button(String(localized: "Revoke", bundle: .module)) { confirming = grant }
-                    .buttonStyle(.psycheOutline)
-                    .disabled(model.revoking != nil)
-                    .accessibilityLabel(String(localized: "Revoke permission: \(name)", bundle: .module))
-                    .accessibilityIdentifier("grants.revoke.\(grant.id)")
-            }
+        case .revoked: Text("Revoked", bundle: .module).font(.subheadline).foregroundStyle(PsycheColor.muted)
+        case .expired: Text("Expired", bundle: .module).font(.subheadline).foregroundStyle(PsycheColor.muted)
+        case .active: EmptyView()
         }
     }
 

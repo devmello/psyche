@@ -92,7 +92,17 @@ export function FirstRun({
                 memory: start.current.memory,
               },
             }
-          : {})}
+          : start.progress?.answers
+            ? {
+                // A relaunch: the You step's answers come back with the saved step.
+                initial: {
+                  ...(start.progress.answers.persona
+                    ? { persona: start.progress.answers.persona }
+                    : {}),
+                  ...(start.progress.answers.owner ? { owner: start.progress.answers.owner } : {}),
+                },
+              }
+            : {})}
         {...(touchId ? { touchId } : {})}
         {...(helper ? { helper } : {})}
         macPermissions={platform.permissions !== undefined}

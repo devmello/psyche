@@ -154,6 +154,14 @@ export const web = {
   "web.touchId.helperDidNotStart":
     "Psyche Helper did not connect. Open Settings → Devices to see why, then try again.",
   "web.setup.model": "Model",
+  "web.setup.modelRefused": "{ref}: the provider refused the key ({error}). The key was not kept.",
+  "web.setup.modelNotChecked":
+    "{ref}: the key is saved, but the provider could not be reached to check it.",
+  "web.setup.modelSkipped":
+    "{ref}: no key added, so chat will not answer yet. Add one in Settings → Models.",
+  "web.gate.loading": "Starting Psyche",
+  "web.gate.error": "Psyche could not check whether setup is finished.",
+  "web.gate.retry": "Try again",
   "web.setup.modelNone": "None picked. Add one in Settings → Models.",
   "web.setup.modelOk": "{ref}, key in the vault.",
   "web.setup.modelUnbound": "{ref} is not bound yet.",
