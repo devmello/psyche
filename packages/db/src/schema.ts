@@ -9,7 +9,11 @@
  */
 import { blob, integer, primaryKey, real, sqliteTable, text } from "drizzle-orm/sqlite-core";
 import { connectorsSchema } from "./schema-connectors.ts";
-import { nightShiftSchema } from "./schema-night-shift.ts";
+import {
+  type nightShiftNights,
+  nightShiftSchema,
+  type stagedActions,
+} from "./schema-night-shift.ts";
 import { notificationsSchema } from "./schema-notifications.ts";
 import { permissionsSchema } from "./schema-permissions.ts";
 import { s04Schema } from "./schema-s04.ts";
@@ -574,5 +578,7 @@ export type NewUsageRow = typeof usage.$inferInsert;
 export type LibraryItemRow = typeof libraryItems.$inferSelect;
 export type NewLibraryItemRow = typeof libraryItems.$inferInsert;
 export type WidgetRow = typeof widgets.$inferSelect;
+export type NightShiftNightRow = typeof nightShiftNights.$inferSelect;
+export type StagedActionRow = typeof stagedActions.$inferSelect;
 export type ArtifactRow = typeof artifacts.$inferSelect;
 export type ArtifactVersionRow = typeof artifactVersions.$inferSelect;
