@@ -2,11 +2,12 @@ import { appCap } from "@psyche/permissions/apps";
 import type { MachineInfo } from "@psyche/protocol";
 import { Lock } from "lucide-react";
 import { type ReactElement, useState } from "react";
-import { Button } from "../../components/ui/button.tsx";
 import { Kbd } from "../../components/ui/kbd.tsx";
 import { useHostOs } from "../../data/host-os.ts";
 import { t } from "../../i18n/core.ts";
 import { isLinux, isWindows, type UiPlatform, uiPlatform } from "../../lib/platform.ts";
+import { HelperPermissionRow } from "../../points/HelperPermissionRow.tsx";
+import { POINTS_ENABLED_KEY, PointsSettingsGroup } from "../../points/PointsSettings.tsx";
 import { usePersona, useSlots } from "../../slots.tsx";
 import { LinuxAccessRows, linuxAccessFromSettings } from "./LinuxAccess.tsx";
 import { HOST_CHOICE, MachineAppsGroup, MachinePicker } from "./MachinePicker.tsx";
@@ -23,7 +24,6 @@ import {
   SectionFrame,
   SettingHint,
   type SettingsFormProps,
-  StatusChip,
   SwitchField,
   useSettingsForm,
 } from "./shared.tsx";
@@ -122,31 +122,6 @@ export function lockedApps(platform: UiPlatform = uiPlatform()): readonly Comput
       ? LINUX_LOCKED_APPS
       : LOCKED_APPS;
 }
-
-const tccLabel = (p: TccPermission) => ({
-  /** The macOS pane's name, in the active language. */
-  get name(): string {
-    return t(`settings.computerUse.tcc.${p}.name`);
-  },
-  /** Why Psyche needs it: "lets Wren see app windows". */
-  why: (persona: string): string => t(`settings.computerUse.tcc.${p}.why`, { persona }),
-});
-
-export const TCC_LABEL: Record<
-  TccPermission,
-  { readonly name: string; why: (persona: string) => string }
-> = {
-  accessibility: tccLabel("accessibility"),
-  screenRecording: tccLabel("screenRecording"),
-  notifications: tccLabel("notifications"),
-  microphone: tccLabel("microphone"),
-};
-
-const TCC_TONE: Record<TccState, "success" | "danger" | "neutral"> = {
-  granted: "success",
-  denied: "danger",
-  not_determined: "neutral",
-};
 
 function isApp(v: unknown): v is ComputerUseApp {
   return (
@@ -261,40 +236,16 @@ export function ComputerUsePanel({
                     ? t("settings.computerUse.helperAccess.offline")
                     : t("settings.computerUse.helperAccess.hint")}
                 </p>
-                {(["accessibility", "screenRecording"] as const).map((p) => {
-                  const state = tcc[p] ?? "not_determined";
-                  return (
-                    <div key={p} className="flex flex-wrap items-center gap-2">
-                      <span className="font-medium">{TCC_LABEL[p].name}</span>
-                      {helperOffline ? (
-                        <StatusChip tone="neutral">
-                          {t("settings.computerUse.tccState.offline")}
-                        </StatusChip>
-                      ) : (
-                        <StatusChip tone={TCC_TONE[state]}>
-                          {t(`settings.computerUse.tccState.${state}`)}
-                        </StatusChip>
-                      )}
-                      <span className="text-callout text-muted-foreground">
-                        {TCC_LABEL[p].why(persona)}
-                      </span>
-                      {!helperOffline && state !== "granted" && onOpenSystemSettings ? (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="xs"
-                          className="ms-auto"
-                          onClick={() => onOpenSystemSettings(p)}
-                          aria-label={t("settings.computerUse.helperAccess.allowFor", {
-                            name: TCC_LABEL[p].name,
-                          })}
-                        >
-                          {t("settings.computerUse.helperAccess.allow")}
-                        </Button>
-                      ) : null}
-                    </div>
-                  );
-                })}
+                {(["accessibility", "screenRecording"] as const).map((p) => (
+                  <HelperPermissionRow
+                    key={p}
+                    permission={p}
+                    state={tcc[p] ?? "not_determined"}
+                    persona={persona}
+                    offline={helperOffline}
+                    onAllow={onOpenSystemSettings}
+                  />
+                ))}
               </>
             )}
           </Group>
@@ -348,6 +299,13 @@ export function ComputerUsePanel({
               </>
             )}
           </Group>
+        )}
+
+        {machine || isWindows() || isLinux() ? null : (
+          <PointsSettingsGroup
+            enabled={bool(values, POINTS_ENABLED_KEY, false)}
+            onChange={(v) => onChange(POINTS_ENABLED_KEY, v)}
+          />
         )}
 
         {isLinuxUi() && !machine ? (

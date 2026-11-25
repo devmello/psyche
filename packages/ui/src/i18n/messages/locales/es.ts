@@ -27,6 +27,7 @@ import { overview } from "./overview/es.ts";
 import { overviewGrowth } from "./overview-growth/es.ts";
 import { overviewShared } from "./overview-shared/es.ts";
 import { passwordPresence } from "./password-presence/es.ts";
+import { points } from "./points/es.ts";
 import { scheduledA } from "./scheduled-a/es.ts";
 import { scheduledForm } from "./scheduled-form/es.ts";
 import { securityState } from "./security-state/es.ts";
@@ -4048,6 +4049,8 @@ export const es: Partial<Catalogue> = {
   ...linuxAccess,
   // the Virtual screen watch pane (docs/design/linux-desktop-2026.md §7.5)
   ...computerWatch,
+  // Psyche points (docs/design/psyche-points-2026.md §9)
+  ...points,
   // Gateway-authored notices (inbox notifications, security alerts)
   ...notices,
   // Settings > Computer use > Separate desktop (Linux)

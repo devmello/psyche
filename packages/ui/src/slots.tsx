@@ -167,7 +167,28 @@ export interface SandboxPcSlot {
   onState(cb: (state: SandboxPcState) => void): () => void;
 }
 
+/** What Psyche Helper was granted, as the desktop's permissions port reports it. */
+export interface PointsHelperState {
+  helper: "online" | "offline";
+  accessibility: "granted" | "denied" | "not_determined";
+  screenRecording: "granted" | "denied" | "not_determined";
+}
+
+/**
+ * Psyche points (docs/design/psyche-points-2026.md §6): the desktop's helper permission calls,
+ * which the start sheet reuses from Settings → Computer use. Present only in a window that may ask
+ * for them (the desktop, never a window onto another Mac's Gateway); without it the feature is
+ * hidden. `request` is the existing `permissions.request` path: Psyche Helper's own prompt, then
+ * its pane in System Settings. Nothing here can start a session.
+ */
+export interface PointsPort {
+  helperStatus(): Promise<PointsHelperState>;
+  helperRequest(kind: "accessibility" | "screenRecording"): Promise<PointsHelperState>;
+}
+
 export interface UiSlots {
+  /** Psyche points (desktop on a Mac Host only): the helper's permission calls. */
+  points?: PointsPort;
   /** Windows desktop: turning the sandbox PC on (service install, guest image download). */
   sandboxPc?: SandboxPcSlot;
   /**
