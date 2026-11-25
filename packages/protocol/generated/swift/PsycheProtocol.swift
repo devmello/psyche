@@ -677,6 +677,7 @@
 //   let graphLoopDirection = try? JSONDecoder().decode(GraphLoopDirection.self, from: jsonData)
 //   let graphLoopDirectionFilter = try? JSONDecoder().decode(GraphLoopDirectionFilter.self, from: jsonData)
 //   let graphLoopStatus = try? JSONDecoder().decode(GraphLoopStatus.self, from: jsonData)
+//   let graphLoopWriteStatus = try? JSONDecoder().decode(GraphLoopWriteStatus.self, from: jsonData)
 //   let graphParticipantRole = try? JSONDecoder().decode(GraphParticipantRole.self, from: jsonData)
 //   let graphProjectStatus = try? JSONDecoder().decode(GraphProjectStatus.self, from: jsonData)
 //   let graphProjectType = try? JSONDecoder().decode(GraphProjectType.self, from: jsonData)
@@ -23819,7 +23820,7 @@ public struct MemoryLoopsUpdateParams: Codable, Sendable {
     /// null clears it
     public let dueAt: String?
     public let id: String
-    public let status: GraphLoopStatus?
+    public let status: GraphLoopWriteStatus?
     /// Rephrase it
     public let text: String?
 
@@ -23830,12 +23831,20 @@ public struct MemoryLoopsUpdateParams: Codable, Sendable {
         case text = "text"
     }
 
-    public init(dueAt: String? = nil, id: String, status: GraphLoopStatus? = nil, text: String? = nil) {
+    public init(dueAt: String? = nil, id: String, status: GraphLoopWriteStatus? = nil, text: String? = nil) {
         self.dueAt = dueAt
         self.id = id
         self.status = status
         self.text = text
     }
+}
+
+public enum GraphLoopWriteStatus: String, Codable, Sendable {
+    case dismissed = "dismissed"
+    case done = "done"
+    case graphLoopWriteStatusOpen = "open"
+    case snoozed = "snoozed"
+    case suggested = "suggested"
 }
 
 // MARK: - MemoryLoopsUpdateResult

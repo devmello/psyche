@@ -58,6 +58,8 @@ export function createModelRouter(config: ModelRouterConfig, deps: ModelRouterDe
   if (config.cooldown !== undefined) options.cooldown = config.cooldown;
   if (config.probeOnFirstUse !== undefined) options.probeOnFirstUse = config.probeOnFirstUse;
   if (config.autoModeAllowlist !== undefined) options.autoModeAllowlist = config.autoModeAllowlist;
+  // A single 429/529/5xx or network blip must not fail a turn: retry the same model first.
+  options.retry = {};
   if (deps.ledger !== undefined) options.ledger = deps.ledger;
   if (deps.probes !== undefined) options.probes = deps.probes;
   if (deps.prepareStep !== undefined) options.prepareStep = deps.prepareStep;

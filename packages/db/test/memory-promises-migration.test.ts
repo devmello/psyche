@@ -1,4 +1,4 @@
-import { copyFileSync, mkdirSync, readdirSync } from "node:fs";
+import { copyFileSync, mkdirSync, readdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import Database from "better-sqlite3";
 import { afterEach, describe, expect, it } from "vitest";
@@ -267,7 +267,7 @@ describe("202611241000 memory promises", () => {
          proposed_due_at = '2026-12-02T17:00:00.000Z', snoozed_until = '2026-11-25T08:00:00.000Z',
          broken_at = '2026-11-28T06:00:00.000Z', warned_at = '2026-11-26T16:00:00.000Z',
          nudge_count = 2, last_nudge_at = '2026-11-30T09:00:00.000Z', thread_key = 'tk',
-         source_kind = 'messages', counterpart_label = 'Sam Lee', remote_visible = 1
+         source_kind = 'mail', counterpart_label = 'Sam Lee', remote_visible = 1
        WHERE id = 'l-open'`,
     );
     expect(
@@ -290,7 +290,7 @@ describe("202611241000 memory promises", () => {
       nudge_count: 2,
       last_nudge_at: "2026-11-30T09:00:00.000Z",
       thread_key: "tk",
-      source_kind: "messages",
+      source_kind: "mail",
       counterpart_label: "Sam Lee",
       remote_visible: 1,
     });
@@ -309,6 +309,10 @@ describe("202611241000 memory promises", () => {
     bad("due_confidence = 1.5");
     bad("source_kind = 'fax'");
     bad("remote_visible = 2");
+    // The belt: a Messages-sourced promise can never be remote-visible (design section 7.2).
+    bad("source_kind = 'messages', remote_visible = 1");
+    run("UPDATE graph_loops SET source_kind = 'messages', remote_visible = 0 WHERE id = 'l-dis'");
+    bad("remote_visible = 1");
     bad("nudge_count = -1");
 
     // Citations attach to loops, and a deleted loop takes them and its events along.
@@ -404,5 +408,84 @@ describe("202611241000 memory promises", () => {
       remote_visible: 0,
       source_kind: null,
     });
+  });
+
+  it("a dangling row in an unrelated table does not block the migration, and is logged", () => {
+    const sqlite = before();
+    seedV1(sqlite);
+    // A violation the rebuild did not cause: a fact whose entity is gone (foreign keys off).
+    sqlite.pragma("foreign_keys = OFF");
+    sqlite
+      .prepare(
+        "INSERT INTO graph_facts (id, entity_id, attribute, value, provenance, confidence, valid_from, recorded_at, created_at, updated_at) VALUES ('dangling','nobody','city','Oslo','untrusted',0.5,?,?,?,?)",
+      )
+      .run(T, T, T, T);
+    sqlite.pragma("foreign_keys = ON");
+    const warnings: [string, unknown][] = [];
+    const result = runMigrations(sqlite, {
+      logger: { warn: (m, f) => warnings.push([m, f]) },
+    });
+    expect(result.applied).toContain("202611241000_memory_promises");
+    expect(count(sqlite, "graph_loops")).toBe(8);
+    expect(warnings).toEqual([
+      [
+        "db.migration.foreign_key_violations_elsewhere",
+        { count: expect.any(Number), tables: expect.arrayContaining(["graph_facts"]) },
+      ],
+    ]);
+  });
+});
+
+describe("foreign key check after a rebuild", () => {
+  const cleanups: (() => void)[] = [];
+  afterEach(() => {
+    for (const c of cleanups.splice(0)) c();
+  });
+
+  function run(sql: string): { error?: string; warnings: number } {
+    const { dir, cleanup } = makeTmpDir();
+    cleanups.push(cleanup);
+    mkdirSync(join(dir, "m"));
+    writeFileSync(join(dir, "m", "202611240001_test_base.sql"), BASE);
+    writeFileSync(
+      join(dir, "m", "202611250000_test_rebuild.sql"),
+      `-- migrate: foreign_keys=off\n${sql}`,
+    );
+    const sqlite = new Database(":memory:");
+    sqlite.pragma("foreign_keys = OFF");
+    let warnings = 0;
+    try {
+      runMigrations(sqlite, { dir: join(dir, "m"), logger: { warn: () => warnings++ } });
+      return { warnings };
+    } catch (e) {
+      return { error: e instanceof Error ? e.message : String(e), warnings };
+    }
+  }
+
+  // The tables exist before the rebuild; `other` already holds a dangling row.
+  const BASE = `CREATE TABLE parent (id TEXT PRIMARY KEY NOT NULL);
+CREATE TABLE other (id TEXT PRIMARY KEY NOT NULL, p TEXT REFERENCES parent (id));
+CREATE TABLE child (id TEXT PRIMARY KEY NOT NULL, p TEXT REFERENCES parent (id));
+INSERT INTO other VALUES ('o1', 'gone');
+`;
+
+  it("aborts when a rebuilt table ends up with a dangling reference", () => {
+    const r = run(`
+CREATE TABLE child_new (id TEXT PRIMARY KEY NOT NULL, p TEXT REFERENCES parent (id));
+INSERT INTO child_new VALUES ('c1', 'missing');
+DROP TABLE child;
+ALTER TABLE child_new RENAME TO child;
+`);
+    expect(r.error).toMatch(/foreign key violation/);
+  });
+
+  it("only logs a violation in a table the migration did not touch", () => {
+    const r = run(`
+CREATE TABLE child_new (id TEXT PRIMARY KEY NOT NULL, p TEXT REFERENCES parent (id));
+DROP TABLE child;
+ALTER TABLE child_new RENAME TO child;
+`);
+    expect(r.error).toBeUndefined();
+    expect(r.warnings).toBe(1);
   });
 });

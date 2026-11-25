@@ -36,6 +36,7 @@ import {
   GraphInteraction,
   GraphLoop,
   GraphLoopStatus,
+  GraphLoopWriteStatus,
   GraphProjectStatus,
   GraphProjectType,
   GraphRelationshipLabel,
@@ -657,7 +658,7 @@ export const MemoryMethods = {
   "memory.loops.update": defineMethod({
     params: Type.Object({
       id: Id,
-      status: Type.Optional(GraphLoopStatus),
+      status: Type.Optional(GraphLoopWriteStatus),
       dueAt: Type.Optional(
         Type.Union([IsoDateTime, Type.Null()], { description: "null clears it" }),
       ),

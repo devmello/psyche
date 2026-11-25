@@ -18,6 +18,7 @@ import { copyTables, MEMORY_STORE_TABLES, newKey, openEncrypted } from "../src/s
 import {
   clearPlain,
   copyBack,
+  ENCRYPTED_BACKFILLS,
   restorePlain,
   syncSchema,
   tableChecksums,
@@ -135,10 +136,11 @@ describe("migrations and the encrypted store", () => {
    * (basis `request`, due_kind `none`, remote_visible 0: all fail-closed) until the ledger's own
    * code backfills them (promises/store, wave W1).
    */
-  const ROW_PRESERVING_REBUILDS = new Set([
+  const ROW_PRESERVING_REBUILDS_LIST = [
     "202611031400_memory_work.sql",
     "202611241000_memory_promises.sql",
-  ]);
+  ];
+  const ROW_PRESERVING_REBUILDS = new Set(ROW_PRESERVING_REBUILDS_LIST);
 
   it("no new migration changes rows of a moved table (schema changes reach it, row changes cannot)", () => {
     const dir = join(import.meta.dirname, "..", "..", "db", "migrations");
@@ -153,6 +155,19 @@ describe("migrations and the encrypted store", () => {
     // A migration that must change rows of a moved table needs a step in syncSchema's caller
     // that applies the same change to the encrypted file; add it, then list the file here.
     expect(offending).toEqual([]);
+  });
+
+  it("every exempt rebuild that backfills rows has a real step for the encrypted file", () => {
+    // The pattern above cannot see an `INSERT ... SELECT CASE` backfill into a `_v3` table: the
+    // exemption alone would let the encrypted store silently skip it (202611241000, #1665).
+    // A rebuild that computes new columns from old rows must be in ENCRYPTED_BACKFILLS, and
+    // promises-encrypted.test.ts checks that the step gives the same result as the migration.
+    const dir = join(import.meta.dirname, "..", "..", "db", "migrations");
+    const computing = ROW_PRESERVING_REBUILDS_LIST.filter((f) =>
+      /\bCASE\b/i.test(readFileSync(join(dir, f), "utf8")),
+    );
+    expect(computing).toEqual(["202611241000_memory_promises.sql"]);
+    for (const f of computing) expect(Object.keys(ENCRYPTED_BACKFILLS)).toContain(f);
   });
 });
 

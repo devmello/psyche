@@ -8018,12 +8018,14 @@ export interface MemoryLoopsUpdateParams {
      */
     dueAt?:  null | string;
     id:      string;
-    status?: GraphLoopStatus;
+    status?: GraphLoopWriteStatus;
     /**
      * Rephrase it
      */
     text?: string;
 }
+
+export type GraphLoopWriteStatus = "suggested" | "open" | "snoozed" | "done" | "dismissed";
 
 export interface MemoryLoopsUpdateResult {
     loop: GraphLoop;

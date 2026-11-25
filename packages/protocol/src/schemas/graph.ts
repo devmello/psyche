@@ -425,6 +425,16 @@ export const GraphLoopStatus = StringEnum(
 );
 export type GraphLoopStatus = Static<typeof GraphLoopStatus>;
 
+/**
+ * What a client may set with `memory.loops.update`: the original five. `broken` and `released`
+ * are written only by the ledger, with its bookkeeping (`promises.act`, the sweep).
+ */
+export const GraphLoopWriteStatus = StringEnum(
+  ["suggested", "open", "snoozed", "done", "dismissed"],
+  { $id: "GraphLoopWriteStatus" },
+);
+export type GraphLoopWriteStatus = Static<typeof GraphLoopWriteStatus>;
+
 /** An open loop: something the owner owes, or is waiting on (§4.6). */
 export const GraphLoop = Type.Object(
   {

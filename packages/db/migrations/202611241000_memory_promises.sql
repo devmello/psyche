@@ -51,7 +51,9 @@ CREATE TABLE graph_loops_v3 (
   source_kind TEXT CHECK (source_kind IS NULL OR source_kind IN ('mail', 'messages', 'meeting',
     'chat', 'manual')),
   counterpart_label TEXT CHECK (counterpart_label IS NULL OR length(counterpart_label) <= 200),
-  remote_visible INTEGER NOT NULL DEFAULT 0 CHECK (remote_visible IN (0, 1))
+  remote_visible INTEGER NOT NULL DEFAULT 0 CHECK (remote_visible IN (0, 1)),
+  -- A promise with a Messages source is never remote-visible (design section 7.2).
+  CHECK (source_kind IS NOT 'messages' OR remote_visible = 0)
 );
 INSERT INTO graph_loops_v3 (id, direction, text, evidence, counterpart_id, project_id, due_at,
   status, source_interaction_id, provenance, confidence, detected_by, dedupe_key, created_at,

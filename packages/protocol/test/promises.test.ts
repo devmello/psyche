@@ -50,6 +50,19 @@ describe("promises protocol", () => {
     expect(Value.Check(ChatContextRef, { kind: "promise", id: "p1", intent: "spam" })).toBe(false);
   });
 
+  it("keeps the old loop write API on the original five states", () => {
+    const params = (Methods as Record<string, { params: Parameters<typeof Value.Check>[0] }>)[
+      "memory.loops.update"
+    ]?.params as Parameters<typeof Value.Check>[0];
+    for (const status of ["suggested", "open", "snoozed", "done", "dismissed"])
+      expect(Value.Check(params, { id: "l1", status }), status).toBe(true);
+    // The ledger alone writes these, with its bookkeeping (positive: it can still read them).
+    for (const status of ["broken", "released"]) {
+      expect(Value.Check(params, { id: "l1", status }), status).toBe(false);
+      expect(Value.Check(GraphLoopStatus, status), status).toBe(true);
+    }
+  });
+
   it("checks actions and a scrubbed promise view", () => {
     for (const a of [
       { type: "confirm" },

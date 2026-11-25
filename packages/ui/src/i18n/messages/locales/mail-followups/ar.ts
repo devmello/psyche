@@ -17,7 +17,10 @@ export const mailFollowups: Partial<Catalogue> = {
   "mailFollowups.thread.title": "متابعة بريد",
   "chat.composer.placeholderMail": "اسأل عن هذه المحادثة",
   "daily.section.quiet_threads": "محادثات بريد متوقفة",
+<<<<<<< HEAD
   "daily.section.promises": "الوعود",
   "screens.inbox.kind.promise_due": "وعد مستحق",
+=======
+>>>>>>> origin/main
   "daily.section.night_shift": "الوردية الليلية",
 };

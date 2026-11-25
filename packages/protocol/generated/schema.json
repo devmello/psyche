@@ -24706,6 +24706,16 @@
       ],
       "type": "string"
     },
+    "GraphLoopWriteStatus": {
+      "enum": [
+        "suggested",
+        "open",
+        "snoozed",
+        "done",
+        "dismissed"
+      ],
+      "type": "string"
+    },
     "GraphParticipantRole": {
       "enum": [
         "from",
@@ -32471,7 +32481,7 @@
           "type": "string"
         },
         "status": {
-          "$ref": "#/$defs/GraphLoopStatus"
+          "$ref": "#/$defs/GraphLoopWriteStatus"
         },
         "dueAt": {
           "anyOf": [

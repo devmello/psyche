@@ -51,21 +51,21 @@ const LEDGER_ROW = {
   remote_visible: 1,
 };
 
-function writeLedger(db: Database.Database): void {
+function writeLedger(db: Database.Database, id = "l1"): void {
   db.prepare(
     `UPDATE graph_loops SET status = @status, basis = @basis, what_action = @what_action,
        due_text = @due_text, due_kind = @due_kind, due_confidence = @due_confidence,
        proposed_due_at = @proposed_due_at, snoozed_until = @snoozed_until, broken_at = @broken_at,
        warned_at = @warned_at, nudge_count = @nudge_count, last_nudge_at = @last_nudge_at,
        thread_key = @thread_key, source_kind = @source_kind, counterpart_label = @counterpart_label,
-       remote_visible = @remote_visible WHERE id = 'l1'`,
-  ).run(LEDGER_ROW);
+       remote_visible = @remote_visible WHERE id = @id`,
+  ).run({ ...LEDGER_ROW, id });
   db.prepare(
-    "INSERT INTO graph_citations (id, target_kind, target_id, source, source_ref, quote, start, \"end\", source_hash, provenance, observed_at, created_at) VALUES ('c1','loop','l1','mail','m1','I will send it',0,14,'h','owner',?,?)",
-  ).run(T, T);
+    "INSERT INTO graph_citations (id, target_kind, target_id, source, source_ref, quote, start, \"end\", source_hash, provenance, observed_at, created_at) VALUES ('c1','loop',?,'mail','m1','I will send it',0,14,'h','owner',?,?)",
+  ).run(id, T, T);
   db.prepare(
-    "INSERT INTO graph_loop_events (id, loop_id, at, kind, from_value, to_value, by, citation_id) VALUES ('ev1','l1',?,'status','open','broken','auto','c1')",
-  ).run(T);
+    "INSERT INTO graph_loop_events (id, loop_id, at, kind, from_value, to_value, by, citation_id) VALUES ('ev1',?,?,'status','open','broken','auto','c1')",
+  ).run(id, T);
   db.prepare(
     "INSERT INTO graph_feedback (id, kind, key_hash, created_at) VALUES ('fb','not_promise','h',?)",
   ).run(T);
@@ -111,18 +111,60 @@ describe("promise ledger in the encrypted memory store", () => {
     plain.close();
   });
 
-  it("upgrades an encrypted file made before the ledger: rows kept, new columns written and read", () => {
+  it("upgrades an encrypted file made before the ledger: rows kept, backfilled like the plain file", () => {
     const plain = plainBefore();
-    plain
-      .prepare(
-        "INSERT INTO graph_loops (id, direction, text, status, provenance, confidence, detected_by, dedupe_key, created_at, updated_at) VALUES ('l1','i_owe','send the deck','open','owner',0.9,'model','k',?,?)",
-      )
-      .run(T, T);
-    plain
-      .prepare(
-        "INSERT INTO graph_feedback (id, kind, key_hash, created_at) VALUES ('old','dismissed_loop','h',?)",
-      )
-      .run(T);
+    const run = (sql: string, ...a: unknown[]) => plain.prepare(sql).run(...a);
+    run(
+      "INSERT INTO graph_entities (id, kind, name, sort_name, created_at, updated_at) VALUES ('e1','person','Sam','sam',?,?)",
+      T,
+      T,
+    );
+    for (const [id, kind, thread] of [
+      ["im", "mail", "thread-1"],
+      ["ig", "meeting", null],
+      ["ic", "chat", "t-chat"],
+      ["is", "message", "t-msg"],
+    ] as const)
+      run(
+        "INSERT INTO graph_interactions (id, kind, source, external_ref, occurred_at, direction, thread_key, created_at) VALUES (?,?,'s',?,?,'out',?,?)",
+        id,
+        kind,
+        id,
+        T,
+        thread,
+        T,
+      );
+    const loop = (
+      id: string,
+      direction: string,
+      status: string,
+      by: string,
+      due: string | null,
+      src: string | null,
+    ) =>
+      run(
+        "INSERT INTO graph_loops (id, direction, text, counterpart_id, due_at, status, source_interaction_id, provenance, confidence, detected_by, dedupe_key, created_at, updated_at) VALUES (?,?,?,'e1',?,?,?,'untrusted',0.7,?,?,?,?)",
+        id,
+        direction,
+        `text ${id}`,
+        due,
+        status,
+        src,
+        by,
+        `k-${id}`,
+        T,
+        T,
+      );
+    loop("l-ask", "waiting_on", "open", "rule", "2026-12-01T00:00:00.000Z", "im");
+    loop("l-theirs", "waiting_on", "suggested", "model", null, "ig");
+    loop("l-mine", "i_owe", "open", "model", "2026-11-27T17:00:00.000Z", "is");
+    loop("l-req", "i_owe", "open", "owner", null, "ic");
+    loop("l-meet", "i_owe", "open", "rule", null, "ig");
+    loop("l-none", "i_owe", "dismissed", "owner", null, null);
+    run(
+      "INSERT INTO graph_feedback (id, kind, key_hash, created_at) VALUES ('old','dismissed_loop','h',?)",
+      T,
+    );
     const enc = openEncrypted(join(dir, "memory.sqlite"), newKey());
     copyTables(enc, plain, MEMORY_STORE_TABLES);
 
@@ -134,18 +176,52 @@ describe("promise ledger in the encrypted memory store", () => {
     );
     expect(rebuilt).toContain("graph_loop_events");
     expect(enc.pragma("foreign_key_check")).toEqual([]);
-    expect(enc.prepare("SELECT id, text, status, basis FROM graph_loops").all()).toEqual([
-      // The encrypted file follows the table shape, not the migration's backfill: defaults apply.
-      { id: "l1", text: "send the deck", status: "open", basis: "request" },
-    ]);
+    const cols = `id, ${LEDGER_COLUMNS}`;
+    const fromEnc = enc.prepare(`SELECT ${cols} FROM graph_loops ORDER BY id`).all();
+    // The encrypted file ends up exactly where the migration put the plain one.
+    expect(fromEnc).toEqual(plain.prepare(`SELECT ${cols} FROM graph_loops ORDER BY id`).all());
+    const by = Object.fromEntries((fromEnc as { id: string }[]).map((r) => [r.id, r]));
+    expect(by["l-ask"]).toMatchObject({
+      basis: "ask",
+      due_kind: "explicit",
+      due_confidence: 0.8,
+      thread_key: "thread-1",
+      source_kind: "mail",
+    });
+    expect(by["l-theirs"]).toMatchObject({
+      basis: "promise",
+      status: "suggested",
+      due_kind: "none",
+      due_confidence: null,
+      source_kind: "meeting",
+    });
+    expect(by["l-mine"]).toMatchObject({
+      basis: "promise",
+      source_kind: "messages",
+      thread_key: "t-msg",
+      remote_visible: 0,
+    });
+    expect(by["l-req"]).toMatchObject({
+      basis: "request",
+      source_kind: "chat",
+      thread_key: "t-chat",
+    });
+    expect(by["l-meet"]).toMatchObject({ basis: "promise", source_kind: "meeting" });
+    expect(by["l-none"]).toMatchObject({ basis: "request", source_kind: null, thread_key: null });
     expect(enc.prepare("SELECT kind FROM graph_feedback").all()).toEqual([
       { kind: "dismissed_loop" },
     ]);
-    writeLedger(enc as unknown as Database.Database);
-    expect(enc.prepare(`SELECT ${LEDGER_COLUMNS} FROM graph_loops WHERE id = 'l1'`).get()).toEqual(
-      LEDGER_ROW,
-    );
+    // A second sync is a no-op: the backfill does not run again over later writes.
+    enc.prepare("UPDATE graph_loops SET basis = 'ask' WHERE id = 'l-req'").run();
     expect(syncSchema(enc, plain, MEMORY_STORE_TABLES)).toEqual([]);
+    expect(enc.prepare("SELECT basis FROM graph_loops WHERE id = 'l-req'").get()).toEqual({
+      basis: "ask",
+    });
+    // Every column still writes and reads on the upgraded file.
+    writeLedger(enc as unknown as Database.Database, "l-ask");
+    expect(
+      enc.prepare(`SELECT ${LEDGER_COLUMNS} FROM graph_loops WHERE id = 'l-ask'`).get(),
+    ).toEqual(LEDGER_ROW);
     enc.close();
     plain.close();
   });
