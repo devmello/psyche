@@ -160,7 +160,6 @@ export const windows: Partial<Record<MessageId, string>> = {
     "No channels yet. Connect Telegram or Slack to reach {persona} away from this PC.",
   "settings.computerUse.description": "{persona} can use apps on this PC only where you allow it.",
   "settings.computerUse.macPermissions": "Windows access",
-  "settings.computerUse.openSystemSettingsFor": "Open Windows Settings for {name}",
   "settings.computerUse.openSystemSettings": "Open Settings",
   "settings.mcp.sandboxHelp":
     "Command servers run in the sandbox PC: turn it on in Settings → Sandbox PC.",

@@ -1792,13 +1792,19 @@ export const hi: Partial<Catalogue> = {
   "settings.computerUse.tccState.granted": "दी गई",
   "settings.computerUse.tccState.denied": "अस्वीकृत",
   "settings.computerUse.tccState.not_determined": "अभी नहीं पूछा गया",
+  "settings.computerUse.tccState.offline": "हेल्पर ऑफ़लाइन है",
+  "settings.computerUse.helperAccess.hint":
+    "कंप्यूटर कंट्रोल Psyche Helper में चलता है। “Psyche” नहीं, “Psyche Helper” चालू करें।",
+  "settings.computerUse.helperAccess.offline":
+    "Psyche Helper चल नहीं रहा है, इसलिए उसकी अनुमतियाँ पढ़ी नहीं जा सकतीं। यह Psyche के साथ शुरू होता है; ऑफ़लाइन रहे तो Psyche बंद करके दोबारा खोलें।",
+  "settings.computerUse.helperAccess.allow": "Psyche Helper को अनुमति दें",
+  "settings.computerUse.helperAccess.allowFor": "{name} के लिए Psyche Helper को अनुमति दें",
   "settings.computerUse.title": "कंप्यूटर उपयोग",
   "settings.computerUse.description":
     "{persona} इस Mac पर ऐप केवल वहीं उपयोग कर सकता है जहाँ आप अनुमति दें।",
   "settings.computerUse.escStops": "किसी भी समय कंप्यूटर उपयोग रोक देता है।",
   "settings.computerUse.loadLabel": "कंप्यूटर उपयोग",
   "settings.computerUse.macPermissions": "macOS अनुमतियाँ",
-  "settings.computerUse.openSystemSettingsFor": "{name} के लिए सिस्टम सेटिंग्ज़ खोलें",
   "settings.computerUse.openSystemSettings": "सिस्टम सेटिंग्ज़ खोलें",
   "settings.computerUse.apps": "ऐप",
   "settings.computerUse.enabledHint":

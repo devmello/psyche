@@ -129,6 +129,10 @@ export const settings: Partial<Catalogue> = {
   "settings.key.notifications.quietHours.start": "الهدوء من",
   "settings.key.notifications.quietHours.end": "الهدوء حتى",
   "settings.notifications.title": "الإشعارات",
+  "settings.notifications.helper.title": "إشعارات Psyche Helper",
+  "settings.notifications.helper.hint":
+    "تصل إشعارات الموافقة عبر Psyche Helper. اسمح له بإظهارها لتصلك الموافقات حين تكون النافذة مغلقة.",
+  "settings.notifications.helper.allow": "السماح بإشعارات Psyche Helper",
   "settings.notifications.description": "متى يجوز لـ Psyche مقاطعتك.",
   "settings.notifications.group.quietHours": "ساعات الهدوء",
   "settings.notifications.quietHours.hint":

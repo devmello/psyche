@@ -297,6 +297,9 @@ const bridge = {
   permissions: {
     status: () => invoke(IPC.permissionsStatus),
     request: (kind: string) => invoke(IPC.permissionsRequest, { kind }),
+    /** The helper's own grants ("Psyche Helper"), which computer use needs. */
+    helperStatus: () => invoke(IPC.helperPermissionsStatus),
+    helperRequest: (kind: string) => invoke(IPC.helperPermissionsRequest, { kind }),
   },
   helper: {
     getState: () => invoke(IPC.helperGetState),

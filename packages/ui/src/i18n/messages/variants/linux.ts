@@ -113,7 +113,6 @@ export const linux: Partial<Record<MessageId, string>> = {
   "settings.computerUse.description":
     "{persona} can use apps on this computer only where you allow it.",
   "settings.computerUse.macPermissions": "Desktop permissions",
-  "settings.computerUse.openSystemSettingsFor": "Open Settings for {name}",
   "settings.computerUse.openSystemSettings": "Open Settings",
   "settings.trusted.loading": "Reading them from this computer…",
   "settings.trusted.noHelper": "Open Psyche on your computer to list them: the helper reads them.",

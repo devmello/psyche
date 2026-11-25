@@ -164,6 +164,10 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.key.notifications.quietHours.start": "시작 시간",
   "settings.key.notifications.quietHours.end": "종료 시간",
   "settings.notifications.title": "알림",
+  "settings.notifications.helper.title": "Psyche Helper 알림",
+  "settings.notifications.helper.hint":
+    "승인 알림은 Psyche Helper를 통해 도착합니다. 창이 닫혀 있어도 승인 요청을 받을 수 있도록 알림 표시를 허용해 주세요.",
+  "settings.notifications.helper.allow": "Psyche Helper 알림 허용",
   "settings.notifications.description": "Psyche가 방해해도 되는 시간입니다.",
   "settings.notifications.group.quietHours": "방해 금지 시간",
   "settings.notifications.quietHours.hint":
