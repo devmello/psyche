@@ -41,6 +41,8 @@ public protocol SessionDriver: Sendable {
     /// `scenePhase == .active` (connect) or not (close after a few seconds).
     func setActive(_ active: Bool) async
     func cancelPairing() async
+    /// Forgets the saved Gateway so the phone can pair with another (or a reset) Mac. The fixture has nothing to forget.
+    func forgetGateway() async throws
 }
 
 extension SessionDriver {
@@ -48,6 +50,7 @@ extension SessionDriver {
     public var updates: AsyncStream<DriverUpdate> { AsyncStream { $0.finish() } }
     public func setActive(_ active: Bool) async {}
     public func cancelPairing() async {}
+    public func forgetGateway() async throws {}
 }
 
 /// A scripted driver for previews, screenshots and the skeleton. It accepts any code that looks like

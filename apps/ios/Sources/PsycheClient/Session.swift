@@ -14,6 +14,18 @@ public final class Session {
     public private(set) var pairingPreview: PairingPreview?
     /// Set by "Try it without a Mac"; the app swaps in the fixture session and backend.
     public private(set) var fixtureModeRequested = false
+    /// True for a session driven by fixtures (the demo): Settings offers "Exit demo".
+    public let isDemo: Bool
+    /// Set by "Exit demo"; the app swaps the live client and the scanner back in.
+    public private(set) var exitDemoRequested = false
+
+    /// A pairing the person confirmed that has not reached the Mac yet (nothing proven, nothing stored). While it is
+    /// set and the connection is still trying or cannot reach the Mac, the pairing screens stay up with a way out.
+    public struct PairingAttempt: Equatable, Sendable {
+        public var host: String
+        public var hostName: String
+    }
+    public private(set) var pairingAttempt: PairingAttempt?
 
     private let driver: any SessionDriver
     private var pairing: Task<Void, Never>?
@@ -25,6 +37,7 @@ public final class Session {
 
     public init(driver: any SessionDriver = FixtureSessionDriver()) {
         self.driver = driver
+        isDemo = driver is FixtureSessionDriver
         self.state = driver.initialState
         self.lastSyncedAt = driver.initialSyncedAt
         let (changes, continuation) = AsyncStream<Bool>.makeStream(bufferingPolicy: .unbounded)
@@ -41,6 +54,7 @@ public final class Session {
                     self.state = next
                     if next == .live { self.lastSyncedAt = .now }
                     if next != .unpaired { self.pairingPreview = nil }
+                    self.settlePairingAttempt(for: next)
                 case .pairingFailed(let message):
                     self.pairingError = message
                 }
@@ -55,6 +69,15 @@ public final class Session {
 
     /// "Try it without a Mac" on the pairing screen.
     public func requestFixtureMode() { fixtureModeRequested = true }
+
+    /// "Exit demo" in Settings.
+    public func exitDemo() { exitDemoRequested = true }
+
+    /// Run on a live session the app is about to show again after the demo, so its own requests don't fire twice.
+    public func clearDemoRequests() {
+        fixtureModeRequested = false
+        exitDemoRequested = false
+    }
 
     /// A QR code was scanned or a link pasted. Only `psyche-pair:` links are accepted. A real driver
     /// parses it and asks "Connect to <host>?" first; the fixture pairs at once.
@@ -81,6 +104,7 @@ public final class Session {
     public func confirmPairing() {
         guard let code = scannedCode else { return }
         scannedCode = nil
+        if let preview = pairingPreview { pairingAttempt = PairingAttempt(host: preview.host, hostName: preview.hostName) }
         pairingPreview = nil
         startPairing(code: code)
     }
@@ -99,7 +123,17 @@ public final class Session {
                 guard let self, !Task.isCancelled else { return }
                 self.state = next
                 if next == .live { self.lastSyncedAt = .now }
+                self.settlePairingAttempt(for: next)
             }
+        }
+    }
+
+    /// The attempt ends once the Mac answered (`pending`, `live`) or the connection gave up on it; it stays through
+    /// `connecting` and `unreachable`, where the first pairing to an unreachable Mac would otherwise show empty tabs.
+    private func settlePairingAttempt(for next: ConnectionState) {
+        switch next {
+        case .connecting, .unreachable: break
+        default: pairingAttempt = nil
         }
     }
 
@@ -108,6 +142,7 @@ public final class Session {
         pairing = nil
         pairingError = nil
         pairingPreview = nil
+        pairingAttempt = nil
         scannedCode = nil
         state = .unpaired
         let driver = driver
@@ -122,6 +157,21 @@ public final class Session {
         pairingError = nil
         lastSyncedAt = nil
         state = .revoked
+    }
+
+    /// "Pair again" on the refused screen: the saved Gateway is forgotten (keys, endpoint, outbox and cache are wiped)
+    /// and the scanner comes back. A key that could not be deleted from the Keychain is reported on the scanner.
+    public func forgetGateway() async {
+        pairing?.cancel()
+        pairing = nil
+        pairingAttempt = nil
+        pairingPreview = nil
+        scannedCode = nil
+        lastSyncedAt = nil
+        do { try await driver.forgetGateway() } catch {
+            pairingError = String(localized: "This phone was removed, but its key could not be deleted from the Keychain. Restart your phone, then try again.", bundle: .module)
+        }
+        state = .unpaired
     }
 
     /// Dismisses the pairing error banner.

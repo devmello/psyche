@@ -99,6 +99,8 @@ private enum Launch {
 @main
 struct PsycheApp: App {
     @State private var model = Launch.model
+    /// The live app while the demo is showing, put back by "Exit demo".
+    @State private var liveBehindDemo: AppModel?
     @Environment(\.scenePhase) private var scenePhase
 
     init() {
@@ -122,9 +124,22 @@ struct PsycheApp: App {
                 // Leaving the live client behind must stop it: a pairing attempt in progress is cancelled (nothing
                 // unproven stays stored) and its connection closes.
                 let live = model.client
+                if live != nil, liveBehindDemo == nil { liveBehindDemo = model }
                 model = .fixtures()
                 model.alerts.installSystemHooks()
                 if let live { Task { await live.cancelPairing(); await live.setActive(false) } }
+            }
+            .onChange(of: model.session.exitDemoRequested) { _, requested in
+                guard requested else { return }
+                // Back to the live client and the scanner: the app that was running before "Try it without a Mac"
+                // (or, from a debug scenario launch, a fresh one) is shown again and told the scene is active.
+                let restored = liveBehindDemo ?? AppModel.live()
+                liveBehindDemo = nil
+                restored.session.clearDemoRequests()
+                model = restored
+                model.alerts.installSystemHooks()
+                model.session.setActive(scenePhase == .active)
+                model.alerts.setAppActive(scenePhase == .active)
             }
     }
 

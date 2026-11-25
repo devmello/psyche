@@ -24,7 +24,15 @@ public struct RootView: View {
                 PairingFlow().transition(.opacity)
             case .refused:
                 RefusedView().transition(.opacity)
-            case .connecting, .live, .unreachable:
+            case .connecting, .unreachable:
+                // A pairing that never reached the Mac has nothing to show: say so and offer Cancel. An earlier
+                // pairing that lost its connection keeps its cached tabs.
+                if let attempt = session.pairingAttempt {
+                    PairingProgressView(attempt: attempt, reachable: session.state == .connecting).transition(.opacity)
+                } else {
+                    MainTabs(store: store).transition(.opacity)
+                }
+            case .live:
                 MainTabs(store: store).transition(.opacity)
             }
         }

@@ -152,25 +152,48 @@ final class TrustDelegate: NSObject, URLSessionDelegate, @unchecked Sendable {
             completionHandler(.performDefaultHandling, nil)
             return
         }
-        // The system's answer for this host name comes first, and a good one is final.
-        var error: CFError?
-        if SecTrustEvaluateWithError(serverTrust, &error) {
+        let leafDER = (SecTrustCopyCertificateChain(serverTrust) as? [SecCertificate])?.first
+            .map { SecCertificateCopyData($0) as Data }
+        switch Self.decide(
+            trust: trust, leafCertificate: leafDER,
+            systemTrusts: { var error: CFError?; return SecTrustEvaluateWithError(serverTrust, &error) })
+        {
+        case .system:
             record(.trusted)
             completionHandler(.performDefaultHandling, nil)
-            return
-        }
-        guard trust.allowSelfSigned,
-              let leaf = (SecTrustCopyCertificateChain(serverTrust) as? [SecCertificate])?.first,
-              let spki = CertificatePin.spki(ofCertificate: SecCertificateCopyData(leaf) as Data)
-        else {
+        case .pinned(let spki):
+            record(.selfSigned(spki: spki))
+            completionHandler(.useCredential, URLCredential(trust: serverTrust))
+        case .refuse:
             completionHandler(.cancelAuthenticationChallenge, nil)
-            return
         }
-        if let pinned = trust.pinnedSPKI, pinned != spki {
-            completionHandler(.cancelAuthenticationChallenge, nil)
-            return
+    }
+
+    enum Decision: Equatable {
+        /// A chain the system trusts for the host name.
+        case system
+        /// The Gateway's own certificate, accepted for the SPKI pin shown.
+        case pinned(spki: String)
+        case refuse
+    }
+
+    /// What to do with the certificate a connection presented.
+    /// - A pin is stored (a v2 link, or an earlier pairing): the certificate must be exactly that one. The system's
+    ///   opinion is never asked, so neither a system-trusted certificate for another key nor a pinned self-signed one
+    ///   the system rejects changes the answer; there is no fall back to the system's trust for such a Gateway.
+    /// - No pin and `allowSelfSigned` (a local-network Gateway never paired): the system's answer comes first and a
+    ///   good one is final; otherwise the certificate is kept only to capture its SPKI, and `IdentityCheck` accepts it
+    ///   only if the Gateway's identity key signed that very SPKI into the challenge.
+    /// - Otherwise only a chain the system trusts.
+    static func decide(trust: TransportTrust, leafCertificate: Data?, systemTrusts: () -> Bool) -> Decision {
+        if trust.allowSelfSigned, let pinned = trust.pinnedSPKI {
+            guard let leaf = leafCertificate, let spki = CertificatePin.spki(ofCertificate: leaf), spki == pinned
+            else { return .refuse }
+            return .pinned(spki: spki)
         }
-        record(.selfSigned(spki: spki))
-        completionHandler(.useCredential, URLCredential(trust: serverTrust))
+        if systemTrusts() { return .system }
+        guard trust.allowSelfSigned, let leaf = leafCertificate, let spki = CertificatePin.spki(ofCertificate: leaf)
+        else { return .refuse }
+        return .pinned(spki: spki)
     }
 }

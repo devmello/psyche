@@ -5,7 +5,8 @@ import SwiftUI
 import UIKit
 #endif
 
-/// The pairing screens: scan the code from Settings → Devices on the Mac, then wait for the Mac's approval.
+/// The pairing screens: scan the code from Settings → Server & remote access → Pair another computer on the Mac. A
+/// valid code pairs at once; the Mac is asked to approve this phone only when it did not accept the code.
 struct PairingFlow: View {
     @Environment(Session.self) private var session
 
@@ -35,7 +36,7 @@ private struct ScannerView: View {
             VStack(alignment: .leading, spacing: 8) {
                 Text("Pair with your Mac", bundle: .module).psycheTitle(.title)
                     .foregroundStyle(PsycheColor.text)
-                Text("On your Mac, open Settings → Server & remote access → Pair another computer. Then scan the code it shows.", bundle: .module)
+                Text("On your Mac, open Settings → Server & remote access → Pair another computer. If it says there is no address yet, turn on Allow computers on this network and choose From this network. Then scan the code it shows.", bundle: .module)
                     .font(.subheadline).foregroundStyle(PsycheColor.muted)
             }
             viewfinder
@@ -178,9 +179,9 @@ private struct PendingView: View {
         VStack(alignment: .leading, spacing: 28) {
             MothAvatar(size: 64)
             VStack(alignment: .leading, spacing: 8) {
-                Text("Approve this phone on your Mac", bundle: .module).psycheTitle(.title)
+                Text("Your Mac hasn't let this phone in yet", bundle: .module).psycheTitle(.title)
                     .foregroundStyle(PsycheColor.text)
-                Text("Psyche on your Mac is asking whether to let this phone in. Check that the code matches.", bundle: .module)
+                Text("If your Mac asks, check that the code matches and approve. If it doesn't ask, scan a new pairing code.", bundle: .module)
                     .font(.subheadline).foregroundStyle(PsycheColor.muted)
             }
             PaperCard(padding: 18, radius: 16) {
@@ -200,10 +201,10 @@ private struct PendingView: View {
                 }
             }
             VStack(alignment: .leading, spacing: 14) {
-                step(done: true, String(localized: "Scanned the code from Settings → Devices", bundle: .module))
+                step(done: true, String(localized: "Read the pairing code from your Mac", bundle: .module))
                 step(
                     done: false,
-                    Text("On your Mac, approve \(Text(pending.deviceName).fontWeight(.semibold)). It gets read, write and approvals, not admin.", bundle: .module))
+                    Text("If your Mac asks, approve \(Text(pending.deviceName).fontWeight(.semibold)). It gets read, write and approvals, not admin.", bundle: .module))
             }
             Spacer(minLength: 0)
             StatusDot(.needsYou, String(localized: "Waiting for your Mac", bundle: .module), textColor: PsycheColor.muted, font: .subheadline)
@@ -240,18 +241,83 @@ private struct PendingView: View {
     }
 }
 
-/// `refused(.identityMismatch)`: a full-screen stop with no retry (companion M1 acceptance 2).
+/// A pairing the person confirmed that has not reached the Mac: still connecting, or the Mac can't be reached at
+/// that address. The phone never completed pairing, so there is nothing to show but a way out.
+struct PairingProgressView: View {
+    let attempt: Session.PairingAttempt
+    let reachable: Bool
+    @Environment(Session.self) private var session
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 28) {
+            MothAvatar(size: 64)
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Pairing with \(attempt.hostName)", bundle: .module).psycheTitle(.title)
+                    .foregroundStyle(PsycheColor.text)
+                if reachable {
+                    Text("Connecting to \(attempt.host)…", bundle: .module)
+                        .font(.subheadline).foregroundStyle(PsycheColor.muted)
+                } else {
+                    Text("Can't reach your Mac at \(attempt.host). Check that it's on and awake and on the same network as this phone. Psyche keeps trying until you cancel.", bundle: .module)
+                        .font(.subheadline).foregroundStyle(PsycheColor.muted)
+                }
+            }
+            Spacer(minLength: 0)
+            if reachable {
+                ProgressView().frame(maxWidth: .infinity)
+            } else {
+                StatusDot(.needsYou, String(localized: "Waiting for your Mac", bundle: .module), textColor: PsycheColor.muted, font: .subheadline)
+                    .frame(maxWidth: .infinity)
+            }
+            Button(String(localized: "Cancel", bundle: .module)) { session.cancelPairing() }.buttonStyle(.psycheOutline)
+        }
+        .padding(.horizontal, 28)
+        .padding(.top, 56)
+        .padding(.bottom, 32)
+        .frame(maxWidth: 560)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .psycheScreen()
+    }
+}
+
+/// `refused(.identityMismatch)`: a full-screen stop (companion M1 acceptance 2). Nothing is ever sent to the Mac that
+/// answered, and the phone doesn't retry it. The way out is to forget the saved Gateway and pair again, because the
+/// usual cause is a Mac that was reset or reinstalled and so has a new identity.
 struct RefusedView: View {
+    @Environment(Session.self) private var session
+    @State private var confirming = false
+    @State private var working = false
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             MothAvatar(size: 64)
             Text("This isn't your Gateway.", bundle: .module).psycheTitle(.title).foregroundStyle(PsycheColor.text)
             Text("The Mac that answered isn't the one this phone was paired with, so Psyche stopped. Nothing was sent to it.", bundle: .module)
                 .font(.subheadline).foregroundStyle(PsycheColor.muted)
+            Text("If you reset or reinstalled Psyche on your Mac, it has a new identity, and this phone has to pair with it again.", bundle: .module)
+                .font(.subheadline).foregroundStyle(PsycheColor.muted)
+            Spacer(minLength: 0)
+            Button(String(localized: "Pair again", bundle: .module)) { confirming = true }
+                .buttonStyle(.psycheInk)
+                .disabled(working)
         }
         .padding(.horizontal, 28)
+        .padding(.top, 56)
+        .padding(.bottom, 32)
         .frame(maxWidth: 560, maxHeight: .infinity, alignment: .leading)
         .frame(maxWidth: .infinity)
         .psycheScreen()
+        .confirmationDialog(String(localized: "Pair this phone again?", bundle: .module), isPresented: $confirming, titleVisibility: .visible) {
+            Button(String(localized: "Pair again", bundle: .module), role: .destructive) {
+                working = true
+                Task {
+                    await session.forgetGateway()
+                    working = false
+                }
+            }
+            Button(String(localized: "Cancel", bundle: .module), role: .cancel) {}
+        } message: {
+            Text("This phone forgets the Mac it was paired with and clears what it saved. Then you scan a new code on your Mac.", bundle: .module)
+        }
     }
 }

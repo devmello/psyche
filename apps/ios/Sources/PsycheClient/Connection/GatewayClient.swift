@@ -566,10 +566,14 @@ public actor GatewayClient {
         guard let url = URLSessionTransport.socketURL(forOrigin: endpoint.url) else { return .unreachable }
         let identity: DeviceIdentity
         do { identity = try await deps.identityStore.identity() } catch { return .unreachable }
-        // A self-signed certificate is accepted for capture on the local network only; Tailscale and everything
-        // else needs a chain the system trusts.
+        // A self-signed certificate is accepted only for a Gateway with a stored SPKI pin (a `psyche-pair:v2` link, or a
+        // pairing that captured one) and only at an address that is on a local network; the connection then accepts
+        // that certificate and no other, with no fallback to the system's trust. Everything else, Tailscale included,
+        // needs a chain the system trusts.
+        let pinnedSPKI = endpoint.lanCertSpki
+        if pinnedSPKI != nil, LanHost.lanOrigin(endpoint.url) == nil { return .unreachable }
         let transport = deps.transportFactory(
-            url, TransportTrust(allowSelfSigned: endpoint.transport == .lan, pinnedSPKI: endpoint.lanCertSpki))
+            url, TransportTrust(allowSelfSigned: pinnedSPKI != nil, pinnedSPKI: pinnedSPKI))
         let connection = GatewayConnection(
             endpoint: endpoint, identity: identity, deviceName: deps.deviceName, transport: transport)
         do {
