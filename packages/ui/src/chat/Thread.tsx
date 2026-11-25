@@ -26,6 +26,7 @@ import {
 import { t } from "../i18n/core.ts";
 import { describeError } from "../i18n/errors.ts";
 import { LayoutMotion, Presence } from "../motion/index.ts";
+
 import { usePersona, useSlots } from "../slots.tsx";
 import { SpaceComposerChip } from "../spaces/SpaceSwitcher.tsx";
 import { SpecialistSpawns } from "../specialists/SpawnLine.tsx";
@@ -37,6 +38,7 @@ import { ConnectedClearChatDialog, requestClearChat } from "./ClearChatDialog.ts
 import type { ArgContext } from "./command-args.ts";
 import { type CommandName, parseCommand } from "./commands.ts";
 import { ComposerBusyWatch } from "./composer-busy.ts";
+import { EarlierMessagesRow, useLoadEarlier } from "./EarlierMessages.tsx";
 import { FollowUpQueue } from "./FollowUpQueue.tsx";
 import {
   clearChatFocus,
@@ -64,6 +66,11 @@ import { TranscriptSkeleton } from "./TranscriptSkeleton.tsx";
 import { useAttachments } from "./useAttachments.ts";
 import { useBottomAnchor } from "./useBottomAnchor.ts";
 import { useRunningTool } from "./WorkingIndicator.tsx";
+
+/** A focus request pages back at most this far (100 messages a page) before it gives up. */
+const FOCUS_MAX_PAGES = 30;
+/** ...and waits this many 50 ms beats for a loaded message to be drawn. */
+const FOCUS_MAX_WAITS = 40;
 
 /** A committed message, or a streaming one that has no committed blocks yet. */
 interface DisplayMessage {
@@ -282,8 +289,18 @@ export function ChatThread({
   }, [display]);
 
   // "Open in chat" from the Library: land on the message that made the artifact, then open it.
+  // A search hit or notification can name a message older than the first page: page back until it
+  // is loaded (up to FOCUS_MAX_PAGES), and say so when it is not in this chat.
   const focusRequest = useChatFocusRequest(threadId);
   const focusMessages = view.messages.length;
+  const focusHasMore = view.hasMore;
+  const [focusTick, setFocusTick] = useState(0);
+  const focusPages = useRef({ request: null as unknown, pages: 0, loading: false, waits: 0 });
+  const messagesRef = useRef(view.messages);
+  messagesRef.current = view.messages;
+  const loadOlderRef = useRef(view.loadOlder);
+  loadOlderRef.current = view.loadOlder;
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `focusTick` re-runs it after a page that added nothing
   useEffect(() => {
     if (focusRequest === null) return;
     const { messageId, artifactId, approvalId } = focusRequest;
@@ -292,13 +309,53 @@ export function ChatThread({
       (messageId !== null && flashMessage(messageId)) ||
       (approvalId != null && flashApproval(approvalId));
     if (!landed && focusMessages === 0) return;
+    const paging = focusPages.current;
+    if (paging.request !== focusRequest) {
+      paging.request = focusRequest;
+      paging.pages = 0;
+      paging.loading = false;
+      paging.waits = 0;
+    }
+    // The message is loaded but the transcript has not drawn it yet: look again in a moment.
+    if (
+      !landed &&
+      messageId !== null &&
+      paging.waits < FOCUS_MAX_WAITS &&
+      messagesRef.current.some((m) => m.id === messageId)
+    ) {
+      paging.waits += 1;
+      const timer = setTimeout(() => setFocusTick((n) => n + 1), 50);
+      return () => clearTimeout(timer);
+    }
+    if (!landed && messageId !== null && focusHasMore && paging.pages < FOCUS_MAX_PAGES) {
+      if (paging.loading) return;
+      paging.loading = true;
+      paging.pages += 1;
+      // The next page changes the message count (or `hasMore`), which runs this effect again.
+      loadOlderRef.current().then(
+        () => {
+          paging.loading = false;
+          // Nothing new arrived: look again so a spent cursor ends the search.
+          setFocusTick((n) => n + 1);
+        },
+        () => {
+          paging.loading = false;
+          paging.pages = FOCUS_MAX_PAGES;
+          setFocusTick((n) => n + 1);
+        },
+      );
+      return;
+    }
+    if (!landed && messageId !== null) {
+      setNotice({ kind: "info", text: t("chat.thread.focusNotFound") });
+    }
     clearChatFocus(focusRequest);
     if (artifactId === null || openArtifact === undefined) return;
     void call("artifacts.get", { artifactId }).then(
       (r) => openArtifact(r.artifact),
       () => {},
     );
-  }, [focusRequest, focusMessages, call, openArtifact]);
+  }, [focusRequest, focusMessages, focusHasMore, focusTick, call, openArtifact]);
 
   // The command runner reads this render's thread state; onNew calls the latest one.
   const runCommandRef = useRef<(name: CommandName, arg: string) => Promise<void>>(async () => {});
@@ -658,7 +715,9 @@ export function ChatThread({
     isRunning: false,
     isDisabled: composerOff,
     hasEarlier: view.hasMore,
-    onLoadEarlier: view.loadOlder,
+    onLoadEarlier: async () => {
+      await view.loadOlder();
+    },
     onNew,
     convertMessage: (d) => ({
       id: d.message.id,
@@ -754,6 +813,13 @@ export function ChatThread({
   const stackHeight = useElementHeight(stackRef);
   const anchorVersion = `${stackHeight}:${display.length}:${display.at(-1)?.message.blocks.length ?? 0}:${display.at(-1)?.streamingText?.length ?? 0}:${working}:${steps.length}:${steps.at(-1)?.status ?? ""}`;
   const { away, jump } = useBottomAnchor(viewportRef, columnRef, anchorVersion);
+  // Older history: a sentinel at the top of the transcript pages it in as the reader scrolls up.
+  const earlier = useLoadEarlier({
+    viewport: viewportRef,
+    hasMore: view.hasMore,
+    loadOlder: view.loadOlder,
+    firstId: view.messages[0]?.id ?? null,
+  });
   const empty = display.length === 0 && !view.loading;
   // The main chat's greeting (#555): an empty, connected main chat asks the Gateway once.
   useGreetEmptyMainChat({
@@ -794,6 +860,8 @@ export function ChatThread({
               style={{
                 paddingBottom: stackHeight + 24,
                 scrollPaddingBottom: stackHeight + 24,
+                // The sentinel keeps the reader in place itself (EarlierMessages).
+                overflowAnchor: "none",
               }}
               data-testid="chat-viewport"
               aria-label={t("chat.thread.conversation")}
@@ -811,6 +879,13 @@ export function ChatThread({
                 data-testid="conversation-column"
               >
                 {empty ? <EmptyThread /> : null}
+                <EarlierMessagesRow
+                  sentinel={earlier.sentinel}
+                  hasMore={view.hasMore}
+                  loading={earlier.loading}
+                  failed={earlier.failed}
+                  onRetry={earlier.retry}
+                />
                 <TranscriptSkeleton loading={view.loading && display.length === 0} />
                 <ThreadBlocksProvider index={blockIndex}>
                   <ThreadPrimitive.Messages>
@@ -939,8 +1014,13 @@ export function ChatThread({
                   onRetry={view.retryQueued}
                   onSendNow={(q, m) => {
                     view.removeQueued(q.id);
-                    void view.send(q.content, { mode: m, replyToMessageId: q.replyToMessageId });
+                    void view.send(q.content, {
+                      mode: m,
+                      replyToMessageId: q.replyToMessageId,
+                      keepQueueParked: true,
+                    });
                   }}
+                  onSendQueued={view.resumeQueued}
                 />
                 {notice ? <NoticeBar notice={notice} onDismiss={() => setNotice(null)} /> : null}
                 {view.thread ? (

@@ -4,7 +4,9 @@ import UserNotifications
 
 /// Receives notification taps and buttons, and decides how a notification shows while the app is open.
 final class NotificationDelegate: NSObject, UNUserNotificationCenterDelegate, Sendable {
-    private let center: AlertCenter
+    /// Weak: the center owns its delegate, and the system holds the delegate; a strong pointer back would keep a
+    /// replaced center (the demo's) alive for as long as the delegate is installed.
+    private weak let center: AlertCenter?
 
     init(center: AlertCenter) {
         self.center = center
@@ -26,7 +28,7 @@ final class NotificationDelegate: NSObject, UNUserNotificationCenterDelegate, Se
         _ center: UNUserNotificationCenter, willPresent notification: UNNotification
     ) async -> UNNotificationPresentationOptions {
         let thread = notification.request.content.userInfo[AlertUserInfo.thread] as? String
-        let banner = await self.center.shouldBanner(threadID: thread)
+        let banner = await self.center?.shouldBanner(threadID: thread) ?? true
         return banner ? [.banner, .list, .sound] : [.list]
     }
 
@@ -34,6 +36,6 @@ final class NotificationDelegate: NSObject, UNUserNotificationCenterDelegate, Se
         _ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse
     ) async {
         let incoming = Self.incoming(response)
-        await self.center.handle(incoming)
+        await self.center?.handle(incoming)
     }
 }
