@@ -70,7 +70,9 @@ struct PairingLinkTests {
         #expect(Self.problem("") == "not_a_pairing_link")
         #expect(Self.problem("psyche-pair:") == "malformed")
         #expect(Self.problem("psyche-pair:v1") == "malformed")
-        #expect(Self.problem("psyche-pair:v2:" + body) == "unsupported_version")
+        #expect(Self.problem("psyche-pair:v3:" + body) == "unsupported_version")
+        // v2 is the local-network link now (`PairingLinkV2Tests`); a v1 body under it has the wrong fields.
+        #expect(Self.problem("psyche-pair:v2:" + body) == "extra_fields:gatewayFingerprint")
         #expect(Self.problem("psyche-pair::" + body) == "unsupported_version")
         // A link wrapped in a URL some page chose is not a pairing link.
         #expect(Self.problem("https://x.example/?l=" + Self.link(Self.fields())) == "not_a_pairing_link")

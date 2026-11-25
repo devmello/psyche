@@ -293,6 +293,7 @@ export const blocks = {
   "blocks.toolRun.status.failed": "failed",
   "blocks.toolRun.status.uncertain": "outcome unknown",
   "blocks.toolRun.status.blocked": "blocked",
+  "blocks.toolRun.status.stopped": "stopped",
   "blocks.toolRun.summary": "{count, plural, one {# action} other {# actions}} · {families}",
   "blocks.toolRun.untrustedOutput": "untrusted output",
   "blocks.toolRun.trustedOutput": "trusted output",

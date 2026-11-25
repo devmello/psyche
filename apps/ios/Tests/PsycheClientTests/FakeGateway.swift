@@ -28,6 +28,8 @@ final class FakeGateway: @unchecked Sendable {
     static let key = try! Curve25519.Signing.PrivateKey(rawRepresentation: Data(repeating: 7, count: 32))
     static var publicKey: String { Base64URL.encode(key.publicKey.rawRepresentation) }
     static let origin = "https://studio-mac.tail1234.ts.net"
+    /// The origin this Gateway signs and reports (a test on the local network sets it before connecting).
+    var servedOrigin = FakeGateway.origin
     static let nonce = "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8"
 
     /// Methods the Gateway refuses without an idempotencyKey, generated from the protocol
@@ -110,11 +112,11 @@ final class FakeGateway: @unchecked Sendable {
             var nonce = Self.nonce
             if malform == .emptyNonce { nonce = "" }
             if malform == .newlineInNonce { nonce = Self.nonce + "\nX" }
-            var origin = Self.origin
+            var origin = servedOrigin
             var key = publicKey
             let lie = self.lie
             if lie == .wrongOrigin { origin = "https://evil.example" }
-            let signedOrigin = lie == .wrongOrigin ? origin : Self.origin
+            let signedOrigin = lie == .wrongOrigin ? origin : servedOrigin
             var payload = GatewaySigning.payload(nonce: nonce, serverOrigin: signedOrigin, devicePublicKey: devicePub)
             if lie == .badSignature { payload = Data("tampered".utf8) }
             let signer = lie == .wrongKey ? Curve25519.Signing.PrivateKey() : identity

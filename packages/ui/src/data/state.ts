@@ -82,6 +82,11 @@ export interface QueuedFollowUp {
   attachedFiles?: readonly { path: string }[];
   /** Sending failed; the queue stops draining until the user retries or removes it. */
   failed?: boolean;
+  /**
+   * The owner pressed Stop while this waited: it stays until they send it, remove it or send
+   * another message themselves, instead of going out the moment the run ends.
+   */
+  parked?: boolean;
 }
 
 /** Result of a generic query (methods without a dedicated collection). */
@@ -362,6 +367,30 @@ export function replaceLibraryWindow(
 
 export function touch(state: UiState, key: string, version: number): UiState {
   return { ...state, touched: { ...state.touched, [key]: version } };
+}
+
+/**
+ * Drops partial replies whose run has ended (done, failed or cancelled) without a committed
+ * message of the same id: an interrupt, a forced stop or a Gateway restart leaves no commit to
+ * replace them, and they would otherwise stay on screen as a ghost. `runId` limits it to one run.
+ */
+export function dropSettledStreaming(state: UiState, runId?: string): UiState {
+  let changed = false;
+  const streaming: Record<string, StreamingMessage> = {};
+  for (const [id, m] of Object.entries(state.streaming)) {
+    const run = m.runId === null ? undefined : state.runs[m.runId];
+    const settled =
+      run !== undefined &&
+      (runId === undefined || run.id === runId) &&
+      (run.status === "done" || run.status === "failed" || run.status === "cancelled");
+    const committed = (state.messages[m.threadId] ?? []).some((x) => x.id === m.messageId);
+    if (settled && !committed) {
+      changed = true;
+      continue;
+    }
+    streaming[id] = m;
+  }
+  return changed ? { ...state, streaming } : state;
 }
 
 /** Inserts or replaces a message, keeping the thread ordered by seq. */
