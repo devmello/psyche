@@ -2,6 +2,7 @@
 import PsycheDesign
 import PsycheStore
 import SwiftUI
+import UIKit
 
 /// Documents, images, artifacts and downloads as paper sheets (docs/design/ios-app-2026.md §4.4): a grid
 /// on iPad and wide phones, a list on compact. The + button uploads from Photos, Files or the scanner.
@@ -26,55 +27,150 @@ struct LibraryView: View {
 private struct LibraryContent: View {
     @Bindable var model: LibraryModel
     private let motion = MotionContext()
+    @State private var query = ""
+    @State private var deleting: PsycheStore.LibraryItem?
+
+    /// The loaded rows narrowed by the search field (title and detail line).
+    private func shown(_ items: [PsycheStore.LibraryItem]) -> [PsycheStore.LibraryItem] {
+        let needle = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !needle.isEmpty else { return items }
+        return items.filter { $0.title.localizedStandardContains(needle) || $0.detail.localizedStandardContains(needle) }
+    }
+
+    private var searching: Bool { !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
 
     var body: some View {
         GeometryReader { proxy in
-            let wide = proxy.size.width >= 560
-            ScrollView {
-                // Lazy, so the end row only asks for the next page once it is on screen (`PagedRowsEnd`).
-                LazyVStack(alignment: .leading, spacing: 18) {
-                    PageHeader(String(localized: "Library", bundle: .module))
-                    NavigationLink { ReceiptsView() } label: {
-                        LibraryPageTile(title: String(localized: "Receipts", bundle: .module), symbol: "receipt")
-                    }
-                    .buttonStyle(.plain)
-                    SectionPicker(selection: $model.section)
-                    ForEach(model.uploads) { job in
-                        UploadRow(job: job, retry: { model.retry(job.id) }, dismiss: { model.dismiss(job.id) })
-                            .transition(motion.transition(.rise))
-                    }
-                    PhaseView(phase: model.phase, skeleton: .skeleton, retry: model.load) { items in
-                        if items.isEmpty && model.uploads.isEmpty {
-                            EmptySection(section: model.section)
-                        } else {
-                            if wide {
-                                LibraryGrid(items: items)
-                            } else {
-                                LibraryList(items: items)
-                            }
-                            PagedRowsEnd(
-                                moreFailed: model.moreFailed, nextCursor: model.nextCursor, loadingMore: model.loadingMore,
-                                label: String(localized: "Loading more files", bundle: .module),
-                                loadMore: { await model.loadMore() }, retryMore: { await model.retryMore() })
-                        }
-                    }
-                }
-                .padding(.horizontal, PsycheMetrics.pagePadding)
-                .padding(.top, 8)
-                .padding(.bottom, 96)
-            }
-            .refreshable { await model.refresh() }
+            if proxy.size.width >= 560 { gridBody } else { listBody }
         }
-        .psycheScreen(maxWidth: nil)
-        .psycheHidesNavigationBar()
-        .overlay(alignment: .bottomTrailing) {
-            UploadMenuButton { model.upload($0) }
-                .padding(.trailing, PsycheMetrics.pagePadding)
-                .padding(.bottom, 16)
+        .navigationTitle(String(localized: "Library", bundle: .module))
+        .navigationSubtitle(model.section.pickerTitle)
+        .navigationBarTitleDisplayMode(.large)
+        .searchable(text: $query, prompt: String(localized: "Search Library", bundle: .module))
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) { filterMenu }
+            ToolbarItem(placement: .primaryAction) { UploadMenuButton { model.upload($0) } }
+        }
+        .confirmationDialog(
+            String(localized: "Delete this file?", bundle: .module), isPresented: deleteShown, titleVisibility: .visible
+        ) {
+            Button(String(localized: "Delete", bundle: .module), role: .destructive) {
+                if let item = deleting { Task { await model.delete(item) } }
+                deleting = nil
+            }
+            Button(String(localized: "Cancel", bundle: .module), role: .cancel) { deleting = nil }
+        } message: {
+            Text("It's removed from your Library on your Mac too. Chats that used it keep their copy of the text.", bundle: .module)
+        }
+        .alert(String(localized: "Couldn't delete", bundle: .module), isPresented: Binding(get: { model.deleteError != nil }, set: { if !$0 { model.clearDeleteError() } })) {
+            Button(String(localized: "OK", bundle: .module), role: .cancel) {}
+        } message: {
+            Text(model.deleteError ?? "")
         }
         .psycheAnimation(.smooth, value: model.uploads.map(\.id))
         .task(id: model.section) { await model.load() }
         .task { await model.observe() }
+    }
+
+    private var deleteShown: Binding<Bool> {
+        Binding(get: { deleting != nil }, set: { if !$0 { deleting = nil } })
+    }
+
+    /// Documents, Images and Artifacts, with Downloads and Recordings, behind one native filter menu.
+    private var filterMenu: some View {
+        Menu {
+            Picker(String(localized: "Show", bundle: .module), selection: $model.section) {
+                ForEach(LibrarySection.allCases) { section in
+                    Text(section.pickerTitle).tag(section)
+                }
+            }
+        } label: {
+            Label(String(localized: "Filter", bundle: .module), systemImage: "line.3.horizontal.decrease")
+        }
+        .accessibilityLabel(String(localized: "Filter", bundle: .module))
+        .accessibilityValue(model.section.pickerTitle)
+    }
+
+    private var receiptsLink: some View {
+        NavigationLink { ReceiptsView() } label: {
+            Label(String(localized: "Receipts", bundle: .module), systemImage: "receipt")
+        }
+    }
+
+    // MARK: Compact: a native inset-grouped list
+
+    private var listBody: some View {
+        List {
+            if !searching {
+                Section { receiptsLink }
+            }
+            if !model.uploads.isEmpty {
+                Section {
+                    ForEach(model.uploads) { job in
+                        UploadRow(job: job, retry: { model.retry(job.id) }, dismiss: { model.dismiss(job.id) })
+                    }
+                }
+            }
+            PhaseView(phase: model.phase, skeleton: .skeleton, retry: model.load) { items in
+                let rows = shown(items)
+                if items.isEmpty && model.uploads.isEmpty {
+                    EmptySection(section: model.section).listRowBackground(Color.clear)
+                } else if rows.isEmpty && searching {
+                    ContentUnavailableView.search(text: query).listRowBackground(Color.clear)
+                } else {
+                    Section {
+                        ForEach(rows) { item in
+                            LibraryListRow(item: item, delete: { deleting = item })
+                        }
+                        PagedRowsEnd(
+                            moreFailed: model.moreFailed, nextCursor: model.nextCursor, loadingMore: model.loadingMore,
+                            label: String(localized: "Loading more files", bundle: .module),
+                            loadMore: { await model.loadMore() }, retryMore: { await model.retryMore() })
+                        .listRowBackground(Color.clear)
+                    }
+                }
+            }
+        }
+        .listStyle(.insetGrouped)
+        .refreshable { await model.refresh() }
+    }
+
+    // MARK: Wide: a grid of thumbnails
+
+    private var gridBody: some View {
+        ScrollView {
+            // Lazy, so the end row only asks for the next page once it is on screen (`PagedRowsEnd`).
+            LazyVStack(alignment: .leading, spacing: 18) {
+                if !searching {
+                    receiptsLink
+                        .padding(PsycheMetrics.rowPadding)
+                        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: PsycheMetrics.cardRadius, style: .continuous))
+                }
+                ForEach(model.uploads) { job in
+                    UploadRow(job: job, retry: { model.retry(job.id) }, dismiss: { model.dismiss(job.id) })
+                        .transition(motion.transition(.rise))
+                }
+                PhaseView(phase: model.phase, skeleton: .skeleton, retry: model.load) { items in
+                    let rows = shown(items)
+                    if items.isEmpty && model.uploads.isEmpty {
+                        EmptySection(section: model.section)
+                    } else if rows.isEmpty && searching {
+                        ContentUnavailableView.search(text: query)
+                    } else {
+                        LibraryGrid(items: rows, delete: { deleting = $0 })
+                        PagedRowsEnd(
+                            moreFailed: model.moreFailed, nextCursor: model.nextCursor, loadingMore: model.loadingMore,
+                            label: String(localized: "Loading more files", bundle: .module),
+                            loadMore: { await model.loadMore() }, retryMore: { await model.retryMore() })
+                    }
+                }
+            }
+            .padding(.horizontal, PsycheMetrics.pagePadding)
+            .padding(.top, 8)
+            .padding(.bottom, 24)
+        }
+        .background(Color(.systemGroupedBackground))
+        .refreshable { await model.refresh() }
     }
 }
 
@@ -83,107 +179,55 @@ extension PsycheStore.LibraryItem {
     var route: Route { artifactID.map { Route.artifact(id: $0) } ?? Route.file(id: id) }
 }
 
-/// A link to a page of the Library (Receipts), above the sections.
-private struct LibraryPageTile: View {
-    let title: String
-    let symbol: String
-
-    var body: some View {
-        HStack(spacing: 10) {
-            Image(systemName: symbol).font(.body.weight(.medium)).foregroundStyle(PsycheColor.muted)
-            Text(verbatim: title)
-                .font(.psycheRow.weight(.medium)).foregroundStyle(PsycheColor.text)
-            Spacer(minLength: 0)
-            Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).foregroundStyle(PsycheColor.rule)
-        }
-        .padding(.horizontal, 14).padding(.vertical, 12)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(PsycheColor.sheet, in: RoundedRectangle(cornerRadius: PsycheMetrics.cardRadius, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: PsycheMetrics.cardRadius, style: .continuous).strokeBorder(PsycheColor.hairline, lineWidth: 1))
-    }
-}
-
-/// The four sections. The container is the screen's glass chrome; the selection is a quiet sheet-colored thumb.
-private struct SectionPicker: View {
-    @Binding var selection: LibrarySection
-    @Namespace private var thumb
-
-    var body: some View {
-        HStack(spacing: 2) {
-            ForEach(LibrarySection.allCases) { section in
-                Button { selection = section } label: {
-                    Text(section.pickerTitle)
-                        .font(.subheadline.weight(selection == section ? .semibold : .regular))
-                        .foregroundStyle(selection == section ? PsycheColor.text : PsycheColor.muted)
-                        .lineLimit(1).minimumScaleFactor(0.6)
-                        .padding(.horizontal, 4)
-                        .frame(maxWidth: .infinity, minHeight: 34)
-                        .background {
-                            if selection == section {
-                                Capsule().fill(PsycheColor.sheet)
-                                    .overlay(Capsule().strokeBorder(PsycheColor.hairline, lineWidth: 1))
-                                    .matchedGeometryEffect(id: "thumb", in: thumb)
-                            }
-                        }
-                        .contentShape(Capsule())
-                }
-                .buttonStyle(.plain)
-                .accessibilityAddTraits(selection == section ? .isSelected : [])
-            }
-        }
-        .padding(3)
-        .glassEffect(.regular, in: .capsule)
-        // The thumb slides to the chosen section on the micro spring (spec §4.4).
-        .psycheAnimation(.micro, value: selection)
-    }
-}
-
-private struct LibraryList: View {
-    let items: [PsycheStore.LibraryItem]
-    @Environment(\.psycheZoomNamespace) private var zoom
-
-    var body: some View {
-        PaperCard {
-            VStack(spacing: 0) {
-                ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
-                    if index > 0 { HairlineDivider().padding(.leading, 70) }
-                    NavigationLink(value: item.route) { LibraryRow(item: item) }
-                        .buttonStyle(.plain)
-                        .psycheZoomSource(id: item.id, in: zoom)
-                }
-            }
-        }
-    }
-}
-
-private struct LibraryRow: View {
+/// A file row in the list: the thumbnail, title and detail line, with swipe and context-menu actions.
+private struct LibraryListRow: View {
     let item: PsycheStore.LibraryItem
+    let delete: () -> Void
+    @Environment(\.psycheZoomNamespace) private var zoom
+    @Environment(\.dynamicTypeSize) private var typeSize
 
     var body: some View {
-        HStack(spacing: 14) {
-            LibraryThumbnail(item: item, style: .row)
-                .frame(width: 42, height: 54)
-            VStack(alignment: .leading, spacing: 3) {
-                Text(item.title)
-                    .font(.psycheRow.weight(.medium)).foregroundStyle(PsycheColor.text)
-                    .lineLimit(2).multilineTextAlignment(.leading)
-                Text(item.detail)
-                    .font(.psycheMono(.caption)).foregroundStyle(PsycheColor.muted)
-                    .lineLimit(2).multilineTextAlignment(.leading)
+        NavigationLink(value: item.route) {
+            // At accessibility sizes the thumbnail sits above the text so the title keeps the full row width.
+            let layout = typeSize.isAccessibilitySize ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8)) : AnyLayout(HStackLayout(spacing: 14))
+            layout {
+                LibraryThumbnail(item: item, style: .row)
+                    .frame(width: 42, height: 54)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(item.title).font(.body).lineLimit(typeSize.isAccessibilitySize ? 4 : 2)
+                    Text(item.detail).font(.footnote).foregroundStyle(.secondary).lineLimit(typeSize.isAccessibilitySize ? 3 : 2)
+                }
             }
-            Spacer(minLength: 8)
-            Image(systemName: "chevron.right")
-                .font(.footnote.weight(.semibold)).foregroundStyle(PsycheColor.rule)
-                .accessibilityHidden(true)
+            .padding(.vertical, 2)
         }
-        .padding(PsycheMetrics.rowPadding)
-        .contentShape(Rectangle())
-        .accessibilityElement(children: .combine)
+        .psycheZoomSource(id: item.id, in: zoom)
+        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+            Button(role: .destructive, action: delete) {
+                Label(String(localized: "Delete", bundle: .module), systemImage: "trash")
+            }
+        }
+        .contextMenu { LibraryItemActions(item: item, delete: delete) }
+    }
+}
+
+/// What a long press on a file offers, in the list and the grid.
+private struct LibraryItemActions: View {
+    let item: PsycheStore.LibraryItem
+    let delete: () -> Void
+
+    var body: some View {
+        Button { UIPasteboard.general.string = item.title } label: {
+            Label(String(localized: "Copy name", bundle: .module), systemImage: "doc.on.doc")
+        }
+        Button(role: .destructive, action: delete) {
+            Label(String(localized: "Delete", bundle: .module), systemImage: "trash")
+        }
     }
 }
 
 private struct LibraryGrid: View {
     let items: [PsycheStore.LibraryItem]
+    let delete: (PsycheStore.LibraryItem) -> Void
     @Environment(\.psycheZoomNamespace) private var zoom
 
     var body: some View {
@@ -193,10 +237,10 @@ private struct LibraryGrid: View {
                     VStack(alignment: .leading, spacing: 8) {
                         LibraryThumbnail(item: item, style: .tile)
                         Text(item.title)
-                            .font(.psycheRow.weight(.medium)).foregroundStyle(PsycheColor.text)
+                            .font(.subheadline.weight(.medium)).foregroundStyle(.primary)
                             .lineLimit(2).multilineTextAlignment(.leading)
                         Text(item.detail)
-                            .font(.psycheMono(.caption2)).foregroundStyle(PsycheColor.muted)
+                            .font(.caption).foregroundStyle(.secondary)
                             .lineLimit(2).multilineTextAlignment(.leading)
                     }
                     .frame(maxWidth: .infinity, alignment: .topLeading)
@@ -205,6 +249,7 @@ private struct LibraryGrid: View {
                 .buttonStyle(.plain)
                 .psycheZoomSource(id: item.id, in: zoom)
                 .accessibilityElement(children: .combine)
+                .contextMenu { LibraryItemActions(item: item, delete: { delete(item) }) }
             }
         }
     }
@@ -214,20 +259,22 @@ private struct EmptySection: View {
     let section: LibrarySection
 
     var body: some View {
-        VStack(spacing: 14) {
-            PaperSheet(fold: 14) {
-                Text(section.rawValue.prefix(3).uppercased())
-                    .font(.psycheMono(.caption, weight: .semibold)).foregroundStyle(PsycheColor.rule)
-            }
-            .frame(width: 72, height: 94)
-            Text(headline).font(.headline).foregroundStyle(PsycheColor.text)
+        ContentUnavailableView {
+            Label(headline, systemImage: symbol)
+        } description: {
             Text(hint)
-                .font(.subheadline).foregroundStyle(PsycheColor.muted)
-                .multilineTextAlignment(.center)
         }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 48)
-        .padding(.horizontal, 24)
+        .padding(.vertical, 24)
+    }
+
+    private var symbol: String {
+        switch section {
+        case .documents: "doc.text"
+        case .images: "photo"
+        case .artifacts: "square.stack.3d.up"
+        case .downloads: "arrow.down.circle"
+        case .recordings: "waveform"
+        }
     }
 
     private var headline: String {
@@ -270,27 +317,21 @@ private struct UploadRow: View {
     let dismiss: () -> Void
 
     var body: some View {
-        PaperCard(padding: PsycheMetrics.rowPadding) {
-            VStack(alignment: .leading, spacing: 8) {
-                HStack {
-                    Text(job.name).font(.psycheRow.weight(.medium)).foregroundStyle(PsycheColor.text).lineLimit(1)
-                    Spacer(minLength: 8)
-                    if job.failure == nil {
-                        Text("\(Int(job.progress * 100))%").font(.psycheMono(.caption)).foregroundStyle(PsycheColor.muted)
-                    }
+        VStack(alignment: .leading, spacing: 8) {
+            Text(job.name).font(.body).lineLimit(1)
+            if let failure = job.failure {
+                Text(failure).font(.footnote).foregroundStyle(.secondary)
+                HStack(spacing: 16) {
+                    Button(String(localized: "Try again", bundle: .module), action: retry)
+                    Button(String(localized: "Dismiss", bundle: .module), role: .cancel, action: dismiss)
                 }
-                if let failure = job.failure {
-                    Text(failure).font(.footnote).foregroundStyle(PsycheColor.muted)
-                    HStack(spacing: 16) {
-                        Button(String(localized: "Try again", bundle: .module), action: retry)
-                        Button(String(localized: "Dismiss", bundle: .module), role: .cancel, action: dismiss)
-                    }
-                    .font(.footnote.weight(.semibold)).foregroundStyle(PsycheColor.inkText)
-                } else {
-                    ProgressBar(fraction: job.progress)
-                }
+                .buttonStyle(.borderless)
+                .font(.footnote.weight(.semibold))
+            } else {
+                ProgressView(value: job.progress)
             }
         }
+        .padding(.vertical, 2)
         .accessibilityElement(children: .combine)
         .accessibilityValue(job.failure ?? "\(Int(job.progress * 100)) percent")
     }
