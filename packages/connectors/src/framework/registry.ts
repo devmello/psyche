@@ -316,7 +316,9 @@ export class ConnectorRegistry {
     for (const record of await this.#store.list()) {
       // Connected ones, and ones waiting only on a macOS permission (re-checked by status, #549).
       const waiting = record.status === "needs_auth" && isObject(record.config.permission);
-      if ((record.status !== "connected" && !waiting) || this.#live.has(record.id)) continue;
+      const parked = record.status === "error" && record.lastSync?.syncFailing === true;
+      if ((record.status !== "connected" && !waiting && !parked) || this.#live.has(record.id))
+        continue;
       const factory = [...this.#factories.values()].find((f) => f.entry.type === record.type);
       try {
         if (factory === undefined)
@@ -510,17 +512,49 @@ export class ConnectorRegistry {
   async sync(id: string, signal?: AbortSignal) {
     const record = await this.get(id);
     const live = this.#live.get(id);
-    if (live === undefined || record.status !== "connected") {
+    // A record the Gateway parked as `error` after repeated sync failures is still retried (it
+    // flips back to `connected` on the first success); any other `error` stays down.
+    const retrying = record.status === "error" && record.lastSync?.syncFailing === true;
+    if (live === undefined || (record.status !== "connected" && !retrying)) {
       throw new PsycheError("unavailable", `connector ${id} is not connected`, { retryable: true });
     }
     if (live.connector.sync === undefined)
       return { changes: 0, full: false, cursor: record.lastSync ?? {} };
-    const result = await live.connector.sync(record.lastSync, signal);
+    // The parking marks are the registry's, not part of the connector's cursor.
+    const { syncFailing: _marker, error: _reason, ...cursor } = record.lastSync ?? {};
+    const result = await live.connector.sync(retrying ? cursor : record.lastSync, signal);
     record.lastSync = result.cursor;
+    if (retrying) {
+      record.status = "connected";
+      const { syncFailing: _m, error: _r, ...clean } = record.lastSync;
+      record.lastSync = clean;
+    }
     record.updatedAt = new Date(this.#clock.now()).toISOString();
     await this.#store.put(record);
-    this.#emit({ type: "synced", connectorId: id, changes: result.changes, full: result.full });
+    if (retrying) this.#emit({ type: "status", connectorId: id, status: "connected" });
+    this.#emit({
+      type: "synced",
+      connectorId: id,
+      changes: result.changes,
+      full: result.full,
+      ...(result.truncated ? { truncated: true } : {}),
+    });
     return result;
+  }
+
+  /**
+   * Repeated sync failures (the Gateway counts them): the record turns `error` with a short
+   * reason in `lastSync.error` (Settings shows it) and the cursor is kept, so syncing resumes
+   * where it stopped. `sync` keeps retrying a record parked this way.
+   */
+  async markSyncFailing(id: string, reason: string): Promise<void> {
+    const record = await this.get(id);
+    if (record.status !== "connected") return;
+    record.status = "error";
+    record.lastSync = { ...(record.lastSync ?? {}), error: reason, syncFailing: true };
+    record.updatedAt = new Date(this.#clock.now()).toISOString();
+    await this.#store.put(record);
+    this.#emit({ type: "status", connectorId: id, status: "error", reason });
   }
 
   /** Rules for the Permissions screen: every connector action, keyed by tool name (M11). */

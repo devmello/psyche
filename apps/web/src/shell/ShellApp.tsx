@@ -74,6 +74,7 @@ import {
 } from "./components/TitleBar.tsx";
 import { ShellProvider, useShell, useShellState } from "./context.tsx";
 import { useDiscardEmptyChat } from "./empty-chat.ts";
+import { escapeHasOwner, isComposingKey } from "./escape-owner.ts";
 import { matchShortcut, type ShortcutAction } from "./keyboard.ts";
 import {
   BREAKPOINT_MEDIUM,
@@ -968,6 +969,8 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
             return true;
           }
           if (thread?.activeWriterRunId) {
+            // Escape closes a menu, dialog or dropdown first; only a bare Escape stops the run.
+            if (escapeHasOwner()) return false;
             void store.call("chat.cancel", { threadId: thread.id });
             return true;
           }
@@ -1016,6 +1019,8 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const action = matchShortcut(e, { mac, inText: isTextTarget(e.target) });
+      // An IME candidate window owns Escape: neither stop the run nor swallow the key.
+      if (action === "stop" && isComposingKey(e)) return;
       if (action && run(action)) {
         e.preventDefault();
         e.stopPropagation();

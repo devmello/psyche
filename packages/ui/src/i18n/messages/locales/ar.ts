@@ -271,6 +271,12 @@ export const ar: Partial<Catalogue> = {
   "chat.queue.notSent": "لم تُرسل",
   "chat.queue.retry": "إعادة محاولة إرسال «{content}»",
   "chat.queue.remove": "إزالة الرسالة «{content}» من قائمة الانتظار",
+  "chat.thread.loadingEarlier": "جارٍ تحميل الرسائل السابقة",
+  "chat.thread.loadEarlierFailed": "تعذّر تحميل الرسائل السابقة.",
+  "chat.thread.focusNotFound": "تعذّر العثور على تلك الرسالة في هذه المحادثة.",
+  "chat.queue.parked": "متوقفة مؤقتًا بعد الإيقاف",
+  "chat.queue.sendQueued": "إرسال الرسالة المنتظرة",
+  "chat.queue.sendQueuedLabel": "إرسال الرسالة «{content}» من قائمة الانتظار",
 
   "chat.commands.model.hint": "المزوّد/النموذج",
   "chat.commands.model.description": "اختيار نموذج هذه المحادثة",
@@ -545,6 +551,7 @@ export const ar: Partial<Catalogue> = {
   "blocks.toolRun.status.failed": "فشل",
   "blocks.toolRun.status.uncertain": "النتيجة غير معروفة",
   "blocks.toolRun.status.blocked": "محظور",
+  "blocks.toolRun.status.stopped": "تم إيقافه",
   "blocks.toolRun.summary":
     "{count, plural, zero {لا إجراءات} one {إجراء واحد} two {إجراءان} few {# إجراءات} many {# إجراءً} other {# إجراء}} · {families}",
   "blocks.toolRun.untrustedOutput": "مخرجات غير موثوقة",

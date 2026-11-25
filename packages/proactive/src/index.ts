@@ -31,6 +31,7 @@ export {
   readDailySettings,
 } from "./daily/settings.ts";
 export { confirmWorkflow, workflowMarker, workflowRunPrompt } from "./daily/workflows.ts";
+export * from "./exec/run-children.ts";
 export { cosine, createEmbedder, type Embedder, lexicalEmbedding } from "./feed/embeddings.ts";
 export { createFeedHandlers, type FeedHandlers } from "./feed/handlers.ts";
 export {
@@ -308,6 +309,26 @@ export {
   MeetingRecorder,
   type MeetingRecording,
 } from "./meetings/recorder.ts";
+export {
+  type Adapter,
+  adapterFor,
+  type ConnectorTypes,
+  createAdapters,
+  draftContentHash,
+  type FileGrant,
+  type FilesDeps,
+  type ReadRegistry,
+} from "./night-shift/adapters/index.ts";
+export * from "./night-shift/apply.ts";
+export * from "./night-shift/budget.ts";
+export * from "./night-shift/candidates.ts";
+export * from "./night-shift/gates.ts";
+export * from "./night-shift/handlers.ts";
+export * from "./night-shift/read-registry.ts";
+export * from "./night-shift/service.ts";
+export * from "./night-shift/settings.ts";
+export * from "./night-shift/stager.ts";
+export * from "./night-shift/store.ts";
 export {
   createProposalHandlers,
   type ProposalCaller,

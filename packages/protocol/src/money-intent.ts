@@ -432,7 +432,14 @@ const CARD_FIELD_TOKENS = [
   /\bcc ?(exp|expiry|expiration)\b/,
 ];
 /** Cards that are not payment cards: a library card number is not a card number. */
-const NOT_PAYMENT_CARD = new Set(["library", "loyalty", "membership", "student", "id", "sim"]);
+export const NOT_PAYMENT_CARD: ReadonlySet<string> = new Set([
+  "library",
+  "loyalty",
+  "membership",
+  "student",
+  "id",
+  "sim",
+]);
 const AUTOCOMPLETE_CARD = /^cc-(number|exp|exp-month|exp-year|csc)$/;
 
 /**

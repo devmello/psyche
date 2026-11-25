@@ -1,6 +1,7 @@
 import AppKit
 import Foundation
 import PsycheHelperCore
+import PsycheHelperPoints
 import PsycheHelperSystem
 import PsycheProtocol
 import PsycheWire
@@ -166,7 +167,7 @@ if Bundle.main.bundlePath.hasSuffix(".app"), let exe = Bundle.main.executablePat
 // Apple Events), the node connection on a background thread.
 let app = NSApplication.shared
 app.setActivationPolicy(.accessory)
-let runtime = HelperRuntime(identity: identity, log: log)
+let runtime = HelperRuntime(identity: identity, log: log, extraHandlers: PointsCapabilities.make())
 runtime.start()
 // Inside a sandbox Mac guest: serve the host's guest.* requests on vsock 7000 (L3).
 GuestAgent.startIfGuest(log: log)

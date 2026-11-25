@@ -140,6 +140,14 @@ import { requesterKey, requesterSurfaces } from "./requester.ts";
 import type { RevocationLedger } from "./revocations.ts";
 import { riskClassFor } from "./risk.ts";
 import {
+  bareToolName,
+  callRecipients,
+  isStagedSend,
+  refuseStagedChild,
+  STAGED_SEND_TOOLS,
+  stagedSendBindingHash,
+} from "./staged-apply.ts";
+import {
   MemoryPermissionStore,
   type PermissionStore,
   type StoredApproval,
@@ -156,13 +164,17 @@ import {
 } from "./trusted-sites.ts";
 import type {
   BatchChild,
+  IssuedStagedApply,
   PolicyAnswerInput,
   PolicyApprovalInput,
   PolicyBatchInput,
   PolicyCall,
   PolicyContext,
   PolicyDecision,
+  PolicyStagedApplyInput,
   PresenceAssertion,
+  StagedApplyRefusal,
+  StagedApplyRefusalReason,
 } from "./types.ts";
 
 const HOUR = 3_600_000;
@@ -458,6 +470,10 @@ export function machineCardOf(
 export const MAX_BATCH_CALLS = 100;
 /** How long a minted child approval of an approved batch stays usable. */
 export const BATCH_CHILD_TTL_MS = 10 * 60_000;
+/** Items one staged apply may hold (night-shift-2026 §3.3). */
+export const MAX_STAGED_APPLY_CHILDREN = 50;
+/** How long a staged apply card stays answerable. */
+export const STAGED_APPLY_TTL_MS = 10 * 60_000;
 
 /** `invalidatedReason` of a card the owner closed by typing in the chat instead. */
 export const OWNER_REPLIED_IN_CHAT = "owner_replied_in_chat";
@@ -1983,7 +1999,11 @@ export class PsychePermissionBroker implements PermissionBroker {
   ): Promise<{ approval: ApprovalRequest; call: PolicyCall; summary: string }[]> {
     this.#sweep();
     const rec = this.#store.getApproval(batchApprovalId);
-    if (rec === undefined || rec.approval.kind !== "batch" || rec.approval.status !== "approved") {
+    if (
+      rec === undefined ||
+      (rec.approval.kind !== "batch" && rec.approval.kind !== "staged_apply") ||
+      rec.approval.status !== "approved"
+    ) {
       return [];
     }
     const out: { approval: ApprovalRequest; call: PolicyCall; summary: string }[] = [];
@@ -2008,12 +2028,18 @@ export class PsychePermissionBroker implements PermissionBroker {
         id: batchChildId(batch.approval.id, i),
         kind: c.kind,
         summary: c.summary,
-        details: { batchApprovalId: batch.approval.id, index: i, tool: c.call.tool },
+        details: {
+          batchApprovalId: batch.approval.id,
+          index: i,
+          tool: c.call.tool,
+          ...(c.itemId === undefined ? {} : { itemId: c.itemId }),
+        },
         bindingHash: c.bindingHash,
         grantKey: c.grantKey,
         requestedBy: {
           ...batch.approval.requestedBy,
-          toolCallId: `${batch.approval.id}:${i}`,
+          // A staged item's own id satisfies the connector registry's `toolCallId === callId` check.
+          toolCallId: c.itemId ?? `${batch.approval.id}:${i}`,
         },
         surfaces: [],
         scopesOffered: ["once"],
@@ -2053,6 +2079,226 @@ export class PsychePermissionBroker implements PermissionBroker {
         bootId: this.#bootId,
       });
     }
+  }
+
+  /**
+   * One approval for the staged items the owner ticked in the morning review (docs/design/
+   * night-shift-2026.md §3.3). Each child is decided again under today's policy and checked
+   * against §3.1 (payments, authentication, device-only kinds), §3.2 (a send only when explicit,
+   * with recipients) and §5.4 (a destructive child only as an undo bound to what Night shift
+   * created). A refused child comes back in `refused` and the rest are still approved; when
+   * none is left nothing is issued.
+   *
+   * The card is `staged_apply`, always `sensitive` (never part of "Approve all routine"), `once`
+   * only with no grant, device-only when any child is a send or an undo delete, never needs
+   * presence (nothing in the set can), and lasts 10 minutes. On approval one child per item is
+   * minted with `requestedBy.toolCallId` = the item's id, each consumed once by `verifyBinding`.
+   * The approval binds the ordered child hashes and lists them in `details.items`.
+   */
+  async requestStagedApply(input: PolicyStagedApplyInput): Promise<IssuedStagedApply> {
+    this.#sweep();
+    if (input.children.length === 0 || input.children.length > MAX_STAGED_APPLY_CHILDREN) {
+      fail("invalid_params", `a staged apply holds 1 to ${MAX_STAGED_APPLY_CHILDREN} items`);
+    }
+    if (detailsTooDeep(input.details)) {
+      fail("invalid_params", "the approval's details are nested too deeply to show in full", {
+        reason: "details_too_deep",
+      });
+    }
+    const children: BatchChild[] = [];
+    const refused: StagedApplyRefusal[] = [];
+    const seen = new Set<string>();
+    const sendTo = new Map<string, string[]>();
+    const withheld = new Set<string>();
+    let sends = 0;
+    let undoDeletes = 0;
+    for (const [i, c] of input.children.entries()) {
+      const itemId = typeof c.itemId === "string" ? c.itemId : "";
+      const refuse = (reason: StagedApplyRefusalReason, message: string): void => {
+        refused.push({ itemId, index: i, reason, message });
+      };
+      if (itemId === "" || itemId.length > 128) {
+        refuse("invalid_item", "the item has no usable id");
+        continue;
+      }
+      if (seen.has(itemId)) {
+        refuse("duplicate_item", "the item is listed twice");
+        continue;
+      }
+      seen.add(itemId);
+      const d = await this.decide(c.call, input.context);
+      const kind = d.approvalKind ?? c.call.kind ?? inferApprovalKind(c.call.tool);
+      const verdict = refuseStagedChild(c, d, kind, input.connectorIds);
+      if (verdict !== undefined) {
+        refuse(verdict.reason, verdict.message);
+        continue;
+      }
+      if (isStagedSend(c, d, input.connectorIds)) {
+        sends += 1;
+        // The row names who the call itself goes to, never the caller's own list.
+        sendTo.set(
+          itemId,
+          callRecipients(d.call).map((r) => sanitizeDisplay(r).slice(0, 120)),
+        );
+      } else if (SEVERITY[d.sideEffect] >= SEVERITY.destructive) undoDeletes += 1;
+      if (c.withheld === "messages") withheld.add(itemId);
+      children.push({
+        call: structuredClone(d.call),
+        kind,
+        bindingHash:
+          d.bindingHash ??
+          c.call.bindingHash ??
+          bindingHash(kind, { tool: c.call.tool, paramsHash: c.call.paramsHash }),
+        grantKey: d.grantKey ?? c.call.grantKey ?? `${c.call.tool}|${c.call.target?.value ?? "*"}`,
+        sideEffect: d.sideEffect,
+        summary: sanitizeDisplay(c.summary).slice(0, 300),
+        itemId,
+      });
+    }
+    if (children.length === 0) {
+      fail("policy_denied", "nothing in this set can be applied", {
+        reason: "all_refused",
+        refused,
+      });
+    }
+    const hash = bindingHash("staged_apply", { children: children.map((c) => c.bindingHash) });
+    const destructive = sends > 0 || undoDeletes > 0;
+    const issued = this.#issue({
+      kind: "staged_apply",
+      summary: input.title,
+      details: {
+        ...(input.details ?? {}),
+        title: input.title,
+        count: children.length,
+        // Set by the broker after the caller's details, so a caller's own `items` never shows.
+        // A withheld item (from Messages) names no recipients: every paired device sees the card.
+        items: children.map((c) => {
+          const id = c.itemId ?? "";
+          const hide = withheld.has(id);
+          return {
+            itemId: id,
+            tool: c.call.tool,
+            summary: c.summary,
+            bindingHash: c.bindingHash,
+            ...(hide ? { withheld: "messages" } : {}),
+            ...(sendTo.has(id) ? { send: hide ? {} : { to: sendTo.get(id) ?? [] } } : {}),
+          };
+        }),
+      },
+      bindingHash: hash,
+      grantKey: `staged_apply|${hash}`,
+      requestedBy: { ...input.requestedBy },
+      sideEffect: destructive ? "destructive" : "write",
+      surfaces: input.surfaces,
+      scopesOffered: ["once"],
+      // The review exists only in the Mac and iOS apps: never delivered to a chat (still a tap).
+      deviceOnly: true as const,
+      taint: input.context.taint,
+      ...(input.taintSources === undefined ? {} : { taintSources: input.taintSources }),
+      ttlMs: STAGED_APPLY_TTL_MS,
+      maxTtlMs: STAGED_APPLY_TTL_MS,
+      context: structuredClone(input.context),
+      batch: { children },
+    });
+    await this.#afterIssue(issued.approval);
+    return { ...issued, refused };
+  }
+
+  /**
+   * The second half of a staged send (night-shift §3.2). The owner's one tap approved a send child
+   * bound to the draft's content hash and recipients (`stagedSendBindingHash`), not to a draft id.
+   * Once Night shift has saved the draft and read it back with the same content hash, this turns
+   * that child into the approval for the exact send call: the child must be an approved, unconsumed
+   * `staged_apply` child for `itemId`, the call must be the same send tool to the same recipients,
+   * and `sendHash` with those must give the child's own binding. The child is consumed here (once),
+   * and the new approval is once-only, device-only, bound to `call.bindingHash` (the connector
+   * re-derives it from the arguments, so a wrong hash only fails) and carries the item's id.
+   */
+  async bindStagedSend(input: {
+    childApprovalId: string;
+    itemId: string;
+    sendHash: string;
+    call: PolicyCall;
+    connectorIds: ReadonlySet<string>;
+  }): Promise<ApprovalRequest> {
+    this.#sweep();
+    const now = this.clock.now();
+    const issued = this.#store.transaction((): ApprovalRequest | string => {
+      const rec = this.#store.getApproval(input.childApprovalId);
+      if (rec === undefined) return "not_found";
+      const a = rec.approval;
+      if (rec.revoked || a.status !== "approved") return "not_approved";
+      if (rec.consumedAt !== null) return "consumed";
+      if (now >= Date.parse(a.expiresAt)) return "expired";
+      const parentId = a.details?.batchApprovalId;
+      const parent = typeof parentId === "string" ? this.#store.getApproval(parentId) : undefined;
+      if (parent?.approval.kind !== "staged_apply" || parent.approval.status !== "approved") {
+        return "not_staged";
+      }
+      if (a.details?.itemId !== input.itemId || a.requestedBy.toolCallId !== input.itemId) {
+        return "another_item";
+      }
+      const stored = rec.input.call;
+      if (stored === undefined || stored.tool !== input.call.tool) return "another_tool";
+      if (!STAGED_SEND_TOOLS.has(bareToolName(input.call.tool, input.connectorIds))) {
+        return "not_a_send";
+      }
+      const own = callRecipients(input.call);
+      const was = callRecipients(stored);
+      if (own.length === 0 || own.length !== was.length || !own.every((r) => was.includes(r))) {
+        return "recipients_changed";
+      }
+      if (stagedSendBindingHash(input.call.tool, input.sendHash, own) !== a.bindingHash) {
+        return "binding_mismatch";
+      }
+      if (typeof input.call.bindingHash !== "string" || input.call.bindingHash === "") {
+        return "no_binding";
+      }
+      rec.consumedAt = new Date(now).toISOString();
+      this.#store.updateApproval(rec);
+      const at = new Date(now).toISOString();
+      const approval: ApprovalRequest = {
+        ...structuredClone(a),
+        id: `${a.id}:send`,
+        details: { ...structuredClone(a.details ?? {}), sendOf: a.id },
+        bindingHash: input.call.bindingHash,
+        grantKey: input.call.grantKey ?? a.grantKey,
+        deviceOnly: true,
+        requiresAuthentication: false,
+        status: "approved",
+        scopeGranted: "once",
+        decidedAt: at,
+        expiresAt: new Date(
+          Math.min(Date.parse(a.expiresAt), now + BATCH_CHILD_TTL_MS),
+        ).toISOString(),
+        grantId: null,
+      };
+      this.#store.insertApproval({
+        approval,
+        tokens: [],
+        input: {
+          ...structuredClone(rec.input),
+          bindingHash: approval.bindingHash,
+          grantKey: approval.grantKey,
+          call: structuredClone(input.call),
+          details: approval.details,
+        },
+        consumedAt: null,
+        revoked: false,
+        bootId: this.#bootId,
+      });
+      return structuredClone(approval);
+    });
+    if (typeof issued === "string") {
+      await this.#log(
+        "binding.mismatch",
+        { type: "system" },
+        { approvalId: input.childApprovalId },
+        { reason: `staged_send:${issued}` },
+      );
+      fail("binding_mismatch", `the staged send can't be bound (${issued})`, { reason: issued });
+    }
+    return issued;
   }
 
   async requestApproval(input: PolicyApprovalInput): Promise<IssuedApproval> {
@@ -2981,7 +3227,8 @@ export class PsychePermissionBroker implements PermissionBroker {
         fa.status = "approved";
         fa.scopeGranted = scope;
         // A batch becomes one approved, once-only approval per listed call (§8.1).
-        if (fa.kind === "batch") this.#mintBatchChildren(fresh, by, now);
+        if (fa.kind === "batch" || fa.kind === "staged_apply")
+          this.#mintBatchChildren(fresh, by, now);
         if (fa.kind === "exec_host" && input.unsandboxed !== undefined) {
           fa.details = { ...fa.details, unsandboxed: true };
         }

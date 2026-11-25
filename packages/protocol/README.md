@@ -6,17 +6,17 @@ The contract everything compiles against: TypeBox schemas for the domain model, 
 
 ## Layout
 
-| Path | What | Docs |
-| --- | --- | --- |
-| `src/common.ts` | Vocabulary: `SideEffect`, `TargetKind`, `Provenance`, `PermissionMode`, `Decision`, `GrantScope`, `DeviceScope`, `Usage`, ids, timestamps, `StringEnum` | architecture §4.3, §4.6 |
-| `src/errors.ts` | `ErrorCode`, `ErrorPayload`, `PsycheError`, `NotImplementedError` | — |
-| `src/schemas/` | Domain types (`Thread`, `Message`, `Block`, `Run`, `ToolCall`, `ToolSpec`, `Task`, `ApprovalRequest`, `Grant`, `Receipt`, …) | data model §1–§10 |
-| `src/frames.ts` | `req` / `res` / `event` frames, `parseFrame` | architecture §11, data model §11 |
-| `src/methods/`, `src/events.ts` | Typed method and event registry (`Methods`, `Events`) | architecture §11 |
-| `src/node.ts` | Node protocol (`node.invoke`, `node.event`, `node.result`, capability manifest) | architecture §7 |
-| `src/bridge.ts` | Desktop ↔ Gateway CDP bridge | architecture §5, §8 |
-| `src/contracts/` | Cross-package interfaces; fakes live in `@psyche/testing` | see `src/contracts/README.md` |
-| `scripts/gen.ts`, `generated/` | Codegen output (committed; CI checks freshness) | ADR-015 |
+| Path                            | What                                                                                                                                                    | Docs                             |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------- |
+| `src/common.ts`                 | Vocabulary: `SideEffect`, `TargetKind`, `Provenance`, `PermissionMode`, `Decision`, `GrantScope`, `DeviceScope`, `Usage`, ids, timestamps, `StringEnum` | architecture §4.3, §4.6          |
+| `src/errors.ts`                 | `ErrorCode`, `ErrorPayload`, `PsycheError`, `NotImplementedError`                                                                                       | —                                |
+| `src/schemas/`                  | Domain types (`Thread`, `Message`, `Block`, `Run`, `ToolCall`, `ToolSpec`, `Task`, `ApprovalRequest`, `Grant`, `Receipt`, …)                            | data model §1–§10                |
+| `src/frames.ts`                 | `req` / `res` / `event` frames, `parseFrame`                                                                                                            | architecture §11, data model §11 |
+| `src/methods/`, `src/events.ts` | Typed method and event registry (`Methods`, `Events`)                                                                                                   | architecture §11                 |
+| `src/node.ts`                   | Node protocol (`node.invoke`, `node.event`, `node.result`, capability manifest)                                                                         | architecture §7                  |
+| `src/bridge.ts`                 | Desktop ↔ Gateway CDP bridge                                                                                                                            | architecture §5, §8              |
+| `src/contracts/`                | Cross-package interfaces; fakes live in `@psyche/testing`                                                                                               | see `src/contracts/README.md`    |
+| `scripts/gen.ts`, `generated/`  | Codegen output (committed; CI checks freshness)                                                                                                         | ADR-015                          |
 
 The binding wire details (handshake, signing payload, transports) are in [docs/archive/plans/s00.md](../../docs/archive/plans/s00.md) "Wire spec v1".
 

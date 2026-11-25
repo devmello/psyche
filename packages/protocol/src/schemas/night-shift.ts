@@ -42,6 +42,40 @@ export const StagedActionStatus = StringEnum(
 );
 export type StagedActionStatus = Static<typeof StagedActionStatus>;
 
+/**
+ * One row of a preview, exactly what the Night shift adapters produce (`Preview` in
+ * `@psyche/proactive`). Plain text only: control characters are removed before storing, and clients
+ * render it as text. `truncated: true` means `value` is a shortened form of the real text;
+ * `badge: "new_recipient"` marks an address the owner has never written to (§3.4) and
+ * `"reply_all"` a reply-all draft.
+ */
+export const StagedPreviewRow = Type.Object(
+  {
+    label: Type.String({ maxLength: 60 }),
+    value: Type.String(),
+    truncated: Type.Optional(Type.Literal(true)),
+    badge: Type.Optional(StringEnum(["new_recipient", "reply_all"])),
+  },
+  { $id: "StagedPreviewRow" },
+);
+export type StagedPreviewRow = Static<typeof StagedPreviewRow>;
+
+/**
+ * The review's wire preview (the only preview shape; clients render `rows` in order). Sendable
+ * fields (recipients, subject, body) are carried whole; if any row was shortened anyway, the
+ * top-level `truncated` is true and the UI must expand the full text before enabling a send tick.
+ */
+export const StagedPreview = Type.Object(
+  {
+    kind: StringEnum(["mail", "calendar", "reminder", "file"]),
+    title: Type.String({ maxLength: 200 }),
+    rows: Type.Array(StagedPreviewRow, { maxItems: 40 }),
+    truncated: Type.Boolean(),
+  },
+  { $id: "StagedPreview" },
+);
+export type StagedPreview = Static<typeof StagedPreview>;
+
 /** A send is its own checkbox under its draft; `contentHash` binds the saved draft's content. */
 export const StagedActionSend = Type.Object(
   {
@@ -82,7 +116,7 @@ export const StagedAction = Type.Object(
     /** The call's binding hash: what the `staged_apply` approval's children are bound to. */
     bindingHash: Type.String({ maxLength: 128 }),
     summary: Type.String({ maxLength: 500 }),
-    preview: Nullable(Type.Unknown()),
+    preview: Nullable(StagedPreview),
     /** One sentence, redacted then truncated; never an instruction. */
     why: Nullable(Type.String({ maxLength: 500 })),
     precondition: Nullable(Type.Unknown()),
@@ -90,6 +124,13 @@ export const StagedAction = Type.Object(
     send: Nullable(StagedActionSend),
     taint: Type.Boolean(),
     taintSources: Type.Array(TaintSource, { maxItems: 20 }),
+    /**
+     * Set for a caller that may not see the item's source: `messages` means it was made from the
+     * owner's Messages, which only this Mac's desktop app shows. The summary, preview, params and
+     * why are withheld; clients render their own localized line (the English `summary` is only a
+     * fallback for older clients).
+     */
+    withheld: Type.Optional(StringEnum(["messages"])),
     status: StagedActionStatus,
     result: Nullable(StagedActionResult),
     approvalId: Nullable(Id),

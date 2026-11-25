@@ -30,6 +30,7 @@ import {
   inputFromRow,
   json,
   parseJson,
+  readStaging,
   type TaskRow,
   taskFromRow,
 } from "./rows.ts";
@@ -316,16 +317,22 @@ export class SqliteTaskEngine implements TaskEngine {
         "Imported conversations are read-only: no task can run in one.",
       );
     }
+    // Server-only (night-shift-2026 §2.2): validated here, and a staging task never runs attended.
+    const staging = input.staging === undefined ? null : readStaging(input.staging);
+    if (staging !== null && (input.mode ?? "attended") !== "unattended") {
+      throw new PsycheError("invalid_params", "a staging task runs unattended");
+    }
     const id = this.#newId();
     const now = this.#iso();
     const event = this.#tx(() => {
       this.#db.sqlite
         .prepare(
           `INSERT INTO tasks (id, thread_id, title, goal, status, created_from, plan, checklist,
-            attempt, run_mode, budget, taint, taint_sources, workspace, specialist, created_at,
-            updated_at)
+            attempt, run_mode, budget, taint, taint_sources, workspace, specialist, staging,
+            created_at, updated_at)
            VALUES (@id, @thread_id, @title, @goal, 'queued', @created_from, @plan, @checklist,
-            0, @run_mode, @budget, @taint, @taint_sources, @workspace, @specialist, @now, @now)`,
+            0, @run_mode, @budget, @taint, @taint_sources, @workspace, @specialist, @staging,
+            @now, @now)`,
         )
         .run({
           id,
@@ -342,6 +349,7 @@ export class SqliteTaskEngine implements TaskEngine {
           taint_sources: json(input.taintSources),
           workspace: input.workspace ?? null,
           specialist: json(input.specialist ?? null),
+          staging: staging === null ? null : JSON.stringify(staging),
           now,
         });
       return this.#updated(id);
@@ -391,6 +399,8 @@ export class SqliteTaskEngine implements TaskEngine {
       budget: parseJson<TaskBudget>(row.budget),
       awaiting: parseJson<Awaiting>(row.awaiting),
       resume: parseJson<ResumeItem[]>(row.resume) ?? [],
+      // A stored block that cannot be read throws: the task must not run unstaged.
+      staging: row.staging == null ? null : readStaging(row.staging, true),
     };
   }
 

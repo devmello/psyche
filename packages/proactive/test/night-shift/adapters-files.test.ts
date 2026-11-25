@@ -5,12 +5,13 @@ import {
   realpathSync,
   renameSync,
   rmSync,
+  statSync,
   symlinkSync,
   utimesSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   type FileGrant,
@@ -337,7 +338,26 @@ describe("file folding (§2.4)", () => {
     const cap2 = await a.capture(second, { pending: [{ call: first, capture: cap1 }] });
     expect(cap2).toMatchObject({ ok: true, target: cap1.target, folds: [cap1.target] });
     const c = cap2 as CaptureOk;
-    expect(c.call).toEqual(move(src(), join(share, "Archive"), "bill-final.pdf"));
+    const pre2 = c.precondition as Record<string, string>;
+    const pre1 = cap1.precondition as Record<string, string>;
+    // The folded call keeps the original source's identity, with the final folder's.
+    expect(c.call).toEqual({
+      tool: "files_move",
+      args: {
+        items: [
+          {
+            path: src(),
+            to: join(share, "Archive"),
+            name: "bill-final.pdf",
+            expect: {
+              sourceId: pre1.sourceId,
+              sourceParentId: pre1.sourceParentId,
+              destParentId: pre2.destParentId,
+            },
+          },
+        ],
+      },
+    });
     // The folded item checks fresh against the original source.
     expect(await a.check(c.call as StagedCall, c)).toEqual({ fresh: true });
     expect(a.preview(c.call as StagedCall, c).rows.map((r) => r.value)).toEqual([
@@ -385,9 +405,24 @@ describe("files undo", () => {
 
   it("builds the move back", async () => {
     const { a, call, cap, dest } = await applied();
+    const pre = cap.precondition as Record<string, string>;
     expect(a.inverse?.(call, cap)).toEqual({
       tool: "files_move",
-      args: { items: [{ path: dest, to: join(share, "Inbox"), name: "bill.pdf" }] },
+      args: {
+        items: [
+          {
+            path: dest,
+            to: join(share, "Inbox"),
+            name: "bill.pdf",
+            // The same inode, from the destination folder back to the old one.
+            expect: {
+              sourceId: pre.sourceId,
+              sourceParentId: pre.destParentId,
+              destParentId: pre.sourceParentId,
+            },
+          },
+        ],
+      },
     });
   });
 
@@ -530,5 +565,30 @@ describe("review round 1: grant check before the disk, hidden sources, home, tie
       fresh: false,
       reason: "old_parent_changed",
     });
+  });
+});
+
+describe("the stored call carries the identity it was judged on (W5, #1661 finding 7)", () => {
+  it("a move and a rename are both stored as files_move with the real dev:ino of the source and folders", async () => {
+    const a = adapter();
+    for (const call of [
+      move(src(), filed()),
+      { tool: "files_rename", args: { path: src(), name: "renamed.pdf" } },
+    ] as StagedCall[]) {
+      const cap = (await a.capture(call)) as CaptureOk;
+      expect(cap.ok).toBe(true);
+      const st = statSync(src(), { bigint: true });
+      const parent = statSync(dirname(src()), { bigint: true });
+      const item = ((cap.call?.args.items ?? []) as Record<string, unknown>[])[0] as Record<
+        string,
+        unknown
+      >;
+      expect(cap.call?.tool).toBe("files_move");
+      expect(item.expect).toEqual({
+        sourceId: `${st.dev}:${st.ino}`,
+        sourceParentId: `${parent.dev}:${parent.ino}`,
+        destParentId: (cap.precondition as Record<string, string>).destParentId,
+      });
+    }
   });
 });

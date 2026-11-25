@@ -24,6 +24,14 @@ export const keepAwake: Partial<Catalogue> = {
   "settings.storage.clear": "清除…",
   "settings.storage.cleared": "已清除，释放了 {size}。",
   "settings.storage.clearFailed": "无法清除存储（{reason}）。",
+  "settings.storage.compact.title": "压缩数据库",
+  "settings.storage.compact.hint":
+    "数据库 {size}，最多可回收 {reclaimable}。运行期间 Psyche 会短暂暂停。",
+  "settings.storage.compact.button": "压缩",
+  "settings.storage.compact.running": "正在压缩…",
+  "settings.storage.compact.done": "已在 {seconds} 秒内完成压缩，节省 {size}。",
+  "settings.storage.compact.failed": "无法压缩数据库（{reason}）。",
+  "settings.storage.compact.busy": "Psyche 正在处理任务，请在完成后重试。",
   "settings.storage.failed": "无法读取存储用量（{reason}）。",
   "settings.storage.confirm.title": "清除缓存和旧录制？",
   "settings.storage.confirm.body":

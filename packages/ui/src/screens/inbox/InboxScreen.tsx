@@ -5,6 +5,7 @@ import {
   CircleCheck,
   CircleHelp,
   CircleX,
+  Handshake,
   Inbox,
   Info,
   Lightbulb,
@@ -84,6 +85,14 @@ export const NOTIFICATION_KIND: Record<
     icon: CircleCheck,
     tone: TONE.success,
     status: "done",
+  },
+  // A warning before the owner breaks their own promise (docs/design/promise-ledger-2026.md §5.1).
+  promise_due: {
+    get label() {
+      return t("screens.inbox.kind.promise_due");
+    },
+    icon: Handshake,
+    tone: TONE.approval,
   },
   proactive: {
     get label() {

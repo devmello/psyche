@@ -8,6 +8,7 @@ import type {
   DecisionContext,
   DecisionResult,
   GrantScope,
+  IssuedApproval,
   JsonObject,
   SideEffect,
   Surface,
@@ -208,6 +209,8 @@ export interface BatchChild {
   grantKey: string;
   sideEffect: SideEffect;
   summary: string;
+  /** `kind: "staged_apply"`: the staged item this child applies; its `toolCallId` when minted. */
+  itemId?: string;
 }
 
 /** `requestBatch` input (docs/workflows/mail-and-meetings-2026.md §8.1). */
@@ -222,6 +225,74 @@ export interface PolicyBatchInput {
   ttlMs?: number;
   /** Caps the card's expiry (the owner's approval TTL is the default). */
   maxTtlMs?: number;
+}
+
+/**
+ * One staged item of a `requestStagedApply` (docs/design/night-shift-2026.md §3.3). Everything
+ * here is set by the Gateway's own apply path, never by a client.
+ */
+export interface StagedApplyChildInput {
+  /** The staged item's id: the minted child's `toolCallId`. */
+  itemId: string;
+  call: PolicyCall;
+  /** One display line (redacted by the caller; sanitised and cut here). */
+  summary: string;
+  /** A `send_email` child is allowed only when the owner ticked "Send it too" for it. */
+  explicitSend?: boolean;
+  /** The addresses a send goes to; a send with none is refused. */
+  recipients?: string[];
+  /** An undo inverse (§5.4); `createdId` is the id of what Night shift created. */
+  undo?: { createdId: string; calendarId?: string };
+  /**
+   * The item came from Messages (owner rule: no Messages text on remote devices). The caller's
+   * summary is already generic; `details.items[]` carries `withheld` and no send recipients, and
+   * the Mac app shows the real text from `nightShift.review.get` by `itemId`.
+   */
+  withheld?: "messages";
+}
+
+/** `requestStagedApply` input. */
+export interface PolicyStagedApplyInput {
+  /**
+   * The live connector ids, from the connector registry on the server, never from a client. A
+   * tool registered as `mcp__<id>__<tool>` is the bare tool only when `<id>` is in this set.
+   */
+  connectorIds: ReadonlySet<string>;
+  title: string;
+  children: StagedApplyChildInput[];
+  context: PolicyContext;
+  requestedBy: ApprovalRequest["requestedBy"];
+  surfaces: Surface[];
+  details?: JsonObject;
+  taintSources?: TaintSource[];
+}
+
+export type StagedApplyRefusalReason =
+  | "duplicate_item"
+  | "invalid_item"
+  | "money_intent"
+  | "denied"
+  | "financial"
+  | "purchase"
+  | "authentication"
+  | "typed_confirmation"
+  | "device_only_kind"
+  | "nested_approval"
+  | "send_not_explicit"
+  | "destructive"
+  | "undo_unbound"
+  | "not_write";
+
+/** A child `requestStagedApply` left out; the rest of the set is still approved. */
+export interface StagedApplyRefusal {
+  itemId: string;
+  index: number;
+  reason: StagedApplyRefusalReason;
+  message: string;
+}
+
+export interface IssuedStagedApply extends IssuedApproval {
+  refused: StagedApplyRefusal[];
 }
 
 /** WebAuthn assertion or helper-signed Touch ID signature over the challenge (design-04). */

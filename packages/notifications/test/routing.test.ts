@@ -22,6 +22,7 @@ const MATRIX: Record<NotificationKind, { os: boolean; chat: boolean; interruptio
   reminder: { os: true, chat: true, interruption: "passive" },
   system: { os: false, chat: false, interruption: "passive" },
   specialist_result: { os: true, chat: true, interruption: "active" },
+  promise_due: { os: true, chat: false, interruption: "active" },
 };
 
 const config: RoutingConfig = { channelTargets: ["telegram:42"] };

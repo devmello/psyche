@@ -7,7 +7,7 @@ import type {
   StagedActionStatus,
   TaintSource,
 } from "@psyche/protocol";
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, isNotNull } from "drizzle-orm";
 import type { PsycheDb } from "../open.ts";
 import {
   type NightShiftNightRow,
@@ -59,7 +59,7 @@ export function stagedActionFromRow(row: StagedActionRow): StagedAction {
     paramsHash: row.paramsHash,
     bindingHash: row.bindingHash,
     summary: row.summary,
-    preview: parse<unknown>(row.preview),
+    preview: parse<StagedAction["preview"]>(row.preview),
     why: row.why,
     precondition: parse<unknown>(row.precondition),
     inverse: parse<unknown>(row.inverse),
@@ -295,6 +295,8 @@ export interface StagedActionPatch {
   appliedAt?: string | null;
   /** Expiry: clears the frozen call and its preview, keeps the row for counts. */
   clearParams?: boolean;
+  /** The undo data recorded after an apply (W5): the inverse call and the post-apply state. */
+  inverse?: unknown;
 }
 
 export function updateStagedAction(
@@ -307,6 +309,7 @@ export function updateStagedAction(
   if (patch.result !== undefined) set.result = json(patch.result);
   if (patch.approvalId !== undefined) set.approvalId = patch.approvalId;
   if (patch.appliedAt !== undefined) set.appliedAt = patch.appliedAt;
+  if (patch.inverse !== undefined) set.inverse = json(patch.inverse);
   if (patch.clearParams === true) {
     set.params = null;
     set.preview = null;
@@ -318,4 +321,92 @@ export function updateStagedAction(
     .returning()
     .get();
   return row === undefined ? null : stagedActionFromRow(row);
+}
+
+/**
+ * Compare-and-set (night-shift W5): binds each item still in `from.status` whose `approval_id` is
+ * `from.approvalId` (NULL for an unbound item) to `approvalId`. Returns the ids it bound: an item
+ * another apply already took is not among them.
+ */
+export function bindStagedApproval(
+  db: PsycheDb,
+  ids: readonly string[],
+  approvalId: string,
+  from: { status: StagedActionStatus; approvalId: string | null },
+): string[] {
+  const stmt = db.sqlite.prepare(
+    from.approvalId === null
+      ? "UPDATE staged_actions SET approval_id = ?, updated_at = ? WHERE id = ? AND status = ? AND approval_id IS NULL"
+      : "UPDATE staged_actions SET approval_id = ?, updated_at = ? WHERE id = ? AND status = ? AND approval_id = ?",
+  );
+  const out: string[] = [];
+  db.sqlite.transaction(() => {
+    for (const id of ids) {
+      const args = [approvalId, db.now(), id, from.status];
+      if (from.approvalId !== null) args.push(from.approvalId);
+      if (stmt.run(...args).changes === 1) out.push(id);
+    }
+  })();
+  return out;
+}
+
+/** Clears the binding of items in `status` still bound to `approvalId`. */
+export function unbindStagedApproval(
+  db: PsycheDb,
+  approvalId: string,
+  status: StagedActionStatus,
+): number {
+  return db.sqlite
+    .prepare(
+      "UPDATE staged_actions SET approval_id = NULL, updated_at = ? WHERE approval_id = ? AND status = ?",
+    )
+    .run(db.now(), approvalId, status).changes;
+}
+
+export function listStagedActionsByApproval(db: PsycheDb, approvalId: string): StagedAction[] {
+  return db.drizzle
+    .select()
+    .from(stagedActions)
+    .where(eq(stagedActions.approvalId, approvalId))
+    .orderBy(asc(stagedActions.seq))
+    .all()
+    .map(stagedActionFromRow);
+}
+
+/** Items still bound to an approval in `ready` or `applied` (restart recovery). */
+export function listBoundStagedActions(db: PsycheDb): StagedAction[] {
+  return db.drizzle
+    .select()
+    .from(stagedActions)
+    .where(isNotNull(stagedActions.approvalId))
+    .all()
+    .map(stagedActionFromRow)
+    .filter((i) => i.status === "ready" || i.status === "applied");
+}
+
+/**
+ * Retention (night-shift §7): nights whose review closed (applied, dismissed, expired, or none)
+ * more than `days` ago are deleted with their items. Receipts and audit rows live elsewhere and
+ * are never touched. Bounded per call so a long backlog never holds the database.
+ */
+export function pruneClosedNights(
+  db: PsycheDb,
+  olderThanIso: string,
+  limit = 200,
+): { nights: number; items: number } {
+  const ids = (
+    db.sqlite
+      .prepare(
+        "SELECT id FROM night_shift_nights WHERE review_status IN ('applied','dismissed','expired','none') AND updated_at < ? AND status <> 'running' ORDER BY updated_at LIMIT ?",
+      )
+      .all(olderThanIso, limit) as { id: string }[]
+  ).map((r) => r.id);
+  let items = 0;
+  db.sqlite.transaction(() => {
+    for (const id of ids) {
+      items += db.sqlite.prepare("DELETE FROM staged_actions WHERE night_id = ?").run(id).changes;
+      db.sqlite.prepare("DELETE FROM night_shift_nights WHERE id = ?").run(id);
+    }
+  })();
+  return { nights: ids.length, items };
 }

@@ -41,6 +41,12 @@ export const notices: Partial<Catalogue> = {
     "{reason, select, account_changed {某个连接器现在登录的是另一个账户。与旧账户绑定的工作已停止。} disconnected {某个连接器已断开。需要它的工作已停止。} scope_changed {某个连接器现在为只读。通过它待处理的操作已停止。} other {某个连接器的访问权限已被撤销。请重新登录以继续使用。}}",
   "notice.connector.reconnect.title": "需要重新连接",
   "notice.connector.reconnect.body": "某个连接器失去了访问权限，需要你重新登录。",
+  "notice.connector.syncFailing.title": "{name} 未在同步",
+  "notice.connector.syncFailing.body":
+    "{name} 连续多次同步失败（{reason}）。Psyche 会继续重试。请在“设置 › 连接器”中查看。",
+  "notice.connector.testingExpired.title": "Google 已将你退出登录",
+  "notice.connector.testingExpired.body":
+    "当 Psyche 的 OAuth 应用处于测试模式时，Google 会在 7 天后将你退出登录。请在 Google Cloud 中发布该 OAuth 应用以避免这种情况，然后在“设置 › 连接器”中重新连接 Google。",
   "notice.attention.paused.title": "有任务在等你",
   "notice.attention.paused.body": "在敏感的应用或网站上，已在 {tool} 之前暂停，等你回到 Psyche。",
   "notice.apiKey.changed.title":

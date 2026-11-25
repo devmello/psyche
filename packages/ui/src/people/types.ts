@@ -6,6 +6,7 @@ import type {
   GraphIdentifier,
   GraphInteractionKind,
   GraphLoopStatus,
+  GraphLoopWriteStatus,
   GraphProjectStatus,
   GraphProjectType,
   GraphWorkStatus,
@@ -26,6 +27,7 @@ export type {
   GraphIdentifier,
   GraphInteractionKind,
   GraphLoopStatus,
+  GraphLoopWriteStatus,
 };
 export type ProjectStatus = GraphProjectStatus;
 export type ProjectType = GraphProjectType;

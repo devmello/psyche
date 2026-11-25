@@ -24,6 +24,14 @@ export const keepAwake: Partial<Catalogue> = {
   "settings.storage.clear": "साफ़ करें…",
   "settings.storage.cleared": "साफ़ हो गया। {size} खाली हुआ।",
   "settings.storage.clearFailed": "स्टोरेज साफ़ नहीं किया जा सका ({reason})।",
+  "settings.storage.compact.title": "डेटाबेस संक्षिप्त करें",
+  "settings.storage.compact.hint":
+    "डेटाबेस {size} है, {reclaimable} तक वापस मिल सकता है। इस दौरान Psyche कुछ देर रुकता है।",
+  "settings.storage.compact.button": "संक्षिप्त करें",
+  "settings.storage.compact.running": "संक्षिप्त किया जा रहा है…",
+  "settings.storage.compact.done": "{seconds} सेकंड में संक्षिप्त हुआ, {size} बचे।",
+  "settings.storage.compact.failed": "डेटाबेस संक्षिप्त नहीं हो सका ({reason})।",
+  "settings.storage.compact.busy": "Psyche अभी किसी काम में व्यस्त है। उसके खत्म होने पर फिर कोशिश करें।",
   "settings.storage.failed": "स्टोरेज का उपयोग पढ़ा नहीं जा सका ({reason})।",
   "settings.storage.confirm.title": "कैश और पुरानी रिकॉर्डिंग साफ़ करें?",
   "settings.storage.confirm.body":

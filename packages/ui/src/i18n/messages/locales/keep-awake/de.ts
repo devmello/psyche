@@ -27,6 +27,15 @@ export const keepAwake: Partial<Catalogue> = {
   "settings.storage.clear": "Leeren…",
   "settings.storage.cleared": "Geleert. {size} freigegeben.",
   "settings.storage.clearFailed": "Der Speicher konnte nicht geleert werden ({reason}).",
+  "settings.storage.compact.title": "Datenbank verkleinern",
+  "settings.storage.compact.hint":
+    "Datenbank: {size}, bis zu {reclaimable} lassen sich freigeben. Psyche pausiert dabei kurz.",
+  "settings.storage.compact.button": "Verkleinern",
+  "settings.storage.compact.running": "Wird verkleinert…",
+  "settings.storage.compact.done": "In {seconds} s verkleinert, {size} gespart.",
+  "settings.storage.compact.failed": "Die Datenbank konnte nicht verkleinert werden ({reason}).",
+  "settings.storage.compact.busy":
+    "Psyche ist gerade beschäftigt. Versuche es nach dem Abschluss erneut.",
   "settings.storage.failed": "Die Speichernutzung konnte nicht gelesen werden ({reason}).",
   "settings.storage.confirm.title": "Caches und alte Aufnahmen leeren?",
   "settings.storage.confirm.body":

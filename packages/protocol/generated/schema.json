@@ -344,6 +344,21 @@
         "payload": "#/$defs/PluginsChangedPayload"
       },
       {
+        "description": "The owner pressed Ask in Psyche… on the Points card, sent only to the device that started the session.",
+        "name": "points.ask_requested",
+        "payload": "#/$defs/PointsAskRequestedPayload"
+      },
+      {
+        "description": "A Psyche points session changed state (reading, pointing, paused, ended), page or step, or needs a permission, sent only to the device that started it. Counts and states only, never titles or values.",
+        "name": "points.updated",
+        "payload": "#/$defs/PointsUpdatedPayload"
+      },
+      {
+        "description": "A promise was created, confirmed, re-dated, warned about, completed, broken or released. Personalised per subscriber: a remote subscriber gets the scrubbed form, and nothing for a hidden promise.",
+        "name": "promise.updated",
+        "payload": "#/$defs/PromiseUpdatedPayload"
+      },
+      {
         "description": "A batch proposal was created, sent for approval, ran (per-call results), was dismissed, expired or offered an undo (mail and meeting workflows §8.1).",
         "name": "proposal.updated",
         "payload": "#/$defs/ProposalUpdatedPayload"
@@ -3132,6 +3147,102 @@
         "sideEffecting": true
       },
       {
+        "description": "Desktop shell only: the owner's own question about the form (Ask in Psyche…), answered with one model call that has no tools.",
+        "name": "points.ask",
+        "params": "#/$defs/PointsAskParams",
+        "result": "#/$defs/PointsAskResult",
+        "scope": "operator.admin",
+        "sideEffecting": false
+      },
+      {
+        "description": "Side-effecting. Desktop shell only, Host Mac only: starts one Points session on the window the owner picked, with an optional goal and the card's fixed strings. The result carries no title or values.",
+        "name": "points.start",
+        "params": "#/$defs/PointsStartParams",
+        "result": "#/$defs/PointsStartResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
+        "description": "Desktop shell only: the running Points session's app, state, page, step and whether vision mode is on.",
+        "name": "points.status",
+        "params": "#/$defs/PointsStatusParams",
+        "result": "#/$defs/PointsStatusResult",
+        "scope": "operator.admin",
+        "sideEffecting": false
+      },
+      {
+        "description": "Desktop shell only: ends the Points session and removes its overlay.",
+        "name": "points.stop",
+        "params": "#/$defs/PointsStopParams",
+        "result": "#/$defs/PointsStopResult",
+        "scope": "operator.admin",
+        "sideEffecting": false
+      },
+      {
+        "description": "Desktop shell only, Host Mac only: the windows the owner can pick for Psyche points (app, title through Accessibility, and why one is refused). No Screen Recording needed.",
+        "name": "points.windows",
+        "params": "#/$defs/PointsWindowsParams",
+        "result": "#/$defs/PointsWindowsResult",
+        "scope": "operator.admin",
+        "sideEffecting": false
+      },
+      {
+        "description": "Confirms, completes, reopens, releases, dismisses, snoozes or re-dates a promise, or answers a question about it. Sends nothing. Side-effecting.",
+        "name": "promises.act",
+        "params": "#/$defs/PromisesActParams",
+        "result": "#/$defs/PromisesActResult",
+        "scope": "operator.write",
+        "sideEffecting": true
+      },
+      {
+        "description": "Adds a promise by hand, with the owner's provenance. Side-effecting.",
+        "name": "promises.add",
+        "params": "#/$defs/PromisesAddParams",
+        "result": "#/$defs/PromisesAddResult",
+        "scope": "operator.write",
+        "sideEffecting": true
+      },
+      {
+        "description": "Hard-deletes a promise, its citations and its history, and records that it is not a promise so it is not found again. Desktop shell only. Side-effecting.",
+        "name": "promises.delete",
+        "params": "#/$defs/PromisesDeleteParams",
+        "result": "#/$defs/PromisesDeleteResult",
+        "scope": "operator.write",
+        "sideEffecting": true
+      },
+      {
+        "description": "One promise. Citations and history come back for the desktop shell only; a hidden promise is `not_found` for a remote caller.",
+        "name": "promises.get",
+        "params": "#/$defs/PromisesGetParams",
+        "result": "#/$defs/PromisesGetResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "The ledger, filtered by view (yours, theirs, to confirm, closed). Scrubbed for remote callers. Text is untrusted.",
+        "name": "promises.list",
+        "params": "#/$defs/PromisesListParams",
+        "result": "#/$defs/PromisesListResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Stops (or resumes) tracking promises with one person or in one thread. Desktop shell only. Side-effecting.",
+        "name": "promises.mute",
+        "params": "#/$defs/PromisesMuteParams",
+        "result": "#/$defs/PromisesMuteResult",
+        "scope": "operator.write",
+        "sideEffecting": true
+      },
+      {
+        "description": "Counts, the next due date and the warnings due in the next 7 days (quiet hours applied), for Home and for iOS local notifications. Scrubbed for remote callers.",
+        "name": "promises.summary",
+        "params": "#/$defs/PromisesSummaryParams",
+        "result": "#/$defs/PromisesSummaryResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
         "description": "Requests the one batch approval for a proposal (kind batch, bound to the ordered list of calls, once only). The calls run after the approval is answered. Side-effecting.",
         "name": "proposals.approve",
         "params": "#/$defs/ProposalsApproveParams",
@@ -3938,6 +4049,22 @@
         "result": "#/$defs/StorageCleared",
         "scope": "operator.admin",
         "sideEffecting": true
+      },
+      {
+        "description": "Side-effecting. Compacts the database (VACUUM, then a WAL checkpoint). Psyche pauses while it runs. Refused with `conflict` while a run, task or scheduled run is active, so none is interrupted.",
+        "name": "storage.compact",
+        "params": "#/$defs/StorageCompactParams",
+        "result": "#/$defs/StorageCompacted",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
+        "description": "The database's size, how much a compaction could give back, and whether one can run now.",
+        "name": "storage.compactEstimate",
+        "params": "#/$defs/StorageCompactEstimateParams",
+        "result": "#/$defs/StorageCompactEstimate",
+        "scope": "operator.read",
+        "sideEffecting": false
       },
       {
         "description": "Disk use under the Gateway's data folder by category (database, memory index, attachments and Library, browser profiles, recordings, logs, caches, other). Sizes only; symbolic links are not followed.",
@@ -12234,6 +12361,9 @@
           "$ref": "#/$defs/AppLinkBlock"
         },
         {
+          "$ref": "#/$defs/PointsOfferBlock"
+        },
+        {
           "$ref": "#/$defs/UiBlock"
         }
       ]
@@ -15175,7 +15305,8 @@
             "search_hit",
             "memory_entity",
             "life_answer",
-            "mail_followup"
+            "mail_followup",
+            "promise"
           ],
           "type": "string"
         },
@@ -15191,6 +15322,14 @@
         },
         "scope": {
           "maxLength": 40,
+          "type": "string"
+        },
+        "intent": {
+          "$ref": "#/$defs/PromiseDraftIntent"
+        },
+        "proposedDue": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
           "type": "string"
         }
       },
@@ -17679,7 +17818,8 @@
             "search_hit",
             "memory_entity",
             "life_answer",
-            "mail_followup"
+            "mail_followup",
+            "promise"
           ],
           "type": "string"
         },
@@ -19054,6 +19194,7 @@
         "quiet_threads",
         "catching_up",
         "worked_on",
+        "promises",
         "night_shift"
       ],
       "type": "string"
@@ -24593,7 +24734,10 @@
       "enum": [
         "owner",
         "reply_seen",
-        "due_passed"
+        "due_passed",
+        "auto",
+        "aged_out",
+        "released"
       ],
       "type": "string"
     },
@@ -24620,6 +24764,18 @@
       "type": "string"
     },
     "GraphLoopStatus": {
+      "enum": [
+        "suggested",
+        "open",
+        "snoozed",
+        "done",
+        "broken",
+        "released",
+        "dismissed"
+      ],
+      "type": "string"
+    },
+    "GraphLoopWriteStatus": {
       "enum": [
         "suggested",
         "open",
@@ -32321,7 +32477,7 @@
           "items": {
             "$ref": "#/$defs/GraphLoopStatus"
           },
-          "maxItems": 5,
+          "maxItems": 7,
           "type": "array"
         },
         "direction": {
@@ -32394,7 +32550,7 @@
           "type": "string"
         },
         "status": {
-          "$ref": "#/$defs/GraphLoopStatus"
+          "$ref": "#/$defs/GraphLoopWriteStatus"
         },
         "dueAt": {
           "anyOf": [
@@ -36020,7 +36176,8 @@
         "briefing",
         "reminder",
         "system",
-        "specialist_result"
+        "specialist_result",
+        "promise_due"
       ],
       "type": "string"
     },
@@ -37654,6 +37811,1227 @@
       ],
       "type": "object"
     },
+    "PointsAskParams": {
+      "additionalProperties": false,
+      "properties": {
+        "sessionId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "text": {
+          "maxLength": 1000,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "sessionId",
+        "text"
+      ],
+      "type": "object"
+    },
+    "PointsAskRequestedPayload": {
+      "additionalProperties": false,
+      "properties": {
+        "sessionId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "sessionId"
+      ],
+      "type": "object"
+    },
+    "PointsAskResult": {
+      "additionalProperties": false,
+      "properties": {
+        "answer": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "answer"
+      ],
+      "type": "object"
+    },
+    "PointsCardAction": {
+      "enum": [
+        "back",
+        "skip",
+        "wrong",
+        "stuck_missing",
+        "stuck_unclear",
+        "stuck_blocked",
+        "ask",
+        "look",
+        "next",
+        "follow_window",
+        "stop"
+      ],
+      "type": "string"
+    },
+    "PointsCardStrings": {
+      "additionalProperties": false,
+      "properties": {
+        "back": {
+          "maxLength": 80,
+          "type": "string"
+        },
+        "skip": {
+          "maxLength": 80,
+          "type": "string"
+        },
+        "next": {
+          "maxLength": 80,
+          "type": "string"
+        },
+        "looksWrong": {
+          "maxLength": 80,
+          "type": "string"
+        },
+        "stuck": {
+          "maxLength": 80,
+          "type": "string"
+        },
+        "stuckMissing": {
+          "maxLength": 80,
+          "type": "string"
+        },
+        "stuckUnclear": {
+          "maxLength": 80,
+          "type": "string"
+        },
+        "stuckBlocked": {
+          "maxLength": 80,
+          "type": "string"
+        },
+        "askInPsyche": {
+          "maxLength": 80,
+          "type": "string"
+        },
+        "letLook": {
+          "maxLength": 80,
+          "type": "string"
+        },
+        "stop": {
+          "maxLength": 80,
+          "type": "string"
+        },
+        "hideNote": {
+          "maxLength": 80,
+          "type": "string"
+        },
+        "copy": {
+          "maxLength": 80,
+          "type": "string"
+        },
+        "selfFill": {
+          "maxLength": 80,
+          "type": "string"
+        },
+        "selfFillPlain": {
+          "maxLength": 80,
+          "type": "string"
+        },
+        "payButton": {
+          "maxLength": 80,
+          "type": "string"
+        },
+        "unknownValue": {
+          "maxLength": 80,
+          "type": "string"
+        },
+        "scrollTo": {
+          "maxLength": 80,
+          "type": "string"
+        },
+        "menuBarTitle": {
+          "maxLength": 80,
+          "type": "string"
+        },
+        "stepFormat": {
+          "maxLength": 80,
+          "type": "string"
+        },
+        "visionBadge": {
+          "maxLength": 80,
+          "type": "string"
+        },
+        "followWindow": {
+          "maxLength": 80,
+          "type": "string"
+        }
+      },
+      "required": [
+        "back",
+        "skip",
+        "next",
+        "looksWrong",
+        "stuck",
+        "stuckMissing",
+        "stuckUnclear",
+        "stuckBlocked",
+        "askInPsyche",
+        "letLook",
+        "stop",
+        "hideNote",
+        "copy",
+        "selfFill",
+        "selfFillPlain",
+        "payButton",
+        "unknownValue",
+        "scrollTo",
+        "menuBarTitle",
+        "stepFormat",
+        "visionBadge",
+        "followWindow"
+      ],
+      "type": "object"
+    },
+    "PointsDerivation": {
+      "enum": [
+        "exact",
+        "case",
+        "date_format",
+        "name_part",
+        "address_part"
+      ],
+      "type": "string"
+    },
+    "PointsDigest": {
+      "additionalProperties": false,
+      "properties": {
+        "app": {
+          "additionalProperties": false,
+          "properties": {
+            "bundleId": {
+              "maxLength": 200,
+              "type": "string"
+            },
+            "name": {
+              "maxLength": 120,
+              "type": "string"
+            }
+          },
+          "required": [
+            "bundleId",
+            "name"
+          ],
+          "type": "object"
+        },
+        "windowTitle": {
+          "maxLength": 200,
+          "type": "string"
+        },
+        "host": {
+          "maxLength": 253,
+          "type": "string"
+        },
+        "path": {
+          "maxLength": 500,
+          "type": "string"
+        },
+        "insecure": {
+          "type": "boolean"
+        },
+        "headings": {
+          "items": {
+            "maxLength": 120,
+            "type": "string"
+          },
+          "maxItems": 40,
+          "type": "array"
+        },
+        "instructions": {
+          "maxLength": 2000,
+          "type": "string"
+        },
+        "fingerprint": {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "fields": {
+          "items": {
+            "$ref": "#/$defs/PointsField"
+          },
+          "maxItems": 300,
+          "type": "array"
+        },
+        "truncated": {
+          "type": "boolean"
+        },
+        "tree": {
+          "enum": [
+            "ok",
+            "sparse"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "app",
+        "windowTitle",
+        "headings",
+        "instructions",
+        "fingerprint",
+        "fields",
+        "tree"
+      ],
+      "type": "object"
+    },
+    "PointsDoneWhen": {
+      "enum": [
+        "submit",
+        "next_page",
+        "none"
+      ],
+      "type": "string"
+    },
+    "PointsEndParams": {
+      "additionalProperties": false,
+      "properties": {
+        "sessionId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "sessionId"
+      ],
+      "type": "object"
+    },
+    "PointsEndReason": {
+      "enum": [
+        "stop",
+        "window_closed",
+        "app_quit",
+        "app_changed",
+        "idle",
+        "computer_use",
+        "recording",
+        "helper_lost",
+        "gateway_lost",
+        "error"
+      ],
+      "type": "string"
+    },
+    "PointsEndResult": {
+      "additionalProperties": false,
+      "properties": {},
+      "type": "object"
+    },
+    "PointsEntry": {
+      "enum": [
+        "chat",
+        "palette",
+        "tray"
+      ],
+      "type": "string"
+    },
+    "PointsExpectShape": {
+      "enum": [
+        "date",
+        "email",
+        "phone",
+        "postal",
+        "digits",
+        "oneOf"
+      ],
+      "type": "string"
+    },
+    "PointsField": {
+      "additionalProperties": false,
+      "properties": {
+        "fieldId": {
+          "pattern": "^f[0-9]{1,6}$",
+          "type": "string"
+        },
+        "role": {
+          "$ref": "#/$defs/PointsFieldRole"
+        },
+        "label": {
+          "maxLength": 120,
+          "type": "string"
+        },
+        "path": {
+          "items": {
+            "maxLength": 120,
+            "type": "string"
+          },
+          "maxItems": 8,
+          "type": "array"
+        },
+        "required": {
+          "type": "boolean"
+        },
+        "invalid": {
+          "type": "boolean"
+        },
+        "errorText": {
+          "maxLength": 200,
+          "type": "string"
+        },
+        "options": {
+          "items": {
+            "maxLength": 120,
+            "type": "string"
+          },
+          "maxItems": 40,
+          "type": "array"
+        },
+        "frame": {
+          "$ref": "#/$defs/PointsRect"
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "focused": {
+          "type": "boolean"
+        },
+        "state": {
+          "$ref": "#/$defs/PointsFieldFill"
+        },
+        "sensitive": {
+          "$ref": "#/$defs/PointsSensitiveReason"
+        },
+        "value": {
+          "maxLength": 500,
+          "type": "string"
+        }
+      },
+      "required": [
+        "fieldId",
+        "role",
+        "label",
+        "path",
+        "state"
+      ],
+      "type": "object"
+    },
+    "PointsFieldFill": {
+      "enum": [
+        "empty",
+        "filled",
+        "unknown"
+      ],
+      "type": "string"
+    },
+    "PointsFieldRole": {
+      "enum": [
+        "text",
+        "multiline",
+        "number",
+        "date",
+        "checkbox",
+        "radio",
+        "popup",
+        "combobox",
+        "button",
+        "link"
+      ],
+      "type": "string"
+    },
+    "PointsHelperWindow": {
+      "additionalProperties": false,
+      "properties": {
+        "pid": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "windowIndex": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "app": {
+          "additionalProperties": false,
+          "properties": {
+            "bundleId": {
+              "maxLength": 200,
+              "type": "string"
+            },
+            "name": {
+              "maxLength": 120,
+              "type": "string"
+            }
+          },
+          "required": [
+            "bundleId",
+            "name"
+          ],
+          "type": "object"
+        },
+        "title": {
+          "maxLength": 200,
+          "type": "string"
+        },
+        "frontmost": {
+          "type": "boolean"
+        },
+        "refusal": {
+          "$ref": "#/$defs/PointsRefusal"
+        }
+      },
+      "required": [
+        "pid",
+        "windowIndex",
+        "app",
+        "title",
+        "frontmost"
+      ],
+      "type": "object"
+    },
+    "PointsHelperWindowsResult": {
+      "additionalProperties": false,
+      "properties": {
+        "windows": {
+          "items": {
+            "$ref": "#/$defs/PointsHelperWindow"
+          },
+          "maxItems": 200,
+          "type": "array"
+        }
+      },
+      "required": [
+        "windows"
+      ],
+      "type": "object"
+    },
+    "PointsLookParams": {
+      "additionalProperties": false,
+      "properties": {
+        "sessionId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "actionId": {
+          "maxLength": 80,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "sessionId",
+        "actionId"
+      ],
+      "type": "object"
+    },
+    "PointsLookResult": {
+      "additionalProperties": false,
+      "properties": {
+        "image": {
+          "anyOf": [
+            {
+              "contentEncoding": "base64",
+              "description": "JPEG of the target window only",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "width": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "height": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "pointsPerPixel": {
+          "minimum": 0,
+          "type": "number"
+        },
+        "masked": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "width",
+        "height",
+        "pointsPerPixel",
+        "masked"
+      ],
+      "type": "object"
+    },
+    "PointsNeeds": {
+      "enum": [
+        "accessibility",
+        "screenRecording"
+      ],
+      "type": "string"
+    },
+    "PointsOfferBlock": {
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "points_offer",
+          "type": "string"
+        },
+        "goal": {
+          "maxLength": 500,
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "goal"
+      ],
+      "type": "object"
+    },
+    "PointsPlan": {
+      "additionalProperties": false,
+      "properties": {
+        "page": {
+          "additionalProperties": false,
+          "properties": {
+            "title": {
+              "maxLength": 120,
+              "type": "string"
+            },
+            "summary": {
+              "maxLength": 200,
+              "type": "string"
+            }
+          },
+          "required": [
+            "title",
+            "summary"
+          ],
+          "type": "object"
+        },
+        "steps": {
+          "items": {
+            "$ref": "#/$defs/PointsStep"
+          },
+          "maxItems": 300,
+          "type": "array"
+        },
+        "done_when": {
+          "$ref": "#/$defs/PointsDoneWhen"
+        }
+      },
+      "required": [
+        "page",
+        "steps",
+        "done_when"
+      ],
+      "type": "object"
+    },
+    "PointsRect": {
+      "additionalProperties": false,
+      "properties": {
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        },
+        "width": {
+          "minimum": 0,
+          "type": "number"
+        },
+        "height": {
+          "minimum": 0,
+          "type": "number"
+        }
+      },
+      "required": [
+        "x",
+        "y",
+        "width",
+        "height"
+      ],
+      "type": "object"
+    },
+    "PointsRefusal": {
+      "enum": [
+        "never_app",
+        "fixed_off",
+        "terminal_or_ide",
+        "owner_off",
+        "not_a_window",
+        "permission_missing"
+      ],
+      "type": "string"
+    },
+    "PointsSensitiveReason": {
+      "enum": [
+        "password",
+        "payment",
+        "one_time_code",
+        "identity",
+        "secret",
+        "secure_field",
+        "value_shape",
+        "directions_only"
+      ],
+      "type": "string"
+    },
+    "PointsSessionEvent": {
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "$ref": "#/$defs/PointsSessionEventType"
+        },
+        "digest": {
+          "$ref": "#/$defs/PointsDigest"
+        },
+        "fieldId": {
+          "pattern": "^f[0-9]{1,6}$",
+          "type": "string"
+        },
+        "state": {
+          "$ref": "#/$defs/PointsFieldFill"
+        },
+        "value": {
+          "maxLength": 500,
+          "type": "string"
+        },
+        "action": {
+          "$ref": "#/$defs/PointsCardAction"
+        },
+        "actionId": {
+          "maxLength": 80,
+          "minLength": 1,
+          "type": "string"
+        },
+        "visible": {
+          "type": "boolean"
+        },
+        "reason": {
+          "$ref": "#/$defs/PointsEndReason"
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "type": "object"
+    },
+    "PointsSessionEventType": {
+      "enum": [
+        "digest",
+        "field",
+        "focus",
+        "page",
+        "action",
+        "visible",
+        "ended"
+      ],
+      "type": "string"
+    },
+    "PointsSessionParams": {
+      "additionalProperties": false,
+      "properties": {
+        "window": {
+          "maxLength": 80,
+          "minLength": 1,
+          "type": "string"
+        },
+        "strings": {
+          "$ref": "#/$defs/PointsCardStrings"
+        }
+      },
+      "required": [
+        "window",
+        "strings"
+      ],
+      "type": "object"
+    },
+    "PointsSessionStatus": {
+      "additionalProperties": false,
+      "properties": {
+        "sessionId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "app": {
+          "additionalProperties": false,
+          "properties": {
+            "bundleId": {
+              "maxLength": 200,
+              "type": "string"
+            },
+            "name": {
+              "maxLength": 120,
+              "type": "string"
+            }
+          },
+          "required": [
+            "bundleId",
+            "name"
+          ],
+          "type": "object"
+        },
+        "state": {
+          "$ref": "#/$defs/PointsState"
+        },
+        "page": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "step": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "of": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "vision": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "sessionId",
+        "app",
+        "state",
+        "page",
+        "step",
+        "of",
+        "vision"
+      ],
+      "type": "object"
+    },
+    "PointsShowKind": {
+      "enum": [
+        "fill",
+        "choose",
+        "check",
+        "skip",
+        "self",
+        "review",
+        "next_page",
+        "info"
+      ],
+      "type": "string"
+    },
+    "PointsShowParams": {
+      "additionalProperties": false,
+      "properties": {
+        "sessionId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "target": {
+          "$ref": "#/$defs/PointsShowTarget"
+        },
+        "kind": {
+          "$ref": "#/$defs/PointsShowKind"
+        },
+        "note": {
+          "maxLength": 140,
+          "type": "string"
+        },
+        "value": {
+          "maxLength": 500,
+          "type": "string"
+        },
+        "sources": {
+          "items": {
+            "maxLength": 80,
+            "type": "string"
+          },
+          "maxItems": 4,
+          "type": "array"
+        },
+        "step": {
+          "additionalProperties": false,
+          "properties": {
+            "n": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "of": {
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "n",
+            "of"
+          ],
+          "type": "object"
+        },
+        "warning": {
+          "maxLength": 140,
+          "type": "string"
+        }
+      },
+      "required": [
+        "sessionId",
+        "target",
+        "kind",
+        "note",
+        "step"
+      ],
+      "type": "object"
+    },
+    "PointsShowResult": {
+      "additionalProperties": false,
+      "properties": {
+        "shown": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "shown"
+      ],
+      "type": "object"
+    },
+    "PointsShowTarget": {
+      "additionalProperties": false,
+      "properties": {
+        "fieldId": {
+          "pattern": "^f[0-9]{1,6}$",
+          "type": "string"
+        },
+        "box": {
+          "$ref": "#/$defs/PointsRect"
+        },
+        "imageSize": {
+          "additionalProperties": false,
+          "properties": {
+            "width": {
+              "minimum": 1,
+              "type": "integer"
+            },
+            "height": {
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "width",
+            "height"
+          ],
+          "type": "object"
+        }
+      },
+      "type": "object"
+    },
+    "PointsStartParams": {
+      "additionalProperties": false,
+      "properties": {
+        "window": {
+          "maxLength": 80,
+          "minLength": 1,
+          "type": "string"
+        },
+        "goal": {
+          "maxLength": 500,
+          "type": "string"
+        },
+        "goalSource": {
+          "enum": [
+            "owner",
+            "offer"
+          ],
+          "type": "string"
+        },
+        "threadId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "entry": {
+          "$ref": "#/$defs/PointsEntry"
+        },
+        "locale": {
+          "maxLength": 35,
+          "minLength": 2,
+          "type": "string"
+        },
+        "strings": {
+          "$ref": "#/$defs/PointsCardStrings"
+        }
+      },
+      "required": [
+        "window",
+        "entry",
+        "locale",
+        "strings"
+      ],
+      "type": "object"
+    },
+    "PointsStartResult": {
+      "additionalProperties": false,
+      "properties": {
+        "sessionId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "app": {
+          "additionalProperties": false,
+          "properties": {
+            "bundleId": {
+              "maxLength": 200,
+              "type": "string"
+            },
+            "name": {
+              "maxLength": 120,
+              "type": "string"
+            }
+          },
+          "required": [
+            "bundleId",
+            "name"
+          ],
+          "type": "object"
+        }
+      },
+      "required": [
+        "sessionId",
+        "app"
+      ],
+      "type": "object"
+    },
+    "PointsState": {
+      "enum": [
+        "reading",
+        "pointing",
+        "paused",
+        "ended"
+      ],
+      "type": "string"
+    },
+    "PointsStatusParams": {
+      "additionalProperties": false,
+      "properties": {},
+      "type": "object"
+    },
+    "PointsStatusResult": {
+      "additionalProperties": false,
+      "properties": {
+        "session": {
+          "$ref": "#/$defs/PointsSessionStatus"
+        }
+      },
+      "type": "object"
+    },
+    "PointsStep": {
+      "additionalProperties": false,
+      "properties": {
+        "fieldId": {
+          "pattern": "^f[0-9]{1,6}$",
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/$defs/PointsStepKind"
+        },
+        "note": {
+          "maxLength": 140,
+          "type": "string"
+        },
+        "value": {
+          "maxLength": 500,
+          "type": "string"
+        },
+        "option": {
+          "maxLength": 120,
+          "type": "string"
+        },
+        "sources": {
+          "items": {
+            "maxLength": 80,
+            "type": "string"
+          },
+          "maxItems": 4,
+          "type": "array"
+        },
+        "derivation": {
+          "$ref": "#/$defs/PointsDerivation"
+        },
+        "expect": {
+          "additionalProperties": false,
+          "properties": {
+            "shape": {
+              "$ref": "#/$defs/PointsExpectShape"
+            },
+            "detail": {
+              "maxLength": 100,
+              "type": "string"
+            }
+          },
+          "required": [
+            "shape"
+          ],
+          "type": "object"
+        }
+      },
+      "required": [
+        "fieldId",
+        "kind",
+        "note"
+      ],
+      "type": "object"
+    },
+    "PointsStepKind": {
+      "enum": [
+        "fill",
+        "choose",
+        "check",
+        "skip",
+        "self",
+        "review",
+        "next_page"
+      ],
+      "type": "string"
+    },
+    "PointsStopParams": {
+      "additionalProperties": false,
+      "properties": {
+        "sessionId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "sessionId"
+      ],
+      "type": "object"
+    },
+    "PointsStopResult": {
+      "additionalProperties": false,
+      "properties": {
+        "ended": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "ended"
+      ],
+      "type": "object"
+    },
+    "PointsUpdatedPayload": {
+      "additionalProperties": false,
+      "properties": {
+        "sessionId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "state": {
+          "$ref": "#/$defs/PointsState"
+        },
+        "page": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "step": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "of": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "vision": {
+          "type": "boolean"
+        },
+        "needs": {
+          "$ref": "#/$defs/PointsNeeds"
+        },
+        "reason": {
+          "$ref": "#/$defs/PointsEndReason"
+        }
+      },
+      "required": [
+        "sessionId",
+        "state",
+        "page",
+        "step",
+        "of",
+        "vision"
+      ],
+      "type": "object"
+    },
+    "PointsWindow": {
+      "additionalProperties": false,
+      "properties": {
+        "ref": {
+          "maxLength": 80,
+          "minLength": 1,
+          "type": "string"
+        },
+        "app": {
+          "additionalProperties": false,
+          "properties": {
+            "bundleId": {
+              "maxLength": 200,
+              "type": "string"
+            },
+            "name": {
+              "maxLength": 120,
+              "type": "string"
+            }
+          },
+          "required": [
+            "bundleId",
+            "name"
+          ],
+          "type": "object"
+        },
+        "title": {
+          "maxLength": 200,
+          "type": "string"
+        },
+        "frontmost": {
+          "type": "boolean"
+        },
+        "refusal": {
+          "$ref": "#/$defs/PointsRefusal"
+        }
+      },
+      "required": [
+        "ref",
+        "app",
+        "title",
+        "frontmost"
+      ],
+      "type": "object"
+    },
+    "PointsWindowsParams": {
+      "additionalProperties": false,
+      "properties": {},
+      "type": "object"
+    },
+    "PointsWindowsResult": {
+      "additionalProperties": false,
+      "properties": {
+        "windows": {
+          "items": {
+            "$ref": "#/$defs/PointsWindow"
+          },
+          "maxItems": 200,
+          "type": "array"
+        }
+      },
+      "required": [
+        "windows"
+      ],
+      "type": "object"
+    },
     "PolicyRule": {
       "properties": {
         "id": {
@@ -37906,6 +39284,1009 @@
         "ref",
         "id",
         "capabilities"
+      ],
+      "type": "object"
+    },
+    "PromiseActAction": {
+      "anyOf": [
+        {
+          "properties": {
+            "type": {
+              "const": "confirm",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "type": {
+              "const": "not_promise",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "type": {
+              "const": "done",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "type": {
+              "const": "reopen",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "type": {
+              "const": "release",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "type": {
+              "const": "dismiss",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "type": {
+              "const": "snooze",
+              "type": "string"
+            },
+            "until": {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "until"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "type": {
+              "const": "set_due",
+              "type": "string"
+            },
+            "dueAt": {
+              "anyOf": [
+                {
+                  "description": "ISO-8601 timestamp (UTC)",
+                  "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "type": {
+              "const": "more_time",
+              "type": "string"
+            },
+            "days": {
+              "maximum": 60,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "type",
+            "days"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "type": {
+              "const": "accept_proposed",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "type": {
+              "const": "reject_proposed",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "type": {
+              "const": "answer",
+              "type": "string"
+            },
+            "answer": {
+              "enum": [
+                "yes",
+                "not_yet"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "answer"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "PromiseAction": {
+      "enum": [
+        "send",
+        "reply",
+        "meet",
+        "do"
+      ],
+      "type": "string"
+    },
+    "PromiseBasis": {
+      "enum": [
+        "promise",
+        "ask",
+        "request"
+      ],
+      "type": "string"
+    },
+    "PromiseCitation": {
+      "properties": {
+        "id": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "source": {
+          "$ref": "#/$defs/PromiseCitationSource"
+        },
+        "quote": {
+          "maxLength": 200,
+          "type": "string"
+        },
+        "sourceRef": {
+          "maxLength": 1000,
+          "type": "string"
+        },
+        "observedAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "provenance": {
+          "$ref": "#/$defs/Provenance"
+        }
+      },
+      "required": [
+        "id",
+        "source",
+        "quote",
+        "sourceRef",
+        "observedAt",
+        "provenance"
+      ],
+      "type": "object"
+    },
+    "PromiseCitationSource": {
+      "enum": [
+        "mail",
+        "messages",
+        "notes",
+        "chats",
+        "transcripts"
+      ],
+      "type": "string"
+    },
+    "PromiseClosedBy": {
+      "enum": [
+        "owner",
+        "reply_seen",
+        "due_passed",
+        "auto",
+        "aged_out",
+        "released"
+      ],
+      "type": "string"
+    },
+    "PromiseDirection": {
+      "enum": [
+        "i_owe",
+        "waiting_on"
+      ],
+      "type": "string"
+    },
+    "PromiseDraftIntent": {
+      "enum": [
+        "nudge",
+        "renegotiate",
+        "release_note",
+        "do_it"
+      ],
+      "type": "string"
+    },
+    "PromiseDueKind": {
+      "enum": [
+        "explicit",
+        "inferred",
+        "none"
+      ],
+      "type": "string"
+    },
+    "PromiseEvent": {
+      "properties": {
+        "id": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "at": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/$defs/PromiseEventKind"
+        },
+        "from": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "to": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "by": {
+          "$ref": "#/$defs/PromiseEventBy"
+        },
+        "citationId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "at",
+        "kind",
+        "by"
+      ],
+      "type": "object"
+    },
+    "PromiseEventBy": {
+      "enum": [
+        "owner",
+        "auto",
+        "model",
+        "rule"
+      ],
+      "type": "string"
+    },
+    "PromiseEventKind": {
+      "enum": [
+        "created",
+        "confirmed",
+        "source_added",
+        "due_changed",
+        "due_proposed",
+        "status",
+        "warned",
+        "asked",
+        "nudge_drafted",
+        "nudge_sent",
+        "auto_done",
+        "undo"
+      ],
+      "type": "string"
+    },
+    "PromiseListView": {
+      "enum": [
+        "yours",
+        "theirs",
+        "confirm",
+        "closed",
+        "all"
+      ],
+      "type": "string"
+    },
+    "PromiseSourceKind": {
+      "enum": [
+        "mail",
+        "messages",
+        "meeting",
+        "chat",
+        "manual"
+      ],
+      "type": "string"
+    },
+    "PromiseState": {
+      "enum": [
+        "suggested",
+        "open",
+        "due_soon",
+        "snoozed",
+        "broken",
+        "done",
+        "released",
+        "dismissed"
+      ],
+      "type": "string"
+    },
+    "PromiseSummary": {
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "yours": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "theirs": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "toConfirm": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "dueSoon": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "missed": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "late": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "nextDueAt": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "hiddenCount": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "upcoming": {
+          "items": {
+            "$ref": "#/$defs/PromiseUpcoming"
+          },
+          "maxItems": 50,
+          "type": "array"
+        }
+      },
+      "required": [
+        "enabled",
+        "yours",
+        "theirs",
+        "toConfirm",
+        "dueSoon",
+        "missed",
+        "late",
+        "hiddenCount",
+        "upcoming"
+      ],
+      "type": "object"
+    },
+    "PromiseUpcoming": {
+      "properties": {
+        "id": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "warnAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "title": {
+          "maxLength": 200,
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "warnAt",
+        "title"
+      ],
+      "type": "object"
+    },
+    "PromiseUpdatedPayload": {
+      "properties": {
+        "promise": {
+          "$ref": "#/$defs/PromiseView"
+        }
+      },
+      "required": [
+        "promise"
+      ],
+      "type": "object"
+    },
+    "PromiseView": {
+      "properties": {
+        "id": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "direction": {
+          "$ref": "#/$defs/PromiseDirection"
+        },
+        "what": {
+          "maxLength": 200,
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/$defs/GraphLoopStatus"
+        },
+        "state": {
+          "$ref": "#/$defs/PromiseState"
+        },
+        "basis": {
+          "$ref": "#/$defs/PromiseBasis"
+        },
+        "whatAction": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PromiseAction"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "counterpartLabel": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "counterpartId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "projectId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "dueAt": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "dueText": {
+          "anyOf": [
+            {
+              "maxLength": 120,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "dueKind": {
+          "$ref": "#/$defs/PromiseDueKind"
+        },
+        "dueConfidence": {
+          "anyOf": [
+            {
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "proposedDueAt": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "snoozedUntil": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "brokenAt": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "warnedAt": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "nudgeCount": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "lastNudgeAt": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "sourceKind": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PromiseSourceKind"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "link": {
+          "maxLength": 1000,
+          "type": "string"
+        },
+        "provenance": {
+          "$ref": "#/$defs/Provenance"
+        },
+        "confidence": {
+          "maximum": 1,
+          "minimum": 0,
+          "type": "number"
+        },
+        "createdAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "closedAt": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "closedBy": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PromiseClosedBy"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "citations": {
+          "items": {
+            "$ref": "#/$defs/PromiseCitation"
+          },
+          "maxItems": 20,
+          "type": "array"
+        },
+        "events": {
+          "items": {
+            "$ref": "#/$defs/PromiseEvent"
+          },
+          "maxItems": 200,
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "direction",
+        "what",
+        "status",
+        "state",
+        "basis",
+        "dueKind",
+        "nudgeCount",
+        "provenance",
+        "confidence",
+        "createdAt"
+      ],
+      "type": "object"
+    },
+    "PromisesActParams": {
+      "properties": {
+        "id": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "action": {
+          "$ref": "#/$defs/PromiseActAction"
+        }
+      },
+      "required": [
+        "id",
+        "action"
+      ],
+      "type": "object"
+    },
+    "PromisesActResult": {
+      "properties": {
+        "promise": {
+          "$ref": "#/$defs/PromiseView"
+        }
+      },
+      "required": [
+        "promise"
+      ],
+      "type": "object"
+    },
+    "PromisesAddParams": {
+      "properties": {
+        "direction": {
+          "anyOf": [
+            {
+              "const": "i_owe",
+              "type": "string"
+            },
+            {
+              "const": "waiting_on",
+              "type": "string"
+            }
+          ]
+        },
+        "what": {
+          "maxLength": 120,
+          "minLength": 1,
+          "type": "string"
+        },
+        "counterpartId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "dueAt": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "direction",
+        "what"
+      ],
+      "type": "object"
+    },
+    "PromisesAddResult": {
+      "properties": {
+        "promise": {
+          "$ref": "#/$defs/PromiseView"
+        }
+      },
+      "required": [
+        "promise"
+      ],
+      "type": "object"
+    },
+    "PromisesDeleteParams": {
+      "properties": {
+        "id": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "type": "object"
+    },
+    "PromisesDeleteResult": {
+      "properties": {
+        "ok": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "ok"
+      ],
+      "type": "object"
+    },
+    "PromisesGetParams": {
+      "properties": {
+        "id": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "type": "object"
+    },
+    "PromisesGetResult": {
+      "properties": {
+        "promise": {
+          "$ref": "#/$defs/PromiseView"
+        }
+      },
+      "required": [
+        "promise"
+      ],
+      "type": "object"
+    },
+    "PromisesListParams": {
+      "properties": {
+        "view": {
+          "$ref": "#/$defs/PromiseListView"
+        },
+        "entityId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "dueBefore": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "cursor": {
+          "description": "Opaque cursor",
+          "maxLength": 512,
+          "minLength": 1,
+          "type": "string"
+        },
+        "limit": {
+          "maximum": 500,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "view"
+      ],
+      "type": "object"
+    },
+    "PromisesListResult": {
+      "properties": {
+        "promises": {
+          "items": {
+            "$ref": "#/$defs/PromiseView"
+          },
+          "type": "array"
+        },
+        "hiddenCount": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "nextCursor": {
+          "anyOf": [
+            {
+              "description": "Opaque cursor",
+              "maxLength": 512,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "promises",
+        "hiddenCount"
+      ],
+      "type": "object"
+    },
+    "PromisesMuteParams": {
+      "properties": {
+        "entityId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "threadRef": {
+          "maxLength": 1000,
+          "minLength": 1,
+          "type": "string"
+        },
+        "muted": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "muted"
+      ],
+      "type": "object"
+    },
+    "PromisesMuteResult": {
+      "properties": {
+        "ok": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "ok"
+      ],
+      "type": "object"
+    },
+    "PromisesSummaryParams": {
+      "properties": {},
+      "type": "object"
+    },
+    "PromisesSummaryResult": {
+      "properties": {
+        "summary": {
+          "$ref": "#/$defs/PromiseSummary"
+        }
+      },
+      "required": [
+        "summary"
       ],
       "type": "object"
     },
@@ -48617,7 +50998,9 @@
         },
         "preview": {
           "anyOf": [
-            {},
+            {
+              "$ref": "#/$defs/StagedPreview"
+            },
             {
               "type": "null"
             }
@@ -48669,6 +51052,12 @@
           },
           "maxItems": 20,
           "type": "array"
+        },
+        "withheld": {
+          "enum": [
+            "messages"
+          ],
+          "type": "string"
         },
         "status": {
           "$ref": "#/$defs/StagedActionStatus"
@@ -48832,6 +51221,67 @@
       ],
       "type": "string"
     },
+    "StagedPreview": {
+      "properties": {
+        "kind": {
+          "enum": [
+            "mail",
+            "calendar",
+            "reminder",
+            "file"
+          ],
+          "type": "string"
+        },
+        "title": {
+          "maxLength": 200,
+          "type": "string"
+        },
+        "rows": {
+          "items": {
+            "$ref": "#/$defs/StagedPreviewRow"
+          },
+          "maxItems": 40,
+          "type": "array"
+        },
+        "truncated": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "kind",
+        "title",
+        "rows",
+        "truncated"
+      ],
+      "type": "object"
+    },
+    "StagedPreviewRow": {
+      "properties": {
+        "label": {
+          "maxLength": 60,
+          "type": "string"
+        },
+        "value": {
+          "type": "string"
+        },
+        "truncated": {
+          "const": true,
+          "type": "boolean"
+        },
+        "badge": {
+          "enum": [
+            "new_recipient",
+            "reply_all"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "label",
+        "value"
+      ],
+      "type": "object"
+    },
     "StarterFolderId": {
       "enum": [
         "documents",
@@ -48913,6 +51363,52 @@
       "required": [
         "cleared",
         "freedBytes"
+      ],
+      "type": "object"
+    },
+    "StorageCompactEstimate": {
+      "properties": {
+        "dbBytes": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "reclaimableBytes": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "idle": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "dbBytes",
+        "reclaimableBytes",
+        "idle"
+      ],
+      "type": "object"
+    },
+    "StorageCompactEstimateParams": {
+      "properties": {},
+      "type": "object"
+    },
+    "StorageCompactParams": {
+      "properties": {},
+      "type": "object"
+    },
+    "StorageCompacted": {
+      "properties": {
+        "durationMs": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "savedBytes": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "durationMs",
+        "savedBytes"
       ],
       "type": "object"
     },

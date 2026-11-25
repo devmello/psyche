@@ -286,7 +286,13 @@ export function ThreadRow({
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
           {onRename && th.kind !== "main" ? (
-            <DropdownMenuItem onClick={() => setEditing(true)}>
+            <DropdownMenuItem
+              onClick={() => {
+                // The title may have changed since the row mounted (an auto-title arrives later).
+                setTitle(th.title);
+                setEditing(true);
+              }}
+            >
               {t("shell.threads.rename")}
             </DropdownMenuItem>
           ) : null}
