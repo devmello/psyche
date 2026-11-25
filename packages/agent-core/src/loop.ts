@@ -1411,6 +1411,16 @@ export class PsycheAgentLoop implements AgentLoop {
         .then(() => this.#o.onOwnerTurn?.(turn))
         .catch(() => undefined);
     }
+    if (run.staging?.reads?.finish !== undefined) {
+      try {
+        run.staging.reads.finish({
+          taint: run.taint,
+          taintSources: structuredClone(dedupeSources(run.taintSources)),
+        });
+      } catch {
+        // A failing guard never fails the end of a run.
+      }
+    }
     for (const plugin of this.plugins.with("agent_end", "agentEnd")) {
       // Observers: a failing or slow plugin changes nothing.
       await withDeadline(
@@ -1482,6 +1492,23 @@ export class PsycheAgentLoop implements AgentLoop {
       // exactly like a model's call. It is consumed here so a retry of the loop never re-proposes it.
       const proposed = run.proposedCall;
       run.proposedCall = undefined;
+      // A plan-fork branch is held to its money share before each call (fork-a-plan §6): the
+      // estimate of this request's input is checked before anything is sent.
+      const stepGuard = run.staging?.reads?.beforeModelCall;
+      if (proposed === undefined && stepGuard !== undefined) {
+        let fits = false;
+        try {
+          fits = stepGuard.call(run.staging?.reads, {
+            inputTokens: estimateContextTokens(system, sent, tools),
+          });
+        } catch {
+          fits = false;
+        }
+        if (!fits) {
+          this.#marker(run, "[stopped: the next model call would pass this branch's budget]");
+          throw new RunEnd("failed", "budget_precheck");
+        }
+      }
       let step =
         proposed === undefined
           ? await this.#callModel(run, system, tools, cache)

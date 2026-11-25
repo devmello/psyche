@@ -26,6 +26,7 @@ import {
 import {
   BRANCH_TITLE_PREFIX,
   buildBranchGoal,
+  buildDigest,
   buildForcedReportGoal,
   FORCED_TITLE_PREFIX,
   plainLabel,
@@ -132,8 +133,18 @@ export interface ForkServiceDeps {
   ) => { sideEffect: SideEffect; connectorType?: string | undefined } | undefined;
   /** Whether the model a thread runs on is a local one (one slot, not two). */
   isLocalModel?: (threadId: string) => boolean;
-  /** Price per token of the thread's model, to lower a branch's token cap (§6). */
-  usdPerToken?: (threadId: string) => number | undefined;
+  /**
+   * The price of the thread's model in dollars per token, and the most it may write in one call.
+   * It lowers a branch's token cap and prices each model call before it is sent (§6). Absent for a
+   * model with no price (local): the token caps bind alone.
+   */
+  modelPrice?: (
+    threadId: string,
+  ) => { inputPerToken: number; outputPerToken: number; maxOutputTokens: number } | undefined;
+  /** The Night shift domains the owner left on; a domain that is off is off for branches too. */
+  domains?: () => ReadonlySet<string>;
+  /** A fresh hidden thread for a branch's forced report (its digest, not the branch's transcript). */
+  digestThread?: (branch: PlanForkBranch) => string;
   /** True when the id resolves in Memory's people store (§4.2). */
   resolvePerson?: (personId: string) => boolean;
   publish?: (event: "planFork.updated", payload: PlanForkUpdate) => void;
@@ -190,7 +201,12 @@ export class ForkService {
     return (tool: string): boolean => {
       const info = this.#d.toolInfo(tool);
       if (info === undefined) return false;
-      const input = { tool, sideEffect: info.sideEffect, connectorType: info.connectorType };
+      const input = {
+        tool,
+        sideEffect: info.sideEffect,
+        connectorType: info.connectorType,
+        ...(this.#d.domains === undefined ? {} : { domains: this.#d.domains() }),
+      };
       return forced ? forcedReportToolVisible(input) : forkToolVisible(input);
     };
   }
@@ -260,10 +276,9 @@ export class ForkService {
     const budget = this.#budgetOf(fork, branches.length);
     for (const b of branches) {
       if (b.status !== "queued" || b.taskId != null) continue;
+      const price = this.#d.modelPrice?.(b.threadId);
       const caps = branchCaps(budget.split, branches.length, {
-        ...(this.#d.usdPerToken === undefined
-          ? {}
-          : { usdPerToken: this.#d.usdPerToken(b.threadId) }),
+        ...(price === undefined ? {} : { usdPerToken: price.inputPerToken }),
       });
       const task = await this.#d.tasks.create({
         threadId: b.threadId,
@@ -383,8 +398,12 @@ export class ForkService {
     await this.#serial(fork.id, async () => {
       for (const b of targets) {
         const now = this.#d.store.getBranch(b.id);
-        if (now === null || BRANCH_TERMINAL.has(now.status)) continue;
-        this.#finishBranch(now, now.report == null ? "cancelled" : "reported", null);
+        if (now === null) continue;
+        if (!BRANCH_TERMINAL.has(now.status)) {
+          this.#finishBranch(now, now.report == null ? "cancelled" : "reported", null);
+        }
+        // A cancelled plan applies nothing: the items of a branch that had reported go too.
+        this.#dismissStaged(b.id);
       }
       this.#settleFork(fork.id);
     });
@@ -419,14 +438,22 @@ export class ForkService {
     const branches = this.#d.store.listBranches(fork.id);
     const budget = this.#budgetOf(fork, branches.length);
     for (const b of branches) {
-      if (b.spentUsd > 0 || b.tokens > 0) {
-        budget.add(
-          b.id,
-          "branch",
-          { input: b.tokens, output: 0, costUsd: b.spentUsd },
-          `restore:${b.id}`,
-        );
+      if (b.spentUsd <= 0 && b.tokens <= 0) continue;
+      // A branch whose current task is its forced report has drawn on the reserve: the stored
+      // spend does not say how much, so a whole allowance is charged to the reserve (never paid
+      // twice) and the rest to the branch.
+      const task = b.taskId == null ? undefined : await this.#d.tasks.get(b.taskId);
+      const forced = task?.title.startsWith(FORCED_TITLE_PREFIX) === true;
+      const reserved = forced ? Math.min(b.spentUsd, budget.split.forcedReportUsd) : 0;
+      if (forced) {
+        budget.add(b.id, "forced", { input: 0, output: 0, costUsd: reserved }, `restore:f:${b.id}`);
       }
+      budget.add(
+        b.id,
+        "branch",
+        { input: b.tokens, output: 0, costUsd: b.spentUsd - reserved },
+        `restore:${b.id}`,
+      );
     }
     for (const b of branches) {
       if (BRANCH_TERMINAL.has(b.status)) continue;
@@ -460,6 +487,13 @@ export class ForkService {
         this.#stopForBudget(b);
       }
     }
+    // A branch that never got its task (the Gateway stopped between the fork and its queue) is
+    // queued now: it would otherwise leave the fork running for good.
+    if (
+      this.#d.store.listBranches(fork.id).some((b) => b.status === "queued" && b.taskId == null)
+    ) {
+      await this.queueFork(fork.id).catch((err) => this.#warn("fork requeue failed", err));
+    }
     await this.#serial(fork.id, async () => this.#settleFork(fork.id));
   }
 
@@ -475,6 +509,8 @@ export class ForkService {
     let reads = this.#reads.get(branchId);
     if (reads === undefined) {
       reads = new BranchReads({
+        beforeModel: (inputTokens) => this.#stepFits(branchId, inputTokens),
+        onFinish: (run) => this.#saveRunTaint(branchId, run),
         onTaint: (sources) => {
           try {
             this.#d.store.updateBranch(branchId, { taint: true, taintSources: sources });
@@ -486,6 +522,56 @@ export class ForkService {
       this.#reads.set(branchId, reads);
     }
     return reads;
+  }
+
+  /**
+   * Whether the next model call fits (§6): its estimated input tokens at the model's price, plus
+   * the most it may write, against what is left of the branch's share (the forced report's
+   * allowance and the reserve for a forced report) and of the fork's whole budget. A step that
+   * would not fit is refused before it is sent.
+   */
+  #stepFits(branchId: string, inputTokens: number): boolean {
+    if (this.#cancelRequested.has(branchId)) return false;
+    const branch = this.#d.store.getBranch(branchId);
+    if (branch === null) return false;
+    const price = this.#d.modelPrice?.(branch.threadId);
+    if (price === undefined) return true;
+    const budget = this.#budgets.get(branch.forkId);
+    if (budget === undefined) return true;
+    const ref = branch.taskId == null ? undefined : this.#taskRefs.get(branch.taskId);
+    const lane: Lane = ref?.lane ?? "branch";
+    const estimate =
+      inputTokens * price.inputPerToken + price.maxOutputTokens * price.outputPerToken;
+    const lane$ =
+      lane === "forced"
+        ? Math.min(
+            budget.split.forcedReportUsd - budget.forcedUsed(branchId).usd,
+            budget.reserveLeftUsd(),
+          )
+        : budget.split.branchShareUsd - budget.branchUsed(branchId).usd;
+    const left = Math.min(lane$, budget.split.budgetUsd - budget.state.spentUsd);
+    if (estimate <= left + 1e-9) return true;
+    if (lane === "branch") this.#budgetStopped.add(branchId);
+    return false;
+  }
+
+  /** The run's own taint, written onto the branch row as the run ends; it only ever goes up. */
+  #saveRunTaint(branchId: string, run: { taint: boolean; taintSources: TaintSource[] }): void {
+    if (!run.taint) return;
+    try {
+      const prev = this.#d.store.getBranch(branchId);
+      const seen = new Set<string>();
+      const merged: TaintSource[] = [];
+      for (const s of [...(prev?.taintSources ?? []), ...run.taintSources]) {
+        const key = JSON.stringify([s.sourceKind, s.origin ?? null, s.toolCallId ?? null]);
+        if (seen.has(key) || merged.length >= 20) continue;
+        seen.add(key);
+        merged.push(s);
+      }
+      this.#d.store.updateBranch(branchId, { taint: true, taintSources: merged });
+    } catch (err) {
+      this.#warn("branch taint not saved", err);
+    }
   }
 
   #budgetOf(fork: PlanFork, branches: number): ForkBudget {
@@ -554,10 +640,19 @@ export class ForkService {
   async #forceReport(fork: PlanFork, branch: PlanForkBranch, budget: ForkBudget): Promise<void> {
     void budget;
     const fresh = this.#d.store.getBranch(branch.id);
+    const digest = buildDigest(
+      this.#readsOf(branch.id).calls(),
+      this.#d.store
+        .listStaged(branch.id)
+        .filter((i) => i.status === "ready")
+        .map((i) => ({ id: i.id, summary: i.summary })),
+    );
     const task = await this.#d.tasks.create({
-      threadId: branch.threadId,
+      // A fresh context on a condensed digest: replaying the whole branch thread would trip the
+      // small cap on its first step.
+      threadId: this.#d.digestThread?.(branch) ?? branch.threadId,
       title: `${FORCED_TITLE_PREFIX}${plainLabel(branch.label)}`,
-      goal: buildForcedReportGoal({ label: branch.label }),
+      goal: buildForcedReportGoal({ label: branch.label, digest }),
       createdFrom: "fork",
       mode: "unattended",
       budget: { ...FORCED_REPORT_CAPS },
@@ -578,13 +673,15 @@ export class ForkService {
       error,
       finishedAt: new Date(this.#d.clock.now()).toISOString(),
     });
-    if (status === "cancelled" || status === "failed") {
-      for (const item of this.#d.store.listStaged(branch.id)) {
-        if (item.status === "ready") this.#d.store.dismissStaged(item.id);
-      }
-    }
+    if (status === "cancelled" || status === "failed") this.#dismissStaged(branch.id);
     this.#reads.delete(branch.id);
     this.#publish(branch.forkId);
+  }
+
+  #dismissStaged(branchId: string): void {
+    for (const item of this.#d.store.listStaged(branchId)) {
+      if (item.status === "ready") this.#d.store.dismissStaged(item.id);
+    }
   }
 
   /** When every branch has ended, the fork moves on (§2.4). */

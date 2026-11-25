@@ -61,6 +61,23 @@ export interface ForkToolInput {
   sideEffect: SideEffect;
   /** The live connector's type for an `mcp__<id>__` tool, else undefined. */
   connectorType?: string | undefined;
+  /**
+   * The Night shift domains the owner left on (`mail`, `calendar`, `reminders`, `files`). A domain
+   * that is off is off for fork branches too: its stageable writes and its reads are not
+   * registered. Omitted means all four are on.
+   */
+  domains?: ReadonlySet<string> | undefined;
+}
+
+/** The Night shift domain a connector tool belongs to, by its bare name; none for Contacts and Messages. */
+export function domainOfTool(
+  bare: string,
+): "mail" | "calendar" | "reminders" | "files" | undefined {
+  const w = STAGEABLE_TOOLS.get(bare);
+  if (w !== undefined) return w.domain;
+  if (bare.startsWith("mail_") || bare.startsWith("gmail_")) return "mail";
+  if (bare.startsWith("calendar_")) return "calendar";
+  return undefined;
 }
 
 const isRead = (s: SideEffect): boolean => s === "read" || s === "none";
@@ -74,6 +91,10 @@ export function forkToolVisible(input: ForkToolInput): boolean {
     return FORK_BUILTIN_READS.has(input.tool) && isRead(input.sideEffect);
   }
   if (input.connectorType === undefined || !STAGING_CONNECTOR_TYPES.has(input.connectorType)) {
+    return false;
+  }
+  const domain = domainOfTool(named.tool);
+  if (domain !== undefined && input.domains !== undefined && !input.domains.has(domain)) {
     return false;
   }
   // The Night shift stageable writes: staged, never run (§3.1). Only as `write`.

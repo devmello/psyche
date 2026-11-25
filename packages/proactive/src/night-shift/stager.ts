@@ -68,6 +68,12 @@ export interface StagerDeps {
   /** Secret redaction, applied before the cut (psyche-permissions §3f). */
   redact?: (text: string) => string;
   onRefused?: (info: { tool: string; reason: string }) => void;
+  /**
+   * Asked once more after the capture's awaits and before anything is written (the folds and the
+   * insert follow synchronously): false refuses the stage. A fork branch cancelled while its
+   * capture was in flight records nothing.
+   */
+  beforeWrite?: () => boolean;
 }
 
 const WHY_MAX = 300;
@@ -233,6 +239,10 @@ export function createStager(deps: StagerDeps): StagingSink {
       inverse = adapter.inverse?.(storedCall, result);
     } catch {
       inverse = undefined;
+    }
+
+    if (deps.beforeWrite !== undefined && !deps.beforeWrite()) {
+      return refuse(call.tool, "not_live_at_write");
     }
 
     // Folding: an earlier item this one replaces is not shown any more.

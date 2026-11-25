@@ -22,7 +22,8 @@ export interface ForkStagerDeps extends Omit<StagerDeps, "nightId" | "forkBranch
 
 export function createForkStager(deps: ForkStagerDeps): StagingSink {
   const { forkId, branchId, live, ...rest } = deps;
-  const inner = createStager({ ...rest, forkBranchId: branchId });
+  // `live` is asked again right before the rows are written, after the capture's awaits.
+  const inner = createStager({ ...rest, forkBranchId: branchId, beforeWrite: live });
   return {
     async stage(call: LoopStagedCall) {
       if (call.staging.kind !== "fork" || call.staging.forkId !== forkId) {

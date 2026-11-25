@@ -6,11 +6,16 @@ import {
   insertPlanForkBranch,
   openDb,
 } from "@psyche/db";
-import { AiSdkAdapter, type ModelRouter } from "@psyche/model-router";
+import { AiSdkAdapter, type ModelRouter, Prices } from "@psyche/model-router";
 import type { Task } from "@psyche/protocol";
 import { FakeClock } from "@psyche/testing";
 import { describe, expect, it } from "vitest";
-import { composeForks, FORK_POOL_CLAIM, threadModelIsLocal } from "../src/compose/forks.ts";
+import {
+  composeForks,
+  FORK_POOL_CLAIM,
+  threadModelIsLocal,
+  threadModelPrice,
+} from "../src/compose/forks.ts";
 
 /**
  * Fork a plan F2 in the Gateway (fork-a-plan-2026.md §2.3, §3.2): the pool's claim rules, the
@@ -30,7 +35,7 @@ function reg(registry: AgentToolRegistry, name: string, sideEffect: "none" | "re
   } as never);
 }
 
-function rig(opts: { local?: boolean } = {}) {
+function rig(opts: { local?: boolean; domains?: string[] } = {}) {
   const clock = new FakeClock(Date.parse("2026-11-25T10:00:00Z"));
   const db = openDb(":memory:", { now: () => new Date(clock.now()).toISOString() });
   const main = createThread(db, { kind: "main", sessionKey: "main" });
@@ -92,7 +97,7 @@ function rig(opts: { local?: boolean } = {}) {
           ["apple", "apple"],
           ["custom", "custom"],
         ]),
-      domains: () => new Set(["mail"] as const),
+      domains: () => new Set(opts.domains ?? ["mail", "calendar", "reminders", "files"]) as never,
       rehash: () => undefined,
       refresh: async () => undefined,
     },
@@ -121,6 +126,34 @@ function rig(opts: { local?: boolean } = {}) {
     cancelled,
   };
 }
+
+describe("the price of a thread's model", () => {
+  const router = (model: string | undefined) =>
+    ({ threadModel: () => model, role: () => undefined }) as unknown as ModelRouter;
+  const prices = new Prices({
+    source: "t",
+    generatedAt: "t",
+    unit: "usd_per_million_tokens",
+    models: {
+      "acme/big": { mode: "chat", input: 15, output: 75, maxOutput: 64_000 },
+      "acme/small": { mode: "chat", input: 0.25, output: 1.25, maxOutput: 2_000 },
+      "acme/embed": { mode: "embedding", input: 0.1, output: 0 },
+    },
+  });
+
+  it("prices per token, with the write capped at 8k; none for an unknown, local or embedding model", () => {
+    expect(threadModelPrice(router("acme/big"), prices, "t")).toEqual({
+      inputPerToken: 15 / 1e6,
+      outputPerToken: 75 / 1e6,
+      maxOutputTokens: 8_192,
+    });
+    expect(threadModelPrice(router("acme/small"), prices, "t")?.maxOutputTokens).toBe(2_000);
+    expect(threadModelPrice(router("ollama/llama"), prices, "t")).toBeUndefined();
+    expect(threadModelPrice(router("acme/embed"), prices, "t")).toBeUndefined();
+    expect(threadModelPrice(router(undefined), prices, "t")).toBeUndefined();
+    expect(threadModelPrice(undefined, prices, "t")).toBeUndefined();
+  });
+});
 
 describe("the fork pool's claim", () => {
   it("claims only fork tasks", () => {
@@ -155,6 +188,17 @@ describe("the toolset over the live registry", () => {
     ]) {
       expect(allowed?.(n), n).toBe(false);
     }
+  });
+
+  it("a Night shift domain the owner turned off is off for the branch (and a control with it on)", () => {
+    const staging = { kind: "fork", forkId: "f", branchId: "b" } as const;
+    const task = { title: "Plan: A" } as Task;
+    const mailOnly = rig({ domains: ["mail"] }).forks.toolsFor(staging, task);
+    expect(mailOnly?.("mcp__apple__mail_reply_draft")).toBe(true);
+    expect(mailOnly?.("mcp__apple__calendar_list_events")).toBe(false);
+    expect(mailOnly?.("memory_recall")).toBe(true);
+    const all = rig().forks.toolsFor(staging, task);
+    expect(all?.("mcp__apple__calendar_list_events")).toBe(true);
   });
 
   it("a night origin gets no fork toolset", () => {

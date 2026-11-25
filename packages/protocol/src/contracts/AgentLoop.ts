@@ -217,6 +217,16 @@ export interface StagingReadCall {
 export interface StagingReads {
   allowFetch(url: unknown): boolean;
   observe(call: StagingReadCall): void;
+  /**
+   * Asked before each model call of the run, with the estimated input tokens of the request: false
+   * refuses the step and the run ends (the branch's money share would be exceeded).
+   */
+  beforeModelCall?(step: { inputTokens: number }): boolean;
+  /**
+   * Told once as the run ends, with the run's own taint (the transcript it started from, the
+   * task's taint, context providers and what it read), so a stored row carries the real value.
+   */
+  finish?(run: { taint: boolean; taintSources: TaintSource[] }): void;
 }
 
 /** A tool call the loop is about to dispatch (`StartTurnInput.beforeDispatch`). */

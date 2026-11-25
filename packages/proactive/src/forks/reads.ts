@@ -72,9 +72,29 @@ export class BranchReads implements StagingReads {
   readonly #calls: BranchCall[] = [];
   readonly #taint: TaintSource[] = [];
   readonly #onTaint: ((sources: readonly TaintSource[]) => void) | undefined;
+  readonly #beforeModel: ((inputTokens: number) => boolean) | undefined;
+  readonly #onFinish: ((run: { taint: boolean; taintSources: TaintSource[] }) => void) | undefined;
 
-  constructor(opts: { onTaint?: (sources: readonly TaintSource[]) => void } = {}) {
+  constructor(
+    opts: {
+      onTaint?: (sources: readonly TaintSource[]) => void;
+      /** The money check before each model call (`StagingReads.beforeModelCall`). */
+      beforeModel?: (inputTokens: number) => boolean;
+      /** The run's own taint as it ends (`StagingReads.finish`). */
+      onFinish?: (run: { taint: boolean; taintSources: TaintSource[] }) => void;
+    } = {},
+  ) {
     this.#onTaint = opts.onTaint;
+    this.#beforeModel = opts.beforeModel;
+    this.#onFinish = opts.onFinish;
+  }
+
+  beforeModelCall(step: { inputTokens: number }): boolean {
+    return this.#beforeModel === undefined ? true : this.#beforeModel(step.inputTokens);
+  }
+
+  finish(run: { taint: boolean; taintSources: TaintSource[] }): void {
+    this.#onFinish?.(run);
   }
 
   allowFetch(url: unknown): boolean {

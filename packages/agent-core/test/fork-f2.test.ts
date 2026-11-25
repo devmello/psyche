@@ -373,3 +373,101 @@ describe("fork_report: a host that answers conflict", () => {
     expect(resultOf(h, "f2", 2)?.isError).not.toBe(true);
   });
 });
+
+// --- Review round 1: the step guard and the run's own taint -------------------------------------
+
+class StepGuard extends Guard {
+  readonly asked: number[] = [];
+  readonly finished: { taint: boolean; taintSources: { sourceKind: string }[] }[] = [];
+  allowSteps = true;
+  beforeModelCall(step: { inputTokens: number }): boolean {
+    this.asked.push(step.inputTokens);
+    return this.allowSteps;
+  }
+  finish(run: { taint: boolean; taintSources: { sourceKind: string }[] }): void {
+    this.finished.push(structuredClone(run));
+  }
+}
+
+describe("the loop asks the guard before each model call", () => {
+  it("must refuse: a refused step is never sent, and the run fails", async () => {
+    const h = harness({ policy: { default: "allow" }, script: [say("hello")] });
+    const guard = new StepGuard();
+    guard.allowSteps = false;
+    await run(h, FORK, guard);
+    expect(guard.asked).toHaveLength(1);
+    expect(guard.asked[0]).toBeGreaterThan(0);
+    expect(h.provider.requests).toHaveLength(0);
+  });
+
+  it("must pass: an allowed step is sent, and each step is asked (positive control)", async () => {
+    const h = harness({
+      policy: { default: "allow" },
+      script: [call("s1", "web.search", { query: "rent" }), say("done")],
+    });
+    webTools(h);
+    const guard = new StepGuard();
+    await run(h, FORK, guard);
+    expect(guard.asked).toHaveLength(2);
+    expect(h.provider.requests).toHaveLength(2);
+    // The estimate grows with the transcript.
+    expect(guard.asked[1] as number).toBeGreaterThan(guard.asked[0] as number);
+  });
+
+  it("a night run's guard is not asked (the field is the fork's only)", async () => {
+    const h = harness({ policy: { default: "allow" }, script: [say("hi")] });
+    const guard = new StepGuard();
+    await run(h, NIGHT, guard);
+    expect(guard.asked).toHaveLength(1);
+  });
+});
+
+describe("the loop tells the guard the run's own taint as it ends", () => {
+  it("must refuse: a run that read nothing untrusted itself but started from a tainted task is tainted", async () => {
+    const h = harness({ policy: { default: "allow" }, script: [say("done")] });
+    const task = await h.tasks.create({
+      threadId: "thr_1",
+      title: "Plan",
+      goal: "g",
+      createdFrom: "chat",
+      taint: true,
+      taintSources: [{ sourceKind: "email", origin: "google" }],
+    } as never);
+    const guard = new StepGuard();
+    const input = {
+      ...turnInput("work", { mode: "unattended", taskId: task.id }),
+      staging: { staging: FORK, sink: new FakeSink(), reads: guard },
+    };
+    for await (const _ of h.loop.startTurn(input)) void _;
+    expect(guard.seen).toHaveLength(0);
+    expect(guard.finished).toHaveLength(1);
+    expect(guard.finished[0]?.taint).toBe(true);
+    expect(guard.finished[0]?.taintSources.map((s) => s.sourceKind)).toContain("email");
+  });
+
+  it("must pass: a clean run with a trusted read is not tainted", async () => {
+    const h = harness({
+      policy: { default: "allow" },
+      script: [call("m1", "memory_recall", { query: "rent" }), say("done")],
+    });
+    h.loop.registry.register({
+      spec: spec("memory_recall", "read"),
+      execute: async () => ({ output: { facts: [] }, provenance: "trusted" }),
+    });
+    const guard = new StepGuard();
+    await run(h, FORK, guard);
+    expect(guard.finished).toEqual([{ taint: false, taintSources: [] }]);
+  });
+
+  it("a run that reads the web is tainted, with the tool as the source", async () => {
+    const h = harness({
+      policy: { default: "allow" },
+      script: [call("s1", "web.search", { query: "rent" }), say("done")],
+    });
+    webTools(h);
+    const guard = new StepGuard();
+    await run(h, FORK, guard);
+    expect(guard.finished[0]?.taint).toBe(true);
+    expect(guard.finished[0]?.taintSources.map((s) => s.sourceKind)).toContain("web.search");
+  });
+});

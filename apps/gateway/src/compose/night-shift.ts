@@ -675,7 +675,7 @@ export function composeNightShift(setup: NightShiftSetup) {
     stagerParts: {
       adapters: adaptersFor,
       connectors: () => connectorTypes,
-      domains: () => new Set(["mail", "calendar", "reminders", "files"] as const),
+      domains: domainsOn,
       rehash,
       refresh: refreshConnectors,
     },
