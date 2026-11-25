@@ -64,30 +64,39 @@ export function recoverAfterRestart(db: PsycheDb, log: Logger): RecoveryReport {
 }
 
 /**
- * The owner's message that started the run, for "Try again": the newest message with `owner`
- * provenance before the run's first message (or, when it has none, before it started). Peers,
- * designated people and the agent store their turns as `user` too, but not as `owner`, so a
- * resend never names words the owner did not write. None found: no action.
+ * The owner's message that started the run, for "Try again". Only ever one the owner wrote:
+ * - a message of this run (`run_id`) with `owner` provenance (an interrupting send stores its
+ *   message after it creates the run), the lowest seq;
+ * - otherwise the single newest user message before the run, accepted only when it has `owner`
+ *   provenance and the run itself is the owner's (never a channel peer's or an agent's run).
+ * Non-owner messages are never skipped past: a newer peer or agent message means no action.
  */
 function ownerMessageIdBefore(db: PsycheDb, threadId: string, runId: string): string | undefined {
+  const own = db.sqlite
+    .prepare(
+      "SELECT id FROM messages WHERE thread_id = ? AND run_id = ? AND role = 'user' AND provenance = 'owner' ORDER BY seq ASC LIMIT 1",
+    )
+    .get(threadId, runId) as { id: string } | undefined;
+  if (own !== undefined) return own.id;
+  const run = getRun(db, runId);
+  if (run === undefined || run.origin !== "owner") return undefined;
   const first = db.sqlite
     .prepare("SELECT min(seq) AS seq FROM messages WHERE thread_id = ? AND run_id = ?")
     .get(threadId, runId) as { seq: number | null } | undefined;
-  const run = getRun(db, runId);
-  if (run === undefined) return undefined;
-  const row =
+  const newest = (
     first?.seq == null
-      ? (db.sqlite
+      ? db.sqlite
           .prepare(
-            "SELECT id FROM messages WHERE thread_id = ? AND role = 'user' AND provenance = 'owner' AND created_at <= ? ORDER BY seq DESC LIMIT 1",
+            "SELECT id, provenance FROM messages WHERE thread_id = ? AND role = 'user' AND created_at <= ? ORDER BY seq DESC LIMIT 1",
           )
-          .get(threadId, run.startedAt) as { id: string } | undefined)
-      : (db.sqlite
+          .get(threadId, run.startedAt)
+      : db.sqlite
           .prepare(
-            "SELECT id FROM messages WHERE thread_id = ? AND role = 'user' AND provenance = 'owner' AND seq < ? ORDER BY seq DESC LIMIT 1",
+            "SELECT id, provenance FROM messages WHERE thread_id = ? AND role = 'user' AND seq < ? ORDER BY seq DESC LIMIT 1",
           )
-          .get(threadId, first.seq) as { id: string } | undefined);
-  return row?.id;
+          .get(threadId, first.seq)
+  ) as { id: string; provenance: string } | undefined;
+  return newest?.provenance === "owner" ? newest.id : undefined;
 }
 
 /** The restart note, with a one-tap "Try again" that resends the owner's last message. */
