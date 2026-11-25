@@ -61,7 +61,7 @@ async function world() {
 }
 
 describe("the mounted people methods and gist sources", () => {
-  it("memory.entities.interactions strips gistDocId on a remote connection, not on the desktop", async () => {
+  it("memory.entities.interactions: the desktop gets gistDocId, a remote connection is refused outright", async () => {
     const w = await world();
     const read = async (c: Call) =>
       (
@@ -73,12 +73,13 @@ describe("the mounted people methods and gist sources", () => {
       gist: "Talked about the Lisbon dates",
       gistDocId: "messages:chat1|2026-11-03|9",
     });
-    const remoteRow = await read(remote);
-    expect(remoteRow?.gist).toBe("Talked about the Lisbon dates");
-    expect(remoteRow).not.toHaveProperty("gistDocId");
+    await expect(read(remote)).rejects.toMatchObject({
+      code: "forbidden",
+      details: { reason: "not_desktop" },
+    });
   });
 
-  it("memory.entities.get strips it from recentInteractions the same way", async () => {
+  it("memory.entities.get is refused for a remote connection the same way", async () => {
     const w = await world();
     const read = async (c: Call) =>
       (
@@ -87,7 +88,7 @@ describe("the mounted people methods and gist sources", () => {
         }
       ).recentInteractions[0];
     expect(await read(desktop)).toHaveProperty("gistDocId", "messages:chat1|2026-11-03|9");
-    expect(await read(remote)).not.toHaveProperty("gistDocId");
+    await expect(read(remote)).rejects.toMatchObject({ code: "forbidden" });
   });
 
   it("sends none to anyone while the check refuses (as it does with no index)", async () => {

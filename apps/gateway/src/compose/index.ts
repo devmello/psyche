@@ -219,7 +219,7 @@ import {
 import { machineChangeHook } from "./machine-notices.ts";
 import { composeMailFollowups } from "./mail-followups.ts";
 import type { ComposedMcp } from "./mcp.ts";
-import { mountMemoryHandlers } from "./memory-chunks.ts";
+import { gateMemoryEntities, mountMemoryHandlers } from "./memory-chunks.ts";
 import { memoryStoreStatus, resolveMemoryStore, setMemoryEncrypted } from "./memory-db.ts";
 import { withMemoryEntityContext } from "./memory-item-context.ts";
 import {
@@ -2777,6 +2777,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     }),
   };
   for (const part of parts) Object.assign(handlers, part.handlers ?? {});
+  // People and projects are Memory: every memory.entities.* method is the desktop app and Host CLI only.
+  gateMemoryEntities(handlers);
   // "Erase all memory" and "forget everything learned" also erase the safety copies of the data
   // that sit in backups/pre-update: they hold what the owner just asked to be gone.
   for (const name of PURGES_SNAPSHOTS) {

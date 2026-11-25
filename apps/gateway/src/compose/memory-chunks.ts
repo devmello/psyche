@@ -192,3 +192,29 @@ export function mountMemoryHandlers(
   };
   return out;
 }
+
+/**
+ * Every `memory.entities.*` method reads or writes the people and projects in the owner's Memory
+ * (names, facts, edges, interactions, history), so each is held to the same rule as `memory.read`
+ * and `memory.export`: the desktop app and the Host CLI only. Any other connection (a phone, a
+ * remote Mac, a web viewer, a read-only or unpaired caller) is refused with `forbidden` and
+ * `details.reason = "not_desktop"`. Applied once over the final handler map, so a method added
+ * later is covered by its name, wherever it is mounted.
+ */
+export function gateMemoryEntities(handlers: Record<string, HandlerDef>): void {
+  for (const [name, def] of Object.entries(handlers)) {
+    if (!name.startsWith("memory.entities.")) continue;
+    handlers[name] = {
+      ...def,
+      run: async (call: Call, params: never) => {
+        if (!mayReadMemoryChunks(memoryViewerOf(call)))
+          throw new PsycheError(
+            "forbidden",
+            "People and projects open in the Psyche app on the Host only",
+            { details: { reason: "not_desktop" } },
+          );
+        return (def.run as (c: Call, p: never) => unknown)(call, params);
+      },
+    } as HandlerDef;
+  }
+}
