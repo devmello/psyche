@@ -40,6 +40,7 @@ import { overviewGrowth } from "./overview-growth/de.ts";
 import { overviewShared } from "./overview-shared/de.ts";
 import { passwordPresence } from "./password-presence/de.ts";
 import { peopleRest } from "./people-rest/de.ts";
+import { planFork } from "./plan-fork/de.ts";
 import { points } from "./points/de.ts";
 import { researchRest } from "./research-rest/de.ts";
 import { scheduledForm } from "./scheduled-form/de.ts";
@@ -4167,6 +4168,8 @@ export const de: Partial<Catalogue> = {
   ...points,
   // Approvals wave W3 (card choices, Allowed list)
   ...approvalsW3,
+  // Fork a plan (docs/design/fork-a-plan-2026.md §9)
+  ...planFork,
   // Gateway-authored notices (inbox notifications, security alerts)
   ...notices,
   // Settings > Computer use > Separate desktop (Linux)

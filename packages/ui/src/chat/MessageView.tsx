@@ -3,6 +3,7 @@ import {
   CornerUpLeft,
   Ellipsis,
   GitBranch,
+  GitCompareArrows,
   GraduationCap,
   LayoutPanelTop,
   Pencil,
@@ -57,6 +58,8 @@ export interface MessageViewProps {
   showHeader?: boolean;
   onReply?: (message: Message) => void;
   onFork?: (message: Message) => void;
+  /** "Fork a plan…": opens the start sheet at this message (docs/design/fork-a-plan-2026.md §5.1). */
+  onForkPlan?: (message: Message) => void;
   /** The thread is an imported conversation: its user turns are marked Imported. */
   imported?: boolean;
   /** Edit a user message and resend it as a fork (E5): called with the edited text. */
@@ -78,6 +81,7 @@ export function MessageView({
   showHeader = true,
   onReply,
   onFork,
+  onForkPlan,
   imported,
   onEdit,
   onJumpTo,
@@ -148,7 +152,7 @@ export function MessageView({
   // Teaching lives in the ⋯ menu (no thumbs): it saves a local lesson, never provider feedback.
   const canTeach = message.role === "agent" && !streamingText && imported !== true;
   const actions =
-    onReply || onFork || canEdit || canTeach ? (
+    onReply || onFork || onForkPlan || canEdit || canTeach ? (
       <DropdownMenu>
         <DropdownMenuTrigger
           render={
@@ -172,6 +176,11 @@ export function MessageView({
           {onFork ? (
             <DropdownMenuItem onClick={() => onFork(message)}>
               <GitBranch aria-hidden="true" /> {t("chat.message.fork")}
+            </DropdownMenuItem>
+          ) : null}
+          {onForkPlan ? (
+            <DropdownMenuItem onClick={() => onForkPlan(message)}>
+              <GitCompareArrows aria-hidden="true" /> {t("chat.message.forkPlan")}
             </DropdownMenuItem>
           ) : null}
           {canEdit ? (

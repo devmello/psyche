@@ -48,6 +48,7 @@ import { overviewShared } from "./overview-shared/hi.ts";
 import { passwordPresence } from "./password-presence/hi.ts";
 import { peopleRest } from "./people-rest/hi.ts";
 import { personDataRest } from "./person-data-rest/hi.ts";
+import { planFork } from "./plan-fork/hi.ts";
 import { points } from "./points/hi.ts";
 import { researchRest } from "./research-rest/hi.ts";
 import { scheduledForm } from "./scheduled-form/hi.ts";
@@ -4010,6 +4011,8 @@ export const hi: Partial<Catalogue> = {
   ...points,
   // Approvals wave W3 (card choices, Allowed list)
   ...approvalsW3,
+  // Fork a plan (docs/design/fork-a-plan-2026.md §9)
+  ...planFork,
   // Gateway-authored notices (inbox notifications, security alerts)
   ...notices,
   // Settings > Computer use > Separate desktop (Linux)

@@ -114,6 +114,11 @@ import {
   nightShiftHandlers,
   settleNightShift,
 } from "../night-shift/mock-night-shift.ts";
+import {
+  emptyPlanForks,
+  type PlanForkWorld,
+  planForkHandlers,
+} from "../plan-fork/mock-plan-fork.ts";
 import type { ConnectionState, GatewayClient, GatewayEvent, RequestOptions } from "./client.ts";
 import { isEmptyUserChat } from "./empty-chat.ts";
 import { toBase64 } from "./files.ts";
@@ -228,6 +233,8 @@ export interface MockWorld {
   graph?: GraphWorld;
   /** Spaces (`spaces.*`, docs/design/spaces-2026.md); absent → none. */
   spaces?: SpacesWorld;
+  /** Fork a plan: forks, branches and staged items (`planForks.*`; absent = none). */
+  planForks?: PlanForkWorld;
   /** Batch proposals (`proposals.*`) and the calls that fail when one runs, by proposal id. */
   proposals?: ActionProposal[];
   proposalFailures?: Record<string, Record<number, string>>;
@@ -1415,6 +1422,18 @@ export class MockGateway implements GatewayClient {
     }),
     ...proposalHandlers(this.proposalContext()),
     ...nightShiftHandlers(this.nightShiftContext()),
+    ...planForkHandlers({
+      world: () => {
+        this.world.planForks ??= emptyPlanForks();
+        return this.world.planForks;
+      },
+      now: () => this.now(),
+      id: (prefix) => this.id(prefix),
+      emit: (event, payload) => this.emit(event, payload),
+      requestApproval: (approval) => this.requestApproval(approval),
+      approvals: () => this.world.approvals,
+      answerTokens: () => this.world.answerTokens,
+    }),
     ...spacesHandlers({
       world: () => {
         this.world.spaces ??= emptySpaces();

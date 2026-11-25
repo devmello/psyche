@@ -3160,6 +3160,14 @@
         "sideEffecting": true
       },
       {
+        "description": "The prepared items of one branch (previews, binding hashes, send hashes) for the Take sheet. Scrubbed like planForks.get for a caller that is not the desktop shell: withheld items carry no summary, preview or params.",
+        "name": "planForks.staged",
+        "params": "#/$defs/PlanForksStagedParams",
+        "result": "#/$defs/PlanForksStagedResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
         "description": "Suggests two options for the start sheet from the thread, with one utility-model call. Nothing is stored; the owner edits the suggestion before starting.",
         "name": "planForks.suggest",
         "params": "#/$defs/PlanForksSuggestParams",
@@ -38714,6 +38722,42 @@
       },
       "required": [
         "branch"
+      ],
+      "type": "object"
+    },
+    "PlanForksStagedParams": {
+      "properties": {
+        "forkId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "branchId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "forkId",
+        "branchId"
+      ],
+      "type": "object"
+    },
+    "PlanForksStagedResult": {
+      "properties": {
+        "items": {
+          "items": {
+            "$ref": "#/$defs/StagedAction"
+          },
+          "maxItems": 50,
+          "type": "array"
+        }
+      },
+      "required": [
+        "items"
       ],
       "type": "object"
     },

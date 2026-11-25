@@ -1230,6 +1230,8 @@
 //   let planForksListResult = try? JSONDecoder().decode(PlanForksListResult.self, from: jsonData)
 //   let planForksRetryBranchParams = try? JSONDecoder().decode(PlanForksRetryBranchParams.self, from: jsonData)
 //   let planForksRetryBranchResult = try? JSONDecoder().decode(PlanForksRetryBranchResult.self, from: jsonData)
+//   let planForksStagedParams = try? JSONDecoder().decode(PlanForksStagedParams.self, from: jsonData)
+//   let planForksStagedResult = try? JSONDecoder().decode(PlanForksStagedResult.self, from: jsonData)
 //   let planForksSuggestParams = try? JSONDecoder().decode(PlanForksSuggestParams.self, from: jsonData)
 //   let planForksSuggestResult = try? JSONDecoder().decode(PlanForksSuggestResult.self, from: jsonData)
 //   let planForksTakeParams = try? JSONDecoder().decode(PlanForksTakeParams.self, from: jsonData)
@@ -29364,6 +29366,35 @@ public struct PlanForksRetryBranchResult: Codable, Sendable {
 
     public init(branch: PlanForkBranch) {
         self.branch = branch
+    }
+}
+
+// MARK: - PlanForksStagedParams
+public struct PlanForksStagedParams: Codable, Sendable {
+    public let branchID: String
+    public let forkID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case branchID = "branchId"
+        case forkID = "forkId"
+    }
+
+    public init(branchID: String, forkID: String) {
+        self.branchID = branchID
+        self.forkID = forkID
+    }
+}
+
+// MARK: - PlanForksStagedResult
+public struct PlanForksStagedResult: Codable, Sendable {
+    public let items: [StagedAction]
+
+    public enum CodingKeys: String, CodingKey {
+        case items = "items"
+    }
+
+    public init(items: [StagedAction]) {
+        self.items = items
     }
 }
 

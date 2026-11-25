@@ -43,6 +43,7 @@ import { overviewGrowth } from "./overview-growth/zh.ts";
 import { overviewShared } from "./overview-shared/zh.ts";
 import { passwordPresence } from "./password-presence/zh.ts";
 import { people } from "./people/zh.ts";
+import { planFork } from "./plan-fork/zh.ts";
 import { points } from "./points/zh.ts";
 import { research } from "./research/zh.ts";
 import { scheduled } from "./scheduled/zh.ts";
@@ -3933,6 +3934,8 @@ export const zh: Partial<Catalogue> = {
   ...points,
   // Approvals wave W3 (card choices, Allowed list)
   ...approvalsW3,
+  // Fork a plan (docs/design/fork-a-plan-2026.md §9)
+  ...planFork,
   // Gateway-authored notices (inbox notifications, security alerts)
   ...notices,
   // Settings > Computer use > Separate desktop (Linux)

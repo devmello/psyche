@@ -29,6 +29,7 @@ import { overview } from "./overview/pt.ts";
 import { overviewGrowth } from "./overview-growth/pt.ts";
 import { overviewShared } from "./overview-shared/pt.ts";
 import { passwordPresence } from "./password-presence/pt.ts";
+import { planFork } from "./plan-fork/pt.ts";
 import { points } from "./points/pt.ts";
 import { scheduledA } from "./scheduled-a/pt.ts";
 import { scheduledForm } from "./scheduled-form/pt.ts";
@@ -4022,6 +4023,8 @@ export const pt: Partial<Catalogue> = {
   ...points,
   // Approvals wave W3 (card choices, Allowed list)
   ...approvalsW3,
+  // Fork a plan (docs/design/fork-a-plan-2026.md §9)
+  ...planFork,
   // Gateway-authored notices (inbox notifications, security alerts)
   ...notices,
   // Settings > Computer use > Separate desktop (Linux)
