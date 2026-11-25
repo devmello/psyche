@@ -6,6 +6,7 @@ import {
   type CompactionPolicy,
   createAgentLoop,
   defangFence,
+  type ForkReportHost,
   type PsycheAgentLoop,
 } from "@psyche/agent-core";
 import {
@@ -190,6 +191,7 @@ import { feedContextResolver } from "./feed-context.ts";
 import { filesHandlers } from "./files.ts";
 import { migrateFilesConnector } from "./files-migration.ts";
 import { repointFolders, withFolder, withRecordedReal, withRecordedRef } from "./folder-access.ts";
+import { composeForks, FORK_POOL_CLAIM } from "./forks.ts";
 import { usesSandboxPc } from "./guest-sandbox.ts";
 import {
   mountParamsOnly,
@@ -1873,7 +1875,16 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     },
   });
   parts.push(spaceRun.part);
+  // `fork_report` files to the plan-fork service, which is composed after the loop (late binding).
+  const forkReportHost: { current: ForkReportHost | undefined } = { current: undefined };
   const loop = createAgentLoop({
+    forkReports: {
+      file: async (input) => {
+        const host = forkReportHost.current;
+        if (host === undefined) throw new PsycheError("unavailable", "plan forks are not ready");
+        await host.file(input);
+      },
+    },
     // Screenshots and MCP images are decoded and re-encoded (cut to 1568 px) before the model sees
     // or the thread keeps them; one that cannot be decoded becomes a note.
     toolImageShaper: (bytes, mime, signal) =>
@@ -1962,6 +1973,9 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   // Night shift (docs/design/night-shift-2026.md): composed after Proactive; the pool reaches it
   // through this ref for a staging task's sink, its toolset and its usage meter.
   let nightShiftRef: ReturnType<typeof composeNightShift> | undefined;
+  // Plan forks (docs/design/fork-a-plan-2026.md): composed right after Night shift, whose adapters
+  // they share; the fork pool reaches them through this ref.
+  let forksRef: ReturnType<typeof composeForks> | undefined;
   const taskTrace = taskRunTrace({
     db,
     sink: () => gatewayRef?.context.runTrace,
@@ -1997,6 +2011,33 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     // Specialist jobs run in their own pool, so they never take the chat tasks' slots.
     // Plan-fork branches run in their own pool (F2); until it exists none runs here.
     claim: { excludeOrigins: ["subagent", "fork"] },
+  });
+  // Plan-fork branches (fork-a-plan-2026 §2.3): their own pool, so a branch never takes a chat
+  // task's slot. Two slots, or one when the thread's model is a local one (`canClaim`).
+  const forkPool: TaskWorkerPool = new TaskWorkerPool({
+    engine: tasks,
+    loop,
+    clock,
+    broker,
+    notifier,
+    tools: registry,
+    owner: "fork",
+    concurrency: 2,
+    stagingSinkFor: (staging) => forksRef?.sinkFor(staging),
+    stagingToolsFor: (staging, task) => forksRef?.toolsFor(staging, task),
+    stagingReadsFor: (staging) => forksRef?.readsFor(staging),
+    ...(taskPollMs === undefined ? {} : { pollMs: taskPollMs }),
+    canClaim: () => updateGate.accepting() && (forksRef?.canClaim(forkPool) ?? true),
+    newRunId: () => db.newId(),
+    trace: {
+      start: (turn) => taskTrace.start(turn),
+      event: (turn, ev) => {
+        if (ev.type === "usage") forksRef?.meter(turn.taskId, ev.usage, turn.runId);
+        taskTrace.event(turn, ev);
+      },
+      end: (turn, outcome, error) => taskTrace.end(turn, outcome, error),
+    },
+    claim: FORK_POOL_CLAIM,
   });
   // Background specialists (specialists §4.5): their own slots (Settings, 1–6, default 3), FIFO,
   // at most 2 running per parent thread; a job parked on the owner frees its slot.
@@ -2044,6 +2085,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   updateGate.onReopen(() => {
     pool.poke();
     specialistPool.poke();
+    forkPool.poke();
   });
   const speechPart = parts.find(
     (p): p is ComposedPart & { meetings: MeetingIngest } => "meetings" in p,
@@ -2159,6 +2201,20 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     surfaceOf: (deviceId) => surfaceOf(db, deviceId),
     ...(gwOptions.logger === undefined ? {} : { logger: gwOptions.logger }),
   });
+  forksRef = composeForks({
+    db,
+    clock,
+    tasks: tasks as never,
+    poke: () => forkPool.poke(),
+    registry,
+    stagerParts: nightShiftRef.stagerParts,
+    router,
+    redact: (text) => redactor.redact(text),
+    publish: (event, payload) => publish(event as never, payload as never),
+    ...(gwOptions.logger === undefined ? {} : { logger: gwOptions.logger }),
+  });
+  // The report host the loop files each branch's one report to (fork_report, F1).
+  forkReportHost.current = forksRef.service.reports;
   // #557: web.search / web.fetch on every surface (read-only, untrusted output).
   const webTools = composeWebTools(
     {
@@ -2575,7 +2631,12 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       ) as never,
     ),
     ...mountParamsOnly(
-      createTaskHandlers({ engine: tasks, pool, pools: [specialistPool], broker }) as never,
+      createTaskHandlers({
+        engine: tasks,
+        pool,
+        pools: [specialistPool, forkPool],
+        broker,
+      }) as never,
     ),
     ...mountParamsOnly(
       taskUpdateHandlers({
@@ -2944,6 +3005,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   traceScrub.start();
   await proactive.start();
   await nightShiftRef?.start();
+  await forksRef?.start();
   const systemZone = new SystemZone();
   const effectiveZone = () => timeZone ?? systemZone.zone;
   await ensureWeeklyCardAutomation(scheduler, { timezone: effectiveZone() });
@@ -2967,6 +3029,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     onWake: async () => {
       await pool.renewLeases().catch(logWakeError("lease renewal after wake failed"));
       await specialistPool.renewLeases().catch(logWakeError("lease renewal after wake failed"));
+      await forkPool.renewLeases().catch(logWakeError("lease renewal after wake failed"));
       pool.poke();
       specialistPool.poke();
       await scheduler.wake().catch(logWakeError("scheduler catch-up after wake failed"));
@@ -2996,6 +3059,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     }
     pool.start();
     specialistPool.start();
+    forkPool.start();
     wakeDetector.start();
     try {
       await pool.onApprovalsReissued(tokens.takeReissued());
@@ -3042,6 +3106,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       clearInterval(zoneTimer);
       await pool.stop();
       await specialistPool.stop();
+      await forkPool.stop();
+      forksRef?.stop();
       scheduler.stop();
       keepAwake.stop();
       memory.unwatch();

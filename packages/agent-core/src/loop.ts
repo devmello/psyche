@@ -181,7 +181,15 @@ import {
   toolAllowed,
   wrapUpMessage,
 } from "./specialists.ts";
-import { readVerdict, refusedOutput, stagedOutput, stageVerdict } from "./staging.ts";
+import {
+  FORK_FETCH_TOOL,
+  FORK_REPORT_TOOL,
+  forkFetchAllowed,
+  readVerdict,
+  refusedOutput,
+  stagedOutput,
+  stageVerdict,
+} from "./staging.ts";
 import {
   emptyThreadState,
   InMemoryThreadStateStore,
@@ -1403,6 +1411,16 @@ export class PsycheAgentLoop implements AgentLoop {
         .then(() => this.#o.onOwnerTurn?.(turn))
         .catch(() => undefined);
     }
+    if (run.staging?.reads?.finish !== undefined) {
+      try {
+        run.staging.reads.finish({
+          taint: run.taint,
+          taintSources: structuredClone(dedupeSources(run.taintSources)),
+        });
+      } catch {
+        // A failing guard never fails the end of a run.
+      }
+    }
     for (const plugin of this.plugins.with("agent_end", "agentEnd")) {
       // Observers: a failing or slow plugin changes nothing.
       await withDeadline(
@@ -1474,6 +1492,23 @@ export class PsycheAgentLoop implements AgentLoop {
       // exactly like a model's call. It is consumed here so a retry of the loop never re-proposes it.
       const proposed = run.proposedCall;
       run.proposedCall = undefined;
+      // A plan-fork branch is held to its money share before each call (fork-a-plan §6): the
+      // estimate of this request's input is checked before anything is sent.
+      const stepGuard = run.staging?.reads?.beforeModelCall;
+      if (proposed === undefined && stepGuard !== undefined) {
+        let fits = false;
+        try {
+          fits = stepGuard.call(run.staging?.reads, {
+            inputTokens: estimateContextTokens(system, sent, tools),
+          });
+        } catch {
+          fits = false;
+        }
+        if (!fits) {
+          this.#marker(run, "[stopped: the next model call would pass this branch's budget]");
+          throw new RunEnd("failed", "budget_precheck");
+        }
+      }
       let step =
         proposed === undefined
           ? await this.#callModel(run, system, tools, cache)
@@ -2777,6 +2812,9 @@ export class PsycheAgentLoop implements AgentLoop {
         ? {}
         : { systemStableLength: cache.systemStableLength }),
       messages: this.#requestMessages(run),
+      ...(run.staging?.reads?.outputLimit?.() === undefined
+        ? {}
+        : { maxOutputTokens: run.staging.reads.outputLimit() as number }),
       ...(tools.length === 0 ? {} : { tools }),
       // Only beside the tools they belong to: a tool-free call loads nothing.
       ...(tools.length === 0 ||
@@ -3384,6 +3422,18 @@ export class PsycheAgentLoop implements AgentLoop {
         gated.desc = desc;
       }
     }
+    if (
+      run.staging?.staging.kind === "fork" &&
+      call.name === FORK_REPORT_TOOL &&
+      decision.decision === "ask"
+    ) {
+      // A branch's report is its deliverable: it writes only the branch's own row, through the
+      // host's checks, and a plan fork raises no cards (fork-a-plan §3.3). Were policy to ask about
+      // it, the branch could never file and would hang on a card nobody sees, so the filing is
+      // allowed (a `deny` above still blocks it, and the branch then ends `no_report`).
+      decision = { ...decision, decision: "allow", rule: "fork:report" };
+      gated.decision = decision;
+    }
     if (run.staging !== undefined && decision.decision !== "deny") {
       // Staging (night-shift-2026 §2.2): after the broker decided, before anything dispatches or
       // asks. Reads run as usual, except a read that would ask: a staging run raises no cards.
@@ -3393,7 +3443,7 @@ export class PsycheAgentLoop implements AgentLoop {
       const isRead = sideEffect === "none" || sideEffect === "read";
       // `none` is not read-only (memory writes, tools that raise cards): only a read-class call or
       // an exact-listed `none` tool may dispatch; the rest is refused like any other write.
-      const readOk =
+      const readRuns =
         isRead &&
         decision.decision !== "ask" &&
         readVerdict({
@@ -3403,13 +3453,26 @@ export class PsycheAgentLoop implements AgentLoop {
           connectorRule: desc.connectorRule,
           staging: staging.staging,
         }).run;
+      // A fork's `web.fetch` runs only for a URL a `web.search` of the same branch returned
+      // (fork-a-plan §3.2). No guard on the run means no fetch: it fails closed.
+      const fetchOk =
+        !readRuns ||
+        staging.staging.kind !== "fork" ||
+        call.name !== FORK_FETCH_TOOL ||
+        forkFetchAllowed(staging, args);
+      const readOk = readRuns && fetchOk;
       if (!readOk) {
         const verdict = isRead
           ? ({
               stage: false,
               // A read that would ask is its own reason: a fork tells the model to list it as an
               // open question (fork-a-plan §3.3).
-              reason: decision.decision === "ask" ? "read_ask" : "read_not_run",
+              reason:
+                decision.decision === "ask"
+                  ? "read_ask"
+                  : readRuns && !fetchOk
+                    ? "fetch_url"
+                    : "read_not_run",
             } as const)
           : stageVerdict({
               tool: call.name,
@@ -3970,6 +4033,22 @@ export class PsycheAgentLoop implements AgentLoop {
         }) ?? Promise.resolve(),
       ).catch(() => undefined);
     }
+    if (run.staging?.reads !== undefined) {
+      // The branch's guard learns what each read returned (the URLs of a search, the cites' proof).
+      try {
+        run.staging.reads.observe({
+          callId: call.id,
+          tool: call.name,
+          sideEffect: g.sideEffect,
+          args: structuredClone(g.args),
+          output: structuredClone(result.output),
+          ok: result.isError !== true,
+          provenance: result.provenance,
+        });
+      } catch {
+        // A failing guard never fails the call; it only learns less.
+      }
+    }
     if (result.provenance === "untrusted") {
       this.#taint(run, {
         sourceKind: call.name,
@@ -4131,6 +4210,12 @@ export class PsycheAgentLoop implements AgentLoop {
           });
         } catch (err) {
           // Not the host's message (a store error can carry a path); the model may try once more.
+          if (err instanceof PsycheError && err.code === "conflict") {
+            // The host already holds this branch's report (a host that committed and then threw,
+            // or a run that restarted): the run is done filing, never a second time.
+            run.forkReported = true;
+            throw new PsycheError("conflict", "the report was already filed");
+          }
           run.forkReported = false;
           if (err instanceof PsycheError && err.code === "invalid_params") throw err;
           throw new PsycheError("internal", "the report could not be saved; try once more");

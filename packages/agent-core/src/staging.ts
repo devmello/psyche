@@ -125,6 +125,26 @@ const LIVE_READ_PREFIX = /^(browser|computer|harness|exec|sandbox|vm|web)([._]|$
  */
 export const FORK_REPORT_TOOL = "fork_report";
 
+/** The built-in web tools a fork branch may use (fork-a-plan-2026 §3.2). */
+export const FORK_SEARCH_TOOL = "web.search";
+export const FORK_FETCH_TOOL = "web.fetch";
+
+/**
+ * Whether the run's read guard lets this `web.fetch` URL through: only a URL that a search of the
+ * same branch returned. No guard, an unreadable argument or a throwing guard all refuse.
+ */
+export function forkFetchAllowed(run: Pick<StagingRun, "reads">, args: unknown): boolean {
+  const reads = run.reads;
+  if (reads === undefined) return false;
+  const url =
+    typeof args === "object" && args !== null ? (args as { url?: unknown }).url : undefined;
+  try {
+    return reads.allowFetch(url) === true;
+  } catch {
+    return false;
+  }
+}
+
 export type ReadRefusal = "none_not_allowed" | "memory_not_view" | "network_read" | "mcp_read";
 
 export type ReadVerdict = { run: true } | { run: false; reason: ReadRefusal };
@@ -160,6 +180,13 @@ export function readVerdict(input: ReadCheckInput): ReadVerdict {
         typeof a === "object" && a !== null ? (a as { command?: unknown }).command : undefined;
       if (command !== "view") return { run: false, reason: "memory_not_view" };
     }
+    return { run: true };
+  }
+  if (
+    input.staging?.kind === "fork" &&
+    (input.tool === FORK_SEARCH_TOOL || input.tool === FORK_FETCH_TOOL)
+  ) {
+    // A branch may search the web; its fetches are held to the search results by the gate.
     return { run: true };
   }
   if (
@@ -397,7 +424,12 @@ export function stagedOutput(staging: Staging, stagedId: string) {
 export function refusedOutput(staging: Staging, reason?: string) {
   return {
     staged: false as const,
-    note: reason === "read_ask" ? readAskNote(staging) : refusalNote(staging),
+    note:
+      reason === "read_ask"
+        ? readAskNote(staging)
+        : reason === "fetch_url"
+          ? "fetch only a page that a search in this plan returned; search first"
+          : refusalNote(staging),
   };
 }
 
