@@ -147,8 +147,10 @@ describe("a project's next step from the model pass (both and the older items)",
       },
       { clock, only: [project.id] },
     );
-    const fact = graph.facts(project.id).find((f) => f.attribute === "next_step");
-    expect(fact?.provenance).toBe("untrusted");
+    // Someone else's words wait for the owner: pending, not part of what is known.
+    expect(graph.facts(project.id).find((f) => f.attribute === "next_step")).toBeUndefined();
+    const fact = graph.history(project.id, "next_step").facts[0];
+    expect(fact).toMatchObject({ provenance: "untrusted", review: "pending" });
   });
 });
 
@@ -178,7 +180,9 @@ describe("a project's next step from the model pass", () => {
       },
       { clock, only: [project.id] },
     );
-    const fact = graph.facts(project.id).find((f) => f.attribute === "next_step");
-    expect(fact?.provenance).toBe("untrusted");
+    // Someone else's words wait for the owner: pending, not part of what is known.
+    expect(graph.facts(project.id).find((f) => f.attribute === "next_step")).toBeUndefined();
+    const fact = graph.history(project.id, "next_step").facts[0];
+    expect(fact).toMatchObject({ provenance: "untrusted", review: "pending" });
   });
 });

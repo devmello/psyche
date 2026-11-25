@@ -15,6 +15,7 @@ import {
 import { join } from "node:path";
 import { deleteSettings, getSetting, openDb, type PsycheDb, setSetting } from "@psyche/db";
 import {
+  applyTrustLeakToEncrypted,
   clearPlain,
   copyBack,
   copyTables,
@@ -59,6 +60,13 @@ export type MemoryStoreState =
 
 type SqliteDb = PsycheDb["sqlite"];
 const READS = /^\s*(?:select|with|explain)\b/i;
+
+/**
+ * What counts as memory data when deciding whether the plain file is empty (resuming after a
+ * clear, or finding the encrypted file missing). The trust-leak backup table is copied and
+ * verified like the rest but never counts: its marker row would make a cleared file look full.
+ */
+const DATA_TABLES = MEMORY_STORE_TABLES.filter((t) => t !== "memory_migration_backup_2026_11");
 
 const unavailable = (reason: string): PsycheError =>
   new PsycheError("unavailable", `memory store is not open: ${reason}`);
@@ -395,7 +403,7 @@ export function resolveMemoryStore(o: {
     const plain = o.db.sqlite;
     // Resuming after a crash between the clear and recording it: the plain side is empty and the
     // backup and the encrypted file are the copies. Never discard either then.
-    const resumedAfterClear = !fresh && isEmpty(plain, MEMORY_STORE_TABLES);
+    const resumedAfterClear = !fresh && isEmpty(plain, DATA_TABLES);
     if (resumedAfterClear && !existsSync(backup))
       throw new Unrecoverable("the plain rows are gone and there is no backup to check against");
     if (!resumedAfterClear) {
@@ -451,7 +459,7 @@ export function resolveMemoryStore(o: {
       if (state !== undefined && !existsSync(path)) {
         // The encrypted file went away. If psyche.sqlite still has the rows, start over;
         // otherwise every remaining copy is kept and nothing is opened.
-        if (state === "copied" && !isEmpty(o.db.sqlite, MEMORY_STORE_TABLES)) {
+        if (state === "copied" && !isEmpty(o.db.sqlite, DATA_TABLES)) {
           deleteSettings(o.db, [MEMORY_MOVE_STATE]);
           state = undefined;
         } else {
@@ -472,6 +480,9 @@ export function resolveMemoryStore(o: {
           // Later migrations of psyche.sqlite reach the encrypted file here.
           const rebuilt = syncSchema(db, o.db.sqlite, MEMORY_STORE_TABLES);
           if (rebuilt.length > 0) o.log?.(`memory: updated ${rebuilt.join(", ")}`);
+          // Data-only migrations of the moved tables have their own step (wave 2A).
+          if (applyTrustLeakToEncrypted(db, o.db.sqlite))
+            o.log?.("memory: moved untrusted facts to review");
         } else {
           await moveIn(db, fresh);
         }

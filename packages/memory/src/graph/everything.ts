@@ -32,6 +32,7 @@ import {
   type PromiseRetentionResult,
   retainPromises,
 } from "../promises/store.ts";
+import { isLowerRanked } from "./fact-rank.ts";
 import {
   blockHash,
   hasHiddenChars,
@@ -113,7 +114,6 @@ export function isSingleValued(attribute: GraphFactAttribute): boolean {
 }
 
 /** owner > Contacts (`system`) > agent from owner-authored text > untrusted (§4.5). */
-const RANK: Record<Provenance, number> = { untrusted: 1, agent: 2, system: 3, owner: 4 };
 
 /** Relations a text may suggest (`related_to` / `reports_to` are the owner's; no `knows`). */
 const EDGE_RELS_PROPOSABLE: ReadonlySet<GraphEdgeRel> = new Set([
@@ -841,7 +841,7 @@ export class EverythingStore {
     let status: "pending" | "auto_accepted" | "superseded" | "conflict" = "pending";
     let otherId: string | undefined;
     if (prior !== undefined) {
-      const lower = RANK[input.provenance] < RANK[prior.provenance];
+      const lower = isLowerRanked(input.provenance, prior.provenance);
       const ownerConfirmed = prior.review === "accepted" || prior.review === "edited";
       if (lower) {
         // A lower-ranked source never changes what a higher-ranked one said: ask.
@@ -1390,7 +1390,7 @@ export class EverythingStore {
       const change =
         prior === undefined
           ? "new"
-          : RANK[r.provenance] < RANK[prior.provenance]
+          : isLowerRanked(r.provenance, prior.provenance)
             ? "conflict"
             : "changed";
       return {
