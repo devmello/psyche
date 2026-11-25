@@ -418,6 +418,19 @@ const FIXED: Record<string, Row> = {
     "Qual? Responda com a ref.",
     "是哪一个?请回复编号。",
   ],
+  needsDevice: [
+    "This one needs your Mac or iPhone.",
+    "هذا الطلب يحتاج إلى جهاز Mac أو iPhone الخاص بك.",
+    "Das geht nur an deinem Mac oder iPhone.",
+    "Esto necesita tu Mac o tu iPhone.",
+    "Celle-ci nécessite ton Mac ou ton iPhone.",
+    "इसके लिए आपका Mac या iPhone चाहिए।",
+    "Questa richiede il tuo Mac o il tuo iPhone.",
+    "これには Mac か iPhone が必要です。",
+    "이 요청은 Mac이나 iPhone이 필요합니다.",
+    "Esta precisa do seu Mac ou iPhone.",
+    "这个需要在你的 Mac 或 iPhone 上处理。",
+  ],
   approve: [
     "Approve",
     "موافقة",
@@ -1060,6 +1073,14 @@ export function localizeCardText(
       return line;
     })
     .join("\n");
+}
+
+/**
+ * Discord renders markdown in everything it shows: a target such as `[x](https://evil)` would
+ * become a masked link on an approval card. Escapes it, and breaks `@` mentions.
+ */
+export function escapeDiscordText(text: string): string {
+  return text.replace(/[\\*_~`|>[\]()<]/g, "\\$&").replace(/@/g, "@\u200b");
 }
 
 /** A kind title (`Send email`) for a confirmation line, in `language`. */

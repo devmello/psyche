@@ -37,7 +37,13 @@ export interface ApprovalHost {
   sendText(channel: Channel, chatId: string, text: string): Promise<string | void>;
   now(): number;
   /** Notes a message the router sent through an adapter directly (the card itself). */
-  recordSent?(channel: Channel, chatId: string, messageId: string): void;
+  recordSent?(channel: Channel, chatId: string, messageId: string): number | void;
+  /**
+   * The newest outbound sequence number the host has sent to any of these chats of the channel
+   * (approval replies not counted); 0 when none. A card is "the newest message" while this is not
+   * above the card's own sequence.
+   */
+  lastOutbound?(channel: Channel, chatIds: readonly string[]): number;
   /** Whether `messageId` is still the newest message in that chat (nothing sent or received after). */
   isLastMessage?(channel: Channel, chatId: string, messageId: string): boolean;
   /** The name of a paired device (`iPhone`), for "Approved on iPhone". */
@@ -51,6 +57,10 @@ interface Delivery {
   answerToken: string;
   /** The card message, when the transport reported one (to edit it when the card is settled). */
   messageId?: string;
+  /** When the card reached the chat (host clock, ms): an earlier message cannot answer it. */
+  deliveredAt: number;
+  /** The host's outbound sequence number of the card, when it reported one. */
+  seq?: number;
   /**
    * False for a pointer (device-only kinds, a card too long to show, sensitive arguments): the
    * chat may deny it with `/deny <ref>` but never approve it.
@@ -171,7 +181,10 @@ export class ChatApprovals {
           } catch {
             // A courtesy: the report carries the reason either way.
           }
-          if (messageId !== undefined) this.#host.recordSent?.(channel, peerId, messageId);
+          const seq =
+            messageId === undefined
+              ? undefined
+              : this.#host.recordSent?.(channel, peerId, messageId);
           // A device-only approval is refused from chat whatever the answer: nothing to deny.
           if (!approval.deviceOnly) {
             pending.deliveries.push({
@@ -180,7 +193,9 @@ export class ChatApprovals {
               surface,
               answerToken,
               answerable: false,
+              deliveredAt: this.#host.now(),
               ...(messageId === undefined ? {} : { messageId }),
+              ...(typeof seq === "number" ? { seq } : {}),
             });
           }
           reports.push({ surface, delivered: false, reason });
@@ -247,14 +262,17 @@ export class ChatApprovals {
           reports.push({ surface, delivered: false, reason: `send_failed:${code}` });
           continue;
         }
-        if (messageId !== undefined) this.#host.recordSent?.(channel, peerId, messageId);
+        const seq =
+          messageId === undefined ? undefined : this.#host.recordSent?.(channel, peerId, messageId);
         pending.deliveries.push({
           channelId: channel.id,
           chatId: peerId,
           surface,
           answerToken,
           answerable: true,
+          deliveredAt: this.#host.now(),
           ...(messageId === undefined ? {} : { messageId }),
+          ...(typeof seq === "number" ? { seq } : {}),
         });
         reports.push({ surface, delivered: true });
       }
@@ -330,10 +348,25 @@ export class ChatApprovals {
    */
   async answerPlain(
     channel: Channel,
-    chat: { chatId: string; senderId: string; isGroup: boolean; text: string },
+    chat: {
+      chatId: string;
+      senderId: string;
+      isGroup: boolean;
+      text: string;
+      /** When the transport says the message was sent (epoch ms); 0 or missing: never an answer. */
+      receivedAt: number;
+      /** The message the owner swiped to reply to, when the transport says. */
+      replyToMessageId?: string | undefined;
+      /** The message quotes something (a reply the transport did not identify). */
+      quotes?: boolean;
+      hasAttachments?: boolean;
+    },
   ): Promise<{ handled: boolean }> {
     const decision = plainDecision(chat.text);
-    if (decision === undefined || chat.isGroup) return { handled: false };
+    if (decision === undefined || chat.isGroup || chat.hasAttachments === true) {
+      return { handled: false };
+    }
+    if (!Number.isFinite(chat.receivedAt) || chat.receivedAt <= 0) return { handled: false };
     if (!CHAT_APPROVAL_CHANNELS(channel) || isWeakTransport(channel.type)) {
       return { handled: false };
     }
@@ -348,20 +381,45 @@ export class ChatApprovals {
       const delivery = pending.deliveries.find(
         (d) => d.surface === surface && d.channelId === channel.id,
       );
-      if (delivery !== undefined) open.push({ pending, delivery });
+      // A "yes" sent before the card reached the chat (a poll or a backlog delivering it late) is
+      // not an answer to it. Strictly later only: a transport that dates messages to the second
+      // can never answer a card delivered in the same second.
+      if (delivery !== undefined && chat.receivedAt > delivery.deliveredAt) {
+        open.push({ pending, delivery });
+      }
     }
-    const only = open[0];
-    if (only === undefined) return { handled: false };
-    if (open.length === 1) {
-      // The one open card is a pointer (payment, purchase, credential, …): "yes" cannot answer it.
-      if (!only.delivery.answerable) return { handled: false };
+    const answer = async (o: { pending: Pending; delivery: Delivery }) => {
+      if (!o.delivery.answerable) {
+        await this.#host.sendText(channel, chat.chatId, channelText("needsDevice"));
+        return { handled: true };
+      }
       await this.#answer(channel, chat.senderId, chat.chatId, {
-        approvalId: only.pending.approval.id,
-        answerToken: only.delivery.answerToken,
+        approvalId: o.pending.approval.id,
+        answerToken: o.delivery.answerToken,
         decision,
       });
       return { handled: true };
+    };
+    // A swipe-reply names its card: that card, even among several; a reply to anything else is
+    // not an answer to a card.
+    if (chat.replyToMessageId !== undefined) {
+      const target = open.find((o) => o.delivery.messageId === chat.replyToMessageId);
+      return target === undefined ? { handled: false } : answer(target);
     }
+    if (chat.quotes === true) return { handled: false };
+    const only = open[0];
+    if (only === undefined) return { handled: false };
+    // A bare "yes" belongs to the card only while the card is the newest thing Psyche said there:
+    // after an agent question or reply, it is an answer to that.
+    const seqs = open.map((o) => o.delivery.seq).filter((n): n is number => n !== undefined);
+    const newest = this.#host.lastOutbound?.(channel, [
+      chat.chatId,
+      ...new Set(open.map((o) => o.delivery.chatId)),
+    ]);
+    if (newest !== undefined && seqs.length > 0 && newest > Math.max(...seqs)) {
+      return { handled: false };
+    }
+    if (open.length === 1) return answer(only);
     if (!open.some((o) => o.delivery.answerable)) return { handled: false };
     await this.#host.sendText(channel, chat.chatId, channelText("whichOne"));
     return { handled: true };

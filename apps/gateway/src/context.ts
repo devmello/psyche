@@ -103,6 +103,13 @@ export interface LiveConnection {
   readonly pendingDeviceId: string | null;
   /** Paired and not closed. */
   readonly open: boolean;
+  /**
+   * Epoch ms of this paired device's last request that changes something (a side-effecting
+   * method: sending a chat, answering an approval, changing a setting). Subscriptions, reads,
+   * pings and reconnects never count, so a hidden desktop window that only keeps its socket open
+   * is not "in use". Absent until the first one. Approval routing reads it (decision D3).
+   */
+  readonly lastActivityAt?: number;
   close(reason: string): void;
   /** Closes once the reply to the request in progress is out (a device removing itself). */
   closeAfterReply?(reason: string): void;

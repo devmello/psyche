@@ -14,7 +14,7 @@ import {
 } from "@psyche/protocol";
 import WebSocket from "ws";
 import { approvalRef, chatEligibility, renderApprovalCard } from "../../format/approval-card.ts";
-import { channelText } from "../../text.ts";
+import { channelText, escapeDiscordText } from "../../text.ts";
 import { APPROVAL_NONCE_GRACE_MS, readCapped, STALE_APPROVAL_TEXT } from "../telegram/adapter.ts";
 import { approvalCallbackData, parseApprovalCallback } from "../telegram/mapping.ts";
 import { type DiscordMessage, discordMessageId, isSnowflake, mapMessage } from "./mapping.ts";
@@ -306,7 +306,7 @@ export class DiscordAdapter implements ChannelAdapter {
       now,
       maxChars: DISCORD_MAX_MESSAGE_CHARS,
     });
-    if (!card.answerable) return this.#post(chatId, { content: card.text });
+    if (!card.answerable) return this.#post(chatId, { content: escapeDiscordText(card.text) });
     const channelId = await this.#target(chatId);
     this.#prune();
     const nonce = randomBytes(9).toString("base64url");
@@ -325,7 +325,7 @@ export class DiscordAdapter implements ChannelAdapter {
     });
     try {
       return await this.#post(channelId, {
-        content: card.text,
+        content: escapeDiscordText(card.text),
         components: [
           {
             type: 1,
@@ -654,7 +654,7 @@ export class DiscordAdapter implements ChannelAdapter {
       "PATCH",
       `/channels/${channelId}/messages/${messageId}`,
       "PATCH /channels/:id/messages/:id",
-      { content: text.slice(0, DISCORD_MAX_MESSAGE_CHARS), components: [] },
+      { content: escapeDiscordText(text).slice(0, DISCORD_MAX_MESSAGE_CHARS), components: [] },
     );
   }
 

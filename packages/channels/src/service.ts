@@ -39,7 +39,7 @@ import { backoffDelay, RateLimiter, realSleep, type Sleep } from "./ratelimit.ts
 import type { RouteContext } from "./routing.ts";
 import { channelSettings, isWeakTransport, validateChannel } from "./settings.ts";
 import type { ChannelStore } from "./store/types.ts";
-import { setChannelTextLanguage } from "./text.ts";
+import { escapeDiscordText, setChannelTextLanguage } from "./text.ts";
 import { INBOUND_VOICE_FORMAT } from "./voice.ts";
 
 /**
@@ -155,6 +155,9 @@ export class ChannelService {
   #onInboundDecision: ((event: InboundDecisionEvent) => void) | undefined;
   #onPairingDecided: ((event: PairingDecidedEvent) => void) | undefined;
   #admitInbound: ((channel: Channel, message: InboundMessage) => boolean) | undefined;
+  /** Outbound sequence numbers: a card is the newest thing said in a chat while none is above it. */
+  #outSeq = 0;
+  #lastOut = new Map<string, number>();
   /** The newest message id per chat (sent or received): a card is followed up only while it is last. */
   #newest = new Map<string, string>();
   #channels = new Map<string, Channel>();
@@ -205,18 +208,32 @@ export class ChannelService {
             channel.ownerIds,
           ),
         sendText: async (channel, chatId, text) => {
-          const sent = await this.send({ channelId: channel.id, chatId }, text, {
+          const shown = channel.type === "discord" ? escapeDiscordText(text) : text;
+          const sent = await this.send({ channelId: channel.id, chatId }, shown, {
             format: "plain",
+            approval: true,
           });
           return sent.at(-1)?.messageId;
         },
         now: () => this.#clock.now(),
-        recordSent: (channel, chatId, messageId) => this.#noteNewest(channel.id, chatId, messageId),
+        recordSent: (channel, chatId, messageId) => {
+          this.#noteNewest(channel.id, chatId, messageId);
+          return this.#noteOutbound(channel.id, chatId);
+        },
+        lastOutbound: (channel, chatIds) =>
+          Math.max(0, ...chatIds.map((c) => this.#lastOut.get(`${channel.id}|${c}`) ?? 0)),
         isLastMessage: (channel, chatId, messageId) =>
           this.#newest.get(`${channel.id}|${chatId}`) === messageId,
         ...(options.deviceName === undefined ? {} : { deviceName: options.deviceName }),
       },
     });
+  }
+
+  #noteOutbound(channelId: string, chatId: string): number {
+    if (this.#lastOut.size >= 500) this.#lastOut.clear();
+    this.#outSeq += 1;
+    this.#lastOut.set(`${channelId}|${chatId}`, this.#outSeq);
+    return this.#outSeq;
   }
 
   #noteNewest(channelId: string, chatId: string, messageId: string): void {
@@ -552,6 +569,8 @@ export class ChannelService {
       format?: "plain" | "markdown";
       attachments?: ChannelAttachment[];
       signal?: AbortSignal;
+      /** The approval router's own text (confirmations, pointers): not a message the agent said. */
+      approval?: boolean;
     } = {},
   ): Promise<SendResult[]> {
     const { channel, adapter } = this.#adapterFor(target.channelId);
@@ -631,6 +650,7 @@ export class ChannelService {
     }
     const newest = results.at(-1)?.messageId;
     if (newest !== undefined) this.#noteNewest(channel.id, target.chatId, newest);
+    if (options.approval !== true) this.#noteOutbound(channel.id, target.chatId);
     return results;
   }
 
@@ -795,6 +815,10 @@ export class ChannelService {
         senderId: message.senderId,
         isGroup: message.isGroup,
         text: message.text,
+        receivedAt: message.receivedAt,
+        replyToMessageId: message.replyToMessageId,
+        quotes: message.quoted !== undefined,
+        hasAttachments: (message.attachments?.length ?? 0) > 0,
       });
       if (plain.handled) return;
     }

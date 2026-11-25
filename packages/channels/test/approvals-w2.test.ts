@@ -36,7 +36,7 @@ describe("a plain yes or no answers the one open card", () => {
     const issued = await h.broker.requestApproval(input());
     await h.service.deliverApproval(issued);
     h.clock.advance(1000);
-    await h.adapter.receive({ senderId: OWNER, text: "yes" });
+    await h.adapter.receive({ senderId: OWNER, receivedAt: h.clock.now(), text: "yes" });
     const decided = await h.broker.get(issued.approval.id);
     expect(decided?.status).toBe("approved");
     expect(decided?.scopeGranted).toBe("once");
@@ -54,7 +54,7 @@ describe("a plain yes or no answers the one open card", () => {
     const issued = await h.broker.requestApproval(input());
     await h.service.deliverApproval(issued);
     h.clock.advance(1000);
-    await h.adapter.receive({ senderId: OWNER, text });
+    await h.adapter.receive({ senderId: OWNER, receivedAt: h.clock.now(), text });
     expect((await h.broker.get(issued.approval.id))?.status).toBe(status);
   });
 
@@ -65,7 +65,7 @@ describe("a plain yes or no answers the one open card", () => {
     await h.service.deliverApproval(a);
     await h.service.deliverApproval(b);
     h.clock.advance(1000);
-    await h.adapter.receive({ senderId: OWNER, text: "yes" });
+    await h.adapter.receive({ senderId: OWNER, receivedAt: h.clock.now(), text: "yes" });
     expect(sentTexts(h).at(-1)).toBe("Which one? Reply with the ref.");
     expect((await h.broker.get(a.approval.id))?.status).toBe("pending");
     expect((await h.broker.get(b.approval.id))?.status).toBe("pending");
@@ -80,14 +80,20 @@ describe("a plain yes or no answers the one open card", () => {
     const issued = await h.broker.requestApproval(input());
     await h.service.deliverApproval(issued);
     h.clock.advance(1000);
-    await h.adapter.receive({ senderId: OWNER, chatId: GROUP, isGroup: true, text: "yes" });
-    await h.adapter.receive({ senderId: FRIEND, text: "yes" });
+    await h.adapter.receive({
+      senderId: OWNER,
+      receivedAt: h.clock.now(),
+      chatId: GROUP,
+      isGroup: true,
+      text: "yes",
+    });
+    await h.adapter.receive({ senderId: FRIEND, receivedAt: h.clock.now(), text: "yes" });
     expect((await h.broker.get(issued.approval.id))?.status).toBe("pending");
   });
 
   it("a yes with no open card goes to the agent as before", async () => {
     const h = await harness();
-    await h.adapter.receive({ senderId: OWNER, text: "yes" });
+    await h.adapter.receive({ senderId: OWNER, receivedAt: h.clock.now(), text: "yes" });
     expect(h.delivered).toHaveLength(1);
     expect(h.delivered[0]?.message.text).toBe("yes");
   });
@@ -109,9 +115,11 @@ describe("a plain yes or no answers the one open card", () => {
     };
     await h.service.deliverApproval(forced);
     h.clock.advance(1000);
-    await h.adapter.receive({ senderId: OWNER, text: "yes" });
+    await h.adapter.receive({ senderId: OWNER, receivedAt: h.clock.now(), text: "yes" });
     expect((await h.broker.get(issued.approval.id))?.status).toBe("pending");
-    expect(h.delivered.map((d) => d.message.text)).toEqual(["yes"]);
+    // The one open card is a pointer: the owner is told where to answer it, not the agent.
+    expect(h.delivered).toHaveLength(0);
+    expect(sentTexts(h).at(-1)).toBe("This one needs your Mac or iPhone.");
     expect(sentTexts(h)[0]).toContain(DEVICE_ONLY_TEXT);
   });
 
@@ -128,7 +136,7 @@ describe("a plain yes or no answers the one open card", () => {
         approval: { ...issued.approval, sideEffect: "destructive" },
       });
       h.clock.advance(1000);
-      await h.adapter.receive({ senderId: OWNER, text: "yes" });
+      await h.adapter.receive({ senderId: OWNER, receivedAt: h.clock.now(), text: "yes" });
       expect((await h.broker.get(issued.approval.id))?.status).toBe(allow ? "approved" : "pending");
     }
   });
@@ -157,10 +165,14 @@ describe("pointer cards", () => {
     expect(sentTexts(h)[0]).toContain(`To deny, reply "/deny ${ref}".`);
     expect(sentTexts(h)[0]).not.toContain("/approve");
     h.clock.advance(1000);
-    await h.adapter.receive({ senderId: OWNER, text: `/approve ${ref} approve` });
+    await h.adapter.receive({
+      senderId: OWNER,
+      receivedAt: h.clock.now(),
+      text: `/approve ${ref} approve`,
+    });
     expect((await h.broker.get(issued.approval.id))?.status).toBe("pending");
     expect(sentTexts(h).at(-1)).toBe("This approval can only be answered on a paired device.");
-    await h.adapter.receive({ senderId: OWNER, text: `/deny ${ref}` });
+    await h.adapter.receive({ senderId: OWNER, receivedAt: h.clock.now(), text: `/deny ${ref}` });
     expect((await h.broker.get(issued.approval.id))?.status).toBe("denied");
   });
 });
@@ -233,7 +245,11 @@ describe("settled cards are retired", () => {
       input({ bindingHash: `sha256:${"c".repeat(64)}` }),
     );
     await h.service.deliverApproval(second);
-    await h.adapter.receive({ senderId: OWNER, text: "meanwhile, something else" });
+    await h.adapter.receive({
+      senderId: OWNER,
+      receivedAt: h.clock.now(),
+      text: "meanwhile, something else",
+    });
     const before = sentTexts(h).length;
     await h.service.retireApproval({ ...second.approval, status: "expired" });
     expect(sentTexts(h)).toHaveLength(before);
@@ -319,5 +335,148 @@ describe("routing: which chats get a card", () => {
     ],
   ] as const)("%s", (_name, over, expected) => {
     expect(approvalChatSurfaces({ ...base, ...over })).toEqual(expected);
+  });
+});
+
+describe("a plain yes is bound to the card it answers", () => {
+  const plain = { capabilities: { buttons: false, reactions: false } } as const;
+  const cardId = (h: Awaited<ReturnType<typeof harness>>, n = 0) =>
+    h.adapter.sent.filter((x) => x.text.includes("Expires in"))[n]?.messageId;
+
+  it("a yes sent before the card was delivered is not an answer (poll, backlog, same second)", async () => {
+    for (const lag of [-2000, -1, 0]) {
+      const h = await harness(plain);
+      h.clock.advance(5000);
+      const issued = await h.broker.requestApproval(input());
+      await h.service.deliverApproval(issued);
+      // receivedAt = delivery time + lag: strictly after is the only answer.
+      await h.adapter.receive({ senderId: OWNER, receivedAt: h.clock.now() + lag, text: "yes" });
+      expect((await h.broker.get(issued.approval.id))?.status).toBe("pending");
+      expect(h.delivered.map((d) => d.message.text)).toEqual(["yes"]);
+    }
+    const h = await harness(plain);
+    const issued = await h.broker.requestApproval(input());
+    await h.service.deliverApproval(issued);
+    h.clock.advance(1000);
+    await h.adapter.receive({ senderId: OWNER, receivedAt: h.clock.now(), text: "yes" });
+    expect((await h.broker.get(issued.approval.id))?.status).toBe("approved");
+  });
+
+  it("a missing receive time, or an attachment, is never an answer", async () => {
+    const h = await harness(plain);
+    const issued = await h.broker.requestApproval(input());
+    await h.service.deliverApproval(issued);
+    h.clock.advance(1000);
+    await h.adapter.receive({ senderId: OWNER, receivedAt: 0, text: "yes" });
+    await h.adapter.receive({
+      senderId: OWNER,
+      receivedAt: h.clock.now(),
+      text: "yes",
+      attachments: [{ kind: "image", name: "a.png", mimeType: "image/png", ref: "r" }] as never,
+    });
+    expect((await h.broker.get(issued.approval.id))?.status).toBe("pending");
+  });
+
+  it("a swipe-reply answers the card it names, even among several", async () => {
+    const h = await harness(plain);
+    const a = await h.broker.requestApproval(input());
+    const b = await h.broker.requestApproval(input({ bindingHash: `sha256:${"b".repeat(64)}` }));
+    await h.service.deliverApproval(a);
+    await h.service.deliverApproval(b);
+    h.clock.advance(1000);
+    await h.adapter.receive({
+      senderId: OWNER,
+      receivedAt: h.clock.now(),
+      text: "yes",
+      replyToMessageId: cardId(h, 1) ?? "",
+    });
+    expect((await h.broker.get(b.approval.id))?.status).toBe("approved");
+    expect((await h.broker.get(a.approval.id))?.status).toBe("pending");
+  });
+
+  it("a swipe-reply to an answered card or to another message answers nothing", async () => {
+    const h = await harness(plain);
+    const a = await h.broker.requestApproval(input());
+    const b = await h.broker.requestApproval(input({ bindingHash: `sha256:${"b".repeat(64)}` }));
+    await h.service.deliverApproval(a);
+    await h.service.deliverApproval(b);
+    h.clock.advance(1000);
+    const old = cardId(h, 0) ?? "";
+    await h.adapter.receive({
+      senderId: OWNER,
+      receivedAt: h.clock.now(),
+      text: "no",
+      replyToMessageId: old,
+    });
+    expect((await h.broker.get(a.approval.id))?.status).toBe("denied");
+    h.clock.advance(1000);
+    for (const replyToMessageId of [old, "some-other-message"]) {
+      await h.adapter.receive({
+        senderId: OWNER,
+        receivedAt: h.clock.now(),
+        text: "yes",
+        replyToMessageId,
+      });
+    }
+    await h.adapter.receive({
+      senderId: OWNER,
+      receivedAt: h.clock.now(),
+      text: "yes",
+      quoted: { text: "Want me to continue?", fromSelf: true },
+    });
+    expect((await h.broker.get(b.approval.id))?.status).toBe("pending");
+    expect(h.delivered).toHaveLength(3);
+  });
+
+  it("after the agent says something else, a bare yes goes to the agent", async () => {
+    const h = await harness(plain);
+    const issued = await h.broker.requestApproval(input());
+    await h.service.deliverApproval(issued);
+    h.clock.advance(1000);
+    await h.service.send({ channelId: h.channel.id, chatId: OWNER }, "Should I also archive it?");
+    h.clock.advance(1000);
+    await h.adapter.receive({ senderId: OWNER, receivedAt: h.clock.now(), text: "yes" });
+    expect((await h.broker.get(issued.approval.id))?.status).toBe("pending");
+    expect(h.delivered.map((d) => d.message.text)).toEqual(["yes"]);
+  });
+
+  it("the router's own replies (Which one?, confirmations) do not take the card's place", async () => {
+    const h = await harness(plain);
+    const a = await h.broker.requestApproval(input());
+    const b = await h.broker.requestApproval(input({ bindingHash: `sha256:${"b".repeat(64)}` }));
+    await h.service.deliverApproval(a);
+    await h.service.deliverApproval(b);
+    h.clock.advance(1000);
+    await h.adapter.receive({ senderId: OWNER, receivedAt: h.clock.now(), text: "yes" });
+    expect(sentTexts(h).at(-1)).toBe("Which one? Reply with the ref.");
+    h.clock.advance(1000);
+    await h.adapter.receive({
+      senderId: OWNER,
+      receivedAt: h.clock.now(),
+      text: `/approve ${approvalRef(a.approval.id)} approve`,
+    });
+    h.clock.advance(1000);
+    await h.adapter.receive({ senderId: OWNER, receivedAt: h.clock.now(), text: "yes" });
+    expect((await h.broker.get(b.approval.id))?.status).toBe("approved");
+  });
+});
+
+describe("display of the target", () => {
+  it("a lookalike host in the target is shown as punycode in the confirmation", async () => {
+    const h = await harness({ capabilities: { buttons: false, reactions: false } });
+    const issued = await h.broker.requestApproval(
+      input({ target: { kind: "origin", value: "https://аpple.com" } }),
+    );
+    await h.service.deliverApproval(issued);
+    h.clock.advance(1000);
+    await h.adapter.receive({ senderId: OWNER, receivedAt: h.clock.now(), text: "yes" });
+    expect(sentTexts(h).at(-1)).toContain("xn--");
+  });
+
+  it("Discord text is markdown-escaped so a target cannot become a masked link", async () => {
+    const { escapeDiscordText } = await import("../src/text.ts");
+    expect(escapeDiscordText("[click](https://evil.example) @everyone")).toBe(
+      "\\[click\\]\\(https://evil.example\\) @\u200beveryone",
+    );
   });
 });

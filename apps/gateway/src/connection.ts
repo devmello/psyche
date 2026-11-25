@@ -160,6 +160,11 @@ export class Connection implements LiveConnection {
     return this.#identity;
   }
 
+  #activityAt: number | undefined;
+  get lastActivityAt(): number | undefined {
+    return this.#activityAt;
+  }
+
   get pendingDeviceId(): string | null {
     return this.#pendingDeviceId;
   }
@@ -356,6 +361,11 @@ export class Connection implements LiveConnection {
       throw new PsycheError("forbidden", `${method} requires scope ${scope}`);
     }
     this.#rateLimit(identity, method, spec.sideEffecting, params);
+    // Owner activity for approval routing: a request that changes something, from a paired
+    // device (a machine's `node.*` and the gateway's own methods are not the owner at work).
+    if (spec.sideEffecting && identity.role !== "node" && !method.startsWith("node.")) {
+      this.#activityAt = this.#ctx.now().getTime();
+    }
     // Counted only when the call is about to run (after params, scope, presence and the replay
     // check), so a refused or replayed request costs nothing.
     const budgeted =

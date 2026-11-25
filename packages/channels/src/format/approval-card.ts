@@ -1,6 +1,7 @@
 import {
   denyHintText,
   kindTitle,
+  punycodeHosts,
   renderForSurface,
   sanitizeDisplay,
   TOO_LONG_TEXT,
@@ -26,7 +27,7 @@ export function approvalWhat(approval: Pick<ApprovalRequest, "kind" | "target">)
   const title = localizeKindTitle(kindTitle(approval.kind));
   const raw = approval.target?.display ?? approval.target?.value;
   if (raw === undefined || raw.trim() === "") return title;
-  return `${title} — ${sanitizeDisplay(raw, 80)}`;
+  return `${title} — ${punycodeHosts(sanitizeDisplay(raw, 80))}`;
 }
 
 /** Kinds that never reach chat, whatever the request's `deviceOnly` says (security §3.7, §9). */

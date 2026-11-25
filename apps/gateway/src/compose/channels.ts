@@ -48,10 +48,10 @@ import {
   findThreadBySessionKey,
   getAgentThreadState,
   getDevice,
+  getRun,
   getSetting,
   getThread,
   getWidgets,
-  listDevices,
   type PsycheDb,
   updateThread,
 } from "@psyche/db";
@@ -69,6 +69,7 @@ import {
   type EventName,
   type EventPayload,
   type InboundMessage,
+  type IssuedApproval,
   type JsonObject,
   type Message,
   type MessagesSendParams,
@@ -90,6 +91,7 @@ import { sealedChannelStore } from "../security/sealed-stores.ts";
 import { ensureSecurityState, stateSealFor } from "../security/state-seal.ts";
 import type { Gateway } from "../server.ts";
 import type { TxHooks } from "../session/controller.ts";
+import { AwayRouter } from "./approval-away.ts";
 import { channelSecretHandlers, vaultChannelSecret } from "./channel-secrets.ts";
 import { type EmailSetup, emailSetupFromEnv, mailEmailTransport } from "./email-channel.ts";
 import { indexedChannelLibrary } from "./library.ts";
@@ -898,6 +900,8 @@ export function composeChannels(
   // For the reply authority: each channel run's taint, and the sends in flight per conversation
   // (`<type>:<account>|<chatId>` → run id, or null for Gateway-composed text).
   const turns = new Map<string, TurnState>();
+  /** The chat a thread last took a turn from: a task started there from a chat belongs to it. */
+  const lastChatByThread = new Map<string, string>();
   const inflight = new Map<string, (string | null)[]>();
 
   const publish = <E extends EventName>(event: E, payload: EventPayload<E>) =>
@@ -1310,6 +1314,9 @@ export function composeChannels(
         | { sources?: TaintSource[] }
         | undefined;
       const origin = pending.requester;
+      if (origin.channel !== undefined && origin.senderId !== undefined) {
+        lastChatByThread.set(threadId, `${origin.channel}:${origin.senderId}`);
+      }
       turns.set(runId, {
         threadId,
         ...(origin.channel === undefined || origin.senderId === undefined
@@ -1549,6 +1556,98 @@ export function composeChannels(
 
   // --- lifecycle ---------------------------------------------------------------------------
 
+  // --- approval routing (decision D3) --------------------------------------------------------
+
+  /** The owner chat a thread belongs to (`channel:<type>:<account>:dm:<sender>`), if it is one. */
+  const threadSurface = (threadId: string | null | undefined): string | undefined => {
+    if (threadId === null || threadId === undefined) return undefined;
+    const thread = getThread(db, threadId);
+    if (thread?.kind !== "channel") return undefined;
+    const m = /^channel:([a-z]+):.+?:dm:(.+)$/.exec(thread.sessionKey ?? "");
+    return m === null ? undefined : `${m[1]}:${m[2]}`;
+  };
+  /**
+   * The chat an approval's run came from: the run (or the run that spawned it, a specialist's
+   * parent) while it is a chat turn, then the thread of those runs, the request's own thread, and
+   * the thread of the task it belongs to when that task was started from a chat. Undefined: a run
+   * from the Mac or iPhone.
+   */
+  const originOf = (by: ApprovalRequest["requestedBy"]): string | undefined => {
+    const seen = new Set<string>();
+    let runId: string | undefined = by.runId ?? by.parentRunId ?? undefined;
+    const queue = [by.runId, by.parentRunId];
+    for (const id of queue) {
+      if (id !== null && id !== undefined) runId = id;
+      for (let i = 0; i < 6 && runId !== undefined && !seen.has(runId); i++) {
+        seen.add(runId);
+        const hit = turns.get(runId)?.surface;
+        if (hit !== undefined) return hit;
+        const run = getRun(db, runId);
+        const viaThread = threadSurface(run?.threadId);
+        if (viaThread !== undefined) return viaThread;
+        runId = run?.parentRunId ?? undefined;
+      }
+    }
+    const viaThread = threadSurface(by.threadId);
+    if (viaThread !== undefined) return viaThread;
+    if (by.taskId !== null && by.taskId !== undefined) {
+      const row = db.sqlite
+        .prepare(
+          "SELECT thread_id AS threadId, created_from AS createdFrom FROM tasks WHERE id = ?",
+        )
+        .get(by.taskId) as { threadId: string; createdFrom: string } | undefined;
+      if (row !== undefined) {
+        const viaTask = threadSurface(row.threadId);
+        if (viaTask !== undefined) return viaTask;
+        if (row.createdFrom === "channel") return lastChatByThread.get(row.threadId);
+      }
+    }
+    return undefined;
+  };
+  const awaySurfaces = (): string[] => {
+    const chosen = getSetting(db, "notifications.approvals.awayChannel")?.value;
+    return typeof chosen === "string" && chosen !== "" ? service.ownerSurfacesOf(chosen) : [];
+  };
+  const awayAfterMs = (): number => {
+    const minutes = getSetting(db, "notifications.approvals.awayAfterMinutes")?.value;
+    return (
+      (typeof minutes === "number" && minutes >= 1 ? minutes : DEFAULT_AWAY_AFTER_MINUTES) * 60_000
+    );
+  };
+  /**
+   * The owner's latest activity on a paired device: the newest `lastActivityAt` of any open,
+   * non-node connection (a side-effecting request; an open socket alone is not activity), kept as
+   * a high-water mark so it survives a disconnect. Starts at the Gateway's start.
+   */
+  let activityHigh = clock.now();
+  const activityAt = (): number => {
+    for (const c of gateway?.context.connections() ?? []) {
+      if (c.identity?.role === "node" || c.lastActivityAt === undefined) continue;
+      activityHigh = Math.max(activityHigh, c.lastActivityAt);
+    }
+    return activityHigh;
+  };
+  const deliverNow = async (issued: IssuedApproval): Promise<void> => {
+    const reports = await service.deliverApproval(issued);
+    for (const r of reports) {
+      if (!r.delivered) {
+        logger.info?.("approval.chat_skipped", {
+          approvalId: issued.approval.id,
+          reason: r.reason ?? "unknown",
+        });
+      }
+    }
+  };
+  const away = new AwayRouter({
+    now: () => clock.now(),
+    activityAt,
+    awayAfterMs,
+    isOpen: async (id) => (await services.rawBroker?.get(id))?.status === "pending",
+    deliver: deliverNow,
+    onError: (err) =>
+      logger.warn("channel.away_delivery_failed", { code: PsycheError.from(err).code }),
+  });
+
   let timer: NodeJS.Timeout | null = null;
   let unsubscribe: (() => void) | null = null;
 
@@ -1573,44 +1672,34 @@ export function composeChannels(
     ...(Object.keys(webhooks).length === 0 ? {} : { webhooks }),
     relay: {
       surfaces: () => service.ownerSurfaces(),
-      // Decision D3: a run that came from a chat asks there; a run from the Mac or iPhone reaches
-      // the one away chat only while no paired device has been seen for the away window.
-      approvalSurfaces: (by) => {
-        const runId = by.runId ?? undefined;
-        const origin = runId === undefined ? undefined : turns.get(runId)?.surface;
-        const away = getSetting(db, "notifications.approvals.awayChannel")?.value;
-        const minutes = getSetting(db, "notifications.approvals.awayAfterMinutes")?.value;
-        const devices = listDevices(db).filter(
-          (d) => d.pairedAt !== null && !d.revokedAt && d.role !== "node",
-        );
-        const live = new Set<string>();
-        for (const c of gateway?.context.connections() ?? []) {
-          if (c.open && c.identity?.deviceId !== undefined) live.add(c.identity.deviceId);
-        }
-        const seen = devices.map((d) => Date.parse(d.lastSeenAt ?? "")).filter(Number.isFinite);
-        return approvalChatSurfaces({
-          originSurface: origin,
+      // Decision D3: a run that came from a chat asks there; a run from the Mac or iPhone is given
+      // the one away chat's surface, and `deliver` holds that card back until no paired device has
+      // had owner activity for the away window.
+      approvalSurfaces: (by) =>
+        approvalChatSurfaces({
+          originSurface: originOf(by),
           ownerSurfaces: service.ownerSurfaces(),
-          awaySurfaces:
-            typeof away === "string" && away !== "" ? service.ownerSurfacesOf(away) : [],
-          deviceLastSeenAt: seen.length === 0 ? null : Math.max(...seen),
-          deviceConnected: devices.some((d) => live.has(d.id)),
+          awaySurfaces: awaySurfaces(),
+          deviceLastSeenAt: null,
+          deviceConnected: false,
           now: clock.now(),
-          awayAfterMs:
-            (typeof minutes === "number" && minutes >= 1 ? minutes : DEFAULT_AWAY_AFTER_MINUTES) *
-            60_000,
-        });
-      },
+          awayAfterMs: awayAfterMs(),
+        }),
       async deliver(issued) {
-        const reports = await service.deliverApproval(issued);
-        for (const r of reports) {
-          if (!r.delivered) {
-            logger.info?.("approval.chat_skipped", {
-              approvalId: issued.approval.id,
-              reason: r.reason ?? "unknown",
-            });
+        const entries = Object.entries(issued.answerTokens);
+        const owner = new Set(service.ownerSurfaces());
+        let now = issued;
+        if (originOf(issued.approval.requestedBy) === undefined) {
+          const held = entries.filter(([surface]) => owner.has(surface));
+          if (held.length > 0) {
+            away.hold({ approval: issued.approval, answerTokens: Object.fromEntries(held) });
+            now = {
+              approval: issued.approval,
+              answerTokens: Object.fromEntries(entries.filter(([surface]) => !owner.has(surface))),
+            };
           }
         }
+        await deliverNow(now);
       },
       async isOwnerSender(channel, senderId) {
         return service.listChannels().some((c) => {
@@ -1683,6 +1772,7 @@ export function composeChannels(
       }
     },
     async stop() {
+      away.stop();
       stopWatchingGate?.();
       stopWatchingGate = undefined;
       stopWatchingSeal?.();
