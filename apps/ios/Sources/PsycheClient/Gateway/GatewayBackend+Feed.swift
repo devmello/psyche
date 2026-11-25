@@ -5,11 +5,23 @@ import enum PsycheProtocol.JSONValue
 // Feed and Ideas over `feed.list/feedback` and `ideas.list/accept/dismiss`. Read by name, so a new field
 // or a new post kind never breaks the phone.
 extension GatewayBackend {
-    public func feed() async throws -> FeedSnapshot {
-        let result = try await call("feed.list", .obj(["limit": .number(30)]))
+    public func feed() async throws -> FeedSnapshot { try await feedPage(cursor: nil) }
+
+    /// One page of posts. Posts marked not interested (or hidden by source) stay gone, as on the desktop: the Gateway
+    /// keeps them and returns them with their feedback.
+    public func feedPage(cursor: String?) async throws -> FeedSnapshot {
+        var params: [String: JSONValue] = ["limit": .number(30)]
+        if let cursor { params["cursor"] = .string(cursor) }
+        let result = try await call("feed.list", .object(params))
         return FeedSnapshot(
-            cards: (result["posts"]?.array ?? []).compactMap(Self.feedCard(from:)),
-            nextBriefAt: WireFormat.date(result["nextBriefAt"]?.string))
+            cards: (result["posts"]?.array ?? []).compactMap(Self.feedCard(from:)).filter { !$0.isDismissed },
+            nextBriefAt: WireFormat.date(result["nextBriefAt"]?.string),
+            nextCursor: Self.cursor(from: result))
+    }
+
+    static func cursor(from result: JSONValue) -> String? {
+        guard let cursor = result["nextCursor"]?.string, !cursor.isEmpty else { return nil }
+        return cursor
     }
 
 
@@ -28,9 +40,13 @@ extension GatewayBackend {
             key: "feed-\(postID)-\(feedback?.rawValue ?? "clear")")
     }
 
-    public func ideas() async throws -> [IdeaItem] {
-        let result = try await call("ideas.list", .obj(["limit": .number(30)]))
-        return (result["ideas"]?.array ?? []).compactMap(Self.idea(from:))
+    public func ideas() async throws -> [IdeaItem] { try await ideasPage(cursor: nil).items }
+
+    public func ideasPage(cursor: String?) async throws -> IdeaPage {
+        var params: [String: JSONValue] = ["limit": .number(30)]
+        if let cursor { params["cursor"] = .string(cursor) }
+        let result = try await call("ideas.list", .object(params))
+        return IdeaPage(items: (result["ideas"]?.array ?? []).compactMap(Self.idea(from:)), nextCursor: Self.cursor(from: result))
     }
 
     public func acceptIdea(id: String) async throws {
@@ -53,7 +69,8 @@ extension GatewayBackend {
             id: id, title: title, body: post["bodyMd"]?.string ?? "", sources: sources,
             createdAt: WireFormat.date(post["createdAt"]?.string),
             // An unknown feedback value reads as none rather than failing the card.
-            feedback: post["feedback"]?.string.flatMap(FeedFeedback.init(rawValue:)))
+            feedback: post["feedback"]?.string.flatMap(FeedFeedback.init(rawValue:)),
+            hiddenByFeedback: ["not_interested", "hide_source"].contains(post["feedback"]?.string ?? ""))
     }
 
     static func idea(from wire: JSONValue) -> IdeaItem? {

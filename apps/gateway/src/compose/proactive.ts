@@ -120,6 +120,8 @@ export interface ProactiveSetup {
   model: ModelRef;
   publish<E extends EventName>(event: E, payload: EventPayload<E>, threadId?: string): void;
   timeZone?: string;
+  /** The owner's zone right now (it changes when they travel); read instead of `timeZone` when set. */
+  timeZoneNow?: () => string | undefined;
   logger?: Logger;
   /** Connector signals for Ideas (unanswered mail, subscriptions, trips); S09 supplies them. */
   signals?: SignalsProvider;
@@ -239,6 +241,7 @@ export function helperGated(job: ProactiveJob, helper: HelperBackoff | undefined
   if (helper === undefined) return job;
   return {
     name: job.name,
+    ...(job.rerunOnInterrupt === undefined ? {} : { rerunOnInterrupt: job.rerunOnInterrupt }),
     matches: (a) => job.matches(a),
     run: async (request): Promise<LaunchResult> => {
       helper.state.observe(helper.connected());
@@ -595,7 +598,8 @@ export function composeProactive(setup: ProactiveSetup): ComposedProactive {
   };
   const dailySettings = () => readDailySettings(dailyKv);
   const followups = new FollowupStore(dailyKv, () => clock.now());
-  const dailyTz = timeZone ?? "UTC";
+  const zoneNow = () => setup.timeZoneNow?.() ?? timeZone;
+  const dailyTz = () => zoneNow() ?? "UTC";
   const daily = new DailyService({
     clock,
     scheduler,
@@ -684,7 +688,8 @@ export function composeProactive(setup: ProactiveSetup): ComposedProactive {
   // off (§7.5); onboarding or Settings turn them on.
   async function syncWorkflowSchedules(): Promise<void> {
     const w = settings();
-    const tz = timeZone === undefined ? {} : { timezone: timeZone };
+    const zone = zoneNow();
+    const tz = zone === undefined ? {} : { timezone: zone };
     try {
       await mailWatch.ensureSchedule(
         w.poll.activeMin === undefined ? {} : { activeMin: w.poll.activeMin },

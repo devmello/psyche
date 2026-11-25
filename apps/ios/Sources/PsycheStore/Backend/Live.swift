@@ -22,4 +22,12 @@ public enum LiveTopic: String, Sendable, Equatable, CaseIterable {
     case widgets
     /// A Space, its shelf or its proposals changed (additive).
     case spaces
+    /// An automation changed (additive): the Scheduled page refetches.
+    case scheduled
+    /// A skill was installed, changed or toggled (additive).
+    case skills
+    /// A receipt was created (additive).
+    case receipts
+    /// A lesson or the growth summary changed (additive): the Learning pages refetch.
+    case learning
 }

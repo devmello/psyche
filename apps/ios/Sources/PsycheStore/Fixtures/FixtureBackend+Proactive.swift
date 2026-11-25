@@ -10,19 +10,37 @@ struct ProactiveState: Sendable {
     var automations: [AutomationDetail] = []
     /// Past runs by automation id, newest first.
     var automationRuns: [String: [AutomationRunItem]] = FixtureData.automationRuns
+    /// Posts and ideas per page (tests: "Load more"); nil returns everything in one page.
+    var pageSize: Int?
 }
 
 extension FixtureBackend: ProactiveBackend {
-    public func feed() async throws -> FeedSnapshot {
+    public func feed() async throws -> FeedSnapshot { try await feedPage(cursor: nil) }
+
+    public func feedPage(cursor: String?) async throws -> FeedSnapshot {
         await pause()
-        return FeedSnapshot(cards: proactiveState.cards.filter { $0.feedback != .notInterested }, nextBriefAt: nil)
+        let cards = proactiveState.cards.filter { !$0.isDismissed }
+        let (page, next) = Self.page(of: cards, after: cursor, size: proactiveState.pageSize)
+        return FeedSnapshot(cards: page, nextBriefAt: nil, nextCursor: next)
+    }
+
+    /// Tests: serve the feed and ideas this many at a time, so "Load more" has something to load.
+    public func setProactivePageSize(_ size: Int?) { proactiveState.pageSize = size }
+
+    /// A page of `items` after the cursor (an offset), and the cursor of the next page.
+    static func page<T>(of items: [T], after cursor: String?, size: Int?) -> ([T], String?) {
+        let start = cursor.flatMap(Int.init) ?? 0
+        guard let size else { return (start == 0 ? items : [], nil) }
+        guard start < items.count else { return ([], nil) }
+        let end = min(start + size, items.count)
+        return (Array(items[start..<end]), end < items.count ? String(end) : nil)
     }
 
 
     public func generateFeed() async throws -> [FeedCard] {
         await pause()
         // Demo mode has the brief already, so generating returns the seeded posts.
-        return proactiveState.cards.filter { $0.feedback != .notInterested }
+        return proactiveState.cards.filter { !$0.isDismissed }
     }
 
     public func setFeedback(postID: String, _ feedback: FeedFeedback?) async throws {
@@ -30,9 +48,12 @@ extension FixtureBackend: ProactiveBackend {
         proactiveState.cards[index].feedback = feedback
     }
 
-    public func ideas() async throws -> [IdeaItem] {
+    public func ideas() async throws -> [IdeaItem] { try await ideasPage(cursor: nil).items }
+
+    public func ideasPage(cursor: String?) async throws -> IdeaPage {
         await pause()
-        return proactiveState.ideas
+        let (page, next) = Self.page(of: proactiveState.ideas, after: cursor, size: proactiveState.pageSize)
+        return IdeaPage(items: page, nextCursor: next)
     }
 
     public func acceptIdea(id: String) async throws {

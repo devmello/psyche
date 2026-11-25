@@ -9,6 +9,7 @@ struct FollowupsHomeSections: View {
     @State private var model: FollowupsModel
     @State private var open: Suggestion?
     @Environment(Session.self) private var session
+    @Environment(Router.self) private var router
     private let store: any PsycheBackend
 
     init(store: any PsycheBackend) {
@@ -31,7 +32,7 @@ struct FollowupsHomeSections: View {
             await model.load()
             await model.observe()
         }
-        .sheet(item: $open) { suggestion in
+        .sheet(item: $open, onDismiss: { router.runDeferredOpen() }) { suggestion in
             SuggestionSheet(suggestion: suggestion, model: model, canAnswer: session.state.canAnswer, store: store)
                 .presentationDetents([.medium, .large])
         }
@@ -199,8 +200,9 @@ private struct SuggestionSheet: View {
                             Task {
                                 // A payment the phone must not answer goes to the approval sheet, with its Touch ID rules.
                                 let handoff = await model.approve(shown)
+                                // The suggestion sheet's onDismiss opens the approval once this sheet is gone.
+                                if let handoff { router.deferOpen(handoff) }
                                 dismiss()
-                                if let handoff { router.open(handoff) }
                             }
                         }
                         .foregroundStyle(PsycheColor.inkText)

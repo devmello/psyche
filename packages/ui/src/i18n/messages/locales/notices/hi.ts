@@ -100,4 +100,10 @@ export const notices: Partial<Catalogue> = {
   "notice.machine.offline.title": "{name} ऑफ़लाइन हो गया",
   "notice.machine.offline.body":
     "एक काम इसे इस्तेमाल करने का इंतज़ार कर रहा है और {name} के वापस आने पर आगे बढ़ेगा। आप काम रद्द भी कर सकते हैं।",
+  "notice.automation.needsApproval.title": "{title} आपकी मंज़ूरी का इंतज़ार कर रहा है",
+  "notice.automation.needsApproval.body":
+    "मंज़ूरी की समय-सीमा खत्म हो गई, इसलिए यह रुक गया। देखने के लिए मंज़ूरियाँ खोलें कि इसे क्या चाहिए, फिर इसे दोबारा चलाएँ।",
+  "notice.automation.interrupted.title": "{title} बीच में रुक गया",
+  "notice.automation.interrupted.body":
+    "चलते समय Psyche फिर से शुरू हुआ और हो सकता है इसका कुछ हिस्सा हो चुका हो। नतीजा देखें, ज़रूरत हो तो इसे दोबारा चलाएँ।",
 };

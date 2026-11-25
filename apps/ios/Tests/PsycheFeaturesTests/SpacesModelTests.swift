@@ -8,7 +8,7 @@ import Testing
 struct SpacesModelTests {
     @Test func spaceRoutesMapAndSpaceHeadIsNotAGoal() {
         #expect(Route(appPath: "/spaces/spc_kitchen") == .space(id: "spc_kitchen"))
-        #expect(Route(appPath: "/spaces") == nil)
+        #expect(Route(appPath: "/spaces") == .tab(.home))
     }
 
     @Test func homeListShowsTheSpacesWithLiveCounts() async throws {

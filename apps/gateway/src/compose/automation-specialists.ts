@@ -2,7 +2,7 @@ import { buildSpecialistSpec, type SpecialistHost, specialistBrief } from "@psyc
 import { getThread, type PsycheDb } from "@psyche/db";
 import { PsycheError, type Task, TERMINAL_TASK_STATUSES } from "@psyche/protocol";
 import type { RunLauncher, RunResult } from "@psyche/scheduler";
-import type { SqliteTaskEngine } from "@psyche/tasks";
+import { NEEDS_APPROVAL_RESULT, type SqliteTaskEngine } from "@psyche/tasks";
 import { runSpaceFor } from "./space-context.ts";
 
 /**
@@ -25,6 +25,10 @@ export function specialistRunResult(task: Task): RunResult {
   const base = { taskId: task.id };
   const report = task.specialist?.result ?? null;
   const summary = report?.summary ?? task.summary ?? null;
+  if (task.status === "cancelled" && task.outcome?.result === NEEDS_APPROVAL_RESULT) {
+    // The approval ran out unanswered: the owner gets the needs-approval notice, not a failure.
+    return { ...base, status: "cancelled", summary, needsApproval: true };
+  }
   if (task.status === "cancelled" || report?.outcome === "cancelled") {
     return { ...base, status: "cancelled", summary };
   }
@@ -120,6 +124,7 @@ export function withAutomationSpecialists(
       });
       return { taskId: job.taskId, result: settle(job.taskId) };
     },
+    rerunOnInterrupt: (a) => inner.rerunOnInterrupt?.(a) === true,
     reattach(run) {
       // A restart may find a specialist job still running; it settles like any other.
       if (run.taskId == null) return inner.reattach?.(run);

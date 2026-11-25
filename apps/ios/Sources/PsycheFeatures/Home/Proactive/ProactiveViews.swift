@@ -1,3 +1,4 @@
+import Observation
 import PsycheBlocks
 import PsycheClient
 import PsycheDesign
@@ -128,6 +129,19 @@ private struct EmptyLine: View {
     }
 }
 
+/// "Load more" under a page that has older entries. An explicit tap, so a long Feed is never fetched by scrolling.
+@MainActor @ViewBuilder
+private func loadMoreButton(loading: Bool, _ action: @escaping () async -> Void) -> some View {
+    if loading {
+        ProgressView().frame(maxWidth: .infinity).padding(.vertical, 8)
+    } else {
+        Button(String(localized: "Load more", bundle: .module)) { Task { await action() } }
+            .proactiveAction()
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 8)
+    }
+}
+
 private struct ActionError: View {
     let message: String?
     var body: some View {
@@ -151,8 +165,13 @@ struct FeedView: View {
     @State private var expanded: Set<String> = []
     @State private var confirming: URL?
     @Environment(\.openURL) private var openURL
+    /// A post to open on arrival (`/feed/<id>`, a daily brief, mail digest, meeting prep or notes notification).
+    private let focusPostID: String?
 
-    init(store: any PsycheBackend) { _model = State(initialValue: FeedModel(store: store)) }
+    init(store: any PsycheBackend, focusPostID: String? = nil) {
+        _model = State(initialValue: FeedModel(store: store))
+        self.focusPostID = focusPostID
+    }
 
     var body: some View {
         ProactivePage(
@@ -164,10 +183,15 @@ struct FeedView: View {
             } else {
                 ForEach(snapshot.cards) { card in cardView(card) }
             }
+            if snapshot.nextCursor != nil { loadMoreButton(loading: model.loadingOlder) { await model.loadOlder() } }
             if let next = snapshot.nextBriefAt {
                 Text("Next brief \(ProactiveText.when(next))", bundle: .module).font(.footnote).foregroundStyle(PsycheColor.muted)
             }
             ActionError(message: model.actionError)
+        }
+        .task(id: focusPostID) {
+            // The post a notification names opens expanded; the card's id is the post id.
+            if let id = focusPostID { expanded.insert(id) }
         }
         .confirmationDialog(
             String(localized: "Open this link?", bundle: .module), isPresented: Binding(get: { confirming != nil }, set: { if !$0 { confirming = nil } }),
@@ -263,6 +287,7 @@ struct IdeasView: View {
                         }
                     }
                 }
+                if model.nextCursor != nil { loadMoreButton(loading: model.loadingOlder) { await model.loadOlder() } }
             }
             ActionError(message: model.actionError)
         }
@@ -275,8 +300,14 @@ struct GoalsView: View {
     @State private var model: GoalsModel
     @State private var showing = false
     @State private var adding = false
+    @Environment(Router.self) private var router
+    /// A goal to open on arrival (`/goals/<id>`, a goal notification). Its sheet opens and loads that goal.
+    private let openGoalID: String?
 
-    init(store: any PsycheBackend) { _model = State(initialValue: GoalsModel(store: store)) }
+    init(store: any PsycheBackend, openGoalID: String? = nil) {
+        _model = State(initialValue: GoalsModel(store: store))
+        self.openGoalID = openGoalID
+    }
 
     var body: some View {
         ProactivePage(
@@ -307,8 +338,17 @@ struct GoalsView: View {
                 Text("Set a goal's plan and check-in cadence on your Mac.", bundle: .module).font(.footnote).foregroundStyle(PsycheColor.muted)
             }
         }
-        .sheet(isPresented: $showing, onDismiss: model.close) {
+        .sheet(isPresented: $showing, onDismiss: {
+            model.close()
+            router.runDeferredOpen()
+        }) {
             GoalSheet(model: model)
+        }
+        .task(id: openGoalID) {
+            guard let id = openGoalID else { return }
+            showing = true
+            // Only the id is used to load; the goal's fields come from the detail.
+            await model.open(GoalItem(id: id, title: "", category: "", status: ""))
         }
         .sheet(isPresented: $adding) {
             AddGoalSheet { draft in try await model.create(draft) }
@@ -543,8 +583,9 @@ private struct GoalSheet: View {
         Group {
             if case .task(let id) = link {
                 Button {
+                    // The goal sheet is dismissing: its onDismiss opens the task's run page once it is gone.
                     dismiss()
-                    router.open(appPath: "/task/\(id)")
+                    router.deferOpen(appPath: "/task/\(id)")
                 } label: {
                     label
                 }
@@ -808,23 +849,49 @@ struct ScheduledView: View {
 
 // MARK: Home sections
 
-/// Feed, Ideas and Goals on Home: the top few of each, with "See all" to the full page. Empty ones aren't drawn,
-/// and a section that fails to load is left out rather than breaking Home.
-struct ProactiveHomeSections: View {
-    @State private var feed: FeedModel
-    @State private var ideas: IdeasModel
-    @State private var goals: GoalsModel
-    @Environment(Router.self) private var router
+/// Feed, Ideas and Goals on Home's models, kept by Home so its pull to refresh can reload them with the rest.
+@MainActor @Observable
+final class ProactiveHomeModel {
+    let feed: FeedModel
+    let ideas: IdeasModel
+    let goals: GoalsModel
 
-    init(store: any PsycheBackend) {
-        _feed = State(initialValue: FeedModel(store: store))
-        _ideas = State(initialValue: IdeasModel(store: store))
-        _goals = State(initialValue: GoalsModel(store: store))
+    init(store: any PsycheBackend, reloadDelay: Duration = proactiveReloadDelay) {
+        feed = FeedModel(store: store, reloadDelay: reloadDelay)
+        ideas = IdeasModel(store: store, reloadDelay: reloadDelay)
+        goals = GoalsModel(store: store, reloadDelay: reloadDelay)
     }
+
+    func load() async {
+        async let a: Void = feed.load()
+        async let b: Void = ideas.load()
+        async let c: Void = goals.load()
+        _ = await (a, b, c)
+    }
+
+    /// Each section reloads on its change events and on a resync, until the view goes away.
+    func observe() async {
+        async let a: Void = feed.observe()
+        async let b: Void = ideas.observe()
+        async let c: Void = goals.observe()
+        _ = await (a, b, c)
+    }
+
+    /// Goals on Home are the ones still in play; done goals stay on the Goals page.
+    var homeGoals: [GoalItem] { (goals.phase.value ?? []).filter { $0.status != "done" } }
+}
+
+/// Feed, Ideas and Goals on Home: the top few of each, with "See all" to the full page. Empty ones aren't drawn,
+/// and a section that fails to load is left out rather than breaking Home. They reload on change events, on a
+/// resync, on Home's pull to refresh, and once the connection goes live after a cold launch.
+struct ProactiveHomeSections: View {
+    let model: ProactiveHomeModel
+    @Environment(Router.self) private var router
+    @Environment(Session.self) private var session
 
     var body: some View {
         VStack(alignment: .leading, spacing: PsycheMetrics.sectionSpacing) {
-            if let cards = feed.phase.value?.cards, !cards.isEmpty {
+            if let cards = model.feed.phase.value?.cards, !cards.isEmpty {
                 section(String(localized: "Feed", bundle: .module), count: cards.count, route: .feed) {
                     ForEach(Array(cards.prefix(3).enumerated()), id: \.element.id) { index, card in
                         if index > 0 { HairlineDivider() }
@@ -832,7 +899,7 @@ struct ProactiveHomeSections: View {
                     }
                 }
             }
-            if let items = ideas.phase.value, !items.isEmpty {
+            if let items = model.ideas.phase.value, !items.isEmpty {
                 section(String(localized: "Ideas", bundle: .module), count: items.count, route: .ideas) {
                     ForEach(Array(items.prefix(2).enumerated()), id: \.element.id) { index, idea in
                         if index > 0 { HairlineDivider() }
@@ -840,9 +907,10 @@ struct ProactiveHomeSections: View {
                     }
                 }
             }
-            if let items = goals.phase.value, !items.isEmpty {
-                section(String(localized: "Goals", bundle: .module), count: items.count, route: .goals) {
-                    ForEach(Array(items.prefix(3).enumerated()), id: \.element.id) { index, goal in
+            let goals = model.homeGoals
+            if !goals.isEmpty {
+                section(String(localized: "Goals", bundle: .module), count: goals.count, route: .goals) {
+                    ForEach(Array(goals.prefix(3).enumerated()), id: \.element.id) { index, goal in
                         if index > 0 { HairlineDivider() }
                         row(goal.title, detail: ProactiveText.goalStatus(goal.status))
                     }
@@ -850,10 +918,12 @@ struct ProactiveHomeSections: View {
             }
         }
         .task {
-            async let a: Void = feed.load()
-            async let b: Void = ideas.load()
-            async let c: Void = goals.load()
-            _ = await (a, b, c)
+            await model.load()
+            await model.observe()
+        }
+        // A cold launch can load these while still connecting; they fill in once the Gateway answers.
+        .onChange(of: session.state) { _, state in
+            if state == .live { Task { await model.load() } }
         }
     }
 

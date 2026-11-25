@@ -19,6 +19,10 @@ final class MemoryModel {
     private(set) var highlighted: String?
 
     private var pending: Set<String> = []
+    /// Projects read on their own after their rows appeared, by id. Kept for this model's lifetime.
+    private var projectRows: [String: ProjectItem] = [:]
+    /// Projects already asked for, so a row that scrolls away and back does not ask again.
+    private var attemptedProjects: Set<String> = []
     private let store: any PsycheBackend
 
     init(store: any PsycheBackend) {
@@ -87,7 +91,19 @@ final class MemoryModel {
     }
 
     func projects(of snapshot: MemorySnapshot) -> [ProjectItem] {
-        snapshot.projects.filter { matches($0.title, $0.detail) }
+        snapshot.projects.map { projectRows[$0.id] ?? $0 }.filter { matches($0.title, $0.detail) }
+    }
+
+    /// Reads one project's progress when its row first appears, once per project for this model's lifetime. A failed
+    /// read keeps the row without progress; it is not asked again.
+    func ensureProgress(_ id: String) async {
+        guard let snapshot = phase.value, snapshot.progressPending.contains(id),
+            projectRows[id] == nil, !attemptedProjects.contains(id)
+        else { return }
+        attemptedProjects.insert(id)
+        if let row = try? await store.projectRow(id: id) {
+            projectRows[id] = row
+        }
     }
 
     func people(of snapshot: MemorySnapshot) -> [PersonItem] {

@@ -108,4 +108,10 @@ export const notices: Partial<Catalogue> = {
   "notice.machine.offline.title": "{name} ficou offline",
   "notice.machine.offline.body":
     "Uma tarefa está esperando para usá-lo e continua quando {name} voltar. Você também pode cancelar a tarefa.",
+  "notice.automation.needsApproval.title": "{title} está esperando sua aprovação",
+  "notice.automation.needsApproval.body":
+    "Parou porque a aprovação expirou. Abra Aprovações para ver o que precisa e execute de novo.",
+  "notice.automation.interrupted.title": "{title} foi interrompido",
+  "notice.automation.interrupted.body":
+    "O Psyche reiniciou enquanto rodava e pode já ter feito uma parte. Confira o resultado e execute de novo se precisar.",
 };

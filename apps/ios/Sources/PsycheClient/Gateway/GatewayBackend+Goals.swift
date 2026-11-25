@@ -6,9 +6,12 @@ import enum PsycheProtocol.JSONValue
 // goal, archives it and edits its milestones. Its title, plan and check-in cadence are a Mac thing.
 extension GatewayBackend {
     public func goals() async throws -> [GoalItem] {
-        let result = try await call("goals.list", .obj([:]))
+        // The Gateway's default is active and candidate only; ask for paused and done too, as the desktop does.
+        let result = try await call("goals.list", .obj(["status": .array(Self.listedGoalStatuses.map { .string($0) })]))
         return (result["goals"]?.array ?? []).compactMap(Self.goal(from:))
     }
+
+    static let listedGoalStatuses = ["candidate", "active", "paused", "done"]
 
     public func goalDetail(id: String) async throws -> GoalDetail {
         try Self.goalDetail(from: try await call("goals.get", .obj(["goalId": .string(id)])))

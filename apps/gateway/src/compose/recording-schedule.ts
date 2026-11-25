@@ -854,6 +854,7 @@ export function withRecordedSkillRuns(inner: RunLauncher, deps: RecordedRunDeps)
       })();
     },
     ...(inner.cancel === undefined ? {} : { cancel: inner.cancel.bind(inner) }),
+    rerunOnInterrupt: (a) => inner.rerunOnInterrupt?.(a) === true,
   };
 }
 
