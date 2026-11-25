@@ -4,6 +4,7 @@ import type {
   JsonObject,
   Question,
   SpecialistSpec,
+  Staging,
   TaintSource,
   Task,
   TaskAction,
@@ -12,6 +13,7 @@ import type {
   TaskPlan,
   TaskStatus,
 } from "@psyche/protocol";
+import { PsycheError } from "@psyche/protocol";
 
 /**
  * Raw better-sqlite3 rows of the S04 tables (migrations/202610191200_tasks_init.sql and
@@ -50,6 +52,8 @@ export interface TaskRow {
   specialist: string | null;
   /** JSON array of `LessonRef` (teaching loop): lessons its runs' prompts used; NULL when none. */
   lessons_applied: string | null;
+  /** JSON `Staging` when the task's run only prepares changes (night-shift-2026 §2.2). */
+  staging?: string | null;
 }
 
 export interface CheckpointRow {
@@ -86,6 +90,34 @@ export interface InputRow {
   created_at: string;
   answered_at: string | null;
   answered_by_device_id: string | null;
+}
+
+/**
+ * A stored or supplied `Staging`, or a thrown error: an unreadable block must never turn a staging
+ * task into one that runs for real.
+ */
+export function readStaging(value: unknown, stored = false): Staging {
+  let v = value;
+  if (stored) {
+    try {
+      v = JSON.parse(String(value));
+    } catch {
+      throw new PsycheError("invalid_params", "staging is not readable");
+    }
+  }
+  const o = (typeof v === "object" && v !== null ? v : {}) as Record<string, unknown>;
+  const id = (k: string): string => {
+    const x = o[k];
+    if (typeof x !== "string" || x === "") throw new PsycheError("invalid_params", `staging.${k}`);
+    return x;
+  };
+  const keys = Object.keys(o).sort().join(",");
+  if (o.kind === "night" && keys === "kind,nightId")
+    return { kind: "night", nightId: id("nightId") };
+  if (o.kind === "fork" && keys === "branchId,forkId,kind") {
+    return { kind: "fork", forkId: id("forkId"), branchId: id("branchId") };
+  }
+  throw new PsycheError("invalid_params", "staging is not a known staging block");
 }
 
 export function parseJson<T>(text: string | null): T | null {

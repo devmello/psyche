@@ -25,6 +25,7 @@ const MODEL_CALLERS = [
   "planForks.create",
   "planForks.retryBranch",
   "planForks.suggest",
+  "points.ask",
   "spaces.trackers.refresh",
   "tasks.resume",
   "tasks.retry",

@@ -40,6 +40,8 @@ export const tasks = sqliteTable("tasks", {
   specialist: text("specialist"),
   // 202610261301_tasks_lessons-applied.sql (teaching loop, LessonRef[] JSON)
   lessonsApplied: text("lessons_applied"),
+  // 202611241100_tasks_staging.sql (Night shift W1; server-only)
+  staging: text("staging"),
 });
 
 export const taskCheckpoints = sqliteTable("task_checkpoints", {

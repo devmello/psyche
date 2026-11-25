@@ -2984,6 +2984,7 @@ export interface Block {
     statement?:    null | string;
     proposal?:     DailyWorkflowProposal;
     route?:        string;
+    goal?:         string;
     widgetId?:     string;
     forkId?:       string;
     branchId?:     string;
@@ -3126,7 +3127,7 @@ export interface CompactionSummary {
 
 export type BlockTrigger = "auto" | "manual";
 
-export type BlockType = "text" | "tool_call" | "plan" | "checklist" | "approval" | "question" | "artifact" | "file" | "context" | "receipt" | "task" | "wrap_up" | "related_threads" | "sources" | "life_answer" | "compaction" | "learned" | "taught" | "work_note" | "specialist_result" | "automation_workflow" | "app_link" | "ui" | "plan_fork" | "plan_taken";
+export type BlockType = "text" | "tool_call" | "plan" | "checklist" | "approval" | "question" | "artifact" | "file" | "context" | "receipt" | "task" | "wrap_up" | "related_threads" | "sources" | "life_answer" | "compaction" | "learned" | "taught" | "work_note" | "specialist_result" | "automation_workflow" | "app_link" | "points_offer" | "ui" | "plan_fork" | "plan_taken";
 
 export interface ChatCancelParams {
     runId?:   string;
@@ -10094,6 +10095,322 @@ export interface PluginsSetEnabledResult {
     plugin: PluginSummary;
 }
 
+export interface PointsAskParams {
+    sessionId: string;
+    text:      string;
+}
+
+export interface PointsAskRequestedPayload {
+    sessionId: string;
+}
+
+export interface PointsAskResult {
+    answer: string;
+}
+
+export interface PointsEndParams {
+    sessionId: string;
+}
+
+export interface PointsEndResult {
+}
+
+export interface PointsHelperWindowsResult {
+    windows: PointsHelperWindow[];
+}
+
+export interface PointsHelperWindow {
+    app:         PointsHelperWindowApp;
+    frontmost:   boolean;
+    pid:         number;
+    refusal?:    PointsRefusal;
+    title:       string;
+    windowIndex: number;
+}
+
+export interface PointsHelperWindowApp {
+    bundleId: string;
+    name:     string;
+}
+
+export type PointsRefusal = "never_app" | "fixed_off" | "terminal_or_ide" | "owner_off" | "not_a_window" | "permission_missing";
+
+export interface PointsLookParams {
+    actionId:  string;
+    sessionId: string;
+}
+
+export interface PointsLookResult {
+    height:         number;
+    image?:         null | string;
+    masked:         boolean;
+    pointsPerPixel: number;
+    width:          number;
+}
+
+export interface PointsOfferBlock {
+    goal: string;
+    type: PointsOfferBlockType;
+}
+
+export type PointsOfferBlockType = "points_offer";
+
+export interface PointsPlan {
+    done_when: PointsDoneWhen;
+    page:      Page;
+    steps:     PointsStep[];
+}
+
+export type PointsDoneWhen = "submit" | "next_page" | "none";
+
+export interface Page {
+    summary: string;
+    title:   string;
+}
+
+export interface PointsStep {
+    derivation?: PointsDerivation;
+    expect?:     Expect;
+    fieldId:     string;
+    kind:        PointsStepKind;
+    note:        string;
+    option?:     string;
+    sources?:    string[];
+    value?:      string;
+}
+
+export type PointsDerivation = "exact" | "case" | "date_format" | "name_part" | "address_part";
+
+export interface Expect {
+    detail?: string;
+    shape:   PointsExpectShape;
+}
+
+export type PointsExpectShape = "date" | "email" | "phone" | "postal" | "digits" | "oneOf";
+
+export type PointsStepKind = "fill" | "choose" | "check" | "skip" | "self" | "review" | "next_page";
+
+export interface PointsSessionEvent {
+    action?:   PointsCardAction;
+    actionId?: string;
+    digest?:   PointsDigest;
+    fieldId?:  string;
+    reason?:   PointsEndReason;
+    state?:    PointsFieldFill;
+    type:      PointsSessionEventType;
+    value?:    string;
+    visible?:  boolean;
+}
+
+export type PointsCardAction = "back" | "skip" | "wrong" | "stuck_missing" | "stuck_unclear" | "stuck_blocked" | "ask" | "look" | "next" | "follow_window" | "stop";
+
+export interface PointsDigest {
+    app:          PointsDigestApp;
+    fields:       PointsField[];
+    fingerprint:  string;
+    headings:     string[];
+    host?:        string;
+    insecure?:    boolean;
+    instructions: string;
+    path?:        string;
+    tree:         Tree;
+    truncated?:   boolean;
+    windowTitle:  string;
+}
+
+export interface PointsDigestApp {
+    bundleId: string;
+    name:     string;
+}
+
+export interface PointsField {
+    enabled?:   boolean;
+    errorText?: string;
+    fieldId:    string;
+    focused?:   boolean;
+    frame?:     PointsRect;
+    invalid?:   boolean;
+    label:      string;
+    options?:   string[];
+    path:       string[];
+    required?:  boolean;
+    role:       PointsFieldRole;
+    sensitive?: PointsSensitiveReason;
+    state:      PointsFieldFill;
+    value?:     string;
+}
+
+export interface PointsRect {
+    height: number;
+    width:  number;
+    x:      number;
+    y:      number;
+}
+
+export type PointsFieldRole = "text" | "multiline" | "number" | "date" | "checkbox" | "radio" | "popup" | "combobox" | "button" | "link";
+
+export type PointsSensitiveReason = "password" | "payment" | "one_time_code" | "identity" | "secret" | "secure_field" | "value_shape" | "directions_only";
+
+export type PointsFieldFill = "empty" | "filled" | "unknown";
+
+export type Tree = "ok" | "sparse";
+
+export type PointsEndReason = "stop" | "window_closed" | "app_quit" | "app_changed" | "idle" | "computer_use" | "recording" | "helper_lost" | "gateway_lost" | "error";
+
+export type PointsSessionEventType = "digest" | "field" | "focus" | "page" | "action" | "visible" | "ended";
+
+export interface PointsSessionParams {
+    strings: PointsCardStrings;
+    window:  string;
+}
+
+export interface PointsCardStrings {
+    askInPsyche:   string;
+    back:          string;
+    copy:          string;
+    followWindow:  string;
+    hideNote:      string;
+    letLook:       string;
+    looksWrong:    string;
+    menuBarTitle:  string;
+    next:          string;
+    payButton:     string;
+    scrollTo:      string;
+    selfFill:      string;
+    selfFillPlain: string;
+    skip:          string;
+    stepFormat:    string;
+    stop:          string;
+    stuck:         string;
+    stuckBlocked:  string;
+    stuckMissing:  string;
+    stuckUnclear:  string;
+    unknownValue:  string;
+    visionBadge:   string;
+}
+
+export interface PointsShowParams {
+    kind:      PointsShowKind;
+    note:      string;
+    sessionId: string;
+    sources?:  string[];
+    step:      PointsShowParamsStep;
+    target:    PointsShowTarget;
+    value?:    string;
+    warning?:  string;
+}
+
+export type PointsShowKind = "fill" | "choose" | "check" | "skip" | "self" | "review" | "next_page" | "info";
+
+export interface PointsShowParamsStep {
+    n:  number;
+    of: number;
+}
+
+export interface PointsShowTarget {
+    box?:       PointsRect;
+    fieldId?:   string;
+    imageSize?: ImageSize;
+}
+
+export interface ImageSize {
+    height: number;
+    width:  number;
+}
+
+export interface PointsShowResult {
+    shown: boolean;
+}
+
+export interface PointsStartParams {
+    entry:       PointsEntry;
+    goal?:       string;
+    goalSource?: GoalSource;
+    locale:      string;
+    strings:     PointsCardStrings;
+    threadId?:   string;
+    window:      string;
+}
+
+export type PointsEntry = "chat" | "palette" | "tray";
+
+export type GoalSource = "owner" | "offer";
+
+export interface PointsStartResult {
+    app:       PointsStartResultApp;
+    sessionId: string;
+}
+
+export interface PointsStartResultApp {
+    bundleId: string;
+    name:     string;
+}
+
+export interface PointsStatusParams {
+}
+
+export interface PointsStatusResult {
+    session?: PointsSessionStatus;
+}
+
+export interface PointsSessionStatus {
+    app:       PointsSessionStatusApp;
+    of:        number;
+    page:      number;
+    sessionId: string;
+    state:     PointsState;
+    step:      number;
+    vision:    boolean;
+}
+
+export interface PointsSessionStatusApp {
+    bundleId: string;
+    name:     string;
+}
+
+export type PointsState = "reading" | "pointing" | "paused" | "ended";
+
+export interface PointsStopParams {
+    sessionId: string;
+}
+
+export interface PointsStopResult {
+    ended: boolean;
+}
+
+export interface PointsUpdatedPayload {
+    needs?:    PointsNeeds;
+    of:        number;
+    page:      number;
+    reason?:   PointsEndReason;
+    sessionId: string;
+    state:     PointsState;
+    step:      number;
+    vision:    boolean;
+}
+
+export type PointsNeeds = "accessibility" | "screenRecording";
+
+export interface PointsWindowsParams {
+}
+
+export interface PointsWindowsResult {
+    windows: PointsWindow[];
+}
+
+export interface PointsWindow {
+    app:       PointsWindowApp;
+    frontmost: boolean;
+    ref:       string;
+    refusal?:  PointsRefusal;
+    title:     string;
+}
+
+export interface PointsWindowApp {
+    bundleId: string;
+    name:     string;
+}
+
 export interface PolicyRule {
     createdAt: string;
     effect:    Decision;
@@ -12815,11 +13132,11 @@ export interface SpacesUpdateParams {
 export interface SpecialistProgressPayload {
     budget: RunBudget;
     runId:  string;
-    step:   Step;
+    step:   SpecialistProgressPayloadStep;
     taskId: string;
 }
 
-export interface Step {
+export interface SpecialistProgressPayloadStep {
     id:     string;
     label:  string;
     status: string;

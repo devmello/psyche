@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "@psyche/agent-core": "workspace:*",
+    "@psyche/connectors": "workspace:*",
     "@psyche/permissions": "workspace:*",
     "@psyche/protocol": "workspace:*",
     "@sinclair/typebox": "0.34.52",

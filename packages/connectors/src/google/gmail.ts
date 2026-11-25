@@ -18,6 +18,21 @@ import {
  */
 export const GMAIL_BASE = "https://gmail.googleapis.com/gmail/v1/users/me";
 export const MAX_LIST = 50;
+/** History pages read per sync; a longer backlog continues on the next sync from a page token. */
+export const MAX_HISTORY_PAGES = 20;
+/** Messages imported after a lost history (404), and how far back when the last sync is unknown. */
+export const MAX_RESYNC = 1000;
+const DEFAULT_RESYNC_LOOKBACK_MS = 7 * 24 * 60 * 60 * 1000;
+
+export interface GmailSyncResult {
+  historyId: string;
+  messageIds: string[];
+  full: boolean;
+  /** Set while history pages remain: `historyId` has not advanced; continue from this token. */
+  nextPageToken?: string;
+  /** The resync hit `MAX_RESYNC` with more mail left. */
+  truncated?: boolean;
+}
 
 interface RawMessage {
   id?: string;
@@ -249,19 +264,24 @@ export class Gmail {
   }
 
   /**
-   * Incremental sync from `startHistoryId`. Returns new message ids and the latest history id.
-   * A 404 (history no longer available) falls back to a full resync of recent inbox messages.
+   * Incremental sync from `startHistoryId`. Returns new message ids and the history id to keep.
+   * `historyId` moves to the latest only once every history page was read: when the page cap
+   * stops the loop early it stays at `startHistoryId` and `nextPageToken` says where to continue
+   * (the caller persists both), so no mail is skipped. A 404 (history no longer available) falls
+   * back to a resync of inbox messages since `sinceMs`, up to `MAX_RESYNC` of them.
    */
   async sync(
     startHistoryId: string | undefined,
     signal?: AbortSignal,
-  ): Promise<{ historyId: string; messageIds: string[]; full: boolean }> {
+    opts: { pageToken?: string; sinceMs?: number; nowMs?: number } = {},
+  ): Promise<GmailSyncResult> {
     if (startHistoryId === undefined) return this.#fullSync(signal);
     const ids = new Set<string>();
-    let pageToken: string | undefined;
+    let pageToken: string | undefined = opts.pageToken;
     let latest = startHistoryId;
+    let more = false;
     try {
-      for (let page = 0; page < 20; page++) {
+      for (let page = 0; page < MAX_HISTORY_PAGES; page++) {
         const r = await this.#api.json<{
           history?: { messagesAdded?: { message?: { id?: string } }[] }[];
           historyId?: string;
@@ -281,28 +301,65 @@ export class Gmail {
             if (typeof a.message?.id === "string") ids.add(a.message.id);
         }
         if (typeof r.historyId === "string") latest = r.historyId;
-        if (r.nextPageToken === undefined) break;
         pageToken = r.nextPageToken;
+        if (pageToken === undefined) break;
+        more = page === MAX_HISTORY_PAGES - 1;
       }
     } catch (err) {
-      if (statusOf(err) === 404) return this.#fullSync(signal);
+      if (statusOf(err) === 404) return this.#fullSync(signal, opts.sinceMs, opts.nowMs);
       throw err;
+    }
+    if (more && pageToken !== undefined) {
+      return {
+        historyId: startHistoryId,
+        messageIds: [...ids],
+        full: false,
+        nextPageToken: pageToken,
+      };
     }
     return { historyId: latest, messageIds: [...ids], full: false };
   }
 
-  async #fullSync(signal?: AbortSignal) {
+  async #fullSync(
+    signal?: AbortSignal,
+    sinceMs?: number,
+    nowMs?: number,
+  ): Promise<GmailSyncResult> {
     const profile = await this.profile(signal);
-    const list = await this.#api.json<{ messages?: { id?: string }[] }>(`${GMAIL_BASE}/messages`, {
-      query: { labelIds: ["INBOX"], maxResults: 100 },
-      ...(signal === undefined ? {} : { signal }),
-    });
     if (typeof profile.historyId !== "string")
       throw new PsycheError("internal", "Gmail profile has no historyId");
+    const ids: string[] = [];
+    let truncated = false;
+    // First connect: the latest 100. After a lost history (404): everything since the last
+    // completed sync (a week back when unknown), within the cap.
+    const since = nowMs === undefined ? undefined : (sinceMs ?? nowMs - DEFAULT_RESYNC_LOOKBACK_MS);
+    let pageToken: string | undefined;
+    for (let page = 0; page < MAX_RESYNC / 100 + 1; page++) {
+      const list: { messages?: { id?: string }[]; nextPageToken?: string } = await this.#api.json(
+        `${GMAIL_BASE}/messages`,
+        {
+          query: {
+            labelIds: ["INBOX"],
+            maxResults: 100,
+            ...(since === undefined ? {} : { q: `after:${Math.floor(since / 1000)}` }),
+            pageToken,
+          },
+          ...(signal === undefined ? {} : { signal }),
+        },
+      );
+      for (const m of list.messages ?? []) if (typeof m.id === "string") ids.push(m.id);
+      pageToken = list.nextPageToken;
+      if (since === undefined || pageToken === undefined) break;
+      if (ids.length >= MAX_RESYNC) {
+        truncated = true;
+        break;
+      }
+    }
     return {
       historyId: profile.historyId,
-      messageIds: (list.messages ?? []).flatMap((m) => (typeof m.id === "string" ? [m.id] : [])),
+      messageIds: ids.slice(0, MAX_RESYNC),
       full: true,
+      ...(truncated ? { truncated } : {}),
     };
   }
 }

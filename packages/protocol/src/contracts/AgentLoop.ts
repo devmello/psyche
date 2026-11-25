@@ -132,6 +132,60 @@ export interface StartTurnInput {
    * re-send. A rejection blocks the call: it is not dispatched.
    */
   beforeDispatch?: (call: DispatchIntent) => Promise<void>;
+  /**
+   * A staging run (docs/design/night-shift-2026.md §2.2): reads run, an allowlisted write is
+   * recorded through `staging.sink` instead of running, and every other write is refused. Set by
+   * the server only (the task worker, from the task's server-only `staging` field); a subagent of
+   * the run inherits it. No client method carries it.
+   */
+  staging?: StagingRun;
+}
+
+/**
+ * What a staging run belongs to. A discriminated union so Fork a plan reuses the gate
+ * (fork-a-plan-2026.md §3.1); only `night` is used so far.
+ */
+export type Staging =
+  | { kind: "night"; nightId: string }
+  | { kind: "fork"; forkId: string; branchId: string };
+
+/** A write the loop gated and did not run: what the sink records for the morning. */
+export interface StagedCall {
+  staging: Staging;
+  runId: string;
+  taskId?: string;
+  toolCallId: string;
+  /** The registered tool name, e.g. `mcp__apple__mail_draft`. */
+  tool: string;
+  /** The connector the tool belongs to and its action-matrix key (always present when staged). */
+  connector: { id: string; action: string };
+  sideEffect: SideEffect;
+  kind?: ApprovalKind;
+  target?: Target;
+  /** The frozen arguments the broker decided on. */
+  params: unknown;
+  paramsHash: string;
+  /** The binding the apply approval will re-derive (security §3.5). */
+  bindingHash: string;
+  grantKey?: string;
+  summary: string;
+  /** The broker's rule for this call today (a grant that would have allowed it is not run). */
+  decisionRule: string;
+  taint: boolean;
+  taintSources: TaintSource[];
+}
+
+/**
+ * Where staged calls go. The Gateway's stager implements it (Night shift W4); the loop only
+ * calls `stage`. A throw or `staged: false` refuses the call, and nothing runs.
+ */
+export interface StagingSink {
+  stage(call: StagedCall): Promise<{ staged: true; stagedId: string } | { staged: false }>;
+}
+
+export interface StagingRun {
+  staging: Staging;
+  sink: StagingSink;
 }
 
 /** A tool call the loop is about to dispatch (`StartTurnInput.beforeDispatch`). */
