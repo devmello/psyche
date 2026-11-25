@@ -87,6 +87,12 @@ export interface MemoryFlushResult {
 
 export interface MemoryStore {
   readFile(path: string): Promise<MemoryFile | undefined>;
+  /**
+   * Least-trusted provenance of a file's content (the file's own class combined with its
+   * entries). The prompt loader withholds a persona file whose content is `untrusted`
+   * (security §8, defence in depth). Optional: a store without it is read as trusted.
+   */
+  contentProvenance?(path: string): Provenance;
   writeFile(path: string, content: string, options: MemoryWriteOptions): Promise<MemoryFile>;
   listFiles(prefix?: string): Promise<string[]>;
   search(query: string, options?: MemorySearchOptions): Promise<MemoryHit[]>;
