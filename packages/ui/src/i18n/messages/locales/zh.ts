@@ -445,8 +445,6 @@ export const zh: Partial<Catalogue> = {
     "正在载入{what, select, approval {审批} question {问题} receipt {回执} artifact {成果} file {文件} task {任务} plan {计划} other {项目}}",
   "blocks.message.missing":
     "Psyche 无法载入此{what, select, approval {审批} question {问题} receipt {回执} artifact {成果} file {文件} task {任务} plan {计划} other {项目}}。",
-  "blocks.message.waitingApproval": "正在等待你的批准",
-  "blocks.message.reviewApproval": "审核审批：{summary}",
 
   "blocks.details.none": "无",
   "blocks.details.argumentsList": "参数：{args}",
@@ -760,11 +758,7 @@ export const zh: Partial<Catalogue> = {
   "agent.header.stateLead": "{state}：",
   "agent.header.running": "{n, number} 个运行中",
   "agent.header.needYou": "{n, plural, other {# 项需要你}}",
-  "agent.header.modeLabel": "权限模式：{mode}",
-  "agent.header.modeLead": "权限模式：",
   "agent.header.modelLabel": "模型：{model}",
-  "agent.header.modelLead": "模型：",
-  "agent.header.notifications": "通知，{n, number} 条未读",
   "agent.header.menuSheet": "审批和记忆",
   "agent.header.changeModel": "更改模型…",
   "agent.header.exportMarkdown": "导出为 Markdown",

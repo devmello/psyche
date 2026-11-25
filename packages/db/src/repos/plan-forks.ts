@@ -305,7 +305,9 @@ export function deletePlanForkBranch(db: PsycheDb, id: string): boolean {
  * Files a branch's one report (fork-a-plan-2026 §2.3, §4.1). One statement: the row is written
  * only while it is `running` and holds no report, so a second filing (a model retry after a host
  * that committed and then threw, a run replayed after a restart) changes nothing. Returns whether
- * this call wrote it.
+ * this call wrote it. `read_owner_only` only ever goes up: a run that read Memory, Messages or
+ * Contacts marked the row already, and a later run's report (after a retry or a restart) can't
+ * clear it.
  */
 export function fileBranchReport(
   db: PsycheDb,
@@ -316,7 +318,7 @@ export function fileBranchReport(
   const res = db.sqlite
     .prepare(
       `UPDATE plan_fork_branches
-          SET report = ?, read_owner_only = ?, updated_at = ?
+          SET report = ?, read_owner_only = MAX(read_owner_only, ?), updated_at = ?
         WHERE id = ? AND report IS NULL AND status = 'running'`,
     )
     .run(JSON.stringify(report), extra.readOwnerOnly === true ? 1 : 0, db.now(), id);

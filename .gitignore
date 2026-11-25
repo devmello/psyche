@@ -61,3 +61,6 @@ packages/protocol/generated/.tmp/
 
 # iOS scratch build output (Swift package build dir)
 apps/ios/.build-ios*/
+
+# Builder before/after screenshots stay local
+.claude/demo/

@@ -16,7 +16,6 @@ const handlers = {
   onOpenSheet: () => {},
   onModeChange: () => {},
   onOpenModelPicker: () => {},
-  onOpenInbox: () => {},
   onExport: () => {},
   onDisclosureChange: () => {},
 };

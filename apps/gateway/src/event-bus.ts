@@ -68,6 +68,8 @@ export type EventPersonalizer = (
   event: EventName,
   payload: unknown,
   subscriber: { deviceId: string | null; scopes: readonly DeviceScope[]; reader: Reader },
+  /** The thread the publish named (`publish`'s third argument), whatever the payload holds. */
+  threadId?: string,
 ) => unknown | undefined;
 
 interface Subscriber {
@@ -168,11 +170,12 @@ export class EventBus {
     for (const [sink, sub] of this.#subscribers) {
       if (requiredScope !== null && !sub.scopes.includes(requiredScope)) continue;
       if (!matches(sub.filter, event, threadId)) continue;
-      const own = this.#personalizer?.(event, payload, {
-        deviceId: sub.deviceId,
-        scopes: sub.scopes,
-        reader: sub.reader,
-      });
+      const own = this.#personalizer?.(
+        event,
+        payload,
+        { deviceId: sub.deviceId, scopes: sub.scopes, reader: sub.reader },
+        threadId,
+      );
       // A skipped event leaves no gap in this subscriber's own `seq`.
       if (own === SKIP_EVENT) continue;
       if (own === undefined && SCRUBBED_EVENTS.has(event)) continue;

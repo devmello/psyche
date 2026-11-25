@@ -142,7 +142,7 @@ describe("FollowUpQueue (§3.2)", () => {
 });
 
 describe("ChatThread approvals (§3.3)", () => {
-  it("shows each pending approval once in the dock plus one quiet pointer", async () => {
+  it("shows each pending approval once, in the dock: the transcript carries no pointer", async () => {
     render(
       <StoryWorld>
         <div style={{ height: 900 }}>
@@ -151,19 +151,14 @@ describe("ChatThread approvals (§3.3)", () => {
       </StoryWorld>,
     );
     const log = await screen.findByRole("log", { name: "Conversation" });
-    await waitFor(() =>
-      expect(within(log).getAllByRole("button", { name: /^Review approval:/ }).length).toBe(2),
-    );
+    const dock = await screen.findByTestId("approval-dock");
+    expect(within(dock).getByRole("button", { name: "Allow" })).toBeTruthy();
+    expect(within(log).queryByRole("button", { name: /^Review approval:/ })).toBeNull();
+    expect(within(log).queryByText("Waiting for your approval")).toBeNull();
     expect(within(log).queryByText(/approval needed, above the composer/)).toBeNull();
     // The only selects are the approval card's styled expiry; none in the composer.
     for (const select of document.querySelectorAll("select"))
       expect(select.closest("[data-slot=native-select-wrapper]")).not.toBeNull();
-    // The pointer opens and focuses that approval's card in the dock.
-    const pointer = within(log).getByRole("button", { name: /^Review approval: Send an email/ });
-    await userEvent.click(pointer);
-    await waitFor(() =>
-      expect(document.activeElement?.textContent).toMatch(/Send an email to jane\.ortiz/),
-    );
   });
 });
 

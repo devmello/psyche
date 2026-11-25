@@ -1,15 +1,19 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import { ModeSwitch } from "../src/chat/ModeSwitch.tsx";
+import { describe, expect, it, vi } from "vitest";
+import { AgentHeader } from "../src/agent/AgentHeader.tsx";
+import { ModeFeedback, useModeChoice } from "../src/chat/ModeSwitch.tsx";
 import {
-  AUTO_EXPLAINER_KEY,
   applyModeChoice,
   autoModeBlockedBy,
   autoModeSuggestion,
+  type DefaultSaved,
   isAutoModelRefusal,
+  isSwitchMode,
   type ListedModels,
+  type SwitchMode,
 } from "../src/chat/mode-switch.ts";
+import { StoryWorld } from "../src/stories/harness.tsx";
 
 const listed: ListedModels = {
   providers: [
@@ -169,63 +173,73 @@ describe("applyModeChoice", () => {
   });
 });
 
-describe("<ModeSwitch>", () => {
-  beforeEach(() => localStorage.clear());
+/** The one mode control: the header's ⋯ menu, with what the choice has to say under the header. */
+function Harness(props: {
+  mode: string;
+  modelRef: string | null;
+  listed: ListedModels | undefined;
+  onSelect: (mode: SwitchMode, modelRef?: string) => Promise<DefaultSaved>;
+}) {
+  const choice = useModeChoice({
+    modelRef: props.modelRef,
+    listed: props.listed,
+    onSelect: props.onSelect,
+  });
+  return (
+    <StoryWorld>
+      <AgentHeader
+        onOpenSheet={() => {}}
+        mode={props.mode as "balanced"}
+        onModeChange={(m) => {
+          if (isSwitchMode(m)) void choice.choose(m);
+        }}
+      />
+      <ModeFeedback choice={choice} />
+    </StoryWorld>
+  );
+}
 
-  it("switches mode in one click on an allowed model, with a first-time explainer", async () => {
+async function openMode(name: RegExp) {
+  await userEvent.click(screen.getByRole("button", { name: "More" }));
+  return userEvent.click(await screen.findByRole("menuitemradio", { name }));
+}
+
+describe("mode control in the header menu", () => {
+  it("switches mode in one choice on an allowed model, and the menu itself explains Auto", async () => {
     const onSelect = vi.fn().mockResolvedValue("saved");
     render(
-      <ModeSwitch
+      <Harness
         mode="balanced"
         modelRef="anthropic/claude-sonnet-5-5"
         listed={listed}
         onSelect={onSelect}
       />,
     );
-    await userEvent.click(screen.getByRole("radio", { name: /^auto$/i }));
-    expect(onSelect).toHaveBeenCalledWith("auto", undefined);
-    expect(await screen.findByTestId("mode-switch-explainer")).toBeTruthy();
-    await userEvent.click(screen.getByRole("button", { name: /got it/i }));
-    expect(localStorage.getItem(AUTO_EXPLAINER_KEY)).toBe("1");
-    expect(screen.queryByTestId("mode-switch-explainer")).toBeNull();
-  });
-
-  it("does not repeat the explainer once seen", async () => {
-    localStorage.setItem(AUTO_EXPLAINER_KEY, "1");
-    render(
-      <ModeSwitch
-        mode="balanced"
-        modelRef="anthropic/claude-sonnet-5-5"
-        listed={listed}
-        onSelect={vi.fn().mockResolvedValue("saved")}
-      />,
+    await userEvent.click(screen.getByRole("button", { name: "More" }));
+    expect((await screen.findByTestId("mode-menu-auto-explainer")).textContent).toMatch(
+      /asks before anything sensitive/,
     );
-    await userEvent.click(screen.getByRole("radio", { name: /^auto$/i }));
-    await waitFor(() => expect(screen.getByRole("radio", { name: /^auto$/i })).toBeTruthy());
-    expect(screen.queryByTestId("mode-switch-explainer")).toBeNull();
+    await userEvent.click(await screen.findByRole("menuitemradio", { name: /^auto$/i }));
+    expect(onSelect).toHaveBeenCalledWith("auto", undefined);
   });
 
   it("marks the current mode and sets manual without any prompt", async () => {
     const onSelect = vi.fn().mockResolvedValue("saved");
-    render(<ModeSwitch mode="auto" modelRef={null} listed={undefined} onSelect={onSelect} />);
-    expect(screen.getByRole("radio", { name: /^auto$/i }).getAttribute("aria-checked")).toBe(
-      "true",
-    );
-    await userEvent.click(screen.getByRole("radio", { name: /^manual$/i }));
+    render(<Harness mode="auto" modelRef={null} listed={undefined} onSelect={onSelect} />);
+    await userEvent.click(screen.getByRole("button", { name: "More" }));
+    expect(
+      (await screen.findByRole("menuitemradio", { name: /^auto$/i })).getAttribute("aria-checked"),
+    ).toBe("true");
+    await userEvent.click(screen.getByRole("menuitemradio", { name: /^manual$/i }));
     expect(onSelect).toHaveBeenCalledWith("manual", undefined);
   });
 
   it("offers a one-tap model switch when the model cannot run Auto", async () => {
     const onSelect = vi.fn().mockResolvedValue("saved");
     render(
-      <ModeSwitch
-        mode="balanced"
-        modelRef="lmstudio/tiny-7b"
-        listed={listed}
-        onSelect={onSelect}
-      />,
+      <Harness mode="balanced" modelRef="lmstudio/tiny-7b" listed={listed} onSelect={onSelect} />,
     );
-    await userEvent.click(screen.getByRole("radio", { name: /^auto$/i }));
+    await openMode(/^auto$/i);
     expect(onSelect).not.toHaveBeenCalled();
     await userEvent.click(await screen.findByTestId("mode-switch-take-offer"));
     expect(onSelect).toHaveBeenCalledWith("auto", "anthropic/claude-sonnet-5-5");
@@ -237,36 +251,36 @@ describe("<ModeSwitch>", () => {
       details: { reason: "auto_model_not_allowed", model: "mystery/model" },
     });
     render(
-      <ModeSwitch mode="balanced" modelRef="mystery/model" listed={listed} onSelect={onSelect} />,
+      <Harness mode="balanced" modelRef="mystery/model" listed={listed} onSelect={onSelect} />,
     );
-    await userEvent.click(screen.getByRole("radio", { name: /^auto$/i }));
+    await openMode(/^auto$/i);
     expect(await screen.findByTestId("mode-switch-take-offer")).toBeTruthy();
   });
 
   it("says what to add when no allowed model is configured", async () => {
     render(
-      <ModeSwitch
+      <Harness
         mode="balanced"
         modelRef="lmstudio/tiny-7b"
         listed={{ providers: listed.providers?.slice(0, 1) ?? [] }}
         onSelect={vi.fn()}
       />,
     );
-    await userEvent.click(screen.getByRole("radio", { name: /^auto$/i }));
+    await openMode(/^auto$/i);
     expect(await screen.findByTestId("mode-switch-offer")).toBeTruthy();
     expect(screen.queryByTestId("mode-switch-take-offer")).toBeNull();
   });
 
   it("says the default was not saved when the device may not write it", async () => {
     render(
-      <ModeSwitch
+      <Harness
         mode="balanced"
         modelRef="anthropic/claude-sonnet-5-5"
         listed={listed}
         onSelect={vi.fn().mockResolvedValue("failed")}
       />,
     );
-    await userEvent.click(screen.getByRole("radio", { name: /^manual$/i }));
+    await openMode(/^manual$/i);
     expect(await screen.findByText(/could not be saved as the default/i)).toBeTruthy();
   });
 
@@ -276,14 +290,9 @@ describe("<ModeSwitch>", () => {
       details: { reason: "auto_model_not_allowed", model: "mystery/model" },
     });
     render(
-      <ModeSwitch
-        mode="balanced"
-        modelRef="mystery/model"
-        listed={undefined}
-        onSelect={onSelect}
-      />,
+      <Harness mode="balanced" modelRef="mystery/model" listed={undefined} onSelect={onSelect} />,
     );
-    await userEvent.click(screen.getByRole("radio", { name: /^auto$/i }));
+    await openMode(/^auto$/i);
     const offer = await screen.findByTestId("mode-switch-offer");
     expect(offer.textContent).not.toMatch(/key/i);
   });

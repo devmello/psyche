@@ -50,8 +50,6 @@ import {
 } from "./focus-request.ts";
 import { useGreetEmptyMainChat } from "./greet.ts";
 import { MessageView } from "./MessageView.tsx";
-import { ModeSwitch } from "./ModeSwitch.tsx";
-import { applyModeChoice } from "./mode-switch.ts";
 import { OfflineBanner } from "./OfflineBanner.tsx";
 import { OutboxQueue } from "./OutboxQueue.tsx";
 import { ComposerPrefill } from "./prefill.ts";
@@ -1105,23 +1103,6 @@ export function ChatThread({
                     )
                   }
                 />
-                {view.thread ? (
-                  <ModeSwitch
-                    mode={view.thread.thread.permissionMode}
-                    modelRef={view.thread.thread.modelRef ?? null}
-                    listed={models.data}
-                    disabled={composerOff}
-                    onSelect={(m, ref) =>
-                      applyModeChoice(
-                        (method, params) =>
-                          call(method as "threads.update", params as { threadId: string }),
-                        { id: threadId, kind: threadKind },
-                        m,
-                        ref,
-                      )
-                    }
-                  />
-                ) : null}
                 <SpaceComposerChip threadId={threadId} />
                 {importedThread ? (
                   <p

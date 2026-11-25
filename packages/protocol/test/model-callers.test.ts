@@ -37,6 +37,10 @@ const MODEL_CALLERS = [
 /** Methods that call a model only for some params (`callsModelWhen`): the cases that count. */
 const CONDITIONAL_CALLERS = {
   "memory.persona.edit": { yes: { instruction: "x" }, no: { fields: {} } },
+  "planForks.take": {
+    yes: { forkId: "f", branchId: "b", items: [], sends: [], continue: true },
+    no: { forkId: "f", branchId: "b", items: [], sends: [], continue: false },
+  },
   "search.query": { yes: { query: "q", smart: true }, no: { query: "q" } },
   "tasks.update": { yes: { taskId: "t", budget: { tokens: 1 } }, no: { taskId: "t" } },
   "voice.memo.save": {

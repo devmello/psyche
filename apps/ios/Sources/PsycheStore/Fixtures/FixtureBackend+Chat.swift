@@ -268,6 +268,14 @@ extension FixtureBackend: ChatBackend {
         publish(.changed(.threads))
     }
 
+    public func setFullAccess(threadID: String, enabled: Bool) async throws {
+        await pause()
+        try takeThreadActionFailure()
+        guard chatState.threads[threadID] != nil else { throw BackendError.notFound }
+        chatState.threads[threadID]?.permissionMode = enabled ? ThreadFullAccess.mode : "balanced"
+        publish(.changed(.threads))
+    }
+
     public func deleteThread(id: String) async throws {
         chatState.archived.removeAll { $0.id == id }
         guard let summary = chatState.summaries.first(where: { $0.id == id }), !summary.isMain else {

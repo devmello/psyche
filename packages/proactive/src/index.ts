@@ -103,11 +103,19 @@ export {
 } from "./feed/sources.ts";
 export { FeedStore, type StoredPost } from "./feed/store.ts";
 export * from "./forks/budget.ts";
+export {
+  type BranchReport,
+  buildComparisonRequest,
+  fallbackComparison,
+  parseComparison,
+} from "./forks/comparison.ts";
+export { checkComparison } from "./forks/comparison-check.ts";
 export * from "./forks/prompt.ts";
 export * from "./forks/reads.ts";
 export * from "./forks/service.ts";
 export * from "./forks/stager.ts";
 export * from "./forks/toolset.ts";
+export { scrubForViewer, type Viewer as ForkViewer } from "./forks/viewer.ts";
 export {
   type CheckinInput,
   createNextStepProposer,

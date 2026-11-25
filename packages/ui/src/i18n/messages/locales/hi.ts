@@ -419,8 +419,6 @@ export const hi: Partial<Catalogue> = {
     "{what, select, approval {स्वीकृति} question {सवाल} receipt {रसीद} artifact {आर्टिफ़ैक्ट} file {फ़ाइल} task {टास्क} plan {योजना} other {आइटम}} लोड हो रहा है",
   "blocks.message.missing":
     "Psyche यह {what, select, approval {स्वीकृति} question {सवाल} receipt {रसीद} artifact {आर्टिफ़ैक्ट} file {फ़ाइल} task {टास्क} plan {योजना} other {आइटम}} लोड नहीं कर सका।",
-  "blocks.message.waitingApproval": "आपकी स्वीकृति की प्रतीक्षा में",
-  "blocks.message.reviewApproval": "स्वीकृति की समीक्षा करें: {summary}",
 
   "blocks.details.none": "कोई नहीं",
   "blocks.details.argumentsList": "आर्ग्युमेंट: {args}",
@@ -740,11 +738,7 @@ export const hi: Partial<Catalogue> = {
   "agent.header.stateLead": "{state}:",
   "agent.header.running": "{n, number} चल रहे हैं",
   "agent.header.needYou": "{n, plural, one {# को आपकी ज़रूरत है} other {# को आपकी ज़रूरत है}}",
-  "agent.header.modeLabel": "अनुमति मोड: {mode}",
-  "agent.header.modeLead": "अनुमति मोड:",
   "agent.header.modelLabel": "मॉडल: {model}",
-  "agent.header.modelLead": "मॉडल:",
-  "agent.header.notifications": "सूचनाएँ, {n, number} अपठित",
   "agent.header.menuSheet": "स्वीकृतियाँ और मेमोरी",
   "agent.header.changeModel": "मॉडल बदलें…",
   "agent.header.exportMarkdown": "Markdown के रूप में एक्सपोर्ट करें",

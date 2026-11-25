@@ -421,8 +421,6 @@ export const de: Partial<Catalogue> = {
     "{what, select, approval {Genehmigung} question {Frage} receipt {Beleg} artifact {Artefakt} file {Datei} task {Aufgabe} plan {Plan} other {Element}} wird geladen",
   "blocks.message.missing":
     "Psyche konnte {what, select, approval {diese Genehmigung} question {diese Frage} receipt {diesen Beleg} artifact {dieses Artefakt} file {diese Datei} task {diese Aufgabe} plan {diesen Plan} other {dieses Element}} nicht laden.",
-  "blocks.message.waitingApproval": "Wartet auf deine Genehmigung",
-  "blocks.message.reviewApproval": "Genehmigung prüfen: {summary}",
 
   "blocks.details.none": "keine",
   "blocks.details.argumentsList": "Argumente: {args}",
@@ -711,9 +709,9 @@ export const de: Partial<Catalogue> = {
   "context.limits.errorMin": "Gib eine ganze Zahl von mindestens {min, number} ein.",
 
   // agent
-  "agent.mode.manual": "manuell",
-  "agent.mode.balanced": "ausgewogen",
-  "agent.mode.auto": "automatisch",
+  "agent.mode.manual": "Manuell",
+  "agent.mode.balanced": "Ausgewogen",
+  "agent.mode.auto": "Automatisch",
   "agent.mode.full": "Vollzugriff",
   "chat.commands.full.hint": "on | off",
   "chat.commands.full.description": "Vollzugriff in diesem Chat ein- oder ausschalten",
@@ -727,7 +725,7 @@ export const de: Partial<Catalogue> = {
   "chat.fullAccess.banner":
     "Vollzugriff: Psyche handelt ohne Rückfrage, außer bei Nachrichten und Zahlungen.",
   "chat.fullAccess.turnOff": "Ausschalten",
-  "agent.mode.plan": "planen",
+  "agent.mode.plan": "Planen",
 
   "agent.state.idle": "inaktiv",
   "agent.state.working": "arbeitet",
@@ -748,11 +746,7 @@ export const de: Partial<Catalogue> = {
   "agent.header.stateLead": "{state}:",
   "agent.header.running": "{n, number} laufen",
   "agent.header.needYou": "{n, plural, one {# braucht dich} other {# brauchen dich}}",
-  "agent.header.modeLabel": "Berechtigungsmodus: {mode}",
-  "agent.header.modeLead": "Berechtigungsmodus:",
   "agent.header.modelLabel": "Modell: {model}",
-  "agent.header.modelLead": "Modell:",
-  "agent.header.notifications": "Mitteilungen, {n, number} ungelesen",
   "agent.header.menuSheet": "Genehmigungen und Gedächtnis",
   "agent.header.changeModel": "Modell ändern …",
   "agent.header.exportMarkdown": "Als Markdown exportieren",
