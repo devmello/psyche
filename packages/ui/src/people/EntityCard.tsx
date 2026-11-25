@@ -25,7 +25,7 @@ import type {
   EntityView,
   FactView,
   GraphFactAttribute,
-  GraphLoopStatus,
+  GraphLoopWriteStatus,
   InteractionView,
   LoopView,
   ProjectStatus,
@@ -36,7 +36,7 @@ import type {
 export interface EntityCardActions {
   onSetFact?: (entity: EntityView, attribute: GraphFactAttribute, value: string) => void;
   onRetractFact?: (entity: EntityView, fact: FactView) => void;
-  onUpdateLoop?: (entity: EntityView, loop: LoopView, status: GraphLoopStatus) => void;
+  onUpdateLoop?: (entity: EntityView, loop: LoopView, status: GraphLoopWriteStatus) => void;
   onSaveNotes?: (entity: EntityView, notes: string) => void;
   onSetStatus?: (entity: EntityView, status: ProjectStatus) => void;
   /** An assignment's status (Not started, In progress, Submitted, Done, Dropped; §3.4). */
@@ -522,7 +522,8 @@ export function LoopRows({
           hideCounterpart={loop.counterpart?.id === entity.id}
           {...(actions.onUpdateLoop
             ? {
-                onUpdate: (l: LoopView, s: GraphLoopStatus) => actions.onUpdateLoop?.(entity, l, s),
+                onUpdate: (l: LoopView, s: GraphLoopWriteStatus) =>
+                  actions.onUpdateLoop?.(entity, l, s),
               }
             : {})}
           {...(actions.onOpenLink ? { onOpenLink: actions.onOpenLink } : {})}

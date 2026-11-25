@@ -15,10 +15,7 @@ export const mailFollowups: Partial<Catalogue> = {
   "mailFollowups.thread.title": "メールのフォローアップ",
   "chat.composer.placeholderMail": "このやり取りについて質問",
   "daily.section.quiet_threads": "止まっているメールのやり取り",
-<<<<<<< HEAD
   "daily.section.promises": "約束",
   "screens.inbox.kind.promise_due": "約束の期限",
-=======
->>>>>>> origin/main
   "daily.section.night_shift": "ナイトシフト",
 };
