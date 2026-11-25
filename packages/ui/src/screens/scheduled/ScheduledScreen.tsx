@@ -1,6 +1,6 @@
-import type { Automation, ScheduledItem } from "@psyche/protocol";
+import type { Automation, ScheduledItem, ThreadListEntry } from "@psyche/protocol";
 import { CalendarClock, Plus } from "lucide-react";
-import { type ReactElement, type ReactNode, useState } from "react";
+import { type ReactElement, type ReactNode, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { usePrefillComposer } from "../../chat/prefill.ts";
 import {
@@ -13,6 +13,7 @@ import {
 import { Button } from "../../components/ui/button.tsx";
 import { Tabs, TabsList, TabsTrigger } from "../../components/ui/tabs.tsx";
 import { useCall, useGatewayQuery } from "../../data/index.ts";
+import { collectAllPages } from "../../data/list-pages.ts";
 import { t } from "../../i18n/core.ts";
 import { describeError } from "../../i18n/errors.ts";
 import { useNow } from "../../lib/use-now.ts";
@@ -193,7 +194,23 @@ export function ScheduledScreen({
 }: ScheduledScreenProps): ReactElement {
   const call = useCall();
   const q = useGatewayQuery("scheduled.list", {});
-  const threads = useGatewayQuery("threads.list", {});
+  // Every chat for the picker, across all pages of `threads.list` (the Gateway caps a page at 50).
+  const [chats, setChats] = useState<ThreadListEntry[]>([]);
+  useEffect(() => {
+    let live = true;
+    collectAllPages(async (cursor) => {
+      const r = await call("threads.list", cursor === undefined ? {} : { cursor });
+      return { items: r.threads, nextCursor: r.nextCursor };
+    }, 10).then(
+      (all) => {
+        if (live) setChats(all);
+      },
+      () => undefined,
+    );
+    return () => {
+      live = false;
+    };
+  }, [call]);
   const prefill = usePrefillComposer();
   const now = useNow(30_000, fixedNow);
   const timezone = q.data?.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -250,7 +267,7 @@ export function ScheduledScreen({
         {...(automation ? { automation } : {})}
         {...(editor.prompt ? { initialPrompt: editor.prompt } : {})}
         now={now}
-        threads={(threads.data?.threads ?? []).map((e) => ({
+        threads={chats.map((e) => ({
           id: e.thread.id,
           title: e.thread.title,
         }))}
