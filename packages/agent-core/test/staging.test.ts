@@ -222,6 +222,18 @@ describe("staging gate: the allowlist", () => {
     expect(h.broker.decisions).toHaveLength(1);
   });
 
+  it.each(["Pay rent", "Pay the plumber $120"])("a reminder titled %j stages", async (title) => {
+    const h = harness({
+      script: [call("c1", "mcp__apple__reminders_create", { title }), say("done")],
+    });
+    const t = conn(h, "apple", "reminders_create", "reminders.write", "write");
+    const sink = new FakeSink();
+    await stagingTurn(h, sink);
+    expect(t.ran).toHaveLength(0);
+    expect(sink.calls).toHaveLength(1);
+    expect(resultOf(h, "c1")?.output).toMatchObject({ staged: true });
+  });
+
   it("control: the same call outside a staging run raises its card or runs", async () => {
     const h = harness({
       script: [
@@ -478,12 +490,44 @@ const NEAR_MISSES: NearMiss[] = [
     args: { symbol: "VTI" },
   },
   {
-    label: "money text in an allowlisted call",
+    label: "money text in a calendar create",
     id: "apple",
-    bare: "reminders_create",
+    bare: "calendar_create_event",
+    action: "calendar.write",
+    sideEffect: "write",
+    args: { title: "Send $50 to Sam", start: "2026-12-01T10:00:00Z", end: "2026-12-01T11:00:00Z" },
+  },
+  {
+    label: "Pay rent in a calendar create",
+    id: "apple",
+    bare: "calendar_create_event",
+    action: "calendar.write",
+    sideEffect: "write",
+    args: { title: "Pay rent", start: "2026-12-01T10:00:00Z", end: "2026-12-01T11:00:00Z" },
+  },
+  {
+    label: "Pay the plumber $120 in a mail draft",
+    id: "apple",
+    bare: "mail_reply_draft",
+    action: "mail.draft",
+    sideEffect: "write",
+    args: { id: "m1", body: "Pay the plumber $120" },
+  },
+  {
+    label: "money text in a calendar update",
+    id: "google",
+    bare: "calendar_update_event",
+    action: "calendar.write",
+    sideEffect: "write",
+    args: { eventId: "e1", event: { summary: "Pay the plumber $120" } },
+  },
+  {
+    label: "a money-named reminders tool",
+    id: "apple",
+    bare: "reminders_send_money",
     action: "reminders.write",
     sideEffect: "write",
-    args: { title: "Send $50 to Sam" },
+    args: { title: "Pay rent" },
   },
   {
     label: "money text nested in an allowlisted call",
@@ -600,7 +644,24 @@ describe("stageVerdict", () => {
     args: { title: "Water the plants" },
     connectorRule: { id: "apple", action: "reminders.write" },
   };
+  const cal: StageCheckInput = {
+    ...base,
+    tool: "mcp__apple__calendar_create_event",
+    connectorRule: { id: "apple", action: "calendar.write" },
+    args: { title: "Dentist" },
+  };
   const yes = [
+    ...["reminders_create", "reminders_update", "reminders_complete"].flatMap((bare) =>
+      ["Pay rent", "Pay the plumber $120"].map((title) => ({
+        label: `${bare}: ${title}`,
+        input: {
+          ...base,
+          tool: `mcp__apple__${bare}`,
+          summary: `Created "${title}"`,
+          args: { title, notes: "Send $50 to Sam" },
+        },
+      })),
+    ),
     { label: "plain reminder", input: base },
     {
       label: "a narrowed connector action",
@@ -657,11 +718,41 @@ describe("stageVerdict", () => {
       label: "trailing space on the tool",
       input: { ...base, tool: "mcp__apple__reminders_create " },
     },
-    { label: "money in the summary", input: { ...base, summary: "Send $50 to Sam" } },
-    { label: "money in a key", input: { ...base, args: { "Send $50 to Sam": 1 } } },
+    { label: "money in the summary", input: { ...cal, summary: "Send $50 to Sam" } },
+    { label: "money in a key", input: { ...cal, args: { "Send $50 to Sam": 1 } } },
     {
       label: "money in a deep string",
-      input: { ...base, args: { a: { b: [{ c: "Pay $20 now" }] } } },
+      input: { ...cal, args: { a: { b: [{ c: "Pay $20 now" }] } } },
+    },
+    { label: "Pay rent in a calendar event", input: { ...cal, args: { title: "Pay rent" } } },
+    {
+      label: "Pay the plumber $120 in a mail draft",
+      input: {
+        ...base,
+        tool: "mcp__apple__mail_reply_draft",
+        connectorRule: { id: "apple", action: "mail.draft" },
+        args: { id: "m1", body: "Pay the plumber $120" },
+      },
+    },
+    {
+      label: "a money-named reminders tool",
+      input: { ...base, tool: "mcp__apple__reminders_send_money" },
+    },
+    {
+      label: "money text under a reminders name with the wrong connector action",
+      input: {
+        ...base,
+        connectorRule: { id: "apple", action: "mail.send" },
+        args: { title: "Pay rent" },
+      },
+    },
+    {
+      label: "a reminder item that is itself a financial call",
+      input: { ...base, sideEffect: "financial", args: { title: "Pay rent" } },
+    },
+    {
+      label: "a reminder item with a purchase kind",
+      input: { ...base, kind: "purchase", args: { title: "Pay rent" } },
     },
     {
       label: "an over-deep argument tree",

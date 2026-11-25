@@ -199,6 +199,7 @@ const RECIPIENT_KEYS = new Set([
   "forward",
   "forwardto",
 ]);
+const REMINDER_TOOLS = new Set(["reminders_create", "reminders_update", "reminders_complete"]);
 const NEW_DRAFTS = new Set(["mail_draft", "mail_create_draft", "gmail_create_draft"]);
 const THREAD_KEYS = new Set(["threadid", "inreplyto"]);
 const ATTENDEE_KEYS = new Set(["attendees", "invitees", "guests", "attendee", "invitee", "guest"]);
@@ -274,6 +275,11 @@ export function stageVerdict(input: StageCheckInput): StageVerdict {
   const refuse = (reason: StageRefusal): StageVerdict => ({ stage: false, reason });
   const named = connectorToolName(input.tool);
   const bare = named?.tool ?? input.tool;
+  // Owner decision 2026-11-24: money words may appear in reminder items ("Pay rent"), since a
+  // reminder cannot move money. Only the text scans (summary and argument strings) are skipped,
+  // and only for these tools after the connector-prefix check; the tool-name rule, the kinds and
+  // every other rule still apply, and a mail draft or calendar change keeps the text scan.
+  const reminderText = named !== undefined && REMINDER_TOOLS.has(named.tool);
 
   // §3.1: financial, purchase, every AUTH_KINDS kind, money intent, deletes.
   if (input.sideEffect === "financial") return refuse("money");
@@ -284,7 +290,7 @@ export function stageVerdict(input: StageCheckInput): StageVerdict {
     isMoneyToolName(input.tool) ||
     isMoneyToolName(bare) ||
     isMoneyText(bare.replace(/[_-]+/g, " ")) ||
-    isMoneyText(input.summary)
+    (!reminderText && isMoneyText(input.summary))
   ) {
     return refuse("money");
   }
@@ -294,7 +300,7 @@ export function stageVerdict(input: StageCheckInput): StageVerdict {
   const args = walk(input.args);
   if (!args.ok) return refuse("unreadable_args");
   for (const s of args.strings) {
-    if (isMoneyText(s)) return refuse("money");
+    if (!reminderText && isMoneyText(s)) return refuse("money");
   }
 
   // The exact allowlist.
