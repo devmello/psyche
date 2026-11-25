@@ -175,7 +175,7 @@ import {
   toolAllowed,
   wrapUpMessage,
 } from "./specialists.ts";
-import { refusedOutput, stagedOutput, stageVerdict } from "./staging.ts";
+import { readVerdict, refusedOutput, stagedOutput, stageVerdict } from "./staging.ts";
 import {
   emptyThreadState,
   InMemoryThreadStateStore,
@@ -3178,7 +3178,10 @@ export class PsycheAgentLoop implements AgentLoop {
         return this.#finishBlocked(run, gated, NO_APPROVAL_AUTHORITY);
       }
       if (run.staging !== undefined) {
-        // A staging run raises and awaits no cards: a hook that asks is a block.
+        // A staging run raises and awaits no cards: a hook that asks is a block, and the card it
+        // made is withdrawn. The contract has no per-card cancel; revoking the run's authority
+        // closes the run's pending cards, and a staging run owns no other card.
+        await this.#o.broker.revokeRunAuthority(run.runId).catch(() => undefined);
         return this.#finishBlocked(
           run,
           gated,
@@ -3321,9 +3324,20 @@ export class PsycheAgentLoop implements AgentLoop {
       // all land here alike, so no grant ever runs anything overnight.
       const staging = run.staging;
       const isRead = sideEffect === "none" || sideEffect === "read";
-      if (!isRead || decision.decision === "ask") {
+      // `none` is not read-only (memory writes, tools that raise cards): only a read-class call or
+      // an exact-listed `none` tool may dispatch; the rest is refused like any other write.
+      const readOk =
+        isRead &&
+        decision.decision !== "ask" &&
+        readVerdict({
+          tool: call.name,
+          sideEffect,
+          args,
+          connectorRule: desc.connectorRule,
+        }).run;
+      if (!readOk) {
         const verdict = isRead
-          ? ({ stage: false, reason: "read_would_ask" } as const)
+          ? ({ stage: false, reason: "read_not_run" } as const)
           : stageVerdict({
               tool: call.name,
               sideEffect,

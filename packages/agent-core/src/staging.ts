@@ -86,6 +86,75 @@ const DELEGATION_TOOLS: ReadonlySet<string> = new Set([
   "notify",
 ]);
 
+/**
+ * Tools declared `sideEffect: "none"` that may run in a staging run (night-shift-2026 §2.2, review
+ * round 1). `none` is not "harmless": `memory` writes files, and `connector_write_file`,
+ * `request_permission`, `artifact.create`, `space_propose`, `propose_automation`, `ask_user` and
+ * others write or raise cards. Only these exact names run, and a missing safe one only costs a
+ * refusal. `memory` runs for `command: "view"` alone.
+ */
+export const STAGING_NONE_ALLOWED: ReadonlySet<string> = new Set([
+  "update_plan",
+  "wrap_up",
+  "tool_search",
+  "load_tools",
+  "subagent.spawn",
+  "skills_search",
+  "skills_read",
+  "artifact.read",
+  "space_get",
+  "space_read_tracker",
+  "find_capability",
+  "memory",
+]);
+
+/** Reads that reach the network or a live app: out of scope overnight (§3.1), whatever their class. */
+const NETWORK_READ_BARE: ReadonlySet<string> = new Set(["web_fetch", "web_search"]);
+const LIVE_READ_PREFIX = /^(browser|computer|harness|exec|sandbox|vm)([._]|$)/;
+
+export type ReadRefusal = "none_not_allowed" | "memory_not_view" | "network_read" | "mcp_read";
+
+export type ReadVerdict = { run: true } | { run: false; reason: ReadRefusal };
+
+export interface ReadCheckInput {
+  tool: string;
+  /** `none` or `read`. */
+  sideEffect: SideEffect;
+  args: unknown;
+  connectorRule?: ConnectorRule | undefined;
+}
+
+/**
+ * Whether a read-class call may run in a staging run. `read` runs unless it is a network, browser,
+ * computer or exec tool, or an MCP server's tool (no connector rule: unknown semantics). `none`
+ * runs only from the exact list above.
+ */
+export function readVerdict(input: ReadCheckInput): ReadVerdict {
+  const named = connectorToolName(input.tool);
+  const bare = named?.tool ?? input.tool;
+  if (input.sideEffect === "none") {
+    if (!STAGING_NONE_ALLOWED.has(input.tool)) return { run: false, reason: "none_not_allowed" };
+    if (input.tool === "memory") {
+      const a = input.args;
+      const command =
+        typeof a === "object" && a !== null ? (a as { command?: unknown }).command : undefined;
+      if (command !== "view") return { run: false, reason: "memory_not_view" };
+    }
+    return { run: true };
+  }
+  if (
+    NETWORK_READ_BARE.has(bare) ||
+    LIVE_READ_PREFIX.test(input.tool) ||
+    LIVE_READ_PREFIX.test(bare)
+  ) {
+    return { run: false, reason: "network_read" };
+  }
+  if (named !== undefined && input.connectorRule === undefined) {
+    return { run: false, reason: "mcp_read" };
+  }
+  return { run: true };
+}
+
 export type StageRefusal =
   | "not_allowlisted"
   | "not_a_connector_tool"
@@ -130,6 +199,8 @@ const RECIPIENT_KEYS = new Set([
   "forward",
   "forwardto",
 ]);
+const NEW_DRAFTS = new Set(["mail_draft", "mail_create_draft", "gmail_create_draft"]);
+const THREAD_KEYS = new Set(["threadid", "inreplyto"]);
 const ATTENDEE_KEYS = new Set(["attendees", "invitees", "guests", "attendee", "invitee", "guest"]);
 const STRING_BUDGET = 400;
 const DEPTH_BUDGET = 12;
@@ -245,6 +316,13 @@ export function stageVerdict(input: StageCheckInput): StageVerdict {
   if (entry.domain === "mail" && named.tool === "mail_reply_draft") {
     // A reply goes to the thread's own participants: no recipient field may be filled.
     for (const k of args.filled) if (RECIPIENT_KEYS.has(k)) return refuse("recipient");
+  }
+  if (entry.domain === "mail" && NEW_DRAFTS.has(named.tool)) {
+    // A new draft names its own recipients and nothing here can check them against a thread:
+    // until the adapter's capture does (W3), a draft with recipients needs a thread or reply target.
+    const hasRecipients = [...args.filled].some((k) => RECIPIENT_KEYS.has(k));
+    const hasThread = [...args.filled].some((k) => THREAD_KEYS.has(k));
+    if (hasRecipients && !hasThread) return refuse("recipient");
   }
   if (entry.domain === "calendar") {
     // An event with other attendees notifies people. A call that names any, or that would

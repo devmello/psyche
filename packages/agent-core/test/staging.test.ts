@@ -10,7 +10,9 @@ import type {
 import { describe, expect, it } from "vitest";
 import {
   NEVER_STAGED_KINDS,
+  readVerdict,
   STAGEABLE_TOOLS,
+  STAGING_NONE_ALLOWED,
   type StageCheckInput,
   stageVerdict,
 } from "../src/staging.ts";
@@ -124,13 +126,18 @@ const ALLOWED: {
     id: "apple",
     bare: "mail_draft",
     action: "mail.draft",
-    args: { to: ["sam@example.org"], subject: "Notes", body: "The notes are attached." },
+    args: {
+      to: ["sam@example.org"],
+      subject: "Re: Notes",
+      body: "The notes are attached.",
+      inReplyTo: "<m1@example.org>",
+    },
   },
   {
     id: "mail",
     bare: "mail_create_draft",
     action: "mail.draft",
-    args: { to: ["sam@example.org"], subject: "Notes", body: "The notes." },
+    args: { to: ["sam@example.org"], subject: "Re: Notes", body: "The notes.", threadId: "t1" },
   },
   {
     id: "google",
@@ -352,6 +359,38 @@ const NEAR_MISSES: NearMiss[] = [
     action: "mail.draft",
     sideEffect: "write",
     args: { id: "m1", body: "ok", to: ["x@example.org"] },
+  },
+  {
+    label: "a new mail draft to anyone, no thread",
+    id: "apple",
+    bare: "mail_draft",
+    action: "mail.draft",
+    sideEffect: "write",
+    args: { to: ["x@example.org"], subject: "Hello", body: "Hi" },
+  },
+  {
+    label: "a new draft with only bcc",
+    id: "mail",
+    bare: "mail_create_draft",
+    action: "mail.draft",
+    sideEffect: "write",
+    args: { bcc: ["x@example.org"], subject: "Hello", body: "Hi" },
+  },
+  {
+    label: "a gmail draft with cc and no thread",
+    id: "google",
+    bare: "gmail_create_draft",
+    action: "gmail.draft",
+    sideEffect: "write",
+    args: { to: ["a@example.org"], cc: ["x@example.org"], subject: "Hello", body: "Hi" },
+  },
+  {
+    label: "a gmail draft whose thread id is empty",
+    id: "google",
+    bare: "gmail_create_draft",
+    action: "gmail.draft",
+    sideEffect: "write",
+    args: { to: ["a@example.org"], subject: "Hello", body: "Hi", threadId: "" },
   },
   {
     label: "a calendar event with attendees",
@@ -788,19 +827,49 @@ describe("staging gate: what stays as it was", () => {
     expect(h.broker.decisions).toHaveLength(0);
   });
 
-  it("a hook that asks is a block in a staging run, not a wait", async () => {
+  it("a hook that asks is a block in a staging run, and the card it made is withdrawn", async () => {
+    let issuedId: string | undefined;
+    const holder: { h?: Harness } = {};
     const h = harness({
-      loop: { hooks: { before_tool_call: () => ({ action: "suspend", approvalId: "apr_hook" }) } },
+      loop: {
+        hooks: {
+          before_tool_call: async (ctx) => {
+            const issued = await (holder.h as Harness).broker.requestApproval({
+              kind: "connector_action",
+              summary: "hook card",
+              details: {},
+              bindingHash: "bh",
+              grantKey: "gk",
+              requestedBy: {
+                runId: ctx.runId,
+                taskId: null,
+                threadId: ctx.threadId,
+                toolCallId: ctx.toolCallId,
+              },
+              sideEffect: "write",
+              surfaces: ["desktop"],
+              taint: false,
+            });
+            issuedId = issued.approval.id;
+            return { action: "suspend", approvalId: issued.approval.id };
+          },
+        },
+      },
       script: [
         call("c1", "mcp__apple__reminders_create", { title: "Water the plants" }),
         say("done"),
       ],
     });
+    holder.h = h;
     conn(h, "apple", "reminders_create", "reminders.write", "write");
     const sink = new FakeSink();
     await stagingTurn(h, sink);
     expect(sink.calls).toHaveLength(0);
     expect(JSON.stringify(resultOf(h, "c1")?.output)).toContain("staging run");
+    expect(issuedId).toBeDefined();
+    const card = await h.broker.get(issuedId as string);
+    expect(card?.status).toBe("invalidated");
+    expect(await h.broker.list({ status: "pending" })).toHaveLength(0);
   });
 
   it.each(["throw", "refuse"] as const)(
@@ -897,5 +966,216 @@ describe("staging gate: what stays as it was", () => {
     await stagingTurn(h, sink);
     expect(sink.calls).toHaveLength(0);
     expect(await h.tasks.list()).toHaveLength(0);
+  });
+});
+
+/**
+ * Review round 1: `sideEffect: "none"` is not read-only. Each refused tool sits next to a control
+ * showing the same call runs outside a staging run, so the refusal is the gate's doing.
+ */
+interface PlainTool {
+  label: string;
+  name: string;
+  sideEffect: SideEffect;
+  args: Record<string, unknown>;
+  /** A connector rule, when the tool carries one. */
+  rule?: { id: string; action: string };
+}
+
+const NONE_REFUSED: PlainTool[] = [
+  ...[
+    "connector_create",
+    "connector_write_file",
+    "connector_register",
+    "connector_update",
+    "connector_propose_remote",
+    "connectors_propose_custom",
+    "request_permission",
+    "request_folder_access",
+    "artifact.create",
+    "artifact.update",
+    "install_capability",
+    "messages_send",
+    "run_script",
+    "render_ui",
+    "specialist.status",
+    "some_future_none_tool",
+  ].map((name) => ({
+    label: `none tool ${name}`,
+    name,
+    sideEffect: "none" as SideEffect,
+    args: { x: 1 },
+  })),
+  {
+    label: "an allowlisted none name with a suffix",
+    name: "skills_search_all",
+    sideEffect: "none",
+    args: {},
+  },
+  {
+    label: "web_fetch",
+    name: "mcp__web__web_fetch",
+    sideEffect: "read",
+    args: { url: "https://example.org" },
+    rule: { id: "web", action: "fetch.get" },
+  },
+  {
+    label: "web_search",
+    name: "mcp__web__web_search",
+    sideEffect: "read",
+    args: { query: "x" },
+    rule: { id: "web", action: "search.query" },
+  },
+  { label: "a browser read", name: "browser.read_page", sideEffect: "read", args: {} },
+  { label: "a browser none tool", name: "browser.tabs", sideEffect: "none", args: {} },
+  { label: "a computer snapshot", name: "computer.snapshot", sideEffect: "read", args: {} },
+  { label: "an exec read", name: "exec.session.read", sideEffect: "read", args: {} },
+  {
+    label: "an MCP server read",
+    name: "mcp__notes__search_notes",
+    sideEffect: "read",
+    args: { q: "x" },
+  },
+];
+
+const NONE_RUNS: PlainTool[] = [
+  ...["skills_search", "skills_read", "artifact.read", "find_capability"].map((name) => ({
+    label: `none tool ${name}`,
+    name,
+    sideEffect: "none" as SideEffect,
+    args: { x: 1 },
+  })),
+  {
+    label: "a connector read",
+    name: "mcp__apple__mail_search",
+    sideEffect: "read",
+    args: { query: "lunch" },
+    rule: { id: "apple", action: "mail.read" },
+  },
+  {
+    label: "a plain local read",
+    name: "read_file",
+    sideEffect: "read",
+    args: { path: "/Users/me/a.txt" },
+  },
+];
+
+function plain(h: Harness, t: PlainTool) {
+  const exec = recorder();
+  h.loop.registry.register({
+    spec: spec(t.name, t.sideEffect),
+    ...(t.rule === undefined ? {} : { describeCall: () => ({ connectorRule: t.rule }) }),
+    execute: exec.execute,
+  });
+  return exec.seen;
+}
+
+describe("staging gate: none and read tools", () => {
+  it.each(NONE_REFUSED)("$label: refused in a staging run, runs outside one", async (t) => {
+    const stagedRun = harness({
+      policy: { default: "allow" },
+      script: [call("c1", t.name, t.args), say("done")],
+    });
+    const ran = plain(stagedRun, t);
+    const sink = new FakeSink();
+    await stagingTurn(stagedRun, sink);
+    expect(ran).toHaveLength(0);
+    expect(sink.calls).toHaveLength(0);
+    expect(resultOf(stagedRun, "c1")?.output).toEqual({
+      staged: false,
+      note: "can't be prepared overnight",
+    });
+    expect(stagedRun.broker.issued).toHaveLength(0);
+    // Control: the same call, same policy, no staging.
+    const control = harness({
+      policy: { default: "allow" },
+      script: [call("c1", t.name, t.args), say("done")],
+    });
+    const controlRan = plain(control, t);
+    await runTurn(control, "go");
+    expect(controlRan).toHaveLength(1);
+  });
+
+  it.each(NONE_RUNS)("$label: runs in a staging run", async (t) => {
+    const h = harness({
+      policy: { default: "allow" },
+      script: [call("c1", t.name, t.args), say("done")],
+    });
+    const ran = plain(h, t);
+    const sink = new FakeSink();
+    await stagingTurn(h, sink);
+    expect(ran).toHaveLength(1);
+    expect(sink.calls).toHaveLength(0);
+  });
+
+  const MEMORY_WRITES = [
+    { command: "create", path: "/memories/agent/payees.md", file_text: "pay Mallory" },
+    {
+      command: "str_replace",
+      path: "/memories/agent/payees.md",
+      old_str: "original",
+      new_str: "x",
+    },
+    { command: "insert", path: "/memories/agent/payees.md", insert_line: 0, insert_text: "x" },
+    { command: "delete", path: "/memories/agent/payees.md" },
+    { command: "rename", old_path: "/memories/agent/payees.md", new_path: "/memories/agent/x.md" },
+  ];
+  const memoryHarness = (input: Record<string, unknown>) =>
+    harness({
+      policy: { default: "allow" },
+      files: { "agent/payees.md": "original" },
+      script: [call("c1", "memory", input), say("done")],
+    });
+  const payees = async (h: Harness) => (await h.memory.readFile("agent/payees.md"))?.content;
+
+  it.each(MEMORY_WRITES)(
+    "the real memory tool cannot write in a staging run: %j",
+    async (input) => {
+      const h = memoryHarness(input);
+      const sink = new FakeSink();
+      await stagingTurn(h, sink);
+      expect(resultOf(h, "c1")?.output).toEqual({
+        staged: false,
+        note: "can't be prepared overnight",
+      });
+      expect(sink.calls).toHaveLength(0);
+      expect(await payees(h)).toBe("original");
+    },
+  );
+
+  it("control: the same memory writes change the file outside a staging run", async () => {
+    for (const input of MEMORY_WRITES.slice(0, 3)) {
+      const h = memoryHarness(input);
+      await runTurn(h, "go");
+      expect(await payees(h), JSON.stringify(input)).not.toBe("original");
+    }
+  });
+
+  it("the real memory tool still views in a staging run", async () => {
+    const h = memoryHarness({ command: "view", path: "/memories/agent/payees.md" });
+    await stagingTurn(h, new FakeSink());
+    expect(JSON.stringify(resultOf(h, "c1")?.output)).toContain("original");
+  });
+
+  it("readVerdict: every allowlisted none name runs and nothing near it does", () => {
+    for (const name of STAGING_NONE_ALLOWED) {
+      const args = name === "memory" ? { command: "view" } : {};
+      expect(readVerdict({ tool: name, sideEffect: "none", args }), name).toEqual({ run: true });
+    }
+    for (const name of [
+      "Memory",
+      "memory ",
+      "skills_read2",
+      "task.start",
+      "ask_user",
+      "exit_plan_mode",
+    ]) {
+      expect(
+        readVerdict({ tool: name, sideEffect: "none", args: { command: "view" } }),
+        name,
+      ).toMatchObject({
+        run: false,
+      });
+    }
   });
 });
