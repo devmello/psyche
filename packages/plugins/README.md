@@ -10,13 +10,13 @@ my-plugin/
   index.mjs            export default (api) => { api.on("context", (run) => [...]) }
 ```
 
-| Capability | Called with | May return |
-| --- | --- | --- |
-| `context` | the run (thread, task, modes, taint) | sections `{title, text}`; shown fenced as untrusted, and they taint the run |
-| `before_tool_call` | the run, tool name, side-effect class, arguments | `{block: reason}`; it can never allow or rewrite a call |
-| `after_tool_call` | the run, tool name, status, provenance (never the output) | nothing |
-| `agent_end` | the run, outcome, steps | nothing |
-| `evaluate` | a task's goal and receipts (kind, outcome, summary, refs) | `{verdict: "reopen" \| "escalate", reason, gaps}` to make the evaluator stricter |
+| Capability         | Called with                                               | May return                                                                       |
+| ------------------ | --------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| `context`          | the run (thread, task, modes, taint)                      | sections `{title, text}`; shown fenced as untrusted, and they taint the run      |
+| `before_tool_call` | the run, tool name, side-effect class, arguments          | `{block: reason}`; it can never allow or rewrite a call                          |
+| `after_tool_call`  | the run, tool name, status, provenance (never the output) | nothing                                                                          |
+| `agent_end`        | the run, outcome, steps                                   | nothing                                                                          |
+| `evaluate`         | a task's goal and receipts (kind, outcome, summary, refs) | `{verdict: "reopen" \| "escalate", reason, gaps}` to make the evaluator stricter |
 
 `api.on` throws for a capability the manifest does not declare, and the host refuses to start a plugin that registers one.
 

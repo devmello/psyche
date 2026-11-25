@@ -6,21 +6,21 @@ Speech-to-text behind the `SpeechEngine` contract, engine selection, the whisper
 
 ## Public API
 
-| Export | What it does |
-| --- | --- |
-| `createSpeechStack(opts)` / `createSpeechEngine(opts)` | Wires the default engines and returns `{selector, engine, transcoder, models}`; `engine` is a `SpeechEngine` that routes per call |
-| `SpeechEngineSelector`, `RoutedSpeechEngine`, `DEFAULT_SPEECH_SETTINGS` | Selection policy (below); `explain()` lists each engine and why it is or is not eligible |
-| `NodeSpeechEngine`, `NODE_SPEECH_CAPABILITIES` | `SpeechEngine` over the Mac helper's `speech.*` capabilities |
-| `WhisperEngine`, `WhisperCliBackend`, `WhisperServerBackend` | whisper.cpp: per-request `whisper-cli`, or a loopback `whisper-server` that keeps the model loaded |
-| `webSpeechDictation`, `WEB_SPEECH_ENTRY` | Client-side helper for psyche-web (browser owns the mic) |
-| `VoiceSessionManager` | `voice.start / push / stop / cancel` and `voice.segment` / `voice.ended` events |
-| `VoiceMemoService`, `analyzeTranscript`, `looksLikeTask`, `memoTitle` | Voice memos (Q4): recorded audio → transcript → Library `recording` → optional Task, with provenance by speaker |
-| `VoiceNoteTranscoder`, `transcribeVoiceNote`, `VOICE_NOTE_PROFILES`, `oggOpusToCaf` | Voice notes per channel and inbound decode → transcript |
-| `ModelManager`, `MODEL_CATALOG` | Checksummed model downloads into `$PSYCHE_HOME/models/` |
-| `SegmentSequencer`, `buildVocabulary`, PCM helpers | Building blocks shared by the engines |
-| `DictationVocabularyProvider`, `NodeContactsSource`, `agentNameFrom`, `ownerNamesFrom` | Session-default vocabulary from IDENTITY.md, USER.md, contacts and topics (below) |
-| `createSpeechHandlers`, `SPEECH_METHODS` | `voice.*` and `voice.memo.save` handlers for the Gateway, typed against the protocol |
-| `DecodingSpeechEngine` | Glue for channels: compressed inbound notes decode before the engine |
+| Export                                                                                 | What it does                                                                                                                      |
+| -------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `createSpeechStack(opts)` / `createSpeechEngine(opts)`                                 | Wires the default engines and returns `{selector, engine, transcoder, models}`; `engine` is a `SpeechEngine` that routes per call |
+| `SpeechEngineSelector`, `RoutedSpeechEngine`, `DEFAULT_SPEECH_SETTINGS`                | Selection policy (below); `explain()` lists each engine and why it is or is not eligible                                          |
+| `NodeSpeechEngine`, `NODE_SPEECH_CAPABILITIES`                                         | `SpeechEngine` over the Mac helper's `speech.*` capabilities                                                                      |
+| `WhisperEngine`, `WhisperCliBackend`, `WhisperServerBackend`                           | whisper.cpp: per-request `whisper-cli`, or a loopback `whisper-server` that keeps the model loaded                                |
+| `webSpeechDictation`, `WEB_SPEECH_ENTRY`                                               | Client-side helper for psyche-web (browser owns the mic)                                                                          |
+| `VoiceSessionManager`                                                                  | `voice.start / push / stop / cancel` and `voice.segment` / `voice.ended` events                                                   |
+| `VoiceMemoService`, `analyzeTranscript`, `looksLikeTask`, `memoTitle`                  | Voice memos (Q4): recorded audio → transcript → Library `recording` → optional Task, with provenance by speaker                   |
+| `VoiceNoteTranscoder`, `transcribeVoiceNote`, `VOICE_NOTE_PROFILES`, `oggOpusToCaf`    | Voice notes per channel and inbound decode → transcript                                                                           |
+| `ModelManager`, `MODEL_CATALOG`                                                        | Checksummed model downloads into `$PSYCHE_HOME/models/`                                                                           |
+| `SegmentSequencer`, `buildVocabulary`, PCM helpers                                     | Building blocks shared by the engines                                                                                             |
+| `DictationVocabularyProvider`, `NodeContactsSource`, `agentNameFrom`, `ownerNamesFrom` | Session-default vocabulary from IDENTITY.md, USER.md, contacts and topics (below)                                                 |
+| `createSpeechHandlers`, `SPEECH_METHODS`                                               | `voice.*` and `voice.memo.save` handlers for the Gateway, typed against the protocol                                              |
+| `DecodingSpeechEngine`                                                                 | Glue for channels: compressed inbound notes decode before the engine                                                              |
 
 ## Engine selection
 
@@ -36,12 +36,12 @@ Each engine has a cheap `available()` probe (binary and model present, node onli
 
 ### whisper.cpp on Windows (`runtime.ts`, `engines/whisper-server-process.ts`, `whisper-setup.ts`)
 
-| Piece | What it does |
-| --- | --- |
-| `WHISPER_RUNTIME_CATALOG`, `WhisperRuntime` | The official whisper.cpp release `b5454` (v1.9.5) CPU builds for win32 x64 (8.9 MB zip) and arm64 (4.4 MB), pinned to the GitHub URL, size and SHA-256. Downloaded through `ModelManager` into `$PSYCHE_HOME\speech\bin`, then only `whisper-server.exe` and its DLLs are extracted (Windows' `tar.exe`), each checked against its own pinned size and SHA-256 before the directory is renamed into place; the zip is deleted. x64 ships every `ggml-cpu-*` variant (SSE4.2 … AVX-512), ~12 MB on disk |
-| `WhisperServerProcess` | The Gateway's `whisper-server`: started on demand (`warm()` at `voice.start`), `127.0.0.1` on a free port, every route under a 128-bit `--request-path` token, `--public` pointing at an empty folder, `windowsHide`, a minimal environment; stopped after 5 min idle; an unasked exit is logged and the next request starts it again (one in-flight request is retried); three crashes in a minute pause retries for a minute; a pid file lets the next Gateway stop a server an earlier one left behind. Exit `0xC0000135` reports `vcredist_missing` |
-| `ManagedWhisperServerBackend` | `WhisperBackend` over the process; `available()` only checks that the runtime and model files are there |
-| `WhisperInstaller` | The owner's one click: status (what is missing and its size), the download of runtime + model with `speech.model_download` events (`started`, `progress` ≤ 4/s, `finished`, `failed`) |
+| Piece                                       | What it does                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `WHISPER_RUNTIME_CATALOG`, `WhisperRuntime` | The official whisper.cpp release `b5454` (v1.9.5) CPU builds for win32 x64 (8.9 MB zip) and arm64 (4.4 MB), pinned to the GitHub URL, size and SHA-256. Downloaded through `ModelManager` into `$PSYCHE_HOME\speech\bin`, then only `whisper-server.exe` and its DLLs are extracted (Windows' `tar.exe`), each checked against its own pinned size and SHA-256 before the directory is renamed into place; the zip is deleted. x64 ships every `ggml-cpu-*` variant (SSE4.2 … AVX-512), ~12 MB on disk                                                  |
+| `WhisperServerProcess`                      | The Gateway's `whisper-server`: started on demand (`warm()` at `voice.start`), `127.0.0.1` on a free port, every route under a 128-bit `--request-path` token, `--public` pointing at an empty folder, `windowsHide`, a minimal environment; stopped after 5 min idle; an unasked exit is logged and the next request starts it again (one in-flight request is retried); three crashes in a minute pause retries for a minute; a pid file lets the next Gateway stop a server an earlier one left behind. Exit `0xC0000135` reports `vcredist_missing` |
+| `ManagedWhisperServerBackend`               | `WhisperBackend` over the process; `available()` only checks that the runtime and model files are there                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| `WhisperInstaller`                          | The owner's one click: status (what is missing and its size), the download of runtime + model with `speech.model_download` events (`started`, `progress` ≤ 4/s, `finished`, `failed`)                                                                                                                                                                                                                                                                                                                                                                   |
 
 Live dictation sizes whisper's encoder to the utterance (`audioCtxFor`: 50 frames/s plus 5 s head room, at least 384, multiples of 64) and skips the temperature fallback; a final that comes back as punctuation only runs again on the full window. Files and recordings always use the full 30 s window with fallback. `WhisperEngine.transcribePath` reads long PCM WAV recordings (meetings) from disk in chunks; the Gateway uses it for recordings when whisper comes first in the order, else the helper's `speech.transcribe_file`.
 
@@ -51,13 +51,13 @@ GPU: the release's CUDA builds are 285–685 MB and there is no Vulkan build for
 
 Spike 03 measured `DictationTranscriber` with contextual strings at 3.0–3.4 % WER against 6.5 % without them, and 4/4 on the agent's name; the helper picks that engine only when the stream carries a vocabulary. `DictationVocabularyProvider` therefore builds the session default that `VoiceSessionManager` and `VoiceMemoService` pass on every `voice.start` (and the Gateway hands to the helper as `speech.transcribe_stream.vocabulary`, to whisper.cpp as `--prompt`):
 
-| Source | Read from | Notes |
-| --- | --- | --- |
-| Agent name | `IDENTITY.md` frontmatter `name:` | Always first, so the list is never empty on a configured Psyche |
-| Owner name, people | `USER.md`: the `Name:` field and bullets under `## People` / `## Family` / `## Contacts` (text before the first `(`, `,`, `:` or dash) | Directives and free text are not mined |
-| Custom terms | `speech.stt.vocabulary` (Settings → Voice & dictation) | |
-| Contacts | a `ContactsSource`: `NodeContactsSource` asks the Mac helper for `contacts.list {limit, fields: ["name"]}` → `{contacts: [{id, name, nickname?}]}` (requested from S14; absent capability → no names) | Names and nicknames only; never numbers or addresses |
-| Recent topics | an injected callback (memory or search) | newest first |
+| Source             | Read from                                                                                                                                                                                             | Notes                                                           |
+| ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| Agent name         | `IDENTITY.md` frontmatter `name:`                                                                                                                                                                     | Always first, so the list is never empty on a configured Psyche |
+| Owner name, people | `USER.md`: the `Name:` field and bullets under `## People` / `## Family` / `## Contacts` (text before the first `(`, `,`, `:` or dash)                                                                | Directives and free text are not mined                          |
+| Custom terms       | `speech.stt.vocabulary` (Settings → Voice & dictation)                                                                                                                                                |                                                                 |
+| Contacts           | a `ContactsSource`: `NodeContactsSource` asks the Mac helper for `contacts.list {limit, fields: ["name"]}` → `{contacts: [{id, name, nickname?}]}` (requested from S14; absent capability → no names) | Names and nicknames only; never numbers or addresses            |
+| Recent topics      | an injected callback (memory or search)                                                                                                                                                               | newest first                                                    |
 
 `buildVocabulary` de-duplicates, drops placeholders and markup, and caps the list at 64 terms of ≤ 48 characters; the result is cached for 60 s (`invalidate()` on `memory.file.changed` for IDENTITY.md / USER.md). Every source is best effort: an offline node or a throwing callback is skipped, never fatal.
 
@@ -65,14 +65,14 @@ Spike 03 measured `DictationTranscriber` with contextual strings at 3.0–3.4 % 
 
 Measured on an Apple M5 (16 GB, macOS 27.0.1) on 2026-10-19 unless marked otherwise.
 
-| Engine | Where | Streaming | Latency / speed | Memory | Notes |
-| --- | --- | --- | --- | --- | --- |
-| SpeechAnalyzer (Mac node) | macOS 26+ helper | yes (volatile + final) | first partial ≈ 1.04 s (SpeechTranscriber) / 0.75 s (DictationTranscriber), finalize 55–115 ms (S14 bench, M5) | helper ≈ 42 MiB; models system-managed | Best default on a Mac; S14 |
-| Parakeet / WhisperKit (Mac node) | macOS 14–15 helper | yes | ~0.19 s short clip (Parakeet, research KQ6) | 0.3–1.5 GB | S14 |
-| whisper.cpp `tiny.en` | Gateway | chunked (partial every 1 s of speech) | 4.5 s clip in 0.48 s for two utterances (Metal, model reloaded per call) | ~273 MB | Drops speech after long pauses unless split (we split) |
-| whisper.cpp `base.en` (default) | Gateway | chunked | not measured; ~2× tiny | ~388 MB | Default model id `whisper-base.en` |
-| whisper.cpp `large-v3-turbo-q5_0` | Gateway | file only advised | not measured | ~1.5 GB | Use with `whisper-server` |
-| Web Speech | web client | yes | browser-dependent | — | Chrome sends audio to Google; last resort |
+| Engine                            | Where              | Streaming                             | Latency / speed                                                                                                | Memory                                 | Notes                                                  |
+| --------------------------------- | ------------------ | ------------------------------------- | -------------------------------------------------------------------------------------------------------------- | -------------------------------------- | ------------------------------------------------------ |
+| SpeechAnalyzer (Mac node)         | macOS 26+ helper   | yes (volatile + final)                | first partial ≈ 1.04 s (SpeechTranscriber) / 0.75 s (DictationTranscriber), finalize 55–115 ms (S14 bench, M5) | helper ≈ 42 MiB; models system-managed | Best default on a Mac; S14                             |
+| Parakeet / WhisperKit (Mac node)  | macOS 14–15 helper | yes                                   | ~0.19 s short clip (Parakeet, research KQ6)                                                                    | 0.3–1.5 GB                             | S14                                                    |
+| whisper.cpp `tiny.en`             | Gateway            | chunked (partial every 1 s of speech) | 4.5 s clip in 0.48 s for two utterances (Metal, model reloaded per call)                                       | ~273 MB                                | Drops speech after long pauses unless split (we split) |
+| whisper.cpp `base.en` (default)   | Gateway            | chunked                               | not measured; ~2× tiny                                                                                         | ~388 MB                                | Default model id `whisper-base.en`                     |
+| whisper.cpp `large-v3-turbo-q5_0` | Gateway            | file only advised                     | not measured                                                                                                   | ~1.5 GB                                | Use with `whisper-server`                              |
+| Web Speech                        | web client         | yes                                   | browser-dependent                                                                                              | —                                      | Chrome sends audio to Google; last resort              |
 
 **Streaming dictation with whisper.cpp** is VAD-gated chunked inference: a 30 ms-frame energy VAD with an adaptive noise floor finds utterances (210 ms pre-roll, 600 ms of silence ends one, 15 s cap); while an utterance grows the engine re-transcribes it every second of speech and emits a volatile partial; at its end it emits the final. Custom vocabulary and the tail of the previous final go into whisper's `--prompt`. File transcription uses the same splitter (25 s cap) because tiny/base models stop decoding after a long pause and silently drop the rest.
 
@@ -89,10 +89,10 @@ Measured on an Apple M5 (16 GB, macOS 27.0.1) on 2026-10-19 unless marked otherw
 
 ## Runtime dependencies (not bundled)
 
-| Need | How | Why not bundled |
-| --- | --- | --- |
-| `ffmpeg`, `ffprobe` with libopus + libmp3lame | `brew install ffmpeg`, `apt install ffmpeg` (Debian trixie ships 7.1) | Static and Homebrew builds are GPL; running a separate binary is fine, shipping one is the packager's decision |
-| `whisper-cli` (whisper.cpp ≥ 1.9) | `brew install whisper-cpp`, or `cmake -B build && cmake --build build` | Native; `whisper-server` is not in the Homebrew formula (build it from source for the server backend). On Windows the Gateway provisions `whisper-server` itself (above) |
+| Need                                          | How                                                                    | Why not bundled                                                                                                                                                          |
+| --------------------------------------------- | ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `ffmpeg`, `ffprobe` with libopus + libmp3lame | `brew install ffmpeg`, `apt install ffmpeg` (Debian trixie ships 7.1)  | Static and Homebrew builds are GPL; running a separate binary is fine, shipping one is the packager's decision                                                           |
+| `whisper-cli` (whisper.cpp ≥ 1.9)             | `brew install whisper-cpp`, or `cmake -B build && cmake --build build` | Native; `whisper-server` is not in the Homebrew formula (build it from source for the server backend). On Windows the Gateway provisions `whisper-server` itself (above) |
 
 All binaries run through a `ProcessRunner` with an argv array and a minimal environment (`PATH`, `HOME`, `LANG`, `TMPDIR`); the Gateway can wrap it (`srt` on macOS via `prefix`, the sandbox on Linux) because inbound audio is untrusted input to a large C decoder.
 
@@ -100,17 +100,17 @@ All binaries run through a `ProcessRunner` with an argv array and a minimal envi
 
 Recordings are encoded per container (voice memos and the Library). Caps are upload limits; when a clip would exceed one, the encoder walks down the bitrate ladder and refuses if the lowest rung does not fit.
 
-| Channel | Container | Rate | Bitrate ladder (kbps) | Cap | Native bubble |
-| --- | --- | --- | --- | --- | --- |
-| Telegram (`sendVoice`) | OGG/Opus `audio/ogg` | 48 kHz mono | 48, 32, 24, 16 | 50 MB | yes |
-| WhatsApp (PTT) | OGG/Opus | 48 kHz mono | 48, 32, 24, 16 | 16 MB | yes |
-| Signal | OGG/Opus | 48 kHz mono | 48, 32, 24, 16 | 100 MB (unverified) | yes |
-| iMessage | CAF/Opus `audio/x-caf`, `Audio Message.caf` | 48 kHz mono | 32, 24, 16 | 100 MB (unverified) | yes (see caveat) |
-| Slack | MP3 `audio/mpeg` | 44.1 kHz mono | 64, 48, 32 | 1 GB | no |
-| Discord | MP3 | 44.1 kHz mono | 64, 48, 32 | 10 MB (unverified) | no |
-| Email | MP3 | 44.1 kHz mono | 64, 48, 32 | 18 MB (25 MB minus base64) | no |
-| SMS (MMS) | MP3 | 44.1 kHz mono | 64, 48, 32 | 5 MB (unverified) | no |
-| Web chat, Library | MP3 | 44.1 kHz mono | 64, 48, 32 | 50 MB | no |
+| Channel                | Container                                   | Rate          | Bitrate ladder (kbps) | Cap                        | Native bubble    |
+| ---------------------- | ------------------------------------------- | ------------- | --------------------- | -------------------------- | ---------------- |
+| Telegram (`sendVoice`) | OGG/Opus `audio/ogg`                        | 48 kHz mono   | 48, 32, 24, 16        | 50 MB                      | yes              |
+| WhatsApp (PTT)         | OGG/Opus                                    | 48 kHz mono   | 48, 32, 24, 16        | 16 MB                      | yes              |
+| Signal                 | OGG/Opus                                    | 48 kHz mono   | 48, 32, 24, 16        | 100 MB (unverified)        | yes              |
+| iMessage               | CAF/Opus `audio/x-caf`, `Audio Message.caf` | 48 kHz mono   | 32, 24, 16            | 100 MB (unverified)        | yes (see caveat) |
+| Slack                  | MP3 `audio/mpeg`                            | 44.1 kHz mono | 64, 48, 32            | 1 GB                       | no               |
+| Discord                | MP3                                         | 44.1 kHz mono | 64, 48, 32            | 10 MB (unverified)         | no               |
+| Email                  | MP3                                         | 44.1 kHz mono | 64, 48, 32            | 18 MB (25 MB minus base64) | no               |
+| SMS (MMS)              | MP3                                         | 44.1 kHz mono | 64, 48, 32            | 5 MB (unverified)          | no               |
+| Web chat, Library      | MP3                                         | 44.1 kHz mono | 64, 48, 32            | 50 MB                      | no               |
 
 **iMessage caveat.** Apple documents only "CAF" for inline voice notes; Opus inside CAF is community-reported (OpenClaw/BlueBubbles skills), and the message must also be flagged as an audio message by the sender. ffmpeg cannot write Opus (or AAC) into CAF (`cafenc.c`: "muxing codec currently unsupported"), so `oggOpusToCaf` remuxes ffmpeg's Ogg packets into CAF in-process, with the chunk layout `afconvert -f caff -d opus` produces (`desc`, `kuki`, `chan`, `pakt`, `data`). Apple's `afinfo` and `afconvert` read and decode the result on macOS 27; whether Messages renders it as a bubble must be checked end to end with the Mac node (S14/S10).
 
@@ -134,12 +134,12 @@ Inbound channel voice notes (N11/Q4 round trip) reach the same path: the adapter
 
 `pnpm --filter @psyche/speech test` runs everything that needs no external binary. Gated suites skip themselves:
 
-| Suite | Gate | Covers |
-| --- | --- | --- |
-| whisper.cpp on the fixture clip | `whisper-cli` on PATH (or `PSYCHE_WHISPER_CLI`) and a model at `PSYCHE_WHISPER_MODEL` (default `$PSYCHE_HOME/models/whisper/ggml-tiny.en.bin`) | File and streaming transcription of `test/fixtures/remind-alice.wav` |
+| Suite                                                        | Gate                                                                                                                                                  | Covers                                                                                                                                            |
+| ------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| whisper.cpp on the fixture clip                              | `whisper-cli` on PATH (or `PSYCHE_WHISPER_CLI`) and a model at `PSYCHE_WHISPER_MODEL` (default `$PSYCHE_HOME/models/whisper/ggml-tiny.en.bin`)        | File and streaming transcription of `test/fixtures/remind-alice.wav`                                                                              |
 | whisper.cpp on Windows (`test/whisper-live-windows.test.ts`) | win32, the release zip at `PSYCHE_WHISPER_RUNTIME_ZIP` and a model at `PSYCHE_WHISPER_MODEL` (default `$PSYCHE_HOME/models/whisper/ggml-base.en.bin`) | Installs the pinned runtime from the zip (real hashes, real `tar.exe`), then file, on-disk WAV and real-time streaming transcription with timings |
-| Transcoding matrix | `ffmpeg` and `ffprobe` with libopus and libmp3lame | 4 PCM input formats × 6 channels verified with ffprobe, decode round trip, CAF remux |
-| OGG/Opus voice memo | same ffmpeg gate | `test/memo.test.ts`: the fixture encoded for Telegram, ingested as an untrusted channel memo |
+| Transcoding matrix                                           | `ffmpeg` and `ffprobe` with libopus and libmp3lame                                                                                                    | 4 PCM input formats × 6 channels verified with ffprobe, decode round trip, CAF remux                                                              |
+| OGG/Opus voice memo                                          | same ffmpeg gate                                                                                                                                      | `test/memo.test.ts`: the fixture encoded for Telegram, ingested as an untrusted channel memo                                                      |
 
 `test/fixtures/remind-alice.wav` is a 4.5 s, 16 kHz mono clip saying "Hello Psyche. Remind me to call Alice at noon tomorrow." (synthetic voice, Apache-2.0).
 

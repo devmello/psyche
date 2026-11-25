@@ -41,7 +41,7 @@ describe("approvals over chat", () => {
       channel: "telegram",
       senderId: OWNER,
     });
-    expect(sentTexts(h).at(-1)).toBe("Approved: Send an email.");
+    expect(sentTexts(h).at(-1)).toBe("Approved: Send email.");
     await h.adapter.press(press);
     expect(sentTexts(h).at(-1)).toBe("That approval was already answered.");
   });
@@ -78,7 +78,7 @@ describe("approvals over chat", () => {
     h.clock.advance(1000);
     await h.adapter.receive({ senderId: OWNER, text: `/approve ${ref} deny` });
     expect((await h.broker.get(issued.approval.id))?.status).toBe("denied");
-    expect(sentTexts(h).at(-1)).toBe("Denied: Send an email.");
+    expect(sentTexts(h).at(-1)).toBe("Denied: Send email.");
     await h.adapter.receive({ senderId: OWNER, text: `/approve ${ref} approve` });
     expect(sentTexts(h).at(-1)).toBe("That approval was already answered.");
     await h.adapter.receive({ senderId: OWNER, text: "/approve zzzzzzzz approve" });
@@ -137,7 +137,13 @@ describe("approvals over chat", () => {
     }
     expect(h.adapter.sent.filter((s) => s.kind === "approval_buttons")).toHaveLength(0);
     // Each chat got the header and a pointer to the Mac: never the arguments, never buttons.
-    const pointers = sentTexts(h).filter((t) => t.endsWith(DEVICE_ONLY_TEXT));
+    const pointers = sentTexts(h)
+      .filter((t) => t.includes(DEVICE_ONLY_TEXT))
+      .map((t) => {
+        // The pointer may be denied from chat: `/deny <ref>`, and never `/approve`.
+        expect(t).toMatch(/\nTo deny, reply "\/deny [0-9a-z_]{8}"\.$/);
+        return t.split("\n").slice(0, 2).join("\n");
+      });
     expect(pointers).toEqual([
       `Pay · financial\n${DEVICE_ONLY_TEXT}`,
       `Fill credential · write\n${DEVICE_ONLY_TEXT}`,

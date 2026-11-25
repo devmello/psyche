@@ -48,7 +48,7 @@ describe("Signal approvals (👍 / 👎 only)", () => {
     expect(decided?.status).toBe("approved");
     expect(decided?.scopeGranted).toBe("once");
     expect(decided?.decidedBy).toEqual({ channel: "signal", senderId: OWNER });
-    expect(h.daemon.sentTexts().at(-1)).toBe("Approved: Send an email.");
+    expect(h.daemon.sentTexts().at(-1)).toBe("Approved: Send email.");
 
     // A second 👍 is a replay: the broker keeps the first answer.
     h.daemon.push(reactionEnvelope(OWNER, cardTs, "👍"));
@@ -93,7 +93,7 @@ describe("Signal approvals (👍 / 👎 only)", () => {
     await h.settle();
     const decided = await h.broker.get(issued.approval.id);
     expect(decided?.status).toBe("denied");
-    expect(h.daemon.sentTexts().at(-1)).toBe("Denied: Send an email.");
+    expect(h.daemon.sentTexts().at(-1)).toBe("Denied: Send email.");
   });
 
   it("device-only approvals get the header and 'Answer this on your Mac.' with no hint", async () => {

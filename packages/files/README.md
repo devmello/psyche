@@ -6,13 +6,13 @@ The agent's file tools (feature P9; architecture §4.3 built-ins), over the fold
 
 `fileTools(options?) → AgentToolRegistration[]`, registered by the Gateway composition:
 
-| Tool | Side effect | Target | Notes |
-| --- | --- | --- | --- |
-| `read_file` | `read` | real path | 256 KiB per call, paged by byte `offset` / `nextOffset` without splitting UTF-8 characters; returns the file's `sha256` (files up to 4 MiB); binary files return `binary: true` and no text; PDF, DOCX and XLSX return extracted text (below) |
-| `list_dir` | `read` | real path | names, kinds (`file` / `dir` / `link`), sizes; 500 per page; results always `untrusted` |
-| `search_files` | `read` | real path | literal, case-insensitive by default; skips symlinks, binaries, hidden entries and `node_modules`; ≤ 5,000 files of ≤ 1 MiB, depth 12, 200 matches |
-| `write_file` | `write` → `file_write` approval | real path | ≤ 1 MiB; binding `{operation: "overwrite", realPath, contentSha256}`; card shows the new content as a diff |
-| `edit_file` | `write` → `file_write` approval | real path | exact-match replace (once, or `replace_all`); optional `expected_sha256` from `read_file`; `conflict` when the text is missing, ambiguous or the file changed (also re-checked right before the rename); card shows the replaced and new text as a diff; binding `{operation: "edit", realPath, contentSha256: sha256(edit)}` |
+| Tool           | Side effect                     | Target    | Notes                                                                                                                                                                                                                                                                                                                         |
+| -------------- | ------------------------------- | --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `read_file`    | `read`                          | real path | 256 KiB per call, paged by byte `offset` / `nextOffset` without splitting UTF-8 characters; returns the file's `sha256` (files up to 4 MiB); binary files return `binary: true` and no text; PDF, DOCX and XLSX return extracted text (below)                                                                                 |
+| `list_dir`     | `read`                          | real path | names, kinds (`file` / `dir` / `link`), sizes; 500 per page; results always `untrusted`                                                                                                                                                                                                                                       |
+| `search_files` | `read`                          | real path | literal, case-insensitive by default; skips symlinks, binaries, hidden entries and `node_modules`; ≤ 5,000 files of ≤ 1 MiB, depth 12, 200 matches                                                                                                                                                                            |
+| `write_file`   | `write` → `file_write` approval | real path | ≤ 1 MiB; binding `{operation: "overwrite", realPath, contentSha256}`; card shows the new content as a diff                                                                                                                                                                                                                    |
+| `edit_file`    | `write` → `file_write` approval | real path | exact-match replace (once, or `replace_all`); optional `expected_sha256` from `read_file`; `conflict` when the text is missing, ambiguous or the file changed (also re-checked right before the rename); card shows the replaced and new text as a diff; binding `{operation: "edit", realPath, contentSha256: sha256(edit)}` |
 
 ## Document text (PDF, DOCX, XLSX)
 

@@ -3,12 +3,14 @@ import { chmodSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync }
 import { dirname, join } from "node:path";
 import { requesterFromRoute, type TurnContextProvider } from "@psyche/agent-core";
 import {
+  approvalChatSurfaces,
   type ChannelInboundEvent,
   type ChannelLogger,
   ChannelService,
   type ChannelsApi,
   channelCapabilityNote,
   createChannelsApi,
+  DEFAULT_AWAY_AFTER_MINUTES,
   DiscordAdapter,
   type DiscordAdapterOptions,
   type DiscordTokenSource,
@@ -45,9 +47,11 @@ import {
   createThread,
   findThreadBySessionKey,
   getAgentThreadState,
+  getDevice,
   getSetting,
   getThread,
   getWidgets,
+  listDevices,
   type PsycheDb,
   updateThread,
 } from "@psyche/db";
@@ -58,6 +62,7 @@ import {
   outboundText,
 } from "@psyche/permissions";
 import {
+  type ApprovalRequest,
   type Channel,
   type ChannelAdapter,
   type DeviceScope,
@@ -702,6 +707,8 @@ export function inboundTurnInput(event: ChannelInboundEvent): {
 /** A channel-started run, kept until its last reply has been sent (the reply authority's turn). */
 interface TurnState {
   threadId: string;
+  /** The owner chat the run came from (`<channel>:<senderId>`): its cards go there. */
+  surface?: string;
   requester: Requester;
   /** The conversation the request came from. */
   chatId: string;
@@ -924,6 +931,9 @@ export function composeChannels(
     ...(setup.pairingRandom === undefined ? {} : { pairingRandom: setup.pairingRandom }),
     ...(Array.isArray(storedOwners) ? { ownerAllowFrom: storedOwners.map(String) } : {}),
     outboundNotice: () => ownerText().notice,
+    // The fixed lines of approval cards follow the owner's language (`ui.language`).
+    language: () => getSetting(db, "ui.language")?.value,
+    deviceName: (deviceId) => getDevice(db, deviceId)?.name,
     // The outbound check (security §3.9): kinds only in the audit log, never the value.
     onOutboundWithheld: (event) => {
       const held = event.action === "hold";
@@ -1299,8 +1309,12 @@ export function composeChannels(
       const carried = getAgentThreadState(db, threadId)?.taint as
         | { sources?: TaintSource[] }
         | undefined;
+      const origin = pending.requester;
       turns.set(runId, {
         threadId,
+        ...(origin.channel === undefined || origin.senderId === undefined
+          ? {}
+          : { surface: `${origin.channel}:${origin.senderId}` }),
         requester: pending.requester,
         chatId: pending.target.chatId,
         taint: carried !== undefined,
@@ -1439,6 +1453,16 @@ export function composeChannels(
       );
       return;
     }
+    if (f.event === "approval.updated") {
+      // Answered anywhere, expired or cancelled: the chats' copies stop looking actionable.
+      const approval = (f.payload as { approval: ApprovalRequest }).approval;
+      service
+        .retireApproval(approval)
+        .catch((err: unknown) =>
+          logger.warn("channel.approval_retire_failed", { code: PsycheError.from(err).code }),
+        );
+      return;
+    }
     if (f.event === "run.updated") {
       const run = (f.payload as { run: Run }).run;
       const target = replyTo.get(run.id);
@@ -1549,6 +1573,34 @@ export function composeChannels(
     ...(Object.keys(webhooks).length === 0 ? {} : { webhooks }),
     relay: {
       surfaces: () => service.ownerSurfaces(),
+      // Decision D3: a run that came from a chat asks there; a run from the Mac or iPhone reaches
+      // the one away chat only while no paired device has been seen for the away window.
+      approvalSurfaces: (by) => {
+        const runId = by.runId ?? undefined;
+        const origin = runId === undefined ? undefined : turns.get(runId)?.surface;
+        const away = getSetting(db, "notifications.approvals.awayChannel")?.value;
+        const minutes = getSetting(db, "notifications.approvals.awayAfterMinutes")?.value;
+        const devices = listDevices(db).filter(
+          (d) => d.pairedAt !== null && !d.revokedAt && d.role !== "node",
+        );
+        const live = new Set<string>();
+        for (const c of gateway?.context.connections() ?? []) {
+          if (c.open && c.identity?.deviceId !== undefined) live.add(c.identity.deviceId);
+        }
+        const seen = devices.map((d) => Date.parse(d.lastSeenAt ?? "")).filter(Number.isFinite);
+        return approvalChatSurfaces({
+          originSurface: origin,
+          ownerSurfaces: service.ownerSurfaces(),
+          awaySurfaces:
+            typeof away === "string" && away !== "" ? service.ownerSurfacesOf(away) : [],
+          deviceLastSeenAt: seen.length === 0 ? null : Math.max(...seen),
+          deviceConnected: devices.some((d) => live.has(d.id)),
+          now: clock.now(),
+          awayAfterMs:
+            (typeof minutes === "number" && minutes >= 1 ? minutes : DEFAULT_AWAY_AFTER_MINUTES) *
+            60_000,
+        });
+      },
       async deliver(issued) {
         const reports = await service.deliverApproval(issued);
         for (const r of reports) {

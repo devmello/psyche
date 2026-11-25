@@ -151,6 +151,7 @@ const LABELLED_KEYS = [
   "notifications.quietHours.enabled",
   "notifications.quietHours.start",
   "notifications.quietHours.end",
+  "notifications.approvals.awayChannel",
   // Mail & meetings (docs/workflows/mail-and-meetings-2026.md §7.3)
   "workflows.paused",
   "workflows.readOnly",

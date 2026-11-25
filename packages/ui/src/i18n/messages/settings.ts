@@ -258,6 +258,11 @@ export const settings = {
   "settings.notifications.helper.denied": "Notifications are off in System Settings",
   "settings.notifications.helper.openSettings": "Open System Settings",
   "settings.notifications.description": "When Psyche may interrupt you.",
+  "settings.notifications.group.approvals": "Approvals when you're away",
+  "settings.notifications.approvals.hint":
+    "Your devices get every approval, and a task you start in a chat asks in that chat. Pick one chat that also gets approvals when none of your devices has been seen for 10 minutes. Payments still need your Mac or phone.",
+  "settings.key.notifications.approvals.awayChannel": "Away chat",
+  "settings.notifications.approvals.none": "None",
   "settings.notifications.group.quietHours": "Quiet hours",
   "settings.notifications.quietHours.hint":
     "Holds notifications until the window ends. Time-sensitive approvals still come through. The overnight memory pass has its own hours, in the Memory settings.",

@@ -152,7 +152,9 @@ describe("TelegramAdapter approval buttons", () => {
     const [call] = api.calls;
     expect(call?.payload).not.toHaveProperty("reply_markup");
     expect(call?.payload).not.toHaveProperty("parse_mode");
-    expect(call?.payload.text).toBe(`Send email · write\n${TOO_LONG_TEXT} (ref abcdefgh)`);
+    expect(call?.payload.text).toBe(
+      `Send email · write\n${TOO_LONG_TEXT}\nTo deny, reply "/deny abcdefgh".`,
+    );
   });
 
   it("never puts the answer token in any outgoing payload", async () => {

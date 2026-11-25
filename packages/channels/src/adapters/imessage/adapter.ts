@@ -3,6 +3,7 @@ import { bindingFor } from "@psyche/permissions";
 import {
   type ApprovalRequest,
   type ChannelAdapter,
+  type ChannelApprovalAck,
   type ChannelApprovalAnswer,
   type ChannelCapabilities,
   type ChannelHealth,
@@ -19,6 +20,7 @@ import {
   type Unsubscribe,
 } from "@psyche/protocol";
 import { approvalRef, chatEligibility, renderApprovalCard } from "../../format/approval-card.ts";
+import { localizeCardText } from "../../text.ts";
 import {
   canonicalHandle,
   dmPeer,
@@ -131,7 +133,11 @@ export class IMessageAdapter implements ChannelAdapter {
   readonly #clock: { now(): number };
 
   readonly #inbound = new Set<(message: InboundMessage) => void | Promise<void>>();
-  readonly #answers = new Set<(answer: ChannelApprovalAnswer) => void | Promise<void>>();
+  readonly #answers = new Set<
+    (
+      answer: ChannelApprovalAnswer,
+    ) => void | ChannelApprovalAck | undefined | Promise<void | ChannelApprovalAck | undefined>
+  >();
   readonly #known = new Map<string, KnownRow>();
   /** Conversations seen inbound; outbound chat guids must be one of them. */
   readonly #chats = new Set<string>();
@@ -246,7 +252,11 @@ export class IMessageAdapter implements ChannelAdapter {
     };
   }
 
-  onApprovalAnswer(handler: (answer: ChannelApprovalAnswer) => void | Promise<void>): Unsubscribe {
+  onApprovalAnswer(
+    handler: (
+      answer: ChannelApprovalAnswer,
+    ) => void | ChannelApprovalAck | undefined | Promise<void | ChannelApprovalAck | undefined>,
+  ): Unsubscribe {
     this.#answers.add(handler);
     return () => {
       this.#answers.delete(handler);
@@ -300,7 +310,7 @@ export class IMessageAdapter implements ChannelAdapter {
     });
     if (!card.answerable) return this.#deliver(chatId, card.text, "approval_card");
     this.#prune();
-    const text = `${card.text}\n${TAPBACK_HINT}`;
+    const text = `${card.text}\n${localizeCardText(TAPBACK_HINT)}`;
     const expiry = Date.parse(approval.expiresAt);
     const pending: PendingCard = {
       approvalId: approval.id,

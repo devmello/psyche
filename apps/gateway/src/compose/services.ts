@@ -9,6 +9,7 @@ import type {
   PsychePermissionBroker,
 } from "@psyche/permissions";
 import type {
+  ApprovalRequest,
   Clock,
   EventName,
   EventPayload,
@@ -178,6 +179,11 @@ export interface ComposedPart {
 export interface ApprovalRelay {
   /** Extra surfaces for every approval: the owner's chat peers (`telegram:<id>`), `notification`. */
   surfaces(): Surface[];
+  /**
+   * The chat surfaces one approval's card goes to (decision D3): the chat a run came from, or the
+   * away chat when no device is around. Absent: `surfaces()` for every approval.
+   */
+  approvalSurfaces?(requestedBy: ApprovalRequest["requestedBy"]): Surface[];
   /** Deliver an issued approval to those surfaces (buttons, `/approve` fallback). */
   deliver(issued: IssuedApproval): Promise<void>;
   /** Channel owners (only the channels part names any). */

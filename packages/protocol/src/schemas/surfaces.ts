@@ -378,6 +378,13 @@ export const NOTIFICATION_SETTING_DEFAULTS = {
   "notifications.quietHours.enabled": true,
   "notifications.quietHours.start": "22:00",
   "notifications.quietHours.end": "08:00",
+  /**
+   * The one owner chat that also gets approval cards while no paired device has been seen for
+   * `awayAfterMinutes` (decision D3, 2026-11-25): a channel id from Settings → Notifications, or
+   * "" for none. A task started in a chat asks in that chat whatever this says.
+   */
+  "notifications.approvals.awayChannel": "",
+  "notifications.approvals.awayAfterMinutes": 10,
 } as const;
 
 export type NotificationSettingKey = keyof typeof NOTIFICATION_SETTING_DEFAULTS;

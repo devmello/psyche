@@ -1,5 +1,12 @@
-import { renderForSurface, TOO_LONG_TEXT } from "@psyche/permissions/cards";
+import {
+  denyHintText,
+  kindTitle,
+  renderForSurface,
+  sanitizeDisplay,
+  TOO_LONG_TEXT,
+} from "@psyche/permissions/cards";
 import type { ApprovalKind, ApprovalRequest } from "@psyche/protocol";
+import { localizeCardText, localizeKindTitle } from "../text.ts";
 
 /**
  * Chat approval cards (architecture §4.6, security §3.7 and §9, review design-12). The text is
@@ -11,41 +18,15 @@ import type { ApprovalKind, ApprovalRequest } from "@psyche/protocol";
  * module adds the chat-specific trailer (relative expiry, `/approve` ref and fallback).
  */
 
-const KIND_LABELS: Record<ApprovalKind, string> = {
-  exec: "Run a command",
-  exec_host: "Run a command on the host",
-  send_email: "Send an email",
-  calendar_write: "Change your calendar",
-  message_send: "Send a message",
-  browser_submit: "Submit a web form",
-  credential_fill: "Fill a saved credential",
-  purchase: "Make a purchase",
-  file_write: "Write a file",
-  connector_action: "Connector action",
-  computer_action: "Control an app",
-  new_origin: "Open a new site",
-  plan_exit: "Leave plan mode",
-  skill_install: "Install a skill",
-  mcp_tool: "Call an MCP tool",
-  archive_thread: "Archive a thread",
-  memory_protected_write: "Change a protected memory file",
-  pairing: "Pair a device or sender",
-  policy_change: "Change a permission policy",
-  task_start: "Start a background task",
-  apple_script: "Run an AppleScript",
-  shortcut_run: "Run a Shortcut",
-  git_write: "Change a git repository",
-  git_push: "Push to a git remote",
-  folder_access: "Share a folder",
-  separate_desktop_share: "Share a folder with the separate desktop",
-  batch: "Approve a batch of actions",
-  staged_apply: "Apply changes prepared overnight",
-  permission_request: "Grant a missing permission",
-};
-
-/** Short label for answer confirmations ("Approved: Send an email."). */
-export function kindLabel(kind: ApprovalKind): string {
-  return KIND_LABELS[kind] ?? kind;
+/**
+ * What an answer confirmation names ("Send email — bob@x.com"): the kind's title and, when the
+ * request has one, its exact target, sanitized and cut short. Localized by the caller's language.
+ */
+export function approvalWhat(approval: Pick<ApprovalRequest, "kind" | "target">): string {
+  const title = localizeKindTitle(kindTitle(approval.kind));
+  const raw = approval.target?.display ?? approval.target?.value;
+  if (raw === undefined || raw.trim() === "") return title;
+  return `${title} — ${sanitizeDisplay(raw, 80)}`;
 }
 
 /** Kinds that never reach chat, whatever the request's `deviceOnly` says (security §3.7, §9). */
@@ -104,9 +85,16 @@ export function renderApprovalCard(
 ): ApprovalCard {
   const rendered = renderForSurface(options.surface, approval);
   const header = rendered.text.split("\n")[0] ?? "";
-  if (rendered.deviceOnly) return { text: rendered.text, answerable: false, reason: "device_only" };
+  if (rendered.deviceOnly) {
+    return {
+      // A device-only approval is refused from chat whatever the answer (no `/deny` either).
+      text: localizeCardText(rendered.text),
+      answerable: false,
+      reason: "device_only",
+    };
+  }
   const tooLong = (): ApprovalCard => ({
-    text: `${header}\n${TOO_LONG_TEXT} (ref ${options.ref})`,
+    text: localizeCardText(`${header}\n${TOO_LONG_TEXT}\n${denyHintText(options.ref)}`),
     answerable: false,
     reason: "too_long",
   });
@@ -116,7 +104,7 @@ export function renderApprovalCard(
   if (options.commandFallback === true) {
     lines.push(`Reply "/approve ${options.ref} approve" or "/approve ${options.ref} deny".`);
   }
-  const text = lines.join("\n");
+  const text = localizeCardText(lines.join("\n"));
   if (options.maxChars !== undefined && text.length > options.maxChars) return tooLong();
   return { text, answerable: true };
 }
@@ -125,8 +113,19 @@ export function renderApprovalCard(
  * The message a chat gets for an approval it may not answer (device-only kinds, financial, or
  * `destructive` without opt-in): the header and "Answer this on your Mac.", never the arguments.
  */
-export function renderDevicePointer(surface: string, approval: ApprovalRequest): string {
-  return renderForSurface(surface, { ...approval, deviceOnly: true }).text;
+export function renderDevicePointer(
+  surface: string,
+  approval: ApprovalRequest,
+  options: { deny?: boolean } = {},
+): string {
+  const text = renderForSurface(surface, { ...approval, deviceOnly: true }).text;
+  // Deny is always safe, so a pointer names `/deny <ref>`; there is never an `/approve` here.
+  // A weak transport (a spoofable sender) gets no command at all (`deny: false`).
+  return localizeCardText(
+    options.deny === false || approval.deviceOnly
+      ? text
+      : `${text}\n${denyHintText(approvalRef(approval.id))}`,
+  );
 }
 
 /** Short, stable reference for `/approve <ref>`: the last 8 characters of the id, lowercased. */

@@ -167,6 +167,11 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.key.notifications.quietHours.enabled": "Ruhezeiten",
   "settings.key.notifications.quietHours.start": "Ruhig ab",
   "settings.key.notifications.quietHours.end": "Ruhig bis",
+  "settings.notifications.group.approvals": "Freigaben, wenn du weg bist",
+  "settings.notifications.approvals.hint":
+    "Deine Geräte bekommen jede Freigabe, und eine Aufgabe, die du in einem Chat startest, fragt in diesem Chat. Wähle einen Chat, der Freigaben auch bekommt, wenn 10 Minuten lang keines deiner Geräte aktiv war. Zahlungen brauchen weiterhin deinen Mac oder dein Handy.",
+  "settings.key.notifications.approvals.awayChannel": "Chat für unterwegs",
+  "settings.notifications.approvals.none": "Keiner",
   "settings.notifications.title": "Mitteilungen",
   "settings.notifications.helper.title": "Benachrichtigungen von Psyche Helper",
   "settings.notifications.helper.hint":

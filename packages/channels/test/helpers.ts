@@ -49,6 +49,7 @@ export async function harness(
     ownerAllowFrom?: string[];
     capabilities?: Partial<ChannelCapabilities>;
     start?: boolean;
+    canEdit?: boolean;
     admitInbound?: ConstructorParameters<typeof ChannelService>[0]["admitInbound"];
   } = {},
 ): Promise<Harness> {
@@ -112,6 +113,7 @@ export async function harness(
     type,
     account: "psyche_bot",
     ...(options.capabilities === undefined ? {} : { capabilities: options.capabilities }),
+    ...(options.canEdit === undefined ? {} : { canEdit: options.canEdit }),
   });
   sentCount = () => adapter.sent.filter((x) => x.kind !== "typing").length;
   service.attach(adapter);

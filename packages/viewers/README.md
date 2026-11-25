@@ -9,13 +9,13 @@ tools. Plan: [docs/archive/plans/s13.md](../../docs/archive/plans/s13.md). Statu
 
 ## Entry points
 
-| Import | Contents | Runs in |
-| --- | --- | --- |
-| `@psyche/viewers` | React components + everything in `core` | renderer (desktop, web) |
-| `@psyche/viewers/core` | registry, detection, `extractText`, PDF/sheet/DOCX/email parsing, conversion, artifact sandbox builders, Markdown session, form fill (P2), file generators (P8) | Gateway (Node) and renderer; no React |
-| `@psyche/viewers/core/detect`, `@psyche/viewers/core/convert` | MIME detection; the `ConversionService` types and LibreOffice / Quick Look argv builders, without the DOM-typed parsers | Gateway (Node), which compiles without DOM types |
-| `@psyche/viewers/bundler` | `reactBundlerResponse(path, { appOrigin, bundlerOrigin })`: the self-hosted React artifact bundler's files (page, runtime, vendored React 19, Babel standalone) | Gateway only (Node: reads `node_modules`) |
-| `@psyche/viewers/styles.css` | structural styles (`psy-*` classes, theme via `--psy-*` variables) | renderer |
+| Import                                                        | Contents                                                                                                                                                        | Runs in                                          |
+| ------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
+| `@psyche/viewers`                                             | React components + everything in `core`                                                                                                                         | renderer (desktop, web)                          |
+| `@psyche/viewers/core`                                        | registry, detection, `extractText`, PDF/sheet/DOCX/email parsing, conversion, artifact sandbox builders, Markdown session, form fill (P2), file generators (P8) | Gateway (Node) and renderer; no React            |
+| `@psyche/viewers/core/detect`, `@psyche/viewers/core/convert` | MIME detection; the `ConversionService` types and LibreOffice / Quick Look argv builders, without the DOM-typed parsers                                         | Gateway (Node), which compiles without DOM types |
+| `@psyche/viewers/bundler`                                     | `reactBundlerResponse(path, { appOrigin, bundlerOrigin })`: the self-hosted React artifact bundler's files (page, runtime, vendored React 19, Babel standalone) | Gateway only (Node: reads `node_modules`)        |
+| `@psyche/viewers/styles.css`                                  | structural styles (`psy-*` classes, theme via `--psy-*` variables)                                                                                              | renderer                                         |
 
 ## Registry contract (protocol `ViewerRegistry`)
 
@@ -30,16 +30,16 @@ Every viewer takes `ViewerProps` (`src/react/contract.ts`):
 
 ```ts
 interface ViewerProps {
-  item: ViewerItem;                         // id, name, mime, provenance, etag?, libraryItem?
+  item: ViewerItem; // id, name, mime, provenance, etag?, libraryItem?
   load(signal: AbortSignal): Promise<Uint8Array>; // the host fetches bytes; viewers never pick URLs
-  pageState?: PageState;                    // page, zoom, sheet, line
+  pageState?: PageState; // page, zoom, sheet, line
   onPageStateChange?(s: PageState): void;
   onSelectionChange?(s: ViewerSelection | null): void; // text, cells, lines, field
   onOpenInPane?(r: { pane; target }): void; // links → browser pane, Edit → editor pane
   onSendToChat?(p: SendToChatPayload): void;
   onSaveToLibrary?(f: { name; mime; bytes }): void; // exports, filled PDF copies, attachments
-  conversion?: ConversionService;           // slides
-  compact?: boolean;                        // inline chat cards
+  conversion?: ConversionService; // slides
+  compact?: boolean; // inline chat cards
 }
 ```
 
@@ -50,18 +50,18 @@ Shells override a render kind with `components={{ pdf: MyPdf }}`.
 
 ## Viewers
 
-| Kind | Component | Library | Notes |
-| --- | --- | --- | --- |
-| pdf | `PdfViewer` | PDF.js 6.4 (self-hosted worker) | virtualized pages, text layer, search, outline, zoom/fit, AcroForm field outlines + side list + fill preview (`proposedValues` marks agent values), explicit **XFA not supported** state, export, print; document JS never runs |
-| sheet | `SheetViewer` | SheetJS CE 0.20.3 (vendor tarball), TanStack Table 9 + Virtual | tabs, filters (`>100`, `=Rent`, `empty`, text), column stats, CSV/TSV via our parser; 50k rows < 2 s; **Edit** (below) when the host passes `onSave` |
-| sheet (edit) | `SheetEditor` | Univer 1.0.3 (Apache-2.0), lazily loaded | see "Spreadsheet editing" |
-| document | `DocumentViewer` | docx-preview, mammoth | Layout / Text toggle; sanitized and shown in the sandbox frame (scripts off); falls back to mammoth |
-| slides | `SlidesViewer` | `ConversionService` | converted PDF → PDF viewer, or a Quick Look thumbnail, else a placeholder with each slide's text |
-| image / media | `ImageViewer` / `MediaViewer` | native | always `<img>` (SVG included), fit / 100 % / zoom |
-| code / text / markdown | `CodeViewer` | CodeMirror 6 read-only + Shiki 4 (JS regex engine, lazy grammars) | line numbers, search, "Send to chat" with line selection |
-| json | `JsonViewer` | — | collapsible tree, paged arrays, JSON Lines, Raw toggle |
-| email | `EmailViewer` | postal-mime, DOMPurify | headers, attachments, sanitized HTML in the sandbox, remote images blocked until "Load remote images", marked untrusted |
-| artifact | `ArtifactViewer` / `ArtifactFrame` | — | see below |
+| Kind                   | Component                          | Library                                                           | Notes                                                                                                                                                                                                                           |
+| ---------------------- | ---------------------------------- | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| pdf                    | `PdfViewer`                        | PDF.js 6.4 (self-hosted worker)                                   | virtualized pages, text layer, search, outline, zoom/fit, AcroForm field outlines + side list + fill preview (`proposedValues` marks agent values), explicit **XFA not supported** state, export, print; document JS never runs |
+| sheet                  | `SheetViewer`                      | SheetJS CE 0.20.3 (vendor tarball), TanStack Table 9 + Virtual    | tabs, filters (`>100`, `=Rent`, `empty`, text), column stats, CSV/TSV via our parser; 50k rows < 2 s; **Edit** (below) when the host passes `onSave`                                                                            |
+| sheet (edit)           | `SheetEditor`                      | Univer 1.0.3 (Apache-2.0), lazily loaded                          | see "Spreadsheet editing"                                                                                                                                                                                                       |
+| document               | `DocumentViewer`                   | docx-preview, mammoth                                             | Layout / Text toggle; sanitized and shown in the sandbox frame (scripts off); falls back to mammoth                                                                                                                             |
+| slides                 | `SlidesViewer`                     | `ConversionService`                                               | converted PDF → PDF viewer, or a Quick Look thumbnail, else a placeholder with each slide's text                                                                                                                                |
+| image / media          | `ImageViewer` / `MediaViewer`      | native                                                            | always `<img>` (SVG included), fit / 100 % / zoom                                                                                                                                                                               |
+| code / text / markdown | `CodeViewer`                       | CodeMirror 6 read-only + Shiki 4 (JS regex engine, lazy grammars) | line numbers, search, "Send to chat" with line selection                                                                                                                                                                        |
+| json                   | `JsonViewer`                       | —                                                                 | collapsible tree, paged arrays, JSON Lines, Raw toggle                                                                                                                                                                          |
+| email                  | `EmailViewer`                      | postal-mime, DOMPurify                                            | headers, attachments, sanitized HTML in the sandbox, remote images blocked until "Load remote images", marked untrusted                                                                                                         |
+| artifact               | `ArtifactViewer` / `ArtifactFrame` | —                                                                 | see below                                                                                                                                                                                                                       |
 
 ## Spreadsheet editing
 
@@ -210,16 +210,16 @@ become `overlay` fields whose values are drawn as page text.
 the files through the normal `file_write` path. Every string is untrusted model output and is
 escaped for its target.
 
-| `format` | Input | Engine | Notes |
-| --- | --- | --- | --- |
-| `markdown` | `DocSpec` | own | block syntax and HTML escaped; charts → table + sibling `.svg` |
-| `pdf` | `DocSpec` (+ `pageSize`) | `@cantoo/pdf-lib` | wrapped rich text, paginated tables with repeated header, `drawSvg` charts, page numbers; WinAnsi only (others print `?`) |
-| `docx` | `DocSpec` | `docx` | headings, rich runs, lists, tables; charts as caption + data table |
-| `html` | `DocSpec` | own | standalone page with `default-src 'none'` CSP; print with Chromium for full Unicode |
-| `xlsx` | `WorkbookSpec` | SheetJS CE | strings never become formulas (`{ formula }` is explicit), number formats, autofilter, widths |
-| `pptx` | `DeckSpec` | pptxgenjs | cover slide, bullets, tables, native bar/line/pie charts, notes |
-| `svg` | `ChartSpec` | own | static bar/line/pie, no scripts or external refs |
-| `itinerary` / `dashboard` | `ItinerarySpec` / `DashboardSpec` | own | script-free templates; `templateArtifact(html)` wraps them in the artifact srcdoc |
+| `format`                  | Input                             | Engine            | Notes                                                                                                                     |
+| ------------------------- | --------------------------------- | ----------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `markdown`                | `DocSpec`                         | own               | block syntax and HTML escaped; charts → table + sibling `.svg`                                                            |
+| `pdf`                     | `DocSpec` (+ `pageSize`)          | `@cantoo/pdf-lib` | wrapped rich text, paginated tables with repeated header, `drawSvg` charts, page numbers; WinAnsi only (others print `?`) |
+| `docx`                    | `DocSpec`                         | `docx`            | headings, rich runs, lists, tables; charts as caption + data table                                                        |
+| `html`                    | `DocSpec`                         | own               | standalone page with `default-src 'none'` CSP; print with Chromium for full Unicode                                       |
+| `xlsx`                    | `WorkbookSpec`                    | SheetJS CE        | strings never become formulas (`{ formula }` is explicit), number formats, autofilter, widths                             |
+| `pptx`                    | `DeckSpec`                        | pptxgenjs         | cover slide, bullets, tables, native bar/line/pie charts, notes                                                           |
+| `svg`                     | `ChartSpec`                       | own               | static bar/line/pie, no scripts or external refs                                                                          |
+| `itinerary` / `dashboard` | `ItinerarySpec` / `DashboardSpec` | own               | script-free templates; `templateArtifact(html)` wraps them in the artifact srcdoc                                         |
 
 `DocSpec.blocks`: `heading`, `paragraph` (inline `**bold**`, `*italic*`, `` `code` ``), `list`,
 `table`, `code`, `quote`, `chart`, `pageBreak`. `GENERATOR_LIMITS` bounds blocks, rows, sheets,
@@ -231,8 +231,11 @@ slides and chart points.
 interface ConversionService {
   id: string;
   supports(input: { name; mime }, target: "pdf" | "thumbnail"): boolean;
-  convert(input: { bytes; name; mime }, target, opts?: { signal }): Promise<
-    { kind: "pdf"; bytes } | { kind: "thumbnail"; mime: "image/png"; bytes }>;
+  convert(
+    input: { bytes; name; mime },
+    target,
+    opts?: { signal },
+  ): Promise<{ kind: "pdf"; bytes } | { kind: "thumbnail"; mime: "image/png"; bytes }>;
 }
 ```
 
@@ -248,7 +251,11 @@ to safe basenames before reaching argv or paths.
 import workerSrc from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 import { configurePdfJs } from "@psyche/viewers";
 import "@psyche/viewers/styles.css";
-configurePdfJs({ workerSrc, standardFontDataUrl: "/pdfjs/standard_fonts/", cMapUrl: "/pdfjs/cmaps/" });
+configurePdfJs({
+  workerSrc,
+  standardFontDataUrl: "/pdfjs/standard_fonts/",
+  cMapUrl: "/pdfjs/cmaps/",
+});
 ```
 
 The app CSP needs `frame-src` for the artifacts origin and the React bundler origin (and nothing

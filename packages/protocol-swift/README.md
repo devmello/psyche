@@ -2,10 +2,10 @@
 
 Shared SwiftPM package for the Apple clients (`apps/mac-helper`, the iOS app). Swift 6, macOS 15 and iOS 26, no third-party dependencies.
 
-| Product | Contents |
-| --- | --- |
+| Product          | Contents                                                                                                                 |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------ |
 | `PsycheProtocol` | `PsycheProtocol.generated.swift` (written by `pnpm protocol:gen`, do not edit) and `Frames.swift` (wire frame envelopes) |
-| `PsycheWire` | `ConnectSigning` (connect signing payload v1), `Base64URL`, `DeviceIdentity` (Ed25519) |
+| `PsycheWire`     | `ConnectSigning` (connect signing payload v1), `Base64URL`, `DeviceIdentity` (Ed25519)                                   |
 
 ```sh
 swift build && swift test   # in this directory

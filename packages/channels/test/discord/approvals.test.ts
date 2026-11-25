@@ -72,10 +72,9 @@ describe("Discord approval buttons", () => {
     await until(() => h?.fake.calls("POST", /^\/interactions\//).length === 1);
     const [ack] = h.fake.calls("POST", /^\/interactions\//);
     expect(ack?.path).toBe("/interactions/1100000000000000001/interaction-token-secret/callback");
-    expect(ack?.body).toEqual({
-      type: 7,
-      data: { components: [], content: "card\n\nApproval sent." },
-    });
+    // Acked at once and silently (type 6): the card is edited after the verdict, never with a
+    // "sent" line before it.
+    expect(ack?.body).toEqual({ type: 6 });
     let decided = await h.broker.get(issued.approval.id);
     for (let i = 0; i < 200 && decided?.status !== "approved"; i++) {
       await new Promise((r) => setTimeout(r, 5));

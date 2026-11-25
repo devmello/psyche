@@ -2,6 +2,7 @@ import { DEVICE_ONLY_TEXT, renderForSurface, TOO_LONG_TEXT } from "@psyche/permi
 import type { ApprovalRequest } from "@psyche/protocol";
 import { describe, expect, it } from "vitest";
 import {
+  approvalRef,
   chatEligibility,
   renderApprovalCard,
   renderDevicePointer,
@@ -136,7 +137,7 @@ describe("approval cards", () => {
       expect(card.answerable).toBe(false);
       expect(card.reason).toBe("too_long");
       expect(card.text).toBe(
-        `Send email · write · after reading untrusted content\n${TOO_LONG_TEXT} (ref abcdefgh)`,
+        `Send email · write · after reading untrusted content\n${TOO_LONG_TEXT}\nTo deny, reply "/deny abcdefgh".`,
       );
     }
   });
@@ -157,14 +158,18 @@ describe("approval cards", () => {
     expect(card.text).not.toContain("/approve");
     expect(card.text).not.toContain("acme");
     // The pointer for an approval the chat may not answer carries no arguments either.
-    expect(renderDevicePointer(surface, { ...fill, deviceOnly: false })).toBe(card.text);
+    expect(renderDevicePointer(surface, { ...fill, deviceOnly: false })).toBe(
+      `${card.text}\nTo deny, reply "/deny ${approvalRef(fill.id)}".`,
+    );
     const pay = approval({
       kind: "purchase",
       sideEffect: "financial",
       taint: false,
       details: { amount: "12.00" },
     });
-    expect(renderDevicePointer(surface, pay)).toBe(`Pay · financial\n${DEVICE_ONLY_TEXT}`);
+    expect(renderDevicePointer(surface, pay)).toBe(
+      `Pay · financial\n${DEVICE_ONLY_TEXT}\nTo deny, reply "/deny ${approvalRef(pay.id)}".`,
+    );
   });
 
   it("a secret placeholder is shown as the placeholder; env values never appear", () => {

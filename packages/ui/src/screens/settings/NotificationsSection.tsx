@@ -1,12 +1,14 @@
 import { NOTIFICATION_SETTING_DEFAULTS as DEFAULTS } from "@psyche/protocol";
 import type { ReactElement } from "react";
 import { Button } from "../../components/ui/button.tsx";
+import { useGatewayQuery } from "../../data/hooks.ts";
 import { t } from "../../i18n/core.ts";
 import { TimeRow } from "./MailMeetingsSection.tsx";
 import {
   bool,
   Group,
   LoadGate,
+  RadioField,
   SectionFrame,
   type SettingsFormProps,
   StatusChip,
@@ -32,6 +34,8 @@ export interface HelperNotifications {
 export interface NotificationsPanelProps extends Pick<SettingsFormProps, "values" | "onChange"> {
   helperNotifications?: HelperNotifications;
   needsApproval?: ReadonlySet<string>;
+  /** The connected chat channels the owner may pick as the away chat. */
+  chatChannels?: readonly { id: string; label: string }[];
   loading?: boolean;
   error?: string | null;
   onRetry?: () => void;
@@ -42,6 +46,7 @@ export function NotificationsPanel({
   values,
   onChange,
   needsApproval,
+  chatChannels,
   helperNotifications,
   loading = false,
   error = null,
@@ -116,6 +121,23 @@ export function NotificationsPanel({
             </div>
           </Group>
         ) : null}
+        {chatChannels !== undefined && chatChannels.length > 0 ? (
+          <Group
+            title={t("settings.notifications.group.approvals")}
+            description={t("settings.notifications.approvals.hint")}
+          >
+            <RadioField
+              label={t("settings.key.notifications.approvals.awayChannel")}
+              settingKey="notifications.approvals.awayChannel"
+              value={str(values, "notifications.approvals.awayChannel", "")}
+              options={[
+                { value: "", label: t("settings.notifications.approvals.none") },
+                ...chatChannels.map((c) => ({ value: c.id, label: c.label })),
+              ]}
+              onChange={(v) => onChange("notifications.approvals.awayChannel", v)}
+            />
+          </Group>
+        ) : null}
         <Group
           title={t("settings.notifications.group.quietHours")}
           description={t("settings.notifications.quietHours.hint")}
@@ -159,8 +181,13 @@ export function NotificationsSection({
   helperNotifications?: HelperNotifications;
 }): ReactElement {
   const form = useSettingsForm();
+  const channels = useGatewayQuery("channels.list", {});
+  const chatChannels = (channels.data?.channels ?? [])
+    .filter((c) => c.type !== "webchat" && c.type !== "email" && c.type !== "sms")
+    .map((c) => ({ id: c.id, label: `${c.type} · ${c.account}` }));
   return (
     <NotificationsPanel
+      chatChannels={chatChannels}
       {...(helperNotifications ? { helperNotifications } : {})}
       values={form.values}
       onChange={form.onChange}

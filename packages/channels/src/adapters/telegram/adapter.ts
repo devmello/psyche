@@ -2,6 +2,7 @@ import { randomBytes } from "node:crypto";
 import {
   type ApprovalRequest,
   type ChannelAdapter,
+  type ChannelApprovalAck,
   type ChannelApprovalAnswer,
   type ChannelAttachment,
   type ChannelCapabilities,
@@ -16,6 +17,7 @@ import { Bot, GrammyError, HttpError, InputFile, type Transformer } from "grammy
 import type { CallbackQuery, Update, UserFromGetMe } from "grammy/types";
 import { approvalRef, chatEligibility, renderApprovalCard } from "../../format/approval-card.ts";
 import { renderMarkdown } from "../../format/markdown.ts";
+import { channelText } from "../../text.ts";
 import {
   approvalCallbackData,
   type BotIdentity,
@@ -95,7 +97,11 @@ export class TelegramAdapter implements ChannelAdapter {
   readonly #polling: boolean;
 
   readonly #inbound = new Set<(message: InboundMessage) => void | Promise<void>>();
-  readonly #answers = new Set<(answer: ChannelApprovalAnswer) => void | Promise<void>>();
+  readonly #answers = new Set<
+    (
+      answer: ChannelApprovalAnswer,
+    ) => void | ChannelApprovalAck | undefined | Promise<void | ChannelApprovalAck | undefined>
+  >();
   readonly #pending = new Map<string, PendingApproval>();
 
   #started = false;
@@ -204,7 +210,11 @@ export class TelegramAdapter implements ChannelAdapter {
     };
   }
 
-  onApprovalAnswer(handler: (answer: ChannelApprovalAnswer) => void | Promise<void>): Unsubscribe {
+  onApprovalAnswer(
+    handler: (
+      answer: ChannelApprovalAnswer,
+    ) => void | ChannelApprovalAck | undefined | Promise<void | ChannelApprovalAck | undefined>,
+  ): Unsubscribe {
     this.#answers.add(handler);
     return () => {
       this.#answers.delete(handler);
@@ -351,8 +361,11 @@ export class TelegramAdapter implements ChannelAdapter {
           reply_markup: {
             inline_keyboard: [
               [
-                { text: "Approve", callback_data: approvalCallbackData(nonce, "approve") },
-                { text: "Deny", callback_data: approvalCallbackData(nonce, "deny") },
+                {
+                  text: channelText("approve"),
+                  callback_data: approvalCallbackData(nonce, "approve"),
+                },
+                { text: channelText("deny"), callback_data: approvalCallbackData(nonce, "deny") },
               ],
             ],
           },
@@ -477,24 +490,44 @@ export class TelegramAdapter implements ChannelAdapter {
       await this.#answerQuery(query.id, STALE_APPROVAL_TEXT);
       return;
     }
-    await this.#answerQuery(
-      query.id,
-      parsed.decision === "approve" ? "Approval sent." : "Denial sent.",
-    );
     // The nonce stays: the Permission Broker rejects replays and the channel service replies.
+    // The toast comes after the verdict, with what the Broker really decided.
     const answer: ChannelApprovalAnswer = {
       approvalId: pending.approvalId,
       answerToken: pending.answerToken,
       decision: parsed.decision,
       senderId: String(query.from.id),
     };
+    let verdict: string | undefined;
     for (const handler of [...this.#answers]) {
       try {
-        await handler(answer);
+        const ack = await handler(answer);
+        if (ack !== undefined && typeof ack === "object") verdict = ack.text;
       } catch {
         this.#handlerErrors++;
       }
     }
+    await this.#answerQuery(query.id, verdict ?? STALE_APPROVAL_TEXT);
+  }
+
+  /** The card was answered, expired or cancelled: show the outcome and drop its buttons. */
+  async retireApproval(
+    chatId: string,
+    messageId: string,
+    text: string,
+    approvalId: string,
+  ): Promise<void> {
+    for (const [nonce, entry] of this.#pending) {
+      if (entry.approvalId === approvalId) this.#pending.delete(nonce);
+    }
+    const id = Number(messageId);
+    if (!Number.isInteger(id)) return;
+    await this.#call(() =>
+      this.#bot.api.editMessageText(telegramChatId(chatId), id, text, {
+        link_preview_options: { is_disabled: true },
+        reply_markup: { inline_keyboard: [] },
+      }),
+    );
   }
 
   async #answerQuery(id: string, text: string): Promise<void> {

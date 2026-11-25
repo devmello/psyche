@@ -2,6 +2,7 @@ import { randomBytes } from "node:crypto";
 import {
   type ApprovalRequest,
   type ChannelAdapter,
+  type ChannelApprovalAck,
   type ChannelApprovalAnswer,
   type ChannelCapabilities,
   type ChannelHealth,
@@ -149,7 +150,11 @@ export class WhatsAppAdapter implements ChannelAdapter {
   readonly #fetch: typeof fetch;
   readonly #clock: { now(): number };
   readonly #inbound = new Set<(message: InboundMessage) => void | Promise<void>>();
-  readonly #answers = new Set<(answer: ChannelApprovalAnswer) => void | Promise<void>>();
+  readonly #answers = new Set<
+    (
+      answer: ChannelApprovalAnswer,
+    ) => void | ChannelApprovalAck | undefined | Promise<void | ChannelApprovalAck | undefined>
+  >();
   readonly #pending = new Map<string, PendingApproval>();
   /** wamid → first seen (replay window). */
   readonly #seen = new Map<string, number>();
@@ -219,7 +224,11 @@ export class WhatsAppAdapter implements ChannelAdapter {
     };
   }
 
-  onApprovalAnswer(handler: (answer: ChannelApprovalAnswer) => void | Promise<void>): Unsubscribe {
+  onApprovalAnswer(
+    handler: (
+      answer: ChannelApprovalAnswer,
+    ) => void | ChannelApprovalAck | undefined | Promise<void | ChannelApprovalAck | undefined>,
+  ): Unsubscribe {
     this.#answers.add(handler);
     return () => {
       this.#answers.delete(handler);

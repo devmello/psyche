@@ -14,15 +14,15 @@ editor without them; "Diff" is `@codemirror/merge`'s unified merge view. MDXEdit
 
 ## Options
 
-| | MDXEditor 4.3 | CodeMirror 6 + decorations |
-| --- | --- | --- |
-| Model | Lexical tree ⇄ mdast; Markdown is re-serialised from the tree | The Markdown text itself |
-| Untouched lines | Normalised on export (list markers `*`→`-`, `__x__`→`**x**`, setext → ATX, table padding, reference links, spacing) | Byte-identical by construction |
-| Raw HTML, footnotes, unknown syntax | Opaque nodes or lost unless a plugin models them | Kept (it is just text) |
-| Rich / Source / Diff | Built in (`diffSourcePlugin`) | Built here: ~120 lines of decorations + `@codemirror/merge` |
-| Frontmatter | Plugin (`js-yaml`) | Split/join helpers keep the block byte-for-byte unless edited |
-| Weight | Lexical + CodeMirror + mdast stack | CodeMirror only (already used by the code viewer) |
-| License | MIT | MIT |
+|                                     | MDXEditor 4.3                                                                                                       | CodeMirror 6 + decorations                                    |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| Model                               | Lexical tree ⇄ mdast; Markdown is re-serialised from the tree                                                       | The Markdown text itself                                      |
+| Untouched lines                     | Normalised on export (list markers `*`→`-`, `__x__`→`**x**`, setext → ATX, table padding, reference links, spacing) | Byte-identical by construction                                |
+| Raw HTML, footnotes, unknown syntax | Opaque nodes or lost unless a plugin models them                                                                    | Kept (it is just text)                                        |
+| Rich / Source / Diff                | Built in (`diffSourcePlugin`)                                                                                       | Built here: ~120 lines of decorations + `@codemirror/merge`   |
+| Frontmatter                         | Plugin (`js-yaml`)                                                                                                  | Split/join helpers keep the block byte-for-byte unless edited |
+| Weight                              | Lexical + CodeMirror + mdast stack                                                                                  | CodeMirror only (already used by the code viewer)             |
+| License                             | MIT                                                                                                                 | MIT                                                           |
 
 MDXEditor's rich mode fails requirement 1: any edit exports the whole document through mdast, so a
 one-word change can rewrite dozens of lines the user never touched, which would show up as noise

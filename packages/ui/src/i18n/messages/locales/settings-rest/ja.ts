@@ -164,6 +164,11 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.key.notifications.quietHours.enabled": "おやすみ時間",
   "settings.key.notifications.quietHours.start": "開始時刻",
   "settings.key.notifications.quietHours.end": "終了時刻",
+  "settings.notifications.group.approvals": "外出中の承認",
+  "settings.notifications.approvals.hint":
+    "承認はすべてお使いのデバイスに届き、チャットで始めたタスクはそのチャットで確認します。どのデバイスも10分間確認されていないときに承認も届くチャットを1つ選べます。支払いには引き続き Mac かスマートフォンが必要です。",
+  "settings.key.notifications.approvals.awayChannel": "外出中のチャット",
+  "settings.notifications.approvals.none": "なし",
   "settings.notifications.title": "通知",
   "settings.notifications.helper.title": "Psyche Helper の通知",
   "settings.notifications.helper.hint":

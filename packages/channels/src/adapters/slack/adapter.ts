@@ -2,6 +2,7 @@ import { randomBytes } from "node:crypto";
 import {
   type ApprovalRequest,
   type ChannelAdapter,
+  type ChannelApprovalAck,
   type ChannelApprovalAnswer,
   type ChannelCapabilities,
   type ChannelHealth,
@@ -13,6 +14,7 @@ import {
 } from "@psyche/protocol";
 import { approvalRef, chatEligibility, renderApprovalCard } from "../../format/approval-card.ts";
 import type { SecretSource } from "../../ports.ts";
+import { channelText } from "../../text.ts";
 import { readCapped } from "../read-capped.ts";
 import {
   mapMessageEvent,
@@ -120,7 +122,11 @@ export class SlackAdapter implements ChannelAdapter {
   readonly #maxDownloadBytes: number;
 
   readonly #inbound = new Set<(message: InboundMessage) => void | Promise<void>>();
-  readonly #answers = new Set<(answer: ChannelApprovalAnswer) => void | Promise<void>>();
+  readonly #answers = new Set<
+    (
+      answer: ChannelApprovalAnswer,
+    ) => void | ChannelApprovalAck | undefined | Promise<void | ChannelApprovalAck | undefined>
+  >();
   readonly #pending = new Map<string, PendingApproval>();
   /** Where a reply to a chat goes: the thread of the latest addressed message there. */
   readonly #threads = new Map<string, string>();
@@ -213,7 +219,11 @@ export class SlackAdapter implements ChannelAdapter {
     };
   }
 
-  onApprovalAnswer(handler: (answer: ChannelApprovalAnswer) => void | Promise<void>): Unsubscribe {
+  onApprovalAnswer(
+    handler: (
+      answer: ChannelApprovalAnswer,
+    ) => void | ChannelApprovalAck | undefined | Promise<void | ChannelApprovalAck | undefined>,
+  ): Unsubscribe {
     this.#answers.add(handler);
     return () => {
       this.#answers.delete(handler);
@@ -287,8 +297,8 @@ export class SlackAdapter implements ChannelAdapter {
           {
             type: "actions",
             elements: [
-              button("Approve", APPROVE_ACTION, nonce, "primary"),
-              button("Deny", DENY_ACTION, nonce, "danger"),
+              button(channelText("approve"), APPROVE_ACTION, nonce, "primary"),
+              button(channelText("deny"), DENY_ACTION, nonce, "danger"),
             ],
           },
         ],
@@ -298,6 +308,20 @@ export class SlackAdapter implements ChannelAdapter {
       this.#pending.delete(nonce);
       throw err;
     }
+  }
+
+  /** The card was answered, expired or cancelled: show the outcome and drop its buttons. */
+  async retireApproval(
+    chatId: string,
+    messageId: string,
+    text: string,
+    approvalId: string,
+  ): Promise<void> {
+    for (const [nonce, entry] of this.#pending) {
+      if (entry.approvalId === approvalId) this.#pending.delete(nonce);
+    }
+    const channel = await this.#resolveChat(chatId);
+    await this.#api("chat.update", { channel, ts: messageId, text, blocks: [section(text)] });
   }
 
   async fetchAttachment(ref: string, signal?: AbortSignal): Promise<Uint8Array> {
@@ -469,17 +493,9 @@ export class SlackAdapter implements ChannelAdapter {
     const ts = payload.message?.ts ?? payload.container?.message_ts;
     const senderId = payload.user?.id;
     if (pending === undefined || channel !== pending.chatId || senderId === undefined) return;
-    // Remove the buttons so the card cannot be pressed again; the broker rejects replays anyway.
-    if (ts !== undefined) {
-      await this.#api("chat.update", {
-        channel,
-        ts,
-        text: pending.text,
-        blocks: [
-          section(`${pending.text}\n\n${decision === "approve" ? "Approval" : "Denial"} sent.`),
-        ],
-      }).catch(() => undefined);
-    }
+    // The card is edited after the verdict (`retireApproval`, when the Broker has decided or the
+    // card is dead), never with a "sent" line before it; the Broker rejects replays anyway.
+    void ts;
     const answer: ChannelApprovalAnswer = {
       approvalId: pending.approvalId,
       answerToken: pending.answerToken,

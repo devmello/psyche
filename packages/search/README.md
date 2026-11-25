@@ -25,19 +25,19 @@ const handlers = createSearchHandlers(index); // { "search.query": (params, { vi
 
 ## Query syntax
 
-| Syntax | Meaning |
-| --- | --- |
-| `dentist booking` | both words; **every word of three or more letters matches as a prefix** (`runni` → running), with a light plural fold (`dentists` → `dentist*`, `parties` → `part*`); diacritics folded |
-| `"three slots"` | exact phrase (no prefix) |
-| `dentist alice OR bob` | `dentist AND (alice OR bob)`: an OR chain binds tighter than AND |
-| `-cancelled` | exclude |
-| `in:threads` `in:tasks` / `in:activity` `in:memory` `in:library` / `in:files` `in:feed` `in:ideas` `in:goals` `in:connectors` `in:messages` | pane (document kinds) |
-| `type:pdf` `type:image` `type:doc` `type:sheet` `type:slides` `type:audio` `type:video` `type:md` `type:text` `type:application/zip` | file type (MIME family); a kind name (`type:task`) also works |
-| `from:alice` | sender contains `alice` (Unicode case-insensitive; name or address); quoted values allowed: `from:"Alice Chen"`, `from:émile` |
-| `after:2026-09-01` `before:2026-10-01` `on:2026-10-02` `on:2026-10` | creation date; `after:` inclusive, `before:` exclusive, `on:` a day or a whole month; also `today`, `yesterday`, `7d`, `2w`, `3m`, `1y`; impossible dates are rejected |
-| `has:approval` `has:receipt` `has:attachment` | the document carries that fact (a flagged thread or task matches itself; actions of a flagged task match too) |
-| `is:owner` `is:agent` `is:untrusted` `is:system` | provenance |
-| `thread:<id>` | inside one thread |
+| Syntax                                                                                                                                      | Meaning                                                                                                                                                                                 |
+| ------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `dentist booking`                                                                                                                           | both words; **every word of three or more letters matches as a prefix** (`runni` → running), with a light plural fold (`dentists` → `dentist*`, `parties` → `part*`); diacritics folded |
+| `"three slots"`                                                                                                                             | exact phrase (no prefix)                                                                                                                                                                |
+| `dentist alice OR bob`                                                                                                                      | `dentist AND (alice OR bob)`: an OR chain binds tighter than AND                                                                                                                        |
+| `-cancelled`                                                                                                                                | exclude                                                                                                                                                                                 |
+| `in:threads` `in:tasks` / `in:activity` `in:memory` `in:library` / `in:files` `in:feed` `in:ideas` `in:goals` `in:connectors` `in:messages` | pane (document kinds)                                                                                                                                                                   |
+| `type:pdf` `type:image` `type:doc` `type:sheet` `type:slides` `type:audio` `type:video` `type:md` `type:text` `type:application/zip`        | file type (MIME family); a kind name (`type:task`) also works                                                                                                                           |
+| `from:alice`                                                                                                                                | sender contains `alice` (Unicode case-insensitive; name or address); quoted values allowed: `from:"Alice Chen"`, `from:émile`                                                           |
+| `after:2026-09-01` `before:2026-10-01` `on:2026-10-02` `on:2026-10`                                                                         | creation date; `after:` inclusive, `before:` exclusive, `on:` a day or a whole month; also `today`, `yesterday`, `7d`, `2w`, `3m`, `1y`; impossible dates are rejected                  |
+| `has:approval` `has:receipt` `has:attachment`                                                                                               | the document carries that fact (a flagged thread or task matches itself; actions of a flagged task match too)                                                                           |
+| `is:owner` `is:agent` `is:untrusted` `is:system`                                                                                            | provenance                                                                                                                                                                              |
+| `thread:<id>`                                                                                                                               | inside one thread                                                                                                                                                                       |
 
 Unknown `key:value` tokens are searched as text and returned in `warnings`; negated filters (`-in:tasks`) are not supported and are returned in `warnings` without being applied. Input with nothing searchable left (`"`, `OR`, punctuation) matches nothing. User input never becomes FTS5 syntax: every token is quoted, punctuation splits tokens like the tokenizer does, and a query of only punctuation matches nothing.
 
@@ -89,9 +89,9 @@ See [docs/design/search-2026.md](../../docs/design/search-2026.md).
 
 Built-in agent tools, registered by the Gateway on every surface (desktop, web client, channels), so the agent can look up current facts without the desktop browser.
 
-| Tool | Does | Policy |
-| --- | --- | --- |
-| `web.search {query, count?}` | top results: title, URL, snippet (and date when known) | `sideEffect: read`, no target (the provider is fixed by settings, never by the model): allowed in balanced and auto, hidden in plan mode |
+| Tool                         | Does                                                                                       | Policy                                                                                                                                                                                                                                             |
+| ---------------------------- | ------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `web.search {query, count?}` | top results: title, URL, snippet (and date when known)                                     | `sideEffect: read`, no target (the provider is fixed by settings, never by the model): allowed in balanced and auto, hidden in plan mode                                                                                                           |
 | `web.fetch {url, maxChars?}` | a page's title and readable text (Markdown), 20 000 characters by default, 100 000 at most | `read` with the page's origin as target, so the broker's new-origin and sensitive-host rules apply; redirects must stay on the same origin; no cookies; private, loopback and link-local addresses refused (`safeFetch` from `@psyche/connectors`) |
 
 Both return `untrusted` output: search results and page text taint the turn like any web content (security §7.2).

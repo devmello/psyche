@@ -14,12 +14,22 @@ Every adapter, and the router itself, implements `ModelProvider` (`packages/prot
 ## Public API
 
 ```ts
-import { createModelRouter, UsageLedger, SqliteUsageRepository, KeyValueProbeStore, accumulate } from "@psyche/model-router";
+import {
+  createModelRouter,
+  UsageLedger,
+  SqliteUsageRepository,
+  KeyValueProbeStore,
+  accumulate,
+} from "@psyche/model-router";
 
 const router = createModelRouter(
   {
     providers: [
-      { id: "anthropic", kind: "anthropic", profiles: [{ id: "main", credential: "{{cred:anthropic-key}}", approvalId: grantId }] },
+      {
+        id: "anthropic",
+        kind: "anthropic",
+        profiles: [{ id: "main", credential: "{{cred:anthropic-key}}", approvalId: grantId }],
+      },
       { id: "ollama", kind: "ollama", embeddingModels: ["nomic-embed-text:v1.5"] },
     ],
     roles: {
@@ -32,7 +42,9 @@ const router = createModelRouter(
   { clock, credentials: vault, ledger, probes },
 );
 
-const turn = await accumulate(router.stream({ model: "router/primary", messages, tools }, { threadId, runId, signal }));
+const turn = await accumulate(
+  router.stream({ model: "router/primary", messages, tools }, { threadId, runId, signal }),
+);
 // turn.message() is the assistant ModelMessage to store; turn.finish is the last event.
 ```
 
@@ -44,19 +56,19 @@ const turn = await accumulate(router.stream({ model: "router/primary", messages,
 
 ### Router calls
 
-| Call | What it does |
-| --- | --- |
+| Call                                                                           | What it does                                                                                   |
+| ------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------- |
 | `stream(request, { threadId, runId, job, strict, step, prepareStep, signal })` | Never throws. Ends with exactly one `finish`. On error, `finish.error` is `<kind>: <message>`. |
-| `setRole(role, { model, fallbacks }, { override })` | Refuses a `chat-only` model as `primary` unless `override` is set (B4). |
-| `setThreadModel(threadId, ref)` | Per-thread `/model`. Strict: no fallback, fails visibly. |
-| `prepareStep` (router option or per call) | Swaps the model or `providerOptions` for one step. Ignored for pinned models. |
-| `embed(texts, { model, task })` | Embeds through the `embedding` role. nomic task prefixes are applied. |
-| `embeddingInfo()` | Returns `{ model, dimensions }` for the memory index. |
-| `probe(ref)` | Runs the six-case suite. |
-| `probeResult(ref)` | Reads a saved probe verdict. |
-| `capabilities(ref)` | Model facts. `toolCalling` is `false` for a `chat-only` model. |
-| `allowsAutoMode(ref)` | Whether the model is on the `auto` permission-mode allowlist. |
-| `health()` | Providers with their live cooldowns. |
+| `setRole(role, { model, fallbacks }, { override })`                            | Refuses a `chat-only` model as `primary` unless `override` is set (B4).                        |
+| `setThreadModel(threadId, ref)`                                                | Per-thread `/model`. Strict: no fallback, fails visibly.                                       |
+| `prepareStep` (router option or per call)                                      | Swaps the model or `providerOptions` for one step. Ignored for pinned models.                  |
+| `embed(texts, { model, task })`                                                | Embeds through the `embedding` role. nomic task prefixes are applied.                          |
+| `embeddingInfo()`                                                              | Returns `{ model, dimensions }` for the memory index.                                          |
+| `probe(ref)`                                                                   | Runs the six-case suite.                                                                       |
+| `probeResult(ref)`                                                             | Reads a saved probe verdict.                                                                   |
+| `capabilities(ref)`                                                            | Model facts. `toolCalling` is `false` for a `chat-only` model.                                 |
+| `allowsAutoMode(ref)`                                                          | Whether the model is on the `auto` permission-mode allowlist.                                  |
+| `health()`                                                                     | Providers with their live cooldowns.                                                           |
 
 ### The assistant turn
 
@@ -83,17 +95,17 @@ Cost = `input×in + cacheRead×read + cacheWrite×write + output×out`. OpenRout
 
 ## Provider matrix
 
-| Kind | Package | API | Reasoning round-trip | Prompt caching | Images in | Embeddings | Key |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| `anthropic` | `@ai-sdk/anthropic` 4.0.82 | Messages | signed / redacted thinking | system + last message (`cacheTtl` 5m/1h) | yes | no | `x-api-key` |
-| `openai` | `@ai-sdk/openai` 4.0.96 | Responses, `store: false` | reasoning items with `encrypted_content` | automatic | yes | yes | Bearer |
-| `google` | `@ai-sdk/google` 4.0.99 | Interactions, `store: false` (default) or `googleApi: "generate-content"` (`streamGenerateContent`) | signatures on steps and tool calls | implicit | yes | yes | `x-goog-api-key` |
-| `openrouter` | `@openrouter/ai-sdk-provider` 3.1.0 | Chat Completions | `reasoning_details` | upstream | yes | yes | Bearer |
-| `openai-compatible` | `@ai-sdk/openai-compatible` 3.0.71 | Chat Completions at `baseURL` | `reasoning_content` deltas | server | server | yes | optional |
-| `anthropic-compatible` | `@ai-sdk/anthropic` 4.0.82 | Messages at `baseURL` | server | no | base64 | no | optional |
-| `ollama` | `ollama-ai-provider-v2` 4.0.1 | native `/api/chat` | `thinking` deltas | no | base64 | `/api/embed` | none |
-| `llamacpp` | `@ai-sdk/openai-compatible` 3.0.71 + compat fixes | Chat Completions, default `http://127.0.0.1:8080/v1` | `reasoning_content` deltas | server prompt cache (`cached_tokens`) | if `--mmproj` | `--embeddings` | optional (`--api-key`) |
-| `lmstudio` | `@ai-sdk/openai-compatible` 3.0.71 + compat fixes | Chat Completions, default `http://127.0.0.1:1234/v1` | `reasoning` / `reasoning_content` deltas | no | VLMs | yes | optional |
+| Kind                   | Package                                           | API                                                                                                 | Reasoning round-trip                     | Prompt caching                           | Images in     | Embeddings     | Key                    |
+| ---------------------- | ------------------------------------------------- | --------------------------------------------------------------------------------------------------- | ---------------------------------------- | ---------------------------------------- | ------------- | -------------- | ---------------------- |
+| `anthropic`            | `@ai-sdk/anthropic` 4.0.82                        | Messages                                                                                            | signed / redacted thinking               | system + last message (`cacheTtl` 5m/1h) | yes           | no             | `x-api-key`            |
+| `openai`               | `@ai-sdk/openai` 4.0.96                           | Responses, `store: false`                                                                           | reasoning items with `encrypted_content` | automatic                                | yes           | yes            | Bearer                 |
+| `google`               | `@ai-sdk/google` 4.0.99                           | Interactions, `store: false` (default) or `googleApi: "generate-content"` (`streamGenerateContent`) | signatures on steps and tool calls       | implicit                                 | yes           | yes            | `x-goog-api-key`       |
+| `openrouter`           | `@openrouter/ai-sdk-provider` 3.1.0               | Chat Completions                                                                                    | `reasoning_details`                      | upstream                                 | yes           | yes            | Bearer                 |
+| `openai-compatible`    | `@ai-sdk/openai-compatible` 3.0.71                | Chat Completions at `baseURL`                                                                       | `reasoning_content` deltas               | server                                   | server        | yes            | optional               |
+| `anthropic-compatible` | `@ai-sdk/anthropic` 4.0.82                        | Messages at `baseURL`                                                                               | server                                   | no                                       | base64        | no             | optional               |
+| `ollama`               | `ollama-ai-provider-v2` 4.0.1                     | native `/api/chat`                                                                                  | `thinking` deltas                        | no                                       | base64        | `/api/embed`   | none                   |
+| `llamacpp`             | `@ai-sdk/openai-compatible` 3.0.71 + compat fixes | Chat Completions, default `http://127.0.0.1:8080/v1`                                                | `reasoning_content` deltas               | server prompt cache (`cached_tokens`)    | if `--mmproj` | `--embeddings` | optional (`--api-key`) |
+| `lmstudio`             | `@ai-sdk/openai-compatible` 3.0.71 + compat fixes | Chat Completions, default `http://127.0.0.1:1234/v1`                                                | `reasoning` / `reasoning_content` deltas | no                                       | VLMs          | yes            | optional               |
 
 Every kind supports streaming and parallel tool calls. Keys for hosted kinds come from the vault.
 
@@ -101,13 +113,13 @@ Every kind supports streaming and parallel tool calls. Keys for hosted kinds com
 
 Every row passes the shared conformance suite offline (`describeModelProviderConformance`).
 
-| Kind | Text stream | Parallel tools | Tool results / images in | Reasoning round-trip | Usage by class | Error mapping | Cancel | Tool-name rule | Capabilities source |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `google` (Interactions) | ✓ | ✓ | ✓ / ✓ | ✓ | ✓ priced | 400 ctx, 401, 403, 404, 429, 500, 503 | ✓ | 64 chars, letter or `_` first | catalog, probe listing |
-| `google` (generate-content) | ✓ | ✓ | ✓ / — | ✓ (`thoughtSignature`) | ✓ priced | 400 ctx, 403, 404, 429, 500, 503 | ✓ | 64 chars, letter or `_` first | catalog, probe listing |
-| `openrouter` | ✓ | ✓ | ✓ / ✓ | ✓ | ✓ provider cost | 400 ctx, 401, 429, 500, 503, midstream | ✓ | 64 chars | probe listing (context, modalities, `tools`) |
-| `llamacpp` | ✓ | ✓ (+ quirk repair) | ✓ / ✓ | ✓ | ✓ (or from `timings`) | 400 ctx, 401, 500, 503, midstream, no `--jinja` | ✓ | 64 chars | `/props`, `/v1/models`, names |
-| `lmstudio` | ✓ | ✓ | ✓ / — | ✓ | ✓ | 400 ctx, 401, 404, 500 (string errors) | ✓ | 64 chars | `/api/v1` or `/api/v0` models, names |
+| Kind                        | Text stream | Parallel tools     | Tool results / images in | Reasoning round-trip   | Usage by class        | Error mapping                                   | Cancel | Tool-name rule                | Capabilities source                          |
+| --------------------------- | ----------- | ------------------ | ------------------------ | ---------------------- | --------------------- | ----------------------------------------------- | ------ | ----------------------------- | -------------------------------------------- |
+| `google` (Interactions)     | ✓           | ✓                  | ✓ / ✓                    | ✓                      | ✓ priced              | 400 ctx, 401, 403, 404, 429, 500, 503           | ✓      | 64 chars, letter or `_` first | catalog, probe listing                       |
+| `google` (generate-content) | ✓           | ✓                  | ✓ / —                    | ✓ (`thoughtSignature`) | ✓ priced              | 400 ctx, 403, 404, 429, 500, 503                | ✓      | 64 chars, letter or `_` first | catalog, probe listing                       |
+| `openrouter`                | ✓           | ✓                  | ✓ / ✓                    | ✓                      | ✓ provider cost       | 400 ctx, 401, 429, 500, 503, midstream          | ✓      | 64 chars                      | probe listing (context, modalities, `tools`) |
+| `llamacpp`                  | ✓           | ✓ (+ quirk repair) | ✓ / ✓                    | ✓                      | ✓ (or from `timings`) | 400 ctx, 401, 500, 503, midstream, no `--jinja` | ✓      | 64 chars                      | `/props`, `/v1/models`, names                |
+| `lmstudio`                  | ✓           | ✓                  | ✓ / —                    | ✓                      | ✓                     | 400 ctx, 401, 404, 500 (string errors)          | ✓      | 64 chars                      | `/api/v1` or `/api/v0` models, names         |
 
 Tool names are mapped per provider family (`toolNameRuleFor`): Anthropic accepts `[a-zA-Z0-9_-]{1,128}`, OpenAI and the servers that copy it 64 characters, Gemini 64 characters starting with a letter or `_`. The map is reversible per request; the loop only sees real names.
 
@@ -140,6 +152,7 @@ These providers run on the owner's own plans through the installed CLIs: Claude 
   - It makes no model call, so it spends no quota.
 
 **Limits, honestly.**
+
 - The CLI must be installed and signed in on the Gateway's machine.
   - It is found through `config.command`, `PSYCHE_CLAUDE_PATH` / `PSYCHE_CODEX_PATH`, PATH, the usual install directories (Homebrew, `~/.local/bin`, npm, Bun, nvm), and finally the login shell (`resolveCli`).
   - The probe shows which path it found.
@@ -205,11 +218,11 @@ To rotate between two accounts, give one provider several `profiles`.
 
 ### RAM-fit guidance
 
-| Unified memory | Class | Suggested (`SUGGESTED_LOCAL_MODELS`) |
-| --- | --- | --- |
-| 16 GB | ~9B | `gemma4:e4b`, `gemma4:12b`, `gpt-oss:20b` |
-| 32 GB | 27–31B | `qwen3.8:27b`, `gemma4:31b`, `gemma4:26b`, `glm-4.7-flash:q4` |
-| 96–128 GB | 120B MoE | `gpt-oss:120b`, Mistral Small 4 (GGUF via llama.cpp) |
+| Unified memory | Class    | Suggested (`SUGGESTED_LOCAL_MODELS`)                          |
+| -------------- | -------- | ------------------------------------------------------------- |
+| 16 GB          | ~9B      | `gemma4:e4b`, `gemma4:12b`, `gpt-oss:20b`                     |
+| 32 GB          | 27–31B   | `qwen3.8:27b`, `gemma4:31b`, `gemma4:26b`, `glm-4.7-flash:q4` |
+| 96–128 GB      | 120B MoE | `gpt-oss:120b`, Mistral Small 4 (GGUF via llama.cpp)          |
 
 Names were checked against ollama.com/library on 2026-10-19. Mistral Small 4 is not in Ollama's library. Embedding models: `nomic-embed-text:v1.5` (768 dimensions) and `qwen3-embedding:0.6b` (1024).
 
@@ -227,13 +240,13 @@ At request time:
 
 ## Errors and cooldowns
 
-| Kind | From | Router |
-| --- | --- | --- |
-| `rate_limited`, `auth`, `billing` | 429, 401/403, 402/quota, vault refusal | Next profile, then fall back. Cooldowns: billing 10 min; `retry-after` honoured. |
-| `overloaded`, `server_error`, `timeout`, `network`, `unknown` | 529, 5xx, stalls, connection errors | Provider cooldown, then fall back. |
-| `model_not_found`, `context_overflow` | 404, overflow messages | Fall back, no cooldown. |
-| `bad_request`, `content_filter` | other 400s, filtered output | Stop. |
-| `cancelled` | the caller's signal | `finish{cancelled}`. |
+| Kind                                                          | From                                   | Router                                                                           |
+| ------------------------------------------------------------- | -------------------------------------- | -------------------------------------------------------------------------------- |
+| `rate_limited`, `auth`, `billing`                             | 429, 401/403, 402/quota, vault refusal | Next profile, then fall back. Cooldowns: billing 10 min; `retry-after` honoured. |
+| `overloaded`, `server_error`, `timeout`, `network`, `unknown` | 529, 5xx, stalls, connection errors    | Provider cooldown, then fall back.                                               |
+| `model_not_found`, `context_overflow`                         | 404, overflow messages                 | Fall back, no cooldown.                                                          |
+| `bad_request`, `content_filter`                               | other 400s, filtered output            | Stop.                                                                            |
+| `cancelled`                                                   | the caller's signal                    | `finish{cancelled}`.                                                             |
 
 Cooldowns escalate 30 s → 1 min → 5 min, and success resets them. Fallback happens only before the first content event. After content has streamed, the stream ends with the error.
 
@@ -290,15 +303,15 @@ The verdict and each case print to stderr.
 
 `probeEndpoint(config, {fetch, keys, prices, clock, timeoutMs})` asks one provider what it serves and never throws:
 
-| Kind | Requests | Facts |
-| --- | --- | --- |
-| `anthropic`, `anthropic-compatible` | `GET /v1/models` (`x-api-key`) | ids, display names; catalog |
-| `openai`, `openai-compatible` | `GET /models` (Bearer) | ids; catalog |
-| `google` | `GET /v1beta/models` (`x-goog-api-key`) | `inputTokenLimit`, `generateContent` / `embedContent`, `thinking` |
-| `openrouter` | `GET /api/v1/models` | `context_length`, `input_modalities`, `supported_parameters` (`tools`, `reasoning`) |
-| `llamacpp` | `GET /v1/models`, `GET /props` | runtime `n_ctx`, `modalities.vision`, `chat_template_caps.supports_tool_calls` |
-| `lmstudio` | `GET /api/v1/models`, else `/api/v0/models`, else `/v1/models` | type, load state, loaded context, `vision`, `trained_for_tool_use` |
-| `ollama` | `GET /api/tags`, `/api/ps`, `/api/version`, `POST /api/show` (first 25) | `capabilities`, `<arch>.context_length`, loaded |
+| Kind                                | Requests                                                                | Facts                                                                               |
+| ----------------------------------- | ----------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| `anthropic`, `anthropic-compatible` | `GET /v1/models` (`x-api-key`)                                          | ids, display names; catalog                                                         |
+| `openai`, `openai-compatible`       | `GET /models` (Bearer)                                                  | ids; catalog                                                                        |
+| `google`                            | `GET /v1beta/models` (`x-goog-api-key`)                                 | `inputTokenLimit`, `generateContent` / `embedContent`, `thinking`                   |
+| `openrouter`                        | `GET /api/v1/models`                                                    | `context_length`, `input_modalities`, `supported_parameters` (`tools`, `reasoning`) |
+| `llamacpp`                          | `GET /v1/models`, `GET /props`                                          | runtime `n_ctx`, `modalities.vision`, `chat_template_caps.supports_tool_calls`      |
+| `lmstudio`                          | `GET /api/v1/models`, else `/api/v0/models`, else `/v1/models`          | type, load state, loaded context, `vision`, `trained_for_tool_use`                  |
+| `ollama`                            | `GET /api/tags`, `/api/ps`, `/api/version`, `POST /api/show` (first 25) | `capabilities`, `<arch>.context_length`, loaded                                     |
 
 The result is `{state, probedAt, latencyMs, server, models, error}` with `state` one of `not_probed` (`NOT_PROBED`, before anyone asks), `reachable`, `unreachable`, `auth_failed`, `error`. Each model's `capabilities` merges, lowest authority first, a name heuristic (`guessFromName`), the catalog (price table), the listing and the provider config, and names the strongest `source`. Keys go through the adapters' `KeySource`; neither the key nor the sentinel appears in a result. `KeyValueEndpointProbeStore` keeps results as `models.endpoint.<provider id>` settings rows, and `AiSdkAdapter.learn(models)` feeds the facts into `capabilities()`.
 

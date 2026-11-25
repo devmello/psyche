@@ -6,8 +6,10 @@ import {
   outboundTail,
 } from "@psyche/permissions";
 import {
+  type ApprovalRequest,
   type Channel,
   type ChannelAdapter,
+  type ChannelApprovalAck,
   type ChannelApprovalAnswer,
   type ChannelAttachment,
   type ChannelIdentity,
@@ -24,7 +26,7 @@ import {
   type Unsubscribe,
 } from "@psyche/protocol";
 import { dmPeer } from "./adapters/imessage/mapping.ts";
-import { ChatApprovals, type DeliveryReport } from "./approvals.ts";
+import { ChatApprovals, type DeliveryReport, plainDecision } from "./approvals.ts";
 import { type BUILTIN_COMMANDS, parseApprovalCommand, parseCommand } from "./commands.ts";
 import { chunkMessage } from "./format/chunk.ts";
 import { renderMarkdown } from "./format/markdown.ts";
@@ -37,6 +39,7 @@ import { backoffDelay, RateLimiter, realSleep, type Sleep } from "./ratelimit.ts
 import type { RouteContext } from "./routing.ts";
 import { channelSettings, isWeakTransport, validateChannel } from "./settings.ts";
 import type { ChannelStore } from "./store/types.ts";
+import { setChannelTextLanguage } from "./text.ts";
 import { INBOUND_VOICE_FORMAT } from "./voice.ts";
 
 /**
@@ -94,6 +97,10 @@ export interface ChannelServiceOptions {
    * `false` drops the message silently; the Gateway counts and audits it.
    */
   admitInbound?: (channel: Channel, message: InboundMessage) => boolean;
+  /** The owner's `ui.language` (`system`, `fr`, …): the fixed lines of approval cards use it. */
+  language?: () => unknown;
+  /** The name of a paired device, for "Approved on iPhone" on a card another device answered. */
+  deviceName?: (deviceId: string) => string | undefined;
 }
 
 export interface InboundDecisionEvent {
@@ -148,6 +155,8 @@ export class ChannelService {
   #onInboundDecision: ((event: InboundDecisionEvent) => void) | undefined;
   #onPairingDecided: ((event: PairingDecidedEvent) => void) | undefined;
   #admitInbound: ((channel: Channel, message: InboundMessage) => boolean) | undefined;
+  /** The newest message id per chat (sent or received): a card is followed up only while it is last. */
+  #newest = new Map<string, string>();
   #channels = new Map<string, Channel>();
   #attached = new Map<string, Attached>();
   /** One-to-one chats the owner has written in (`<channelId>|<chatId>`): their replies are the owner's own. */
@@ -179,6 +188,7 @@ export class ChannelService {
       clock: this.#clock,
       ...(options.pairingRandom === undefined ? {} : { random: options.pairingRandom }),
     });
+    setChannelTextLanguage(options.language);
     this.approvals = new ChatApprovals({
       broker: options.broker,
       host: {
@@ -195,11 +205,23 @@ export class ChannelService {
             channel.ownerIds,
           ),
         sendText: async (channel, chatId, text) => {
-          await this.send({ channelId: channel.id, chatId }, text, { format: "plain" });
+          const sent = await this.send({ channelId: channel.id, chatId }, text, {
+            format: "plain",
+          });
+          return sent.at(-1)?.messageId;
         },
         now: () => this.#clock.now(),
+        recordSent: (channel, chatId, messageId) => this.#noteNewest(channel.id, chatId, messageId),
+        isLastMessage: (channel, chatId, messageId) =>
+          this.#newest.get(`${channel.id}|${chatId}`) === messageId,
+        ...(options.deviceName === undefined ? {} : { deviceName: options.deviceName }),
       },
     });
+  }
+
+  #noteNewest(channelId: string, chatId: string, messageId: string): void {
+    if (this.#newest.size >= 500) this.#newest.clear();
+    this.#newest.set(`${channelId}|${chatId}`, messageId);
   }
 
   // --- configuration -----------------------------------------------------------------------
@@ -291,6 +313,20 @@ export class ChannelService {
       throw new PsycheError("not_found", `identity ${identityId} not found`);
     }
     await this.#reloadIdentities();
+  }
+
+  /** The owner chat surfaces of one channel (the away chat the owner picked). */
+  ownerSurfacesOf(channelId: string): string[] {
+    const channel = this.#channels.get(channelId);
+    if (
+      channel === undefined ||
+      !this.#attached.has(channelId) ||
+      channel.status === "paused" ||
+      channel.type === "webchat"
+    ) {
+      return [];
+    }
+    return channel.ownerIds.map((ownerId) => `${channel.type}:${ownerId}`);
   }
 
   /** Surfaces (`<channel>:<peerId>`) where the owner can receive approval cards. */
@@ -593,6 +629,8 @@ export class ChannelService {
         ),
       );
     }
+    const newest = results.at(-1)?.messageId;
+    if (newest !== undefined) this.#noteNewest(channel.id, target.chatId, newest);
     return results;
   }
 
@@ -664,10 +702,23 @@ export class ChannelService {
 
   // --- inbound -------------------------------------------------------------------------------
 
-  async #handleApprovalAnswer(channelId: string, answer: ChannelApprovalAnswer): Promise<void> {
+  /** A card's button was pressed (or its tapback given): the verdict goes back for the toast. */
+  async #handleApprovalAnswer(
+    channelId: string,
+    answer: ChannelApprovalAnswer,
+  ): Promise<ChannelApprovalAck | undefined> {
     const channel = this.#channels.get(channelId);
-    if (channel === undefined) return;
-    await this.approvals.answerFromButton(channel, answer);
+    if (channel === undefined) return undefined;
+    const outcome = await this.approvals.answerFromButton(channel, answer);
+    return { text: outcome.ack, decided: outcome.decided };
+  }
+
+  /**
+   * An approval was answered anywhere, expired, or cancelled with its run: the cards that chats
+   * still show for it stop looking actionable (edited, or one short follow-up).
+   */
+  async retireApproval(approval: ApprovalRequest): Promise<void> {
+    await this.approvals.retire(approval);
   }
 
   /**
@@ -727,6 +778,25 @@ export class ChannelService {
     ) {
       if (this.#ownerChats.size >= 1000) this.#ownerChats.clear();
       this.#ownerChats.add(`${channel.id}|${message.chatId}`);
+    }
+    this.#noteNewest(channel.id, message.chatId, message.messageId);
+    if (!message.isGroup) this.#noteNewest(channel.id, message.senderId, message.messageId);
+    // A plain "yes" or "no" answers a card only when exactly one is open in this 1:1 owner chat;
+    // otherwise it is ordinary text for the agent. Never forwarded, edited or group text.
+    if (
+      !message.isGroup &&
+      message.forwardedFrom === undefined &&
+      message.editOf === undefined &&
+      plainDecision(message.text) !== undefined &&
+      this.#identities.isOwner(senderRef(channel, message), channel.ownerIds)
+    ) {
+      const plain = await this.approvals.answerPlain(channel, {
+        chatId: message.chatId,
+        senderId: message.senderId,
+        isGroup: message.isGroup,
+        text: message.text,
+      });
+      if (plain.handled) return;
     }
     // Forwarded or edited text is never a command (design-22): only words the sender typed.
     const command =
@@ -820,7 +890,7 @@ export class ChannelService {
         return;
       case "help":
         await reply(
-          "Commands: /approve <ref> approve|deny, /new (fresh session), /stop (cancel the running task), /status, /whoami.",
+          "Commands: /approve <ref> approve|deny, /deny <ref>, /new (fresh session), /stop (cancel the running task), /status, /whoami.",
         );
         return;
       default:

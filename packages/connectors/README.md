@@ -51,6 +51,7 @@ The owner creates their own Desktop OAuth client. The steps and copy are in [doc
 5. The Gateway uses `registry.startConnect`: it resolves as soon as the consent page is pending (`ConnectInput.onAuthorization` → `{ url, expiresAt, opened }`, the record stored as `needs_auth`) and the connect ends in a `status` event. `registry.restore()` re-creates stored `connected` records at boot without a new consent.
 
 Scopes:
+
 - `read_act`: `gmail.modify` (or `gmail.readonly` + `gmail.send` with `gmailScopes: "readonly_send"`, which drops labelling), `calendar`, `drive.file`, `tasks`.
 - `read`: `gmail.readonly`, `calendar.readonly`, `drive.file`, `tasks.readonly`.
 
@@ -63,6 +64,7 @@ Google Tasks (`tasks`) is a newer scope: a connection made before it holds no Ta
 Tools: `gmail_search_threads`, `gmail_read_thread` (text/plain preferred; HTML stripped of hidden elements, scripts and comments), `gmail_list_labels`, `gmail_save_attachment` (to the Library, 25 MB limit), `gmail_modify_labels`, `gmail_create_draft`, `gmail_send` (`send_email` binding: account, recipients lowercased and sorted, subject, body hash), `calendar_list_calendars`, `calendar_list_events` (bounded, at most 366 days), `calendar_free_busy`, `calendar_create_event` / `calendar_update_event` / `calendar_delete_event` (`calendar_write` binding; delete is `destructive`; an event with attendees or `sendUpdates: "all"` targets the attendee set, so a standing grant never covers inviting someone new), `drive_download` (Google Docs exported as PDF), `drive_upload` (text).
 
 Sync (`registry.sync(id)`, run by the Gateway every 1–5 min):
+
 - Gmail: `history.list` from the saved `historyId`. A 404 triggers a full resync of recent inbox messages.
 - Calendar: `events.list` with the saved `syncToken`. A 410 triggers a full sync.
 - The cursor is `{ gmail: { historyId }, calendars: { <id>: syncToken }, newMessageIds }`.
@@ -106,6 +108,7 @@ Parsing (`src/shopping/parse.ts`) reads snapshot text and refs only: one price p
 Scopes: `read` = `offline_access User.Read Mail.Read Calendars.Read Contacts.Read Tasks.Read`; `read_act` = `offline_access User.Read Mail.ReadWrite Mail.Send Calendars.ReadWrite Contacts.Read Tasks.ReadWrite Files.ReadWrite.AppFolder`. A connection made before To Do was added holds no `Tasks.*` scope and offers no `reminders_*` tools until the owner reconnects it (Microsoft then asks only for the new permission). Microsoft returns every scope the app was ever granted, so a grant with more (or fewer) scopes than the mode needs fails the connect; there is no per-app revocation API, so the owner removes Psyche at `https://myaccount.microsoft.com/applications`. Refresh tokens rotate and are replaced on every refresh; `invalid_grant` moves the connector to `needs_auth` and emits `invalidated`. The token is sent only to `https://graph.microsoft.com`: paging and delta links are checked to stay there, and OneDrive downloads follow Graph's redirect to the pre-authenticated URL without it.
 
 Tools:
+
 - **Mail**: the shared `mail_*` tools (same names, matrix rows, side effects and `send_email` binding as IMAP / JMAP and Gmail). Reads fetch the raw MIME (`$value`) through the same parser; drafts and sends upload the MIME the tool built (`POST /me/messages`, `POST /me/sendMail`, base64), so Outlook sends exactly what the owner approved. Search uses `$filter`, or KQL `$search` when there is free text or a recipient. Flags map to `isRead`, the follow-up flag and categories; a move returns the message's new id.
 - **Calendar**: `calendar_list_calendars`, `calendar_list_events` (`calendarView`, at most 366 days, UTC), `calendar_free_busy` (`getSchedule`), `calendar_create_event` / `calendar_update_event` / `calendar_delete_event` with Google's input shape and the `calendar_write` binding. Outlook emails attendees on every change, so any event with attendees binds as an invite. Recurrence rules are refused for now.
 - **Contacts**: `contacts_search` (read).

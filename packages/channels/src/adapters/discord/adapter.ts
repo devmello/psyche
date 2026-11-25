@@ -2,6 +2,7 @@ import { createHash, randomBytes } from "node:crypto";
 import {
   type ApprovalRequest,
   type ChannelAdapter,
+  type ChannelApprovalAck,
   type ChannelApprovalAnswer,
   type ChannelCapabilities,
   type ChannelHealth,
@@ -13,6 +14,7 @@ import {
 } from "@psyche/protocol";
 import WebSocket from "ws";
 import { approvalRef, chatEligibility, renderApprovalCard } from "../../format/approval-card.ts";
+import { channelText } from "../../text.ts";
 import { APPROVAL_NONCE_GRACE_MS, readCapped, STALE_APPROVAL_TEXT } from "../telegram/adapter.ts";
 import { approvalCallbackData, parseApprovalCallback } from "../telegram/mapping.ts";
 import { type DiscordMessage, discordMessageId, isSnowflake, mapMessage } from "./mapping.ts";
@@ -116,7 +118,11 @@ export class DiscordAdapter implements ChannelAdapter {
   readonly #attachmentOrigins: string[];
 
   readonly #inbound = new Set<(message: InboundMessage) => void | Promise<void>>();
-  readonly #answers = new Set<(answer: ChannelApprovalAnswer) => void | Promise<void>>();
+  readonly #answers = new Set<
+    (
+      answer: ChannelApprovalAnswer,
+    ) => void | ChannelApprovalAck | undefined | Promise<void | ChannelApprovalAck | undefined>
+  >();
   readonly #pending = new Map<string, PendingApproval>();
   /** Channels seen inbound (or opened), by kind; `channel` = posted to, kind unknown. */
   readonly #channels = new Map<string, "dm" | "guild" | "channel">();
@@ -231,7 +237,11 @@ export class DiscordAdapter implements ChannelAdapter {
     };
   }
 
-  onApprovalAnswer(handler: (answer: ChannelApprovalAnswer) => void | Promise<void>): Unsubscribe {
+  onApprovalAnswer(
+    handler: (
+      answer: ChannelApprovalAnswer,
+    ) => void | ChannelApprovalAck | undefined | Promise<void | ChannelApprovalAck | undefined>,
+  ): Unsubscribe {
     this.#answers.add(handler);
     return () => {
       this.#answers.delete(handler);
@@ -317,7 +327,13 @@ export class DiscordAdapter implements ChannelAdapter {
       return await this.#post(channelId, {
         content: card.text,
         components: [
-          { type: 1, components: [button("Approve", 3, "approve"), button("Deny", 4, "deny")] },
+          {
+            type: 1,
+            components: [
+              button(channelText("approve"), 3, "approve"),
+              button(channelText("deny"), 4, "deny"),
+            ],
+          },
         ],
       });
     } catch (err) {
@@ -604,13 +620,9 @@ export class DiscordAdapter implements ChannelAdapter {
       await ephemeral(STALE_APPROVAL_TEXT);
       return;
     }
-    // Ack within Discord's 3 s: update the card and drop its buttons.
-    const note = parsed.decision === "approve" ? "Approval sent." : "Denial sent.";
-    const content = `${interaction.message?.content ?? ""}\n\n${note}`;
-    await callback({
-      type: 7,
-      data: { components: [], ...(content.length <= DISCORD_MAX_MESSAGE_CHARS ? { content } : {}) },
-    });
+    // Ack within Discord's 3 s without saying anything: the card is edited after the verdict
+    // (`retireApproval`), never with a "sent" line before it.
+    await callback({ type: 6 });
     // The nonce stays: the Permission Broker rejects replays; the service checks the owner.
     const answer: ChannelApprovalAnswer = {
       approvalId: pending.approvalId,
@@ -625,6 +637,25 @@ export class DiscordAdapter implements ChannelAdapter {
         this.#handlerErrors++;
       }
     }
+  }
+
+  /** The card was answered, expired or cancelled: show the outcome and drop its buttons. */
+  async retireApproval(
+    chatId: string,
+    messageId: string,
+    text: string,
+    approvalId: string,
+  ): Promise<void> {
+    for (const [nonce, entry] of this.#pending) {
+      if (entry.approvalId === approvalId) this.#pending.delete(nonce);
+    }
+    const channelId = await this.#target(chatId);
+    await this.#rest(
+      "PATCH",
+      `/channels/${channelId}/messages/${messageId}`,
+      "PATCH /channels/:id/messages/:id",
+      { content: text.slice(0, DISCORD_MAX_MESSAGE_CHARS), components: [] },
+    );
   }
 
   #startHeartbeat(ws: WebSocket, interval: number): void {

@@ -1,6 +1,7 @@
 import {
   type ApprovalRequest,
   type ChannelAdapter,
+  type ChannelApprovalAck,
   type ChannelApprovalAnswer,
   type ChannelCapabilities,
   type ChannelHealth,
@@ -92,7 +93,11 @@ export class SignalAdapter implements ChannelAdapter {
   readonly #sleep: (ms: number, signal: AbortSignal) => Promise<void>;
 
   readonly #inbound = new Set<(message: InboundMessage) => void | Promise<void>>();
-  readonly #answers = new Set<(answer: ChannelApprovalAnswer) => void | Promise<void>>();
+  readonly #answers = new Set<
+    (
+      answer: ChannelApprovalAnswer,
+    ) => void | ChannelApprovalAck | undefined | Promise<void | ChannelApprovalAck | undefined>
+  >();
   /** Card sent timestamp → the approval it carries. */
   readonly #cards = new Map<string, PendingCard>();
   readonly #queues = new Map<string, Promise<void>>();
@@ -181,7 +186,11 @@ export class SignalAdapter implements ChannelAdapter {
     };
   }
 
-  onApprovalAnswer(handler: (answer: ChannelApprovalAnswer) => void | Promise<void>): Unsubscribe {
+  onApprovalAnswer(
+    handler: (
+      answer: ChannelApprovalAnswer,
+    ) => void | ChannelApprovalAck | undefined | Promise<void | ChannelApprovalAck | undefined>,
+  ): Unsubscribe {
     this.#answers.add(handler);
     return () => {
       this.#answers.delete(handler);

@@ -16,14 +16,14 @@ pnpm --filter @psyche/search eval
 
 It runs each question three ways (`--mode`):
 
-| Mode | What reaches `index.search` |
-| --- | --- |
-| `raw` | The question as typed. Bare words are ANDed today, so this is what the Search screen does with English. |
-| `keywords` | Stop words dropped, the rest ORed. |
-| `rerank` | `prod` plus a reranker over the top 20 (`rerank: true`). Offline it is a **lexical-coverage stand-in** (`rerank-mock.ts`), so it checks the plumbing and a weak signal, not a cloud model. |
-| `rules` | `keywords` plus rule-based pre-filters: time phrases become `after:`/`before:`, "from Maya" becomes `from:maya`, and "email" becomes `in:connectors`. If that finds nothing, it falls back to `keywords`. |
-| `prod` | The question as typed, through the production path (`src/understand.ts`). |
-| `model` | `prod` plus the cheap query model (`smart: true`). Offline it uses an **oracle stand-in** (`model-mock.ts`: the gold documents' date window), so it is an upper bound, not a Haiku measurement. |
+| Mode       | What reaches `index.search`                                                                                                                                                                               |
+| ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `raw`      | The question as typed. Bare words are ANDed today, so this is what the Search screen does with English.                                                                                                   |
+| `keywords` | Stop words dropped, the rest ORed.                                                                                                                                                                        |
+| `rerank`   | `prod` plus a reranker over the top 20 (`rerank: true`). Offline it is a **lexical-coverage stand-in** (`rerank-mock.ts`), so it checks the plumbing and a weak signal, not a cloud model.                |
+| `rules`    | `keywords` plus rule-based pre-filters: time phrases become `after:`/`before:`, "from Maya" becomes `from:maya`, and "email" becomes `in:connectors`. If that finds nothing, it falls back to `keywords`. |
+| `prod`     | The question as typed, through the production path (`src/understand.ts`).                                                                                                                                 |
+| `model`    | `prod` plus the cheap query model (`smart: true`). Offline it uses an **oracle stand-in** (`model-mock.ts`: the gold documents' date window), so it is an upper bound, not a Haiku measurement.           |
 
 It indexes two coverages (`--coverage`):
 
@@ -35,29 +35,29 @@ It indexes two coverages (`--coverage`):
 
 Relevance is binary: a result counts when it is a gold id.
 
-| Column | Meaning |
-| --- | --- |
-| `zero` | Share of questions with no results. |
-| `R@k` | Recall at k: the share of gold ids in the top k, averaged over questions. |
-| `hit@10` | Share of questions with at least one gold id in the top 10, which is what an answer needs when several sources state the fact. |
-| `MRR` | Mean reciprocal rank of the first gold id. |
-| `nDCG@10` | Normalised discounted cumulative gain at 10. |
-| `cite P@3` | Citation precision. Without `--llm`, a mock answerer cites the top 3 hits. With `--llm`, it is the share of the model's cited ids that are gold. |
-| `cite ok` | At least one gold id is cited. |
-| `answer ok` | Only with `--llm`: the answer contains every `answerKeywords` entry. |
+| Column      | Meaning                                                                                                                                          |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `zero`      | Share of questions with no results.                                                                                                              |
+| `R@k`       | Recall at k: the share of gold ids in the top k, averaged over questions.                                                                        |
+| `hit@10`    | Share of questions with at least one gold id in the top 10, which is what an answer needs when several sources state the fact.                   |
+| `MRR`       | Mean reciprocal rank of the first gold id.                                                                                                       |
+| `nDCG@10`   | Normalised discounted cumulative gain at 10.                                                                                                     |
+| `cite P@3`  | Citation precision. Without `--llm`, a mock answerer cites the top 3 hits. With `--llm`, it is the share of the model's cited ids that are gold. |
+| `cite ok`   | At least one gold id is cited.                                                                                                                   |
+| `answer ok` | Only with `--llm`: the answer contains every `answerKeywords` entry.                                                                             |
 
 ## Options
 
-| Option | Effect |
-| --- | --- |
-| `--mode raw\|keywords\|rules` | Run one mode. |
-| `--coverage production\|full` | Run one coverage. |
-| `--classes` | Add tables per question class. |
-| `--misses` | List the questions with R@10 < 1, with their query and top hits. |
-| `--only q001,q002` | Run only those questions. |
-| `--out report.json` | Also write the summaries as JSON. |
-| `--live` | With `--mode model` or `--mode rerank`, use the real `claude-haiku-5-5` instead of the offline stand-ins (the oracle query model, the lexical reranker). Reads the key like `--llm`, never prints it. About 53 calls for `model`, about 137 for `rerank` (about 1.3k input tokens each); pass `--coverage full`. |
-| `--llm` | Answer with `claude-haiku-5-5` from the top 8 hits and score its citations. It reads `ANTHROPIC_API_KEY` from the environment or the nearest `.env`, and never prints it. A full run is about 150 short calls per mode and coverage, so pass `--mode` and `--coverage`. |
+| Option                        | Effect                                                                                                                                                                                                                                                                                                           |
+| ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--mode raw\|keywords\|rules` | Run one mode.                                                                                                                                                                                                                                                                                                    |
+| `--coverage production\|full` | Run one coverage.                                                                                                                                                                                                                                                                                                |
+| `--classes`                   | Add tables per question class.                                                                                                                                                                                                                                                                                   |
+| `--misses`                    | List the questions with R@10 < 1, with their query and top hits.                                                                                                                                                                                                                                                 |
+| `--only q001,q002`            | Run only those questions.                                                                                                                                                                                                                                                                                        |
+| `--out report.json`           | Also write the summaries as JSON.                                                                                                                                                                                                                                                                                |
+| `--live`                      | With `--mode model` or `--mode rerank`, use the real `claude-haiku-5-5` instead of the offline stand-ins (the oracle query model, the lexical reranker). Reads the key like `--llm`, never prints it. About 53 calls for `model`, about 137 for `rerank` (about 1.3k input tokens each); pass `--coverage full`. |
+| `--llm`                       | Answer with `claude-haiku-5-5` from the top 8 hits and score its citations. It reads `ANTHROPIC_API_KEY` from the environment or the nearest `.env`, and never prints it. A full run is about 150 short calls per mode and coverage, so pass `--mode` and `--coverage`.                                          |
 
 ## Adding to it
 

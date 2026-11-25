@@ -116,6 +116,11 @@ export const settingsA: Partial<Catalogue> = {
   "settings.key.notifications.quietHours.enabled": "Horário de silêncio",
   "settings.key.notifications.quietHours.start": "Silêncio a partir das",
   "settings.key.notifications.quietHours.end": "Silêncio até as",
+  "settings.notifications.group.approvals": "Aprovações quando você está fora",
+  "settings.notifications.approvals.hint":
+    "Seus dispositivos recebem todas as aprovações, e uma tarefa iniciada em um chat pergunta nesse chat. Escolha um chat que também receba aprovações quando nenhum dos seus dispositivos for visto por 10 minutos. Pagamentos ainda exigem seu Mac ou celular.",
+  "settings.key.notifications.approvals.awayChannel": "Chat de ausência",
+  "settings.notifications.approvals.none": "Nenhum",
   "settings.notifications.title": "Notificações",
   "settings.notifications.helper.title": "Notificações do Psyche Helper",
   "settings.notifications.helper.hint":

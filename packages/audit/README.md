@@ -19,7 +19,27 @@ Hash-chained append-only audit log, the receipts store, strict canonical JSON an
 ## Entry format
 
 ```json
-{"seq":0,"ts":"2026-10-18T20:00:00.000Z","kind":"approval.decided","actor":{"type":"device","deviceId":"dev_mac","surface":"desktop","scope":"operator.approvals"},"subject":{"approvalId":"apr_…"},"data":{"decision":"allow","grantScope":"once","bindingHash":"sha256:…","taint":false,"latencyMs":48211},"prev":"sha256:000…","hash":"sha256:…"}
+{
+  "seq": 0,
+  "ts": "2026-10-18T20:00:00.000Z",
+  "kind": "approval.decided",
+  "actor": {
+    "type": "device",
+    "deviceId": "dev_mac",
+    "surface": "desktop",
+    "scope": "operator.approvals"
+  },
+  "subject": { "approvalId": "apr_…" },
+  "data": {
+    "decision": "allow",
+    "grantScope": "once",
+    "bindingHash": "sha256:…",
+    "taint": false,
+    "latencyMs": 48211
+  },
+  "prev": "sha256:000…",
+  "hash": "sha256:…"
+}
 ```
 
 `hash = "sha256:" + hex(sha256(canonicalJSON(entry without hash)))`; `prev` is the previous entry's hash, `AUDIT_GENESIS_HASH` first. Redaction runs before hashing, so the chain never commits to a secret or a body.

@@ -1,6 +1,7 @@
 import type {
   ApprovalRequest,
   ChannelAdapter,
+  ChannelApprovalAck,
   ChannelApprovalAnswer,
   ChannelAttachment,
   ChannelCapabilities,
@@ -42,7 +43,21 @@ export class FakeChannelAdapter implements ChannelAdapter {
   #caps: ChannelCapabilities;
   #ids: IdGenerator;
   #inbound = new Set<(m: InboundMessage) => void | Promise<void>>();
-  #answers = new Set<(a: ChannelApprovalAnswer) => void | Promise<void>>();
+  #answers = new Set<
+    (
+      a: ChannelApprovalAnswer,
+    ) => void | ChannelApprovalAck | undefined | Promise<undefined | ChannelApprovalAck>
+  >();
+  /** Cards edited by `retireApproval` (only when constructed with `canEdit`). */
+  readonly edits: { chatId: string; messageId: string; text: string; approvalId: string }[] = [];
+  retireApproval?: (
+    chatId: string,
+    messageId: string,
+    text: string,
+    approvalId: string,
+  ) => Promise<void>;
+  /** The acks the handlers returned to each `press`, in order. */
+  readonly acks: (ChannelApprovalAck | undefined)[] = [];
 
   constructor(
     options: {
@@ -50,11 +65,18 @@ export class FakeChannelAdapter implements ChannelAdapter {
       account?: string;
       capabilities?: Partial<ChannelCapabilities>;
       ids?: IdGenerator;
+      /** Edits cards when they are settled (Telegram, Slack, Discord); off: follow-ups only. */
+      canEdit?: boolean;
     } = {},
   ) {
     this.type = options.type ?? "telegram";
     this.account = options.account ?? "fake-bot";
     this.#ids = options.ids ?? createIdGenerator();
+    if (options.canEdit === true) {
+      this.retireApproval = async (chatId, messageId, text, approvalId) => {
+        this.edits.push({ chatId, messageId, text, approvalId });
+      };
+    }
     this.#caps = {
       buttons: true,
       polls: false,
@@ -86,7 +108,11 @@ export class FakeChannelAdapter implements ChannelAdapter {
     return () => this.#inbound.delete(handler);
   }
 
-  onApprovalAnswer(handler: (answer: ChannelApprovalAnswer) => void | Promise<void>): Unsubscribe {
+  onApprovalAnswer(
+    handler: (
+      answer: ChannelApprovalAnswer,
+    ) => void | ChannelApprovalAck | undefined | Promise<undefined | ChannelApprovalAck>,
+  ): Unsubscribe {
     this.#answers.add(handler);
     return () => this.#answers.delete(handler);
   }
@@ -110,7 +136,10 @@ export class FakeChannelAdapter implements ChannelAdapter {
 
   /** Simulate a button press on an approval card. */
   async press(answer: ChannelApprovalAnswer): Promise<void> {
-    for (const h of this.#answers) await h(answer);
+    for (const h of this.#answers) {
+      const ack = await h(answer);
+      this.acks.push(ack === undefined ? undefined : (ack as ChannelApprovalAck));
+    }
   }
 
   #record(rec: Omit<SentRecord, "messageId">): SendResult {

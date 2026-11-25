@@ -28,8 +28,8 @@ const vault = new Vault({
   home: PSYCHE_HOME,
   wrapper: new KeychainWrapper({ helper: macHelperNode, account: "default" }), // or SafeStorageWrapper / KeyFileWrapper
   meta: new SqliteMetaMirror(psycheDb.sqlite),
-  permissions,                 // S05 PermissionBroker
-  audit,                       // S05 AuditLog
+  permissions, // S05 PermissionBroker
+  audit, // S05 AuditLog
 });
 const handlers = createVaultHandlers(vault);
 vault.on("credential.updated", (p) => events.publish("credential.updated", p));
@@ -55,7 +55,7 @@ Each denial writes a `denied` use row with the reason and a `credential.fill_den
 
 The `site` grant key is `credential_fill|<item>|<origin>|<field class>|<executor>`, so a browser login grant never covers a sandbox or connector use of the same password.
 
-`fillBrowserField` re-reads the top-frame origin and checks that the approved node still has focus *after* `resolve` returns. Resolve can wait seconds on Touch ID, and the page may have navigated in that time. It reports `secureField: true` for every fill.
+`fillBrowserField` re-reads the top-frame origin and checks that the approved node still has focus _after_ `resolve` returns. Resolve can wait seconds on Touch ID, and the page may have navigated in that time. It reports `secureField: true` for every fill.
 
 ### Hardening (M3 review)
 
@@ -73,20 +73,20 @@ The `site` grant key is `credential_fill|<item>|<origin>|<field class>|<executor
 
 ### Mac helper contract (S14)
 
-| Capability | Params | Result |
-| --- | --- | --- |
-| `keychain.set` | `KeychainSetParams`: service, account, base64 value, `accessControl: ["biometryCurrentSet","or","devicePasscode"]`, `accessible: "whenPasscodeSetThisDeviceOnly"`, `synchronizable: false`, `dataProtection: true` | `{}` |
-| `vault.unlock` | `VaultUnlockParams`: service, account, `reason` (prompt text), `reuseDurationSeconds` (0) | `{value}` base64; error `cancelled` when the user cancels |
-| `keychain.delete` | service, account | `{}`. Declared `destructive`, so `KeychainWrapper.destroy(wrapped, approvalId)` needs an approved id |
-| `keychain.status` | `{}` | `{dataProtectionKeychain: "available" \| "missing_entitlement" \| "error", accessGroup, biometry}` |
+| Capability        | Params                                                                                                                                                                                                             | Result                                                                                               |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------- |
+| `keychain.set`    | `KeychainSetParams`: service, account, base64 value, `accessControl: ["biometryCurrentSet","or","devicePasscode"]`, `accessible: "whenPasscodeSetThisDeviceOnly"`, `synchronizable: false`, `dataProtection: true` | `{}`                                                                                                 |
+| `vault.unlock`    | `VaultUnlockParams`: service, account, `reason` (prompt text), `reuseDurationSeconds` (0)                                                                                                                          | `{value}` base64; error `cancelled` when the user cancels                                            |
+| `keychain.delete` | service, account                                                                                                                                                                                                   | `{}`. Declared `destructive`, so `KeychainWrapper.destroy(wrapped, approvalId)` needs an approved id |
+| `keychain.status` | `{}`                                                                                                                                                                                                               | `{dataProtectionKeychain: "available" \| "missing_entitlement" \| "error", accessGroup, biometry}`   |
 
 These four are registered on main (PR #47). System keychain mode (G9) also needs the item capabilities. They are specified in `KeychainCapabilities.swift` (`store`, `retrieve`) but **not yet registered** in `KeychainCapabilities.make`:
 
-| Capability | Params | Result |
-| --- | --- | --- |
-| `keychain.store` | `name` (`^[a-z0-9._-]{1,64}$`), `value` base64url (≤16 KiB), `requireAuth` (default true), `replace`, `reason` | `{name, stored, requireAuth, replaced}`; `conflict`/`duplicate_item` |
-| `keychain.retrieve` | `name`, `reason` (prompt, 1–120 chars) | `{name, value}` base64url, a secret; `cancelled`/`user_cancelled`, `not_found`/`item_not_found` |
-| `keychain.delete_item` | `name`, `reason` | `{deleted}`; `not_found` counts as already deleted. A separate name, because `keychain.delete` is the vault-key delete. Should be `write`: the vault calls it while serving an `operator.admin` `vault.delete` |
+| Capability             | Params                                                                                                         | Result                                                                                                                                                                                                         |
+| ---------------------- | -------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `keychain.store`       | `name` (`^[a-z0-9._-]{1,64}$`), `value` base64url (≤16 KiB), `requireAuth` (default true), `replace`, `reason` | `{name, stored, requireAuth, replaced}`; `conflict`/`duplicate_item`                                                                                                                                           |
+| `keychain.retrieve`    | `name`, `reason` (prompt, 1–120 chars)                                                                         | `{name, value}` base64url, a secret; `cancelled`/`user_cancelled`, `not_found`/`item_not_found`                                                                                                                |
+| `keychain.delete_item` | `name`, `reason`                                                                                               | `{deleted}`; `not_found` counts as already deleted. A separate name, because `keychain.delete` is the vault-key delete. Should be `write`: the vault calls it while serving an `operator.admin` `vault.delete` |
 
 `KeychainItemStore` checks for these capabilities and for `keychain.status` = `available`, and fails with `unavailable` until they exist. Errors arrive as `{code, message, details: {reason}}`. The vault keeps the code and the reason and drops the helper's message. The agent has no tool for any of these, and `nodes.invoke` must not reach them (S23 pr-1 note).
 
@@ -111,7 +111,7 @@ These four are registered on main (PR #47). System keychain mode (G9) also needs
 
 - **Reads:**
   - `resolve` runs every usual check: grammar, binding, element, field listed.
-  - It reads the one requested field only *after* `verifyBinding`, so a bogus approval or a wrong origin never touches 1Password.
+  - It reads the one requested field only _after_ `verifyBinding`, so a bogus approval or a wrong origin never touches 1Password.
   - `.totp` returns 1Password's current code (`?attribute=otp`, or Connect's `totp`).
   - Values are registered with the redactor; a failed read writes a `failed:external_unavailable` use row.
 - **Read-only:** secret edits and `setBackend` are refused. `delete` only unlinks, and nothing is ever written to 1Password.
@@ -137,6 +137,7 @@ These four are registered on main (PR #47). System keychain mode (G9) also needs
 5. **`complete(id, {outcome, orderNumber, merchantConfirmation})`** shreds the card file, reports the outcome to Link, and records the receipt. The receipt has `externalRefs.linkSpendRequestId` / `orderNumber` / `merchantConfirmation` and a payload with brand / last4 only.
 
 **Purchases the agent loop dispatched:** a purchase tool, such as V3's `shop.pay_with_link`, has its `once` purchase card issued, verified and consumed by the loop under the loop's binding recipe. `authorizeDispatched(approvalId, input, bindingHash)` re-checks that request itself before creating the spend request:
+
 - approved, kind `purchase`, scope `once`;
 - the same binding hash the loop verified for these exact arguments;
 - one spend request per approval.
@@ -144,19 +145,20 @@ These four are registered on main (PR #47). System keychain mode (G9) also needs
 `complete({..., toolCallId})` ties the receipt to that tool call.
 
 **Funding source:** `requestPurchase` resolves the Link payment method behind the purchase (`paymentMethodId`, else the owner's default) through `wallet.paymentMethods()`.
+
 - The card shows "funded by Visa •••• 1881".
 - The binding hash covers `stripe_link:<method id>` and its last4, so a changed default funding card fails `authorize` with `approval_binding_mismatch`.
 - The spend request is created with `--payment-method-id`.
 
 **Merchant lifecycle:** each spend record carries `payment: {state, held, captured, refunded, refs}`. The executor reports what the merchant did:
 
-| Call | From | To | Receipt kind | Rule |
-| --- | --- | --- | --- | --- |
-| `hold(id, {amount?, holdRef, expiresAt?})` | none | held | `purchase.hold` | At most the approved amount (an increase needs a new approval, §4.9 step 5). The card file is shredded, because capture needs no card. |
-| `capture(id, {amount?, orderNumber, merchantConfirmation?})` | none, held | captured | `purchase` | At most the held, or approved, amount. Reports `success` to Link. |
-| `refund(id, {amount?, refundRef, reason?})` | captured, partially_refunded | partially_refunded, refunded | `purchase.refund` | Never more than captured. |
-| `decline(id, {code?})` | none, held | declined | `purchase.declined` (failed) | Nothing charged. Reports `blocked` / `payment_declined`. |
-| `releaseHold(id, {reason?})` | held | released | `purchase.hold_released` | Nothing charged. |
+| Call                                                         | From                         | To                           | Receipt kind                 | Rule                                                                                                                                   |
+| ------------------------------------------------------------ | ---------------------------- | ---------------------------- | ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `hold(id, {amount?, holdRef, expiresAt?})`                   | none                         | held                         | `purchase.hold`              | At most the approved amount (an increase needs a new approval, §4.9 step 5). The card file is shredded, because capture needs no card. |
+| `capture(id, {amount?, orderNumber, merchantConfirmation?})` | none, held                   | captured                     | `purchase`                   | At most the held, or approved, amount. Reports `success` to Link.                                                                      |
+| `refund(id, {amount?, refundRef, reason?})`                  | captured, partially_refunded | partially_refunded, refunded | `purchase.refund`            | Never more than captured.                                                                                                              |
+| `decline(id, {code?})`                                       | none, held                   | declined                     | `purchase.declined` (failed) | Nothing charged. Reports `blocked` / `payment_declined`.                                                                               |
+| `releaseHold(id, {reason?})`                                 | held                         | released                     | `purchase.hold_released`     | Nothing charged.                                                                                                                       |
 
 - Any other transition is `conflict`.
 - Every transition writes its receipt (Link spend request id plus merchant refs, brand / last4 only) and an audit entry `purchase.<state>` carrying the receipt id.
@@ -168,6 +170,7 @@ These four are registered on main (PR #47). System keychain mode (G9) also needs
 **Clean-up:** `cancel(id)` cancels and shreds. `sweep()` shreds card files past `cardTtlMs` (2 h) and any file without a live approved record. Records (no secrets) live in `vault/payments/`.
 
 **`LinkCliWallet`** runs the owner-installed `@stripe/link-cli` (0.29.0 checked; deliberately not a dependency, because its postinstall runs a skills installer):
+
 - no shell, `--format json`, and only `PATH`, `HOME` and the given env (`LINK_AUTH_FILE`);
 - card details travel only through `--include card --output-file`;
 - CLI failures become `unavailable` without its output.
@@ -186,43 +189,43 @@ The card's 3-digit CVC is shorter than the redactor's minimum, so it is protecte
 
 ## How it maps to the docs
 
-| Doc | Where |
-| --- | --- |
-| 05 §4.1 vault format | `store.ts`: SQLCipher 4 page format through SQLite3 Multiple Ciphers (`cipher=sqlcipher`, `legacy=4`), raw 32-byte key, `secure_delete=ON`, WAL checkpointed on delete and close |
-| 05 §4.2 key wrapping | `slots/*`, `vault.ts` `setup` / `unlockWithRecovery`. The recovery key is 32 random bytes in grouped base32; it wraps the DEK under Argon2id (`node:crypto` `argon2Sync`), sealed with AES-256-GCM in `vault/recovery.slot` |
-| 05 §4.3 unlock flows | `unlock`, idle lock, `unlockOnFill`, `requireAuthEachUse`; server mode is `KeyFileWrapper` |
-| 05 §4.4 kinds and refusals | `refusals.ts` (Luhn plus issuer prefixes, CVV, IBAN mod-97, routing / account keywords, SSN, UK NINO, id keywords) and `vault.ts` `add` |
-| 05 §4.5 placeholders | `resolve`; grammar from `PLACEHOLDER_PATTERN` |
-| 05 §4.6 fill protocol | `fill/browser.ts`, `fill/http.ts`, `fill/env.ts` |
-| 05 §4.7 post-fill hygiene | `redact.ts` (exact plus fuzzy forms; sticky values), `clearFocusedField`, `secureField` |
-| 05 §4.8 OAuth | the `ConnectorCredentialStore` half of `Vault` |
-| 05 §4.10 audit | `credential.filled` / `credential.fill_denied` audit entries and `credential_uses` rows |
-| 05 §14 data handling | 0600 files in a 0700 directory, overwrite before delete, `secure_delete` |
-| 04 §6 | `items` in `vault.db`; `credential_meta` and `credential_uses` in `packages/db/migrations/202610191000_vault_credentials.sql` |
+| Doc                        | Where                                                                                                                                                                                                                       |
+| -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 05 §4.1 vault format       | `store.ts`: SQLCipher 4 page format through SQLite3 Multiple Ciphers (`cipher=sqlcipher`, `legacy=4`), raw 32-byte key, `secure_delete=ON`, WAL checkpointed on delete and close                                            |
+| 05 §4.2 key wrapping       | `slots/*`, `vault.ts` `setup` / `unlockWithRecovery`. The recovery key is 32 random bytes in grouped base32; it wraps the DEK under Argon2id (`node:crypto` `argon2Sync`), sealed with AES-256-GCM in `vault/recovery.slot` |
+| 05 §4.3 unlock flows       | `unlock`, idle lock, `unlockOnFill`, `requireAuthEachUse`; server mode is `KeyFileWrapper`                                                                                                                                  |
+| 05 §4.4 kinds and refusals | `refusals.ts` (Luhn plus issuer prefixes, CVV, IBAN mod-97, routing / account keywords, SSN, UK NINO, id keywords) and `vault.ts` `add`                                                                                     |
+| 05 §4.5 placeholders       | `resolve`; grammar from `PLACEHOLDER_PATTERN`                                                                                                                                                                               |
+| 05 §4.6 fill protocol      | `fill/browser.ts`, `fill/http.ts`, `fill/env.ts`                                                                                                                                                                            |
+| 05 §4.7 post-fill hygiene  | `redact.ts` (exact plus fuzzy forms; sticky values), `clearFocusedField`, `secureField`                                                                                                                                     |
+| 05 §4.8 OAuth              | the `ConnectorCredentialStore` half of `Vault`                                                                                                                                                                              |
+| 05 §4.10 audit             | `credential.filled` / `credential.fill_denied` audit entries and `credential_uses` rows                                                                                                                                     |
+| 05 §14 data handling       | 0600 files in a 0700 directory, overwrite before delete, `secure_delete`                                                                                                                                                    |
+| 04 §6                      | `items` in `vault.db`; `credential_meta` and `credential_uses` in `packages/db/migrations/202610191000_vault_credentials.sql`                                                                                               |
 
 ## Threat-model checklist (05 §4)
 
-| Control | Doc | Enforced by | Test |
-| --- | --- | --- | --- |
-| A copied `vault.db` is useless without the keychain item or the recovery key | §4.1–4.2, G1 | random DEK; slots sealed with AES-GCM with the slot bound in the AAD | `lifecycle`: "a copied vault.db is useless…" |
-| Keychain item uses `[.biometryCurrentSet, .or, .devicePasscode]`, this-device-only | §4.2 | `KEYCHAIN_ACCESS_CONTROL` and `keychain.set` params | `lifecycle`: access control |
-| `safeStorage` refused on `basic_text` | §4.2 | `SafeStorageWrapper.unavailableReason` | `lifecycle`: key wrappers |
-| Key file must be 0600 | §4.3 | `KeyFileWrapper` | `lifecycle`: key file |
-| Recovery key shown once and confirmed | §4.2 | `setup` returns it, never stores it in plaintext; `confirmRecovery` | `lifecycle`: recovery |
-| DEK zeroized on lock; idle lock | §4.3 | `lock`, `#touch` / `#checkIdle` | `lifecycle`: idle |
-| Touch ID per fill for `requireAuthEachUse` | §4.3 | `resolve` step 6 | `resolve`: presence on every use |
-| No card numbers, CVVs, bank accounts or government ids | §4.4, G2 | `findRefusal` in `add` / `update` / import, with an explanation pointing to Stripe Link | `items`, `import` |
-| Model sees placeholders and metadata only | §4.5, G4 | `list` / `get` / events / audit carry no values | `items`, `handlers` (`assertNoSecrets`) |
-| Exact origin or host match; opaque origins refused | §4.5, G5, S23-13 | `bindingMatches`, `bindingProblem` | `resolve`, `s23-review` |
-| Approval bound to the exact fill, once by default, site opt-in | §3.5, §4.5, G7 | binding hash recomputed in `resolve`; `verifyBinding` | `resolve`: denials |
-| Field class: no password in a comment box | S23-01 | `fillElementAccepts`, frame / form-action checks, field class in the grant key | `s23-review` design-01, conformance |
-| Value never a loggable string | contract | `ResolvedSecret`, one-shot | `resolve`, conformance |
-| Browser: top-frame origin, focused approved node, no Take control, clear on failure, `secureField` | §4.6–4.7, G6 | `fillBrowserField` | `fill`: browser |
-| HTTP: HTTPS only, bound host, header kept only on same-origin hops, errors rebuilt | §4.6, S23-16 | `authorizedFetch`, `safeHttpError` | `fill`: connector HTTP |
-| Sandbox: per-command env only, nothing inherited | §4.6, S23-17 | `buildSecretEnv` | `fill`: sandbox env, `s23-review` design-17 |
-| Masking of echoes and encodings | §4.7, S23-15/16/18 | `SecretRedactor`: exact forms (URL, form, JSON, HTML, base64 at three alignments, hex, base32, reversed, ROT13, base64 of the reversed value, long-key prefix and suffix) plus a fuzzy NFKC / case-fold / separator-stripping pass; sticky after lock | `redact` property tests, `s23-review` |
-| OAuth: owner-only, atomic rotation, revoke emits invalidation | §4.8, G13 | `store` / `accessToken` / `rotate` / `revoke` / `onRevoked` | `oauth` |
-| Every fill and denial audited; last 50 uses per item | §4.10, G14 | `credential_uses`, audit entries | `items`: uses, `resolve` |
+| Control                                                                                            | Doc                | Enforced by                                                                                                                                                                                                                                           | Test                                         |
+| -------------------------------------------------------------------------------------------------- | ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
+| A copied `vault.db` is useless without the keychain item or the recovery key                       | §4.1–4.2, G1       | random DEK; slots sealed with AES-GCM with the slot bound in the AAD                                                                                                                                                                                  | `lifecycle`: "a copied vault.db is useless…" |
+| Keychain item uses `[.biometryCurrentSet, .or, .devicePasscode]`, this-device-only                 | §4.2               | `KEYCHAIN_ACCESS_CONTROL` and `keychain.set` params                                                                                                                                                                                                   | `lifecycle`: access control                  |
+| `safeStorage` refused on `basic_text`                                                              | §4.2               | `SafeStorageWrapper.unavailableReason`                                                                                                                                                                                                                | `lifecycle`: key wrappers                    |
+| Key file must be 0600                                                                              | §4.3               | `KeyFileWrapper`                                                                                                                                                                                                                                      | `lifecycle`: key file                        |
+| Recovery key shown once and confirmed                                                              | §4.2               | `setup` returns it, never stores it in plaintext; `confirmRecovery`                                                                                                                                                                                   | `lifecycle`: recovery                        |
+| DEK zeroized on lock; idle lock                                                                    | §4.3               | `lock`, `#touch` / `#checkIdle`                                                                                                                                                                                                                       | `lifecycle`: idle                            |
+| Touch ID per fill for `requireAuthEachUse`                                                         | §4.3               | `resolve` step 6                                                                                                                                                                                                                                      | `resolve`: presence on every use             |
+| No card numbers, CVVs, bank accounts or government ids                                             | §4.4, G2           | `findRefusal` in `add` / `update` / import, with an explanation pointing to Stripe Link                                                                                                                                                               | `items`, `import`                            |
+| Model sees placeholders and metadata only                                                          | §4.5, G4           | `list` / `get` / events / audit carry no values                                                                                                                                                                                                       | `items`, `handlers` (`assertNoSecrets`)      |
+| Exact origin or host match; opaque origins refused                                                 | §4.5, G5, S23-13   | `bindingMatches`, `bindingProblem`                                                                                                                                                                                                                    | `resolve`, `s23-review`                      |
+| Approval bound to the exact fill, once by default, site opt-in                                     | §3.5, §4.5, G7     | binding hash recomputed in `resolve`; `verifyBinding`                                                                                                                                                                                                 | `resolve`: denials                           |
+| Field class: no password in a comment box                                                          | S23-01             | `fillElementAccepts`, frame / form-action checks, field class in the grant key                                                                                                                                                                        | `s23-review` design-01, conformance          |
+| Value never a loggable string                                                                      | contract           | `ResolvedSecret`, one-shot                                                                                                                                                                                                                            | `resolve`, conformance                       |
+| Browser: top-frame origin, focused approved node, no Take control, clear on failure, `secureField` | §4.6–4.7, G6       | `fillBrowserField`                                                                                                                                                                                                                                    | `fill`: browser                              |
+| HTTP: HTTPS only, bound host, header kept only on same-origin hops, errors rebuilt                 | §4.6, S23-16       | `authorizedFetch`, `safeHttpError`                                                                                                                                                                                                                    | `fill`: connector HTTP                       |
+| Sandbox: per-command env only, nothing inherited                                                   | §4.6, S23-17       | `buildSecretEnv`                                                                                                                                                                                                                                      | `fill`: sandbox env, `s23-review` design-17  |
+| Masking of echoes and encodings                                                                    | §4.7, S23-15/16/18 | `SecretRedactor`: exact forms (URL, form, JSON, HTML, base64 at three alignments, hex, base32, reversed, ROT13, base64 of the reversed value, long-key prefix and suffix) plus a fuzzy NFKC / case-fold / separator-stripping pass; sticky after lock | `redact` property tests, `s23-review`        |
+| OAuth: owner-only, atomic rotation, revoke emits invalidation                                      | §4.8, G13          | `store` / `accessToken` / `rotate` / `revoke` / `onRevoked`                                                                                                                                                                                           | `oauth`                                      |
+| Every fill and denial audited; last 50 uses per item                                               | §4.10, G14         | `credential_uses`, audit entries                                                                                                                                                                                                                      | `items`: uses, `resolve`                     |
 
 ## What is stubbed or deferred
 

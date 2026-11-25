@@ -104,6 +104,17 @@ export interface SendResult {
   messageId: string;
 }
 
+/**
+ * What a card's button press came to, returned by the approval handler once the Broker has
+ * answered. `text` is the real verdict ("Approved.", "That approval was already answered.") for the
+ * toast a transport shows after a press (Telegram, Slack); it is never shown before the verdict.
+ */
+export interface ChannelApprovalAck {
+  text: string;
+  /** True when the Broker recorded the decision. */
+  decided: boolean;
+}
+
 export interface ChannelApprovalAnswer {
   approvalId: string;
   answerToken: string;
@@ -124,7 +135,22 @@ export interface ChannelAdapter {
     approval: ApprovalRequest,
     answerToken: string,
   ): Promise<SendResult>;
-  onApprovalAnswer?(handler: (answer: ChannelApprovalAnswer) => void | Promise<void>): Unsubscribe;
+  onApprovalAnswer?(
+    handler: (
+      answer: ChannelApprovalAnswer,
+    ) => void | ChannelApprovalAck | undefined | Promise<undefined | ChannelApprovalAck>,
+  ): Unsubscribe;
+  /**
+   * The card `messageId` (from `sendApprovalButtons`) was answered, expired or cancelled: replace
+   * its text with `text` and remove its buttons, so it no longer looks actionable. Optional; a
+   * transport that cannot edit leaves it out and gets a short follow-up instead.
+   */
+  retireApproval?(
+    chatId: string,
+    messageId: string,
+    text: string,
+    approvalId: string,
+  ): Promise<void>;
   /** Pairing (dmPolicy `pairing`): deliver the code an unknown sender must have approved. */
   sendPairingCode?(chatId: string, code: string, expiresAt: number): Promise<SendResult>;
   sendTyping?(chatId: string, action?: "typing" | "recording_voice"): Promise<void>;

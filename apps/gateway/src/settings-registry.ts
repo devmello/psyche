@@ -153,6 +153,16 @@ const EXACT: Record<string, SettingRule> = {
   "notifications.quietHours.enabled": bool(),
   "notifications.quietHours.start": clock(),
   "notifications.quietHours.end": clock(),
+  "notifications.approvals.awayChannel": {
+    schema: Type.String({ maxLength: 100 }),
+    expected: "a channel id, or an empty string for none",
+    allowNull: true,
+  },
+  "notifications.approvals.awayAfterMinutes": {
+    schema: Type.Integer({ minimum: 1, maximum: 1440 }),
+    expected: "a whole number of minutes from 1 to 1440",
+    allowNull: true,
+  },
   "points.enabled": bool(),
   "agent.showReasoning": bool(),
   "specialists.maxConcurrent": {

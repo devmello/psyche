@@ -51,7 +51,7 @@ describe("iMessage approvals over chat", () => {
     expect(decided?.status).toBe("approved");
     expect(decided?.scopeGranted).toBe("once");
     expect(decided?.decidedBy).toEqual({ channel: "imessage", senderId: OWNER });
-    expect(h.sent().at(-1)).toBe("Approved: Send an email.");
+    expect(h.sent().at(-1)).toBe("Approved: Send email.");
     // Commands never reach the agent.
     expect(h.delivered.map((e) => e.message.text)).toEqual(["hi"]);
   });
@@ -97,7 +97,7 @@ describe("iMessage approvals over chat", () => {
     const decided = await h.broker.get(issued.approval.id);
     expect(decided?.status).toBe("denied");
     expect(decided?.decidedBy).toEqual({ channel: "imessage", senderId: OWNER });
-    expect(h.sent().at(-1)).toBe("Denied: Send an email.");
+    expect(h.sent().at(-1)).toBe("Denied: Send email.");
     // Tapbacks are never inbound turns.
     expect(h.delivered).toHaveLength(0);
   });

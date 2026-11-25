@@ -217,6 +217,11 @@ export const SURFACE_LIMITS: Record<CardSurfaceKind, number> = {
  * by the Host's platform (`@psyche/protocol/host-words`).
  */
 export const DEVICE_ONLY_TEXT = `Answer this on ${hostWords().yourDevice}.`;
+/**
+ * Third line of a chat pointer card: a pointer can always be denied from chat (deny is the safe
+ * answer), so it names `/deny <ref>`. There is no `/approve` here (security §3.7, §9).
+ */
+export const denyHintText = (ref: string): string => `To deny, reply "/deny ${ref}".`;
 /** Second line of a card that did not fit its surface. */
 export const TOO_LONG_TEXT = `Open on ${hostWords().yourDevice} to review.`;
 
@@ -237,6 +242,11 @@ function valueText(v: unknown): string {
   if (v === null || v === undefined) return "—";
   if (typeof v === "object") return JSON.stringify(v);
   return String(v);
+}
+
+/** The kind's short title as the card header writes it ("Send email"). */
+export function kindTitle(kind: string): string {
+  return KIND_TITLES[kind] ?? kind;
 }
 
 export function cardHeader(a: Pick<ApprovalRequest, "kind" | "sideEffect" | "taint">): string {

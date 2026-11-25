@@ -3290,7 +3290,11 @@ function withRelay<B extends PermissionBroker>(
     get(target, prop, receiver) {
       if (prop === "requestApproval") {
         return async (input: ApprovalRequestInput) => {
-          const extra = relays.flatMap((r) => r.surfaces());
+          // Which chats get a card is the relay's call (decision D3): the chat the run came from,
+          // or the away chat while no device is around; the Mac helper's relay adds its own.
+          const extra = relays.flatMap((r) =>
+            r.approvalSurfaces === undefined ? r.surfaces() : r.approvalSurfaces(input.requestedBy),
+          );
           // Decided on the caller's own surfaces, before the relays add theirs: the Mac helper's
           // `notification` must not put a `["desktop"]` card on the phone (broker `offMac`).
           const offMac = input.surfaces.some((s) => s === "notification" || s === "web");
