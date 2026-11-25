@@ -1,6 +1,7 @@
 import Foundation
 import Observation
 import PhotosUI
+import PsycheClient
 import PsycheStore
 import SwiftUI
 import UniformTypeIdentifiers
@@ -147,10 +148,24 @@ final class ComposerModel {
         } catch BackendError.unreachable {
             waitingData[id] = data
             update(id, .waiting)
+            if connectionIsLive, retriedWhileLive.insert(id).inserted { retryWaiting() }
         } catch {
             waitingData[id] = nil
             fail(id, (error as? LocalizedError)?.errorDescription ?? "Upload failed")
         }
+    }
+
+    /// True once the connection is live. A file that fails as unreachable after that point (the connection
+    /// went live while its upload was in flight) retries once at once instead of waiting for a change that
+    /// already happened.
+    private var connectionIsLive = false
+    private var retriedWhileLive: Set<ComposerAttachment.ID> = []
+
+    /// The connection changed. Files wait only for `.live`: `.connecting` counts as able to answer, so a file
+    /// attached while connecting fails as unreachable, and nothing else would send it again.
+    func connectionChanged(to state: ConnectionState) {
+        connectionIsLive = state == .live
+        if connectionIsLive { retryWaiting() }
     }
 
     /// Uploads the files that waited for the Mac. Call when the connection comes back.

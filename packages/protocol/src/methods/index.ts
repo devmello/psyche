@@ -31,6 +31,7 @@ import { MailFollowupMethods } from "./mail-followups.ts";
 import { McpMethods } from "./mcp.ts";
 import { MemoryMethods } from "./memory.ts";
 import { ModelsMethods } from "./models.ts";
+import { NightShiftMethods } from "./night-shift.ts";
 import { NodeMethods } from "./node.ts";
 import { NodesMethods } from "./nodes.ts";
 import { NotificationsMethods } from "./notifications.ts";
@@ -95,6 +96,7 @@ export * from "./mail-followups.ts";
 export * from "./mcp.ts";
 export * from "./memory.ts";
 export * from "./models.ts";
+export * from "./night-shift.ts";
 export * from "./node.ts";
 export * from "./nodes.ts";
 export * from "./notifications.ts";
@@ -192,6 +194,7 @@ export const Methods = {
   ...InsightsMethods,
   ...DailyMethods,
   ...MailFollowupMethods,
+  ...NightShiftMethods,
   ...NudgeMethods,
   ...ProposalsMethods,
   ...MeetingsMethods,

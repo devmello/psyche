@@ -101,6 +101,9 @@ public actor GatewayClient {
     private var wantsConnection: Bool { active || keepConnected }
     private var resync: Resync
     private var mapper: EventMapper?
+    /// A retry of the outbox while live, after a flush left entries behind (a retryable error).
+    private var outboxRetry: Task<Void, Never>?
+    private var outboxRetryAttempt = 0
 
     private var stateSubscribers: [UUID: AsyncStream<ConnectionState>.Continuation] = [:]
     private var eventSubscribers: [UUID: AsyncStream<LiveEvent>.Continuation] = [:]
@@ -476,7 +479,8 @@ public actor GatewayClient {
     @discardableResult
     private func flushOutbox() async -> [String: Outbox.Delivery] {
         let gateway = Self.gatewayBinding(endpoint)
-        return await deps.outbox.flush(gateway: gateway, checkGateway: true) { [self] entry in
+        let waiting = await deps.outbox.pending
+        let outcomes = await deps.outbox.flush(gateway: gateway, checkGateway: true) { [self] entry in
             guard case .live = await self.currentState, let connection = await self.connection else {
                 throw Outbox.OutboxSendError.retryLater
             }
@@ -492,6 +496,39 @@ public actor GatewayClient {
                 throw Outbox.OutboxSendError.retryLater
             }
         }
+        await reportOutbox(outcomes, of: waiting)
+        return outcomes
+    }
+
+    /// Tells the open thread what became of the messages this flush settled, and retries with backoff while live
+    /// when entries are left behind (a retryable error), so a queued message is never silently stuck.
+    private func reportOutbox(_ outcomes: [String: Outbox.Delivery], of waiting: [OutboxEntry]) async {
+        for entry in waiting where entry.kind == .chatSend {
+            guard let outcome = outcomes[entry.id], let thread = entry.params["threadId"]?.string else { continue }
+            switch outcome {
+            case .delivered: publish(.chat(.sendResult(threadID: thread, messageID: entry.id, failure: nil)))
+            case .rejected(let why): publish(.chat(.sendResult(threadID: thread, messageID: entry.id, failure: why)))
+            case .queued: break
+            }
+        }
+        guard !(await deps.outbox.isEmpty), case .live = state else {
+            outboxRetryAttempt = 0
+            return
+        }
+        guard outboxRetry == nil else { return }
+        let delay = deps.backoff.delay(attempt: outboxRetryAttempt)
+        outboxRetryAttempt += 1
+        outboxRetry = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(delay))
+            guard !Task.isCancelled else { return }
+            await self?.retryOutbox()
+        }
+    }
+
+    private func retryOutbox() async {
+        outboxRetry = nil
+        guard case .live = state else { return }
+        await flushOutbox()
     }
 
     // MARK: - The run loop

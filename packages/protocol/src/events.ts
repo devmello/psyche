@@ -33,6 +33,7 @@ import {
 import { FeedbackEvent, Lesson, LessonStatus } from "./schemas/learning.ts";
 import { MachineInfo } from "./schemas/machines.ts";
 import { MemoryChangeSource, MemoryJob, PersonaIdentity } from "./schemas/memory.ts";
+import { NightShiftNight, StagedAction } from "./schemas/night-shift.ts";
 import { ApprovalRequest, Receipt } from "./schemas/permissions.ts";
 import { PointsAskRequestedPayload, PointsUpdatedPayload } from "./schemas/points.ts";
 import { ResearchProgressEvent } from "./schemas/research.ts";
@@ -456,6 +457,15 @@ export const Events = {
   "space.proposal.created": defineEvent({
     payload: Type.Object({ proposal: SpaceProposal }),
     description: "The agent proposed a new Space. It was not created; the owner decides.",
+  }),
+  "nightShift.updated": defineEvent({
+    payload: Type.Object({ night: NightShiftNight }),
+    description:
+      "A night's row changed (it started, stopped or finished, or its review status moved). Clients re-read nightShift.status.",
+  }),
+  "nightShift.item.updated": defineEvent({
+    payload: Type.Object({ item: StagedAction }),
+    description: "One prepared item changed status (stale, applied, failed, undone, dismissed...).",
   }),
   "goal.updated": defineEvent({
     payload: Type.Object({ goal: Goal }),

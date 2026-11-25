@@ -188,7 +188,8 @@ struct ThreadView: View {
         } message: {
             Text(String(localized: "Its messages go, and Psyche starts fresh in this chat. The title and receipts stay.", bundle: .module))
         }
-        .onChange(of: session.state.canAnswer) { _, reachable in if reachable { composer.retryWaiting() } }
+        // Files wait for a live connection: `.connecting` already counts as `canAnswer`, so key on the state itself.
+        .onChange(of: session.state) { _, state in composer.connectionChanged(to: state) }
         .task {
             await model.load()
             if let pending = router.pendingDraft {

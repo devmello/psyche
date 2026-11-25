@@ -284,6 +284,16 @@
         "payload": "#/$defs/MemorySuggestionCreatedPayload"
       },
       {
+        "description": "One prepared item changed status (stale, applied, failed, undone, dismissed...).",
+        "name": "nightShift.item.updated",
+        "payload": "#/$defs/NightShiftItemUpdatedPayload"
+      },
+      {
+        "description": "A night's row changed (it started, stopped or finished, or its review status moved). Clients re-read nightShift.status.",
+        "name": "nightShift.updated",
+        "payload": "#/$defs/NightShiftUpdatedPayload"
+      },
+      {
         "description": "A node connected, disconnected or changed capabilities.",
         "name": "node.updated",
         "payload": "#/$defs/NodeUpdatedPayload"
@@ -2841,6 +2851,54 @@
         "params": "#/$defs/ModelsSetRoleParams",
         "result": "#/$defs/ModelsSetRoleResult",
         "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
+        "description": "Requests the one staged_apply approval for the ticked items, bound to their binding hashes. Every item is re-checked and re-decided; refused ones come back in refused. The client must check the approval's item hashes equal its selection before approvals.answer. Side-effecting: requires idempotencyKey; a replay returns the same approval and token.",
+        "name": "nightShift.apply",
+        "params": "#/$defs/NightShiftApplyParams",
+        "result": "#/$defs/NightShiftApplyResult",
+        "scope": "operator.approvals",
+        "sideEffecting": true
+      },
+      {
+        "description": "Dismisses the given items, or every item still ready when itemIds is absent. Runs nothing. Side-effecting: requires idempotencyKey.",
+        "name": "nightShift.dismiss",
+        "params": "#/$defs/NightShiftDismissParams",
+        "result": "#/$defs/NightShiftDismissResult",
+        "scope": "operator.write",
+        "sideEffecting": true
+      },
+      {
+        "description": "One night's review: the night and its prepared items. Why lines that cite owner-only sources are removed for callers that are not the desktop shell. Mail-derived text is untrusted.",
+        "name": "nightShift.review.get",
+        "params": "#/$defs/NightShiftReviewGetParams",
+        "result": "#/$defs/NightShiftReviewGetResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Settings 'Try it now': prepares a night outside the window under the same gates except the window and idle, and counts against the night's budget. Side-effecting: requires idempotencyKey.",
+        "name": "nightShift.runNow",
+        "params": "#/$defs/NightShiftRunNowParams",
+        "result": "#/$defs/NightShiftRunNowResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
+        "description": "Night shift state: whether it is on, when the next window starts, the latest night's counts and the review waiting for the owner, if any.",
+        "name": "nightShift.status",
+        "params": "#/$defs/NightShiftStatusParams",
+        "result": "#/$defs/NightShiftStatusResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Requests a staged_apply approval for the inverse of applied items (within 24 hours, target unchanged since). Side-effecting: requires idempotencyKey.",
+        "name": "nightShift.undo",
+        "params": "#/$defs/NightShiftUndoParams",
+        "result": "#/$defs/NightShiftUndoResult",
+        "scope": "operator.approvals",
         "sideEffecting": true
       },
       {
@@ -8046,7 +8104,8 @@
         "folder_access",
         "separate_desktop_share",
         "batch",
-        "permission_request"
+        "permission_request",
+        "staged_apply"
       ],
       "type": "string"
     },
@@ -19047,7 +19106,8 @@
         "keep_in_touch",
         "quiet_threads",
         "catching_up",
-        "worked_on"
+        "worked_on",
+        "night_shift"
       ],
       "type": "string"
     },
@@ -34935,6 +34995,505 @@
       ],
       "type": "object"
     },
+    "NightShiftApplyItem": {
+      "properties": {
+        "itemId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "bindingHash": {
+          "maxLength": 128,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "itemId",
+        "bindingHash"
+      ],
+      "type": "object"
+    },
+    "NightShiftApplyParams": {
+      "properties": {
+        "reviewId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "items": {
+          "items": {
+            "$ref": "#/$defs/NightShiftApplyItem"
+          },
+          "maxItems": 50,
+          "type": "array"
+        },
+        "sends": {
+          "items": {
+            "$ref": "#/$defs/NightShiftApplySend"
+          },
+          "maxItems": 50,
+          "type": "array"
+        }
+      },
+      "required": [
+        "reviewId",
+        "items",
+        "sends"
+      ],
+      "type": "object"
+    },
+    "NightShiftApplyResult": {
+      "properties": {
+        "approval": {
+          "$ref": "#/$defs/ApprovalRequest"
+        },
+        "answerToken": {
+          "$ref": "#/$defs/SurfaceAnswerToken"
+        },
+        "refused": {
+          "items": {
+            "$ref": "#/$defs/NightShiftRefused"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "refused"
+      ],
+      "type": "object"
+    },
+    "NightShiftApplySend": {
+      "properties": {
+        "itemId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "sendHash": {
+          "maxLength": 128,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "itemId",
+        "sendHash"
+      ],
+      "type": "object"
+    },
+    "NightShiftDismissParams": {
+      "properties": {
+        "reviewId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "itemIds": {
+          "items": {
+            "description": "ULID in production",
+            "maxLength": 64,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 200,
+          "type": "array"
+        }
+      },
+      "required": [
+        "reviewId"
+      ],
+      "type": "object"
+    },
+    "NightShiftDismissResult": {
+      "properties": {
+        "dismissed": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "dismissed"
+      ],
+      "type": "object"
+    },
+    "NightShiftItemUpdatedPayload": {
+      "properties": {
+        "item": {
+          "$ref": "#/$defs/StagedAction"
+        }
+      },
+      "required": [
+        "item"
+      ],
+      "type": "object"
+    },
+    "NightShiftNight": {
+      "properties": {
+        "id": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "night": {
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/$defs/NightShiftNightStatus"
+        },
+        "stopReason": {
+          "anyOf": [
+            {
+              "maxLength": 120,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "candidates": {
+          "anyOf": [
+            {},
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "spentUsd": {
+          "minimum": 0,
+          "type": "number"
+        },
+        "tokens": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "reviewStatus": {
+          "$ref": "#/$defs/NightShiftReviewStatus"
+        },
+        "expiresAt": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "startedAt": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "finishedAt": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "createdAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "updatedAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "night",
+        "status",
+        "spentUsd",
+        "tokens",
+        "reviewStatus",
+        "createdAt",
+        "updatedAt"
+      ],
+      "type": "object"
+    },
+    "NightShiftNightStatus": {
+      "enum": [
+        "running",
+        "done",
+        "stopped",
+        "skipped",
+        "empty"
+      ],
+      "type": "string"
+    },
+    "NightShiftRefused": {
+      "properties": {
+        "itemId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "reason": {
+          "maxLength": 300,
+          "type": "string"
+        }
+      },
+      "required": [
+        "itemId",
+        "reason"
+      ],
+      "type": "object"
+    },
+    "NightShiftReviewGetParams": {
+      "properties": {
+        "reviewId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "reviewId"
+      ],
+      "type": "object"
+    },
+    "NightShiftReviewGetResult": {
+      "properties": {
+        "night": {
+          "$ref": "#/$defs/NightShiftNight"
+        },
+        "items": {
+          "items": {
+            "$ref": "#/$defs/StagedAction"
+          },
+          "maxItems": 200,
+          "type": "array"
+        }
+      },
+      "required": [
+        "night",
+        "items"
+      ],
+      "type": "object"
+    },
+    "NightShiftReviewStatus": {
+      "enum": [
+        "none",
+        "ready",
+        "partial",
+        "applied",
+        "dismissed",
+        "expired"
+      ],
+      "type": "string"
+    },
+    "NightShiftRunNowParams": {
+      "properties": {},
+      "type": "object"
+    },
+    "NightShiftRunNowResult": {
+      "properties": {
+        "started": {
+          "type": "boolean"
+        },
+        "reason": {
+          "maxLength": 200,
+          "type": "string"
+        }
+      },
+      "required": [
+        "started"
+      ],
+      "type": "object"
+    },
+    "NightShiftStatusParams": {
+      "properties": {},
+      "type": "object"
+    },
+    "NightShiftStatusResult": {
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "nextWindowAt": {
+          "anyOf": [
+            {
+              "maxLength": 40,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "latest": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/NightShiftSummary"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "readyReviewId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "enabled"
+      ],
+      "type": "object"
+    },
+    "NightShiftSummary": {
+      "properties": {
+        "id": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "night": {
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/$defs/NightShiftNightStatus"
+        },
+        "reviewStatus": {
+          "$ref": "#/$defs/NightShiftReviewStatus"
+        },
+        "counts": {
+          "properties": {
+            "mail": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "calendar": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "reminders": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "files": {
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "mail",
+            "calendar",
+            "reminders",
+            "files"
+          ],
+          "type": "object"
+        },
+        "expiresAt": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "night",
+        "status",
+        "reviewStatus",
+        "counts"
+      ],
+      "type": "object"
+    },
+    "NightShiftUndoParams": {
+      "properties": {
+        "itemIds": {
+          "items": {
+            "description": "ULID in production",
+            "maxLength": 64,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 50,
+          "minItems": 1,
+          "type": "array"
+        }
+      },
+      "required": [
+        "itemIds"
+      ],
+      "type": "object"
+    },
+    "NightShiftUndoResult": {
+      "properties": {
+        "approval": {
+          "$ref": "#/$defs/ApprovalRequest"
+        },
+        "answerToken": {
+          "$ref": "#/$defs/SurfaceAnswerToken"
+        },
+        "refused": {
+          "items": {
+            "$ref": "#/$defs/NightShiftRefused"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "refused"
+      ],
+      "type": "object"
+    },
+    "NightShiftUpdatedPayload": {
+      "properties": {
+        "night": {
+          "$ref": "#/$defs/NightShiftNight"
+        }
+      },
+      "required": [
+        "night"
+      ],
+      "type": "object"
+    },
     "NodeCapability": {
       "properties": {
         "name": {
@@ -49237,6 +49796,308 @@
       ],
       "type": "string"
     },
+    "StagedAction": {
+      "properties": {
+        "id": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "nightId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "forkBranchId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "seq": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "domain": {
+          "$ref": "#/$defs/StagedActionDomain"
+        },
+        "targetKey": {
+          "maxLength": 500,
+          "type": "string"
+        },
+        "tool": {
+          "maxLength": 120,
+          "type": "string"
+        },
+        "kind": {
+          "maxLength": 60,
+          "type": "string"
+        },
+        "sideEffect": {
+          "maxLength": 30,
+          "type": "string"
+        },
+        "target": {
+          "anyOf": [
+            {},
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "params": {
+          "anyOf": [
+            {},
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "paramsHash": {
+          "maxLength": 128,
+          "type": "string"
+        },
+        "bindingHash": {
+          "maxLength": 128,
+          "type": "string"
+        },
+        "summary": {
+          "maxLength": 500,
+          "type": "string"
+        },
+        "preview": {
+          "anyOf": [
+            {},
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "why": {
+          "anyOf": [
+            {
+              "maxLength": 500,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "precondition": {
+          "anyOf": [
+            {},
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "inverse": {
+          "anyOf": [
+            {},
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "send": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/StagedActionSend"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "taint": {
+          "type": "boolean"
+        },
+        "taintSources": {
+          "items": {
+            "$ref": "#/$defs/TaintSource"
+          },
+          "maxItems": 20,
+          "type": "array"
+        },
+        "status": {
+          "$ref": "#/$defs/StagedActionStatus"
+        },
+        "result": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/StagedActionResult"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "approvalId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "taskId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "toolCallId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "appliedAt": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "createdAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "updatedAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "seq",
+        "domain",
+        "targetKey",
+        "tool",
+        "kind",
+        "sideEffect",
+        "paramsHash",
+        "bindingHash",
+        "summary",
+        "taint",
+        "taintSources",
+        "status",
+        "createdAt",
+        "updatedAt"
+      ],
+      "type": "object"
+    },
+    "StagedActionDomain": {
+      "enum": [
+        "mail",
+        "calendar",
+        "reminders",
+        "files"
+      ],
+      "type": "string"
+    },
+    "StagedActionResult": {
+      "properties": {
+        "receiptId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "refs": {
+          "items": {
+            "maxLength": 500,
+            "type": "string"
+          },
+          "maxItems": 20,
+          "type": "array"
+        },
+        "error": {
+          "maxLength": 500,
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "StagedActionSend": {
+      "properties": {
+        "recipients": {
+          "items": {
+            "maxLength": 320,
+            "type": "string"
+          },
+          "maxItems": 50,
+          "type": "array"
+        },
+        "contentHash": {
+          "maxLength": 128,
+          "type": "string"
+        }
+      },
+      "required": [
+        "recipients",
+        "contentHash"
+      ],
+      "type": "object"
+    },
+    "StagedActionStatus": {
+      "enum": [
+        "ready",
+        "stale",
+        "superseded",
+        "applied",
+        "failed",
+        "uncertain",
+        "skipped",
+        "dismissed",
+        "expired",
+        "undone"
+      ],
+      "type": "string"
+    },
     "StarterFolderId": {
       "enum": [
         "documents",
@@ -51809,6 +52670,9 @@
           "$ref": "#/$defs/ThreadKind"
         },
         "includeArchived": {
+          "type": "boolean"
+        },
+        "archivedOnly": {
           "type": "boolean"
         },
         "pinnedOnly": {
