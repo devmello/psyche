@@ -1,4 +1,5 @@
 import { existsSync, readFileSync } from "node:fs";
+import { homedir } from "node:os";
 import { join } from "node:path";
 import {
   AgentToolRegistry,
@@ -960,6 +961,14 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     onSetAsideRevoked: (a, how) => deferredResumeRef?.revokedAtRestart(a, how),
     sameAutomation: (a, taskId) => deferredResumeRef?.sameAutomation(a, taskId) === true,
     psycheHome: config.home,
+    // Full access (owner, 2026-11-25): the file tools reach the owner's home folder in a
+    // Full-access chat turn; protected roots and the prohibitions still refuse inside it.
+    fullAccessRoots: () => [homedir()],
+    // Turning Full access off mid-run applies from the next tool call (downgrade only).
+    threadFullAccess: (threadId) => {
+      const thread = getThread(db, threadId);
+      return thread === undefined ? undefined : thread.permissionMode === "full";
+    },
     presence: {
       // Presence fails closed while the security records are untrusted; the registered keys
       // and passkeys it checks against are verified first.
@@ -1288,6 +1297,9 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     folders: (scope) => [
       ...rawBroker.grantedFolders(),
       ...(scope === undefined ? [] : rawBroker.liveSessionFolders(scope.threadId, scope.runId)),
+      // Full access: the same root the broker allowed for this run (a longer read-only grant
+      // inside it still wins: the longest root decides).
+      ...(scope?.fullAccess === true ? [{ path: homedir(), mode: "rw" as const }] : []),
     ],
     protectedRoots: () => protectedRoots(config.home),
     ownDirs: () => ownWorkdirs(config.home),

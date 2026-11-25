@@ -37691,6 +37691,7 @@ public enum SpaceCreatedFrom: String, Codable, Sendable {
 public enum PermissionMode: String, Codable, Sendable {
     case auto = "auto"
     case balanced = "balanced"
+    case full = "full"
     case manual = "manual"
     case plan = "plan"
 }

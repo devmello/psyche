@@ -1898,3 +1898,85 @@ describe("app ids by Host", () => {
     expect(shapeError(r)?.details?.reason).toBe("surface_unavailable");
   });
 });
+
+/**
+ * #1689 security review round 2, item 2: keyboard and menu sends through computer use, decided in
+ * Full access. Each call is `computer.act`'s own description (what production sends the broker),
+ * through the real broker.
+ */
+describe("computer use sends in Full access (#1689 r2)", () => {
+  const real = () =>
+    createPermissionBroker({
+      approvers: { device: async () => undefined, isOwnerSender: async () => false },
+    });
+  const FULL = {
+    threadId: "thr_main",
+    runId: "run_1",
+    permissionMode: "full" as const,
+    taint: false,
+  };
+  const RANK = { none: 0, read: 1, write: 2, destructive: 3, financial: 4 } as const;
+  const decideAct = async (params: Record<string, unknown>) => {
+    const reg = tools.get("computer.act");
+    const desc = reg?.describeCall?.(params) ?? {};
+    const spec = reg?.spec.sideEffect ?? "write";
+    const se =
+      desc.sideEffect !== undefined && RANK[desc.sideEffect] > RANK[spec] ? desc.sideEffect : spec;
+    // As the loop builds it: the binding covers the tool, every argument and the kind's fields.
+    const paramsHash = hashCanonical(params);
+    return {
+      meta: desc.meta,
+      d: await real().decide(
+        {
+          tool: "computer.act",
+          sideEffect: se,
+          ...(desc.kind === undefined ? {} : { kind: desc.kind }),
+          ...(desc.target === undefined ? {} : { target: desc.target }),
+          params: structuredClone(params),
+          paramsHash,
+          ...(desc.kind === undefined
+            ? {}
+            : {
+                bindingHash: bindingHash(desc.kind, {
+                  tool: "computer.act",
+                  paramsHash,
+                  ...(desc.bindingFields === undefined ? {} : { fields: desc.bindingFields }),
+                }),
+              }),
+          ...(desc.grantKey === undefined
+            ? {}
+            : { grantKey: namespacedGrantKey("computer.act", desc.grantKey) }),
+          ...(desc.meta === undefined ? {} : { meta: desc.meta }),
+        },
+        FULL,
+      ),
+    };
+  };
+  const messages = "com.apple.MobileSMS";
+  const mail = "com.apple.mail";
+  const slack = "com.tinyspeck.slackmacgap";
+
+  it.each([
+    ["Return in Messages", { app: messages, action: "key", keys: "return" }],
+    ['typing "hi\\n" in Slack', { app: slack, action: "type", text: "hi\n" }],
+    ["press custom:Send in Mail", { app: mail, action: "press", press: "custom:Send" }],
+    ["menu Message>Send in Mail", { app: mail, action: "menu", path: "Message>Send" }],
+    ["⌘Return in Mail", { app: mail, action: "key", keys: "cmd+return" }],
+  ])("must-refuse: %s keeps its card, once only", async (_name, params) => {
+    const { meta, d } = await decideAct(params);
+    expect(meta?.control).toMatchObject({ sends: true });
+    expect(d.decision, d.trace.join(" ")).toBe("ask");
+    expect(d.trace).toContain("full:held(ui_send)");
+    expect(d.scopesOffered).toEqual(["once"]);
+  });
+
+  it.each([
+    ["Return in TextEdit", { app: "com.apple.TextEdit", action: "key", keys: "return" }],
+    ["typing without a newline in Messages", { app: messages, action: "type", text: "hi" }],
+  ])("must-pass: %s is not held as a send", async (_name, params) => {
+    const { meta, d } = await decideAct(params);
+    expect(meta?.control?.sends).toBeUndefined();
+    expect(d.trace.some((t) => t.startsWith("full:held("))).toBe(false);
+    expect(d.decision, d.trace.join(" ")).toBe("allow");
+  });
+});

@@ -155,7 +155,7 @@ export interface PolicyDecision extends DecisionResult {
    * What let a send / destructive / financial call through without a card (§3.12): a standing
    * grant the owner made, or the owner's confirmed matrix override.
    */
-  via?: "grant" | "matrix-override";
+  via?: "grant" | "matrix-override" | "full-access";
 }
 
 export type ClassifierLabel = "routine" | "sensitive" | "prohibited";

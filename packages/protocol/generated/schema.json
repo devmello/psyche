@@ -37915,7 +37915,8 @@
         "plan",
         "manual",
         "balanced",
-        "auto"
+        "auto",
+        "full"
       ],
       "type": "string"
     },

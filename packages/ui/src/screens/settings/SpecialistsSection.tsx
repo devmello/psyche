@@ -1,4 +1,4 @@
-import type { PermissionMode, SpecialistBudgetSetting, SpecialistRole } from "@psyche/protocol";
+import type { SpecialistBudgetSetting, SpecialistRole } from "@psyche/protocol";
 import { type ReactElement, useEffect, useId, useState } from "react";
 import { Button } from "../../components/ui/button.tsx";
 import { Input } from "../../components/ui/input.tsx";
@@ -45,7 +45,7 @@ export function effectiveRole(
   enabled: boolean;
   model: string | null;
   budget: SpecialistBudgetSetting;
-  maxMode: PermissionMode;
+  maxMode: Mode;
 } {
   const model = values[SPECIALIST_KEYS.model(role.role)];
   const budget = values[SPECIALIST_KEYS.budget(role.role)];
@@ -57,9 +57,12 @@ export function effectiveRole(
       typeof budget === "object" && budget !== null
         ? { ...role.budget, ...(budget as SpecialistBudgetSetting) }
         : role.budget,
+    // A role's highest mode is never Full access (only the owner turns that on, in a chat).
     maxMode: (MODES as readonly string[]).includes(mode as string)
-      ? (mode as PermissionMode)
-      : role.maxMode,
+      ? (mode as Mode)
+      : (MODES as readonly string[]).includes(role.maxMode)
+        ? (role.maxMode as Mode)
+        : "auto",
   };
 }
 

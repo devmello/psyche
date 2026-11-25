@@ -140,8 +140,12 @@ export type Target = Static<typeof Target>;
 export const ProvenanceOut = StringEnum(["trusted", "untrusted"], { $id: "ProvenanceOut" });
 export type ProvenanceOut = Static<typeof ProvenanceOut>;
 
-/** Thread permission mode (security §3.2). */
-export const PermissionMode = StringEnum(["plan", "manual", "balanced", "auto"], {
+/**
+ * Thread permission mode (security §3.2). `full` is Full access (owner, 2026-11-25): in the
+ * owner's own attended chat turn everything runs without a card except sends to other people,
+ * payments and the hard prohibitions (`full-access.ts`).
+ */
+export const PermissionMode = StringEnum(["plan", "manual", "balanced", "auto", "full"], {
   $id: "PermissionMode",
 });
 export type PermissionMode = Static<typeof PermissionMode>;

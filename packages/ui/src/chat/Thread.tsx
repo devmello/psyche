@@ -41,6 +41,7 @@ import { ComposerBusyWatch } from "./composer-busy.ts";
 import { ComposerDraft, getDraft, setDraftQuote } from "./composer-drafts.ts";
 import { EarlierMessagesRow, useLoadEarlier } from "./EarlierMessages.tsx";
 import { FollowUpQueue } from "./FollowUpQueue.tsx";
+import { FullAccessBanner } from "./FullAccessBanner.tsx";
 import {
   clearChatFocus,
   flashApproval,
@@ -576,6 +577,15 @@ export function ChatThread({
         );
         return;
       }
+      case "full": {
+        // `/full` or `/full on` turns Full access on in this chat; `/full off` goes back to Balanced.
+        if (arg === "off") {
+          await updateThread({ permissionMode: "balanced" }, t("chat.thread.fullAccessOff"));
+        } else {
+          await updateThread({ permissionMode: "full" }, t("chat.thread.fullAccessOn"));
+        }
+        return;
+      }
       case "plan": {
         const ok = await updateThread({ permissionMode: "plan" }, t("chat.thread.planMode"));
         if (ok && arg !== "") await view.send(arg);
@@ -1086,6 +1096,15 @@ export function ChatThread({
                   onSendQueued={view.resumeQueued}
                 />
                 {notice ? <NoticeBar notice={notice} onDismiss={() => setNotice(null)} /> : null}
+                <FullAccessBanner
+                  mode={view.thread?.thread.permissionMode}
+                  disabled={composerOff}
+                  onTurnOff={() =>
+                    call("threads.update", { threadId, permissionMode: "balanced" }).then(() =>
+                      setNotice({ kind: "ok", text: t("chat.thread.fullAccessOff") }),
+                    )
+                  }
+                />
                 {view.thread ? (
                   <ModeSwitch
                     mode={view.thread.thread.permissionMode}

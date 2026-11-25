@@ -22,8 +22,11 @@ export interface ListedModels {
   roles?: { primary?: string; utility?: string };
 }
 
-/** The modes the switch sets (plan mode keeps its own `/plan` command). */
-export const SWITCH_MODES = ["manual", "balanced", "auto"] as const;
+/**
+ * The modes the switch sets (plan mode keeps its own `/plan` command). Full access is chosen
+ * for one chat (`/full`) and never becomes the default for new ones.
+ */
+export const SWITCH_MODES = ["manual", "balanced", "auto", "full"] as const;
 export type SwitchMode = (typeof SWITCH_MODES)[number];
 
 export function isSwitchMode(v: unknown): v is SwitchMode {
@@ -151,7 +154,7 @@ export async function applyModeChoice(
     permissionMode: mode,
     ...(modelRef === undefined ? {} : { modelRef }),
   });
-  if (thread.kind !== "main") return "skipped";
+  if (thread.kind !== "main" || mode === "full") return "skipped";
   try {
     await call("settings.set", { key: "permissions.mode", value: mode });
     return "saved";

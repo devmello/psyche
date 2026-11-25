@@ -92,6 +92,17 @@ export const chat = {
   "chat.args.mode.auto": "Acts on its own; needs an Auto-capable model",
   "chat.args.mode.autoNeedsModel": "Needs an Auto-capable model: pick one with /model",
   "chat.args.mode.plan": "Read-only: plans without acting",
+  "chat.commands.full.hint": "on | off",
+  "chat.commands.full.description": "Turn Full access on or off in this chat",
+  "chat.commands.usageFull": "Usage: /full [on | off]",
+  "chat.args.mode.full": "Acts without asking, except sends and payments",
+  "chat.args.full.on": "Act without asking, except sends and payments",
+  "chat.args.full.off": "Back to Balanced",
+  "chat.thread.fullAccessOn":
+    "Full access is on in this chat. Sends to other people and payments still ask.",
+  "chat.thread.fullAccessOff": "Full access is off. This chat is back to Balanced.",
+  "chat.fullAccess.banner": "Full access: Psyche acts without asking, except sends and payments.",
+  "chat.fullAccess.turnOff": "Turn off",
 
   "chat.composer.commands": "Commands",
   "chat.composer.skills": "Skills",

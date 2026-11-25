@@ -201,3 +201,35 @@ export function mcpConnector(tool: string): { id: string; action: string } | und
   const m = /^mcp__(.+?)__(.+)$/.exec(tool);
   return m?.[1] === undefined || m[2] === undefined ? undefined : { id: m[1], action: m[2] };
 }
+
+/**
+ * The `memory` tool's calls on Psyche's own notes that never need a card (owner, 2026-11-25):
+ * - `view`: a read of Psyche's own workspace, no external effect, in every mode;
+ * - `notes`: a create, insert or str_replace under `memory/` (`memory/agent/<topic>.md`, today's
+ *   daily note), the agent's own memory folder.
+ * Only a clean relative path counts (no `..`, `.`, empty segment, backslash or NUL); anything
+ * else, the protected persona files (the tool labels those itself) and delete / rename keep
+ * their usual decision. The memory store resolves the path inside the workspace again.
+ */
+export function memoryNotesCall(call: {
+  tool: string;
+  params?: unknown;
+}): "view" | "notes" | undefined {
+  if (call.tool !== "memory") return undefined;
+  const p = call.params;
+  if (typeof p !== "object" || p === null || Array.isArray(p)) return undefined;
+  const { command, path: raw } = p as { command?: unknown; path?: unknown };
+  if (typeof raw !== "string") return undefined;
+  // A folder view may end in one `/` (`memory/agent/`).
+  const path = raw
+    .replace(/^\/memories(?:\/|$)/, "")
+    .replace(/^\/+/, "")
+    .replace(/(.)\/$/, "$1");
+  if (path.includes("\0") || path.includes("\\")) return undefined;
+  const segments = path === "" ? [] : path.split("/");
+  if (segments.some((s) => s === "" || s === "." || s === "..")) return undefined;
+  if (command === "view") return "view";
+  if (command !== "create" && command !== "insert" && command !== "str_replace") return undefined;
+  const top = (segments[0] ?? "").normalize("NFKC").toLowerCase();
+  return segments.length >= 2 && top === "memory" ? "notes" : undefined;
+}
