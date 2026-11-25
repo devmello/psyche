@@ -15,4 +15,5 @@ export const mailFollowups: Partial<Catalogue> = {
   "mailFollowups.thread.title": "邮件跟进",
   "chat.composer.placeholderMail": "询问这组邮件往来",
   "daily.section.quiet_threads": "沉寂的邮件往来",
+  "daily.section.night_shift": "夜班",
 };

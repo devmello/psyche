@@ -17,4 +17,5 @@ export const mailFollowups: Partial<Catalogue> = {
   "mailFollowups.thread.title": "Sollecito email",
   "chat.composer.placeholderMail": "Chiedi di questa conversazione",
   "daily.section.quiet_threads": "Conversazioni email ferme",
+  "daily.section.night_shift": "Turno di notte",
 };
