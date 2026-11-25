@@ -269,7 +269,8 @@ export function auditRules(s: Snapshot, now: Date): AuditReport {
         fix: "Confirm it in Settings › Vault",
       });
     }
-    if (v.autoLockMinutes === 0) {
+    // `null` is "Never" (the vault stores it so since #1594); 0 is kept for older snapshots.
+    if (v.autoLockMinutes === null || v.autoLockMinutes === 0) {
       add({
         id: "vault.no_autolock",
         severity: "low",

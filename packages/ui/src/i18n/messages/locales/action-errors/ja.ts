@@ -11,5 +11,7 @@ export const actionErrors: Partial<Catalogue> = {
   "actionError.language": "言語を変更できませんでした（{reason}）。",
   "actionError.transcriptMode": "文字起こしの詳細度を変更できませんでした（{reason}）。",
   "actionError.screenAskDestination": "画面への質問の送信先を変更できませんでした（{reason}）。",
+  "actionError.stopVirtualScreen":
+    "仮想画面を停止できませんでした（{reason}）。まだ動いている可能性があります。",
   "actionError.takeOver": "仮想画面を引き継げませんでした（{reason}）。",
 };

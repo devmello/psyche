@@ -401,6 +401,8 @@ export const linux: Partial<Record<MessageId, string>> = {
   "web.security.alert.requested": "Asked for on this computer: {action} Applies on {when}.",
   "web.security.op.presenceReset":
     "stop requiring your password or a passkey for security changes until a new key is registered.",
+  "web.security.needsApprovalPresence":
+    "Approve the card with your password or a passkey, then press the button again.",
   "web.security.needsApproval":
     "Approve the card with your password or a passkey, then press the button again.",
   "notice.security.changed.body":

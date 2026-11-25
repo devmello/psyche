@@ -120,7 +120,7 @@ export const spaces: Partial<Catalogue> = {
   "spaces.settings.mode.balanced": "平衡",
   "spaces.settings.mode.auto": "自动",
   "spaces.settings.mode.inheritHint": "这里的聊天使用你的全局权限模式。",
-  "spaces.settings.mode.planHint": "这里的聊天只读取和规划，不会更改任何内容。",
+  "spaces.settings.mode.planHint": "这里的新聊天以规划模式开始，只读取和规划，不会更改任何内容。",
   "spaces.settings.mode.manualHint": "授权之外的每个操作都会先询问。",
   "spaces.settings.mode.balancedHint": "读取会直接运行；涉及他人和金钱的写入会先询问。",
   "spaces.settings.mode.autoHint":

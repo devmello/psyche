@@ -15,5 +15,7 @@ export const actionErrors: Partial<Catalogue> = {
     "Die Detailstufe des Verlaufs konnte nicht geändert werden ({reason}).",
   "actionError.screenAskDestination":
     "Das Ziel für Bildschirmfragen konnte nicht geändert werden ({reason}).",
+  "actionError.stopVirtualScreen":
+    "Der virtuelle Bildschirm konnte nicht gestoppt werden ({reason}). Er läuft möglicherweise noch.",
   "actionError.takeOver": "Der virtuelle Bildschirm konnte nicht übernommen werden ({reason}).",
 };

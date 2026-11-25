@@ -127,7 +127,8 @@ export const spaces: Partial<Catalogue> = {
   "spaces.settings.mode.balanced": "Equilibrado",
   "spaces.settings.mode.auto": "Automático",
   "spaces.settings.mode.inheritHint": "Os chats aqui usam o seu modo de permissão global.",
-  "spaces.settings.mode.planHint": "Os chats aqui apenas leem e planejam; nada é alterado.",
+  "spaces.settings.mode.planHint":
+    "Os chats novos aqui começam no modo plano: apenas leem e planejam, e nada é alterado.",
   "spaces.settings.mode.manualHint": "Toda ação fora de uma concessão pergunta primeiro.",
   "spaces.settings.mode.balancedHint":
     "Leituras são executadas; escritas para pessoas e dinheiro perguntam primeiro.",

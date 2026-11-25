@@ -124,7 +124,8 @@ export const spaces: Partial<Catalogue> = {
   "spaces.settings.mode.balanced": "균형",
   "spaces.settings.mode.auto": "자동",
   "spaces.settings.mode.inheritHint": "여기의 채팅은 전역 권한 모드를 사용합니다.",
-  "spaces.settings.mode.planHint": "여기의 채팅은 읽고 계획만 하며 아무것도 변경하지 않습니다.",
+  "spaces.settings.mode.planHint":
+    "여기서 새로 시작하는 채팅은 계획 모드로 시작하며, 읽고 계획만 하고 아무것도 변경하지 않습니다.",
   "spaces.settings.mode.manualHint": "허용 범위 밖의 모든 작업은 먼저 묻습니다.",
   "spaces.settings.mode.balancedHint": "읽기는 실행하고, 사람과 돈에 대한 쓰기는 먼저 묻습니다.",
   "spaces.settings.mode.autoHint":

@@ -826,6 +826,16 @@ describe("audit rules", () => {
     ]);
   });
 
+  it("vault.no_autolock fires for Never (null, the value since #1594)", () => {
+    expect(finding(vault({ autoLockMinutes: null }), "vault.no_autolock")).toMatchObject([
+      { severity: "low" },
+    ]);
+  });
+
+  it("vault.no_autolock stays quiet when an idle period is set", () => {
+    expect(finding(vault({ autoLockMinutes: 480 }), "vault.no_autolock")).toEqual([]);
+  });
+
   it("files.home_mode", () => {
     expect(finding(snap({ homeMode: "755" }), "files.home_mode")).toMatchObject([
       { severity: "high" },

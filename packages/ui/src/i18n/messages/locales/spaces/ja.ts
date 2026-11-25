@@ -126,7 +126,8 @@ export const spaces: Partial<Catalogue> = {
   "spaces.settings.mode.balanced": "バランス",
   "spaces.settings.mode.auto": "自動",
   "spaces.settings.mode.inheritHint": "ここのチャットはグローバルの権限モードを使います。",
-  "spaces.settings.mode.planHint": "ここのチャットは読み取りと計画のみで、何も変更しません。",
+  "spaces.settings.mode.planHint":
+    "ここで新しく始まるチャットは計画モードになり、読み取りと計画のみで、何も変更しません。",
   "spaces.settings.mode.manualHint": "許可のない操作はすべて先に確認します。",
   "spaces.settings.mode.balancedHint": "読み取りは実行し、人やお金への書き込みは先に確認します。",
   "spaces.settings.mode.autoHint":
