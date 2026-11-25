@@ -83,7 +83,7 @@ export const ThreadsMethods = {
     scope: "operator.write",
     sideEffecting: true,
     description:
-      "Creates a thread (default kind main). Side-effecting: a retried key returns the same thread.",
+      "Creates a thread (default kind side; kind main returns the one main chat and ignores the other parameters). Side-effecting: a retried key returns the same thread.",
   }),
   "threads.newChat": defineMethod({
     params: Type.Object({

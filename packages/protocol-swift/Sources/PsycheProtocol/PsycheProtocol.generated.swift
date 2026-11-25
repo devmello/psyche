@@ -26918,18 +26918,31 @@ public enum NightShiftNightStatus: String, Codable, Sendable {
 
 // MARK: - NightShiftRunNowResult
 public struct NightShiftRunNowResult: Codable, Sendable {
+    public let outcome: NightShiftRunNowResultOutcome?
     public let reason: String?
     public let started: Bool
 
     public enum CodingKeys: String, CodingKey {
+        case outcome = "outcome"
         case reason = "reason"
         case started = "started"
     }
 
-    public init(reason: String? = nil, started: Bool) {
+    public init(outcome: NightShiftRunNowResultOutcome? = nil, reason: String? = nil, started: Bool) {
+        self.outcome = outcome
         self.reason = reason
         self.started = started
     }
+}
+
+public enum NightShiftRunNowResultOutcome: String, Codable, Sendable {
+    case already = "already"
+    case done = "done"
+    case empty = "empty"
+    case noCandidates = "no_candidates"
+    case off = "off"
+    case skipped = "skipped"
+    case stopped = "stopped"
 }
 
 // MARK: - NightShiftStatusResult

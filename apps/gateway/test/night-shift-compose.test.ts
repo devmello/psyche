@@ -16,7 +16,7 @@ const GOOD = {
   idleMinutes: 60,
 };
 
-function rig(calendarEvents: Record<string, unknown[]> = {}) {
+function rig(calendarEvents: Record<string, unknown[]> = {}, state: typeof GOOD = GOOD) {
   const clock = new FakeClock(START);
   const db = openDb(":memory:", { now: () => new Date(clock.now()).toISOString() });
   setSetting(db, "nightShift.enabled", true);
@@ -74,7 +74,7 @@ function rig(calendarEvents: Record<string, unknown[]> = {}) {
     registry,
     lookup: () => connectorToolLookup(registry) as ToolLookup,
     keepAwake: { acquire: () => () => undefined },
-    readState: async () => GOOD,
+    readState: async () => state,
     timeZone: () => "UTC",
     connectors: async () => [
       // A custom connector registered first, then the real one.
@@ -104,6 +104,49 @@ const overlapping = [
     attendees: [],
   },
 ];
+
+describe("Night shift runNow feedback", () => {
+  const run = (r: ReturnType<typeof rig>) =>
+    r.ns.defs["nightShift.runNow"]?.run({} as Call, {} as never);
+
+  it("says there is nothing to do when no candidates turn up", async () => {
+    const r = rig({});
+    await r.ns.start();
+    expect(await run(r)).toMatchObject({ started: false, outcome: "no_candidates" });
+    expect(r.created).toHaveLength(0);
+  });
+
+  it("says why a gate refused the run, and that it is off", async () => {
+    const low = rig({ apple: overlapping }, { ...GOOD, onAc: false, batteryPct: 5 });
+    await low.ns.start();
+    expect(await run(low)).toMatchObject({ started: false, outcome: "skipped", reason: "battery" });
+    const off = rig({ apple: overlapping });
+    setSetting(off.db, "nightShift.enabled", false);
+    expect(await run(off)).toMatchObject({ started: false, outcome: "off" });
+  });
+
+  it("answers started for a run with work (the control for the refusals above)", async () => {
+    const r = rig({ apple: overlapping });
+    await r.ns.start();
+    const out = await run(r);
+    expect(out).toMatchObject({ started: true });
+    expect(out).not.toMatchObject({ outcome: "no_candidates" });
+    expect(r.created.length).toBeGreaterThan(0);
+  });
+
+  it("status.latest shows the last night even when nothing was staged for review", async () => {
+    const r = rig({ apple: overlapping });
+    await r.ns.start();
+    const out = await r.ns.service.run({ manual: true });
+    const night = out.night;
+    if (night === undefined) throw new Error("no night");
+    r.db.sqlite
+      .prepare("UPDATE night_shift_nights SET review_status = 'none' WHERE id = ?")
+      .run(night.id);
+    const s = await r.ns.defs["nightShift.status"]?.run({} as Call, {} as never);
+    expect(s).toMatchObject({ latest: { id: night.id, reviewStatus: "none" } });
+  });
+});
 
 describe("Night shift in the Gateway", () => {
   it("jobs run in their own thread and never see the main chat (control: main has the message)", async () => {

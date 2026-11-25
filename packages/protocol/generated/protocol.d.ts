@@ -9127,9 +9127,12 @@ export type NightShiftReviewStatus = "none" | "ready" | "partial" | "applied" | 
 export type NightShiftNightStatus = "running" | "done" | "stopped" | "skipped" | "empty";
 
 export interface NightShiftRunNowResult {
-    reason?: string;
-    started: boolean;
+    outcome?: NightShiftRunNowResultOutcome;
+    reason?:  string;
+    started:  boolean;
 }
+
+export type NightShiftRunNowResultOutcome = "off" | "already" | "skipped" | "no_candidates" | "empty" | "done" | "stopped";
 
 export interface NightShiftStatusResult {
     enabled:        boolean;
