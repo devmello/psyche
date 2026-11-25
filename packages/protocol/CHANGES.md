@@ -12,6 +12,10 @@
 
 CI fails when the generated files are stale (`pnpm protocol:check`).
 
+## Night shift (W0: protocol and DB)
+
+- New methods `nightShift.status`, `nightShift.review.get`, `nightShift.apply`, `nightShift.undo`, `nightShift.dismiss`, `nightShift.runNow` (apply, undo, dismiss and runNow are side-effecting; apply and undo need `operator.approvals`). New events `nightShift.updated` and `nightShift.item.updated`. New types `NightShiftNight`, `NightShiftSummary`, `StagedAction` and friends. `ApprovalKind` gains `staged_apply`; `DailySectionId` gains `night_shift`. Tables `night_shift_nights` and `staged_actions`. No Gateway handlers yet: calls return `not_implemented`. Design: `docs/design/night-shift-2026.md`.
+
 ## Quiet email threads (follow-ups on mail)
 
 - New methods `mailFollowups.list` and `mailFollowups.act` (`snooze` | `dismiss`); new types `MailFollowupItem`, `MailFollowupKind`, `MailFollowupAction`. `DailySectionId` gains `quiet_threads`; `DailyBrief.sections` allows 10 sections (was 8). Setting keys: the existing `mail.followups.enabled` and `mail.followups.waitDays`.

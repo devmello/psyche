@@ -37,7 +37,7 @@ export interface AccessEntry {
     type:              AccessEntryType;
 }
 
-export type ApprovalKind = "exec" | "exec_host" | "send_email" | "calendar_write" | "message_send" | "browser_submit" | "credential_fill" | "purchase" | "file_write" | "connector_action" | "computer_action" | "new_origin" | "plan_exit" | "skill_install" | "mcp_tool" | "archive_thread" | "memory_protected_write" | "pairing" | "policy_change" | "task_start" | "apple_script" | "shortcut_run" | "git_write" | "git_push" | "folder_access" | "separate_desktop_share" | "batch" | "permission_request";
+export type ApprovalKind = "exec" | "exec_host" | "send_email" | "calendar_write" | "message_send" | "browser_submit" | "credential_fill" | "purchase" | "file_write" | "connector_action" | "computer_action" | "new_origin" | "plan_exit" | "skill_install" | "mcp_tool" | "archive_thread" | "memory_protected_write" | "pairing" | "policy_change" | "task_start" | "apple_script" | "shortcut_run" | "git_write" | "git_push" | "folder_access" | "separate_desktop_share" | "batch" | "permission_request" | "staged_apply";
 
 export type FolderModeEnum = "ro" | "rw";
 
@@ -4979,7 +4979,7 @@ export interface DailySection {
     unavailable?: boolean;
 }
 
-export type DailySectionID = "calendar" | "mail" | "due" | "followups" | "weather" | "done" | "open" | "tomorrow" | "learned" | "coming_up" | "keep_in_touch" | "quiet_threads" | "catching_up" | "worked_on";
+export type DailySectionID = "calendar" | "mail" | "due" | "followups" | "weather" | "done" | "open" | "tomorrow" | "learned" | "coming_up" | "keep_in_touch" | "quiet_threads" | "catching_up" | "worked_on" | "night_shift";
 
 export interface InboxDigest {
     accounts: string[];
@@ -8981,6 +8981,163 @@ export type PickableModelRole = "primary" | "utility";
 
 export interface ModelsSetRoleResult {
     roles: ModelRoles;
+}
+
+export interface NightShiftApplyParams {
+    items:    NightShiftApplyItem[];
+    reviewId: string;
+    sends:    NightShiftApplySend[];
+}
+
+export interface NightShiftApplyItem {
+    bindingHash: string;
+    itemId:      string;
+}
+
+export interface NightShiftApplySend {
+    itemId:   string;
+    sendHash: string;
+}
+
+export interface NightShiftApplyResult {
+    answerToken?: string;
+    approval?:    ApprovalRequest;
+    refused:      NightShiftRefused[];
+}
+
+export interface NightShiftRefused {
+    itemId: string;
+    reason: string;
+}
+
+export interface NightShiftDismissParams {
+    itemIds?: string[];
+    reviewId: string;
+}
+
+export interface NightShiftDismissResult {
+    dismissed: number;
+}
+
+export interface NightShiftItemUpdatedPayload {
+    item: StagedAction;
+}
+
+export interface StagedAction {
+    appliedAt?:    null | string;
+    approvalId?:   null | string;
+    bindingHash:   string;
+    createdAt:     string;
+    domain:        StagedActionDomain;
+    id:            string;
+    inverse?:      unknown;
+    kind:          string;
+    nightId:       string;
+    params?:       unknown;
+    paramsHash:    string;
+    precondition?: unknown;
+    preview?:      unknown;
+    result?:       StagedActionResult | null;
+    send?:         StagedActionSend | null;
+    seq:           number;
+    sideEffect:    string;
+    status:        StagedActionStatus;
+    summary:       string;
+    taint:         boolean;
+    taintSources:  TaintSource[];
+    target?:       unknown;
+    targetKey:     string;
+    taskId?:       null | string;
+    tool:          string;
+    toolCallId?:   null | string;
+    updatedAt:     string;
+    why?:          null | string;
+}
+
+export type StagedActionDomain = "mail" | "calendar" | "reminders" | "files";
+
+export interface StagedActionResult {
+    error?:     string;
+    receiptId?: string;
+    refs?:      string[];
+}
+
+export interface StagedActionSend {
+    contentHash: string;
+    recipients:  string[];
+}
+
+export type StagedActionStatus = "ready" | "stale" | "superseded" | "applied" | "failed" | "uncertain" | "skipped" | "dismissed" | "expired" | "undone";
+
+export interface NightShiftReviewGetParams {
+    reviewId: string;
+}
+
+export interface NightShiftReviewGetResult {
+    items: StagedAction[];
+    night: NightShiftNight;
+}
+
+export interface NightShiftNight {
+    candidates?:  unknown;
+    createdAt:    string;
+    expiresAt?:   null | string;
+    finishedAt?:  null | string;
+    id:           string;
+    night:        string;
+    reviewStatus: NightShiftReviewStatus;
+    spentUsd:     number;
+    startedAt?:   null | string;
+    status:       NightShiftNightStatus;
+    stopReason?:  null | string;
+    tokens:       number;
+    updatedAt:    string;
+}
+
+export type NightShiftReviewStatus = "none" | "ready" | "partial" | "applied" | "dismissed" | "expired";
+
+export type NightShiftNightStatus = "running" | "done" | "stopped" | "skipped" | "empty";
+
+export interface NightShiftRunNowResult {
+    reason?: string;
+    started: boolean;
+}
+
+export interface NightShiftStatusResult {
+    enabled:        boolean;
+    latest?:        NightShiftSummary | null;
+    nextWindowAt?:  null | string;
+    readyReviewId?: null | string;
+}
+
+export interface NightShiftSummary {
+    counts:       NightShiftSummaryCounts;
+    expiresAt?:   null | string;
+    id:           string;
+    night:        string;
+    reviewStatus: NightShiftReviewStatus;
+    status:       NightShiftNightStatus;
+}
+
+export interface NightShiftSummaryCounts {
+    calendar:  number;
+    files:     number;
+    mail:      number;
+    reminders: number;
+}
+
+export interface NightShiftUndoParams {
+    itemIds: string[];
+}
+
+export interface NightShiftUndoResult {
+    answerToken?: string;
+    approval?:    ApprovalRequest;
+    refused:      NightShiftRefused[];
+}
+
+export interface NightShiftUpdatedPayload {
+    night: NightShiftNight;
 }
 
 export interface NodeEventParams {

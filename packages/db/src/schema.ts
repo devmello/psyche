@@ -9,6 +9,7 @@
  */
 import { blob, integer, primaryKey, real, sqliteTable, text } from "drizzle-orm/sqlite-core";
 import { connectorsSchema } from "./schema-connectors.ts";
+import { nightShiftSchema } from "./schema-night-shift.ts";
 import { notificationsSchema } from "./schema-notifications.ts";
 import { permissionsSchema } from "./schema-permissions.ts";
 import { s04Schema } from "./schema-s04.ts";
@@ -19,6 +20,7 @@ import { securitySchema } from "./schema-security.ts";
 import { spacesSchema } from "./schema-spaces.ts";
 
 export * from "./schema-connectors.ts";
+export * from "./schema-night-shift.ts";
 export * from "./schema-notifications.ts";
 export * from "./schema-s04.ts";
 export * from "./schema-s07.ts";
@@ -536,6 +538,7 @@ export const schema = {
   ...connectorsSchema,
   ...securitySchema,
   ...spacesSchema,
+  ...nightShiftSchema,
 };
 export type Schema = typeof schema;
 
