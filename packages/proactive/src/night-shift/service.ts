@@ -81,6 +81,7 @@ export interface NightShiftDeps {
   stagerFor: (
     nightId: string,
     whyFor: (taskId: string | undefined) => string | undefined,
+    allowTask: (taskId: string | undefined) => boolean,
   ) => StagingSink;
   /** The existing `KeepAwake`: `acquire()` holds idle sleep until the returned release is called. */
   keepAwake?: { acquire(): () => void };
@@ -115,6 +116,8 @@ interface StoredCandidate extends Candidate {
   taskId?: string;
 }
 interface StoredCandidates {
+  /** The row was made by a manual "Try it now" run (not yet the window's own night). */
+  manual?: boolean;
   items: StoredCandidate[];
   failedSources?: string[];
 }
@@ -163,17 +166,29 @@ export class NightShiftService {
   sinkFor(nightId: string): StagingSink {
     let sink = this.#sinks.get(nightId);
     if (sink === undefined) {
-      sink = this.#o.stagerFor(nightId, (taskId) =>
-        taskId === undefined ? undefined : this.#why.get(taskId),
+      sink = this.#o.stagerFor(
+        nightId,
+        (taskId) => (taskId === undefined ? undefined : this.#why.get(taskId)),
+        // Only a task this run created may stage: an orphan the engine re-queued may not.
+        (taskId) => taskId !== undefined && this.#jobTasks.has(taskId),
       );
       this.#sinks.set(nightId, sink);
     }
     return sink;
   }
 
-  /** A usage event of any task: counted when it belongs to one of tonight's jobs. */
-  meter(taskId: string, usage: Pick<Usage, "input" | "output" | "costUsd">): void {
-    if (this.#jobTasks.has(taskId)) this.#budget?.add(taskId, usage);
+  /**
+   * A usage event of any task: counted when it belongs to one of tonight's jobs. The loop's events
+   * carry the run's running total, so only the growth since the run's last event is added; `runId`
+   * keys the total (a task that runs again starts a new total).
+   */
+  meter(taskId: string, usage: Pick<Usage, "input" | "output" | "costUsd">, runId?: string): void {
+    if (this.#jobTasks.has(taskId)) this.#budget?.add(taskId, usage, runId ?? taskId);
+  }
+
+  /** Events carry no candidate list: it holds mail subjects and is only the service's own state. */
+  #emit(night: NightShiftNight): void {
+    this.#o.emit?.({ ...night, candidates: null });
   }
 
   /** Whether a task is one of this service's jobs (the Gateway keeps its usage out of other meters). */
@@ -237,8 +252,11 @@ export class NightShiftService {
             this.#o.store.updateStagedAction(i.id, { status: "expired", clearParams: true });
           }
         }
-        const updated = this.#o.store.updateNight(night.id, { reviewStatus: "expired" });
-        if (updated !== null) this.#o.emit?.(updated);
+        const updated = this.#o.store.updateNight(night.id, {
+          reviewStatus: "expired",
+          candidates: null,
+        });
+        if (updated !== null) this.#emit(updated);
         n += 1;
       }
     }
@@ -250,9 +268,41 @@ export class NightShiftService {
     this.#running = true;
     try {
       this.sweepExpired();
+      await this.#recoverOrphans();
       return await this.#run(opts.manual === true);
     } finally {
       this.#running = false;
+    }
+  }
+
+  /**
+   * After a restart, before any window or gate check: the task of every `running` candidate of a
+   * running night is cancelled (the task engine re-queues it, and it must not run outside the run's
+   * control). A night still inside its window resumes later in `#run`; any other is closed so the
+   * items it already staged reach review.
+   */
+  async #recoverOrphans(): Promise<void> {
+    const o = this.#o;
+    const s = o.settings();
+    const now = o.clock.now();
+    const w = windowAt(now, o.timezone(), s.window);
+    for (const n of o.store.listNights()) {
+      if (n.status !== "running") continue;
+      const stored = readStored(n.candidates);
+      for (const c of stored.items) {
+        if (c.state !== "running") continue;
+        if (c.taskId !== undefined) {
+          await o.cancelTask?.(c.taskId, "night shift restarted").catch(() => undefined);
+        }
+        c.state = "pending";
+      }
+      const resumable = s.enabled && n.night === w.night && now < w.endMs;
+      if (resumable) {
+        o.store.updateNight(n.id, { candidates: stored });
+        continue;
+      }
+      const budget = new NightBudget(s.budgetUsd, { spentUsd: n.spentUsd, tokens: n.tokens });
+      await this.#finish(n, stored, budget, "interrupted");
     }
   }
 
@@ -276,9 +326,12 @@ export class NightShiftService {
     const w = windowAt(o.clock.now(), tz, s.window);
     const nightDate = manual ? localParts(o.clock.now(), tz).date : w.night;
     const existing = o.store.getNightByDate(nightDate);
+    // A row a manual "Try it now" run made is not the real night: the window's own run takes it
+    // over (its budget and finished jobs carry), so a run at 00:30 never blocks the 01:00 night.
+    const manualRow = existing !== null && readStored(existing.candidates).manual === true;
 
     if (!manual) {
-      if (existing !== null && existing.status !== "running")
+      if (existing !== null && existing.status !== "running" && !manualRow)
         return { outcome: "already", night: existing };
       if (o.clock.now() >= w.endMs) {
         // The Mac slept through the whole window: skip the night, no catch-up run.
@@ -338,6 +391,8 @@ export class NightShiftService {
           ...fresh.map((c): StoredCandidate => ({ ...c, state: "pending" })),
         ],
         failedSources: g.failed,
+        // Made by a manual run: the window's own run takes it over. A real night is never manual.
+        manual: existing === null ? manual : manual && manualRow,
       };
       const nowIso = new Date(o.clock.now()).toISOString();
       night =
@@ -415,7 +470,7 @@ export class NightShiftService {
         try {
           const res = await o.runJob({
             threadId,
-            title: `Night shift: ${c.title}`,
+            title: `Night shift: ${KIND_TITLE[c.kind] ?? "item"}`,
             goal: jobGoal(c),
             staging: { kind: "night", nightId: night.id },
             budget: { ...NIGHT_JOB_BUDGET },
@@ -452,7 +507,7 @@ export class NightShiftService {
       stopReason: reason,
       finishedAt: nowIso,
     });
-    this.#o.emit?.(row);
+    this.#emit(row);
     return row;
   }
 
@@ -494,7 +549,7 @@ export class NightShiftService {
         night: done,
         ...(stopReason === undefined ? {} : { reason: stopReason }),
       };
-    o.emit?.(done);
+    this.#emit(done);
     if (s.notify) {
       try {
         await o.notify?.({
@@ -546,7 +601,10 @@ export function summaryLine(counts: Record<StagedAction["domain"], number>): str
 
 function readStored(raw: unknown): StoredCandidates {
   const items = (raw as { items?: unknown } | null)?.items;
-  return { items: Array.isArray(items) ? (items as StoredCandidate[]) : [] };
+  return {
+    items: Array.isArray(items) ? (items as StoredCandidate[]) : [],
+    ...((raw as { manual?: unknown } | null)?.manual === true ? { manual: true } : {}),
+  };
 }
 
 /** One sentence per job, the item's "why" line. It is data, redacted and cut by the stager. */
@@ -573,6 +631,17 @@ const INSTRUCTIONS: Record<string, string> = {
   calendar_overlap:
     "Check the two events. If one is a true duplicate or a clash the owner would want fixed, make one calendar_update_event on one of them. Do not touch events that have other attendees.",
   file: "Decide whether this file belongs in a clearer place or needs a clearer name, using only folders the owner has granted. Make one files_move or files_rename, or none.",
+};
+
+/**
+ * A fixed title per kind: the title is the first line of the task's prompt and is not fenced, so it
+ * never carries a subject, a name or a file name.
+ */
+const KIND_TITLE: Record<string, string> = {
+  quiet_thread: "quiet thread",
+  followup: "follow-up",
+  calendar_overlap: "calendar overlap",
+  file: "file",
 };
 
 const FENCE_TICKS = /`{3,}/g;

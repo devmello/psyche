@@ -5,9 +5,11 @@ import {
   bindingHash,
   connectorToolName,
   paramsHash,
+  STAGING_CONNECTOR_TYPES,
   stagingToolVisible,
 } from "@psyche/agent-core";
 import {
+  createThread,
   getNight,
   getNightByDate,
   getSetting,
@@ -46,8 +48,7 @@ import {
 import type { Clock, MethodParams, MethodResult, Staging, Task, Usage } from "@psyche/protocol";
 import { PsycheError } from "@psyche/protocol";
 import type { KeepAwake } from "@psyche/scheduler";
-import { mountParamsOnly } from "./handlers.ts";
-import type { ComposedPart } from "./services.ts";
+import type { Call, HandlerDef } from "../context.ts";
 
 /**
  * Night shift in the Gateway (docs/design/night-shift-2026.md §2.2, §3.1, §4). It wires the service
@@ -94,15 +95,21 @@ export interface NightShiftSetup {
   readState: () => Promise<GateState>;
   timeZone: () => string;
   /** The live connectors: id and type (`apple`, `google`, `microsoft`, `mail`, ...). */
-  connectors: () => Promise<readonly { id: string; type: string; status?: string }[]>;
+  connectors: () => Promise<
+    readonly {
+      id: string;
+      type: string;
+      status?: string;
+      label?: string;
+      config?: Record<string, unknown>;
+    }[]
+  >;
   /** Granted folders with their mode, judged at use time. */
   folders: () => readonly { path: string; mode: "ro" | "rw" }[];
   mailCandidates: () => Promise<Parameters<typeof quietThreadCandidates>[0]>;
   followups: FollowupStore;
   /** The promise ledger's provider replaces `daily.followups` here once it exists. */
   promiseCandidates?: () => readonly FollowupInput[];
-  /** The thread the night's tasks live in (the main thread). */
-  mainThread: () => Promise<string>;
   redact?: (text: string) => string;
   publish?: (event: string, payload: unknown) => void;
   logger?: { log(level: "warn", msg: string, fields?: Record<string, unknown>): void };
@@ -120,6 +127,23 @@ export function readOnlyLookup(inner: ToolLookup | undefined): ToolLookup {
       return reg.spec.sideEffect === "read" || reg.spec.sideEffect === "none" ? reg : undefined;
     },
   };
+}
+
+/** The night's own work thread (an automation-kind thread keyed by the night), created once. */
+function nightThread(db: PsycheDb, nightId: string): string {
+  const key = `night-shift:${nightId}`;
+  const found = db.sqlite
+    .prepare("SELECT id FROM threads WHERE session_key = ? LIMIT 1")
+    .get(key) as { id: string } | undefined;
+  return (
+    found?.id ??
+    createThread(db, {
+      kind: "automation",
+      sessionKey: key,
+      title: "Night shift",
+      titleSource: "user",
+    }).id
+  );
 }
 
 export function nightStoreFor(db: PsycheDb): NightStore {
@@ -176,17 +200,42 @@ export function composeNightShift(setup: NightShiftSetup) {
   const store = nightStoreFor(db);
   /** Connector id to type, refreshed at the start of every night (the registry is async). */
   let connectorTypes: ReadonlyMap<string, string> = new Map();
+  /** The owner's own mail addresses, read from the connectors' accounts: never a reply-all recipient. */
+  let ownerAddrs: string[] = [];
   const refreshConnectors = async () => {
     const next = new Map<string, string>();
+    const own = new Set<string>();
     for (const r of await setup.connectors()) {
       if (r.status === "disconnected") continue;
       next.set(r.id, r.type);
       next.set(r.id.replace(/[^a-z0-9-]/g, "-"), r.type);
+      for (const v of [r.label, ...Object.values(r.config ?? {})]) {
+        if (typeof v === "string" && /^[^\s@<>]+@[^\s@<>]+$/.test(v.trim())) {
+          own.add(v.trim().toLowerCase());
+        }
+      }
     }
     connectorTypes = next;
+    ownerAddrs = [...own];
   };
 
-  const reads = () => readOnlyLookup(setup.lookup());
+  /**
+   * Reads for one connector: exactly `mcp__<id>__<tool>`, and only when that connector is live and
+   * of a stageable type (apple, google, microsoft, mail). A custom connector or an MCP server that
+   * offers the same bare tool name is never consulted, whatever its registration order.
+   */
+  const readsFor = (connectorId: string | undefined): ToolLookup => {
+    const type = connectorId === undefined ? undefined : connectorTypes.get(connectorId);
+    if (connectorId === undefined || type === undefined || !STAGING_CONNECTOR_TYPES.has(type)) {
+      return { get: () => undefined };
+    }
+    const all = setup.lookup();
+    return readOnlyLookup({ get: (bare) => all?.get(`mcp__${connectorId}__${bare}`) });
+  };
+  const stageableIds = (): string[] =>
+    [...connectorTypes]
+      .filter(([id, t]) => STAGING_CONNECTOR_TYPES.has(t) && id === id.replace(/[^a-z0-9-]/g, "-"))
+      .map(([id]) => id);
   const sources = (): CandidateSource[] => [
     {
       name: "mail",
@@ -200,28 +249,37 @@ export function composeNightShift(setup: NightShiftSetup) {
       max: 4,
       async list(now) {
         const day = 86_400_000;
-        const r = await readTool(reads(), "calendar_list_events", {
-          from: new Date(now).toISOString(),
-          to: new Date(now + 3 * day).toISOString(),
-        });
-        const raw = Array.isArray(r) ? r : ((r as { events?: unknown[] } | null)?.events ?? []);
         const events: CalendarEventInput[] = [];
-        for (const e of raw as Record<string, unknown>[]) {
-          if (
-            typeof e.id !== "string" ||
-            typeof e.start !== "string" ||
-            typeof e.end !== "string"
-          ) {
+        // Only live connectors of a stageable type, each by its own id.
+        for (const id of stageableIds()) {
+          let r: unknown;
+          try {
+            r = await readTool(readsFor(id), "calendar_list_events", {
+              from: new Date(now).toISOString(),
+              to: new Date(now + 3 * day).toISOString(),
+            });
+          } catch {
             continue;
           }
-          const attendees = Array.isArray(e.attendees) ? e.attendees : [];
-          events.push({
-            id: e.id,
-            title: typeof e.title === "string" ? e.title : String(e.summary ?? ""),
-            start: e.start,
-            end: e.end,
-            attendees: attendees.map(String),
-          });
+          const raw = Array.isArray(r) ? r : ((r as { events?: unknown[] } | null)?.events ?? []);
+          for (const e of raw as Record<string, unknown>[]) {
+            if (
+              typeof e.id !== "string" ||
+              typeof e.start !== "string" ||
+              typeof e.end !== "string"
+            ) {
+              continue;
+            }
+            const attendees = Array.isArray(e.attendees) ? e.attendees : [];
+            events.push({
+              id: `${id}:${e.id}`,
+              title: typeof e.title === "string" ? e.title : String(e.summary ?? ""),
+              start: e.start,
+              end: e.end,
+              attendees: attendees.map(String),
+              ...(e.subscribed === true || e.readOnly === true ? { subscribed: true } : {}),
+            });
+          }
         }
         return calendarOverlapCandidates(events, now);
       },
@@ -232,6 +290,7 @@ export function composeNightShift(setup: NightShiftSetup) {
           setup.followups.list().map((f) => ({
             id: f.id,
             text: f.text,
+            source: f.source,
             ...(f.dueAt === undefined ? {} : { dueAt: f.dueAt }),
           }))),
     ),
@@ -262,18 +321,25 @@ export function composeNightShift(setup: NightShiftSetup) {
     keepAwake: setup.keepAwake,
     scheduler: setup.scheduler,
     ...(setup.pollMs === undefined ? {} : { pollMs: setup.pollMs }),
-    threadId: async () => {
+    // One isolated thread per night, never the owner's chat: the jobs never see the main
+    // transcript and their mail-tainted transcripts never land in it.
+    threadId: async (nightId) => {
       await refreshConnectors();
-      return setup.mainThread();
+      return nightThread(db, nightId);
     },
-    stagerFor: (nightId, whyFor) =>
+    stagerFor: (nightId, whyFor, allowTask) =>
       createStager({
         nightId,
         store,
-        adapters: () =>
+        allowTask,
+        adapters: (connectorId) =>
           createAdapters(
-            // Read-only connector tools only: never a connector object with write methods.
-            createReadRegistry({ reads: reads(), now: () => clock.now() }),
+            // Read-only tools of the staged call's own connector: never a write method.
+            createReadRegistry({
+              reads: readsFor(connectorId),
+              now: () => clock.now(),
+              ownerAddresses: () => ownerAddrs,
+            }),
             {
               grants: () => setup.folders().map((f) => ({ root: f.path, mode: f.mode })),
             },
@@ -374,68 +440,81 @@ export function composeNightShift(setup: NightShiftSetup) {
     };
   };
 
-  type Handlers = {
-    "nightShift.status"(
-      p: MethodParams<"nightShift.status">,
-    ): Promise<MethodResult<"nightShift.status">>;
-    "nightShift.review.get"(
-      p: MethodParams<"nightShift.review.get">,
-    ): Promise<MethodResult<"nightShift.review.get">>;
-    "nightShift.runNow"(
-      p: MethodParams<"nightShift.runNow">,
-    ): Promise<MethodResult<"nightShift.runNow">>;
+  const counts = (id: string) => {
+    const c = { mail: 0, calendar: 0, reminders: 0, files: 0 };
+    for (const i of store.listStagedActions(id)) if (i.status === "ready") c[i.domain] += 1;
+    return c;
   };
 
-  const handlers: Handlers = {
-    async "nightShift.status"() {
-      const s = settings();
-      const ready = [...store.listNights("ready"), ...store.listNights("partial")].sort((a, b) =>
-        b.night.localeCompare(a.night),
-      )[0];
-      const latest = store
-        .listNights()
-        .filter((n) => n.reviewStatus !== "none")
-        .at(-1);
-      const counts = (id: string) => {
-        const c = { mail: 0, calendar: 0, reminders: 0, files: 0 };
-        for (const i of store.listStagedActions(id)) if (i.status === "ready") c[i.domain] += 1;
-        return c;
-      };
-      return {
-        enabled: s.enabled,
-        nextWindowAt: s.enabled
-          ? nextWindowAt(clock.now(), setup.timeZone(), s.window.start)
-          : null,
-        latest:
-          latest === undefined
-            ? null
-            : {
-                id: latest.id,
-                night: latest.night,
-                status: latest.status,
-                reviewStatus: latest.reviewStatus,
-                counts: counts(latest.id),
-                expiresAt: latest.expiresAt,
-              },
-        readyReviewId: ready?.id ?? null,
-      };
-    },
-    async "nightShift.review.get"(p) {
-      const night = store.getNight(p.reviewId);
-      if (night === null || night.reviewStatus === "none") {
-        throw new PsycheError("not_found", "that review is gone");
-      }
-      return { night, items: store.listStagedActions(night.id).slice(0, 200) };
-    },
-    async "nightShift.runNow"() {
-      if (!settings().enabled) return { started: false, reason: "Night shift is off" };
-      void service.run({ manual: true }).catch((err) =>
-        setup.logger?.log("warn", "night shift run failed", {
-          code: PsycheError.from(err).code,
-        }),
+  const status = async (): Promise<MethodResult<"nightShift.status">> => {
+    const s = settings();
+    const ready = [...store.listNights("ready"), ...store.listNights("partial")].sort((a, b) =>
+      b.night.localeCompare(a.night),
+    )[0];
+    const latest = store
+      .listNights()
+      .filter((n) => n.reviewStatus !== "none")
+      .at(-1);
+    return {
+      enabled: s.enabled,
+      nextWindowAt: s.enabled ? nextWindowAt(clock.now(), setup.timeZone(), s.window.start) : null,
+      latest:
+        latest === undefined
+          ? null
+          : {
+              id: latest.id,
+              night: latest.night,
+              status: latest.status,
+              reviewStatus: latest.reviewStatus,
+              counts: counts(latest.id),
+              expiresAt: latest.expiresAt,
+            },
+      readyReviewId: ready?.id ?? null,
+    };
+  };
+
+  /**
+   * The review for one caller. The candidate list (mail subjects) never goes out. A why line whose
+   * item came from an owner-only source (Messages) is cleared for every caller but the desktop
+   * shell on this Mac (design §5.2, §6.2, §11): a paired phone or the web does not get it.
+   */
+  const reviewGet = async (
+    call: Call,
+    p: MethodParams<"nightShift.review.get">,
+  ): Promise<MethodResult<"nightShift.review.get">> => {
+    const night = store.getNight(p.reviewId);
+    if (night === null || night.reviewStatus === "none") {
+      throw new PsycheError("not_found", "that review is gone");
+    }
+    const desktop = call.identity.desktopShell === true && call.conn.peer.remoteLoopback === true;
+    const items = store
+      .listStagedActions(night.id)
+      .slice(0, 200)
+      .map((i) =>
+        !desktop && i.taintSources.some((t) => t.sourceKind === "message")
+          ? { ...i, why: null }
+          : i,
       );
-      return { started: true };
+    return { night: { ...night, candidates: null }, items };
+  };
+
+  const runNow = async (): Promise<MethodResult<"nightShift.runNow">> => {
+    if (!settings().enabled) return { started: false, reason: "Night shift is off" };
+    void service.run({ manual: true }).catch((err) =>
+      setup.logger?.log("warn", "night shift run failed", {
+        code: PsycheError.from(err).code,
+      }),
+    );
+    return { started: true };
+  };
+
+  /** The Gateway's handler table for the read side of `nightShift.*`. */
+  const defs: Record<string, HandlerDef> = {
+    "nightShift.status": { run: () => status() },
+    "nightShift.review.get": {
+      run: (call: Call, params: never) => reviewGet(call, params as never),
     },
+    "nightShift.runNow": { run: () => runNow() },
   };
 
   return {
@@ -445,12 +524,10 @@ export function composeNightShift(setup: NightShiftSetup) {
     sinkFor: (staging: Staging) =>
       staging.kind === "night" ? service.sinkFor(staging.nightId) : undefined,
     toolsFor,
-    meter: (taskId: string, usage: Usage) => service.meter(taskId, usage),
+    meter: (taskId: string, usage: Usage, runId?: string) => service.meter(taskId, usage, runId),
     briefLine: () => service.briefLine(),
-    handlers,
-    part(): ComposedPart {
-      return { handlers: mountParamsOnly(handlers as never) };
-    },
+    defs,
+    reviewGet,
     async start() {
       await refreshConnectors().catch(() => undefined);
       await service.ensureAutomation().catch((err) =>

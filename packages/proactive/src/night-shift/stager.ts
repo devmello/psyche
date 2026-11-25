@@ -1,7 +1,8 @@
 import { bindingHash, paramsHash, STAGEABLE_TOOLS } from "@psyche/agent-core";
 import type { StagedCall as LoopStagedCall, StagedAction, StagingSink } from "@psyche/protocol";
-import { bareTool, plain, stable } from "./adapters/common.ts";
+import { bareTool, plain, splitTool, stable } from "./adapters/common.ts";
 import { adapterFor } from "./adapters/index.ts";
+import { draftContentHash, strictAddress } from "./adapters/mail.ts";
 import type { Adapter, CaptureOk, CaptureResult, Json, StagedCall } from "./adapters/types.ts";
 import type { NightDomain } from "./settings.ts";
 import type { NightStore } from "./store.ts";
@@ -25,8 +26,14 @@ import type { NightStore } from "./store.ts";
 export interface StagerDeps {
   nightId: string;
   store: Pick<NightStore, "insertStagedAction" | "listStagedActions" | "updateStagedAction">;
-  /** Every adapter, keyed by bare tool name. Read at each call so a rebuilt registry applies. */
-  adapters: () => Map<string, Adapter>;
+  /**
+   * Every adapter, keyed by bare tool name, built for the staged call's own connector id (the
+   * `<id>` of `mcp__<id>__<tool>`): its reads must go to that connector, never to another one that
+   * happens to offer the same tool name. Read at each call so a rebuilt registry applies.
+   */
+  adapters: (connectorId: string | undefined) => Map<string, Adapter>;
+  /** Only a task this night's run created may stage (an orphan the engine re-queued may not). */
+  allowTask?: (taskId: string | undefined) => boolean;
   /** Live connector id to type (`apple`, `google`, ...): see `adapterFor`. */
   connectors: () => ReadonlyMap<string, string>;
   /** The domains the owner turned on. */
@@ -91,13 +98,25 @@ function sendFor(tool: string, call: StagedCall, cap: CaptureOk): StagedAction["
     ? (pre.recipients as unknown[]).filter((r): r is string => typeof r === "string")
     : [];
   if (recipients.length === 0) return undefined;
-  const hashed = paramsHash({
-    recipients,
-    subject: call.args.subject ?? null,
-    body: call.args.body ?? null,
-    thread: cap.target,
+  // W3's one recipe (`draftContentHash`): to, cc and bcc apart, subject, body, in-reply-to and
+  // attachments. A reply's `to` is the resolved recipient set minus the explicit cc and bcc.
+  const norm = (v: unknown): string[] =>
+    Array.isArray(v)
+      ? v.map((x) => strictAddress(x)).filter((x): x is string => x !== undefined)
+      : [];
+  const cc = norm(call.args.cc);
+  const bcc = norm(call.args.bcc);
+  const apart = new Set([...cc, ...bcc]);
+  const contentHash = draftContentHash({
+    to: recipients.filter((r) => !apart.has(r)),
+    cc,
+    bcc,
+    subject: typeof call.args.subject === "string" ? call.args.subject : "",
+    body: typeof call.args.body === "string" ? call.args.body : "",
+    inReplyTo: typeof call.args.inReplyTo === "string" ? call.args.inReplyTo : cap.target,
+    attachments: [],
   });
-  return { recipients, contentHash: hashed.replace(/^sha256:/, "") };
+  return { recipients, contentHash };
 }
 
 export function createStager(deps: StagerDeps): StagingSink {
@@ -114,7 +133,14 @@ export function createStager(deps: StagerDeps): StagingSink {
     if (call.staging.kind !== "night" || call.staging.nightId !== deps.nightId) {
       return refuse(call.tool, "wrong_night");
     }
-    const adapter = adapterFor(deps.adapters(), call.tool, deps.connectors());
+    if (deps.allowTask !== undefined && !deps.allowTask(call.taskId)) {
+      return refuse(call.tool, "task_not_in_run");
+    }
+    const adapter = adapterFor(
+      deps.adapters(splitTool(call.tool).connector),
+      call.tool,
+      deps.connectors(),
+    );
     if (adapter === undefined) return refuse(call.tool, "no_adapter");
     const entry = STAGEABLE_TOOLS.get(bareTool(call));
     if (entry === undefined) return refuse(call.tool, "not_stageable");

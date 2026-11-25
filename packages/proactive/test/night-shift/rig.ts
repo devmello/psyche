@@ -76,11 +76,15 @@ export const mailCandidate = (key: string): CandidateSource => ({
 });
 
 /** The loop's staged call for a Gmail draft, as the gate would hand it to the sink. */
-export function draftCall(nightId: string, params: Record<string, unknown>): LoopStagedCall {
+export function draftCall(
+  nightId: string,
+  params: Record<string, unknown>,
+  taskId = "task_1",
+): LoopStagedCall {
   return {
     staging: { kind: "night", nightId },
     runId: "run_1",
-    taskId: "task_1",
+    taskId,
     toolCallId: "tc_1",
     tool: "mcp__google__gmail_create_draft",
     connector: { id: "google", action: "gmail.draft" },
@@ -148,7 +152,7 @@ export function rig(o: RigOptions = {}) {
     },
     cancelTask: async (id) => void w.cancelled.push(id),
     threadId: async () => "thread_main",
-    stagerFor: (nightId, whyFor) =>
+    stagerFor: (nightId, whyFor, allowTask) =>
       createStager({
         nightId,
         store,
@@ -157,6 +161,7 @@ export function rig(o: RigOptions = {}) {
         connectors: () => new Map([["google", "google"]]),
         domains: () => new Set(["mail", "calendar", "reminders", "files"]),
         whyFor,
+        allowTask,
       }),
     keepAwake: {
       acquire: () => {

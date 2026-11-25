@@ -6,6 +6,7 @@ import {
   createAdapters,
   createReadRegistry,
   createStager,
+  draftContentHash,
   type ReadRegistry,
 } from "../../src/index.ts";
 import { FakeRegistry, thread } from "./adapters-registry.ts";
@@ -144,6 +145,34 @@ describe("the stager refuses what has no adapter", () => {
   });
 });
 
+describe("the send hash is W3's one recipe", () => {
+  it("equals draftContentHash over to, cc and bcc apart, subject, body, in-reply-to", async () => {
+    const s = setup();
+    await s.sink.stage(draftCall(s.night.id, { ...goodDraft, cc: ["bob@x.com"] }));
+    const item = s.store.listStagedActions(s.night.id)[0];
+    const expected = draftContentHash({
+      to: ["ann@x.com"],
+      cc: ["bob@x.com"],
+      bcc: [],
+      subject: "Re: plan",
+      body: "Sounds good",
+      inReplyTo: "t-1",
+      attachments: [],
+    });
+    expect(item?.send?.contentHash).toBe(expected);
+  });
+
+  it("changes when a recipient moves from cc to to", async () => {
+    const a = setup();
+    await a.sink.stage(draftCall(a.night.id, { ...goodDraft, cc: ["bob@x.com"] }));
+    const b = setup();
+    await b.sink.stage(draftCall(b.night.id, { ...goodDraft, to: ["ann@x.com", "bob@x.com"] }));
+    expect(a.store.listStagedActions(a.night.id)[0]?.send?.contentHash).not.toBe(
+      b.store.listStagedActions(b.night.id)[0]?.send?.contentHash,
+    );
+  });
+});
+
 describe("the read registry is read-only", () => {
   const tool = (name: string, sideEffect: string, out: unknown, seen: string[]) =>
     [
@@ -159,10 +188,32 @@ describe("the read registry is read-only", () => {
 
   it("never reaches a tool that is not a pure read", async () => {
     const seen: string[] = [];
-    const tools = new Map([tool("mail_search", "write", [], seen)]);
+    const tools = new Map([tool("gmail_search_threads", "write", [], seen)]);
     const reg = createReadRegistry({ reads: { get: (n) => tools.get(n) as never } });
     await expect(reg.mailSentTo(["ann@x.com"])).rejects.toThrow(/not a read tool/);
     expect(seen).toEqual([]);
+  });
+
+  it("on Apple every recipient is new: mail_search is never used for sent history", async () => {
+    const seen: string[] = [];
+    const tools = new Map([tool("mail_search", "read", [{ id: "1" }], seen)]);
+    const reg = createReadRegistry({ reads: { get: (n) => tools.get(n) as never } });
+    expect(await reg.mailSentTo(["ann@x.com"])).toEqual([]);
+    expect(seen).toEqual([]);
+  });
+
+  it("reply-all leaves the owner's own addresses out", async () => {
+    const seen: string[] = [];
+    const msg = { id: "m1", from: "Ann <ann@x.com>", to: "me@x.com, bob@x.com", replyTo: [] };
+    const tools = new Map([tool("mail_read", "read", msg, seen)]);
+    const reg = createReadRegistry({
+      reads: { get: (n) => tools.get(n) as never },
+      ownerAddresses: () => ["ME@x.com"],
+    });
+    expect(await reg.mailReplyRecipients({ messageId: "m1", replyAll: true })).toEqual([
+      "ann@x.com",
+      "bob@x.com",
+    ]);
   });
 
   it("refuses a reply whose Reply-To the connector does not report (fail closed), accepts one that does", async () => {

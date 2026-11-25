@@ -1972,7 +1972,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       start: (turn) => taskTrace.start(turn),
       event: (turn, ev) => {
         // Night shift meters its own jobs' spend from their usage events.
-        if (ev.type === "usage") nightShiftRef?.meter(turn.taskId, ev.usage);
+        if (ev.type === "usage") nightShiftRef?.meter(turn.taskId, ev.usage, turn.runId);
         taskTrace.event(turn, ev);
       },
       end: (turn, outcome, error) => taskTrace.end(turn, outcome, error),
@@ -2135,8 +2135,6 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     folders: () => rawBroker.grantedFolders(),
     mailCandidates: () => mailFollowups.nightCandidates(),
     followups: proactive.followups,
-    mainThread: () =>
-      createDbSessionResolver(db).resolve("main", { automation: {} as never, runId: "" }),
     redact: (text) => redactor.redact(text),
     publish: (event, payload) => publish(event as never, payload as never),
     ...(gwOptions.logger === undefined ? {} : { logger: gwOptions.logger }),
@@ -2604,9 +2602,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     ),
     ...mountParamsOnly(createNotificationHandlers(notifier) as never),
     ...proactive.handlers,
-    ...(nightShiftRef?.handlers === undefined
-      ? {}
-      : mountParamsOnly(nightShiftRef.handlers as never)),
+    ...(nightShiftRef?.defs ?? {}),
     ...capabilities.handlers,
     ...questionHandlers(loop, tasks),
     ...receiptHandlers(broker),

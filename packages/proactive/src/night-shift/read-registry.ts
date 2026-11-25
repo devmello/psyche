@@ -45,6 +45,8 @@ export interface ReadRegistryDeps {
   /** How far ahead and back a calendar lookup searches. Default 30 days either way. */
   calendarWindowDays?: number;
   now?: () => number;
+  /** The owner's own addresses: never a reply-all recipient. */
+  ownerAddresses?: () => readonly string[];
 }
 
 export function createReadRegistry(deps: ReadRegistryDeps): ReadRegistry {
@@ -144,25 +146,23 @@ export function createReadRegistry(deps: ReadRegistryDeps): ReadRegistry {
       const first = m.replyTo.length > 0 ? m.replyTo : m.from;
       if (first.length === 0) throw new Error("read registry: no sender");
       const all = ref.replyAll ? [...first, ...m.to, ...m.cc] : first;
-      return [...new Set(all)];
+      const own = new Set((deps.ownerAddresses?.() ?? []).map((a) => a.toLowerCase()));
+      // Reply-all never goes to the owner themselves (a plain reply keeps its explicit target).
+      const kept = ref.replyAll ? all.filter((a) => !own.has(a)) : all;
+      return [...new Set(kept)];
     },
 
-    /** Which of these the owner has ever written to: their sent mail, one lookup per address. */
+    /**
+     * Which of these the owner has ever written to. Only Gmail has a real recipient search
+     * (`in:sent to:<address>`). Apple Mail's search is a substring match over subject and sender, so
+     * on Apple every recipient is treated as new (always badged) until a real search exists.
+     */
     async mailSentTo(addrs): Promise<string[]> {
+      if (!has("gmail_search_threads")) return [];
       const out: string[] = [];
       for (const a of addrs.slice(0, 20)) {
-        let found: boolean;
-        if (has("gmail_search_threads")) {
-          const r = rec(await read("gmail_search_threads", { query: `in:sent to:${a}`, limit: 1 }));
-          found = list(r.threads ?? r.items ?? (Array.isArray(r) ? r : [])).length > 0;
-        } else if (has("mail_search")) {
-          const r = await read("mail_search", { mailbox: "Sent", query: a, limit: 1 });
-          const items = Array.isArray(r) ? r : list(rec(r).messages ?? rec(r).items);
-          found = items.length > 0;
-        } else {
-          throw new Error("read registry: sent mail is not searchable");
-        }
-        if (found) out.push(a);
+        const r = rec(await read("gmail_search_threads", { query: `in:sent to:${a}`, limit: 1 }));
+        if (list(r.threads ?? r.items ?? (Array.isArray(r) ? r : [])).length > 0) out.push(a);
       }
       return out;
     },

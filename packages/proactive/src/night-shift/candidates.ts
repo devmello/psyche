@@ -98,6 +98,8 @@ export function quietThreadCandidates(
 export interface FollowupInput {
   id: string;
   text: string;
+  /** Where the commitment came from (`DailyFollowup.source`): decides what the job reads as untrusted. */
+  source?: string;
   /** ISO time, when the commitment is due. */
   dueAt?: string;
 }
@@ -119,8 +121,20 @@ export function followupCandidates(
     key: f.id,
     title: clean(f.text, 120),
     facts: { commitment: clean(f.text, 300), ...(f.dueAt === undefined ? {} : { dueAt: f.dueAt }) },
-    taintSources: [],
+    taintSources: followupTaint(f.source),
   }));
+}
+
+/**
+ * Follow-ups that carry third-party text are tainted: `awaiting_reply` and `sent_mail` quote mail,
+ * `message` is a Messages thread (owner-only: its why line never leaves the desktop shell).
+ */
+export function followupTaint(source: string | undefined): Candidate["taintSources"] {
+  if (source === "message") return [{ sourceKind: "message", origin: "messages" }];
+  if (source === "awaiting_reply" || source === "sent_mail") {
+    return [{ sourceKind: "email", origin: source }];
+  }
+  return [];
 }
 
 /** The follow-up source. Pass `promiseCandidates` from the promise ledger when it exists. */
@@ -143,6 +157,8 @@ export interface CalendarEventInput {
   end: string;
   /** Attendees other than the owner. */
   attendees: readonly string[];
+  /** A subscribed or read-only calendar: its titles are someone else's words. */
+  subscribed?: boolean;
 }
 
 /** Solo events in the next three days that overlap each other or repeat one (same title and start). */
@@ -190,8 +206,11 @@ export function calendarOverlapCandidates(
           endB: b.e.end,
           ...(a.e.calendarId === undefined ? {} : { calendarId: a.e.calendarId }),
         },
-        // Event titles are typed by the owner or came from an invitation they accepted alone.
-        taintSources: [],
+        // Titles from a subscribed calendar are someone else's words.
+        taintSources:
+          a.e.subscribed === true || b.e.subscribed === true
+            ? [{ sourceKind: "calendar", origin: "subscribed" }]
+            : [],
       });
       if (out.length >= max) return out;
     }

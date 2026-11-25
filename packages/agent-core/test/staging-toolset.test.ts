@@ -86,6 +86,7 @@ const TABLE: [string, SideEffect, boolean][] = [
   ["mcp__apple__notes_create", "write", false],
   // A stageable name that is not a write is not offered as one.
   ["mcp__apple__reminders_create", "read", false],
+  ["find_capability", "none", false],
 ];
 
 describe("stagingToolVisible: the per-job toolset", () => {

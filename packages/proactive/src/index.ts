@@ -313,6 +313,7 @@ export {
   adapterFor,
   type ConnectorTypes,
   createAdapters,
+  draftContentHash,
   type FileGrant,
   type FilesDeps,
   type ReadRegistry,

@@ -27,6 +27,8 @@ export class NightBudget {
   #worstJob: number;
   /** Per task: what it has used so far, so a job's own cost is known when it ends. */
   readonly #byTask = new Map<string, { usd: number; tokens: number }>();
+  /** The last running total seen per run: loop usage events are cumulative, not per step. */
+  readonly #lastTotal = new Map<string, { tokens: number; usd: number }>();
 
   constructor(
     capUsd: number,
@@ -44,10 +46,17 @@ export class NightBudget {
     return { spentUsd: round(this.#spent), tokens: this.#tokens };
   }
 
-  /** A usage event of a job's run. */
-  add(taskId: string, usage: Pick<Usage, "input" | "output" | "costUsd">): void {
-    const tokens = usage.input + usage.output;
-    const usd = Number.isFinite(usage.costUsd) ? usage.costUsd : 0;
+  /**
+   * A usage event of a job's run. The event carries the run's running total, so only the growth
+   * since the run's last event is counted; a total that went down is a new count (a fresh run).
+   */
+  add(taskId: string, usage: Pick<Usage, "input" | "output" | "costUsd">, runKey = taskId): void {
+    const totalTokens = usage.input + usage.output;
+    const totalUsd = Number.isFinite(usage.costUsd) ? usage.costUsd : 0;
+    const last = this.#lastTotal.get(runKey) ?? { tokens: 0, usd: 0 };
+    const tokens = totalTokens >= last.tokens ? totalTokens - last.tokens : totalTokens;
+    const usd = totalUsd >= last.usd ? totalUsd - last.usd : totalUsd;
+    this.#lastTotal.set(runKey, { tokens: totalTokens, usd: totalUsd });
     this.#spent += usd;
     this.#tokens += tokens;
     const t = this.#byTask.get(taskId) ?? { usd: 0, tokens: 0 };

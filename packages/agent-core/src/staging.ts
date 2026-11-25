@@ -424,6 +424,8 @@ export interface StagingToolInput {
  */
 export function stagingToolVisible(input: StagingToolInput): boolean {
   if (DELEGATION_TOOLS.has(input.tool)) return false;
+  // `find_capability` queries the online registry with model-chosen text: not overnight.
+  if (input.tool === "find_capability") return false;
   const named = connectorToolName(input.tool);
   if (named === undefined) {
     if (STAGING_NONE_ALLOWED.has(input.tool)) return true;
