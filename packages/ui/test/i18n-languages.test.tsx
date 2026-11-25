@@ -80,6 +80,10 @@ describe("the onboarding language select (A12, #621)", () => {
     );
     const select = (await screen.findByLabelText("Language")) as HTMLSelectElement;
     expect(select.value).toBe("system");
+    // A quiet footer row on step 1: after the form, with no second "change it later" hint.
+    const you = screen.getByTestId("onboarding-you");
+    expect(you.lastElementChild?.contains(select)).toBe(true);
+    expect(screen.queryByText(/change it later in Settings/i)).toBeNull();
     expect(screen.getByRole("option", { name: "Match system (English)" })).toBeTruthy();
     expect(screen.getByRole("option", { name: "Deutsch" })).toBeTruthy();
 

@@ -135,7 +135,7 @@ describe("search surface (redesign §5.5)", () => {
     await userEvent.keyboard(isMac() ? "{Meta>}{Enter}{/Meta}" : "{Control>}{Enter}{/Control}");
     expect(onOpenInSideChat).toHaveBeenCalledTimes(1);
     expect(onOpen).not.toHaveBeenCalled();
-    expect(screen.getByTestId("search-hints").textContent).toMatch(/open in a side chat/);
+    expect(screen.queryByTestId("search-hints")).toBeNull();
   });
 
   it("opens in a side chat with ⌘L (Ctrl+L off the Mac), and leaves the key alone without one", async () => {
@@ -151,7 +151,9 @@ describe("search surface (redesign §5.5)", () => {
     expect(onOpenInSideChat).toHaveBeenCalledTimes(1);
     expect(onOpenInSideChat.mock.calls[0]?.[0]).toBe(hits[0]);
     expect(onOpen).not.toHaveBeenCalled();
-    expect(screen.getByTestId("search-hints").textContent).toContain(isMac() ? "⌘L" : "Ctrl L");
+    // The key shows at the right of the highlighted row, not in a footer.
+    expect(screen.queryByTestId("search-hints")).toBeNull();
+    expect(screen.getAllByRole("option")[0]?.textContent).toContain(isMac() ? "⌘L" : "Ctrl L");
     unmount();
 
     // Without a side chat to open, ⌘L is not ours: the browser keeps its address bar.
@@ -263,6 +265,86 @@ describe("⌘K palette", () => {
     const threads = await within(dialog).findByRole("group", { name: /^Threads/ });
     await userEvent.click(within(threads).getAllByRole("option")[0] as HTMLElement);
     await waitFor(() => expect(onNavigate).toHaveBeenCalled());
+  });
+});
+
+describe("⌘K opens as one field (Spotlight-style)", () => {
+  const many: PaletteAction[] = Array.from({ length: 9 }, (_, i) => ({
+    id: `act-${i}`,
+    label: `Command number ${i}`,
+    run: () => {},
+  }));
+  const open = (extra: Partial<Parameters<typeof CommandPalette>[0]> = {}) =>
+    render(
+      <StoryWorld>
+        <CommandPalette
+          open
+          onOpenChange={() => {}}
+          onNavigate={() => {}}
+          builtInActions={false}
+          actions={many}
+          {...extra}
+        />
+      </StoryWorld>,
+    );
+
+  it("shows no scope chips on open, and shows them after typing", async () => {
+    open();
+    const dialog = await screen.findByRole("dialog", { name: "Command palette" });
+    expect(within(dialog).queryByRole("toolbar", { name: "Filters" })).toBeNull();
+    expect(within(dialog).queryByRole("button", { name: /^in: / })).toBeNull();
+    await userEvent.type(within(dialog).getByRole("combobox"), "d");
+    const bar = await within(dialog).findByRole("toolbar", { name: "Filters" });
+    expect(within(bar).getAllByRole("button", { name: /^in: / }).length).toBeGreaterThan(3);
+    expect(within(bar).getByText("type:")).toBeTruthy();
+    expect(within(bar).getByText("from:")).toBeTruthy();
+  });
+
+  it("brings the chips in with Tab", async () => {
+    open();
+    const dialog = await screen.findByRole("dialog", { name: "Command palette" });
+    expect(within(dialog).queryByRole("toolbar", { name: "Filters" })).toBeNull();
+    within(dialog).getByRole("combobox").focus();
+    await userEvent.keyboard("{Tab}");
+    expect(within(dialog).getByRole("toolbar", { name: "Filters" })).toBeTruthy();
+  });
+
+  it("lists at most five commands and a Show all commands row, which lists the rest", async () => {
+    open();
+    const dialog = await screen.findByRole("dialog", { name: "Command palette" });
+    const rows = within(dialog).getAllByRole("option");
+    expect(rows).toHaveLength(6);
+    expect(rows[5]?.textContent).toBe("Show all commands");
+    await userEvent.click(rows[5] as HTMLElement);
+    expect(within(dialog).getAllByRole("option")).toHaveLength(9);
+    expect(within(dialog).queryByText("Show all commands")).toBeNull();
+  });
+
+  it("keeps every command one keystroke away: typing searches all of them", async () => {
+    const run = vi.fn();
+    open({ actions: [...many, { id: "hidden", label: "Zebra crossing", run }] });
+    const dialog = await screen.findByRole("dialog", { name: "Command palette" });
+    expect(within(dialog).queryByText("Zebra crossing")).toBeNull();
+    await userEvent.type(within(dialog).getByRole("combobox"), "zebra{Enter}");
+    expect(run).toHaveBeenCalled();
+  });
+
+  it("has no footer key hints and no Run button in the preview", () => {
+    render(
+      <StoryWorld>
+        <Surface
+          preview
+          initial=""
+          actions={[{ id: "a", label: "Open the dentist pane", run: () => {} }]}
+        />
+      </StoryWorld>,
+    );
+    // Positive control: the preview of the highlighted command is on screen.
+    expect(
+      within(screen.getByTestId("search-preview")).getByText("Open the dentist pane"),
+    ).toBeTruthy();
+    expect(screen.queryByTestId("search-hints")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Run" })).toBeNull();
   });
 });
 

@@ -53,7 +53,6 @@ export const onboarding = {
   "onboarding.agent.taglinePlaceholder": "Quiet wings, careful hands",
   "onboarding.agent.preview": "Preview",
   "onboarding.language.label": "Language",
-  "onboarding.language.hint": "You can change it later in Settings → General → Appearance.",
   "onboarding.permission.why.notifications":
     "Lets Psyche ask for approvals when this window is closed.",
   "onboarding.permission.deniedHint":

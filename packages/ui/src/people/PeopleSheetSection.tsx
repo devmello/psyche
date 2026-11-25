@@ -26,6 +26,8 @@ import type { EntityRef, LoopView } from "./types.ts";
 
 type Filter = "people" | "projects" | "suggestions" | "waiting";
 const FILTERS: readonly Filter[] = ["people", "projects", "suggestions", "waiting"];
+/** On the Memory page Projects has its own segment, so the chips drop it. */
+const PAGE_FILTERS: readonly Filter[] = ["people", "suggestions", "waiting"];
 
 /** A loop row's view, with names from the graph's people and projects. */
 function loopView(loop: GraphLoop, names: ReadonlyMap<string, EntityRef>): LoopView {
@@ -52,6 +54,8 @@ export interface PeopleSheetSectionProps {
   page?: boolean;
   /** Opens a row's page in the host (Memory) instead of the card sheet over the list. */
   onOpenEntity?: (id: string) => void;
+  /** The host's own search field (Memory's toolbar): the section draws none and follows this. */
+  query?: string;
 }
 
 export function PeopleSheetSection({
@@ -59,11 +63,14 @@ export function PeopleSheetSection({
   now = Date.now(),
   page = false,
   onOpenEntity,
+  query,
 }: PeopleSheetSectionProps): ReactElement {
   const call = useCall();
   const openLink = useOpenLink();
   const searchId = useId();
-  const [q, setQ] = useState("");
+  const [ownQ, setQ] = useState("");
+  const hostSearch = query !== undefined;
+  const q = hostSearch ? query : ownQ;
   const [filter, setFilter] = useState<Filter>("people");
   const [open, setOpen] = useState<string | null>(initialEntity ?? null);
   const [busy, setBusy] = useState(false);
@@ -174,6 +181,7 @@ export function PeopleSheetSection({
               key={e.id}
               entity={e}
               now={now}
+              brief={page}
               onOpen={(x) => (onOpenEntity ? onOpenEntity(x.id) : setOpen(x.id))}
             />
           ))}
@@ -192,31 +200,36 @@ export function PeopleSheetSection({
           {t("people.sheet.title")}
         </h3>
       )}
-      <div className="relative">
-        <Search
-          aria-hidden="true"
-          className="pointer-events-none absolute start-2.5 top-1/2 size-4 -translate-y-1/2 text-label-tertiary"
-        />
-        <label htmlFor={searchId} className="sr-only">
-          {t("people.sheet.search")}
-        </label>
-        <Input
-          id={searchId}
-          value={q}
-          onChange={(e) => {
-            setQ(e.target.value);
-            if (filter !== "people" && filter !== "projects") setFilter("people");
-          }}
-          placeholder={t("people.sheet.search")}
-          className="ps-8"
-        />
-      </div>
+      {hostSearch ? null : (
+        <div className="relative">
+          <Search
+            aria-hidden="true"
+            className="pointer-events-none absolute start-2.5 top-1/2 size-4 -translate-y-1/2 text-label-tertiary"
+          />
+          <label htmlFor={searchId} className="sr-only">
+            {t("people.sheet.search")}
+          </label>
+          <Input
+            id={searchId}
+            value={q}
+            onChange={(e) => {
+              setQ(e.target.value);
+              if (filter !== "people" && filter !== "projects") setFilter("people");
+            }}
+            placeholder={t("people.sheet.search")}
+            className="ps-8"
+          />
+        </div>
+      )}
       <SegmentedRadio
         label={t("people.sheet.show")}
         value={filter}
         onChange={setFilter}
         className="self-start"
-        options={FILTERS.map((f) => ({ value: f, label: t(`people.sheet.filter.${f}`) }))}
+        options={(page ? PAGE_FILTERS : FILTERS).map((f) => ({
+          value: f,
+          label: t(`people.sheet.filter.${f}`),
+        }))}
       />
       <GroupedList>{body}</GroupedList>
 

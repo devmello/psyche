@@ -17,6 +17,23 @@ export function entityDetail(entity: EntitySummary, now: number): string {
   return parts.join(" · ");
 }
 
+/**
+ * One muted line for a Memory row: the most important fact (what it is, else its status, else when
+ * you last talked), and the open-loop count only when there is one.
+ */
+export function entityBrief(entity: EntitySummary, now: number): string {
+  const fact =
+    entity.subtitle ||
+    (entity.kind === "project" && entity.projectStatus
+      ? t(`people.project.status.${entity.projectStatus}`)
+      : "") ||
+    (entity.lastInteractionAt
+      ? t("people.row.lastTalked", { when: formatRelative(entity.lastInteractionAt, now) })
+      : "");
+  const loops = entity.openLoops > 0 ? t("people.row.loops", { n: entity.openLoops }) : "";
+  return [fact, loops].filter(Boolean).join(" · ");
+}
+
 export interface EntityRowProps {
   entity: EntitySummary;
   now: number;
@@ -24,6 +41,8 @@ export interface EntityRowProps {
   onOpen?: (entity: EntitySummary) => void;
   /** Highlights matches in the name (Search). */
   renderName?: (name: string) => ReactElement | string;
+  /** Memory's rows: one muted line (`entityBrief`) instead of every fact. */
+  brief?: boolean;
   className?: string;
 }
 
@@ -37,9 +56,10 @@ export function EntityRow({
   selected = false,
   onOpen,
   renderName,
+  brief = false,
   className,
 }: EntityRowProps): ReactElement {
-  const detail = entityDetail(entity, now);
+  const detail = brief ? entityBrief(entity, now) : entityDetail(entity, now);
   return (
     <button
       type="button"

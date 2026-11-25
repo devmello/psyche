@@ -181,7 +181,10 @@ describe("Sidebar (redesign §5.1)", () => {
   it("reveals the thread filter and narrows the rows", async () => {
     renderSidebar();
     const before = (await screen.findAllByTestId("thread-row")).length;
-    await userEvent.click(screen.getByRole("button", { name: "Filter" }));
+    // No magnifier in the Threads header (it read as a second Search); ⌘F in the sidebar opens it.
+    expect(screen.queryByRole("button", { name: "Filter" })).toBeNull();
+    destination("Chat").focus();
+    await userEvent.keyboard("{Meta>}f{/Meta}");
     const field = screen.getByRole("searchbox", { name: "Filter threads" });
     await waitFor(() => expect(document.activeElement).toBe(field));
     await userEvent.type(field, "zzzz-no-such-thread");

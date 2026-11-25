@@ -2,8 +2,6 @@ import type { Catalogue } from "../../index.ts";
 
 /** Memory map strings (es); merged into `../es.ts`. */
 export const memoryMap: Partial<Catalogue> = {
-  "memory.page.view": "Vista",
-  "memory.page.view.list": "Lista",
   "memory.page.view.map": "Mapa",
   "memory.map.title": "Mapa de memoria",
   "memory.map.canvasLabel":

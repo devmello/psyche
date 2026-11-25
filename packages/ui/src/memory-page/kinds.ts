@@ -4,14 +4,14 @@ import type { GraphEntityKind } from "@psyche/protocol";
 export const MEMORY_KINDS = ["everything", "people", "projects", "due", "events", "more"] as const;
 export type MemoryKind = (typeof MEMORY_KINDS)[number];
 
-/** `?kind=` as a chip; anything else is Everything. */
+/** `?kind=` as a kind; anything else is People, the default. */
 export function parseMemoryKind(value: string | null | undefined): MemoryKind {
-  return MEMORY_KINDS.find((k) => k === value) ?? "everything";
+  return MEMORY_KINDS.find((k) => k === value) ?? "people";
 }
 
-/** The route of a chip: Everything is the bare `/memory`. */
+/** The route of a kind (the bare `/memory` is People too). */
 export function memoryHref(kind: MemoryKind): string {
-  return kind === "everything" ? "/memory" : `/memory?kind=${kind}`;
+  return `/memory?kind=${kind}`;
 }
 
 /** `/memory?view=map`: the Map view of the Memory page (List is the bare chip routes). */
