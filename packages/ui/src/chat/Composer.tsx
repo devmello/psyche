@@ -122,7 +122,7 @@ type MenuItem = { kind: "command"; info: CommandInfo } | { kind: "skill"; skill:
 /** The item the next message is about (Feed "Ask about this"): a removable chip. */
 export interface ComposerContextChip {
   /** A search result gets its own icon and prompt; the default is a Feed item. */
-  kind?: "feed_item" | "search_hit" | "memory_entity" | "life_answer" | "mail_followup";
+  kind?: "feed_item" | "search_hit" | "memory_entity" | "life_answer" | "mail_followup" | "promise";
   title: string;
   /** Source name or host. */
   source: string | null;

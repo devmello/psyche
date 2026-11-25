@@ -51,6 +51,40 @@ export interface MigrateOptions {
   readonly now?: () => string;
 }
 
+/** Tables a rebuild migration leaves behind: its `ALTER TABLE x RENAME TO y` targets and new tables. */
+function rebuiltTables(sql: string): Set<string> {
+  const out = new Set<string>();
+  const strip = (n: string) => n.replaceAll('"', "").toLowerCase();
+  for (const m of sql.matchAll(/ALTER\s+TABLE\s+\S+\s+RENAME\s+TO\s+("[^"]+"|\w+)/gi))
+    out.add(strip(m[1] as string));
+  for (const m of sql.matchAll(/CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?("[^"]+"|\w+)/gi))
+    out.add(strip(m[1] as string));
+  return out;
+}
+
+/**
+ * After a foreign-keys-off rebuild: a violation in (or against) a table this migration rebuilt
+ * aborts it. A dangling row elsewhere was not caused by the rebuild, so it is logged and must not
+ * stop the Gateway from starting.
+ */
+function checkRebuiltForeignKeys(sqlite: Database.Database, sql: string, logger?: DbLogger): void {
+  const rebuilt = rebuiltTables(sql);
+  const broken = sqlite.pragma("foreign_key_check") as { table: string; parent: string }[];
+  const mine = broken.filter(
+    (b) => rebuilt.has(b.table.toLowerCase()) || rebuilt.has(b.parent.toLowerCase()),
+  );
+  if (mine.length > 0) {
+    throw new Error(`${mine.length} foreign key violation(s) after the rebuild`);
+  }
+  if (broken.length > 0) {
+    const tables = [...new Set(broken.map((b) => b.table))];
+    logger?.warn?.("db.migration.foreign_key_violations_elsewhere", {
+      count: broken.length,
+      tables,
+    });
+  }
+}
+
 export class MigrationError extends Error {
   readonly migration: string | undefined;
 
@@ -159,12 +193,7 @@ export function runMigrations(
             return;
           }
           sqlite.exec(file.sql);
-          if (fkOff) {
-            const broken = sqlite.pragma("foreign_key_check") as unknown[];
-            if (broken.length > 0) {
-              throw new Error(`${broken.length} foreign key violation(s) after the rebuild`);
-            }
-          }
+          if (fkOff) checkRebuiltForeignKeys(sqlite, file.sql, opts.logger);
           insert.run(file.id, file.name, file.checksum, now());
         })
         .immediate();

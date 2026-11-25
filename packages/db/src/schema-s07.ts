@@ -219,6 +219,33 @@ export const graphLoops = sqliteTable("graph_loops", {
   updatedAt: text("updated_at").notNull(),
   closedAt: text("closed_at"),
   closedBy: text("closed_by"),
+  // Promise ledger (202611241000_memory_promises.sql).
+  basis: text("basis").notNull(),
+  whatAction: text("what_action"),
+  dueText: text("due_text"),
+  dueKind: text("due_kind").notNull(),
+  dueConfidence: real("due_confidence"),
+  proposedDueAt: text("proposed_due_at"),
+  snoozedUntil: text("snoozed_until"),
+  brokenAt: text("broken_at"),
+  warnedAt: text("warned_at"),
+  nudgeCount: integer("nudge_count").notNull(),
+  lastNudgeAt: text("last_nudge_at"),
+  threadKey: text("thread_key"),
+  sourceKind: text("source_kind"),
+  counterpartLabel: text("counterpart_label"),
+  remoteVisible: integer("remote_visible").notNull(),
+});
+
+export const graphLoopEvents = sqliteTable("graph_loop_events", {
+  id: text("id").primaryKey(),
+  loopId: text("loop_id").notNull(),
+  at: text("at").notNull(),
+  kind: text("kind").notNull(),
+  fromValue: text("from_value"),
+  toValue: text("to_value"),
+  by: text("by").notNull(),
+  citationId: text("citation_id"),
 });
 
 export const graphSuggestions = sqliteTable("graph_suggestions", {
@@ -479,6 +506,7 @@ export const s07Schema = {
   graphInteractions,
   graphParticipants,
   graphLoops,
+  graphLoopEvents,
   graphSuggestions,
   graphFeedback,
   graphBlocklist,
