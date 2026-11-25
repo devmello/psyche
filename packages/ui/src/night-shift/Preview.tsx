@@ -19,12 +19,7 @@ export function Preview({ preview }: { preview: ItemPreview }): ReactElement {
           <div key={i} className="contents">
             <dt className="text-label-secondary">{row.label}</dt>
             <dd className="min-w-0 break-words whitespace-pre-wrap text-label-primary">
-              {row.before !== null || row.after !== null
-                ? t("nightShift.preview.change", {
-                    before: row.before ?? "",
-                    after: row.after ?? "",
-                  })
-                : (row.value ?? "")}
+              {row.value}
               {row.newRecipient ? (
                 <Badge variant="approval" className="ms-2 align-middle">
                   {t("nightShift.badge.newRecipient")}

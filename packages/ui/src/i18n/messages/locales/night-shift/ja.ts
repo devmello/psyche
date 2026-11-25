@@ -34,7 +34,6 @@ export const nightShift: Partial<Catalogue> = {
   "nightShift.badge.untrusted": "信頼できない情報源",
   "nightShift.badge.newRecipient": "新しい宛先",
   "nightShift.badge.replyAll": "全員に返信",
-  "nightShift.preview.change": "{before} → {after}",
   "nightShift.send.label": "あわせて送信",
   "nightShift.send.to": "{recipients}に送信",
   "nightShift.send.needsDraft": "先に下書きにチェックを入れてください。",

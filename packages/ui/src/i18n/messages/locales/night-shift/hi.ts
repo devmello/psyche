@@ -34,7 +34,6 @@ export const nightShift: Partial<Catalogue> = {
   "nightShift.badge.untrusted": "अविश्वसनीय स्रोत",
   "nightShift.badge.newRecipient": "नया प्राप्तकर्ता",
   "nightShift.badge.replyAll": "सभी को जवाब",
-  "nightShift.preview.change": "{before} → {after}",
   "nightShift.send.label": "इसे भी भेजें",
   "nightShift.send.to": "{recipients} को भेजें",
   "nightShift.send.needsDraft": "पहले ड्राफ़्ट चुनें।",

@@ -38,7 +38,6 @@ export const nightShift: Partial<Catalogue> = {
   "nightShift.badge.untrusted": "Fuente no fiable",
   "nightShift.badge.newRecipient": "Destinatario nuevo",
   "nightShift.badge.replyAll": "Responder a todos",
-  "nightShift.preview.change": "{before} → {after}",
   "nightShift.send.label": "Enviar también",
   "nightShift.send.to": "Enviar a {recipients}",
   "nightShift.send.needsDraft": "Marca primero el borrador.",

@@ -31,7 +31,6 @@ export const nightShift = {
   "nightShift.badge.untrusted": "Untrusted source",
   "nightShift.badge.newRecipient": "New recipient",
   "nightShift.badge.replyAll": "Reply all",
-  "nightShift.preview.change": "{before} → {after}",
   "nightShift.send.label": "Send it too",
   "nightShift.send.to": "Send to {recipients}",
   "nightShift.send.needsDraft": "Tick the draft first.",

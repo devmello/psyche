@@ -33,7 +33,6 @@ export const nightShift: Partial<Catalogue> = {
   "nightShift.badge.untrusted": "不可信来源",
   "nightShift.badge.newRecipient": "新收件人",
   "nightShift.badge.replyAll": "回复全部",
-  "nightShift.preview.change": "{before} → {after}",
   "nightShift.send.label": "同时发送",
   "nightShift.send.to": "发送给{recipients}",
   "nightShift.send.needsDraft": "请先勾选草稿。",

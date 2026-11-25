@@ -24,12 +24,9 @@ export const DOMAIN_ORDER: readonly StagedActionDomain[] = [
 
 export interface PreviewRow {
   label: string;
-  /** One value (mail fields, file paths, reminder fields). */
-  value: string | null;
-  /** Calendar and reminder changes: before to after. */
-  before: string | null;
-  after: string | null;
-  /** The owner has never written to this recipient. */
+  /** The text (a calendar change is already "before -> after" in it, written by the Gateway). */
+  value: string;
+  /** The owner has never written to this recipient (`badge: "new_recipient"`). */
   newRecipient: boolean;
   /** The text shown here is cut; the owner must open the full draft. */
   truncated: boolean;
@@ -51,35 +48,29 @@ function text(v: unknown): string | null {
   return null;
 }
 
-/** Either spelling of a flag (`new_recipient` from the Gateway, `newRecipient` from a client). */
-const flag = (o: Record<string, unknown>, snake: string, camel: string): boolean =>
-  o[snake] === true || o[camel] === true;
-
 /**
- * Reads a preview. Only the keys named here are read, every value becomes text (React escapes
+ * Reads a preview in the shape the Night shift adapters write (packages/proactive
+ * src/night-shift/adapters/types.ts): `{kind, title, rows: [{label, value, truncated?, badge?}],
+ * truncated}`, where `badge` is `new_recipient` or `reply_all`. Only the keys named here are read, every value becomes text (React escapes
  * it; nothing is ever set as HTML), and a field this does not know is dropped.
  */
 export function readPreview(preview: unknown): ItemPreview {
   if (!isRecord(preview)) return { rows: [], truncated: false, replyAll: false };
   const rows: PreviewRow[] = [];
+  let replyAll = false;
   if (Array.isArray(preview.rows)) {
     for (const r of preview.rows.slice(0, 50)) {
       if (!isRecord(r)) continue;
       rows.push({
         label: text(r.label) ?? "",
-        value: text(r.value),
-        before: text(r.before),
-        after: text(r.after),
-        newRecipient: flag(r, "new_recipient", "newRecipient"),
+        value: text(r.value) ?? "",
+        newRecipient: r.badge === "new_recipient",
         truncated: r.truncated === true,
       });
+      if (r.badge === "reply_all") replyAll = true;
     }
   }
-  return {
-    rows,
-    truncated: preview.truncated === true,
-    replyAll: flag(preview, "reply_all", "replyAll"),
-  };
+  return { rows, truncated: preview.truncated === true, replyAll };
 }
 
 /** Whether any part of the preview is cut (on the preview itself or on any row). */

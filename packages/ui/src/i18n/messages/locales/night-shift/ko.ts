@@ -34,7 +34,6 @@ export const nightShift: Partial<Catalogue> = {
   "nightShift.badge.untrusted": "신뢰할 수 없는 출처",
   "nightShift.badge.newRecipient": "새 수신자",
   "nightShift.badge.replyAll": "전체 답장",
-  "nightShift.preview.change": "{before} → {after}",
   "nightShift.send.label": "함께 보내기",
   "nightShift.send.to": "{recipients}에게 보내기",
   "nightShift.send.needsDraft": "먼저 초안을 선택하세요.",

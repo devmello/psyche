@@ -159,21 +159,28 @@ describe("previews are plain text (pure)", () => {
           label: "Body",
           value: "<img src=x onerror=alert(1)>",
           html: "<b>x</b>",
-          new_recipient: true,
+          badge: "new_recipient",
         },
+        // A flag the adapters do not write is not read.
+        { label: "To", value: "x@example.com", new_recipient: true },
       ],
       truncated: true,
-      reply_all: true,
       script: "<script>alert(1)</script>",
     });
-    expect(p.rows).toHaveLength(1);
+    expect(p.rows).toHaveLength(2);
+    expect(p.rows[1]?.newRecipient).toBe(false);
     expect(p.rows[0]?.value).toBe("<img src=x onerror=alert(1)>");
     expect(p.rows[0]).not.toHaveProperty("html");
     expect(p).not.toHaveProperty("script");
-    expect(p.truncated && p.replyAll && p.rows[0]?.newRecipient).toBe(true);
+    expect(p.truncated && p.rows[0]?.newRecipient).toBe(true);
+    expect(p.replyAll).toBe(false);
+    // A reply-all badge on any row marks the draft.
+    expect(
+      readPreview({ rows: [{ label: "Reply all", value: "yes", badge: "reply_all" }] }).replyAll,
+    ).toBe(true);
     // Not an object, or a value that is not text: nothing.
     expect(readPreview("<b>x</b>").rows).toEqual([]);
-    expect(readPreview({ rows: [{ label: { a: 1 }, value: { b: 2 } }] }).rows[0]?.value).toBeNull();
+    expect(readPreview({ rows: [{ label: { a: 1 }, value: { b: 2 } }] }).rows[0]?.value).toBe("");
   });
 });
 

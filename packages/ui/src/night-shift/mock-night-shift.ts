@@ -146,10 +146,12 @@ export function nightShiftFixture(): NightShiftWorld {
       taint: true,
       taintSources: [{ sourceKind: "email", sender: "sam@vendor.example" }],
       preview: {
-        reply_all: true,
+        kind: "mail",
+        title: "Draft a reply to all",
         truncated: true,
         rows: [
-          { label: "To", value: "sam@vendor.example", new_recipient: true },
+          { label: "Reply all", value: "yes", badge: "reply_all" },
+          { label: "To", value: "sam@vendor.example", badge: "new_recipient" },
           { label: "Cc", value: "dana@example.com" },
           { label: "Subject", value: "Re: Revised plan" },
           { label: "Body", value: LONG_BODY, truncated: true },
@@ -190,8 +192,8 @@ export function nightShiftFixture(): NightShiftWorld {
       inverse: { restore: true },
       preview: {
         rows: [
-          { label: "Starts", before: "Thu 13:00", after: "Thu 14:00" },
-          { label: "Ends", before: "Thu 15:00", after: "Thu 16:00" },
+          { label: "Starts", value: "Thu 13:00 -> Thu 14:00" },
+          { label: "Ends", value: "Thu 15:00 -> Thu 16:00" },
         ],
       },
     }),
