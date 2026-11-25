@@ -27,7 +27,10 @@ const account = (value: string) => ({ kind: "account" as const, value });
 
 /** Must run without a card in Full access (and asks or is refused in Balanced). */
 const RUNS: [string, PolicyCall][] = [
-  ["browser navigation to a new site", call("browser.navigate", "read", origin("https://news.example.org"))],
+  [
+    "browser navigation to a new site",
+    call("browser.navigate", "read", origin("https://news.example.org")),
+  ],
   [
     "filling a non-payment form",
     call("browser.fill", "write", origin("https://forms.example.org"), {
@@ -67,9 +70,14 @@ const RUNS: [string, PolicyCall][] = [
   ],
   [
     "a computer-use click",
-    call("computer.click", "write", { kind: "app", value: "com.apple.TextEdit" }, {
-      meta: { app: "com.apple.TextEdit" },
-    }),
+    call(
+      "computer.click",
+      "write",
+      { kind: "app", value: "com.apple.TextEdit" },
+      {
+        meta: { app: "com.apple.TextEdit" },
+      },
+    ),
   ],
   // Near-misses of the send words: must not be held.
   ["a Postgres query tool", call("mcp__db__postgres_query", "write")],

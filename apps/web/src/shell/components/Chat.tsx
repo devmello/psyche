@@ -558,6 +558,7 @@ const MODE_LABEL: Record<SwitchMode, () => string> = {
   manual: () => t("agent.mode.manual"),
   balanced: () => t("agent.mode.balanced"),
   auto: () => t("agent.mode.auto"),
+  full: () => t("agent.mode.full"),
 };
 
 /**

@@ -712,6 +712,18 @@ export const ar: Partial<Catalogue> = {
   "agent.mode.manual": "يدوي",
   "agent.mode.balanced": "متوازن",
   "agent.mode.auto": "تلقائي",
+  "agent.mode.full": "وصول كامل",
+  "chat.commands.full.hint": "on | off",
+  "chat.commands.full.description": "تشغيل الوصول الكامل أو إيقافه في هذه المحادثة",
+  "chat.commands.usageFull": "الاستخدام: /full [on | off]",
+  "chat.args.mode.full": "ينفّذ دون أن يسأل، باستثناء الإرسال والدفع",
+  "chat.args.full.on": "التنفيذ دون سؤال، باستثناء الإرسال والدفع",
+  "chat.args.full.off": "العودة إلى المتوازن",
+  "chat.thread.fullAccessOn":
+    "الوصول الكامل مفعّل في هذه المحادثة. الإرسال إلى أشخاص آخرين والدفع ما زالا يطلبان الإذن.",
+  "chat.thread.fullAccessOff": "الوصول الكامل متوقف. عادت هذه المحادثة إلى الوضع المتوازن.",
+  "chat.fullAccess.banner": "وصول كامل: ينفّذ Psyche دون أن يسأل، باستثناء الإرسال والدفع.",
+  "chat.fullAccess.turnOff": "إيقاف",
   "agent.mode.plan": "تخطيط",
 
   "agent.state.idle": "خامل",

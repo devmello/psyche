@@ -761,7 +761,11 @@ export class PolicyEngine {
     // like a write in a granted folder (Manual still asks, plan mode still refuses, a tainted
     // turn still asks for a new target).
     if (notes === "notes") allowances.push({ rule: "memory:agent_notes" });
-    if (call.tool === "automation_state_set" && call.kind === undefined && call.target === undefined)
+    if (
+      call.tool === "automation_state_set" &&
+      call.kind === undefined &&
+      call.target === undefined
+    )
       allowances.push({ rule: "workspace:automation_state" });
     if (kind === "git_push") {
       // A push publishes commits with the owner's credentials: never silent, never reusable (V10).

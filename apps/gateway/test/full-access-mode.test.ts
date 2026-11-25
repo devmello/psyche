@@ -68,7 +68,11 @@ describe("threads.update permissionMode full: who and where", () => {
     ["a specialist's job thread", { kind: "subagent" as const, sessionKey: "specialist:r:1" }],
     [
       "an imported chat",
-      { kind: "side" as const, sessionKey: "import:c1", imported: { source: "claude" as const, key: "c1" } },
+      {
+        kind: "side" as const,
+        sessionKey: "import:c1",
+        imported: { source: "claude" as const, key: "c1" },
+      },
     ],
   ])("refuses %s, even from the Mac", async (_name, thread) => {
     const t = setup(thread, MAC);

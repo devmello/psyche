@@ -25,6 +25,8 @@ const MODE_LABEL: Record<PermissionMode, () => string> = {
   manual: () => t("spaces.settings.mode.manual"),
   balanced: () => t("spaces.settings.mode.balanced"),
   auto: () => t("spaces.settings.mode.auto"),
+  // Never a Space's default (the Gateway refuses it); labelled for a row that somehow has it.
+  full: () => t("agent.mode.full"),
 };
 const MODE_HINT: Record<PermissionMode | "inherit", () => string> = {
   inherit: () => t("spaces.settings.mode.inheritHint"),
@@ -32,6 +34,7 @@ const MODE_HINT: Record<PermissionMode | "inherit", () => string> = {
   manual: () => t("spaces.settings.mode.manualHint"),
   balanced: () => t("spaces.settings.mode.balancedHint"),
   auto: () => t("spaces.settings.mode.autoHint"),
+  full: () => t("chat.args.mode.full"),
 };
 
 const isMode = (v: string): v is PermissionMode => (MODES as readonly string[]).includes(v);

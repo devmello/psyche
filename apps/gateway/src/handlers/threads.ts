@@ -25,8 +25,8 @@ import {
   type ThreadPreview,
 } from "@psyche/protocol";
 import { automationIdOfThreadKey } from "@psyche/scheduler";
-import type { Call, HandlerDef } from "../context.ts";
 import { assertFullAccessAllowed } from "../compose/threads.ts";
+import type { Call, HandlerDef } from "../context.ts";
 import { assertWritableThread, importConversations } from "../session/imported-threads.ts";
 
 /** The owner's one persistent main thread (feature E1). */
