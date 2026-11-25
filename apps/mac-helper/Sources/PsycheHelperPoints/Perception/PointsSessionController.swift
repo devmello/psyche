@@ -56,8 +56,17 @@ final class PointsSessionController: @unchecked Sendable {
     private let overlay: PointsOverlayHost
     /// The field the card points at, so a value change there dims the card.
     private var shownTarget: String?
+    /// Vision mode (§3.1): on after a look, off when a page has a usable tree again.
+    private let vision: LockedFlag
+    private let tokens: PointsActionTokens
+    private var looker: PointsLooker!
+    /// The last look, to map a box the model drew on it (guarded by `lock`).
+    private var lastLook: PointsLookRecord?
 
-    init(sessionId: String, app: NSRunningApplication, window: AXUIElement, target: PointsTarget, teamId: String?, strings: PointsCardStrings) {
+    init(
+        sessionId: String, app: NSRunningApplication, window: AXUIElement, target: PointsTarget, teamId: String?, strings: PointsCardStrings,
+        lookEnvironment: PointsLookEnvironment = .live, tokens: PointsActionTokens = PointsActionTokens()
+    ) {
         self.sessionId = sessionId
         pid = app.processIdentifier
         bundleId = target.bundleId
@@ -70,11 +79,31 @@ final class PointsSessionController: @unchecked Sendable {
         let c = cont!
         let closed = LockedFlag()
         closedGate = closed
+        let visionFlag = LockedFlag()
+        // Starts strict: no offer until a read says the page is not directions-only.
+        let dirOnlyFlag = LockedFlag()
+        dirOnlyFlag.set()
+        let sparseFlag = LockedFlag()
+        vision = visionFlag
+        self.tokens = tokens
         let host = PointsOverlayHost(strings: strings, appName: target.appName, pid: app.processIdentifier)
         overlay = host
         engine = PointsEngine(source: source, target: target) { event in
             if !closed.isSet { c.yield(event) }
             if event.type == .visible, let v = event.visible { host.setEngineVisible(v) }
+            // A page with a usable tree ends vision mode (§3.1): three or more fillable fields.
+            if event.type == .digest, let d = event.digest {
+                let fillable = d.fields.filter { $0.role != .link && $0.role != .button }.count
+                if fillable >= 3 { visionFlag.clear(); host.setVision(false) }
+                // Let Psyche look is offered when the tree is sparse and the read's own verdict says the page is
+                // not directions-only (§3.1); that verdict arrives just before this digest.
+                sparseFlag.update(fillable < 3)
+                host.setLookOffer(sparseFlag.isSet && !dirOnlyFlag.isSet)
+            }
+        }
+        engine.onDirectionsOnly = { v in
+            dirOnlyFlag.update(v)
+            host.setLookOffer(sparseFlag.isSet && !v)
         }
         // Frames of the fields the card keeps off, after a scroll, a move or a relayout.
         engine.onFrames = { [weak self] frames in
@@ -84,6 +113,9 @@ final class PointsSessionController: @unchecked Sendable {
         host.bind(
             onAction: { [weak self] a in self?.cardAction(a) },
             onStop: { [weak self] in self?.cardAction(.stop) })
+        looker = PointsLooker(
+            pid: app.processIdentifier, bundleId: target.bundleId, tokens: tokens, environment: lookEnvironment,
+            maskFrames: { [weak self] in await self?.maskFrames() ?? PointsMaskFrames(window: nil, frames: [], complete: false) })
     }
 
     static func now() -> Double { ProcessInfo.processInfo.systemUptime }
@@ -117,6 +149,8 @@ final class PointsSessionController: @unchecked Sendable {
         }
         t.name = "com.psyche.helper.points-ax"
         t.qualityOfService = .userInitiated
+        // A deep tree recurses deep: the default 512 KiB secondary-thread stack is not enough.
+        t.stackSize = 8 << 20
         t.start()
         guard ready.wait(timeout: .now() + 5) == .success, ok.isSet else {
             stop(.error)
@@ -164,7 +198,9 @@ final class PointsSessionController: @unchecked Sendable {
     /// so the owner is never left with a card whose session is gone.
     func cardAction(_ action: PointsCardAction) {
         if closedGate.isSet { return }
-        continuation.yield(PointsSessionEvent(action: action, type: .action))
+        // The owner's Let Psyche look press (and Next while vision mode is on) mints the one id a look answers to.
+        let actionId: String? = PointsActionTokens.mints(action, visionMode: vision.isSet) ? tokens.issue() : nil
+        continuation.yield(PointsSessionEvent(action: action, actionID: actionId, type: .action))
         if action == .stop { stop(.stop) }
     }
 
@@ -184,12 +220,93 @@ final class PointsSessionController: @unchecked Sendable {
         }
         guard let info else { throw CapabilityError(.notFound, reason: "field_gone", "That field is not on the page any more") }
         lock.withLock { shownTarget = fieldId }
-        let step = PointsShownStep(
+        overlay.show(Self.step(p, info: info))
+        return info.frame != nil
+    }
+
+    private static func step(_ p: PointsShowParams, info: PointsTargetInfo) -> PointsShownStep {
+        PointsShownStep(
             kind: p.kind, note: PointsCardText.clean(p.note, max: 300), value: p.value.map { PointsCardText.clean($0, max: 200) },
             sources: (p.sources ?? []).prefix(3).map { PointsCardText.clean($0, max: 60) }.filter { !$0.isEmpty },
             warning: p.warning.map { PointsCardText.clean($0, max: 200) }, n: max(1, p.step.n), of: max(1, p.step.of), info: info)
+    }
+
+    // MARK: Vision mode (W5)
+
+    /// `points.look`: one picture of the target window, masked, for the owner's latest look press.
+    func look(actionId: String) async throws -> PointsLookResult {
+        if lock.withLock({ stopped }) { throw CapabilityError(.notFound, reason: "session_ended", "That session is over") }
+        let outcome = try await looker.look(actionId: actionId)
+        lock.withLock { lastLook = outcome.record }
+        vision.set()
+        overlay.setVision(true)
+        return outcome.result
+    }
+
+    /// The frames to paint over, read on the observer thread (never a value).
+    fileprivate func maskFrames() async -> PointsMaskFrames {
+        let none = PointsMaskFrames(window: nil, frames: [], complete: false)
+        let run: CFRunLoop? = lock.withLock { stopped ? nil : loop }
+        guard let run else { return none }
+        return await withCheckedContinuation { (cont: CheckedContinuation<PointsMaskFrames, Never>) in
+            let once = ResumeOnce(cont)
+            perform(on: run) { [self] in once.resume(engine.maskFrames(at: Self.now())) }
+            DispatchQueue.global().asyncAfter(deadline: .now() + 3) { once.resume(none) }
+        }
+    }
+
+    private func currentWindowFrame() async -> CGRect? {
+        let run: CFRunLoop? = lock.withLock { stopped ? nil : loop }
+        guard let run else { return nil }
+        return await withCheckedContinuation { (cont: CheckedContinuation<CGRect?, Never>) in
+            let once = ResumeOnce(cont)
+            perform(on: run) { [self] in once.resume(engine.windowFrame()) }
+            DispatchQueue.global().asyncAfter(deadline: .now() + 2) { once.resume(nil) }
+        }
+    }
+
+    /// `points.show` for a box drawn on the last picture: mapped to the screen, cut to the window and the
+    /// displays. A box that touches a painted (sensitive) frame gets no suggested value.
+    func showBox(_ p: PointsShowParams) async throws -> Bool {
+        if lock.withLock({ stopped }) { throw CapabilityError(.notFound, reason: "session_ended", "That session is over") }
+        guard let r = p.target.box, let isz = p.target.imageSize else {
+            throw CapabilityError.invalidParams("a box needs the imageSize it was drawn on", field: "target")
+        }
+        guard let last = lock.withLock({ lastLook }) else {
+            throw CapabilityError(.conflict, reason: "no_look", "There is no picture to point at; the owner has to press Let Psyche look")
+        }
+        let drawn = CGSize(width: isz.width, height: isz.height)
+        guard PointsBoxMapping.sameShape(drawn, last.imageSize) else {
+            throw CapabilityError.invalidParams("the box was drawn on a different picture than the last look", field: "target")
+        }
+        // The picture is only good while the window sits where it was.
+        guard let now = await currentWindowFrame(), PointsGeometry.sameWindow(now, last.window) else {
+            throw CapabilityError(.conflict, reason: "window_moved", "The window moved since the picture; the owner has to ask again")
+        }
+        let displays = await MainActor.run { PointsScreens.displays().map(\.frame) }
+        guard let rect = PointsBoxMapping.screenRect(
+            box: CGRect(x: r.x, y: r.y, width: r.width, height: r.height), imageSize: drawn, window: last.window, displays: displays)
+        else {
+            throw CapabilityError.invalidParams("the box is not on the window", field: "target")
+        }
+        // The masks may be stale (a scroll, a relayout): check the box against the old and the fresh frames,
+        // and against the page as it is now.
+        let fresh = await maskFrames()
+        let touches = PointsBoxMapping.touchesAny(rect, in: last.masks + fresh.frames)
+        let sensitive = touches || !fresh.complete || fresh.directionsOnly
+        let info = PointsTargetInfo(
+            fieldId: "box", label: "", role: .text, sensitive: sensitive, frame: rect, nextIds: [], nextFrames: [], windowFrame: last.window)
+        lock.withLock { shownTarget = nil }
+        var step = Self.step(p, info: info)
+        step.value = PointsBoxPolicy.value(step.value, touchesMask: touches, masksComplete: fresh.complete, directionsOnly: fresh.directionsOnly)
+        if fresh.directionsOnly {
+            // Directions only: the fixed "You fill this yourself" copy, whatever the Gateway wrote.
+            step.kind = .pointsShowKindSelf
+            step.note = ""
+            step.warning = nil
+        }
         overlay.show(step)
-        return info.frame != nil
+        return true
     }
 
     /// Waits for the thread to finish (tests, clean shutdown).
@@ -421,6 +538,8 @@ final class LockedFlag: @unchecked Sendable {
     private var value = false
     func set() { lock.withLock { value = true } }
     /// Sets the flag; true if this call was the one that set it.
+    func clear() { lock.withLock { value = false } }
+    func update(_ v: Bool) { lock.withLock { value = v } }
     func testAndSet() -> Bool { lock.withLock { let was = value; value = true; return !was } }
     var isSet: Bool { lock.withLock { value } }
 }

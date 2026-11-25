@@ -1202,3 +1202,43 @@ describe("requestStagedApply: connector tool names", () => {
     expect(bareToolName("mcp__apple__x", new Set())).toBe("mcp__apple__x");
   });
 });
+
+describe("requestStagedApply: W5 review round 1", () => {
+  it("an undo of a reminder with money words is allowed (owner rule), and still needs its undo binding", async () => {
+    const del = () => exact("reminders_delete", "destructive", { id: "rem_1" });
+    const undo = await verdict(
+      item(del(), { summary: "Undo: Pay rent $1,200", undo: { createdId: "rem_1" } }),
+    );
+    expect(undo.refused).toEqual([]);
+    // Control: the same delete that is not an undo of what Night shift created is refused.
+    const bare = await verdict(item(del(), { summary: "Undo: Pay rent $1,200" }));
+    expect(bare.refused.map((r) => r.reason)).not.toContain("money_intent");
+    expect(bare.refused).toHaveLength(1);
+  });
+
+  it("a withheld item shows its generic line, the withheld flag and no send recipients", async () => {
+    const h = makeBroker();
+    const plain = item(flags("keep"));
+    const hidden = item(flags("m1"), { summary: "An item from Messages", withheld: "messages" });
+    const hiddenSend = item(send("dana@example.com"), {
+      summary: "An item from Messages",
+      explicitSend: true,
+      recipients: ["dana@example.com"],
+      withheld: "messages",
+    });
+    const shown = item(send("erin@example.com"), {
+      summary: "Send to erin@example.com",
+      explicitSend: true,
+      recipients: ["erin@example.com"],
+    });
+    const issued = await stage(h, [plain, hidden, hiddenSend, shown]);
+    expect(issued.refused).toEqual([]);
+    const items = (issued.approval.details as { items: Record<string, unknown>[] }).items;
+    expect(items[0]?.withheld).toBeUndefined();
+    expect(items[1]).toMatchObject({ withheld: "messages", summary: "An item from Messages" });
+    expect(items[2]).toMatchObject({ withheld: "messages", send: {} });
+    expect(JSON.stringify(issued.approval)).not.toContain("dana@example.com");
+    // Control: a send that is not withheld names its recipients.
+    expect(items[3]).toMatchObject({ send: { to: ["erin@example.com"] } });
+  });
+});

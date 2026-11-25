@@ -709,12 +709,10 @@ export class Connection implements LiveConnection {
       this.#guardTimer = setInterval(guard.check, 5000);
       this.#guardTimer.unref();
       this.#sink = sink;
-      this.#unsubscribe = ctx.bus.subscribe(
-        identity.scopes,
-        sink,
-        identity.deviceId,
-        readerOf(identity),
-      );
+      this.#unsubscribe = ctx.bus.subscribe(identity.scopes, sink, identity.deviceId, {
+        ...readerOf(identity),
+        local: identity.desktopShell === true && this.peer.remoteLoopback,
+      });
       let nodeId: string | undefined;
       if (identity.role === "node" && this.#connectParams) {
         nodeId = ctx.nodes.attach(this, identity, this.#connectParams).id;

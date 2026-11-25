@@ -119,6 +119,12 @@ const NETWORK_READ_BARE: ReadonlySet<string> = new Set([
 // `web.search` and `web.fetch` are the built-ins (dots), `web_fetch` the connector's (underscore).
 const LIVE_READ_PREFIX = /^(browser|computer|harness|exec|sandbox|vm|web)([._]|$)/;
 
+/**
+ * The one `none` tool that only a fork run may use (fork-a-plan-2026 §3.2, §4.1): the branch files
+ * its report. It is not in `STAGING_NONE_ALLOWED`, so a night run refuses it by name.
+ */
+export const FORK_REPORT_TOOL = "fork_report";
+
 export type ReadRefusal = "none_not_allowed" | "memory_not_view" | "network_read" | "mcp_read";
 
 export type ReadVerdict = { run: true } | { run: false; reason: ReadRefusal };
@@ -129,6 +135,8 @@ export interface ReadCheckInput {
   sideEffect: SideEffect;
   args: unknown;
   connectorRule?: ConnectorRule | undefined;
+  /** What the run belongs to; `fork_report` runs only under a `fork` origin. */
+  staging?: Staging | undefined;
 }
 
 /**
@@ -140,6 +148,11 @@ export function readVerdict(input: ReadCheckInput): ReadVerdict {
   const named = connectorToolName(input.tool);
   const bare = named?.tool ?? input.tool;
   if (input.sideEffect === "none") {
+    if (input.tool === FORK_REPORT_TOOL) {
+      return input.staging?.kind === "fork"
+        ? { run: true }
+        : { run: false, reason: "none_not_allowed" };
+    }
     if (!STAGING_NONE_ALLOWED.has(input.tool)) return { run: false, reason: "none_not_allowed" };
     if (input.tool === "memory") {
       const a = input.args;
@@ -357,6 +370,18 @@ export function refusalNote(staging: Staging): string {
     : "can't be prepared overnight";
 }
 
+/**
+ * A read whose decision was `ask` (an ungranted folder, an outbound check, a tainted turn's
+ * fetch): a staging run raises no card (fork-a-plan §3.3). In a fork the model is told to list it
+ * as an open question, which the Plans view shows as "Needs your OK to check"; a night run keeps
+ * its one note.
+ */
+export function readAskNote(staging: Staging): string {
+  return staging.kind === "fork"
+    ? "needs the owner's OK; list it under open questions"
+    : refusalNote(staging);
+}
+
 export function stagedNote(staging: Staging): string {
   return staging.kind === "fork"
     ? "recorded in the plan's branch; it has not happened and returns no result"
@@ -369,8 +394,11 @@ export function stagedOutput(staging: Staging, stagedId: string) {
 }
 
 /** The model-facing result of a call the gate refused. Nothing ran and no card was raised. */
-export function refusedOutput(staging: Staging) {
-  return { staged: false as const, note: refusalNote(staging) };
+export function refusedOutput(staging: Staging, reason?: string) {
+  return {
+    staged: false as const,
+    note: reason === "read_ask" ? readAskNote(staging) : refusalNote(staging),
+  };
 }
 
 // --- The per-job toolset (night-shift-2026 §3.1) --------------------------------------------------

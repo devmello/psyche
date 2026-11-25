@@ -126,6 +126,8 @@ struct HomeView: View {
     private func sections(_ snapshot: HomeSnapshot) -> some View {
         let rise = motion.transition(.rise)
         if !snapshot.needsYou.isEmpty { needsYou(snapshot.needsYou).transition(rise) }
+        // Night shift's review card sits directly after Needs you (drawn only while a review is waiting).
+        NightShiftHomeSection(store: store)
         if !snapshot.running.isEmpty { running(snapshot.running).transition(rise) }
         if !snapshot.today.isEmpty { today(snapshot.today).transition(rise) }
         if !model.comingUp.isEmpty { todos(String(localized: "Coming up", bundle: .module), model.comingUp).transition(rise) }

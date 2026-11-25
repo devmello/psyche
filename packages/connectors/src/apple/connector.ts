@@ -695,6 +695,17 @@ const TOOLS: Record<AppleApp, AppleToolSpec[]> = {
                 path: { type: "string" },
                 to: { type: "string" },
                 name: { type: "string", maxLength: 255 },
+                // Night shift: the identities the move was judged on (the helper refuses on change).
+                expect: {
+                  type: "object",
+                  properties: {
+                    sourceId: { type: "string", maxLength: 64 },
+                    sourceParentId: { type: "string", maxLength: 64 },
+                    destParentId: { type: "string", maxLength: 64 },
+                  },
+                  required: ["sourceId", "sourceParentId", "destParentId"],
+                  additionalProperties: false,
+                },
               },
               required: ["path", "to"],
               additionalProperties: false,

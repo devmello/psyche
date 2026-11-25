@@ -183,7 +183,7 @@ public final class Router {
         case .inbox, .scheduled, .overview, .ideas, .space: tab = .home; homePath = [route]
         case .feed: tab = .home; homePath = [route]
         case .feedPost: tab = .home; homePath = [.feed, route]
-        case .goals: tab = .home; homePath = [route]
+        case .goals, .nightShift: tab = .home; homePath = [route]
         case .goal: tab = .home; homePath = [.goals, route]
         case .task(let id): openTask(id)
         case .agentApprovals:

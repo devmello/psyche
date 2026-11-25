@@ -1031,6 +1031,139 @@ struct FilesWave1Tests {
     }
 }
 
+/// Night shift apply: `files.move` items with `expect` move by descriptor and only when the file,
+/// its folder and the destination folder are still the ones recorded at staging.
+@Suite("files.move identity (night shift)", .serialized)
+struct FilesMoveIdentityTests {
+    /// granted/{src/file.pdf, dst/, other/}, plus the staged item with its recorded identities.
+    struct Fixture {
+        var granted: URL
+        var src: String { granted.appendingPathComponent("src").path }
+        var dst: String { granted.appendingPathComponent("dst").path }
+        var other: String { granted.appendingPathComponent("other").path }
+        var file: String { src + "/file.pdf" }
+        var expect: JSONValue
+        func item(_ expect: JSONValue? = nil) -> JSONValue {
+            var o: [String: JSONValue] = ["path": .string(file), "to": .string(dst), "name": "file.pdf"]
+            if let expect { o["expect"] = expect }
+            return .object(o)
+        }
+    }
+
+    static func id(_ path: String) throws -> String {
+        var st = stat()
+        guard lstat(path, &st) == 0 else { throw CocoaError(.fileNoSuchFile) }
+        return IdentityMove.id(st)
+    }
+
+    func fixture() throws -> Fixture {
+        let g = FileManager.default.temporaryDirectory.appendingPathComponent("psyche-idmove-\(UUID().uuidString)").resolvingSymlinksInPath()
+            .appendingPathComponent("granted")
+        for d in ["src", "dst", "other"] { try FileManager.default.createDirectory(at: g.appendingPathComponent(d), withIntermediateDirectories: true) }
+        try Data("pdf".utf8).write(to: g.appendingPathComponent("src/file.pdf"))
+        let p = g.path
+        return Fixture(granted: g, expect: [
+            "sourceId": .string(try Self.id(p + "/src/file.pdf")), "sourceParentId": .string(try Self.id(p + "/src")),
+            "destParentId": .string(try Self.id(p + "/dst")),
+        ])
+    }
+
+    @Test func idIsSignedDevColonInode() throws {
+        var st = stat()
+        #expect(lstat(NSTemporaryDirectory(), &st) == 0)
+        #expect(IdentityMove.id(st) == "\(Int64(st.st_dev)):\(st.st_ino)" && st.st_dev > 0)
+    }
+
+    @Test func matchingExpectMoves() async throws {
+        let f = try fixture()
+        let h = Harness(roots: [f.granted.path])
+        let r = try await h.invoke("files.move", ["items": [f.item(f.expect)]])
+        #expect(r.result["moved"]?.arrayValue?.count == 1)
+        #expect(!FileManager.default.fileExists(atPath: f.file))
+        #expect(try String(contentsOfFile: f.dst + "/file.pdf", encoding: .utf8) == "pdf")
+    }
+
+    @Test func itemWithoutExpectMovesAsBefore() async throws {
+        let f = try fixture()
+        let h = Harness(roots: [f.granted.path])
+        // Even after the file was swapped: no expect, no identity check (today's behaviour).
+        try Data("new".utf8).write(to: URL(fileURLWithPath: f.src + "/tmp"))
+        #expect(rename(f.src + "/tmp", f.file) == 0)
+        _ = try await h.invoke("files.move", ["items": [f.item()]])
+        #expect(try String(contentsOfFile: f.dst + "/file.pdf", encoding: .utf8) == "new")
+    }
+
+    /// Each change made after staging, and the refusal it must get.
+    static let changes: [(String, String)] = [
+        ("swapped source", "identity_mismatch"), ("hard-linked source", "identity_mismatch"), ("source is a symlink", "identity_mismatch"),
+        ("source folder swapped", "identity_mismatch"), ("destination is a symlink", "identity_mismatch"),
+        ("destination folder swapped", "identity_mismatch"), ("destination name exists", "file_exists"),
+    ]
+
+    @Test(arguments: changes.map(\.0))
+    func changedSinceStagingRefusesAndMovesNothing(_ change: String) async throws {
+        let f = try fixture()
+        let fm = FileManager.default
+        switch change {
+        case "swapped source":  // same name, a different inode (created before the old one is gone)
+            try Data("evil".utf8).write(to: URL(fileURLWithPath: f.src + "/tmp"))
+            #expect(rename(f.src + "/tmp", f.file) == 0)
+        case "hard-linked source":
+            #expect(link(f.file, f.other + "/hl") == 0)
+        case "source is a symlink":
+            #expect(rename(f.file, f.other + "/real.pdf") == 0)
+            try fm.createSymbolicLink(atPath: f.file, withDestinationPath: f.other + "/real.pdf")
+        case "source folder swapped":
+            #expect(rename(f.src, f.granted.path + "/src-old") == 0)
+            try fm.createDirectory(atPath: f.src, withIntermediateDirectories: false)
+            try Data("evil".utf8).write(to: URL(fileURLWithPath: f.file))
+        case "destination is a symlink":
+            #expect(rename(f.dst, f.granted.path + "/dst-old") == 0)
+            try fm.createSymbolicLink(atPath: f.dst, withDestinationPath: f.other)
+        case "destination folder swapped":
+            #expect(rename(f.dst, f.granted.path + "/dst-old") == 0)
+            try fm.createDirectory(atPath: f.dst, withIntermediateDirectories: false)
+        case "destination name exists":
+            try Data("x".utf8).write(to: URL(fileURLWithPath: f.dst + "/file.pdf"))
+        default: Issue.record("unknown change \(change)")
+        }
+        let before = try snapshot(f.granted.path)
+        let want = try #require(Self.changes.first { $0.0 == change }?.1)
+        let h = Harness(roots: [f.granted.path])
+        do {
+            _ = try await h.invoke("files.move", ["items": [f.item(f.expect)]])
+            Issue.record("\(change): expected \(want)")
+        } catch let e as CapabilityError {
+            #expect(e.code == .conflict && e.reason == want, "\(change): got \(e.reason)")
+            #expect(e.reason == "file_exists" || e.details["moved"] == .array([]))
+        }
+        #expect(try snapshot(f.granted.path) == before, "\(change): something moved")
+    }
+
+    @Test func oneStaleItemMovesNothingInTheCall() async throws {
+        let f = try fixture()
+        try Data("png".utf8).write(to: URL(fileURLWithPath: f.src + "/b.png"))
+        let good: JSONValue = [
+            "path": .string(f.src + "/b.png"), "to": .string(f.dst),
+            "expect": ["sourceId": .string(try Self.id(f.src + "/b.png")), "sourceParentId": f.expect["sourceParentId"]!,
+                       "destParentId": f.expect["destParentId"]!],
+        ]
+        #expect(link(f.file, f.other + "/hl") == 0)  // the second item went stale
+        let before = try snapshot(f.granted.path)
+        let h = Harness(roots: [f.granted.path])
+        await #expect(throws: CapabilityError.self) { _ = try await h.invoke("files.move", ["items": [good, f.item(f.expect)]]) }
+        #expect(try snapshot(f.granted.path) == before)
+    }
+
+    /// Every entry under `root` (not following symlinks) with its identity.
+    func snapshot(_ root: String) throws -> [String: String] {
+        var out: [String: String] = [:]
+        let e = FileManager.default.enumerator(atPath: root)
+        while let rel = e?.nextObject() as? String { out[rel] = try Self.id(root + "/" + rel) }
+        return out
+    }
+}
+
 @Suite("Shortcuts wave 1 (apple-apps-2026 §4.9)")
 struct ShortcutsWave1Tests {
     @Test func listAndRun() async throws {

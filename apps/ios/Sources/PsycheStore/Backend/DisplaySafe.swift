@@ -28,6 +28,15 @@ public enum DisplaySafe {
         return out
     }
 
+    /// Longer text (a draft's body): lines stay lines, and every character `text` neutralises is still neutralised. A
+    /// lone CR counts as a line break; NEL and the Unicode line and paragraph separators are not kept as breaks.
+    public static func paragraphs(_ value: String) -> String {
+        value.replacingOccurrences(of: "\r\n", with: "\n").replacingOccurrences(of: "\r", with: "\n")
+            .split(separator: "\n", omittingEmptySubsequences: false)
+            .map { text(String($0)) }
+            .joined(separator: "\n")
+    }
+
     private static func marker(_ scalar: Unicode.Scalar) -> String {
         let hex = String(scalar.value, radix: 16, uppercase: true)
         return "⟨U+" + String(repeating: "0", count: max(0, 4 - hex.count)) + hex + "⟩"

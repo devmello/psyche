@@ -22,7 +22,7 @@ export const TaskStatus = StringEnum(
 export type TaskStatus = Static<typeof TaskStatus>;
 
 export const TaskOrigin = StringEnum(
-  ["chat", "automation", "idea", "goal", "channel", "subagent"],
+  ["chat", "automation", "idea", "goal", "channel", "subagent", "fork"],
   {
     $id: "TaskOrigin",
   },

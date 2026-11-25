@@ -163,6 +163,10 @@ struct PointsCardModel {
     var stepText: String
     var showNext: Bool
     var strings: PointsCardStrings?
+    /// Offer Let Psyche look: the tree is sparse and the page is not directions-only.
+    var showLook = false
+    /// Vision mode is on: a small eye shows on the card (§3.1).
+    var showVision = false
 }
 
 /// A button that works on the first click, without the helper becoming the active app, and that is
@@ -312,6 +316,11 @@ final class PointsCardView: NSView {
             let hw = min(PointsCardButton.width(s.hideNote), 100)
             hide.frame = CGRect(x: PointsGeometry.cardWidth - pad - hw, y: y, width: hw, height: 20)
             addSubview(hide)
+            if m.showVision {
+                let eye = PointsEyeBadge(accessibilityText: s.visionBadge)
+                eye.frame = CGRect(x: PointsGeometry.cardWidth - pad - hw - 22, y: y + 2, width: 16, height: 16)
+                addSubview(eye)
+            }
         }
         y += 20 + Self.rowGap
         if let h = m.hint, !h.isEmpty { place(label(h, size: 11, weight: .medium, color: pointsInk, lines: 1, width: w)) }
@@ -348,6 +357,7 @@ final class PointsCardView: NSView {
             } else {
                 items = [(s.back, .back, false)]
                 if m.showNext { items.append((s.next, .next, true)) }
+                if m.showLook { items.append((s.letLook, .look, false)) }
                 items += [(s.skip, .skip, false), (s.looksWrong, .wrong, false), (s.stuck, nil, false), (s.askInPsyche, .ask, false), (s.stop, .stop, false)]
             }
             var x = pad
@@ -379,4 +389,30 @@ final class PointsCardView: NSView {
 
     /// Set by the overlay: the Stuck? toggle changes which buttons show, so the card is laid out again.
     var onRelayout: ((PointsCardModel) -> Void)?
+}
+
+
+/// The eye that shows while vision mode is on: an SF Symbol drawn by hand, read aloud with the Gateway's
+/// `visionBadge` string. It takes no clicks.
+@MainActor
+final class PointsEyeBadge: NSView {
+    init(accessibilityText: String) {
+        super.init(frame: .zero)
+        setAccessibilityElement(true)
+        setAccessibilityRole(.image)
+        setAccessibilityLabel(accessibilityText)
+    }
+
+    required init?(coder: NSCoder) { nil }
+
+    override func hitTest(_ point: NSPoint) -> NSView? { nil }
+
+    override func draw(_ dirtyRect: NSRect) {
+        guard let img = NSImage(systemSymbolName: "eye", accessibilityDescription: nil) else { return }
+        let tinted = img.withSymbolConfiguration(NSImage.SymbolConfiguration(pointSize: 12, weight: .medium)) ?? img
+        tinted.isTemplate = true
+        NSColor.secondaryLabelColor.set()
+        let r = bounds.insetBy(dx: 1, dy: 2)
+        tinted.draw(in: r, from: .zero, operation: .sourceOver, fraction: 0.9)
+    }
 }

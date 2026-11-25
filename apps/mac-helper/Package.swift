@@ -42,7 +42,7 @@ let package = Package(
         .target(name: "PsycheHelperSystem", dependencies: ["PsycheHelperCore", "PsycheAXRead", "PsycheCapture", "PsycheAXEnable", protocolProduct, wireProduct]),
         .executableTarget(name: "PsycheHelper", dependencies: ["PsycheHelperSystem", "PsycheHelperPoints", "PsycheHelperCore", protocolProduct, wireProduct]),
         .testTarget(name: "PsycheHelperCoreTests", dependencies: ["PsycheHelperCore", protocolProduct, wireProduct]),
-        .testTarget(name: "PsycheHelperPointsTests", dependencies: ["PsycheHelperPoints", "PsycheHelperCore", protocolProduct, wireProduct]),
+        .testTarget(name: "PsycheHelperPointsTests", dependencies: ["PsycheHelperPoints", "PsycheHelperCore", "PsycheCapture", protocolProduct, wireProduct]),
         .testTarget(name: "PsycheHelperSystemTests", dependencies: ["PsycheHelperSystem", "PsycheHelperCore", protocolProduct, wireProduct]),
     ]
 )

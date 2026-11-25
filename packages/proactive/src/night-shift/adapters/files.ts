@@ -336,10 +336,21 @@ function pre(c: CaptureOk): FilePre | undefined {
   return p as unknown as FilePre;
 }
 
-function moveCall(tool: string, sourcePath: string, to: string, name: string): StagedCall {
+/**
+ * The stored call. It carries `expect`, the identities the item was judged on, so the binding hash
+ * covers them and the helper moves by descriptor only when the source, its folder and the
+ * destination folder are still those (`renameatx_np` with `RENAME_EXCL`; #1661 finding 7).
+ */
+function moveCall(
+  tool: string,
+  sourcePath: string,
+  to: string,
+  name: string,
+  expect: { sourceId: string; sourceParentId: string; destParentId: string },
+): StagedCall {
   return {
     tool: `${toolPrefix(tool)}files_move`,
-    args: { items: [{ path: sourcePath, to, name }] },
+    args: { items: [{ path: sourcePath, to, name, expect: { ...expect } }] },
   };
 }
 
@@ -400,6 +411,11 @@ export function filesAdapter(deps: FilesDeps): Adapter {
     return {
       ok: true,
       target: src.id.id,
+      call: moveCall(call.tool, op.path, op.to, name, {
+        sourceId: src.id.id,
+        sourceParentId: srcParent.id,
+        destParentId: parent.id,
+      }),
       precondition: precondition as unknown as Json,
       before: { path: src.real },
     };
@@ -433,7 +449,11 @@ export function filesAdapter(deps: FilesDeps): Adapter {
       ok: true,
       target: earlierCap.target,
       folds: [earlierCap.target],
-      call: moveCall(tool, earlier.sourcePath, parent.real, name),
+      call: moveCall(tool, earlier.sourcePath, parent.real, name, {
+        sourceId: earlier.sourceId,
+        sourceParentId: earlier.sourceParentId,
+        destParentId: parent.id,
+      }),
       precondition: merged as unknown as Json,
       before: earlierCap.before,
     };
@@ -490,7 +510,20 @@ export function filesAdapter(deps: FilesDeps): Adapter {
       return {
         tool: `${toolPrefix(call.tool)}files_move`,
         args: {
-          items: [{ path: p.destPath, to: dirname(p.sourceReal), name: basename(p.sourceReal) }],
+          items: [
+            {
+              path: p.destPath,
+              to: dirname(p.sourceReal),
+              name: basename(p.sourceReal),
+              // A rename keeps the inode: the moved file is still `sourceId`, now in the
+              // destination folder, going back to its old one.
+              expect: {
+                sourceId: p.sourceId,
+                sourceParentId: p.destParentId,
+                destParentId: p.sourceParentId,
+              },
+            },
+          ],
         },
       };
     },

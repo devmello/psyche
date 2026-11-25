@@ -1,6 +1,6 @@
 import { gunzipSync, gzipSync } from "node:zlib";
 import type { RunFrame, RunStep } from "@psyche/protocol";
-import { and, asc, eq, gt, isNotNull, isNull, lt, sql } from "drizzle-orm";
+import { and, asc, eq, gt, inArray, isNotNull, isNull, lt, sql } from "drizzle-orm";
 import { decodeJson } from "../mappers.ts";
 import type { PsycheDb } from "../open.ts";
 import { runFrames, runSteps, stepPayloadRows, toolPayloads } from "../schema.ts";
@@ -83,6 +83,42 @@ export function listRunSteps(
     .limit(options.limit ?? 500)
     .all()
     .map((r) => stepFromRow(r, false));
+}
+
+/**
+ * Closes a run's steps that never finished (`pending` or `running`) as `failed`, stamping
+ * `endedAt`. Used when a run is cut off (Gateway restart): nothing may keep spinning under a
+ * run that has ended. Returns the closed steps. A `waiting` step belongs to a suspended run and
+ * is left alone.
+ */
+export function failOpenRunSteps(db: PsycheDb, runId: string): RunStep[] {
+  const rows = db.drizzle
+    .select()
+    .from(runSteps)
+    .where(and(eq(runSteps.runId, runId), inArray(runSteps.status, ["pending", "running"])))
+    .orderBy(asc(runSteps.seq))
+    .all();
+  const at = db.now();
+  const closed: RunStep[] = [];
+  for (const row of rows) {
+    const data = JSON.stringify({
+      ...decodeJson<RunStep>(row.data),
+      status: "failed",
+      endedAt: at,
+      error: {
+        code: "interrupted",
+        message: "The run was cut off before this step ended.",
+        retryable: false,
+      },
+    });
+    db.drizzle
+      .update(runSteps)
+      .set({ status: "failed", endedAt: at, data, updatedAt: at })
+      .where(and(eq(runSteps.runId, runId), eq(runSteps.id, row.id)))
+      .run();
+    closed.push(stepFromRow({ ...row, data }, false));
+  }
+  return closed;
 }
 
 /** One step, with its retained thinking text when it has not expired. */
