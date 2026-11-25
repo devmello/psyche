@@ -3,6 +3,7 @@ import ApplicationServices
 import Carbon
 import CoreGraphics
 import Foundation
+import PsycheAXRead
 import PsycheHelperCore
 import PsycheProtocol
 
