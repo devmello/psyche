@@ -39646,6 +39646,7 @@ public enum TaskOrigin: String, Codable, Sendable {
     case automation = "automation"
     case channel = "channel"
     case chat = "chat"
+    case fork = "fork"
     case goal = "goal"
     case idea = "idea"
     case subagent = "subagent"
