@@ -26,6 +26,7 @@ import {
 } from "@psyche/protocol";
 import { automationIdOfThreadKey } from "@psyche/scheduler";
 import type { Call, HandlerDef } from "../context.ts";
+import { assertFullAccessAllowed } from "../compose/threads.ts";
 import { assertWritableThread, importConversations } from "../session/imported-threads.ts";
 
 /** The owner's one persistent main thread (feature E1). */
@@ -221,6 +222,8 @@ const MODE_STRICTNESS: Record<PermissionMode, number> = {
   manual: 1,
   balanced: 2,
   auto: 3,
+  // Never a default: Full access is turned on per chat (`threads.update`), not for new threads.
+  full: 4,
 };
 
 /**
@@ -269,6 +272,7 @@ export const threadsHandlers: Record<string, HandlerDef> = {
         );
       }
       if (params.parentThreadId !== undefined) requireThread(call, params.parentThreadId);
+      if (params.permissionMode === "full") assertFullAccessAllowed(call, { kind });
       // Model choice is a security control (security §7.2): `auto` only with an allowlisted model.
       if (params.permissionMode === "auto") {
         const ref = params.modelRef;
@@ -507,7 +511,8 @@ export const threadsHandlers: Record<string, HandlerDef> = {
         titleSource: params.title === undefined ? "auto" : "user",
         parentThreadId: source.id,
         forkedFromMessageId: message.id,
-        permissionMode: source.permissionMode,
+        // Full access stays with the chat the owner turned it on in: a fork starts Balanced.
+        permissionMode: source.permissionMode === "full" ? "balanced" : source.permissionMode,
         modelRef: source.modelRef ?? null,
         // A fork stays in its source's Space.
         spaceId: source.spaceId,
