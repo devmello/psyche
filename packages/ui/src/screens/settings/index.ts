@@ -126,6 +126,7 @@ export {
   RamGuidance,
   ToolCheckBadge,
 } from "./ModelSection.tsx";
+export { NotificationsSection } from "./NotificationsSection.tsx";
 export {
   HARD_PROHIBITION_IDS,
   hardProhibitions,

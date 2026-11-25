@@ -1791,7 +1791,6 @@ export const ko: Partial<Catalogue> = {
   "settings.computerUse.escStops": "키를 누르면 언제든 컴퓨터 사용이 중지됩니다.",
   "settings.computerUse.loadLabel": "컴퓨터 사용",
   "settings.computerUse.macPermissions": "macOS 권한",
-  "settings.computerUse.openSystemSettingsFor": "{name}에 대한 시스템 설정 열기",
   "settings.computerUse.openSystemSettings": "시스템 설정 열기",
   "settings.computerUse.apps": "앱",
   "settings.computerUse.enabledHint":

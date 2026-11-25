@@ -16,13 +16,24 @@ const dir = mkdtempSync(join(tmpdir(), "psy-helper-"));
 const appPath = join(dir, "PsycheHelper.app");
 mkdirSync(appPath);
 
-function fake(opts: { pairsAfterOpen?: boolean; openCode?: number; xattrCode?: number } = {}) {
+function fake(
+  opts: {
+    pairsAfterOpen?: boolean;
+    openCode?: number;
+    xattrCode?: number;
+    quarantined?: boolean;
+  } = {},
+) {
   const calls: string[][] = [];
   let opened = false;
   let t = 0;
   const run: Runner = async (file, args) => {
     calls.push([file, ...args]);
-    if (file === "/usr/bin/xattr") return { code: opts.xattrCode ?? 0, stdout: "", stderr: "" };
+    if (file === "/usr/bin/xattr") {
+      // `-p` exits 1 when the attribute is absent; the delete (`-drs`) can fail on its own.
+      const code = args[0] === "-p" ? (opts.quarantined ? 0 : 1) : (opts.xattrCode ?? 0);
+      return { code, stdout: "", stderr: "" };
+    }
     opened = true;
     return { code: opts.openCode ?? 0, stdout: "", stderr: opts.openCode ? "LSOpen failed" : "" };
   };
@@ -99,19 +110,30 @@ describe("HelperLauncher", () => {
     const f = fake();
     await Promise.all([f.launcher.launch(), f.launcher.launch()]);
     expect(f.calls).toEqual([
-      // An "Open Anyway" install can leave the nested helper quarantined: cleared before open.
-      ["/usr/bin/xattr", "-dr", "com.apple.quarantine", appPath],
+      // A clean bundle is only probed, never rewritten.
+      ["/usr/bin/xattr", "-p", "com.apple.quarantine", appPath],
       ["/usr/bin/open", "-g", "-j", "--env", `PSYCHE_HOME=${join(dir, "home")}`, appPath],
     ]);
     expect(f.states.map((s) => s.kind)).toEqual(["starting", "paired"]);
     await f.launcher.onPresence(true);
-    expect(f.calls).toHaveLength(2);
+    expect(f.calls).toHaveLength(2); // the probe and the open, once
+  });
+
+  it("clears a quarantine left by an Open Anyway install, without following links, before open", async () => {
+    const f = fake({ quarantined: true });
+    await f.launcher.launch();
+    expect(f.calls.map((c) => c.slice(0, 3))).toEqual([
+      ["/usr/bin/xattr", "-p", "com.apple.quarantine"],
+      ["/usr/bin/xattr", "-drs", "com.apple.quarantine"],
+      ["/usr/bin/open", "-g", "-j"],
+    ]);
+    expect(f.calls[1]?.[3]).toBe(appPath);
   });
 
   it("still opens the helper when clearing the quarantine fails", async () => {
-    const f = fake({ xattrCode: 1 });
+    const f = fake({ quarantined: true, xattrCode: 1 });
     await f.launcher.launch();
-    expect(f.calls.map((c) => c[0])).toEqual(["/usr/bin/xattr", "/usr/bin/open"]);
+    expect(f.calls.map((c) => c[0])).toEqual(["/usr/bin/xattr", "/usr/bin/xattr", "/usr/bin/open"]);
     expect(f.launcher.getState().kind).toBe("paired");
   });
 

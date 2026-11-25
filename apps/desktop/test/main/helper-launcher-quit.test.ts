@@ -38,6 +38,8 @@ function world(
     psycheHome: join(dir, "home"),
     platform: opts.platform ?? "darwin",
     run: async (file, args) => {
+      // A clean bundle: the quarantine probe (`xattr -p`) finds no attribute and runs nothing more.
+      if (file === "/usr/bin/xattr") return { code: 1, stdout: "", stderr: "" };
       if (file === "/usr/bin/open") {
         opened.push([file, ...args]);
         alive = true;
@@ -210,8 +212,8 @@ describe("after a quit nothing starts the helper again", () => {
       psycheHome: join(dir, "home"),
       platform: "darwin",
       run: async (file) => {
-        if (file !== "/usr/bin/open") return { code: 0, stdout: "", stderr: "" };
         opened.push(file);
+        if (file === "/usr/bin/xattr") return { code: 1, stdout: "", stderr: "" };
         return { code: 0, stdout: "", stderr: "" };
       },
       isPaired: async () => {
@@ -224,7 +226,7 @@ describe("after a quit nothing starts the helper again", () => {
     });
     stop = () => launcher.stopForQuit();
     await launcher.launch();
-    expect(opened).toEqual(["/usr/bin/open"]);
+    expect(opened).toEqual(["/usr/bin/xattr", "/usr/bin/open"]);
     expect(launcher.getState().kind).toBe("starting");
   });
 
@@ -265,8 +267,8 @@ describe("a new app instance (relaunch after an update or a restart) starts the 
       psycheHome: join(dir, "home"),
       platform: "darwin",
       run: async (file, args) => {
-        if (file !== "/usr/bin/open") return { code: 0, stdout: "", stderr: "" };
         w.opened.push([file, ...args]);
+        if (file === "/usr/bin/xattr") return { code: 1, stdout: "", stderr: "" };
         w.setPaired(true);
         return { code: 0, stdout: "", stderr: "" };
       },
@@ -279,6 +281,6 @@ describe("a new app instance (relaunch after an update or a restart) starts the 
     });
     // isPaired stays false in this fake; the point is that the open happens.
     await next.launch();
-    expect(w.opened.map((c) => c[0])).toEqual(["/usr/bin/open"]);
+    expect(w.opened.map((c) => c[0])).toEqual(["/usr/bin/xattr", "/usr/bin/open"]);
   });
 });

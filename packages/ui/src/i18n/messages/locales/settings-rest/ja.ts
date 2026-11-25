@@ -165,6 +165,10 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.key.notifications.quietHours.start": "開始時刻",
   "settings.key.notifications.quietHours.end": "終了時刻",
   "settings.notifications.title": "通知",
+  "settings.notifications.helper.title": "Psyche Helper の通知",
+  "settings.notifications.helper.hint":
+    "承認の通知は Psyche Helper 経由で届きます。ウインドウを閉じていても承認が届くよう、通知の表示を許可してください。",
+  "settings.notifications.helper.allow": "Psyche Helper の通知を許可",
   "settings.notifications.description": "Psycheが割り込んでよいタイミング。",
   "settings.notifications.group.quietHours": "おやすみ時間",
   "settings.notifications.quietHours.hint":

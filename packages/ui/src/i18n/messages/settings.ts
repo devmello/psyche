@@ -251,6 +251,10 @@ export const settings = {
   "settings.key.notifications.quietHours.start": "Quiet from",
   "settings.key.notifications.quietHours.end": "Quiet until",
   "settings.notifications.title": "Notifications",
+  "settings.notifications.helper.title": "Psyche Helper notifications",
+  "settings.notifications.helper.hint":
+    "Approval notifications arrive through Psyche Helper. Allow it to show them, so approvals reach you when the window is closed.",
+  "settings.notifications.helper.allow": "Allow Psyche Helper notifications",
   "settings.notifications.description": "When Psyche may interrupt you.",
   "settings.notifications.group.quietHours": "Quiet hours",
   "settings.notifications.quietHours.hint":
@@ -1137,7 +1141,6 @@ export const settings = {
   "settings.computerUse.escStops": "stops computer use at any time.",
   "settings.computerUse.loadLabel": "computer use",
   "settings.computerUse.macPermissions": "macOS permissions",
-  "settings.computerUse.openSystemSettingsFor": "Open System Settings for {name}",
   "settings.computerUse.openSystemSettings": "Open System Settings",
   "settings.computerUse.appsHint": "How far Psyche may go in each app.",
   "settings.computerUse.apps": "Apps",

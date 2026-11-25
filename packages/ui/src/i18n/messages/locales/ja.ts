@@ -1792,7 +1792,6 @@ export const ja: Partial<Catalogue> = {
   "settings.computerUse.escStops": "でいつでもコンピュータ操作を停止できます。",
   "settings.computerUse.loadLabel": "コンピュータ操作",
   "settings.computerUse.macPermissions": "macOSの権限",
-  "settings.computerUse.openSystemSettingsFor": "{name}のシステム設定を開く",
   "settings.computerUse.openSystemSettings": "システム設定を開く",
   "settings.computerUse.apps": "アプリ",
   "settings.computerUse.enabledHint":

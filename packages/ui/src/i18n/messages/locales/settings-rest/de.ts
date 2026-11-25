@@ -168,6 +168,10 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.key.notifications.quietHours.start": "Ruhig ab",
   "settings.key.notifications.quietHours.end": "Ruhig bis",
   "settings.notifications.title": "Mitteilungen",
+  "settings.notifications.helper.title": "Benachrichtigungen von Psyche Helper",
+  "settings.notifications.helper.hint":
+    "Freigabe-Benachrichtigungen kommen über Psyche Helper. Erlaube ihm, sie anzuzeigen, damit Freigaben dich auch bei geschlossenem Fenster erreichen.",
+  "settings.notifications.helper.allow": "Benachrichtigungen von Psyche Helper erlauben",
   "settings.notifications.description": "Wann Psyche dich unterbrechen darf.",
   "settings.notifications.group.quietHours": "Ruhezeiten",
   "settings.notifications.quietHours.hint":

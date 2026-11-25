@@ -5,6 +5,7 @@ import { FakeNode, type FakeNodeHandler } from "./fake-node.ts";
 import {
   desktopClient,
   ik,
+  remoteClient,
   startTestGateway,
   type TestClient,
   type TestGateway,
@@ -42,6 +43,10 @@ const HANDLERS: FakeNodeHandler[] = [
   {
     capability: { name: "permissions.request", sideEffect: "write" },
     run: (params) => ({ status: "prompted", params }),
+  },
+  {
+    capability: { name: "notify.request_authorization", sideEffect: "write" },
+    run: () => ({ authorization: "authorized" }),
   },
   {
     capability: { name: "permissions.open_settings", sideEffect: "none" },
@@ -233,6 +238,12 @@ describe("node registry", () => {
     expect(
       await invoke("permissions.open_settings", { permission: "accessibility" }),
     ).toMatchObject({ ok: true });
+    expect(await invoke("notify.request_authorization", { provisional: false })).toMatchObject({
+      ok: true,
+    });
+    expect(
+      await invoke("permissions.open_settings", { permission: "notifications" }),
+    ).toMatchObject({ ok: true });
     const sent = node.invocations.length;
     // Near misses that must stay refused: other permissions, a missing purpose, extra arguments.
     for (const [cap, params] of [
@@ -244,6 +255,12 @@ describe("node registry", () => {
       ["permissions.open_settings", { permission: "contacts" }],
       ["permissions.open_settings", {}],
       ["permissions.request", null],
+      // Notifications ask through notify.*, never permissions.request; no provisional or extras.
+      ["permissions.request", { permission: "notifications" }],
+      ["notify.request_authorization", { provisional: true }],
+      ["notify.request_authorization", {}],
+      ["notify.request_authorization", { provisional: false, extra: 1 }],
+      ["notify.show", { provisional: false }],
       ["permissions.status.extra", { permission: "accessibility" }],
     ] as const) {
       expect(await invoke(cap, params), `${cap} ${JSON.stringify(params)}`).toMatchObject({
@@ -251,6 +268,30 @@ describe("node registry", () => {
       });
     }
     expect(node.invocations.length).toBe(sent);
+  });
+
+  it("refuses the permission prompts to a paired device that is not the desktop shell", async () => {
+    // A phone, another Mac or a leaked write token: no TCC sheets on the Host.
+    const { node } = await setup({ policy: { default: "deny" } }, true);
+    const remote = await remoteClient(t.gateway);
+    try {
+      for (const [capability, params] of [
+        ["permissions.request", { permission: "accessibility" }],
+        ["permissions.request", { permission: "screenRecording", purpose: "vision_fallback" }],
+        ["permissions.open_settings", { permission: "accessibility" }],
+        ["notify.request_authorization", { provisional: false }],
+      ] as const) {
+        const res = await remote.request(
+          "nodes.invoke",
+          { nodeId: node.nodeId, capability, params },
+          ik(),
+        );
+        expect(res, capability).toMatchObject({ ok: false });
+      }
+      expect(node.invocations).toHaveLength(0);
+    } finally {
+      remote.close();
+    }
   });
 
   it("keeps permission prompts off every node but the Host's helper", async () => {

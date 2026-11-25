@@ -765,6 +765,7 @@ export interface HelperPermissionsState {
   helper: "online" | "offline";
   accessibility: "granted" | "denied" | "not_determined";
   screenRecording: "granted" | "denied" | "not_determined";
+  notifications: "granted" | "denied" | "not_determined";
 }
 
 export interface PermissionsPort {
@@ -778,7 +779,9 @@ export interface PermissionsPort {
    */
   helperStatus?(): Promise<HelperPermissionsState>;
   /** Asks through the helper (its prompt, then its pane in System Settings); answers the new state. */
-  helperRequest?(kind: "accessibility" | "screenRecording"): Promise<HelperPermissionsState>;
+  helperRequest?(
+    kind: "accessibility" | "screenRecording" | "notifications",
+  ): Promise<HelperPermissionsState>;
 }
 
 export interface DictationPort {

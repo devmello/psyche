@@ -1846,7 +1846,6 @@ export const ar: Partial<Catalogue> = {
   "settings.computerUse.escStops": "يوقف استخدام الكمبيوتر في أي وقت.",
   "settings.computerUse.loadLabel": "استخدام الكمبيوتر",
   "settings.computerUse.macPermissions": "أذونات macOS",
-  "settings.computerUse.openSystemSettingsFor": "فتح إعدادات النظام لـ {name}",
   "settings.computerUse.openSystemSettings": "فتح إعدادات النظام",
   "settings.computerUse.apps": "التطبيقات",
   "settings.computerUse.enabledHint":

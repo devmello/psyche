@@ -1797,7 +1797,6 @@ export const zh: Partial<Catalogue> = {
   "settings.computerUse.escStops": "可随时停止电脑使用。",
   "settings.computerUse.loadLabel": "电脑使用",
   "settings.computerUse.macPermissions": "macOS 权限",
-  "settings.computerUse.openSystemSettingsFor": "打开{name}的系统设置",
   "settings.computerUse.openSystemSettings": "打开系统设置",
   "settings.computerUse.apps": "App",
   "settings.computerUse.enabledHint": "关闭后会停止下方所有 App。每个 App 在首次使用时询问。",

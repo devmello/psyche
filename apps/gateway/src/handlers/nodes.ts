@@ -88,25 +88,44 @@ export function isUnreachableCapability(name: string): boolean {
 }
 
 /**
- * Settings -> Computer use asks the Host's Mac helper for its own Accessibility and Screen
- * Recording grant (macOS grants are per app identity: "Psyche Helper", not Psyche.app). Only these
- * two, only the owner's click from a paired client, and only on the Host's helper: the helper
- * shows the system prompt or opens the pane, nothing else. Screen Recording keeps the helper's
- * own `vision_fallback` purpose. Any other permission, extra argument or node stays refused.
+ * Settings asks the Host's Mac helper for its own Accessibility, Screen Recording and
+ * Notifications grants (macOS grants are per app identity: "Psyche Helper", not Psyche.app). Only
+ * the owner's click in the desktop app, and only on the Host's helper: the helper shows the system
+ * prompt or opens the pane, nothing else. Screen Recording keeps the helper's own
+ * `vision_fallback` purpose. Any other permission, extra argument, caller or node stays refused.
  */
 const HELPER_PERMISSIONS: ReadonlySet<unknown> = new Set(["accessibility", "screenRecording"]);
 
+/** Exactly these keys, own properties only (`Object.hasOwn`, so a prototype never answers). */
+function hasOnly(p: Record<string, unknown>, keys: readonly string[]): boolean {
+  const own = Object.keys(p);
+  return own.length === keys.length && keys.every((k) => Object.hasOwn(p, k));
+}
+
+/**
+ * The helper's own permission prompts, asked for by the owner's click (Settings → Computer use
+ * and → Notifications). Accessibility and Screen Recording go through `permissions.request`;
+ * Notifications through `notify.request_authorization` (the explicit prompt, never provisional);
+ * `permissions.open_settings` opens the pane of any of the three. Everything else stays refused.
+ */
 export function isHelperPermissionPrompt(capability: string, params: unknown): boolean {
-  if (capability !== "permissions.request" && capability !== "permissions.open_settings") {
-    return false;
-  }
   if (typeof params !== "object" || params === null || Array.isArray(params)) return false;
   const p = params as Record<string, unknown>;
-  if (!HELPER_PERMISSIONS.has(p.permission)) return false;
-  const screenRequest = capability === "permissions.request" && p.permission === "screenRecording";
-  const allowed = screenRequest ? ["permission", "purpose"] : ["permission"];
-  if (Object.keys(p).some((k) => !allowed.includes(k))) return false;
-  return !screenRequest || p.purpose === "vision_fallback";
+  if (capability === "notify.request_authorization") {
+    return hasOnly(p, ["provisional"]) && p.provisional === false;
+  }
+  if (capability === "permissions.open_settings") {
+    return (
+      hasOnly(p, ["permission"]) &&
+      (HELPER_PERMISSIONS.has(p.permission) || p.permission === "notifications")
+    );
+  }
+  if (capability !== "permissions.request" || !Object.hasOwn(p, "permission")) return false;
+  if (p.permission === "accessibility") return hasOnly(p, ["permission"]);
+  if (p.permission === "screenRecording") {
+    return hasOnly(p, ["permission", "purpose"]) && p.purpose === "vision_fallback";
+  }
+  return false;
 }
 
 /** Pseudo thread id for client-initiated invocations (no conversation owns them). */
@@ -132,8 +151,13 @@ export const nodesHandlers: Record<string, HandlerDef> = {
       const node = getNode(ctx.db, params.nodeId);
       if (!node) throw new PsycheError("not_found", `node ${params.nodeId} not found`);
       const hostHelper = isHostHelperKind(node.kind) || ctx.nodes.isHostHelper(node.id);
+      // Only the owner's own desktop app (a loopback desktop-shell connection) may prompt: a
+      // paired phone, another Mac or a leaked write token must not spam the Host with TCC sheets.
       const permissionPrompt =
-        hostHelper && isHelperPermissionPrompt(params.capability, params.params);
+        hostHelper &&
+        call.identity.desktopShell === true &&
+        call.conn.peer.remoteLoopback &&
+        isHelperPermissionPrompt(params.capability, params.params);
       if (hostHelper && !permissionPrompt && !isHostHelperCapabilityReachable(params.capability)) {
         throw new PsycheError(
           "forbidden",

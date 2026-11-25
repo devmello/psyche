@@ -22,8 +22,9 @@ function retrying(opts: { pairsAfterOpen?: boolean; blocked?: () => boolean } = 
   let t = 0;
   const timers: Timer[] = [];
   const run: Runner = async (file, args) => {
-    if (file === "/usr/bin/xattr") return { code: 0, stdout: "", stderr: "" };
     calls.push([file, ...args]);
+    // A clean bundle: `xattr -p` exits 1 (no attribute), and that is not an open.
+    if (file === "/usr/bin/xattr") return { code: 1, stdout: "", stderr: "" };
     opened = true;
     return { code: 0, stdout: "", stderr: "" };
   };
@@ -74,7 +75,13 @@ describe("HelperLauncher retries while offline", () => {
 
     f.pending()[0]?.fn();
     await tick();
-    expect(f.calls).toHaveLength(2);
+    // Each launch probes the quarantine, then opens.
+    expect(f.calls.map((c) => c[0])).toEqual([
+      "/usr/bin/xattr",
+      "/usr/bin/open",
+      "/usr/bin/xattr",
+      "/usr/bin/open",
+    ]);
     expect(f.pending().map((x) => x.ms)).toEqual([60_000]);
   });
 

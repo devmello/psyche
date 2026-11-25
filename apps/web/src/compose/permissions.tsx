@@ -1,5 +1,6 @@
 import {
   ComputerUseSection,
+  NotificationsSection,
   type PermissionResult,
   type TccPermission,
   type TccState,
@@ -31,7 +32,44 @@ export function readPermissions(
 /** Unavailable reads as "not determined" where the kit only knows macOS states. */
 const tccOf = (r: PermissionResult): TccState => (r === "unavailable" ? "not_determined" : r);
 
-type HelperKind = "accessibility" | "screenRecording";
+type HelperKind = "accessibility" | "screenRecording" | "notifications";
+
+/**
+ * The helper's own grants, when this window may ask for them: the desktop port has the helper
+ * calls, and this is not a window onto another Mac's Gateway (the helper there is the Host's).
+ */
+function helperPortOf(platform: ShellPlatform) {
+  const port = platform.permissions;
+  if (platform.chrome?.remote !== undefined) return undefined;
+  return port?.helperStatus && port.helperRequest ? port : undefined;
+}
+
+/** What Psyche Helper was granted, re-read on window focus (the owner returns from Settings). */
+function useHelperPermissions(platform: ShellPlatform) {
+  const [state, setState] = useState<HelperPermissionsState | undefined>(undefined);
+  const [offline, setOffline] = useState(false);
+  const helperPort = helperPortOf(platform);
+  const apply = useCallback((s: HelperPermissionsState) => {
+    setOffline(s.helper === "offline");
+    setState(s);
+  }, []);
+  const read = useCallback(() => {
+    void helperPort?.helperStatus?.().then(apply, () => setOffline(true));
+  }, [helperPort, apply]);
+  useEffect(() => {
+    if (!helperPort) return;
+    read();
+    window.addEventListener("focus", read);
+    return () => window.removeEventListener("focus", read);
+  }, [helperPort, read]);
+  const request = useCallback(
+    (kind: HelperKind) => {
+      void helperPort?.helperRequest?.(kind).then(apply, read);
+    },
+    [helperPort, apply, read],
+  );
+  return { helperPort, state, offline, read, request };
+}
 
 /**
  * Settings → Computer use shows what Psyche Helper itself was granted, not Psyche.app: computer
@@ -41,18 +79,9 @@ type HelperKind = "accessibility" | "screenRecording";
  */
 export function ComputerUseSettings({ platform }: { platform: ShellPlatform }): ReactElement {
   const [tcc, setTcc] = useState<Partial<Record<TccPermission, TccState>>>({});
-  const [helperOffline, setHelperOffline] = useState(false);
-  const port = platform.permissions;
-  const helperPort = port?.helperStatus && port.helperRequest ? port : undefined;
-  const apply = useCallback((s: HelperPermissionsState) => {
-    setHelperOffline(s.helper === "offline");
-    setTcc({ accessibility: s.accessibility, screenRecording: s.screenRecording });
-  }, []);
+  const helper = useHelperPermissions(platform);
+  const { helperPort } = helper;
   const read = useCallback(() => {
-    if (helperPort?.helperStatus) {
-      void helperPort.helperStatus().then(apply, () => setHelperOffline(true));
-      return;
-    }
     void readPermissions(platform).then(
       (states) =>
         setTcc(
@@ -62,24 +91,51 @@ export function ComputerUseSettings({ platform }: { platform: ShellPlatform }): 
         ),
       () => undefined,
     );
-  }, [platform, helperPort, apply]);
+  }, [platform]);
   useEffect(() => {
+    if (helperPort) return;
     read();
     window.addEventListener("focus", read);
     return () => window.removeEventListener("focus", read);
-  }, [read]);
+  }, [helperPort, read]);
+  const shown = helperPort
+    ? helper.state
+      ? { accessibility: helper.state.accessibility, screenRecording: helper.state.screenRecording }
+      : {}
+    : tcc;
   return (
     <ComputerUseSection
-      tcc={tcc}
-      helperOffline={helperOffline}
+      tcc={shown}
+      helperOffline={helperPort ? helper.offline : false}
       {...(platform.permissions
         ? {
             onOpenSystemSettings: (p: TccPermission) => {
-              if (helperPort?.helperRequest && (p === "accessibility" || p === "screenRecording")) {
-                void helperPort.helperRequest(p as HelperKind).then(apply, read);
+              if (helperPort && (p === "accessibility" || p === "screenRecording")) {
+                helper.request(p);
                 return;
               }
               void requestPermission(platform, p).then(read, () => undefined);
+            },
+          }
+        : {})}
+    />
+  );
+}
+
+/**
+ * Settings → Notifications: the quiet-hours section plus, on a desktop, whether Psyche Helper may
+ * show notifications. Approval notifications go through the helper, so without its grant they
+ * never arrive.
+ */
+export function NotificationsSettings({ platform }: { platform: ShellPlatform }): ReactElement {
+  const { helperPort, state, offline, request } = useHelperPermissions(platform);
+  return (
+    <NotificationsSection
+      {...(helperPort && (state || offline)
+        ? {
+            helperNotifications: {
+              state: offline || !state ? ("offline" as const) : state.notifications,
+              onAllow: () => request("notifications"),
             },
           }
         : {})}
