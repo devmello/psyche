@@ -39,6 +39,7 @@ const KIND_LABELS: Record<ApprovalKind, string> = {
   folder_access: "Share a folder",
   separate_desktop_share: "Share a folder with the separate desktop",
   batch: "Approve a batch of actions",
+  staged_apply: "Apply changes prepared overnight",
   permission_request: "Grant a missing permission",
 };
 

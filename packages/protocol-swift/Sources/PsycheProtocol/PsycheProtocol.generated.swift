@@ -1082,6 +1082,27 @@
 //   let modelsSetKeyResult = try? JSONDecoder().decode(ModelsSetKeyResult.self, from: jsonData)
 //   let modelsSetRoleParams = try? JSONDecoder().decode(ModelsSetRoleParams.self, from: jsonData)
 //   let modelsSetRoleResult = try? JSONDecoder().decode(ModelsSetRoleResult.self, from: jsonData)
+//   let nightShiftApplyItem = try? JSONDecoder().decode(NightShiftApplyItem.self, from: jsonData)
+//   let nightShiftApplyParams = try? JSONDecoder().decode(NightShiftApplyParams.self, from: jsonData)
+//   let nightShiftApplyResult = try? JSONDecoder().decode(NightShiftApplyResult.self, from: jsonData)
+//   let nightShiftApplySend = try? JSONDecoder().decode(NightShiftApplySend.self, from: jsonData)
+//   let nightShiftDismissParams = try? JSONDecoder().decode(NightShiftDismissParams.self, from: jsonData)
+//   let nightShiftDismissResult = try? JSONDecoder().decode(NightShiftDismissResult.self, from: jsonData)
+//   let nightShiftItemUpdatedPayload = try? JSONDecoder().decode(NightShiftItemUpdatedPayload.self, from: jsonData)
+//   let nightShiftNight = try? JSONDecoder().decode(NightShiftNight.self, from: jsonData)
+//   let nightShiftNightStatus = try? JSONDecoder().decode(NightShiftNightStatus.self, from: jsonData)
+//   let nightShiftRefused = try? JSONDecoder().decode(NightShiftRefused.self, from: jsonData)
+//   let nightShiftReviewGetParams = try? JSONDecoder().decode(NightShiftReviewGetParams.self, from: jsonData)
+//   let nightShiftReviewGetResult = try? JSONDecoder().decode(NightShiftReviewGetResult.self, from: jsonData)
+//   let nightShiftReviewStatus = try? JSONDecoder().decode(NightShiftReviewStatus.self, from: jsonData)
+//   let nightShiftRunNowParams = try? JSONDecoder().decode(NightShiftRunNowParams.self, from: jsonData)
+//   let nightShiftRunNowResult = try? JSONDecoder().decode(NightShiftRunNowResult.self, from: jsonData)
+//   let nightShiftStatusParams = try? JSONDecoder().decode(NightShiftStatusParams.self, from: jsonData)
+//   let nightShiftStatusResult = try? JSONDecoder().decode(NightShiftStatusResult.self, from: jsonData)
+//   let nightShiftSummary = try? JSONDecoder().decode(NightShiftSummary.self, from: jsonData)
+//   let nightShiftUndoParams = try? JSONDecoder().decode(NightShiftUndoParams.self, from: jsonData)
+//   let nightShiftUndoResult = try? JSONDecoder().decode(NightShiftUndoResult.self, from: jsonData)
+//   let nightShiftUpdatedPayload = try? JSONDecoder().decode(NightShiftUpdatedPayload.self, from: jsonData)
 //   let nodeCapability = try? JSONDecoder().decode(NodeCapability.self, from: jsonData)
 //   let nodeEventParams = try? JSONDecoder().decode(NodeEventParams.self, from: jsonData)
 //   let nodeInfo = try? JSONDecoder().decode(NodeInfo.self, from: jsonData)
@@ -1571,6 +1592,11 @@
 //   let speechWhisperServerState = try? JSONDecoder().decode(SpeechWhisperServerState.self, from: jsonData)
 //   let speechWhisperSetup = try? JSONDecoder().decode(SpeechWhisperSetup.self, from: jsonData)
 //   let speechWhisperSetupState = try? JSONDecoder().decode(SpeechWhisperSetupState.self, from: jsonData)
+//   let stagedAction = try? JSONDecoder().decode(StagedAction.self, from: jsonData)
+//   let stagedActionDomain = try? JSONDecoder().decode(StagedActionDomain.self, from: jsonData)
+//   let stagedActionResult = try? JSONDecoder().decode(StagedActionResult.self, from: jsonData)
+//   let stagedActionSend = try? JSONDecoder().decode(StagedActionSend.self, from: jsonData)
+//   let stagedActionStatus = try? JSONDecoder().decode(StagedActionStatus.self, from: jsonData)
 //   let starterFolderID = try? JSONDecoder().decode(StarterFolderID.self, from: jsonData)
 //   let storageCategory = try? JSONDecoder().decode(StorageCategory.self, from: jsonData)
 //   let storageCategoryID = try? JSONDecoder().decode(StorageCategoryID.self, from: jsonData)
@@ -2007,6 +2033,7 @@ public enum ApprovalKind: String, Codable, Sendable {
     case separateDesktopShare = "separate_desktop_share"
     case shortcutRun = "shortcut_run"
     case skillInstall = "skill_install"
+    case stagedApply = "staged_apply"
     case taskStart = "task_start"
 }
 
@@ -15354,6 +15381,7 @@ public enum DailySectionID: String, Codable, Sendable {
     case keepInTouch = "keep_in_touch"
     case learned = "learned"
     case mail = "mail"
+    case nightShift = "night_shift"
     case quietThreads = "quiet_threads"
     case tomorrow = "tomorrow"
     case weather = "weather"
@@ -26280,6 +26308,514 @@ public struct ModelsSetRoleResult: Codable, Sendable {
 
     public init(roles: ModelRoles) {
         self.roles = roles
+    }
+}
+
+// MARK: - NightShiftApplyParams
+public struct NightShiftApplyParams: Codable, Sendable {
+    public let items: [NightShiftApplyItem]
+    public let reviewID: String
+    public let sends: [NightShiftApplySend]
+
+    public enum CodingKeys: String, CodingKey {
+        case items = "items"
+        case reviewID = "reviewId"
+        case sends = "sends"
+    }
+
+    public init(items: [NightShiftApplyItem], reviewID: String, sends: [NightShiftApplySend]) {
+        self.items = items
+        self.reviewID = reviewID
+        self.sends = sends
+    }
+}
+
+// MARK: - NightShiftApplyItem
+public struct NightShiftApplyItem: Codable, Sendable {
+    public let bindingHash: String
+    public let itemID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case bindingHash = "bindingHash"
+        case itemID = "itemId"
+    }
+
+    public init(bindingHash: String, itemID: String) {
+        self.bindingHash = bindingHash
+        self.itemID = itemID
+    }
+}
+
+// MARK: - NightShiftApplySend
+public struct NightShiftApplySend: Codable, Sendable {
+    public let itemID: String
+    public let sendHash: String
+
+    public enum CodingKeys: String, CodingKey {
+        case itemID = "itemId"
+        case sendHash = "sendHash"
+    }
+
+    public init(itemID: String, sendHash: String) {
+        self.itemID = itemID
+        self.sendHash = sendHash
+    }
+}
+
+// MARK: - NightShiftApplyResult
+public struct NightShiftApplyResult: Codable, Sendable {
+    public let answerToken: String?
+    public let approval: ApprovalRequest?
+    public let refused: [NightShiftRefused]
+
+    public enum CodingKeys: String, CodingKey {
+        case answerToken = "answerToken"
+        case approval = "approval"
+        case refused = "refused"
+    }
+
+    public init(answerToken: String? = nil, approval: ApprovalRequest? = nil, refused: [NightShiftRefused]) {
+        self.answerToken = answerToken
+        self.approval = approval
+        self.refused = refused
+    }
+}
+
+// MARK: - NightShiftRefused
+public struct NightShiftRefused: Codable, Sendable {
+    public let itemID: String
+    public let reason: String
+
+    public enum CodingKeys: String, CodingKey {
+        case itemID = "itemId"
+        case reason = "reason"
+    }
+
+    public init(itemID: String, reason: String) {
+        self.itemID = itemID
+        self.reason = reason
+    }
+}
+
+// MARK: - NightShiftDismissParams
+public struct NightShiftDismissParams: Codable, Sendable {
+    public let itemIDS: [String]?
+    public let reviewID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case itemIDS = "itemIds"
+        case reviewID = "reviewId"
+    }
+
+    public init(itemIDS: [String]? = nil, reviewID: String) {
+        self.itemIDS = itemIDS
+        self.reviewID = reviewID
+    }
+}
+
+// MARK: - NightShiftDismissResult
+public struct NightShiftDismissResult: Codable, Sendable {
+    public let dismissed: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case dismissed = "dismissed"
+    }
+
+    public init(dismissed: Int) {
+        self.dismissed = dismissed
+    }
+}
+
+// MARK: - NightShiftItemUpdatedPayload
+public struct NightShiftItemUpdatedPayload: Codable, Sendable {
+    public let item: StagedAction
+
+    public enum CodingKeys: String, CodingKey {
+        case item = "item"
+    }
+
+    public init(item: StagedAction) {
+        self.item = item
+    }
+}
+
+// MARK: - StagedAction
+public struct StagedAction: Codable, Sendable {
+    public let appliedAt: String?
+    public let approvalID: String?
+    public let bindingHash: String
+    public let createdAt: String
+    public let domain: StagedActionDomain
+    public let forkBranchID: String?
+    public let id: String
+    public let inverse: JSONAny?
+    public let kind: String
+    public let nightID: String?
+    public let params: JSONAny?
+    public let paramsHash: String
+    public let precondition: JSONAny?
+    public let preview: JSONAny?
+    public let result: StagedActionResult?
+    public let send: StagedActionSend?
+    public let seq: Int
+    public let sideEffect: String
+    public let status: StagedActionStatus
+    public let summary: String
+    public let taint: Bool
+    public let taintSources: [TaintSource]
+    public let target: JSONAny?
+    public let targetKey: String
+    public let taskID: String?
+    public let tool: String
+    public let toolCallID: String?
+    public let updatedAt: String
+    public let why: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case appliedAt = "appliedAt"
+        case approvalID = "approvalId"
+        case bindingHash = "bindingHash"
+        case createdAt = "createdAt"
+        case domain = "domain"
+        case forkBranchID = "forkBranchId"
+        case id = "id"
+        case inverse = "inverse"
+        case kind = "kind"
+        case nightID = "nightId"
+        case params = "params"
+        case paramsHash = "paramsHash"
+        case precondition = "precondition"
+        case preview = "preview"
+        case result = "result"
+        case send = "send"
+        case seq = "seq"
+        case sideEffect = "sideEffect"
+        case status = "status"
+        case summary = "summary"
+        case taint = "taint"
+        case taintSources = "taintSources"
+        case target = "target"
+        case targetKey = "targetKey"
+        case taskID = "taskId"
+        case tool = "tool"
+        case toolCallID = "toolCallId"
+        case updatedAt = "updatedAt"
+        case why = "why"
+    }
+
+    public init(appliedAt: String? = nil, approvalID: String? = nil, bindingHash: String, createdAt: String, domain: StagedActionDomain, forkBranchID: String? = nil, id: String, inverse: JSONAny? = nil, kind: String, nightID: String? = nil, params: JSONAny? = nil, paramsHash: String, precondition: JSONAny? = nil, preview: JSONAny? = nil, result: StagedActionResult? = nil, send: StagedActionSend? = nil, seq: Int, sideEffect: String, status: StagedActionStatus, summary: String, taint: Bool, taintSources: [TaintSource], target: JSONAny? = nil, targetKey: String, taskID: String? = nil, tool: String, toolCallID: String? = nil, updatedAt: String, why: String? = nil) {
+        self.appliedAt = appliedAt
+        self.approvalID = approvalID
+        self.bindingHash = bindingHash
+        self.createdAt = createdAt
+        self.domain = domain
+        self.forkBranchID = forkBranchID
+        self.id = id
+        self.inverse = inverse
+        self.kind = kind
+        self.nightID = nightID
+        self.params = params
+        self.paramsHash = paramsHash
+        self.precondition = precondition
+        self.preview = preview
+        self.result = result
+        self.send = send
+        self.seq = seq
+        self.sideEffect = sideEffect
+        self.status = status
+        self.summary = summary
+        self.taint = taint
+        self.taintSources = taintSources
+        self.target = target
+        self.targetKey = targetKey
+        self.taskID = taskID
+        self.tool = tool
+        self.toolCallID = toolCallID
+        self.updatedAt = updatedAt
+        self.why = why
+    }
+}
+
+public enum StagedActionDomain: String, Codable, Sendable {
+    case calendar = "calendar"
+    case files = "files"
+    case mail = "mail"
+    case reminders = "reminders"
+}
+
+// MARK: - StagedActionResult
+public struct StagedActionResult: Codable, Sendable {
+    public let error: String?
+    public let receiptID: String?
+    public let refs: [String]?
+
+    public enum CodingKeys: String, CodingKey {
+        case error = "error"
+        case receiptID = "receiptId"
+        case refs = "refs"
+    }
+
+    public init(error: String? = nil, receiptID: String? = nil, refs: [String]? = nil) {
+        self.error = error
+        self.receiptID = receiptID
+        self.refs = refs
+    }
+}
+
+// MARK: - StagedActionSend
+public struct StagedActionSend: Codable, Sendable {
+    public let contentHash: String
+    public let recipients: [String]
+
+    public enum CodingKeys: String, CodingKey {
+        case contentHash = "contentHash"
+        case recipients = "recipients"
+    }
+
+    public init(contentHash: String, recipients: [String]) {
+        self.contentHash = contentHash
+        self.recipients = recipients
+    }
+}
+
+public enum StagedActionStatus: String, Codable, Sendable {
+    case applied = "applied"
+    case dismissed = "dismissed"
+    case expired = "expired"
+    case failed = "failed"
+    case ready = "ready"
+    case skipped = "skipped"
+    case stale = "stale"
+    case superseded = "superseded"
+    case uncertain = "uncertain"
+    case undone = "undone"
+}
+
+// MARK: - NightShiftReviewGetParams
+public struct NightShiftReviewGetParams: Codable, Sendable {
+    public let reviewID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case reviewID = "reviewId"
+    }
+
+    public init(reviewID: String) {
+        self.reviewID = reviewID
+    }
+}
+
+// MARK: - NightShiftReviewGetResult
+public struct NightShiftReviewGetResult: Codable, Sendable {
+    public let items: [StagedAction]
+    public let night: NightShiftNight
+
+    public enum CodingKeys: String, CodingKey {
+        case items = "items"
+        case night = "night"
+    }
+
+    public init(items: [StagedAction], night: NightShiftNight) {
+        self.items = items
+        self.night = night
+    }
+}
+
+// MARK: - NightShiftNight
+public struct NightShiftNight: Codable, Sendable {
+    public let candidates: JSONAny?
+    public let createdAt: String
+    public let expiresAt: String?
+    public let finishedAt: String?
+    public let id: String
+    public let night: String
+    public let reviewStatus: NightShiftReviewStatus
+    public let spentUsd: Double
+    public let startedAt: String?
+    public let status: NightShiftNightStatus
+    public let stopReason: String?
+    public let tokens: Int
+    public let updatedAt: String
+
+    public enum CodingKeys: String, CodingKey {
+        case candidates = "candidates"
+        case createdAt = "createdAt"
+        case expiresAt = "expiresAt"
+        case finishedAt = "finishedAt"
+        case id = "id"
+        case night = "night"
+        case reviewStatus = "reviewStatus"
+        case spentUsd = "spentUsd"
+        case startedAt = "startedAt"
+        case status = "status"
+        case stopReason = "stopReason"
+        case tokens = "tokens"
+        case updatedAt = "updatedAt"
+    }
+
+    public init(candidates: JSONAny? = nil, createdAt: String, expiresAt: String? = nil, finishedAt: String? = nil, id: String, night: String, reviewStatus: NightShiftReviewStatus, spentUsd: Double, startedAt: String? = nil, status: NightShiftNightStatus, stopReason: String? = nil, tokens: Int, updatedAt: String) {
+        self.candidates = candidates
+        self.createdAt = createdAt
+        self.expiresAt = expiresAt
+        self.finishedAt = finishedAt
+        self.id = id
+        self.night = night
+        self.reviewStatus = reviewStatus
+        self.spentUsd = spentUsd
+        self.startedAt = startedAt
+        self.status = status
+        self.stopReason = stopReason
+        self.tokens = tokens
+        self.updatedAt = updatedAt
+    }
+}
+
+public enum NightShiftReviewStatus: String, Codable, Sendable {
+    case applied = "applied"
+    case dismissed = "dismissed"
+    case expired = "expired"
+    case none = "none"
+    case partial = "partial"
+    case ready = "ready"
+}
+
+public enum NightShiftNightStatus: String, Codable, Sendable {
+    case done = "done"
+    case empty = "empty"
+    case running = "running"
+    case skipped = "skipped"
+    case stopped = "stopped"
+}
+
+// MARK: - NightShiftRunNowResult
+public struct NightShiftRunNowResult: Codable, Sendable {
+    public let reason: String?
+    public let started: Bool
+
+    public enum CodingKeys: String, CodingKey {
+        case reason = "reason"
+        case started = "started"
+    }
+
+    public init(reason: String? = nil, started: Bool) {
+        self.reason = reason
+        self.started = started
+    }
+}
+
+// MARK: - NightShiftStatusResult
+public struct NightShiftStatusResult: Codable, Sendable {
+    public let enabled: Bool
+    public let latest: NightShiftSummary?
+    public let nextWindowAt: String?
+    public let readyReviewID: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case enabled = "enabled"
+        case latest = "latest"
+        case nextWindowAt = "nextWindowAt"
+        case readyReviewID = "readyReviewId"
+    }
+
+    public init(enabled: Bool, latest: NightShiftSummary? = nil, nextWindowAt: String? = nil, readyReviewID: String? = nil) {
+        self.enabled = enabled
+        self.latest = latest
+        self.nextWindowAt = nextWindowAt
+        self.readyReviewID = readyReviewID
+    }
+}
+
+// MARK: - NightShiftSummary
+public struct NightShiftSummary: Codable, Sendable {
+    public let counts: NightShiftSummaryCounts
+    public let expiresAt: String?
+    public let id: String
+    public let night: String
+    public let reviewStatus: NightShiftReviewStatus
+    public let status: NightShiftNightStatus
+
+    public enum CodingKeys: String, CodingKey {
+        case counts = "counts"
+        case expiresAt = "expiresAt"
+        case id = "id"
+        case night = "night"
+        case reviewStatus = "reviewStatus"
+        case status = "status"
+    }
+
+    public init(counts: NightShiftSummaryCounts, expiresAt: String? = nil, id: String, night: String, reviewStatus: NightShiftReviewStatus, status: NightShiftNightStatus) {
+        self.counts = counts
+        self.expiresAt = expiresAt
+        self.id = id
+        self.night = night
+        self.reviewStatus = reviewStatus
+        self.status = status
+    }
+}
+
+// MARK: - NightShiftSummaryCounts
+public struct NightShiftSummaryCounts: Codable, Sendable {
+    public let calendar: Int
+    public let files: Int
+    public let mail: Int
+    public let reminders: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case calendar = "calendar"
+        case files = "files"
+        case mail = "mail"
+        case reminders = "reminders"
+    }
+
+    public init(calendar: Int, files: Int, mail: Int, reminders: Int) {
+        self.calendar = calendar
+        self.files = files
+        self.mail = mail
+        self.reminders = reminders
+    }
+}
+
+// MARK: - NightShiftUndoParams
+public struct NightShiftUndoParams: Codable, Sendable {
+    public let itemIDS: [String]
+
+    public enum CodingKeys: String, CodingKey {
+        case itemIDS = "itemIds"
+    }
+
+    public init(itemIDS: [String]) {
+        self.itemIDS = itemIDS
+    }
+}
+
+// MARK: - NightShiftUndoResult
+public struct NightShiftUndoResult: Codable, Sendable {
+    public let answerToken: String?
+    public let approval: ApprovalRequest?
+    public let refused: [NightShiftRefused]
+
+    public enum CodingKeys: String, CodingKey {
+        case answerToken = "answerToken"
+        case approval = "approval"
+        case refused = "refused"
+    }
+
+    public init(answerToken: String? = nil, approval: ApprovalRequest? = nil, refused: [NightShiftRefused]) {
+        self.answerToken = answerToken
+        self.approval = approval
+        self.refused = refused
+    }
+}
+
+// MARK: - NightShiftUpdatedPayload
+public struct NightShiftUpdatedPayload: Codable, Sendable {
+    public let night: NightShiftNight
+
+    public enum CodingKeys: String, CodingKey {
+        case night = "night"
+    }
+
+    public init(night: NightShiftNight) {
+        self.night = night
     }
 }
 
@@ -41682,6 +42218,8 @@ public typealias MemoryStatusParams = [String: JSONAny]
 public typealias MemoryWorkListsParams = [String: JSONAny]
 public typealias ModelsAppleStatusParams = [String: JSONAny]
 public typealias ModelsListParams = [String: JSONAny]
+public typealias NightShiftRunNowParams = [String: JSONAny]
+public typealias NightShiftStatusParams = [String: JSONAny]
 public typealias NodeUnpairParams = [String: JSONAny]
 public typealias NodesListParams = [String: JSONAny]
 public typealias PasskeysListParams = [String: JSONAny]
