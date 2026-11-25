@@ -60,6 +60,8 @@ export interface StagedPatchInput {
   approvalId?: string | null;
   appliedAt?: string | null;
   clearParams?: boolean;
+  /** The undo data recorded after an apply. */
+  inverse?: unknown;
 }
 
 export interface NightStore {

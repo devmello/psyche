@@ -5,6 +5,8 @@ import type { MessageScrub } from "./context.ts";
 export interface Reader {
   role: "client" | "node" | null;
   desktop: boolean;
+  /** The desktop shell on this Mac's loopback (a bus subscriber only; absent reads as false). */
+  local?: boolean;
 }
 
 export const readerOf = (
