@@ -166,7 +166,13 @@ export {
 export { FollowUpQueue } from "./chat/FollowUpQueue.tsx";
 export { chatFocusFromRoute, requestChatFocus } from "./chat/focus-request.ts";
 export { MessageView, type MessageViewProps, messageText } from "./chat/MessageView.tsx";
-export { ModeSwitch, type ModeSwitchProps } from "./chat/ModeSwitch.tsx";
+export {
+  type ModeChoice,
+  type ModeChoiceOptions,
+  ModeFeedback,
+  useModeChoice,
+  useThreadModeChoice,
+} from "./chat/ModeSwitch.tsx";
 export {
   AUTO_EXPLAINER_KEY,
   applyModeChoice,

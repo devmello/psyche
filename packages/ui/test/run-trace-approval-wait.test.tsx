@@ -69,7 +69,7 @@ function approvalWaitWorld(w: World) {
 }
 
 describe("ApprovalWait: the run blocked on the owner", () => {
-  it("shows the waiting step as the amber Needs-you row with its wait time", async () => {
+  it("shows the waiting step with one amber dot; the card is the only Needs-you element", async () => {
     render(
       <StoryWorld edit={approvalWaitWorld}>
         <div style={{ height: 900 }}>
@@ -80,26 +80,18 @@ describe("ApprovalWait: the run blocked on the owner", () => {
     const trace = await screen.findByTestId("run-trace");
     const row = (await within(trace).findByText(/approve saving to Notion/)).closest("li");
     expect(row?.getAttribute("data-rail")).toBe("waiting");
-    expect(row?.className).toContain("bg-approval-surface");
-    expect(within(row as HTMLElement).getByText("Needs you")).toBeTruthy();
-    expect(within(trace).getAllByText("Needs you").length).toBeGreaterThan(0);
-    // Nothing blocked on the owner shows as a plain grey clock anywhere in the thread: the
-    // transcript's pointer, tool rows and group rows carry the same amber row and tag.
-    // (A paused task card is its own surface with Resume and Cancel; it is left out here.)
-    const plain = Array.from(document.querySelectorAll('[data-status="waiting"]')).filter(
-      (el) =>
-        el.closest(".bg-approval-surface") === null &&
-        el.closest('[data-testid="run-trace"], [data-disclosure], [data-waiting]') !== null,
-    );
-    expect(plain.map((el) => el.parentElement?.textContent)).toEqual([]);
-    // The transcript's "Waiting for your approval" pointers (one per pending approval).
-    const pointers = screen
-      .getAllByText("Waiting for your approval")
-      .map((el) => el.closest("button") as HTMLElement);
-    expect(pointers.length).toBeGreaterThan(0);
-    for (const pointer of pointers) {
-      expect(pointer.className).toContain("bg-approval-surface");
-      expect(within(pointer).getByText("Needs you")).toBeTruthy();
-    }
+    // One amber dot on the step: no chip, no amber row.
+    expect(row?.className).not.toContain("bg-approval-surface");
+    expect(within(row as HTMLElement).queryByText("Needs you")).toBeNull();
+    expect(within(row as HTMLElement).getByText("0:07")).toBeTruthy();
+    const log = screen.getByRole("log", { name: "Conversation" });
+    // The transcript says nothing more: no chip, no "Waiting for your approval" pointer, no
+    // arrow button. The approval card in the dock above the composer is the one announcement.
+    expect(within(log).queryByText("Needs you")).toBeNull();
+    expect(within(log).queryByText("Waiting for your approval")).toBeNull();
+    expect(within(log).queryByRole("button", { name: /Review the approval/ })).toBeNull();
+    expect(screen.queryAllByText("Needs you")).toEqual([]);
+    const dock = await screen.findByTestId("approval-dock");
+    expect(within(dock).getAllByRole("button", { name: "Allow" }).length).toBeGreaterThan(0);
   });
 });

@@ -1,4 +1,3 @@
-import { ShieldCheck } from "lucide-react";
 import * as m from "motion/react-m";
 import { type ReactElement, useEffect, useState } from "react";
 import { ApprovalCard, FOCUS_APPROVAL_EVENT } from "../blocks/ApprovalCard.tsx";
@@ -8,7 +7,6 @@ import { t } from "../i18n/core.ts";
 import { displaySummary } from "../lib/cards.ts";
 import { formatCountdown } from "../lib/format.ts";
 import { useNow } from "../lib/use-now.ts";
-import { cn } from "../lib/utils.ts";
 import { fade, Presence } from "../motion/index.ts";
 import { usePersona } from "../slots.tsx";
 
@@ -156,18 +154,7 @@ export function ApprovalDock({
                   countdown: formatCountdown(Date.parse(next.approval.expiresAt) - now),
                 })}
               >
-                <ShieldCheck className="size-3.5 text-approval-text" aria-hidden="true" />
                 {t("chat.approval.others", { n: others.length })}
-                <span
-                  className={cn(
-                    "tabular-nums",
-                    Date.parse(next.approval.expiresAt) - now < 10_000
-                      ? "text-danger-text"
-                      : "text-label-secondary",
-                  )}
-                >
-                  · {formatCountdown(Date.parse(next.approval.expiresAt) - now)}
-                </span>
               </button>
             </m.div>
           ) : null}
