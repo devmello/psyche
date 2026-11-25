@@ -153,14 +153,15 @@ objects_of() {  # prints the object files of one target (one merged .o, or the p
 undefined_symbols() { objects_of "$1" | while IFS= read -r o; do nm -u "$o" 2>/dev/null; done | sort -u; }
 # Selectors defined by the module plus selectors it calls (the `_objc_msgSend$<selector>` stubs).
 objc_selectors() {
-  { objects_of "$1" | while IFS= read -r o; do otool -v -s __TEXT __objc_methname "$o" 2>/dev/null; done | awk 'NF == 2 { print $2 }'
+  { objects_of "$1" | while IFS= read -r o; do otool -v -s __TEXT __objc_methname "$o" 2>/dev/null; done | awk 'NF == 2 { print $2 }' | grep -vE '^performSelector'
+    # (Defined performSelector: names are NSObjectProtocol requirements Core's metadata lists; only a CALL counts.)
     undefined_symbols "$1" | sed -n 's/^_objc_msgSend\$//p'
   } | sort -u
 }
 
-forbidden_symbols='^_(CGEventPost|CGEventPostToPid|CGEventPostToPSN|CGEventTapCreate|CGEventTapCreateForPid|CGEventTapPostEvent|CGEventCreateKeyboardEvent|CGEventCreateMouseEvent|CGEventCreateScrollWheelEvent[0-9]*|CGWarpMouseCursorPosition|CGDisplayMoveCursorToPoint|AXUIElementPerformAction|AXUIElementPostKeyboardEvent|AXUIElementSetAttributeValue|IOHIDPostEvent|CGRequestScreenCaptureAccess|AXIsProcessTrustedWithOptions|kAXTrustedCheckOptionPrompt|dlsym|dlopen|NSClassFromString|NSSelectorFromString|NSProtocolFromString|objc_getClass|objc_lookUpClass|sel_registerName|sel_getUid|CFBundleGetFunctionPointerForName|AESend[A-Za-z]*|AECreateAppleEvent|LSOpen[A-Za-z]*|exec(l|le|lp|v|ve|vp|vP)?|fork|vfork|popen|system|posix_spawn[A-Za-z_]*|IOConnectCall[A-Za-z]*|IOServiceOpen)$'
+forbidden_symbols='^_(CGEventPost|CGEventPostToPid|CGEventPostToPSN|CGEventTapCreate|CGEventTapCreateForPid|CGEventTapPostEvent|CGEventCreateKeyboardEvent|CGEventCreateMouseEvent|CGEventCreateScrollWheelEvent[0-9]*|CGWarpMouseCursorPosition|CGDisplayMoveCursorToPoint|AXUIElementPerformAction|AXUIElementPostKeyboardEvent|AXUIElementSetAttributeValue|IOHIDPostEvent|CGRequestScreenCaptureAccess|AXIsProcessTrustedWithOptions|kAXTrustedCheckOptionPrompt|dlsym|dlopen|NSClassFromString|NSSelectorFromString|NSProtocolFromString|objc_getClass|objc_lookUpClass|sel_registerName|sel_getUid|CFBundleGetFunctionPointerForName|AESend[A-Za-z]*|AECreateAppleEvent|LSOpen[A-Za-z]*|exec(l|le|lp|v|ve|vp|vP)?|fork|vfork|popen|system|posix_spawn[A-Za-z_]*|IOConnectCall[A-Za-z]*|IOServiceOpen|\$s10ObjectiveC8SelectorVyACSScfC|objc_getRequiredClass|objc_getMetaClass|objc_getClassList|objc_copyClassList|class_getMethodImplementation|class_getInstanceMethod|class_getClassMethod|method_getImplementation)$'
 forbidden_classes='^_OBJC_CLASS_\$_(NSAppleScript|OSAScript|NSTask|NSAppleEventDescriptor|NSAppleEventManager|SBApplication|NSUserScriptTask|NSUserAppleScriptTask|NSUserAutomatorTask|NSUserUnixTask)$'
-forbidden_selectors='^(postEvent:atStart:|sendEvent:|sendEventWithOptions:timeout:error:|activateIgnoringOtherApps:|activateWithOptions:|activate|activateFileViewerSelectingURLs:|makeKeyWindow|makeKeyAndOrderFront:|openURL:|openURL:configuration:completionHandler:|openURLs:withApplicationAtURL:configuration:completionHandler:|openApplicationAtURL:configuration:completionHandler:|openFile:|openFile:withApplication:|launchApplication[A-Za-z:]*|launchAndReturnError:|hide|unhide|terminate|forceTerminate|setString:forType:|setData:forType:|writeObjects:|characters|charactersIgnoringModifiers)$'
+forbidden_selectors='^(postEvent:atStart:|sendEvent:|sendEventWithOptions:timeout:error:|activateIgnoringOtherApps:|activateWithOptions:|activate|activateFileViewerSelectingURLs:|makeKeyWindow|makeKeyAndOrderFront:|openURL:|openURL:configuration:completionHandler:|openURLs:withApplicationAtURL:configuration:completionHandler:|openApplicationAtURL:configuration:completionHandler:|openFile:|openFile:withApplication:|launchApplication[A-Za-z:]*|launchAndReturnError:|hide|unhide|terminate|forceTerminate|setString:forType:|setData:forType:|writeObjects:|characters|charactersIgnoringModifiers|performSelector:[A-Za-z:]*|classNamed:|principalClass|setPropertyList:forType:|declareTypes:owner:)$'
 # The only non-Swift undefined symbols PsycheAXEnable may link.
 axenable_symbols='_AXUIElementCreateApplication _AXUIElementSetAttributeValue _AXUIElementSetMessagingTimeout _kCFBooleanTrue _objc_release _objc_retain'
 axenable_export='_$s14PsycheAXEnable25enableManualAccessibility3pidys5Int32V_tF'
@@ -194,6 +195,24 @@ if [ "$ax_c_syms" != "$axenable_symbols" ]; then
   fail "PsycheAXEnable non-Swift undefined symbols changed: wanted [$axenable_symbols], found [$ax_c_syms]"
 else
   ok "PsycheAXEnable links only its pinned non-Swift symbols"
+fi
+
+# ---- 3c. the Points object's exports ------------------------------------------------------------
+# main.swift gives Points nothing today, and the label check in step 2 cannot see argument TYPES: a
+# closure `(Double, Double) -> Bool` would let main.swift post a click inside it. So the exported
+# surface of PsycheHelperPoints is pinned: PointsCapabilities.make() with no arguments (plus its
+# type metadata). W3 MUST update this pin when it adds the closures, to
+#   make(isComputerBusy: @escaping @Sendable () -> Bool, isRecording: @escaping @Sendable () -> Bool)
+# and every other exported Points symbol it adds (reviewed one by one, never by loosening this).
+points_exports_want='_$s18PsycheHelperPoints0C12CapabilitiesO4makeSay0aB4Core17CapabilityHandler_pGyFZ
+_$s18PsycheHelperPoints0C12CapabilitiesOMa
+_$s18PsycheHelperPoints0C12CapabilitiesOMn
+_$s18PsycheHelperPoints0C12CapabilitiesON'
+points_exports="$(objects_of PsycheHelperPoints | while IFS= read -r o; do nm -gU "$o" 2>/dev/null; done | awk 'NF == 3 { print $3 }' | sort -u)"
+if [ "$points_exports" != "$points_exports_want" ]; then
+  fail "PsycheHelperPoints exports changed (W3 must update the pin in this script): found $(echo "$points_exports" | tr '\n' ' ')"
+else
+  ok "PsycheHelperPoints exports only PointsCapabilities.make() with no arguments"
 fi
 
 # ---- 7. positive control -------------------------------------------------------------------------
