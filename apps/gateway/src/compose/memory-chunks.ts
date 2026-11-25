@@ -201,16 +201,44 @@ export interface EntityDeviceFacts {
   revoked: boolean;
 }
 
+/** App families that may use People data: the iOS app and the desktop app (a remote Mac). */
+const ENTITY_FAMILIES: ReadonlySet<string> = new Set(["ios", "desktop"]);
+
 /**
- * Every `memory.entities.*` method reads or writes the people and projects in the owner's Memory
- * (owner decision 2026-11-25: "Yes, phone too"). Allowed: the desktop app and the Host CLI, and a
- * paired, not revoked owner device (the iPhone, a remote Mac) holding a write scope. The method's
- * own scope still applies on top (reads `operator.read`, writes `operator.write`, forget
- * `operator.admin`). Refused with `forbidden` / `not_desktop` or, for the browser web shell,
- * `web_shell` (the UI says "Open this on your Mac or iPhone"): the web shell, a read-only device,
- * an unpaired or pairing-pending one, a revoked or unknown one and a node. A failed lookup refuses.
- * Applied once over the final handler map, so the scrubs inside (`withLoopViewer`,
- * `attachGistSources`) still run for the remote devices that get through.
+ * Methods that open People and projects data in the owner's Memory beyond the `memory.entities.`
+ * prefix: the graph's map and its admin writes, and the anchors. `memory.loops.*` is not here: it
+ * has its own scrub.
+ */
+const GATED_EXTRA = new Set([
+  "memory.graph.map",
+  "memory.graph.forgetAll",
+  "memory.graph.deleteSource",
+  "memory.graph.blocklist.list",
+  "memory.graph.blocklist.add",
+  "memory.graph.blocklist.remove",
+]);
+
+/**
+ * Methods that return raw rows (evidence quotes, hidden loops, quarantine text): the desktop app
+ * and the Host CLI only, never a paired phone.
+ */
+const DESKTOP_ONLY = new Set(["memory.entities.export"]);
+
+const isGated = (name: string): boolean =>
+  name.startsWith("memory.entities.") ||
+  name.startsWith("memory.anchors.") ||
+  GATED_EXTRA.has(name);
+
+/**
+ * People and projects in the owner's Memory (owner decision 2026-11-25: "Yes, phone too").
+ * Allowed: the desktop app and the Host CLI, and a paired, not revoked owner device holding a
+ * write scope, reached with no browser `Origin` and declaring the `ios` or `desktop` family (the
+ * families that can pair with a setup token). A device paired before the family was recorded
+ * (null) passes only as a `macos` platform. The method's own scope still applies on top.
+ * `memory.entities.export` is the desktop app and Host CLI only. Refused with `forbidden`:
+ * `details.reason = "web_shell"` for anything from a browser (an `Origin`, family or platform
+ * `web`), else `not_desktop`. A failed lookup refuses. Applied once over the final handler map,
+ * so the scrubs inside (`withLoopViewer`, `attachGistSources`) still run for remote devices.
  */
 export function gateMemoryEntities(
   handlers: Record<string, HandlerDef>,
@@ -224,8 +252,13 @@ export function gateMemoryEntities(
         : "People and projects open in the Psyche app on the Host or a paired device only",
       { details: { reason } },
     );
-  const allowed = (call: Call): "ok" | "not_desktop" | "web_shell" => {
+  const allowed = (call: Call, name: string): "ok" | "not_desktop" | "web_shell" => {
     if (mayReadMemoryChunks(memoryViewerOf(call))) return "ok";
+    if (DESKTOP_ONLY.has(name)) return "not_desktop";
+    const peer = call.conn?.peer;
+    // The server-recorded Origin: only a browser sends one. No peer record, no entry.
+    if (peer === undefined) return "not_desktop";
+    if (peer.origin !== null) return "web_shell";
     const id = call.identity;
     if (id.role !== "client" || id.deviceId === undefined) return "not_desktop";
     if (!id.scopes?.includes("operator.write") && !id.scopes?.includes("operator.admin"))
@@ -238,14 +271,15 @@ export function gateMemoryEntities(
     }
     if (d === undefined || !d.paired || d.revoked) return "not_desktop";
     if (d.platform === "web" || d.family === "web") return "web_shell";
-    return d.family === null ? "not_desktop" : "ok";
+    if (d.family === null) return d.platform === "macos" ? "ok" : "not_desktop";
+    return ENTITY_FAMILIES.has(d.family) ? "ok" : "not_desktop";
   };
   for (const [name, def] of Object.entries(handlers)) {
-    if (!name.startsWith("memory.entities.")) continue;
+    if (!isGated(name)) continue;
     handlers[name] = {
       ...def,
       run: async (call: Call, params: never) => {
-        const verdict = allowed(call);
+        const verdict = allowed(call, name);
         if (verdict !== "ok") throw refuse(verdict);
         return (def.run as (c: Call, p: never) => unknown)(call, params);
       },

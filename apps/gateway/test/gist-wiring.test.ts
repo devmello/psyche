@@ -16,7 +16,8 @@ afterEach(async () => {
   if (home) rmSync(home, { recursive: true, force: true });
 });
 
-const call = (identity: Partial<Call["identity"]>): Call => ({ identity }) as unknown as Call;
+const call = (identity: Partial<Call["identity"]>): Call =>
+  ({ identity, conn: { peer: { origin: null } } }) as unknown as Call;
 const desktop = call({ role: "client", desktopShell: true });
 // The owner's paired iPhone (owner decision 2026-11-25): allowed, but still scrubbed.
 const remote = call({

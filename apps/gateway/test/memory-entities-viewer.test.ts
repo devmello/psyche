@@ -17,54 +17,57 @@ import { handshake, ik, newDeviceKey, TestClient, wsUrlOf } from "./helpers.ts";
  * web viewer, read-only, unpaired) and must-pass (desktop shell, Host CLI).
  */
 
-const call = (identity: Record<string, unknown>): Call => ({ identity }) as unknown as Call;
+const call = (identity: Record<string, unknown>, origin: string | null = null, peer = true): Call =>
+  ({ identity, ...(peer ? { conn: { peer: { origin } } } : {}) }) as unknown as Call;
 const WRITE = ["operator.read", "operator.write"];
-const dev = (id: string, platform: string, family: string | null, extra = {}): EntityDeviceFacts =>
+const dev = (platform: string, family: string | null, extra = {}): EntityDeviceFacts =>
   ({ platform, family, paired: true, revoked: false, ...extra }) as EntityDeviceFacts;
 const DEVICES: Record<string, EntityDeviceFacts> = {
-  dev_ios: dev("dev_ios", "ios", "ios"),
-  dev_mac: dev("dev_mac", "macos", "desktop"),
-  dev_web: dev("dev_web", "web", "web"),
-  dev_webfam: dev("dev_webfam", "macos", "web"),
-  dev_ro: dev("dev_ro", "ios", "ios"),
-  dev_pending: dev("dev_pending", "ios", "ios", { paired: false }),
-  dev_revoked: dev("dev_revoked", "ios", "ios", { revoked: true }),
-  dev_nofamily: dev("dev_nofamily", "ios", null),
+  dev_ios: dev("ios", "ios"),
+  dev_mac: dev("macos", "desktop"),
+  dev_web: dev("web", "web"),
+  dev_webfam: dev("macos", "web"),
+  dev_ro: dev("ios", "ios"),
+  dev_pending: dev("ios", "ios", { paired: false }),
+  dev_revoked: dev("ios", "ios", { revoked: true }),
+  dev_oldmac: dev("macos", null), // paired before the family column existed
+  dev_oldios: dev("ios", null),
+  dev_toaster: dev("ios", "toaster"),
+  dev_cli: dev("macos", "cli"),
 };
+const client = (deviceId: string, extra: Record<string, unknown> = {}) => ({
+  role: "client",
+  deviceId,
+  scopes: WRITE,
+  ...extra,
+});
+/** `remote` rows are paired devices: `memory.entities.export` is the desktop and Host CLI only. */
 const MUST_PASS = [
-  ["desktop shell", call({ role: "client", desktopShell: true })],
-  ["Host CLI", call({ role: "client", localHostCli: true })],
-  ["iOS phone", call({ role: "client", deviceId: "dev_ios", scopes: WRITE })],
-  ["remote Mac", call({ role: "client", deviceId: "dev_mac", scopes: WRITE })],
+  ["desktop shell", call({ role: "client", desktopShell: true }), false],
+  ["Host CLI", call({ role: "client", localHostCli: true }), false],
+  ["iOS phone", call(client("dev_ios")), true],
+  ["remote Mac", call(client("dev_mac")), true],
   [
     "remote Mac admin",
-    call({ role: "client", deviceId: "dev_mac", scopes: ["operator.read", "operator.admin"] }),
+    call(client("dev_mac", { scopes: ["operator.read", "operator.admin"] })),
+    true,
   ],
+  ["remote Mac paired before families (null, macos)", call(client("dev_oldmac")), true],
 ] as const;
 const MUST_REFUSE = [
-  ["web shell", call({ role: "client", deviceId: "dev_web", scopes: WRITE }), "web_shell"],
-  ["web family", call({ role: "client", deviceId: "dev_webfam", scopes: WRITE }), "web_shell"],
-  [
-    "read-only device",
-    call({ role: "client", deviceId: "dev_ro", scopes: ["operator.read"] }),
-    "not_desktop",
-  ],
-  [
-    "pairing-pending",
-    call({ role: "client", deviceId: "dev_pending", scopes: WRITE }),
-    "not_desktop",
-  ],
-  ["revoked", call({ role: "client", deviceId: "dev_revoked", scopes: WRITE }), "not_desktop"],
-  [
-    "device with no family",
-    call({ role: "client", deviceId: "dev_nofamily", scopes: WRITE }),
-    "not_desktop",
-  ],
-  [
-    "unpaired (unknown id)",
-    call({ role: "client", deviceId: "dev_x", scopes: WRITE }),
-    "not_desktop",
-  ],
+  ["web shell (family web)", call(client("dev_web")), "web_shell"],
+  ["web platform with a native family", call(client("dev_webfam")), "web_shell"],
+  ["Origin present, family ios", call(client("dev_ios"), "https://evil.example"), "web_shell"],
+  ["Origin present, family desktop", call(client("dev_mac"), "http://localhost:5173"), "web_shell"],
+  ["family toaster", call(client("dev_toaster")), "not_desktop"],
+  ["family cli (remote, not the Host CLI)", call(client("dev_cli")), "not_desktop"],
+  ["null family on a non-macOS platform", call(client("dev_oldios")), "not_desktop"],
+  ["null family with an Origin", call(client("dev_oldmac"), "https://evil.example"), "web_shell"],
+  ["no peer record", call(client("dev_ios"), null, false), "not_desktop"],
+  ["read-only device", call(client("dev_ro", { scopes: ["operator.read"] })), "not_desktop"],
+  ["pairing-pending", call(client("dev_pending")), "not_desktop"],
+  ["revoked", call(client("dev_revoked")), "not_desktop"],
+  ["unpaired (unknown id)", call(client("dev_x")), "not_desktop"],
   ["no device id", call({ role: "client", scopes: WRITE }), "not_desktop"],
   [
     "designated person / node",
@@ -73,7 +76,20 @@ const MUST_REFUSE = [
   ],
 ] as const;
 
-const NAMES = Object.keys(Methods).filter((n) => n.startsWith("memory.entities."));
+/** Also gated: the graph's map and admin writes, and the anchors (not `memory.loops.*`). */
+const EXTRA = [
+  "memory.graph.map",
+  "memory.graph.forgetAll",
+  "memory.graph.deleteSource",
+  "memory.graph.blocklist.list",
+  "memory.graph.blocklist.add",
+  "memory.graph.blocklist.remove",
+  "memory.anchors.list",
+  "memory.anchors.add",
+  "memory.anchors.remove",
+];
+const NAMES = [...Object.keys(Methods).filter((n) => n.startsWith("memory.entities.")), ...EXTRA];
+const DESKTOP_ONLY = "memory.entities.export";
 
 type Run = (c: Call, p: unknown) => Promise<unknown>;
 
@@ -89,24 +105,36 @@ function build() {
 
 describe("memory.entities.* per connection (handlers)", () => {
   it("covers every method the protocol declares (guards the table)", () => {
-    expect(NAMES.length).toBeGreaterThanOrEqual(19);
+    expect(NAMES.length).toBeGreaterThanOrEqual(28);
     for (const n of ["create", "update", "merge", "forget", "split", "facts.set", "edges.set"])
       expect(NAMES).toContain(`memory.entities.${n}`);
   });
 
   for (const name of NAMES) {
-    for (const [who, c] of MUST_PASS)
+    for (const [who, c, remote] of MUST_PASS) {
+      if (remote && name === DESKTOP_ONLY) {
+        it(`${name}: ${who} is refused (desktop and Host CLI only)`, async () => {
+          const { go, run } = build();
+          await expect(go(name, c)).rejects.toMatchObject({
+            code: "forbidden",
+            details: { reason: "not_desktop" },
+          });
+          expect(run).not.toHaveBeenCalled();
+        });
+        continue;
+      }
       it(`${name}: ${who} passes`, async () => {
         const { go, run } = build();
         await expect(go(name, c)).resolves.toEqual({ ok: true });
         expect(run).toHaveBeenCalledTimes(1);
       });
+    }
     for (const [who, c, reason] of MUST_REFUSE)
       it(`${name}: ${who} is refused and nothing runs`, async () => {
         const { go, run } = build();
         await expect(go(name, c)).rejects.toMatchObject({
           code: "forbidden",
-          details: { reason },
+          details: { reason: name === DESKTOP_ONLY ? expect.any(String) : reason },
         });
         expect(run).not.toHaveBeenCalled();
       });
@@ -114,7 +142,7 @@ describe("memory.entities.* per connection (handlers)", () => {
 
   it("leaves other methods alone (memory.loops.list still reaches a read-only device)", async () => {
     const { go, run } = build();
-    await go("memory.loops.list", MUST_REFUSE[2][1]);
+    await go("memory.loops.list", MUST_REFUSE[9][1]);
     expect(run).toHaveBeenCalledTimes(1);
   });
 });

@@ -737,7 +737,12 @@ export function composePeople(deps: PeopleDeps): People {
 }
 
 /** The `memory.*` methods that carry loops, which read who is asking (promise scrub). */
-const LOOP_METHODS = ["memory.loops.list", "memory.loops.update", "memory.entities.get"] as const;
+const LOOP_METHODS = [
+  "memory.loops.list",
+  "memory.loops.update",
+  "memory.entities.get",
+  "memory.entities.timeline",
+] as const;
 
 /**
  * Passes the caller's view to the loop methods: the desktop shell sees everything, every other
