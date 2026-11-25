@@ -441,3 +441,94 @@ describe("name folding", () => {
     expect(foldName(a)).toBe(foldName(b));
   });
 });
+
+describe("review round 1: grant check before the disk, hidden sources, home, ties", () => {
+  it("judges paths against the grants lexically before touching the disk", async () => {
+    // These paths do not exist. With a file system call first they would be `source_gone` or
+    // `dest_parent_missing`; outside every grant they never get that far.
+    expect(await adapter().capture(move(join(outside, "nope"), filed()))).toEqual({
+      ok: false,
+      reason: "outside_grant",
+    });
+    expect(await adapter().capture(move(src(), join(outside, "nope")))).toEqual({
+      ok: false,
+      reason: "outside_grant",
+    });
+    // Positive control: inside the grant the same missing path gets to the file system.
+    expect(await adapter().capture(move(join(share, "Inbox", "nope"), filed()))).toEqual({
+      ok: false,
+      reason: "source_gone",
+    });
+    // The prefix is by whole segments: a sibling that shares the text is outside.
+    mkdirSync(`${share}-evil`);
+    expect(await adapter().capture(move(src(), `${share}-evil`))).toEqual({
+      ok: false,
+      reason: "outside_grant",
+    });
+  });
+
+  it("the check judges the grant lexically first too", async () => {
+    const { a, call, cap } = await staged();
+    grants = [{ root: outside, mode: "rw" }];
+    expect(await a.check(call, cap)).toEqual({ fresh: false, reason: "outside_grant" });
+  });
+
+  it("on equal roots, ro wins over rw, in either order", async () => {
+    for (const order of [
+      ["rw", "ro"],
+      ["ro", "rw"],
+    ] as const) {
+      grants = order.map((mode) => ({ root: share, mode }));
+      expect(await adapter().capture(move(src(), filed()))).toEqual({
+        ok: false,
+        reason: "not_writable",
+      });
+    }
+    grants = [{ root: share, mode: "rw" }];
+    expect((await adapter().capture(move(src(), filed()))).ok).toBe(true);
+  });
+
+  it("refuses a hidden source file and a source inside a hidden folder", async () => {
+    writeFileSync(join(share, "Inbox", ".secret"), "x");
+    expect(
+      await adapter().capture(move(join(share, "Inbox", ".secret"), filed(), "secret.txt")),
+    ).toEqual({
+      ok: false,
+      reason: "hidden_source",
+    });
+    mkdirSync(join(share, ".cache"));
+    writeFileSync(join(share, ".cache", "a.txt"), "x");
+    expect(await adapter().capture(move(join(share, ".cache", "a.txt"), filed()))).toEqual({
+      ok: false,
+      reason: "hidden_source",
+    });
+  });
+
+  it("expands a leading ~ against the owner's home", async () => {
+    const a = filesAdapter({ grants: () => grants, home: share });
+    expect((await a.capture(move("~/Inbox/bill.pdf", "~/Filed"))).ok).toBe(true);
+    // `~user` is not a home expansion: it stays relative and is refused.
+    expect(await a.capture(move("~root/x", "~/Filed"))).toEqual({
+      ok: false,
+      reason: "relative_path",
+    });
+    // A `~` that expands outside the grant is refused like any other path.
+    const out = filesAdapter({ grants: () => grants, home: outside });
+    expect(await out.capture(move("~/secret.txt", "~"))).toEqual({
+      ok: false,
+      reason: "outside_grant",
+    });
+  });
+
+  it("undo is refused when the old folder was swapped for another one", async () => {
+    const { a, call, cap } = await staged();
+    renameSync(src(), join(filed(), "bill.pdf"));
+    const post = (await a.postState?.(call, cap)) ?? null;
+    renameSync(join(share, "Inbox"), join(share, "Inbox-old"));
+    mkdirSync(join(share, "Inbox"));
+    expect(await a.checkInverse?.(call, cap, post)).toEqual({
+      fresh: false,
+      reason: "old_parent_changed",
+    });
+  });
+});

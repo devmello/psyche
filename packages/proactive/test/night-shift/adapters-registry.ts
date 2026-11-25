@@ -13,6 +13,10 @@ export class FakeRegistry implements ReadRegistry {
   events = new Map<string, CalendarEventInfo>();
   reminders = new Map<string, ReminderInfo>();
   failing = false;
+  /** Resolved reply recipients by message id, as the registry would read them (Reply-To first). */
+  replyTo = new Map<string, string[]>();
+  /** Addresses the owner has ever sent to. */
+  sentTo = new Set<string>(["ann@x.com", "bob@x.com"]);
 
   #guard(): void {
     if (this.failing) throw new Error("registry down");
@@ -23,13 +27,27 @@ export class FakeRegistry implements ReadRegistry {
     const id = ref.threadId ?? (ref.messageId ? `t-${ref.messageId}` : "");
     return this.threads.get(id) ?? null;
   }
+  async mailReplyRecipients(ref: { messageId: string; replyAll: boolean }) {
+    this.#guard();
+    const own = this.replyTo.get(ref.messageId);
+    if (own) return own;
+    return this.threads.has(`t-${ref.messageId}`) || this.threads.has("t-1")
+      ? ref.replyAll
+        ? ["ann@x.com", "bob@x.com"]
+        : ["ann@x.com"]
+      : null;
+  }
+  async mailSentTo(addresses: string[]) {
+    this.#guard();
+    return addresses.filter((a) => this.sentTo.has(a));
+  }
   async mailDraft(id: string) {
     this.#guard();
     return this.drafts.get(id) ?? null;
   }
-  async calendarEvent(id: string) {
+  async calendarEvent(ref: { id: string; calendarId?: string }) {
     this.#guard();
-    return this.events.get(id) ?? null;
+    return this.events.get(ref.id) ?? null;
   }
   async calendarFind(q: { title: string; start: string }) {
     this.#guard();

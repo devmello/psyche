@@ -1,25 +1,39 @@
-import type { Json, Preview } from "./types.ts";
+import type { Json, Preview, PreviewRow } from "./types.ts";
 
 /** C0/C1 controls (U+0085 NEL included), line and paragraph separators and bidi overrides. */
 const UNSAFE = /[\p{Cc}\p{Zl}\p{Zp}‎‏‪-‮⁦-⁩]/gu;
 
-/** Plain text for a preview: no control or line-breaking characters, length capped. */
+/** Plain text for a preview: no control or line-breaking characters. `max` caps the length. */
 export function plain(value: unknown, max = 500): string {
-  const s = typeof value === "string" ? value : value === undefined ? "" : JSON.stringify(value);
-  const clean = s.replace(UNSAFE, " ").replace(/ {2,}/g, " ").trim();
-  return clean.length > max ? `${clean.slice(0, max - 1)}…` : clean;
+  return plainCut(value, max).text;
 }
 
-export function preview(
-  kind: Preview["kind"],
-  title: string,
-  rows: Array<[string, unknown]>,
-): Preview {
-  return {
-    kind,
-    title: plain(title, 200),
-    rows: rows.map(([label, value]) => ({ label: plain(label, 60), value: plain(value) })),
-  };
+function plainCut(value: unknown, max: number): { text: string; cut: boolean } {
+  const s = typeof value === "string" ? value : value === undefined ? "" : JSON.stringify(value);
+  const clean = s.replace(UNSAFE, " ").replace(/ {2,}/g, " ").trim();
+  return clean.length > max
+    ? { text: `${clean.slice(0, max - 1)}…`, cut: true }
+    : { text: clean, cut: false };
+}
+
+export type RowInput = [
+  label: string,
+  value: unknown,
+  opts?: { full?: true; badge?: PreviewRow["badge"] },
+];
+
+/** Sendable fields pass `{ full: true }`: carried whole, never shortened. */
+export function preview(kind: Preview["kind"], title: string, rows: RowInput[]): Preview {
+  let truncated = false;
+  const out: PreviewRow[] = rows.map(([label, value, opts]) => {
+    const { text, cut } = plainCut(value, opts?.full ? Number.POSITIVE_INFINITY : 500);
+    if (cut) truncated = true;
+    const row: PreviewRow = { label: plain(label, 60), value: text };
+    if (cut) row.truncated = true;
+    if (opts?.badge) row.badge = opts.badge;
+    return row;
+  });
+  return { kind, title: plain(title, 200), rows: out, truncated };
 }
 
 export function str(v: unknown): string | undefined {

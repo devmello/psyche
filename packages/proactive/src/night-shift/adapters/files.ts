@@ -7,6 +7,7 @@ import {
   realpathSync,
   statSync,
 } from "node:fs";
+import { homedir } from "node:os";
 import { basename, dirname, isAbsolute, join, sep } from "node:path";
 import { asRecord, preview, str } from "./common.ts";
 import type {
@@ -47,6 +48,8 @@ export interface FileGrant {
 export interface FilesDeps {
   /** The live grants, read at every use. Must fail closed: throw when they cannot be read. */
   grants: () => readonly FileGrant[];
+  /** The owner's home, for a leading `~`. Defaults to the process user's home. */
+  home?: string;
 }
 
 const TOOLS = ["files_move", "files_rename"] as const;
@@ -76,6 +79,39 @@ export function badPath(p: unknown): string | undefined {
   if (p.split(/[\\/]+/).includes("..")) return "dotdot";
   if (MAGIC.test(p)) return "magic_path";
   return undefined;
+}
+
+/** A leading `~` or `~/` means the owner's home. `~user` is not expanded (and stays relative). */
+function expandHome(p: unknown, deps: FilesDeps): unknown {
+  if (typeof p !== "string") return p;
+  if (p === "~") return deps.home ?? homedir();
+  if (p.startsWith("~/")) return join(deps.home ?? homedir(), p.slice(2));
+  return p;
+}
+
+/**
+ * Before any file system call on a model-supplied path: it must lie, lexically and name-folded,
+ * under a grant root (the root as written or its realpath). A path that is not never reaches the
+ * disk, so a hostile name cannot make Psyche stat, open or follow anything outside the grants.
+ * The realpath and `dev:ino` checks that follow decide what the lexical check cannot.
+ */
+function lexicallyGranted(path: string, deps: FilesDeps): Refusal | undefined {
+  let grants: readonly FileGrant[];
+  try {
+    grants = deps.grants();
+  } catch {
+    return { reason: "grants_unreadable" };
+  }
+  for (const g of grants) {
+    const roots = [g.root];
+    try {
+      roots.push(realpathSync.native(g.root));
+    } catch {
+      // The root as written still counts; the real check refuses if it names nothing.
+    }
+    for (const r of roots) if (r !== sep && under(path, r)) return undefined;
+  }
+  return { reason: "outside_grant" };
 }
 
 function badName(n: string): boolean {
@@ -119,7 +155,10 @@ function grantMode(real: string, deps: FilesDeps): "rw" | "ro" | Refusal {
     }
     if (root === sep) continue; // too broad to vouch for anything
     if (!under(real, root)) continue;
-    if (!best || root.length > best.len) best = { len: root.length, mode: g.mode };
+    // The deepest root decides; on equal depth ro wins.
+    if (!best || root.length > best.len || (root.length === best.len && g.mode === "ro")) {
+      best = { len: root.length, mode: g.mode };
+    }
   }
   return best ? best.mode : { reason: "outside_grant" };
 }
@@ -190,6 +229,18 @@ function dotted(name: string): boolean {
   return name.startsWith(".");
 }
 
+/** Dot names refused on both ends: a hidden source file or folder, a hidden destination. */
+function hiddenRefusal(
+  sourceReal: string,
+  destParentReal: string,
+  deps: FilesDeps,
+): Refusal | undefined {
+  if (dotted(basename(sourceReal)) || hiddenBelowGrant(dirname(sourceReal), deps)) {
+    return { reason: "hidden_source" };
+  }
+  return hiddenBelowGrant(destParentReal, deps) ? { reason: "hidden_destination" } : undefined;
+}
+
 /** Dot components below a grant root: moving into a hidden folder is refused. */
 function hiddenBelowGrant(real: string, deps: FilesDeps): boolean {
   let grants: readonly FileGrant[];
@@ -219,10 +270,10 @@ interface Op {
   name: string | undefined;
 }
 
-function parseOp(call: StagedCall): Op | Refusal {
+function parseOp(call: StagedCall, deps: FilesDeps): Op | Refusal {
   const a = call.args;
   if (call.tool === "files_rename") {
-    const path = a.path;
+    const path = expandHome(a.path, deps);
     const name = str(a.name);
     const bad = badPath(path);
     if (bad) return { reason: bad };
@@ -232,12 +283,14 @@ function parseOp(call: StagedCall): Op | Refusal {
   const items = a.items;
   if (!Array.isArray(items) || items.length !== 1) return { reason: "one_item_per_call" };
   const it = items[0] as Record<string, unknown>;
-  const bad = badPath(it.path) ?? badPath(it.to);
+  const path = expandHome(it.path, deps);
+  const to = expandHome(it.to, deps);
+  const bad = badPath(path) ?? badPath(to);
   if (bad) return { reason: bad };
   if (it.name !== undefined && (typeof it.name !== "string" || it.name === "")) {
     return { reason: "bad_name" };
   }
-  return { path: it.path as string, to: it.to as string, name: str(it.name) };
+  return { path: path as string, to: to as string, name: str(it.name) };
 }
 
 /** Split a multi-item `files_move` into one call per file, which is what `capture` accepts. */
@@ -253,6 +306,7 @@ interface FilePre {
   sourcePath: string;
   sourceReal: string;
   sourceId: string;
+  sourceParentId: string;
   size: string;
   mtime: string;
   destParent: string;
@@ -269,6 +323,7 @@ function pre(c: CaptureOk): FilePre | undefined {
     "sourcePath",
     "sourceReal",
     "sourceId",
+    "sourceParentId",
     "size",
     "mtime",
     "destParent",
@@ -287,8 +342,10 @@ function moveCall(sourcePath: string, to: string, name: string): StagedCall {
 
 export function filesAdapter(deps: FilesDeps): Adapter {
   async function capture(call: StagedCall, ctx?: CaptureContext): Promise<CaptureResult> {
-    const op = parseOp(call);
+    const op = parseOp(call, deps);
     if ("reason" in op) return { ok: false, reason: op.reason };
+    const lex = lexicallyGranted(op.path, deps) ?? lexicallyGranted(op.to, deps);
+    if (lex) return { ok: false, reason: lex.reason };
 
     const parent = readDestParent(op.to);
     if ("reason" in parent) return { ok: false, reason: parent.reason };
@@ -314,10 +371,10 @@ export function filesAdapter(deps: FilesDeps): Adapter {
 
     const src = readSource(op.path);
     if ("reason" in src) return { ok: false, reason: src.reason };
+    const srcParent = readDestParent(dirname(src.real));
+    if ("reason" in srcParent) return { ok: false, reason: srcParent.reason };
     const bad =
-      inRw(src.real, deps) ??
-      inRw(parent.real, deps) ??
-      (hiddenBelowGrant(parent.real, deps) ? { reason: "hidden_destination" } : undefined);
+      inRw(src.real, deps) ?? inRw(parent.real, deps) ?? hiddenRefusal(src.real, parent.real, deps);
     if (bad) return { ok: false, reason: bad.reason };
     if (foldName(destPath) === foldName(src.real)) return { ok: false, reason: "noop" };
     const free = absent(destPath);
@@ -328,6 +385,7 @@ export function filesAdapter(deps: FilesDeps): Adapter {
       sourcePath: op.path,
       sourceReal: src.real,
       sourceId: src.id.id,
+      sourceParentId: srcParent.id,
       size: src.id.size,
       mtime: src.id.mtime,
       destParent: parent.real,
@@ -351,9 +409,7 @@ export function filesAdapter(deps: FilesDeps): Adapter {
     name: string,
     destPath: string,
   ): CaptureResult {
-    const bad =
-      inRw(parent.real, deps) ??
-      (hiddenBelowGrant(parent.real, deps) ? { reason: "hidden_destination" } : undefined);
+    const bad = inRw(parent.real, deps) ?? hiddenRefusal(earlier.sourceReal, parent.real, deps);
     if (bad) return { ok: false, reason: bad.reason };
     if (foldName(destPath) === foldName(earlier.sourceReal)) {
       return { ok: false, reason: "folds_to_noop" };
@@ -386,6 +442,11 @@ export function filesAdapter(deps: FilesDeps): Adapter {
     async check(_call, capture): Promise<CheckResult> {
       const p = pre(capture);
       if (!p) return { fresh: false, reason: "bad_precondition" };
+      const lex =
+        lexicallyGranted(p.sourcePath, deps) ??
+        lexicallyGranted(p.to, deps) ??
+        lexicallyGranted(p.destPath, deps);
+      if (lex) return { fresh: false, reason: lex.reason };
       const src = readSource(p.sourcePath);
       if ("reason" in src) return { fresh: false, reason: src.reason };
       if (src.real !== p.sourceReal) return { fresh: false, reason: "source_moved" };
@@ -402,7 +463,7 @@ export function filesAdapter(deps: FilesDeps): Adapter {
       const bad =
         inRw(src.real, deps) ??
         inRw(parent.real, deps) ??
-        (hiddenBelowGrant(parent.real, deps) ? { reason: "hidden_destination" } : undefined);
+        hiddenRefusal(src.real, parent.real, deps);
       if (bad) return { fresh: false, reason: bad.reason };
       const free = absent(p.destPath);
       if (typeof free === "object") return { fresh: false, reason: free.reason };
@@ -441,6 +502,9 @@ export function filesAdapter(deps: FilesDeps): Adapter {
       const p = pre(capture);
       const want = asRecord(post);
       if (!p || typeof want.id !== "string") return { fresh: false, reason: "no_post_state" };
+      const lex =
+        lexicallyGranted(p.destPath, deps) ?? lexicallyGranted(dirname(p.sourceReal), deps);
+      if (lex) return { fresh: false, reason: lex.reason };
       const dest = readSource(p.destPath);
       if ("reason" in dest) return { fresh: false, reason: dest.reason };
       if (dest.id.id !== want.id || dest.real !== want.real) {
@@ -449,6 +513,7 @@ export function filesAdapter(deps: FilesDeps): Adapter {
       // The old path must be free and its folder still the one recorded, inside an rw grant now.
       const oldParent = readDestParent(dirname(p.sourceReal));
       if ("reason" in oldParent) return { fresh: false, reason: oldParent.reason };
+      if (oldParent.id !== p.sourceParentId) return { fresh: false, reason: "old_parent_changed" };
       const bad = inRw(dest.real, deps) ?? inRw(oldParent.real, deps);
       if (bad) return { fresh: false, reason: bad.reason };
       const free = absent(join(oldParent.real, basename(p.sourceReal)));

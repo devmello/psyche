@@ -41,11 +41,26 @@ export type CaptureResult = CaptureOk | Refused;
 
 export type CheckResult = { fresh: true } | { fresh: false; reason: string };
 
-/** A preview is plain data: strings only, control characters removed. Clients render it as text. */
+/** One preview row. `truncated` means `value` is a shortened form of the real text. */
+export interface PreviewRow {
+  label: string;
+  value: string;
+  truncated?: true;
+  /** `new_recipient`: the owner has never sent to this address. `reply_all`: a reply-all draft. */
+  badge?: "new_recipient" | "reply_all";
+}
+
+/**
+ * A preview is plain data: strings only, control characters removed. Clients render it as text.
+ * Sendable fields (recipients, subject, body) are carried in full, never shortened. If any row is
+ * shortened anyway, `truncated` is true and the UI must expand the full text before it enables
+ * the send tick.
+ */
 export interface Preview {
   kind: "mail" | "calendar" | "reminder" | "file";
   title: string;
-  rows: Array<{ label: string; value: string }>;
+  rows: PreviewRow[];
+  truncated: boolean;
 }
 
 /** The call that undoes an applied item (§5.4). It goes through the same apply path. */
@@ -103,6 +118,7 @@ export interface MailDraftInfo {
 
 export interface CalendarEventInfo {
   id: string;
+  calendarId?: string;
   etag: string;
   title: string;
   /** ISO start and end. */
@@ -135,7 +151,23 @@ export interface ReadRegistry {
     account?: string;
   }): Promise<MailThreadInfo | null>;
   mailDraft(draftId: string): Promise<MailDraftInfo | null>;
-  calendarEvent(id: string): Promise<CalendarEventInfo | null>;
+  /**
+   * The recipients a reply to message `messageId` really goes to: Reply-To, else From, plus To
+   * and Cc when `replyAll`. Lowercase addresses; null when the message is gone.
+   */
+  mailReplyRecipients(ref: {
+    messageId: string;
+    mailbox?: string;
+    account?: string;
+    replyAll: boolean;
+  }): Promise<string[] | null>;
+  /**
+   * Which of these addresses the owner has ever sent mail to (their sent mail, not the thread).
+   * A participant who only ever wrote to the owner is not in the answer, so the review UI can
+   * show a "New recipient" badge.
+   */
+  mailSentTo(addresses: string[]): Promise<string[]>;
+  calendarEvent(ref: { id: string; calendarId?: string }): Promise<CalendarEventInfo | null>;
   /** Events with exactly this title and start (the duplicate check for a create). */
   calendarFind(q: {
     title: string;
