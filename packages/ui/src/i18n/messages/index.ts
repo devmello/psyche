@@ -1,7 +1,7 @@
 import { actionErrors } from "./action-errors.ts";
-import { approvals } from "./approvals.ts";
 import { agent } from "./agent.ts";
 import { agentNotes } from "./agent-notes.ts";
+import { approvals } from "./approvals.ts";
 import { audit } from "./audit.ts";
 import { automationChat } from "./automation-chat.ts";
 import { blocks } from "./blocks.ts";
