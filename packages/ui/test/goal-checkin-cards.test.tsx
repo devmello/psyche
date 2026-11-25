@@ -42,7 +42,7 @@ describe("goal check-in cards", () => {
     expect(goalCardKind(idea("goal"))).toBeNull();
   });
 
-  it("a check-in card offers Start, Snooze and Dismiss", async () => {
+  it("a check-in card offers Start, with Snooze and Dismiss in its menu", async () => {
     const onAccept = vi.fn();
     const onDismiss = vi.fn();
     const user = userEvent.setup();
@@ -51,22 +51,30 @@ describe("goal check-in cards", () => {
     expect(onAccept).toHaveBeenCalledWith(expect.objectContaining({ id: "idea_1" }), {
       recurring: false,
     });
-    await user.click(screen.getByRole("button", { name: "Snooze" }));
+    expect(screen.queryByRole("button", { name: "Snooze" })).toBeNull();
+    await user.click(screen.getByRole("button", { name: /^More for / }));
+    await user.click(await screen.findByRole("menuitem", { name: "Snooze" }));
     expect(onDismiss).toHaveBeenLastCalledWith(expect.anything(), "not_now");
-    await user.click(screen.getByRole("button", { name: "Dismiss" }));
+    await user.click(screen.getByRole("button", { name: /^More for / }));
+    await user.click(await screen.findByRole("menuitem", { name: "Dismiss" }));
     expect(onDismiss).toHaveBeenLastCalledWith(expect.anything(), "not_interested");
     expect(screen.queryByText("Make this recurring")).toBeNull();
   });
 
-  it("a stalled-task card is badged Resume?", () => {
+  it("a stalled-task card says Resume? in its line", () => {
     render(<IdeaCard idea={idea("goal_stalled")} />);
-    expect(screen.getByText("Resume?")).toBeTruthy();
+    expect(screen.getByText(/^Resume\?/)).toBeTruthy();
   });
 
-  it("an ordinary idea keeps Do it", () => {
-    render(<IdeaCard idea={idea(null)} />);
+  it("an ordinary idea keeps Do it, and its dismiss reasons are in the menu", async () => {
+    const onDismiss = vi.fn();
+    const user = userEvent.setup();
+    render(<IdeaCard idea={idea(null)} onDismiss={onDismiss} />);
     expect(screen.getByRole("button", { name: "Do it" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Snooze" })).toBeNull();
+    await user.click(screen.getByRole("button", { name: /^More for / }));
+    await user.click(await screen.findByRole("menuitem", { name: "Not interested" }));
+    expect(onDismiss).toHaveBeenLastCalledWith(expect.anything(), "not_interested");
   });
 
   it("the goal page shows check-ins off by default and sets a weekly cadence", async () => {

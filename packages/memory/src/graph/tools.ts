@@ -5,6 +5,7 @@ import {
   type GraphFact,
   type GraphInteraction,
   type GraphLoop,
+  GraphRelationshipLabel,
   type GraphSource,
   type Provenance,
   PsycheError,
@@ -17,6 +18,7 @@ import { looksLikeInstruction } from "../filters.ts";
 import type { MemoryCallClass, MemoryToolContext, ToolOutcome } from "../tools/memory-command.ts";
 import type { EverythingStore } from "./everything.ts";
 import { normalizeName } from "./normalize.ts";
+import { entityNameIndex } from "./recall-index.ts";
 import { type GraphStore, INTERACTION_SOURCE, SOURCE_KINDS } from "./store.ts";
 import { WORK_ATTRIBUTES } from "./work.ts";
 
@@ -767,6 +769,40 @@ const confirmed = (x: { provenance: Provenance; sources: string[] }) =>
   x.provenance === "owner" &&
   (x.sources.length === 0 || x.sources.some((s) => OWNER_WRITE.test(s)));
 
+/**
+ * A fact line may state: owner-written or Contacts-confirmed as `confirmed` says, or reviewed by
+ * the owner: `edited`, or `accepted` after it waited in Review (`firstSeenAt` is only set on a
+ * proposal). A plain `accepted` row that was never proposed is how `setFact` stores an agent or
+ * Contacts value, so it does not count. Pending, discarded and quarantined facts never reach
+ * this (`facts()` leaves them out) and auto-accepted ones do not count. The value still goes
+ * through `plain()` or a fixed allowlist below.
+ */
+const factConfirmed = (f: GraphFact) =>
+  confirmed(f) || f.review === "edited" || (f.review === "accepted" && f.firstSeenAt !== undefined);
+
+/** `relationship_to_owner` labels, the only words recall prints for it. */
+const RELATIONSHIPS = new Set<string>(GraphRelationshipLabel.enum);
+const BIRTHDAY_DAYS = 14;
+
+/** "birthday today" or "birthday in N days" when the date (`YYYY-MM-DD` or `--MM-DD`) is near. */
+function birthdaySoon(value: string | undefined, now: number): string | undefined {
+  const m = /^(?:\d{4}|-)-?(\d{2})-(\d{2})$/.exec(value ?? "");
+  if (m === null) return undefined;
+  const month = Number(m[1]);
+  const dom = Number(m[2]);
+  const today = new Date(now);
+  const base = Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate());
+  for (const year of [today.getUTCFullYear(), today.getUTCFullYear() + 1]) {
+    const at = new Date(Date.UTC(year, month - 1, dom));
+    if (at.getUTCMonth() !== month - 1 || at.getUTCDate() !== dom) continue;
+    const days = Math.round((at.getTime() - base) / DAY_MS);
+    if (days < 0) continue;
+    if (days > BIRTHDAY_DAYS) return undefined;
+    return days === 0 ? "birthday today" : `birthday in ${days} day${days === 1 ? "" : "s"}`;
+  }
+  return undefined;
+}
+
 /** The owner's own spelling of words they typed: the span of `ownerText` that normalises to `said`. */
 function ownerSpan(ownerText: string, said: string): string | undefined {
   const words = [...ownerText.matchAll(/[\p{L}\p{M}\p{N}]+/gu)].map((m) => m[0]);
@@ -811,19 +847,14 @@ export function entityRecall(
   };
   const text = ` ${normalizeName(ownerText)} `;
   const lines: string[] = [];
-  for (const e of graph.listEntities(["person", "org", "project"])) {
+  const index = entityNameIndex(graph);
+  for (const hit of index.match(text.trim())) {
     if (lines.length >= max) break;
-    if (e.isOwner || e.hidden || e.status !== "active") continue;
-    const names = [e.name, ...e.aliases].map(normalizeName).filter((n) => n.length >= 3);
-    const said = names
-      .filter((n) => text.includes(` ${n} `))
-      .sort((a, b) => b.length - a.length)[0];
-    if (said === undefined) continue;
+    const e = graph.getEntity(hit.id);
+    if (e === undefined || e.isOwner || e.hidden || e.status !== "active") continue;
+    const said = hit.said;
     // Ambiguous: another entity answers to the same name.
-    const clash = graph
-      .search(e.name, { kinds: [e.kind], limit: 3 })
-      .filter((s) => normalizeName(s.name) === normalizeName(e.name));
-    if (clash.length > 1) continue;
+    if (index.ambiguous(e.id)) continue;
     // "Don't track" or forgotten identifiers: nothing is recalled about them.
     const idents = graph.identifiers(e.id);
     if (idents.some((i) => graph.isBlocked(i.kind, i.value))) continue;
@@ -850,16 +881,13 @@ export function entityRecall(
       .edges(e.id)
       .find((x) => x.rel === "works_at" && x.src === e.id && confirmed(x));
     const orgName = org === undefined ? undefined : plain(graph.getEntity(org.dst)?.name);
-    const title = plain(
-      graph
-        .facts(e.id)
-        .find(
-          (f) =>
-            f.attribute === "title" &&
-            confirmed(f) &&
-            (options.visible === undefined || options.visible(f)),
-        )?.value,
-    );
+    const facts = graph
+      .facts(e.id)
+      .filter((f) => factConfirmed(f) && (options.visible === undefined || options.visible(f)));
+    const title = plain(facts.find((f) => f.attribute === "title")?.value);
+    const relationship = facts.find((f) => f.attribute === "relationship_to_owner")?.value;
+    const birthday = birthdaySoon(facts.find((f) => f.attribute === "birthday")?.value, now);
+    const preference = plain(facts.find((f) => f.attribute === "preference")?.value);
     const loop = graph
       .loops({ entityId: e.id, status: ["open"] })
       .find(
@@ -872,10 +900,15 @@ export function entityRecall(
     const last = interactions[0]?.occurredAt;
     const bits = [
       title !== undefined && orgName !== undefined ? `${title} at ${orgName}` : (title ?? orgName),
+      relationship !== undefined && RELATIONSHIPS.has(relationship)
+        ? `your ${relationship}`
+        : undefined,
+      birthday,
       last === undefined ? undefined : `last talked ${day(last)}`,
       loop === undefined
         ? undefined
         : `${loop.direction === "i_owe" ? "you owe" : "waiting on"}: ${loop.text.replace(/\s+/g, " ")}`,
+      preference === undefined ? undefined : `prefers ${preference}`,
     ].filter((b): b is string => b !== undefined && b.length > 0);
     if (bits.length === 0) continue;
     const line = `${name} — ${bits.join("; ")}`.slice(0, ENTITY_RECALL_LIMITS.line);
