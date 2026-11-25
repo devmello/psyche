@@ -169,6 +169,25 @@ describe("task runs in the run trace", () => {
     expect(JSON.parse(row.usage)).toMatchObject({ input: 100, output: 20 });
   });
 
+  it("records a plan-fork branch's turn as a background run, never as the owner's (fork-a-plan L3)", async () => {
+    const { gw, thread, trace } = await setup();
+    const db = gw.context.db;
+    const rows: [string, string][] = [
+      ["fork", "automation"],
+      ["chat", "owner"],
+    ];
+    for (const [createdFrom, origin] of rows) {
+      const turn: TaskTurn = {
+        taskId: `task_${createdFrom}`,
+        runId: db.newId(),
+        task: task(thread.id, { id: `task_${createdFrom}`, createdFrom: createdFrom as never }),
+      };
+      trace.start(turn);
+      trace.end(turn, "final");
+      expect(getRun(db, turn.runId)?.origin, createdFrom).toBe(origin);
+    }
+  });
+
   it("makes a specialist's turn a child run, linked from its spawn step", async () => {
     const { gw, thread, trace } = await setup();
     const db = gw.context.db;

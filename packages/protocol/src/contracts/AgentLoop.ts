@@ -192,6 +192,31 @@ export interface StagingRun {
    * second layer. A subagent of the run inherits it.
    */
   toolAllowed?: (tool: string) => boolean;
+  /**
+   * A plan-fork branch's read guard (fork-a-plan-2026 §3.2): `allowFetch` decides whether a
+   * `web.fetch` URL may run, `observe` sees every finished call of the run (what a search returned,
+   * the stored results a report's cites are checked against). Absent on a night run. A fork run
+   * with no guard cannot fetch.
+   */
+  reads?: StagingReads;
+}
+
+/** What a staged run's read guard is told about one finished call. */
+export interface StagingReadCall {
+  callId: string;
+  tool: string;
+  sideEffect: SideEffect;
+  args: unknown;
+  output: unknown;
+  /** The call did not end in an error. */
+  ok: boolean;
+  /** How far the result may be trusted; `untrusted` taints the run. */
+  provenance?: string;
+}
+
+export interface StagingReads {
+  allowFetch(url: unknown): boolean;
+  observe(call: StagingReadCall): void;
 }
 
 /** A tool call the loop is about to dispatch (`StartTurnInput.beforeDispatch`). */

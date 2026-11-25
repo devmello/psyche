@@ -567,13 +567,8 @@ const NONE_REFUSED: PlainTool[] = [
     args: { query: "x" },
     rule: { id: "web", action: "search.query" },
   },
-  { label: "built-in web.search", name: "web.search", sideEffect: "read", args: { query: "x" } },
-  {
-    label: "built-in web.fetch",
-    name: "web.fetch",
-    sideEffect: "read",
-    args: { url: "https://example.org/?q=secret" },
-  },
+  // Not here any more: under a fork the built-in `web.search` runs and `web.fetch` is held to the
+  // branch's own search results (F2, `fork-f2.test.ts`). The Night shift table keeps both refused.
   {
     label: "machine_files",
     name: "machine_files",

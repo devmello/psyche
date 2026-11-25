@@ -1,9 +1,15 @@
 import { bindingHash, paramsHash, STAGEABLE_TOOLS } from "@psyche/agent-core";
 import type { StagedCall as LoopStagedCall, StagedAction, StagingSink } from "@psyche/protocol";
-import { bareTool, plain, splitTool, stable } from "./adapters/common.ts";
-import { adapterFor } from "./adapters/index.ts";
-import { draftContentHash, strictAddress } from "./adapters/mail.ts";
-import type { Adapter, CaptureOk, CaptureResult, Json, StagedCall } from "./adapters/types.ts";
+import { bareTool, plain, splitTool, stable } from "../staged/adapters/common.ts";
+import { adapterFor } from "../staged/adapters/index.ts";
+import { draftContentHash, strictAddress } from "../staged/adapters/mail.ts";
+import type {
+  Adapter,
+  CaptureOk,
+  CaptureResult,
+  Json,
+  StagedCall,
+} from "../staged/adapters/types.ts";
 import type { NightDomain } from "./settings.ts";
 import type { NightStore } from "./store.ts";
 
@@ -24,8 +30,17 @@ import type { NightStore } from "./store.ts";
  */
 
 export interface StagerDeps {
-  nightId: string;
-  store: Pick<NightStore, "insertStagedAction" | "listStagedActions" | "updateStagedAction">;
+  /** The night this stager records into. Exactly one of `nightId` and `forkBranchId`. */
+  nightId?: string;
+  /**
+   * The plan-fork branch this stager records into (fork-a-plan-2026 §3.1): the same adapters and
+   * pipeline, with the rows' origin set to the branch instead of a night. Needs
+   * `store.listStagedActionsForBranch`.
+   */
+  forkBranchId?: string;
+  store: Pick<NightStore, "insertStagedAction" | "listStagedActions" | "updateStagedAction"> & {
+    listStagedActionsForBranch?: (forkBranchId: string) => StagedAction[];
+  };
   /**
    * Every adapter, keyed by bare tool name, built for the staged call's own connector id (the
    * `<id>` of `mcp__<id>__<tool>`): its reads must go to that connector, never to another one that
@@ -135,15 +150,28 @@ export function createStager(deps: StagerDeps): StagingSink {
     deps.onRefused?.({ tool, reason });
     return { staged: false };
   };
+  if ((deps.nightId === undefined) === (deps.forkBranchId === undefined)) {
+    throw new Error("a stager records into exactly one night or one fork branch");
+  }
+  const ownOrigin = (staging: LoopStagedCall["staging"]): boolean =>
+    deps.forkBranchId === undefined
+      ? staging.kind === "night" && staging.nightId === deps.nightId
+      : staging.kind === "fork" && staging.branchId === deps.forkBranchId;
+  const listOwn = (): StagedAction[] => {
+    if (deps.forkBranchId === undefined)
+      return deps.store.listStagedActions(deps.nightId as string);
+    if (deps.store.listStagedActionsForBranch === undefined) {
+      throw new Error("a fork stager needs listStagedActionsForBranch");
+    }
+    return deps.store.listStagedActionsForBranch(deps.forkBranchId);
+  };
   // Stage one at a time: the one-per-target rule and the sequence number read what is stored.
   let queue: Promise<unknown> = Promise.resolve();
 
   async function stageOne(
     call: LoopStagedCall,
   ): Promise<{ staged: true; stagedId: string } | { staged: false }> {
-    if (call.staging.kind !== "night" || call.staging.nightId !== deps.nightId) {
-      return refuse(call.tool, "wrong_night");
-    }
+    if (!ownOrigin(call.staging)) return refuse(call.tool, "wrong_night");
     if (deps.allowTask !== undefined && !deps.allowTask(call.taskId)) {
       return refuse(call.tool, "task_not_in_run");
     }
@@ -165,7 +193,7 @@ export function createStager(deps: StagerDeps): StagingSink {
     } catch {
       return refuse(call.tool, "bad_args");
     }
-    const live = deps.store.listStagedActions(deps.nightId).filter((i) => i.status === "ready");
+    const live = listOwn().filter((i) => i.status === "ready");
     const pending = live.flatMap((i) => {
       const cap = captureFromItem(i);
       return cap === undefined ? [] : [{ call: callFromItem(i), capture: cap }];
@@ -220,9 +248,11 @@ export function createStager(deps: StagerDeps): StagingSink {
         ? null
         : plain((deps.redact ?? ((t: string) => t))(whyRaw), WHY_MAX) || null;
     const send = sendFor(call.tool, storedCall, result);
-    const seq = deps.store.listStagedActions(deps.nightId).length;
+    const seq = listOwn().length;
     const row = deps.store.insertStagedAction({
-      nightId: deps.nightId,
+      ...(deps.forkBranchId === undefined
+        ? { nightId: deps.nightId as string }
+        : { forkBranchId: deps.forkBranchId }),
       seq,
       domain,
       targetKey: result.target,
