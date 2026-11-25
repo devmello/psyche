@@ -8397,6 +8397,27 @@
         "setAside": {
           "type": "boolean"
         },
+        "grantHint": {
+          "properties": {
+            "count": {
+              "minimum": 1,
+              "type": "integer"
+            },
+            "days": {
+              "minimum": 1,
+              "type": "integer"
+            },
+            "scope": {
+              "$ref": "#/$defs/GrantScope"
+            }
+          },
+          "required": [
+            "count",
+            "days",
+            "scope"
+          ],
+          "type": "object"
+        },
         "taintSources": {
           "items": {
             "$ref": "#/$defs/TaintSource"

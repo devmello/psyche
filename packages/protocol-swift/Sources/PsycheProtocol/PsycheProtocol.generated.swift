@@ -4614,6 +4614,7 @@ public struct ApprovalRequest: Codable, Sendable {
     public let deviceOnly: Bool
     public let expiresAt: String
     public let fromLesson: FromLesson?
+    public let grantHint: GrantHint?
     public let grantID: String?
     public let grantKey: String
     public let id: String
@@ -4644,6 +4645,7 @@ public struct ApprovalRequest: Codable, Sendable {
         case deviceOnly = "deviceOnly"
         case expiresAt = "expiresAt"
         case fromLesson = "fromLesson"
+        case grantHint = "grantHint"
         case grantID = "grantId"
         case grantKey = "grantKey"
         case id = "id"
@@ -4667,7 +4669,7 @@ public struct ApprovalRequest: Codable, Sendable {
         case targetKind = "targetKind"
     }
 
-    public init(bindingHash: String, decidedAt: String? = nil, decidedBy: DecidedByClass? = nil, details: [String: JSONAny], deviceOnly: Bool, expiresAt: String, fromLesson: FromLesson? = nil, grantID: String? = nil, grantKey: String, id: String, invalidatedReason: String? = nil, kind: ApprovalKind, machine: ComputerMachineRef? = nil, requestedAt: String, requestedBy: RequestedBy, requiresAuthentication: Bool, riskClass: RiskClass? = nil, scopeGranted: GrantScope? = nil, scopesOffered: [GrantScope], setAside: Bool? = nil, sideEffect: SideEffect? = nil, status: ApprovalStatus, summary: String, surfaces: [String], taint: Bool, taintSources: [TaintSource]? = nil, target: Target? = nil, targetKind: TargetKind? = nil) {
+    public init(bindingHash: String, decidedAt: String? = nil, decidedBy: DecidedByClass? = nil, details: [String: JSONAny], deviceOnly: Bool, expiresAt: String, fromLesson: FromLesson? = nil, grantHint: GrantHint? = nil, grantID: String? = nil, grantKey: String, id: String, invalidatedReason: String? = nil, kind: ApprovalKind, machine: ComputerMachineRef? = nil, requestedAt: String, requestedBy: RequestedBy, requiresAuthentication: Bool, riskClass: RiskClass? = nil, scopeGranted: GrantScope? = nil, scopesOffered: [GrantScope], setAside: Bool? = nil, sideEffect: SideEffect? = nil, status: ApprovalStatus, summary: String, surfaces: [String], taint: Bool, taintSources: [TaintSource]? = nil, target: Target? = nil, targetKind: TargetKind? = nil) {
         self.bindingHash = bindingHash
         self.decidedAt = decidedAt
         self.decidedBy = decidedBy
@@ -4675,6 +4677,7 @@ public struct ApprovalRequest: Codable, Sendable {
         self.deviceOnly = deviceOnly
         self.expiresAt = expiresAt
         self.fromLesson = fromLesson
+        self.grantHint = grantHint
         self.grantID = grantID
         self.grantKey = grantKey
         self.id = id
@@ -4739,6 +4742,25 @@ public struct FromLesson: Codable, Sendable {
         self.because = because
         self.feedbackID = feedbackID
         self.lessonID = lessonID
+    }
+}
+
+// MARK: - GrantHint
+public struct GrantHint: Codable, Sendable {
+    public let count: Int
+    public let days: Int
+    public let scope: GrantScope
+
+    public enum CodingKeys: String, CodingKey {
+        case count = "count"
+        case days = "days"
+        case scope = "scope"
+    }
+
+    public init(count: Int, days: Int, scope: GrantScope) {
+        self.count = count
+        self.days = days
+        self.scope = scope
     }
 }
 

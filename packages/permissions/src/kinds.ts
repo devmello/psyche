@@ -20,7 +20,7 @@ export const DEVICE_ONLY_KINDS: readonly ApprovalKind[] = [
   "policy_change",
   // A skill is code-adjacent text the agent will follow: installed only from a paired device (T2).
   "skill_install",
-  // A script drives an app with the owner's Automation grant; approved on the Mac only (#268).
+  // A script drives an app with the owner's Automation grant; a plain tap on any paired device (2026-11-09).
   "apple_script",
   // The owner picks the folder in the native picker; a chat reply could not.
   "folder_access",
@@ -190,10 +190,9 @@ export function allowedScopes(
   // A folder is granted for this conversation (`once`) or kept in Settings until revoked (`always`).
   if (kind === "folder_access") return ["once", "always"];
   if (kind === "credential_fill") return ["once", "site"];
-  // Security §5.4: exec_host offers `once` or an `always` bound to exact argv + cwd + binary. The
-  // broker offers `session` ("for this chat") only on a card that offers a program grant, and an
-  // answer with it must ask for that grant: never an exact-command session grant.
-  if (kind === "exec_host") return ["once", "session", "always"];
+  // Security §5.4: exec_host offers `once` or an `always` bound to exact argv + cwd + binary.
+  // The broker alone adds `session` ("for this chat") on a card that offers a program grant.
+  if (kind === "exec_host") return ["once", "always"];
   if (sideEffect === "destructive") return ["once", "task", "always"];
   return ALL_SCOPES;
 }

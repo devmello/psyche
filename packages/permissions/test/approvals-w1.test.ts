@@ -364,8 +364,7 @@ describe("a token on request for a paired phone", () => {
 
 // ---- the "you've allowed this N times" hint --------------------------------------------------
 
-const hintOf = (a: { details: unknown }) =>
-  (a.details as { grantHint?: { count: number; days: number; scope: string } }).grantHint;
+const hintOf = (a: { grantHint?: { count: number; days: number; scope: string } }) => a.grantHint;
 
 async function card(
   h: Harness,
@@ -400,6 +399,8 @@ describe("the grant hint", () => {
     }
     const c = await card(h, WRITE(), CTX);
     expect(hintOf(c.approval)).toEqual({ count: 3, days: 7, scope: "always" });
+    // A top-level field, never a `details` entry (the phone reads nested details as "review").
+    expect(c.approval.details).not.toHaveProperty("grantHint");
     // A caller's own hint is dropped, and another grant key has none.
     const other = await card(
       h,
@@ -499,5 +500,57 @@ describe("the grant hint", () => {
     expect(
       hintOf((await card(h, MAIL("ann@example.com"), { ...CTX, newTarget: true })).approval),
     ).toBeUndefined();
+  });
+});
+
+describe("reads never count against anyone", () => {
+  it("a plain approvals.get from a device the broker does not trust writes no lockout and no audit row", async () => {
+    const h = makeBroker({ approvers: phoneDevices(), deviceSurfaces: () => [] });
+    const handlers = createPermissionHandlers(h.broker, undefined);
+    const issued = await raise(h);
+    // The connection says it may approve; the broker's directory says otherwise (seal-trusted scopes differ).
+    const caller = {
+      deviceId: "dev_unknown",
+      scopes: ["operator.read", "operator.approvals"] as never,
+      surface: "device:dev_unknown" as const,
+    };
+    for (let i = 0; i < 20; i += 1) {
+      expect(await handlers["approvals.get"]({ approvalId: issued.approval.id }, caller)).toEqual({
+        approval: expect.anything(),
+      });
+    }
+    const rejected = (await h.audit.query({} as never)).filter((e) =>
+      String(e.type).includes("answer_rejected"),
+    );
+    expect(rejected).toHaveLength(0);
+    // Control: explicitly asking for a token is a refusal, and it is audited.
+    await expect(
+      handlers["approvals.get"]({ approvalId: issued.approval.id, wantToken: true }, caller),
+    ).rejects.toThrow();
+  });
+});
+
+describe("tokens at issue time agree with tokens on request", () => {
+  const phone = "device:dev_phone" as const;
+  const withPhone = () => makeBroker({ approvers: phoneDevices(), deviceSurfaces: () => [phone] });
+  it("a normal card reaches the paired phone at once (control)", async () => {
+    const issued = await raise(withPhone());
+    expect(issued.answerTokens[phone]).toBeDefined();
+  });
+  it.each([
+    ["a saved login", { kind: "credential_fill" }],
+    ["pairing", { kind: "pairing" }],
+    ["a policy change", { kind: "policy_change" }],
+    [
+      "details too long for a phone",
+      {
+        details: Object.fromEntries(
+          Array.from({ length: 80 }, (_, i) => [`k${i}`, "x".repeat(400)]),
+        ),
+      },
+    ],
+  ])("no phone token for %s", async (_n, over) => {
+    const issued = await raise(withPhone(), over as never);
+    expect(issued.answerTokens[phone]).toBeUndefined();
   });
 });

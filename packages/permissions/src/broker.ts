@@ -2466,7 +2466,12 @@ export class PsychePermissionBroker implements PermissionBroker {
     // enrolling a verifier) stays on the Mac surfaces. A phone paired after the card was raised
     // gets no token for it.
     const offMac = input.offMac ?? input.surfaces.some((s) => s === "notification" || s === "web");
-    if (!requiresAuthentication && this.#deviceSurfaces !== undefined && offMac) {
+    // The same limits as a token on request (`#needsMacReason`): never a saved login, pairing or
+    // a policy change, and not a card too long to show in full on a phone.
+    const phoneOk =
+      !PHONE_NEVER_KINDS.includes(input.kind) &&
+      JSON.stringify(input.details ?? {}).length <= PHONE_DETAILS_MAX_CHARS;
+    if (!requiresAuthentication && this.#deviceSurfaces !== undefined && offMac && phoneOk) {
       surfaces = [
         ...new Set([
           ...surfaces,
@@ -2540,14 +2545,22 @@ export class PsychePermissionBroker implements PermissionBroker {
         folder: programOffer.folder,
         argv: programOffer.argv,
       };
-      // "For this chat" on a host command is the program grant only, so it is offered only with
-      // one and only in a chat. On the second card for the same program in this chat it comes first.
-      if (input.requestedBy.threadId != null && scopesOffered.includes("session")) {
-        if (this.#programApprovedInChat(input.requestedBy.threadId, programOffer)) {
-          (details.hostProgram as JsonObject).sessionFirst = true;
-        }
+      // "For this chat" on a host command is the program grant only: the broker adds it here, on
+      // a card that offers one, in a chat (never from the engine's decision). On the second card
+      // for the same program in this chat it comes first.
+      const chat = input.requestedBy.threadId;
+      if (chat != null && !scopesOffered.includes("session") && scopesOffered.includes("always")) {
+        scopesOffered = [
+          ...scopesOffered.filter((s) => s !== "always"),
+          "session" as const,
+          "always" as const,
+        ];
+      }
+      if (chat != null && this.#programApprovedInChat(chat, programOffer)) {
+        (details.hostProgram as JsonObject).sessionFirst = true;
       }
     }
+    // Never a chat choice on a host command that offers no program grant (or has no chat).
     if (
       input.kind === "exec_host" &&
       (programOffer === undefined || input.requestedBy.threadId == null)
@@ -2558,7 +2571,6 @@ export class PsychePermissionBroker implements PermissionBroker {
     // "You've allowed this N times": only the Gateway's own count of the owner's earlier answers.
     delete details.grantHint;
     const hint = this.#grantHint(input, recent, se, scopesOffered, requiresAuthentication);
-    if (hint !== undefined) details.grantHint = hint;
     // "Allow in this Space" (spaces-2026 §5.3): only the Gateway offers it, on an untainted
     // folder card whose run works in a Space, beside Allow once (SR2). A caller's own is dropped.
     delete details.space;
@@ -2654,6 +2666,12 @@ export class PsychePermissionBroker implements PermissionBroker {
     if (approval.machine !== undefined) card.cardMachine = { ...approval.machine };
     else delete card.cardMachine;
     card.cardRiskClass = approval.riskClass;
+    // A top-level field, not a `details` entry: the phone reads nested details as "review in the
+    // app" and the desktop prints unknown keys.
+    if (hint !== undefined) {
+      approval.grantHint = { ...hint };
+      card.cardGrantHint = { ...hint };
+    } else delete card.cardGrantHint;
     if (approval.setAside === true) card.cardSetAside = true;
     else delete card.cardSetAside;
     if (input.targetKind !== undefined) approval.targetKind = input.targetKind;
@@ -2857,6 +2875,9 @@ export class PsychePermissionBroker implements PermissionBroker {
       !device.scopes.includes("operator.approvals") ||
       by.surface !== `device:${by.deviceId}`
     ) {
+      // A plain read (no token asked for) never counts against anyone's answer cap, and writes no
+      // rejected-answer audit row: it just has nothing to say.
+      if (input.mint === false) return {};
       return this.#reject(
         undefined,
         id,
@@ -2867,8 +2888,10 @@ export class PsychePermissionBroker implements PermissionBroker {
       );
     }
     const rec = this.#store.getApproval(id);
-    if (rec === undefined)
+    if (rec === undefined) {
+      if (input.mint === false) return {};
       return this.#reject(undefined, id, by, "not_found", "not_found", `approval ${id} not found`);
+    }
     const a = rec.approval;
     if (a.status !== "pending" || rec.bootId !== this.#bootId) return {};
     if (rec.tokens.some((t) => t.surface === by.surface)) return {};

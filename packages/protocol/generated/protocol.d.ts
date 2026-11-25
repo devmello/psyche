@@ -1103,6 +1103,7 @@ export interface ApprovalRequest {
     deviceOnly:             boolean;
     expiresAt:              string;
     fromLesson?:            FromLesson;
+    grantHint?:             GrantHint;
     grantId?:               null | string;
     grantKey:               string;
     id:                     string;
@@ -1143,6 +1144,12 @@ export interface FromLesson {
     because:    string;
     feedbackId: string;
     lessonId:   string;
+}
+
+export interface GrantHint {
+    count: number;
+    days:  number;
+    scope: GrantScope;
 }
 
 export interface ComputerMachineRef {

@@ -209,6 +209,18 @@ export const ApprovalRequest = Type.Object(
      * the identical call (same binding); otherwise nothing runs and the owner is told.
      */
     setAside: Type.Optional(Type.Boolean()),
+    /**
+     * The owner approved this same action at least `count` times in the last `days` days: the card
+     * says so and pre-selects the lasting choice `scope`. Never on a payment, a tainted card or a
+     * send to someone new. Display only: it grants nothing.
+     */
+    grantHint: Type.Optional(
+      Type.Object({
+        count: Type.Integer({ minimum: 1 }),
+        days: Type.Integer({ minimum: 1 }),
+        scope: GrantScope,
+      }),
+    ),
     /** Where the taint came from (security §3.6, §3.11 `taint.sources`); present only when tainted. */
     taintSources: Type.Optional(Type.Array(TaintSource)),
     status: ApprovalStatus,

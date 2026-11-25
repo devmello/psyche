@@ -990,7 +990,7 @@ export class PolicyEngine {
       let s = allowedScopes(se, kind).filter((x) => offer.includes(x));
       for (const f of floors)
         if (f.scopes !== undefined) s = s.filter((x) => f.scopes?.includes(x));
-      if (noAlways) s = s.filter((x) => x !== "always" && x !== "session");
+      if (noAlways) s = s.filter((x) => x !== "always");
       // Tainted send / destructive / financial cards offer `once` only (§3.6, §3.12).
       if (tainted && floored !== undefined) s = s.filter((x) => x === "once");
       if (unbound) s = s.filter((x) => x === "once");

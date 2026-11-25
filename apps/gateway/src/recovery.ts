@@ -63,19 +63,36 @@ export function recoverAfterRestart(db: PsycheDb, log: Logger): RecoveryReport {
   return report;
 }
 
-/** The owner's last message in the thread, the one the stopped turn was answering. */
-function lastOwnerMessageId(db: PsycheDb, threadId: string): string | undefined {
-  const row = db.sqlite
-    .prepare(
-      "SELECT id FROM messages WHERE thread_id = ? AND role = 'user' ORDER BY seq DESC LIMIT 1",
-    )
-    .get(threadId) as { id: string } | undefined;
+/**
+ * The owner's message that started the run, for "Try again": the newest message with `owner`
+ * provenance before the run's first message (or, when it has none, before it started). Peers,
+ * designated people and the agent store their turns as `user` too, but not as `owner`, so a
+ * resend never names words the owner did not write. None found: no action.
+ */
+function ownerMessageIdBefore(db: PsycheDb, threadId: string, runId: string): string | undefined {
+  const first = db.sqlite
+    .prepare("SELECT min(seq) AS seq FROM messages WHERE thread_id = ? AND run_id = ?")
+    .get(threadId, runId) as { seq: number | null } | undefined;
+  const run = getRun(db, runId);
+  if (run === undefined) return undefined;
+  const row =
+    first?.seq == null
+      ? (db.sqlite
+          .prepare(
+            "SELECT id FROM messages WHERE thread_id = ? AND role = 'user' AND provenance = 'owner' AND created_at <= ? ORDER BY seq DESC LIMIT 1",
+          )
+          .get(threadId, run.startedAt) as { id: string } | undefined)
+      : (db.sqlite
+          .prepare(
+            "SELECT id FROM messages WHERE thread_id = ? AND role = 'user' AND provenance = 'owner' AND seq < ? ORDER BY seq DESC LIMIT 1",
+          )
+          .get(threadId, first.seq) as { id: string } | undefined);
   return row?.id;
 }
 
 /** The restart note, with a one-tap "Try again" that resends the owner's last message. */
 function appendRestartNote(db: PsycheDb, threadId: string, runId: string): void {
-  const retryOf = lastOwnerMessageId(db, threadId);
+  const retryOf = ownerMessageIdBefore(db, threadId, runId);
   const block: Message["blocks"][number] = {
     type: "text",
     md: GATEWAY_RESTART_NOTE.md,

@@ -3,6 +3,7 @@ import type {
   ApprovalRequest,
   ApprovalStatus,
   Grant,
+  GrantScope,
   JsonObject,
   SideEffect,
   Surface,
@@ -27,6 +28,8 @@ export interface StoredToken {
 export interface StoredCardFields {
   cardRiskClass?: "routine" | "sensitive";
   cardSetAside?: true;
+  /** The "you've allowed this N times" hint (audit #13). */
+  cardGrantHint?: { count: number; days: number; scope: GrantScope };
   /** The paired machine the card is about (H5 machine cards); absent for the Host. */
   cardMachine?: { deviceId: string; name: string };
 }
@@ -435,6 +438,7 @@ function approvalFromRow(r: ApprovalRow): StoredApproval {
   if (card.cardRiskClass === "routine" || card.cardRiskClass === "sensitive")
     approval.riskClass = card.cardRiskClass;
   if (card.cardSetAside === true) approval.setAside = true;
+  if (card.cardGrantHint !== undefined) approval.grantHint = { ...card.cardGrantHint };
   if (typeof card.cardMachine?.deviceId === "string" && typeof card.cardMachine.name === "string") {
     approval.machine = { deviceId: card.cardMachine.deviceId, name: card.cardMachine.name };
   }

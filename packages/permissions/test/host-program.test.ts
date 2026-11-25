@@ -951,6 +951,9 @@ describe("exec_host program grant: for this chat (session)", () => {
     // Another chat has no earlier card for it.
     const elsewhere = await card(h, host(["ls"]), OTHER_CHAT);
     expect((offer(elsewhere) as { sessionFirst?: boolean }).sessionFirst).toBeUndefined();
+    // The engine's own decision never offers the chat choice: only the broker adds it.
+    const decided = await h.broker.decide(host(["ls"]), CTX);
+    expect(decided.scopesOffered).not.toContain("session");
     // No program offer (not on the any-argv list, reads folder config, tainted): no chat choice.
     for (const [c, ctx] of [
       [host(["tool", "status"]), CTX],

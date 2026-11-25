@@ -45,6 +45,9 @@ export const TextBlock = Type.Object(
     /**
      * A one-tap action on a note the Gateway writes. `retry_last_message`: the restart note's
      * "Try again" resends the owner's message `messageId` (the one the stopped turn answered).
+     * The handler that resends (approvals W3) must re-check, never trust the block: the thread is
+     * the caller's own, the message has `owner` provenance and the id matches this note's, and it
+     * refuses remote and read-only callers.
      */
     noteAction: Type.Optional(
       Type.Object({ kind: Type.Literal("retry_last_message"), messageId: Id }),
