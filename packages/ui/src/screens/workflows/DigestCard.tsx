@@ -31,8 +31,8 @@ export interface DigestCardProps {
   now?: number;
   /** A per-row action under ⋯, or a screen row's Allow / Not now / Always archive. */
   onAction?: (item: DigestItem, action: DigestAction) => void;
-  /** A Waiting on row's Draft a nudge, Snooze or Done. */
-  onLoop?: (loop: DigestLoop, action: DigestLoopAction) => void;
+  /** A Waiting on row's Draft a nudge, Snooze or Done. Resolves true when the loop was updated. */
+  onLoop?: (loop: DigestLoop, action: DigestLoopAction) => Promise<boolean> | undefined;
   /**
    * The group row's "Do it": the batch card opens inline under the row (§7.2). Without it the
    * button calls `onGroup`.
@@ -146,8 +146,15 @@ function LoopRow({
   loop: DigestLoop;
   now: number;
   onLoop?: DigestCardProps["onLoop"];
-}): ReactElement {
+}): ReactElement | null {
+  const [gone, setGone] = useState(false);
   const since = loop.thread?.at ?? loop.loop.createdAt;
+  if (gone) return null;
+  const act = (action: DigestLoopAction) => {
+    const result = onLoop?.(loop, action);
+    // Snooze and Done take the row off the card once the Gateway has taken them.
+    if (action !== "nudge" && result) void result.then((ok) => ok && setGone(true));
+  };
   const parts = [
     loop.counterpart ?? t("workflows.digest.someone"),
     loop.loop.text,
@@ -157,13 +164,13 @@ function LoopRow({
     <li className={cn(ROW, "flex-wrap items-center")}>
       <p className="min-w-0 flex-1 text-body text-label-primary">{parts.join(" · ")}</p>
       <div className={cn("flex gap-1", onLoop ? REVEAL : "hidden")}>
-        <Button type="button" size="xs" variant="ghost" onClick={() => onLoop?.(loop, "nudge")}>
+        <Button type="button" size="xs" variant="ghost" onClick={() => act("nudge")}>
           {t("workflows.digest.nudge")}
         </Button>
-        <Button type="button" size="xs" variant="ghost" onClick={() => onLoop?.(loop, "snooze")}>
+        <Button type="button" size="xs" variant="ghost" onClick={() => act("snooze")}>
           {t("workflows.digest.snooze")}
         </Button>
-        <Button type="button" size="xs" variant="ghost" onClick={() => onLoop?.(loop, "done")}>
+        <Button type="button" size="xs" variant="ghost" onClick={() => act("done")}>
           {t("workflows.digest.done")}
         </Button>
       </div>

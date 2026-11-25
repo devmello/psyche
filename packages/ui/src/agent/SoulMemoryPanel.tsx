@@ -306,9 +306,22 @@ function ResetDialog({
   onReset: () => Promise<void>;
 }): ReactElement {
   const [typed, setTyped] = useState("");
+  const [open, setOpen] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const phrase = t("agent.memory.resetPhrase", { name: persona });
+  // The dialog closes only when the reset succeeds; a failure stays on screen inside it.
+  const reset = () => {
+    setError(null);
+    onReset().then(
+      () => {
+        setOpen(false);
+        setTyped("");
+      },
+      (err: unknown) => setError(describeError(err)),
+    );
+  };
   return (
-    <AlertDialog>
+    <AlertDialog open={open} onOpenChange={setOpen}>
       <AlertDialogTrigger
         render={<Button size="sm" variant="ghost" className="text-danger-text" />}
       >
@@ -324,12 +337,17 @@ function ResetDialog({
           value={typed}
           onChange={(e) => setTyped(e.target.value)}
         />
+        {error !== null ? (
+          <p role="alert" className="text-callout text-danger-text">
+            {error}
+          </p>
+        ) : null}
         <AlertDialogFooter>
           <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
           <AlertDialogAction
             variant="destructive"
             disabled={typed.trim() !== phrase}
-            onClick={() => void onReset()}
+            onClick={reset}
           >
             {t("agent.memory.reset")}
           </AlertDialogAction>
@@ -465,9 +483,11 @@ export function SoulMemoryPanel({
               <Button
                 size="sm"
                 variant="outline"
-                onClick={async () => {
-                  await call("memory.pause", { paused: !paused });
-                  status.reload();
+                onClick={() => {
+                  call("memory.pause", { paused: !paused }).then(
+                    () => status.reload(),
+                    (err: unknown) => setNotice(describeError(err)),
+                  );
                 }}
               >
                 {paused ? <Play aria-hidden="true" /> : <Pause aria-hidden="true" />}
@@ -508,10 +528,14 @@ export function SoulMemoryPanel({
                 size="sm"
                 variant="ghost"
                 onClick={async () => {
-                  const res = await call("memory.export", {});
-                  // Without a host save of its own, the zip is saved as a download (it was dropped).
-                  (onExported ?? downloadExport)(res);
-                  setNotice(t("agent.memory.exported", { file: res.filename }));
+                  try {
+                    const res = await call("memory.export", {});
+                    // Without a host save of its own, the zip is saved as a download (it was dropped).
+                    (onExported ?? downloadExport)(res);
+                    setNotice(t("agent.memory.exported", { file: res.filename }));
+                  } catch (err) {
+                    setNotice(describeError(err));
+                  }
                 }}
               >
                 {t("screens.soul.exportGo")}

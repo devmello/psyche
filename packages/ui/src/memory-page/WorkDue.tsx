@@ -10,6 +10,7 @@ import { activeI18n, t } from "../i18n/core.ts";
 import { ScreenSection } from "../screens/feed/ScreenToolbar.tsx";
 import { usePersona } from "../slots.tsx";
 import { entityHref } from "./kinds.ts";
+import { LoadFailed } from "./LoadFailed.tsx";
 import { WorkRow } from "./WorkRow.tsx";
 import { DUE_GROUPS, groupWork, parseQuickAdd } from "./work.ts";
 import { useAssignments, useProjects, useWorkWrites } from "./work-hooks.ts";
@@ -154,7 +155,7 @@ export function WorkDueTab({
   startAdding?: boolean;
 }): ReactElement {
   const persona = usePersona();
-  const { assignments, loading } = useAssignments();
+  const { assignments, loading, error, reload } = useAssignments();
   const writes = useWorkWrites();
   const [adding, setAdding] = useState(startAdding);
   // Closed in this view: they stay in Done even when their date is older than 14 days.
@@ -201,7 +202,8 @@ export function WorkDueTab({
           </Button>
         </div>
       )}
-      {empty && !loading ? (
+      {error !== null && !loading ? <LoadFailed onRetry={reload} /> : null}
+      {empty && !loading && error === null ? (
         <EmptyState icon={CalendarClock} className="pt-[4vh]">
           <span className="block text-headline text-label-primary">
             {t("memory.page.due.title")}

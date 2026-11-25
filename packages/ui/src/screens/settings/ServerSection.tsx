@@ -1,8 +1,10 @@
 import { DEFAULT_GATEWAY_HOST, DEFAULT_GATEWAY_PORT } from "@psyche/protocol";
 import type { ReactElement } from "react";
+import { toast } from "sonner";
 import { Button } from "../../components/ui/button.tsx";
 import { useGatewayQuery } from "../../data/hooks.ts";
 import { t } from "../../i18n/core.ts";
+import { describeError } from "../../i18n/errors.ts";
 import { useSlots } from "../../slots.tsx";
 import { GatewaysGroup } from "./GatewaysGroup.tsx";
 import { LanAccessGroup } from "./LanAccessGroup.tsx";
@@ -210,7 +212,10 @@ export function ServerSection({ status, ...actions }: ServerSectionProps): React
   const onSetUpRemote =
     actions.onSetUpRemote ??
     (() => {
-      if (openExternal) void openExternal(REMOTE_DOCS).catch(() => undefined);
+      if (openExternal)
+        void openExternal(REMOTE_DOCS).catch((err: unknown) =>
+          toast.error(t("settings.openPage.failed", { reason: describeError(err) })),
+        );
       else globalThis.open?.(REMOTE_DOCS, "_blank", "noopener,noreferrer");
     });
   return (

@@ -1911,6 +1911,7 @@ export const pt: Partial<Catalogue> = {
   "settings.mcp.network": "Usa a rede",
   "settings.mcp.added": "{name} foi adicionado.",
   "settings.mcp.removed": "{name} foi removido.",
+  "settings.openPage.failed": "O Psyche não conseguiu abrir a página ({reason}).",
   "settings.mcp.secretNotDeleted":
     "O Psyche não conseguiu apagar um segredo salvo ({reason}). Tente de novo para removê-lo.",
   "settings.mcp.denied": "{name} não foi adicionado.",
@@ -3724,6 +3725,7 @@ export const pt: Partial<Catalogue> = {
   "web.browser.clearConfirm":
     "Limpar cookies e dados de sites do perfil {profile, select, clean {sem login} other {do agente}}?",
   "web.browser.cleared": "Dados de navegação limpos.",
+  "web.browser.clearFailed": "Não foi possível apagar os dados de navegação.",
   "web.browser.clearData": "Limpar dados de navegação",
   "web.command.model": "Escolher o modelo desta conversa",
   "web.command.schedule": "Agendar uma tarefa ou um lembrete",

@@ -5,6 +5,7 @@ export const automationChat = {
   "automationChat.runs.aria": "{title}, {n, plural, one {# run} other {# runs}}, last run {status}",
   "automationChat.schedule": "Scheduled",
   "automationChat.runNow": "Run now",
+  "automationChat.runStarted": "Run started.",
   "automationChat.empty": "No runs yet. Each time this automation runs, it shows up here.",
   "automationChat.loading": "Loading the runs",
   "automationChat.failed": "Psyche couldn't load the runs",

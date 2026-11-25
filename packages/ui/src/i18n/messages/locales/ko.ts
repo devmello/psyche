@@ -1933,6 +1933,7 @@ export const ko: Partial<Catalogue> = {
   "settings.mcp.network": "네트워크 사용",
   "settings.mcp.added": "{name}을(를) 추가했습니다.",
   "settings.mcp.removed": "{name}을(를) 제거했습니다.",
+  "settings.openPage.failed": "페이지를 열지 못했습니다({reason}).",
   "settings.mcp.secretNotDeleted":
     "저장된 비밀 값을 삭제하지 못했습니다({reason}). 다시 시도해 제거하세요.",
   "settings.mcp.denied": "{name}은(는) 추가되지 않았습니다.",
@@ -3714,6 +3715,7 @@ export const ko: Partial<Catalogue> = {
   "web.browser.clearConfirm":
     "{profile, select, clean {로그아웃} other {에이전트}} 프로파일의 쿠키와 사이트 데이터를 지우겠습니까?",
   "web.browser.cleared": "방문 기록 데이터를 지웠습니다.",
+  "web.browser.clearFailed": "브라우저 데이터를 지우지 못했습니다.",
   "web.browser.clearData": "방문 기록 데이터 지우기",
   "web.command.model": "이 스레드의 모델 선택",
   "web.command.schedule": "작업 또는 미리 알림 예약",

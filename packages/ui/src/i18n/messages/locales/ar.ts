@@ -1991,6 +1991,7 @@ export const ar: Partial<Catalogue> = {
   "settings.mcp.network": "يستخدم الشبكة",
   "settings.mcp.added": "تمت إضافة {name}.",
   "settings.mcp.removed": "تمت إزالة {name}.",
+  "settings.openPage.failed": "تعذّر على Psyche فتح الصفحة ({reason}).",
   "settings.mcp.secretNotDeleted": "تعذّر على Psyche حذف سرّ محفوظ ({reason}). أعد المحاولة لإزالته.",
   "settings.mcp.denied": "لم تتم إضافة {name}.",
   "settings.mcp.lapsed": "انقضت الموافقة. افحص الخادم مرة أخرى لإضافته.",
@@ -3776,6 +3777,7 @@ export const ar: Partial<Catalogue> = {
   "web.browser.clearConfirm":
     "مسح ملفات تعريف الارتباط وبيانات المواقع لملف تعريف {profile, select, clean {بلا تسجيل دخول} other {الوكيل}}؟",
   "web.browser.cleared": "تم مسح بيانات التصفح.",
+  "web.browser.clearFailed": "تعذّر مسح بيانات التصفح.",
   "web.browser.clearData": "مسح بيانات التصفح",
 
   "web.command.model": "اختيار النموذج لهذه المحادثة",

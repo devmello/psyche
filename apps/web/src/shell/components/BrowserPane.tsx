@@ -674,9 +674,10 @@ function DesktopBrowserPane(props: {
                   }),
                 )
               )
-                void port
-                  .clearBrowsingData(tab.profile)
-                  .then(() => store.toast(t("web.browser.cleared")));
+                void port.clearBrowsingData(tab.profile).then(
+                  () => store.toast(t("web.browser.cleared")),
+                  () => store.toast(t("web.browser.clearFailed"), "error"),
+                );
             }}
           >
             {t("web.browser.clearData")}

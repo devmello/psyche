@@ -7,6 +7,7 @@ export const automationChatRest: Partial<Catalogue> = {
   "automationChat.runs.aria": "{title}、{n, plural, other {#回の実行}}、前回の実行: {status}",
   "automationChat.schedule": "スケジュール",
   "automationChat.runNow": "今すぐ実行",
+  "automationChat.runStarted": "実行を開始しました。",
   "automationChat.empty":
     "まだ実行されていません。このオートメーションが実行されるたびに、ここに表示されます。",
   "automationChat.loading": "実行を読み込み中",

@@ -81,6 +81,7 @@ import {
   type RunSummary,
   requiresIdempotencyKey,
   type SearchHit,
+  type SecurityStateStatus,
   type SkillAuthor,
   type SkillDetails,
   type SkillDraft,
@@ -175,6 +176,10 @@ export interface MockWorld {
   pairingRequests: PairingRequest[];
   channelIdentities: ChannelIdentity[];
   devices: Device[];
+  /** `security.*`: the seal, its alerts and the local recoveries (absent: sealed and empty). */
+  security?: SecurityStateStatus;
+  /** Gateway behaviour: acknowledging and approving answer `approval_required` until retried. */
+  securityNeedsApproval?: boolean;
   /** Web Bot Auth (I14). */
   botAuth: BotAuthStatus;
   nodes: NodeInfo[];
@@ -1231,6 +1236,35 @@ export class MockGateway implements GatewayClient {
     };
   }
 
+  private securityWorld(): SecurityStateStatus {
+    this.world.security ??= { status: "sealed", reason: null, alerts: [], recoveries: [] };
+    return this.world.security;
+  }
+
+  private waitingRecovery(
+    sec: SecurityStateStatus,
+    id: string,
+  ): SecurityStateStatus["recoveries"][number] {
+    const r = sec.recoveries.find((x) => x.id === id) ?? fail("not_found", `no recovery ${id}`);
+    if (r.status !== "waiting") fail("invalid_params", `recovery ${id} is ${r.status}`);
+    return r;
+  }
+
+  /** The Gateway's presence gate: the first call asks for a card, the retry carries its id. */
+  private securityApproval(approvalId: string | undefined): void {
+    if (this.world.securityNeedsApproval === true && approvalId === undefined) {
+      fail("approval_required", "Approve the change first", { approvalId: "ap_security" });
+    }
+  }
+
+  private emitSecurity(sec: SecurityStateStatus): void {
+    this.emit("security.state.changed", {
+      status: sec.status,
+      openAlerts: sec.alerts.filter((a) => a.acknowledgedAt === null).length,
+      waitingRecoveries: sec.recoveries.filter((r) => r.status === "waiting").length,
+    });
+  }
+
   /** Finishes (or fails) a pending connector sign-in and emits `connectors.updated` (tests). */
   finishConnectorSignIn(
     connectorId: string,
@@ -1863,13 +1897,23 @@ export class MockGateway implements GatewayClient {
 
     "approvals.list": (p) => {
       const statuses = p.status ?? ["pending"];
-      const approvals = this.world.approvals.filter((a) => statuses.includes(a.status));
+      // Newest first and cursor-paged (default 50), like the Gateway.
+      const matching = this.world.approvals
+        .filter((a) => statuses.includes(a.status))
+        .sort((a, b) => b.requestedAt.localeCompare(a.requestedAt));
+      const start = p.cursor === undefined ? 0 : Number.parseInt(p.cursor, 10);
+      const limit = p.limit ?? 50;
+      const approvals = matching.slice(start, start + limit);
       const answerTokens: Record<string, string> = {};
       for (const a of approvals) {
         const t = this.world.answerTokens[a.id];
         if (a.status === "pending" && t !== undefined) answerTokens[a.id] = t;
       }
-      return { approvals, answerTokens, nextCursor: null };
+      return {
+        approvals,
+        answerTokens,
+        nextCursor: start + limit < matching.length ? String(start + limit) : null,
+      };
     },
     "approvals.get": (p) => {
       const approval = this.find(this.world.approvals, p.approvalId, "approval");
@@ -2666,14 +2710,22 @@ export class MockGateway implements GatewayClient {
       return { goal };
     },
 
-    "notifications.list": (p) => ({
-      notifications: this.world.notifications.filter(
-        (n) =>
-          (p.unreadOnly !== true || n.readAt == null) &&
-          (p.unresolvedOnly !== true || n.resolvedAt == null),
-      ),
-      nextCursor: null,
-    }),
+    "notifications.list": (p) => {
+      // Newest first and cursor-paged (default 50), like the Gateway.
+      const matching = this.world.notifications
+        .filter(
+          (n) =>
+            (p.unreadOnly !== true || n.readAt == null) &&
+            (p.unresolvedOnly !== true || n.resolvedAt == null),
+        )
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+      const start = p.cursor === undefined ? 0 : Number.parseInt(p.cursor, 10);
+      const limit = p.limit ?? 50;
+      return {
+        notifications: matching.slice(start, start + limit),
+        nextCursor: start + limit < matching.length ? String(start + limit) : null,
+      };
+    },
     "notifications.markRead": (p) => {
       let updated = 0;
       this.world.notifications = this.world.notifications.map((n) => {
@@ -3301,6 +3353,36 @@ export class MockGateway implements GatewayClient {
       return { ok: c.status === "connected", status: c.status, checkedAt: Date.parse(this.now()) };
     },
     "channels.list": () => ({ channels: this.world.channels }),
+    "security.state.get": () =>
+      structuredClone(
+        this.world.security ?? { status: "sealed", reason: null, alerts: [], recoveries: [] },
+      ),
+    "security.alerts.acknowledge": (p) => {
+      const sec = this.securityWorld();
+      const alert = sec.alerts.find((a) => a.id === p.id) ?? fail("not_found", `no alert ${p.id}`);
+      this.securityApproval(p.approvalId);
+      alert.acknowledgedAt = this.now();
+      this.emitSecurity(sec);
+      return { alert: structuredClone(alert) };
+    },
+    "security.recoveries.cancel": (p) => {
+      const sec = this.securityWorld();
+      const r = this.waitingRecovery(sec, p.id);
+      r.status = "cancelled";
+      r.decidedAt = this.now();
+      this.emitSecurity(sec);
+      return { recovery: structuredClone(r) };
+    },
+    "security.recoveries.approve": (p) => {
+      const sec = this.securityWorld();
+      const r = this.waitingRecovery(sec, p.id);
+      if (r.op === "seal.reset") fail("forbidden", "A re-seal always waits");
+      this.securityApproval(p.approvalId);
+      r.status = "applied";
+      r.decidedAt = this.now();
+      this.emitSecurity(sec);
+      return { recovery: structuredClone(r) };
+    },
     "devices.list": () => {
       if (!this.admin) fail("forbidden", "devices.list requires operator.admin");
       return { devices: this.world.devices };

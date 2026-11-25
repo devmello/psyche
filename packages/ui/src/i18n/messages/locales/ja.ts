@@ -1935,6 +1935,7 @@ export const ja: Partial<Catalogue> = {
   "settings.mcp.network": "ネットワークを使用",
   "settings.mcp.added": "{name}を追加しました。",
   "settings.mcp.removed": "{name}を削除しました。",
+  "settings.openPage.failed": "ページを開けませんでした（{reason}）。",
   "settings.mcp.secretNotDeleted":
     "保存済みのシークレットを削除できませんでした（{reason}）。もう一度試して削除してください。",
   "settings.mcp.denied": "{name}は追加されませんでした。",
@@ -3740,6 +3741,7 @@ export const ja: Partial<Catalogue> = {
   "web.browser.clearConfirm":
     "{profile, select, clean {ログアウト状態の} other {エージェントの}}プロファイルのCookieとサイトデータを消去しますか？",
   "web.browser.cleared": "閲覧データを消去しました。",
+  "web.browser.clearFailed": "閲覧データを削除できませんでした。",
   "web.browser.clearData": "閲覧データを消去",
   "web.command.model": "このスレッドのモデルを選択",
   "web.command.schedule": "タスクまたはリマインダーをスケジュール",

@@ -369,6 +369,7 @@ export const web = {
   "web.browser.clearConfirm":
     "Clear cookies and site data for the {profile, select, clean {logged-out} other {agent}} profile?",
   "web.browser.cleared": "Browsing data cleared.",
+  "web.browser.clearFailed": "Couldn't clear the browsing data.",
   "web.browser.clearData": "Clear browsing data",
 
   "web.command.model": "Pick the model for this thread",

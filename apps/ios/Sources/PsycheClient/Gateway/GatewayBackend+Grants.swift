@@ -59,10 +59,10 @@ extension GatewayBackend {
             let folder = DisplaySafe.text(program["folder"]?.string ?? "")
             if let argv = program["argv"]?.array {
                 let line = argv.compactMap(\.string).joined(separator: " ")
-                return .hostProgram(program: DisplaySafe.text(line), folder: folder, exactArguments: true)
+                return .hostProgram(program: DisplaySafe.text(line), executable: DisplaySafe.text(executable), folder: folder, exactArguments: true)
             }
             let name = executable.split(separator: "/").last.map(String.init) ?? executable
-            return .hostProgram(program: DisplaySafe.text(name), folder: folder, exactArguments: false)
+            return .hostProgram(program: DisplaySafe.text(name), executable: DisplaySafe.text(executable), folder: folder, exactArguments: false)
         }
         if kind == "exec", let argv = subject?["argv"]?.array {
             return .command(DisplaySafe.text(argv.compactMap(\.string).joined(separator: " ")), folder: text("cwd"))

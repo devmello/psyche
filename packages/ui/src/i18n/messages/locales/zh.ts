@@ -1931,6 +1931,7 @@ export const zh: Partial<Catalogue> = {
   "settings.mcp.network": "使用网络",
   "settings.mcp.added": "已添加 {name}。",
   "settings.mcp.removed": "已移除 {name}。",
+  "settings.openPage.failed": "Psyche 无法打开该页面（{reason}）。",
   "settings.mcp.secretNotDeleted": "Psyche 无法删除一个已保存的密钥（{reason}）。重试以将其移除。",
   "settings.mcp.denied": "未添加 {name}。",
   "settings.mcp.lapsed": "批准已失效。请重新检查服务器以添加。",
@@ -3653,6 +3654,7 @@ export const zh: Partial<Catalogue> = {
   "web.browser.clearConfirm":
     "要清除{profile, select, clean {登出状态} other {代理}}描述文件的 Cookie 和网站数据吗？",
   "web.browser.cleared": "浏览数据已清除。",
+  "web.browser.clearFailed": "无法清除浏览数据。",
   "web.browser.clearData": "清除浏览数据",
 
   "web.command.model": "为此会话选择模型",

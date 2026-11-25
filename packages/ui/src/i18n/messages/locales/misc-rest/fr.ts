@@ -106,6 +106,7 @@ export const miscRest: Partial<Catalogue> = {
     "{title}, {n, plural, one {# exécution} other {# exécutions}}, dernière exécution : {status}",
   "automationChat.schedule": "Planifié",
   "automationChat.runNow": "Exécuter maintenant",
+  "automationChat.runStarted": "Exécution lancée.",
   "automationChat.empty":
     "Aucune exécution pour l’instant. Chaque fois que cette automatisation s’exécute, elle apparaît ici.",
   "automationChat.loading": "Chargement des exécutions",

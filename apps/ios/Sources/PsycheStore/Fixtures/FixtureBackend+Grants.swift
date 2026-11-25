@@ -20,7 +20,7 @@ struct GrantsState: Sendable {
                 lastUsedAt: now.addingTimeInterval(-86_400)),
             StandingGrant(
                 id: "grt_git", kind: "exec_host", scope: "session",
-                subject: .hostProgram(program: "git", folder: "~/Projects/psyche", exactArguments: false),
+                subject: .hostProgram(program: "git", executable: "/usr/bin/git", folder: "~/Projects/psyche", exactArguments: false),
                 useCount: 41, lastUsedAt: now.addingTimeInterval(-600), expiresAt: now.addingTimeInterval(7_200)),
             StandingGrant(
                 id: "grt_old", kind: "mcp_tool", scope: "task", subject: .named("linear.create_issue"), useCount: 1,

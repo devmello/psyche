@@ -41,4 +41,17 @@ export const securityState: Partial<Catalogue> = {
   "web.security.cancel": "요청 취소",
   "web.security.needsApproval": "Touch ID나 패스키로 카드를 승인한 다음 버튼을 다시 누르세요.",
   "web.security.failed": "작동하지 않았습니다: {message}",
+  "settings.security.title": "보안 기록",
+  "settings.security.description":
+    "Psyche의 보안 기록이 온전한지, 모르는 사이 무엇이 바뀌었는지, 적용을 기다리는 요청이 무엇인지 보여 줍니다.",
+  "settings.security.status.sealed": "정상",
+  "settings.security.status.untrusted": "신뢰할 수 없음",
+  "settings.security.empty": "검토할 항목이 없습니다. 알림도 대기 중인 요청도 없습니다.",
+  "settings.security.approvalLabel": "보안 변경",
+  "settings.security.approve.title": "이 변경을 지금 적용할까요?",
+  "settings.security.approve.body": "이 요청을 {when}이 아니라 지금 적용합니다: {action}",
+  "settings.security.approve.confirm": "지금 적용",
+  "settings.security.cancel.title": "이 요청을 취소할까요?",
+  "settings.security.cancel.body": "변경은 이루어지지 않고 요청은 삭제됩니다: {action}",
+  "settings.security.keep": "유지",
 };

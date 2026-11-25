@@ -1968,6 +1968,7 @@ export const es: Partial<Catalogue> = {
   "settings.mcp.network": "Usa la red",
   "settings.mcp.added": "Se añadió {name}.",
   "settings.mcp.removed": "Se quitó {name}.",
+  "settings.openPage.failed": "Psyche no pudo abrir la página ({reason}).",
   "settings.mcp.secretNotDeleted":
     "Psyche no pudo borrar un secreto guardado ({reason}). Vuelve a intentarlo para quitarlo.",
   "settings.mcp.denied": "{name} no se añadió.",
@@ -3819,6 +3820,7 @@ export const es: Partial<Catalogue> = {
   "web.browser.clearConfirm":
     "¿Borrar las cookies y los datos de sitios del perfil {profile, select, clean {sin sesión} other {del agente}}?",
   "web.browser.cleared": "Datos de navegación borrados.",
+  "web.browser.clearFailed": "No se pudieron borrar los datos de navegación.",
   "web.browser.clearData": "Borrar los datos de navegación",
 
   "web.command.model": "Elegir el modelo de esta conversación",

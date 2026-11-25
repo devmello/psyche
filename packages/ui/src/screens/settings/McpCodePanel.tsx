@@ -87,6 +87,16 @@ export function McpCodePanel({
           {error}
         </p>
       ) : null}
+      {open && q.error !== null ? (
+        <div className="flex flex-wrap items-center gap-3">
+          <p role="alert" className="text-danger-text">
+            {q.error}
+          </p>
+          <Button type="button" variant="outline" size="sm" onClick={() => q.reload()}>
+            {t("common.retry")}
+          </Button>
+        </div>
+      ) : null}
       {review !== null ? (
         <McpTrustCard proposal={review.proposal} onCancel={() => setReview(null)}>
           <TrustApproval
