@@ -43,6 +43,25 @@ public enum PointsCapabilities {
                 try await host.runSession(ctx)
             },
             Capability(CapabilitySpec(
+                name: "points.show",
+                description: "Owner only, Host only. Draws the ring and the note card for ONE field of a running points.session, by its fieldId. Text only: the helper clamps lengths, drops a suggested value for a sensitive field and never clicks, types or takes focus.",
+                sideEffect: .none,
+                inputSchema: Schema.object(
+                    ["sessionId": Schema.string(maxLength: 80),
+                     "target": Schema.object(["fieldId": Schema.string(maxLength: 40)], required: ["fieldId"], additional: true),
+                     "kind": Schema.string(enum: ["fill", "choose", "check", "review", "next_page", "skip", "info", "self"]),
+                     "note": Schema.string(maxLength: 1000),
+                     "value": Schema.string(maxLength: 1000),
+                     "sources": Schema.array(Schema.string(maxLength: 200), maxItems: 8),
+                     "step": Schema.object(["n": Schema.integer(min: 1, max: 999), "of": Schema.integer(min: 1, max: 999)], required: ["n", "of"]),
+                     "warning": Schema.string(maxLength: 1000)],
+                    required: ["sessionId", "target", "kind", "note", "step"])
+            )) { ctx in
+                let p = try ctx.decode(PointsShowParams.self)
+                let shown = try await host.show(p)
+                return CapabilityOutput(try JSONValue(encoding: PointsShowResult(shown: shown)))
+            },
+            Capability(CapabilitySpec(
                 name: "points.end",
                 description: "Owner only, Host only. Ends a Psyche points session (the id of its points.session call). Safe to call twice.",
                 sideEffect: .none,
@@ -74,6 +93,16 @@ final class PointsHost: @unchecked Sendable {
     func end(_ id: String, reason: PointsEndReason) {
         let c = lock.withLock { sessions[id] }
         c?.stop(reason)
+    }
+
+    /// `points.show`: the overlay of the session `p.sessionID` (the id of its `points.session` call).
+    func show(_ p: PointsShowParams) async throws -> Bool {
+        let c = lock.withLock { sessions[p.sessionID] }
+        guard let c else { throw CapabilityError(.notFound, reason: "no_session", "No points session with that id") }
+        guard let fieldId = p.target.fieldID else {
+            throw CapabilityError.invalidParams("target needs a fieldId (screenshot boxes arrive with points.look)", field: "target")
+        }
+        return try await c.show(p, fieldId: fieldId)
     }
 
     func runSession(_ ctx: InvocationContext) async throws -> CapabilityOutput {
@@ -118,7 +147,8 @@ final class PointsHost: @unchecked Sendable {
         // Chromium and Electron build their tree only after this one attribute is set on the app element.
         enableManualAccessibility(pid: ref.pid)
         let controller = PointsSessionController(
-            sessionId: ctx.invocationId, app: app, window: window, target: target, teamId: codeSigningTeamID(pid: ref.pid))
+            sessionId: ctx.invocationId, app: app, window: window, target: target, teamId: codeSigningTeamID(pid: ref.pid),
+            strings: p.strings)
         lock.withLock { sessions[ctx.invocationId] = controller }
         let id = ctx.invocationId
         defer {

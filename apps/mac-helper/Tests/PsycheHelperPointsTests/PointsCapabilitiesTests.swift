@@ -27,9 +27,9 @@ struct PointsCapabilitiesTests {
         return .object(["window": .string("1:0"), "strings": .object(strings)])
     }
 
-    @Test func theGroupHasExactlyTheThreeW3Capabilities() {
+    @Test func theGroupHasExactlyTheW3AndW4Capabilities() {
         let all = PointsCapabilities.make(isComputerBusy: { false }, isRecording: { false })
-        #expect(all.map(\.spec.name).sorted() == ["points.end", "points.session", "points.windows"])
+        #expect(all.map(\.spec.name).sorted() == ["points.end", "points.session", "points.show", "points.windows"])
     }
 
     @Test func noPointsCapabilityIsASideEffectOrAcceptsAnAction() {
