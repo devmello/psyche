@@ -3,7 +3,13 @@ import { appendMessage, createThread, getThread, openDb, setSetting } from "@psy
 import type { ToolLookup } from "@psyche/proactive";
 import { FakeClock } from "@psyche/testing";
 import { describe, expect, it } from "vitest";
-import { composeNightShift, MESSAGES_ITEM_LINE } from "../src/compose/night-shift.ts";
+import type { StagedAction } from "@psyche/protocol";
+import {
+  composeNightShift,
+  forRemote,
+  MESSAGES_ITEM_LINE,
+  personalizeNightShiftItem,
+} from "../src/compose/night-shift.ts";
 import { connectorToolLookup } from "../src/compose/proactive.ts";
 import type { Call } from "../src/context.ts";
 
@@ -199,5 +205,45 @@ describe("Night shift in the Gateway", () => {
     expect(remote.items.find((i) => i.id === "s2")).toEqual(
       desktop.items.find((i) => i.id === "s2"),
     );
+  });
+});
+
+describe("Night shift items for remote readers (W5)", () => {
+  const SECRET = "Pick up Mia from the dentist at 4";
+  const item = (sourceKind: "message" | "email") =>
+    ({
+      id: "s1",
+      nightId: "n1",
+      seq: 0,
+      domain: "reminders",
+      targetKey: "k",
+      tool: "reminders_create",
+      summary: SECRET,
+      why: "From a thread",
+      params: { title: SECRET },
+      status: "failed",
+      taint: true,
+      taintSources: [{ sourceKind, origin: "x" }],
+      result: { refs: ["rem_1"], receiptId: "rcpt_1", error: `Reminders refused "${SECRET}"` },
+    }) as unknown as StagedAction;
+
+  it("forRemote clears an item from Messages' result error and keeps its refs and receipt", () => {
+    const out = forRemote(item("message"));
+    expect(out.result).toEqual({ refs: ["rem_1"], receiptId: "rcpt_1" });
+    expect(JSON.stringify(out)).not.toContain(SECRET);
+  });
+
+  it("nightShift.item.updated: the full item only for the desktop shell on this Mac", () => {
+    const payload = { item: item("message") };
+    // The local desktop shell: the shared frame as published.
+    expect(personalizeNightShiftItem(payload, { local: true })).toBeUndefined();
+    // A paired phone, the web, a remote desktop shell, a Gateway part with no reader.
+    for (const reader of [{ local: false }, {}]) {
+      const out = personalizeNightShiftItem(payload, reader);
+      expect(out?.item).toMatchObject({ withheld: "messages", summary: MESSAGES_ITEM_LINE });
+      expect(JSON.stringify(out)).not.toContain(SECRET);
+    }
+    // Control: an item with no Messages taint is the same for everyone.
+    expect(personalizeNightShiftItem({ item: item("email") }, { local: false })).toBeUndefined();
   });
 });

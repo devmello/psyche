@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { paramsHash } from "@psyche/agent-core";
+import { canonicalAddress } from "@psyche/connectors";
 import {
   callRecipients,
   type IssuedStagedApply,
@@ -22,8 +23,8 @@ import { type ChildBroker, type ChildOutcome, runChild } from "../exec/run-child
 import type { ToolLookup } from "../proposals/service.ts";
 import { asRecord, bareTool, splitTool, stable, toolPrefix } from "./adapters/common.ts";
 import { adapterFor, type ConnectorTypes } from "./adapters/index.ts";
-import { checkSendRecipe, draftContentHash } from "./adapters/mail.ts";
-import type { Adapter, CaptureOk, Json, ReadRegistry, StagedCall } from "./adapters/types.ts";
+import { hasHiddenContent } from "./adapters/mail.ts";
+import type { Adapter, CaptureOk, Json, StagedCall } from "./adapters/types.ts";
 import { callFromItem, captureFromItem, sendFor } from "./stager.ts";
 import type { NightStore } from "./store.ts";
 
@@ -38,7 +39,11 @@ import type { NightStore } from "./store.ts";
  *  - a send is offered only for an item in `sends[]` whose `sendHash` equals the stored content
  *    hash, and the stored hash is recomputed from the stored draft first; recipients come from the
  *    stored record; the send child is bound to the content hash, and turned into the exact send
- *    call only after the saved draft reads back with that hash (`broker.bindStagedSend`);
+ *    call only after the draft the helper reports saving has the staged to, cc, subject and body
+ *    (`broker.bindStagedSend`); the helper re-checks the live draft at send. Gmail drafts and
+ *    replies can't be read back that way, so their sends are refused;
+ *  - an item made from Messages gets a generic summary on the card, and only the desktop shell on
+ *    this Mac may apply or undo it (owner rule: no Messages text on remote devices);
  *  - an undo's created id comes only from the original apply's result refs, within 24 hours;
  *  - items move `ready` to bound with a compare-and-set on `approval_id`, so a second apply of
  *    the same item is refused, and the broker's `verifyBinding` consumes each child once;
@@ -90,8 +95,6 @@ export interface NightApplyDeps {
   tools: ToolLookup;
   /** Adapters for a connector id (the staged tool's own connector). */
   adapters: (connectorId: string | undefined) => Map<string, Adapter>;
-  /** The read-only registry of a connector, for the send recipe. */
-  reads: (connectorId: string | undefined) => ReadRegistry;
   connectors: () => ConnectorTypes;
   /** The live connector ids (`requestStagedApply`'s `connectorIds`). */
   connectorIds: () => ReadonlySet<string>;
@@ -114,7 +117,39 @@ export interface ApplyAnswer {
   refused: { itemId: string; reason: string }[];
 }
 
+/** Who asks: `local` is the desktop shell on this Mac's loopback, set by the Gateway only. */
+export interface ApplyCaller {
+  local: boolean;
+}
+
 type Op = "apply" | "undo";
+
+/**
+ * The card line for an item made from Messages: English fallback text; clients show their own
+ * localised line for `details.items[].withheld === "messages"`.
+ */
+export const MESSAGES_ITEM_LINE = "An item from your Messages. Open Psyche on this Mac to see it.";
+const MESSAGES_ONLY_HERE = "items from your Messages can be applied only in Psyche on this Mac";
+
+/** An item whose taint includes Messages (the owner rule: its text stays on this Mac). */
+export function fromMessages(item: StagedAction): boolean {
+  return item.taintSources.some((t) => t.sourceKind === "message");
+}
+
+/**
+ * Why a "Send it too" can't be honoured for this draft tool, or undefined when it can. Only the
+ * Mac helper reports the draft it saved (`MailDraftRecord`) and re-checks it at send.
+ */
+export function sendRefusal(draftTool: string): string | undefined {
+  const bare = bareTool({ tool: draftTool });
+  if (bare === "gmail_create_draft") {
+    return "Gmail drafts can't be read back to check them before sending: send it from Gmail";
+  }
+  if (bare === "mail_reply_draft") {
+    return "a reply's saved draft can't be checked against what you saw: send it from Mail";
+  }
+  return undefined;
+}
 
 const sha256Hex = (s: string) => createHash("sha256").update(s, "utf8").digest("hex");
 
@@ -142,24 +177,96 @@ export function draftIdOf(output: unknown): string | undefined {
   return undefined;
 }
 
-/** The `bodySha256` the draft tool reported, when it reported one (the Mac helper does). */
-function draftBodyHashOf(output: unknown): string | undefined {
+/** What the Mac helper's `mail.draft` says it saved (`MailDraftRecord`): no bcc, no In-Reply-To. */
+export interface SavedDraft {
+  draftId: string;
+  subject: string;
+  to: string[];
+  cc: string[];
+  body: string;
+  bodySha256: string;
+}
+
+export function savedDraftOf(output: unknown): SavedDraft | undefined {
   const d = asRecord(asRecord(output as Json).draft as Json);
-  return typeof d.bodySha256 === "string" && d.bodySha256 !== "" ? d.bodySha256 : undefined;
+  const list = (v: unknown): string[] | undefined =>
+    Array.isArray(v) && v.every((x) => typeof x === "string") ? (v as string[]) : undefined;
+  const to = list(d.to);
+  const cc = d.cc === undefined || d.cc === null ? [] : list(d.cc);
+  if (
+    typeof d.draftId !== "string" ||
+    d.draftId === "" ||
+    typeof d.subject !== "string" ||
+    typeof d.body !== "string" ||
+    typeof d.bodySha256 !== "string" ||
+    to === undefined ||
+    cc === undefined
+  ) {
+    return undefined;
+  }
+  return { draftId: d.draftId, subject: d.subject, to, cc, body: d.body, bodySha256: d.bodySha256 };
+}
+
+const canonSet = (xs: readonly unknown[]): string[] =>
+  [...new Set(xs.map((x) => canonicalAddress(String(x))))].sort();
+
+/**
+ * The saved draft against the staged one, field by field, on exactly what the helper reports:
+ * to and cc as sets, the subject, and the body as `MailWave1.bodyHash` sees it (also the hash the
+ * helper reported). Staged bcc can't be checked (the record has none), so it refuses.
+ */
+export function checkSavedDraft(
+  saved: SavedDraft,
+  staged: Record<string, unknown>,
+  recipients: readonly string[],
+): { ok: true } | { ok: false; reason: string } {
+  const body = typeof staged.body === "string" ? staged.body : "";
+  const subject = typeof staged.subject === "string" ? staged.subject : "";
+  try {
+    const cc = canonSet(Array.isArray(staged.cc) ? staged.cc : []);
+    const bcc = canonSet(Array.isArray(staged.bcc) ? staged.bcc : []);
+    if (bcc.length > 0) return { ok: false, reason: "bcc_unverifiable" };
+    const apart = new Set(cc);
+    const to = canonSet(recipients).filter((r) => !apart.has(r));
+    if (stable(canonSet(saved.to)) !== stable(to) || stable(canonSet(saved.cc)) !== stable(cc)) {
+      return { ok: false, reason: "recipients_changed" };
+    }
+  } catch {
+    return { ok: false, reason: "bad_recipients" };
+  }
+  if (hasHiddenContent(saved.subject) || hasHiddenContent(body)) {
+    return { ok: false, reason: "hidden_content" };
+  }
+  const want = appleBodySha256(body);
+  if (
+    saved.subject !== subject ||
+    appleBodySha256(saved.body) !== want ||
+    saved.bodySha256.toLowerCase() !== want
+  ) {
+    return { ok: false, reason: "draft_changed" };
+  }
+  return { ok: true };
 }
 
 /**
- * Exactly the Mac helper's `MailWave1.bodyHash`: CRLF and CR become LF, surrounding whitespace and
- * newlines are trimmed, then sha256 hex of the UTF-8. `mail_send_draft` binds and re-checks it.
+ * Exactly the Mac helper's `MailWave1.bodyHash`: `replacingOccurrences("\r\n", "\n")`, then
+ * `("\r", "\n")`, then `trimmingCharacters(in: .whitespacesAndNewlines)`, then sha256 hex of the
+ * UTF-8. `mail_send_draft` binds and re-checks it, so this must match Swift byte for byte.
+ *
+ * Checked against a Swift probe (the rows in apply.test.ts):
+ *  - `replacingOccurrences` matches whole composed sequences, so a `\r` (or the `\n` of `\r\n`)
+ *    followed by a grapheme extender (combining mark, ZWNJ, variation selector, emoji modifier) is
+ *    not matched; ZWJ and spacing marks (U+0903) don't block it;
+ *  - `.whitespacesAndNewlines` is exactly U+0009-000D, 0020, 0085, 00A0, 1680, 2000-200B, 2028,
+ *    2029, 202F, 205F, 3000: it takes U+200B and leaves U+FEFF.
  */
 const SWIFT_TRIM =
-  /^[\p{Zs}\t\n\v\f\r\u0085\u2028\u2029]+|[\p{Zs}\t\n\v\f\r\u0085\u2028\u2029]+$/gu;
+  /^[\t\n\v\f\r \u0085\u00a0\u1680\u2000-\u200b\u2028\u2029\u202f\u205f\u3000]+|[\t\n\v\f\r \u0085\u00a0\u1680\u2000-\u200b\u2028\u2029\u202f\u205f\u3000]+$/gu;
+const CRLF = /\r\n(?![\p{Grapheme_Extend}\p{Emoji_Modifier}])/gu;
+const CR = /\r(?![\p{Grapheme_Extend}\p{Emoji_Modifier}])/gu;
 
 export function appleBodySha256(body: string): string {
-  // Swift's `.whitespacesAndNewlines`: Zs, tab, U+000A-U+000D, NEL, U+2028, U+2029 (not U+FEFF,
-  // which JS `trim()` would also take, and NEL, which `trim()` would keep).
-  const normalized = body.replace(/\r\n/g, "\n").replace(/\r/g, "\n").replace(SWIFT_TRIM, "");
-  return sha256Hex(normalized);
+  return sha256Hex(body.replace(CRLF, "\n").replace(CR, "\n").replace(SWIFT_TRIM, ""));
 }
 
 /** The id a create returned (event, reminder), from its output. */
@@ -173,6 +280,12 @@ function createdIdOf(output: unknown): string | undefined {
     if (typeof n.id === "string" && n.id !== "") return n.id;
   }
   return undefined;
+}
+
+interface DraftOutcome {
+  ok: boolean;
+  draftId?: string;
+  saved?: SavedDraft;
 }
 
 interface StoredInverse {
@@ -255,7 +368,7 @@ export class NightShiftApply {
 
   // --- apply -----------------------------------------------------------------------------------
 
-  async apply(req: ApplyRequest): Promise<ApplyAnswer> {
+  async apply(req: ApplyRequest, caller: ApplyCaller = { local: false }): Promise<ApplyAnswer> {
     const night = this.#d.store.getNight(req.reviewId);
     if (night === null || night.reviewStatus === "none") {
       throw new PsycheError("not_found", "that review is gone");
@@ -307,6 +420,12 @@ export class NightShiftApply {
         refuse("the item is already being applied");
         continue;
       }
+      const withheld = fromMessages(item);
+      // A remote device saw only the generic line: it can't approve what it never saw.
+      if (withheld && !caller.local) {
+        refuse(MESSAGES_ONLY_HERE);
+        continue;
+      }
       const cap = captureFromItem(item);
       const adapter = this.#adapter(item.tool);
       if (cap === undefined || adapter === undefined) {
@@ -334,10 +453,21 @@ export class NightShiftApply {
         refuse(`stale: ${fresh.reason}`);
         continue;
       }
-      children.push({ itemId: item.id, call, summary: item.summary });
+      children.push({
+        itemId: item.id,
+        call,
+        ...(withheld
+          ? { summary: MESSAGES_ITEM_LINE, withheld: "messages" as const }
+          : { summary: item.summary }),
+      });
       kept.push(item);
       const sendHash = sendTicks.get(item.id);
       if (sendHash === undefined) continue;
+      const cannot = sendRefusal(item.tool);
+      if (cannot !== undefined) {
+        refused.push({ itemId: item.id, reason: cannot });
+        continue;
+      }
       const send = this.#trustedSend(item);
       const sendTool = sendToolFor(item.tool);
       if (send === undefined || sendTool === undefined || sendHash !== send.contentHash) {
@@ -360,7 +490,9 @@ export class NightShiftApply {
           bindingHash: stagedSendBindingHash(sendTool, send.contentHash, send.recipients),
           grantKey: `send_email|staged:${sendId}`,
         },
-        summary: `Send to ${send.recipients.join(", ")}`,
+        ...(withheld
+          ? { summary: MESSAGES_ITEM_LINE, withheld: "messages" as const }
+          : { summary: `Send to ${send.recipients.join(", ")}` }),
         explicitSend: true,
         recipients: [...send.recipients],
       });
@@ -453,7 +585,10 @@ export class NightShiftApply {
 
   // --- undo ------------------------------------------------------------------------------------
 
-  async undo(itemIds: readonly string[]): Promise<ApplyAnswer> {
+  async undo(
+    itemIds: readonly string[],
+    caller: ApplyCaller = { local: false },
+  ): Promise<ApplyAnswer> {
     const refused: ApplyAnswer["refused"] = [];
     const now = this.#d.clock.now();
     const children: StagedApplyChildInput[] = [];
@@ -478,6 +613,11 @@ export class NightShiftApply {
         refuse("the undo window has passed");
         continue;
       }
+      const withheld = fromMessages(item);
+      if (withheld && !caller.local) {
+        refuse(MESSAGES_ONLY_HERE);
+        continue;
+      }
       const inv = asRecord(item.inverse as Json) as StoredInverse;
       const cap = captureFromItem(item);
       const adapter = this.#adapter(item.tool);
@@ -486,23 +626,10 @@ export class NightShiftApply {
         continue;
       }
       // The created id comes only from the original apply's own result.
-      const createdId =
-        inv.createdId !== undefined && (item.result?.refs ?? []).includes(inv.createdId)
-          ? inv.createdId
-          : undefined;
-      try {
-        const ok = await adapter.checkInverse?.(
-          callFromItem(item),
-          cap,
-          inv.post ?? null,
-          createdId === undefined ? undefined : { id: createdId },
-        );
-        if (ok === undefined || !ok.fresh) {
-          refuse(`changed since it was applied${ok?.fresh === false ? `: ${ok.reason}` : ""}`);
-          continue;
-        }
-      } catch {
-        refuse("changed since it was applied");
+      const createdId = this.#createdIdOf(item, inv);
+      const inverseOk = await this.#checkInverse(item, adapter, cap, inv, createdId);
+      if (inverseOk !== true) {
+        refuse(inverseOk);
         continue;
       }
       const call = this.#rebuild(item, inv.call, item.id);
@@ -515,7 +642,9 @@ export class NightShiftApply {
       children.push({
         itemId: item.id,
         call,
-        summary: `Undo: ${item.summary}`.slice(0, 300),
+        ...(withheld
+          ? { summary: `Undo: ${MESSAGES_ITEM_LINE}`, withheld: "messages" as const }
+          : { summary: `Undo: ${item.summary}`.slice(0, 300) }),
         ...(createdId === undefined
           ? {}
           : {
@@ -528,6 +657,37 @@ export class NightShiftApply {
     }
     if (children.length === 0 || nightId === undefined) return { refused };
     return this.#issue("undo", nightId, kept, children, refused, null);
+  }
+
+  /** The created thing is as the apply left it (§5.4): true, or why not. A throw is a refusal. */
+  async #checkInverse(
+    item: StagedAction,
+    adapter: Adapter,
+    cap: CaptureOk,
+    inv: StoredInverse,
+    createdId: string | undefined,
+  ): Promise<true | string> {
+    try {
+      const ok = await adapter.checkInverse?.(
+        callFromItem(item),
+        cap,
+        inv.post ?? null,
+        createdId === undefined ? undefined : { id: createdId },
+      );
+      if (ok === undefined || !ok.fresh) {
+        return `changed since it was applied${ok?.fresh === false ? `: ${ok.reason}` : ""}`;
+      }
+      return true;
+    } catch {
+      return "changed since it was applied";
+    }
+  }
+
+  /** The undo's created id, only when the apply's own result refs hold it. */
+  #createdIdOf(item: StagedAction, inv: StoredInverse): string | undefined {
+    return inv.createdId !== undefined && (item.result?.refs ?? []).includes(inv.createdId)
+      ? inv.createdId
+      : undefined;
   }
 
   // --- dismiss ---------------------------------------------------------------------------------
@@ -606,7 +766,7 @@ export class NightShiftApply {
     const threadId = await this.#d.threadId(nightId);
     const runId = `night_${op}_${nightId}`;
     const ctx = { threadId, runId, taint: a.taint, taintSources: a.taintSources ?? [] };
-    const drafts = new Map<string, { draftId?: string; bodySha256?: string; ok: boolean }>();
+    const drafts = new Map<string, DraftOutcome>();
     for (const child of children) {
       const childId = child.approval.requestedBy.toolCallId ?? "";
       if (childId.endsWith(SEND_SUFFIX)) {
@@ -640,6 +800,20 @@ export class NightShiftApply {
           drafts.set(item.id, { ok: false });
           continue;
         }
+      } else {
+        // The undo is checked again right before it runs: the card may have been open a while.
+        const inv = asRecord(item.inverse as Json) as StoredInverse;
+        const ok =
+          adapter === undefined || cap === undefined
+            ? "this change can't be undone"
+            : await this.#checkInverse(item, adapter, cap, inv, this.#createdIdOf(item, inv));
+        if (ok !== true) {
+          this.#save(item.id, {
+            approvalId: null,
+            result: { ...(item.result ?? {}), error: `undo refused: ${ok}`.slice(0, 500) },
+          });
+          continue;
+        }
       }
       // The broker's stored call must be the stored item's (a row edited after the tap differs).
       const want = op === "apply" ? callFromItem(item).args : asRecord(item.inverse as Json).call;
@@ -661,11 +835,11 @@ export class NightShiftApply {
       );
       this.#record(item, out, op, adapter, cap);
       const draftId = out.status === "ok" ? draftIdOf(out.output) : undefined;
-      const bodySha256 = out.status === "ok" ? draftBodyHashOf(out.output) : undefined;
+      const saved = out.status === "ok" ? savedDraftOf(out.output) : undefined;
       drafts.set(item.id, {
         ok: out.status === "ok",
         ...(draftId === undefined ? {} : { draftId }),
-        ...(bodySha256 === undefined ? {} : { bodySha256 }),
+        ...(saved === undefined ? {} : { saved }),
       });
     }
     this.#settle(nightId);
@@ -744,11 +918,15 @@ export class NightShiftApply {
     this.#emitItem(item.id);
   }
 
-  /** The send recipe (§3.2): the draft saved now, read back, the same content, then the send. */
+  /**
+   * The send recipe (§3.2): the draft saved now, what the helper says it saved equal to the staged
+   * to, cc, subject and body, then `mail_send_draft` with those fields and the body hash, which the
+   * helper checks again against the live draft before it sends.
+   */
   async #runSend(
     child: { approval: ApprovalRequest; call: PolicyCall; summary: string },
     itemId: string,
-    drafts: Map<string, { draftId?: string; bodySha256?: string; ok: boolean }>,
+    drafts: Map<string, DraftOutcome>,
     ctx: { threadId: string; runId: string; taint: boolean; taintSources: TaintSource[] },
   ): Promise<void> {
     const item = this.#d.store.getStagedAction(itemId);
@@ -762,62 +940,27 @@ export class NightShiftApply {
     if (item === null || draft?.ok !== true || draft.draftId === undefined) {
       return fail("skipped: the draft was not saved");
     }
+    const cannot = sendRefusal(item.tool);
+    if (cannot !== undefined) return fail(cannot);
     const send = this.#trustedSend(item);
     const sendTool = sendToolFor(item.tool);
     if (send === undefined || sendTool === undefined || sendTool !== child.call.tool) {
       return fail("the send doesn't match the draft");
     }
-    const connectorId = splitTool(item.tool).connector;
-    const reads = this.#d.reads(connectorId);
-    let check: Awaited<ReturnType<typeof checkSendRecipe>>;
-    try {
-      check = await checkSendRecipe(reads, {
-        draftId: draft.draftId,
-        expectedHash: send.contentHash,
-        threadId: item.targetKey,
-        expectedRecipients: send.recipients,
-        stagedBody:
-          typeof callFromItem(item).args.body === "string"
-            ? (callFromItem(item).args.body as string)
-            : "",
-      });
-    } catch {
-      // A throw is a refusal, never a pass.
-      return fail("the draft couldn't be checked");
+    const saved = draft.saved;
+    if (saved === undefined || saved.draftId !== draft.draftId) {
+      return fail("draft_unreadable: the draft tool didn't say what it saved");
     }
+    const check = checkSavedDraft(saved, callFromItem(item).args, send.recipients);
     if (!check.ok) return fail(check.reason);
-    let saved: Awaited<ReturnType<ReadRegistry["mailDraft"]>>;
-    try {
-      saved = await reads.mailDraft(draft.draftId);
-    } catch {
-      return fail("draft_unreadable");
-    }
-    if (saved === null || draftContentHash(saved) !== send.contentHash) {
-      return fail("draft_changed");
-    }
-    const bare = bareTool({ tool: sendTool });
-    const bodySha256 = appleBodySha256(saved.body);
-    // What the helper said it saved must be what reads back (a draft edited in between differs).
-    if (draft.bodySha256 !== undefined && draft.bodySha256.toLowerCase() !== bodySha256) {
-      return fail("draft_changed");
-    }
-    const args: Record<string, unknown> =
-      bare === "gmail_send"
-        ? {
-            to: saved.to,
-            ...(saved.cc.length === 0 ? {} : { cc: saved.cc }),
-            ...(saved.bcc.length === 0 ? {} : { bcc: saved.bcc }),
-            subject: saved.subject,
-            body: saved.body,
-            threadId: item.targetKey,
-          }
-        : {
-            draftId: draft.draftId,
-            to: saved.to,
-            ...(saved.cc.length === 0 ? {} : { cc: saved.cc }),
-            subject: saved.subject,
-            bodySha256,
-          };
+    // Exactly what the helper reported: `mail.send_draft` compares these with the live draft.
+    const args: Record<string, unknown> = {
+      draftId: saved.draftId,
+      to: saved.to,
+      ...(saved.cc.length === 0 ? {} : { cc: saved.cc }),
+      subject: saved.subject,
+      bodySha256: saved.bodySha256.toLowerCase(),
+    };
     const sendId = `${item.id}${SEND_SUFFIX}`;
     const call = this.#rebuild(item, { tool: sendTool, args }, sendId);
     if (typeof call === "string") return fail(call);

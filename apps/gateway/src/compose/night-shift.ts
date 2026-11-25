@@ -41,6 +41,8 @@ import {
   type FollowupStore,
   fileCandidates,
   followupsSource,
+  fromMessages,
+  MESSAGES_ITEM_LINE,
   type NightJobInput,
   type NightNotice,
   NightShiftApply,
@@ -156,7 +158,7 @@ const PREVIEW_KIND = {
 } as const;
 
 /** What a remote caller sees in place of an item made from Messages (the owner rule: no Messages on remote devices). */
-export const MESSAGES_ITEM_LINE = "An item from your Messages. Open Psyche on this Mac to see it.";
+export { MESSAGES_ITEM_LINE };
 
 /**
  * An item whose taint includes `message` keeps its counts, kind and status for a caller that is not
@@ -164,9 +166,13 @@ export const MESSAGES_ITEM_LINE = "An item from your Messages. Open Psyche on th
  * the undo data are replaced or cleared.
  */
 export function forRemote(item: StagedAction): StagedAction {
-  if (!item.taintSources.some((t) => t.sourceKind === "message")) return item;
+  if (!fromMessages(item)) return item;
+  // The result keeps its refs and receipt; an error may quote the item (a provider's message).
+  const result = item.result == null ? item.result : { ...item.result };
+  if (result != null) delete result.error;
   return {
     ...item,
+    result,
     withheld: "messages",
     summary: MESSAGES_ITEM_LINE,
     why: null,
@@ -182,6 +188,19 @@ export function forRemote(item: StagedAction): StagedAction {
       truncated: false,
     },
   };
+}
+
+/**
+ * The `nightShift.item.updated` payload for one bus subscriber: the full item only for the
+ * desktop shell on this Mac's loopback, `forRemote` for every other one (a part with no reader
+ * included). Undefined sends the shared frame as it is.
+ */
+export function personalizeNightShiftItem(
+  payload: { item: StagedAction },
+  reader: { local?: boolean },
+): { item: StagedAction } | undefined {
+  if (reader.local === true || !fromMessages(payload.item)) return undefined;
+  return { ...payload, item: forRemote(payload.item) };
 }
 
 /** The night's own work thread (an automation-kind thread keyed by the night), created once. */
@@ -583,14 +602,15 @@ export function composeNightShift(setup: NightShiftSetup) {
           broker: setup.broker,
           tools: setup.registry as never,
           adapters: adaptersFor,
-          reads: readRegistryFor,
           connectors: () => connectorTypes,
           connectorIds: () => new Set(connectorTypes.keys()),
           threadId: async (nightId) => {
             await refreshConnectors().catch(() => undefined);
             return nightThread(db, nightId);
           },
-          onItem: (item) => setup.publish?.("nightShift.item.updated", { item: forRemote(item) }),
+          // The full item: the bus personalizer gives every subscriber but the desktop shell on
+          // this Mac `forRemote(item)` (`personalizeNightShiftItem`).
+          onItem: (item) => setup.publish?.("nightShift.item.updated", { item }),
           onNight: (id) => {
             const n = store.getNight(id);
             if (n !== null)
@@ -608,6 +628,7 @@ export function composeNightShift(setup: NightShiftSetup) {
         run: (call: Call, params: never) =>
           (fn as (p: unknown, c: NightShiftCaller) => Promise<unknown>)(params, {
             surface: setup.surfaceOf?.(call.identity.deviceId) ?? "desktop",
+            local: call.identity.desktopShell === true && call.conn.peer.remoteLoopback === true,
           }),
       };
     }

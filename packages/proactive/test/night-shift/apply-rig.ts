@@ -13,13 +13,15 @@ import {
   updateNight,
   updateStagedAction,
 } from "@psyche/db";
-import type { StagedAction } from "@psyche/protocol";
+import type { PermissionBrokerOptions } from "@psyche/permissions";
+import { PsycheError, type StagedAction, type Surface, type TaintSource } from "@psyche/protocol";
 import { toolCallBindingHash } from "@psyche/protocol/binding";
 import { FakeClock } from "@psyche/testing";
 import { DEVICE, makeBroker } from "../../../permissions/test/helpers.ts";
 import {
   type Adapter,
   type ApplyStore,
+  appleBodySha256,
   NightShiftApply,
   sendFor,
   type ToolLookup,
@@ -41,27 +43,43 @@ interface FakeTool {
   execute: (callId: string, params: unknown) => Promise<{ output: unknown; provenance: string }>;
 }
 
-export function applyRig() {
+export interface ApplyRigOptions {
+  broker?: Partial<PermissionBrokerOptions>;
+  /** The applier's card surfaces; undefined keeps W5's default (desktop, web, notification). */
+  surfaces?: Surface[] | null;
+}
+
+export const FROM_MESSAGES: TaintSource[] = [{ sourceKind: "message", origin: "+15550100" }];
+
+export function applyRig(opts: ApplyRigOptions = {}) {
   const clock = new FakeClock(NIGHT_START);
   let n = 0;
   const db = openDb(":memory:", {
     now: () => new Date(clock.now()).toISOString(),
     newId: () => `id_${++n}`,
   });
-  const h = makeBroker({}, clock);
+  const h = makeBroker(opts.broker ?? {}, clock);
   const registry = new FakeRegistry();
   registry.threads.set("t-1", thread());
   const ran: { tool: string; callId: string; params: Record<string, unknown> }[] = [];
   const stale = new Set<string>();
   const inverseStale = new Set<string>();
   const throwOn = new Set<string>();
-  /** Runs right after the draft tool saved its draft: tests edit the saved draft here. */
+  /** Mail's drafts, as the helper sees them live. */
+  const mail = new Map<string, { to: string[]; cc: string[]; subject: string; body: string }>();
+  /** Runs right after Mail saved the draft, before the helper reads it back: tests edit it here. */
   const afterSave: { fn?: (draftId: string) => void } = {};
+  /** Runs when the send reaches the helper, before its live check. */
+  const beforeSend: { fn?: () => void } = {};
+  /** An error a tool call id throws instead of running (a helper timeout, a provider 5xx). */
+  const throwWith = new Map<string, Error>();
   let created = 0;
 
   const record = (tool: string, callId: string, params: unknown) => {
     ran.push({ tool, callId, params: params as Record<string, unknown> });
     if (throwOn.has(callId)) throw new Error("the provider dropped the connection");
+    const err = throwWith.get(callId);
+    if (err !== undefined) throw err;
   };
   const sendDesc = (p: unknown) => {
     const to = ((p as { to?: string[] }).to ?? []).map((x) => x.toLowerCase()).sort();
@@ -99,26 +117,28 @@ export function applyRig() {
       },
     ],
     [
+      // The Mac helper's `mail.draft`: Mail saves the draft (no bcc, no In-Reply-To), and the
+      // helper answers what Mail holds, read back after the save (`MailDraftRecord`).
       "mail_draft",
       {
         spec: { name: "mail_draft", description: "", inputSchema: {}, sideEffect: "write" },
         execute: async (callId, params) => {
           record("mail_draft", callId, params);
-          const p = params as { to: string[]; subject: string; body: string; threadId: string };
+          const p = params as { to: string[]; cc?: string[]; subject: string; body: string };
           const draftId = `draft_${++created}`;
-          registry.drafts.set(draftId, {
+          mail.set(draftId, {
             to: [...p.to],
-            cc: [],
-            bcc: [],
+            cc: [...(p.cc ?? [])],
             subject: p.subject,
             body: p.body,
-            inReplyTo: p.threadId,
-            attachments: [],
           });
           afterSave.fn?.(draftId);
+          const d = mail.get(draftId);
+          if (d === undefined) throw new Error("Mail lost the draft");
           return {
             output: {
-              draft: { draftId, subject: p.subject, to: p.to, cc: [], body: p.body },
+              saved: true,
+              draft: { draftId, ...structuredClone(d), bodySha256: appleBodySha256(d.body) },
             },
             provenance: "trusted",
           };
@@ -126,6 +146,8 @@ export function applyRig() {
       },
     ],
     [
+      // The helper's `mail.send_draft`: re-checks to, cc, subject and the body hash against the
+      // live draft (`MailWave1.check`), and the connector maps its refusal to `unavailable`.
       "mail_send_draft",
       {
         spec: {
@@ -137,11 +159,51 @@ export function applyRig() {
         describeCall: sendDesc,
         execute: async (callId, params) => {
           record("mail_send_draft", callId, params);
+          beforeSend.fn?.();
+          const p = params as {
+            draftId: string;
+            to: string[];
+            cc?: string[];
+            subject: string;
+            bodySha256: string;
+          };
+          const d = mail.get(p.draftId);
+          const same = (a: string[], b: string[]) => [...a].sort().join() === [...b].sort().join();
+          if (
+            d === undefined ||
+            !same(d.to, p.to) ||
+            !same(d.cc, p.cc ?? []) ||
+            d.subject !== p.subject ||
+            appleBodySha256(d.body) !== p.bodySha256
+          ) {
+            throw new PsycheError("unavailable", "Mail: the draft changed", {
+              details: {
+                capability: "mail.send_draft",
+                helperCode: "binding_mismatch",
+                reason: "draft_changed",
+              },
+            });
+          }
+          mail.delete(p.draftId);
           return { output: { sent: true }, provenance: "trusted" };
         },
       },
     ],
   ]);
+  // Gmail answers only ids; Apple's reply drafts save a "Re:" subject and a quoted body.
+  for (const name of ["gmail_create_draft", "mail_reply_draft"]) {
+    tools.set(name, {
+      spec: { name, description: "", inputSchema: {}, sideEffect: "write" },
+      execute: async (callId, params) => {
+        record(name, callId, params);
+        const draftId = `draft_${++created}`;
+        return {
+          output: { draftId, messageId: `m_${draftId}`, threadId: "t-1" },
+          provenance: "trusted",
+        };
+      },
+    });
+  }
   const lookup: ToolLookup = { get: (name) => tools.get(name) as never };
 
   const fakeAdapter = (tool: string): Adapter => ({
@@ -161,6 +223,8 @@ export function applyRig() {
   const adapters = new Map<string, Adapter>([
     ["reminders_create", fakeAdapter("reminders_create")],
     ["mail_draft", fakeAdapter("mail_draft")],
+    ["gmail_create_draft", fakeAdapter("gmail_create_draft")],
+    ["mail_reply_draft", fakeAdapter("mail_reply_draft")],
   ]);
 
   const store: ApplyStore = {
@@ -183,11 +247,10 @@ export function applyRig() {
       broker: h.broker as never,
       tools: lookup,
       adapters: () => adapters,
-      reads: () => registry,
       connectors: () => new Map(),
       connectorIds: () => new Set(["apple"]),
       threadId: async () => "thr_night",
-      surfaces: ["desktop"],
+      ...(opts.surfaces === null ? {} : { surfaces: opts.surfaces ?? ["desktop"] }),
     });
   const applier = newApplier();
 
@@ -201,18 +264,20 @@ export function applyRig() {
   let seq = 0;
   /** Stages an item exactly as the stager would store it, its binding hash from the tool's describeCall. */
   function stage(
-    tool: "reminders_create" | "mail_draft",
+    tool: "reminders_create" | "mail_draft" | "gmail_create_draft" | "mail_reply_draft",
     args: Record<string, unknown>,
     target: string,
     precondition: Record<string, unknown> = {},
+    taintSources?: TaintSource[],
   ): StagedAction {
     const cap: CaptureOk = { ok: true, target, precondition: precondition as never, before: {} };
     const desc = tools.get(tool)?.describeCall?.(args);
-    const send = tool === "mail_draft" ? sendFor(tool, { tool, args }, cap) : undefined;
+    const mailish = tool !== "reminders_create";
+    const send = mailish ? sendFor(tool, { tool, args }, cap) : undefined;
     return insertStagedAction(db, {
       nightId: night.id,
       seq: seq++,
-      domain: tool === "mail_draft" ? "mail" : "reminders",
+      domain: mailish ? "mail" : "reminders",
       targetKey: target,
       tool,
       kind: "connector_action",
@@ -223,17 +288,25 @@ export function applyRig() {
       summary: `${tool} ${target}`,
       precondition: cap,
       send: send ?? null,
-      taint: tool === "mail_draft",
-      taintSources: tool === "mail_draft" ? [{ sourceKind: "email", origin: "ann@x.com" }] : [],
+      taint: mailish || taintSources !== undefined,
+      taintSources: taintSources ?? (mailish ? [{ sourceKind: "email", origin: "ann@x.com" }] : []),
     } as never);
   }
 
-  const reminder = (title: string) =>
-    stage("reminders_create", { title, listId: "L" }, `rem:${title}`);
-  const draft = (body = "Tuesday works for me.") =>
-    stage("mail_draft", { to: RECIPIENTS, subject: "Re: lunch", body, threadId: "t-1" }, "t-1", {
-      recipients: RECIPIENTS,
-    });
+  const reminder = (title: string, taintSources?: TaintSource[]) =>
+    stage("reminders_create", { title, listId: "L" }, `rem:${title}`, {}, taintSources);
+  const draft = (
+    body = "Tuesday works for me.",
+    taintSources?: TaintSource[],
+    tool: "mail_draft" | "gmail_create_draft" | "mail_reply_draft" = "mail_draft",
+  ) =>
+    stage(
+      tool as never,
+      { to: RECIPIENTS, subject: "Lunch on Tuesday", body, threadId: "t-1" },
+      "t-1",
+      { recipients: RECIPIENTS },
+      taintSources,
+    );
 
   /** The owner taps Approve on the card, then the children run. */
   async function approve(issued: {
@@ -269,7 +342,10 @@ export function applyRig() {
     stale,
     inverseStale,
     throwOn,
+    throwWith,
+    mail,
     afterSave,
+    beforeSend,
     applier,
     newApplier,
     store,

@@ -2109,6 +2109,7 @@ export class PsychePermissionBroker implements PermissionBroker {
     const refused: StagedApplyRefusal[] = [];
     const seen = new Set<string>();
     const sendTo = new Map<string, string[]>();
+    const withheld = new Set<string>();
     let sends = 0;
     let undoDeletes = 0;
     for (const [i, c] of input.children.entries()) {
@@ -2140,6 +2141,7 @@ export class PsychePermissionBroker implements PermissionBroker {
           callRecipients(d.call).map((r) => sanitizeDisplay(r).slice(0, 120)),
         );
       } else if (SEVERITY[d.sideEffect] >= SEVERITY.destructive) undoDeletes += 1;
+      if (c.withheld === "messages") withheld.add(itemId);
       children.push({
         call: structuredClone(d.call),
         kind,
@@ -2169,13 +2171,19 @@ export class PsychePermissionBroker implements PermissionBroker {
         title: input.title,
         count: children.length,
         // Set by the broker after the caller's details, so a caller's own `items` never shows.
-        items: children.map((c) => ({
-          itemId: c.itemId ?? "",
-          tool: c.call.tool,
-          summary: c.summary,
-          bindingHash: c.bindingHash,
-          ...(sendTo.has(c.itemId ?? "") ? { send: { to: sendTo.get(c.itemId ?? "") ?? [] } } : {}),
-        })),
+        // A withheld item (from Messages) names no recipients: every paired device sees the card.
+        items: children.map((c) => {
+          const id = c.itemId ?? "";
+          const hide = withheld.has(id);
+          return {
+            itemId: id,
+            tool: c.call.tool,
+            summary: c.summary,
+            bindingHash: c.bindingHash,
+            ...(hide ? { withheld: "messages" } : {}),
+            ...(sendTo.has(id) ? { send: hide ? {} : { to: sendTo.get(id) ?? [] } } : {}),
+          };
+        }),
       },
       bindingHash: hash,
       grantKey: `staged_apply|${hash}`,

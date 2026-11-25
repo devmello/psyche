@@ -11,6 +11,8 @@ import { MAX_BUDGET_USD, MIN_BUDGET_USD, minutesOf, NIGHT_SHIFT_SETTING_KEYS } f
  */
 export interface NightShiftCaller {
   surface: Surface;
+  /** The desktop shell on this Mac's loopback (set by the Gateway): only it may apply Messages items. */
+  local: boolean;
 }
 
 type Method = "nightShift.apply" | "nightShift.undo" | "nightShift.dismiss";
@@ -36,8 +38,15 @@ export function createNightShiftHandlers(apply: NightShiftApply): NightShiftHand
   };
   return {
     "nightShift.apply": async (p, caller) =>
-      answer(await apply.apply({ reviewId: p.reviewId, items: p.items, sends: p.sends }), caller),
-    "nightShift.undo": async (p, caller) => answer(await apply.undo(p.itemIds), caller),
+      answer(
+        await apply.apply(
+          { reviewId: p.reviewId, items: p.items, sends: p.sends },
+          { local: caller.local },
+        ),
+        caller,
+      ),
+    "nightShift.undo": async (p, caller) =>
+      answer(await apply.undo(p.itemIds, { local: caller.local }), caller),
     "nightShift.dismiss": async (p) => ({ dismissed: apply.dismiss(p.reviewId, p.itemIds) }),
   };
 }

@@ -57,9 +57,36 @@ const BEFORE_EFFECT_CODES = new Set([
   "invalid_params",
   "not_found",
   "conflict",
-  "unavailable",
   "cancelled",
 ]);
+
+/** Helper error codes that refuse before the app is touched. */
+const HELPER_BEFORE_EFFECT = new Set([...BEFORE_EFFECT_CODES, "forbidden", "permission_denied"]);
+
+/**
+ * `unavailable` is before the effect only when nothing left the Gateway: no connector, no helper,
+ * or macOS access the owner never granted (`details.missing`). A helper that timed out or failed
+ * in an unknown way, or a provider's 5xx (Google maps them to `unavailable`), may have acted.
+ */
+function unavailableBeforeEffect(err: PsycheError): boolean {
+  const d = (err.details ?? {}) as Record<string, unknown>;
+  if (d.missing !== undefined && d.missing !== null) return true;
+  if (typeof d.status === "number") return false;
+  if (d.reason === "timeout") return false;
+  if ("helperCode" in d) {
+    return typeof d.helperCode === "string" && HELPER_BEFORE_EFFECT.has(d.helperCode);
+  }
+  return true;
+}
+
+/** Whether a thrown error is known to have stopped before the provider acted. */
+export function thrownBeforeEffect(err: unknown): boolean {
+  if (err instanceof PsycheError) {
+    if (err.code === "unavailable") return unavailableBeforeEffect(err);
+    return BEFORE_EFFECT_CODES.has(err.code);
+  }
+  return err instanceof Error && err.name === "BeforeEffectError";
+}
 
 function message(err: unknown): string {
   return err instanceof Error ? err.message.slice(0, 300) : "failed";
@@ -130,12 +157,7 @@ export async function runChild(
       : { status: "ok", receiptId, output: r.output };
   } catch (err) {
     if (!opts.uncertainOnThrow) return { status: "failed", error: message(err) };
-    if (err instanceof PsycheError && BEFORE_EFFECT_CODES.has(err.code)) {
-      return { status: "before_effect", error: message(err) };
-    }
-    if (err instanceof Error && err.name === "BeforeEffectError") {
-      return { status: "before_effect", error: message(err) };
-    }
+    if (thrownBeforeEffect(err)) return { status: "before_effect", error: message(err) };
     return { status: "uncertain", error: message(err) };
   }
 }
