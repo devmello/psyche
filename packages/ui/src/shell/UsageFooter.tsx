@@ -344,13 +344,13 @@ export function UsageFooter({
   name,
   primarySubscription,
   onOpenUsage,
-}: UsageFooterProps): ReactElement {
+}: UsageFooterProps): ReactElement | null {
   const line = usageLine(summary, primarySubscription);
   const kind = primarySubscription === undefined ? {} : { primarySubscription };
   const rail = variant === "rail";
   // Quiet by default: the usage line and its graphic show only when a budget is near or over.
   const warn = usageWarning(summary, primarySubscription);
-  if (rail && !warn) return <></>;
+  if (rail && !warn) return null;
   return (
     <HoverCard>
       <HoverCardTrigger
