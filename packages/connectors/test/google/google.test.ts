@@ -474,9 +474,8 @@ describe("Gmail sync does not skip mail", () => {
     expect(seen[20]).toBe("tok-20"); // resumed where it stopped
     expect(pages).toBe(22);
     expect(second?.cursor).toMatchObject({ gmail: { historyId: "9500" } });
-    expect((second?.cursor as { gmail: Record<string, unknown> }).gmail).not.toHaveProperty(
-      "pageToken",
-    );
+    const cursor2 = second?.cursor as { gmail: Record<string, unknown> };
+    expect(cursor2.gmail).not.toHaveProperty("pageToken");
     expect(second?.changes).toBe(2);
   });
 
