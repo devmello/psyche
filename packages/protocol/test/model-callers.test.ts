@@ -22,6 +22,7 @@ const MODEL_CALLERS = [
   "meetings.record.stop",
   "models.check",
   "nightShift.runNow",
+  "points.ask",
   "spaces.trackers.refresh",
   "tasks.resume",
   "tasks.retry",
