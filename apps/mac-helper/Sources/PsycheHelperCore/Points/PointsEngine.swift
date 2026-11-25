@@ -52,6 +52,8 @@ public final class PointsEngine<S: PointsAXSource>: @unchecked Sendable {
     private var lastNow: Double = 0
     private var lastFingerprint: String?
     private var lastSummary: Data?
+    /// The latest full read hit a cap, so fields may exist that the helper never saw.
+    private var lastTruncated = true
     private var focusedId: String?
     private var pendingFocus: Node?
     private var watched: [String] = []
@@ -277,6 +279,7 @@ public final class PointsEngine<S: PointsAXSource>: @unchecked Sendable {
         for r in read.records { next[r.id] = r }
         records = next
         order = read.records.map(\.id)
+        lastTruncated = read.digest.truncated == true
         for r in read.records { if let why = r.sensitive { latched[r.node] = why } }
         if let f = read.records.first(where: { $0.focused }) { focusedId = f.id }
         // Keep the commit memory of fields still on the page.
@@ -329,6 +332,30 @@ public final class PointsEngine<S: PointsAXSource>: @unchecked Sendable {
             nextIds: nextIds, nextFrames: nextFrames, windowFrame: windowFrame())
     }
 
+    /// Every frame a picture of the window must paint over (§5.2), from a fresh read of the tree: the fields
+    /// judged sensitive now or earlier this session, and every field of a directions-only page. Reads frames
+    /// only, never a value. `complete` is false when a mask cannot be trusted to cover everything: the read
+    /// failed, hit a cap, or a sensitive field has no frame. The caller then takes no picture.
+    public func maskFrames(at now: Double) -> PointsMaskFrames {
+        lastTruncated = true
+        fullRead(at: now)
+        guard !ended, let window = windowFrame() else { return PointsMaskFrames(window: nil, frames: [], complete: false) }
+        var frames: [CGRect] = []
+        var complete = !lastTruncated
+        for id in order {
+            guard var r = records[id] else { continue }
+            guard r.sensitive != nil || latched[r.node] != nil || r.directionsOnly else { continue }
+            if let f = source.attributes(r.node).frame {
+                r.frame = f
+                records[id] = r
+                frames.append(f)
+            } else {
+                complete = false
+            }
+        }
+        return PointsMaskFrames(window: window, frames: frames, complete: complete)
+    }
+
     public func windowFrame() -> CGRect? {
         guard let w = source.windowRoot() else { return nil }
         return source.attributes(w).frame
@@ -364,3 +391,17 @@ public struct PointsTargetInfo: Sendable, Equatable {
     }
 }
 
+
+
+/// The frames to paint over a picture of the window, in AX space. No labels, no values.
+public struct PointsMaskFrames: Sendable, Equatable {
+    public var window: CGRect?
+    public var frames: [CGRect]
+    public var complete: Bool
+
+    public init(window: CGRect?, frames: [CGRect], complete: Bool) {
+        self.window = window
+        self.frames = frames
+        self.complete = complete
+    }
+}

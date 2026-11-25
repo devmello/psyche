@@ -398,3 +398,29 @@ Run the whole table in Safari and again in Chrome. Rows 15.20 to 15.25 also need
 | 15.33 | `apps/mac-helper/scripts/check-points-boundary.sh` | "all checks passed": no pasteboard write, no event posting, no activation, no key-window call and no `characters` read in `PsycheHelperPoints` |
 | 15.34 | Run a normal `computer.click` while a session runs | Refused with `conflict/points_active` |
 | 15.35 | Copy something, run a whole session, paste | Your clipboard is unchanged: the helper never writes it (Copy is not in the helper; see the PR note) |
+
+### Let Psyche look (vision fallback, W5)
+
+`points.look` takes one picture of the session's window only, with every known sensitive field painted solid, for the owner's own Let Psyche look press. Until the Gateway calls it (W7) and the card shows the button (W8), drive it from a test client on the node socket: the helper mints an `actionId` and streams it on the `action` event of a `look` press (or of `next` while vision mode is on), and `points.look` answers only for that id. Use the same throwaway form as above, never a real account. Screen Recording must be granted to the helper for these rows (row 15.44 turns it off again).
+
+| # | Step | Expect |
+| --- | --- | --- |
+| 15.36 | Start a session on the throwaway form (name, city, a password field, a "Social Security number" field). Press look, then call `points.look` with the `actionId` of that `action` event | An image of that one window: no menu bar, no Dock, no other window, no Psyche card or ring. The password and SSN fields are solid black with a few points of margin. The name and city fields are visible. `masked` is true, `width` and `height` match the image, `pointsPerPixel` is the window width over the image width |
+| 15.37 | Call `points.look` again with the same `actionId` | Refused with `forbidden/action_used`. No picture |
+| 15.38 | Call `points.look` with a made-up `actionId`, then with an empty one | Refused with `forbidden/action_unknown` both times |
+| 15.39 | Press look twice, then use the first id | Refused (`action_used`): only the newest id works |
+| 15.40 | Press look, wait 5 minutes, use its id | Refused with `forbidden/action_stale` |
+| 15.41 | Click into the password field (Secure Event Input turns on), press look, call `points.look` | Refused with `policy_denied/secure_input`. Click out, press look again: it works |
+| 15.42 | With a look in flight, click into the password field | No picture comes back, or the call is refused with `secure_input` |
+| 15.43 | Try to start a session in a password manager, a banking app, Terminal and System Settings, if installed | `points_refused`: no session, so no look. Quit the app a session runs on and call `points.look` for it: `no_session` or `not_a_window`, never a picture of another app |
+| 15.44 | Turn off Screen Recording for the helper in System Settings › Privacy & Security, press look, call `points.look` | `forbidden/permission_missing` with `permission: screenRecording`. Nothing else happens |
+| 15.45 | Two windows of the same app: start on window A with window B in front of it. Look | The picture is window A's own content, B is not in it (the window filter, not a screen crop) |
+| 15.46 | Drag the window while the call runs | `conflict/window_moved`; the picture is not returned |
+| 15.47 | A page with more fields than the digest cap (a very long form) | `unavailable/mask_unavailable`: no picture rather than a partly masked one |
+| 15.48 | Look at the window on a Retina display, then drag it to a non-Retina display and look again | Both pictures are at most 1372 x 887, and the masks sit exactly over the fields on both |
+| 15.49 | After a look, `points.show` with `target: {box, imageSize}` where `box` is drawn on the picture around the city field | The ring sits on the city field on screen, on a Retina and on a non-Retina display |
+| 15.50 | `points.show` with a box that hangs over the window edge, then one wholly outside the window | The first is cut to the window. The second is refused (`invalid_params`) and no ring is drawn |
+| 15.51 | `points.show` with a box around the painted password field and a `value` | The ring and the note show, and no suggestion is drawn: a box that touches a painted field never gets a value |
+| 15.52 | `points.show` with a box before any look, then after moving the window | `conflict/no_look`, then `conflict/window_moved` |
+| 15.53 | Window across two displays, field on the second one, `points.show` with a box on it | The ring draws on the display that holds the box |
+| 15.54 | `log stream --predicate 'subsystem == "com.psyche.helper"'` during a look | No image data, labels, titles or values in the log. No picture file appears on disk |
