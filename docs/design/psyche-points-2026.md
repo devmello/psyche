@@ -371,6 +371,17 @@ There is no new sidebar row (IA consolidation).
 | **Helper RAM while active** | At most 20 MB more resident memory. Within 2 MB of the baseline 10 s after Stop (measured with `footprint` in W9) |
 | **Gateway** | At most 1 MB per session, one session at a time |
 
+**Measured in W9** (`apps/gateway/test/points-e2e.test.ts`, a fake helper and `FakeModelProvider`, so the model's own latency and real token counts are not in these):
+
+| | Result |
+| --- | --- |
+| Model calls, 2 pages (3 + 3 fields, one sensitive, one payment) | 2 calls, 1 per new page, 0 per field step. A page seen again: 0 |
+| Tools on the plan request | None |
+| Plan request size | About 730 tokens each (the request JSON length / 4; the digests are tiny) against the 6k target |
+| A sensitive or payment value in any model request, table, gzip payload, file or log | None found (with a positive control for the goal text and for the scanner) |
+
+**Needs the owner's manual pass** (`manual-test-plan.md` § Owner's pass, rows 15.70 to 15.84): first arrow within 300 ms, helper CPU, helper RAM while active and 10 s after Stop (`footprint`), the 300-field re-read time, a real 3-page form's call count and real input tokens, and the Gateway's 1 MB per session.
+
 ## 8. Protocol and data
 
 **Gateway methods** (`packages/protocol/src/methods/points.ts`):

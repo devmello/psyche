@@ -20,6 +20,7 @@ import {
   threadDoc,
   threadScope,
 } from "@psyche/search";
+import { isForkThread } from "./fork-hidden.ts";
 import { libraryRoot } from "./library.ts";
 import type { Recognize } from "./search-ocr.ts";
 
@@ -97,7 +98,7 @@ export function searchSources(deps: SearchSourceDeps): BackfillSource[] {
       const docs: SearchDoc[] = [];
       for (const id of ids) {
         const t = getThread(db, id);
-        if (t !== undefined && !isIncognito(t)) docs.push(threadDoc(t));
+        if (t !== undefined && !isIncognito(t) && !isForkThread(db, t.id)) docs.push(threadDoc(t));
       }
       return { docs, next: nextOf(ids) };
     },
@@ -117,7 +118,7 @@ export function searchSources(deps: SearchSourceDeps): BackfillSource[] {
       const owner = await deps.ownerName?.();
       for (const id of ids) {
         const thread = getThread(db, id);
-        if (thread === undefined || isIncognito(thread)) continue;
+        if (thread === undefined || isIncognito(thread) || isForkThread(db, id)) continue;
         for (const m of listAllMessages(db, id)) {
           const sender = messageSender(m, thread, { owner });
           out.docs.push(
@@ -147,9 +148,10 @@ export function searchSources(deps: SearchSourceDeps): BackfillSource[] {
       const docs: SearchDoc[] = [];
       for (const id of ids) {
         const task = await deps.tasks.get(id);
-        if (task === undefined) continue;
+        // A fork task's goal holds read excerpts: never indexed (fork-a-plan-2026 §2.3).
+        if (task === undefined || task.createdFrom === "fork") continue;
         const thread = getThread(db, task.threadId);
-        if (thread === undefined || isIncognito(thread)) continue;
+        if (thread === undefined || isIncognito(thread) || isForkThread(db, thread.id)) continue;
         docs.push(taskDoc(task, thread));
         for (const a of await deps.tasks.actions(id))
           docs.push(taskActionDoc(a, task, threadScope(thread)));

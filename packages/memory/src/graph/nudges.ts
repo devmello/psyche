@@ -47,6 +47,11 @@ export interface NudgeOptions {
   sensitivity?: NudgeSensitivity;
   /** Exclusions, blocklist and "forget": whoever this says yes to never gets a nudge. */
   isExcluded: (entityId: string) => boolean;
+  /**
+   * The promise ledger is on (`promises.enabled`): the `promise` kind is retired, because the ledger
+   * warns about the owner's own promises itself (docs/design/promise-ledger-2026.md section 2.2).
+   */
+  retirePromises?: boolean;
 }
 
 const DAY_MS = 86_400_000;
@@ -260,7 +265,11 @@ export function computeNudges(graph: GraphStore, opts: NudgeOptions): Nudge[] {
   }
 
   // Promises you made, from your own words (never `untrusted`), still open.
-  for (const loop of graph.loops({ status: ["open"], direction: "i_owe", limit: 500 })) {
+  const promiseLoops =
+    opts.retirePromises === true
+      ? []
+      : graph.loops({ status: ["open"], direction: "i_owe", limit: 500 });
+  for (const loop of promiseLoops) {
     if (loop.counterpartId == null || loop.provenance === "untrusted") continue;
     const e = byId.get(graph.resolveMerged(loop.counterpartId));
     if (e !== undefined) keep(promise(e, loop, opts));

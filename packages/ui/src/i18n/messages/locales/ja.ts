@@ -16,6 +16,7 @@ import { computerWatch } from "./computer-watch/ja.ts";
 import { dailyRest } from "./daily-rest/ja.ts";
 import { deckRest } from "./deck-rest/ja.ts";
 import { designRest } from "./design-rest/ja.ts";
+import { desktopSimple } from "./desktop-simple/ja.ts";
 import { everythingRest } from "./everything-rest/ja.ts";
 import { final202611 } from "./final-2026-11/ja.ts";
 import { friction } from "./friction/ja.ts";
@@ -369,6 +370,7 @@ export const ja: Partial<Catalogue> = {
   "chat.thread.exported": "このスレッドを{format}として書き出しました。",
   "chat.thread.nothingRunning": "このチャットでは何も実行されていません。",
   "chat.thread.stopped": "停止しました。",
+  "chat.stopped.label": "停止しました",
   "chat.runFailed.credential":
     "Psycheは返信できませんでした。モデルのAPIキーがないか、拒否されました。設定 → モデルで追加または修正してください。",
   "chat.runFailed.generic": "Psycheはこの返信を完了できませんでした。",
@@ -493,6 +495,7 @@ export const ja: Partial<Catalogue> = {
   "blocks.approval.status.denied": "拒否済み{hasWhen, select, true { · {when}} other {}}",
   "blocks.approval.status.declinedInChat": "辞退 — チャットで返信しました",
   "blocks.approval.status.expired": "期限切れ。何も実行されませんでした。",
+  "blocks.approval.expiredLine": "期限切れ · 何も実行されていません",
   "blocks.approval.status.voidedBecause": "無効：{reason}",
   "blocks.approval.status.voided": "無効。引数が変更されました。",
   "blocks.approval.taint": "このターンは信頼されていないコンテンツを読み込みました",
@@ -1038,17 +1041,11 @@ export const ja: Partial<Catalogue> = {
   "shell.sidebar.full": "フルサイドバー",
   "shell.sidebar.compact": "コンパクトサイドバー",
   "shell.sidebar.hidden": "非表示",
-  "shell.sidebar.filterToggle": "フィルタ",
   "shell.sidebar.forkedFrom": "{parent}からのサイドチャット",
   "shell.search.results": "結果",
   "shell.search.preview": "プレビュー",
-  "shell.search.hintOpen": "開く",
   "shell.search.hintSideChat": "サイドチャットで開く",
-  "shell.search.hintFilter": "絞り込む",
   "shell.search.keyCtrlEnter": "Ctrl ↵",
-  "shell.search.keyTab": "Tab",
-  "shell.search.actionHint": "このコマンドを実行します。",
-  "shell.search.run": "実行",
   "shell.search.open": "開く",
   "shell.search.openInSideChat": "サイドチャットで開く",
   "shell.compact.threads": "スレッド",
@@ -2910,7 +2907,6 @@ export const ja: Partial<Catalogue> = {
   "onboarding.agent.taglinePlaceholder": "静かな翼、丁寧な手。",
   "onboarding.agent.preview": "プレビュー",
   "onboarding.language.label": "言語",
-  "onboarding.language.hint": "後から設定 → 外観で変更できます。",
   "onboarding.permission.why.notifications":
     "このウインドウが閉じているときにPsycheが承認を求められるようにします。",
   "onboarding.permission.deniedHint":
@@ -3377,9 +3373,6 @@ export const ja: Partial<Catalogue> = {
   "screens.library.noMatch": "これらのフィルタに一致するファイルはありません。",
   "screens.library.askToMake": "{name}に作成を頼む",
   "screens.library.title": "ライブラリ",
-  "screens.library.meta.count": "{section} · {n, plural, other {#個のファイル}}",
-  "screens.library.description":
-    "{name}が作成または受け取ったファイル。それぞれ生成元のタスクにリンクされています。",
   "screens.library.layout": "レイアウト",
   "screens.library.grid": "グリッド",
   "screens.library.list": "リスト",
@@ -3395,8 +3388,6 @@ export const ja: Partial<Catalogue> = {
   "screens.library.col.actions": "アクション",
   "screens.library.typeFilter": "種類",
   "screens.library.allTypes": "すべての種類",
-  "screens.library.sourceTask": "生成元のタスク",
-  "screens.library.anyTask": "すべてのタスク",
   "screens.library.dateFilter": "日付",
   "screens.library.reset": "リセット",
   "screens.library.trusted": "{name}を信頼しました。",
@@ -4039,6 +4030,7 @@ export const ja: Partial<Catalogue> = {
   ...points,
   // Approvals wave W3 (card choices, Allowed list)
   ...approvalsW3,
+  ...desktopSimple,
   // Gateway-authored notices (inbox notifications, security alerts)
   ...notices,
   // Settings > Computer use > Separate desktop (Linux)

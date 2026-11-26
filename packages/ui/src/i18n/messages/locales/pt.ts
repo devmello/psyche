@@ -8,6 +8,7 @@ import { charts } from "./charts/pt.ts";
 import { chatA } from "./chat-a/pt.ts";
 import { computerWatch } from "./computer-watch/pt.ts";
 import { dailyA } from "./daily-a/pt.ts";
+import { desktopSimple } from "./desktop-simple/pt.ts";
 import { final202611 } from "./final-2026-11/pt.ts";
 import { friction } from "./friction/pt.ts";
 import { galleryA } from "./gallery-a/pt.ts";
@@ -329,6 +330,7 @@ export const pt: Partial<Catalogue> = {
   "chat.thread.exported": "Esta conversa foi exportada como {format}.",
   "chat.thread.nothingRunning": "Nada está em execução nesta conversa.",
   "chat.thread.stopped": "Parado.",
+  "chat.stopped.label": "Interrompido",
   "chat.runFailed.credential":
     "O Psyche não conseguiu responder: a chave de API do seu modelo está ausente ou foi recusada. Adicione ou corrija em Ajustes → Modelos.",
   "chat.runFailed.generic": "O Psyche não conseguiu concluir esta resposta.",
@@ -453,6 +455,7 @@ export const pt: Partial<Catalogue> = {
   "blocks.approval.status.denied": "Negada{hasWhen, select, true { · {when}} other {}}",
   "blocks.approval.status.declinedInChat": "Recusado — você respondeu no chat",
   "blocks.approval.status.expired": "Expirada. Nada foi feito.",
+  "blocks.approval.expiredLine": "Expirou · nada foi feito",
   "blocks.approval.status.voidedBecause": "Anulada: {reason}",
   "blocks.approval.status.voided": "Anulada. Os argumentos mudaram.",
   "blocks.approval.taint": "este turno leu conteúdo não confiável",
@@ -1005,17 +1008,11 @@ export const pt: Partial<Catalogue> = {
   "shell.sidebar.full": "Barra lateral completa",
   "shell.sidebar.compact": "Barra lateral compacta",
   "shell.sidebar.hidden": "Oculta",
-  "shell.sidebar.filterToggle": "Filtrar",
   "shell.sidebar.forkedFrom": "Uma conversa paralela de {parent}",
   "shell.search.results": "Resultados",
   "shell.search.preview": "Pré-visualização",
-  "shell.search.hintOpen": "abrir",
   "shell.search.hintSideChat": "abrir em uma conversa paralela",
-  "shell.search.hintFilter": "filtrar",
   "shell.search.keyCtrlEnter": "Ctrl ↵",
-  "shell.search.keyTab": "Tab",
-  "shell.search.actionHint": "Executa este comando.",
-  "shell.search.run": "Executar",
   "shell.search.open": "Abrir",
   "shell.search.openInSideChat": "Abrir em uma conversa paralela",
   "shell.compact.threads": "Conversas",
@@ -2894,7 +2891,6 @@ export const pt: Partial<Catalogue> = {
   "onboarding.agent.taglinePlaceholder": "Asas silenciosas, mãos cuidadosas.",
   "onboarding.agent.preview": "Pré-visualização",
   "onboarding.language.label": "Idioma",
-  "onboarding.language.hint": "Você pode alterar depois em Ajustes → Aparência.",
   "onboarding.permission.why.notifications":
     "Permite que o Psyche peça aprovações quando esta janela estiver fechada.",
   "onboarding.permission.deniedHint":
@@ -3358,9 +3354,6 @@ export const pt: Partial<Catalogue> = {
   "screens.library.noMatch": "Nenhum arquivo corresponde a estes filtros.",
   "screens.library.askToMake": "Peça a {name} para criar um",
   "screens.library.title": "Biblioteca",
-  "screens.library.meta.count": "{section} · {n, plural, one {# arquivo} other {# arquivos}}",
-  "screens.library.description":
-    "Arquivos que {name} criou ou recebeu, cada um vinculado à tarefa que o produziu.",
   "screens.library.layout": "Layout",
   "screens.library.grid": "Grade",
   "screens.library.list": "Lista",
@@ -3376,8 +3369,6 @@ export const pt: Partial<Catalogue> = {
   "screens.library.col.actions": "Ações",
   "screens.library.typeFilter": "Tipo",
   "screens.library.allTypes": "Todos os tipos",
-  "screens.library.sourceTask": "Tarefa de origem",
-  "screens.library.anyTask": "Qualquer tarefa",
   "screens.library.dateFilter": "Data",
   "screens.library.reset": "Redefinir",
   "screens.library.trusted": "{name} agora é confiável.",
@@ -4022,6 +4013,7 @@ export const pt: Partial<Catalogue> = {
   ...points,
   // Approvals wave W3 (card choices, Allowed list)
   ...approvalsW3,
+  ...desktopSimple,
   // Gateway-authored notices (inbox notifications, security alerts)
   ...notices,
   // Settings > Computer use > Separate desktop (Linux)

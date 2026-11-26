@@ -260,26 +260,19 @@ function setup(ui: ReactElement, edit?: (w: FixtureWorld) => void) {
 }
 
 describe("the Map view of the Memory page", () => {
-  it("is a List | Map toggle on the page, not a new place", async () => {
+  it("opens from the … menu, and People returns to the list", async () => {
     const { navigate, user } = setup(<MemoryScreen now={STORY_NOW} />);
-    const toggle = await screen.findByTestId("memory-view-toggle");
-    expect(within(toggle).getByRole("button", { name: "List" }).getAttribute("aria-pressed")).toBe(
-      "true",
-    );
-    await user.click(within(toggle).getByRole("button", { name: "Map" }));
+    await user.click(await screen.findByRole("button", { name: "Memory menu" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Map" }));
     expect(navigate).toHaveBeenLastCalledWith("/memory?view=map");
-    // The chip row is unchanged.
-    const kinds = screen.getByRole("navigation", { name: "What to show" });
-    expect(within(kinds).getAllByRole("button")).toHaveLength(7);
   });
 
-  it("List returns to the chip the owner was on", async () => {
+  it("on the map no segment is current; a segment goes back to its list", async () => {
     const { navigate, user } = setup(<MemoryScreen kind="projects" view="map" now={STORY_NOW} />);
-    const toggle = await screen.findByTestId("memory-view-toggle");
-    expect(within(toggle).getByRole("button", { name: "Map" }).getAttribute("aria-pressed")).toBe(
-      "true",
-    );
-    await user.click(within(toggle).getByRole("button", { name: "List" }));
+    const kinds = await screen.findByRole("group", { name: "What to show" });
+    for (const b of within(kinds).getAllByRole("button"))
+      expect(b.getAttribute("aria-pressed")).toBe("false");
+    await user.click(within(kinds).getByRole("button", { name: "Projects" }));
     expect(navigate).toHaveBeenLastCalledWith("/memory?kind=projects");
   });
 
@@ -290,7 +283,6 @@ describe("the Map view of the Memory page", () => {
     const filters = within(map).getByRole("group", { name: "Show on the map" });
     for (const name of ["People", "Projects", "Events", "Topics", "Places and orgs"])
       expect(within(filters).getByRole("button", { name })).toBeTruthy();
-    expect(screen.queryByRole("navigation", { name: "What to show" })).toBeNull();
     const list = within(map).getByRole("list", { name: /Items on the map/ });
     expect(within(list).getByRole("button", { name: /Sam Lee/ })).toBeTruthy();
     // The owner is not a node.

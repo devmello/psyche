@@ -47,6 +47,7 @@ import {
   CliAdapter,
   type CliAdapterDeps,
   createModelRouter,
+  Prices as ForkPrices,
   isLocalKind,
   isSubscriptionKind,
   type KeySource,
@@ -130,6 +131,8 @@ import { DerivedKeyStore, type PaymentBroker, SecretRedactor, type Vault } from 
 import { type DocumentsHandle, documentBridge } from "../artifacts/bridge.ts";
 import { resolveConfig } from "../config.ts";
 import type { HandlerDef } from "../context.ts";
+import { SKIP_EVENT } from "../event-bus.ts";
+import { createPlanForkHandlers, type ModelText } from "../handlers/plan-forks.ts";
 import type { PublicRoute, WebhookRoute } from "../http.ts";
 import { createLogger } from "../log.ts";
 import { personalizeMessageEvent } from "../message-scrub.ts";
@@ -187,14 +190,20 @@ import { DeferredDigest } from "./deferred-digest.ts";
 import { DeferredResume } from "./deferred-resume.ts";
 import { composeDeviceNotifications, DeviceNotifications } from "./device-notify.ts";
 import { composeDictation } from "./dictation.ts";
-import { composeEverything, type Everything, everythingSettings } from "./everything.ts";
+import {
+  composeEverything,
+  type Everything,
+  everythingSettings,
+  indexedSources,
+} from "./everything.ts";
 import { readSystemState } from "./everything-probe.ts";
 import { type ExecHostDeps, execHostTool } from "./exec-host.ts";
 import { feedContextResolver } from "./feed-context.ts";
 import { filesHandlers } from "./files.ts";
 import { migrateFilesConnector } from "./files-migration.ts";
 import { repointFolders, withFolder, withRecordedReal, withRecordedRef } from "./folder-access.ts";
-import { composeForks, FORK_POOL_CLAIM } from "./forks.ts";
+import { forkEventHidden, memoryWritesOff, withForkTaskScrub } from "./fork-hidden.ts";
+import { composeForks, FORK_POOL_CLAIM, threadModelPrice } from "./forks.ts";
 import { usesSandboxPc } from "./guest-sandbox.ts";
 import {
   mountParamsOnly,
@@ -259,6 +268,8 @@ import { phoneLocationTool } from "./phone-location.ts";
 import { composePlugins } from "./plugins.ts";
 import { composePoints, type PointsOptions } from "./points.ts";
 import { type ComposedProactive, composeProactive, connectorToolLookup } from "./proactive.ts";
+import { collectDoneEvidence } from "./promise-evidence.ts";
+import { composePromises, type Promises } from "./promises.ts";
 import {
   folderAccessEnv,
   launchConfigLinks,
@@ -473,6 +484,8 @@ export interface ComposedGateway {
   readonly people: People;
   /** Everything memory: review, quarantine and the nightly pass (#1010). */
   readonly everything: Everything;
+  /** The promise ledger service (`compose/promises.ts`): scan, sweep and the brief lines. */
+  readonly promises: Promises;
   /** Unified search (S1): the main index, its indexer and `search.query`. */
   readonly search: ComposedSearch;
   readonly broker: PsychePermissionBroker;
@@ -1483,6 +1496,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     // tokens it leaves, for the people it did not read about (the graph's own nightly step then
     // skips its model pass).
     graphModelPass: (left, covered) => people.modelPass(left, covered),
+    promiseRetention: () => promises.retention(),
     announce: (card) => void proactive.feed.postNotice({ ...card, reason: "memory learned" }),
     ...(gwOptions.logger === undefined ? {} : { logger: gwOptions.logger }),
   });
@@ -1495,6 +1509,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     em: everything.store,
     model: () => everything.answerModel(),
     timeZone: () => timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone,
+    // The ledger warns about the owner's promises itself: Keep in touch drops its promise lines.
+    ledgerOn: () => getSetting(db, "promises.enabled")?.value === true,
     post: (card) =>
       void proactive.feed.postNotice({
         title: card.title,
@@ -1969,8 +1985,9 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       const change = toolEffectChange(e);
       if (change !== undefined) void changes.record(change);
     },
-    // Incognito threads are memory-only (E9, security §8): the loop never flushes them.
-    isIncognito: (threadId) => getThread(db, threadId)?.kind === "incognito",
+    // Incognito threads are memory-only (E9, security §8): the loop never flushes them. A plan
+    // fork's hidden threads never reach daily notes either (fork-a-plan-2026 §2.3).
+    isIncognito: memoryWritesOff(db),
     // Progressive disclosure: only the core tools' schemas ride in every request (capabilities.ts).
     deferTool: deferToolFor(db),
     specialists,
@@ -2017,6 +2034,9 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   // Plan forks (docs/design/fork-a-plan-2026.md): composed right after Night shift, whose adapters
   // they share; the fork pool reaches them through this ref.
   let forksRef: ReturnType<typeof composeForks> | undefined;
+  // `planForks.*` (F4): composed after the forks; Night shift's apply hook and the comparison
+  // pass reach it through this ref.
+  let planForksRef: ReturnType<typeof createPlanForkHandlers> | undefined;
   const taskTrace = taskRunTrace({
     db,
     sink: () => gatewayRef?.context.runTrace,
@@ -2151,6 +2171,55 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   // The Space trackers are composed last; the mail poll, calendar watch and folder watcher ask
   // them through this ref whether anything listens (spaces-2026 §6.2).
   const spaceTrackers: SpaceTrackersRef = {};
+  // The promise ledger (docs/design/promise-ledger-2026.md): scan and sweep jobs, the handlers
+  // behind the remote-viewer scrub, the warning notifier and the brief lines.
+  const promisesTools = () => connectorToolLookup(registry);
+  const promisesConnectors = async () =>
+    connectorsPart === undefined ? [] : await connectorsPart.registry.list();
+  const promises = composePromises({
+    db,
+    clock,
+    graph: people.graph,
+    sqlite: memoryLate === undefined ? db.sqlite : memoryDb.sqlite,
+    em: everything.store,
+    loopVisibility: people.loopVisibility,
+    publish: (event, payload) => publish(event as never, payload as never),
+    notifier,
+    timeZone: () => timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone,
+    redact: (text) => redactor.redact(text),
+    ownerNames: () => {
+      const owner = people.graph.ownerEntity();
+      return owner === undefined ? [] : [owner.name, ...owner.aliases];
+    },
+    model: () => everything.answerModel(),
+    // Search's switches and the owner's opt-out bind the ledger too (design 7.3).
+    searchAllows: (source) =>
+      everythingSettings(getSetting(db, EVERYTHING_MEMORY_SETTING_KEY)?.value, indexedSources(db))
+        .sources[source] === true,
+    mail: {
+      tools: promisesTools,
+      connectors: promisesConnectors,
+      resolve: (address) => people.graph.resolveIdentifier("email", address) ?? null,
+      isTwoWay: (id) => people.graph.isTwoWay(id),
+      ...(gwOptions.logger === undefined ? {} : { logger: gwOptions.logger }),
+    },
+    evidence: (q) =>
+      collectDoneEvidence(
+        {
+          clock,
+          tools: promisesTools,
+          connectors: promisesConnectors,
+          helper: () => gatewayRef?.context.nodes.hostHelper()?.client,
+          resolve: (contact) =>
+            people.graph.resolveIdentifier("email", contact) ??
+            people.graph.resolveIdentifier("phone", contact) ??
+            null,
+          ...(gwOptions.logger === undefined ? {} : { logger: gwOptions.logger }),
+        },
+        q,
+      ),
+    ...(gwOptions.logger === undefined ? {} : { logger: gwOptions.logger }),
+  });
   const proactive = composeProactive({
     db,
     clock,
@@ -2179,6 +2248,13 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     },
     quietThreads: () => mailFollowups.briefLines(),
     nightShift: () => nightShiftRef?.briefLine(),
+    promises: {
+      briefLines: (surface) => promises.briefLines(surface),
+      ledgerOn: () => promises.ledgerOn(),
+      meetingTarget: () => promises.meetingTarget(),
+      jobs: () => promises.jobs(),
+      ensureSchedules: (scheduler, zone) => promises.ensureSchedules(scheduler, zone),
+    },
     // Catching up and `memory.catchup.*` (MW4): the graph, and what the agent may read of it.
     catchup: { graph: people.graph, em: everything.store, access: people.agentAccess },
     // Ideas proposes folding a skill's lessons into it once it has three (teaching loop §6).
@@ -2240,6 +2316,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     publish: (event, payload) => publish(event as never, payload as never),
     broker: rawBroker,
     surfaceOf: (deviceId) => surfaceOf(db, deviceId),
+    onForkApplySettled: (source, approval, outcome) =>
+      planForksRef?.onApplySettled(source, approval, outcome),
     ...(gwOptions.logger === undefined ? {} : { logger: gwOptions.logger }),
   });
   forksRef = composeForks({
@@ -2252,10 +2330,89 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     router,
     redact: (text) => redactor.redact(text),
     publish: (event, payload) => publish(event as never, payload as never),
+    onCompare: (forkId) => planForksRef?.compare(forkId),
     ...(gwOptions.logger === undefined ? {} : { logger: gwOptions.logger }),
   });
   // The report host the loop files each branch's one report to (fork_report, F1).
   forkReportHost.current = forksRef.service.reports;
+  /** One model call, no tools: the comparison pass (thread model) and the suggestion (utility). */
+  const oneShot =
+    (pick: (threadId: string) => string): ModelText =>
+    async (threadId, req) => {
+      const ctl = new AbortController();
+      const timer = setTimeout(() => ctl.abort(), 60_000);
+      try {
+        let text = "";
+        let costUsd = 0;
+        let tokens = 0;
+        for await (const e of provider.stream(
+          {
+            model: pick(threadId) as never,
+            system: req.system,
+            messages: [{ role: "user", parts: [{ type: "text", text: req.user }] }],
+            maxOutputTokens: req.maxOutputTokens,
+            temperature: 0,
+            cache: "none",
+          },
+          { signal: ctl.signal },
+        )) {
+          if (e.type === "text_delta") text += e.text;
+          if (e.type === "usage") {
+            costUsd += e.usage.costUsd ?? 0;
+            tokens += (e.usage.input ?? 0) + (e.usage.output ?? 0);
+          }
+          if (e.type === "finish" && e.reason !== "stop" && e.reason !== "length") return undefined;
+        }
+        return { text, costUsd, tokens };
+      } finally {
+        clearTimeout(timer);
+      }
+    };
+  const forkPrices = new ForkPrices();
+  planForksRef = createPlanForkHandlers({
+    db,
+    clock,
+    service: forksRef.service,
+    applier: nightShiftRef.applier,
+    broker: rawBroker,
+    tasks,
+    surfaceOf: (deviceId) => surfaceOf(db, deviceId),
+    publish: (event, payload, threadId) => publish(event as never, payload as never, threadId),
+    // The parent turn after Take (fork-a-plan §3.4 step 4): tainted with the branch's sources, the
+    // plan as leading (untrusted) context. A busy chat starts nothing: a queued follow-up would
+    // drop the taint.
+    startTurn: (input) => {
+      const gw = gatewayRef;
+      if (gw === null || gw === undefined) return false;
+      if (gw.context.sessions.activeRunId(input.threadId) !== null) return false;
+      const events: Array<() => void> = [];
+      const after: Array<() => void> = [];
+      db.sqlite.transaction(() =>
+        gw.context.sessions.send(
+          {
+            threadId: input.threadId,
+            content: input.content,
+            ...(input.leadingContext === undefined ? {} : { leadingContext: input.leadingContext }),
+            ...(input.preamble === undefined ? {} : { preamble: input.preamble }),
+            deviceId: input.deviceId,
+            taintSources: input.taintSources,
+          },
+          {
+            emit: (event, payload, tid) => events.push(() => gw.bus.publish(event, payload, tid)),
+            afterCommit: (fn) => after.push(fn),
+          },
+        ),
+      )();
+      for (const fn of events) fn();
+      for (const fn of after) fn();
+      return true;
+    },
+    compareModel: oneShot((threadId) => router?.threadModel(threadId) ?? modelRef),
+    suggestModel: oneShot(() => utility ?? modelRef),
+    modelPrice: (threadId) => threadModelPrice(router, forkPrices, threadId),
+    redact: (text) => redactor.redact(text),
+    ...(gwOptions.logger === undefined ? {} : { logger: gwOptions.logger }),
+  });
   // #557: web.search / web.fetch on every surface (read-only, untrusted output).
   const webTools = composeWebTools(
     {
@@ -2671,23 +2828,30 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
           loop.effectiveContextLimits(threadId, getThread(db, threadId)?.modelRef ?? undefined),
       ) as never,
     ),
-    ...mountParamsOnly(
-      createTaskHandlers({
-        engine: tasks,
-        pool,
-        pools: [specialistPool, forkPool],
-        broker,
-      }) as never,
+    // A fork task's goal holds read excerpts: only the desktop shell sees it (fork-a-plan §4.4).
+    ...withForkTaskScrub(
+      db,
+      mountParamsOnly(
+        createTaskHandlers({
+          engine: tasks,
+          pool,
+          pools: [specialistPool, forkPool],
+          broker,
+        }) as never,
+      ),
     ),
-    ...mountParamsOnly(
-      taskUpdateHandlers({
-        tasks,
-        roles: skills.roles,
-        now: () => clock.now(),
-        raise: (taskId, patch) =>
-          raiseSpecialistBudget({ tasks, host: specialists }, taskId, patch),
-        poke: () => specialistPool.poke(),
-      }) as never,
+    ...withForkTaskScrub(
+      db,
+      mountParamsOnly(
+        taskUpdateHandlers({
+          tasks,
+          roles: skills.roles,
+          now: () => clock.now(),
+          raise: (taskId, patch) =>
+            raiseSpecialistBudget({ tasks, host: specialists }, taskId, patch),
+          poke: () => specialistPool.poke(),
+        }) as never,
+      ),
     ),
     ...mountParamsOnly(
       specialistHandlers({
@@ -2726,8 +2890,10 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       mountParamsOnly(createNotificationHandlers(notifier) as never),
       () => people?.loopVisibility,
     ),
-    ...proactive.handlers,
+    ...promises.withShims(proactive.handlers),
+    ...promises.handlers,
     ...(nightShiftRef?.defs ?? {}),
+    ...(planForksRef?.defs ?? {}),
     ...capabilities.handlers,
     ...questionHandlers(loop, tasks),
     ...receiptHandlers(broker),
@@ -2893,7 +3059,11 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   webTools.refresh();
   // approval.created carries each approver's own surface token (issue #50, security §3.7):
   // only to devices that hold operator.approvals, and only their surface's token.
-  gateway.bus.setPersonalizer((event, payload, sub) => {
+  const forkThreadCache = new Map<string, boolean>();
+  gateway.bus.setPersonalizer((event, payload, sub, publishThreadId) => {
+    // A plan fork's hidden threads and tasks reach only the desktop shell on this Mac (§4.4).
+    if (forkEventHidden(db, payload, sub.reader, forkThreadCache, publishThreadId))
+      return SKIP_EVENT;
     // A life answer in a transcript is read again for each subscriber (a remote window gets no
     // Messages chips); a subscriber with no identity (a Gateway part) is read as the least trusted.
     if (event === "chat.message")
@@ -3041,6 +3211,11 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   gateway.context.chatFiles.attached = (threadId) => rawBroker.attachedFiles(threadId);
   // Clear chat and delete end the conversation: its "Allow once" folders and attached files go.
   gateway.context.threadEnded.add(endSessionQuietly(rawBroker, gwOptions.logger));
+  // Chat feeds the promise lane at thread end, before the messages are deleted (design 3.2).
+  gateway.context.threadEnding.add(promises.chat.ending);
+  gateway.context.threadEnded.add(promises.chat.ended);
+  // Clear chat and delete cancel the chat's plan forks and remove their hidden threads (§8).
+  gateway.context.threadEnding.add((threadId) => planForksRef?.onThreadEnding(threadId));
   gateway.context.messageScrub.scrub = (message, who) => everything.lifeChat.scrub(message, who);
   // Phrases still queued by a Forget before the last shutdown resume here.
   traceScrub.start();
@@ -3122,6 +3297,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     otherChats,
     people,
     everything,
+    promises,
     search,
     broker,
     audit,

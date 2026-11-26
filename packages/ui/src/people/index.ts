@@ -8,7 +8,7 @@ export {
   PersonCard,
   ProjectCard,
 } from "./EntityCard.tsx";
-export { EntityRow, type EntityRowProps, entityDetail } from "./EntityRow.tsx";
+export { EntityRow, type EntityRowProps, entityBrief, entityDetail } from "./EntityRow.tsx";
 export {
   AddFactRow,
   attributesFor,

@@ -96,13 +96,12 @@ describe("ThreadList last line (§2.2)", () => {
           }
         }}
       >
-        <ThreadList activeThreadId={null} onOpen={() => {}} now={STORY_NOW} />
+        <ThreadList activeThreadId={null} onOpen={() => {}} now={STORY_NOW} filterToken={1} />
       </StoryWorld>,
     );
     // One-line rows (redesign §5.1): the last line is the row's tooltip, and the filter matches it.
     const lisbon = await screen.findByTitle("Flights on the 14th are cheapest.");
     expect(lisbon.getAttribute("data-testid")).toBe("thread-row");
-    await userEvent.click(screen.getByRole("button", { name: "Filter" }));
     await userEvent.type(screen.getByRole("searchbox", { name: "Filter threads" }), "cheapest");
     const rows = screen.getAllByTestId("thread-row");
     expect(rows).toHaveLength(1);

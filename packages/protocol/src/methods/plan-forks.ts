@@ -94,6 +94,8 @@ export const PlanForksMethods = {
       refused: Type.Array(NightShiftRefused),
     }),
     scope: "operator.approvals",
+    // `continue` starts the parent turn (a model call), now or when the approval resolves.
+    callsModelWhen: (p) => p.continue,
     sideEffecting: true,
     description:
       "Takes one branch's plan: requests the one staged_apply approval for the ticked items, bound to their binding hashes. With no items there is no approval and the plan is taken at once. The client must check the approval's item hashes equal its selection before approvals.answer. Side-effecting: requires idempotencyKey; a replay returns the same approval and token.",

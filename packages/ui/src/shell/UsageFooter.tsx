@@ -65,6 +65,18 @@ export function budgetTone(fraction: number): "ok" | "warning" | "danger" {
 }
 
 /**
+ * True when a budget or plan window is near (from 80 %) or over its limit. The sidebar shows its
+ * usage line only then; Settings, Usage always has the numbers.
+ */
+export function usageWarning(s: UsageSummaryData, primarySubscription?: boolean): boolean {
+  const lead = usageLead(s, primarySubscription);
+  if (lead === "none") return false;
+  const fraction =
+    lead === "subscription" ? (s.planWindow?.usedFraction ?? null) : budgetFraction(s);
+  return fraction !== null && budgetTone(fraction) !== "ok";
+}
+
+/**
  * The second line's text: "No usage today" rather than zeros; a subscription counts turns (and
  * tokens when the CLI reports them), never dollars.
  */
@@ -332,10 +344,13 @@ export function UsageFooter({
   name,
   primarySubscription,
   onOpenUsage,
-}: UsageFooterProps): ReactElement {
+}: UsageFooterProps): ReactElement | null {
   const line = usageLine(summary, primarySubscription);
   const kind = primarySubscription === undefined ? {} : { primarySubscription };
   const rail = variant === "rail";
+  // Quiet by default: the usage line and its graphic show only when a budget is near or over.
+  const warn = usageWarning(summary, primarySubscription);
+  if (rail && !warn) return null;
   return (
     <HoverCard>
       <HoverCardTrigger
@@ -363,11 +378,13 @@ export function UsageFooter({
               <span className="min-w-0 flex-1 truncate text-headline text-label-primary">
                 {name}
               </span>
-              <UsageGraphic summary={summary} {...kind} />
+              {warn ? <UsageGraphic summary={summary} {...kind} /> : null}
             </span>
-            <span className="min-w-0 truncate text-callout text-label-tertiary tabular-nums">
-              {line}
-            </span>
+            {warn ? (
+              <span className="min-w-0 truncate text-callout text-label-tertiary tabular-nums">
+                {line}
+              </span>
+            ) : null}
           </>
         )}
       </HoverCardTrigger>

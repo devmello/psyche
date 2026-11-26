@@ -9,7 +9,6 @@ import {
   Pin,
   Plus,
   Radio,
-  Search,
 } from "lucide-react";
 import {
   createContext,
@@ -466,21 +465,7 @@ export function ThreadGroup({
         <h2 id={headingId} className="min-w-0 flex-1 text-caption text-label-tertiary">
           {t("shell.threads.region")}
         </h2>
-        <Button
-          variant="ghost"
-          size="icon-xs"
-          aria-label={t("shell.sidebar.filterToggle")}
-          aria-pressed={filtering}
-          aria-keyshortcuts="Meta+F"
-          onClick={() => {
-            setFiltering((f) => !f);
-            if (filtering) setFilter("");
-            else requestAnimationFrame(() => filterRef.current?.focus());
-          }}
-          className="text-label-secondary"
-        >
-          <Search aria-hidden="true" />
-        </Button>
+        {/* The magnifier is gone (it read as a second Search); ⌘F in the sidebar opens the filter. */}
         {onNewSideChat ? (
           <Button
             variant="ghost"

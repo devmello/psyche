@@ -9,6 +9,7 @@ import type {
   TaskAction,
   Thread,
 } from "@psyche/protocol";
+import { isForkSessionKey } from "@psyche/protocol";
 import {
   feedDoc,
   goalDoc,
@@ -42,7 +43,15 @@ export interface SearchIndexerOptions {
   /** Loads a thread the indexer has not seen an event for yet (Gateway: the threads repo). */
   lookupThread?: (threadId: string) => Promise<ThreadInfo | undefined>;
   /** Loads a task for a `task.action` that arrives before (or without) its `task.updated`. */
-  lookupTask?: (taskId: string) => Promise<Pick<Task, "title" | "threadId"> | undefined>;
+  lookupTask?: (
+    taskId: string,
+  ) => Promise<(Pick<Task, "title" | "threadId"> & Partial<Pick<Task, "createdFrom">>) | undefined>;
+  /**
+   * Whether a thread is one of a plan fork's hidden threads by origin (Gateway: a
+   * `plan_fork_branches` row). Fork session keys (`fork-branch:`, `fork-digest:`) and fork tasks
+   * (`createdFrom: "fork"`) are left out without it (fork-a-plan-2026 §2.3).
+   */
+  isForkThread?: (threadId: string) => boolean;
   /**
    * Who sent a message, for `from:` (Gateway: `messageSender`, with the owner's name from the
    * profile). Called for every chat message; undefined leaves the message without a sender.
@@ -68,7 +77,7 @@ export class SearchIndexer {
   #index: IndexWriter;
   #opts: SearchIndexerOptions;
   #threads = new Map<string, ThreadInfo>();
-  #tasks = new Map<string, Pick<Task, "title" | "threadId">>();
+  #tasks = new Map<string, Pick<Task, "title" | "threadId"> & { fork?: boolean }>();
 
   constructor(index: IndexWriter, options: SearchIndexerOptions = {}) {
     this.#index = index;
@@ -122,7 +131,7 @@ export class SearchIndexer {
   async onThread(thread: Thread): Promise<void> {
     const prev = this.#threads.get(thread.id);
     this.#threads.set(thread.id, thread);
-    if (isIncognito(thread)) {
+    if (this.#hidden(thread)) {
       await this.#index.removeThread(thread.id);
       return;
     }
@@ -143,7 +152,7 @@ export class SearchIndexer {
    */
   async onMessage(message: Message): Promise<void> {
     const thread = await this.#thread(message.threadId);
-    if (thread === undefined || isIncognito(thread)) return;
+    if (thread === undefined || this.#hidden(thread)) return;
     const sender = await this.#opts.senderOf?.(message, thread);
     await this.#index.index(
       messageDoc(message, {
@@ -160,16 +169,20 @@ export class SearchIndexer {
   }
 
   async onTask(task: Task): Promise<void> {
-    this.#tasks.set(task.id, { title: task.title, threadId: task.threadId });
+    const fork = task.createdFrom === "fork";
+    this.#tasks.set(task.id, { title: task.title, threadId: task.threadId, fork });
+    // A fork task's goal can hold read excerpts (mail, Messages, Memory): never indexed.
+    if (fork) return;
     const thread = await this.#thread(task.threadId);
-    if (thread === undefined || isIncognito(thread)) return;
+    if (thread === undefined || this.#hidden(thread)) return;
     await this.#index.index(taskDoc(task, thread));
   }
 
   async onTaskAction(action: TaskAction): Promise<void> {
     const task = await this.#task(action.taskId);
     const thread = task === undefined ? undefined : await this.#thread(task.threadId);
-    if (task === undefined || thread === undefined || isIncognito(thread)) return;
+    if (task === undefined || task.fork === true || thread === undefined || this.#hidden(thread))
+      return;
     await this.#index.index(taskActionDoc(action, task, threadScope(thread)));
   }
 
@@ -183,13 +196,29 @@ export class SearchIndexer {
     if (receipt.taskId != null) await this.#index.setFlag(receipt.taskId, "receipt");
   }
 
-  async #task(id: string): Promise<Pick<Task, "title" | "threadId"> | undefined> {
+  async #task(
+    id: string,
+  ): Promise<(Pick<Task, "title" | "threadId"> & { fork?: boolean }) | undefined> {
     const cached = this.#tasks.get(id);
     if (cached !== undefined) return cached;
     const loaded = await this.#opts.lookupTask?.(id);
-    if (loaded !== undefined)
-      this.#tasks.set(id, { title: loaded.title, threadId: loaded.threadId });
-    return loaded;
+    if (loaded === undefined) return undefined;
+    const entry = {
+      title: loaded.title,
+      threadId: loaded.threadId,
+      fork: loaded.createdFrom === "fork",
+    };
+    this.#tasks.set(id, entry);
+    return entry;
+  }
+
+  /** Incognito, or a plan fork's hidden thread (by session key or by origin): never indexed. */
+  #hidden(thread: ThreadInfo): boolean {
+    return (
+      isIncognito(thread) ||
+      isForkSessionKey(thread.sessionKey) ||
+      this.#opts.isForkThread?.(thread.id) === true
+    );
   }
 
   async #thread(id: string): Promise<ThreadInfo | undefined> {

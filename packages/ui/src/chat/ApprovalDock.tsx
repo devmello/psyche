@@ -41,9 +41,17 @@ export function ApprovalDock({
     window.addEventListener(FOCUS_APPROVAL_EVENT, onFocus);
     return () => window.removeEventListener(FOCUS_APPROVAL_EVENT, onFocus);
   }, []);
-  const mine = pending
+  const all = pending
     .filter((v) => v.approval.requestedBy.threadId === threadId)
     .sort((a, b) => a.approval.expiresAt.localeCompare(b.approval.expiresAt));
+  // Only a live approval shows a countdown: once every one has expired the clock stops.
+  const [clockStopped, setClockStopped] = useState(false);
+  const now = useNow(1000, fixedNow, all.length > 0 && !clockStopped);
+  // An approval past its time is a quiet line after the live cards, never the open card.
+  const mine = all.filter((v) => Date.parse(v.approval.expiresAt) > now);
+  const lapsed = all.filter((v) => Date.parse(v.approval.expiresAt) <= now);
+  const allLapsed = all.length > 0 && mine.length === 0;
+  if (allLapsed !== clockStopped) setClockStopped(allLapsed);
   // The open card stays put: a new approval that expires sooner joins the rows instead of
   // replacing the card under the owner's focus (docs/a11y-audit.md C2).
   const ids = mine.map((v) => v.approval.id).join(" ");
@@ -53,8 +61,6 @@ export function ApprovalDock({
       setOpenId(mine[0]?.approval.id ?? null);
     }
   }, [ids]);
-  // Only a pending approval shows a countdown: with none in this thread the clock stays off.
-  const now = useNow(1000, fixedNow, mine.length > 0);
   const open = mine.find((v) => v.approval.id === openId) ?? mine[0];
   const newest = [...mine].sort((a, b) =>
     b.approval.requestedAt.localeCompare(a.approval.requestedAt),
@@ -140,6 +146,15 @@ export function ApprovalDock({
             </Presence>
           </m.div>
         ) : null}
+        {lapsed.map((v) => (
+          <ApprovalCard
+            key={v.approval.id}
+            approval={v.approval}
+            canAnswer={false}
+            persona={persona.name}
+            now={now}
+          />
+        ))}
         <Presence initial={false}>
           {next ? (
             <m.div key="more" layout="position" className="flex justify-center" {...fade}>

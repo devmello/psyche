@@ -42,6 +42,7 @@ import {
   publicFetch,
   readDailySettings,
   rssSource,
+  type SchedulerLike,
   SchedulingService,
   type SignalsProvider,
   type SkillUpdatesProvider,
@@ -64,9 +65,15 @@ import { ulid } from "ulid";
 import type { Call, HandlerDef } from "../context.ts";
 import type { Logger } from "../log.ts";
 import { type CatchupDeps, composeCatchup } from "./catchup.ts";
+import { withoutForkTasks } from "./fork-hidden.ts";
 import { mountParamsOnly, surfaceOf } from "./handlers.ts";
 import { type HelperAvailability, isNeedsHelper } from "./helper-availability.ts";
-import { type ComposedMeetings, composeMeetings, graphPrepHooks } from "./meetings.ts";
+import {
+  type ComposedMeetings,
+  composeMeetings,
+  graphPrepHooks,
+  type MeetingLedgerTarget,
+} from "./meetings.ts";
 import { recordingsFolderIo } from "./notes-folder.ts";
 import type { GistSources } from "./people.ts";
 import { isOwnerQuietAt } from "./quiet-hours.ts";
@@ -171,6 +178,17 @@ export interface ProactiveSetup {
   comingUp?: () => { text: string; link?: string }[];
   /** Relationship nudges' "Keep in touch" lines for the morning brief (at most three). */
   keepInTouch?: () => { text: string; link?: string }[];
+  /**
+   * The promise ledger (`compose/promises.ts`): its brief lines, the notes writer's target, its
+   * two jobs and their schedules. Read late (a ref), because it is composed after this part.
+   */
+  promises?: {
+    briefLines: (surface?: "brief" | "channel") => { text: string; link?: string }[];
+    ledgerOn: () => boolean;
+    meetingTarget: () => MeetingLedgerTarget | "off" | undefined;
+    jobs: () => ProactiveJob[];
+    ensureSchedules: (scheduler: SchedulerLike, timezone: string) => Promise<void>;
+  };
   /** Quiet email threads' lines for the morning brief (`compose/mail-followups.ts`). */
   quietThreads?: () => Promise<{ text: string; link?: string }[]>;
   /** Night shift's one brief line (counts only), or nothing (`compose/night-shift.ts`). */
@@ -561,6 +579,9 @@ export function composeProactive(setup: ProactiveSetup): ComposedProactive {
             ? {}
             : { runningApps: setup.meetings.runningApps }),
           ...(graph === undefined ? {} : { graph }),
+          ...(setup.promises === undefined
+            ? {}
+            : { promises: () => setup.promises?.meetingTarget() }),
           ownerAddresses,
           ...(timeZone === undefined ? {} : { timezone: timeZone }),
           publish: (event, payload) => publish(event, payload),
@@ -625,16 +646,18 @@ export function composeProactive(setup: ProactiveSetup): ComposedProactive {
     prepLink: (e) => meetingPrep?.prepLinkFor(e),
     activity: {
       openTasks: async () =>
-        (
+        withoutForkTasks(
+          db,
           await tasks.list({
             status: ["queued", "running", "awaiting_input", "awaiting_approval", "paused"],
-          })
+          }),
         )
+          // Plan-fork branches are hidden work (fork-a-plan-2026 §2.3): never a brief line.
           .filter((t) => t.createdFrom !== "automation")
           .slice(0, 20)
           .map((t) => ({ id: t.id, title: t.title, link: `/tasks/${t.id}` })),
       doneBetween: async (from, to) => {
-        const done = (await tasks.list({ status: ["done"] }))
+        const done = withoutForkTasks(db, await tasks.list({ status: ["done"] }))
           .filter((t) => {
             const at = Date.parse(t.completedAt ?? "");
             return at >= from && at <= to;
@@ -712,6 +735,10 @@ export function composeProactive(setup: ProactiveSetup): ComposedProactive {
       await voice?.ensureSchedule({ enabled: w.voiceEnabled, ...tz });
       await focus?.ensureSchedule({ enabled: w.focusTime, ...tz });
       await daily.syncSchedules();
+      await setup.promises?.ensureSchedules(
+        scheduler,
+        zone ?? Intl.DateTimeFormat().resolvedOptions().timeZone,
+      );
     } catch (err) {
       logger?.log("warn", "workflow schedule sync failed", { code: PsycheError.from(err).code });
     }
@@ -803,6 +830,8 @@ export function composeProactive(setup: ProactiveSetup): ComposedProactive {
             ? []
             : [helperGated(pausable(notesFolder.job(), paused), helper)]),
           ...daily.jobs().map((job) => helperGated(job, helper)),
+          // The promise ledger reads mail and runs a model: it follows the owner's own switches.
+          ...(setup.promises?.jobs() ?? []),
         ],
         heartbeat: createTaskLauncher({ engine: tasks, pool, budget: HEARTBEAT_TASK_BUDGET }),
         onError: (err) =>
@@ -838,13 +867,19 @@ export function composeProactive(setup: ProactiveSetup): ComposedProactive {
 function briefLines(
   setup: ProactiveSetup,
   catchup: ReturnType<typeof composeCatchup> | undefined,
-): Pick<ConstructorParameters<typeof DailyService>[0], "comingUp" | "keepInTouch"> {
+): Pick<
+  ConstructorParameters<typeof DailyService>[0],
+  "comingUp" | "keepInTouch" | "promises" | "hideFollowups"
+> {
   const comingUp = catchup === undefined ? setup.comingUp : catchup.comingUp(setup.comingUp);
   const keepInTouch =
     catchup === undefined ? setup.keepInTouch : catchup.keepInTouch(setup.keepInTouch);
   return {
     ...(comingUp === undefined ? {} : { comingUp }),
     ...(keepInTouch === undefined ? {} : { keepInTouch }),
+    ...(setup.promises === undefined
+      ? {}
+      : { promises: (surface) => setup.promises?.briefLines(surface) ?? [] }),
   };
 }
 
