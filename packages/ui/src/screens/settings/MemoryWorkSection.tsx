@@ -265,8 +265,6 @@ export function MemoryWorkSection(): ReactElement {
     );
   };
 
-  const wrapupOn = form.values["daily.wrapup.enabled"] === true;
-  const briefOn = form.values["daily.brief.enabled"] === true;
   const wrapupTime = str(form.values, "daily.wrapup.time", "18:00");
 
   return (
@@ -380,18 +378,6 @@ export function MemoryWorkSection(): ReactElement {
                       </Button>
                     ) : null}
                   </SettingRow>
-                  {wrapupOn ? null : (
-                    <SettingRow label={t("memoryWork.remind.needsWrapup")}>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        onClick={() => form.onChange("daily.wrapup.enabled", true)}
-                      >
-                        {t("memoryWork.remind.turnOnWrapup")}
-                      </Button>
-                    </SettingRow>
-                  )}
                 </>
               ) : null}
               <SwitchField
@@ -401,18 +387,6 @@ export function MemoryWorkSection(): ReactElement {
                 checked={work.remind.dayOf}
                 onChange={(on) => put("remind.dayOf", on)}
               />
-              {work.remind.dayOf && !briefOn ? (
-                <SettingRow label={t("memoryWork.remind.needsBrief")}>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    onClick={() => form.onChange("daily.brief.enabled", true)}
-                  >
-                    {t("memoryWork.remind.turnOnBrief")}
-                  </Button>
-                </SettingRow>
-              ) : null}
             </Group>
           </>
         ) : null}

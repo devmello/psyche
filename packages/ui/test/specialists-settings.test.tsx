@@ -36,8 +36,8 @@ describe("Settings → Specialists (specialists §6.4)", () => {
   it("lives on Routines & skills next to Skills, and finds its keys", () => {
     const panes = SETTINGS_PAGES.find((p) => p.id === "daily")?.panes ?? [];
     expect(panes.indexOf("specialists")).toBe(panes.indexOf("skills") + 1);
-    expect(paneForKey("specialists.budget.researcher")).toBe("specialists");
-    expect(settingLabel("specialists.maxMode.coder")).toBe("coder permission mode");
+    expect(paneForKey("specialists.enabled.researcher")).toBe("specialists");
+    expect(settingLabel("specialists.model.coder")).toBe("coder model");
     expect(settingLabel("specialists.maxConcurrent")).toBe("Specialists at once");
   });
 
@@ -60,23 +60,17 @@ describe("Settings → Specialists (specialists §6.4)", () => {
     );
   });
 
-  it("edits a role's model, budget (capped) and permission mode", async () => {
+  it("edits a role's model, and offers no budget, cap or mode control nothing reads", async () => {
     const spy = renderSection();
     await userEvent.click(await screen.findByRole("button", { name: "Edit Researcher" }));
     const row = screen.getByTestId("specialist-role-researcher");
     const model = within(row).getByLabelText("Model") as HTMLSelectElement;
     expect(model.options[0]?.textContent).toBe("Default: primary model");
-    const tokens = within(row).getByLabelText("Tokens");
-    await userEvent.clear(tokens);
-    await userEvent.type(tokens, "3000000{Enter}");
-    // The skill caps the researcher at 2M tokens.
-    expect((tokens as HTMLInputElement).value).toBe("2000000");
-    await userEvent.click(within(row).getByRole("radio", { name: "Manual" }));
-    await waitFor(() =>
-      expect(writes(spy)).toEqual([
-        ["specialists.budget.researcher", { tokens: 2_000_000, costUsd: 2, minutes: 30 }],
-        ["specialists.maxMode.researcher", "manual"],
-      ]),
-    );
+    fireEvent.change(model, { target: { value: model.options[1]?.value ?? "" } });
+    await waitFor(() => expect(writes(spy)).toHaveLength(1));
+    expect(writes(spy)[0]?.[0]).toBe("specialists.model.researcher");
+    expect(within(row).queryByLabelText("Tokens")).toBeNull();
+    expect(within(row).queryByRole("radio", { name: "Manual" })).toBeNull();
+    expect(screen.queryByText("Monthly specialist spend")).toBeNull();
   });
 });

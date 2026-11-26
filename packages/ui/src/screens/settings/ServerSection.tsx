@@ -20,8 +20,6 @@ import {
   SectionFrame,
   type SettingsFormProps,
   StatusChip,
-  str,
-  TextSetting,
   useSettingsForm,
 } from "./shared.tsx";
 import type { ServerStatus } from "./types.ts";
@@ -43,8 +41,6 @@ export interface ServerPanelProps extends SettingsFormProps, LoadProps {
 }
 
 export function ServerPanel({
-  values,
-  onChange,
   needsApproval,
   status,
   sandboxError = null,
@@ -55,8 +51,6 @@ export function ServerPanel({
   error,
   onRetry,
 }: ServerPanelProps): ReactElement {
-  const bind = str(values, "gateway.bind", status?.bind ?? DEFAULT_BIND);
-  const exposed = !bind.startsWith("127.0.0.1") && !bind.startsWith("localhost");
   return (
     <SectionFrame
       needsApproval={needsApproval}
@@ -70,22 +64,6 @@ export function ServerPanel({
         error={error ?? null}
         {...(onRetry ? { onRetry } : {})}
       >
-        <Group title={t("settings.about.gateway")}>
-          <TextSetting
-            label={t("settings.key.gateway.bind")}
-            description={t("settings.server.bindHint")}
-            value={bind}
-            settingKey="gateway.bind"
-            onCommit={(v) => onChange("gateway.bind", v === "" ? DEFAULT_BIND : v)}
-          >
-            {exposed ? (
-              <p className="text-callout text-approval-text" role="status">
-                {t("settings.server.exposed")}
-              </p>
-            ) : null}
-          </TextSetting>
-        </Group>
-
         <Group
           title={t("settings.server.remoteAccess")}
           actions={
@@ -208,7 +186,7 @@ export function ServerSection({ status, ...actions }: ServerSectionProps): React
   const merged: ServerStatus = status
     ? { ...status, sandbox: sandboxNow ?? status.sandbox }
     : {
-        bind: str(form.values, "gateway.bind", DEFAULT_BIND),
+        bind: DEFAULT_BIND,
         passkeys: passkeys.data?.passkeys.length ?? 0,
         sandbox: sandboxNow,
         vm: null,

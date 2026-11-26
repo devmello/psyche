@@ -253,7 +253,7 @@ export const settingsD: Partial<Catalogue> = {
   "settings.people.graph": "Aprender sobre pessoas a partir de",
   "settings.people.entityRecall": "Usar nomes nas respostas",
   "settings.people.entityRecallHint":
-    "Quando você cita alguém em um chat privado, {persona} acrescenta uma linha sobre a pessoa. Nunca em grupos nem canais.",
+    "Quando você cita alguém em um chat, {persona} acrescenta uma linha sobre a pessoa.",
   "settings.people.sources": "Aprender sobre pessoas a partir de",
   "settings.people.sourcesHint":
     "Cada fonte fica desativada até você ativar. Desativar uma deixa de lê-la.",

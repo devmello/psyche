@@ -35,7 +35,7 @@ import {
 import { t } from "../../i18n/core.ts";
 
 /**
- * The Settings window's structure (docs/design/settings-2026.md): nine pages in the sidebar, each
+ * The Settings window's structure (docs/design/settings-2026.md): seven pages in the sidebar, each
  * a column of panes. A pane is one of the old sections, kept whole so its settings, stories and
  * tests stay put; its id is still a route (`/settings/files` opens Permissions at File access), so
  * every deep link from before keeps working. A page's id is its first pane's id where it has one,
@@ -43,16 +43,13 @@ import { t } from "../../i18n/core.ts";
  */
 
 export type SettingsPageId =
-  | "essentials"
   | "general"
   | "model"
   | "connectors"
   | "memory"
   | "daily"
   | "permissions"
-  | "data"
-  | "devices"
-  | "about";
+  | "devices";
 
 export type SettingsPaneId =
   | "essentials"
@@ -114,19 +111,30 @@ export interface SettingsPage extends SettingsEntry<SettingsPageId> {
   main?: SettingsPaneId;
   /** The body lists the other panes itself (Permissions' Access rows), so no row list follows. */
   listsOwnRows?: boolean;
+  /** Panes that stay routes and search hits but get no row (they live inside another pane). */
+  hidden?: readonly SettingsPaneId[];
 }
 
 const page = (
   id: SettingsPageId,
   icon: LucideIcon,
   panes: readonly SettingsPaneId[],
-  options: { listsOwnRows?: boolean } = {},
+  options: {
+    listsOwnRows?: boolean;
+    main?: SettingsPaneId;
+    hidden?: readonly SettingsPaneId[];
+  } = {},
 ): SettingsPage => ({
   id,
   icon,
   panes,
-  ...(panes.length > 1 && panes.some((p) => p === id) ? { main: id as SettingsPaneId } : {}),
+  ...(options.main !== undefined
+    ? { main: options.main }
+    : panes.length > 1 && panes.some((p) => p === id)
+      ? { main: id as SettingsPaneId }
+      : {}),
   ...(options.listsOwnRows === true ? { listsOwnRows: true } : {}),
+  ...(options.hidden !== undefined ? { hidden: options.hidden } : {}),
   get label() {
     return t(`settings.page.${id}`);
   },
@@ -138,6 +146,7 @@ export const SETTINGS_PANES: readonly SettingsEntry<SettingsPaneId>[] = [
   entry("persona", UserRound),
   entry("notifications", Bell),
   entry("voice", Mic),
+  entry("about", Info),
   entry("model", Bot),
   entry("usage", Activity),
   entry("connectors", Plug),
@@ -161,16 +170,19 @@ export const SETTINGS_PANES: readonly SettingsEntry<SettingsPaneId>[] = [
   entry("data", Database),
   entry("devices", MonitorSmartphone),
   entry("server", Server),
-  entry("about", Info),
 ];
 
 /**
- * The sidebar, in the order people need it: Essentials (the few choices a newcomer makes) first,
- * everyday choices next, plumbing last.
+ * The sidebar, in the order people need it: General (Essentials, the few choices a newcomer
+ * makes) first, everyday choices next, plumbing last.
  */
 export const SETTINGS_PAGES: readonly SettingsPage[] = [
-  page("essentials", ListChecks, ["essentials"]),
-  page("general", SlidersHorizontal, ["appearance", "persona", "notifications", "voice"]),
+  page(
+    "general",
+    SlidersHorizontal,
+    ["essentials", "appearance", "persona", "notifications", "voice", "about"],
+    { main: "essentials" },
+  ),
   page("model", Cpu, ["model", "usage"]),
   page("connectors", Plug, ["connectors", "search", "mail"]),
   page("memory", Brain, ["learning", "memory", "everything", "work", "surfaces", "people"]),
@@ -178,12 +190,10 @@ export const SETTINGS_PAGES: readonly SettingsPage[] = [
   page(
     "permissions",
     ShieldCheck,
-    ["permissions", "computer-use", "browser", "files", "credentials", "vm"],
-    { listsOwnRows: true },
+    ["permissions", "computer-use", "browser", "files", "credentials", "vm", "data"],
+    { listsOwnRows: true, hidden: ["vm"] },
   ),
-  page("data", Database, ["data"]),
   page("devices", MonitorSmartphone, ["devices", "server"]),
-  page("about", Info, ["about"]),
 ];
 
 /**
@@ -214,18 +224,39 @@ export function pageOfPane(id: SettingsPaneId): SettingsPage {
 }
 
 /**
+ * Route ids whose page or pane went away or moved: where an old link lands. (Essentials, About,
+ * Privacy & data and Server kept their ids as panes; VM mode moved inside Computer use.)
+ */
+export const SETTINGS_ALIASES: Readonly<
+  Record<string, { page: SettingsPageId; pane?: SettingsPaneId }>
+> = {
+  essentials: { page: "general", pane: "essentials" },
+  about: { page: "general", pane: "about" },
+  data: { page: "permissions", pane: "data" },
+  server: { page: "devices", pane: "server" },
+  vm: { page: "permissions", pane: "computer-use" },
+};
+
+/**
  * Where a route id lands: its page, and the pane to scroll to (none for a page's own id, which
- * opens at the top). Unknown ids open Essentials.
+ * opens at the top). Unknown ids open General.
  */
 export function resolveSection(id: string | undefined): {
   page: SettingsPageId;
   pane?: SettingsPaneId;
 } {
+  const alias = id === undefined ? undefined : SETTINGS_ALIASES[id];
+  if (alias !== undefined) {
+    // A page's body pane is the page's top, not a drilled-in pane.
+    return alias.pane !== undefined && pageById(alias.page).main === alias.pane
+      ? { page: alias.page }
+      : alias;
+  }
   const asPage = SETTINGS_PAGES.find((p) => p.id === id);
   if (asPage !== undefined) return { page: asPage.id };
   const asPane = SETTINGS_PANES.find((p) => p.id === id);
   if (asPane !== undefined) return { page: pageOfPane(asPane.id).id, pane: asPane.id };
-  return { page: "essentials" };
+  return { page: "general" };
 }
 
 /** The pane a setting key lives in, so Search can jump straight to it. */
@@ -240,7 +271,7 @@ export function paneForKey(key: string): SettingsPaneId | null {
   if (key === "data.transcriptRecall") return "learning";
   if (key === "agent.showReasoning") return "persona";
   if (key.startsWith("memory.graph")) return "people";
-  if (key === "ui.links.openIn") return "browser";
+  if (key === "ui.links.openIn") return "appearance";
   if (key === "capabilities.onlineSearch" || key === "tools.loading") return "connectors";
   const byRoot: Record<string, SettingsPaneId> = {
     appearance: "appearance",
@@ -265,7 +296,7 @@ export function paneForKey(key: string): SettingsPaneId | null {
     people: "people",
     permissions: "permissions",
     persona: "persona",
-    vm: "vm",
+    vm: "computer-use",
     voice: "voice",
     screenAsk: "voice",
     points: "computer-use",

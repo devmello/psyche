@@ -56,8 +56,6 @@ export const windows: Partial<Record<MessageId, string>> = {
     "This build of the Windows helper can't keep a Windows Hello key, so cards that need Windows Hello can't be approved on this PC.",
   "settings.essentials.model.noneHint":
     "{persona} needs a model before it can answer. Add a key, or use a model on this PC.",
-  "settings.essentials.read.hint":
-    "Off until you turn one on. What it reads is indexed on this PC so it can find things for you, and memory learns from it too unless you opt out under Memory → Sources.",
   "settings.searchModel.apple.notOnThisMac": "Available on macOS",
   // VM mode is the sandbox PC here: a small Linux guest in Hyper-V.
   "settings.nav.vm": "Sandbox PC",
@@ -220,8 +218,6 @@ export const windows: Partial<Record<MessageId, string>> = {
     "This PC has {gb, number} GB. Local models need at least {min, number} GB; use a cloud provider instead.",
   "settings.model.ram.fits": "This PC has {gb, number} GB, so {fits} fit.",
   "settings.model.ram.thisMac": " (this PC)",
-  "settings.server.bindHint":
-    "127.0.0.1 keeps it on this PC. Use remote access below instead of binding to every interface.",
   "settings.gateways.description":
     "Use Psyche from this computer with the Gateway on another one, such as your computer at home. One Gateway is active at a time, and switching restarts Psyche.",
   "settings.gateways.thisMac": "This PC",

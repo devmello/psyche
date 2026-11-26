@@ -6,6 +6,7 @@ import { Label } from "../../components/ui/label.tsx";
 import { RadioGroup } from "../../components/ui/radio-group.tsx";
 import { activeI18n, t } from "../../i18n/core.ts";
 import { cn } from "../../lib/utils.ts";
+import { LINK_OPEN_SETTING, type LinkOpenMode, linkOpenMode } from "../../links/link-policy.ts";
 import {
   DEFAULT_ACCENT_SEED,
   GRAY_FAMILIES,
@@ -339,6 +340,20 @@ export function AppearancePanel({
             checked={values[OPEN_AT_LOGIN_SETTING] === true}
             settingKey={OPEN_AT_LOGIN_SETTING}
             onChange={(v) => onChange(OPEN_AT_LOGIN_SETTING, v)}
+          />
+        </Group>
+
+        <Group title={t("settings.links.title")} description={t("settings.links.description")}>
+          <RadioField<LinkOpenMode>
+            label={t("settings.key.ui.links.openIn")}
+            settingKey={LINK_OPEN_SETTING}
+            value={linkOpenMode(values[LINK_OPEN_SETTING])}
+            onChange={(v) => onChange(LINK_OPEN_SETTING, v)}
+            options={[
+              { value: "ask", label: t("settings.links.openIn.ask") },
+              { value: "psyche", label: t("settings.links.openIn.psyche") },
+              { value: "browser", label: t("settings.links.openIn.browser") },
+            ]}
           />
         </Group>
 

@@ -17,8 +17,8 @@ import {
 
 /**
  * Settings → Notifications (#953): quiet hours. Off by default. Inside the window Psyche still
- * writes every notification to the inbox, but holds the ones that would interrupt (the OS, your
- * chats) until the window ends. Approvals marked time-sensitive still come through. The Gateway
+ * writes every notification to the inbox, but holds the ones that would interrupt (the OS, mail
+ * follow-ups, nudges) until the window ends. Approvals marked time-sensitive still come through. The Gateway
  * reads these keys when each notification is sent, so a change applies to the next one.
  */
 

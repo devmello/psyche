@@ -38,7 +38,6 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.nav.learning": "基礎",
   "settings.search.count": "{count, plural, other {#件の結果}}",
   "settings.search.result.page": "ページ",
-  "settings.page.essentials": "基本",
   "settings.essentials.title": "基本",
   "settings.essentials.description":
     "多くの人が選ぶ、いくつかの項目です。それぞれ安全な初期値があります。ほかに必要なことがあれば{persona}が尋ねます。",
@@ -52,14 +51,7 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.essentials.model.noneHint":
     "{persona}が答えるにはモデルが必要です。キーを追加するか、このMacのモデルを使ってください。",
   "settings.essentials.model.setUp": "モデルを設定",
-  "settings.essentials.read.title": "{persona}が読んでよいもの",
-  "settings.essentials.read.hint":
-    "オンにするまではオフです。読み取った内容は、探し物をしやすくするためにこのMac上でインデックス化され、メモリの「情報源」でオプトアウトしない限り、メモリの学習にも使われます。",
   "settings.essentials.asks.title": "{persona}が先に確認する頻度",
-  "settings.essentials.interrupt.title": "{persona}が割り込んでよい時間",
-  "settings.essentials.interrupt.quietHint":
-    "{from}から{until}まで、通知は受信トレイで待機します。",
-  "settings.essentials.interrupt.briefHint": "{time}に、フィードに短い概要が届きます。",
   "settings.essentials.memory.title": "メモリ",
   "settings.essentials.memory.remember": "{persona}にチャットを覚えさせる",
   "settings.essentials.memory.rememberHint":
@@ -156,12 +148,9 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.key.ui.onboarding.progress": "オンボーディングの進行状況",
   "settings.key.permissions.liftedFloors": "{id}で確認なしに許可する操作",
   "settings.key.specialists.maxConcurrent": "同時に動くスペシャリスト数",
-  "settings.key.specialists.monthlyCapUsd": "スペシャリストの月間利用額",
   "settings.key.specialists.showInFeed": "スペシャリストの結果をフィードに表示",
   "settings.key.specialists.enabled": "{role}をオン",
   "settings.key.specialists.model": "{role}のモデル",
-  "settings.key.specialists.budget": "{role}の予算",
-  "settings.key.specialists.maxMode": "{role}の権限モード",
   "settings.credentials.payments.description":
     "各購入を承認すると、1回限りのカードが使われます。カード番号がPsycheに渡ることはありません。",
   "settings.approval.presenceUnavailable":
@@ -777,7 +766,7 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.connectors.page.row.onHost": "{host}上",
   "settings.connectors.page.row.macOnly": "Mac ホストでのみ",
   "settings.computerUse.remote":
-    "コンピュータの操作は{host}で行われます。そちらから依頼するか、ブラウザを使ってください。",
+    "コンピュータの操作は{host}で行われます。そちらから依頼してください。",
   "settings.computerUse.remoteLinux":
     "コンピュータ操作は {host} のプライベート画面で行われます。監視ペインで様子を見て、操作を引き継げます。",
   "settings.gateways.title": "このコンピュータのGateway",
@@ -1197,7 +1186,7 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.people.graph": "人物を学習する情報源",
   "settings.people.entityRecall": "返信で名前を使う",
   "settings.people.entityRecallHint":
-    "非公開チャットで誰かの名前を出すと、{persona}がその人について1行を添えます。グループやチャンネルでは行いません。",
+    "チャットで誰かの名前を出すと、{persona}がその人について1行を添えます。",
   "settings.people.sources": "人物を学習する情報源",
   "settings.people.sourcesHint":
     "各情報源はオンにするまでオフです。オフにすると読み取りを停止します。",
@@ -1285,9 +1274,6 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.specialists.all": "すべてのスペシャリスト",
   "settings.specialists.concurrent": "同時に動くスペシャリスト数",
   "settings.specialists.concurrentHint": "多いほど並行して実行され、残りは順番を待ちます。",
-  "settings.specialists.monthlyCap": "月間の利用額",
-  "settings.specialists.monthlyCapHint":
-    "上限に達すると、新しい作業は予算が空くまで待機します。空欄の場合は月間予算の半分を使います{budget, select, none {} other {（{budget}）}}。",
   "settings.specialists.monthlyCapNone": "上限なし",
   "settings.specialists.showInFeed": "結果をフィードに表示",
   "settings.specialists.showInFeedHint": "どちらの場合も、結果はすべて受信トレイに届きます。",
@@ -1306,13 +1292,6 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.specialists.class.primary": "プライマリモデル",
   "settings.specialists.class.harness": "コーディングハーネス",
   "settings.specialists.class.vision": "ビジョン対応のプライマリモデル",
-  "settings.specialists.budget": "作業ごとの予算",
-  "settings.specialists.budgetTokens": "トークン",
-  "settings.specialists.budgetCost": "コスト（USD）",
-  "settings.specialists.budgetMinutes": "分",
-  "settings.specialists.budgetCaps":
-    "最大{tokens}トークン · {cost} · {minutes}分。作業はこれ以上を要求することもできますが、この上限を超えることはありません。",
-  "settings.specialists.maxMode": "確認なしでできる最大の範囲",
   "settings.specialists.mode.plan": "プラン",
   "settings.specialists.mode.manual": "手動",
   "settings.specialists.mode.balanced": "バランス",

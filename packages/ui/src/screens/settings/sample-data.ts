@@ -119,7 +119,6 @@ export function sampleSettings(): Record<string, unknown> {
     "voice.pushToTalk": "fn",
     "voice.mode": "hold",
     "voice.hotkey": "Control+Option+D",
-    "voice.engine": "local",
     "data.replayRetentionDays": 7,
     "data.reasoningRetentionDays": 7,
     "data.transcriptRecall": true,

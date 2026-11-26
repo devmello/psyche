@@ -38,7 +38,6 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.nav.learning": "बुनियादी बातें",
   "settings.search.count": "{count, plural, one {# नतीजा} other {# नतीजे}}",
   "settings.search.result.page": "पेज",
-  "settings.page.essentials": "ज़रूरी बातें",
   "settings.essentials.title": "ज़रूरी बातें",
   "settings.essentials.description":
     "वे कुछ चुनाव जो ज़्यादातर लोग करते हैं, हर एक सुरक्षित डिफ़ॉल्ट के साथ। ज़्यादा की ज़रूरत होने पर {persona} पूछता है।",
@@ -52,13 +51,7 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.essentials.model.noneHint":
     "जवाब देने से पहले {persona} को एक मॉडल चाहिए। कुंजी जोड़ें, या इस Mac पर कोई मॉडल उपयोग करें।",
   "settings.essentials.model.setUp": "मॉडल सेट अप करें",
-  "settings.essentials.read.title": "{persona} क्या पढ़ सकता है",
-  "settings.essentials.read.hint":
-    "जब तक आप कोई चालू नहीं करते, बंद रहता है। जो यह पढ़ता है वह आपके लिए चीज़ें खोजने के लिए इस Mac पर इंडेक्स होता है, और मेमोरी भी उससे सीखती है जब तक कि आप मेमोरी → स्रोत में बाहर न रखें।",
   "settings.essentials.asks.title": "{persona} कितनी बार पहले पूछता है",
-  "settings.essentials.interrupt.title": "{persona} कब आपको टोक सकता है",
-  "settings.essentials.interrupt.quietHint": "{from} से {until} तक, नोटिफ़िकेशन इनबॉक्स में इंतज़ार करते हैं।",
-  "settings.essentials.interrupt.briefHint": "{time} बजे फ़ीड में एक छोटी ब्रीफ़।",
   "settings.essentials.memory.title": "मेमोरी",
   "settings.essentials.memory.remember": "{persona} को हमारी चैट याद रखने दें",
   "settings.essentials.memory.rememberHint":
@@ -153,12 +146,9 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.key.ui.onboarding.progress": "ऑनबोर्डिंग की प्रगति",
   "settings.key.permissions.liftedFloors": "{id} के लिए बिना पूछे अनुमत कार्रवाइयाँ",
   "settings.key.specialists.maxConcurrent": "एक साथ स्पेशलिस्ट",
-  "settings.key.specialists.monthlyCapUsd": "स्पेशलिस्ट का मासिक खर्च",
   "settings.key.specialists.showInFeed": "फ़ीड में स्पेशलिस्ट के नतीजे दिखाएँ",
   "settings.key.specialists.enabled": "{role} चालू",
   "settings.key.specialists.model": "{role} का मॉडल",
-  "settings.key.specialists.budget": "{role} का बजट",
-  "settings.key.specialists.maxMode": "{role} का अनुमति मोड",
   "settings.credentials.payments.description":
     "एक बार की कार्ड, आपके हर खरीदारी को स्वीकृत करने के बाद। कार्ड नंबर कभी Psyche तक नहीं पहुँचते।",
   "settings.approval.presenceUnavailable":
@@ -754,7 +744,7 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.connectors.page.onHost": "{host} पर",
   "settings.connectors.page.row.onHost": "{host} पर",
   "settings.connectors.page.row.macOnly": "केवल Mac होस्ट पर",
-  "settings.computerUse.remote": "कंप्यूटर उपयोग {host} पर काम करता है। वहीं से पूछें, या ब्राउज़र उपयोग करें।",
+  "settings.computerUse.remote": "कंप्यूटर उपयोग {host} पर काम करता है। वहीं से पूछें।",
   "settings.computerUse.remoteLinux":
     "कंप्यूटर उपयोग {host} की निजी स्क्रीन पर चलता है। देखने वाले पैनल से इसे देखें और नियंत्रण लें।",
   "settings.gateways.title": "इस कंप्यूटर पर Gateway",
@@ -1151,7 +1141,7 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.people.graph": "लोगों के बारे में यहाँ से सीखें",
   "settings.people.entityRecall": "जवाबों में नामों का उपयोग करें",
   "settings.people.entityRecallHint":
-    "जब आप किसी निजी चैट में किसी का नाम लेते हैं, तो {persona} उनके बारे में एक पंक्ति जोड़ता है। ग्रुप या चैनल में कभी नहीं।",
+    "जब आप किसी चैट में किसी का नाम लेते हैं, तो {persona} उनके बारे में एक पंक्ति जोड़ता है।",
   "settings.people.sources": "लोगों के बारे में यहाँ से सीखें",
   "settings.people.sourcesHint":
     "हर स्रोत तब तक बंद है जब तक आप उसे चालू नहीं करते। किसी को बंद करने पर वह पढ़ा जाना बंद हो जाता है।",
@@ -1237,9 +1227,6 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.specialists.all": "सभी स्पेशलिस्ट",
   "settings.specialists.concurrent": "एक साथ स्पेशलिस्ट",
   "settings.specialists.concurrentHint": "उतने ज़्यादा साथ-साथ चलते हैं; बाकी कतार में इंतज़ार करते हैं।",
-  "settings.specialists.monthlyCap": "मासिक खर्च",
-  "settings.specialists.monthlyCapHint":
-    "सीमा पूरी होने पर नए जॉब बजट का इंतज़ार करते हैं। खाली रहने पर आपके मासिक बजट का आधा उपयोग होता है{budget, select, none {} other { ({budget})}}।",
   "settings.specialists.monthlyCapNone": "कोई सीमा नहीं",
   "settings.specialists.showInFeed": "नतीजे फ़ीड में दिखाएँ",
   "settings.specialists.showInFeedHint": "आपके इनबॉक्स को हर नतीजा किसी भी हाल में मिलता है।",
@@ -1258,13 +1245,6 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.specialists.class.primary": "प्राथमिक मॉडल",
   "settings.specialists.class.harness": "कोडिंग हार्नेस",
   "settings.specialists.class.vision": "विज़न वाला प्राथमिक मॉडल",
-  "settings.specialists.budget": "प्रति जॉब बजट",
-  "settings.specialists.budgetTokens": "टोकन",
-  "settings.specialists.budgetCost": "लागत (USD)",
-  "settings.specialists.budgetMinutes": "मिनट",
-  "settings.specialists.budgetCaps":
-    "{tokens} टोकन तक · {cost} · {minutes} मिनट। कोई जॉब ज़्यादा मांग सकता है, पर इससे आगे कभी नहीं।",
-  "settings.specialists.maxMode": "बिना पूछे अधिकतम जो यह कर सकता है",
   "settings.specialists.mode.plan": "योजना",
   "settings.specialists.mode.manual": "मैनुअल",
   "settings.specialists.mode.balanced": "संतुलित",

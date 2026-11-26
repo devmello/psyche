@@ -123,11 +123,11 @@ export interface WindowOptions {
 
 /**
  * Settings ids are short slugs (`model`, `computer-use`), optionally with a view
- * (`connectors/add-mcp`); anything else opens Essentials, where Settings starts.
+ * (`connectors/add-mcp`); anything else opens General, where Settings starts.
  */
 export function settingsRoute(section: string | undefined): string {
   const slug = "[a-z][a-z-]{0,39}";
-  const id = section && new RegExp(`^${slug}(?:/${slug})?$`).test(section) ? section : "essentials";
+  const id = section && new RegExp(`^${slug}(?:/${slug})?$`).test(section) ? section : "general";
   return `/window/settings/${id}`;
 }
 

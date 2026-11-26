@@ -8,7 +8,6 @@ export const settings: Partial<Catalogue> = {
   "settings.search.count":
     "{count, plural, zero {لا نتائج} one {نتيجة واحدة} two {نتيجتان} few {# نتائج} many {# نتيجة} other {# نتيجة}}",
   "settings.search.result.page": "صفحة",
-  "settings.page.essentials": "الأساسيات",
   "settings.essentials.title": "الأساسيات",
   "settings.essentials.description":
     "الخيارات القليلة التي يتخذها معظم الناس، ولكل منها إعداد افتراضي آمن. يسألك {persona} عندما يحتاج إلى المزيد.",
@@ -22,14 +21,7 @@ export const settings: Partial<Catalogue> = {
   "settings.essentials.model.noneHint":
     "يحتاج {persona} إلى نموذج قبل أن يستطيع الإجابة. أضف مفتاحًا، أو استخدم نموذجًا على هذا الـ Mac.",
   "settings.essentials.model.setUp": "إعداد نموذج",
-  "settings.essentials.read.title": "ما يجوز لـ {persona} قراءته",
-  "settings.essentials.read.hint":
-    "متوقف حتى تفعّل أحدها. يُفهرَس ما يقرؤه على هذا الـ Mac ليجد لك الأشياء، وتتعلم منه الذاكرة أيضًا ما لم تلغِ ذلك في الذاكرة ← المصادر.",
   "settings.essentials.asks.title": "عدد مرات سؤال {persona} أولًا",
-  "settings.essentials.interrupt.title": "متى يجوز لـ {persona} مقاطعتك",
-  "settings.essentials.interrupt.quietHint":
-    "من {from} إلى {until}، تنتظر الإشعارات في صندوق الوارد.",
-  "settings.essentials.interrupt.briefHint": "موجز قصير في الخلاصة عند {time}.",
   "settings.essentials.memory.title": "الذاكرة",
   "settings.essentials.memory.remember": "السماح لـ {persona} بتذكّر محادثاتنا",
   "settings.essentials.memory.rememberHint":
@@ -123,12 +115,9 @@ export const settings: Partial<Catalogue> = {
   "settings.key.ui.onboarding.progress": "تقدّم الإعداد الأولي",
   "settings.key.permissions.liftedFloors": "إجراءات مسموح بها دون سؤال لـ {id}",
   "settings.key.specialists.maxConcurrent": "عدد المختصين في وقت واحد",
-  "settings.key.specialists.monthlyCapUsd": "إنفاق المختصين الشهري",
   "settings.key.specialists.showInFeed": "إظهار نتائج المختصين في الخلاصة",
   "settings.key.specialists.enabled": "{role} مفعّل",
   "settings.key.specialists.model": "نموذج {role}",
-  "settings.key.specialists.budget": "ميزانية {role}",
-  "settings.key.specialists.maxMode": "وضع أذونات {role}",
   "settings.credentials.payments.description":
     "بطاقة لمرة واحدة، بعد موافقتك على كل عملية شراء. لا تصل أرقام البطاقات إلى Psyche أبدًا.",
   "settings.approval.presenceUnavailable":
@@ -727,8 +716,7 @@ export const settings: Partial<Catalogue> = {
   "settings.connectors.page.onHost": "على {host}",
   "settings.connectors.page.row.onHost": "على {host}",
   "settings.connectors.page.row.macOnly": "على مضيف Mac فقط",
-  "settings.computerUse.remote":
-    "استخدام الكمبيوتر يعمل على {host}. اطلب من هناك، أو استخدم المتصفح.",
+  "settings.computerUse.remote": "استخدام الكمبيوتر يعمل على {host}. اطلب من هناك.",
   "settings.computerUse.remoteLinux":
     "يعمل استخدام الحاسوب على الشاشة الخاصة لـ {host}. شاهده وتولَّ التحكم من لوحة المشاهدة.",
   "settings.gateways.title": "Gateways على هذا الكمبيوتر",
@@ -1129,8 +1117,7 @@ export const settings: Partial<Catalogue> = {
   "settings.people.turnOn": "تفعيل",
   "settings.people.graph": "التعرّف على الأشخاص من",
   "settings.people.entityRecall": "استخدام الأسماء في الردود",
-  "settings.people.entityRecallHint":
-    "عندما تذكر شخصًا في دردشة خاصة يضيف {persona} سطرًا واحدًا عنه. وليس في المجموعات أو القنوات أبدًا.",
+  "settings.people.entityRecallHint": "عندما تذكر شخصًا في دردشة يضيف {persona} سطرًا واحدًا عنه.",
   "settings.people.sources": "التعرّف على الأشخاص من",
   "settings.people.sourcesHint": "كل مصدر متوقف حتى تفعّله. إيقاف مصدر يوقف قراءته.",
   "settings.people.source.contacts": "جهات الاتصال",
@@ -1214,9 +1201,6 @@ export const settings: Partial<Catalogue> = {
   "settings.specialists.all": "كل المختصين",
   "settings.specialists.concurrent": "عدد المختصين في وقت واحد",
   "settings.specialists.concurrentHint": "يعمل عدد أكبر جنبًا إلى جنب؛ والباقون ينتظرون في الطابور.",
-  "settings.specialists.monthlyCap": "الإنفاق الشهري",
-  "settings.specialists.monthlyCapHint":
-    "تنتظر المهام الجديدة الميزانية بعد بلوغ الحد. الفارغ يستخدم نصف ميزانيتك الشهرية{budget, select, none {} other { ({budget})}}.",
   "settings.specialists.monthlyCapNone": "بلا حد أقصى",
   "settings.specialists.showInFeed": "إظهار النتائج في الخلاصة",
   "settings.specialists.showInFeedHint": "يتلقى صندوق الوارد كل نتيجة في الحالتين.",
@@ -1234,13 +1218,6 @@ export const settings: Partial<Catalogue> = {
   "settings.specialists.class.primary": "النموذج الأساسي",
   "settings.specialists.class.harness": "أداة البرمجة",
   "settings.specialists.class.vision": "النموذج الأساسي ذو الرؤية",
-  "settings.specialists.budget": "الميزانية لكل مهمة",
-  "settings.specialists.budgetTokens": "الرموز (Tokens)",
-  "settings.specialists.budgetCost": "التكلفة (دولار)",
-  "settings.specialists.budgetMinutes": "الدقائق",
-  "settings.specialists.budgetCaps":
-    "حتى {tokens} رمز (token) · {cost} · {minutes} د. قد تطلب المهمة أكثر، لكن لا تتجاوز هذا أبدًا.",
-  "settings.specialists.maxMode": "أقصى ما يفعله دون سؤال",
   "settings.specialists.mode.plan": "تخطيط",
   "settings.specialists.mode.manual": "يدوي",
   "settings.specialists.mode.balanced": "متوازن",

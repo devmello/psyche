@@ -76,14 +76,16 @@ describe("old pane labels still find their pane", () => {
     await userEvent.click(within(nav).getByRole("button", { name: /^Computer use/ }));
     expect(navigate).toHaveBeenCalledWith("/settings/computer-use");
     expect(await screen.findByRole("heading", { level: 2, name: "Computer use" })).toBeTruthy();
-    expect(backTo("Permissions")).toBeTruthy();
+    expect(backTo("Privacy & security")).toBeTruthy();
   });
 
   it("keeps the page and its own body for a page-id route", async () => {
     setup("permissions");
-    expect(await screen.findByRole("heading", { level: 2, name: "Permissions" })).toBeTruthy();
+    expect(
+      await screen.findByRole("heading", { level: 2, name: "Privacy & security" }),
+    ).toBeTruthy();
     // A page-id route is the page itself, not a drilled-in pane: no way back.
-    expect(screen.getAllByRole("button", { name: "Permissions" })).toHaveLength(1);
+    expect(screen.getAllByRole("button", { name: "Privacy & security" })).toHaveLength(1);
   });
 });
 
@@ -96,8 +98,11 @@ describe("Permissions page", () => {
       within(access)
         .getAllByRole("button")
         .map((b) => b.textContent),
-    ).toEqual(["Files and folders", "Browser", "Computer use", "VM mode"]);
+    ).toEqual(["Computer use", "Browser", "Files and folders"]);
+    // VM mode is a group inside Computer use, not a row of its own.
+    expect(screen.queryByRole("button", { name: "VM mode" })).toBeNull();
     expect(screen.getByRole("button", { name: "Credentials" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Privacy & data" })).toBeTruthy();
     // The three modes and the Allowed list are still on the page.
     expect(screen.getByRole("radio", { name: /Manual/ })).toBeTruthy();
     expect(screen.getByRole("radio", { name: /Auto/ })).toBeTruthy();
@@ -105,7 +110,7 @@ describe("Permissions page", () => {
     await userEvent.click(within(access).getByRole("button", { name: "Browser" }));
     expect(navigate).toHaveBeenCalledWith("/settings/browser");
     expect(await screen.findByRole("heading", { level: 2, name: "Browser" })).toBeTruthy();
-    await userEvent.click(backTo("Permissions") as HTMLElement);
+    await userEvent.click(backTo("Privacy & security") as HTMLElement);
     expect(await screen.findByRole("heading", { name: "Asking" })).toBeTruthy();
   });
 
@@ -118,7 +123,8 @@ describe("Permissions page", () => {
 
 describe("Pages that listed several panes", () => {
   it.each([
-    ["general", ["Appearance", "Persona", "Notifications", "Voice & dictation"]],
+    ["general", ["Appearance", "Persona", "Notifications", "Voice & dictation", "About"]],
+    ["devices", ["Server & remote access"]],
     ["connectors", ["Search", "Mail & meetings"]],
     ["model", ["Usage"]],
   ] as const)("%s opens its other panes from rows", async (section, rows) => {

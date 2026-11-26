@@ -124,7 +124,7 @@ export interface ConnectorsPanelProps extends LoadProps {
   connectProgress?: ReactNode;
   /** Connector types the Gateway can connect; undefined offers every catalog row. */
   implemented?: ReadonlySet<string> | undefined;
-  /** Opens another Settings section (the Slack row). */
+  /** Opens another Settings section (the catalog's links to other panes). */
   onOpenSection?: (section: "files") => void;
   /**
    * The settings that decide device access (`permissions.policy`): Files on this Mac and Terminal

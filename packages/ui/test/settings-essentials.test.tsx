@@ -12,14 +12,8 @@ import { StoryWorld } from "../src/stories/harness.tsx";
 
 /** Settings → Essentials and the Access list (docs/design/settings-2026.md §7). */
 
-const sources = [
-  { id: "mail" as const, label: "Mail", enabled: false },
-  { id: "notes" as const, label: "Notes", enabled: true },
-];
-
 function panel(over: Partial<Parameters<typeof EssentialsPanel>[0]> = {}) {
   const onChange = vi.fn();
-  const onSource = vi.fn();
   const onOpen = vi.fn();
   render(
     <EssentialsPanel
@@ -27,24 +21,19 @@ function panel(over: Partial<Parameters<typeof EssentialsPanel>[0]> = {}) {
       onChange={onChange}
       persona="Wren"
       model={{ ref: "anthropic/claude-sonnet-5-5", label: "Claude Sonnet 5.5", ready: true }}
-      sources={sources}
-      onSource={onSource}
       remembering
       onRemember={vi.fn()}
       onOpen={onOpen}
       {...over}
     />,
   );
-  return { onChange, onSource, onOpen };
+  return { onChange, onOpen };
 }
 
 describe("Settings → Essentials", () => {
-  it("shows the safe defaults: quiet hours on, brief off, Balanced, memory on", () => {
+  it("shows the safe defaults: Balanced, memory on", () => {
     panel();
     const sw = (name: string) => screen.getByRole("switch", { name }).getAttribute("aria-checked");
-    expect(sw("Quiet hours")).toBe("true");
-    expect(screen.getByText("From 22:00 to 08:00, notifications wait in the inbox.")).toBeTruthy();
-    expect(sw("Morning brief")).toBe("false");
     expect(sw("Let Wren remember our chats")).toBe("true");
     expect(
       screen.getByRole("radio", { name: /Balanced/ }).getAttribute("aria-checked") ??
@@ -56,15 +45,15 @@ describe("Settings → Essentials", () => {
 
   it("writes the same keys as the detailed panes and opens them with More", async () => {
     const user = userEvent.setup();
-    const { onChange, onSource, onOpen } = panel();
-    await user.click(screen.getByRole("switch", { name: "Mail" }));
-    expect(onSource).toHaveBeenCalledWith("mail", true);
-    await user.click(screen.getByRole("switch", { name: "Quiet hours" }));
-    expect(onChange).toHaveBeenCalledWith("notifications.quietHours.enabled", false);
+    const { onChange, onOpen } = panel();
     await user.click(screen.getByRole("radio", { name: /Manual/ }));
     expect(onChange).toHaveBeenCalledWith("permissions.mode", "manual");
-    await user.click(screen.getByRole("button", { name: "More in Search" }));
-    expect(onOpen).toHaveBeenCalledWith("search");
+    await user.click(screen.getByRole("button", { name: "More in Model & providers" }));
+    expect(onOpen).toHaveBeenCalledWith("model");
+    // The groups that only repeated another pane (sources, quiet hours, brief) are gone.
+    expect(screen.queryByRole("switch", { name: "Quiet hours" })).toBeNull();
+    expect(screen.queryByRole("switch", { name: "Morning brief" })).toBeNull();
+    expect(screen.queryByRole("switch", { name: "Mail" })).toBeNull();
   });
 
   it("asks for a model in amber when none is picked", async () => {
@@ -77,7 +66,7 @@ describe("Settings → Essentials", () => {
     expect(onOpen).toHaveBeenCalledWith("model");
   });
 
-  it("is the first page and where Settings opens", async () => {
+  it("is General's body and where Settings opens", async () => {
     let gw: MockGateway | null = null;
     render(
       <StoryWorld onGateway={(g) => (gw = g)}>
@@ -86,16 +75,15 @@ describe("Settings → Essentials", () => {
     );
     expect(await screen.findByRole("heading", { level: 2, name: "Essentials" })).toBeTruthy();
     const nav = screen.getByRole("navigation", { name: "Settings sections" });
-    expect(within(nav).getAllByRole("button")[0]?.textContent).toBe("Essentials");
-    await userEvent.click(await screen.findByRole("switch", { name: "Morning brief" }));
+    expect(within(nav).getAllByRole("button")[0]?.textContent).toBe("General");
+    await userEvent.click(await screen.findByRole("radio", { name: /Manual/ }));
     await waitFor(() =>
       expect(
         gw?.calls.find(
           (c) =>
-            c.method === "settings.set" &&
-            (c.params as { key: string }).key === "daily.brief.enabled",
+            c.method === "settings.set" && (c.params as { key: string }).key === "permissions.mode",
         )?.params,
-      ).toMatchObject({ value: true }),
+      ).toMatchObject({ value: "manual" }),
     );
   });
 });

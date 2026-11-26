@@ -168,8 +168,7 @@ export const settingsC: Partial<Catalogue> = {
   "settings.connectors.page.onHost": "En {host}",
   "settings.connectors.page.row.onHost": "En {host}",
   "settings.connectors.page.row.macOnly": "Solo en un host Mac",
-  "settings.computerUse.remote":
-    "El uso del ordenador funciona en {host}. Pídelo desde allí o usa el navegador.",
+  "settings.computerUse.remote": "El uso del ordenador funciona en {host}. Pídelo desde allí.",
   "settings.computerUse.remoteLinux":
     "El uso del ordenador se ejecuta en la pantalla privada de {host}. Obsérvalo y toma el control desde el panel de observación.",
   "settings.gateways.title": "Gateways en este ordenador",

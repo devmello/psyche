@@ -28,20 +28,17 @@ const installed: SpecialistRole = {
 /** The connected section on the fixture Gateway. */
 export const Default: Story = { render: () => <SpecialistsSection /> };
 
-/** The researcher's editor open, with a pinned model and a smaller budget. */
+/** The researcher's editor open, with a pinned model. */
 export const EditingRole: Story = {
   render: () => (
     <SpecialistsPanel
       values={{
         [SPECIALIST_KEYS.model("researcher")]: "anthropic/claude-opus-5-5",
-        [SPECIALIST_KEYS.budget("researcher")]: { tokens: 250_000, costUsd: 1.5, minutes: 20 },
         [SPECIALIST_KEYS.maxConcurrent]: 2,
-        [SPECIALIST_KEYS.monthlyCapUsd]: 15,
       }}
       onChange={noop}
       roles={[...specialistRoles(), installed]}
       models={MODELS}
-      monthlyBudgetUsd={20}
       openRoles={["researcher"]}
     />
   ),

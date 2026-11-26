@@ -77,7 +77,7 @@ import { VmSection } from "./VmSection.tsx";
 import { VoiceSection } from "./VoiceSection.tsx";
 
 /**
- * Settings (UI design §2.6, §3.18; docs/design/settings-2026.md): nine pages in the sidebar, each
+ * Settings (UI design §2.6, §3.18; docs/design/settings-2026.md): seven pages in the sidebar, each
  * a column of panes, and a search that jumps to the setting itself.
  */
 
@@ -219,7 +219,7 @@ export function SettingsSectionView({
 }: {
   section: SettingsPaneId;
   shell: SettingsShellProps;
-  /** Moves to another section (the connector catalog's Slack row). */
+  /** Moves to another section (the connector catalog's links to other panes). */
   onOpenSection?: (section: SettingsSectionId) => void;
   /** Where Connectors opens (the old MCP route, ⌘K "Add MCP server"). */
   connectorsView?: ConnectorsView;
@@ -269,11 +269,17 @@ export function SettingsSectionView({
         </>
       );
     case "computer-use":
+      // VM mode is a group inside Computer use (its old `/settings/vm` route lands here).
       return (
-        <ComputerUseSection
-          {...opt("tcc", s.tcc)}
-          {...opt("onOpenSystemSettings", s.onOpenSystemSettings)}
-        />
+        <>
+          <ComputerUseSection
+            {...opt("tcc", s.tcc)}
+            {...opt("onOpenSystemSettings", s.onOpenSystemSettings)}
+          />
+          <InPageContext.Provider value={true}>
+            <VmSection {...opt("now", s.now)} />
+          </InPageContext.Provider>
+        </>
       );
     case "browser":
       return (
@@ -287,7 +293,7 @@ export function SettingsSectionView({
     case "files":
       return <FileAccessSection {...opt("vmMode", s.vmMode)} />;
     case "vm":
-      return <VmSection {...opt("now", s.now)} />;
+      return <VmSection {...opt("now", s.now)} />; // only reached by direct embedding; routes use Computer use
     case "devices":
       return <DevicesSection {...opt("now", s.now)} {...opt("thisDeviceId", s.thisDeviceId)} />;
     case "credentials":
@@ -407,7 +413,7 @@ function NavRow({
 
 export function SettingsScreen({
   section,
-  defaultSection = "essentials",
+  defaultSection = "general",
   onSectionChange,
   connectorsView,
   defaultQuery = "",
@@ -686,7 +692,9 @@ export function SettingsScreen({
                     ))}
                     {multi && page.listsOwnRows !== true ? (
                       <PaneRows
-                        panes={page.panes.filter((id) => id !== page.main)}
+                        panes={page.panes.filter(
+                          (id) => id !== page.main && page.hidden?.includes(id) !== true,
+                        )}
                         onOpen={select}
                         // The page's own body sits above: the rows follow it closely.
                         {...(page.main === undefined ? {} : { className: "-mt-7" })}

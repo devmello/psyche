@@ -7,7 +7,6 @@ export const settings: Partial<Catalogue> = {
   "settings.nav.learning": "基础",
   "settings.search.count": "{count, plural, other {# 个结果}}",
   "settings.search.result.page": "页面",
-  "settings.page.essentials": "基本设置",
   "settings.essentials.title": "基本设置",
   "settings.essentials.description":
     "大多数人都会做的几个选择，每项都有安全的默认值。需要更多信息时，{persona}会来问你。",
@@ -21,13 +20,7 @@ export const settings: Partial<Catalogue> = {
   "settings.essentials.model.noneHint":
     "{persona}需要有模型才能回答。请添加密钥，或使用这台 Mac 上的模型。",
   "settings.essentials.model.setUp": "设置模型",
-  "settings.essentials.read.title": "{persona}可以读取什么",
-  "settings.essentials.read.hint":
-    "在你开启之前都是关闭的。它读取的内容会在这台 Mac 上建立索引，方便它为你查找；除非你在“记忆 → 来源”中选择退出，记忆也会从中学习。",
   "settings.essentials.asks.title": "{persona}多久先问你一次",
-  "settings.essentials.interrupt.title": "{persona}何时可以打扰你",
-  "settings.essentials.interrupt.quietHint": "{from} 到 {until}，通知会暂存在收件箱。",
-  "settings.essentials.interrupt.briefHint": "{time}在动态中推送一份简短的简报。",
   "settings.essentials.memory.title": "记忆",
   "settings.essentials.memory.remember": "让{persona}记住我们的聊天",
   "settings.essentials.memory.rememberHint":
@@ -120,12 +113,9 @@ export const settings: Partial<Catalogue> = {
   "settings.key.ui.onboarding.progress": "引导进度",
   "settings.key.permissions.liftedFloors": "{id}无需询问即可执行的操作",
   "settings.key.specialists.maxConcurrent": "同时运行的专员数",
-  "settings.key.specialists.monthlyCapUsd": "每月专员支出",
   "settings.key.specialists.showInFeed": "在动态中显示专员的结果",
   "settings.key.specialists.enabled": "{role}已开启",
   "settings.key.specialists.model": "{role}模型",
-  "settings.key.specialists.budget": "{role}预算",
-  "settings.key.specialists.maxMode": "{role}权限模式",
   "settings.credentials.payments.description":
     "一次性银行卡，每笔购买都需你批准。卡号绝不会传给 Psyche。",
   "settings.approval.presenceUnavailable":
@@ -686,7 +676,7 @@ export const settings: Partial<Catalogue> = {
   "settings.connectors.page.onHost": "在 {host} 上",
   "settings.connectors.page.row.onHost": "在 {host} 上",
   "settings.connectors.page.row.macOnly": "仅限 Mac 主机",
-  "settings.computerUse.remote": "“电脑使用”在 {host} 上运行。请从那里发起，或使用浏览器。",
+  "settings.computerUse.remote": "“电脑使用”在 {host} 上运行。请从那里发起。",
   "settings.computerUse.remoteLinux":
     "电脑操作在 {host} 的私有屏幕上运行。可在观看面板中查看并接管。",
   "settings.gateways.title": "这台电脑上的 Gateway",
@@ -1058,8 +1048,7 @@ export const settings: Partial<Catalogue> = {
   "settings.people.turnOn": "开启",
   "settings.people.graph": "从以下来源了解人物",
   "settings.people.entityRecall": "在回复中使用姓名",
-  "settings.people.entityRecallHint":
-    "当你在私聊中提到某人时，{persona}会补充一行关于他的信息。绝不会用于群聊或渠道。",
+  "settings.people.entityRecallHint": "当你在聊天中提到某人时，{persona}会补充一行关于他的信息。",
   "settings.people.sources": "从以下来源了解人物",
   "settings.people.sourcesHint": "每个来源在你开启之前都是关闭的。关闭某个来源即停止读取。",
   "settings.people.source.contacts": "通讯录",
@@ -1140,9 +1129,6 @@ export const settings: Partial<Catalogue> = {
   "settings.specialists.all": "所有专员",
   "settings.specialists.concurrent": "同时运行的专员数",
   "settings.specialists.concurrentHint": "可以并行运行更多；其余的排队等候。",
-  "settings.specialists.monthlyCap": "每月支出",
-  "settings.specialists.monthlyCapHint":
-    "达到上限后，新任务会等待预算。留空则使用你每月预算的一半{budget, select, none {} other {（{budget}）}}。",
   "settings.specialists.monthlyCapNone": "无上限",
   "settings.specialists.showInFeed": "在动态中显示结果",
   "settings.specialists.showInFeedHint": "无论如何，你的收件箱都会收到每个结果。",
@@ -1160,13 +1146,6 @@ export const settings: Partial<Catalogue> = {
   "settings.specialists.class.primary": "主模型",
   "settings.specialists.class.harness": "编码工具",
   "settings.specialists.class.vision": "支持视觉的主模型",
-  "settings.specialists.budget": "每个任务的预算",
-  "settings.specialists.budgetTokens": "Token",
-  "settings.specialists.budgetCost": "费用（美元）",
-  "settings.specialists.budgetMinutes": "分钟",
-  "settings.specialists.budgetCaps":
-    "最多 {tokens} 个 token · {cost} · {minutes} 分钟。任务可以申请更多，但不会超过此上限。",
-  "settings.specialists.maxMode": "无需询问的最高权限",
   "settings.specialists.mode.plan": "规划",
   "settings.specialists.mode.manual": "手动",
   "settings.specialists.mode.balanced": "平衡",

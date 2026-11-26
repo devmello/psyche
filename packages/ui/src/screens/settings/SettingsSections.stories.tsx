@@ -67,7 +67,6 @@ const forbidden = new Set([
   "permissions.mode",
   "permissions.connectors.conn_gmail",
   "vault.backend",
-  "gateway.bind",
   "models.primary",
   "permissions.policy",
 ]);
@@ -864,15 +863,6 @@ const essentialsProps = {
   ...form,
   persona: PERSONA.name,
   model: { ref: "anthropic/claude-sonnet-5-5", label: "Claude Sonnet 5.5", ready: true },
-  sources: [
-    { id: "mail" as const, label: "Mail", enabled: true },
-    { id: "messages" as const, label: "Messages", enabled: false },
-    { id: "notes" as const, label: "Notes", enabled: true },
-    { id: "calendar" as const, label: "Calendar", enabled: true },
-    { id: "reminders" as const, label: "Reminders", enabled: false },
-    { id: "files" as const, label: "Files", enabled: false },
-  ],
-  onSource: noop,
   remembering: true,
   onRemember: noop,
   onOpen: noop,
@@ -984,7 +974,6 @@ export const ServerExposedNoSandbox: Story = {
   render: () => (
     <ServerPanel
       {...serverProps}
-      values={{ ...values, "gateway.bind": "0.0.0.0:7979" }}
       needsApproval={forbidden}
       status={{
         ...sampleServerStatus(),

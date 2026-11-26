@@ -40,7 +40,7 @@ describe("psyche-app-guide", () => {
     const inCode = unique(
       all(
         read("packages/ui/src/screens/settings/settings-pages.ts"),
-        /\b(?:entry|page)\("([\w-]+)"/g,
+        /\b(?:entry|page)\(\s*"([\w-]+)"/g,
       ),
     );
     expect(inCode.length).toBeGreaterThan(10);
