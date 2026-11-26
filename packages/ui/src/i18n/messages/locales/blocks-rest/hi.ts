@@ -109,7 +109,7 @@ export const blocksRest: Partial<Catalogue> = {
   "blocks.approval.sideEffect.destructive":
     "ऐसी सेटिंग्ज़ या डेटा बदलता है जिन्हें वापस करना कठिन हो सकता है",
   "blocks.approval.sideEffect.financial": "पैसों से जुड़ा है",
-  "blocks.approval.whyMode": "{mode} मोड तब पहले पूछता है जब कार्रवाई {effect}।",
+  "blocks.approval.whyMode": "आपने {mode} मोड में इसे मंज़ूर करने को कहा था, क्योंकि यह {effect}।",
   "blocks.details.params": "विवरण",
   "blocks.details.reason": "कारण",
   "blocks.details.when": "कब",

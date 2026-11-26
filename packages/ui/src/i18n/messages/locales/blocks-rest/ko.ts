@@ -112,7 +112,7 @@ export const blocksRest: Partial<Catalogue> = {
   "blocks.approval.sideEffect.write": "무언가를 변경함",
   "blocks.approval.sideEffect.destructive": "되돌리기 어려울 수 있는 설정이나 데이터를 변경함",
   "blocks.approval.sideEffect.financial": "금전과 관련됨",
-  "blocks.approval.whyMode": "{mode} 모드에서는 {effect} 전에 확인합니다.",
+  "blocks.approval.whyMode": "{mode} 모드에서는 {effect} 때문에 먼저 승인하도록 되어 있어요.",
   "blocks.details.params": "세부 정보",
   "blocks.details.reason": "이유",
   "blocks.details.when": "시기",

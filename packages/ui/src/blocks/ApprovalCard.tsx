@@ -46,7 +46,7 @@ import {
   spaceOffer,
 } from "./approval-choice.ts";
 import { ApprovalDetails, ApprovalIds } from "./approval-details.tsx";
-import { plainHeader, voidedText } from "./approval-plain.ts";
+import { plainHeader, plainReason, plainTitle, voidedText } from "./approval-plain.ts";
 import { otherSurfacesFor } from "./approval-surfaces.ts";
 import { floorClassOf, useLiftFloorConfirm } from "./LiftFloorDialog.tsx";
 import { approvalMachineLine } from "./machine-line.ts";
@@ -377,11 +377,21 @@ export function ApprovalCard({
   const approval = useMemo(() => sanitizeApproval(raw), [raw]);
   // A paired phone's own `device:<deviceId>` surface is not a place to name: hide it.
   const otherSurfaces = useMemo(() => otherSurfacesFor(allOtherSurfaces, []), [allOtherSurfaces]);
-  // First line of the per-surface template: kind · side effect · taint (never attacker text).
+  // What the action does in plain words: side effect · taint (never attacker text).
   const header = useMemo(
-    () => plainHeader(raw, renderForSurface("desktop", raw).text.split("\n")[0] ?? ""),
+    () =>
+      plainHeader(
+        raw,
+        plainTitle(sanitizeApproval(raw), "") === null
+          ? (renderForSurface("desktop", raw).text.split("\n")[0] ?? "")
+          : null,
+      ),
     [raw],
   );
+  // "Wren wants to run `npm install` in psyche": the heading for a command or a file save. The
+  // rows below always stay open (commands are shown in full). Null (a long command, a patch, any
+  // other kind): the Gateway's summary and its kind title.
+  const sentence = useMemo(() => plainTitle(approval, persona), [approval, persona]);
   const machineLine = approvalMachineLine(approval);
   // Once the card has expired the clock stops: there is nothing left to count down.
   const [clockStopped, setClockStopped] = useState(false);
@@ -635,7 +645,7 @@ export function ApprovalCard({
   const why = reasonInDetails
     ? ""
     : typeof reason === "string" && reason.trim() !== ""
-      ? reason
+      ? (plainReason(reason) ?? reason)
       : mode && approval.sideEffect
         ? t("blocks.approval.whyMode", {
             mode: mode.charAt(0).toUpperCase() + mode.slice(1),
@@ -737,8 +747,8 @@ export function ApprovalCard({
       )}
     >
       <div className="flex items-center gap-2">
-        <ShieldCheck className="size-4 shrink-0 text-approval-text" aria-hidden="true" />
-        <span className="text-caption text-approval-text">
+        <ShieldCheck className="size-4 shrink-0 text-label-secondary" aria-hidden="true" />
+        <span className="text-caption text-label-secondary">
           {pending ? t("blocks.approval.titlePending") : t("blocks.approval.title")}
         </span>
         {pending ? (
@@ -776,9 +786,6 @@ export function ApprovalCard({
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
-      <p className="mt-0.5 text-callout text-label-secondary" data-card-header>
-        {header}
-      </p>
       {machineLine ? (
         <p className="mt-0.5 text-callout font-medium text-label-primary" data-card-machine>
           {machineLine}
@@ -788,10 +795,13 @@ export function ApprovalCard({
         id={headingId}
         ref={headingRef}
         tabIndex={-1}
-        className="mt-1 text-title-2 text-label-primary outline-none"
+        className="mt-1 text-title-2 text-label-primary outline-none [overflow-wrap:anywhere]"
       >
-        {approval.summary}
+        {sentence ?? approval.summary}
       </h3>
+      <p className="mt-0.5 text-callout text-label-secondary" data-card-header>
+        {header}
+      </p>
 
       {detailsClassName ? (
         <CappedDetails className={detailsClassName} label={whatLabel}>

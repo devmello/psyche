@@ -65,7 +65,9 @@ describe("ToolCallRow (§3.2)", () => {
     };
     const { container, rerender } = render(<ToolCallRow item={item} />);
     expect(container.querySelector("svg")).not.toBeNull();
-    expect(screen.getByText("gmail:")).toBeTruthy();
+    // Spoken as an action, never the internal tool family (`gmail:`).
+    expect(screen.getByText("Used email:")).toBeTruthy();
+    expect(screen.queryByText("gmail:")).toBeNull();
     expect(container.textContent).not.toContain("r-107");
     expect(container.textContent).not.toContain("gmail.send");
     rerender(<ToolCallRow item={{ ...item, call: null }} raw />);

@@ -1,5 +1,13 @@
 import type { Task, TaskStatus } from "@psyche/protocol";
-import { CircleAlert, CircleCheck, CirclePause, CircleX, Hand, Loader } from "lucide-react";
+import {
+  CircleAlert,
+  CircleCheck,
+  CircleDashed,
+  CirclePause,
+  CircleX,
+  Hand,
+  Loader,
+} from "lucide-react";
 import type { ReactElement } from "react";
 import { t } from "../i18n/core.ts";
 import { cn } from "../lib/utils.ts";
@@ -29,10 +37,12 @@ export function TaskStatusIcon({ status }: { status: TaskStatus }): ReactElement
   const cls = "size-4 shrink-0";
   switch (status) {
     case "running":
-    case "queued":
       return (
         <Loader className={cn(cls, "text-accent-11 motion-safe:animate-spin")} aria-hidden="true" />
       );
+    case "queued":
+      // Waiting its turn is neutral: nothing is happening yet, and nothing needs the owner.
+      return <CircleDashed className={cn(cls, "text-label-tertiary")} aria-hidden="true" />;
     case "awaiting_approval":
     case "awaiting_input":
       return <Hand className={cn(cls, "text-approval-text")} aria-hidden="true" />;
