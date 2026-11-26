@@ -1,6 +1,7 @@
 import type { Catalogue } from "../index.ts";
 import { actionErrors } from "./action-errors/hi.ts";
 import { agentRest } from "./agent-rest/hi.ts";
+import { appleB } from "./apple-b/hi.ts";
 import { approvalsW3 } from "./approvals-w3/hi.ts";
 import { auditRest } from "./audit-rest/hi.ts";
 import { automationChatRest } from "./automation-chat-rest/hi.ts";
@@ -423,8 +424,8 @@ export const hi: Partial<Catalogue> = {
   "blocks.details.none": "कोई नहीं",
   "blocks.details.argumentsList": "आर्ग्युमेंट: {args}",
   "blocks.details.command": "कमांड",
-  "blocks.details.in": "यहाँ",
-  "blocks.details.envNames": "Env नाम",
+  "blocks.details.in": "फ़ोल्डर",
+  "blocks.details.envNames": "एनवायरनमेंट वेरिएबल",
   "blocks.details.runs": "चलता है",
   "blocks.details.runsOnHost": "आपके Mac पर, सैंडबॉक्स के बाहर",
   "blocks.details.to": "प्रति",
@@ -4002,6 +4003,7 @@ export const hi: Partial<Catalogue> = {
   // Approvals wave W3 (card choices, Allowed list)
   ...approvalsW3,
   ...desktopSimple,
+  ...appleB,
   // Gateway-authored notices (inbox notifications, security alerts)
   ...notices,
   // Settings > Computer use > Separate desktop (Linux)

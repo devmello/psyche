@@ -342,7 +342,7 @@ describe("generic tool card formatting", () => {
     expect(screen.getAllByText("Target")).toHaveLength(1);
     expect(screen.queryByText(/\{"kind"/)).toBeNull();
     expect(screen.queryByText(/balanced mode; destructive/)).toBeNull();
-    expect(screen.getByText(/Balanced mode asks before it changes settings or data/)).toBeTruthy();
+    expect(screen.getByText(/You asked to approve this in Balanced mode, since it changes settings or data/)).toBeTruthy();
   });
 });
 

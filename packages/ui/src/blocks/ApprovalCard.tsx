@@ -1,4 +1,4 @@
-import { approvalCode, renderForSurface, sanitizeApproval } from "@psyche/permissions/cards";
+import { approvalCode, sanitizeApproval } from "@psyche/permissions/cards";
 import type { ApprovalRequest, GrantScope, MissingPermission } from "@psyche/protocol";
 import { CircleAlert, Ellipsis, Fingerprint, ShieldCheck } from "lucide-react";
 import * as m from "motion/react-m";
@@ -46,7 +46,7 @@ import {
   spaceOffer,
 } from "./approval-choice.ts";
 import { ApprovalDetails, ApprovalIds } from "./approval-details.tsx";
-import { plainHeader, voidedText } from "./approval-plain.ts";
+import { plainHeader, plainReason, plainTitle, voidedText } from "./approval-plain.ts";
 import { otherSurfacesFor } from "./approval-surfaces.ts";
 import { floorClassOf, useLiftFloorConfirm } from "./LiftFloorDialog.tsx";
 import { approvalMachineLine } from "./machine-line.ts";
@@ -54,6 +54,19 @@ import { taintSentence } from "./taint-text.ts";
 
 /** The approve chord on the button: the compact ⌘↩ on macOS, "Ctrl+Enter" elsewhere. */
 const approveKeys = (): string => (isMac() ? "⌘↩" : keysLabel("Mod+Enter"));
+
+/** The binding rows behind a "Details" disclosure when the heading already says it in words. */
+function FoldedDetails({ fold, children }: { fold: boolean; children: ReactNode }): ReactElement {
+  if (!fold) return <>{children}</>;
+  return (
+    <details data-testid="approval-details-fold">
+      <summary className="inline-flex min-h-6 cursor-default items-center text-callout text-label-secondary outline-none focus-visible:ring-2 focus-visible:ring-ring">
+        {t("blocks.approval.details")}
+      </summary>
+      <div className="mt-1">{children}</div>
+    </details>
+  );
+}
 
 /**
  * Approval card (UI design §3.3). Host-rendered, fixed structure and button order, never inside a
@@ -377,11 +390,13 @@ export function ApprovalCard({
   const approval = useMemo(() => sanitizeApproval(raw), [raw]);
   // A paired phone's own `device:<deviceId>` surface is not a place to name: hide it.
   const otherSurfaces = useMemo(() => otherSurfacesFor(allOtherSurfaces, []), [allOtherSurfaces]);
-  // First line of the per-surface template: kind · side effect · taint (never attacker text).
-  const header = useMemo(
-    () => plainHeader(raw, renderForSurface("desktop", raw).text.split("\n")[0] ?? ""),
-    [raw],
-  );
+  // What the action does in plain words: side effect · taint (never attacker text).
+  const header = useMemo(() => plainHeader(raw), [raw]);
+  // "Wren wants to run `npm install` in psyche": the heading for a command, with the table of
+  // arguments, folder and variables folded under Details. Null (a long command, any other kind):
+  // the Gateway's summary and the rows stay open.
+  const sentence = useMemo(() => plainTitle(approval, persona), [approval, persona]);
+  const foldDetails = sentence !== null && approval.kind !== "file_write";
   const machineLine = approvalMachineLine(approval);
   // Once the card has expired the clock stops: there is nothing left to count down.
   const [clockStopped, setClockStopped] = useState(false);
@@ -635,7 +650,7 @@ export function ApprovalCard({
   const why = reasonInDetails
     ? ""
     : typeof reason === "string" && reason.trim() !== ""
-      ? reason
+      ? (plainReason(reason) ?? reason)
       : mode && approval.sideEffect
         ? t("blocks.approval.whyMode", {
             mode: mode.charAt(0).toUpperCase() + mode.slice(1),
@@ -737,8 +752,8 @@ export function ApprovalCard({
       )}
     >
       <div className="flex items-center gap-2">
-        <ShieldCheck className="size-4 shrink-0 text-approval-text" aria-hidden="true" />
-        <span className="text-caption text-approval-text">
+        <ShieldCheck className="size-4 shrink-0 text-label-secondary" aria-hidden="true" />
+        <span className="text-caption text-label-secondary">
           {pending ? t("blocks.approval.titlePending") : t("blocks.approval.title")}
         </span>
         {pending ? (
@@ -776,9 +791,6 @@ export function ApprovalCard({
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
-      <p className="mt-0.5 text-callout text-label-secondary" data-card-header>
-        {header}
-      </p>
       {machineLine ? (
         <p className="mt-0.5 text-callout font-medium text-label-primary" data-card-machine>
           {machineLine}
@@ -790,16 +802,23 @@ export function ApprovalCard({
         tabIndex={-1}
         className="mt-1 text-title-2 text-label-primary outline-none"
       >
-        {approval.summary}
+        {sentence ?? approval.summary}
       </h3>
+      <p className="mt-0.5 text-callout text-label-secondary" data-card-header>
+        {header}
+      </p>
 
       {detailsClassName ? (
         <CappedDetails className={detailsClassName} label={whatLabel}>
-          <ApprovalDetails approval={approval} persona={persona} />
+          <FoldedDetails fold={foldDetails}>
+            <ApprovalDetails approval={approval} persona={persona} />
+          </FoldedDetails>
         </CappedDetails>
       ) : (
         <div className="mt-2">
-          <ApprovalDetails approval={approval} persona={persona} />
+          <FoldedDetails fold={foldDetails}>
+            <ApprovalDetails approval={approval} persona={persona} />
+          </FoldedDetails>
         </div>
       )}
 

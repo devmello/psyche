@@ -1,6 +1,7 @@
 import type { Catalogue } from "../index.ts";
 import { actionErrors } from "./action-errors/it.ts";
 import { agentRest } from "./agent-rest/it.ts";
+import { appleB } from "./apple-b/it.ts";
 import { approvalsW3 } from "./approvals-w3/it.ts";
 import { auditRest } from "./audit-rest/it.ts";
 import { automationChatRest } from "./automation-chat-rest/it.ts";
@@ -421,7 +422,7 @@ export const it: Partial<Catalogue> = {
   "blocks.details.none": "nessuno",
   "blocks.details.argumentsList": "Argomenti: {args}",
   "blocks.details.command": "Comando",
-  "blocks.details.in": "In",
+  "blocks.details.in": "Cartella",
   "blocks.details.envNames": "Nomi delle variabili d’ambiente",
   "blocks.details.runs": "Viene eseguito",
   "blocks.details.runsOnHost": "sul tuo Mac, fuori dalla sandbox",
@@ -4074,6 +4075,7 @@ export const it: Partial<Catalogue> = {
   // Approvals wave W3 (card choices, Allowed list)
   ...approvalsW3,
   ...desktopSimple,
+  ...appleB,
   // Gateway-authored notices (inbox notifications, security alerts)
   ...notices,
   // Settings > Computer use > Separate desktop (Linux)

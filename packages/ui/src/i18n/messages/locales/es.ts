@@ -1,6 +1,7 @@
 import type { Catalogue } from "../index.ts";
 import { actionErrors } from "./action-errors/es.ts";
 import { agentA } from "./agent-a/es.ts";
+import { appleB } from "./apple-b/es.ts";
 import { approvalsW3 } from "./approvals-w3/es.ts";
 import { blocksA } from "./blocks-a/es.ts";
 import { canvas } from "./canvas/es.ts";
@@ -398,7 +399,7 @@ export const es: Partial<Catalogue> = {
   "blocks.details.none": "ninguno",
   "blocks.details.argumentsList": "Argumentos: {args}",
   "blocks.details.command": "Comando",
-  "blocks.details.in": "En",
+  "blocks.details.in": "Carpeta",
   "blocks.details.envNames": "Nombres de variables de entorno",
   "blocks.details.runs": "Se ejecuta",
   "blocks.details.runsOnHost": "en tu Mac, fuera del entorno aislado",
@@ -4111,6 +4112,7 @@ export const es: Partial<Catalogue> = {
   // Approvals wave W3 (card choices, Allowed list)
   ...approvalsW3,
   ...desktopSimple,
+  ...appleB,
   // Gateway-authored notices (inbox notifications, security alerts)
   ...notices,
   // Settings > Computer use > Separate desktop (Linux)

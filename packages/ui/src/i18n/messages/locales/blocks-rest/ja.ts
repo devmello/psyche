@@ -114,7 +114,7 @@ export const blocksRest: Partial<Catalogue> = {
   "blocks.approval.sideEffect.write": "何かを変更する",
   "blocks.approval.sideEffect.destructive": "元に戻しにくい設定やデータを変更する",
   "blocks.approval.sideEffect.financial": "お金に関わる",
-  "blocks.approval.whyMode": "{mode}モードでは、{effect}前に確認します。",
+  "blocks.approval.whyMode": "{mode}モードでは、{effect}ため、先に承認する設定です。",
   "blocks.details.params": "詳細",
   "blocks.details.reason": "理由",
   "blocks.approval.answerOnHost":

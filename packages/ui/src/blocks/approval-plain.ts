@@ -1,5 +1,6 @@
 import type { ApprovalRequest } from "@psyche/protocol";
 import { t } from "../i18n/core.ts";
+import { pathBasename, pathDirname } from "../lib/paths.ts";
 
 /** Kinds whose writes change files, the folder or the repository. */
 const FILE_KINDS: readonly string[] = [
@@ -49,20 +50,108 @@ function reachesNetwork(details: ApprovalRequest["details"] | undefined): boolea
 }
 
 /**
- * The first line of the Gateway's template ("Title · write · after reading untrusted content")
- * with the side-effect word and the untrusted-content note in plain words. The title stays as the
- * Gateway wrote it (`cardHeader` is shared with the channels).
+ * The line under the card's title: what the action does in plain words ("Changes files · Psyche
+ * read something from outside first"). The kind's own title ("Run command in sandbox") is the
+ * Gateway's template wording, shared with the channels, and stays off the desktop card: the
+ * heading already says what Psyche wants to do.
  */
 export function plainHeader(
   a: Pick<ApprovalRequest, "kind" | "sideEffect" | "taint"> & {
     details?: ApprovalRequest["details"];
   },
-  templateLine: string,
 ): string {
-  const title = templateLine.split(" · ")[0] ?? templateLine;
-  return [title, plainEffect(a), a.taint ? t("approvals.effect.untrusted") : null]
+  return [plainEffect(a), a.taint ? t("approvals.effect.untrusted") : null]
     .filter((x): x is string => x !== null && x !== "")
     .join(" · ");
+}
+
+/** The longest command the heading quotes in full; a longer one stays whole in Details. */
+const MAX_COMMAND_CHARS = 120;
+
+const quoteArg = (a: string): string => (/[\s"'\\]/.test(a) || a === "" ? JSON.stringify(a) : a);
+
+/** The command of an `exec` / `exec_host` card as one line, or null when there is none. */
+export function commandLine(details: ApprovalRequest["details"] | undefined): string | null {
+  const d = (details ?? {}) as Record<string, unknown>;
+  if (Array.isArray(d.argv) && d.argv.length > 0) {
+    return d.argv.map((x) => quoteArg(String(x))).join(" ");
+  }
+  return typeof d.command === "string" && d.command.trim() !== "" ? d.command : null;
+}
+
+/** A folder as a person names it: its last part, or nothing for "~", "." and a bare root. */
+function folderName(path: unknown): string | null {
+  if (typeof path !== "string" || path.trim() === "") return null;
+  const name = pathBasename(path.replace(/[\\/]+$/, ""));
+  return name === "" || name === "~" || name === "." || name === "/" ? null : name;
+}
+
+/**
+ * One plain sentence for the heading: "Wren wants to run `npm install` in psyche." Only for the
+ * cards whose facts are all in `details` (a command in the sandbox or on this computer, a file
+ * save); null for every other kind and for a command too long to quote whole, which keep the
+ * Gateway's summary.
+ */
+export function plainTitle(
+  a: Pick<ApprovalRequest, "kind" | "details">,
+  persona: string,
+): string | null {
+  const d = (a.details ?? {}) as Record<string, unknown>;
+  if (a.kind === "exec" || a.kind === "exec_host") {
+    if (d.onMachine === true) return null;
+    const command = commandLine(a.details);
+    if (command === null || command.length > MAX_COMMAND_CHARS) return null;
+    const folder = folderName(d.cwd);
+    return t("approvals.plain.run", {
+      who: persona,
+      command,
+      hasFolder: folder !== null,
+      folder: folder ?? "",
+    });
+  }
+  if (a.kind === "file_write" && typeof d.path === "string") {
+    const file = pathBasename(d.path);
+    if (file === "") return null;
+    const folder = folderName(pathDirname(d.path));
+    return t("approvals.plain.save", {
+      who: persona,
+      file,
+      mode: d.mode === "create" ? "create" : "change",
+      hasFolder: folder !== null,
+      folder: folder ?? "",
+    });
+  }
+  return null;
+}
+
+const REASONS: readonly (readonly [string | RegExp, string])[] = [
+  [/^exec always asks\b/, "approvals.plainWhy.commands"],
+  ["read-only commands ask in this mode or with the setting off", "approvals.plainWhy.commands"],
+  ["user ask rule", "approvals.plainWhy.yourRule"],
+  ["write outside the workspace", "approvals.plainWhy.outsideWorkspace"],
+  ["srt is not set up", "approvals.plainWhy.noSandbox"],
+  ["protected memory files always ask", "approvals.plainWhy.protectedFiles"],
+  ["pushes always ask", "approvals.plainWhy.push"],
+  ["file changes on a machine ask every time", "approvals.plainWhy.machineFiles"],
+  ["tools of unknown MCP servers ask", "approvals.plainWhy.unknownTool"],
+  ["connector matrix asks", "approvals.plainWhy.connector"],
+  ["untrusted content was read and the target is new", "approvals.plainWhy.outsideNew"],
+  ["exec with network or outside writes in a tainted turn", "approvals.plainWhy.outsideCommand"],
+  [/^a command on .* in a tainted turn$/, "approvals.plainWhy.outsideCommand"],
+];
+
+/**
+ * The engine's reason for asking, as a person would give it ("You asked to approve commands
+ * before they run"). The engine's words stay in `packages/permissions`; they are mapped here.
+ * A reason with no mapping (a hook's own text, an address it names) returns null and the card
+ * shows it as sent.
+ */
+export function plainReason(reason: string): string | null {
+  const text = reason.trim().replace(/^[A-Za-z]+ mode; /, "");
+  const hit = REASONS.find(([match]) =>
+    typeof match === "string" ? match === text : match.test(text),
+  );
+  return hit ? t(hit[1] as never) : null;
 }
 
 /** Why a card was closed without an answer, in a sentence (never the raw code). */

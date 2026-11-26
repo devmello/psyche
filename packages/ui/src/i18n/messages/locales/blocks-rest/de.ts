@@ -118,7 +118,7 @@ export const blocksRest: Partial<Catalogue> = {
   "blocks.approval.sideEffect.destructive":
     "ändert Einstellungen oder Daten, was sich schwer rückgängig machen lässt",
   "blocks.approval.sideEffect.financial": "betrifft Geld",
-  "blocks.approval.whyMode": "Im Modus „{mode}“ wird nachgefragt, bevor es {effect}.",
+  "blocks.approval.whyMode": "Du wolltest das im Modus „{mode}“ bestätigen, weil es {effect}.",
   "blocks.details.params": "Details",
   "blocks.details.reason": "Grund",
   "blocks.approval.answerOnHost":

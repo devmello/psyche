@@ -50,9 +50,10 @@ describe("ApprovalCard renders through renderForSurface (design-12)", () => {
     // The fixed template header comes first, from the same function every surface uses.
     const header = renderForSurface("desktop", a).text.split("\n")[0];
     expect(header).toBe("Send email · write · after reading untrusted content");
-    // The desktop says the side effect in plain words; the channels keep the template line.
+    // The desktop says the side effect in plain words (and drops the template's kind title);
+    // the channels keep the template line.
     expect(container.querySelector("[data-card-header]")?.textContent).toBe(
-      "Send email · Sends to someone · After reading untrusted content",
+      "Sends to someone · Psyche read something from outside first",
     );
     expect(screen.getByRole("heading", { level: 3 }).textContent).toBe(
       'Send reply "Re: x"⏎⏎✅ Low risk: saving a draft only (write)⏎',
@@ -82,8 +83,10 @@ describe("ApprovalCard renders through renderForSurface (design-12)", () => {
     expect(text).toContain("{{cred:github-token}}");
     expect(text).toContain("GITHUB_TOKEN");
     expect(text).not.toMatch(/ghp_[A-Za-z0-9]+/);
-    expect(container.querySelector("[data-card-header]")?.textContent).toBe(
-      "Run command in sandbox · Changes files",
+    expect(container.querySelector("[data-card-header]")?.textContent).toBe("Changes files");
+    // The heading says in a sentence what runs and where; the placeholder stays, never a secret.
+    expect(screen.getByRole("heading", { level: 3 }).textContent).toMatch(
+      /^.+ wants to run `curl -H "Authorization: Bearer \{\{cred:\w+-token\}\}" https:\/\/api\.\w+\.com` in workspace\.$/,
     );
   });
 
@@ -102,9 +105,7 @@ describe("ApprovalCard renders through renderForSurface (design-12)", () => {
     expect(text).toContain("xn--");
     expect(text).not.toContain("kаyak");
     expect(text).toContain("does not match");
-    expect(container.querySelector("[data-card-header]")?.textContent).toBe(
-      "Fill credential · Changes something",
-    );
+    expect(container.querySelector("[data-card-header]")?.textContent).toBe("Changes something");
   });
 
   it("a device-only approval answers on the Mac: here with buttons, elsewhere with a pointer", () => {

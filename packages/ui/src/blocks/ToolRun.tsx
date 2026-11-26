@@ -20,10 +20,10 @@ import {
   Wrench,
 } from "lucide-react";
 import { type ReactElement, useState } from "react";
-import { RailNode } from "../chat/RailNode.tsx";
 import { StatusGlyph, type StatusKind } from "../components/status.tsx";
 import { t } from "../i18n/core.ts";
 import { formatDuration, formatTime, toolFamily } from "../lib/format.ts";
+import { pathBasename, pathDirname } from "../lib/paths.ts";
 import { cn } from "../lib/utils.ts";
 import { McpAppPanel } from "../widgets/McpAppPanel.tsx";
 import { DiffBlock } from "./DiffBlock.tsx";
@@ -51,7 +51,7 @@ const STATUS_DOT: Record<ToolCallStatus, string> = {
   running: "bg-accent-9 animate-psy-working reduced:animate-none",
   ok: "bg-success",
   failed: "bg-danger",
-  uncertain: "bg-approval",
+  uncertain: "bg-gray-10",
   blocked: "bg-danger",
 };
 
@@ -64,10 +64,85 @@ export function StatusDot({ status }: { status: ToolCallStatus }): ReactElement 
   );
 }
 
-/** "3 actions · browser, calendar" (UI design §3.2). */
+/** The tool families as a person names them; anything else keeps its own name. */
+const FAMILY_KIND: Record<string, string> = {
+  exec: "command",
+  sandbox: "command",
+  write: "file",
+  edit: "file",
+  read: "file",
+  file: "file",
+  web: "web",
+  search: "web",
+  gmail: "mail",
+  mail: "mail",
+  calendar: "calendar",
+  drive: "drive",
+  memory: "memory",
+  remember: "memory",
+  forget: "memory",
+  task: "task",
+  subagent: "task",
+  harness: "task",
+};
+
+const familyName = (tool: string): string => {
+  const family = toolFamily(tool);
+  return t("blocks.toolRun.familyName", { kind: FAMILY_KIND[family] ?? "other", name: family });
+};
+
+/** "3 actions · files, calendar" (UI design §3.2). */
 export function summarizeRun(items: readonly ToolCallItem[]): string {
-  const families = [...new Set(items.map((i) => toolFamily(i.block.tool)))];
+  const families = [...new Set(items.map((i) => familyName(i.block.tool)))];
   return t("blocks.toolRun.summary", { count: items.length, families: families.join(", ") });
+}
+
+/** What a screen reader hears before the row: "Ran a command", "Saved a file" (never `exec:`). */
+const SPOKEN_KIND: Record<string, string> = {
+  exec: "command",
+  sandbox: "command",
+  write: "write",
+  edit: "edit",
+  read: "read",
+  file: "read",
+  web: "web",
+  search: "web",
+  gmail: "mail",
+  mail: "mail",
+  calendar: "calendar",
+  memory: "memory",
+  remember: "memory",
+  forget: "memory",
+};
+
+export function spokenAction(tool: string): string {
+  return t("blocks.toolRun.spoken", { kind: SPOKEN_KIND[toolFamily(tool)] ?? "other" });
+}
+
+/** `~/Documents/Taxes/letter.md` or `/Users/me/x/a.txt` anywhere in a line. */
+const PATH_IN_LINE = /(?:~|\/)[^\s"'`)]*\/[^\s"'`)]+/g;
+
+/**
+ * The row's one line as a plain action. A file save names the file and its folder ("Save letter.md
+ * in Taxes") from the call's own path; any other line the Gateway wrote has its paths cut down to
+ * the file's name, never the whole path.
+ */
+export function plainToolLine(item: ToolCallItem): string {
+  const { block, call } = item;
+  const family = toolFamily(block.tool);
+  const path = (call?.paramsRedacted as Record<string, unknown> | null | undefined)?.path;
+  if ((family === "write" || family === "edit") && typeof path === "string" && path !== "") {
+    const file = pathBasename(path);
+    const folder = pathBasename(pathDirname(path));
+    if (file !== "") {
+      return t("blocks.toolRun.line.save", {
+        file,
+        hasFolder: folder !== "" && folder !== "." && folder !== "~" && folder !== file,
+        folder,
+      });
+    }
+  }
+  return block.level1.replace(PATH_IN_LINE, (p) => pathBasename(p));
 }
 
 function duration(call: ToolCall | null | undefined): string | null {
@@ -145,7 +220,6 @@ export function ToolCallRow({
   const { block, call, receipt } = item;
   const untrusted = call?.provenanceOut === "untrusted";
   const Icon = toolIcon(block.tool);
-  const family = toolFamily(block.tool);
   // A change the call made, as its receipt recorded it (`code.edit`, a file write).
   const diff = typeof receipt?.payload?.diff === "string" ? receipt.payload.diff : undefined;
   const glyph = toolGlyph(block.status, item.settled === true);
@@ -155,22 +229,14 @@ export function ToolCallRow({
   return (
     <li className="flex flex-col gap-1 py-1 text-body" data-waiting={waiting ? "true" : undefined}>
       <div className="flex min-h-6 items-center gap-2">
-        <Icon className="size-4 shrink-0 text-label-secondary" aria-hidden="true">
-          <title>{family}</title>
-        </Icon>
-        <span className="sr-only">{family}: </span>
-        <span className="min-w-0 flex-1 truncate text-label-primary">{block.level1}</span>
+        <Icon className="size-4 shrink-0 text-label-secondary" aria-hidden="true" />
+        <span className="sr-only">{spokenAction(block.tool)}: </span>
+        <span className="min-w-0 flex-1 truncate text-label-primary">{plainToolLine(item)}</span>
         <span className="shrink-0 text-callout text-label-tertiary tabular-nums">
           {duration(call) ?? ""}
         </span>
-        {waiting ? (
-          <>
-            <RailNode state="waiting" />
-            <span className="sr-only">{label}</span>
-          </>
-        ) : (
-          <StatusGlyph status={glyph} label={label} />
-        )}
+        {/* Waiting is neutral: the approval card carries the one "needs you" signal. */}
+        <StatusGlyph status={waiting ? "pending" : glyph} label={label} />
       </div>
       {diff !== undefined ? (
         <details className="ms-6">
@@ -242,7 +308,7 @@ export function ToolRun({ items }: { items: readonly ToolCallItem[] }): ReactEle
   ).length;
   const Lead = toolIcon(items[0]?.block.tool ?? "");
   const [only] = items;
-  // One action waiting on the owner reads as one line ("Save the letter", amber dot), not a
+  // One action waiting on the owner reads as one line ("Save the letter", neutral ring), not a
   // "1 action · write" row above the same row; the approval card carries the ask.
   if (only !== undefined && items.length === 1 && glyph === "waiting")
     return (
@@ -263,7 +329,7 @@ export function ToolRun({ items }: { items: readonly ToolCallItem[] }): ReactEle
       >
         <Lead className="size-4 shrink-0" aria-hidden="true" />
         <span className="truncate">{summarizeRun(items)}</span>
-        {glyph === "waiting" ? <RailNode state="waiting" /> : <StatusGlyph status={glyph} />}
+        <StatusGlyph status={glyph === "waiting" ? "pending" : glyph} />
         {glyph === "running" ? (
           <span className="sr-only">{t("blocks.toolRun.runningNote")}</span>
         ) : failures > 0 ? (

@@ -2,6 +2,7 @@ import type { Catalogue } from "../index.ts";
 import { actionErrors } from "./action-errors/ar.ts";
 import { agent } from "./agent/ar.ts";
 import { agentNotes } from "./agent-notes/ar.ts";
+import { appleB } from "./apple-b/ar.ts";
 import { approvalsW3 } from "./approvals-w3/ar.ts";
 import { audit } from "./audit/ar.ts";
 import { automationChat } from "./automation-chat/ar.ts";
@@ -465,7 +466,7 @@ export const ar: Partial<Catalogue> = {
   "blocks.details.none": "لا شيء",
   "blocks.details.argumentsList": "الوسيطات: {args}",
   "blocks.details.command": "الأمر",
-  "blocks.details.in": "في",
+  "blocks.details.in": "المجلد",
   "blocks.details.envNames": "أسماء متغيرات البيئة",
   "blocks.details.runs": "يعمل",
   "blocks.details.runsOnHost": "على جهاز Mac الخاص بك، خارج البيئة المعزولة",
@@ -4057,6 +4058,7 @@ export const ar: Partial<Catalogue> = {
   // Approvals wave W3 (card choices, Allowed list)
   ...approvalsW3,
   ...desktopSimple,
+  ...appleB,
   // Gateway-authored notices (inbox notifications, security alerts)
   ...notices,
   // Settings > Computer use > Separate desktop (Linux)

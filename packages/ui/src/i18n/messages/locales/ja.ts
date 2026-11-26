@@ -1,6 +1,7 @@
 import type { Catalogue } from "../index.ts";
 import { actionErrors } from "./action-errors/ja.ts";
 import { agentRest } from "./agent-rest/ja.ts";
+import { appleB } from "./apple-b/ja.ts";
 import { approvalsW3 } from "./approvals-w3/ja.ts";
 import { auditRest } from "./audit-rest/ja.ts";
 import { automationChatRest } from "./automationChat-rest/ja.ts";
@@ -4031,6 +4032,7 @@ export const ja: Partial<Catalogue> = {
   // Approvals wave W3 (card choices, Allowed list)
   ...approvalsW3,
   ...desktopSimple,
+  ...appleB,
   // Gateway-authored notices (inbox notifications, security alerts)
   ...notices,
   // Settings > Computer use > Separate desktop (Linux)

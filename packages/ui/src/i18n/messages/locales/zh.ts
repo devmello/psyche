@@ -2,6 +2,7 @@ import type { Catalogue } from "../index.ts";
 import { actionErrors } from "./action-errors/zh.ts";
 import { agent } from "./agent/zh.ts";
 import { agentNotes } from "./agent-notes/zh.ts";
+import { appleB } from "./apple-b/zh.ts";
 import { approvalsW3 } from "./approvals-w3/zh.ts";
 import { audit } from "./audit/zh.ts";
 import { automationChat } from "./automation-chat/zh.ts";
@@ -3926,6 +3927,7 @@ export const zh: Partial<Catalogue> = {
   // Approvals wave W3 (card choices, Allowed list)
   ...approvalsW3,
   ...desktopSimple,
+  ...appleB,
   // Gateway-authored notices (inbox notifications, security alerts)
   ...notices,
   // Settings > Computer use > Separate desktop (Linux)
