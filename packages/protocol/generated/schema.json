@@ -8155,6 +8155,7 @@
         "mcp_tool",
         "archive_thread",
         "memory_protected_write",
+        "memory_forget",
         "pairing",
         "policy_change",
         "task_start",
@@ -8358,6 +8359,11 @@
           "type": "string"
         },
         "requestedAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "armedAt": {
           "description": "ISO-8601 timestamp (UTC)",
           "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
           "type": "string"
@@ -11475,6 +11481,12 @@
             "skill"
           ],
           "type": "object"
+        },
+        "taintSources": {
+          "items": {
+            "$ref": "#/$defs/TaintSource"
+          },
+          "type": "array"
         }
       },
       "required": [
@@ -18531,6 +18543,30 @@
         },
         "tainted": {
           "type": "boolean"
+        },
+        "taintSources": {
+          "items": {
+            "properties": {
+              "sourceKind": {
+                "maxLength": 80,
+                "type": "string"
+              },
+              "origin": {
+                "maxLength": 300,
+                "type": "string"
+              },
+              "sender": {
+                "maxLength": 300,
+                "type": "string"
+              }
+            },
+            "required": [
+              "sourceKind"
+            ],
+            "type": "object"
+          },
+          "maxItems": 32,
+          "type": "array"
         }
       },
       "required": [

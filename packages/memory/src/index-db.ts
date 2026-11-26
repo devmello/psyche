@@ -80,6 +80,28 @@ export function queryTerms(query: string): string[] {
   return [...new Set(query.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? [])].slice(0, 32);
 }
 
+/**
+ * Words that say nothing about what a memory is about. An OR query over them matches the stop
+ * words of every file, and the persona files (SOUL.md, AGENTS.md) are full of them, so "when is
+ * standup" came back with SOUL.md at 0.16. English only: other scripts keep every term.
+ */
+const SEARCH_STOPWORDS: ReadonlySet<string> = new Set(
+  (
+    "a an and are as at be been being but by could did do does doing done for from had has have " +
+    "he her him his how i if in into is it its me my of on or our she so than that the their them " +
+    "then there these they this those to too was we were what when where which who whom why " +
+    "with would you your about any some very just also not no yes"
+  ).split(" "),
+);
+
+/**
+ * The terms a search matches on: `queryTerms` without stop words (name-like words such as "will", "can" and "us", and letters such as "C", stay). A query
+ * made only of such words has no terms, so it matches nothing by keyword.
+ */
+export function searchTerms(query: string): string[] {
+  return queryTerms(query).filter((t) => !SEARCH_STOPWORDS.has(t));
+}
+
 function likePrefix(prefix: string): string {
   return `${prefix.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
 }
@@ -370,7 +392,7 @@ export class MemoryIndex {
 
   async search(query: string, options: IndexSearchOptions, nowMs: number): Promise<MemoryHit[]> {
     const limit = Math.min(Math.max(1, options.limit ?? 10), 100);
-    const terms = queryTerms(query);
+    const terms = searchTerms(query);
     const filter = this.#filterSql(options);
     const candidates = new Map<string, { chunk: MemoryChunk; bm25?: number; cosine?: number }>();
 

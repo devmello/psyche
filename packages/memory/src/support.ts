@@ -53,7 +53,12 @@ export interface ProtectedWriteRequest {
   contentSha256?: string;
   /** Destination of a rename. */
   newPath?: string;
+  /** The forgotten phrase, for a `forget` that the owner approved with a `memory_forget` card. */
+  subject?: string;
 }
+
+/** A phrase as the forget card binds it: trimmed, spaces collapsed, lower case. */
+export const forgetSubjectKey = (s: string): string => s.trim().replace(/\s+/g, " ").toLowerCase();
 
 /**
  * Confirms that `approvalId` is an approved `memory_protected_write` covering this request.
@@ -78,6 +83,17 @@ export function brokerApprovalCheck(broker: Pick<PermissionBroker, "get">): Appr
   return async (approvalId, request) => {
     const approval = await broker.get(approvalId);
     if (approval === undefined) return false;
+    if (approval.status === "approved" && approval.kind === "memory_forget") {
+      // The owner's "Forget everywhere" card for exactly this phrase; it covers what that forget
+      // reaches (people, lessons, the protected files with the phrase in them), once.
+      const params = (approval.details as { params?: { subject?: unknown } }).params;
+      return (
+        request.path === "forget:everywhere" &&
+        request.subject !== undefined &&
+        typeof params?.subject === "string" &&
+        forgetSubjectKey(params.subject) === forgetSubjectKey(request.subject)
+      );
+    }
     if (approval.status !== "approved" || approval.kind !== "memory_protected_write") return false;
     const details = approval.details as {
       path?: unknown;

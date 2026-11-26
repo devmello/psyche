@@ -1,4 +1,9 @@
-import { type DailyWorkflowProposal, type MemoryStore, PsycheError } from "@psyche/protocol";
+import {
+  type DailyWorkflowProposal,
+  type MemoryStore,
+  PsycheError,
+  type TaintSource,
+} from "@psyche/protocol";
 import { Type } from "@sinclair/typebox";
 import { type AgentToolRegistration, defineTool } from "../registry.ts";
 import type { TurnToolContext } from "./turn.ts";
@@ -56,6 +61,22 @@ export const ProposeAutomationInput = Type.Object(
   { additionalProperties: false },
 );
 
+/**
+ * The turn's taint as the proposal block carries it: kinds only (no origin, no sender: the block
+ * reaches every client), deduped, at most 32 entries to fit the schema; tainted with none
+ * recorded still carries one. The run's own sources stay on the Gateway.
+ */
+export function proposalTaint(sources: readonly TaintSource[] | undefined): TaintSource[] {
+  const kinds: string[] = [];
+  for (const s of sources ?? []) {
+    const kind = s.sourceKind.slice(0, 80);
+    if (!kinds.includes(kind)) kinds.push(kind);
+  }
+  if (kinds.length === 0) return [{ sourceKind: "turn" }];
+  const out = kinds.slice(0, 31).map((sourceKind) => ({ sourceKind }));
+  return kinds.length > 31 ? [...out, { sourceKind: "more" }] : out;
+}
+
 function slug(title: string, salt: string): string {
   const base = title
     .toLowerCase()
@@ -72,7 +93,7 @@ export function proposeAutomationTool(options: {
   return defineTool({
     name: "propose_automation",
     description:
-      "After a trial run with the owner, show one confirm card that lists each schedule (time, days), what each run does, the approvals it needs and how it notifies. Confirming creates the linked scheduled runs; this call creates nothing. Use it for repeatable workflows only, never for a one-off, and never before the trial run. Do not call schedule for the same workflow.",
+      "Show one confirm card that lists each schedule (time, days), what each run does, the approvals it needs and how it notifies. Confirming creates the linked scheduled runs; this call creates nothing. Use it for repeatable workflows only, never for a one-off. No trial fetch is needed first; a trial run only when the owner asks. Do not call schedule for the same workflow.",
     input: ProposeAutomationInput,
     sideEffect: "none",
     describeCall: (p) => ({ summary: `Propose automation "${p.title}"` }),
@@ -105,7 +126,12 @@ export function proposeAutomationTool(options: {
         notify: p.notify,
         obstacles: p.obstacles,
         ...(p.offerSkill === undefined ? {} : { offerSkill: p.offerSkill }),
-        ...(ctx.taint ? { tainted: true } : {}),
+        ...(ctx.taint
+          ? {
+              tainted: true,
+              taintSources: proposalTaint(ctx.taintSources),
+            }
+          : {}),
       };
       (ctx as TurnToolContext).turn.emitBlock({ type: "automation_workflow", proposal });
       return {

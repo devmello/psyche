@@ -70,6 +70,7 @@ import {
   automationStateSetTool,
   proposeAutomationTool,
 } from "./builtins/automation.ts";
+import { forgetTool } from "./builtins/forget.ts";
 import {
   type ForkReportHost,
   type ForkReportTurnApi,
@@ -927,7 +928,12 @@ export class PsycheAgentLoop implements AgentLoop {
     const tz = (): string => this.#zone();
     const tools: AgentToolRegistration[] = [...turnTools(), appNavigateTool];
     if (o.memory !== undefined)
-      tools.push(memoryTool(o.memory, { clock: this.#clock, timeZone: tz }));
+      tools.push(
+        memoryTool(o.memory, { clock: this.#clock, timeZone: tz }),
+        forgetTool(o.memory, {
+          isIncognito: (id) => o.isIncognito?.(id) === true,
+        }),
+      );
     if (o.tasks !== undefined) tools.push(taskStartTool(o.tasks));
     if (o.scheduler !== undefined) {
       tools.push(scheduleTool(o.scheduler, tz));

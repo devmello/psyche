@@ -156,6 +156,17 @@ export const DailyWorkflowProposal = Type.Object(
     offerSkill: Type.Optional(Type.Boolean()),
     /** The proposal was built after reading untrusted content: the card says so. */
     tainted: Type.Optional(Type.Boolean()),
+    /** What it was built from. Confirming starts every created run tainted with these. */
+    taintSources: Type.Optional(
+      Type.Array(
+        Type.Object({
+          sourceKind: Type.String({ maxLength: 80 }),
+          origin: Type.Optional(Type.String({ maxLength: 300 })),
+          sender: Type.Optional(Type.String({ maxLength: 300 })),
+        }),
+        { maxItems: 32 },
+      ),
+    ),
   },
   { $id: "DailyWorkflowProposal" },
 );
