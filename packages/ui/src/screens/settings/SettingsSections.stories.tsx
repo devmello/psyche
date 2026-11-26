@@ -18,7 +18,6 @@ import { AboutPanel } from "./AboutSection.tsx";
 import { AccessListView } from "./AccessList.tsx";
 import { AppearancePanel } from "./AppearanceSection.tsx";
 import { BrowserPanel } from "./BrowserSection.tsx";
-import { ChannelsPanel } from "./ChannelsSection.tsx";
 import { ComputerUsePanel } from "./ComputerUseSection.tsx";
 import { ConnectorsPanel } from "./ConnectorsSection.tsx";
 import { CredentialDetail } from "./CredentialDetail.tsx";
@@ -45,7 +44,6 @@ import {
   sampleAbout,
   sampleDoctor,
   sampleEndpointProbes,
-  sampleIdentities,
   sampleModelProviders,
   sampleProviders,
   sampleServerStatus,
@@ -73,7 +71,6 @@ const forbidden = new Set([
   "models.primary",
   "permissions.policy",
 ]);
-const channelPairing = world.pairingRequests.filter((p) => p.kind === "channel-sender");
 
 const meta = {
   title: "Screens/Settings/Sections",
@@ -578,36 +575,6 @@ export const DevicesActionForbidden: Story = {
       actionError="Approve pairing needs approval on this device. Use a device paired as admin."
     />
   ),
-};
-
-// --- Channels ----------------------------------------------------------------------------------
-
-const channelProps = {
-  channels: world.channels,
-  pairing: channelPairing,
-  identities: sampleIdentities(),
-  persona: PERSONA.name,
-  now: STORY_NOW,
-  onPolicyChange: noop,
-  onRequireMention: noop,
-  onApprove: noop,
-  onIgnore: noop,
-};
-export const ChannelsPopulated: Story = { render: () => <ChannelsPanel {...channelProps} /> };
-export const ChannelsOpenPolicy: Story = {
-  render: () => (
-    <ChannelsPanel
-      {...channelProps}
-      channels={world.channels.map((c) => ({ ...c, dmPolicy: "open" as const }))}
-    />
-  ),
-};
-export const ChannelsEmpty: Story = {
-  render: () => <ChannelsPanel {...channelProps} channels={[]} pairing={[]} identities={[]} />,
-};
-export const ChannelsLoading: Story = { render: () => <ChannelsPanel {...channelProps} loading /> };
-export const ChannelsError: Story = {
-  render: () => <ChannelsPanel {...channelProps} error="unavailable" onRetry={noop} />,
 };
 
 // --- Credentials -------------------------------------------------------------------------------

@@ -192,11 +192,7 @@ export type CardSurfaceKind =
   | "desktop"
   | "web"
   | "notification"
-  | "telegram"
-  | "imessage"
-  | "slack"
-  | "discord"
-  | "signal"
+  /** Any other surface (an old approval row's removed chat channel). */
   | "chat";
 
 /** Characters a surface can show before a card would be cut. */
@@ -204,11 +200,6 @@ export const SURFACE_LIMITS: Record<CardSurfaceKind, number> = {
   desktop: Number.POSITIVE_INFINITY,
   web: Number.POSITIVE_INFINITY,
   notification: 180,
-  telegram: 4000,
-  imessage: 1000,
-  slack: 3000,
-  discord: 2000,
-  signal: 2000,
   chat: 1000,
 };
 
@@ -248,9 +239,6 @@ export function surfaceKind(surface: string): CardSurfaceKind {
   if (surface === "desktop" || surface === "web" || surface === "notification") return surface;
   // A paired phone or tablet (`device:<deviceId>`) is the device itself, not a chat.
   if (surface.startsWith("device:")) return "desktop";
-  const channel = surface.split(":")[0] ?? "";
-  if (["telegram", "imessage", "slack", "discord", "signal"].includes(channel))
-    return channel as CardSurfaceKind;
   return "chat";
 }
 

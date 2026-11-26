@@ -318,7 +318,6 @@ const DEFAULT_MANAGED_BY: ManagedBy = {
 const SETTING_LABEL: Record<ManagedBy["setting"], string> = {
   connectors: "Connectors (disconnect it)",
   models: "Models",
-  channels: "Channels",
   credentials: "Credentials",
 };
 

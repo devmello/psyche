@@ -2,6 +2,8 @@ import type { Catalogue } from "../index.ts";
 import { actionErrors } from "./action-errors/ja.ts";
 import { agentRest } from "./agent-rest/ja.ts";
 import { appleD } from "./apple-d/ja.ts";
+import { appleE1 } from "./apple-e1/ja.ts";
+import { appleE2 } from "./apple-e2/ja.ts";
 import { approvalsW3 } from "./approvals-w3/ja.ts";
 import { auditRest } from "./audit-rest/ja.ts";
 import { automationChatRest } from "./automationChat-rest/ja.ts";
@@ -58,6 +60,7 @@ import { scheduledRest } from "./scheduled-rest/ja.ts";
 import { screensRest } from "./screens-rest/ja.ts";
 import { securityState } from "./security-state/ja.ts";
 import { separateDesktop } from "./separate-desktop/ja.ts";
+import { settingsDrill } from "./settings-drill/ja.ts";
 import { settingsRest } from "./settings-rest/ja.ts";
 import { shellRest } from "./shell-rest/ja.ts";
 import { spaces } from "./spaces/ja.ts";
@@ -482,6 +485,7 @@ export const ja: Partial<Catalogue> = {
   "blocks.approval.scope.trustSiteSubdomains": "このサイトとそのサブドメインで常に許可（{site}）",
   "blocks.approval.scope.hostProgram": "{folder} で {program} を常に許可",
   "blocks.approval.scope.hostProgramExact": "{folder} で {program} をこの引数のときだけ常に許可",
+  "blocks.approval.scope.hostProgramSession": "このチャットでは {folder} 内の {program} を許可",
   "blocks.approval.scope.site": "このサイトで許可",
   "blocks.approval.scope.session": "このセッションで許可",
   "blocks.approval.scope.always": "常に許可",
@@ -817,11 +821,9 @@ export const ja: Partial<Catalogue> = {
   "agent.upcoming.inNamed": "{name}で",
   "agent.upcoming.inOwnSession": "専用のセッションで",
   "agent.upcoming.inMainSession": "メインセッションで",
-  "agent.upcoming.email": "メール",
   "agent.upcoming.quiet": "対応が必要なことがない限り通知しません",
   "agent.upcoming.theMainChat": "メインチャット",
   "agent.upcoming.aChat": "チャット",
-  "agent.upcoming.aChannel": "チャンネル",
   "agent.upcoming.nowhere": "配信先はまだありません",
   "agent.upcoming.deliversTo": "{to}に配信",
   "agent.upcoming.last": "前回：{status}",
@@ -1035,7 +1037,6 @@ export const ja: Partial<Catalogue> = {
   "shell.sidebar.destinations": "移動先",
   "shell.sidebar.resize": "サイドバーのサイズを変更",
   "shell.sidebar.settingsMenu": "設定とヘルプ",
-  "shell.sidebar.channel": "チャンネル",
   "shell.sidebar.automation": "オートメーション",
   "shell.sidebar.subagent": "サブエージェント",
   "shell.sidebar.untitled": "名称未設定のチャット",
@@ -1108,7 +1109,6 @@ export const ja: Partial<Catalogue> = {
   "settings.nav.files": "ファイルアクセス",
   "settings.nav.vm": "VMモード",
   "settings.nav.devices": "デバイスとノード",
-  "settings.nav.channels": "チャンネル",
   "settings.nav.credentials": "認証情報",
   "settings.nav.appearance": "外観",
   "settings.nav.voice": "音声と音声入力",
@@ -1242,11 +1242,10 @@ export const ja: Partial<Catalogue> = {
     "PsycheはこれらのカードをStripe Linkから読み取っています。削除はLinkアカウントで行ってください。上のLinkキーを削除すると、Psycheはどのカードでも支払えなくなります。",
   "settings.credentials.managed.connector": "コネクタが管理",
   "settings.credentials.managed.model_provider": "モデルプロバイダのキー",
-  "settings.credentials.managed.channel": "チャンネルのトークン",
+  "settings.credentials.managed.channel": "以前のチャットチャンネルのシークレット",
   "settings.credentials.managed.external_manager": "パスワードマネージャからリンク",
   "settings.credentials.setting.connectors": "コネクタ",
   "settings.credentials.setting.models": "モデルとプロバイダ",
-  "settings.credentials.setting.channels": "チャンネル",
   "settings.credentials.setting.credentials": "認証情報",
   "settings.credentials.err.gatewayOwned":
     "{name}はGatewayが管理しています。設定 → {setting}で削除してください。",
@@ -1685,125 +1684,9 @@ export const ja: Partial<Catalogue> = {
   "settings.browser.rotateKey": "キーをローテーション",
   "settings.browser.createKey": "キーを作成",
   "settings.browser.keyStillSigns": "現在のキーがあれば、引き続き署名に使われます。",
-  "settings.channels.type.email": "メール",
-  "settings.channels.type.sms": "SMS",
-  "settings.channels.status.active": "接続済み",
-  "settings.channels.status.paused": "一時停止中",
-  "settings.channels.status.error": "エラー",
-  "settings.channels.status.disconnected": "接続解除",
-  "settings.channels.policy.pairing": "ペアリング",
-  "settings.channels.policy.pairingHint":
-    "新しい送信者にはコードが送られ、ここであなたが承認します。",
-  "settings.channels.policy.allowlist": "許可リスト",
-  "settings.channels.policy.allowlistHint": "下のリストにある人のみ。",
-  "settings.channels.policy.open": "オープン",
-  "settings.channels.policy.openHint": "誰でも{persona}にメッセージを送れます。",
-  "settings.channels.policy.disabled": "無効",
-  "settings.channels.policy.disabledHint": "ダイレクトメッセージは無視されます。",
-  "settings.channels.title": "チャンネル",
-  "settings.channels.description": "{persona}に連絡できる場所と、それを許可する相手。",
-  "settings.channels.loadLabel": "チャンネル",
-  "settings.channels.empty":
-    "チャンネルはまだありません。Telegram、iMessage、Slackを接続すると、このMacから離れていても{persona}に連絡できます。",
-  "settings.channels.add.button": "チャンネルを追加",
-  "settings.channels.add.title": "チャンネルを追加",
-  "settings.channels.add.description":
-    "{persona} に連絡できる場所を選びます。トークンは直接保管庫に保存され、再表示されません。",
-  "settings.channels.add.type": "チャンネル",
-  "settings.channels.add.account.slack": "ワークスペース名",
-  "settings.channels.add.account.discord": "アプリケーション ID",
-  "settings.channels.add.secret.bot_token": "ボットトークン",
-  "settings.channels.add.secret.app_token": "アプリトークン",
-  "settings.channels.add.secret.auth_token": "認証トークン",
-  "settings.channels.add.secret.access_token": "アクセストークン",
-  "settings.channels.add.secret.app_secret": "アプリシークレット",
-  "settings.channels.add.secret.verify_token": "検証トークン",
-  "settings.channels.add.submit": "接続",
-  "settings.channels.add.connecting": "接続中",
-  "settings.channels.add.missing": "接続するにはすべての項目を入力してください。",
-  "settings.channels.add.failed":
-    "Psyche はチャンネルを追加できませんでした（{reason}）。有効にはなっていません。",
-  "settings.channels.add.account.sms": "送信元番号 (+15551234567)",
-  "settings.channels.add.account.whatsapp": "WhatsApp 番号 (+15551234567)",
-  "settings.channels.add.badNumber": "番号は国際形式で入力してください（例: +15551234567）。",
-  "settings.channels.add.exists":
-    "{account} 用の {type} チャンネルはすでにあるため、何も変更していません。",
-  "settings.channels.add.approvalLabel": "チャンネルの追加",
-  "settings.channels.add.envNote":
-    "Gateway も、このアカウントを {env} に設定して起動する必要があります。Telegram、iMessage、Signal、メールは Gateway が動作する場所で設定します。チャンネルのドキュメントを参照してください。",
-  "settings.channels.add.addedInactive":
-    "チャンネルを追加しましたが、まだ動作していません。Gateway が動作する場所で {env} をこのアカウントに設定し、再起動してください。",
-  "settings.channels.add.added":
-    "チャンネルを追加しました。Gateway で {env} がこのアカウントに設定されると開始します。その後、そこから {persona} にメッセージを送ってペアリングコードを受け取り、ここで承認してください。",
-  "settings.channels.add.storedNote":
-    "このアカウントには保存済み: {names}。置き換えない限り、そのまま使われます。",
-  "settings.channels.add.replace": "保存済みのトークンを置き換える",
-  "settings.channels.add.statusFailed":
-    "Psyche は保存済みのトークンを確認できませんでした（{reason}）。何も変更していません。",
-  "settings.channels.add.storedTyped":
-    "このアカウントには保存済みのトークンがあります。入力したトークンを使うには「保存済みのトークンを置き換える」にチェックを入れるか、その欄を空にしてください。何も変更していません。",
-  "settings.channels.identities": "IDの関連付け",
-  "settings.channels.identitiesDescription":
-    "複数のチャンネルにまたがる同一人物。関連付けはペアリングされたデバイスからのみ変更できます。",
-  "settings.channels.identitiesFailed": "PsycheはIDの関連付けを読み込めませんでした（{reason}）。",
-  "settings.channels.noIdentities":
-    "IDの関連付けはありません。送信者はそれぞれ別の人として扱われます。",
-  "settings.channels.designated": "指定された人",
-  "settings.channels.designatedDescription":
-    "{persona}は委任されたペルソナと限定されたツールで応答します。その承認はあなたに届きます。",
-  "settings.channels.noDesignated": "指定された人はいません。",
-  "settings.channels.delegated": "委任：{persona}",
-  "settings.channels.tools": "ツール：{tools}",
-  "settings.channels.cardTitle": "{name} {account}",
-  "settings.channels.directMessages": "ダイレクトメッセージ",
-  "settings.channels.openWarning":
-    "オープンにすると、{account}を見つけた誰もが{persona}にメッセージを送れ、そのメッセージが{persona}を操ろうとする可能性があります。ペアリングの方が安全です。",
-  "settings.channels.openAnyway": "それでもオープンにする",
-  "settings.channels.keepPolicy":
-    "{policy, select, allowlist {許可リスト} pairing {ペアリング} disabled {無効} other {{policy}}}のままにする",
-  "settings.channels.pending": "保留中（{max, number}件中{n, number}件）",
-  "settings.channels.pairingFailed": "Psycheはペアリング要求を読み込めませんでした（{reason}）。",
-  "settings.channels.noPending": "待っている人はいません。コードは1時間で期限切れになります。",
-  "settings.channels.code": "コード",
-  "settings.channels.expires": "{when}に期限切れ",
-  "settings.channels.approveSender": "{name}を承認",
-  "settings.channels.approve": "承認",
-  "settings.channels.ignoreSender": "{name}を無視",
-  "settings.channels.ignore": "無視",
-  "settings.channels.allow.remove": "削除",
-  "settings.channels.allow.removeNamed": "{name} を削除",
-  "settings.channels.allow.senderLabel": "許可する送信者",
-  "settings.channels.allow.groupLabel": "送信者を追加（グループチャット）",
-  "settings.channels.allow.addSender": "送信者を追加",
-  "settings.channels.allow.addGroup": "送信者を追加",
-  "settings.channels.allow.senderApproval": "チャットの送信者を許可",
-  "settings.channels.allow.groupApproval": "グループで私を起動できる人の変更",
-  "settings.channels.allow.groupEmptied":
-    "{name} を削除すると、この一覧には誰も残りません。その場合、ダイレクトメッセージで許可されている全員がグループで Psyche を起動できるようになります。",
-  "settings.channels.allow.forbidden":
-    "誰がメッセージを送れるかを変更するには管理者デバイスが必要です。管理者としてペアリングしたデバイスを使ってください。",
-  "settings.channels.allow.failed":
-    "Psyche は誰がメッセージを送れるかを変更できませんでした（{reason}）。何も変更されていません。",
-  "settings.channels.identity.name": "相手の名前",
-  "settings.channels.identity.senders": "送信者 ID（カンマ区切り）",
-  "settings.channels.identity.link": "ID をリンク",
-  "settings.channels.identity.unlink": "リンクを解除",
-  "settings.channels.identity.unlinkNamed": "{name} のリンクを解除",
-  "settings.channels.identity.approval": "チャットの ID をリンク",
-  "settings.channels.identity.forbidden":
-    "ID リンクを変更するには管理者デバイスが必要です。管理者としてペアリングしたデバイスを使ってください。",
-  "settings.channels.identity.failed":
-    "Psyche は ID リンクを変更できませんでした（{reason}）。何も変更されていません。",
-  "settings.channels.noOneYet": "まだ誰もいません。",
-  "settings.channels.owner": " · 所有者",
-  "settings.channels.groups": "グループで私を起動できる人",
-  "settings.channels.noGroups":
-    "ダイレクトメッセージで許可されている全員が、グループで私を起動できます。",
-  "settings.channels.requireMention": "グループではメンションされたときのみ応答",
-  "settings.channels.err.forbidden":
-    "{action, select, policy {メッセージを送れる人の変更} mention {グループでのメンション設定の変更} approve {送信者の承認} other {送信者の無視}}にはこのデバイスでの承認が必要です。管理者としてペアリングされたデバイスを使用してください。",
-  "settings.channels.err.failed":
-    "Psycheは{action, select, policy {メッセージを送れる人を変更} mention {グループでのメンション設定を変更} approve {送信者を承認} other {送信者を無視}}できませんでした（{reason}）。",
+  "settings.devices.pairingFailed": "Psycheはペアリング要求を読み込めませんでした（{reason}）。",
+  "settings.devices.approveNamed": "{name}を承認",
+  "settings.devices.approve": "承認",
   "settings.computerUse.tier.ask": "確認",
   "settings.computerUse.tier.off": "オフ",
   "settings.computerUse.tier.read": "読み取りのみ",
@@ -1875,10 +1758,6 @@ export const ja: Partial<Catalogue> = {
   "settings.connectors.catalog.appleCalendar": "Appleのカレンダー",
   "settings.connectors.catalog.appleMail": "Appleのメール",
   "settings.connectors.catalog.mcp": "MCPサーバ",
-  "settings.connectors.catalog.slack": "Slack",
-  "settings.connectors.slackExplain":
-    "Slackはチャンネルです。そこでPsycheとチャットできます。設定 → チャンネルで設定してください。",
-  "settings.connectors.openChannels": "チャンネルを開く",
   "settings.connectors.status.connected": "接続済み",
   "settings.connectors.status.disconnected": "接続解除",
   "settings.connectors.status.error": "エラー",
@@ -2273,8 +2152,6 @@ export const ja: Partial<Catalogue> = {
   "settings.model.role.imageHint": "アバターの変更。なしの場合は同梱の生き物を使います",
   "settings.model.addProvider": "プロバイダを追加",
   "settings.model.title": "モデルとプロバイダ",
-  "settings.model.description":
-    "選んだモデルがそのまま使われます。失敗した場合、Psycheは別のモデルに切り替えず、そのことを伝えます。",
   "settings.model.loadLabel": "モデルプロバイダ",
   "settings.model.providers": "プロバイダ",
   "settings.model.listFailed": "Psycheはモデルを一覧できませんでした（{reason}）。",
@@ -2308,13 +2185,10 @@ export const ja: Partial<Catalogue> = {
   "settings.model.runCheckOn": "{name}でツール呼び出しの確認を実行",
   "settings.model.runCheck": "確認を実行",
   "settings.model.roles": "モデルの役割",
-  "settings.model.rolesHint":
-    "各役割は1つのモデルを使います。ツール呼び出しの確認に不合格のモデルはチャットのみです。",
   "settings.model.none": "なし",
   "settings.model.choose": "モデルを選択",
   "settings.model.chatOnlyOption": "{name}（チャットのみ）",
   "settings.model.local": "ローカルモデル",
-  "settings.model.localHint": "OllamaまたはLM Studioで、このMac上でモデルを実行します。",
   "settings.model.err.use": "Psycheは{name}を使用できませんでした（{reason}）。",
   "settings.model.err.probe": "Psycheはエンドポイントを確認できませんでした（{reason}）。",
   "settings.model.err.check": "Psycheは確認を実行できませんでした（{reason}）。",
@@ -2367,9 +2241,6 @@ export const ja: Partial<Catalogue> = {
   "settings.permissions.subject.emailFrom": "{recipients} へ（{account}から）",
   "settings.permissions.subject.calendarNamed": "カレンダー{id}",
   "settings.permissions.subject.calendar": "カレンダー",
-  "settings.permissions.title": "権限",
-  "settings.permissions.description":
-    "自動で実行されるもの、先に確認するもの、決して行わないもの。",
   "settings.permissions.loadLabel": "権限",
   "settings.permissions.defaultModeTitle": "新しいスレッドのデフォルトモード",
   "settings.permissions.execReview": "自動モードで安全なターミナルコマンドをレビュアーに承認させる",
@@ -2441,7 +2312,7 @@ export const ja: Partial<Catalogue> = {
   "settings.persona.describedAs": "説明：{description}",
   "settings.persona.identity": "アイデンティティ",
   "settings.persona.taglinePlaceholder": "静かな翼、丁寧な手。",
-  "settings.persona.emojiHint": "アバターを表示できないチャンネルで表示されます。",
+  "settings.persona.emojiHint": "アバターを表示できない場所で表示されます。",
   "settings.persona.avatar": "アバター",
   "settings.persona.describeChange": "変更内容を説明",
   "settings.persona.describeHint": "自分の言葉で。例：「ガに小さなマフラーを付けて」。",
@@ -2866,8 +2737,8 @@ export const ja: Partial<Catalogue> = {
     "プロバイダがこのキーを拒否しました（{reason}）。キーをもう一度貼り付けてください。",
   "onboarding.setupCheck": "セットアップの確認",
   "onboarding.progress": "初期設定の進捗",
+  "onboarding.steps": "ステップ",
   "onboarding.doneMark": "（完了）",
-  "onboarding.stepOf": "ステップ{n, number}/{total, number}：",
   "onboarding.back": "戻る",
   "onboarding.skipForNow": "今はスキップ",
   "onboarding.openChat": "メインチャットを開く",
@@ -2920,7 +2791,7 @@ export const ja: Partial<Catalogue> = {
   "onboarding.permission.asking": "確認中…",
   "onboarding.permission.allow": "許可",
   "onboarding.connectors.intro":
-    "接続するアカウントを1つずつ決めましょう。{name}に見えるのは接続したものだけで、後から設定で追加できます。",
+    "{name} に手伝ってもらうことを選んでください。各アプリは接続するときに許可を求めます。あとから設定で追加できます。",
   "onboarding.connectors.connected": "接続済み（{n, number}）",
   "onboarding.connectors.connectedList": "あなたのアカウント",
   "onboarding.connectors.needsPermission": "許可が必要",
@@ -2967,12 +2838,20 @@ export const ja: Partial<Catalogue> = {
     "Psycheは保管庫を作成しました。このキーをパスワードマネージャか紙に保存してください。表示されるのは今だけで、復元後やキースロットを失った後に保管庫に戻る唯一の手段です。",
   "onboarding.model.subscriptionNote":
     "PsycheはこのMacでサインイン済みのClaude CodeまたはCodexアプリを使用するため、APIキーは不要で、保存もしません。まだの場合は、先にそちらでサインインしてください。",
-  "onboarding.model.toolCheck": "ツール呼び出しの確認",
-  "onboarding.model.runCheck": "確認を実行",
-  "onboarding.model.checkAgain": "再確認",
+  "onboarding.model.toolCheck": "接続テスト",
+  "onboarding.model.otherWays": "ほかの方法",
+  "onboarding.model.test.passed": "問題なし",
+  "onboarding.model.test.failed": "チャットのみ",
+  "onboarding.model.test.running": "テスト中…",
+  "onboarding.model.test.untested": "未テスト",
+  "onboarding.model.runCheck": "テストする",
+  "onboarding.model.checkAgain": "もう一度テスト",
   "onboarding.model.toolCheckFailed":
-    "このモデルはチャットはできますが、ツールを確実に使えないため、あなたの代わりに行動できません。別のモデルを選ぶか、チャットのみのモードで続行してください。",
+    "このモデルはチャットはできますが、タスクを実行できない場合があります。別のモデルを選ぶか、チャットのみで続けてください。",
   "onboarding.done.ready": "{name}の準備ができました。",
+  "onboarding.done.notReady": "{name} はまだ応答できません。",
+  "onboarding.done.notReadyBody":
+    "下の「モデル」の行を修正するか、あとで設定 → モデルから行ってください。",
   "onboarding.done.opens": "メインチャットが{name}の最初のメッセージとともに開きます。",
   "onboarding.done.noneYet": "まだありません",
   "onboarding.done.accounts": "アカウント",
@@ -3260,7 +3139,7 @@ export const ja: Partial<Catalogue> = {
   "screens.files.shareInSettings": "設定 → ファイルアクセスで共有してください。",
   "screens.files.previewOf": "{name}のプレビュー",
   "screens.files.preview": "プレビュー",
-  "screens.files.needsApp": "プレビューにはデスクトップアプリまたはWebアプリが必要です。",
+  "screens.files.needsApp": "プレビューにはデスクトップアプリが必要です。",
   "screens.files.pick": "ファイルを選ぶとここにプレビューが表示されます。",
   "screens.files.editReadOnly": "読み取り専用: このフォルダは編集なしで共有されています。",
   "screens.files.editOpening": "{name} を編集用に開いています",
@@ -3590,7 +3469,7 @@ export const ja: Partial<Catalogue> = {
   "web.passkeys.unavailable":
     "パスキーにはサーバのhttpsアドレスが必要です。gateway.publicOrigin（またはPSYCHE_PUBLIC_ORIGIN）をPsycheを開くhttps://アドレスに設定し、Gatewayを再起動してから、ここで追加してください。",
   "web.passkeys.insecure":
-    "パスキーは、Psycheをhttps://アドレスで、パスキー対応のブラウザで開いているときのみ機能します。追加するにはそちらで開いてください。",
+    "ここではパスキーを追加できません。https://アドレスでこのGatewayに接続している別のコンピュータのPsycheアプリで追加してください。",
   "web.passkeys.firstApproval":
     "MacのTouch ID、または別のデバイスのパスキーで「パスキーを追加」を承認してから、もう一度「追加」を押してください。",
   "web.passkeys.loadError": "Psycheはパスキーを読み込めませんでした（{error}）。",
@@ -3638,8 +3517,11 @@ export const ja: Partial<Catalogue> = {
     "{ref}：プロバイダがキーを拒否しました（{error}）。キーは保持されませんでした。",
   "web.setup.modelNotChecked":
     "{ref}：キーは保存されましたが、確認のためにプロバイダへ接続できませんでした。",
+  "web.setup.modelEnvKey": "環境にあるキーを使用しています（{ref}）。",
+  "web.setup.modelEnvNotChecked":
+    "環境にあるキーを使用していますが（{ref}）、確認のためにプロバイダへ接続できませんでした。",
   "web.setup.modelSkipped":
-    "{ref}：キーが追加されていないため、チャットはまだ応答しません。設定 → モデルで追加してください。",
+    "キーを追加してください：{ref} にはまだキーがないため、チャットは応答しません。設定 → モデルで追加できます。",
   "web.gate.loading": "Psycheを起動中",
   "web.gate.error": "セットアップが完了しているか確認できませんでした。",
   "web.gate.retry": "もう一度試す",
@@ -3874,12 +3756,12 @@ export const ja: Partial<Catalogue> = {
   "web.toast.sideChatFailed": "Psycheはサイドチャットを作成できませんでした。",
   "web.toast.permissionModeUnsupported": "権限モードの変更には新しいバージョンのPsycheが必要です。",
   "web.toast.modelUnsupported": "モデルの選択には新しいバージョンのPsycheが必要です。",
-  "web.palette.newSideChat": "新しいサイドチャット",
-  "web.palette.newIncognito": "新しいシークレットチャット（メモリのみ、24時間）",
-  "web.palette.openBrowser": "ブラウザパネルを開く",
-  "web.palette.openTerminal": "ターミナルパネルを開く",
-  "web.palette.openTasks": "タスクパネルを開く",
-  "web.palette.openFiles": "ファイルパネルを開く",
+  "web.palette.newSideChat": "新しいチャット",
+  "web.palette.newIncognito": "新しいプライベートチャット",
+  "web.palette.openBrowser": "ブラウザを開く",
+  "web.palette.openTerminal": "ターミナルを開く",
+  "web.palette.openTasks": "タスクを表示",
+  "web.palette.openFiles": "ファイルを表示",
   "web.palette.switchMode": "権限モードを切り替え",
   "web.threads.sideChat": "サイドチャット",
   "web.shell.skipToContent": "コンテンツへスキップ",
@@ -4034,15 +3916,18 @@ export const ja: Partial<Catalogue> = {
   ...points,
   // Approvals wave W3 (card choices, Allowed list)
   ...approvalsW3,
+  ...settingsDrill,
   // Fork a plan (docs/design/fork-a-plan-2026.md §9)
   ...planFork,
   ...desktopSimple,
+  ...appleE1,
   // Gateway-authored notices (inbox notifications, security alerts)
   ...notices,
   // Settings > Computer use > Separate desktop (Linux)
   ...separateDesktop,
   // Windows variants of the sandbox PC, voice keys and platform terms
   ...windowsPlatform202611,
+  ...appleE2,
   ...mailFollowups,
   ...nightShift,
   ...keepAwake,

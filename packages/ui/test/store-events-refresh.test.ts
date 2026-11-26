@@ -67,8 +67,6 @@ describe("store: events that refresh read queries", () => {
   });
 
   it.each([
-    ["channels.updated", { channel: {} }, "channels.list:{}"],
-    ["pairing.requested", { pairingRequest: {} }, "channels.list:{}"],
     ["pairing.requested", { pairingRequest: {} }, "devices.list:{}"],
     [
       "persona.updated",

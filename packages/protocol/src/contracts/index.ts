@@ -3,7 +3,6 @@
 export * from "./AgentLoop.ts";
 export * from "./AuditLog.ts";
 export * from "./BrowserDriver.ts";
-export * from "./ChannelAdapter.ts";
 export * from "./Clock.ts";
 export * from "./CredentialBroker.ts";
 export * from "./McpHost.ts";

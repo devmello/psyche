@@ -62,7 +62,7 @@ export const workB: Partial<Catalogue> = {
   "people.suggestion.notSame": "Não é o mesmo",
   "people.suggestion.notProject": "Não é um projeto",
   "people.suggestion.later": "Depois",
-  "people.suggestion.because": "Porque:",
+  "people.suggestion.because": "Por que esta sugestão",
   "people.sheet.title": "Pessoas e projetos",
   "people.sheet.search": "Pesquisar pessoas e projetos",
   "people.sheet.show": "Mostrar",

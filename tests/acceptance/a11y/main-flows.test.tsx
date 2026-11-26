@@ -112,7 +112,7 @@ describe("approval card (docs/06 §3.3, §4.11)", () => {
     // (security §3.6, §3.12), so there is no scope choice to make, only Deny and Allow.
     expect(approval.taint).toBe(true);
     expect(screen.queryByRole("combobox", { name: "Allow for" })).toBeNull();
-    for (const name of ["Deny", "Allow with scope"]) {
+    for (const name of ["Deny", "Allow"]) {
       expect(screen.getByRole("button", { name })).toBeTruthy();
     }
   });
@@ -128,7 +128,9 @@ describe("approval card (docs/06 §3.3, §4.11)", () => {
       />,
     );
     await expectNoAxeViolations(container);
-    expect(screen.getByRole("combobox", { name: "Allow for" })).toBeTruthy();
+    // A lasting choice is one second button beside Allow (Allow itself sends the narrowest).
+    expect(screen.getByTestId("approval-second-choice")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Allow" })).toBeTruthy();
   });
 
   it("is fully keyboard operable: focus lands on the heading, Return alone never approves, ⌘Return approves the chosen scope, ⌘D denies", async () => {
@@ -149,17 +151,23 @@ describe("approval card (docs/06 §3.3, §4.11)", () => {
     expect(document.activeElement).toBe(heading);
     await user.keyboard("{Enter}");
     expect(onAnswer).not.toHaveBeenCalled();
-    // Tab reaches the scope select (after the details disclosure); the scope sits on Allow.
-    const scope = screen.getByRole("combobox", { name: "Allow for" });
+    // ⌘Return on the card sends the narrowest scope: what plain Allow sends.
+    await user.keyboard("{Meta>}{Enter}{/Meta}");
+    await waitFor(() => expect(onAnswer).toHaveBeenCalledWith("approve", "once", undefined));
+    onAnswer.mockClear();
+    // Tab reaches the second (lasting) choice; Return alone on it never approves, so the owner
+    // presses Space on it and the card sends that scope.
+    const second = screen.getByTestId("approval-second-choice");
     let reached = false;
     for (let i = 0; i < 8 && !reached; i += 1) {
       await user.tab();
-      reached = scope === document.activeElement;
+      reached = second === document.activeElement;
     }
-    expect(reached, "the scope select is reachable by Tab from the heading").toBe(true);
-    await user.selectOptions(scope, "task");
-    await user.keyboard("{Meta>}{Enter}{/Meta}");
-    await waitFor(() => expect(onAnswer).toHaveBeenCalledWith("approve", "task", undefined));
+    expect(reached, "the second choice is reachable by Tab from the heading").toBe(true);
+    await user.keyboard(" ");
+    await waitFor(() => expect(onAnswer).toHaveBeenCalledTimes(1));
+    expect(onAnswer.mock.calls[0]?.[0]).toBe("approve");
+    expect(onAnswer.mock.calls[0]?.[1]).not.toBe("once");
     onAnswer.mockClear();
     await user.keyboard("{Meta>}d{/Meta}");
     await waitFor(() => expect(onAnswer).toHaveBeenCalledWith("deny", undefined, undefined));
@@ -179,9 +187,9 @@ describe("approval card (docs/06 §3.3, §4.11)", () => {
     expect(screen.getByRole("button", { name: "Deny" }).getAttribute("aria-keyshortcuts")).toBe(
       "Meta+D Control+D",
     );
-    expect(
-      screen.getByRole("button", { name: "Allow with scope" }).getAttribute("aria-keyshortcuts"),
-    ).toBe("Meta+Enter Control+Enter");
+    expect(screen.getByRole("button", { name: "Allow" }).getAttribute("aria-keyshortcuts")).toBe(
+      "Meta+Enter Control+Enter",
+    );
     // The shortcut is shown, and described on both buttons.
     expect(
       screen.getByRole("button", { name: "Deny" }).getAttribute("aria-describedby"),
@@ -334,8 +342,8 @@ describe("onboarding", () => {
     const progress = screen.getByRole("progressbar", { name: "Onboarding progress" });
     expect(progress.getAttribute("aria-valuenow")).toBe("1");
     const user = userEvent.setup();
-    // The quiet "1 of N" label opens the step menu, which marks the current step.
-    await user.click(screen.getByRole("button", { name: /^Onboarding progress: 1 of/ }));
+    // The quiet "1 of N" count opens the step menu, which marks the current step.
+    await user.click(screen.getByRole("button", { name: "Steps" }));
     const steps = await screen.findAllByRole("menuitem");
     expect(steps[0]?.getAttribute("aria-current")).toBe("step");
     await user.keyboard("{Escape}");

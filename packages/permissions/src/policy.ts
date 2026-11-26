@@ -55,7 +55,7 @@ export const PolicyConfig = Type.Object(
           ttlMinutes: Type.Optional(Type.Number({ minimum: 1, maximum: 24 * 60 })),
           /** Extra kinds that are never delivered to chat (the built-in set is always applied). */
           deviceOnly: Type.Optional(Type.Array(ApprovalKind)),
-          /** Scopes a chat surface may answer with (default `once`; design-28). */
+          /** Inert: chat surfaces answered with these before chat channels were removed (2026-11-25). */
           chatScopes: Type.Optional(Type.Array(GrantScope)),
           answersPerMinute: Type.Optional(Type.Integer({ minimum: 1 })),
         },

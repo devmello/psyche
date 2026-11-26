@@ -72,7 +72,7 @@ const record = (
 /** A device paired once through the secret, then reconnected as itself (never the shell). */
 async function pairedRemote(
   gw: TestGateway["gateway"],
-  platform: "macos" | "ios" | "web",
+  platform: "macos" | "ios",
 ): Promise<TestClient> {
   const key = newDeviceKey();
   const deviceId = `${platform}-${Math.random().toString(36).slice(2)}`;
@@ -96,8 +96,7 @@ async function setup() {
   const desk = await desktopClient(gw);
   const ios = await pairedRemote(gw, "ios");
   const mac = await pairedRemote(gw, "macos");
-  const web = await pairedRemote(gw, "web");
-  clients.push(desk, ios, mac, web);
+  clients.push(desk, ios, mac);
   const { thread } = await desk.call<{ thread: { id: string } }>(
     "threads.create",
     { kind: "main" },
@@ -142,7 +141,7 @@ async function setup() {
   const steps = (await desk.call<{ steps: RunStep[] }>("runs.get", { runId: id })).steps;
   const ownerStep = steps.find((s) => s.toolCallId === "tc_owner") as RunStep;
   const webStep = steps.find((s) => s.toolCallId === "tc_web") as RunStep;
-  return { gw, desk, ios, mac, web, runId: id, ownerStep, webStep };
+  return { gw, desk, ios, mac, runId: id, ownerStep, webStep };
 }
 
 type Setup = Awaited<ReturnType<typeof setup>>;
@@ -194,7 +193,7 @@ const expectScrubbed = (owner: string, ordinary: string) => {
 };
 
 describe("run trace viewer scrub: methods × viewer × tool class", () => {
-  it("the desktop shell sees everything; iOS, a remote Mac, the web shell and a spoofed param see placeholders", async () => {
+  it("the desktop shell sees everything; iOS, a remote Mac and a spoofed param see placeholders", async () => {
     const s = await setup();
     const via =
       (c: TestClient, extra: Record<string, unknown> = {}) =>
@@ -208,7 +207,6 @@ describe("run trace viewer scrub: methods × viewer × tool class", () => {
     const viewers: [string, TestClient, Record<string, unknown>][] = [
       ["iOS", s.ios, {}],
       ["remote Mac", s.mac, {}],
-      ["web", s.web, {}],
       ["spoofed desktopShell param", s.ios, { desktopShell: true, local: true }],
     ];
     for (const [name, c, extra] of viewers) {
@@ -261,7 +259,7 @@ describe("run trace viewer scrub: methods × viewer × tool class", () => {
     const deskOwner = JSON.stringify(stepEvents(s.desk, "tc_owner"));
     expect(deskOwner).toContain("555 0100");
     expect(deskOwner).toContain("Searching contacts for Alice");
-    for (const c of [s.ios, s.mac, s.web]) {
+    for (const c of [s.ios, s.mac]) {
       const owner = stepEvents(c, "tc_owner");
       expect(owner.length).toBeGreaterThan(0);
       expectScrubbed(JSON.stringify(owner), JSON.stringify(stepEvents(c, "tc_web")));

@@ -66,7 +66,7 @@ async function setup(grant = true) {
     logger: silentLogger,
     retentionIntervalMs: 0,
     background: false,
-    config: { home, port: 0, dbPath: join(home, "psyche.db"), webRoot: null },
+    config: { home, port: 0, dbPath: join(home, "psyche.db") },
     model: { provider: new FakeModelProvider().script([say("ok")]), model: "fake/model" },
   });
   const c = composed;

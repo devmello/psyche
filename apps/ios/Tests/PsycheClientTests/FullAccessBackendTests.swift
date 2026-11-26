@@ -57,14 +57,14 @@ struct FullAccessBackendTests {
             #expect(!ThreadFullAccess.isAllowed(kind: kind, imported: false, sessionKey: "owner:x"))
         }
         #expect(!ThreadFullAccess.isAllowed(kind: "side", imported: true, sessionKey: "owner:x"))
-        #expect(!ThreadFullAccess.isAllowed(kind: "side", imported: false, sessionKey: "telegram:peer:1"))
+        #expect(!ThreadFullAccess.isAllowed(kind: "side", imported: false, sessionKey: "oldchat:peer:1"))
         #expect(!ThreadFullAccess.isAllowed(kind: "side", imported: false, sessionKey: "ownerx"))
         #expect(!ThreadFullAccess.isAllowed(kind: "side", imported: false, sessionKey: nil))
         #expect(!ThreadFullAccess.isAllowed(kind: nil, imported: false, sessionKey: "owner:x"))
     }
 
     @Test func theThreadReadCarriesTheModeAndWhetherItIsAllowed() async throws {
-        for (kind, key, mode, allowed) in [("side", "owner:a", "full", true), ("channel", "telegram:peer:1", "balanced", false)] {
+        for (kind, key, mode, allowed) in [("side", "owner:a", "full", true), ("channel", "oldchat:peer:1", "balanced", false)] {
             let (backend, _) = try await live { g in
                 g.on("threads.get") { _ in .success(Self.head(kind: kind, key: key, mode: mode)) }
                 g.on("chat.history") { _ in .success(.object(["messages": .array([])])) }

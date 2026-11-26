@@ -58,8 +58,8 @@ import { userProfileConfig } from "./user-profile.ts";
  * and `memory.lessons.*` over `@psyche/memory`'s teaching service, the "Psyche will remember"
  * block under the corrected message, approval answers as implicit evidence, and the events the
  * Growth view and the marks refresh on. Lessons come only from the owner's own devices: the
- * caller of `feedback.give` is a paired device with `operator.write`; channel reactions are
- * refused unless they are the owner's own, never from a group or a delegated person.
+ * caller of `feedback.give` is a paired device with `operator.write`. (Chat channels were removed
+ * on 2026-11-25; an old approval decided on one only ever counted as the owner's.)
  */
 
 export interface TeachingComposeDeps {

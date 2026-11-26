@@ -464,7 +464,7 @@ const SOURCE_COLUMN_MATCH: Record<GraphSource, string> = {
   contacts: "source = 'contacts'",
   mail: "(source = 'mail' OR source LIKE '%mail%')",
   calendar: "(source = 'calendar' OR source LIKE '%calendar%')",
-  // Messages identifiers carry the channel's connector id (imessage, telegram, ...).
+  // Messages identifiers carry their source's connector id (imessage, ...).
   messages:
     "(source NOT IN ('contacts', 'mail', 'calendar', 'owner', 'system', 'model', 'rule') AND source NOT LIKE '%mail%' AND source NOT LIKE '%calendar%' AND source NOT LIKE '%note%' AND source NOT LIKE 'chat:%')",
   notes: "source LIKE '%note%'",

@@ -25,7 +25,6 @@ describe.skipIf(!built)("psyched bundle (dist-bin)", () => {
       expect(statSync(join(BUNDLE, f)).mode & 0o111, f).not.toBe(0);
     }
     expect(existsSync(join(BUNDLE, "app/apps/gateway/dist/main.mjs"))).toBe(true);
-    expect(existsSync(join(BUNDLE, "app/apps/web/dist/index.html"))).toBe(true);
     expect(existsSync(join(BUNDLE, "app/packages/db/migrations"))).toBe(true);
     const template = readFileSync(join(BUNDLE, "com.psyche.gateway.plist.template"), "utf8");
     expect(template).toContain("<string>{{PSYCHED}}</string>");

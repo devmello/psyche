@@ -92,7 +92,7 @@ describe("work note under a chat turn (Gateway)", () => {
       timeZone: "UTC",
       retentionIntervalMs: 0,
       background: false,
-      config: { home, port: 0, dbPath: join(home, "psyche.db"), webRoot: null },
+      config: { home, port: 0, dbPath: join(home, "psyche.db") },
       model: { provider: scripted(), model: "scripted/main", utilityModel: "scripted/utility" },
     });
     const gw = composed;

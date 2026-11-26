@@ -54,10 +54,6 @@ export const windows: Partial<Record<MessageId, string>> = {
     "Allowed once (Windows Hello approvals from this window are once only)",
   "blocks.approval.touchId.keyUnavailable":
     "This build of the Windows helper can't keep a Windows Hello key, so cards that need Windows Hello can't be approved on this PC.",
-  "settings.page.permissions.description":
-    "What {persona} may do on this PC without asking, and where it always stops to ask you.",
-  "settings.page.data.description":
-    "What stays on this PC, how long it is kept, exports, backups and starting over.",
   "settings.essentials.model.noneHint":
     "{persona} needs a model before it can answer. Add a key, or use a model on this PC.",
   "settings.essentials.read.hint":
@@ -158,8 +154,6 @@ export const windows: Partial<Record<MessageId, string>> = {
     "While a task uses it, Psyche runs Google Chrome with this profile and a DevTools port on this PC's loopback (127.0.0.1), and closes it when the task is done. {persona} is not attached while you have the profile open yourself.",
   "settings.browser.openFromMac":
     "Open it from the Psyche app on the computer that runs the Gateway.",
-  "settings.channels.empty":
-    "No channels yet. Connect Telegram or Slack to reach {persona} away from this PC.",
   "settings.computerUse.description": "{persona} can use apps on this PC only where you allow it.",
   "settings.computerUse.macPermissions": "Windows access",
   "settings.computerUse.openSystemSettings": "Open Settings",
@@ -226,7 +220,6 @@ export const windows: Partial<Record<MessageId, string>> = {
     "This PC has {gb, number} GB. Local models need at least {min, number} GB; use a cloud provider instead.",
   "settings.model.ram.fits": "This PC has {gb, number} GB, so {fits} fit.",
   "settings.model.ram.thisMac": " (this PC)",
-  "settings.model.localHint": "Run models on this PC with Ollama or LM Studio.",
   "settings.server.bindHint":
     "127.0.0.1 keeps it on this PC. Use remote access below instead of binding to every interface.",
   "settings.gateways.description":
@@ -362,8 +355,6 @@ export const windows: Partial<Record<MessageId, string>> = {
   "onboarding.safety.asks":
     "If you let {name} run commands on this PC, ones that only read, like ls or cat, run without a card. Anything else asks you first.",
   "onboarding.done.touchId": "Windows Hello",
-  "onboarding.done.try.search":
-    "Ask a question in Search (Ctrl+K). The answer shows where in your life it came from.",
   "screens.search.source.revealFile": "Show in File Explorer",
   "everything.model.localHint":
     "A model on this PC reads everything. Nothing leaves the PC. Fewer, noisier facts.",

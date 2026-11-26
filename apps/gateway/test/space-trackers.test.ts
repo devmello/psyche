@@ -1303,7 +1303,7 @@ describe("review r1: templates, graph review, calendar trust, files, channels", 
     entity("p1", "project", "T", { trusted: true });
     const s = space("T", "p1");
     const id = await shelve(s.id, [{ id: "t", type: "text", text: "x" }], spaceChat(s.id, "cA"));
-    createThread(r.db, { id: "tg", kind: "channel", sessionKey: "channel:telegram:peer1" });
+    createThread(r.db, { id: "tg", kind: "channel", sessionKey: "channel:oldchat:peer1" });
     r.store.moveThreads(["tg"], s.id);
     const ops = [{ op: "set", id: "t", props: { text: "peer wrote this" } }];
     expect(() => r.widgets.patch({ widgetId: id, threadId: "tg", ops, taint: [] })).toThrow(

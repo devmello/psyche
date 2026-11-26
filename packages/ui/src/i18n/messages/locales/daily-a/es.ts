@@ -29,7 +29,6 @@ export const dailyA: Partial<Catalogue> = {
   "settings.key.daily.brief.enabled": "Resumen de la mañana",
   "settings.key.daily.wrapup.enabled": "Cierre de la tarde",
   "settings.key.daily.notify": "Avisarme",
-  "settings.key.daily.messages": "Enviar también por Mensajes",
   "settings.key.daily.followups.enabled": "Seguir los seguimientos",
   "settings.key.daily.brief.time": "Hora del resumen de la mañana",
   "settings.key.daily.wrapup.time": "Hora del cierre de la tarde",
@@ -37,7 +36,6 @@ export const dailyA: Partial<Catalogue> = {
   "settings.daily.time": "Hora",
   "settings.daily.notify.hint":
     "Una notificación con la tarjeta. Las horas de silencio la retienen hasta que terminan.",
-  "settings.daily.messages.hint": "Necesita el canal de Mensajes. Se envía solo a ti.",
   "settings.daily.sensitivity": "Cuánto seguir",
   "settings.daily.sensitivity.low": "Solo promesas claras con fecha",
   "settings.daily.sensitivity.normal": "Promesas y peticiones (recomendado)",
@@ -201,20 +199,9 @@ export const dailyA: Partial<Catalogue> = {
   "shell.search.keyCmdL": "⌘L",
   "shell.search.keyCtrlL": "Ctrl L",
   "settings.shared.advanced": "Avanzado",
-  "settings.nav.inPage": "En {page}",
   "settings.nav.essentials": "Esenciales",
   "settings.nav.learning": "Básicos",
   "settings.search.count": "{count, plural, one {# resultado} other {# resultados}}",
   "settings.search.result.page": "Página",
   "settings.page.essentials": "Esenciales",
-  "settings.page.essentials.description":
-    "Las pocas decisiones que toma la mayoría. Cada una tiene un valor seguro por defecto, y las páginas de abajo contienen el resto.",
-  "settings.page.general.description":
-    "Cómo se ve {persona}, quién es, cuándo puede interrumpirte y cómo le hablas.",
-  "settings.page.model.description":
-    "Los modelos con los que piensa {persona}, las claves que usan y lo que cuestan.",
-  "settings.page.connectors.description":
-    "Las apps y cuentas a las que {persona} puede acceder, y en cuáles busca.",
-  "settings.page.memory.description":
-    "Lo que {persona} recuerda, de dónde aprende y cómo lo controlas.",
 };

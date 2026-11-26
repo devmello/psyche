@@ -17,8 +17,8 @@ Psyche combines them: Muse's product, Claude desktop's workspace, OpenClaw's gat
 ## Who it is for
 
 - A single owner (or a household that trusts each other) who wants an always-available agent with real access to their life and wants to keep that access on hardware they control.
-- Developers who want to extend it with skills, connectors, channels and viewers.
-- Operators who want to run it as a server that answers on Telegram / iMessage / WhatsApp for one designated person.
+- Developers who want to extend it with skills, connectors and viewers.
+- Operators who want to run it as a server that their Mac and iPhone connect to.
 
 ## What "imitate Muse" means concretely
 
@@ -61,5 +61,5 @@ The long form, with the mechanisms that enforce each, is in [02-architecture.md]
 ## Success criteria for v1.0
 
 - A new user installs Psyche, names their agent, connects Gmail and Calendar, grants the browser a site, and completes "find me a cheaper flight to Chicago and hold it for my approval" end to end on a Mac, with receipts.
-- The same Gateway, moved to a Linux box with Docker Compose, answers the owner on Telegram with the same memory and approvals, and uses the Mac only for iMessage and app control.
+- The same Gateway, moved to a Linux box with Docker Compose, answers the owner on the paired iPhone with the same memory and approvals, and uses the Mac only for app control.
 - A third party can read every file that shapes the agent's behavior (`SOUL.md`, `AGENTS.md`, skills, policy) and every action it took (audit log), and can swap the model without losing anything.

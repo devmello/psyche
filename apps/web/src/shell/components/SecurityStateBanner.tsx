@@ -2,6 +2,7 @@ import type { SecurityAlert, SecurityRecovery, SecurityStateStatus } from "@psyc
 import { describeError, t, useI18n } from "@psyche/ui";
 import { type ReactElement, useCallback, useEffect, useId, useState } from "react";
 import type { ShellPlatform } from "../platform.ts";
+import { isQuietSecurityAlert, securityBannerView } from "./security-banner-rules.ts";
 
 /**
  * The security-records banner (docs/design/security-state-integrity-2026.md §7.3). Shown on every
@@ -126,10 +127,8 @@ export function SecurityStateBanner({
   }, [gateway, load]);
 
   if (state === null) return null;
-  const openAlerts = state.alerts.filter((a) => a.acknowledgedAt === null);
-  const waiting = state.recoveries.filter((r) => r.status === "waiting");
-  const untrusted = state.status === "untrusted";
-  if (!untrusted && openAlerts.length === 0 && waiting.length === 0) return null;
+  const { show, openAlerts, waiting, untrusted } = securityBannerView(state);
+  if (!show) return null;
 
   const when = (iso: string | undefined) => (iso === undefined ? "" : i18n.dateTime(iso));
   const headline = untrusted
@@ -141,7 +140,9 @@ export function SecurityStateBanner({
             count: waiting.length,
             when: when(waiting.map((r) => r.notBefore).sort()[0]),
           })
-        : t("web.security.banner.notice", { count: openAlerts.length });
+        : t("web.security.banner.notice", {
+            count: openAlerts.filter((a) => !isQuietSecurityAlert(a)).length,
+          });
 
   const run = async (key: string, method: string, params: Record<string, unknown>) => {
     setBusy({ key });

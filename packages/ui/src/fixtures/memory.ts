@@ -44,7 +44,7 @@ const USER_MD = `# About the owner
 const MEMORY_MD = `## People
 
 - Jane Ortiz (dentist front desk): replies by email within the hour on weekdays. [2026-10-18]
-- Sam: prefers Telegram; Thursday evenings are free. [2026-10-17]
+- Sam: prefers iMessage; Thursday evenings are free. [2026-10-17]
 
 ## Preferences
 
@@ -81,7 +81,7 @@ const DAILY_1018 = `- 07:00 [agent] Morning brief delivered (7 posts).
 
 const DAILY_1017 = `- 16:41 [owner] Holds go on the Personal calendar.
 - 16:41 [agent] Added Call Sam on Thu Oct 22, 17:00 (receipt r-079).
-- 18:04 [owner] Denied a Telegram reply to @sam_k.
+- 18:04 [owner] Denied an iMessage reply to Sam.
 - 21:15 [agent] README edit voided; the file changed on disk.
 `;
 
@@ -153,7 +153,7 @@ export function memoryClaims(): MemoryClaim[] {
     },
     {
       id: C.sam,
-      text: "Sam prefers Telegram.",
+      text: "Sam prefers iMessage.",
       kind: "relationship",
       provenance: "agent",
       confidence: 0.7,

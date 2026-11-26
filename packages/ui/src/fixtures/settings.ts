@@ -1,6 +1,5 @@
 import type {
   AppleShortcut,
-  Channel,
   Connector,
   ConnectorCatalogueEntry,
   CredentialMeta,
@@ -14,7 +13,7 @@ import type {
 } from "@psyche/protocol";
 import { ago, fakeSha, IDS, inMinutes, PERSONA, today } from "./ids.ts";
 
-/** Connectors, channels, pairing, devices, nodes, vault metadata, settings and usage. */
+/** Connectors, pairing, devices, nodes, vault metadata, settings and usage. */
 
 const D = IDS.devices;
 
@@ -257,66 +256,11 @@ export function appleConnectors(): Connector[] {
   ];
 }
 
-// --- Channels and pairing -------------------------------------------------------------------------
-
-export function channels(): Channel[] {
-  return [
-    {
-      id: IDS.channels.telegram,
-      type: "telegram",
-      account: "@wren_psyche_bot",
-      dmPolicy: "pairing",
-      allowFrom: ["tg:10442211", "tg:20991834"],
-      groupAllowFrom: ["tg:30000003"],
-      requireMention: true,
-      ownerIds: ["tg:10442211"],
-      dmScope: "main",
-      nodeId: null,
-      status: "active",
-      config: {
-        allowFromDisplay: {
-          "tg:10442211": "you (owner)",
-          "tg:20991834": "partner",
-          "tg:30000003": "Kim",
-        },
-      },
-      createdAt: "2026-10-16T19:00:00Z",
-      updatedAt: "2026-10-17T20:00:00Z",
-    },
-  ];
-}
+// --- Pairing ---------------------------------------------------------------------------------------
 
 export function pairingRequests(): PairingRequest[] {
   const P = IDS.pairing;
   return [
-    {
-      id: P.samK,
-      kind: "channel-sender",
-      code: "48-21",
-      deviceId: null,
-      channelId: IDS.channels.telegram,
-      senderId: "tg:58213907",
-      display: "@sam_k",
-      status: "pending",
-      createdAt: ago(19),
-      expiresAt: inMinutes(41),
-      decidedAt: null,
-      decidedByDeviceId: null,
-    },
-    {
-      id: P.channelSecond,
-      kind: "channel-sender",
-      code: "93-07",
-      deviceId: null,
-      channelId: IDS.channels.telegram,
-      senderId: "tg:77120456",
-      display: "@marta_lx",
-      status: "pending",
-      createdAt: ago(5),
-      expiresAt: inMinutes(55),
-      decidedAt: null,
-      decidedByDeviceId: null,
-    },
     {
       id: P.ipad,
       kind: "device",
@@ -330,20 +274,6 @@ export function pairingRequests(): PairingRequest[] {
       expiresAt: inMinutes(8),
       decidedAt: null,
       decidedByDeviceId: null,
-    },
-    {
-      id: P.approved,
-      kind: "channel-sender",
-      code: "12-66",
-      deviceId: null,
-      channelId: IDS.channels.telegram,
-      senderId: "tg:20991834",
-      display: "partner",
-      status: "approved",
-      createdAt: "2026-10-17T19:55:00Z",
-      expiresAt: "2026-10-17T20:55:00Z",
-      decidedAt: "2026-10-17T20:00:00Z",
-      decidedByDeviceId: D.mac,
     },
   ];
 }
@@ -376,8 +306,8 @@ export function devices(): Device[] {
     },
     {
       id: D.web,
-      name: "Firefox on work laptop",
-      platform: "web",
+      name: "Pixel on work desk",
+      platform: "android",
       role: "client",
       publicKey: "Zt4Yx7Wv0Us3Rq6Po9Nm2Lk5Jh8Gf1Ed4Cb7Az0Yx3W",
       scopes: ["operator.read", "operator.write"],

@@ -705,7 +705,6 @@ export function composeHelper(services: ComposeServices, setup: HelperSetup = {}
     relay: {
       surfaces: () => (current() === undefined ? [] : [HELPER_SURFACE]),
       deliver,
-      isOwnerSender: async () => false,
     },
     approver: (deviceId) => [...helpers.values()].some((h) => h.deviceId === deviceId),
     presence: {

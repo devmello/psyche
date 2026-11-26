@@ -37,7 +37,8 @@ export interface SearchIndexDoc {
   updatedAt?: number;
   /**
    * Who may see the document: `owner` (default) or the session key of a designated-person
-   * thread (`telegram:peer:123`). A delegated viewer sees only its own scope.
+   * thread (an old chat channel's `<channel>:peer:123`). A delegated viewer sees only its own
+   * scope.
    */
   scopeKey?: string;
   /** Hits collapse onto their parent in grouped results (a task action → its task). */

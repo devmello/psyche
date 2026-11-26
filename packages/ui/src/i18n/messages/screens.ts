@@ -418,7 +418,7 @@ export const screens = {
   "screens.files.shareInSettings": "Share one in Settings → Permissions → Access.",
   "screens.files.previewOf": "Preview of {name}",
   "screens.files.preview": "Preview",
-  "screens.files.needsApp": "Previews need the desktop or web app.",
+  "screens.files.needsApp": "Previews need the desktop app.",
   "screens.files.pick": "Pick a file to preview it here.",
   "screens.files.editReadOnly": "Read only: this folder is shared without editing.",
   "screens.files.editOpening": "Opening {name} for editing",

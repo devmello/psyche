@@ -24,7 +24,7 @@ function setup(edit: (w: FixtureWorld) => void = (w) => (w.connectors = [])) {
 const macList = () => screen.getByRole("list", { name: "On this Mac" });
 
 describe("onboarding: On this Mac vs Accounts (#640)", () => {
-  it("groups the Mac's apps apart from accounts, with the four defaults selected", async () => {
+  it("groups the Mac's apps apart from accounts, with nothing ticked, so no macOS prompt fires unasked", async () => {
     setup();
     const mac = await screen.findByRole("list", { name: "On this Mac" });
     const rows = within(mac).getAllByRole("listitem");
@@ -35,24 +35,32 @@ describe("onboarding: On this Mac vs Accounts (#640)", () => {
       "Apple Notes",
       "Shortcuts",
     ]);
-    // The four defaults are selected; the rest (Shortcuts) are offered unselected.
+    // Nothing starts ticked: each app asks macOS for permission as it connects.
     expect(
       within(mac)
         .getAllByRole("checkbox")
         .map((b) => b.getAttribute("aria-checked")),
-    ).toEqual(["true", "true", "true", "true", "false"]);
+    ).toEqual(["false", "false", "false", "false", "false"]);
+    expect(
+      (screen.getByRole("button", { name: "Connect apps" }) as HTMLButtonElement).disabled,
+    ).toBe(true);
     // Obsidian needs its vault chosen first: it is set up in Settings, not here.
     expect(screen.queryByText("Obsidian")).toBeNull();
-    // Accounts sign in online; the Mac's apps are not in their picker.
+    // Accounts sign in online; they stay folded until asked for, and the Mac's apps are not in
+    // their picker.
+    expect(screen.queryByRole("heading", { name: "Accounts" })).toBeNull();
+    await userEvent.click(
+      screen.getByRole("button", { name: "Add a Google, Microsoft or email account" }),
+    );
     expect(screen.getByRole("heading", { name: "Accounts" })).toBeTruthy();
     const picker = screen.getByLabelText("Account to connect") as HTMLSelectElement;
     expect(Array.from(picker.options).map((o) => o.value)).toEqual(["google", "microsoft", "imap"]);
-    expect(screen.getByRole("button", { name: "Connect 4 apps" })).toBeTruthy();
   });
 
   it("connects the selected apps one at a time, in order", async () => {
     const { connects } = setup();
-    await userEvent.click(await screen.findByRole("checkbox", { name: "Apple Mail" }));
+    for (const name of ["Apple Calendar", "Apple Reminders", "Apple Notes"])
+      await userEvent.click(await screen.findByRole("checkbox", { name }));
     await userEvent.click(screen.getByRole("button", { name: "Connect 3 apps" }));
     await waitFor(() => expect(connects()).toHaveLength(3));
     expect(connects().map((id) => id.replace("apple-", "apple:"))).toEqual([
@@ -75,7 +83,9 @@ describe("onboarding: On this Mac vs Accounts (#640)", () => {
       w.connectors = [];
       w.appleGrant = "denied";
     });
-    await userEvent.click(await screen.findByRole("button", { name: "Connect 4 apps" }));
+    for (const name of ["Apple Calendar", "Apple Reminders", "Apple Mail", "Apple Notes"])
+      await userEvent.click(await screen.findByRole("checkbox", { name }));
+    await userEvent.click(screen.getByRole("button", { name: "Connect 4 apps" }));
     // Each app's connect leaves it waiting on its grant, listed with Allow; the next follows.
     await waitFor(() => expect(connects()).toHaveLength(4));
     const yours = await screen.findByRole("list", { name: "Your accounts" });

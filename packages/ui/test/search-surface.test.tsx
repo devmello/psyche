@@ -226,6 +226,7 @@ describe("⌘K palette", () => {
           open
           onOpenChange={() => {}}
           onNavigate={() => {}}
+          builtInActions={false}
           actions={[{ id: "dentist-pane", label: "Open the dentist pane", run }]}
         />
       </StoryWorld>,
@@ -312,11 +313,13 @@ describe("⌘K opens as one field (Spotlight-style)", () => {
   it("lists at most five commands and a Show all commands row, which lists the rest", async () => {
     open();
     const dialog = await screen.findByRole("dialog", { name: "Command palette" });
-    const rows = within(dialog).getAllByRole("option");
+    // The Recent group (real chats) sits under the commands; count the commands alone.
+    const commands = () => within(within(dialog).getByRole("group", { name: /^Actions/ }));
+    const rows = commands().getAllByRole("option");
     expect(rows).toHaveLength(6);
     expect(rows[5]?.textContent).toBe("Show all commands");
     await userEvent.click(rows[5] as HTMLElement);
-    expect(within(dialog).getAllByRole("option")).toHaveLength(9);
+    expect(commands().getAllByRole("option")).toHaveLength(9);
     expect(within(dialog).queryByText("Show all commands")).toBeNull();
   });
 

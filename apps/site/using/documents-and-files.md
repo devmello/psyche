@@ -17,8 +17,7 @@ The agent reads and writes files only inside folders you share. Anything else is
 
 When a file tool reaches outside every shared folder, its error row offers **Share this folder (read only)**. That button raises the normal folder card; nothing is shared until you approve it, and the agent does not retry the tool by itself.
 
-Changes apply at once. Sharing a folder needs a device paired as admin; see [Getting started](/guides/getting-started) for how to make the app an admin device. On the web client there is no folder chooser: type the folder's full path.
-
+Changes apply at once. Sharing a folder needs a device paired as admin; see [Getting started](/guides/getting-started) for how to make the app an admin device.
 Use real paths. A path through a symbolic link is refused, so on macOS share `/private/tmp`, not `/tmp`.
 
 ## What it can do
@@ -46,11 +45,11 @@ Click **Library** in the left rail. It has five tabs: Documents, Images, Artifac
 
 What lands there:
 
-- Files the agent downloads in its browser, and attachments sent to the agent over Telegram or iMessage. These are **quarantined**: they carry a "Quarantined" badge and are never opened automatically.
+- Files the agent downloads in its browser, and files from connectors. These are **quarantined**: they carry a "Quarantined" badge and are never opened automatically.
 - Browser recordings, when recording is turned on.
 - Read-aloud clips and voice memos.
 
-Everything is stored under `~/.psyche/library/`. Downloads and channel attachments are in `library/quarantine/`.
+Everything is stored under `~/.psyche/library/`. Downloads and connector files are in `library/quarantine/`.
 
 ::: info Screenshot placeholder
 The Library with the Documents tab open in List view, showing a quarantined download with its badge and an Open button.
@@ -58,7 +57,7 @@ The Library with the Documents tab open in List view, showing a quarantined down
 
 ### The Files pane
 
-Open it from the command palette (⌘K, then "Open files pane"), or with **Open** on a Library item or an attachment. It shows a **Shared folders** tree built from your folder grants, and the **Library**. It works in the desktop app and the web client.
+Open it from the command palette (⌘K, then "Open files pane"), or with **Open** on a Library item or an attachment. It shows a **Shared folders** tree built from your folder grants, and the **Library**. It works in the desktop app.
 
 Viewers:
 

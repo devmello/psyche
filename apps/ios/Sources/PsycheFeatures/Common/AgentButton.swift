@@ -13,7 +13,7 @@ struct AgentButton: View {
     static let zoomID = "agent-avatar"
 
     var body: some View {
-        Button { router.sheet = .agent } label: { label }
+        Button { router.sheet = .agent } label: { label.frame(minWidth: 44, minHeight: 44).contentShape(Rectangle()) }
             .buttonStyle(.plain)
             .psycheZoomSource(id: Self.zoomID, in: zoom)
             .accessibilityLabel(needsYou ? String(localized: "Open Psyche's activity, something needs you", bundle: .module) : String(localized: "Open Psyche's activity", bundle: .module))
@@ -26,7 +26,7 @@ struct AgentButton: View {
     private var label: some View {
         if glass {
             MothAvatar(size: 26)
-                .frame(width: 40, height: 40)
+                .frame(width: 44, height: 44)
                 .glassEffect(.regular.interactive(), in: .circle)
                 .overlay(alignment: .topTrailing) {
                     if needsYou {

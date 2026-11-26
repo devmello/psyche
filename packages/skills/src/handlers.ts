@@ -306,9 +306,9 @@ export function createSkillsHandlers(
       bindingHash: proposal.bindingHash,
       grantKey: proposal.grantKey,
       requestedBy: { runId: null, taskId: null, threadId: null },
-      // Destructive class: `once` only and device-only, so a channel message cannot approve it.
+      // Destructive class: `once` only and device-only, so no message from outside can approve it.
       sideEffect: "destructive",
-      // Device surfaces only: a chat channel (`telegram:123`) can never approve an install.
+      // The owner's own surfaces only: an old chat channel's `<channel>:123` never gets a token.
       surfaces: (opts.surfaces ?? ["desktop"]).filter((x) => !x.includes(":")),
       scopesOffered: ["once"],
       // A skill made from a recording carries web page text: the card says so, in plain words.

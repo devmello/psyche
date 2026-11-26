@@ -1,5 +1,7 @@
+import { createHash } from "node:crypto";
 import { type AgentToolRegistration, defineTool, type ToolRunContext } from "@psyche/agent-core";
 import {
+  bindingFor,
   bodySha256,
   type ComposeCandidate,
   type ComposeDetails,
@@ -9,6 +11,7 @@ import {
 } from "@psyche/permissions";
 import {
   type MessagesChat,
+  type MessagesSendParams,
   type MessagesService,
   type NodeClient,
   type PermissionBroker,
@@ -16,6 +19,8 @@ import {
   type ToolResult,
 } from "@psyche/protocol";
 import { Type } from "@sinclair/typebox";
+import type { Gateway } from "../server.ts";
+import type { ComposedPart, ComposeServices } from "./services.ts";
 
 /**
  * `messages_send` (feature J7/N5, security §3.5, §3.12): the agent starts an iMessage from a
@@ -353,4 +358,86 @@ async function send(
       ? { chose: describeCandidate(candidates.find((c) => c.id === final.id) ?? first) }
       : {}),
   });
+}
+
+/** The account `messages_send` binds its sends to (the Host's own Messages). */
+export const MESSAGES_SEND_ACCOUNT = "mac-messages";
+
+/**
+ * The `messages_send` agent tool as a composed part: registered once the Gateway listens, sending
+ * through the Host's own helper (never another Mac's) behind `verifiedMessagesSends`. This is
+ * Psyche's own send tool; the chat channels it once lived next to were removed (owner, 2026-11-25).
+ */
+export function composeMessagesSend(services: ComposeServices): ComposedPart {
+  let gateway: Gateway | null = null;
+  let unregister: (() => unknown) | undefined;
+  const tool = messagesSendTool({
+    broker: services.broker,
+    surfaces: ["desktop", "web"],
+    account: MESSAGES_SEND_ACCOUNT,
+    node: () => gateway?.context.nodes.hostHelper("messages.send")?.client,
+    sender: (client) => verifiedMessagesSends(services, client, MESSAGES_SEND_ACCOUNT),
+  });
+  return {
+    start(gw: Gateway) {
+      gateway = gw;
+      unregister ??= services.tools.register(tool);
+    },
+    stop() {
+      unregister?.();
+      unregister = undefined;
+      gateway = null;
+    },
+  };
+}
+
+/**
+ * The executor's check (security §3.5, §3.7 "Dispatch"): a `messages.send` reaches the Mac only
+ * if its approval binds exactly the recipient and text being sent, spent once; a receipt records
+ * it. The node itself only checks that an approval id is present.
+ */
+export function verifiedMessagesSends(
+  services: ComposeServices,
+  client: NodeClient,
+  account: string,
+): NodeClient {
+  return {
+    nodeId: client.nodeId,
+    info: () => client.info(),
+    capabilities: () => client.capabilities(),
+    async invoke(capability, params, options = {}) {
+      if (capability !== "messages.send") return client.invoke(capability, params, options);
+      const p = params as MessagesSendParams;
+      const approvalId = options.approvalId;
+      if (approvalId === undefined) {
+        return { ok: false, error: { code: "approval_required", message: "no approval" } };
+      }
+      const binding = bindingFor("message_send", {
+        channel: "imessage",
+        account,
+        recipient: p.chatId ?? p.to ?? "",
+        bodySha256: `sha256:${createHash("sha256").update(p.text, "utf8").digest("hex")}`,
+      });
+      const verified = await services.rawBroker.verifyBinding(approvalId, binding.bindingHash);
+      if (!verified.ok) {
+        return {
+          ok: false,
+          error: {
+            code: verified.reason === "binding_mismatch" ? "binding_mismatch" : "approval_required",
+            message: `approval ${approvalId} does not cover this send (${verified.reason})`,
+          },
+        };
+      }
+      const res = await client.invoke(capability, params, options);
+      await services.broker
+        .recordReceipt({
+          kind: "node.messages.send",
+          outcome: res.receipt?.outcome ?? (res.ok ? "ok" : "failed"),
+          summary: res.receipt?.summary ?? "iMessage send",
+          approvalId,
+        })
+        .catch(() => undefined);
+      return res;
+    },
+  };
 }

@@ -1,16 +1,5 @@
-import type {
-  ApprovalRequest,
-  ChannelAdapter,
-  NodeClient,
-  Notification,
-  Surface,
-} from "@psyche/protocol";
-import {
-  type InterruptionLevel,
-  parseChannelSurface,
-  parseDeviceSurface,
-  surfaceClass,
-} from "./types.ts";
+import type { NodeClient, Notification, Surface } from "@psyche/protocol";
+import { type InterruptionLevel, parseDeviceSurface, surfaceClass } from "./types.ts";
 
 export type DeliveryOutcome =
   | { status: "delivered" }
@@ -168,81 +157,6 @@ export function createDeviceSurface(options: DeviceSurfaceOptions): SurfaceAdapt
       return options.send(deviceId, toDeviceToast(n, ctx.interruption))
         ? { status: "delivered" }
         : { status: "suppressed", reason: "device not connected" };
-    },
-  };
-}
-
-// --- Chat channels -------------------------------------------------------------------------------
-
-export interface ChannelSurfaceOptions {
-  /** The running adapter for a channel type (`telegram`), or `undefined` if not configured. */
-  adapter: (channel: string) => ChannelAdapter | undefined;
-  /**
-   * The approval behind an `approval` notification and the answer token S05 issued for this
-   * chat. Without it approvals are not sent to chat at all.
-   */
-  approval?: (
-    approvalId: string,
-    surface: Surface,
-  ) => Promise<{ approval: ApprovalRequest; answerToken: string } | undefined>;
-}
-
-/** Plain-text rendering: title, body and the deep link; cut to the channel's limit. */
-export function channelText(n: Notification, maxChars?: number): string {
-  const parts = [n.title, n.body].filter((p) => p.trim().length > 0);
-  if (n.route != null) parts.push(`Open in Psyche: ${n.route}`);
-  const text = parts.join("\n\n");
-  if (maxChars === undefined || text.length <= maxChars) return text;
-  return `${text.slice(0, Math.max(0, maxChars - 1))}…`;
-}
-
-export function createChannelSurface(options: ChannelSurfaceOptions): SurfaceAdapter {
-  return {
-    name: "channel",
-    handles: (surface) => parseChannelSurface(surface) !== undefined,
-    async deliver(n, ctx) {
-      const target = parseChannelSurface(ctx.surface);
-      if (target === undefined) return { status: "suppressed", reason: "not a channel surface" };
-      const adapter = options.adapter(target.channel);
-      if (adapter === undefined) {
-        return {
-          status: "failed",
-          error: `channel ${target.channel} not running`,
-          retryable: true,
-        };
-      }
-      try {
-        if (n.kind === "approval") {
-          // Security §3.5 / §9: deviceOnly approvals never reach chat, not even as a nudge.
-          const found =
-            n.approvalId == null ? undefined : await options.approval?.(n.approvalId, ctx.surface);
-          if (found === undefined) {
-            return { status: "suppressed", reason: "approval not deliverable to chat" };
-          }
-          if (found.approval.deviceOnly) {
-            return { status: "suppressed", reason: "deviceOnly approval" };
-          }
-          if (adapter.sendApprovalButtons === undefined || !adapter.capabilities().buttons) {
-            return { status: "suppressed", reason: "channel has no approval buttons" };
-          }
-          await adapter.sendApprovalButtons(target.peerId, found.approval, found.answerToken);
-          return { status: "delivered" };
-        }
-        await adapter.send({
-          chatId: target.peerId,
-          text: channelText(n, adapter.capabilities().maxMessageChars),
-        });
-        return { status: "delivered" };
-      } catch (err) {
-        const code = (err as { code?: unknown }).code;
-        const message = err instanceof Error ? err.message : String(err);
-        if (code === "forbidden") return { status: "suppressed", reason: message };
-        return {
-          status: "failed",
-          error: message,
-          retryable: typeof code !== "string" || !NON_RETRYABLE.has(code),
-        };
-      }
     },
   };
 }

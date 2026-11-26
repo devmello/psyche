@@ -57,7 +57,7 @@ The owner chooses a device's scopes when approving it; a client cannot declare i
 | `operator.read` | Reading threads, tasks, approvals, receipts, the audit log, settings, search | 79 |
 | `operator.write` | Chatting, starting and steering tasks, editing memory, cosmetic settings, `nodes.invoke` | 63 |
 | `operator.approvals` | Answering approval cards, passkey ceremonies | 5 |
-| `operator.admin` | Devices and pairing, grant revocation, channel access, vault administration, skill installs, model keys and roles, backups, memory reset, audit export | 39 |
+| `operator.admin` | Devices and pairing, grant revocation, vault administration, skill installs, model keys and roles, backups, memory reset, audit export | 39 |
 | `node` | `node.invoke`, `node.event` and `node.result`, for nodes only | 3 |
 | none | `connect` and `connect.verify` | 2 |
 
@@ -73,7 +73,7 @@ Methods are defined in [src/methods/](https://github.com/devmello/psyche/tree/ma
 | Work | `tasks.*`, `automations.*`, `feed.*`, `ideas.*`, `goals.*` |
 | Control | `approvals.*`, `grants.*`, `receipts.*`, `audit.*`, `settings.*` |
 | Knowledge | `memory.*`, `library.*`, `files.*`, `documents.*`, `artifacts.*`, `search.*`, `skills.*` |
-| Integrations | `connectors.*`, `mcp.*`, `channels.*`, `vault.*`, `models.*`, `browser.*`, `sandbox.*` |
+| Integrations | `connectors.*`, `mcp.*`, `vault.*`, `models.*`, `browser.*`, `sandbox.*` |
 | Devices | `connect`, `devices.*`, `passkeys.*`, `nodes.*`, `node.*` |
 | Operations | `backup.*`, `logs.*`, `notifications.*`, `events.*` |
 | Desktop only | `view.*` (pane control), `attention.*` |

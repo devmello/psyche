@@ -34,7 +34,7 @@ async function compose(): Promise<ComposedGateway> {
     logger: silentLogger,
     retentionIntervalMs: 0,
     background: false,
-    config: { home, port: 0, dbPath: join(home, "psyche.db"), webRoot: null },
+    config: { home, port: 0, dbPath: join(home, "psyche.db") },
     model: vaultModelSetup({}),
     vault: { keyFile, argon2: { memory: 64, passes: 1, parallelism: 1 } },
   });

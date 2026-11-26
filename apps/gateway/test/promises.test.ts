@@ -113,7 +113,7 @@ async function boot(provider: FakeModelProvider, start = T0, zone = "UTC") {
     background: false,
     timeZone: zone,
     clock,
-    config: { home, port: 0, dbPath: join(home, "psyche.db"), webRoot: null },
+    config: { home, port: 0, dbPath: join(home, "psyche.db") },
     model: { provider, model: "fake/model" },
   });
   const db = composed.gateway.context.db;

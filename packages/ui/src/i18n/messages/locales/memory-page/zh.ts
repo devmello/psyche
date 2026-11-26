@@ -3,7 +3,7 @@ import type { Catalogue } from "../../index.ts";
 /** memory-page strings (zh); merged into `../zh.ts`. */
 export const memoryPage: Partial<Catalogue> = {
   "memory.page.title": "记忆",
-  "memory.page.soul": "Soul",
+  "memory.page.soul": "个性",
   "memory.page.kinds": "显示内容",
   "memory.page.kind.everything": "全部",
   "memory.page.kind.people": "人物",

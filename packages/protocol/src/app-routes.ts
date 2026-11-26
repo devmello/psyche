@@ -22,7 +22,6 @@ export const APP_SETTINGS_SECTIONS = [
   "connectors",
   "search",
   "mail",
-  "channels",
   "memory",
   "learning",
   "everything",

@@ -19,7 +19,6 @@ export {
   REAL_CHROME_KEY,
   realChromeOf,
 } from "./BrowserSection.tsx";
-export { ChannelsPanel, type ChannelsPanelProps, ChannelsSection } from "./ChannelsSection.tsx";
 export {
   ComputerUsePanel,
   type ComputerUsePanelProps,

@@ -94,7 +94,7 @@ The mode menu in the chat header switches the thread's mode between Manual, Bala
 
 ## Device-only approvals and Touch ID
 
-Some approvals can only be answered on a paired device (the desktop app or the web client), never from a chat app:
+Some approvals can only be answered on a paired device (the desktop app or the iPhone app), never from a chat app:
 
 - every destructive action, such as sending an email;
 - every financial action and every purchase;
@@ -108,7 +108,7 @@ Approving a device-only card is a plain tap. Touch ID or your Mac password is us
 
 Changing a security setting (permissions, exec, vault, devices, gateway and similar) needs an admin device and, once you have added a passkey or a Windows Hello key, your approval card. The card is a plain tap: no Touch ID, no password (the Settings reference lists the keys). On a default Mac with no passkey, an admin device is enough and no card appears; Psyche Helper's own key does not count. Only adding a way to prove presence (a device's first passkey, a Windows Hello key, or applying a presence reset at once) also asks for Touch ID or a passkey, so a stolen admin device cannot enrol its own. A paired phone can answer, with a plain tap, any card that needs no presence and was offered off the Mac (to notifications or the web), including security changes; payments, and cards for scripts, skill and capability installs, tool-server adds and node calls, stay on the Mac, as does anything the phone cannot show in full. A phone paired after a card was raised cannot answer that card.
 
-Touch ID on the Mac uses Psyche Helper's own device key, which is registered when the helper pairs, so there is nothing to set up. In the web client at the server's https address, a passkey works too: add one in Settings → Devices & nodes → Passkeys ([server mode](server-mode.md#passkeys)). Without a working helper or a passkey, a payment is refused rather than approved unverified. Deny always works. Running commands directly on the Mac is also off by default.
+Touch ID on the Mac uses Psyche Helper's own device key, which is registered when the helper pairs, so there is nothing to set up. On a remote Mac, a passkey works too: add one from its desktop app in Settings → Devices & nodes → Passkeys ([server mode](server-mode.md#passkeys)). Without a working helper or a passkey, a payment is refused rather than approved unverified. Deny always works. Running commands directly on the Mac is also off by default.
 
 ### Approvals as macOS notifications
 
@@ -126,18 +126,9 @@ open ~/Applications/Psyche\ Helper.app
 
 It needs macOS 15 or later and Swift 6. Sign every build with the same identity and keep it at one path, or macOS forgets the permissions you granted it. `apps/mac-helper/README.md` covers signing.
 
-## Approving from a chat app
+## Approving from your iPhone
 
-When the agent can reach you on Telegram, approvals are sent there too (setup is in [connectors.md](connectors.md#telegram)):
-
-- Only cards that are not device-only go to chat. In practice that means write-class actions, such as a calendar change or a draft.
-- Telegram shows inline buttons. Where buttons are not available, the card shows a reference you answer with `/approve <ref> approve` or `/approve <ref> deny`.
-- Only your own owner identity can answer. Answers are always Allow once.
-- The card is plain text from a fixed template. Every value is sanitized: line breaks show as `⏎`, hidden characters as `⟨U+XXXX⟩`, and international domain names in punycode, so a lookalike cannot hide in it.
-- A card that does not fit in one message is replaced by "Open on your Mac to review." and cannot be answered from chat.
-- The first answer on any surface wins. A later answer is refused.
-
-These never go to chat: credential fills, commands on the Mac, purchases and other money, pairing and permission changes, and destructive actions such as sending email.
+Approval cards go only to your own devices: the Mac app and your paired iPhone. The first answer on any surface wins, and a later answer is refused. Credential fills, commands on the Mac, purchases and other money, pairing and permission changes, and destructive actions such as sending email are shown in full on the card.
 
 ## Expiry and restarts
 

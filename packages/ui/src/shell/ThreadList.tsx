@@ -8,7 +8,6 @@ import {
   type LucideIcon,
   Pin,
   Plus,
-  Radio,
 } from "lucide-react";
 import {
   createContext,
@@ -68,10 +67,9 @@ export function CurrentMark({ active }: { active: boolean }): ReactElement | nul
   );
 }
 
-/** A leading glyph for threads that aren't plain chats: incognito, a channel, an automation. */
+/** A leading glyph for threads that aren't plain chats: incognito, an automation. */
 const KIND_GLYPH: Partial<Record<ThreadListEntry["thread"]["kind"], LucideIcon>> = {
   incognito: EyeOff,
-  channel: Radio,
   automation: Clock,
   subagent: Bot,
 };
@@ -80,8 +78,6 @@ function kindLabel(kind: ThreadListEntry["thread"]["kind"]): string | null {
   switch (kind) {
     case "incognito":
       return t("shell.threads.incognito");
-    case "channel":
-      return t("shell.sidebar.channel");
     case "automation":
       return t("shell.sidebar.automation");
     case "subagent":

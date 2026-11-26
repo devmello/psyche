@@ -218,7 +218,7 @@ describe("Stripe Link payments (G12)", () => {
   it("asks for a financial, device-only, authenticated once approval bound to the purchase", async () => {
     const issued = await broker.requestPurchase(PURCHASE, {
       ...REQ,
-      surfaces: ["desktop", "telegram:42"],
+      surfaces: ["desktop", "oldchat:42"],
     });
     expect(issued.approval).toMatchObject({
       kind: "purchase",

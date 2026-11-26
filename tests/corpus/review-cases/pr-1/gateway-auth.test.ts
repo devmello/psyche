@@ -129,7 +129,7 @@ let home: string;
 beforeEach(async () => {
   home = mkdtempSync(join(tmpdir(), "s23-gw-"));
   gw = await startGateway({
-    config: { home, port: 0, dbPath: ":memory:", webRoot: null },
+    config: { home, port: 0, dbPath: ":memory:" },
     env: {},
     logger: silent,
   });

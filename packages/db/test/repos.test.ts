@@ -124,7 +124,7 @@ describe("pairing requests", () => {
     const stale = createPairingRequest(db, {
       kind: "channel-sender",
       code: "A1",
-      channelId: "telegram",
+      channelId: "oldchat",
       senderId: "12345",
       display: "@someone",
       expiresAt: "2026-10-18T22:05:00Z",

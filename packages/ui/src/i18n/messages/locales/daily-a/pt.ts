@@ -29,7 +29,6 @@ export const dailyA: Partial<Catalogue> = {
   "settings.key.daily.brief.enabled": "Resumo da manhã",
   "settings.key.daily.wrapup.enabled": "Fechamento da noite",
   "settings.key.daily.notify": "Me avisar",
-  "settings.key.daily.messages": "Enviar também pelo Mensagens",
   "settings.key.daily.followups.enabled": "Acompanhar pendências",
   "settings.key.daily.brief.time": "Horário do resumo da manhã",
   "settings.key.daily.wrapup.time": "Horário do fechamento da noite",
@@ -37,7 +36,6 @@ export const dailyA: Partial<Catalogue> = {
   "settings.daily.time": "Horário",
   "settings.daily.notify.hint":
     "Uma notificação com o cartão. O horário de silêncio a retém até terminar.",
-  "settings.daily.messages.hint": "Precisa do canal Mensagens. Enviado só para você.",
   "settings.daily.sensitivity": "Quanto acompanhar",
   "settings.daily.sensitivity.low": "Só promessas claras com data",
   "settings.daily.sensitivity.normal": "Promessas e pedidos (recomendado)",
@@ -205,20 +203,9 @@ export const dailyA: Partial<Catalogue> = {
   "shell.search.keyCmdL": "⌘L",
   "shell.search.keyCtrlL": "Ctrl L",
   "settings.shared.advanced": "Avançado",
-  "settings.nav.inPage": "Em {page}",
   "settings.nav.essentials": "Essenciais",
   "settings.nav.learning": "Básico",
   "settings.search.count": "{count, plural, one {# resultado} other {# resultados}}",
   "settings.search.result.page": "Página",
   "settings.page.essentials": "Essenciais",
-  "settings.page.essentials.description":
-    "As poucas escolhas que a maioria das pessoas faz. Cada uma tem um padrão seguro, e as páginas abaixo têm o resto.",
-  "settings.page.general.description":
-    "Como {persona} aparece, quem é, quando pode interromper você e como você fala com ela.",
-  "settings.page.model.description":
-    "Os modelos com os quais {persona} pensa, as chaves que eles usam e quanto custam.",
-  "settings.page.connectors.description":
-    "Os apps e contas que {persona} pode acessar, e em quais pesquisa.",
-  "settings.page.memory.description":
-    "O que {persona} lembra, de onde aprende e como você controla isso.",
 };

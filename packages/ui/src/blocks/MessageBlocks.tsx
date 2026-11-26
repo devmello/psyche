@@ -306,7 +306,7 @@ function ArtifactBlockView({
   const { artifact, loading } = useArtifact(artifactId);
   const slots = useSlots();
   // Auto-open (chat-experience-2026 §4.2, decision 3): only a new artifact arriving live from
-  // the owner's own run in this chat opens the canvas; history, automations, channels and
+  // the owner's own run in this chat opens the canvas; history, automations and
   // specialists leave just the card.
   const live = useEntersLater(artifact?.updatedAt ?? null);
   const foreground = useStoreState((s) => {

@@ -2,15 +2,9 @@ import type { Catalogue } from "../../index.ts";
 
 /** connectors-page strings (zh); merged into `../zh.ts`. */
 export const connectorsPage: Partial<Catalogue> = {
-  "settings.connectors.page.description":
-    "{persona}可以使用的 App 和工具。除非你另有说明，每一个在行动前都会询问。",
   "settings.connectors.page.needsYou": "需要你处理",
   "settings.connectors.page.connected": "已连接",
   "settings.connectors.page.onThisMac": "在这台 Mac 上",
-  "settings.connectors.page.addMore": "添加更多",
-  "settings.connectors.page.addMore.hint":
-    "邮件、日历、备忘录和现成的工具。每一个在行动前都会询问。",
-  "settings.connectors.page.addMore.browse": "浏览全部",
   "settings.connectors.page.status.paused": "已暂停",
   "settings.connectors.page.status.notWorking": "无法工作",
   "settings.connectors.page.status.signInExpired": "登录已过期",

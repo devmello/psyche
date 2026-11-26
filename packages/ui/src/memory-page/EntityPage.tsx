@@ -17,10 +17,13 @@ export function EntityPage({
   id,
   now,
   onNavigate,
+  embedded = false,
 }: {
   id: string;
   now?: number;
   onNavigate: (to: string) => void;
+  /** The detail pane of a split view: there is no list to go back to, so no Back button. */
+  embedded?: boolean;
 }): ReactElement {
   const detail = useGatewayQuery("memory.entities.get", { id });
   const kind = kindForEntity(detail.data?.entity.kind ?? "person");
@@ -36,15 +39,19 @@ export function EntityPage({
   return (
     <div className="flex flex-col gap-3" data-testid="memory-entity">
       <div className="flex items-center justify-between gap-2">
-        <Button
-          type="button"
-          size="sm"
-          variant="ghost"
-          onClick={() => onNavigate(memoryHref(kind))}
-        >
-          <ArrowLeft aria-hidden="true" className="rtl:rotate-180" />
-          {t("memory.page.back", { tab: back })}
-        </Button>
+        {embedded ? (
+          <span />
+        ) : (
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            onClick={() => onNavigate(memoryHref(kind))}
+          >
+            <ArrowLeft aria-hidden="true" className="rtl:rotate-180" />
+            {t("memory.page.back", { tab: back })}
+          </Button>
+        )}
         <div className="flex items-center gap-1.5">
           {data === undefined ? null : <SpaceButton entity={data.entity} onNavigate={onNavigate} />}
           {canContinue ? (

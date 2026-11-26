@@ -11,7 +11,7 @@ import { parseProgress } from "../src/screens/onboarding/progress.ts";
 import type { ImportedMemory, OnboardingStepId } from "../src/screens/onboarding/types.ts";
 import { StoryWorld } from "../src/stories/harness.tsx";
 
-/** The six-step flow: skipping, resuming from old progress, re-running over what is set. */
+/** The short flow: skipping, resuming from old progress, re-running over what is set. */
 
 function flow(props: Partial<OnboardingFlowProps> = {}) {
   const onComplete = vi.fn();
@@ -77,7 +77,7 @@ describe("resume after quitting midway", () => {
     await click("Next");
     await waitFor(() =>
       expect(first.onProgress).toHaveBeenLastCalledWith(
-        expect.objectContaining({ step: "stuff", done: ["you"] }),
+        expect.objectContaining({ step: "model", done: ["you"] }),
       ),
     );
     first.unmount();
@@ -144,10 +144,10 @@ describe("resume after quitting midway", () => {
 });
 
 describe("re-run is pre-filled and leaves out only what is set", () => {
-  it("leaves the model out when it is set, and keeps every other step", () => {
+  it("leaves the model out when it is set, and keeps your name and what to help with", () => {
     flow({ completed: ["model"], rerun: true });
-    expect(progressBar().getAttribute("aria-valuemax")).toBe("5");
-    expect(progressBar().textContent).toBe("1 of 5");
+    expect(progressBar().getAttribute("aria-valuemax")).toBe("3");
+    expect(progressBar().getAttribute("aria-valuetext")).toBe("1 of 3");
     expect(heading().textContent).toContain("You and your agent");
   });
 

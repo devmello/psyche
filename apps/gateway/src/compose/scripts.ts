@@ -200,7 +200,9 @@ export function scriptTools(deps: ScriptToolsDeps): AgentToolRegistration[] {
         toolCallId: ctx.callId,
       },
       sideEffect: "destructive",
-      surfaces: ["desktop"],
+      // A plain tap from any paired device (owner, 2026-11-09): `notification` lets the Gateway
+      // give each paired phone its own token. Capability, skill install and MCP add stay on the Mac.
+      surfaces: ["desktop", "notification"],
       scopesOffered: ["once"],
       taint: ctx.taint,
       ...(ctx.taint ? { taintSources: [...(ctx.taintSources ?? [])] } : {}),

@@ -149,11 +149,6 @@
         "payload": "#/$defs/BrowserRecordingUpdatedPayload"
       },
       {
-        "description": "A channel was configured, connected, disconnected or changed status.",
-        "name": "channels.updated",
-        "payload": "#/$defs/ChannelsUpdatedPayload"
-      },
-      {
         "description": "A structured block (plan, checklist, approval, question, artifact, receipt, …) was added to a message.",
         "name": "chat.block",
         "payload": "#/$defs/ChatBlockPayload"
@@ -632,7 +627,7 @@
         "sideEffecting": false
       },
       {
-        "description": "Returns one approval request.",
+        "description": "Returns one approval request, with this surface's unused answer token when it has one. With wantToken a paired approver device without a token gets one for a card that may be answered off the Mac; a payment or Mac-only card returns needsMac instead.",
         "name": "approvals.get",
         "params": "#/$defs/ApprovalsGetParams",
         "result": "#/$defs/ApprovalResult",
@@ -998,110 +993,6 @@
         "result": "#/$defs/OkResult",
         "scope": "operator.admin",
         "sideEffecting": true
-      },
-      {
-        "description": "Adds or removes sender / group ids on one of a channel's allowlists. Side-effecting.",
-        "name": "channels.allowlist.update",
-        "params": "#/$defs/ChannelsAllowlistUpdateParams",
-        "result": "#/$defs/ChannelsAllowlistUpdateResult",
-        "scope": "operator.admin",
-        "sideEffecting": true
-      },
-      {
-        "description": "Creates a channel or changes its access policy and settings. Side-effecting.",
-        "name": "channels.configure",
-        "params": "#/$defs/ChannelsConfigureParams",
-        "result": "#/$defs/ChannelsConfigureResult",
-        "scope": "operator.admin",
-        "sideEffecting": true
-      },
-      {
-        "description": "Returns one channel.",
-        "name": "channels.get",
-        "params": "#/$defs/ChannelsGetParams",
-        "result": "#/$defs/ChannelsGetResult",
-        "scope": "operator.read",
-        "sideEffecting": false
-      },
-      {
-        "description": "Deletes an identity; its senders fall back to per-sender sessions. Side-effecting.",
-        "name": "channels.identities.delete",
-        "params": "#/$defs/ChannelsIdentitiesDeleteParams",
-        "result": "#/$defs/OkResult",
-        "scope": "operator.admin",
-        "sideEffecting": true
-      },
-      {
-        "description": "Lists identities (identity links and designated persons).",
-        "name": "channels.identities.list",
-        "params": "#/$defs/ChannelsIdentitiesListParams",
-        "result": "#/$defs/ChannelsIdentitiesListResult",
-        "scope": "operator.read",
-        "sideEffecting": false
-      },
-      {
-        "description": "Creates or replaces an identity; a sender id may belong to one identity only. Side-effecting.",
-        "name": "channels.identities.upsert",
-        "params": "#/$defs/ChannelsIdentitiesUpsertParams",
-        "result": "#/$defs/ChannelsIdentitiesUpsertResult",
-        "scope": "operator.admin",
-        "sideEffecting": true
-      },
-      {
-        "description": "Lists configured channels.",
-        "name": "channels.list",
-        "params": "#/$defs/ChannelsListParams",
-        "result": "#/$defs/ChannelsListResult",
-        "scope": "operator.read",
-        "sideEffecting": false
-      },
-      {
-        "description": "Approves a pending pairing request; the sender joins the channel's allowFrom. Side-effecting.",
-        "name": "channels.pairing.approve",
-        "params": "#/$defs/ChannelsPairingApproveParams",
-        "result": "#/$defs/ChannelsPairingApproveResult",
-        "scope": "operator.admin",
-        "sideEffecting": true
-      },
-      {
-        "description": "Denies a pending pairing request. Side-effecting.",
-        "name": "channels.pairing.deny",
-        "params": "#/$defs/ChannelsPairingDenyParams",
-        "result": "#/$defs/ChannelsPairingDenyResult",
-        "scope": "operator.admin",
-        "sideEffecting": true
-      },
-      {
-        "description": "Lists channel-sender pairing requests, newest first.",
-        "name": "channels.pairing.list",
-        "params": "#/$defs/ChannelsPairingListParams",
-        "result": "#/$defs/ChannelsPairingListResult",
-        "scope": "operator.read",
-        "sideEffecting": false
-      },
-      {
-        "description": "Removes a channel transport secret (the Gateway-owned vault item channels.secrets.set stored; #511) and returns which secrets are still set. The channel cannot connect until it is set again. invalid_params for a name the type does not use. Audited. Side-effecting.",
-        "name": "channels.secrets.clear",
-        "params": "#/$defs/ChannelsSecretsClearParams",
-        "result": "#/$defs/ChannelsSecretsClearResult",
-        "scope": "operator.admin",
-        "sideEffecting": true
-      },
-      {
-        "description": "Stores a channel transport secret (Slack bot/app token, Discord bot token, SMS auth token) as a Gateway-owned vault item for that channel type and account, replacing an earlier one, and returns which secrets are now set. Agents can never fill it. invalid_params for a name the type does not use, unavailable when the vault cannot be opened. Side-effecting; its params are never logged.",
-        "name": "channels.secrets.set",
-        "params": "#/$defs/ChannelsSecretsSetParams",
-        "result": "#/$defs/ChannelsSecretsSetResult",
-        "scope": "operator.admin",
-        "sideEffecting": true
-      },
-      {
-        "description": "Which transport secrets a channel needs and which are stored. Never returns values.",
-        "name": "channels.secrets.status",
-        "params": "#/$defs/ChannelsSecretsStatusParams",
-        "result": "#/$defs/ChannelsSecretsStatusResult",
-        "scope": "operator.admin",
-        "sideEffecting": false
       },
       {
         "description": "Desktop app only (the web shell has no real paths and uploads to the Library instead). The owner picked or dropped these files on a message: each gets a read-only grant for exactly that file (not its folder) in this thread, for 24 hours, until Clear chat or deletion of the thread, or until a restart. The pick is the approval, so there is no card; a file under a sensitive root (~/.ssh, ~/.psyche, ~/Library, ...), a folder or a missing file is refused and listed in `refused`. Returns name, size and type for the chip. forbidden outside the desktop app. Side-effecting.",
@@ -8385,7 +8276,7 @@
         },
         "surfaces": {
           "items": {
-            "description": "\"desktop\" | \"notification\" | \"web\" | \"<channel>:<peerId>\"",
+            "description": "\"desktop\" | \"notification\" | \"web\" | \"device:<deviceId>\"",
             "minLength": 1,
             "type": "string"
           },
@@ -8412,6 +8303,27 @@
         },
         "setAside": {
           "type": "boolean"
+        },
+        "grantHint": {
+          "properties": {
+            "count": {
+              "minimum": 1,
+              "type": "integer"
+            },
+            "days": {
+              "minimum": 1,
+              "type": "integer"
+            },
+            "scope": {
+              "$ref": "#/$defs/GrantScope"
+            }
+          },
+          "required": [
+            "count",
+            "days",
+            "scope"
+          ],
+          "type": "object"
         },
         "taintSources": {
           "items": {
@@ -8534,6 +8446,9 @@
         },
         "answerToken": {
           "$ref": "#/$defs/SurfaceAnswerToken"
+        },
+        "needsMac": {
+          "$ref": "#/$defs/NeedsMacReason"
         }
       },
       "required": [
@@ -8680,6 +8595,9 @@
           "maxLength": 64,
           "minLength": 1,
           "type": "string"
+        },
+        "wantToken": {
+          "type": "boolean"
         }
       },
       "required": [
@@ -10604,7 +10522,7 @@
           "type": "string"
         },
         "surface": {
-          "description": "\"desktop\" | \"notification\" | \"web\" | \"<channel>:<peerId>\"",
+          "description": "\"desktop\" | \"notification\" | \"web\" | \"device:<deviceId>\"",
           "minLength": 1,
           "type": "string"
         },
@@ -14495,173 +14413,6 @@
       ],
       "type": "string"
     },
-    "Channel": {
-      "properties": {
-        "id": {
-          "description": "ULID in production",
-          "maxLength": 64,
-          "minLength": 1,
-          "type": "string"
-        },
-        "type": {
-          "$ref": "#/$defs/ChannelType"
-        },
-        "account": {
-          "type": "string"
-        },
-        "dmPolicy": {
-          "$ref": "#/$defs/DmPolicy"
-        },
-        "allowFrom": {
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
-        },
-        "groupAllowFrom": {
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
-        },
-        "requireMention": {
-          "type": "boolean"
-        },
-        "ownerIds": {
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
-        },
-        "dmScope": {
-          "enum": [
-            "main",
-            "per-peer",
-            "per-channel-peer"
-          ],
-          "type": "string"
-        },
-        "nodeId": {
-          "anyOf": [
-            {
-              "description": "ULID in production",
-              "maxLength": 64,
-              "minLength": 1,
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "status": {
-          "enum": [
-            "active",
-            "paused",
-            "error",
-            "disconnected"
-          ],
-          "type": "string"
-        },
-        "config": {
-          "description": "JSON object",
-          "patternProperties": {
-            "^(.*)$": {}
-          },
-          "type": "object"
-        },
-        "createdAt": {
-          "description": "ISO-8601 timestamp (UTC)",
-          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
-          "type": "string"
-        },
-        "updatedAt": {
-          "description": "ISO-8601 timestamp (UTC)",
-          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
-          "type": "string"
-        }
-      },
-      "required": [
-        "id",
-        "type",
-        "account",
-        "dmPolicy",
-        "allowFrom",
-        "groupAllowFrom",
-        "requireMention",
-        "ownerIds",
-        "dmScope",
-        "status",
-        "config",
-        "createdAt",
-        "updatedAt"
-      ],
-      "type": "object"
-    },
-    "ChannelIdentity": {
-      "properties": {
-        "id": {
-          "description": "ULID in production",
-          "maxLength": 64,
-          "minLength": 1,
-          "type": "string"
-        },
-        "display": {
-          "type": "string"
-        },
-        "links": {
-          "description": "Sender ids merged into this identity",
-          "items": {
-            "description": "\"<channel>:<senderId>\"",
-            "type": "string"
-          },
-          "type": "array"
-        },
-        "delegatedPersona": {
-          "anyOf": [
-            {
-              "description": "Persona overlay name (feature N10)",
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "toolAllow": {
-          "anyOf": [
-            {
-              "description": "Tool name globs",
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "createdAt": {
-          "description": "ISO-8601 timestamp (UTC)",
-          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
-          "type": "string"
-        },
-        "updatedAt": {
-          "description": "ISO-8601 timestamp (UTC)",
-          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
-          "type": "string"
-        }
-      },
-      "required": [
-        "id",
-        "display",
-        "links",
-        "createdAt",
-        "updatedAt"
-      ],
-      "type": "object"
-    },
     "ChannelRef": {
       "properties": {
         "channel": {
@@ -14678,567 +14429,6 @@
         "channel",
         "account",
         "messageId"
-      ],
-      "type": "object"
-    },
-    "ChannelSecretName": {
-      "enum": [
-        "bot_token",
-        "app_token",
-        "auth_token",
-        "access_token",
-        "app_secret",
-        "verify_token"
-      ],
-      "type": "string"
-    },
-    "ChannelType": {
-      "enum": [
-        "webchat",
-        "telegram",
-        "imessage",
-        "whatsapp",
-        "signal",
-        "slack",
-        "discord",
-        "email",
-        "sms"
-      ],
-      "type": "string"
-    },
-    "ChannelsAllowlistUpdateParams": {
-      "properties": {
-        "channelId": {
-          "description": "ULID in production",
-          "maxLength": 64,
-          "minLength": 1,
-          "type": "string"
-        },
-        "list": {
-          "enum": [
-            "allowFrom",
-            "groupAllowFrom",
-            "ownerIds"
-          ],
-          "type": "string"
-        },
-        "add": {
-          "items": {
-            "maxLength": 256,
-            "minLength": 1,
-            "type": "string"
-          },
-          "maxItems": 1000,
-          "type": "array"
-        },
-        "remove": {
-          "items": {
-            "maxLength": 256,
-            "minLength": 1,
-            "type": "string"
-          },
-          "maxItems": 1000,
-          "type": "array"
-        },
-        "approvalId": {
-          "description": "ULID in production",
-          "maxLength": 64,
-          "minLength": 1,
-          "type": "string"
-        }
-      },
-      "required": [
-        "channelId",
-        "list"
-      ],
-      "type": "object"
-    },
-    "ChannelsAllowlistUpdateResult": {
-      "properties": {
-        "channel": {
-          "$ref": "#/$defs/Channel"
-        }
-      },
-      "required": [
-        "channel"
-      ],
-      "type": "object"
-    },
-    "ChannelsConfigureParams": {
-      "properties": {
-        "channelId": {
-          "description": "ULID in production",
-          "maxLength": 64,
-          "minLength": 1,
-          "type": "string"
-        },
-        "type": {
-          "$ref": "#/$defs/ChannelType"
-        },
-        "account": {
-          "maxLength": 256,
-          "minLength": 1,
-          "type": "string"
-        },
-        "dmPolicy": {
-          "$ref": "#/$defs/DmPolicy"
-        },
-        "allowFrom": {
-          "items": {
-            "maxLength": 256,
-            "minLength": 1,
-            "type": "string"
-          },
-          "maxItems": 1000,
-          "type": "array"
-        },
-        "groupAllowFrom": {
-          "items": {
-            "maxLength": 256,
-            "minLength": 1,
-            "type": "string"
-          },
-          "maxItems": 1000,
-          "type": "array"
-        },
-        "requireMention": {
-          "type": "boolean"
-        },
-        "ownerIds": {
-          "items": {
-            "maxLength": 256,
-            "minLength": 1,
-            "type": "string"
-          },
-          "maxItems": 1000,
-          "type": "array"
-        },
-        "dmScope": {
-          "enum": [
-            "main",
-            "per-peer",
-            "per-channel-peer"
-          ],
-          "type": "string"
-        },
-        "nodeId": {
-          "anyOf": [
-            {
-              "description": "ULID in production",
-              "maxLength": 64,
-              "minLength": 1,
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "status": {
-          "enum": [
-            "active",
-            "paused"
-          ],
-          "type": "string"
-        },
-        "config": {
-          "description": "JSON object",
-          "patternProperties": {
-            "^(.*)$": {}
-          },
-          "type": "object"
-        },
-        "approvalId": {
-          "description": "ULID in production",
-          "maxLength": 64,
-          "minLength": 1,
-          "type": "string"
-        }
-      },
-      "type": "object"
-    },
-    "ChannelsConfigureResult": {
-      "properties": {
-        "channel": {
-          "$ref": "#/$defs/Channel"
-        }
-      },
-      "required": [
-        "channel"
-      ],
-      "type": "object"
-    },
-    "ChannelsGetParams": {
-      "properties": {
-        "channelId": {
-          "description": "ULID in production",
-          "maxLength": 64,
-          "minLength": 1,
-          "type": "string"
-        }
-      },
-      "required": [
-        "channelId"
-      ],
-      "type": "object"
-    },
-    "ChannelsGetResult": {
-      "properties": {
-        "channel": {
-          "$ref": "#/$defs/Channel"
-        }
-      },
-      "required": [
-        "channel"
-      ],
-      "type": "object"
-    },
-    "ChannelsIdentitiesDeleteParams": {
-      "properties": {
-        "identityId": {
-          "description": "ULID in production",
-          "maxLength": 64,
-          "minLength": 1,
-          "type": "string"
-        }
-      },
-      "required": [
-        "identityId"
-      ],
-      "type": "object"
-    },
-    "ChannelsIdentitiesListParams": {
-      "properties": {},
-      "type": "object"
-    },
-    "ChannelsIdentitiesListResult": {
-      "properties": {
-        "identities": {
-          "items": {
-            "$ref": "#/$defs/ChannelIdentity"
-          },
-          "type": "array"
-        }
-      },
-      "required": [
-        "identities"
-      ],
-      "type": "object"
-    },
-    "ChannelsIdentitiesUpsertParams": {
-      "properties": {
-        "identityId": {
-          "description": "ULID in production",
-          "maxLength": 64,
-          "minLength": 1,
-          "type": "string"
-        },
-        "display": {
-          "maxLength": 200,
-          "minLength": 1,
-          "type": "string"
-        },
-        "links": {
-          "items": {
-            "maxLength": 256,
-            "minLength": 1,
-            "type": "string"
-          },
-          "maxItems": 1000,
-          "type": "array"
-        },
-        "delegatedPersona": {
-          "anyOf": [
-            {
-              "maxLength": 200,
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "toolAllow": {
-          "anyOf": [
-            {
-              "items": {
-                "maxLength": 200,
-                "type": "string"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "approvalId": {
-          "description": "ULID in production",
-          "maxLength": 64,
-          "minLength": 1,
-          "type": "string"
-        }
-      },
-      "required": [
-        "display",
-        "links"
-      ],
-      "type": "object"
-    },
-    "ChannelsIdentitiesUpsertResult": {
-      "properties": {
-        "identity": {
-          "$ref": "#/$defs/ChannelIdentity"
-        }
-      },
-      "required": [
-        "identity"
-      ],
-      "type": "object"
-    },
-    "ChannelsListParams": {
-      "properties": {},
-      "type": "object"
-    },
-    "ChannelsListResult": {
-      "properties": {
-        "channels": {
-          "items": {
-            "$ref": "#/$defs/Channel"
-          },
-          "type": "array"
-        }
-      },
-      "required": [
-        "channels"
-      ],
-      "type": "object"
-    },
-    "ChannelsPairingApproveParams": {
-      "properties": {
-        "requestId": {
-          "description": "ULID in production",
-          "maxLength": 64,
-          "minLength": 1,
-          "type": "string"
-        },
-        "channelId": {
-          "description": "ULID in production",
-          "maxLength": 64,
-          "minLength": 1,
-          "type": "string"
-        },
-        "code": {
-          "maxLength": 16,
-          "minLength": 1,
-          "type": "string"
-        },
-        "approvalId": {
-          "description": "ULID in production",
-          "maxLength": 64,
-          "minLength": 1,
-          "type": "string"
-        }
-      },
-      "type": "object"
-    },
-    "ChannelsPairingApproveResult": {
-      "properties": {
-        "pairingRequest": {
-          "$ref": "#/$defs/PairingRequest"
-        }
-      },
-      "required": [
-        "pairingRequest"
-      ],
-      "type": "object"
-    },
-    "ChannelsPairingDenyParams": {
-      "properties": {
-        "requestId": {
-          "description": "ULID in production",
-          "maxLength": 64,
-          "minLength": 1,
-          "type": "string"
-        },
-        "channelId": {
-          "description": "ULID in production",
-          "maxLength": 64,
-          "minLength": 1,
-          "type": "string"
-        },
-        "code": {
-          "maxLength": 16,
-          "minLength": 1,
-          "type": "string"
-        }
-      },
-      "type": "object"
-    },
-    "ChannelsPairingDenyResult": {
-      "properties": {
-        "pairingRequest": {
-          "$ref": "#/$defs/PairingRequest"
-        }
-      },
-      "required": [
-        "pairingRequest"
-      ],
-      "type": "object"
-    },
-    "ChannelsPairingListParams": {
-      "properties": {
-        "channelId": {
-          "description": "ULID in production",
-          "maxLength": 64,
-          "minLength": 1,
-          "type": "string"
-        },
-        "status": {
-          "$ref": "#/$defs/PairingStatus"
-        }
-      },
-      "type": "object"
-    },
-    "ChannelsPairingListResult": {
-      "properties": {
-        "requests": {
-          "items": {
-            "$ref": "#/$defs/PairingRequest"
-          },
-          "type": "array"
-        }
-      },
-      "required": [
-        "requests"
-      ],
-      "type": "object"
-    },
-    "ChannelsSecretsClearParams": {
-      "properties": {
-        "type": {
-          "$ref": "#/$defs/ChannelType"
-        },
-        "account": {
-          "maxLength": 256,
-          "minLength": 1,
-          "type": "string"
-        },
-        "name": {
-          "$ref": "#/$defs/ChannelSecretName"
-        }
-      },
-      "required": [
-        "type",
-        "account",
-        "name"
-      ],
-      "type": "object"
-    },
-    "ChannelsSecretsClearResult": {
-      "properties": {
-        "set": {
-          "items": {
-            "$ref": "#/$defs/ChannelSecretName"
-          },
-          "type": "array"
-        }
-      },
-      "required": [
-        "set"
-      ],
-      "type": "object"
-    },
-    "ChannelsSecretsSetParams": {
-      "properties": {
-        "type": {
-          "$ref": "#/$defs/ChannelType"
-        },
-        "account": {
-          "maxLength": 256,
-          "minLength": 1,
-          "type": "string"
-        },
-        "name": {
-          "$ref": "#/$defs/ChannelSecretName"
-        },
-        "value": {
-          "maxLength": 8192,
-          "minLength": 1,
-          "type": "string"
-        }
-      },
-      "required": [
-        "type",
-        "account",
-        "name",
-        "value"
-      ],
-      "type": "object"
-    },
-    "ChannelsSecretsSetResult": {
-      "properties": {
-        "set": {
-          "items": {
-            "$ref": "#/$defs/ChannelSecretName"
-          },
-          "type": "array"
-        }
-      },
-      "required": [
-        "set"
-      ],
-      "type": "object"
-    },
-    "ChannelsSecretsStatusParams": {
-      "properties": {
-        "type": {
-          "$ref": "#/$defs/ChannelType"
-        },
-        "account": {
-          "maxLength": 256,
-          "minLength": 1,
-          "type": "string"
-        }
-      },
-      "required": [
-        "type",
-        "account"
-      ],
-      "type": "object"
-    },
-    "ChannelsSecretsStatusResult": {
-      "properties": {
-        "required": {
-          "items": {
-            "$ref": "#/$defs/ChannelSecretName"
-          },
-          "type": "array"
-        },
-        "set": {
-          "items": {
-            "$ref": "#/$defs/ChannelSecretName"
-          },
-          "type": "array"
-        }
-      },
-      "required": [
-        "required",
-        "set"
-      ],
-      "type": "object"
-    },
-    "ChannelsUpdatedPayload": {
-      "properties": {
-        "channel": {
-          "$ref": "#/$defs/Channel"
-        },
-        "detail": {
-          "type": "string"
-        }
-      },
-      "required": [
-        "channel"
       ],
       "type": "object"
     },
@@ -18242,7 +17432,6 @@
               "enum": [
                 "connectors",
                 "models",
-                "channels",
                 "credentials"
               ],
               "type": "string"
@@ -19446,7 +18635,7 @@
               "type": "string"
             },
             "surface": {
-              "description": "\"desktop\" | \"notification\" | \"web\" | \"<channel>:<peerId>\"",
+              "description": "\"desktop\" | \"notification\" | \"web\" | \"device:<deviceId>\"",
               "minLength": 1,
               "type": "string"
             }
@@ -19579,7 +18768,7 @@
       "type": "object"
     },
     "DeviceFamily": {
-      "description": "\"desktop\" | \"web\" | \"mac-helper\" | \"cli\" | …",
+      "description": "\"desktop\" | \"mac-helper\" | \"cli\" | …",
       "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$",
       "type": "string"
     },
@@ -19588,7 +18777,6 @@
         "macos",
         "ios",
         "android",
-        "web",
         "linux",
         "windows"
       ],
@@ -20347,15 +19535,6 @@
         "shownCount"
       ],
       "type": "object"
-    },
-    "DmPolicy": {
-      "enum": [
-        "pairing",
-        "allowlist",
-        "open",
-        "disabled"
-      ],
-      "type": "string"
     },
     "DocumentsConvertParams": {
       "properties": {
@@ -34317,8 +33496,7 @@
       "enum": [
         "home",
         "brief",
-        "notification",
-        "channel"
+        "notification"
       ],
       "type": "string"
     },
@@ -34361,17 +33539,12 @@
         "notification": {
           "description": "Work tier: titles only for owner-provenance items, otherwise a count (\"1 assignment due tomorrow\")",
           "type": "boolean"
-        },
-        "channel": {
-          "description": "The brief delivered to Telegram and other channels",
-          "type": "boolean"
         }
       },
       "required": [
         "home",
         "brief",
-        "notification",
-        "channel"
+        "notification"
       ],
       "type": "object"
     },
@@ -35775,6 +34948,15 @@
       ],
       "type": "object"
     },
+    "NeedsMacReason": {
+      "enum": [
+        "payment",
+        "paired_after",
+        "too_long",
+        "mac_only"
+      ],
+      "type": "string"
+    },
     "NightShiftApplyItem": {
       "properties": {
         "itemId": {
@@ -36705,7 +35887,7 @@
         },
         "surfaces": {
           "items": {
-            "description": "\"desktop\" | \"notification\" | \"web\" | \"<channel>:<peerId>\"",
+            "description": "\"desktop\" | \"notification\" | \"web\" | \"device:<deviceId>\"",
             "minLength": 1,
             "type": "string"
           },
@@ -54707,6 +53889,25 @@
         "noteKey": {
           "maxLength": 64,
           "type": "string"
+        },
+        "noteAction": {
+          "properties": {
+            "kind": {
+              "const": "retry_last_message",
+              "type": "string"
+            },
+            "messageId": {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "messageId"
+          ],
+          "type": "object"
         }
       },
       "required": [
@@ -55010,7 +54211,7 @@
           ]
         },
         "sessionKey": {
-          "description": "e.g. \"owner:main\", \"telegram:peer:12345\"",
+          "description": "e.g. \"owner:main\", \"import:chatgpt:…\"",
           "type": "string"
         },
         "personaOverlay": {

@@ -59,6 +59,7 @@ export function motionCss(): string {
   for (const [name, css] of [
     ["route", "route"],
     ["routeReduced", "route-reduced"],
+    ["routeOldReduced", "route-old-reduced"],
     ["splashDelay", "splash-delay"],
     ["pulse", "pulse"],
     ["shimmer", "shimmer"],

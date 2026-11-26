@@ -10,6 +10,7 @@ export const onboardingRest: Partial<Catalogue> = {
     "{n, plural, =0 {Collega app} one {Collega # app} other {Collega # app}}",
   "onboarding.connectors.connecting": "Collegamento di {name}",
   "onboarding.connectors.accounts": "Account",
+  "onboarding.connectors.moreAccounts": "Aggiungi un account Google, Microsoft o email",
   "onboarding.step.memory": "Memoria e abitudini quotidiane",
   "onboarding.about.lead":
     "Qualche informazione perché Psyche ti conosca fin dall’inizio. Tutto qui è facoltativo e si trova in USER.md, che puoi modificare quando vuoi.",
@@ -54,7 +55,7 @@ export const onboardingRest: Partial<Catalogue> = {
     "Ripercorri la configurazione iniziale. I passaggi già completati vengono saltati.",
   "onboarding.rerun.button": "Esegui di nuovo la configurazione",
   "onboarding.step.you": "Tu e il tuo agente",
-  "onboarding.step.stuff": "Le tue cose",
+  "onboarding.step.stuff": "Di cosa ti posso aiutare?",
   "onboarding.step.safety": "Sicurezza",
   "onboarding.step.folders": "Cartelle",
   "onboarding.folders.lead":
@@ -125,10 +126,7 @@ export const onboardingRest: Partial<Catalogue> = {
   "onboarding.done.touchIdNot": "Non ancora registrata",
   "onboarding.done.modelKept": "Invariato",
   "onboarding.done.try": "Prova ora",
-  "onboarding.done.try.search":
-    "Fai una domanda in Cerca (⌘K). La risposta mostra da quale parte della tua vita proviene.",
-  "onboarding.done.try.home":
-    "Apri Home. “Recupera” elenca ciò che potresti aver lasciato indietro.",
-  "onboarding.done.try.canDo":
-    "Apri “Cosa sai fare?” nel menu a forma di ingranaggio per attività già pronte.",
+  "onboarding.done.try.search": "Fai una domanda in Cerca",
+  "onboarding.done.try.home": "Mettiti in pari in Home",
+  "onboarding.done.try.chat": "Inizia una nuova chat",
 };

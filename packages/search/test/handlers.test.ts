@@ -75,7 +75,7 @@ describe("search.query handler", () => {
     const h = createSearchHandlers(index);
     const res = await h["search.query"](
       { query: "secret" },
-      { viewer: { kind: "delegated", scopeKey: "telegram:peer:1" } },
+      { viewer: { kind: "delegated", scopeKey: "oldchat:peer:1" } },
     );
     expect(res.hits).toEqual([]);
   });

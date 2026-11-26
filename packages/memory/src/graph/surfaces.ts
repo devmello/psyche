@@ -12,15 +12,15 @@ import {
 
 /**
  * Surfaces: everywhere memory can show up outside the Memory page (Home, the brief, OS
- * notifications, a brief delivered to a channel). docs/design/memory-everything-2026.md §4.
+ * notifications). docs/design/memory-everything-2026.md §4.
  *
  * Every surface reads memory through `surfaceFilter`, so there is one place that knows the tier
- * defaults and the owner's switches. The brief, Home, notifications and channel delivery all call
+ * defaults and the owner's switches. The brief, Home and notifications all call
  * it; a test runs each surface with the people tier off and asserts that no person fact, gist or
  * relation gets through.
  */
 
-export const SURFACES: readonly MemorySurface[] = ["home", "brief", "notification", "channel"];
+export const SURFACES: readonly MemorySurface[] = ["home", "brief", "notification"];
 
 /**
  * - `work`: projects, courses, assignments, their status and due dates, and the owner's calendars.
@@ -64,7 +64,7 @@ function switches(value: unknown, fallback: MemorySurfaceSwitches): MemorySurfac
     home: bool(v.home, fallback.home),
     brief: bool(v.brief, fallback.brief),
     notification: bool(v.notification, fallback.notification),
-    channel: bool(v.channel, fallback.channel),
+    // An old `channel` switch (chat channels were removed 2026-11-25) is not read.
   };
 }
 
@@ -134,7 +134,7 @@ export function surfaceAllows(
     case "people":
       return settings.tiers.people[surface];
     case "birthday":
-      // Their own switch for Home and the brief; never in a notification or a channel unless
+      // Their own switch for Home and the brief; never in a notification unless
       // the owner opened the whole people tier there.
       return surface === "home" || surface === "brief"
         ? settings.birthdays || settings.tiers.people[surface]
