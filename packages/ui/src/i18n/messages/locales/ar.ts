@@ -44,6 +44,7 @@ import { overviewGrowth } from "./overview-growth/ar.ts";
 import { overviewShared } from "./overview-shared/ar.ts";
 import { passwordPresence } from "./password-presence/ar.ts";
 import { people } from "./people/ar.ts";
+import { planFork } from "./plan-fork/ar.ts";
 import { points } from "./points/ar.ts";
 import { research } from "./research/ar.ts";
 import { scheduled } from "./scheduled/ar.ts";
@@ -4058,6 +4059,8 @@ export const ar: Partial<Catalogue> = {
   ...points,
   // Approvals wave W3 (card choices, Allowed list)
   ...approvalsW3,
+  // Fork a plan (docs/design/fork-a-plan-2026.md §9)
+  ...planFork,
   ...desktopSimple,
   // Gateway-authored notices (inbox notifications, security alerts)
   ...notices,

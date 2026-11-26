@@ -10028,6 +10028,15 @@ export interface PlanForksRetryBranchResult {
     branch: PlanForkBranch;
 }
 
+export interface PlanForksStagedParams {
+    branchId: string;
+    forkId:   string;
+}
+
+export interface PlanForksStagedResult {
+    items: StagedAction[];
+}
+
 export interface PlanForksSuggestParams {
     messageId: string;
     threadId:  string;

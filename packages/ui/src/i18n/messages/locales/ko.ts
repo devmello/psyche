@@ -49,6 +49,7 @@ import { overviewShared } from "./overview-shared/ko.ts";
 import { passwordPresence } from "./password-presence/ko.ts";
 import { peopleRest } from "./people-rest/ko.ts";
 import { personDataRest } from "./personData-rest/ko.ts";
+import { planFork } from "./plan-fork/ko.ts";
 import { points } from "./points/ko.ts";
 import { researchRest } from "./research-rest/ko.ts";
 import { scheduledForm } from "./scheduled-form/ko.ts";
@@ -4002,6 +4003,8 @@ export const ko: Partial<Catalogue> = {
   ...points,
   // Approvals wave W3 (card choices, Allowed list)
   ...approvalsW3,
+  // Fork a plan (docs/design/fork-a-plan-2026.md §9)
+  ...planFork,
   ...desktopSimple,
   // Gateway-authored notices (inbox notifications, security alerts)
   ...notices,

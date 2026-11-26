@@ -10,6 +10,9 @@ import { t } from "../../i18n/core.ts";
  */
 const LABELLED_KEYS = [
   "agent.showReasoning",
+  "forks.budgetUsd",
+  "forks.expiryDays",
+  "forks.suggestOptions",
   "capabilities.onlineSearch",
   "tools.loading",
   "appearance.theme",

@@ -198,6 +198,8 @@ function initialRoute(): string {
   const search = globalThis.location?.search ?? "";
   // A Night shift review deep link (`/home?review=<id>`) reopens the sheet on reload.
   if (p === "/home" && /[?&]review=/.test(search)) return p + search;
+  // A fork's Plans view (`/chat/<id>?fork=<forkId>`) reopens on reload.
+  if (/^\/chat\/[^/]+$/.test(p) && /[?&]fork=/.test(search)) return p + search;
   return /^\/(overview|agent)(\/|$)/.test(p) ? p + search : p;
 }
 

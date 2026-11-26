@@ -41,6 +41,7 @@ import { overviewGrowth } from "./overview-growth/fr.ts";
 import { overviewShared } from "./overview-shared/fr.ts";
 import { passwordPresence } from "./password-presence/fr.ts";
 import { peopleRest } from "./people-rest/fr.ts";
+import { planFork } from "./plan-fork/fr.ts";
 import { points } from "./points/fr.ts";
 import { researchRest } from "./research-rest/fr.ts";
 import { scheduledForm } from "./scheduled-form/fr.ts";
@@ -4084,6 +4085,8 @@ export const fr: Partial<Catalogue> = {
   ...points,
   // Approvals wave W3 (card choices, Allowed list)
   ...approvalsW3,
+  // Fork a plan (docs/design/fork-a-plan-2026.md §9)
+  ...planFork,
   ...desktopSimple,
   // Gateway-authored notices (inbox notifications, security alerts)
   ...notices,

@@ -20,6 +20,7 @@ import { NativeSelect } from "../../components/ui/native-select.tsx";
 import { useCall, useGatewayQuery } from "../../data/hooks.ts";
 import { activeI18n, t } from "../../i18n/core.ts";
 import { cn } from "../../lib/utils.ts";
+import { ForkSettingsGroup } from "../../plan-fork/ForkSettings.tsx";
 import { ApiKeysGroup } from "./ApiKeysSettings.tsx";
 import { ContextSettingsGroup } from "./ContextSettings.tsx";
 import {
@@ -642,6 +643,7 @@ export function ModelProvidersPanel({
             onChange={onChange}
             {...(primaryContext === undefined ? {} : { modelContextLength: primaryContext })}
           />
+          <ForkSettingsGroup values={values} onChange={onChange} />
           <Group title={t("settings.model.local")} description={t("settings.model.localHint")}>
             <RamGuidance {...(ramGb === undefined ? {} : { ramGb })} />
           </Group>
