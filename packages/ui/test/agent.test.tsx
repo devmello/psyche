@@ -39,7 +39,7 @@ describe("AgentHeader", () => {
     let opened = false;
     render(
       <StoryWorld>
-        <AgentHeader onOpenSheet={() => (opened = true)} mode="balanced" />
+        <AgentHeader onOpenSheet={() => (opened = true)} />
       </StoryWorld>,
     );
     // The snippet names the current work; what needs you is the counter beside it (§3.1).
@@ -211,7 +211,7 @@ describe("AgentSheetBody", () => {
     // Only the two segments remain.
     expect(
       screen.getAllByRole("tab").map((x) => x.textContent?.replace(/\d+$/, "").trim()),
-    ).toEqual(["Approvals", "Soul"]);
+    ).toEqual(["Approvals", "Personality"]);
   });
 });
 

@@ -1,6 +1,7 @@
 import type { Catalogue } from "../index.ts";
 import { actionErrors } from "./action-errors/hi.ts";
 import { agentRest } from "./agent-rest/hi.ts";
+import { appleA } from "./apple-a/hi.ts";
 import { appleB } from "./apple-b/hi.ts";
 import { appleE1 } from "./apple-e1/hi.ts";
 import { appleE2 } from "./apple-e2/hi.ts";
@@ -281,15 +282,15 @@ export const hi: Partial<Catalogue> = {
 
   "chat.commands.model.hint": "provider/model",
   "chat.commands.model.description": "इस थ्रेड का मॉडल चुनें",
-  "chat.commands.new.description": "नई साइड चैट शुरू करें",
+  "chat.commands.new.description": "नई चैट शुरू करें",
   "chat.commands.btw.hint": "सवाल",
-  "chat.commands.btw.description": "साइड चैट में अलग से पूछें",
+  "chat.commands.btw.description": "नई चैट में पूछें",
   "chat.commands.fork.hint": "संदेश",
   "chat.commands.fork.description": "यहाँ से इस थ्रेड को फ़ोर्क करें",
   "chat.commands.schedule.hint": "कब और क्या",
   "chat.commands.schedule.description": "एक ऑटोमेशन बनाएँ",
   "chat.commands.incognito.hint": "संदेश",
-  "chat.commands.incognito.description": "ऐसी चैट शुरू करें जो याद न रखी जाए",
+  "chat.commands.incognito.description": "निजी चैट शुरू करें, 24 घंटे बाद हटा दी जाती है",
   "chat.commands.forget.hint": "विषय",
   "chat.commands.forget.description": "किसी चीज़ के बारे में जो याद है उसे वापस लें",
   "chat.commands.remember.hint": "तथ्य",
@@ -326,12 +327,12 @@ export const hi: Partial<Catalogue> = {
   "chat.message.jumpToQuote": "उद्धृत संदेश पर जाएँ",
   "chat.message.actions": "संदेश कार्रवाइयाँ",
   "chat.message.reply": "जवाब दें",
-  "chat.message.fork": "साइड चैट में जारी रखें",
+  "chat.message.fork": "नई चैट में जारी रखें",
   "chat.message.editResend": "संपादित करके फिर भेजें",
   "chat.message.userLabel": "आप, {time}",
   "chat.message.agentLabel": "{name}, {time}",
-  "chat.message.editHint": "संपादन यहाँ से फ़ोर्क की गई साइड चैट में भेजे जाते हैं; इस चैट में मूल संदेश बना रहता है।",
-  "chat.message.resendAsSideChat": "साइड चैट के रूप में फिर भेजें",
+  "chat.message.editHint": "संपादन यहीं से निकली एक नई चैट में भेजे जाते हैं; यह चैट मूल को रखती है।",
+  "chat.message.resendAsSideChat": "नई चैट में दोबारा भेजें",
   "chat.message.fromTask": "टास्क से: {title}",
 
   "chat.approvals.announce":
@@ -380,8 +381,8 @@ export const hi: Partial<Catalogue> = {
   "chat.runFailed.details": "विवरण",
 
   "chat.toolbar.label": "चैट टूलबार",
-  "chat.toolbar.incognito": "इनकॉग्निटो",
-  "chat.incognito.notice": "मेमोरी, खोज या गतिविधि के लिए उपयोग नहीं होती। 24 घंटे बाद समाप्त हो जाती है।",
+  "chat.toolbar.incognito": "निजी",
+  "chat.incognito.notice": "निजी चैट: मेमोरी या खोज में सहेजी नहीं जाती, और 24 घंटे बाद हटा दी जाती है।",
   "chat.toolbar.view": "ट्रांसक्रिप्ट व्यू",
   "chat.toolbar.view.status": "केवल स्थिति",
   "chat.toolbar.view.actions": "कार्रवाइयाँ",
@@ -716,12 +717,7 @@ export const hi: Partial<Catalogue> = {
   "agent.mode.balanced": "संतुलित",
   "agent.mode.auto": "ऑटो",
   "agent.mode.full": "पूरी पहुँच",
-  "chat.commands.full.hint": "on | off",
-  "chat.commands.full.description": "इस चैट में पूरी पहुँच चालू या बंद करें",
-  "chat.commands.usageFull": "उपयोग: /full [on | off]",
   "chat.args.mode.full": "भेजने और भुगतान को छोड़कर बिना पूछे काम करता है",
-  "chat.args.full.on": "भेजने और भुगतान को छोड़कर बिना पूछे काम करें",
-  "chat.args.full.off": "संतुलित पर वापस जाएँ",
   "chat.thread.fullAccessOn": "इस चैट में पूरी पहुँच चालू है। दूसरों को भेजना और भुगतान अब भी पूछते हैं।",
   "chat.thread.fullAccessOff": "पूरी पहुँच बंद है। यह चैट फिर से संतुलित पर है।",
   "chat.fullAccess.banner": "पूरी पहुँच: Psyche भेजने और भुगतान को छोड़कर बिना पूछे काम करता है।",
@@ -733,7 +729,7 @@ export const hi: Partial<Catalogue> = {
   "agent.state.needsYou": "आपकी ज़रूरत है",
   "agent.state.error": "त्रुटि",
   "agent.state.paused": "रुका हुआ",
-  "agent.state.incognito": "इनकॉग्निटो",
+  "agent.state.incognito": "निजी",
   "agent.state.offline": "ऑफ़लाइन",
   "agent.avatar.label": "{name}, {state}{delegated, select, true {, प्रत्यायोजित} other {}}",
 
@@ -756,7 +752,7 @@ export const hi: Partial<Catalogue> = {
 
   "agent.sheet.tabs": "एजेंट",
   "agent.sheet.approvals": "स्वीकृतियाँ",
-  "agent.sheet.soul": "सोल और मेमोरी",
+  "agent.sheet.soul": "व्यक्तित्व",
   "agent.sheet.now.working": "{title} पर काम कर रहा है · {elapsed}",
   "agent.sheet.now.waiting":
     "आपका इंतज़ार · {approvals, plural, =0 {} one {# अनुमोदन} other {# अनुमोदन}}{both, select, true { · } other {}}{questions, plural, =0 {} one {# प्रश्न} other {# प्रश्न}}",
@@ -885,7 +881,7 @@ export const hi: Partial<Catalogue> = {
   "agent.memory.controls": "मेमोरी नियंत्रण",
   "agent.memory.memory": "मेमोरी",
   "agent.memory.paused": "रुकी हुई",
-  "agent.memory.incognito": "इनकॉग्निटो साइड चैट",
+  "agent.memory.incognito": "निजी चैट",
   "agent.memory.importExport": "इंपोर्ट, एक्सपोर्ट और रीसेट",
   "agent.memory.import": "मेमोरी इंपोर्ट करें",
   "agent.memory.importConv.title": "claude.ai या ChatGPT से इंपोर्ट करें",
@@ -3718,8 +3714,6 @@ export const hi: Partial<Catalogue> = {
   "web.chat.send": "भेजें",
   "web.chat.label": "चैट",
   "web.chat.permissionModeTitle": "अनुमति मोड (⌘⇧M)",
-  "web.chat.permissionMode":
-    "{mode, select, manual {मैन्युअल} balanced {संतुलित} auto {ऑटो} plan {प्लान} other {{mode}}}",
   "web.chat.modelTitle": "मॉडल (⌘⇧I)",
   "web.chat.defaultModel": "डिफ़ॉल्ट मॉडल",
   "web.chat.conversation": "बातचीत",
@@ -3914,4 +3908,5 @@ export const hi: Partial<Catalogue> = {
   ...spaces,
   ...machines,
   ...actionErrors,
+  ...appleA,
 };

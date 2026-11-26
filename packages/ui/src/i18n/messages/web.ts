@@ -416,8 +416,6 @@ export const web = {
   "web.chat.permissionModeTitle": "Permission mode (⌘⇧M)",
   "web.chat.autoUnavailable":
     "Auto is unavailable: {model} isn't on the auto-mode allowlist. Pick another model to use it.",
-  "web.chat.permissionMode":
-    "{mode, select, manual {manual} balanced {balanced} auto {auto} plan {plan} other {{mode}}}",
   "web.chat.modelTitle": "Model (⌘⇧I)",
   "web.chat.defaultModel": "default model",
   "web.chat.conversation": "Conversation",

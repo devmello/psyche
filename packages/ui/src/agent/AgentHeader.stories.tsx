@@ -14,16 +14,13 @@ type Story = StoryObj<typeof meta>;
 
 const handlers = {
   onOpenSheet: () => {},
-  onModeChange: () => {},
   onOpenModelPicker: () => {},
   onExport: () => {},
   onDisclosureChange: () => {},
 };
 
 export const Toolbar: Story = {
-  render: () => (
-    <AgentHeader {...handlers} mode="balanced" model="anthropic/claude-sonnet-5-5" disclosure={1} />
-  ),
+  render: () => <AgentHeader {...handlers} model="anthropic/claude-sonnet-5-5" disclosure={1} />,
 };
 
 /** The main chat's ⋯ menu offers Clear chat… (open the menu to see it). */
@@ -31,7 +28,6 @@ export const MainChat: Story = {
   render: () => (
     <AgentHeader
       {...handlers}
-      mode="balanced"
       model="anthropic/claude-sonnet-5-5"
       disclosure={1}
       onClearChat={() => {}}
@@ -44,7 +40,6 @@ export const MainChatWorking: Story = {
   render: () => (
     <AgentHeader
       {...handlers}
-      mode="balanced"
       model="anthropic/claude-sonnet-5-5"
       disclosure={1}
       onClearChat={() => {}}
@@ -64,13 +59,11 @@ export const Idle: Story = {
       },
     }),
   ],
-  render: () => <AgentHeader onOpenSheet={() => {}} mode="balanced" model="openai/gpt-5-mini" />,
+  render: () => <AgentHeader onOpenSheet={() => {}} model="openai/gpt-5-mini" />,
 };
 
 export const Incognito: Story = {
-  render: () => (
-    <AgentHeader {...handlers} incognito mode="manual" model="anthropic/claude-haiku-5-5" />
-  ),
+  render: () => <AgentHeader {...handlers} incognito model="anthropic/claude-haiku-5-5" />,
 };
 
 export const Offline: Story = {

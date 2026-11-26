@@ -6,7 +6,6 @@ describe("composer commands (C9)", () => {
     expect(COMMANDS.map((c) => c.name)).toEqual([
       "model",
       "mode",
-      "full",
       "new",
       "btw",
       "fork",
@@ -56,13 +55,22 @@ describe("composer commands (C9)", () => {
   });
 
   it("matches a partial name and completes with a space only when an argument follows", () => {
-    expect(matchCommands("/").length).toBe(18);
-    expect(matchCommands("/f").map((c) => c.name)).toEqual(["full", "fork", "forget"]);
+    expect(matchCommands("/").length).toBe(17);
+    expect(matchCommands("/f").map((c) => c.name)).toEqual(["fork", "forget"]);
     expect(matchCommands("/f x")).toEqual([]);
     expect(matchCommands("/cl").map((c) => c.name)).toEqual(["clear"]);
     expect(matchCommands("hi")).toEqual([]);
     const byName = (n: string) => COMMANDS.find((c) => c.name === n);
     expect(completion(byName("status") as never)).toBe("/status");
     expect(completion(byName("remember") as never)).toBe("/remember ");
+  });
+
+  it("describes commands in plain words: no side chat, incognito or soul", () => {
+    for (const c of COMMANDS) {
+      expect(c.description).not.toMatch(/side chat|incognito|soul|memory-only/i);
+    }
+    // Positive control: the words that replaced them are the ones shown.
+    expect(COMMANDS.find((c) => c.name === "new")?.description).toBe("Start a new chat");
+    expect(COMMANDS.find((c) => c.name === "incognito")?.description).toMatch(/private chat/);
   });
 });

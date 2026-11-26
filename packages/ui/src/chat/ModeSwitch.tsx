@@ -1,4 +1,18 @@
+import type { PermissionMode } from "@psyche/protocol";
+import { ChevronDown, ShieldCheck, ShieldOff } from "lucide-react";
 import { type ReactElement, useState } from "react";
+import { MODE_LABEL } from "../agent/AgentHeader.tsx";
+import { Button } from "../components/ui/button.tsx";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuShortcut,
+  DropdownMenuTrigger,
+} from "../components/ui/dropdown-menu.tsx";
 import { useCall, useGatewayQuery } from "../data/index.ts";
 import { t } from "../i18n/core.ts";
 import { describeError } from "../i18n/errors.ts";
@@ -8,7 +22,9 @@ import {
   autoModeSuggestion,
   type DefaultSaved,
   isAutoModelRefusal,
+  isSwitchMode,
   type ListedModels,
+  SWITCH_MODES,
   type SwitchMode,
   shortModel,
 } from "./mode-switch.ts";
@@ -40,7 +56,7 @@ export interface ModeChoice {
 }
 
 /**
- * The rules behind the one mode control (the header's ⋯ menu): Manual / Balanced / Auto in one
+ * The rules behind the one mode control (the picker in the composer bar): Manual / Balanced / Auto in one
  * choice. Auto on a model that cannot run it turns into an offer, "Switch to <model> and use
  * Auto"; a Gateway refusal becomes the same offer. The menu itself explains Auto, so nothing
  * here needs a first-time explainer.
@@ -88,7 +104,7 @@ export function useModeChoice({ modelRef, listed, onSelect }: ModeChoiceOptions)
 
 /**
  * The mode choice for one open thread, wired to the Gateway: the chat changes first, and the main
- * chat's choice also becomes the default for new chats (`applyModeChoice`). The header's ⋯ menu
+ * chat's choice also becomes the default for new chats (`applyModeChoice`). The composer's picker
  * calls `choose`; `<ModeFeedback>` shows what it has to say.
  */
 export function useThreadModeChoice(thread: {
@@ -169,5 +185,84 @@ export function ModeFeedback({ choice }: { choice: ModeChoice }): ReactElement |
         </p>
       ) : null}
     </div>
+  );
+}
+
+const MODE_DETAIL: Record<SwitchMode, () => string> = {
+  manual: () => t("chat.args.mode.manual"),
+  balanced: () => t("chat.args.mode.balanced"),
+  auto: () => t("chat.args.mode.auto"),
+  full: () => t("chat.args.mode.full"),
+};
+
+/**
+ * The one permission control, a pop-up button in the composer bar that always shows the current
+ * mode (like Xcode's scheme picker). The same four choices, in the same order, as `/mode` and
+ * Settings: Manual, Balanced, Auto, Full access. Auto on a model that cannot run it becomes an
+ * offer (`ModeFeedback`); Full access takes one pick, as it did in the header menu.
+ */
+export function ModePicker({
+  mode,
+  choice,
+  disabled = false,
+  shortcut,
+}: {
+  mode: PermissionMode;
+  choice: ModeChoice;
+  disabled?: boolean;
+  /** The shortcut shown next to the menu's title. */
+  shortcut?: string;
+}): ReactElement {
+  const full = mode === "full";
+  const Icon = full ? ShieldOff : ShieldCheck;
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        render={
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 shrink-0 cursor-default gap-1 rounded-full px-2 text-callout text-label-secondary"
+            aria-label={t("chat.modePicker.aria", { mode: MODE_LABEL[mode] })}
+            aria-keyshortcuts="Meta+Shift+M"
+            disabled={disabled || choice.busy}
+            data-testid="mode-picker"
+          />
+        }
+      >
+        <Icon className={full ? "size-4 text-warning-text" : "size-4"} aria-hidden="true" />
+        <span>{MODE_LABEL[mode]}</span>
+        <ChevronDown className="size-3" aria-hidden="true" />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent
+        align="end"
+        side="top"
+        className="w-72 min-w-56 bg-popover! backdrop-blur-none!"
+      >
+        <DropdownMenuGroup data-testid="mode-menu">
+          <DropdownMenuLabel className="flex items-center justify-between gap-4">
+            {t("chat.modeSwitch.label")}
+            {shortcut ? <DropdownMenuShortcut>{shortcut}</DropdownMenuShortcut> : null}
+          </DropdownMenuLabel>
+          <DropdownMenuRadioGroup
+            value={mode}
+            onValueChange={(next) => {
+              if (isSwitchMode(next)) void choice.choose(next);
+            }}
+          >
+            {SWITCH_MODES.map((choiceMode) => (
+              <DropdownMenuRadioItem key={choiceMode} value={choiceMode}>
+                <span className="flex min-w-0 flex-col">
+                  {MODE_LABEL[choiceMode]}
+                  <span className="text-callout whitespace-normal text-label-secondary">
+                    {MODE_DETAIL[choiceMode]()}
+                  </span>
+                </span>
+              </DropdownMenuRadioItem>
+            ))}
+          </DropdownMenuRadioGroup>
+        </DropdownMenuGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }

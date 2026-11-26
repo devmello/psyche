@@ -9,13 +9,13 @@ export const chat: Partial<Catalogue> = {
   "chat.outbox.old": "(مضى عليها أكثر من يوم)",
   "chat.outbox.sendNow": "إرسال الآن",
   "chat.outbox.remove": "عدم إرسال «{content}»",
-  "chat.commands.mode.hint": "manual | balanced | auto | plan",
-  "chat.commands.mode.description": "ضبط وضع الأذونات لهذه المحادثة",
+  "chat.commands.mode.hint": "manual | balanced | auto | full",
+  "chat.commands.mode.description": "ضبط أذونات هذه الدردشة",
   "chat.commands.teach.hint": "ما الذي يجب فعله بدلًا من ذلك",
   "chat.commands.teach.description": "تصحيح الرد الأخير وتذكّر ذلك",
   "chat.commands.research.hint": "سؤال",
   "chat.commands.research.description": "البحث في سؤال بتعمّق، مع تقرير موثّق بالمصادر",
-  "chat.commands.usageMode": "الاستخدام: /mode [manual | balanced | auto | plan]",
+  "chat.commands.usageMode": "الاستخدام: /mode [manual | balanced | auto | full]",
   "chat.args.label": "قيم /{command}",
   "chat.args.loading": "جارٍ التحميل…",
   "chat.args.count":
@@ -34,7 +34,6 @@ export const chat: Partial<Catalogue> = {
   "chat.args.mode.auto": "يتصرف من تلقاء نفسه؛ يحتاج إلى نموذج يدعم الوضع التلقائي",
   "chat.args.mode.autoNeedsModel":
     "يحتاج إلى نموذج يدعم الوضع التلقائي: اختر واحدًا باستخدام /model",
-  "chat.args.mode.plan": "للقراءة فقط: يخطط دون أن ينفّذ",
   "chat.composer.placeholderArticle": "اسأل عن هذه المقالة",
   "chat.composer.placeholderResult": "اسأل عن هذه النتيجة",
   "chat.composer.placeholderMemory": "اسأل عن هذا العنصر",
@@ -116,8 +115,8 @@ export const chat: Partial<Catalogue> = {
   "chat.thread.loading": "جارٍ تحميل المحادثة",
   "chat.thread.sendFailed": "تعذّر إرسال رسالتك ({reason}).",
   "chat.thread.retrySend": "إعادة المحاولة",
-  "chat.thread.modeCurrent": "وضع الأذونات: {mode}.",
-  "chat.thread.modeSet": "وضع الأذونات الآن: {mode}.",
+  "chat.thread.modeCurrent": "الأذونات: {mode}.",
+  "chat.thread.modeSet": "تم ضبط الأذونات على {mode}.",
   "chat.thread.researchPrompt":
     "/research {question}\n\nابحث في هذا بتعمّق باستخدام أداة research_plan. أرني الخطة وتقدير الرموز (tokens)، وانتظر موافقتي قبل أن تستدعي research_run. استخدم مصادر الويب فقط.",
   "chat.thread.researchPromptLocal":
@@ -182,7 +181,7 @@ export const chat: Partial<Catalogue> = {
   "chat.steps.summary.failed": "توقف · فشل بعد {duration}",
   "chat.steps.summary.cancelled":
     "أوقفته بعد {duration} · {n, plural, zero {لا خطوات} one {خطوة واحدة} two {خطوتان} few {# خطوات} many {# خطوة} other {# خطوة}}",
-  "chat.steps.summary.incognito": "غير محفوظ · وضع التصفح الخفي",
+  "chat.steps.summary.incognito": "لا يُحفظ · دردشة خاصة",
   "chat.steps.effect.sentEmails":
     "أرسل {n, plural, zero {لا رسائل بريد} one {رسالة بريد واحدة} two {رسالتي بريد} few {# رسائل بريد} many {# رسالة بريد} other {# رسالة بريد}}",
   "chat.steps.effect.addedEvents":
@@ -210,9 +209,9 @@ export const chat: Partial<Catalogue> = {
   "chat.clear.clearing": "جارٍ المسح…",
   "chat.clear.done": "تم مسح الدردشة",
   "chat.clear.failed": "تعذّر مسح الدردشة: {reason}",
-  "chat.clear.mainOnly": "المسح يعمل في الدردشة الرئيسية. استخدم /new لدردشة جانبية جديدة.",
+  "chat.clear.mainOnly": "المسح يعمل في الدردشة الرئيسية. استخدم /new لدردشة جديدة.",
   "chat.commands.clear.description": "مسح الدردشة الرئيسية",
-  "chat.modeSwitch.label": "وضع الأذونات",
+  "chat.modeSwitch.label": "الأذونات",
   "chat.modeSwitch.autoExplainer":
     "يُنفّذ الوضع التلقائي الإجراءات الروتينية ضمن صلاحياتك ويسأل قبل أي أمر حساس. تطلب المدفوعات موافقتك دائمًا، وتُرفض قائمة «لا تفعل أبدًا» دائمًا.",
   "chat.modeSwitch.gotIt": "فهمت",

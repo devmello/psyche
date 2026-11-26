@@ -1,4 +1,4 @@
-import type { Artifact, PermissionMode } from "@psyche/protocol";
+import type { Artifact } from "@psyche/protocol";
 import {
   AgentHeader,
   AgentSheet,
@@ -23,13 +23,11 @@ import {
   HOME_POST_PARAM,
   HomeScreen,
   InboxScreen,
-  isSwitchMode,
   LIBRARY_SECTIONS,
   LibraryScreen,
   type LibrarySection,
   legacyRedirect,
   MemoryScreen,
-  ModeFeedback,
   mailSettings,
   type OnboardingResult,
   OverviewRun,
@@ -61,7 +59,6 @@ import {
   useStore,
   useThread,
   useThreadExport,
-  useThreadModeChoice,
 } from "@psyche/ui";
 import { type ReactElement, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { useShellComposerVoice } from "../shell/components/composer-voice.ts";
@@ -122,13 +119,6 @@ function KitChat({ threadId, ctx }: { threadId: string; ctx: ChatSlotContext }):
   // `/chat/<id>?fork=<forkId>` opens that fork's Plans view.
   const forkId = forkFromRoute(ctx.route);
   const clearChat = useClearChatHeader(threadId, current?.kind);
-  // The one mode control is the header's ⋯ menu: it applies the choice to this chat (and, in
-  // the main chat, to new ones) and says so under the header when Auto needs another model.
-  const modeChoice = useThreadModeChoice({
-    id: threadId,
-    kind: current?.kind,
-    modelRef: current?.modelRef ?? null,
-  });
   // File blocks open in the Files pane (P4); a ref keeps the slots stable across renders.
   const openPane = useRef(ctx.openPane);
   openPane.current = ctx.openPane;
@@ -170,14 +160,6 @@ function KitChat({ threadId, ctx }: { threadId: string; ctx: ChatSlotContext }):
           incognito={incognito}
           spaceSwitcher={<SpaceSwitcher threadId={threadId} onNavigate={ctx.navigate} />}
           onOpenApprovals={() => ctx.navigate(agentSheetHref("approvals"))}
-          {...(ctx.thread
-            ? {
-                mode: ctx.thread.permissionMode,
-                onModeChange: (next: PermissionMode) => {
-                  if (isSwitchMode(next)) void modeChoice.choose(next);
-                },
-              }
-            : {})}
           {...(ctx.thread?.modelRef
             ? { model: ctx.thread.modelRef, onOpenModelPicker: ctx.openModelPicker }
             : {})}
@@ -191,7 +173,6 @@ function KitChat({ threadId, ctx }: { threadId: string; ctx: ChatSlotContext }):
           onExport={(format) => void exportThread(format)}
           {...clearChat}
         />
-        <ModeFeedback choice={modeChoice} />
         <ThreadContextDialog threadId={threadId} open={limitsOpen} onOpenChange={setLimitsOpen} />
         <ChatThread
           threadId={threadId}

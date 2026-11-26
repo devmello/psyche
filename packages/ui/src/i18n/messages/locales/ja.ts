@@ -1,6 +1,7 @@
 import type { Catalogue } from "../index.ts";
 import { actionErrors } from "./action-errors/ja.ts";
 import { agentRest } from "./agent-rest/ja.ts";
+import { appleA } from "./apple-a/ja.ts";
 import { appleB } from "./apple-b/ja.ts";
 import { appleE1 } from "./apple-e1/ja.ts";
 import { appleE2 } from "./apple-e2/ja.ts";
@@ -287,15 +288,15 @@ export const ja: Partial<Catalogue> = {
   "chat.queue.sendQueuedLabel": "待機中のメッセージ「{content}」を送信",
   "chat.commands.model.hint": "プロバイダ/モデル",
   "chat.commands.model.description": "このスレッドのモデルを選択",
-  "chat.commands.new.description": "新しいサイドチャットを開始",
+  "chat.commands.new.description": "新しいチャットを開始",
   "chat.commands.btw.hint": "質問",
-  "chat.commands.btw.description": "サイドチャットで別件を質問",
+  "chat.commands.btw.description": "新しいチャットで質問",
   "chat.commands.fork.hint": "メッセージ",
   "chat.commands.fork.description": "ここからこのスレッドを分岐",
   "chat.commands.schedule.hint": "いつ、何を",
   "chat.commands.schedule.description": "オートメーションを作成",
   "chat.commands.incognito.hint": "メッセージ",
-  "chat.commands.incognito.description": "記憶されないチャットを開始",
+  "chat.commands.incognito.description": "プライベートチャットを開始（24時間後に削除）",
   "chat.commands.forget.hint": "対象",
   "chat.commands.forget.description": "あることについての記憶を取り消す",
   "chat.commands.remember.hint": "事実",
@@ -330,13 +331,13 @@ export const ja: Partial<Catalogue> = {
   "chat.message.jumpToQuote": "引用元のメッセージへ移動",
   "chat.message.actions": "メッセージの操作",
   "chat.message.reply": "返信",
-  "chat.message.fork": "サイドチャットで続ける",
+  "chat.message.fork": "新しいチャットで続ける",
   "chat.message.editResend": "編集して再送信",
   "chat.message.userLabel": "あなた、{time}",
   "chat.message.agentLabel": "{name}、{time}",
   "chat.message.editHint":
-    "編集内容はここから分岐したサイドチャットで送信されます。このチャットには元の内容が残ります。",
-  "chat.message.resendAsSideChat": "サイドチャットとして再送信",
+    "編集内容は、ここから分岐した新しいチャットで送信されます。このチャットには元のメッセージが残ります。",
+  "chat.message.resendAsSideChat": "新しいチャットで再送信",
   "chat.message.fromTask": "タスクから：{title}",
   "chat.approvals.announce":
     "承認が必要です：{summary}。{count, plural, other {#件の承認が必要です}}。",
@@ -384,9 +385,9 @@ export const ja: Partial<Catalogue> = {
   "chat.runFailed.openModels": "設定 → モデルを開く",
   "chat.runFailed.details": "詳細",
   "chat.toolbar.label": "チャットツールバー",
-  "chat.toolbar.incognito": "シークレット",
+  "chat.toolbar.incognito": "プライベート",
   "chat.incognito.notice":
-    "メモリー、検索、アクティビティには使われません。24 時間後に期限切れになります。",
+    "プライベートチャット: メモリや検索には保存されず、24時間後に削除されます。",
   "chat.toolbar.view": "トランスクリプト表示",
   "chat.toolbar.view.status": "ステータスのみ",
   "chat.toolbar.view.actions": "アクション",
@@ -702,12 +703,7 @@ export const ja: Partial<Catalogue> = {
   "agent.mode.balanced": "バランス",
   "agent.mode.auto": "自動",
   "agent.mode.full": "フルアクセス",
-  "chat.commands.full.hint": "on | off",
-  "chat.commands.full.description": "このチャットのフルアクセスをオンまたはオフにする",
-  "chat.commands.usageFull": "使い方: /full [on | off]",
   "chat.args.mode.full": "送信と支払い以外は確認せずに実行します",
-  "chat.args.full.on": "送信と支払い以外は確認せずに実行する",
-  "chat.args.full.off": "バランスに戻す",
   "chat.thread.fullAccessOn":
     "このチャットでフルアクセスがオンです。他の人への送信と支払いは引き続き確認します。",
   "chat.thread.fullAccessOff": "フルアクセスはオフです。このチャットはバランスに戻りました。",
@@ -719,7 +715,7 @@ export const ja: Partial<Catalogue> = {
   "agent.state.needsYou": "要対応",
   "agent.state.error": "エラー",
   "agent.state.paused": "一時停止中",
-  "agent.state.incognito": "シークレット",
+  "agent.state.incognito": "プライベート",
   "agent.state.offline": "オフライン",
   "agent.avatar.label": "{name}、{state}{delegated, select, true {、委任中} other {}}",
   "agent.status.offline": "Psycheに接続できません",
@@ -739,7 +735,7 @@ export const ja: Partial<Catalogue> = {
   "agent.header.exportHtml": "HTMLとして書き出す",
   "agent.sheet.tabs": "エージェント",
   "agent.sheet.approvals": "承認",
-  "agent.sheet.soul": "ソウルとメモリ",
+  "agent.sheet.soul": "パーソナリティ",
   "agent.sheet.now.working": "{title}に取り組み中 · {elapsed}",
   "agent.sheet.now.waiting":
     "あなたを待っています · {approvals, plural, =0 {} other {承認#件}}{both, select, true { · } other {}}{questions, plural, =0 {} other {質問#件}}",
@@ -869,7 +865,7 @@ export const ja: Partial<Catalogue> = {
   "agent.memory.controls": "メモリの管理",
   "agent.memory.memory": "メモリ",
   "agent.memory.paused": "一時停止中",
-  "agent.memory.incognito": "シークレットのサイドチャット",
+  "agent.memory.incognito": "プライベートチャット",
   "agent.memory.importExport": "読み込み、書き出し、リセット",
   "agent.memory.import": "メモリを読み込む",
   "agent.memory.importConv.title": "claude.ai または ChatGPT から読み込む",
@@ -3739,8 +3735,6 @@ export const ja: Partial<Catalogue> = {
   "web.chat.send": "送信",
   "web.chat.label": "チャット",
   "web.chat.permissionModeTitle": "権限モード（⌘⇧M）",
-  "web.chat.permissionMode":
-    "{mode, select, manual {手動} balanced {バランス} auto {自動} plan {プラン} other {{mode}}}",
   "web.chat.modelTitle": "モデル（⌘⇧I）",
   "web.chat.defaultModel": "デフォルトのモデル",
   "web.chat.conversation": "会話",
@@ -3937,4 +3931,5 @@ export const ja: Partial<Catalogue> = {
   ...spaces,
   ...machines,
   ...actionErrors,
+  ...appleA,
 };

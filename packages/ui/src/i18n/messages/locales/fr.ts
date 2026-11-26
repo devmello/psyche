@@ -1,6 +1,7 @@
 import type { Catalogue } from "../index.ts";
 import { actionErrors } from "./action-errors/fr.ts";
 import { agentRest } from "./agent-rest/fr.ts";
+import { appleA } from "./apple-a/fr.ts";
 import { appleB } from "./apple-b/fr.ts";
 import { appleE1 } from "./apple-e1/fr.ts";
 import { appleE2 } from "./apple-e2/fr.ts";
@@ -269,15 +270,16 @@ export const fr: Partial<Catalogue> = {
   "chat.queue.sendQueuedLabel": "Envoyer le message en attente « {content} »",
   "chat.commands.model.hint": "fournisseur/modèle",
   "chat.commands.model.description": "Choisir le modèle de cette discussion",
-  "chat.commands.new.description": "Démarrer une discussion annexe",
+  "chat.commands.new.description": "Démarrer une nouvelle discussion",
   "chat.commands.btw.hint": "question",
-  "chat.commands.btw.description": "Poser une question à part, dans une discussion annexe",
+  "chat.commands.btw.description": "Poser une question dans une nouvelle discussion",
   "chat.commands.fork.hint": "message",
   "chat.commands.fork.description": "Dériver cette discussion à partir d’ici",
   "chat.commands.schedule.hint": "quand et quoi",
   "chat.commands.schedule.description": "Créer une automatisation",
   "chat.commands.incognito.hint": "message",
-  "chat.commands.incognito.description": "Démarrer une discussion qui ne sera pas mémorisée",
+  "chat.commands.incognito.description":
+    "Démarrer une discussion privée, supprimée après 24 heures",
   "chat.commands.forget.hint": "sujet",
   "chat.commands.forget.description": "Retirer ce qui est mémorisé sur un sujet",
   "chat.commands.remember.hint": "fait",
@@ -313,13 +315,13 @@ export const fr: Partial<Catalogue> = {
   "chat.message.jumpToQuote": "Aller au message cité",
   "chat.message.actions": "Actions du message",
   "chat.message.reply": "Répondre",
-  "chat.message.fork": "Continuer dans une discussion annexe",
+  "chat.message.fork": "Continuer dans une nouvelle discussion",
   "chat.message.editResend": "Modifier et renvoyer",
   "chat.message.userLabel": "Vous, {time}",
   "chat.message.agentLabel": "{name}, {time}",
   "chat.message.editHint":
-    "Les modifications sont envoyées dans une discussion annexe dérivée d’ici ; cette discussion garde l’original.",
-  "chat.message.resendAsSideChat": "Renvoyer dans une discussion annexe",
+    "Les modifications sont envoyées dans une nouvelle discussion issue de celle-ci ; cette discussion garde l’original.",
+  "chat.message.resendAsSideChat": "Renvoyer dans une nouvelle discussion",
   "chat.message.fromTask": "Depuis la tâche : {title}",
   "chat.approvals.announce":
     "Approbation requise : {summary}. {count, plural, one {# approbation vous attend} other {# approbations vous attendent}}.",
@@ -366,9 +368,9 @@ export const fr: Partial<Catalogue> = {
   "chat.runFailed.openModels": "Ouvrir Réglages → Modèles",
   "chat.runFailed.details": "Détails",
   "chat.toolbar.label": "Barre d’outils de la discussion",
-  "chat.toolbar.incognito": "Incognito",
+  "chat.toolbar.incognito": "Privée",
   "chat.incognito.notice":
-    "Non utilisée pour la mémoire, la recherche ni l'activité. Expire après 24 h.",
+    "Discussion privée : non conservée dans la mémoire ni la recherche, et supprimée après 24 heures.",
   "chat.toolbar.view": "Affichage de la transcription",
   "chat.toolbar.view.status": "État seulement",
   "chat.toolbar.view.actions": "Actions",
@@ -691,12 +693,7 @@ export const fr: Partial<Catalogue> = {
   "agent.mode.balanced": "Équilibré",
   "agent.mode.auto": "Auto",
   "agent.mode.full": "Accès complet",
-  "chat.commands.full.hint": "on | off",
-  "chat.commands.full.description": "Activer ou désactiver l'accès complet dans cette discussion",
-  "chat.commands.usageFull": "Utilisation : /full [on | off]",
   "chat.args.mode.full": "Agit sans demander, sauf pour les envois et les paiements",
-  "chat.args.full.on": "Agir sans demander, sauf pour les envois et les paiements",
-  "chat.args.full.off": "Revenir à Équilibré",
   "chat.thread.fullAccessOn":
     "L'accès complet est activé dans cette discussion. Les envois à d'autres personnes et les paiements demandent toujours.",
   "chat.thread.fullAccessOff":
@@ -710,7 +707,7 @@ export const fr: Partial<Catalogue> = {
   "agent.state.needsYou": "a besoin de vous",
   "agent.state.error": "erreur",
   "agent.state.paused": "en pause",
-  "agent.state.incognito": "incognito",
+  "agent.state.incognito": "privé",
   "agent.state.offline": "hors ligne",
   "agent.avatar.label": "{name}, {state}{delegated, select, true {, délégué} other {}}",
   "agent.status.offline": "Psyche est injoignable",
@@ -730,7 +727,7 @@ export const fr: Partial<Catalogue> = {
   "agent.header.exportHtml": "Exporter en HTML",
   "agent.sheet.tabs": "Agent",
   "agent.sheet.approvals": "Approbations",
-  "agent.sheet.soul": "Âme et mémoire",
+  "agent.sheet.soul": "Personnalité",
   "agent.sheet.now.working": "Travaille sur {title} · {elapsed}",
   "agent.sheet.now.waiting":
     "Attend votre réponse · {approvals, plural, =0 {} one {# approbation} other {# approbations}}{both, select, true { · } other {}}{questions, plural, =0 {} one {# question} other {# questions}}",
@@ -861,7 +858,7 @@ export const fr: Partial<Catalogue> = {
   "agent.memory.controls": "Contrôles de la mémoire",
   "agent.memory.memory": "Mémoire",
   "agent.memory.paused": "En pause",
-  "agent.memory.incognito": "Discussion annexe incognito",
+  "agent.memory.incognito": "Discussion privée",
   "agent.memory.importExport": "Importer, exporter et réinitialiser",
   "agent.memory.import": "Importer une mémoire",
   "agent.memory.importConv.title": "Importer depuis claude.ai ou ChatGPT",
@@ -3786,8 +3783,6 @@ export const fr: Partial<Catalogue> = {
   "web.chat.send": "Envoyer",
   "web.chat.label": "Discussion",
   "web.chat.permissionModeTitle": "Mode d’autorisation (⌘⇧M)",
-  "web.chat.permissionMode":
-    "{mode, select, manual {manuel} balanced {équilibré} auto {auto} plan {plan} other {{mode}}}",
   "web.chat.modelTitle": "Modèle (⌘⇧I)",
   "web.chat.defaultModel": "modèle par défaut",
   "web.chat.conversation": "Conversation",
@@ -3988,4 +3983,5 @@ export const fr: Partial<Catalogue> = {
   ...spaces,
   ...machines,
   ...actionErrors,
+  ...appleA,
 };

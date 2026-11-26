@@ -135,10 +135,10 @@ describe("reply-to and edit (E5)", () => {
     const article = (await screen.findAllByRole("article", { name: /^You, / }))[0] as HTMLElement;
     await userEvent.click(within(article).getByRole("button", { name: "Message actions" }));
     await userEvent.click(await screen.findByRole("menuitem", { name: "Edit and resend" }));
-    const box = await screen.findByRole("textbox", { name: /Edits are sent in a side chat/ });
+    const box = await screen.findByRole("textbox", { name: /Edits are sent in a new chat/ });
     await userEvent.clear(box);
     await userEvent.type(box, "Book the dentist for Thursday instead");
-    await userEvent.click(screen.getByRole("button", { name: "Resend as a side chat" }));
+    await userEvent.click(screen.getByRole("button", { name: "Resend in a new chat" }));
     await waitFor(() => expect(navigated).toHaveLength(1));
     const fork = gateway.calls.find((c) => c.method === "threads.fork");
     expect(fork?.params).toEqual({

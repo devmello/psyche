@@ -172,22 +172,22 @@ describe("the Clear chat dialog", () => {
   });
 });
 
-describe("⌘K → Clear the main chat", () => {
-  function Host({ onNavigate }: { onNavigate: (r: string) => void }) {
-    const [open, setOpen] = useState(true);
-    return (
-      <>
-        <ChatThread threadId={MAIN} />
-        <CommandPalette open={open} onOpenChange={setOpen} onNavigate={onNavigate} />
-      </>
-    );
-  }
+function PaletteHost({ onNavigate }: { onNavigate: (r: string) => void }) {
+  const [open, setOpen] = useState(true);
+  return (
+    <>
+      <ChatThread threadId={MAIN} />
+      <CommandPalette open={open} onOpenChange={setOpen} onNavigate={onNavigate} />
+    </>
+  );
+}
 
+describe("⌘K → Clear the main chat", () => {
   it("opens the same dialog", async () => {
     const onNavigate = vi.fn();
     render(
       <StoryWorld edit={calmMain}>
-        <Host onNavigate={onNavigate} />
+        <PaletteHost onNavigate={onNavigate} />
       </StoryWorld>,
     );
     const palette = await screen.findByRole("dialog", { name: "Command palette" });
@@ -202,7 +202,7 @@ describe("⌘K → Clear the main chat", () => {
     const onNavigate = vi.fn();
     render(
       <StoryWorld edit={busyMain}>
-        <Host onNavigate={onNavigate} />
+        <PaletteHost onNavigate={onNavigate} />
       </StoryWorld>,
     );
     const palette = await screen.findByRole("dialog", { name: "Command palette" });
@@ -241,7 +241,7 @@ describe("/clear", () => {
     );
     const box = await screen.findByRole("textbox", { name: /^Message / });
     await userEvent.type(box, "/clear{Enter}");
-    expect(await screen.findByText(/Use \/new for a fresh side chat/)).toBeTruthy();
+    expect(await screen.findByText(/Use \/new for a fresh chat/)).toBeTruthy();
     expect(screen.queryByRole("alertdialog")).toBeNull();
   });
 });
