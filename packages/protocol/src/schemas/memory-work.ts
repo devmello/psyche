@@ -75,8 +75,12 @@ export const WorkReminderList = Type.Object(
 );
 export type WorkReminderList = Static<typeof WorkReminderList>;
 
-/** The places memory can show up outside the Memory page (§4). */
-export const MemorySurface = StringEnum(["home", "brief", "notification", "channel"], {
+/**
+ * The places memory can show up outside the Memory page (§4). Chat channels were removed
+ * (2026-11-25): a stored `memory.surfaces` may still hold `channel` switches, which every reader
+ * ignores (`resolveSurfaceSettings` reads only these fields and never throws).
+ */
+export const MemorySurface = StringEnum(["home", "brief", "notification"], {
   $id: "MemorySurface",
 });
 export type MemorySurface = Static<typeof MemorySurface>;
@@ -90,7 +94,6 @@ export const MemorySurfaceSwitches = Type.Object(
       description:
         'Work tier: titles only for owner-provenance items, otherwise a count ("1 assignment due tomorrow")',
     }),
-    channel: Type.Boolean({ description: "The brief delivered to Telegram and other channels" }),
   },
   { $id: "MemorySurfaceSwitches" },
 );
@@ -142,9 +145,9 @@ export type MemorySurfacesSettings = Static<typeof MemorySurfacesSettings>;
 
 export const MEMORY_SURFACES_DEFAULTS = {
   tiers: {
-    work: { home: true, brief: true, notification: true, channel: true },
-    workMail: { home: true, brief: true, notification: false, channel: false },
-    people: { home: false, brief: false, notification: false, channel: false },
+    work: { home: true, brief: true, notification: true },
+    workMail: { home: true, brief: true, notification: false },
+    people: { home: false, brief: false, notification: false },
   },
   birthdays: true,
   hideSources: [],

@@ -1000,8 +1000,8 @@ describe("Full access's home root (#1689 review r1, item 10)", () => {
     ["an MCP App's page", { initiator: "mcp_app" as const }],
     ["an unattended run", { mode: "unattended" as const }],
     [
-      "the owner through Telegram",
-      { requester: { role: "owner" as const, channel: "telegram", senderId: "1" } },
+      "the owner through an old chat channel",
+      { requester: { role: "owner" as const, channel: "oldchat", senderId: "1" } },
     ],
   ])("%s doesn't", async (_name, over) => {
     scopes.length = 0;

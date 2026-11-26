@@ -368,7 +368,7 @@ describe("the exec reviewer in Auto mode: must ask (the mocked model says allow)
     [
       "the owner on a channel",
       host(["pnpm", "test"]),
-      { ...AUTO, requester: { role: "owner", channel: "telegram", senderId: "1" } },
+      { ...AUTO, requester: { role: "owner", channel: "oldchat", senderId: "1" } },
     ],
     [
       "a designated person",

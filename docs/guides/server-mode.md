@@ -378,7 +378,7 @@ Psyche does not open in a browser, and the Gateway serves no web UI. Passkeys ar
 2. In the desktop app on the remote Mac, add a passkey (Settings → Devices & nodes → Passkeys). The Gateway stores it for that device only, with at most 20 per device.
 3. To add or remove another passkey on the same device, you first confirm with an existing one. A stolen device key alone cannot swap in someone else's passkey.
 
-Once a paired device has a passkey, changing a security setting (permissions, exec, vault, devices, gateway, owner identities, channel policies) shows an approval card first. Approve it with your passkey or with Touch ID on the Mac; the change then goes through. Failed attempts are limited to 20 per address or device per 5 minutes. Revoking a device ends its passkeys.
+Once a paired device has a passkey, changing a security setting (permissions, exec, vault, devices, gateway, owner identities) shows an approval card first. Approve it with your passkey or with Touch ID on the Mac; the change then goes through. Failed attempts are limited to 20 per address or device per 5 minutes. Revoking a device ends its passkeys.
 
 ### The desktop app
 
@@ -446,6 +446,5 @@ node apps/cli/src/main.ts security audit
 - Model keys from the vault, and setting the vault up from the app or the CLI.
 - The agent's browser on a server: the headless browser profile is not used.
 - Using a Mac's helper (approval notifications, Touch ID, apps) from a server Gateway.
-- Creating the Telegram channel (see [connectors.md](connectors.md#telegram)).
 - Scheduled backups from Settings, and the in-app log viewer under systemd or Docker.
 - Running sandboxed commands.

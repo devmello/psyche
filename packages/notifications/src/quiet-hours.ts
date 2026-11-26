@@ -9,7 +9,7 @@ const MINUTE = 60_000;
 const DAY_MINUTES = 24 * 60;
 
 /**
- * Quiet hours (O10). Inside the window, interruptive deliveries (OS, channels) are deferred to
+ * Quiet hours (O10). Inside the window, interruptive deliveries (OS, devices) are deferred to
  * the window's end; the in-app inbox row is still written at once. `start` may be later than
  * `end` (the window crosses midnight); `start === end` means
  * 24 hours from `start`.

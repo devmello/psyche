@@ -68,7 +68,6 @@ describe("sharing the CLI workdir", () => {
       armDelayMs: 0,
       approvers: {
         device: async () => ({ scopes: ["operator.read", "operator.approvals"] }),
-        isOwnerSender: async () => false,
       },
       folderAccess: { env: () => folderAccessEnv(psyche), persist: async () => undefined },
     });

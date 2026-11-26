@@ -65,7 +65,7 @@ One persistent main chat plus side chats, as in Muse (pencil-and-note icon for a
 | Export (⋯ → Markdown / JSON / HTML) | Tool calls collapsed, receipts included |
 | Incognito | Memory-only, expires after 24 h *(arch §4.8)*; dashed avatar ring |
 
-Rows show title, last line, time, a status dot for a running or waiting Task, and a channel icon.
+Rows show title, last line, time, a status dot for a running or waiting Task.
 
 ### 2.3 Agent header and agent sheet
 
@@ -81,7 +81,7 @@ Panes sit beside the chat, per thread; they split, resize, pop out and close. Th
 
 ### 2.6 Settings sections
 
-Model & providers, Persona, Connectors, Permissions, Computer use, File access, Devices & nodes, Channels, Credentials, Appearance, Voice & dictation, Data controls, Server & remote access, Usage, About. Muse documents Computer use, File system access, Permissions, Devices, Data controls, Connectors, Wallet and Secure store *(muse notes, Q1)*; the rest are Psyche additions.
+Model & providers, Persona, Connectors, Permissions, Computer use, File access, Devices & nodes, Credentials, Appearance, Voice & dictation, Data controls, Server & remote access, Usage, About. Muse documents Computer use, File system access, Permissions, Devices, Data controls, Connectors, Wallet and Secure store *(muse notes, Q1)*; the rest are Psyche additions.
 
 ### 2.7 Route and screen map
 
@@ -189,11 +189,11 @@ Renders an ApprovalRequest `{id, kind, summary, details, bindingHash, requestedA
 | Summary, details | Verb + object from `summary`; key–value rows from `details`, kind-specific (below). |
 | Scope radio | Allow once / Allow for this task / Allow for this site / Always allow (with expiry) / Deny — Muse's exact options *(muse notes, Q4)* — mapped to grant scopes `once`, `task`, `site`, `always`. **Psyche decision**: the `session` scope is an expiry choice under Always allow ("until this session ends", 1 h, 24 h, 30 days, until revoked); "this site" hides when the target has no origin. |
 | Default and keys | Deny preselected. Return does nothing; ⌘Return approves with the selected scope; ⌘D denies. OpenClaw's Mac app: "Return alone does not approve" *(harness notes, KQ2 2h)*. |
-| Countdown, who, why | `expiresAt` − now, default 30 min then denied *(arch §4.5)*, danger color under 60 s; persona, Task title, `createdFrom`, channel sender; the Broker's reason (mode, side-effect class, taint). |
+| Countdown, who, why | `expiresAt` − now, default 30 min then denied *(arch §4.5)*, danger color under 60 s; persona, Task title, `createdFrom`; the Broker's reason (mode, side-effect class, taint). |
 | Buttons | Deny left, Allow right; disabled for 400 ms after the card appears; never move while visible (**Psyche decision**). |
-| Surfaces, states | "Also sent to: iPhone, Telegram"; first answer wins; purchases and credential fills need Touch ID. States: pending, answered elsewhere, expired, voided, stale after restart. |
+| Surfaces, states | "Also sent to: iPhone"; first answer wins; purchases and credential fills need Touch ID. States: pending, answered elsewhere, expired, voided, stale after restart. |
 
-Binding details shown in full, by kind: `exec` — argv, cwd, env names (OpenClaw binds always-allow to argv and cwd *(harness notes, KQ2 2k)*); `email.send` — exact recipients, subject, body hash (OpenMuse review screens "retain the exact recipient" *(harness notes, KQ1 1f)*); `credential.fill` — item, bound and current origin, fields; `purchase` — merchant, amount, line items (Muse shows "the exact purchase details each time" *(muse notes, Q4)*); `write_file` — path and diff; `mcp__<server>__<tool>` — full argument preview, trust tier, `tools/list` hash *(arch §4.9)*; `node.invoke` — app, action, tier. The card lives in the thread's dock, the Approvals tab, the inbox, OS notifications and chat channels.
+Binding details shown in full, by kind: `exec` — argv, cwd, env names (OpenClaw binds always-allow to argv and cwd *(harness notes, KQ2 2k)*); `email.send` — exact recipients, subject, body hash (OpenMuse review screens "retain the exact recipient" *(harness notes, KQ1 1f)*); `credential.fill` — item, bound and current origin, fields; `purchase` — merchant, amount, line items (Muse shows "the exact purchase details each time" *(muse notes, Q4)*); `write_file` — path and diff; `mcp__<server>__<tool>` — full argument preview, trust tier, `tools/list` hash *(arch §4.9)*; `node.invoke` — app, action, tier. The card lives in the thread's dock, the Approvals tab, the inbox and OS notifications.
 
 ### 3.4 Question card
 
@@ -485,17 +485,6 @@ TCC rows with a denied badge; per-app tiers Off / Read only / Read and interact,
 
 **File access**: folder grants ro / rw; VirtioFS shares in VM mode, read-only by default. **Devices & nodes**: paired devices with scopes, pending pairings with the challenge fingerprint, nodes with capabilities and last seen *(arch §7, §11)*.
 
-**Channels**
-
-```
-| Telegram  connected  dmPolicy (o) pairing ( ) allowlist ( ) open ( ) disabled |
-|   Pending (2 of 3)  @sam_k  code 48-21  expires 41m   [Approve] [Ignore]     |
-|   Allowlist  you (owner), partner     Groups  Family (requireMention on)      |
-| Identity links  Telegram @you = iMessage +1 555.. = owner   Designated: Partner|
-```
-
-`dmPolicy: pairing | allowlist | open | disabled`, codes expiring in 1 h with at most 3 pending per channel, group allowlists with `requireMention`, identity links, designated people whose approvals route to the owner *(arch §4.10)*; mechanics from OpenClaw *(harness notes, KQ2 2f)*. Choosing `open` warns.
-
 **Credentials**
 
 ```
@@ -692,7 +681,7 @@ Lucide, 1.75 px stroke, 16 / 20 / 24. The icons Muse documents keep their meanin
 | Aspect | Spec |
 | --- | --- |
 | Default creature | An original pale moth with accent-colored wing spots (the mythological Psyche has wings); Muse's default "Jolly" is cream-colored with beady black eyes *(muse notes, Q5)* and OpenMuse bundles a warm tan capybara *(harness notes, KQ1 1j)*. |
-| User-described creature | The onboarding sentence or a later "Describe a change" goes to the configured image model when one exists; otherwise the user picks from 12 bundled SVG creatures (whether Muse uses an image model is unconfirmed; **Psyche decision**). Prompt and render live in `IDENTITY.md` and `library/images/avatar/`; the emoji is the fallback on image-less channels. |
+| User-described creature | The onboarding sentence or a later "Describe a change" goes to the configured image model when one exists; otherwise the user picks from 12 bundled SVG creatures (whether Muse uses an image model is unconfirmed; **Psyche decision**). Prompt and render live in `IDENTITY.md` and `library/images/avatar/`; the emoji is the fallback where there is no image. |
 | Sizes, states | 20 inline, 28 phone header, 40 desktop header, 64 agent sheet, 160 onboarding. States idle, working, needs-you, error, paused / incognito, offline, derived from Tasks and the Gateway connection, never set by the model. A delegated persona gets a distinct ring and the label "delegated" *(arch §4.10)*. |
 
 ### 4.8 Color system
@@ -777,7 +766,7 @@ Every screen follows §3.0: an empty state is one sentence in Psyche's voice plu
 
 | Topic | Muse | Claude desktop | Psyche | Why |
 | --- | --- | --- | --- | --- |
-| Where approvals appear | Sentinel delivers them in the client UI, "not via their conversation" *(muse notes, Q4)* | Permission cards in the transcript area *(claude notes, Q5)* | Always outside the message stream: dock, Approvals tab, inbox, OS notifications, channels | A card that scrolls away is missed or mistaken for model text |
+| Where approvals appear | Sentinel delivers them in the client UI, "not via their conversation" *(muse notes, Q4)* | Permission cards in the transcript area *(claude notes, Q5)* | Always outside the message stream: dock, Approvals tab, inbox, OS notifications | A card that scrolls away is missed or mistaken for model text |
 | Receipts | An audit trail exists *(muse notes, Q4)* | No receipt line in chat | A visible receipt line after every external write | *(arch §2)*; OpenMuse's review → receipt contract *(harness notes, KQ1 1g)* |
 | Credential fill | A client UI captures the password into secure storage *(muse notes, Q4)* | 1Password fills in Chrome; the agent refuses to type secrets *(claude notes, Q2)* | "I'll type it myself" is the default; vault fill is opt-in per fill or per site | "Log in yourself" before "fill from vault" *(arch §4.7)* |
 | Search | A Mac rail item *(muse notes, Q1)* | Transcript search and a palette *(claude notes, Q1)* | First-class rail item over one index | Makes "everything is a file" usable *(arch §4.12)* |
@@ -796,7 +785,7 @@ Undocumented in the sources, so Psyche defines its own:
 
 - Muse's exact colors, typography, spacing, radii, dark mode and motion are described nowhere; Meta's screenshots are uncaptioned *(muse notes, Q1, Q5)*. Section 4 is Psyche's.
 - Muse's clarifying questions appear only as free text; no source shows chips *(muse notes, Q4)*. §3.4 follows Claude's `AskUserQuestion` schema plus Psyche's chip rule.
-- Muse's approval card visuals, Goals detail view, check-in rendering, inferred-goal acceptance, Feed post schema and cadence, avatar creation flow, and iPad and WhatsApp layouts are undocumented *(muse notes, Q1–Q5)*.
+- Muse's approval card visuals, Goals detail view, check-in rendering, inferred-goal acceptance, Feed post schema and cadence, avatar creation flow, and iPad layouts are undocumented *(muse notes, Q1–Q5)*.
 - Claude's chat conversation controls (branching, export, reply-to), plan pane rendering and quick-entry hotkey are undocumented or inferred *(claude notes, Q1, Q5)*.
 
 Decisions the architecture document should reflect or confirm:

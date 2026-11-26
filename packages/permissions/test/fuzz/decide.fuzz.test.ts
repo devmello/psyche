@@ -60,7 +60,7 @@ const REQUESTERS: (Requester | undefined)[] = [
     identityId: "idn_1",
     toolAllow: ["calendar.*", "notes.*", "email.*", "messages.*"],
   },
-  { role: "allowed", channel: "telegram", senderId: "9" },
+  { role: "allowed", channel: "oldchat", senderId: "9" },
 ];
 const SIDE: SideEffect[] = ["none", "read", "write", "destructive", "financial"];
 const SCOPES: GrantScope[] = ["once", "task", "site", "session", "always"];

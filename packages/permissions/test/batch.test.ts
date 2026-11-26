@@ -27,7 +27,7 @@ function batch(h: ReturnType<typeof makeBroker>, calls: PolicyCall[], taint = fa
     children: calls.map((c, i) => ({ call: c, summary: `Mark read: newsletter ${i + 1}` })),
     context: { ...CTX, taint },
     requestedBy: { runId: CTX.runId, taskId: null, threadId: CTX.threadId },
-    surfaces: ["desktop", "telegram:42"],
+    surfaces: ["desktop", "oldchat:42"],
   });
 }
 

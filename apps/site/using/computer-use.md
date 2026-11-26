@@ -72,7 +72,7 @@ Press **Esc** on your Mac. The run stops and says "Stopped: you pressed Esc on t
 - Computer use is macOS only and needs Psyche Helper.
 - It has not been run live on a real Mac with real permissions in Psyche's acceptance runs; it is tested against a fake helper. Treat it as early.
 - The typed adapters for Calendar, Reminders, Mail, Notes, Finder and Safari exist in Psyche Helper, but the Gateway does not offer them to the agent yet. The agent uses those apps through the general tools above.
-- Reading your Messages history is not an agent tool; the Messages integration is used only by the iMessage channel (see [Channels](/using/channels)).
+- Reading your Messages history is not an agent tool; the Messages integration is used only as a data source and for the send-a-message tool.
 - The 30-minute allowances live in the helper and are not shown in Settings.
 - Screenshots go to the model as data, which uses more context than it should.
 - **Teach by showing** is in the browser pane. Record a demonstration on a page; when you stop, you review its steps and can keep the recording. The pane can also record a Mac app. Kept recordings are listed in the pane.

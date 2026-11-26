@@ -4,14 +4,14 @@ You move Psyche with a backup: make an encrypted backup on the old machine, rest
 
 ## What travels and what does not
 
-A backup holds `state/` (the database and channel sessions), `workspace/`, `vault/`, `library/`, `audit/` and `config.json`. These do not travel:
+A backup holds `state/` (the database), `workspace/`, `vault/`, `library/`, `audit/` and `config.json`. These do not travel:
 
 - The device keys in `cli/`: the CLI on the new machine pairs as a new device.
 - Sockets in `run/`, logs, browser profiles, sandbox workspaces and VM disks. The agent's browser starts signed out of every site.
 - `security/`: the revocation ledger and the audit anchor key (see below). The new machine makes its own.
 - The vault's key slot. On a Mac the vault key is kept in the keychain, which stays on the old Mac, so the new machine needs the vault **recovery key**. After `psyche vault unlock --recovery`, the Gateway stores the key in the new machine's slot when it has one (the keychain, through the Mac helper).
 - Vault items you keep in the macOS keychain instead of the vault: their secrets are in the old Mac's keychain. Add them again.
-- Anything outside `$PSYCHE_HOME`: `deploy/.env` (model keys, `PSYCHE_IMAGE`, `TS_AUTHKEY`), a Telegram token file, the Tailscale state volume, and macOS permissions (Accessibility, Screen Recording and so on).
+- Anything outside `$PSYCHE_HOME`: `deploy/.env` (model keys, `PSYCHE_IMAGE`, `TS_AUTHKEY`) the Tailscale state volume, and macOS permissions (Accessibility, Screen Recording and so on).
 
 Connector sign-ins kept in the vault travel with it.
 

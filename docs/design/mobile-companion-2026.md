@@ -1,5 +1,8 @@
 # Mobile companion: the Gateway as a phone backend
 
+> **Update 2026-11-25: chat channels removed.** Telegram, Slack-as-chat, Discord, WhatsApp, Signal, SMS, email-as-chat, the iMessage chat bridge and WebChat no longer exist (owner decision: the iPhone app is the mobile surface). Mentions of channels, channel delivery, channel senders and `dmPolicy` below are historical. Approvals and briefs go only to the Mac app and the paired iPhone. Reading Messages and Mail and the send-a-message tool stay. See security section 9 in docs/05-security-and-permissions.md.
+
+
 Status: proposal v2 (2026-11-02), revised to the owner's direction. v1 was 2026-10-26. Docs only. **Update 2026-11-05:** the owner declined the paid Apple Developer program, so Psyche uses the free signing path: no APNs, no TestFlight, no push entitlements. The direct-APNs parts (M2, §3.3 and the Live Activity and lock-screen push parts) are not planned; Web Push and the in-app inbox stay. Nothing below overrides that. Applies to the Gateway, `packages/protocol`, `packages/notifications`, `apps/web`, and a future native app (iOS first, Android later). The Windows desktop target doesn't change anything here: the phone talks to the Gateway, not to a desktop OS. Linux desktop stays out of scope, although the Gateway still runs on Linux in server mode. The desktop app as a client of a remote Gateway (Mac or Windows over Tailscale) is planned in [remote-gateway-2026.md](remote-gateway-2026.md). It shares this doc's pairing link, Gateway identity key and device surface.
 
 **The owner's question:** can Psyche eventually be the backend for a mobile app that connects to it, with the server sending push notifications and more?

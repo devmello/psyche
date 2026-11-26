@@ -434,7 +434,7 @@ export class ReferenceToolGate implements ToolGate {
       sideEffect: call.sideEffect,
       ...(call.targetKind === undefined ? {} : { targetKind: call.targetKind }),
       ...(intent.target === undefined ? {} : { target: intent.target }),
-      surfaces: ["desktop", "telegram:owner"],
+      surfaces: ["desktop", "oldchat:owner"],
       ...(result.scopesOffered === undefined ? {} : { scopesOffered: result.scopesOffered }),
       taint: turn.taint,
     });

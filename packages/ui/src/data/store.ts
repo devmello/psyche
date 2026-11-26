@@ -1053,14 +1053,11 @@ export class GatewayStore {
       case "device.updated":
         return invalidate(s, ["devices."]);
       case "pairing.requested":
-        // The pairing request also lists in Settings → Channels (messaging pairing).
-        return invalidate(s, ["devices.", "channels."]);
+        return invalidate(s, ["devices."]);
       case "nightShift.updated":
       case "nightShift.item.updated":
         // Home's "Prepared overnight" and the review sheet read nightShift.status and review.get.
         return invalidate(s, ["nightShift."]);
-      case "channels.updated":
-        return invalidate(s, ["channels."]);
       case "persona.updated":
         return invalidate(s, ["memory.persona."]);
       case "vault.locked":

@@ -23,7 +23,6 @@ import { Device, NodeInfo, PairingRequest } from "./schemas/identity.ts";
 import {
   Automation,
   AutomationRun,
-  Channel,
   Connector,
   CredentialMeta,
   LinkSetupStatus,
@@ -312,14 +311,6 @@ export const Events = {
   "pairing.requested": defineEvent({
     payload: Type.Object({ pairingRequest: PairingRequest }),
     description: "A new pairing request awaits the owner's approval.",
-  }),
-  "channels.updated": defineEvent({
-    payload: Type.Object({
-      channel: Channel,
-      /** Adapter health detail when `status` is `error` or `disconnected`. */
-      detail: Type.Optional(Type.String()),
-    }),
-    description: "A channel was configured, connected, disconnected or changed status.",
   }),
   "view.command": defineEvent({
     payload: Type.Object({

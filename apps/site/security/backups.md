@@ -10,7 +10,7 @@ A backup holds your transcripts, memory, receipts and the vault, so it is as sen
 
 | Included | Left out |
 | --- | --- |
-| `state/`: threads, tasks, approvals, grants, receipts, channel sessions | `security/`: the revocation ledger and the audit anchor key |
+| `state/`: threads, tasks, approvals, grants, receipts | `security/`: the revocation ledger and the audit anchor key |
 | `workspace/`: your agent's Markdown files | `cli/`: the CLI's device key (each machine pairs again) |
 | `vault/`: the vault database, still encrypted | `run/`, logs, browser profiles |
 | `library/`: files and recordings | Sandbox workspaces and VM disks |

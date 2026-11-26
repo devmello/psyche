@@ -126,18 +126,9 @@ open ~/Applications/Psyche\ Helper.app
 
 It needs macOS 15 or later and Swift 6. Sign every build with the same identity and keep it at one path, or macOS forgets the permissions you granted it. `apps/mac-helper/README.md` covers signing.
 
-## Approving from a chat app
+## Approving from your iPhone
 
-When the agent can reach you on Telegram, approvals are sent there too (setup is in [connectors.md](connectors.md#telegram)):
-
-- Only cards that are not device-only go to chat. In practice that means write-class actions, such as a calendar change or a draft.
-- Telegram shows inline buttons. Where buttons are not available, the card shows a reference you answer with `/approve <ref> approve` or `/approve <ref> deny`.
-- Only your own owner identity can answer. Answers are always Allow once.
-- The card is plain text from a fixed template. Every value is sanitized: line breaks show as `⏎`, hidden characters as `⟨U+XXXX⟩`, and international domain names in punycode, so a lookalike cannot hide in it.
-- A card that does not fit in one message is replaced by "Open on your Mac to review." and cannot be answered from chat.
-- The first answer on any surface wins. A later answer is refused.
-
-These never go to chat: credential fills, commands on the Mac, purchases and other money, pairing and permission changes, and destructive actions such as sending email.
+Approval cards go only to your own devices: the Mac app and your paired iPhone. The first answer on any surface wins, and a later answer is refused. Credential fills, commands on the Mac, purchases and other money, pairing and permission changes, and destructive actions such as sending email are shown in full on the card.
 
 ## Expiry and restarts
 

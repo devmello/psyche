@@ -19,7 +19,6 @@ import {
 } from "../src/fixtures/index.ts";
 import { actionLabel } from "../src/screens/settings/ActionMatrix.tsx";
 import { AppearancePanel } from "../src/screens/settings/AppearanceSection.tsx";
-import { ChannelsPanel } from "../src/screens/settings/ChannelsSection.tsx";
 import { ConnectorsSection } from "../src/screens/settings/ConnectorsSection.tsx";
 import {
   cardRefusal,
@@ -497,40 +496,6 @@ describe("Computer use", () => {
   });
 });
 
-describe("Channels", () => {
-  it("warns before choosing open and approves pending senders", async () => {
-    const world = createFixtureWorld();
-    const onPolicyChange = vi.fn();
-    const onApprove = vi.fn();
-    const onIgnore = vi.fn();
-    render(
-      <ChannelsPanel
-        channels={world.channels}
-        pairing={world.pairingRequests}
-        identities={[]}
-        persona={PERSONA.name}
-        now={NOW}
-        onPolicyChange={onPolicyChange}
-        onApprove={onApprove}
-        onIgnore={onIgnore}
-      />,
-    );
-    expect(screen.getByText("Pending (2 of 3)")).toBeTruthy();
-    expect(screen.getByText("48-21")).toBeTruthy();
-    await userEvent.click(screen.getByRole("radio", { name: /^Open/ }));
-    expect(screen.getByRole("alert").textContent).toMatch(/Pairing is safer/);
-    expect(onPolicyChange).not.toHaveBeenCalled();
-    await userEvent.click(screen.getByRole("button", { name: "Open it anyway" }));
-    expect(onPolicyChange).toHaveBeenCalledWith(expect.anything(), "open");
-    await userEvent.click(screen.getByRole("button", { name: "Approve @sam_k" }));
-    expect(onApprove).toHaveBeenCalledWith(expect.objectContaining({ id: IDS.pairing.samK }));
-    await userEvent.click(screen.getByRole("button", { name: "Ignore @marta_lx" }));
-    expect(onIgnore).toHaveBeenCalledWith(
-      expect.objectContaining({ id: IDS.pairing.channelSecond }),
-    );
-  });
-});
-
 describe("Credentials", () => {
   it("lists metadata only and explains that card numbers are refused", async () => {
     const { gateway } = setup({ defaultSection: "credentials" });
@@ -839,11 +804,11 @@ describe("Credentials", () => {
     );
     const owned = new GatewayRequestError("vault.delete", "forbidden", "gateway-owned", {
       reason: "gateway_owned",
-      kind: "channel",
-      setting: "channels",
+      kind: "connector",
+      setting: "connectors",
     });
     expect(vaultChangeError(owned, c, "delete")).toBe(
-      "GitHub belongs to the Gateway; remove it in Settings → Channels.",
+      "GitHub belongs to the Gateway; remove it in Settings → Connectors.",
     );
   });
 });
@@ -1170,12 +1135,6 @@ describe("Settings polish (UI design §3.18, §4.12)", () => {
         .map((r) => r.getAttribute("aria-label")),
     ).toEqual(["read threads: Allow", "read threads: Ask", "read threads: Deny"]);
     expect(within(list).queryByText("gmail.read")).toBeNull();
-  });
-
-  it("shows no config keys in Channels labels", async () => {
-    setup({ defaultSection: "channels" });
-    expect(await screen.findByRole("radiogroup", { name: "Direct messages" })).toBeTruthy();
-    expect(screen.queryByText(/dmPolicy|requireMention/)).toBeNull();
   });
 
   it("gives the empty Connectors screen one primary action", async () => {

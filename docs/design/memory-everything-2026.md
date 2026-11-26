@@ -1,5 +1,8 @@
 # Memory for everything: people, projects, work due and catching up (2026)
 
+> **Update 2026-11-25: chat channels removed.** Telegram, Slack-as-chat, Discord, WhatsApp, Signal, SMS, email-as-chat, the iMessage chat bridge and WebChat no longer exist (owner decision: the iPhone app is the mobile surface). Mentions of channels, channel delivery, channel senders and `dmPolicy` below are historical. Approvals and briefs go only to the Mac app and the paired iPhone. Reading Messages and Mail and the send-a-message tool stay. See security section 9 in docs/05-security-and-permissions.md.
+
+
 Status: plan, 2026-11-02; owner decisions W1–W7 in §9. Building from MW1. It **extends** [everything-memory-2026.md](everything-memory-2026.md) (EM), whose owner decisions D1–D5 and §14 stay binding. It does not replace it. Other inputs:
 
 - [people-and-projects-2026.md](../memory/people-and-projects-2026.md): the `graph_*` store and `packages/memory/src/graph/*`.

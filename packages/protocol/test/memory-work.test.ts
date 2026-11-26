@@ -160,15 +160,21 @@ describe("memory for everything protocol (MW0)", () => {
     expect(Value.Check(MemorySurfacesSettings, MEMORY_SURFACES_DEFAULTS)).toBe(true);
     // W1: birthdays on; every other people-tier item off.
     expect(MEMORY_SURFACES_DEFAULTS.birthdays).toBe(true);
-    expect(Object.values(MEMORY_SURFACES_DEFAULTS.tiers.people)).toEqual([
-      false,
-      false,
-      false,
-      false,
-    ]);
-    // §4: mail about work never reaches notifications or channels.
+    expect(Object.values(MEMORY_SURFACES_DEFAULTS.tiers.people)).toEqual([false, false, false]);
+    // §4: mail about work never reaches notifications.
     expect(MEMORY_SURFACES_DEFAULTS.tiers.workMail.notification).toBe(false);
-    expect(MEMORY_SURFACES_DEFAULTS.tiers.workMail.channel).toBe(false);
+    // An old stored value still carries the removed chat channel's `channel` switches: it parses.
+    const old = (t: Record<string, boolean>) => ({ ...t, channel: true });
+    expect(
+      Value.Check(MemorySurfacesSettings, {
+        ...MEMORY_SURFACES_DEFAULTS,
+        tiers: {
+          work: old(MEMORY_SURFACES_DEFAULTS.tiers.work),
+          workMail: old(MEMORY_SURFACES_DEFAULTS.tiers.workMail),
+          people: old(MEMORY_SURFACES_DEFAULTS.tiers.people),
+        },
+      }),
+    ).toBe(true);
     // W4: both due-soon notifications are off.
     expect(MEMORY_WORK_DEFAULTS.enabled).toBe(false);
     expect(MEMORY_WORK_DEFAULTS.remind.enabled).toBe(false);

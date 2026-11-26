@@ -119,7 +119,7 @@ describe("Permissions page", () => {
 describe("Pages that listed several panes", () => {
   it.each([
     ["general", ["Appearance", "Persona", "Notifications", "Voice & dictation"]],
-    ["connectors", ["Search", "Mail & meetings", "Channels"]],
+    ["connectors", ["Search", "Mail & meetings"]],
     ["model", ["Usage"]],
   ] as const)("%s opens its other panes from rows", async (section, rows) => {
     setup(section);

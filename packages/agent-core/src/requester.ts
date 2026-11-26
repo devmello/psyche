@@ -1,9 +1,9 @@
 import type { Requester } from "@psyche/protocol";
 
 /**
- * The fields of S10's `RouteContext` (packages/channels `routing.ts`) that name who sent a
- * channel message. Structural, so the Gateway can pass the route itself without agent-core
- * depending on `@psyche/channels`.
+ * The fields that name who sent a message from outside the owner's devices (the removed chat
+ * channels' route, 2026-11-25). Nothing builds one now; the non-owner requester it produces is
+ * still what the broker and the loop refuse and taint, so it stays with its tests.
  */
 export interface RouteLike {
   role: Requester["role"];

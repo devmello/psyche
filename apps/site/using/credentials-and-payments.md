@@ -90,7 +90,7 @@ The design covers finding a cheaper flight, holding it behind one purchase card,
 
 - **Filling a credential:** a device-only "Fill credential" card showing the item, the site it is bound to and the current page, with a note that the agent sees only the placeholder. Choices: Allow once, or Allow for this site.
 - **Paying:** a device-only "Pay" card with the merchant, amount and items, offered only as Allow once.
-- The Pay card needs proof that you are present: Touch ID on the Mac, or a passkey added from a remote Mac's desktop app. A Fill credential card is one tap on a paired device, and the Mac must be unlocked. Neither card goes to Telegram or iMessage.
+- The Pay card needs proof that you are present: Touch ID on the Mac, or a passkey added from a remote Mac's desktop app. A Fill credential card is one tap on a paired device, and the Mac must be unlocked. Neither card goes anywhere but your own devices.
 
 ## Limits today
 

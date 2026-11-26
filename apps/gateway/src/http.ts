@@ -42,8 +42,9 @@ export interface WebhookResponse {
 export type WebhookMethod = "GET" | "POST";
 
 /**
- * A webhook handler. `POST` only unless it declares `methods` (WhatsApp's subscription handshake
- * is a `GET`); a `GET` is handed over without reading a body.
+ * A webhook handler. `POST` only unless it declares `methods` (a provider's subscription
+ * handshake can be a `GET`); a `GET` is handed over without reading a body. None is mounted since
+ * the chat channels went (2026-11-25).
  */
 export type WebhookRoute = ((request: WebhookRequest) => Promise<WebhookResponse>) & {
   readonly methods?: readonly WebhookMethod[];

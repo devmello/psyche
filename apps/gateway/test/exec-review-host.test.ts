@@ -29,7 +29,7 @@ for (const d of [join(repo, ".git"), join(repo, "src"), plain, psycheHome]) {
 writeFileSync(join(repo, ".git", "config"), "[core]\n\tbare = false\n");
 
 const broker = createPermissionBroker({
-  approvers: { device: async () => undefined, isOwnerSender: async () => false },
+  approvers: { device: async () => undefined },
   policy: { exec: { execHostEnabled: true }, folders: [{ path: folder, mode: "rw" }] },
 });
 

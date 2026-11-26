@@ -14,12 +14,12 @@ pnpm --filter @psyche/web typecheck
 
 ## Public API (package exports)
 
-| Export | What |
-| --- | --- |
-| `@psyche/web/client` | `GatewayConnection` (handshake → RPC + events, idempotency keys for side-effecting methods, validated events, `seq`-gap resync, reconnect with backoff), `Handshake`, `connectSigningPayload`, status reducer, base64url. No DOM, no Node built-ins; the desktop main process uses it too |
-| `@psyche/web/platform` | `ShellPlatform` and its ports: `GatewayPort`, `BrowserPort`, `TerminalPort`, `WindowPort`, `NotifyPort`, `KeyValueStore`, `ShellCommand` |
-| `@psyche/web/shell` | `ShellApp`, `ShellStore`, the pane layout engine (`reduceLayout`, `presentation`, `applyViewCommand`, `toViewLayout`, `createLayoutStore`), the keyboard map |
-| `@psyche/web/testing` | `MockGateway` (test only): verifies the Ed25519 challenge, answers RPCs from handlers, pushes events, and plays the Gateway end of the browser bridge |
+| Export                 | What                                                                                                                                                                                                                                                                                      |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `@psyche/web/client`   | `GatewayConnection` (handshake → RPC + events, idempotency keys for side-effecting methods, validated events, `seq`-gap resync, reconnect with backoff), `Handshake`, `connectSigningPayload`, status reducer, base64url. No DOM, no Node built-ins; the desktop main process uses it too |
+| `@psyche/web/platform` | `ShellPlatform` and its ports: `GatewayPort`, `BrowserPort`, `TerminalPort`, `WindowPort`, `NotifyPort`, `KeyValueStore`, `ShellCommand`                                                                                                                                                  |
+| `@psyche/web/shell`    | `ShellApp`, `ShellStore`, the pane layout engine (`reduceLayout`, `presentation`, `applyViewCommand`, `toViewLayout`, `createLayoutStore`), the keyboard map                                                                                                                              |
+| `@psyche/web/testing`  | `MockGateway` (test only): verifies the Ed25519 challenge, answers RPCs from handlers, pushes events, and plays the Gateway end of the browser bridge                                                                                                                                     |
 
 ## Shell layout
 

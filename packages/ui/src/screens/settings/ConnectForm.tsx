@@ -35,7 +35,6 @@ const BUILT_IN_GROUP: Readonly<Record<string, GalleryGroup>> = {
   "apple:mail": "comms",
   "apple:shortcuts": "everyday",
   obsidian: "files",
-  slack: "comms",
 };
 
 /** Message ids for a built-in's one-line description (`gallery.builtin.<id>`). */
@@ -49,7 +48,6 @@ const BUILT_IN_ID: Readonly<Record<string, string>> = {
   "apple:mail": "appleMail",
   "apple:shortcuts": "appleShortcuts",
   obsidian: "obsidian",
-  slack: "slack",
 };
 
 /**
@@ -60,20 +58,15 @@ export function galleryEntries({
   implemented,
   connectedTypes,
   mcp,
-  slack,
   pick,
 }: {
   implemented: ReadonlySet<string> | undefined;
   connectedTypes: ReadonlySet<string>;
   /** Present: ready-made tool servers are offered too. */
   mcp: boolean;
-  /** Slack opens Channels, so it is offered only where the host can open that section. */
-  slack: boolean;
   pick: (key: string) => void;
 }): GalleryEntry[] {
-  const rows = offeredCatalog(implemented).filter(
-    (c) => c.type !== "mcp" && (c.type !== "slack" || slack),
-  );
+  const rows = offeredCatalog(implemented).filter((c) => c.type !== "mcp");
   // A one-per-machine connector that is already there is listed as Connected, not offered.
   const taken = (type: string) => isSingleInstance(type) && connectedTypes.has(type);
   return [
@@ -114,7 +107,6 @@ export function ConnectForm({
   connectedTypes,
   onConnect,
   onCancel,
-  onOpenSection,
   mcp,
   onTry,
   sharedFolders,
@@ -127,7 +119,6 @@ export function ConnectForm({
   connectedTypes: ReadonlySet<string>;
   onConnect: (type: string, mode: ScopeMode, config?: Record<string, unknown>) => void;
   onCancel: () => void;
-  onOpenSection?: (section: "channels") => void;
   /** Present: ready-made and custom MCP servers are offered, and their forms check the server here. */
   mcp?: McpState;
   /** "Try it": fills the chat composer with an example request. */
@@ -135,9 +126,7 @@ export function ConnectForm({
   sharedFolders: readonly string[];
   onShareFolder?: (path: string, mode: ScopeMode) => void;
 }): ReactElement {
-  const rows = offeredCatalog(implemented).filter(
-    (c) => c.type !== "mcp" && (c.type !== "slack" || onOpenSection !== undefined),
-  );
+  const rows = offeredCatalog(implemented).filter((c) => c.type !== "mcp");
   const [picked, setPicked] = useState<string | null>(initialType ?? null);
   const [mode, setMode] = useState<ScopeMode>("read");
   // Obsidian connects to a vault folder shared through File access (#640).
@@ -186,7 +175,6 @@ export function ConnectForm({
     implemented,
     connectedTypes,
     mcp: mcp !== undefined,
-    slack: onOpenSection !== undefined,
     pick: setPicked,
   });
 
@@ -204,7 +192,6 @@ export function ConnectForm({
   }
 
   const back = () => setPicked(null);
-  const opens = builtIn?.opens;
   const needsVault = needsSetup(picked);
   const vaultReady = !needsVault || (vaultPath !== "" && sharedFolders.includes(vaultPath));
   return (
@@ -228,62 +215,49 @@ export function ConnectForm({
         <McpPresetForm preset={preset} mcp={mcp} onCancel={onCancel} onTry={onTry} />
       ) : (
         <>
-          {opens !== undefined ? (
-            <p className="text-sm text-muted-foreground">{t("settings.connectors.slackExplain")}</p>
-          ) : (
-            <>
-              <ConnectAccessChoice
-                label={t("settings.connectors.whatCan", { persona })}
-                value={mode}
-                onChange={setMode}
-                persona={persona}
-              />
-              {clientStatus !== undefined ? (
-                <GoogleClientFields
-                  configured={clientStatus.configured && !changeClient}
-                  clientId={clientStatus.clientId}
-                  fromConfig={clientStatus.source === "config"}
-                  id={clientId}
-                  secret={clientSecret}
-                  onId={setClientId}
-                  onSecret={setClientSecret}
-                  onChange={clientStatus.source === "app" ? () => setChangeClient(true) : undefined}
-                  problem={clientProblem === "shape" ? clientProblem : null}
-                  error={clientError}
-                  onOpenDocs={openDocs}
-                />
-              ) : null}
-              {needsVault ? (
-                <VaultField
-                  value={vault}
-                  onChange={setVault}
-                  granted={sharedFolders}
-                  {...(onShareFolder
-                    ? { onShare: (path: string) => onShareFolder(path, mode) }
-                    : {})}
-                />
-              ) : null}
-            </>
-          )}
+          <ConnectAccessChoice
+            label={t("settings.connectors.whatCan", { persona })}
+            value={mode}
+            onChange={setMode}
+            persona={persona}
+          />
+          {clientStatus !== undefined ? (
+            <GoogleClientFields
+              configured={clientStatus.configured && !changeClient}
+              clientId={clientStatus.clientId}
+              fromConfig={clientStatus.source === "config"}
+              id={clientId}
+              secret={clientSecret}
+              onId={setClientId}
+              onSecret={setClientSecret}
+              onChange={clientStatus.source === "app" ? () => setChangeClient(true) : undefined}
+              problem={clientProblem === "shape" ? clientProblem : null}
+              error={clientError}
+              onOpenDocs={openDocs}
+            />
+          ) : null}
+          {needsVault ? (
+            <VaultField
+              value={vault}
+              onChange={setVault}
+              granted={sharedFolders}
+              {...(onShareFolder ? { onShare: (path: string) => onShareFolder(path, mode) } : {})}
+            />
+          ) : null}
+
           <div className="flex gap-2">
-            {opens !== undefined ? (
-              <Button type="button" size="sm" onClick={() => onOpenSection?.(opens)}>
-                {t("settings.connectors.openChannels")}
-              </Button>
-            ) : (
-              <Button
-                type="button"
-                size="sm"
-                disabled={!vaultReady || clientBusy || clientProblem !== null}
-                onClick={() =>
-                  void saveClientThen(() =>
-                    needsVault ? onConnect(picked, mode, { vaultPath }) : onConnect(picked, mode),
-                  )
-                }
-              >
-                {t("settings.connectors.continue")}
-              </Button>
-            )}
+            <Button
+              type="button"
+              size="sm"
+              disabled={!vaultReady || clientBusy || clientProblem !== null}
+              onClick={() =>
+                void saveClientThen(() =>
+                  needsVault ? onConnect(picked, mode, { vaultPath }) : onConnect(picked, mode),
+                )
+              }
+            >
+              {t("settings.connectors.continue")}
+            </Button>
             <Button type="button" variant="ghost" size="sm" onClick={onCancel}>
               {t("common.cancel")}
             </Button>

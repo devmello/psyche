@@ -4,12 +4,11 @@ import type { Catalogue } from "../../index.ts";
 export const memorySurfacesRest: Partial<Catalogue> = {
   "memorySurfaces.title": "メモリの表示場所",
   "memorySurfaces.description":
-    "{persona}がホーム、デイリーの概要、通知、Telegramなどのチャンネルに送る概要に載せてよい内容です。メモリページには、除外していないものがすべて常に表示されます。",
+    "{persona}がホーム、デイリーの概要、通知に載せてよい内容です。メモリページには、除外していないものがすべて常に表示されます。",
   "memorySurfaces.loadLabel": "メモリの表示場所",
   "memorySurfaces.surface.home": "ホーム",
   "memorySurfaces.surface.brief": "デイリーの概要",
   "memorySurfaces.surface.notification": "通知",
-  "memorySurfaces.surface.channel": "チャンネルに送る概要",
   "memorySurfaces.tier.work.title": "仕事とToDo",
   "memorySurfaces.tier.work.description":
     "プロジェクト、コース、ToDo、その進み具合、期限、ご自身のカレンダーの予定。",
@@ -21,7 +20,7 @@ export const memorySurfacesRest: Partial<Catalogue> = {
   "memorySurfaces.tier.people.title": "人物についての事実",
   "memorySurfaces.tier.people.description":
     "他の人についての事実、知り合ったきっかけ、話した内容、連絡を保つ。",
-  "memorySurfaces.people.warning": "概要は、画面やTelegramを見られる人なら誰でも見られます。",
+  "memorySurfaces.people.warning": "概要は、画面を見られる人なら誰でも見られます。",
   "memorySurfaces.birthdays.title": "誕生日と記念日",
   "memorySurfaces.birthdays.label": "誕生日と記念日を表示",
   "memorySurfaces.birthdays.hint":

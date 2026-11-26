@@ -681,7 +681,7 @@ describe("r1 finding 1 (SR1): a chat where someone else wrote offers no rules or
   });
 
   it("a peer's chat in a Space does not hide the owner's chat beside it", async () => {
-    const tg = chat("Telegram: Eve", "channel");
+    const tg = chat("Old chat: Eve", "channel");
     const mine = chat("Tile options");
     message(mine, "user", "owner", "Use metric");
     const space = new SpaceStore(db).create({ name: "Kitchen" });
@@ -761,7 +761,7 @@ describe("r1 finding 2: a proposal names and moves only chats with no Space", ()
   });
 
   it("table: a channel chat is refused, from a clean or a tainted turn", () => {
-    const tg = chat("Telegram: Eve", "channel");
+    const tg = chat("Old chat: Eve", "channel");
     const mine = chat("Mine");
     const cases: { name: string; input: Parameters<typeof createProposal>[1] }[] = [
       {
@@ -770,7 +770,7 @@ describe("r1 finding 2: a proposal names and moves only chats with no Space", ()
           name: "Invoices",
           reason: "r",
           currentThreadId: tg,
-          taint: [{ sourceKind: "channel_message", sender: "telegram:666" }],
+          taint: [{ sourceKind: "channel_message", sender: "oldchat:666" }],
         },
       },
       {
@@ -792,7 +792,7 @@ describe("r1 finding 2: a proposal names and moves only chats with no Space", ()
   });
 
   it("a stored proposal that names a channel chat moves it nowhere on accept", () => {
-    const tg = chat("Telegram: Eve", "channel");
+    const tg = chat("Old chat: Eve", "channel");
     const mine = chat("Mine");
     db.sqlite
       .prepare(

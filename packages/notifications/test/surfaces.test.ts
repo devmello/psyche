@@ -1,12 +1,6 @@
-import type { ApprovalRequest, Notification } from "@psyche/protocol";
-import { FakeChannelAdapter, SAMPLE_APPROVAL_REQUEST } from "@psyche/testing";
+import type { Notification } from "@psyche/protocol";
 import { describe, expect, it } from "vitest";
-import {
-  channelText,
-  createChannelSurface,
-  createOsSurface,
-  NOTIFY_SHOW_CAPABILITY,
-} from "../src/index.ts";
+import { createOsSurface, NOTIFY_SHOW_CAPABILITY } from "../src/index.ts";
 import { helperNode, setup } from "./helpers.ts";
 
 const base: Notification = {
@@ -114,99 +108,5 @@ describe("OS surface (mac helper notify.show)", () => {
       (node.invocations[0]?.params as { interruptionLevel?: string } | undefined)
         ?.interruptionLevel,
     ).toBe("passive");
-  });
-});
-
-describe("channel surface", () => {
-  async function running(caps: Partial<ReturnType<FakeChannelAdapter["capabilities"]>> = {}) {
-    const adapter = new FakeChannelAdapter({ type: "telegram", capabilities: caps });
-    await adapter.start();
-    return adapter;
-  }
-
-  it("sends title, body and deep link to the peer", async () => {
-    const tg = await running();
-    const surface = createChannelSurface({ adapter: (c) => (c === "telegram" ? tg : undefined) });
-    expect(await surface.deliver(base, { ...ctx, surface: "telegram:42" })).toEqual({
-      status: "delivered",
-    });
-    expect(tg.sent).toMatchObject([
-      {
-        kind: "message",
-        chatId: "42",
-        text: "Subscription audit\n\n1 cancelled\n\nOpen in Psyche: /tasks/task_1",
-      },
-    ]);
-  });
-
-  it("truncates to the channel limit", () => {
-    expect(channelText({ ...base, body: "x".repeat(100), route: null }, 20)).toHaveLength(20);
-    expect(channelText({ ...base, body: "x".repeat(100), route: null }, 20).endsWith("…")).toBe(
-      true,
-    );
-  });
-
-  it("sends approval buttons only for approvals that may reach chat", async () => {
-    const tg = await running();
-    const approvals: Record<string, ApprovalRequest> = {
-      apr_ok: { ...SAMPLE_APPROVAL_REQUEST, id: "apr_ok", deviceOnly: false },
-      apr_device: { ...SAMPLE_APPROVAL_REQUEST, id: "apr_device", deviceOnly: true },
-    };
-    const surface = createChannelSurface({
-      adapter: () => tg,
-      approval: async (id) => {
-        const approval = approvals[id];
-        return approval === undefined ? undefined : { approval, answerToken: `tok_${id}` };
-      },
-    });
-    const n = (approvalId: string): Notification => ({ ...base, kind: "approval", approvalId });
-    const c = { ...ctx, surface: "telegram:42" };
-    expect(await surface.deliver(n("apr_ok"), c)).toEqual({ status: "delivered" });
-    expect(await surface.deliver(n("apr_device"), c)).toEqual({
-      status: "suppressed",
-      reason: "deviceOnly approval",
-    });
-    expect(await surface.deliver(n("apr_unknown"), c)).toMatchObject({ status: "suppressed" });
-    expect(tg.sent).toEqual([
-      expect.objectContaining({
-        kind: "approval_buttons",
-        approvalId: "apr_ok",
-        answerToken: "tok_apr_ok",
-      }),
-    ]);
-  });
-
-  it("never sends approvals to a channel without buttons or without a resolver", async () => {
-    const plain = await running({ buttons: false });
-    const approval = async () => ({
-      approval: { ...SAMPLE_APPROVAL_REQUEST, deviceOnly: false },
-      answerToken: "t",
-    });
-    const n: Notification = { ...base, kind: "approval", approvalId: "apr_1" };
-    const c = { ...ctx, surface: "telegram:42" };
-    expect(
-      await createChannelSurface({ adapter: () => plain, approval }).deliver(n, c),
-    ).toMatchObject({
-      status: "suppressed",
-    });
-    expect(await createChannelSurface({ adapter: () => plain }).deliver(n, c)).toMatchObject({
-      status: "suppressed",
-    });
-    expect(plain.sent).toEqual([]);
-  });
-
-  it("fails retryably while the channel is down", async () => {
-    const stopped = new FakeChannelAdapter({ type: "telegram" });
-    const surface = createChannelSurface({
-      adapter: (c) => (c === "telegram" ? stopped : undefined),
-    });
-    expect(await surface.deliver(base, { ...ctx, surface: "telegram:42" })).toMatchObject({
-      status: "failed",
-      retryable: true,
-    });
-    expect(await surface.deliver(base, { ...ctx, surface: "signal:7" })).toMatchObject({
-      status: "failed",
-      error: "channel signal not running",
-    });
   });
 });

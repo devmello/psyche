@@ -635,7 +635,6 @@ describe("checkout.pay_with_link and the hard block on trades and transfers", ()
     const broker = createPermissionBroker({
       approvers: {
         device: async () => ({ scopes: ["operator.read", "operator.approvals"] }),
-        isOwnerSender: async () => false,
       },
       clock,
       audit: createAuditLog({ clock }),

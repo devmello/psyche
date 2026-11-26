@@ -45,11 +45,11 @@ Click **Library** in the left rail. It has five tabs: Documents, Images, Artifac
 
 What lands there:
 
-- Files the agent downloads in its browser, and attachments sent to the agent over Telegram or iMessage. These are **quarantined**: they carry a "Quarantined" badge and are never opened automatically.
+- Files the agent downloads in its browser, and files from connectors. These are **quarantined**: they carry a "Quarantined" badge and are never opened automatically.
 - Browser recordings, when recording is turned on.
 - Read-aloud clips and voice memos.
 
-Everything is stored under `~/.psyche/library/`. Downloads and channel attachments are in `library/quarantine/`.
+Everything is stored under `~/.psyche/library/`. Downloads and connector files are in `library/quarantine/`.
 
 ::: info Screenshot placeholder
 The Library with the Documents tab open in List view, showing a quarantined download with its badge and an Open button.

@@ -130,6 +130,8 @@ export type ApprovalStatus = Static<typeof ApprovalStatus>;
 export const DecidedBy = Type.Union(
   [
     Type.Object({ deviceId: Id, surface: Type.Optional(Surface) }),
+    // A chat channel's answer: old approval history only. Channels were removed (2026-11-25)
+    // and the broker answers devices alone.
     Type.Object({ channel: Type.String(), senderId: Type.String() }),
   ],
   { $id: "DecidedBy" },

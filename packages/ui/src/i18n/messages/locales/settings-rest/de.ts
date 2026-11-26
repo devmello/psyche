@@ -17,7 +17,6 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.key.daily.brief.enabled": "Morgenübersicht",
   "settings.key.daily.wrapup.enabled": "Abendrückblick",
   "settings.key.daily.notify": "Mich benachrichtigen",
-  "settings.key.daily.messages": "Auch über Nachrichten senden",
   "settings.key.daily.followups.enabled": "Nachfassen verfolgen",
   "settings.key.daily.brief.time": "Uhrzeit der Morgenübersicht",
   "settings.key.daily.wrapup.time": "Uhrzeit des Abendrückblicks",
@@ -25,7 +24,6 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.daily.time": "Uhrzeit",
   "settings.daily.notify.hint":
     "Eine Mitteilung mit der Karte. In den Ruhezeiten wird sie bis zu deren Ende zurückgehalten.",
-  "settings.daily.messages.hint": "Braucht den Nachrichtenkanal. Wird nur an dich gesendet.",
   "settings.daily.sensitivity": "Wie viel verfolgt wird",
   "settings.daily.sensitivity.low": "Nur klare Zusagen mit Datum",
   "settings.daily.sensitivity.normal": "Zusagen und Bitten (empfohlen)",
@@ -1524,18 +1522,12 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.key.memory.surfaces.tiers.work.home": "Arbeit auf Home",
   "settings.key.memory.surfaces.tiers.work.brief": "Arbeit in der Tagesübersicht",
   "settings.key.memory.surfaces.tiers.work.notification": "Arbeit in Mitteilungen",
-  "settings.key.memory.surfaces.tiers.work.channel":
-    "Arbeit in der an einen Kanal gesendeten Übersicht",
   "settings.key.memory.surfaces.tiers.workMail.home": "Mails zur Arbeit auf Home",
   "settings.key.memory.surfaces.tiers.workMail.brief": "Mails zur Arbeit in der Tagesübersicht",
   "settings.key.memory.surfaces.tiers.workMail.notification": "Mails zur Arbeit in Mitteilungen",
-  "settings.key.memory.surfaces.tiers.workMail.channel":
-    "Mails zur Arbeit in der an einen Kanal gesendeten Übersicht",
   "settings.key.memory.surfaces.tiers.people.home": "Personen auf Home",
   "settings.key.memory.surfaces.tiers.people.brief": "Personen in der Tagesübersicht",
   "settings.key.memory.surfaces.tiers.people.notification": "Personen in Mitteilungen",
-  "settings.key.memory.surfaces.tiers.people.channel":
-    "Personen in der an einen Kanal gesendeten Übersicht",
   "settings.key.memory.surfaces.birthdays":
     "Geburtstage und Jahrestage in der Übersicht und auf Home",
   "settings.key.memory.surfaces.hideSources":

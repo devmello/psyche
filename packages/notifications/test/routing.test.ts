@@ -2,30 +2,31 @@ import type { NotificationKind } from "@psyche/protocol";
 import { describe, expect, it } from "vitest";
 import {
   interruptionFor,
+  isInterruptive,
   NOTIFICATION_KINDS,
   normalizeSurface,
-  parseChannelSurface,
   planDelivery,
   type RoutingConfig,
   resolveSurfaces,
+  surfaceClass,
 } from "../src/index.ts";
-import { setup } from "./helpers.ts";
+import { RecordingAdapter, setup } from "./helpers.ts";
 
-/** The routing matrix (UI §3.20): which kinds reach the OS and the owner's chat by default. */
-const MATRIX: Record<NotificationKind, { os: boolean; chat: boolean; interruption: string }> = {
-  approval: { os: true, chat: true, interruption: "timeSensitive" },
-  input_needed: { os: true, chat: true, interruption: "active" },
-  task_done: { os: true, chat: true, interruption: "active" },
-  task_failed: { os: true, chat: true, interruption: "active" },
-  proactive: { os: false, chat: false, interruption: "passive" },
-  briefing: { os: false, chat: false, interruption: "passive" },
-  reminder: { os: true, chat: true, interruption: "passive" },
-  system: { os: false, chat: false, interruption: "passive" },
-  specialist_result: { os: true, chat: true, interruption: "active" },
-  promise_due: { os: true, chat: false, interruption: "active" },
+/** The routing matrix (UI §3.20): which kinds reach the OS by default. */
+const MATRIX: Record<NotificationKind, { os: boolean; interruption: string }> = {
+  approval: { os: true, interruption: "timeSensitive" },
+  input_needed: { os: true, interruption: "active" },
+  task_done: { os: true, interruption: "active" },
+  task_failed: { os: true, interruption: "active" },
+  proactive: { os: false, interruption: "passive" },
+  briefing: { os: false, interruption: "passive" },
+  reminder: { os: true, interruption: "passive" },
+  system: { os: false, interruption: "passive" },
+  specialist_result: { os: true, interruption: "active" },
+  promise_due: { os: true, interruption: "active" },
 };
 
-const config: RoutingConfig = { channelTargets: ["telegram:42"] };
+const config: RoutingConfig = {};
 // 2026-10-19T06:00Z is 23:00 in Los Angeles: inside 22:00–07:00.
 const QUIET_NOW = Date.UTC(2026, 9, 19, 6);
 const quietConfig: RoutingConfig = {
@@ -39,7 +40,6 @@ describe("routing matrix", () => {
     it(`${kind}: default surfaces`, () => {
       const expected = ["desktop", "web"];
       if (row.os) expected.push("notification");
-      if (row.chat) expected.push("telegram:42");
       expect(resolveSurfaces(config, kind)).toEqual(expected);
     });
 
@@ -74,10 +74,10 @@ describe("routing matrix", () => {
     });
 
     it(`${kind}: end-to-end through the notifier`, async () => {
-      const { notifier, os, chat } = setup({ routing: config });
+      const { notifier, os, device } = setup({ routing: config });
       const n = await notifier.notify({ kind, title: kind, body: "…" });
       expect(os.calls.length).toBe(row.os ? 1 : 0);
-      expect(chat.calls.length).toBe(row.chat ? 1 : 0);
+      expect(device.calls.length).toBe(0);
       expect(Object.keys(n.delivered).sort()).toEqual(resolveSurfaces(config, kind).sort());
     });
   }
@@ -88,25 +88,59 @@ describe("routing matrix", () => {
     ).toEqual(["notification", "desktop", "web"]);
   });
 
-  it("per-kind overrides and channel kinds come from settings", () => {
-    const custom: RoutingConfig = {
-      surfaces: { briefing: ["desktop", "notification"] },
-      channelTargets: ["slack:U1"],
-      channelKinds: ["briefing"],
-    };
-    expect(resolveSurfaces(custom, "briefing")).toEqual(["desktop", "notification", "slack:U1"]);
+  it("per-kind overrides come from settings", () => {
+    const custom: RoutingConfig = { surfaces: { briefing: ["desktop", "notification"] } };
+    expect(resolveSurfaces(custom, "briefing")).toEqual(["desktop", "notification"]);
     expect(resolveSurfaces(custom, "task_done")).toEqual(["desktop", "web", "notification"]);
   });
 
   it("parses surfaces", () => {
     expect(normalizeSurface("os")).toBe("notification");
-    expect(parseChannelSurface("telegram:42")).toEqual({ channel: "telegram", peerId: "42" });
-    expect(parseChannelSurface("whatsapp:+1:555")).toEqual({
-      channel: "whatsapp",
-      peerId: "+1:555",
+    expect(surfaceClass("notification")).toBe("notification");
+    expect(surfaceClass("device:dev_a")).toBe("device");
+  });
+});
+
+/** Chat channels were removed (2026-11-25): an old `telegram:42` must never reach the OS or a device. */
+describe("old chat channel surfaces", () => {
+  const OLD = ["telegram:42", "whatsapp:+1:555", "slack:U1", "imessage:+15550100", "oldchat:1"];
+
+  it.each(OLD)("%s is an unknown, non-interruptive class", (surface) => {
+    expect(surfaceClass(surface)).toBe("unknown");
+    expect(isInterruptive(surface)).toBe(false);
+  });
+
+  it("is dropped from explicit surfaces and from stored per-kind settings", () => {
+    expect(resolveSurfaces({}, "approval", ["telegram:42", "desktop"])).toEqual(["desktop"]);
+    expect(resolveSurfaces({}, "approval", ["telegram:42"])).toEqual([]);
+    const stored: RoutingConfig = { surfaces: { task_done: ["desktop", ...OLD] } };
+    expect(resolveSurfaces(stored, "task_done")).toEqual(["desktop"]);
+  });
+
+  it("with device targets connected, never fans out to them", () => {
+    const withDevice: RoutingConfig = { deviceTargets: ["device:dev_a"] };
+    expect(resolveSurfaces(withDevice, "proactive", ["telegram:42", "desktop"])).toEqual([
+      "desktop",
+    ]);
+  });
+
+  it("an old pending delivery is suppressed, even with an adapter that matches anything", async () => {
+    const any = new RecordingAdapter("any", () => true);
+    const { notifier, store } = setup({ routing: config, adapters: [any] });
+    const n = await notifier.notify({ kind: "proactive", title: "Old", body: "" });
+    store.upsertDelivery({
+      notificationId: n.id,
+      surface: "telegram:42",
+      status: "pending",
+      attempts: 0,
+      dueAt: new Date(0).toISOString(),
+      deliveredAt: null,
+      detail: null,
     });
-    expect(parseChannelSurface("desktop")).toBeUndefined();
-    expect(parseChannelSurface("telegram:")).toBeUndefined();
+    await notifier.flushDue();
+    const old = (await notifier.deliveries(n.id)).find((d) => d.surface === "telegram:42");
+    expect(old).toMatchObject({ status: "suppressed", dueAt: null });
+    expect(any.calls).toEqual([]);
   });
 });
 

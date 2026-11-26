@@ -37,7 +37,6 @@ psyche/
     sandbox/        S21   container runner backends, image, receipts, srt wrapper
     mcp-host/       S09  MCP client host, trust tiers, tool policy integration
     connectors/     S09  Google (Gmail/Calendar/Drive), search/fetch, IMAP/JMAP later
-    channels/       S10  channel framework, WebChat, Telegram; iMessage glue later
     ui/             S12  React components: message blocks, cards, screens, theme
     viewers/        S13  PDF, sheets, DOCX, code, Markdown editor, artifact frame, extraction, generators
     proactive/      S15  feed, ideas, goals pipelines
@@ -82,7 +81,7 @@ The integrator (S00 after bootstrap) merges in this order whenever PRs are ready
 | S07 | Memory | `packages/memory` | H1–H5, H7 logic, H8 (H6, H9, H10) | model-router (embeddings, utility model) | `docs/archive/prompts/s07-memory.md` |
 | S08 | Browser | `packages/browser` | I2–I4, I7–I9, I15 (I10, I12–I14) | permissions, vault (fill endpoint) | `docs/archive/prompts/s08-browser.md` |
 | S09 | MCP host and connectors | `packages/mcp-host`, `packages/connectors` | M1, M2, M4 data, M5, M8, M11 (M3, M7, M10) | permissions, vault, sandbox | `docs/archive/prompts/s09-mcp-connectors.md` |
-| S10 | Channels | `packages/channels` | N1–N4 (N5 glue, N10, N11) | gateway API, permissions, notifications | `docs/archive/prompts/s10-channels.md` |
+| S10 | Channels (removed 2026-11-25) | `packages/channels` | N1–N4 (N5 glue, N10, N11) | gateway API, permissions, notifications | `docs/archive/prompts/s10-channels.md` |
 | S11 | Desktop and web shells | `apps/desktop`, `apps/web` | A6, A7, A8, E10, I1, I5, I6, I11, K6, D5, O10 relay, Q1 UI | protocol, ui, browser bridge, viewers | `docs/archive/prompts/s11-desktop-web-shell.md` |
 | S12 | UI kit | `packages/ui` | E4, E8 cards, F3, C4 UI, O6/O8/O9 screens, P7 screen, S1 UI, R2, R3, U1 screens | protocol only | `docs/archive/prompts/s12-ui-kit.md` |
 | S13 | Viewers, editor, documents | `packages/viewers` | P1, P3, P4, P5, P6, P9 (P2, P8) | protocol only | `docs/archive/prompts/s13-viewers-editor.md` |
@@ -125,7 +124,7 @@ These three are the most self-contained pieces; they run as ordinary Claude sess
 ## 7. Integration milestones (map to roadmap M1)
 
 - **INT-1 walking skeleton**: desktop ↔ gateway ↔ agent-core ↔ model-router ↔ memory ↔ permissions; a chat turn with a tool call and an approval card; persona onboarding writes the workspace files.
-- **INT-2 browser and connectors**: embedded browser pane driven by the CDP driver; Google connector; Telegram channel with pairing; tasks visible in Activity.
+- **INT-2 browser and connectors**: embedded browser pane driven by the CDP driver; Google connector; tasks visible in Activity.
 - **INT-3 acceptance**: V1 inbox triage, V2 calendar planning, V7 research brief, on one hosted and one local model; resumability and secret-leak checks in CI.
 
 ## 8. What the first day looks like

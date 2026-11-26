@@ -11,7 +11,7 @@ web
 ## Users
 
 - **Primary: owners.** One person (or a household that trusts each other) who wants an always-available agent with real access to their life (mail, messages, calendar, files, people, work) and wants that access kept on hardware they control. On the site they are deciding whether Psyche is worth trying and whether they can trust it.
-- **Secondary: developers.** People who build it from source today, extend it with skills, connectors and channels, or run the Gateway on their own Linux server.
+- **Secondary: developers.** People who build it from source today, extend it with skills and connectors, or run the Gateway on their own Linux server.
 
 Owners first, developers second (confirmed 2026-11-04).
 

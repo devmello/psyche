@@ -204,7 +204,7 @@ The CLI pairs as its own device. The first time, it prints a pairing code; appro
 
 ## 7. Where Settings live
 
-Open Settings from the Menu button at the bottom of the rail (Menu → Settings), or press ⌘K and choose Settings. The sections are: Model & providers, Persona, Connectors, Permissions, Computer use, File access, Devices & nodes, Channels, Credentials, Appearance, Voice & dictation, Data controls, Server & remote access, Usage and About.
+Open Settings from the Menu button at the bottom of the rail (Menu → Settings), or press ⌘K and choose Settings. The sections are: Model & providers, Persona, Connectors, Permissions, Computer use, File access, Devices & nodes, Credentials, Appearance, Voice & dictation, Data controls, Server & remote access, Usage and About.
 
 Settings are stored in the Gateway, in `~/.psyche/state/psyche.sqlite`, so every paired device sees the same values. The Gateway's own connection settings (`gateway.host`, `gateway.port`, `gateway.publicOrigin`, `gateway.trustedProxy`) live in `~/.psyche/config.json` instead. Change those with `node apps/cli/src/main.ts config set <key> <value>` and restart the Gateway. Environment variables override `config.json`.
 
@@ -215,7 +215,6 @@ On main, many sections save values that the Gateway does not act on yet. This is
 | File access | Works (admin). The broker applies it at once. |
 | Permissions | The Grants ledger and Revoke work (admin). "Default mode for new threads" is saved but not applied yet. |
 | Devices & nodes | Lists devices and nodes; approve, deny and revoke work (admin). |
-| Channels | Manages channels that already exist (admin). |
 | Appearance | Works. On the desktop it also has the zoom control. |
 | Data controls | Pause memory, deleting archived threads, Reset and the Backups panel work. "Export everything" does not save a file yet. |
 | About | The log viewer. It shows lines only when the Gateway writes log files, which a Gateway started in a terminal does not. |
@@ -264,5 +263,5 @@ Everything is under `~/.psyche`:
 
 - [approvals.md](approvals.md): how approval cards, scopes and grants work.
 - [memory-and-persona.md](memory-and-persona.md): the workspace files and how to edit them.
-- [connectors.md](connectors.md): Google, mail, Telegram and web search.
+- [connectors.md](connectors.md): Google, mail and web search.
 - [server-mode.md](server-mode.md): running the Gateway on a server.

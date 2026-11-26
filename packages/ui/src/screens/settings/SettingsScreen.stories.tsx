@@ -65,8 +65,6 @@ export const Browser: Story = {
 export const FileAccess: Story = { args: { defaultSection: "files" } };
 export const VmMode: Story = { args: { defaultSection: "vm" } };
 export const DevicesAndNodes: Story = { args: { defaultSection: "devices" } };
-/** `channels.pairing.list` and `channels.identities.list` are not in the mock: inline errors. */
-export const Channels: Story = { args: { defaultSection: "channels" } };
 export const Credentials: Story = { args: { defaultSection: "credentials" } };
 export const Appearance: Story = { args: { defaultSection: "appearance" } };
 export const VoiceAndDictation: Story = { args: { defaultSection: "voice" } };
@@ -197,7 +195,6 @@ export const EmptyWorld: Story = {
         w.devices = [];
         w.nodes = [];
         w.pairingRequests = [];
-        w.channels = [];
       },
     }),
   ],

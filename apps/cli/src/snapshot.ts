@@ -133,16 +133,6 @@ export interface Snapshot {
     error?: { code: string; message: string };
   };
   settings: Query<Record<string, unknown>>;
-  channels: Query<
-    {
-      id: string;
-      type: string;
-      dmPolicy: string;
-      ownerIds?: string[];
-      groupAllowFrom?: string[];
-      requireMention?: boolean;
-    }[]
-  >;
   grants: Query<
     {
       id: string;
@@ -380,7 +370,6 @@ export async function gatherSnapshot(ctx: Ctx, opts: { connect: boolean }): Prom
 
   const [
     settings,
-    channels,
     grants,
     devices,
     nodes,
@@ -395,7 +384,6 @@ export async function gatherSnapshot(ctx: Ctx, opts: { connect: boolean }): Prom
     adminBootstraps,
   ] = await Promise.all([
     q(client, "settings.get", {}, (v: { settings: Record<string, unknown> }) => v.settings),
-    q(client, "channels.list", {}, (v: { channels: never[] }) => v.channels),
     q(client, "grants.list", {}, (v: { grants: never[] }) => v.grants),
     q(client, "devices.list", {}, (v: { devices: never[] }) => v.devices),
     q(client, "nodes.list", {}, (v: { nodes: never[] }) => v.nodes),
@@ -503,7 +491,6 @@ export async function gatherSnapshot(ctx: Ctx, opts: { connect: boolean }): Prom
     service,
     connection,
     settings,
-    channels,
     grants,
     devices,
     nodes,

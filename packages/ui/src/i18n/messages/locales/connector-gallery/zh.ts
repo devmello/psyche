@@ -31,7 +31,6 @@ export const connectorGallery: Partial<Catalogue> = {
   "gallery.builtin.appleMail": "在 Apple 邮件中读取并起草邮件。",
   "gallery.builtin.appleShortcuts": "运行你选择的快捷指令。",
   "gallery.builtin.obsidian": "搜索并读取你的 Obsidian 资料库。",
-  "gallery.builtin.slack": "通过 Slack 与 Psyche 聊天。在“渠道”中设置。",
   "gallery.preset.github.desc": "浏览代码库、议题和拉取请求。",
   "gallery.preset.github.example": "有哪些拉取请求在等我审阅？",
   "gallery.preset.github.field.token.label": "个人访问令牌",

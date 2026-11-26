@@ -87,15 +87,17 @@ export const BITWARDEN_CONNECTOR = "bitwarden";
 
 /**
  * Who manages a connector-owned vault item (#511), from the owner ids the Gateway uses:
- * `model-<provider>` keys (Settings → Models, `models.clearKey`), `channel-…` transport secrets
- * (Settings → Channels, `channels.secrets.clear`), the 1Password token and the Bitwarden session
+ * `model-<provider>` keys (Settings → Models, `models.clearKey`), `channel-…` transport secrets of
+ * the removed chat channels (removable), the 1Password token and the Bitwarden session
  * (the owner's own, removable here); anything else is a connector's token (disconnect it).
  */
 export function gatewayOwner(connectorId: string): ManagedBy | undefined {
   if (connectorId.startsWith("model-"))
     return { kind: "model_provider", setting: "models", removable: false };
+  // Transport secrets of the removed chat channels (2026-11-25): inert, nothing reads them. The
+  // owner may delete them from Settings → Credentials like any item of their own.
   if (connectorId.startsWith("channel-"))
-    return { kind: "channel", setting: "channels", removable: false };
+    return { kind: "channel", setting: "credentials", removable: true };
   if (connectorId === ONEPASSWORD_CONNECTOR || connectorId === BITWARDEN_CONNECTOR)
     return { kind: "external_manager", setting: "credentials", removable: true };
   return undefined;

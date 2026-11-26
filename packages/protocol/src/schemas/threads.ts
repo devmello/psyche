@@ -30,7 +30,7 @@ export const Thread = Type.Object(
     titleSource: StringEnum(["user", "auto"]),
     parentThreadId: Nullable(Id),
     forkedFromMessageId: Nullable(Id),
-    sessionKey: Type.String({ description: 'e.g. "owner:main", "telegram:peer:12345"' }),
+    sessionKey: Type.String({ description: 'e.g. "owner:main", "import:chatgpt:…"' }),
     personaOverlay: Nullable(Type.String()),
     permissionMode: PermissionMode,
     modelRef: Nullable(ModelRef),

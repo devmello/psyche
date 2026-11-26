@@ -171,7 +171,7 @@ describe("a paired phone taps a device-only card with its own token", () => {
     expect(other.answerToken).toBeUndefined();
     expect(desk.answerToken).toBeDefined();
     expect(mine.approval.surfaces.some((s) => s.startsWith("device:"))).toBe(false);
-    expect(mine.approval.surfaces.some((s) => s.startsWith("telegram"))).toBe(false);
+    expect(mine.approval.surfaces.some((s) => s.startsWith("oldchat"))).toBe(false);
     await armed();
     // The Mac's token presented by a phone is refused.
     expect(await answer(p1, approvalId, desk.answerToken ?? "")).toMatchObject({ ok: false });
@@ -193,7 +193,7 @@ describe("a paired phone taps a device-only card with its own token", () => {
       summary: "rm",
       details: {},
       requestedBy,
-      surfaces: ["desktop", "notification", "telegram:42"],
+      surfaces: ["desktop", "notification", "oldchat:42"],
       taint: false,
       bindingHash: `sha256:${"c".repeat(64)}`,
       grantKey: "x",
@@ -202,7 +202,7 @@ describe("a paired phone taps a device-only card with its own token", () => {
     const id = issued.approval.id;
     const mine = await get(p1, id);
     expect(mine.approval.surfaces).toContain("device:phone-1");
-    expect(mine.approval.surfaces).not.toContain("telegram:42");
+    expect(mine.approval.surfaces).not.toContain("oldchat:42");
     await armed();
     expect(await answer(p1, id, mine.answerToken ?? "")).toMatchObject({ ok: true });
   });

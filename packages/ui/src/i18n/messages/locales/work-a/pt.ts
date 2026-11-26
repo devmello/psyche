@@ -71,12 +71,11 @@ export const workA: Partial<Catalogue> = {
   "memoryWork.remind.turnOnBrief": "Ativar o resumo",
   "memorySurfaces.title": "Onde a memória aparece",
   "memorySurfaces.description":
-    "O que {persona} pode colocar no Início, no resumo diário, nas notificações e em um resumo enviado ao Telegram ou a outro canal. A página Memória sempre mostra tudo o que você não excluiu.",
+    "O que {persona} pode colocar no Início, no resumo diário e nas notificações. A página Memória sempre mostra tudo o que você não excluiu.",
   "memorySurfaces.loadLabel": "onde a memória aparece",
   "memorySurfaces.surface.home": "Início",
   "memorySurfaces.surface.brief": "Resumo diário",
   "memorySurfaces.surface.notification": "Notificações",
-  "memorySurfaces.surface.channel": "Resumo enviado a um canal",
   "memorySurfaces.tier.work.title": "Trabalho e tarefas",
   "memorySurfaces.tier.work.description":
     "Projetos, cursos, tarefas, como estão indo, prazos e eventos dos seus próprios calendários.",
@@ -89,7 +88,7 @@ export const workA: Partial<Catalogue> = {
   "memorySurfaces.tier.people.description":
     "Fatos sobre outras pessoas, como você as conhece, sobre o que conversaram e “Manter contato”.",
   "memorySurfaces.people.warning":
-    "Os resumos podem ser vistos por qualquer pessoa que veja sua tela ou seu Telegram.",
+    "Os resumos podem ser vistos por qualquer pessoa que veja sua tela.",
   "memorySurfaces.birthdays.title": "Aniversários e datas comemorativas",
   "memorySurfaces.birthdays.label": "Mostrar aniversários e datas comemorativas",
   "memorySurfaces.birthdays.hint":

@@ -1,7 +1,6 @@
 import { mkdtempSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { SqliteChannelStore } from "@psyche/channels";
 import { type ConnectorRecord, SqliteConnectorStore } from "@psyche/connectors";
 import {
   getDevice,
@@ -16,7 +15,7 @@ import {
 import { EverythingStore } from "@psyche/memory";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { SecurityRecoveries } from "../src/security/recoveries.ts";
-import { sealedChannelStore, sealedConnectorStore } from "../src/security/sealed-stores.ts";
+import { sealedConnectorStore } from "../src/security/sealed-stores.ts";
 import { restoreMarkerMac, SEAL_KEY_FILE, StateSeal } from "../src/security/state-seal.ts";
 import {
   TestClient as Client,
@@ -32,8 +31,8 @@ import {
 /**
  * The final verification of the seal (PR #1270): the reviewer's probes as regression tests. H1: a
  * Gateway write over a row nobody vouches for never becomes "verified"; H2 and M1: a restore is
- * the new baseline, and its marker vouches for one database, once; M2: narrowed channels are never
- * written back; M3: no spurious abort under repeated tampering; L1-L4.
+ * the new baseline, and its marker vouches for one database, once; M3: no spurious abort under
+ * repeated tampering; L1-L4. (M2, narrowed chat channels, went with the channels on 2026-11-25.)
  */
 
 let home = "";
@@ -309,49 +308,6 @@ describe("H2 and M1: a verified restore", () => {
     writeFileSync(join(home, "security", "restored.json"), JSON.stringify(marker));
     const { seal: s3 } = await restart({ restored: true });
     expect(s3.status()).toEqual({ status: "untrusted", reason: "restore_unverified" });
-  });
-});
-
-describe("M2: a narrowed channel is never written back", () => {
-  it("a status save keeps the stored allowlists; other edits wait; the reader narrows", async () => {
-    const d = db();
-    const seal = await StateSeal.open(d, { home });
-    const store = sealedChannelStore(new SqliteChannelStore(d), seal, () => seal.ensure());
-    const channel = (id: string, account: string, allowFrom: string[]) => ({
-      id,
-      type: "telegram" as const,
-      account,
-      dmPolicy: "allowlist" as const,
-      allowFrom,
-      groupAllowFrom: [],
-      requireMention: true,
-      ownerIds: [],
-      dmScope: "per-channel-peer" as const,
-      nodeId: null,
-      status: "active" as const,
-      config: {},
-      createdAt: d.now(),
-      updatedAt: d.now(),
-    });
-    await store.saveChannel(channel("mine", "bot1", ["owner"]) as never);
-    forgeSeal();
-    seal.ensure();
-    expect(seal.status().status).toBe("untrusted");
-    const planted = channel("evil", "bot2", ["+15550000"]);
-    await foreign((f) => new SqliteChannelStore(f).saveChannel(planted as never));
-    const listed = await store.listChannels();
-    expect(listed.find((c) => c.id === "mine")?.allowFrom).toEqual(["owner"]);
-    const evil = listed.find((c) => c.id === "evil");
-    expect(evil).toMatchObject({ dmPolicy: "disabled", allowFrom: [], ownerIds: [] });
-    // What ChannelService.#setStatus does with its cached (narrowed) copy.
-    await store.saveChannel({ ...evil, status: "error", updatedAt: d.now() } as never);
-    const raw = d.sqlite
-      .prepare("SELECT allow_from, dm_policy, status FROM channels WHERE id = 'evil'")
-      .get() as { allow_from: string; dm_policy: string; status: string };
-    expect(raw).toEqual({ allow_from: '["+15550000"]', dm_policy: "allowlist", status: "error" });
-    await expect(
-      store.saveChannel({ ...evil, allowFrom: ["someone"] } as never),
-    ).rejects.toMatchObject({ code: "unavailable" });
   });
 });
 
