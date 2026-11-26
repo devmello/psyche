@@ -1,6 +1,7 @@
 import type { Catalogue } from "../index.ts";
 import { actionErrors } from "./action-errors/hi.ts";
 import { agentRest } from "./agent-rest/hi.ts";
+import { appleE1 } from "./apple-e1/hi.ts";
 import { appleE2 } from "./apple-e2/hi.ts";
 import { approvalsW3 } from "./approvals-w3/hi.ts";
 import { auditRest } from "./audit-rest/hi.ts";
@@ -3734,12 +3735,12 @@ export const hi: Partial<Catalogue> = {
   "web.toast.sideChatFailed": "Psyche साइड चैट नहीं बना सका।",
   "web.toast.permissionModeUnsupported": "अनुमति मोड बदलने के लिए Psyche का नया संस्करण चाहिए।",
   "web.toast.modelUnsupported": "मॉडल चुनने के लिए Psyche का नया संस्करण चाहिए।",
-  "web.palette.newSideChat": "नई साइड चैट",
-  "web.palette.newIncognito": "नई इनकॉग्निटो चैट (केवल मेमोरी में, 24 घंटे)",
-  "web.palette.openBrowser": "ब्राउज़र पेन खोलें",
-  "web.palette.openTerminal": "टर्मिनल पेन खोलें",
-  "web.palette.openTasks": "टास्क पेन खोलें",
-  "web.palette.openFiles": "फ़ाइल पेन खोलें",
+  "web.palette.newSideChat": "नई चैट",
+  "web.palette.newIncognito": "नई निजी चैट",
+  "web.palette.openBrowser": "ब्राउज़र खोलें",
+  "web.palette.openTerminal": "टर्मिनल खोलें",
+  "web.palette.openTasks": "कार्य दिखाएँ",
+  "web.palette.openFiles": "फ़ाइलें दिखाएँ",
   "web.palette.switchMode": "अनुमति मोड बदलें",
   "web.threads.sideChat": "साइड चैट",
   "web.shell.skipToContent": "सामग्री पर जाएँ",
@@ -3895,6 +3896,7 @@ export const hi: Partial<Catalogue> = {
   // Fork a plan (docs/design/fork-a-plan-2026.md §9)
   ...planFork,
   ...desktopSimple,
+  ...appleE1,
   // Gateway-authored notices (inbox notifications, security alerts)
   ...notices,
   // Settings > Computer use > Separate desktop (Linux)

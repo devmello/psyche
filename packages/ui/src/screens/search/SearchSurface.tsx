@@ -6,7 +6,7 @@ import {
   SearchSourceId,
   type SearchUnderstood,
 } from "@psyche/protocol";
-import { ChevronDown, CornerDownLeft, Search, ShieldQuestion, X, Zap } from "lucide-react";
+import { ChevronDown, CornerDownLeft, Search, ShieldQuestion, X } from "lucide-react";
 import {
   type KeyboardEvent,
   type ReactElement,
@@ -34,10 +34,12 @@ import { EntityMonogram } from "../../people/glyphs.tsx";
 import { useEntitySearch } from "../../people/hooks.ts";
 import type { EntitySummary } from "../../people/types.ts";
 import type { PaletteAction } from "../../shell/CommandPalette.tsx";
+import { paletteIcon } from "../../shell/palette-icons.ts";
 import { paletteMatches } from "../../shell/palette-match.ts";
 import { isMac } from "../../shell/shortcuts.ts";
 import { LifeAnswerCard, type LifeAnswerState } from "./LifeAnswerCard.tsx";
 import { useLifeAnswer } from "./life-answer.ts";
+import { rememberHit } from "./recent-hits.ts";
 import { SourceViewer } from "./SourceViewer.tsx";
 import { Highlight, highlightTerms, SCOPE_ICON } from "./search-parts.tsx";
 import {
@@ -68,7 +70,7 @@ export type SurfaceItem =
   | { kind: "fact"; key: string; fact: LifeFactHit };
 
 export interface SurfaceGroup {
-  id: SearchScope | "actions" | "people" | "projects" | "life";
+  id: SearchScope | "actions" | "people" | "projects" | "life" | "recent";
   label: string;
   items: SurfaceItem[];
 }
@@ -156,6 +158,7 @@ export function surfaceGroups(
   text: string,
   entities: readonly EntitySummary[] = [],
   lifeFacts: readonly LifeFactHit[] = [],
+  recents: readonly SearchHit[] = [],
 ): SurfaceGroup[] {
   const entityGroup = (id: "people" | "projects", label: string, rows: EntitySummary[]) => ({
     id,
@@ -182,6 +185,15 @@ export function surfaceGroups(
       id: "actions",
       label: t("shell.palette.actions"),
       items: matching.map((action) => ({ kind: "action", key: `action:${action.id}`, action })),
+    });
+  // What the owner opened last, under the places, for an empty field (Spotlight's recents).
+  if (recents.length > 0)
+    groups.push({
+      id: "recent",
+      label: t("shell.palette.recent"),
+      items: recents.map(
+        (hit): SurfaceItem => ({ kind: "hit", key: `recent:${hit.scope}:${hit.id}`, hit }),
+      ),
     });
   groups.push(...[people, projects].filter((g) => g.items.length > 0));
   // Cited facts from Everything memory (§12.4): what was said, with its words, under the people.
@@ -286,6 +298,8 @@ export interface SearchSurfaceProps {
   entities?: readonly EntitySummary[];
   /** Cited facts matching the query (`memory.life.search`), after people and projects. */
   lifeFacts?: readonly LifeFactHit[];
+  /** Results the owner opened before, listed above the commands while the palette's field is empty. */
+  recents?: readonly SearchHit[];
   /** The answer card for the query (`memory.life.answer`); absent = not offered. */
   lifeAnswer?: LifeAnswerState;
   onOpenEntity?: (entity: EntitySummary) => void;
@@ -317,6 +331,7 @@ export function SearchSurface({
   autoFocus = false,
   entities = [],
   lifeFacts = [],
+  recents = [],
   lifeAnswer,
   onOpenEntity,
   renderEntityPreview,
@@ -347,8 +362,20 @@ export function SearchSurface({
         parsed.text,
         searching ? entities : [],
         searching ? lifeFacts : [],
+        palette && blank ? recents : [],
       ),
-    [searching, hits, palette, shortList, actions, parsed.text, entities, lifeFacts],
+    [
+      searching,
+      hits,
+      palette,
+      shortList,
+      actions,
+      parsed.text,
+      entities,
+      lifeFacts,
+      recents,
+      blank,
+    ],
   );
   const flat = useMemo(() => groups.flatMap((g) => g.items), [groups]);
   // Each keystroke (or a new result set) puts the selection back on the first row, which is the
@@ -403,7 +430,10 @@ export function SearchSurface({
       if (!sideChatBlocked(item.hit)) onOpenInSideChat(item.hit);
     } else if (isSourceHit(item.hit)) {
       if (!preview) setViewing(item.hit.id);
-    } else onOpen?.(item.hit);
+    } else {
+      if (palette) rememberHit(item.hit);
+      onOpen?.(item.hit);
+    }
   };
   const onKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "ArrowDown" || e.key === "ArrowUp") {
@@ -869,13 +899,14 @@ function SurfaceRow({
     );
   }
   if (item.kind === "action") {
+    const ActionIcon = item.action.icon ?? paletteIcon(item.action.id);
     return (
       <>
         <span
           aria-hidden="true"
           className="flex size-6 shrink-0 items-center justify-center rounded-sm bg-fill-tertiary text-label-secondary"
         >
-          <Zap className="size-3.5" strokeWidth={1.75} />
+          <ActionIcon className="size-3.5" strokeWidth={1.75} />
         </span>
         <span
           className={cn(

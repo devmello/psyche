@@ -1,6 +1,7 @@
 import { actionErrors } from "./action-errors.ts";
 import { agent } from "./agent.ts";
 import { agentNotes } from "./agent-notes.ts";
+import { appleE1 } from "./apple-e1.ts";
 import { approvals } from "./approvals.ts";
 import { audit } from "./audit.ts";
 import { automationChat } from "./automation-chat.ts";
@@ -148,6 +149,7 @@ export const en = {
   ...approvals,
   ...planFork,
   ...desktopSimple,
+  ...appleE1,
   ...notices,
   ...separateDesktop,
   ...keepAwake,

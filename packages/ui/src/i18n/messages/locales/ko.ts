@@ -1,6 +1,7 @@
 import type { Catalogue } from "../index.ts";
 import { actionErrors } from "./action-errors/ko.ts";
 import { agentRest } from "./agent-rest/ko.ts";
+import { appleE1 } from "./apple-e1/ko.ts";
 import { appleE2 } from "./apple-e2/ko.ts";
 import { approvalsW3 } from "./approvals-w3/ko.ts";
 import { auditRest } from "./audit-rest/ko.ts";
@@ -3727,12 +3728,12 @@ export const ko: Partial<Catalogue> = {
   "web.toast.permissionModeUnsupported":
     "권한 모드를 변경하려면 더 새로운 버전의 Psyche가 필요합니다.",
   "web.toast.modelUnsupported": "모델을 선택하려면 더 새로운 버전의 Psyche가 필요합니다.",
-  "web.palette.newSideChat": "새 사이드 채팅",
-  "web.palette.newIncognito": "새 시크릿 채팅 (메모리에만 보관, 24시간)",
-  "web.palette.openBrowser": "브라우저 패널 열기",
-  "web.palette.openTerminal": "터미널 패널 열기",
-  "web.palette.openTasks": "작업 패널 열기",
-  "web.palette.openFiles": "파일 패널 열기",
+  "web.palette.newSideChat": "새 채팅",
+  "web.palette.newIncognito": "새 비공개 채팅",
+  "web.palette.openBrowser": "브라우저 열기",
+  "web.palette.openTerminal": "터미널 열기",
+  "web.palette.openTasks": "작업 보기",
+  "web.palette.openFiles": "파일 보기",
   "web.palette.switchMode": "권한 모드 전환",
   "web.threads.sideChat": "사이드 채팅",
   "web.shell.skipToContent": "콘텐츠로 건너뛰기",
@@ -3890,6 +3891,7 @@ export const ko: Partial<Catalogue> = {
   // Fork a plan (docs/design/fork-a-plan-2026.md §9)
   ...planFork,
   ...desktopSimple,
+  ...appleE1,
   // Gateway-authored notices (inbox notifications, security alerts)
   ...notices,
   // Settings > Computer use > Separate desktop (Linux)
