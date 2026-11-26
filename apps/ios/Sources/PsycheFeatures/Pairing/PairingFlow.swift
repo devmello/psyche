@@ -6,7 +6,7 @@ import SwiftUI
 import UIKit
 #endif
 
-/// The pairing screens: scan the code from Settings → Server & remote access → Pair another computer on the Mac. A
+/// The pairing screens: scan the code from Settings → Devices & server → Pair another computer on the Mac. A
 /// valid code pairs at once; the Mac is asked to approve this phone only when it did not accept the code.
 struct PairingFlow: View {
     @Environment(Session.self) private var session
@@ -123,7 +123,7 @@ private struct ScannerView: View {
                 Text(error).font(.footnote).foregroundStyle(PsycheColor.red)
             }
             VStack(alignment: .leading, spacing: 12) {
-                Text("On your Mac, open Settings → Server & remote access → Pair another computer. Then scan the code it shows.", bundle: .module)
+                Text("On your Mac, open Settings → Devices & server → Pair another computer. Then scan the code it shows.", bundle: .module)
                     .font(.footnote).foregroundStyle(PsycheColor.muted)
                 DisclosureGroup {
                     Text("If it says there is no address yet, turn on Allow computers on this network and choose From this network.", bundle: .module)
@@ -297,7 +297,7 @@ private struct PendingView: View {
             VStack(alignment: .leading, spacing: 8) {
                 Text("Approve this iPhone on your Mac", bundle: .module).psycheTitle(.title)
                     .foregroundStyle(PsycheColor.text)
-                Text("Your Mac should ask you to approve this phone. Check that the security code matches. If it doesn't ask, open Settings → Server & remote access → Pair another computer on your Mac and scan a new code.", bundle: .module)
+                Text("Your Mac should ask you to approve this phone. Check that the security code matches. If it doesn't ask, open Settings → Devices & server → Pair another computer on your Mac and scan a new code.", bundle: .module)
                     .font(.subheadline).foregroundStyle(PsycheColor.muted)
             }
             PaperCard(padding: 18, radius: 16) {

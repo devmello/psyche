@@ -2202,73 +2202,73 @@
         }
       }
     },
-    "That isn't a Psyche pairing code. Open Settings → Server & remote access → Pair another computer on your Mac.": {
+    "That isn't a Psyche pairing code. Open Settings → Devices & server → Pair another computer on your Mac.": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "That isn't a Psyche pairing code. Open Settings → Server & remote access → Pair another computer on your Mac."
+            "value": "That isn't a Psyche pairing code. Open Settings → Devices & server → Pair another computer on your Mac."
           }
         },
         "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "هذا ليس رمز اقتران Psyche. افتح الإعدادات ← الخادم والوصول عن بُعد ← اقترن بجهاز كمبيوتر آخر على جهاز Mac."
+            "value": "هذا ليس رمز اقتران Psyche. افتح الإعدادات ← الأجهزة والخادم ← اقترن بجهاز كمبيوتر آخر على جهاز Mac."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Das ist kein Psyche-Kopplungscode. Öffne auf deinem Mac Einstellungen → Server und Fernzugriff → Anderen Computer koppeln."
+            "value": "Das ist kein Psyche-Kopplungscode. Öffne auf deinem Mac Einstellungen → Geräte & Server → Anderen Computer koppeln."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ese no es un código de emparejamiento de Psyche. Abre Ajustes → Servidor y acceso remoto → Emparejar otro ordenador en tu Mac."
+            "value": "Ese no es un código de emparejamiento de Psyche. Abre Ajustes → Dispositivos y servidor → Emparejar otro ordenador en tu Mac."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ce n’est pas un code d’association Psyche. Ouvrez Réglages → Serveur et accès à distance → Associer un autre ordinateur sur votre Mac."
+            "value": "Ce n’est pas un code d’association Psyche. Ouvrez Réglages → Appareils et serveur → Associer un autre ordinateur sur votre Mac."
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "यह Psyche पेयरिंग कोड नहीं है। अपने Mac पर सेटिंग्स → Server & remote access → Pair another computer खोलें।"
+            "value": "यह Psyche पेयरिंग कोड नहीं है। अपने Mac पर सेटिंग्स → डिवाइस और सर्वर → Pair another computer खोलें।"
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "Non è un codice di abbinamento di Psyche. Apri Impostazioni → Server e accesso remoto → Abbina un altro computer sul Mac."
+            "value": "Non è un codice di abbinamento di Psyche. Apri Impostazioni → Dispositivi e server → Abbina un altro computer sul Mac."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "Psyche のペアリングコードではありません。Mac の「設定」→「サーバーとリモートアクセス」→「別のコンピュータとペアリング」を開いてください。"
+            "value": "Psyche のペアリングコードではありません。Mac の「設定」→「デバイスとサーバー」→「別のコンピュータとペアリング」を開いてください。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "Psyche 페어링 코드가 아닙니다. Mac에서 설정 → 서버 및 원격 액세스 → 다른 컴퓨터 페어링을 여세요."
+            "value": "Psyche 페어링 코드가 아닙니다. Mac에서 설정 → 기기 및 서버 → 다른 컴퓨터 페어링을 여세요."
           }
         },
         "pt": {
           "stringUnit": {
             "state": "translated",
-            "value": "Esse não é um código de pareamento do Psyche. Abra Ajustes → Servidor e acesso remoto → Parear outro computador no seu Mac."
+            "value": "Esse não é um código de pareamento do Psyche. Abra Ajustes → Dispositivos e servidor → Parear outro computador no seu Mac."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "这不是 Psyche 配对码。请在 Mac 上打开“设置”→“服务器与远程访问”→“配对其他电脑”。"
+            "value": "这不是 Psyche 配对码。请在 Mac 上打开“设置”→“设备与服务器”→“配对其他电脑”。"
           }
         }
       }

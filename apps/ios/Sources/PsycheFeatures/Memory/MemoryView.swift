@@ -261,7 +261,7 @@ struct MemoryView: View {
             Button { model.toggle(todo) } label: { CircleCheck(done: done).frame(width: 44, height: 44).contentShape(Rectangle()) }
                 .buttonStyle(.plain)
                 .padding(.leading, -10)
-                .accessibilityLabel(done ? "Mark \(todo.title) not done" : "Mark \(todo.title) done")
+                .accessibilityLabel(done ? String(localized: "Mark \(todo.title) not done", bundle: .module) : String(localized: "Mark \(todo.title) done", bundle: .module))
             VStack(alignment: .leading, spacing: 2) {
                 Text(todo.title)
                     .font(.body)
@@ -282,7 +282,7 @@ struct MemoryView: View {
         .id(todo.id)
         .swipeActions(edge: .leading, allowsFullSwipe: true) {
             Button { model.toggle(todo) } label: {
-                Label(done ? "Open" : "Done", systemImage: done ? "arrow.uturn.backward" : "checkmark")
+                Label(done ? String(localized: "Open", bundle: .module) : String(localized: "Done", bundle: .module), systemImage: done ? "arrow.uturn.backward" : "checkmark")
             }
             .tint(PsycheColor.ink)
         }

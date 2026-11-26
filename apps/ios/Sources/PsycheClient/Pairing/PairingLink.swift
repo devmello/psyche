@@ -52,7 +52,7 @@ public struct PairingLink: Equatable, Sendable {
 
         public var errorDescription: String? {
             switch self {
-            case .notAPairingLink: String(localized: "That isn't a Psyche pairing code. Open Settings → Server & remote access → Pair another computer on your Mac.", bundle: .module)
+            case .notAPairingLink: String(localized: "That isn't a Psyche pairing code. Open Settings → Devices & server → Pair another computer on your Mac.", bundle: .module)
             case .unsupportedVersion: String(localized: "That pairing code is from a newer Psyche. Update this app, or make a new code on your Mac.", bundle: .module)
             case .damaged: String(localized: "That pairing code is damaged. Make a new one on your Mac.", bundle: .module)
             case .extraField, .badField: String(localized: "That pairing code isn't valid. Make a new one on your Mac.", bundle: .module)

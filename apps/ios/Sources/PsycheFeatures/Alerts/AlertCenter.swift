@@ -271,11 +271,11 @@ public final class AlertCenter {
                 if live { self.requestSync() }
             }
         }
+        // Subscribed here, synchronously: what happens while the first read is in flight (a reply started right
+        // at launch, a settings change) must not be lost, and must not depend on when the task below first runs.
+        let events = store.events()
         observer = Task { [weak self] in
             guard let self else { return }
-            // Subscribed first: what happens while the first read is in flight (a reply started right at launch)
-            // must not be lost.
-            let events = self.store.events()
             await self.loadSettings()
             await self.sync(.baseline)
             await self.reconcileChatTurns()

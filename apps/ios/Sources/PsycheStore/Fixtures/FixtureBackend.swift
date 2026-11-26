@@ -38,7 +38,8 @@ public actor FixtureBackend {
     public func hideSearchHits(_ hidden: Bool) { searchHitsHidden = hidden }
 
     private let latency: Duration
-    private var subscribers: [UUID: AsyncStream<LiveEvent>.Continuation] = [:]
+    /// Registered synchronously in `events()`, so an event published right after `events()` returns is never missed.
+    private nonisolated let subscribers = LiveSubscribers()
 
     public init(latency: Duration = .zero) {
         self.latency = latency
@@ -50,15 +51,30 @@ public actor FixtureBackend {
     }
 
     func publish(_ event: LiveEvent) {
-        for continuation in subscribers.values { continuation.yield(event) }
+        subscribers.yield(event)
+    }
+}
+
+/// The fixture's live-event subscribers. A lock, not the actor, guards them so that subscribing is immediate.
+final class LiveSubscribers: @unchecked Sendable {
+    private let lock = NSLock()
+    private var continuations: [UUID: AsyncStream<LiveEvent>.Continuation] = [:]
+
+    func add(_ id: UUID, _ continuation: AsyncStream<LiveEvent>.Continuation) {
+        lock.lock(); defer { lock.unlock() }
+        continuations[id] = continuation
     }
 
-    private func subscribe(_ id: UUID, _ continuation: AsyncStream<LiveEvent>.Continuation) {
-        subscribers[id] = continuation
+    func remove(_ id: UUID) {
+        lock.lock(); defer { lock.unlock() }
+        continuations[id] = nil
     }
 
-    private func unsubscribe(_ id: UUID) {
-        subscribers[id] = nil
+    func yield(_ event: LiveEvent) {
+        lock.lock()
+        let all = Array(continuations.values)
+        lock.unlock()
+        for continuation in all { continuation.yield(event) }
     }
 }
 
@@ -66,8 +82,9 @@ extension FixtureBackend: LiveUpdates {
     public nonisolated func events() -> AsyncStream<LiveEvent> {
         let (stream, continuation) = AsyncStream<LiveEvent>.makeStream(bufferingPolicy: .bufferingNewest(256))
         let id = UUID()
-        continuation.onTermination = { _ in Task { await self.unsubscribe(id) } }
-        Task { await self.subscribe(id, continuation) }
+        let subscribers = subscribers
+        continuation.onTermination = { _ in subscribers.remove(id) }
+        subscribers.add(id, continuation)
         return stream
     }
 }
