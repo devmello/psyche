@@ -1601,7 +1601,7 @@ export const settings = {
   "settings.learning.forgetAll": "Forget everything {persona} learned",
   "settings.learning.forgetAllTitle": "Forget everything {persona} learned from you?",
   "settings.learning.forgetAllBody":
-    "Its notes, Personality and skills go back to what you wrote. Type “{phrase}” to confirm.",
+    'Its notes, Personality and skills go back to what you wrote. Type "{phrase}" to confirm.',
   "settings.learning.forgetPhrase": "forget",
   "settings.learning.forgetAllGo": "Forget everything",
   "settings.learning.forgotAll":
