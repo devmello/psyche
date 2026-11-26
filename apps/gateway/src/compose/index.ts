@@ -21,6 +21,7 @@ import type { ConnectorRegistry } from "@psyche/connectors";
 import {
   countActivePasskeys,
   getDevice,
+  getDeviceFamily,
   getSetting,
   getThread,
   listDevices,
@@ -228,7 +229,7 @@ import {
 import { machineChangeHook } from "./machine-notices.ts";
 import { composeMailFollowups } from "./mail-followups.ts";
 import type { ComposedMcp } from "./mcp.ts";
-import { mountMemoryHandlers } from "./memory-chunks.ts";
+import { gateMemoryEntities, mountMemoryHandlers } from "./memory-chunks.ts";
 import { memoryStoreStatus, resolveMemoryStore, setMemoryEncrypted } from "./memory-db.ts";
 import { withMemoryEntityContext } from "./memory-item-context.ts";
 import {
@@ -2943,6 +2944,18 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     }),
   };
   for (const part of parts) Object.assign(handlers, part.handlers ?? {});
+  // People and projects are Memory: every memory.entities.* method is the desktop app, the Host CLI
+  // and the owner's paired write-scope devices; never the web shell or a read-only device.
+  gateMemoryEntities(handlers, (id) => {
+    const d = getDevice(db, id);
+    if (d === undefined) return undefined;
+    return {
+      platform: d.platform,
+      family: getDeviceFamily(db, id),
+      paired: d.pairedAt != null,
+      revoked: d.revokedAt != null,
+    };
+  });
   // "Erase all memory" and "forget everything learned" also erase the safety copies of the data
   // that sit in backups/pre-update: they hold what the owner just asked to be gone.
   for (const name of PURGES_SNAPSHOTS) {
