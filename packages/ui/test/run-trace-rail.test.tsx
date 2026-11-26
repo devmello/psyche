@@ -27,7 +27,7 @@ describe("glyphState", () => {
 describe("StepRow on the rail (run trace)", () => {
   const T0 = NOW - 20_000;
 
-  it("shows current, done and waiting rows with their marker, tag and time", () => {
+  it("shows current, done and waiting rows with their marker and time", () => {
     render(
       <ul>
         <StepRow status="done" label="Read the notes" startedAt={T0} endedAt={T0 + 3_000} connect />
@@ -52,9 +52,12 @@ describe("StepRow on the rail (run trace)", () => {
     expect(within(done).queryByTestId("rail-halo")).toBeNull();
     expect(within(current).getByTestId("rail-halo")).toBeTruthy();
     expect(within(current).getByText("0:17")).toBeTruthy();
-    expect(within(waiting).getByText("Needs you")).toBeTruthy();
+    // One amber dot on the step, no "Needs you" chip and no amber row: the approval card is the
+    // one announcement.
+    expect(within(waiting).queryByText("Needs you")).toBeNull();
     expect(within(waiting).getByText("0:07")).toBeTruthy();
-    expect(waiting.className).toContain("bg-approval-surface");
+    expect(waiting.className).not.toContain("bg-approval-surface");
+    expect(waiting.querySelector('[data-state="waiting"], [data-rail="waiting"]')).not.toBeNull();
     expect(current.className).not.toContain("bg-approval-surface");
   });
 

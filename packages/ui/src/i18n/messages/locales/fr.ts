@@ -12,6 +12,7 @@ import { computerWatch } from "./computer-watch/fr.ts";
 import { dailyRest } from "./daily-rest/fr.ts";
 import { deckRest } from "./deck-rest/fr.ts";
 import { designRest } from "./design-rest/fr.ts";
+import { desktopSimple } from "./desktop-simple/fr.ts";
 import { everythingRest } from "./everything-rest/fr.ts";
 import { final202611 } from "./final-2026-11/fr.ts";
 import { friction } from "./friction/fr.ts";
@@ -403,8 +404,6 @@ export const fr: Partial<Catalogue> = {
     "Chargement {what, select, approval {de l’approbation} question {de la question} receipt {du reçu} artifact {de l’artefact} file {du fichier} task {de la tâche} plan {du plan} other {de l’élément}}",
   "blocks.message.missing":
     "Psyche n’a pas pu charger {what, select, approval {cette approbation} question {cette question} receipt {ce reçu} artifact {cet artefact} file {ce fichier} task {cette tâche} plan {ce plan} other {cet élément}}.",
-  "blocks.message.waitingApproval": "En attente de votre approbation",
-  "blocks.message.reviewApproval": "Examiner l’approbation : {summary}",
   "blocks.details.none": "aucun",
   "blocks.details.argumentsList": "Arguments : {args}",
   "blocks.details.command": "Commande",
@@ -679,9 +678,9 @@ export const fr: Partial<Catalogue> = {
     "Saisissez un nombre entier de {min, number} à {max, number} (la fenêtre du modèle).",
   "context.limits.errorMin": "Saisissez un nombre entier d’au moins {min, number}.",
 
-  "agent.mode.manual": "manuel",
-  "agent.mode.balanced": "équilibré",
-  "agent.mode.auto": "auto",
+  "agent.mode.manual": "Manuel",
+  "agent.mode.balanced": "Équilibré",
+  "agent.mode.auto": "Auto",
   "agent.mode.full": "Accès complet",
   "chat.commands.full.hint": "on | off",
   "chat.commands.full.description": "Activer ou désactiver l'accès complet dans cette discussion",
@@ -696,7 +695,7 @@ export const fr: Partial<Catalogue> = {
   "chat.fullAccess.banner":
     "Accès complet : Psyche agit sans demander, sauf pour les envois et les paiements.",
   "chat.fullAccess.turnOff": "Désactiver",
-  "agent.mode.plan": "plan",
+  "agent.mode.plan": "Plan",
   "agent.state.idle": "inactif",
   "agent.state.working": "au travail",
   "agent.state.needsYou": "a besoin de vous",
@@ -714,11 +713,7 @@ export const fr: Partial<Catalogue> = {
   "agent.header.stateLead": "{state} :",
   "agent.header.running": "{n, number} en cours",
   "agent.header.needYou": "{n, plural, one {# a besoin de vous} other {# ont besoin de vous}}",
-  "agent.header.modeLabel": "Mode d’autorisation : {mode}",
-  "agent.header.modeLead": "Mode d’autorisation :",
   "agent.header.modelLabel": "Modèle : {model}",
-  "agent.header.modelLead": "Modèle :",
-  "agent.header.notifications": "Notifications, {n, number} non lues",
   "agent.header.menuSheet": "Approbations et mémoire",
   "agent.header.changeModel": "Changer de modèle…",
   "agent.header.exportMarkdown": "Exporter en Markdown",
@@ -1040,17 +1035,11 @@ export const fr: Partial<Catalogue> = {
   "shell.sidebar.full": "Barre latérale complète",
   "shell.sidebar.compact": "Barre latérale compacte",
   "shell.sidebar.hidden": "Masquée",
-  "shell.sidebar.filterToggle": "Filtrer",
   "shell.sidebar.forkedFrom": "Une discussion annexe issue de {parent}",
   "shell.search.results": "Résultats",
   "shell.search.preview": "Aperçu",
-  "shell.search.hintOpen": "ouvrir",
   "shell.search.hintSideChat": "ouvrir dans une discussion annexe",
-  "shell.search.hintFilter": "filtrer",
   "shell.search.keyCtrlEnter": "Ctrl ↵",
-  "shell.search.keyTab": "Tab",
-  "shell.search.actionHint": "Exécute cette commande.",
-  "shell.search.run": "Exécuter",
   "shell.search.open": "Ouvrir",
   "shell.search.openInSideChat": "Ouvrir dans une discussion annexe",
   "shell.compact.threads": "Discussions",
@@ -2954,7 +2943,6 @@ export const fr: Partial<Catalogue> = {
   "onboarding.agent.taglinePlaceholder": "Ailes discrètes, mains soigneuses.",
   "onboarding.agent.preview": "Aperçu",
   "onboarding.language.label": "Langue",
-  "onboarding.language.hint": "Vous pourrez la changer plus tard dans Réglages → Apparence.",
   "onboarding.permission.why.notifications":
     "Permet à Psyche de demander des approbations quand cette fenêtre est fermée.",
   "onboarding.permission.deniedHint":
@@ -3426,9 +3414,6 @@ export const fr: Partial<Catalogue> = {
   "screens.library.noMatch": "Aucun fichier ne correspond à ces filtres.",
   "screens.library.askToMake": "Demander à {name} d’en créer un",
   "screens.library.title": "Bibliothèque",
-  "screens.library.meta.count": "{section} · {n, plural, one {# fichier} other {# fichiers}}",
-  "screens.library.description":
-    "Fichiers que {name} a créés ou reçus, chacun lié à la tâche qui l’a produit.",
   "screens.library.layout": "Disposition",
   "screens.library.grid": "Grille",
   "screens.library.list": "Liste",
@@ -3444,8 +3429,6 @@ export const fr: Partial<Catalogue> = {
   "screens.library.col.actions": "Actions",
   "screens.library.typeFilter": "Type",
   "screens.library.allTypes": "Tous les types",
-  "screens.library.sourceTask": "Tâche source",
-  "screens.library.anyTask": "Toute tâche",
   "screens.library.dateFilter": "Date",
   "screens.library.reset": "Réinitialiser",
   "screens.library.trusted": "{name} est maintenant fiable.",
@@ -4099,6 +4082,7 @@ export const fr: Partial<Catalogue> = {
   ...points,
   // Approvals wave W3 (card choices, Allowed list)
   ...approvalsW3,
+  ...desktopSimple,
   // Gateway-authored notices (inbox notifications, security alerts)
   ...notices,
   // Settings > Computer use > Separate desktop (Linux)

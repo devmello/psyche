@@ -22,25 +22,21 @@ export const DEFAULT_NAME = "Psyche";
 const MORE_FIELDS = ["timeZone", "work", "city"] as const;
 
 /**
- * The language, first thing in onboarding (A12, #621): written to `ui.language` at once, so the
- * rest of the flow already reads in it (AppearanceProvider remounts the app on a change).
+ * The language, a quiet footer row on step 1 (A12, #621): written to `ui.language` at once, so
+ * the rest of the flow already reads in it (AppearanceProvider remounts the app on a change).
  */
 function OnboardingLanguage(): ReactElement {
   const id = useId();
   const { settings, set } = useSettings();
   return (
-    <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
-      <div className="flex min-w-0 flex-col">
-        <Label htmlFor={`${id}-language`}>{t("onboarding.language.label")}</Label>
-        <span id={`${id}-language-hint`} className="text-callout text-label-secondary">
-          {t("onboarding.language.hint")}
-        </span>
-      </div>
+    <div className="flex items-center justify-end gap-2 border-t border-separator pt-4">
+      <Label htmlFor={`${id}-language`} className="text-callout font-normal text-label-secondary">
+        {t("onboarding.language.label")}
+      </Label>
       <LanguageSelect
         id={`${id}-language`}
-        className="min-w-48"
+        className="min-w-40"
         value={settings[LANGUAGE_SETTING]}
-        describedBy={`${id}-language-hint`}
         onChange={(language) =>
           void set(LANGUAGE_SETTING, language).catch((err: unknown) =>
             toast.error(t("actionError.language", { reason: describeError(err) })),
@@ -204,7 +200,6 @@ export function YouStep({
   return (
     <div className="flex flex-col gap-6" data-testid="onboarding-you">
       <p className="text-reading text-label-secondary">{t("onboarding.you.lead")}</p>
-      <OnboardingLanguage />
       <div className="flex flex-col gap-1.5">
         <Label htmlFor={`${id}-name`}>{t("onboarding.about.name")}</Label>
         <Input
@@ -243,6 +238,7 @@ export function YouStep({
           </div>
         </Advanced>
       )}
+      <OnboardingLanguage />
     </div>
   );
 }

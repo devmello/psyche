@@ -39,7 +39,13 @@ export function EntityRows({
   return (
     <div className="flex flex-col p-1">
       {entities.map((e) => (
-        <EntityRow key={e.id} entity={e} now={now} onOpen={(x) => onNavigate(entityHref(x.id))} />
+        <EntityRow
+          key={e.id}
+          entity={e}
+          now={now}
+          brief
+          onOpen={(x) => onNavigate(entityHref(x.id))}
+        />
       ))}
     </div>
   );
@@ -146,16 +152,21 @@ export function ProjectsTab({
   now,
   onNavigate,
   startAdding = false,
+  query = "",
 }: {
   now: number;
   onNavigate: (to: string) => void;
   /** Opens with the add form showing (`/memory?kind=projects&add=1`, ⌘K's "Add project"). */
   startAdding?: boolean;
+  /** The toolbar's search, lower-cased: narrows the rows by name. */
+  query?: string;
 }): ReactElement {
   const [status, setStatus] = useState<GraphProjectStatus>("active");
   const [adding, setAdding] = useState(startAdding);
   const { projects, loading, error, reload } = useProjects();
-  const rows = projects.filter((e) => (e.projectStatus ?? "active") === status);
+  const rows = projects.filter(
+    (e) => (e.projectStatus ?? "active") === status && e.name.toLowerCase().includes(query),
+  );
   return (
     <section
       aria-label={t("memory.page.kind.projects")}

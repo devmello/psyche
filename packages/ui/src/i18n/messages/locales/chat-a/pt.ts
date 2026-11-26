@@ -142,7 +142,6 @@ export const chatA: Partial<Catalogue> = {
   "chat.steps.answered": "Respondido: {question}",
   "chat.steps.earlier":
     "{n, plural, one {# passo anterior concluído} other {# passos anteriores concluídos}}",
-  "chat.steps.needsYou": "Precisa de você",
   "chat.steps.writing": "Escrevendo a resposta…",
   "chat.steps.thinking": "Pensando: {text}",
   "chat.steps.thinkingEmpty": "Pensando…",
@@ -171,7 +170,6 @@ export const chatA: Partial<Catalogue> = {
   "chat.steps.moreAtOnce": "+{n, number} mais",
   "chat.steps.helper": "Auxiliar · {n, plural, one {# etapa} other {# etapas}} · {duration}",
   "chat.steps.helperLive": "Auxiliar",
-  "chat.steps.reviewApproval": "Revisar a aprovação",
   "chat.steps.reviewQuestion": "Ir para a pergunta",
   "chat.steps.frame": "Ver o que {name} viu",
   "chat.steps.timeline": "Linha do tempo",

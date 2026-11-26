@@ -156,7 +156,7 @@ describe("transcript (redesign-2026 §5.2, motion.md §4.6)", () => {
 });
 
 describe("toolbar (redesign-2026 §4, §5.2)", () => {
-  it("is a labelled toolbar with a 28 px avatar, the pill group and the view level in ⋯", async () => {
+  it("is a labelled toolbar with a 28 px avatar, mode and model in ⋯, and the view level in ⋯", async () => {
     const onDisclosureChange = vi.fn();
     const onExport = vi.fn();
     render(
@@ -174,10 +174,14 @@ describe("toolbar (redesign-2026 §4, §5.2)", () => {
       </StoryWorld>,
     );
     const toolbar = screen.getByRole("toolbar", { name: "Chat toolbar" });
-    const pills = within(toolbar).getByTestId("toolbar-pills");
-    expect(within(pills).getByRole("button", { name: /Permission mode/ })).toBeTruthy();
-    expect(within(pills).getByRole("button", { name: /Model: Sonnet 5.5/ })).toBeTruthy();
+    // Mode and model live in ⋯, not as pills: the avatar and ⋯ are the only controls here.
+    expect(within(toolbar).queryByTestId("toolbar-pills")).toBeNull();
+    expect(within(toolbar).queryByRole("button", { name: /Permission mode/ })).toBeNull();
+    expect(within(toolbar).queryByRole("button", { name: /Notifications/ })).toBeNull();
+    expect(within(toolbar).getAllByRole("button")).toHaveLength(2);
     await userEvent.click(within(toolbar).getByRole("button", { name: "More" }));
+    expect(await screen.findByRole("menuitemradio", { name: /balanced/i })).toBeTruthy();
+    expect(screen.getByRole("menuitem", { name: /Model: Sonnet 5.5/ })).toBeTruthy();
     const raw = await screen.findByRole("menuitemradio", { name: /Raw tool I\/O/ });
     expect(
       screen.getByRole("menuitemradio", { name: /Actions/ }).getAttribute("aria-checked"),
@@ -249,9 +253,8 @@ describe("approval dock (redesign-2026 §5.3, docs/06 §3.3)", () => {
       </StoryWorld>,
     );
     const log = await screen.findByRole("log", { name: "Conversation" });
-    await waitFor(() =>
-      expect(within(log).getAllByRole("button", { name: /^Review approval:/ }).length).toBe(2),
-    );
+    await screen.findByTestId("approval-dock");
+    expect(within(log).queryByRole("button", { name: /^Review approval:/ })).toBeNull();
     const pending = ref.gateway?.world.approvals.find(
       (a) => a.id === IDS.approvals.sendEmail && a.status === "pending",
     );
@@ -264,8 +267,6 @@ describe("approval dock (redesign-2026 §5.3, docs/06 §3.3)", () => {
     );
     const row = await within(log).findByTestId("approval-result");
     expect(row.textContent).toMatch(/Send an email/);
-    await waitFor(() =>
-      expect(within(log).getAllByRole("button", { name: /^Review approval:/ })).toHaveLength(1),
-    );
+    expect(within(log).queryByRole("button", { name: /^Review approval:/ })).toBeNull();
   });
 });

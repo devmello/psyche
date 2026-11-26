@@ -390,9 +390,13 @@ final class ThreadModel {
         refreshingHeader = true
         defer { refreshingHeader = false }
         guard let fresh = try? await store.thread(id: threadID),
-            case .loaded(var thread) = phase, thread.title != fresh.title
+            case .loaded(var thread) = phase,
+            thread.title != fresh.title || thread.permissionMode != fresh.permissionMode
         else { return }
         thread.title = fresh.title
+        // Full access turned on or off on the Mac shows here too.
+        thread.permissionMode = fresh.permissionMode
+        thread.fullAccessAllowed = fresh.fullAccessAllowed
         phase = .loaded(thread)
     }
 
@@ -481,6 +485,33 @@ final class ThreadModel {
         } catch {
             actionError = error.localizedDescription
             await load()
+        }
+    }
+
+    /// Whether the chat is in Full access (the bar above the composer).
+    var isFullAccess: Bool { phase.value?.isFullAccess ?? false }
+
+    /// Whether the menu offers the Full access toggle: only in the owner's own chats, which the Gateway allows.
+    /// A chat already in Full access keeps the toggle so it can be turned off.
+    var canToggleFullAccess: Bool {
+        phase.value.map(Self.offersFullAccess) ?? false
+    }
+
+    static func offersFullAccess(_ thread: ChatThread) -> Bool {
+        thread.fullAccessAllowed || thread.isFullAccess
+    }
+
+    /// Turns Full access on or off (`threads.update`). The mode changes only once the Gateway has accepted it: a
+    /// refusal (a phone that is not paired as admin) shows the Gateway's own reason and the chat stays as it was.
+    func setFullAccess(_ enabled: Bool) async {
+        do {
+            try await store.setFullAccess(threadID: threadID, enabled: enabled)
+            if case .loaded(var thread) = phase {
+                thread.permissionMode = enabled ? ThreadFullAccess.mode : "balanced"
+                phase = .loaded(thread)
+            }
+        } catch {
+            actionError = error.localizedDescription
         }
     }
 

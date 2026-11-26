@@ -2,13 +2,14 @@ import { createHash } from "node:crypto";
 import { type AgentToolRegistration, defineTool } from "@psyche/agent-core";
 import {
   getThread,
+  isForkThread,
   listMessagesPage,
   listThreadsPage,
   type PsycheDb,
   threadActivity,
   updateThread,
 } from "@psyche/db";
-import { PsycheError, type Thread, type ToolCallScope } from "@psyche/protocol";
+import { isForkSessionKey, PsycheError, type Thread, type ToolCallScope } from "@psyche/protocol";
 import { Type } from "@sinclair/typebox";
 import { transcriptMarkdown } from "../handlers/chat.ts";
 import type { Gateway } from "../server.ts";
@@ -52,6 +53,10 @@ function visibleThread(
   if (
     !thread ||
     thread.kind === "incognito" ||
+    // A plan fork's branch and digest threads are hypotheses, never another chat to read or
+    // message (fork-a-plan-2026 §2.3); `threads_list` already leaves them out.
+    isForkSessionKey(thread.sessionKey) ||
+    isForkThread(db, thread.id) ||
     threadHiddenByPrivateSpace(db, thread, caller.spaceId)
   ) {
     throw new PsycheError("not_found", `thread ${threadId} not found`);

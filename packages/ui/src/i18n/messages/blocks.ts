@@ -23,8 +23,6 @@ export const blocks = {
     "Loading {what, select, approval {approval} question {question} receipt {receipt} artifact {artifact} file {file} task {task} plan {plan} other {item}}",
   "blocks.message.missing":
     "Psyche couldn't load this {what, select, approval {approval} question {question} receipt {receipt} artifact {artifact} file {file} task {task} plan {plan} other {item}}.",
-  "blocks.message.waitingApproval": "Waiting for your approval",
-  "blocks.message.reviewApproval": "Review approval: {summary}",
   "blocks.message.receipt":
     "{status, select, approved {Allowed{scope, select, task { for this task} site { for this site} session { for this session} always { always} other { once}}} denied {Denied} expired {Expired} invalidated {Voided} other {{status}}}: {summary}",
   "blocks.message.showDetails": "Details",

@@ -1,6 +1,7 @@
-import { getThread, listMessagesPage, type PsycheDb } from "@psyche/db";
+import { getThread, isForkThread, listMessagesPage, type PsycheDb } from "@psyche/db";
 import { type LaneItem, ownWords } from "@psyche/memory";
 import type { ThreadKind } from "@psyche/protocol";
+import { isForkSessionKey } from "@psyche/protocol";
 import type { ThreadEndingWhy } from "../context.ts";
 import type { Logger } from "../log.ts";
 
@@ -49,6 +50,8 @@ export interface EndedTurn {
 export interface ChatSnapshot {
   kind: ThreadKind;
   turns: readonly EndedTurn[];
+  /** One of a plan fork's hidden threads, by origin or by its `fork-branch:`/`fork-digest:` key. */
+  fork?: boolean;
 }
 
 /**
@@ -59,6 +62,9 @@ export interface ChatSnapshot {
 export function snapshotThread(db: PsycheDb, threadId: string): ChatSnapshot | undefined {
   const thread = getThread(db, threadId);
   if (thread === undefined) return undefined;
+  if (isForkSessionKey(thread.sessionKey) || isForkThread(db, thread.id)) {
+    return { kind: thread.kind, turns: [], fork: true };
+  }
   // Newest first, page by page, until the last 30 of the owner's own turns are in hand.
   const turns: EndedTurn[] = [];
   let before: number | undefined;
@@ -135,6 +141,8 @@ export function promiseChatOnThreadEnd(deps: PromiseChatDeps): {
         if (!deps.enabled()) return;
         const snap = deps.snapshot(threadId);
         if (snap === undefined || !READABLE_KINDS.has(snap.kind)) return;
+        // Never a plan fork's hidden thread, whatever its kind (fork-a-plan-2026 §2.3).
+        if (snap.fork === true) return;
         if (pending.size >= MAX_PENDING) pending.delete(pending.keys().next().value as string);
         pending.set(threadId, snap);
       } catch (err) {

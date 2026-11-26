@@ -52,7 +52,7 @@ export const OWNER_ONLY_SOURCES: ReadonlySet<ForkCiteSource> = new Set([
   "contacts",
 ]);
 
-const READ_CLASSES = new Set(["none", "read"]);
+export const READ_CLASSES: ReadonlySet<string> = new Set(["none", "read"]);
 export const ESTIMATE_BASIS = "Psyche's estimate";
 
 // ---------------------------------------------------------------------------------------------

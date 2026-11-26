@@ -1,12 +1,9 @@
 import { sanitizeDisplay } from "@psyche/permissions/cards";
 import type { Block, Message } from "@psyche/protocol";
-import { ArrowDown } from "lucide-react";
 import * as m from "motion/react-m";
 import { type ReactElement, type ReactNode, useEffect, useId, useState } from "react";
 import { toast } from "sonner";
 import { Avatar } from "../avatar/Avatar.tsx";
-import { NEEDS_YOU_ROW, NeedsYouTag } from "../chat/NeedsYou.tsx";
-import { RailNode } from "../chat/RailNode.tsx";
 import { WorkNote } from "../chat/WorkNote.tsx";
 import { DelayedSkeleton } from "../components/DelayedSkeleton.tsx";
 import { StatusGlyph } from "../components/status.tsx";
@@ -24,7 +21,6 @@ import {
 import { t } from "../i18n/core.ts";
 import { describeError } from "../i18n/errors.ts";
 import { displaySummary } from "../lib/cards.ts";
-import { cn } from "../lib/utils.ts";
 import { MapBlock } from "../map/MapBlock.tsx";
 import { fade, motionSpring, Presence, spring } from "../motion/index.ts";
 import { PointsOfferCard } from "../points/PointsOfferCard.tsx";
@@ -36,7 +32,7 @@ import { ReceiptFeedback } from "../teaching/ReceiptFeedback.tsx";
 import { LearnedLine, TaughtLine } from "../teaching/TaughtLine.tsx";
 import { WidgetBlockView } from "../widgets/WidgetBlock.tsx";
 import { AppLinkBlockView } from "./AppLink.tsx";
-import { ApprovalCard, focusApproval } from "./ApprovalCard.tsx";
+import { ApprovalCard } from "./ApprovalCard.tsx";
 import { ArtifactCard, FileCard } from "./ArtifactCard.tsx";
 import { AutomationWorkflowBlockView } from "./AutomationWorkflowCard.tsx";
 import { Checklist, PlanCard } from "./Checklist.tsx";
@@ -150,8 +146,9 @@ function ToolRunItems({ blocks }: { blocks: readonly ToolCallBlock[] }): ReactEl
 }
 
 /**
- * The one inline trace of an approval (§3.2, §3.3): the card itself lives in the dock. Pending, it
- * is a quiet pointer that opens and focuses the card; answered, a one-line result row. The
+ * The one inline trace of an approval (§3.2, §3.3): the card itself lives in the dock. Pending, the
+ * transcript says nothing more (the card is the one announcement; inside a step row the plain
+ * summary labels the step's amber dot); answered, a one-line result row. The
  * answered row shares the dock card's `layoutId`, so the card morphs into it (redesign-2026 §5.3,
  * `spring.emphasis`); under reduced motion the card fades out and the row fades in. Rows that are
  * already answered when the transcript loads appear without motion.
@@ -161,7 +158,7 @@ export function ApprovalPointer({
   bare = false,
 }: {
   approvalId: string;
-  /** Inside a row that already says "Needs you" (the run rail): no chip of its own. */
+  /** Inside a step row (the run rail): a pending approval shows its summary as the row label. */
   bare?: boolean;
 }): ReactElement {
   const { approval, loading } = useApproval(approvalId);
@@ -175,29 +172,11 @@ export function ApprovalPointer({
   return (
     <Presence mode="popLayout" initial={false}>
       {pending ? (
-        <m.button
-          key="pending"
-          type="button"
-          onClick={() => focusApproval(approval.id)}
-          className={cn(
-            "inline-flex min-h-6 cursor-default items-center gap-1.5 text-callout outline-none transition-colors duration-(--duration-micro) ease-(--ease-standard) focus-visible:ring-2 focus-visible:ring-ring",
-            bare
-              ? "-ms-1 my-0.5 rounded-sm px-1 py-0.5 text-label-secondary hover:bg-fill-tertiary hover:text-label-primary"
-              : `my-1 min-h-7 px-2 py-0.5 text-approval-text hover:brightness-95 ${NEEDS_YOU_ROW}`,
-          )}
-          aria-label={t("blocks.message.reviewApproval", { summary })}
-          title={summary}
-          {...fade}
-        >
-          {bare ? (
-            <StatusGlyph status="waiting" className="[&_svg]:size-3.5" />
-          ) : (
-            <RailNode state="waiting" />
-          )}
-          {t("blocks.message.waitingApproval")}
-          {bare ? null : <NeedsYouTag />}
-          <ArrowDown className="size-3.5" aria-hidden="true" />
-        </m.button>
+        bare ? (
+          <m.span key="pending" className="block truncate text-body text-label-primary" {...fade}>
+            {summary}
+          </m.span>
+        ) : null
       ) : (
         // Answered, the card stays part of the record as a one-line receipt; Details opens it.
         <m.div

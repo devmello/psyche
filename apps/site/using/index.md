@@ -16,6 +16,8 @@ Every page assumes two things. The agent asks before anything that matters, on a
 
 **[Dictation](/using/dictation).** Hold a key and speak into any app on your Mac. Dictated text goes into the app you are typing in, never to the agent.
 
+**[Psyche points](/using/points).** A ring that points at the next field of a form in another app, with a short note. It never clicks or types, and never reads passwords or card numbers.
+
 ## Work that keeps going
 
 **[Tasks and automations](/using/tasks-and-automations).** Background Tasks that outlive the window, schedules that run unattended, and the approvals queue where an unattended run leaves what it could not ask you live.

@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 import type { ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
@@ -25,44 +25,77 @@ function setup(ui: ReactElement, edit?: (w: FixtureWorld) => void) {
 }
 
 describe("the Memory page", () => {
-  it("has the kind chips in order, Everything current, and a Review link at the end", async () => {
+  it("has two controls and a menu: People | Projects | Work, search, and …", async () => {
     const { navigate, user } = setup(<MemoryScreen now={STORY_NOW} />);
-    const kinds = await screen.findByRole("navigation", { name: "What to show" });
-    const names = within(kinds)
-      .getAllByRole("button")
-      .map((b) => b.textContent?.replace(/\d+$/, ""));
-    expect(names).toEqual([
-      "Everything",
-      "People",
-      "Projects",
-      "Work due",
-      "Events",
-      "More",
-      "Review",
-    ]);
+    const kinds = await screen.findByRole("group", { name: "What to show" });
     expect(
-      within(kinds).getByRole("button", { name: "Everything" }).getAttribute("aria-current"),
-    ).toBe("page");
+      within(kinds)
+        .getAllByRole("button")
+        .map((b) => b.textContent),
+    ).toEqual(["People", "Projects", "Work"]);
+    // People is the default.
+    expect(within(kinds).getByRole("button", { name: "People" }).getAttribute("aria-pressed")).toBe(
+      "true",
+    );
+    expect(screen.getByRole("searchbox", { name: "Search Memory" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Memory menu" })).toBeTruthy();
+    // No chip row, no Everything tab, no Soul or Review buttons in the toolbar.
+    expect(screen.queryByTestId("memory-everything")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Soul" })).toBeNull();
     await user.click(within(kinds).getByRole("button", { name: "Projects" }));
     expect(navigate).toHaveBeenLastCalledWith("/memory?kind=projects");
-    await user.click(within(kinds).getByRole("button", { name: /^Review/ }));
-    expect(navigate).toHaveBeenLastCalledWith("/memory/review");
+    await user.click(within(kinds).getByRole("button", { name: "Work" }));
+    expect(navigate).toHaveBeenLastCalledWith("/memory?kind=due");
   });
 
-  it("People is the old People page: the list, its filters and a row that opens its page", async () => {
+  it("keeps Map, Soul, Review, Events, More and Everything in the … menu", async () => {
+    const { navigate, user } = setup(<MemoryScreen now={STORY_NOW} />);
+    const reach = async (name: RegExp | string, to: string) => {
+      await user.click(await screen.findByRole("button", { name: "Memory menu" }));
+      await user.click(await screen.findByRole("menuitem", { name }));
+      expect(navigate).toHaveBeenLastCalledWith(to);
+    };
+    await reach("Map", "/memory?view=map");
+    await reach("Soul", "/agent/soul");
+    await reach(/^Review/, "/memory/review");
+    await reach("Events", "/memory?kind=events");
+    await reach("More", "/memory?kind=more");
+    await reach("Everything", "/memory?kind=everything");
+  });
+
+  it("shows the Review count on its menu item", async () => {
+    setup(<MemoryScreen now={STORY_NOW} />);
+    await userEvent.click(await screen.findByRole("button", { name: "Memory menu" }));
+    expect(await screen.findByRole("menuitem", { name: /^Review/ })).toBeTruthy();
+  });
+
+  it("People: rows with one muted line, search in the toolbar, and a row that opens its page", async () => {
     const { navigate, user } = setup(<MemoryScreen kind="people" now={STORY_NOW} />);
-    expect(await screen.findByRole("textbox", { name: "Search people and projects" })).toBeTruthy();
-    for (const f of ["People", "Projects", "Suggestions", "Waiting on"])
+    // The section draws no search field of its own; Projects has its own segment.
+    expect(screen.queryByRole("textbox", { name: "Search people and projects" })).toBeNull();
+    for (const f of ["Suggestions", "Waiting on"])
       expect(screen.getByRole("radio", { name: f })).toBeTruthy();
-    await user.click(await screen.findByRole("button", { name: /^Sam Lee/ }));
+    expect(screen.queryByRole("radio", { name: "Projects" })).toBeNull();
+    const row = await screen.findByRole("button", { name: /^Sam Lee/ });
+    // One fact plus the open-loop count; no "last talked" next to an org.
+    expect(row.textContent).not.toMatch(/last talked/);
+    await user.click(row);
     expect(navigate).toHaveBeenLastCalledWith(`/memory?entity=${PEOPLE_IDS.samLee}`);
+  });
+
+  it("the toolbar search narrows the people", async () => {
+    const { user } = setup(<MemoryScreen kind="people" now={STORY_NOW} />);
+    await screen.findByRole("button", { name: /^Sam Lee/ });
+    await user.type(screen.getByRole("searchbox", { name: "Search Memory" }), "Dana");
+    await screen.findByRole("button", { name: /^Dana Kim/ });
+    await waitFor(() => expect(screen.queryByRole("button", { name: /^Sam Lee/ })).toBeNull());
+    expect(screen.queryByRole("button", { name: /^Sam Lee/ })).toBeNull();
   });
 
   it("opens an entity in the page, with Back to its list", async () => {
     const { navigate, user } = setup(<MemoryScreen entity={PEOPLE_IDS.samLee} now={STORY_NOW} />);
     expect(await screen.findByTestId("memory-entity")).toBeTruthy();
     expect(await screen.findByText("Sam Lee")).toBeTruthy();
-    expect(screen.queryByRole("navigation", { name: "What to show" })).toBeNull();
     await user.click(await screen.findByRole("button", { name: "Back to People" }));
     expect(navigate).toHaveBeenLastCalledWith("/memory?kind=people");
   });
@@ -73,25 +106,26 @@ describe("the Memory page", () => {
     expect(within(due).getByText("Nothing due")).toBeTruthy();
   });
 
-  it("Everything shows only the sections it can fill, and says so when there are none", async () => {
-    setup(<MemoryScreen now={STORY_NOW} />);
+  it("Everything is reached from the … menu and shows only the sections it can fill", async () => {
+    setup(<MemoryScreen kind="everything" now={STORY_NOW} />);
     const all = await screen.findByTestId("memory-everything");
     expect(within(all).queryByRole("heading", { name: "Due soon" })).toBeNull();
     expect(within(all).getAllByRole("heading", { level: 2 }).length).toBeGreaterThan(0);
   });
 
   it("Everything is quiet when nothing is remembered", async () => {
-    setup(<MemoryScreen now={STORY_NOW} />, (w) => {
+    setup(<MemoryScreen kind="everything" now={STORY_NOW} />, (w) => {
       w.graph.entities = [];
     });
     expect(await screen.findByText(/^Nothing remembered yet/)).toBeTruthy();
   });
 
-  it("reads the chip from ?kind= and falls back to Everything", () => {
+  it("reads the kind from ?kind= and falls back to People", () => {
     expect(parseMemoryKind("events")).toBe("events");
-    expect(parseMemoryKind("nope")).toBe("everything");
-    expect(parseMemoryKind(null)).toBe("everything");
-    expect(memoryHref("everything")).toBe("/memory");
+    expect(parseMemoryKind("everything")).toBe("everything");
+    expect(parseMemoryKind("nope")).toBe("people");
+    expect(parseMemoryKind(null)).toBe("people");
+    expect(memoryHref("everything")).toBe("/memory?kind=everything");
     expect(memoryHref("due")).toBe("/memory?kind=due");
   });
 });

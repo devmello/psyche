@@ -17,6 +17,7 @@ import { connectorGallery } from "./connector-gallery/zh.ts";
 import { connectorsPage } from "./connectors-page/zh.ts";
 import { daily } from "./daily/zh.ts";
 import { design } from "./design/zh.ts";
+import { desktopSimple } from "./desktop-simple/zh.ts";
 import { deviceAccess } from "./device-access/zh.ts";
 import { final202611 } from "./final-2026-11/zh.ts";
 import { friction } from "./friction/zh.ts";
@@ -443,8 +444,6 @@ export const zh: Partial<Catalogue> = {
     "正在载入{what, select, approval {审批} question {问题} receipt {回执} artifact {成果} file {文件} task {任务} plan {计划} other {项目}}",
   "blocks.message.missing":
     "Psyche 无法载入此{what, select, approval {审批} question {问题} receipt {回执} artifact {成果} file {文件} task {任务} plan {计划} other {项目}}。",
-  "blocks.message.waitingApproval": "正在等待你的批准",
-  "blocks.message.reviewApproval": "审核审批：{summary}",
 
   "blocks.details.none": "无",
   "blocks.details.argumentsList": "参数：{args}",
@@ -759,11 +758,7 @@ export const zh: Partial<Catalogue> = {
   "agent.header.stateLead": "{state}：",
   "agent.header.running": "{n, number} 个运行中",
   "agent.header.needYou": "{n, plural, other {# 项需要你}}",
-  "agent.header.modeLabel": "权限模式：{mode}",
-  "agent.header.modeLead": "权限模式：",
   "agent.header.modelLabel": "模型：{model}",
-  "agent.header.modelLead": "模型：",
-  "agent.header.notifications": "通知，{n, number} 条未读",
   "agent.header.menuSheet": "审批和记忆",
   "agent.header.changeModel": "更改模型…",
   "agent.header.exportMarkdown": "导出为 Markdown",
@@ -1072,17 +1067,11 @@ export const zh: Partial<Catalogue> = {
   "shell.sidebar.full": "完整边栏",
   "shell.sidebar.compact": "紧凑边栏",
   "shell.sidebar.hidden": "已隐藏",
-  "shell.sidebar.filterToggle": "过滤",
   "shell.sidebar.forkedFrom": "从 {parent} 分出的支线聊天",
   "shell.search.results": "结果",
   "shell.search.preview": "预览",
-  "shell.search.hintOpen": "打开",
   "shell.search.hintSideChat": "在支线聊天中打开",
-  "shell.search.hintFilter": "过滤",
   "shell.search.keyCtrlEnter": "Ctrl ↵",
-  "shell.search.keyTab": "Tab",
-  "shell.search.actionHint": "运行此命令。",
-  "shell.search.run": "运行",
   "shell.search.open": "打开",
   "shell.search.openInSideChat": "在支线聊天中打开",
   "shell.compact.threads": "会话",
@@ -2853,7 +2842,6 @@ export const zh: Partial<Catalogue> = {
   "onboarding.agent.taglinePlaceholder": "轻盈的翅膀，细致的双手。",
   "onboarding.agent.preview": "预览",
   "onboarding.language.label": "语言",
-  "onboarding.language.hint": "之后可在“设置 → 外观”中更改。",
   "onboarding.permission.why.notifications": "允许 Psyche 在此窗口关闭时请求批准。",
   "onboarding.permission.deniedHint": "请在“系统设置 → 隐私与安全性”中打开；你回来时此页面会更新。",
   "onboarding.permission.unavailableHint": "Psyche 只能在 Mac 上的 Psyche App 中请求此权限。",
@@ -3293,8 +3281,6 @@ export const zh: Partial<Catalogue> = {
   "screens.library.noMatch": "没有符合这些过滤条件的文件。",
   "screens.library.askToMake": "让 {name} 制作一个",
   "screens.library.title": "资料库",
-  "screens.library.meta.count": "{section} · {n, plural, other {# 个文件}}",
-  "screens.library.description": "{name} 制作或收到的文件，每个都链接到生成它的任务。",
   "screens.library.layout": "布局",
   "screens.library.grid": "网格",
   "screens.library.list": "列表",
@@ -3310,8 +3296,6 @@ export const zh: Partial<Catalogue> = {
   "screens.library.col.actions": "操作",
   "screens.library.typeFilter": "类型",
   "screens.library.allTypes": "所有类型",
-  "screens.library.sourceTask": "来源任务",
-  "screens.library.anyTask": "任何任务",
   "screens.library.dateFilter": "日期",
   "screens.library.reset": "重置",
   "screens.library.trusted": "已信任 {name}。",
@@ -3940,6 +3924,7 @@ export const zh: Partial<Catalogue> = {
   ...points,
   // Approvals wave W3 (card choices, Allowed list)
   ...approvalsW3,
+  ...desktopSimple,
   // Gateway-authored notices (inbox notifications, security alerts)
   ...notices,
   // Settings > Computer use > Separate desktop (Linux)
