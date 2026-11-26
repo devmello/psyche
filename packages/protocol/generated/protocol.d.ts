@@ -37,7 +37,7 @@ export interface AccessEntry {
     type:              AccessEntryType;
 }
 
-export type ApprovalKind = "exec" | "exec_host" | "send_email" | "calendar_write" | "message_send" | "browser_submit" | "credential_fill" | "purchase" | "file_write" | "connector_action" | "computer_action" | "new_origin" | "plan_exit" | "skill_install" | "mcp_tool" | "archive_thread" | "memory_protected_write" | "pairing" | "policy_change" | "task_start" | "apple_script" | "shortcut_run" | "git_write" | "git_push" | "folder_access" | "separate_desktop_share" | "batch" | "permission_request" | "staged_apply";
+export type ApprovalKind = "exec" | "exec_host" | "send_email" | "calendar_write" | "message_send" | "browser_submit" | "credential_fill" | "purchase" | "file_write" | "connector_action" | "computer_action" | "new_origin" | "plan_exit" | "skill_install" | "mcp_tool" | "archive_thread" | "memory_protected_write" | "memory_forget" | "pairing" | "policy_change" | "task_start" | "apple_script" | "shortcut_run" | "git_write" | "git_push" | "folder_access" | "separate_desktop_share" | "batch" | "permission_request" | "staged_apply";
 
 export type FolderModeEnum = "ro" | "rw";
 
@@ -1096,6 +1096,7 @@ export interface ApprovalCreatedPayload {
 }
 
 export interface ApprovalRequest {
+    armedAt?:               string;
     bindingHash:            string;
     decidedAt?:             null | string;
     decidedBy?:             DecidedByClass | null;
@@ -1875,6 +1876,7 @@ export interface Automation {
     sessionTarget: string;
     spaceId?:      null | string;
     specialist?:   AutomationSpecialist;
+    taintSources?: TaintSource[];
     timezone:      string;
     title:         string;
     trigger?:      AutomationTrigger;
@@ -2033,14 +2035,15 @@ export interface AutomationWorkflowBlock {
 }
 
 export interface DailyWorkflowProposal {
-    groupId:     string;
-    notify:      Notify;
-    obstacles:   string[];
-    offerSkill?: boolean;
-    runs:        DailyWorkflowRun[];
-    tainted?:    boolean;
-    timezone:    string;
-    title:       string;
+    groupId:       string;
+    notify:        Notify;
+    obstacles:     string[];
+    offerSkill?:   boolean;
+    runs:          DailyWorkflowRun[];
+    tainted?:      boolean;
+    taintSources?: TaintSourceElement[];
+    timezone:      string;
+    title:         string;
 }
 
 export type Notify = "notification" | "messages" | "both";
@@ -2056,6 +2059,12 @@ export interface DailyWorkflowRun {
 }
 
 export type DailyWorkflowRunKind = "cron" | "interval";
+
+export interface TaintSourceElement {
+    origin?:    string;
+    sender?:    string;
+    sourceKind: string;
+}
 
 export type AutomationWorkflowBlockType = "automation_workflow";
 

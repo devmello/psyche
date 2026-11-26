@@ -787,6 +787,17 @@ export class PolicyEngine {
     // outside Psyche, so it runs like a write in a granted folder (Manual still asks, plan mode
     // still refuses, a tainted turn still asks for a new target).
     if (notes === "notes") allowances.push({ rule: "memory:agent_notes" });
+    if (kind === "memory_forget" && SEVERITY[se] >= SEVERITY.destructive) {
+      // A forget edits USER.md, people and lessons and cannot be undone: every subject asks, once
+      // only, and no grant for one subject covers another. Full access still runs it (no
+      // `fullLifts` change: it lifts like the protected-path floor beside it).
+      floors.push({
+        rule: "memory:forget",
+        reason: "forgetting asks every time",
+        scopes: ["once"],
+        fullLifts: true,
+      });
+    }
     if (kind === "git_push") {
       // A push publishes commits with the owner's credentials: never silent, never reusable (V10).
       floors.push({ rule: "git:push", reason: "pushes always ask", scopes: ["once"] });

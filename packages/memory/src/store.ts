@@ -1599,38 +1599,40 @@ export class SqliteMemoryStore implements MemoryStore {
         (previewed.graphEntities ?? 0) > 0 ||
         (previewed.lessons ?? 0) > 0 ||
         [...phrase].length < AGENT_FORGET_MIN_CHARS;
-      if (wide) {
-        const id = options.approvalId;
-        if (
-          id === undefined ||
-          id.length === 0 ||
-          this.#usedApprovals.has(id) ||
-          !(await this.#approvals(id, {
-            path: "forget:everywhere",
-            operation: "write",
-            contentSha256: sha256Hex(phrase),
-          }))
-        ) {
-          fail(
-            "approval_required",
-            "forgetting this reaches people, lessons or many entries; ask the owner to do it in Psyche",
-          );
-        }
-        this.#usedApprovals.add(id);
-      }
       const touched = [...first.edits.keys()].filter(isProtected);
-      if (touched.length > 1) {
+      // The owner's "Forget everywhere" card for exactly this phrase covers a wide forget and the
+      // protected files it edits, once (the approval id is consumed here).
+      const id = options.approvalId;
+      let approved = false;
+      if (id !== undefined && id.length > 0 && !this.#usedApprovals.has(id)) {
+        approved = await this.#approvals(id, {
+          path: "forget:everywhere",
+          operation: "write",
+          contentSha256: sha256Hex(phrase),
+          subject: phrase,
+        });
+        if (approved) this.#usedApprovals.add(id);
+      }
+      if (wide && !approved) {
         fail(
           "approval_required",
-          `forget would change ${touched.join(", ")}; ask the owner to do it in Soul & Memory`,
+          "forgetting this reaches people, lessons or many entries; ask the owner to do it in Psyche",
         );
       }
-      for (const path of touched) {
-        await this.#checkProtected(path, "agent", "agent", options.approvalId, {
-          path,
-          operation: "write",
-          contentSha256: sha256Hex(first.edits.get(path) ?? ""),
-        });
+      if (!approved) {
+        if (touched.length > 1) {
+          fail(
+            "approval_required",
+            `forget would change ${touched.join(", ")}; ask the owner to do it in Soul & Memory`,
+          );
+        }
+        for (const path of touched) {
+          await this.#checkProtected(path, "agent", "agent", options.approvalId, {
+            path,
+            operation: "write",
+            contentSha256: sha256Hex(first.edits.get(path) ?? ""),
+          });
+        }
       }
     }
 

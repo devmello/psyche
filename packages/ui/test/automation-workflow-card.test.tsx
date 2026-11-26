@@ -59,6 +59,10 @@ describe("workflow confirm card", () => {
     ).toBeTruthy();
     expect(within(runs[0] as HTMLElement).getByText("Add reminders: asks each run")).toBeTruthy();
     expect(within(runs[1] as HTMLElement).getByText("No approvals needed.")).toBeTruthy();
+    // The exact instructions each run will follow are on the card, not only the model's summary.
+    expect(within(runs[0] as HTMLElement).getByTestId("workflow-run-prompt").textContent).toBe("x");
+    expect(within(runs[1] as HTMLElement).getByTestId("workflow-run-prompt").textContent).toBe("y");
+    expect(within(runs[0] as HTMLElement).getByText("Exact instructions it will run")).toBeTruthy();
     expect(screen.getByText("Tells you with a notification when it needs you.")).toBeTruthy();
     expect(screen.getByText(/Canvas needs a sign-in/)).toBeTruthy();
     expect(screen.getByText(/planned after reading content from the web/)).toBeTruthy();

@@ -81,6 +81,12 @@ export function AutomationWorkflowCardView({
                   <li key={s}>{clean(s)}</li>
                 ))}
               </ul>
+              <details>
+                <summary className="text-label-secondary">{t("blocks.workflow.prompt")}</summary>
+                <p className="whitespace-pre-wrap" data-testid="workflow-run-prompt">
+                  {clean(r.prompt, 5000)}
+                </p>
+              </details>
               {r.approvals.length === 0 ? (
                 <p className="text-label-secondary">{t("blocks.workflow.noApprovals")}</p>
               ) : (

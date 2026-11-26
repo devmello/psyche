@@ -63,6 +63,12 @@ export async function confirmWorkflow(
   if (existing.length > 0) return existing;
   for (const r of proposal.runs) validate(r.kind, r.schedule, proposal.timezone);
   const created: Automation[] = [];
+  const taint =
+    proposal.taintSources !== undefined && proposal.taintSources.length > 0
+      ? proposal.taintSources.map((s) => ({ ...s }))
+      : proposal.tainted === true
+        ? [{ sourceKind: "workflow_proposal" }]
+        : undefined;
   try {
     for (const [i, r] of proposal.runs.entries()) {
       created.push(
@@ -76,6 +82,8 @@ export async function confirmWorkflow(
           prompt: workflowRunPrompt(proposal, i),
           scratch: null,
           enabled: true,
+          // Built from untrusted content: every run starts tainted with what it was built from.
+          ...(taint === undefined ? {} : { taintSources: taint }),
         } as never),
       );
     }

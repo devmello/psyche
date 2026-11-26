@@ -31,6 +31,8 @@ export interface AutomationRow {
   specialist?: string | null;
   /** 202611041600_scheduler_recorded_skill: the {skill} of a recording skill's schedule. */
   recorded_skill?: string | null;
+  /** 202611251200_scheduler_taint-sources: the taint the automation was created under (JSON). */
+  taint_sources?: string | null;
   /** 202611201000_gateway_spaces: the Space the automation runs in. */
   space_id?: string | null;
 }
@@ -110,7 +112,39 @@ export function automationFromRow(r: AutomationRow, w?: WatchRow): Automation {
   if (r.trigger != null) a.trigger = JSON.parse(r.trigger) as AutomationTrigger;
   if (r.specialist != null) a.specialist = JSON.parse(r.specialist) as Automation["specialist"];
   if (r.recorded_skill != null) a.recordedSkill = recordedSkillOf(r.recorded_skill);
+  // Outward (lists, events, every client) only the kinds: senders and origins stay on the Gateway.
+  if (r.taint_sources != null) {
+    a.taintSources = taintSourcesOf(r.taint_sources).map((s) => ({ sourceKind: s.sourceKind }));
+  }
   return a;
+}
+
+/**
+ * The stored taint, shape-checked. A value that does not parse still taints the runs (one
+ * `stored` source): a damaged column must never turn into a clean run.
+ */
+export function taintSourcesOf(json: string): NonNullable<Automation["taintSources"]> {
+  try {
+    const v = JSON.parse(json) as unknown;
+    if (!Array.isArray(v)) return [{ sourceKind: "stored" }];
+    const out = v.flatMap((x): NonNullable<Automation["taintSources"]> => {
+      const o = x as Record<string, unknown> | null;
+      if (o === null || typeof o !== "object" || typeof o.sourceKind !== "string") return [];
+      const str = (y: unknown) => (typeof y === "string" ? y : undefined);
+      const origin = str(o.origin);
+      const sender = str(o.sender);
+      return [
+        {
+          sourceKind: o.sourceKind,
+          ...(origin === undefined ? {} : { origin }),
+          ...(sender === undefined ? {} : { sender }),
+        },
+      ];
+    });
+    return out.length > 0 ? out : [{ sourceKind: "stored" }];
+  } catch {
+    return [{ sourceKind: "stored" }];
+  }
 }
 
 /**

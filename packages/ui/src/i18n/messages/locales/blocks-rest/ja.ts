@@ -167,6 +167,7 @@ export const blocksRest: Partial<Catalogue> = {
   "blocks.workflow.runs": "{count, plural, other {スケジュール実行#件}}",
   "blocks.workflow.runOf": "{name} · {when}（{timezone}）",
   "blocks.workflow.does": "実行内容",
+  "blocks.workflow.prompt": "実行する正確な指示",
   "blocks.workflow.approvals": "承認を求める内容",
   "blocks.workflow.noApprovals": "承認は不要です。",
   "blocks.workflow.notify":

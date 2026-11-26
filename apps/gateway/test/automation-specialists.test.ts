@@ -108,6 +108,23 @@ describe("automations as specialists (§4.10)", () => {
     expect((await handle.result).status).toBe("cancelled");
   });
 
+  it("a specialist automation from a tainted schedule starts its job tainted; a clean one does not", async () => {
+    const { tasks, launcher } = setup();
+    const sources = [{ sourceKind: "web.fetch", origin: "https://example.com/a" }];
+    const dirty = await launcher.launch({
+      ...request(automation({ role: "shopper" })),
+      taintSources: sources,
+    });
+    const dirtyTask = await tasks.get(dirty.taskId as string);
+    expect(dirtyTask?.taint).toBe(true);
+    expect(dirtyTask?.taintSources).toEqual(sources);
+    const clean = await launcher.launch(request(automation({ role: "shopper" })));
+    const cleanTask = await tasks.get(clean.taskId as string);
+    expect(cleanTask?.taint).toBeFalsy();
+    await tasks.cancel(dirtyTask?.id as string, "test");
+    await tasks.cancel(cleanTask?.id as string, "test");
+  });
+
   it("leaves other automations to the inner launcher", async () => {
     const { launcher, plain } = setup();
     const handle = await launcher.launch(request(automation()));

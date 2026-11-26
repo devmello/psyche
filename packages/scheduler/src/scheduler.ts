@@ -24,6 +24,7 @@ import {
   EVENT_DEDUPE_MS,
   MAX_EVENTS_PER_RUN,
   matches,
+  mergeTaint,
   taintOf,
 } from "./events.ts";
 import { buildUnattendedPrompt } from "./prompt.ts";
@@ -33,6 +34,7 @@ import {
   automationFromRow,
   type RunRow,
   runFromRow,
+  taintSourcesOf,
   type WatchRow,
 } from "./rows.ts";
 import { parseSchedule, type Schedule } from "./schedule.ts";
@@ -366,10 +368,10 @@ export class SqliteScheduler implements Scheduler {
         .prepare(
           `INSERT INTO automations (id, kind, title, schedule, timezone, session_target, delivery,
              prompt, scratch, enabled, light_context, system, next_run_at, created_at, updated_at,
-             trigger, specialist, recorded_skill, space_id)
+             trigger, specialist, recorded_skill, space_id, taint_sources)
            VALUES (@id, @kind, @title, @schedule, @timezone, @session_target, @delivery, @prompt,
              @scratch, @enabled, @light_context, @system, @next_run_at, @now, @now, @trigger,
-             @specialist, @recorded_skill, @space_id)`,
+             @specialist, @recorded_skill, @space_id, @taint_sources)`,
         )
         .run({
           id,
@@ -390,6 +392,10 @@ export class SqliteScheduler implements Scheduler {
           specialist: a.specialist === undefined ? null : JSON.stringify(a.specialist),
           recorded_skill: a.recordedSkill === undefined ? null : JSON.stringify(a.recordedSkill),
           space_id: a.spaceId ?? null,
+          taint_sources:
+            a.taintSources === undefined || a.taintSources.length === 0
+              ? null
+              : JSON.stringify(a.taintSources),
         });
       if (a.watch !== undefined) this.#upsertWatch(id, a.watch, false);
       return this.#updatedEvent(id);
@@ -757,7 +763,12 @@ export class SqliteScheduler implements Scheduler {
         .prepare("UPDATE automation_runs SET thread_id = ? WHERE id = ?")
         .run(threadId, runId);
       const current = runFromRow(this.#runRow(runId));
-      const taintSources = taintOf(current.events ?? []);
+      // Event taint plus the taint the automation was created under (a tainted turn's schedule).
+      const stored = this.#rowOrUndefined(automation.id)?.taint_sources;
+      const taintSources = mergeTaint(
+        stored == null ? undefined : taintSourcesOf(stored),
+        taintOf(current.events ?? []),
+      );
       const handle = await launcher.launch({
         automation,
         run: current,

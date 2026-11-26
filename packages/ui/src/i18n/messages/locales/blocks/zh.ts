@@ -155,6 +155,7 @@ export const blocks: Partial<Catalogue> = {
   "blocks.workflow.runs": "{count, plural, other {# 次计划运行}}",
   "blocks.workflow.runOf": "{name} · {when}（{timezone}）",
   "blocks.workflow.does": "它会做什么",
+  "blocks.workflow.prompt": "它将执行的确切指令",
   "blocks.workflow.approvals": "将请你批准",
   "blocks.workflow.noApprovals": "无需批准。",
   "blocks.workflow.notify":

@@ -2131,6 +2131,7 @@ public enum ApprovalKind: String, Codable, Sendable {
     case gitPush = "git_push"
     case gitWrite = "git_write"
     case mcpTool = "mcp_tool"
+    case memoryForget = "memory_forget"
     case memoryProtectedWrite = "memory_protected_write"
     case messageSend = "message_send"
     case newOrigin = "new_origin"
@@ -4581,6 +4582,7 @@ public struct ApprovalCreatedPayload: Codable, Sendable {
 
 // MARK: - ApprovalRequest
 public struct ApprovalRequest: Codable, Sendable {
+    public let armedAt: String?
     public let bindingHash: String
     public let decidedAt: String?
     public let decidedBy: DecidedByClass?
@@ -4612,6 +4614,7 @@ public struct ApprovalRequest: Codable, Sendable {
     public let targetKind: TargetKind?
 
     public enum CodingKeys: String, CodingKey {
+        case armedAt = "armedAt"
         case bindingHash = "bindingHash"
         case decidedAt = "decidedAt"
         case decidedBy = "decidedBy"
@@ -4643,7 +4646,8 @@ public struct ApprovalRequest: Codable, Sendable {
         case targetKind = "targetKind"
     }
 
-    public init(bindingHash: String, decidedAt: String? = nil, decidedBy: DecidedByClass? = nil, details: [String: JSONAny], deviceOnly: Bool, expiresAt: String, fromLesson: FromLesson? = nil, grantHint: GrantHint? = nil, grantID: String? = nil, grantKey: String, id: String, invalidatedReason: String? = nil, kind: ApprovalKind, machine: ComputerMachineRef? = nil, requestedAt: String, requestedBy: RequestedBy, requiresAuthentication: Bool, riskClass: RiskClass? = nil, scopeGranted: GrantScope? = nil, scopesOffered: [GrantScope], setAside: Bool? = nil, sideEffect: SideEffect? = nil, status: ApprovalStatus, summary: String, surfaces: [String], taint: Bool, taintSources: [TaintSource]? = nil, target: Target? = nil, targetKind: TargetKind? = nil) {
+    public init(armedAt: String? = nil, bindingHash: String, decidedAt: String? = nil, decidedBy: DecidedByClass? = nil, details: [String: JSONAny], deviceOnly: Bool, expiresAt: String, fromLesson: FromLesson? = nil, grantHint: GrantHint? = nil, grantID: String? = nil, grantKey: String, id: String, invalidatedReason: String? = nil, kind: ApprovalKind, machine: ComputerMachineRef? = nil, requestedAt: String, requestedBy: RequestedBy, requiresAuthentication: Bool, riskClass: RiskClass? = nil, scopeGranted: GrantScope? = nil, scopesOffered: [GrantScope], setAside: Bool? = nil, sideEffect: SideEffect? = nil, status: ApprovalStatus, summary: String, surfaces: [String], taint: Bool, taintSources: [TaintSource]? = nil, target: Target? = nil, targetKind: TargetKind? = nil) {
+        self.armedAt = armedAt
         self.bindingHash = bindingHash
         self.decidedAt = decidedAt
         self.decidedBy = decidedBy
@@ -7007,6 +7011,7 @@ public struct Automation: Codable, Sendable {
     public let sessionTarget: String
     public let spaceID: String?
     public let specialist: AutomationSpecialist?
+    public let taintSources: [TaintSource]?
     public let timezone: String
     public let title: String
     public let trigger: AutomationTrigger?
@@ -7030,6 +7035,7 @@ public struct Automation: Codable, Sendable {
         case sessionTarget = "sessionTarget"
         case spaceID = "spaceId"
         case specialist = "specialist"
+        case taintSources = "taintSources"
         case timezone = "timezone"
         case title = "title"
         case trigger = "trigger"
@@ -7037,7 +7043,7 @@ public struct Automation: Codable, Sendable {
         case watch = "watch"
     }
 
-    public init(createdAt: String, delivery: Delivery, enabled: Bool, id: String, kind: AutomationKind, lastRunAt: String? = nil, lastStatus: String? = nil, lightContext: Bool? = nil, nextRunAt: String? = nil, prompt: String, recordedSkill: RecordedSkill? = nil, schedule: String, scratch: String? = nil, sessionTarget: String, spaceID: String? = nil, specialist: AutomationSpecialist? = nil, timezone: String, title: String, trigger: AutomationTrigger? = nil, updatedAt: String, watch: WatchConfig? = nil) {
+    public init(createdAt: String, delivery: Delivery, enabled: Bool, id: String, kind: AutomationKind, lastRunAt: String? = nil, lastStatus: String? = nil, lightContext: Bool? = nil, nextRunAt: String? = nil, prompt: String, recordedSkill: RecordedSkill? = nil, schedule: String, scratch: String? = nil, sessionTarget: String, spaceID: String? = nil, specialist: AutomationSpecialist? = nil, taintSources: [TaintSource]? = nil, timezone: String, title: String, trigger: AutomationTrigger? = nil, updatedAt: String, watch: WatchConfig? = nil) {
         self.createdAt = createdAt
         self.delivery = delivery
         self.enabled = enabled
@@ -7054,6 +7060,7 @@ public struct Automation: Codable, Sendable {
         self.sessionTarget = sessionTarget
         self.spaceID = spaceID
         self.specialist = specialist
+        self.taintSources = taintSources
         self.timezone = timezone
         self.title = title
         self.trigger = trigger
@@ -7466,6 +7473,7 @@ public struct DailyWorkflowProposal: Codable, Sendable {
     public let offerSkill: Bool?
     public let runs: [DailyWorkflowRun]
     public let tainted: Bool?
+    public let taintSources: [TaintSourceElement]?
     public let timezone: String
     public let title: String
 
@@ -7476,17 +7484,19 @@ public struct DailyWorkflowProposal: Codable, Sendable {
         case offerSkill = "offerSkill"
         case runs = "runs"
         case tainted = "tainted"
+        case taintSources = "taintSources"
         case timezone = "timezone"
         case title = "title"
     }
 
-    public init(groupID: String, notify: Notify, obstacles: [String], offerSkill: Bool? = nil, runs: [DailyWorkflowRun], tainted: Bool? = nil, timezone: String, title: String) {
+    public init(groupID: String, notify: Notify, obstacles: [String], offerSkill: Bool? = nil, runs: [DailyWorkflowRun], tainted: Bool? = nil, taintSources: [TaintSourceElement]? = nil, timezone: String, title: String) {
         self.groupID = groupID
         self.notify = notify
         self.obstacles = obstacles
         self.offerSkill = offerSkill
         self.runs = runs
         self.tainted = tainted
+        self.taintSources = taintSources
         self.timezone = timezone
         self.title = title
     }
@@ -7532,6 +7542,25 @@ public struct DailyWorkflowRun: Codable, Sendable {
 public enum DailyWorkflowRunKind: String, Codable, Sendable {
     case cron = "cron"
     case interval = "interval"
+}
+
+// MARK: - TaintSourceElement
+public struct TaintSourceElement: Codable, Sendable {
+    public let origin: String?
+    public let sender: String?
+    public let sourceKind: String
+
+    public enum CodingKeys: String, CodingKey {
+        case origin = "origin"
+        case sender = "sender"
+        case sourceKind = "sourceKind"
+    }
+
+    public init(origin: String? = nil, sender: String? = nil, sourceKind: String) {
+        self.origin = origin
+        self.sender = sender
+        self.sourceKind = sourceKind
+    }
 }
 
 public enum AutomationWorkflowBlockType: String, Codable, Sendable {

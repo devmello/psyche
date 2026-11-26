@@ -58,7 +58,8 @@ const TOOLS_CACHE_SETTING = "capabilities.toolsCache";
 
 /**
  * Sent with every request: files, memory, questions and plans, permission requests, the finder
- * tools, web search, skills and the canvas. Everything else loads on demand unless the owner
+ * tools, web search, skills and the canvas's create call. Everything else (editing and reading a
+ * canvas, subagents, tasks, installing, scripts, connectors) loads on demand unless the owner
  * chose "Always on" for it (`tools.loading`).
  */
 export const ALWAYS_ON = new Set([
@@ -69,11 +70,10 @@ export const ALWAYS_ON = new Set([
   "list_dir",
   "search_files",
   "memory",
+  "memory_forget",
   "request_permission",
   // A screen ask leaves the agent one look at the frame (screen-ask.ts).
   "screen.look",
-  "subagent.spawn",
-  "task.start",
   "schedule",
   "notify",
   "web.search",
@@ -81,12 +81,8 @@ export const ALWAYS_ON = new Set([
   "skills_search",
   "skills_read",
   "artifact.create",
-  "artifact.update",
-  "artifact.read",
   "app_navigate",
   "find_capability",
-  "install_capability",
-  "run_script",
 ]);
 
 export type Loading = "always" | "on_demand";
