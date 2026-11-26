@@ -6,17 +6,19 @@
  */
 
 /**
- * Settings routes (`/settings/<id>`), in the order of the Settings window: each page, then the
- * other panes on it. A pane id opens its page scrolled to that pane, so links written before the
+ * Settings routes (`/settings/<id>`), in the order of the Settings window: each of the seven
+ * pages, then the other panes on it (`vm` is a group inside Computer use now, `essentials` the body
+ * of General; both still open). A pane id opens its page scrolled to that pane, so links written before the
  * 2026 regrouping still land (docs/design/settings-2026.md).
  */
 export const APP_SETTINGS_SECTIONS = [
-  "essentials",
   "general",
+  "essentials",
   "appearance",
   "persona",
   "notifications",
   "voice",
+  "about",
   "model",
   "usage",
   "connectors",
@@ -40,7 +42,6 @@ export const APP_SETTINGS_SECTIONS = [
   "data",
   "devices",
   "server",
-  "about",
 ] as const;
 
 export const APP_LIBRARY_SECTIONS = [

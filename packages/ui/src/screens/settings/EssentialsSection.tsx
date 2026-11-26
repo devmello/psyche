@@ -1,16 +1,12 @@
-import { NOTIFICATION_SETTING_DEFAULTS, type SearchSourceId } from "@psyche/protocol";
 import { type ReactElement, useState } from "react";
 import { Button } from "../../components/ui/button.tsx";
-import { useCall, useGatewayQuery, useSearchSources } from "../../data/hooks.ts";
+import { useCall, useGatewayQuery } from "../../data/hooks.ts";
 import { t } from "../../i18n/core.ts";
-import { isWindows } from "../../lib/platform.ts";
 import { usePersona, useSlots } from "../../slots.tsx";
-import { DAILY_DEFAULTS } from "./DailySection.tsx";
 import { modelLabel, providerInfoFromSummary, providersFromSettings } from "./ModelSection.tsx";
 import { MODE_OPTIONS } from "./PermissionsSection.tsx";
 import type { SettingsPaneId } from "./settings-pages.ts";
 import {
-  bool,
   ErrorNotice,
   Group,
   LoadGate,
@@ -25,21 +21,11 @@ import {
 } from "./shared.tsx";
 
 /**
- * Settings → Essentials (docs/design/settings-2026.md §7): the handful of choices a newcomer
- * makes, each with a safe default, written to the same keys and calls as the detailed pane it
- * names. Nothing here is the only place to change it; "More" opens that pane.
+ * Settings → General's body, Essentials (docs/design/settings-2026.md §7): the three choices a
+ * newcomer makes (model, how often it asks, memory), each with a safe default, written to the
+ * same keys and calls as the detailed pane it names. Nothing here is the only place to change
+ * it; "More" opens that pane.
  */
-
-/** The sources a newcomer decides on; Browser pages and Transcripts stay in Search. */
-const READ_SOURCES: readonly SearchSourceId[] = [
-  "mail",
-  "messages",
-  "notes",
-  "calendar",
-  "reminders",
-  "contacts",
-  "files",
-];
 
 export interface EssentialsModel {
   /** The primary model's ref, or null when none is picked yet. */
@@ -52,8 +38,6 @@ export interface EssentialsModel {
 export interface EssentialsPanelProps extends Pick<SettingsFormProps, "values" | "onChange"> {
   persona: string;
   model: EssentialsModel;
-  sources: readonly { id: SearchSourceId; label: string; enabled: boolean }[];
-  onSource: (id: SearchSourceId, enabled: boolean) => void;
   /** Memory is on (not paused). */
   remembering: boolean;
   onRemember?: (on: boolean) => void;
@@ -94,8 +78,6 @@ export function EssentialsPanel({
   onChange,
   persona,
   model,
-  sources,
-  onSource,
   remembering,
   onRemember,
   busy = false,
@@ -105,31 +87,14 @@ export function EssentialsPanel({
   error = null,
   onRetry,
 }: EssentialsPanelProps): ReactElement {
-  const quiet = bool(
-    values,
-    "notifications.quietHours.enabled",
-    NOTIFICATION_SETTING_DEFAULTS["notifications.quietHours.enabled"],
-  );
-  const from = str(
-    values,
-    "notifications.quietHours.start",
-    NOTIFICATION_SETTING_DEFAULTS["notifications.quietHours.start"],
-  );
-  const until = str(
-    values,
-    "notifications.quietHours.end",
-    NOTIFICATION_SETTING_DEFAULTS["notifications.quietHours.end"],
-  );
-  const brief = bool(values, "daily.brief.enabled", DAILY_DEFAULTS["daily.brief.enabled"]);
-  const briefAt = str(values, "daily.brief.time", DAILY_DEFAULTS["daily.brief.time"]);
   return (
     <SectionFrame
-      title={t("settings.essentials.title")}
+      title={t("settings.page.general")}
       description={t("settings.essentials.description", { persona })}
       needsApproval={needsApproval}
     >
       <LoadGate
-        label={t("settings.essentials.title")}
+        label={t("settings.page.general")}
         loading={loading}
         error={error}
         {...(onRetry ? { onRetry } : {})}
@@ -172,21 +137,6 @@ export function EssentialsPanel({
         </Group>
 
         <Group
-          title={t("settings.essentials.read.title", { persona })}
-          description={t("settings.essentials.read.hint")}
-          actions={<More pane="search" label={t("settings.nav.search")} onOpen={onOpen} />}
-        >
-          {sources.map((s) => (
-            <SwitchField
-              key={s.id}
-              label={s.label}
-              checked={s.enabled}
-              onChange={(on) => onSource(s.id, on)}
-            />
-          ))}
-        </Group>
-
-        <Group
           title={t("settings.essentials.asks.title", { persona })}
           actions={
             <More pane="permissions" label={t("settings.nav.permissions")} onOpen={onOpen} />
@@ -199,28 +149,6 @@ export function EssentialsPanel({
             options={MODE_OPTIONS}
             settingKey="permissions.mode"
             onChange={(v) => onChange("permissions.mode", v)}
-          />
-        </Group>
-
-        <Group
-          title={t("settings.essentials.interrupt.title", { persona })}
-          actions={
-            <More pane="notifications" label={t("settings.nav.notifications")} onOpen={onOpen} />
-          }
-        >
-          <SwitchField
-            label={t("settings.key.notifications.quietHours.enabled")}
-            description={t("settings.essentials.interrupt.quietHint", { from, until })}
-            settingKey="notifications.quietHours.enabled"
-            checked={quiet}
-            onChange={(on) => onChange("notifications.quietHours.enabled", on)}
-          />
-          <SwitchField
-            label={t("settings.key.daily.brief.enabled")}
-            description={t("settings.essentials.interrupt.briefHint", { time: briefAt })}
-            settingKey="daily.brief.enabled"
-            checked={brief}
-            onChange={(on) => onChange("daily.brief.enabled", on)}
           />
         </Group>
 
@@ -255,7 +183,6 @@ export function EssentialsSection({
   const { navigate } = useSlots();
   const models = useGatewayQuery("models.list", {});
   const memory = useGatewayQuery("memory.status", {});
-  const search = useSearchSources();
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState<string | null>(null);
 
@@ -274,12 +201,6 @@ export function EssentialsSection({
     label: entry === undefined ? null : modelLabel(entry),
     ready: provider?.status === "ok",
   };
-  const sources = READ_SOURCES.flatMap((id) => {
-    // iMessage and Apple Notes exist only on a Mac (as in Search's own list).
-    if (isWindows() && (id === "messages" || id === "notes")) return [];
-    const s = search.status?.sources.find((x) => x.id === id);
-    return s === undefined ? [] : [{ id, label: s.label, enabled: s.enabled }];
-  });
   const open =
     onOpen ?? (navigate ? (pane: SettingsPaneId) => navigate(`/settings/${pane}`) : undefined);
   const fail = (err: unknown) => setFailed(messageOf(err));
@@ -291,8 +212,6 @@ export function EssentialsSection({
         onChange={form.onChange}
         persona={persona.name}
         model={model}
-        sources={sources}
-        onSource={(source, enabled) => void search.configure({ source, enabled }).catch(fail)}
         remembering={memory.data?.paused !== true}
         onRemember={(on) => {
           setBusy(true);

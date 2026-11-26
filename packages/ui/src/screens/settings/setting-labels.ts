@@ -99,7 +99,6 @@ const LABELLED_KEYS = [
   "memory.surfaces.kinds.assignment",
   "memory.surfaces.kinds.event",
   "memory.recall.mode",
-  "gateway.bind",
   "gateway.lan",
   "gateway.lan.rotateCert",
   "models.primary",
@@ -126,7 +125,6 @@ const LABELLED_KEYS = [
   "search.rerank.enabled",
   "search.queryModel.enabled",
   "specialists.maxConcurrent",
-  "specialists.monthlyCapUsd",
   "specialists.showInFeed",
   "search.web.searxngUrl",
   VM_SETTING_KEYS.enabled,
@@ -143,7 +141,6 @@ const LABELLED_KEYS = [
   "screenAsk.shortcut",
   "screenAsk.destination",
   "screenAsk.alwaysImage",
-  "voice.engine",
   "voice.conversation.enabled",
   "voice.conversation.key",
   "voice.conversation.reviewBeforeSend",
@@ -223,8 +220,6 @@ const PREFIX_LABELS: readonly [prefix: string, label: (rest: string) => string][
   ["models.roles.", (role) => t("settings.key.models.roles", { role })],
   ["specialists.enabled.", (role) => t("settings.key.specialists.enabled", { role })],
   ["specialists.model.", (role) => t("settings.key.specialists.model", { role })],
-  ["specialists.budget.", (role) => t("settings.key.specialists.budget", { role })],
-  ["specialists.maxMode.", (role) => t("settings.key.specialists.maxMode", { role })],
 ];
 
 const isLabelled = (key: string): key is LabelledKey =>

@@ -1086,10 +1086,8 @@ export const fr: Partial<Catalogue> = {
   "settings.page.connectors": "Connecteurs et sources",
   "settings.page.memory": "Mémoire",
   "settings.page.daily": "Routines et compétences",
-  "settings.page.permissions": "Autorisations",
-  "settings.page.data": "Confidentialité et données",
-  "settings.page.devices": "Appareils",
-  "settings.page.about": "À propos",
+  "settings.page.permissions": "Confidentialité et sécurité",
+  "settings.page.devices": "Appareils et serveur",
   "settings.nav.general": "Général",
   "settings.nav.search": "Recherche",
   "settings.search.title": "Recherche",
@@ -1147,7 +1145,6 @@ export const fr: Partial<Catalogue> = {
   "settings.key.context.keepRecentTurns": "Tours récents conservés tels quels",
   "settings.key.data.transcriptRecall": "Rappel des transcriptions",
   "settings.key.data.replayRetentionDays": "Conserver les relectures de tâches pendant",
-  "settings.key.gateway.bind": "Adresse d’écoute",
   "settings.key.models.primary": "Modèle principal",
   "settings.key.models.utility": "Modèle utilitaire",
   "settings.key.models.image": "Modèle d’image",
@@ -1176,7 +1173,6 @@ export const fr: Partial<Catalogue> = {
   "settings.key.voice.mode": "Mode de dictée",
   "settings.key.voice.systemWide": "Dicter dans n’importe quelle app",
   "settings.key.voice.hotkey": "Raccourci global",
-  "settings.key.voice.engine": "Moteur de reconnaissance vocale",
   "settings.key.voice.conversation.enabled": "Parler avec Psyche",
   "settings.key.ui.onboarding.completedAt": "Configuration initiale",
   "settings.key.ui.transcriptMode": "Détail de la transcription",
@@ -2046,7 +2042,6 @@ export const fr: Partial<Catalogue> = {
   "settings.devices.platform.macos": "Mac",
   "settings.devices.platform.ios": "iPhone ou iPad",
   "settings.devices.platform.android": "Android",
-  "settings.devices.platform.web": "Navigateur web",
   "settings.devices.platform.linux": "Linux",
   "settings.devices.nodeKind.macHelper": "Assistant Mac",
   "settings.devices.nodeKind.vmGuest": "Invité VM",
@@ -2354,10 +2349,6 @@ export const fr: Partial<Catalogue> = {
   "settings.server.description":
     "Où la Gateway écoute et comment vos autres appareils la joignent.",
   "settings.server.loadLabel": "l’état du serveur",
-  "settings.server.bindHint":
-    "127.0.0.1 la garde sur ce Mac. Utilisez l’accès à distance ci-dessous plutôt que d’écouter sur toutes les interfaces.",
-  "settings.server.exposed":
-    "La Gateway est joignable depuis votre réseau. Chaque appareil doit tout de même être jumelé.",
   "settings.server.remoteAccess": "Accès à distance",
   "settings.server.setUp": "Configurer",
   "settings.server.remoteUnknown":

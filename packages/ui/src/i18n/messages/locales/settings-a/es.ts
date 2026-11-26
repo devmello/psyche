@@ -15,14 +15,7 @@ export const settingsA: Partial<Catalogue> = {
   "settings.essentials.model.noneHint":
     "{persona} necesita un modelo para poder responder. Añade una clave o usa un modelo de este Mac.",
   "settings.essentials.model.setUp": "Configurar un modelo",
-  "settings.essentials.read.title": "Qué puede leer {persona}",
-  "settings.essentials.read.hint":
-    "Desactivado hasta que actives alguno. Lo que lee se indexa en este Mac para poder encontrar cosas por ti, y la memoria también aprende de ello salvo que lo excluyas en Memoria → Fuentes.",
   "settings.essentials.asks.title": "Con qué frecuencia {persona} pregunta antes",
-  "settings.essentials.interrupt.title": "Cuándo puede {persona} interrumpirte",
-  "settings.essentials.interrupt.quietHint":
-    "De {from} a {until}, las notificaciones esperan en la bandeja.",
-  "settings.essentials.interrupt.briefHint": "Un resumen breve en el Feed a las {time}.",
   "settings.essentials.memory.title": "Memoria",
   "settings.essentials.memory.remember": "Dejar que {persona} recuerde nuestros chats",
   "settings.essentials.memory.rememberHint":
@@ -121,12 +114,9 @@ export const settingsA: Partial<Catalogue> = {
   "settings.key.ui.onboarding.progress": "Progreso de la introducción",
   "settings.key.permissions.liftedFloors": "Acciones permitidas sin preguntar para {id}",
   "settings.key.specialists.maxConcurrent": "Especialistas a la vez",
-  "settings.key.specialists.monthlyCapUsd": "Gasto mensual en especialistas",
   "settings.key.specialists.showInFeed": "Mostrar los resultados de los especialistas en el Feed",
   "settings.key.specialists.enabled": "{role} activado",
   "settings.key.specialists.model": "Modelo de {role}",
-  "settings.key.specialists.budget": "Presupuesto de {role}",
-  "settings.key.specialists.maxMode": "Modo de permisos de {role}",
   "settings.credentials.payments.description":
     "Una tarjeta de un solo uso, después de que apruebes cada compra. Los números de tarjeta nunca llegan a Psyche.",
   "settings.approval.presenceUnavailable":

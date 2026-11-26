@@ -10,9 +10,6 @@ export const settingsE: Partial<Catalogue> = {
   "settings.specialists.all": "Todos os especialistas",
   "settings.specialists.concurrent": "Especialistas ao mesmo tempo",
   "settings.specialists.concurrentHint": "Mais rodam lado a lado; o resto espera na fila.",
-  "settings.specialists.monthlyCap": "Gasto mensal",
-  "settings.specialists.monthlyCapHint":
-    "Ao atingir, novos trabalhos esperam por orçamento. Vazio usa metade do seu orçamento mensal{budget, select, none {} other { ({budget})}}.",
   "settings.specialists.monthlyCapNone": "Sem limite",
   "settings.specialists.showInFeed": "Mostrar resultados no Feed",
   "settings.specialists.showInFeedHint":
@@ -32,13 +29,6 @@ export const settingsE: Partial<Catalogue> = {
   "settings.specialists.class.primary": "modelo principal",
   "settings.specialists.class.harness": "ambiente de programação",
   "settings.specialists.class.vision": "modelo principal com visão",
-  "settings.specialists.budget": "Orçamento por trabalho",
-  "settings.specialists.budgetTokens": "Tokens",
-  "settings.specialists.budgetCost": "Custo (USD)",
-  "settings.specialists.budgetMinutes": "Minutos",
-  "settings.specialists.budgetCaps":
-    "Até {tokens} tokens · {cost} · {minutes} min. Um trabalho pode pedir mais, nunca além disto.",
-  "settings.specialists.maxMode": "O máximo que pode fazer sem perguntar",
   "settings.specialists.mode.plan": "Plano",
   "settings.specialists.mode.manual": "Manual",
   "settings.specialists.mode.balanced": "Equilibrado",

@@ -39,7 +39,6 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.nav.learning": "Bases",
   "settings.search.count": "{count, plural, one {# résultat} other {# résultats}}",
   "settings.search.result.page": "Page",
-  "settings.page.essentials": "L’essentiel",
   "settings.essentials.title": "L’essentiel",
   "settings.essentials.description":
     "Les quelques choix que fait la plupart des gens, chacun avec une valeur par défaut sûre. {persona} demande quand il a besoin de plus.",
@@ -53,14 +52,7 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.essentials.model.noneHint":
     "{persona} a besoin d’un modèle avant de pouvoir répondre. Ajoutez une clé ou utilisez un modèle sur ce Mac.",
   "settings.essentials.model.setUp": "Configurer un modèle",
-  "settings.essentials.read.title": "Ce que {persona} peut lire",
-  "settings.essentials.read.hint":
-    "Désactivé tant que vous n’en activez pas un. Ce qui est lu est indexé sur ce Mac pour retrouver des éléments pour vous, et la mémoire en tire aussi des enseignements, sauf si vous refusez dans Mémoire → Sources.",
   "settings.essentials.asks.title": "À quelle fréquence {persona} demande d’abord",
-  "settings.essentials.interrupt.title": "Quand {persona} peut vous interrompre",
-  "settings.essentials.interrupt.quietHint":
-    "De {from} à {until}, les notifications attendent dans la boîte de réception.",
-  "settings.essentials.interrupt.briefHint": "Un court résumé dans Feed à {time}.",
   "settings.essentials.memory.title": "Mémoire",
   "settings.essentials.memory.remember": "Laisser {persona} se souvenir de nos discussions",
   "settings.essentials.memory.rememberHint":
@@ -160,12 +152,9 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.key.ui.onboarding.progress": "Progression de l’intégration",
   "settings.key.permissions.liftedFloors": "Actions autorisées sans demander pour {id}",
   "settings.key.specialists.maxConcurrent": "Spécialistes simultanés",
-  "settings.key.specialists.monthlyCapUsd": "Dépenses mensuelles des spécialistes",
   "settings.key.specialists.showInFeed": "Afficher les résultats des spécialistes dans Feed",
   "settings.key.specialists.enabled": "{role} activé",
   "settings.key.specialists.model": "Modèle de {role}",
-  "settings.key.specialists.budget": "Budget de {role}",
-  "settings.key.specialists.maxMode": "Mode d’autorisation de {role}",
   "settings.credentials.payments.description":
     "Une carte à usage unique, après votre approbation de chaque achat. Les numéros de carte n’atteignent jamais Psyche.",
   "settings.approval.presenceUnavailable":
@@ -791,7 +780,7 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.connectors.page.row.onHost": "Sur {host}",
   "settings.connectors.page.row.macOnly": "Uniquement sur un hôte Mac",
   "settings.computerUse.remote":
-    "L’utilisation de l’ordinateur fonctionne chez {host}. Demandez depuis là-bas, ou utilisez le navigateur.",
+    "L’utilisation de l’ordinateur fonctionne chez {host}. Demandez depuis là-bas.",
   "settings.computerUse.remoteLinux":
     "L’utilisation de l’ordinateur se fait sur l’écran privé de {host}. Suivez-la et prenez la main depuis le panneau d’observation.",
   "settings.gateways.title": "Gateways sur cet ordinateur",
@@ -1216,7 +1205,7 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.people.graph": "Apprendre les personnes à partir de",
   "settings.people.entityRecall": "Utiliser les noms dans les réponses",
   "settings.people.entityRecallHint":
-    "Quand vous nommez quelqu’un dans une discussion privée, {persona} ajoute une ligne sur cette personne. Jamais dans les groupes ni les canaux.",
+    "Quand vous nommez quelqu’un dans une discussion, {persona} ajoute une ligne sur cette personne.",
   "settings.people.sources": "Apprendre les personnes à partir de",
   "settings.people.sourcesHint":
     "Chaque source est désactivée tant que vous ne l’activez pas. La désactiver en arrête la lecture.",
@@ -1307,9 +1296,6 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.specialists.concurrent": "Spécialistes simultanés",
   "settings.specialists.concurrentHint":
     "Davantage s’exécutent en parallèle ; les autres attendent dans la file.",
-  "settings.specialists.monthlyCap": "Dépenses mensuelles",
-  "settings.specialists.monthlyCapHint":
-    "Les nouvelles tâches attendent du budget une fois la limite atteinte. Vide, la moitié de votre budget mensuel est utilisée{budget, select, none {} other { ({budget})}}.",
   "settings.specialists.monthlyCapNone": "Aucun plafond",
   "settings.specialists.showInFeed": "Afficher les résultats dans Feed",
   "settings.specialists.showInFeedHint":
@@ -1329,13 +1315,6 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.specialists.class.primary": "modèle principal",
   "settings.specialists.class.harness": "harnais de code",
   "settings.specialists.class.vision": "modèle principal avec vision",
-  "settings.specialists.budget": "Budget par tâche",
-  "settings.specialists.budgetTokens": "Jetons",
-  "settings.specialists.budgetCost": "Coût (USD)",
-  "settings.specialists.budgetMinutes": "Minutes",
-  "settings.specialists.budgetCaps":
-    "Jusqu’à {tokens} jetons · {cost} · {minutes} min. Une tâche peut en demander plus, jamais au-delà.",
-  "settings.specialists.maxMode": "Le maximum qu’il peut faire sans demander",
   "settings.specialists.mode.plan": "Plan",
   "settings.specialists.mode.manual": "Manuel",
   "settings.specialists.mode.balanced": "Équilibré",

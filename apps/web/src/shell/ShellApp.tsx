@@ -1071,7 +1071,7 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
   ];
 
   if (settingsWindow) {
-    const section = route.slice("/window".length) || "/settings/essentials";
+    const section = route.slice("/window".length) || "/settings/general";
     return (
       <UiSlotsProvider value={kitSlots}>
         <div className="app-frame" data-testid="settings-window">

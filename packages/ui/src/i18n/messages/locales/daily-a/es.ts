@@ -203,5 +203,4 @@ export const dailyA: Partial<Catalogue> = {
   "settings.nav.learning": "Básicos",
   "settings.search.count": "{count, plural, one {# resultado} other {# resultados}}",
   "settings.search.result.page": "Página",
-  "settings.page.essentials": "Esenciales",
 };

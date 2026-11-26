@@ -232,7 +232,7 @@ describe("computer use on a client of another computer (decision G5)", () => {
       </StoryWorld>,
     );
     expect(screen.getByTestId("computer-use-remote").textContent).toBe(
-      "Computer use works at studio-mac. Ask from there, or use the browser.",
+      "Computer use works at studio-mac. Ask from there.",
     );
     expect(screen.queryByRole("switch")).toBeNull();
   });

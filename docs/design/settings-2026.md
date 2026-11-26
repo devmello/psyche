@@ -27,35 +27,42 @@ drove changes.
 
 ## 2. The new structure
 
-Nine pages, ordered by how often people need them. Each page is a column of **panes**; a pane is
-one of the old sections, kept whole, so its settings, stories and tests stay where they were.
+Seven pages (2026-11-26, after the web app and the chat channels went away), ordered by how
+often people need them. Each page is a **body** (its first pane, shown in place) and then **rows**
+that open one level deeper, the way System Settings drills in. A pane is one of the old sections,
+kept whole, so its settings, stories and tests stay where they were.
 
-| Page (`/settings/<id>`) | Panes, in order (each also a route) |
-|---|---|
-| **General** `general` | Appearance `appearance` · Persona `persona` · Notifications `notifications` · Voice & dictation `voice` |
-| **Models** `model` | Model & providers `model` · Usage `usage` |
-| **Connectors & sources** `connectors` | Connectors `connectors` · Search `search` (new) · Mail & meetings `mail` · Channels `channels` |
-| **Memory** `memory` | Memory review `memory` · Remembering & learning `learning` (new) · Everything memory `everything` · Work `work` (new) · Where memory shows `surfaces` (new) · People & projects `people` |
-| **Routines & skills** `daily` | Daily `daily` · Skills `skills` · Specialists `specialists` |
-| **Permissions** `permissions` | Approval rules `permissions` · Computer use `computer-use` · Browser `browser` · File access `files` · Credentials `credentials` · VM mode `vm` |
-| **Privacy & data** `data` | Privacy & data `data` |
-| **Devices** `devices` | Devices & nodes `devices` · Server & remote access `server` |
-| **About** `about` | About `about` |
+| Page (`/settings/<id>`) | Body | Rows (each also a route) |
+|---|---|---|
+| **General** `general` | Essentials `essentials`: Model, How often it asks, Memory (three groups, each mirrors its own pane) | Appearance `appearance` (with Links open in) · Persona `persona` · Notifications `notifications` · Voice & dictation `voice` · About `about` |
+| **Models** `model` | Model & providers `model` | Usage `usage` |
+| **Connectors & sources** `connectors` | Connectors `connectors` | Search `search` · Mail & meetings `mail` |
+| **Memory** `memory` | Memory review `memory` | Remembering & learning `learning` · Everything memory `everything` · Work `work` · Where memory shows `surfaces` · People & projects `people` |
+| **Routines & skills** `daily` | Daily `daily` | Skills `skills` · Specialists `specialists` |
+| **Privacy & security** `permissions` | Approval rules `permissions` | Computer use `computer-use` (VM mode is a group inside it) · Browser `browser` · File access `files` · Credentials `credentials` · Privacy & data `data` |
+| **Devices & server** `devices` | Devices & nodes `devices` | Server & remote access `server` |
 
-- A page's id is its first pane's id where it has one, so `/settings/model` opens the top of
-  Models either way. Only `general`, `search` and `learning` are new ids
-  (`APP_SETTINGS_SECTIONS` in `packages/protocol/src/app-routes.ts`).
-- **Every old id still works.** `/settings/files` opens Permissions scrolled to File access;
-  `/settings/people` opens Memory at People & projects. Unknown ids open General (was Models).
-  `/settings/mcp` and `/settings/connectors/{mcp,add-mcp}` behave as before.
+- `essentials`, `about`, `data` and `server` used to be pages (or, for `server`, a pane of
+  Devices); they are rows or the body now and keep their ids. `vm` has no pane of its own: it is a
+  group inside Computer use, and `/settings/vm` opens Computer use (the alias table
+  `SETTINGS_ALIASES` in `settings-pages.ts`; a test walks every old id).
+- **Every old id still works** (`APP_SETTINGS_SECTIONS` in `packages/protocol/src/app-routes.ts`
+  keeps all of them, and the order is each page, then its other panes). `/settings/files` opens
+  Privacy & security scrolled to File access; `/settings/people` opens Memory at People &
+  projects. Unknown ids open General. `/settings/mcp` and `/settings/connectors/{mcp,add-mcp}`
+  behave as before.
 - The shell's `sections` override is keyed by **pane** id, so the composed app's overrides
-  (File access with a native picker, Data with Backups, About with logs…) keep working unchanged.
-- The sidebar lists the nine pages; the open page lists its panes under it (the one at the top of
-  the content is marked as you scroll). Choosing a pane scrolls to it and puts its id in the URL.
+  (File access with a native picker, Data with Backups, About with logs...) keep working unchanged.
+- The sidebar lists the seven pages. A page shows its body and, below it, its rows (Privacy &
+  security lists its own rows inside the body). A row opens its pane with a way back; its id is in
+  the URL.
+- Controls nothing read are gone: the gateway bind address (the real one is `gateway.host` in the
+  config file) and the specialists' monthly cap, per-role budget and per-role highest mode (the
+  Gateway reads only `specialists.enabled.*`, `.model.*`, `maxConcurrent` and `showInFeed`).
 
 Heading levels: the page title is the h2 in the display serif (24 px); a pane on a multi-pane page
 is an h3 in the serif at 20 px with a hairline above it; groups step down to h4. Single-pane pages
-(Privacy & data, About) keep the pane as the h2.
+(none now; the body of a page with rows keeps its pane as the h2) keep the pane as the h2.
 
 ## 3. Decisions on the duplicates
 
@@ -67,8 +74,7 @@ is an h3 in the serif at 20 px with a hairline above it; groups step down to h4.
    each source Search reads unless the owner opts it out. *Memory → Sources* lists the same
    sources in the same order, each with **Learning from it** (the opt-out, `memory.everything.optOut`)
    when Search reads it, and when it does not, a disabled row saying "Psyche doesn't read Mail"
-   with **Let Psyche read Mail**, which turns on the Search source in one click (the call Essentials
-   makes). Essentials and Search sources keep their meaning and say that turning a source on also
+   with **Let Psyche read Mail**, which turns on the Search source in one click. Search sources says that turning a source on also
    lets memory learn from it unless the owner opts out on *Memory → Sources*. The Gateway reads
    `indexed && !optOut` (everything-memory-2026 D12).
 3. **Folders and Run commands have one editor**: *Permissions → File access*. Connectors' *Files on
@@ -149,17 +155,18 @@ like adding access to files is complicated to do through settings. The models sh
 to request access and that should just remember and always work depending on what type of
 permission they give."
 
-**Essentials** (`/settings/essentials`) is the first page and where Settings opens; an unknown id
-also lands there. It holds the five choices a newcomer makes, each written to the same key or call
-as its detailed pane, with **More** opening that pane:
+**Essentials** (`/settings/essentials`) is the body of **General**, the first page and where
+Settings opens; an unknown id lands on General. It holds the three choices a newcomer makes, each
+written to the same key or call as its detailed pane, with **More** opening that pane:
 
 | Group | What it changes | Default |
 |---|---|---|
 | Model | shows the primary model and whether its provider answers; **Set up a model** (amber, the page's one filled button) when none | none until set up |
-| What Psyche may read | Mail, Messages, Notes, Calendar, Reminders, Files (`search.sources.configure`); memory learns from what is on unless opted out on *Memory → Sources* | all off |
 | How often Psyche asks first | `permissions.mode` (Balanced, Manual, Auto) | Balanced |
-| When Psyche may interrupt you | Quiet hours (`notifications.quietHours.enabled`), Morning brief (`daily.brief.enabled`) | quiet hours **on**, brief off |
 | Memory | Let Psyche remember our chats (`memory.pause`) | on |
+
+(2026-11-26: "What Psyche may read" and "When Psyche may interrupt you" were dropped from the body;
+they only repeated Search and Notifications, one row away.)
 
 Nothing on Essentials is its only home: power users change everything, and more, in the pages
 below. Essentials repeats a setting on purpose (a shortcut), which is the one exception to "one home

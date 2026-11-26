@@ -72,7 +72,7 @@ export interface TouchIdKeySetupProps {
   registered?: PresenceKeyRow | undefined;
   /**
    * The desktop: what the helper bundled with this app reports (null when the app bundles none,
-   * a development build). Undefined on hosts that cannot ask (the web client): the owner types
+   * a development build). Undefined on hosts that cannot ask (no helper bundled): the owner types
    * the key id the helper prints.
    */
   bundled?: BundledHelperKey | null | undefined;

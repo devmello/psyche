@@ -46,7 +46,7 @@ The sidebar's gear opens Settings (⌘,).
 | Run setup again | `/onboarding` |
 | Settings | `/settings/<section>` |
 
-Settings pages (`/settings/…`): `essentials`, `general`, `model`, `connectors` (also `connectors/mcp`, `connectors/add-mcp`), `memory`, `daily`, `permissions`, `data`, `devices`, `about`. Every pane on a page is a route too and opens its page scrolled to it: `appearance`, `persona`, `notifications`, `voice`, `usage`, `search`, `mail`, `channels`, `learning`, `everything`, `people`, `skills`, `specialists`, `computer-use`, `browser`, `files`, `credentials`, `vm`, `server`.
+Settings pages (`/settings/…`): `general`, `model`, `connectors` (also `connectors/mcp`, `connectors/add-mcp`), `memory`, `daily`, `permissions`, `devices`. Every pane on a page is a route too and opens its page scrolled to it: `essentials` (General's body), `appearance`, `persona`, `notifications`, `voice`, `about`, `usage`, `search`, `mail`, `learning`, `everything`, `work`, `surfaces`, `people`, `skills`, `specialists`, `computer-use`, `browser`, `files`, `credentials`, `data`, `server`. `vm` is a group inside Computer use now and opens it.
 
 ## The sidebar and chat
 
@@ -64,6 +64,7 @@ Settings pages (`/settings/…`): `essentials`, `general`, `model`, `connectors`
 | `/new` | Start a new side chat. |
 | `/btw question` | Ask aside in a side chat. |
 | `/fork message` | Fork this thread from here. |
+| `/compare option \| option` | Fork a plan: try two or more choices side by side and compare them. With no labels, Psyche suggests the options. |
 | `/schedule when and what` | Create an automation (see Automations). |
 | `/incognito message` | A chat that is not remembered. |
 | `/remember fact` | Note a fact in today's memory. |
@@ -133,22 +134,23 @@ Psyche always browses in its own built-in window (Settings → Browser: Psyche p
 
 ## Settings, every section
 
-Settings opens from the gear or ⌘, on **Essentials**, the first of ten pages: the few choices a newcomer makes, each with a safe default. The open page lists its panes under it. **Search settings** at the top finds pages, panes and single settings by their label ("quiet", "search sources", "dock") and opens the setting itself, scrolled into view. Route `/settings/<id>`; an id from before the 2026 regrouping still opens its pane.
+Settings opens from the gear or ⌘, on **General**, the first of seven pages: its body is **Essentials**, the few choices a newcomer makes, each with a safe default. Each page shows its own body, then rows that open one level deeper (a way back is above the pane). **Search settings** at the top finds pages, panes and single settings by their label ("quiet", "search sources", "dock") and opens the setting itself, scrolled into view. Route `/settings/<id>`; an id from before the 2026 regrouping still opens its pane.
 
-**Essentials** (`essentials`): **Model** (which model Psyche thinks with, and whether it is ready; **Set up a model** when there is none), **What Psyche may read** (Mail, Messages, Notes, Calendar, Reminders, Files, all off until switched on), **How often Psyche asks first** (Balanced, Manual, Auto), **When Psyche may interrupt you** (Quiet hours, on by default 22:00 to 08:00; Morning brief), and **Memory** (Let Psyche remember our chats). Each group's **More** opens the full pane; every one of these is also there.
+**Essentials** (`essentials`, General's body): **Model** (which model Psyche thinks with, and whether it is ready; **Set up a model** when there is none), **How often Psyche asks first** (Balanced, Manual, Auto) and **Memory** (Let Psyche remember our chats). Each group's **More** opens the full pane; every one of these is also there.
 
 **General** (`general`)
-- **Appearance** (`appearance`): Theme (Auto follows the system), Gray family, Accent color; applies to every paired device. On the Mac, **Show in Dock when no windows are open** (off by default) and **Open Psyche at login** (off by default; starts Psyche in the menu bar with no window so scheduled automations that use the browser can always run; Psyche also starts itself in the background when a run needs the browser). Show in Dock off: Psyche leaves the Dock and ⌘-Tab when its last window closes and keeps running from the menu bar; click the menu bar icon (Open Psyche) or open Psyche again from Finder or Spotlight to bring the window back. ⌘Q still quits.
+- **Appearance** (`appearance`): **Links open in** (Ask each time, Psyche browser, Default browser), Theme (Auto follows the system), Gray family, Accent color; applies to every paired device. On the Mac, **Show in Dock when no windows are open** (off by default) and **Open Psyche at login** (off by default; starts Psyche in the menu bar with no window so scheduled automations that use the browser can always run; Psyche also starts itself in the background when a run needs the browser). Show in Dock off: Psyche leaves the Dock and ⌘-Tab when its last window closes and keeps running from the menu bar; click the menu bar icon (Open Psyche) or open Psyche again from Finder or Spotlight to bring the window back. ⌘Q still quits.
 - **Persona** (`persona`): name, tagline, emoji, creature and avatar, "Show thinking while it works". Tone lives in SOUL.md.
 - **Notifications** (`notifications`): **Quiet hours** (on by default, 22:00 to 08:00) with **Quiet from** and **Quiet until**; notifications are held but still land in the inbox, and time-sensitive approvals still come through.
 - **Voice & dictation** (`voice`): dictation key, Talk with Psyche, Ask about my screen.
+- **About** (`about`): versions, data folder (Reveal in Finder), **Run checks** (Gateway, model, sandbox, memory: each says what is wrong in plain words), Open logs, and **Run setup again** (walks the setup again with everything pre-filled from what is set now; nothing resets).
 
 **Models** (`model`)
 - **Model & providers** (`model`): add a provider (API key, subscription via a signed-in CLI, or local), check the endpoint, see tools/vision/reasoning badges, and pick models. A model you pick is used as chosen; if it fails Psyche says so.
 - **Usage** (`usage`): tokens and cost, counted locally. Also in the gear menu.
 
 **Connectors & sources** (`connectors`)
-- **Connectors** (`connectors`): **Add connector** (Mail, Calendar, Notes, Slack and others), **Add MCP server**. Disconnect pauses one, Remove deletes it. Sign in again when it shows "Sign in again". Command-type MCP servers and running commands need the sandbox: **Set up the sandbox** installs or locates **srt** (Install with Psyche, or point to a path); the same **Set up sandbox** button appears on a command approval card. Installing asks you to confirm. If **Set up** for a ready-made server says "The server did not start", the card now gives the real reason and a next step (sandbox missing → **Set up sandbox**; Python servers need **uv**; Node servers need npm on the Mac; blocked network; or the server's own error output). Each ready-made server lists what it needs (sandbox, Node tools, uv, network). **Files on this Mac** and **Terminal** are cards at the top of Connectors, not separate servers: they show the shared folders and whether **Run commands on this Mac** is on, and **Open Access** goes to where both are changed (Settings → Permissions → Access; commands run in shared folders, each one asks first, in the sandbox unless the owner types UNSANDBOXED). Ask `find_capability` for "terminal" or "files" to point the owner there; only the owner turns them on.
+- **Connectors** (`connectors`): **Add connector** (Mail, Calendar, Notes, Slack and others), **Add MCP server**. Disconnect pauses one, Remove deletes it. Sign in again when it shows "Sign in again". Command-type MCP servers and running commands need the sandbox: **Set up the sandbox** installs or locates **srt** (Install with Psyche, or point to a path); the same **Set up sandbox** button appears on a command approval card. Installing asks you to confirm. If **Set up** for a ready-made server says "The server did not start", the card now gives the real reason and a next step (sandbox missing → **Set up sandbox**; Python servers need **uv**; Node servers need npm on the Mac; blocked network; or the server's own error output). Each ready-made server lists what it needs (sandbox, Node tools, uv, network). **Files on this Mac** and **Terminal** are cards at the top of Connectors, not separate servers: they show the shared folders and whether **Run commands on this Mac** is on, and **Open Access** goes to where both are changed (Settings → Privacy & security → Access; commands run in shared folders, each one asks first, in the sandbox unless the owner types UNSANDBOXED). Ask `find_capability` for "terminal" or "files" to point the owner there; only the owner turns them on.
 - **Search** (`search`): one home for what Psyche indexes and how it searches: **Search sources**, **Semantic search**, **Model for search** and **Web search**. **Model for search** (only with a Mac helper) picks which model reads questions, writes context cards and reorders results: **Your utility model** (default) or **Apple on-device model** (Apple Intelligence on this Mac: nothing sent to the cloud, no key or download; small, and when it cannot run these jobs are skipped rather than sent to the cloud). The status says **Ready on this Mac**, **Needs Apple Intelligence**, **Getting ready** or **Not available on this Mac**.
 - **Search sources** (Settings → Connectors & sources → Search): choose which local sources Psyche reads into search (Mail, Messages, Notes, Calendar, Reminders, Contacts, Files in shared folders), all off until you switch them on. Turning one on also lets memory learn from it, unless you opt out on Memory → Sources (Contacts is the exception: memory does not learn from that index). **Contacts** indexes your Apple Contacts: name, nickname, company, job title, emails, phone numbers, the city and country of each address and the birthday, never street addresses, notes or groups; it is off for Psyche's agent until you allow it, and "Never index these contacts" keeps a person out. **Index on battery** (off by default) lets indexing, Rebuild and reading text in images carry on while the Mac runs on battery, at a gentler pace; it uses more battery, and Low Power Mode still pauses indexing. Each row has **Rebuild**, which reads that source again from the start: it shows how far it has read and how many items it rebuilt, and says why when it cannot (the source is off, the Mac helper is not connected, Low Power Mode is on, or the Mac is on battery with Index on battery off), leaving the index as it was. Files has **Read text in images (OCR)** (off by default): it reads screenshots, photos and scanned PDFs in shared folders, and images in your Library, with Apple Vision on this Mac. Nothing leaves the Mac and no model is downloaded. It runs one page at a time, on power (or on battery with Index on battery on) and never in low-power mode, and turning it off removes the text it read.
 - **Semantic search** group (in `search`): **Semantic search**, **Context cards for search**, and **Read questions with a small model** (on by default, but only runs when a small model is set up: when the agent searches with a question whose time, person or source the built-in rules could not find, one cheap call turns it into filters; only the question is sent, results are cached, and any failure falls back to the rules).
@@ -171,19 +173,16 @@ Settings opens from the gear or ⌘, on **Essentials**, the first of ten pages: 
 - **Skills** (`skills`): the installed skills; each shows what it asks for. Installing or updating goes through a trust card. "Made by {persona}" marks skills it wrote.
 - **Specialists** (`specialists`): the background helpers (researcher, coder and others).
 
-**Permissions** (`permissions`)
+**Privacy & security** (`permissions`)
 - **Approval rules** (`permissions`): **Default mode for new threads**, **Connector actions** (Allow / Ask / Deny each), **Browser origins** (sites that need no approval card), and the **Grants ledger** where you can revoke any "Always allow".
 - **Computer use** (`computer-use`): which Mac apps Psyche may operate; macOS permissions (Accessibility and others).
-- **Browser** (`browser`): above (Psyche profile, signed-in sites, Open links in, Let Psyche use your Chrome, Web Bot Auth).
+- **Browser** (`browser`): above (Psyche profile, signed-in sites, Let Psyche use your Chrome, Web Bot Auth).
 - **Access** (`files`): **What Psyche can reach**, one list of every shared folder and standing permission, each marked **Always**, **This chat** or **For now** (folders also read only or read and write), with **Revoke**. Psyche asks in the chat when it needs a folder (`request_folder_access`) and your answer is remembered here, so this is where you see and take back access rather than the usual way to give it. Also **Run commands on this Mac** (basic read-only commands such as ls or cat need no approval card, unless you turn that off; everything else, git included, asks first), **Add a folder yourself** (folded; a typed path, or **Choose a folder…** on the Mac).
 - **Credentials** (`credentials`): the vault: Items with **Add item**, import, and links to 1Password or Bitwarden. Each fill still asks on its card.
-- **VM mode** (`vm`): run tasks in a separate sandbox Mac.
+- **VM mode** (`vm`, a group inside Computer use): run tasks in a separate sandbox Mac.
+- **Privacy & data** (`data`): everything stays on this machine. **How long things are kept** (thinking, task replays), **Maps**, **Widgets in chat** (pictures from the web), **Export everything**, Backups, and last, under **Delete and start over**: Delete threads and **Reset memory…** (type "reset").
 
-**Privacy & data** (`data`): everything stays on this machine. **How long things are kept** (thinking, task replays), **Maps**, **Widgets in chat** (pictures from the web), **Export everything**, Backups, and last, under **Delete and start over**: Delete threads and **Reset memory…** (type "reset").
-
-**Devices** (`devices`): **Devices & nodes** (`devices`) and **Server & remote access** (`server`: the bind address, passkeys, sandbox health; **Set up** opens the remote-access guide).
-
-**About** (`about`): versions, data folder (Reveal in Finder), **Run checks** (Gateway, model, sandbox, memory: each says what is wrong in plain words), Open logs, and **Run setup again** (walks the setup again with everything pre-filled from what is set now; nothing resets).
+**Devices & server** (`devices`): **Devices & nodes** (`devices`) and **Server & remote access** (`server`: remote access, allowing other computers, passkeys, sandbox health; **Set up** opens the remote-access guide). The address the Gateway listens on is set in the config file, not here.
 
 ## Onboarding
 
@@ -200,14 +199,14 @@ Access to files, apps and the screen is not asked in setup: the agent asks in ch
 
 ## Permissions and approval cards
 
-**Modes** (per thread: `/mode`, or the default in Settings → Permissions):
+**Modes** (per thread: `/mode`, or the default in Settings → Privacy & security):
 - **manual**: asks before every action.
 - **balanced**: reads run; risky actions (to people, money) ask first.
 - **auto**: acts on its own; needs an Auto-capable model (pick one with `/model`).
 - **plan**: read-only; plans without acting.
 - **full** (Full access): in this chat only, Psyche browses, changes files in your home folder, runs commands and uses apps and connectors, and no card comes up for those. Sends to other people (email, messages, invites, posts) still ask once, with one tap, and payments still ask with Touch ID or your password. Turn it on with `/full` from the Mac or an admin-paired device; turn it off with `/full off` or Turn off above the composer. Never in channel, automation or Night shift threads, and never for unattended runs.
 
-**Approval cards** appear in the chat and in `/agent/approvals`. Scopes: **Allow once**, **Allow for this task**, **Allow for this site**, **Allow for this session**, **Always allow** (shown under Settings → Permissions → Approval rules → Grants ledger, revocable). A folder request asks which folder to share. Running a command without the sandbox offers only Allow once and asks you to type a word; **Set up sandbox** is the better path.
+**Approval cards** appear in the chat and in `/agent/approvals`. Scopes: **Allow once**, **Allow for this task**, **Allow for this site**, **Allow for this session**, **Always allow** (shown under Settings → Privacy & security → Approval rules → Grants ledger, revocable). A folder request asks which folder to share. Running a command without the sandbox offers only Allow once and asks you to type a word; **Set up sandbox** is the better path.
 
 **Lifted floors**: some actions (sending, deleting, spending) always ask. On such a card you can choose to lift the floor: the lift-floor dialog names the consequence (messages can't be unsent, deleted items may not be recoverable, payments may not be refundable); confirm with its **Allow** button. It still asks after reading untrusted content, and every time in Manual mode.
 
@@ -219,11 +218,11 @@ Answered cards collapse to a one-line summary of the decision.
 
 - *Check my UCSC Canvas at 9am every day*: sign in to Canvas once in the Psyche browser and choose Stay signed in, then say it in chat or use Settings → Daily → Automations; confirm the Schedule card. Offer `/settings/daily`.
 - *Change the brief time*: Settings → Daily → Morning brief → Time. `/settings/daily`.
-- *Stop notifications at night*: quiet hours are on by default (22:00 to 08:00); change them in Settings → Essentials or General → Notifications. `/settings/notifications`.
+- *Stop notifications at night*: quiet hours are on by default (22:00 to 08:00); change them in Settings → General → Notifications. `/settings/notifications`.
 - *Switch model*: `/model` in chat, or Settings → Models. `/settings/model`.
-- *Make it ask less*: `/mode`, or Settings → Permissions → Default mode; for one action, lift its floor on the card.
-- *Revoke an Always allow*: Settings → Permissions → Approval rules → Grants ledger → Revoke. `/settings/permissions`.
+- *Make it ask less*: `/mode`, or Settings → Privacy & security → Default mode; for one action, lift its floor on the card.
+- *Revoke an Always allow*: Settings → Privacy & security → Approval rules → Grants ledger → Revoke. `/settings/permissions`.
 - *Forget something*: `/forget subject`, or Settings → Privacy & data (`/settings/data`).
-- *Share a folder*: ask in the chat (Psyche asks you to pick it and remembers your answer), or Settings → Permissions → Access → Add a folder yourself. `/settings/files`.
+- *Share a folder*: ask in the chat (Psyche asks you to pick it and remembers your answer), or Settings → Privacy & security → Access → Add a folder yourself. `/settings/files`.
 - *Where did that report go?*: Library → Artifacts. `/library/artifacts`.
 - *See what you did today*: Overview → Activity, or Recent runs. `/overview`.

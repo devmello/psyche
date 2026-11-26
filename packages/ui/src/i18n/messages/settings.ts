@@ -24,17 +24,14 @@ export const settings = {
   "settings.search.count": "{count, plural, one {# result} other {# results}}",
   "settings.search.result.page": "Page",
 
-  // The nine pages of the Settings window (settings-pages.ts, docs/design/settings-2026.md).
-  "settings.page.essentials": "Essentials",
+  // The seven pages of the Settings window (settings-pages.ts, docs/design/settings-2026.md).
   "settings.page.general": "General",
   "settings.page.model": "Models",
   "settings.page.connectors": "Connectors & sources",
   "settings.page.memory": "Memory",
   "settings.page.daily": "Routines & skills",
-  "settings.page.permissions": "Permissions",
-  "settings.page.data": "Privacy & data",
-  "settings.page.devices": "Devices",
-  "settings.page.about": "About",
+  "settings.page.permissions": "Privacy & security",
+  "settings.page.devices": "Devices & server",
 
   // Settings → Essentials (EssentialsSection.tsx, settings-2026 §7).
   "settings.essentials.title": "Essentials",
@@ -50,14 +47,7 @@ export const settings = {
   "settings.essentials.model.noneHint":
     "{persona} needs a model before it can answer. Add a key, or use a model on this Mac.",
   "settings.essentials.model.setUp": "Set up a model",
-  "settings.essentials.read.title": "What {persona} may read",
-  "settings.essentials.read.hint":
-    "Off until you turn one on. What it reads is indexed on this Mac so it can find things for you, and memory learns from it too unless you opt out under Memory → Sources.",
   "settings.essentials.asks.title": "How often {persona} asks first",
-  "settings.essentials.interrupt.title": "When {persona} may interrupt you",
-  "settings.essentials.interrupt.quietHint":
-    "From {from} to {until}, notifications wait in the inbox.",
-  "settings.essentials.interrupt.briefHint": "A short brief in the Feed at {time}.",
   "settings.essentials.memory.title": "Memory",
   "settings.essentials.memory.remember": "Let {persona} remember our chats",
   "settings.essentials.memory.rememberHint":
@@ -198,7 +188,6 @@ export const settings = {
   "settings.key.agent.showReasoning": "Show thinking while it works",
   "settings.key.data.replayRetentionDays": "Keep task replays for",
   "settings.key.data.reasoningRetentionDays": "Keep thinking for",
-  "settings.key.gateway.bind": "Bind address",
   "settings.key.models.primary": "Primary model",
   "settings.key.models.utility": "Utility model",
   "settings.key.models.image": "Image model",
@@ -240,7 +229,6 @@ export const settings = {
   "settings.notifications.group.quietHours": "Quiet hours",
   "settings.notifications.quietHours.hint":
     "Holds notifications until the window ends. Time-sensitive approvals still come through. The overnight memory pass has its own hours, in the Memory settings.",
-  "settings.key.voice.engine": "Speech engine",
   "settings.key.voice.conversation.enabled": "Talk with Psyche",
   "settings.key.voice.conversation.key": "Voice key",
   "settings.key.voice.conversation.reviewBeforeSend": "Review before sending",
@@ -254,12 +242,9 @@ export const settings = {
   "settings.key.permissions.liftedFloors": "Actions allowed without asking for {id}",
   "settings.key.models.roles": "Model for {role}",
   "settings.key.specialists.maxConcurrent": "Specialists at once",
-  "settings.key.specialists.monthlyCapUsd": "Monthly specialist spend",
   "settings.key.specialists.showInFeed": "Show specialist results in Feed",
   "settings.key.specialists.enabled": "{role} on",
   "settings.key.specialists.model": "{role} model",
-  "settings.key.specialists.budget": "{role} budget",
-  "settings.key.specialists.maxMode": "{role} permission mode",
   "settings.key.unknown": "this setting",
 
   // Words shared by the Credentials section, its detail and its import form (credential-labels.ts).
@@ -1723,7 +1708,6 @@ export const settings = {
   "settings.devices.platform.macos": "Mac",
   "settings.devices.platform.ios": "iPhone or iPad",
   "settings.devices.platform.android": "Android",
-  "settings.devices.platform.web": "Web browser",
   "settings.devices.platform.linux": "Linux",
   "settings.devices.platform.windows": "Windows PC",
   "settings.devices.nodeKind.macHelper": "Mac helper",
@@ -2096,10 +2080,6 @@ export const settings = {
   "settings.server.title": "Server & remote access",
   "settings.server.description": "Where the Gateway listens and how your other devices reach it.",
   "settings.server.loadLabel": "server status",
-  "settings.server.bindHint":
-    "127.0.0.1 keeps it on this Mac. Use remote access below instead of binding to every interface.",
-  "settings.server.exposed":
-    "The Gateway is reachable from your network. Every device still has to pair.",
   "settings.server.remoteAccess": "Remote access",
   "settings.server.setUp": "Set up",
   "settings.server.remoteUnknown": "Remote access status isn't available on this device.",
@@ -2118,8 +2098,7 @@ export const settings = {
   "settings.connectors.page.onHost": "On {host}",
   "settings.connectors.page.row.onHost": "On {host}",
   "settings.connectors.page.row.macOnly": "Only on a Mac host",
-  "settings.computerUse.remote":
-    "Computer use works at {host}. Ask from there, or use the browser.",
+  "settings.computerUse.remote": "Computer use works at {host}. Ask from there.",
   "settings.computerUse.remoteLinux":
     "Computer use runs on {host}'s private screen. Watch it and take over from the watch pane.",
   "settings.gateways.title": "Gateways on this computer",
@@ -2929,7 +2908,7 @@ export const settings = {
   "settings.people.graph": "Learn people from",
   "settings.people.entityRecall": "Use names in replies",
   "settings.people.entityRecallHint":
-    "When you name someone in a private chat, {persona} adds one line about them. Never in groups or channels.",
+    "When you name someone in a chat, {persona} adds one line about them.",
   "settings.people.sources": "Learn people from",
   "settings.people.sourcesHint":
     "Each source is off until you turn it on. Turning one off stops reading it.",
@@ -3017,9 +2996,6 @@ export const settings = {
   "settings.specialists.all": "All specialists",
   "settings.specialists.concurrent": "Specialists at once",
   "settings.specialists.concurrentHint": "More run side by side; the rest wait in line.",
-  "settings.specialists.monthlyCap": "Monthly spend",
-  "settings.specialists.monthlyCapHint":
-    "New jobs wait for budget once it's reached. Empty uses half your monthly budget{budget, select, none {} other { ({budget})}}.",
   "settings.specialists.monthlyCapNone": "No cap",
   "settings.specialists.showInFeed": "Show results in Feed",
   "settings.specialists.showInFeedHint": "Your Inbox gets every result either way.",
@@ -3038,13 +3014,6 @@ export const settings = {
   "settings.specialists.class.primary": "primary model",
   "settings.specialists.class.harness": "coding harness",
   "settings.specialists.class.vision": "primary model with vision",
-  "settings.specialists.budget": "Budget per job",
-  "settings.specialists.budgetTokens": "Tokens",
-  "settings.specialists.budgetCost": "Cost (USD)",
-  "settings.specialists.budgetMinutes": "Minutes",
-  "settings.specialists.budgetCaps":
-    "Up to {tokens} tokens · {cost} · {minutes} min. A job can ask for more, never past this.",
-  "settings.specialists.maxMode": "Most it can do without asking",
   "settings.specialists.mode.plan": "Plan",
   "settings.specialists.mode.manual": "Manual",
   "settings.specialists.mode.balanced": "Balanced",

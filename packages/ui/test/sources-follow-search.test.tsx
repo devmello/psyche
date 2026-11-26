@@ -3,7 +3,6 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-li
 import { afterEach, describe, expect, it } from "vitest";
 import type { MockGateway } from "../src/data/mock-gateway.ts";
 import type { FixtureWorld } from "../src/fixtures/index.ts";
-import { EssentialsSection } from "../src/screens/settings/EssentialsSection.tsx";
 import { EverythingMemorySection } from "../src/screens/settings/EverythingMemorySection.tsx";
 import { SearchSourcesSettingsGroup } from "../src/screens/settings/SearchSourcesSettings.tsx";
 import { StoryWorld } from "../src/stories/harness.tsx";
@@ -12,8 +11,7 @@ afterEach(cleanup);
 
 /**
  * Memory follows Search (docs/design/everything-memory-2026.md §8): one list, Search sources,
- * decides what Psyche may read. Essentials, Search sources and Memory → Sources show it
- * together; memory learns from each source Search reads unless the owner opts out.
+ * decides what Psyche may read. Search sources and Memory → Sources show it together; memory learns from each source Search reads unless the owner opts out.
  */
 
 let gateway: MockGateway;
@@ -41,9 +39,6 @@ function world(opts: { search: string[]; memory?: Record<string, unknown> }) {
 function show(edit: (w: FixtureWorld) => void) {
   render(
     <StoryWorld edit={edit} onGateway={(g) => (gateway = g)}>
-      <div data-testid="essentials">
-        <EssentialsSection />
-      </div>
       <div data-testid="search">
         <SearchSourcesSettingsGroup />
       </div>
@@ -62,7 +57,7 @@ const disabled = (testId: string, name: string) =>
   sw(testId, name).getAttribute("aria-disabled") === "true";
 
 describe("memory follows Search", () => {
-  it("shows the same sources on, in the same order, on all three pages", async () => {
+  it("shows the same sources on, in the same order, on both pages", async () => {
     // The old two-switch state: memory said Mail, Notes, Calendar and Reminders; Search read Mail.
     show(
       world({
@@ -71,9 +66,9 @@ describe("memory follows Search", () => {
       }),
     );
     await waitFor(() => expect(on("memory", "Mail")).toBe("true"));
-    for (const place of ["essentials", "search", "memory"]) expect(on(place, "Mail")).toBe("true");
+    for (const place of ["search", "memory"]) expect(on(place, "Mail")).toBe("true");
     for (const name of ["Messages", "Notes", "Calendar", "Reminders", "Files"])
-      expect(on("essentials", name)).toBe("false");
+      expect(on("search", name)).toBe("false");
     // Memory no longer claims what Search does not read: those rows are off and say why.
     const memory = within(screen.getByTestId("memory"));
     for (const name of ["Notes", "Calendar", "Reminders"]) {
@@ -98,13 +93,12 @@ describe("memory follows Search", () => {
     ]);
   });
 
-  it("one click on 'Let Psyche read' turns the Search source on, and every page follows", async () => {
+  it("one click on 'Let Psyche read' turns the Search source on, and both pages follow", async () => {
     show(world({ search: ["mail"], memory: {} }));
     const memory = within(screen.getByTestId("memory"));
     fireEvent.click(await memory.findByRole("button", { name: "Let Psyche read Calendar" }));
     await waitFor(() => expect(searchOf("calendar")?.enabled).toBe(true));
     await waitFor(() => expect(on("memory", "Calendar")).toBe("true"));
-    expect(on("essentials", "Calendar")).toBe("true");
     expect(on("search", "Calendar")).toBe("true");
     expect(disabled("memory", "Calendar")).toBe(false);
     expect(memory.queryByRole("button", { name: "Let Psyche read Calendar" })).toBeNull();
@@ -120,9 +114,8 @@ describe("memory follows Search", () => {
     expect(stored()?.optOut.mail).toBe(false);
     expect(on("memory", "Notes")).toBe("false");
     expect(within(screen.getByTestId("memory")).getByText("Not learning from it")).toBeTruthy();
-    // Search and Essentials still read Notes.
+    // Search still reads Notes.
     expect(on("search", "Notes")).toBe("true");
-    expect(on("essentials", "Notes")).toBe("true");
     expect(searchOf("notes")?.enabled).toBe(true);
     // And back on.
     fireEvent.click(sw("memory", "Notes"));
@@ -139,8 +132,8 @@ describe("memory follows Search", () => {
     expect(
       within(screen.getByTestId("memory")).getByRole("button", { name: "Let Psyche read Mail" }),
     ).toBeTruthy();
-    // Turning it back on in Essentials restores it, with the owner's opt-outs unchanged.
-    fireEvent.click(sw("essentials", "Mail"));
+    // Turning it back on in Search restores it, with the owner's opt-outs unchanged.
+    fireEvent.click(sw("search", "Mail"));
     await waitFor(() => expect(on("memory", "Mail")).toBe("true"));
   });
 
@@ -161,9 +154,10 @@ describe("memory follows Search", () => {
     expect(stored()?.optOut).toMatchObject({ mail: false, messages: true, notes: true });
   });
 
-  it("Essentials and Search sources say a source also lets memory learn, unless opted out", async () => {
+  it("Search sources say a source also lets memory learn, unless opted out", async () => {
     show(world({ search: [], memory: {} }));
-    await screen.findByText(/memory learns from it too unless you opt out under Memory → Sources/);
+    const search = within(screen.getByTestId("search"));
+    expect(await search.findByRole("switch", { name: "Mail" })).toBeTruthy();
     expect(
       screen.getByText(/Turning a source on also lets memory learn from it, unless you opt out/),
     ).toBeTruthy();

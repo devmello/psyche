@@ -39,7 +39,6 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.nav.learning": "기초",
   "settings.search.count": "{count, plural, other {결과 #개}}",
   "settings.search.result.page": "페이지",
-  "settings.page.essentials": "기본",
   "settings.essentials.title": "기본",
   "settings.essentials.description":
     "대부분의 사용자가 정하는 몇 가지 항목이며, 각각 안전한 기본값이 있습니다. 더 필요한 것이 있으면 {persona}가 물어봅니다.",
@@ -53,14 +52,7 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.essentials.model.noneHint":
     "{persona}가 답하려면 모델이 필요합니다. 키를 추가하거나 이 Mac의 모델을 사용하십시오.",
   "settings.essentials.model.setUp": "모델 설정",
-  "settings.essentials.read.title": "{persona}가 읽어도 되는 항목",
-  "settings.essentials.read.hint":
-    "켜기 전까지는 꺼져 있습니다. 읽은 내용은 찾기 쉽도록 이 Mac에서 색인되며, 메모리 → 출처에서 제외하지 않으면 메모리 학습에도 사용됩니다.",
   "settings.essentials.asks.title": "{persona}가 먼저 묻는 빈도",
-  "settings.essentials.interrupt.title": "{persona}가 방해해도 되는 시간",
-  "settings.essentials.interrupt.quietHint":
-    "{from}부터 {until}까지 알림은 받은 편지함에서 대기합니다.",
-  "settings.essentials.interrupt.briefHint": "{time}에 피드에 짧은 브리핑이 표시됩니다.",
   "settings.essentials.memory.title": "메모리",
   "settings.essentials.memory.remember": "{persona}가 대화를 기억하도록 허용",
   "settings.essentials.memory.rememberHint":
@@ -156,12 +148,9 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.key.ui.onboarding.progress": "온보딩 진행 상황",
   "settings.key.permissions.liftedFloors": "{id}에서 묻지 않고 허용하는 작업",
   "settings.key.specialists.maxConcurrent": "동시에 실행할 전문가 수",
-  "settings.key.specialists.monthlyCapUsd": "전문가 월간 사용 금액",
   "settings.key.specialists.showInFeed": "전문가 결과를 피드에 표시",
   "settings.key.specialists.enabled": "{role} 켜기",
   "settings.key.specialists.model": "{role} 모델",
-  "settings.key.specialists.budget": "{role} 예산",
-  "settings.key.specialists.maxMode": "{role} 권한 모드",
   "settings.credentials.payments.description":
     "구매를 승인할 때마다 일회용 카드가 사용됩니다. 카드 번호는 Psyche에 전달되지 않습니다.",
   "settings.approval.presenceUnavailable":
@@ -768,8 +757,7 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.connectors.page.onHost": "{host}에서",
   "settings.connectors.page.row.onHost": "{host}에서",
   "settings.connectors.page.row.macOnly": "Mac 호스트에서만",
-  "settings.computerUse.remote":
-    "컴퓨터 사용은 {host}에서 이루어집니다. 그쪽에서 요청하거나 브라우저를 사용하십시오.",
+  "settings.computerUse.remote": "컴퓨터 사용은 {host}에서 이루어집니다. 그쪽에서 요청하십시오.",
   "settings.computerUse.remoteLinux":
     "컴퓨터 사용은 {host}의 비공개 화면에서 실행됩니다. 보기 창에서 지켜보고 제어를 넘겨받을 수 있습니다.",
   "settings.gateways.title": "이 컴퓨터의 Gateway",
@@ -1176,7 +1164,7 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.people.graph": "사람을 학습할 출처",
   "settings.people.entityRecall": "답장에서 이름 사용",
   "settings.people.entityRecallHint":
-    "비공개 대화에서 누군가의 이름을 말하면 {persona}가 그 사람에 대한 한 줄을 덧붙입니다. 그룹이나 채널에서는 하지 않습니다.",
+    "대화에서 누군가의 이름을 말하면 {persona}가 그 사람에 대한 한 줄을 덧붙입니다.",
   "settings.people.sources": "사람을 학습할 출처",
   "settings.people.sourcesHint": "각 출처는 켜기 전까지 꺼져 있습니다. 끄면 읽기를 중지합니다.",
   "settings.people.source.contacts": "연락처",
@@ -1261,9 +1249,6 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.specialists.all": "모든 전문가",
   "settings.specialists.concurrent": "동시에 실행할 전문가 수",
   "settings.specialists.concurrentHint": "많을수록 병렬로 실행되고 나머지는 순서를 기다립니다.",
-  "settings.specialists.monthlyCap": "월간 사용 금액",
-  "settings.specialists.monthlyCapHint":
-    "한도에 도달하면 새 작업은 예산이 생길 때까지 대기합니다. 비워 두면 월간 예산의 절반을 사용합니다{budget, select, none {} other { ({budget})}}.",
   "settings.specialists.monthlyCapNone": "한도 없음",
   "settings.specialists.showInFeed": "결과를 피드에 표시",
   "settings.specialists.showInFeedHint": "어느 쪽이든 모든 결과는 받은 편지함에 전달됩니다.",
@@ -1282,13 +1267,6 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.specialists.class.primary": "기본 모델",
   "settings.specialists.class.harness": "코딩 하니스",
   "settings.specialists.class.vision": "비전을 지원하는 기본 모델",
-  "settings.specialists.budget": "작업별 예산",
-  "settings.specialists.budgetTokens": "토큰",
-  "settings.specialists.budgetCost": "비용 (USD)",
-  "settings.specialists.budgetMinutes": "분",
-  "settings.specialists.budgetCaps":
-    "최대 {tokens} 토큰 · {cost} · {minutes}분. 작업이 더 요청할 수는 있지만 이 한도를 넘을 수는 없습니다.",
-  "settings.specialists.maxMode": "묻지 않고 할 수 있는 최대 범위",
   "settings.specialists.mode.plan": "계획",
   "settings.specialists.mode.manual": "수동",
   "settings.specialists.mode.balanced": "균형",

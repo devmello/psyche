@@ -39,7 +39,6 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.nav.learning": "Grundlagen",
   "settings.search.count": "{count, plural, one {# Ergebnis} other {# Ergebnisse}}",
   "settings.search.result.page": "Seite",
-  "settings.page.essentials": "Das Wichtigste",
   "settings.essentials.title": "Das Wichtigste",
   "settings.essentials.description":
     "Die wenigen Entscheidungen, die die meisten treffen, jeweils mit sicherer Voreinstellung. {persona} fragt, wenn es mehr braucht.",
@@ -53,14 +52,7 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.essentials.model.noneHint":
     "{persona} braucht ein Modell, bevor es antworten kann. Füge einen Schlüssel hinzu oder nutze ein Modell auf diesem Mac.",
   "settings.essentials.model.setUp": "Modell einrichten",
-  "settings.essentials.read.title": "Was {persona} lesen darf",
-  "settings.essentials.read.hint":
-    "Aus, bis du eines einschaltest. Was gelesen wird, wird auf diesem Mac indexiert, damit es Dinge für dich finden kann, und das Gedächtnis lernt ebenfalls daraus, außer du widersprichst unter Gedächtnis → Quellen.",
   "settings.essentials.asks.title": "Wie oft {persona} vorher nachfragt",
-  "settings.essentials.interrupt.title": "Wann {persona} dich unterbrechen darf",
-  "settings.essentials.interrupt.quietHint":
-    "Von {from} bis {until} warten Mitteilungen im Eingang.",
-  "settings.essentials.interrupt.briefHint": "Eine kurze Übersicht im Feed um {time}.",
   "settings.essentials.memory.title": "Gedächtnis",
   "settings.essentials.memory.remember": "{persona} soll sich unsere Chats merken",
   "settings.essentials.memory.rememberHint":
@@ -160,12 +152,9 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.key.ui.onboarding.progress": "Fortschritt der Einführung",
   "settings.key.permissions.liftedFloors": "Ohne Nachfragen erlaubte Aktionen für {id}",
   "settings.key.specialists.maxConcurrent": "Spezialisten gleichzeitig",
-  "settings.key.specialists.monthlyCapUsd": "Monatliche Ausgaben für Spezialisten",
   "settings.key.specialists.showInFeed": "Ergebnisse von Spezialisten im Feed zeigen",
   "settings.key.specialists.enabled": "{role} an",
   "settings.key.specialists.model": "Modell für {role}",
-  "settings.key.specialists.budget": "Budget für {role}",
-  "settings.key.specialists.maxMode": "Berechtigungsmodus für {role}",
   "settings.credentials.payments.description":
     "Eine einmalige Karte, nachdem du jeden Kauf genehmigt hast. Kartennummern erreichen Psyche nie.",
   "settings.approval.presenceUnavailable":
@@ -796,8 +785,7 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.connectors.page.onHost": "Auf {host}",
   "settings.connectors.page.row.onHost": "Auf {host}",
   "settings.connectors.page.row.macOnly": "Nur auf einem Mac-Host",
-  "settings.computerUse.remote":
-    "Die Computer-Nutzung funktioniert bei {host}. Frag von dort aus oder nutze den Browser.",
+  "settings.computerUse.remote": "Die Computer-Nutzung funktioniert bei {host}. Frag von dort aus.",
   "settings.computerUse.remoteLinux":
     "Computerbedienung läuft auf dem privaten Bildschirm von {host}. Im Beobachtungsbereich kannst du zusehen und übernehmen.",
   "settings.gateways.title": "Gateways auf diesem Computer",
@@ -1225,7 +1213,7 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.people.graph": "Personen lernen aus",
   "settings.people.entityRecall": "Namen in Antworten verwenden",
   "settings.people.entityRecallHint":
-    "Nennst du in einem privaten Chat jemanden, fügt {persona} eine Zeile über die Person hinzu. Nie in Gruppen oder Kanälen.",
+    "Nennst du in einem Chat jemanden, fügt {persona} eine Zeile über die Person hinzu.",
   "settings.people.sources": "Personen lernen aus",
   "settings.people.sourcesHint":
     "Jede Quelle ist aus, bis du sie einschaltest. Ausschalten beendet das Lesen.",
@@ -1315,9 +1303,6 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.specialists.concurrent": "Spezialisten gleichzeitig",
   "settings.specialists.concurrentHint":
     "Mehr laufen nebeneinander; der Rest wartet in der Schlange.",
-  "settings.specialists.monthlyCap": "Monatliche Ausgaben",
-  "settings.specialists.monthlyCapHint":
-    "Neue Jobs warten auf Budget, sobald es erreicht ist. Leer nutzt die Hälfte deines Monatsbudgets{budget, select, none {} other { ({budget})}}.",
   "settings.specialists.monthlyCapNone": "Kein Limit",
   "settings.specialists.showInFeed": "Ergebnisse im Feed zeigen",
   "settings.specialists.showInFeedHint": "Dein Eingang erhält in jedem Fall jedes Ergebnis.",
@@ -1336,13 +1321,6 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.specialists.class.primary": "Hauptmodell",
   "settings.specialists.class.harness": "Coding-Harness",
   "settings.specialists.class.vision": "Hauptmodell mit Bildverständnis",
-  "settings.specialists.budget": "Budget pro Job",
-  "settings.specialists.budgetTokens": "Tokens",
-  "settings.specialists.budgetCost": "Kosten (USD)",
-  "settings.specialists.budgetMinutes": "Minuten",
-  "settings.specialists.budgetCaps":
-    "Bis zu {tokens} Tokens · {cost} · {minutes} Min. Ein Job kann mehr anfordern, aber nie darüber hinaus.",
-  "settings.specialists.maxMode": "Das Meiste, was es ohne Nachfrage tun darf",
   "settings.specialists.mode.plan": "Plan",
   "settings.specialists.mode.manual": "Manuell",
   "settings.specialists.mode.balanced": "Ausgewogen",

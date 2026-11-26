@@ -1,4 +1,9 @@
-import { type ApprovalRequest, type LinkPaymentMethod, PsycheError } from "@psyche/protocol";
+import {
+  APP_SETTINGS_SECTIONS,
+  type ApprovalRequest,
+  type LinkPaymentMethod,
+  PsycheError,
+} from "@psyche/protocol";
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
@@ -36,7 +41,7 @@ import {
 } from "../src/screens/settings/SettingsScreen.tsx";
 import { sampleProviders, sampleSettings } from "../src/screens/settings/sample-data.ts";
 import { SETTING_LABELS } from "../src/screens/settings/setting-labels.ts";
-import { resolveSection } from "../src/screens/settings/settings-pages.ts";
+import { resolveSection, SETTINGS_PAGES } from "../src/screens/settings/settings-pages.ts";
 import { parseSettingsRoute } from "../src/screens/settings/settings-route.ts";
 import { UiSlotsProvider } from "../src/slots.tsx";
 import { StoryWorld, type StoryWorldProps } from "../src/stories/harness.tsx";
@@ -94,16 +99,13 @@ describe("SettingsScreen", () => {
       .getAllByRole("button")
       .filter((b) => b.getAttribute("aria-current") !== "location" && !b.closest("ul ul"));
     expect(pages.map((b) => b.textContent?.trim())).toEqual([
-      "Essentials",
       "General",
       "Models",
       "Connectors & sources",
       "Memory",
       "Routines & skills",
-      "Permissions",
-      "Privacy & data",
-      "Devices",
-      "About",
+      "Privacy & security",
+      "Devices & server",
     ]);
     // An old pane id opens that pane one level inside its page, with a way back to the page.
     expect(within(nav).getByRole("button", { name: "General" }).getAttribute("aria-current")).toBe(
@@ -114,17 +116,19 @@ describe("SettingsScreen", () => {
     expect(back).toBeTruthy();
     await userEvent.click(back as HTMLElement);
     expect(navigate).toHaveBeenCalledWith("/settings/general");
-    // The page is a list of rows, one per pane, and a row opens its pane.
+    // The page is its Essentials body, then a list of rows, one per pane; a row opens its pane.
     expect(await screen.findByRole("heading", { level: 2, name: "General" })).toBeTruthy();
-    for (const name of ["Appearance", "Persona", "Notifications", "Voice & dictation"]) {
+    for (const name of ["Appearance", "Persona", "Notifications", "Voice & dictation", "About"]) {
       expect(screen.getByRole("button", { name })).toBeTruthy();
     }
     await userEvent.click(screen.getByRole("button", { name: "Persona" }));
     expect(navigate).toHaveBeenCalledWith("/settings/persona");
-    await userEvent.click(within(nav).getByRole("button", { name: "Permissions" }));
-    expect(await screen.findByRole("heading", { level: 2, name: "Permissions" })).toBeTruthy();
+    await userEvent.click(within(nav).getByRole("button", { name: "Privacy & security" }));
     expect(
-      within(nav).getByRole("button", { name: "Permissions" }).getAttribute("aria-current"),
+      await screen.findByRole("heading", { level: 2, name: "Privacy & security" }),
+    ).toBeTruthy();
+    expect(
+      within(nav).getByRole("button", { name: "Privacy & security" }).getAttribute("aria-current"),
     ).toBe("page");
     expect(navigate).toHaveBeenCalledWith("/settings/permissions");
     await userEvent.click(await screen.findByRole("button", { name: "Files and folders" }));
@@ -138,9 +142,9 @@ describe("SettingsScreen", () => {
     await userEvent.keyboard("{ArrowDown}");
     expect(document.activeElement?.textContent).toBe("Connectors & sources");
     await userEvent.keyboard("{End}");
-    expect(document.activeElement?.textContent).toBe("About");
+    expect(document.activeElement?.textContent).toBe("Devices & server");
     await userEvent.keyboard("{ArrowDown}");
-    expect(document.activeElement?.textContent).toBe("Essentials");
+    expect(document.activeElement?.textContent).toBe("General");
   });
 
   it("searches pages, panes and single settings, and jumps to the setting", async () => {
@@ -196,17 +200,74 @@ describe("paneForKey", () => {
 
 describe("parseSettingsRoute", () => {
   it("opens pages, and old section ids on their page at that pane", () => {
-    expect(parseSettingsRoute("/settings")).toEqual({ section: "essentials" });
+    expect(parseSettingsRoute("/settings")).toEqual({ section: "general" });
     expect(parseSettingsRoute("/settings/files")).toEqual({ section: "files" });
     expect(resolveSection("files")).toEqual({ page: "permissions", pane: "files" });
     expect(resolveSection("people")).toEqual({ page: "memory", pane: "people" });
     expect(resolveSection("model")).toEqual({ page: "model" });
-    expect(resolveSection("nope")).toEqual({ page: "essentials" });
+    expect(resolveSection("nope")).toEqual({ page: "general" });
+    expect(resolveSection(undefined)).toEqual({ page: "general" });
     expect(parseSettingsRoute("/settings/mcp")).toEqual({ section: "connectors", view: "mcp" });
     expect(parseSettingsRoute("/settings/connectors/add-mcp")).toEqual({
       section: "connectors",
       view: "add-mcp",
     });
+  });
+});
+
+/** Every id the 10-page window and its older versions ever routed, and where it lands now. */
+const OLD_ROUTES: readonly [string, { page: string; pane?: string }][] = [
+  ["essentials", { page: "general" }],
+  ["general", { page: "general" }],
+  ["appearance", { page: "general", pane: "appearance" }],
+  ["persona", { page: "general", pane: "persona" }],
+  ["notifications", { page: "general", pane: "notifications" }],
+  ["voice", { page: "general", pane: "voice" }],
+  ["about", { page: "general", pane: "about" }],
+  ["model", { page: "model" }],
+  ["usage", { page: "model", pane: "usage" }],
+  ["connectors", { page: "connectors" }],
+  ["search", { page: "connectors", pane: "search" }],
+  ["mail", { page: "connectors", pane: "mail" }],
+  ["memory", { page: "memory" }],
+  ["learning", { page: "memory", pane: "learning" }],
+  ["everything", { page: "memory", pane: "everything" }],
+  ["work", { page: "memory", pane: "work" }],
+  ["surfaces", { page: "memory", pane: "surfaces" }],
+  ["people", { page: "memory", pane: "people" }],
+  ["daily", { page: "daily" }],
+  ["skills", { page: "daily", pane: "skills" }],
+  ["specialists", { page: "daily", pane: "specialists" }],
+  ["permissions", { page: "permissions" }],
+  ["computer-use", { page: "permissions", pane: "computer-use" }],
+  ["browser", { page: "permissions", pane: "browser" }],
+  ["files", { page: "permissions", pane: "files" }],
+  ["credentials", { page: "permissions", pane: "credentials" }],
+  ["vm", { page: "permissions", pane: "computer-use" }],
+  ["data", { page: "permissions", pane: "data" }],
+  ["devices", { page: "devices" }],
+  ["server", { page: "devices", pane: "server" }],
+];
+
+describe("old /settings/<id> routes", () => {
+  it.each(OLD_ROUTES)("%s still opens, on its new page", (id, landing) => {
+    expect(resolveSection(id)).toEqual(landing);
+    expect(parseSettingsRoute(`/settings/${id}`)?.section).toBe(id);
+  });
+
+  it("is one of the seven pages in every case, and the allowlist lists every id", () => {
+    expect(SETTINGS_PAGES.map((p) => p.id)).toEqual([
+      "general",
+      "model",
+      "connectors",
+      "memory",
+      "daily",
+      "permissions",
+      "devices",
+    ]);
+    for (const [id] of OLD_ROUTES)
+      expect(SETTINGS_PAGES.map((p) => p.id as string)).toContain(resolveSection(id).page);
+    expect(OLD_ROUTES.map(([id]) => id).sort()).toEqual([...APP_SETTINGS_SECTIONS].sort());
   });
 });
 
@@ -844,7 +905,9 @@ describe("VM mode", () => {
 
   it("shows the defaults and writes each VM setting", async () => {
     const { gateway } = setup({ defaultSection: "vm" }, { edit: guestWorld });
-    expect(await screen.findByRole("heading", { level: 2, name: "VM mode" })).toBeTruthy();
+    // VM mode is a group inside Computer use now; its old route lands there.
+    expect(await screen.findByRole("heading", { level: 3, name: "VM mode" })).toBeTruthy();
+    expect(screen.getByRole("heading", { level: 2, name: "Computer use" })).toBeTruthy();
     const toggle = screen.getByRole("switch", { name: "Use a sandbox Mac for tasks" });
     expect(toggle.getAttribute("aria-checked")).toBe("false");
     expect(

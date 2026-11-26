@@ -244,11 +244,10 @@ describe("Work", () => {
     await waitFor(() =>
       expect(stored<MemoryWorkSettings>("memory.work")?.remind).toEqual({ enabled: true }),
     );
-    // Wrap-up is off by default, so the pane says nothing would be sent and offers the switch.
-    await user.click(await screen.findByRole("button", { name: "Turn on wrap-up" }));
-    await waitFor(() => expect(gateway.world.settings["daily.wrapup.enabled"]).toBe(true));
+    // The wrap-up and brief switches live in Routines & skills only; this pane links there.
+    expect(await screen.findByText("At your wrap-up time, 18:00")).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Turn on wrap-up" })).toBeNull();
-    expect(screen.getByText("At your wrap-up time, 18:00")).toBeTruthy();
+    expect(gateway.world.settings["daily.wrapup.enabled"]).toBeUndefined();
 
     const hours = screen.getByRole("combobox", {
       name: "How far ahead to look",
@@ -272,7 +271,8 @@ describe("Work", () => {
         dayOf: true,
       }),
     );
-    expect(await screen.findByRole("button", { name: "Turn on brief" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Turn on brief" })).toBeNull();
+    expect(gateway.world.settings["daily.brief.enabled"]).toBeUndefined();
   });
 
   it("which folders count: Any folder is a choice, written as all_granted", async () => {

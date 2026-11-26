@@ -255,7 +255,7 @@ export const settingsD: Partial<Catalogue> = {
   "settings.people.graph": "Aprender de personas a partir de",
   "settings.people.entityRecall": "Usar nombres en las respuestas",
   "settings.people.entityRecallHint":
-    "Cuando nombras a alguien en un chat privado, {persona} añade una línea sobre esa persona. Nunca en grupos ni canales.",
+    "Cuando nombras a alguien en un chat, {persona} añade una línea sobre esa persona.",
   "settings.people.sources": "Aprender de personas a partir de",
   "settings.people.sourcesHint":
     "Cada fuente está desactivada hasta que la actives. Desactivarla deja de leerla.",

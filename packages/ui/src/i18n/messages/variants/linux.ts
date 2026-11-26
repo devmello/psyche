@@ -53,8 +53,6 @@ export const linux: Partial<Record<MessageId, string>> = {
   "shell.shortcut.pushToTalkKeys": "Hold Right Ctrl",
   "settings.essentials.model.noneHint":
     "{persona} needs a model before it can answer. Add a key, or use a model on this computer.",
-  "settings.essentials.read.hint":
-    "Off until you turn one on. What it reads is indexed on this computer so it can find things for you, and memory learns from it too unless you opt out under Memory → Sources.",
   "settings.searchModel.apple.notOnThisMac": "Available on macOS",
   "settings.macHelper.paired.text":
     "Runs computer use, screen context, dictation, password approvals and notifications on this computer.",
@@ -150,8 +148,6 @@ export const linux: Partial<Record<MessageId, string>> = {
   "settings.model.ram.thisMac": " (this computer)",
   "settings.permissions.never.browserPasswords":
     "Read passwords saved in your browsers or the system keyring",
-  "settings.server.bindHint":
-    "127.0.0.1 keeps it on this computer. Use remote access below instead of binding to every interface.",
   "settings.gateways.description":
     "Use Psyche from this computer with the Gateway on another one, such as your computer at home. One Gateway is active at a time, and switching restarts Psyche.",
   "settings.gateways.thisMac": "This computer",

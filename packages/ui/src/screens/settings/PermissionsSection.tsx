@@ -270,12 +270,12 @@ export function PermissionsPanel({
             <Group title={t("settings.drill.access")}>
               <PaneRows
                 bare
-                panes={["files", "browser", "computer-use", "vm"]}
+                panes={["computer-use", "browser", "files"]}
                 onOpen={onOpenPane}
                 labels={{ files: t("settings.drill.access.files") }}
               />
             </Group>
-            <PaneRows panes={["credentials"]} onOpen={onOpenPane} />
+            <PaneRows panes={["credentials", "data"]} onOpen={onOpenPane} />
           </>
         ) : null}
 

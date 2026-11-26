@@ -61,8 +61,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "shell.shortcut.pushToTalkKeys": "اضغط مطوّلًا على Ctrl الأيمن",
       "settings.essentials.model.noneHint":
         "يحتاج {persona} إلى نموذج قبل أن يستطيع الإجابة. أضف مفتاحًا، أو استخدم نموذجًا على هذا الكمبيوتر.",
-      "settings.essentials.read.hint":
-        "متوقف حتى تفعّل أحدها. يُفهرَس ما يقرؤه على هذا الكمبيوتر ليجد لك الأشياء، وتتعلم منه الذاكرة أيضًا ما لم تلغِ ذلك في الذاكرة ← المصادر.",
       "settings.searchModel.apple.notOnThisMac": "متاح على macOS",
       "settings.macHelper.paired.text":
         "يشغّل استخدام الكمبيوتر وسياق الشاشة والإملاء والموافقات بكلمة المرور والإشعارات على هذا الكمبيوتر.",
@@ -156,8 +154,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "settings.model.ram.thisMac": " (هذا الكمبيوتر)",
       "settings.permissions.never.browserPasswords":
         "قراءة كلمات المرور المحفوظة في متصفحاتك أو في سلسلة مفاتيح النظام",
-      "settings.server.bindHint":
-        "يبقيه 127.0.0.1 على هذا الكمبيوتر. استخدم الوصول عن بُعد أدناه بدلًا من الربط بكل الواجهات.",
       "settings.gateways.description":
         "استخدم Psyche من هذا الكمبيوتر عبر Gateway على كمبيوتر آخر، مثل الكمبيوتر في منزلك. يعمل Gateway واحد في كل مرة، والتبديل يعيد تشغيل Psyche.",
       "settings.gateways.thisMac": "هذا الكمبيوتر",
@@ -443,8 +439,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "shell.shortcut.pushToTalkKeys": "Ctrl rechts halten",
       "settings.essentials.model.noneHint":
         "{persona} braucht ein Modell, bevor es antworten kann. Füge einen Schlüssel hinzu oder nutze ein Modell auf diesem Computer.",
-      "settings.essentials.read.hint":
-        "Aus, bis du eines einschaltest. Was gelesen wird, wird auf diesem Computer indexiert, damit es Dinge für dich finden kann, und das Gedächtnis lernt ebenfalls daraus, außer du widersprichst unter Gedächtnis → Quellen.",
       "settings.searchModel.apple.notOnThisMac": "Auf macOS verfügbar",
       "settings.macHelper.paired.text":
         "Führt Computersteuerung, Bildschirmkontext, Diktat, Passwort-Genehmigungen und Mitteilungen auf diesem Computer aus.",
@@ -542,8 +536,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "settings.model.ram.thisMac": " (dieser Computer)",
       "settings.permissions.never.browserPasswords":
         "In Browsern oder im Systemschlüsselbund gespeicherte Passwörter lesen",
-      "settings.server.bindHint":
-        "127.0.0.1 hält es auf diesem Computer. Verwende unten den Fernzugriff, statt an jede Schnittstelle zu binden.",
       "settings.gateways.description":
         "Nutze Psyche von diesem Computer aus mit dem Gateway auf einem anderen, etwa deinem Computer zu Hause. Es ist immer ein Gateway aktiv, und das Wechseln startet Psyche neu.",
       "settings.gateways.thisMac": "Dieser Computer",
@@ -844,8 +836,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "shell.shortcut.pushToTalkKeys": "Mantén pulsada Ctrl derecha",
       "settings.essentials.model.noneHint":
         "{persona} necesita un modelo para poder responder. Añade una clave o usa un modelo de este ordenador.",
-      "settings.essentials.read.hint":
-        "Desactivado hasta que actives alguno. Lo que lee se indexa en este ordenador para poder encontrar cosas por ti, y la memoria también aprende de ello salvo que lo excluyas en Memoria → Fuentes.",
       "settings.searchModel.apple.notOnThisMac": "Disponible en macOS",
       "settings.macHelper.paired.text":
         "Se encarga del uso del ordenador, el contexto de pantalla, el dictado, las aprobaciones con contraseña y las notificaciones en este ordenador.",
@@ -944,8 +934,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "settings.model.ram.thisMac": " (este ordenador)",
       "settings.permissions.never.browserPasswords":
         "Leer las contraseñas guardadas en tus navegadores o en el llavero del sistema",
-      "settings.server.bindHint":
-        "127.0.0.1 lo mantiene en este ordenador. Usa el acceso remoto de abajo en vez de escuchar en todas las interfaces.",
       "settings.gateways.description":
         "Usa Psyche desde este ordenador con el Gateway de otro, como tu ordenador de casa. Solo hay un Gateway activo a la vez, y cambiar reinicia Psyche.",
       "settings.gateways.thisMac": "Este ordenador",
@@ -1250,8 +1238,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "shell.shortcut.pushToTalkKeys": "Maintenir Ctrl droite",
       "settings.essentials.model.noneHint":
         "{persona} a besoin d’un modèle avant de pouvoir répondre. Ajoutez une clé ou utilisez un modèle sur cet ordinateur.",
-      "settings.essentials.read.hint":
-        "Désactivé tant que vous n’en activez pas un. Ce qui est lu est indexé sur cet ordinateur pour retrouver des éléments pour vous, et la mémoire en tire aussi des enseignements, sauf si vous refusez dans Mémoire → Sources.",
       "settings.searchModel.apple.notOnThisMac": "Disponible sur macOS",
       "settings.macHelper.paired.text":
         "Assure l’utilisation de l’ordinateur, le contexte d’écran, la dictée, les approbations par mot de passe et les notifications sur cet ordinateur.",
@@ -1350,8 +1336,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "settings.model.ram.thisMac": " (cet ordinateur)",
       "settings.permissions.never.browserPasswords":
         "Lire les mots de passe enregistrés dans vos navigateurs ou dans le trousseau de clés système",
-      "settings.server.bindHint":
-        "127.0.0.1 la garde sur cet ordinateur. Utilisez l’accès à distance ci-dessous plutôt que d’écouter sur toutes les interfaces.",
       "settings.gateways.description":
         "Utilisez Psyche depuis cet ordinateur avec la Gateway d’un autre, par exemple votre ordinateur à la maison. Une seule Gateway est active à la fois, et en changer redémarre Psyche.",
       "settings.gateways.thisMac": "Cet ordinateur",
@@ -1649,8 +1633,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "shell.shortcut.pushToTalkKeys": "दायाँ Ctrl दबाए रखें",
       "settings.essentials.model.noneHint":
         "जवाब देने से पहले {persona} को एक मॉडल चाहिए। कुंजी जोड़ें, या इस कंप्यूटर पर कोई मॉडल उपयोग करें।",
-      "settings.essentials.read.hint":
-        "जब तक आप कोई चालू नहीं करते, बंद रहता है। जो यह पढ़ता है वह आपके लिए चीज़ें खोजने के लिए इस कंप्यूटर पर इंडेक्स होता है, और मेमोरी भी उससे सीखती है जब तक कि आप मेमोरी → स्रोत में बाहर न रखें।",
       "settings.searchModel.apple.notOnThisMac": "macOS पर उपलब्ध",
       "settings.macHelper.paired.text":
         "इस कंप्यूटर पर कंप्यूटर उपयोग, स्क्रीन संदर्भ, श्रुतलेख, पासवर्ड स्वीकृतियाँ और सूचनाएँ चलाता है।",
@@ -1741,8 +1723,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "settings.model.ram.fits": "इस कंप्यूटर में {gb, number} GB है, इसलिए {fits} फ़िट होते हैं।",
       "settings.model.ram.thisMac": " (यह कंप्यूटर)",
       "settings.permissions.never.browserPasswords": "ब्राउज़र या सिस्टम कीरिंग में सहेजे पासवर्ड पढ़ना",
-      "settings.server.bindHint":
-        "127.0.0.1 इसे इसी कंप्यूटर पर रखता है। हर इंटरफ़ेस से बाइंड करने के बजाय नीचे दिया गया रिमोट ऐक्सेस उपयोग करें।",
       "settings.gateways.description":
         "किसी दूसरे कंप्यूटर के Gateway के साथ, जैसे घर के आपके कंप्यूटर के साथ, इस कंप्यूटर से Psyche उपयोग करें। एक समय में एक ही Gateway सक्रिय होता है, और बदलने पर Psyche रीस्टार्ट होता है।",
       "settings.gateways.thisMac": "यह कंप्यूटर",
@@ -2027,8 +2007,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "shell.shortcut.pushToTalkKeys": "Tieni premuto Ctrl destro",
       "settings.essentials.model.noneHint":
         "{persona} ha bisogno di un modello per poter rispondere. Aggiungi una chiave, oppure usa un modello su questo computer.",
-      "settings.essentials.read.hint":
-        "Disattivato finché non ne attivi uno. Ciò che legge viene indicizzato su questo computer per trovare le cose al posto tuo, e anche la memoria impara da esso, a meno che tu non lo escluda in Memoria → Fonti.",
       "settings.searchModel.apple.notOnThisMac": "Disponibile su macOS",
       "settings.macHelper.paired.text":
         "Gestisce uso del computer, contesto dello schermo, dettatura, approvazioni con password e notifiche su questo computer.",
@@ -2125,8 +2103,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "settings.model.ram.thisMac": " (questo computer)",
       "settings.permissions.never.browserPasswords":
         "Leggere le password salvate nei browser o nel portachiavi di sistema",
-      "settings.server.bindHint":
-        "127.0.0.1 lo mantiene su questo computer. Usa l’accesso remoto qui sotto invece di metterlo in ascolto su tutte le interfacce.",
       "settings.gateways.description":
         "Usa Psyche da questo computer con il Gateway di un altro, ad esempio il tuo computer a casa. Un solo Gateway è attivo alla volta, e cambiarlo riavvia Psyche.",
       "settings.gateways.thisMac": "Questo computer",
@@ -2428,8 +2404,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "shell.shortcut.pushToTalkKeys": "右Ctrlを長押し",
       "settings.essentials.model.noneHint":
         "{persona}が答えるにはモデルが必要です。キーを追加するか、このコンピュータのモデルを使ってください。",
-      "settings.essentials.read.hint":
-        "オンにするまではオフです。読み取った内容は、探し物をしやすくするためにこのコンピュータ上でインデックス化され、メモリの「情報源」でオプトアウトしない限り、メモリの学習にも使われます。",
       "settings.searchModel.apple.notOnThisMac": "macOSで利用できます",
       "settings.macHelper.paired.text":
         "このコンピュータでコンピュータ操作、画面コンテキスト、音声入力、パスワードによる承認、通知を担当します。",
@@ -2528,8 +2502,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "settings.model.ram.thisMac": "（このコンピュータ）",
       "settings.permissions.never.browserPasswords":
         "ブラウザやシステムのキーリングに保存されたパスワードを読み取る",
-      "settings.server.bindHint":
-        "127.0.0.1ならこのコンピュータ内に限定されます。すべてのインターフェイスにバインドする代わりに、下のリモートアクセスを使用してください。",
       "settings.gateways.description":
         "自宅のコンピュータなど、別のコンピュータのGatewayを使って、このコンピュータからPsycheを利用します。有効なGatewayは一度に1つで、切り替えるとPsycheが再起動します。",
       "settings.gateways.thisMac": "このコンピュータ",
@@ -2824,8 +2796,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "shell.shortcut.pushToTalkKeys": "오른쪽 Ctrl 길게 누르기",
       "settings.essentials.model.noneHint":
         "{persona}가 답하려면 모델이 필요합니다. 키를 추가하거나 이 컴퓨터의 모델을 사용하십시오.",
-      "settings.essentials.read.hint":
-        "켜기 전까지는 꺼져 있습니다. 읽은 내용은 찾기 쉽도록 이 컴퓨터에서 색인되며, 메모리 → 출처에서 제외하지 않으면 메모리 학습에도 사용됩니다.",
       "settings.searchModel.apple.notOnThisMac": "macOS에서 사용할 수 있음",
       "settings.macHelper.paired.text":
         "이 컴퓨터에서 컴퓨터 사용, 화면 컨텍스트, 받아쓰기, 암호 승인 및 알림을 담당합니다.",
@@ -2919,8 +2889,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "settings.model.ram.fits": "이 컴퓨터의 메모리는 {gb, number}GB입니다. 실행 가능: {fits}.",
       "settings.model.ram.thisMac": " (이 컴퓨터)",
       "settings.permissions.never.browserPasswords": "브라우저 또는 시스템 키링에 저장된 암호 읽기",
-      "settings.server.bindHint":
-        "127.0.0.1은 이 컴퓨터 안에만 유지합니다. 모든 인터페이스에 바인딩하는 대신 아래의 원격 접근을 사용하십시오.",
       "settings.gateways.description":
         "집에 있는 컴퓨터 등 다른 컴퓨터의 Gateway를 사용해 이 컴퓨터에서 Psyche를 이용합니다. 한 번에 하나의 Gateway만 활성화되며, 전환하면 Psyche가 다시 시작됩니다.",
       "settings.gateways.thisMac": "이 컴퓨터",
@@ -3207,8 +3175,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "shell.shortcut.pushToTalkKeys": "Segure Ctrl direito",
       "settings.essentials.model.noneHint":
         "{persona} precisa de um modelo para poder responder. Adicione uma chave ou use um modelo neste computador.",
-      "settings.essentials.read.hint":
-        "Desativado até você ativar algum. O que é lido é indexado neste computador para encontrar coisas para você, e a memória também aprende com isso, a menos que você desative em Memória → Fontes.",
       "settings.searchModel.apple.notOnThisMac": "Disponível no macOS",
       "settings.macHelper.paired.text":
         "Executa o uso do computador, o contexto da tela, o ditado, as aprovações por senha e as notificações neste computador.",
@@ -3304,8 +3270,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "settings.model.ram.thisMac": " (este computador)",
       "settings.permissions.never.browserPasswords":
         "Ler senhas salvas nos seus navegadores ou no chaveiro do sistema",
-      "settings.server.bindHint":
-        "127.0.0.1 o mantém neste computador. Use o acesso remoto abaixo em vez de vincular a todas as interfaces.",
       "settings.gateways.description":
         "Use o Psyche neste computador com o Gateway de outro, como o seu computador de casa. Só um Gateway fica ativo por vez, e trocar reinicia o Psyche.",
       "settings.gateways.thisMac": "Este computador",
@@ -3596,8 +3560,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "shell.shortcut.pushToTalkKeys": "按住右 Ctrl",
       "settings.essentials.model.noneHint":
         "{persona}需要有模型才能回答。请添加密钥，或使用这台电脑上的模型。",
-      "settings.essentials.read.hint":
-        "在你开启之前都是关闭的。它读取的内容会在这台电脑上建立索引，方便它为你查找；除非你在“记忆 → 来源”中选择退出，记忆也会从中学习。",
       "settings.searchModel.apple.notOnThisMac": "在 macOS 上可用",
       "settings.macHelper.paired.text":
         "在这台电脑上运行电脑使用、屏幕上下文、听写、密码批准和通知。",
@@ -3680,8 +3642,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "settings.model.ram.fits": "这台电脑有 {gb, number} GB，可运行{fits}。",
       "settings.model.ram.thisMac": "（这台电脑）",
       "settings.permissions.never.browserPasswords": "读取浏览器或系统密钥环中保存的密码",
-      "settings.server.bindHint":
-        "127.0.0.1 使其仅限这台电脑。请使用下方的远程访问，而不是绑定到所有网络接口。",
       "settings.gateways.description":
         "在这台电脑上使用另一台电脑（比如你家里的电脑）上的 Gateway 来使用 Psyche。同一时间只有一个 Gateway 处于活动状态，切换会重启 Psyche。",
       "settings.gateways.thisMac": "这台电脑",

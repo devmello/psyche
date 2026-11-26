@@ -15,14 +15,7 @@ export const settingsA: Partial<Catalogue> = {
   "settings.essentials.model.noneHint":
     "{persona} precisa de um modelo para poder responder. Adicione uma chave ou use um modelo neste Mac.",
   "settings.essentials.model.setUp": "Configurar um modelo",
-  "settings.essentials.read.title": "O que {persona} pode ler",
-  "settings.essentials.read.hint":
-    "Desativado até você ativar algum. O que é lido é indexado neste Mac para encontrar coisas para você, e a memória também aprende com isso, a menos que você desative em Memória → Fontes.",
   "settings.essentials.asks.title": "Com que frequência {persona} pergunta antes",
-  "settings.essentials.interrupt.title": "Quando {persona} pode interromper você",
-  "settings.essentials.interrupt.quietHint":
-    "De {from} até {until}, as notificações esperam na caixa de entrada.",
-  "settings.essentials.interrupt.briefHint": "Um resumo curto no Feed às {time}.",
   "settings.essentials.memory.title": "Memória",
   "settings.essentials.memory.remember": "Deixar {persona} lembrar de nossos chats",
   "settings.essentials.memory.rememberHint":
@@ -122,12 +115,9 @@ export const settingsA: Partial<Catalogue> = {
   "settings.key.ui.onboarding.progress": "Progresso da introdução",
   "settings.key.permissions.liftedFloors": "Ações permitidas sem perguntar para {id}",
   "settings.key.specialists.maxConcurrent": "Especialistas ao mesmo tempo",
-  "settings.key.specialists.monthlyCapUsd": "Gasto mensal com especialistas",
   "settings.key.specialists.showInFeed": "Mostrar resultados dos especialistas no Feed",
   "settings.key.specialists.enabled": "{role} ativado",
   "settings.key.specialists.model": "Modelo de {role}",
-  "settings.key.specialists.budget": "Orçamento de {role}",
-  "settings.key.specialists.maxMode": "Modo de permissão de {role}",
   "settings.credentials.payments.description":
     "Um cartão de uso único, depois que você aprova cada compra. Os números do cartão nunca chegam ao Psyche.",
   "settings.approval.presenceUnavailable":
