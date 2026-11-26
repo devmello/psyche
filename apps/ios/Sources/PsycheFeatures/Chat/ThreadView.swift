@@ -141,14 +141,12 @@ struct ThreadView: View {
                 if let thread = model.phase.value {
                     VStack(spacing: 1) {
                         Text(thread.title).font(.headline).foregroundStyle(PsycheColor.text).lineLimit(1)
-                        if !thread.status.isEmpty {
-                            StatusDot(thread.statusKind.dot, thread.status, textColor: PsycheColor.muted, font: .caption)
-                        }
+                        ThreadStatusLine(kind: thread.statusKind, text: thread.status)
                     }
                     .accessibilityElement(children: .combine)
                 }
             }
-            ToolbarItem(placement: .primaryAction) { AgentButton(needsYou: false) }
+            // One menu, not an unexplained avatar beside it: Psyche's activity is its first item.
             ToolbarItem(placement: .primaryAction) { chatMenu }
         }
         #if os(iOS)
@@ -232,7 +230,7 @@ struct ThreadView: View {
                 .font(.footnote.weight(.semibold))
                 .foregroundStyle(PsycheColor.inkText)
                 .buttonStyle(.plain)
-                .frame(minHeight: 32)
+                .frame(minHeight: 44)
         }
         .padding(.horizontal, PsycheMetrics.pagePadding)
         .padding(.vertical, 8)
@@ -255,6 +253,9 @@ struct ThreadView: View {
     /// fork from; compact and clear wait while Psyche runs (the Gateway refuses them then anyway).
     private var chatMenu: some View {
         Menu {
+            Button { router.sheet = .agent } label: {
+                Label(String(localized: "Psyche's activity", bundle: .module), systemImage: "sparkles")
+            }
             Button {
                 renameText = model.phase.value?.title ?? ""
                 renaming = true
@@ -335,7 +336,7 @@ struct ThreadView: View {
             Image(systemName: selected ? "\(symbol).fill" : symbol)
                 .font(.subheadline)
                 .foregroundStyle(selected ? PsycheColor.inkText : PsycheColor.muted)
-                .frame(width: 36, height: 32)
+                .frame(width: 44, height: 44)
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)

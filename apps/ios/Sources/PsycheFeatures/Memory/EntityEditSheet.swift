@@ -53,7 +53,7 @@ struct EntityEditSheet: View {
                             Button(role: .destructive) { draft.removeAlias(at: index) } label: {
                                 Image(systemName: "minus.circle")
                                     .foregroundStyle(PsycheColor.muted)
-                                    .frame(width: 36, height: 36)
+                                    .frame(width: 44, height: 44)
                                     .contentShape(Rectangle())
                             }
                             .buttonStyle(.plain)
