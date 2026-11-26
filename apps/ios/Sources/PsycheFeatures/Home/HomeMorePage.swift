@@ -26,9 +26,9 @@ struct HomeMorePage: View {
     var body: some View {
         List {
             Section {
-                routeRow(String(localized: "Inbox", bundle: .module), "tray", .inbox, badge: model.unreadInbox)
-                routeRow(String(localized: "Scheduled", bundle: .module), "clock", .scheduled)
-                routeRow(String(localized: "Overview", bundle: .module), "square.grid.2x2", .overview)
+                routeRow(String(localized: "Notifications", bundle: .module), "tray", .inbox, badge: model.unreadInbox)
+                routeRow(String(localized: "Scheduled tasks", bundle: .module), "clock", .scheduled)
+                routeRow(String(localized: "Task history", bundle: .module), "clock.arrow.circlepath", .overview)
             }
             Section {
                 NavigationLink { HomeTodosPage(model: model) } label: {

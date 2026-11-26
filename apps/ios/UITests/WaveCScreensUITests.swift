@@ -44,10 +44,10 @@ final class WaveCScreensUITests: PsycheUITestCase {
     func testSettingsConnectionPageOpensAndBackReturns() {
         launch()
         openSettings()
-        let connection = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Connection")).firstMatch
+        let connection = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Connected over")).firstMatch
         waitFor(connection)
         connection.tap()
-        waitFor(app.staticTexts["Fingerprint"].firstMatch, 5)
+        waitFor(app.staticTexts["Security code"].firstMatch, 5)
         app.navigationBars.buttons.firstMatch.tap()
         waitFor(app.navigationBars["Settings"], 5)
     }
@@ -73,10 +73,10 @@ final class WaveCScreensUITests: PsycheUITestCase {
             openSettings()
             waitFor(app.navigationBars["Settings"], 5)
             shot("settings", mode)
-            let connection = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Connection")).firstMatch
+            let connection = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Connected over")).firstMatch
             if connection.waitForExistence(timeout: 5) {
                 connection.tap()
-                waitFor(app.staticTexts["Fingerprint"].firstMatch, 5)
+                waitFor(app.staticTexts["Security code"].firstMatch, 5)
                 shot("connection", mode)
             }
             app.terminate()
