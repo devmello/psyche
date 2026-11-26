@@ -1,12 +1,10 @@
 import { type ReactElement, useEffect, useState } from "react";
-import { useNotifications } from "../data/index.ts";
 import { activeI18n, t } from "../i18n/core.ts";
 import { QuietThreadsSection } from "../mail-followups/QuietThreadsSection.tsx";
 import { NightShiftSection } from "../night-shift/NightShiftSection.tsx";
 import { ReviewSheet } from "../night-shift/ReviewSheet.tsx";
 import { FeedScreen } from "../screens/feed/FeedScreen.tsx";
 import { ScreenToolbar } from "../screens/feed/ScreenToolbar.tsx";
-import { needsYou } from "../screens/inbox/InboxScreen.tsx";
 import { useSlots } from "../slots.tsx";
 import { HomeSpacesSection } from "../spaces/HomeSpacesSection.tsx";
 import { PinnedWidgets } from "../widgets/PinnedWidgets.tsx";
@@ -24,6 +22,7 @@ import {
   SuggestionsSection,
 } from "./sections.tsx";
 import { useCatchUp } from "./use-catch-up.ts";
+import { useNeedsYou } from "./use-needs-you.ts";
 
 export interface HomeScreenProps {
   /** The shell's `navigate`; defaults to the slot's. */
@@ -67,8 +66,9 @@ export function HomeScreen({
   const { navigate: slotNavigate } = useSlots();
   const navigate = onNavigate ?? slotNavigate ?? (() => {});
   const [mountedAt] = useState(() => now ?? Date.now());
-  // The accent goes to the first Approve when something waits; otherwise to the first idea.
-  const waiting = needsYou(useNotifications().unresolved, now ?? mountedAt).length > 0;
+  // One primary action: the first Approve when something waits (the same count as the sidebar
+  // badge); otherwise the Night shift review. Suggestions are always secondary.
+  const waiting = useNeedsYou(now).count > 0;
 
   // Asking for the route the owner is already on (the brief's button, twice) lands again.
   const repeat = useRouteRepeat();
@@ -108,7 +108,7 @@ export function HomeScreen({
           {...(instructionsOpen === undefined ? {} : { instructionsOpen })}
           {...clock}
         />
-        <SuggestionsSection accent={!waiting} limit={2} onNavigate={navigate} />
+        <SuggestionsSection accent={false} limit={2} onNavigate={navigate} />
         <HomeQuietLine />
         <MoreSection
           onNavigate={navigate}
