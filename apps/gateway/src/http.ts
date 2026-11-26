@@ -147,5 +147,10 @@ export function handleHttp(req: IncomingMessage, res: ServerResponse, deps: Http
     void handleMapProxy(req, res, deps.mapOrigins);
     return;
   }
-  send(res, 404, JSON.stringify({ ok: false, error: "not found" }));
+  // Psyche serves no UI (browser access was dropped, 2026-11-25): `/` is an unknown path too.
+  send(
+    res,
+    404,
+    JSON.stringify({ ok: false, error: "not found (this Gateway answers /healthz and /version)" }),
+  );
 }
