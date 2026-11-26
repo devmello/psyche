@@ -5,6 +5,7 @@ import {
   AgentToolRegistry,
   automationIntentProvider,
   type CompactionPolicy,
+  clockContextProvider,
   createAgentLoop,
   defangFence,
   type ForkReportHost,
@@ -299,6 +300,7 @@ import { researchTools } from "./research.ts";
 import { withRunSnapshot } from "./run-snapshot.ts";
 import type { ComposedSandbox } from "./sandbox.ts";
 import { scrubSavedRecall } from "./saved-recall.ts";
+import { withScheduleCard } from "./schedule-card.ts";
 import {
   createScheduledHandlers,
   pausedRoutines,
@@ -613,7 +615,11 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   // "Today", daily notes and automations follow the owner's timezone (USER.md's `Timezone`,
   // also filled from what they told Psyche); no zone there leaves the defaults as they were.
   // `let`: it is read again on wake and every hour, so a trip changes it without a restart.
-  let timeZone = timeZoneOption ?? ownerTimeZoneAt(join(config.home, "workspace", "USER.md"));
+  // An explicit zone (the option, then USER.md) wins; with none, the Mac's own zone is the default,
+  // never UTC: "9 am" and the 7:00 brief mean the owner's local time.
+  const systemZone = new SystemZone();
+  let timeZone: string =
+    timeZoneOption ?? ownerTimeZoneAt(join(config.home, "workspace", "USER.md")) ?? systemZone.zone;
   // One redactor for the vault, payments and logs: a value the vault handed out is masked
   // wherever it would be written.
   const redactor = new SecretRedactor();
@@ -1037,7 +1043,15 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   // announces those (requestedBy.taskId set); chat turns keep the controller's announcement.
   // A specialist's approvals also carry its parent run and role (specialists §4.4).
   const loopBroker = announcing(
-    withSpecialistContext(broker, (id) => tasks.get(id)),
+    withScheduleCard(
+      withSpecialistContext(broker, (id) => tasks.get(id)),
+      {
+        zone: () => timeZone,
+        now: () => clock.now(),
+        language: () => getSetting(db, "ui.language")?.value,
+        systemLocale: () => Intl.DateTimeFormat().resolvedOptions().locale,
+      },
+    ),
     publish,
     (a) => a.requestedBy.taskId != null,
   );
@@ -1947,7 +1961,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     scheduler: withoutAgentRecordingSchedules(scheduler, skills.recorded),
     registry,
     clock,
-    ...(timeZone === undefined ? {} : { timeZone }),
+    timeZone: () => timeZone,
     approvalSurfaces: ["desktop", "web"],
     resumeApproval: (q) => deferredResume.claim(q),
     skills: skills.loader,
@@ -1962,6 +1976,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       artifactContextProvider(db),
       channelCapabilityProvider(db),
       automationIntentProvider(),
+      clockContextProvider({ now: () => clock.now(), timeZone: () => timeZone }),
     ],
     contextLimits: context.contextLimits,
     onContextUsage: context.onContextUsage,
@@ -3220,15 +3235,17 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   await proactive.start();
   await nightShiftRef?.start();
   await forksRef?.start();
-  const systemZone = new SystemZone();
-  const effectiveZone = () => timeZone ?? systemZone.zone;
+  const effectiveZone = () => timeZone;
   await ensureWeeklyCardAutomation(scheduler, { timezone: effectiveZone() });
   // The owner may have travelled (Mac asleep, or hours since the last look): re-read the zone, and
   // when it moved re-sync what is zone-dependent. Automations the owner made keep their own zone.
   async function refreshTimeZone(): Promise<void> {
     const before = effectiveZone();
     systemZone.refresh();
-    timeZone = timeZoneOption ?? ownerTimeZoneAt(join(config.home, "workspace", "USER.md"));
+    timeZone =
+      timeZoneOption ??
+      ownerTimeZoneAt(join(config.home, "workspace", "USER.md")) ??
+      systemZone.zone;
     const now = effectiveZone();
     if (now === before) return;
     gwOptions.logger?.log("info", "time zone changed", { from: before, to: now });
