@@ -18,7 +18,10 @@ struct MemoryTextTests {
         #expect(normalized(MemoryText.localizingTimes("Lands at 6:40 pm", locale: us, calendar: cal)) == "Lands at 6:40 PM")
         #expect(normalized(MemoryText.localizingTimes("Today 18:40", locale: us, calendar: cal)) == "Today 6:40 PM")
         #expect(MemoryText.localizingTimes("Lands at 6:40 pm", locale: gb, calendar: cal) == "Lands at 18:40")
-        #expect(MemoryText.localizingTimes("Monday 08:58", locale: gb, calendar: cal) == "Monday 08:58")
+        // A 24-hour phone keeps 24-hour times: no AM/PM, and the minutes survive.
+        let morning = MemoryText.localizingTimes("Monday 08:58", locale: gb, calendar: cal)
+        #expect(morning.hasPrefix("Monday ") && morning.hasSuffix(":58") && !morning.uppercased().contains("M "), "\(morning)")
+        #expect(normalized(MemoryText.localizingTimes("Monday 08:58", locale: us, calendar: cal)) == "Monday 8:58 AM")
     }
 
     @Test("Text that is not a clock time is left alone")
