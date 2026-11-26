@@ -321,6 +321,8 @@ export const pt: Partial<Catalogue> = {
   "chat.thread.forgetNothing": "Nada lembrado corresponde a “{subject}”.",
   "chat.thread.forgetPreview":
     "Esquecer “{subject}” retira {claims, plural, one {# afirmação} other {# afirmações}} e {chunks, plural, one {# nota indexada} other {# notas indexadas}}{hasFiles, select, true {, editando {files}} other {}}.",
+  "chat.thread.forgetCounts":
+    "Também exclui {graph, plural, one {# item} other {# itens}} do seu grafo de pessoas, {review, plural, one {# item} other {# itens}} aguardando revisão, {lessons, plural, one {# lição ou linha de lição} other {# lições ou linhas de lição}} e {search, plural, one {# entrada de busca} other {# entradas de busca}}, e remove as palavras das conversas salvas e dos registros de execução. É permanente.",
   "chat.thread.forgetConfirm": "Esquecer",
   "chat.thread.forgot": "“{subject}” foi esquecido.",
   "chat.thread.forgetFailed": "Não foi possível esquecer ({reason}). Nada foi alterado.",

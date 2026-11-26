@@ -356,6 +356,8 @@ export const hi: Partial<Catalogue> = {
   "chat.thread.forgetNothing": "याद की गई कोई चीज़ “{subject}” से मेल नहीं खाती।",
   "chat.thread.forgetPreview":
     "“{subject}” को भुलाने से {claims, plural, one {# दावा} other {# दावे}} और {chunks, plural, one {# इंडेक्स किया गया नोट} other {# इंडेक्स किए गए नोट}} वापस लिए जाएँगे{hasFiles, select, true {, और {files} संपादित होंगी} other {}}।",
+  "chat.thread.forgetCounts":
+    "यह आपके लोगों के ग्राफ़ से {graph, plural, one {# आइटम} other {# आइटम}}, समीक्षा के इंतज़ार में {review, plural, one {# आइटम} other {# आइटम}}, {lessons, plural, one {# सबक या सबक की पंक्ति} other {# सबक या सबक की पंक्तियाँ}} और {search, plural, one {# खोज प्रविष्टि} other {# खोज प्रविष्टियाँ}} भी हटाता है, और सहेजी गई चैट तथा रन ट्रेस से ये शब्द काट देता है। यह स्थायी है।",
   "chat.thread.forgetConfirm": "भूल जाएँ",
   "chat.thread.forgot": "“{subject}” भुला दिया गया।",
   "chat.thread.forgetFailed": "भुलाना काम नहीं कर सका ({reason})। कुछ नहीं बदला गया।",

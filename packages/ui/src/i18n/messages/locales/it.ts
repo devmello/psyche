@@ -357,6 +357,8 @@ export const it: Partial<Catalogue> = {
   "chat.thread.forgetNothing": 'Nessun ricordo corrisponde a "{subject}".',
   "chat.thread.forgetPreview":
     'Dimenticare "{subject}" ritira {claims, plural, one {# affermazione} other {# affermazioni}} e {chunks, plural, one {# nota indicizzata} other {# note indicizzate}}{hasFiles, select, true {, modificando {files}} other {}}.',
+  "chat.thread.forgetCounts":
+    "Elimina anche {graph, plural, one {# elemento} other {# elementi}} dal tuo grafo delle persone, {review, plural, one {# elemento} other {# elementi}} in attesa di revisione, {lessons, plural, one {# lezione o riga di lezione} other {# lezioni o righe di lezione}} e {search, plural, one {# voce di ricerca} other {# voci di ricerca}}, e toglie le parole dalle chat salvate e dalle tracce di esecuzione. È permanente.",
   "chat.thread.forgetConfirm": "Dimentica",
   "chat.thread.forgot": 'Dimenticato "{subject}".',
   "chat.thread.forgetFailed":

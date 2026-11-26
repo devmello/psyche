@@ -932,9 +932,12 @@
 //   let memoryFileInfo = try? JSONDecoder().decode(MemoryFileInfo.self, from: jsonData)
 //   let memoryFilesListParams = try? JSONDecoder().decode(MemoryFilesListParams.self, from: jsonData)
 //   let memoryFilesListResult = try? JSONDecoder().decode(MemoryFilesListResult.self, from: jsonData)
+//   let memoryForgetCounts = try? JSONDecoder().decode(MemoryForgetCounts.self, from: jsonData)
 //   let memoryForgetLearnedParams = try? JSONDecoder().decode(MemoryForgetLearnedParams.self, from: jsonData)
 //   let memoryForgetLearnedResult = try? JSONDecoder().decode(MemoryForgetLearnedResult.self, from: jsonData)
 //   let memoryForgetParams = try? JSONDecoder().decode(MemoryForgetParams.self, from: jsonData)
+//   let memoryForgetPreviewParams = try? JSONDecoder().decode(MemoryForgetPreviewParams.self, from: jsonData)
+//   let memoryForgetPreviewResult = try? JSONDecoder().decode(MemoryForgetPreviewResult.self, from: jsonData)
 //   let memoryForgetResult = try? JSONDecoder().decode(MemoryForgetResult.self, from: jsonData)
 //   let memoryGitSyncGetParams = try? JSONDecoder().decode(MemoryGitSyncGetParams.self, from: jsonData)
 //   let memoryGitSyncGetResult = try? JSONDecoder().decode(MemoryGitSyncGetResult.self, from: jsonData)
@@ -23100,19 +23103,121 @@ public struct MemoryForgetParams: Codable, Sendable {
     }
 }
 
+// MARK: - MemoryForgetPreviewParams
+public struct MemoryForgetPreviewParams: Codable, Sendable {
+    public let subject: String
+
+    public enum CodingKeys: String, CodingKey {
+        case subject = "subject"
+    }
+
+    public init(subject: String) {
+        self.subject = subject
+    }
+}
+
+// MARK: - MemoryForgetPreviewResult
+public struct MemoryForgetPreviewResult: Codable, Sendable {
+    public let counts: MemoryForgetCounts
+    public let files: [String]
+    public let total: Int
+    public let uncounted: [String]
+
+    public enum CodingKeys: String, CodingKey {
+        case counts = "counts"
+        case files = "files"
+        case total = "total"
+        case uncounted = "uncounted"
+    }
+
+    public init(counts: MemoryForgetCounts, files: [String], total: Int, uncounted: [String]) {
+        self.counts = counts
+        self.files = files
+        self.total = total
+        self.uncounted = uncounted
+    }
+}
+
+/// Per store: Markdown files and lines, claims, chunks, graph entities, facts, relations,
+/// loops, interactions and citations, other graph text, review items, quarantine rows,
+/// lessons and their lines, feedback events and search documents.
+// MARK: - MemoryForgetCounts
+public struct MemoryForgetCounts: Codable, Sendable {
+    public let chunks: Int
+    public let claims: Int
+    public let feedback: Int
+    public let graphCitations: Int
+    public let graphEdges: Int
+    public let graphEntities: Int
+    public let graphFacts: Int
+    public let graphInteractions: Int
+    public let graphLoops: Int
+    public let graphOther: Int
+    public let lessonLines: Int
+    public let lessons: Int
+    public let markdownFiles: Int
+    public let markdownLines: Int
+    public let quarantine: Int
+    public let reviewItems: Int
+    public let searchDocs: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case chunks = "chunks"
+        case claims = "claims"
+        case feedback = "feedback"
+        case graphCitations = "graphCitations"
+        case graphEdges = "graphEdges"
+        case graphEntities = "graphEntities"
+        case graphFacts = "graphFacts"
+        case graphInteractions = "graphInteractions"
+        case graphLoops = "graphLoops"
+        case graphOther = "graphOther"
+        case lessonLines = "lessonLines"
+        case lessons = "lessons"
+        case markdownFiles = "markdownFiles"
+        case markdownLines = "markdownLines"
+        case quarantine = "quarantine"
+        case reviewItems = "reviewItems"
+        case searchDocs = "searchDocs"
+    }
+
+    public init(chunks: Int, claims: Int, feedback: Int, graphCitations: Int, graphEdges: Int, graphEntities: Int, graphFacts: Int, graphInteractions: Int, graphLoops: Int, graphOther: Int, lessonLines: Int, lessons: Int, markdownFiles: Int, markdownLines: Int, quarantine: Int, reviewItems: Int, searchDocs: Int) {
+        self.chunks = chunks
+        self.claims = claims
+        self.feedback = feedback
+        self.graphCitations = graphCitations
+        self.graphEdges = graphEdges
+        self.graphEntities = graphEntities
+        self.graphFacts = graphFacts
+        self.graphInteractions = graphInteractions
+        self.graphLoops = graphLoops
+        self.graphOther = graphOther
+        self.lessonLines = lessonLines
+        self.lessons = lessons
+        self.markdownFiles = markdownFiles
+        self.markdownLines = markdownLines
+        self.quarantine = quarantine
+        self.reviewItems = reviewItems
+        self.searchDocs = searchDocs
+    }
+}
+
 // MARK: - MemoryForgetResult
 public struct MemoryForgetResult: Codable, Sendable {
+    public let counts: MemoryForgetCounts?
     public let files: [String]
     public let removedChunkIDS: [String]
     public let retractedClaimIDS: [String]
 
     public enum CodingKeys: String, CodingKey {
+        case counts = "counts"
         case files = "files"
         case removedChunkIDS = "removedChunkIds"
         case retractedClaimIDS = "retractedClaimIds"
     }
 
-    public init(files: [String], removedChunkIDS: [String], retractedClaimIDS: [String]) {
+    public init(counts: MemoryForgetCounts? = nil, files: [String], removedChunkIDS: [String], retractedClaimIDS: [String]) {
+        self.counts = counts
         self.files = files
         self.removedChunkIDS = removedChunkIDS
         self.retractedClaimIDS = retractedClaimIDS
@@ -24539,19 +24644,53 @@ public struct MemoryResetResult: Codable, Sendable {
     public let claims: Int
     public let dryRun: Bool
     public let files: [String]
+    public let graph: Graph?
 
     public enum CodingKeys: String, CodingKey {
         case chunks = "chunks"
         case claims = "claims"
         case dryRun = "dryRun"
         case files = "files"
+        case graph = "graph"
     }
 
-    public init(chunks: Int, claims: Int, dryRun: Bool, files: [String]) {
+    public init(chunks: Int, claims: Int, dryRun: Bool, files: [String], graph: Graph? = nil) {
         self.chunks = chunks
         self.claims = claims
         self.dryRun = dryRun
         self.files = files
+        self.graph = graph
+    }
+}
+
+// MARK: - Graph
+public struct Graph: Codable, Sendable {
+    public let citations: Int
+    public let edges: Int
+    public let entities: Int
+    public let facts: Int
+    public let interactions: Int
+    public let loops: Int
+    public let quarantine: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case citations = "citations"
+        case edges = "edges"
+        case entities = "entities"
+        case facts = "facts"
+        case interactions = "interactions"
+        case loops = "loops"
+        case quarantine = "quarantine"
+    }
+
+    public init(citations: Int, edges: Int, entities: Int, facts: Int, interactions: Int, loops: Int, quarantine: Int) {
+        self.citations = citations
+        self.edges = edges
+        self.entities = entities
+        self.facts = facts
+        self.interactions = interactions
+        self.loops = loops
+        self.quarantine = quarantine
     }
 }
 

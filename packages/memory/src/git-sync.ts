@@ -39,10 +39,16 @@ mail/VOICE.md
 mail/voice-samples.jsonl
 # This machine's id for the provenance sidecar: local only.
 .psyche/machine.id
+# The key that hashes forgotten phrases: local only, never committed.
+.psyche/forget.key
 `;
 
 /** Files that never leave this machine, even when an owner edit or an old commit tracks them. */
-export const EXCLUDED_FILES: readonly string[] = ["mail/VOICE.md", "mail/voice-samples.jsonl"];
+export const EXCLUDED_FILES: readonly string[] = [
+  "mail/VOICE.md",
+  "mail/voice-samples.jsonl",
+  ".psyche/forget.key",
+];
 export const EXCLUDED_DIRS: readonly string[] = ["memory/imports"];
 
 /** True for a workspace path that must not be committed. */
