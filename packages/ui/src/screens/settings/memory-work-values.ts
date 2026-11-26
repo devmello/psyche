@@ -92,7 +92,7 @@ export function readWork(values: Readonly<Record<string, unknown>>): WorkValues 
   };
 }
 
-export const SURFACE_SWITCHES = ["home", "brief", "notification", "channel"] as const;
+export const SURFACE_SWITCHES = ["home", "brief", "notification"] as const;
 export type SurfaceSwitch = (typeof SURFACE_SWITCHES)[number];
 export const SURFACE_TIERS = ["work", "workMail", "people"] as const;
 export type SurfaceTierId = (typeof SURFACE_TIERS)[number];

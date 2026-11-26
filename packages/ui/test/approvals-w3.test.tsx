@@ -219,10 +219,10 @@ const TABLE: Row[] = [
     name: "a message send names the recipient on that channel",
     approval: card({
       kind: "message_send",
-      details: { channel: "slack", recipient: "bob" },
+      details: { channel: "imessage", recipient: "bob" },
     }),
     allow: "once",
-    second: { value: "always", label: "Always allow messages to bob on slack" },
+    second: { value: "always", label: "Always allow messages to bob on imessage" },
     more: [],
   },
   {

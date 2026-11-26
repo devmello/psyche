@@ -28,8 +28,6 @@ import {
   type BrowserRecordingFrame,
   type BrowserTab,
   buildPsycheTrace,
-  type Channel,
-  type ChannelIdentity,
   type Connector,
   type CredentialMeta,
   type CredentialUse,
@@ -186,9 +184,7 @@ export interface MockWorld {
   automations: Automation[];
   grants: Grant[];
   connectors: Connector[];
-  channels: Channel[];
   pairingRequests: PairingRequest[];
-  channelIdentities: ChannelIdentity[];
   devices: Device[];
   /** `security.*`: the seal, its alerts and the local recoveries (absent: sealed and empty). */
   security?: SecurityStateStatus;
@@ -340,9 +336,7 @@ export const EMPTY_WORLD: MockWorld = {
   automations: [],
   grants: [],
   connectors: [],
-  channels: [],
   pairingRequests: [],
-  channelIdentities: [],
   devices: [],
   botAuth: {
     enabled: false,
@@ -425,8 +419,6 @@ const fail = (code: ErrorCode, message: string, details?: Record<string, unknown
 export class MockGateway implements GatewayClient {
   readonly world: MockWorld;
   readonly calls: RecordedCall[] = [];
-  /** Channel transport secrets by `type|account` (names only, like the Gateway). */
-  readonly channelSecrets = new Map<string, MethodParams<"channels.secrets.set">["name"][]>();
   /** A host's presence (a web passkey); tests set it to exercise approvals that need one. */
   presence?: GatewayClient["presence"];
   /** The desktop host: Touch ID cards go through `approvals.approveWithTouchId`. */
@@ -3392,7 +3384,6 @@ export class MockGateway implements GatewayClient {
       }
       return { ok: c.status === "connected", status: c.status, checkedAt: Date.parse(this.now()) };
     },
-    "channels.list": () => ({ channels: this.world.channels }),
     "security.state.get": () =>
       structuredClone(
         this.world.security ?? { status: "sealed", reason: null, alerts: [], recoveries: [] },
@@ -4495,112 +4486,6 @@ export class MockGateway implements GatewayClient {
         ownerConnectorId: null,
       });
       return { deleted: true };
-    },
-    "channels.pairing.list": (p) => ({
-      requests: this.world.pairingRequests.filter(
-        (r) =>
-          r.kind === "channel-sender" &&
-          (p.channelId === undefined || r.channelId === p.channelId) &&
-          (p.status === undefined || r.status === p.status),
-      ),
-    }),
-    "channels.identities.list": () => ({ identities: this.world.channelIdentities }),
-    "channels.allowlist.update": (p) => {
-      const channel = this.find(this.world.channels, p.channelId, "channel") as Channel;
-      const remove = p.remove ?? [];
-      const next = [
-        ...new Set([...channel[p.list].filter((id) => !remove.includes(id)), ...(p.add ?? [])]),
-      ];
-      const updated = { ...channel, [p.list]: next, updatedAt: this.now() } as Channel;
-      this.replace("channels", updated);
-      return { channel: updated };
-    },
-    "channels.identities.upsert": (p) => {
-      const now = this.now();
-      const existing =
-        p.identityId === undefined
-          ? undefined
-          : this.world.channelIdentities.find((i) => i.id === p.identityId);
-      const identity: ChannelIdentity = {
-        id: p.identityId ?? this.id("idn"),
-        display: p.display,
-        links: [...new Set(p.links)],
-        delegatedPersona:
-          p.delegatedPersona !== undefined
-            ? p.delegatedPersona
-            : (existing?.delegatedPersona ?? null),
-        toolAllow: p.toolAllow !== undefined ? p.toolAllow : (existing?.toolAllow ?? null),
-        createdAt: existing?.createdAt ?? now,
-        updatedAt: now,
-      };
-      this.world.channelIdentities = [
-        ...this.world.channelIdentities.filter((i) => i.id !== identity.id),
-        identity,
-      ];
-      return { identity };
-    },
-    "channels.identities.delete": (p) => {
-      this.world.channelIdentities = this.world.channelIdentities.filter(
-        (i) => i.id !== p.identityId,
-      );
-      return { ok: true };
-    },
-    "channels.pairing.approve": (p) => ({ pairingRequest: this.decidePairing(p, "approved") }),
-    "channels.pairing.deny": (p) => ({ pairingRequest: this.decidePairing(p, "denied") }),
-    "channels.secrets.set": (p) => {
-      const key = `${p.type}|${p.account}`;
-      const have = new Set(this.channelSecrets.get(key) ?? []);
-      have.add(p.name);
-      this.channelSecrets.set(key, [...have]);
-      return { set: [...have] };
-    },
-    "channels.secrets.clear": (p) => {
-      const key = `${p.type}|${p.account}`;
-      const left = (this.channelSecrets.get(key) ?? []).filter((n) => n !== p.name);
-      this.channelSecrets.set(key, left);
-      return { set: left };
-    },
-    "channels.secrets.status": (p) => ({
-      required: [],
-      set: this.channelSecrets.get(`${p.type}|${p.account}`) ?? [],
-    }),
-    "channels.get": (p) => ({
-      channel: this.find(this.world.channels, p.channelId, "channel") as Channel,
-    }),
-    "channels.configure": (p) => {
-      const { channelId, approvalId: _approval, ...fields } = p;
-      if (channelId === undefined) {
-        if (fields.type === undefined || fields.account === undefined) {
-          return fail("invalid_params", "a new channel needs a type and an account");
-        }
-        const now = this.now();
-        const created: Channel = {
-          id: this.id("chn"),
-          type: fields.type,
-          account: fields.account,
-          dmPolicy: fields.dmPolicy ?? "pairing",
-          allowFrom: fields.allowFrom ?? [],
-          groupAllowFrom: fields.groupAllowFrom ?? [],
-          requireMention: fields.requireMention ?? true,
-          ownerIds: fields.ownerIds ?? [],
-          dmScope: fields.dmScope ?? "per-channel-peer",
-          nodeId: fields.nodeId ?? null,
-          status: fields.status ?? "active",
-          config: fields.config ?? {},
-          createdAt: now,
-          updatedAt: now,
-        };
-        this.world.channels = [...this.world.channels, created];
-        return { channel: created };
-      }
-      const current = this.find(this.world.channels, channelId, "channel");
-      const channel: Channel = {
-        ...(current as Channel),
-        ...fields,
-        updatedAt: this.now(),
-      } as Channel;
-      this.replace("channels", channel);
-      return { channel };
     },
     "devices.approve": (p) => {
       const req = this.decidePairing({ requestId: p.pairingRequestId }, "approved");

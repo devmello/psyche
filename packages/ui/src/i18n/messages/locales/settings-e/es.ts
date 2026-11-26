@@ -190,7 +190,6 @@ export const settingsE: Partial<Catalogue> = {
   "gallery.builtin.appleMail": "Leer y redactar correo en Apple Mail.",
   "gallery.builtin.appleShortcuts": "Ejecutar los atajos que elijas.",
   "gallery.builtin.obsidian": "Buscar y leer tu bóveda de Obsidian.",
-  "gallery.builtin.slack": "Chatea con Psyche desde Slack. Se configura en Canales.",
   "gallery.preset.github.desc": "Explora repositorios, incidencias y pull requests.",
   "gallery.preset.github.example": "¿Qué pull requests esperan mi revisión?",
   "gallery.preset.github.field.token.label": "Token de acceso personal",

@@ -29,7 +29,6 @@ export const dailyA: Partial<Catalogue> = {
   "settings.key.daily.brief.enabled": "Resumen de la mañana",
   "settings.key.daily.wrapup.enabled": "Cierre de la tarde",
   "settings.key.daily.notify": "Avisarme",
-  "settings.key.daily.messages": "Enviar también por Mensajes",
   "settings.key.daily.followups.enabled": "Seguir los seguimientos",
   "settings.key.daily.brief.time": "Hora del resumen de la mañana",
   "settings.key.daily.wrapup.time": "Hora del cierre de la tarde",
@@ -37,7 +36,6 @@ export const dailyA: Partial<Catalogue> = {
   "settings.daily.time": "Hora",
   "settings.daily.notify.hint":
     "Una notificación con la tarjeta. Las horas de silencio la retienen hasta que terminan.",
-  "settings.daily.messages.hint": "Necesita el canal de Mensajes. Se envía solo a ti.",
   "settings.daily.sensitivity": "Cuánto seguir",
   "settings.daily.sensitivity.low": "Solo promesas claras con fecha",
   "settings.daily.sensitivity.normal": "Promesas y peticiones (recomendado)",

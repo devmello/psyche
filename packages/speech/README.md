@@ -98,23 +98,7 @@ All binaries run through a `ProcessRunner` with an argv array and a minimal envi
 
 ## Voice-note formats
 
-Recordings are encoded per container (voice memos and the Library). Caps are upload limits; when a clip would exceed one, the encoder walks down the bitrate ladder and refuses if the lowest rung does not fit.
-
-| Channel | Container | Rate | Bitrate ladder (kbps) | Cap | Native bubble |
-| --- | --- | --- | --- | --- | --- |
-| Telegram (`sendVoice`) | OGG/Opus `audio/ogg` | 48 kHz mono | 48, 32, 24, 16 | 50 MB | yes |
-| WhatsApp (PTT) | OGG/Opus | 48 kHz mono | 48, 32, 24, 16 | 16 MB | yes |
-| Signal | OGG/Opus | 48 kHz mono | 48, 32, 24, 16 | 100 MB (unverified) | yes |
-| iMessage | CAF/Opus `audio/x-caf`, `Audio Message.caf` | 48 kHz mono | 32, 24, 16 | 100 MB (unverified) | yes (see caveat) |
-| Slack | MP3 `audio/mpeg` | 44.1 kHz mono | 64, 48, 32 | 1 GB | no |
-| Discord | MP3 | 44.1 kHz mono | 64, 48, 32 | 10 MB (unverified) | no |
-| Email | MP3 | 44.1 kHz mono | 64, 48, 32 | 18 MB (25 MB minus base64) | no |
-| SMS (MMS) | MP3 | 44.1 kHz mono | 64, 48, 32 | 5 MB (unverified) | no |
-| Web chat, Library | MP3 | 44.1 kHz mono | 64, 48, 32 | 50 MB | no |
-
-**iMessage caveat.** Apple documents only "CAF" for inline voice notes; Opus inside CAF is community-reported (OpenClaw/BlueBubbles skills), and the message must also be flagged as an audio message by the sender. ffmpeg cannot write Opus (or AAC) into CAF (`cafenc.c`: "muxing codec currently unsupported"), so `oggOpusToCaf` remuxes ffmpeg's Ogg packets into CAF in-process, with the chunk layout `afconvert -f caff -d opus` produces (`desc`, `kuki`, `chan`, `pakt`, `data`). Apple's `afinfo` and `afconvert` read and decode the result on macOS 27; whether Messages renders it as a bubble must be checked end to end with the Mac node (S14/S10).
-
-**Inbound.** `transcribeVoiceNote(engine, transcoder, file)` writes the file to a private temp dir (CAF and moov-at-end M4A cannot be decoded from a pipe), decodes to 16 kHz mono s16le with ffmpeg and transcribes with the selected engine. `createSpeechStack().engine` is wrapped in `DecodingSpeechEngine`, so the channel service's existing `transcribeFile(data, {encoding: "opus"})` call works as is; outbound, `channelVoiceTranscoder(stack.transcoder)` satisfies the channel package's `VoiceTranscoder` port (by container, or by channel to get that channel's cap and file name). Together with `VoiceNotes` in `packages/channels` that is the Telegram round trip of Q4.
+Voice notes per chat channel (Telegram, WhatsApp, Signal, iMessage, Slack, Discord, email, SMS) were removed 2026-11-25 with the channels. Recordings are encoded per container for voice memos and the Library (MP3 by default, WAV when ffmpeg is absent). Inbound decode (`transcribeVoiceNote`) still serves composer memos.
 
 ## Voice memos (Q4)
 
@@ -127,8 +111,6 @@ Recordings are encoded per container (voice memos and the Library). Caps are upl
 5. **Library item**: kind `recording`, origin `upload` (composer) or `channel`, tags `voice-memo`, the source and the channel, the transcript as `textExtract`, named after the task title ("Call Alice at noon tomorrow.wav").
 6. **Task** (`task: "auto" | "always" | "never"`): in `auto`, only a memo that opens with a cue ("remind me to…", "todo:", "don't forget…", "add a task…") becomes a task; it needs a thread and a `TaskEngine`. The goal is the transcript plus a pointer to the memo item; `createdFrom` is `chat` or `channel`.
 7. **Blocks** for the carrying message: a text block quoting the transcript under a label (`**Voice memo, 0:05**` or `**Voice note from @sender on telegram (untrusted), 0:05**`, with a note when links or instruction-like phrasing were found), a `file` block and, if created, a `task` block.
-
-Inbound channel voice notes (N11/Q4 round trip) reach the same path: the adapter hands the attachment bytes with `memoFormatFor(mime)` and `speaker` from its owner check, so the transcript lands in the thread with the right provenance and the audio in the Library.
 
 ## Tests and gates
 

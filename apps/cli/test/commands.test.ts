@@ -568,8 +568,8 @@ describe("commands against a paired MockGateway", () => {
       expect(code).toBe(json.ok ? 0 : 1);
       expect(Array.isArray(json.findings)).toBe(true);
       const notChecked = json.notChecked as { rule: string; reason: string }[];
-      // channels.list and skills.list are not mocked / not registered.
-      expect(notChecked.map((n) => n.rule)).toEqual(expect.arrayContaining(["channels", "skills"]));
+      // skills.list is not mocked / not registered.
+      expect(notChecked.map((n) => n.rule)).toEqual(expect.arrayContaining(["skills"]));
     });
 
     it("security audit --fail-at critical exits 0 when nothing critical", async () => {

@@ -74,7 +74,7 @@ The broker floors declared side-effect classes (`src/kinds.ts`): a registry or n
   - The owner's own configured allowances do not apply.
 - **`allowed`** (allowlisted, neither owner nor designated): nothing above `read` (`requester:not_owner`).
 - **Grants are per requester:** `grants.requester_id` (migration `202610201600_permissions_requester.sql`). The owner's grants never cover anyone else, and a grant approved for one person's request covers only that person.
-- **Approval cards** go to the owner's surfaces. The requester's own chats (`links`, `channel:senderId`) are stripped, and `details.requestedFor` names the person.
+- **Approval cards** go to the owner's surfaces (the Mac app and the paired iPhone).
 ## Approval friction metrics (M2)
 
 `frictionMetrics(entries)` (and the `audit.friction` handler, `operator.read`) summarizes the audit log. It reads only the `tool_call.decided`, `approval.*`, `grant.created` and `classifier.labeled` entries, never arguments. It reports:

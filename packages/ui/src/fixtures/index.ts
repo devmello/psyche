@@ -6,7 +6,6 @@ import type {
   Automation,
   AutomationRun,
   BotAuthStatus,
-  Channel,
   Connector,
   CredentialMeta,
   CredentialUse,
@@ -62,7 +61,6 @@ import { type GraphWorld, graphWorld } from "./people.ts";
 import { plugins } from "./plugins.ts";
 import { automations, feed, goals, ideas, NEXT_BRIEF_AT, notifications } from "./proactive.ts";
 import {
-  channels,
   connectors,
   credentials,
   credentialUses,
@@ -154,7 +152,6 @@ export interface FixtureWorld {
   automations: Automation[];
   grants: Grant[];
   connectors: Connector[];
-  channels: Channel[];
   pairingRequests: PairingRequest[];
   devices: Device[];
   /** `security.*` (absent: sealed, no alerts, no recoveries), and a Gateway that asks for an approval card. */
@@ -276,7 +273,6 @@ export function createFixtureWorld(): FixtureWorld {
     automations: automations(),
     grants: grants(),
     connectors: connectors(),
-    channels: channels(),
     pairingRequests: pairingRequests(),
     devices: devices(),
     botAuth: {

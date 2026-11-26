@@ -19,7 +19,7 @@ These are untrusted and taint the turn that reads them:
 - results from MCP servers that are not bundled with Psyche, and their tool descriptions;
 - descriptions of third-party skills;
 - text read from other apps through computer use: accessibility text, window titles, script and Shortcut output;
-- messages from anyone other than you on a chat channel, and forwarded or quoted text inside your own messages;
+- messages from anyone other than you that you read through Messages or Mail, and forwarded or quoted text inside them;
 - what another of your threads says, when cross-thread awareness is on;
 - memory entries tagged untrusted, and results from a subagent whose own turn was tainted.
 
@@ -43,10 +43,6 @@ In a tainted turn:
 The approval card says so: its header ends with "after reading untrusted content", and "Why asked" names the reason. When you see that, check the arguments against what you asked for. If the content seems to be steering the agent, deny the card and tell the agent what you want instead.
 
 Taint never makes anything more permissive. It can only turn an allow into an ask.
-
-## Other people who message the agent
-
-Someone the agent talks to on a channel is not you. A sender who passes the channel's pairing or allowlist but is neither you nor a person you designated gets a chat-only turn: no tools, no `MEMORY.md`, and the broker refuses any read of your messages, mail, calendar, files, memory or browser with `requester:not_owner`. Today only your own private chats run agent turns at all; other senders get a fixed reply.
 
 ## Memory rules
 

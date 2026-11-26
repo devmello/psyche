@@ -1,5 +1,8 @@
 # Lightweight Psyche, 2026
 
+> **Update 2026-11-25: chat channels removed.** Telegram, Slack-as-chat, Discord, WhatsApp, Signal, SMS, email-as-chat, the iMessage chat bridge and WebChat no longer exist (owner decision: the iPhone app is the mobile surface). Mentions of channels, channel delivery, channel senders and `dmPolicy` below are historical. Approvals and briefs go only to the Mac app and the paired iPhone. Reading Messages and Mail and the send-a-message tool stay. See security section 9 in docs/05-security-and-permissions.md.
+
+
 Goal: a Psyche that costs little to keep running. **Runtime RAM comes first, installed size second**:
 no change may buy disk with idle memory, and nothing may weaken code signing. The Electron RunAsNode
 fuse stays off, there is no Electron "gateway mode", and the Gateway keeps its own Node

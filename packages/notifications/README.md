@@ -2,7 +2,7 @@
 
 **Owner:** S15 (`docs/archive/prompts/s15-proactive-notifications.md`). Feature id: O10 in [docs/03-feature-spec.md](../../docs/03-feature-spec.md).
 
-The durable notification inbox and its delivery routing: in-app (desktop and web clients through Gateway events), the OS (the mac helper's `notify.show` node capability), and chat channels (`ChannelAdapter`). It handles de-duplication per task, quiet hours, retries, restart reconciliation, and the `notifications.*` method handlers.
+The durable notification inbox and its delivery routing: in-app (desktop and web clients through Gateway events), and the OS (the mac helper's `notify.show` node capability). Chat channels were removed 2026-11-25; notifications reach only the Mac app and the paired iPhone. It handles de-duplication per task, quiet hours, retries, restart reconciliation, and the `notifications.*` method handlers.
 
 ```
 notify(input)
@@ -11,7 +11,6 @@ notify(input)
 inbox row (durable) ──► subscribe() events ──► Gateway ──► notification.created/updated/resolved (WS)
   │                                                          (desktop + web = "in_app", delivered at once)
   ├─ notification ─► SurfaceAdapter "os"      ─► NodeClient.invoke("notify.show") │ fallback (Electron)
-  └─ <channel>:<id> ► SurfaceAdapter "channel" ─► ChannelAdapter.send / sendApprovalButtons
         │
         ├─ quiet hours → status "deferred", dueAt = end of window ─┐
         ├─ retryable failure → "pending", dueAt = now + 30 s·2^(n-1) ├─► flushDue(now) (Gateway timer at nextDueAt())
@@ -53,11 +52,11 @@ Explicit `surfaces` on `notify` replace the defaults. `os` is accepted as an ali
 - **One notification per task state.** A `task_done` or `task_failed`, whether new or a de-duplicated update, resolves that task's open `input_needed`, `task_done` and `task_failed` rows and suppresses their pending deliveries.
 - **Reconciliation.** Open `approval` rows become stale, because the Gateway invalidates every pending approval at boot and S05 re-issues them as new notifications. With `tasks`: a missing task makes its rows stale, an `input_needed` is stale once the task is no longer `awaiting_input`, and a `task_failed` is stale once the task is no longer `failed`. `isStale` adds custom rules. A stale row gets `staleAt`, `staleReason` and `resolvedAt`, and its open deliveries are suppressed. Deliveries cut off mid-flight (`pending` without `dueAt`) are due again at once.
 - **Races.** Every check-then-write runs in one synchronous store transaction. A delivery result never revives a delivery that was suppressed while the adapter ran (for example, the notification was resolved).
-- **Security.** Approvals reach chat only through `sendApprovalButtons` with the token S05 issued. A `deviceOnly` approval, an approval with no resolver, or a channel without buttons is `suppressed` and gets no text nudge either (security §3.5, §9). `authenticationRequired` on an action is passed to the helper (Touch ID). Notifications carry only what callers put in them, and callers must never include secrets (security §5).
+- **Security.** Approvals reach only the owner's own devices. An approval with no resolver is `suppressed` and gets no text nudge either (security §3.5, §9). `authenticationRequired` on an action is passed to the helper (Touch ID). Notifications carry only what callers put in them, and callers must never include secrets (security §5).
 
 ## How this maps to the docs
 
-- Architecture §4.12 (typed inbox, OS / channel / phone fan-out, dedupe per task, restart reconciliation); UI §3.20 (kinds, actions, interruption levels, "one notification per Task per state change", deep links); data model §8 `notifications`. The table gained `route`, `stale_at`, `stale_reason`, `dedupe_key`, `seq` and `updated_at`, plus a new `notification_deliveries` table. See [docs/04-data-model.md](../../docs/04-data-model.md) §8.
+- Architecture §4.12 (typed inbox, OS / phone fan-out, dedupe per task, restart reconciliation); UI §3.20 (kinds, actions, interruption levels, "one notification per Task per state change", deep links); data model §8 `notifications`. The table gained `route`, `stale_at`, `stale_reason`, `dedupe_key`, `seq` and `updated_at`, plus a new `notification_deliveries` table. See [docs/04-data-model.md](../../docs/04-data-model.md) §8.
 - Protocol: `Notifier` contract, `notifications.*` methods, and the `notification.created/updated/resolved` events. `Notification.staleAt` and `NotificationAction.authenticationRequired` come from protocol PR devmello/psyche#8.
 
 ## What is stubbed or pending

@@ -158,8 +158,6 @@ export const windows: Partial<Record<MessageId, string>> = {
     "While a task uses it, Psyche runs Google Chrome with this profile and a DevTools port on this PC's loopback (127.0.0.1), and closes it when the task is done. {persona} is not attached while you have the profile open yourself.",
   "settings.browser.openFromMac":
     "Open it from the Psyche app on the computer that runs the Gateway.",
-  "settings.channels.empty":
-    "No channels yet. Connect Telegram or Slack to reach {persona} away from this PC.",
   "settings.computerUse.description": "{persona} can use apps on this PC only where you allow it.",
   "settings.computerUse.macPermissions": "Windows access",
   "settings.computerUse.openSystemSettings": "Open Settings",

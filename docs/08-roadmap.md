@@ -18,7 +18,7 @@ Goal: every process exists and talks.
 
 ## Milestone 1 — Walking skeleton, alpha 0.1 (weeks 3–8)
 
-Goal: a daily-usable personal agent on one Mac with one connector and one channel.
+Goal: a daily-usable personal agent on one Mac with one connector.
 
 - Models: B1 (Anthropic, OpenAI, Ollama, OpenAI-compatible), B2, B3, B5, B6, B7.
 - Runtime: C1–C5, C8, C9 (subset), C3 tool registry.
@@ -29,7 +29,7 @@ Goal: a daily-usable personal agent on one Mac with one connector and one channe
 - Browser: I1–I9, I11.
 - Sandbox: K1–K3, K6 (user terminal), K8 (base image).
 - Connectors: M1, M2, M4, M5 (Google), M8, M11.
-- Channels: N1–N4, N14.
+- Server: N14.
 - Scheduler: O1, O4, O10.
 - Documents: P1, P3 (view), P4 (docx/images/code), P5, P7, P9.
 - Voice: Q1.
@@ -48,8 +48,8 @@ Goal: credentials, proactivity, computer use, server mode.
 - Chat: E5, E9, E11; E8 interactive artifacts (P6).
 - Memory: H6 dreaming, H8, H9.
 - Documents: P2 pipeline, P3 edit, P4 pptx/email, P8 generators.
-- Voice: Q3, Q4; N11 voice notes.
-- Channels/server: A8 web client, A11 packaging, N5 iMessage, N10 designated person, N12 server mode, N13 Mac as remote node.
+- Voice: Q3, Q4; .
+- Server: A8 web client, A11 packaging, N12 server mode, N13 Mac as remote node.
 - Browser: I10 recording, I12 dev preview, I15 logged-out profile.
 - Sandbox: K4 egress proxy, K5 srt, K7 host exec, K8 full image.
 - MCP: M3 local server sandboxing; M7 IMAP/JMAP; M10 shopping helpers (without payments).
@@ -76,7 +76,7 @@ Goal: credentials, proactivity, computer use, server mode.
 
 ## After 1.0
 
-- Channels: N6 WhatsApp, N7 Signal, N8 Slack/Discord, N9 email/SMS.
+- Chat channels (N1–N11) removed 2026-11-25.
 - L6 snapshots/resets, L7 prebuilt guest images.
 - G11 Bitwarden; I14 Web Bot Auth; M6 Microsoft Graph; M9 custom connectors; J8 teach mode; Q5 voice mode; T3 agent-proposed skills; T4 plugins; E12 cross-thread awareness; A12 localization; Windows and Linux desktops.
 - **Linux desktop app: parked, not planned for now (owner, 2026-11-19).** Linux gets a helper-only machine and a headless Linux Host instead; see [linux-helper-only-2026.md](design/linux-helper-only-2026.md). The earlier desktop design ([linux-desktop-2026.md](design/linux-desktop-2026.md)) is kept for reference, and its packaging PR (#1274) is parked. The Linux helper, with its virtual screen (#1293), is on main.
@@ -90,7 +90,7 @@ Goal: credentials, proactivity, computer use, server mode.
 | Gateway core | A2–A5, C, D, F, H, O | protocol |
 | Desktop and UI | A6–A8, E, I1/I5/I6/I11, P viewers/editor, R, S, U1 | protocol, design doc |
 | Mac helper | A9, J, Q (engines), notifications, keychain, L | protocol |
-| Executors | I2–I4/I7–I10, K, M (connectors), N (channels) | Gateway core |
+| Executors | I2–I4/I7–I10, K, M (connectors), N (server mode) | Gateway core |
 | Security | G, F review, injection corpus, audit, release checklist | all |
 
 ## Risks and mitigations
@@ -104,7 +104,6 @@ Goal: credentials, proactivity, computer use, server mode.
 | Prompt injection through email/web | Taint + origin sets + confirmations + classifier; CI corpus with a target of zero unapproved egress |
 | Google OAuth friction (Testing-mode 7-day tokens, unverified-app screen) | Onboarding explains "publish to production, personal-use exemption"; re-auth UX |
 | iMessage breakage on new macOS releases (chat GUID change on 26) | Isolate in the Mac node; integration tests per macOS beta |
-| Unofficial WhatsApp bans | Label clearly; recommend a separate number; offer Cloud API |
 | Scope creep | P0/P1/P2 discipline; acceptance scenarios as the definition of done |
 | Same-user malware rewrites devices, presence keys or grants (self-signed build, no keychain access group) | Sealed security tables undo it and alert every device; `psyched` security commands wait 24 hours; residual: a program reading the seal key or controlling `psyched` (decisions D1, D3, D4) |
 

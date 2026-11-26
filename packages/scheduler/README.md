@@ -58,7 +58,7 @@ The job's scratch note follows the contract.
 - **Done runs** go to their delivery target:
   - `none`: nothing.
   - `thread`: that thread, if it is not the run's own thread (the run's own thread already has the result).
-  - `channel`: the injected `sendToChannel` (S10). Without it, the result becomes an inbox briefing.
+  - `channel`: removed 2026-11-25 (old automations with this target become an inbox briefing).
   - `webhook`: needs a public https URL with no credentials; loopback, private, link-local and `.local` / `.internal` hosts are refused. Sending agent output to a third party is `destructive`, and the output of an unattended run may carry untrusted content, so the deliverer asks `PermissionBroker.decide` with tool `automation.webhook`, `destructive`, target origin, `taint: true`, `unattended: true`:
     - `allow` (a standing grant): POST with `redirect: "error"`, then a `webhook.post` receipt.
     - `ask`: a bound approval goes to the queue; the POST happens if the owner approves, after `verifyBinding`.

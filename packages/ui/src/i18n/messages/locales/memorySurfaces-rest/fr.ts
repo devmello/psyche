@@ -4,12 +4,11 @@ import type { Catalogue } from "../../index.ts";
 export const memorySurfacesRest: Partial<Catalogue> = {
   "memorySurfaces.title": "Où la mémoire s’affiche",
   "memorySurfaces.description":
-    "Ce que {persona} peut placer dans Home, dans le résumé quotidien, dans les notifications et dans un résumé envoyé à Telegram ou à un autre canal. La page Mémoire affiche toujours tout ce que vous n’avez pas exclu.",
+    "Ce que {persona} peut placer dans Home, dans le résumé quotidien et dans les notifications. La page Mémoire affiche toujours tout ce que vous n’avez pas exclu.",
   "memorySurfaces.loadLabel": "où la mémoire s’affiche",
   "memorySurfaces.surface.home": "Home",
   "memorySurfaces.surface.brief": "Résumé quotidien",
   "memorySurfaces.surface.notification": "Notifications",
-  "memorySurfaces.surface.channel": "Résumé envoyé à un canal",
   "memorySurfaces.tier.work.title": "Travail et tâches",
   "memorySurfaces.tier.work.description":
     "Projets, cours, tâches, leur avancement, échéances et événements de vos propres calendriers.",
@@ -22,7 +21,7 @@ export const memorySurfacesRest: Partial<Catalogue> = {
   "memorySurfaces.tier.people.description":
     "Faits sur d’autres personnes, comment vous les connaissez, ce dont vous avez parlé, et Rester en contact.",
   "memorySurfaces.people.warning":
-    "Les résumés peuvent être vus par toute personne qui voit votre écran ou votre Telegram.",
+    "Les résumés peuvent être vus par toute personne qui voit votre écran.",
   "memorySurfaces.birthdays.title": "Anniversaires et dates anniversaires",
   "memorySurfaces.birthdays.label": "Afficher les anniversaires et dates anniversaires",
   "memorySurfaces.birthdays.hint":

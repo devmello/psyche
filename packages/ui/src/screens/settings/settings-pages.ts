@@ -17,7 +17,6 @@ import {
   ListChecks,
   type LucideIcon,
   Mail,
-  MessagesSquare,
   Mic,
   MonitorCog,
   MonitorSmartphone,
@@ -66,7 +65,6 @@ export type SettingsPaneId =
   | "connectors"
   | "search"
   | "mail"
-  | "channels"
   | "memory"
   | "learning"
   | "everything"
@@ -138,7 +136,6 @@ export const SETTINGS_PANES: readonly SettingsEntry<SettingsPaneId>[] = [
   entry("connectors", Plug),
   entry("search", Search),
   entry("mail", Mail),
-  entry("channels", MessagesSquare),
   entry("memory", BrainCircuit),
   entry("learning", GraduationCap),
   entry("everything", Brain),
@@ -168,7 +165,7 @@ export const SETTINGS_PAGES: readonly SettingsPage[] = [
   page("essentials", ListChecks, ["essentials"]),
   page("general", SlidersHorizontal, ["appearance", "persona", "notifications", "voice"]),
   page("model", Cpu, ["model", "usage"]),
-  page("connectors", Plug, ["connectors", "search", "mail", "channels"]),
+  page("connectors", Plug, ["connectors", "search", "mail"]),
   page("memory", Brain, ["learning", "memory", "everything", "work", "surfaces", "people"]),
   page("daily", CalendarClock, ["daily", "skills", "specialists"]),
   page("permissions", ShieldCheck, [
@@ -274,7 +271,6 @@ export function paneForKey(key: string): SettingsPaneId | null {
     nightShift: "daily",
     scheduled: "daily",
     vault: "credentials",
-    channels: "channels",
     mcp: "connectors",
     connectors: "connectors",
     skills: "skills",

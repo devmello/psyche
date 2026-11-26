@@ -776,11 +776,9 @@ export const pt: Partial<Catalogue> = {
   "agent.upcoming.inNamed": "em {name}",
   "agent.upcoming.inOwnSession": "na própria sessão",
   "agent.upcoming.inMainSession": "na sessão principal",
-  "agent.upcoming.email": "e-mail",
   "agent.upcoming.quiet": "Fica em silêncio a menos que algo precise de você",
   "agent.upcoming.theMainChat": "a conversa principal",
   "agent.upcoming.aChat": "uma conversa",
-  "agent.upcoming.aChannel": "um canal",
   "agent.upcoming.nowhere": "Ainda não entrega em lugar nenhum",
   "agent.upcoming.deliversTo": "Entrega em {to}",
   "agent.upcoming.last": "última: {status}",
@@ -996,7 +994,6 @@ export const pt: Partial<Catalogue> = {
   "shell.sidebar.destinations": "Destinos",
   "shell.sidebar.resize": "Redimensionar a barra lateral",
   "shell.sidebar.settingsMenu": "Ajustes e ajuda",
-  "shell.sidebar.channel": "Canal",
   "shell.sidebar.automation": "Automação",
   "shell.sidebar.subagent": "Subagente",
   "shell.sidebar.untitled": "Conversa sem título",
@@ -1069,7 +1066,6 @@ export const pt: Partial<Catalogue> = {
   "settings.nav.files": "Acesso a arquivos",
   "settings.nav.vm": "Modo VM",
   "settings.nav.devices": "Dispositivos e nós",
-  "settings.nav.channels": "Canais",
   "settings.nav.credentials": "Credenciais",
   "settings.nav.appearance": "Aparência",
   "settings.nav.voice": "Voz e ditado",
@@ -1203,11 +1199,9 @@ export const pt: Partial<Catalogue> = {
     "O Psyche lê estes cartões do Stripe Link; remova um deles na sua conta Link. Remover a chave do Link acima impede o Psyche de pagar com qualquer um deles.",
   "settings.credentials.managed.connector": "Gerenciada pelo conector",
   "settings.credentials.managed.model_provider": "Chave de um provedor de modelos",
-  "settings.credentials.managed.channel": "Token de um canal",
   "settings.credentials.managed.external_manager": "Vinculada do seu gerenciador de senhas",
   "settings.credentials.setting.connectors": "Conectores",
   "settings.credentials.setting.models": "Modelo e provedores",
-  "settings.credentials.setting.channels": "Canais",
   "settings.credentials.setting.credentials": "Credenciais",
   "settings.credentials.err.gatewayOwned":
     "{name} pertence ao Gateway; remova em Ajustes → {setting}.",
@@ -1649,128 +1643,10 @@ export const pt: Partial<Catalogue> = {
   "settings.browser.rotateKey": "Trocar chave",
   "settings.browser.createKey": "Criar chave",
   "settings.browser.keyStillSigns": "A chave atual, se houver, continua assinando.",
-  "settings.channels.type.email": "E-mail",
-  "settings.channels.type.sms": "SMS",
-  "settings.channels.status.active": "Conectado",
-  "settings.channels.status.paused": "Pausado",
-  "settings.channels.status.error": "Erro",
-  "settings.channels.status.disconnected": "Desconectado",
-  "settings.channels.policy.pairing": "Pareamento",
-  "settings.channels.policy.pairingHint":
-    "Novos remetentes recebem um código; você os aprova aqui.",
-  "settings.channels.policy.allowlist": "Lista de permitidos",
-  "settings.channels.policy.allowlistHint": "Somente as pessoas da lista abaixo.",
-  "settings.channels.policy.open": "Aberto",
-  "settings.channels.policy.openHint": "Qualquer pessoa pode enviar mensagens para {persona}.",
-  "settings.channels.policy.disabled": "Desativado",
-  "settings.channels.policy.disabledHint": "Mensagens diretas são ignoradas.",
-  "settings.channels.title": "Canais",
-  "settings.channels.description":
-    "Por onde as pessoas podem falar com {persona} e quem tem permissão para isso.",
-  "settings.channels.loadLabel": "canais",
-  "settings.channels.empty":
-    "Nenhum canal ainda. Conecte o Telegram, o iMessage ou o Slack para falar com {persona} longe deste Mac.",
-  "settings.channels.add.button": "Adicionar um canal",
-  "settings.channels.add.title": "Adicionar um canal",
-  "settings.channels.add.description":
-    "Escolha onde {persona} pode ser contatado. Os tokens vão direto para o cofre e nunca são exibidos de novo.",
-  "settings.channels.add.type": "Canal",
-  "settings.channels.add.account.slack": "Nome do espaço de trabalho",
-  "settings.channels.add.account.discord": "ID do aplicativo",
-  "settings.channels.add.secret.bot_token": "Token do bot",
-  "settings.channels.add.secret.app_token": "Token do aplicativo",
-  "settings.channels.add.secret.auth_token": "Token de autenticação",
-  "settings.channels.add.secret.access_token": "Token de acesso",
-  "settings.channels.add.secret.app_secret": "Segredo do aplicativo",
-  "settings.channels.add.secret.verify_token": "Token de verificação",
-  "settings.channels.add.submit": "Conectar",
-  "settings.channels.add.connecting": "Conectando",
-  "settings.channels.add.missing": "Preencha todos os campos para conectar.",
-  "settings.channels.add.failed":
-    "O Psyche não conseguiu adicionar o canal ({reason}). Ele não está ativado.",
-  "settings.channels.add.account.sms": "Número de envio (+15551234567)",
-  "settings.channels.add.account.whatsapp": "Número do WhatsApp (+15551234567)",
-  "settings.channels.add.badNumber": "Digite o número no formato internacional, como +15551234567.",
-  "settings.channels.add.exists":
-    "Já existe um canal {type} para {account}, então nada foi alterado.",
-  "settings.channels.add.approvalLabel": "Adicionar um canal",
-  "settings.channels.add.envNote":
-    "O Gateway também precisa ser iniciado com {env} definido para esta conta. Telegram, iMessage, Signal e e-mail são configurados onde o Gateway roda; veja a documentação de canais.",
-  "settings.channels.add.addedInactive":
-    "Canal adicionado, mas ainda não está em execução. Defina {env} para esta conta onde o Gateway roda e reinicie-o.",
-  "settings.channels.add.added":
-    "Canal adicionado. Ele começa quando o Gateway tiver {env} definido para esta conta. Depois envie uma mensagem a {persona} por ele para receber um código de pareamento e aprove-o aqui.",
-  "settings.channels.add.storedNote":
-    "Já armazenados para esta conta: {names}. Eles são usados como estão, a menos que você os substitua.",
-  "settings.channels.add.replace": "Substituir os tokens armazenados",
-  "settings.channels.add.statusFailed":
-    "O Psyche não conseguiu verificar quais tokens já estão armazenados ({reason}). Nada foi alterado.",
-  "settings.channels.add.storedTyped":
-    'Já há tokens armazenados para esta conta. Marque "Substituir os tokens armazenados" para usar os que você digitou, ou limpe esses campos. Nada foi alterado.',
-  "settings.channels.identities": "Vínculos de identidade",
-  "settings.channels.identitiesDescription":
-    "Uma pessoa em vários canais. Os vínculos só mudam a partir de um dispositivo pareado.",
-  "settings.channels.identitiesFailed":
-    "O Psyche não conseguiu carregar os vínculos de identidade ({reason}).",
-  "settings.channels.noIdentities":
-    "Nenhum vínculo de identidade. Cada remetente é tratado como uma pessoa diferente.",
-  "settings.channels.designated": "Pessoas designadas",
-  "settings.channels.designatedDescription":
-    "{persona} responde a elas com uma persona delegada e um conjunto menor de ferramentas. As aprovações delas vêm para você.",
-  "settings.channels.noDesignated": "Ninguém designado.",
-  "settings.channels.delegated": "delegada: {persona}",
-  "settings.channels.tools": "ferramentas: {tools}",
-  "settings.channels.cardTitle": "{name} {account}",
-  "settings.channels.directMessages": "Mensagens diretas",
-  "settings.channels.openWarning":
-    "Aberto permite que qualquer pessoa que encontre {account} envie mensagens para {persona}, e essas mensagens podem tentar manipulá-lo. O pareamento é mais seguro.",
-  "settings.channels.openAnyway": "Abrir mesmo assim",
-  "settings.channels.keepPolicy":
-    "Manter {policy, select, allowlist {a lista de permitidos} pairing {o pareamento} disabled {desativado} other {{policy}}}",
-  "settings.channels.pending": "Pendentes ({n, number} de {max, number})",
-  "settings.channels.pairingFailed":
+  "settings.devices.pairingFailed":
     "O Psyche não conseguiu carregar as solicitações de pareamento ({reason}).",
-  "settings.channels.noPending": "Ninguém está aguardando. Os códigos expiram após 1 hora.",
-  "settings.channels.code": "código",
-  "settings.channels.expires": "expira {when}",
-  "settings.channels.approveSender": "Aprovar {name}",
-  "settings.channels.approve": "Aprovar",
-  "settings.channels.ignoreSender": "Ignorar {name}",
-  "settings.channels.ignore": "Ignorar",
-  "settings.channels.allow.remove": "Remover",
-  "settings.channels.allow.removeNamed": "Remover {name}",
-  "settings.channels.allow.senderLabel": "Remetente a permitir",
-  "settings.channels.allow.groupLabel": "Adicionar remetente (conversas em grupo)",
-  "settings.channels.allow.addSender": "Adicionar remetente",
-  "settings.channels.allow.addGroup": "Adicionar remetente",
-  "settings.channels.allow.senderApproval": "Permitir um remetente de chat",
-  "settings.channels.allow.groupApproval": "Mudar quem pode me acionar nos grupos",
-  "settings.channels.allow.groupEmptied":
-    "Remover {name} deixa a lista sem ninguém. Assim, todos os permitidos em mensagens diretas poderão acionar o Psyche nos grupos.",
-  "settings.channels.allow.forbidden":
-    "Mudar quem pode enviar mensagens exige um dispositivo de administrador. Use um dispositivo pareado como administrador.",
-  "settings.channels.allow.failed":
-    "O Psyche não conseguiu mudar quem pode enviar mensagens ({reason}). Nada mudou.",
-  "settings.channels.identity.name": "Nome da pessoa",
-  "settings.channels.identity.senders": "IDs de remetente, separados por vírgula",
-  "settings.channels.identity.link": "Vincular identidade",
-  "settings.channels.identity.unlink": "Desvincular",
-  "settings.channels.identity.unlinkNamed": "Desvincular {name}",
-  "settings.channels.identity.approval": "Vincular uma identidade de chat",
-  "settings.channels.identity.forbidden":
-    "Mudar os vínculos de identidade exige um dispositivo de administrador. Use um dispositivo pareado como administrador.",
-  "settings.channels.identity.failed":
-    "O Psyche não conseguiu mudar o vínculo de identidade ({reason}). Nada mudou.",
-  "settings.channels.noOneYet": "Ninguém ainda.",
-  "settings.channels.owner": " · proprietário",
-  "settings.channels.groups": "Quem pode me acionar nos grupos",
-  "settings.channels.noGroups":
-    "Todos os permitidos em mensagens diretas podem me acionar nos grupos.",
-  "settings.channels.requireMention": "Responder em grupos somente quando mencionado",
-  "settings.channels.err.forbidden":
-    "{action, select, policy {Alterar quem pode enviar mensagens} mention {Alterar menções em grupos} approve {Aprovar o remetente} other {Ignorar o remetente}} precisa de aprovação neste dispositivo. Use um dispositivo pareado como administrador.",
-  "settings.channels.err.failed":
-    "O Psyche não conseguiu {action, select, policy {alterar quem pode enviar mensagens} mention {alterar as menções em grupos} approve {aprovar o remetente} other {ignorar o remetente}} ({reason}).",
+  "settings.devices.approveNamed": "Aprovar {name}",
+  "settings.devices.approve": "Aprovar",
   "settings.computerUse.tier.ask": "Perguntar",
   "settings.computerUse.tier.off": "Desativado",
   "settings.computerUse.tier.read": "Somente leitura",
@@ -1841,10 +1717,6 @@ export const pt: Partial<Catalogue> = {
   "settings.connectors.catalog.appleCalendar": "Calendário da Apple",
   "settings.connectors.catalog.appleMail": "Mail da Apple",
   "settings.connectors.catalog.mcp": "Servidor MCP",
-  "settings.connectors.catalog.slack": "Slack",
-  "settings.connectors.slackExplain":
-    "O Slack é um canal: você conversa com o Psyche por lá. Configure em Ajustes → Canais.",
-  "settings.connectors.openChannels": "Abrir Canais",
   "settings.connectors.status.connected": "Conectado",
   "settings.connectors.status.disconnected": "Desconectado",
   "settings.connectors.status.error": "Erro",
@@ -2418,7 +2290,7 @@ export const pt: Partial<Catalogue> = {
   "settings.persona.describedAs": "Descrição: {description}",
   "settings.persona.identity": "Identidade",
   "settings.persona.taglinePlaceholder": "Asas silenciosas, mãos cuidadosas.",
-  "settings.persona.emojiHint": "Mostrado em canais que não exibem o avatar.",
+  "settings.persona.emojiHint": "Mostrado onde o avatar não pode ser exibido.",
   "settings.persona.avatar": "Avatar",
   "settings.persona.describeChange": "Descreva uma alteração",
   "settings.persona.describeHint":

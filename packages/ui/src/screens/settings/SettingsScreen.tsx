@@ -20,7 +20,6 @@ import { usePersona, useSlots } from "../../slots.tsx";
 import { AboutSection } from "./AboutSection.tsx";
 import { AppearanceSection } from "./AppearanceSection.tsx";
 import { BrowserSection, type SignedInSitesApi } from "./BrowserSection.tsx";
-import { ChannelsSection } from "./ChannelsSection.tsx";
 import { ComputerUseSection } from "./ComputerUseSection.tsx";
 import { ConnectorsSection, type ConnectorsView, type ScopeMode } from "./ConnectorsSection.tsx";
 import type { CookieImportApi } from "./CookieImportGroup.tsx";
@@ -291,8 +290,6 @@ export function SettingsSectionView({
       return <VmSection {...opt("now", s.now)} />;
     case "devices":
       return <DevicesSection {...opt("now", s.now)} {...opt("thisDeviceId", s.thisDeviceId)} />;
-    case "channels":
-      return <ChannelsSection {...opt("now", s.now)} />;
     case "credentials":
       return (
         <CredentialsSection

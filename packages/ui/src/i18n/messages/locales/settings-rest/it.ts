@@ -17,7 +17,6 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.key.daily.brief.enabled": "Riepilogo del mattino",
   "settings.key.daily.wrapup.enabled": "Riepilogo della sera",
   "settings.key.daily.notify": "Avvisami",
-  "settings.key.daily.messages": "Invia anche tramite Messaggi",
   "settings.key.daily.followups.enabled": "Monitora i follow-up",
   "settings.key.daily.brief.time": "Ora del riepilogo del mattino",
   "settings.key.daily.wrapup.time": "Ora del riepilogo della sera",
@@ -25,7 +24,6 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.daily.time": "Ora",
   "settings.daily.notify.hint":
     "Una notifica con la scheda. Le ore di silenzio la trattengono fino alla fine.",
-  "settings.daily.messages.hint": "Richiede il canale Messaggi. Inviato solo a te.",
   "settings.daily.sensitivity": "Quanto monitorare",
   "settings.daily.sensitivity.low": "Solo promesse chiare con una data",
   "settings.daily.sensitivity.normal": "Promesse e richieste (consigliato)",
@@ -1547,16 +1545,12 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.key.memory.surfaces.tiers.work.home": "Lavoro in Home",
   "settings.key.memory.surfaces.tiers.work.brief": "Lavoro nel riepilogo quotidiano",
   "settings.key.memory.surfaces.tiers.work.notification": "Lavoro nelle notifiche",
-  "settings.key.memory.surfaces.tiers.work.channel": "Lavoro nel riepilogo inviato a un canale",
   "settings.key.memory.surfaces.tiers.workMail.home": "Posta di lavoro in Home",
   "settings.key.memory.surfaces.tiers.workMail.brief": "Posta di lavoro nel riepilogo quotidiano",
   "settings.key.memory.surfaces.tiers.workMail.notification": "Posta di lavoro nelle notifiche",
-  "settings.key.memory.surfaces.tiers.workMail.channel":
-    "Posta di lavoro nel riepilogo inviato a un canale",
   "settings.key.memory.surfaces.tiers.people.home": "Persone in Home",
   "settings.key.memory.surfaces.tiers.people.brief": "Persone nel riepilogo quotidiano",
   "settings.key.memory.surfaces.tiers.people.notification": "Persone nelle notifiche",
-  "settings.key.memory.surfaces.tiers.people.channel": "Persone nel riepilogo inviato a un canale",
   "settings.key.memory.surfaces.birthdays": "Compleanni e anniversari nel riepilogo e in Home",
   "settings.key.memory.surfaces.hideSources":
     "Tieni una fonte fuori da Home, riepiloghi e notifiche",

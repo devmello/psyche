@@ -16,25 +16,25 @@ pnpm --filter @psyche/web typecheck
 
 ## Public API (package exports)
 
-| Export | What |
-| --- | --- |
-| `@psyche/web/client` | `GatewayConnection` (handshake → RPC + events, idempotency keys for side-effecting methods, validated events, `seq`-gap resync, reconnect with backoff), `Handshake`, `connectSigningPayload`, status reducer, base64url. No DOM, no Node built-ins; the desktop main process uses it too |
-| `@psyche/web/platform` | `ShellPlatform` and its ports: `GatewayPort`, `BrowserPort`, `TerminalPort`, `WindowPort`, `NotifyPort`, `KeyValueStore`, `ShellCommand` |
-| `@psyche/web/shell` | `ShellApp`, `ShellStore`, the pane layout engine (`reduceLayout`, `presentation`, `applyViewCommand`, `toViewLayout`, `createLayoutStore`), the keyboard map |
-| `@psyche/web/testing` | `MockGateway` (test only): verifies the Ed25519 challenge, answers RPCs from handlers, pushes events, and plays the Gateway end of the browser bridge |
+| Export                 | What                                                                                                                                                                                                                                                                                      |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `@psyche/web/client`   | `GatewayConnection` (handshake → RPC + events, idempotency keys for side-effecting methods, validated events, `seq`-gap resync, reconnect with backoff), `Handshake`, `connectSigningPayload`, status reducer, base64url. No DOM, no Node built-ins; the desktop main process uses it too |
+| `@psyche/web/platform` | `ShellPlatform` and its ports: `GatewayPort`, `BrowserPort`, `TerminalPort`, `WindowPort`, `NotifyPort`, `KeyValueStore`, `ShellCommand`                                                                                                                                                  |
+| `@psyche/web/shell`    | `ShellApp`, `ShellStore`, the pane layout engine (`reduceLayout`, `presentation`, `applyViewCommand`, `toViewLayout`, `createLayoutStore`), the keyboard map                                                                                                                              |
+| `@psyche/web/testing`  | `MockGateway` (test only): verifies the Ed25519 challenge, answers RPCs from handlers, pushes events, and plays the Gateway end of the browser bridge                                                                                                                                     |
 
 ## Shell layout
 
-| Path | What |
-| --- | --- |
-| `src/shell/ShellApp.tsx` | Rail, thread list, chat, pane area; routes (docs/06 §2.7); keyboard handler; `view.command` → layout → `view.report`; quick entry and pop-out routes |
-| `src/shell/store.ts` | Threads, messages, streaming deltas, pending approvals with this surface's answer tokens, notifications, toasts; refetch on resync |
-| `src/shell/layout/` | Pure pane layout engine, persisted per thread |
-| `src/shell/components/` | Chat (messages, approval dock, composer, quick entry), browser pane chrome, panes, palette, shortcut sheet, model picker, banners |
-| `src/shell/panes/TerminalPane.tsx` | xterm tabs over `TerminalPort` |
-| `src/shell/voice.ts` | Dictation capture: 16 kHz PCM to `voice.*` |
-| `src/platform.ts`, `src/gateway.ts` | The web host: browser WebSocket to `location.origin`, `localStorage` |
-| `src/main.tsx`, `src/compose/app.css` | The web entry: `PsycheApp` over the web platform, the kit stylesheet through `@tailwindcss/vite` |
+| Path                                  | What                                                                                                                                                 |
+| ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/shell/ShellApp.tsx`              | Rail, thread list, chat, pane area; routes (docs/06 §2.7); keyboard handler; `view.command` → layout → `view.report`; quick entry and pop-out routes |
+| `src/shell/store.ts`                  | Threads, messages, streaming deltas, pending approvals with this surface's answer tokens, notifications, toasts; refetch on resync                   |
+| `src/shell/layout/`                   | Pure pane layout engine, persisted per thread                                                                                                        |
+| `src/shell/components/`               | Chat (messages, approval dock, composer, quick entry), browser pane chrome, panes, palette, shortcut sheet, model picker, banners                    |
+| `src/shell/panes/TerminalPane.tsx`    | xterm tabs over `TerminalPort`                                                                                                                       |
+| `src/shell/voice.ts`                  | Dictation capture: 16 kHz PCM to `voice.*`                                                                                                           |
+| `src/platform.ts`, `src/gateway.ts`   | The web host: browser WebSocket to `location.origin`, `localStorage`                                                                                 |
+| `src/main.tsx`, `src/compose/app.css` | The web entry: `PsycheApp` over the web platform, the kit stylesheet through `@tailwindcss/vite`                                                     |
 
 ## Web specifics (docs/06 §3.24)
 

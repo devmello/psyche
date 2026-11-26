@@ -69,7 +69,6 @@ export const SettingsOn: Story = {
         values={{
           "daily.brief.enabled": true,
           "daily.wrapup.enabled": true,
-          "daily.messages": true,
         }}
         onChange={noop}
       />

@@ -495,7 +495,7 @@ export function library(): LibraryItem[] {
       mime: "image/jpeg",
       path: "images/pharmacy-receipt.jpg",
       size: 1_204_880,
-      origin: "channel",
+      origin: "download",
       tags: ["receipt"],
       createdAt: "2026-10-14T19:22:00Z",
     }),

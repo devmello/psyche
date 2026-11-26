@@ -118,8 +118,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "settings.browser.detailsText":
         "أثناء استخدام مهمة له، يشغّل Psyche متصفح Google Chrome بهذا الملف التعريفي ومنفذ DevTools على عنوان الاسترجاع (127.0.0.1) لهذا الكمبيوتر، ويغلقه عند انتهاء المهمة. لا يكون {persona} متصلًا به أثناء فتحك الملف التعريفي بنفسك.",
       "settings.browser.openFromMac": "افتحه من تطبيق Psyche على الكمبيوتر الذي يشغّل Gateway.",
-      "settings.channels.empty":
-        "لا قنوات بعد. اربط Telegram أو Slack للوصول إلى {persona} بعيدًا عن هذا الكمبيوتر.",
       "settings.computerUse.description":
         "يمكن لـ {persona} استخدام التطبيقات على هذا الكمبيوتر حيث تسمح له فقط.",
       "settings.computerUse.macPermissions": "أذونات سطح المكتب",
@@ -528,8 +526,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "Während eine Aufgabe es verwendet, führt Psyche Google Chrome mit diesem Profil und einem DevTools-Port auf dem Loopback dieses Computers (127.0.0.1) aus und schließt es, wenn die Aufgabe fertig ist. {persona} ist nicht verbunden, solange du das Profil selbst geöffnet hast.",
       "settings.browser.openFromMac":
         "Öffne es aus der Psyche-App auf dem Computer, auf dem das Gateway läuft.",
-      "settings.channels.empty":
-        "Noch keine Kanäle. Verbinde Telegram oder Slack, um {persona} auch fern von diesem Computer zu erreichen.",
       "settings.computerUse.description":
         "{persona} kann Apps auf diesem Computer nur dort verwenden, wo du es erlaubst.",
       "settings.computerUse.macPermissions": "Desktop-Berechtigungen",
@@ -956,8 +952,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "Mientras una tarea lo usa, Psyche ejecuta Google Chrome con este perfil y un puerto de DevTools en el loopback de este ordenador (127.0.0.1), y lo cierra cuando la tarea termina. {persona} no está conectado mientras tengas el perfil abierto tú.",
       "settings.browser.openFromMac":
         "Ábrelo desde la app Psyche en el ordenador que ejecuta el Gateway.",
-      "settings.channels.empty":
-        "Aún no hay canales. Conecta Telegram o Slack para contactar con {persona} lejos de este ordenador.",
       "settings.computerUse.description":
         "{persona} solo puede usar las apps de este ordenador donde tú lo permitas.",
       "settings.computerUse.macPermissions": "Permisos del escritorio",
@@ -1386,8 +1380,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "Pendant qu’une tâche l’utilise, Psyche lance Google Chrome avec ce profil et un port DevTools sur l’adresse de bouclage de cet ordinateur (127.0.0.1), puis le ferme à la fin de la tâche. {persona} n’y est pas attaché tant que vous avez vous-même le profil ouvert.",
       "settings.browser.openFromMac":
         "Ouvrez-le depuis l’app Psyche sur l’ordinateur qui exécute la Gateway.",
-      "settings.channels.empty":
-        "Aucun canal pour l’instant. Connectez Telegram ou Slack pour joindre {persona} loin de cet ordinateur.",
       "settings.computerUse.description":
         "{persona} ne peut utiliser les apps de cet ordinateur que là où vous l’autorisez.",
       "settings.computerUse.macPermissions": "Autorisations du bureau",
@@ -1807,8 +1799,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "settings.browser.detailsText":
         "जब कोई टास्क इसका उपयोग करता है, तो Psyche इस प्रोफ़ाइल और इस कंप्यूटर के लूपबैक (127.0.0.1) पर DevTools पोर्ट के साथ Google Chrome चलाता है, और टास्क पूरा होने पर इसे बंद कर देता है। जब आप स्वयं प्रोफ़ाइल खोले हुए हों, तब {persona} जुड़ा नहीं होता।",
       "settings.browser.openFromMac": "इसे उस कंप्यूटर पर Psyche ऐप से खोलें जो Gateway चलाता है।",
-      "settings.channels.empty":
-        "अभी कोई चैनल नहीं। इस कंप्यूटर से दूर रहते हुए {persona} तक पहुँचने के लिए Telegram या Slack कनेक्ट करें।",
       "settings.computerUse.description":
         "{persona} इस कंप्यूटर पर ऐप केवल वहीं उपयोग कर सकता है जहाँ आप अनुमति दें।",
       "settings.computerUse.macPermissions": "डेस्कटॉप अनुमतियाँ",
@@ -2213,8 +2203,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "settings.browser.detailsText":
         "Mentre un’attività lo usa, Psyche esegue Google Chrome con questo profilo e una porta DevTools sul loopback di questo computer (127.0.0.1), e lo chiude al termine dell’attività. {persona} non è collegato mentre tieni aperto tu il profilo.",
       "settings.browser.openFromMac": "Aprilo dall’app Psyche sul computer che esegue il Gateway.",
-      "settings.channels.empty":
-        "Ancora nessun canale. Collega Telegram o Slack per contattare {persona} lontano da questo computer.",
       "settings.computerUse.description":
         "{persona} può usare le app su questo computer solo dove lo consenti.",
       "settings.computerUse.macPermissions": "Permessi del desktop",
@@ -2638,8 +2626,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "タスクが使用している間、PsycheはこのプロファイルでGoogle Chromeを起動し、このコンピュータのループバック（127.0.0.1）でDevToolsポートを開き、タスクが終わると閉じます。あなた自身がプロファイルを開いている間、{persona}は接続されません。",
       "settings.browser.openFromMac":
         "Gatewayを実行しているコンピュータのPsycheアプリから開いてください。",
-      "settings.channels.empty":
-        "チャンネルはまだありません。TelegramまたはSlackを接続すると、このコンピュータから離れていても{persona}に連絡できます。",
       "settings.computerUse.description":
         "{persona}は、あなたが許可した範囲でのみこのコンピュータのアプリを使用できます。",
       "settings.computerUse.macPermissions": "デスクトップの権限",
@@ -3058,8 +3044,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "settings.browser.detailsText":
         "작업이 사용하는 동안 Psyche는 이 프로파일과 이 컴퓨터의 루프백(127.0.0.1) DevTools 포트로 Google Chrome을 실행하고, 작업이 끝나면 닫습니다. 사용자가 직접 프로파일을 열어 둔 동안에는 {persona}이(가) 연결되지 않습니다.",
       "settings.browser.openFromMac": "Gateway가 실행되는 컴퓨터의 Psyche 앱에서 여십시오.",
-      "settings.channels.empty":
-        "아직 채널이 없습니다. Telegram 또는 Slack을 연결하면 이 컴퓨터를 떠나서도 {persona}에게 연락할 수 있습니다.",
       "settings.computerUse.description":
         "{persona}은(는) 사용자가 허용한 범위에서만 이 컴퓨터의 앱을 사용할 수 있습니다.",
       "settings.computerUse.macPermissions": "데스크톱 권한",
@@ -3468,8 +3452,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "settings.browser.detailsText":
         "Enquanto uma tarefa o usa, o Psyche executa o Google Chrome com este perfil e uma porta DevTools no loopback deste computador (127.0.0.1), e o fecha quando a tarefa termina. {persona} não fica conectado enquanto você mesmo estiver com o perfil aberto.",
       "settings.browser.openFromMac": "Abra-o pelo app Psyche no computador que executa o Gateway.",
-      "settings.channels.empty":
-        "Nenhum canal ainda. Conecte o Telegram ou o Slack para falar com {persona} longe deste computador.",
       "settings.computerUse.description":
         "{persona} pode usar apps neste computador somente onde você permitir.",
       "settings.computerUse.macPermissions": "Permissões da área de trabalho",
@@ -3875,8 +3857,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "settings.browser.detailsText":
         "任务使用它时，Psyche 会以此描述文件运行 Google Chrome，并在这台电脑的回环地址（127.0.0.1）上开启 DevTools 端口，任务完成后关闭。你自己打开该描述文件时，{persona} 不会连接。",
       "settings.browser.openFromMac": "请在运行 Gateway 的电脑上的 Psyche App 中打开。",
-      "settings.channels.empty":
-        "还没有渠道。连接 Telegram 或 Slack，即可在离开这台电脑时联系 {persona}。",
       "settings.computerUse.description": "{persona} 只能在你允许的范围内使用这台电脑上的 App。",
       "settings.computerUse.macPermissions": "桌面权限",
       "settings.computerUse.openSystemSettings": "打开设置",

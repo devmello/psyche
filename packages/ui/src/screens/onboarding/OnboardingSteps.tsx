@@ -76,7 +76,7 @@ export function ConnectorsStep({
   onResume?: (account: ConnectedAccount) => void;
 }): ReactElement {
   const id = useId();
-  // Only real connectors here: MCP servers and Slack are added later in Settings (#529).
+  // Only real connectors here: MCP servers are added later in Settings (#529).
   const offered = offeredCatalog(implemented, { navigation: false }).filter(
     (c) => !connected.some((x) => x.type === c.type) && !needsSetup(c.type),
   );
