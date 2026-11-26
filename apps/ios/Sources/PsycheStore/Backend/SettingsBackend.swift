@@ -81,7 +81,6 @@ public struct PhoneSettings: Sendable, Equatable {
     public var notifications: Bool
     public var liveActivities: Bool
     public var taskTitlesOnLockScreen: Bool
-    public var faceIDForApprovals: Bool
     /// "Stay connected while a task runs": keep Psyche awake in the background, with a silent audio session, only while a
     /// watched task runs or waits. Off by default.
     public var stayConnectedWhileRunning: Bool
@@ -89,7 +88,7 @@ public struct PhoneSettings: Sendable, Equatable {
     /// Off by default. Read as off when iOS location permission is off, whatever was saved.
     public var shareLocation: Bool
     public init(
-        notifications: Bool, liveActivities: Bool, taskTitlesOnLockScreen: Bool, faceIDForApprovals: Bool,
+        notifications: Bool, liveActivities: Bool, taskTitlesOnLockScreen: Bool,
         stayConnectedWhileRunning: Bool = false, shareLocation: Bool = false
     ) {
         self.stayConnectedWhileRunning = stayConnectedWhileRunning
@@ -97,6 +96,5 @@ public struct PhoneSettings: Sendable, Equatable {
         self.notifications = notifications
         self.liveActivities = liveActivities
         self.taskTitlesOnLockScreen = taskTitlesOnLockScreen
-        self.faceIDForApprovals = faceIDForApprovals
     }
 }
