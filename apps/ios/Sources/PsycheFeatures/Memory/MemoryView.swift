@@ -102,7 +102,6 @@ struct MemoryView: View {
             .listRowBackground(Color.clear)
             .listRowInsets(EdgeInsets())
         }
-        .listSectionSpacing(.compact)
         if pauseModel.paused == true {
             Section { pausedRow }
         }
