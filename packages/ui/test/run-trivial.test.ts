@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { isTrivialRun, TRIVIAL_RUN_MS } from "../src/chat/steps/model.ts";
 
 const START = "2026-11-25T10:00:00.000Z";
-const run = (ms: number | null, status: Run["status"] = "completed"): Run =>
+const run = (ms: number | null, status: Run["status"] = "done"): Run =>
   ({
     status,
     startedAt: START,
