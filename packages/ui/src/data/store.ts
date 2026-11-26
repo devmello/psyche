@@ -837,6 +837,13 @@ export class GatewayStore {
         if (a.status !== "pending") {
           const { [a.id]: _t, ...tokens } = next.answerTokens;
           next = { ...next, answerTokens: tokens };
+          // An answered, expired or invalidated approval no longer waits on the owner, even
+          // before the Gateway's own `notification.resolved` arrives.
+          const resolvedAt = a.decidedAt ?? new Date().toISOString();
+          for (const n of Object.values(next.notifications)) {
+            if (n.approvalId === a.id && n.resolvedAt == null)
+              next = put(next, "notifications", { ...n, resolvedAt });
+          }
         }
         return next;
       }
@@ -899,6 +906,10 @@ export class GatewayStore {
         return { ...s, widgets: rest };
       }
       case "notification.created":
+      // Read, re-delivered or resolved elsewhere (another device, the Gateway): without these the
+      // "waiting on you" count kept a card the owner had already answered.
+      case "notification.updated":
+      case "notification.resolved":
         return touch(
           put(s, "notifications", e.payload.notification),
           `notifications:${e.payload.notification.id}`,

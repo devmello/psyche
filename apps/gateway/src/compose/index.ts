@@ -365,6 +365,7 @@ import { CROSS_THREAD_SETTING, crossThreadToggle, threadTools } from "./thread-t
 import { modelPinsFor, restoreModelPins, threadSettingsHandlers } from "./threads.ts";
 import { SystemZone } from "./time-zone.ts";
 import { uninstallHandlers } from "./uninstall.ts";
+import { withRunnableUpcoming } from "./upcoming-filter.ts";
 import { updateHandlers } from "./update.ts";
 import { usageSummaryHandlers } from "./usage-summary.ts";
 import { cheapLearnerModel, createUserProfile } from "./user-profile.ts";
@@ -2879,7 +2880,17 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
         slots: specialistSlots,
       }) as never,
     ),
-    ...mountParamsOnly(createAutomationHandlers(scheduler) as never),
+    ...mountParamsOnly(
+      withRunnableUpcoming(createAutomationHandlers(scheduler), {
+        list: () => scheduler.list(),
+        systemIds: () => scheduler.systemIds(),
+        kv: scheduledKv,
+        setting: (key) => getSetting(db, key)?.value,
+        mailConnected: proactive.mailConnected,
+        mailListening: () => proactive.mailWatch.listening(),
+        ideaSources: proactive.ideaSources,
+      }) as never,
+    ),
     // "Run it every week" for a skill made from a recording: the desktop shell only.
     ...createRecordingScheduleHandlers({
       skills: skills.recorded,
