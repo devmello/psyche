@@ -7,6 +7,7 @@ import {
   type Grant,
   type MethodParams,
   Methods,
+  type NeedsMacReason,
   PsycheError,
   type Surface,
 } from "@psyche/protocol";
@@ -63,7 +64,10 @@ export interface PermissionHandlers {
     p: unknown,
     c: Caller,
   ): Promise<{ approvals: ApprovalRequest[]; nextCursor: string | null }>;
-  "approvals.get"(p: unknown, c: Caller): Promise<{ approval: ApprovalRequest }>;
+  "approvals.get"(
+    p: unknown,
+    c: Caller,
+  ): Promise<{ approval: ApprovalRequest; answerToken?: string; needsMac?: NeedsMacReason }>;
   "approvals.answer"(
     p: unknown,
     c: Caller,
@@ -106,11 +110,32 @@ export function createPermissionHandlers(
     },
     async "approvals.get"(p, c) {
       requireScope(c, Methods["approvals.get"].scope);
-      const { approvalId } = check(Methods["approvals.get"].params, p);
+      const { approvalId, wantToken } = check(Methods["approvals.get"].params, p);
       const approval = await broker.get(approvalId);
       if (approval === undefined)
         throw new PsycheError("not_found", `approval ${approvalId} not found`);
-      return { approval };
+      // A paired approver device may ask for its own token (a card raised before it paired).
+      // Without the ask, only a device that could answer hears why it cannot (`paired_after`,
+      // `payment`, ...): a read-only device and a channel get the plain card, and nothing about
+      // them counts against the answer cap.
+      const device = c.surface.startsWith("device:") && c.scopes.includes("operator.approvals");
+      if (approval.status !== "pending" || (wantToken !== true && !device)) return { approval };
+      const out = await broker
+        .mintAnswerToken({
+          approvalId,
+          decidedBy: { deviceId: c.deviceId, surface: c.surface },
+          mint: wantToken === true,
+        })
+        .catch((err: unknown) => {
+          // An explicit ask for a token says no; a plain read stays a plain read.
+          if (wantToken === true) throw err;
+          return {} as { token?: string; needsMac?: NeedsMacReason };
+        });
+      return {
+        approval,
+        ...(out.token === undefined ? {} : { answerToken: out.token }),
+        ...(out.needsMac === undefined ? {} : { needsMac: out.needsMac }),
+      };
     },
     async "approvals.answer"(p, c) {
       requireScope(c, Methods["approvals.answer"].scope);

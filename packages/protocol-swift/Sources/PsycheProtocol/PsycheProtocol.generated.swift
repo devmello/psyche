@@ -1100,6 +1100,7 @@
 //   let modelsSetKeyResult = try? JSONDecoder().decode(ModelsSetKeyResult.self, from: jsonData)
 //   let modelsSetRoleParams = try? JSONDecoder().decode(ModelsSetRoleParams.self, from: jsonData)
 //   let modelsSetRoleResult = try? JSONDecoder().decode(ModelsSetRoleResult.self, from: jsonData)
+//   let needsMACReason = try? JSONDecoder().decode(NeedsMACReason.self, from: jsonData)
 //   let nightShiftApplyItem = try? JSONDecoder().decode(NightShiftApplyItem.self, from: jsonData)
 //   let nightShiftApplyParams = try? JSONDecoder().decode(NightShiftApplyParams.self, from: jsonData)
 //   let nightShiftApplyResult = try? JSONDecoder().decode(NightShiftApplyResult.self, from: jsonData)
@@ -4618,6 +4619,7 @@ public struct ApprovalRequest: Codable, Sendable {
     public let deviceOnly: Bool
     public let expiresAt: String
     public let fromLesson: FromLesson?
+    public let grantHint: GrantHint?
     public let grantID: String?
     public let grantKey: String
     public let id: String
@@ -4648,6 +4650,7 @@ public struct ApprovalRequest: Codable, Sendable {
         case deviceOnly = "deviceOnly"
         case expiresAt = "expiresAt"
         case fromLesson = "fromLesson"
+        case grantHint = "grantHint"
         case grantID = "grantId"
         case grantKey = "grantKey"
         case id = "id"
@@ -4671,7 +4674,7 @@ public struct ApprovalRequest: Codable, Sendable {
         case targetKind = "targetKind"
     }
 
-    public init(bindingHash: String, decidedAt: String? = nil, decidedBy: DecidedByClass? = nil, details: [String: JSONAny], deviceOnly: Bool, expiresAt: String, fromLesson: FromLesson? = nil, grantID: String? = nil, grantKey: String, id: String, invalidatedReason: String? = nil, kind: ApprovalKind, machine: ComputerMachineRef? = nil, requestedAt: String, requestedBy: RequestedBy, requiresAuthentication: Bool, riskClass: RiskClass? = nil, scopeGranted: GrantScope? = nil, scopesOffered: [GrantScope], setAside: Bool? = nil, sideEffect: SideEffect? = nil, status: ApprovalStatus, summary: String, surfaces: [String], taint: Bool, taintSources: [TaintSource]? = nil, target: Target? = nil, targetKind: TargetKind? = nil) {
+    public init(bindingHash: String, decidedAt: String? = nil, decidedBy: DecidedByClass? = nil, details: [String: JSONAny], deviceOnly: Bool, expiresAt: String, fromLesson: FromLesson? = nil, grantHint: GrantHint? = nil, grantID: String? = nil, grantKey: String, id: String, invalidatedReason: String? = nil, kind: ApprovalKind, machine: ComputerMachineRef? = nil, requestedAt: String, requestedBy: RequestedBy, requiresAuthentication: Bool, riskClass: RiskClass? = nil, scopeGranted: GrantScope? = nil, scopesOffered: [GrantScope], setAside: Bool? = nil, sideEffect: SideEffect? = nil, status: ApprovalStatus, summary: String, surfaces: [String], taint: Bool, taintSources: [TaintSource]? = nil, target: Target? = nil, targetKind: TargetKind? = nil) {
         self.bindingHash = bindingHash
         self.decidedAt = decidedAt
         self.decidedBy = decidedBy
@@ -4679,6 +4682,7 @@ public struct ApprovalRequest: Codable, Sendable {
         self.deviceOnly = deviceOnly
         self.expiresAt = expiresAt
         self.fromLesson = fromLesson
+        self.grantHint = grantHint
         self.grantID = grantID
         self.grantKey = grantKey
         self.id = id
@@ -4743,6 +4747,25 @@ public struct FromLesson: Codable, Sendable {
         self.because = because
         self.feedbackID = feedbackID
         self.lessonID = lessonID
+    }
+}
+
+// MARK: - GrantHint
+public struct GrantHint: Codable, Sendable {
+    public let count: Int
+    public let days: Int
+    public let scope: GrantScope
+
+    public enum CodingKeys: String, CodingKey {
+        case count = "count"
+        case days = "days"
+        case scope = "scope"
+    }
+
+    public init(count: Int, days: Int, scope: GrantScope) {
+        self.count = count
+        self.days = days
+        self.scope = scope
     }
 }
 
@@ -4872,16 +4895,26 @@ public enum TargetKind: String, Codable, Sendable {
 public struct ApprovalResult: Codable, Sendable {
     public let answerToken: String?
     public let approval: ApprovalRequest
+    public let needsMAC: NeedsMACReason?
 
     public enum CodingKeys: String, CodingKey {
         case answerToken = "answerToken"
         case approval = "approval"
+        case needsMAC = "needsMac"
     }
 
-    public init(answerToken: String? = nil, approval: ApprovalRequest) {
+    public init(answerToken: String? = nil, approval: ApprovalRequest, needsMAC: NeedsMACReason? = nil) {
         self.answerToken = answerToken
         self.approval = approval
+        self.needsMAC = needsMAC
     }
+}
+
+public enum NeedsMACReason: String, Codable, Sendable {
+    case macOnly = "mac_only"
+    case pairedAfter = "paired_after"
+    case payment = "payment"
+    case tooLong = "too_long"
 }
 
 // MARK: - ApprovalUpdatedPayload
@@ -5039,13 +5072,16 @@ public struct ApprovalsApproveWithTouchIDResult: Codable, Sendable {
 // MARK: - ApprovalsGetParams
 public struct ApprovalsGetParams: Codable, Sendable {
     public let approvalID: String
+    public let wantToken: Bool?
 
     public enum CodingKeys: String, CodingKey {
         case approvalID = "approvalId"
+        case wantToken = "wantToken"
     }
 
-    public init(approvalID: String) {
+    public init(approvalID: String, wantToken: Bool? = nil) {
         self.approvalID = approvalID
+        self.wantToken = wantToken
     }
 }
 
@@ -10059,6 +10095,7 @@ public struct ChatBlockPayload: Codable, Sendable {
 // MARK: - Block
 public struct Block: Codable, Sendable {
     public let md: String?
+    public let noteAction: NoteAction?
     public let noteKey: String?
     public let type: BlockType
     /// One-line status shown in the transcript
@@ -10114,6 +10151,7 @@ public struct Block: Codable, Sendable {
 
     public enum CodingKeys: String, CodingKey {
         case md = "md"
+        case noteAction = "noteAction"
         case noteKey = "noteKey"
         case type = "type"
         case level1 = "level1"
@@ -10165,8 +10203,9 @@ public struct Block: Codable, Sendable {
         case branchID = "branchId"
     }
 
-    public init(md: String? = nil, noteKey: String? = nil, type: BlockType, level1: String? = nil, status: ToolCallStatus? = nil, tool: String? = nil, toolCallID: String? = nil, planID: String? = nil, items: [ItemElement]? = nil, approvalID: String? = nil, inputRequestID: String? = nil, artifactID: String? = nil, preview: String? = nil, libraryItemID: String? = nil, id: String? = nil, kind: BlockKind? = nil, source: String? = nil, title: String? = nil, url: String? = nil, receiptID: String? = nil, taskID: String? = nil, actions: [WrapUpAction]? = nil, ask: String? = nil, recap: String? = nil, cited: [String]? = nil, answer: String? = nil, factIDS: [String]? = nil, facts: [LifeFactHit]? = nil, model: ModelEnum? = nil, passageIDS: [String]? = nil, passages: [LifeAnswerPassage]? = nil, question: String? = nil, compactionID: String? = nil, droppedPins: [String]? = nil, keptPins: [String]? = nil, replaced: Replaced? = nil, summary: CompactionSummary? = nil, tokensAfter: Int? = nil, tokensBefore: Int? = nil, trigger: BlockTrigger? = nil, feedbackID: String? = nil, lessonID: String? = nil, messageID: String? = nil, statement: String? = nil, proposal: DailyWorkflowProposal? = nil, route: String? = nil, goal: String? = nil, widgetID: String? = nil, forkID: String? = nil, branchID: String? = nil) {
+    public init(md: String? = nil, noteAction: NoteAction? = nil, noteKey: String? = nil, type: BlockType, level1: String? = nil, status: ToolCallStatus? = nil, tool: String? = nil, toolCallID: String? = nil, planID: String? = nil, items: [ItemElement]? = nil, approvalID: String? = nil, inputRequestID: String? = nil, artifactID: String? = nil, preview: String? = nil, libraryItemID: String? = nil, id: String? = nil, kind: BlockKind? = nil, source: String? = nil, title: String? = nil, url: String? = nil, receiptID: String? = nil, taskID: String? = nil, actions: [WrapUpAction]? = nil, ask: String? = nil, recap: String? = nil, cited: [String]? = nil, answer: String? = nil, factIDS: [String]? = nil, facts: [LifeFactHit]? = nil, model: ModelEnum? = nil, passageIDS: [String]? = nil, passages: [LifeAnswerPassage]? = nil, question: String? = nil, compactionID: String? = nil, droppedPins: [String]? = nil, keptPins: [String]? = nil, replaced: Replaced? = nil, summary: CompactionSummary? = nil, tokensAfter: Int? = nil, tokensBefore: Int? = nil, trigger: BlockTrigger? = nil, feedbackID: String? = nil, lessonID: String? = nil, messageID: String? = nil, statement: String? = nil, proposal: DailyWorkflowProposal? = nil, route: String? = nil, goal: String? = nil, widgetID: String? = nil, forkID: String? = nil, branchID: String? = nil) {
         self.md = md
+        self.noteAction = noteAction
         self.noteKey = noteKey
         self.type = type
         self.level1 = level1
@@ -10522,6 +10561,26 @@ public enum BlockKind: String, Codable, Sendable {
 public enum ModelEnum: String, Codable, Sendable {
     case cloud = "cloud"
     case local = "local"
+}
+
+// MARK: - NoteAction
+public struct NoteAction: Codable, Sendable {
+    public let kind: NoteActionKind
+    public let messageID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case kind = "kind"
+        case messageID = "messageId"
+    }
+
+    public init(kind: NoteActionKind, messageID: String) {
+        self.kind = kind
+        self.messageID = messageID
+    }
+}
+
+public enum NoteActionKind: String, Codable, Sendable {
+    case retryLastMessage = "retry_last_message"
 }
 
 // MARK: - LifeAnswerPassage
@@ -40922,17 +40981,20 @@ public struct TerminalSessionWriteParams: Codable, Sendable {
 // MARK: - TextBlock
 public struct TextBlock: Codable, Sendable {
     public let md: String
+    public let noteAction: NoteAction?
     public let noteKey: String?
     public let type: TextBlockType
 
     public enum CodingKeys: String, CodingKey {
         case md = "md"
+        case noteAction = "noteAction"
         case noteKey = "noteKey"
         case type = "type"
     }
 
-    public init(md: String, noteKey: String? = nil, type: TextBlockType) {
+    public init(md: String, noteAction: NoteAction? = nil, noteKey: String? = nil, type: TextBlockType) {
         self.md = md
+        self.noteAction = noteAction
         self.noteKey = noteKey
         self.type = type
     }

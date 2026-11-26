@@ -464,6 +464,8 @@ export const fr: Partial<Catalogue> = {
   "blocks.approval.scope.hostProgram": "Toujours autoriser {program} dans {folder}",
   "blocks.approval.scope.hostProgramExact":
     "Toujours autoriser {program} avec exactement ces arguments dans {folder}",
+  "blocks.approval.scope.hostProgramSession":
+    "Autoriser {program} dans {folder} pour cette conversation",
   "blocks.approval.scope.site": "Autoriser pour ce site",
   "blocks.approval.scope.session": "Autoriser pour cette session",
   "blocks.approval.scope.always": "Toujours autoriser",

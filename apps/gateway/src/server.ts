@@ -75,7 +75,7 @@ import { openGatewayDb, releaseGatewayLock } from "./pre-update.ts";
 import { presenceStateFor } from "./presence-gate.ts";
 import { normalizePeerAddress, resolvePeer, trustedProxyList } from "./proxy.ts";
 import { RateLimiter } from "./rate-limit.ts";
-import { type RecoveryReport, recoverAfterRestart } from "./recovery.ts";
+import { type RecoveryReport, recoverAfterRestart, stopRunsWaitingOnApproval } from "./recovery.ts";
 import {
   RETENTION_INTERVAL_MS,
   reasoningRetentionDays,
@@ -509,7 +509,15 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
 
   // Security §3.7: a restart invalidates pending approvals; the broker re-issues them.
   try {
-    await broker.reissue();
+    // A chat turn that waited on a card has no loop left to wake: stop it with a note and a
+    // "Try again" and invalidate its card, instead of re-issuing a card nobody waits on.
+    const stopRuns = stopRunsWaitingOnApproval(
+      db,
+      await broker.list({ status: "pending" }),
+      recovery.failedRuns,
+      log,
+    );
+    await broker.reissue({ stopRuns });
   } catch (err) {
     log.log("warn", "approval reissue failed", { code: PsycheError.from(err).code });
   }

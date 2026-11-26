@@ -477,6 +477,7 @@ export const it: Partial<Catalogue> = {
   "blocks.approval.scope.hostProgram": "Consenti sempre {program} in {folder}",
   "blocks.approval.scope.hostProgramExact":
     "Consenti sempre {program} con questi argomenti esatti in {folder}",
+  "blocks.approval.scope.hostProgramSession": "Consenti {program} in {folder} per questa chat",
   "blocks.approval.scope.site": "Consenti per questo sito",
   "blocks.approval.scope.session": "Consenti per questa sessione",
   "blocks.approval.scope.always": "Consenti sempre",

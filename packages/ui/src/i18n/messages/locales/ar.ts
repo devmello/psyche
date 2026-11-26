@@ -521,6 +521,7 @@ export const ar: Partial<Catalogue> = {
   "blocks.approval.scope.hostProgram": "السماح دائمًا بـ {program} في {folder}",
   "blocks.approval.scope.hostProgramExact":
     "السماح دائمًا بـ {program} بهذه الوسائط بالضبط في {folder}",
+  "blocks.approval.scope.hostProgramSession": "السماح بـ {program} في {folder} لهذه المحادثة",
   "blocks.approval.scope.site": "السماح لهذا الموقع",
   "blocks.approval.scope.session": "السماح لهذه الجلسة",
   "blocks.approval.scope.always": "السماح دائمًا",

@@ -481,6 +481,7 @@ export const ja: Partial<Catalogue> = {
   "blocks.approval.scope.trustSiteSubdomains": "このサイトとそのサブドメインで常に許可（{site}）",
   "blocks.approval.scope.hostProgram": "{folder} で {program} を常に許可",
   "blocks.approval.scope.hostProgramExact": "{folder} で {program} をこの引数のときだけ常に許可",
+  "blocks.approval.scope.hostProgramSession": "このチャットでは {folder} 内の {program} を許可",
   "blocks.approval.scope.site": "このサイトで許可",
   "blocks.approval.scope.session": "このセッションで許可",
   "blocks.approval.scope.always": "常に許可",

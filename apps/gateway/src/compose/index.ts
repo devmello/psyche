@@ -359,7 +359,7 @@ import {
   teachingSettings,
 } from "./teaching.ts";
 import { createThreadClear } from "./thread-clear.ts";
-import { endSessionQuietly } from "./thread-end.ts";
+import { endSessionQuietly, threadKeepsSessionGrants } from "./thread-end.ts";
 import { SqliteThreadStateStore } from "./thread-state.ts";
 import { CROSS_THREAD_SETTING, crossThreadToggle, threadTools } from "./thread-tools.ts";
 import { modelPinsFor, restoreModelPins, threadSettingsHandlers } from "./threads.ts";
@@ -965,6 +965,9 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
         })
         .map((d) => surfaceOf(db, d.id));
     },
+    // "For this chat" grants outlive a restart only in a chat that still exists and is not
+    // incognito (a deleted thread has no row; Clear chat and delete end their grants as well).
+    sessionThreadAlive: (threadId) => threadKeepsSessionGrants(db, threadId),
     store: sealedPermissionStore(new SqlitePermissionStore(db.sqlite), seal),
     audit,
     notifier,
@@ -3551,8 +3554,8 @@ function withRelay<B extends PermissionBroker>(
         };
       }
       if (prop === "reissue") {
-        return async () => {
-          const issued = await target.reissue();
+        return async (...args: Parameters<B["reissue"]>) => {
+          const issued = await target.reissue(...args);
           for (const i of issued) deliver(i);
           return issued;
         };

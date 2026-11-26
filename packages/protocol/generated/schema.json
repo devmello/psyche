@@ -632,7 +632,7 @@
         "sideEffecting": false
       },
       {
-        "description": "Returns one approval request.",
+        "description": "Returns one approval request, with this surface's unused answer token when it has one. With wantToken a paired approver device without a token gets one for a card that may be answered off the Mac; a payment or Mac-only card returns needsMac instead.",
         "name": "approvals.get",
         "params": "#/$defs/ApprovalsGetParams",
         "result": "#/$defs/ApprovalResult",
@@ -8413,6 +8413,27 @@
         "setAside": {
           "type": "boolean"
         },
+        "grantHint": {
+          "properties": {
+            "count": {
+              "minimum": 1,
+              "type": "integer"
+            },
+            "days": {
+              "minimum": 1,
+              "type": "integer"
+            },
+            "scope": {
+              "$ref": "#/$defs/GrantScope"
+            }
+          },
+          "required": [
+            "count",
+            "days",
+            "scope"
+          ],
+          "type": "object"
+        },
         "taintSources": {
           "items": {
             "$ref": "#/$defs/TaintSource"
@@ -8534,6 +8555,9 @@
         },
         "answerToken": {
           "$ref": "#/$defs/SurfaceAnswerToken"
+        },
+        "needsMac": {
+          "$ref": "#/$defs/NeedsMacReason"
         }
       },
       "required": [
@@ -8680,6 +8704,9 @@
           "maxLength": 64,
           "minLength": 1,
           "type": "string"
+        },
+        "wantToken": {
+          "type": "boolean"
         }
       },
       "required": [
@@ -35775,6 +35802,15 @@
       ],
       "type": "object"
     },
+    "NeedsMacReason": {
+      "enum": [
+        "payment",
+        "paired_after",
+        "too_long",
+        "mac_only"
+      ],
+      "type": "string"
+    },
     "NightShiftApplyItem": {
       "properties": {
         "itemId": {
@@ -54707,6 +54743,25 @@
         "noteKey": {
           "maxLength": 64,
           "type": "string"
+        },
+        "noteAction": {
+          "properties": {
+            "kind": {
+              "const": "retry_last_message",
+              "type": "string"
+            },
+            "messageId": {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "messageId"
+          ],
+          "type": "object"
         }
       },
       "required": [

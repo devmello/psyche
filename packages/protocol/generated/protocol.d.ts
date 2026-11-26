@@ -1103,6 +1103,7 @@ export interface ApprovalRequest {
     deviceOnly:             boolean;
     expiresAt:              string;
     fromLesson?:            FromLesson;
+    grantHint?:             GrantHint;
     grantId?:               null | string;
     grantKey:               string;
     id:                     string;
@@ -1143,6 +1144,12 @@ export interface FromLesson {
     because:    string;
     feedbackId: string;
     lessonId:   string;
+}
+
+export interface GrantHint {
+    count: number;
+    days:  number;
+    scope: GrantScope;
 }
 
 export interface ComputerMachineRef {
@@ -1196,7 +1203,10 @@ export type TargetKind = "origin" | "path" | "account" | "command" | "recipient"
 export interface ApprovalResult {
     answerToken?: string;
     approval:     ApprovalRequest;
+    needsMac?:    NeedsMACReason;
 }
+
+export type NeedsMACReason = "payment" | "paired_after" | "too_long" | "mac_only";
 
 export interface ApprovalUpdatedPayload {
     approval: ApprovalRequest;
@@ -1249,6 +1259,7 @@ export interface ApprovalsApproveWithTouchIDResult {
 
 export interface ApprovalsGetParams {
     approvalId: string;
+    wantToken?: boolean;
 }
 
 export interface ApprovalsListParams {
@@ -2930,9 +2941,10 @@ export interface ChatBlockPayload {
 }
 
 export interface Block {
-    md?:      string;
-    noteKey?: string;
-    type:     BlockType;
+    md?:         string;
+    noteAction?: NoteAction;
+    noteKey?:    string;
+    type:        BlockType;
     /**
      * One-line status shown in the transcript
      */
@@ -3091,6 +3103,13 @@ export type BlockKind = "feed_item" | "search_hit" | "memory_entity" | "life_ans
  * The kind of model that made the answer
  */
 export type ModelEnum = "cloud" | "local";
+
+export interface NoteAction {
+    kind:      NoteActionKind;
+    messageId: string;
+}
+
+export type NoteActionKind = "retry_last_message";
 
 export interface LifeAnswerPassage {
     /**
@@ -14254,9 +14273,10 @@ export interface TerminalSessionWriteParams {
 }
 
 export interface TextBlock {
-    md:       string;
-    noteKey?: string;
-    type:     TextBlockType;
+    md:          string;
+    noteAction?: NoteAction;
+    noteKey?:    string;
+    type:        TextBlockType;
 }
 
 export type TextBlockType = "text";

@@ -505,6 +505,7 @@ export const zh: Partial<Catalogue> = {
   "blocks.approval.scope.hostProgram": "始终允许在 {folder} 中运行 {program}",
   "blocks.approval.scope.hostProgramExact":
     "始终允许在 {folder} 中以这些完全相同的参数运行 {program}",
+  "blocks.approval.scope.hostProgramSession": "在此对话中允许 {program} 在 {folder} 中运行",
   "blocks.approval.scope.site": "允许用于此网站",
   "blocks.approval.scope.session": "允许用于本次会话",
   "blocks.approval.scope.always": "始终允许",
