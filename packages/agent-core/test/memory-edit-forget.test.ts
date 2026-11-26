@@ -90,6 +90,53 @@ describe("memory str_replace matches what the model sees (QA item 3)", () => {
     ).rejects.toThrow(/found/);
   });
 
+  it("an edited tagged line keeps its tag (same fact id and provenance)", async () => {
+    const { memory, tool } = setup();
+    await run(
+      tool,
+      {
+        command: "str_replace",
+        path: "USER.md",
+        old_str: "- Prefers tabs over spaces in code\n",
+        new_str: "- Prefers spaces in code\n",
+      },
+      ctx(),
+    );
+    expect((await memory.readFile("USER.md"))?.content).toContain(
+      "- Prefers spaces in code <!--lf_abc123def 2026-11-20 thread:t0 preference-->\n",
+    );
+    await run(
+      tool,
+      {
+        command: "str_replace",
+        path: "USER.md",
+        old_str: "- 2026-11-21 Drives a red car",
+        new_str: "- 2026-11-21 Drives a blue car",
+      },
+      ctx(),
+    );
+    expect((await memory.readFile("USER.md"))?.content).toContain(
+      "- 2026-11-21 [lf_qqq111www thread:t0 fact] Drives a blue car",
+    );
+  });
+
+  it("an untagged twin makes the edit ambiguous instead of being edited silently", async () => {
+    const memory = new FakeMemoryStore({
+      clock: new FakeClock(),
+      files: {
+        "USER.md": "- Likes tea\n- Likes tea <!--lf_zzz999aaa 2026-11-20 thread:t0 preference-->\n",
+      },
+    });
+    const tool = memoryTool(memory, { clock: new FakeClock(), timeZone: "UTC" });
+    await expect(
+      run(
+        tool,
+        { command: "str_replace", path: "USER.md", old_str: "- Likes tea\n", new_str: "" },
+        ctx(),
+      ),
+    ).rejects.toThrow(/found 2/);
+  });
+
   it("an exact match still wins and leaves tags alone", async () => {
     const { memory, tool } = setup();
     await run(
@@ -110,7 +157,10 @@ describe("memory_forget tool (QA item 4)", () => {
     const forget = vi.fn(async () => forgetResult);
     const tool = forgetTool({ forget } as never);
     const r = await run(tool, { subject: "tabs over spaces" }, ctx());
-    expect(forget).toHaveBeenCalledWith("tabs over spaces", { dryRun: false });
+    expect(forget).toHaveBeenCalledWith(
+      "tabs over spaces",
+      expect.objectContaining({ dryRun: false, actor: "agent", approvalId: "apr_1" }),
+    );
     expect(JSON.stringify(r.output)).toContain("USER.md");
   });
 
@@ -118,7 +168,10 @@ describe("memory_forget tool (QA item 4)", () => {
     const forget = vi.fn(async () => forgetResult);
     const tool = forgetTool({ forget } as never);
     const r = await run(tool, { subject: "tabs over spaces", dry_run: true }, ctx());
-    expect(forget).toHaveBeenCalledWith("tabs over spaces", { dryRun: true });
+    expect(forget).toHaveBeenCalledWith(
+      "tabs over spaces",
+      expect.objectContaining({ dryRun: true, actor: "agent" }),
+    );
     expect(JSON.stringify(r.output)).toMatch(/would/i);
   });
 
@@ -126,6 +179,8 @@ describe("memory_forget tool (QA item 4)", () => {
     const tool = forgetTool({ forget: vi.fn() } as never);
     const real = tool.describeCall?.({ subject: "Tabs  over spaces" });
     expect(real?.sideEffect).toBe("destructive");
+    expect(real?.kind).toBe("memory_forget");
+    expect(real?.grantKey).toBe("memory_forget|tabs over spaces");
     expect(real?.bindingFields).toEqual({ subject: "tabs over spaces" });
     expect(tool.describeCall?.({ subject: "x y z", dry_run: true })?.sideEffect).toBe("none");
   });
@@ -139,6 +194,24 @@ describe("memory_forget tool (QA item 4)", () => {
     await expect(
       run(tool, { subject: "tabs over spaces" }, ctx({ requester: { kind: "mcp" } as never })),
     ).rejects.toThrow();
+    expect(forget).not.toHaveBeenCalled();
+  });
+
+  it("takes a two-character subject to the store instead of refusing it itself", async () => {
+    const forget = vi.fn(async () => forgetResult);
+    const tool = forgetTool({ forget } as never);
+    await run(tool, { subject: "李明" }, ctx());
+    expect(forget).toHaveBeenCalled();
+  });
+
+  it("refuses in an incognito thread, and for a memory the owner paused", async () => {
+    const forget = vi.fn();
+    await expect(
+      run(forgetTool({ forget } as never, { isIncognito: () => true }), { subject: "tabs" }, ctx()),
+    ).rejects.toThrow(/incognito/);
+    await expect(
+      run(forgetTool({ forget, paused: true } as never), { subject: "tabs" }, ctx()),
+    ).rejects.toThrow(/paused/);
     expect(forget).not.toHaveBeenCalled();
   });
 

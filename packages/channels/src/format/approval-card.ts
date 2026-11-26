@@ -29,6 +29,7 @@ const KIND_LABELS: Record<ApprovalKind, string> = {
   mcp_tool: "Call an MCP tool",
   archive_thread: "Archive a thread",
   memory_protected_write: "Change a protected memory file",
+  memory_forget: "Forget everywhere",
   pairing: "Pair a device or sender",
   policy_change: "Change a permission policy",
   task_start: "Start a background task",

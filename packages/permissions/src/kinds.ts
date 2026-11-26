@@ -150,6 +150,7 @@ export function inferApprovalKind(tool: string): ApprovalKind {
   if (tool.startsWith("mcp__")) return "mcp_tool";
   if (tool.startsWith("computer.")) return "computer_action";
   if (tool === "memory") return "memory_protected_write";
+  if (tool === "memory_forget") return "memory_forget";
   if (tool === "skills.install" || /^skill_(create|update|delete)$/.test(tool))
     return "skill_install";
   if (tool === "exit_plan_mode" || tool === "ExitPlanMode") return "plan_exit";
@@ -184,6 +185,8 @@ export function allowedScopes(
       "separate_desktop_share",
       // A Night shift apply is the owner's tap on exactly the listed actions, never kept (§3.3).
       "staged_apply",
+      // Forgetting a subject everywhere cannot be undone: it asks every time (owner, 2026-11-25).
+      "memory_forget",
     ].includes(kind)
   )
     return ["once"];

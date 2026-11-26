@@ -90,6 +90,8 @@ export const ApprovalKind = StringEnum(
     "mcp_tool",
     "archive_thread",
     "memory_protected_write",
+    /** The agent forgets a subject everywhere (memory, people, lessons): once, never kept. */
+    "memory_forget",
     "pairing",
     "policy_change",
     "task_start",

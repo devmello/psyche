@@ -54,6 +54,27 @@ describe("memory search ignores stop words (QA item 16)", () => {
     expect(mixed.map((h) => h.chunk.source)).toContain("SOUL.md");
   });
 
+  it("name-like words and one-letter names still find their notes", async () => {
+    const store = await seeded();
+    await store.appendDailyNote({ text: "Will signed the lease", provenance: "owner" });
+    await store.appendDailyNote({
+      text: "C is the language for the firmware",
+      provenance: "owner",
+    });
+    expect((await store.search("Will")).map((h) => h.chunk.text).join("\n")).toContain(
+      "Will signed",
+    );
+    expect((await store.search("C")).map((h) => h.chunk.text).join("\n")).toContain("firmware");
+    expect(searchTerms("Will")).toEqual(["will"]);
+    expect(searchTerms("C")).toEqual(["c"]);
+  });
+
+  it("'is it' matches nothing by keyword", async () => {
+    const store = await seeded();
+    expect(searchTerms("is it")).toEqual([]);
+    expect(await store.search("is it")).toEqual([]);
+  });
+
   it("searchTerms keeps non-Latin and numeric terms", () => {
     expect(searchTerms("what is 李明 at 10")).toEqual(["李明", "10"]);
     expect(searchTerms("is it the")).toEqual([]);

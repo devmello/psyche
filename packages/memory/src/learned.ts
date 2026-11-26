@@ -158,6 +158,36 @@ export function tagTolerantPattern(oldStr: string): RegExp {
   return new RegExp(lines.join("\n"), "g");
 }
 
+/**
+ * `replacement` for a tag-tolerant match: when `matched` held exactly one hidden machine tag
+ * (the fact's id and provenance), it goes back onto the edited line, so the line stays the same
+ * learned fact. Nothing is added when the edit removes the line, or when the match held no tag
+ * or several (then the lines are the owner's to re-tag).
+ */
+export function reattachTag(matched: string, replacement: string): string {
+  const tags = [
+    ...[...matched.matchAll(/[ \t]*(<!--lf_[a-z0-9]{6,32} [^>\n]*-->)/g)].map((m) => ({
+      kind: "section" as const,
+      tag: m[1] as string,
+    })),
+    ...[...matched.matchAll(/^- \d{4}-\d{2}-\d{2} (\[lf_[^\]\n]*\]) /gm)].map((m) => ({
+      kind: "bracket" as const,
+      tag: m[1] as string,
+    })),
+  ];
+  const only = tags.length === 1 ? tags[0] : undefined;
+  if (only === undefined || replacement.trim() === "") return replacement;
+  if (only.kind === "bracket") {
+    return replacement.replace(/^(- \d{4}-\d{2}-\d{2}) /, `$1 ${only.tag} `);
+  }
+  const lines = replacement.split("\n");
+  // The tag closes the last non-empty line of the replacement.
+  let at = lines.length - 1;
+  while (at > 0 && (lines[at] ?? "") === "") at--;
+  lines[at] = `${lines[at]} ${only.tag}`;
+  return lines.join("\n");
+}
+
 /** The raw line of a learned fact, or `undefined`. */
 export function learnedLine(content: string, factId: string): string | undefined {
   return content.split("\n").find((l) => factIdOf(l) === factId);

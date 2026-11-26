@@ -137,6 +137,7 @@ const KIND_TITLES: Record<string, string> = {
   mcp_tool: "MCP tool",
   archive_thread: "Archive thread",
   memory_protected_write: "Edit protected memory",
+  memory_forget: "Forget everywhere",
   pairing: "Pair device",
   policy_change: "Change permissions",
   task_start: "Start background task",

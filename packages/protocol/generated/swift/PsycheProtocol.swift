@@ -2159,6 +2159,7 @@ public enum ApprovalKind: String, Codable, Sendable {
     case gitPush = "git_push"
     case gitWrite = "git_write"
     case mcpTool = "mcp_tool"
+    case memoryForget = "memory_forget"
     case memoryProtectedWrite = "memory_protected_write"
     case messageSend = "message_send"
     case newOrigin = "new_origin"
