@@ -88,6 +88,7 @@ export function brokerApprovalCheck(broker: Pick<PermissionBroker, "get">): Appr
       // reaches (people, lessons, the protected files with the phrase in them), once.
       const params = (approval.details as { params?: { subject?: unknown } }).params;
       return (
+        request.path === "forget:everywhere" &&
         request.subject !== undefined &&
         typeof params?.subject === "string" &&
         forgetSubjectKey(params.subject) === forgetSubjectKey(request.subject)

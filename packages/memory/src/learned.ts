@@ -177,6 +177,9 @@ export function reattachTag(matched: string, replacement: string): string {
   ];
   const only = tags.length === 1 ? tags[0] : undefined;
   if (only === undefined || replacement.trim() === "") return replacement;
+  // Only a one-line match keeps its tag: across several lines the tag could land on a line the
+  // owner wrote, and a later undo by fact id would then remove that line.
+  if (matched.replace(/\n+$/, "").includes("\n")) return replacement;
   if (only.kind === "bracket") {
     return replacement.replace(/^(- \d{4}-\d{2}-\d{2}) /, `$1 ${only.tag} `);
   }
