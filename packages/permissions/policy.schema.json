@@ -89,6 +89,7 @@
               "mcp_tool",
               "archive_thread",
               "memory_protected_write",
+              "memory_forget",
               "pairing",
               "policy_change",
               "task_start",

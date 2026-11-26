@@ -1,3 +1,4 @@
+import { reattachTag, tagTolerantPattern } from "@psyche/memory/learned";
 import {
   type Clock,
   type MemoryStore,
@@ -216,16 +217,34 @@ export function memoryTool(store: MemoryStore, options: MemoryToolOptions): Agen
           }
           const file = await store.readFile(path);
           if (file === undefined) throw new PsycheError("not_found", `${path} does not exist`);
-          const count = file.content.split(p.old_str).length - 1;
-          if (count !== 1) {
+          // The model sees USER.md without its hidden `lf_` tags, so its text may sit in the file
+          // with a tag after it. Every place old_str lands counts, as written or with tags
+          // allowed; exactly one may. At a place both match, the exact text wins and leaves the
+          // tag where it is.
+          const places = new Map<number, { length: number; matched: string; exact: boolean }>();
+          for (let at = file.content.indexOf(p.old_str); at >= 0; ) {
+            places.set(at, { length: p.old_str.length, matched: p.old_str, exact: true });
+            at = file.content.indexOf(p.old_str, at + p.old_str.length);
+          }
+          for (const m of file.content.matchAll(tagTolerantPattern(p.old_str))) {
+            if (!places.has(m.index)) {
+              places.set(m.index, { length: m[0].length, matched: m[0], exact: false });
+            }
+          }
+          if (places.size !== 1) {
             throw new PsycheError(
               "invalid_params",
-              `old_str must occur exactly once in ${path} (found ${count})`,
+              `old_str must occur exactly once in ${path} (found ${places.size})`,
             );
           }
+          const [[start, hit]] = [...places] as [
+            [number, { length: number; matched: string; exact: boolean }],
+          ];
+          // A tagged line keeps its tag after the edit: it stays the same learned fact.
+          const replacement = hit.exact ? p.new_str : reattachTag(hit.matched, p.new_str);
           await write(
             path,
-            file.content.replace(p.old_str, () => p.new_str),
+            `${file.content.slice(0, start)}${replacement}${file.content.slice(start + hit.length)}`,
             file.etag,
           );
           return { output: { replaced: path }, provenance: "trusted" };

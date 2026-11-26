@@ -137,6 +137,60 @@ export function removeLearned(
   return lines.join("\n");
 }
 
+/**
+ * A pattern for `oldStr` that also matches the lines of `USER.md` it was copied from when the
+ * hidden machine tags are missing: the ` <!--lf_… -->` tag after a profile bullet and the
+ * `[lf_… thread:… kind]` tag after a Learned line's date. The model sees USER.md without them
+ * (`compactUserView`), so an exact `str_replace` on what it saw finds 0 matches.
+ */
+export function tagTolerantPattern(oldStr: string): RegExp {
+  const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const tail = "(?:[ \\t]*<!--lf_[a-z0-9]{6,32} [^>\\n]*-->)?";
+  const lines = oldStr.split("\n").map((line) => {
+    const m = /^(- \d{4}-\d{2}-\d{2} )(.*)$/.exec(line);
+    const head =
+      m === null
+        ? esc(line)
+        : `${esc(m[1] as string)}(?:\\[lf_[^\\]\\n]*\\] )?${esc(m[2] as string)}`;
+    // A tag sits at the end of a line; an empty last piece (old_str ends with "\n") adds none.
+    return line === "" ? head : `${head}${tail}`;
+  });
+  return new RegExp(lines.join("\n"), "g");
+}
+
+/**
+ * `replacement` for a tag-tolerant match: when `matched` held exactly one hidden machine tag
+ * (the fact's id and provenance), it goes back onto the edited line, so the line stays the same
+ * learned fact. Nothing is added when the edit removes the line, or when the match held no tag
+ * or several (then the lines are the owner's to re-tag).
+ */
+export function reattachTag(matched: string, replacement: string): string {
+  const tags = [
+    ...[...matched.matchAll(/[ \t]*(<!--lf_[a-z0-9]{6,32} [^>\n]*-->)/g)].map((m) => ({
+      kind: "section" as const,
+      tag: m[1] as string,
+    })),
+    ...[...matched.matchAll(/^- \d{4}-\d{2}-\d{2} (\[lf_[^\]\n]*\]) /gm)].map((m) => ({
+      kind: "bracket" as const,
+      tag: m[1] as string,
+    })),
+  ];
+  const only = tags.length === 1 ? tags[0] : undefined;
+  if (only === undefined || replacement.trim() === "") return replacement;
+  // Only a one-line match keeps its tag: across several lines the tag could land on a line the
+  // owner wrote, and a later undo by fact id would then remove that line.
+  if (matched.replace(/\n+$/, "").includes("\n")) return replacement;
+  if (only.kind === "bracket") {
+    return replacement.replace(/^(- \d{4}-\d{2}-\d{2}) /, `$1 ${only.tag} `);
+  }
+  const lines = replacement.split("\n");
+  // The tag closes the last non-empty line of the replacement.
+  let at = lines.length - 1;
+  while (at > 0 && (lines[at] ?? "") === "") at--;
+  lines[at] = `${lines[at]} ${only.tag}`;
+  return lines.join("\n");
+}
+
 /** The raw line of a learned fact, or `undefined`. */
 export function learnedLine(content: string, factId: string): string | undefined {
   return content.split("\n").find((l) => factIdOf(l) === factId);

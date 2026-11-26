@@ -2,6 +2,7 @@
 export * from "./automation-intent.ts";
 export * from "./builtins/app.ts";
 export * from "./builtins/automation.ts";
+export * from "./builtins/forget.ts";
 export * from "./builtins/fork-report.ts";
 export * from "./builtins/harness.ts";
 export * from "./builtins/services.ts";

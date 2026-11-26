@@ -70,6 +70,7 @@ export const ALWAYS_ON = new Set([
   "list_dir",
   "search_files",
   "memory",
+  "memory_forget",
   "request_permission",
   // A screen ask leaves the agent one look at the frame (screen-ask.ts).
   "screen.look",
