@@ -72,7 +72,7 @@ struct StaleActivityTests {
         alerts.start()
         try await Task.sleep(for: .milliseconds(200))
         try await backend.updateSettings(
-            PhoneSettings(notifications: true, liveActivities: false, taskTitlesOnLockScreen: false, faceIDForApprovals: true))
+            PhoneSettings(notifications: true, liveActivities: false, taskTitlesOnLockScreen: false))
         try await Task.sleep(for: .milliseconds(300))
         #expect(host.ends == ["task_q3"])
         #expect(alerts.watching.isEmpty)

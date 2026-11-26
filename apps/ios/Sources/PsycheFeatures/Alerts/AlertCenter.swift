@@ -40,7 +40,7 @@ public final class AlertCenter {
     private let isFixture: Bool
     var isFixtureMode: Bool { isFixture }
     var settings = PhoneSettings(
-        notifications: true, liveActivities: true, taskTitlesOnLockScreen: false, faceIDForApprovals: true)
+        notifications: true, liveActivities: true, taskTitlesOnLockScreen: false)
     private var coalescer = UpdateCoalescer(interval: 1)
     /// Live Activity updates: a change goes out at most every few seconds, an unchanged one never.
     private let gate = ActivityUpdateGate(minInterval: 5)

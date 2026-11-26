@@ -306,7 +306,7 @@ struct AwakeTimeLedgerTests {
     }
 
     @Test func settingDefaultsToOff() {
-        #expect(PhoneSettings(notifications: true, liveActivities: true, taskTitlesOnLockScreen: false, faceIDForApprovals: true)
+        #expect(PhoneSettings(notifications: true, liveActivities: true, taskTitlesOnLockScreen: false)
             .stayConnectedWhileRunning == false)
     }
 }
