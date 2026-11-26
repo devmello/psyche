@@ -337,6 +337,7 @@ export const settings = {
     "Psyche reads these cards from Stripe Link; remove one in your Link account. Removing the Link key above stops Psyche paying with any of them.",
   "settings.credentials.managed.connector": "Managed by its connector",
   "settings.credentials.managed.model_provider": "A model provider's key",
+  "settings.credentials.managed.channel": "An old chat channel's secret",
   "settings.credentials.managed.external_manager": "Linked from your password manager",
   "settings.credentials.setting.connectors": "Connectors",
   "settings.credentials.setting.models": "Model & providers",

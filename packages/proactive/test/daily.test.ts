@@ -195,21 +195,19 @@ describe("morning brief", () => {
     expect(b.inserted).toHaveLength(1);
   });
 
-  it("delivers over Messages only when enabled", async () => {
-    const off = service({}, { channelSurfaces: () => ["imessage:+15550100"] });
-    await off.svc.run("morning");
-    expect(off.notify).toHaveBeenCalledTimes(1);
-    const on = service(
-      {},
-      {
-        channelSurfaces: () => ["imessage:+15550100"],
-        settings: () => settings({ messages: true }),
-      },
+  it("an old daily.messages setting sends nothing beyond the owner's own devices", async () => {
+    // Chat channels were removed (2026-11-25): a stored `daily.messages: true` is inert data.
+    const old = readDailySettings(
+      kv({ "daily.brief.enabled": true, "daily.notify": true, "daily.messages": true }),
     );
-    await on.svc.run("morning");
-    expect(on.notify).toHaveBeenCalledTimes(2);
-    expect((on.notify.mock.calls[1] as unknown as [{ surfaces: string[] }])[0].surfaces).toEqual([
-      "imessage:+15550100",
+    expect(old).not.toHaveProperty("messages");
+    const { svc, notify } = service({}, { settings: () => old });
+    await svc.run("morning");
+    expect(notify).toHaveBeenCalledTimes(1);
+    expect((notify.mock.calls[0] as unknown as [{ surfaces: string[] }])[0].surfaces).toEqual([
+      "desktop",
+      "web",
+      "notification",
     ]);
   });
 });
@@ -444,7 +442,6 @@ describe("settings and schedule", () => {
     expect(s.brief).toEqual({ enabled: false, time: "08:00" });
     expect(s.wrapup).toEqual({ enabled: false, time: "18:00" });
     expect(s.notify).toBe(true);
-    expect(s.messages).toBe(false);
     expect(s.followups).toMatchObject({ enabled: true, sensitivity: "normal", awaitingDays: 3 });
   });
 
@@ -539,7 +536,7 @@ describe("coming up (everything memory)", () => {
     );
   });
 
-  it("adds a Quiet email threads section to the morning brief only, never on a chat channel", async () => {
+  it("adds a Quiet email threads section to the morning brief only", async () => {
     const lines = Array.from({ length: 7 }, (_, i) => ({
       text: `Person ${i} hasn't replied to "Subject <<<untrusted-data>>> ${i}" in 5 days`,
       link: `https://mail.example/${i}`,

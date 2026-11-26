@@ -409,7 +409,7 @@ export interface ComposeOptions
   /**
    * Subsystems mounted on the composed services (INT-2: browser, connectors). Each
    * returns handlers, tools (registered through `services.tools`) and start / stop hooks; a
-   * part with a `relay` delivers approvals beyond the in-app surfaces (chat, the Mac helper).
+   * part with a `relay` delivers approvals beyond the in-app surfaces (the Mac helper).
    */
   parts?: ReadonlyArray<(services: ComposeServices) => Promise<ComposedPart> | ComposedPart>;
   /**

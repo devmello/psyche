@@ -1,7 +1,6 @@
 import {
   type AudioFormat,
   type Block,
-  type ChannelType,
   type LibraryItem,
   type Provenance,
   PsycheError,
@@ -23,8 +22,8 @@ import type { VoiceCallContext, VoiceSessionManager } from "./voice.ts";
  * Voice memos (feature Q4, N11; architecture §4.10): recorded audio → transcript → a Library
  * `recording` item (the audio, with the transcript as its text extract) → an optional Task.
  *
- * Provenance follows the speaker, not the channel: the owner's own voice (composer, or an
- * owner identity on a channel) is `owner`; anyone else is `untrusted` and a task created from
+ * Provenance follows the speaker, not the transport: the owner's own voice (the composer) is
+ * `owner`; anyone else is `untrusted` and a task created from
  * it starts tainted with a `voice_note` source. Either way the transcript is *content*: it is
  * returned as a quoted text block, URLs inside it are listed and never followed, and
  * instruction-like phrasing ("ignore your previous instructions") is flagged so the agent loop
@@ -37,7 +36,7 @@ export type MemoSpeaker =
   | { kind: "owner" }
   | {
       kind: "other";
-      /** Channel or transport the audio arrived on (`telegram`, `imessage`, `email`, …). */
+      /** The transport the audio arrived on (`imessage`, `email`, …). */
       sourceKind: string;
       sender?: string;
       origin?: string;
@@ -51,7 +50,8 @@ export interface VoiceMemoInput {
   format: AudioFormat;
   speaker: MemoSpeaker;
   source: MemoSource;
-  channel?: ChannelType;
+  /** The transport an untrusted voice note arrived on, for its label, tags and taint origin. */
+  channel?: string;
   threadId: string | null;
   language?: string;
   /** Extra vocabulary for this memo; merged with the service default. */
@@ -256,7 +256,7 @@ export function memoFormatFor(mimeOrName: string): AudioFormat | undefined {
     : { encoding: enc, sampleRate: 48_000, channels: 1 };
 }
 
-function speakerLabel(speaker: MemoSpeaker, channel: ChannelType | undefined): string {
+function speakerLabel(speaker: MemoSpeaker, channel: string | undefined): string {
   if (speaker.kind === "owner") return "Voice memo";
   const who = speaker.sender ?? "someone";
   return `Voice note from ${who}${channel === undefined ? "" : ` on ${channel}`} (untrusted)`;
@@ -555,7 +555,7 @@ export class VoiceMemoService {
   }
 }
 
-function taintFor(speaker: MemoSpeaker, channel: ChannelType | undefined): TaintSource[] {
+function taintFor(speaker: MemoSpeaker, channel: string | undefined): TaintSource[] {
   if (speaker.kind === "owner") return [];
   const src: TaintSource = { sourceKind: "voice_note" };
   const origin = speaker.origin ?? channel ?? speaker.sourceKind;

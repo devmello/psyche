@@ -1199,6 +1199,7 @@ export const pt: Partial<Catalogue> = {
     "O Psyche lê estes cartões do Stripe Link; remova um deles na sua conta Link. Remover a chave do Link acima impede o Psyche de pagar com qualquer um deles.",
   "settings.credentials.managed.connector": "Gerenciada pelo conector",
   "settings.credentials.managed.model_provider": "Chave de um provedor de modelos",
+  "settings.credentials.managed.channel": "Segredo de um canal de chat antigo",
   "settings.credentials.managed.external_manager": "Vinculada do seu gerenciador de senhas",
   "settings.credentials.setting.connectors": "Conectores",
   "settings.credentials.setting.models": "Modelo e provedores",

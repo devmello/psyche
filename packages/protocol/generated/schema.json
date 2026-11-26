@@ -33273,8 +33273,7 @@
       "enum": [
         "home",
         "brief",
-        "notification",
-        "channel"
+        "notification"
       ],
       "type": "string"
     },
@@ -33317,17 +33316,12 @@
         "notification": {
           "description": "Work tier: titles only for owner-provenance items, otherwise a count (\"1 assignment due tomorrow\")",
           "type": "boolean"
-        },
-        "channel": {
-          "description": "The brief delivered to Telegram and other channels",
-          "type": "boolean"
         }
       },
       "required": [
         "home",
         "brief",
-        "notification",
-        "channel"
+        "notification"
       ],
       "type": "object"
     },
@@ -53930,7 +53924,7 @@
           ]
         },
         "sessionKey": {
-          "description": "e.g. \"owner:main\", \"telegram:peer:12345\"",
+          "description": "e.g. \"owner:main\", \"import:chatgpt:…\"",
           "type": "string"
         },
         "personaOverlay": {

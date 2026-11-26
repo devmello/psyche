@@ -297,7 +297,7 @@ describe("whose text is never read", () => {
   });
 
   it("other people's text stays out of scopes that are not the owner's", async () => {
-    w.doc({ body, scope: "telegram:peer:9" });
+    w.doc({ body, scope: "oldchat:peer:9" });
     await run();
     expect(w.provider.requests).toHaveLength(0);
   });

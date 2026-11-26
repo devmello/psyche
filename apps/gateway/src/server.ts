@@ -519,7 +519,7 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
       });
     // The container bind gates every route but the bare health check (Compose healthcheck).
     const path = new URL(req.url ?? "/", "http://gateway.invalid").pathname;
-    // POST by default; GET only on a route that declares it (WhatsApp's subscription handshake).
+    // POST by default; GET only on a route that declares it (a subscription handshake).
     const route = Object.hasOwn(webhooks, path) ? webhooks[path] : undefined;
     const webhook =
       route !== undefined && webhookMethods(route).some((m) => m === req.method)

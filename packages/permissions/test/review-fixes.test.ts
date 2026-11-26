@@ -38,7 +38,7 @@ describe("review fixes", () => {
       grantKey: d.grantKey ?? "",
       requestedBy: { runId: "run_other", taskId: CTX.taskId ?? null, threadId: CTX.threadId },
       sideEffect: "write",
-      surfaces: ["desktop", "telegram:chat1"],
+      surfaces: ["desktop", "oldchat:chat1"],
       taint: false,
     });
     expect(issued.approval).toMatchObject({

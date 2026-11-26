@@ -28,7 +28,7 @@ function seeded(): PsycheDb {
   createThread(db, {
     id: "T-peer",
     kind: "side",
-    sessionKey: "telegram:peer:12345",
+    sessionKey: "oldchat:peer:12345",
     title: "Alex Rivera",
   });
   const text = (md: string) => [{ type: "text" as const, md }];

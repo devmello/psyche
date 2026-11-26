@@ -110,7 +110,7 @@ describe("people and projects graph in the Gateway (#651)", () => {
     expect(String(owner?.output)).toContain("Sam Lee");
     const other = await lookup?.run?.(
       { query: "Sam Lee" },
-      ctx("t1", { requester: { role: "designated", sessionKey: "telegram:peer:9" } as never }),
+      ctx("t1", { requester: { role: "designated", sessionKey: "oldchat:peer:9" } as never }),
     );
     expect(other?.isError).toBe(true);
     expect(String(other?.output)).not.toContain("Acme");

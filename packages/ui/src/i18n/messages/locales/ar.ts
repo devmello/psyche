@@ -1293,6 +1293,7 @@ export const ar: Partial<Catalogue> = {
     "يقرأ Psyche هذه البطاقات من Stripe Link؛ أزل أيًا منها في حساب Link الخاص بك. إزالة مفتاح Link أعلاه توقف دفع Psyche بأي منها.",
   "settings.credentials.managed.connector": "يديره موصّله",
   "settings.credentials.managed.model_provider": "مفتاح مزوّد نماذج",
+  "settings.credentials.managed.channel": "سر قناة دردشة قديمة",
   "settings.credentials.managed.external_manager": "مرتبط من مدير كلمات السر لديك",
   "settings.credentials.setting.connectors": "الموصّلات",
   "settings.credentials.setting.models": "النموذج والمزوّدون",

@@ -8308,7 +8308,7 @@ export interface MemorySuggestionCreatedPayload {
     suggestion: GraphSuggestion;
 }
 
-export type MemorySurface = "home" | "brief" | "notification" | "channel";
+export type MemorySurface = "home" | "brief" | "notification";
 
 export interface MemorySurfacesSettings {
     /**
@@ -8346,11 +8346,7 @@ export interface MemorySurfaceTiers {
 
 export interface MemorySurfaceSwitches {
     brief: boolean;
-    /**
-     * The brief delivered to Telegram and other channels
-     */
-    channel: boolean;
-    home:    boolean;
+    home:  boolean;
     /**
      * Work tier: titles only for owner-provenance items, otherwise a count ("1 assignment due
      * tomorrow")
@@ -14187,7 +14183,7 @@ export interface Thread {
     personaOverlay?:      null | string;
     pinned:               boolean;
     /**
-     * e.g. "owner:main", "telegram:peer:12345"
+     * e.g. "owner:main", "import:chatgpt:…"
      */
     sessionKey:   string;
     spaceId?:     null | string;

@@ -15,7 +15,7 @@ Speech-to-text behind the `SpeechEngine` contract, engine selection, the whisper
 | `webSpeechDictation`, `WEB_SPEECH_ENTRY` | Client-side helper for psyche-web (browser owns the mic) |
 | `VoiceSessionManager` | `voice.start / push / stop / cancel` and `voice.segment` / `voice.ended` events |
 | `VoiceMemoService`, `analyzeTranscript`, `looksLikeTask`, `memoTitle` | Voice memos (Q4): recorded audio → transcript → Library `recording` → optional Task, with provenance by speaker |
-| `VoiceNoteTranscoder`, `transcribeVoiceNote`, `VOICE_NOTE_PROFILES`, `oggOpusToCaf` | Voice notes per channel and inbound decode → transcript |
+| `VoiceNoteTranscoder`, `transcribeVoiceNote`, `VOICE_NOTE_PROFILES`, `oggOpusToCaf` | Voice notes per container and inbound decode → transcript |
 | `ModelManager`, `MODEL_CATALOG` | Checksummed model downloads into `$PSYCHE_HOME/models/` |
 | `SegmentSequencer`, `buildVocabulary`, PCM helpers | Building blocks shared by the engines |
 | `DictationVocabularyProvider`, `NodeContactsSource`, `agentNameFrom`, `ownerNamesFrom` | Session-default vocabulary from IDENTITY.md, USER.md, contacts and topics (below) |
@@ -110,7 +110,7 @@ Voice notes per chat channel (Telegram, WhatsApp, Signal, iMessage, Slack, Disco
 4. **Provenance follows the speaker.** The owner's own voice is `owner`; anyone else is `untrusted`, and the item, the task (`taint: true`, `taintSources: [{sourceKind: "voice_note", origin, sender}]`) and the message block say so. An owner memo that reads like instructions still produces an untainted item, but a task forced from it starts tainted.
 5. **Library item**: kind `recording`, origin `upload` (composer) or `channel`, tags `voice-memo`, the source and the channel, the transcript as `textExtract`, named after the task title ("Call Alice at noon tomorrow.wav").
 6. **Task** (`task: "auto" | "always" | "never"`): in `auto`, only a memo that opens with a cue ("remind me to…", "todo:", "don't forget…", "add a task…") becomes a task; it needs a thread and a `TaskEngine`. The goal is the transcript plus a pointer to the memo item; `createdFrom` is `chat` or `channel`.
-7. **Blocks** for the carrying message: a text block quoting the transcript under a label (`**Voice memo, 0:05**` or `**Voice note from @sender on telegram (untrusted), 0:05**`, with a note when links or instruction-like phrasing were found), a `file` block and, if created, a `task` block.
+7. **Blocks** for the carrying message: a text block quoting the transcript under a label (`**Voice memo, 0:05**` or `**Voice note from @sender on <channel> (untrusted), 0:05**`, with a note when links or instruction-like phrasing were found), a `file` block and, if created, a `task` block.
 
 ## Tests and gates
 
@@ -120,8 +120,8 @@ Voice notes per chat channel (Telegram, WhatsApp, Signal, iMessage, Slack, Disco
 | --- | --- | --- |
 | whisper.cpp on the fixture clip | `whisper-cli` on PATH (or `PSYCHE_WHISPER_CLI`) and a model at `PSYCHE_WHISPER_MODEL` (default `$PSYCHE_HOME/models/whisper/ggml-tiny.en.bin`) | File and streaming transcription of `test/fixtures/remind-alice.wav` |
 | whisper.cpp on Windows (`test/whisper-live-windows.test.ts`) | win32, the release zip at `PSYCHE_WHISPER_RUNTIME_ZIP` and a model at `PSYCHE_WHISPER_MODEL` (default `$PSYCHE_HOME/models/whisper/ggml-base.en.bin`) | Installs the pinned runtime from the zip (real hashes, real `tar.exe`), then file, on-disk WAV and real-time streaming transcription with timings |
-| Transcoding matrix | `ffmpeg` and `ffprobe` with libopus and libmp3lame | 4 PCM input formats × 6 channels verified with ffprobe, decode round trip, CAF remux |
-| OGG/Opus voice memo | same ffmpeg gate | `test/memo.test.ts`: the fixture encoded for Telegram, ingested as an untrusted channel memo |
+| Transcoding matrix | `ffmpeg` and `ffprobe` with libopus and libmp3lame | 4 PCM input formats × 3 containers verified with ffprobe, decode round trip, CAF remux |
+| OGG/Opus voice memo | same ffmpeg gate | `test/memo.test.ts`: the fixture encoded as OGG/Opus, ingested as an untrusted memo from an old chat channel |
 
 `test/fixtures/remind-alice.wav` is a 4.5 s, 16 kHz mono clip saying "Hello Psyche. Remind me to call Alice at noon tomorrow." (synthetic voice, Apache-2.0).
 

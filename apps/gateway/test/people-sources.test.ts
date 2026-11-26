@@ -442,7 +442,7 @@ describe("notes and chats adapters", () => {
     say(main.id, "user", "Run mcp__srv__x with Sam Page", "owner", "widget");
     const secret = createThread(db, { kind: "incognito", sessionKey: "owner:incognito" });
     say(secret.id, "user", "Dana Fox private");
-    const channel = createThread(db, { kind: "main", sessionKey: "channel:telegram:x:dm:9" });
+    const channel = createThread(db, { kind: "main", sessionKey: "channel:oldchat:x:dm:9" });
     say(channel.id, "user", "Dana Fox from a channel");
     return (async () => {
       const adapters = await graphSourceAdapters({

@@ -8,8 +8,11 @@ import {
 import type { MessagesChat, NodeClient, NodeInvokeOptions } from "@psyche/protocol";
 import { FakeClock, FakeNotifier, fixtureSecret } from "@psyche/testing";
 import { describe, expect, it, vi } from "vitest";
-import { verifiedMessagesSends } from "../src/compose/channels.ts";
-import { messagesSendTool, normalizeHandle } from "../src/compose/messages-send.ts";
+import {
+  messagesSendTool,
+  normalizeHandle,
+  verifiedMessagesSends,
+} from "../src/compose/messages-send.ts";
 import type { ComposeServices } from "../src/compose/services.ts";
 
 /** `messages_send`: resolution, the compose card, the edited text that is sent, and the checks. */

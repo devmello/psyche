@@ -11,7 +11,6 @@ export const DAILY_SETTING_KEYS = [
   "daily.wrapup.enabled",
   "daily.wrapup.time",
   "daily.notify",
-  "daily.messages",
   "daily.followups.enabled",
   "daily.followups.sensitivity",
 ] as const;
@@ -26,8 +25,6 @@ export interface DailySettings {
   wrapup: { enabled: boolean; time: string };
   /** Send a notification with the card (held through quiet hours). Default on. */
   notify: boolean;
-  /** Also deliver the brief over the Messages channel. Default off. */
-  messages: boolean;
   followups: { enabled: boolean; sensitivity: FollowupSensitivity; awaitingDays: number };
 }
 
@@ -60,7 +57,6 @@ export function readDailySettings(kv: Pick<KeyValue, "get">): DailySettings {
       time: validTime(kv.get("daily.wrapup.time"), DEFAULT_WRAPUP_TIME),
     },
     notify: kv.get("daily.notify") !== false,
-    messages: kv.get("daily.messages") === true,
     followups: {
       enabled: kv.get("daily.followups.enabled") !== false,
       sensitivity,

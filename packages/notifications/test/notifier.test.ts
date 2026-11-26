@@ -124,15 +124,15 @@ for (const [label, makeStore] of STORES) {
       });
 
       it("gives up after maxAttempts and on non-retryable errors", async () => {
-        const { notifier, os, chat, clock } = setup({
+        const { notifier, os, device, clock } = setup({
           retry: { maxAttempts: 2, baseDelayMs: MIN },
-          routing: { channelTargets: ["telegram:42"] },
+          routing: { deviceTargets: ["device:dev_a"] },
         });
         os.outcomes = [
           { status: "failed", error: "x", retryable: true },
           { status: "failed", error: "x", retryable: true },
         ];
-        chat.outcomes = [{ status: "failed", error: "not_found", retryable: false }];
+        device.outcomes = [{ status: "failed", error: "not_found", retryable: false }];
         const n = await notifier.notify({ kind: "task_done", title: "Done", body: "" });
         clock.advance(MIN);
         await notifier.flushDue();
@@ -145,7 +145,7 @@ for (const [label, makeStore] of STORES) {
           desktop: "delivered",
           web: "delivered",
           notification: "failed",
-          "telegram:42": "failed",
+          "device:dev_a": "failed",
         });
       });
 

@@ -40,7 +40,7 @@ import { toIso } from "../sqlite.ts";
  * its approval to its exact arguments. Names are plural (`goals.*`, `ideas.*`) so the broker's
  * `goal.` write floor does not turn reads into asks.
  *
- * Owner only: a turn requested by someone else (a designated or allowed person on a channel)
+ * Owner only: a turn requested by someone other than the owner (a non-owner requester)
  * gets `forbidden`, because goals, ideas and the feed are the owner's private data. A turn that
  * read untrusted content records that in what it proposes (goal evidence, the accepted task's
  * taint sources) and cannot turn its own text into a recurring automation prompt.

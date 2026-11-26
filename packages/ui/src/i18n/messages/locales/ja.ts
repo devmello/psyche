@@ -1232,6 +1232,7 @@ export const ja: Partial<Catalogue> = {
     "PsycheはこれらのカードをStripe Linkから読み取っています。削除はLinkアカウントで行ってください。上のLinkキーを削除すると、Psycheはどのカードでも支払えなくなります。",
   "settings.credentials.managed.connector": "コネクタが管理",
   "settings.credentials.managed.model_provider": "モデルプロバイダのキー",
+  "settings.credentials.managed.channel": "以前のチャットチャンネルのシークレット",
   "settings.credentials.managed.external_manager": "パスワードマネージャからリンク",
   "settings.credentials.setting.connectors": "コネクタ",
   "settings.credentials.setting.models": "モデルとプロバイダ",

@@ -334,7 +334,7 @@ describe("answer lockout counts guessing only", () => {
     const h = makeBroker({ approvers: approvers({ ...devices }) });
     const issued = await request(h, write());
     h.clock.advance(500);
-    const chat = { channel: "telegram", senderId: "owner-1" } as never;
+    const chat = { channel: "oldchat", senderId: "owner-1" } as never;
     const codes: string[] = [];
     for (let i = 0; i < 100; i += 1) {
       const res = await h.broker

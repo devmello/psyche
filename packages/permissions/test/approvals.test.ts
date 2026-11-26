@@ -20,7 +20,7 @@ const h0 = () => makeBroker();
 async function request(
   h: ReturnType<typeof makeBroker>,
   c: PolicyCall,
-  surfaces = ["desktop", "web", "telegram:42"],
+  surfaces = ["desktop", "web", "oldchat:42"],
 ) {
   const d = await h.broker.decide(c, CTX);
   return h.broker.requestApproval({
@@ -160,12 +160,12 @@ describe("approval lifecycle", () => {
     // Chat channels were removed (2026-11-25): no chat sender answers, not even the identity
     // that used to be the owner's, and not with a device's token either.
     for (const senderId of ["friend", "owner-1"]) {
-      for (const token of [issued.answerTokens["telegram:42"], issued.answerTokens.desktop]) {
+      for (const token of [issued.answerTokens["oldchat:42"], issued.answerTokens.desktop]) {
         await expect(
           h.broker.answer({
             ...base,
             answerToken: token ?? "",
-            decidedBy: { channel: "telegram", senderId },
+            decidedBy: { channel: "oldchat", senderId },
           }),
         ).rejects.toMatchObject({ code: "forbidden" });
       }
@@ -174,7 +174,7 @@ describe("approval lifecycle", () => {
     await expect(
       h.broker.answer({
         ...base,
-        answerToken: issued.answerTokens["telegram:42"] ?? "",
+        answerToken: issued.answerTokens["oldchat:42"] ?? "",
         decidedBy: { deviceId: "dev_mac" },
       }),
     ).rejects.toMatchObject({ code: "forbidden" });
@@ -290,7 +290,7 @@ describe("approval lifecycle", () => {
     const issued = await request(
       h,
       call("email.send", "destructive", { kind: "recipient", value: "a@example.org" }),
-      ["telegram:1", "desktop"],
+      ["oldchat:1", "desktop"],
     );
     expect(issued.approval.surfaces).toEqual(["desktop"]);
     expect(issued.approval.deviceOnly).toBe(true);
@@ -307,15 +307,15 @@ describe("approval lifecycle", () => {
         },
       );
     const passport = await request(h0(), send(`passport number: ${["X123", "4567"].join("")}`), [
-      "telegram:1",
+      "oldchat:1",
       "desktop",
     ]);
     expect(passport.approval.surfaces).toEqual(["desktop"]);
     expect(passport.approval.deviceOnly).toBe(true);
-    // The same send without the value may reach the chat as usual.
-    const plain = await request(h0(), send("See you Tuesday."), ["telegram:1", "desktop"]);
+    // The same send without the value keeps the surfaces it was offered.
+    const plain = await request(h0(), send("See you Tuesday."), ["oldchat:1", "desktop"]);
     expect(plain.approval.deviceOnly).toBe(false);
-    expect(plain.approval.surfaces).toContain("telegram:1");
+    expect(plain.approval.surfaces).toContain("oldchat:1");
   });
 
   it("presence is required and bound to the request when a verifier is configured (design-04)", async () => {
@@ -329,7 +329,7 @@ describe("approval lifecycle", () => {
       },
     });
     const c = call("purchase.checkout", "financial", origin("https://shop.example.com"));
-    const issued = await request(h, c, ["desktop", "web", "telegram:1"]);
+    const issued = await request(h, c, ["desktop", "web", "oldchat:1"]);
     expect(issued.approval.surfaces).toEqual(["desktop", "web"]);
     expect(issued.approval.requiresAuthentication).toBe(true);
     h.clock.advance(500);

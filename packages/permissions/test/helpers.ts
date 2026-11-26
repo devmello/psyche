@@ -18,7 +18,7 @@ import {
 } from "../src/index.ts";
 
 export const DEVICE = { deviceId: "dev_mac" };
-export const OWNER = { channel: "telegram", senderId: "owner-1" };
+export const OWNER = { channel: "oldchat", senderId: "owner-1" };
 
 /** Paired devices and owner identities for tests. */
 export function approvers(

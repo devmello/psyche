@@ -47,8 +47,8 @@ export interface ChatSnapshot {
 
 /**
  * Reads the thread from the store, synchronously. Only a message the owner typed counts: role
- * `user`, provenance `owner`, and no `channelRef` (a Telegram or iMessage turn arrives through a
- * channel, and anything an app or a person forwards is not the owner's typing).
+ * `user`, provenance `owner`, and no `channelRef` (an old chat channel turn carries one, and
+ * anything an app or a person forwards is not the owner's typing).
  */
 export function snapshotThread(db: PsycheDb, threadId: string): ChatSnapshot | undefined {
   const thread = getThread(db, threadId);

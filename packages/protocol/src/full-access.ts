@@ -22,8 +22,8 @@ export type FullAccessThreadRefusal = "thread_kind" | "imported" | "channel_sess
 
 /**
  * Why `full` can't be set on this thread, or `undefined` when it can. The app's own chats have
- * session keys `owner:…` or `main…`; any other key (`telegram:peer:…`, `import:…`,
- * `specialist:…`, an automation run's) names a channel, import or job session.
+ * session keys `owner:…` or `main…`; any other key (an old chat channel's `<channel>:peer:…`,
+ * `import:…`, `specialist:…`, an automation run's) names a channel, import or job session.
  */
 export function fullAccessThreadRefusal(thread: {
   kind: string;
@@ -65,7 +65,7 @@ export function fullAccessIgnored(f: FullAccessRunFacts): FullAccessIgnored | un
   if (f.unattended === true) return "unattended";
   if (f.requester !== undefined) {
     if (f.requester.role !== "owner") return "requester";
-    // The owner's own message through Telegram, iMessage or mail: the chat is the channel's.
+    // The owner's own message through an old chat channel: the chat is the channel's.
     if (f.requester.channel !== undefined) return "channel";
   }
   if (!OWNER_TURN_INITIATORS.includes(f.initiator)) return "initiator";

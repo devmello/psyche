@@ -1270,6 +1270,7 @@ export const de: Partial<Catalogue> = {
     "Psyche liest diese Karten aus Stripe Link; entferne eine in deinem Link-Account. Das Entfernen des Link-Schlüssels oben verhindert, dass Psyche mit einer davon bezahlt.",
   "settings.credentials.managed.connector": "Von der Verbindung verwaltet",
   "settings.credentials.managed.model_provider": "Schlüssel eines Modellanbieters",
+  "settings.credentials.managed.channel": "Geheimnis eines alten Chat-Kanals",
   "settings.credentials.managed.external_manager": "Aus deinem Passwortmanager verknüpft",
   "settings.credentials.setting.connectors": "Verbindungen",
   "settings.credentials.setting.models": "Modell & Anbieter",

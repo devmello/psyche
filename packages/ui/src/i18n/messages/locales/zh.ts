@@ -1260,6 +1260,7 @@ export const zh: Partial<Catalogue> = {
     "Psyche 从 Stripe Link 读取这些卡片；请在你的 Link 账户中移除。移除上方的 Link 密钥后，Psyche 将不再用其中任何一张付款。",
   "settings.credentials.managed.connector": "由其连接器管理",
   "settings.credentials.managed.model_provider": "模型提供商的密钥",
+  "settings.credentials.managed.channel": "旧聊天渠道的密钥",
   "settings.credentials.managed.external_manager": "从你的密码管理器链接",
   "settings.credentials.setting.connectors": "连接器",
   "settings.credentials.setting.models": "模型与提供商",

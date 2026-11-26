@@ -151,7 +151,7 @@ export interface Requester {
   /** `identities.id` (`owner` for the owner) when the sender is linked to an identity. */
   identityId?: string;
   display?: string;
-  /** Channel type (`telegram`, `imessage`, …) and the sender's id on it. */
+  /** Where a non-owner's message came from (a removed chat channel's type) and the sender's id. */
   channel?: string;
   senderId?: string;
   chatId?: string;

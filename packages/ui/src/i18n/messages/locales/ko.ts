@@ -1232,6 +1232,7 @@ export const ko: Partial<Catalogue> = {
     "Psyche는 이 카드들을 Stripe Link에서 읽어 옵니다. 제거하려면 Link 계정에서 제거하십시오. 위의 Link 키를 제거하면 Psyche는 어떤 카드로도 결제하지 않습니다.",
   "settings.credentials.managed.connector": "커넥터가 관리함",
   "settings.credentials.managed.model_provider": "모델 제공업체의 키",
+  "settings.credentials.managed.channel": "이전 채팅 채널의 비밀 값",
   "settings.credentials.managed.external_manager": "암호 관리자에서 연결됨",
   "settings.credentials.setting.connectors": "커넥터",
   "settings.credentials.setting.models": "모델 및 제공업체",

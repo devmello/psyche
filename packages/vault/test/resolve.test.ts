@@ -202,7 +202,7 @@ describe("resolve (G4, G5, G7)", () => {
       element: PASSWORD_FIELD,
       requestedBy: { runId: null, taskId: "task_1", threadId: null, agent: "Pip" },
       taint: false,
-      surfaces: ["desktop", "notification", "telegram:42"],
+      surfaces: ["desktop", "notification", "oldchat:42"],
     });
     expect(issued.approval).toMatchObject({
       kind: "credential_fill",

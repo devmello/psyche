@@ -24564,7 +24564,6 @@ public struct MemorySuggestionCreatedPayload: Codable, Sendable {
 
 public enum MemorySurface: String, Codable, Sendable {
     case brief = "brief"
-    case channel = "channel"
     case home = "home"
     case notification = "notification"
 }
@@ -24641,8 +24640,6 @@ public struct MemorySurfaceTiers: Codable, Sendable {
 // MARK: - MemorySurfaceSwitches
 public struct MemorySurfaceSwitches: Codable, Sendable {
     public let brief: Bool
-    /// The brief delivered to Telegram and other channels
-    public let channel: Bool
     public let home: Bool
     /// Work tier: titles only for owner-provenance items, otherwise a count ("1 assignment due
     /// tomorrow")
@@ -24650,14 +24647,12 @@ public struct MemorySurfaceSwitches: Codable, Sendable {
 
     public enum CodingKeys: String, CodingKey {
         case brief = "brief"
-        case channel = "channel"
         case home = "home"
         case notification = "notification"
     }
 
-    public init(brief: Bool, channel: Bool, home: Bool, notification: Bool) {
+    public init(brief: Bool, home: Bool, notification: Bool) {
         self.brief = brief
-        self.channel = channel
         self.home = home
         self.notification = notification
     }
@@ -40579,7 +40574,7 @@ public struct Thread: Codable, Sendable {
     public let permissionMode: PermissionMode
     public let personaOverlay: String?
     public let pinned: Bool
-    /// e.g. "owner:main", "telegram:peer:12345"
+    /// e.g. "owner:main", "import:chatgpt:…"
     public let sessionKey: String
     public let spaceID: String?
     public let title: String

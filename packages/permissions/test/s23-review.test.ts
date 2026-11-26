@@ -161,7 +161,7 @@ describe("design-12: card spoofing", () => {
     }) as Parameters<typeof renderForSurface>[1];
 
   it("security lines first, plain text, newlines collapsed inside quoted slots", () => {
-    const tg = renderForSurface("telegram:1", approval());
+    const tg = renderForSurface("oldchat:1", approval());
     expect(tg.parseMode).toBeUndefined();
     const lines = tg.text.split("\n");
     expect(lines[0]).toMatch(/^Send email · destructive/);

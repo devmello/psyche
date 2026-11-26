@@ -12,7 +12,7 @@ import { FUZZ } from "./config.ts";
 type Op =
   | {
       op: "answer";
-      surface: "desktop" | "web" | "telegram:1";
+      surface: "desktop" | "web" | "oldchat:1";
       who: "mac" | "reader" | "node" | "owner_chat" | "friend_chat";
       decision: "approve" | "deny";
       scope: "once" | "always";
@@ -26,7 +26,7 @@ type Op =
 const opArb: fc.Arbitrary<Op> = fc.oneof(
   fc.record({
     op: fc.constant("answer" as const),
-    surface: fc.constantFrom("desktop" as const, "web" as const, "telegram:1" as const),
+    surface: fc.constantFrom("desktop" as const, "web" as const, "oldchat:1" as const),
     who: fc.constantFrom(
       "mac" as const,
       "reader" as const,
@@ -51,8 +51,8 @@ const WHO = {
   mac: { deviceId: "dev_mac" },
   reader: { deviceId: "dev_reader" },
   node: { deviceId: "dev_node" },
-  owner_chat: { channel: "telegram", senderId: "owner-1" },
-  friend_chat: { channel: "telegram", senderId: "friend" },
+  owner_chat: { channel: "oldchat", senderId: "owner-1" },
+  friend_chat: { channel: "oldchat", senderId: "friend" },
 } as const;
 
 describe("fuzz: approval lifecycle", () => {
@@ -77,7 +77,7 @@ describe("fuzz: approval lifecycle", () => {
               grantKey: d.grantKey ?? "",
               requestedBy: { runId: CTX.runId, taskId: CTX.taskId ?? null, threadId: CTX.threadId },
               sideEffect: c.sideEffect,
-              surfaces: ["desktop", "web", "telegram:1"],
+              surfaces: ["desktop", "web", "oldchat:1"],
               taint: false,
             });
             const id = issued.approval.id;

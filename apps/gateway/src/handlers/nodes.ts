@@ -29,7 +29,7 @@ import { isMachineInvokeReachable } from "../nodes/machines.ts";
  * Capabilities that have a Gateway agent tool are reachable only through that tool, which
  * describes them (kind, binding, the full arguments on the card, #274): `apps.*` (AppleScript,
  * JXA, Shortcuts, open / focus), `computer.*` (sessions and per-app tiers), `messages.*`
- * (the iMessage channel's reply authority), `notify.*` (the Gateway's approval notifications),
+ * (`messages_send` and the Messages readers), `notify.*` (the Gateway's approval notifications),
  * `ocr.*` (search ingest's Vision OCR) and `llm.*` (the model router's Apple on-device model).
  * `teach.*` records the owner's actions in a desktop app (teach by showing, phase 2): only the
  * desktop shell reaches it, through the Gateway's own `teach.app.*` methods, so neither a client

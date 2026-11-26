@@ -1247,6 +1247,7 @@ export const hi: Partial<Catalogue> = {
     "Psyche ये कार्ड Stripe Link से पढ़ता है; किसी एक को अपने Link खाते में हटाएँ। ऊपर दी गई Link कुंजी हटाने से Psyche इनमें से किसी से भी भुगतान करना बंद कर देता है।",
   "settings.credentials.managed.connector": "इसके कनेक्टर द्वारा प्रबंधित",
   "settings.credentials.managed.model_provider": "एक मॉडल प्रदाता की कुंजी",
+  "settings.credentials.managed.channel": "एक पुराने चैट चैनल का सीक्रेट",
   "settings.credentials.managed.external_manager": "आपके पासवर्ड मैनेजर से लिंक किया गया",
   "settings.credentials.setting.connectors": "कनेक्टर",
   "settings.credentials.setting.models": "मॉडल और प्रदाता",
