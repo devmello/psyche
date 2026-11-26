@@ -1,7 +1,5 @@
 /** The memory map: a List | Map view of the Memory page (`memory-page/map/`). */
 export const memoryMap = {
-  "memory.page.view": "View",
-  "memory.page.view.list": "List",
   "memory.page.view.map": "Map",
 
   "memory.map.title": "Memory map",

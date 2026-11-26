@@ -14,6 +14,7 @@ import {
   type UsageSummaryData,
   usageLead,
   usageLine,
+  usageWarning,
 } from "../src/shell/UsageFooter.tsx";
 import { STORY_NOW, StoryWorld } from "../src/stories/harness.tsx";
 
@@ -21,6 +22,16 @@ const budgeted = (spent: number, budget: number): UsageSummaryData => ({
   ...usageSummary(),
   month: { ...usageSummary().month, costUsd: spent },
   budgetUsd: budget,
+});
+
+/** A subscription whose plan window is nearly used up. */
+const nearWindow = (fraction = 0.85): UsageSummaryData => ({
+  ...subscriptionUsageSummary(),
+  planWindow: {
+    modelRef: "claude-code/sonnet",
+    usedFraction: fraction,
+    resetsAt: "2026-10-18T14:00:00.000Z",
+  },
 });
 
 function renderFooter(summary: UsageSummaryData, variant: "full" | "rail" = "full") {
@@ -86,8 +97,24 @@ describe("what the usage footer leads with (#599)", () => {
 });
 
 describe("UsageFooter", () => {
-  it("API key: today's cost and tokens as plain text, opening Settings → Usage", async () => {
+  it("is quiet by default: the name alone, no usage line and no graphic", async () => {
     const { button, onOpenUsage } = renderFooter(usageSummary());
+    expect(button.textContent).toBe("");
+    expect(screen.queryByTestId("usage-budget")).toBeNull();
+    expect(usageWarning(usageSummary())).toBe(false);
+    // Positive control: the numbers are still one click and one hover away.
+    expect(button.getAttribute("aria-label")).toMatch(/\$0\.42 today · 18k tokens/);
+    await userEvent.click(button);
+    expect(onOpenUsage).toHaveBeenCalled();
+    const calm = nearWindow(0.5);
+    expect(usageWarning(calm)).toBe(false);
+  });
+
+  it("shows the line and the bar once a budget is near (from 80 %)", async () => {
+    expect(usageWarning(budgeted(31, 40))).toBe(false);
+    expect(usageWarning(budgeted(34, 40))).toBe(true);
+    expect(usageWarning(nearWindow())).toBe(true);
+    const { button, onOpenUsage } = renderFooter(budgeted(34, 40));
     expect(button.textContent).toContain("$0.42 today · 18k tokens");
     expect(screen.queryByTestId("usage-sparkline")).toBeNull();
     expect(button.getAttribute("aria-label")).toMatch(/^\$0\.42 today · 18k tokens\. /);
@@ -108,7 +135,7 @@ describe("UsageFooter", () => {
 
   it("subscription without a window: turns and tokens only, never a percentage", async () => {
     const { button } = renderFooter(subscriptionUsageSummary());
-    expect(button.textContent).toContain("12 turns today · ≈ 18k tokens");
+    expect(button.getAttribute("aria-label")).toContain("12 turns today · ≈ 18k tokens");
     expect(screen.queryByTestId("usage-ring")).toBeNull();
     expect(button.textContent).not.toMatch(/%/);
     await userEvent.hover(button);
@@ -118,18 +145,11 @@ describe("UsageFooter", () => {
   });
 
   it("subscription with the plan's window: a ring, and the share with its reset in the card", async () => {
-    const { button } = renderFooter({
-      ...subscriptionUsageSummary(),
-      planWindow: {
-        modelRef: "claude-code/sonnet",
-        usedFraction: 0.62,
-        resetsAt: "2026-10-18T14:00:00.000Z",
-      },
-    });
+    const { button } = renderFooter(nearWindow(0.85));
     expect(screen.getByTestId("usage-ring")).toBeTruthy();
     await userEvent.hover(button);
     const card = await screen.findByTestId("usage-card");
-    expect(card.textContent).toMatch(/62% of the plan window used · resets/);
+    expect(card.textContent).toMatch(/85% of the plan window used · resets/);
   });
 
   it("focus opens the card with the week by model", async () => {
@@ -141,8 +161,15 @@ describe("UsageFooter", () => {
     expect(card.textContent).toMatch(/\$12\.60 of \$40\.00 this month \(32%\)/);
   });
 
-  it("the rail shows the graphic alone, with the numbers in its name", () => {
-    const { button } = renderFooter(usageSummary(), "rail");
+  it("the rail shows nothing until a budget is near, then the graphic alone", () => {
+    const quiet = render(
+      <StoryWorld>
+        <UsageFooter summary={usageSummary()} variant="rail" />
+      </StoryWorld>,
+    );
+    expect(screen.queryByTestId("usage-footer")).toBeNull();
+    quiet.unmount();
+    const { button } = renderFooter(budgeted(34, 40), "rail");
     expect(button.textContent).toBe("");
     expect(button.getAttribute("aria-label")).toContain("$0.42 today");
     expect(screen.queryByTestId("usage-sparkline")).toBeNull();
@@ -178,9 +205,11 @@ describe("the connected footer", () => {
       </StoryWorld>,
     );
     await waitFor(() =>
-      expect(screen.getByTestId("usage-footer").textContent).toContain("4 turns today"),
+      expect(screen.getByTestId("usage-footer").getAttribute("aria-label")).toContain(
+        "4 turns today",
+      ),
     );
-    expect(screen.getByTestId("usage-footer").textContent).not.toMatch(/\$/);
+    expect(screen.getByTestId("usage-footer").getAttribute("aria-label")).not.toMatch(/\$/);
   });
 
   it("reads usage.summary in this device's time zone and refreshes after a run ends", async () => {
@@ -199,7 +228,7 @@ describe("the connected footer", () => {
       </StoryWorld>,
     );
     const footer = await screen.findByTestId("usage-footer");
-    expect(footer.textContent).toContain("$0.42 today");
+    expect(footer.getAttribute("aria-label")).toContain("$0.42 today");
     const g = gateway as MockGateway;
     const calls = () => g.calls.filter((c) => c.method === "usage.summary");
     expect(calls()[0]?.params).toMatchObject({ days: 7 });

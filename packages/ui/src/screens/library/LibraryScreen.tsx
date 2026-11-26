@@ -571,6 +571,12 @@ export interface LibraryViewProps extends LibraryItemActions {
   now: number;
 }
 
+/**
+ * The sections with a tab. Each file belongs to exactly one section, so there is no "All"; the
+ * two rarely used ones (Artifacts, System files) sit behind the Filter popover's "Show" row.
+ */
+const TAB_SECTIONS: readonly LibrarySection[] = ["documents", "images", "downloads"];
+
 /** Library (docs/design/redesign-2026.md §5.7). Presentational. */
 export function LibraryView({
   items,
@@ -591,7 +597,7 @@ export function LibraryView({
   now,
   ...actions
 }: LibraryViewProps): ReactElement {
-  const ids = { type: useId(), task: useId(), date: useId() };
+  const ids = { show: useId(), type: useId(), task: useId(), date: useId() };
   const showSkeleton = useDelayedFlag(loading, loadingDelayMs);
   const [selected, setSelected] = useState<string | null>(null);
   const inSection = items.filter((i) => sectionOf(i) === section);
@@ -774,7 +780,7 @@ export function LibraryView({
           <Button
             type="button"
             size="sm"
-            variant={filtered ? "secondary" : "ghost"}
+            variant={filtered || !TAB_SECTIONS.includes(section) ? "secondary" : "ghost"}
             title={t("screens.library.filter")}
           />
         }
@@ -791,6 +797,28 @@ export function LibraryView({
           <legend className="mb-1 text-headline text-label-primary">
             {t("screens.library.filters")}
           </legend>
+          {labelled(
+            ids.show,
+            t("screens.library.showFilter"),
+            <NativeSelect
+              id={ids.show}
+              size="sm"
+              value={section}
+              onChange={(e) => {
+                const next = LIBRARY_SECTIONS.find((x) => x.id === e.target.value);
+                if (next) {
+                  setSelected(null);
+                  onSectionChange?.(next.id);
+                }
+              }}
+            >
+              {LIBRARY_SECTIONS.map((x) => (
+                <option key={x.id} value={x.id}>
+                  {x.label}
+                </option>
+              ))}
+            </NativeSelect>,
+          )}
           {labelled(
             ids.type,
             t("screens.library.typeFilter"),
@@ -882,7 +910,7 @@ export function LibraryView({
         // justify-start: a centred flex row that overflows loses its start edge to a scroll it can't reach.
         className="max-w-full justify-start overflow-x-auto"
       >
-        {LIBRARY_SECTIONS.map((s) => (
+        {LIBRARY_SECTIONS.filter((s) => TAB_SECTIONS.includes(s.id)).map((s) => (
           <TabsTrigger key={s.id} value={s.id}>
             {s.label}
           </TabsTrigger>
@@ -895,14 +923,6 @@ export function LibraryView({
     <section aria-label={t("screens.library.title")}>
       <ScreenToolbar
         title={t("screens.library.title")}
-        {...(!loading && error === null
-          ? {
-              meta: t("screens.library.meta.count", {
-                section: spec?.label ?? "",
-                n: shown.length,
-              }),
-            }
-          : {})}
         center={sections}
         actions={
           <>
@@ -925,12 +945,7 @@ export function LibraryView({
           </>
         }
       />
-      <ScreenColumn width="wide">
-        <p className="text-callout text-label-secondary">
-          {t("screens.library.description", { name: persona })}
-        </p>
-        {body}
-      </ScreenColumn>
+      <ScreenColumn width="wide">{body}</ScreenColumn>
     </section>
   );
 }

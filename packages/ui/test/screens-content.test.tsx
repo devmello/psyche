@@ -322,10 +322,51 @@ describe("LibraryScreen", () => {
     });
   });
 
+  it("has three tabs, no caption, and Artifacts and System files in the Filter popover", async () => {
+    const { user } = setup(<LibraryScreen now={STORY_NOW} />);
+    await screen.findByText("acme-intake-form.pdf");
+    expect(screen.getAllByRole("tab").map((tab) => tab.textContent)).toEqual([
+      "Documents",
+      "Images",
+      "Downloads",
+    ]);
+    expect(screen.queryByText(/each linked to the task that produced it/)).toBeNull();
+    expect(screen.queryByText(/\d+ files?$/)).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Filter" }));
+    const show = await screen.findByLabelText("Show");
+    expect(
+      within(show)
+        .getAllByRole("option")
+        .map((o) => o.textContent),
+    ).toEqual(expect.arrayContaining(["Artifacts", "System files"]));
+    // Four rows: Show, Type, Source task, Date.
+    expect(screen.getByLabelText("Type")).toBeTruthy();
+    expect(screen.getByLabelText("Source task")).toBeTruthy();
+    expect(screen.getByLabelText("Date")).toBeTruthy();
+    await user.selectOptions(show, "Artifacts");
+    expect(await screen.findByText("half-marathon-plan.pdf")).toBeTruthy();
+  });
+
+  it("filters by source task from the popover", async () => {
+    const { user } = setup(<LibraryScreen now={STORY_NOW} section="artifacts" />);
+    await screen.findByText("half-marathon-plan.pdf");
+    const before = screen.getAllByRole("article").length;
+    await user.click(screen.getByRole("button", { name: "Filter" }));
+    const task = (await screen.findByLabelText("Source task")) as HTMLSelectElement;
+    const options = within(task).getAllByRole("option");
+    expect(options[0]?.textContent).toBe("Any task");
+    expect(options.length).toBeGreaterThan(1);
+    await user.selectOptions(task, (options[1] as HTMLOptionElement).value);
+    expect(screen.getAllByRole("article").length).toBeLessThan(before);
+    await user.selectOptions(task, "");
+    expect(screen.getAllByRole("article").length).toBe(before);
+  });
+
   it("switches tabs and opens system files in the editor", async () => {
     const { navigate, user } = setup(<LibraryScreen now={STORY_NOW} />);
     await screen.findByText("acme-intake-form.pdf");
-    await user.click(screen.getByRole("tab", { name: "System files" }));
+    await user.click(screen.getByRole("button", { name: "Filter" }));
+    await user.selectOptions(await screen.findByLabelText("Show"), "System files");
     await user.dblClick(await screen.findByRole("button", { name: "Open SOUL.md in the editor" }));
     expect(navigate).toHaveBeenCalledWith("/agent/soul?file=SOUL.md");
     // Return on a focused item opens it too.

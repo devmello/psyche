@@ -252,7 +252,7 @@ describe("Quick add", () => {
 
 describe("Everything and Back", () => {
   it("puts Due soon in the overview: open items by date, past due first, with a one-tap Done", async () => {
-    const { callsTo, navigate, user } = setup(<MemoryScreen now={STORY_NOW} />);
+    const { callsTo, navigate, user } = setup(<MemoryScreen kind="everything" now={STORY_NOW} />);
     const due = await screen.findByRole("region", { name: "Due soon" });
     const names = within(due)
       .getAllByTestId("work-row")
@@ -281,7 +281,7 @@ describe("Everything and Back", () => {
   });
 
   it("shows no Due soon when nothing is tracked", async () => {
-    setup(<MemoryScreen now={STORY_NOW} />, {
+    setup(<MemoryScreen kind="everything" now={STORY_NOW} />, {
       edit: (w) => {
         w.graph.entities = w.graph.entities.filter((e) => e.kind !== "assignment");
       },
@@ -763,22 +763,22 @@ describe("a to-do with no project", () => {
   });
 });
 
-describe("tracking a course end to end", () => {
-  /** A host that follows `onNavigate` the way the app does, so one test can walk the pages. */
-  function Host(): ReactElement {
-    const [route, setRoute] = useState("/memory?kind=projects");
-    const url = new URL(route, "http://psyche.local");
-    const entity = url.searchParams.get("entity");
-    return (
-      <MemoryScreen
-        now={STORY_NOW}
-        kind={parseMemoryKind(url.searchParams.get("kind"))}
-        {...(entity ? { entity } : {})}
-        onNavigate={setRoute}
-      />
-    );
-  }
+/** A host that follows `onNavigate` the way the app does, so one test can walk the pages. */
+function Host(): ReactElement {
+  const [route, setRoute] = useState("/memory?kind=projects");
+  const url = new URL(route, "http://psyche.local");
+  const entity = url.searchParams.get("entity");
+  return (
+    <MemoryScreen
+      now={STORY_NOW}
+      kind={parseMemoryKind(url.searchParams.get("kind"))}
+      {...(entity ? { entity } : {})}
+      onNavigate={setRoute}
+    />
+  );
+}
 
+describe("tracking a course end to end", () => {
   it("adds a course, gives it a term, links a folder, adds an assignment, works it and finishes it", async () => {
     const { callsTo, user } = setup(<Host />);
 
@@ -843,7 +843,7 @@ describe("tracking a course end to end", () => {
 
     // 7. Back out: it sits under Done in Work due, with its course.
     await user.click(screen.getByRole("button", { name: /^Back to/ }));
-    await user.click(await screen.findByRole("button", { name: "Work due" }));
+    await user.click(await screen.findByRole("button", { name: "Work" }));
     const done = await group("Done");
     const row = await within(done).findByText("Problem set 1");
     expect(

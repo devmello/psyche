@@ -17,6 +17,7 @@ import { connectorGallery } from "./connector-gallery/ar.ts";
 import { connectorsPage } from "./connectors-page/ar.ts";
 import { daily } from "./daily/ar.ts";
 import { design } from "./design/ar.ts";
+import { desktopSimple } from "./desktop-simple/ar.ts";
 import { deviceAccess } from "./device-access/ar.ts";
 import { final202611 } from "./final-2026-11/ar.ts";
 import { friction } from "./friction/ar.ts";
@@ -1092,17 +1093,11 @@ export const ar: Partial<Catalogue> = {
   "shell.sidebar.full": "شريط جانبي كامل",
   "shell.sidebar.compact": "شريط جانبي مضغوط",
   "shell.sidebar.hidden": "مخفي",
-  "shell.sidebar.filterToggle": "تصفية",
   "shell.sidebar.forkedFrom": "دردشة جانبية من {parent}",
   "shell.search.results": "النتائج",
   "shell.search.preview": "معاينة",
-  "shell.search.hintOpen": "فتح",
   "shell.search.hintSideChat": "فتح في دردشة جانبية",
-  "shell.search.hintFilter": "تصفية",
   "shell.search.keyCtrlEnter": "Ctrl ↵",
-  "shell.search.keyTab": "Tab",
-  "shell.search.actionHint": "يشغّل هذا الأمر.",
-  "shell.search.run": "تشغيل",
   "shell.search.open": "فتح",
   "shell.search.openInSideChat": "فتح في دردشة جانبية",
   "shell.compact.threads": "المحادثات",
@@ -2955,7 +2950,6 @@ export const ar: Partial<Catalogue> = {
   "onboarding.agent.taglinePlaceholder": "أجنحة هادئة، وأيدٍ حريصة.",
   "onboarding.agent.preview": "معاينة",
   "onboarding.language.label": "اللغة",
-  "onboarding.language.hint": "يمكنك تغييرها لاحقًا في الإعدادات ← المظهر.",
   "onboarding.permission.why.notifications":
     "تتيح لـ Psyche طلب الموافقات عندما تكون هذه النافذة مغلقة.",
   "onboarding.permission.deniedHint":
@@ -3403,10 +3397,6 @@ export const ar: Partial<Catalogue> = {
   "screens.library.noMatch": "لا ملفات تطابق عوامل التصفية هذه.",
   "screens.library.askToMake": "اطلب من {name} إنشاء واحد",
   "screens.library.title": "المكتبة",
-  "screens.library.meta.count":
-    "{section} · {n, plural, zero {لا ملفات} one {ملف واحد} two {ملفان} few {# ملفات} many {# ملفًا} other {# ملف}}",
-  "screens.library.description":
-    "الملفات التي أنشأها {name} أو استلمها، كل منها مرتبط بالمهمة التي أنتجته.",
   "screens.library.layout": "التخطيط",
   "screens.library.grid": "شبكة",
   "screens.library.list": "قائمة",
@@ -3422,8 +3412,6 @@ export const ar: Partial<Catalogue> = {
   "screens.library.col.actions": "الإجراءات",
   "screens.library.typeFilter": "النوع",
   "screens.library.allTypes": "كل الأنواع",
-  "screens.library.sourceTask": "المهمة المصدر",
-  "screens.library.anyTask": "أي مهمة",
   "screens.library.dateFilter": "التاريخ",
   "screens.library.reset": "إعادة تعيين",
   "screens.library.trusted": "تم الوثوق بـ {name}.",
@@ -4066,6 +4054,7 @@ export const ar: Partial<Catalogue> = {
   ...points,
   // Approvals wave W3 (card choices, Allowed list)
   ...approvalsW3,
+  ...desktopSimple,
   // Gateway-authored notices (inbox notifications, security alerts)
   ...notices,
   // Settings > Computer use > Separate desktop (Linux)

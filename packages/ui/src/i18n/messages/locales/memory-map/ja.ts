@@ -2,8 +2,6 @@ import type { Catalogue } from "../../index.ts";
 
 /** Memory map strings (ja); merged into `../ja.ts`. */
 export const memoryMap: Partial<Catalogue> = {
-  "memory.page.view": "表示",
-  "memory.page.view.list": "リスト",
   "memory.page.view.map": "マップ",
   "memory.map.title": "メモリーマップ",
   "memory.map.canvasLabel":
