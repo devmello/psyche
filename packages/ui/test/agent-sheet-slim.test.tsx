@@ -51,6 +51,10 @@ beforeEach(() => {
   window.localStorage.clear();
 });
 
+function Probe() {
+  return <output data-testid="tab">{useDefaultAgentTab()}</output>;
+}
+
 describe("the two segments", () => {
   it("are Approvals (with the needs-you badge) and Personality, and nothing else", async () => {
     sheet();
@@ -74,9 +78,6 @@ describe("the two segments", () => {
   });
 
   it("defaults to Approvals when something needs you, else the last used segment", async () => {
-    function Probe() {
-      return <output data-testid="tab">{useDefaultAgentTab()}</output>;
-    }
     rememberAgentTab("soul");
     const waiting = render(
       <StoryWorld>
