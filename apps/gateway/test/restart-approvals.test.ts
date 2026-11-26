@@ -10,6 +10,7 @@ import {
 } from "@psyche/db";
 import {
   createPermissionBroker,
+  createPermissionHandlers,
   type PolicyCall,
   type PsychePermissionBroker,
   SqlitePermissionStore,
@@ -72,7 +73,13 @@ function world() {
 
   /** A run that raised a card and waits. `unattended` sets the card aside, like the loop does. */
   async function waitingRun(
-    opts: { unattended?: boolean; taskId?: string; origin?: "owner" | "channel" } = {},
+    opts: {
+      unattended?: boolean;
+      taskId?: string;
+      origin?: "owner" | "channel";
+      /** A card the loop raises for itself (`permission_request`, "Turn on: run commands"). */
+      kind?: "permission_request";
+    } = {},
   ) {
     const run = createRun(db, {
       threadId: thread.id,
@@ -92,8 +99,8 @@ function world() {
     const d = await first.decide(call, ctx);
     if (d.decision !== "ask" || d.approvalKind === undefined) throw new Error(`no ask: ${d.rule}`);
     const issued = await first.requestApproval({
-      kind: d.approvalKind,
-      summary: "Write the notes",
+      kind: opts.kind ?? d.approvalKind,
+      summary: opts.kind === undefined ? "Write the notes" : "Turn on: run commands on this Mac",
       details: {},
       bindingHash: d.bindingHash ?? "",
       grantKey: d.grantKey ?? "k",
@@ -334,5 +341,41 @@ describe("who the Try again resends", () => {
     await w.restart();
     expect(w.notes()).toHaveLength(1);
     expect(retryOf(w)).toBeUndefined();
+  });
+});
+
+describe("a permission_request card (exec_host) left pending across a restart (QA item 6)", () => {
+  it("is invalidated, visible in approvals.list as invalidated, and the run gets one Try again", async () => {
+    const w = world();
+    const { run, issued: old } = await w.waitingRun({ kind: "permission_request" });
+    const { broker, issued } = await w.restart();
+
+    // The run is stopped honestly, with the one-tap retry of the owner's last message.
+    expect(getRun(w.db, run.id)).toMatchObject({ status: "failed", error: RESTART_ERROR });
+    expect(w.notes()).toHaveLength(1);
+    expect(w.notes()[0]?.blocks[0]).toMatchObject({
+      noteAction: { kind: "retry_last_message", messageId: w.owner.id },
+    });
+    // No re-issued card with nobody behind it.
+    expect(issued).toHaveLength(0);
+    expect(await broker.list({ status: "pending" })).toHaveLength(0);
+
+    // The card is not lost: `approvals.list` finds it under the status it ended with. (The QA
+    // walk listed pending, approved, denied and expired, and missed `invalidated`.)
+    const handlers = createPermissionHandlers(broker, undefined);
+    const caller = {
+      deviceId: "dev_mac",
+      scopes: ["operator.read", "operator.approvals"] as never,
+      surface: "desktop" as const,
+    };
+    const listed = await handlers["approvals.list"]({ status: ["invalidated"] }, caller);
+    expect(listed.approvals.map((a) => a.id)).toEqual([old.approval.id]);
+    expect(listed.approvals[0]).toMatchObject({
+      kind: "permission_request",
+      status: "invalidated",
+      invalidatedReason: "gateway_restart",
+    });
+    // Positive control: the default list (pending only) rightly does not show it.
+    expect((await handlers["approvals.list"]({}, caller)).approvals).toHaveLength(0);
   });
 });

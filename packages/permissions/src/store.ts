@@ -1,12 +1,13 @@
 import type { SqliteLike } from "@psyche/audit";
-import type {
-  ApprovalRequest,
-  ApprovalStatus,
-  Grant,
-  GrantScope,
-  JsonObject,
-  SideEffect,
-  Surface,
+import {
+  APPROVAL_ARM_DELAY_MS,
+  type ApprovalRequest,
+  type ApprovalStatus,
+  type Grant,
+  type GrantScope,
+  type JsonObject,
+  type SideEffect,
+  type Surface,
 } from "@psyche/protocol";
 import { cardTaintSources } from "./cards.ts";
 import type { PolicyApprovalInput } from "./types.ts";
@@ -417,6 +418,9 @@ function approvalFromRow(r: ApprovalRow): StoredApproval {
     scopeGranted: r.scope_granted as ApprovalRequest["scopeGranted"],
     decidedBy: r.decided_by === null ? null : parse<ApprovalRequest["decidedBy"]>(r.decided_by),
     requestedAt: r.requested_at,
+    // Not a column: a card is armed a fixed delay after it was asked (a restart invalidates the
+    // pending ones, so the broker's own `armDelayMs` option never outlives its process).
+    armedAt: new Date(Date.parse(r.requested_at) + APPROVAL_ARM_DELAY_MS).toISOString(),
     expiresAt: r.expires_at,
     decidedAt: r.decided_at,
     grantId: r.grant_id,

@@ -4612,6 +4612,7 @@ public struct ApprovalCreatedPayload: Codable, Sendable {
 
 // MARK: - ApprovalRequest
 public struct ApprovalRequest: Codable, Sendable {
+    public let armedAt: String?
     public let bindingHash: String
     public let decidedAt: String?
     public let decidedBy: DecidedByClass?
@@ -4643,6 +4644,7 @@ public struct ApprovalRequest: Codable, Sendable {
     public let targetKind: TargetKind?
 
     public enum CodingKeys: String, CodingKey {
+        case armedAt = "armedAt"
         case bindingHash = "bindingHash"
         case decidedAt = "decidedAt"
         case decidedBy = "decidedBy"
@@ -4674,7 +4676,8 @@ public struct ApprovalRequest: Codable, Sendable {
         case targetKind = "targetKind"
     }
 
-    public init(bindingHash: String, decidedAt: String? = nil, decidedBy: DecidedByClass? = nil, details: [String: JSONAny], deviceOnly: Bool, expiresAt: String, fromLesson: FromLesson? = nil, grantHint: GrantHint? = nil, grantID: String? = nil, grantKey: String, id: String, invalidatedReason: String? = nil, kind: ApprovalKind, machine: ComputerMachineRef? = nil, requestedAt: String, requestedBy: RequestedBy, requiresAuthentication: Bool, riskClass: RiskClass? = nil, scopeGranted: GrantScope? = nil, scopesOffered: [GrantScope], setAside: Bool? = nil, sideEffect: SideEffect? = nil, status: ApprovalStatus, summary: String, surfaces: [String], taint: Bool, taintSources: [TaintSource]? = nil, target: Target? = nil, targetKind: TargetKind? = nil) {
+    public init(armedAt: String? = nil, bindingHash: String, decidedAt: String? = nil, decidedBy: DecidedByClass? = nil, details: [String: JSONAny], deviceOnly: Bool, expiresAt: String, fromLesson: FromLesson? = nil, grantHint: GrantHint? = nil, grantID: String? = nil, grantKey: String, id: String, invalidatedReason: String? = nil, kind: ApprovalKind, machine: ComputerMachineRef? = nil, requestedAt: String, requestedBy: RequestedBy, requiresAuthentication: Bool, riskClass: RiskClass? = nil, scopeGranted: GrantScope? = nil, scopesOffered: [GrantScope], setAside: Bool? = nil, sideEffect: SideEffect? = nil, status: ApprovalStatus, summary: String, surfaces: [String], taint: Bool, taintSources: [TaintSource]? = nil, target: Target? = nil, targetKind: TargetKind? = nil) {
+        self.armedAt = armedAt
         self.bindingHash = bindingHash
         self.decidedAt = decidedAt
         self.decidedBy = decidedBy
