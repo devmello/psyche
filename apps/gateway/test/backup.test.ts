@@ -37,7 +37,7 @@ async function setup(): Promise<ComposedGateway> {
     logger: silentLogger,
     retentionIntervalMs: 0,
     background: false,
-    config: { home, port: 0, webRoot: null },
+    config: { home, port: 0 },
     model: { provider: new FakeModelProvider(), model: "fake/model" },
     parts: [(s) => composeBackup(s)],
   });

@@ -3287,7 +3287,7 @@ export const ar: Partial<Catalogue> = {
   "screens.files.shareInSettings": "شارك مجلدًا في الإعدادات ← الوصول إلى الملفات.",
   "screens.files.previewOf": "معاينة {name}",
   "screens.files.preview": "معاينة",
-  "screens.files.needsApp": "تحتاج المعاينات إلى تطبيق سطح المكتب أو تطبيق الويب.",
+  "screens.files.needsApp": "تحتاج المعاينات إلى تطبيق سطح المكتب.",
   "screens.files.pick": "اختر ملفًا لمعاينته هنا.",
   "screens.files.editReadOnly": "للقراءة فقط: هذا المجلد مشارَك دون إمكانية التعديل.",
   "screens.files.editOpening": "جارٍ فتح {name} للتعديل",
@@ -3611,7 +3611,7 @@ export const ar: Partial<Catalogue> = {
   "web.passkeys.unavailable":
     "تحتاج مفاتيح المرور إلى عنوان https للخادم. اضبط gateway.publicOrigin (أو PSYCHE_PUBLIC_ORIGIN) على عنوان https:// الذي تفتح Psyche عليه، وأعد تشغيل Gateway، ثم أضف مفتاحًا هنا.",
   "web.passkeys.insecure":
-    "تعمل مفاتيح المرور فقط عندما يكون Psyche مفتوحًا على عنوان https:// الخاص به، في متصفح يدعمها. افتحه هناك لإضافة مفتاح.",
+    "لا يمكن إضافة مفاتيح مرور هنا. أضف مفتاحًا في تطبيق Psyche على كمبيوتر آخر يتصل بهذا الـ Gateway عبر عنوان https:// الخاص به.",
   "web.passkeys.firstApproval":
     "وافق على «إضافة مفتاح مرور» عبر Touch ID على الـ Mac الخاص بك أو بمفتاح مرور على جهاز آخر، ثم اضغط «إضافة» مرة أخرى.",
   "web.passkeys.loadError": "تعذّر على Psyche تحميل مفاتيح المرور لديك ({error}).",

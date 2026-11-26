@@ -66,7 +66,7 @@ async function setup(script: ModelEvent[][] = [say("ok")]) {
     logger: silentLogger,
     retentionIntervalMs: 0,
     background: false,
-    config: { home, port: 0, dbPath: join(home, "psyche.db"), webRoot: null },
+    config: { home, port: 0, dbPath: join(home, "psyche.db") },
     model: { provider: model, model: "fake/model" },
   });
   const c = composed;
@@ -364,7 +364,7 @@ describe("screen ask (Gateway)", () => {
       logger: silentLogger,
       retentionIntervalMs: 0,
       background: false,
-      config: { home, port: 0, dbPath: join(home, "psyche.db"), webRoot: null },
+      config: { home, port: 0, dbPath: join(home, "psyche.db") },
       model: { provider: FakeModelProvider.script([say("ok")]), model: "fake/model" },
       screenAsk: { capturer: () => capturer },
     });

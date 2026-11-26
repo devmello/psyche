@@ -56,7 +56,7 @@ async function setup(model: FakeModelProvider, extra: Record<string, unknown> = 
     retentionIntervalMs: 0,
     background: false,
     clock,
-    config: { home, port: 0, dbPath: join(home, "psyche.db"), webRoot: null },
+    config: { home, port: 0, dbPath: join(home, "psyche.db") },
     model: { provider: model, model: "fake/model" },
     parts: [
       (s) => {

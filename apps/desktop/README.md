@@ -36,7 +36,7 @@ BaseWindow (quick entry)  frameless, app renderer at /quick, ⌥Space (⌃⌥Spa
 Tray                      status, usage placeholder, needs-you, Gateway row, Quit vs Quit entirely
 ```
 
-- **Shell** (`apps/web/src/shell`, shared with the web client): rail, thread list, chat, composer, panes, palette, shortcut sheet. The pane layout is a pure reducer per thread (`shell/layout`): tab strips, two side by side at ≥ 1440 px, resize clamped to 480/360 px, pop-out, ⌘\ closes the focused pane and focus returns to the opener. Layouts persist per thread in `localStorage` on the `app://psyche` origin.
+- **Shell** (`apps/web/src/shell`, shared UI code): rail, thread list, chat, composer, panes, palette, shortcut sheet. The pane layout is a pure reducer per thread (`shell/layout`): tab strips, two side by side at ≥ 1440 px, resize clamped to 480/360 px, pop-out, ⌘\ closes the focused pane and focus returns to the opener. Layouts persist per thread in `localStorage` on the `app://psyche` origin.
 - **view.\*** (agent pane control): the Gateway forwards `view.command` events; the shell applies them to the layout and reports the result with `view.report` (protocol PR #14).
 - **Browser pane**: the renderer reports the pane's rectangle (`setViewport`); main places the active tab's `WebContentsView` there and hides the others (`setVisible(false)`; throttling is off, so hidden agents keep working). Overlays (palette, dialogs) hide the native view while open.
 - **Keyboard map** (`shell/keyboard.ts`) is data shared by the key handler, palette and shortcut sheet; the app menu keeps Edit roles and maps ⌘W to "close thread view or pop-out".

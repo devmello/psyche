@@ -64,7 +64,7 @@ async function compose(provider = new FakeModelProvider()): Promise<ComposedGate
     background: false,
     timeZone: "UTC",
     clock: clock(),
-    config: { home, port: 0, dbPath: join(home, "psyche.db"), webRoot: null },
+    config: { home, port: 0, dbPath: join(home, "psyche.db") },
     model: { provider, model: "fake/model" },
   });
   // Meeting notes are off until the owner turns them on (Settings → Mail & meetings).

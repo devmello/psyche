@@ -94,7 +94,7 @@ export const web = {
   "web.passkeys.unavailable":
     "Passkeys need the server's https address. Set gateway.publicOrigin (or PSYCHE_PUBLIC_ORIGIN) to the https:// address you open Psyche at, restart the Gateway, then add one here.",
   "web.passkeys.insecure":
-    "Passkeys work only when Psyche is open at its https:// address, in a browser that supports them. Open it there to add one.",
+    "Passkeys can't be added here. Add one in the Psyche app on another computer that connects to this Gateway at its https:// address.",
   "web.passkeys.firstApproval":
     "Approve “Add a passkey” with Touch ID on your Mac or with a passkey on another device, then press Add again.",
   "web.passkeys.loadError": "Psyche couldn't load your passkeys ({error}).",

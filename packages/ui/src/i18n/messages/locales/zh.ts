@@ -3174,7 +3174,7 @@ export const zh: Partial<Catalogue> = {
   "screens.files.shareInSettings": "在“设置 → 文件访问”中共享一个。",
   "screens.files.previewOf": "预览 {name}",
   "screens.files.preview": "预览",
-  "screens.files.needsApp": "预览需要桌面版或网页版 App。",
+  "screens.files.needsApp": "预览需要桌面版 App。",
   "screens.files.pick": "选择一个文件在此预览。",
   "screens.files.editReadOnly": "只读:此文件夹未开放编辑。",
   "screens.files.editOpening": "正在打开 {name} 以便编辑",
@@ -3488,7 +3488,7 @@ export const zh: Partial<Catalogue> = {
   "web.passkeys.unavailable":
     "通行密钥需要服务器的 https 地址。请将 gateway.publicOrigin（或 PSYCHE_PUBLIC_ORIGIN）设置为你打开 Psyche 所用的 https:// 地址，重新启动 Gateway，然后在此添加。",
   "web.passkeys.insecure":
-    "只有在支持通行密钥的浏览器中通过 https:// 地址打开 Psyche 时，通行密钥才可用。请在那里打开以添加。",
+    "无法在此处添加通行密钥。请在通过 https:// 地址连接到此 Gateway 的另一台电脑上的 Psyche 应用中添加。",
   "web.passkeys.firstApproval":
     "请在你的 Mac 上用 Touch ID 或在另一台设备上用通行密钥批准“添加通行密钥”，然后再次点按“添加”。",
   "web.passkeys.loadError": "Psyche 无法载入你的通行密钥（{error}）。",

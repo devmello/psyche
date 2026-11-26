@@ -3291,7 +3291,7 @@ export const fr: Partial<Catalogue> = {
   "screens.files.shareInSettings": "Partagez-en un dans Réglages → Accès aux fichiers.",
   "screens.files.previewOf": "Aperçu de {name}",
   "screens.files.preview": "Aperçu",
-  "screens.files.needsApp": "Les aperçus nécessitent l’app de bureau ou l’app web.",
+  "screens.files.needsApp": "Les aperçus nécessitent l’app de bureau.",
   "screens.files.pick": "Choisissez un fichier pour l’afficher ici.",
   "screens.files.editReadOnly": "Lecture seule : ce dossier est partagé sans modification.",
   "screens.files.editOpening": "Ouverture de {name} pour modification",
@@ -3629,7 +3629,7 @@ export const fr: Partial<Catalogue> = {
   "web.passkeys.unavailable":
     "Les clés d’accès nécessitent l’adresse https du serveur. Définissez gateway.publicOrigin (ou PSYCHE_PUBLIC_ORIGIN) sur l’adresse https:// à laquelle vous ouvrez Psyche, redémarrez la Gateway, puis ajoutez-en une ici.",
   "web.passkeys.insecure":
-    "Les clés d’accès ne fonctionnent que lorsque Psyche est ouvert à son adresse https://, dans un navigateur qui les prend en charge. Ouvrez-le là pour en ajouter une.",
+    "Impossible d’ajouter des clés d’accès ici. Ajoutez-en une dans l’app Psyche d’un autre ordinateur qui se connecte à ce Gateway à son adresse https://.",
   "web.passkeys.firstApproval":
     "Approuvez « Ajouter une clé d’accès » avec Touch ID sur votre Mac ou avec une clé d’accès sur un autre appareil, puis appuyez de nouveau sur Ajouter.",
   "web.passkeys.loadError": "Psyche n’a pas pu charger vos clés d’accès ({error}).",

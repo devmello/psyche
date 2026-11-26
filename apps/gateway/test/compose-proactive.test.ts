@@ -27,7 +27,7 @@ describe("composition root: proactive surfaces (S15)", () => {
       retentionIntervalMs: 0,
       background: false,
       timeZone: "UTC",
-      config: { home, port: 0, dbPath: join(home, "psyche.db"), webRoot: null },
+      config: { home, port: 0, dbPath: join(home, "psyche.db") },
       model: { provider: new FakeModelProvider(), model: "fake/model" },
     });
     const { proactive, scheduler, tasks } = composed;
@@ -112,7 +112,7 @@ describe("composition root: proactive surfaces (S15)", () => {
       retentionIntervalMs: 0,
       background: false,
       timeZone: "UTC",
-      config: { home, port: 0, dbPath: join(home, "psyche.db"), webRoot: null },
+      config: { home, port: 0, dbPath: join(home, "psyche.db") },
       model: { provider, model: "fake/model" },
     });
     const { proactive, scheduler } = composed;
@@ -155,7 +155,7 @@ describe("composition root: proactive surfaces (S15)", () => {
       retentionIntervalMs: 0,
       background: false,
       timeZone: "UTC",
-      config: { home, port: 0, dbPath: join(home, "psyche.db"), webRoot: null },
+      config: { home, port: 0, dbPath: join(home, "psyche.db") },
       model: { provider: new FakeModelProvider(), model: "fake/model" },
     });
     const ran: unknown[] = [];

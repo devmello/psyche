@@ -376,8 +376,8 @@ export function devices(): Device[] {
     },
     {
       id: D.web,
-      name: "Firefox on work laptop",
-      platform: "web",
+      name: "Pixel on work desk",
+      platform: "android",
       role: "client",
       publicKey: "Zt4Yx7Wv0Us3Rq6Po9Nm2Lk5Jh8Gf1Ed4Cb7Az0Yx3W",
       scopes: ["operator.read", "operator.write"],

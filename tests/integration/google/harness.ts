@@ -38,7 +38,7 @@ export async function startWithParts(
     env: {},
     logger: { log: (level, msg, fields) => logs.push(JSON.stringify({ level, msg, ...fields })) },
     retentionIntervalMs: 0,
-    config: { home, port: 0, dbPath: join(home, "psyche.db"), webRoot: null },
+    config: { home, port: 0, dbPath: join(home, "psyche.db") },
   });
   const { gateway } = composed;
   const { privateKey } = generateKeyPairSync("ed25519");

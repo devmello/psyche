@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -16,23 +16,17 @@ import { mainWindowPage, stopTestHelpers } from "./helpers.ts";
 
 /**
  * Window layout (docs/06 §3.1, §3.19, §4.1; redesign-2026 §4, §5.1, §5.11) in the packaged
- * desktop app and the web client: the main window draws a 52 px drag bar under the macOS traffic
+ * desktop app: the main window draws a 52 px drag bar under the macOS traffic
  * lights and nothing else may sit there; onboarding is a centred, vertically balanced column with
  * Back / Next at its bottom on every step; one 248 px sidebar (destinations, threads, persona)
  * sits beside the content column, both starting below the bar; the chat column is centred;
  * nothing scrolls sideways. Screenshots of every view land in `e2e/__screenshots__/`.
- *
- * The web part serves `apps/web/dist` (build it first: `pnpm --filter @psyche/web build`) from
- * the mock Gateway and opens it in a plain Electron window with no preload, i.e. the real web
- * host at phone width.
  */
 
 // resolve() drops the trailing separator: on Windows `...desktop` before the closing quote of
 // the quoted argv entry would escape it and Electron would never find the app.
 const appDir = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const shotsDir = fileURLToPath(new URL("./__screenshots__/", import.meta.url));
-const webDist = fileURLToPath(new URL("../../web/dist/", import.meta.url));
-const webHost = fileURLToPath(new URL("./web-host.cjs", import.meta.url));
 
 const ONBOARDED = "ui.onboarding.completedAt";
 const T0 = "2026-10-19T10:00:00.000Z";
@@ -615,60 +609,4 @@ test("Settings window: 920x640, centred on the main window, the main window's ch
       .find((x) => x.getTitle() === "Settings")
       ?.close(),
   );
-});
-
-test("web client at 390 px: no title bar, every onboarding step, main chat", async () => {
-  test.skip(!existsSync(join(webDist, "index.html")), "build apps/web first");
-  let webOnboarded = false;
-  const web = await new MockGateway({
-    webRoot: webDist,
-    handlers: {
-      ...handlers(),
-      "settings.get": () => ({
-        settings: webOnboarded ? { [ONBOARDED]: T0 } : {},
-        stateVersion: 1,
-      }),
-    },
-  }).start();
-  const host = await electron.launch({
-    args: [webHost],
-    env: { ...process.env, PSYCHE_WEB_URL: `${web.origin}/chat` },
-  });
-  try {
-    const p = await host.firstWindow();
-    await p.waitForSelector('[data-testid="onboarding"]');
-    expect(await p.evaluate(() => window.innerWidth)).toBe(390);
-    await expect(p.getByTestId("titlebar")).toHaveCount(0);
-    const webSteps = STEPS;
-    for (const [i, label] of webSteps.entries()) {
-      await expect(p.getByRole("heading", { level: 1, name: new RegExp(label) })).toBeVisible();
-      await expectOnboardingLayout(p, `web ${label}`, 0);
-      if (i === 0) {
-        const form = await box(p, "onboarding-form");
-        const preview = await box(p, "onboarding-preview");
-        expect(preview.y + preview.height, "preview above the form").toBeLessThanOrEqual(
-          form.y + 1,
-        );
-      }
-      await shot(p, `web-onboarding-${i + 1}-390`);
-      if (i < webSteps.length - 1) await p.getByRole("button", { name: "Next" }).click();
-    }
-    webOnboarded = true;
-    await p.reload();
-    await p.waitForSelector('[data-testid="kit-chat"]');
-    await expect(
-      p.getByTestId("conversation-column").getByText("The 11:00 one, please."),
-    ).toBeVisible();
-    await expect(p.getByTestId("titlebar")).toHaveCount(0);
-    await expect(p.getByTestId("shell")).toHaveAttribute("data-compact", "true");
-    // Compact (redesign §5.11): the top bar and the tab bar, no sidebar.
-    await expect(p.getByTestId("compact-top-bar")).toBeVisible();
-    await expect(p.getByTestId("tab-bar").getByRole("button")).toHaveCount(4);
-    await expect(p.getByRole("navigation", { name: "Sidebar" })).toHaveCount(0);
-    await expectNoSidewaysScroll(p, "web main");
-    await shot(p, "web-main-390");
-  } finally {
-    await host.close();
-    await web.stop();
-  }
 });

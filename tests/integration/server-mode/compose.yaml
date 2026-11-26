@@ -42,8 +42,6 @@ services:
     environment:
       PSYCHE_HOME: /data
       PSYCHE_LOG_LEVEL: ${PSYCHE_LOG_LEVEL:-info}
-      # WebSocket Origin allowlist: the Tailscale Serve origin, e.g. https://psyche.<tailnet>.ts.net
-      PSYCHE_ALLOWED_ORIGINS: ${PSYCHE_PUBLIC_ORIGIN:-}
       PSYCHE_TELEGRAM_BOT_TOKEN_FILE: /run/secrets/telegram_bot_token
       PSYCHE_TELEGRAM_BOT_USERNAME: ${PSYCHE_TELEGRAM_BOT_USERNAME:-}
     secrets:

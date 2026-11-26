@@ -29,7 +29,7 @@ export async function startTestGateway(
     logger: silentLogger,
     retentionIntervalMs: 0,
     ...rest,
-    config: { home, port: 0, dbPath: ":memory:", webRoot: null, ...config },
+    config: { home, port: 0, dbPath: ":memory:", ...config },
     // Tests open many pending requests from 127.0.0.1; the per-address limit has its own test.
     limits: { pairingsPerHour: 1000, ...limits },
   });
@@ -161,7 +161,7 @@ export interface HandshakeOptions {
   /** A setup token from a pairing link, presented in connect.verify. */
   setupToken?: string;
   /** The DevicePlatform the device declares (default `macos`). */
-  platform?: "macos" | "windows" | "linux" | "ios" | "android" | "web";
+  platform?: "macos" | "windows" | "linux" | "ios" | "android";
 }
 
 export async function handshake(client: TestClient, origin: string, opts: HandshakeOptions = {}) {

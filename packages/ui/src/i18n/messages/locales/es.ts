@@ -3313,7 +3313,7 @@ export const es: Partial<Catalogue> = {
   "screens.files.shareInSettings": "Comparte una en Ajustes → Acceso a archivos.",
   "screens.files.previewOf": "Previsualización de {name}",
   "screens.files.preview": "Previsualización",
-  "screens.files.needsApp": "Las previsualizaciones necesitan la app de escritorio o la web.",
+  "screens.files.needsApp": "Las previsualizaciones necesitan la app de escritorio.",
   "screens.files.pick": "Elige un archivo para previsualizarlo aquí.",
   "screens.files.editReadOnly": "Solo lectura: esta carpeta se comparte sin edición.",
   "screens.files.editOpening": "Abriendo {name} para editar",
@@ -3652,7 +3652,7 @@ export const es: Partial<Catalogue> = {
   "web.passkeys.unavailable":
     "Las llaves de acceso necesitan la dirección https del servidor. Define gateway.publicOrigin (o PSYCHE_PUBLIC_ORIGIN) con la dirección https:// en la que abres Psyche, reinicia el Gateway y añade una aquí.",
   "web.passkeys.insecure":
-    "Las llaves de acceso solo funcionan cuando Psyche está abierto en su dirección https://, en un navegador compatible. Ábrelo ahí para añadir una.",
+    "Aquí no se pueden añadir llaves de acceso. Añade una en la app Psyche de otro ordenador que se conecte a este Gateway en su dirección https://.",
   "web.passkeys.firstApproval":
     "Aprueba «Añadir una llave de acceso» con Touch ID en tu Mac o con una llave de acceso en otro dispositivo, y luego vuelve a pulsar Añadir.",
   "web.passkeys.loadError": "Psyche no pudo cargar tus llaves de acceso ({error}).",

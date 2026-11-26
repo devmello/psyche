@@ -3228,7 +3228,7 @@ export const hi: Partial<Catalogue> = {
   "screens.files.shareInSettings": "सेटिंग्ज़ → फ़ाइल ऐक्सेस में एक साझा करें।",
   "screens.files.previewOf": "{name} का प्रीव्यू",
   "screens.files.preview": "प्रीव्यू",
-  "screens.files.needsApp": "प्रीव्यू के लिए डेस्कटॉप या वेब ऐप चाहिए।",
+  "screens.files.needsApp": "प्रीव्यू के लिए डेस्कटॉप ऐप चाहिए।",
   "screens.files.pick": "यहाँ प्रीव्यू देखने के लिए कोई फ़ाइल चुनें।",
   "screens.files.editReadOnly": "केवल पढ़ने के लिए: यह फ़ोल्डर बिना संपादन के साझा किया गया है।",
   "screens.files.editOpening": "संपादन के लिए {name} खुल रही है",
@@ -3555,7 +3555,7 @@ export const hi: Partial<Catalogue> = {
   "web.passkeys.unavailable":
     "पासकी के लिए सर्वर का https पता चाहिए। gateway.publicOrigin (या PSYCHE_PUBLIC_ORIGIN) को उस https:// पते पर सेट करें जहाँ आप Psyche खोलते हैं, Gateway रीस्टार्ट करें, फिर यहाँ एक जोड़ें।",
   "web.passkeys.insecure":
-    "पासकी केवल तभी काम करती हैं जब Psyche अपने https:// पते पर, इन्हें समर्थन देने वाले ब्राउज़र में खुला हो। एक जोड़ने के लिए इसे वहाँ खोलें।",
+    "यहाँ पासकी नहीं जोड़ी जा सकती। इसे किसी दूसरे कंप्यूटर के Psyche ऐप में जोड़ें, जो इस Gateway से उसके https:// पते पर जुड़ता है।",
   "web.passkeys.firstApproval":
     "“पासकी जोड़ें” को अपने Mac पर Touch ID से या किसी दूसरे डिवाइस पर पासकी से स्वीकृत करें, फिर जोड़ें को फिर से दबाएँ।",
   "web.passkeys.loadError": "Psyche आपकी पासकी लोड नहीं कर सका ({error})।",

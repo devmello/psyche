@@ -63,7 +63,7 @@ describe("grants end with their device (design-28)", () => {
       logger: silentLogger,
       retentionIntervalMs: 0,
       background: false,
-      config: { home, port: 0, dbPath: join(home, "psyche.db"), webRoot: null },
+      config: { home, port: 0, dbPath: join(home, "psyche.db") },
       model: { provider: new FakeModelProvider(), model: "fake/model" },
     });
     const spy = vi.spyOn(composed.broker, "revokeGrantsByDevice");
