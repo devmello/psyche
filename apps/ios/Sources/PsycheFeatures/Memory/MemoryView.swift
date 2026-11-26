@@ -92,25 +92,32 @@ struct MemoryView: View {
             ConnectionBanner(state: session.state, lastSyncedAt: session.lastSyncedAt)
                 .listRowBackground(Color.clear)
         }
-        Picker(String(localized: "Memory", bundle: .module), selection: $segment) {
-            ForEach(Segment.allCases) { Text(LocalizedStringKey($0.rawValue), bundle: .module).tag($0) }
+        // The picker and each note get their own section, so "To confirm" is a full rounded row with space
+        // above it instead of a clipped row glued under the picker.
+        Section {
+            Picker(String(localized: "Memory", bundle: .module), selection: $segment) {
+                ForEach(Segment.allCases) { Text(LocalizedStringKey($0.rawValue), bundle: .module).tag($0) }
+            }
+            .pickerStyle(.segmented)
+            .listRowBackground(Color.clear)
+            .listRowInsets(EdgeInsets())
         }
-        .pickerStyle(.segmented)
-        .listRowBackground(Color.clear)
-        .listRowInsets(EdgeInsets(top: 0, leading: 16, bottom: 8, trailing: 16))
+        .listSectionSpacing(.compact)
         if pauseModel.paused == true {
-            pausedRow
+            Section { pausedRow }
         }
         if model.claimCount > 0 {
-            Button { router.memoryPath.append(.claims) } label: {
-                LabeledContent {
-                    Text(verbatim: "\(model.claimCount)")
-                } label: {
-                    Text("To confirm", bundle: .module)
+            Section {
+                Button { router.memoryPath.append(.claims) } label: {
+                    LabeledContent {
+                        Text(verbatim: "\(model.claimCount)")
+                    } label: {
+                        Text("To confirm", bundle: .module)
+                    }
                 }
+                .tint(.primary)
+                .accessibilityIdentifier("memoryToConfirmRow")
             }
-            .tint(.primary)
-            .accessibilityIdentifier("memoryToConfirmRow")
         }
     }
 
@@ -219,7 +226,7 @@ struct MemoryView: View {
 
     /// A secondary line under a row title: a text style in the secondary colour, not a mono log line.
     private func metaLine(_ text: String) -> some View {
-        Text(text).font(.caption).foregroundStyle(.secondary)
+        Text(MemoryText.localizingTimes(text)).font(.caption).foregroundStyle(.secondary)
     }
 
     // MARK: To-do
@@ -263,9 +270,11 @@ struct MemoryView: View {
                     .foregroundStyle(done ? .secondary : .primary)
                     .multilineTextAlignment(.leading)
                 metaLine(MemoryModel.displayMeta(todo, done: done))
+                if todo.needsYou && !done {
+                    StatusDot(.needsYou, String(localized: "Needs you", bundle: .module), font: .caption)
+                }
             }
             Spacer(minLength: 0)
-            if todo.needsYou && !done { NeedsYouDot() }
         }
         .contentShape(Rectangle())
         .onTapGesture { if let thread = todo.threadID { router.openThread(thread) } }
