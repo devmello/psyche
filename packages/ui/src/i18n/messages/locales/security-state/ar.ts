@@ -29,8 +29,7 @@ export const securityState: Partial<Catalogue> = {
   "web.security.alert.failed": "تعذّر التطبيق: {action}",
   "web.security.op.devicesApprove": "الموافقة على الجهاز {name}.",
   "web.security.op.devicesGrant": "تغيير ما يمكن أن يفعله {name}.",
-  "web.security.op.presenceReset":
-    "التوقف عن طلب Touch ID أو مفتاح المرور لتغييرات الأمان حتى يُسجَّل مفتاح جديد.",
+  "web.security.op.presenceReset": "مسح المفتاح الذي يحمي المدفوعات حتى يُسجَّل مفتاح جديد.",
   "web.security.op.sealReset": "قبول سجلات الأمان الحالية كما هي.",
   "web.security.device": "جهاز",
   "web.security.deviceKey": "{name} (المفتاح {fingerprint})",

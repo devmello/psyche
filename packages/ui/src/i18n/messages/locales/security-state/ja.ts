@@ -30,8 +30,7 @@ export const securityState: Partial<Catalogue> = {
   "web.security.alert.failed": "適用できませんでした: {action}",
   "web.security.op.devicesApprove": "デバイス {name} を承認する。",
   "web.security.op.devicesGrant": "{name} にできることを変更する。",
-  "web.security.op.presenceReset":
-    "新しいキーが登録されるまで、セキュリティ変更に Touch ID やパスキーを求めない。",
+  "web.security.op.presenceReset": "新しいキーが登録されるまで、支払いを保護するキーを解除する。",
   "web.security.op.sealReset": "現在のセキュリティ記録をそのまま受け入れる。",
   "web.security.device": "デバイス",
   "web.security.deviceKey": "{name}（キー {fingerprint}）",

@@ -1545,7 +1545,7 @@ export const ja: Partial<Catalogue> = {
   "settings.approval.region": "承認が必要です",
   "settings.approval.prompt": "「{label}」への変更を承認してください。",
   "settings.approval.promptDetail":
-    "セキュリティ設定にはTouch IDまたはパスキーが必要です。ここまたはPsycheの通知で承認すると、設定はすぐに保存されます。",
+    "ここまたはPsycheの通知で承認してください。承認すると、設定はすぐに保存されます。",
   "settings.approval.presenceInvalid":
     "Touch IDまたはパスキーで本人確認ができませんでした。もう一度お試しください。",
   "settings.approval.loading": "承認を読み込み中…",

@@ -141,7 +141,7 @@ export const specialistsA: Partial<Catalogue> = {
   "screens.library.chatUnavailable": "El chat original no está disponible.",
   "web.remotePresence.title": "Touch ID para las aprobaciones",
   "web.remotePresence.description":
-    "Las compras, el relleno de credenciales, los comandos del host y los cambios de seguridad necesitan Touch ID. Configúralo en este ordenador para responderlos aquí; hasta entonces esas tarjetas indican que hay que responder en {host}. Las aprobaciones normales nunca lo necesitan.",
+    "Los pagos y los cambios en la protección de pagos necesitan una comprobación más fuerte que un toque. Configúrala en este ordenador para responderlos aquí; hasta entonces esas tarjetas indican que hay que responder en {host}. Todo lo demás es un simple toque.",
   "web.remotePresence.on": "Touch ID está activado para las aprobaciones desde este ordenador.",
   "web.remotePresence.off": "Touch ID no está configurado en este ordenador.",
   "web.remotePresence.enable": "Usar Touch ID para las aprobaciones en este ordenador",

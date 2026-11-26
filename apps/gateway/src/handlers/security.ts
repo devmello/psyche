@@ -95,10 +95,18 @@ export const securityHandlers: Record<string, HandlerDef> = {
           },
         },
         params.approvalId,
-        // Applying a presence reset or a device grant at once instead of after 24 hours.
-        { strong: true },
+        // Applying a device approval or grant at once is a plain tap (owner's decision, 2026-11-26:
+        // admin changes are a tap). A presence reset removes the payment verifiers, so applying
+        // it early keeps the presence step. A re-seal never gets here (it always waits).
+        // `always`: the card shows even on a Mac whose presence was never enrolled.
+        { strong: subject.op === "presence.reset", always: true },
       );
-      return { recovery: recoveries.approveNow(params.id, call.identity.deviceId) };
+      return {
+        recovery: recoveries.approveNow(params.id, call.identity.deviceId, {
+          op: subject.op,
+          params: subject.params,
+        }),
+      };
     },
   },
 };

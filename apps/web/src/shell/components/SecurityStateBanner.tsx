@@ -9,9 +9,9 @@ import { isQuietSecurityAlert, securityBannerView } from "./security-banner-rule
  * screen while the Gateway has an alert nobody reviewed or a request from `psyched` on the Mac is
  * waiting: a change to devices, keys, grants or security settings made outside Psyche (undone),
  * a seal that failed its check, or a security change asked for on the Mac that applies later
- * unless cancelled. "Review" opens the list; reviewing and approving now need Touch ID or a
- * passkey once one is set up (the Gateway answers `approval_required`, the card is approved, the
- * button is pressed again).
+ * unless cancelled. "Review" opens the list; approving now is a tap on the approval card (applying a
+ * presence reset early also needs Touch ID or a passkey). The Gateway answers `approval_required`,
+ * the card is approved, the button is pressed again.
  */
 
 type Busy = { key: string } | null;
@@ -144,7 +144,12 @@ export function SecurityStateBanner({
             count: openAlerts.filter((a) => !isQuietSecurityAlert(a)).length,
           });
 
-  const run = async (key: string, method: string, params: Record<string, unknown>) => {
+  const run = async (
+    key: string,
+    method: string,
+    params: Record<string, unknown>,
+    needsPresence = false,
+  ) => {
     setBusy({ key });
     setNotice(null);
     try {
@@ -156,13 +161,10 @@ export function SecurityStateBanner({
       const id = approvalIdOf(err);
       if (id !== null) {
         setApprovals((a) => ({ ...a, [key]: id }));
-        // A recovery approval needs fresh presence (security §10); an acknowledge is a plain tap.
+        // Only applying a presence reset early needs fresh presence (it removes the payment
+        // verifiers); every other approval or acknowledge is a plain tap.
         setNotice(
-          t(
-            method === "security.recoveries.approve"
-              ? "web.security.needsApprovalPresence"
-              : "web.security.needsApproval",
-          ),
+          t(needsPresence ? "web.security.needsApprovalPresence" : "web.security.needsApproval"),
         );
       } else {
         setNotice(t("web.security.failed", { message: describeError(err) }));
@@ -177,7 +179,12 @@ export function SecurityStateBanner({
   const cancel = (r: SecurityRecovery) =>
     void run(`cancel:${r.id}`, "security.recoveries.cancel", { id: r.id });
   const approve = (r: SecurityRecovery) =>
-    void run(`approve:${r.id}`, "security.recoveries.approve", { id: r.id });
+    void run(
+      `approve:${r.id}`,
+      "security.recoveries.approve",
+      { id: r.id },
+      r.op === "presence.reset",
+    );
 
   return (
     <div className="banner security-banner" role="alert" data-testid="security-banner">

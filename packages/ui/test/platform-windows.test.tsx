@@ -114,7 +114,7 @@ describe("Windows copy (i18n/messages/variants/windows.ts)", () => {
     const text = t("web.security.alert.requested", { action: "x", when: "y" });
     expect(text).toContain("diesem PC");
     expect(text).not.toMatch(/Mac/);
-    expect(t("web.security.needsApproval")).toContain("Windows Hello");
+    expect(t("web.security.needsApprovalPresence")).toContain("Windows Hello");
   });
 
   it("keeps every variant valid ICU with the English message's placeholders, and Mac-free", () => {

@@ -914,7 +914,7 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.uninstall.go": "Désinstaller et quitter",
   "settings.uninstall.goDelete": "Supprimer les données et désinstaller",
   "settings.remote.admin":
-    "Un ordinateur jumelé obtient la lecture, l’écriture et les approbations. Admin reste désactivé sauf si vous le cochez lors de l’approbation, et chaque modification d’admin exige toujours votre Touch ID ici.",
+    "Un ordinateur jumelé obtient la lecture, l’écriture et les approbations. Admin reste désactivé sauf si vous le cochez lors de l’approbation ; chaque modification d’admin vous est demandée ici avec une carte d’approbation.",
   "settings.remote.address": "Adresse publique",
   "settings.remote.addressUnset": "Non définie",
   "settings.remote.proxy": "Proxy de confiance",
@@ -933,7 +933,7 @@ export const settingsRest: Partial<Catalogue> = {
     "Définissez d’abord l’adresse publique de ce Mac (étape 3 ci-dessus), puis créez un lien de jumelage.",
   "settings.pair.scopes": "Ce que l’autre ordinateur peut faire",
   "settings.pair.adminHint":
-    "Admin lui permet de modifier les réglages de sécurité, les appareils et le coffre, et reste désactivé sauf si vous le cochez. Chaque modification d’admin exige toujours votre Touch ID ici.",
+    "Admin lui permet de modifier les réglages de sécurité, les appareils et le coffre, et reste désactivé sauf si vous le cochez. Chaque modification d’admin vous est demandée ici avec une carte d’approbation.",
   "settings.pair.make": "Créer un lien de jumelage",
   "settings.pair.resultRegion": "Lien de jumelage et code QR",
   "settings.pair.qrLabel": "Code QR du lien de jumelage pour {host}",
@@ -979,7 +979,7 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.lan.unsupported": "Cette Gateway est trop ancienne pour écouter sur le réseau.",
   "settings.lan.toggle": "Autoriser les ordinateurs de ce réseau",
   "settings.lan.toggleHint":
-    "Psyche écoute sur un réseau, via une connexion chiffrée avec son propre certificat. Un ordinateur qui se connecte doit tout de même être approuvé ici avec Touch ID.",
+    "Psyche écoute sur un réseau, via une connexion chiffrée avec son propre certificat. Un ordinateur qui se connecte doit tout de même être approuvé ici, d’un toucher.",
   "settings.lan.ipv6": "Utiliser aussi les adresses IPv6 de ce réseau",
   "settings.lan.ipv6Hint":
     "Ajoute les adresses IPv6 privées (elles commencent par fd ou fc) du réseau choisi. Les adresses IPv6 publiques et les adresses fe80 ne sont jamais utilisées.",

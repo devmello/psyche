@@ -20,7 +20,7 @@ export const settingsD: Partial<Catalogue> = {
   "settings.lan.unsupported": "Este Gateway é antigo demais para escutar na rede.",
   "settings.lan.toggle": "Permitir computadores desta rede",
   "settings.lan.toggleHint":
-    "O Psyche escuta em uma rede, por uma conexão criptografada com seu próprio certificado. Um computador que se conecta ainda precisa ser aprovado aqui com Touch ID.",
+    "O Psyche escuta em uma rede, por uma conexão criptografada com seu próprio certificado. Um computador que se conecta ainda precisa ser aprovado aqui, com um toque.",
   "settings.lan.ipv6": "Usar também os endereços IPv6 desta rede",
   "settings.lan.ipv6Hint":
     "Adiciona os endereços IPv6 privados (começam com fd ou fc) da rede escolhida. Endereços IPv6 públicos e fe80 nunca são usados.",

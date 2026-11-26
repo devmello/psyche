@@ -795,7 +795,7 @@ export const settings: Partial<Catalogue> = {
   "settings.uninstall.go": "卸载并退出",
   "settings.uninstall.goDelete": "删除数据并卸载",
   "settings.remote.admin":
-    "配对的电脑可获得读取、写入和批准权限。管理员权限默认关闭，除非你在批准时勾选；每次管理员更改仍需你在这里用 Touch ID 确认。",
+    "配对的电脑可获得读取、写入和批准权限。管理员权限默认关闭，除非你在批准时勾选；每次管理员更改都会在这里用批准卡片询问你。",
   "settings.remote.address": "公开地址",
   "settings.remote.addressUnset": "未设置",
   "settings.remote.proxy": "受信任的代理",
@@ -811,7 +811,7 @@ export const settings: Partial<Catalogue> = {
   "settings.pair.needsAddress": "请先设置这台 Mac 的公开地址（上面的第 3 步），再生成配对链接。",
   "settings.pair.scopes": "另一台电脑可以做什么",
   "settings.pair.adminHint":
-    "管理员权限允许其更改安全设置、设备和保险库，默认关闭，除非你勾选。每次管理员更改仍需你在这里用 Touch ID 确认。",
+    "管理员权限允许其更改安全设置、设备和保险库，默认关闭，除非你勾选。每次管理员更改都会在这里用批准卡片询问你。",
   "settings.pair.make": "生成配对链接",
   "settings.pair.resultRegion": "配对链接和二维码",
   "settings.pair.qrLabel": "{host} 配对链接的二维码",
@@ -851,7 +851,7 @@ export const settings: Partial<Catalogue> = {
   "settings.lan.unsupported": "此 Gateway 版本过旧，无法在网络上监听。",
   "settings.lan.toggle": "允许此网络上的电脑",
   "settings.lan.toggleHint":
-    "Psyche 在一个网络上监听，使用带有自身证书的加密连接。连接的电脑仍需在这里通过 Touch ID 批准。",
+    "Psyche 在一个网络上监听，使用带有自身证书的加密连接。连接的电脑仍需在这里轻点一下批准。",
   "settings.lan.ipv6": "同时使用此网络的 IPv6 地址",
   "settings.lan.ipv6Hint":
     "添加所选网络的私有 IPv6 地址（以 fd 或 fc 开头）。公共 IPv6 地址和 fe80 地址绝不会使用。",

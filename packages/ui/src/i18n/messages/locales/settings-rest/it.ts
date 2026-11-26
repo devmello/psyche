@@ -915,7 +915,7 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.uninstall.go": "Disinstalla ed esci",
   "settings.uninstall.goDelete": "Elimina i dati e disinstalla",
   "settings.remote.admin":
-    "Un computer che si abbina ottiene lettura, scrittura e approvazioni. L’amministrazione resta disattivata a meno che tu non la selezioni durante l’approvazione, e ogni modifica di amministrazione richiede comunque il tuo Touch ID qui.",
+    "Un computer che si abbina ottiene lettura, scrittura e approvazioni. L’amministrazione resta disattivata a meno che tu non la selezioni durante l’approvazione; ogni modifica di amministrazione ti chiede qui con una scheda di approvazione.",
   "settings.remote.address": "Indirizzo pubblico",
   "settings.remote.addressUnset": "Non impostato",
   "settings.remote.proxy": "Proxy attendibile",
@@ -934,7 +934,7 @@ export const settingsRest: Partial<Catalogue> = {
     "Imposta prima l’indirizzo pubblico di questo Mac (passaggio 3 qui sopra), poi crea un link di abbinamento.",
   "settings.pair.scopes": "Cosa può fare l’altro computer",
   "settings.pair.adminHint":
-    "L’amministrazione gli permette di modificare impostazioni di sicurezza, dispositivi e vault, e resta disattivata a meno che tu non la selezioni. Ogni modifica di amministrazione richiede comunque il tuo Touch ID qui.",
+    "L’amministrazione gli permette di modificare impostazioni di sicurezza, dispositivi e vault, e resta disattivata a meno che tu non la selezioni. Ogni modifica di amministrazione ti chiede qui con una scheda di approvazione.",
   "settings.pair.make": "Crea un link di abbinamento",
   "settings.pair.resultRegion": "Link di abbinamento e codice QR",
   "settings.pair.qrLabel": "Codice QR del link di abbinamento per {host}",
@@ -981,7 +981,7 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.lan.unsupported": "Questo Gateway è troppo vecchio per restare in ascolto sulla rete.",
   "settings.lan.toggle": "Consenti computer su questa rete",
   "settings.lan.toggleHint":
-    "Psyche resta in ascolto su una rete, tramite una connessione cifrata con un proprio certificato. Un computer che si collega deve comunque essere approvato qui con Touch ID.",
+    "Psyche resta in ascolto su una rete, tramite una connessione cifrata con un proprio certificato. Un computer che si collega deve comunque essere approvato qui, con un tocco.",
   "settings.lan.ipv6": "Usa anche gli indirizzi IPv6 di questa rete",
   "settings.lan.ipv6Hint":
     "Aggiunge gli indirizzi IPv6 privati (iniziano con fd o fc) della rete scelta. Gli indirizzi IPv6 pubblici e quelli fe80 non vengono mai usati.",

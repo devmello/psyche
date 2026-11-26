@@ -27,7 +27,7 @@ export const securityState: Partial<Catalogue> = {
   "web.security.alert.failed": "无法生效：{action}",
   "web.security.op.devicesApprove": "批准设备 {name}。",
   "web.security.op.devicesGrant": "更改 {name} 可以做的事。",
-  "web.security.op.presenceReset": "在注册新密钥之前，安全更改不再需要触控 ID 或通行密钥。",
+  "web.security.op.presenceReset": "清除保护付款的密钥，直到注册新密钥为止。",
   "web.security.op.sealReset": "按原样接受当前的安全记录。",
   "web.security.device": "一台设备",
   "web.security.deviceKey": "{name}（密钥 {fingerprint}）",

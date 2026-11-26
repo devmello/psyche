@@ -4,7 +4,7 @@ import type { Catalogue } from "../../index.ts";
 export const webRest: Partial<Catalogue> = {
   "web.remotePresence.title": "承認にTouch IDを使う",
   "web.remotePresence.description":
-    "購入、認証情報の入力、ホストのコマンド、セキュリティの変更にはTouch IDが必要です。このコンピュータで設定すると、ここで回答できます。設定するまでは、これらのカードは{host}で回答するよう案内されます。通常の承認には必要ありません。",
+    "支払いと、支払い保護の変更には、タップより強い確認が必要です。このコンピュータで設定すると、ここで答えられます。それまでは、これらのカードは{host}で答えるよう案内します。それ以外は通常のタップです。",
   "web.remotePresence.on": "このコンピュータからの承認にTouch IDがオンになっています。",
   "web.remotePresence.off": "このコンピュータではTouch IDが設定されていません。",
   "web.remotePresence.enable": "このコンピュータの承認にTouch IDを使う",

@@ -83,8 +83,6 @@ export const linux: Partial<Record<MessageId, string>> = {
     "The vault is locked. Unlock it with your password, then link {name} again.",
   "settings.approval.presenceUnavailable":
     "This window can't confirm it's you. Approve the change in the Psyche app on your computer (your password), or from a device with a passkey. Nothing changes until then.",
-  "settings.approval.promptDetail":
-    "Security settings need your password or a passkey. Approve it here or in the Psyche notification; the setting is saved as soon as it is approved.",
   "settings.approval.presenceInvalid":
     "Your password or the passkey didn't confirm it's you. Try again.",
   "settings.about.revealHome": "Show in Files",
@@ -176,12 +174,8 @@ export const linux: Partial<Record<MessageId, string>> = {
     "In a terminal on this computer, publish the Gateway to your tailnet. This is Serve, not Funnel.",
   "settings.remote.step4":
     "Restart Psyche. Then on the other computer, add this computer as a Gateway. It shows a pairing code and a key fingerprint: compare them with the request under Waiting to pair here, then approve it.",
-  "settings.remote.admin":
-    "A computer that pairs gets read, write and approvals. Admin stays off unless you tick it when you approve, and each admin change still needs your password here.",
   "settings.pair.needsAddress":
     "Set this computer's public address first (step 3 above), then make a pairing link.",
-  "settings.pair.adminHint":
-    "Admin lets it change security settings, devices and the vault, and stays off unless you tick it. Each admin change still needs your password here.",
   "settings.pair.compare":
     "It checks this computer's key before it uses the link: {fingerprint}. You can compare.",
   "settings.pair.secret":
@@ -195,8 +189,6 @@ export const linux: Partial<Record<MessageId, string>> = {
     "This link is for computers on the same network as this computer. It names the key and certificate Psyche will insist on.",
   "settings.lan.description":
     "Let Psyche on another computer on the same Wi-Fi or Ethernet reach this computer's Gateway, without Tailscale. It is off until you turn it on.",
-  "settings.lan.toggleHint":
-    "Psyche listens on one network, over an encrypted connection with its own certificate. A computer that connects still has to be approved here with your password.",
   "settings.lan.noInterface": "No Wi-Fi or Ethernet connection was found on this computer.",
   "settings.lan.notAdvertised": "Not shown. Add this computer by its address.",
   "settings.lan.problem.unknownInterface": "{name} is not a network on this computer.",
@@ -315,8 +307,6 @@ export const linux: Partial<Record<MessageId, string>> = {
   "web.passkeys.added":
     "Added {name}. It now approves changes that need your password or a passkey.",
   "web.remotePresence.title": "Your password for approvals",
-  "web.remotePresence.description":
-    "Purchases, credential fills, host commands and security changes need your password or a passkey. Set it up on this computer to answer them here; until then those cards say to answer on {host}. Ordinary approvals never need it.",
   "web.remotePresence.on": "Password approvals are on for this computer.",
   "web.remotePresence.off": "Password approvals aren't set up on this computer.",
   "web.remotePresence.enable": "Use your password for approvals on this computer",
@@ -392,11 +382,7 @@ export const linux: Partial<Record<MessageId, string>> = {
   "web.security.alert.firstAdmin":
     "A command on this computer made {name} the first admin device. If that was not you, revoke it in Devices.",
   "web.security.alert.requested": "Asked for on this computer: {action} Applies on {when}.",
-  "web.security.op.presenceReset":
-    "stop requiring your password or a passkey for security changes until a new key is registered.",
   "web.security.needsApprovalPresence":
-    "Approve the card with your password or a passkey, then press the button again.",
-  "web.security.needsApproval":
     "Approve the card with your password or a passkey, then press the button again.",
   "notice.security.changed.body":
     "A program on this computer changed {count, plural, =1 {# security record} other {# security records}} (devices, keys, grants or settings) without going through Psyche{times, plural, =0 {} =1 {} other {, # times so far}}. Psyche put them back. If you did not do this, check the computer for unwanted software.",
@@ -407,6 +393,4 @@ export const linux: Partial<Record<MessageId, string>> = {
     "{device}{key, select, none {} other { (key {key})}} became the first admin device {via, select, desktop {from the Psyche app} other {through `psyched`}} on this computer. If that was not you, revoke it in Settings → Devices.",
   "notice.security.recovery.title":
     "{state, select, requested {A command on this computer asked for a security change} applied {A security change from this computer was applied} cancelled {A security change from this computer was cancelled} other {A security change from this computer could not be applied}}",
-  "notice.security.recovery.body":
-    "{op, select, approve {Approve the device {device}{key, select, none {} other { (key {key})}} with {scopes}.} grant {Give {device}{key, select, none {} other { (key {key})}} {scopes}.} presence {Turn off the password and passkey requirement for security changes until a new key is registered.} seal {Accept the current security records as they are.} other {A security change.}}{state, select, requested { It applies {when, select, none {in 24 hours} other {on {when}}} unless you cancel it in Psyche.} failed {{reason, select, none {} other { {reason}}}} other {}}",
 };

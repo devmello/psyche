@@ -27,7 +27,7 @@ export const notices: Partial<Catalogue> = {
   "notice.security.recovery.title":
     "{state, select, requested {이 Mac의 명령이 보안 변경을 요청했습니다} applied {이 Mac에서 요청한 보안 변경이 적용되었습니다} cancelled {이 Mac에서 요청한 보안 변경이 취소되었습니다} other {이 Mac에서 요청한 보안 변경을 적용하지 못했습니다}}",
   "notice.security.recovery.body":
-    "{op, select, approve {기기 {device}{key, select, none {} other {(키 {key})}}를 {scopes} 권한으로 승인합니다.} grant {{device}{key, select, none {} other {(키 {key})}}에 {scopes} 권한을 부여합니다.} presence {새 키가 등록될 때까지 보안 변경에 Touch ID와 패스키 요구를 끕니다.} seal {현재 보안 기록을 그대로 받아들입니다.} other {보안 변경입니다.}}{state, select, requested { {when, select, none {24시간 후에} other {{when}에}} 적용됩니다. Psyche에서 취소할 수 있습니다.} failed {{reason, select, none {} other { {reason}}}} other {}}",
+    "{op, select, approve {기기 {device}{key, select, none {} other {(키 {key})}}를 {scopes} 권한으로 승인합니다.} grant {{device}{key, select, none {} other {(키 {key})}}에 {scopes} 권한을 부여합니다.} presence {새 키가 등록될 때까지 결제를 보호하는 키를 지운다.} seal {현재 보안 기록을 그대로 받아들입니다.} other {보안 변경입니다.}}{state, select, requested { {when, select, none {24시간 후에} other {{when}에}} 적용됩니다. Psyche에서 취소할 수 있습니다.} failed {{reason, select, none {} other { {reason}}}} other {}}",
   "notice.browser.chrome.title": "Psyche가 Chrome을 조작하고 있습니다",
   "notice.browser.chrome.body":
     "작업이 로그인되어 있는 Psyche용 Chrome 프로필을 사용하고 있습니다. 창 제목은 “Psyche is driving this window”입니다. 작업이 끝나면 닫히며, Chrome을 직접 종료해도 됩니다.",

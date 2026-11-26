@@ -1562,8 +1562,7 @@ export const zh: Partial<Catalogue> = {
     "未更改：对“{label}”的批准{expired, select, true {已过期} other {已被撤回}}。再次更改可重新请求。",
   "settings.approval.region": "需要批准",
   "settings.approval.prompt": "请批准对“{label}”的此项更改。",
-  "settings.approval.promptDetail":
-    "安全设置需要 Touch ID 或通行密钥。可在此处或在 Psyche 通知中批准；批准后设置会立即存储。",
+  "settings.approval.promptDetail": "可在此处或在 Psyche 通知中批准。批准后设置会立即存储。",
   "settings.approval.presenceInvalid": "Touch ID 或通行密钥未能确认是你本人。请再试一次。",
   "settings.approval.loading": "正在载入审批…",
 

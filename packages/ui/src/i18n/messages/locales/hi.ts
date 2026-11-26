@@ -1560,7 +1560,7 @@ export const hi: Partial<Catalogue> = {
   "settings.approval.region": "स्वीकृति चाहिए",
   "settings.approval.prompt": "“{label}” में इस बदलाव को स्वीकृत करें।",
   "settings.approval.promptDetail":
-    "सुरक्षा सेटिंग्ज़ के लिए Touch ID या पासकी चाहिए। इसे यहाँ या Psyche सूचना में स्वीकृत करें; स्वीकृत होते ही सेटिंग सेव हो जाती है।",
+    "इसे यहाँ या Psyche सूचना में स्वीकृत करें। स्वीकृत होते ही सेटिंग सेव हो जाती है।",
   "settings.approval.presenceInvalid":
     "Touch ID या पासकी से पुष्टि नहीं हुई कि यह आप ही हैं। फिर से कोशिश करें।",
   "settings.approval.loading": "स्वीकृति लोड हो रही है…",

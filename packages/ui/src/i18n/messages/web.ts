@@ -117,7 +117,7 @@ export const web = {
   "web.passkeys.confirmFirst": "You'll confirm with an existing passkey first.",
   "web.remotePresence.title": "Touch ID for approvals",
   "web.remotePresence.description":
-    "Purchases, credential fills, host commands and security changes need Touch ID. Set it up on this computer to answer them here; until then those cards say to answer on {host}. Ordinary approvals never need it.",
+    "Payments and changes to payment protection need a stronger check than a tap. Set it up on this computer to answer them here; until then those cards say to answer on {host}. Everything else is a plain tap.",
   "web.remotePresence.on": "Touch ID is on for approvals from this computer.",
   "web.remotePresence.off": "Touch ID isn't set up on this computer.",
   "web.remotePresence.enable": "Use Touch ID for approvals on this computer",

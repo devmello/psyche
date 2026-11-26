@@ -27,7 +27,7 @@ export const notices: Partial<Catalogue> = {
   "notice.security.recovery.title":
     "{state, select, requested {この Mac のコマンドがセキュリティ変更を要求しました} applied {この Mac からのセキュリティ変更を適用しました} cancelled {この Mac からのセキュリティ変更を取り消しました} other {この Mac からのセキュリティ変更を適用できませんでした}}",
   "notice.security.recovery.body":
-    "{op, select, approve {デバイス {device}{key, select, none {} other {（キー {key}）}}を {scopes} で承認する。} grant {{device}{key, select, none {} other {（キー {key}）}}に {scopes} を付与する。} presence {新しいキーが登録されるまで、セキュリティ変更に Touch ID やパスキーを求めない。} seal {現在のセキュリティ記録をそのまま受け入れる。} other {セキュリティ変更。}}{state, select, requested {{when, select, none {24 時間後} other {{when}}}に適用されます。Psyche で取り消すこともできます。} failed {{reason, select, none {} other { {reason}}}} other {}}",
+    "{op, select, approve {デバイス {device}{key, select, none {} other {（キー {key}）}}を {scopes} で承認する。} grant {{device}{key, select, none {} other {（キー {key}）}}に {scopes} を付与する。} presence {新しいキーが登録されるまで、支払いを保護するキーを解除する。} seal {現在のセキュリティ記録をそのまま受け入れる。} other {セキュリティ変更。}}{state, select, requested {{when, select, none {24 時間後} other {{when}}}に適用されます。Psyche で取り消すこともできます。} failed {{reason, select, none {} other { {reason}}}} other {}}",
   "notice.browser.chrome.title": "Psyche があなたの Chrome を操作しています",
   "notice.browser.chrome.body":
     "タスクが、サインイン済みの Psyche 用 Chrome プロファイルを使っています。ウィンドウのタイトルは「Psyche is driving this window」です。タスクが終わると閉じます。Chrome を終了することもできます。",

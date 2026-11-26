@@ -9379,67 +9379,67 @@
         "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "{op, select, approve {الموافقة على الجهاز {device}{key, select, none {} other { (المفتاح {key})}} بالأذونات {scopes}.} grant {منح {device}{key, select, none {} other { (المفتاح {key})}} الأذونات {scopes}.} presence {إيقاف اشتراط Touch ID ومفتاح المرور للتغييرات الأمنية حتى يُسجَّل مفتاح جديد.} seal {قبول سجلات الأمان الحالية كما هي.} other {تغيير أمني.}}{state, select, requested { سيُطبَّق {when, select, none {بعد 24 ساعة} other {في {when}}} ما لم تلغِه في Psyche.} failed {{reason, select, none {} other { {reason}}}} other {}}"
+            "value": "{op, select, approve {الموافقة على الجهاز {device}{key, select, none {} other { (المفتاح {key})}} بالأذونات {scopes}.} grant {منح {device}{key, select, none {} other { (المفتاح {key})}} الأذونات {scopes}.} presence {مسح المفتاح الذي يحمي المدفوعات إلى أن يُسجَّل مفتاح جديد.} seal {قبول سجلات الأمان الحالية كما هي.} other {تغيير أمني.}}{state, select, requested { سيُطبَّق {when, select, none {بعد 24 ساعة} other {في {when}}} ما لم تلغِه في Psyche.} failed {{reason, select, none {} other { {reason}}}} other {}}"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "{op, select, approve {Das Gerät {device}{key, select, none {} other { (Schlüssel {key})}} mit {scopes} freigeben.} grant {{device}{key, select, none {} other { (Schlüssel {key})}} {scopes} geben.} presence {Die Touch-ID- und Passkey-Pflicht für Sicherheitsänderungen ausschalten, bis ein neuer Schlüssel registriert ist.} seal {Die aktuellen Sicherheitsdaten so übernehmen, wie sie sind.} other {Eine Sicherheitsänderung.}}{state, select, requested { Sie gilt {when, select, none {in 24 Stunden} other {ab {when}}}, wenn du sie nicht in Psyche abbrichst.} failed {{reason, select, none {} other { {reason}}}} other {}}"
+            "value": "{op, select, approve {Das Gerät {device}{key, select, none {} other { (Schlüssel {key})}} mit {scopes} freigeben.} grant {{device}{key, select, none {} other { (Schlüssel {key})}} {scopes} geben.} presence {Den Schlüssel, der Zahlungen schützt, löschen, bis ein neuer registriert ist.} seal {Die aktuellen Sicherheitsdaten so übernehmen, wie sie sind.} other {Eine Sicherheitsänderung.}}{state, select, requested { Sie gilt {when, select, none {in 24 Stunden} other {ab {when}}}, wenn du sie nicht in Psyche abbrichst.} failed {{reason, select, none {} other { {reason}}}} other {}}"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "{op, select, approve {Approve the device {device}{key, select, none {} other { (key {key})}} with {scopes}.} grant {Give {device}{key, select, none {} other { (key {key})}} {scopes}.} presence {Turn off the Touch ID and passkey requirement for security changes until a new key is registered.} seal {Accept the current security records as they are.} other {A security change.}}{state, select, requested { It applies {when, select, none {in 24 hours} other {on {when}}} unless you cancel it in Psyche.} failed {{reason, select, none {} other { {reason}}}} other {}}"
+            "value": "{op, select, approve {Approve the device {device}{key, select, none {} other { (key {key})}} with {scopes}.} grant {Give {device}{key, select, none {} other { (key {key})}} {scopes}.} presence {Clear the key that protects payments until a new one is registered.} seal {Accept the current security records as they are.} other {A security change.}}{state, select, requested { It applies {when, select, none {in 24 hours} other {on {when}}} unless you cancel it in Psyche.} failed {{reason, select, none {} other { {reason}}}} other {}}"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "{op, select, approve {Aprobar el dispositivo {device}{key, select, none {} other { (clave {key})}} con {scopes}.} grant {Dar a {device}{key, select, none {} other { (clave {key})}} {scopes}.} presence {Desactivar el requisito de Touch ID y clave de acceso para los cambios de seguridad hasta que se registre una clave nueva.} seal {Aceptar los registros de seguridad actuales tal como están.} other {Un cambio de seguridad.}}{state, select, requested { Se aplica {when, select, none {en 24 horas} other {el {when}}} salvo que lo canceles en Psyche.} failed {{reason, select, none {} other { {reason}}}} other {}}"
+            "value": "{op, select, approve {Aprobar el dispositivo {device}{key, select, none {} other { (clave {key})}} con {scopes}.} grant {Dar a {device}{key, select, none {} other { (clave {key})}} {scopes}.} presence {Borrar la clave que protege los pagos hasta que se registre una nueva.} seal {Aceptar los registros de seguridad actuales tal como están.} other {Un cambio de seguridad.}}{state, select, requested { Se aplica {when, select, none {en 24 horas} other {el {when}}} salvo que lo canceles en Psyche.} failed {{reason, select, none {} other { {reason}}}} other {}}"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "{op, select, approve {Approuver l’appareil {device}{key, select, none {} other { (clé {key})}} avec {scopes}.} grant {Donner à {device}{key, select, none {} other { (clé {key})}} {scopes}.} presence {Désactiver l’exigence de Touch ID et de clé d’accès pour les modifications de sécurité jusqu’à l’enregistrement d’une nouvelle clé.} seal {Accepter les enregistrements de sécurité actuels tels quels.} other {Une modification de sécurité.}}{state, select, requested { Elle s’applique {when, select, none {dans 24 heures} other {le {when}}} sauf si vous l’annulez dans Psyche.} failed {{reason, select, none {} other { {reason}}}} other {}}"
+            "value": "{op, select, approve {Approuver l’appareil {device}{key, select, none {} other { (clé {key})}} avec {scopes}.} grant {Donner à {device}{key, select, none {} other { (clé {key})}} {scopes}.} presence {Effacer la clé qui protège les paiements jusqu’à l’enregistrement d’une nouvelle.} seal {Accepter les enregistrements de sécurité actuels tels quels.} other {Une modification de sécurité.}}{state, select, requested { Elle s’applique {when, select, none {dans 24 heures} other {le {when}}} sauf si vous l’annulez dans Psyche.} failed {{reason, select, none {} other { {reason}}}} other {}}"
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "{op, select, approve {डिवाइस {device}{key, select, none {} other { (कुंजी {key})}} को {scopes} के साथ मंज़ूरी दें।} grant {{device}{key, select, none {} other { (कुंजी {key})}} को {scopes} दें।} presence {नई कुंजी रजिस्टर होने तक सुरक्षा बदलावों के लिए Touch ID और पासकी की ज़रूरत बंद करें।} seal {मौजूदा सुरक्षा रिकॉर्ड जैसे हैं वैसे ही स्वीकार करें।} other {एक सुरक्षा बदलाव।}}{state, select, requested { यह {when, select, none {24 घंटे में} other {{when} को}} लागू होगा, जब तक आप इसे Psyche में रद्द न करें।} failed {{reason, select, none {} other { {reason}}}} other {}}"
+            "value": "{op, select, approve {डिवाइस {device}{key, select, none {} other { (कुंजी {key})}} को {scopes} के साथ मंज़ूरी दें।} grant {{device}{key, select, none {} other { (कुंजी {key})}} को {scopes} दें।} presence {भुगतान की सुरक्षा करने वाली कुंजी तब तक हटाएँ जब तक नई कुंजी पंजीकृत न हो।} seal {मौजूदा सुरक्षा रिकॉर्ड जैसे हैं वैसे ही स्वीकार करें।} other {एक सुरक्षा बदलाव।}}{state, select, requested { यह {when, select, none {24 घंटे में} other {{when} को}} लागू होगा, जब तक आप इसे Psyche में रद्द न करें।} failed {{reason, select, none {} other { {reason}}}} other {}}"
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "{op, select, approve {Approvare il dispositivo {device}{key, select, none {} other { (chiave {key})}} con {scopes}.} grant {Dare a {device}{key, select, none {} other { (chiave {key})}} {scopes}.} presence {Disattivare l’obbligo di Touch ID e passkey per le modifiche di sicurezza finché non viene registrata una nuova chiave.} seal {Accettare i registri di sicurezza attuali così come sono.} other {Una modifica di sicurezza.}}{state, select, requested { Viene applicata {when, select, none {tra 24 ore} other {il {when}}} se non la annulli in Psyche.} failed {{reason, select, none {} other { {reason}}}} other {}}"
+            "value": "{op, select, approve {Approvare il dispositivo {device}{key, select, none {} other { (chiave {key})}} con {scopes}.} grant {Dare a {device}{key, select, none {} other { (chiave {key})}} {scopes}.} presence {Cancellare la chiave che protegge i pagamenti finché non ne viene registrata una nuova.} seal {Accettare i registri di sicurezza attuali così come sono.} other {Una modifica di sicurezza.}}{state, select, requested { Viene applicata {when, select, none {tra 24 ore} other {il {when}}} se non la annulli in Psyche.} failed {{reason, select, none {} other { {reason}}}} other {}}"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "{op, select, approve {デバイス {device}{key, select, none {} other {（キー {key}）}}を {scopes} で承認する。} grant {{device}{key, select, none {} other {（キー {key}）}}に {scopes} を付与する。} presence {新しいキーが登録されるまで、セキュリティ変更に Touch ID やパスキーを求めない。} seal {現在のセキュリティ記録をそのまま受け入れる。} other {セキュリティ変更。}}{state, select, requested {{when, select, none {24 時間後} other {{when}}}に適用されます。Psyche で取り消すこともできます。} failed {{reason, select, none {} other { {reason}}}} other {}}"
+            "value": "{op, select, approve {デバイス {device}{key, select, none {} other {（キー {key}）}}を {scopes} で承認する。} grant {{device}{key, select, none {} other {（キー {key}）}}に {scopes} を付与する。} presence {新しいキーが登録されるまで、支払いを保護するキーを解除する。} seal {現在のセキュリティ記録をそのまま受け入れる。} other {セキュリティ変更。}}{state, select, requested {{when, select, none {24 時間後} other {{when}}}に適用されます。Psyche で取り消すこともできます。} failed {{reason, select, none {} other { {reason}}}} other {}}"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "{op, select, approve {기기 {device}{key, select, none {} other {(키 {key})}}를 {scopes} 권한으로 승인합니다.} grant {{device}{key, select, none {} other {(키 {key})}}에 {scopes} 권한을 부여합니다.} presence {새 키가 등록될 때까지 보안 변경에 Touch ID와 패스키 요구를 끕니다.} seal {현재 보안 기록을 그대로 받아들입니다.} other {보안 변경입니다.}}{state, select, requested { {when, select, none {24시간 후에} other {{when}에}} 적용됩니다. Psyche에서 취소할 수 있습니다.} failed {{reason, select, none {} other { {reason}}}} other {}}"
+            "value": "{op, select, approve {기기 {device}{key, select, none {} other {(키 {key})}}를 {scopes} 권한으로 승인합니다.} grant {{device}{key, select, none {} other {(키 {key})}}에 {scopes} 권한을 부여합니다.} presence {새 키가 등록될 때까지 결제를 보호하는 키를 지운다.} seal {현재 보안 기록을 그대로 받아들입니다.} other {보안 변경입니다.}}{state, select, requested { {when, select, none {24시간 후에} other {{when}에}} 적용됩니다. Psyche에서 취소할 수 있습니다.} failed {{reason, select, none {} other { {reason}}}} other {}}"
           }
         },
         "pt": {
           "stringUnit": {
             "state": "translated",
-            "value": "{op, select, approve {Aprovar o dispositivo {device}{key, select, none {} other { (chave {key})}} com {scopes}.} grant {Dar a {device}{key, select, none {} other { (chave {key})}} {scopes}.} presence {Desativar a exigência de Touch ID e passkey para alterações de segurança até que uma nova chave seja registrada.} seal {Aceitar os registros de segurança atuais como estão.} other {Uma alteração de segurança.}}{state, select, requested { Ela vale {when, select, none {em 24 horas} other {em {when}}} a menos que você a cancele no Psyche.} failed {{reason, select, none {} other { {reason}}}} other {}}"
+            "value": "{op, select, approve {Aprovar o dispositivo {device}{key, select, none {} other { (chave {key})}} com {scopes}.} grant {Dar a {device}{key, select, none {} other { (chave {key})}} {scopes}.} presence {Apagar a chave que protege os pagamentos até que uma nova seja registrada.} seal {Aceitar os registros de segurança atuais como estão.} other {Uma alteração de segurança.}}{state, select, requested { Ela vale {when, select, none {em 24 horas} other {em {when}}} a menos que você a cancele no Psyche.} failed {{reason, select, none {} other { {reason}}}} other {}}"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "{op, select, approve {以 {scopes} 权限批准设备 {device}{key, select, none {} other {（密钥 {key}）}}。} grant {授予 {device}{key, select, none {} other {（密钥 {key}）}} {scopes} 权限。} presence {在注册新密钥之前，关闭安全更改对 Touch ID 和通行密钥的要求。} seal {按现状接受当前的安全记录。} other {一项安全更改。}}{state, select, requested {将{when, select, none {在 24 小时后} other {于 {when}}}生效，除非你在 Psyche 中取消。} failed {{reason, select, none {} other { {reason}}}} other {}}"
+            "value": "{op, select, approve {以 {scopes} 权限批准设备 {device}{key, select, none {} other {（密钥 {key}）}}。} grant {授予 {device}{key, select, none {} other {（密钥 {key}）}} {scopes} 权限。} presence {清除保护付款的密钥，直到注册新密钥为止。} seal {按现状接受当前的安全记录。} other {一项安全更改。}}{state, select, requested {将{when, select, none {在 24 小时后} other {于 {when}}}生效，除非你在 Psyche 中取消。} failed {{reason, select, none {} other { {reason}}}} other {}}"
           }
         }
       }

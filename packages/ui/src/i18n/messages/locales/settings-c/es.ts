@@ -290,7 +290,7 @@ export const settingsC: Partial<Catalogue> = {
   "settings.uninstall.go": "Desinstalar y salir",
   "settings.uninstall.goDelete": "Eliminar los datos y desinstalar",
   "settings.remote.admin":
-    "Un ordenador que se vincula obtiene lectura, escritura y aprobaciones. Admin sigue desactivado salvo que lo marques al aprobar, y cada cambio de admin sigue necesitando tu Touch ID aquí.",
+    "Un ordenador que se vincula obtiene lectura, escritura y aprobaciones. Admin sigue desactivado salvo que lo marques al aprobar; cada cambio de admin te lo pregunta aquí con una tarjeta de aprobación.",
   "settings.remote.address": "Dirección pública",
   "settings.remote.addressUnset": "Sin definir",
   "settings.remote.proxy": "Proxy de confianza",
@@ -309,7 +309,7 @@ export const settingsC: Partial<Catalogue> = {
     "Define primero la dirección pública de este Mac (paso 3 de arriba) y luego crea un enlace de vinculación.",
   "settings.pair.scopes": "Qué puede hacer el otro ordenador",
   "settings.pair.adminHint":
-    "Admin le permite cambiar ajustes de seguridad, dispositivos y la bóveda, y sigue desactivado salvo que lo marques. Cada cambio de admin sigue necesitando tu Touch ID aquí.",
+    "Admin le permite cambiar ajustes de seguridad, dispositivos y la bóveda, y sigue desactivado salvo que lo marques. Cada cambio de admin te lo pregunta aquí con una tarjeta de aprobación.",
   "settings.pair.make": "Crear un enlace de vinculación",
   "settings.pair.resultRegion": "Enlace de vinculación y código QR",
   "settings.pair.qrLabel": "Código QR del enlace de vinculación de {host}",

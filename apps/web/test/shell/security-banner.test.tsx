@@ -139,6 +139,45 @@ describe("SecurityStateBanner", () => {
     );
   });
 
+  it.each([
+    ["devices.grant", /Approve the card, then press the button again/, /Touch ID|passkey/],
+    ["presence.reset", /Approve the card with Touch ID or a passkey/, /^$/],
+  ])(
+    "approve now on a %s request names presence only for a presence reset",
+    async (op, shown, hidden) => {
+      const g = platform({
+        "security.state.get": () => ({
+          status: "sealed",
+          reason: null,
+          alerts: [],
+          recoveries: [
+            {
+              id: "r9",
+              op,
+              status: "waiting",
+              requestedAt: "2026-11-05T10:00:00.000Z",
+              notBefore: "2026-11-06T10:00:00.000Z",
+              decidedAt: null,
+              outcome: null,
+            },
+          ],
+        }),
+        "security.recoveries.approve": () => {
+          throw Object.assign(new Error("needs approval"), {
+            code: "approval_required",
+            details: { approvalId: "ap9" },
+          });
+        },
+      });
+      render(<SecurityStateBanner platform={g.p} />);
+      await screen.findByTestId("security-banner");
+      fireEvent.click(screen.getByRole("button", { name: "Review" }));
+      fireEvent.click(screen.getByRole("button", { name: "Approve now" }));
+      const note = await screen.findByText(shown);
+      expect(note.textContent).not.toMatch(hidden);
+    },
+  );
+
   it("an untrusted state cannot be dismissed and offers no approve-now", async () => {
     const g = platform({
       "security.state.get": () => ({

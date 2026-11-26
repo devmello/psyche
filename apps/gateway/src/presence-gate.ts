@@ -7,11 +7,13 @@ import type { Call } from "./context.ts";
 import { INTERNAL_SETTING_PREFIX } from "./state-version.ts";
 
 /**
- * The owner's approval for security changes (security §10). Presence (Touch ID, a passkey) is for
- * payments only (owner's decision, 2026-11-09), so a gated call first fails `approval_required`
+ * The owner's approval for security changes (security §10). Admin and security changes are a plain
+ * tap (owner's decisions, 2026-11-09 and 2026-11-26). Presence (Touch ID, a passkey) is for
+ * payments, and for changing the payment verifiers themselves (enrolling one, applying a presence
+ * reset early), so a gated call first fails `approval_required`
  * with `details.approvalId`: a device-only `policy_change` card bound to the exact change, which
  * the owner approves with a plain tap. The retry with that `approvalId` goes through, once. Only
- * `strong` calls (enrolling a verifier) also need a verified presence assertion.
+ * `strong` calls (enrolling a verifier, applying a presence reset at once) also need a verified presence assertion.
  *
  * - `ready`: some verifier can verify (a registered helper key, a passkey, an explicit one).
  * - `off`: none ever could, so a fresh install still works with `operator.admin` alone.
@@ -96,8 +98,9 @@ export function presenceRequiredError(): PsycheError {
 
 /**
  * A security change needs an approved card for exactly it, consumed once. The card is a tap on a
- * paired device (owner's decision, 2026-11-09: presence is for payments only). Enrolling a presence
- * verifier is the exception (`strong`): a stolen admin device must not be able to add its own
+ * paired device (owner's decisions, 2026-11-09 and 2026-11-26: presence is for payments only).
+ * Changing the payment verifiers is the exception (`strong`: enrolling one, applying a presence
+ * reset early): a stolen admin device must not be able to add its own
  * authenticator or key and then approve payments with it, so that card needs the presence step too
  * and fails closed when no verifier can verify.
  */
@@ -105,7 +108,7 @@ export async function requireFreshPresence(
   call: Pick<Call, "ctx" | "identity">,
   action: FreshPresenceAction,
   approvalId: string | undefined,
-  opts: { strong?: boolean } = {},
+  opts: { strong?: boolean; always?: boolean } = {},
 ): Promise<void> {
   if (call.ctx.securityState?.untrusted() != null) throw stateUntrustedError();
   const state = call.ctx.presenceState();
@@ -114,7 +117,8 @@ export async function requireFreshPresence(
   // Mac the helper's auto-paired key can sign the sheet, so a first passkey from a device with
   // only `operator.approvals` must pass it too (`presenceCanVerify`, context.ts).
   const canVerify = call.ctx.presenceCanVerify?.() ?? state !== "off";
-  if (state === "off" && !(strong && canVerify)) return;
+  // `always`: a card even while presence was never enrolled (a plain tap, never a presence step).
+  if (state === "off" && !(strong && canVerify) && !(opts.always === true && !strong)) return;
   if (strong && !canVerify) throw presenceRequiredError();
   let valueSha256: string;
   try {

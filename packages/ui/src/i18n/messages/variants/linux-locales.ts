@@ -22,8 +22,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "{device}{key, select, none {} other { (المفتاح {key})}} أصبح أول جهاز مسؤول {via, select, desktop {من تطبيق Psyche} other {عبر `psyched`}} على هذا الكمبيوتر. إن لم تكن أنت من فعل ذلك، فألغِه من الإعدادات ← الأجهزة.",
       "notice.security.recovery.title":
         "{state, select, requested {طلب أمر على هذا الكمبيوتر تغييرًا أمنيًا} applied {طُبّق تغيير أمني من هذا الكمبيوتر} cancelled {أُلغي تغيير أمني من هذا الكمبيوتر} other {تعذّر تطبيق تغيير أمني من هذا الكمبيوتر}}",
-      "notice.security.recovery.body":
-        "{op, select, approve {وافِق على الجهاز {device}{key, select, none {} other { (المفتاح {key})}} مع {scopes}.} grant {امنح {device}{key, select, none {} other { (المفتاح {key})}} {scopes}.} presence {أوقِف طلب كلمة المرور أو مفتاح المرور لتغييرات الأمان حتى يُسجَّل مفتاح جديد.} seal {اقبل سجلات الأمان الحالية كما هي.} other {تغيير أمني.}}{state, select, requested { يُطبَّق {when, select, none {بعد 24 ساعة} other {في {when}}} ما لم تلغِه في Psyche.} failed {{reason, select, none {} other { {reason}}}} other {}}",
       "screens.library.reveal": "إظهار في المجلد",
       "settings.devices.nodeKind.hostHelper": "مساعد Linux",
       "settings.links.description":
@@ -92,8 +90,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "الخزنة مقفلة. افتحها بكلمة المرور، ثم اربط {name} مرة أخرى.",
       "settings.approval.presenceUnavailable":
         "لا تستطيع هذه النافذة التأكد من أنك أنت. وافق على التغيير في تطبيق Psyche على الكمبيوتر الخاص بك (كلمة المرور)، أو من جهاز لديه مفتاح مرور. لن يتغير شيء حتى ذلك الحين.",
-      "settings.approval.promptDetail":
-        "تحتاج إعدادات الأمن إلى كلمة المرور أو مفتاح مرور. وافق هنا أو في إشعار Psyche؛ يُحفظ الإعداد فور الموافقة.",
       "settings.approval.presenceInvalid":
         "لم تؤكد كلمة المرور أو مفتاح المرور أنك أنت. حاول مرة أخرى.",
       "settings.about.revealHome": "إظهار في الملفات",
@@ -184,12 +180,8 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "في طرفية على هذا الكمبيوتر، انشر Gateway على tailnet الخاصة بك. هذا Serve وليس Funnel.",
       "settings.remote.step4":
         "أعد تشغيل Psyche. ثم على الكمبيوتر الآخر أضف هذا الكمبيوتر كـ Gateway. سيعرض رمز إقران وبصمة مفتاح: قارنهما بالطلب ضمن «بانتظار الإقران» هنا، ثم وافق عليه.",
-      "settings.remote.admin":
-        "يحصل الكمبيوتر المقترن على القراءة والكتابة والموافقات. تبقى صلاحية المسؤول متوقفة ما لم تحدّدها عند الموافقة، وكل تغيير إداري يتطلب كلمة المرور منك هنا.",
       "settings.pair.needsAddress":
         "اضبط العنوان العام لهذا الكمبيوتر أولًا (الخطوة 3 أعلاه)، ثم أنشئ رابط إقران.",
-      "settings.pair.adminHint":
-        "تتيح صلاحية المسؤول له تغيير إعدادات الأمان والأجهزة والخزنة، وتبقى متوقفة ما لم تحدّدها. كل تغيير إداري يتطلب كلمة المرور منك هنا.",
       "settings.pair.compare":
         "يتحقق من مفتاح هذا الكمبيوتر قبل أن يستخدم الرابط: {fingerprint}. يمكنك المقارنة.",
       "settings.pair.secret":
@@ -202,8 +194,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "هذا الرابط لأجهزة على الشبكة نفسها التي عليها هذا الكمبيوتر. وهو يحدد المفتاح والشهادة اللذين سيصر عليهما Psyche.",
       "settings.lan.description":
         "دع Psyche على كمبيوتر آخر على شبكة Wi-Fi أو Ethernet نفسها يصل إلى Gateway هذا الكمبيوتر دون Tailscale. متوقف حتى تفعّله.",
-      "settings.lan.toggleHint":
-        "يستمع Psyche على شبكة واحدة عبر اتصال مشفّر بشهادته الخاصة. ويظل الكمبيوتر المتصل بحاجة إلى موافقة هنا بكلمة المرور.",
       "settings.lan.noInterface": "لم يُعثر على اتصال Wi-Fi أو Ethernet على هذا الكمبيوتر.",
       "settings.lan.notAdvertised": "لا يظهر. أضف هذا الكمبيوتر بعنوانه.",
       "settings.lan.problem.unknownInterface": "{name} ليست شبكة على هذا الكمبيوتر.",
@@ -318,8 +308,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "web.passkeys.added":
         "تمت إضافة {name}. يوافق الآن على التغييرات التي تحتاج إلى كلمة المرور أو مفتاح مرور.",
       "web.remotePresence.title": "كلمة المرور للموافقات",
-      "web.remotePresence.description":
-        "تحتاج عمليات الشراء وتعبئة بيانات الاعتماد وأوامر المضيف وتغييرات الأمان إلى كلمة المرور أو مفتاح مرور. أعدّها على هذا الكمبيوتر لتجيب هنا؛ وإلى ذلك الحين تطلب هذه البطاقات الإجابة على {host}. الموافقات العادية لا تحتاج إليها أبدًا.",
       "web.remotePresence.on": "الموافقات بكلمة المرور مفعّلة لهذا الكمبيوتر.",
       "web.remotePresence.off": "لم تُعدّ الموافقات بكلمة المرور على هذا الكمبيوتر.",
       "web.remotePresence.enable": "استخدام كلمة المرور للموافقات على هذا الكمبيوتر",
@@ -394,11 +382,7 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "web.security.alert.firstAdmin":
         "جعل أمر على هذا الكمبيوتر الجهاز {name} أول جهاز مسؤول. إن لم تكن أنت، فألغِه من الأجهزة.",
       "web.security.alert.requested": "طُلب على هذا الكمبيوتر: {action} يُطبَّق في {when}.",
-      "web.security.op.presenceReset":
-        "التوقف عن طلب كلمة المرور أو مفتاح المرور لتغييرات الأمان حتى يُسجَّل مفتاح جديد.",
       "web.security.needsApprovalPresence":
-        "وافق على البطاقة بكلمة المرور أو مفتاح مرور، ثم اضغط الزر مرة أخرى.",
-      "web.security.needsApproval":
         "وافق على البطاقة بكلمة المرور أو مفتاح مرور، ثم اضغط الزر مرة أخرى.",
     },
     de: {
@@ -417,8 +401,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "{device}{key, select, none {} other { (Schlüssel {key})}} wurde {via, select, desktop {über die Psyche-App} other {über `psyched`}} auf diesem Computer zum ersten Admin-Gerät. Wenn du das nicht warst, widerrufe es unter Einstellungen → Geräte.",
       "notice.security.recovery.title":
         "{state, select, requested {Ein Befehl auf diesem Computer hat eine Sicherheitsänderung angefordert} applied {Eine Sicherheitsänderung von diesem Computer wurde angewendet} cancelled {Eine Sicherheitsänderung von diesem Computer wurde abgebrochen} other {Eine Sicherheitsänderung von diesem Computer konnte nicht angewendet werden}}",
-      "notice.security.recovery.body":
-        "{op, select, approve {Genehmige das Gerät {device}{key, select, none {} other { (Schlüssel {key})}} mit {scopes}.} grant {Gib {device}{key, select, none {} other { (Schlüssel {key})}} {scopes}.} presence {Verlange für Sicherheitsänderungen kein Passwort und keinen Passkey mehr, bis ein neuer Schlüssel registriert ist.} seal {Akzeptiere die aktuellen Sicherheitsdaten so, wie sie sind.} other {Eine Sicherheitsänderung.}}{state, select, requested { Sie gilt {when, select, none {in 24 Stunden} other {ab {when}}}, sofern du sie nicht in Psyche abbrichst.} failed {{reason, select, none {} other { {reason}}}} other {}}",
       "screens.library.reveal": "Im Ordner zeigen",
       "settings.devices.nodeKind.hostHelper": "Linux-Helfer",
       "settings.links.description":
@@ -492,8 +474,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "Der Tresor ist gesperrt. Entsperre ihn mit deinem Passwort und verknüpfe {name} dann erneut.",
       "settings.approval.presenceUnavailable":
         "Dieses Fenster kann nicht bestätigen, dass du es bist. Genehmige die Änderung in der Psyche-App auf deinem Computer (dein Passwort) oder auf einem Gerät mit Passkey. Bis dahin ändert sich nichts.",
-      "settings.approval.promptDetail":
-        "Sicherheitseinstellungen brauchen dein Passwort oder einen Passkey. Genehmige es hier oder in der Psyche-Mitteilung; die Einstellung wird gesichert, sobald sie genehmigt ist.",
       "settings.approval.presenceInvalid":
         "Dein Passwort oder der Passkey konnte nicht bestätigen, dass du es bist. Versuche es erneut.",
       "settings.about.revealHome": "In Dateien zeigen",
@@ -586,12 +566,8 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "Veröffentliche das Gateway in einem Terminal auf diesem Computer in deinem Tailnet. Das ist Serve, nicht Funnel.",
       "settings.remote.step4":
         "Starte Psyche neu. Füge dann auf dem anderen Computer diesen Computer als Gateway hinzu. Er zeigt einen Kopplungscode und einen Schlüssel-Fingerabdruck: Vergleiche sie mit der Anfrage unter „Wartet auf Kopplung“ hier und genehmige sie dann.",
-      "settings.remote.admin":
-        "Ein gekoppelter Computer erhält Lesen, Schreiben und Genehmigungen. Admin bleibt aus, außer du hakst es bei der Genehmigung an, und jede Admin-Änderung braucht hier weiterhin dein Passwort.",
       "settings.pair.needsAddress":
         "Lege zuerst die öffentliche Adresse dieses Computers fest (Schritt 3 oben) und erstelle dann einen Kopplungslink.",
-      "settings.pair.adminHint":
-        "Admin erlaubt ihm, Sicherheitseinstellungen, Geräte und den Tresor zu ändern, und bleibt aus, außer du hakst es an. Jede Admin-Änderung braucht hier weiterhin dein Passwort.",
       "settings.pair.compare":
         "Er prüft den Schlüssel dieses Computers, bevor er den Link nutzt: {fingerprint}. Du kannst vergleichen.",
       "settings.pair.secret":
@@ -605,8 +581,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "Dieser Link gilt für Computer im selben Netzwerk wie dieser Computer. Er nennt den Schlüssel und das Zertifikat, auf die Psyche besteht.",
       "settings.lan.description":
         "Lass Psyche auf einem anderen Computer im selben WLAN oder Ethernet das Gateway dieses Computers ohne Tailscale erreichen. Es ist aus, bis du es einschaltest.",
-      "settings.lan.toggleHint":
-        "Psyche lauscht in einem Netzwerk, über eine verschlüsselte Verbindung mit eigenem Zertifikat. Ein Computer, der sich verbindet, muss hier trotzdem per Passwort genehmigt werden.",
       "settings.lan.noInterface":
         "Auf diesem Computer wurde keine WLAN- oder Ethernet-Verbindung gefunden.",
       "settings.lan.notAdvertised":
@@ -731,8 +705,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "web.passkeys.added":
         "{name} hinzugefügt. Er genehmigt jetzt Änderungen, die dein Passwort oder einen Passkey brauchen.",
       "web.remotePresence.title": "Dein Passwort für Genehmigungen",
-      "web.remotePresence.description":
-        "Käufe, Passwort-Eingaben, Host-Befehle und Sicherheitsänderungen brauchen dein Passwort oder einen Passkey. Richte es auf diesem Computer ein, um sie hier zu beantworten; bis dahin sagen diese Karten, dass du auf {host} antworten sollst. Normale Genehmigungen brauchen es nie.",
       "web.remotePresence.on": "Passwort-Genehmigungen sind für diesen Computer an.",
       "web.remotePresence.off":
         "Passwort-Genehmigungen sind auf diesem Computer nicht eingerichtet.",
@@ -811,11 +783,7 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "web.security.alert.firstAdmin":
         "Ein Befehl auf diesem Computer hat {name} zum ersten Admin-Gerät gemacht. Wenn du das nicht warst, widerrufe es unter Geräte.",
       "web.security.alert.requested": "Auf diesem Computer angefordert: {action} Gilt ab {when}.",
-      "web.security.op.presenceReset":
-        "für Sicherheitsänderungen weder dein Passwort noch einen Passkey mehr verlangen, bis ein neuer Schlüssel registriert ist.",
       "web.security.needsApprovalPresence":
-        "Bestätige die Karte mit deinem Passwort oder einem Passkey und tippe dann erneut auf die Taste.",
-      "web.security.needsApproval":
         "Bestätige die Karte mit deinem Passwort oder einem Passkey und tippe dann erneut auf die Taste.",
     },
     es: {
@@ -834,8 +802,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "{device}{key, select, none {} other { (clave {key})}} pasó a ser el primer dispositivo administrador {via, select, desktop {desde la app de Psyche} other {mediante `psyched`}} en este ordenador. Si no fuiste tú, revócalo en Ajustes → Dispositivos.",
       "notice.security.recovery.title":
         "{state, select, requested {Un comando en este ordenador pidió un cambio de seguridad} applied {Se aplicó un cambio de seguridad desde este ordenador} cancelled {Se canceló un cambio de seguridad desde este ordenador} other {No se pudo aplicar un cambio de seguridad desde este ordenador}}",
-      "notice.security.recovery.body":
-        "{op, select, approve {Aprueba el dispositivo {device}{key, select, none {} other { (clave {key})}} con {scopes}.} grant {Da a {device}{key, select, none {} other { (clave {key})}} {scopes}.} presence {Deja de exigir tu contraseña o una llave de acceso para los cambios de seguridad hasta que se registre una clave nueva.} seal {Acepta los registros de seguridad actuales tal como están.} other {Un cambio de seguridad.}}{state, select, requested { Se aplica {when, select, none {en 24 horas} other {el {when}}} salvo que lo canceles en Psyche.} failed {{reason, select, none {} other { {reason}}}} other {}}",
       "screens.library.reveal": "Mostrar en la carpeta",
       "settings.devices.nodeKind.hostHelper": "Asistente de Linux",
       "settings.links.description":
@@ -910,8 +876,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "La bóveda está bloqueada. Desbloquéala con tu contraseña y vuelve a enlazar {name}.",
       "settings.approval.presenceUnavailable":
         "Esta ventana no puede confirmar que eres tú. Aprueba el cambio en la app Psyche de tu ordenador (tu contraseña) o desde un dispositivo con llave de acceso. No cambia nada hasta entonces.",
-      "settings.approval.promptDetail":
-        "Los ajustes de seguridad necesitan tu contraseña o una llave de acceso. Apruébalo aquí o en la notificación de Psyche; el ajuste se guarda en cuanto se aprueba.",
       "settings.approval.presenceInvalid":
         "Tu contraseña o la llave de acceso no confirmaron que eres tú. Inténtalo de nuevo.",
       "settings.about.revealHome": "Mostrar en Archivos",
@@ -1004,12 +968,8 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "En una terminal de este ordenador, publica el Gateway en tu tailnet. Es Serve, no Funnel.",
       "settings.remote.step4":
         "Reinicia Psyche. Luego, en el otro ordenador, añade este ordenador como Gateway. Mostrará un código de vinculación y la huella de una clave: compáralos con la solicitud en «Esperando vinculación» aquí y apruébala.",
-      "settings.remote.admin":
-        "Un ordenador que se vincula obtiene lectura, escritura y aprobaciones. Admin sigue desactivado salvo que lo marques al aprobar, y cada cambio de admin sigue necesitando tu contraseña aquí.",
       "settings.pair.needsAddress":
         "Define primero la dirección pública de este ordenador (paso 3 de arriba) y luego crea un enlace de vinculación.",
-      "settings.pair.adminHint":
-        "Admin le permite cambiar ajustes de seguridad, dispositivos y la bóveda, y sigue desactivado salvo que lo marques. Cada cambio de admin sigue necesitando tu contraseña aquí.",
       "settings.pair.compare":
         "Comprueba la clave de este ordenador antes de usar el enlace: {fingerprint}. Puedes compararla.",
       "settings.pair.secret":
@@ -1023,8 +983,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "Este enlace es para ordenadores de la misma red que este ordenador. Indica la clave y el certificado que Psyche exigirá.",
       "settings.lan.description":
         "Deja que Psyche en otro ordenador del mismo Wi-Fi o Ethernet acceda al Gateway de este ordenador, sin Tailscale. Está desactivado hasta que lo actives.",
-      "settings.lan.toggleHint":
-        "Psyche escucha en una red, mediante una conexión cifrada con su propio certificado. Un ordenador que se conecta sigue necesitando aprobación aquí con tu contraseña.",
       "settings.lan.noInterface":
         "No se encontró ninguna conexión Wi-Fi ni Ethernet en este ordenador.",
       "settings.lan.notAdvertised": "No visible. Añade este ordenador por su dirección.",
@@ -1150,8 +1108,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "web.passkeys.added":
         "Se añadió {name}. Ahora aprueba los cambios que necesitan tu contraseña o una llave de acceso.",
       "web.remotePresence.title": "Tu contraseña para las aprobaciones",
-      "web.remotePresence.description":
-        "Las compras, el relleno de credenciales, los comandos del host y los cambios de seguridad necesitan tu contraseña o una llave de acceso. Configúralo en este ordenador para responderlos aquí; hasta entonces esas tarjetas indican que hay que responder en {host}. Las aprobaciones normales nunca lo necesitan.",
       "web.remotePresence.on":
         "Las aprobaciones con contraseña están activadas para este ordenador.",
       "web.remotePresence.off":
@@ -1232,11 +1188,7 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "web.security.alert.firstAdmin":
         "Un comando en este ordenador convirtió {name} en el primer dispositivo administrador. Si no fuiste tú, revócalo en Dispositivos.",
       "web.security.alert.requested": "Pedido en este ordenador: {action} Se aplica el {when}.",
-      "web.security.op.presenceReset":
-        "dejar de pedir tu contraseña o una llave de acceso para los cambios de seguridad hasta que se registre una clave nueva.",
       "web.security.needsApprovalPresence":
-        "Aprueba la tarjeta con tu contraseña o una llave de acceso y vuelve a pulsar el botón.",
-      "web.security.needsApproval":
         "Aprueba la tarjeta con tu contraseña o una llave de acceso y vuelve a pulsar el botón.",
     },
     fr: {
@@ -1255,8 +1207,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "{device}{key, select, none {} other { (clé {key})}} est devenu le premier appareil administrateur {via, select, desktop {depuis l’application Psyche} other {via `psyched`}} sur cet ordinateur. Si ce n’était pas vous, révoquez-le dans Réglages → Appareils.",
       "notice.security.recovery.title":
         "{state, select, requested {Une commande sur cet ordinateur a demandé une modification de sécurité} applied {Une modification de sécurité venant de cet ordinateur a été appliquée} cancelled {Une modification de sécurité venant de cet ordinateur a été annulée} other {Une modification de sécurité venant de cet ordinateur n’a pas pu être appliquée}}",
-      "notice.security.recovery.body":
-        "{op, select, approve {Approuvez l’appareil {device}{key, select, none {} other { (clé {key})}} avec {scopes}.} grant {Donnez {scopes} à {device}{key, select, none {} other { (clé {key})}}.} presence {Ne plus exiger votre mot de passe ni une clé d’accès pour les modifications de sécurité jusqu’à l’enregistrement d’une nouvelle clé.} seal {Acceptez les données de sécurité actuelles telles quelles.} other {Une modification de sécurité.}}{state, select, requested { Elle s’applique {when, select, none {dans 24 heures} other {le {when}}} sauf si vous l’annulez dans Psyche.} failed {{reason, select, none {} other { {reason}}}} other {}}",
       "screens.library.reveal": "Afficher dans le dossier",
       "settings.devices.nodeKind.hostHelper": "Assistant Linux",
       "settings.links.description":
@@ -1331,8 +1281,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "Le coffre est verrouillé. Déverrouillez-le avec votre mot de passe, puis liez {name} de nouveau.",
       "settings.approval.presenceUnavailable":
         "Cette fenêtre ne peut pas confirmer que c’est vous. Approuvez la modification dans l’app Psyche sur votre ordinateur (votre mot de passe) ou depuis un appareil avec une clé d’accès. Rien ne change d’ici là.",
-      "settings.approval.promptDetail":
-        "Les réglages de sécurité nécessitent votre mot de passe ou une clé d’accès. Approuvez ici ou dans la notification de Psyche ; le réglage est enregistré dès l’approbation.",
       "settings.approval.presenceInvalid":
         "Votre mot de passe ou la clé d’accès n’a pas confirmé que c’est bien vous. Réessayez.",
       "settings.about.revealHome": "Afficher dans Fichiers",
@@ -1426,12 +1374,8 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "Dans un terminal sur cet ordinateur, publiez la Gateway sur votre tailnet. Il s’agit de Serve, pas de Funnel.",
       "settings.remote.step4":
         "Redémarrez Psyche. Puis, sur l’autre ordinateur, ajoutez cet ordinateur comme Gateway. Il affiche un code de jumelage et une empreinte de clé : comparez-les avec la demande sous En attente de jumelage ici, puis approuvez-la.",
-      "settings.remote.admin":
-        "Un ordinateur jumelé obtient la lecture, l’écriture et les approbations. Admin reste désactivé sauf si vous le cochez lors de l’approbation, et chaque modification d’admin exige toujours votre mot de passe ici.",
       "settings.pair.needsAddress":
         "Définissez d’abord l’adresse publique de cet ordinateur (étape 3 ci-dessus), puis créez un lien de jumelage.",
-      "settings.pair.adminHint":
-        "Admin lui permet de modifier les réglages de sécurité, les appareils et le coffre, et reste désactivé sauf si vous le cochez. Chaque modification d’admin exige toujours votre mot de passe ici.",
       "settings.pair.compare":
         "Il vérifie la clé de cet ordinateur avant d’utiliser le lien : {fingerprint}. Vous pouvez comparer.",
       "settings.pair.secret":
@@ -1445,8 +1389,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "Ce lien est destiné aux ordinateurs du même réseau que cet ordinateur. Il nomme la clé et le certificat que Psyche exigera.",
       "settings.lan.description":
         "Permettez à Psyche sur un autre ordinateur du même Wi-Fi ou Ethernet d’accéder à la Gateway de cet ordinateur, sans Tailscale. C’est désactivé tant que vous ne l’activez pas.",
-      "settings.lan.toggleHint":
-        "Psyche écoute sur un réseau, via une connexion chiffrée avec son propre certificat. Un ordinateur qui se connecte doit tout de même être approuvé ici avec votre mot de passe.",
       "settings.lan.noInterface":
         "Aucune connexion Wi-Fi ou Ethernet n’a été trouvée sur cet ordinateur.",
       "settings.lan.notAdvertised": "Non visible. Ajoutez cet ordinateur par son adresse.",
@@ -1571,8 +1513,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "web.passkeys.added":
         "{name} ajoutée. Elle approuve désormais les modifications qui nécessitent votre mot de passe ou une clé d’accès.",
       "web.remotePresence.title": "Votre mot de passe pour les approbations",
-      "web.remotePresence.description":
-        "Les achats, saisies d’identifiants, commandes de l’hôte et modifications de sécurité exigent votre mot de passe ou une clé d’accès. Configurez-le sur cet ordinateur pour y répondre ici ; d’ici là, ces cartes indiquent de répondre sur {host}. Les approbations ordinaires n’en ont jamais besoin.",
       "web.remotePresence.on":
         "Les approbations par mot de passe sont activées pour cet ordinateur.",
       "web.remotePresence.off":
@@ -1655,11 +1595,7 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "web.security.alert.firstAdmin":
         "Une commande sur cet ordinateur a fait de {name} le premier appareil administrateur. Si ce n’était pas vous, révoquez-le dans Appareils.",
       "web.security.alert.requested": "Demandé sur cet ordinateur : {action} S’applique le {when}.",
-      "web.security.op.presenceReset":
-        "ne plus exiger votre mot de passe ni de clé d’accès pour les modifications de sécurité jusqu’à l’enregistrement d’une nouvelle clé.",
       "web.security.needsApprovalPresence":
-        "Approuvez la carte avec votre mot de passe ou une clé d’accès, puis appuyez de nouveau sur le bouton.",
-      "web.security.needsApproval":
         "Approuvez la carte avec votre mot de passe ou une clé d’accès, puis appuyez de nouveau sur le bouton.",
     },
     hi: {
@@ -1676,8 +1612,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "{device}{key, select, none {} other { (कुंजी {key})}} {via, select, desktop {Psyche ऐप से} other {`psyched` के जरिए}} इस कंप्यूटर पर पहला एडमिन डिवाइस बन गया। अगर यह आपने नहीं किया, तो सेटिंग्स → डिवाइस में उसे रद्द करें।",
       "notice.security.recovery.title":
         "{state, select, requested {इस कंप्यूटर पर एक कमांड ने सुरक्षा बदलाव माँगा} applied {इस कंप्यूटर से एक सुरक्षा बदलाव लागू किया गया} cancelled {इस कंप्यूटर से एक सुरक्षा बदलाव रद्द किया गया} other {इस कंप्यूटर से एक सुरक्षा बदलाव लागू नहीं हो सका}}",
-      "notice.security.recovery.body":
-        "{op, select, approve {डिवाइस {device}{key, select, none {} other { (कुंजी {key})}} को {scopes} के साथ मंज़ूरी दें।} grant {{device}{key, select, none {} other { (कुंजी {key})}} को {scopes} दें।} presence {नई कुंजी दर्ज होने तक सुरक्षा बदलावों के लिए पासवर्ड या पासकी न माँगें।} seal {मौजूदा सुरक्षा रिकॉर्ड जैसे हैं वैसे ही स्वीकार करें।} other {एक सुरक्षा बदलाव।}}{state, select, requested { यह {when, select, none {24 घंटे बाद} other {{when} को}} लागू होगा, जब तक आप इसे Psyche में रद्द न करें।} failed {{reason, select, none {} other { {reason}}}} other {}}",
       "screens.library.reveal": "फ़ोल्डर में दिखाएँ",
       "settings.devices.nodeKind.hostHelper": "Linux हेल्पर",
       "settings.links.description":
@@ -1744,8 +1678,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "वॉल्ट लॉक है। इसे अपने पासवर्ड से अनलॉक करें, फिर {name} को दोबारा लिंक करें।",
       "settings.approval.presenceUnavailable":
         "यह विंडो पुष्टि नहीं कर सकती कि यह आप हैं। बदलाव को अपने कंप्यूटर पर Psyche ऐप में (आपका पासवर्ड), या पासकी वाले किसी डिवाइस से स्वीकृत करें। तब तक कुछ नहीं बदलता।",
-      "settings.approval.promptDetail":
-        "सुरक्षा सेटिंग्ज़ के लिए आपका पासवर्ड या पासकी चाहिए। इसे यहाँ या Psyche सूचना में स्वीकृत करें; स्वीकृत होते ही सेटिंग सेव हो जाती है।",
       "settings.approval.presenceInvalid":
         "आपके पासवर्ड या पासकी से पुष्टि नहीं हुई कि यह आप ही हैं। फिर से कोशिश करें।",
       "settings.about.revealHome": "फ़ाइलें में दिखाएँ",
@@ -1833,12 +1765,8 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "इस कंप्यूटर पर टर्मिनल में Gateway को अपने tailnet पर प्रकाशित करें। यह Serve है, Funnel नहीं।",
       "settings.remote.step4":
         "Psyche रीस्टार्ट करें। फिर दूसरे कंप्यूटर पर इस कंप्यूटर को Gateway के रूप में जोड़ें। यह एक पेयरिंग कोड और कुंजी फ़िंगरप्रिंट दिखाता है: उन्हें यहाँ “पेयर होने की प्रतीक्षा में” के तहत अनुरोध से मिलाएँ, फिर स्वीकृत करें।",
-      "settings.remote.admin":
-        "पेयर होने वाले कंप्यूटर को पढ़ने, लिखने और स्वीकृतियों की पहुँच मिलती है। एडमिन तब तक बंद रहता है जब तक आप स्वीकृति देते समय उसे टिक न करें, और हर एडमिन बदलाव के लिए फिर भी यहाँ आपका पासवर्ड चाहिए।",
       "settings.pair.needsAddress":
         "पहले इस कंप्यूटर का सार्वजनिक पता सेट करें (ऊपर चरण 3), फिर पेयरिंग लिंक बनाएँ।",
-      "settings.pair.adminHint":
-        "एडमिन उसे सुरक्षा सेटिंग्ज़, डिवाइस और वॉल्ट बदलने देता है, और तब तक बंद रहता है जब तक आप उसे टिक न करें। हर एडमिन बदलाव के लिए फिर भी यहाँ आपका पासवर्ड चाहिए।",
       "settings.pair.compare":
         "लिंक उपयोग करने से पहले यह इस कंप्यूटर की कुंजी जाँचता है: {fingerprint}। आप मिला सकते हैं।",
       "settings.pair.secret":
@@ -1852,8 +1780,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "यह लिंक इस कंप्यूटर वाले ही नेटवर्क के कंप्यूटरों के लिए है। यह उस कुंजी और सर्टिफ़िकेट का नाम देता है जिन पर Psyche अड़ा रहेगा।",
       "settings.lan.description":
         "उसी Wi-Fi या Ethernet पर किसी दूसरे कंप्यूटर के Psyche को Tailscale के बिना इस कंप्यूटर के Gateway तक पहुँचने दें। जब तक आप चालू नहीं करते, यह बंद रहता है।",
-      "settings.lan.toggleHint":
-        "Psyche एक नेटवर्क पर, अपने सर्टिफ़िकेट वाले एन्क्रिप्टेड कनेक्शन से सुनता है। कनेक्ट होने वाले कंप्यूटर को फिर भी यहाँ आपके पासवर्ड से स्वीकृत किया जाना ज़रूरी है।",
       "settings.lan.noInterface": "इस कंप्यूटर पर कोई Wi-Fi या Ethernet कनेक्शन नहीं मिला।",
       "settings.lan.notAdvertised": "नहीं दिखाया जाता। इस कंप्यूटर को उसके पते से जोड़ें।",
       "settings.lan.problem.unknownInterface": "{name} इस कंप्यूटर का कोई नेटवर्क नहीं है।",
@@ -1968,8 +1894,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "web.passkeys.added":
         "{name} जोड़ी गई। अब यह उन बदलावों को स्वीकृत करती है जिन्हें आपका पासवर्ड या पासकी चाहिए।",
       "web.remotePresence.title": "स्वीकृतियों के लिए आपका पासवर्ड",
-      "web.remotePresence.description":
-        "खरीदारी, क्रेडेंशियल भरना, होस्ट कमांड और सुरक्षा बदलावों के लिए आपका पासवर्ड या पासकी चाहिए। यहाँ जवाब देने के लिए इसे इस कंप्यूटर पर सेट अप करें; तब तक वे कार्ड {host} पर जवाब देने को कहते हैं। सामान्य स्वीकृतियों को इसकी कभी ज़रूरत नहीं होती।",
       "web.remotePresence.on": "इस कंप्यूटर के लिए पासवर्ड स्वीकृतियाँ चालू हैं।",
       "web.remotePresence.off": "इस कंप्यूटर पर पासवर्ड स्वीकृतियाँ सेट अप नहीं हैं।",
       "web.remotePresence.enable": "इस कंप्यूटर पर स्वीकृतियों के लिए अपना पासवर्ड उपयोग करें",
@@ -2046,11 +1970,8 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "web.security.alert.firstAdmin":
         "इस कंप्यूटर पर एक कमांड ने {name} को पहला एडमिन डिवाइस बना दिया। अगर यह आपने नहीं किया, तो उसे डिवाइस में रद्द करें।",
       "web.security.alert.requested": "इस कंप्यूटर पर माँगा गया: {action} {when} को लागू होगा।",
-      "web.security.op.presenceReset":
-        "नई कुंजी दर्ज होने तक सुरक्षा बदलावों के लिए आपका पासवर्ड या पासकी न माँगना।",
       "web.security.needsApprovalPresence":
         "अपने पासवर्ड या पासकी से कार्ड को मंज़ूरी दें, फिर बटन दोबारा दबाएँ।",
-      "web.security.needsApproval": "अपने पासवर्ड या पासकी से कार्ड को मंज़ूरी दें, फिर बटन दोबारा दबाएँ।",
     },
     it: {
       "settings.notifications.helper.denied": "Le notifiche sono disattivate in Impostazioni",
@@ -2067,8 +1988,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "{device}{key, select, none {} other { (chiave {key})}} è diventato il primo dispositivo amministratore {via, select, desktop {dall’app Psyche} other {tramite `psyched`}} su questo computer. Se non sei stato tu, revocalo in Impostazioni → Dispositivi.",
       "notice.security.recovery.title":
         "{state, select, requested {Un comando su questo computer ha chiesto una modifica di sicurezza} applied {È stata applicata una modifica di sicurezza da questo computer} cancelled {È stata annullata una modifica di sicurezza da questo computer} other {Non è stato possibile applicare una modifica di sicurezza da questo computer}}",
-      "notice.security.recovery.body":
-        "{op, select, approve {Approva il dispositivo {device}{key, select, none {} other { (chiave {key})}} con {scopes}.} grant {Concedi a {device}{key, select, none {} other { (chiave {key})}} {scopes}.} presence {Non chiedere più la password o una passkey per le modifiche di sicurezza finché non viene registrata una nuova chiave.} seal {Accetta i dati di sicurezza attuali così come sono.} other {Una modifica di sicurezza.}}{state, select, requested { Si applica {when, select, none {dopo 24 ore} other {il {when}}}, a meno che tu non la annulli in Psyche.} failed {{reason, select, none {} other { {reason}}}} other {}}",
       "screens.library.reveal": "Mostra nella cartella",
       "settings.devices.nodeKind.hostHelper": "Assistente Linux",
       "settings.links.description":
@@ -2140,8 +2059,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "La cassaforte è bloccata. Sbloccala con la tua password, poi collega di nuovo {name}.",
       "settings.approval.presenceUnavailable":
         "Questa finestra non può confermare che sei tu. Approva la modifica nell’app Psyche sul tuo computer (la tua password), oppure da un dispositivo con una passkey. Fino ad allora non cambia nulla.",
-      "settings.approval.promptDetail":
-        "Le impostazioni di sicurezza richiedono la tua password o una passkey. Approvala qui o nella notifica di Psyche; l’impostazione viene salvata non appena approvata.",
       "settings.approval.presenceInvalid":
         "La tua password o la passkey non hanno confermato la tua identità. Riprova.",
       "settings.about.revealHome": "Mostra in File",
@@ -2232,12 +2149,8 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "In un terminale su questo computer, pubblica il Gateway sulla tua tailnet. Questo è Serve, non Funnel.",
       "settings.remote.step4":
         "Riavvia Psyche. Poi, sull’altro computer, aggiungi questo computer come Gateway. Mostra un codice di abbinamento e l’impronta di una chiave: confrontali con la richiesta in “In attesa di abbinamento” qui, poi approvala.",
-      "settings.remote.admin":
-        "Un computer che si abbina ottiene lettura, scrittura e approvazioni. L’amministrazione resta disattivata a meno che tu non la selezioni durante l’approvazione, e ogni modifica di amministrazione richiede comunque la tua password qui.",
       "settings.pair.needsAddress":
         "Imposta prima l’indirizzo pubblico di questo computer (passaggio 3 qui sopra), poi crea un link di abbinamento.",
-      "settings.pair.adminHint":
-        "L’amministrazione gli permette di modificare impostazioni di sicurezza, dispositivi e vault, e resta disattivata a meno che tu non la selezioni. Ogni modifica di amministrazione richiede comunque la tua password qui.",
       "settings.pair.compare":
         "Controlla la chiave di questo computer prima di usare il link: {fingerprint}. Puoi confrontarla.",
       "settings.pair.secret":
@@ -2251,8 +2164,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "Questo link è per i computer sulla stessa rete di questo computer. Indica la chiave e il certificato che Psyche pretenderà.",
       "settings.lan.description":
         "Permetti a Psyche su un altro computer sullo stesso Wi-Fi o Ethernet di raggiungere il Gateway di questo computer, senza Tailscale. È disattivato finché non lo attivi.",
-      "settings.lan.toggleHint":
-        "Psyche resta in ascolto su una rete, tramite una connessione cifrata con un proprio certificato. Un computer che si collega deve comunque essere approvato qui con la tua password.",
       "settings.lan.noInterface":
         "Su questo computer non è stata trovata alcuna connessione Wi-Fi o Ethernet.",
       "settings.lan.notAdvertised":
@@ -2379,8 +2290,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "web.passkeys.added":
         "{name} aggiunta. Ora approva le modifiche che richiedono la tua password o una passkey.",
       "web.remotePresence.title": "La tua password per le approvazioni",
-      "web.remotePresence.description":
-        "Acquisti, inserimento di credenziali, comandi sull’host e modifiche di sicurezza richiedono la tua password o una passkey. Configurala su questo computer per rispondere da qui; fino ad allora quelle schede dicono di rispondere su {host}. Le approvazioni normali non ne hanno mai bisogno.",
       "web.remotePresence.on": "Le approvazioni con password sono attive per questo computer.",
       "web.remotePresence.off":
         "Le approvazioni con password non sono configurate su questo computer.",
@@ -2461,11 +2370,7 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "Un comando su questo computer ha reso {name} il primo dispositivo amministratore. Se non sei stato tu, revocalo in Dispositivi.",
       "web.security.alert.requested":
         "Richiesto su questo computer: {action} Si applica il {when}.",
-      "web.security.op.presenceReset":
-        "non chiedere più la tua password o una passkey per le modifiche di sicurezza finché non viene registrata una nuova chiave.",
       "web.security.needsApprovalPresence":
-        "Approva la scheda con la tua password o una passkey, poi premi di nuovo il pulsante.",
-      "web.security.needsApproval":
         "Approva la scheda con la tua password o una passkey, poi premi di nuovo il pulsante.",
     },
     ja: {
@@ -2483,8 +2388,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "{device}{key, select, none {} other {（キー {key}）}}は、{via, select, desktop {Psyche アプリから} other {`psyched` を通じて}}このコンピュータで最初の管理者デバイスになりました。心当たりがない場合は、設定 → デバイスで取り消してください。",
       "notice.security.recovery.title":
         "{state, select, requested {このコンピュータのコマンドがセキュリティ変更を要求しました} applied {このコンピュータからのセキュリティ変更が適用されました} cancelled {このコンピュータからのセキュリティ変更が取り消されました} other {このコンピュータからのセキュリティ変更は適用できませんでした}}",
-      "notice.security.recovery.body":
-        "{op, select, approve {デバイス {device}{key, select, none {} other {（キー {key}）}} を {scopes} で承認してください。} grant {{device}{key, select, none {} other {（キー {key}）}} に {scopes} を付与してください。} presence {新しいキーが登録されるまで、セキュリティ変更にパスワードやパスキーを求めないようにします。} seal {現在のセキュリティ記録をそのまま受け入れてください。} other {セキュリティ変更。}}{state, select, requested { {when, select, none {24 時間後} other {{when}}}に適用されます。Psyche で取り消すこともできます。} failed {{reason, select, none {} other { {reason}}}} other {}}",
       "screens.library.reveal": "フォルダーで表示",
       "settings.devices.nodeKind.hostHelper": "Linux ヘルパー",
       "settings.links.description":
@@ -2556,8 +2459,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "保管庫がロックされています。パスワードでロックを解除してから、もう一度{name}をリンクしてください。",
       "settings.approval.presenceUnavailable":
         "このウインドウでは本人確認ができません。コンピュータのPsycheアプリ（パスワード）か、パスキーのあるデバイスで変更を承認してください。それまで何も変更されません。",
-      "settings.approval.promptDetail":
-        "セキュリティ設定にはパスワードまたはパスキーが必要です。ここまたはPsycheの通知で承認すると、設定はすぐに保存されます。",
       "settings.approval.presenceInvalid":
         "パスワードまたはパスキーで本人確認ができませんでした。もう一度お試しください。",
       "settings.about.revealHome": "ファイルで表示",
@@ -2651,12 +2552,8 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "このコンピュータのターミナルで、Gatewayをtailnetに公開します。これはFunnelではなくServeです。",
       "settings.remote.step4":
         "Psycheを再起動します。次に、ほかのコンピュータでこのコンピュータをGatewayとして追加します。ペアリングコードとキーのフィンガープリントが表示されるので、ここの「ペアリング待ち」の要求と照合してから承認してください。",
-      "settings.remote.admin":
-        "ペアリングしたコンピュータには、読み取り、書き込み、承認の権限が付与されます。管理者権限は、承認時にチェックしない限りオフのままで、管理者としての変更には毎回ここでパスワードが必要です。",
       "settings.pair.needsAddress":
         "先にこのコンピュータの公開アドレス（上のステップ3）を設定してから、ペアリングリンクを作成してください。",
-      "settings.pair.adminHint":
-        "管理者権限があると、セキュリティ設定、デバイス、保管庫を変更できます。チェックしない限りオフです。管理者としての変更には毎回ここでパスワードが必要です。",
       "settings.pair.compare":
         "リンクを使う前に、そのコンピュータはこのコンピュータのキーを確認します: {fingerprint}。照合できます。",
       "settings.pair.secret":
@@ -2670,8 +2567,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "このリンクは、このコンピュータと同じネットワーク上のコンピュータ用です。Psycheが必ず確認するキーと証明書が指定されています。",
       "settings.lan.description":
         "同じWi-FiまたはEthernet上のほかのコンピュータのPsycheが、TailscaleなしでこのコンピュータのGatewayに接続できるようにします。オンにするまではオフです。",
-      "settings.lan.toggleHint":
-        "Psycheは1つのネットワークで、独自の証明書による暗号化接続で待ち受けます。接続してきたコンピュータは、ここでパスワードによる承認が必要です。",
       "settings.lan.noInterface":
         "このコンピュータにWi-FiまたはEthernet接続が見つかりませんでした。",
       "settings.lan.notAdvertised":
@@ -2797,8 +2692,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "web.passkeys.added":
         "{name}を追加しました。パスワードまたはパスキーが必要な変更をこれで承認できます。",
       "web.remotePresence.title": "承認にパスワードを使う",
-      "web.remotePresence.description":
-        "購入、認証情報の入力、ホストのコマンド、セキュリティの変更にはパスワードまたはパスキーが必要です。このコンピュータで設定すると、ここで回答できます。設定するまでは、これらのカードは{host}で回答するよう案内されます。通常の承認には必要ありません。",
       "web.remotePresence.on": "このコンピュータでパスワードによる承認がオンになっています。",
       "web.remotePresence.off": "このコンピュータではパスワードによる承認が設定されていません。",
       "web.remotePresence.enable": "このコンピュータの承認にパスワードを使う",
@@ -2876,11 +2769,7 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "web.security.alert.firstAdmin":
         "このコンピュータのコマンドにより、{name} が最初の管理者デバイスになりました。心当たりがない場合は、デバイスで取り消してください。",
       "web.security.alert.requested": "このコンピュータで要求: {action} {when} に適用されます。",
-      "web.security.op.presenceReset":
-        "新しいキーが登録されるまで、セキュリティ変更にパスワードやパスキーを求めない。",
       "web.security.needsApprovalPresence":
-        "パスワードまたはパスキーでカードを承認してから、もう一度ボタンを押してください。",
-      "web.security.needsApproval":
         "パスワードまたはパスキーでカードを承認してから、もう一度ボタンを押してください。",
     },
     ko: {
@@ -2897,8 +2786,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "{device}{key, select, none {} other { (키 {key})}}이(가) {via, select, desktop {Psyche 앱에서} other {`psyched`를 통해}} 이 컴퓨터의 첫 관리자 기기가 되었습니다. 본인이 한 일이 아니라면 설정 → 기기에서 취소하세요.",
       "notice.security.recovery.title":
         "{state, select, requested {이 컴퓨터의 명령으로 보안 변경이 요청되었습니다} applied {이 컴퓨터에서 요청한 보안 변경이 적용되었습니다} cancelled {이 컴퓨터에서 요청한 보안 변경이 취소되었습니다} other {이 컴퓨터에서 요청한 보안 변경을 적용하지 못했습니다}}",
-      "notice.security.recovery.body":
-        "{op, select, approve {{device}{key, select, none {} other { (키 {key})}} 기기를 {scopes} 조건으로 승인하세요.} grant {{device}{key, select, none {} other { (키 {key})}}에 {scopes}을(를) 부여하세요.} presence {새 키가 등록될 때까지 보안 변경에 비밀번호나 패스키를 요구하지 않습니다.} seal {현재 보안 기록을 그대로 받아들이세요.} other {보안 변경.}}{state, select, requested { {when, select, none {24시간 후} other {{when}}}에 적용되며, Psyche에서 취소할 수 있습니다.} failed {{reason, select, none {} other { {reason}}}} other {}}",
       "screens.library.reveal": "폴더에서 보기",
       "settings.devices.nodeKind.hostHelper": "Linux 도우미",
       "settings.links.description":
@@ -2967,8 +2854,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "금고가 잠겨 있습니다. 사용자 암호로 잠금을 해제한 다음 {name}을(를) 다시 연결하십시오.",
       "settings.approval.presenceUnavailable":
         "이 윈도우에서는 본인 확인을 할 수 없습니다. 컴퓨터의 Psyche 앱(사용자 암호) 또는 패스키가 있는 기기에서 변경을 승인하십시오. 그때까지는 아무것도 변경되지 않습니다.",
-      "settings.approval.promptDetail":
-        "보안 설정에는 사용자 암호 또는 패스키가 필요합니다. 여기서 또는 Psyche 알림에서 승인하십시오. 승인되는 즉시 설정이 저장됩니다.",
       "settings.approval.presenceInvalid":
         "사용자 암호 또는 패스키로 본인 확인이 되지 않았습니다. 다시 시도하십시오.",
       "settings.about.revealHome": "파일에서 보기",
@@ -3058,12 +2943,8 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "이 컴퓨터의 터미널에서 Gateway를 tailnet에 게시하십시오. Funnel이 아니라 Serve입니다.",
       "settings.remote.step4":
         "Psyche를 다시 시작합니다. 그런 다음 다른 컴퓨터에서 이 컴퓨터를 Gateway로 추가합니다. 페어링 코드와 키 지문이 표시되면, 여기 페어링 대기 중의 요청과 비교한 다음 승인하십시오.",
-      "settings.remote.admin":
-        "페어링된 컴퓨터에는 읽기, 쓰기, 승인 권한이 부여됩니다. 관리자 권한은 승인할 때 선택하지 않으면 꺼진 상태로 유지되며, 관리자 변경마다 여기서 사용자 암호가 필요합니다.",
       "settings.pair.needsAddress":
         "먼저 이 컴퓨터의 공개 주소(위 3단계)를 설정한 다음 페어링 링크를 만드십시오.",
-      "settings.pair.adminHint":
-        "관리자 권한이 있으면 보안 설정, 기기, 보관함을 변경할 수 있습니다. 선택하지 않으면 꺼져 있습니다. 관리자 변경마다 여기서 사용자 암호가 필요합니다.",
       "settings.pair.compare":
         "링크를 사용하기 전에 해당 컴퓨터가 이 컴퓨터의 키를 확인합니다: {fingerprint}. 비교해 보실 수 있습니다.",
       "settings.pair.secret":
@@ -3077,8 +2958,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "이 링크는 이 컴퓨터와 같은 네트워크의 컴퓨터용입니다. Psyche가 반드시 확인할 키와 인증서가 지정되어 있습니다.",
       "settings.lan.description":
         "같은 Wi-Fi 또는 이더넷의 다른 컴퓨터에 있는 Psyche가 Tailscale 없이 이 컴퓨터의 Gateway에 연결할 수 있게 합니다. 켜기 전까지는 꺼져 있습니다.",
-      "settings.lan.toggleHint":
-        "Psyche는 하나의 네트워크에서 자체 인증서로 암호화된 연결을 통해 수신합니다. 연결하는 컴퓨터는 여기서 사용자 암호로 승인해야 합니다.",
       "settings.lan.noInterface": "이 컴퓨터에서 Wi-Fi 또는 이더넷 연결을 찾지 못했습니다.",
       "settings.lan.notAdvertised": "표시되지 않음. 이 컴퓨터는 주소로 추가하십시오.",
       "settings.lan.problem.unknownInterface": "{name}은(는) 이 컴퓨터에 있는 네트워크가 아닙니다.",
@@ -3197,8 +3076,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "web.passkeys.added":
         "{name}을(를) 추가했습니다. 이제 사용자 암호 또는 패스키가 필요한 변경을 승인합니다.",
       "web.remotePresence.title": "승인에 사용자 암호 사용",
-      "web.remotePresence.description":
-        "구매, 자격 증명 입력, 호스트 명령, 보안 변경에는 사용자 암호 또는 패스키가 필요합니다. 이 컴퓨터에서 설정하면 여기서 응답할 수 있습니다. 설정하기 전까지는 해당 카드에서 {host}에서 응답하도록 안내합니다. 일반 승인에는 필요하지 않습니다.",
       "web.remotePresence.on": "이 컴퓨터에서 암호 승인이 켜져 있습니다.",
       "web.remotePresence.off": "이 컴퓨터에는 암호 승인이 설정되어 있지 않습니다.",
       "web.remotePresence.enable": "이 컴퓨터의 승인에 사용자 암호 사용",
@@ -3273,11 +3150,7 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "web.security.alert.firstAdmin":
         "이 컴퓨터의 명령으로 {name}이(가) 첫 관리자 기기가 되었습니다. 본인이 한 일이 아니라면 기기에서 취소하세요.",
       "web.security.alert.requested": "이 컴퓨터에서 요청됨: {action} {when}에 적용됩니다.",
-      "web.security.op.presenceReset":
-        "새 키가 등록될 때까지 보안 변경에 사용자 암호나 패스키를 요구하지 않음.",
       "web.security.needsApprovalPresence":
-        "사용자 암호나 패스키로 카드를 승인한 다음 버튼을 다시 누르세요.",
-      "web.security.needsApproval":
         "사용자 암호나 패스키로 카드를 승인한 다음 버튼을 다시 누르세요.",
     },
     pt: {
@@ -3295,8 +3168,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "{device}{key, select, none {} other { (chave {key})}} tornou-se o primeiro dispositivo administrador {via, select, desktop {pelo app Psyche} other {por meio do `psyched`}} neste computador. Se não foi você, revogue-o em Configurações → Dispositivos.",
       "notice.security.recovery.title":
         "{state, select, requested {Um comando neste computador pediu uma alteração de segurança} applied {Uma alteração de segurança deste computador foi aplicada} cancelled {Uma alteração de segurança deste computador foi cancelada} other {Uma alteração de segurança deste computador não pôde ser aplicada}}",
-      "notice.security.recovery.body":
-        "{op, select, approve {Aprove o dispositivo {device}{key, select, none {} other { (chave {key})}} com {scopes}.} grant {Conceda {scopes} a {device}{key, select, none {} other { (chave {key})}}.} presence {Deixar de exigir sua senha ou uma chave de acesso para alterações de segurança até que uma nova chave seja registrada.} seal {Aceite os registros de segurança atuais como estão.} other {Uma alteração de segurança.}}{state, select, requested { Será aplicada {when, select, none {em 24 horas} other {em {when}}}, a menos que você a cancele no Psyche.} failed {{reason, select, none {} other { {reason}}}} other {}}",
       "screens.library.reveal": "Mostrar na pasta",
       "settings.devices.nodeKind.hostHelper": "Assistente do Linux",
       "settings.links.description":
@@ -3367,8 +3238,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "O cofre está bloqueado. Desbloqueie com a sua senha e depois vincule {name} novamente.",
       "settings.approval.presenceUnavailable":
         "Esta janela não consegue confirmar que é você. Aprove a mudança no app Psyche do seu computador (sua senha) ou de um dispositivo com chave-senha. Nada muda até lá.",
-      "settings.approval.promptDetail":
-        "Configurações de segurança precisam da sua senha ou de uma chave-senha. Aprove aqui ou na notificação do Psyche; a configuração é salva assim que for aprovada.",
       "settings.approval.presenceInvalid":
         "A sua senha ou a chave-senha não confirmou que é você. Tente novamente.",
       "settings.about.revealHome": "Mostrar em Arquivos",
@@ -3459,12 +3328,8 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "Em um terminal neste computador, publique o Gateway na sua tailnet. É Serve, não Funnel.",
       "settings.remote.step4":
         "Reinicie o Psyche. Depois, no outro computador, adicione este computador como Gateway. Ele mostra um código de emparelhamento e a impressão digital de uma chave: compare-os com o pedido em “Aguardando emparelhamento” aqui e aprove.",
-      "settings.remote.admin":
-        "Um computador que emparelha recebe leitura, gravação e aprovações. Admin continua desativado, a menos que você marque ao aprovar, e cada alteração de admin ainda exige a sua senha aqui.",
       "settings.pair.needsAddress":
         "Defina primeiro o endereço público deste computador (etapa 3 acima) e depois crie um link de emparelhamento.",
-      "settings.pair.adminHint":
-        "Admin permite alterar configurações de segurança, dispositivos e o cofre, e continua desativado, a menos que você marque. Cada alteração de admin ainda exige a sua senha aqui.",
       "settings.pair.compare":
         "Ele verifica a chave deste computador antes de usar o link: {fingerprint}. Você pode comparar.",
       "settings.pair.secret":
@@ -3478,8 +3343,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "Este link é para computadores na mesma rede que este computador. Ele indica a chave e o certificado que o Psyche vai exigir.",
       "settings.lan.description":
         "Deixe o Psyche em outro computador no mesmo Wi-Fi ou Ethernet acessar o Gateway deste computador, sem Tailscale. Fica desativado até você ativar.",
-      "settings.lan.toggleHint":
-        "O Psyche escuta em uma rede, por uma conexão criptografada com seu próprio certificado. Um computador que se conecta ainda precisa ser aprovado aqui com a sua senha.",
       "settings.lan.noInterface":
         "Nenhuma conexão Wi-Fi ou Ethernet foi encontrada neste computador.",
       "settings.lan.notAdvertised": "Não visível. Adicione este computador pelo endereço.",
@@ -3603,8 +3466,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "web.passkeys.added":
         "{name} foi adicionada. Agora ela aprova alterações que precisam da sua senha ou de uma chave-senha.",
       "web.remotePresence.title": "Sua senha para aprovações",
-      "web.remotePresence.description":
-        "Compras, preenchimento de credenciais, comandos do host e alterações de segurança exigem a sua senha ou uma chave-senha. Configure-a neste computador para respondê-los aqui; até lá esses cartões dizem para responder em {host}. Aprovações comuns nunca precisam dela.",
       "web.remotePresence.on": "As aprovações por senha estão ativadas para este computador.",
       "web.remotePresence.off": "As aprovações por senha não estão configuradas neste computador.",
       "web.remotePresence.enable": "Usar a sua senha para aprovações neste computador",
@@ -3682,11 +3543,7 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "web.security.alert.firstAdmin":
         "Um comando neste computador tornou {name} o primeiro dispositivo administrador. Se não foi você, revogue-o em Dispositivos.",
       "web.security.alert.requested": "Pedido neste computador: {action} Será aplicado em {when}.",
-      "web.security.op.presenceReset":
-        "deixar de exigir a sua senha ou uma chave-senha para alterações de segurança até que uma nova chave seja registrada.",
       "web.security.needsApprovalPresence":
-        "Aprove o cartão com a sua senha ou uma chave-senha e toque no botão de novo.",
-      "web.security.needsApproval":
         "Aprove o cartão com a sua senha ou uma chave-senha e toque no botão de novo.",
     },
     zh: {
@@ -3703,8 +3560,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "{device}{key, select, none {} other {（密钥 {key}）}}{via, select, desktop {通过 Psyche 应用} other {通过 `psyched`}}在这台电脑上成为了第一台管理员设备。如果不是你做的，请在“设置 → 设备”中撤销它。",
       "notice.security.recovery.title":
         "{state, select, requested {这台电脑上的一条命令请求了安全更改} applied {这台电脑发起的安全更改已应用} cancelled {这台电脑发起的安全更改已取消} other {这台电脑发起的安全更改无法应用}}",
-      "notice.security.recovery.body":
-        "{op, select, approve {使用 {scopes} 批准设备 {device}{key, select, none {} other {（密钥 {key}）}}。} grant {向 {device}{key, select, none {} other {（密钥 {key}）}} 授予 {scopes}。} presence {在注册新密钥之前，安全更改不再需要你的密码或通行密钥。} seal {按原样接受当前的安全记录。} other {一项安全更改。}}{state, select, requested {将于 {when, select, none {24 小时后} other {{when}}} 生效，除非你在 Psyche 中取消。} failed {{reason, select, none {} other { {reason}}}} other {}}",
       "screens.library.reveal": "在文件夹中显示",
       "settings.devices.nodeKind.hostHelper": "Linux 助手",
       "settings.links.description":
@@ -3769,8 +3624,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "保险库已锁定。请用你的密码解锁，然后重新链接 {name}。",
       "settings.approval.presenceUnavailable":
         "此窗口无法确认是你本人。请在电脑上的 Psyche App 中批准此更改（你的密码），或使用带通行密钥的设备批准。在此之前不会有任何更改。",
-      "settings.approval.promptDetail":
-        "安全设置需要你的密码或通行密钥。可在此处或在 Psyche 通知中批准；批准后设置会立即存储。",
       "settings.approval.presenceInvalid": "你的密码或通行密钥未能确认是你本人。请再试一次。",
       "settings.about.revealHome": "在“文件”中显示",
       "settings.uninstall.keychainStays":
@@ -3848,11 +3701,7 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "在这台电脑的终端中，把 Gateway 发布到你的 tailnet。这里用的是 Serve，不是 Funnel。",
       "settings.remote.step4":
         "重启 Psyche。然后在另一台电脑上，把这台电脑添加为 Gateway。它会显示配对码和密钥指纹：请与这里“等待配对”下的请求核对，然后批准。",
-      "settings.remote.admin":
-        "配对的电脑可获得读取、写入和批准权限。管理员权限默认关闭，除非你在批准时勾选；每次管理员更改仍需你在这里用密码确认。",
       "settings.pair.needsAddress": "请先设置这台电脑的公开地址（上面的第 3 步），再生成配对链接。",
-      "settings.pair.adminHint":
-        "管理员权限允许其更改安全设置、设备和保险库，默认关闭，除非你勾选。每次管理员更改仍需你在这里用密码确认。",
       "settings.pair.compare":
         "它在使用链接之前会核对这台电脑的密钥：{fingerprint}。你也可以核对。",
       "settings.pair.secret":
@@ -3865,8 +3714,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "此链接适用于与这台电脑处于同一网络的电脑。它指明了 Psyche 将要求的密钥和证书。",
       "settings.lan.description":
         "让同一 Wi-Fi 或以太网上另一台电脑的 Psyche 无需 Tailscale 就能访问这台电脑的 Gateway。开启之前一直处于关闭状态。",
-      "settings.lan.toggleHint":
-        "Psyche 在一个网络上监听，使用带有自身证书的加密连接。连接的电脑仍需在这里通过你的密码批准。",
       "settings.lan.noInterface": "在这台电脑上没有找到 Wi-Fi 或以太网连接。",
       "settings.lan.notAdvertised": "不显示。请通过地址添加这台电脑。",
       "settings.lan.problem.unknownInterface": "{name} 不是这台电脑上的网络。",
@@ -3975,8 +3822,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "请在你的电脑上用密码或在另一台设备上用通行密钥批准“添加通行密钥”，然后再次点按“添加”。",
       "web.passkeys.added": "已添加 {name}。它现在可以批准需要你的密码或通行密钥的更改。",
       "web.remotePresence.title": "用你的密码批准",
-      "web.remotePresence.description":
-        "购买、填写凭证、主机命令和安全更改都需要你的密码或通行密钥。在这台电脑上设置后即可在此回答；在此之前，这些卡片会提示在{host}上回答。普通批准从不需要它。",
       "web.remotePresence.on": "这台电脑已开启密码批准。",
       "web.remotePresence.off": "这台电脑尚未设置密码批准。",
       "web.remotePresence.enable": "在这台电脑上使用你的密码批准",
@@ -4049,8 +3894,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "web.security.alert.firstAdmin":
         "这台电脑上的一条命令将 {name} 设为第一台管理员设备。如果不是你做的，请在“设备”中撤销它。",
       "web.security.alert.requested": "在这台电脑上请求：{action} 将于 {when} 生效。",
-      "web.security.op.presenceReset": "在注册新密钥之前，安全更改不再需要你的密码或通行密钥。",
       "web.security.needsApprovalPresence": "请用你的密码或通行密钥批准卡片，然后再次按下按钮。",
-      "web.security.needsApproval": "请用你的密码或通行密钥批准卡片，然后再次按下按钮。",
     },
   };

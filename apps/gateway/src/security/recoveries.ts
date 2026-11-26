@@ -259,9 +259,24 @@ export class SecurityRecoveries {
     return this.#decide(r, "cancel", byDeviceId);
   }
 
-  /** Applies a waiting recovery now; the caller checked fresh presence. */
-  approveNow(id: string, byDeviceId: string): SecurityRecovery {
+  /**
+   * Applies a waiting recovery now; the caller checked the approval for exactly `expected` (the
+   * op and params it read from {@link subject}). A row that is no longer genuine or differs
+   * (a foreign write between the check and now) is refused, so a tap never applies another op.
+   */
+  approveNow(
+    id: string,
+    byDeviceId: string,
+    expected: { op: string; params: unknown },
+  ): SecurityRecovery {
     const r = this.#waiting(id);
+    if (
+      !this.#d.seal.genuine("security_recoveries", r.id) ||
+      r.op !== expected.op ||
+      JSON.stringify(parseJson(r.params)) !== JSON.stringify(expected.params)
+    ) {
+      throw new PsycheError("conflict", `recovery ${id} changed since it was approved`);
+    }
     if (r.op === "seal.reset") {
       throw new PsycheError(
         "forbidden",
@@ -528,7 +543,7 @@ export class SecurityRecoveries {
       status: "waiting",
       recoveryId: id,
       notBefore,
-      outcome: `waiting: this applies at ${notBefore} unless it is cancelled; every device shows it until then. To apply it sooner, approve it with Touch ID or a passkey on an admin device (recovery ${id}).`,
+      outcome: `waiting: this applies at ${notBefore} unless it is cancelled; every device shows it until then. To apply it sooner, approve it with a tap on an admin device (a presence reset needs Touch ID or a passkey there) (recovery ${id}).`,
     };
   }
 

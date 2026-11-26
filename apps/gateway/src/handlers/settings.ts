@@ -20,10 +20,10 @@ import { isNarrowing } from "./settings-narrowing.ts";
 /**
  * Security settings (security §10): `permissions.*`, `computerUse.*`, `exec.*`, `vault.*`, `devices.*`,
  * `gateway.*`, the owner identities and the channel DM / allow policies. Besides
- * `operator.admin` they need fresh user presence: a device-only `policy_change` approval bound to
- * the exact key and value, which the broker only accepts with a verified presence assertion
- * (requiresAuthentication). The exception is {@link OWNER_CHOICE_KEYS}: security settings the
- * owner changes with `operator.admin` alone, no presence step.
+ * `operator.admin` they need an approval: a device-only `policy_change` card bound to the exact key and
+ * value, which the owner approves with a plain tap (owner's decisions, 2026-11-09 and 2026-11-26:
+ * presence is for payments and for changing the payment verifiers only). The exception is
+ * {@link OWNER_CHOICE_KEYS}: security settings the owner changes with `operator.admin` alone, no card.
  */
 // `computerUse`: enabling computer use and raising an app's tier widen what the agent may do on
 // the Mac (security §12), like `permissions.apps`.

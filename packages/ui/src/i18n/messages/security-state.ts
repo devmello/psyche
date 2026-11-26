@@ -33,7 +33,7 @@ export const securityState = {
   "web.security.op.devicesApprove": "approve the device {name}.",
   "web.security.op.devicesGrant": "change what {name} may do.",
   "web.security.op.presenceReset":
-    "stop requiring Touch ID or a passkey for security changes until a new key is registered.",
+    "clear the key that protects payments until a new one is registered.",
   "web.security.op.sealReset": "accept the current security records as they are.",
   "web.security.device": "a device",
   "web.security.deviceKey": "{name} (key {fingerprint})",

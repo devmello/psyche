@@ -111,8 +111,6 @@ export const windows: Partial<Record<MessageId, string>> = {
     "The vault is locked. Unlock it with Windows Hello, then link {name} again.",
   "settings.approval.presenceUnavailable":
     "This window can't confirm it's you. Approve the change in the Psyche app on your PC (Windows Hello), or from a device with a passkey. Nothing changes until then.",
-  "settings.approval.promptDetail":
-    "Security settings need Windows Hello or a passkey. Approve it here or in the Psyche notification; the setting is saved as soon as it is approved.",
   "settings.approval.presenceInvalid":
     "Windows Hello or the passkey didn't confirm it's you. Try again.",
   "settings.about.revealHome": "Show in File Explorer",
@@ -244,12 +242,8 @@ export const windows: Partial<Record<MessageId, string>> = {
     "In Windows Terminal or PowerShell on this PC, publish the Gateway to your tailnet. This is Serve, not Funnel.",
   "settings.remote.step4":
     "Restart Psyche. Then on the other computer, add this PC as a Gateway. It shows a pairing code and a key fingerprint: compare them with the request under Waiting to pair here, then approve it.",
-  "settings.remote.admin":
-    "A computer that pairs gets read, write and approvals. Admin stays off unless you tick it when you approve, and each admin change still needs your Windows Hello here.",
   "settings.pair.needsAddress":
     "Set this PC's public address first (step 3 above), then make a pairing link.",
-  "settings.pair.adminHint":
-    "Admin lets it change security settings, devices and the vault, and stays off unless you tick it. Each admin change still needs your Windows Hello here.",
   "settings.pair.compare":
     "It checks this PC's key before it uses the link: {fingerprint}. You can compare.",
   "settings.pair.secret":
@@ -263,8 +257,6 @@ export const windows: Partial<Record<MessageId, string>> = {
     "This link is for computers on the same network as this PC. It names the key and certificate Psyche will insist on.",
   "settings.lan.description":
     "Let Psyche on another computer on the same Wi-Fi or Ethernet reach this PC's Gateway, without Tailscale. It is off until you turn it on.",
-  "settings.lan.toggleHint":
-    "Psyche listens on one network, over an encrypted connection with its own certificate. A computer that connects still has to be approved here with Windows Hello.",
   "settings.lan.noInterface": "No Wi-Fi or Ethernet connection was found on this PC.",
   "settings.lan.notAdvertised": "Not shown. Add this PC by its address.",
   "settings.lan.problem.unknownInterface": "{name} is not a network on this PC.",
@@ -374,8 +366,6 @@ export const windows: Partial<Record<MessageId, string>> = {
   "web.passkeys.added":
     "Added {name}. It now approves changes that need Windows Hello or a passkey.",
   "web.remotePresence.title": "Windows Hello for approvals",
-  "web.remotePresence.description":
-    "Purchases, credential fills, host commands and security changes need Windows Hello or a passkey. Set it up on this computer to answer them here; until then those cards say to answer on {host}. Ordinary approvals never need it.",
   "web.remotePresence.on": "Windows Hello is on for approvals from this computer.",
   "web.remotePresence.off": "Windows Hello isn't set up on this computer.",
   "web.remotePresence.enable": "Use Windows Hello for approvals on this computer",
@@ -459,11 +449,7 @@ export const windows: Partial<Record<MessageId, string>> = {
   "web.security.alert.firstAdmin":
     "A command on this PC made {name} the first admin device. If that was not you, revoke it in Devices.",
   "web.security.alert.requested": "Asked for on this PC: {action} Applies on {when}.",
-  "web.security.op.presenceReset":
-    "stop requiring Windows Hello or a passkey for security changes until a new key is registered.",
   "web.security.needsApprovalPresence":
-    "Approve the card with Windows Hello or a passkey, then press the button again.",
-  "web.security.needsApproval":
     "Approve the card with Windows Hello or a passkey, then press the button again.",
   "notice.security.changed.body":
     "A program on this PC changed {count, plural, =1 {# security record} other {# security records}} (devices, keys, grants or settings) without going through Psyche{times, plural, =0 {} =1 {} other {, # times so far}}. Psyche put them back. If you did not do this, check the PC for unwanted software.",
@@ -474,6 +460,4 @@ export const windows: Partial<Record<MessageId, string>> = {
     "{device}{key, select, none {} other { (key {key})}} became the first admin device {via, select, desktop {from the Psyche app} other {through `psyched`}} on this PC. If that was not you, revoke it in Settings → Devices.",
   "notice.security.recovery.title":
     "{state, select, requested {A command on this PC asked for a security change} applied {A security change from this PC was applied} cancelled {A security change from this PC was cancelled} other {A security change from this PC could not be applied}}",
-  "notice.security.recovery.body":
-    "{op, select, approve {Approve the device {device}{key, select, none {} other { (key {key})}} with {scopes}.} grant {Give {device}{key, select, none {} other { (key {key})}} {scopes}.} presence {Turn off the Windows Hello and passkey requirement for security changes until a new key is registered.} seal {Accept the current security records as they are.} other {A security change.}}{state, select, requested { It applies {when, select, none {in 24 hours} other {on {when}}} unless you cancel it in Psyche.} failed {{reason, select, none {} other { {reason}}}} other {}}",
 };

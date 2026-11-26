@@ -150,6 +150,6 @@ export const SecurityMethods = {
     scope: "operator.admin",
     sideEffecting: true,
     description:
-      "Applies a waiting local recovery request now. Needs fresh presence (approval_required, then retry with approvalId); refused while the state is untrusted and for a re-seal. Side-effecting.",
+      "Applies a waiting local recovery request now. Needs an approval card (approval_required, then retry with approvalId): a tap for a device approval or grant, Touch ID or a passkey for a presence reset; refused while the state is untrusted and for a re-seal. Side-effecting.",
   }),
 } as const;

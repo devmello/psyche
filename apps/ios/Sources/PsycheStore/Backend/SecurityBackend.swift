@@ -3,7 +3,8 @@ import Foundation
 // Security notices on the phone. A request made with `psyched` on the Mac (a new admin device, a presence reset)
 // waits before it applies, and its notice says it will "unless you cancel it in Psyche". The phone can cancel it
 // when it holds `operator.admin`: `security.recoveries.cancel` only narrows, so the Gateway asks for no presence.
-// Approving a request early (`security.recoveries.approve`) needs a fresh-presence card and stays on the Mac.
+// Approving a request early (`security.recoveries.approve`) is a tap on an approval card (a presence reset also
+// needs presence) and stays on the Mac.
 
 /// The recovery a notice describes, as the notice words it (`notice.security.recovery.*` params).
 public struct RecoveryNotice: Sendable, Equatable, Hashable {
