@@ -163,6 +163,7 @@ struct SettingsSheet: View {
                 }
             }
         }
+        .presentationDetents([.medium, .large])
         .presentationDragIndicator(.visible)
         .task {
             await model.load()
@@ -221,16 +222,16 @@ struct SettingsSheet: View {
 
         Section(String(localized: "This phone", bundle: .module)) {
             LabeledContent(String(localized: "Name", bundle: .module), value: device.name)
-            // Access, Gateway, Fingerprint and the transport are one tap away, not on the first screen.
+            // Access, the Mac's address and its security code are one tap away, not on the first screen.
             NavigationLink {
                 ConnectionDetailView(device: device)
             } label: {
-                LabeledContent(String(localized: "Connection", bundle: .module), value: device.transport)
+                LabeledContent(String(localized: "Connected over", bundle: .module), value: device.transport)
             }
         }
 
         Section {
-            Toggle(String(localized: "Notifications", bundle: .module), isOn: notificationsBinding(settings))
+            Toggle(String(localized: "Allow notifications", bundle: .module), isOn: notificationsBinding(settings))
             Toggle(String(localized: "Live Activities", bundle: .module), isOn: liveActivitiesBinding(settings))
                 .disabled(!settings.notifications)
             Toggle(String(localized: "Task titles on the Lock Screen", bundle: .module), isOn: binding(\.taskTitlesOnLockScreen, settings))
@@ -287,7 +288,7 @@ struct SettingsSheet: View {
             }
         }
 
-        Section(String(localized: "Gateway", bundle: .module)) {
+        Section(String(localized: "Your Mac", bundle: .module)) {
             Button(String(localized: "Re-pair with your Mac", bundle: .module)) { confirmingRepair = true }
             Button(String(localized: "Remove this phone", bundle: .module), role: .destructive) { confirmingRemove = true }
                 .disabled(model.removing)
@@ -384,7 +385,7 @@ struct SettingsSheet: View {
 
     static let notificationsFooter = [
         String(localized: "Task titles on the Lock Screen are off by default.", bundle: .module),
-        String(localized: "Without an Apple Developer account, Psyche can only notify you while it's open or when iOS lets it check in the background.", bundle: .module),
+        String(localized: "Psyche notifies you while it's open, and when iOS lets it check in the background.", bundle: .module),
     ].joined(separator: "\n\n")
 
     private func binding(_ keyPath: WritableKeyPath<PhoneSettings, Bool>, _ settings: PhoneSettings) -> Binding<Bool> {
@@ -439,18 +440,22 @@ private struct AwakeTodayRow: View {
 }
 
 
-/// The connection details that used to fill the first screen: access, the Gateway and its fingerprint.
+/// The technical details behind "Connected over": what this phone may do, where your Mac is and its security code.
 private struct ConnectionDetailView: View {
     let device: DeviceInfo
 
     var body: some View {
         Form {
-            LabeledContent(String(localized: "Access", bundle: .module), value: device.scopes.joined(separator: ", "))
-            LabeledContent(String(localized: "Connection", bundle: .module), value: device.transport)
-            stacked(String(localized: "Gateway", bundle: .module), device.gatewayHost)
-            stacked(String(localized: "Fingerprint", bundle: .module), device.gatewayFingerprint)
+            Section {
+                LabeledContent(String(localized: "Access", bundle: .module), value: device.scopes.joined(separator: ", "))
+                LabeledContent(String(localized: "Connected over", bundle: .module), value: device.transport)
+                stacked(String(localized: "Your Mac", bundle: .module), device.gatewayHost)
+                stacked(String(localized: "Security code", bundle: .module), device.gatewayFingerprint)
+            } footer: {
+                Text("The security code should match the one on your Mac. If it ever differs, pair again.", bundle: .module)
+            }
         }
-        .navigationTitle(String(localized: "Connection", bundle: .module))
+        .navigationTitle(String(localized: "Details", bundle: .module))
         .psycheInlineTitle()
     }
 
