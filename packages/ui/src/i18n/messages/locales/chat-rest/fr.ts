@@ -9,14 +9,14 @@ export const chatRest: Partial<Catalogue> = {
   "chat.outbox.old": "(plus d’un jour)",
   "chat.outbox.sendNow": "Envoyer maintenant",
   "chat.outbox.remove": "Ne pas envoyer « {content} »",
-  "chat.commands.mode.hint": "manual | balanced | auto | plan",
-  "chat.commands.mode.description": "Définir le mode d’autorisation de cette discussion",
+  "chat.commands.mode.hint": "manual | balanced | auto | full",
+  "chat.commands.mode.description": "Définir les autorisations de cette discussion",
   "chat.commands.teach.hint": "ce qu’il faut faire à la place",
   "chat.commands.teach.description": "Corriger la dernière réponse et s’en souvenir",
   "chat.commands.research.hint": "question",
   "chat.commands.research.description":
     "Faire des recherches approfondies sur une question, avec un rapport sourcé",
-  "chat.commands.usageMode": "Utilisation : /mode [manual | balanced | auto | plan]",
+  "chat.commands.usageMode": "Utilisation : /mode [manual | balanced | auto | full]",
   "chat.args.label": "Valeurs pour /{command}",
   "chat.args.loading": "Chargement…",
   "chat.args.count": "{count, plural, one {# valeur} other {# valeurs}}",
@@ -34,7 +34,6 @@ export const chatRest: Partial<Catalogue> = {
   "chat.args.mode.auto": "Agit seul ; nécessite un modèle compatible Auto",
   "chat.args.mode.autoNeedsModel":
     "Nécessite un modèle compatible Auto : choisissez-en un avec /model",
-  "chat.args.mode.plan": "Lecture seule : planifie sans agir",
   "chat.composer.placeholderArticle": "Poser une question sur cet article",
   "chat.composer.placeholderResult": "Poser une question sur ce résultat",
   "chat.composer.placeholderMemory": "Poser une question sur cet élément",
@@ -118,8 +117,8 @@ export const chatRest: Partial<Catalogue> = {
   "chat.thread.loading": "Chargement de la conversation",
   "chat.thread.sendFailed": "Impossible d’envoyer votre message ({reason}).",
   "chat.thread.retrySend": "Réessayer",
-  "chat.thread.modeCurrent": "Mode d’autorisation : {mode}.",
-  "chat.thread.modeSet": "Le mode d’autorisation est maintenant {mode}.",
+  "chat.thread.modeCurrent": "Autorisations : {mode}.",
+  "chat.thread.modeSet": "Autorisations réglées sur {mode}.",
   "chat.thread.researchPrompt":
     "/research {question}\n\nFais des recherches approfondies sur ce sujet avec ton outil research_plan. Montre-moi le plan et l’estimation de jetons, et attends mon feu vert avant d’appeler research_run. Utilise uniquement des sources web.",
   "chat.thread.researchPromptLocal":
@@ -183,7 +182,7 @@ export const chatRest: Partial<Catalogue> = {
   "chat.steps.summary.failed": "Arrêté · échec après {duration}",
   "chat.steps.summary.cancelled":
     "Arrêté par vous après {duration} · {n, plural, one {# étape} other {# étapes}}",
-  "chat.steps.summary.incognito": "Non conservé · incognito",
+  "chat.steps.summary.incognito": "Non conservé · discussion privée",
   "chat.steps.effect.sentEmails": "{n, plural, one {# e-mail envoyé} other {# e-mails envoyés}}",
   "chat.steps.effect.addedEvents":
     "{n, plural, one {# événement ajouté} other {# événements ajoutés}}",
@@ -211,9 +210,9 @@ export const chatRest: Partial<Catalogue> = {
   "chat.clear.done": "Discussion vidée",
   "chat.clear.failed": "Impossible de vider la discussion : {reason}",
   "chat.clear.mainOnly":
-    "Vider fonctionne dans la discussion principale. Utilisez /new pour une nouvelle discussion annexe.",
+    "Vider fonctionne dans la discussion principale. Utilisez /new pour une nouvelle discussion.",
   "chat.commands.clear.description": "Vider la discussion principale",
-  "chat.modeSwitch.label": "Mode d’autorisation",
+  "chat.modeSwitch.label": "Autorisations",
   "chat.modeSwitch.autoExplainer":
     "Auto exécute les actions courantes dans le cadre de vos autorisations et demande avant tout ce qui est sensible. Les paiements demandent toujours ; votre liste d’interdits est toujours refusée.",
   "chat.modeSwitch.gotIt": "Compris",

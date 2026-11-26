@@ -4,7 +4,6 @@ import type { ReactElement, ReactNode } from "react";
 import { AVATAR_STATE_LABEL, Avatar, type AvatarState } from "../avatar/Avatar.tsx";
 import { DISCLOSURE_KEY, type DisclosureLevel } from "../blocks/disclosure.tsx";
 import type { ExportFormat } from "../chat/ExportMenu.tsx";
-import { isSwitchMode, SWITCH_MODES } from "../chat/mode-switch.ts";
 import { Button } from "../components/ui/button.tsx";
 import {
   DropdownMenu,
@@ -16,12 +15,14 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuShortcut,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "../components/ui/dropdown-menu.tsx";
 import { useStoreState } from "../data/index.ts";
 import { t } from "../i18n/core.ts";
 import { GatewayChip } from "../shell/GatewayChip.tsx";
-import { SHORTCUTS } from "../shell/shortcuts.ts";
 import { usePersona } from "../slots.tsx";
 import { useAgentStatus } from "./useAgentState.ts";
 
@@ -76,17 +77,15 @@ export interface AgentHeaderProps {
   onOpenSheet: () => void;
   /** Opens the current task at level 1 (status snippet click). */
   onOpenTask?: (taskId: string) => void;
-  mode?: PermissionMode;
-  onModeChange?: (mode: PermissionMode) => void;
   model?: string;
   onOpenModelPicker?: () => void;
   /** The status control's target (the amber count): the approvals list. Defaults to the sheet. */
   onOpenApprovals?: () => void;
   incognito?: boolean;
   paused?: boolean;
-  /** Export the open thread (⋯ → Export: Markdown / JSON / HTML, §3.2). */
+  /** Export the open thread (⋯ → Export chat: Markdown / JSON / HTML, §3.2). */
   onExport?: (format: ExportFormat) => void;
-  /** Transcript view level (⋯ → View; ⌃O cycles). Replaces the separate "View" strip (§4). */
+  /** Transcript view level (⋯ → Advanced → Transcript view; ⌃O cycles). Replaces the separate "View" strip (§4). */
   disclosure?: DisclosureLevel;
   onDisclosureChange?: (level: DisclosureLevel) => void;
   /** Extra items for the ⋯ menu (rename, fork, …). */
@@ -95,9 +94,9 @@ export interface AgentHeaderProps {
   spaceSwitcher?: ReactNode;
   /** The thread's context meter, before the pill group. */
   context?: ReactNode;
-  /** ⋯ → Context limits… (this chat's own limits). */
+  /** ⋯ → Advanced → Context limits… (this chat's own limits). */
   onContextLimits?: () => void;
-  /** ⋯ → Compact now. */
+  /** ⋯ → Advanced → Compact now. */
   onCompact?: () => void;
   /** ⋯ → Clear chat… (the main chat only: it cannot be deleted). */
   onClearChat?: () => void;
@@ -108,16 +107,14 @@ export interface AgentHeaderProps {
 const LEVELS: readonly DisclosureLevel[] = [0, 1, 2];
 
 /**
- * The chat column's toolbar content (redesign-2026 §4, §5.2): the 28 px avatar with its state
- * ring, the persona name, the status snippet (cross-fades at a fixed width), counters, the mode
- * and model pill group, the bell and ⋯ (agent sheet, model, view level, context, export). The
- * separate "View" strip is gone: the transcript view level lives in ⋯ and on ⌃O.
+ * The chat column's toolbar content (redesign-2026 §4, §5.2): the 20 px avatar with its state
+ * ring, the persona name, the status snippet (cross-fades at a fixed width), counters, the bell
+ * and ⋯ (model, approvals and memory, export, then Advanced: transcript view, context limits,
+ * compact). The permission mode is not here: it is the picker in the composer bar, always visible.
  */
 export function AgentHeader({
   onOpenSheet,
   onOpenTask,
-  mode,
-  onModeChange,
   model,
   onOpenModelPicker,
   onOpenApprovals,
@@ -142,8 +139,11 @@ export function AgentHeader({
     if (task === undefined || (task.status !== "running" && task.status !== "queued")) return null;
     return task.checklist.find((c) => c.status === "in_progress")?.text ?? task.title;
   });
+  const hasAdvanced =
+    (disclosure !== undefined && onDisclosureChange !== undefined) ||
+    onContextLimits !== undefined ||
+    onCompact !== undefined;
   const snippet = status.state !== "offline" && step !== null ? step : status.snippet;
-  const modeChoices = SWITCH_MODES;
   return (
     <div
       role="toolbar"
@@ -166,7 +166,7 @@ export function AgentHeader({
           creature={persona.creature}
           {...(persona.imageSrc ? { imageSrc: persona.imageSrc } : {})}
           state={status.state}
-          size={28}
+          size={20}
           decorative
         />
       </button>
@@ -230,122 +230,98 @@ export function AgentHeader({
           <Ellipsis aria-hidden="true" />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-72 min-w-56 bg-popover! backdrop-blur-none!">
-          {mode ? (
-            <DropdownMenuGroup data-testid="mode-menu">
-              <DropdownMenuLabel className="flex items-center justify-between gap-4">
-                {t("chat.modeSwitch.label")}
-                <DropdownMenuShortcut>
-                  {SHORTCUTS.find((x) => x.id === "permissionMode")?.keys}
-                </DropdownMenuShortcut>
-              </DropdownMenuLabel>
-              {onModeChange ? (
-                <DropdownMenuRadioGroup
-                  value={mode}
-                  aria-keyshortcuts="Meta+Shift+M"
-                  onValueChange={(next) => {
-                    if (isSwitchMode(next)) onModeChange(next);
-                  }}
-                >
-                  {modeChoices.map((choice) => (
-                    <DropdownMenuRadioItem key={choice} value={choice}>
-                      {MODE_LABEL[choice]}
-                    </DropdownMenuRadioItem>
-                  ))}
-                </DropdownMenuRadioGroup>
-              ) : (
-                <DropdownMenuItem disabled>{MODE_LABEL[mode]}</DropdownMenuItem>
-              )}
-              <p
-                className="px-2 pb-1 text-callout whitespace-normal text-label-secondary"
-                data-testid="mode-menu-auto-explainer"
-              >
-                {t("chat.modeSwitch.autoExplainer")}
-              </p>
-            </DropdownMenuGroup>
-          ) : null}
           {onOpenModelPicker ? (
-            <>
-              {mode ? <DropdownMenuSeparator /> : null}
-              <DropdownMenuItem
-                onClick={onOpenModelPicker}
-                aria-keyshortcuts="Meta+Shift+I"
-                aria-label={
-                  model
-                    ? t("agent.header.modelLabel", { model: modelLabel(model) })
-                    : t("agent.header.changeModel")
-                }
-              >
-                <span className="flex min-w-0 flex-col">
-                  {t("agent.header.changeModel")}
-                  {model ? (
-                    <span className="text-callout text-label-secondary" title={model}>
-                      {modelLabel(model)}
-                    </span>
-                  ) : null}
-                </span>
-                <DropdownMenuShortcut>{t("chat.toolbar.keyModel")}</DropdownMenuShortcut>
-              </DropdownMenuItem>
-            </>
+            <DropdownMenuItem
+              onClick={onOpenModelPicker}
+              aria-keyshortcuts="Meta+Shift+I"
+              aria-label={
+                model
+                  ? t("agent.header.modelLabel", { model: modelLabel(model) })
+                  : t("agent.header.changeModel")
+              }
+            >
+              <span className="flex min-w-0 flex-col">
+                {t("agent.header.changeModel")}
+                {model ? (
+                  <span className="text-callout text-label-secondary" title={model}>
+                    {modelLabel(model)}
+                  </span>
+                ) : null}
+              </span>
+              <DropdownMenuShortcut>{t("chat.toolbar.keyModel")}</DropdownMenuShortcut>
+            </DropdownMenuItem>
           ) : null}
-          <DropdownMenuSeparator />
           <DropdownMenuItem onClick={onOpenSheet}>
             <PanelRight aria-hidden="true" /> {t("agent.header.menuSheet")}
             <DropdownMenuShortcut>{t("chat.toolbar.keySheet")}</DropdownMenuShortcut>
           </DropdownMenuItem>
-          {disclosure !== undefined && onDisclosureChange ? (
-            <>
-              <DropdownMenuSeparator />
-              <DropdownMenuGroup>
-                <DropdownMenuLabel>{t("chat.toolbar.view")}</DropdownMenuLabel>
-                <DropdownMenuRadioGroup
-                  value={String(disclosure)}
-                  onValueChange={(v) => onDisclosureChange(Number(v) as DisclosureLevel)}
-                >
-                  {LEVELS.map((level) => (
-                    <DropdownMenuRadioItem key={level} value={String(level)}>
-                      {t(`chat.toolbar.view.${DISCLOSURE_KEY[level]}`)}
-                      {level === 0 ? (
-                        <DropdownMenuShortcut>{t("chat.toolbar.keyView")}</DropdownMenuShortcut>
-                      ) : null}
-                    </DropdownMenuRadioItem>
-                  ))}
-                </DropdownMenuRadioGroup>
-              </DropdownMenuGroup>
-            </>
-          ) : null}
-          {onContextLimits || onCompact ? (
-            <>
-              <DropdownMenuSeparator />
-              {onContextLimits ? (
-                <DropdownMenuItem onClick={onContextLimits}>
-                  {t("context.limits.menu")}
-                </DropdownMenuItem>
-              ) : null}
-              {onCompact ? (
-                <DropdownMenuItem onClick={onCompact}>
-                  {t("context.meter.compactNow")}
-                </DropdownMenuItem>
-              ) : null}
-            </>
-          ) : null}
           {onExport ? (
-            <>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => onExport("markdown")}>
-                <Download aria-hidden="true" /> {t("agent.header.exportMarkdown")}
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => onExport("json")}>
-                <Download aria-hidden="true" /> {t("agent.header.exportJson")}
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => onExport("html")}>
-                <Download aria-hidden="true" /> {t("agent.header.exportHtml")}
-              </DropdownMenuItem>
-            </>
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger data-testid="export-submenu">
+                <Download aria-hidden="true" /> {t("agent.header.menuExport")}
+              </DropdownMenuSubTrigger>
+              <DropdownMenuSubContent>
+                <DropdownMenuItem onClick={() => onExport("markdown")}>
+                  {t("agent.header.exportMarkdown")}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onExport("json")}>
+                  {t("agent.header.exportJson")}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onExport("html")}>
+                  {t("agent.header.exportHtml")}
+                </DropdownMenuItem>
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
           ) : null}
           {menu ? (
             <>
               <DropdownMenuSeparator />
               {menu}
+            </>
+          ) : null}
+          {hasAdvanced ? (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger data-testid="advanced-submenu">
+                  {t("agent.header.menuAdvanced")}
+                </DropdownMenuSubTrigger>
+                <DropdownMenuSubContent>
+                  {disclosure !== undefined && onDisclosureChange ? (
+                    <DropdownMenuGroup>
+                      <DropdownMenuLabel>{t("chat.toolbar.view")}</DropdownMenuLabel>
+                      <DropdownMenuRadioGroup
+                        value={String(disclosure)}
+                        onValueChange={(v) => onDisclosureChange(Number(v) as DisclosureLevel)}
+                      >
+                        {LEVELS.map((level) => (
+                          <DropdownMenuRadioItem key={level} value={String(level)}>
+                            {t(`chat.toolbar.view.${DISCLOSURE_KEY[level]}`)}
+                            {level === 0 ? (
+                              <DropdownMenuShortcut>
+                                {t("chat.toolbar.keyView")}
+                              </DropdownMenuShortcut>
+                            ) : null}
+                          </DropdownMenuRadioItem>
+                        ))}
+                      </DropdownMenuRadioGroup>
+                    </DropdownMenuGroup>
+                  ) : null}
+                  {(onContextLimits || onCompact) && disclosure !== undefined ? (
+                    <DropdownMenuSeparator />
+                  ) : null}
+                  {onContextLimits ? (
+                    <DropdownMenuItem onClick={onContextLimits}>
+                      {t("context.limits.menu")}
+                    </DropdownMenuItem>
+                  ) : null}
+                  {onCompact ? (
+                    <DropdownMenuItem onClick={onCompact}>
+                      {t("context.meter.compactNow")}
+                    </DropdownMenuItem>
+                  ) : null}
+                </DropdownMenuSubContent>
+              </DropdownMenuSub>
             </>
           ) : null}
           {onClearChat ? (

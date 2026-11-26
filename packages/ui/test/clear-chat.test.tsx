@@ -241,7 +241,7 @@ describe("/clear", () => {
     );
     const box = await screen.findByRole("textbox", { name: /^Message / });
     await userEvent.type(box, "/clear{Enter}");
-    expect(await screen.findByText(/Use \/new for a fresh side chat/)).toBeTruthy();
+    expect(await screen.findByText(/Use \/new for a fresh chat/)).toBeTruthy();
     expect(screen.queryByRole("alertdialog")).toBeNull();
   });
 });

@@ -2,6 +2,7 @@ import type { Catalogue } from "../index.ts";
 import { actionErrors } from "./action-errors/ar.ts";
 import { agent } from "./agent/ar.ts";
 import { agentNotes } from "./agent-notes/ar.ts";
+import { appleA } from "./apple-a/ar.ts";
 import { approvalsW3 } from "./approvals-w3/ar.ts";
 import { audit } from "./audit/ar.ts";
 import { automationChat } from "./automation-chat/ar.ts";
@@ -317,15 +318,15 @@ export const ar: Partial<Catalogue> = {
 
   "chat.commands.model.hint": "المزوّد/النموذج",
   "chat.commands.model.description": "اختيار نموذج هذه المحادثة",
-  "chat.commands.new.description": "بدء دردشة جانبية جديدة",
+  "chat.commands.new.description": "بدء دردشة جديدة",
   "chat.commands.btw.hint": "سؤال",
-  "chat.commands.btw.description": "اسأل على الهامش في دردشة جانبية",
+  "chat.commands.btw.description": "اسأل في دردشة جديدة",
   "chat.commands.fork.hint": "رسالة",
   "chat.commands.fork.description": "تفريع هذه المحادثة من هنا",
   "chat.commands.schedule.hint": "متى وماذا",
   "chat.commands.schedule.description": "إنشاء أتمتة",
   "chat.commands.incognito.hint": "رسالة",
-  "chat.commands.incognito.description": "بدء دردشة لا تُحفظ في الذاكرة",
+  "chat.commands.incognito.description": "بدء دردشة خاصة تُحذف بعد 24 ساعة",
   "chat.commands.forget.hint": "موضوع",
   "chat.commands.forget.description": "سحب ما تم تذكّره عن شيء ما",
   "chat.commands.remember.hint": "معلومة",
@@ -361,13 +362,13 @@ export const ar: Partial<Catalogue> = {
   "chat.message.jumpToQuote": "الانتقال إلى الرسالة المقتبسة",
   "chat.message.actions": "إجراءات الرسالة",
   "chat.message.reply": "رد",
-  "chat.message.fork": "متابعة في دردشة جانبية",
+  "chat.message.fork": "المتابعة في دردشة جديدة",
   "chat.message.editResend": "تحرير وإعادة إرسال",
   "chat.message.userLabel": "أنت، {time}",
   "chat.message.agentLabel": "{name}، {time}",
   "chat.message.editHint":
-    "تُرسل التعديلات في دردشة جانبية متفرّعة من هنا؛ وتحتفظ هذه الدردشة بالأصل.",
-  "chat.message.resendAsSideChat": "إعادة الإرسال كدردشة جانبية",
+    "تُرسل التعديلات في دردشة جديدة متفرعة من هنا؛ وتحتفظ هذه الدردشة بالأصل.",
+  "chat.message.resendAsSideChat": "إعادة الإرسال في دردشة جديدة",
   "chat.message.fromTask": "من المهمة: {title}",
 
   "chat.approvals.announce":
@@ -416,8 +417,8 @@ export const ar: Partial<Catalogue> = {
   "chat.runFailed.details": "التفاصيل",
 
   "chat.toolbar.label": "شريط أدوات الدردشة",
-  "chat.toolbar.incognito": "متخفٍّ",
-  "chat.incognito.notice": "لا تُستخدم للذاكرة أو البحث أو النشاط. تنتهي صلاحيتها بعد 24 ساعة.",
+  "chat.toolbar.incognito": "خاصة",
+  "chat.incognito.notice": "دردشة خاصة: لا تُحفظ في الذاكرة أو البحث، وتُحذف بعد 24 ساعة.",
   "chat.toolbar.view": "عرض النص",
   "chat.toolbar.view.status": "الحالة فقط",
   "chat.toolbar.view.actions": "الإجراءات",
@@ -752,12 +753,7 @@ export const ar: Partial<Catalogue> = {
   "agent.mode.balanced": "متوازن",
   "agent.mode.auto": "تلقائي",
   "agent.mode.full": "وصول كامل",
-  "chat.commands.full.hint": "on | off",
-  "chat.commands.full.description": "تشغيل الوصول الكامل أو إيقافه في هذه المحادثة",
-  "chat.commands.usageFull": "الاستخدام: /full [on | off]",
   "chat.args.mode.full": "ينفّذ دون أن يسأل، باستثناء الإرسال والدفع",
-  "chat.args.full.on": "التنفيذ دون سؤال، باستثناء الإرسال والدفع",
-  "chat.args.full.off": "العودة إلى المتوازن",
   "chat.thread.fullAccessOn":
     "الوصول الكامل مفعّل في هذه المحادثة. الإرسال إلى أشخاص آخرين والدفع ما زالا يطلبان الإذن.",
   "chat.thread.fullAccessOff": "الوصول الكامل متوقف. عادت هذه المحادثة إلى الوضع المتوازن.",
@@ -770,7 +766,7 @@ export const ar: Partial<Catalogue> = {
   "agent.state.needsYou": "بحاجة إليك",
   "agent.state.error": "خطأ",
   "agent.state.paused": "متوقف مؤقتًا",
-  "agent.state.incognito": "متخفٍّ",
+  "agent.state.incognito": "خاص",
   "agent.state.offline": "غير متصل",
   "agent.avatar.label": "{name}، {state}{delegated, select, true {، مفوَّض} other {}}",
 
@@ -795,7 +791,7 @@ export const ar: Partial<Catalogue> = {
 
   "agent.sheet.tabs": "الوكيل",
   "agent.sheet.approvals": "الموافقات",
-  "agent.sheet.soul": "الروح والذاكرة",
+  "agent.sheet.soul": "الشخصية",
   "agent.sheet.now.working": "يعمل على {title} · {elapsed}",
   "agent.sheet.now.waiting":
     "بانتظارك · {approvals, plural, =0 {} one {# موافقة} two {موافقتان} few {# موافقات} other {# موافقة} zero {} many {# موافقة}}{both, select, true { · } other {}}{questions, plural, =0 {} one {سؤال واحد} two {سؤالان} few {# أسئلة} many {# سؤالًا} other {# سؤال} zero {}}",
@@ -926,7 +922,7 @@ export const ar: Partial<Catalogue> = {
   "agent.memory.controls": "عناصر التحكم في الذاكرة",
   "agent.memory.memory": "الذاكرة",
   "agent.memory.paused": "متوقفة مؤقتًا",
-  "agent.memory.incognito": "دردشة جانبية متخفية",
+  "agent.memory.incognito": "دردشة خاصة",
   "agent.memory.importExport": "الاستيراد والتصدير وإعادة التعيين",
   "agent.memory.import": "استيراد الذاكرة",
   "agent.memory.importConv.title": "الاستيراد من claude.ai أو ChatGPT",
@@ -3885,8 +3881,6 @@ export const ar: Partial<Catalogue> = {
   "web.chat.send": "إرسال",
   "web.chat.label": "الدردشة",
   "web.chat.permissionModeTitle": "وضع الأذونات (⌘⇧M)",
-  "web.chat.permissionMode":
-    "{mode, select, manual {يدوي} balanced {متوازن} auto {تلقائي} plan {تخطيط} other {{mode}}}",
   "web.chat.modelTitle": "النموذج (⌘⇧I)",
   "web.chat.defaultModel": "النموذج الافتراضي",
   "web.chat.conversation": "المحادثة",
@@ -4076,4 +4070,5 @@ export const ar: Partial<Catalogue> = {
   ...spaces,
   ...machines,
   ...actionErrors,
+  ...appleA,
 };

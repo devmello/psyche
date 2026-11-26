@@ -1,6 +1,7 @@
 import type { Catalogue } from "../index.ts";
 import { actionErrors } from "./action-errors/ko.ts";
 import { agentRest } from "./agent-rest/ko.ts";
+import { appleA } from "./apple-a/ko.ts";
 import { approvalsW3 } from "./approvals-w3/ko.ts";
 import { auditRest } from "./audit-rest/ko.ts";
 import { automationChatRest } from "./automationChat-rest/ko.ts";
@@ -282,15 +283,15 @@ export const ko: Partial<Catalogue> = {
   "chat.queue.sendQueuedLabel": "대기 중인 메시지 “{content}” 보내기",
   "chat.commands.model.hint": "제공업체/모델",
   "chat.commands.model.description": "이 스레드의 모델 선택",
-  "chat.commands.new.description": "새 사이드 채팅 시작",
+  "chat.commands.new.description": "새 채팅 시작",
   "chat.commands.btw.hint": "질문",
-  "chat.commands.btw.description": "사이드 채팅에서 따로 질문하기",
+  "chat.commands.btw.description": "새 채팅에서 질문",
   "chat.commands.fork.hint": "메시지",
   "chat.commands.fork.description": "여기서부터 이 스레드 분기",
   "chat.commands.schedule.hint": "언제, 무엇을",
   "chat.commands.schedule.description": "자동화 만들기",
   "chat.commands.incognito.hint": "메시지",
-  "chat.commands.incognito.description": "기억되지 않는 채팅 시작",
+  "chat.commands.incognito.description": "비공개 채팅 시작, 24시간 후 삭제",
   "chat.commands.forget.hint": "주제",
   "chat.commands.forget.description": "어떤 것에 대해 기억된 내용 철회",
   "chat.commands.remember.hint": "사실",
@@ -325,13 +326,13 @@ export const ko: Partial<Catalogue> = {
   "chat.message.jumpToQuote": "인용된 메시지로 이동",
   "chat.message.actions": "메시지 동작",
   "chat.message.reply": "답장",
-  "chat.message.fork": "사이드 채팅에서 계속",
+  "chat.message.fork": "새 채팅에서 계속",
   "chat.message.editResend": "편집 후 다시 보내기",
   "chat.message.userLabel": "나, {time}",
   "chat.message.agentLabel": "{name}, {time}",
   "chat.message.editHint":
-    "편집한 내용은 여기서 분기된 사이드 채팅으로 전송되며, 이 채팅에는 원본이 유지됩니다.",
-  "chat.message.resendAsSideChat": "사이드 채팅으로 다시 보내기",
+    "수정 내용은 여기서 갈라진 새 채팅으로 전송되며, 이 채팅에는 원본이 유지됩니다.",
+  "chat.message.resendAsSideChat": "새 채팅에서 다시 보내기",
   "chat.message.fromTask": "작업에서: {title}",
   "chat.approvals.announce":
     "승인 필요: {summary}. {count, plural, other {#개의 승인이 사용자를 기다립니다}}.",
@@ -377,8 +378,8 @@ export const ko: Partial<Catalogue> = {
   "chat.runFailed.openModels": "설정 → 모델 열기",
   "chat.runFailed.details": "세부사항",
   "chat.toolbar.label": "채팅 도구 막대",
-  "chat.toolbar.incognito": "시크릿",
-  "chat.incognito.notice": "메모리, 검색, 활동에 사용되지 않습니다. 24시간 후 만료됩니다.",
+  "chat.toolbar.incognito": "비공개",
+  "chat.incognito.notice": "비공개 채팅: 메모리나 검색에 저장되지 않으며 24시간 후 삭제됩니다.",
   "chat.toolbar.view": "대화 기록 보기",
   "chat.toolbar.view.status": "상태만",
   "chat.toolbar.view.actions": "동작",
@@ -694,12 +695,7 @@ export const ko: Partial<Catalogue> = {
   "agent.mode.balanced": "균형",
   "agent.mode.auto": "자동",
   "agent.mode.full": "전체 접근",
-  "chat.commands.full.hint": "on | off",
-  "chat.commands.full.description": "이 채팅에서 전체 접근을 켜거나 끕니다",
-  "chat.commands.usageFull": "사용법: /full [on | off]",
   "chat.args.mode.full": "보내기와 결제를 빼고 묻지 않고 실행합니다",
-  "chat.args.full.on": "보내기와 결제를 빼고 묻지 않고 실행",
-  "chat.args.full.off": "균형으로 돌아가기",
   "chat.thread.fullAccessOn":
     "이 채팅에서 전체 접근이 켜져 있습니다. 다른 사람에게 보내기와 결제는 계속 묻습니다.",
   "chat.thread.fullAccessOff": "전체 접근이 꺼졌습니다. 이 채팅은 균형으로 돌아갔습니다.",
@@ -711,7 +707,7 @@ export const ko: Partial<Catalogue> = {
   "agent.state.needsYou": "확인 필요",
   "agent.state.error": "오류",
   "agent.state.paused": "일시 정지됨",
-  "agent.state.incognito": "시크릿",
+  "agent.state.incognito": "비공개",
   "agent.state.offline": "오프라인",
   "agent.avatar.label": "{name}, {state}{delegated, select, true {, 위임됨} other {}}",
   "agent.status.offline": "Psyche에 연결할 수 없음",
@@ -731,7 +727,7 @@ export const ko: Partial<Catalogue> = {
   "agent.header.exportHtml": "HTML로 내보내기",
   "agent.sheet.tabs": "에이전트",
   "agent.sheet.approvals": "승인",
-  "agent.sheet.soul": "소울 및 메모리",
+  "agent.sheet.soul": "성격",
   "agent.sheet.now.working": "{title} 작업 중 · {elapsed}",
   "agent.sheet.now.waiting":
     "확인 대기 중 · {approvals, plural, =0 {} other {승인 #건}}{both, select, true { · } other {}}{questions, plural, =0 {} other {질문 #건}}",
@@ -864,7 +860,7 @@ export const ko: Partial<Catalogue> = {
   "agent.memory.controls": "메모리 제어",
   "agent.memory.memory": "메모리",
   "agent.memory.paused": "일시 정지됨",
-  "agent.memory.incognito": "시크릿 사이드 채팅",
+  "agent.memory.incognito": "비공개 채팅",
   "agent.memory.importExport": "가져오기, 내보내기 및 재설정",
   "agent.memory.import": "메모리 가져오기",
   "agent.memory.importConv.title": "claude.ai 또는 ChatGPT에서 가져오기",
@@ -3826,8 +3822,6 @@ export const ko: Partial<Catalogue> = {
   "web.chat.send": "보내기",
   "web.chat.label": "채팅",
   "web.chat.permissionModeTitle": "권한 모드 (⌘⇧M)",
-  "web.chat.permissionMode":
-    "{mode, select, manual {수동} balanced {균형} auto {자동} plan {계획} other {{mode}}}",
   "web.chat.modelTitle": "모델 (⌘⇧I)",
   "web.chat.defaultModel": "기본 모델",
   "web.chat.conversation": "대화",
@@ -4020,4 +4014,5 @@ export const ko: Partial<Catalogue> = {
   ...spaces,
   ...machines,
   ...actionErrors,
+  ...appleA,
 };

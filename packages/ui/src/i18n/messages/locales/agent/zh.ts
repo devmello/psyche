@@ -7,7 +7,7 @@ export const agent: Partial<Catalogue> = {
   "agent.timeline.back": "返回“活动”",
   "agent.timeline.loading": "正在载入时间线",
   "agent.timeline.loadFailed": "Psyche 无法载入此时间线（{reason}）。",
-  "agent.timeline.incognito": "未保留 · 无痕模式",
+  "agent.timeline.incognito": "不保留 · 私密聊天",
   "agent.timeline.notVerified":
     "未核实：运行已结束，但缺少每一步都已发生的证据。{reason} 已记录的内容：",
   "agent.timeline.state.partial": "已完成，但有问题",

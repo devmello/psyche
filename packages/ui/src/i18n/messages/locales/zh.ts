@@ -2,6 +2,7 @@ import type { Catalogue } from "../index.ts";
 import { actionErrors } from "./action-errors/zh.ts";
 import { agent } from "./agent/zh.ts";
 import { agentNotes } from "./agent-notes/zh.ts";
+import { appleA } from "./apple-a/zh.ts";
 import { approvalsW3 } from "./approvals-w3/zh.ts";
 import { audit } from "./audit/zh.ts";
 import { automationChat } from "./automation-chat/zh.ts";
@@ -306,15 +307,15 @@ export const zh: Partial<Catalogue> = {
 
   "chat.commands.model.hint": "提供商/模型",
   "chat.commands.model.description": "选择此会话使用的模型",
-  "chat.commands.new.description": "开始新的支线聊天",
+  "chat.commands.new.description": "开始新的聊天",
   "chat.commands.btw.hint": "问题",
-  "chat.commands.btw.description": "在支线聊天中顺便提问",
+  "chat.commands.btw.description": "在新聊天中提问",
   "chat.commands.fork.hint": "消息",
   "chat.commands.fork.description": "从此处分叉此会话",
   "chat.commands.schedule.hint": "时间和内容",
   "chat.commands.schedule.description": "创建自动化",
   "chat.commands.incognito.hint": "消息",
-  "chat.commands.incognito.description": "开始一个不会被记住的聊天",
+  "chat.commands.incognito.description": "开始私密聊天，24 小时后删除",
   "chat.commands.forget.hint": "主题",
   "chat.commands.forget.description": "撤回关于某事的记忆",
   "chat.commands.remember.hint": "事实",
@@ -350,12 +351,12 @@ export const zh: Partial<Catalogue> = {
   "chat.message.jumpToQuote": "跳到被引用的消息",
   "chat.message.actions": "消息操作",
   "chat.message.reply": "回复",
-  "chat.message.fork": "在支线聊天中继续",
+  "chat.message.fork": "在新聊天中继续",
   "chat.message.editResend": "编辑并重新发送",
   "chat.message.userLabel": "你，{time}",
   "chat.message.agentLabel": "{name}，{time}",
-  "chat.message.editHint": "编辑后的内容会在从此处分叉的支线聊天中发送，本聊天保留原文。",
-  "chat.message.resendAsSideChat": "作为支线聊天重新发送",
+  "chat.message.editHint": "编辑内容会在从此处分出的新聊天中发送；本聊天保留原文。",
+  "chat.message.resendAsSideChat": "在新聊天中重新发送",
   "chat.message.fromTask": "来自任务：{title}",
 
   "chat.approvals.announce":
@@ -402,8 +403,8 @@ export const zh: Partial<Catalogue> = {
   "chat.runFailed.details": "详细信息",
 
   "chat.toolbar.label": "聊天工具栏",
-  "chat.toolbar.incognito": "无痕",
-  "chat.incognito.notice": "不用于记忆、搜索或活动记录。24 小时后过期。",
+  "chat.toolbar.incognito": "私密",
+  "chat.incognito.notice": "私密聊天：不会保存到记忆或搜索中，24 小时后删除。",
   "chat.toolbar.view": "记录视图",
   "chat.toolbar.view.status": "仅状态",
   "chat.toolbar.view.actions": "操作",
@@ -731,12 +732,7 @@ export const zh: Partial<Catalogue> = {
   "agent.mode.balanced": "平衡",
   "agent.mode.auto": "自动",
   "agent.mode.full": "完全访问",
-  "chat.commands.full.hint": "on | off",
-  "chat.commands.full.description": "在此对话中开启或关闭完全访问",
-  "chat.commands.usageFull": "用法：/full [on | off]",
   "chat.args.mode.full": "除发送和付款外，无需询问即可执行",
-  "chat.args.full.on": "除发送和付款外，无需询问即可执行",
-  "chat.args.full.off": "恢复为平衡",
   "chat.thread.fullAccessOn": "此对话已开启完全访问。发送给他人的消息和付款仍会询问。",
   "chat.thread.fullAccessOff": "完全访问已关闭。此对话已恢复为平衡。",
   "chat.fullAccess.banner": "完全访问：除发送和付款外，Psyche 无需询问即可执行。",
@@ -748,7 +744,7 @@ export const zh: Partial<Catalogue> = {
   "agent.state.needsYou": "需要你",
   "agent.state.error": "出错",
   "agent.state.paused": "已暂停",
-  "agent.state.incognito": "无痕",
+  "agent.state.incognito": "私密",
   "agent.state.offline": "离线",
   "agent.avatar.label": "{name}，{state}{delegated, select, true {，已委派} other {}}",
 
@@ -771,7 +767,7 @@ export const zh: Partial<Catalogue> = {
 
   "agent.sheet.tabs": "代理",
   "agent.sheet.approvals": "审批",
-  "agent.sheet.soul": "灵魂与记忆",
+  "agent.sheet.soul": "个性",
   "agent.sheet.now.working": "正在处理{title} · {elapsed}",
   "agent.sheet.now.waiting":
     "等你处理 · {approvals, plural, =0 {} other {# 项审批}}{both, select, true { · } other {}}{questions, plural, =0 {} other {# 项提问}}",
@@ -902,7 +898,7 @@ export const zh: Partial<Catalogue> = {
   "agent.memory.controls": "记忆控制",
   "agent.memory.memory": "记忆",
   "agent.memory.paused": "已暂停",
-  "agent.memory.incognito": "无痕支线聊天",
+  "agent.memory.incognito": "私密聊天",
   "agent.memory.importExport": "导入、导出和重置",
   "agent.memory.import": "导入记忆",
   "agent.memory.importConv.title": "从 claude.ai 或 ChatGPT 导入",
@@ -3756,8 +3752,6 @@ export const zh: Partial<Catalogue> = {
   "web.chat.send": "发送",
   "web.chat.label": "聊天",
   "web.chat.permissionModeTitle": "权限模式（⌘⇧M）",
-  "web.chat.permissionMode":
-    "{mode, select, manual {手动} balanced {平衡} auto {自动} plan {计划} other {{mode}}}",
   "web.chat.modelTitle": "模型（⌘⇧I）",
   "web.chat.defaultModel": "默认模型",
   "web.chat.conversation": "对话",
@@ -3945,4 +3939,5 @@ export const zh: Partial<Catalogue> = {
   ...spaces,
   ...machines,
   ...actionErrors,
+  ...appleA,
 };

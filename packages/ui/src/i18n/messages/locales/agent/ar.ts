@@ -7,7 +7,7 @@ export const agent: Partial<Catalogue> = {
   "agent.timeline.back": "العودة إلى النشاط",
   "agent.timeline.loading": "جارٍ تحميل الجدول الزمني",
   "agent.timeline.loadFailed": "تعذّر على Psyche تحميل هذا الجدول الزمني ({reason}).",
-  "agent.timeline.incognito": "غير محفوظ · وضع التصفح الخفي",
+  "agent.timeline.incognito": "لا يُحفظ · دردشة خاصة",
   "agent.timeline.notVerified":
     "غير مُتحقَّق منه: انتهى التشغيل لكن الدليل على حدوث كل خطوة مفقود. {reason} ما سُجّل:",
   "agent.timeline.state.partial": "اكتمل مع مشكلات",

@@ -138,7 +138,7 @@ describe("step rows (run-trace §3.2)", () => {
       "Stopped by you after 1 min 34 s · 9 steps",
     );
     expect(summarizeRun(done, of(R.done), [], { incognito: true }).text).toBe(
-      "Not kept · incognito",
+      "Not kept · private chat",
     );
     expect(timelineRoute(R.live)).toBe(`/agent/activity/run/${R.live}`);
     expect(timelineRoute(R.live, "stp_1")).toBe(`/agent/activity/run/${R.live}?step=stp_1`);

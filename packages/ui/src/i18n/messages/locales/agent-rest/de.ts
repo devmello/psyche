@@ -7,7 +7,7 @@ export const agentRest: Partial<Catalogue> = {
   "agent.timeline.back": "Zurück zu „Aktivität“",
   "agent.timeline.loading": "Verlauf wird geladen",
   "agent.timeline.loadFailed": "Psyche konnte diesen Verlauf nicht laden ({reason}).",
-  "agent.timeline.incognito": "Nicht gespeichert · Inkognito",
+  "agent.timeline.incognito": "Nicht gespeichert · privater Chat",
   "agent.timeline.notVerified":
     "Nicht verifiziert: Der Lauf ist beendet, aber der Nachweis, dass jeder Schritt stattfand, fehlt. {reason} Aufgezeichnet wurde:",
   "agent.timeline.state.partial": "Mit Problemen erledigt",

@@ -41,17 +41,17 @@ export const chat = {
 
   "chat.commands.model.hint": "provider/model",
   "chat.commands.model.description": "Pick this thread's model",
-  "chat.commands.mode.hint": "manual | balanced | auto | plan",
-  "chat.commands.mode.description": "Set this thread's permission mode",
-  "chat.commands.new.description": "Start a new side chat",
+  "chat.commands.mode.hint": "manual | balanced | auto | full",
+  "chat.commands.mode.description": "Set this chat's permissions",
+  "chat.commands.new.description": "Start a new chat",
   "chat.commands.btw.hint": "question",
-  "chat.commands.btw.description": "Ask aside in a side chat",
+  "chat.commands.btw.description": "Ask in a new chat",
   "chat.commands.fork.hint": "message",
   "chat.commands.fork.description": "Fork this thread from here",
   "chat.commands.schedule.hint": "when and what",
   "chat.commands.schedule.description": "Create an automation",
   "chat.commands.incognito.hint": "message",
-  "chat.commands.incognito.description": "Start a chat that is not remembered",
+  "chat.commands.incognito.description": "Start a private chat, deleted after 24 hours",
   "chat.commands.forget.hint": "subject",
   "chat.commands.forget.description": "Retract what is remembered about something",
   "chat.commands.remember.hint": "fact",
@@ -73,7 +73,7 @@ export const chat = {
   "chat.commands.usageModel":
     "Usage: /model provider/model, for example anthropic/claude-sonnet-5-5",
   "chat.commands.usageExport": "Usage: /export [md | json]",
-  "chat.commands.usageMode": "Usage: /mode [manual | balanced | auto | plan]",
+  "chat.commands.usageMode": "Usage: /mode [manual | balanced | auto | full]",
 
   "chat.args.label": "Values for /{command}",
   "chat.args.loading": "Loading…",
@@ -91,13 +91,7 @@ export const chat = {
   "chat.args.mode.balanced": "Asks only for risky actions",
   "chat.args.mode.auto": "Acts on its own; needs an Auto-capable model",
   "chat.args.mode.autoNeedsModel": "Needs an Auto-capable model: pick one with /model",
-  "chat.args.mode.plan": "Read-only: plans without acting",
-  "chat.commands.full.hint": "on | off",
-  "chat.commands.full.description": "Turn Full access on or off in this chat",
-  "chat.commands.usageFull": "Usage: /full [on | off]",
   "chat.args.mode.full": "Acts without asking, except sends and payments",
-  "chat.args.full.on": "Act without asking, except sends and payments",
-  "chat.args.full.off": "Back to Balanced",
   "chat.thread.fullAccessOn":
     "Full access is on in this chat. Sends to other people and payments still ask.",
   "chat.thread.fullAccessOff": "Full access is off. This chat is back to Balanced.",
@@ -148,13 +142,13 @@ export const chat = {
   "chat.message.jumpToQuote": "Jump to the quoted message",
   "chat.message.actions": "Message actions",
   "chat.message.reply": "Reply",
-  "chat.message.fork": "Continue in a side chat",
+  "chat.message.fork": "Continue in a new chat",
   "chat.message.editResend": "Edit and resend",
   "chat.message.userLabel": "You, {time}",
   "chat.message.agentLabel": "{name}, {time}",
   "chat.message.editHint":
-    "Edits are sent in a side chat forked from here; this chat keeps the original.",
-  "chat.message.resendAsSideChat": "Resend as a side chat",
+    "Edits are sent in a new chat branched from here; this chat keeps the original.",
+  "chat.message.resendAsSideChat": "Resend in a new chat",
   "chat.message.fromTask": "From task: {title}",
 
   // The teaching loop (docs/agent/teaching-loop-2026.md §5.1, §8).
@@ -236,8 +230,8 @@ export const chat = {
   "chat.thread.modelCurrentDefault":
     "This thread uses the default model. Type /model provider/model to pick another.",
   "chat.thread.modelSet": "This thread now uses {model}.",
-  "chat.thread.modeCurrent": "Permission mode: {mode}.",
-  "chat.thread.modeSet": "Permission mode is now {mode}.",
+  "chat.thread.modeCurrent": "Permissions: {mode}.",
+  "chat.thread.modeSet": "Permissions set to {mode}.",
   "chat.thread.planMode": "Plan mode: read-only until you switch back.",
   "chat.thread.schedulePrompt":
     "/schedule {request}\n\nCreate this as an automation with your schedule tool, then tell me what you set up.",
@@ -276,8 +270,9 @@ export const chat = {
 
   // Redesign 2026, workstream B (docs/design/redesign-2026.md §5.2).
   "chat.toolbar.label": "Chat toolbar",
-  "chat.toolbar.incognito": "Incognito",
-  "chat.incognito.notice": "Not used for memory, search or activity. Expires after 24 h.",
+  "chat.toolbar.incognito": "Private",
+  "chat.incognito.notice":
+    "Private chat: not kept in memory or search, and deleted after 24 hours.",
   "chat.toolbar.view": "Transcript view",
   "chat.toolbar.view.status": "Status only",
   "chat.toolbar.view.actions": "Actions",
@@ -352,7 +347,7 @@ export const chat = {
   "chat.steps.summary.failed": "Stopped · failed after {duration}",
   "chat.steps.summary.cancelled":
     "Stopped by you after {duration} · {n, plural, one {# step} other {# steps}}",
-  "chat.steps.summary.incognito": "Not kept · incognito",
+  "chat.steps.summary.incognito": "Not kept · private chat",
   "chat.steps.effect.sentEmails": "sent {n, plural, one {# email} other {# emails}}",
   "chat.steps.effect.addedEvents": "added {n, plural, one {# event} other {# events}}",
   "chat.steps.effect.wroteFiles": "wrote {n, plural, one {# file} other {# files}}",
@@ -374,11 +369,12 @@ export const chat = {
   "chat.clear.clearing": "Clearing…",
   "chat.clear.done": "Chat cleared",
   "chat.clear.failed": "Could not clear the chat: {reason}",
-  "chat.clear.mainOnly": "Clear works in the main chat. Use /new for a fresh side chat.",
+  "chat.clear.mainOnly": "Clear works in the main chat. Use /new for a fresh chat.",
   "chat.commands.clear.description": "Clear the main chat",
-  "chat.modeSwitch.label": "Permission mode",
+  "chat.modeSwitch.label": "Permissions",
   "chat.modeSwitch.autoExplainer":
     "Auto runs routine actions inside your grants and asks before anything sensitive. Payments always ask; your never list is always refused.",
+  "chat.modePicker.aria": "Permissions: {mode}",
   "chat.modeSwitch.gotIt": "Got it",
   "chat.modeSwitch.autoUnavailable": "Auto can't run on {model}.",
   "chat.modeSwitch.needsModel": "Auto needs a supported model.",

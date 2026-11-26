@@ -156,15 +156,13 @@ describe("transcript (redesign-2026 §5.2, motion.md §4.6)", () => {
 });
 
 describe("toolbar (redesign-2026 §4, §5.2)", () => {
-  it("is a labelled toolbar with a 28 px avatar, mode and model in ⋯, and the view level in ⋯", async () => {
+  it("is a labelled toolbar with a light avatar, model in ⋯, and the view level under Advanced", async () => {
     const onDisclosureChange = vi.fn();
     const onExport = vi.fn();
     render(
       <StoryWorld>
         <AgentHeader
           onOpenSheet={() => {}}
-          mode="balanced"
-          onModeChange={() => {}}
           model="anthropic/claude-sonnet-5-5"
           onOpenModelPicker={() => {}}
           disclosure={1}
@@ -180,8 +178,10 @@ describe("toolbar (redesign-2026 §4, §5.2)", () => {
     expect(within(toolbar).queryByRole("button", { name: /Notifications/ })).toBeNull();
     expect(within(toolbar).getAllByRole("button")).toHaveLength(2);
     await userEvent.click(within(toolbar).getByRole("button", { name: "More" }));
-    expect(await screen.findByRole("menuitemradio", { name: /balanced/i })).toBeTruthy();
-    expect(screen.getByRole("menuitem", { name: /Model: Sonnet 5.5/ })).toBeTruthy();
+    expect(await screen.findByRole("menuitem", { name: /Model: Sonnet 5.5/ })).toBeTruthy();
+    // The mode is the picker in the composer bar, not a ⋯ item.
+    expect(screen.queryByRole("menuitemradio", { name: /balanced/i })).toBeNull();
+    await userEvent.click(screen.getByTestId("advanced-submenu"));
     const raw = await screen.findByRole("menuitemradio", { name: /Raw tool I\/O/ });
     expect(
       screen.getByRole("menuitemradio", { name: /Actions/ }).getAttribute("aria-checked"),

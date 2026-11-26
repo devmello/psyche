@@ -7,6 +7,7 @@ import {
 import type { Message, PermissionMode, QueueMode, SpecialistJob } from "@psyche/protocol";
 import { CircleAlert, X } from "lucide-react";
 import { type ReactElement, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { MODE_LABEL } from "../agent/AgentHeader.tsx";
 import { type DisclosureLevel, DisclosureProvider } from "../blocks/disclosure.tsx";
 import { answerValues, indexThreadBlocks, ThreadBlocksProvider } from "../blocks/thread-blocks.tsx";
 import {
@@ -33,7 +34,7 @@ import {
   parseCompareArg,
   registerForkChat,
 } from "../plan-fork/index.ts";
-
+import { SHORTCUTS } from "../shell/shortcuts.ts";
 import { usePersona, useSlots } from "../slots.tsx";
 import { SpaceComposerChip } from "../spaces/SpaceSwitcher.tsx";
 import { SpecialistSpawns } from "../specialists/SpawnLine.tsx";
@@ -57,6 +58,7 @@ import {
 } from "./focus-request.ts";
 import { useGreetEmptyMainChat } from "./greet.ts";
 import { isEmptyAgentMessage, MessageView } from "./MessageView.tsx";
+import { ModeFeedback, ModePicker, useThreadModeChoice } from "./ModeSwitch.tsx";
 import { OfflineBanner } from "./OfflineBanner.tsx";
 import { OutboxQueue } from "./OutboxQueue.tsx";
 import { ComposerPrefill } from "./prefill.ts";
@@ -254,6 +256,14 @@ export function ChatThread({
   // What the argument popup (`/model `, `/mode `) lists: the data this column already holds.
   const argModelRef = view.thread?.thread.modelRef ?? null;
   const argMode = view.thread?.thread.permissionMode;
+  // The one mode control sits in the composer bar and always shows the current mode; it applies the
+  // choice to this chat (and, in the main chat, to new ones). `ModeFeedback` says so above the
+  // composer when Auto needs another model.
+  const modeChoice = useThreadModeChoice({
+    id: threadId,
+    kind: view.thread?.thread.kind,
+    modelRef: view.thread?.thread.modelRef ?? null,
+  });
   const threadKind = view.thread?.thread.kind;
   const argContext = useMemo<ArgContext>(
     () => ({ models: models.data, modelRef: argModelRef, permissionMode: argMode }),
@@ -602,23 +612,19 @@ export function ChatThread({
         if (arg === "") {
           setNotice({
             kind: "info",
-            text: t("chat.thread.modeCurrent", { mode: thread?.permissionMode ?? "balanced" }),
+            text: t("chat.thread.modeCurrent", {
+              mode: MODE_LABEL[thread?.permissionMode ?? "balanced"],
+            }),
           });
           return;
         }
+        // `/mode full` is Full access; the notice says what it allows (the picker's pick is silent).
         await updateThread(
           { permissionMode: arg as PermissionMode },
-          t("chat.thread.modeSet", { mode: arg }),
+          arg === "full"
+            ? t("chat.thread.fullAccessOn")
+            : t("chat.thread.modeSet", { mode: MODE_LABEL[arg as PermissionMode] }),
         );
-        return;
-      }
-      case "full": {
-        // `/full` or `/full on` turns Full access on in this chat; `/full off` goes back to Balanced.
-        if (arg === "off") {
-          await updateThread({ permissionMode: "balanced" }, t("chat.thread.fullAccessOff"));
-        } else {
-          await updateThread({ permissionMode: "full" }, t("chat.thread.fullAccessOn"));
-        }
         return;
       }
       case "plan": {
@@ -1199,6 +1205,7 @@ export function ChatThread({
                     onSendQueued={view.resumeQueued}
                   />
                   {notice ? <NoticeBar notice={notice} onDismiss={() => setNotice(null)} /> : null}
+                  <ModeFeedback choice={modeChoice} />
                   <FullAccessBanner
                     mode={view.thread?.thread.permissionMode}
                     disabled={composerOff}
@@ -1236,6 +1243,20 @@ export function ChatThread({
                         : {})}
                       mode={mode}
                       argContext={argContext}
+                      {...(view.thread
+                        ? {
+                            modePicker: (
+                              <ModePicker
+                                mode={view.thread.thread.permissionMode}
+                                choice={modeChoice}
+                                disabled={composerOff}
+                                shortcut={
+                                  SHORTCUTS.find((x) => x.id === "permissionMode")?.keys ?? ""
+                                }
+                              />
+                            ),
+                          }
+                        : {})}
                       onStop={() => void view.cancel()}
                       {...(attachments.attach ? { attach: attachments.attach } : {})}
                       sendBlocked={attachments.uploading || attachments.failed}

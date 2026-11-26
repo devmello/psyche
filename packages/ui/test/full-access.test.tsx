@@ -1,30 +1,31 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { MODE_LABEL } from "../src/agent/AgentHeader.tsx";
-import { fullOptions, modeOptions } from "../src/chat/command-args.ts";
+import { modeOptions } from "../src/chat/command-args.ts";
 import { parseCommand } from "../src/chat/commands.ts";
 import { FullAccessBanner } from "../src/chat/FullAccessBanner.tsx";
 import { applyModeChoice, SWITCH_MODES } from "../src/chat/mode-switch.ts";
 
-/** Full access (owner, 2026-11-25): the `/full` command, the picker and the indicator. */
+/** Full access (owner, 2026-11-25): `/mode full`, the picker and the indicator. */
 
-describe("/full", () => {
+describe("/mode full", () => {
   it.each([
-    ["/full", ""],
-    ["/full on", "on"],
-    ["/full OFF", "off"],
+    ["/mode full", "full"],
+    ["/mode FULL", "full"],
+    ["/mode balanced", "balanced"],
   ])("%s parses", (input, arg) => {
-    expect(parseCommand(input)).toEqual({ type: "command", name: "full", arg });
+    expect(parseCommand(input)).toEqual({ type: "command", name: "mode", arg });
   });
 
-  it("refuses anything but on or off", () => {
-    expect(parseCommand("/full please")).toMatchObject({ type: "error" });
+  it("is the one way to type it: there is no separate /full, and Plan is not a mode here", () => {
+    // `/full` is plain text for the agent now, as any command of ours that does not exist.
+    expect(parseCommand("/full on")).toEqual({ type: "message", text: "/full on" });
+    expect(parseCommand("/mode plan")).toMatchObject({ type: "error" });
+    expect(parseCommand("/mode please")).toMatchObject({ type: "error" });
   });
 
-  it("offers on and off, and /mode lists Full access", () => {
-    expect(fullOptions().map((o) => o.value)).toEqual(["on", "off"]);
-    expect(modeOptions().map((o) => o.value)).toContain("full");
-    expect(parseCommand("/mode full")).toEqual({ type: "command", name: "mode", arg: "full" });
+  it("/mode lists the same four, in the same order as the picker", () => {
+    expect(modeOptions().map((o) => o.value)).toEqual([...SWITCH_MODES]);
   });
 
   it("is in the mode picker and labelled", () => {

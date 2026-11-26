@@ -7,7 +7,7 @@ export const agentRest: Partial<Catalogue> = {
   "agent.timeline.back": "गतिविधि पर वापस जाएँ",
   "agent.timeline.loading": "टाइमलाइन लोड हो रही है",
   "agent.timeline.loadFailed": "Psyche यह टाइमलाइन लोड नहीं कर सका ({reason})।",
-  "agent.timeline.incognito": "रखा नहीं गया · गुप्त",
+  "agent.timeline.incognito": "सहेजा नहीं गया · निजी चैट",
   "agent.timeline.notVerified":
     "सत्यापित नहीं: रन खत्म हो गया, लेकिन हर चरण के होने का प्रमाण मौजूद नहीं है। {reason} जो दर्ज हुआ:",
   "agent.timeline.state.partial": "समस्याओं के साथ पूरा",
