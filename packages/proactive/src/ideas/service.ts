@@ -613,33 +613,49 @@ export class IdeasService {
   ) {
     const timezone = options.timezone ?? this.#o.timezone ?? "UTC";
     const all = await this.#o.scheduler.list();
-    const upsert = async (job: string, title: string, schedule: string) => {
+    // An existing schedule keeps the owner's time and switch unless they are passed here.
+    const upsert = async (
+      job: string,
+      title: string,
+      schedule: string,
+      given: string | undefined,
+    ) => {
       const prompt = jobMarker(job, "nightly");
-      const fields = {
+      const fixed = {
         title,
-        schedule,
         timezone,
         sessionTarget: "main",
         delivery: {},
         prompt,
-        enabled: options.enabled ?? true,
         scratch: null,
       };
       const existing = all.find((a) => a.prompt.trim() === prompt);
       return existing === undefined
-        ? this.#o.scheduler.create({ kind: "cron", system: true, ...fields })
-        : this.#o.scheduler.update(existing.id, fields);
+        ? this.#o.scheduler.create({
+            kind: "cron",
+            system: true,
+            ...fixed,
+            schedule,
+            enabled: options.enabled ?? true,
+          })
+        : this.#o.scheduler.update(existing.id, {
+            ...fixed,
+            ...(given === undefined ? {} : { schedule: given }),
+            ...(options.enabled === undefined ? {} : { enabled: options.enabled }),
+          });
     };
     return {
       mine: await upsert(
         IDEAS_MINE_JOB,
         "Ideas: nightly mining",
         options.mine ?? DEFAULT_MINE_SCHEDULE,
+        options.mine,
       ),
       deliver: await upsert(
         IDEAS_DELIVER_JOB,
         "Ideas: delivery window",
         options.windows ?? DEFAULT_WINDOW_SCHEDULE,
+        options.windows,
       ),
     };
   }

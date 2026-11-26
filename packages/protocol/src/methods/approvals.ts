@@ -1,6 +1,12 @@
 import { Type } from "@sinclair/typebox";
 import { Id, Nullable } from "../common.ts";
-import { ApprovalAnswer, ApprovalRequest, ApprovalStatus, Grant } from "../schemas/permissions.ts";
+import {
+  ApprovalAnswer,
+  ApprovalRequest,
+  ApprovalStatus,
+  Grant,
+  NeedsMacReason,
+} from "../schemas/permissions.ts";
 import { defineMethod, nextCursor, pageParams } from "./define.ts";
 
 /** `approvals.*` (architecture §4.6; data model §4.1; security §3.7). */
@@ -12,7 +18,12 @@ import { defineMethod, nextCursor, pageParams } from "./define.ts";
 export const SurfaceAnswerToken = Type.String({ minLength: 1, $id: "SurfaceAnswerToken" });
 
 export const ApprovalResult = Type.Object(
-  { approval: ApprovalRequest, answerToken: Type.Optional(SurfaceAnswerToken) },
+  {
+    approval: ApprovalRequest,
+    answerToken: Type.Optional(SurfaceAnswerToken),
+    /** With `wantToken`: why this card cannot be answered here, when no token comes back. */
+    needsMac: Type.Optional(NeedsMacReason),
+  },
   { $id: "ApprovalResult" },
 );
 
@@ -32,10 +43,19 @@ export const ApprovalsMethods = {
     description: "Lists approval requests (default: pending), newest first.",
   }),
   "approvals.get": defineMethod({
-    params: Type.Object({ approvalId: Id }),
+    params: Type.Object({
+      approvalId: Id,
+      /**
+       * A paired operator device asks for its own answer token (a card raised before it paired).
+       * Refused for a caller that is not a paired approver; never granted for a payment or a card
+       * that stays on the Mac, which come back with `needsMac` instead.
+       */
+      wantToken: Type.Optional(Type.Boolean()),
+    }),
     result: ApprovalResult,
     scope: "operator.read",
-    description: "Returns one approval request.",
+    description:
+      "Returns one approval request, with this surface's unused answer token when it has one. With wantToken a paired approver device without a token gets one for a card that may be answered off the Mac; a payment or Mac-only card returns needsMac instead.",
   }),
   "approvals.answer": defineMethod({
     params: ApprovalAnswer,

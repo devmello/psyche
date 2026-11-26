@@ -53,6 +53,7 @@ import type {
 import type { ReviewWorld } from "../data/mock-review.ts";
 import type { SpacesWorld } from "../data/mock-spaces.ts";
 import type { NightShiftWorld } from "../night-shift/mock-night-shift.ts";
+import type { PlanForkWorld } from "../plan-fork/mock-plan-fork.ts";
 import { answerTokens, approvals, grants } from "./approvals.ts";
 import { messages, runs, threads, toolCalls } from "./chat.ts";
 import { fileTree, type MockFileNode } from "./files.ts";
@@ -115,6 +116,8 @@ export {
 export { subscriptionUsageSummary, usageSummary } from "./usage.ts";
 
 export interface FixtureWorld {
+  /** Fork a plan: forks, branches and staged items (`planForks.*`; absent = none). */
+  planForks?: PlanForkWorld;
   /** The Host's OS as `gateway.info` reports it (absent = not said, like an older Gateway). */
   hostOs?: "macos" | "windows" | "linux";
   /** The windows `points.windows` lists (Psyche points; absent = none). */

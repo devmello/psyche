@@ -79,7 +79,9 @@ function withAnswerTokens(
   tokens: ApprovalTokens,
 ): unknown {
   if (method === "approvals.get") {
-    const r = result as { approval: ApprovalRequest };
+    const r = result as { approval: ApprovalRequest; answerToken?: string };
+    // A token the broker minted just now for this device: keep it, so a second ask gets it back.
+    if (r.answerToken !== undefined) tokens.add(r.approval.id, surface, r.answerToken);
     const token =
       r.approval.status === "pending" ? tokens.tokenFor(r.approval.id, surface) : undefined;
     return token === undefined ? r : { ...r, answerToken: token };

@@ -41,6 +41,8 @@ export const home = {
   "home.more.pages": "Pages",
   "home.more.brief": "Brief settings",
   "home.more.memoryReview": "Memory review",
+  "home.quiet":
+    "Nothing needs you right now. Approvals, your daily brief and new ideas will show up here.",
   "home.loadFailed": "Couldn't load {what}.",
   "people.page.title": "People",
   "people.page.count": "{n, plural, one {# person} other {# people}}",

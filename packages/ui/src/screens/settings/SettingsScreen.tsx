@@ -1,10 +1,9 @@
 import type { Connector } from "@psyche/protocol";
-import { Search } from "lucide-react";
+import { ChevronLeft, Search } from "lucide-react";
 import {
   type KeyboardEvent,
   type ReactElement,
   type ReactNode,
-  useCallback,
   useEffect,
   useId,
   useMemo,
@@ -16,7 +15,7 @@ import { t } from "../../i18n/core.ts";
 import { documentPrefersReducedMotion, smoothScrollBehavior } from "../../lib/reduced-motion.ts";
 import { cn } from "../../lib/utils.ts";
 import { duration } from "../../motion/tokens.ts";
-import { usePersona, useSlots } from "../../slots.tsx";
+import { useSlots } from "../../slots.tsx";
 import { AboutSection } from "./AboutSection.tsx";
 import { AppearanceSection } from "./AppearanceSection.tsx";
 import { BrowserSection, type SignedInSitesApi } from "./BrowserSection.tsx";
@@ -41,6 +40,7 @@ import { MemorySurfacesSection } from "./MemorySurfacesSection.tsx";
 import { MemoryWorkSection } from "./MemoryWorkSection.tsx";
 import { ModelSection } from "./ModelSection.tsx";
 import { NotificationsSection } from "./NotificationsSection.tsx";
+import { PaneRows } from "./PaneRows.tsx";
 import { PeopleSection } from "./PeopleSection.tsx";
 import { PermissionsSection } from "./PermissionsSection.tsx";
 import { PersonaSection } from "./PersonaSection.tsx";
@@ -265,7 +265,7 @@ export function SettingsSectionView({
     case "permissions":
       return (
         <>
-          <PermissionsSection {...opt("now", s.now)} />
+          <PermissionsSection {...opt("now", s.now)} {...opt("onOpenPane", onOpenSection)} />
           <SecuritySection />
         </>
       );
@@ -417,19 +417,21 @@ export function SettingsScreen({
   ...shell
 }: SettingsScreenProps): ReactElement {
   const { navigate } = useSlots();
-  const persona = usePersona();
   const [own, setOwn] = useState<SettingsSectionId>(defaultSection);
   const target = resolveSection(section ?? own);
   const page = pageById(target.page);
   const multi = page.panes.length > 1;
+  // A pane that is not the page's own body opens one level deeper, with a way back.
+  const drilled =
+    multi && target.pane !== undefined && target.pane !== page.main ? target.pane : null;
+  // What the page shows in place: its own body, or the one pane of a single-pane page.
+  const inline = page.main !== undefined ? [page.main] : multi ? [] : page.panes;
   const navRef = useRef<HTMLElement>(null);
   const asideRef = useRef<HTMLElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   // Bumped on every jump, so choosing the same pane or setting again scrolls to it again.
   const [jump, setJump] = useState(0);
   const pendingKey = useRef<string | null>(null);
-  // The pane at the top of the content (two-pane layout), for the sidebar's current sub-row.
-  const [inView, setInView] = useState<SettingsPaneId | null>(null);
 
   const select = (id: SettingsSectionId, settingKey?: string) => {
     pendingKey.current = settingKey ?? null;
@@ -473,11 +475,8 @@ export function SettingsScreen({
     if (content === null) return;
     const key = pendingKey.current;
     pendingKey.current = null;
-    // The first pane is the top of its page: the page title stays in view.
-    let el =
-      target.pane === undefined || target.pane === page.panes[0]
-        ? null
-        : content.querySelector<HTMLElement>(`#${paneAnchor(target.pane)}`);
+    // A page or a drilled-in pane opens at its top; only a setting Search found scrolls.
+    let el: HTMLElement | null = null;
     let block: ScrollLogicalPosition = "start";
     let flashed = false;
     const show = (behavior: ScrollBehavior) => {
@@ -551,23 +550,6 @@ export function SettingsScreen({
     const row = navRef.current?.querySelector<HTMLElement>('[aria-current="page"]');
     if (typeof row?.scrollIntoView === "function") row.scrollIntoView({ block: "nearest" });
   }, [target.page]);
-
-  // Which pane is at the top of the content as it scrolls (two-pane only; stacked, the window
-  // scrolls and the sub-row follows the last pane chosen).
-  const onContentScroll = useCallback(() => {
-    const content = contentRef.current;
-    if (content === null || !multi) return;
-    const top = content.getBoundingClientRect().top + 96;
-    let current: SettingsPaneId | null = null;
-    for (const el of content.querySelectorAll<HTMLElement>("[data-settings-pane]")) {
-      if (el.getBoundingClientRect().top <= top)
-        current = el.dataset.settingsPane as SettingsPaneId;
-    }
-    setInView(current);
-  }, [multi]);
-  // biome-ignore lint/correctness/useExhaustiveDependencies: resets when the page changes
-  useEffect(() => setInView(null), [target.page]);
-  const currentPane = inView ?? target.pane ?? page.panes[0];
 
   return (
     // The Settings window (§5.8), like System Settings: at ≥ 720 px a 248 px page list and the
@@ -657,23 +639,6 @@ export function SettingsScreen({
                         current={active}
                         onSelect={() => select(p.id)}
                       />
-                      {active && multi ? (
-                        <ul
-                          className="flex flex-col gap-px pt-px pb-1"
-                          aria-label={t("settings.nav.inPage", { page: p.label })}
-                        >
-                          {p.panes.map((id) => (
-                            <li key={id}>
-                              <NavRow
-                                label={paneById(id)?.label ?? id}
-                                current={id === currentPane}
-                                sub
-                                onSelect={() => select(id)}
-                              />
-                            </li>
-                          ))}
-                        </ul>
-                      ) : null}
                     </li>
                   );
                 })}
@@ -683,39 +648,55 @@ export function SettingsScreen({
         </aside>
         <div
           ref={contentRef}
-          onScroll={onContentScroll}
           className="flex min-w-0 flex-col bg-canvas px-6 py-5 @min-[720px]:min-h-0 @min-[720px]:overflow-y-auto @min-[720px]:px-8"
         >
           <div className="flex w-full max-w-[680px] flex-col gap-12 pb-12">
             <SettingsApprovalProvider>
-              <InPageContext.Provider value={multi}>
-                {multi ? (
-                  <header className="-mb-6 flex flex-col gap-1">
+              <InPageContext.Provider value={false}>
+                {drilled !== null ? (
+                  <button
+                    type="button"
+                    onClick={() => select(page.id)}
+                    className="-mb-3 flex w-fit cursor-default items-center gap-0.5 rounded-sm text-callout text-accent-11 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    <ChevronLeft className="size-4" aria-hidden="true" />
+                    {page.label}
+                  </button>
+                ) : multi && page.main === undefined ? (
+                  <header className="-mb-6">
                     <h2 className="font-display text-page-title text-label-primary">
                       {page.label}
                     </h2>
-                    <p className="text-callout text-label-secondary">
-                      {page.description(persona.name)}
-                    </p>
                   </header>
                 ) : null}
-                {page.panes.map((id) => (
-                  <div
-                    key={id}
-                    id={paneAnchor(id)}
-                    data-settings-pane={id}
-                    className="flex scroll-mt-5 flex-col gap-5"
-                  >
-                    <SettingsSectionView
-                      section={id}
-                      shell={shell}
-                      onOpenSection={select}
-                      {...(connectorsView === undefined || id !== "connectors"
-                        ? {}
-                        : { connectorsView })}
-                    />
+                {drilled !== null ? (
+                  <div id={paneAnchor(drilled)} data-settings-pane={drilled}>
+                    <SettingsSectionView section={drilled} shell={shell} onOpenSection={select} />
                   </div>
-                ))}
+                ) : (
+                  <>
+                    {inline.map((id) => (
+                      <div key={id} id={paneAnchor(id)} data-settings-pane={id}>
+                        <SettingsSectionView
+                          section={id}
+                          shell={shell}
+                          onOpenSection={select}
+                          {...(connectorsView === undefined || id !== "connectors"
+                            ? {}
+                            : { connectorsView })}
+                        />
+                      </div>
+                    ))}
+                    {multi && page.listsOwnRows !== true ? (
+                      <PaneRows
+                        panes={page.panes.filter((id) => id !== page.main)}
+                        onOpen={select}
+                        // The page's own body sits above: the rows follow it closely.
+                        {...(page.main === undefined ? {} : { className: "-mt-7" })}
+                      />
+                    ) : null}
+                  </>
+                )}
               </InPageContext.Provider>
             </SettingsApprovalProvider>
           </div>

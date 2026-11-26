@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import type { MockGateway } from "../src/data/mock-gateway.ts";
@@ -51,43 +51,71 @@ function setup(props: Partial<OnboardingFlowProps> = {}, slots: UiSlots = {}) {
 const progress = () => screen.getByRole("progressbar", { name: "Onboarding progress" });
 const next = () => userEvent.click(screen.getByRole("button", { name: "Next" }));
 const heading = () => screen.getByRole("heading", { level: 1 });
+/** Accounts that sign in online stay folded until asked for. */
+const openAccounts = async () =>
+  userEvent.click(
+    await screen.findByRole("button", { name: "Add a Google, Microsoft or email account" }),
+  );
+/** The model step leads with an API key; the other ways open on request. */
+const otherWays = () => userEvent.click(screen.getByRole("button", { name: "Other ways" }));
 
 describe("OnboardingFlow", () => {
   it("shows quiet progress text with progressbar semantics for the current step", async () => {
     const { onStepChange } = setup();
-    expect(progress().getAttribute("aria-valuemax")).toBe("6");
+    // Four steps: you, the model, what to help with, done.
+    expect(progress().getAttribute("aria-valuemax")).toBe("4");
     expect(progress().getAttribute("aria-valuenow")).toBe("1");
-    expect(progress().textContent).toBe("1 of 6");
+    expect(progress().getAttribute("aria-valuetext")).toBe("1 of 4");
     expect((screen.getByRole("button", { name: /Back/ }) as HTMLButtonElement).disabled).toBe(true);
 
     await next();
-    expect(heading().textContent).toContain("Your stuff");
-    await next();
     expect(heading().textContent).toContain("Choose a model");
-    expect(progress().getAttribute("aria-valuenow")).toBe("3");
-    expect(progress().textContent).toBe("3 of 6");
+    expect(progress().getAttribute("aria-valuenow")).toBe("2");
     expect(onStepChange).toHaveBeenLastCalledWith("model");
     // Focus lands on the new step's heading.
     expect(document.activeElement).toBe(heading());
 
-    await userEvent.click(screen.getByRole("button", { name: /Back/ }));
-    expect(heading().textContent).toContain("Your stuff");
-    expect(progress().textContent).toBe("2 of 6");
-
-    // The "N of 6" label opens the step menu: reached steps jump, unreached ones are disabled.
     await next();
-    await userEvent.click(screen.getByRole("button", { name: /3 of 6/ }));
+    expect(heading().textContent).toContain("What should I help with?");
+    await userEvent.click(screen.getByRole("button", { name: /Back/ }));
+    expect(heading().textContent).toContain("Choose a model");
+
+    // The visible count opens the step menu: reached steps jump, unreached ones are disabled.
+    await userEvent.click(screen.getByRole("button", { name: "Steps" }));
     const items = await screen.findAllByRole("menuitem");
-    expect(items).toHaveLength(6);
-    expect(items[2]?.getAttribute("aria-current")).toBe("step");
+    expect(items).toHaveLength(4);
+    expect(items[1]?.getAttribute("aria-current")).toBe("step");
+    expect(items[2]?.getAttribute("aria-disabled")).toBeNull(); // reached before Back
     expect(items[3]?.getAttribute("aria-disabled")).toBe("true");
     await userEvent.click(items[0] as HTMLElement);
     expect(heading().textContent).toContain("You and your agent");
-    expect(progress().textContent).toBe("1 of 6");
+    expect(progress().getAttribute("aria-valuetext")).toBe("1 of 4");
     // A reached step ahead of the current one is reachable too.
-    await userEvent.click(screen.getByRole("button", { name: /1 of 6/ }));
+    await userEvent.click(screen.getByRole("button", { name: "Steps" }));
     await userEvent.click((await screen.findAllByRole("menuitem"))[2] as HTMLElement);
-    expect(heading().textContent).toContain("Choose a model");
+    expect(heading().textContent).toContain("What should I help with?");
+  });
+
+  it("says the step count once: no text node repeats it for assistive tech", async () => {
+    setup();
+    await next();
+    const flow = screen.getByTestId("onboarding-flow");
+    const reads = (text: string) =>
+      Array.from(flow.querySelectorAll("*")).filter(
+        (el) =>
+          el.getAttribute("aria-hidden") !== "true" &&
+          (el.getAttribute("aria-label")?.includes(text) === true ||
+            el.getAttribute("aria-valuetext")?.includes(text) === true ||
+            Array.from(el.childNodes).some(
+              (n) => n.nodeType === Node.TEXT_NODE && n.textContent?.includes(text),
+            )),
+      );
+    // The progressbar's value text reads it; the visible "2 of 4" is the menu button's own text,
+    // and neither the button's name nor the heading adds another copy.
+    expect(progress().getAttribute("aria-valuetext")).toBe("2 of 4");
+    expect(screen.getByRole("button", { name: "Steps" }).getAttribute("aria-label")).toBe("Steps");
+    expect(heading().textContent).toBe("Choose a model");
+    expect(reads("2 of 4").length).toBeLessThanOrEqual(2);
   });
 
   it("names the agent from suggestions or keeps Psyche, and previews the creature", async () => {
@@ -158,6 +186,7 @@ describe("OnboardingFlow", () => {
   it("connects accounts one at a time with read-only vs read-and-act", async () => {
     const onConnect = vi.fn(async () => true);
     setup({ defaultStep: "stuff", onConnect });
+    await openAccounts();
     await userEvent.click(screen.getByRole("radio", { name: /^Read and act/ }));
     await userEvent.click(screen.getByRole("button", { name: "Connect" }));
     expect(onConnect).toHaveBeenCalledWith("google", "read_act");
@@ -168,7 +197,7 @@ describe("OnboardingFlow", () => {
     expect(Array.from(picker.options).map((o) => o.value)).not.toContain("google");
   });
 
-  it("stores the key by reference, shows RAM guidance and runs the tool-calling check", async () => {
+  it("stores the key by reference, shows RAM guidance and runs the connection test", async () => {
     const onSaveKey = vi.fn(async (provider: string) => `vault:${provider}-api-key`);
     const onCheckModel = vi.fn(async () => "failed" as const);
     setup({ defaultStep: "model", onSaveKey, onCheckModel, ramGb: 16 });
@@ -179,12 +208,13 @@ describe("OnboardingFlow", () => {
     expect(onSaveKey).toHaveBeenCalledWith("anthropic", "sk-test-123");
     expect(await screen.findByText("vault:anthropic-api-key")).toBeTruthy();
     expect(document.body.textContent).not.toContain("sk-test-123");
-    await userEvent.click(screen.getByRole("button", { name: "Run check" }));
-    expect(await screen.findByText("Chat only: tool-calling check failed")).toBeTruthy();
+    await userEvent.click(screen.getByRole("button", { name: "Test it" }));
+    expect(await screen.findByText("Chat only")).toBeTruthy();
     expect(onCheckModel).toHaveBeenCalledWith(
       expect.objectContaining({ provider: "anthropic", keyRef: "vault:anthropic-api-key" }),
     );
 
+    await otherWays();
     await userEvent.click(screen.getByRole("radio", { name: /^Local model/ }));
     expect(screen.getByText(/This Mac has 16 GB/)).toBeTruthy();
     expect(screen.queryByLabelText("API key")).toBeNull();
@@ -193,10 +223,11 @@ describe("OnboardingFlow", () => {
   it("binds a Claude subscription to the claude-code CLI provider, not the API (#537)", async () => {
     const onCheckModel = vi.fn(() => "passed" as const);
     setup({ defaultStep: "model", onCheckModel });
+    await otherWays();
     await userEvent.click(screen.getByRole("radio", { name: /^Subscription/ }));
     expect(screen.queryByLabelText("API key")).toBeNull();
     expect(screen.getByText(/needs no API key and stores none/)).toBeTruthy();
-    await userEvent.click(screen.getByRole("button", { name: "Run check" }));
+    await userEvent.click(screen.getByRole("button", { name: "Test it" }));
     expect(onCheckModel).toHaveBeenLastCalledWith(
       expect.objectContaining({
         kind: "subscription",
@@ -205,12 +236,12 @@ describe("OnboardingFlow", () => {
       }),
     );
     await userEvent.click(screen.getByRole("radio", { name: /^Claude Opus/ }));
-    await userEvent.click(screen.getByRole("button", { name: "Run check" }));
+    await userEvent.click(screen.getByRole("button", { name: "Test it" }));
     expect(onCheckModel).toHaveBeenLastCalledWith(
       expect.objectContaining({ modelRef: "claude-code/opus" }),
     );
     await userEvent.selectOptions(screen.getByRole("combobox", { name: /Provider/ }), "codex");
-    await userEvent.click(screen.getByRole("button", { name: "Run check" }));
+    await userEvent.click(screen.getByRole("button", { name: "Test it" }));
     expect(onCheckModel).toHaveBeenLastCalledWith(
       expect.objectContaining({ provider: "codex", modelRef: "codex/default" }),
     );
@@ -250,26 +281,18 @@ describe("OnboardingFlow", () => {
       "Small and sure.",
     );
     await next();
+    expect(heading().textContent).toContain("Choose a model");
+    await userEvent.type(screen.getByLabelText("API key"), "k");
+    await userEvent.click(screen.getByRole("button", { name: "Save to vault" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Test it" }));
+    await screen.findByText("Works");
+    await next();
+    expect(heading().textContent).toContain("What should I help with?");
+    await openAccounts();
     await userEvent.click(screen.getByRole("button", { name: "Connect" }));
     await screen.findByRole("list", { name: "Your accounts" });
     // Google is a mail account, so the mail and meetings switches show on the same step (§7.5).
-    expect(heading().textContent).toContain("Your stuff");
     await userEvent.click(screen.getByRole("switch", { name: "Track replies you’re waiting on" }));
-    await next();
-    await userEvent.type(screen.getByLabelText("API key"), "k");
-    await userEvent.click(screen.getByRole("button", { name: "Save to vault" }));
-    await userEvent.click(await screen.findByRole("button", { name: "Run check" }));
-    await screen.findByText("Tool calling: passed");
-    await next();
-    // Memory and daily habits: wrap-up on, and work tracking through the consent card.
-    expect(heading().textContent).toContain("Memory and daily habits");
-    await userEvent.click(screen.getByRole("switch", { name: "Evening wrap-up" }));
-    await userEvent.click(screen.getByRole("switch", { name: "Track my work" }));
-    await userEvent.click(
-      within(await screen.findByTestId("work-consent")).getByRole("button", { name: "Turn on" }),
-    );
-    await next();
-    await userEvent.click(screen.getByRole("button", { name: "Allow" }));
     await next();
     expect(heading().textContent).toContain("You’re set");
     expect(screen.getByText("Pip is ready.")).toBeTruthy();
@@ -282,10 +305,11 @@ describe("OnboardingFlow", () => {
         creatureDescription: null,
         tagline: "Small and sure.",
       },
+      // Nothing is asked on the way: macOS prompts come on first use.
       permissions: {
         accessibility: "pending",
         screenRecording: "pending",
-        notifications: "granted",
+        notifications: "pending",
       },
       connectors: [{ type: "google", label: "Google (Gmail, Calendar, Drive)", mode: "read" }],
       model: {
@@ -297,13 +321,7 @@ describe("OnboardingFlow", () => {
       },
       mail: { digest: true, prep: true, followups: false, voice: false, notes: true },
       owner: { name: "Sam", timeZone: expect.any(String), work: "", city: "" },
-      habits: { brief: true, wrapup: true, followups: true },
-      memory: {
-        work: true,
-        workConsentedAt: expect.any(String),
-        remind: false,
-        people: false,
-      },
+      // No Memory step on the way: habits and memory stay as Settings has them.
     });
   });
 
@@ -312,7 +330,7 @@ describe("OnboardingFlow", () => {
     const nextButton = screen.getByRole("button", { name: "Next" });
     nextButton.focus();
     await userEvent.keyboard("{Enter}");
-    expect(heading().textContent).toContain("Your stuff");
+    expect(heading().textContent).toContain("Choose a model");
     expect(document.activeElement).toBe(heading());
     await userEvent.tab();
     expect(document.activeElement).not.toBe(document.body);
@@ -466,9 +484,10 @@ describe("First run from scratch", () => {
 });
 
 describe("Onboarding where this window can't ask macOS (web, #554)", () => {
-  it("leaves out the Notifications row and keeps the six steps", async () => {
+  it("leaves out the Notifications row of the Safety step when it is opened directly", async () => {
     setup({ macPermissions: false, defaultStep: "safety" });
-    expect(progress().getAttribute("aria-valuemax")).toBe("6");
+    // Safety is no longer on the way: it opens only when a route names it, as a fifth step.
+    expect(progress().getAttribute("aria-valuemax")).toBe("5");
     expect(screen.queryByRole("button", { name: "Allow" })).toBeNull();
     expect(screen.queryByText("Notifications")).toBeNull();
     // Sandbox stays one step away.
@@ -477,7 +496,7 @@ describe("Onboarding where this window can't ask macOS (web, #554)", () => {
 
   it("does not ask for Accessibility or Screen Recording anywhere in setup", async () => {
     setup();
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < 3; i++) {
       expect(screen.queryByText(/Accessibility|Screen Recording/)).toBeNull();
       await next();
     }
@@ -485,7 +504,7 @@ describe("Onboarding where this window can't ask macOS (web, #554)", () => {
 
   it("a saved step from the old flow lands on the step that holds it now", () => {
     setup({ step: "permissions" as never });
-    expect(heading().textContent).toContain("Your stuff");
+    expect(heading().textContent).toContain("What should I help with?");
   });
 });
 
@@ -499,17 +518,18 @@ describe("Onboarding polish (UI design §3.19)", () => {
     setup({ defaultStep: "stuff", onConnect: async () => true });
     expect(screen.getByRole("button", { name: "Skip for now" })).toBeTruthy();
     expect(screen.getByText(/Nothing connected yet/)).toBeTruthy();
+    await openAccounts();
     await userEvent.click(screen.getByRole("button", { name: "Connect" }));
     const connected = await screen.findByRole("list", { name: "Your accounts" });
     expect(within(connected).getAllByRole("listitem")).toHaveLength(1);
     expect(screen.queryByRole("button", { name: "Skip for now" })).toBeNull();
   });
 
-  it("skips Your stuff with nothing connected", async () => {
+  it("skips What should I help with with nothing connected", async () => {
     const { onStepChange } = setup({ defaultStep: "stuff" });
     await userEvent.click(screen.getByRole("button", { name: "Skip for now" }));
-    expect(onStepChange).toHaveBeenLastCalledWith("model");
-    expect(heading().textContent).toContain("Choose a model");
+    expect(onStepChange).toHaveBeenLastCalledWith("done");
+    expect(heading().textContent).toContain("You’re set");
   });
 
   it("picks the model from a list, with another model as an escape hatch", async () => {
@@ -551,6 +571,7 @@ describe("Connect in onboarding is the real sign-in (#505)", () => {
         <OnboardingFlow onComplete={() => {}} defaultStep="stuff" />
       </StoryWorld>,
     );
+    await openAccounts();
     await userEvent.click(await screen.findByRole("button", { name: "Connect" }));
     return gw as unknown as MockGateway;
   }
@@ -608,5 +629,123 @@ describe("Connect in onboarding is the real sign-in (#505)", () => {
       await screen.findByText(/isn't set up on this Gateway yet: it needs your own OAuth client/),
     ).toBeTruthy();
     expect(screen.getByRole("heading", { name: /Connected \(0\)/ })).toBeTruthy();
+  });
+});
+
+describe("Short onboarding (QA)", () => {
+  it("leads the model step with an API key and keeps the other ways behind Other ways", async () => {
+    setup({ defaultStep: "model" });
+    expect(screen.getByLabelText("API key")).toBeTruthy();
+    // Positive control: the four ways exist, but only after asking.
+    expect(screen.queryByRole("radio", { name: /^Subscription/ })).toBeNull();
+    expect(screen.queryByRole("radio", { name: /^Local model/ })).toBeNull();
+    expect(screen.queryByText("Tool-calling check")).toBeNull();
+    await otherWays();
+    expect(screen.getByRole("radio", { name: /^Subscription/ })).toBeTruthy();
+    expect(screen.getByRole("radio", { name: /^OpenRouter/ })).toBeTruthy();
+    expect(screen.getByRole("radio", { name: /^Local model/ })).toBeTruthy();
+    expect(screen.getByRole("radio", { name: /^Cloud API key/ })).toBeTruthy();
+  });
+
+  it("walks name, model, what to help with: no Memory, Folders or Safety step", async () => {
+    setup();
+    const seen: string[] = [heading().textContent ?? ""];
+    for (let i = 0; i < 3; i++) {
+      await next();
+      seen.push(heading().textContent ?? "");
+    }
+    expect(seen).toEqual([
+      "You and your agent",
+      "Choose a model",
+      "What should I help with?",
+      "You’re set",
+    ]);
+  });
+
+  it("ticks no Mac app by default, so no macOS prompt fires unasked", async () => {
+    const onRequestPermission = vi.fn(() => "granted" as const);
+    setup({ defaultStep: "stuff", onRequestPermission });
+    for (const box of await screen.findAllByRole("checkbox"))
+      expect(box.getAttribute("aria-checked")).toBe("false");
+    expect(onRequestPermission).not.toHaveBeenCalled();
+  });
+
+  it("Done says the agent is not ready when the model row is not fine, and points at the key", async () => {
+    setup({
+      defaultStep: "done",
+      onVerify: async () => [
+        {
+          id: "model",
+          label: "Model",
+          state: "warn",
+          detail: "Add a key: anthropic/claude-sonnet-5-5 has no key yet.",
+          fixStep: "model",
+        },
+      ],
+    });
+    await screen.findByText(/Add a key:/);
+    expect(screen.getByText("Psyche is not ready to answer yet.")).toBeTruthy();
+    expect(screen.queryByText("Psyche is ready.")).toBeNull();
+  });
+
+  it("Done says ready when the model row is fine (positive control)", async () => {
+    setup({
+      defaultStep: "done",
+      onVerify: async () => [
+        { id: "model", label: "Model", state: "ok", detail: "Using a key from your environment." },
+      ],
+    });
+    await screen.findByText("Using a key from your environment.");
+    expect(screen.getByText("Psyche is ready.")).toBeTruthy();
+  });
+
+  it("Try next offers buttons that finish setup and say where to open", async () => {
+    for (const [label, target] of [
+      ["Ask a question in Search", "search"],
+      ["Catch up on Home", "home"],
+      ["Start a new chat", "chat"],
+    ] as const) {
+      const { onComplete } = setup({ defaultStep: "done" });
+      await userEvent.click(screen.getByRole("button", { name: label }));
+      await waitFor(() => expect(onComplete).toHaveBeenCalledTimes(1));
+      expect(onComplete.mock.calls[0]?.[0].openAfter).toBe(target);
+      cleanup();
+    }
+    // The gear menu is not mentioned: the ideas are buttons, not prose.
+    setup({ defaultStep: "done" });
+    expect(document.body.textContent).not.toMatch(/gear menu/i);
+  });
+
+  describe("step transition", () => {
+    const section = () => screen.getByTestId("onboarding-flow").querySelector("section");
+    const media = (reduced: boolean) => {
+      window.matchMedia = ((q: string) => ({
+        matches: reduced && q.includes("reduce"),
+        media: q,
+        addEventListener: () => {},
+        removeEventListener: () => {},
+        addListener: () => {},
+        removeListener: () => {},
+        onchange: null,
+        dispatchEvent: () => false,
+      })) as unknown as typeof window.matchMedia;
+    };
+
+    it("ignores the pointer while the new step fades in, then lets clicks through", async () => {
+      media(false);
+      setup();
+      await next();
+      expect(section()?.className).toContain("pointer-events-none");
+      await waitFor(() => expect(section()?.className).not.toContain("pointer-events-none"), {
+        timeout: 1000,
+      });
+    });
+
+    it("does not wait at all under reduced motion", async () => {
+      media(true);
+      setup();
+      await next();
+      expect(section()?.className).not.toContain("pointer-events-none");
+    });
   });
 });
