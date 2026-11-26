@@ -19,32 +19,41 @@ import { isMac } from "../src/shell/shortcuts.ts";
 import { PEEK_CLOSE_DELAY, PEEK_OPEN_DELAY } from "../src/shell/useSidebarPeek.ts";
 import { STORY_NOW, StoryWorld } from "../src/stories/harness.tsx";
 
+function SidebarHost({
+  props,
+  onNavigate,
+  onOpenThread,
+}: {
+  props: Partial<SidebarProps>;
+  onNavigate: SidebarProps["onNavigate"];
+  onOpenThread: SidebarProps["onOpenThread"];
+}) {
+  const [width, setWidth] = useState(props.width ?? SIDEBAR_WIDTH.default);
+  const [mode, setMode] = useState<SidebarMode>(props.mode ?? "full");
+  return (
+    <Sidebar
+      route="/home"
+      onNavigate={onNavigate}
+      activeThreadId={null}
+      onOpenThread={onOpenThread}
+      onNewSideChat={() => {}}
+      now={STORY_NOW}
+      {...props}
+      width={width}
+      onWidthChange={setWidth}
+      mode={mode}
+      onModeChange={setMode}
+    />
+  );
+}
+
 function renderSidebar(props: Partial<SidebarProps> = {}) {
   const onNavigate = vi.fn();
   const onOpenThread = vi.fn();
-  function Host() {
-    const [width, setWidth] = useState(props.width ?? SIDEBAR_WIDTH.default);
-    const [mode, setMode] = useState<SidebarMode>(props.mode ?? "full");
-    return (
-      <Sidebar
-        route="/home"
-        onNavigate={onNavigate}
-        activeThreadId={null}
-        onOpenThread={onOpenThread}
-        onNewSideChat={() => {}}
-        now={STORY_NOW}
-        {...props}
-        width={width}
-        onWidthChange={setWidth}
-        mode={mode}
-        onModeChange={setMode}
-      />
-    );
-  }
   render(
     <StoryWorld>
       <ShellMotion>
-        <Host />
+        <SidebarHost props={props} onNavigate={onNavigate} onOpenThread={onOpenThread} />
       </ShellMotion>
     </StoryWorld>,
   );
@@ -181,7 +190,10 @@ describe("Sidebar (redesign §5.1)", () => {
   it("reveals the thread filter and narrows the rows", async () => {
     renderSidebar();
     const before = (await screen.findAllByTestId("thread-row")).length;
-    await userEvent.click(screen.getByRole("button", { name: "Filter" }));
+    // No magnifier in the Threads header (it read as a second Search); ⌘F in the sidebar opens it.
+    expect(screen.queryByRole("button", { name: "Filter" })).toBeNull();
+    destination("Chat").focus();
+    await userEvent.keyboard("{Meta>}f{/Meta}");
     const field = screen.getByRole("searchbox", { name: "Filter threads" });
     await waitFor(() => expect(document.activeElement).toBe(field));
     await userEvent.type(field, "zzzz-no-such-thread");

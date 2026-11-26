@@ -141,7 +141,6 @@ export const chatRest: Partial<Catalogue> = {
   "chat.steps.answered": "Réponse donnée : {question}",
   "chat.steps.earlier":
     "{n, plural, one {# étape précédente terminée} other {# étapes précédentes terminées}}",
-  "chat.steps.needsYou": "Besoin de vous",
   "chat.steps.writing": "Rédaction de la réponse…",
   "chat.steps.thinking": "Réflexion : {text}",
   "chat.steps.thinkingEmpty": "Réflexion…",
@@ -169,7 +168,6 @@ export const chatRest: Partial<Catalogue> = {
   "chat.steps.moreAtOnce": "+{n, number} de plus",
   "chat.steps.helper": "Assistant · {n, plural, one {# étape} other {# étapes}} · {duration}",
   "chat.steps.helperLive": "Assistant",
-  "chat.steps.reviewApproval": "Examiner l’approbation",
   "chat.steps.reviewQuestion": "Aller à la question",
   "chat.steps.frame": "Voir ce que {name} a vu",
   "chat.steps.timeline": "Chronologie",

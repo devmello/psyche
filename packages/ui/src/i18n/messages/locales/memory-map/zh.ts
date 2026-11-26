@@ -2,8 +2,6 @@ import type { Catalogue } from "../../index.ts";
 
 /** Memory map strings (zh); merged into `../zh.ts`. */
 export const memoryMap: Partial<Catalogue> = {
-  "memory.page.view": "视图",
-  "memory.page.view.list": "列表",
   "memory.page.view.map": "地图",
   "memory.map.title": "记忆地图",
   "memory.map.canvasLabel":

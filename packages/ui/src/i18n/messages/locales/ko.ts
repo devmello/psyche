@@ -16,6 +16,7 @@ import { computerWatch } from "./computer-watch/ko.ts";
 import { dailyRest } from "./daily-rest/ko.ts";
 import { deckRest } from "./deck-rest/ko.ts";
 import { designRest } from "./design-rest/ko.ts";
+import { desktopSimple } from "./desktop-simple/ko.ts";
 import { everythingRest } from "./everything-rest/ko.ts";
 import { final202611 } from "./final-2026-11/ko.ts";
 import { friction } from "./friction/ko.ts";
@@ -419,8 +420,6 @@ export const ko: Partial<Catalogue> = {
     "{what, select, approval {승인} question {질문} receipt {영수증} artifact {아티팩트} file {파일} task {작업} plan {계획} other {항목}} 로드 중",
   "blocks.message.missing":
     "Psyche가 이 {what, select, approval {승인} question {질문} receipt {영수증} artifact {아티팩트} file {파일} task {작업} plan {계획} other {항목}}을(를) 로드할 수 없습니다.",
-  "blocks.message.waitingApproval": "사용자의 승인을 기다리는 중",
-  "blocks.message.reviewApproval": "승인 검토: {summary}",
   "blocks.details.none": "없음",
   "blocks.details.argumentsList": "인수: {args}",
   "blocks.details.command": "명령",
@@ -720,11 +719,7 @@ export const ko: Partial<Catalogue> = {
   "agent.header.stateLead": "{state}:",
   "agent.header.running": "{n, number}개 실행 중",
   "agent.header.needYou": "{n, plural, other {#개 확인 필요}}",
-  "agent.header.modeLabel": "권한 모드: {mode}",
-  "agent.header.modeLead": "권한 모드:",
   "agent.header.modelLabel": "모델: {model}",
-  "agent.header.modelLead": "모델:",
-  "agent.header.notifications": "알림, 읽지 않음 {n, number}개",
   "agent.header.menuSheet": "승인 및 메모리",
   "agent.header.changeModel": "모델 변경…",
   "agent.header.exportMarkdown": "Markdown으로 내보내기",
@@ -1044,17 +1039,11 @@ export const ko: Partial<Catalogue> = {
   "shell.sidebar.full": "전체 사이드바",
   "shell.sidebar.compact": "간단한 사이드바",
   "shell.sidebar.hidden": "가림",
-  "shell.sidebar.filterToggle": "필터",
   "shell.sidebar.forkedFrom": "{parent}에서 분기된 사이드 채팅",
   "shell.search.results": "결과",
   "shell.search.preview": "미리보기",
-  "shell.search.hintOpen": "열기",
   "shell.search.hintSideChat": "사이드 채팅에서 열기",
-  "shell.search.hintFilter": "필터",
   "shell.search.keyCtrlEnter": "Ctrl ↵",
-  "shell.search.keyTab": "Tab",
-  "shell.search.actionHint": "이 명령을 실행합니다.",
-  "shell.search.run": "실행",
   "shell.search.open": "열기",
   "shell.search.openInSideChat": "사이드 채팅에서 열기",
   "shell.compact.threads": "스레드",
@@ -2888,7 +2877,6 @@ export const ko: Partial<Catalogue> = {
   "onboarding.agent.taglinePlaceholder": "조용한 날개, 세심한 손길.",
   "onboarding.agent.preview": "미리보기",
   "onboarding.language.label": "언어",
-  "onboarding.language.hint": "나중에 설정 → 화면 모드에서 변경할 수 있습니다.",
   "onboarding.permission.why.notifications":
     "이 윈도우가 닫혀 있을 때 Psyche가 승인을 요청할 수 있게 합니다.",
   "onboarding.permission.deniedHint":
@@ -3349,9 +3337,6 @@ export const ko: Partial<Catalogue> = {
   "screens.library.noMatch": "이 필터와 일치하는 파일이 없습니다.",
   "screens.library.askToMake": "{name}에게 만들어 달라고 요청",
   "screens.library.title": "보관함",
-  "screens.library.meta.count": "{section} · {n, plural, other {파일 #개}}",
-  "screens.library.description":
-    "{name}이(가) 만들거나 받은 파일로, 각각 생성한 작업과 연결되어 있습니다.",
   "screens.library.layout": "레이아웃",
   "screens.library.grid": "격자",
   "screens.library.list": "목록",
@@ -3367,8 +3352,6 @@ export const ko: Partial<Catalogue> = {
   "screens.library.col.actions": "동작",
   "screens.library.typeFilter": "유형",
   "screens.library.allTypes": "모든 유형",
-  "screens.library.sourceTask": "출처 작업",
-  "screens.library.anyTask": "모든 작업",
   "screens.library.dateFilter": "날짜",
   "screens.library.reset": "재설정",
   "screens.library.trusted": "{name}을(를) 신뢰했습니다.",
@@ -4010,6 +3993,7 @@ export const ko: Partial<Catalogue> = {
   // Approvals wave W3 (card choices, Allowed list)
   ...approvalsW3,
   ...settingsDrill,
+  ...desktopSimple,
   // Gateway-authored notices (inbox notifications, security alerts)
   ...notices,
   // Settings > Computer use > Separate desktop (Linux)

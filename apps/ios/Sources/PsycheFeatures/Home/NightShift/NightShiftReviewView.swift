@@ -118,7 +118,7 @@ struct NightShiftReviewView: View {
 
     private func box(on: Bool, enabled: Bool) -> some View {
         Image(systemName: on ? "checkmark.circle.fill" : "circle")
-            .font(.system(size: 22))
+            .font(.title2)
             .foregroundStyle(on ? PsycheColor.inkText : PsycheColor.muted.opacity(enabled ? 0.8 : 0.35))
             .frame(width: 32, height: 32)
             .contentShape(Rectangle())

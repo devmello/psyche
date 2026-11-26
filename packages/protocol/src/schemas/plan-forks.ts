@@ -309,3 +309,56 @@ export const FORK_SETTING_DEFAULTS = {
   "forks.suggestOptions": true,
 } as const;
 export type ForkSettingKey = keyof typeof FORK_SETTING_DEFAULTS;
+
+/**
+ * Session keys of the hidden threads a fork makes (§2.3): each branch's thread and the fresh
+ * thread a forced report starts in. Every consumer that must not see a fork's speculative text
+ * (`threads.list`, Search, the learner, daily notes, thread-end) keys on these prefixes as well as
+ * on the fork origin itself (`plan_fork_branches.thread_id`, `tasks.created_from = 'fork'`).
+ */
+export const FORK_BRANCH_SESSION_PREFIX = "fork-branch:";
+export const FORK_DIGEST_SESSION_PREFIX = "fork-digest:";
+
+export function isForkSessionKey(sessionKey: string | null | undefined): boolean {
+  return (
+    typeof sessionKey === "string" &&
+    (sessionKey.startsWith(FORK_BRANCH_SESSION_PREFIX) ||
+      sessionKey.startsWith(FORK_DIGEST_SESSION_PREFIX))
+  );
+}
+
+const SEND_CHILD = ":send";
+
+/**
+ * The Take sheet's check before `approvals.answer` (§3.4 step 3): the `staged_apply` approval's
+ * `details.items[].bindingHash` set must equal exactly what the sheet showed and the owner ticked,
+ * plus one send child (`<itemId>:send`) per ticked "Send it too". Anything else (a swapped item, a
+ * missing or extra one, a changed hash) means the client does not answer.
+ */
+export function stagedApplyMatchesSelection(
+  details: unknown,
+  selection: {
+    items: readonly { itemId: string; bindingHash: string }[];
+    sends?: readonly { itemId: string }[];
+  },
+): boolean {
+  const raw = (details as { items?: unknown } | null | undefined)?.items;
+  if (!Array.isArray(raw)) return false;
+  const shown = new Map<string, string>();
+  const sends = new Set<string>();
+  for (const it of raw as { itemId?: unknown; bindingHash?: unknown }[]) {
+    if (typeof it?.itemId !== "string" || typeof it.bindingHash !== "string") return false;
+    if (it.itemId.endsWith(SEND_CHILD)) {
+      sends.add(it.itemId.slice(0, -SEND_CHILD.length));
+      continue;
+    }
+    if (shown.has(it.itemId)) return false;
+    shown.set(it.itemId, it.bindingHash);
+  }
+  if (shown.size !== selection.items.length) return false;
+  for (const s of selection.items) if (shown.get(s.itemId) !== s.bindingHash) return false;
+  const wantSends = new Set((selection.sends ?? []).map((s) => s.itemId));
+  if (wantSends.size !== sends.size) return false;
+  for (const id of wantSends) if (!sends.has(id)) return false;
+  return true;
+}

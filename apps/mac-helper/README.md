@@ -303,6 +303,15 @@ docs/design/psyche-points-2026.md. The overlay that points at the next form fiel
 
 A field the judge calls sensitive (`AppTeachPolicy` words plus the Points words and card tokens, tested against `packages/protocol/test/fixtures/points-sensitive.json`) never has its `AXValue` read; a value is sent once, when the owner leaves a plain field.
 
+What Points does and does not do (the owner-facing summary is `apps/site/using/points.md`):
+
+| | |
+| --- | --- |
+| **Reads** | One chosen window's accessibility tree: app, title, page host and path (no query or fragment), headings, field labels, roles, options, filled or empty, and the value of a plain field once the owner leaves it. With the owner's own **Let Psyche look** press: one picture of that window, sensitive frames painted solid first, never written to disk |
+| **Never reads** | A sensitive field's `AXValue` (passwords, one-time codes, card, bank and ID numbers, anything under a payment or two-factor heading), other windows or apps, the keyboard, the pasteboard, Secure Event Input pages (no picture is taken) |
+| **Cannot do** | Click, type, press keys, scroll, set a value, activate an app or take keyboard focus. `check-points-boundary.sh` fails the build if the target links anything that does. Refused for password managers, banking apps, Terminal and IDEs, System Settings, Psyche itself and apps the owner turned off |
+| **Stops on** | Esc, `points.end`, the window closing, the helper quitting, or the Gateway going quiet |
+
 ## Name in macOS (#541)
 
 macOS prompts, System Settings › Privacy & Security, Finder and Activity Monitor show the helper as **Psyche (Helper)**: "“Psyche (Helper)” would like to control this computer using accessibility features". The prompt text below the title starts with "Psyche …", from the usage strings.

@@ -169,9 +169,9 @@ describe("Memory review", () => {
     expect(within(rows[2] as HTMLElement).getByTestId("review-sensitive").textContent).toMatch(
       /health/,
     );
-    const chip = screen.getByRole("button", { name: "Review, 3 waiting" });
-    expect(chip.getAttribute("aria-current")).toBe("page");
-    expect(within(chip).getByTestId("memory-review-count").textContent).toBe("3");
+    // The count lives on the Review item of the "…" menu now.
+    fireEvent.click(screen.getByRole("button", { name: "Memory menu" }));
+    expect(await screen.findByRole("menuitem", { name: "Review, 3 waiting" })).toBeTruthy();
   });
 
   it("confirm moves a fact out of the queue", async () => {
@@ -258,20 +258,25 @@ describe("Memory review", () => {
     await waitFor(() => expect(world.review?.quarantine[0]?.decided).toBe("released"));
   });
 
-  it("the Review chip has no count when nothing waits", async () => {
+  it("the Review menu item has no count when nothing waits", async () => {
     show((w) => {
       seed(w);
       for (const i of w.review?.items ?? []) i.fact.review = "accepted";
     });
     expect(await screen.findByTestId("review-empty")).toBeTruthy();
-    expect(screen.queryByTestId("memory-review-count")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Memory menu" }));
+    expect(await screen.findByRole("menuitem", { name: "Review" })).toBeTruthy();
+    expect(screen.queryByRole("menuitem", { name: /waiting/ })).toBeNull();
   });
 
   it("the count follows the queue as facts are confirmed", async () => {
     show(seed);
     const row = (await screen.findAllByTestId("review-row"))[0] as HTMLElement;
     fireEvent.click(within(row).getByRole("button", { name: /^Confirm/ }));
-    await waitFor(() => expect(screen.getByTestId("memory-review-count").textContent).toBe("2"));
+    await waitFor(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Memory menu" }));
+      expect(await screen.findByRole("menuitem", { name: "Review, 2 waiting" })).toBeTruthy();
+    });
   });
 });
 

@@ -15,7 +15,7 @@ public struct EvidenceLine: View {
 
     public var body: some View {
         Text(text)
-            .font(.psycheMono(.caption))
+            .font(.caption)
             .foregroundStyle(PsycheColor.muted)
             .fixedSize(horizontal: false, vertical: true)
     }

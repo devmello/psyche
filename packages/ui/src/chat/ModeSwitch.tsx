@@ -1,31 +1,19 @@
 import { type ReactElement, useState } from "react";
+import { useCall, useGatewayQuery } from "../data/index.ts";
 import { t } from "../i18n/core.ts";
 import { describeError } from "../i18n/errors.ts";
-import { SegmentedRadio } from "../screens/settings/SegmentedRadio.tsx";
 import {
-  autoExplainerSeen,
+  applyModeChoice,
   autoModeBlockedBy,
   autoModeSuggestion,
   type DefaultSaved,
   isAutoModelRefusal,
   type ListedModels,
-  markAutoExplainerSeen,
-  SWITCH_MODES,
   type SwitchMode,
-  safeLocalStorage,
   shortModel,
 } from "./mode-switch.ts";
 
-const LABEL: Record<SwitchMode, () => string> = {
-  manual: () => t("agent.mode.manual"),
-  balanced: () => t("agent.mode.balanced"),
-  auto: () => t("agent.mode.auto"),
-  full: () => t("agent.mode.full"),
-};
-
-export interface ModeSwitchProps {
-  /** The thread's mode (plan and anything else select nothing). */
-  mode: string | undefined;
+export interface ModeChoiceOptions {
   /** The thread's pinned model; null when it follows the primary role. */
   modelRef: string | null;
   /** `models.list`, once loaded. */
@@ -35,23 +23,30 @@ export interface ModeSwitchProps {
    * owner took the offer to switch models. Rejects with the Gateway's error.
    */
   onSelect: (mode: SwitchMode, modelRef?: string) => Promise<DefaultSaved>;
-  disabled?: boolean;
+}
+
+export interface ModeChoice {
+  /** Picks a mode; Auto on a model that cannot run it becomes an offer instead. */
+  choose: (mode: SwitchMode, pinned?: string) => Promise<void>;
+  busy: boolean;
+  /** Auto was refused for this model (null: the thread follows the primary role). */
+  offer: { model: string | null } | null;
+  /** The nearest model Auto allows, once an offer is showing. */
+  suggestion: string | null;
+  listed: ListedModels | undefined;
+  /** The default for new chats could not be saved (a device without admin rights). */
+  notSaved: boolean;
+  error: string | null;
 }
 
 /**
- * Manual / Balanced / Auto in one click, above the composer. Auto on a model that cannot run it
- * turns into an offer: "Switch to <model> and use Auto". The first time Auto is chosen a
- * one-line explanation appears under the switch; it never blocks the choice.
+ * The rules behind the one mode control (the header's ⋯ menu): Manual / Balanced / Auto in one
+ * choice. Auto on a model that cannot run it turns into an offer, "Switch to <model> and use
+ * Auto"; a Gateway refusal becomes the same offer. The menu itself explains Auto, so nothing
+ * here needs a first-time explainer.
  */
-export function ModeSwitch({
-  mode,
-  modelRef,
-  listed,
-  onSelect,
-  disabled = false,
-}: ModeSwitchProps): ReactElement {
+export function useModeChoice({ modelRef, listed, onSelect }: ModeChoiceOptions): ModeChoice {
   const [offer, setOffer] = useState<{ model: string | null } | null>(null);
-  const [explainer, setExplainer] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [notSaved, setNotSaved] = useState(false);
@@ -71,7 +66,6 @@ export function ModeSwitch({
     try {
       const saved = await onSelect(next, pinned);
       if (saved === "failed") setNotSaved(true);
-      if (next === "auto" && !autoExplainerSeen(safeLocalStorage())) setExplainer(true);
     } catch (err) {
       const refusal = isAutoModelRefusal(err);
       if (refusal !== null) setOffer(refusal);
@@ -81,19 +75,53 @@ export function ModeSwitch({
     }
   };
 
-  const suggestion = offer === null ? null : autoModeSuggestion(listed, modelRef);
+  return {
+    choose,
+    busy,
+    offer,
+    suggestion: offer === null ? null : autoModeSuggestion(listed, modelRef),
+    listed,
+    notSaved,
+    error,
+  };
+}
 
+/**
+ * The mode choice for one open thread, wired to the Gateway: the chat changes first, and the main
+ * chat's choice also becomes the default for new chats (`applyModeChoice`). The header's ⋯ menu
+ * calls `choose`; `<ModeFeedback>` shows what it has to say.
+ */
+export function useThreadModeChoice(thread: {
+  id: string | null;
+  kind?: string | undefined;
+  modelRef?: string | null | undefined;
+}): ModeChoice {
+  const call = useCall();
+  const models = useGatewayQuery("models.list", {});
+  return useModeChoice({
+    modelRef: thread.modelRef ?? null,
+    listed: models.data,
+    onSelect: (mode, ref) => {
+      if (thread.id === null) return Promise.resolve("skipped");
+      return applyModeChoice(
+        (method, params) => call(method as "threads.update", params as { threadId: string }),
+        { id: thread.id, ...(thread.kind === undefined ? {} : { kind: thread.kind }) },
+        mode,
+        ref,
+      );
+    },
+  });
+}
+
+/**
+ * What a mode choice has to say, under the header and only while it has something to say: the
+ * Auto offer with its one-tap model switch, "not saved as the default", or the Gateway's error.
+ */
+export function ModeFeedback({ choice }: { choice: ModeChoice }): ReactElement | null {
+  const { offer, suggestion, listed, notSaved, error, choose } = choice;
+  if (offer === null && !notSaved && error === null) return null;
   return (
-    <div className="flex flex-col gap-1.5" data-testid="mode-switch">
-      <SegmentedRadio<SwitchMode>
-        label={t("chat.modeSwitch.label")}
-        options={SWITCH_MODES.map((m) => ({ value: m, label: LABEL[m]() }))}
-        // Plan (or anything else) selects no segment.
-        value={mode as SwitchMode}
-        disabled={disabled || busy}
-        onChange={(m) => void choose(m)}
-        className="w-fit"
-      />
+    <div className="flex flex-col gap-1.5 px-4 pb-2" data-testid="mode-switch">
       {offer !== null ? (
         <p
           className="flex flex-wrap items-center gap-2 text-callout text-label-secondary"
@@ -128,24 +156,6 @@ export function ModeSwitch({
               </button>
             </>
           )}
-        </p>
-      ) : null}
-      {explainer ? (
-        <p
-          className="flex flex-wrap items-center gap-2 text-callout text-label-secondary"
-          data-testid="mode-switch-explainer"
-        >
-          <span>{t("chat.modeSwitch.autoExplainer")}</span>
-          <button
-            type="button"
-            className="cursor-default rounded-sm bg-fill-secondary px-2 py-0.5 font-medium text-label-primary hover:bg-fill-primary"
-            onClick={() => {
-              markAutoExplainerSeen(safeLocalStorage());
-              setExplainer(false);
-            }}
-          >
-            {t("chat.modeSwitch.gotIt")}
-          </button>
         </p>
       ) : null}
       {notSaved ? (

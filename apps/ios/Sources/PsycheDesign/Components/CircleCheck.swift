@@ -12,7 +12,7 @@ public struct CircleCheck: View {
         ZStack {
             if done {
                 Circle().fill(PsycheColor.muted)
-                Image(systemName: "checkmark").font(.system(size: 11, weight: .bold)).foregroundStyle(PsycheColor.sheet)
+                Image(systemName: "checkmark").font(.caption2.weight(.bold)).dynamicTypeSize(...DynamicTypeSize.xxxLarge).foregroundStyle(PsycheColor.sheet)
             } else {
                 Circle().strokeBorder(PsycheColor.muted.opacity(0.7), lineWidth: 1.5)
             }

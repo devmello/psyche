@@ -12,6 +12,7 @@ import { computerWatch } from "./computer-watch/de.ts";
 import { dailyRest } from "./daily-rest/de.ts";
 import { deckRest } from "./deck-rest/de.ts";
 import { designRest } from "./design-rest/de.ts";
+import { desktopSimple } from "./desktop-simple/de.ts";
 import { everythingRest } from "./everything-rest/de.ts";
 import { final202611 } from "./final-2026-11/de.ts";
 import { friction } from "./friction/de.ts";
@@ -420,8 +421,6 @@ export const de: Partial<Catalogue> = {
     "{what, select, approval {Genehmigung} question {Frage} receipt {Beleg} artifact {Artefakt} file {Datei} task {Aufgabe} plan {Plan} other {Element}} wird geladen",
   "blocks.message.missing":
     "Psyche konnte {what, select, approval {diese Genehmigung} question {diese Frage} receipt {diesen Beleg} artifact {dieses Artefakt} file {diese Datei} task {diese Aufgabe} plan {diesen Plan} other {dieses Element}} nicht laden.",
-  "blocks.message.waitingApproval": "Wartet auf deine Genehmigung",
-  "blocks.message.reviewApproval": "Genehmigung prüfen: {summary}",
 
   "blocks.details.none": "keine",
   "blocks.details.argumentsList": "Argumente: {args}",
@@ -710,9 +709,9 @@ export const de: Partial<Catalogue> = {
   "context.limits.errorMin": "Gib eine ganze Zahl von mindestens {min, number} ein.",
 
   // agent
-  "agent.mode.manual": "manuell",
-  "agent.mode.balanced": "ausgewogen",
-  "agent.mode.auto": "automatisch",
+  "agent.mode.manual": "Manuell",
+  "agent.mode.balanced": "Ausgewogen",
+  "agent.mode.auto": "Automatisch",
   "agent.mode.full": "Vollzugriff",
   "chat.commands.full.hint": "on | off",
   "chat.commands.full.description": "Vollzugriff in diesem Chat ein- oder ausschalten",
@@ -726,7 +725,7 @@ export const de: Partial<Catalogue> = {
   "chat.fullAccess.banner":
     "Vollzugriff: Psyche handelt ohne Rückfrage, außer bei Nachrichten und Zahlungen.",
   "chat.fullAccess.turnOff": "Ausschalten",
-  "agent.mode.plan": "planen",
+  "agent.mode.plan": "Planen",
 
   "agent.state.idle": "inaktiv",
   "agent.state.working": "arbeitet",
@@ -747,11 +746,7 @@ export const de: Partial<Catalogue> = {
   "agent.header.stateLead": "{state}:",
   "agent.header.running": "{n, number} laufen",
   "agent.header.needYou": "{n, plural, one {# braucht dich} other {# brauchen dich}}",
-  "agent.header.modeLabel": "Berechtigungsmodus: {mode}",
-  "agent.header.modeLead": "Berechtigungsmodus:",
   "agent.header.modelLabel": "Modell: {model}",
-  "agent.header.modelLead": "Modell:",
-  "agent.header.notifications": "Mitteilungen, {n, number} ungelesen",
   "agent.header.menuSheet": "Genehmigungen und Gedächtnis",
   "agent.header.changeModel": "Modell ändern …",
   "agent.header.exportMarkdown": "Als Markdown exportieren",
@@ -1074,17 +1069,11 @@ export const de: Partial<Catalogue> = {
   "shell.sidebar.full": "Volle Seitenleiste",
   "shell.sidebar.compact": "Kompakte Seitenleiste",
   "shell.sidebar.hidden": "Ausgeblendet",
-  "shell.sidebar.filterToggle": "Filter",
   "shell.sidebar.forkedFrom": "Ein Nebenchat aus {parent}",
   "shell.search.results": "Ergebnisse",
   "shell.search.preview": "Vorschau",
-  "shell.search.hintOpen": "öffnen",
   "shell.search.hintSideChat": "in einem Nebenchat öffnen",
-  "shell.search.hintFilter": "filtern",
   "shell.search.keyCtrlEnter": "Ctrl ↵",
-  "shell.search.keyTab": "Tab",
-  "shell.search.actionHint": "Führt diesen Befehl aus.",
-  "shell.search.run": "Ausführen",
   "shell.search.open": "Öffnen",
   "shell.search.openInSideChat": "In einem Nebenchat öffnen",
   "shell.compact.threads": "Threads",
@@ -3005,7 +2994,6 @@ export const de: Partial<Catalogue> = {
   "onboarding.agent.taglinePlaceholder": "Leise Flügel, sorgsame Hände.",
   "onboarding.agent.preview": "Vorschau",
   "onboarding.language.label": "Sprache",
-  "onboarding.language.hint": "Du kannst sie später unter „Einstellungen“ → „Darstellung“ ändern.",
   "onboarding.permission.why.notifications":
     "Lässt Psyche um Genehmigungen bitten, wenn dieses Fenster geschlossen ist.",
   "onboarding.permission.deniedHint":
@@ -3479,9 +3467,6 @@ export const de: Partial<Catalogue> = {
   "screens.library.noMatch": "Keine Dateien passen zu diesen Filtern.",
   "screens.library.askToMake": "{name} bitten, eine zu erstellen",
   "screens.library.title": "Mediathek",
-  "screens.library.meta.count": "{section} · {n, plural, one {# Datei} other {# Dateien}}",
-  "screens.library.description":
-    "Dateien, die {name} erstellt oder erhalten hat, jede mit der Aufgabe verknüpft, aus der sie stammt.",
   "screens.library.layout": "Layout",
   "screens.library.grid": "Raster",
   "screens.library.list": "Liste",
@@ -3497,8 +3482,6 @@ export const de: Partial<Catalogue> = {
   "screens.library.col.actions": "Aktionen",
   "screens.library.typeFilter": "Typ",
   "screens.library.allTypes": "Alle Typen",
-  "screens.library.sourceTask": "Quellaufgabe",
-  "screens.library.anyTask": "Jede Aufgabe",
   "screens.library.dateFilter": "Datum",
   "screens.library.reset": "Zurücksetzen",
   "screens.library.trusted": "{name} wird vertraut.",
@@ -4167,6 +4150,7 @@ export const de: Partial<Catalogue> = {
   // Approvals wave W3 (card choices, Allowed list)
   ...approvalsW3,
   ...settingsDrill,
+  ...desktopSimple,
   // Gateway-authored notices (inbox notifications, security alerts)
   ...notices,
   // Settings > Computer use > Separate desktop (Linux)
