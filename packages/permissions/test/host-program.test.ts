@@ -910,3 +910,165 @@ describe("exec_host program grant: every path stays inside the folder", () => {
     expect(operandsInside("ls", [], WORK2, WORK)).toBe(false);
   });
 });
+
+describe("exec_host program grant: for this chat (session)", () => {
+  const OTHER_CHAT = { ...CTX, threadId: "thr_other" };
+
+  async function allowForChat(h: Harness, c: PolicyCall, ctx: PolicyContext = CTX) {
+    const issued = await card(h, c, ctx);
+    expect(issued.approval.scopesOffered).toContain("session");
+    return h.broker.answer({
+      approvalId: issued.approval.id,
+      answerToken: issued.answerTokens.desktop ?? "",
+      decision: "approve",
+      scope: "session",
+      hostProgram: true,
+      decidedBy: DEVICE,
+    });
+  }
+  async function granted() {
+    const h = harness();
+    await allowForChat(h, host(["ls", "-la"]));
+    return h;
+  }
+
+  it("is offered only with a program grant, in a chat, and first on the second card for the program", async () => {
+    const h = harness();
+    const first = await card(h, host(["ls"]));
+    expect(first.approval.scopesOffered).toEqual(["once", "session", "always"]);
+    expect((offer(first) as { sessionFirst?: boolean }).sessionFirst).toBeUndefined();
+    // Allowed once: the next card for the same program in this chat offers the chat choice first.
+    h.clock.advance(500);
+    await h.broker.answer({
+      approvalId: first.approval.id,
+      answerToken: first.answerTokens.desktop ?? "",
+      decision: "approve",
+      scope: "once",
+      decidedBy: DEVICE,
+    });
+    const second = await card(h, host(["ls", "-1"]));
+    expect((offer(second) as { sessionFirst?: boolean }).sessionFirst).toBe(true);
+    // Another chat has no earlier card for it.
+    const elsewhere = await card(h, host(["ls"]), OTHER_CHAT);
+    expect((offer(elsewhere) as { sessionFirst?: boolean }).sessionFirst).toBeUndefined();
+    // The engine's own decision never offers the chat choice: only the broker adds it.
+    const decided = await h.broker.decide(host(["ls"]), CTX);
+    expect(decided.scopesOffered).not.toContain("session");
+    // No program offer (not on the any-argv list, reads folder config, tainted): no chat choice.
+    for (const [c, ctx] of [
+      [host(["tool", "status"]), CTX],
+      [host(["git", "status"]), CTX],
+      [host(["ls"]), { ...CTX, taint: true }],
+    ] as [PolicyCall, PolicyContext][]) {
+      const issued = await card(h, c, ctx);
+      expect(issued.approval.scopesOffered).not.toContain("session");
+    }
+  });
+
+  const RUNS: [string, PolicyCall][] = [
+    ["the same command", host(["ls", "-la"])],
+    ["other arguments", host(["ls", "-1", "-R", "sub"])],
+    ["a subfolder", host(["ls"], { cwd: join(WORK, "sub") })],
+  ];
+  it.each(RUNS)("runs quietly in the same chat: %s", async (_n, c) => {
+    const h = await granted();
+    const d = await h.broker.decide(c, CTX);
+    expect(d.decision).toBe("allow");
+    expect(d.rule).toMatch(/^grant:/);
+    const [g] = (await h.broker.listGrants({} as never)).filter(
+      (x) => (x.subject as { hostProgram?: unknown }).hostProgram,
+    );
+    expect(g).toMatchObject({ scope: "session", kind: "exec_host" });
+  });
+
+  const ASKS: [string, PolicyCall, Partial<PolicyContext>?][] = [
+    ["another chat", host(["ls"]), { threadId: "thr_other" }],
+    ["another folder", host(["ls"], { cwd: WORK2 })],
+    ["a cwd whose real path leaves the folder", host(["ls"], { cwdReal: WORK2 })],
+    ["a tainted turn", host(["ls"]), { taint: true }],
+    ["a network command", host(["ls"], { domains: ["example.com"] })],
+    ["an env command", host(["ls"], { env: { LANG: "C" } })],
+    ["another program (different binary hash)", host(["ls"], { sha: sha("ls-evil") })],
+    ["a program not on the any-argv list", host(["tool", "status"])],
+    ["a danger flag", host(["find", ".", "-delete"])],
+    ["a designated person's request", host(["ls"]), { requester: { role: "friend" } } as never],
+  ];
+  it.each(ASKS)("asks again: %s", async (_n, c, ctx = {}) => {
+    const h = await granted();
+    expect(await verdict(h, c, { ...CTX, ...ctx })).not.toBe("allow");
+  });
+
+  it("refuses a chat answer that is not the program grant, or has no chat", async () => {
+    const h = harness();
+    const issued = await card(h, host(["ls"]));
+    const answer = (extra: object) =>
+      h.broker.answer({
+        approvalId: issued.approval.id,
+        answerToken: issued.answerTokens.desktop ?? "",
+        decision: "approve",
+        scope: "session",
+        decidedBy: DEVICE,
+        ...extra,
+      });
+    // An exact-command grant for this chat does not exist.
+    await expect(answer({})).rejects.toThrow(/does not offer/);
+    // On a card with no program offer, even with the flag.
+    const bash = await card(h, host(["bash", "-c", "x"]));
+    await expect(
+      h.broker.answer({
+        approvalId: bash.approval.id,
+        answerToken: bash.answerTokens.desktop ?? "",
+        decision: "approve",
+        scope: "session",
+        hostProgram: true,
+        decidedBy: DEVICE,
+      }),
+    ).rejects.toThrow();
+    // A card with no chat cannot hold one.
+    const d = await h.broker.decide(host(["ls"]), CTX);
+    const noChat = await h.broker.requestApproval({
+      kind: d.approvalKind ?? "exec_host",
+      summary: "run",
+      details: {},
+      bindingHash: d.bindingHash ?? "",
+      grantKey: d.grantKey ?? "",
+      requestedBy: { runId: CTX.runId, taskId: null, threadId: null },
+      sideEffect: d.sideEffect,
+      surfaces: ["desktop"],
+      taint: false,
+    });
+    expect(noChat.approval.scopesOffered).not.toContain("session");
+    // The control: the same answer on the card that offered it works.
+    h.clock.advance(500);
+    const ok = await answer({ hostProgram: true });
+    expect(ok.status).toBe("approved");
+  });
+
+  it("carries over a restart while the chat lives, and not when it is gone", async () => {
+    for (const [alive, expected] of [
+      [true, "allow"],
+      [false, "ask"],
+    ] as const) {
+      const db = memoryDb();
+      const clock = new FakeClock();
+      const opts = { policy: POLICY as never, ...OPTS, sessionThreadAlive: () => alive };
+      const first = sqliteBroker(db, clock, opts as never);
+      await allowForChat({ broker: first, clock } as Harness, host(["ls", "-la"]));
+      const second = sqliteBroker(db, clock, opts as never);
+      await second.reissue();
+      expect((await second.decide(host(["ls", "-R"]), CTX)).decision).toBe(expected);
+    }
+  });
+
+  it("ends with the chat (Clear chat) and with an owner revoke", async () => {
+    const h = await granted();
+    await h.broker.endSession(CTX.threadId);
+    expect(await verdict(h, host(["ls"]))).toBe("ask");
+    const h2 = await granted();
+    const [g] = (await h2.broker.listGrants({} as never)).filter(
+      (x) => (x.subject as { hostProgram?: unknown }).hostProgram,
+    );
+    await h2.broker.revokeGrant(g?.id ?? "");
+    expect(await verdict(h2, host(["ls"]))).toBe("ask");
+  });
+});

@@ -154,7 +154,7 @@ const armed = () => new Promise((r) => setTimeout(r, 450));
 const requestedBy = { runId: null, taskId: null, threadId: null };
 
 describe("a paired phone taps a device-only card with its own token", () => {
-  it("settings.set: the phone approves with its token and the retry goes through, once", async () => {
+  it("settings.set (policy change): the card stays on the Mac, and the retry goes through once", async () => {
     const { c, admin } = await boot();
     const p1 = await phone(c, "phone-1", true);
     const p2 = await phone(c, "phone-2", false);
@@ -165,23 +165,17 @@ describe("a paired phone taps a device-only card with its own token", () => {
     const mine = await get(p1, approvalId);
     const other = await get(p2, approvalId);
     const desk = await get(admin, approvalId);
-    // Each device has its own token; no shared per-platform surface; no chat surface.
-    expect(mine.answerToken).toBeDefined();
-    expect(other.answerToken).toBeDefined();
+    // A policy change is never answered from a phone (PHONE_NEVER_KINDS): no phone token, no
+    // phone surface, no chat surface. The Mac has its own token.
+    expect(mine.answerToken).toBeUndefined();
+    expect(other.answerToken).toBeUndefined();
     expect(desk.answerToken).toBeDefined();
-    expect(new Set([mine.answerToken, other.answerToken, desk.answerToken]).size).toBe(3);
-    expect(mine.approval.surfaces).toEqual(
-      expect.arrayContaining(["desktop", "web", "device:phone-1", "device:phone-2"]),
-    );
+    expect(mine.approval.surfaces.some((s) => s.startsWith("device:"))).toBe(false);
     expect(mine.approval.surfaces.some((s) => s.startsWith("telegram"))).toBe(false);
-    expect(mine.approval).toMatchObject({ deviceOnly: true, requiresAuthentication: false });
     await armed();
-    // Another phone's token is refused when presented by this phone.
-    expect(await answer(p1, approvalId, other.answerToken ?? "")).toMatchObject({
-      ok: false,
-      error: { code: "forbidden" },
-    });
-    expect(await answer(p1, approvalId, mine.answerToken ?? "")).toMatchObject({ ok: true });
+    // The Mac's token presented by a phone is refused.
+    expect(await answer(p1, approvalId, desk.answerToken ?? "")).toMatchObject({ ok: false });
+    expect(await answer(admin, approvalId, desk.answerToken ?? "")).toMatchObject({ ok: true });
     expect(await p1.request("settings.set", { ...call, approvalId }, ik())).toMatchObject({
       ok: true,
     });

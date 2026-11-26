@@ -37,7 +37,7 @@ function DropdownMenuContent({
         <MenuPrimitive.Popup
           data-slot="dropdown-menu-content"
           className={cn(
-            "cn-menu-target cn-menu-translucent z-50 max-h-(--available-height) w-(--anchor-width) min-w-32 origin-(--transform-origin) overflow-x-hidden overflow-y-auto rounded-lg psy-popup material-glass p-1 text-popover-foreground outline-none",
+            "cn-menu-target cn-menu-translucent z-50 max-h-(--available-height) w-(--anchor-width) min-w-32 origin-(--transform-origin) overflow-x-hidden overflow-y-auto rounded-lg psy-popup material-menu p-1 text-popover-foreground outline-none",
             className,
           )}
           {...props}
@@ -134,7 +134,7 @@ function DropdownMenuSubContent({
     <DropdownMenuContent
       data-slot="dropdown-menu-sub-content"
       className={cn(
-        "cn-menu-target cn-menu-translucent w-auto min-w-[96px] rounded-lg psy-popup material-glass p-1 text-popover-foreground",
+        "cn-menu-target cn-menu-translucent w-auto min-w-[96px] rounded-lg psy-popup material-menu p-1 text-popover-foreground",
         className,
       )}
       align={align}

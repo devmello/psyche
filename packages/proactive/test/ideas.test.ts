@@ -444,6 +444,12 @@ describe("jobs on the real scheduler", () => {
     expect(deliver).toMatchObject({ schedule: "0 9 * * *" });
     const again = await r.ideas.ensureSchedules({ timezone: "UTC", windows: "0 9,18 * * *" });
     expect(again.deliver.id).toBe(deliver.id);
+    // A start with no options leaves the owner's switch and time alone.
+    await r.scheduler.update(mine.id, { enabled: false });
+    const restart = await r.ideas.ensureSchedules();
+    expect(restart.mine).toMatchObject({ id: mine.id, enabled: false, schedule: "30 2 * * *" });
+    expect(restart.deliver).toMatchObject({ schedule: "0 9,18 * * *" });
+    await r.scheduler.update(mine.id, { enabled: true });
     await r.scheduler.trigger(mine.id);
     await r.scheduler.idle();
     await r.scheduler.trigger(deliver.id);

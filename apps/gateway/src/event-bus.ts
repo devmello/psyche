@@ -50,7 +50,12 @@ const EVENT_SCOPE: Partial<Record<EventName, DeviceScope | null>> = {
 export const SCRUBBED_EVENTS: ReadonlySet<EventName> = new Set<EventName>([
   "promise.updated",
   "memory.loop.updated",
+  // Run-trace steps carry tool previews: the core scrub (`run-trace/viewer-scrub.ts`) answers.
+  "run.step",
 ]);
+
+/** A core per-subscriber scrub the Gateway itself installs (`EventBus.setCoreScrub`). */
+export type CoreScrub = (payload: unknown, reader: Reader) => unknown;
 
 /** What a personalizer returns to say: this subscriber gets no frame for this event. */
 export const SKIP_EVENT = Symbol("skip-event");
@@ -170,7 +175,7 @@ export class EventBus {
     for (const [sink, sub] of this.#subscribers) {
       if (requiredScope !== null && !sub.scopes.includes(requiredScope)) continue;
       if (!matches(sub.filter, event, threadId)) continue;
-      const own = this.#personalizer?.(
+      let own = this.#personalizer?.(
         event,
         payload,
         { deviceId: sub.deviceId, scopes: sub.scopes, reader: sub.reader },
@@ -178,6 +183,12 @@ export class EventBus {
       );
       // A skipped event leaves no gap in this subscriber's own `seq`.
       if (own === SKIP_EVENT) continue;
+      // The composition root had nothing to add: the Gateway's own scrub for this event answers.
+      if (own === undefined) {
+        const core = this.#coreScrubs.get(event);
+        if (core !== undefined) own = core(payload, sub.reader);
+        if (own === SKIP_EVENT) continue;
+      }
       if (own === undefined && SCRUBBED_EVENTS.has(event)) continue;
       sub.seq += 1;
       sink(
@@ -194,6 +205,15 @@ export class EventBus {
   }
 
   #personalizer: EventPersonalizer | null = null;
+  readonly #coreScrubs = new Map<EventName, CoreScrub>();
+
+  /**
+   * Installs the Gateway's own scrub for a `SCRUBBED_EVENTS` event (`run.step`): it answers for
+   * each subscriber the composition root's personalizer left alone. Without one, nobody gets it.
+   */
+  setCoreScrub(event: EventName, fn: CoreScrub): void {
+    this.#coreScrubs.set(event, fn);
+  }
 
   /** Installs the per-connection payload hook (the composition root's answer-token delivery). */
   setPersonalizer(fn: EventPersonalizer | null): void {

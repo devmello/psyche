@@ -201,20 +201,9 @@ export const dailyA: Partial<Catalogue> = {
   "shell.search.keyCmdL": "⌘L",
   "shell.search.keyCtrlL": "Ctrl L",
   "settings.shared.advanced": "Avanzado",
-  "settings.nav.inPage": "En {page}",
   "settings.nav.essentials": "Esenciales",
   "settings.nav.learning": "Básicos",
   "settings.search.count": "{count, plural, one {# resultado} other {# resultados}}",
   "settings.search.result.page": "Página",
   "settings.page.essentials": "Esenciales",
-  "settings.page.essentials.description":
-    "Las pocas decisiones que toma la mayoría. Cada una tiene un valor seguro por defecto, y las páginas de abajo contienen el resto.",
-  "settings.page.general.description":
-    "Cómo se ve {persona}, quién es, cuándo puede interrumpirte y cómo le hablas.",
-  "settings.page.model.description":
-    "Los modelos con los que piensa {persona}, las claves que usan y lo que cuestan.",
-  "settings.page.connectors.description":
-    "Las apps y cuentas a las que {persona} puede acceder, y en cuáles busca.",
-  "settings.page.memory.description":
-    "Lo que {persona} recuerda, de dónde aprende y cómo lo controlas.",
 };

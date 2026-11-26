@@ -157,8 +157,11 @@ export const web = {
   "web.setup.modelRefused": "{ref}: the provider refused the key ({error}). The key was not kept.",
   "web.setup.modelNotChecked":
     "{ref}: the key is saved, but the provider could not be reached to check it.",
+  "web.setup.modelEnvKey": "Using a key from your environment ({ref}).",
+  "web.setup.modelEnvNotChecked":
+    "Using a key from your environment ({ref}), but the provider could not be reached to check it.",
   "web.setup.modelSkipped":
-    "{ref}: no key added, so chat will not answer yet. Add one in Settings → Models.",
+    "Add a key: {ref} has no key yet, so chat will not answer. Add one in Settings → Models.",
   "web.gate.loading": "Starting Psyche",
   "web.gate.error": "Psyche could not check whether setup is finished.",
   "web.gate.retry": "Try again",

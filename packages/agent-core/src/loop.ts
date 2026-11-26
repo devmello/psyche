@@ -468,8 +468,8 @@ export interface AgentLoopOptions {
   hooks?: HookRegistry | HookMap;
   clock?: Clock;
   ids?: IdSource;
-  /** IANA zone for daily notes (default UTC). */
-  timeZone?: string;
+  /** IANA zone for daily notes, `schedule` and the clock (default UTC). A getter follows the owner's zone as it changes. */
+  timeZone?: string | (() => string);
   basePrompt?: string;
   budgets?: Partial<ContextBudgets>;
   compaction?: Partial<CompactionPolicy>;
@@ -917,9 +917,14 @@ export class PsycheAgentLoop implements AgentLoop {
     if (options.builtins !== false) this.#registerBuiltins();
   }
 
+  #zone(): string {
+    const z = this.#o.timeZone;
+    return typeof z === "function" ? z() : (z ?? "UTC");
+  }
+
   #registerBuiltins(): void {
     const o = this.#o;
-    const tz = o.timeZone ?? "UTC";
+    const tz = (): string => this.#zone();
     const tools: AgentToolRegistration[] = [...turnTools(), appNavigateTool];
     if (o.memory !== undefined)
       tools.push(memoryTool(o.memory, { clock: this.#clock, timeZone: tz }));
@@ -1174,6 +1179,7 @@ export class PsycheAgentLoop implements AgentLoop {
     // `run.thread` starts empty: it is saved only once the stored thread was read into it, so a
     // turn cancelled first (or one whose read failed) never overwrites the owner's history.
     let threadLoaded = false;
+    let requestInHistory = false;
     let stickyTaint = input.stickyTaint === true;
     try {
       if (input.signal?.aborted === true) throw new RunEnd("cancelled", "signal");
@@ -1363,6 +1369,7 @@ export class PsycheAgentLoop implements AgentLoop {
         ],
         ...(inputTainted ? { untrusted: true as const } : {}),
       });
+      requestInHistory = true;
       await this.#addTurnContext(run);
       outcome = await this.#loop(run);
       await this.#specialistFallback(run, outcome);
@@ -1378,6 +1385,8 @@ export class PsycheAgentLoop implements AgentLoop {
     } finally {
       input.signal?.removeEventListener("abort", onExternalAbort);
       closeDanglingCalls(run.thread.messages, outcome === "cancelled" ? "cancelled" : "not run");
+      if (outcome === "cancelled" && requestInHistory)
+        markStopped(run.thread.messages, run.turnStart);
       for (const q of run.questions.values()) q.reject(new RunEnd("cancelled"));
       // The sources outlive the turn with the untrusted content that caused them.
       if (run.taint)
@@ -2158,7 +2167,7 @@ export class PsycheAgentLoop implements AgentLoop {
     const notes = await readDailyNotes(
       this.#o.memory,
       run.dailyNotes?.at ?? this.#clock.now(),
-      this.#o.timeZone ?? "UTC",
+      this.#zone(),
       this.#budgets.dailyNote,
     );
     run.dailyNotes = this.#keepNotes(run, notes);
@@ -2171,7 +2180,7 @@ export class PsycheAgentLoop implements AgentLoop {
       permissionMode: run.permissionMode,
       runMode: run.mode,
       now: this.#clock.now(),
-      timeZone: this.#o.timeZone ?? "UTC",
+      timeZone: this.#zone(),
       ...(run.thread.summary === undefined ? {} : { summary: run.thread.summary }),
       budgets: this.#budgets,
       dailyNotes: run.dailyNotes,
@@ -5080,6 +5089,22 @@ function lastAssistantText(messages: readonly ModelMessage[]): string {
 }
 
 /** Every tool call in the transcript keeps a result, so the next turn is a valid request. */
+/** What the next turn's model sees where the owner pressed Stop. */
+export const STOPPED_MARKER = "(stopped by the owner)";
+
+/**
+ * A stopped run leaves the owner's request in the history with no reply, so the next turn would
+ * see two unanswered requests and answer the first. Say plainly that the request was stopped: the
+ * marker closes the turn as an assistant line (or goes after the partial reply the owner saw).
+ * Nothing is added when the run stopped before its request reached the history.
+ */
+function markStopped(messages: ModelMessage[], turnStart: number): void {
+  if (turnStart < 0 || messages.length <= turnStart) return;
+  const last = messages[messages.length - 1];
+  if (last?.role === "assistant") last.parts.push({ type: "text", text: `\n${STOPPED_MARKER}` });
+  else messages.push({ role: "assistant", parts: [{ type: "text", text: STOPPED_MARKER }] });
+}
+
 function closeDanglingCalls(messages: ModelMessage[], why: string): void {
   const answered = new Set(["request_permission", "request_folder_access"]);
   for (const m of messages) {

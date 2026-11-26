@@ -49,6 +49,7 @@ import { overviewShared } from "./overview-shared/hi.ts";
 import { passwordPresence } from "./password-presence/hi.ts";
 import { peopleRest } from "./people-rest/hi.ts";
 import { personDataRest } from "./person-data-rest/hi.ts";
+import { planFork } from "./plan-fork/hi.ts";
 import { points } from "./points/hi.ts";
 import { researchRest } from "./research-rest/hi.ts";
 import { scheduledForm } from "./scheduled-form/hi.ts";
@@ -56,6 +57,7 @@ import { scheduledRest } from "./scheduled-rest/hi.ts";
 import { screensRest } from "./screens-rest/hi.ts";
 import { securityState } from "./security-state/hi.ts";
 import { separateDesktop } from "./separate-desktop/hi.ts";
+import { settingsDrill } from "./settings-drill/hi.ts";
 import { settingsRest } from "./settings-rest/hi.ts";
 import { shellRest } from "./shell-rest/hi.ts";
 import { spaces } from "./spaces/hi.ts";
@@ -356,6 +358,8 @@ export const hi: Partial<Catalogue> = {
   "chat.thread.forgetNothing": "याद की गई कोई चीज़ “{subject}” से मेल नहीं खाती।",
   "chat.thread.forgetPreview":
     "“{subject}” को भुलाने से {claims, plural, one {# दावा} other {# दावे}} और {chunks, plural, one {# इंडेक्स किया गया नोट} other {# इंडेक्स किए गए नोट}} वापस लिए जाएँगे{hasFiles, select, true {, और {files} संपादित होंगी} other {}}।",
+  "chat.thread.forgetCounts":
+    "यह आपके लोगों के ग्राफ़ से {graph, plural, one {# आइटम} other {# आइटम}}, समीक्षा के इंतज़ार में {review, plural, one {# आइटम} other {# आइटम}}, {lessons, plural, one {# सबक या सबक की पंक्ति} other {# सबक या सबक की पंक्तियाँ}} और {search, plural, one {# खोज प्रविष्टि} other {# खोज प्रविष्टियाँ}} भी हटाता है, और सहेजी गई चैट तथा रन ट्रेस से ये शब्द काट देता है। यह स्थायी है।",
   "chat.thread.forgetConfirm": "भूल जाएँ",
   "chat.thread.forgot": "“{subject}” भुला दिया गया।",
   "chat.thread.forgetFailed": "भुलाना काम नहीं कर सका ({reason})। कुछ नहीं बदला गया।",
@@ -365,6 +369,7 @@ export const hi: Partial<Catalogue> = {
   "chat.thread.exported": "इस थ्रेड को {format} के रूप में एक्सपोर्ट किया गया।",
   "chat.thread.nothingRunning": "इस चैट में कुछ नहीं चल रहा।",
   "chat.thread.stopped": "रोक दिया गया।",
+  "chat.stopped.label": "रोका गया",
   "chat.runFailed.credential":
     "Psyche जवाब नहीं दे सका: आपके मॉडल की API कुंजी मौजूद नहीं है या अस्वीकार कर दी गई। इसे सेटिंग्ज़ → मॉडल में जोड़ें या ठीक करें।",
   "chat.runFailed.generic": "Psyche यह जवाब पूरा नहीं कर सका।",
@@ -475,6 +480,7 @@ export const hi: Partial<Catalogue> = {
   "blocks.approval.scope.hostProgram": "{folder} में {program} हमेशा अनुमति दें",
   "blocks.approval.scope.hostProgramExact":
     "{folder} में {program} को ठीक इन्हीं आर्गुमेंट के साथ हमेशा अनुमति दें",
+  "blocks.approval.scope.hostProgramSession": "इस चैट के लिए {folder} में {program} की अनुमति दें",
   "blocks.approval.scope.site": "इस साइट के लिए अनुमति दें",
   "blocks.approval.scope.session": "इस सत्र के लिए अनुमति दें",
   "blocks.approval.scope.always": "हमेशा अनुमति दें",
@@ -492,6 +498,7 @@ export const hi: Partial<Catalogue> = {
   "blocks.approval.status.denied": "अस्वीकृत{hasWhen, select, true { · {when}} other {}}",
   "blocks.approval.status.declinedInChat": "अस्वीकृत — आपने चैट में जवाब दिया",
   "blocks.approval.status.expired": "समय-सीमा समाप्त। कुछ नहीं किया गया।",
+  "blocks.approval.expiredLine": "समय समाप्त · कुछ नहीं किया गया",
   "blocks.approval.status.voidedBecause": "निरस्त: {reason}",
   "blocks.approval.status.voided": "निरस्त। आर्ग्युमेंट बदल गए।",
   "blocks.approval.taint": "इस टर्न में अविश्वसनीय सामग्री पढ़ी गई",
@@ -2267,8 +2274,6 @@ export const hi: Partial<Catalogue> = {
   "settings.model.role.imageHint": "अवतार बदलाव; कोई नहीं का मतलब बंडल किए गए प्राणी",
   "settings.model.addProvider": "प्रदाता जोड़ें",
   "settings.model.title": "मॉडल और प्रदाता",
-  "settings.model.description":
-    "आपके चुने गए मॉडल का उपयोग वैसे ही होता है। अगर यह विफल होता है, तो Psyche फ़ॉलबैक करने के बजाय ऐसा बताता है।",
   "settings.model.loadLabel": "मॉडल प्रदाता",
   "settings.model.providers": "प्रदाता",
   "settings.model.listFailed": "Psyche मॉडल सूचीबद्ध नहीं कर सका ({reason})।",
@@ -2300,13 +2305,10 @@ export const hi: Partial<Catalogue> = {
   "settings.model.runCheckOn": "{name} पर टूल-कॉलिंग जाँच चलाएँ",
   "settings.model.runCheck": "जाँच चलाएँ",
   "settings.model.roles": "मॉडल भूमिकाएँ",
-  "settings.model.rolesHint":
-    "हर भूमिका एक मॉडल उपयोग करती है। टूल-कॉलिंग जाँच में विफल मॉडल केवल चैट के लिए हैं।",
   "settings.model.none": "कोई नहीं",
   "settings.model.choose": "मॉडल चुनें",
   "settings.model.chatOnlyOption": "{name} (केवल चैट)",
   "settings.model.local": "लोकल मॉडल",
-  "settings.model.localHint": "Ollama या LM Studio से इस Mac पर मॉडल चलाएँ।",
   "settings.model.err.use": "Psyche {name} का उपयोग नहीं कर सका ({reason})।",
   "settings.model.err.probe": "Psyche एंडपॉइंट जाँच नहीं सका ({reason})।",
   "settings.model.err.check": "Psyche जाँच नहीं चला सका ({reason})।",
@@ -2359,8 +2361,6 @@ export const hi: Partial<Catalogue> = {
   "settings.permissions.subject.emailFrom": "{recipients} को, {account} से",
   "settings.permissions.subject.calendarNamed": "कैलेंडर {id}",
   "settings.permissions.subject.calendar": "कैलेंडर",
-  "settings.permissions.title": "अनुमतियाँ",
-  "settings.permissions.description": "क्या अपने आप चलता है, क्या पहले पूछता है और क्या कभी नहीं होता।",
   "settings.permissions.loadLabel": "अनुमतियाँ",
   "settings.permissions.defaultModeTitle": "नए थ्रेड के लिए डिफ़ॉल्ट मोड",
   "settings.permissions.execReview": "ऑटो मोड में सुरक्षित टर्मिनल कमांड को समीक्षक से मंज़ूर होने दें",
@@ -2849,8 +2849,8 @@ export const hi: Partial<Catalogue> = {
   "onboarding.keyRefused": "प्रदाता ने इस कुंजी को अस्वीकार कर दिया ({reason})। कुंजी फिर से पेस्ट करें।",
   "onboarding.setupCheck": "सेटअप जाँच",
   "onboarding.progress": "ऑनबोर्डिंग प्रगति",
+  "onboarding.steps": "चरण",
   "onboarding.doneMark": " (हो गया)",
-  "onboarding.stepOf": "{total, number} में से चरण {n, number}:",
   "onboarding.back": "पीछे",
   "onboarding.skipForNow": "अभी छोड़ें",
   "onboarding.openChat": "मुख्य चैट खोलें",
@@ -2901,7 +2901,7 @@ export const hi: Partial<Catalogue> = {
   "onboarding.permission.asking": "पूछा जा रहा है…",
   "onboarding.permission.allow": "अनुमति दें",
   "onboarding.connectors.intro":
-    "अभी तय करें कि कौन से खाते कनेक्ट करने हैं, एक-एक करके। {name} केवल वही देखता है जो आप कनेक्ट करते हैं, और आप बाद में सेटिंग्ज़ में और जोड़ सकते हैं।",
+    "चुनें कि {name} किस काम में मदद करे। हर ऐप जोड़ते समय अनुमति माँगता है, और आप बाद में सेटिंग्स में और जोड़ सकते हैं।",
   "onboarding.connectors.connected": "कनेक्टेड ({n, number})",
   "onboarding.connectors.connectedList": "आपके खाते",
   "onboarding.connectors.needsPermission": "अनुमति चाहिए",
@@ -2946,12 +2946,19 @@ export const hi: Partial<Catalogue> = {
     "Psyche ने अभी आपका वॉल्ट बनाया है। इस कुंजी को किसी पासवर्ड मैनेजर में या काग़ज़ पर सेव करें: यह केवल अभी दिखाई जाती है और रीस्टोर या कुंजी स्लॉट खो जाने के बाद वॉल्ट में वापस जाने का एकमात्र रास्ता है।",
   "onboarding.model.subscriptionNote":
     "Psyche इस Mac पर पहले से साइन इन किए गए Claude Code या Codex ऐप का उपयोग करता है, इसलिए इसे कोई API कुंजी नहीं चाहिए और यह कोई संग्रहीत नहीं करता। अगर आपने अभी तक नहीं किया है, तो पहले वहाँ साइन इन करें।",
-  "onboarding.model.toolCheck": "टूल-कॉलिंग जाँच",
-  "onboarding.model.runCheck": "जाँच चलाएँ",
+  "onboarding.model.toolCheck": "कनेक्शन जाँच",
+  "onboarding.model.otherWays": "अन्य तरीके",
+  "onboarding.model.test.passed": "काम करता है",
+  "onboarding.model.test.failed": "केवल चैट",
+  "onboarding.model.test.running": "जाँच हो रही है…",
+  "onboarding.model.test.untested": "अभी जाँचा नहीं गया",
+  "onboarding.model.runCheck": "जाँचें",
   "onboarding.model.checkAgain": "फिर से जाँचें",
   "onboarding.model.toolCheckFailed":
-    "यह मॉडल चैट कर सकता है लेकिन टूल भरोसेमंद ढंग से उपयोग नहीं कर सकता, इसलिए यह आपके लिए कार्रवाई नहीं करेगा। कोई दूसरा चुनें या केवल-चैट मोड में जारी रखें।",
+    "यह मॉडल चैट कर सकता है, लेकिन शायद आपके लिए काम न कर पाए। कोई और चुनें या केवल-चैट मोड में आगे बढ़ें।",
   "onboarding.done.ready": "{name} तैयार है।",
+  "onboarding.done.notReady": "{name} अभी जवाब देने के लिए तैयार नहीं है।",
+  "onboarding.done.notReadyBody": "नीचे मॉडल वाली पंक्ति ठीक करें, या बाद में सेटिंग्स → मॉडल में करें।",
   "onboarding.done.opens": "मुख्य चैट {name} के पहले संदेश के साथ खुलती है।",
   "onboarding.done.noneYet": "अभी कोई नहीं",
   "onboarding.done.accounts": "खाते",
@@ -3601,8 +3608,11 @@ export const hi: Partial<Catalogue> = {
   "web.setup.model": "मॉडल",
   "web.setup.modelRefused": "{ref}: प्रदाता ने कुंजी अस्वीकार कर दी ({error})। कुंजी रखी नहीं गई।",
   "web.setup.modelNotChecked": "{ref}: कुंजी सहेजी गई है, लेकिन जाँचने के लिए प्रदाता तक पहुँचा नहीं जा सका।",
+  "web.setup.modelEnvKey": "आपके परिवेश की एक कुंजी इस्तेमाल हो रही है ({ref})।",
+  "web.setup.modelEnvNotChecked":
+    "आपके परिवेश की एक कुंजी इस्तेमाल हो रही है ({ref}), लेकिन जाँचने के लिए प्रदाता तक नहीं पहुँचा जा सका।",
   "web.setup.modelSkipped":
-    "{ref}: कोई कुंजी नहीं जोड़ी गई, इसलिए चैट अभी जवाब नहीं देगी। सेटिंग्स → मॉडल में जोड़ें।",
+    "कुंजी जोड़ें: {ref} में अभी कोई कुंजी नहीं है, इसलिए चैट जवाब नहीं देगी। सेटिंग्स → मॉडल में जोड़ें।",
   "web.gate.loading": "Psyche शुरू हो रहा है",
   "web.gate.error": "Psyche यह जाँच नहीं सका कि सेटअप पूरा हुआ या नहीं।",
   "web.gate.retry": "फिर कोशिश करें",
@@ -3999,6 +4009,9 @@ export const hi: Partial<Catalogue> = {
   ...points,
   // Approvals wave W3 (card choices, Allowed list)
   ...approvalsW3,
+  ...settingsDrill,
+  // Fork a plan (docs/design/fork-a-plan-2026.md §9)
+  ...planFork,
   ...desktopSimple,
   // Gateway-authored notices (inbox notifications, security alerts)
   ...notices,

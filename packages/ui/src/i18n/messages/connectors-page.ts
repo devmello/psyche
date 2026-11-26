@@ -5,15 +5,9 @@
  * screen.
  */
 export const connectorsPage = {
-  "settings.connectors.page.description":
-    "The apps and tools {persona} can use. Each one asks before it acts, unless you say otherwise.",
   "settings.connectors.page.needsYou": "Needs you",
   "settings.connectors.page.connected": "Connected",
   "settings.connectors.page.onThisMac": "On this Mac",
-  "settings.connectors.page.addMore": "Add more",
-  "settings.connectors.page.addMore.hint":
-    "Mail, calendar, notes and ready-made tools. Each one asks before it acts.",
-  "settings.connectors.page.addMore.browse": "Browse all",
   "settings.connectors.page.status.paused": "Paused",
   "settings.connectors.page.status.notWorking": "Not working",
   "settings.connectors.page.status.signInExpired": "Sign-in expired",

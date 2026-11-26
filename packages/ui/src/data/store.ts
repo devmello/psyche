@@ -837,6 +837,13 @@ export class GatewayStore {
         if (a.status !== "pending") {
           const { [a.id]: _t, ...tokens } = next.answerTokens;
           next = { ...next, answerTokens: tokens };
+          // An answered, expired or invalidated approval no longer waits on the owner, even
+          // before the Gateway's own `notification.resolved` arrives.
+          const resolvedAt = a.decidedAt ?? new Date().toISOString();
+          for (const n of Object.values(next.notifications)) {
+            if (n.approvalId === a.id && n.resolvedAt == null)
+              next = put(next, "notifications", { ...n, resolvedAt });
+          }
         }
         return next;
       }
@@ -899,6 +906,10 @@ export class GatewayStore {
         return { ...s, widgets: rest };
       }
       case "notification.created":
+      // Read, re-delivered or resolved elsewhere (another device, the Gateway): without these the
+      // "waiting on you" count kept a card the owner had already answered.
+      case "notification.updated":
+      case "notification.resolved":
         return touch(
           put(s, "notifications", e.payload.notification),
           `notifications:${e.payload.notification.id}`,
@@ -1035,6 +1046,10 @@ export class GatewayStore {
             [`${e.payload.nodeId}/${e.payload.guest.name}`]: e.payload,
           },
         };
+      case "planFork.updated":
+        // Ids and states only: this fork's reads and its chat's list are read again, not every
+        // fork's (a running fork emits this on each model call).
+        return invalidatePlanForkReads(s, e.payload.forkId, e.payload.threadId);
       case "device.updated":
         return invalidate(s, ["devices."]);
       case "pairing.requested":
@@ -1199,6 +1214,27 @@ function invalidateSettingsReads(s: UiState, keys: readonly string[]): UiState {
     if (wanted !== undefined && !wanted.some((k) => keys.includes(k))) continue;
     queries[key] = { ...q, version: -1 };
     changed = true;
+  }
+  return changed ? { ...s, queries } : s;
+}
+
+function invalidatePlanForkReads(s: UiState, forkId: string, threadId: string): UiState {
+  let changed = false;
+  const queries: Record<string, (typeof s.queries)[string]> = { ...s.queries };
+  for (const [key, q] of Object.entries(queries)) {
+    const at = key.indexOf(":");
+    if (!key.startsWith("planForks.") || at < 0) continue;
+    let params: { forkId?: string; threadId?: string };
+    try {
+      params = JSON.parse(key.slice(at + 1)) as typeof params;
+    } catch {
+      // An unreadable key is read again rather than kept.
+      params = { forkId, threadId };
+    }
+    if (params.forkId === forkId || params.threadId === threadId) {
+      queries[key] = { ...q, version: -1 };
+      changed = true;
+    }
   }
   return changed ? { ...s, queries } : s;
 }

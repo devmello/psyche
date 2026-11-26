@@ -251,6 +251,8 @@ export const chat = {
   "chat.thread.forgetNothing": 'Nothing remembered matches "{subject}".',
   "chat.thread.forgetPreview":
     'Forgetting "{subject}" retracts {claims, plural, one {# claim} other {# claims}} and {chunks, plural, one {# indexed note} other {# indexed notes}}{hasFiles, select, true {, editing {files}} other {}}.',
+  "chat.thread.forgetCounts":
+    "It also deletes {graph, plural, one {# item} other {# items}} from your people graph, {review, plural, one {# item} other {# items}} waiting for review, {lessons, plural, one {# lesson or lesson line} other {# lessons or lesson lines}} and {search, plural, one {# search entry} other {# search entries}}, and cuts the words out of saved chats and run traces. This is permanent.",
   "chat.thread.forgetConfirm": "Forget",
   "chat.thread.forgot": 'Forgot "{subject}".',
   "chat.thread.forgetFailed": "Forgetting didn't work ({reason}). Nothing was changed.",
@@ -260,6 +262,7 @@ export const chat = {
   "chat.thread.exported": "Exported this thread as {format}.",
   "chat.thread.nothingRunning": "Nothing is running in this chat.",
   "chat.thread.stopped": "Stopped.",
+  "chat.stopped.label": "Stopped",
   "chat.runFailed.credential":
     "Psyche couldn't reply: your model's API key is missing or was refused. Add or fix it in Settings → Models.",
   "chat.runFailed.generic": "Psyche couldn't finish this reply.",

@@ -44,6 +44,7 @@ import { overviewGrowth } from "./overview-growth/zh.ts";
 import { overviewShared } from "./overview-shared/zh.ts";
 import { passwordPresence } from "./password-presence/zh.ts";
 import { people } from "./people/zh.ts";
+import { planFork } from "./plan-fork/zh.ts";
 import { points } from "./points/zh.ts";
 import { research } from "./research/zh.ts";
 import { scheduled } from "./scheduled/zh.ts";
@@ -53,6 +54,7 @@ import { securityState } from "./security-state/zh.ts";
 import { selfConnectors } from "./self-connectors/zh.ts";
 import { separateDesktop } from "./separate-desktop/zh.ts";
 import { settings } from "./settings/zh.ts";
+import { settingsDrill } from "./settings-drill/zh.ts";
 import { settingsLanguage } from "./settings-language/zh.ts";
 import { settingsSections } from "./settings-sections/zh.ts";
 import { shell } from "./shell/zh.ts";
@@ -382,6 +384,8 @@ export const zh: Partial<Catalogue> = {
   "chat.thread.forgetNothing": "没有与“{subject}”匹配的记忆。",
   "chat.thread.forgetPreview":
     "遗忘“{subject}”将撤回 {claims, plural, other {# 条断言}}和 {chunks, plural, other {# 条已索引的笔记}}{hasFiles, select, true {，并编辑 {files}} other {}}。",
+  "chat.thread.forgetCounts":
+    "同时会从人物图谱中删除 {graph, plural, other {# 项}}，删除等待审核的 {review, plural, other {# 项}}、{lessons, plural, other {# 条经验或经验行}}和 {search, plural, other {# 条搜索条目}}，并从已保存的聊天和运行记录中去掉这些词。此操作无法撤销。",
   "chat.thread.forgetConfirm": "遗忘",
   "chat.thread.forgot": "已遗忘“{subject}”。",
   "chat.thread.forgetFailed": "遗忘失败（{reason}）。未做任何更改。",
@@ -391,6 +395,7 @@ export const zh: Partial<Catalogue> = {
   "chat.thread.exported": "已将此会话导出为 {format}。",
   "chat.thread.nothingRunning": "本聊天中没有正在运行的内容。",
   "chat.thread.stopped": "已停止。",
+  "chat.stopped.label": "已停止",
   "chat.runFailed.credential":
     "Psyche 无法回复：你的模型 API 密钥缺失或被拒绝。请在“设置 → 模型”中添加或修正。",
   "chat.runFailed.generic": "Psyche 无法完成此回复。",
@@ -501,6 +506,7 @@ export const zh: Partial<Catalogue> = {
   "blocks.approval.scope.hostProgram": "始终允许在 {folder} 中运行 {program}",
   "blocks.approval.scope.hostProgramExact":
     "始终允许在 {folder} 中以这些完全相同的参数运行 {program}",
+  "blocks.approval.scope.hostProgramSession": "在此对话中允许 {program} 在 {folder} 中运行",
   "blocks.approval.scope.site": "允许用于此网站",
   "blocks.approval.scope.session": "允许用于本次会话",
   "blocks.approval.scope.always": "始终允许",
@@ -518,6 +524,7 @@ export const zh: Partial<Catalogue> = {
   "blocks.approval.status.denied": "已拒绝{hasWhen, select, true { · {when}} other {}}",
   "blocks.approval.status.declinedInChat": "已拒绝 — 你在聊天中回复了",
   "blocks.approval.status.expired": "已过期。未执行任何操作。",
+  "blocks.approval.expiredLine": "已过期 · 未执行任何操作",
   "blocks.approval.status.voidedBecause": "已作废：{reason}",
   "blocks.approval.status.voided": "已作废。参数已更改。",
   "blocks.approval.taint": "本轮读取了不可信内容",
@@ -2236,8 +2243,6 @@ export const zh: Partial<Catalogue> = {
   "settings.model.role.imageHint": "头像更改；“无”表示使用自带的生物",
   "settings.model.addProvider": "添加提供商",
   "settings.model.title": "模型与提供商",
-  "settings.model.description":
-    "你选择的模型会按原样使用。如果它失败，Psyche 会告诉你，而不是回退到其他模型。",
   "settings.model.loadLabel": "模型提供商",
   "settings.model.providers": "提供商",
   "settings.model.listFailed": "Psyche 无法列出模型（{reason}）。",
@@ -2268,12 +2273,10 @@ export const zh: Partial<Catalogue> = {
   "settings.model.runCheckOn": "对 {name} 运行工具调用检查",
   "settings.model.runCheck": "运行检查",
   "settings.model.roles": "模型角色",
-  "settings.model.rolesHint": "每个角色使用一个模型。未通过工具调用检查的模型仅可聊天。",
   "settings.model.none": "无",
   "settings.model.choose": "选择模型",
   "settings.model.chatOnlyOption": "{name}（仅聊天）",
   "settings.model.local": "本地模型",
-  "settings.model.localHint": "通过 Ollama 或 LM Studio 在这台 Mac 上运行模型。",
   "settings.model.err.use": "Psyche 无法使用 {name}（{reason}）。",
   "settings.model.err.probe": "Psyche 无法检查端点（{reason}）。",
   "settings.model.err.check": "Psyche 无法运行检查（{reason}）。",
@@ -2322,8 +2325,6 @@ export const zh: Partial<Catalogue> = {
   "settings.permissions.subject.emailFrom": "发送给 {recipients}，账户 {account}",
   "settings.permissions.subject.calendarNamed": "日历 {id}",
   "settings.permissions.subject.calendar": "日历",
-  "settings.permissions.title": "权限",
-  "settings.permissions.description": "哪些操作自动运行，哪些先询问，哪些永远不会发生。",
   "settings.permissions.loadLabel": "权限",
   "settings.permissions.defaultModeTitle": "新会话的默认模式",
   "settings.permissions.execReview": "在自动模式下让审核者批准安全的终端命令",
@@ -2796,8 +2797,8 @@ export const zh: Partial<Catalogue> = {
   "onboarding.keyRefused": "提供商拒绝了此密钥（{reason}）。请重新粘贴密钥。",
   "onboarding.setupCheck": "设置检查",
   "onboarding.progress": "初始设置进度",
+  "onboarding.steps": "步骤",
   "onboarding.doneMark": "（已完成）",
-  "onboarding.stepOf": "第 {n, number} 步，共 {total, number} 步：",
   "onboarding.back": "返回",
   "onboarding.skipForNow": "暂时跳过",
   "onboarding.openChat": "打开主聊天",
@@ -2847,7 +2848,7 @@ export const zh: Partial<Catalogue> = {
   "onboarding.permission.asking": "正在询问…",
   "onboarding.permission.allow": "允许",
   "onboarding.connectors.intro":
-    "现在决定连接哪些账户，一次一个。{name} 只能看到你连接的内容，之后可在“设置”中添加更多。",
+    "选择 {name} 可以帮你做什么。每个应用在连接时会请求权限，之后你可以在设置中添加更多。",
   "onboarding.connectors.connected": "已连接（{n, number}）",
   "onboarding.connectors.connectedList": "已连接的账户",
   "onboarding.connectors.needsPermission": "需要权限",
@@ -2892,12 +2893,19 @@ export const zh: Partial<Catalogue> = {
     "Psyche 刚刚创建了你的保险库。请将此密钥保存在密码管理器中或写在纸上：它只显示这一次，是在恢复系统或丢失密钥槽后重新进入保险库的唯一途径。",
   "onboarding.model.subscriptionNote":
     "Psyche 使用这台 Mac 上已登录的 Claude Code 或 Codex App，因此不需要也不存储 API 密钥。如果尚未登录，请先在那里登录。",
-  "onboarding.model.toolCheck": "工具调用检查",
-  "onboarding.model.runCheck": "运行检查",
-  "onboarding.model.checkAgain": "重新检查",
+  "onboarding.model.toolCheck": "连接测试",
+  "onboarding.model.otherWays": "其他方式",
+  "onboarding.model.test.passed": "可用",
+  "onboarding.model.test.failed": "仅聊天",
+  "onboarding.model.test.running": "正在测试…",
+  "onboarding.model.test.untested": "尚未测试",
+  "onboarding.model.runCheck": "测试",
+  "onboarding.model.checkAgain": "重新测试",
   "onboarding.model.toolCheckFailed":
-    "此模型可以聊天，但无法可靠地使用工具，因此不会为你执行操作。请选择其他模型，或以仅聊天模式继续。",
+    "此模型可以聊天，但可能无法替你执行任务。请换一个，或仅以聊天模式继续。",
   "onboarding.done.ready": "{name} 已准备就绪。",
+  "onboarding.done.notReady": "{name} 暂时还无法回复。",
+  "onboarding.done.notReadyBody": "请修复下方的“模型”一行，或稍后在设置 → 模型中处理。",
   "onboarding.done.opens": "主聊天将以 {name} 的第一条消息开始。",
   "onboarding.done.noneYet": "暂无",
   "onboarding.done.accounts": "账户",
@@ -3533,7 +3541,10 @@ export const zh: Partial<Catalogue> = {
   "web.setup.model": "模型",
   "web.setup.modelRefused": "{ref}：提供商拒绝了该密钥（{error}）。密钥未被保留。",
   "web.setup.modelNotChecked": "{ref}：密钥已保存，但无法连接提供商进行检查。",
-  "web.setup.modelSkipped": "{ref}：未添加密钥，因此聊天暂时无法回复。请在设置 → 模型中添加。",
+  "web.setup.modelEnvKey": "正在使用环境中的密钥（{ref}）。",
+  "web.setup.modelEnvNotChecked": "正在使用环境中的密钥（{ref}），但无法连接提供商进行验证。",
+  "web.setup.modelSkipped":
+    "添加密钥：{ref} 还没有密钥，因此聊天暂时无法回复。请在设置 → 模型中添加。",
   "web.gate.loading": "正在启动 Psyche",
   "web.gate.error": "Psyche 无法确认设置是否已完成。",
   "web.gate.retry": "重试",
@@ -3923,6 +3934,9 @@ export const zh: Partial<Catalogue> = {
   ...points,
   // Approvals wave W3 (card choices, Allowed list)
   ...approvalsW3,
+  ...settingsDrill,
+  // Fork a plan (docs/design/fork-a-plan-2026.md §9)
+  ...planFork,
   ...desktopSimple,
   // Gateway-authored notices (inbox notifications, security alerts)
   ...notices,

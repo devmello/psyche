@@ -383,7 +383,9 @@ export function ApprovalCard({
     [raw],
   );
   const machineLine = approvalMachineLine(approval);
-  const now = useNow(1000, fixedNow);
+  // Once the card has expired the clock stops: there is nothing left to count down.
+  const [clockStopped, setClockStopped] = useState(false);
+  const now = useNow(1000, fixedNow, !clockStopped);
   const headingId = useId();
   const headingRef = useRef<HTMLHeadingElement>(null);
   // Allow sends the narrowest offered lifetime; the second choice and "More options" send theirs.
@@ -481,6 +483,8 @@ export function ApprovalCard({
   const remaining = Date.parse(approval.expiresAt) - now;
   const expiredByClock = approval.status === "pending" && remaining <= 0;
   const pending = approval.status === "pending" && !expiredByClock;
+  const expired = expiredByClock || approval.status === "expired";
+  if (expired && !clockStopped) setClockStopped(true);
   const interactive = pending && canAnswer && !stale && onAnswer !== undefined;
 
   // Buttons arm 400 ms after the card becomes answerable, including when a stale card is
@@ -695,6 +699,20 @@ export function ApprovalCard({
         hasAgent: Boolean(approval.requestedBy.agent && approval.requestedBy.agent !== persona),
         agent: approval.requestedBy.agent ?? "",
       });
+
+  // An expired card is one muted line: nothing was done, nothing to answer, no timer.
+  if (expired)
+    return (
+      <p
+        className="m-0 px-1 text-callout text-label-secondary"
+        data-approval-id={approval.id}
+        data-status="expired"
+        data-testid="approval-expired"
+        role="status"
+      >
+        {t("blocks.approval.expiredLine")}
+      </p>
+    );
 
   return (
     <m.fieldset

@@ -1,3 +1,4 @@
+import { holdSecureDelete } from "@psyche/db";
 import type {
   MemoryStore,
   SearchIndex,
@@ -328,6 +329,53 @@ export class SqliteSearchIndex implements SearchIndex {
   /** Removes every document of a producer (a connector the owner stopped indexing). */
   async removeSource(source: string): Promise<number> {
     return this.db.prepare("DELETE FROM search_docs WHERE source = ?").run(source).changes;
+  }
+
+  /**
+   * Memory-sourced documents (the people and projects graph, Memory's source items and the daily
+   * notes' cards) whose title, text or card passes `matches`: counted, or with `dryRun: false`
+   * deleted with their cards, vectors and flags, the freed pages zeroed (memory wave 3A, forget).
+   * Chat, mail and file documents are never touched here.
+   */
+  purgeMemoryDocs(matches: (text: string) => boolean, options: { dryRun: boolean }): number {
+    const sources = ["memory-graph", "memory-notes", "connector:memory"];
+    const hasCards = this.db
+      .prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'search_cards'")
+      .get() as object | undefined;
+    const rows = this.db
+      .prepare(
+        `SELECT d.id AS id, d.title AS title, d.body AS body, d.extra AS extra,
+                ${hasCards ? "c.card AS card, c.fts AS fts" : "NULL AS card, NULL AS fts"}
+           FROM search_docs d ${hasCards ? "LEFT JOIN search_cards c ON c.doc_id = d.id" : ""}
+          WHERE d.source IN (${sources.map(() => "?").join(", ")})`,
+      )
+      .all(...sources) as {
+      id: string;
+      title: string;
+      body: string;
+      extra: string;
+      card: string | null;
+      fts: string | null;
+    }[];
+    const ids = rows
+      .filter((r) => [r.title, r.body, r.extra, r.card, r.fts].some((t) => t != null && matches(t)))
+      .map((r) => r.id);
+    if (options.dryRun || ids.length === 0) return ids.length;
+    const release = holdSecureDelete(this.db);
+    try {
+      this.db.transaction(() => {
+        const delDoc = this.db.prepare("DELETE FROM search_docs WHERE id = ?");
+        const delFlags = this.db.prepare("DELETE FROM search_flags WHERE target_id = ?");
+        for (const id of ids) {
+          delDoc.run(id);
+          delFlags.run(id);
+        }
+      })();
+      this.optimize();
+    } finally {
+      release();
+    }
+    return ids.length;
   }
 
   /**

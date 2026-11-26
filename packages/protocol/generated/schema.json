@@ -632,7 +632,7 @@
         "sideEffecting": false
       },
       {
-        "description": "Returns one approval request.",
+        "description": "Returns one approval request, with this surface's unused answer token when it has one. With wantToken a paired approver device without a token gets one for a card that may be answered off the Mac; a payment or Mac-only card returns needsMac instead.",
         "name": "approvals.get",
         "params": "#/$defs/ApprovalsGetParams",
         "result": "#/$defs/ApprovalResult",
@@ -2432,12 +2432,20 @@
         "sideEffecting": false
       },
       {
-        "description": "Retracts matching claims, removes linked daily-note lines and chunks and rebuilds the index; dryRun reports without changing. Side-effecting.",
+        "description": "Forgets a word or phrase everywhere: Markdown lines, claims, chunks (persona files' too), graph facts, relations and people that match, review and quarantine rows, lessons, and the search index; run traces and saved chats are cut in the background. Permanent. The Psyche app on the Host only. dryRun reports without changing. Side-effecting.",
         "name": "memory.forget",
         "params": "#/$defs/MemoryForgetParams",
         "result": "#/$defs/MemoryForgetResult",
         "scope": "operator.write",
         "sideEffecting": true
+      },
+      {
+        "description": "Counts per store what `memory.forget` would delete for this subject, without deleting anything. The Psyche app on the Host only (it is a word search over private memory).",
+        "name": "memory.forget.preview",
+        "params": "#/$defs/MemoryForgetPreviewParams",
+        "result": "#/$defs/MemoryForgetPreviewResult",
+        "scope": "operator.read",
+        "sideEffecting": false
       },
       {
         "description": "Undo for a learned fact (#509): removes its line from USER.md's Learned section (removed false when it is already gone). Side-effecting.",
@@ -2688,7 +2696,7 @@
         "sideEffecting": true
       },
       {
-        "description": "Deletes every workspace file, chunk and claim and re-creates the templates; the UI asks for a typed confirmation first. Side-effecting.",
+        "description": "Deletes every workspace file, chunk and claim, the people graph and its review and quarantine rows, and re-creates the templates; the UI asks for a typed confirmation first. Side-effecting.",
         "name": "memory.reset",
         "params": "#/$defs/MemoryResetParams",
         "result": "#/$defs/MemoryResetResult",
@@ -3158,6 +3166,14 @@
         "result": "#/$defs/PlanForksRetryBranchResult",
         "scope": "operator.write",
         "sideEffecting": true
+      },
+      {
+        "description": "The prepared items of one branch (previews, binding hashes, send hashes) for the Take sheet. Scrubbed like planForks.get for a caller that is not the desktop shell: withheld items carry no summary, preview or params.",
+        "name": "planForks.staged",
+        "params": "#/$defs/PlanForksStagedParams",
+        "result": "#/$defs/PlanForksStagedResult",
+        "scope": "operator.read",
+        "sideEffecting": false
       },
       {
         "description": "Suggests two options for the start sheet from the thread, with one utility-model call. Nothing is stored; the owner edits the suggestion before starting.",
@@ -8397,6 +8413,27 @@
         "setAside": {
           "type": "boolean"
         },
+        "grantHint": {
+          "properties": {
+            "count": {
+              "minimum": 1,
+              "type": "integer"
+            },
+            "days": {
+              "minimum": 1,
+              "type": "integer"
+            },
+            "scope": {
+              "$ref": "#/$defs/GrantScope"
+            }
+          },
+          "required": [
+            "count",
+            "days",
+            "scope"
+          ],
+          "type": "object"
+        },
         "taintSources": {
           "items": {
             "$ref": "#/$defs/TaintSource"
@@ -8518,6 +8555,9 @@
         },
         "answerToken": {
           "$ref": "#/$defs/SurfaceAnswerToken"
+        },
+        "needsMac": {
+          "$ref": "#/$defs/NeedsMacReason"
         }
       },
       "required": [
@@ -8664,6 +8704,9 @@
           "maxLength": 64,
           "minLength": 1,
           "type": "string"
+        },
+        "wantToken": {
+          "type": "boolean"
         }
       },
       "required": [
@@ -32044,6 +32087,99 @@
       ],
       "type": "object"
     },
+    "MemoryForgetCounts": {
+      "description": "Per store: Markdown files and lines, claims, chunks, graph entities, facts, relations, loops, interactions and citations, other graph text, review items, quarantine rows, lessons and their lines, feedback events and search documents.",
+      "properties": {
+        "markdownFiles": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "markdownLines": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "claims": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "chunks": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "graphEntities": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "graphFacts": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "graphEdges": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "graphLoops": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "graphInteractions": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "graphCitations": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "graphOther": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "reviewItems": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "quarantine": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "lessons": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "lessonLines": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "feedback": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "searchDocs": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "markdownFiles",
+        "markdownLines",
+        "claims",
+        "chunks",
+        "graphEntities",
+        "graphFacts",
+        "graphEdges",
+        "graphLoops",
+        "graphInteractions",
+        "graphCitations",
+        "graphOther",
+        "reviewItems",
+        "quarantine",
+        "lessons",
+        "lessonLines",
+        "feedback",
+        "searchDocs"
+      ],
+      "type": "object"
+    },
     "MemoryForgetLearnedParams": {
       "properties": {
         "factId": {
@@ -32083,6 +32219,49 @@
       ],
       "type": "object"
     },
+    "MemoryForgetPreviewParams": {
+      "properties": {
+        "subject": {
+          "maxLength": 500,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "subject"
+      ],
+      "type": "object"
+    },
+    "MemoryForgetPreviewResult": {
+      "properties": {
+        "counts": {
+          "$ref": "#/$defs/MemoryForgetCounts"
+        },
+        "total": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "files": {
+          "items": {
+            "$ref": "#/$defs/WorkspacePath"
+          },
+          "type": "array"
+        },
+        "uncounted": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "counts",
+        "total",
+        "files",
+        "uncounted"
+      ],
+      "type": "object"
+    },
     "MemoryForgetResult": {
       "properties": {
         "retractedClaimIds": {
@@ -32108,6 +32287,9 @@
             "$ref": "#/$defs/WorkspacePath"
           },
           "type": "array"
+        },
+        "counts": {
+          "$ref": "#/$defs/MemoryForgetCounts"
         }
       },
       "required": [
@@ -33592,6 +33774,48 @@
         "claims": {
           "minimum": 0,
           "type": "integer"
+        },
+        "graph": {
+          "properties": {
+            "entities": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "facts": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "edges": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "interactions": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "loops": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "citations": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "quarantine": {
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "entities",
+            "facts",
+            "edges",
+            "interactions",
+            "loops",
+            "citations",
+            "quarantine"
+          ],
+          "type": "object"
         },
         "dryRun": {
           "type": "boolean"
@@ -35577,6 +35801,15 @@
         "roles"
       ],
       "type": "object"
+    },
+    "NeedsMacReason": {
+      "enum": [
+        "payment",
+        "paired_after",
+        "too_long",
+        "mac_only"
+      ],
+      "type": "string"
     },
     "NightShiftApplyItem": {
       "properties": {
@@ -38714,6 +38947,42 @@
       },
       "required": [
         "branch"
+      ],
+      "type": "object"
+    },
+    "PlanForksStagedParams": {
+      "properties": {
+        "forkId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "branchId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "forkId",
+        "branchId"
+      ],
+      "type": "object"
+    },
+    "PlanForksStagedResult": {
+      "properties": {
+        "items": {
+          "items": {
+            "$ref": "#/$defs/StagedAction"
+          },
+          "maxItems": 50,
+          "type": "array"
+        }
+      },
+      "required": [
+        "items"
       ],
       "type": "object"
     },
@@ -54474,6 +54743,25 @@
         "noteKey": {
           "maxLength": 64,
           "type": "string"
+        },
+        "noteAction": {
+          "properties": {
+            "kind": {
+              "const": "retry_last_message",
+              "type": "string"
+            },
+            "messageId": {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "messageId"
+          ],
+          "type": "object"
         }
       },
       "required": [
