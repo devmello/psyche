@@ -197,6 +197,24 @@ describe("the daily brief (O5)", () => {
     expect((await notifier.list()).map((n) => n.kind)).toEqual(["briefing"]);
   });
 
+  it("a restart keeps the owner's brief time and off switch", async () => {
+    const { feed, scheduler } = rig();
+    const brief = await feed.ensureDailyBrief({ timezone: "UTC" });
+    expect(brief).toMatchObject({ schedule: "0 7 * * *", enabled: true });
+    // The owner moves the brief and switches it off.
+    await scheduler.update(brief.id, { schedule: "30 6 * * *", enabled: false });
+    // The Gateway starts again: it asks for the brief with no options.
+    const again = await feed.ensureDailyBrief();
+    expect(again.id).toBe(brief.id);
+    expect(again).toMatchObject({ schedule: "30 6 * * *", enabled: false });
+    expect((await scheduler.get(brief.id))?.enabled).toBe(false);
+    // Asking for a time or a switch explicitly still changes it.
+    expect(await feed.ensureDailyBrief({ schedule: "0 8 * * *", enabled: true })).toMatchObject({
+      schedule: "0 8 * * *",
+      enabled: true,
+    });
+  });
+
   it("works without a model: templated posts still carry citations", async () => {
     const { feed } = rig();
     const result = await feed.generate();

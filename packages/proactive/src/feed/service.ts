@@ -209,23 +209,39 @@ export class FeedService {
     return (await this.#o.scheduler.list()).find((a) => a.prompt.trim() === marker);
   }
 
-  /** The daily brief as one system `briefing` automation (default 07:00 in the owner's zone). */
+  /**
+   * The daily brief as one system `briefing` automation (default 07:00 in the owner's zone).
+   * Creating it uses the defaults. Calling it again (every start) never undoes the owner's
+   * choices: an existing brief keeps its time and its on/off switch unless `schedule` or
+   * `enabled` is passed. Only the title and the zone follow the current values.
+   */
   async ensureDailyBrief(
     options: { schedule?: string; timezone?: string; enabled?: boolean } = {},
   ) {
-    const fields = {
+    const timezone = options.timezone ?? this.#o.timezone ?? "UTC";
+    const fixed = {
       title: "Daily brief",
-      schedule: options.schedule ?? DEFAULT_BRIEF_SCHEDULE,
-      timezone: options.timezone ?? this.#o.timezone ?? "UTC",
+      timezone,
       sessionTarget: "main",
       delivery: {},
       prompt: jobMarker(FEED_BRIEF_JOB, DAILY_BRIEF_ARG),
-      enabled: options.enabled ?? true,
       scratch: null,
     };
     const existing = await this.#briefAutomation();
-    if (existing !== undefined) return this.#o.scheduler.update(existing.id, fields);
-    return this.#o.scheduler.create({ kind: "briefing", system: true, ...fields });
+    if (existing !== undefined) {
+      return this.#o.scheduler.update(existing.id, {
+        ...fixed,
+        ...(options.schedule === undefined ? {} : { schedule: options.schedule }),
+        ...(options.enabled === undefined ? {} : { enabled: options.enabled }),
+      });
+    }
+    return this.#o.scheduler.create({
+      kind: "briefing",
+      system: true,
+      ...fixed,
+      schedule: options.schedule ?? DEFAULT_BRIEF_SCHEDULE,
+      enabled: options.enabled ?? true,
+    });
   }
 
   /**

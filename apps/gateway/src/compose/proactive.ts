@@ -200,6 +200,10 @@ export interface ComposedProactive {
   readonly ideas: IdeasService;
   /** The new-mail poller (mail and meeting workflows §4.7); it reads mail only for listeners. */
   readonly mailWatch: MailWatcher;
+  /** A mail connector is connected (a `mail_search` tool is registered). */
+  readonly mailConnected: () => boolean;
+  /** Ideas mining has something to read: a connector is connected or a goal is active. */
+  readonly ideaSources: () => Promise<boolean>;
   /** The daily inbox digest (§4.1), off until the owner turns it on (`mail.digest.enabled`). */
   readonly digest: DigestService | undefined;
   /** Batch proposals, when the composition gave a broker and a registry. */
@@ -768,6 +772,10 @@ export function composeProactive(setup: ProactiveSetup): ComposedProactive {
     feed,
     ideas,
     mailWatch,
+    mailConnected: () => lookup !== undefined && lookup.names("mail_search").length > 0,
+    ideaSources: async () =>
+      (registry?.list().some((s) => s.name.startsWith("mcp__")) ?? false) ||
+      (await goals.list({ status: ["active"] })).length > 0,
     digest,
     proposals,
     meetingPrep,
