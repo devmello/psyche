@@ -23,7 +23,7 @@ export const onboardingRest: Partial<Catalogue> = {
   "onboarding.memory.lead":
     'ChatGPT나 Claude에 이미 프로필이 있습니까? 메모리 내보내기 또는 "나에 대해 무엇을 알고 있나요?"에 대한 답변을 붙여넣으십시오. 저장하기 전에 모든 내용을 검토할 수 있습니다.',
   "onboarding.memory.unavailable":
-    "이 윈도우에서는 가져오기를 사용할 수 없습니다. 나중에 Soul에서 할 수 있습니다.",
+    "이 윈도우에서는 가져오기를 사용할 수 없습니다. 나중에 개성에서 할 수 있습니다.",
   "onboarding.memory.format": "가져온 곳",
   "onboarding.memory.format.chatgpt": "ChatGPT",
   "onboarding.memory.format.claude": "Claude",

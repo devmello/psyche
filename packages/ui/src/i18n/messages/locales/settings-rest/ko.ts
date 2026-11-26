@@ -39,15 +39,15 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.nav.learning": "기초",
   "settings.search.count": "{count, plural, other {결과 #개}}",
   "settings.search.result.page": "페이지",
-  "settings.essentials.title": "기본",
+  "settings.essentials.fullAccessNote": "전체 접근은 채팅마다 채팅의 모드 메뉴에서 켭니다.",
   "settings.essentials.description":
     "대부분의 사용자가 정하는 몇 가지 항목이며, 각각 안전한 기본값이 있습니다. 더 필요한 것이 있으면 {persona}가 물어봅니다.",
-  "settings.essentials.more": "더 보기",
+  "settings.essentials.openPlace": "{place}…",
   "settings.essentials.moreIn": "{place}의 더 많은 설정",
   "settings.essentials.model.title": "모델",
   "settings.essentials.model.thinksWith": "{persona}가 생각할 때 쓰는 모델",
   "settings.essentials.model.ready": "준비됨",
-  "settings.essentials.model.noKey": "키 필요",
+  "settings.essentials.model.addKey": "API 키 추가…",
   "settings.essentials.model.none": "모델 없음",
   "settings.essentials.model.noneHint":
     "{persona}가 답하려면 모델이 필요합니다. 키를 추가하거나 이 Mac의 모델을 사용하십시오.",
@@ -652,7 +652,7 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.learning.forgetAll": "{persona}가 배운 모든 것 지우기",
   "settings.learning.forgetAllTitle": "{persona}가 사용자에게서 배운 모든 것을 지우시겠습니까?",
   "settings.learning.forgetAllBody":
-    '노트, Soul, 스킬이 사용자가 작성한 상태로 돌아갑니다. 확인하려면 "{phrase}"을(를) 입력하십시오.',
+    "노트, 개성, 스킬이 사용자가 작성한 상태로 돌아갑니다. 확인하려면 “{phrase}”을(를) 입력하십시오.",
   "settings.learning.forgetPhrase": "지우기",
   "settings.learning.forgetAllGo": "모두 지우기",
   "settings.learning.forgotAll":
@@ -784,7 +784,7 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.gateways.addressPlaceholder": "studio-mac.your-tailnet.ts.net",
   "settings.gateways.nameLabel": "이름 (선택)",
   "settings.gateways.addHint":
-    "Psyche를 실행하는 Mac의 페어링 링크를 붙여넣으십시오 (설정 → 서버 및 원격 접근 → 다른 컴퓨터 페어링). 링크가 없으면 Tailscale 주소(https://<host>.<tailnet>.ts.net)를 입력하십시오. 그러면 이 컴퓨터가 페어링을 요청하고, 소유자가 그쪽에서 승인합니다.",
+    "Psyche를 실행하는 Mac의 페어링 링크를 붙여넣으십시오 (설정 → 기기 및 서버 → 다른 컴퓨터 페어링). 링크가 없으면 Tailscale 주소(https://<host>.<tailnet>.ts.net)를 입력하십시오. 그러면 이 컴퓨터가 페어링을 요청하고, 소유자가 그쪽에서 승인합니다.",
   "settings.gateways.newLink": "새 페어링 링크가 도착했습니다. 사용하시겠습니까?",
   "settings.gateways.useNewLink": "사용",
   "settings.gateways.ignoreNewLink": "무시",

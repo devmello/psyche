@@ -47,7 +47,7 @@ export const screensRest: Partial<Catalogue> = {
   "screens.search.life.unconfirmed": "검토 대기 중",
   "screens.search.scope.people": "사람",
   "screens.search.scope.projects": "프로젝트",
-  "screens.search.sideChatFailed": "사이드 채팅을 열지 못했습니다: {reason}",
+  "screens.search.sideChatFailed": "채팅을 열지 못했습니다: {reason}",
   "screens.search.indexing":
     "기록을 색인하는 중: 지금까지 {n, plural, other {#개}}. 진행되면서 결과가 채워집니다.",
   "screens.search.indexFailed": "색인이 중지되었습니다: {reason}",

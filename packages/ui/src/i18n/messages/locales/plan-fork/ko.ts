@@ -21,7 +21,7 @@ export const planFork: Partial<Catalogue> = {
   "planFork.sheet.estimateTokens": "최대 약 {count, number} 토큰",
   "planFork.sheet.reads":
     "메모리, 캘린더, 메일, 웹을 읽습니다. 계획을 선택하기 전에는 아무것도 바꾸지 않습니다.",
-  "planFork.sheet.incognito": "시크릿 채팅에서는 나누기를 쓸 수 없습니다.",
+  "planFork.sheet.incognito": "비공개 채팅에서는 포크를 사용할 수 없습니다.",
   "planFork.sheet.start": "시작",
   "planFork.sheet.starting": "시작하는 중…",
   "planFork.cancel": "취소",

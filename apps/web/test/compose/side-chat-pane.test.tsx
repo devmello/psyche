@@ -36,7 +36,7 @@ describe("side chat pane", () => {
   it("names where the chat came from and expands", async () => {
     const { onExpand } = await open();
     expect((await screen.findByTestId("side-chat-from")).textContent).toBe(
-      "Side chat about Dentist booking",
+      "Chat about Dentist booking",
     );
     fireEvent.click(screen.getByRole("button", { name: /Expand/ }));
     expect(onExpand).toHaveBeenCalledTimes(1);

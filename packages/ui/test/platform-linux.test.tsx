@@ -100,7 +100,7 @@ describe("Linux copy (i18n/messages/variants/linux.ts)", () => {
     expect(t("chat.approval.keysHint", { allows: "allows", denies: "denies" })).toBe(
       "Ctrl+Enter allows · Ctrl+D denies",
     );
-    expect(t("web.threads.newSideChatTitle")).toBe("New side chat (Ctrl+N)");
+    expect(t("web.threads.newSideChatTitle")).toBe("New chat (Ctrl+N)");
     expect(t("settings.voice.key.rightOption")).toBe("Right Alt");
   });
 

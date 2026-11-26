@@ -96,7 +96,7 @@ export const specialistsA: Partial<Catalogue> = {
   "specialists.feed.title": "Dos seus especialistas",
   "screens.search.scope.people": "Pessoas",
   "screens.search.scope.projects": "Projetos",
-  "screens.search.sideChatFailed": "Não foi possível abrir um chat paralelo: {reason}",
+  "screens.search.sideChatFailed": "Não foi possível abrir um chat: {reason}",
   "screens.search.indexing":
     "Indexando seu histórico: {n, plural, one {# item} other {# itens}} até agora. Os resultados vão se completando.",
   "screens.search.indexFailed": "A indexação parou: {reason}",
@@ -156,9 +156,9 @@ export const specialistsA: Partial<Catalogue> = {
     "O Touch ID precisa do Gateway de {host} em um endereço https:// (gateway.publicOrigin). Até lá, responda esses cartões em {host}.",
   "web.touchId.helperDidNotStart":
     "O Psyche Helper não conectou. Abra Ajustes → Dispositivos para ver o motivo e tente novamente.",
-  "web.panes.title.sidechat": "Chat paralelo",
-  "web.sideChat.about": "Chat paralelo sobre {parent}",
-  "web.sideChat.aside": "Chat paralelo",
+  "web.panes.title.sidechat": "Chat",
+  "web.sideChat.about": "Chat sobre {parent}",
+  "web.sideChat.aside": "Chat",
   "web.sideChat.expand": "Expandir",
   "web.sideChat.expandTitle": "Abrir este chat em tela cheia",
   "web.terminal.ended": "sessão encerrada",
@@ -215,7 +215,7 @@ export const specialistsA: Partial<Catalogue> = {
   "web.splash.remote.identityInvalid":
     "A prova de identidade dele não foi validada, então o Psyche não vai conectar.",
   "web.splash.remote.identityOrigin":
-    "Ele respondeu por um endereço diferente do que este computador discou. Em {host}, defina o endereço público em Ajustes → Dispositivos → Servidor e acesso remoto.",
+    "Ele respondeu por um endereço diferente do que este computador discou. Em {host}, defina o endereço público em Ajustes → Dispositivos e servidor.",
   "web.splash.remote.certChanged":
     "O certificado de rede dele não é o que este computador fixou. Outra máquina desta rede pode estar respondendo no lugar, ou o certificado dele foi substituído.",
   "web.splash.remote.certMissing":

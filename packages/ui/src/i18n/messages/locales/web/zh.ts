@@ -18,9 +18,9 @@ export const web: Partial<Catalogue> = {
   "web.remotePresence.unavailable":
     "Touch ID 需要{host}的 Gateway 使用 https:// 地址（gateway.publicOrigin）。在此之前，请在{host}上回答这些卡片。",
   "web.touchId.helperDidNotStart": "Psyche 助手未连接。请打开“设置 → 设备”查看原因，然后重试。",
-  "web.panes.title.sidechat": "支线聊天",
-  "web.sideChat.about": "关于{parent}的支线聊天",
-  "web.sideChat.aside": "支线聊天",
+  "web.panes.title.sidechat": "聊天",
+  "web.sideChat.about": "关于 {parent} 的聊天",
+  "web.sideChat.aside": "聊天",
   "web.sideChat.expand": "展开",
   "web.sideChat.expandTitle": "全屏打开此聊天",
   "web.terminal.ended": "会话已结束",
@@ -72,7 +72,7 @@ export const web: Partial<Catalogue> = {
   "web.splash.remote.identityMissing": "它没有出示身份密钥，因此 Psyche 不会连接。",
   "web.splash.remote.identityInvalid": "它的身份证明未通过验证，因此 Psyche 不会连接。",
   "web.splash.remote.identityOrigin":
-    "它用来应答的地址与这台电脑拨打的地址不同。请在{host}上的“设置 → 设备 → 服务器与远程访问”中设置公开地址。",
+    "它用来应答的地址与这台电脑拨打的地址不同。请在{host}上的“设置 → 设备与服务器”中设置公开地址。",
   "web.splash.remote.certChanged":
     "它的网络证书与这台电脑固定的不一致。可能是此网络上的另一台机器在代替它应答，或者它的证书被更换了。",
   "web.splash.remote.certMissing": "它没有为所用的证书作担保，因此 Psyche 不会连接。",

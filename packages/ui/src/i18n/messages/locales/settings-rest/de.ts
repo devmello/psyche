@@ -39,15 +39,16 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.nav.learning": "Grundlagen",
   "settings.search.count": "{count, plural, one {# Ergebnis} other {# Ergebnisse}}",
   "settings.search.result.page": "Seite",
-  "settings.essentials.title": "Das Wichtigste",
+  "settings.essentials.fullAccessNote":
+    "Vollzugriff wird pro Chat aktiviert, über das Modusmenü des Chats.",
   "settings.essentials.description":
     "Die wenigen Entscheidungen, die die meisten treffen, jeweils mit sicherer Voreinstellung. {persona} fragt, wenn es mehr braucht.",
-  "settings.essentials.more": "Mehr",
+  "settings.essentials.openPlace": "{place}…",
   "settings.essentials.moreIn": "Mehr unter {place}",
   "settings.essentials.model.title": "Modell",
   "settings.essentials.model.thinksWith": "{persona} denkt mit",
   "settings.essentials.model.ready": "Bereit",
-  "settings.essentials.model.noKey": "Braucht einen Schlüssel",
+  "settings.essentials.model.addKey": "API-Schlüssel hinzufügen…",
   "settings.essentials.model.none": "Noch kein Modell",
   "settings.essentials.model.noneHint":
     "{persona} braucht ein Modell, bevor es antworten kann. Füge einen Schlüssel hinzu oder nutze ein Modell auf diesem Mac.",
@@ -679,7 +680,7 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.learning.forgetAll": "Alles vergessen, was {persona} gelernt hat",
   "settings.learning.forgetAllTitle": "Alles vergessen, was {persona} von dir gelernt hat?",
   "settings.learning.forgetAllBody":
-    "Seine Notizen, Seele und Skills kehren zu dem zurück, was du geschrieben hast. Gib zur Bestätigung „{phrase}“ ein.",
+    "Seine Notizen, Persönlichkeit und Skills kehren zu dem zurück, was du geschrieben hast. Gib zur Bestätigung „{phrase}“ ein.",
   "settings.learning.forgetPhrase": "vergessen",
   "settings.learning.forgetAllGo": "Alles vergessen",
   "settings.learning.forgotAll":
@@ -812,7 +813,7 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.gateways.addressPlaceholder": "studio-mac.your-tailnet.ts.net",
   "settings.gateways.nameLabel": "Name (optional)",
   "settings.gateways.addHint":
-    "Füge den Kopplungslink von dem Mac ein, auf dem Psyche läuft (Einstellungen, Server & Fernzugriff, Anderen Computer koppeln). Ohne Link gib seine Tailscale-Adresse ein, https://<host>.<tailnet>.ts.net; dieser Computer bittet dann um Kopplung, und der Besitzer genehmigt sie dort.",
+    "Füge den Kopplungslink von dem Mac ein, auf dem Psyche läuft (Einstellungen, Geräte & Server, Anderen Computer koppeln). Ohne Link gib seine Tailscale-Adresse ein, https://<host>.<tailnet>.ts.net; dieser Computer bittet dann um Kopplung, und der Besitzer genehmigt sie dort.",
   "settings.gateways.newLink": "Ein neuer Kopplungslink ist eingetroffen. Verwenden?",
   "settings.gateways.useNewLink": "Verwenden",
   "settings.gateways.ignoreNewLink": "Ignorieren",

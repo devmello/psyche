@@ -23,7 +23,8 @@ export const onboarding: Partial<Catalogue> = {
   "onboarding.about.cityHint": "أين تكون عادةً",
   "onboarding.memory.lead":
     "هل لديك ملف شخصي في ChatGPT أو Claude؟ الصق تصدير ذاكرته، أو إجابة «ماذا تعرف عني؟». تراجع كل شيء قبل حفظه.",
-  "onboarding.memory.unavailable": "الاستيراد غير متاح في هذه النافذة. يمكنك فعله لاحقًا في Soul.",
+  "onboarding.memory.unavailable":
+    "الاستيراد غير متاح في هذه النافذة. يمكنك فعله لاحقًا في الشخصية.",
   "onboarding.memory.format": "من أين جاء",
   "onboarding.memory.format.chatgpt": "ChatGPT",
   "onboarding.memory.format.claude": "Claude",

@@ -45,7 +45,7 @@ export const home: Partial<Catalogue> = {
   "home.loadFailed": "无法载入{what}。",
   "people.page.title": "人物",
   "people.page.count": "{n, plural, other {# 人}}",
-  "people.page.memory": "Soul 与记忆",
+  "people.page.memory": "个性与记忆",
   "people.page.openPeople": "人物与项目",
   "people.page.openPeopleHint": "已移到单独的页面",
 };

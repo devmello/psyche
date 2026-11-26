@@ -47,7 +47,7 @@ export const screensRest: Partial<Catalogue> = {
   "screens.search.life.unconfirmed": "En attente de votre vérification",
   "screens.search.scope.people": "Personnes",
   "screens.search.scope.projects": "Projets",
-  "screens.search.sideChatFailed": "Impossible d’ouvrir une discussion annexe : {reason}",
+  "screens.search.sideChatFailed": "Impossible d’ouvrir une discussion : {reason}",
   "screens.search.indexing":
     "Indexation de votre historique : {n, plural, one {# élément} other {# éléments}} jusqu’ici. Les résultats se complètent au fur et à mesure.",
   "screens.search.indexFailed": "L’indexation s’est arrêtée : {reason}",

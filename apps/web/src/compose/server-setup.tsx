@@ -82,7 +82,7 @@ export function ClaimLanChoice({
 /**
  * Answers the claimed server's network question, last: turning the listener off can end this
  * computer's connection, so everything else onboarding writes goes first. Best effort; the owner
- * can change it later in Settings → Server & remote access.
+ * can change it later in Settings → Devices & server.
  */
 export async function finishClaim(
   call: (m: string, p: unknown, o?: { idempotencyKey?: string }) => Promise<unknown>,

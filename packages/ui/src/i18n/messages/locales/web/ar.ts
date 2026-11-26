@@ -19,9 +19,9 @@ export const web: Partial<Catalogue> = {
     "يحتاج Touch ID إلى Gateway الخاص بـ {host} على عنوان https:// (gateway.publicOrigin). وإلى ذلك الحين أجب عن هذه البطاقات على {host}.",
   "web.touchId.helperDidNotStart":
     "لم يتصل مساعد Psyche. افتح الإعدادات ← الأجهزة لترى السبب ثم حاول مجددًا.",
-  "web.panes.title.sidechat": "دردشة جانبية",
-  "web.sideChat.about": "دردشة جانبية حول {parent}",
-  "web.sideChat.aside": "دردشة جانبية",
+  "web.panes.title.sidechat": "دردشة",
+  "web.sideChat.about": "دردشة حول {parent}",
+  "web.sideChat.aside": "دردشة",
   "web.sideChat.expand": "توسيع",
   "web.sideChat.expandTitle": "فتح هذه الدردشة بملء الشاشة",
   "web.terminal.ended": "انتهت الجلسة",
@@ -75,7 +75,7 @@ export const web: Partial<Catalogue> = {
   "web.splash.remote.identityMissing": "لم يقدّم مفتاح هوية، لذا لن يتصل Psyche.",
   "web.splash.remote.identityInvalid": "لم يُتحقق من إثبات هويته، لذا لن يتصل Psyche.",
   "web.splash.remote.identityOrigin":
-    "أجاب عن عنوان مختلف عن العنوان الذي طلبه هذا الكمبيوتر. على {host}، اضبط العنوان العام في الإعدادات ← الأجهزة ← الخادم والوصول عن بُعد.",
+    "أجاب عن عنوان مختلف عن العنوان الذي طلبه هذا الكمبيوتر. على {host}، اضبط العنوان العام في الإعدادات ← الأجهزة ← الأجهزة والخادم.",
   "web.splash.remote.certChanged":
     "شهادة شبكته ليست الشهادة التي ثبّتها هذا الكمبيوتر. ربما يجيب جهاز آخر على هذه الشبكة بدلًا منه، أو استُبدلت شهادته.",
   "web.splash.remote.certMissing": "لم يضمن الشهادة التي استخدمها، لذا لن يتصل Psyche.",

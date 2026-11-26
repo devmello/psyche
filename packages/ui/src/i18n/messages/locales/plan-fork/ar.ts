@@ -20,7 +20,7 @@ export const planFork: Partial<Catalogue> = {
   "planFork.sheet.estimate": "حتى نحو {amount}",
   "planFork.sheet.estimateTokens": "حتى نحو {count, number} رمزًا",
   "planFork.sheet.reads": "تقرأ ذاكرتك وتقويمك وبريدك والويب. لا تغيّر شيئًا حتى تتبنى خطة.",
-  "planFork.sheet.incognito": "التفرّع غير متاح في المحادثات الخفية.",
+  "planFork.sheet.incognito": "التفريعات غير متاحة في الدردشات الخاصة.",
   "planFork.sheet.start": "ابدأ",
   "planFork.sheet.starting": "جارٍ البدء…",
   "planFork.cancel": "إلغاء",

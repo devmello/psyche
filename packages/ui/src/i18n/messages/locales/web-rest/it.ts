@@ -19,9 +19,9 @@ export const webRest: Partial<Catalogue> = {
     "Touch ID richiede il Gateway di {host} a un indirizzo https:// (gateway.publicOrigin). Fino ad allora, rispondi a quelle schede su {host}.",
   "web.touchId.helperDidNotStart":
     "Psyche Helper non si è collegato. Apri Impostazioni → Dispositivi per capire perché, poi riprova.",
-  "web.panes.title.sidechat": "Chat secondaria",
-  "web.sideChat.about": "Chat secondaria su {parent}",
-  "web.sideChat.aside": "Chat secondaria",
+  "web.panes.title.sidechat": "Chat",
+  "web.sideChat.about": "Chat su {parent}",
+  "web.sideChat.aside": "Chat",
   "web.sideChat.expand": "Espandi",
   "web.sideChat.expandTitle": "Apri questa chat a schermo intero",
   "web.terminal.ended": "sessione terminata",
@@ -80,7 +80,7 @@ export const webRest: Partial<Catalogue> = {
   "web.splash.remote.identityInvalid":
     "La sua prova di identità non ha superato la verifica, quindi Psyche non si collegherà.",
   "web.splash.remote.identityOrigin":
-    "Ha risposto per un indirizzo diverso da quello chiamato da questo computer. Su {host}, imposta l’indirizzo pubblico in Impostazioni → Dispositivi → Server e accesso remoto.",
+    "Ha risposto per un indirizzo diverso da quello chiamato da questo computer. Su {host}, imposta l’indirizzo pubblico in Impostazioni → Dispositivi e server.",
   "web.splash.remote.certChanged":
     "Il suo certificato di rete non è quello fissato da questo computer. Potrebbe rispondere un’altra macchina di questa rete al suo posto, oppure il certificato è stato sostituito.",
   "web.splash.remote.certMissing":

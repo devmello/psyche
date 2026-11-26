@@ -325,7 +325,7 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "تحتاج معاينات الشرائح إلى البيئة المعزولة، ولا تتوفر بيئة تشغيل حاويات (Docker أو Podman).",
       "web.voice.noEngine":
         "لا محرك كلام متاح. ثبّت نموذج كلام في الإعدادات ← الصوت، أو اربط مساعد Linux.",
-      "web.threads.newSideChatTitle": "دردشة جانبية جديدة (Ctrl+N)",
+      "web.threads.newSideChatTitle": "دردشة جديدة (Ctrl+N)",
       "web.panes.closePaneTitle": "إغلاق اللوحة (Ctrl+\\)",
       "web.chat.permissionModeTitle": "وضع الأذونات (Ctrl+Shift+M)",
       "web.chat.modelTitle": "النموذج (Ctrl+Shift+I)",
@@ -719,7 +719,7 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "Vorschauen von Folien brauchen die Sandbox, und es ist keine Container-Laufzeit (Docker oder Podman) verfügbar.",
       "web.voice.noEngine":
         "Keine Spracherkennung verfügbar. Installiere unter Einstellungen → Sprache ein Sprachmodell oder verbinde den Linux-Helfer.",
-      "web.threads.newSideChatTitle": "Neuer Nebenchat (Ctrl+N)",
+      "web.threads.newSideChatTitle": "Neuer Chat (Ctrl+N)",
       "web.panes.closePaneTitle": "Bereich schließen (Ctrl+\\)",
       "web.chat.permissionModeTitle": "Berechtigungsmodus (Ctrl+Shift+M)",
       "web.chat.modelTitle": "Modell (Ctrl+Shift+I)",
@@ -1121,7 +1121,7 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "Las previsualizaciones de diapositivas necesitan el entorno aislado, y no hay ningún entorno de contenedores disponible (Docker o Podman).",
       "web.voice.noEngine":
         "No hay ningún motor de voz disponible. Instala un modelo de voz en Ajustes → Voz, o conecta el asistente de Linux.",
-      "web.threads.newSideChatTitle": "Nueva conversación paralela (Ctrl+N)",
+      "web.threads.newSideChatTitle": "Nuevo chat (Ctrl+N)",
       "web.panes.closePaneTitle": "Cerrar el panel (Ctrl+\\)",
       "web.chat.permissionModeTitle": "Modo de permisos (Ctrl+Shift+M)",
       "web.chat.modelTitle": "Modelo (Ctrl+Shift+I)",
@@ -1523,7 +1523,7 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "L’aperçu des diapositives nécessite le bac à sable, et aucun moteur de conteneurs (Docker ou Podman) n’est disponible.",
       "web.voice.noEngine":
         "Aucun moteur de reconnaissance vocale n’est disponible. Installez un modèle de reconnaissance vocale dans Réglages → Voix, ou connectez l’assistant Linux.",
-      "web.threads.newSideChatTitle": "Nouvelle discussion annexe (Ctrl+N)",
+      "web.threads.newSideChatTitle": "Nouvelle discussion (Ctrl+N)",
       "web.panes.closePaneTitle": "Fermer le panneau (Ctrl+\\)",
       "web.chat.permissionModeTitle": "Mode d’autorisation (Ctrl+Shift+M)",
       "web.chat.modelTitle": "Modèle (Ctrl+Shift+I)",
@@ -1895,7 +1895,7 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "स्लाइड के प्रीव्यू के लिए सैंडबॉक्स चाहिए, और कोई कंटेनर रनटाइम (Docker या Podman) उपलब्ध नहीं है।",
       "web.voice.noEngine":
         "कोई स्पीच इंजन उपलब्ध नहीं है। सेटिंग्ज़ → आवाज़ में स्पीच मॉडल इंस्टॉल करें, या Linux हेल्पर कनेक्ट करें।",
-      "web.threads.newSideChatTitle": "नई साइड चैट (Ctrl+N)",
+      "web.threads.newSideChatTitle": "नई चैट (Ctrl+N)",
       "web.panes.closePaneTitle": "पेन बंद करें (Ctrl+\\)",
       "web.chat.permissionModeTitle": "अनुमति मोड (Ctrl+Shift+M)",
       "web.chat.modelTitle": "मॉडल (Ctrl+Shift+I)",
@@ -2289,7 +2289,7 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "Le anteprime delle diapositive richiedono la sandbox, e nessun runtime per container (Docker o Podman) è disponibile.",
       "web.voice.noEngine":
         "Nessun motore vocale disponibile. Installa un modello vocale in Impostazioni → Voce, oppure collega l’helper per Linux.",
-      "web.threads.newSideChatTitle": "Nuova chat secondaria (Ctrl+N)",
+      "web.threads.newSideChatTitle": "Nuova chat (Ctrl+N)",
       "web.panes.closePaneTitle": "Chiudi pannello (Ctrl+\\)",
       "web.chat.permissionModeTitle": "Modalità permessi (Ctrl+Shift+M)",
       "web.chat.modelTitle": "Modello (Ctrl+Shift+I)",
@@ -2686,7 +2686,7 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "スライドのプレビューにはサンドボックスが必要ですが、利用可能なコンテナランタイム（DockerまたはPodman）がありません。",
       "web.voice.noEngine":
         "利用可能な音声認識エンジンがありません。設定 → 音声で音声モデルをインストールするか、Linuxヘルパーを接続してください。",
-      "web.threads.newSideChatTitle": "新しいサイドチャット（Ctrl+N）",
+      "web.threads.newSideChatTitle": "新しいチャット（Ctrl+N）",
       "web.panes.closePaneTitle": "パネルを閉じる（Ctrl+\\）",
       "web.chat.permissionModeTitle": "権限モード（Ctrl+Shift+M）",
       "web.chat.modelTitle": "モデル（Ctrl+Shift+I）",
@@ -3065,7 +3065,7 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "슬라이드 미리보기에는 샌드박스가 필요한데, 사용 가능한 컨테이너 런타임(Docker 또는 Podman)이 없습니다.",
       "web.voice.noEngine":
         "사용 가능한 음성 인식 엔진이 없습니다. 설정 → 음성에서 음성 모델을 설치하거나 Linux 도우미를 연결하십시오.",
-      "web.threads.newSideChatTitle": "새 사이드 채팅 (Ctrl+N)",
+      "web.threads.newSideChatTitle": "새 채팅 (Ctrl+N)",
       "web.panes.closePaneTitle": "패널 닫기 (Ctrl+\\)",
       "web.chat.permissionModeTitle": "권한 모드 (Ctrl+Shift+M)",
       "web.chat.modelTitle": "모델 (Ctrl+Shift+I)",
@@ -3451,7 +3451,7 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "As pré-visualizações de slides precisam da sandbox, e nenhum ambiente de contêineres (Docker ou Podman) está disponível.",
       "web.voice.noEngine":
         "Nenhum motor de fala está disponível. Instale um modelo de fala em Configurações → Voz ou conecte o assistente do Linux.",
-      "web.threads.newSideChatTitle": "Nova conversa paralela (Ctrl+N)",
+      "web.threads.newSideChatTitle": "Novo chat (Ctrl+N)",
       "web.panes.closePaneTitle": "Fechar painel (Ctrl+\\)",
       "web.chat.permissionModeTitle": "Modo de permissão (Ctrl+Shift+M)",
       "web.chat.modelTitle": "Modelo (Ctrl+Shift+I)",
@@ -3802,7 +3802,7 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "web.viewers.noSandbox": "幻灯片预览需要沙盒，但没有可用的容器运行时（Docker 或 Podman）。",
       "web.voice.noEngine":
         "没有可用的语音引擎。请在“设置 → 语音”中安装语音模型，或连接 Linux 助手。",
-      "web.threads.newSideChatTitle": "新建支线聊天（Ctrl+N）",
+      "web.threads.newSideChatTitle": "新建聊天（Ctrl+N）",
       "web.panes.closePaneTitle": "关闭面板（Ctrl+\\）",
       "web.chat.permissionModeTitle": "权限模式（Ctrl+Shift+M）",
       "web.chat.modelTitle": "模型（Ctrl+Shift+I）",

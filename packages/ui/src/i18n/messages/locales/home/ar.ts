@@ -50,7 +50,7 @@ export const home: Partial<Catalogue> = {
   "people.page.title": "الأشخاص",
   "people.page.count":
     "{n, plural, zero {لا أحد} one {شخص واحد} two {شخصان} few {# أشخاص} many {# شخصًا} other {# شخص}}",
-  "people.page.memory": "Soul والذاكرة",
+  "people.page.memory": "الشخصية والذاكرة",
   "people.page.openPeople": "الأشخاص والمشاريع",
   "people.page.openPeopleHint": "انتقل إلى صفحته الخاصة",
 };

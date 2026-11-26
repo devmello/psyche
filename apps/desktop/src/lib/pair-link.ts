@@ -42,7 +42,7 @@ export function pairLinkFromArgv(argv: readonly string[]): string | null {
 }
 
 export interface PairLinkInboxDeps {
-  /** Brings Settings → Server & remote access forward (a window that may not exist yet). */
+  /** Brings Settings → Devices & server forward (a window that may not exist yet). */
   show: () => void;
   /** Tells open windows a link is waiting. */
   notify: () => void;

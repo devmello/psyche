@@ -39,15 +39,16 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.nav.learning": "Nozioni di base",
   "settings.search.count": "{count, plural, one {# risultato} other {# risultati}}",
   "settings.search.result.page": "Pagina",
-  "settings.essentials.title": "Essenziali",
+  "settings.essentials.fullAccessNote":
+    "L’accesso completo si attiva per chat, dal menu della modalità della chat.",
   "settings.essentials.description":
     "Le poche scelte che fa la maggior parte delle persone, ciascuna con un’impostazione predefinita sicura. {persona} chiede quando gli serve altro.",
-  "settings.essentials.more": "Altro",
+  "settings.essentials.openPlace": "{place}…",
   "settings.essentials.moreIn": "Altro in {place}",
   "settings.essentials.model.title": "Modello",
   "settings.essentials.model.thinksWith": "{persona} ragiona con",
   "settings.essentials.model.ready": "Pronto",
-  "settings.essentials.model.noKey": "Serve una chiave",
+  "settings.essentials.model.addKey": "Aggiungi chiave API…",
   "settings.essentials.model.none": "Ancora nessun modello",
   "settings.essentials.model.noneHint":
     "{persona} ha bisogno di un modello per poter rispondere. Aggiungi una chiave, oppure usa un modello su questo Mac.",
@@ -675,7 +676,7 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.learning.forgetAll": "Dimentica tutto ciò che {persona} ha imparato",
   "settings.learning.forgetAllTitle": "Dimenticare tutto ciò che {persona} ha imparato da te?",
   "settings.learning.forgetAllBody":
-    "Note, Anima e skill tornano a ciò che hai scritto tu. Digita “{phrase}” per confermare.",
+    "Note, personalità e skill tornano a ciò che hai scritto tu. Digita “{phrase}” per confermare.",
   "settings.learning.forgetPhrase": "dimentica",
   "settings.learning.forgetAllGo": "Dimentica tutto",
   "settings.learning.forgotAll":
@@ -808,7 +809,7 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.gateways.addressPlaceholder": "studio-mac.your-tailnet.ts.net",
   "settings.gateways.nameLabel": "Nome (facoltativo)",
   "settings.gateways.addHint":
-    "Incolla il link di abbinamento dal Mac che esegue Psyche (Impostazioni, Server e accesso remoto, Abbina un altro computer). Senza link, digita il suo indirizzo Tailscale, https://<host>.<tailnet>.ts.net; questo computer chiede di abbinarsi e il proprietario lo approva lì.",
+    "Incolla il link di abbinamento dal Mac che esegue Psyche (Impostazioni, Dispositivi e server, Abbina un altro computer). Senza link, digita il suo indirizzo Tailscale, https://<host>.<tailnet>.ts.net; questo computer chiede di abbinarsi e il proprietario lo approva lì.",
   "settings.gateways.newLink": "È arrivato un nuovo link di abbinamento. Vuoi usarlo?",
   "settings.gateways.useNewLink": "Usalo",
   "settings.gateways.ignoreNewLink": "Ignora",

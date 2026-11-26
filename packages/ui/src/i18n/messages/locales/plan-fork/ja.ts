@@ -21,7 +21,7 @@ export const planFork: Partial<Catalogue> = {
   "planFork.sheet.estimateTokens": "最大で約 {count, number} トークン",
   "planFork.sheet.reads":
     "メモリ、カレンダー、メール、ウェブを読みます。プランを採用するまで何も変更しません。",
-  "planFork.sheet.incognito": "シークレットチャットでは分岐できません。",
+  "planFork.sheet.incognito": "プライベートチャットではフォークは使えません。",
   "planFork.sheet.start": "開始",
   "planFork.sheet.starting": "開始中…",
   "planFork.cancel": "キャンセル",

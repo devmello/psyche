@@ -39,15 +39,16 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.nav.learning": "Bases",
   "settings.search.count": "{count, plural, one {# résultat} other {# résultats}}",
   "settings.search.result.page": "Page",
-  "settings.essentials.title": "L’essentiel",
+  "settings.essentials.fullAccessNote":
+    "L’accès complet s’active par discussion, depuis le menu de mode de la discussion.",
   "settings.essentials.description":
     "Les quelques choix que fait la plupart des gens, chacun avec une valeur par défaut sûre. {persona} demande quand il a besoin de plus.",
-  "settings.essentials.more": "Plus",
+  "settings.essentials.openPlace": "{place}…",
   "settings.essentials.moreIn": "Plus dans {place}",
   "settings.essentials.model.title": "Modèle",
   "settings.essentials.model.thinksWith": "{persona} réfléchit avec",
   "settings.essentials.model.ready": "Prêt",
-  "settings.essentials.model.noKey": "Clé requise",
+  "settings.essentials.model.addKey": "Ajouter une clé API…",
   "settings.essentials.model.none": "Pas encore de modèle",
   "settings.essentials.model.noneHint":
     "{persona} a besoin d’un modèle avant de pouvoir répondre. Ajoutez une clé ou utilisez un modèle sur ce Mac.",
@@ -673,7 +674,7 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.learning.forgetAll": "Oublier tout ce que {persona} a appris",
   "settings.learning.forgetAllTitle": "Oublier tout ce que {persona} a appris de vous ?",
   "settings.learning.forgetAllBody":
-    "Ses notes, son Âme et ses compétences reviennent à ce que vous avez écrit. Saisissez « {phrase} » pour confirmer.",
+    "Ses notes, sa personnalité et ses compétences reviennent à ce que vous avez écrit. Saisissez « {phrase} » pour confirmer.",
   "settings.learning.forgetPhrase": "oublier",
   "settings.learning.forgetAllGo": "Tout oublier",
   "settings.learning.forgotAll":
@@ -807,7 +808,7 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.gateways.addressPlaceholder": "studio-mac.your-tailnet.ts.net",
   "settings.gateways.nameLabel": "Nom (facultatif)",
   "settings.gateways.addHint":
-    "Collez le lien de jumelage du Mac qui exécute Psyche (Réglages, Serveur et accès à distance, Jumeler un autre ordinateur). Sans lien, saisissez son adresse Tailscale, https://<host>.<tailnet>.ts.net ; cet ordinateur demande alors le jumelage, et le propriétaire l’approuve là-bas.",
+    "Collez le lien de jumelage du Mac qui exécute Psyche (Réglages, Appareils et serveur, Jumeler un autre ordinateur). Sans lien, saisissez son adresse Tailscale, https://<host>.<tailnet>.ts.net ; cet ordinateur demande alors le jumelage, et le propriétaire l’approuve là-bas.",
   "settings.gateways.newLink": "Un nouveau lien de jumelage est arrivé. L’utiliser ?",
   "settings.gateways.useNewLink": "Utiliser",
   "settings.gateways.ignoreNewLink": "Ignorer",

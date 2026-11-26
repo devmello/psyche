@@ -23,7 +23,7 @@ export const onboardingRest: Partial<Catalogue> = {
   "onboarding.memory.lead":
     "ChatGPTまたはClaudeにすでにプロフィールがありますか？ メモリのエクスポート、または「私について何を知っていますか？」への回答を貼り付けてください。保存する前に、すべて確認できます。",
   "onboarding.memory.unavailable":
-    "このウインドウでは読み込みを利用できません。あとでSoulから行えます。",
+    "このウインドウでは読み込みを利用できません。あとでパーソナリティから行えます。",
   "onboarding.memory.format": "取得元",
   "onboarding.memory.format.chatgpt": "ChatGPT",
   "onboarding.memory.format.claude": "Claude",

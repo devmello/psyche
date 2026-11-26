@@ -4,7 +4,7 @@ import type { Catalogue } from "../../index.ts";
 export const screens: Partial<Catalogue> = {
   "screens.search.scope.people": "الأشخاص",
   "screens.search.scope.projects": "المشاريع",
-  "screens.search.sideChatFailed": "تعذّر فتح دردشة جانبية: {reason}",
+  "screens.search.sideChatFailed": "تعذّر فتح دردشة: {reason}",
   "screens.search.indexing":
     "جارٍ فهرسة سجلك: {n, plural, zero {لا عناصر} one {عنصر واحد} two {عنصران} few {# عناصر} many {# عنصرًا} other {# عنصر}} حتى الآن. تمتلئ النتائج تباعًا.",
   "screens.search.indexFailed": "توقفت الفهرسة: {reason}",

@@ -34,15 +34,16 @@ export const settings = {
   "settings.page.devices": "Devices & server",
 
   // Settings → Essentials (EssentialsSection.tsx, settings-2026 §7).
-  "settings.essentials.title": "Essentials",
+  "settings.essentials.fullAccessNote":
+    "Full access is turned on per chat, from the chat’s mode menu.",
   "settings.essentials.description":
     "The few choices most people make, each with a safe default. {persona} asks when it needs more.",
-  "settings.essentials.more": "More",
+  "settings.essentials.openPlace": "{place}…",
   "settings.essentials.moreIn": "More in {place}",
   "settings.essentials.model.title": "Model",
   "settings.essentials.model.thinksWith": "{persona} thinks with",
   "settings.essentials.model.ready": "Ready",
-  "settings.essentials.model.noKey": "Needs a key",
+  "settings.essentials.model.addKey": "Add API Key…",
   "settings.essentials.model.none": "No model yet",
   "settings.essentials.model.noneHint":
     "{persona} needs a model before it can answer. Add a key, or use a model on this Mac.",
@@ -102,7 +103,7 @@ export const settings = {
   "settings.nav.voice": "Voice & dictation",
   "settings.nav.data": "Privacy & data",
   "settings.nav.people": "People and privacy",
-  "settings.nav.server": "Server & remote access",
+  "settings.nav.server": "Devices & server",
   "settings.nav.usage": "Usage",
   "settings.nav.about": "About",
 
@@ -1600,7 +1601,7 @@ export const settings = {
   "settings.learning.forgetAll": "Forget everything {persona} learned",
   "settings.learning.forgetAllTitle": "Forget everything {persona} learned from you?",
   "settings.learning.forgetAllBody":
-    'Its notes, Soul and skills go back to what you wrote. Type "{phrase}" to confirm.',
+    'Its notes, Personality and skills go back to what you wrote. Type "{phrase}" to confirm.',
   "settings.learning.forgetPhrase": "forget",
   "settings.learning.forgetAllGo": "Forget everything",
   "settings.learning.forgotAll":
@@ -1946,12 +1947,13 @@ export const settings = {
 
   // Settings → Permissions (PermissionsSection.tsx).
   "settings.permissions.mode.balanced": "Balanced",
-  "settings.permissions.mode.balancedHint": "Reads run; writes to people and money ask first.",
+  "settings.permissions.mode.balancedHint":
+    "Reads on its own; asks before messages, money and other changes to people.",
   "settings.permissions.mode.manual": "Manual",
-  "settings.permissions.mode.manualHint": "Every action outside a grant asks first.",
+  "settings.permissions.mode.manualHint": "Asks before anything that changes something.",
   "settings.permissions.mode.auto": "Auto",
   "settings.permissions.mode.autoHint":
-    "Routine actions inside your grants run; a classifier asks on anything sensitive.",
+    "Does most things on its own; still asks about anything risky.",
   "settings.permissions.never.secrets":
     "Type a password, card number, bank account or government ID it can see",
   "settings.permissions.never.captcha": "Solve or bypass a CAPTCHA",
@@ -2073,11 +2075,11 @@ export const settings = {
     "In your own words. Without an image model the description is saved for later.",
   "settings.persona.apply": "Apply change",
 
-  // Settings → Server & remote access (ServerSection.tsx).
+  // Settings → Devices & server (ServerSection.tsx).
   "settings.server.remote.none": "Not set up",
   "settings.server.remote.tailscale": "Tailscale Serve",
   "settings.server.remote.proxy": "Reverse proxy",
-  "settings.server.title": "Server & remote access",
+  "settings.server.title": "Devices & server",
   "settings.server.description": "Where the Gateway listens and how your other devices reach it.",
   "settings.server.loadLabel": "server status",
   "settings.server.remoteAccess": "Remote access",
@@ -2094,7 +2096,7 @@ export const settings = {
     "Commands run in a container. Psyche never falls back to the host shell.",
   "settings.server.sandboxFailed": "Psyche couldn't read sandbox health ({reason}).",
   "settings.server.sandboxBlocked": "Commands stay blocked until a backend reports in.",
-  // Settings → Server & remote access → Gateways on this computer (docs/design/remote-gateway-2026.md §1.3).
+  // Settings → Devices & server → Gateways on this computer (docs/design/remote-gateway-2026.md §1.3).
   "settings.connectors.page.onHost": "On {host}",
   "settings.connectors.page.row.onHost": "On {host}",
   "settings.connectors.page.row.macOnly": "Only on a Mac host",
@@ -2125,7 +2127,7 @@ export const settings = {
   "settings.gateways.addressPlaceholder": "studio-mac.your-tailnet.ts.net",
   "settings.gateways.nameLabel": "Name (optional)",
   "settings.gateways.addHint":
-    "Paste the pairing link from the Mac that runs Psyche (Settings, Server & remote access, Pair another computer). Without a link, type its Tailscale address, https://<host>.<tailnet>.ts.net; this computer then asks to pair, and the owner approves it there.",
+    "Paste the pairing link from the Mac that runs Psyche (Settings, Devices & server, Pair another computer). Without a link, type its Tailscale address, https://<host>.<tailnet>.ts.net; this computer then asks to pair, and the owner approves it there.",
   "settings.gateways.newLink": "A new pairing link arrived. Use it?",
   "settings.gateways.useNewLink": "Use it",
   "settings.gateways.ignoreNewLink": "Ignore",
@@ -2158,7 +2160,7 @@ export const settings = {
   "settings.gateways.problem.failed": "Couldn't add the Gateway. Nothing changed.",
   "settings.gateways.problem.declined": "Adding the Gateway was cancelled.",
   "settings.gateways.problem.actionFailed": "That didn't work. Nothing changed.",
-  // Settings → Server & remote access → Allow other computers (§3.1).
+  // Settings → Devices & server → Allow other computers (§3.1).
   "settings.remote.title": "Allow other computers",
   "settings.remote.description":
     "Let Psyche on another computer use this Mac's Gateway over Tailscale. The Gateway stays on this Mac and listens only to it, and Tailscale Serve is the only way in.",
@@ -2189,7 +2191,7 @@ export const settings = {
   "settings.remote.loadLabel": "Gateway identity",
   "settings.remote.clientNote":
     "This computer is a client of {host}. Remote access is set up on {host}.",
-  // Settings → Server & remote access → Pair another computer (§3.4).
+  // Settings → Devices & server → Pair another computer (§3.4).
   "settings.pair.title": "Pair another computer",
   "settings.pair.description":
     "Make a pairing link, or a QR code, for Psyche on another computer. It works once, for ten minutes, and the computer that uses it is paired with the access you tick here, with no second approval.",
@@ -2234,7 +2236,7 @@ export const settings = {
     "This link is for computers on the same network as this Mac. It names the key and certificate Psyche will insist on.",
   "settings.pair.err.noLan":
     "Turn on Allow computers on this network, and wait until it is listening, to make a link for this network.",
-  // Settings → Server & remote access → Allow computers on this network (§3.1, LAN).
+  // Settings → Devices & server → Allow computers on this network (§3.1, LAN).
   "settings.key.gateway.lan": "Allow computers on this network",
   "settings.key.gateway.lan.rotateCert": "The network certificate",
   "settings.lan.title": "Allow computers on this network",

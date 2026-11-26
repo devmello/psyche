@@ -19,9 +19,9 @@ export const webRest: Partial<Catalogue> = {
     "Touch IDには、{host}のGatewayがhttps://アドレス（gateway.publicOrigin）にある必要があります。それまでは、これらのカードを{host}で回答してください。",
   "web.touchId.helperDidNotStart":
     "Psyche Helperが接続されませんでした。設定 → デバイスで理由を確認してから、もう一度お試しください。",
-  "web.panes.title.sidechat": "サイドチャット",
-  "web.sideChat.about": "{parent}についてのサイドチャット",
-  "web.sideChat.aside": "サイドチャット",
+  "web.panes.title.sidechat": "チャット",
+  "web.sideChat.about": "{parent}についてのチャット",
+  "web.sideChat.aside": "チャット",
   "web.sideChat.expand": "展開",
   "web.sideChat.expandTitle": "このチャットを全画面で開く",
   "web.terminal.ended": "セッションは終了しました",
@@ -77,7 +77,7 @@ export const webRest: Partial<Catalogue> = {
   "web.splash.remote.identityMissing": "IDキーが提示されなかったため、Psycheは接続しません。",
   "web.splash.remote.identityInvalid": "IDの証明が確認できなかったため、Psycheは接続しません。",
   "web.splash.remote.identityOrigin":
-    "このコンピュータが接続した先とは別のアドレスで応答しました。{host}で、設定 → デバイス → サーバとリモートアクセスの公開アドレスを設定してください。",
+    "このコンピュータが接続した先とは別のアドレスで応答しました。{host}で、設定 → デバイスとサーバの公開アドレスを設定してください。",
   "web.splash.remote.certChanged":
     "ネットワーク証明書が、このコンピュータが固定したものと一致しません。このネットワーク上の別のマシンが代わりに応答しているか、証明書が置き換えられた可能性があります。",
   "web.splash.remote.certMissing": "使用した証明書の保証がなかったため、Psycheは接続しません。",

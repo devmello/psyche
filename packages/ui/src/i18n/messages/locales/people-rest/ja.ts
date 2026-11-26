@@ -221,7 +221,7 @@ export const peopleRest: Partial<Catalogue> = {
   "people.errorDid": "何も変更されていません。",
   "people.page.title": "人物",
   "people.page.count": "{n, plural, other {#人}}",
-  "people.page.memory": "Soulとメモリ",
+  "people.page.memory": "パーソナリティとメモリ",
   "people.page.openPeople": "人物とプロジェクト",
   "people.page.openPeopleHint": "専用ページに移動しました",
 };

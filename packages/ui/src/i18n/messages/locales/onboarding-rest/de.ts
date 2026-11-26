@@ -25,7 +25,7 @@ export const onboardingRest: Partial<Catalogue> = {
   "onboarding.memory.lead":
     "Schon ein Profil in ChatGPT oder Claude? Füge den Gedächtnis-Export ein oder die Antwort auf „Was weißt du über mich?“. Du prüfst alles, bevor es gesichert wird.",
   "onboarding.memory.unavailable":
-    "Das Importieren ist in diesem Fenster nicht verfügbar. Du kannst es später unter „Seele“ tun.",
+    "Das Importieren ist in diesem Fenster nicht verfügbar. Du kannst es später unter „Persönlichkeit“ tun.",
   "onboarding.memory.format": "Woher es stammt",
   "onboarding.memory.format.chatgpt": "ChatGPT",
   "onboarding.memory.format.claude": "Claude",

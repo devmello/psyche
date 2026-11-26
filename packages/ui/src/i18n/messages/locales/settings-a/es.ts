@@ -2,15 +2,16 @@ import type { Catalogue } from "../../index.ts";
 
 /** settings-a strings (es); merged into `../es.ts`. */
 export const settingsA: Partial<Catalogue> = {
-  "settings.essentials.title": "Esenciales",
+  "settings.essentials.fullAccessNote":
+    "El acceso completo se activa por chat, desde el menú de modo del chat.",
   "settings.essentials.description":
     "Las pocas decisiones que toma la mayoría, cada una con un valor seguro por defecto. {persona} pregunta cuando necesita más.",
-  "settings.essentials.more": "Más",
+  "settings.essentials.openPlace": "{place}…",
   "settings.essentials.moreIn": "Más en {place}",
   "settings.essentials.model.title": "Modelo",
   "settings.essentials.model.thinksWith": "{persona} piensa con",
   "settings.essentials.model.ready": "Listo",
-  "settings.essentials.model.noKey": "Necesita una clave",
+  "settings.essentials.model.addKey": "Añadir clave de API…",
   "settings.essentials.model.none": "Aún no hay modelo",
   "settings.essentials.model.noneHint":
     "{persona} necesita un modelo para poder responder. Añade una clave o usa un modelo de este Mac.",

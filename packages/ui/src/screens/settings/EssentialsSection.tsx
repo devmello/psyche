@@ -5,7 +5,7 @@ import { t } from "../../i18n/core.ts";
 import { usePersona, useSlots } from "../../slots.tsx";
 import { modelLabel, providerInfoFromSummary, providersFromSettings } from "./ModelSection.tsx";
 import { MODE_OPTIONS } from "./PermissionsSection.tsx";
-import type { SettingsPaneId } from "./settings-pages.ts";
+import { pageOfPane, type SettingsPaneId } from "./settings-pages.ts";
 import {
   ErrorNotice,
   Group,
@@ -68,9 +68,31 @@ function More({
       aria-label={t("settings.essentials.moreIn", { place: label })}
       onClick={() => onOpen(pane)}
     >
-      {t("settings.essentials.more")}
+      {t("settings.essentials.openPlace", { place: label })}
     </Button>
   );
+}
+
+/**
+ * A readable name for a model ref the provider gives no label for:
+ * "anthropic/claude-sonnet-5-5" reads as "Claude Sonnet 5.5".
+ */
+export function readableModelName(ref: string): string {
+  const words = ref
+    .slice(ref.indexOf("/") + 1)
+    .split(/[-_]/)
+    .filter((word) => word.length > 0);
+  // Version digits rejoin with a dot: "5-5" is 5.5, not "5 5".
+  const parts: string[] = [];
+  for (const word of words) {
+    const last = parts[parts.length - 1];
+    if (/^\d+$/.test(word) && last !== undefined && /^\d+(\.\d+)*$/.test(last)) {
+      parts[parts.length - 1] = `${last}.${word}`;
+    } else {
+      parts.push(word.charAt(0).toUpperCase() + word.slice(1));
+    }
+  }
+  return parts.join(" ");
 }
 
 export function EssentialsPanel({
@@ -101,7 +123,7 @@ export function EssentialsPanel({
       >
         <Group
           title={t("settings.essentials.model.title")}
-          actions={<More pane="model" label={t("settings.nav.model")} onOpen={onOpen} />}
+          actions={<More pane="model" label={pageOfPane("model").label} onOpen={onOpen} />}
         >
           {model.ref === null ? (
             // The one thing that needs the owner before anything works: amber, and the one
@@ -124,14 +146,16 @@ export function EssentialsPanel({
               <span className="text-body text-label-primary">
                 {t("settings.essentials.model.thinksWith", { persona })}
               </span>
-              <code className="min-w-0 truncate font-mono text-callout text-label-primary">
-                {model.label ?? model.ref}
-              </code>
+              <span className="min-w-0 truncate text-body text-label-primary">
+                {model.label ?? readableModelName(model.ref ?? "")}
+              </span>
               {model.ready ? (
                 <StatusChip tone="success">{t("settings.essentials.model.ready")}</StatusChip>
-              ) : (
-                <StatusChip tone="approval">{t("settings.essentials.model.noKey")}</StatusChip>
-              )}
+              ) : onOpen ? (
+                <Button type="button" size="sm" onClick={() => onOpen("model")}>
+                  {t("settings.essentials.model.addKey")}
+                </Button>
+              ) : null}
             </div>
           )}
         </Group>
@@ -139,7 +163,7 @@ export function EssentialsPanel({
         <Group
           title={t("settings.essentials.asks.title", { persona })}
           actions={
-            <More pane="permissions" label={t("settings.nav.permissions")} onOpen={onOpen} />
+            <More pane="permissions" label={pageOfPane("permissions").label} onOpen={onOpen} />
           }
         >
           <RadioField
@@ -150,11 +174,14 @@ export function EssentialsPanel({
             settingKey="permissions.mode"
             onChange={(v) => onChange("permissions.mode", v)}
           />
+          <p className="pt-2 text-callout text-label-secondary">
+            {t("settings.essentials.fullAccessNote")}
+          </p>
         </Group>
 
         <Group
           title={t("settings.essentials.memory.title")}
-          actions={<More pane="learning" label={t("settings.nav.learning")} onOpen={onOpen} />}
+          actions={<More pane="learning" label={pageOfPane("learning").label} onOpen={onOpen} />}
         >
           <SwitchField
             label={t("settings.essentials.memory.remember", { persona })}

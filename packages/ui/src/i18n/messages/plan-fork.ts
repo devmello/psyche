@@ -23,7 +23,7 @@ export const planFork = {
   "planFork.sheet.estimateTokens": "Up to about {count, number} tokens",
   "planFork.sheet.reads":
     "Reads your memory, calendar, mail and the web. Changes nothing until you take a plan.",
-  "planFork.sheet.incognito": "Forks aren't available in incognito chats.",
+  "planFork.sheet.incognito": "Forks aren’t available in private chats.",
   "planFork.sheet.start": "Start",
   "planFork.sheet.starting": "Starting…",
   "planFork.cancel": "Cancel",

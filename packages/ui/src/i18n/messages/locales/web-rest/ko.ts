@@ -19,9 +19,9 @@ export const webRest: Partial<Catalogue> = {
     "Touch ID를 사용하려면 {host}의 Gateway가 https:// 주소(gateway.publicOrigin)에 있어야 합니다. 그때까지는 해당 카드를 {host}에서 응답하십시오.",
   "web.touchId.helperDidNotStart":
     "Psyche Helper가 연결되지 않았습니다. 설정 → 기기에서 이유를 확인한 다음 다시 시도하십시오.",
-  "web.panes.title.sidechat": "사이드 채팅",
-  "web.sideChat.about": "{parent}에 대한 사이드 채팅",
-  "web.sideChat.aside": "사이드 채팅",
+  "web.panes.title.sidechat": "채팅",
+  "web.sideChat.about": "{parent}에 대한 채팅",
+  "web.sideChat.aside": "채팅",
   "web.sideChat.expand": "확대",
   "web.sideChat.expandTitle": "이 대화를 전체 화면으로 열기",
   "web.terminal.ended": "세션이 종료되었습니다",
@@ -76,7 +76,7 @@ export const webRest: Partial<Catalogue> = {
   "web.splash.remote.identityMissing": "ID 키가 제시되지 않아 Psyche가 연결하지 않습니다.",
   "web.splash.remote.identityInvalid": "ID 증명을 확인할 수 없어 Psyche가 연결하지 않습니다.",
   "web.splash.remote.identityOrigin":
-    "이 컴퓨터가 접속한 주소와 다른 주소로 응답했습니다. {host}에서 설정 → 기기 → 서버 및 원격 접근의 공개 주소를 설정하십시오.",
+    "이 컴퓨터가 접속한 주소와 다른 주소로 응답했습니다. {host}에서 설정 → 기기 및 서버의 공개 주소를 설정하십시오.",
   "web.splash.remote.certChanged":
     "네트워크 인증서가 이 컴퓨터에 고정된 인증서와 다릅니다. 이 네트워크의 다른 기기가 대신 응답하고 있거나 인증서가 교체되었을 수 있습니다.",
   "web.splash.remote.certMissing": "사용한 인증서에 대한 보증이 없어 Psyche가 연결하지 않습니다.",

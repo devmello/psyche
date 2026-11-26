@@ -19,9 +19,9 @@ export const webRest: Partial<Catalogue> = {
     "Touch ID nécessite la Gateway de {host} à une adresse https:// (gateway.publicOrigin). D’ici là, répondez à ces cartes sur {host}.",
   "web.touchId.helperDidNotStart":
     "Psyche Helper ne s’est pas connecté. Ouvrez Réglages → Appareils pour en voir la raison, puis réessayez.",
-  "web.panes.title.sidechat": "Discussion annexe",
-  "web.sideChat.about": "Discussion annexe sur {parent}",
-  "web.sideChat.aside": "Discussion annexe",
+  "web.panes.title.sidechat": "Discussion",
+  "web.sideChat.about": "Discussion sur {parent}",
+  "web.sideChat.aside": "Discussion",
   "web.sideChat.expand": "Agrandir",
   "web.sideChat.expandTitle": "Ouvrir cette discussion en plein écran",
   "web.terminal.ended": "session terminée",
@@ -79,7 +79,7 @@ export const webRest: Partial<Catalogue> = {
   "web.splash.remote.identityInvalid":
     "Sa preuve d’identité n’a pas été validée, Psyche ne se connectera donc pas.",
   "web.splash.remote.identityOrigin":
-    "Il a répondu pour une adresse différente de celle que cet ordinateur a composée. Sur {host}, définissez l’adresse publique dans Réglages → Appareils → Serveur et accès à distance.",
+    "Il a répondu pour une adresse différente de celle que cet ordinateur a composée. Sur {host}, définissez l’adresse publique dans Réglages → Appareils et serveur.",
   "web.splash.remote.certChanged":
     "Son certificat réseau n’est pas celui que cet ordinateur a épinglé. Une autre machine de ce réseau répond peut-être à sa place, ou son certificat a été remplacé.",
   "web.splash.remote.certMissing":

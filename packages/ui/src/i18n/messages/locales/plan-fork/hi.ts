@@ -20,7 +20,7 @@ export const planFork: Partial<Catalogue> = {
   "planFork.sheet.estimate": "अधिकतम लगभग {amount}",
   "planFork.sheet.estimateTokens": "अधिकतम लगभग {count, number} टोकन",
   "planFork.sheet.reads": "आपकी मेमोरी, कैलेंडर, मेल और वेब पढ़ती है। योजना अपनाने तक कुछ नहीं बदलती।",
-  "planFork.sheet.incognito": "गुप्त चैट में फ़ोर्क उपलब्ध नहीं हैं।",
+  "planFork.sheet.incognito": "निजी चैट में फ़ॉर्क उपलब्ध नहीं हैं।",
   "planFork.sheet.start": "शुरू करें",
   "planFork.sheet.starting": "शुरू हो रहा है…",
   "planFork.cancel": "रद्द करें",

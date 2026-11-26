@@ -202,9 +202,9 @@ describe.skipIf(process.platform !== "win32")(
       expect(set[0]).toMatchObject({ openAtLogin: true, path: update });
     });
 
-    it("lists New side chat and Ask about my screen, each a second launch with its task", () => {
+    it("lists New Chat and Ask about my screen, each a second launch with its task", () => {
       const tasks = jumpListTasks(exe, { exists: installed, askScreen: true });
-      expect(tasks.map((t) => t.title)).toEqual(["New side chat", "Ask about my screen"]);
+      expect(tasks.map((t) => t.title)).toEqual(["New Chat", "Ask about my screen"]);
       expect(tasks[0]).toMatchObject({
         program: update,
         arguments: "--processStart Psyche.exe --process-start-args --psyche-task=new-side-chat",
@@ -264,7 +264,7 @@ describe("the Windows notification-area icon", () => {
       "Usage: —",
       "Nothing needs you",
       "Open Psyche",
-      "New side chat",
+      "New Chat",
       "Quick entry",
       "Ask about screen",
       "Psyche is running",

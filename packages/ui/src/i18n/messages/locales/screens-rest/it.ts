@@ -47,7 +47,7 @@ export const screensRest: Partial<Catalogue> = {
   "screens.search.life.unconfirmed": "In attesa della tua revisione",
   "screens.search.scope.people": "Persone",
   "screens.search.scope.projects": "Progetti",
-  "screens.search.sideChatFailed": "Impossibile aprire una chat secondaria: {reason}",
+  "screens.search.sideChatFailed": "Impossibile aprire una chat: {reason}",
   "screens.search.indexing":
     "Indicizzazione della cronologia: finora {n, plural, one {# elemento} other {# elementi}}. I risultati si completano man mano.",
   "screens.search.indexFailed": "Indicizzazione interrotta: {reason}",

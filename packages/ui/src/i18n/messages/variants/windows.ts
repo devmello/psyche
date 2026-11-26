@@ -381,7 +381,7 @@ export const windows: Partial<Record<MessageId, string>> = {
   "web.setup.adminOk": "This PC is the admin device.",
   "web.voice.noEngine":
     "No speech engine is available. Install a speech model in Settings → Voice, or connect the Windows helper.",
-  "web.threads.newSideChatTitle": "New side chat (Ctrl+N)",
+  "web.threads.newSideChatTitle": "New chat (Ctrl+N)",
   "web.panes.closePaneTitle": "Close pane (Ctrl+\\)",
   "web.chat.permissionModeTitle": "Permission mode (Ctrl+Shift+M)",
   "web.chat.modelTitle": "Model (Ctrl+Shift+I)",
