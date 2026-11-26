@@ -1,5 +1,5 @@
 import { DEFAULT_GATEWAY_HOST, DEFAULT_GATEWAY_PORT } from "@psyche/protocol";
-import type { ReactElement } from "react";
+import type { ReactElement, ReactNode } from "react";
 import { toast } from "sonner";
 import { Button } from "../../components/ui/button.tsx";
 import { useGatewayQuery } from "../../data/hooks.ts";
@@ -38,6 +38,8 @@ export interface ServerPanelProps extends SettingsFormProps, LoadProps {
   sandboxError?: string | null;
   onAddPasskey?: () => void;
   onSetUpRemote?: () => void;
+  /** Cards that lead the pane, under its title (so the heading order never skips a level). */
+  lead?: ReactNode;
 }
 
 export function ServerPanel({
@@ -48,6 +50,7 @@ export function ServerPanel({
   sandboxError = null,
   onAddPasskey,
   onSetUpRemote,
+  lead,
   loading,
   error,
   onRetry,
@@ -60,6 +63,7 @@ export function ServerPanel({
       title={t("settings.server.title")}
       description={t("settings.server.description")}
     >
+      {lead}
       <LoadGate
         label={t("settings.server.loadLabel")}
         loading={loading ?? false}
@@ -220,20 +224,24 @@ export function ServerSection({ status, ...actions }: ServerSectionProps): React
     });
   return (
     <div className="flex flex-col gap-3">
-      <GatewaysGroup />
-      {remoteHost === undefined ? (
-        <>
-          <RemoteAccessGroup />
-          <PairComputerGroup />
-          <LanAccessGroup />
-        </>
-      ) : (
-        <p className="text-callout text-label-secondary">
-          {t("settings.remote.clientNote", { host: remoteHost })}
-        </p>
-      )}
       <ServerPanel
         {...actions}
+        lead={
+          <>
+            <GatewaysGroup />
+            {remoteHost === undefined ? (
+              <>
+                <RemoteAccessGroup />
+                <PairComputerGroup />
+                <LanAccessGroup />
+              </>
+            ) : (
+              <p className="text-callout text-label-secondary">
+                {t("settings.remote.clientNote", { host: remoteHost })}
+              </p>
+            )}
+          </>
+        }
         onSetUpRemote={onSetUpRemote}
         values={form.values}
         onChange={form.onChange}

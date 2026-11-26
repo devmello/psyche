@@ -43,5 +43,6 @@ export const homeRest: Partial<Catalogue> = {
   "home.more.pages": "पृष्ठ",
   "home.more.brief": "ब्रीफ़ सेटिंग्ज़",
   "home.more.memoryReview": "मेमोरी समीक्षा",
+  "home.quiet": "अभी आपको कुछ नहीं करना है। अनुमोदन, आपका दैनिक ब्रीफ़ और नए विचार यहाँ दिखेंगे।",
   "home.loadFailed": "{what} लोड नहीं हो सका।",
 };

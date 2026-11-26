@@ -223,7 +223,7 @@ describe("run_script (build and run in the same turn)", () => {
       const { card, result } = await sum(env, "approve", ctx().c);
       expect(card).toMatchObject({
         kind: "skill_install",
-        surfaces: ["desktop"],
+        surfaces: ["desktop", "notification"],
         scopesOffered: ["once"],
         taint: false,
         details: { kind: "script_run", language: "node", network: [] },
@@ -357,7 +357,7 @@ describe("run_script on Windows (in the sandbox PC, never on this PC)", () => {
     const { card, result } = await sum(env, "approve", ctx().c);
     expect(card).toMatchObject({
       kind: "skill_install",
-      surfaces: ["desktop"],
+      surfaces: ["desktop", "notification"],
       scopesOffered: ["once"],
       details: { kind: "script_run", language: "node", interpreter: "node", sandbox: "sandbox-pc" },
     });

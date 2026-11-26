@@ -219,7 +219,6 @@ describe("Skip for now on the Memory step leaves its settings alone", () => {
     const next = run();
     await userEvent.click(screen.getByRole("switch", { name: "Evening wrap-up" }));
     await userEvent.click(screen.getByRole("button", { name: "Skip for now" }));
-    await userEvent.click(screen.getByRole("button", { name: "Next" })); // Safety → Done
     await userEvent.click(screen.getByRole("button", { name: "Open the main chat" }));
     const skipped = next.mock.calls[0]?.[0];
     expect(skipped).not.toHaveProperty("habits");
@@ -231,8 +230,7 @@ describe("Skip for now on the Memory step leaves its settings alone", () => {
     await userEvent.click(screen.getByRole("button", { name: "Skip for now" }));
     await userEvent.click(screen.getByRole("button", { name: "Back" }));
     await userEvent.click(screen.getByRole("switch", { name: "Evening wrap-up" }));
-    await userEvent.click(screen.getByRole("button", { name: "Next" }));
-    await userEvent.click(screen.getByRole("button", { name: "Next" }));
+    await userEvent.click(screen.getByRole("button", { name: "Next" })); // Memory → Done
     await userEvent.click(screen.getByRole("button", { name: "Open the main chat" }));
     expect(next.mock.calls[0]?.[0]).toMatchObject({
       habits: { brief: true, wrapup: true, followups: true },

@@ -41,6 +41,7 @@ export const home: Partial<Catalogue> = {
   "home.more.pages": "页面",
   "home.more.brief": "简报设置",
   "home.more.memoryReview": "记忆审阅",
+  "home.quiet": "目前没有需要你处理的事。审批、每日简报和新想法会显示在这里。",
   "home.loadFailed": "无法载入{what}。",
   "people.page.title": "人物",
   "people.page.count": "{n, plural, other {# 人}}",

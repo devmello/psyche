@@ -261,21 +261,14 @@ export function AppearancePanel({
   );
   const motion = a.reduceMotion === "system" ? "system" : a.reduceMotion ? "on" : "off";
   return (
-    <SectionFrame
-      needsApproval={needsApproval}
-      title={t("settings.appearance.title")}
-      description={t("settings.appearance.description")}
-    >
+    <SectionFrame needsApproval={needsApproval} title={t("settings.appearance.title")}>
       <LoadGate
         label={t("settings.appearance.loadLabel")}
         loading={loading ?? false}
         error={error ?? null}
         {...(onRetry ? { onRetry } : {})}
       >
-        <Group
-          title={t("settings.appearance.colors")}
-          description={t("settings.appearance.colorsHint")}
-        >
+        <Group title={t("settings.appearance.colors")}>
           <RadioField
             label={t("settings.key.appearance.theme")}
             inline
@@ -304,38 +297,35 @@ export function AppearancePanel({
           />
         </Group>
 
-        <Group
-          title={t("settings.appearance.comfort")}
-          description={t("settings.appearance.comfortHint")}
-        >
-          <RadioField
-            label={t("settings.key.appearance.reduceMotion")}
-            inline
-            value={motion}
-            settingKey="appearance.reduceMotion"
-            onChange={(v) =>
-              onChange("appearance.reduceMotion", v === "system" ? "system" : v === "on")
-            }
-            options={[
-              { value: "system", label: t("settings.appearance.followSystem") },
-              { value: "on", label: t("common.on") },
-              { value: "off", label: t("common.off") },
-            ]}
-          />
-          <SwitchField
-            label={t("settings.key.appearance.contrast")}
-            description={t("settings.appearance.contrastHint")}
-            checked={a.contrast === "high"}
-            settingKey="appearance.contrast"
-            onChange={(v) => onChange("appearance.contrast", v ? "high" : "standard")}
-          />
-          <GlassSwitch values={values} onChange={onChange} />
-        </Group>
+        {/* Reduce motion, contrast and translucency, one row away (Search opens it). */}
+        <Advanced title={t("settings.drill.accessibility")}>
+          <Group title={t("settings.appearance.comfort")}>
+            <RadioField
+              label={t("settings.key.appearance.reduceMotion")}
+              inline
+              value={motion}
+              settingKey="appearance.reduceMotion"
+              onChange={(v) =>
+                onChange("appearance.reduceMotion", v === "system" ? "system" : v === "on")
+              }
+              options={[
+                { value: "system", label: t("settings.appearance.followSystem") },
+                { value: "on", label: t("common.on") },
+                { value: "off", label: t("common.off") },
+              ]}
+            />
+            <SwitchField
+              label={t("settings.key.appearance.contrast")}
+              description={t("settings.appearance.contrastHint")}
+              checked={a.contrast === "high"}
+              settingKey="appearance.contrast"
+              onChange={(v) => onChange("appearance.contrast", v ? "high" : "standard")}
+            />
+            <GlassSwitch values={values} onChange={onChange} />
+          </Group>
+        </Advanced>
 
-        <Group
-          title={t("settings.appearance.background")}
-          description={t("settings.appearance.backgroundHint")}
-        >
+        <Group title={t("settings.appearance.background")}>
           <SwitchField
             label={t("settings.key.appearance.showInDock")}
             description={t("settings.appearance.showInDockHint")}

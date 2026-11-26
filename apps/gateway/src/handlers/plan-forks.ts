@@ -44,10 +44,12 @@ import {
   type PlanFork,
   type PlanForkBranch,
   PsycheError,
+  type StagedAction,
   type Surface,
   type TaintSource,
 } from "@psyche/protocol";
-import { isDesktopViewer } from "../compose/fork-hidden.ts";
+import { forkBranchWithheld, isDesktopViewer } from "../compose/fork-hidden.ts";
+import { forRemote, MESSAGES_ITEM_LINE } from "../compose/night-shift.ts";
 import type { Call, HandlerDef } from "../context.ts";
 
 /**
@@ -72,7 +74,15 @@ export interface PlanForkDeps {
   service: ForkService;
   /** The Night shift apply module (W5); absent: Take refuses. */
   applier?: Pick<NightShiftApply, "applyFork"> | undefined;
-  broker: { get(id: string): Promise<ApprovalRequest | undefined> };
+  broker: {
+    get(id: string): Promise<ApprovalRequest | undefined>;
+    /** The broker's normal withdraw path: closes a pending card (never deletes rows). */
+    invalidatePendingOfKind(
+      kind: ApprovalRequest["kind"],
+      reason: string,
+      match?: (a: ApprovalRequest) => boolean,
+    ): Promise<ApprovalRequest[]>;
+  };
   tasks: {
     get(id: string): Promise<{ status: string } | undefined>;
     cancel(id: string, reason: string): Promise<unknown>;
@@ -131,8 +141,31 @@ declare function paramsOf(
     | "planForks.cancel"
     | "planForks.retryBranch"
     | "planForks.take"
+    | "planForks.staged"
     | "planForks.dismiss",
 ): void;
+
+/**
+ * A staged item for a viewer that may not read its text: the id, status, binding hash and counts
+ * stay (the Take sheet lists the row), every field that quotes the owner's data is cleared.
+ */
+function withholdItem(i: StagedAction): StagedAction {
+  return {
+    ...i,
+    result: null,
+    withheld: "messages",
+    summary: MESSAGES_ITEM_LINE,
+    why: null,
+    params: null,
+    target: null,
+    targetKey: "",
+    precondition: null,
+    inverse: null,
+    send: null,
+    preview: null,
+    taintSources: [],
+  };
+}
 
 function settingNumber(db: PsycheDb, key: string, fallback: number, min: number, max: number) {
   const v = getSetting(db, key)?.value;
@@ -520,6 +553,23 @@ export function createPlanForkHandlers(deps: PlanForkDeps) {
     "planForks.get": async (call: Call, p: Params<"planForks.get">) =>
       view(call, requireFork(p.forkId)),
 
+    "planForks.staged": async (call: Call, p: Params<"planForks.staged">) => {
+      // The same checks as take: an unknown fork or a branch of another fork is not_found.
+      const fork = requireFork(p.forkId);
+      const branch = getPlanForkBranch(db, p.branchId);
+      if (branch === null || branch.forkId !== fork.id)
+        throw new PsycheError("not_found", "no such branch");
+      const items = listStagedActionsForBranch(db, branch.id).slice(0, 50);
+      if (isDesktopViewer(call)) return { items };
+      // Off the desktop shell: a branch that is still running, or that read owner-only sources
+      // (Memory, Contacts, Messages leave no taint on its items), shows no item text at all. The
+      // rule is `forkThreadRestricted`'s, the one the router applies to the branch's thread.
+      const restricted = forkBranchWithheld(db, branch);
+      return {
+        items: items.map((i) => forRemote(restricted ? withholdItem(i) : i)),
+      };
+    },
+
     "planForks.list": async (call: Call, p: Params<"planForks.list">) => {
       if (getThread(db, p.threadId) === undefined)
         throw new PsycheError("not_found", "no such chat");
@@ -711,7 +761,7 @@ export function createPlanForkHandlers(deps: PlanForkDeps) {
       try {
         r = await deps.applier.applyFork(
           { forkId: fork.id, branchId: branch.id, items: p.items, sends: p.sends },
-          { local: isDesktopViewer(call) },
+          { local: isDesktopViewer(call), withholdAll: forkBranchWithheld(db, branch) },
         );
       } catch (err) {
         release();
@@ -722,11 +772,27 @@ export function createPlanForkHandlers(deps: PlanForkDeps) {
         release();
         return { refused };
       }
-      db.sqlite
+      const recorded = db.sqlite
         .prepare(
           "UPDATE plan_forks SET take_approval_id = ?, updated_at = ? WHERE id = ? AND take_approval_id = ?",
         )
         .run(r.issued.approval.id, nowIso(), fork.id, claim);
+      if (recorded.changes === 0) {
+        // The claim went stale while issuing and another Take claimed the fork: this card must
+        // not stay approvable. The broker's own withdraw closes it; its settle hook unbinds the
+        // items (and finds no fork pointing at it, so nothing else moves).
+        const issuedId = r.issued.approval.id;
+        try {
+          await deps.broker.invalidatePendingOfKind(
+            "staged_apply",
+            "take_conflict",
+            (a) => a.id === issuedId,
+          );
+        } catch (err) {
+          warn("could not withdraw a take that lost its claim", err);
+        }
+        throw busyTake();
+      }
       pendingTakes.set(r.issued.approval.id, opts);
       const token = r.issued.answerTokens[deps.surfaceOf(call.identity.deviceId)];
       publishFork(fork.id);

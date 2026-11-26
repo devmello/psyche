@@ -898,7 +898,11 @@ function ParamRows({ params }: { params: Details }): ReactElement {
                 ? t("blocks.details.url")
                 : k === "reason"
                   ? t("blocks.details.reason")
-                  : humanize(k)
+                  : k === "when"
+                    ? t("blocks.details.when")
+                    : k === "whatItWillDo"
+                      ? t("blocks.details.whatItWillDo")
+                      : humanize(k)
             }
           >
             {k === "url" ? <Code>{text}</Code> : text}

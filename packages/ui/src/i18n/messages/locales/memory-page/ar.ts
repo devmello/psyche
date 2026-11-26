@@ -3,7 +3,7 @@ import type { Catalogue } from "../../index.ts";
 /** memory-page strings (ar); merged into `../ar.ts`. */
 export const memoryPage: Partial<Catalogue> = {
   "memory.page.title": "الذاكرة",
-  "memory.page.soul": "Soul",
+  "memory.page.soul": "الشخصية",
   "memory.page.kinds": "ما يُعرض",
   "memory.page.kind.everything": "كل شيء",
   "memory.page.kind.people": "الأشخاص",

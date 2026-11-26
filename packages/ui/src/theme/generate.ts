@@ -113,8 +113,8 @@ const TEXT_START: Record<Appearance, { l11: number; l12: number }> = {
 
 /** Gray lightness per step (Radix gray, measured in OKLCH). */
 const GRAY_L: Record<Appearance, number[]> = {
-  light: [0.991, 0.982, 0.956, 0.931, 0.906, 0.884, 0.85, 0.795, 0.649, 0.618, 0.521, 0.244],
-  dark: [0.178, 0.213, 0.252, 0.285, 0.313, 0.348, 0.401, 0.488, 0.537, 0.58, 0.771, 0.949],
+  light: [0.991, 0.982, 0.956, 0.931, 0.906, 0.884, 0.85, 0.795, 0.649, 0.54, 0.48, 0.244],
+  dark: [0.178, 0.213, 0.252, 0.285, 0.313, 0.348, 0.401, 0.488, 0.537, 0.64, 0.771, 0.949],
 };
 
 /** Hue and peak chroma per gray family; `auto` tints toward the seed hue. */
