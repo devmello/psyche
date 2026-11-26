@@ -101,7 +101,7 @@ final class SettingsModel {
             offeringLocalRemoval = true
             return false
         } catch {
-            notice = "\(error.localizedDescription) You can also remove this phone in Settings \u{2192} Devices on your Mac."
+            notice = "\(error.localizedDescription) \(String(localized: "You can also remove this phone in Settings \u{2192} Devices & server on your Mac.", bundle: .module))"
             return false
         }
     }
@@ -120,7 +120,7 @@ final class SettingsModel {
     }
 }
 
-/// The phone's own settings (docs/design/ios-app-2026.md §4.7): a native grouped `Form`. Everything else says
+/// The phone's own settings (docs/design/ios-app-2026.md §4.7): a native grouped `List`. Everything else says
 /// "Change this on your Mac": the phone has no admin scope.
 struct SettingsSheet: View {
     @State private var model: SettingsModel
@@ -141,9 +141,9 @@ struct SettingsSheet: View {
             Group {
                 switch model.phase {
                 case .idle, .loading:
-                    Form { content(.skeleton) }.redacted(reason: .placeholder).allowsHitTesting(false)
+                    List { content(.skeleton) }.redacted(reason: .placeholder).allowsHitTesting(false)
                 case .loaded(let loaded):
-                    Form { content(loaded) }
+                    List { content(loaded) }
                 case .failed(let message):
                     ContentUnavailableView {
                         Label(String(localized: "Couldn't load this", bundle: .module), systemImage: "exclamationmark.triangle")
@@ -181,7 +181,7 @@ struct SettingsSheet: View {
             }
             Button(String(localized: "Cancel", bundle: .module), role: .cancel) {}
         } message: {
-            Text("Open Settings \u{2192} Server & remote access \u{2192} Pair another computer on your Mac, then scan the code it shows.", bundle: .module)
+            Text("Open Settings \u{2192} Devices & server \u{2192} Pair another computer on your Mac, then scan the code it shows.", bundle: .module)
         }
         .confirmationDialog(
             String(localized: "Your Mac isn't reachable right now.", bundle: .module), isPresented: $model.offeringLocalRemoval, titleVisibility: .visible
@@ -196,7 +196,7 @@ struct SettingsSheet: View {
             }
             Button(String(localized: "Cancel", bundle: .module), role: .cancel) {}
         } message: {
-            Text("This phone can clear its keys and saved data now, but your Mac will keep listing it until you remove it in Settings \u{2192} Devices there.", bundle: .module)
+            Text("This phone can clear its keys and saved data now, but your Mac will keep listing it until you remove it in Settings \u{2192} Devices & server there.", bundle: .module)
         }
         .confirmationDialog(String(localized: "Remove this phone?", bundle: .module), isPresented: $confirmingRemove, titleVisibility: .visible) {
             Button(String(localized: "Remove this phone", bundle: .module), role: .destructive) {
@@ -228,6 +228,9 @@ struct SettingsSheet: View {
             } label: {
                 LabeledContent(String(localized: "Connected over", bundle: .module), value: device.transport)
             }
+            Button(String(localized: "Re-pair with your Mac", bundle: .module)) { confirmingRepair = true }
+            Button(String(localized: "Remove this phone", bundle: .module), role: .destructive) { confirmingRemove = true }
+                .disabled(model.removing)
         }
 
         Section {
@@ -236,13 +239,17 @@ struct SettingsSheet: View {
                 .disabled(!settings.notifications)
             Toggle(String(localized: "Task titles on the Lock Screen", bundle: .module), isOn: binding(\.taskTitlesOnLockScreen, settings))
                 .disabled(!settings.notifications || !settings.liveActivities)
+            Toggle(isOn: binding(\.stayConnectedWhileRunning, settings)) {
+                Text("Stay connected while a task runs", bundle: .module)
+            }
+            .disabled(!settings.notifications || !settings.liveActivities)
+            .accessibilityIdentifier("stayConnectedToggle")
+            AwakeTodayRow(alerts: alerts, isOn: settings.stayConnectedWhileRunning)
         } header: {
             Text("Notifications", bundle: .module)
         } footer: {
             Text(Self.notificationsFooter)
         }
-
-        stayConnectedSection(settings)
 
         Section {
             Toggle(String(localized: "Share location with Psyche", bundle: .module), isOn: shareLocationBinding(settings))
@@ -254,25 +261,16 @@ struct SettingsSheet: View {
                 bundle: .module)
         }
 
-        // The Face ID toggle only changes how the phone asks before a risky action. Approving stays one tap.
         Section {
-            Toggle(String(localized: "Face ID for approvals", bundle: .module), isOn: binding(\.faceIDForApprovals, settings))
-        } header: {
-            Text("Approvals", bundle: .module)
-        } footer: {
-            Text("Asks for Face ID before you allow a risky action from this phone.", bundle: .module)
-        }
-
-        Section(String(localized: "Model", bundle: .module)) {
             NavigationLink(String(localized: "Default model", bundle: .module)) { DefaultModelView(store: store) }
             NavigationLink(String(localized: "Usage", bundle: .module)) { UsageView(store: store) }
-        }
-
-        computersSection(loaded.machines)
-
-        Section {
             NavigationLink(String(localized: "Standing permissions", bundle: .module)) { StandingPermissionsView(store: store) }
             NavigationLink(String(localized: "Skills", bundle: .module)) { SkillsView(store: store) }
+            NavigationLink(String(localized: "Computers Psyche can use", bundle: .module)) { ComputersView(machines: loaded.machines) }
+        } header: {
+            Text("Psyche on your Mac", bundle: .module)
+        } footer: {
+            Text("You can look at these here. To change one, open Settings on your Mac.", bundle: .module)
         }
 
         if session.isDemo {
@@ -288,12 +286,6 @@ struct SettingsSheet: View {
             }
         }
 
-        Section(String(localized: "Your Mac", bundle: .module)) {
-            Button(String(localized: "Re-pair with your Mac", bundle: .module)) { confirmingRepair = true }
-            Button(String(localized: "Remove this phone", bundle: .module), role: .destructive) { confirmingRemove = true }
-                .disabled(model.removing)
-        }
-
         Section {
             LabeledContent(String(localized: "Version", bundle: .module)) {
                 Text(Self.version).font(.psycheMono(.footnote))
@@ -305,47 +297,11 @@ struct SettingsSheet: View {
         }
     }
 
-    /// "Computers Psyche can use": read-only. Adding or pairing one is done on the Mac.
-    private func computersSection(_ machines: [MachineSummary]) -> some View {
-        Section(String(localized: "Computers Psyche can use", bundle: .module)) {
-            if machines.isEmpty {
-                Text("No computers added yet.", bundle: .module).foregroundStyle(.secondary)
-            } else {
-                ForEach(machines, id: \.id) { machine in
-                    LabeledContent {
-                        Self.statusText(machine.status)
-                    } label: {
-                        Text(machine.name)
-                    }
-                    .accessibilityElement(children: .combine)
-                }
-            }
-        }
-    }
-
     static func statusText(_ status: MachineSummary.Status) -> Text {
         switch status {
         case .online: Text("Online", bundle: .module)
         case .offline: Text("Offline", bundle: .module)
         case .degraded: Text("Limited", bundle: .module)
-        }
-    }
-
-    /// "Stay connected while a task runs" (off by default), its battery note, and what it has cost today.
-    private func stayConnectedSection(_ settings: PhoneSettings) -> some View {
-        Section {
-            Toggle(isOn: binding(\.stayConnectedWhileRunning, settings)) {
-                Text("Stay connected while a task runs", bundle: .module)
-            }
-            .disabled(!settings.notifications || !settings.liveActivities)
-            .accessibilityIdentifier("stayConnectedToggle")
-            AwakeTodayRow(alerts: alerts, isOn: settings.stayConnectedWhileRunning)
-        } header: {
-            Text("Background", bundle: .module)
-        } footer: {
-            Text(
-                "Keeps Psyche running in the background, with a silent audio session, only while a task or chat reply you're watching runs or waits for you. It uses some battery, and stops on Low Power Mode or when the battery is below 20 percent and unplugged.",
-                bundle: .module)
         }
     }
 
@@ -386,6 +342,9 @@ struct SettingsSheet: View {
     static let notificationsFooter = [
         String(localized: "Task titles on the Lock Screen are off by default.", bundle: .module),
         String(localized: "Psyche notifies you while it's open, and when iOS lets it check in the background.", bundle: .module),
+        String(
+            localized: "Keeps Psyche running in the background, with a silent audio session, only while a task or chat reply you're watching runs or waits for you. It uses some battery, and stops on Low Power Mode or when the battery is below 20 percent and unplugged.",
+            bundle: .module),
     ].joined(separator: "\n\n")
 
     private func binding(_ keyPath: WritableKeyPath<PhoneSettings, Bool>, _ settings: PhoneSettings) -> Binding<Bool> {
@@ -407,9 +366,37 @@ extension SettingsModel.Loaded {
         device: DeviceInfo(
             name: "Placeholder", scopes: ["Read", "Write"], gatewayHost: "placeholder.example.net",
             gatewayFingerprint: "sha256:0000 0000 0000", transport: "Tailscale"),
-        settings: PhoneSettings(notifications: true, liveActivities: true, taskTitlesOnLockScreen: false, faceIDForApprovals: true))
+        settings: PhoneSettings(notifications: true, liveActivities: true, taskTitlesOnLockScreen: false))
 }
 
+
+/// "Computers Psyche can use": read-only. Adding or pairing one is done on the Mac.
+private struct ComputersView: View {
+    let machines: [MachineSummary]
+
+    var body: some View {
+        List {
+            Section {
+                if machines.isEmpty {
+                    Text("No computers added yet.", bundle: .module).foregroundStyle(.secondary)
+                } else {
+                    ForEach(machines, id: \.id) { machine in
+                        LabeledContent {
+                            SettingsSheet.statusText(machine.status)
+                        } label: {
+                            Text(machine.name)
+                        }
+                        .accessibilityElement(children: .combine)
+                    }
+                }
+            } footer: {
+                Text("To add or change computers, open Settings \u{2192} Devices & server on your Mac.", bundle: .module)
+            }
+        }
+        .navigationTitle(String(localized: "Computers Psyche can use", bundle: .module))
+        .psycheInlineTitle()
+    }
+}
 
 /// "Kept awake 42 min today": read when the sheet opens and every half minute while it is open and the switch is on.
 private struct AwakeTodayRow: View {

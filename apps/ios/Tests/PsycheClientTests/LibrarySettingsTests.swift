@@ -401,8 +401,8 @@ struct LibrarySettingsTests {
     @Test func settingsDefaultThenRoundTripOnThePhone() async throws {
         let (backend, h) = try await GatewayBackendTests().live { _ in }
         let first = try await backend.settings()
-        #expect(first == PhoneSettings(notifications: true, liveActivities: true, taskTitlesOnLockScreen: false, faceIDForApprovals: true))
-        let changed = PhoneSettings(notifications: false, liveActivities: false, taskTitlesOnLockScreen: true, faceIDForApprovals: false)
+        #expect(first == PhoneSettings(notifications: true, liveActivities: true, taskTitlesOnLockScreen: false))
+        let changed = PhoneSettings(notifications: false, liveActivities: false, taskTitlesOnLockScreen: true)
         try await backend.updateSettings(changed)
         #expect(try await backend.settings() == changed)
         // A new backend over the same directory (an app relaunch) reads the same file.
@@ -417,7 +417,7 @@ struct LibrarySettingsTests {
         defer { try? FileManager.default.removeItem(at: dir) }
         try Data(#"{"notifications":false}"#.utf8).write(to: dir.appendingPathComponent(PhoneSettingsStore.fileName))
         let loaded = PhoneSettingsStore(directory: dir).load()
-        #expect(loaded.notifications == false && loaded.liveActivities == true && loaded.faceIDForApprovals == true)
+        #expect(loaded.notifications == false && loaded.liveActivities == true)
         try Data("not json".utf8).write(to: dir.appendingPathComponent(PhoneSettingsStore.fileName))
         #expect(PhoneSettingsStore(directory: dir).load() == PhoneSettingsStore.defaults)
     }
@@ -454,7 +454,7 @@ struct LibrarySettingsTests {
         gateway.on("devices.revokeSelf") { req in seen.add(req); return .success(.object(["device": .object([:])])) }
         let h = try await SecurityReviewTests.pairedHarness(gateway)
         let backend = GatewayBackend(client: h.client)
-        try await backend.updateSettings(PhoneSettings(notifications: false, liveActivities: true, taskTitlesOnLockScreen: false, faceIDForApprovals: true))
+        try await backend.updateSettings(PhoneSettings(notifications: false, liveActivities: true, taskTitlesOnLockScreen: false))
         try await backend.revokeThisPhone()
         #expect(seen.frames.count == 1)
         #expect(seen.frames[0].params?.object?.isEmpty == true)  // it never names a device

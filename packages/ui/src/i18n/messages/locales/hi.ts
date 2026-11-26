@@ -3,6 +3,7 @@ import { actionErrors } from "./action-errors/hi.ts";
 import { agentRest } from "./agent-rest/hi.ts";
 import { appleA } from "./apple-a/hi.ts";
 import { appleB } from "./apple-b/hi.ts";
+import { appleD } from "./apple-d/hi.ts";
 import { appleE1 } from "./apple-e1/hi.ts";
 import { appleE2 } from "./apple-e2/hi.ts";
 import { approvalsW3 } from "./approvals-w3/hi.ts";
@@ -2858,7 +2859,7 @@ export const hi: Partial<Catalogue> = {
   "screens.search.scope.tasks": "टास्क",
   "screens.search.scope.memory": "मेमोरी",
   "screens.search.scope.library": "लाइब्रेरी",
-  "screens.search.scope.feed": "फ़ीड",
+  "screens.search.scope.feed": "होम",
   "screens.search.scope.ideas": "आइडिया",
   "screens.search.scope.goals": "लक्ष्य",
   "screens.search.scope.connectors": "कनेक्टर",
@@ -2870,7 +2871,7 @@ export const hi: Partial<Catalogue> = {
   "screens.search.example": "दंत चिकित्सक",
   "screens.search.tryExample": "“{example}” आज़माएँ",
   "screens.search.intro":
-    "थ्रेड, टास्क, मेमोरी, लाइब्रेरी और फ़ीड में खोजें। in:feed, type:pdf या from:name से इसे सीमित करें।",
+    "थ्रेड, कार्य, मेमोरी, लाइब्रेरी और होम में खोजें। type:pdf या from:name से सीमित करें।",
   "screens.search.addWord": "खोजने के लिए कोई शब्द जोड़ें।",
   "screens.search.searching": "खोज रहा है",
   "screens.search.failed": "खोज विफल",
@@ -2928,7 +2929,7 @@ export const hi: Partial<Catalogue> = {
   "screens.ideas.cadence": "आवृत्ति",
   "screens.ideas.repeats": "इसके प्रस्तावित शेड्यूल पर दोहराता है; बाद में आगामी में बदलें।",
   "screens.ideas.viewSkill": "SKILL.md देखें",
-  "screens.ideas.accept": "चलो करते हैं",
+  "screens.ideas.accept": "कार्य शुरू करें",
   "screens.ideas.added": "“{title}” को आगामी में जोड़ा गया।",
   "screens.ideas.started": "{name} ने “{title}” शुरू किया।",
   "screens.ideas.open": "खोलें",
@@ -3086,7 +3087,7 @@ export const hi: Partial<Catalogue> = {
   "screens.inbox.saveFailed": "Psyche उसे सेव नहीं कर सका",
   "screens.inbox.retryFailed": "Psyche “{title}” को फिर से नहीं आज़मा सका",
   "screens.inbox.kind.approval": "स्वीकृति",
-  "screens.inbox.kind.input_needed": "इनपुट",
+  "screens.inbox.kind.input_needed": "आपके लिए प्रश्न",
   "screens.inbox.kind.task_done": "पूरा",
   "screens.inbox.kind.task_failed": "विफल",
   "screens.inbox.kind.proactive": "आइडिया",
@@ -3212,7 +3213,7 @@ export const hi: Partial<Catalogue> = {
   "screens.library.meetingNotes.action": "मीटिंग नोट्स बनाएँ",
   "screens.library.meetingNotes.running":
     "नोट्स बन रहे हैं। लंबी रिकॉर्डिंग में समय लग सकता है, चार घंटे तक के ऑडियो में।",
-  "screens.library.meetingNotes.done": "नोट्स आपके फ़ीड में तैयार हैं।",
+  "screens.library.meetingNotes.done": "नोट्स होम में तैयार हैं।",
   "screens.library.meetingNotes.open": "नोट्स खोलें",
   "screens.library.meetingNotes.failed": "Psyche नोट्स नहीं बना सका ({reason})।",
   "screens.library.trust": "इस फ़ाइल पर भरोसा करें",
@@ -3909,4 +3910,5 @@ export const hi: Partial<Catalogue> = {
   ...machines,
   ...actionErrors,
   ...appleA,
+  ...appleD,
 };

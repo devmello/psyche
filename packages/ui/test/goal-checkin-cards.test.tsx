@@ -66,11 +66,11 @@ describe("goal check-in cards", () => {
     expect(screen.getByText(/^Resume\?/)).toBeTruthy();
   });
 
-  it("an ordinary idea keeps Do it, and its dismiss reasons are in the menu", async () => {
+  it("an ordinary idea keeps Start Task, and its dismiss reasons are in the menu", async () => {
     const onDismiss = vi.fn();
     const user = userEvent.setup();
     render(<IdeaCard idea={idea(null)} onDismiss={onDismiss} />);
-    expect(screen.getByRole("button", { name: "Do it" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Start Task" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Snooze" })).toBeNull();
     await user.click(screen.getByRole("button", { name: /^More for / }));
     await user.click(await screen.findByRole("menuitem", { name: "Not interested" }));

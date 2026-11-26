@@ -3,6 +3,7 @@ import { actionErrors } from "./action-errors/de.ts";
 import { agentRest } from "./agent-rest/de.ts";
 import { appleA } from "./apple-a/de.ts";
 import { appleB } from "./apple-b/de.ts";
+import { appleD } from "./apple-d/de.ts";
 import { appleE1 } from "./apple-e1/de.ts";
 import { appleE2 } from "./apple-e2/de.ts";
 import { approvalsW3 } from "./approvals-w3/de.ts";
@@ -2962,7 +2963,7 @@ export const de: Partial<Catalogue> = {
   "screens.search.scope.tasks": "Aufgaben",
   "screens.search.scope.memory": "Gedächtnis",
   "screens.search.scope.library": "Mediathek",
-  "screens.search.scope.feed": "Feed",
+  "screens.search.scope.feed": "Home",
   "screens.search.scope.ideas": "Ideen",
   "screens.search.scope.goals": "Ziele",
   "screens.search.scope.connectors": "Verbindungen",
@@ -2974,7 +2975,7 @@ export const de: Partial<Catalogue> = {
   "screens.search.example": "Zahnarzt",
   "screens.search.tryExample": "Versuch „{example}“",
   "screens.search.intro":
-    "Durchsuche Threads, Aufgaben, Gedächtnis, Mediathek und Feed. Grenze mit in:feed, type:pdf oder from:name ein.",
+    "Durchsuche Threads, Aufgaben, Gedächtnis, Mediathek und Home. Grenze mit type:pdf oder from:name ein.",
   "screens.search.addWord": "Gib ein Wort ein, nach dem gesucht werden soll.",
   "screens.search.searching": "Wird gesucht",
   "screens.search.failed": "Suche fehlgeschlagen",
@@ -3033,7 +3034,7 @@ export const de: Partial<Catalogue> = {
   "screens.ideas.repeats":
     "Wiederholt sich nach dem vorgeschlagenen Zeitplan; ändere ihn später unter „Anstehend“.",
   "screens.ideas.viewSkill": "SKILL.md ansehen",
-  "screens.ideas.accept": "Los geht’s",
+  "screens.ideas.accept": "Aufgabe starten",
   "screens.ideas.added": "„{title}“ zu „Anstehend“ hinzugefügt.",
   "screens.ideas.started": "{name} hat „{title}“ gestartet.",
   "screens.ideas.open": "Öffnen",
@@ -3202,7 +3203,7 @@ export const de: Partial<Catalogue> = {
   "screens.inbox.saveFailed": "Psyche konnte das nicht sichern",
   "screens.inbox.retryFailed": "Psyche konnte „{title}“ nicht erneut versuchen",
   "screens.inbox.kind.approval": "Genehmigung",
-  "screens.inbox.kind.input_needed": "Eingabe",
+  "screens.inbox.kind.input_needed": "Frage an dich",
   "screens.inbox.kind.task_done": "Fertig",
   "screens.inbox.kind.task_failed": "Fehlgeschlagen",
   "screens.inbox.kind.proactive": "Idee",
@@ -3337,7 +3338,7 @@ export const de: Partial<Catalogue> = {
   "screens.library.meetingNotes.action": "Besprechungsnotizen erstellen",
   "screens.library.meetingNotes.running":
     "Notizen werden erstellt. Lange Aufnahmen können dauern, bis zu vier Stunden Audio.",
-  "screens.library.meetingNotes.done": "Die Notizen sind in Ihrem Feed bereit.",
+  "screens.library.meetingNotes.done": "Die Notizen sind in Home bereit.",
   "screens.library.meetingNotes.open": "Notizen öffnen",
   "screens.library.meetingNotes.failed": "Psyche konnte die Notizen nicht erstellen ({reason}).",
   "screens.library.trust": "Dieser Datei vertrauen",
@@ -4058,4 +4059,5 @@ export const de: Partial<Catalogue> = {
   ...machines,
   ...actionErrors,
   ...appleA,
+  ...appleD,
 };

@@ -3,6 +3,7 @@ import { actionErrors } from "./action-errors/es.ts";
 import { agentA } from "./agent-a/es.ts";
 import { appleA } from "./apple-a/es.ts";
 import { appleB } from "./apple-b/es.ts";
+import { appleD } from "./apple-d/es.ts";
 import { appleE1 } from "./apple-e1/es.ts";
 import { appleE2 } from "./apple-e2/es.ts";
 import { approvalsW3 } from "./approvals-w3/es.ts";
@@ -2928,7 +2929,7 @@ export const es: Partial<Catalogue> = {
   "screens.search.scope.tasks": "Tareas",
   "screens.search.scope.memory": "Memoria",
   "screens.search.scope.library": "Biblioteca",
-  "screens.search.scope.feed": "Novedades",
+  "screens.search.scope.feed": "Inicio",
   "screens.search.scope.ideas": "Ideas",
   "screens.search.scope.goals": "Objetivos",
   "screens.search.scope.connectors": "Conectores",
@@ -2940,7 +2941,7 @@ export const es: Partial<Catalogue> = {
   "screens.search.example": "dentista",
   "screens.search.tryExample": "Prueba con «{example}»",
   "screens.search.intro":
-    "Busca en conversaciones, tareas, memoria, Biblioteca y Novedades. Acota con in:feed, type:pdf o from:nombre.",
+    "Busca en hilos, tareas, memoria, Biblioteca e Inicio. Acota con type:pdf o from:name.",
   "screens.search.addWord": "Añade una palabra que buscar.",
   "screens.search.searching": "Buscando",
   "screens.search.failed": "La búsqueda falló",
@@ -2999,7 +3000,7 @@ export const es: Partial<Catalogue> = {
   "screens.ideas.repeats":
     "Se repite según la programación que propone; cámbiala más tarde en Próximo.",
   "screens.ideas.viewSkill": "Ver SKILL.md",
-  "screens.ideas.accept": "Adelante",
+  "screens.ideas.accept": "Iniciar tarea",
   "screens.ideas.added": "«{title}» se añadió a Próximo.",
   "screens.ideas.started": "{name} empezó «{title}».",
   "screens.ideas.open": "Abrir",
@@ -3164,7 +3165,7 @@ export const es: Partial<Catalogue> = {
   "screens.inbox.saveFailed": "Psyche no pudo guardar eso",
   "screens.inbox.retryFailed": "Psyche no pudo reintentar «{title}»",
   "screens.inbox.kind.approval": "Aprobación",
-  "screens.inbox.kind.input_needed": "Respuesta",
+  "screens.inbox.kind.input_needed": "Pregunta para ti",
   "screens.inbox.kind.task_done": "Terminada",
   "screens.inbox.kind.task_failed": "Fallida",
   "screens.inbox.kind.proactive": "Idea",
@@ -3295,7 +3296,7 @@ export const es: Partial<Catalogue> = {
   "screens.library.meetingNotes.action": "Crear notas de la reunión",
   "screens.library.meetingNotes.running":
     "Creando las notas. Una grabación larga puede tardar, hasta cuatro horas de audio.",
-  "screens.library.meetingNotes.done": "Las notas están listas en tu Feed.",
+  "screens.library.meetingNotes.done": "Las notas están listas en Inicio.",
   "screens.library.meetingNotes.open": "Abrir notas",
   "screens.library.meetingNotes.failed": "Psyche no pudo crear las notas ({reason}).",
   "screens.library.trust": "Confiar en este archivo",
@@ -4011,4 +4012,5 @@ export const es: Partial<Catalogue> = {
   ...machines,
   ...actionErrors,
   ...appleA,
+  ...appleD,
 };

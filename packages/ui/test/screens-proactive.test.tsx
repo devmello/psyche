@@ -194,7 +194,7 @@ describe("Ideas, as Home's Suggestions", () => {
     const cadence = within(card).getByRole("combobox", { name: "Cadence" });
     expect((cadence as HTMLSelectElement).value).toBe("monthly");
     await user.selectOptions(cadence, "weekly");
-    await user.click(within(card).getByRole("button", { name: "Do it" }));
+    await user.click(within(card).getByRole("button", { name: "Start Task" }));
     await waitFor(() => expect(callsTo("ideas.accept")).toHaveLength(1));
     expect(callsTo("ideas.accept")[0]?.params).toEqual({
       ideaId: IDS.ideas.subscription,

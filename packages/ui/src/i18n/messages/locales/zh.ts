@@ -4,6 +4,7 @@ import { agent } from "./agent/zh.ts";
 import { agentNotes } from "./agent-notes/zh.ts";
 import { appleA } from "./apple-a/zh.ts";
 import { appleB } from "./apple-b/zh.ts";
+import { appleD } from "./apple-d/zh.ts";
 import { appleE1 } from "./apple-e1/zh.ts";
 import { appleE2 } from "./apple-e2/zh.ts";
 import { approvalsW3 } from "./approvals-w3/zh.ts";
@@ -2808,7 +2809,7 @@ export const zh: Partial<Catalogue> = {
   "screens.search.scope.tasks": "任务",
   "screens.search.scope.memory": "记忆",
   "screens.search.scope.library": "资料库",
-  "screens.search.scope.feed": "动态",
+  "screens.search.scope.feed": "主页",
   "screens.search.scope.ideas": "想法",
   "screens.search.scope.goals": "目标",
   "screens.search.scope.connectors": "连接器",
@@ -2820,7 +2821,7 @@ export const zh: Partial<Catalogue> = {
   "screens.search.example": "牙医",
   "screens.search.tryExample": "试试“{example}”",
   "screens.search.intro":
-    "搜索会话、任务、记忆、资料库和动态。可用 in:feed、type:pdf 或 from:name 缩小范围。",
+    "搜索对话、任务、记忆、资料库和主页。可用 type:pdf 或 from:name 缩小范围。",
   "screens.search.addWord": "请添加要搜索的词。",
   "screens.search.searching": "正在搜索",
   "screens.search.failed": "搜索失败",
@@ -2878,7 +2879,7 @@ export const zh: Partial<Catalogue> = {
   "screens.ideas.cadence": "频率",
   "screens.ideas.repeats": "按它建议的计划重复；之后可在“即将进行”中更改。",
   "screens.ideas.viewSkill": "查看 SKILL.md",
-  "screens.ideas.accept": "就这么办",
+  "screens.ideas.accept": "开始任务",
   "screens.ideas.added": "已将“{title}”添加到“即将进行”。",
   "screens.ideas.started": "{name} 已开始“{title}”。",
   "screens.ideas.open": "打开",
@@ -3036,7 +3037,7 @@ export const zh: Partial<Catalogue> = {
   "screens.inbox.saveFailed": "Psyche 无法保存",
   "screens.inbox.retryFailed": "Psyche 无法重试“{title}”",
   "screens.inbox.kind.approval": "审批",
-  "screens.inbox.kind.input_needed": "需要输入",
+  "screens.inbox.kind.input_needed": "需要你回答",
   "screens.inbox.kind.task_done": "已完成",
   "screens.inbox.kind.task_failed": "失败",
   "screens.inbox.kind.proactive": "想法",
@@ -3155,7 +3156,7 @@ export const zh: Partial<Catalogue> = {
   "screens.library.meetingNotes.action": "生成会议纪要",
   "screens.library.meetingNotes.running":
     "正在生成纪要。较长的录制可能需要一些时间，最长可达四小时的音频。",
-  "screens.library.meetingNotes.done": "纪要已在你的动态中准备好。",
+  "screens.library.meetingNotes.done": "笔记已在主页准备好。",
   "screens.library.meetingNotes.open": "打开纪要",
   "screens.library.meetingNotes.failed": "Psyche 无法生成纪要（{reason}）。",
   "screens.library.trust": "信任此文件",
@@ -3837,4 +3838,5 @@ export const zh: Partial<Catalogue> = {
   ...machines,
   ...actionErrors,
   ...appleA,
+  ...appleD,
 };

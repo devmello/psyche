@@ -13988,77 +13988,6 @@
         }
       }
     },
-    "Open Settings → Server & remote access → Pair another computer on your Mac, then scan the code it shows.": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Open Settings → Server & remote access → Pair another computer on your Mac, then scan the code it shows."
-          }
-        },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "افتح على جهاز Mac: الإعدادات ← الخادم والوصول عن بُعد ← اقتران جهاز آخر، ثم امسح الرمز الذي يظهر."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Öffne auf deinem Mac Einstellungen → Server und Fernzugriff → Anderen Computer koppeln und scanne dann den angezeigten Code."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Abre en tu Mac Ajustes → Servidor y acceso remoto → Emparejar otro ordenador y escanea el código que muestra."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ouvre sur ton Mac Réglages → Serveur et accès à distance → Associer un autre ordinateur, puis scanne le code affiché."
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "अपने Mac पर सेटिंग्स → Server & remote access → Pair another computer खोलें, फिर दिखाया गया कोड स्कैन करें।"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Sul Mac apri Impostazioni → Server e accesso remoto → Abbina un altro computer, poi scansiona il codice mostrato."
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Mac で「設定」→「サーバーとリモートアクセス」→「別のコンピュータとペアリング」を開き、表示されたコードを読み取ってください。"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Mac에서 설정 → 서버 및 원격 액세스 → 다른 컴퓨터 페어링을 열고 표시된 코드를 스캔하세요."
-          }
-        },
-        "pt": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No Mac, abra Ajustes → Servidor e acesso remoto → Parear outro computador e escaneie o código exibido."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "在 Mac 上打开“设置”→“服务器与远程访问”→“与另一台电脑配对”，然后扫描它显示的代码。"
-          }
-        }
-      }
-    },
     "Open in Maps": {
       "extractionState": "extracted_with_value",
       "localizations": {
@@ -17467,77 +17396,6 @@
         }
       }
     },
-    "This phone can clear its keys and saved data now, but your Mac will keep listing it until you remove it in Settings → Devices there.": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "This phone can clear its keys and saved data now, but your Mac will keep listing it until you remove it in Settings → Devices there."
-          }
-        },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "يمكن لهذا الهاتف مسح مفاتيحه وبياناته المحفوظة الآن، لكن جهاز Mac سيواصل عرضه حتى تزيله من الإعدادات ← الأجهزة هناك."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Dieses iPhone kann jetzt seine Schlüssel und gespeicherten Daten löschen. Dein Mac zeigt es aber weiter an, bis du es dort unter Einstellungen → Geräte entfernst."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Este teléfono puede borrar ahora sus claves y datos guardados, pero tu Mac lo seguirá mostrando hasta que lo quites en Ajustes → Dispositivos."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ce téléphone peut maintenant effacer ses clés et données enregistrées, mais ton Mac continuera de l'afficher jusqu'à ce que tu le retires dans Réglages → Appareils."
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "यह फ़ोन अभी अपनी कुंजियाँ और सहेजा गया डेटा मिटा सकता है, लेकिन जब तक आप उसे वहाँ सेटिंग्स → Devices से नहीं हटाते, आपका Mac उसे दिखाता रहेगा।"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Questo telefono può ora cancellare chiavi e dati salvati, ma il Mac continuerà a mostrarlo finché non lo rimuovi da Impostazioni → Dispositivi."
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "この iPhone は鍵と保存データを消去できますが、Mac 側で「設定」→「デバイス」から削除するまで Mac に表示され続けます。"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "이 휴대폰은 지금 키와 저장된 데이터를 지울 수 있지만, Mac에서 설정 → 기기에서 제거하기 전까지 Mac에 계속 표시됩니다."
-          }
-        },
-        "pt": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Este telefone pode apagar suas chaves e dados salvos agora, mas seu Mac continuará listando-o até você removê-lo em Ajustes → Dispositivos."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "此手机现在可以清除其密钥和已保存的数据，但在你的 Mac 上于“设置”→“设备”中移除之前，Mac 仍会列出它。"
-          }
-        }
-      }
-    },
     "To-do": {
       "extractionState": "extracted_with_value",
       "localizations": {
@@ -20875,77 +20733,6 @@
         }
       }
     },
-    "Asks for Face ID before you allow a risky action from this phone.": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Asks for Face ID before you allow a risky action from this phone."
-          }
-        },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "يطلب Face ID قبل السماح بإجراء محفوف بالمخاطر من هذا الهاتف."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Fragt nach Face ID, bevor du eine riskante Aktion von diesem iPhone erlaubst."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Pide Face ID antes de permitir una acción arriesgada desde este teléfono."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Demande Face ID avant d'autoriser une action risquée depuis ce téléphone."
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "इस फ़ोन से किसी जोखिम भरी कार्रवाई की अनुमति देने से पहले Face ID माँगता है।"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Chiede Face ID prima di consentire un'azione rischiosa da questo telefono."
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "このiPhoneからリスクのある操作を許可する前に Face ID を求めます。"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "이 휴대폰에서 위험한 작업을 허용하기 전에 Face ID를 요구합니다."
-          }
-        },
-        "pt": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Pede Face ID antes de permitir uma ação arriscada deste telefone."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "在允许此手机执行有风险的操作前，需要通过 Face ID 验证。"
-          }
-        }
-      }
-    },
     "Available in a moment": {
       "extractionState": "extracted_with_value",
       "localizations": {
@@ -22007,77 +21794,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "更早"
-          }
-        }
-      }
-    },
-    "Face ID for approvals": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Face ID for approvals"
-          }
-        },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Face ID للموافقات"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Face ID für Freigaben"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Face ID para aprobaciones"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Face ID pour les approbations"
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "स्वीकृतियों के लिए Face ID"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Face ID per le approvazioni"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "承認に Face ID"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "승인에 Face ID"
-          }
-        },
-        "pt": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Face ID para aprovações"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "审批使用 Face ID"
           }
         }
       }
@@ -68589,6 +68305,432 @@
           "stringUnit": {
             "state": "translated",
             "value": "这不是你配对过的 Mac。"
+          }
+        }
+      }
+    },
+    "Open Settings → Devices & server → Pair another computer on your Mac, then scan the code it shows.": {
+      "extractionState": "extracted_with_value",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open Settings → Devices & server → Pair another computer on your Mac, then scan the code it shows."
+          }
+        },
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "افتح على جهاز Mac: الإعدادات ← الأجهزة والخادم ← اقتران جهاز آخر، ثم امسح الرمز الذي يظهر."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Öffne auf deinem Mac Einstellungen → Geräte & Server → Anderen Computer koppeln und scanne dann den angezeigten Code."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abre en tu Mac Ajustes → Dispositivos y servidor → Emparejar otro ordenador y escanea el código que muestra."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ouvre sur ton Mac Réglages → Appareils et serveur → Associer un autre ordinateur, puis scanne le code affiché."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "अपने Mac पर सेटिंग्स → डिवाइस और सर्वर → दूसरा कंप्यूटर जोड़ें खोलें, फिर दिखाया गया कोड स्कैन करें।"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sul Mac apri Impostazioni → Dispositivi e server → Abbina un altro computer, poi scansiona il codice mostrato."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mac で「設定」→「デバイスとサーバー」→「別のコンピュータとペアリング」を開き、表示されたコードを読み取ってください。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mac에서 설정 → 기기 및 서버 → 다른 컴퓨터 페어링을 열고 표시된 코드를 스캔하세요."
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No Mac, abra Ajustes → Dispositivos e servidor → Parear outro computador e escaneie o código exibido."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "在 Mac 上打开“设置”→“设备与服务器”→“与另一台电脑配对”，然后扫描它显示的代码。"
+          }
+        }
+      }
+    },
+    "This phone can clear its keys and saved data now, but your Mac will keep listing it until you remove it in Settings → Devices & server there.": {
+      "extractionState": "extracted_with_value",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This phone can clear its keys and saved data now, but your Mac will keep listing it until you remove it in Settings → Devices & server there."
+          }
+        },
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "يمكن لهذا الهاتف مسح مفاتيحه وبياناته المحفوظة الآن، لكن جهاز Mac سيواصل عرضه حتى تزيله من الإعدادات ← الأجهزة والخادم هناك."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dieses iPhone kann jetzt seine Schlüssel und gespeicherten Daten löschen. Dein Mac zeigt es aber weiter an, bis du es dort unter Einstellungen → Geräte & Server entfernst."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Este teléfono puede borrar ahora sus claves y datos guardados, pero tu Mac lo seguirá mostrando hasta que lo quites en Ajustes → Dispositivos y servidor."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ce téléphone peut maintenant effacer ses clés et données enregistrées, mais ton Mac continuera de l'afficher jusqu'à ce que tu le retires dans Réglages → Appareils et serveur."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "यह फ़ोन अभी अपनी कुंजियाँ और सहेजा गया डेटा मिटा सकता है, लेकिन जब तक आप उसे वहाँ सेटिंग्स → डिवाइस और सर्वर से नहीं हटाते, आपका Mac उसे दिखाता रहेगा।"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Questo telefono può ora cancellare chiavi e dati salvati, ma il Mac continuerà a mostrarlo finché non lo rimuovi da Impostazioni → Dispositivi e server."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "この iPhone は鍵と保存データを消去できますが、Mac 側で「設定」→「デバイスとサーバー」から削除するまで Mac に表示され続けます。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "이 휴대폰은 지금 키와 저장된 데이터를 지울 수 있지만, Mac에서 설정 → 기기 및 서버에서 제거하기 전까지 Mac에 계속 표시됩니다."
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Este telefone pode apagar suas chaves e dados salvos agora, mas seu Mac continuará listando-o até você removê-lo em Ajustes → Dispositivos e servidor."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "此手机现在可以清除其密钥和已保存的数据，但在你的 Mac 上于“设置”→“设备与服务器”中移除之前，Mac 仍会列出它。"
+          }
+        }
+      }
+    },
+    "You can also remove this phone in Settings → Devices & server on your Mac.": {
+      "extractionState": "extracted_with_value",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You can also remove this phone in Settings → Devices & server on your Mac."
+          }
+        },
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "يمكنك أيضًا إزالة هذا الهاتف من الإعدادات ← الأجهزة والخادم على جهاز Mac."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Du kannst dieses iPhone auch auf deinem Mac unter Einstellungen → Geräte & Server entfernen."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "También puedes quitar este teléfono en Ajustes → Dispositivos y servidor en tu Mac."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tu peux aussi retirer ce téléphone dans Réglages → Appareils et serveur sur ton Mac."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "आप इस फ़ोन को अपने Mac पर सेटिंग्स → डिवाइस और सर्वर में भी हटा सकते हैं।"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Puoi anche rimuovere questo telefono da Impostazioni → Dispositivi e server sul Mac."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mac の「設定」→「デバイスとサーバー」からこの iPhone を削除することもできます。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mac에서 설정 → 기기 및 서버에서 이 휴대폰을 제거할 수도 있습니다."
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Você também pode remover este telefone em Ajustes → Dispositivos e servidor no Mac."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "你也可以在 Mac 上的“设置”→“设备与服务器”中移除此手机。"
+          }
+        }
+      }
+    },
+    "Psyche on your Mac": {
+      "extractionState": "extracted_with_value",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche on your Mac"
+          }
+        },
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche على جهاز Mac"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche auf deinem Mac"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche en tu Mac"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche sur ton Mac"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "आपके Mac पर Psyche"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche sul Mac"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mac 上の Psyche"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mac의 Psyche"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche no seu Mac"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "你 Mac 上的 Psyche"
+          }
+        }
+      }
+    },
+    "You can look at these here. To change one, open Settings on your Mac.": {
+      "extractionState": "extracted_with_value",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You can look at these here. To change one, open Settings on your Mac."
+          }
+        },
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "يمكنك الاطلاع على هذه الإعدادات هنا. لتغيير أي منها، افتح الإعدادات على جهاز Mac."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hier kannst du sie nur ansehen. Zum Ändern öffne die Einstellungen auf deinem Mac."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aquí solo puedes verlos. Para cambiar uno, abre Ajustes en tu Mac."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tu peux les consulter ici. Pour en modifier un, ouvre les Réglages sur ton Mac."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "आप इन्हें यहाँ देख सकते हैं। किसी को बदलने के लिए अपने Mac पर सेटिंग्स खोलें।"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Qui puoi solo consultarli. Per modificarne uno, apri Impostazioni sul Mac."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ここでは確認のみできます。変更するには、Mac で「設定」を開いてください。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "여기서는 확인만 할 수 있습니다. 변경하려면 Mac에서 설정을 여세요."
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aqui você só pode ver essas opções. Para alterar uma, abra os Ajustes no Mac."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "你可以在这里查看这些内容。如需更改，请在 Mac 上打开“设置”。"
+          }
+        }
+      }
+    },
+    "To add or change computers, open Settings → Devices & server on your Mac.": {
+      "extractionState": "extracted_with_value",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "To add or change computers, open Settings → Devices & server on your Mac."
+          }
+        },
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "لإضافة أجهزة كمبيوتر أو تغييرها، افتح الإعدادات ← الأجهزة والخادم على جهاز Mac."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Um Computer hinzuzufügen oder zu ändern, öffne auf deinem Mac Einstellungen → Geräte & Server."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Para añadir o cambiar ordenadores, abre Ajustes → Dispositivos y servidor en tu Mac."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pour ajouter ou modifier des ordinateurs, ouvre Réglages → Appareils et serveur sur ton Mac."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "कंप्यूटर जोड़ने या बदलने के लिए अपने Mac पर सेटिंग्स → डिवाइस और सर्वर खोलें।"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Per aggiungere o modificare computer, apri Impostazioni → Dispositivi e server sul Mac."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "コンピュータを追加または変更するには、Mac で「設定」→「デバイスとサーバー」を開いてください。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "컴퓨터를 추가하거나 변경하려면 Mac에서 설정 → 기기 및 서버를 여세요."
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Para adicionar ou alterar computadores, abra Ajustes → Dispositivos e servidor no Mac."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "如需添加或更改电脑，请在 Mac 上打开“设置”→“设备与服务器”。"
           }
         }
       }

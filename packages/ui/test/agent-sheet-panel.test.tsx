@@ -25,6 +25,46 @@ describe("the agent sheet beside the content (#625)", () => {
     expect(onClose).toHaveBeenCalledTimes(2);
   });
 
+  it("takes focus when it opens so Escape closes it at once, and gives focus back on close", () => {
+    const onClose = vi.fn();
+    const opener = document.createElement("button");
+    document.body.append(opener);
+    opener.focus();
+    const { unmount } = render(
+      <StoryWorld>
+        <AgentSheetPanel tab="approvals" onTabChange={() => {}} onClose={onClose} now={STORY_NOW} />
+      </StoryWorld>,
+    );
+    const tab = within(screen.getByRole("complementary", { name: "Agent" })).getByRole("tab", {
+      name: /Approvals/,
+    });
+    expect(document.activeElement).toBe(tab);
+    // Escape with focus where the panel put it: no click inside needed.
+    fireEvent.keyDown(document.activeElement as Element, { key: "Escape" });
+    expect(onClose).toHaveBeenCalledTimes(1);
+    unmount();
+    expect(document.activeElement).toBe(opener);
+    opener.remove();
+  });
+
+  it("does not take focus from a field the owner is typing in", () => {
+    const field = document.createElement("textarea");
+    document.body.append(field);
+    field.focus();
+    render(
+      <StoryWorld>
+        <AgentSheetPanel
+          tab="approvals"
+          onTabChange={() => {}}
+          onClose={() => {}}
+          now={STORY_NOW}
+        />
+      </StoryWorld>,
+    );
+    expect(document.activeElement).toBe(field);
+    field.remove();
+  });
+
   it("AppShell puts it beside the content with room for both, the modal sheet otherwise", () => {
     window.innerWidth = 1440;
     const { unmount } = render(
