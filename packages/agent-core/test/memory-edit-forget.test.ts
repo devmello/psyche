@@ -2,7 +2,7 @@ import { FakeClock, FakeMemoryStore } from "@psyche/testing";
 import { describe, expect, it, vi } from "vitest";
 import { forgetTool } from "../src/builtins/forget.ts";
 import { memoryTool } from "../src/builtins/services.ts";
-import type { ToolRunContext } from "../src/registry.ts";
+import type { AgentToolRegistration, ToolRunContext } from "../src/registry.ts";
 
 const ctx = (over: Partial<ToolRunContext> = {}): ToolRunContext =>
   ({
@@ -30,6 +30,11 @@ const USER = [
   "",
 ].join("\n");
 
+const run = (t: AgentToolRegistration, p: unknown, c: ToolRunContext) => {
+  if (t.run === undefined) throw new Error("tool has no run");
+  return t.run(p, c);
+};
+
 function setup() {
   const memory = new FakeMemoryStore({ clock: new FakeClock(), files: { "USER.md": USER } });
   const tool = memoryTool(memory, { clock: new FakeClock(), timeZone: "UTC" });
@@ -39,7 +44,8 @@ function setup() {
 describe("memory str_replace matches what the model sees (QA item 3)", () => {
   it("applies an approved edit whose old_str omits the hidden lf tag", async () => {
     const { memory, tool } = setup();
-    await tool.run(
+    await run(
+      tool,
       {
         command: "str_replace",
         path: "USER.md",
@@ -55,7 +61,8 @@ describe("memory str_replace matches what the model sees (QA item 3)", () => {
 
   it("matches a learned line shown as `- date text`", async () => {
     const { memory, tool } = setup();
-    await tool.run(
+    await run(
+      tool,
       {
         command: "str_replace",
         path: "USER.md",
@@ -72,19 +79,21 @@ describe("memory str_replace matches what the model sees (QA item 3)", () => {
   it("still fails when nothing matches, or when the text is ambiguous", async () => {
     const { tool } = setup();
     await expect(
-      tool.run(
+      run(
+        tool,
         { command: "str_replace", path: "USER.md", old_str: "- Likes coffee", new_str: "x" },
         ctx(),
       ),
     ).rejects.toThrow(/found 0/);
     await expect(
-      tool.run({ command: "str_replace", path: "USER.md", old_str: "- ", new_str: "x" }, ctx()),
+      run(tool, { command: "str_replace", path: "USER.md", old_str: "- ", new_str: "x" }, ctx()),
     ).rejects.toThrow(/found/);
   });
 
   it("an exact match still wins and leaves tags alone", async () => {
     const { memory, tool } = setup();
-    await tool.run(
+    await run(
+      tool,
       { command: "str_replace", path: "USER.md", old_str: "Likes tea", new_str: "Likes tea a lot" },
       ctx(),
     );
@@ -100,7 +109,7 @@ describe("memory_forget tool (QA item 4)", () => {
   it("forgets the subject through the store's forget path", async () => {
     const forget = vi.fn(async () => forgetResult);
     const tool = forgetTool({ forget } as never);
-    const r = await tool.run({ subject: "tabs over spaces" }, ctx());
+    const r = await run(tool, { subject: "tabs over spaces" }, ctx());
     expect(forget).toHaveBeenCalledWith("tabs over spaces", { dryRun: false });
     expect(JSON.stringify(r.output)).toContain("USER.md");
   });
@@ -108,7 +117,7 @@ describe("memory_forget tool (QA item 4)", () => {
   it("previews without removing on dry_run, and says it only previewed", async () => {
     const forget = vi.fn(async () => forgetResult);
     const tool = forgetTool({ forget } as never);
-    const r = await tool.run({ subject: "tabs over spaces", dry_run: true }, ctx());
+    const r = await run(tool, { subject: "tabs over spaces", dry_run: true }, ctx());
     expect(forget).toHaveBeenCalledWith("tabs over spaces", { dryRun: true });
     expect(JSON.stringify(r.output)).toMatch(/would/i);
   });
@@ -124,9 +133,11 @@ describe("memory_forget tool (QA item 4)", () => {
   it("refuses after untrusted content and for someone else's turn", async () => {
     const forget = vi.fn();
     const tool = forgetTool({ forget } as never);
-    await expect(tool.run({ subject: "tabs over spaces" }, ctx({ taint: true }))).rejects.toThrow();
     await expect(
-      tool.run({ subject: "tabs over spaces" }, ctx({ requester: { kind: "mcp" } as never })),
+      run(tool, { subject: "tabs over spaces" }, ctx({ taint: true })),
+    ).rejects.toThrow();
+    await expect(
+      run(tool, { subject: "tabs over spaces" }, ctx({ requester: { kind: "mcp" } as never })),
     ).rejects.toThrow();
     expect(forget).not.toHaveBeenCalled();
   });
@@ -136,6 +147,6 @@ describe("memory_forget tool (QA item 4)", () => {
       throw new Error("boom");
     });
     const tool = forgetTool({ forget } as never);
-    await expect(tool.run({ subject: "tabs over spaces" }, ctx())).rejects.toThrow("boom");
+    await expect(run(tool, { subject: "tabs over spaces" }, ctx())).rejects.toThrow("boom");
   });
 });
