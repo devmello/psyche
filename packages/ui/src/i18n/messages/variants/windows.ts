@@ -362,8 +362,6 @@ export const windows: Partial<Record<MessageId, string>> = {
   "onboarding.safety.asks":
     "If you let {name} run commands on this PC, ones that only read, like ls or cat, run without a card. Anything else asks you first.",
   "onboarding.done.touchId": "Windows Hello",
-  "onboarding.done.try.search":
-    "Ask a question in Search (Ctrl+K). The answer shows where in your life it came from.",
   "screens.search.source.revealFile": "Show in File Explorer",
   "everything.model.localHint":
     "A model on this PC reads everything. Nothing leaves the PC. Fewer, noisier facts.",

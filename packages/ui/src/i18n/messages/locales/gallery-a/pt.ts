@@ -116,6 +116,7 @@ export const galleryA: Partial<Catalogue> = {
     "{n, plural, =0 {Conectar apps} one {Conectar # app} other {Conectar # apps}}",
   "onboarding.connectors.connecting": "Conectando {name}",
   "onboarding.connectors.accounts": "Contas",
+  "onboarding.connectors.moreAccounts": "Adicionar uma conta Google, Microsoft ou de e-mail",
   "onboarding.step.memory": "Memória e hábitos diários",
   "onboarding.about.lead":
     "Alguns fatos para o Psyche já começar conhecendo você. Tudo é opcional e fica em USER.md, que você pode editar quando quiser.",
@@ -160,7 +161,7 @@ export const galleryA: Partial<Catalogue> = {
     "Percorra de novo a configuração inicial. As etapas já concluídas são ignoradas.",
   "onboarding.rerun.button": "Executar a configuração novamente",
   "onboarding.step.you": "Você e seu agente",
-  "onboarding.step.stuff": "Suas coisas",
+  "onboarding.step.stuff": "Com o que posso ajudar?",
   "onboarding.step.safety": "Segurança",
   "onboarding.step.folders": "Pastas",
   "onboarding.folders.lead":
@@ -230,12 +231,9 @@ export const galleryA: Partial<Catalogue> = {
   "onboarding.done.touchIdNot": "Ainda não registrada",
   "onboarding.done.modelKept": "Sem alterações",
   "onboarding.done.try": "Teste a seguir",
-  "onboarding.done.try.search":
-    "Faça uma pergunta em Pesquisar (⌘K). A resposta mostra de onde na sua vida ela veio.",
-  "onboarding.done.try.home":
-    "Abra o Início. “Para se atualizar” lista o que você pode ter deixado passar.",
-  "onboarding.done.try.canDo":
-    "Abra “O que você pode fazer?” no menu da engrenagem para ver tarefas prontas.",
+  "onboarding.done.try.search": "Fazer uma pergunta na Busca",
+  "onboarding.done.try.home": "Ponha-se em dia no Início",
+  "onboarding.done.try.chat": "Iniciar um novo chat",
   "capabilities.title": "O que você pode fazer?",
   "capabilities.lead":
     "Coisas para testar agora. Os cartões que precisam de uma conta ficam disponíveis quando ela está conectada.",

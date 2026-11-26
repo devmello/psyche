@@ -2842,8 +2842,8 @@ export const pt: Partial<Catalogue> = {
   "onboarding.keyRefused": "O provedor recusou esta chave ({reason}). Cole a chave novamente.",
   "onboarding.setupCheck": "Verificação da configuração",
   "onboarding.progress": "Progresso da introdução",
+  "onboarding.steps": "Etapas",
   "onboarding.doneMark": " (concluído)",
-  "onboarding.stepOf": "Passo {n, number} de {total, number}:",
   "onboarding.back": "Voltar",
   "onboarding.skipForNow": "Pular por enquanto",
   "onboarding.openChat": "Abrir a conversa principal",
@@ -2897,7 +2897,7 @@ export const pt: Partial<Catalogue> = {
   "onboarding.permission.asking": "Solicitando…",
   "onboarding.permission.allow": "Permitir",
   "onboarding.connectors.intro":
-    "Decida agora quais contas conectar, uma de cada vez. {name} só vê o que você conectar, e você pode adicionar mais depois nos Ajustes.",
+    "Escolha em que {name} pode ajudar. Cada app pede permissão ao ser conectado, e você pode adicionar mais depois em Ajustes.",
   "onboarding.connectors.connected": "Conectadas ({n, number})",
   "onboarding.connectors.connectedList": "Suas contas",
   "onboarding.connectors.needsPermission": "Precisa de permissão",
@@ -2943,12 +2943,20 @@ export const pt: Partial<Catalogue> = {
     "O Psyche acabou de criar seu cofre. Salve esta chave em um gerenciador de senhas ou no papel: ela é mostrada só agora e é a única forma de voltar ao cofre após uma restauração ou a perda de um slot de chave.",
   "onboarding.model.subscriptionNote":
     "O Psyche usa o app Claude Code ou Codex já conectado neste Mac, então não precisa de chave de API e não guarda nenhuma. Faça login lá primeiro, se ainda não fez.",
-  "onboarding.model.toolCheck": "Verificação de chamada de ferramentas",
-  "onboarding.model.runCheck": "Executar verificação",
-  "onboarding.model.checkAgain": "Verificar novamente",
+  "onboarding.model.toolCheck": "Teste de conexão",
+  "onboarding.model.otherWays": "Outras opções",
+  "onboarding.model.test.passed": "Funciona",
+  "onboarding.model.test.failed": "Só chat",
+  "onboarding.model.test.running": "Testando…",
+  "onboarding.model.test.untested": "Ainda não testado",
+  "onboarding.model.runCheck": "Testar",
+  "onboarding.model.checkAgain": "Testar de novo",
   "onboarding.model.toolCheckFailed":
-    "Este modelo consegue conversar, mas não usa ferramentas com confiabilidade, então não vai agir por você. Escolha outro ou continue no modo somente conversa.",
+    "Este modelo consegue conversar, mas pode não executar tarefas por você. Escolha outro ou continue só com chat.",
   "onboarding.done.ready": "{name} está pronto.",
+  "onboarding.done.notReady": "{name} ainda não pode responder.",
+  "onboarding.done.notReadyBody":
+    "Corrija a linha Modelo abaixo, ou faça isso depois em Ajustes → Modelos.",
   "onboarding.done.opens": "A conversa principal abre com a primeira mensagem de {name}.",
   "onboarding.done.noneYet": "Nenhuma ainda",
   "onboarding.done.accounts": "Contas",
@@ -3614,8 +3622,11 @@ export const pt: Partial<Catalogue> = {
   "web.setup.modelRefused": "{ref}: o provedor recusou a chave ({error}). A chave não foi mantida.",
   "web.setup.modelNotChecked":
     "{ref}: a chave está guardada, mas não foi possível contactar o provedor para a verificar.",
+  "web.setup.modelEnvKey": "Usando uma chave do seu ambiente ({ref}).",
+  "web.setup.modelEnvNotChecked":
+    "Usando uma chave do seu ambiente ({ref}), mas não foi possível alcançar o provedor para verificá-la.",
   "web.setup.modelSkipped":
-    "{ref}: nenhuma chave adicionada, por isso o chat ainda não responde. Adicione uma em Definições → Modelos.",
+    "Adicione uma chave: {ref} ainda não tem chave, então o chat não vai responder. Adicione uma em Ajustes → Modelos.",
   "web.gate.loading": "A iniciar o Psyche",
   "web.gate.error": "O Psyche não conseguiu verificar se a configuração está concluída.",
   "web.gate.retry": "Tentar novamente",

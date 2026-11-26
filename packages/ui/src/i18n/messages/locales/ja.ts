@@ -2860,8 +2860,8 @@ export const ja: Partial<Catalogue> = {
     "プロバイダがこのキーを拒否しました（{reason}）。キーをもう一度貼り付けてください。",
   "onboarding.setupCheck": "セットアップの確認",
   "onboarding.progress": "初期設定の進捗",
+  "onboarding.steps": "ステップ",
   "onboarding.doneMark": "（完了）",
-  "onboarding.stepOf": "ステップ{n, number}/{total, number}：",
   "onboarding.back": "戻る",
   "onboarding.skipForNow": "今はスキップ",
   "onboarding.openChat": "メインチャットを開く",
@@ -2914,7 +2914,7 @@ export const ja: Partial<Catalogue> = {
   "onboarding.permission.asking": "確認中…",
   "onboarding.permission.allow": "許可",
   "onboarding.connectors.intro":
-    "接続するアカウントを1つずつ決めましょう。{name}に見えるのは接続したものだけで、後から設定で追加できます。",
+    "{name} に手伝ってもらうことを選んでください。各アプリは接続するときに許可を求めます。あとから設定で追加できます。",
   "onboarding.connectors.connected": "接続済み（{n, number}）",
   "onboarding.connectors.connectedList": "あなたのアカウント",
   "onboarding.connectors.needsPermission": "許可が必要",
@@ -2961,12 +2961,20 @@ export const ja: Partial<Catalogue> = {
     "Psycheは保管庫を作成しました。このキーをパスワードマネージャか紙に保存してください。表示されるのは今だけで、復元後やキースロットを失った後に保管庫に戻る唯一の手段です。",
   "onboarding.model.subscriptionNote":
     "PsycheはこのMacでサインイン済みのClaude CodeまたはCodexアプリを使用するため、APIキーは不要で、保存もしません。まだの場合は、先にそちらでサインインしてください。",
-  "onboarding.model.toolCheck": "ツール呼び出しの確認",
-  "onboarding.model.runCheck": "確認を実行",
-  "onboarding.model.checkAgain": "再確認",
+  "onboarding.model.toolCheck": "接続テスト",
+  "onboarding.model.otherWays": "ほかの方法",
+  "onboarding.model.test.passed": "問題なし",
+  "onboarding.model.test.failed": "チャットのみ",
+  "onboarding.model.test.running": "テスト中…",
+  "onboarding.model.test.untested": "未テスト",
+  "onboarding.model.runCheck": "テストする",
+  "onboarding.model.checkAgain": "もう一度テスト",
   "onboarding.model.toolCheckFailed":
-    "このモデルはチャットはできますが、ツールを確実に使えないため、あなたの代わりに行動できません。別のモデルを選ぶか、チャットのみのモードで続行してください。",
+    "このモデルはチャットはできますが、タスクを実行できない場合があります。別のモデルを選ぶか、チャットのみで続けてください。",
   "onboarding.done.ready": "{name}の準備ができました。",
+  "onboarding.done.notReady": "{name} はまだ応答できません。",
+  "onboarding.done.notReadyBody":
+    "下の「モデル」の行を修正するか、あとで設定 → モデルから行ってください。",
   "onboarding.done.opens": "メインチャットが{name}の最初のメッセージとともに開きます。",
   "onboarding.done.noneYet": "まだありません",
   "onboarding.done.accounts": "アカウント",
@@ -3632,8 +3640,11 @@ export const ja: Partial<Catalogue> = {
     "{ref}：プロバイダがキーを拒否しました（{error}）。キーは保持されませんでした。",
   "web.setup.modelNotChecked":
     "{ref}：キーは保存されましたが、確認のためにプロバイダへ接続できませんでした。",
+  "web.setup.modelEnvKey": "環境にあるキーを使用しています（{ref}）。",
+  "web.setup.modelEnvNotChecked":
+    "環境にあるキーを使用していますが（{ref}）、確認のためにプロバイダへ接続できませんでした。",
   "web.setup.modelSkipped":
-    "{ref}：キーが追加されていないため、チャットはまだ応答しません。設定 → モデルで追加してください。",
+    "キーを追加してください：{ref} にはまだキーがないため、チャットは応答しません。設定 → モデルで追加できます。",
   "web.gate.loading": "Psycheを起動中",
   "web.gate.error": "セットアップが完了しているか確認できませんでした。",
   "web.gate.retry": "もう一度試す",
