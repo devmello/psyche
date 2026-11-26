@@ -156,7 +156,7 @@ describe("approval card (docs/06 §3.3, §4.11)", () => {
     await waitFor(() => expect(onAnswer).toHaveBeenCalledWith("approve", "once", undefined));
     onAnswer.mockClear();
     // Tab reaches the second (lasting) choice; Return alone on it never approves, so the owner
-    // taps it (a pointer click) and the card sends that scope.
+    // presses Space on it and the card sends that scope.
     const second = screen.getByTestId("approval-second-choice");
     let reached = false;
     for (let i = 0; i < 8 && !reached; i += 1) {
@@ -164,7 +164,7 @@ describe("approval card (docs/06 §3.3, §4.11)", () => {
       reached = second === document.activeElement;
     }
     expect(reached, "the second choice is reachable by Tab from the heading").toBe(true);
-    await user.click(second);
+    await user.keyboard(" ");
     await waitFor(() => expect(onAnswer).toHaveBeenCalledTimes(1));
     expect(onAnswer.mock.calls[0]?.[0]).toBe("approve");
     expect(onAnswer.mock.calls[0]?.[1]).not.toBe("once");
