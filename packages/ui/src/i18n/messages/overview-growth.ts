@@ -46,12 +46,12 @@ export const overviewGrowth = {
   "overview.people.kind.project": "Project",
   "overview.people.kind.place": "Place",
   "overview.people.interactions": "{n, plural, one {# interaction} other {# interactions}}",
-  "overview.people.openLoops": "{n, plural, one {# open loop} other {# open loops}}",
+  "overview.people.openLoops": "{n, plural, one {# to follow up} other {# to follow up}}",
   "overview.people.last": "Last interaction {when}",
   "overview.people.node": "{name}, {kind}. {interactions}. Last interaction {when}. {loops}.",
   "overview.people.detailHint": "Hover or focus a person or project to see its details.",
   "overview.people.counts":
-    "{people, plural, one {# person} other {# people}} · {projects, plural, one {# project} other {# projects}} · {loops, plural, one {# open loop} other {# open loops}}",
+    "{people, plural, one {# person} other {# people}} · {projects, plural, one {# project} other {# projects}} · {loops, plural, one {# to follow up} other {# to follow up}}",
   "overview.people.ranked": "{name} {n}",
   "overview.people.showList": "Show as list",
   "overview.people.showMap": "Show map",
@@ -61,5 +61,5 @@ export const overviewGrowth = {
   "overview.people.table.kind": "Kind",
   "overview.people.table.interactions": "Interactions",
   "overview.people.table.last": "Last interaction",
-  "overview.people.table.loops": "Open loops",
+  "overview.people.table.loops": "To follow up",
 } as const;

@@ -17,7 +17,6 @@ export const settings = {
   "settings.nav.label": "Settings sections",
   "settings.nav.find": "Search settings",
   "settings.nav.noMatch": "No settings match.",
-  "settings.nav.inPage": "In {page}",
   "settings.nav.essentials": "Essentials",
   "settings.nav.general": "General",
   "settings.nav.search": "Search",
@@ -27,34 +26,15 @@ export const settings = {
 
   // The nine pages of the Settings window (settings-pages.ts, docs/design/settings-2026.md).
   "settings.page.essentials": "Essentials",
-  "settings.page.essentials.description":
-    "The few choices most people make. Each has a safe default, and the pages below hold the rest.",
   "settings.page.general": "General",
-  "settings.page.general.description":
-    "How {persona} looks, who it is, when it may interrupt you and how you talk to it.",
   "settings.page.model": "Models",
-  "settings.page.model.description":
-    "The models {persona} thinks with, the keys they use and what they cost.",
   "settings.page.connectors": "Connectors & sources",
-  "settings.page.connectors.description":
-    "The apps and accounts {persona} can reach, and which of them it searches.",
   "settings.page.memory": "Memory",
-  "settings.page.memory.description":
-    "What {persona} remembers, where it learns from, and how you control it.",
   "settings.page.daily": "Routines & skills",
-  "settings.page.daily.description":
-    "Your morning brief and wrap-up, automations, skills and the specialists {persona} can call.",
   "settings.page.permissions": "Permissions",
-  "settings.page.permissions.description":
-    "What {persona} may do on this Mac without asking, and where it always stops to ask you.",
   "settings.page.data": "Privacy & data",
-  "settings.page.data.description":
-    "What stays on this Mac, how long it is kept, exports, backups and starting over.",
   "settings.page.devices": "Devices",
-  "settings.page.devices.description":
-    "Your other devices, the Gateway server and reaching {persona} when you are away.",
   "settings.page.about": "About",
-  "settings.page.about.description": "Versions, health checks and logs.",
 
   // Settings → Essentials (EssentialsSection.tsx, settings-2026 §7).
   "settings.essentials.title": "Essentials",
@@ -800,16 +780,12 @@ export const settings = {
   "settings.appearance.seedHelp":
     "Any CSS color. It lands on step 9; Psyche adjusts it if the text would be hard to read.",
   "settings.appearance.title": "Appearance",
-  "settings.appearance.description": "Applies to every device you've paired.",
   "settings.appearance.loadLabel": "appearance",
   "settings.appearance.theme.auto": "Auto",
   "settings.appearance.theme.autoHint": "Follows the system",
   "settings.appearance.followSystem": "Follow the system",
   "settings.appearance.colors": "Colors",
-  "settings.appearance.colorsHint": "Light or dark, and your accent color.",
   "settings.appearance.comfort": "Comfort",
-  "settings.appearance.comfortHint": "Easier on the eyes and on motion.",
-  "settings.appearance.backgroundHint": "Whether Psyche keeps running when you close the window.",
   "settings.appearance.advancedHint": "Gray tone, custom color, text direction, contrast check",
   "settings.appearance.fineTune": "Fine-tune colors",
   "settings.appearance.fineTuneHint": "For people who want an exact look.",
@@ -2059,8 +2035,6 @@ export const settings = {
   "settings.model.role.imageHint": "Avatar changes; none means the bundled creatures",
   "settings.model.addProvider": "Add a provider",
   "settings.model.title": "Model & providers",
-  "settings.model.description":
-    "A model you pick is used as chosen. If it fails, Psyche says so instead of falling back.",
   "settings.model.loadLabel": "model providers",
   "settings.model.providers": "Providers",
   "settings.model.listFailed": "Psyche couldn't list the models ({reason}).",
@@ -2093,14 +2067,10 @@ export const settings = {
   "settings.model.runCheckOn": "Run the tool-calling check on {name}",
   "settings.model.runCheck": "Run check",
   "settings.model.roles": "Model roles",
-  "settings.model.rolesHint":
-    "Each role uses one model. Models that fail the tool-calling check are chat only.",
   "settings.model.none": "None",
   "settings.model.choose": "Choose a model",
   "settings.model.chatOnlyOption": "{name} (chat only)",
-  "settings.model.advancedHint": "Context limits, local models",
   "settings.model.local": "Local models",
-  "settings.model.localHint": "Run models on this Mac with Ollama or LM Studio.",
   "settings.model.err.use": "Psyche couldn't use {name} ({reason}).",
   "settings.model.err.probe": "Psyche couldn't check the endpoint ({reason}).",
   "settings.model.err.check": "Psyche couldn't run the check ({reason}).",
@@ -2153,9 +2123,6 @@ export const settings = {
   "settings.permissions.subject.calendarNamed": "calendar {id}",
   "settings.permissions.subject.calendar": "calendar",
   "settings.permissions.subject.prepNotes": 'Notes titled "Prep:" (meeting prep)',
-  "settings.permissions.title": "Approval rules",
-  "settings.permissions.description":
-    "What runs on its own, what asks first and what never happens.",
   "settings.permissions.loadLabel": "permissions",
   "settings.permissions.defaultModeTitle": "Default mode for new threads",
   "settings.permissions.execReview": "Let a reviewer approve safe terminal commands in Auto mode",
@@ -3204,4 +3171,11 @@ export const settings = {
   "settings.specialists.mode.auto": "Auto",
   "settings.specialists.installed": "From {skill}",
   "settings.specialists.empty": "No skill defines a specialist yet.",
+  // Settings drill-in rows (wave C).
+  "settings.drill.keySet": "Set",
+  "settings.drill.keyHelp": "About API keys",
+  "settings.drill.asking": "Asking",
+  "settings.drill.access": "Access",
+  "settings.drill.access.files": "Files and folders",
+  "settings.drill.accessibility": "Accessibility",
 } as const;

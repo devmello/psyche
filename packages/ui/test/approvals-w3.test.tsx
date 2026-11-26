@@ -590,7 +590,7 @@ describe("plain words on the card", () => {
         />
       </UiSlotsProvider>,
     );
-    expect(screen.getByText(/Expired\. Nothing was done\./)).toBeTruthy();
+    expect(screen.getByText("Expired · nothing was done")).toBeTruthy();
     expect(screen.queryByRole("button", { name: /^(Allow|Deny)$/ })).toBeNull();
     expect(screen.queryByTestId("approval-second-choice")).toBeNull();
     expect(screen.queryByRole("button", { name: "More options…" })).toBeNull();

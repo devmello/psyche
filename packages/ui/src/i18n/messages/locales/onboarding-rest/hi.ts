@@ -9,6 +9,7 @@ export const onboardingRest: Partial<Catalogue> = {
     "{n, plural, =0 {ऐप कनेक्ट करें} one {# ऐप कनेक्ट करें} other {# ऐप कनेक्ट करें}}",
   "onboarding.connectors.connecting": "{name} कनेक्ट हो रहा है",
   "onboarding.connectors.accounts": "खाते",
+  "onboarding.connectors.moreAccounts": "Google, Microsoft या ईमेल खाता जोड़ें",
   "onboarding.step.memory": "मेमोरी और रोज़ की आदतें",
   "onboarding.about.lead":
     "कुछ बातें ताकि Psyche शुरू से ही आपको जानता हो। यहाँ सब कुछ वैकल्पिक है और USER.md में रहता है, जिसे आप कभी भी संपादित कर सकते हैं।",
@@ -52,7 +53,7 @@ export const onboardingRest: Partial<Catalogue> = {
     "पहली बार वाला सेटअप फिर से देखें। जो चरण हो चुके हैं उन्हें छोड़ दिया जाता है।",
   "onboarding.rerun.button": "सेटअप फिर से चलाएँ",
   "onboarding.step.you": "आप और आपका एजेंट",
-  "onboarding.step.stuff": "आपकी चीज़ें",
+  "onboarding.step.stuff": "मैं किस काम में मदद करूँ?",
   "onboarding.step.safety": "सुरक्षा",
   "onboarding.step.folders": "फ़ोल्डर",
   "onboarding.folders.lead":
@@ -119,8 +120,7 @@ export const onboardingRest: Partial<Catalogue> = {
   "onboarding.done.touchIdNot": "अभी रजिस्टर नहीं हुई",
   "onboarding.done.modelKept": "अपरिवर्तित",
   "onboarding.done.try": "आगे आज़माएँ",
-  "onboarding.done.try.search":
-    "खोज (⌘K) में कोई सवाल पूछें। जवाब दिखाता है कि वह आपके जीवन के किस हिस्से से आया।",
-  "onboarding.done.try.home": "होम खोलें। “कैच अप” वह सूची दिखाता है जो आपसे छूट गया हो सकता है।",
-  "onboarding.done.try.canDo": "तैयार कामों के लिए गियर मेनू में “आप क्या कर सकते हैं?” खोलें।",
+  "onboarding.done.try.search": "खोज में सवाल पूछें",
+  "onboarding.done.try.home": "होम पर अपडेट देखें",
+  "onboarding.done.try.chat": "नई चैट शुरू करें",
 };

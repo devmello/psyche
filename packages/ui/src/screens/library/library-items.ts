@@ -66,6 +66,22 @@ export function sectionOf(item: LibraryItem): LibrarySection {
   return LIBRARY_SECTIONS.find((s) => s.kinds.includes(item.kind))?.id ?? "documents";
 }
 
+/**
+ * The sections the Filter's "Show" list offers. The three with a tab always show; Artifacts and
+ * System files show only when they hold something (or are the open section), so a fresh install
+ * is not offered a section that is empty by design.
+ */
+export function offeredSections(
+  items: readonly LibraryItem[],
+  current: LibrarySection,
+): readonly LibrarySection[] {
+  const used = new Set(items.map(sectionOf));
+  return LIBRARY_SECTIONS.map((s) => s.id).filter(
+    (id) =>
+      id === current || id === "documents" || id === "images" || id === "downloads" || used.has(id),
+  );
+}
+
 export const KIND_LABEL: Record<LibraryItem["kind"], string> = {
   get document() {
     return t("screens.library.kind.document");

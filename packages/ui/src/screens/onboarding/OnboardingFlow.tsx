@@ -35,6 +35,7 @@ import { SafetyStep } from "./SafetyStep.tsx";
 import { detectTimeZone } from "./time-zone.ts";
 import {
   type ConnectedAccount,
+  DEFAULT_FLOW_STEPS,
   type MailChoices,
   type MemoryChoices,
   type ModelChoice,
@@ -42,6 +43,7 @@ import {
   type OnboardingResult,
   type OnboardingShellProps,
   type OnboardingStepId,
+  type OnboardingTryTarget,
   type OwnerProfile,
   type PermissionAnswer,
   type PermissionResult,
@@ -52,6 +54,9 @@ import { DEFAULT_NAME, YouStep } from "./YouStep.tsx";
 
 /** Steps the owner may leave with "Skip for now" (the model is needed, Done is the end). */
 const SKIPPABLE: ReadonlySet<OnboardingStepId> = new Set(["you", "memory", "folders", "safety"]);
+
+/** How long a step's fade-in lasts; clicks wait for it so a fading step is never half-pressed. */
+const STEP_FADE_MS = 200;
 
 /**
  * Onboarding (UI design §3.19; docs/design/onboarding-2026.md): one centred column, a quiet step
@@ -184,11 +189,16 @@ export function OnboardingFlow({
   const starter = useGatewayQuery("files.starterFolders", {});
   const folderOptions = starter.data?.folders ?? [];
   const [folderIds, setFolderIds] = useState<StarterFolderId[]>([]);
+  // The step the flow opened on: a route or saved progress may name one of the steps that first
+  // run no longer walks through (memory, folders, safety); that one is kept for this visit.
+  const [entry] = useState(() => normalizeStep(step ?? defaultStep));
   // A re-run leaves out what it can (the model that is set); Done is always last.
   const steps = ONBOARDING_STEP_IDS.filter(
     (s) =>
       s === "done" ||
-      (!completed.includes(s) && (s !== "folders" || (folderOptions.length > 0 && !rerun))),
+      (!completed.includes(s) &&
+        (DEFAULT_FLOW_STEPS.has(s) || s === entry) &&
+        (s !== "folders" || (folderOptions.length > 0 && !rerun))),
   );
   // A saved or routed id from the old twelve-step flow lands on the step that holds it now.
   const asked = normalizeStep(step ?? own) ?? "you";
@@ -268,7 +278,8 @@ export function OnboardingFlow({
     ...(steps.includes("model") ? {} : { modelKept: true }),
     ...(mailConnected ? { mail } : {}),
     owner,
-    ...(memorySkipped
+    // Without the Memory step the owner's Settings choices stand: nothing is written.
+    ...(memorySkipped || !steps.includes("memory")
       ? {}
       : { habits, memory, ...(nightShift ? { nightShift: true as const } : {}) }),
     ...(sharedFolders.length === 0 ? {} : { sharedFolders }),
@@ -431,15 +442,16 @@ export function OnboardingFlow({
     approvalId: string | null;
     error: string | null;
   } | null>(null);
-  const openChat = async (approvalId?: string) => {
+  const openChat = async (approvalId?: string, target?: OnboardingTryTarget) => {
+    const finished: OnboardingResult = target ? { ...result, openAfter: target } : result;
     if (sharedFolders.length === 0 || !onShareFolders) {
-      onComplete(result);
+      onComplete(finished);
       return;
     }
     setSharing({ busy: true, approvalId: approvalId ?? null, error: null });
     try {
       await onShareFolders(sharedFolders, approvalId);
-      onComplete(result);
+      onComplete(finished);
     } catch (err) {
       const id = approvalIdOf(err);
       setSharing({ busy: false, approvalId: id, error: id ? null : describeError(err) });
@@ -472,6 +484,25 @@ export function OnboardingFlow({
   }, [current, onVerify]);
 
   // Which way the step body slides in: forward from the trailing side, back from the leading.
+  // A step's fade-in lasts STEP_FADE_MS; its buttons ignore the pointer until it ends. Reduced
+  // motion has no fade, so nothing waits.
+  const [entering, setEntering] = useState(false);
+  const firstFade = useRef(true);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: runs when the step changes
+  useEffect(() => {
+    if (firstFade.current) {
+      firstFade.current = false;
+      return;
+    }
+    const reduced =
+      typeof window.matchMedia === "function" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reduced) return;
+    setEntering(true);
+    const timer = setTimeout(() => setEntering(false), STEP_FADE_MS);
+    return () => clearTimeout(timer);
+  }, [current]);
+
   const lastIndex = useRef(index);
   const direction = index >= lastIndex.current ? "forward" : "back";
   useEffect(() => {
@@ -491,7 +522,9 @@ export function OnboardingFlow({
         <span className="text-label-tertiary" data-testid="onboarding-mark">
           <PsycheMark size={24} />
         </span>
-        {/* Quiet progress: "2 of 6" is the trigger of the step menu (reached steps jump). */}
+        {/* Quiet progress: "2 of 4" is the trigger of the step menu (reached steps jump). The
+            count is read once, as the progressbar's value text; the button and the heading do
+            not repeat it. */}
         <span
           role="progressbar"
           aria-label={t("onboarding.progress")}
@@ -500,12 +533,10 @@ export function OnboardingFlow({
           aria-valuenow={position}
           aria-valuetext={t("onboarding.stepCount", { n: position, total })}
           className="sr-only"
-        >
-          {t("onboarding.stepCount", { n: position, total })}
-        </span>
+        />
         <DropdownMenu>
           <DropdownMenuTrigger
-            aria-label={`${t("onboarding.progress")}: ${t("onboarding.stepCount", { n: position, total })}`}
+            aria-label={t("onboarding.steps")}
             className="-me-1.5 cursor-default rounded-sm px-1.5 py-0.5 text-callout text-label-tertiary tabular-nums outline-none hover:text-label-secondary focus-visible:ring-2 focus-visible:ring-ring"
           >
             <span aria-hidden="true">{t("onboarding.stepCount", { n: position, total })}</span>
@@ -540,6 +571,7 @@ export function OnboardingFlow({
         // Steps change with a 24 px slide plus a crossfade on spring.gentle (§5.9).
         className={cn(
           "flex flex-1 flex-col gap-6 animate-in fade-in-0 duration-(--spring-gentle-duration) ease-(--spring-gentle) motion-reduce:animate-none",
+          entering && "pointer-events-none",
           direction === "forward"
             ? "slide-in-from-right-6 rtl:slide-in-from-left-6"
             : "slide-in-from-left-6 rtl:slide-in-from-right-6",
@@ -551,7 +583,6 @@ export function OnboardingFlow({
           tabIndex={-1}
           className="font-display text-large-title font-medium text-label-primary outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
-          <span className="sr-only">{t("onboarding.stepOf", { n: position, total })} </span>
           {stepLabel(current)}
         </h1>
 
@@ -663,6 +694,7 @@ export function OnboardingFlow({
             helperConnected={helper?.kind === "paired"}
             {...(checks === null ? {} : { checks })}
             onFix={(fix) => go(fix)}
+            onTry={(target) => void openChat(undefined, target)}
           />
         ) : null}
       </section>

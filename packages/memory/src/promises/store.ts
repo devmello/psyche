@@ -295,7 +295,13 @@ export class PromiseStore {
     const ids = (
       this.#db
         .prepare(
-          `SELECT id FROM graph_loops WHERE ${clauses.join(" AND ")} ORDER BY created_at, id LIMIT ?`,
+          // Past the limit, the live promises and the newest ones are kept, never the oldest
+          // rows by age alone; the page itself reads oldest first.
+          `SELECT id FROM (
+             SELECT id, created_at FROM graph_loops WHERE ${clauses.join(" AND ")}
+             ORDER BY (status IN ('suggested', 'open', 'snoozed', 'broken')) DESC, created_at DESC, id DESC
+             LIMIT ?
+           ) ORDER BY created_at, id`,
         )
         .all(...params, limit) as { id: string }[]
     ).map((r) => r.id);

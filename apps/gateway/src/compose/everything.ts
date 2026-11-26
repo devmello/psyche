@@ -706,6 +706,7 @@ export interface EverythingDeps {
    * left tonight, and the people this pass already read items about, which it leaves alone).
    */
   graphModelPass?: PassDeps["graphModelPass"];
+  promiseRetention?: PassDeps["promiseRetention"];
   /** Posts the "Psyche learned N things" card to the Feed (no notification). */
   announce?: (card: { title: string; bodyMd: string; widget?: FeedWidget }) => void;
   logger?: { log(level: "warn", msg: string, fields?: Record<string, unknown>): void };
@@ -937,6 +938,7 @@ export function composeEverything(deps: EverythingDeps): Everything {
       // The owner confirms the RAM warning for one named model; changing it asks again.
       localModelConfirmed: localRefs.every((r) => r !== undefined && confirmed.has(r)),
       ...(deps.graphModelPass === undefined ? {} : { graphModelPass: deps.graphModelPass }),
+      ...(deps.promiseRetention === undefined ? {} : { promiseRetention: deps.promiseRetention }),
       // Work in the owner's notes only with their work-tracking consent.
       workConsent: workSettings(getSetting(db, MEMORY_WORK_SETTING_KEY)?.value).enabled,
     };

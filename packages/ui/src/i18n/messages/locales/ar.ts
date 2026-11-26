@@ -2,6 +2,7 @@ import type { Catalogue } from "../index.ts";
 import { actionErrors } from "./action-errors/ar.ts";
 import { agent } from "./agent/ar.ts";
 import { agentNotes } from "./agent-notes/ar.ts";
+import { appleE2 } from "./apple-e2/ar.ts";
 import { approvalsW3 } from "./approvals-w3/ar.ts";
 import { audit } from "./audit/ar.ts";
 import { automationChat } from "./automation-chat/ar.ts";
@@ -44,6 +45,7 @@ import { overviewGrowth } from "./overview-growth/ar.ts";
 import { overviewShared } from "./overview-shared/ar.ts";
 import { passwordPresence } from "./password-presence/ar.ts";
 import { people } from "./people/ar.ts";
+import { planFork } from "./plan-fork/ar.ts";
 import { points } from "./points/ar.ts";
 import { research } from "./research/ar.ts";
 import { scheduled } from "./scheduled/ar.ts";
@@ -53,6 +55,7 @@ import { securityState } from "./security-state/ar.ts";
 import { selfConnectors } from "./self-connectors/ar.ts";
 import { separateDesktop } from "./separate-desktop/ar.ts";
 import { settings } from "./settings/ar.ts";
+import { settingsDrill } from "./settings-drill/ar.ts";
 import { settingsLanguage } from "./settings-language/ar.ts";
 import { settingsSections } from "./settings-sections/ar.ts";
 import { shell } from "./shell/ar.ts";
@@ -396,6 +399,8 @@ export const ar: Partial<Catalogue> = {
   "chat.thread.forgetNothing": "لا شيء في الذاكرة يطابق «{subject}».",
   "chat.thread.forgetPreview":
     "نسيان «{subject}» يسحب {claims, plural, zero {لا ادعاءات} one {ادعاءً واحدًا} two {ادعاءين} few {# ادعاءات} many {# ادعاءً} other {# ادعاء}} و{chunks, plural, zero {لا ملاحظات مفهرسة} one {ملاحظة مفهرسة واحدة} two {ملاحظتين مفهرستين} few {# ملاحظات مفهرسة} many {# ملاحظة مفهرسة} other {# ملاحظة مفهرسة}}{hasFiles, select, true {، مع تحرير {files}} other {}}.",
+  "chat.thread.forgetCounts":
+    "كما يحذف {graph, plural, zero {لا عناصر} one {عنصرًا واحدًا} two {عنصرين} few {# عناصر} many {# عنصرًا} other {# عنصر}} من رسمك البياني للأشخاص، و{review, plural, zero {لا عناصر} one {عنصرًا واحدًا} two {عنصرين} few {# عناصر} many {# عنصرًا} other {# عنصر}} بانتظار المراجعة، و{lessons, plural, zero {لا دروس} one {درسًا أو سطر درس واحدًا} two {درسين أو سطري درس} few {# دروس أو أسطر دروس} many {# درسًا أو سطر درس} other {# درس أو سطر درس}}، و{search, plural, zero {لا مدخلات بحث} one {مدخل بحث واحدًا} two {مدخلي بحث} few {# مدخلات بحث} many {# مدخل بحث} other {# مدخل بحث}}، ويقص الكلمات من المحادثات المحفوظة وسجلات التشغيل. هذا نهائي.",
   "chat.thread.forgetConfirm": "نسيان",
   "chat.thread.forgot": "تم نسيان «{subject}».",
   "chat.thread.forgetFailed": "لم ينجح النسيان ({reason}). لم يتغيّر شيء.",
@@ -405,6 +410,7 @@ export const ar: Partial<Catalogue> = {
   "chat.thread.exported": "تم تصدير هذه المحادثة بصيغة {format}.",
   "chat.thread.nothingRunning": "لا شيء يعمل في هذه الدردشة.",
   "chat.thread.stopped": "تم الإيقاف.",
+  "chat.stopped.label": "تم الإيقاف",
   "chat.runFailed.credential":
     "تعذّر على Psyche الرد: مفتاح API الخاص بنموذجك مفقود أو مرفوض. أضفه أو صحّحه في الإعدادات ← النماذج.",
   "chat.runFailed.generic": "تعذّر على Psyche إكمال هذا الرد.",
@@ -517,6 +523,7 @@ export const ar: Partial<Catalogue> = {
   "blocks.approval.scope.hostProgram": "السماح دائمًا بـ {program} في {folder}",
   "blocks.approval.scope.hostProgramExact":
     "السماح دائمًا بـ {program} بهذه الوسائط بالضبط في {folder}",
+  "blocks.approval.scope.hostProgramSession": "السماح بـ {program} في {folder} لهذه المحادثة",
   "blocks.approval.scope.site": "السماح لهذا الموقع",
   "blocks.approval.scope.session": "السماح لهذه الجلسة",
   "blocks.approval.scope.always": "السماح دائمًا",
@@ -534,6 +541,7 @@ export const ar: Partial<Catalogue> = {
   "blocks.approval.status.denied": "مرفوض{hasWhen, select, true { · {when}} other {}}",
   "blocks.approval.status.declinedInChat": "مرفوض — ردّيت في الدردشة",
   "blocks.approval.status.expired": "انتهت الصلاحية. لم يتم فعل شيء.",
+  "blocks.approval.expiredLine": "انتهت المهلة · لم يتم شيء",
   "blocks.approval.status.voidedBecause": "ملغى: {reason}",
   "blocks.approval.status.voided": "ملغى. تغيّرت الوسيطات.",
   "blocks.approval.taint": "قرأ هذا الدور محتوى غير موثوق",
@@ -2320,8 +2328,6 @@ export const ar: Partial<Catalogue> = {
   "settings.model.role.imageHint": "تغييرات الصورة الرمزية؛ «لا شيء» يعني المخلوقات المضمّنة",
   "settings.model.addProvider": "إضافة مزوّد",
   "settings.model.title": "النموذج والمزوّدون",
-  "settings.model.description":
-    "يُستخدم النموذج الذي تختاره كما اخترته. إذا فشل، يخبرك Psyche بذلك بدلًا من اللجوء إلى بديل.",
   "settings.model.loadLabel": "مزوّدو النماذج",
   "settings.model.providers": "المزوّدون",
   "settings.model.listFailed": "تعذّر على Psyche سرد النماذج ({reason}).",
@@ -2353,13 +2359,10 @@ export const ar: Partial<Catalogue> = {
   "settings.model.runCheckOn": "تشغيل فحص استدعاء الأدوات على {name}",
   "settings.model.runCheck": "تشغيل الفحص",
   "settings.model.roles": "أدوار النماذج",
-  "settings.model.rolesHint":
-    "يستخدم كل دور نموذجًا واحدًا. النماذج التي تفشل في فحص استدعاء الأدوات تكون للدردشة فقط.",
   "settings.model.none": "لا شيء",
   "settings.model.choose": "اختر نموذجًا",
   "settings.model.chatOnlyOption": "{name} (دردشة فقط)",
   "settings.model.local": "النماذج المحلية",
-  "settings.model.localHint": "شغّل النماذج على هذا الـ Mac باستخدام Ollama أو LM Studio.",
   "settings.model.err.use": "تعذّر على Psyche استخدام {name} ({reason}).",
   "settings.model.err.probe": "تعذّر على Psyche فحص نقطة النهاية ({reason}).",
   "settings.model.err.check": "تعذّر على Psyche تشغيل الفحص ({reason}).",
@@ -2412,8 +2415,6 @@ export const ar: Partial<Catalogue> = {
   "settings.permissions.subject.emailFrom": "إلى {recipients} من {account}",
   "settings.permissions.subject.calendarNamed": "التقويم {id}",
   "settings.permissions.subject.calendar": "التقويم",
-  "settings.permissions.title": "الأذونات",
-  "settings.permissions.description": "ما يعمل من تلقاء نفسه، وما يسأل أولًا، وما لا يحدث أبدًا.",
   "settings.permissions.loadLabel": "الأذونات",
   "settings.permissions.defaultModeTitle": "الوضع الافتراضي للمحادثات الجديدة",
   "settings.permissions.execReview":
@@ -2905,8 +2906,8 @@ export const ar: Partial<Catalogue> = {
   "onboarding.keyRefused": "رفض المزوّد هذا المفتاح ({reason}). الصق المفتاح مرة أخرى.",
   "onboarding.setupCheck": "فحص الإعداد",
   "onboarding.progress": "تقدّم الإعداد الأولي",
+  "onboarding.steps": "الخطوات",
   "onboarding.doneMark": " (تم)",
-  "onboarding.stepOf": "الخطوة {n, number} من {total, number}:",
   "onboarding.back": "رجوع",
   "onboarding.skipForNow": "تخطٍّ الآن",
   "onboarding.openChat": "فتح الدردشة الرئيسية",
@@ -2958,7 +2959,7 @@ export const ar: Partial<Catalogue> = {
   "onboarding.permission.asking": "جارٍ الطلب…",
   "onboarding.permission.allow": "سماح",
   "onboarding.connectors.intro":
-    "قرّر الآن أي الحسابات تريد ربطها، واحدًا تلو الآخر. لا يرى {name} إلا ما تربطه، ويمكنك إضافة المزيد لاحقًا في الإعدادات.",
+    "اختر ما يمكن لـ {name} مساعدتك فيه. يطلب كل تطبيق إذنًا عند ربطه، ويمكنك إضافة المزيد لاحقًا في الإعدادات.",
   "onboarding.connectors.connected": "المتصلة ({n, number})",
   "onboarding.connectors.connectedList": "حساباتك",
   "onboarding.connectors.needsPermission": "يحتاج إلى إذن",
@@ -3004,12 +3005,20 @@ export const ar: Partial<Catalogue> = {
     "أنشأ Psyche خزنتك للتو. احفظ هذا المفتاح في مدير كلمات سر أو على ورقة: فهو يُعرض الآن فقط وهو السبيل الوحيد للعودة إلى الخزنة بعد استعادة أو فقدان خانة مفتاح.",
   "onboarding.model.subscriptionNote":
     "يستخدم Psyche تطبيق Claude Code أو Codex المسجّل الدخول بالفعل على هذا الـ Mac، لذا لا يحتاج إلى مفتاح API ولا يخزّن أيًا منه. سجّل الدخول هناك أولًا إن لم تفعل.",
-  "onboarding.model.toolCheck": "فحص استدعاء الأدوات",
-  "onboarding.model.runCheck": "تشغيل الفحص",
-  "onboarding.model.checkAgain": "فحص مرة أخرى",
+  "onboarding.model.toolCheck": "اختبار الاتصال",
+  "onboarding.model.otherWays": "طرق أخرى",
+  "onboarding.model.test.passed": "يعمل",
+  "onboarding.model.test.failed": "محادثة فقط",
+  "onboarding.model.test.running": "جارٍ الاختبار…",
+  "onboarding.model.test.untested": "لم يُختبر بعد",
+  "onboarding.model.runCheck": "جرّبه",
+  "onboarding.model.checkAgain": "اختبر مرة أخرى",
   "onboarding.model.toolCheckFailed":
-    "يمكن لهذا النموذج الدردشة لكنه لا يستطيع استخدام الأدوات بشكل موثوق، لذا لن يتصرّف نيابةً عنك. اختر نموذجًا آخر أو تابع في وضع الدردشة فقط.",
+    "يمكن لهذا النموذج المحادثة لكنه قد لا ينفّذ المهام نيابةً عنك. اختر نموذجًا آخر أو تابع في وضع المحادثة فقط.",
   "onboarding.done.ready": "{name} جاهز.",
+  "onboarding.done.notReady": "{name} ليس جاهزًا للرد بعد.",
+  "onboarding.done.notReadyBody":
+    "أصلح صف النموذج أدناه، أو افعل ذلك لاحقًا في الإعدادات ← النماذج.",
   "onboarding.done.opens": "تُفتح الدردشة الرئيسية بأول رسالة من {name}.",
   "onboarding.done.noneYet": "لا شيء بعد",
   "onboarding.done.accounts": "الحسابات",
@@ -3657,8 +3666,11 @@ export const ar: Partial<Catalogue> = {
   "web.setup.model": "النموذج",
   "web.setup.modelRefused": "{ref}: رفض المزوّد المفتاح ({error}). لم يُحتفظ بالمفتاح.",
   "web.setup.modelNotChecked": "{ref}: المفتاح محفوظ، لكن تعذّر الوصول إلى المزوّد لفحصه.",
+  "web.setup.modelEnvKey": "يُستخدم مفتاح من بيئتك ({ref}).",
+  "web.setup.modelEnvNotChecked":
+    "يُستخدم مفتاح من بيئتك ({ref})، لكن تعذّر الوصول إلى المزوّد للتحقق منه.",
   "web.setup.modelSkipped":
-    "{ref}: لم يُضف أي مفتاح، لذا لن ترد المحادثة بعد. أضف واحدًا في الإعدادات ← النماذج.",
+    "أضف مفتاحًا: ليس لدى {ref} مفتاح بعد، لذا لن ترد المحادثة. أضف واحدًا في الإعدادات ← النماذج.",
   "web.gate.loading": "جارٍ تشغيل Psyche",
   "web.gate.error": "تعذّر على Psyche التحقق من اكتمال الإعداد.",
   "web.gate.retry": "حاول مرة أخرى",
@@ -4054,6 +4066,9 @@ export const ar: Partial<Catalogue> = {
   ...points,
   // Approvals wave W3 (card choices, Allowed list)
   ...approvalsW3,
+  ...settingsDrill,
+  // Fork a plan (docs/design/fork-a-plan-2026.md §9)
+  ...planFork,
   ...desktopSimple,
   // Gateway-authored notices (inbox notifications, security alerts)
   ...notices,
@@ -4061,6 +4076,7 @@ export const ar: Partial<Catalogue> = {
   ...separateDesktop,
   // Windows variants of the sandbox PC, voice keys and platform terms
   ...windowsPlatform202611,
+  ...appleE2,
   ...mailFollowups,
   ...nightShift,
   ...keepAwake,

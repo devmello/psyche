@@ -4,11 +4,13 @@ import {
   isCheckedImagePart,
   isPartList,
   keepRecentToolImages,
+  STOPPED_MARKER,
   type ThreadState,
   type ThreadStateStore,
 } from "@psyche/agent-core";
 import {
   getAgentThreadState,
+  getRun,
   listAllMessages,
   type PsycheDb,
   putAgentThreadState,
@@ -124,8 +126,30 @@ export class SqliteThreadStateStore implements ThreadStateStore {
     const history = last?.role === "user" ? rows.slice(0, -1) : rows;
     const out: ModelMessage[] = [];
     const taint: TaintSource[] = [];
-    for (const m of history) {
+    // A run the owner stopped: its last row is followed by the stop marker, as the loop wrote it
+    // live, so a rebuilt history never shows a request with no reply and then a new request.
+    const lastRowOfRun = new Map<string, number>();
+    history.forEach((m, i) => {
+      if (m.runId !== null && m.runId !== undefined) lastRowOfRun.set(m.runId, i);
+    });
+    const stoppedAfter = new Set<number>();
+    for (const [runId, i] of lastRowOfRun) {
+      if (getRun(this.#db, runId)?.status === "cancelled") stoppedAfter.add(i);
+    }
+    let pendingStop = false;
+    const flushStop = () => {
+      if (!pendingStop) return;
+      pendingStop = false;
+      const prev = out.at(-1);
+      if (prev?.role === "user")
+        out.push({ role: "assistant", parts: [{ type: "text", text: STOPPED_MARKER }] });
+      else if (prev?.role === "assistant")
+        prev.parts.push({ type: "text", text: `\n${STOPPED_MARKER}` });
+    };
+    for (const [i, m] of history.entries()) {
+      if (stoppedAfter.has(i - 1)) pendingStop = true;
       if (m.role !== "user" && m.role !== "agent") continue;
+      flushStop();
       const text = m.blocks.flatMap((b) => (b.type === "text" ? [b.md] : [])).join("\n\n");
       const files = m.blocks.flatMap((b) => (b.type === "file" ? [b.libraryItemId] : []));
       let images: { mime: string; data: string }[] = [];
@@ -206,6 +230,8 @@ export class SqliteThreadStateStore implements ThreadStateStore {
         if (untrusted) prev.untrusted = true;
       } else out.push({ role, parts, ...(untrusted ? { untrusted: true as const } : {}) });
     }
+    if (stoppedAfter.has(history.length - 1)) pendingStop = true;
+    flushStop();
     if (out.length === 0) return undefined;
     // Third-party files re-read into the context keep the thread tainted, as they did live.
     return {

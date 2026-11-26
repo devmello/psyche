@@ -53,6 +53,15 @@ function dayIn(date: Date, timeZone: string): string {
   }).format(date);
 }
 
+/**
+ * A run's tokens, counted the way the chat's own usage counts them (the run header's
+ * `usageTokens` in packages/ui): input, output, reasoning and cache reads and writes. The sidebar
+ * chip must sum the same thing, or it disagrees with the chat beside it.
+ */
+export function runTokens(u: Usage): number {
+  return u.input + u.output + u.cacheRead + u.cacheWrite + u.reasoning;
+}
+
 function parseUsage(raw: string): Usage | null {
   try {
     const u = JSON.parse(raw) as Partial<Usage>;
@@ -122,7 +131,7 @@ export function usageSummaryHandlers(setup: UsageSummarySetup): Record<string, H
         for (const row of rows) {
           const u = parseUsage(row.usage);
           if (u === null) continue;
-          const tokens = u.input + u.output + u.reasoning;
+          const tokens = runTokens(u);
           const day = dayIn(new Date(row.startedAt), timeZone);
           const slot = perDay.get(day);
           if (slot !== undefined) {

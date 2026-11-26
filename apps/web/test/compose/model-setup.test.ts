@@ -181,7 +181,7 @@ describe("onboarding model setup", () => {
       ["helper", "warn"],
       ["model", "warn"],
     ]);
-    expect(checks.at(-1)?.detail).toMatch(/no key added/);
+    expect(checks.at(-1)?.detail).toMatch(/^Add a key/);
   });
 
   it("counts a signed-in Claude subscription (claude-code) as ready with no API key (#537)", async () => {
@@ -428,6 +428,33 @@ describe("onboarding model setup: rejected and refused keys", () => {
     const none = platformWith(listWith({ keyConfigured: false, probe: { state: "not_probed" } }));
     const row = (await verifySetup(none.platform, result, undefined)).at(-1);
     expect(row?.state).toBe("warn");
-    expect(row?.detail).toMatch(/no key added/);
+    expect(row?.detail).toMatch(/^Add a key/);
+    // The row sends the owner back to the Model step, where the key goes.
+    expect(row?.fixStep).toBe("model");
+  });
+
+  it("Done says a key the Gateway has, but this setup did not save, comes from the environment", async () => {
+    const okEnv = platformWith(listWith({ keyConfigured: true, probe: { state: "reachable" } }));
+    const row = (await verifySetup(okEnv.platform, result, undefined)).at(-1);
+    expect(row).toMatchObject({ state: "ok" });
+    expect(row?.detail).toMatch(/Using a key from your environment/);
+    // Not reachable: still the environment wording, never "the key is saved".
+    const down = platformWith(listWith({ keyConfigured: true, probe: { state: "unreachable" } }));
+    const unchecked = (await verifySetup(down.platform, result, undefined)).at(-1);
+    expect(unchecked).toMatchObject({ state: "unchecked", fixStep: "model" });
+    expect(unchecked?.detail).toMatch(/Using a key from your environment/);
+    expect(unchecked?.detail).not.toMatch(/key is saved/);
+  });
+
+  it("Done keeps the vault wording when the key was saved in this setup (positive control)", async () => {
+    const saved = {
+      model: { modelRef: "anthropic/claude-sonnet-5-5", keyRef: "model-anthropic" },
+    } as never;
+    const ok = platformWith(listWith({ keyConfigured: true, probe: { state: "reachable" } }));
+    const row = (await verifySetup(ok.platform, saved, undefined)).at(-1);
+    expect(row?.detail).toMatch(/key in the vault/);
+    const down = platformWith(listWith({ keyConfigured: true, probe: { state: "unreachable" } }));
+    const unchecked = (await verifySetup(down.platform, saved, undefined)).at(-1);
+    expect(unchecked?.detail).toMatch(/key is saved/);
   });
 });
