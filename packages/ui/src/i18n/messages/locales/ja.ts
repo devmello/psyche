@@ -1,6 +1,7 @@
 import type { Catalogue } from "../index.ts";
 import { actionErrors } from "./action-errors/ja.ts";
 import { agentRest } from "./agent-rest/ja.ts";
+import { appleD } from "./apple-d/ja.ts";
 import { approvalsW3 } from "./approvals-w3/ja.ts";
 import { auditRest } from "./audit-rest/ja.ts";
 import { automationChatRest } from "./automationChat-rest/ja.ts";
@@ -2991,7 +2992,7 @@ export const ja: Partial<Catalogue> = {
   "screens.search.scope.tasks": "タスク",
   "screens.search.scope.memory": "メモリ",
   "screens.search.scope.library": "ライブラリ",
-  "screens.search.scope.feed": "フィード",
+  "screens.search.scope.feed": "ホーム",
   "screens.search.scope.ideas": "アイデア",
   "screens.search.scope.goals": "目標",
   "screens.search.scope.connectors": "コネクタ",
@@ -3003,7 +3004,7 @@ export const ja: Partial<Catalogue> = {
   "screens.search.example": "歯医者",
   "screens.search.tryExample": "「{example}」を試す",
   "screens.search.intro":
-    "スレッド、タスク、メモリ、ライブラリ、フィードを検索します。in:feed、type:pdf、from:名前で絞り込めます。",
+    "スレッド、タスク、メモリ、ライブラリ、ホームを検索します。type:pdf、from:名前で絞り込めます。",
   "screens.search.addWord": "検索する語を入力してください。",
   "screens.search.searching": "検索中",
   "screens.search.failed": "検索に失敗しました",
@@ -3061,7 +3062,7 @@ export const ja: Partial<Catalogue> = {
   "screens.ideas.cadence": "頻度",
   "screens.ideas.repeats": "提案されたスケジュールで繰り返します。後で「予定」から変更できます。",
   "screens.ideas.viewSkill": "SKILL.mdを表示",
-  "screens.ideas.accept": "やってみる",
+  "screens.ideas.accept": "タスクを開始",
   "screens.ideas.added": "「{title}」を予定に追加しました。",
   "screens.ideas.started": "{name}が「{title}」を開始しました。",
   "screens.ideas.open": "開く",
@@ -3230,7 +3231,7 @@ export const ja: Partial<Catalogue> = {
   "screens.inbox.saveFailed": "Psycheはそれを保存できませんでした",
   "screens.inbox.retryFailed": "Psycheは「{title}」を再試行できませんでした",
   "screens.inbox.kind.approval": "承認",
-  "screens.inbox.kind.input_needed": "入力",
+  "screens.inbox.kind.input_needed": "あなたへの質問",
   "screens.inbox.kind.task_done": "完了",
   "screens.inbox.kind.task_failed": "失敗",
   "screens.inbox.kind.proactive": "アイデア",
@@ -3360,7 +3361,7 @@ export const ja: Partial<Catalogue> = {
   "screens.library.meetingNotes.action": "会議のメモを作成",
   "screens.library.meetingNotes.running":
     "メモを作成中です。長い録音には時間がかかることがあります（最大4時間の音声）。",
-  "screens.library.meetingNotes.done": "メモがフィードで準備できました。",
+  "screens.library.meetingNotes.done": "メモがホームで準備できました。",
   "screens.library.meetingNotes.open": "メモを開く",
   "screens.library.meetingNotes.failed": "Psyche はメモを作成できませんでした（{reason}）。",
   "screens.library.trust": "このファイルを信頼",
@@ -4050,4 +4051,5 @@ export const ja: Partial<Catalogue> = {
   ...spaces,
   ...machines,
   ...actionErrors,
+  ...appleD,
 };

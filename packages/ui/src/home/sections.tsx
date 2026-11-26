@@ -79,7 +79,9 @@ function SectionError({ what, onRetry }: { what: string; onRetry: () => void }):
 }
 
 /**
- * Approvals and questions waiting on the owner, amber; nothing when none are. A past-due
+ * Approvals and questions waiting on the owner; nothing when none are. The count beside the title
+ * is the sidebar's badge (`useNeedsYou`), and the heading's mark is neutral: amber belongs to the
+ * Approve rows themselves, not to a second decoration. A past-due
  * "Did you finish ...?" from the catch-up list is one of them (memory-for-everything §5.6).
  */
 export function NeedsYouSection({
@@ -93,7 +95,7 @@ export function NeedsYouSection({
   const { asks, busy, act, count } = useNeedsYou(now);
   if (count === 0) return null;
   return (
-    <ScreenSection id="needs-you" title={t("home.needsYou")} large needsYou>
+    <ScreenSection id="needs-you" title={t("home.needsYou")} meta={count} large>
       <PastDueAsks items={asks} busy={busy} onAct={act} onOpen={onNavigate} />
       <NeedsYouList {...(fixedNow === undefined ? {} : { now: fixedNow })} />
     </ScreenSection>

@@ -2,6 +2,7 @@ import type { Catalogue } from "../index.ts";
 import { actionErrors } from "./action-errors/ar.ts";
 import { agent } from "./agent/ar.ts";
 import { agentNotes } from "./agent-notes/ar.ts";
+import { appleD } from "./apple-d/ar.ts";
 import { approvalsW3 } from "./approvals-w3/ar.ts";
 import { audit } from "./audit/ar.ts";
 import { automationChat } from "./automation-chat/ar.ts";
@@ -3034,7 +3035,7 @@ export const ar: Partial<Catalogue> = {
   "screens.search.scope.tasks": "المهام",
   "screens.search.scope.memory": "الذاكرة",
   "screens.search.scope.library": "المكتبة",
-  "screens.search.scope.feed": "الخلاصة",
+  "screens.search.scope.feed": "الرئيسية",
   "screens.search.scope.ideas": "الأفكار",
   "screens.search.scope.goals": "الأهداف",
   "screens.search.scope.connectors": "الموصّلات",
@@ -3046,7 +3047,7 @@ export const ar: Partial<Catalogue> = {
   "screens.search.example": "طبيب الأسنان",
   "screens.search.tryExample": "جرّب «{example}»",
   "screens.search.intro":
-    "ابحث في المحادثات والمهام والذاكرة والمكتبة والخلاصة. ضيّق النتائج بـ in:feed أو type:pdf أو from:name.",
+    "ابحث في المحادثات والمهام والذاكرة والمكتبة والرئيسية. ضيّق النتائج بـ type:pdf أو from:name.",
   "screens.search.addWord": "أضف كلمة للبحث عنها.",
   "screens.search.searching": "جارٍ البحث",
   "screens.search.failed": "فشل البحث",
@@ -3105,7 +3106,7 @@ export const ar: Partial<Catalogue> = {
   "screens.ideas.cadence": "الوتيرة",
   "screens.ideas.repeats": "تتكرر حسب الجدول الذي تقترحه؛ غيّره لاحقًا في القادم.",
   "screens.ideas.viewSkill": "عرض SKILL.md",
-  "screens.ideas.accept": "لنفعلها",
+  "screens.ideas.accept": "ابدأ المهمة",
   "screens.ideas.added": "تمت إضافة «{title}» إلى القادم.",
   "screens.ideas.started": "بدأ {name} «{title}».",
   "screens.ideas.open": "فتح",
@@ -3263,7 +3264,7 @@ export const ar: Partial<Catalogue> = {
   "screens.inbox.saveFailed": "تعذّر على Psyche حفظ ذلك",
   "screens.inbox.retryFailed": "تعذّر على Psyche إعادة محاولة «{title}»",
   "screens.inbox.kind.approval": "موافقة",
-  "screens.inbox.kind.input_needed": "إدخال",
+  "screens.inbox.kind.input_needed": "سؤال لك",
   "screens.inbox.kind.task_done": "منجزة",
   "screens.inbox.kind.task_failed": "فشلت",
   "screens.inbox.kind.proactive": "فكرة",
@@ -3386,7 +3387,7 @@ export const ar: Partial<Catalogue> = {
   "screens.library.meetingNotes.action": "إنشاء ملاحظات الاجتماع",
   "screens.library.meetingNotes.running":
     "جارٍ إنشاء الملاحظات. قد تستغرق التسجيلات الطويلة وقتًا، حتى أربع ساعات من الصوت.",
-  "screens.library.meetingNotes.done": "الملاحظات جاهزة في خلاصتك.",
+  "screens.library.meetingNotes.done": "الملاحظات جاهزة في الرئيسية.",
   "screens.library.meetingNotes.open": "فتح الملاحظات",
   "screens.library.meetingNotes.failed": "تعذّر على Psyche إنشاء الملاحظات ({reason}).",
   "screens.library.trust": "الوثوق بهذا الملف",
@@ -4076,4 +4077,5 @@ export const ar: Partial<Catalogue> = {
   ...spaces,
   ...machines,
   ...actionErrors,
+  ...appleD,
 };

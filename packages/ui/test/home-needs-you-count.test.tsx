@@ -1,6 +1,8 @@
 import type { ApprovalRequest, Notification } from "@psyche/protocol";
 import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { useNeedsYouCount } from "../src/agent/AgentSheet.tsx";
+import { useAgentStatus } from "../src/agent/useAgentState.ts";
 import { type FixtureWorld, IDS } from "../src/fixtures/index.ts";
 import { HomeScreen } from "../src/home/HomeScreen.tsx";
 import { ShellMotion } from "../src/shell/motion.tsx";
@@ -14,6 +16,13 @@ import { STORY_NOW, StoryWorld } from "../src/stories/harness.tsx";
 
 let world: FixtureWorld | undefined;
 let emit: ((event: string, payload: unknown) => void) | undefined;
+
+/** What the chat header and the inspector tab show, beside Home and the sidebar. */
+function Counts() {
+  const header = useAgentStatus().needsYou;
+  const tab = useNeedsYouCount();
+  return <output data-testid="agent-counts">{`${header}/${tab}`}</output>;
+}
 
 function mount() {
   render(
@@ -35,6 +44,7 @@ function mount() {
           now={STORY_NOW}
         />
         <HomeScreen now={STORY_NOW} />
+        <Counts />
       </ShellMotion>
     </StoryWorld>,
   );
@@ -90,6 +100,64 @@ describe("Home's badge and its Needs you section", () => {
     });
     await waitFor(() => expect(badge()).toBe(before - 1));
     await waitFor(() => expect(needsYouRows()).toBe(badge()));
+  });
+});
+
+describe("one count everywhere", () => {
+  it("an approval past its expiry leaves Home and the badge at once, then the header and inspector", async () => {
+    mount();
+    await waitFor(() => expect(badge()).toBeGreaterThan(0));
+    const before = badge();
+    // Positive control: rows and badge start in step, and the header and inspector agree.
+    await waitFor(() => expect(needsYouRows()).toBe(before));
+    const [headerBefore, tabBefore] = (screen.getByTestId("agent-counts").textContent ?? "").split(
+      "/",
+    );
+    expect(headerBefore).toBe(tabBefore);
+    const approval = (world?.approvals ?? []).find(
+      (a: ApprovalRequest) => a.id === IDS.approvals.sendEmail,
+    );
+    expect(approval?.status).toBe("pending");
+    // The deadline has passed but the Gateway has not said "expired" yet.
+    act(() => {
+      emit?.("approval.updated", {
+        approval: { ...approval, expiresAt: new Date(STORY_NOW - 60_000).toISOString() },
+      });
+    });
+    await waitFor(() => expect(badge()).toBe(before - 1));
+    await waitFor(() => expect(needsYouRows()).toBe(badge()));
+    // Now it does: every count has dropped the same one.
+    act(() => {
+      emit?.("approval.updated", {
+        approval: { ...approval, status: "expired", decidedAt: "2026-10-18T10:13:00Z" },
+      });
+    });
+    await waitFor(() => {
+      const [header, tab] = (screen.getByTestId("agent-counts").textContent ?? "").split("/");
+      expect(header).toBe(tab);
+      expect(Number(header)).toBe(Number(headerBefore) - 1);
+    });
+    expect(badge()).toBe(before - 1);
+  });
+
+  it("an answered approval leaves every count the same way", async () => {
+    mount();
+    await waitFor(() => expect(badge()).toBeGreaterThan(0));
+    const before = badge();
+    const [headerBefore] = (screen.getByTestId("agent-counts").textContent ?? "").split("/");
+    const approval = (world?.approvals ?? []).find(
+      (a: ApprovalRequest) => a.id === IDS.approvals.sendEmail,
+    );
+    act(() => {
+      emit?.("approval.updated", {
+        approval: { ...approval, status: "approved", decidedAt: "2026-10-18T10:13:00Z" },
+      });
+    });
+    await waitFor(() => expect(badge()).toBe(before - 1));
+    await waitFor(() => expect(needsYouRows()).toBe(badge()));
+    const [header, tab] = (screen.getByTestId("agent-counts").textContent ?? "").split("/");
+    expect(header).toBe(tab);
+    expect(Number(header)).toBe(Number(headerBefore) - 1);
   });
 });
 

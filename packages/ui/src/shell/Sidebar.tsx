@@ -696,14 +696,14 @@ export function SidebarToggle({
  * What needs the owner, shown beside Home: the same count Home's "Needs you" section lists
  * (`useNeedsYou`), so the badge cannot outlive the cards.
  */
-export function useSidebarCounts(): Partial<Record<RailItem, number>> {
-  const { count } = useNeedsYou();
+export function useSidebarCounts(now?: number): Partial<Record<RailItem, number>> {
+  const { count } = useNeedsYou(now);
   return useMemo(() => ({ home: count }), [count]);
 }
 
 /** The sidebar with its counts and usage from the Gateway. */
 export function ConnectedSidebar(props: Omit<SidebarProps, "counts">): ReactElement {
-  const counts = useSidebarCounts();
+  const counts = useSidebarCounts(props.now);
   const { onNavigate } = props;
   const renderUsage = useCallback(
     (variant: "full" | "rail", name: string) => (

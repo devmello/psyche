@@ -1,6 +1,7 @@
 import type { Catalogue } from "../index.ts";
 import { actionErrors } from "./action-errors/it.ts";
 import { agentRest } from "./agent-rest/it.ts";
+import { appleD } from "./apple-d/it.ts";
 import { approvalsW3 } from "./approvals-w3/it.ts";
 import { auditRest } from "./audit-rest/it.ts";
 import { automationChatRest } from "./automation-chat-rest/it.ts";
@@ -3027,7 +3028,7 @@ export const it: Partial<Catalogue> = {
   "screens.search.scope.tasks": "Attività",
   "screens.search.scope.memory": "Memoria",
   "screens.search.scope.library": "Libreria",
-  "screens.search.scope.feed": "Feed",
+  "screens.search.scope.feed": "Home",
   "screens.search.scope.ideas": "Idee",
   "screens.search.scope.goals": "Obiettivi",
   "screens.search.scope.connectors": "Connettori",
@@ -3039,7 +3040,7 @@ export const it: Partial<Catalogue> = {
   "screens.search.example": "dentista",
   "screens.search.tryExample": "Prova “{example}”",
   "screens.search.intro":
-    "Cerca tra thread, attività, memoria, Libreria e Feed. Restringi con in:feed, type:pdf o from:nome.",
+    "Cerca in thread, attività, memoria, Libreria e Home. Restringi con type:pdf o from:name.",
   "screens.search.addWord": "Aggiungi una parola da cercare.",
   "screens.search.searching": "Ricerca",
   "screens.search.failed": "Ricerca non riuscita",
@@ -3098,7 +3099,7 @@ export const it: Partial<Catalogue> = {
   "screens.ideas.repeats":
     "Si ripete con la pianificazione proposta; puoi cambiarla più tardi in In programma.",
   "screens.ideas.viewSkill": "Mostra SKILL.md",
-  "screens.ideas.accept": "Facciamolo",
+  "screens.ideas.accept": "Avvia attività",
   "screens.ideas.added": '"{title}" aggiunta a In programma.',
   "screens.ideas.started": '{name} ha avviato "{title}".',
   "screens.ideas.open": "Apri",
@@ -3265,7 +3266,7 @@ export const it: Partial<Catalogue> = {
   "screens.inbox.saveFailed": "Psyche non è riuscito a salvare",
   "screens.inbox.retryFailed": 'Psyche non è riuscito a riprovare "{title}"',
   "screens.inbox.kind.approval": "Approvazione",
-  "screens.inbox.kind.input_needed": "Risposta",
+  "screens.inbox.kind.input_needed": "Domanda per te",
   "screens.inbox.kind.task_done": "Completata",
   "screens.inbox.kind.task_failed": "Non riuscita",
   "screens.inbox.kind.proactive": "Idea",
@@ -3400,7 +3401,7 @@ export const it: Partial<Catalogue> = {
   "screens.library.meetingNotes.action": "Crea note della riunione",
   "screens.library.meetingNotes.running":
     "Creazione delle note in corso. Una registrazione lunga può richiedere tempo, fino a quattro ore di audio.",
-  "screens.library.meetingNotes.done": "Le note sono pronte nel tuo Feed.",
+  "screens.library.meetingNotes.done": "Le note sono pronte in Home.",
   "screens.library.meetingNotes.open": "Apri note",
   "screens.library.meetingNotes.failed": "Psyche non è riuscito a creare le note ({reason}).",
   "screens.library.trust": "Considera attendibile questo file",
@@ -4093,4 +4094,5 @@ export const it: Partial<Catalogue> = {
   ...spaces,
   ...machines,
   ...actionErrors,
+  ...appleD,
 };
