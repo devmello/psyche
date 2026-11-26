@@ -91,7 +91,7 @@ Every change is held to the rules in [docs/05](https://github.com/devmello/psych
 
 On top of that:
 
-- **Review duty.** The security-harness workstream reviews every pull request that touches `permissions`, `vault`, `browser`, `sandbox`, `channels` or `mcp-host`, maps the change to the docs/05 sections it affects, and files findings as issues with a failing test case. An adversarial-review workstream red-teams the brokers.
+- **Review duty.** The security-harness workstream reviews every pull request that touches `permissions`, `vault`, `browser`, `sandbox` or `mcp-host`, maps the change to the docs/05 sections it affects, and files findings as issues with a failing test case. An adversarial-review workstream red-teams the brokers.
 - **Threat-model reviews** per milestone record what docs/05 promises against what the code does; the latest is [docs/archive/reports/m3-threat-model-review.md](https://github.com/devmello/psyche/blob/main/docs/archive/reports/m3-threat-model-review.md).
 
 ### Injection corpus and secret-leak checks
@@ -105,7 +105,7 @@ The security workflow ([.github/workflows/security.yml](https://github.com/devme
 | `security / injection-corpus` | Every injection case against the current stack (`pnpm check:injection`) |
 | `security / scenarios-scripted`, `security / resumability` | Acceptance scenarios on a scripted model; kill-and-restart without duplicate side effects |
 
-If your change touches a tool, the broker, a channel or anything that reads untrusted content, run these locally before you open the pull request:
+If your change touches a tool, the broker or anything that reads untrusted content, run these locally before you open the pull request:
 
 ```bash
 pnpm check:injection

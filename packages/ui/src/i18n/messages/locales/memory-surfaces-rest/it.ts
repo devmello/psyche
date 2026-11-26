@@ -4,12 +4,11 @@ import type { Catalogue } from "../../index.ts";
 export const memorySurfacesRest: Partial<Catalogue> = {
   "memorySurfaces.title": "Dove compare la memoria",
   "memorySurfaces.description":
-    "Cosa {persona} può mostrare in Home, nel riepilogo quotidiano, nelle notifiche e in un riepilogo inviato a Telegram o a un altro canale. La pagina Memoria mostra sempre tutto ciò che non hai escluso.",
+    "Cosa {persona} può mostrare in Home, nel riepilogo quotidiano e nelle notifiche. La pagina Memoria mostra sempre tutto ciò che non hai escluso.",
   "memorySurfaces.loadLabel": "dove compare la memoria",
   "memorySurfaces.surface.home": "Home",
   "memorySurfaces.surface.brief": "Riepilogo quotidiano",
   "memorySurfaces.surface.notification": "Notifiche",
-  "memorySurfaces.surface.channel": "Riepilogo inviato a un canale",
   "memorySurfaces.tier.work.title": "Lavoro e cose da fare",
   "memorySurfaces.tier.work.description":
     "Progetti, corsi, cose da fare, come procedono, scadenze ed eventi dei tuoi calendari.",
@@ -22,7 +21,7 @@ export const memorySurfacesRest: Partial<Catalogue> = {
   "memorySurfaces.tier.people.description":
     "Fatti su altre persone, come le conosci, di cosa avete parlato e Resta in contatto.",
   "memorySurfaces.people.warning":
-    "I riepiloghi possono essere visti da chiunque veda il tuo schermo o il tuo Telegram.",
+    "I riepiloghi possono essere visti da chiunque veda il tuo schermo.",
   "memorySurfaces.birthdays.title": "Compleanni e anniversari",
   "memorySurfaces.birthdays.label": "Mostra compleanni e anniversari",
   "memorySurfaces.birthdays.hint":

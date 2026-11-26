@@ -212,13 +212,13 @@ export function describePermissionBrokerConformance(
       const call = intent("purchase.checkout", "financial");
       const issued = await request(broker, call, {
         kind: "purchase",
-        surfaces: ["desktop", "telegram:4242"],
+        surfaces: ["desktop", "oldchat:4242"],
       });
       expect(issued.approval.scopesOffered).toEqual(["once"]);
       expect(issued.approval.deviceOnly).toBe(true);
       expect(issued.approval.requiresAuthentication).toBe(true);
-      expect(issued.approval.surfaces).not.toContain("telegram:4242");
-      expect(Object.keys(issued.answerTokens)).not.toContain("telegram:4242");
+      expect(issued.approval.surfaces).not.toContain("oldchat:4242");
+      expect(Object.keys(issued.answerTokens)).not.toContain("oldchat:4242");
       clock.advance(APPROVAL_ARM_DELAY_MS + 100);
       await broker.answer({
         approvalId: issued.approval.id,
@@ -448,11 +448,11 @@ export function describePermissionBrokerConformance(
       const { broker } = await setup();
       const issued = await request(broker, intent("messages.send", "destructive"), {
         kind: "message_send",
-        surfaces: ["desktop", "telegram:4242"],
+        surfaces: ["desktop", "oldchat:4242"],
         scopesOffered: ["once", "task", "site", "session", "always"],
       });
       expect(issued.approval.deviceOnly).toBe(true);
-      expect(issued.approval.surfaces).not.toContain("telegram:4242");
+      expect(issued.approval.surfaces).not.toContain("oldchat:4242");
       for (const s of issued.approval.scopesOffered)
         expect(["once", "task", "always"]).toContain(s);
     });
@@ -462,10 +462,10 @@ export function describePermissionBrokerConformance(
       for (const kind of ["pairing", "policy_change"] as const) {
         const issued = await request(broker, intent(`conformance.${kind}`, "write"), {
           kind,
-          surfaces: ["desktop", "telegram:4242"],
+          surfaces: ["desktop", "oldchat:4242"],
         });
         expect(issued.approval.deviceOnly, kind).toBe(true);
-        expect(issued.approval.surfaces).not.toContain("telegram:4242");
+        expect(issued.approval.surfaces).not.toContain("oldchat:4242");
       }
     });
 

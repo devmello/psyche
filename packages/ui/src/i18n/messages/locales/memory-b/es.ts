@@ -212,17 +212,13 @@ export const memoryB: Partial<Catalogue> = {
   "settings.key.memory.surfaces.tiers.work.home": "Trabajo en Inicio",
   "settings.key.memory.surfaces.tiers.work.brief": "Trabajo en el resumen diario",
   "settings.key.memory.surfaces.tiers.work.notification": "Trabajo en las notificaciones",
-  "settings.key.memory.surfaces.tiers.work.channel": "Trabajo en el resumen enviado a un canal",
   "settings.key.memory.surfaces.tiers.workMail.home": "Correo sobre trabajo en Inicio",
   "settings.key.memory.surfaces.tiers.workMail.brief": "Correo sobre trabajo en el resumen diario",
   "settings.key.memory.surfaces.tiers.workMail.notification":
     "Correo sobre trabajo en las notificaciones",
-  "settings.key.memory.surfaces.tiers.workMail.channel":
-    "Correo sobre trabajo en el resumen enviado a un canal",
   "settings.key.memory.surfaces.tiers.people.home": "Personas en Inicio",
   "settings.key.memory.surfaces.tiers.people.brief": "Personas en el resumen diario",
   "settings.key.memory.surfaces.tiers.people.notification": "Personas en las notificaciones",
-  "settings.key.memory.surfaces.tiers.people.channel": "Personas en el resumen enviado a un canal",
   "settings.key.memory.surfaces.birthdays": "Cumpleaños y aniversarios en el resumen y en Inicio",
   "settings.key.memory.surfaces.hideSources":
     "Mantener una fuente fuera de Inicio, los resúmenes y las notificaciones",

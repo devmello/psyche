@@ -13,7 +13,7 @@ import {
   DropdownMenuTrigger,
 } from "../components/ui/dropdown-menu.tsx";
 import { Skeleton } from "../components/ui/skeleton.tsx";
-import { useAutomations, useCall, useGatewayQuery, useThreads } from "../data/index.ts";
+import { useAutomations, useCall, useThreads } from "../data/index.ts";
 import { activeI18n, t } from "../i18n/core.ts";
 import { describeError } from "../i18n/errors.ts";
 import { formatRelative } from "../lib/format.ts";
@@ -123,22 +123,9 @@ function sessionLabel(a: Automation): string {
     : t("agent.upcoming.inMainSession");
 }
 
-const CHANNEL_NAME: Record<string, string> = {
-  telegram: "Telegram",
-  imessage: "iMessage",
-  whatsapp: "WhatsApp",
-  signal: "Signal",
-  slack: "Slack",
-  discord: "Discord",
-  get email() {
-    return t("agent.upcoming.email");
-  },
-};
-
-/** "Delivers to Main and Telegram", "Delivers nothing unless something needs you" (§3.16). */
+/** "Delivers to Main and a webhook", "Delivers nothing unless something needs you" (§3.16). */
 export function useDeliverySentence(): (a: Automation) => string {
   const { all: threadList, main } = useThreads();
-  const channels = useGatewayQuery("channels.list", {});
   return (a) => {
     const d = a.delivery;
     if (d.none === true) return t("agent.upcoming.quiet");
@@ -151,10 +138,6 @@ export function useDeliverySentence(): (a: Automation) => string {
           ? t("agent.upcoming.theMainChat")
           : (thread?.thread.title ?? t("agent.upcoming.aChat")),
       );
-    }
-    if (d.channel) {
-      const type = channels.data?.channels.find((c) => c.id === d.channel)?.type;
-      to.push(type ? (CHANNEL_NAME[type] ?? type) : t("agent.upcoming.aChannel"));
     }
     if (d.webhook) to.push("a webhook");
     return to.length === 0

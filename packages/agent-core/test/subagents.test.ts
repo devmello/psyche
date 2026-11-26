@@ -269,16 +269,16 @@ describe("subagents in a Full-access thread (#1689 review r1)", () => {
   const childCtx = (h: ReturnType<typeof harness>) =>
     h.broker.decisions.find((d) => d.call.tool === "noop")?.ctx;
 
-  it("a subagent of the owner's Telegram turn keeps the requester and is decided as Balanced", async () => {
+  it("a subagent of the owner's old chat channel turn keeps the requester and is decided as Balanced", async () => {
     const h = turn();
     await runTurn(h, "build it", {
       permissionMode: "full",
-      requester: { role: "owner", channel: "telegram", senderId: "1" },
+      requester: { role: "owner", channel: "oldchat", senderId: "1" },
     });
     const ctx = childCtx(h);
     expect(ctx?.runId).toContain(":sub:");
     expect(ctx?.permissionMode).toBe("balanced");
-    expect(ctx?.requester).toMatchObject({ role: "owner", channel: "telegram" });
+    expect(ctx?.requester).toMatchObject({ role: "owner", channel: "oldchat" });
   });
 
   it("control: a subagent of the owner's desktop turn keeps Full access", async () => {

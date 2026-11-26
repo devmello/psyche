@@ -12,7 +12,7 @@ const T = IDS.threads;
 const R = IDS.runs;
 const TC = IDS.toolCalls;
 
-const SURFACES = ["desktop", "notification", "telegram:you"];
+const SURFACES = ["desktop", "notification"];
 
 function approval(
   partial: Pick<
@@ -303,19 +303,19 @@ export function approvals(): ApprovalRequest[] {
     approval({
       id: A.denied,
       kind: "message_send",
-      summary: "Reply to @sam_k on Telegram",
+      summary: "Reply to Sam on iMessage",
       details: {
-        channel: "telegram",
-        account: "@wren_psyche_bot",
-        recipient: "@sam_k",
+        channel: "imessage",
+        account: "Messages",
+        recipient: "Sam",
         bodyPreview: "Sure, Thursday works. I'll bring the projector.",
         bodyHash: fakeSha("body:sam-thursday"),
       },
-      grantKey: "message.send|telegram|@sam_k",
+      grantKey: "message.send|imessage|sam",
       requestedBy: { runId: R.main, taskId: null, threadId: T.main, agent: "Wren" },
       sideEffect: "write",
       targetKind: "recipient",
-      target: { kind: "recipient", value: "telegram:58213907", display: "@sam_k" },
+      target: { kind: "recipient", value: "imessage:+15550101", display: "Sam" },
       status: "denied",
       decidedBy: { deviceId: IDS.devices.mac, surface: "desktop" },
       decidedAt: "2026-10-17T18:04:20Z",

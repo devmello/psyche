@@ -22,7 +22,7 @@ nodes (
   status TEXT, last_heartbeat_at
 )
 pairing_requests (
-  id TEXT PK, kind TEXT,                           -- device | channel-sender
+  id TEXT PK, kind TEXT,                           -- device (channel-sender: removed 2026-11-25)
   code TEXT, device_id, channel_id, sender_id, display TEXT,
   status TEXT,                                     -- pending | approved | denied | expired
   expires_at, decided_at, decided_by_device_id,
@@ -35,11 +35,11 @@ pairing_requests (
 
 ```sql
 threads (
-  id TEXT PK, kind TEXT,                           -- main | side | incognito | channel | automation | subagent
+  id TEXT PK, kind TEXT,                           -- main | side | incognito | channel (old data, opens as an ordinary thread) | automation | subagent
   title TEXT, title_source TEXT,                   -- user | auto
   parent_thread_id FK threads NULL,                -- side chats and subagents point at their parent
   forked_from_message_id FK messages NULL,
-  session_key TEXT,                                -- e.g. "owner:main", "telegram:peer:12345", "cron:<jobId>"
+  session_key TEXT,                                -- e.g. "owner:main", "cron:<jobId>"
   persona_overlay TEXT NULL,                       -- delegated persona name for designated-person threads
   permission_mode TEXT,                            -- plan | manual | balanced | auto
   model_ref TEXT NULL,                             -- user-pinned model for this thread
@@ -53,7 +53,7 @@ messages (
   provider_native TEXT JSON NULL,                  -- opaque provider turn (signed reasoning etc.), round-tripped verbatim
   provenance TEXT,                                 -- owner | agent | untrusted | system
   reply_to_message_id FK messages NULL,
-  channel_ref TEXT JSON NULL,                      -- {channel, account, messageId} for inbound/outbound channel messages
+  channel_ref TEXT JSON NULL,                      -- {channel, account, messageId}; set only on old channel threads
   run_id FK runs NULL, created_at,
   lessons_applied TEXT JSON NULL                   -- LessonRef[]: lessons the Gateway put in this answer's prompt (teaching loop)
 )
@@ -132,11 +132,11 @@ approvals (
   summary TEXT, details TEXT JSON, binding_hash TEXT, grant_key TEXT,
   device_only INTEGER, requires_authentication INTEGER, taint INTEGER,
   requested_by_run_id FK NULL, task_id FK NULL, thread_id FK NULL,
-  surfaces TEXT JSON,                              -- ["desktop","notification","web","telegram:12345"]
+  surfaces TEXT JSON,                              -- ["desktop","notification","web","ios"]
   answer_tokens TEXT JSON,                         -- per-surface single-use tokens (hashed)
   status TEXT,                                     -- pending | approved | denied | expired | invalidated
   scope_granted TEXT NULL,                         -- once | task | site | session | always
-  decided_by TEXT JSON NULL,                       -- {deviceId} or {channel, senderId}
+  decided_by TEXT JSON NULL,                       -- {deviceId}
   requested_at, expires_at, decided_at, grant_id FK grants NULL
 )
 grants (
@@ -221,7 +221,7 @@ Audit entries are appended to `audit/YYYY-MM.jsonl` (one JSON object per line) a
  "prev": "sha256:…", "hash": "sha256:…"}
 ```
 
-Event names: `device.paired`, `device.revoked`, `thread.created`, `tool_call.decided`, `tool_call.finished`, `approval.created`, `approval.decided`, `approval.expired`, `grant.created`, `grant.used`, `grant.revoked`, `credential.filled`, `credential.created`, `credential.deleted`, `purchase.requested`, `purchase.completed`, `message.sent`, `email.sent`, `calendar.changed`, `file.written`, `exec.finished`, `memory.written`, `memory.forgotten`, `connector.connected`, `connector.disconnected`, `channel.sender.paired`, `skill.installed`, `config.changed`, `vault.unlocked`, `export.created`, `reset.performed`. The Permission Broker also writes `approval.invalidated`, `approval.answer_rejected`, `binding.verified`, `binding.mismatch`, `classifier.labeled`, `classifier.circuit_open`, `receipt.recorded` and `receipt.reconciled`.
+Event names: `device.paired`, `device.revoked`, `thread.created`, `tool_call.decided`, `tool_call.finished`, `approval.created`, `approval.decided`, `approval.expired`, `grant.created`, `grant.used`, `grant.revoked`, `credential.filled`, `credential.created`, `credential.deleted`, `purchase.requested`, `purchase.completed`, `message.sent`, `email.sent`, `calendar.changed`, `file.written`, `exec.finished`, `memory.written`, `memory.forgotten`, `connector.connected`, `connector.disconnected`, `skill.installed`, `config.changed`, `vault.unlocked`, `export.created`, `reset.performed`. The Permission Broker also writes `approval.invalidated`, `approval.answer_rejected`, `binding.verified`, `binding.mismatch`, `classifier.labeled`, `classifier.circuit_open`, `receipt.recorded` and `receipt.reconciled`.
 
 ## 6. Credentials (vault)
 
@@ -331,7 +331,7 @@ Pip is …                      # free-form self-description the agent may refin
 - !exclude: celebrity news — dismissed 4 posts
 ```
 
-## 8. Connectors, channels, automations, proactive surfaces
+## 8. Connectors, automations, proactive surfaces
 
 ```sql
 connectors (
@@ -341,20 +341,12 @@ connectors (
   credential_id TEXT NULL, status TEXT, config TEXT JSON,        -- MCP: {transport,url|command,args,trustTier,toolsListHash}
   last_sync TEXT JSON, created_at, updated_at
 )
-channels (
-  id TEXT PK, type TEXT,                           -- webchat | telegram | imessage | whatsapp | signal | slack | discord | email | sms
-  account TEXT, dm_policy TEXT,                    -- pairing | allowlist | open | disabled
-  allow_from TEXT JSON, group_allow_from TEXT JSON, require_mention INTEGER,
-  owner_ids TEXT JSON, dm_scope TEXT,              -- main | per-peer | per-channel-peer
-  node_id FK nodes NULL,                           -- iMessage runs on a Mac node
-  status TEXT, config TEXT JSON, created_at, updated_at
-)
-identities (id TEXT PK, display TEXT, links TEXT JSON, delegated_persona TEXT NULL, tool_allow TEXT JSON NULL)
+-- The channels and identities tables (chat channel adapters, DM policy, identity links) were removed 2026-11-25. Old rows are ignored.
 automations (
   id TEXT PK, kind TEXT,                           -- cron | interval | watch | heartbeat | briefing
   title TEXT, schedule TEXT, timezone TEXT,
   session_target TEXT,                             -- main | isolated | named:<id>
-  delivery TEXT JSON,                              -- {thread?: id, channel?: id, webhook?: url, none?: true}
+  delivery TEXT JSON,                              -- {thread?: id, webhook?: url, none?: true}
   prompt TEXT, scratch TEXT, enabled INTEGER,
   next_run_at, last_run_at, last_status TEXT, created_at, updated_at
 )
@@ -388,7 +380,7 @@ notifications (
   created_at, updated_at
 )
 notification_deliveries (                          -- one row per notification × surface
-  notification_id FK notifications, surface TEXT,  -- desktop | web | notification | <channel>:<peerId>
+  notification_id FK notifications, surface TEXT,  -- desktop | web | notification | ios
   status TEXT,                                     -- pending | deferred (quiet hours) | delivered | failed | suppressed
   attempts INTEGER, due_at NULL, delivered_at NULL, detail TEXT NULL, created_at, updated_at,
   PRIMARY KEY (notification_id, surface)
@@ -471,4 +463,4 @@ Results of side-effecting requests are stored in `gateway_idempotency (id, devic
 | Sandbox workspaces | until thread/project deletion | per sandbox |
 | Credential use log | 1 year | — |
 
-Backups include `state/`, `workspace/`, `vault/`, `library/`, `browser/profiles/` (optional) and channel session files; the vault remains encrypted inside the backup.
+Backups include `state/`, `workspace/`, `vault/`, `library/` and `browser/profiles/` (optional); the vault remains encrypted inside the backup.

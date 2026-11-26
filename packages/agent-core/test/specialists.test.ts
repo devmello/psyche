@@ -146,7 +146,7 @@ describe("specialist.spawn", () => {
     expect(h.provider.requests[1]?.tools?.map((t) => t.name)).not.toContain("specialist.spawn");
     await runTurn(h, "do it", {
       threadId: "thr_c",
-      requester: { role: "designated", channel: "telegram", senderId: "42" },
+      requester: { role: "designated", channel: "oldchat", senderId: "42" },
     });
     expect(JSON.stringify(resultsIn(h.provider.requests[3]).get("s1")?.output)).toContain(
       "only the owner",

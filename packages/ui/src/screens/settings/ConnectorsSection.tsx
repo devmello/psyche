@@ -125,7 +125,7 @@ export interface ConnectorsPanelProps extends LoadProps {
   /** Connector types the Gateway can connect; undefined offers every catalog row. */
   implemented?: ReadonlySet<string> | undefined;
   /** Opens another Settings section (the Slack row). */
-  onOpenSection?: (section: "channels" | "files") => void;
+  onOpenSection?: (section: "files") => void;
   /**
    * The settings that decide device access (`permissions.policy`): Files on this Mac and Terminal
    * are views onto them, shown above the list.
@@ -436,7 +436,6 @@ export function ConnectorsPanel({
             {...(mcp ? { mcp } : {})}
             implemented={implemented}
             connectedTypes={connectedTypes}
-            {...(onOpenSection ? { onOpenSection } : {})}
             sharedFolders={sharedFolders}
             {...(onShareFolder ? { onShareFolder } : {})}
             onCancel={list}
@@ -628,7 +627,7 @@ export interface ConnectorsSectionProps {
   onReconnect?: (connector: Connector) => void;
   onDisconnect?: (connector: Connector) => void;
   onRemove?: (connector: Connector) => void;
-  onOpenSection?: (section: "channels" | "files") => void;
+  onOpenSection?: (section: "files") => void;
   /** Where the section opens: the MCP servers only, or with the Add MCP server form showing. */
   view?: ConnectorsView;
 }

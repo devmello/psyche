@@ -135,7 +135,6 @@ async function setup() {
     clock,
     approvers: {
       device: async (id) => (id === "dev_owner" ? { scopes: ["operator.approvals"] } : undefined),
-      isOwnerSender: async () => false,
     },
   });
   const requestApproval = broker.requestApproval.bind(broker);

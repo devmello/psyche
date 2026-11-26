@@ -6,7 +6,7 @@ Backup archives of `$PSYCHE_HOME`, shared by `psyche backup` (apps/cli) and the 
 
 ## Format
 
-`psyche-<time>.tar.gz[.age]`: a gzip'd tar of `state/` (SQLite and the channel sessions in `state/channels/`), `workspace/`, `vault/`, `library/`, `audit/` and `config.json`, plus `psyche-backup.json` (`format`, `version: 1`, `createdAt`, the producer, the entries, and every file's path, size and SHA-256). Encrypted with [age](https://age-encryption.org) by passphrase (scrypt) or X25519 recipients unless the owner opts out. Not included: device keys (`cli/`), sockets (`run/`), logs, browser profiles, sandbox workspaces, VM disks.
+`psyche-<time>.tar.gz[.age]`: a gzip'd tar of `state/` (SQLite), `workspace/`, `vault/`, `library/`, `audit/` and `config.json`, plus `psyche-backup.json` (`format`, `version: 1`, `createdAt`, the producer, the entries, and every file's path, size and SHA-256). Encrypted with [age](https://age-encryption.org) by passphrase (scrypt) or X25519 recipients unless the owner opts out. Not included: device keys (`cli/`), sockets (`run/`), logs, browser profiles, sandbox workspaces, VM disks.
 
 ## Public API
 

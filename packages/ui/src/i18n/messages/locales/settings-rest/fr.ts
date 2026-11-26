@@ -17,7 +17,6 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.key.daily.brief.enabled": "Résumé du matin",
   "settings.key.daily.wrapup.enabled": "Bilan du soir",
   "settings.key.daily.notify": "Me notifier",
-  "settings.key.daily.messages": "Envoyer aussi par Messages",
   "settings.key.daily.followups.enabled": "Suivre les relances",
   "settings.key.daily.brief.time": "Heure du résumé du matin",
   "settings.key.daily.wrapup.time": "Heure du bilan du soir",
@@ -25,7 +24,6 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.daily.time": "Heure",
   "settings.daily.notify.hint":
     "Une notification avec la carte. Les heures calmes la retiennent jusqu’à leur fin.",
-  "settings.daily.messages.hint": "Nécessite le canal Messages. Envoyé uniquement à vous.",
   "settings.daily.sensitivity": "Niveau de suivi",
   "settings.daily.sensitivity.low": "Seulement les engagements clairs avec une date",
   "settings.daily.sensitivity.normal": "Engagements et demandes (recommandé)",
@@ -1520,18 +1518,14 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.key.memory.surfaces.tiers.work.home": "Travail dans Home",
   "settings.key.memory.surfaces.tiers.work.brief": "Travail dans le résumé quotidien",
   "settings.key.memory.surfaces.tiers.work.notification": "Travail dans les notifications",
-  "settings.key.memory.surfaces.tiers.work.channel": "Travail dans le résumé envoyé à un canal",
   "settings.key.memory.surfaces.tiers.workMail.home": "E-mails de travail dans Home",
   "settings.key.memory.surfaces.tiers.workMail.brief":
     "E-mails de travail dans le résumé quotidien",
   "settings.key.memory.surfaces.tiers.workMail.notification":
     "E-mails de travail dans les notifications",
-  "settings.key.memory.surfaces.tiers.workMail.channel":
-    "E-mails de travail dans le résumé envoyé à un canal",
   "settings.key.memory.surfaces.tiers.people.home": "Personnes dans Home",
   "settings.key.memory.surfaces.tiers.people.brief": "Personnes dans le résumé quotidien",
   "settings.key.memory.surfaces.tiers.people.notification": "Personnes dans les notifications",
-  "settings.key.memory.surfaces.tiers.people.channel": "Personnes dans le résumé envoyé à un canal",
   "settings.key.memory.surfaces.birthdays":
     "Anniversaires et dates anniversaires dans le résumé et dans Home",
   "settings.key.memory.surfaces.hideSources":

@@ -126,15 +126,26 @@ describe("narrowing security settings skip the card", () => {
     expect(stored("computerUse.enabled")).toBe(false);
   });
 
-  it("connector matrices and channel keys keep the card (defaults and readers are unknown here)", async () => {
+  it("connector matrices keep the card; old chat channel keys are refused outright", async () => {
     const { admin, seed, stored } = await boot();
     seed("permissions.connectors.gmail", { send: "ask", read: "allow" });
     seed("channels.telegram.allowFrom", ["1", "2"]);
     seed("channels.telegram.dmPolicy", "pairing");
     carded(await set(admin, "permissions.connectors.gmail", { send: "deny", read: "ask" }));
-    carded(await set(admin, "channels.telegram.allowFrom", ["2"]));
-    carded(await set(admin, "channels.telegram.dmPolicy", "allowlist"));
+    // Chat channels were removed (2026-11-25): `channels.*` is no setting any more, so even a
+    // narrowing write is refused before any card, and the stored (inert) value stays.
+    for (const [key, value] of [
+      ["channels.telegram.allowFrom", ["2"]],
+      ["channels.telegram.dmPolicy", "allowlist"],
+    ] as const) {
+      expect(await set(admin, key, value)).toMatchObject({
+        ok: false,
+        error: { code: "invalid_params", details: { reason: "setting_unknown" } },
+      });
+    }
     expect(stored("permissions.connectors.gmail")).toEqual({ send: "ask", read: "allow" });
+    expect(stored("channels.telegram.allowFrom")).toEqual(["1", "2"]);
+    expect(stored("channels.telegram.dmPolicy")).toBe("pairing");
   });
 
   it("sites toward deny applies at once; a reorder that flips the first match needs the card", async () => {

@@ -609,7 +609,7 @@ describe("computer-use agent tools (J1–J5)", () => {
 
   it("names the action so a click-tier app lets the agent click but not type", async () => {
     const broker = createPermissionBroker({
-      approvers: { device: async () => undefined, isOwnerSender: async () => false },
+      approvers: { device: async () => undefined },
       policy: { apps: { [notes]: "click" } },
     });
     // What the agent loop sends the broker for a described call.
@@ -709,7 +709,7 @@ describe("computer-use agent tools (J1–J5)", () => {
 
     it("goes through the broker like any computer-use call: read tier is enough, acting is not", async () => {
       const real = createPermissionBroker({
-        approvers: { device: async () => undefined, isOwnerSender: async () => false },
+        approvers: { device: async () => undefined },
         policy: { apps: { [notes]: "read" } },
       });
       const decide = async (tool: string, params: Record<string, unknown>) => {
@@ -1196,7 +1196,7 @@ describe("computer-use agent tools (J1–J5)", () => {
     }
     // End to end: the real broker gives that card the presence step; a delete is a tap.
     const real = createPermissionBroker({
-      approvers: { device: async () => undefined, isOwnerSender: async () => false },
+      approvers: { device: async () => undefined },
     });
     const card = async (label: string) => {
       const d =
@@ -1907,7 +1907,7 @@ describe("app ids by Host", () => {
 describe("computer use sends in Full access (#1689 r2)", () => {
   const real = () =>
     createPermissionBroker({
-      approvers: { device: async () => undefined, isOwnerSender: async () => false },
+      approvers: { device: async () => undefined },
     });
   const FULL = {
     threadId: "thr_main",

@@ -27,7 +27,7 @@ Psyche has three zones.
 | Executors | The agent browser, the sandbox container, host helpers under `srt`, remote nodes, the VM guest | Content can compromise them. They get only what one action needs. |
 | The Gateway (`psyched`) | The agent loop, Permission Broker, Credential Broker, audit log | The trusted core. It is the only process that talks to model providers, holds the vault key in memory, and decides allow, ask or deny. |
 
-Clients (the desktop app, the iPhone app, the CLI) hold no secrets and decide nothing. They render approval cards and send back your answers. The Mac helper (Psyche Helper) holds the macOS permissions and the Keychain, and connects to the Gateway as a node. Chat channels such as Telegram are the weakest surface: they can answer only low-risk approvals.
+Clients (the desktop app, the iPhone app, the CLI) hold no secrets and decide nothing. They render approval cards and send back your answers. The Mac helper (Psyche Helper) holds the macOS permissions and the Keychain, and connects to the Gateway as a node.
 
 ::: info Screenshot placeholder
 A diagram of the three zones: untrusted content on top, executors in the middle, the Gateway at the bottom, with clients and the Mac helper connecting to the Gateway.
@@ -45,7 +45,7 @@ Run the security audit from a terminal:
 psyche security audit
 ```
 
-It checks the bind address, proxy and passkey setup, admin devices, standing grants without expiry, open chat channels, the vault slot and recovery key, file modes under `$PSYCHE_HOME`, the sandbox and egress proxy, `exec_host`, MCP servers, skills, real-Chrome mode, computer-use overrides, backups and the update check. A check whose data the Gateway cannot provide is listed as "not checked", never as passed. The rule ids are listed in [docs/05 §10](https://github.com/devmello/psyche/blob/main/docs/05-security-and-permissions.md#10-control-plane-and-remote-access).
+It checks the bind address, proxy and passkey setup, admin devices, standing grants without expiry, the vault slot and recovery key, file modes under `$PSYCHE_HOME`, the sandbox and egress proxy, `exec_host`, MCP servers, skills, real-Chrome mode, computer-use overrides, backups and the update check. A check whose data the Gateway cannot provide is listed as "not checked", never as passed. The rule ids are listed in [docs/05 §10](https://github.com/devmello/psyche/blob/main/docs/05-security-and-permissions.md#10-control-plane-and-remote-access).
 
 ## Where the code is not done yet
 

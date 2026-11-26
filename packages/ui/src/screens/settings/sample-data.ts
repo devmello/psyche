@@ -1,9 +1,4 @@
-import type {
-  ChannelIdentity,
-  EndpointProbe,
-  ModelProviderSummary,
-  ModelRoles,
-} from "@psyche/protocol";
+import type { EndpointProbe, ModelProviderSummary, ModelRoles } from "@psyche/protocol";
 import { IDS } from "../../fixtures/index.ts";
 import type {
   AboutInfo,
@@ -72,29 +67,6 @@ export function sampleFolders(): FolderGrant[] {
 
 export function sampleVmShares(): FolderGrant[] {
   return [{ path: "~/Downloads/for-wren", access: "ro" }];
-}
-
-export function sampleIdentities(): ChannelIdentity[] {
-  return [
-    {
-      id: "ident_owner",
-      display: "You (owner)",
-      links: ["telegram:tg:10442211", "imessage:+15550101"],
-      delegatedPersona: null,
-      toolAllow: null,
-      createdAt: "2026-10-16T19:00:00Z",
-      updatedAt: "2026-10-16T19:00:00Z",
-    },
-    {
-      id: "ident_partner",
-      display: "Partner",
-      links: ["telegram:tg:20991834"],
-      delegatedPersona: "Wren for Partner",
-      toolAllow: ["calendar.*", "notes.read"],
-      createdAt: "2026-10-17T20:00:00Z",
-      updatedAt: "2026-10-17T20:00:00Z",
-    },
-  ];
 }
 
 export function sampleServerStatus(): ServerStatus {

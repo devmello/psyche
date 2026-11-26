@@ -29,7 +29,6 @@ function setup() {
     clock,
     approvers: {
       device: async (id) => DEVICES[id] as never,
-      isOwnerSender: async () => false,
     },
     store: new SqlitePermissionStore(db.sqlite),
     // No phone is paired when the card is raised.

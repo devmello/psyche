@@ -4,12 +4,11 @@ import type { Catalogue } from "../../index.ts";
 export const memorySurfacesRest: Partial<Catalogue> = {
   "memorySurfaces.title": "메모리가 표시되는 위치",
   "memorySurfaces.description":
-    "{persona}가 홈, 데일리 브리핑, 알림, Telegram 등 채널로 보내는 브리핑에 표시해도 되는 내용입니다. 메모리 페이지에는 제외하지 않은 모든 내용이 항상 표시됩니다.",
+    "{persona}가 홈, 데일리 브리핑, 알림에 표시해도 되는 내용입니다. 메모리 페이지에는 제외하지 않은 모든 내용이 항상 표시됩니다.",
   "memorySurfaces.loadLabel": "메모리가 표시되는 위치",
   "memorySurfaces.surface.home": "홈",
   "memorySurfaces.surface.brief": "데일리 브리핑",
   "memorySurfaces.surface.notification": "알림",
-  "memorySurfaces.surface.channel": "채널로 보내는 브리핑",
   "memorySurfaces.tier.work.title": "업무와 할 일",
   "memorySurfaces.tier.work.description":
     "프로젝트, 과정, 할 일, 진행 상황, 기한, 내 캘린더의 일정.",
@@ -22,7 +21,7 @@ export const memorySurfacesRest: Partial<Catalogue> = {
   "memorySurfaces.tier.people.description":
     "다른 사람에 대한 사실, 알게 된 계기, 나눈 이야기, 연락 유지.",
   "memorySurfaces.people.warning":
-    "브리핑은 사용자의 화면이나 Telegram을 볼 수 있는 사람이라면 누구나 볼 수 있습니다.",
+    "브리핑은 사용자의 화면을 볼 수 있는 사람이라면 누구나 볼 수 있습니다.",
   "memorySurfaces.birthdays.title": "생일과 기념일",
   "memorySurfaces.birthdays.label": "생일과 기념일 표시",
   "memorySurfaces.birthdays.hint":

@@ -34,7 +34,6 @@ export const connectorGallery = {
   "gallery.builtin.appleMail": "Read and draft mail in Apple Mail.",
   "gallery.builtin.appleShortcuts": "Run the Shortcuts you choose.",
   "gallery.builtin.obsidian": "Search and read your Obsidian vault.",
-  "gallery.builtin.slack": "Chat with Psyche from Slack. Set up in Channels.",
   "gallery.preset.github.desc": "Browse repositories, issues and pull requests.",
   "gallery.preset.github.example": "What pull requests are waiting for my review?",
   "gallery.preset.github.field.token.label": "Personal access token",

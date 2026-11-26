@@ -273,7 +273,6 @@ export async function prepareM2(cases: readonly InjectionCase[]): Promise<M2Rig>
       approvers: {
         device: async (deviceId) =>
           deviceId === "dev_owner" ? { scopes: ["operator.approvals"] } : undefined,
-        isOwnerSender: async () => false,
       },
       store: new SqlitePermissionStore(db.sqlite),
       audit,

@@ -60,13 +60,12 @@ describe("MCP server input", () => {
 });
 
 describe("connector catalog (#529)", () => {
-  it("offers only what the Gateway implements, plus the Custom MCP server and Slack rows", () => {
+  it("offers only what the Gateway implements, plus the Custom MCP server row", () => {
     const types = (rows: readonly { type: string }[]) => rows.map((r) => r.type);
     expect(types(offeredCatalog(new Set(["google", "apple:notes"])))).toEqual([
       "google",
       "apple:notes",
       "mcp",
-      "slack",
     ]);
     // Onboarding: real connectors only.
     expect(types(offeredCatalog(new Set(["google"]), { navigation: false }))).toEqual(["google"]);

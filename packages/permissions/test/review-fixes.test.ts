@@ -38,7 +38,7 @@ describe("review fixes", () => {
       grantKey: d.grantKey ?? "",
       requestedBy: { runId: "run_other", taskId: CTX.taskId ?? null, threadId: CTX.threadId },
       sideEffect: "write",
-      surfaces: ["desktop", "telegram:chat1"],
+      surfaces: ["desktop", "oldchat:chat1"],
       taint: false,
     });
     expect(issued.approval).toMatchObject({
@@ -247,7 +247,6 @@ describe("review fixes", () => {
           await slow;
           return { scopes: ["operator.approvals"] };
         },
-        isOwnerSender: async () => false,
       },
     });
     const d = await h.broker.decide(call("calendar.create", "write"), CTX);

@@ -33,7 +33,6 @@ export const galleryRest: Partial<Catalogue> = {
   "gallery.builtin.appleMail": "Apple Mailのメールを読み、下書きを作成します。",
   "gallery.builtin.appleShortcuts": "選んだショートカットを実行します。",
   "gallery.builtin.obsidian": "Obsidian Vaultを検索して読み取ります。",
-  "gallery.builtin.slack": "SlackからPsycheとチャットします。チャンネルで設定します。",
   "gallery.preset.github.desc": "リポジトリ、Issue、プルリクエストを閲覧します。",
   "gallery.preset.github.example": "私のレビュー待ちのプルリクエストは？",
   "gallery.preset.github.field.token.label": "パーソナルアクセストークン",

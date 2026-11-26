@@ -87,7 +87,7 @@ See [docs/design/search-2026.md](../../docs/design/search-2026.md).
 
 ## Web tools: `web.search` and `web.fetch` (#557)
 
-Built-in agent tools, registered by the Gateway on every surface (desktop, iPhone, channels), so the agent can look up current facts without the desktop browser.
+Built-in agent tools, registered by the Gateway on every surface (desktop and iPhone), so the agent can look up current facts without the desktop browser.
 
 | Tool | Does | Policy |
 | --- | --- | --- |

@@ -83,7 +83,7 @@ sources ──▶ candidate pool ──▶ dedupe by url ──▶ clusters (cos
   - `createBriefing({ title, schedule, instructions, timezone?, delivery? })`: a user briefing;
     the prompt is the marker plus the owner's instructions, which steer recall (an extra
     interest at 0.8), the rerank and the post writer. Delivery is the scheduler's (thread,
-    channel), so a briefing reaches the owner the way O1 automations do.
+    inbox), so a briefing reaches the owner the way O1 automations do.
   - `generate({ briefingId? })`: the pipeline above; returns posts, per-source reports (a failing
     source is a row, never fatal), whether the model was used, and token usage.
   - `list({ since?, briefingId?, cursor?, limit? })` with `nextBriefAt`.
@@ -92,7 +92,7 @@ sources ──▶ candidate pool ──▶ dedupe by url ──▶ clusters (cos
     daily note, `feed.post` event; `null` undoes the previous feedback.
   - `job()`: the in-process job for brief and briefing automations. Posts → `done` with a text
     deliverable (titles and first citations) that the scheduler delivers once (inbox `briefing`,
-    thread or channel); no posts → `no_reply`.
+    or thread); no posts → `no_reply`.
   - `readLedger()`.
   - `readInstructions()`: the owner's free text in `feed/INSTRUCTIONS.md` ("What should I write
     about", #614; written by the Feed's instructions sheet through `memory.write`). HTML comments
@@ -319,10 +319,10 @@ heartbeat's light runs.
 - **Dismissible.** `decide("reject")`, `archive`, `notifications.resolve`.
 - **Confirm-first.** Before `confirm`, a candidate has no automation, task, notification, link
   or milestone, and the agent is never started for it.
-- **No sends or writes.** This package calls no channel adapter, connector or model tool. Its
+- **No sends or writes.** This package calls no connector or model tool. Its
   only outward effects are rows in its own tables, system automations, `interests.md` (agent
   provenance) and the daily-note audit line; brief deliverables go through the scheduler's
-  deliverer (inbox, thread, channel), which already asks the Permission Broker for webhooks.
+  deliverer (inbox, thread), which already asks the Permission Broker for webhooks.
 - **Untrusted content stays data.** Source text is stripped of tags, capped, fenced as
   `<<<untrusted-data>>>` in prompts whose system message says never to follow instructions
   inside it, and the model's answers are parsed strictly (a permutation; a cited JSON post). Post
