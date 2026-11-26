@@ -64,6 +64,7 @@ Settings pages (`/settings/…`): `general`, `model`, `connectors` (also `connec
 | `/new` | Start a new side chat. |
 | `/btw question` | Ask aside in a side chat. |
 | `/fork message` | Fork this thread from here. |
+| `/compare option \| option` | Fork a plan: try two or more choices side by side and compare them. With no labels, Psyche suggests the options. |
 | `/schedule when and what` | Create an automation (see Automations). |
 | `/incognito message` | A chat that is not remembered. |
 | `/remember fact` | Note a fact in today's memory. |
