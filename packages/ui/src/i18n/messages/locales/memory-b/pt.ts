@@ -159,7 +159,7 @@ export const memoryB: Partial<Catalogue> = {
   "settings.learnMore": "Saiba mais",
   "settings.learnLess": "Mostrar menos",
   "memory.page.title": "Memória",
-  "memory.page.soul": "Alma",
+  "memory.page.soul": "Personalidade",
   "memory.page.kinds": "O que mostrar",
   "memory.page.kind.everything": "Tudo",
   "memory.page.kind.people": "Pessoas",
@@ -215,17 +215,13 @@ export const memoryB: Partial<Catalogue> = {
   "settings.key.memory.surfaces.tiers.work.home": "Trabalho no Início",
   "settings.key.memory.surfaces.tiers.work.brief": "Trabalho no resumo diário",
   "settings.key.memory.surfaces.tiers.work.notification": "Trabalho nas notificações",
-  "settings.key.memory.surfaces.tiers.work.channel": "Trabalho no resumo enviado a um canal",
   "settings.key.memory.surfaces.tiers.workMail.home": "E-mails sobre trabalho no Início",
   "settings.key.memory.surfaces.tiers.workMail.brief": "E-mails sobre trabalho no resumo diário",
   "settings.key.memory.surfaces.tiers.workMail.notification":
     "E-mails sobre trabalho nas notificações",
-  "settings.key.memory.surfaces.tiers.workMail.channel":
-    "E-mails sobre trabalho no resumo enviado a um canal",
   "settings.key.memory.surfaces.tiers.people.home": "Pessoas no Início",
   "settings.key.memory.surfaces.tiers.people.brief": "Pessoas no resumo diário",
   "settings.key.memory.surfaces.tiers.people.notification": "Pessoas nas notificações",
-  "settings.key.memory.surfaces.tiers.people.channel": "Pessoas no resumo enviado a um canal",
   "settings.key.memory.surfaces.birthdays":
     "Aniversários e datas comemorativas no resumo e no Início",
   "settings.key.memory.surfaces.hideSources":

@@ -25,8 +25,7 @@ import {
   DropdownMenuTrigger,
 } from "../components/ui/dropdown-menu.tsx";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../components/ui/tooltip.tsx";
-import { useNotifications } from "../data/index.ts";
-import { useCatchUp } from "../home/use-catch-up.ts";
+import { useNeedsYou } from "../home/use-needs-you.ts";
 import { activeI18n, t } from "../i18n/core.ts";
 import { keysLabel } from "../lib/keys.ts";
 import { cn } from "../lib/utils.ts";
@@ -335,7 +334,9 @@ export function Sidebar({
                 />
               ) : null}
             </TooltipTrigger>
-            <TooltipContent side="right">{name}</TooltipContent>
+            <TooltipContent side="right">
+              {item.shortcut ? `${name} ${item.shortcut}` : name}
+            </TooltipContent>
           </Tooltip>
         </li>
       );
@@ -343,28 +344,38 @@ export function Sidebar({
     return (
       <li key={item.id} className="relative flex h-7 items-center">
         <CurrentMark active={selected} />
-        <button
-          type="button"
-          onClick={() => onNavigate(item.route)}
-          aria-current={selected ? "page" : current ? "true" : undefined}
-          aria-label={count > 0 ? name : undefined}
-          className="relative flex h-7 min-w-0 flex-1 items-center gap-2 rounded-sm px-3 text-start text-body outline-none hover:bg-fill-quaternary focus-visible:ring-2 focus-visible:ring-ring"
-          data-testid="sidebar-destination"
-          data-destination={item.id}
-          data-sidebar-item=""
-        >
-          {icon}
-          <span className="min-w-0 flex-1 truncate">{item.label}</span>
-          {count > 0 ? (
-            <span
-              aria-hidden="true"
-              className="shrink-0 rounded-full bg-approval-surface px-1.5 text-callout text-approval-text tabular-nums"
-              data-testid={`sidebar-count-${item.id}`}
-            >
-              {activeI18n().number(count)}
-            </span>
-          ) : null}
-        </button>
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <button
+                type="button"
+                onClick={() => onNavigate(item.route)}
+                aria-current={selected ? "page" : current ? "true" : undefined}
+                aria-label={count > 0 ? name : undefined}
+                aria-keyshortcuts={item.digit === undefined ? undefined : `Meta+${item.digit}`}
+                className="relative flex h-7 min-w-0 flex-1 items-center gap-2 rounded-sm px-3 text-start text-body outline-none hover:bg-fill-quaternary focus-visible:ring-2 focus-visible:ring-ring"
+                data-testid="sidebar-destination"
+                data-destination={item.id}
+                data-sidebar-item=""
+              />
+            }
+          >
+            {icon}
+            <span className="min-w-0 flex-1 truncate">{item.label}</span>
+            {count > 0 ? (
+              <span
+                aria-hidden="true"
+                className="shrink-0 rounded-full bg-approval-surface px-1.5 text-callout text-approval-text tabular-nums"
+                data-testid={`sidebar-count-${item.id}`}
+              >
+                {activeI18n().number(count)}
+              </span>
+            ) : null}
+          </TooltipTrigger>
+          <TooltipContent side="right">
+            {item.shortcut ? `${item.label} ${item.shortcut}` : item.label}
+          </TooltipContent>
+        </Tooltip>
       </li>
     );
   };
@@ -693,21 +704,13 @@ export function SidebarToggle({
   );
 }
 
-/** Notifications that wait on the owner: the amber count beside Home. */
-function needsYouKind(kind: string): boolean {
-  return kind === "approval" || kind === "input_needed";
-}
-
 /**
- * What needs the owner (approvals, questions and past-due "Did you finish ...?" asks), shown
- * beside Home. The asks are the ones Needs you draws, so the count matches what Home lists.
+ * What needs the owner, shown beside Home: the same count Home's "Needs you" section lists
+ * (`useNeedsYou`), so the badge cannot outlive the cards.
  */
 export function useSidebarCounts(): Partial<Record<RailItem, number>> {
-  const notifications = useNotifications();
-  const { asks } = useCatchUp();
-  const needsYou =
-    notifications.unresolved.filter((n) => needsYouKind(n.kind)).length + asks.length;
-  return useMemo(() => ({ home: needsYou }), [needsYou]);
+  const { count } = useNeedsYou();
+  return useMemo(() => ({ home: count }), [count]);
 }
 
 /** The sidebar with its counts and usage from the Gateway. */

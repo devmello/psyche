@@ -306,7 +306,7 @@ const calendarMutations: Mutation[] = [
   field("eventSha256", shaArb, false),
 ];
 
-const channelArb = fc.constantFrom("telegram", "imessage", "whatsapp", "slack", "signal");
+const channelArb = fc.constantFrom("oldchat", "imessage", "sms", "email", "webchat");
 const messageBase: fc.Arbitrary<Args> = fc.record({
   channel: channelArb,
   account: ident,

@@ -180,7 +180,7 @@ describe("stored values, environment precedence and live use", () => {
       logger: silentLogger,
       retentionIntervalMs: 0,
       background: false,
-      config: { home, port: 0, dbPath: join(home, "psyche.db"), webRoot: null },
+      config: { home, port: 0, dbPath: join(home, "psyche.db") },
       model: { provider: new FakeModelProvider(), model: "fake/model" },
       vault: { keyFile, argon2: { memory: 64, passes: 1, parallelism: 1 } },
       parts: [

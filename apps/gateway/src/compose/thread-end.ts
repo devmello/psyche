@@ -27,6 +27,15 @@ export function endSessionQuietly(
   };
 }
 
+/**
+ * Whether a "for this chat" grant may outlive a Gateway restart: its chat still exists and is a
+ * normal one. A deleted chat has no row, and an incognito chat keeps nothing past its session.
+ */
+export function threadKeepsSessionGrants(db: PsycheDb, threadId: string): boolean {
+  const thread = getThread(db, threadId);
+  return thread !== undefined && thread.kind !== "incognito";
+}
+
 /** One of the owner's own typed turns in a finished conversation. */
 const MAX_CHAT_TURNS = 30;
 const MAX_SNAPSHOT_PAGES = 5;
@@ -47,8 +56,8 @@ export interface ChatSnapshot {
 
 /**
  * Reads the thread from the store, synchronously. Only a message the owner typed counts: role
- * `user`, provenance `owner`, and no `channelRef` (a Telegram or iMessage turn arrives through a
- * channel, and anything an app or a person forwards is not the owner's typing).
+ * `user`, provenance `owner`, and no `channelRef` (an old chat channel turn carries one, and
+ * anything an app or a person forwards is not the owner's typing).
  */
 export function snapshotThread(db: PsycheDb, threadId: string): ChatSnapshot | undefined {
   const thread = getThread(db, threadId);

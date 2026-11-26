@@ -35,7 +35,7 @@ async function boot(): Promise<ComposedGateway> {
     logger: silentLogger,
     retentionIntervalMs: 0,
     background: false,
-    config: { home, port: 0, dbPath: dbPath(), webRoot: null },
+    config: { home, port: 0, dbPath: dbPath() },
     model: { provider: new FakeModelProvider(), model: "fake/model" },
   });
   return composed;
@@ -143,7 +143,7 @@ describe("restore does not resurrect deleted vault items (design-26)", () => {
       logger: silentLogger,
       retentionIntervalMs: 0,
       background: false,
-      config: { home, port: 0, dbPath: dbPath(), webRoot: null },
+      config: { home, port: 0, dbPath: dbPath() },
       model: { provider: new FakeModelProvider(), model: "fake/model" },
       vault: { keyFile, argon2: TEST_ARGON2 },
     });

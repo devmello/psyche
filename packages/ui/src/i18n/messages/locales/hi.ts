@@ -1,6 +1,8 @@
 import type { Catalogue } from "../index.ts";
 import { actionErrors } from "./action-errors/hi.ts";
 import { agentRest } from "./agent-rest/hi.ts";
+import { appleE1 } from "./apple-e1/hi.ts";
+import { appleE2 } from "./apple-e2/hi.ts";
 import { approvalsW3 } from "./approvals-w3/hi.ts";
 import { auditRest } from "./audit-rest/hi.ts";
 import { automationChatRest } from "./automation-chat-rest/hi.ts";
@@ -49,6 +51,7 @@ import { overviewShared } from "./overview-shared/hi.ts";
 import { passwordPresence } from "./password-presence/hi.ts";
 import { peopleRest } from "./people-rest/hi.ts";
 import { personDataRest } from "./person-data-rest/hi.ts";
+import { planFork } from "./plan-fork/hi.ts";
 import { points } from "./points/hi.ts";
 import { researchRest } from "./research-rest/hi.ts";
 import { scheduledForm } from "./scheduled-form/hi.ts";
@@ -56,6 +59,7 @@ import { scheduledRest } from "./scheduled-rest/hi.ts";
 import { screensRest } from "./screens-rest/hi.ts";
 import { securityState } from "./security-state/hi.ts";
 import { separateDesktop } from "./separate-desktop/hi.ts";
+import { settingsDrill } from "./settings-drill/hi.ts";
 import { settingsRest } from "./settings-rest/hi.ts";
 import { shellRest } from "./shell-rest/hi.ts";
 import { spaces } from "./spaces/hi.ts";
@@ -478,6 +482,7 @@ export const hi: Partial<Catalogue> = {
   "blocks.approval.scope.hostProgram": "{folder} में {program} हमेशा अनुमति दें",
   "blocks.approval.scope.hostProgramExact":
     "{folder} में {program} को ठीक इन्हीं आर्गुमेंट के साथ हमेशा अनुमति दें",
+  "blocks.approval.scope.hostProgramSession": "इस चैट के लिए {folder} में {program} की अनुमति दें",
   "blocks.approval.scope.site": "इस साइट के लिए अनुमति दें",
   "blocks.approval.scope.session": "इस सत्र के लिए अनुमति दें",
   "blocks.approval.scope.always": "हमेशा अनुमति दें",
@@ -832,11 +837,9 @@ export const hi: Partial<Catalogue> = {
   "agent.upcoming.inNamed": "{name} में",
   "agent.upcoming.inOwnSession": "अपने अलग सत्र में",
   "agent.upcoming.inMainSession": "मुख्य सत्र में",
-  "agent.upcoming.email": "ईमेल",
   "agent.upcoming.quiet": "जब तक किसी चीज़ को आपकी ज़रूरत न हो, चुप रहता है",
   "agent.upcoming.theMainChat": "मुख्य चैट",
   "agent.upcoming.aChat": "एक चैट",
-  "agent.upcoming.aChannel": "एक चैनल",
   "agent.upcoming.nowhere": "अभी कहीं नहीं पहुँचाता",
   "agent.upcoming.deliversTo": "{to} पर पहुँचाता है",
   "agent.upcoming.last": "पिछला: {status}",
@@ -1044,7 +1047,6 @@ export const hi: Partial<Catalogue> = {
   "shell.sidebar.destinations": "गंतव्य",
   "shell.sidebar.resize": "साइडबार का आकार बदलें",
   "shell.sidebar.settingsMenu": "सेटिंग्ज़ और सहायता",
-  "shell.sidebar.channel": "चैनल",
   "shell.sidebar.automation": "ऑटोमेशन",
   "shell.sidebar.subagent": "सबएजेंट",
   "shell.sidebar.untitled": "बिना शीर्षक की चैट",
@@ -1117,7 +1119,6 @@ export const hi: Partial<Catalogue> = {
   "settings.nav.files": "फ़ाइल ऐक्सेस",
   "settings.nav.vm": "VM मोड",
   "settings.nav.devices": "डिवाइस और नोड",
-  "settings.nav.channels": "चैनल",
   "settings.nav.credentials": "क्रेडेंशियल",
   "settings.nav.appearance": "रूप-रंग",
   "settings.nav.voice": "आवाज़ और श्रुतलेख",
@@ -1255,11 +1256,10 @@ export const hi: Partial<Catalogue> = {
     "Psyche ये कार्ड Stripe Link से पढ़ता है; किसी एक को अपने Link खाते में हटाएँ। ऊपर दी गई Link कुंजी हटाने से Psyche इनमें से किसी से भी भुगतान करना बंद कर देता है।",
   "settings.credentials.managed.connector": "इसके कनेक्टर द्वारा प्रबंधित",
   "settings.credentials.managed.model_provider": "एक मॉडल प्रदाता की कुंजी",
-  "settings.credentials.managed.channel": "एक चैनल का टोकन",
+  "settings.credentials.managed.channel": "एक पुराने चैट चैनल का सीक्रेट",
   "settings.credentials.managed.external_manager": "आपके पासवर्ड मैनेजर से लिंक किया गया",
   "settings.credentials.setting.connectors": "कनेक्टर",
   "settings.credentials.setting.models": "मॉडल और प्रदाता",
-  "settings.credentials.setting.channels": "चैनल",
   "settings.credentials.setting.credentials": "क्रेडेंशियल",
   "settings.credentials.err.gatewayOwned": "{name} Gateway का है; इसे सेटिंग्ज़ → {setting} में हटाएँ।",
   "settings.credentials.deleteDescription":
@@ -1699,119 +1699,9 @@ export const hi: Partial<Catalogue> = {
   "settings.browser.createKey": "कुंजी बनाएँ",
   "settings.browser.keyStillSigns": "वर्तमान कुंजी, यदि कोई हो, अब भी हस्ताक्षर करती है।",
 
-  "settings.channels.type.email": "ईमेल",
-  "settings.channels.type.sms": "SMS",
-  "settings.channels.status.active": "कनेक्टेड",
-  "settings.channels.status.paused": "रुका हुआ",
-  "settings.channels.status.error": "त्रुटि",
-  "settings.channels.status.disconnected": "डिस्कनेक्टेड",
-  "settings.channels.policy.pairing": "पेयरिंग",
-  "settings.channels.policy.pairingHint": "नए प्रेषकों को एक कोड मिलता है; आप उन्हें यहाँ स्वीकृत करते हैं।",
-  "settings.channels.policy.allowlist": "अनुमति सूची",
-  "settings.channels.policy.allowlistHint": "केवल नीचे दी गई सूची के लोग।",
-  "settings.channels.policy.open": "खुला",
-  "settings.channels.policy.openHint": "कोई भी {persona} को संदेश भेज सकता है।",
-  "settings.channels.policy.disabled": "अक्षम",
-  "settings.channels.policy.disabledHint": "प्रत्यक्ष संदेशों की अनदेखी की जाती है।",
-  "settings.channels.title": "चैनल",
-  "settings.channels.description": "लोग {persona} तक कहाँ पहुँच सकते हैं, और किसे अनुमति है।",
-  "settings.channels.loadLabel": "चैनल",
-  "settings.channels.empty":
-    "अभी कोई चैनल नहीं। इस Mac से दूर रहते हुए {persona} तक पहुँचने के लिए Telegram, iMessage या Slack कनेक्ट करें।",
-  "settings.channels.add.button": "चैनल जोड़ें",
-  "settings.channels.add.title": "चैनल जोड़ें",
-  "settings.channels.add.description":
-    "चुनें कि {persona} से कहाँ संपर्क किया जा सकता है। टोकन सीधे वॉल्ट में जाते हैं और दोबारा नहीं दिखाए जाते।",
-  "settings.channels.add.type": "चैनल",
-  "settings.channels.add.account.slack": "वर्कस्पेस का नाम",
-  "settings.channels.add.account.discord": "एप्लिकेशन आईडी",
-  "settings.channels.add.secret.bot_token": "बॉट टोकन",
-  "settings.channels.add.secret.app_token": "ऐप टोकन",
-  "settings.channels.add.secret.auth_token": "ऑथ टोकन",
-  "settings.channels.add.secret.access_token": "एक्सेस टोकन",
-  "settings.channels.add.secret.app_secret": "ऐप सीक्रेट",
-  "settings.channels.add.secret.verify_token": "वेरिफ़ाई टोकन",
-  "settings.channels.add.submit": "कनेक्ट करें",
-  "settings.channels.add.connecting": "कनेक्ट हो रहा है",
-  "settings.channels.add.missing": "कनेक्ट करने के लिए सभी फ़ील्ड भरें।",
-  "settings.channels.add.failed": "Psyche चैनल जोड़ नहीं सका ({reason})। यह चालू नहीं है।",
-  "settings.channels.add.account.sms": "भेजने वाला नंबर (+15551234567)",
-  "settings.channels.add.account.whatsapp": "WhatsApp नंबर (+15551234567)",
-  "settings.channels.add.badNumber": "नंबर अंतरराष्ट्रीय प्रारूप में लिखें, जैसे +15551234567।",
-  "settings.channels.add.exists": "{account} के लिए {type} चैनल पहले से मौजूद है, इसलिए कुछ नहीं बदला गया।",
-  "settings.channels.add.approvalLabel": "चैनल जोड़ना",
-  "settings.channels.add.envNote":
-    "Gateway को इस खाते पर सेट {env} के साथ भी शुरू करना होगा। Telegram, iMessage, Signal और ईमेल वहीं सेट होते हैं जहाँ Gateway चलता है; चैनल दस्तावेज़ देखें।",
-  "settings.channels.add.addedInactive":
-    "चैनल जुड़ गया, लेकिन अभी चल नहीं रहा। जहाँ Gateway चलता है वहाँ {env} को इस खाते पर सेट करें, फिर उसे रीस्टार्ट करें।",
-  "settings.channels.add.added":
-    "चैनल जुड़ गया। यह तब शुरू होगा जब Gateway में {env} इस खाते पर सेट होगा। फिर पेयरिंग कोड पाने के लिए इससे {persona} को संदेश भेजें और यहाँ मंज़ूर करें।",
-  "settings.channels.add.storedNote":
-    "इस खाते के लिए पहले से सहेजा गया: {names}। जब तक आप उन्हें बदलते नहीं, वे जैसे हैं वैसे ही इस्तेमाल होंगे।",
-  "settings.channels.add.replace": "सहेजे गए टोकन बदलें",
-  "settings.channels.add.statusFailed":
-    "Psyche यह जाँच नहीं सका कि कौन से टोकन पहले से सहेजे हैं ({reason})। कुछ नहीं बदला गया।",
-  "settings.channels.add.storedTyped":
-    'इस खाते के लिए टोकन पहले से सहेजे हैं। आपके लिखे टोकन इस्तेमाल करने के लिए "सहेजे गए टोकन बदलें" चुनें, या वे फ़ील्ड खाली करें। कुछ नहीं बदला गया।',
-  "settings.channels.identities": "पहचान लिंक",
-  "settings.channels.identitiesDescription":
-    "चैनलों के पार एक ही व्यक्ति। लिंक केवल पेयर किए गए डिवाइस से बदलते हैं।",
-  "settings.channels.identitiesFailed": "Psyche पहचान लिंक लोड नहीं कर सका ({reason})।",
-  "settings.channels.noIdentities": "कोई पहचान लिंक नहीं। हर प्रेषक को अलग व्यक्ति माना जाता है।",
-  "settings.channels.designated": "नामित लोग",
-  "settings.channels.designatedDescription":
-    "{persona} उन्हें प्रत्यायोजित पर्सोना और छोटे टूल सेट के साथ जवाब देता है। उनकी स्वीकृतियाँ आपके पास आती हैं।",
-  "settings.channels.noDesignated": "कोई नामित नहीं।",
-  "settings.channels.delegated": "प्रत्यायोजित: {persona}",
-  "settings.channels.tools": "टूल: {tools}",
-  "settings.channels.cardTitle": "{name} {account}",
-  "settings.channels.directMessages": "प्रत्यक्ष संदेश",
-  "settings.channels.openWarning":
-    "खुला होने पर {account} को ढूँढने वाला कोई भी व्यक्ति {persona} को संदेश भेज सकता है, और उनके संदेश इसे भटकाने की कोशिश कर सकते हैं। पेयरिंग ज़्यादा सुरक्षित है।",
-  "settings.channels.openAnyway": "फिर भी खोलें",
-  "settings.channels.keepPolicy":
-    "{policy, select, allowlist {अनुमति सूची} pairing {पेयरिंग} disabled {अक्षम} other {{policy}}} रखें",
-  "settings.channels.pending": "लंबित ({max, number} में से {n, number})",
-  "settings.channels.pairingFailed": "Psyche पेयरिंग अनुरोध लोड नहीं कर सका ({reason})।",
-  "settings.channels.noPending": "कोई प्रतीक्षा में नहीं। कोड 1 घंटे बाद समाप्त हो जाते हैं।",
-  "settings.channels.code": "कोड",
-  "settings.channels.expires": "{when} समाप्त",
-  "settings.channels.approveSender": "{name} को स्वीकृत करें",
-  "settings.channels.approve": "स्वीकृत करें",
-  "settings.channels.ignoreSender": "{name} की अनदेखी करें",
-  "settings.channels.ignore": "अनदेखी करें",
-  "settings.channels.allow.remove": "हटाएँ",
-  "settings.channels.allow.removeNamed": "{name} हटाएँ",
-  "settings.channels.allow.senderLabel": "अनुमति देने वाला प्रेषक",
-  "settings.channels.allow.groupLabel": "प्रेषक जोड़ें (समूह चैट)",
-  "settings.channels.allow.addSender": "प्रेषक जोड़ें",
-  "settings.channels.allow.addGroup": "प्रेषक जोड़ें",
-  "settings.channels.allow.senderApproval": "एक चैट प्रेषक को अनुमति देना",
-  "settings.channels.allow.groupApproval": "समूहों में कौन मुझे चला सकता है, यह बदलना",
-  "settings.channels.allow.groupEmptied":
-    "{name} को हटाने से इस सूची में कोई नहीं बचेगा। तब डायरेक्ट मैसेज में अनुमति प्राप्त सभी लोग समूहों में Psyche को चला सकेंगे।",
-  "settings.channels.allow.forbidden":
-    "कौन संदेश भेज सकता है, यह बदलने के लिए एडमिन डिवाइस चाहिए। एडमिन के रूप में जोड़ा गया डिवाइस उपयोग करें।",
-  "settings.channels.allow.failed":
-    "Psyche बदल नहीं सका कि कौन संदेश भेज सकता है ({reason})। कुछ नहीं बदला।",
-  "settings.channels.identity.name": "व्यक्ति का नाम",
-  "settings.channels.identity.senders": "प्रेषक आईडी, कॉमा से अलग करके",
-  "settings.channels.identity.link": "पहचान जोड़ें",
-  "settings.channels.identity.unlink": "लिंक हटाएँ",
-  "settings.channels.identity.unlinkNamed": "{name} का लिंक हटाएँ",
-  "settings.channels.identity.approval": "एक चैट पहचान जोड़ना",
-  "settings.channels.identity.forbidden":
-    "पहचान लिंक बदलने के लिए एडमिन डिवाइस चाहिए। एडमिन के रूप में जोड़ा गया डिवाइस उपयोग करें।",
-  "settings.channels.identity.failed": "Psyche पहचान लिंक नहीं बदल सका ({reason})। कुछ नहीं बदला।",
-  "settings.channels.noOneYet": "अभी कोई नहीं।",
-  "settings.channels.owner": " · मालिक",
-  "settings.channels.groups": "समूहों में कौन मुझे चला सकता है",
-  "settings.channels.noGroups": "डायरेक्ट मैसेज में अनुमति प्राप्त सभी लोग समूहों में मुझे चला सकते हैं।",
-  "settings.channels.requireMention": "समूहों में केवल उल्लेख किए जाने पर जवाब दें",
-  "settings.channels.err.forbidden":
-    "{action, select, policy {कौन संदेश भेज सकता है, यह बदलने} mention {समूह उल्लेख बदलने} approve {प्रेषक को स्वीकृत करने} other {प्रेषक की अनदेखी करने}} के लिए इस डिवाइस पर स्वीकृति चाहिए। ऐडमिन के रूप में पेयर किए गए डिवाइस का उपयोग करें।",
-  "settings.channels.err.failed":
-    "Psyche {action, select, policy {यह नहीं बदल सका कि कौन संदेश भेज सकता है} mention {समूह उल्लेख नहीं बदल सका} approve {प्रेषक को स्वीकृत नहीं कर सका} other {प्रेषक की अनदेखी नहीं कर सका}} ({reason})।",
+  "settings.devices.pairingFailed": "Psyche पेयरिंग अनुरोध लोड नहीं कर सका ({reason})।",
+  "settings.devices.approveNamed": "{name} को स्वीकृत करें",
+  "settings.devices.approve": "स्वीकृत करें",
 
   "settings.computerUse.tier.ask": "पूछें",
   "settings.computerUse.tier.off": "बंद",
@@ -1881,10 +1771,6 @@ export const hi: Partial<Catalogue> = {
   "settings.connectors.catalog.appleCalendar": "Apple कैलेंडर",
   "settings.connectors.catalog.appleMail": "Apple मेल",
   "settings.connectors.catalog.mcp": "MCP सर्वर",
-  "settings.connectors.catalog.slack": "Slack",
-  "settings.connectors.slackExplain":
-    "Slack एक चैनल है: आप वहाँ Psyche से चैट करते हैं। इसे सेटिंग्ज़ → चैनल में सेट अप करें।",
-  "settings.connectors.openChannels": "चैनल खोलें",
   "settings.connectors.status.connected": "कनेक्टेड",
   "settings.connectors.status.disconnected": "डिस्कनेक्टेड",
   "settings.connectors.status.error": "त्रुटि",
@@ -2271,8 +2157,6 @@ export const hi: Partial<Catalogue> = {
   "settings.model.role.imageHint": "अवतार बदलाव; कोई नहीं का मतलब बंडल किए गए प्राणी",
   "settings.model.addProvider": "प्रदाता जोड़ें",
   "settings.model.title": "मॉडल और प्रदाता",
-  "settings.model.description":
-    "आपके चुने गए मॉडल का उपयोग वैसे ही होता है। अगर यह विफल होता है, तो Psyche फ़ॉलबैक करने के बजाय ऐसा बताता है।",
   "settings.model.loadLabel": "मॉडल प्रदाता",
   "settings.model.providers": "प्रदाता",
   "settings.model.listFailed": "Psyche मॉडल सूचीबद्ध नहीं कर सका ({reason})।",
@@ -2304,13 +2188,10 @@ export const hi: Partial<Catalogue> = {
   "settings.model.runCheckOn": "{name} पर टूल-कॉलिंग जाँच चलाएँ",
   "settings.model.runCheck": "जाँच चलाएँ",
   "settings.model.roles": "मॉडल भूमिकाएँ",
-  "settings.model.rolesHint":
-    "हर भूमिका एक मॉडल उपयोग करती है। टूल-कॉलिंग जाँच में विफल मॉडल केवल चैट के लिए हैं।",
   "settings.model.none": "कोई नहीं",
   "settings.model.choose": "मॉडल चुनें",
   "settings.model.chatOnlyOption": "{name} (केवल चैट)",
   "settings.model.local": "लोकल मॉडल",
-  "settings.model.localHint": "Ollama या LM Studio से इस Mac पर मॉडल चलाएँ।",
   "settings.model.err.use": "Psyche {name} का उपयोग नहीं कर सका ({reason})।",
   "settings.model.err.probe": "Psyche एंडपॉइंट जाँच नहीं सका ({reason})।",
   "settings.model.err.check": "Psyche जाँच नहीं चला सका ({reason})।",
@@ -2363,8 +2244,6 @@ export const hi: Partial<Catalogue> = {
   "settings.permissions.subject.emailFrom": "{recipients} को, {account} से",
   "settings.permissions.subject.calendarNamed": "कैलेंडर {id}",
   "settings.permissions.subject.calendar": "कैलेंडर",
-  "settings.permissions.title": "अनुमतियाँ",
-  "settings.permissions.description": "क्या अपने आप चलता है, क्या पहले पूछता है और क्या कभी नहीं होता।",
   "settings.permissions.loadLabel": "अनुमतियाँ",
   "settings.permissions.defaultModeTitle": "नए थ्रेड के लिए डिफ़ॉल्ट मोड",
   "settings.permissions.execReview": "ऑटो मोड में सुरक्षित टर्मिनल कमांड को समीक्षक से मंज़ूर होने दें",
@@ -2435,7 +2314,7 @@ export const hi: Partial<Catalogue> = {
   "settings.persona.describedAs": "विवरण: {description}",
   "settings.persona.identity": "पहचान",
   "settings.persona.taglinePlaceholder": "शांत पंख, सधे हाथ।",
-  "settings.persona.emojiHint": "उन चैनलों पर दिखता है जो अवतार नहीं दिखा सकते।",
+  "settings.persona.emojiHint": "वहाँ दिखता है जहाँ अवतार नहीं दिखाया जा सकता।",
   "settings.persona.avatar": "अवतार",
   "settings.persona.describeChange": "बदलाव बताएँ",
   "settings.persona.describeHint": "अपने शब्दों में, जैसे “पतंगे को एक नन्हा स्कार्फ़ पहनाओ”।",
@@ -2853,8 +2732,8 @@ export const hi: Partial<Catalogue> = {
   "onboarding.keyRefused": "प्रदाता ने इस कुंजी को अस्वीकार कर दिया ({reason})। कुंजी फिर से पेस्ट करें।",
   "onboarding.setupCheck": "सेटअप जाँच",
   "onboarding.progress": "ऑनबोर्डिंग प्रगति",
+  "onboarding.steps": "चरण",
   "onboarding.doneMark": " (हो गया)",
-  "onboarding.stepOf": "{total, number} में से चरण {n, number}:",
   "onboarding.back": "पीछे",
   "onboarding.skipForNow": "अभी छोड़ें",
   "onboarding.openChat": "मुख्य चैट खोलें",
@@ -2905,7 +2784,7 @@ export const hi: Partial<Catalogue> = {
   "onboarding.permission.asking": "पूछा जा रहा है…",
   "onboarding.permission.allow": "अनुमति दें",
   "onboarding.connectors.intro":
-    "अभी तय करें कि कौन से खाते कनेक्ट करने हैं, एक-एक करके। {name} केवल वही देखता है जो आप कनेक्ट करते हैं, और आप बाद में सेटिंग्ज़ में और जोड़ सकते हैं।",
+    "चुनें कि {name} किस काम में मदद करे। हर ऐप जोड़ते समय अनुमति माँगता है, और आप बाद में सेटिंग्स में और जोड़ सकते हैं।",
   "onboarding.connectors.connected": "कनेक्टेड ({n, number})",
   "onboarding.connectors.connectedList": "आपके खाते",
   "onboarding.connectors.needsPermission": "अनुमति चाहिए",
@@ -2950,12 +2829,19 @@ export const hi: Partial<Catalogue> = {
     "Psyche ने अभी आपका वॉल्ट बनाया है। इस कुंजी को किसी पासवर्ड मैनेजर में या काग़ज़ पर सेव करें: यह केवल अभी दिखाई जाती है और रीस्टोर या कुंजी स्लॉट खो जाने के बाद वॉल्ट में वापस जाने का एकमात्र रास्ता है।",
   "onboarding.model.subscriptionNote":
     "Psyche इस Mac पर पहले से साइन इन किए गए Claude Code या Codex ऐप का उपयोग करता है, इसलिए इसे कोई API कुंजी नहीं चाहिए और यह कोई संग्रहीत नहीं करता। अगर आपने अभी तक नहीं किया है, तो पहले वहाँ साइन इन करें।",
-  "onboarding.model.toolCheck": "टूल-कॉलिंग जाँच",
-  "onboarding.model.runCheck": "जाँच चलाएँ",
+  "onboarding.model.toolCheck": "कनेक्शन जाँच",
+  "onboarding.model.otherWays": "अन्य तरीके",
+  "onboarding.model.test.passed": "काम करता है",
+  "onboarding.model.test.failed": "केवल चैट",
+  "onboarding.model.test.running": "जाँच हो रही है…",
+  "onboarding.model.test.untested": "अभी जाँचा नहीं गया",
+  "onboarding.model.runCheck": "जाँचें",
   "onboarding.model.checkAgain": "फिर से जाँचें",
   "onboarding.model.toolCheckFailed":
-    "यह मॉडल चैट कर सकता है लेकिन टूल भरोसेमंद ढंग से उपयोग नहीं कर सकता, इसलिए यह आपके लिए कार्रवाई नहीं करेगा। कोई दूसरा चुनें या केवल-चैट मोड में जारी रखें।",
+    "यह मॉडल चैट कर सकता है, लेकिन शायद आपके लिए काम न कर पाए। कोई और चुनें या केवल-चैट मोड में आगे बढ़ें।",
   "onboarding.done.ready": "{name} तैयार है।",
+  "onboarding.done.notReady": "{name} अभी जवाब देने के लिए तैयार नहीं है।",
+  "onboarding.done.notReadyBody": "नीचे मॉडल वाली पंक्ति ठीक करें, या बाद में सेटिंग्स → मॉडल में करें।",
   "onboarding.done.opens": "मुख्य चैट {name} के पहले संदेश के साथ खुलती है।",
   "onboarding.done.noneYet": "अभी कोई नहीं",
   "onboarding.done.accounts": "खाते",
@@ -3232,7 +3118,7 @@ export const hi: Partial<Catalogue> = {
   "screens.files.shareInSettings": "सेटिंग्ज़ → फ़ाइल ऐक्सेस में एक साझा करें।",
   "screens.files.previewOf": "{name} का प्रीव्यू",
   "screens.files.preview": "प्रीव्यू",
-  "screens.files.needsApp": "प्रीव्यू के लिए डेस्कटॉप या वेब ऐप चाहिए।",
+  "screens.files.needsApp": "प्रीव्यू के लिए डेस्कटॉप ऐप चाहिए।",
   "screens.files.pick": "यहाँ प्रीव्यू देखने के लिए कोई फ़ाइल चुनें।",
   "screens.files.editReadOnly": "केवल पढ़ने के लिए: यह फ़ोल्डर बिना संपादन के साझा किया गया है।",
   "screens.files.editOpening": "संपादन के लिए {name} खुल रही है",
@@ -3559,7 +3445,7 @@ export const hi: Partial<Catalogue> = {
   "web.passkeys.unavailable":
     "पासकी के लिए सर्वर का https पता चाहिए। gateway.publicOrigin (या PSYCHE_PUBLIC_ORIGIN) को उस https:// पते पर सेट करें जहाँ आप Psyche खोलते हैं, Gateway रीस्टार्ट करें, फिर यहाँ एक जोड़ें।",
   "web.passkeys.insecure":
-    "पासकी केवल तभी काम करती हैं जब Psyche अपने https:// पते पर, इन्हें समर्थन देने वाले ब्राउज़र में खुला हो। एक जोड़ने के लिए इसे वहाँ खोलें।",
+    "यहाँ पासकी नहीं जोड़ी जा सकती। इसे किसी दूसरे कंप्यूटर के Psyche ऐप में जोड़ें, जो इस Gateway से उसके https:// पते पर जुड़ता है।",
   "web.passkeys.firstApproval":
     "“पासकी जोड़ें” को अपने Mac पर Touch ID से या किसी दूसरे डिवाइस पर पासकी से स्वीकृत करें, फिर जोड़ें को फिर से दबाएँ।",
   "web.passkeys.loadError": "Psyche आपकी पासकी लोड नहीं कर सका ({error})।",
@@ -3605,8 +3491,11 @@ export const hi: Partial<Catalogue> = {
   "web.setup.model": "मॉडल",
   "web.setup.modelRefused": "{ref}: प्रदाता ने कुंजी अस्वीकार कर दी ({error})। कुंजी रखी नहीं गई।",
   "web.setup.modelNotChecked": "{ref}: कुंजी सहेजी गई है, लेकिन जाँचने के लिए प्रदाता तक पहुँचा नहीं जा सका।",
+  "web.setup.modelEnvKey": "आपके परिवेश की एक कुंजी इस्तेमाल हो रही है ({ref})।",
+  "web.setup.modelEnvNotChecked":
+    "आपके परिवेश की एक कुंजी इस्तेमाल हो रही है ({ref}), लेकिन जाँचने के लिए प्रदाता तक नहीं पहुँचा जा सका।",
   "web.setup.modelSkipped":
-    "{ref}: कोई कुंजी नहीं जोड़ी गई, इसलिए चैट अभी जवाब नहीं देगी। सेटिंग्स → मॉडल में जोड़ें।",
+    "कुंजी जोड़ें: {ref} में अभी कोई कुंजी नहीं है, इसलिए चैट जवाब नहीं देगी। सेटिंग्स → मॉडल में जोड़ें।",
   "web.gate.loading": "Psyche शुरू हो रहा है",
   "web.gate.error": "Psyche यह जाँच नहीं सका कि सेटअप पूरा हुआ या नहीं।",
   "web.gate.retry": "फिर कोशिश करें",
@@ -3846,12 +3735,12 @@ export const hi: Partial<Catalogue> = {
   "web.toast.sideChatFailed": "Psyche साइड चैट नहीं बना सका।",
   "web.toast.permissionModeUnsupported": "अनुमति मोड बदलने के लिए Psyche का नया संस्करण चाहिए।",
   "web.toast.modelUnsupported": "मॉडल चुनने के लिए Psyche का नया संस्करण चाहिए।",
-  "web.palette.newSideChat": "नई साइड चैट",
-  "web.palette.newIncognito": "नई इनकॉग्निटो चैट (केवल मेमोरी में, 24 घंटे)",
-  "web.palette.openBrowser": "ब्राउज़र पेन खोलें",
-  "web.palette.openTerminal": "टर्मिनल पेन खोलें",
-  "web.palette.openTasks": "टास्क पेन खोलें",
-  "web.palette.openFiles": "फ़ाइल पेन खोलें",
+  "web.palette.newSideChat": "नई चैट",
+  "web.palette.newIncognito": "नई निजी चैट",
+  "web.palette.openBrowser": "ब्राउज़र खोलें",
+  "web.palette.openTerminal": "टर्मिनल खोलें",
+  "web.palette.openTasks": "कार्य दिखाएँ",
+  "web.palette.openFiles": "फ़ाइलें दिखाएँ",
   "web.palette.switchMode": "अनुमति मोड बदलें",
   "web.threads.sideChat": "साइड चैट",
   "web.shell.skipToContent": "सामग्री पर जाएँ",
@@ -4003,13 +3892,18 @@ export const hi: Partial<Catalogue> = {
   ...points,
   // Approvals wave W3 (card choices, Allowed list)
   ...approvalsW3,
+  ...settingsDrill,
+  // Fork a plan (docs/design/fork-a-plan-2026.md §9)
+  ...planFork,
   ...desktopSimple,
+  ...appleE1,
   // Gateway-authored notices (inbox notifications, security alerts)
   ...notices,
   // Settings > Computer use > Separate desktop (Linux)
   ...separateDesktop,
   // Windows variants of the sandbox PC, voice keys and platform terms
   ...windowsPlatform202611,
+  ...appleE2,
   ...mailFollowups,
   ...nightShift,
   ...keepAwake,

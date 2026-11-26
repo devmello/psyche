@@ -21,7 +21,6 @@ import {
   type SniffResult,
   safeFilename,
 } from "@psyche/browser";
-import type { LibraryIngest, LibraryIngestInput } from "@psyche/channels";
 import type { LibrarySink } from "@psyche/connectors";
 import {
   artifactSourcesForLibraryItem,
@@ -53,7 +52,7 @@ import { assertWritableThread } from "../session/imported-threads.ts";
 /**
  * The Library (data model §9; feature P4): files under `$PSYCHE_HOME/library`, indexed in the
  * `library_items` table. Every writer the Gateway composes records what it saves here:
- * - channel attachments (`indexedChannelLibrary`) land in `quarantine/`, always quarantined;
+ * - files that came in through a chat channel (removed 2026-11-25) stay in `quarantine/` as old data;
  * - browser downloads (`IndexedQuarantineWriter`) land in `quarantine/`, always quarantined, and
  *   finished recordings are registered in place (`recordings/<id>`, one row per recording);
  * - read-aloud clips and voice memos (`FsAudioLibrary`, speech part) land in `audio/`.
@@ -89,37 +88,6 @@ async function indexOrRemove(db: PsycheDb, stored: string, item: NewLibraryItem)
     await rm(stored, { force: true }).catch(() => undefined);
     throw err;
   }
-}
-
-/**
- * Channel attachments (S10 `LibraryIngest`): bytes under `quarantine/<id>-<name>`, mode 0600,
- * never opened or executed, indexed as quarantined with `origin: channel`.
- */
-export function indexedChannelLibrary(db: PsycheDb, home: string): LibraryIngest {
-  const dir = join(libraryRoot(home), "quarantine");
-  return {
-    async ingest(input: LibraryIngestInput) {
-      await mkdir(dir, { recursive: true, mode: 0o700 });
-      const id = db.newId();
-      const name = safeFilename(input.name);
-      const stored = join(dir, `${id}-${name}`);
-      await writeFile(stored, input.data, { mode: 0o600 });
-      const item = await indexOrRemove(db, stored, {
-        id,
-        kind: kindOfMime(input.mime),
-        name,
-        mime: input.mime,
-        path: `quarantine/${id}-${name}`,
-        size: input.data.byteLength,
-        sha256: `sha256:${createHash("sha256").update(input.data).digest("hex")}`,
-        origin: "channel",
-        tags: [input.source.channel],
-        quarantined: true,
-        source: { ...input.source, provenance: input.provenance },
-      });
-      return { libraryItemId: item.id };
-    },
-  };
 }
 
 /**

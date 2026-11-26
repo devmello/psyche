@@ -8,8 +8,11 @@ import {
 import type { MessagesChat, NodeClient, NodeInvokeOptions } from "@psyche/protocol";
 import { FakeClock, FakeNotifier, fixtureSecret } from "@psyche/testing";
 import { describe, expect, it, vi } from "vitest";
-import { verifiedMessagesSends } from "../src/compose/channels.ts";
-import { messagesSendTool, normalizeHandle } from "../src/compose/messages-send.ts";
+import {
+  messagesSendTool,
+  normalizeHandle,
+  verifiedMessagesSends,
+} from "../src/compose/messages-send.ts";
 import type { ComposeServices } from "../src/compose/services.ts";
 
 /** `messages_send`: resolution, the compose card, the edited text that is sent, and the checks. */
@@ -75,7 +78,6 @@ function setup(contacts: Contact[], chats: MessagesChat[] = [], maxPerTurn?: num
   const broker: PsychePermissionBroker = createPermissionBroker({
     approvers: {
       device: async () => ({ scopes: ["operator.read", "operator.approvals"] }),
-      isOwnerSender: async () => false,
     },
     clock,
     audit: createAuditLog({ clock }),

@@ -30,11 +30,11 @@ describe("held channel messages and backups", () => {
     const home = join(temp(), "home");
     put(home, "state/psyche.sqlite", "db");
     put(home, "state/channels/held.json", '{"v":1,"items":[]}');
-    put(home, "state/channels/whatsapp/session.json", "{}");
+    put(home, "state/channels/oldchat/session.json", "{}");
     const file = join(temp(), "b.age");
     const manifest = await createBackup(home, file, FAST, "t");
     const paths = manifest.files.map((f) => f.path);
-    expect(paths).toContain("state/channels/whatsapp/session.json");
+    expect(paths).toContain("state/channels/oldchat/session.json");
     expect(paths).not.toContain("state/channels/held.json");
     expect(
       (await verifyBackup(file, { kind: "passphrase", passphrase: FAST.passphrase }, temp()))

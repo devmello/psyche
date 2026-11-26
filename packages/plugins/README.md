@@ -33,5 +33,5 @@ The Gateway composes it in `apps/gateway/src/compose/plugins.ts`; the admin sett
 
 - Node 24's permission model does not cover the network; the shim closes `net`, `dgram`, `fetch` and `WebSocket` before the plugin loads, which is not a boundary.
 - No registry or git source: only local folders. No update diff yet (a reinstall replaces the files after a new card).
-- Bundle plugins (skills + MCP servers + config) and plugins that add channels or tools are not implemented; docs/03 T4's "a community channel adapter installs as a plugin" is not met.
+- Bundle plugins (skills + MCP servers + config) and plugins that add tools are not implemented.
 - The Plugins section in Settings → Skills (`packages/ui/src/screens/settings/PluginsSection.tsx`) lists installed plugins and installs from a picked folder. It is not a standalone Settings → Plugins pane (S11).

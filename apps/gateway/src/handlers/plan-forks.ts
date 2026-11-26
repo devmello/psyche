@@ -44,10 +44,12 @@ import {
   type PlanFork,
   type PlanForkBranch,
   PsycheError,
+  type StagedAction,
   type Surface,
   type TaintSource,
 } from "@psyche/protocol";
-import { isDesktopViewer } from "../compose/fork-hidden.ts";
+import { forkBranchWithheld, isDesktopViewer } from "../compose/fork-hidden.ts";
+import { forRemote, MESSAGES_ITEM_LINE } from "../compose/night-shift.ts";
 import type { Call, HandlerDef } from "../context.ts";
 
 /**
@@ -139,8 +141,31 @@ declare function paramsOf(
     | "planForks.cancel"
     | "planForks.retryBranch"
     | "planForks.take"
+    | "planForks.staged"
     | "planForks.dismiss",
 ): void;
+
+/**
+ * A staged item for a viewer that may not read its text: the id, status, binding hash and counts
+ * stay (the Take sheet lists the row), every field that quotes the owner's data is cleared.
+ */
+function withholdItem(i: StagedAction): StagedAction {
+  return {
+    ...i,
+    result: null,
+    withheld: "messages",
+    summary: MESSAGES_ITEM_LINE,
+    why: null,
+    params: null,
+    target: null,
+    targetKey: "",
+    precondition: null,
+    inverse: null,
+    send: null,
+    preview: null,
+    taintSources: [],
+  };
+}
 
 function settingNumber(db: PsycheDb, key: string, fallback: number, min: number, max: number) {
   const v = getSetting(db, key)?.value;
@@ -528,6 +553,23 @@ export function createPlanForkHandlers(deps: PlanForkDeps) {
     "planForks.get": async (call: Call, p: Params<"planForks.get">) =>
       view(call, requireFork(p.forkId)),
 
+    "planForks.staged": async (call: Call, p: Params<"planForks.staged">) => {
+      // The same checks as take: an unknown fork or a branch of another fork is not_found.
+      const fork = requireFork(p.forkId);
+      const branch = getPlanForkBranch(db, p.branchId);
+      if (branch === null || branch.forkId !== fork.id)
+        throw new PsycheError("not_found", "no such branch");
+      const items = listStagedActionsForBranch(db, branch.id).slice(0, 50);
+      if (isDesktopViewer(call)) return { items };
+      // Off the desktop shell: a branch that is still running, or that read owner-only sources
+      // (Memory, Contacts, Messages leave no taint on its items), shows no item text at all. The
+      // rule is `forkThreadRestricted`'s, the one the router applies to the branch's thread.
+      const restricted = forkBranchWithheld(db, branch);
+      return {
+        items: items.map((i) => forRemote(restricted ? withholdItem(i) : i)),
+      };
+    },
+
     "planForks.list": async (call: Call, p: Params<"planForks.list">) => {
       if (getThread(db, p.threadId) === undefined)
         throw new PsycheError("not_found", "no such chat");
@@ -719,7 +761,7 @@ export function createPlanForkHandlers(deps: PlanForkDeps) {
       try {
         r = await deps.applier.applyFork(
           { forkId: fork.id, branchId: branch.id, items: p.items, sends: p.sends },
-          { local: isDesktopViewer(call) },
+          { local: isDesktopViewer(call), withholdAll: forkBranchWithheld(db, branch) },
         );
       } catch (err) {
         release();

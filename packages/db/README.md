@@ -40,7 +40,7 @@ The single relational store (ADR-004): `$PSYCHE_HOME/state/psyche.sqlite`, opene
 ## How this maps to the docs (and deviations)
 
 - `tool_calls.status` allows `pending | running | ok | failed | uncertain | blocked` (the protocol `ToolCallStatus`), a superset of the data model's list.
-- `tool_calls.approval_id` / `receipt_id` are plain TEXT: their tables belong to S05 and do not exist yet. `pairing_requests.channel_id` likewise (channels: S10).
+- `tool_calls.approval_id` / `receipt_id` are plain TEXT: their tables belong to S05 and do not exist yet.
 - `pairing_requests.device_id` is a FK: insert the device row (with `paired_at` NULL) before its pairing request.
 - `threads.active_writer_run_id` (protocol `Thread.activeWriterRunId`) is an FK to `runs`; claim only existing runs of the same thread.
 - `messages` are append-only (no `updated_at`); seqs start at 1 and are unique per thread.

@@ -15,7 +15,7 @@ Speech-to-text behind the `SpeechEngine` contract, engine selection, the whisper
 | `webSpeechDictation`, `WEB_SPEECH_ENTRY` | Client-side helper for psyche-web (browser owns the mic) |
 | `VoiceSessionManager` | `voice.start / push / stop / cancel` and `voice.segment` / `voice.ended` events |
 | `VoiceMemoService`, `analyzeTranscript`, `looksLikeTask`, `memoTitle` | Voice memos (Q4): recorded audio → transcript → Library `recording` → optional Task, with provenance by speaker |
-| `VoiceNoteTranscoder`, `transcribeVoiceNote`, `VOICE_NOTE_PROFILES`, `oggOpusToCaf` | Voice notes per channel and inbound decode → transcript |
+| `VoiceNoteTranscoder`, `transcribeVoiceNote`, `VOICE_NOTE_PROFILES`, `oggOpusToCaf` | Voice notes per container and inbound decode → transcript |
 | `ModelManager`, `MODEL_CATALOG` | Checksummed model downloads into `$PSYCHE_HOME/models/` |
 | `SegmentSequencer`, `buildVocabulary`, PCM helpers | Building blocks shared by the engines |
 | `DictationVocabularyProvider`, `NodeContactsSource`, `agentNameFrom`, `ownerNamesFrom` | Session-default vocabulary from IDENTITY.md, USER.md, contacts and topics (below) |
@@ -98,23 +98,7 @@ All binaries run through a `ProcessRunner` with an argv array and a minimal envi
 
 ## Voice-note formats
 
-Recordings are encoded per container (voice memos and the Library). Caps are upload limits; when a clip would exceed one, the encoder walks down the bitrate ladder and refuses if the lowest rung does not fit.
-
-| Channel | Container | Rate | Bitrate ladder (kbps) | Cap | Native bubble |
-| --- | --- | --- | --- | --- | --- |
-| Telegram (`sendVoice`) | OGG/Opus `audio/ogg` | 48 kHz mono | 48, 32, 24, 16 | 50 MB | yes |
-| WhatsApp (PTT) | OGG/Opus | 48 kHz mono | 48, 32, 24, 16 | 16 MB | yes |
-| Signal | OGG/Opus | 48 kHz mono | 48, 32, 24, 16 | 100 MB (unverified) | yes |
-| iMessage | CAF/Opus `audio/x-caf`, `Audio Message.caf` | 48 kHz mono | 32, 24, 16 | 100 MB (unverified) | yes (see caveat) |
-| Slack | MP3 `audio/mpeg` | 44.1 kHz mono | 64, 48, 32 | 1 GB | no |
-| Discord | MP3 | 44.1 kHz mono | 64, 48, 32 | 10 MB (unverified) | no |
-| Email | MP3 | 44.1 kHz mono | 64, 48, 32 | 18 MB (25 MB minus base64) | no |
-| SMS (MMS) | MP3 | 44.1 kHz mono | 64, 48, 32 | 5 MB (unverified) | no |
-| Web chat, Library | MP3 | 44.1 kHz mono | 64, 48, 32 | 50 MB | no |
-
-**iMessage caveat.** Apple documents only "CAF" for inline voice notes; Opus inside CAF is community-reported (OpenClaw/BlueBubbles skills), and the message must also be flagged as an audio message by the sender. ffmpeg cannot write Opus (or AAC) into CAF (`cafenc.c`: "muxing codec currently unsupported"), so `oggOpusToCaf` remuxes ffmpeg's Ogg packets into CAF in-process, with the chunk layout `afconvert -f caff -d opus` produces (`desc`, `kuki`, `chan`, `pakt`, `data`). Apple's `afinfo` and `afconvert` read and decode the result on macOS 27; whether Messages renders it as a bubble must be checked end to end with the Mac node (S14/S10).
-
-**Inbound.** `transcribeVoiceNote(engine, transcoder, file)` writes the file to a private temp dir (CAF and moov-at-end M4A cannot be decoded from a pipe), decodes to 16 kHz mono s16le with ffmpeg and transcribes with the selected engine. `createSpeechStack().engine` is wrapped in `DecodingSpeechEngine`, so the channel service's existing `transcribeFile(data, {encoding: "opus"})` call works as is; outbound, `channelVoiceTranscoder(stack.transcoder)` satisfies the channel package's `VoiceTranscoder` port (by container, or by channel to get that channel's cap and file name). Together with `VoiceNotes` in `packages/channels` that is the Telegram round trip of Q4.
+Voice notes per chat channel (Telegram, WhatsApp, Signal, iMessage, Slack, Discord, email, SMS) were removed 2026-11-25 with the channels. Recordings are encoded per container for voice memos and the Library (MP3 by default, WAV when ffmpeg is absent). Inbound decode (`transcribeVoiceNote`) still serves composer memos.
 
 ## Voice memos (Q4)
 
@@ -126,9 +110,7 @@ Recordings are encoded per container (voice memos and the Library). Caps are upl
 4. **Provenance follows the speaker.** The owner's own voice is `owner`; anyone else is `untrusted`, and the item, the task (`taint: true`, `taintSources: [{sourceKind: "voice_note", origin, sender}]`) and the message block say so. An owner memo that reads like instructions still produces an untainted item, but a task forced from it starts tainted.
 5. **Library item**: kind `recording`, origin `upload` (composer) or `channel`, tags `voice-memo`, the source and the channel, the transcript as `textExtract`, named after the task title ("Call Alice at noon tomorrow.wav").
 6. **Task** (`task: "auto" | "always" | "never"`): in `auto`, only a memo that opens with a cue ("remind me to…", "todo:", "don't forget…", "add a task…") becomes a task; it needs a thread and a `TaskEngine`. The goal is the transcript plus a pointer to the memo item; `createdFrom` is `chat` or `channel`.
-7. **Blocks** for the carrying message: a text block quoting the transcript under a label (`**Voice memo, 0:05**` or `**Voice note from @sender on telegram (untrusted), 0:05**`, with a note when links or instruction-like phrasing were found), a `file` block and, if created, a `task` block.
-
-Inbound channel voice notes (N11/Q4 round trip) reach the same path: the adapter hands the attachment bytes with `memoFormatFor(mime)` and `speaker` from its owner check, so the transcript lands in the thread with the right provenance and the audio in the Library.
+7. **Blocks** for the carrying message: a text block quoting the transcript under a label (`**Voice memo, 0:05**` or `**Voice note from @sender on <channel> (untrusted), 0:05**`, with a note when links or instruction-like phrasing were found), a `file` block and, if created, a `task` block.
 
 ## Tests and gates
 
@@ -138,8 +120,8 @@ Inbound channel voice notes (N11/Q4 round trip) reach the same path: the adapter
 | --- | --- | --- |
 | whisper.cpp on the fixture clip | `whisper-cli` on PATH (or `PSYCHE_WHISPER_CLI`) and a model at `PSYCHE_WHISPER_MODEL` (default `$PSYCHE_HOME/models/whisper/ggml-tiny.en.bin`) | File and streaming transcription of `test/fixtures/remind-alice.wav` |
 | whisper.cpp on Windows (`test/whisper-live-windows.test.ts`) | win32, the release zip at `PSYCHE_WHISPER_RUNTIME_ZIP` and a model at `PSYCHE_WHISPER_MODEL` (default `$PSYCHE_HOME/models/whisper/ggml-base.en.bin`) | Installs the pinned runtime from the zip (real hashes, real `tar.exe`), then file, on-disk WAV and real-time streaming transcription with timings |
-| Transcoding matrix | `ffmpeg` and `ffprobe` with libopus and libmp3lame | 4 PCM input formats × 6 channels verified with ffprobe, decode round trip, CAF remux |
-| OGG/Opus voice memo | same ffmpeg gate | `test/memo.test.ts`: the fixture encoded for Telegram, ingested as an untrusted channel memo |
+| Transcoding matrix | `ffmpeg` and `ffprobe` with libopus and libmp3lame | 4 PCM input formats × 3 containers verified with ffprobe, decode round trip, CAF remux |
+| OGG/Opus voice memo | same ffmpeg gate | `test/memo.test.ts`: the fixture encoded as OGG/Opus, ingested as an untrusted memo from an old chat channel |
 
 `test/fixtures/remind-alice.wav` is a 4.5 s, 16 kHz mono clip saying "Hello Psyche. Remind me to call Alice at noon tomorrow." (synthetic voice, Apache-2.0).
 

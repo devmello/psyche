@@ -86,7 +86,7 @@ async function setup() {
     retentionIntervalMs: 0,
     background: false,
     timeZone: "UTC",
-    config: { home, port: 0, dbPath: join(home, "psyche.db"), webRoot: null },
+    config: { home, port: 0, dbPath: join(home, "psyche.db") },
     model: { provider: model, model: "scripted/main", utilityModel: "scripted/utility" },
   });
   const gw = composed;

@@ -42,5 +42,7 @@ export const homeRest: Partial<Catalogue> = {
   "home.more.pages": "ページ",
   "home.more.brief": "概要の設定",
   "home.more.memoryReview": "メモリの確認",
+  "home.quiet":
+    "今は対応が必要なものはありません。承認、毎日のブリーフ、新しいアイデアはここに表示されます。",
   "home.loadFailed": "{what}を読み込めませんでした。",
 };

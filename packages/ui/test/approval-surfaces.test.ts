@@ -8,8 +8,8 @@ describe("otherSurfacesFor", () => {
     ).toEqual(["notification"]);
   });
 
-  it("keeps chat surfaces, and names nothing when only hidden ones remain", () => {
-    expect(otherSurfacesFor(["desktop", "telegram:42", "device:a"])).toEqual(["telegram:42"]);
+  it("keeps other surfaces, and names nothing when only hidden ones remain", () => {
+    expect(otherSurfacesFor(["desktop", "notification", "device:a"])).toEqual(["notification"]);
     expect(otherSurfacesFor(["desktop", "web", "device:a"])).toEqual([]);
   });
 

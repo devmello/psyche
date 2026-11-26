@@ -8,7 +8,6 @@ import {
   FakeAgentLoop,
   FakeAuditLog,
   FakeBrowserDriver,
-  FakeChannelAdapter,
   FakeClock,
   FakeCredentialBroker,
   FakeMcpHost,
@@ -21,7 +20,6 @@ import {
   findSecrets,
   nextCron,
   parseIsoDuration,
-  SAMPLE_APPROVAL_REQUEST,
 } from "../src/index.ts";
 
 describe("FakeClock and ids", () => {
@@ -371,24 +369,6 @@ describe("FakeMcpHost", () => {
     await expect(host.callTool("notes", "add", {}, { toolsListHash })).rejects.toMatchObject({
       code: "conflict",
     });
-  });
-});
-
-describe("FakeChannelAdapter", () => {
-  it("never sends approval buttons for deviceOnly requests", async () => {
-    const ch = new FakeChannelAdapter();
-    await ch.start();
-    const inbound: string[] = [];
-    ch.onInbound((m) => {
-      inbound.push(m.text);
-    });
-    await ch.receive({ senderId: "u1", text: "hi" });
-    expect(inbound).toEqual(["hi"]);
-    await expect(
-      ch.sendApprovalButtons("u1", SAMPLE_APPROVAL_REQUEST, "tok"),
-    ).rejects.toMatchObject({ code: "forbidden" });
-    await ch.sendApprovalButtons("u1", { ...SAMPLE_APPROVAL_REQUEST, deviceOnly: false }, "tok");
-    expect(ch.sent.map((s) => s.kind)).toEqual(["approval_buttons"]);
   });
 });
 

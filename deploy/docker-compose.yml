@@ -40,9 +40,9 @@ services:
       dockerfile: deploy/Dockerfile
     network_mode: host
     restart: unless-stopped
-    # Gateway settings (port, publicOrigin, allowedOrigins, trustedProxy) live in config.json on
+    # Gateway settings (port, publicOrigin, trustedProxy) live in config.json on
     # the volume: `docker compose exec gateway psyche config set gateway.publicOrigin https://…`,
-    # then `docker compose restart gateway`. No PSYCHE_HOST/PORT/ALLOWED_ORIGINS here: environment
+    # then `docker compose restart gateway`. No PSYCHE_HOST/PORT here: environment
     # variables would silently win over config.json. The bind is loopback either way.
     environment:
       PSYCHE_LOG_LEVEL: ${PSYCHE_LOG_LEVEL:-info}

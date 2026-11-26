@@ -75,7 +75,7 @@ export interface MessageRecord {
   chatId: string;
   /** ISO time of the newest message of that conversation on that day. */
   date: string;
-  /** The other participants' handles (phone numbers, emails, `telegram:123` …). */
+  /** The other participants' handles (phone numbers, emails, `<scheme>:123` …). */
   handles: { value: string; name?: string }[];
   /** At least one message of the day was the owner's. */
   ownerSpoke: boolean;

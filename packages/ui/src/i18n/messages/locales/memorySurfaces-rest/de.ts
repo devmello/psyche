@@ -4,12 +4,11 @@ import type { Catalogue } from "../../index.ts";
 export const memorySurfacesRest: Partial<Catalogue> = {
   "memorySurfaces.title": "Wo das Gedächtnis erscheint",
   "memorySurfaces.description":
-    "Was {persona} auf Home, in die Tagesübersicht, in Mitteilungen und in eine an Telegram oder einen anderen Kanal gesendete Übersicht aufnehmen darf. Die Seite „Gedächtnis“ zeigt immer alles, was du nicht ausgeschlossen hast.",
+    "Was {persona} auf Home, in die Tagesübersicht und in Mitteilungen aufnehmen darf. Die Seite „Gedächtnis“ zeigt immer alles, was du nicht ausgeschlossen hast.",
   "memorySurfaces.loadLabel": "wo das Gedächtnis erscheint",
   "memorySurfaces.surface.home": "Home",
   "memorySurfaces.surface.brief": "Tagesübersicht",
   "memorySurfaces.surface.notification": "Mitteilungen",
-  "memorySurfaces.surface.channel": "An einen Kanal gesendete Übersicht",
   "memorySurfaces.tier.work.title": "Arbeit und To-dos",
   "memorySurfaces.tier.work.description":
     "Projekte, Kurse, To-dos, wie sie laufen, Fälligkeiten und Termine aus deinen eigenen Kalendern.",
@@ -21,8 +20,7 @@ export const memorySurfacesRest: Partial<Catalogue> = {
   "memorySurfaces.tier.people.title": "Fakten über Personen",
   "memorySurfaces.tier.people.description":
     "Fakten über andere Personen, woher du sie kennst, worüber ihr gesprochen habt, und „In Kontakt bleiben“.",
-  "memorySurfaces.people.warning":
-    "Übersichten kann jeder sehen, der deinen Bildschirm oder dein Telegram sieht.",
+  "memorySurfaces.people.warning": "Übersichten kann jeder sehen, der deinen Bildschirm sieht.",
   "memorySurfaces.birthdays.title": "Geburtstage und Jahrestage",
   "memorySurfaces.birthdays.label": "Geburtstage und Jahrestage zeigen",
   "memorySurfaces.birthdays.hint":

@@ -81,7 +81,7 @@ describe("mapped rows validate against the protocol schemas", () => {
         blocks: [{ type: "text", md: "hello" }],
         providerNative: { signature: "abc" },
         provenance: "agent",
-        channelRef: { channel: "telegram", account: "bot", messageId: "9" },
+        channelRef: { channel: "oldchat", account: "bot", messageId: "9" },
         runId: run.id,
       },
       { expectedWriterRunId: run.id },

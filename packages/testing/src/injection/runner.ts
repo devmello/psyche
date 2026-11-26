@@ -374,7 +374,7 @@ async function runFollowUps(
         answerToken: typeof f.answerToken === "string" ? f.answerToken : "forged",
         decision: f.decision === "deny" ? "deny" : "approve",
         decidedBy: {
-          channel: typeof f.channel === "string" ? f.channel : "telegram",
+          channel: typeof f.channel === "string" ? f.channel : "oldchat",
           senderId: typeof f.senderId === "string" ? f.senderId : "not-the-owner",
         },
       });

@@ -1,5 +1,8 @@
 # Spaces: lasting workspaces for a project, its files, chats and trackers (2026)
 
+> **Update 2026-11-25: chat channels removed.** Telegram, Slack-as-chat, Discord, WhatsApp, Signal, SMS, email-as-chat, the iMessage chat bridge and WebChat no longer exist (owner decision: the iPhone app is the mobile surface). Mentions of channels, channel delivery, channel senders and `dmPolicy` below are historical. Approvals and briefs go only to the Mac app and the paired iPhone. Reading Messages and Mail and the send-a-message tool stay. See security section 9 in docs/05-security-and-permissions.md.
+
+
 Status: plan, 2026-11-20; built since (Spaces ship in the app: `/spaces`, the `spaces.*` methods, folders, trackers). Kept as the design record. The owner decisions SP1–SP12 in §11 are open, and each has a recommendation. Inputs:
 
 - The parity audits of 2026-11-20 against Claude Cowork and Meta Muse. A lasting workspace is the largest gap the two share: Cowork row 9 and row 28 ("Projects"), Muse row 13 ("Spaces").

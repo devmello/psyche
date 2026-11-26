@@ -157,7 +157,6 @@ export const settingsC: Partial<Catalogue> = {
     "{name} se movió de nuevo o no se puede reconectar. Se actualizó la lista.",
   "settings.access.reconnectBlocked":
     "{name} se movió, pero no se puede reconectar con seguridad: una regla o una carpeta dentro apunta al lugar anterior. Revócala y compártela de nuevo.",
-  "settings.model.advancedHint": "Límites de contexto, modelos locales",
   "settings.permissions.subject.prepNotes": "Notas tituladas «Prep:» (preparación de reuniones)",
   "settings.permissions.specificConnectors":
     "Los permisos de un conector concreto se ajustan en su página en Conectores.",

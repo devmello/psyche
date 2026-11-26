@@ -456,9 +456,9 @@ function PendingDevice({
             size="sm"
             disabled={scopes.length === 0}
             onClick={() => onApprove(request, scopes)}
-            aria-label={t("settings.channels.approveSender", { name: request.display })}
+            aria-label={t("settings.devices.approveNamed", { name: request.display })}
           >
-            {t("settings.channels.approve")}
+            {t("settings.devices.approve")}
           </Button>
         ) : null}
         {onDeny ? (
@@ -577,7 +577,7 @@ export function DevicesSection({
       onRetry={reloadAll}
       actionError={
         actionError ??
-        (pairingQ.error ? t("settings.channels.pairingFailed", { reason: pairingQ.error }) : null)
+        (pairingQ.error ? t("settings.devices.pairingFailed", { reason: pairingQ.error }) : null)
       }
       onApprove={(r, scopes) =>
         run("approve", call("devices.approve", { pairingRequestId: r.id, scopes }))

@@ -69,7 +69,6 @@ describe("Where memory shows", () => {
       home: "Home",
       brief: "Daily brief",
       notification: "Notifications",
-      channel: "Brief sent to a channel",
     } as const;
     for (const [tier, title] of Object.entries(tiers))
       for (const [sw, label] of Object.entries(surfaces)) {
@@ -94,7 +93,7 @@ describe("Where memory shows", () => {
     expect(sources.getAllByRole("switch")).toHaveLength(9);
 
     const labelled = Object.keys(SETTING_LABELS).filter((k) => k.startsWith("memory.surfaces."));
-    expect(labelled.length).toBe(12 + 1 + 1 + 4);
+    expect(labelled.length).toBe(9 + 1 + 1 + 4);
     const rows = keyedRows();
     for (const key of labelled) expect(rows.has(key), key).toBe(true);
     // Nothing is stored until the owner changes something.
@@ -118,15 +117,13 @@ describe("Where memory shows", () => {
     );
   });
 
-  it("shows the screen-and-Telegram sentence once a people switch is on", async () => {
+  it("shows the screen sentence once a people switch is on", async () => {
     const { user } = show(<MemorySurfacesSection />);
     await screen.findByRole("region", { name: "Facts about people" });
-    expect(screen.queryByText(/anyone who sees your screen or your Telegram/)).toBeNull();
+    expect(screen.queryByText(/anyone who sees your screen/)).toBeNull();
     await user.click(await rowSwitch("Facts about people", "Daily brief"));
     expect(
-      await screen.findByText(
-        "Briefs can be seen by anyone who sees your screen or your Telegram.",
-      ),
+      await screen.findByText("Briefs can be seen by anyone who sees your screen."),
     ).toBeTruthy();
     expect(readSurfaces({ "memory.surfaces": stored("memory.surfaces") }).tiers.people.brief).toBe(
       true,
@@ -343,8 +340,9 @@ describe("reading stored values", () => {
     expect(
       readSurfaces({ "memory.surfaces": { tiers: { people: { home: true } } } }).tiers,
     ).toEqual({
-      ...MEMORY_SURFACES_DEFAULTS.tiers,
-      people: { ...MEMORY_SURFACES_DEFAULTS.tiers.people, home: true },
+      work: { home: true, brief: true, notification: true },
+      workMail: { home: true, brief: true, notification: false },
+      people: { home: true, brief: false, notification: false },
     });
     expect(readSurfaces({ "memory.surfaces": "nope" }).birthdays).toBe(true);
     expect(readWork({ "memory.work": { remind: { dueSoonHours: 500 } } }).remind.dueSoonHours).toBe(

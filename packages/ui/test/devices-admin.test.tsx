@@ -34,11 +34,11 @@ describe("Settings → Devices: the first admin", () => {
       </StoryWorld>,
     );
     expect(screen.queryByTestId("this-mac-admin")).toBeNull();
-    // A browser that holds admin is not a Mac (#554).
+    // A phone that holds admin is not a Mac (#554).
     rerender(
       <StoryWorld>
         <DevicesPanel
-          devices={[{ ...mac, platform: "web" }]}
+          devices={[{ ...mac, platform: "ios" }]}
           pairing={[]}
           nodes={[]}
           thisDeviceId="d1"

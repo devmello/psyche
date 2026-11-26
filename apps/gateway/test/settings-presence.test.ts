@@ -45,7 +45,7 @@ async function boot(presence?: PresenceVerifier, parts?: ComposeOptions["parts"]
     logger: silentLogger,
     retentionIntervalMs: 0,
     background: false,
-    config: { home, port: 0, dbPath: join(home, "psyche.db"), webRoot: null },
+    config: { home, port: 0, dbPath: join(home, "psyche.db") },
     model: { provider: new FakeModelProvider(), model: "fake/model" },
     ...(presence === undefined ? {} : { presence }),
     ...(parts === undefined ? {} : { parts }),
@@ -134,18 +134,22 @@ describe("fresh presence on security settings (security §10)", () => {
     ).toMatchObject({ ok: false, error: { code: "binding_mismatch" } });
   });
 
-  it("channel allow policies and owner identities are security keys too", async () => {
+  it("owner identities are security keys too", async () => {
     const { admin } = await boot(touchId);
-    for (const key of [
-      "channels.telegram.allowFrom",
-      "commands.ownerAllowFrom",
-      "vault.autoLock",
-    ]) {
+    for (const key of ["commands.ownerAllowFrom", "vault.autoLock"]) {
       expect(await set(admin, { key, value: [] })).toMatchObject({
         ok: false,
         error: { code: "approval_required" },
       });
     }
+  });
+
+  it("a removed chat channel's allow policy is refused outright, before any card", async () => {
+    const { admin } = await boot(touchId);
+    expect(await set(admin, { key: "channels.telegram.allowFrom", value: [] })).toMatchObject({
+      ok: false,
+      error: { code: "invalid_params", details: { reason: "setting_unknown" } },
+    });
   });
 
   it("cosmetic and non-security admin keys need no card", async () => {

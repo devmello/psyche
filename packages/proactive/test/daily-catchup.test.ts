@@ -220,55 +220,30 @@ describe("the wrap-up with work memory on", () => {
   });
 });
 
-describe("a brief delivered to a channel", () => {
-  const settingsOn = () => settings({ notify: true, messages: true });
-
-  it("gets the channel copy of work lines and no birthdays or people", async () => {
-    const { svc, notify } = service({
-      settings: settingsOn,
-      channelSurfaces: () => ["imessage:me"],
+describe("the brief surface", () => {
+  it("asks work memory, Coming up and Keep in touch for the brief copy only", async () => {
+    const asked: (string | undefined)[] = [];
+    const { svc, notify, inserted } = service({
+      settings: () => settings({ notify: true }),
       catchUp: catchUp({
-        morning: (surface) => ({
-          lines: [
-            {
-              text:
-                surface === "channel"
-                  ? "Q3 board deck: due tomorrow, not started."
-                  : "Q3 board deck: due tomorrow, not started. New: Sam: “Updated numbers” (Mon)",
-              title: "Q3 board deck",
-            },
-          ],
-        }),
+        morning: (surface) => {
+          asked.push(surface);
+          return { lines: [{ text: "home", title: "x" }] };
+        },
       }),
-      comingUp: (surface?: string) =>
-        surface === "channel" ? [] : [{ text: "Ava turns 7 on Friday" }],
-      keepInTouch: (surface?: string) =>
-        surface === "channel" ? [] : [{ text: "You haven't replied to Sam" }],
+      comingUp: (surface?: string) => {
+        asked.push(surface);
+        return [];
+      },
+      keepInTouch: (surface?: string) => {
+        asked.push(surface);
+        return [];
+      },
     });
     await svc.run("morning");
-    const calls = notify.mock.calls as unknown as { surfaces: string[]; body: string }[][];
-    const feed = calls.find((c) => c[0]?.surfaces.includes("desktop"));
-    const channel = calls.find((c) => c[0]?.surfaces.includes("imessage:me"));
-    expect(feed).toBeDefined();
-    expect(channel?.[0]?.body).toContain("Q3 board deck: due tomorrow, not started.");
-    expect(channel?.[0]?.body).not.toContain("Updated numbers");
-    expect(channel?.[0]?.body).not.toContain("Ava");
-    expect(channel?.[0]?.body).not.toContain("replied to Sam");
-  });
-
-  it("the Feed post keeps the home copy", async () => {
-    const { svc, inserted } = service({
-      settings: settingsOn,
-      channelSurfaces: () => ["imessage:me"],
-      catchUp: catchUp({
-        morning: (surface) => ({
-          lines: [{ text: surface === "channel" ? "chan" : "home", title: "x" }],
-        }),
-      }),
-    });
-    await svc.run("morning");
+    expect(new Set(asked)).toEqual(new Set(["brief"]));
     expect(inserted[0]?.bodyMd).toContain("home");
-    expect(inserted[0]?.bodyMd).not.toContain("chan");
+    expect(notify).toHaveBeenCalledTimes(1);
   });
 });
 

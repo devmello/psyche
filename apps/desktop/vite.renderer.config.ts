@@ -61,7 +61,6 @@ export default defineConfig({
       input: {
         index: `${projectDir}src/renderer/index.html`,
         panel: `${projectDir}src/renderer/panel.html`,
-        web: `${projectDir}src/renderer/web.html`,
       },
     },
   },

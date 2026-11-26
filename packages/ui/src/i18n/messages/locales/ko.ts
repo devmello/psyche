@@ -1,6 +1,8 @@
 import type { Catalogue } from "../index.ts";
 import { actionErrors } from "./action-errors/ko.ts";
 import { agentRest } from "./agent-rest/ko.ts";
+import { appleE1 } from "./apple-e1/ko.ts";
+import { appleE2 } from "./apple-e2/ko.ts";
 import { approvalsW3 } from "./approvals-w3/ko.ts";
 import { auditRest } from "./audit-rest/ko.ts";
 import { automationChatRest } from "./automationChat-rest/ko.ts";
@@ -49,6 +51,7 @@ import { overviewShared } from "./overview-shared/ko.ts";
 import { passwordPresence } from "./password-presence/ko.ts";
 import { peopleRest } from "./people-rest/ko.ts";
 import { personDataRest } from "./personData-rest/ko.ts";
+import { planFork } from "./plan-fork/ko.ts";
 import { points } from "./points/ko.ts";
 import { researchRest } from "./research-rest/ko.ts";
 import { scheduledForm } from "./scheduled-form/ko.ts";
@@ -56,6 +59,7 @@ import { scheduledRest } from "./scheduled-rest/ko.ts";
 import { screensRest } from "./screens-rest/ko.ts";
 import { securityState } from "./security-state/ko.ts";
 import { separateDesktop } from "./separate-desktop/ko.ts";
+import { settingsDrill } from "./settings-drill/ko.ts";
 import { settingsRest } from "./settings-rest/ko.ts";
 import { shellRest } from "./shell-rest/ko.ts";
 import { spaces } from "./spaces/ko.ts";
@@ -476,6 +480,7 @@ export const ko: Partial<Catalogue> = {
   "blocks.approval.scope.trustSiteSubdomains": "이 사이트와 하위 도메인은 항상 허용 ({site})",
   "blocks.approval.scope.hostProgram": "{folder}에서 {program} 항상 허용",
   "blocks.approval.scope.hostProgramExact": "{folder}에서 정확히 이 인수로 {program} 항상 허용",
+  "blocks.approval.scope.hostProgramSession": "이 채팅에서 {folder}의 {program} 허용",
   "blocks.approval.scope.site": "이 사이트에 허용",
   "blocks.approval.scope.session": "이 세션에 허용",
   "blocks.approval.scope.always": "항상 허용",
@@ -813,11 +818,9 @@ export const ko: Partial<Catalogue> = {
   "agent.upcoming.inNamed": "{name}에서",
   "agent.upcoming.inOwnSession": "자체 세션에서",
   "agent.upcoming.inMainSession": "메인 세션에서",
-  "agent.upcoming.email": "이메일",
   "agent.upcoming.quiet": "확인이 필요한 일이 없으면 조용히 있습니다",
   "agent.upcoming.theMainChat": "메인 채팅",
   "agent.upcoming.aChat": "채팅",
-  "agent.upcoming.aChannel": "채널",
   "agent.upcoming.nowhere": "아직 전달 대상이 없습니다",
   "agent.upcoming.deliversTo": "{to}(으)로 전달",
   "agent.upcoming.last": "마지막: {status}",
@@ -1032,7 +1035,6 @@ export const ko: Partial<Catalogue> = {
   "shell.sidebar.destinations": "이동",
   "shell.sidebar.resize": "사이드바 크기 조절",
   "shell.sidebar.settingsMenu": "설정 및 도움말",
-  "shell.sidebar.channel": "채널",
   "shell.sidebar.automation": "자동화",
   "shell.sidebar.subagent": "하위 에이전트",
   "shell.sidebar.untitled": "제목 없는 채팅",
@@ -1106,7 +1108,6 @@ export const ko: Partial<Catalogue> = {
   "settings.nav.files": "파일 접근",
   "settings.nav.vm": "VM 모드",
   "settings.nav.devices": "기기 및 노드",
-  "settings.nav.channels": "채널",
   "settings.nav.credentials": "자격 증명",
   "settings.nav.appearance": "화면 모드",
   "settings.nav.voice": "음성 및 받아쓰기",
@@ -1240,11 +1241,10 @@ export const ko: Partial<Catalogue> = {
     "Psyche는 이 카드들을 Stripe Link에서 읽어 옵니다. 제거하려면 Link 계정에서 제거하십시오. 위의 Link 키를 제거하면 Psyche는 어떤 카드로도 결제하지 않습니다.",
   "settings.credentials.managed.connector": "커넥터가 관리함",
   "settings.credentials.managed.model_provider": "모델 제공업체의 키",
-  "settings.credentials.managed.channel": "채널의 토큰",
+  "settings.credentials.managed.channel": "이전 채팅 채널의 비밀 값",
   "settings.credentials.managed.external_manager": "암호 관리자에서 연결됨",
   "settings.credentials.setting.connectors": "커넥터",
   "settings.credentials.setting.models": "모델 및 제공업체",
-  "settings.credentials.setting.channels": "채널",
   "settings.credentials.setting.credentials": "자격 증명",
   "settings.credentials.err.gatewayOwned":
     "{name}은(는) Gateway에 속합니다. 설정 → {setting}에서 제거하십시오.",
@@ -1683,123 +1683,9 @@ export const ko: Partial<Catalogue> = {
   "settings.browser.rotateKey": "키 교체",
   "settings.browser.createKey": "키 생성",
   "settings.browser.keyStillSigns": "현재 키가 있다면 계속 서명에 사용됩니다.",
-  "settings.channels.type.email": "이메일",
-  "settings.channels.type.sms": "SMS",
-  "settings.channels.status.active": "연결됨",
-  "settings.channels.status.paused": "일시 정지됨",
-  "settings.channels.status.error": "오류",
-  "settings.channels.status.disconnected": "연결 해제됨",
-  "settings.channels.policy.pairing": "페어링",
-  "settings.channels.policy.pairingHint": "새 발신자는 코드를 받고, 사용자가 여기서 승인합니다.",
-  "settings.channels.policy.allowlist": "허용 목록",
-  "settings.channels.policy.allowlistHint": "아래 목록에 있는 사람만.",
-  "settings.channels.policy.open": "공개",
-  "settings.channels.policy.openHint": "누구나 {persona}에게 메시지를 보낼 수 있습니다.",
-  "settings.channels.policy.disabled": "사용 안 함",
-  "settings.channels.policy.disabledHint": "다이렉트 메시지를 무시합니다.",
-  "settings.channels.title": "채널",
-  "settings.channels.description": "사람들이 {persona}에게 연락할 수 있는 곳과 허용된 사람.",
-  "settings.channels.loadLabel": "채널",
-  "settings.channels.empty":
-    "아직 채널이 없습니다. Telegram, iMessage 또는 Slack을 연결하면 이 Mac을 떠나서도 {persona}에게 연락할 수 있습니다.",
-  "settings.channels.add.button": "채널 추가",
-  "settings.channels.add.title": "채널 추가",
-  "settings.channels.add.description":
-    "{persona}에게 연락할 수 있는 곳을 선택하세요. 토큰은 바로 보관함에 저장되며 다시 표시되지 않습니다.",
-  "settings.channels.add.type": "채널",
-  "settings.channels.add.account.slack": "워크스페이스 이름",
-  "settings.channels.add.account.discord": "애플리케이션 ID",
-  "settings.channels.add.secret.bot_token": "봇 토큰",
-  "settings.channels.add.secret.app_token": "앱 토큰",
-  "settings.channels.add.secret.auth_token": "인증 토큰",
-  "settings.channels.add.secret.access_token": "액세스 토큰",
-  "settings.channels.add.secret.app_secret": "앱 시크릿",
-  "settings.channels.add.secret.verify_token": "확인 토큰",
-  "settings.channels.add.submit": "연결",
-  "settings.channels.add.connecting": "연결 중",
-  "settings.channels.add.missing": "연결하려면 모든 항목을 입력하세요.",
-  "settings.channels.add.failed":
-    "Psyche가 채널을 추가하지 못했습니다({reason}). 켜지지 않았습니다.",
-  "settings.channels.add.account.sms": "발신 번호 (+15551234567)",
-  "settings.channels.add.account.whatsapp": "WhatsApp 번호 (+15551234567)",
-  "settings.channels.add.badNumber": "국제 형식으로 번호를 입력하세요. 예: +15551234567",
-  "settings.channels.add.exists":
-    "{account}용 {type} 채널이 이미 있어서 아무것도 바꾸지 않았습니다.",
-  "settings.channels.add.approvalLabel": "채널 추가",
-  "settings.channels.add.envNote":
-    "Gateway도 {env}를 이 계정으로 설정한 상태로 시작해야 합니다. Telegram, iMessage, Signal, 이메일은 Gateway가 실행되는 곳에서 설정합니다. 채널 문서를 참고하세요.",
-  "settings.channels.add.addedInactive":
-    "채널을 추가했지만 아직 실행되지 않습니다. Gateway가 실행되는 곳에서 {env}를 이 계정으로 설정한 뒤 다시 시작하세요.",
-  "settings.channels.add.added":
-    "채널을 추가했습니다. Gateway에서 {env}가 이 계정으로 설정되면 시작됩니다. 그런 다음 해당 채널에서 {persona}에게 메시지를 보내 페어링 코드를 받고 여기서 승인하세요.",
-  "settings.channels.add.storedNote":
-    "이 계정에 이미 저장됨: {names}. 교체하지 않으면 그대로 사용됩니다.",
-  "settings.channels.add.replace": "저장된 토큰 교체",
-  "settings.channels.add.statusFailed":
-    "Psyche가 이미 저장된 토큰을 확인하지 못했습니다({reason}). 아무것도 바꾸지 않았습니다.",
-  "settings.channels.add.storedTyped":
-    "이 계정에는 이미 저장된 토큰이 있습니다. 입력한 토큰을 쓰려면 '저장된 토큰 교체'를 선택하거나 해당 칸을 비우세요. 아무것도 바꾸지 않았습니다.",
-  "settings.channels.identities": "신원 연결",
-  "settings.channels.identitiesDescription":
-    "여러 채널에 걸친 한 사람입니다. 연결은 페어링된 기기에서만 변경됩니다.",
-  "settings.channels.identitiesFailed": "Psyche가 신원 연결을 로드할 수 없습니다({reason}).",
-  "settings.channels.noIdentities": "신원 연결이 없습니다. 각 발신자는 별개의 사람으로 취급됩니다.",
-  "settings.channels.designated": "지정된 사람",
-  "settings.channels.designatedDescription":
-    "{persona}은(는) 위임된 페르소나와 더 작은 도구 세트로 이들에게 답합니다. 이들의 승인 요청은 사용자에게 옵니다.",
-  "settings.channels.noDesignated": "지정된 사람이 없습니다.",
-  "settings.channels.delegated": "위임됨: {persona}",
-  "settings.channels.tools": "도구: {tools}",
-  "settings.channels.cardTitle": "{name} {account}",
-  "settings.channels.directMessages": "다이렉트 메시지",
-  "settings.channels.openWarning":
-    "공개로 설정하면 {account}을(를) 찾은 누구나 {persona}에게 메시지를 보낼 수 있고, 그 메시지가 {persona}을(를) 조종하려 할 수 있습니다. 페어링이 더 안전합니다.",
-  "settings.channels.openAnyway": "그래도 공개",
-  "settings.channels.keepPolicy":
-    "{policy, select, allowlist {허용 목록} pairing {페어링} disabled {사용 안 함} other {{policy}}} 유지",
-  "settings.channels.pending": "대기 중 ({max, number} 중 {n, number})",
-  "settings.channels.pairingFailed": "Psyche가 페어링 요청을 로드할 수 없습니다({reason}).",
-  "settings.channels.noPending": "대기 중인 사람이 없습니다. 코드는 1시간 후 만료됩니다.",
-  "settings.channels.code": "코드",
-  "settings.channels.expires": "{when} 만료",
-  "settings.channels.approveSender": "{name} 승인",
-  "settings.channels.approve": "승인",
-  "settings.channels.ignoreSender": "{name} 무시",
-  "settings.channels.ignore": "무시",
-  "settings.channels.allow.remove": "삭제",
-  "settings.channels.allow.removeNamed": "{name} 삭제",
-  "settings.channels.allow.senderLabel": "허용할 발신자",
-  "settings.channels.allow.groupLabel": "발신자 추가 (그룹 채팅)",
-  "settings.channels.allow.addSender": "발신자 추가",
-  "settings.channels.allow.addGroup": "발신자 추가",
-  "settings.channels.allow.senderApproval": "채팅 발신자 허용",
-  "settings.channels.allow.groupApproval": "그룹에서 나를 호출할 수 있는 사람 변경",
-  "settings.channels.allow.groupEmptied":
-    "{name}을(를) 삭제하면 이 목록에 아무도 남지 않습니다. 그러면 개인 메시지에서 허용된 모든 사람이 그룹에서 Psyche를 호출할 수 있습니다.",
-  "settings.channels.allow.forbidden":
-    "누가 메시지를 보낼 수 있는지 바꾸려면 관리자 기기가 필요합니다. 관리자로 페어링된 기기를 사용하세요.",
-  "settings.channels.allow.failed":
-    "Psyche가 메시지를 보낼 수 있는 사람을 바꾸지 못했습니다({reason}). 아무것도 바뀌지 않았습니다.",
-  "settings.channels.identity.name": "사람 이름",
-  "settings.channels.identity.senders": "발신자 ID, 쉼표로 구분",
-  "settings.channels.identity.link": "ID 연결",
-  "settings.channels.identity.unlink": "연결 해제",
-  "settings.channels.identity.unlinkNamed": "{name} 연결 해제",
-  "settings.channels.identity.approval": "채팅 ID 연결",
-  "settings.channels.identity.forbidden":
-    "ID 연결을 바꾸려면 관리자 기기가 필요합니다. 관리자로 페어링된 기기를 사용하세요.",
-  "settings.channels.identity.failed":
-    "Psyche가 ID 연결을 바꾸지 못했습니다({reason}). 아무것도 바뀌지 않았습니다.",
-  "settings.channels.noOneYet": "아직 아무도 없습니다.",
-  "settings.channels.owner": " · 소유자",
-  "settings.channels.groups": "그룹에서 나를 호출할 수 있는 사람",
-  "settings.channels.noGroups":
-    "개인 메시지에서 허용된 모든 사람이 그룹에서 나를 호출할 수 있습니다.",
-  "settings.channels.requireMention": "그룹에서는 멘션될 때만 답하기",
-  "settings.channels.err.forbidden":
-    "{action, select, policy {메시지 허용 대상 변경} mention {그룹 멘션 설정 변경} approve {발신자 승인} other {발신자 무시}}에는 이 기기에서 승인이 필요합니다. 관리자로 페어링된 기기를 사용하십시오.",
-  "settings.channels.err.failed":
-    "Psyche가 {action, select, policy {메시지 허용 대상을 변경} mention {그룹 멘션 설정을 변경} approve {발신자를 승인} other {발신자를 무시}}할 수 없습니다({reason}).",
+  "settings.devices.pairingFailed": "Psyche가 페어링 요청을 로드할 수 없습니다({reason}).",
+  "settings.devices.approveNamed": "{name} 승인",
+  "settings.devices.approve": "승인",
   "settings.computerUse.tier.ask": "묻기",
   "settings.computerUse.tier.off": "끔",
   "settings.computerUse.tier.read": "읽기 전용",
@@ -1869,10 +1755,6 @@ export const ko: Partial<Catalogue> = {
   "settings.connectors.catalog.appleCalendar": "Apple 캘린더",
   "settings.connectors.catalog.appleMail": "Apple Mail",
   "settings.connectors.catalog.mcp": "MCP 서버",
-  "settings.connectors.catalog.slack": "Slack",
-  "settings.connectors.slackExplain":
-    "Slack은 채널입니다. 그곳에서 Psyche와 대화합니다. 설정 → 채널에서 설정하십시오.",
-  "settings.connectors.openChannels": "채널 열기",
   "settings.connectors.status.connected": "연결됨",
   "settings.connectors.status.disconnected": "연결 해제됨",
   "settings.connectors.status.error": "오류",
@@ -2262,8 +2144,6 @@ export const ko: Partial<Catalogue> = {
   "settings.model.role.imageHint": "아바타 변경, 없으면 내장 크리처 사용",
   "settings.model.addProvider": "제공업체 추가",
   "settings.model.title": "모델 및 제공업체",
-  "settings.model.description":
-    "선택한 모델이 그대로 사용됩니다. 실패하면 Psyche는 다른 모델로 대체하지 않고 실패를 알립니다.",
   "settings.model.loadLabel": "모델 제공업체",
   "settings.model.providers": "제공업체",
   "settings.model.listFailed": "Psyche가 모델 목록을 가져올 수 없습니다({reason}).",
@@ -2296,13 +2176,10 @@ export const ko: Partial<Catalogue> = {
   "settings.model.runCheckOn": "{name}에서 도구 호출 점검 실행",
   "settings.model.runCheck": "점검 실행",
   "settings.model.roles": "모델 역할",
-  "settings.model.rolesHint":
-    "각 역할은 모델 하나를 사용합니다. 도구 호출 점검에 실패한 모델은 채팅 전용입니다.",
   "settings.model.none": "없음",
   "settings.model.choose": "모델 선택",
   "settings.model.chatOnlyOption": "{name} (채팅 전용)",
   "settings.model.local": "로컬 모델",
-  "settings.model.localHint": "Ollama 또는 LM Studio로 이 Mac에서 모델을 실행합니다.",
   "settings.model.err.use": "Psyche가 {name}을(를) 사용할 수 없습니다({reason}).",
   "settings.model.err.probe": "Psyche가 엔드포인트를 점검할 수 없습니다({reason}).",
   "settings.model.err.check": "Psyche가 점검을 실행할 수 없습니다({reason}).",
@@ -2352,8 +2229,6 @@ export const ko: Partial<Catalogue> = {
   "settings.permissions.subject.emailFrom": "{recipients}에게, 계정 {account}",
   "settings.permissions.subject.calendarNamed": "캘린더 {id}",
   "settings.permissions.subject.calendar": "캘린더",
-  "settings.permissions.title": "권한",
-  "settings.permissions.description": "자동으로 실행되는 것, 먼저 묻는 것, 절대 하지 않는 것.",
   "settings.permissions.loadLabel": "권한",
   "settings.permissions.defaultModeTitle": "새 스레드의 기본 모드",
   "settings.permissions.execReview": "자동 모드에서 안전한 터미널 명령을 검토자가 승인하도록 허용",
@@ -2423,7 +2298,7 @@ export const ko: Partial<Catalogue> = {
   "settings.persona.describedAs": "설명: {description}",
   "settings.persona.identity": "정체성",
   "settings.persona.taglinePlaceholder": "조용한 날개, 세심한 손길.",
-  "settings.persona.emojiHint": "아바타를 표시할 수 없는 채널에 표시됩니다.",
+  "settings.persona.emojiHint": "아바타를 표시할 수 없는 곳에 표시됩니다.",
   "settings.persona.avatar": "아바타",
   "settings.persona.describeChange": "변경 내용 설명",
   "settings.persona.describeHint": "자유롭게 설명하십시오. 예: “나방에게 작은 목도리를 둘러 줘”.",
@@ -2842,8 +2717,8 @@ export const ko: Partial<Catalogue> = {
   "onboarding.keyRefused": "제공업체가 이 키를 거부했습니다({reason}). 키를 다시 붙여넣으십시오.",
   "onboarding.setupCheck": "설정 점검",
   "onboarding.progress": "초기 설정 진행 상황",
+  "onboarding.steps": "단계",
   "onboarding.doneMark": " (완료)",
-  "onboarding.stepOf": "{total, number}단계 중 {n, number}단계:",
   "onboarding.back": "뒤로",
   "onboarding.skipForNow": "지금은 건너뛰기",
   "onboarding.openChat": "메인 채팅 열기",
@@ -2896,7 +2771,7 @@ export const ko: Partial<Catalogue> = {
   "onboarding.permission.asking": "요청 중…",
   "onboarding.permission.allow": "허용",
   "onboarding.connectors.intro":
-    "연결할 계정을 하나씩 결정하십시오. {name}은(는) 사용자가 연결한 것만 볼 수 있으며, 나중에 설정에서 더 추가할 수 있습니다.",
+    "{name}이(가) 도울 일을 고르세요. 각 앱은 연결할 때 권한을 요청하며, 나중에 설정에서 더 추가할 수 있습니다.",
   "onboarding.connectors.connected": "연결됨 ({n, number})",
   "onboarding.connectors.connectedList": "연결된 계정",
   "onboarding.connectors.needsPermission": "권한 필요",
@@ -2942,12 +2817,19 @@ export const ko: Partial<Catalogue> = {
     "Psyche가 방금 금고를 만들었습니다. 이 키를 암호 관리자나 종이에 보관하십시오. 지금만 표시되며, 복원하거나 키 슬롯을 잃은 뒤 금고에 다시 들어갈 수 있는 유일한 방법입니다.",
   "onboarding.model.subscriptionNote":
     "Psyche는 이 Mac에 이미 로그인된 Claude Code 또는 Codex 앱을 사용하므로 API 키가 필요 없고 저장하지도 않습니다. 아직 로그인하지 않았다면 먼저 그곳에서 로그인하십시오.",
-  "onboarding.model.toolCheck": "도구 호출 점검",
-  "onboarding.model.runCheck": "점검 실행",
-  "onboarding.model.checkAgain": "다시 확인",
+  "onboarding.model.toolCheck": "연결 테스트",
+  "onboarding.model.otherWays": "다른 방법",
+  "onboarding.model.test.passed": "정상 작동",
+  "onboarding.model.test.failed": "채팅 전용",
+  "onboarding.model.test.running": "테스트 중…",
+  "onboarding.model.test.untested": "아직 테스트 안 함",
+  "onboarding.model.runCheck": "테스트",
+  "onboarding.model.checkAgain": "다시 테스트",
   "onboarding.model.toolCheckFailed":
-    "이 모델은 채팅은 가능하지만 도구를 안정적으로 사용할 수 없어 사용자를 대신해 동작하지 못합니다. 다른 모델을 선택하거나 채팅 전용 모드로 계속하십시오.",
+    "이 모델은 채팅은 가능하지만 작업을 대신 처리하지 못할 수 있습니다. 다른 모델을 고르거나 채팅 전용으로 계속하세요.",
   "onboarding.done.ready": "{name}이(가) 준비되었습니다.",
+  "onboarding.done.notReady": "{name}이(가) 아직 응답할 수 없습니다.",
+  "onboarding.done.notReadyBody": "아래 모델 항목을 해결하거나, 나중에 설정 → 모델에서 하세요.",
   "onboarding.done.opens": "메인 채팅이 {name}의 첫 메시지와 함께 열립니다.",
   "onboarding.done.noneYet": "아직 없음",
   "onboarding.done.accounts": "계정",
@@ -3231,7 +3113,7 @@ export const ko: Partial<Catalogue> = {
   "screens.files.shareInSettings": "설정 → 파일 접근에서 공유하십시오.",
   "screens.files.previewOf": "{name} 미리보기",
   "screens.files.preview": "미리보기",
-  "screens.files.needsApp": "미리보기는 데스크탑 또는 웹 앱에서만 볼 수 있습니다.",
+  "screens.files.needsApp": "미리보기는 데스크탑 앱에서만 볼 수 있습니다.",
   "screens.files.pick": "여기서 미리 볼 파일을 선택하십시오.",
   "screens.files.editReadOnly": "읽기 전용: 이 폴더는 편집 없이 공유되어 있습니다.",
   "screens.files.editOpening": "편집하려고 {name} 여는 중",
@@ -3560,7 +3442,7 @@ export const ko: Partial<Catalogue> = {
   "web.passkeys.unavailable":
     "패스키에는 서버의 https 주소가 필요합니다. gateway.publicOrigin(또는 PSYCHE_PUBLIC_ORIGIN)을 Psyche를 여는 https:// 주소로 설정하고 Gateway를 재시동한 다음 여기서 추가하십시오.",
   "web.passkeys.insecure":
-    "패스키는 Psyche를 https:// 주소에서, 패스키를 지원하는 브라우저로 열었을 때만 작동합니다. 추가하려면 그곳에서 여십시오.",
+    "여기서는 패스키를 추가할 수 없습니다. 이 Gateway의 https:// 주소로 연결하는 다른 컴퓨터의 Psyche 앱에서 추가하십시오.",
   "web.passkeys.firstApproval":
     "Mac의 Touch ID 또는 다른 기기의 패스키로 “패스키 추가”를 승인한 다음 추가를 다시 누르십시오.",
   "web.passkeys.loadError": "Psyche가 패스키를 로드할 수 없습니다({error}).",
@@ -3607,8 +3489,11 @@ export const ko: Partial<Catalogue> = {
   "web.setup.modelRefused": "{ref}: 공급자가 키를 거부했습니다({error}). 키는 보관되지 않았습니다.",
   "web.setup.modelNotChecked":
     "{ref}: 키는 저장되었지만 확인을 위해 공급자에 연결할 수 없었습니다.",
+  "web.setup.modelEnvKey": "환경에 있는 키를 사용합니다({ref}).",
+  "web.setup.modelEnvNotChecked":
+    "환경에 있는 키를 사용하지만({ref}) 확인을 위해 제공업체에 연결하지 못했습니다.",
   "web.setup.modelSkipped":
-    "{ref}: 추가된 키가 없어 채팅이 아직 응답하지 않습니다. 설정 → 모델에서 추가하세요.",
+    "키를 추가하세요: {ref}에 아직 키가 없어 채팅이 응답하지 않습니다. 설정 → 모델에서 추가하세요.",
   "web.gate.loading": "Psyche 시작 중",
   "web.gate.error": "설정이 끝났는지 확인하지 못했습니다.",
   "web.gate.retry": "다시 시도",
@@ -3843,12 +3728,12 @@ export const ko: Partial<Catalogue> = {
   "web.toast.permissionModeUnsupported":
     "권한 모드를 변경하려면 더 새로운 버전의 Psyche가 필요합니다.",
   "web.toast.modelUnsupported": "모델을 선택하려면 더 새로운 버전의 Psyche가 필요합니다.",
-  "web.palette.newSideChat": "새 사이드 채팅",
-  "web.palette.newIncognito": "새 시크릿 채팅 (메모리에만 보관, 24시간)",
-  "web.palette.openBrowser": "브라우저 패널 열기",
-  "web.palette.openTerminal": "터미널 패널 열기",
-  "web.palette.openTasks": "작업 패널 열기",
-  "web.palette.openFiles": "파일 패널 열기",
+  "web.palette.newSideChat": "새 채팅",
+  "web.palette.newIncognito": "새 비공개 채팅",
+  "web.palette.openBrowser": "브라우저 열기",
+  "web.palette.openTerminal": "터미널 열기",
+  "web.palette.openTasks": "작업 보기",
+  "web.palette.openFiles": "파일 보기",
   "web.palette.switchMode": "권한 모드 전환",
   "web.threads.sideChat": "사이드 채팅",
   "web.shell.skipToContent": "콘텐츠로 건너뛰기",
@@ -4002,13 +3887,18 @@ export const ko: Partial<Catalogue> = {
   ...points,
   // Approvals wave W3 (card choices, Allowed list)
   ...approvalsW3,
+  ...settingsDrill,
+  // Fork a plan (docs/design/fork-a-plan-2026.md §9)
+  ...planFork,
   ...desktopSimple,
+  ...appleE1,
   // Gateway-authored notices (inbox notifications, security alerts)
   ...notices,
   // Settings > Computer use > Separate desktop (Linux)
   ...separateDesktop,
   // Windows variants of the sandbox PC, voice keys and platform terms
   ...windowsPlatform202611,
+  ...appleE2,
   ...mailFollowups,
   ...nightShift,
   ...keepAwake,

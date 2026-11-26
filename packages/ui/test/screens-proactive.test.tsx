@@ -404,7 +404,12 @@ describe("InboxScreen", () => {
       decision: "approve",
       scope: "once",
     });
-    expect(await within(row).findByText("Approved")).toBeTruthy();
+    // Answered, the row leaves "Needs you" for Today and says how it was decided.
+    await waitFor(async () =>
+      expect(
+        within(await rowFor("Send email to jane.ortiz@example.com")).getByText("Approved"),
+      ).toBeTruthy(),
+    );
     await waitFor(() => expect(callsTo("notifications.markRead")).toHaveLength(1));
   });
 

@@ -307,13 +307,13 @@ describe("Full access: only the owner's attended chat turn", () => {
   it.each([
     ["an automation (unattended) turn", { unattended: true }, "unattended"],
     [
-      "the owner's own message through Telegram",
-      { requester: { role: "owner" as const, channel: "telegram", senderId: "1" } },
+      "the owner's own message through an old chat channel",
+      { requester: { role: "owner" as const, channel: "oldchat", senderId: "1" } },
       "channel",
     ],
     [
       "a designated person's turn",
-      { requester: { role: "designated" as const, channel: "telegram", senderId: "2" } },
+      { requester: { role: "designated" as const, channel: "oldchat", senderId: "2" } },
       "requester",
     ],
     ["an MCP App page's call", { initiator: "mcp_app" as const }, "initiator"],
@@ -649,11 +649,11 @@ describe("review r1 probes: subagents and other contexts", () => {
   const exec = call("exec", "write", undefined, { params: { argv: ["npm", "test"] } });
   it.each([
     [
-      "a subagent of the owner's Telegram turn",
+      "a subagent of the owner's old chat channel turn",
       {
         threadId: "thr_main:sub:sub_1",
         initiator: "subagent" as const,
-        requester: { role: "owner" as const, channel: "telegram", senderId: "1" },
+        requester: { role: "owner" as const, channel: "oldchat", senderId: "1" },
       },
     ],
     [

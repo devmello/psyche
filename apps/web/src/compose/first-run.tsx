@@ -152,7 +152,15 @@ export function onboardingRoute(
         <FirstRun
           platform={platform}
           mode="rerun"
-          onComplete={(result) => void complete(result).then(() => navigate("/chat"))}
+          onComplete={(result) =>
+            void complete(result).then(() =>
+              navigate(
+                result.openAfter === "search" || result.openAfter === "home"
+                  ? `/${result.openAfter}`
+                  : "/chat",
+              ),
+            )
+          }
         />
       </section>
     );

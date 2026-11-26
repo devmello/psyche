@@ -72,7 +72,7 @@ async function start() {
       },
     }),
     onMachineChange: (c) => changes.push(c),
-    config: { allowedOrigins: [publicOrigin], publicOrigin },
+    config: { publicOrigin },
   });
   return t;
 }

@@ -22,7 +22,7 @@ function compose(): Promise<ComposedGateway> {
     logger: silentLogger,
     retentionIntervalMs: 0,
     background: false,
-    config: { home, port: 0, dbPath: join(home, "psyche.db"), webRoot: null },
+    config: { home, port: 0, dbPath: join(home, "psyche.db") },
     model: { provider: new FakeModelProvider(), model: "fake/model" },
   });
 }
@@ -65,7 +65,7 @@ describe("composition root restart", () => {
         retentionIntervalMs: 0,
         background: false,
         db,
-        config: { home, port: 0, dbPath: join(home, "own.db"), webRoot: null },
+        config: { home, port: 0, dbPath: join(home, "own.db") },
         model: { provider: new FakeModelProvider(), model: "fake/model" },
       });
       await c.stop("test");

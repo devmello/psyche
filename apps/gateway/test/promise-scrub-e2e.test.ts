@@ -49,7 +49,7 @@ async function setup(): Promise<ComposedGateway> {
     retentionIntervalMs: 0,
     background: false,
     clock,
-    config: { home, port: 0, dbPath: join(home, "psyche.db"), webRoot: null },
+    config: { home, port: 0, dbPath: join(home, "psyche.db") },
     model: { provider: new FakeModelProvider(), model: "fake/model" },
   });
   return composed;
@@ -58,7 +58,7 @@ async function setup(): Promise<ComposedGateway> {
 /** A paired device that is not the desktop shell: it reconnects without the handshake secret. */
 async function remote(
   c: ComposedGateway,
-  platform: "macos" | "ios" | "web",
+  platform: "macos" | "ios" | "android",
   opts: { spoof?: boolean } = {},
 ): Promise<TestClient> {
   const key = newDeviceKey();
@@ -180,7 +180,7 @@ describe("promise scrub over real connections", () => {
     const viewers = {
       "remote desktop": await remote(c, "macos"),
       iOS: await remote(c, "ios"),
-      web: await remote(c, "web"),
+      Android: await remote(c, "android"),
       "spoofed shell": await remote(c, "macos", { spoof: true }),
     };
 

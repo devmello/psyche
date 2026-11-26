@@ -6,7 +6,7 @@ import { SearchIndexer } from "../src/indexer.ts";
 import { messageSender, senderKeyOf, senderNeedle } from "../src/senders.ts";
 import { doc, setup } from "./helpers.ts";
 
-const peerThread = { title: "Alex Rivera", sessionKey: "telegram:peer:12345" };
+const peerThread = { title: "Alex Rivera", sessionKey: "oldchat:peer:12345" };
 const ownerThread = { title: "Plans", sessionKey: "owner:main" };
 
 describe("messageSender: who wrote a chat message", () => {
@@ -42,7 +42,7 @@ describe("messageSender: who wrote a chat message", () => {
     [
       "channel peer with no title: the id",
       { role: "user", provenance: "untrusted" } as const,
-      { title: "  ", sessionKey: "telegram:peer:12345" },
+      { title: "  ", sessionKey: "oldchat:peer:12345" },
       {},
       { name: "12345" },
     ],

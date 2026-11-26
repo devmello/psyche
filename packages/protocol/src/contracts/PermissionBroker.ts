@@ -151,7 +151,7 @@ export interface Requester {
   /** `identities.id` (`owner` for the owner) when the sender is linked to an identity. */
   identityId?: string;
   display?: string;
-  /** Channel type (`telegram`, `imessage`, …) and the sender's id on it. */
+  /** Where a non-owner's message came from (a removed chat channel's type) and the sender's id. */
   channel?: string;
   senderId?: string;
   chatId?: string;
@@ -352,10 +352,11 @@ export interface PermissionBroker {
   get(approvalId: string): Promise<ApprovalRequest | undefined>;
   list(filter?: { status?: ApprovalStatus }): Promise<ApprovalRequest[]>;
   /**
-   * Gateway boot: invalidate every pending request (`gateway_restart`) and issue fresh ones, and
-   * revoke `session` grants, which end at a restart (security §3.4).
+   * Gateway boot: invalidate every pending request (`gateway_restart`) and issue fresh ones.
+   * `session` grants carry over while their chat exists and their limits hold (security §3.4).
+   * `stopRuns`: chat runs the Gateway just stopped; their cards are invalidated, not re-issued.
    */
-  reissue(): Promise<IssuedApproval[]>;
+  reissue(opts?: { stopRuns?: ReadonlySet<string> }): Promise<IssuedApproval[]>;
   recordReceipt(input: ReceiptInput): Promise<Receipt>;
   listReceipts(filter?: { taskId?: string; toolCallId?: string }): Promise<Receipt[]>;
   /** Cancellation: pending approvals of the run are invalidated, its answers rejected. */

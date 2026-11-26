@@ -51,7 +51,7 @@ function reachesNetwork(details: ApprovalRequest["details"] | undefined): boolea
 /**
  * The first line of the Gateway's template ("Title · write · after reading untrusted content")
  * with the side-effect word and the untrusted-content note in plain words. The title stays as the
- * Gateway wrote it (`cardHeader` is shared with the channels).
+ * Gateway wrote it.
  */
 export function plainHeader(
   a: Pick<ApprovalRequest, "kind" | "sideEffect" | "taint"> & {

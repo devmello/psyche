@@ -100,29 +100,6 @@ export function auditRules(s: Snapshot, now: Date): AuditReport {
     });
   }
 
-  // Channels: open DMs, groups without mention gating.
-  skip("channels", s.channels);
-  if (s.channels.ok) {
-    for (const c of s.channels.value) {
-      if (c.dmPolicy === "open") {
-        add({
-          id: "channels.dm_open",
-          severity: c.ownerIds?.length ? "high" : "critical",
-          message: `${c.type} channel ${c.id} accepts DMs from anyone (dmPolicy: open)${c.ownerIds?.length ? "" : " and has no owner"}`,
-          fix: `Set dmPolicy to pairing or allowlist for ${c.id}`,
-        });
-      }
-      if ((c.groupAllowFrom?.length ?? 0) > 0 && c.requireMention === false) {
-        add({
-          id: "channels.group_without_mention",
-          severity: "medium",
-          message: `${c.type} channel ${c.id} answers every group message`,
-          fix: "Require a mention in groups",
-        });
-      }
-    }
-  }
-
   // Sandbox and host execution.
   if (s.sandbox.ok && !s.sandbox.value.available) {
     add({

@@ -10,6 +10,7 @@
  * - `material=mica`: the Mica flag (a gradient stands in for the desktop wallpaper behind it);
  * - `onboarding=1`: start in onboarding instead of the main chat;
  * - `nightShift=1`: a Night shift review is waiting (try `route=/home` and `route=/home?review=latest`);
+ * - `forkPlan=1`: a ready fork of the main chat (open it with `route=/chat/th_main?fork=fork_1`);
  * - `apps=1`: the host has a permissions port and a paired helper (desktop-only rows show).
  *
  * Never part of a build: vite only serves it in dev.
@@ -25,6 +26,7 @@ import {
   windowsNodes,
 } from "../../../packages/ui/src/fixtures/index.ts";
 import { nightShiftFixture } from "../../../packages/ui/src/night-shift/mock-night-shift.ts";
+import { seedPlanForks } from "../../../packages/ui/src/plan-fork/mock-plan-fork.ts";
 import { ONBOARDED_KEY, PsycheApp } from "../src/compose/PsycheApp.tsx";
 import type { ShellPlatform, WindowChrome } from "../src/shell/platform.ts";
 import { browserStorage } from "../src/shell/platform.ts";
@@ -56,6 +58,7 @@ if (q.get("devices") === "windows") {
   world.nodes = windowsNodes();
 }
 if (q.get("nightShift") === "1") world.nightShift = nightShiftFixture();
+if (q.get("forkPlan") === "1") world.planForks = seedPlanForks("ready", "th_main");
 const mock = new MockGateway(world, { now: () => FIXTURE_NOW });
 
 const platform: ShellPlatform = {
@@ -65,7 +68,9 @@ const platform: ShellPlatform = {
     getStatus: async () => ({ phase: "paired", health: "ok", attempt: 0 }),
     onStatus: () => () => {},
     // A method the mock lacks rejects, so the screen shows its error state.
-    call: (method, params) => mock.request(method as never, params as never),
+    // Side-effecting methods need a key, which the real gateway client adds.
+    call: (method, params) =>
+      mock.request(method as never, params as never, { idempotencyKey: crypto.randomUUID() }),
     onEvent: (cb) => mock.subscribe(cb as never),
     onResync: () => () => {},
     deviceId: async () => world.devices[0]?.id,
@@ -102,7 +107,13 @@ if (q.get("material") === "mica")
 
 // The app routes by path: start on `route=` (default the chat). A reload of that path loads the
 // real app, so reopen /dev/preview.html to come back.
-history.replaceState(null, "", `${q.get("route") ?? "/chat"}${location.search}`);
+// A route with its own query (`/chat/th_main?fork=fork_1`) keeps it, and the flags follow with `&`.
+const startRoute = q.get("route") ?? "/chat";
+history.replaceState(
+  null,
+  "",
+  `${startRoute}${startRoute.includes("?") ? `&${location.search.slice(1)}` : location.search}`,
+);
 
 const root = document.getElementById("root");
 if (!root) throw new Error("#root missing");

@@ -8,7 +8,6 @@ import { AutomationsMethods } from "./automations.ts";
 import { BackupMethods } from "./backup.ts";
 import { BrowserMethods } from "./browser.ts";
 import { CapabilitiesMethods } from "./capabilities.ts";
-import { ChannelsMethods } from "./channels.ts";
 import { ChatMethods } from "./chat.ts";
 import { ConnectMethods } from "./connect.ts";
 import { ConnectorBundleMethods } from "./connector-bundles.ts";
@@ -76,7 +75,6 @@ export * from "./automations.ts";
 export * from "./backup.ts";
 export * from "./browser.ts";
 export * from "./capabilities.ts";
-export * from "./channels.ts";
 export * from "./chat.ts";
 export * from "./connect.ts";
 export * from "./connector-bundles.ts";
@@ -160,7 +158,6 @@ export const Methods = {
   ...GatewayMethods,
   ...PasskeysMethods,
   ...ConnectorsMethods,
-  ...ChannelsMethods,
   ...AutomationsMethods,
   ...VaultMethods,
   ...ViewMethods,
