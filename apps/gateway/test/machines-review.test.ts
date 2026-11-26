@@ -22,6 +22,7 @@ import {
   startTestGateway,
   TestClient,
   type TestGateway,
+  tapBroker,
   wsUrlOf,
 } from "./helpers.ts";
 
@@ -63,6 +64,7 @@ async function boot(): Promise<TestGateway> {
     },
     now: () => new Date(Date.now() + offsetMs),
     security: { pollMs: 20 },
+    broker: tapBroker(),
   });
   return t;
 }
@@ -177,7 +179,11 @@ describe("a machine card approved by the CLI or a recovery stays a machine", () 
       {},
     );
     const waiting = s.recoveries.find((x) => x.status === "waiting");
-    const res = await admin.request("security.recoveries.approve", { id: waiting?.id }, ik());
+    const res = await admin.request(
+      "security.recoveries.approve",
+      { id: waiting?.id, approvalId: "ap_tap" },
+      ik(),
+    );
     expect(res.ok, JSON.stringify(res)).toBe(true);
     expect(getDevice(gw.gateway.context.db, m.deviceId)?.scopes).toEqual(["node"]);
     expect(getMachineByDevice(gw.gateway.context.db, m.deviceId)).toBeDefined();

@@ -1516,7 +1516,7 @@ export const pt: Partial<Catalogue> = {
   "settings.approval.region": "Aprovação necessária",
   "settings.approval.prompt": "Aprove esta alteração em “{label}”.",
   "settings.approval.promptDetail":
-    "Aprove aqui ou na notificação do Psyche com um toque. O ajuste é salvo assim que for aprovado.",
+    "Aprove aqui ou na notificação do Psyche. O ajuste é salvo assim que for aprovado.",
   "settings.approval.presenceInvalid":
     "O Touch ID ou a chave-senha não confirmou que é você. Tente novamente.",
   "settings.approval.loading": "Carregando a aprovação…",

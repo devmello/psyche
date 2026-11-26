@@ -31,7 +31,7 @@ export const notices = {
   "notice.security.recovery.title":
     "{state, select, requested {A command on this Mac asked for a security change} applied {A security change from this Mac was applied} cancelled {A security change from this Mac was cancelled} other {A security change from this Mac could not be applied}}",
   "notice.security.recovery.body":
-    "{op, select, approve {Approve the device {device}{key, select, none {} other { (key {key})}} with {scopes}.} grant {Give {device}{key, select, none {} other { (key {key})}} {scopes}.} presence {Turn off the Touch ID and passkey requirement for security changes until a new key is registered.} seal {Accept the current security records as they are.} other {A security change.}}{state, select, requested { It applies {when, select, none {in 24 hours} other {on {when}}} unless you cancel it in Psyche.} failed {{reason, select, none {} other { {reason}}}} other {}}",
+    "{op, select, approve {Approve the device {device}{key, select, none {} other { (key {key})}} with {scopes}.} grant {Give {device}{key, select, none {} other { (key {key})}} {scopes}.} presence {Clear the key that protects payments until a new one is registered.} seal {Accept the current security records as they are.} other {A security change.}}{state, select, requested { It applies {when, select, none {in 24 hours} other {on {when}}} unless you cancel it in Psyche.} failed {{reason, select, none {} other { {reason}}}} other {}}",
   "notice.browser.chrome.title": "Psyche is driving your Chrome",
   "notice.browser.chrome.body":
     "A task is using the Psyche Chrome profile, where you are signed in. Its window title says “Psyche is driving this window”. It closes when the task is done; you can also quit Chrome.",

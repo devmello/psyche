@@ -22,8 +22,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "{device}{key, select, none {} other { (المفتاح {key})}} أصبح أول جهاز مسؤول {via, select, desktop {من تطبيق Psyche} other {عبر `psyched`}} على هذا الكمبيوتر. إن لم تكن أنت من فعل ذلك، فألغِه من الإعدادات ← الأجهزة.",
       "notice.security.recovery.title":
         "{state, select, requested {طلب أمر على هذا الكمبيوتر تغييرًا أمنيًا} applied {طُبّق تغيير أمني من هذا الكمبيوتر} cancelled {أُلغي تغيير أمني من هذا الكمبيوتر} other {تعذّر تطبيق تغيير أمني من هذا الكمبيوتر}}",
-      "notice.security.recovery.body":
-        "{op, select, approve {وافِق على الجهاز {device}{key, select, none {} other { (المفتاح {key})}} مع {scopes}.} grant {امنح {device}{key, select, none {} other { (المفتاح {key})}} {scopes}.} presence {أوقِف طلب كلمة المرور أو مفتاح المرور لتغييرات الأمان حتى يُسجَّل مفتاح جديد.} seal {اقبل سجلات الأمان الحالية كما هي.} other {تغيير أمني.}}{state, select, requested { يُطبَّق {when, select, none {بعد 24 ساعة} other {في {when}}} ما لم تلغِه في Psyche.} failed {{reason, select, none {} other { {reason}}}} other {}}",
       "screens.library.reveal": "إظهار في المجلد",
       "settings.devices.nodeKind.hostHelper": "مساعد Linux",
       "settings.links.description":
@@ -310,8 +308,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "web.passkeys.added":
         "تمت إضافة {name}. يوافق الآن على التغييرات التي تحتاج إلى كلمة المرور أو مفتاح مرور.",
       "web.remotePresence.title": "كلمة المرور للموافقات",
-      "web.remotePresence.description":
-        "تحتاج عمليات الشراء وتعبئة بيانات الاعتماد وأوامر المضيف وتغييرات الأمان إلى كلمة المرور أو مفتاح مرور. أعدّها على هذا الكمبيوتر لتجيب هنا؛ وإلى ذلك الحين تطلب هذه البطاقات الإجابة على {host}. الموافقات العادية لا تحتاج إليها أبدًا.",
       "web.remotePresence.on": "الموافقات بكلمة المرور مفعّلة لهذا الكمبيوتر.",
       "web.remotePresence.off": "لم تُعدّ الموافقات بكلمة المرور على هذا الكمبيوتر.",
       "web.remotePresence.enable": "استخدام كلمة المرور للموافقات على هذا الكمبيوتر",
@@ -386,8 +382,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "web.security.alert.firstAdmin":
         "جعل أمر على هذا الكمبيوتر الجهاز {name} أول جهاز مسؤول. إن لم تكن أنت، فألغِه من الأجهزة.",
       "web.security.alert.requested": "طُلب على هذا الكمبيوتر: {action} يُطبَّق في {when}.",
-      "web.security.op.presenceReset":
-        "التوقف عن طلب كلمة المرور أو مفتاح المرور لتغييرات الأمان حتى يُسجَّل مفتاح جديد.",
       "web.security.needsApprovalPresence":
         "وافق على البطاقة بكلمة المرور أو مفتاح مرور، ثم اضغط الزر مرة أخرى.",
     },
@@ -407,8 +401,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "{device}{key, select, none {} other { (Schlüssel {key})}} wurde {via, select, desktop {über die Psyche-App} other {über `psyched`}} auf diesem Computer zum ersten Admin-Gerät. Wenn du das nicht warst, widerrufe es unter Einstellungen → Geräte.",
       "notice.security.recovery.title":
         "{state, select, requested {Ein Befehl auf diesem Computer hat eine Sicherheitsänderung angefordert} applied {Eine Sicherheitsänderung von diesem Computer wurde angewendet} cancelled {Eine Sicherheitsänderung von diesem Computer wurde abgebrochen} other {Eine Sicherheitsänderung von diesem Computer konnte nicht angewendet werden}}",
-      "notice.security.recovery.body":
-        "{op, select, approve {Genehmige das Gerät {device}{key, select, none {} other { (Schlüssel {key})}} mit {scopes}.} grant {Gib {device}{key, select, none {} other { (Schlüssel {key})}} {scopes}.} presence {Verlange für Sicherheitsänderungen kein Passwort und keinen Passkey mehr, bis ein neuer Schlüssel registriert ist.} seal {Akzeptiere die aktuellen Sicherheitsdaten so, wie sie sind.} other {Eine Sicherheitsänderung.}}{state, select, requested { Sie gilt {when, select, none {in 24 Stunden} other {ab {when}}}, sofern du sie nicht in Psyche abbrichst.} failed {{reason, select, none {} other { {reason}}}} other {}}",
       "screens.library.reveal": "Im Ordner zeigen",
       "settings.devices.nodeKind.hostHelper": "Linux-Helfer",
       "settings.links.description":
@@ -713,8 +705,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "web.passkeys.added":
         "{name} hinzugefügt. Er genehmigt jetzt Änderungen, die dein Passwort oder einen Passkey brauchen.",
       "web.remotePresence.title": "Dein Passwort für Genehmigungen",
-      "web.remotePresence.description":
-        "Käufe, Passwort-Eingaben, Host-Befehle und Sicherheitsänderungen brauchen dein Passwort oder einen Passkey. Richte es auf diesem Computer ein, um sie hier zu beantworten; bis dahin sagen diese Karten, dass du auf {host} antworten sollst. Normale Genehmigungen brauchen es nie.",
       "web.remotePresence.on": "Passwort-Genehmigungen sind für diesen Computer an.",
       "web.remotePresence.off":
         "Passwort-Genehmigungen sind auf diesem Computer nicht eingerichtet.",
@@ -793,8 +783,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "web.security.alert.firstAdmin":
         "Ein Befehl auf diesem Computer hat {name} zum ersten Admin-Gerät gemacht. Wenn du das nicht warst, widerrufe es unter Geräte.",
       "web.security.alert.requested": "Auf diesem Computer angefordert: {action} Gilt ab {when}.",
-      "web.security.op.presenceReset":
-        "für Sicherheitsänderungen weder dein Passwort noch einen Passkey mehr verlangen, bis ein neuer Schlüssel registriert ist.",
       "web.security.needsApprovalPresence":
         "Bestätige die Karte mit deinem Passwort oder einem Passkey und tippe dann erneut auf die Taste.",
     },
@@ -814,8 +802,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "{device}{key, select, none {} other { (clave {key})}} pasó a ser el primer dispositivo administrador {via, select, desktop {desde la app de Psyche} other {mediante `psyched`}} en este ordenador. Si no fuiste tú, revócalo en Ajustes → Dispositivos.",
       "notice.security.recovery.title":
         "{state, select, requested {Un comando en este ordenador pidió un cambio de seguridad} applied {Se aplicó un cambio de seguridad desde este ordenador} cancelled {Se canceló un cambio de seguridad desde este ordenador} other {No se pudo aplicar un cambio de seguridad desde este ordenador}}",
-      "notice.security.recovery.body":
-        "{op, select, approve {Aprueba el dispositivo {device}{key, select, none {} other { (clave {key})}} con {scopes}.} grant {Da a {device}{key, select, none {} other { (clave {key})}} {scopes}.} presence {Deja de exigir tu contraseña o una llave de acceso para los cambios de seguridad hasta que se registre una clave nueva.} seal {Acepta los registros de seguridad actuales tal como están.} other {Un cambio de seguridad.}}{state, select, requested { Se aplica {when, select, none {en 24 horas} other {el {when}}} salvo que lo canceles en Psyche.} failed {{reason, select, none {} other { {reason}}}} other {}}",
       "screens.library.reveal": "Mostrar en la carpeta",
       "settings.devices.nodeKind.hostHelper": "Asistente de Linux",
       "settings.links.description":
@@ -1122,8 +1108,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "web.passkeys.added":
         "Se añadió {name}. Ahora aprueba los cambios que necesitan tu contraseña o una llave de acceso.",
       "web.remotePresence.title": "Tu contraseña para las aprobaciones",
-      "web.remotePresence.description":
-        "Las compras, el relleno de credenciales, los comandos del host y los cambios de seguridad necesitan tu contraseña o una llave de acceso. Configúralo en este ordenador para responderlos aquí; hasta entonces esas tarjetas indican que hay que responder en {host}. Las aprobaciones normales nunca lo necesitan.",
       "web.remotePresence.on":
         "Las aprobaciones con contraseña están activadas para este ordenador.",
       "web.remotePresence.off":
@@ -1204,8 +1188,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "web.security.alert.firstAdmin":
         "Un comando en este ordenador convirtió {name} en el primer dispositivo administrador. Si no fuiste tú, revócalo en Dispositivos.",
       "web.security.alert.requested": "Pedido en este ordenador: {action} Se aplica el {when}.",
-      "web.security.op.presenceReset":
-        "dejar de pedir tu contraseña o una llave de acceso para los cambios de seguridad hasta que se registre una clave nueva.",
       "web.security.needsApprovalPresence":
         "Aprueba la tarjeta con tu contraseña o una llave de acceso y vuelve a pulsar el botón.",
     },
@@ -1225,8 +1207,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "{device}{key, select, none {} other { (clé {key})}} est devenu le premier appareil administrateur {via, select, desktop {depuis l’application Psyche} other {via `psyched`}} sur cet ordinateur. Si ce n’était pas vous, révoquez-le dans Réglages → Appareils.",
       "notice.security.recovery.title":
         "{state, select, requested {Une commande sur cet ordinateur a demandé une modification de sécurité} applied {Une modification de sécurité venant de cet ordinateur a été appliquée} cancelled {Une modification de sécurité venant de cet ordinateur a été annulée} other {Une modification de sécurité venant de cet ordinateur n’a pas pu être appliquée}}",
-      "notice.security.recovery.body":
-        "{op, select, approve {Approuvez l’appareil {device}{key, select, none {} other { (clé {key})}} avec {scopes}.} grant {Donnez {scopes} à {device}{key, select, none {} other { (clé {key})}}.} presence {Ne plus exiger votre mot de passe ni une clé d’accès pour les modifications de sécurité jusqu’à l’enregistrement d’une nouvelle clé.} seal {Acceptez les données de sécurité actuelles telles quelles.} other {Une modification de sécurité.}}{state, select, requested { Elle s’applique {when, select, none {dans 24 heures} other {le {when}}} sauf si vous l’annulez dans Psyche.} failed {{reason, select, none {} other { {reason}}}} other {}}",
       "screens.library.reveal": "Afficher dans le dossier",
       "settings.devices.nodeKind.hostHelper": "Assistant Linux",
       "settings.links.description":
@@ -1533,8 +1513,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "web.passkeys.added":
         "{name} ajoutée. Elle approuve désormais les modifications qui nécessitent votre mot de passe ou une clé d’accès.",
       "web.remotePresence.title": "Votre mot de passe pour les approbations",
-      "web.remotePresence.description":
-        "Les achats, saisies d’identifiants, commandes de l’hôte et modifications de sécurité exigent votre mot de passe ou une clé d’accès. Configurez-le sur cet ordinateur pour y répondre ici ; d’ici là, ces cartes indiquent de répondre sur {host}. Les approbations ordinaires n’en ont jamais besoin.",
       "web.remotePresence.on":
         "Les approbations par mot de passe sont activées pour cet ordinateur.",
       "web.remotePresence.off":
@@ -1617,8 +1595,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "web.security.alert.firstAdmin":
         "Une commande sur cet ordinateur a fait de {name} le premier appareil administrateur. Si ce n’était pas vous, révoquez-le dans Appareils.",
       "web.security.alert.requested": "Demandé sur cet ordinateur : {action} S’applique le {when}.",
-      "web.security.op.presenceReset":
-        "ne plus exiger votre mot de passe ni de clé d’accès pour les modifications de sécurité jusqu’à l’enregistrement d’une nouvelle clé.",
       "web.security.needsApprovalPresence":
         "Approuvez la carte avec votre mot de passe ou une clé d’accès, puis appuyez de nouveau sur le bouton.",
     },
@@ -1636,8 +1612,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "{device}{key, select, none {} other { (कुंजी {key})}} {via, select, desktop {Psyche ऐप से} other {`psyched` के जरिए}} इस कंप्यूटर पर पहला एडमिन डिवाइस बन गया। अगर यह आपने नहीं किया, तो सेटिंग्स → डिवाइस में उसे रद्द करें।",
       "notice.security.recovery.title":
         "{state, select, requested {इस कंप्यूटर पर एक कमांड ने सुरक्षा बदलाव माँगा} applied {इस कंप्यूटर से एक सुरक्षा बदलाव लागू किया गया} cancelled {इस कंप्यूटर से एक सुरक्षा बदलाव रद्द किया गया} other {इस कंप्यूटर से एक सुरक्षा बदलाव लागू नहीं हो सका}}",
-      "notice.security.recovery.body":
-        "{op, select, approve {डिवाइस {device}{key, select, none {} other { (कुंजी {key})}} को {scopes} के साथ मंज़ूरी दें।} grant {{device}{key, select, none {} other { (कुंजी {key})}} को {scopes} दें।} presence {नई कुंजी दर्ज होने तक सुरक्षा बदलावों के लिए पासवर्ड या पासकी न माँगें।} seal {मौजूदा सुरक्षा रिकॉर्ड जैसे हैं वैसे ही स्वीकार करें।} other {एक सुरक्षा बदलाव।}}{state, select, requested { यह {when, select, none {24 घंटे बाद} other {{when} को}} लागू होगा, जब तक आप इसे Psyche में रद्द न करें।} failed {{reason, select, none {} other { {reason}}}} other {}}",
       "screens.library.reveal": "फ़ोल्डर में दिखाएँ",
       "settings.devices.nodeKind.hostHelper": "Linux हेल्पर",
       "settings.links.description":
@@ -1920,8 +1894,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "web.passkeys.added":
         "{name} जोड़ी गई। अब यह उन बदलावों को स्वीकृत करती है जिन्हें आपका पासवर्ड या पासकी चाहिए।",
       "web.remotePresence.title": "स्वीकृतियों के लिए आपका पासवर्ड",
-      "web.remotePresence.description":
-        "खरीदारी, क्रेडेंशियल भरना, होस्ट कमांड और सुरक्षा बदलावों के लिए आपका पासवर्ड या पासकी चाहिए। यहाँ जवाब देने के लिए इसे इस कंप्यूटर पर सेट अप करें; तब तक वे कार्ड {host} पर जवाब देने को कहते हैं। सामान्य स्वीकृतियों को इसकी कभी ज़रूरत नहीं होती।",
       "web.remotePresence.on": "इस कंप्यूटर के लिए पासवर्ड स्वीकृतियाँ चालू हैं।",
       "web.remotePresence.off": "इस कंप्यूटर पर पासवर्ड स्वीकृतियाँ सेट अप नहीं हैं।",
       "web.remotePresence.enable": "इस कंप्यूटर पर स्वीकृतियों के लिए अपना पासवर्ड उपयोग करें",
@@ -1998,8 +1970,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "web.security.alert.firstAdmin":
         "इस कंप्यूटर पर एक कमांड ने {name} को पहला एडमिन डिवाइस बना दिया। अगर यह आपने नहीं किया, तो उसे डिवाइस में रद्द करें।",
       "web.security.alert.requested": "इस कंप्यूटर पर माँगा गया: {action} {when} को लागू होगा।",
-      "web.security.op.presenceReset":
-        "नई कुंजी दर्ज होने तक सुरक्षा बदलावों के लिए आपका पासवर्ड या पासकी न माँगना।",
       "web.security.needsApprovalPresence":
         "अपने पासवर्ड या पासकी से कार्ड को मंज़ूरी दें, फिर बटन दोबारा दबाएँ।",
     },
@@ -2018,8 +1988,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "{device}{key, select, none {} other { (chiave {key})}} è diventato il primo dispositivo amministratore {via, select, desktop {dall’app Psyche} other {tramite `psyched`}} su questo computer. Se non sei stato tu, revocalo in Impostazioni → Dispositivi.",
       "notice.security.recovery.title":
         "{state, select, requested {Un comando su questo computer ha chiesto una modifica di sicurezza} applied {È stata applicata una modifica di sicurezza da questo computer} cancelled {È stata annullata una modifica di sicurezza da questo computer} other {Non è stato possibile applicare una modifica di sicurezza da questo computer}}",
-      "notice.security.recovery.body":
-        "{op, select, approve {Approva il dispositivo {device}{key, select, none {} other { (chiave {key})}} con {scopes}.} grant {Concedi a {device}{key, select, none {} other { (chiave {key})}} {scopes}.} presence {Non chiedere più la password o una passkey per le modifiche di sicurezza finché non viene registrata una nuova chiave.} seal {Accetta i dati di sicurezza attuali così come sono.} other {Una modifica di sicurezza.}}{state, select, requested { Si applica {when, select, none {dopo 24 ore} other {il {when}}}, a meno che tu non la annulli in Psyche.} failed {{reason, select, none {} other { {reason}}}} other {}}",
       "screens.library.reveal": "Mostra nella cartella",
       "settings.devices.nodeKind.hostHelper": "Assistente Linux",
       "settings.links.description":
@@ -2322,8 +2290,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "web.passkeys.added":
         "{name} aggiunta. Ora approva le modifiche che richiedono la tua password o una passkey.",
       "web.remotePresence.title": "La tua password per le approvazioni",
-      "web.remotePresence.description":
-        "Acquisti, inserimento di credenziali, comandi sull’host e modifiche di sicurezza richiedono la tua password o una passkey. Configurala su questo computer per rispondere da qui; fino ad allora quelle schede dicono di rispondere su {host}. Le approvazioni normali non ne hanno mai bisogno.",
       "web.remotePresence.on": "Le approvazioni con password sono attive per questo computer.",
       "web.remotePresence.off":
         "Le approvazioni con password non sono configurate su questo computer.",
@@ -2404,8 +2370,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "Un comando su questo computer ha reso {name} il primo dispositivo amministratore. Se non sei stato tu, revocalo in Dispositivi.",
       "web.security.alert.requested":
         "Richiesto su questo computer: {action} Si applica il {when}.",
-      "web.security.op.presenceReset":
-        "non chiedere più la tua password o una passkey per le modifiche di sicurezza finché non viene registrata una nuova chiave.",
       "web.security.needsApprovalPresence":
         "Approva la scheda con la tua password o una passkey, poi premi di nuovo il pulsante.",
     },
@@ -2424,8 +2388,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "{device}{key, select, none {} other {（キー {key}）}}は、{via, select, desktop {Psyche アプリから} other {`psyched` を通じて}}このコンピュータで最初の管理者デバイスになりました。心当たりがない場合は、設定 → デバイスで取り消してください。",
       "notice.security.recovery.title":
         "{state, select, requested {このコンピュータのコマンドがセキュリティ変更を要求しました} applied {このコンピュータからのセキュリティ変更が適用されました} cancelled {このコンピュータからのセキュリティ変更が取り消されました} other {このコンピュータからのセキュリティ変更は適用できませんでした}}",
-      "notice.security.recovery.body":
-        "{op, select, approve {デバイス {device}{key, select, none {} other {（キー {key}）}} を {scopes} で承認してください。} grant {{device}{key, select, none {} other {（キー {key}）}} に {scopes} を付与してください。} presence {新しいキーが登録されるまで、セキュリティ変更にパスワードやパスキーを求めないようにします。} seal {現在のセキュリティ記録をそのまま受け入れてください。} other {セキュリティ変更。}}{state, select, requested { {when, select, none {24 時間後} other {{when}}}に適用されます。Psyche で取り消すこともできます。} failed {{reason, select, none {} other { {reason}}}} other {}}",
       "screens.library.reveal": "フォルダーで表示",
       "settings.devices.nodeKind.hostHelper": "Linux ヘルパー",
       "settings.links.description":
@@ -2730,8 +2692,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "web.passkeys.added":
         "{name}を追加しました。パスワードまたはパスキーが必要な変更をこれで承認できます。",
       "web.remotePresence.title": "承認にパスワードを使う",
-      "web.remotePresence.description":
-        "購入、認証情報の入力、ホストのコマンド、セキュリティの変更にはパスワードまたはパスキーが必要です。このコンピュータで設定すると、ここで回答できます。設定するまでは、これらのカードは{host}で回答するよう案内されます。通常の承認には必要ありません。",
       "web.remotePresence.on": "このコンピュータでパスワードによる承認がオンになっています。",
       "web.remotePresence.off": "このコンピュータではパスワードによる承認が設定されていません。",
       "web.remotePresence.enable": "このコンピュータの承認にパスワードを使う",
@@ -2809,8 +2769,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "web.security.alert.firstAdmin":
         "このコンピュータのコマンドにより、{name} が最初の管理者デバイスになりました。心当たりがない場合は、デバイスで取り消してください。",
       "web.security.alert.requested": "このコンピュータで要求: {action} {when} に適用されます。",
-      "web.security.op.presenceReset":
-        "新しいキーが登録されるまで、セキュリティ変更にパスワードやパスキーを求めない。",
       "web.security.needsApprovalPresence":
         "パスワードまたはパスキーでカードを承認してから、もう一度ボタンを押してください。",
     },
@@ -2828,8 +2786,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "{device}{key, select, none {} other { (키 {key})}}이(가) {via, select, desktop {Psyche 앱에서} other {`psyched`를 통해}} 이 컴퓨터의 첫 관리자 기기가 되었습니다. 본인이 한 일이 아니라면 설정 → 기기에서 취소하세요.",
       "notice.security.recovery.title":
         "{state, select, requested {이 컴퓨터의 명령으로 보안 변경이 요청되었습니다} applied {이 컴퓨터에서 요청한 보안 변경이 적용되었습니다} cancelled {이 컴퓨터에서 요청한 보안 변경이 취소되었습니다} other {이 컴퓨터에서 요청한 보안 변경을 적용하지 못했습니다}}",
-      "notice.security.recovery.body":
-        "{op, select, approve {{device}{key, select, none {} other { (키 {key})}} 기기를 {scopes} 조건으로 승인하세요.} grant {{device}{key, select, none {} other { (키 {key})}}에 {scopes}을(를) 부여하세요.} presence {새 키가 등록될 때까지 보안 변경에 비밀번호나 패스키를 요구하지 않습니다.} seal {현재 보안 기록을 그대로 받아들이세요.} other {보안 변경.}}{state, select, requested { {when, select, none {24시간 후} other {{when}}}에 적용되며, Psyche에서 취소할 수 있습니다.} failed {{reason, select, none {} other { {reason}}}} other {}}",
       "screens.library.reveal": "폴더에서 보기",
       "settings.devices.nodeKind.hostHelper": "Linux 도우미",
       "settings.links.description":
@@ -3120,8 +3076,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "web.passkeys.added":
         "{name}을(를) 추가했습니다. 이제 사용자 암호 또는 패스키가 필요한 변경을 승인합니다.",
       "web.remotePresence.title": "승인에 사용자 암호 사용",
-      "web.remotePresence.description":
-        "구매, 자격 증명 입력, 호스트 명령, 보안 변경에는 사용자 암호 또는 패스키가 필요합니다. 이 컴퓨터에서 설정하면 여기서 응답할 수 있습니다. 설정하기 전까지는 해당 카드에서 {host}에서 응답하도록 안내합니다. 일반 승인에는 필요하지 않습니다.",
       "web.remotePresence.on": "이 컴퓨터에서 암호 승인이 켜져 있습니다.",
       "web.remotePresence.off": "이 컴퓨터에는 암호 승인이 설정되어 있지 않습니다.",
       "web.remotePresence.enable": "이 컴퓨터의 승인에 사용자 암호 사용",
@@ -3196,8 +3150,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "web.security.alert.firstAdmin":
         "이 컴퓨터의 명령으로 {name}이(가) 첫 관리자 기기가 되었습니다. 본인이 한 일이 아니라면 기기에서 취소하세요.",
       "web.security.alert.requested": "이 컴퓨터에서 요청됨: {action} {when}에 적용됩니다.",
-      "web.security.op.presenceReset":
-        "새 키가 등록될 때까지 보안 변경에 사용자 암호나 패스키를 요구하지 않음.",
       "web.security.needsApprovalPresence":
         "사용자 암호나 패스키로 카드를 승인한 다음 버튼을 다시 누르세요.",
     },
@@ -3216,8 +3168,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "{device}{key, select, none {} other { (chave {key})}} tornou-se o primeiro dispositivo administrador {via, select, desktop {pelo app Psyche} other {por meio do `psyched`}} neste computador. Se não foi você, revogue-o em Configurações → Dispositivos.",
       "notice.security.recovery.title":
         "{state, select, requested {Um comando neste computador pediu uma alteração de segurança} applied {Uma alteração de segurança deste computador foi aplicada} cancelled {Uma alteração de segurança deste computador foi cancelada} other {Uma alteração de segurança deste computador não pôde ser aplicada}}",
-      "notice.security.recovery.body":
-        "{op, select, approve {Aprove o dispositivo {device}{key, select, none {} other { (chave {key})}} com {scopes}.} grant {Conceda {scopes} a {device}{key, select, none {} other { (chave {key})}}.} presence {Deixar de exigir sua senha ou uma chave de acesso para alterações de segurança até que uma nova chave seja registrada.} seal {Aceite os registros de segurança atuais como estão.} other {Uma alteração de segurança.}}{state, select, requested { Será aplicada {when, select, none {em 24 horas} other {em {when}}}, a menos que você a cancele no Psyche.} failed {{reason, select, none {} other { {reason}}}} other {}}",
       "screens.library.reveal": "Mostrar na pasta",
       "settings.devices.nodeKind.hostHelper": "Assistente do Linux",
       "settings.links.description":
@@ -3516,8 +3466,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "web.passkeys.added":
         "{name} foi adicionada. Agora ela aprova alterações que precisam da sua senha ou de uma chave-senha.",
       "web.remotePresence.title": "Sua senha para aprovações",
-      "web.remotePresence.description":
-        "Compras, preenchimento de credenciais, comandos do host e alterações de segurança exigem a sua senha ou uma chave-senha. Configure-a neste computador para respondê-los aqui; até lá esses cartões dizem para responder em {host}. Aprovações comuns nunca precisam dela.",
       "web.remotePresence.on": "As aprovações por senha estão ativadas para este computador.",
       "web.remotePresence.off": "As aprovações por senha não estão configuradas neste computador.",
       "web.remotePresence.enable": "Usar a sua senha para aprovações neste computador",
@@ -3595,8 +3543,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "web.security.alert.firstAdmin":
         "Um comando neste computador tornou {name} o primeiro dispositivo administrador. Se não foi você, revogue-o em Dispositivos.",
       "web.security.alert.requested": "Pedido neste computador: {action} Será aplicado em {when}.",
-      "web.security.op.presenceReset":
-        "deixar de exigir a sua senha ou uma chave-senha para alterações de segurança até que uma nova chave seja registrada.",
       "web.security.needsApprovalPresence":
         "Aprove o cartão com a sua senha ou uma chave-senha e toque no botão de novo.",
     },
@@ -3614,8 +3560,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "{device}{key, select, none {} other {（密钥 {key}）}}{via, select, desktop {通过 Psyche 应用} other {通过 `psyched`}}在这台电脑上成为了第一台管理员设备。如果不是你做的，请在“设置 → 设备”中撤销它。",
       "notice.security.recovery.title":
         "{state, select, requested {这台电脑上的一条命令请求了安全更改} applied {这台电脑发起的安全更改已应用} cancelled {这台电脑发起的安全更改已取消} other {这台电脑发起的安全更改无法应用}}",
-      "notice.security.recovery.body":
-        "{op, select, approve {使用 {scopes} 批准设备 {device}{key, select, none {} other {（密钥 {key}）}}。} grant {向 {device}{key, select, none {} other {（密钥 {key}）}} 授予 {scopes}。} presence {在注册新密钥之前，安全更改不再需要你的密码或通行密钥。} seal {按原样接受当前的安全记录。} other {一项安全更改。}}{state, select, requested {将于 {when, select, none {24 小时后} other {{when}}} 生效，除非你在 Psyche 中取消。} failed {{reason, select, none {} other { {reason}}}} other {}}",
       "screens.library.reveal": "在文件夹中显示",
       "settings.devices.nodeKind.hostHelper": "Linux 助手",
       "settings.links.description":
@@ -3878,8 +3822,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "请在你的电脑上用密码或在另一台设备上用通行密钥批准“添加通行密钥”，然后再次点按“添加”。",
       "web.passkeys.added": "已添加 {name}。它现在可以批准需要你的密码或通行密钥的更改。",
       "web.remotePresence.title": "用你的密码批准",
-      "web.remotePresence.description":
-        "购买、填写凭证、主机命令和安全更改都需要你的密码或通行密钥。在这台电脑上设置后即可在此回答；在此之前，这些卡片会提示在{host}上回答。普通批准从不需要它。",
       "web.remotePresence.on": "这台电脑已开启密码批准。",
       "web.remotePresence.off": "这台电脑尚未设置密码批准。",
       "web.remotePresence.enable": "在这台电脑上使用你的密码批准",
@@ -3952,7 +3894,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "web.security.alert.firstAdmin":
         "这台电脑上的一条命令将 {name} 设为第一台管理员设备。如果不是你做的，请在“设备”中撤销它。",
       "web.security.alert.requested": "在这台电脑上请求：{action} 将于 {when} 生效。",
-      "web.security.op.presenceReset": "在注册新密钥之前，安全更改不再需要你的密码或通行密钥。",
       "web.security.needsApprovalPresence": "请用你的密码或通行密钥批准卡片，然后再次按下按钮。",
     },
   };

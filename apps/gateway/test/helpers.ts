@@ -7,6 +7,7 @@ import { setSetting, updateDevice } from "@psyche/db";
 import { connectSigningPayload, PROTOCOL_VERSION } from "@psyche/protocol";
 import { expect } from "vitest";
 import WebSocket from "ws";
+import { LockedPermissionBroker } from "../src/defaults.ts";
 import { silentLogger } from "../src/log.ts";
 import { type Gateway, type GatewayOptions, startGateway } from "../src/server.ts";
 
@@ -298,5 +299,18 @@ export function seedMcpServers(
   const entry = setSetting(services.db, "mcp.servers", value);
   (services.publish as (event: string, payload: unknown) => void)("settings.changed", {
     entries: [entry],
+  });
+}
+
+/**
+ * A broker for tests that only need the shape of a plain-tap `policy_change` card: it issues one,
+ * reports it approved at once and accepts any binding (the real broker is in fresh-presence.test.ts).
+ */
+export function tapBroker(): LockedPermissionBroker {
+  return Object.assign(new LockedPermissionBroker(), {
+    requestApproval: async () => ({ approval: { id: "ap_tap" } }) as never,
+    get: async () =>
+      ({ id: "ap_tap", kind: "policy_change", requiresAuthentication: false }) as never,
+    verifyBinding: async () => ({ ok: true }) as never,
   });
 }

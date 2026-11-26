@@ -632,7 +632,7 @@ export const settings = {
   "settings.approval.region": "Approval needed",
   "settings.approval.prompt": "Approve this change to “{label}”.",
   "settings.approval.promptDetail":
-    "Approve it here or in the Psyche notification with one tap. The setting is saved as soon as it is approved.",
+    "Approve it here or in the Psyche notification. The setting is saved as soon as it is approved.",
   "settings.approval.presenceInvalid":
     "Touch ID or the passkey didn't confirm it's you. Try again.",
   "settings.approval.loading": "Loading the approval…",

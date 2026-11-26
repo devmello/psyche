@@ -27,7 +27,7 @@ export const notices: Partial<Catalogue> = {
   "notice.security.recovery.title":
     "{state, select, requested {这台 Mac 上的命令请求了一项安全更改} applied {来自这台 Mac 的安全更改已应用} cancelled {来自这台 Mac 的安全更改已取消} other {来自这台 Mac 的安全更改无法应用}}",
   "notice.security.recovery.body":
-    "{op, select, approve {以 {scopes} 权限批准设备 {device}{key, select, none {} other {（密钥 {key}）}}。} grant {授予 {device}{key, select, none {} other {（密钥 {key}）}} {scopes} 权限。} presence {在注册新密钥之前，关闭安全更改对 Touch ID 和通行密钥的要求。} seal {按现状接受当前的安全记录。} other {一项安全更改。}}{state, select, requested {将{when, select, none {在 24 小时后} other {于 {when}}}生效，除非你在 Psyche 中取消。} failed {{reason, select, none {} other { {reason}}}} other {}}",
+    "{op, select, approve {以 {scopes} 权限批准设备 {device}{key, select, none {} other {（密钥 {key}）}}。} grant {授予 {device}{key, select, none {} other {（密钥 {key}）}} {scopes} 权限。} presence {清除保护付款的密钥，直到注册新密钥为止。} seal {按现状接受当前的安全记录。} other {一项安全更改。}}{state, select, requested {将{when, select, none {在 24 小时后} other {于 {when}}}生效，除非你在 Psyche 中取消。} failed {{reason, select, none {} other { {reason}}}} other {}}",
   "notice.browser.chrome.title": "Psyche 正在操作你的 Chrome",
   "notice.browser.chrome.body":
     "有任务正在使用你已登录的 Psyche Chrome 配置文件。窗口标题为“Psyche is driving this window”。任务完成后会关闭，你也可以退出 Chrome。",

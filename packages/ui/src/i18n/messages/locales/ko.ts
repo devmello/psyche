@@ -1546,7 +1546,7 @@ export const ko: Partial<Catalogue> = {
   "settings.approval.region": "승인 필요",
   "settings.approval.prompt": "“{label}”에 대한 이 변경을 승인하십시오.",
   "settings.approval.promptDetail":
-    "여기서 또는 Psyche 알림에서 한 번 눌러 승인하십시오. 승인되는 즉시 설정이 저장됩니다.",
+    "여기서 또는 Psyche 알림에서 승인하십시오. 승인되는 즉시 설정이 저장됩니다.",
   "settings.approval.presenceInvalid":
     "Touch ID 또는 패스키로 본인 확인이 되지 않았습니다. 다시 시도하십시오.",
   "settings.approval.loading": "승인 로드 중…",

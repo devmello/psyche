@@ -28,8 +28,7 @@ export const securityState: Partial<Catalogue> = {
   "web.security.alert.failed": "적용하지 못함: {action}",
   "web.security.op.devicesApprove": "기기 {name} 승인.",
   "web.security.op.devicesGrant": "{name}이(가) 할 수 있는 일 변경.",
-  "web.security.op.presenceReset":
-    "새 키가 등록될 때까지 보안 변경에 Touch ID나 패스키를 요구하지 않음.",
+  "web.security.op.presenceReset": "새 키가 등록될 때까지 결제를 보호하는 키를 지움.",
   "web.security.op.sealReset": "현재 보안 기록을 그대로 받아들임.",
   "web.security.device": "기기",
   "web.security.deviceKey": "{name}(키 {fingerprint})",

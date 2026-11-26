@@ -1,7 +1,7 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { getDevice, insertDevice, updateDevice } from "@psyche/db";
+import { getDevice, insertDevice, setSetting, updateDevice } from "@psyche/db";
 import type { PresenceVerifier } from "@psyche/permissions";
 import type { ApprovalRequest } from "@psyche/protocol";
 import { FakeModelProvider } from "@psyche/testing";
@@ -360,10 +360,98 @@ describe("applying a Mac-side recovery at once (security.recoveries.approve)", (
       op: "devices.grant",
     });
     expect(getDevice(db, "ipad")?.scopes).not.toContain("operator.admin");
-    // The card is bound to this exact recovery: it does not spend on another one.
+    // The card is bound to this exact recovery: a second real waiting grant does not spend it,
+    // and once spent it cannot be replayed.
+    insertDevice(db, {
+      id: "watch",
+      name: "Watch",
+      platform: "ios",
+      role: "client",
+      publicKey: Buffer.alloc(32, 7),
+      scopes: ["operator.read"],
+      pairedAt: db.now(),
+    });
+    expect(await psyched(["devices", "grant", "watch", "operator.read,operator.write"])).toBe(3);
+    const other = (c.gateway.context.securityRecoveries?.list() ?? []).find(
+      (r) => r.status === "waiting" && r.id !== waiting?.id,
+    );
+    expect(other).toMatchObject({ op: "devices.grant" });
     expect(
-      await admin.request("security.recoveries.approve", { id: "rc_other", approvalId }, ik()),
+      await admin.request("security.recoveries.approve", { id: other?.id, approvalId }, ik()),
+    ).toMatchObject({ ok: false, error: { code: "binding_mismatch" } });
+    expect(getDevice(db, "watch")?.scopes).toEqual(["operator.read"]);
+    expect(
+      await admin.request("security.recoveries.approve", { id: waiting?.id, approvalId }, ik()),
+    ).toMatchObject({ ok: true });
+    expect(
+      await admin.request("security.recoveries.approve", { id: waiting?.id, approvalId }, ik()),
     ).toMatchObject({ ok: false });
+    expect(getDevice(db, "ipad")?.scopes).toContain("operator.admin");
+  });
+
+  it("a foreign write between the card check and the apply is refused: nothing applies", async () => {
+    const { c, admin } = await boot(undefined, undefined, {}, { pollMs: 20 });
+    const db = c.gateway.context.db;
+    insertDevice(db, {
+      id: "ipad",
+      name: "iPad",
+      platform: "ios",
+      role: "client",
+      publicKey: Buffer.alloc(32, 9),
+      scopes: ["operator.read", "operator.write"],
+      pairedAt: db.now(),
+    });
+    setSetting(db, PRESENCE_ENROLLED_SETTING, true);
+    expect(
+      await psyched(["devices", "grant", "ipad", "operator.read,operator.write,operator.admin"]),
+    ).toBe(3);
+    const recoveries = c.gateway.context.securityRecoveries;
+    const [waiting] = recoveries?.list() ?? [];
+    // What the handler read and verified the card for.
+    const subject = recoveries?.subject(waiting?.id ?? "");
+    const expected = { op: subject?.op ?? "", params: subject?.params };
+    // A program on the machine rewrites the row after the check.
+    db.sqlite
+      .prepare("UPDATE security_recoveries SET op = 'presence.reset' WHERE id = ?")
+      .run(waiting?.id);
+    expect(() => recoveries?.approveNow(waiting?.id ?? "", DEVICE, expected)).toThrow(
+      /changed|decided/,
+    );
+    db.sqlite
+      .prepare("UPDATE security_recoveries SET op = 'devices.grant', params = ? WHERE id = ?")
+      .run(
+        JSON.stringify({ ...(subject?.params as object), deviceId: "someone-else" }),
+        waiting?.id,
+      );
+    expect(() => recoveries?.approveNow(waiting?.id ?? "", DEVICE, expected)).toThrow(
+      /changed|decided/,
+    );
+    expect(getDevice(db, "ipad")?.scopes).not.toContain("operator.admin");
+    expect(recoveries?.get(waiting?.id ?? "")?.status).toBe("waiting");
+  });
+
+  it("a device grant applied early shows a card even while presence was never enrolled", async () => {
+    const { c, admin } = await boot(undefined, undefined, {}, { pollMs: 20 });
+    const db = c.gateway.context.db;
+    // A grant to an admin-less install would be a first-admin grab: keep one admin, grant another.
+    insertDevice(db, {
+      id: "ipad",
+      name: "iPad",
+      platform: "ios",
+      role: "client",
+      publicKey: Buffer.alloc(32, 9),
+      scopes: ["operator.read", "operator.write"],
+      pairedAt: db.now(),
+    });
+    expect(
+      await psyched(["devices", "grant", "ipad", "operator.read,operator.write,operator.admin"]),
+    ).toBe(3);
+    const [waiting] = c.gateway.context.securityRecoveries?.list() ?? [];
+    expect(waiting).toMatchObject({ op: "devices.grant", status: "waiting" });
+    expect(c.gateway.context.presenceState()).toBe("off");
+    const first = await admin.request("security.recoveries.approve", { id: waiting?.id }, ik());
+    const { approvalId } = await approveWithTap(admin, first);
+    expect(getDevice(db, "ipad")?.scopes).not.toContain("operator.admin");
     expect(
       await admin.request("security.recoveries.approve", { id: waiting?.id, approvalId }, ik()),
     ).toMatchObject({ ok: true });

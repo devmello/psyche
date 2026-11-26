@@ -31,7 +31,7 @@ export const securityState: Partial<Catalogue> = {
   "web.security.op.devicesApprove": "aprobar el dispositivo {name}.",
   "web.security.op.devicesGrant": "cambiar lo que puede hacer {name}.",
   "web.security.op.presenceReset":
-    "dejar de pedir Touch ID o una llave de acceso para los cambios de seguridad hasta que se registre una clave nueva.",
+    "borrar la clave que protege los pagos hasta que se registre una nueva.",
   "web.security.op.sealReset": "aceptar los registros de seguridad actuales tal como están.",
   "web.security.device": "un dispositivo",
   "web.security.deviceKey": "{name} (clave {fingerprint})",

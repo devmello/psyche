@@ -19,8 +19,6 @@ export const WINDOWS_LOCALES: Readonly<
       "{device}{key, select, none {} other { (المفتاح {key})}} أصبح أول جهاز مسؤول {via, select, desktop {من تطبيق Psyche} other {عبر `psyched`}} على هذا الكمبيوتر. إن لم تكن أنت من فعل ذلك، فألغِه من الإعدادات ← الأجهزة.",
     "notice.security.recovery.title":
       "{state, select, requested {طلب أمر على هذا الكمبيوتر تغييرًا أمنيًا} applied {طُبّق تغيير أمني من هذا الكمبيوتر} cancelled {أُلغي تغيير أمني من هذا الكمبيوتر} other {تعذّر تطبيق تغيير أمني من هذا الكمبيوتر}}",
-    "notice.security.recovery.body":
-      "{op, select, approve {وافِق على الجهاز {device}{key, select, none {} other { (المفتاح {key})}} مع {scopes}.} grant {امنح {device}{key, select, none {} other { (المفتاح {key})}} {scopes}.} presence {أوقِف طلب Windows Hello أو مفتاح المرور لتغييرات الأمان حتى يُسجَّل مفتاح جديد.} seal {اقبل سجلات الأمان الحالية كما هي.} other {تغيير أمني.}}{state, select, requested { يُطبَّق {when, select, none {بعد 24 ساعة} other {في {when}}} ما لم تلغِه في Psyche.} failed {{reason, select, none {} other { {reason}}}} other {}}",
     "screens.library.reveal": "إظهار في المجلد",
     "web.security.banner.recovery":
       "{count, plural, one {تغيير أمان طُلب على هذا الكمبيوتر سيُطبَّق في {when} ما لم تلغه.} two {تغييرا أمان طُلبا على هذا الكمبيوتر ينتظران. التالي يُطبَّق في {when}.} few {# تغييرات أمان طُلبت على هذا الكمبيوتر تنتظر. التالي يُطبَّق في {when}.} many {# تغيير أمان طُلب على هذا الكمبيوتر ينتظر. التالي يُطبَّق في {when}.} other {# تغيير أمان طُلب على هذا الكمبيوتر ينتظر. التالي يُطبَّق في {when}.}}",
@@ -31,8 +29,6 @@ export const WINDOWS_LOCALES: Readonly<
     "web.security.alert.firstAdmin":
       "جعل أمر على هذا الكمبيوتر الجهاز {name} أول جهاز مسؤول. إن لم تكن أنت، فألغِه من الأجهزة.",
     "web.security.alert.requested": "طُلب على هذا الكمبيوتر: {action} يُطبَّق في {when}.",
-    "web.security.op.presenceReset":
-      "التوقف عن طلب Windows Hello أو مفتاح المرور لتغييرات الأمان حتى يُسجَّل مفتاح جديد.",
     "web.security.needsApprovalPresence":
       "وافق على البطاقة بـ Windows Hello أو مفتاح مرور، ثم اضغط الزر مرة أخرى.",
   },
@@ -50,8 +46,6 @@ export const WINDOWS_LOCALES: Readonly<
       "{device}{key, select, none {} other { (Schlüssel {key})}} wurde {via, select, desktop {über die Psyche-App} other {über `psyched`}} auf diesem PC zum ersten Admin-Gerät. Wenn du das nicht warst, widerrufe es unter Einstellungen → Geräte.",
     "notice.security.recovery.title":
       "{state, select, requested {Ein Befehl auf diesem PC hat eine Sicherheitsänderung angefordert} applied {Eine Sicherheitsänderung von diesem PC wurde angewendet} cancelled {Eine Sicherheitsänderung von diesem PC wurde abgebrochen} other {Eine Sicherheitsänderung von diesem PC konnte nicht angewendet werden}}",
-    "notice.security.recovery.body":
-      "{op, select, approve {Genehmige das Gerät {device}{key, select, none {} other { (Schlüssel {key})}} mit {scopes}.} grant {Gib {device}{key, select, none {} other { (Schlüssel {key})}} {scopes}.} presence {Verlange für Sicherheitsänderungen kein Windows Hello und keinen Passkey mehr, bis ein neuer Schlüssel registriert ist.} seal {Akzeptiere die aktuellen Sicherheitsdaten so, wie sie sind.} other {Eine Sicherheitsänderung.}}{state, select, requested { Sie gilt {when, select, none {in 24 Stunden} other {ab {when}}}, sofern du sie nicht in Psyche abbrichst.} failed {{reason, select, none {} other { {reason}}}} other {}}",
     "screens.library.reveal": "Im Ordner zeigen",
     "web.security.banner.recovery":
       "{count, plural, one {Eine auf diesem PC angeforderte Sicherheitsänderung gilt ab {when}, wenn du sie nicht abbrichst.} other {# auf diesem PC angeforderte Sicherheitsänderungen warten. Die nächste gilt ab {when}.}}",
@@ -62,8 +56,6 @@ export const WINDOWS_LOCALES: Readonly<
     "web.security.alert.firstAdmin":
       "Ein Befehl auf diesem PC hat {name} zum ersten Admin-Gerät gemacht. Wenn du das nicht warst, widerrufe es unter Geräte.",
     "web.security.alert.requested": "Auf diesem PC angefordert: {action} Gilt ab {when}.",
-    "web.security.op.presenceReset":
-      "für Sicherheitsänderungen kein Windows Hello und keinen Passkey mehr verlangen, bis ein neuer Schlüssel registriert ist.",
     "web.security.needsApprovalPresence":
       "Bestätige die Karte mit Windows Hello oder einem Passkey und tippe dann erneut auf die Taste.",
   },
@@ -81,8 +73,6 @@ export const WINDOWS_LOCALES: Readonly<
       "{device}{key, select, none {} other { (clave {key})}} pasó a ser el primer dispositivo administrador {via, select, desktop {desde la app de Psyche} other {mediante `psyched`}} en este PC. Si no fuiste tú, revócalo en Configuración → Dispositivos.",
     "notice.security.recovery.title":
       "{state, select, requested {Un comando en este PC pidió un cambio de seguridad} applied {Se aplicó un cambio de seguridad desde este PC} cancelled {Se canceló un cambio de seguridad desde este PC} other {No se pudo aplicar un cambio de seguridad desde este PC}}",
-    "notice.security.recovery.body":
-      "{op, select, approve {Aprueba el dispositivo {device}{key, select, none {} other { (clave {key})}} con {scopes}.} grant {Da a {device}{key, select, none {} other { (clave {key})}} {scopes}.} presence {Deja de exigir Windows Hello o una llave de acceso para los cambios de seguridad hasta que se registre una clave nueva.} seal {Acepta los registros de seguridad actuales tal como están.} other {Un cambio de seguridad.}}{state, select, requested { Se aplica {when, select, none {en 24 horas} other {el {when}}} salvo que lo canceles en Psyche.} failed {{reason, select, none {} other { {reason}}}} other {}}",
     "screens.library.reveal": "Mostrar en la carpeta",
     "web.security.banner.recovery":
       "{count, plural, one {Un cambio de seguridad pedido en este PC se aplica el {when} salvo que lo canceles.} other {# cambios de seguridad pedidos en este PC están en espera. El siguiente se aplica el {when}.}}",
@@ -93,8 +83,6 @@ export const WINDOWS_LOCALES: Readonly<
     "web.security.alert.firstAdmin":
       "Un comando en este PC convirtió {name} en el primer dispositivo administrador. Si no fuiste tú, revócalo en Dispositivos.",
     "web.security.alert.requested": "Pedido en este PC: {action} Se aplica el {when}.",
-    "web.security.op.presenceReset":
-      "dejar de pedir Windows Hello o una llave de acceso para los cambios de seguridad hasta que se registre una clave nueva.",
     "web.security.needsApprovalPresence":
       "Aprueba la tarjeta con Windows Hello o una llave de acceso y vuelve a pulsar el botón.",
   },
@@ -112,8 +100,6 @@ export const WINDOWS_LOCALES: Readonly<
       "{device}{key, select, none {} other { (clé {key})}} est devenu le premier appareil administrateur {via, select, desktop {depuis l’application Psyche} other {via `psyched`}} sur ce PC. Si ce n’était pas vous, révoquez-le dans Paramètres → Appareils.",
     "notice.security.recovery.title":
       "{state, select, requested {Une commande sur ce PC a demandé une modification de sécurité} applied {Une modification de sécurité venant de ce PC a été appliquée} cancelled {Une modification de sécurité venant de ce PC a été annulée} other {Une modification de sécurité venant de ce PC n’a pas pu être appliquée}}",
-    "notice.security.recovery.body":
-      "{op, select, approve {Approuvez l’appareil {device}{key, select, none {} other { (clé {key})}} avec {scopes}.} grant {Donnez {scopes} à {device}{key, select, none {} other { (clé {key})}}.} presence {Ne plus exiger Windows Hello ni une clé d’accès pour les modifications de sécurité jusqu’à l’enregistrement d’une nouvelle clé.} seal {Acceptez les données de sécurité actuelles telles quelles.} other {Une modification de sécurité.}}{state, select, requested { Elle s’applique {when, select, none {dans 24 heures} other {le {when}}} sauf si vous l’annulez dans Psyche.} failed {{reason, select, none {} other { {reason}}}} other {}}",
     "screens.library.reveal": "Afficher dans le dossier",
     "web.security.banner.recovery":
       "{count, plural, one {Une modification de sécurité demandée sur ce PC s’applique le {when}, sauf si vous l’annulez.} other {# modifications de sécurité demandées sur ce PC sont en attente. La prochaine s’applique le {when}.}}",
@@ -124,8 +110,6 @@ export const WINDOWS_LOCALES: Readonly<
     "web.security.alert.firstAdmin":
       "Une commande sur ce PC a fait de {name} le premier appareil administrateur. Si ce n’était pas vous, révoquez-le dans Appareils.",
     "web.security.alert.requested": "Demandé sur ce PC : {action} S’applique le {when}.",
-    "web.security.op.presenceReset":
-      "ne plus exiger Windows Hello ni de clé d’accès pour les modifications de sécurité jusqu’à l’enregistrement d’une nouvelle clé.",
     "web.security.needsApprovalPresence":
       "Approuvez la carte avec Windows Hello ou une clé d’accès, puis appuyez de nouveau sur le bouton.",
   },
@@ -141,8 +125,6 @@ export const WINDOWS_LOCALES: Readonly<
       "{device}{key, select, none {} other { (कुंजी {key})}} {via, select, desktop {Psyche ऐप से} other {`psyched` के जरिए}} इस PC पर पहला एडमिन डिवाइस बन गया। अगर यह आपने नहीं किया, तो सेटिंग्स → डिवाइस में उसे रद्द करें।",
     "notice.security.recovery.title":
       "{state, select, requested {इस PC पर एक कमांड ने सुरक्षा बदलाव माँगा} applied {इस PC से एक सुरक्षा बदलाव लागू किया गया} cancelled {इस PC से एक सुरक्षा बदलाव रद्द किया गया} other {इस PC से एक सुरक्षा बदलाव लागू नहीं हो सका}}",
-    "notice.security.recovery.body":
-      "{op, select, approve {डिवाइस {device}{key, select, none {} other { (कुंजी {key})}} को {scopes} के साथ मंज़ूरी दें।} grant {{device}{key, select, none {} other { (कुंजी {key})}} को {scopes} दें।} presence {नई कुंजी दर्ज होने तक सुरक्षा बदलावों के लिए Windows Hello या पासकी न माँगें।} seal {मौजूदा सुरक्षा रिकॉर्ड जैसे हैं वैसे ही स्वीकार करें।} other {एक सुरक्षा बदलाव।}}{state, select, requested { यह {when, select, none {24 घंटे बाद} other {{when} को}} लागू होगा, जब तक आप इसे Psyche में रद्द न करें।} failed {{reason, select, none {} other { {reason}}}} other {}}",
     "screens.library.reveal": "फ़ोल्डर में दिखाएँ",
     "web.security.banner.recovery":
       "{count, plural, one {इस PC पर माँगा गया एक सुरक्षा बदलाव {when} को लागू होगा, जब तक आप इसे रद्द न करें।} other {इस PC पर माँगे गए # सुरक्षा बदलाव प्रतीक्षा में हैं। अगला {when} को लागू होगा।}}",
@@ -153,8 +135,6 @@ export const WINDOWS_LOCALES: Readonly<
     "web.security.alert.firstAdmin":
       "इस PC पर एक कमांड ने {name} को पहला एडमिन डिवाइस बना दिया। अगर यह आपने नहीं किया, तो उसे डिवाइस में रद्द करें।",
     "web.security.alert.requested": "इस PC पर माँगा गया: {action} {when} को लागू होगा।",
-    "web.security.op.presenceReset":
-      "नई कुंजी दर्ज होने तक सुरक्षा बदलावों के लिए Windows Hello या पासकी न माँगना।",
     "web.security.needsApprovalPresence":
       "Windows Hello या पासकी से कार्ड को मंज़ूरी दें, फिर बटन दोबारा दबाएँ।",
   },
@@ -172,8 +152,6 @@ export const WINDOWS_LOCALES: Readonly<
       "{device}{key, select, none {} other { (chiave {key})}} è diventato il primo dispositivo amministratore {via, select, desktop {dall’app Psyche} other {tramite `psyched`}} su questo PC. Se non sei stato tu, revocalo in Impostazioni → Dispositivi.",
     "notice.security.recovery.title":
       "{state, select, requested {Un comando su questo PC ha chiesto una modifica di sicurezza} applied {È stata applicata una modifica di sicurezza da questo PC} cancelled {È stata annullata una modifica di sicurezza da questo PC} other {Non è stato possibile applicare una modifica di sicurezza da questo PC}}",
-    "notice.security.recovery.body":
-      "{op, select, approve {Approva il dispositivo {device}{key, select, none {} other { (chiave {key})}} con {scopes}.} grant {Concedi a {device}{key, select, none {} other { (chiave {key})}} {scopes}.} presence {Non chiedere più Windows Hello o una passkey per le modifiche di sicurezza finché non viene registrata una nuova chiave.} seal {Accetta i dati di sicurezza attuali così come sono.} other {Una modifica di sicurezza.}}{state, select, requested { Si applica {when, select, none {dopo 24 ore} other {il {when}}}, a meno che tu non la annulli in Psyche.} failed {{reason, select, none {} other { {reason}}}} other {}}",
     "screens.library.reveal": "Mostra nella cartella",
     "web.security.banner.recovery":
       "{count, plural, one {Una modifica di sicurezza richiesta su questo PC si applica il {when}, a meno che tu non la annulli.} other {# modifiche di sicurezza richieste su questo PC sono in attesa. La prossima si applica il {when}.}}",
@@ -184,8 +162,6 @@ export const WINDOWS_LOCALES: Readonly<
     "web.security.alert.firstAdmin":
       "Un comando su questo PC ha reso {name} il primo dispositivo amministratore. Se non sei stato tu, revocalo in Dispositivi.",
     "web.security.alert.requested": "Richiesto su questo PC: {action} Si applica il {when}.",
-    "web.security.op.presenceReset":
-      "non chiedere più Windows Hello o una passkey per le modifiche di sicurezza finché non viene registrata una nuova chiave.",
     "web.security.needsApprovalPresence":
       "Approva la scheda con Windows Hello o una passkey, poi premi di nuovo il pulsante.",
   },
@@ -202,8 +178,6 @@ export const WINDOWS_LOCALES: Readonly<
       "{device}{key, select, none {} other {（キー {key}）}}は、{via, select, desktop {Psyche アプリから} other {`psyched` を通じて}}この PC で最初の管理者デバイスになりました。心当たりがない場合は、設定 → デバイスで取り消してください。",
     "notice.security.recovery.title":
       "{state, select, requested {この PC のコマンドがセキュリティ変更を要求しました} applied {この PC からのセキュリティ変更が適用されました} cancelled {この PC からのセキュリティ変更が取り消されました} other {この PC からのセキュリティ変更は適用できませんでした}}",
-    "notice.security.recovery.body":
-      "{op, select, approve {デバイス {device}{key, select, none {} other {（キー {key}）}} を {scopes} で承認してください。} grant {{device}{key, select, none {} other {（キー {key}）}} に {scopes} を付与してください。} presence {新しいキーが登録されるまで、セキュリティ変更に Windows Hello やパスキーを求めないようにします。} seal {現在のセキュリティ記録をそのまま受け入れてください。} other {セキュリティ変更。}}{state, select, requested { {when, select, none {24 時間後} other {{when}}}に適用されます。Psyche で取り消すこともできます。} failed {{reason, select, none {} other { {reason}}}} other {}}",
     "screens.library.reveal": "フォルダーで表示",
     "web.security.banner.recovery":
       "{count, plural, other {この PC で要求されたセキュリティ変更が # 件待機中です。次の変更はキャンセルしない限り {when} に適用されます。}}",
@@ -214,8 +188,6 @@ export const WINDOWS_LOCALES: Readonly<
     "web.security.alert.firstAdmin":
       "この PC のコマンドにより、{name} が最初の管理者デバイスになりました。心当たりがない場合は、デバイスで取り消してください。",
     "web.security.alert.requested": "この PC で要求: {action} {when} に適用されます。",
-    "web.security.op.presenceReset":
-      "新しいキーが登録されるまで、セキュリティ変更に Windows Hello やパスキーを求めない。",
     "web.security.needsApprovalPresence":
       "Windows Hello またはパスキーでカードを承認してから、もう一度ボタンを押してください。",
   },
@@ -231,8 +203,6 @@ export const WINDOWS_LOCALES: Readonly<
       "{device}{key, select, none {} other { (키 {key})}}이(가) {via, select, desktop {Psyche 앱에서} other {`psyched`를 통해}} 이 PC의 첫 관리자 기기가 되었습니다. 본인이 한 일이 아니라면 설정 → 기기에서 취소하세요.",
     "notice.security.recovery.title":
       "{state, select, requested {이 PC의 명령으로 보안 변경이 요청되었습니다} applied {이 PC에서 요청한 보안 변경이 적용되었습니다} cancelled {이 PC에서 요청한 보안 변경이 취소되었습니다} other {이 PC에서 요청한 보안 변경을 적용하지 못했습니다}}",
-    "notice.security.recovery.body":
-      "{op, select, approve {{device}{key, select, none {} other { (키 {key})}} 기기를 {scopes} 조건으로 승인하세요.} grant {{device}{key, select, none {} other { (키 {key})}}에 {scopes}을(를) 부여하세요.} presence {새 키가 등록될 때까지 보안 변경에 Windows Hello나 패스키를 요구하지 않습니다.} seal {현재 보안 기록을 그대로 받아들이세요.} other {보안 변경.}}{state, select, requested { {when, select, none {24시간 후} other {{when}}}에 적용되며, Psyche에서 취소할 수 있습니다.} failed {{reason, select, none {} other { {reason}}}} other {}}",
     "screens.library.reveal": "폴더에서 보기",
     "web.security.banner.recovery":
       "{count, plural, other {이 PC에서 요청된 보안 변경 #건이 대기 중입니다. 다음 변경은 취소하지 않으면 {when}에 적용됩니다.}}",
@@ -243,8 +213,6 @@ export const WINDOWS_LOCALES: Readonly<
     "web.security.alert.firstAdmin":
       "이 PC의 명령으로 {name}이(가) 첫 관리자 기기가 되었습니다. 본인이 한 일이 아니라면 기기에서 취소하세요.",
     "web.security.alert.requested": "이 PC에서 요청됨: {action} {when}에 적용됩니다.",
-    "web.security.op.presenceReset":
-      "새 키가 등록될 때까지 보안 변경에 Windows Hello나 패스키를 요구하지 않음.",
     "web.security.needsApprovalPresence":
       "Windows Hello나 패스키로 카드를 승인한 다음 버튼을 다시 누르세요.",
   },
@@ -262,8 +230,6 @@ export const WINDOWS_LOCALES: Readonly<
       "{device}{key, select, none {} other { (chave {key})}} tornou-se o primeiro dispositivo administrador {via, select, desktop {pelo app Psyche} other {por meio do `psyched`}} neste PC. Se não foi você, revogue-o em Configurações → Dispositivos.",
     "notice.security.recovery.title":
       "{state, select, requested {Um comando neste PC pediu uma alteração de segurança} applied {Uma alteração de segurança deste PC foi aplicada} cancelled {Uma alteração de segurança deste PC foi cancelada} other {Uma alteração de segurança deste PC não pôde ser aplicada}}",
-    "notice.security.recovery.body":
-      "{op, select, approve {Aprove o dispositivo {device}{key, select, none {} other { (chave {key})}} com {scopes}.} grant {Conceda {scopes} a {device}{key, select, none {} other { (chave {key})}}.} presence {Deixar de exigir Windows Hello ou uma chave de acesso para alterações de segurança até que uma nova chave seja registrada.} seal {Aceite os registros de segurança atuais como estão.} other {Uma alteração de segurança.}}{state, select, requested { Será aplicada {when, select, none {em 24 horas} other {em {when}}}, a menos que você a cancele no Psyche.} failed {{reason, select, none {} other { {reason}}}} other {}}",
     "screens.library.reveal": "Mostrar na pasta",
     "web.security.banner.recovery":
       "{count, plural, one {Uma alteração de segurança pedida neste PC será aplicada em {when}, a menos que você a cancele.} other {# alterações de segurança pedidas neste PC estão aguardando. A próxima será aplicada em {when}.}}",
@@ -274,8 +240,6 @@ export const WINDOWS_LOCALES: Readonly<
     "web.security.alert.firstAdmin":
       "Um comando neste PC tornou {name} o primeiro dispositivo administrador. Se não foi você, revogue-o em Dispositivos.",
     "web.security.alert.requested": "Pedido neste PC: {action} Será aplicado em {when}.",
-    "web.security.op.presenceReset":
-      "deixar de exigir Windows Hello ou uma chave de acesso para alterações de segurança até que uma nova chave seja registrada.",
     "web.security.needsApprovalPresence":
       "Aprove o cartão com Windows Hello ou uma chave de acesso e toque no botão de novo.",
   },
@@ -291,8 +255,6 @@ export const WINDOWS_LOCALES: Readonly<
       "{device}{key, select, none {} other {（密钥 {key}）}}{via, select, desktop {通过 Psyche 应用} other {通过 `psyched`}}在这台 PC 上成为了第一台管理员设备。如果不是你做的，请在“设置 → 设备”中撤销它。",
     "notice.security.recovery.title":
       "{state, select, requested {这台 PC 上的一条命令请求了安全更改} applied {这台 PC 发起的安全更改已应用} cancelled {这台 PC 发起的安全更改已取消} other {这台 PC 发起的安全更改无法应用}}",
-    "notice.security.recovery.body":
-      "{op, select, approve {使用 {scopes} 批准设备 {device}{key, select, none {} other {（密钥 {key}）}}。} grant {向 {device}{key, select, none {} other {（密钥 {key}）}} 授予 {scopes}。} presence {在注册新密钥之前，安全更改不再需要 Windows Hello 或通行密钥。} seal {按原样接受当前的安全记录。} other {一项安全更改。}}{state, select, requested {将于 {when, select, none {24 小时后} other {{when}}} 生效，除非你在 Psyche 中取消。} failed {{reason, select, none {} other { {reason}}}} other {}}",
     "screens.library.reveal": "在文件夹中显示",
     "web.security.banner.recovery":
       "{count, plural, other {在这台 PC 上请求的 # 项安全更改正在等待。除非你取消，下一项将于 {when} 生效。}}",
@@ -303,7 +265,6 @@ export const WINDOWS_LOCALES: Readonly<
     "web.security.alert.firstAdmin":
       "这台 PC 上的一条命令将 {name} 设为第一台管理员设备。如果不是你做的，请在“设备”中撤销它。",
     "web.security.alert.requested": "在这台 PC 上请求：{action} 将于 {when} 生效。",
-    "web.security.op.presenceReset": "在注册新密钥之前，安全更改不再需要Windows Hello 或通行密钥。",
     "web.security.needsApprovalPresence":
       "请用Windows Hello 或通行密钥批准卡片，然后再次按下按钮。",
   },

@@ -4,7 +4,7 @@ import type { Catalogue } from "../../index.ts";
 export const web: Partial<Catalogue> = {
   "web.remotePresence.title": "用 Touch ID 批准",
   "web.remotePresence.description":
-    "购买、填写凭证、主机命令和安全更改都需要 Touch ID。在这台电脑上设置后即可在此回答；在此之前，这些卡片会提示在{host}上回答。普通批准从不需要它。",
+    "付款以及付款保护的更改需要比轻点更强的验证。在这台电脑上设置后即可在此回答；在此之前，这些卡片会提示在{host}上回答。其余一切只需轻点。",
   "web.remotePresence.on": "这台电脑的批准已开启 Touch ID。",
   "web.remotePresence.off": "这台电脑尚未设置 Touch ID。",
   "web.remotePresence.enable": "在这台电脑上使用 Touch ID 批准",

@@ -1601,8 +1601,7 @@ export const ar: Partial<Catalogue> = {
     "لم يتغيّر: الموافقة على «{label}» {expired, select, true {انتهت صلاحيتها} other {سُحبت}}. غيّره مرة أخرى لطلب موافقة جديدة.",
   "settings.approval.region": "موافقة مطلوبة",
   "settings.approval.prompt": "وافق على هذا التغيير في «{label}».",
-  "settings.approval.promptDetail":
-    "وافق هنا أو في إشعار Psyche بنقرة واحدة. يُحفظ الإعداد فور الموافقة.",
+  "settings.approval.promptDetail": "وافق هنا أو في إشعار Psyche. يُحفظ الإعداد فور الموافقة.",
   "settings.approval.presenceInvalid": "لم يؤكد Touch ID أو مفتاح المرور أنك أنت. حاول مرة أخرى.",
   "settings.approval.loading": "جارٍ تحميل الموافقة…",
 

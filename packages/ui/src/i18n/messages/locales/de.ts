@@ -1590,7 +1590,7 @@ export const de: Partial<Catalogue> = {
   "settings.approval.region": "Genehmigung nötig",
   "settings.approval.prompt": "Genehmige diese Änderung an „{label}“.",
   "settings.approval.promptDetail":
-    "Genehmige es hier oder in der Psyche-Mitteilung mit einem Tipp. Die Einstellung wird gesichert, sobald sie genehmigt ist.",
+    "Genehmige es hier oder in der Psyche-Mitteilung. Die Einstellung wird gesichert, sobald sie genehmigt ist.",
   "settings.approval.presenceInvalid":
     "Touch ID oder der Passkey konnte nicht bestätigen, dass du es bist. Versuche es erneut.",
   "settings.approval.loading": "Genehmigung wird geladen …",

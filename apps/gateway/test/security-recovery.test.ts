@@ -15,6 +15,7 @@ import {
   startTestGateway,
   type TestClient,
   type TestGateway,
+  tapBroker,
   verified,
   wsUrlOf,
 } from "./helpers.ts";
@@ -43,6 +44,7 @@ async function boot(): Promise<TestGateway> {
     config: { dbPath: join(home, "state", "psyche.sqlite") },
     now: () => new Date(Date.now() + offsetMs),
     security: { pollMs: 20 },
+    broker: tapBroker(),
   });
   return t;
 }
@@ -111,16 +113,21 @@ describe("psyched commands once an admin exists", () => {
     ).not.toBeNull();
   });
 
-  it("an admin can approve it now (with presence when enrolled) or cancel it", async () => {
+  it("an admin can approve it now (a tap on a card) or cancel it", async () => {
     const gw = await boot();
     const admin = await adminClient(gw.gateway);
     open.push(admin);
     const first = await pendingCode(gw, "tablet");
     await cli(["devices", "approve", first.code]);
     const [waiting] = (await state(admin)).recoveries;
+    // A device approval applied early is a plain tap on an approval card, even before any
+    // presence was enrolled; the retry with the approved card applies it.
+    const asked = await admin.request("security.recoveries.approve", { id: waiting?.id }, ik());
+    expect(asked).toMatchObject({ ok: false, error: { code: "approval_required" } });
+    expect(getDevice(gw.gateway.context.db, "tablet")?.pairedAt).toBeNull();
     const approved = await admin.call<{ recovery: { status: string } }>(
       "security.recoveries.approve",
-      { id: waiting?.id },
+      { id: waiting?.id, approvalId: "ap_tap" },
       ik(),
     );
     expect(approved.recovery.status).toBe("applied");

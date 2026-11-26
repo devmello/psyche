@@ -108,7 +108,7 @@ export async function requireFreshPresence(
   call: Pick<Call, "ctx" | "identity">,
   action: FreshPresenceAction,
   approvalId: string | undefined,
-  opts: { strong?: boolean } = {},
+  opts: { strong?: boolean; always?: boolean } = {},
 ): Promise<void> {
   if (call.ctx.securityState?.untrusted() != null) throw stateUntrustedError();
   const state = call.ctx.presenceState();
@@ -117,7 +117,8 @@ export async function requireFreshPresence(
   // Mac the helper's auto-paired key can sign the sheet, so a first passkey from a device with
   // only `operator.approvals` must pass it too (`presenceCanVerify`, context.ts).
   const canVerify = call.ctx.presenceCanVerify?.() ?? state !== "off";
-  if (state === "off" && !(strong && canVerify)) return;
+  // `always`: a card even while presence was never enrolled (a plain tap, never a presence step).
+  if (state === "off" && !(strong && canVerify) && !(opts.always === true && !strong)) return;
   if (strong && !canVerify) throw presenceRequiredError();
   let valueSha256: string;
   try {

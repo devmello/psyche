@@ -366,8 +366,6 @@ export const windows: Partial<Record<MessageId, string>> = {
   "web.passkeys.added":
     "Added {name}. It now approves changes that need Windows Hello or a passkey.",
   "web.remotePresence.title": "Windows Hello for approvals",
-  "web.remotePresence.description":
-    "Purchases, credential fills, host commands and security changes need Windows Hello or a passkey. Set it up on this computer to answer them here; until then those cards say to answer on {host}. Ordinary approvals never need it.",
   "web.remotePresence.on": "Windows Hello is on for approvals from this computer.",
   "web.remotePresence.off": "Windows Hello isn't set up on this computer.",
   "web.remotePresence.enable": "Use Windows Hello for approvals on this computer",
@@ -451,8 +449,6 @@ export const windows: Partial<Record<MessageId, string>> = {
   "web.security.alert.firstAdmin":
     "A command on this PC made {name} the first admin device. If that was not you, revoke it in Devices.",
   "web.security.alert.requested": "Asked for on this PC: {action} Applies on {when}.",
-  "web.security.op.presenceReset":
-    "stop requiring Windows Hello or a passkey for security changes until a new key is registered.",
   "web.security.needsApprovalPresence":
     "Approve the card with Windows Hello or a passkey, then press the button again.",
   "notice.security.changed.body":
@@ -464,6 +460,4 @@ export const windows: Partial<Record<MessageId, string>> = {
     "{device}{key, select, none {} other { (key {key})}} became the first admin device {via, select, desktop {from the Psyche app} other {through `psyched`}} on this PC. If that was not you, revoke it in Settings → Devices.",
   "notice.security.recovery.title":
     "{state, select, requested {A command on this PC asked for a security change} applied {A security change from this PC was applied} cancelled {A security change from this PC was cancelled} other {A security change from this PC could not be applied}}",
-  "notice.security.recovery.body":
-    "{op, select, approve {Approve the device {device}{key, select, none {} other { (key {key})}} with {scopes}.} grant {Give {device}{key, select, none {} other { (key {key})}} {scopes}.} presence {Turn off the Windows Hello and passkey requirement for security changes until a new key is registered.} seal {Accept the current security records as they are.} other {A security change.}}{state, select, requested { It applies {when, select, none {in 24 hours} other {on {when}}} unless you cancel it in Psyche.} failed {{reason, select, none {} other { {reason}}}} other {}}",
 };
