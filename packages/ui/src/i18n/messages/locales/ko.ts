@@ -3235,7 +3235,7 @@ export const ko: Partial<Catalogue> = {
   "screens.files.shareInSettings": "설정 → 파일 접근에서 공유하십시오.",
   "screens.files.previewOf": "{name} 미리보기",
   "screens.files.preview": "미리보기",
-  "screens.files.needsApp": "미리보기는 데스크탑 또는 웹 앱에서만 볼 수 있습니다.",
+  "screens.files.needsApp": "미리보기는 데스크탑 앱에서만 볼 수 있습니다.",
   "screens.files.pick": "여기서 미리 볼 파일을 선택하십시오.",
   "screens.files.editReadOnly": "읽기 전용: 이 폴더는 편집 없이 공유되어 있습니다.",
   "screens.files.editOpening": "편집하려고 {name} 여는 중",
@@ -3564,7 +3564,7 @@ export const ko: Partial<Catalogue> = {
   "web.passkeys.unavailable":
     "패스키에는 서버의 https 주소가 필요합니다. gateway.publicOrigin(또는 PSYCHE_PUBLIC_ORIGIN)을 Psyche를 여는 https:// 주소로 설정하고 Gateway를 재시동한 다음 여기서 추가하십시오.",
   "web.passkeys.insecure":
-    "패스키는 Psyche를 https:// 주소에서, 패스키를 지원하는 브라우저로 열었을 때만 작동합니다. 추가하려면 그곳에서 여십시오.",
+    "여기서는 패스키를 추가할 수 없습니다. 이 Gateway의 https:// 주소로 연결하는 다른 컴퓨터의 Psyche 앱에서 추가하십시오.",
   "web.passkeys.firstApproval":
     "Mac의 Touch ID 또는 다른 기기의 패스키로 “패스키 추가”를 승인한 다음 추가를 다시 누르십시오.",
   "web.passkeys.loadError": "Psyche가 패스키를 로드할 수 없습니다({error}).",

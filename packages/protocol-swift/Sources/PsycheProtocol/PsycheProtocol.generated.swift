@@ -9355,7 +9355,6 @@ public enum DevicePlatform: String, Codable, Sendable {
     case ios = "ios"
     case linux = "linux"
     case macos = "macos"
-    case web = "web"
     case windows = "windows"
 }
 

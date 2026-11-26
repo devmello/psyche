@@ -3361,7 +3361,7 @@ export const de: Partial<Catalogue> = {
   "screens.files.shareInSettings": "Teile einen unter „Einstellungen“ → „Dateizugriff“.",
   "screens.files.previewOf": "Vorschau von {name}",
   "screens.files.preview": "Vorschau",
-  "screens.files.needsApp": "Vorschauen brauchen die Desktop- oder Web-App.",
+  "screens.files.needsApp": "Vorschauen brauchen die Desktop-App.",
   "screens.files.pick": "Wähle eine Datei, um sie hier in der Vorschau zu sehen.",
   "screens.files.editReadOnly": "Nur lesbar: Dieser Ordner ist ohne Bearbeitung freigegeben.",
   "screens.files.editOpening": "{name} wird zum Bearbeiten geöffnet",
@@ -3704,7 +3704,7 @@ export const de: Partial<Catalogue> = {
   "web.passkeys.unavailable":
     "Passkeys brauchen die https-Adresse des Servers. Setze gateway.publicOrigin (oder PSYCHE_PUBLIC_ORIGIN) auf die https://-Adresse, unter der du Psyche öffnest, starte das Gateway neu und füge dann hier einen hinzu.",
   "web.passkeys.insecure":
-    "Passkeys funktionieren nur, wenn Psyche unter seiner https://-Adresse in einem Browser geöffnet ist, der sie unterstützt. Öffne es dort, um einen hinzuzufügen.",
+    "Hier können keine Passkeys hinzugefügt werden. Füge einen in der Psyche-App auf einem anderen Computer hinzu, der sich über die https://-Adresse mit diesem Gateway verbindet.",
   "web.passkeys.firstApproval":
     "Genehmige „Passkey hinzufügen“ mit Touch ID auf deinem Mac oder mit einem Passkey auf einem anderen Gerät und drücke dann erneut „Hinzufügen“.",
   "web.passkeys.loadError": "Psyche konnte deine Passkeys nicht laden ({error}).",

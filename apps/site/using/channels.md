@@ -4,7 +4,7 @@ title: Channels
 
 # Channels
 
-Channels let you talk to your agent from a chat app, such as Telegram or iMessage on your phone, as well as from the Psyche app. Only you, the owner, can give the agent work over a channel. Anyone else who writes to it gets a pairing code and nothing more until you approve them, and even then they cannot reach your private data. Approvals that matter most never go to a chat app; they wait for your Mac or the web client.
+Channels let you talk to your agent from a chat app, such as Telegram or iMessage on your phone, as well as from the Psyche app. Only you, the owner, can give the agent work over a channel. Anyone else who writes to it gets a pairing code and nothing more until you approve them, and even then they cannot reach your private data. Approvals that matter most never go to a chat app; they wait for your Mac or iPhone.
 
 Today the Telegram and iMessage channels are built, but neither can be created from the app or the CLI yet. This page describes how they behave once a channel exists, so you can prepare.
 
@@ -28,10 +28,6 @@ The iMessage channel runs on your Mac through Psyche Helper. It needs:
 Use a separate Apple ID for the agent on this Mac. Messages sent from the Mac's own account are ignored as incoming messages, so you cannot talk to the agent from the same account.
 
 Like Telegram, the channel starts only once it exists in the Gateway.
-
-### The web client
-
-The web client is a channel too, and it exists from the start. See [Server mode](/get-started/server-mode) for reaching it from your phone.
 
 ## What it can do
 

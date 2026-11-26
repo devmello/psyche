@@ -44,7 +44,7 @@ const start = (node: FakeMessagesNode, reply: string) =>
     retentionIntervalMs: 0,
     background: false,
     clock,
-    config: { home, port: 0, dbPath: join(home, "psyche.db"), webRoot: null },
+    config: { home, port: 0, dbPath: join(home, "psyche.db") },
     model: { provider: FakeModelProvider.script([say(reply)]), model: "fake/model" },
     parts: [
       (s) =>
@@ -197,7 +197,7 @@ describe("replaying held messages", () => {
       retentionIntervalMs: 0,
       background: false,
       clock,
-      config: { home, port: 0, dbPath: join(home, "psyche.db"), webRoot: null },
+      config: { home, port: 0, dbPath: join(home, "psyche.db") },
       model: { provider: new FakeModelProvider(), model: "fake/model" },
       parts: [(s) => composeChannels(s, { healthIntervalMs: 0 })],
     });

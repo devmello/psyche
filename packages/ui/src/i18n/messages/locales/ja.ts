@@ -3262,7 +3262,7 @@ export const ja: Partial<Catalogue> = {
   "screens.files.shareInSettings": "設定 → ファイルアクセスで共有してください。",
   "screens.files.previewOf": "{name}のプレビュー",
   "screens.files.preview": "プレビュー",
-  "screens.files.needsApp": "プレビューにはデスクトップアプリまたはWebアプリが必要です。",
+  "screens.files.needsApp": "プレビューにはデスクトップアプリが必要です。",
   "screens.files.pick": "ファイルを選ぶとここにプレビューが表示されます。",
   "screens.files.editReadOnly": "読み取り専用: このフォルダは編集なしで共有されています。",
   "screens.files.editOpening": "{name} を編集用に開いています",
@@ -3592,7 +3592,7 @@ export const ja: Partial<Catalogue> = {
   "web.passkeys.unavailable":
     "パスキーにはサーバのhttpsアドレスが必要です。gateway.publicOrigin（またはPSYCHE_PUBLIC_ORIGIN）をPsycheを開くhttps://アドレスに設定し、Gatewayを再起動してから、ここで追加してください。",
   "web.passkeys.insecure":
-    "パスキーは、Psycheをhttps://アドレスで、パスキー対応のブラウザで開いているときのみ機能します。追加するにはそちらで開いてください。",
+    "ここではパスキーを追加できません。https://アドレスでこのGatewayに接続している別のコンピュータのPsycheアプリで追加してください。",
   "web.passkeys.firstApproval":
     "MacのTouch ID、または別のデバイスのパスキーで「パスキーを追加」を承認してから、もう一度「追加」を押してください。",
   "web.passkeys.loadError": "Psycheはパスキーを読み込めませんでした（{error}）。",

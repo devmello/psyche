@@ -1,6 +1,6 @@
 # Server mode
 
-You can run the Gateway (`psyched`) on a Linux server or a Mac without a screen, and reach it from the desktop app, a browser or the CLI. The easiest way is the `psyche-server` package on Ubuntu or Debian. This guide covers that package, then Docker Compose, the systemd and launchd units, Tailscale and other ways in, pairing clients, backups and restore, logs, and what server mode does not support yet.
+You can run the Gateway (`psyched`) on a Linux server or a Mac without a screen, and reach it from the desktop app on another computer, the iPhone app or the CLI. The easiest way is the `psyche-server` package on Ubuntu or Debian. This guide covers that package, then Docker Compose, the systemd and launchd units, Tailscale and other ways in, pairing clients, backups and restore, logs, and what server mode does not support yet.
 
 ## Quick start: an Ubuntu server and your Mac
 
@@ -106,7 +106,7 @@ Everything below applies to other setups, and to using the Gateway beyond this q
 
 - The Gateway binds `127.0.0.1` only, unless you turn LAN on for one interface (`psyche lan on`). It refuses any other address ("Refusing to bind …").
 - Otherwise, you reach it through a proxy or tunnel on the same machine: Tailscale Serve, Cloudflare Tunnel with Cloudflare Access, or an SSH tunnel.
-- Every client (desktop, browser, CLI) pairs as a device that you approve. Identity headers from a proxy never authorize anything on their own.
+- Every client (desktop, iPhone, CLI) pairs as a device that you approve. Identity headers from a proxy never authorize anything on their own.
 - `GET /healthz` answers `{"ok":true}` without authentication. Everything else needs a paired device.
 
 Before you start with the other setups:
@@ -288,7 +288,7 @@ Tailnet-only HTTPS in front of the Gateway. Funnel is off in `deploy/tailscale/s
    docker compose -f deploy/docker-compose.yml restart gateway
    ```
 
-4. Open `https://psyche.<your-tailnet>.ts.net` from a device on the tailnet and pair it (below).
+4. From a device on the tailnet, use `https://psyche.<your-tailnet>.ts.net` as the Gateway address in the Psyche app and pair it (below).
 
 Without Docker, on the Gateway's host:
 
@@ -300,7 +300,7 @@ Then set `gateway.publicOrigin` with `psyche config set` and restart the Gateway
 
 ### Cloudflare Tunnel and Access
 
-Use this when you need a hostname a browser can reach without joining a tailnet. `cloudflared` connects out to Cloudflare, and Cloudflare Access decides who may reach the hostname. Put `CLOUDFLARE_TUNNEL_TOKEN` in `deploy/.env` and start the `cloudflare` profile. The steps are in `deploy/cloudflare/README.md`. Access keeps strangers out; it does not authorize the API, so every client still pairs.
+Use this when you need a hostname the Psyche apps can reach without joining a tailnet. `cloudflared` connects out to Cloudflare, and Cloudflare Access decides who may reach the hostname. Put `CLOUDFLARE_TUNNEL_TOKEN` in `deploy/.env` and start the `cloudflare` profile. The steps are in `deploy/cloudflare/README.md`. Access keeps strangers out; it does not authorize the API, so every client still pairs.
 
 The Gateway checks Access's assertion itself. Set `gateway.cloudflareAccess` in `config.json` to your team domain and the application's AUD tag:
 
@@ -370,18 +370,12 @@ node apps/cli/src/main.ts pairing approve <code>
 
 This grants read, write and approvals. Add `--admin` to grant admin too. You can also approve in Settings → Devices & nodes, under "Waiting to pair", from a device that is already admin. Approve only if the same code shows on the other device.
 
-### The web client
+### Passkeys
 
-Open the tunnel or tailnet URL in a browser. The page shows "Approve this device from a paired device to continue" and a pairing code. Approve it as above.
-
-The web client keeps its device key in memory, so every reload is a new device that needs approving again.
-
-#### Passkeys
-
-Behind HTTPS, the web client can register a passkey. The passkey proves you are present for approvals that need authentication, and for security settings once any passkey exists.
+Psyche does not open in a browser, and the Gateway serves no web UI. Passkeys are added from the Psyche desktop app on a remote Mac. The passkey proves you are present for approvals that need authentication, and for security settings once any passkey exists.
 
 1. Set the public origin, so the passkey is bound to your hostname. Either `{"gateway": {"publicOrigin": "https://psyche.example.com"}}` in `config.json`, or `PSYCHE_PUBLIC_ORIGIN`. It must be `https://`; `http://localhost` works for development. Changing the hostname later invalidates every passkey.
-2. In the web client, add a passkey (Settings → Devices & nodes → Passkeys). The Gateway stores it for that device only, with at most 20 per device.
+2. In the desktop app on the remote Mac, add a passkey (Settings → Devices & nodes → Passkeys). The Gateway stores it for that device only, with at most 20 per device.
 3. To add or remove another passkey on the same device, you first confirm with an existing one. A stolen device key alone cannot swap in someone else's passkey.
 
 Once a paired device has a passkey, changing a security setting (permissions, exec, vault, devices, gateway, owner identities, channel policies) shows an approval card first. Approve it with your passkey or with Touch ID on the Mac; the change then goes through. Failed attempts are limited to 20 per address or device per 5 minutes. Revoking a device ends its passkeys.

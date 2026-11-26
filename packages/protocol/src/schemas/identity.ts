@@ -9,8 +9,12 @@ import {
   TargetKind,
 } from "../common.ts";
 
-/** Data model §1. */
-export const DevicePlatform = StringEnum(["macos", "ios", "android", "web", "linux", "windows"], {
+/**
+ * Data model §1. No `web`: Psyche does not open in a browser (owner decision 2026-11-25), so a
+ * `connect` that declares it fails validation, and old `web` rows are revoked (migration
+ * `202611251100_gateway_drop-web-devices.sql`) and never listed.
+ */
+export const DevicePlatform = StringEnum(["macos", "ios", "android", "linux", "windows"], {
   $id: "DevicePlatform",
 });
 export type DevicePlatform = Static<typeof DevicePlatform>;

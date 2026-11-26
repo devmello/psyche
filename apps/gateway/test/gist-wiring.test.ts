@@ -36,7 +36,7 @@ async function world() {
     background: false,
     timeZone: "UTC",
     clock: new FakeClock(Date.parse("2026-11-04T12:00:00Z")),
-    config: { home, port: 0, dbPath: join(home, "psyche.db"), webRoot: null },
+    config: { home, port: 0, dbPath: join(home, "psyche.db") },
     model: { provider: FakeModelProvider.script([]), model: "fake/model" },
   });
   insertDevice(composed.gateway.context.db, {

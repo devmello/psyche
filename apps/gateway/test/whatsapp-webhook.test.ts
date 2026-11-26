@@ -52,7 +52,7 @@ async function boot(setup: ChannelsSetup, options: { vault?: boolean } = {}) {
     logger: silentLogger,
     retentionIntervalMs: 0,
     background: false,
-    config: { home, port: 0, dbPath: join(home, "psyche.db"), webRoot: null },
+    config: { home, port: 0, dbPath: join(home, "psyche.db") },
     ...(options.vault === true
       ? {
           env: { PSYCHE_VAULT_KEY_FILE: keyFile },

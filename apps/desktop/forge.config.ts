@@ -42,7 +42,6 @@ import {
   windowsSigning,
 } from "./src/packaging/signing-config.ts";
 import { pruneSwiftShader } from "./src/packaging/swiftshader.ts";
-import { dropGatewayWebCopy } from "./src/packaging/web-copy.ts";
 
 /**
  * Electron Forge 8 config (architecture §5; security §11, §12).
@@ -355,9 +354,6 @@ const config: ForgeConfig = {
         const wrong = wrongArchAddons(join(buildPath, "node_modules", "node-pty"), arch);
         if (wrong.length)
           throw new Error(`node-pty addons not built for ${arch}: ${wrong.join(", ")}`);
-        // The Gateway keeps its own web client on Linux: serving it from app.asar checks the
-        // asar's hash in an Info.plist, which only macOS has (web-asar.ts), so dropping it would
-        // leave `GET /` answering 500.
         return;
       }
       if (platform === "win32") {
@@ -370,7 +366,6 @@ const config: ForgeConfig = {
           arch,
           { allowPartial: allowPartial(process.env), warn: (m) => console.warn(m) },
         );
-        dropGatewayWebCopy(buildPath, resourcesDir);
         return;
       }
       if (platform !== "darwin") return;
@@ -384,8 +379,6 @@ const config: ForgeConfig = {
       });
       // The updater runs only when the app's own signature satisfies this (update-gate.ts).
       copyPinnedRequirements(repoRoot, resourcesDir);
-      // One UI copy: the Gateway serves the web client from app.asar (src/packaging/web-copy.ts).
-      dropGatewayWebCopy(buildPath, resourcesDir);
       if (isMacHost)
         verifyNestedHelper(join(resourcesDir, HELPER_APP_NAME), signingIdentity(process.env));
     },

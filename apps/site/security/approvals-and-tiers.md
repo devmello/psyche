@@ -29,7 +29,7 @@ An approval card for "Send email · destructive after reading untrusted content"
 
 ## Approvals only your devices can answer
 
-Some approvals are never sent to a chat app. They can be answered only in the desktop app or the web client of a paired device with the `operator.approvals` scope:
+Some approvals are never sent to a chat app. They can be answered only in the desktop app or the iPhone app of a paired device with the `operator.approvals` scope:
 
 - every destructive action, such as sending an email or submitting a form;
 - every financial action and every purchase;
@@ -39,9 +39,9 @@ Some approvals are never sent to a chat app. They can be answered only in the de
 - installing a skill;
 - running an AppleScript or JXA script against an app.
 
-Of these, only payments (purchases and other money movement) need proof that you are present: the Mac's own sheet from Psyche Helper (Touch ID, or your Mac password through "Use Password…"), or a passkey in the web client. Everything else, including credential fills, commands on the Mac, pairing, security settings and scripts, is one tap on the approval card from a device you have paired. Deny always works without proof.
+Of these, only payments (purchases and other money movement) need proof that you are present: the Mac's own sheet from Psyche Helper (Touch ID, or your Mac password through "Use Password…"), or a passkey added from the desktop app on a remote Mac. Everything else, including credential fills, commands on the Mac, pairing, security settings and scripts, is one tap on the approval card from a device you have paired. Deny always works without proof.
 
-- **Passkeys.** In the web client at the server's HTTPS address, add one in Settings → Devices & nodes → Passkeys. See [server mode](/guides/server-mode).
+- **Passkeys.** In the desktop app on a remote Mac, connected to the server's HTTPS address, add one in Settings → Devices & nodes → Passkeys. See [server mode](/guides/server-mode).
 - **Touch ID or your Mac password (payments).** Psyche Helper shows the Mac's own sign-in sheet, naming what you are approving, and signs the answer with its own device key, which the Gateway already holds from pairing. There is nothing to set up or register, and it never asks about the keychain. Cancel the sheet and the approval simply stays waiting; nothing is counted against you. Be clear about what this does not stop: someone holding a stolen or compromised admin device. Approvals of Mac-control actions (opening a terminal, unsandboxed host commands, AppleScript, computer use into Terminal) are a tap from any paired device, so that device can run a program as you, read the helper's key file and the pairing secret, take over the helper's identity and answer a payment without any sheet. The same goes for any program already running as you on the Mac. This was your choice on 2026-11-09, for usability. Revoke a lost admin device at once from another one. The sheet does stop a hijacked agent turn, a paired phone, chat channel or web client approving a payment by itself, an unpaired or revoked device, a stolen device token, and anyone on the network.
 
 Without a working helper or a passkey, payments are refused rather than accepted unverified, and the card offers to start Psyche Helper. Adding a presence verifier (a first passkey, a Windows Hello key) still needs that proof, so a stolen admin device cannot add its own in one step (it is not safe against a stolen admin device for the reason above); losing every verifier makes that call fail with `presence_required`. `psyched presence reset` on the machine clears that state. It does not apply at once: the running Gateway applies it 24 hours later, with a warning on every paired device until then, and any admin device can cancel it. A program on the Mac can ask for it the way you can, but it cannot make it happen quietly.

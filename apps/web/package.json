@@ -2,7 +2,7 @@
   "name": "@psyche/web",
   "version": "0.3.0-alpha.0",
   "private": true,
-  "description": "Web client served by the Gateway",
+  "description": "Shared renderer UI (shell, compose, client) used by the desktop app",
   "license": "Apache-2.0",
   "type": "module",
   "exports": {
@@ -30,10 +30,6 @@
       "types": "./src/compose/index.ts",
       "default": "./src/compose/index.ts"
     },
-    "./main": {
-      "types": "./src/main.tsx",
-      "default": "./src/main.tsx"
-    },
     "./compose/screen-ask": {
       "types": "./src/compose/ScreenAsk.tsx",
       "default": "./src/compose/ScreenAsk.tsx"
@@ -49,8 +45,6 @@
   },
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
-    "preview": "vite preview",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run"
   },

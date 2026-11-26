@@ -29,7 +29,7 @@ describe("the build in the challenge (L5)", () => {
   it("goes to the Host's own app only, not to a proxied or browser peer", async () => {
     const publicOrigin = "https://studio-mac.tail1234.ts.net";
     const t: TestGateway = await startTestGateway({
-      config: { publicOrigin, allowedOrigins: [publicOrigin, "http://127.0.0.1:5173"] },
+      config: { publicOrigin },
     });
     cleanups.push(() => t.cleanup());
     const local = await TestClient.open(wsUrlOf(t.gateway));
@@ -51,11 +51,10 @@ describe("the build in the challenge (L5)", () => {
     expect(remote.challengeRes.ok).toBe(true);
     expect(remote.challengeRes.payload).not.toHaveProperty("server");
 
-    // A page in the browser: loopback, but with an Origin.
-    const page = await TestClient.open(wsUrlOf(t.gateway), { origin: "http://127.0.0.1:5173" });
-    open.push(page);
-    const web = await handshake(page, "http://127.0.0.1:5173", { deviceFamily: "web" });
-    if (web.challengeRes.ok === true) expect(web.challengeRes.payload).not.toHaveProperty("server");
+    // A page in the browser (loopback, but with an Origin) is refused before the upgrade.
+    await expect(
+      TestClient.open(wsUrlOf(t.gateway), { origin: "http://127.0.0.1:5173" }),
+    ).rejects.toThrow("403");
   });
 });
 

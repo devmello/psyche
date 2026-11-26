@@ -1007,11 +1007,12 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       },
     },
     localProject: { check: (url) => localProject.check(url) },
-    // The agent never acts on Psyche's own UI (prohibitions `gateway_origin`): every origin it is served on.
+    // The agent never acts on the Gateway itself (prohibitions `gateway_origin`): every address it
+    // answers on, the public one included.
     gatewayOrigins: [
       `http://127.0.0.1:${config.port}`,
       `http://localhost:${config.port}`,
-      ...config.allowedOrigins.filter((o) => /^https?:\/\//.test(o)),
+      ...(config.publicOrigin !== null ? [config.publicOrigin] : []),
     ],
     policy: hostPolicy((policy ?? storedPolicy) as PolicyConfig | undefined, db),
     // Auto mode's exec reviewer (owner's decision 2026-11-23: Haiku on the owner's own key, via

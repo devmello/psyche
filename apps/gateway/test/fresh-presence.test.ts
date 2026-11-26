@@ -59,7 +59,7 @@ async function boot(
     logger: silentLogger,
     retentionIntervalMs: 0,
     background: false,
-    config: { home, port: 0, dbPath: join(home, "psyche.db"), webRoot: null, ...config },
+    config: { home, port: 0, dbPath: join(home, "psyche.db"), ...config },
     model: { provider: new FakeModelProvider(), model: "fake/model" },
     ...(presence === undefined ? {} : { presence }),
     ...(parts === undefined ? {} : { parts }),
@@ -136,7 +136,6 @@ describe("fresh presence on admin methods", () => {
   it("a pairing link needs a card bound to its scopes, and the card is spent by one link", async () => {
     const { admin } = await boot(touchId, undefined, {
       publicOrigin: "https://studio-mac.tail1234.ts.net",
-      allowedOrigins: ["https://studio-mac.tail1234.ts.net"],
     });
     const scopes = ["operator.read", "operator.write"];
     const first = await admin.request("devices.setupToken.create", { scopes });
@@ -162,7 +161,6 @@ describe("fresh presence on admin methods", () => {
   it("a machine token request raises a card worded for a machine, and mints nothing without it", async () => {
     const { admin } = await boot(touchId, undefined, {
       publicOrigin: "https://studio-mac.tail1234.ts.net",
-      allowedOrigins: ["https://studio-mac.tail1234.ts.net"],
     });
     // The gate raises the card before the handler runs: no token exists until it is approved.
     const first = await admin.request("devices.setupToken.create", { purpose: "machine" });
@@ -185,7 +183,6 @@ describe("fresh presence on admin methods", () => {
   it("another device cannot spend the card the owner approved for a link", async () => {
     const { admin, c } = await boot(touchId, undefined, {
       publicOrigin: "https://studio-mac.tail1234.ts.net",
-      allowedOrigins: ["https://studio-mac.tail1234.ts.net"],
     });
     const scopes = ["operator.read", "operator.write"];
     const first = await admin.request("devices.setupToken.create", { scopes });

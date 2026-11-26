@@ -2694,7 +2694,7 @@ export interface NodeCapability {
     targetKind?: TargetKind;
 }
 
-export type DevicePlatform = "macos" | "ios" | "android" | "web" | "linux" | "windows";
+export type DevicePlatform = "macos" | "ios" | "android" | "linux" | "windows";
 
 export interface ChannelsAllowlistUpdateParams {
     add?:        string[];

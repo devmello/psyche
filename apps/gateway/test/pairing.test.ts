@@ -79,13 +79,8 @@ describe("loopback auto-pairing", () => {
         }),
       ),
     ).toBe("pending");
-    expect(
-      phaseOf(
-        await handshake(await client({ Origin: t.gateway.origin }), t.gateway.origin, {
-          handshakeSecret: secret,
-        }),
-      ),
-    ).toBe("pending");
+    // A browser Origin never gets as far as a handshake: refused before the upgrade.
+    await expect(client({ Origin: t.gateway.origin })).rejects.toThrow(/403/);
     expect(phaseOf(await handshake(await client(), t.gateway.origin, {}))).toBe("pending");
     expect(
       phaseOf(await handshake(await client(), t.gateway.origin, { handshakeSecret: "wrong" })),

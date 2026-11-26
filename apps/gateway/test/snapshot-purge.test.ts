@@ -82,7 +82,7 @@ describe("erasing memory", () => {
       logger: silentLogger,
       retentionIntervalMs: 0,
       background: false,
-      config: { ...resolveConfig({ PSYCHE_HOME: home }), port: 0, webRoot: null },
+      config: { ...resolveConfig({ PSYCHE_HOME: home }), port: 0 },
       model: { provider: new FakeModelProvider(), model: "fake/model" },
     });
     const owner = await adminClient(composed.gateway);
