@@ -1602,7 +1602,7 @@ export const ar: Partial<Catalogue> = {
   "settings.approval.region": "موافقة مطلوبة",
   "settings.approval.prompt": "وافق على هذا التغيير في «{label}».",
   "settings.approval.promptDetail":
-    "تحتاج إعدادات الأمن إلى Touch ID أو مفتاح مرور. وافق هنا أو في إشعار Psyche؛ يُحفظ الإعداد فور الموافقة.",
+    "وافق هنا أو في إشعار Psyche بنقرة واحدة. يُحفظ الإعداد فور الموافقة.",
   "settings.approval.presenceInvalid": "لم يؤكد Touch ID أو مفتاح المرور أنك أنت. حاول مرة أخرى.",
   "settings.approval.loading": "جارٍ تحميل الموافقة…",
 

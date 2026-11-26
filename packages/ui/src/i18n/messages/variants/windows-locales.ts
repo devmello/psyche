@@ -35,8 +35,6 @@ export const WINDOWS_LOCALES: Readonly<
       "التوقف عن طلب Windows Hello أو مفتاح المرور لتغييرات الأمان حتى يُسجَّل مفتاح جديد.",
     "web.security.needsApprovalPresence":
       "وافق على البطاقة بـ Windows Hello أو مفتاح مرور، ثم اضغط الزر مرة أخرى.",
-    "web.security.needsApproval":
-      "وافق على البطاقة بـ Windows Hello أو مفتاح مرور، ثم اضغط الزر مرة أخرى.",
   },
   de: {
     "settings.notifications.helper.denied":
@@ -67,8 +65,6 @@ export const WINDOWS_LOCALES: Readonly<
     "web.security.op.presenceReset":
       "für Sicherheitsänderungen kein Windows Hello und keinen Passkey mehr verlangen, bis ein neuer Schlüssel registriert ist.",
     "web.security.needsApprovalPresence":
-      "Bestätige die Karte mit Windows Hello oder einem Passkey und tippe dann erneut auf die Taste.",
-    "web.security.needsApproval":
       "Bestätige die Karte mit Windows Hello oder einem Passkey und tippe dann erneut auf die Taste.",
   },
   es: {
@@ -101,8 +97,6 @@ export const WINDOWS_LOCALES: Readonly<
       "dejar de pedir Windows Hello o una llave de acceso para los cambios de seguridad hasta que se registre una clave nueva.",
     "web.security.needsApprovalPresence":
       "Aprueba la tarjeta con Windows Hello o una llave de acceso y vuelve a pulsar el botón.",
-    "web.security.needsApproval":
-      "Aprueba la tarjeta con Windows Hello o una llave de acceso y vuelve a pulsar el botón.",
   },
   fr: {
     "settings.notifications.helper.denied":
@@ -134,8 +128,6 @@ export const WINDOWS_LOCALES: Readonly<
       "ne plus exiger Windows Hello ni de clé d’accès pour les modifications de sécurité jusqu’à l’enregistrement d’une nouvelle clé.",
     "web.security.needsApprovalPresence":
       "Approuvez la carte avec Windows Hello ou une clé d’accès, puis appuyez de nouveau sur le bouton.",
-    "web.security.needsApproval":
-      "Approuvez la carte avec Windows Hello ou une clé d’accès, puis appuyez de nouveau sur le bouton.",
   },
   hi: {
     "settings.notifications.helper.denied": "Windows सेटिंग्स में सूचनाएँ बंद हैं",
@@ -165,7 +157,6 @@ export const WINDOWS_LOCALES: Readonly<
       "नई कुंजी दर्ज होने तक सुरक्षा बदलावों के लिए Windows Hello या पासकी न माँगना।",
     "web.security.needsApprovalPresence":
       "Windows Hello या पासकी से कार्ड को मंज़ूरी दें, फिर बटन दोबारा दबाएँ।",
-    "web.security.needsApproval": "Windows Hello या पासकी से कार्ड को मंज़ूरी दें, फिर बटन दोबारा दबाएँ।",
   },
   it: {
     "settings.notifications.helper.denied":
@@ -197,8 +188,6 @@ export const WINDOWS_LOCALES: Readonly<
       "non chiedere più Windows Hello o una passkey per le modifiche di sicurezza finché non viene registrata una nuova chiave.",
     "web.security.needsApprovalPresence":
       "Approva la scheda con Windows Hello o una passkey, poi premi di nuovo il pulsante.",
-    "web.security.needsApproval":
-      "Approva la scheda con Windows Hello o una passkey, poi premi di nuovo il pulsante.",
   },
   ja: {
     "settings.notifications.helper.denied": "通知は Windows の設定でオフになっています",
@@ -229,8 +218,6 @@ export const WINDOWS_LOCALES: Readonly<
       "新しいキーが登録されるまで、セキュリティ変更に Windows Hello やパスキーを求めない。",
     "web.security.needsApprovalPresence":
       "Windows Hello またはパスキーでカードを承認してから、もう一度ボタンを押してください。",
-    "web.security.needsApproval":
-      "Windows Hello またはパスキーでカードを承認してから、もう一度ボタンを押してください。",
   },
   ko: {
     "settings.notifications.helper.denied": "Windows 설정에서 알림이 꺼져 있습니다",
@@ -259,8 +246,6 @@ export const WINDOWS_LOCALES: Readonly<
     "web.security.op.presenceReset":
       "새 키가 등록될 때까지 보안 변경에 Windows Hello나 패스키를 요구하지 않음.",
     "web.security.needsApprovalPresence":
-      "Windows Hello나 패스키로 카드를 승인한 다음 버튼을 다시 누르세요.",
-    "web.security.needsApproval":
       "Windows Hello나 패스키로 카드를 승인한 다음 버튼을 다시 누르세요.",
   },
   pt: {
@@ -293,8 +278,6 @@ export const WINDOWS_LOCALES: Readonly<
       "deixar de exigir Windows Hello ou uma chave de acesso para alterações de segurança até que uma nova chave seja registrada.",
     "web.security.needsApprovalPresence":
       "Aprove o cartão com Windows Hello ou uma chave de acesso e toque no botão de novo.",
-    "web.security.needsApproval":
-      "Aprove o cartão com Windows Hello ou uma chave de acesso e toque no botão de novo.",
   },
   zh: {
     "settings.notifications.helper.denied": "通知已在 Windows 设置中关闭",
@@ -323,6 +306,5 @@ export const WINDOWS_LOCALES: Readonly<
     "web.security.op.presenceReset": "在注册新密钥之前，安全更改不再需要Windows Hello 或通行密钥。",
     "web.security.needsApprovalPresence":
       "请用Windows Hello 或通行密钥批准卡片，然后再次按下按钮。",
-    "web.security.needsApproval": "请用Windows Hello 或通行密钥批准卡片，然后再次按下按钮。",
   },
 };

@@ -21,6 +21,7 @@ Every PR here gets an independent security review. #1299, #1300, #1301, #1354 an
 - Approvals are a plain tap from a paired device. Touch ID or the password is only for payments: `financial` or `purchase`. The financial floor is never liftable, and a payment is `once` only, never Always. (2026-11-09)
 - Mac-control approvals stay a tap from any device. A stolen admin device is an accepted residual risk, documented in §3.7. (2026-11-09)
 - Auto is allowed on the smallest model tiers too. (2026-11-09)
+- Admin changes are a plain tap too (2026-11-26): settings, device approvals and grants, and applying a waiting `devices.approve` or `devices.grant` recovery early. Only `strong` calls keep presence: they change the payment verifiers.
 - The one exception to payments-only: adding a verifier (a first passkey, a Windows Hello key, applying a presence reset at once) needs the presence step whenever a helper can verify (`presenceCanVerify`), so a stolen admin device can't enrol its own authenticator (§3.7).
 
 ## 1. Trust comes from the connection only

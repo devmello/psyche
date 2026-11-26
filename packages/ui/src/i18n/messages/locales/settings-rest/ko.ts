@@ -888,7 +888,7 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.uninstall.go": "제거하고 종료",
   "settings.uninstall.goDelete": "데이터 삭제 후 제거",
   "settings.remote.admin":
-    "페어링된 컴퓨터에는 읽기, 쓰기, 승인 권한이 부여됩니다. 관리자 권한은 승인할 때 선택하지 않으면 꺼진 상태로 유지되며, 관리자 변경마다 여기서 Touch ID가 필요합니다.",
+    "페어링된 컴퓨터에는 읽기, 쓰기, 승인 권한이 부여됩니다. 관리자 권한은 승인할 때 선택하지 않으면 꺼진 상태로 유지되며, 관리자 변경마다 여기서 승인 카드로 물어봅니다.",
   "settings.remote.address": "공개 주소",
   "settings.remote.addressUnset": "설정 안 됨",
   "settings.remote.proxy": "신뢰하는 프록시",
@@ -906,7 +906,7 @@ export const settingsRest: Partial<Catalogue> = {
     "먼저 이 Mac의 공개 주소(위 3단계)를 설정한 다음 페어링 링크를 만드십시오.",
   "settings.pair.scopes": "다른 컴퓨터가 할 수 있는 일",
   "settings.pair.adminHint":
-    "관리자 권한이 있으면 보안 설정, 기기, 보관함을 변경할 수 있습니다. 선택하지 않으면 꺼져 있습니다. 관리자 변경마다 여기서 Touch ID가 필요합니다.",
+    "관리자 권한이 있으면 보안 설정, 기기, 보관함을 변경할 수 있습니다. 선택하지 않으면 꺼져 있습니다. 관리자 변경마다 여기서 승인 카드로 물어봅니다.",
   "settings.pair.make": "페어링 링크 만들기",
   "settings.pair.resultRegion": "페어링 링크 및 QR 코드",
   "settings.pair.qrLabel": "{host}의 페어링 링크 QR 코드",
@@ -951,7 +951,7 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.lan.unsupported": "이 Gateway는 너무 오래되어 네트워크에서 수신할 수 없습니다.",
   "settings.lan.toggle": "이 네트워크의 컴퓨터 허용",
   "settings.lan.toggleHint":
-    "Psyche는 하나의 네트워크에서 자체 인증서로 암호화된 연결을 통해 수신합니다. 연결하는 컴퓨터는 여기서 Touch ID로 승인해야 합니다.",
+    "Psyche는 하나의 네트워크에서 자체 인증서로 암호화된 연결을 통해 수신합니다. 연결하는 컴퓨터는 여기서 한 번 눌러 승인해야 합니다.",
   "settings.lan.ipv6": "이 네트워크의 IPv6 주소도 사용",
   "settings.lan.ipv6Hint":
     "선택한 네트워크의 사설 IPv6 주소(fd 또는 fc로 시작)를 추가합니다. 공개 IPv6 주소와 fe80 주소는 사용하지 않습니다.",

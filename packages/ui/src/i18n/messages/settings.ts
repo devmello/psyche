@@ -632,7 +632,7 @@ export const settings = {
   "settings.approval.region": "Approval needed",
   "settings.approval.prompt": "Approve this change to “{label}”.",
   "settings.approval.promptDetail":
-    "Security settings need Touch ID or a passkey. Approve it here or in the Psyche notification; the setting is saved as soon as it is approved.",
+    "Approve it here or in the Psyche notification with one tap. The setting is saved as soon as it is approved.",
   "settings.approval.presenceInvalid":
     "Touch ID or the passkey didn't confirm it's you. Try again.",
   "settings.approval.loading": "Loading the approval…",
@@ -2198,7 +2198,7 @@ export const settings = {
   "settings.remote.configWarnings":
     "config.json has settings this version of Psyche does not know, so it ignores them: {keys}. If you meant one of them, check the spelling.",
   "settings.remote.admin":
-    "A computer that pairs gets read, write and approvals. Admin stays off unless you tick it when you approve, and each admin change still needs your Touch ID here.",
+    "A computer that pairs gets read, write and approvals. Admin stays off unless you tick it when you approve; each admin change asks you here with an approval card.",
   "settings.remote.address": "Public address",
   "settings.remote.addressUnset": "Not set",
   "settings.remote.proxy": "Trusted proxy",
@@ -2218,7 +2218,7 @@ export const settings = {
     "Set this Mac's public address first (step 3 above), then make a pairing link.",
   "settings.pair.scopes": "What the other computer may do",
   "settings.pair.adminHint":
-    "Admin lets it change security settings, devices and the vault, and stays off unless you tick it. Each admin change still needs your Touch ID here.",
+    "Admin lets it change security settings, devices and the vault, and stays off unless you tick it. Each admin change asks you here with an approval card.",
   "settings.pair.make": "Make a pairing link",
   "settings.pair.resultRegion": "Pairing link and QR code",
   "settings.pair.qrLabel": "QR code of the pairing link for {host}",
@@ -2265,7 +2265,7 @@ export const settings = {
   "settings.lan.unsupported": "This Gateway is too old to listen on the network.",
   "settings.lan.toggle": "Allow computers on this network",
   "settings.lan.toggleHint":
-    "Psyche listens on one network, over an encrypted connection with its own certificate. A computer that connects still has to be approved here with Touch ID.",
+    "Psyche listens on one network, over an encrypted connection with its own certificate. A computer that connects still has to be approved here, with one tap.",
   "settings.lan.ipv6": "Also use this network's IPv6 addresses",
   "settings.lan.ipv6Hint":
     "Adds the private IPv6 addresses (they start with fd or fc) of the chosen network. Public IPv6 addresses and fe80 addresses are never used.",

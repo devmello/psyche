@@ -140,19 +140,6 @@ describe("psyched commands once an admin exists", () => {
     expect(getDevice(gw.gateway.context.db, "phone")?.pairedAt).toBeNull();
   });
 
-  it("approving now needs fresh presence once it is enrolled", async () => {
-    const gw = await boot();
-    const admin = await adminClient(gw.gateway);
-    open.push(admin);
-    setSetting(gw.gateway.context.db, PRESENCE_ENROLLED_SETTING, true);
-    const { code } = await pendingCode(gw, "laptop");
-    await cli(["devices", "approve", code]);
-    const [waiting] = (await state(admin)).recoveries;
-    const res = await admin.request("security.recoveries.approve", { id: waiting?.id }, ik());
-    // No verifier can verify in this Gateway: fail closed, never admin alone.
-    expect(res).toMatchObject({ ok: false, error: { code: "presence_required" } });
-  });
-
   it("devices grant waits, narrowing too (it could empty the admin set for a first-admin grab)", async () => {
     const gw = await boot();
     const admin = await adminClient(gw.gateway);

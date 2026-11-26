@@ -897,7 +897,7 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.uninstall.go": "アンインストールして終了",
   "settings.uninstall.goDelete": "データを削除してアンインストール",
   "settings.remote.admin":
-    "ペアリングしたコンピュータには、読み取り、書き込み、承認の権限が付与されます。管理者権限は、承認時にチェックしない限りオフのままで、管理者としての変更には毎回ここでTouch IDが必要です。",
+    "ペアリングしたコンピュータには、読み取り、書き込み、承認の権限が付与されます。管理者権限は、承認時にチェックしない限りオフのままです。管理者としての変更は、そのたびにここで承認カードで確認します。",
   "settings.remote.address": "公開アドレス",
   "settings.remote.addressUnset": "未設定",
   "settings.remote.proxy": "信頼済みプロキシ",
@@ -916,7 +916,7 @@ export const settingsRest: Partial<Catalogue> = {
     "先にこのMacの公開アドレス（上のステップ3）を設定してから、ペアリングリンクを作成してください。",
   "settings.pair.scopes": "ほかのコンピュータにできること",
   "settings.pair.adminHint":
-    "管理者権限があると、セキュリティ設定、デバイス、保管庫を変更できます。チェックしない限りオフです。管理者としての変更には毎回ここでTouch IDが必要です。",
+    "管理者権限があると、セキュリティ設定、デバイス、保管庫を変更できます。チェックしない限りオフです。管理者としての変更は、そのたびにここで承認カードで確認します。",
   "settings.pair.make": "ペアリングリンクを作成",
   "settings.pair.resultRegion": "ペアリングリンクとQRコード",
   "settings.pair.qrLabel": "{host}のペアリングリンクのQRコード",
@@ -962,7 +962,7 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.lan.unsupported": "このGatewayは古すぎて、ネットワークで待ち受けできません。",
   "settings.lan.toggle": "このネットワーク上のコンピュータを許可",
   "settings.lan.toggleHint":
-    "Psycheは1つのネットワークで、独自の証明書による暗号化接続で待ち受けます。接続してきたコンピュータは、ここでTouch IDによる承認が必要です。",
+    "Psycheは1つのネットワークで、独自の証明書による暗号化接続で待ち受けます。接続してきたコンピュータは、ここでワンタップで承認する必要があります。",
   "settings.lan.ipv6": "このネットワークのIPv6アドレスも使用",
   "settings.lan.ipv6Hint":
     "選択したネットワークのプライベートIPv6アドレス（fdまたはfcで始まるもの）を追加します。パブリックIPv6アドレスとfe80アドレスは使用されません。",

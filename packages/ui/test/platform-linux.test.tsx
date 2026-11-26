@@ -125,8 +125,8 @@ describe("Linux copy (i18n/messages/variants/linux.ts)", () => {
     const text = t("web.security.alert.requested", { action: "x", when: "y" });
     expect(text).toContain("diesem Computer");
     expect(text).not.toMatch(/Mac|\bPC\b/);
-    expect(t("web.security.needsApproval")).toContain("Passwort");
-    expect(t("web.security.needsApproval")).not.toMatch(/Touch ID|Windows Hello/);
+    expect(t("web.security.needsApprovalPresence")).toContain("Passwort");
+    expect(t("web.security.needsApprovalPresence")).not.toMatch(/Touch ID|Windows Hello/);
   });
 
   it("translates into Japanese: the computer, the password and Files, never the Mac", () => {
@@ -138,7 +138,7 @@ describe("Linux copy (i18n/messages/variants/linux.ts)", () => {
     const text = t("web.security.alert.requested", { action: "x", when: "y" });
     expect(text).toContain("コンピュータ");
     expect(text).not.toMatch(/Mac|\bPC\b|Windows/);
-    expect(t("web.security.needsApproval")).toContain("パスワード");
+    expect(t("web.security.needsApprovalPresence")).toContain("パスワード");
   });
 
   it("keeps every variant valid ICU with the English message's placeholders, and Mac-free", () => {

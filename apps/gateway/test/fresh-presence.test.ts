@@ -1,7 +1,7 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { updateDevice } from "@psyche/db";
+import { getDevice, insertDevice, updateDevice } from "@psyche/db";
 import type { PresenceVerifier } from "@psyche/permissions";
 import type { ApprovalRequest } from "@psyche/protocol";
 import { FakeModelProvider } from "@psyche/testing";
@@ -306,6 +306,110 @@ describe("fail closed once presence was enrolled", () => {
     expect(recoveries?.get(waiting?.id ?? "")?.status).toBe("applied");
     expect(presenceStateFor(db, () => false)()).toBe("off");
     expect(PRESENCE_ENROLLED_SETTING.startsWith("_")).toBe(true);
+  });
+});
+
+/** `psyched <args>` against the composed Gateway's home (the request waits 24 hours). */
+async function psyched(args: string[]): Promise<number> {
+  const prev = process.env.PSYCHE_HOME;
+  const prevDb = process.env.PSYCHE_DB;
+  process.env.PSYCHE_HOME = home;
+  process.env.PSYCHE_DB = join(home, "psyche.db");
+  try {
+    return await runCli(args, () => undefined, { pollMs: 20 });
+  } finally {
+    if (prev === undefined) delete process.env.PSYCHE_HOME;
+    else process.env.PSYCHE_HOME = prev;
+    if (prevDb === undefined) delete process.env.PSYCHE_DB;
+    else process.env.PSYCHE_DB = prevDb;
+  }
+}
+
+describe("applying a Mac-side recovery at once (security.recoveries.approve)", () => {
+  it("a device grant is a plain tap that applies on approval (owner's decision, 2026-11-26)", async () => {
+    const keys = new Map<string, string>();
+    const { c, admin } = await boot(
+      undefined,
+      [(s) => composeHelper(s, { presenceKeys: (id) => keys.get(id) })],
+      {},
+      { pollMs: 20 },
+    );
+    const db = c.gateway.context.db;
+    insertDevice(db, {
+      id: "ipad",
+      name: "iPad",
+      platform: "ios",
+      role: "client",
+      publicKey: Buffer.alloc(32, 9),
+      scopes: ["operator.read", "operator.write"],
+      pairedAt: db.now(),
+    });
+    // Presence is enrolled and then lost: even so, this is a tap and never `presence_required`.
+    keys.set(DEVICE, "registered-key");
+    await admin.call("devices.list", {});
+    keys.delete(DEVICE);
+    expect(
+      await psyched(["devices", "grant", "ipad", "operator.read,operator.write,operator.admin"]),
+    ).toBe(3);
+    const [waiting] = c.gateway.context.securityRecoveries?.list() ?? [];
+    expect(waiting).toMatchObject({ op: "devices.grant", status: "waiting" });
+    const first = await admin.request("security.recoveries.approve", { id: waiting?.id }, ik());
+    const { approvalId, approval } = await approveWithTap(admin, first);
+    expect(approval.details).toMatchObject({
+      method: "security.recoveries.approve",
+      op: "devices.grant",
+    });
+    expect(getDevice(db, "ipad")?.scopes).not.toContain("operator.admin");
+    // The card is bound to this exact recovery: it does not spend on another one.
+    expect(
+      await admin.request("security.recoveries.approve", { id: "rc_other", approvalId }, ik()),
+    ).toMatchObject({ ok: false });
+    expect(
+      await admin.request("security.recoveries.approve", { id: waiting?.id, approvalId }, ik()),
+    ).toMatchObject({ ok: true });
+    expect(getDevice(db, "ipad")?.scopes).toContain("operator.admin");
+  });
+
+  it("a presence reset still needs presence to apply early: a presence card, and nothing applies on a tap", async () => {
+    const keys = new Map<string, string>();
+    const { c, admin } = await boot(
+      undefined,
+      [(s) => composeHelper(s, { presenceKeys: (id) => keys.get(id) })],
+      {},
+      { pollMs: 20 },
+    );
+    keys.set(DEVICE, "registered-key");
+    await admin.call("devices.list", {});
+    expect(await psyched(["presence", "reset"])).toBe(3);
+    const recoveries = c.gateway.context.securityRecoveries;
+    const [waiting] = recoveries?.list() ?? [];
+    expect(waiting).toMatchObject({ op: "presence.reset", status: "waiting" });
+    const strong = await strongCard(
+      admin,
+      await admin.request("security.recoveries.approve", { id: waiting?.id }, ik()),
+    );
+    await new Promise((r) => setTimeout(r, 450));
+    // A tap without a presence assertion cannot answer it, so the retry never applies.
+    expect(
+      await admin.request(
+        "approvals.answer",
+        { approvalId: strong.approvalId, answerToken: strong.token, decision: "approve" },
+        ik(),
+      ),
+    ).toMatchObject({ ok: false });
+    expect(
+      await admin.request(
+        "security.recoveries.approve",
+        { id: waiting?.id, approvalId: strong.approvalId },
+        ik(),
+      ),
+    ).toMatchObject({ ok: false });
+    expect(recoveries?.get(waiting?.id ?? "")?.status).toBe("waiting");
+    // With no verifier left it fails closed too, never down to a tap.
+    keys.delete(DEVICE);
+    expect(
+      await admin.request("security.recoveries.approve", { id: waiting?.id }, ik()),
+    ).toMatchObject({ ok: false, error: { code: "presence_required" } });
   });
 });
 

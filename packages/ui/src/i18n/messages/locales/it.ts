@@ -1554,7 +1554,7 @@ export const it: Partial<Catalogue> = {
   "settings.approval.region": "Approvazione necessaria",
   "settings.approval.prompt": "Approva questa modifica a “{label}”.",
   "settings.approval.promptDetail":
-    "Le impostazioni di sicurezza richiedono Touch ID o una passkey. Approvala qui o nella notifica di Psyche; l’impostazione viene salvata non appena approvata.",
+    "Approvala qui o nella notifica di Psyche con un tocco. L’impostazione viene salvata non appena approvata.",
   "settings.approval.presenceInvalid":
     "Touch ID o la passkey non hanno confermato la tua identità. Riprova.",
   "settings.approval.loading": "Caricamento dell’approvazione…",

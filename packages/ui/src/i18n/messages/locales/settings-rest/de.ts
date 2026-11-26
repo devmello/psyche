@@ -920,7 +920,7 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.uninstall.go": "Deinstallieren und beenden",
   "settings.uninstall.goDelete": "Daten löschen und deinstallieren",
   "settings.remote.admin":
-    "Ein gekoppelter Computer erhält Lesen, Schreiben und Genehmigungen. Admin bleibt aus, außer du hakst es bei der Genehmigung an, und jede Admin-Änderung braucht hier weiterhin deine Touch ID.",
+    "Ein gekoppelter Computer erhält Lesen, Schreiben und Genehmigungen. Admin bleibt aus, außer du hakst es bei der Genehmigung an; jede Admin-Änderung fragt dich hier mit einer Genehmigungskarte.",
   "settings.remote.address": "Öffentliche Adresse",
   "settings.remote.addressUnset": "Nicht festgelegt",
   "settings.remote.proxy": "Vertrauenswürdiger Proxy",
@@ -939,7 +939,7 @@ export const settingsRest: Partial<Catalogue> = {
     "Lege zuerst die öffentliche Adresse dieses Macs fest (Schritt 3 oben) und erstelle dann einen Kopplungslink.",
   "settings.pair.scopes": "Was der andere Computer darf",
   "settings.pair.adminHint":
-    "Admin erlaubt ihm, Sicherheitseinstellungen, Geräte und den Tresor zu ändern, und bleibt aus, außer du hakst es an. Jede Admin-Änderung braucht hier weiterhin deine Touch ID.",
+    "Admin erlaubt ihm, Sicherheitseinstellungen, Geräte und den Tresor zu ändern, und bleibt aus, außer du hakst es an. Jede Admin-Änderung fragt dich hier mit einer Genehmigungskarte.",
   "settings.pair.make": "Kopplungslink erstellen",
   "settings.pair.resultRegion": "Kopplungslink und QR-Code",
   "settings.pair.qrLabel": "QR-Code des Kopplungslinks für {host}",
@@ -986,7 +986,7 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.lan.unsupported": "Dieses Gateway ist zu alt, um im Netzwerk zu lauschen.",
   "settings.lan.toggle": "Computer in diesem Netzwerk zulassen",
   "settings.lan.toggleHint":
-    "Psyche lauscht in einem Netzwerk, über eine verschlüsselte Verbindung mit eigenem Zertifikat. Ein Computer, der sich verbindet, muss hier trotzdem per Touch ID genehmigt werden.",
+    "Psyche lauscht in einem Netzwerk, über eine verschlüsselte Verbindung mit eigenem Zertifikat. Ein Computer, der sich verbindet, muss hier trotzdem genehmigt werden, mit einem Tipp.",
   "settings.lan.ipv6": "Auch die IPv6-Adressen dieses Netzwerks nutzen",
   "settings.lan.ipv6Hint":
     "Fügt die privaten IPv6-Adressen (sie beginnen mit fd oder fc) des gewählten Netzwerks hinzu. Öffentliche IPv6-Adressen und fe80-Adressen werden nie verwendet.",

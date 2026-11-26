@@ -290,7 +290,7 @@ export const settingsC: Partial<Catalogue> = {
   "settings.uninstall.go": "Desinstalar e sair",
   "settings.uninstall.goDelete": "Apagar os dados e desinstalar",
   "settings.remote.admin":
-    "Um computador que emparelha recebe leitura, gravação e aprovações. Admin continua desativado, a menos que você marque ao aprovar, e cada alteração de admin ainda exige o seu Touch ID aqui.",
+    "Um computador que emparelha recebe leitura, gravação e aprovações. Admin continua desativado, a menos que você marque ao aprovar; cada alteração de admin pergunta a você aqui com um cartão de aprovação.",
   "settings.remote.address": "Endereço público",
   "settings.remote.addressUnset": "Não definido",
   "settings.remote.proxy": "Proxy confiável",
@@ -309,7 +309,7 @@ export const settingsC: Partial<Catalogue> = {
     "Defina primeiro o endereço público deste Mac (etapa 3 acima) e depois crie um link de emparelhamento.",
   "settings.pair.scopes": "O que o outro computador pode fazer",
   "settings.pair.adminHint":
-    "Admin permite alterar ajustes de segurança, dispositivos e o cofre, e continua desativado, a menos que você marque. Cada alteração de admin ainda exige o seu Touch ID aqui.",
+    "Admin permite alterar ajustes de segurança, dispositivos e o cofre, e continua desativado, a menos que você marque. Cada alteração de admin pergunta a você aqui com um cartão de aprovação.",
   "settings.pair.make": "Criar um link de emparelhamento",
   "settings.pair.resultRegion": "Link de emparelhamento e código QR",
   "settings.pair.qrLabel": "Código QR do link de emparelhamento de {host}",

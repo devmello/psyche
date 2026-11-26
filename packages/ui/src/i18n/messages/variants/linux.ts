@@ -83,8 +83,6 @@ export const linux: Partial<Record<MessageId, string>> = {
     "The vault is locked. Unlock it with your password, then link {name} again.",
   "settings.approval.presenceUnavailable":
     "This window can't confirm it's you. Approve the change in the Psyche app on your computer (your password), or from a device with a passkey. Nothing changes until then.",
-  "settings.approval.promptDetail":
-    "Security settings need your password or a passkey. Approve it here or in the Psyche notification; the setting is saved as soon as it is approved.",
   "settings.approval.presenceInvalid":
     "Your password or the passkey didn't confirm it's you. Try again.",
   "settings.about.revealHome": "Show in Files",
@@ -176,12 +174,8 @@ export const linux: Partial<Record<MessageId, string>> = {
     "In a terminal on this computer, publish the Gateway to your tailnet. This is Serve, not Funnel.",
   "settings.remote.step4":
     "Restart Psyche. Then on the other computer, add this computer as a Gateway. It shows a pairing code and a key fingerprint: compare them with the request under Waiting to pair here, then approve it.",
-  "settings.remote.admin":
-    "A computer that pairs gets read, write and approvals. Admin stays off unless you tick it when you approve, and each admin change still needs your password here.",
   "settings.pair.needsAddress":
     "Set this computer's public address first (step 3 above), then make a pairing link.",
-  "settings.pair.adminHint":
-    "Admin lets it change security settings, devices and the vault, and stays off unless you tick it. Each admin change still needs your password here.",
   "settings.pair.compare":
     "It checks this computer's key before it uses the link: {fingerprint}. You can compare.",
   "settings.pair.secret":
@@ -195,8 +189,6 @@ export const linux: Partial<Record<MessageId, string>> = {
     "This link is for computers on the same network as this computer. It names the key and certificate Psyche will insist on.",
   "settings.lan.description":
     "Let Psyche on another computer on the same Wi-Fi or Ethernet reach this computer's Gateway, without Tailscale. It is off until you turn it on.",
-  "settings.lan.toggleHint":
-    "Psyche listens on one network, over an encrypted connection with its own certificate. A computer that connects still has to be approved here with your password.",
   "settings.lan.noInterface": "No Wi-Fi or Ethernet connection was found on this computer.",
   "settings.lan.notAdvertised": "Not shown. Add this computer by its address.",
   "settings.lan.problem.unknownInterface": "{name} is not a network on this computer.",
@@ -395,8 +387,6 @@ export const linux: Partial<Record<MessageId, string>> = {
   "web.security.op.presenceReset":
     "stop requiring your password or a passkey for security changes until a new key is registered.",
   "web.security.needsApprovalPresence":
-    "Approve the card with your password or a passkey, then press the button again.",
-  "web.security.needsApproval":
     "Approve the card with your password or a passkey, then press the button again.",
   "notice.security.changed.body":
     "A program on this computer changed {count, plural, =1 {# security record} other {# security records}} (devices, keys, grants or settings) without going through Psyche{times, plural, =0 {} =1 {} other {, # times so far}}. Psyche put them back. If you did not do this, check the computer for unwanted software.",
