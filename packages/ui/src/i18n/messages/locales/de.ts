@@ -1,8 +1,8 @@
 import type { Catalogue } from "../index.ts";
 import { actionErrors } from "./action-errors/de.ts";
 import { agentRest } from "./agent-rest/de.ts";
-import { appleD } from "./apple-d/de.ts";
 import { appleB } from "./apple-b/de.ts";
+import { appleD } from "./apple-d/de.ts";
 import { appleE1 } from "./apple-e1/de.ts";
 import { appleE2 } from "./apple-e2/de.ts";
 import { approvalsW3 } from "./approvals-w3/de.ts";
