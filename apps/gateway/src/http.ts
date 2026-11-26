@@ -230,11 +230,13 @@ function serveFromAsar(pathname: string, res: ServerResponse, asar: string): voi
 
 function serveStatic(pathname: string, res: ServerResponse, webRoot: string | null): void {
   if (webRoot === null || !existsSync(join(webRoot, "index.html"))) {
-    send(
-      res,
-      404,
-      JSON.stringify({ ok: false, error: "web UI not built (pnpm --filter @psyche/web build)" }),
-    );
+    // Only the page itself is "the web UI is not built": a probe of /readyz or /metrics is just
+    // an unknown path, and the build hint would send the owner after the wrong thing.
+    const error =
+      pathname === "/" || pathname === "/index.html"
+        ? "web UI not built (pnpm --filter @psyche/web build)"
+        : "not found (this Gateway answers /healthz and /version, and serves the web UI when built)";
+    send(res, 404, JSON.stringify({ ok: false, error }));
     return;
   }
   const root = resolve(webRoot);

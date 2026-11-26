@@ -1,4 +1,7 @@
-import { join } from "node:path";
+import { lstatSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { PsycheError } from "@psyche/protocol";
+import { isNamedPipePath } from "@psyche/protocol/platform";
 import { type GoogleClientConfig, googleClientFrom, readConfigFile } from "../config.ts";
 import { openExternalUrl } from "../platform.ts";
 import { composeBackup } from "./backup.ts";
@@ -77,7 +80,32 @@ export function googleClientSetup(
  */
 export function bridgeSocketSetup(env: NodeJS.ProcessEnv): { socketPath?: string } {
   const path = env.PSYCHE_BROWSER_BRIDGE_SOCKET?.trim();
-  return path ? { socketPath: path } : {};
+  if (!path) return {};
+  checkBridgeSocketDir(path);
+  return { socketPath: path };
+}
+
+/**
+ * Refuses, while the Gateway is still composing (before it says "listening"), a bridge socket in
+ * a directory the bridge would later refuse: a shared one such as `/tmp`, a symlink, or one owned
+ * by someone else. A missing directory is fine: the bridge creates it private (0700).
+ */
+function checkBridgeSocketDir(socketPath: string): void {
+  if (isNamedPipePath(socketPath)) return;
+  const dir = dirname(socketPath);
+  let info: ReturnType<typeof lstatSync>;
+  try {
+    info = lstatSync(dir);
+  } catch {
+    return;
+  }
+  const uid = process.getuid?.();
+  if (info.isSymbolicLink() || !info.isDirectory() || (uid !== undefined && info.uid !== uid)) {
+    throw new PsycheError(
+      "invalid_params",
+      `PSYCHE_BROWSER_BRIDGE_SOCKET=${socketPath}: ${dir} is not a private directory of yours; use a path in a directory you own (or unset it)`,
+    );
+  }
 }
 
 export { readDetectedDomains, readSignedInOrigins };
