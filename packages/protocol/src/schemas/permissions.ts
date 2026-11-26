@@ -90,6 +90,8 @@ export const ApprovalKind = StringEnum(
     "mcp_tool",
     "archive_thread",
     "memory_protected_write",
+    /** The agent forgets a subject everywhere (memory, people, lessons): once, never kept. */
+    "memory_forget",
     "pairing",
     "policy_change",
     "task_start",
@@ -230,6 +232,12 @@ export const ApprovalRequest = Type.Object(
     decidedBy: Nullable(DecidedBy),
     invalidatedReason: Type.Optional(Type.String()),
     requestedAt: IsoDateTime,
+    /**
+     * When the card's buttons arm (`requestedAt` + the arming delay, on the Gateway's clock). An
+     * answer before then is refused with `approval_not_armed`, so a client keeps its buttons
+     * disabled until this time instead of letting a fast tap fail. Absent on old cards.
+     */
+    armedAt: Type.Optional(IsoDateTime),
     expiresAt: IsoDateTime,
     decidedAt: Nullable(IsoDateTime),
     grantId: Nullable(Id),

@@ -33,8 +33,8 @@ export const blocks = {
   "blocks.details.none": "none",
   "blocks.details.argumentsList": "Arguments: {args}",
   "blocks.details.command": "Command",
-  "blocks.details.in": "In",
-  "blocks.details.envNames": "Env names",
+  "blocks.details.in": "Folder",
+  "blocks.details.envNames": "Environment variables",
   "blocks.details.runs": "Runs",
   "blocks.details.runsOnHost": "on your Mac, outside the sandbox",
   "blocks.details.to": "To",
@@ -215,7 +215,7 @@ export const blocks = {
   "blocks.approval.sideEffect.write": "changes something",
   "blocks.approval.sideEffect.destructive": "changes settings or data that may be hard to undo",
   "blocks.approval.sideEffect.financial": "involves money",
-  "blocks.approval.whyMode": "{mode} mode asks before it {effect}.",
+  "blocks.approval.whyMode": "You asked to approve this in {mode} mode, since it {effect}.",
   "blocks.details.params": "Details",
   "blocks.details.reason": "Reason",
   "blocks.details.when": "When",
@@ -383,6 +383,7 @@ export const blocks = {
   "blocks.workflow.runs": "{count, plural, one {# scheduled run} other {# scheduled runs}}",
   "blocks.workflow.runOf": "{name} · {when} ({timezone})",
   "blocks.workflow.does": "What it does",
+  "blocks.workflow.prompt": "Exact instructions it will run",
   "blocks.workflow.approvals": "Will ask you to approve",
   "blocks.workflow.noApprovals": "No approvals needed.",
   "blocks.workflow.notify":
@@ -412,4 +413,9 @@ export const blocks = {
   "blocks.receipt.failed": "failed",
 
   "blocks.diff.moreLines": "… {count, plural, one {# more line} other {# more lines}}",
+  "blocks.toolRun.familyName":
+    "{kind, select, command {commands} file {files} web {web} mail {email} calendar {calendar} drive {Drive} memory {memory} task {tasks} other {{name}}}",
+  "blocks.toolRun.spoken":
+    "{kind, select, command {Ran a command} write {Saved a file} edit {Edited a file} read {Read a file} web {Searched the web} mail {Used email} calendar {Used your calendar} memory {Used memory} other {Used a tool}}",
+  "blocks.toolRun.line.save": "Save {file}{hasFolder, select, true { in {folder}} other {}}",
 } as const;

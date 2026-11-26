@@ -281,7 +281,7 @@ export function artifactTools(store: ArtifactStore): AgentToolRegistration[] {
     defineTool({
       name: "artifact.create",
       description:
-        "Put substantial standalone output (a document, a code file, a table) in the canvas beside the chat instead of writing it into your reply. Returns a reference {artifactId, version, summary}, not the content; in chat, say one line about what you made. Edit it later with artifact.update, never by re-sending it.",
+        "Put substantial standalone output (a document, a code file, a table) in the canvas beside the chat instead of writing it into your reply. Returns a reference {artifactId, version, summary}, not the content; in chat, say one line about what you made. Edit it later with artifact.update (load it with load_tools first), never by re-sending it.",
       input: CreateInput,
       sideEffect: "none",
       describeCall: (p) => ({ summary: `Created ${p.type} "${p.title}"` }),

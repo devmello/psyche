@@ -114,7 +114,7 @@ export const blocksRest: Partial<Catalogue> = {
   "blocks.approval.sideEffect.write": "何かを変更する",
   "blocks.approval.sideEffect.destructive": "元に戻しにくい設定やデータを変更する",
   "blocks.approval.sideEffect.financial": "お金に関わる",
-  "blocks.approval.whyMode": "{mode}モードでは、{effect}前に確認します。",
+  "blocks.approval.whyMode": "{mode}モードでは、{effect}ため、先に承認する設定です。",
   "blocks.details.params": "詳細",
   "blocks.details.reason": "理由",
   "blocks.details.when": "いつ",
@@ -167,6 +167,7 @@ export const blocksRest: Partial<Catalogue> = {
   "blocks.workflow.runs": "{count, plural, other {スケジュール実行#件}}",
   "blocks.workflow.runOf": "{name} · {when}（{timezone}）",
   "blocks.workflow.does": "実行内容",
+  "blocks.workflow.prompt": "実行する正確な指示",
   "blocks.workflow.approvals": "承認を求める内容",
   "blocks.workflow.noApprovals": "承認は不要です。",
   "blocks.workflow.notify":

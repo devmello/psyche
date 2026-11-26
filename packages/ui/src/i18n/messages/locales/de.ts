@@ -1,6 +1,7 @@
 import type { Catalogue } from "../index.ts";
 import { actionErrors } from "./action-errors/de.ts";
 import { agentRest } from "./agent-rest/de.ts";
+import { appleB } from "./apple-b/de.ts";
 import { appleE1 } from "./apple-e1/de.ts";
 import { appleE2 } from "./apple-e2/de.ts";
 import { approvalsW3 } from "./approvals-w3/de.ts";
@@ -431,7 +432,7 @@ export const de: Partial<Catalogue> = {
   "blocks.details.none": "keine",
   "blocks.details.argumentsList": "Argumente: {args}",
   "blocks.details.command": "Befehl",
-  "blocks.details.in": "In",
+  "blocks.details.in": "Ordner",
   "blocks.details.envNames": "Umgebungsvariablen",
   "blocks.details.runs": "Läuft",
   "blocks.details.runsOnHost": "auf deinem Mac, außerhalb der Sandbox",
@@ -4036,6 +4037,7 @@ export const de: Partial<Catalogue> = {
   // Fork a plan (docs/design/fork-a-plan-2026.md §9)
   ...planFork,
   ...desktopSimple,
+  ...appleB,
   ...appleE1,
   // Gateway-authored notices (inbox notifications, security alerts)
   ...notices,

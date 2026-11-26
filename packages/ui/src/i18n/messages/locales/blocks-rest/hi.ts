@@ -109,7 +109,7 @@ export const blocksRest: Partial<Catalogue> = {
   "blocks.approval.sideEffect.destructive":
     "ऐसी सेटिंग्ज़ या डेटा बदलता है जिन्हें वापस करना कठिन हो सकता है",
   "blocks.approval.sideEffect.financial": "पैसों से जुड़ा है",
-  "blocks.approval.whyMode": "{mode} मोड तब पहले पूछता है जब कार्रवाई {effect}।",
+  "blocks.approval.whyMode": "आपने {mode} मोड में इसे मंज़ूर करने को कहा था, क्योंकि यह {effect}।",
   "blocks.details.params": "विवरण",
   "blocks.details.reason": "कारण",
   "blocks.details.when": "कब",
@@ -161,6 +161,7 @@ export const blocksRest: Partial<Catalogue> = {
   "blocks.workflow.runs": "{count, plural, one {# शेड्यूल्ड रन} other {# शेड्यूल्ड रन}}",
   "blocks.workflow.runOf": "{name} · {when} ({timezone})",
   "blocks.workflow.does": "यह क्या करता है",
+  "blocks.workflow.prompt": "यह जो सटीक निर्देश चलाएगा",
   "blocks.workflow.approvals": "आपसे स्वीकृति मांगेगा",
   "blocks.workflow.noApprovals": "किसी स्वीकृति की ज़रूरत नहीं।",
   "blocks.workflow.notify":

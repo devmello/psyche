@@ -118,7 +118,7 @@ export const blocksA: Partial<Catalogue> = {
   "blocks.approval.sideEffect.destructive":
     "altera ajustes ou dados que podem ser difíceis de desfazer",
   "blocks.approval.sideEffect.financial": "envolve dinheiro",
-  "blocks.approval.whyMode": "O modo {mode} pergunta antes de uma ação que {effect}.",
+  "blocks.approval.whyMode": "Você pediu para aprovar isto no modo {mode}, pois {effect}.",
   "blocks.details.params": "Detalhes",
   "blocks.details.reason": "Motivo",
   "blocks.details.when": "Quando",
@@ -171,6 +171,7 @@ export const blocksA: Partial<Catalogue> = {
     "{count, plural, one {# execução agendada} other {# execuções agendadas}}",
   "blocks.workflow.runOf": "{name} · {when} ({timezone})",
   "blocks.workflow.does": "O que faz",
+  "blocks.workflow.prompt": "Instruções exatas que vai executar",
   "blocks.workflow.approvals": "Vai pedir sua aprovação para",
   "blocks.workflow.noApprovals": "Não precisa de aprovações.",
   "blocks.workflow.notify":

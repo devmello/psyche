@@ -112,7 +112,7 @@ export const blocksRest: Partial<Catalogue> = {
   "blocks.approval.sideEffect.write": "무언가를 변경함",
   "blocks.approval.sideEffect.destructive": "되돌리기 어려울 수 있는 설정이나 데이터를 변경함",
   "blocks.approval.sideEffect.financial": "금전과 관련됨",
-  "blocks.approval.whyMode": "{mode} 모드에서는 {effect} 전에 확인합니다.",
+  "blocks.approval.whyMode": "{mode} 모드에서는 {effect} 때문에 먼저 승인하도록 되어 있어요.",
   "blocks.details.params": "세부 정보",
   "blocks.details.reason": "이유",
   "blocks.details.when": "시기",
@@ -165,6 +165,7 @@ export const blocksRest: Partial<Catalogue> = {
   "blocks.workflow.runs": "{count, plural, other {예약 실행 #건}}",
   "blocks.workflow.runOf": "{name} · {when} ({timezone})",
   "blocks.workflow.does": "실행 내용",
+  "blocks.workflow.prompt": "실행할 정확한 지침",
   "blocks.workflow.approvals": "승인을 요청할 내용",
   "blocks.workflow.noApprovals": "승인이 필요하지 않습니다.",
   "blocks.workflow.notify":

@@ -109,7 +109,18 @@ export interface MemoryStore {
   /** Why a fact is believed: the claim with its source chunks. */
   explain(claimId: string): Promise<{ claim: MemoryClaim; chunks: MemoryChunk[] } | undefined>;
   /** Retract matching claims and remove linked chunks; `dryRun` reports without changing. */
-  forget(subject: string, options?: { dryRun?: boolean }): Promise<ForgetResult>;
+  forget(
+    subject: string,
+    options?: {
+      dryRun?: boolean;
+      /** `agent`: the model's call; wide forgets and protected files need the owner's approval. */
+      actor?: "agent";
+      /** The approved `memory_forget` card that authorized this call. */
+      approvalId?: string;
+      /** Thread, run and call behind the forget (change records). */
+      link?: { threadId?: string; runId?: string; toolCallId?: string; tool?: string };
+    },
+  ): Promise<ForgetResult>;
   /**
    * Pre-compaction flush (architecture §4.2 step 7, §4.8): note durable facts from a private
    * copy of the conversation in today's daily note (append-only) before older turns are

@@ -378,6 +378,10 @@ describe("provenance and taint", () => {
     const turn = start(h, "read and delegate");
     await until(() => h.broker.issued.length === 1, "task_start card");
     expect(h.broker.issued[0]?.approval).toMatchObject({ kind: "task_start", taint: true });
+    // A pending card says what will happen, not what already did (QA item 10).
+    const summary = h.broker.issued[0]?.approval.summary ?? "";
+    expect(summary).toBe("Start a background task: Follow up");
+    expect(summary).not.toMatch(/^Started/);
     await h.broker.decideLatest("approve", h.clock);
     await turn.done;
     const [task] = await h.tasks.list();

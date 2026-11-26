@@ -209,6 +209,10 @@ function hasQuestionBlock(blocks: readonly Block[], inputRequestId: string): boo
   return blocks.some((b) => b.type === "question" && b.inputRequestId === inputRequestId);
 }
 
+function hasApprovalBlock(blocks: readonly Block[], approvalId: string): boolean {
+  return blocks.some((b) => b.type === "approval" && b.approvalId === approvalId);
+}
+
 function userBlocks(
   content: string,
   attachments: readonly string[],
@@ -848,8 +852,10 @@ export class SessionController {
           this.#bump();
           return m;
         })();
-        for (const b of msg.blocks)
+        for (const b of msg.blocks) {
           if (b.type === "question") committedQuestions.add(b.inputRequestId);
+          if (b.type === "approval") committedApprovals.add(b.approvalId);
+        }
         bus.publish("chat.message", { message }, threadId);
         return true;
       } catch (err) {
@@ -861,6 +867,10 @@ export class SessionController {
       }
     };
     const committedQuestions = new Set<string>();
+    const committedApprovals = new Set<string>();
+    const hasApproval = (approvalId: string): boolean =>
+      committedApprovals.has(approvalId) ||
+      [...pending.values()].some((m) => hasApprovalBlock(m.blocks, approvalId));
     const hasQuestion = (inputRequestId: string): boolean =>
       committedQuestions.has(inputRequestId) ||
       [...pending.values()].some((m) => hasQuestionBlock(m.blocks, inputRequestId));
@@ -935,7 +945,15 @@ export class SessionController {
           this.#ctx.runTrace.end(runId, event.outcome, event.error);
           break;
         }
-        this.#apply(event, { threadId, runId, idFor, current, flushBefore, hasQuestion });
+        this.#apply(event, {
+          threadId,
+          runId,
+          idFor,
+          current,
+          flushBefore,
+          hasQuestion,
+          hasApproval,
+        });
       }
     } catch (err) {
       outcome = { status: "failed", error: PsycheError.from(err).message };
@@ -1042,6 +1060,8 @@ export class SessionController {
       flushBefore: (agentMessageId: string) => void;
       /** Whether this turn already holds a card for the question (pending or committed). */
       hasQuestion: (inputRequestId: string) => boolean;
+      /** Whether this turn already holds a block for the approval (pending or committed). */
+      hasApproval: (approvalId: string) => boolean;
     },
   ): void {
     const { db, bus } = this.#ctx;
@@ -1112,7 +1132,10 @@ export class SessionController {
         if (event.block.type === "question" && t.hasQuestion(event.block.inputRequestId)) {
           return;
         }
-        msg.blocks.push(event.block);
+        // The loop announces a card twice (`approval_requested`, then its own block): keep one
+        // block in the transcript, and still tell live clients about it.
+        const repeat = event.block.type === "approval" && t.hasApproval(event.block.approvalId);
+        if (!repeat) msg.blocks.push(event.block);
         bus.publish("chat.block", { threadId, messageId: msg.id, block: event.block }, threadId);
         return;
       }
@@ -1162,7 +1185,9 @@ export class SessionController {
       }
       case "approval_requested": {
         const msg = t.current(`approval_${event.approval.id}`);
-        msg.blocks.push({ type: "approval", approvalId: event.approval.id });
+        if (!t.hasApproval(event.approval.id)) {
+          msg.blocks.push({ type: "approval", approvalId: event.approval.id });
+        }
         msg.textIndex = -1;
         const run = updateRun(db, runId, { status: "awaiting_approval" });
         this.#bump();

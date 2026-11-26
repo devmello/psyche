@@ -1,3 +1,4 @@
+import { reattachTag, tagTolerantPattern } from "@psyche/memory/learned";
 import {
   type Clock,
   type MemoryStore,
@@ -121,7 +122,7 @@ export function memoryTool(store: MemoryStore, options: MemoryToolOptions): Agen
   return defineTool({
     name: "memory",
     description:
-      "Your workspace memory (memory_20250818 commands: view, create, str_replace, insert, delete, rename). Daily notes live in memory/YYYY-MM-DD.md and are append-only. Your own durable notes go in memory/agent/<topic>.md (the owner can see and delete them). SOUL.md, IDENTITY.md, USER.md, AGENTS.md and MEMORY.md change only with the owner's approval. What the owner tells you about themselves (name, timezone, work, education, skills, people, preferences, a resume they attach) is saved to USER.md automatically after the turn and the chat shows what was saved; do not ask to edit USER.md for that.",
+      'Your workspace memory (view, create, str_replace, insert, delete, rename). Daily notes (memory/YYYY-MM-DD.md) are append-only; your own notes go in memory/agent/<topic>.md. SOUL.md, IDENTITY.md, USER.md, AGENTS.md and MEMORY.md change only with the owner\'s approval. What the owner tells you about themselves is picked up for USER.md by a separate pass after the turn, which may skip it (a daily limit), so it is not saved yet: say "I\'ll remember that", never "saved" or "noted", unless a memory call in this turn wrote it. Do not ask to edit USER.md for that.',
     input: MemoryInput,
     sideEffect: "none",
     targetKind: "path",
@@ -216,16 +217,34 @@ export function memoryTool(store: MemoryStore, options: MemoryToolOptions): Agen
           }
           const file = await store.readFile(path);
           if (file === undefined) throw new PsycheError("not_found", `${path} does not exist`);
-          const count = file.content.split(p.old_str).length - 1;
-          if (count !== 1) {
+          // The model sees USER.md without its hidden `lf_` tags, so its text may sit in the file
+          // with a tag after it. Every place old_str lands counts, as written or with tags
+          // allowed; exactly one may. At a place both match, the exact text wins and leaves the
+          // tag where it is.
+          const places = new Map<number, { length: number; matched: string; exact: boolean }>();
+          for (let at = file.content.indexOf(p.old_str); at >= 0; ) {
+            places.set(at, { length: p.old_str.length, matched: p.old_str, exact: true });
+            at = file.content.indexOf(p.old_str, at + p.old_str.length);
+          }
+          for (const m of file.content.matchAll(tagTolerantPattern(p.old_str))) {
+            if (!places.has(m.index)) {
+              places.set(m.index, { length: m[0].length, matched: m[0], exact: false });
+            }
+          }
+          if (places.size !== 1) {
             throw new PsycheError(
               "invalid_params",
-              `old_str must occur exactly once in ${path} (found ${count})`,
+              `old_str must occur exactly once in ${path} (found ${places.size})`,
             );
           }
+          const [[start, hit]] = [...places] as [
+            [number, { length: number; matched: string; exact: boolean }],
+          ];
+          // A tagged line keeps its tag after the edit: it stays the same learned fact.
+          const replacement = hit.exact ? p.new_str : reattachTag(hit.matched, p.new_str);
           await write(
             path,
-            file.content.replace(p.old_str, () => p.new_str),
+            `${file.content.slice(0, start)}${replacement}${file.content.slice(start + hit.length)}`,
             file.etag,
           );
           return { output: { replaced: path }, provenance: "trusted" };
@@ -263,7 +282,7 @@ export function taskStartTool(tasks: TaskEngine): AgentToolRegistration {
     // Delegation persists instructions that run later, maybe unattended (design-08): `write`,
     // matching the broker's floor, with its own approval kind.
     sideEffect: "write",
-    describeCall: (p) => ({ kind: "task_start", summary: `Started task "${p.title}"` }),
+    describeCall: (p) => ({ kind: "task_start", summary: `Start a background task: ${p.title}` }),
     run: async (p, ctx) => {
       const task = await tasks.create({
         threadId: ctx.threadId,
@@ -378,6 +397,13 @@ export function scheduleTool(
           "pass `at` for a one-time run, or `kind` and `schedule`",
         );
       }
+      // `[psyche:<job> …]` is the prompt of Psyche's own in-process jobs: never from a tool.
+      if (/^\s*(\[psyche|@psyche\/)/i.test(p.prompt)) {
+        throw new PsycheError(
+          "invalid_params",
+          "that prompt is reserved for Psyche's own routines",
+        );
+      }
       const automation = await scheduler.create({
         ...fields,
         title: p.title,
@@ -387,6 +413,16 @@ export function scheduleTool(
         prompt: p.prompt,
         scratch: null,
         enabled: true,
+        // A schedule made in a turn that read untrusted content keeps the taint: every run
+        // starts tainted with these sources (security §3.6). Tainted with no source still counts.
+        ...(ctx.taint
+          ? {
+              taintSources:
+                ctx.taintSources !== undefined && ctx.taintSources.length > 0
+                  ? (structuredClone(ctx.taintSources) as TaintSource[])
+                  : [{ sourceKind: "turn" }],
+            }
+          : {}),
       });
       return {
         output: { automationId: automation.id, nextRunAt: automation.nextRunAt ?? null },

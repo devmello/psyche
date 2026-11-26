@@ -118,7 +118,7 @@ export const blocksRest: Partial<Catalogue> = {
   "blocks.approval.sideEffect.destructive":
     "ändert Einstellungen oder Daten, was sich schwer rückgängig machen lässt",
   "blocks.approval.sideEffect.financial": "betrifft Geld",
-  "blocks.approval.whyMode": "Im Modus „{mode}“ wird nachgefragt, bevor es {effect}.",
+  "blocks.approval.whyMode": "Du wolltest das im Modus „{mode}“ bestätigen, weil es {effect}.",
   "blocks.details.params": "Details",
   "blocks.details.reason": "Grund",
   "blocks.details.when": "Wann",
@@ -173,6 +173,7 @@ export const blocksRest: Partial<Catalogue> = {
   "blocks.workflow.runs": "{count, plural, one {# geplanter Lauf} other {# geplante Läufe}}",
   "blocks.workflow.runOf": "{name} · {when} ({timezone})",
   "blocks.workflow.does": "Was er tut",
+  "blocks.workflow.prompt": "Genaue Anweisungen, die ausgeführt werden",
   "blocks.workflow.approvals": "Bittet dich um Genehmigung für",
   "blocks.workflow.noApprovals": "Keine Genehmigungen nötig.",
   "blocks.workflow.notify":

@@ -110,7 +110,7 @@ export const blocks: Partial<Catalogue> = {
   "blocks.approval.sideEffect.write": "يغيّر شيئًا",
   "blocks.approval.sideEffect.destructive": "يغيّر إعدادات أو بيانات قد يصعب التراجع عنها",
   "blocks.approval.sideEffect.financial": "يتعلق بالمال",
-  "blocks.approval.whyMode": "يسأل وضع {mode} قبل أي إجراء {effect}.",
+  "blocks.approval.whyMode": "طلبت الموافقة على هذا في وضع {mode} لأنه {effect}.",
   "blocks.details.params": "التفاصيل",
   "blocks.details.reason": "السبب",
   "blocks.details.when": "متى",
@@ -163,6 +163,7 @@ export const blocks: Partial<Catalogue> = {
     "{count, plural, zero {لا تشغيلات مجدولة} one {تشغيل مجدول واحد} two {تشغيلان مجدولان} few {# تشغيلات مجدولة} many {# تشغيلًا مجدولًا} other {# تشغيل مجدول}}",
   "blocks.workflow.runOf": "{name} · {when} ({timezone})",
   "blocks.workflow.does": "ما سيفعله",
+  "blocks.workflow.prompt": "التعليمات الدقيقة التي سينفذها",
   "blocks.workflow.approvals": "سيطلب موافقتك على",
   "blocks.workflow.noApprovals": "لا حاجة إلى موافقات.",
   "blocks.workflow.notify":
