@@ -433,6 +433,8 @@ export interface ThreadView {
   running: boolean;
   /** Runs of this thread that failed (#539: their error shows in the transcript). */
   failedRuns: readonly Run[];
+  /** Runs of this thread the owner stopped (status `cancelled`): the transcript says so. */
+  stoppedRuns: readonly Run[];
   hasMore: boolean;
 }
 
@@ -456,6 +458,7 @@ export function useThread(threadId: string | null) {
         queue: s.queue.filter((q) => q.threadId === id),
         running,
         failedRuns: runs.filter((r) => r.status === "failed"),
+        stoppedRuns: runs.filter((r) => r.status === "cancelled"),
         hasMore: (s.historyCursor[id] ?? null) !== null,
       };
     },

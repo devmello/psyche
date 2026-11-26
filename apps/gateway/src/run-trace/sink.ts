@@ -1085,6 +1085,9 @@ export class RunTraceSink {
   /** A wait (approval, question) ends with the run's next event. */
   #closeWaits(t: TraceRun, at: string, event: AgentEvent): void {
     if (t.waits.size === 0) return;
+    // A model call's usage report says nothing about the owner: it follows the very call that
+    // asked, so an approval still waiting stays waiting (not "Approval answered").
+    if (event.type === "usage") return;
     if (
       event.type === "end" &&
       (event.outcome === "awaiting_approval" || event.outcome === "awaiting_input")

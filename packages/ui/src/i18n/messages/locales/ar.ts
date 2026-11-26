@@ -405,6 +405,7 @@ export const ar: Partial<Catalogue> = {
   "chat.thread.exported": "تم تصدير هذه المحادثة بصيغة {format}.",
   "chat.thread.nothingRunning": "لا شيء يعمل في هذه الدردشة.",
   "chat.thread.stopped": "تم الإيقاف.",
+  "chat.stopped.label": "تم الإيقاف",
   "chat.runFailed.credential":
     "تعذّر على Psyche الرد: مفتاح API الخاص بنموذجك مفقود أو مرفوض. أضفه أو صحّحه في الإعدادات ← النماذج.",
   "chat.runFailed.generic": "تعذّر على Psyche إكمال هذا الرد.",
@@ -534,6 +535,7 @@ export const ar: Partial<Catalogue> = {
   "blocks.approval.status.denied": "مرفوض{hasWhen, select, true { · {when}} other {}}",
   "blocks.approval.status.declinedInChat": "مرفوض — ردّيت في الدردشة",
   "blocks.approval.status.expired": "انتهت الصلاحية. لم يتم فعل شيء.",
+  "blocks.approval.expiredLine": "انتهت المهلة · لم يتم شيء",
   "blocks.approval.status.voidedBecause": "ملغى: {reason}",
   "blocks.approval.status.voided": "ملغى. تغيّرت الوسيطات.",
   "blocks.approval.taint": "قرأ هذا الدور محتوى غير موثوق",

@@ -330,6 +330,7 @@ export const pt: Partial<Catalogue> = {
   "chat.thread.exported": "Esta conversa foi exportada como {format}.",
   "chat.thread.nothingRunning": "Nada está em execução nesta conversa.",
   "chat.thread.stopped": "Parado.",
+  "chat.stopped.label": "Interrompido",
   "chat.runFailed.credential":
     "O Psyche não conseguiu responder: a chave de API do seu modelo está ausente ou foi recusada. Adicione ou corrija em Ajustes → Modelos.",
   "chat.runFailed.generic": "O Psyche não conseguiu concluir esta resposta.",
@@ -454,6 +455,7 @@ export const pt: Partial<Catalogue> = {
   "blocks.approval.status.denied": "Negada{hasWhen, select, true { · {when}} other {}}",
   "blocks.approval.status.declinedInChat": "Recusado — você respondeu no chat",
   "blocks.approval.status.expired": "Expirada. Nada foi feito.",
+  "blocks.approval.expiredLine": "Expirou · nada foi feito",
   "blocks.approval.status.voidedBecause": "Anulada: {reason}",
   "blocks.approval.status.voided": "Anulada. Os argumentos mudaram.",
   "blocks.approval.taint": "este turno leu conteúdo não confiável",

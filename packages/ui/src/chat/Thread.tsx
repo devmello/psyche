@@ -49,12 +49,13 @@ import {
   useChatFocusRequest,
 } from "./focus-request.ts";
 import { useGreetEmptyMainChat } from "./greet.ts";
-import { MessageView } from "./MessageView.tsx";
+import { isEmptyAgentMessage, MessageView } from "./MessageView.tsx";
 import { OfflineBanner } from "./OfflineBanner.tsx";
 import { OutboxQueue } from "./OutboxQueue.tsx";
 import { ComposerPrefill } from "./prefill.ts";
 import { failureAnchors, RunFailure } from "./RunFailure.tsx";
 import { RunStepLog, useRunSteps } from "./RunStepLog.tsx";
+import { RunStopped, stoppedAnchors } from "./RunStopped.tsx";
 import { RunTrace } from "./steps/RunTrace.tsx";
 import {
   ComposerSuggestions,
@@ -818,6 +819,21 @@ export function ChatThread({
     () => failureAnchors(view.messages, view.failedRuns),
     [view.messages, view.failedRuns],
   );
+  const stops = useMemo(
+    () => stoppedAnchors(view.messages, view.stoppedRuns),
+    [view.messages, view.stoppedRuns],
+  );
+  // Agent messages with nothing to show (their calls and approvals sit in the trace and the
+  // dock) draw no header, and the next message takes the header instead.
+  const emptyIds = useMemo(
+    () =>
+      new Set(
+        display.flatMap((d) =>
+          isEmptyAgentMessage(d.message, d.streamingText, blockIndex) ? [d.message.id] : [],
+        ),
+      ),
+    [display, blockIndex],
+  );
 
   /**
    * Edit and resend (E5): a side chat forked just before the edited message (or a fresh side
@@ -925,7 +941,10 @@ export function ChatThread({
                       const [d] = getExternalStoreMessages<DisplayMessage>(message);
                       if (d === undefined) return null;
                       const m = d.message;
-                      const prev = display[display.indexOf(d) - 1]?.message;
+                      const at = display.indexOf(d);
+                      let prev = display[at - 1]?.message;
+                      for (let i = at - 1; prev && emptyIds.has(prev.id); i--)
+                        prev = display[i - 1]?.message;
                       const next = display[display.indexOf(d) + 1]?.message;
                       // The run's specialists follow its last message.
                       const spawns =
@@ -987,6 +1006,15 @@ export function ChatThread({
                           />
                           {failed.map((run) => (
                             <RunFailure key={run.id} run={run} />
+                          ))}
+                          {(stops.get(m.id) ?? []).map(({ run, retryText }) => (
+                            <RunStopped
+                              key={run.id}
+                              run={run}
+                              retryText={retryText}
+                              busy={view.running}
+                              onRetry={(text) => void view.send(text)}
+                            />
                           ))}
                           {spawns ? (
                             <SpecialistSpawns jobs={spawns} roles={specialistRoles} />

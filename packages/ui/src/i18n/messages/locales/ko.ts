@@ -367,6 +367,7 @@ export const ko: Partial<Catalogue> = {
   "chat.thread.exported": "이 스레드를 {format}(으)로 내보냈습니다.",
   "chat.thread.nothingRunning": "이 채팅에서 실행 중인 것이 없습니다.",
   "chat.thread.stopped": "중지되었습니다.",
+  "chat.stopped.label": "중지됨",
   "chat.runFailed.credential":
     "Psyche가 답할 수 없습니다. 모델의 API 키가 없거나 거부되었습니다. 설정 → 모델에서 추가하거나 수정하십시오.",
   "chat.runFailed.generic": "Psyche가 이 답변을 완료하지 못했습니다.",
@@ -490,6 +491,7 @@ export const ko: Partial<Catalogue> = {
   "blocks.approval.status.denied": "거부됨{hasWhen, select, true { · {when}} other {}}",
   "blocks.approval.status.declinedInChat": "거절됨 — 채팅에서 답장했습니다",
   "blocks.approval.status.expired": "만료되었습니다. 아무것도 실행되지 않았습니다.",
+  "blocks.approval.expiredLine": "만료됨 · 아무것도 실행되지 않았습니다",
   "blocks.approval.status.voidedBecause": "무효화됨: {reason}",
   "blocks.approval.status.voided": "무효화되었습니다. 인수가 변경되었습니다.",
   "blocks.approval.taint": "이 턴에서 신뢰할 수 없는 콘텐츠를 읽음",
