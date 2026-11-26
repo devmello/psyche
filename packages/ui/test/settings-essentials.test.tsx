@@ -73,7 +73,7 @@ describe("Settings → Essentials", () => {
         <SettingsScreen />
       </StoryWorld>,
     );
-    expect(await screen.findByRole("heading", { level: 2, name: "Essentials" })).toBeTruthy();
+    expect(await screen.findByRole("heading", { level: 2, name: "General" })).toBeTruthy();
     const nav = screen.getByRole("navigation", { name: "Settings sections" });
     expect(within(nav).getAllByRole("button")[0]?.textContent).toBe("General");
     await userEvent.click(await screen.findByRole("radio", { name: /Manual/ }));

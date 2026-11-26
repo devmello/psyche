@@ -117,7 +117,7 @@ describe("SettingsScreen", () => {
     await userEvent.click(back as HTMLElement);
     expect(navigate).toHaveBeenCalledWith("/settings/general");
     // The page is its Essentials body, then a list of rows, one per pane; a row opens its pane.
-    expect(await screen.findByRole("heading", { level: 2, name: "Essentials" })).toBeTruthy();
+    expect(await screen.findByRole("heading", { level: 2, name: "General" })).toBeTruthy();
     for (const name of ["Appearance", "Persona", "Notifications", "Voice & dictation", "About"]) {
       expect(screen.getByRole("button", { name })).toBeTruthy();
     }

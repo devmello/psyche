@@ -89,12 +89,12 @@ export function EssentialsPanel({
 }: EssentialsPanelProps): ReactElement {
   return (
     <SectionFrame
-      title={t("settings.essentials.title")}
+      title={t("settings.page.general")}
       description={t("settings.essentials.description", { persona })}
       needsApproval={needsApproval}
     >
       <LoadGate
-        label={t("settings.essentials.title")}
+        label={t("settings.page.general")}
         loading={loading}
         error={error}
         {...(onRetry ? { onRetry } : {})}
