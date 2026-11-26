@@ -48,6 +48,7 @@ import {
   type TaintSource,
 } from "@psyche/protocol";
 import { isDesktopViewer } from "../compose/fork-hidden.ts";
+import { forRemote } from "../compose/night-shift.ts";
 import type { Call, HandlerDef } from "../context.ts";
 
 /**
@@ -131,6 +132,7 @@ declare function paramsOf(
     | "planForks.cancel"
     | "planForks.retryBranch"
     | "planForks.take"
+    | "planForks.staged"
     | "planForks.dismiss",
 ): void;
 
@@ -519,6 +521,21 @@ export function createPlanForkHandlers(deps: PlanForkDeps) {
 
     "planForks.get": async (call: Call, p: Params<"planForks.get">) =>
       view(call, requireFork(p.forkId)),
+
+    "planForks.staged": async (call: Call, p: Params<"planForks.staged">) => {
+      // The same checks as take: an unknown fork or a branch of another fork is not_found.
+      const fork = requireFork(p.forkId);
+      const branch = getPlanForkBranch(db, p.branchId);
+      if (branch === null || branch.forkId !== fork.id)
+        throw new PsycheError("not_found", "no such branch");
+      // Items made from the owner's Messages reach only the desktop shell on this Mac in full.
+      const desktop = isDesktopViewer(call);
+      return {
+        items: listStagedActionsForBranch(db, branch.id)
+          .slice(0, 50)
+          .map((i) => (desktop ? i : forRemote(i))),
+      };
+    },
 
     "planForks.list": async (call: Call, p: Params<"planForks.list">) => {
       if (getThread(db, p.threadId) === undefined)

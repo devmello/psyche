@@ -620,3 +620,74 @@ describe("planForks R1 fixes", () => {
     await expect(takeOf(f.b.id, f.itemB)).rejects.toMatchObject({ code: "conflict" });
   });
 });
+
+describe("planForks.staged", () => {
+  type Items = { id: string; summary: string; withheld?: string; params: unknown }[];
+  const fromMessages = (r: Rig, itemId: string) =>
+    r.db.sqlite
+      .prepare("UPDATE staged_actions SET taint_sources = ? WHERE id = ?")
+      .run(JSON.stringify([{ sourceKind: "message", origin: "imessage" }]), itemId);
+
+  it("gives the owner's desktop the full items of the branch", async () => {
+    const r = await rig();
+    const f = await readyFork(r);
+    fromMessages(r, f.itemA.id);
+    const out = (await r.run("planForks.staged", { forkId: f.forkId, branchId: f.a.id })) as {
+      items: Items;
+    };
+    expect(out.items.map((i) => i.id)).toEqual([f.itemA.id]);
+    expect(out.items[0]?.summary).toBe(f.itemA.summary);
+    expect(out.items[0]?.params).not.toBeNull();
+    expect(out.items[0]?.withheld).toBeUndefined();
+  });
+
+  it("maps the items through forRemote for a phone, and leaves items from other sources whole", async () => {
+    const r = await rig();
+    const f = await readyFork(r);
+    fromMessages(r, f.itemA.id);
+    const phoneOut = (await r.run(
+      "planForks.staged",
+      { forkId: f.forkId, branchId: f.a.id },
+      undefined,
+      phone,
+    )) as { items: Items };
+    expect(phoneOut.items[0]?.withheld).toBe("messages");
+    expect(phoneOut.items[0]?.params).toBeNull();
+    expect(phoneOut.items[0]?.summary).not.toBe(f.itemA.summary);
+    // The control: a branch whose item did not come from Messages is the same on the phone.
+    const other = (await r.run(
+      "planForks.staged",
+      { forkId: f.forkId, branchId: f.b.id },
+      undefined,
+      phone,
+    )) as { items: Items };
+    expect(other.items[0]?.withheld).toBeUndefined();
+    expect(other.items[0]?.summary).toBe(f.itemB.summary);
+  });
+
+  it("refuses an unknown fork, an unknown branch and a branch of another fork", async () => {
+    const r = await rig();
+    const f = await readyFork(r);
+    await expect(
+      r.run("planForks.staged", { forkId: "nope", branchId: f.a.id }),
+    ).rejects.toMatchObject({ code: "not_found" });
+    await expect(
+      r.run("planForks.staged", { forkId: f.forkId, branchId: "nope" }),
+    ).rejects.toMatchObject({ code: "not_found" });
+    const second = (await r.run("planForks.create", {
+      threadId: r.main.id,
+      messageId: r.msg.id,
+      branches: [
+        { label: "Rent", premise: "Assume we rent" },
+        { label: "Buy", premise: "Assume we buy" },
+      ],
+    })) as { fork: { id: string } };
+    await expect(
+      r.run("planForks.staged", { forkId: second.fork.id, branchId: f.a.id }),
+    ).rejects.toMatchObject({ code: "not_found" });
+    // The control: the right pair answers.
+    await expect(
+      r.run("planForks.staged", { forkId: f.forkId, branchId: f.a.id }),
+    ).resolves.toBeDefined();
+  });
+});
