@@ -772,7 +772,7 @@ export function composeProactive(setup: ProactiveSetup): ComposedProactive {
     feed,
     ideas,
     mailWatch,
-    mailConnected: () => lookup !== undefined && lookup.names("mail_search").length > 0,
+    mailConnected: () => (lookup?.names?.("mail_search") ?? []).length > 0,
     ideaSources: async () =>
       (registry?.list().some((s) => s.name.startsWith("mcp__")) ?? false) ||
       (await goals.list({ status: ["active"] })).length > 0,

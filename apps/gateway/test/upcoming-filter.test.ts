@@ -7,11 +7,13 @@ import { type RunnableUpcomingDeps, runnableUpcoming } from "../src/compose/upco
 
 const marker = (job: string, arg: string) => `[psyche:${job} ${arg}]`;
 
-function auto(id: string, title: string, prompt: string, system = true): Automation {
-  return { id, title, prompt, kind: "cron", system, enabled: true } as unknown as Automation;
+type Row = Automation & { system: boolean };
+
+function auto(id: string, title: string, prompt: string, system = true): Row {
+  return { id, title, prompt, kind: "cron", system, enabled: true } as unknown as Row;
 }
 
-const ALL: Automation[] = [
+const ALL: Row[] = [
   auto("brief", "Daily brief", marker("feed-brief", "daily")),
   auto("mail", "Check for new mail", marker("mail-watch", "poll")),
   auto("digest", "Mail digest", marker("mail-digest", "daily")),
