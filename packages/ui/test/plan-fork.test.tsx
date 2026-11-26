@@ -575,3 +575,63 @@ describe("mergeTicks keeps what the owner chose across a re-read", () => {
     expect(out.items[items[2]?.id ?? ""]).toBe(true);
   });
 });
+
+describe("mergeTicks and withheld items", () => {
+  it("unticks an item that becomes withheld on a re-read", () => {
+    const items = austinStaged();
+    const ticks = initialTicks(items);
+    expect(ticks.items.stg_austin_mail).toBe(true);
+    const after = items.map((i) =>
+      i.id === "stg_austin_mail" ? { ...i, withheld: "messages" as const } : i,
+    );
+    const out = mergeTicks(ticks, items, after);
+    expect(out.items.stg_austin_mail).toBe(false);
+    expect(out.items.stg_austin_cal).toBe(true);
+  });
+});
+
+describe("another fork's update", () => {
+  it("leaves this sheet's staged query alone, and re-reads it for this fork", async () => {
+    const ref: { gateway?: MockGateway } = {};
+    render(
+      <StoryWorld
+        edit={(w) => {
+          w.planForks = seedPlanForks("ready", IDS.threads.main);
+        }}
+        onGateway={(g) => {
+          ref.gateway = g;
+        }}
+      >
+        <PlansView forkId="fork_1" onBack={() => {}} layout="columns" />
+      </StoryWorld>,
+    );
+    await userEvent.click(
+      await screen.findByRole("button", { name: "Take the plan: Move to Austin" }),
+    );
+    await screen.findByTestId("plan-take-sheet");
+    const g = ref.gateway as MockGateway;
+    const count = (m: string) => g.calls.filter((c) => c.method === m).length;
+    await waitFor(() => expect(count("planForks.staged")).toBeGreaterThan(0));
+    const staged = count("planForks.staged");
+    const gets = count("planForks.get");
+    g.emit("planFork.updated", {
+      forkId: "fork_other",
+      threadId: "th_other",
+      status: "running",
+      branches: [],
+      spentUsd: 0.1,
+    });
+    await new Promise((r) => setTimeout(r, 100));
+    expect(count("planForks.staged")).toBe(staged);
+    expect(count("planForks.get")).toBe(gets);
+    // The control: this fork's update does re-read.
+    g.emit("planFork.updated", {
+      forkId: "fork_1",
+      threadId: IDS.threads.main,
+      status: "ready",
+      branches: [],
+      spentUsd: 0.4,
+    });
+    await waitFor(() => expect(count("planForks.get")).toBeGreaterThan(gets));
+  });
+});

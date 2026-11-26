@@ -56,7 +56,8 @@ export function mergeTicks(
       if (i.id in fresh.sends) out.sends[i.id] = false;
       continue;
     }
-    const same = old.bindingHash === i.bindingHash && i.status === "ready";
+    const same =
+      old.bindingHash === i.bindingHash && i.status === "ready" && i.withheld === undefined;
     out.items[i.id] = same && current.items[i.id] === true;
     if (i.send != null) {
       const sameSend = same && old.send?.contentHash === i.send.contentHash;

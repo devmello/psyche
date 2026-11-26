@@ -48,7 +48,7 @@ import {
   type Surface,
   type TaintSource,
 } from "@psyche/protocol";
-import { forkThreadRestricted, isDesktopViewer } from "../compose/fork-hidden.ts";
+import { forkBranchWithheld, isDesktopViewer } from "../compose/fork-hidden.ts";
 import { forRemote, MESSAGES_ITEM_LINE } from "../compose/night-shift.ts";
 import type { Call, HandlerDef } from "../context.ts";
 
@@ -142,11 +142,9 @@ declare function paramsOf(
  * stay (the Take sheet lists the row), every field that quotes the owner's data is cleared.
  */
 function withholdItem(i: StagedAction): StagedAction {
-  const result = i.result == null ? i.result : { ...i.result };
-  if (result != null) delete result.error;
   return {
     ...i,
-    result,
+    result: null,
     withheld: "messages",
     summary: MESSAGES_ITEM_LINE,
     why: null,
@@ -157,6 +155,7 @@ function withholdItem(i: StagedAction): StagedAction {
     inverse: null,
     send: null,
     preview: null,
+    taintSources: [],
   };
 }
 
@@ -557,10 +556,7 @@ export function createPlanForkHandlers(deps: PlanForkDeps) {
       // Off the desktop shell: a branch that is still running, or that read owner-only sources
       // (Memory, Contacts, Messages leave no taint on its items), shows no item text at all. The
       // rule is `forkThreadRestricted`'s, the one the router applies to the branch's thread.
-      const restricted =
-        branch.readOwnerOnly ||
-        branch.status !== "reported" ||
-        forkThreadRestricted(db, branch.threadId);
+      const restricted = forkBranchWithheld(db, branch);
       return {
         items: items.map((i) => forRemote(restricted ? withholdItem(i) : i)),
       };
@@ -757,7 +753,7 @@ export function createPlanForkHandlers(deps: PlanForkDeps) {
       try {
         r = await deps.applier.applyFork(
           { forkId: fork.id, branchId: branch.id, items: p.items, sends: p.sends },
-          { local: isDesktopViewer(call) },
+          { local: isDesktopViewer(call), withholdAll: forkBranchWithheld(db, branch) },
         );
       } catch (err) {
         release();

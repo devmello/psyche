@@ -79,6 +79,22 @@ export function forkThreadRestricted(db: PsycheDb, threadId: string): boolean {
 }
 
 /**
+ * Whether a branch's staged items must not be shown or approved off the desktop shell, and must
+ * not put their text on an approval card that goes to every device: the branch read owner-only
+ * sources or has not reported. One rule for `planForks.staged` and `planForks.take`.
+ */
+export function forkBranchWithheld(
+  db: PsycheDb,
+  branch: { threadId: string; status: string; readOwnerOnly: boolean },
+): boolean {
+  return (
+    branch.readOwnerOnly ||
+    branch.status !== "reported" ||
+    forkThreadRestricted(db, branch.threadId)
+  );
+}
+
+/**
  * The router's check before any method runs (`connection.ts`): a caller that is not the desktop
  * shell is refused a method that names a restricted fork thread, by `threadId`, `threadIds` or a
  * `runId` of a run in one (threads.get, chat.history, the run trace, exports, sends). The
