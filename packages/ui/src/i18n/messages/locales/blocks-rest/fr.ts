@@ -174,6 +174,7 @@ export const blocksRest: Partial<Catalogue> = {
     "{count, plural, one {# exécution planifiée} other {# exécutions planifiées}}",
   "blocks.workflow.runOf": "{name} · {when} ({timezone})",
   "blocks.workflow.does": "Ce qu’il fait",
+  "blocks.workflow.prompt": "Instructions exactes qu’il exécutera",
   "blocks.workflow.approvals": "Vous demandera d’approuver",
   "blocks.workflow.noApprovals": "Aucune approbation requise.",
   "blocks.workflow.notify":

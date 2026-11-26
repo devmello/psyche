@@ -112,7 +112,10 @@ export function withProactiveJobs<R extends LaunchRequest, Run>(
 ): Launcher<R, Run> {
   return {
     async launch(request) {
-      const job = options.jobs.find((j) => j.matches(request.automation));
+      // An automation made in a tainted turn never runs as an in-process job: a marker-shaped
+      // prompt would otherwise hand its text to the job. It runs as the tainted task it is.
+      const tainted = (request.automation.taintSources?.length ?? 0) > 0;
+      const job = tainted ? undefined : options.jobs.find((j) => j.matches(request.automation));
       if (job !== undefined) {
         const result = job.run(request).catch((e: unknown): LaunchResult => {
           options.onError?.(e);
@@ -134,7 +137,8 @@ export function withProactiveJobs<R extends LaunchRequest, Run>(
       return inner.launch(request);
     },
     rerunOnInterrupt(automation) {
-      const job = options.jobs.find((j) => j.matches(automation));
+      const tainted = (automation.taintSources?.length ?? 0) > 0;
+      const job = tainted ? undefined : options.jobs.find((j) => j.matches(automation));
       return job === undefined
         ? inner.rerunOnInterrupt?.(automation) === true
         : job.rerunOnInterrupt === true;

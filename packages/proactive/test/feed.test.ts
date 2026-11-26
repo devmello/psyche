@@ -469,6 +469,18 @@ describe("ensureDailyBrief keeps the owner's choice", () => {
     });
   });
 
+  it("still re-applies the zone, target and delivery on start", async () => {
+    const { feed, scheduler } = rig();
+    const first = await feed.ensureDailyBrief();
+    await scheduler.update(first.id, { sessionTarget: "isolated", timezone: "Asia/Tokyo" });
+    await feed.ensureDailyBrief();
+    expect(await scheduler.get(first.id)).toMatchObject({
+      prompt: first.prompt,
+      sessionTarget: "main",
+      timezone: "UTC",
+    });
+  });
+
   it("positive control: a caller that names a schedule still applies it", async () => {
     const { feed, scheduler } = rig();
     const first = await feed.ensureDailyBrief();

@@ -163,6 +163,7 @@ export const blocks: Partial<Catalogue> = {
     "{count, plural, zero {لا تشغيلات مجدولة} one {تشغيل مجدول واحد} two {تشغيلان مجدولان} few {# تشغيلات مجدولة} many {# تشغيلًا مجدولًا} other {# تشغيل مجدول}}",
   "blocks.workflow.runOf": "{name} · {when} ({timezone})",
   "blocks.workflow.does": "ما سيفعله",
+  "blocks.workflow.prompt": "التعليمات الدقيقة التي سينفذها",
   "blocks.workflow.approvals": "سيطلب موافقتك على",
   "blocks.workflow.noApprovals": "لا حاجة إلى موافقات.",
   "blocks.workflow.notify":

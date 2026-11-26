@@ -382,6 +382,7 @@ export const blocks = {
   "blocks.workflow.runs": "{count, plural, one {# scheduled run} other {# scheduled runs}}",
   "blocks.workflow.runOf": "{name} · {when} ({timezone})",
   "blocks.workflow.does": "What it does",
+  "blocks.workflow.prompt": "Exact instructions it will run",
   "blocks.workflow.approvals": "Will ask you to approve",
   "blocks.workflow.noApprovals": "No approvals needed.",
   "blocks.workflow.notify":

@@ -112,7 +112,10 @@ export function automationFromRow(r: AutomationRow, w?: WatchRow): Automation {
   if (r.trigger != null) a.trigger = JSON.parse(r.trigger) as AutomationTrigger;
   if (r.specialist != null) a.specialist = JSON.parse(r.specialist) as Automation["specialist"];
   if (r.recorded_skill != null) a.recordedSkill = recordedSkillOf(r.recorded_skill);
-  if (r.taint_sources != null) a.taintSources = taintSourcesOf(r.taint_sources);
+  // Outward (lists, events, every client) only the kinds: senders and origins stay on the Gateway.
+  if (r.taint_sources != null) {
+    a.taintSources = taintSourcesOf(r.taint_sources).map((s) => ({ sourceKind: s.sourceKind }));
+  }
   return a;
 }
 

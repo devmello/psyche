@@ -227,14 +227,14 @@ export class FeedService {
     if (existing !== undefined) {
       // The owner may have moved the time or turned the brief off: a start-up call with no
       // options creates only when missing. Only what the caller names is applied.
-      const patch = {
+      // Schedule and enabled are the owner's: only a caller that names them changes them. The
+      // rest (zone, marker prompt, target, delivery) is re-applied so the job keeps working.
+      const { schedule: _s, enabled: _e, ...keep } = fields;
+      return this.#o.scheduler.update(existing.id, {
+        ...keep,
         ...(options.schedule === undefined ? {} : { schedule: options.schedule }),
-        ...(options.timezone === undefined ? {} : { timezone: options.timezone }),
         ...(options.enabled === undefined ? {} : { enabled: options.enabled }),
-      };
-      return Object.keys(patch).length === 0
-        ? existing
-        : this.#o.scheduler.update(existing.id, patch);
+      });
     }
     return this.#o.scheduler.create({ kind: "briefing", system: true, ...fields });
   }

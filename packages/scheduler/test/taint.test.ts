@@ -30,7 +30,8 @@ describe("automation taint", () => {
       schedule: "0 8 * * *",
       taintSources: WEB,
     });
-    expect((await scheduler.get(a.id))?.taintSources).toEqual(WEB);
+    // Outward only the kinds: the origin stays on the Gateway.
+    expect((await scheduler.get(a.id))?.taintSources).toEqual([{ sourceKind: "web.fetch" }]);
     await scheduler.runNow(a.id);
     const [task] = await engine.list();
     expect(task).toMatchObject({ createdFrom: "automation", taint: true });

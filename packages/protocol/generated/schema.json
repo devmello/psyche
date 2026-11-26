@@ -19332,6 +19332,30 @@
         },
         "tainted": {
           "type": "boolean"
+        },
+        "taintSources": {
+          "items": {
+            "properties": {
+              "sourceKind": {
+                "maxLength": 80,
+                "type": "string"
+              },
+              "origin": {
+                "maxLength": 300,
+                "type": "string"
+              },
+              "sender": {
+                "maxLength": 300,
+                "type": "string"
+              }
+            },
+            "required": [
+              "sourceKind"
+            ],
+            "type": "object"
+          },
+          "maxItems": 32,
+          "type": "array"
         }
       },
       "required": [

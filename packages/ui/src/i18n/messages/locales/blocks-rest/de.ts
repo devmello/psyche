@@ -173,6 +173,7 @@ export const blocksRest: Partial<Catalogue> = {
   "blocks.workflow.runs": "{count, plural, one {# geplanter Lauf} other {# geplante Läufe}}",
   "blocks.workflow.runOf": "{name} · {when} ({timezone})",
   "blocks.workflow.does": "Was er tut",
+  "blocks.workflow.prompt": "Genaue Anweisungen, die ausgeführt werden",
   "blocks.workflow.approvals": "Bittet dich um Genehmigung für",
   "blocks.workflow.noApprovals": "Keine Genehmigungen nötig.",
   "blocks.workflow.notify":

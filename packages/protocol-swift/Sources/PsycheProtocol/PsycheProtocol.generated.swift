@@ -7459,6 +7459,7 @@ public struct DailyWorkflowProposal: Codable, Sendable {
     public let offerSkill: Bool?
     public let runs: [DailyWorkflowRun]
     public let tainted: Bool?
+    public let taintSources: [TaintSourceElement]?
     public let timezone: String
     public let title: String
 
@@ -7469,17 +7470,19 @@ public struct DailyWorkflowProposal: Codable, Sendable {
         case offerSkill = "offerSkill"
         case runs = "runs"
         case tainted = "tainted"
+        case taintSources = "taintSources"
         case timezone = "timezone"
         case title = "title"
     }
 
-    public init(groupID: String, notify: Notify, obstacles: [String], offerSkill: Bool? = nil, runs: [DailyWorkflowRun], tainted: Bool? = nil, timezone: String, title: String) {
+    public init(groupID: String, notify: Notify, obstacles: [String], offerSkill: Bool? = nil, runs: [DailyWorkflowRun], tainted: Bool? = nil, taintSources: [TaintSourceElement]? = nil, timezone: String, title: String) {
         self.groupID = groupID
         self.notify = notify
         self.obstacles = obstacles
         self.offerSkill = offerSkill
         self.runs = runs
         self.tainted = tainted
+        self.taintSources = taintSources
         self.timezone = timezone
         self.title = title
     }
@@ -7525,6 +7528,25 @@ public struct DailyWorkflowRun: Codable, Sendable {
 public enum DailyWorkflowRunKind: String, Codable, Sendable {
     case cron = "cron"
     case interval = "interval"
+}
+
+// MARK: - TaintSourceElement
+public struct TaintSourceElement: Codable, Sendable {
+    public let origin: String?
+    public let sender: String?
+    public let sourceKind: String
+
+    public enum CodingKeys: String, CodingKey {
+        case origin = "origin"
+        case sender = "sender"
+        case sourceKind = "sourceKind"
+    }
+
+    public init(origin: String? = nil, sender: String? = nil, sourceKind: String) {
+        self.origin = origin
+        self.sender = sender
+        self.sourceKind = sourceKind
+    }
 }
 
 public enum AutomationWorkflowBlockType: String, Codable, Sendable {

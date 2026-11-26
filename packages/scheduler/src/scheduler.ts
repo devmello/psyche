@@ -34,6 +34,7 @@ import {
   automationFromRow,
   type RunRow,
   runFromRow,
+  taintSourcesOf,
   type WatchRow,
 } from "./rows.ts";
 import { parseSchedule, type Schedule } from "./schedule.ts";
@@ -763,7 +764,11 @@ export class SqliteScheduler implements Scheduler {
         .run(threadId, runId);
       const current = runFromRow(this.#runRow(runId));
       // Event taint plus the taint the automation was created under (a tainted turn's schedule).
-      const taintSources = mergeTaint(automation.taintSources, taintOf(current.events ?? []));
+      const stored = this.#rowOrUndefined(automation.id)?.taint_sources;
+      const taintSources = mergeTaint(
+        stored == null ? undefined : taintSourcesOf(stored),
+        taintOf(current.events ?? []),
+      );
       const handle = await launcher.launch({
         automation,
         run: current,

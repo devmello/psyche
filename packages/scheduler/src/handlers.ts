@@ -39,16 +39,24 @@ export function createAutomationHandlers(
     "automations.list": async (p) => ({
       automations: await scheduler.list(p.kind === undefined ? {} : { kind: p.kind }),
     }),
-    "automations.create": async (p) => ({
-      automation: await scheduler.create({
-        // The recorded-skill marker is set only by the owner's own action (skills.recording.schedule).
-        ...strip({ ...p, recordedSkill: undefined }),
-        kind: p.kind,
-        title: p.title,
-        schedule: p.schedule,
-        prompt: p.prompt,
-      }),
-    }),
+    "automations.create": async (p) => {
+      if (/^\s*\[psyche\b/i.test(p.prompt)) {
+        throw new PsycheError(
+          "invalid_params",
+          "that prompt is reserved for Psyche's own routines",
+        );
+      }
+      return {
+        automation: await scheduler.create({
+          // The recorded-skill marker is set only by the owner's own action (skills.recording.schedule).
+          ...strip({ ...p, recordedSkill: undefined }),
+          kind: p.kind,
+          title: p.title,
+          schedule: p.schedule,
+          prompt: p.prompt,
+        }),
+      };
+    },
     "automations.update": async ({ automationId, ...patch }) => ({
       automation: await scheduler.update(
         automationId,

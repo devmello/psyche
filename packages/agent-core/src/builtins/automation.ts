@@ -1,4 +1,9 @@
-import { type DailyWorkflowProposal, type MemoryStore, PsycheError } from "@psyche/protocol";
+import {
+  type DailyWorkflowProposal,
+  type MemoryStore,
+  PsycheError,
+  type TaintSource,
+} from "@psyche/protocol";
 import { Type } from "@sinclair/typebox";
 import { type AgentToolRegistration, defineTool } from "../registry.ts";
 import type { TurnToolContext } from "./turn.ts";
@@ -56,6 +61,19 @@ export const ProposeAutomationInput = Type.Object(
   { additionalProperties: false },
 );
 
+/** The turn's sources, deduped; tainted with none recorded still carries one. */
+function dedupeTaint(sources: readonly TaintSource[] | undefined): TaintSource[] {
+  const out: TaintSource[] = [];
+  const seen = new Set<string>();
+  for (const s of sources ?? []) {
+    const key = `${s.sourceKind}:${s.sender ?? ""}:${s.origin ?? ""}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push({ ...s });
+  }
+  return out.length > 0 ? out : [{ sourceKind: "turn" }];
+}
+
 function slug(title: string, salt: string): string {
   const base = title
     .toLowerCase()
@@ -105,7 +123,12 @@ export function proposeAutomationTool(options: {
         notify: p.notify,
         obstacles: p.obstacles,
         ...(p.offerSkill === undefined ? {} : { offerSkill: p.offerSkill }),
-        ...(ctx.taint ? { tainted: true } : {}),
+        ...(ctx.taint
+          ? {
+              tainted: true,
+              taintSources: dedupeTaint(ctx.taintSources),
+            }
+          : {}),
       };
       (ctx as TurnToolContext).turn.emitBlock({ type: "automation_workflow", proposal });
       return {

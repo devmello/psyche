@@ -172,6 +172,7 @@ export const blocksA: Partial<Catalogue> = {
     "{count, plural, one {# ejecución programada} other {# ejecuciones programadas}}",
   "blocks.workflow.runOf": "{name} · {when} ({timezone})",
   "blocks.workflow.does": "Qué hace",
+  "blocks.workflow.prompt": "Instrucciones exactas que ejecutará",
   "blocks.workflow.approvals": "Te pedirá aprobar",
   "blocks.workflow.noApprovals": "No necesita aprobaciones.",
   "blocks.workflow.notify":

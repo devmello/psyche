@@ -378,6 +378,13 @@ export function scheduleTool(
           "pass `at` for a one-time run, or `kind` and `schedule`",
         );
       }
+      // `[psyche:<job> …]` is the prompt of Psyche's own in-process jobs: never from a tool.
+      if (/^\s*\[psyche\b/i.test(p.prompt)) {
+        throw new PsycheError(
+          "invalid_params",
+          "that prompt is reserved for Psyche's own routines",
+        );
+      }
       const automation = await scheduler.create({
         ...fields,
         title: p.title,

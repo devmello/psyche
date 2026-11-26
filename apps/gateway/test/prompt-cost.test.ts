@@ -88,7 +88,14 @@ describe("prompt cost of a one-line chat", () => {
     const names = new Set(tools.map((t) => t.name));
     expect(names.has("load_tools")).toBe(true);
     expect(names.has("tool_search")).toBe(true);
-    for (const heavy of ["artifact.update", "artifact.read", "subagent.spawn", "run_script"]) {
+    for (const heavy of [
+      "artifact.update",
+      "artifact.read",
+      "subagent.spawn",
+      "run_script",
+      "task.start",
+      "install_capability",
+    ]) {
       expect(names.has(heavy), `${heavy} is deferred`).toBe(false);
       expect(
         (req?.deferredTools ?? []).some((d) => d.name === heavy),

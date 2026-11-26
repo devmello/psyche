@@ -161,6 +161,7 @@ export const blocksRest: Partial<Catalogue> = {
   "blocks.workflow.runs": "{count, plural, one {# शेड्यूल्ड रन} other {# शेड्यूल्ड रन}}",
   "blocks.workflow.runOf": "{name} · {when} ({timezone})",
   "blocks.workflow.does": "यह क्या करता है",
+  "blocks.workflow.prompt": "यह जो सटीक निर्देश चलाएगा",
   "blocks.workflow.approvals": "आपसे स्वीकृति मांगेगा",
   "blocks.workflow.noApprovals": "किसी स्वीकृति की ज़रूरत नहीं।",
   "blocks.workflow.notify":

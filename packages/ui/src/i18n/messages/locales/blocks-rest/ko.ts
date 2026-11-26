@@ -165,6 +165,7 @@ export const blocksRest: Partial<Catalogue> = {
   "blocks.workflow.runs": "{count, plural, other {예약 실행 #건}}",
   "blocks.workflow.runOf": "{name} · {when} ({timezone})",
   "blocks.workflow.does": "실행 내용",
+  "blocks.workflow.prompt": "실행할 정확한 지침",
   "blocks.workflow.approvals": "승인을 요청할 내용",
   "blocks.workflow.noApprovals": "승인이 필요하지 않습니다.",
   "blocks.workflow.notify":
