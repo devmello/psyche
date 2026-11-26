@@ -16,6 +16,7 @@ import { computerWatch } from "./computer-watch/hi.ts";
 import { dailyRest } from "./daily-rest/hi.ts";
 import { deckRest } from "./deck-rest/hi.ts";
 import { designRest } from "./design-rest/hi.ts";
+import { desktopSimple } from "./desktop-simple/hi.ts";
 import { everythingRest } from "./everything-rest/hi.ts";
 import { final202611 } from "./final-2026-11/hi.ts";
 import { friction } from "./friction/hi.ts";
@@ -356,6 +357,8 @@ export const hi: Partial<Catalogue> = {
   "chat.thread.forgetNothing": "याद की गई कोई चीज़ “{subject}” से मेल नहीं खाती।",
   "chat.thread.forgetPreview":
     "“{subject}” को भुलाने से {claims, plural, one {# दावा} other {# दावे}} और {chunks, plural, one {# इंडेक्स किया गया नोट} other {# इंडेक्स किए गए नोट}} वापस लिए जाएँगे{hasFiles, select, true {, और {files} संपादित होंगी} other {}}।",
+  "chat.thread.forgetCounts":
+    "यह आपके लोगों के ग्राफ़ से {graph, plural, one {# आइटम} other {# आइटम}}, समीक्षा के इंतज़ार में {review, plural, one {# आइटम} other {# आइटम}}, {lessons, plural, one {# सबक या सबक की पंक्ति} other {# सबक या सबक की पंक्तियाँ}} और {search, plural, one {# खोज प्रविष्टि} other {# खोज प्रविष्टियाँ}} भी हटाता है, और सहेजी गई चैट तथा रन ट्रेस से ये शब्द काट देता है। यह स्थायी है।",
   "chat.thread.forgetConfirm": "भूल जाएँ",
   "chat.thread.forgot": "“{subject}” भुला दिया गया।",
   "chat.thread.forgetFailed": "भुलाना काम नहीं कर सका ({reason})। कुछ नहीं बदला गया।",
@@ -365,6 +368,7 @@ export const hi: Partial<Catalogue> = {
   "chat.thread.exported": "इस थ्रेड को {format} के रूप में एक्सपोर्ट किया गया।",
   "chat.thread.nothingRunning": "इस चैट में कुछ नहीं चल रहा।",
   "chat.thread.stopped": "रोक दिया गया।",
+  "chat.stopped.label": "रोका गया",
   "chat.runFailed.credential":
     "Psyche जवाब नहीं दे सका: आपके मॉडल की API कुंजी मौजूद नहीं है या अस्वीकार कर दी गई। इसे सेटिंग्ज़ → मॉडल में जोड़ें या ठीक करें।",
   "chat.runFailed.generic": "Psyche यह जवाब पूरा नहीं कर सका।",
@@ -492,6 +496,7 @@ export const hi: Partial<Catalogue> = {
   "blocks.approval.status.denied": "अस्वीकृत{hasWhen, select, true { · {when}} other {}}",
   "blocks.approval.status.declinedInChat": "अस्वीकृत — आपने चैट में जवाब दिया",
   "blocks.approval.status.expired": "समय-सीमा समाप्त। कुछ नहीं किया गया।",
+  "blocks.approval.expiredLine": "समय समाप्त · कुछ नहीं किया गया",
   "blocks.approval.status.voidedBecause": "निरस्त: {reason}",
   "blocks.approval.status.voided": "निरस्त। आर्ग्युमेंट बदल गए।",
   "blocks.approval.taint": "इस टर्न में अविश्वसनीय सामग्री पढ़ी गई",
@@ -1050,17 +1055,11 @@ export const hi: Partial<Catalogue> = {
   "shell.sidebar.full": "पूरा साइडबार",
   "shell.sidebar.compact": "संक्षिप्त साइडबार",
   "shell.sidebar.hidden": "छिपा हुआ",
-  "shell.sidebar.filterToggle": "फ़िल्टर",
   "shell.sidebar.forkedFrom": "{parent} से एक साइड चैट",
   "shell.search.results": "परिणाम",
   "shell.search.preview": "प्रीव्यू",
-  "shell.search.hintOpen": "खोलें",
   "shell.search.hintSideChat": "साइड चैट में खोलें",
-  "shell.search.hintFilter": "फ़िल्टर",
   "shell.search.keyCtrlEnter": "Ctrl ↵",
-  "shell.search.keyTab": "Tab",
-  "shell.search.actionHint": "यह कमांड चलाता है।",
-  "shell.search.run": "चलाएँ",
   "shell.search.open": "खोलें",
   "shell.search.openInSideChat": "साइड चैट में खोलें",
   "shell.compact.threads": "थ्रेड",
@@ -2900,7 +2899,6 @@ export const hi: Partial<Catalogue> = {
   "onboarding.agent.taglinePlaceholder": "शांत पंख, सधे हाथ।",
   "onboarding.agent.preview": "प्रीव्यू",
   "onboarding.language.label": "भाषा",
-  "onboarding.language.hint": "आप इसे बाद में सेटिंग्ज़ → रूप-रंग में बदल सकते हैं।",
   "onboarding.permission.why.notifications": "यह विंडो बंद होने पर Psyche को स्वीकृतियाँ माँगने देता है।",
   "onboarding.permission.deniedHint":
     "इसे सिस्टम सेटिंग्ज़ → प्राइवेसी और सुरक्षा में चालू करें; आपके वापस आने पर यह पेज अपडेट हो जाता है।",
@@ -3348,9 +3346,6 @@ export const hi: Partial<Catalogue> = {
   "screens.library.noMatch": "कोई फ़ाइल इन फ़िल्टर से मेल नहीं खाती।",
   "screens.library.askToMake": "{name} से एक बनाने को कहें",
   "screens.library.title": "लाइब्रेरी",
-  "screens.library.meta.count": "{section} · {n, plural, one {# फ़ाइल} other {# फ़ाइलें}}",
-  "screens.library.description":
-    "{name} द्वारा बनाई या प्राप्त की गई फ़ाइलें, हर एक उस टास्क से जुड़ी जिसने इसे बनाया।",
   "screens.library.layout": "लेआउट",
   "screens.library.grid": "ग्रिड",
   "screens.library.list": "सूची",
@@ -3366,8 +3361,6 @@ export const hi: Partial<Catalogue> = {
   "screens.library.col.actions": "कार्रवाइयाँ",
   "screens.library.typeFilter": "प्रकार",
   "screens.library.allTypes": "सभी प्रकार",
-  "screens.library.sourceTask": "स्रोत टास्क",
-  "screens.library.anyTask": "कोई भी टास्क",
   "screens.library.dateFilter": "तारीख़",
   "screens.library.reset": "रीसेट करें",
   "screens.library.trusted": "{name} पर भरोसा किया गया।",
@@ -4013,6 +4006,7 @@ export const hi: Partial<Catalogue> = {
   ...approvalsW3,
   // Fork a plan (docs/design/fork-a-plan-2026.md §9)
   ...planFork,
+  ...desktopSimple,
   // Gateway-authored notices (inbox notifications, security alerts)
   ...notices,
   // Settings > Computer use > Separate desktop (Linux)

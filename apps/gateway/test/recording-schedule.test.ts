@@ -487,7 +487,7 @@ describe("the agent cannot schedule a recording", () => {
     const props = Object.keys(
       (tool.spec.inputSchema as { properties: Record<string, unknown> }).properties,
     );
-    expect(props.sort()).toEqual(["kind", "prompt", "schedule", "timezone", "title"]);
+    expect(props.sort()).toEqual(["at", "kind", "prompt", "schedule", "timezone", "title"]);
   });
 
   it("cannot set or change the marker through the generic automation methods", async () => {

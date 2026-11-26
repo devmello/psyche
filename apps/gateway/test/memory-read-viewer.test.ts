@@ -42,6 +42,12 @@ function build() {
       updatedAt: "2026-10-18T00:00:00.000Z",
     })),
     "memory.files.list": vi.fn(async () => ({ files: FILES })),
+    "memory.forget.preview": vi.fn(async () => ({
+      counts: { markdownFiles: 1 },
+      total: 1,
+      files: ["USER.md"],
+      uncounted: [],
+    })),
     "memory.forget": vi.fn(async () => ({
       retractedClaimIds: ["clm_1"],
       removedChunkIds: ["chk_1"],
@@ -158,6 +164,31 @@ describe("memory.forget per connection (handlers)", () => {
         code: "forbidden",
         details: { reason: "not_desktop" },
       });
+      expect(handlers["memory.forget"]).not.toHaveBeenCalled();
+    });
+  }
+});
+
+describe("memory.forget.preview per connection (handlers)", () => {
+  // The preview is the same word oracle as a dry run, over every store.
+  it.each(["chemotherapy", "Jordan"])(
+    "desktop app and Host CLI preview %j (positive control)",
+    async (subject) => {
+      for (const c of [desktop, hostCli]) {
+        const { run, handlers } = build();
+        expect(await run("memory.forget.preview", c, { subject })).toMatchObject({ total: 1 });
+        expect(handlers["memory.forget.preview"]).toHaveBeenCalledWith({ subject });
+      }
+    },
+  );
+
+  for (const [who, c] of OTHERS) {
+    it(`refuses ${who} and never touches the store`, async () => {
+      const { run, handlers } = build();
+      await expect(
+        run("memory.forget.preview", c, { subject: "chemotherapy" }),
+      ).rejects.toMatchObject({ code: "forbidden", details: { reason: "not_desktop" } });
+      expect(handlers["memory.forget.preview"]).not.toHaveBeenCalled();
       expect(handlers["memory.forget"]).not.toHaveBeenCalled();
     });
   }

@@ -433,3 +433,25 @@ Run the whole table in Safari and again in Chrome. Rows 15.20 to 15.25 also need
 | 15.63 | In an ordinary field labelled "Number", type a test card number (4111 1111 1111 1111), then look on a page where the tree is sparse | The field is painted black in the picture. Clear it and look again: it is not painted |
 | 15.64 | After a successful look, show another step | A small eye shows on the card, and VoiceOver reads the `visionBadge` string for it. It goes away on a page with a usable tree (3 or more fields) |
 | 15.61 | `log stream --predicate 'subsystem == "com.psyche.helper"'` during a look | No image data, labels, titles or values in the log. No picture file appears on disk |
+
+### Owner's pass before turn-on (W9)
+
+Run this once on the owner's Mac with a test PSYCHE_HOME or the installed build, using throwaway forms and never a real account. Points stays off by default (`points.enabled`) until every box below is ticked; flipping the default is a separate change.
+
+| Done | # | Step | Expect |
+| --- | --- | --- | --- |
+| [ ] | 15.70 | `footprint` of the helper before: `footprint $(pgrep -x PsycheHelper)` and note the number | A baseline in MB |
+| [ ] | 15.71 | Safari: a multi-page web form (name, address, a password field, a card field, a Pay button). Start from ⌘K | A ring and note on each field in order, the page change gets a new plan, the arrow appears within 300 ms of Start |
+| [ ] | 15.72 | Chrome: the same form | The same. Chrome shows its accessibility tree only after Accessibility is on: if the fields are not found, the card says it cannot read this page |
+| [ ] | 15.73 | Preview: a fillable PDF form | Fields found, ring on each. An unfillable scan says it cannot read this page |
+| [ ] | 15.74 | A full-screen app (Safari full screen) | Ring and note show over it |
+| [ ] | 15.75 | Two displays: window on the second display, then drag it across | The ring follows to the right display |
+| [ ] | 15.76 | Spaces: switch to another Space and back during a session | The overlay hides and returns, no stray ring on the other Space |
+| [ ] | 15.77 | Esc during a session, with focus in the form | The session ends at once and the ring goes. Esc typed with no session reaches the app |
+| [ ] | 15.78 | A payment page (card number, Pay) | Card fields: "You fill this yourself", no value, no hint. The Pay button: "This button pays. Check the amount, then decide yourself." Never "press Pay" |
+| [ ] | 15.79 | A sensitive field: type a password and an SSN in plain-labelled fields | The note says "You fill this yourself". Psyche never shows what you typed. Look at the audit log: no value in the points rows |
+| [ ] | 15.80 | Click a computer-use action from Chat during a session | Refused with `points_active` |
+| [ ] | 15.81 | Stop the session, wait 10 s, `footprint` again | Within 2 MB of 15.70. During the session it was no more than 20 MB over |
+| [ ] | 15.82 | Activity Monitor during a session while typing | Helper CPU 1% or less on average |
+| [ ] | 15.83 | Open the thread after a Chat-started session | One closing line with counts, no field names or values |
+| [ ] | 15.84 | Rows 15.1 to 15.64 above, run once in Safari and once in Chrome | All pass |

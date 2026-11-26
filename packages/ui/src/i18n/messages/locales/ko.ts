@@ -16,6 +16,7 @@ import { computerWatch } from "./computer-watch/ko.ts";
 import { dailyRest } from "./daily-rest/ko.ts";
 import { deckRest } from "./deck-rest/ko.ts";
 import { designRest } from "./design-rest/ko.ts";
+import { desktopSimple } from "./desktop-simple/ko.ts";
 import { everythingRest } from "./everything-rest/ko.ts";
 import { final202611 } from "./final-2026-11/ko.ts";
 import { friction } from "./friction/ko.ts";
@@ -358,6 +359,8 @@ export const ko: Partial<Catalogue> = {
   "chat.thread.forgetNothing": "“{subject}”와(과) 일치하는 기억이 없습니다.",
   "chat.thread.forgetPreview":
     "“{subject}”을(를) 잊으면 {claims, plural, other {#개의 주장}}과 {chunks, plural, other {#개의 색인된 메모}}가 철회됩니다{hasFiles, select, true { (편집되는 파일: {files})} other {}}.",
+  "chat.thread.forgetCounts":
+    "사람 그래프에서 {graph, plural, other {#개 항목}}, 검토 대기 중인 {review, plural, other {#개 항목}}, {lessons, plural, other {#개의 학습 내용 또는 학습 줄}}, {search, plural, other {#개의 검색 항목}}도 삭제하고, 저장된 채팅과 실행 기록에서도 해당 단어를 제거합니다. 되돌릴 수 없습니다.",
   "chat.thread.forgetConfirm": "잊기",
   "chat.thread.forgot": "“{subject}”을(를) 잊었습니다.",
   "chat.thread.forgetFailed": "잊기에 실패했습니다({reason}). 변경된 것은 없습니다.",
@@ -367,6 +370,7 @@ export const ko: Partial<Catalogue> = {
   "chat.thread.exported": "이 스레드를 {format}(으)로 내보냈습니다.",
   "chat.thread.nothingRunning": "이 채팅에서 실행 중인 것이 없습니다.",
   "chat.thread.stopped": "중지되었습니다.",
+  "chat.stopped.label": "중지됨",
   "chat.runFailed.credential":
     "Psyche가 답할 수 없습니다. 모델의 API 키가 없거나 거부되었습니다. 설정 → 모델에서 추가하거나 수정하십시오.",
   "chat.runFailed.generic": "Psyche가 이 답변을 완료하지 못했습니다.",
@@ -490,6 +494,7 @@ export const ko: Partial<Catalogue> = {
   "blocks.approval.status.denied": "거부됨{hasWhen, select, true { · {when}} other {}}",
   "blocks.approval.status.declinedInChat": "거절됨 — 채팅에서 답장했습니다",
   "blocks.approval.status.expired": "만료되었습니다. 아무것도 실행되지 않았습니다.",
+  "blocks.approval.expiredLine": "만료됨 · 아무것도 실행되지 않았습니다",
   "blocks.approval.status.voidedBecause": "무효화됨: {reason}",
   "blocks.approval.status.voided": "무효화되었습니다. 인수가 변경되었습니다.",
   "blocks.approval.taint": "이 턴에서 신뢰할 수 없는 콘텐츠를 읽음",
@@ -1038,17 +1043,11 @@ export const ko: Partial<Catalogue> = {
   "shell.sidebar.full": "전체 사이드바",
   "shell.sidebar.compact": "간단한 사이드바",
   "shell.sidebar.hidden": "가림",
-  "shell.sidebar.filterToggle": "필터",
   "shell.sidebar.forkedFrom": "{parent}에서 분기된 사이드 채팅",
   "shell.search.results": "결과",
   "shell.search.preview": "미리보기",
-  "shell.search.hintOpen": "열기",
   "shell.search.hintSideChat": "사이드 채팅에서 열기",
-  "shell.search.hintFilter": "필터",
   "shell.search.keyCtrlEnter": "Ctrl ↵",
-  "shell.search.keyTab": "Tab",
-  "shell.search.actionHint": "이 명령을 실행합니다.",
-  "shell.search.run": "실행",
   "shell.search.open": "열기",
   "shell.search.openInSideChat": "사이드 채팅에서 열기",
   "shell.compact.threads": "스레드",
@@ -2889,7 +2888,6 @@ export const ko: Partial<Catalogue> = {
   "onboarding.agent.taglinePlaceholder": "조용한 날개, 세심한 손길.",
   "onboarding.agent.preview": "미리보기",
   "onboarding.language.label": "언어",
-  "onboarding.language.hint": "나중에 설정 → 화면 모드에서 변경할 수 있습니다.",
   "onboarding.permission.why.notifications":
     "이 윈도우가 닫혀 있을 때 Psyche가 승인을 요청할 수 있게 합니다.",
   "onboarding.permission.deniedHint":
@@ -3350,9 +3348,6 @@ export const ko: Partial<Catalogue> = {
   "screens.library.noMatch": "이 필터와 일치하는 파일이 없습니다.",
   "screens.library.askToMake": "{name}에게 만들어 달라고 요청",
   "screens.library.title": "보관함",
-  "screens.library.meta.count": "{section} · {n, plural, other {파일 #개}}",
-  "screens.library.description":
-    "{name}이(가) 만들거나 받은 파일로, 각각 생성한 작업과 연결되어 있습니다.",
   "screens.library.layout": "레이아웃",
   "screens.library.grid": "격자",
   "screens.library.list": "목록",
@@ -3368,8 +3363,6 @@ export const ko: Partial<Catalogue> = {
   "screens.library.col.actions": "동작",
   "screens.library.typeFilter": "유형",
   "screens.library.allTypes": "모든 유형",
-  "screens.library.sourceTask": "출처 작업",
-  "screens.library.anyTask": "모든 작업",
   "screens.library.dateFilter": "날짜",
   "screens.library.reset": "재설정",
   "screens.library.trusted": "{name}을(를) 신뢰했습니다.",
@@ -4012,6 +4005,7 @@ export const ko: Partial<Catalogue> = {
   ...approvalsW3,
   // Fork a plan (docs/design/fork-a-plan-2026.md §9)
   ...planFork,
+  ...desktopSimple,
   // Gateway-authored notices (inbox notifications, security alerts)
   ...notices,
   // Settings > Computer use > Separate desktop (Linux)

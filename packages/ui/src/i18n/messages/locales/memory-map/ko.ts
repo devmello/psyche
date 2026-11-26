@@ -2,8 +2,6 @@ import type { Catalogue } from "../../index.ts";
 
 /** Memory map strings (ko); merged into `../ko.ts`. */
 export const memoryMap: Partial<Catalogue> = {
-  "memory.page.view": "보기",
-  "memory.page.view.list": "목록",
   "memory.page.view.map": "지도",
   "memory.map.title": "메모리 지도",
   "memory.map.canvasLabel":

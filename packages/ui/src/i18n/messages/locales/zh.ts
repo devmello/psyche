@@ -17,6 +17,7 @@ import { connectorGallery } from "./connector-gallery/zh.ts";
 import { connectorsPage } from "./connectors-page/zh.ts";
 import { daily } from "./daily/zh.ts";
 import { design } from "./design/zh.ts";
+import { desktopSimple } from "./desktop-simple/zh.ts";
 import { deviceAccess } from "./device-access/zh.ts";
 import { final202611 } from "./final-2026-11/zh.ts";
 import { friction } from "./friction/zh.ts";
@@ -382,6 +383,8 @@ export const zh: Partial<Catalogue> = {
   "chat.thread.forgetNothing": "没有与“{subject}”匹配的记忆。",
   "chat.thread.forgetPreview":
     "遗忘“{subject}”将撤回 {claims, plural, other {# 条断言}}和 {chunks, plural, other {# 条已索引的笔记}}{hasFiles, select, true {，并编辑 {files}} other {}}。",
+  "chat.thread.forgetCounts":
+    "同时会从人物图谱中删除 {graph, plural, other {# 项}}，删除等待审核的 {review, plural, other {# 项}}、{lessons, plural, other {# 条经验或经验行}}和 {search, plural, other {# 条搜索条目}}，并从已保存的聊天和运行记录中去掉这些词。此操作无法撤销。",
   "chat.thread.forgetConfirm": "遗忘",
   "chat.thread.forgot": "已遗忘“{subject}”。",
   "chat.thread.forgetFailed": "遗忘失败（{reason}）。未做任何更改。",
@@ -391,6 +394,7 @@ export const zh: Partial<Catalogue> = {
   "chat.thread.exported": "已将此会话导出为 {format}。",
   "chat.thread.nothingRunning": "本聊天中没有正在运行的内容。",
   "chat.thread.stopped": "已停止。",
+  "chat.stopped.label": "已停止",
   "chat.runFailed.credential":
     "Psyche 无法回复：你的模型 API 密钥缺失或被拒绝。请在“设置 → 模型”中添加或修正。",
   "chat.runFailed.generic": "Psyche 无法完成此回复。",
@@ -518,6 +522,7 @@ export const zh: Partial<Catalogue> = {
   "blocks.approval.status.denied": "已拒绝{hasWhen, select, true { · {when}} other {}}",
   "blocks.approval.status.declinedInChat": "已拒绝 — 你在聊天中回复了",
   "blocks.approval.status.expired": "已过期。未执行任何操作。",
+  "blocks.approval.expiredLine": "已过期 · 未执行任何操作",
   "blocks.approval.status.voidedBecause": "已作废：{reason}",
   "blocks.approval.status.voided": "已作废。参数已更改。",
   "blocks.approval.taint": "本轮读取了不可信内容",
@@ -1066,17 +1071,11 @@ export const zh: Partial<Catalogue> = {
   "shell.sidebar.full": "完整边栏",
   "shell.sidebar.compact": "紧凑边栏",
   "shell.sidebar.hidden": "已隐藏",
-  "shell.sidebar.filterToggle": "过滤",
   "shell.sidebar.forkedFrom": "从 {parent} 分出的支线聊天",
   "shell.search.results": "结果",
   "shell.search.preview": "预览",
-  "shell.search.hintOpen": "打开",
   "shell.search.hintSideChat": "在支线聊天中打开",
-  "shell.search.hintFilter": "过滤",
   "shell.search.keyCtrlEnter": "Ctrl ↵",
-  "shell.search.keyTab": "Tab",
-  "shell.search.actionHint": "运行此命令。",
-  "shell.search.run": "运行",
   "shell.search.open": "打开",
   "shell.search.openInSideChat": "在支线聊天中打开",
   "shell.compact.threads": "会话",
@@ -2847,7 +2846,6 @@ export const zh: Partial<Catalogue> = {
   "onboarding.agent.taglinePlaceholder": "轻盈的翅膀，细致的双手。",
   "onboarding.agent.preview": "预览",
   "onboarding.language.label": "语言",
-  "onboarding.language.hint": "之后可在“设置 → 外观”中更改。",
   "onboarding.permission.why.notifications": "允许 Psyche 在此窗口关闭时请求批准。",
   "onboarding.permission.deniedHint": "请在“系统设置 → 隐私与安全性”中打开；你回来时此页面会更新。",
   "onboarding.permission.unavailableHint": "Psyche 只能在 Mac 上的 Psyche App 中请求此权限。",
@@ -3287,8 +3285,6 @@ export const zh: Partial<Catalogue> = {
   "screens.library.noMatch": "没有符合这些过滤条件的文件。",
   "screens.library.askToMake": "让 {name} 制作一个",
   "screens.library.title": "资料库",
-  "screens.library.meta.count": "{section} · {n, plural, other {# 个文件}}",
-  "screens.library.description": "{name} 制作或收到的文件，每个都链接到生成它的任务。",
   "screens.library.layout": "布局",
   "screens.library.grid": "网格",
   "screens.library.list": "列表",
@@ -3304,8 +3300,6 @@ export const zh: Partial<Catalogue> = {
   "screens.library.col.actions": "操作",
   "screens.library.typeFilter": "类型",
   "screens.library.allTypes": "所有类型",
-  "screens.library.sourceTask": "来源任务",
-  "screens.library.anyTask": "任何任务",
   "screens.library.dateFilter": "日期",
   "screens.library.reset": "重置",
   "screens.library.trusted": "已信任 {name}。",
@@ -3936,6 +3930,7 @@ export const zh: Partial<Catalogue> = {
   ...approvalsW3,
   // Fork a plan (docs/design/fork-a-plan-2026.md §9)
   ...planFork,
+  ...desktopSimple,
   // Gateway-authored notices (inbox notifications, security alerts)
   ...notices,
   // Settings > Computer use > Separate desktop (Linux)

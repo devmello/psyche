@@ -12,6 +12,7 @@ import { computerWatch } from "./computer-watch/de.ts";
 import { dailyRest } from "./daily-rest/de.ts";
 import { deckRest } from "./deck-rest/de.ts";
 import { designRest } from "./design-rest/de.ts";
+import { desktopSimple } from "./desktop-simple/de.ts";
 import { everythingRest } from "./everything-rest/de.ts";
 import { final202611 } from "./final-2026-11/de.ts";
 import { friction } from "./friction/de.ts";
@@ -355,6 +356,8 @@ export const de: Partial<Catalogue> = {
   "chat.thread.forgetNothing": "Nichts Gemerktes passt zu „{subject}“.",
   "chat.thread.forgetPreview":
     "„{subject}“ zu vergessen nimmt {claims, plural, one {# Aussage} other {# Aussagen}} und {chunks, plural, one {# indizierte Notiz} other {# indizierte Notizen}} zurück{hasFiles, select, true { und bearbeitet {files}} other {}}.",
+  "chat.thread.forgetCounts":
+    "Außerdem werden {graph, plural, one {# Eintrag} other {# Einträge}} aus deinem Personengraphen, {review, plural, one {# Eintrag} other {# Einträge}} in der Prüfung, {lessons, plural, one {# Lektion oder Lektionszeile} other {# Lektionen oder Lektionszeilen}} und {search, plural, one {# Sucheintrag} other {# Sucheinträge}} gelöscht, und die Wörter werden aus gespeicherten Chats und Laufprotokollen entfernt. Das ist endgültig.",
   "chat.thread.forgetConfirm": "Vergessen",
   "chat.thread.forgot": "„{subject}“ vergessen.",
   "chat.thread.forgetFailed": "Vergessen hat nicht funktioniert ({reason}). Nichts wurde geändert.",
@@ -364,6 +367,7 @@ export const de: Partial<Catalogue> = {
   "chat.thread.exported": "Dieser Thread wurde als {format} exportiert.",
   "chat.thread.nothingRunning": "In diesem Chat läuft nichts.",
   "chat.thread.stopped": "Gestoppt.",
+  "chat.stopped.label": "Gestoppt",
   "chat.runFailed.credential":
     "Psyche konnte nicht antworten: Der API-Schlüssel deines Modells fehlt oder wurde abgelehnt. Füge ihn unter „Einstellungen“ → „Modelle“ hinzu oder korrigiere ihn.",
   "chat.runFailed.generic": "Psyche konnte diese Antwort nicht fertigstellen.",
@@ -495,6 +499,7 @@ export const de: Partial<Catalogue> = {
   "blocks.approval.status.denied": "Abgelehnt{hasWhen, select, true { · {when}} other {}}",
   "blocks.approval.status.declinedInChat": "Abgelehnt – du hast im Chat geantwortet",
   "blocks.approval.status.expired": "Abgelaufen. Nichts wurde getan.",
+  "blocks.approval.expiredLine": "Abgelaufen · nichts wurde ausgeführt",
   "blocks.approval.status.voidedBecause": "Ungültig: {reason}",
   "blocks.approval.status.voided": "Ungültig. Die Argumente haben sich geändert.",
   "blocks.approval.taint": "dieser Zug hat nicht vertrauenswürdige Inhalte gelesen",
@@ -1068,17 +1073,11 @@ export const de: Partial<Catalogue> = {
   "shell.sidebar.full": "Volle Seitenleiste",
   "shell.sidebar.compact": "Kompakte Seitenleiste",
   "shell.sidebar.hidden": "Ausgeblendet",
-  "shell.sidebar.filterToggle": "Filter",
   "shell.sidebar.forkedFrom": "Ein Nebenchat aus {parent}",
   "shell.search.results": "Ergebnisse",
   "shell.search.preview": "Vorschau",
-  "shell.search.hintOpen": "öffnen",
   "shell.search.hintSideChat": "in einem Nebenchat öffnen",
-  "shell.search.hintFilter": "filtern",
   "shell.search.keyCtrlEnter": "Ctrl ↵",
-  "shell.search.keyTab": "Tab",
-  "shell.search.actionHint": "Führt diesen Befehl aus.",
-  "shell.search.run": "Ausführen",
   "shell.search.open": "Öffnen",
   "shell.search.openInSideChat": "In einem Nebenchat öffnen",
   "shell.compact.threads": "Threads",
@@ -3007,7 +3006,6 @@ export const de: Partial<Catalogue> = {
   "onboarding.agent.taglinePlaceholder": "Leise Flügel, sorgsame Hände.",
   "onboarding.agent.preview": "Vorschau",
   "onboarding.language.label": "Sprache",
-  "onboarding.language.hint": "Du kannst sie später unter „Einstellungen“ → „Darstellung“ ändern.",
   "onboarding.permission.why.notifications":
     "Lässt Psyche um Genehmigungen bitten, wenn dieses Fenster geschlossen ist.",
   "onboarding.permission.deniedHint":
@@ -3481,9 +3479,6 @@ export const de: Partial<Catalogue> = {
   "screens.library.noMatch": "Keine Dateien passen zu diesen Filtern.",
   "screens.library.askToMake": "{name} bitten, eine zu erstellen",
   "screens.library.title": "Mediathek",
-  "screens.library.meta.count": "{section} · {n, plural, one {# Datei} other {# Dateien}}",
-  "screens.library.description":
-    "Dateien, die {name} erstellt oder erhalten hat, jede mit der Aufgabe verknüpft, aus der sie stammt.",
   "screens.library.layout": "Layout",
   "screens.library.grid": "Raster",
   "screens.library.list": "Liste",
@@ -3499,8 +3494,6 @@ export const de: Partial<Catalogue> = {
   "screens.library.col.actions": "Aktionen",
   "screens.library.typeFilter": "Typ",
   "screens.library.allTypes": "Alle Typen",
-  "screens.library.sourceTask": "Quellaufgabe",
-  "screens.library.anyTask": "Jede Aufgabe",
   "screens.library.dateFilter": "Datum",
   "screens.library.reset": "Zurücksetzen",
   "screens.library.trusted": "{name} wird vertraut.",
@@ -4170,6 +4163,7 @@ export const de: Partial<Catalogue> = {
   ...approvalsW3,
   // Fork a plan (docs/design/fork-a-plan-2026.md §9)
   ...planFork,
+  ...desktopSimple,
   // Gateway-authored notices (inbox notifications, security alerts)
   ...notices,
   // Settings > Computer use > Separate desktop (Linux)

@@ -3282,7 +3282,30 @@ export class MockGateway implements GatewayClient {
             .join("\n");
         }
       }
-      return { retractedClaimIds: claims.map((c) => c.id), removedChunkIds: [], files };
+      return {
+        retractedClaimIds: claims.map((c) => c.id),
+        removedChunkIds: [],
+        files,
+        counts: {
+          markdownFiles: files.length,
+          markdownLines: files.length,
+          claims: claims.length,
+          chunks: 0,
+          graphEntities: 0,
+          graphFacts: 0,
+          graphEdges: 0,
+          graphLoops: 0,
+          graphInteractions: 0,
+          graphCitations: 0,
+          graphOther: 0,
+          reviewItems: 0,
+          quarantine: 0,
+          lessons: 0,
+          lessonLines: 0,
+          feedback: 0,
+          searchDocs: 0,
+        },
+      };
     },
     "memory.export": () => ({
       filename: "psyche-memory.zip",

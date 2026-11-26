@@ -16,6 +16,7 @@ import { computerWatch } from "./computer-watch/it.ts";
 import { dailyRest } from "./daily-rest/it.ts";
 import { deckRest } from "./deck-rest/it.ts";
 import { designRest } from "./design-rest/it.ts";
+import { desktopSimple } from "./desktop-simple/it.ts";
 import { everythingRest } from "./everything-rest/it.ts";
 import { final202611 } from "./final-2026-11/it.ts";
 import { friction } from "./friction/it.ts";
@@ -357,6 +358,8 @@ export const it: Partial<Catalogue> = {
   "chat.thread.forgetNothing": 'Nessun ricordo corrisponde a "{subject}".',
   "chat.thread.forgetPreview":
     'Dimenticare "{subject}" ritira {claims, plural, one {# affermazione} other {# affermazioni}} e {chunks, plural, one {# nota indicizzata} other {# note indicizzate}}{hasFiles, select, true {, modificando {files}} other {}}.',
+  "chat.thread.forgetCounts":
+    "Elimina anche {graph, plural, one {# elemento} other {# elementi}} dal tuo grafo delle persone, {review, plural, one {# elemento} other {# elementi}} in attesa di revisione, {lessons, plural, one {# lezione o riga di lezione} other {# lezioni o righe di lezione}} e {search, plural, one {# voce di ricerca} other {# voci di ricerca}}, e toglie le parole dalle chat salvate e dalle tracce di esecuzione. È permanente.",
   "chat.thread.forgetConfirm": "Dimentica",
   "chat.thread.forgot": 'Dimenticato "{subject}".',
   "chat.thread.forgetFailed":
@@ -367,6 +370,7 @@ export const it: Partial<Catalogue> = {
   "chat.thread.exported": "Thread esportato come {format}.",
   "chat.thread.nothingRunning": "Niente è in esecuzione in questa chat.",
   "chat.thread.stopped": "Interrotto.",
+  "chat.stopped.label": "Interrotto",
   "chat.runFailed.credential":
     "Psyche non è riuscito a rispondere: la chiave API del modello manca o è stata rifiutata. Aggiungila o correggila in Impostazioni → Modelli.",
   "chat.runFailed.generic": "Psyche non è riuscito a completare questa risposta.",
@@ -490,6 +494,7 @@ export const it: Partial<Catalogue> = {
   "blocks.approval.status.denied": "Negato{hasWhen, select, true { · {when}} other {}}",
   "blocks.approval.status.declinedInChat": "Rifiutato: hai risposto in chat",
   "blocks.approval.status.expired": "Scaduto. Non è stato fatto nulla.",
+  "blocks.approval.expiredLine": "Scaduta · non è stato fatto nulla",
   "blocks.approval.status.voidedBecause": "Annullato: {reason}",
   "blocks.approval.status.voided": "Annullato. Gli argomenti sono cambiati.",
   "blocks.approval.taint": "questo turno ha letto contenuti non attendibili",
@@ -1042,17 +1047,11 @@ export const it: Partial<Catalogue> = {
   "shell.sidebar.full": "Barra laterale completa",
   "shell.sidebar.compact": "Barra laterale compatta",
   "shell.sidebar.hidden": "Nascosta",
-  "shell.sidebar.filterToggle": "Filtra",
   "shell.sidebar.forkedFrom": "Una chat secondaria da {parent}",
   "shell.search.results": "Risultati",
   "shell.search.preview": "Anteprima",
-  "shell.search.hintOpen": "apri",
   "shell.search.hintSideChat": "apri in una chat secondaria",
-  "shell.search.hintFilter": "filtra",
   "shell.search.keyCtrlEnter": "Ctrl ↵",
-  "shell.search.keyTab": "Tab",
-  "shell.search.actionHint": "Esegue questo comando.",
-  "shell.search.run": "Esegui",
   "shell.search.open": "Apri",
   "shell.search.openInSideChat": "Apri in una chat secondaria",
   "shell.compact.threads": "Thread",
@@ -2948,7 +2947,6 @@ export const it: Partial<Catalogue> = {
   "onboarding.agent.taglinePlaceholder": "Ali silenziose, mani attente.",
   "onboarding.agent.preview": "Anteprima",
   "onboarding.language.label": "Lingua",
-  "onboarding.language.hint": "Puoi cambiarla più tardi in Impostazioni → Aspetto.",
   "onboarding.permission.why.notifications":
     "Consente a Psyche di chiedere approvazioni quando questa finestra è chiusa.",
   "onboarding.permission.deniedHint":
@@ -3418,9 +3416,6 @@ export const it: Partial<Catalogue> = {
   "screens.library.noMatch": "Nessun file corrisponde a questi filtri.",
   "screens.library.askToMake": "Chiedi a {name} di crearne uno",
   "screens.library.title": "Libreria",
-  "screens.library.meta.count": "{section} · {n, plural, one {# file} other {# file}}",
-  "screens.library.description":
-    "File che {name} ha creato o ricevuto, ciascuno collegato all’attività che l’ha prodotto.",
   "screens.library.layout": "Disposizione",
   "screens.library.grid": "Griglia",
   "screens.library.list": "Elenco",
@@ -3436,8 +3431,6 @@ export const it: Partial<Catalogue> = {
   "screens.library.col.actions": "Azioni",
   "screens.library.typeFilter": "Tipo",
   "screens.library.allTypes": "Tutti i tipi",
-  "screens.library.sourceTask": "Attività di origine",
-  "screens.library.anyTask": "Qualsiasi attività",
   "screens.library.dateFilter": "Data",
   "screens.library.reset": "Ripristina",
   "screens.library.trusted": "{name} considerato attendibile.",
@@ -4085,6 +4078,7 @@ export const it: Partial<Catalogue> = {
   ...approvalsW3,
   // Fork a plan (docs/design/fork-a-plan-2026.md §9)
   ...planFork,
+  ...desktopSimple,
   // Gateway-authored notices (inbox notifications, security alerts)
   ...notices,
   // Settings > Computer use > Separate desktop (Linux)

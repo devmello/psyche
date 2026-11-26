@@ -66,7 +66,7 @@ function slug(title: string, salt: string): string {
 }
 
 export function proposeAutomationTool(options: {
-  timeZone: string;
+  timeZone: string | (() => string);
   newId: () => string;
 }): AgentToolRegistration {
   return defineTool({
@@ -100,7 +100,7 @@ export function proposeAutomationTool(options: {
             .slice(-6),
         ),
         title: p.title,
-        timezone: options.timeZone,
+        timezone: typeof options.timeZone === "function" ? options.timeZone() : options.timeZone,
         runs: p.runs,
         notify: p.notify,
         obstacles: p.obstacles,

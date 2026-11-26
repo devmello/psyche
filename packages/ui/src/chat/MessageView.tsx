@@ -12,7 +12,7 @@ import { type ReactElement, useId, useState } from "react";
 import { Avatar } from "../avatar/Avatar.tsx";
 import { MessageBlocks } from "../blocks/MessageBlocks.tsx";
 import { RegisteredBlock } from "../blocks/registry.tsx";
-import { blocksToShow, useThreadBlocks } from "../blocks/thread-blocks.tsx";
+import { blocksToShow, type ThreadBlockIndex, useThreadBlocks } from "../blocks/thread-blocks.tsx";
 import { Button } from "../components/ui/button.tsx";
 import {
   DropdownMenu,
@@ -44,6 +44,23 @@ export function messageText(message: Message): string {
     .map((b) => (b.type === "text" ? b.md : ""))
     .join("\n")
     .trim();
+}
+
+/**
+ * An agent message with nothing to draw: its tool calls and approvals show in the run's trace
+ * and the dock, its question cards were answered. It renders no row, so no empty name header.
+ */
+export function isEmptyAgentMessage(
+  message: Message,
+  streamingText: string | null | undefined,
+  index: ThreadBlockIndex | null,
+): boolean {
+  return (
+    message.role === "agent" &&
+    !streamingText &&
+    message.blocks.length > 0 &&
+    blocksToShow(message, index).length === 0
+  );
 }
 
 export interface MessageViewProps {
@@ -140,14 +157,9 @@ export function MessageView({
     );
   }
 
-  // A message whose only content was answered question cards leaves no empty row behind.
-  if (
-    message.role === "agent" &&
-    !streamingText &&
-    message.blocks.some((b) => b.type === "question") &&
-    blocksToShow(message, index).length === 0
-  )
-    return null;
+  // A message with nothing to show (answered question cards, calls the trace carries) leaves no
+  // empty row, and no empty name header, behind.
+  if (isEmptyAgentMessage(message, streamingText, index)) return null;
 
   // Teaching lives in the ⋯ menu (no thumbs): it saves a local lesson, never provider feedback.
   const canTeach = message.role === "agent" && !streamingText && imported !== true;

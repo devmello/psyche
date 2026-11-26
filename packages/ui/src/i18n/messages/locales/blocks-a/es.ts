@@ -120,6 +120,8 @@ export const blocksA: Partial<Catalogue> = {
   "blocks.approval.whyMode": "El modo {mode} pregunta antes de una acción que {effect}.",
   "blocks.details.params": "Detalles",
   "blocks.details.reason": "Motivo",
+  "blocks.details.when": "Cuándo",
+  "blocks.details.whatItWillDo": "Qué hará",
   "blocks.approval.answerOnHost":
     "Responde en {host}, o configura Touch ID para las aprobaciones en este ordenador en Ajustes → Dispositivos.",
   "blocks.approval.rateLimited":

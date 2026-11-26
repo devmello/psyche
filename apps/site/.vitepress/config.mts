@@ -87,6 +87,7 @@ export default defineConfig({
           page("Channels", "/using/channels"),
           page("Computer use", "/using/computer-use"),
           page("Dictation", "/using/dictation"),
+          page("Psyche points", "/using/points"),
           page("Skills", "/using/skills"),
           page("Credentials and payments", "/using/credentials-and-payments"),
           page("VM mode", "/using/vm-mode"),
