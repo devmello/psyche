@@ -99,5 +99,4 @@ export const approvals = {
   "approvals.plainWhy.outsideNew": "Psyche read something from outside, and this is new to it.",
   "approvals.plainWhy.outsideCommand":
     "Psyche read something from outside, and this command could reach beyond its folder.",
-  "approvals.plainWhy.outsideWorkspace": "This is outside the folder Psyche works in.",
 } as const;

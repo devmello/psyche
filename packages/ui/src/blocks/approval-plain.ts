@@ -50,17 +50,19 @@ function reachesNetwork(details: ApprovalRequest["details"] | undefined): boolea
 }
 
 /**
- * The line under the card's title: what the action does in plain words ("Changes files · Psyche
- * read something from outside first"). The kind's own title ("Run command in sandbox") is the
- * Gateway's template wording, shared with the channels, and stays off the desktop card: the
- * heading already says what Psyche wants to do.
+ * The line under the card's heading: what the action does in plain words ("Changes files ·
+ * Psyche read something from outside first"). `templateLine` is the Gateway template's first
+ * line; its kind title ("Fill credential") leads when the heading is the Gateway's own summary,
+ * and is null when the plain sentence already says what Psyche wants to do.
  */
 export function plainHeader(
   a: Pick<ApprovalRequest, "kind" | "sideEffect" | "taint"> & {
     details?: ApprovalRequest["details"];
   },
+  templateLine: string | null = null,
 ): string {
-  return [plainEffect(a), a.taint ? t("approvals.effect.untrusted") : null]
+  const title = templateLine === null ? null : (templateLine.split(" · ")[0] ?? templateLine);
+  return [title, plainEffect(a), a.taint ? t("approvals.effect.untrusted") : null]
     .filter((x): x is string => x !== null && x !== "")
     .join(" · ");
 }
@@ -101,7 +103,10 @@ export function plainTitle(
     if (d.onMachine === true) return null;
     const command = commandLine(a.details);
     if (command === null || command.length > MAX_COMMAND_CHARS) return null;
-    const folder = folderName(d.cwd);
+    // A coding run's `cwd` is a path inside the sandbox ("/workspace/repo"), not a folder the
+    // owner knows: name the host folder from `repo`, or none.
+    const sandboxCwd = typeof d.cwd === "string" && /^\/workspace(\/|$)/.test(d.cwd);
+    const folder = folderName(typeof d.repo === "string" ? d.repo : sandboxCwd ? null : d.cwd);
     return t("approvals.plain.run", {
       who: persona,
       command,
@@ -110,6 +115,8 @@ export function plainTitle(
     });
   }
   if (a.kind === "file_write" && typeof d.path === "string") {
+    // A patch names several files under a repository root: the Gateway's summary lists them.
+    if (d.operation === "patch" || Array.isArray(d.files)) return null;
     const file = pathBasename(d.path);
     if (file === "") return null;
     const folder = folderName(pathDirname(d.path));
@@ -125,10 +132,9 @@ export function plainTitle(
 }
 
 const REASONS: readonly (readonly [string | RegExp, string])[] = [
-  [/^exec always asks\b/, "approvals.plainWhy.commands"],
+  ["exec always asks", "approvals.plainWhy.commands"],
   ["read-only commands ask in this mode or with the setting off", "approvals.plainWhy.commands"],
   ["user ask rule", "approvals.plainWhy.yourRule"],
-  ["write outside the workspace", "approvals.plainWhy.outsideWorkspace"],
   ["srt is not set up", "approvals.plainWhy.noSandbox"],
   ["protected memory files always ask", "approvals.plainWhy.protectedFiles"],
   ["pushes always ask", "approvals.plainWhy.push"],
@@ -147,7 +153,7 @@ const REASONS: readonly (readonly [string | RegExp, string])[] = [
  * shows it as sent.
  */
 export function plainReason(reason: string): string | null {
-  const text = reason.trim().replace(/^[A-Za-z]+ mode; /, "");
+  const text = reason.trim();
   const hit = REASONS.find(([match]) =>
     typeof match === "string" ? match === text : match.test(text),
   );

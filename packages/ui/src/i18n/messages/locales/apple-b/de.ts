@@ -26,5 +26,4 @@ export const appleB: Partial<Catalogue> = {
   "blocks.toolRun.spoken":
     "{kind, select, command {Befehl ausgeführt} write {Datei gespeichert} edit {Datei bearbeitet} read {Datei gelesen} web {Im Web gesucht} mail {E-Mail verwendet} calendar {Kalender verwendet} memory {Gedächtnis verwendet} other {Werkzeug verwendet}}",
   "blocks.toolRun.line.save": "{file}{hasFolder, select, true { in {folder}} other {}} speichern",
-  "approvals.plainWhy.outsideWorkspace": "Das liegt außerhalb des Ordners, in dem Psyche arbeitet.",
 };

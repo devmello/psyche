@@ -27,6 +27,4 @@ export const appleB: Partial<Catalogue> = {
     "{kind, select, command {Commande exécutée} write {Fichier enregistré} edit {Fichier modifié} read {Fichier lu} web {Recherche sur le web} mail {E-mail utilisé} calendar {Calendrier utilisé} memory {Mémoire utilisée} other {Outil utilisé}}",
   "blocks.toolRun.line.save":
     "Enregistrer {file}{hasFolder, select, true { dans {folder}} other {}}",
-  "approvals.plainWhy.outsideWorkspace":
-    "Ceci est en dehors du dossier dans lequel Psyche travaille.",
 };

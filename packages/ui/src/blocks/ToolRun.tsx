@@ -142,6 +142,8 @@ export function plainToolLine(item: ToolCallItem): string {
       });
     }
   }
+  // Only a file path is cut down: a line holding an address (`https://…/install.sh`) stays whole.
+  if (block.level1.includes("://")) return block.level1;
   return block.level1.replace(PATH_IN_LINE, (p) => pathBasename(p));
 }
 

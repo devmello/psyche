@@ -1,5 +1,5 @@
 import type { ApprovalRequest, TaskStatus } from "@psyche/protocol";
-import { render, screen, within } from "@testing-library/react";
+import { cleanup, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { ApprovalCard } from "../src/blocks/ApprovalCard.tsx";
 import { plainReason, plainTitle } from "../src/blocks/approval-plain.ts";
@@ -20,46 +20,102 @@ import { createFixtureWorld, FIXTURE_NOW, IDS } from "../src/fixtures/index.ts";
 
 const NOW = Date.parse(FIXTURE_NOW);
 
-function exec(details: Record<string, unknown>): ApprovalRequest {
+/** An approval as the Gateway sends it for `exec_host` (compose/exec-host.ts describeCall). */
+function execHost(details: Record<string, unknown> = {}): ApprovalRequest {
   const base = createFixtureWorld().approvals.find((a) => a.kind === "exec");
   if (!base) throw new Error("no exec approval fixture");
   return {
     ...base,
+    kind: "exec_host",
     status: "pending",
     requestedBy: { ...base.requestedBy, agent: "Wren" },
-    details: { ...base.details, ...details },
+    details: {
+      argv: ["git", "log"],
+      cwd: "~/Projects/psyche",
+      env: ["GIT_PAGER=sh -c evil-pager"],
+      executable: "/usr/bin/git",
+      allowedDomains: ["registry.example.org"],
+      network: "proxy",
+      ...details,
+    },
   } as ApprovalRequest;
+}
+
+/** `code.run` (coding/tools.ts): sandbox cwd, the host repository in `repo`. */
+const codeRun = (details: Record<string, unknown> = {}) =>
+  ({
+    ...execHost(),
+    kind: "exec",
+    details: {
+      argv: ["pnpm", "test"],
+      cwd: "/workspace/repo",
+      network: "none",
+      repo: "/Users/me/Projects/atlas",
+      ...details,
+    },
+  }) as ApprovalRequest;
+
+/** `code.edit` (coding/tools.ts): the repository root, every file, `operation: "patch"`. */
+const codeEdit = () =>
+  ({
+    ...execHost(),
+    kind: "file_write",
+    summary: "Edit src/a.ts, .husky/pre-commit in psyche (+3 \u22120)",
+    details: {
+      path: "/Users/me/Projects/psyche",
+      operation: "patch",
+      files: ["src/a.ts", ".husky/pre-commit"],
+    },
+  }) as ApprovalRequest;
+
+/** Not hidden: no ancestor is a closed `<details>` (jsdom's getByText sees closed content). */
+function visible(el: Element): boolean {
+  for (let n: Element | null = el; n; n = n.parentElement) {
+    if (n.tagName === "DETAILS" && !(n as HTMLDetailsElement).open) {
+      const inSummary = el.closest("summary")?.parentElement === n;
+      if (!inSummary) return false;
+    }
+  }
+  return true;
 }
 
 describe("plainTitle", () => {
   it("says who wants to run what and where, folder by its name", () => {
-    expect(plainTitle(exec({}), "Wren")).toBe("Wren wants to run `npm install` in psyche.");
+    expect(plainTitle(execHost(), "Wren")).toBe("Wren wants to run `git log` in psyche.");
+  });
+
+  it("names the host repository of a coding run, never the sandbox path", () => {
+    expect(plainTitle(codeRun(), "Wren")).toBe("Wren wants to run `pnpm test` in atlas.");
+    // No `repo` (a harness Bash card): no folder, never "repo".
+    const noRepo = codeRun({ repo: undefined });
+    expect(plainTitle(noRepo, "Wren")).toBe("Wren wants to run `pnpm test`.");
   });
 
   it("leaves a long command and a paired machine's command to the Gateway summary", () => {
-    const long = exec({ argv: ["echo", "x".repeat(200)] });
-    expect(plainTitle(long, "Wren")).toBeNull();
-    expect(plainTitle(exec({ onMachine: true }), "Wren")).toBeNull();
+    expect(plainTitle(execHost({ argv: ["echo", "x".repeat(200)] }), "Wren")).toBeNull();
+    expect(plainTitle(execHost({ onMachine: true }), "Wren")).toBeNull();
   });
 
-  it("names a file save by its file and folder, create or change", () => {
-    const save = {
-      kind: "file_write",
-      details: { path: "~/Documents/Taxes/letter.md", mode: "create" },
-    } as const;
-    expect(plainTitle(save as never, "Wren")).toBe("Wren wants to save letter.md in Taxes.");
-    const edit = { ...save, details: { ...save.details, mode: "overwrite" } };
-    expect(plainTitle(edit as never, "Wren")).toBe("Wren wants to change letter.md in Taxes.");
+  it("names a file save by its file and folder, and leaves a patch to its summary", () => {
+    const save = { kind: "file_write", details: { path: "~/Documents/Taxes/letter.md" } } as const;
+    expect(plainTitle(save as never, "Wren")).toBe("Wren wants to change letter.md in Taxes.");
+    const create = { ...save, details: { ...save.details, mode: "create" } };
+    expect(plainTitle(create as never, "Wren")).toBe("Wren wants to save letter.md in Taxes.");
+    expect(plainTitle(codeEdit(), "Wren")).toBeNull();
+    const patchOnly = { kind: "file_write", details: { path: "/x/y", operation: "patch" } };
+    expect(plainTitle(patchOnly as never, "Wren")).toBeNull();
   });
 });
 
 describe("plainReason", () => {
   const mapped: [string, RegExp][] = [
-    ["balanced mode; exec always asks", /^You asked to approve commands before they run\.$/],
+    [
+      "read-only commands ask in this mode or with the setting off",
+      /^You asked to approve commands before they run\.$/,
+    ],
     ["pushes always ask", /Publishing your work always needs your OK/],
     ["user ask rule", /You set a rule to ask first/],
-    ["balanced mode; write outside the workspace", /outside the folder Psyche works in/],
-    ["balanced mode; protected memory files always ask", /protected/],
+    ["protected memory files always ask", /protected/],
     ["a command on this Mac in a tainted turn", /read something from outside/],
   ];
   it.each(mapped)("maps %s", (reason, plain) => {
@@ -70,6 +126,7 @@ describe("plainReason", () => {
   it("returns null for a reason with no mapping, and for near misses", () => {
     expect(plainReason("the form posts to https://x.test")).toBeNull();
     expect(plainReason("exec asks about something else")).toBeNull();
+    expect(plainReason("exec always asks, and the form posts to https://x.test")).toBeNull();
     expect(plainReason("pushes ask")).toBeNull();
   });
 });
@@ -87,35 +144,71 @@ describe("the approval card in plain words", () => {
       />,
     );
 
-  it("heads a command with one sentence, folds the table under Details and explains why plainly", () => {
-    const { container } = show(exec({}));
+  it("heads a command with one sentence and keeps every row visible", () => {
+    const { container } = show(execHost());
     expect(screen.getByRole("heading", { level: 3 }).textContent).toBe(
-      "Wren wants to run `npm install` in psyche.",
+      "Wren wants to run `git log` in psyche.",
     );
-    const fold = screen.getByTestId("approval-details-fold");
-    expect(fold.tagName).toBe("DETAILS");
-    expect((fold as HTMLDetailsElement).open).toBe(false);
-    expect(within(fold).getByText("Details")).toBeTruthy();
-    expect(within(fold).getByText("Folder")).toBeTruthy();
-    expect(container.textContent).toContain("You asked to approve commands before they run.");
-    expect(container.textContent).not.toContain("exec always asks");
+    // The env value, the resolved program and the network are what the sentence leaves out.
+    for (const text of [/GIT_PAGER=sh -c evil-pager/, /\/usr\/bin\/git/]) {
+      const hit = screen.getAllByText(text);
+      expect(hit.some(visible)).toBe(true);
+    }
+    expect(container.textContent).toContain("registry.example.org");
+    expect(container.querySelector("details")).toBeNull();
     expect(container.textContent).not.toContain("Run command in sandbox");
   });
 
-  it("keeps the rows open and the summary as the heading for a command too long to quote", () => {
-    show(exec({ argv: ["echo", "x".repeat(200)] }));
-    expect(screen.queryByTestId("approval-details-fold")).toBeNull();
+  it("names the host repository of a coding run and shows the sandbox path as a row", () => {
+    const { container } = show(codeRun());
     expect(screen.getByRole("heading", { level: 3 }).textContent).toBe(
-      "Run `npm install` in ~/Projects/psyche",
+      "Wren wants to run `pnpm test` in atlas.",
+    );
+    expect(container.textContent).toContain("/workspace/repo");
+  });
+
+  it("shows the Gateway summary naming the files for a patch, not a folder sentence", () => {
+    show(codeEdit());
+    const heading = screen.getByRole("heading", { level: 3 }).textContent ?? "";
+    expect(heading).toContain("src/a.ts");
+    expect(heading).not.toMatch(/wants to change psyche/);
+  });
+
+  it("keeps the Gateway's kind title when there is no sentence", () => {
+    const { container } = show(codeEdit());
+    expect(container.querySelector("[data-card-header]")?.textContent).toMatch(/^Write file · /);
+    // Control: a plain sentence replaces the title.
+    cleanup();
+    const again = show(execHost());
+    expect(again.container.querySelector("[data-card-header]")?.textContent).not.toMatch(
+      /^Run command/,
     );
   });
 
+  it("explains why in plain words when the engine's reason maps, as sent otherwise", () => {
+    const mappedCard = execHost({
+      reason: "read-only commands ask in this mode or with the setting off",
+    });
+    const { container } = show(mappedCard);
+    expect(container.textContent).toContain("You asked to approve commands before they run.");
+    cleanup();
+    const raw = show(execHost({ reason: "the form posts to https://x.test" }));
+    expect(raw.container.textContent).toContain("the form posts to https://x.test");
+  });
+
   it("shows the label neutral while pending, and keeps the one amber hairline", () => {
-    const { container } = show(exec({}));
+    const { container } = show(execHost());
     const label = screen.getByText("Approval needed");
     expect(label.className).toContain("text-label-secondary");
     expect(label.className).not.toContain("approval");
     expect(container.querySelector("fieldset")?.className).toContain("border-approval-border");
+  });
+
+  it("lets a long unbroken command wrap inside the heading", () => {
+    show(execHost({ argv: ["curl", "https://example.org/" + "a".repeat(90)] }));
+    expect(screen.getByRole("heading", { level: 3 }).className).toContain(
+      "[overflow-wrap:anywhere]",
+    );
   });
 });
 
@@ -136,7 +229,10 @@ describe("tool rows in plain words", () => {
     expect(plainToolLine(item("read.file", "Read ~/Documents/Taxes/notes.md"))).toBe(
       "Read notes.md",
     );
-    // Control: a line with no path is untouched.
+    // An address is never shortened; control: a line with no path is untouched.
+    expect(
+      plainToolLine(item("web.fetch", "Fetched https://evil.example/payload/install.sh")),
+    ).toBe("Fetched https://evil.example/payload/install.sh");
     expect(plainToolLine(item("gmail.send", "Sent to jane"))).toBe("Sent to jane");
   });
 
