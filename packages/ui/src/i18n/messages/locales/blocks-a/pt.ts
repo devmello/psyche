@@ -117,7 +117,7 @@ export const blocksA: Partial<Catalogue> = {
   "blocks.approval.sideEffect.destructive":
     "altera ajustes ou dados que podem ser difíceis de desfazer",
   "blocks.approval.sideEffect.financial": "envolve dinheiro",
-  "blocks.approval.whyMode": "O modo {mode} pergunta antes de uma ação que {effect}.",
+  "blocks.approval.whyMode": "Você pediu para aprovar isto no modo {mode}, pois {effect}.",
   "blocks.details.params": "Detalhes",
   "blocks.details.reason": "Motivo",
   "blocks.details.when": "Quando",

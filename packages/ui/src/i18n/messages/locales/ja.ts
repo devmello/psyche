@@ -2,6 +2,7 @@ import type { Catalogue } from "../index.ts";
 import { actionErrors } from "./action-errors/ja.ts";
 import { agentRest } from "./agent-rest/ja.ts";
 import { appleA } from "./apple-a/ja.ts";
+import { appleB } from "./apple-b/ja.ts";
 import { appleE1 } from "./apple-e1/ja.ts";
 import { appleE2 } from "./apple-e2/ja.ts";
 import { approvalsW3 } from "./approvals-w3/ja.ts";
@@ -3913,6 +3914,7 @@ export const ja: Partial<Catalogue> = {
   // Fork a plan (docs/design/fork-a-plan-2026.md §9)
   ...planFork,
   ...desktopSimple,
+  ...appleB,
   ...appleE1,
   // Gateway-authored notices (inbox notifications, security alerts)
   ...notices,
