@@ -177,8 +177,8 @@ describe("search surface (redesign §5.5)", () => {
       </StoryWorld>,
     );
     const chips = screen.getByRole("list", { name: "Active filters" });
-    expect(within(chips).getByText("in: Feed")).toBeTruthy();
-    await userEvent.click(within(chips).getByRole("button", { name: "Remove filter in: Feed" }));
+    expect(within(chips).getByText("in: Home")).toBeTruthy();
+    await userEvent.click(within(chips).getByRole("button", { name: "Remove filter in: Home" }));
     expect(screen.getByRole("combobox")).toHaveProperty("value", "dentist");
   });
 

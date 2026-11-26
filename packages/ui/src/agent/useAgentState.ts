@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import type { AvatarState } from "../avatar/Avatar.tsx";
 import { useApprovals, useQuestions, useStoreState, useTasks } from "../data/index.ts";
+import { countWaiting } from "../data/waiting.ts";
 import { t } from "../i18n/core.ts";
 
 export interface AgentStatus {
@@ -44,9 +45,8 @@ export function useAgentStatus(
   return useMemo(() => {
     const list = Object.values(tasks).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
     const running = list.filter((t) => t.status === "running" || t.status === "queued");
-    const pendingApprovals = Object.values(approvals).filter((a) => a.status === "pending").length;
-    const openQuestions = Object.values(questions).filter((q) => q.status === "open").length;
-    const needsYou = pendingApprovals + openQuestions;
+    // One rule with the inspector tab (`countWaiting`); an expired approval leaves when its status flips.
+    const needsYou = countWaiting(approvals, questions);
     const latest = list[0];
     const current = running[0];
     const step = current?.checklist.find((c) => c.status === "in_progress")?.text;

@@ -104,7 +104,7 @@ describe("parseSearchQuery", () => {
 describe("SearchScreen", () => {
   it("shows the empty-query state", () => {
     setup(<SearchScreen debounceMs={0} />);
-    expect(screen.getByText(/Search threads, tasks, memory, Library and Feed/)).toBeTruthy();
+    expect(screen.getByText(/Search threads, tasks, memory, Library and Home/)).toBeTruthy();
   });
 
   it("groups results by scope with counts and opens a result's route", async () => {
@@ -112,17 +112,17 @@ describe("SearchScreen", () => {
     await user.type(screen.getByRole("combobox", { name: "Search everything" }), "dentist");
     expect(await screen.findByRole("group", { name: "Threads (1)" })).toBeTruthy();
     expect(screen.getByRole("group", { name: "Tasks (1)" })).toBeTruthy();
-    expect(screen.getByRole("group", { name: "Feed (1)" })).toBeTruthy();
+    expect(screen.getByRole("group", { name: "Home (1)" })).toBeTruthy();
     await user.click(screen.getByRole("option", { name: /^Dentist booking:\s*running/ }));
     expect(navigate).toHaveBeenCalledWith(`/agent/activity/${IDS.tasks.dentist}`);
   });
 
   it("sends scopes from typed filters and shows removable chips", async () => {
     const { callsTo, user } = setup(<SearchScreen debounceMs={0} initialQuery="in:feed dentist" />);
-    expect(await screen.findByRole("group", { name: "Feed (1)" })).toBeTruthy();
+    expect(await screen.findByRole("group", { name: "Home (1)" })).toBeTruthy();
     expect(screen.queryByRole("group", { name: /Threads/ })).toBeNull();
     expect(callsTo("search.query").at(-1)?.params).toEqual({ query: "dentist", scopes: ["feed"] });
-    const feedChip = screen.getByRole("button", { name: "in: Feed" });
+    const feedChip = screen.getByRole("button", { name: "in: Home" });
     expect(feedChip.getAttribute("aria-pressed")).toBe("true");
     expect(screen.getByRole("button", { name: "All" }).getAttribute("aria-pressed")).toBe("false");
     await user.click(feedChip);

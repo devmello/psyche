@@ -3,6 +3,7 @@ import { actionErrors } from "./action-errors/pt.ts";
 import { agentA } from "./agent-a/pt.ts";
 import { appleA } from "./apple-a/pt.ts";
 import { appleB } from "./apple-b/pt.ts";
+import { appleD } from "./apple-d/pt.ts";
 import { appleE1 } from "./apple-e1/pt.ts";
 import { appleE2 } from "./apple-e2/pt.ts";
 import { approvalsW3 } from "./approvals-w3/pt.ts";
@@ -2848,7 +2849,7 @@ export const pt: Partial<Catalogue> = {
   "screens.search.scope.tasks": "Tarefas",
   "screens.search.scope.memory": "Memória",
   "screens.search.scope.library": "Biblioteca",
-  "screens.search.scope.feed": "Feed",
+  "screens.search.scope.feed": "Início",
   "screens.search.scope.ideas": "Ideias",
   "screens.search.scope.goals": "Metas",
   "screens.search.scope.connectors": "Conectores",
@@ -2860,7 +2861,7 @@ export const pt: Partial<Catalogue> = {
   "screens.search.example": "dentista",
   "screens.search.tryExample": "Experimente “{example}”",
   "screens.search.intro":
-    "Busque em conversas, tarefas, memória, Biblioteca e Feed. Refine com in:feed, type:pdf ou from:nome.",
+    "Pesquise em conversas, tarefas, memória, Biblioteca e Início. Refine com type:pdf ou from:name.",
   "screens.search.addWord": "Adicione uma palavra para buscar.",
   "screens.search.searching": "Buscando",
   "screens.search.failed": "A busca falhou",
@@ -2918,7 +2919,7 @@ export const pt: Partial<Catalogue> = {
   "screens.ideas.cadence": "Frequência",
   "screens.ideas.repeats": "Repete no horário que ela propõe; altere depois em Agenda.",
   "screens.ideas.viewSkill": "Ver SKILL.md",
-  "screens.ideas.accept": "Vamos lá",
+  "screens.ideas.accept": "Iniciar tarefa",
   "screens.ideas.added": "“{title}” foi adicionada à Agenda.",
   "screens.ideas.started": "{name} começou “{title}”.",
   "screens.ideas.open": "Abrir",
@@ -3082,7 +3083,7 @@ export const pt: Partial<Catalogue> = {
   "screens.inbox.saveFailed": "O Psyche não conseguiu salvar isso",
   "screens.inbox.retryFailed": "O Psyche não conseguiu tentar “{title}” novamente",
   "screens.inbox.kind.approval": "Aprovação",
-  "screens.inbox.kind.input_needed": "Resposta",
+  "screens.inbox.kind.input_needed": "Pergunta para você",
   "screens.inbox.kind.task_done": "Concluída",
   "screens.inbox.kind.task_failed": "Falhou",
   "screens.inbox.kind.proactive": "Ideia",
@@ -3216,7 +3217,7 @@ export const pt: Partial<Catalogue> = {
   "screens.library.meetingNotes.action": "Criar notas da reunião",
   "screens.library.meetingNotes.running":
     "Criando as notas. Gravações longas podem demorar, até quatro horas de áudio.",
-  "screens.library.meetingNotes.done": "As notas estão prontas no seu Feed.",
+  "screens.library.meetingNotes.done": "As notas estão prontas em Início.",
   "screens.library.meetingNotes.open": "Abrir notas",
   "screens.library.meetingNotes.failed": "O Psyche não conseguiu criar as notas ({reason}).",
   "screens.library.trust": "Confiar neste arquivo",
@@ -3914,4 +3915,5 @@ export const pt: Partial<Catalogue> = {
   ...machines,
   ...actionErrors,
   ...appleA,
+  ...appleD,
 };

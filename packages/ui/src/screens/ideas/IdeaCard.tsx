@@ -34,6 +34,22 @@ export const IDEA_KIND_LABEL: Record<Idea["kind"], string> = {
   },
 };
 
+/** The accept button says what it does, in plain words, for each kind of idea. */
+function acceptLabel(kind: Idea["kind"]): string {
+  switch (kind) {
+    case "automation":
+      return t("screens.ideas.accept.automation");
+    case "skill":
+      return t("screens.ideas.accept.skill");
+    case "goal":
+      return t("screens.ideas.accept.goal");
+    case "connector":
+      return t("screens.ideas.accept.connector");
+    default:
+      return t("screens.ideas.accept");
+  }
+}
+
 /** Which goal card an idea is, read from its evidence (`goal_checkin`, `goal_stalled`). */
 export function goalCardKind(idea: Pick<Idea, "evidence">): "checkin" | "resume" | null {
   for (const e of idea.evidence) {
@@ -216,7 +232,7 @@ export function IdeaCard({
             )
           }
         >
-          {goalCard === null ? t("screens.ideas.accept") : t("screens.ideas.start")}
+          {goalCard === null ? acceptLabel(idea.kind) : t("screens.ideas.start")}
         </Button>
         <DropdownMenu>
           <DropdownMenuTrigger

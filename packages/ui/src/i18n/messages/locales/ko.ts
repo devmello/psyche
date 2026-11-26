@@ -3,6 +3,7 @@ import { actionErrors } from "./action-errors/ko.ts";
 import { agentRest } from "./agent-rest/ko.ts";
 import { appleA } from "./apple-a/ko.ts";
 import { appleB } from "./apple-b/ko.ts";
+import { appleD } from "./apple-d/ko.ts";
 import { appleE1 } from "./apple-e1/ko.ts";
 import { appleE2 } from "./apple-e2/ko.ts";
 import { approvalsW3 } from "./approvals-w3/ko.ts";
@@ -2847,7 +2848,7 @@ export const ko: Partial<Catalogue> = {
   "screens.search.scope.tasks": "작업",
   "screens.search.scope.memory": "메모리",
   "screens.search.scope.library": "보관함",
-  "screens.search.scope.feed": "피드",
+  "screens.search.scope.feed": "홈",
   "screens.search.scope.ideas": "아이디어",
   "screens.search.scope.goals": "목표",
   "screens.search.scope.connectors": "커넥터",
@@ -2859,7 +2860,7 @@ export const ko: Partial<Catalogue> = {
   "screens.search.example": "치과",
   "screens.search.tryExample": "“{example}” 검색해 보기",
   "screens.search.intro":
-    "스레드, 작업, 메모리, 보관함 및 피드를 검색합니다. in:feed, type:pdf 또는 from:이름으로 범위를 좁힐 수 있습니다.",
+    "스레드, 작업, 메모리, 라이브러리, 홈을 검색합니다. type:pdf 또는 from:name으로 좁혀 보세요.",
   "screens.search.addWord": "검색할 단어를 입력하십시오.",
   "screens.search.searching": "검색 중",
   "screens.search.failed": "검색 실패",
@@ -2917,7 +2918,7 @@ export const ko: Partial<Catalogue> = {
   "screens.ideas.cadence": "주기",
   "screens.ideas.repeats": "제안된 일정에 따라 반복됩니다. 나중에 예정에서 변경하십시오.",
   "screens.ideas.viewSkill": "SKILL.md 보기",
-  "screens.ideas.accept": "진행하기",
+  "screens.ideas.accept": "작업 시작",
   "screens.ideas.added": "“{title}”을(를) 예정에 추가했습니다.",
   "screens.ideas.started": "{name}이(가) “{title}”을(를) 시작했습니다.",
   "screens.ideas.open": "열기",
@@ -3081,7 +3082,7 @@ export const ko: Partial<Catalogue> = {
   "screens.inbox.saveFailed": "Psyche가 저장할 수 없습니다",
   "screens.inbox.retryFailed": "Psyche가 “{title}”을(를) 다시 시도할 수 없습니다",
   "screens.inbox.kind.approval": "승인",
-  "screens.inbox.kind.input_needed": "입력",
+  "screens.inbox.kind.input_needed": "질문",
   "screens.inbox.kind.task_done": "완료",
   "screens.inbox.kind.task_failed": "실패",
   "screens.inbox.kind.proactive": "아이디어",
@@ -3210,7 +3211,7 @@ export const ko: Partial<Catalogue> = {
   "screens.library.meetingNotes.action": "회의 노트 만들기",
   "screens.library.meetingNotes.running":
     "노트를 만드는 중입니다. 긴 녹음은 오래 걸릴 수 있습니다(최대 4시간 분량).",
-  "screens.library.meetingNotes.done": "노트가 피드에 준비되었습니다.",
+  "screens.library.meetingNotes.done": "메모가 홈에 준비되었습니다.",
   "screens.library.meetingNotes.open": "노트 열기",
   "screens.library.meetingNotes.failed": "Psyche가 노트를 만들지 못했습니다({reason}).",
   "screens.library.trust": "이 파일 신뢰",
@@ -3904,4 +3905,5 @@ export const ko: Partial<Catalogue> = {
   ...machines,
   ...actionErrors,
   ...appleA,
+  ...appleD,
 };
