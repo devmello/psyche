@@ -20,7 +20,7 @@ const h0 = () => makeBroker();
 async function request(
   h: ReturnType<typeof makeBroker>,
   c: PolicyCall,
-  surfaces = ["desktop", "web", "telegram:42"],
+  surfaces = ["desktop", "web", "oldchat:42"],
 ) {
   const d = await h.broker.decide(c, CTX);
   return h.broker.requestApproval({
@@ -138,7 +138,7 @@ describe("approval lifecycle", () => {
     expect(decided?.data).toMatchObject({ decision: "allow", via: "voice" });
   });
 
-  it("only approvers answer: operator.approvals devices and owner senders (security §3.7)", async () => {
+  it("only approvers answer: operator.approvals devices, never a chat sender (security §3.7)", async () => {
     const h = makeBroker();
     const issued = await request(h, write());
     h.clock.advance(500);
@@ -157,19 +157,24 @@ describe("approval lifecycle", () => {
         decidedBy: { deviceId: "dev_node" },
       }),
     ).rejects.toMatchObject({ code: "forbidden" });
-    // A merely allowlisted sender is not the owner.
-    await expect(
-      h.broker.answer({
-        ...base,
-        answerToken: issued.answerTokens["telegram:42"] ?? "",
-        decidedBy: { channel: "telegram", senderId: "friend" },
-      }),
-    ).rejects.toMatchObject({ code: "forbidden" });
+    // Chat channels were removed (2026-11-25): no chat sender answers, not even the identity
+    // that used to be the owner's, and not with a device's token either.
+    for (const senderId of ["friend", "owner-1"]) {
+      for (const token of [issued.answerTokens["oldchat:42"], issued.answerTokens.desktop]) {
+        await expect(
+          h.broker.answer({
+            ...base,
+            answerToken: token ?? "",
+            decidedBy: { channel: "oldchat", senderId },
+          }),
+        ).rejects.toMatchObject({ code: "forbidden" });
+      }
+    }
     // A device cannot use the chat token, and the web device cannot use the desktop token.
     await expect(
       h.broker.answer({
         ...base,
-        answerToken: issued.answerTokens["telegram:42"] ?? "",
+        answerToken: issued.answerTokens["oldchat:42"] ?? "",
         decidedBy: { deviceId: "dev_mac" },
       }),
     ).rejects.toMatchObject({ code: "forbidden" });
@@ -180,28 +185,13 @@ describe("approval lifecycle", () => {
         decidedBy: { deviceId: "dev_web", surface: "web" },
       }),
     ).rejects.toMatchObject({ code: "forbidden" });
+    // Positive control: a paired operator.approvals device on its own surface answers.
     const ok = await h.broker.answer({
       ...base,
-      answerToken: issued.answerTokens["telegram:42"] ?? "",
-      decidedBy: { channel: "telegram", senderId: "owner-1" },
+      answerToken: issued.answerTokens.desktop ?? "",
+      decidedBy: { deviceId: "dev_mac" },
     });
     expect(ok.status).toBe("approved");
-  });
-
-  it("chat answers may choose only once (design-28 #3)", async () => {
-    const h = makeBroker();
-    const issued = await request(h, write());
-    h.clock.advance(500);
-    await expect(
-      h.broker.answer({
-        approvalId: issued.approval.id,
-        answerToken: issued.answerTokens["telegram:42"] ?? "",
-        decision: "approve",
-        scope: "always",
-        decidedBy: { channel: "telegram", senderId: "owner-1" },
-      }),
-    ).rejects.toMatchObject({ code: "invalid_params" });
-    expect(await h.broker.listGrants()).toEqual([]);
   });
 
   it("failed answers do not use the decision budget, and a wait is reported", async () => {
@@ -300,7 +290,7 @@ describe("approval lifecycle", () => {
     const issued = await request(
       h,
       call("email.send", "destructive", { kind: "recipient", value: "a@example.org" }),
-      ["telegram:1", "desktop"],
+      ["oldchat:1", "desktop"],
     );
     expect(issued.approval.surfaces).toEqual(["desktop"]);
     expect(issued.approval.deviceOnly).toBe(true);
@@ -317,15 +307,15 @@ describe("approval lifecycle", () => {
         },
       );
     const passport = await request(h0(), send(`passport number: ${["X123", "4567"].join("")}`), [
-      "telegram:1",
+      "oldchat:1",
       "desktop",
     ]);
     expect(passport.approval.surfaces).toEqual(["desktop"]);
     expect(passport.approval.deviceOnly).toBe(true);
-    // The same send without the value may reach the chat as usual.
-    const plain = await request(h0(), send("See you Tuesday."), ["telegram:1", "desktop"]);
+    // The same send without the value keeps the surfaces it was offered.
+    const plain = await request(h0(), send("See you Tuesday."), ["oldchat:1", "desktop"]);
     expect(plain.approval.deviceOnly).toBe(false);
-    expect(plain.approval.surfaces).toContain("telegram:1");
+    expect(plain.approval.surfaces).toContain("oldchat:1");
   });
 
   it("presence is required and bound to the request when a verifier is configured (design-04)", async () => {
@@ -339,7 +329,7 @@ describe("approval lifecycle", () => {
       },
     });
     const c = call("purchase.checkout", "financial", origin("https://shop.example.com"));
-    const issued = await request(h, c, ["desktop", "web", "telegram:1"]);
+    const issued = await request(h, c, ["desktop", "web", "oldchat:1"]);
     expect(issued.approval.surfaces).toEqual(["desktop", "web"]);
     expect(issued.approval.requiresAuthentication).toBe(true);
     h.clock.advance(500);

@@ -32,7 +32,6 @@ const FAMILIES = [
   "nodes",
   "devices",
   "connectors",
-  "channels",
   "automations",
   "vault",
   "view",
@@ -142,16 +141,6 @@ const REQUIRED_METHODS: MethodName[] = [
   "devices.pairing.list",
   "connectors.list",
   "connectors.get",
-  "channels.list",
-  "channels.get",
-  "channels.configure",
-  "channels.allowlist.update",
-  "channels.pairing.list",
-  "channels.pairing.approve",
-  "channels.pairing.deny",
-  "channels.identities.list",
-  "channels.identities.upsert",
-  "channels.identities.delete",
   "automations.list",
   "automations.create",
   "automations.update",
@@ -245,6 +234,11 @@ describe("method registry", () => {
       ).toBe(true);
     }
     for (const method of REQUIRED_METHODS) expect(isMethodName(method), method).toBe(true);
+  });
+
+  it("has no chat channel methods (removed 2026-11-25)", () => {
+    expect(names.filter((n) => n.startsWith("channels."))).toEqual([]);
+    expect(isMethodName("channels.list")).toBe(false);
   });
 
   it("gives every method params and result schemas, a scope and a description", () => {

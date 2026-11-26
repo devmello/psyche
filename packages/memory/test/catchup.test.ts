@@ -466,12 +466,12 @@ describe("mail on the work-mail tier (W2)", () => {
     text: mailChangeText("Sam", "Updated numbers attached", "Mon"),
   });
 
-  it("shows a subject on Home and the brief by default, and never on a notification or channel", () => {
+  it("shows a subject on Home and the brief by default, and never on a notification", () => {
     const c = cand({ dueAt: inHours(20), signals: [mail] });
     expect(rank([c])[0]?.item.changes).toHaveLength(1);
     expect(rank([c], { surface: "home" })[0]?.item.changes).toHaveLength(1);
-    expect(rank([c], { surface: "channel" })[0]?.item.changes).toHaveLength(0);
-    expect(rank([c], { surface: "channel" })[0]?.item.line).not.toContain("Sam");
+    expect(rank([c], { surface: "notification" })[0]?.item.changes).toHaveLength(0);
+    expect(rank([c], { surface: "notification" })[0]?.item.line).not.toContain("Sam");
   });
 
   it("is dropped by the tier switch but the item stays", () => {
@@ -879,7 +879,6 @@ describe("reading the store", () => {
       home: false,
       brief: false,
       notification: false,
-      channel: false,
     });
     expect(s.birthdays).toBe(true);
     expect(s.tiers.workMail).toMatchObject({ home: true, brief: true, notification: false });
@@ -942,7 +941,7 @@ describe("sources behind a line", () => {
     });
     expect(out[0]?.item.changes).toEqual([]);
     expect(out[0]?.item.sources).toBeUndefined();
-    const channel = rank([c], { surface: "channel", docOf });
-    expect(channel[0]?.item.sources).toBeUndefined();
+    const notification = rank([c], { surface: "notification", docOf });
+    expect(notification[0]?.item.sources).toBeUndefined();
   });
 });

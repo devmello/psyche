@@ -34,7 +34,6 @@ function rig(options: { enabled?: boolean; readOnly?: boolean; events?: FakeEven
     clock,
     approvers: {
       device: async (id) => (id === "dev_mac" ? { scopes: ["operator.approvals"] } : undefined),
-      isOwnerSender: async () => false,
     },
   });
   const events: FakeEvent[] = options.events ?? [];

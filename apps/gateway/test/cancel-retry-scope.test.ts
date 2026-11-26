@@ -29,7 +29,7 @@ describe("automations.cancelRetry scope", () => {
       logger: silentLogger,
       retentionIntervalMs: 0,
       background: false,
-      config: { home, port: 0, webRoot: null },
+      config: { home, port: 0 },
       model: { provider: new FakeModelProvider(), model: "fake/model" },
     });
     const key = newDeviceKey();

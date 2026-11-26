@@ -71,12 +71,11 @@ export const workA: Partial<Catalogue> = {
   "memoryWork.remind.turnOnBrief": "Activar el resumen",
   "memorySurfaces.title": "Dónde aparece la memoria",
   "memorySurfaces.description":
-    "Lo que {persona} puede poner en Inicio, en el resumen diario, en las notificaciones y en un resumen enviado a Telegram u otro canal. La página Memoria siempre muestra todo lo que no hayas excluido.",
+    "Lo que {persona} puede poner en Inicio, en el resumen diario y en las notificaciones. La página Memoria siempre muestra todo lo que no hayas excluido.",
   "memorySurfaces.loadLabel": "dónde aparece la memoria",
   "memorySurfaces.surface.home": "Inicio",
   "memorySurfaces.surface.brief": "Resumen diario",
   "memorySurfaces.surface.notification": "Notificaciones",
-  "memorySurfaces.surface.channel": "Resumen enviado a un canal",
   "memorySurfaces.tier.work.title": "Trabajo y pendientes",
   "memorySurfaces.tier.work.description":
     "Proyectos, cursos, pendientes, cómo van, fechas límite y eventos de tus propios calendarios.",
@@ -88,8 +87,7 @@ export const workA: Partial<Catalogue> = {
   "memorySurfaces.tier.people.title": "Datos sobre personas",
   "memorySurfaces.tier.people.description":
     "Datos sobre otras personas, cómo las conoces, de qué hablasteis y «Mantener el contacto».",
-  "memorySurfaces.people.warning":
-    "Los resúmenes los puede ver cualquiera que vea tu pantalla o tu Telegram.",
+  "memorySurfaces.people.warning": "Los resúmenes los puede ver cualquiera que vea tu pantalla.",
   "memorySurfaces.birthdays.title": "Cumpleaños y aniversarios",
   "memorySurfaces.birthdays.label": "Mostrar cumpleaños y aniversarios",
   "memorySurfaces.birthdays.hint":
@@ -128,7 +126,7 @@ export const workA: Partial<Catalogue> = {
   "people.group.projects": "Proyectos",
   "people.group.count": "{group} ({n, number})",
   "people.row.lastTalked": "última conversación {when}",
-  "people.row.loops": "{n, plural, one {# asunto abierto} other {# asuntos abiertos}}",
+  "people.row.loops": "{n, plural, one {# para seguimiento} other {# para seguimiento}}",
   "people.row.label": "{name}, {detail}",
   "people.summary.asOf": "Resumen de Psyche · {date}",
   "people.more": "Más sobre {name}",
@@ -137,7 +135,7 @@ export const workA: Partial<Catalogue> = {
   "people.pin": "Fijar",
   "people.unpin": "Dejar de fijar",
   "people.section.facts": "Datos",
-  "people.section.loops": "Asuntos abiertos",
+  "people.section.loops": "Para seguimiento",
   "people.section.projects": "Proyectos",
   "people.section.members": "Miembros",
   "people.section.recent": "Reciente",

@@ -29,7 +29,7 @@ export interface ProcessRunner {
 }
 
 export const DEFAULT_PROCESS_TIMEOUT_MS = 120_000;
-/** Output cap: 64 MB covers the largest voice note any channel accepts (Telegram 50 MB). */
+/** Output cap: 64 MB covers the largest voice note the encoder makes (50 MB). */
 export const PROCESS_STDOUT_CAP_BYTES = 64 * 1024 * 1024;
 const STDERR_CAP_BYTES = 64 * 1024;
 

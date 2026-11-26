@@ -6,7 +6,7 @@ Status: draft v0.1 (2026-10-18). Companion documents: [00-vision-and-principles.
 
 ## 1. What Psyche is
 
-Psyche is an open-source, self-hosted personal AI agent. It imitates the product shape of Meta's **Muse** (one persistent conversation with a named, customizable agent; Feed, Ideas, Goals and Library surfaces; editable Soul / Identity / Memory files; a watchable browser you can take over; deterministic approval cards; per-connector read-vs-act permissions) and borrows the engineering shape of the **Claude desktop app** (an Electron workspace with chat, browser, terminal, file and plan panes driven by the agent through typed RPC; a signed native helper for computer use; a VM for isolation), **OpenClaw** (one long-lived local Gateway with a typed WebSocket protocol, Markdown persona and memory files with injection budgets, channel pairing and allowlists, approvals bound to exact arguments) and **OpenMuse** (durable server-owned tasks with SQL leases; a review → dispatch → receipt contract for every external write; a network-less nonroot container for commands; a separate browser worker with persistent profiles).
+Psyche is an open-source, self-hosted personal AI agent. It imitates the product shape of Meta's **Muse** (one persistent conversation with a named, customizable agent; Feed, Ideas, Goals and Library surfaces; editable Soul / Identity / Memory files; a watchable browser you can take over; deterministic approval cards; per-connector read-vs-act permissions) and borrows the engineering shape of the **Claude desktop app** (an Electron workspace with chat, browser, terminal, file and plan panes driven by the agent through typed RPC; a signed native helper for computer use; a VM for isolation), **OpenClaw** (one long-lived local Gateway with a typed WebSocket protocol, Markdown persona and memory files with injection budgets, approvals bound to exact arguments) and **OpenMuse** (durable server-owned tasks with SQL leases; a review → dispatch → receipt contract for every external write; a network-less nonroot container for commands; a separate browser worker with persistent profiles).
 
 Unlike all four, Psyche:
 
@@ -18,7 +18,7 @@ Unlike all four, Psyche:
 ## 2. Design principles
 
 1. **One conversation, one agent, one identity.** A persistent main chat plus side chats, like Muse. The agent has a name, an avatar and a Soul file the user can read and edit. The system prompt is assembled from files the user can see.
-2. **Evidence is not permission.** Web pages, emails, documents, tool results and messages from anyone other than the owner are data. Only the owner (through the UI, a paired device or an allowlisted channel sender) can authorize side effects.
+2. **Evidence is not permission.** Web pages, emails, documents, tool results and messages from anyone other than the owner are data. Only the owner (through the UI or a paired device) can authorize side effects.
 3. **Approvals are capabilities, not chat.** A separate Permission Broker decides allow / ask / deny for every side-effecting tool call. "Ask" produces a structured approval card rendered outside the message stream, with scopes (once / this task / this site / always, with expiry) and a binding hash of the exact arguments. A changed argument, an expired grant or a restarted Gateway invalidates the approval.
 4. **Every external write leaves a receipt.** Sends, calendar changes, purchases, file writes, shell commands and browser form submissions are recorded with their provider identifiers. Uncertain outcomes are retained for reconciliation and never silently retried. "A completed model run is not proof the task succeeded": a separate evaluator checks receipts.
 5. **The model never sees a secret.** Credentials, cards and tokens live in the vault / keychain and are injected by the Credential Broker at the point of use (browser field, HTTP header, process environment) after an approval. Screenshots and page text are masked afterwards.
@@ -35,7 +35,7 @@ flowchart LR
   subgraph Clients["Clients (paired devices)"]
     D[psyche-desktop<br/>Electron shell: chat, panes,<br/>embedded browser, terminal, viewers]
     W[psyche-web<br/>same React UI served by the Gateway]
-    P[Phone / chat channels<br/>Telegram, iMessage, WhatsApp,<br/>Signal, Slack, Discord, email, SMS]
+    P[psyche-ios<br/>paired iPhone app]
   end
 
   subgraph Gateway["psyched — the Gateway (Node 24, TypeScript)"]
@@ -47,7 +47,6 @@ flowchart LR
     CB[Credential Broker<br/>vault, placeholders, fills]
     MEM[Memory<br/>workspace files + FTS5/vec index,<br/>flush, dreaming]
     MCP[MCP host + connectors<br/>Google, Microsoft, Slack, Notion,<br/>Linear, GitHub, IMAP/JMAP]
-    CH[Channel adapters<br/>dmPolicy, pairing, identities]
     SCH[Scheduler<br/>automations, heartbeat, watches]
     FEED[Feed / Ideas / Goals jobs]
     SRCH[Search index]
@@ -64,7 +63,7 @@ flowchart LR
 
   D <-- "WS (loopback)" --> API
   W <-- "WS/HTTPS (Tailscale / proxy)" --> API
-  P <-- "channel protocols" --> CH
+  P <-- "WS (paired device)" --> API
   API --> AL
   AL --> MR
   AL --> TE
@@ -88,7 +87,7 @@ flowchart LR
 
 | Process | Language / runtime | Runs where | Owns |
 | --- | --- | --- | --- |
-| **psyched** (Gateway) | TypeScript on Node 24 (single binary via `pkg`-style bundling for releases) | Mac (launchd agent) or Linux server (systemd / Docker) | All state: sessions, tasks, memory, approvals, receipts, connectors, channels, scheduler, feed. The only process that talks to model providers. Serves the web UI. |
+| **psyched** (Gateway) | TypeScript on Node 24 (single binary via `pkg`-style bundling for releases) | Mac (launchd agent) or Linux server (systemd / Docker) | All state: sessions, tasks, memory, approvals, receipts, connectors, scheduler, feed. The only process that talks to model providers. Serves the web UI. |
 | **psyche-desktop** | Electron 44 (Chromium 152), React 19, Tailwind 4, shadcn/ui v4, assistant-ui | Mac (later Linux/Windows) | Rendering; the embedded agent browser (WebContentsViews); terminal panes (node-pty + xterm); file viewers and the Markdown editor; dictation UI; OS notification relay; VM display window. Holds **no** secrets and **no** model keys. |
 | **psyche-mac** (helper) | Swift, signed `.app` bundle with its own bundle ID, hardened runtime | Mac host and inside a macOS guest VM | Everything that needs a stable TCC identity or Apple frameworks: Accessibility tree + input, screenshots, Apple Events / Shortcuts, Keychain + Touch ID, notifications with actions, SpeechAnalyzer / AVSpeechSynthesizer, EventKit / Contacts, Messages (chat.db + send), Mail/Notes scripting, Virtualization.framework VM lifecycle, share sheet / Quick Look. Connects to the Gateway as a **node**. |
 | **psyche-node** | TypeScript (same codebase as Gateway, different entry point) | Inside the macOS VM, on remote Macs/Linux boxes | Exec, file system, browser worker and (through a co-located psyche-mac) computer use, exposed as node capabilities. |
@@ -103,7 +102,7 @@ All four are the same binaries with different configuration.
 
 **B. Mac with VM mode ("a Mac inside Psyche").** Desktop stays on the host as the window and keyboard; a macOS guest created from an IPSW by the helper runs a full Psyche stack (Gateway, node, helper, browser, sandbox). The host desktop connects to the guest Gateway over vsock / NAT and shows the guest display. The agent's computer use, file access and browsing happen *inside the guest*; the host only shares explicitly chosen folders (VirtioFS, read-only by default) and the clipboard. Exactly one guest per user (Apple's two-concurrent-macOS-VM cap, framework-enforced). Requires macOS 15+ host; first-boot provisioning without GUI uses `VZMacGuestProvisioningOptions` on macOS 27 hosts with macOS 27 IPSWs, and the Lume technique (write user records into the guest Data volume between boots) otherwise. See §10.
 
-**C. Server plus paired Mac node ("always on").** Gateway in Docker Compose on a Linux box; web UI behind Tailscale Serve or Cloudflare Access; channels (Telegram, WhatsApp, Signal, Slack, Discord, email) terminate on the server; the Mac app pairs as a node and provides Mac-only capabilities (iMessage, notifications with actions, screen, Keychain-held credentials, Apple apps). Approvals fan out to the Mac and the phone. This is the OpenClaw "remote mode" shape.
+**C. Server plus paired Mac node ("always on").** Gateway in Docker Compose on a Linux box; web UI behind Tailscale Serve or Cloudflare Access; the Mac app pairs as a node and provides Mac-only capabilities (iMessage, notifications with actions, screen, Keychain-held credentials, Apple apps). Approvals fan out to the Mac and the phone. This is the OpenClaw "remote mode" shape.
 
 **D. Server only.** Same as C without a Mac. No iMessage, no Apple-app control; browser via the Playwright sidecar; dictation via whisper.cpp / Parakeet on the server or in the browser client.
 
@@ -122,14 +121,13 @@ apps/gateway/src
   memory/         workspace files, budgets, index (FTS5 + sqlite-vec), flush, dreaming
   mcp/            MCP host (spec 2026-07-28 + 2025-11-25 fallback), trust tiers, sandboxing
   connectors/     first-party adapters: google, microsoft, imap-jmap, stripe-link, …
-  channels/       telegram, imessage (via mac node), whatsapp, signal, slack, discord, email, sms, webchat
   scheduler/      automations (cron), heartbeat, watches (page/price/text), catch-up after sleep
   proactive/      feed, ideas, goals jobs; interest ledger; acceptance model
   search/         unified search over threads, tasks, memory, library, feed
   browser/        browser tool API; CDP driver; Playwright driver; snapshot builder; credential-fill endpoint
   sandbox/        container runner, srt wrapper for host-side tool processes, receipts
   nodes/          node registry, capability negotiation, invoke, pairing
-  notifications/  notification model, delivery (desktop, channel, in-app inbox), de-duplication
+  notifications/  notification model, delivery (desktop, paired iPhone, in-app inbox), de-duplication
   audit/          append-only hash-chained log, receipts, export
   db/             SQLite (better-sqlite3 / libsql), drizzle migrations, backups
 ```
@@ -148,7 +146,7 @@ apps/gateway/src
 
 - **Loop**: a home-grown `@psyche/agent-core` with the semantics of pi-agent-core (MIT): `steer` / `followUp` queues, typed tools with `execute(callId, params, signal, onUpdate)`, `beforeToolCall` / `afterToolCall` hooks, `transformContext`, `finishTurn → end | continue`. Model calls go through the model router (§4.4), which normalizes tool calling and streaming across providers using the Vercel AI SDK v7 provider packages.
 - **Tool registry**: tools declare `{name, description, inputSchema (zod → JSON Schema), sideEffect: none | read | write | destructive | financial, targetKind: origin | path | account | command | recipient, provenanceOut: trusted | untrusted}`. The registry is the single source for the Permission Broker and for the UI's tool-toggle settings. Naming convention for connector tools: `mcp__<server>__<tool>`, matching the allow / ask / deny keys users see.
-- **Built-in tools** (first party, always present): `read_file`, `write_file`, `edit_file`, `list_dir`, `search_files` (scoped to granted folders); `exec` (sandbox); `browser.*` (navigate, tabs, snapshot, find, click, type, select, scroll, screenshot, read_text, download, back/forward, wait); `computer.*` (via node: screenshot, ax_tree, click, type, key, scroll, open_app, run_shortcut, applescript); `memory` (the `memory_20250818` command set: view / create / str_replace / insert / delete / rename, backed by the workspace); `ask_user` (structured questions with options); `update_plan` / `wrap_up` (host-rendered checklist and end-of-turn box); `schedule` (create / update automations); `notify`; `search` (web search provider abstraction); `fetch` (URL → text/markdown with size caps and SSRF policy); `pdf.*`; `sheet.*`; `email.*`, `calendar.*`, `messages.*` (through connectors / channels); `credentials.request` (ask the broker to fill or expose a placeholder); `artifact.create` / `artifact.update`; `goal.*`, `idea.*`, `feed.*` (read-mostly); `subagent.spawn`.
+- **Built-in tools** (first party, always present): `read_file`, `write_file`, `edit_file`, `list_dir`, `search_files` (scoped to granted folders); `exec` (sandbox); `browser.*` (navigate, tabs, snapshot, find, click, type, select, scroll, screenshot, read_text, download, back/forward, wait); `computer.*` (via node: screenshot, ax_tree, click, type, key, scroll, open_app, run_shortcut, applescript); `memory` (the `memory_20250818` command set: view / create / str_replace / insert / delete / rename, backed by the workspace); `ask_user` (structured questions with options); `update_plan` / `wrap_up` (host-rendered checklist and end-of-turn box); `schedule` (create / update automations); `notify`; `search` (web search provider abstraction); `fetch` (URL → text/markdown with size caps and SSRF policy); `pdf.*`; `sheet.*`; `email.*`, `calendar.*`, `messages.*` (through connectors and the Mac helper); `credentials.request` (ask the broker to fill or expose a placeholder); `artifact.create` / `artifact.update`; `goal.*`, `idea.*`, `feed.*` (read-mostly); `subagent.spawn`.
 - **Subagents**: `fork` (inherits the transcript) or `fresh` (brief only). Subagents never receive `ask_user`, messaging or approval authority; they return a result that is announced into the parent run and that carries the subagent's taint. Indirect routes to network content (tool search, code-mode helpers) taint the turn exactly like direct network tool calls, and an approved skill never widens tool policy. A `subagents` panel lists them with view-only transcripts.
 - **Side-effect classes**: `none` (pure computation), `read` (observes state outside Psyche, including network reads), `write` (creates or changes state that is reversible or stays within the owner's reach: drafts, sandbox files, calendar events, messages to the owner, Library items), `destructive` (irreversible or outward-facing: sending to third parties, deleting, granting consent such as "accept all", terms of service or OAuth consent screens, changing standing permissions), `financial` (moves money or commits to a purchase).
 - **Plan mode**: a read-only mode (tools with `sideEffect: none` only) that produces a Plan artifact; `ExitPlanMode` requires the user's approval. After approval, the harness-managed checklist (`update_plan`) tracks progress and is pinned under the latest message. These are two distinct artifacts on purpose: a human-approved plan and a cheap, rewritable checklist.
@@ -165,7 +163,7 @@ apps/gateway/src
 
 ### 4.5 Task engine
 
-- A **Task** is the unit of long-running work: `{id, threadId, title, goal, status, plan[], currentStep, checkpoints[], inputRequests[], approvals[], receipts[], leaseOwner, leaseUntil, attempt, createdFrom (chat | automation | idea | goal | channel)}`. Tasks are created when the agent calls `task.start` (or the user delegates from chat), and they outlive the turn that created them.
+- A **Task** is the unit of long-running work: `{id, threadId, title, goal, status, plan[], currentStep, checkpoints[], inputRequests[], approvals[], receipts[], leaseOwner, leaseUntil, attempt, createdFrom (chat | automation | idea | goal )}`. Tasks are created when the agent calls `task.start` (or the user delegates from chat), and they outlive the turn that created them.
 - **Leases**: worker loops claim tasks with SQL leases; a crashed worker's lease expires and another worker (or the same process after restart) resumes from the last checkpoint. Steps declare `replay: safe | unsafe`; unsafe steps that were in flight at a crash become `uncertain` and are reconciled, never replayed blindly. The checkpoint is write-ahead: the agent loop awaits the worker's `running` checkpoint (`StartTurnInput.beforeDispatch`) before it dispatches a call, so no crash window leaves an applied effect without an in-flight step.
 - **Input requests** (`ask_user` from a background task) and **approvals** park the task in `awaiting_input` / `awaiting_approval` with a notification; answering resumes it. Timeouts: approvals expire (default 30 min) and deny; input requests wait indefinitely but are surfaced in Upcoming / Activity.
 - **Activity log**: every task exposes an ordered action log (tool, target, outcome, timestamp, receipt id) that the UI shows as Muse's "tap a task to see every action" view, with three disclosure levels (status line → action list → raw tool I/O).
@@ -177,7 +175,7 @@ The broker is the only component that can authorize a side effect. It is modeled
 
 - **Policy inputs**: tool metadata (side-effect class, target kind), the target (origin, path, account, recipient, command), the thread's permission mode (`manual` = ask for every write, `balanced` = ask for writes and important reads [default], `auto` = classifier decides for low-risk writes, `plan` = read-only), per-connector action matrices (Allow / Ask / Deny per action), per-app computer-use tiers (Off / Read only / Read and interact), per-origin browser grants, folder grants (ro / rw), and the turn's **taint** (if untrusted content was read in this turn, write actions that touch a *new* origin or recipient escalate to Ask regardless of standing grants; a Task created from a tainted turn, for example an Idea accepted from an email, inherits the taint for its first turn).
 - **Decision**: `allow | ask | deny` plus a reason. `ask` creates an **ApprovalRequest** `{id, kind, summary, details, bindingHash, scopesOffered[], deviceOnly, requiresAuthentication, taint, status, requestedAt, expiresAt, surfaces[]}` (each delivery surface receives a single-use `answerToken`) where `bindingHash` covers the exact arguments (argv + cwd + env for exec; recipient + subject + body hash for email; item id + origin + field selector for a credential fill; origin + path + field names + a digest of the submitted values for a form submission; merchant + amount + line items for a purchase; the full table is in [04-data-model.md](04-data-model.md) §4.2).
-- **Delivery surfaces**: the desktop approval card (deterministic UI outside the chat stream), a macOS notification with Approve / Deny actions (purchases and credential fills require `authenticationRequired`), the web UI, and chat channels (Telegram inline buttons; iMessage poll or 👍/👎; Slack / Discord buttons). The first authorized answer wins; late or replayed answers are rejected; a Gateway restart invalidates outstanding cards and re-issues them. Chat surfaces may approve `write` actions only; `destructive`, `financial`, credential-fill, `exec_host`, policy-change and pairing approvals are `deviceOnly` and require a paired device (desktop, web, or the helper's authenticated notification), so they are never even sent to chat channels. Cards arm after a 400 ms delay and the Gateway rejects answers that arrive sooner, to defeat mis-clicks and click-jacking.
+- **Delivery surfaces**: the desktop approval card (deterministic UI outside the chat stream), a macOS notification with Approve / Deny actions (purchases and credential fills require `authenticationRequired`), the web UI and the paired iPhone. The first authorized answer wins; late or replayed answers are rejected; a Gateway restart invalidates outstanding cards and re-issues them. `destructive`, `financial`, credential-fill, `exec_host`, policy-change and pairing approvals are `deviceOnly` and require a paired device (desktop, web, iPhone or the helper's authenticated notification). Cards arm after a 400 ms delay and the Gateway rejects answers that arrive sooner, to defeat mis-clicks and click-jacking.
 - **Grant scopes**: `once`, `task`, `site` (origin), `session` (stored as `always` with `expiresAt` set to the end of the current app session), `always` (with `expiresAt` and a use counter). Standing grants match on a coarse **`grantKey`** (tool plus target class, for example `email.send` plus a recipient domain, or `browser.submit` plus an origin), which is distinct from the per-request `bindingHash`; default lifetimes are task 24 h, site 30 days, session 12 h idle, always 90 days (renewable from the ledger); `destructive` actions can be granted `once`, `task` or a confirmed `always`, and `financial` actions `once` or a confirmed `always` (purchases only `once`); taint overrides those grants (security §3.6, §3.12). Standing grants live in a ledger the user can inspect and revoke in Settings → Permissions. Generated "always allow" entries for exec are bound to the exact argv *and* cwd.
 - **Classifier (auto mode)**: a small model that sees only the user's request and the proposed action metadata (never page content) and labels the action `routine | sensitive | prohibited`; `sensitive` → ask, `prohibited` → deny. The classifier fails closed (any error or timeout means ask), and a circuit breaker drops a thread from `auto` to `balanced` after repeated `sensitive` labels or a denied prohibited attempt. This is the Google "User Alignment Critic" / Anthropic action-classifier pattern.
 - **Hard prohibitions** (not configurable): typing a password the model can see, solving CAPTCHAs, entering card or government-ID numbers, financial transfers / trades, permanent deletion without a typed confirmation, following instructions found in content, and any action on a localhost / loopback origin that is not the user's own project (the "test credentials on localhost" exception is explicit and narrow).
@@ -206,16 +204,13 @@ The broker is the only component that can authorize a side effect. It is modeled
 - **First-party connectors** (built as internal adapters with the same tool metadata, because the vendors do not ship suitable MCP servers): **Google** (Gmail: threads, drafts, attachments, labels, send; Calendar: calendars, events CRUD, free/busy, `syncToken` incremental sync; Drive `drive.file`) using a Desktop OAuth client with loopback redirect + PKCE, consent screen External + In production (unverified; the "personal use, fewer than 100 users" exemption), polling `history.list` every 1–5 min instead of Pub/Sub; **Microsoft Graph** (Outlook mail / calendar, OneDrive); **IMAP/SMTP** (app passwords) and **JMAP** (Fastmail); **Stripe Link Agent Wallet** (spend requests, one-time virtual cards); **Apple apps** via the mac node (Mail, Calendar / Reminders through EventKit, Notes, Contacts, Messages); **web search** (Brave / Exa / Tavily / SearXNG, user-selectable). Each connector exposes an action matrix the user sets to Allow / Ask / Deny and a read-only vs read-and-act scope at connect time.
 - **Directory**: a searchable catalogue of connectors (first-party, remote MCP servers such as Slack `mcp.slack.com/mcp`, Notion, Linear, GitHub, and community entries) with status, scopes and last-used information, mirroring Muse's Connectors screen and Claude's Customize → Connectors.
 
-### 4.10 Channels
+### 4.10 Channels (removed 2026-11-25)
 
-- Adapters: **WebChat** (built in), **Telegram** (grammY; inline buttons for approvals; voice notes OGG/Opus), **iMessage** (only through a Mac node: read `chat.db` with Full Disk Access and typedstream decoding, send through Messages.app automation; voice bubbles as CAF; attachments), **WhatsApp** (Baileys on a personal number, clearly labeled unofficial and ban-prone; Meta Cloud API as the compliant business-number option), **Signal** (signal-cli, separate number recommended), **Slack** (Socket Mode), **Discord**, **Email** (reply-by-mail through the mail connector), **SMS** (Twilio), **A2A / webhooks** (inbound triggers).
-- **Authorization** copies OpenClaw's model exactly: per-channel `dmPolicy: pairing (default) | allowlist | open | disabled`; unknown senders receive a pairing code (expires in 1 h, max 3 pending per channel) that the owner approves in the UI; a separate group allowlist with `requireMention`; `commands.ownerAllowFrom` defines the owner; `identityLinks` merge the owner's identities across channels into one session; `session.dmScope: main | per-peer | per-channel-peer` so other people never share the owner's context.
-- **Designated person / platform**: the owner can designate one or more senders (for example "my partner on iMessage" or "the family Telegram group") for whom Psyche responds and acts with a *delegated* persona and a restricted tool set, scoped memory (`MEMORY.md` is never injected), and approvals that still route to the owner.
-- Channel sessions share the task engine, so a request from the phone becomes a Task visible in the desktop Activity view, and approvals asked on the phone are the same ApprovalRequest objects.
+Chat channels (Telegram, iMessage bridge, WhatsApp, Signal, Slack, Discord, email, SMS, WebChat, with their pairing, identities, allowlists and delegated personas) were removed because the iPhone app is the mobile surface. Approvals and the daily brief go only to the Mac app and the paired iPhone. What stays: reading Messages, Mail and Contacts as data, the mail connector, and the send-a-message tool (iMessage, one-tap approval). A thread of kind `channel` is old data and opens as an ordinary thread.
 
 ### 4.11 Scheduler and proactivity
 
-- **Automations**: cron-like jobs with session targets `main | isolated | named`, delivery targets (thread, channel, webhook, none), an explicit unattended-run contract, catch-up after sleep (missed ticks coalesced into one run), and per-job scratch notes. Users create them in chat (`/schedule`), from Ideas ("make this recurring"), or in Upcoming.
+- **Automations**: cron-like jobs with session targets `main | isolated | named`, delivery targets (thread, webhook, none), an explicit unattended-run contract, catch-up after sleep (missed ticks coalesced into one run), and per-job scratch notes. Users create them in chat (`/schedule`), from Ideas ("make this recurring"), or in Upcoming.
 - **Heartbeat**: an optional light-context check-in every 30–60 min during active hours that may surface at most one notification.
 - **Watches**: recurring public-page checks (change, text availability, price threshold) with de-duplicated alerts and failure backoff, used by Goals & Tracking.
 - **Feed**: a bounded daily brief (5–10 posts) plus scheduled briefings the user defines ("every weekday at 7: my calendar, inbox triage, and two things in robotics"). Pipeline: an editable **interest ledger** (`workspace/interests.md` + derived embeddings) → sourcing (RSS / Atom, Hacker News, arXiv, Bluesky Jetstream, saved items, connected accounts, paid web search only for gaps) → candidate pool → embedding recall × recency decay → an LLM reranker over a shuffled shortlist → one or two exploration slots → posts written by the agent with mandatory citations and multi-source clusters → Discover-style feedback (follow topic, not interested, hide source, like, save) written back to the ledger. Everything is local and inspectable.
@@ -225,7 +220,7 @@ The broker is the only component that can authorize a side effect. It is modeled
 ### 4.12 Search, notifications, audit
 
 - **Search** (left-rail Search surface and `⌘K`): one index across threads, tasks, memory, library files, feed posts, ideas, goals and connector caches the user chose to index; typed filters (`in:feed`, `type:pdf`, `from:alice`); results open the pane they belong to.
-- **Notifications**: typed `{kind: approval | input_needed | task_done | task_failed | proactive | briefing | reminder, taskId?, actions[]}`; delivered to the in-app inbox (durable), the OS (through the mac helper, with actions and interruption levels; Electron's wrapper as fallback), channels, and the phone; de-duplicated per task; restart reconciliation marks stale notifications.
+- **Notifications**: typed `{kind: approval | input_needed | task_done | task_failed | proactive | briefing | reminder, taskId?, actions[]}`; delivered to the in-app inbox (durable), the OS (through the mac helper, with actions and interruption levels; Electron's wrapper as fallback) and the paired iPhone; de-duplicated per task; restart reconciliation marks stale notifications.
 - **Audit**: an append-only, hash-chained JSONL log of every tool call, approval, grant, credential fill, send, purchase and config change, plus structured receipts; exportable; "Download your data" produces threads, files, memory and the audit log.
 
 ## 5. The desktop shell
@@ -296,7 +291,7 @@ Any process that offers capabilities to the Gateway is a node. The mac helper, `
 
 - **Transport**: WebSocket on `127.0.0.1:7979` (configurable) + HTTPS when fronted by a proxy. Frames: `{type: "req", id, method, params}`, `{type: "res", id, ok, payload | error}`, `{type: "event", event, payload, seq, stateVersion}`. Events are not replayed; clients refresh after a gap using `stateVersion`.
 - **Auth**: every client sends a device identity on `connect` and signs a challenge nonce; new devices need pairing approval and receive a scoped device token (`operator.read`, `operator.write`, `operator.approvals`, `operator.admin`, `node`) with owner-chosen scopes. Loopback auto-approval applies only to the desktop shell and the helper, which present a per-launch handshake secret; a connection carrying a browser `Origin` is never auto-approved, `Origin` is validated on every WebSocket upgrade, and the UI accepts no Gateway address from a URL parameter or deep link. Changes to security settings require `operator.admin` plus fresh user presence and are not reachable through `node.invoke`. Identity headers from a trusted proxy (Tailscale Serve, Cloudflare Access) never authorize the API by themselves, and Cloudflare Access JWTs are signature-verified rather than merely checked for presence. The web UI can also use passkeys behind HTTPS.
-- **Method families**: `threads.*`, `chat.*`, `tasks.*`, `approvals.*`, `grants.*`, `memory.*`, `library.*`, `feed.*`, `ideas.*`, `goals.*`, `automations.*`, `connectors.*`, `channels.*`, `nodes.*`, `browser.*`, `sandbox.*`, `vault.*`, `settings.*`, `search.*`, `notifications.*`, `audit.*`, `view.*` (desktop-only pane control), `voice.*`.
+- **Method families**: `threads.*`, `chat.*`, `tasks.*`, `approvals.*`, `grants.*`, `memory.*`, `library.*`, `feed.*`, `ideas.*`, `goals.*`, `automations.*`, `connectors.*`, `nodes.*`, `browser.*`, `sandbox.*`, `vault.*`, `settings.*`, `search.*`, `notifications.*`, `audit.*`, `view.*` (desktop-only pane control), `voice.*`.
 - **Schemas**: TypeBox definitions in `packages/protocol`, exported as JSON Schema and generated into Swift (helper) and TypeScript clients. Breaking changes bump the protocol version negotiated at `connect`.
 - **Client-driven requirements** (from [06-ui-design.md](06-ui-design.md)): `threads.fork {threadId, messageId}` for user-initiated forks; `threads.list` returns derived activity counts (running / awaiting input / awaiting approval); receipts carry a short client-visible id plus the provider's id string for the receipt line; notifications carry a `route` for deep links; a `settings.changed` event (including appearance) so every paired client re-themes; `ask_user` has no timeout (background input requests wait indefinitely); feed posts record whether they came from an exploration slot.
 
@@ -307,7 +302,7 @@ $PSYCHE_HOME (default ~/.psyche; identical on macOS and Linux)
   config.json                 operator config (no secrets; secrets are vault refs)
   state/psyche.sqlite         threads, messages, tasks, approvals, grants, receipts,
                               notifications, feed, ideas, goals, automations,
-                              connectors, channels, devices, memory index, usage
+                              connectors, devices, memory index, usage
   state/search.sqlite         unified search index (derived; delete to rebuild)
   workspace/                  SOUL.md IDENTITY.md USER.md AGENTS.md MEMORY.md
                               memory/YYYY-MM-DD.md interests.md skills/ DREAMS.md
@@ -317,7 +312,6 @@ $PSYCHE_HOME (default ~/.psyche; identical on macOS and Linux)
   vault/vault.db              SQLCipher; key wrapped by keychain / safeStorage
   vault/recovery.slot         the same key wrapped by the printed recovery key
   run/browser-bridge.sock     desktop ↔ gateway CDP bridge (mode 0600)
-  state/channels/             channel session files (WhatsApp, Signal)
   browser/profiles/<name>/    persistent agent browser profiles
   sandbox/<thread-or-project>/workspace/
   vm/<name>/                  Disk.img, AuxiliaryStorage, HardwareModel, MachineIdentifier
@@ -328,7 +322,7 @@ $PSYCHE_HOME (default ~/.psyche; identical on macOS and Linux)
   logs/
 ```
 
-Backups snapshot `state/`, `workspace/`, `vault/`, `library/` and channel session files (losing WhatsApp / Signal state forces re-pairing). Nothing in `$PSYCHE_HOME` is ever committed to git except the user's own `workspace/` if they choose to.
+Backups snapshot `state/`, `workspace/`, `vault/`, `library/`. Nothing in `$PSYCHE_HOME` is ever committed to git except the user's own `workspace/` if they choose to.
 
 Encryption at rest: only `vault/vault.db` is application-encrypted in v1. `state/psyche.sqlite`, the workspace and the Library rely on full-disk encryption (FileVault / LUKS) because SQLCipher would slow FTS5 and sqlite-vec and would stop the user from opening their own transcripts with ordinary tools; revisiting this is an open question in [05-security-and-permissions.md](05-security-and-permissions.md) §16.
 
@@ -336,12 +330,12 @@ Encryption at rest: only `vault/vault.db` is application-encrypted in v1. `state
 
 - **Skills**: `SKILL.md` (Agent Skills standard: name, description, optional gating on binaries / env / OS) in `workspace/skills/`, `$PSYCHE_HOME/skills/`, or bundled; compiled into a compact index in the system prompt with `skills_search` / `skills_read` for the long tail. Installing a third-party skill shows its full text, runs a static scan and (optionally) VirusTotal, and requires an explicit approval. Agent-proposed skills from Ideas are drafts until the user accepts them.
 - **Plugins**: code plugins (TypeScript, loaded in the Gateway behind a permission manifest) and bundle plugins (skills + MCP servers + config). Hook surface: `before_model_resolve`, `before_prompt_build`, `before_tool_call` (may block), `after_tool_call`, `tool_result_persist`, `before_compaction`, `agent_end`, `message_received | sending | sent`, `session_start | end`.
-- **Connectors / channels / drivers**: interfaces in `packages/connectors`, `packages/channels`, `packages/browser`, `packages/sandbox`; each ships with a capability manifest and tests.
+- **Connectors / drivers**: interfaces in `packages/connectors`, `packages/browser`, `packages/sandbox`; each ships with a capability manifest and tests.
 - **Viewers and artifact renderers**: registered by MIME type in `packages/viewers`.
 
 ## 14. Observability
 
-Structured logs per subsystem (no message bodies or secrets by default), OpenTelemetry traces for turns and tool calls (local collector optional), a usage ledger, `psyche doctor` (config drift, permissions, sandbox and model health) and `psyche security audit` modeled on OpenClaw's (non-loopback binds, auth mode, `open` dmPolicy, sandbox disabled, unverified skills, standing grants without expiry, a running real-Chrome debugging endpoint, telemetry enabled). Companion commands: `psyche audit verify` (hash chain), `psyche vault rekey`, `psyche backup` (age-encrypted archives). All directories under `$PSYCHE_HOME` are created mode 0700 and files 0600.
+Structured logs per subsystem (no message bodies or secrets by default), OpenTelemetry traces for turns and tool calls (local collector optional), a usage ledger, `psyche doctor` (config drift, permissions, sandbox and model health) and `psyche security audit` modeled on OpenClaw's (non-loopback binds, auth mode, sandbox disabled, unverified skills, standing grants without expiry, a running real-Chrome debugging endpoint, telemetry enabled). Companion commands: `psyche audit verify` (hash chain), `psyche vault rekey`, `psyche backup` (age-encrypted archives). All directories under `$PSYCHE_HOME` are created mode 0700 and files 0600.
 
 ## 15. Non-goals and constraints
 
@@ -352,7 +346,7 @@ Structured logs per subsystem (no message bodies or secrets by default), OpenTel
 
 ## 16. Glossary
 
-Gateway (psyched) · node · capability · tool · side-effect class · taint · Permission Broker · ApprovalRequest · grant · binding hash · receipt · Task · lease · checkpoint · input request · Credential Broker · placeholder · workspace · daily note · dreaming · provenance class · connector · channel · dmPolicy · pairing · identity link · automation · heartbeat · watch · interest ledger · artifact · Library · pane · driver · profile · grantKey · answerToken · deviceOnly · pause-when-unwatched.
+Gateway (psyched) · node · capability · tool · side-effect class · taint · Permission Broker · ApprovalRequest · grant · binding hash · receipt · Task · lease · checkpoint · input request · Credential Broker · placeholder · workspace · daily note · dreaming · provenance class · connector · pairing · automation · heartbeat · watch · interest ledger · artifact · Library · pane · driver · profile · grantKey · answerToken · deviceOnly · pause-when-unwatched.
 
 ## 17. Open questions (tracked)
 

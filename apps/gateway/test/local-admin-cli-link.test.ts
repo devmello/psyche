@@ -55,7 +55,7 @@ async function start() {
         },
       },
     }),
-    config: { publicOrigin, allowedOrigins: [publicOrigin, rebindOrigin] },
+    config: { publicOrigin },
     lan: { candidates: () => IFACES, hostLabel: () => "lab-box", advertiser: null },
   });
 }
@@ -225,7 +225,8 @@ describe("refusals", () => {
 
   it("refuses a page with an Origin, as a DNS-rebinding page has", async () => {
     await start();
-    await refusedWith(await cli(ADMIN, { origin: rebindOrigin }));
+    // Refused before the upgrade now: no browser Origin reaches the Gateway (2026-11-25).
+    await expect(cli(ADMIN, { origin: rebindOrigin })).rejects.toThrow("403");
   });
 
   it("a request cannot claim loopback, the CLI family or admin for itself", async () => {

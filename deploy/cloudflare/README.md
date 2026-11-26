@@ -1,6 +1,6 @@
 # Cloudflare Tunnel + Access in front of the Gateway
 
-Public HTTPS hostname without an open inbound port: `cloudflared` makes an outbound connection to Cloudflare and forwards to the loopback Gateway; Cloudflare Access decides who may reach the hostname (security §10). Prefer Tailscale (`deploy/tailscale/`) when every client can join a tailnet; use this when you need a browser-reachable hostname.
+Public HTTPS hostname without an open inbound port: `cloudflared` makes an outbound connection to Cloudflare and forwards to the loopback Gateway; Cloudflare Access decides who may reach the hostname (security §10). Prefer Tailscale (`deploy/tailscale/`) when every client can join a tailnet; use this when you need a hostname the Psyche apps can reach without joining a tailnet.
 
 ## Setup
 
@@ -12,7 +12,7 @@ Public HTTPS hostname without an open inbound port: `cloudflared` makes an outbo
    docker compose -f deploy/docker-compose.yml exec gateway psyche config set gateway.publicOrigin https://psyche.example.com
    docker compose -f deploy/docker-compose.yml restart gateway
    ```
-4. **Pair.** Open `https://psyche.example.com`, pass Access, and approve the browser as a device: `docker compose -f deploy/docker-compose.yml exec gateway psyched devices approve <CODE>`.
+4. **Pair.** From a Psyche app on another computer or the iPhone app, use `https://psyche.example.com` as the Gateway address, pass Access, and approve the new device: `docker compose -f deploy/docker-compose.yml exec gateway psyched devices approve <CODE>`.
 
 Without Docker: `cloudflared tunnel run --token <token>` on the Gateway host (or `cloudflared service install <token>`).
 
@@ -21,4 +21,4 @@ Without Docker: `cloudflared tunnel run --token <token>` on the Gateway host (or
 - Access keeps strangers from reaching the Gateway at all. It does **not** authorize the API: the Gateway never trusts `Cf-Access-Authenticated-User-Email` or the presence of `Cf-Access-Jwt-Assertion`. Every client still completes the device challenge and needs an owner-approved pairing.
 - When trusted-proxy mode verifies Access JWTs (INT-2), it checks the signature against `https://<team>.cloudflareaccess.com/cdn-cgi/access/certs` and the `aud` claim, never mere presence (OpenClaw only checked presence). Until then the JWT is ignored.
 - A public hostname is "public ingress": security §10 requires passkeys and `gateway.allowPublicIngress: true` once those land. `psyche security audit` flags public ingress without passkeys.
-- Turn off "Allow all origins"-style CORS settings; the Gateway validates `Origin` itself and only accepts its own origin plus `gateway.publicOrigin` / `gateway.allowedOrigins`.
+- Turn off "Allow all origins"-style CORS settings. Psyche has no browser client: the Gateway refuses any WebSocket upgrade that carries a browser `Origin` header.

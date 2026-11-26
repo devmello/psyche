@@ -18,12 +18,12 @@ const only = (tier: SurfaceTier, surface: MemorySurface, over: Partial<SurfaceIt
 describe("surfaceFilter: the §4 defaults", () => {
   // The table of §4, one row per tier, one column per surface.
   it.each([
-    ["work", { home: true, brief: true, notification: true, channel: true }],
-    ["workMail", { home: true, brief: true, notification: false, channel: false }],
-    ["people", { home: false, brief: false, notification: false, channel: false }],
-    // W1: birthdays are on in Home and the brief, and never in a notification or a channel.
-    ["birthday", { home: true, brief: true, notification: false, channel: false }],
-    ["sensitive", { home: false, brief: false, notification: false, channel: false }],
+    ["work", { home: true, brief: true, notification: true }],
+    ["workMail", { home: true, brief: true, notification: false }],
+    ["people", { home: false, brief: false, notification: false }],
+    // W1: birthdays are on in Home and the brief, and never in a notification.
+    ["birthday", { home: true, brief: true, notification: false }],
+    ["sensitive", { home: false, brief: false, notification: false }],
   ] as const)("%s", (tier, expected) => {
     for (const surface of SURFACES) expect(only(tier, surface)).toBe(expected[surface]);
   });
@@ -31,9 +31,9 @@ describe("surfaceFilter: the §4 defaults", () => {
   it("never shows sensitive, pending or Keep private items, whatever the switches say", () => {
     const open = resolveSurfaceSettings({
       tiers: {
-        work: { home: true, brief: true, notification: true, channel: true },
-        workMail: { home: true, brief: true, notification: true, channel: true },
-        people: { home: true, brief: true, notification: true, channel: true },
+        work: { home: true, brief: true, notification: true },
+        workMail: { home: true, brief: true, notification: true },
+        people: { home: true, brief: true, notification: true },
       },
     });
     for (const surface of SURFACES) {
@@ -154,8 +154,22 @@ describe("with the people tier off, nothing about a person gets through on any s
     const on = resolveSurfaceSettings({ tiers: { people: { brief: true } } });
     const items = [gistItem(), relationItem({ rel: "family" })];
     expect(surfaceFilter(items, "brief", on)).toHaveLength(2);
-    for (const surface of ["home", "notification", "channel"] as const) {
+    for (const surface of ["home", "notification"] as const) {
       expect(surfaceFilter(items, surface, on)).toEqual([]);
     }
+  });
+
+  it("reads an old stored value with the removed chat channel's switches as if they were absent", () => {
+    const stored = {
+      tiers: {
+        work: { home: false, channel: true },
+        people: { brief: true, channel: true },
+      },
+    };
+    const s = resolveSurfaceSettings(stored);
+    expect(s.tiers.work).toEqual({ home: false, brief: true, notification: true });
+    expect(s.tiers.people).toEqual({ home: false, brief: true, notification: false });
+    expect(Object.keys(s.tiers.workMail)).toEqual(["home", "brief", "notification"]);
+    expect(SURFACES).toEqual(["home", "brief", "notification"]);
   });
 });

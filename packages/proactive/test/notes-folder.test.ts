@@ -40,7 +40,6 @@ function rig(cursors = new MemoryCursors(), db = testDb(new FakeClock(T0))) {
     clock,
     approvers: {
       device: async (id) => (id === "dev_mac" ? { scopes: ["operator.approvals"] } : undefined),
-      isOwnerSender: async () => false,
     },
   });
   const created: unknown[] = [];

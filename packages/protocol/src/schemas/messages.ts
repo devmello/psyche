@@ -6,7 +6,7 @@ import type { NodeCapability } from "./identity.ts";
  * Messages on the Mac (features J7 and N5; security §3.5 `messages.send`, §9, §12). The mac
  * helper's `messages.*` node capabilities read `~/Library/Messages/chat.db` read-only (Full Disk
  * Access) and send through Messages.app scripting (Automation). The Gateway reaches them through
- * `node.invoke`; the iMessage channel adapter (`@psyche/channels`) is built on them. Message
+ * `node.invoke` (memory and search read them; `messages_send` sends with a one-tap card). Message
  * bodies from anyone but the owner are untrusted content (security §3.6).
  *
  * The cursor is chat.db's `message.ROWID`: monotonic per database, so "everything after cursor N"
@@ -15,8 +15,8 @@ import type { NodeCapability } from "./identity.ts";
 
 /**
  * Transport of a handle or chat as chat.db records it (`handle.service`, `chat.service_name`).
- * `sms` and `rcs` identities are carrier-asserted and weak (review design-21): a channel never
- * treats them as the owner.
+ * `sms` and `rcs` identities are carrier-asserted and weak (review design-21): nothing treats them
+ * as the owner.
  */
 export const MessagesService = StringEnum(["imessage", "sms", "rcs", "unknown"], {
   $id: "MessagesService",
@@ -207,7 +207,7 @@ export type MessagesSendResult = Static<typeof MessagesSendResult>;
  * `messages.watch` (streaming): polls chat.db every `intervalMs` and emits one
  * `MessagesWatchEvent` per batch of new rows after `sinceCursor` (default: the current newest row,
  * so nothing old is replayed). Runs until cancelled. `includeFromMe` adds the owner's own sends,
- * which a channel needs to drop its echoes.
+ * which a watcher needs to drop its echoes.
  */
 export const MessagesWatchParams = Type.Object(
   {

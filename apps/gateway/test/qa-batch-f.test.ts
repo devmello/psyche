@@ -72,13 +72,18 @@ describe("item 12: thread preview", () => {
 });
 
 describe("item 17: unknown HTTP path", () => {
-  it("does not blame an unbuilt web UI for /readyz, but still does for /", async () => {
+  it("answers an unknown path, / included, with a plain 404 that names what it serves", async () => {
     t = await startTestGateway();
-    const probe = await fetch(`${t.gateway.origin}/readyz`);
-    expect(probe.status).toBe(404);
-    expect(((await probe.json()) as { error: string }).error).not.toMatch(/web UI not built/);
-    const root = await fetch(`${t.gateway.origin}/`);
-    expect(((await root.json()) as { error: string }).error).toMatch(/web UI not built/);
+    // No web UI any more (browser access dropped, 2026-11-25): no build hint, even for `/`.
+    for (const path of ["/readyz", "/"]) {
+      const res = await fetch(`${t.gateway.origin}${path}`);
+      expect(res.status).toBe(404);
+      const { error } = (await res.json()) as { error: string };
+      expect(error).not.toMatch(/web UI/);
+      expect(error).toMatch(/\/healthz/);
+    }
+    // Positive control: the health check still answers.
+    expect((await fetch(`${t.gateway.origin}/healthz`)).status).toBe(200);
   });
 });
 

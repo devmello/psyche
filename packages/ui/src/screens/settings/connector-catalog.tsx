@@ -63,8 +63,7 @@ type CatalogType =
   | "apple:mail"
   | "apple:shortcuts"
   | "obsidian"
-  | "mcp"
-  | "slack";
+  | "mcp";
 
 /** Message ids for connector types (ids can't hold the type's colon). */
 const CATALOG_ID = {
@@ -78,16 +77,10 @@ const CATALOG_ID = {
   "apple:shortcuts": "appleShortcuts",
   obsidian: "obsidian",
   mcp: "mcp",
-  slack: "slack",
 } as const satisfies Record<CatalogType, string>;
-
-/** Slack is a channel, not an account to connect: its row opens Settings → Channels (#529). */
-const OPENS: Partial<Record<CatalogType, "channels">> = { slack: "channels" };
 
 const catalogEntry = <T extends CatalogType>(type: T) => ({
   type,
-  /** Set for rows that open another Settings section instead of connecting. */
-  opens: OPENS[type],
   /** The connector's name, in the active language. */
   get label(): string {
     return t(`settings.connectors.catalog.${CATALOG_ID[type as CatalogType]}`);
@@ -105,11 +98,10 @@ export const CONNECTOR_CATALOG = [
   catalogEntry("apple:shortcuts"),
   catalogEntry("obsidian"),
   catalogEntry("mcp"),
-  catalogEntry("slack"),
 ] as const;
 
 /**
- * The catalog rows to offer: the Settings-only rows (Custom MCP server, Slack) always, connectors
+ * The catalog rows to offer: the Settings-only row (Custom MCP server) always, connectors
  * only when the Gateway's catalogue has an available entry for the type (#529: nothing offered can
  * fail with "no connector implementation"). `implemented` undefined (not loaded yet) offers the
  * connectors too. `navigation: false` (onboarding) leaves out the Settings-only rows.
@@ -127,7 +119,7 @@ export function offeredCatalog(
   return CONNECTOR_CATALOG.filter((c) =>
     !mac && c.type.startsWith("apple:")
       ? OUTLOOK_TYPES.has(c.type) && implemented?.has(c.type) === true
-      : c.opens !== undefined || c.type === "mcp"
+      : c.type === "mcp"
         ? options.navigation !== false
         : implemented === undefined || implemented.has(c.type),
   );

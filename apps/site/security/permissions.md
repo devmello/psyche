@@ -153,13 +153,12 @@ Cards in a message are found by their number shape: 13 to 19 digits with a valid
 
 **Where it runs.**
 
-- Every message the channel service sends (Telegram, iMessage, Discord, Slack, SMS, WhatsApp, Signal, WebChat, email replies and the approval cards in chat) goes through the full check. When one message ends with part of a number and the next one to the same chat, within a minute, carries on with it ("my card is 4111 1111", then "1111 1111"), the two parts are read as one number.
+- Every message Psyche sends for you (the send-a-message tool, email replies and the approval cards on your devices) goes through the full check. When one message ends with part of a number and the next one to the same chat, within a minute, carries on with it ("my card is 4111 1111", then "1111 1111"), the two parts are read as one number.
 - The `messages_send` tool and other email or message tools use the same check before anything is approved. A credential, a card, an IBAN or a Social Security number, as the strict reading below finds it, is refused outright; a card shape only the message reading finds (rows of numbers aligned with two spaces, say) asks on a paired device instead. The other kinds (a one-time code, a passport, SIN, NI or Aadhaar number, a routing and account number) ask on a paired device, once, so you can still send your own accountant your routing number.
 - Other tool calls, such as file writes, MCP servers and browser forms, get a stricter reading for credentials, card numbers, IBANs and Social Security numbers. There a card is 13 to 19 digits split only by a single space, dot or dash, with a valid checksum and no network check, so no card network is missed and a list of ports or a grid of numbers in a file is never taken for a card.
 
 **What happens.**
 
-- In your own one-to-one chat (Telegram, iMessage, Discord, Slack, SMS, WebChat) the value is cut out and the reply says to open Psyche to see it, in your language. A one-time code is allowed there, since it goes to you. A card, a bank number, an ID and any credential are still cut out, because the chat service stores them.
 - A message to anyone else, to a group (including one you are in), or any email reply is held: it is not sent, the conversation gets a note telling Psyche why, and you get a notice in Psyche that opens the conversation. Email is always held, even to your own address, because a `From:` address is not verified.
 - The audit log records the decision and the kinds of value, never the value. Published test card numbers are not exempt here.
 

@@ -49,7 +49,7 @@ async function start(config: Record<string, unknown> = { publicOrigin }) {
         },
       },
     }),
-    config: { allowedOrigins: [publicOrigin], ...config },
+    config: { ...config },
   });
   return t;
 }
@@ -301,12 +301,8 @@ describe("pairing with a setup token", () => {
   it("pairs the iPhone app (family ios) the same way, but never a page claiming to be it", async () => {
     await start();
     const { token } = await makeLink(["operator.read", "operator.write", "operator.approvals"]);
-    const fake = await handshake(
-      await client({ ...forwarded, origin: publicOrigin }),
-      publicOrigin,
-      { gatewayKey: t.gateway.context.identity.publicKey, setupToken: token, deviceFamily: "ios" },
-    );
-    expect(verified(fake)).toMatchObject({ phase: "denied", code: "setup_token_invalid" });
+    // A page claiming to be the phone is refused before the upgrade (no browser Origin at all).
+    await expect(client({ ...forwarded, origin: publicOrigin })).rejects.toThrow("403");
     const phone = await pairWith(token, { deviceFamily: "ios" });
     expect(verified(phone)).toMatchObject({
       phase: "paired",
@@ -332,16 +328,7 @@ describe("pairing with a setup token", () => {
       deviceFamily: "mac-helper",
     });
     expect(helper.verifyRes?.ok === false || phase(helper) === "denied").toBe(true);
-    const page = await handshake(
-      await client({ ...forwarded, origin: publicOrigin }),
-      publicOrigin,
-      {
-        gatewayKey: own,
-        setupToken: token,
-        deviceFamily: "web",
-      },
-    );
-    expect(verified(page)).toMatchObject({ phase: "denied", code: "setup_token_invalid" });
+    await expect(client({ ...forwarded, origin: publicOrigin })).rejects.toThrow("403");
     // None of that spent it.
     expect(phase(await pairWith(token))).toBe("paired");
   });

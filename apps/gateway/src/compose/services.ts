@@ -27,14 +27,13 @@ import type { BusySources } from "../update-gate.ts";
 import type { ApprovalTokens } from "./approval-tokens.ts";
 import type { OwnerAttention } from "./attention.ts";
 import type { CallContexts } from "./call-context.ts";
-import type { ChannelConversations } from "./channel-conversations.ts";
 import type { NotificationActions } from "./notification-actions.ts";
 import type { PageReadHub } from "./page-reads.ts";
 import type { ComposeRateLimits } from "./rate-limits.ts";
 import type { SrtResolver } from "./srt.ts";
 
 /**
- * What the composition root hands to the INT-2 subsystems (browser, connectors, channels).
+ * What the composition root hands to the INT-2 subsystems (browser, connectors).
  * Each subsystem module turns these into handlers, tools and background work.
  */
 export interface BrowserAvailability {
@@ -55,7 +54,7 @@ export interface ComposeServices {
   readonly clock: Clock;
   /** `$PSYCHE_HOME`. */
   readonly home: string;
-  /** The broker the agent loop uses (answer tokens, channel delivery). */
+  /** The broker the agent loop uses (answer tokens). */
   readonly broker: PermissionBroker;
   /** The Gateway's one srt lookup (`compose/srt.ts`): host commands and srt-launched parts. */
   readonly srt?: SrtResolver;
@@ -71,8 +70,6 @@ export interface ComposeServices {
   publish<E extends EventName>(event: E, payload: EventPayload<E>, threadId?: string): void;
   /** Whether the owner is watching (pause-when-unwatched, #272). */
   readonly attention: OwnerAttention;
-  /** Inbound channel policy decisions per conversation (the broker's channel reply authority). */
-  readonly channelConversations: ChannelConversations;
   /** The credential vault (S06): connector tokens, Settings → Credentials. */
   readonly vault: Vault;
   /** The redactor the vault registers handed-out values with; mask any output path with it. */
@@ -136,14 +133,14 @@ export function createOwnPorts(): OwnPorts {
 /** One subsystem as the composition root mounts it. */
 export interface ComposedPart {
   readonly handlers?: Readonly<Record<string, HandlerDef>>;
-  /** Self-authenticating `POST <path>` routes (channel webhooks; `GET` where declared) on the Gateway's HTTP server. */
+  /** Self-authenticating `POST <path>` routes (`GET` where declared) on the Gateway's HTTP server. None is mounted since the chat channels went (2026-11-25). */
   readonly webhooks?: Readonly<Record<string, WebhookRoute>>;
   /** Public `GET <path>` routes (the Web Bot Auth key directory, I14). Public data only. */
   readonly publicRoutes?: Readonly<Record<string, PublicRoute>>;
   /** Runs once the Gateway is listening. */
   start?(gateway: Gateway): Promise<void> | void;
   stop?(): Promise<void> | void;
-  /** Approvals delivered beyond the in-app surfaces (chat, the Mac helper's notifications). */
+  /** Approvals delivered beyond the in-app surfaces (the Mac helper's notifications). */
   readonly relay?: ApprovalRelay;
   /**
    * Devices that answer approvals through this part's relay although their paired scopes lack
@@ -174,12 +171,10 @@ export interface ComposedPart {
   readonly localProject?: LocalProjectVerifier;
 }
 
-/** Hooks a part gives the broker (approvals over chat or the helper, owner senders). */
+/** Hooks a part gives the broker (approvals through the Mac helper's notifications). */
 export interface ApprovalRelay {
-  /** Extra surfaces for every approval: the owner's chat peers (`telegram:<id>`), `notification`. */
+  /** Extra surfaces for every approval (`notification`). */
   surfaces(): Surface[];
-  /** Deliver an issued approval to those surfaces (buttons, `/approve` fallback). */
+  /** Deliver an issued approval to those surfaces. */
   deliver(issued: IssuedApproval): Promise<void>;
-  /** Channel owners (only the channels part names any). */
-  isOwnerSender(channel: string, senderId: string): Promise<boolean>;
 }

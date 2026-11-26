@@ -1,6 +1,8 @@
 import type { Catalogue } from "../index.ts";
 import { actionErrors } from "./action-errors/es.ts";
 import { agentA } from "./agent-a/es.ts";
+import { appleE1 } from "./apple-e1/es.ts";
+import { appleE2 } from "./apple-e2/es.ts";
 import { approvalsW3 } from "./approvals-w3/es.ts";
 import { blocksA } from "./blocks-a/es.ts";
 import { canvas } from "./canvas/es.ts";
@@ -40,6 +42,7 @@ import { settingsA } from "./settings-a/es.ts";
 import { settingsB } from "./settings-b/es.ts";
 import { settingsC } from "./settings-c/es.ts";
 import { settingsD } from "./settings-d/es.ts";
+import { settingsDrill } from "./settings-drill/es.ts";
 import { settingsE } from "./settings-e/es.ts";
 import { spaces } from "./spaces/es.ts";
 import { specialistsA } from "./specialists-a/es.ts";
@@ -815,11 +818,9 @@ export const es: Partial<Catalogue> = {
   "agent.upcoming.inNamed": "en {name}",
   "agent.upcoming.inOwnSession": "en su propia sesión",
   "agent.upcoming.inMainSession": "en la sesión principal",
-  "agent.upcoming.email": "correo",
   "agent.upcoming.quiet": "No avisa salvo que algo te necesite",
   "agent.upcoming.theMainChat": "la conversación principal",
   "agent.upcoming.aChat": "una conversación",
-  "agent.upcoming.aChannel": "un canal",
   "agent.upcoming.nowhere": "Aún no entrega en ningún sitio",
   "agent.upcoming.deliversTo": "Entrega en {to}",
   "agent.upcoming.last": "última: {status}",
@@ -1036,7 +1037,6 @@ export const es: Partial<Catalogue> = {
   "shell.sidebar.destinations": "Destinos",
   "shell.sidebar.resize": "Redimensionar la barra lateral",
   "shell.sidebar.settingsMenu": "Ajustes y ayuda",
-  "shell.sidebar.channel": "Canal",
   "shell.sidebar.automation": "Automatización",
   "shell.sidebar.subagent": "Subagente",
   "shell.sidebar.untitled": "Conversación sin título",
@@ -1110,7 +1110,6 @@ export const es: Partial<Catalogue> = {
   "settings.nav.files": "Acceso a archivos",
   "settings.nav.vm": "Modo VM",
   "settings.nav.devices": "Dispositivos y nodos",
-  "settings.nav.channels": "Canales",
   "settings.nav.credentials": "Credenciales",
   "settings.nav.appearance": "Aspecto",
   "settings.nav.voice": "Voz y dictado",
@@ -1251,11 +1250,10 @@ export const es: Partial<Catalogue> = {
     "Psyche lee estas tarjetas de Stripe Link; quita una desde tu cuenta de Link. Si quitas la clave de Link de arriba, Psyche deja de pagar con cualquiera de ellas.",
   "settings.credentials.managed.connector": "Gestionada por su conector",
   "settings.credentials.managed.model_provider": "La clave de un proveedor de modelos",
-  "settings.credentials.managed.channel": "El token de un canal",
+  "settings.credentials.managed.channel": "El secreto de un canal de chat antiguo",
   "settings.credentials.managed.external_manager": "Enlazada desde tu gestor de contraseñas",
   "settings.credentials.setting.connectors": "Conectores",
   "settings.credentials.setting.models": "Modelo y proveedores",
-  "settings.credentials.setting.channels": "Canales",
   "settings.credentials.setting.credentials": "Credenciales",
   "settings.credentials.err.gatewayOwned":
     "{name} pertenece al Gateway; quítalo en Ajustes → {setting}.",
@@ -1707,127 +1705,9 @@ export const es: Partial<Catalogue> = {
   "settings.browser.createKey": "Crear clave",
   "settings.browser.keyStillSigns": "La clave actual, si la hay, sigue firmando.",
 
-  "settings.channels.type.email": "Correo",
-  "settings.channels.type.sms": "SMS",
-  "settings.channels.status.active": "Conectado",
-  "settings.channels.status.paused": "En pausa",
-  "settings.channels.status.error": "Error",
-  "settings.channels.status.disconnected": "Desconectado",
-  "settings.channels.policy.pairing": "Enlace",
-  "settings.channels.policy.pairingHint":
-    "Los remitentes nuevos reciben un código; tú los apruebas aquí.",
-  "settings.channels.policy.allowlist": "Lista de permitidos",
-  "settings.channels.policy.allowlistHint": "Solo las personas de la lista de abajo.",
-  "settings.channels.policy.open": "Abierto",
-  "settings.channels.policy.openHint": "Cualquiera puede escribir a {persona}.",
-  "settings.channels.policy.disabled": "Desactivado",
-  "settings.channels.policy.disabledHint": "Los mensajes directos se ignoran.",
-  "settings.channels.title": "Canales",
-  "settings.channels.description":
-    "Por dónde pueden contactar con {persona} y quién tiene permiso.",
-  "settings.channels.loadLabel": "los canales",
-  "settings.channels.empty":
-    "Aún no hay canales. Conecta Telegram, iMessage o Slack para contactar con {persona} lejos de este Mac.",
-  "settings.channels.add.button": "Añadir un canal",
-  "settings.channels.add.title": "Añadir un canal",
-  "settings.channels.add.description":
-    "Elige dónde se puede contactar con {persona}. Los tokens van directamente a la caja fuerte y no se vuelven a mostrar.",
-  "settings.channels.add.type": "Canal",
-  "settings.channels.add.account.slack": "Nombre del espacio de trabajo",
-  "settings.channels.add.account.discord": "ID de la aplicación",
-  "settings.channels.add.secret.bot_token": "Token del bot",
-  "settings.channels.add.secret.app_token": "Token de la aplicación",
-  "settings.channels.add.secret.auth_token": "Token de autenticación",
-  "settings.channels.add.secret.access_token": "Token de acceso",
-  "settings.channels.add.secret.app_secret": "Secreto de la aplicación",
-  "settings.channels.add.secret.verify_token": "Token de verificación",
-  "settings.channels.add.submit": "Conectar",
-  "settings.channels.add.connecting": "Conectando",
-  "settings.channels.add.missing": "Rellena todos los campos para conectar.",
-  "settings.channels.add.failed": "Psyche no pudo añadir el canal ({reason}). No está activado.",
-  "settings.channels.add.account.sms": "Número de envío (+15551234567)",
-  "settings.channels.add.account.whatsapp": "Número de WhatsApp (+15551234567)",
-  "settings.channels.add.badNumber":
-    "Introduce el número en formato internacional, como +15551234567.",
-  "settings.channels.add.exists":
-    "Ya existe un canal de {type} para {account}, así que no se cambió nada.",
-  "settings.channels.add.approvalLabel": "Añadir un canal",
-  "settings.channels.add.envNote":
-    "El Gateway también debe iniciarse con {env} configurado para esta cuenta. Telegram, iMessage, Signal y el correo se configuran donde se ejecuta el Gateway; consulta la documentación de canales.",
-  "settings.channels.add.addedInactive":
-    "Canal añadido, pero aún no está en marcha. Configura {env} con esta cuenta donde se ejecuta el Gateway y reinícialo.",
-  "settings.channels.add.added":
-    "Canal añadido. Se inicia cuando el Gateway tenga {env} configurado con esta cuenta. Entonces escribe a {persona} desde él para recibir un código de vinculación y apruébalo aquí.",
-  "settings.channels.add.storedNote":
-    "Ya guardado para esta cuenta: {names}. Se usan tal cual, salvo que los reemplaces.",
-  "settings.channels.add.replace": "Reemplazar los tokens guardados",
-  "settings.channels.add.statusFailed":
-    "Psyche no pudo comprobar qué tokens ya están guardados ({reason}). No se cambió nada.",
-  "settings.channels.add.storedTyped":
-    "Ya hay tokens guardados para esta cuenta. Marca «Reemplazar los tokens guardados» para usar los que escribiste, o vacía esos campos. No se cambió nada.",
-  "settings.channels.identities": "Enlaces de identidad",
-  "settings.channels.identitiesDescription":
-    "Una misma persona en varios canales. Los enlaces solo se cambian desde un dispositivo enlazado.",
-  "settings.channels.identitiesFailed":
-    "Psyche no pudo cargar los enlaces de identidad ({reason}).",
-  "settings.channels.noIdentities":
-    "No hay enlaces de identidad. Cada remitente se trata como una persona distinta.",
-  "settings.channels.designated": "Personas designadas",
-  "settings.channels.designatedDescription":
-    "{persona} les responde con una personalidad delegada y un conjunto de herramientas reducido. Sus aprobaciones te llegan a ti.",
-  "settings.channels.noDesignated": "Nadie designado.",
-  "settings.channels.delegated": "delegada: {persona}",
-  "settings.channels.tools": "herramientas: {tools}",
-  "settings.channels.cardTitle": "{name} {account}",
-  "settings.channels.directMessages": "Mensajes directos",
-  "settings.channels.openWarning":
-    "Abierto permite que cualquiera que encuentre {account} escriba a {persona}, y sus mensajes pueden intentar manipularlo. El enlace es más seguro.",
-  "settings.channels.openAnyway": "Abrirlo de todos modos",
-  "settings.channels.keepPolicy":
-    "Mantener {policy, select, allowlist {la lista de permitidos} pairing {el enlace} disabled {desactivado} other {{policy}}}",
-  "settings.channels.pending": "Pendientes ({n, number} de {max, number})",
-  "settings.channels.pairingFailed": "Psyche no pudo cargar las solicitudes de enlace ({reason}).",
-  "settings.channels.noPending": "Nadie está esperando. Los códigos caducan a la hora.",
-  "settings.channels.code": "código",
-  "settings.channels.expires": "caduca {when}",
-  "settings.channels.approveSender": "Aprobar a {name}",
-  "settings.channels.approve": "Aprobar",
-  "settings.channels.ignoreSender": "Ignorar a {name}",
-  "settings.channels.ignore": "Ignorar",
-  "settings.channels.allow.remove": "Quitar",
-  "settings.channels.allow.removeNamed": "Quitar {name}",
-  "settings.channels.allow.senderLabel": "Remitente que permitir",
-  "settings.channels.allow.groupLabel": "Añadir un remitente (chats de grupo)",
-  "settings.channels.allow.addSender": "Añadir remitente",
-  "settings.channels.allow.addGroup": "Añadir remitente",
-  "settings.channels.allow.senderApproval": "Permitir a un remitente del chat",
-  "settings.channels.allow.groupApproval": "Cambiar quién puede activarme en grupos",
-  "settings.channels.allow.groupEmptied":
-    "Quitar {name} deja la lista vacía. Entonces, todos los permitidos en mensajes directos podrán activar Psyche en los grupos.",
-  "settings.channels.allow.forbidden":
-    "Cambiar quién puede escribir requiere un dispositivo de administrador. Usa un dispositivo emparejado como administrador.",
-  "settings.channels.allow.failed":
-    "Psyche no pudo cambiar quién puede escribir ({reason}). No cambió nada.",
-  "settings.channels.identity.name": "Nombre de la persona",
-  "settings.channels.identity.senders": "IDs de remitente, separados por comas",
-  "settings.channels.identity.link": "Vincular identidad",
-  "settings.channels.identity.unlink": "Desvincular",
-  "settings.channels.identity.unlinkNamed": "Desvincular {name}",
-  "settings.channels.identity.approval": "Vincular una identidad del chat",
-  "settings.channels.identity.forbidden":
-    "Cambiar los vínculos de identidad requiere un dispositivo de administrador. Usa un dispositivo emparejado como administrador.",
-  "settings.channels.identity.failed":
-    "Psyche no pudo cambiar el vínculo de identidad ({reason}). No cambió nada.",
-  "settings.channels.noOneYet": "Nadie aún.",
-  "settings.channels.owner": " · propietario",
-  "settings.channels.groups": "Quién puede activarme en grupos",
-  "settings.channels.noGroups":
-    "Todos los permitidos en mensajes directos pueden activarme en grupos.",
-  "settings.channels.requireMention": "Responder en grupos solo cuando se le mencione",
-  "settings.channels.err.forbidden":
-    "{action, select, policy {Cambiar quién puede escribir} mention {Cambiar las menciones en grupos} approve {Aprobar al remitente} other {Ignorar al remitente}} necesita aprobación en este dispositivo. Usa un dispositivo enlazado como administrador.",
-  "settings.channels.err.failed":
-    "Psyche no pudo {action, select, policy {cambiar quién puede escribir} mention {cambiar las menciones en grupos} approve {aprobar al remitente} other {ignorar al remitente}} ({reason}).",
+  "settings.devices.pairingFailed": "Psyche no pudo cargar las solicitudes de enlace ({reason}).",
+  "settings.devices.approveNamed": "Aprobar a {name}",
+  "settings.devices.approve": "Aprobar",
 
   "settings.computerUse.tier.ask": "Preguntar",
   "settings.computerUse.tier.off": "Desactivado",
@@ -1904,10 +1784,6 @@ export const es: Partial<Catalogue> = {
   "settings.connectors.catalog.appleCalendar": "Calendario de Apple",
   "settings.connectors.catalog.appleMail": "Mail de Apple",
   "settings.connectors.catalog.mcp": "Servidor MCP",
-  "settings.connectors.catalog.slack": "Slack",
-  "settings.connectors.slackExplain":
-    "Slack es un canal: ahí hablas con Psyche. Configúralo en Ajustes → Canales.",
-  "settings.connectors.openChannels": "Abrir Canales",
   "settings.connectors.status.connected": "Conectado",
   "settings.connectors.status.disconnected": "Desconectado",
   "settings.connectors.status.error": "Error",
@@ -2314,8 +2190,6 @@ export const es: Partial<Catalogue> = {
   "settings.model.role.imageHint": "Cambios de avatar; ninguno significa las criaturas incluidas",
   "settings.model.addProvider": "Añadir un proveedor",
   "settings.model.title": "Modelo y proveedores",
-  "settings.model.description":
-    "El modelo que eliges se usa tal cual. Si falla, Psyche lo dice en vez de recurrir a otro.",
   "settings.model.loadLabel": "los proveedores de modelos",
   "settings.model.providers": "Proveedores",
   "settings.model.listFailed": "Psyche no pudo enumerar los modelos ({reason}).",
@@ -2349,13 +2223,10 @@ export const es: Partial<Catalogue> = {
   "settings.model.runCheckOn": "Ejecutar la comprobación de llamadas a herramientas en {name}",
   "settings.model.runCheck": "Ejecutar comprobación",
   "settings.model.roles": "Funciones de los modelos",
-  "settings.model.rolesHint":
-    "Cada función usa un modelo. Los modelos que no superan la comprobación de llamadas a herramientas son solo de chat.",
   "settings.model.none": "Ninguno",
   "settings.model.choose": "Elige un modelo",
   "settings.model.chatOnlyOption": "{name} (solo chat)",
   "settings.model.local": "Modelos locales",
-  "settings.model.localHint": "Ejecuta modelos en este Mac con Ollama o LM Studio.",
   "settings.model.err.use": "Psyche no pudo usar {name} ({reason}).",
   "settings.model.err.probe": "Psyche no pudo comprobar el endpoint ({reason}).",
   "settings.model.err.check": "Psyche no pudo ejecutar la comprobación ({reason}).",
@@ -2412,9 +2283,6 @@ export const es: Partial<Catalogue> = {
   "settings.permissions.subject.emailFrom": "a {recipients} desde {account}",
   "settings.permissions.subject.calendarNamed": "calendario {id}",
   "settings.permissions.subject.calendar": "calendario",
-  "settings.permissions.title": "Permisos",
-  "settings.permissions.description":
-    "Qué se ejecuta por sí solo, qué pregunta primero y qué no ocurre nunca.",
   "settings.permissions.loadLabel": "los permisos",
   "settings.permissions.defaultModeTitle": "Modo por omisión para las conversaciones nuevas",
   "settings.permissions.execReview":
@@ -2491,7 +2359,7 @@ export const es: Partial<Catalogue> = {
   "settings.persona.describedAs": "Descripción: {description}",
   "settings.persona.identity": "Identidad",
   "settings.persona.taglinePlaceholder": "Alas silenciosas, manos cuidadosas.",
-  "settings.persona.emojiHint": "Se muestra en los canales que no pueden mostrar el avatar.",
+  "settings.persona.emojiHint": "Se muestra donde no se puede mostrar el avatar.",
   "settings.persona.avatar": "Avatar",
   "settings.persona.describeChange": "Describe un cambio",
   "settings.persona.describeHint": "Con tus palabras, p. ej. «ponle una bufandita a la polilla».",
@@ -2926,8 +2794,8 @@ export const es: Partial<Catalogue> = {
   "onboarding.keyRefused": "El proveedor rechazó esta clave ({reason}). Pega la clave de nuevo.",
   "onboarding.setupCheck": "Comprobación de la configuración",
   "onboarding.progress": "Progreso de la configuración inicial",
+  "onboarding.steps": "Pasos",
   "onboarding.doneMark": " (hecho)",
-  "onboarding.stepOf": "Paso {n, number} de {total, number}:",
   "onboarding.back": "Atrás",
   "onboarding.skipForNow": "Omitir por ahora",
   "onboarding.openChat": "Abrir la conversación principal",
@@ -2982,7 +2850,7 @@ export const es: Partial<Catalogue> = {
   "onboarding.permission.asking": "Solicitando…",
   "onboarding.permission.allow": "Permitir",
   "onboarding.connectors.intro":
-    "Decide ahora qué cuentas conectar, de una en una. {name} solo ve lo que conectes, y puedes añadir más después en Ajustes.",
+    "Elige en qué puede ayudar {name}. Cada app pide permiso al conectarla, y puedes añadir más después en Ajustes.",
   "onboarding.connectors.connected": "Conectadas ({n, number})",
   "onboarding.connectors.connectedList": "Tus cuentas",
   "onboarding.connectors.needsPermission": "Necesita permiso",
@@ -3029,12 +2897,20 @@ export const es: Partial<Catalogue> = {
     "Psyche acaba de crear tu bóveda. Guarda esta clave en un gestor de contraseñas o en papel: solo se muestra ahora y es la única forma de volver a entrar en la bóveda tras una restauración o si se pierde una ranura de clave.",
   "onboarding.model.subscriptionNote":
     "Psyche usa la app Claude Code o Codex con la sesión ya iniciada en este Mac, así que no necesita ninguna clave de API ni guarda ninguna. Si aún no lo has hecho, inicia sesión allí primero.",
-  "onboarding.model.toolCheck": "Comprobación de llamadas a herramientas",
-  "onboarding.model.runCheck": "Ejecutar comprobación",
-  "onboarding.model.checkAgain": "Volver a comprobar",
+  "onboarding.model.toolCheck": "Prueba de conexión",
+  "onboarding.model.otherWays": "Otras opciones",
+  "onboarding.model.test.passed": "Funciona",
+  "onboarding.model.test.failed": "Solo chat",
+  "onboarding.model.test.running": "Probando…",
+  "onboarding.model.test.untested": "Sin probar aún",
+  "onboarding.model.runCheck": "Probar",
+  "onboarding.model.checkAgain": "Probar de nuevo",
   "onboarding.model.toolCheckFailed":
-    "Este modelo puede conversar pero no usa herramientas de forma fiable, así que no actuará por ti. Elige otro o continúa en modo solo chat.",
+    "Este modelo puede chatear, pero quizá no haga tareas por ti. Elige otro o continúa solo con chat.",
   "onboarding.done.ready": "{name} está listo.",
+  "onboarding.done.notReady": "{name} aún no puede responder.",
+  "onboarding.done.notReadyBody":
+    "Arregla la fila Modelo de abajo, o hazlo más tarde en Ajustes → Modelos.",
   "onboarding.done.opens": "La conversación principal se abre con el primer mensaje de {name}.",
   "onboarding.done.noneYet": "Ninguno aún",
   "onboarding.done.accounts": "Cuentas",
@@ -3319,7 +3195,7 @@ export const es: Partial<Catalogue> = {
   "screens.files.shareInSettings": "Comparte una en Ajustes → Acceso a archivos.",
   "screens.files.previewOf": "Previsualización de {name}",
   "screens.files.preview": "Previsualización",
-  "screens.files.needsApp": "Las previsualizaciones necesitan la app de escritorio o la web.",
+  "screens.files.needsApp": "Las previsualizaciones necesitan la app de escritorio.",
   "screens.files.pick": "Elige un archivo para previsualizarlo aquí.",
   "screens.files.editReadOnly": "Solo lectura: esta carpeta se comparte sin edición.",
   "screens.files.editOpening": "Abriendo {name} para editar",
@@ -3658,7 +3534,7 @@ export const es: Partial<Catalogue> = {
   "web.passkeys.unavailable":
     "Las llaves de acceso necesitan la dirección https del servidor. Define gateway.publicOrigin (o PSYCHE_PUBLIC_ORIGIN) con la dirección https:// en la que abres Psyche, reinicia el Gateway y añade una aquí.",
   "web.passkeys.insecure":
-    "Las llaves de acceso solo funcionan cuando Psyche está abierto en su dirección https://, en un navegador compatible. Ábrelo ahí para añadir una.",
+    "Aquí no se pueden añadir llaves de acceso. Añade una en la app Psyche de otro ordenador que se conecte a este Gateway en su dirección https://.",
   "web.passkeys.firstApproval":
     "Aprueba «Añadir una llave de acceso» con Touch ID en tu Mac o con una llave de acceso en otro dispositivo, y luego vuelve a pulsar Añadir.",
   "web.passkeys.loadError": "Psyche no pudo cargar tus llaves de acceso ({error}).",
@@ -3708,8 +3584,11 @@ export const es: Partial<Catalogue> = {
     "{ref}: el proveedor rechazó la clave ({error}). La clave no se conservó.",
   "web.setup.modelNotChecked":
     "{ref}: la clave está guardada, pero no se pudo contactar con el proveedor para comprobarla.",
+  "web.setup.modelEnvKey": "Usando una clave de tu entorno ({ref}).",
+  "web.setup.modelEnvNotChecked":
+    "Usando una clave de tu entorno ({ref}), pero no se pudo contactar con el proveedor para comprobarla.",
   "web.setup.modelSkipped":
-    "{ref}: no se añadió ninguna clave, así que el chat aún no responderá. Añade una en Ajustes → Modelos.",
+    "Añade una clave: {ref} aún no tiene clave, así que el chat no responderá. Añade una en Ajustes → Modelos.",
   "web.gate.loading": "Iniciando Psyche",
   "web.gate.error": "Psyche no pudo comprobar si la configuración ha terminado.",
   "web.gate.retry": "Reintentar",
@@ -3954,12 +3833,12 @@ export const es: Partial<Catalogue> = {
   "web.toast.permissionModeUnsupported":
     "Cambiar el modo de permisos necesita una versión más reciente de Psyche.",
   "web.toast.modelUnsupported": "Elegir un modelo necesita una versión más reciente de Psyche.",
-  "web.palette.newSideChat": "Nueva conversación paralela",
-  "web.palette.newIncognito": "Nueva conversación de incógnito (solo en memoria, 24 h)",
-  "web.palette.openBrowser": "Abrir el panel del navegador",
-  "web.palette.openTerminal": "Abrir el panel del terminal",
-  "web.palette.openTasks": "Abrir el panel de tareas",
-  "web.palette.openFiles": "Abrir el panel de archivos",
+  "web.palette.newSideChat": "Nuevo chat",
+  "web.palette.newIncognito": "Nuevo chat privado",
+  "web.palette.openBrowser": "Abrir el navegador",
+  "web.palette.openTerminal": "Abrir el terminal",
+  "web.palette.openTasks": "Mostrar tareas",
+  "web.palette.openFiles": "Mostrar archivos",
   "web.palette.switchMode": "Cambiar el modo de permisos",
   "web.threads.sideChat": "Conversación paralela",
   "web.shell.skipToContent": "Saltar al contenido",
@@ -4114,15 +3993,18 @@ export const es: Partial<Catalogue> = {
   ...points,
   // Approvals wave W3 (card choices, Allowed list)
   ...approvalsW3,
+  ...settingsDrill,
   // Fork a plan (docs/design/fork-a-plan-2026.md §9)
   ...planFork,
   ...desktopSimple,
+  ...appleE1,
   // Gateway-authored notices (inbox notifications, security alerts)
   ...notices,
   // Settings > Computer use > Separate desktop (Linux)
   ...separateDesktop,
   // Windows variants of the sandbox PC, voice keys and platform terms
   ...windowsPlatform202611,
+  ...appleE2,
   ...mailFollowups,
   ...nightShift,
   ...keepAwake,

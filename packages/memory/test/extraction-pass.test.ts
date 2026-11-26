@@ -568,7 +568,7 @@ describe("the reader", () => {
   it("returns only owner-scope owner-provenance rows and counts the rest", () => {
     doc({ body: "mine" });
     doc({ body: "theirs", provenance: "untrusted" });
-    doc({ body: "delegated", scope: "telegram:peer:1" });
+    doc({ body: "delegated", scope: "oldchat:peer:1" });
     const page = new SearchDocReader(search).read(
       "mail",
       { updatedMs: 0, rowid: 0 },

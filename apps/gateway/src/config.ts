@@ -1,13 +1,11 @@
 import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { isAbsolute, join, resolve } from "node:path";
-import { assetPath, assetsRoot } from "@psyche/assets";
 import { DEFAULT_GATEWAY_HOST, DEFAULT_GATEWAY_PORT, PsycheError } from "@psyche/protocol";
 import type { RateLimitSettings } from "./compose/rate-limits.ts";
 import { trustedProxyList } from "./proxy.ts";
 import { resolveGuestSocketPath, resolveNodeSocketPath } from "./socket-path.ts";
 import { type BindMode, containerAddress, readGatewayToken } from "./transport-gate.ts";
-import { packagedAsar } from "./web-asar.ts";
 
 /** Resolved Gateway configuration (feature A5 subset; see README "Config keys"). */
 export interface GatewayConfig {
@@ -25,23 +23,16 @@ export interface GatewayConfig {
    * (`guest.sock`); `null` when it does not fit a socket path (VM guests cannot connect).
    */
   guestSocketPath: string | null;
-  /** Built web UI served at `/` when present, default `apps/web/dist`. */
-  webRoot: string | null;
   /**
-   * Psyche.app's `app.asar`, whose renderer build carries the web client (`web-asar.ts`); used
-   * when `webRoot` has no build, which is how the app ships. `null` outside the app.
-   */
-  webAsar: string | null;
-  /**
-   * The public HTTPS origin the web client is served from behind a proxy (`gateway.publicOrigin`
-   * or `PSYCHE_PUBLIC_ORIGIN`). Passkeys use its host as the WebAuthn RP ID; `null` = none.
+   * This Gateway's public HTTPS address behind a proxy such as Tailscale Serve
+   * (`gateway.publicOrigin` or `PSYCHE_PUBLIC_ORIGIN`): the address iPhone pairing links name, the
+   * origin a remote client is told it dialed, and the WebAuthn RP ID for a remote Mac's passkeys.
+   * `null` = none. Psyche serves no browser UI there, and no WebSocket `Origin` is ever allowed.
    */
   publicOrigin: string | null;
-  /** Extra allowed WebSocket `Origin` values (configured publicOrigin, app scheme). */
-  allowedOrigins: string[];
   /**
-   * Trusted-proxy mode (Tailscale Serve, Cloudflare Access). Only unlocks passkey login for the
-   * web client later (INT-2); proxy identity headers never authorize anything by themselves.
+   * Trusted-proxy mode (Tailscale Serve, Cloudflare Access). Names the client address behind the
+   * proxy; proxy identity headers never authorize anything by themselves.
    */
   trustedProxy: {
     enabled: boolean;
@@ -110,6 +101,7 @@ interface ConfigFile {
   gateway?: {
     host?: string;
     port?: number;
+    /** Ignored since browser access was dropped (2026-11-25); still accepted so old files load. */
     allowedOrigins?: string[];
     publicOrigin?: string;
     trustedProxy?: {
@@ -547,7 +539,6 @@ export function resolveConfig(
       ? overrides.publicOrigin
       : (env.PSYCHE_PUBLIC_ORIGIN ?? file.publicOrigin ?? null),
   );
-  const defaultWebRoot = assetPath("apps/web/dist");
   const nodeSocketPath = resolveNodeSocketPath(
     home,
     overrides.nodeSocketPath ?? env.PSYCHE_NODE_SOCKET,
@@ -562,20 +553,7 @@ export function resolveConfig(
       overrides.guestSocketPath !== undefined
         ? overrides.guestSocketPath
         : resolveGuestSocketPath(nodeSocketPath, env.PSYCHE_GUEST_SOCKET, process.platform, home),
-    webRoot:
-      overrides.webRoot === undefined ? (env.PSYCHE_WEB_ROOT ?? defaultWebRoot) : overrides.webRoot,
-    webAsar:
-      overrides.webAsar !== undefined
-        ? overrides.webAsar
-        : overrides.webRoot === undefined && env.PSYCHE_WEB_ROOT === undefined
-          ? packagedAsar(assetsRoot(env))
-          : null,
     publicOrigin,
-    allowedOrigins: overrides.allowedOrigins ??
-      env.PSYCHE_ALLOWED_ORIGINS?.split(",").filter(Boolean) ?? [
-        ...(file.allowedOrigins ?? []),
-        ...(publicOrigin ? [publicOrigin] : []),
-      ],
     trustedProxy: overrides.trustedProxy ?? {
       enabled: trustedProxyEnabled,
       trustedProxies,

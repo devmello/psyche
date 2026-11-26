@@ -361,7 +361,7 @@ describe("Balanced reads of a trusted site", () => {
       const other = await h.broker.decide(nav(SITE), {
         ...TASK2,
         taskId: "task_3",
-        requester: { role, identityId: "idn_1", senderId: "x", channel: "telegram" },
+        requester: { role, identityId: "idn_1", senderId: "x", channel: "oldchat" },
       });
       expect(other.rule).not.toContain("trusted_site");
     },

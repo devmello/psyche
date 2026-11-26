@@ -89,6 +89,15 @@ describe("Sidebar (redesign §5.1)", () => {
     expect(onOpenSearch).toHaveBeenCalledTimes(1);
   });
 
+  it("shows each place's ⌘-digit in its tooltip and names it for assistive tech", async () => {
+    renderSidebar();
+    const library = destination("Library");
+    expect(library.getAttribute("aria-keyshortcuts")).toBe("Meta+3");
+    library.focus();
+    const tip = await screen.findByText(/^Library\s\S*3$/, {}, { timeout: 3000 });
+    expect(tip.textContent).toMatch(/3$/);
+  });
+
   it("puts the selection on the open thread inside Chat and keeps Chat marked current", async () => {
     const { onOpenThread } = renderSidebar({
       route: `/chat/${IDS.threads.dentist}`,

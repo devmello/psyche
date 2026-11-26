@@ -171,7 +171,7 @@ const NAMESPACES = [
   "approvals",
   "browser",
   "capabilities",
-  "channels",
+  // `channels` is gone: chat channels were removed (2026-11-25), so `channels.*` is refused.
   "chat",
   "cleanupPeriodDays",
   "commands",

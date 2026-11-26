@@ -1,7 +1,9 @@
 /** The Memory page: the sidebar's fourth place (`memory-page/`). */
 export const memoryPage = {
   "memory.page.title": "Memory",
-  "memory.page.soul": "Soul",
+  "memory.page.soul": "Personality",
+  "memory.page.people.all": "Everyone",
+  "memory.page.detail.empty": "Select a person to see their details.",
   "memory.page.kinds": "What to show",
   "memory.page.kind.everything": "Everything",
   "memory.page.kind.people": "People",

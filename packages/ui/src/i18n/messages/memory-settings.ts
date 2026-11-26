@@ -18,16 +18,12 @@ export const memorySettings = {
   "settings.key.memory.surfaces.tiers.work.home": "Work on Home",
   "settings.key.memory.surfaces.tiers.work.brief": "Work in the daily brief",
   "settings.key.memory.surfaces.tiers.work.notification": "Work in notifications",
-  "settings.key.memory.surfaces.tiers.work.channel": "Work in the brief sent to a channel",
   "settings.key.memory.surfaces.tiers.workMail.home": "Mail about work on Home",
   "settings.key.memory.surfaces.tiers.workMail.brief": "Mail about work in the daily brief",
   "settings.key.memory.surfaces.tiers.workMail.notification": "Mail about work in notifications",
-  "settings.key.memory.surfaces.tiers.workMail.channel":
-    "Mail about work in the brief sent to a channel",
   "settings.key.memory.surfaces.tiers.people.home": "People on Home",
   "settings.key.memory.surfaces.tiers.people.brief": "People in the daily brief",
   "settings.key.memory.surfaces.tiers.people.notification": "People in notifications",
-  "settings.key.memory.surfaces.tiers.people.channel": "People in the brief sent to a channel",
   "settings.key.memory.surfaces.birthdays": "Birthdays and anniversaries in the brief and on Home",
   "settings.key.memory.surfaces.hideSources": "Keep a source out of Home, briefs and notifications",
   "settings.key.memory.surfaces.kinds.project": "Show projects outside Memory",
@@ -107,12 +103,11 @@ export const memorySettings = {
   // --- Where memory shows ---
   "memorySurfaces.title": "Where memory shows",
   "memorySurfaces.description":
-    "What {persona} may put on Home, in the daily brief, in notifications and in a brief sent to Telegram or another channel. The Memory page always shows everything you have not excluded.",
+    "What {persona} may put on Home, in the daily brief and in notifications. The Memory page always shows everything you have not excluded.",
   "memorySurfaces.loadLabel": "where memory shows",
   "memorySurfaces.surface.home": "Home",
   "memorySurfaces.surface.brief": "Daily brief",
   "memorySurfaces.surface.notification": "Notifications",
-  "memorySurfaces.surface.channel": "Brief sent to a channel",
 
   "memorySurfaces.tier.work.title": "Work and to-dos",
   "memorySurfaces.tier.work.description":
@@ -125,8 +120,7 @@ export const memorySettings = {
   "memorySurfaces.tier.people.title": "Facts about people",
   "memorySurfaces.tier.people.description":
     "Facts about other people, how you know them, what you talked about, and Keep in touch.",
-  "memorySurfaces.people.warning":
-    "Briefs can be seen by anyone who sees your screen or your Telegram.",
+  "memorySurfaces.people.warning": "Briefs can be seen by anyone who sees your screen.",
 
   "memorySurfaces.birthdays.title": "Birthdays and anniversaries",
   "memorySurfaces.birthdays.label": "Show birthdays and anniversaries",

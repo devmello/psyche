@@ -32,7 +32,6 @@ const api = createPermissionHandlers(broker, audit); // approvals.*, grants.*, a
 
 - `decide(call, ctx)` → `PolicyDecision` (`allow | ask | deny`, deciding `rule`, `trace`, and for `ask`: `approvalKind`, `bindingHash`, `grantKey`, `scopesOffered`, `typedConfirmation`, `deferred`).
 - `requestApproval`, `answer`, `awaitDecision`, `verifyBinding`, `get`, `list`, `reissue`, `revokeRunAuthority` (contract).
-- `authorizeChannelReply({channel, account, recipient, bodySha256, bindingHash?, purpose, turn?})` (package only; security §9 "Channel reply authority"): a system-decided `once` `message_send` for a channel send, from the `channelConversations` lookup. With `turn` (`{requestRecipient, context}`), a reply must go to the requesting conversation and the turn's mode, deny rules, requester and taint are evaluated (`taint_new_target`, `not_requesting_conversation`, `policy_denied`).
 - `recordReceipt`, `listReceipts` (contract) plus `broker.receipts.reconcile()` for `uncertain` outcomes.
 - Grant ledger: `listGrants`, `revokeGrant` (contract) plus `revokeAllGrants`, `revokeGrantsByDevice`, `revokeMcpGrants(serverId, toolsListHash)`, `endTask`, `endSession`, `exportGrants`.
 - `setPolicy(config)` (takes effect on the next call), `subscribe(listener)` for `approval.created | decided | expired | invalidated`, `grant.created | used | revoked`, `receipt.created`, `task.paused | downgraded`. Events never carry answer tokens.
@@ -74,7 +73,7 @@ The broker floors declared side-effect classes (`src/kinds.ts`): a registry or n
   - The owner's own configured allowances do not apply.
 - **`allowed`** (allowlisted, neither owner nor designated): nothing above `read` (`requester:not_owner`).
 - **Grants are per requester:** `grants.requester_id` (migration `202610201600_permissions_requester.sql`). The owner's grants never cover anyone else, and a grant approved for one person's request covers only that person.
-- **Approval cards** go to the owner's surfaces. The requester's own chats (`links`, `channel:senderId`) are stripped, and `details.requestedFor` names the person.
+- **Approval cards** go to the owner's surfaces (the Mac app and the paired iPhone).
 ## Approval friction metrics (M2)
 
 `frictionMetrics(entries)` (and the `audit.friction` handler, `operator.read`) summarizes the audit log. It reads only the `tool_call.decided`, `approval.*`, `grant.created` and `classifier.labeled` entries, never arguments. It reports:

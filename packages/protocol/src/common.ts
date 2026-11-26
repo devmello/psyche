@@ -167,9 +167,12 @@ export const DeviceScope = StringEnum(
 );
 export type DeviceScope = Static<typeof DeviceScope>;
 
-/** Delivery surfaces for approvals and notifications. Channel surfaces are `<channel>:<id>`. */
+/**
+ * Delivery surfaces for approvals and notifications: the owner's own devices. Old approval rows
+ * may still name a removed chat channel's `<channel>:<id>` surface.
+ */
 export const Surface = Type.String({
-  description: '"desktop" | "notification" | "web" | "<channel>:<peerId>"',
+  description: '"desktop" | "notification" | "web" | "device:<deviceId>"',
   minLength: 1,
 });
 export type Surface = Static<typeof Surface>;

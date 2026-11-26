@@ -4,15 +4,12 @@ import { type InterruptionLevel, isInterruptive, normalizeSurface, surfaceClass 
 
 /**
  * Routing policy (architecture §4.12, UI §3.20). Callers may pass explicit `surfaces`; otherwise
- * the kind's defaults apply, plus the owner's channel targets for the kinds that go to chat.
+ * the kind's defaults apply. Surfaces of an unknown class (an old chat channel's `telegram:1`) are
+ * dropped: they have no adapter and must never fall through to the OS or a device.
  */
 export interface RoutingConfig {
   /** Default surfaces per kind; merged over `DEFAULT_SURFACES`. */
   surfaces?: Partial<Record<NotificationKind, Surface[]>>;
-  /** The owner's chat surfaces (`telegram:12345`), added for `channelKinds`. */
-  channelTargets?: Surface[];
-  /** Kinds that also go to `channelTargets` when no explicit surfaces are given. */
-  channelKinds?: NotificationKind[];
   /** OS interruption level per kind; merged over `DEFAULT_INTERRUPTION`. */
   interruption?: Partial<Record<NotificationKind, InterruptionLevel>>;
   quietHours?: QuietHoursConfig | null;
@@ -40,18 +37,9 @@ export const DEFAULT_SURFACES: Readonly<Record<NotificationKind, readonly Surfac
   // A specialist's one result card (docs/agent/specialists-2026.md §6.2): like a finished task.
   specialist_result: ["desktop", "web", "notification"],
   // A warning before the owner breaks their own promise (docs/design/promise-ledger-2026.md
-  // §5.1). The OS gets it; chat channels do not (it names a person).
+  // §5.1). The OS gets it.
   promise_due: ["desktop", "web", "notification"],
 };
-
-export const DEFAULT_CHANNEL_KINDS: readonly NotificationKind[] = [
-  "approval",
-  "input_needed",
-  "task_done",
-  "task_failed",
-  "reminder",
-  "specialist_result",
-];
 
 /** UI §3.20: approvals are time-sensitive; proactive, briefing and reminder are passive. */
 export const DEFAULT_INTERRUPTION: Readonly<Record<NotificationKind, InterruptionLevel>> = {
@@ -72,20 +60,16 @@ export function resolveSurfaces(
   kind: NotificationKind,
   explicit?: readonly Surface[],
 ): Surface[] {
-  let list: readonly Surface[];
-  if (explicit !== undefined && explicit.length > 0) {
-    list = explicit;
-  } else {
-    const base = config.surfaces?.[kind] ?? DEFAULT_SURFACES[kind];
-    const toChat = (config.channelKinds ?? DEFAULT_CHANNEL_KINDS).includes(kind);
-    list = toChat ? [...base, ...(config.channelTargets ?? [])] : base;
-  }
+  let list: readonly Surface[] =
+    explicit !== undefined && explicit.length > 0
+      ? explicit
+      : (config.surfaces?.[kind] ?? DEFAULT_SURFACES[kind]);
   const onOs = list.some((s) => normalizeSurface(s) === "notification");
   if (onOs && config.deviceTargets !== undefined) list = [...list, ...config.deviceTargets];
   const out: Surface[] = [];
   for (const s of list) {
     const n = normalizeSurface(s);
-    if (n.length > 0 && !out.includes(n)) out.push(n);
+    if (n.length > 0 && surfaceClass(n) !== "unknown" && !out.includes(n)) out.push(n);
   }
   return out;
 }

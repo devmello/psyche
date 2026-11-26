@@ -140,7 +140,6 @@ async function setup() {
       home,
       port: 0,
       dbPath: join(home, "psyche.db"),
-      webRoot: null,
       publicOrigin: ORIGIN,
     },
     model: { provider: new FakeModelProvider(), model: "fake/model" },

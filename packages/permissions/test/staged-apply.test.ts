@@ -74,7 +74,7 @@ function stage(
     children,
     context: { ...CTX, taint },
     requestedBy: { runId: CTX.runId, taskId: null, threadId: CTX.threadId },
-    surfaces: ["desktop", "telegram:42"],
+    surfaces: ["desktop", "oldchat:42"],
     connectorIds: IDS,
     ...(details === undefined ? {} : { details: details as never }),
   });
@@ -994,7 +994,7 @@ describe("requestStagedApply: the approval", () => {
       requiresAuthentication: false,
       riskClass: "sensitive",
     });
-    expect(a.surfaces.some((s) => s.startsWith("telegram"))).toBe(false);
+    expect(a.surfaces.some((s) => s.startsWith("oldchat"))).toBe(false);
     const items = (a.details as { items: { send?: { to: string[] } }[] }).items;
     expect(items[0]?.send).toBeUndefined();
     expect(items[1]?.send).toEqual({ to: ["dana@example.com", "lee@example.com"] });
@@ -1047,7 +1047,7 @@ describe("requestStagedApply: the approval", () => {
     const issued = await stage(h, [item(flags("m1"))]);
     expect(issued.approval).toMatchObject({ deviceOnly: true, sideEffect: "write" });
     // No chat token exists, and a chat answer is refused: the review lives in the apps only.
-    expect(Object.keys(issued.answerTokens).some((k) => k.startsWith("telegram"))).toBe(false);
+    expect(Object.keys(issued.answerTokens).some((k) => k.startsWith("oldchat"))).toBe(false);
     h.clock.advance(500);
     await expect(
       h.broker.answer({
@@ -1072,7 +1072,7 @@ describe("requestStagedApply: the approval", () => {
       ])
     ).approval;
     expect(a.deviceOnly).toBe(true);
-    expect(a.surfaces.some((s) => s.startsWith("telegram"))).toBe(false);
+    expect(a.surfaces.some((s) => s.startsWith("oldchat"))).toBe(false);
   });
 
   it("carries taint to the card and every child", async () => {

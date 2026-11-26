@@ -527,14 +527,12 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
   const http: Server = createServer((req, res) => {
     const serve = () =>
       handleHttp(req, res, {
-        webRoot: config.webRoot,
-        webAsar: config.webAsar,
         version: GATEWAY_VERSION,
         mapOrigins: () => allowedMapOrigins((key) => getSetting(db, key)?.value),
       });
     // The container bind gates every route but the bare health check (Compose healthcheck).
     const path = new URL(req.url ?? "/", "http://gateway.invalid").pathname;
-    // POST by default; GET only on a route that declares it (WhatsApp's subscription handshake).
+    // POST by default; GET only on a route that declares it (a subscription handshake).
     const route = Object.hasOwn(webhooks, path) ? webhooks[path] : undefined;
     const webhook =
       route !== undefined && webhookMethods(route).some((m) => m === req.method)
@@ -570,13 +568,11 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
   ) => {
     const url = new URL(req.url ?? "/", "http://gateway.invalid");
     const requestOrigin = req.headers.origin ?? null;
-    // A browser on the LAN names the origin it loaded the page from: only the LAN's own.
-    const allowed =
-      lanContext === null
-        ? new Set([origin, ...config.allowedOrigins])
-        : new Set([lanContext.origin, lan.originFor(req.headers.host)]);
-    if (url.pathname !== WS_PATH || (requestOrigin !== null && !allowed.has(requestOrigin))) {
-      // Security §10: reject any Origin outside the allowlist with 403, before the upgrade.
+    // Psyche does not open in a browser (owner decision 2026-11-25). Only a browser page sends an
+    // `Origin`: the desktop app's main process, the iPhone app, the Mac helper and the CLI dial
+    // without one. So any upgrade that carries one is refused with 403 before the upgrade, on the
+    // loopback, proxied and LAN listeners alike (security §10, cross-site WebSocket hijacking).
+    if (url.pathname !== WS_PATH || requestOrigin !== null) {
       log.log("warn", "websocket upgrade rejected", {
         path: url.pathname,
         hasOrigin: requestOrigin !== null,

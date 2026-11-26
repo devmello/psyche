@@ -10,6 +10,7 @@ export const onboardingRest: Partial<Catalogue> = {
     "{n, plural, =0 {Apps verbinden} one {# App verbinden} other {# Apps verbinden}}",
   "onboarding.connectors.connecting": "{name} wird verbunden",
   "onboarding.connectors.accounts": "Konten",
+  "onboarding.connectors.moreAccounts": "Google-, Microsoft- oder E-Mail-Konto hinzufügen",
   "onboarding.step.memory": "Gedächtnis und tägliche Gewohnheiten",
   "onboarding.about.lead":
     "Ein paar Fakten, damit Psyche dich von Anfang an kennt. Alles hier ist optional und steht in USER.md, das du jederzeit bearbeiten kannst.",
@@ -54,7 +55,7 @@ export const onboardingRest: Partial<Catalogue> = {
     "Gehe die Ersteinrichtung noch einmal durch. Bereits erledigte Schritte werden übersprungen.",
   "onboarding.rerun.button": "Einrichtung erneut ausführen",
   "onboarding.step.you": "Du und dein Agent",
-  "onboarding.step.stuff": "Deine Sachen",
+  "onboarding.step.stuff": "Wobei soll ich helfen?",
   "onboarding.step.safety": "Sicherheit",
   "onboarding.step.folders": "Ordner",
   "onboarding.folders.lead":
@@ -125,8 +126,7 @@ export const onboardingRest: Partial<Catalogue> = {
   "onboarding.done.touchIdNot": "Noch nicht registriert",
   "onboarding.done.modelKept": "Unverändert",
   "onboarding.done.try": "Als Nächstes ausprobieren",
-  "onboarding.done.try.search":
-    "Stelle in der Suche (⌘K) eine Frage. Die Antwort zeigt, woher in deinem Leben sie stammt.",
-  "onboarding.done.try.home": "Öffne Home. „Aufholen“ listet auf, was du hast liegen lassen.",
-  "onboarding.done.try.canDo": "Öffne „Was kannst du?“ im Zahnrad-Menü für fertige Aufgaben.",
+  "onboarding.done.try.search": "Eine Frage in der Suche stellen",
+  "onboarding.done.try.home": "Auf Start nachholen",
+  "onboarding.done.try.chat": "Neuen Chat starten",
 };

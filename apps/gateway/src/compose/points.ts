@@ -1,11 +1,12 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { defineTool, type TurnToolContext } from "@psyche/agent-core";
-import { getSetting, getThread, listAllMessages } from "@psyche/db";
+import { appendMessage, getSetting, getThread, listAllMessages } from "@psyche/db";
 import { parseLearned, readHeader } from "@psyche/memory";
 import { appCap } from "@psyche/permissions";
 import {
   isTeachAppId,
+  type Message,
   type ModelProvider,
   type ModelRef,
   type NodeClient,
@@ -42,7 +43,6 @@ import { type Static, Type } from "@sinclair/typebox";
 import { Value } from "@sinclair/typebox/value";
 import type { Call, HandlerDef } from "../context.ts";
 import type { Gateway } from "../server.ts";
-import { noteHeldMessage } from "./channels.ts";
 import { COMPUTER_USE_APPS } from "./computer-settings.ts";
 import {
   POINTS_PLAN_MAX_OUTPUT_TOKENS,
@@ -84,6 +84,36 @@ export const POINTS_ENABLED = "points.enabled";
 /** 30 minutes with no event from the helper ends the session (§3.4). */
 export const POINTS_IDLE_MS = 30 * 60_000;
 /** How long `points.start` waits for the helper's first event before it calls the session started. */
+/**
+ * A system note in a thread (the Points closing note): appended as the given run's writer, or
+ * with no writer once that run is gone, and published to the thread. `undefined` when another run
+ * owns the thread; the notification tells the owner anyway.
+ */
+export function noteHeldMessage(
+  services: Pick<ComposeServices, "db" | "publish">,
+  threadId: string,
+  writerRunId: string | null,
+  md: string,
+): Message | undefined {
+  const note = {
+    threadId,
+    role: "system" as const,
+    blocks: [{ type: "text" as const, md }],
+    provenance: "system" as const,
+    runId: null,
+  };
+  for (const writer of [writerRunId, null]) {
+    try {
+      const message = appendMessage(services.db, note, { expectedWriterRunId: writer });
+      services.publish("chat.message", { message }, threadId);
+      return message;
+    } catch {
+      // Owned by another run: try the next owner; the notification tells the owner anyway.
+    }
+  }
+  return undefined;
+}
+
 const START_ARM_MS = 2_000;
 const CALL_TIMEOUT_MS = 20_000;
 const SESSION_TIMEOUT_MS = 2_147_000_000;

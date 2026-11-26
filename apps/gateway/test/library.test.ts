@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
-import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -22,7 +22,6 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { type ComposedGateway, composeGateway } from "../src/compose/index.ts";
 import {
   IndexedQuarantineWriter,
-  indexedChannelLibrary,
   indexSavedAudio,
   libraryHandlers,
 } from "../src/compose/library.ts";
@@ -31,7 +30,7 @@ import { FsAudioLibrary } from "../src/compose/speech.ts";
 import { SqliteThreadStateStore } from "../src/compose/thread-state.ts";
 import { silentLogger } from "../src/log.ts";
 import { resolveAttachments } from "../src/session/attachments.ts";
-import { desktopClient, expectPrivate, ik, newDeviceKey, type TestClient } from "./helpers.ts";
+import { desktopClient, ik, newDeviceKey, type TestClient } from "./helpers.ts";
 
 let base: string;
 let home: string;
@@ -497,32 +496,6 @@ describe("library.delete", () => {
 });
 
 describe("writers index what they save", () => {
-  it("channel attachments: quarantined, origin channel, readable at their path", async () => {
-    const lib = indexedChannelLibrary(db, home);
-    const { libraryItemId } = await lib.ingest({
-      name: "../photo.png",
-      mime: "image/png",
-      data: new Uint8Array([0x89, 0x50, 0x4e, 0x47]),
-      provenance: "untrusted",
-      source: { channel: "telegram", channelId: "ch1", chatId: "c1", messageId: "m1" },
-    });
-    const saved = getLibraryItem(db, libraryItemId);
-    expect(saved).toMatchObject({
-      kind: "image",
-      name: "photo.png",
-      mime: "image/png",
-      size: 4,
-      origin: "channel",
-      quarantined: true,
-      tags: ["telegram"],
-    });
-    expect(saved?.path).toBe(`quarantine/${libraryItemId}-photo.png`);
-    expect(saved?.sha256).toMatch(/^sha256:[0-9a-f]{64}$/);
-    const onDisk = join(home, "library", saved?.path ?? "");
-    expect([...(await readFile(onDisk))]).toEqual([0x89, 0x50, 0x4e, 0x47]);
-    expectPrivate(onDisk, 0o600);
-  });
-
   it("browser downloads: quarantined downloads with sniffed flags as tags", async () => {
     const landed = join(base, "landed.bin");
     await writeFile(landed, Buffer.from([0x4d, 0x5a, 0x90, 0x00]));
@@ -640,7 +613,7 @@ describe("over the wire", () => {
       logger: silentLogger,
       retentionIntervalMs: 0,
       background: false,
-      config: { home, port: 0, dbPath: join(home, "psyche.db"), webRoot: null },
+      config: { home, port: 0, dbPath: join(home, "psyche.db") },
       model: { provider: new FakeModelProvider(), model: "fake/model" },
     });
     const saved = insertLibraryItem(composed.db, item());

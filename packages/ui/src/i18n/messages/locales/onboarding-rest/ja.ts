@@ -8,6 +8,7 @@ export const onboardingRest: Partial<Catalogue> = {
   "onboarding.connectors.connectApps": "{n, plural, =0 {アプリを接続} other {#個のアプリを接続}}",
   "onboarding.connectors.connecting": "{name}を接続中",
   "onboarding.connectors.accounts": "アカウント",
+  "onboarding.connectors.moreAccounts": "Google、Microsoft、メールのアカウントを追加",
   "onboarding.step.memory": "メモリと毎日の習慣",
   "onboarding.about.lead":
     "Psycheが最初からあなたのことを知っているための、いくつかの情報です。すべて任意で、USER.mdに保存され、いつでも編集できます。",
@@ -52,7 +53,7 @@ export const onboardingRest: Partial<Catalogue> = {
     "初回セットアップをもう一度行います。完了済みのステップはスキップされます。",
   "onboarding.rerun.button": "セットアップをやり直す",
   "onboarding.step.you": "あなたとエージェント",
-  "onboarding.step.stuff": "あなたのデータ",
+  "onboarding.step.stuff": "何をお手伝いしましょうか？",
   "onboarding.step.safety": "安全性",
   "onboarding.step.folders": "フォルダ",
   "onboarding.folders.lead":
@@ -121,10 +122,7 @@ export const onboardingRest: Partial<Catalogue> = {
   "onboarding.done.touchIdNot": "まだ登録されていません",
   "onboarding.done.modelKept": "変更なし",
   "onboarding.done.try": "次に試す",
-  "onboarding.done.try.search":
-    "検索（⌘K）で質問してみましょう。回答には、生活のどこから得た情報かが表示されます。",
-  "onboarding.done.try.home":
-    "ホームを開きましょう。「追いつく」には、後回しにしていそうなことが一覧表示されます。",
-  "onboarding.done.try.canDo":
-    "歯車メニューの「何ができますか？」を開くと、すぐに使えるタスクが見つかります。",
+  "onboarding.done.try.search": "検索で質問する",
+  "onboarding.done.try.home": "ホームで状況を確認する",
+  "onboarding.done.try.chat": "新しいチャットを始める",
 };

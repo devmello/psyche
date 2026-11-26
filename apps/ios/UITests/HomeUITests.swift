@@ -91,7 +91,7 @@ final class HomeUITests: PsycheUITestCase {
         scrollTo(more, maxSwipes: 12)
         waitFor(more)
         more.tap()
-        for title in ["Inbox", "Scheduled", "Overview", "To-do", "Keep in touch", "Pinned", "Follow-ups", "Spaces", "Feed", "Ideas", "Goals"] {
+        for title in ["Notifications", "Scheduled tasks", "Task history", "To-do", "Keep in touch", "Pinned", "Follow-ups", "Spaces", "Feed", "Ideas", "Goals"] {
             let row = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", title)).firstMatch
             tapWhenHittable(row)
             let bar = app.navigationBars[title]

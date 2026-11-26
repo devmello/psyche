@@ -53,7 +53,7 @@ export function senderNeedle(term: string): string {
 /**
  * Who sent a chat message, or undefined when it has no sender (system and tool turns). Assistant
  * turns are the agent. The owner's own turns (trusted provenance) are the owner, by name when the
- * profile has one. An untrusted turn in a channel chat (`telegram:peer:12345`) is the peer: the
+ * profile has one. An untrusted turn in an old channel chat (`<channel>:peer:12345`) is the peer: the
  * chat's title as the name, the peer id as an alias. Other untrusted turns (an imported export)
  * are left without a sender rather than guessed at.
  */

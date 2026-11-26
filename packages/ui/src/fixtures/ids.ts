@@ -227,14 +227,8 @@ export const IDS = {
     appleShortcuts: "conn_apple_shortcuts",
     obsidian: "conn_obsidian",
   },
-  channels: {
-    telegram: "chan_telegram",
-  },
   pairing: {
-    samK: "pair_sam_k",
-    channelSecond: "pair_tg_unknown",
     ipad: "pair_ipad",
-    approved: "pair_partner",
   },
   devices: {
     mac: "dev_mac",

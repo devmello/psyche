@@ -857,6 +857,14 @@ export function PsycheApp({ platform }: { platform: ShellPlatform }): ReactEleme
                       // The shell then opens on the main chat.
                     }
                   }
+                  // A "Try next" button on Done picked where to land (the default is the chat).
+                  if (result.openAfter === "search" || result.openAfter === "home") {
+                    try {
+                      globalThis.history?.pushState(null, "", `/${result.openAfter}`);
+                    } catch {
+                      // The shell then opens on the main chat.
+                    }
+                  }
                   setGate("ready");
                 },
                 (err: unknown) =>

@@ -1131,7 +1131,7 @@ export interface ApprovalRequest {
 export interface DecidedByClass {
     deviceId?: string;
     /**
-     * "desktop" | "notification" | "web" | "<channel>:<peerId>"
+     * "desktop" | "notification" | "web" | "device:<deviceId>"
      */
     surface?:  string;
     channel?:  string;
@@ -1822,7 +1822,7 @@ export interface AuditActor {
     runId?:    string;
     scope?:    string;
     /**
-     * "desktop" | "notification" | "web" | "<channel>:<peerId>"
+     * "desktop" | "notification" | "web" | "device:<deviceId>"
      */
     surface?: string;
     type:     AuditActorType;
@@ -2695,221 +2695,7 @@ export interface NodeCapability {
     targetKind?: TargetKind;
 }
 
-export type DevicePlatform = "macos" | "ios" | "android" | "web" | "linux" | "windows";
-
-export interface ChannelsAllowlistUpdateParams {
-    add?:        string[];
-    approvalId?: string;
-    channelId:   string;
-    list:        ChannelsAllowlistUpdateParamsList;
-    remove?:     string[];
-}
-
-export type ChannelsAllowlistUpdateParamsList = "allowFrom" | "groupAllowFrom" | "ownerIds";
-
-export interface ChannelsAllowlistUpdateResult {
-    channel: Channel;
-}
-
-export interface Channel {
-    account:        string;
-    allowFrom:      string[];
-    config:         { [key: string]: unknown };
-    createdAt:      string;
-    dmPolicy:       DmPolicy;
-    dmScope:        DmScope;
-    groupAllowFrom: string[];
-    id:             string;
-    nodeId?:        null | string;
-    ownerIds:       string[];
-    requireMention: boolean;
-    status:         ChannelStatus;
-    type:           ChannelType;
-    updatedAt:      string;
-}
-
-export type DmPolicy = "pairing" | "allowlist" | "open" | "disabled";
-
-export type DmScope = "main" | "per-peer" | "per-channel-peer";
-
-export type ChannelStatus = "active" | "paused" | "error" | "disconnected";
-
-export type ChannelType = "webchat" | "telegram" | "imessage" | "whatsapp" | "signal" | "slack" | "discord" | "email" | "sms";
-
-export interface ChannelsConfigureParams {
-    account?:        string;
-    allowFrom?:      string[];
-    approvalId?:     string;
-    channelId?:      string;
-    config?:         { [key: string]: unknown };
-    dmPolicy?:       DmPolicy;
-    dmScope?:        DmScope;
-    groupAllowFrom?: string[];
-    nodeId?:         null | string;
-    ownerIds?:       string[];
-    requireMention?: boolean;
-    status?:         ChannelsConfigureParamsStatus;
-    type?:           ChannelType;
-}
-
-export type ChannelsConfigureParamsStatus = "active" | "paused";
-
-export interface ChannelsConfigureResult {
-    channel: Channel;
-}
-
-export interface ChannelsGetParams {
-    channelId: string;
-}
-
-export interface ChannelsGetResult {
-    channel: Channel;
-}
-
-export interface ChannelsIdentitiesDeleteParams {
-    identityId: string;
-}
-
-export interface ChannelsIdentitiesListResult {
-    identities: ChannelIdentity[];
-}
-
-export interface ChannelIdentity {
-    createdAt:         string;
-    delegatedPersona?: null | string;
-    display:           string;
-    id:                string;
-    /**
-     * Sender ids merged into this identity
-     */
-    links:      string[];
-    toolAllow?: string[] | null;
-    updatedAt:  string;
-}
-
-export interface ChannelsIdentitiesUpsertParams {
-    approvalId?:       string;
-    delegatedPersona?: null | string;
-    display:           string;
-    identityId?:       string;
-    links:             string[];
-    toolAllow?:        string[] | null;
-}
-
-export interface ChannelsIdentitiesUpsertResult {
-    identity: ChannelIdentity;
-}
-
-export interface ChannelsListResult {
-    channels: Channel[];
-}
-
-export interface ChannelsPairingApproveParams {
-    approvalId?: string;
-    channelId?:  string;
-    code?:       string;
-    requestId?:  string;
-}
-
-export interface ChannelsPairingApproveResult {
-    pairingRequest: PairingRequest;
-}
-
-export interface PairingRequest {
-    channelId?:         null | string;
-    code:               string;
-    createdAt:          string;
-    decidedAt?:         null | string;
-    decidedByDeviceId?: null | string;
-    deviceId?:          null | string;
-    display:            string;
-    expiresAt:          string;
-    id:                 string;
-    kind:               PairingRequestKind;
-    /**
-     * Device requests: "sha256:" + hex SHA-256 of the raw Ed25519 public key the owner approves
-     */
-    publicKeyFingerprint?: string;
-    purpose?:              SetupTokenPurpose;
-    /**
-     * Device requests: peer address as the Gateway saw it
-     */
-    remoteAddress?: string;
-    senderId?:      null | string;
-    status:         PairingStatus;
-    /**
-     * Device requests: how the device connected
-     */
-    transport?: PairingRequestTransport;
-}
-
-export type PairingRequestKind = "device" | "channel-sender";
-
-export type SetupTokenPurpose = "device" | "machine";
-
-export type PairingStatus = "pending" | "approved" | "denied" | "expired";
-
-/**
- * Device requests: how the device connected
- */
-export type PairingRequestTransport = "ws" | "unix";
-
-export interface ChannelsPairingDenyParams {
-    channelId?: string;
-    code?:      string;
-    requestId?: string;
-}
-
-export interface ChannelsPairingDenyResult {
-    pairingRequest: PairingRequest;
-}
-
-export interface ChannelsPairingListParams {
-    channelId?: string;
-    status?:    PairingStatus;
-}
-
-export interface ChannelsPairingListResult {
-    requests: PairingRequest[];
-}
-
-export interface ChannelsSecretsClearParams {
-    account: string;
-    name:    ChannelSecretName;
-    type:    ChannelType;
-}
-
-export type ChannelSecretName = "bot_token" | "app_token" | "auth_token" | "access_token" | "app_secret" | "verify_token";
-
-export interface ChannelsSecretsClearResult {
-    set: ChannelSecretName[];
-}
-
-export interface ChannelsSecretsSetParams {
-    account: string;
-    name:    ChannelSecretName;
-    type:    ChannelType;
-    value:   string;
-}
-
-export interface ChannelsSecretsSetResult {
-    set: ChannelSecretName[];
-}
-
-export interface ChannelsSecretsStatusParams {
-    account: string;
-    type:    ChannelType;
-}
-
-export interface ChannelsSecretsStatusResult {
-    required: ChannelSecretName[];
-    set:      ChannelSecretName[];
-}
-
-export interface ChannelsUpdatedPayload {
-    channel: Channel;
-    detail?: string;
-}
+export type DevicePlatform = "macos" | "ios" | "android" | "linux" | "windows";
 
 export interface ChatAttachFilesParams {
     paths:    string[];
@@ -4338,7 +4124,7 @@ export interface ManagedByClass {
 
 export type ManagedByKind = "connector" | "model_provider" | "channel" | "external_manager";
 
-export type Setting = "connectors" | "models" | "channels" | "credentials";
+export type Setting = "connectors" | "models" | "credentials";
 
 export interface CustomConnectorProposalResult {
     approval: ApprovalRequest;
@@ -4457,7 +4243,7 @@ export interface DailyWorkflowsConfirmResult {
 export interface DecidedBy {
     deviceId?: string;
     /**
-     * "desktop" | "notification" | "web" | "<channel>:<peerId>"
+     * "desktop" | "notification" | "web" | "device:<deviceId>"
      */
     surface?:  string;
     channel?:  string;
@@ -4514,6 +4300,45 @@ export interface DevicesDenyParams {
 export interface DevicesDenyResult {
     pairingRequest: PairingRequest;
 }
+
+export interface PairingRequest {
+    channelId?:         null | string;
+    code:               string;
+    createdAt:          string;
+    decidedAt?:         null | string;
+    decidedByDeviceId?: null | string;
+    deviceId?:          null | string;
+    display:            string;
+    expiresAt:          string;
+    id:                 string;
+    kind:               PairingRequestKind;
+    /**
+     * Device requests: "sha256:" + hex SHA-256 of the raw Ed25519 public key the owner approves
+     */
+    publicKeyFingerprint?: string;
+    purpose?:              SetupTokenPurpose;
+    /**
+     * Device requests: peer address as the Gateway saw it
+     */
+    remoteAddress?: string;
+    senderId?:      null | string;
+    status:         PairingStatus;
+    /**
+     * Device requests: how the device connected
+     */
+    transport?: PairingRequestTransport;
+}
+
+export type PairingRequestKind = "device" | "channel-sender";
+
+export type SetupTokenPurpose = "device" | "machine";
+
+export type PairingStatus = "pending" | "approved" | "denied" | "expired";
+
+/**
+ * Device requests: how the device connected
+ */
+export type PairingRequestTransport = "ws" | "unix";
 
 export interface DevicesListParams {
     includeRevoked?: boolean;
@@ -8551,7 +8376,7 @@ export interface MemorySuggestionCreatedPayload {
     suggestion: GraphSuggestion;
 }
 
-export type MemorySurface = "home" | "brief" | "notification" | "channel";
+export type MemorySurface = "home" | "brief" | "notification";
 
 export interface MemorySurfacesSettings {
     /**
@@ -8589,11 +8414,7 @@ export interface MemorySurfaceTiers {
 
 export interface MemorySurfaceSwitches {
     brief: boolean;
-    /**
-     * The brief delivered to Telegram and other channels
-     */
-    channel: boolean;
-    home:    boolean;
+    home:  boolean;
     /**
      * Work tier: titles only for owner-provenance items, otherwise a count ("1 assignment due
      * tomorrow")
@@ -9509,7 +9330,7 @@ export interface NudgesListResult {
 }
 
 export interface NudgeItem {
-    channel?: ChannelEnum | null;
+    channel?: Channel | null;
     date?:    null | string;
     daysAgo?: number | null;
     entityId: string;
@@ -9527,7 +9348,7 @@ export interface NudgeItem {
     text: string;
 }
 
-export type ChannelEnum = "mail" | "messages";
+export type Channel = "mail" | "messages";
 
 export type NudgeKind = "unanswered" | "drift" | "birthday" | "promise";
 
@@ -14317,7 +14138,7 @@ export type ThingsCompleteParamsStatus = "completed" | "canceled" | "open";
  */
 export interface ThingsListParams {
     limit?: number;
-    list:   ThingsListParamsList;
+    list:   List;
     /**
      * The project, area or tag (with those lists)
      */
@@ -14328,7 +14149,7 @@ export interface ThingsListParams {
     query?: string;
 }
 
-export type ThingsListParamsList = "inbox" | "today" | "upcoming" | "anytime" | "someday" | "logbook" | "project" | "area" | "tag";
+export type List = "inbox" | "today" | "upcoming" | "anytime" | "someday" | "logbook" | "project" | "area" | "tag";
 
 export interface ThingsTodo {
     area?:     null | string;
@@ -14440,7 +14261,7 @@ export interface Thread {
     personaOverlay?:      null | string;
     pinned:               boolean;
     /**
-     * e.g. "owner:main", "telegram:peer:12345"
+     * e.g. "owner:main", "import:chatgpt:…"
      */
     sessionKey:   string;
     spaceId?:     null | string;

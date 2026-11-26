@@ -17,7 +17,6 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.key.daily.brief.enabled": "아침 브리핑",
   "settings.key.daily.wrapup.enabled": "저녁 마무리",
   "settings.key.daily.notify": "알림 받기",
-  "settings.key.daily.messages": "메시지로도 보내기",
   "settings.key.daily.followups.enabled": "후속 조치 추적",
   "settings.key.daily.brief.time": "아침 브리핑 시간",
   "settings.key.daily.wrapup.time": "저녁 마무리 시간",
@@ -25,7 +24,6 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.daily.time": "시간",
   "settings.daily.notify.hint":
     "카드와 함께 알림을 보냅니다. 방해 금지 시간에는 끝날 때까지 보류됩니다.",
-  "settings.daily.messages.hint": "메시지 채널이 필요합니다. 본인에게만 전송됩니다.",
   "settings.daily.sensitivity": "추적 범위",
   "settings.daily.sensitivity.low": "날짜가 있는 명확한 약속만",
   "settings.daily.sensitivity.normal": "약속과 요청 (권장)",
@@ -37,30 +35,11 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.key.nudges.sensitivity": "넛지 빈도",
   "settings.key.nudges.phrasing": "넛지 제안 문구 다듬기",
   "settings.shared.advanced": "고급",
-  "settings.nav.inPage": "{page} 내",
   "settings.nav.essentials": "기본",
   "settings.nav.learning": "기초",
   "settings.search.count": "{count, plural, other {결과 #개}}",
   "settings.search.result.page": "페이지",
   "settings.page.essentials": "기본",
-  "settings.page.essentials.description":
-    "대부분의 사용자가 정하는 몇 가지 항목입니다. 각각 안전한 기본값이 있으며, 나머지는 아래 페이지에 있습니다.",
-  "settings.page.general.description":
-    "{persona}의 모습, 성격, 방해해도 되는 시간, 대화 방식을 설정합니다.",
-  "settings.page.model.description": "{persona}가 생각할 때 쓰는 모델, 키, 비용을 설정합니다.",
-  "settings.page.connectors.description":
-    "{persona}가 접근할 수 있는 앱과 계정, 그리고 검색 대상을 설정합니다.",
-  "settings.page.memory.description":
-    "{persona}가 기억하는 내용, 학습 출처, 관리 방법을 설정합니다.",
-  "settings.page.daily.description":
-    "아침 브리핑과 저녁 마무리, 자동화, 스킬, {persona}가 호출할 수 있는 전문가를 설정합니다.",
-  "settings.page.permissions.description":
-    "{persona}가 이 Mac에서 묻지 않고 할 수 있는 일과 항상 먼저 확인하는 경우를 설정합니다.",
-  "settings.page.data.description":
-    "이 Mac에 남는 데이터, 보관 기간, 내보내기, 백업, 초기화를 관리합니다.",
-  "settings.page.devices.description":
-    "다른 기기, Gateway 서버, 외출 중 {persona}에 연결하는 방법을 설정합니다.",
-  "settings.page.about.description": "버전, 상태 점검, 로그.",
   "settings.essentials.title": "기본",
   "settings.essentials.description":
     "대부분의 사용자가 정하는 몇 가지 항목이며, 각각 안전한 기본값이 있습니다. 더 필요한 것이 있으면 {persona}가 물어봅니다.",
@@ -196,12 +175,8 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.doctor.memory": "메모리",
   "settings.doctor.memoryPaused": "메모리가 일시 중지되었습니다. 새로 기억하지 않습니다.",
   "settings.doctor.memoryOk": "메모리에 {files, plural, other {파일 #개}}가 있습니다.",
-  "settings.appearance.description": "페어링한 모든 기기에 적용됩니다.",
   "settings.appearance.colors": "색상",
-  "settings.appearance.colorsHint": "라이트 또는 다크, 그리고 강조 색상.",
   "settings.appearance.comfort": "편의",
-  "settings.appearance.comfortHint": "눈과 움직임에 부담을 줄입니다.",
-  "settings.appearance.backgroundHint": "윈도우를 닫아도 Psyche를 계속 실행할지 여부입니다.",
   "settings.appearance.advancedHint": "회색 톤, 사용자 지정 색상, 텍스트 방향, 대비 확인",
   "settings.appearance.fineTune": "색상 세부 조정",
   "settings.appearance.fineTuneHint": "정확한 모양을 원하는 분을 위한 설정입니다.",
@@ -782,7 +757,6 @@ export const settingsRest: Partial<Catalogue> = {
     "{name}이(가) 다시 이동되었거나 다시 연결할 수 없습니다. 목록을 새로 고쳤습니다.",
   "settings.access.reconnectBlocked":
     "{name}이(가) 이동되었지만 안전하게 다시 연결할 수 없습니다. 규칙이나 그 안의 폴더가 이전 위치를 가리킵니다. 공유를 취소하고 다시 공유하세요.",
-  "settings.model.advancedHint": "컨텍스트 한도, 로컬 모델",
   "settings.permissions.subject.prepNotes": '제목이 "Prep:"인 메모 (회의 준비)',
   "settings.permissions.specificConnectors":
     "특정 커넥터의 권한은 커넥터의 해당 페이지에서 설정합니다.",
@@ -1415,15 +1389,9 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.mcp.fail.failed": "아래 서버 출력을 확인한 다음 다시 시도하십시오.",
   "settings.mcp.fail.exitCode": "종료 코드 {code}.",
   "settings.mcp.fail.output": "서버 출력",
-  "settings.connectors.page.description":
-    "{persona}가 사용할 수 있는 앱과 도구입니다. 별도로 지정하지 않으면 각각 실행 전에 확인합니다.",
   "settings.connectors.page.needsYou": "확인 필요",
   "settings.connectors.page.connected": "연결됨",
   "settings.connectors.page.onThisMac": "이 Mac",
-  "settings.connectors.page.addMore": "더 추가",
-  "settings.connectors.page.addMore.hint":
-    "메일, 캘린더, 메모, 바로 쓸 수 있는 도구. 각각 실행 전에 확인합니다.",
-  "settings.connectors.page.addMore.browse": "모두 보기",
   "settings.connectors.page.status.paused": "일시 중지됨",
   "settings.connectors.page.status.notWorking": "작동 안 함",
   "settings.connectors.page.status.signInExpired": "로그인 만료됨",
@@ -1497,15 +1465,12 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.key.memory.surfaces.tiers.work.home": "홈의 업무",
   "settings.key.memory.surfaces.tiers.work.brief": "데일리 브리핑의 업무",
   "settings.key.memory.surfaces.tiers.work.notification": "알림의 업무",
-  "settings.key.memory.surfaces.tiers.work.channel": "채널로 보내는 브리핑의 업무",
   "settings.key.memory.surfaces.tiers.workMail.home": "홈의 업무 관련 메일",
   "settings.key.memory.surfaces.tiers.workMail.brief": "데일리 브리핑의 업무 관련 메일",
   "settings.key.memory.surfaces.tiers.workMail.notification": "알림의 업무 관련 메일",
-  "settings.key.memory.surfaces.tiers.workMail.channel": "채널로 보내는 브리핑의 업무 관련 메일",
   "settings.key.memory.surfaces.tiers.people.home": "홈의 사람",
   "settings.key.memory.surfaces.tiers.people.brief": "데일리 브리핑의 사람",
   "settings.key.memory.surfaces.tiers.people.notification": "알림의 사람",
-  "settings.key.memory.surfaces.tiers.people.channel": "채널로 보내는 브리핑의 사람",
   "settings.key.memory.surfaces.birthdays": "브리핑과 홈에 생일과 기념일 표시",
   "settings.key.memory.surfaces.hideSources": "홈, 브리핑, 알림에 표시하지 않을 출처",
   "settings.key.memory.surfaces.kinds.project": "프로젝트를 메모리 밖에도 표시",

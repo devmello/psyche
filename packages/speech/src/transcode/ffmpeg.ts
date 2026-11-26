@@ -3,7 +3,6 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   type AudioFormat,
-  type ChannelType,
   PsycheError,
   type SpeechEngine,
   type TranscribeOptions,
@@ -12,7 +11,7 @@ import {
 import { isPcm, PCM_16K_MONO, pcmDurationMs } from "../audio.ts";
 import { assertOk, LocalProcessRunner, type ProcessRunner } from "../process.ts";
 import { oggOpusToCaf } from "./caf.ts";
-import { profileFor, type VoiceNoteProfile } from "./formats.ts";
+import { profileFor, type VoiceNoteContainer, type VoiceNoteProfile } from "./formats.ts";
 
 /**
  * Voice-note transcoding with a system ffmpeg (feature N11). ffmpeg is resolved from the
@@ -102,13 +101,13 @@ export class VoiceNoteTranscoder {
   }
 
   /**
-   * Encodes PCM for a channel (or an explicit profile), walking down the bitrate ladder until the
-   * file fits the channel's cap. Rejects `invalid_params` when even the lowest rung is too big.
+   * Encodes PCM for a container (or an explicit profile), walking down the bitrate ladder until
+   * the file fits the profile's cap. Rejects `invalid_params` when even the lowest rung is too big.
    */
   async encode(
     pcm: Uint8Array,
     format: AudioFormat,
-    target: ChannelType | VoiceNoteProfile,
+    target: VoiceNoteContainer | VoiceNoteProfile,
     options: { signal?: AbortSignal } = {},
   ): Promise<EncodedVoiceNote> {
     if (!isPcm(format)) throw new PsycheError("invalid_params", "encode takes raw PCM");
@@ -234,7 +233,7 @@ export class VoiceNoteTranscoder {
 
 /**
  * Inbound voice note → transcript (Q4): decode with ffmpeg, then transcribe the 16 kHz PCM with
- * whichever engine the policy picked. Channel adapters (S10) call this.
+ * whichever engine the policy picked.
  */
 export async function transcribeVoiceNote(
   engine: SpeechEngine,

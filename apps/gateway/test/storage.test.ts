@@ -184,7 +184,7 @@ describe("storage.* on the running Gateway", () => {
       logger: silentLogger,
       retentionIntervalMs: 0,
       background: false,
-      config: { home, port: 0, webRoot: null },
+      config: { home, port: 0 },
       model: { provider: new FakeModelProvider(), model: "fake/model" },
       parts: [(s) => composeStorage(s)],
     });

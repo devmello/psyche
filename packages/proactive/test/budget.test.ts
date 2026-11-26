@@ -343,7 +343,7 @@ describe("proactivity budget audit", () => {
     }
     const broker = createPermissionBroker({
       clock,
-      approvers: { device: async () => undefined, isOwnerSender: async () => false },
+      approvers: { device: async () => undefined },
     });
     const proposals = new ProposalService({
       db: db.sqlite,

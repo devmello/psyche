@@ -1,13 +1,14 @@
 import { Loader } from "lucide-react";
 import { type ReactElement, useId } from "react";
 import { Avatar } from "../../avatar/Avatar.tsx";
+import { Button } from "../../components/ui/button.tsx";
 import { activeI18n, t } from "../../i18n/core.ts";
 import { isWindows } from "../../lib/platform.ts";
 import { effectiveHoldKey, holdKeyLabel } from "../../voice/hold-keys.ts";
 import { SCOPE_MODE_LABEL } from "../settings/ConnectorsSection.tsx";
-import { ToolCheckBadge } from "../settings/ModelSection.tsx";
 import { Facts, StatusChip } from "../settings/shared.tsx";
-import type { OnboardingResult, SetupCheck } from "./types.ts";
+import { ModelTestBadge } from "./OnboardingSteps.tsx";
+import type { OnboardingResult, OnboardingTryTarget, SetupCheck } from "./types.ts";
 
 const CHECK_TONE = {
   ok: "success",
@@ -38,15 +39,18 @@ function mailDoneValue(mail: NonNullable<OnboardingResult["mail"]>): string {
 const onOff = (on: boolean) => (on ? t("onboarding.done.on") : t("onboarding.done.off"));
 
 /**
- * Step 6: what was set up, the setup checks, and three things to try (not setup): a question in
- * Search, Catching up on Home, and "What can you do?".
+ * The last step: what was set up, the setup checks, and three things to try (not setup), as
+ * buttons: a question in Search, Catching up on Home, and a new chat.
  */
 export function DoneStep({
   result,
   checks,
   helperConnected = false,
   onFix,
+  onTry,
 }: {
+  /** Finishes setup and opens the place a "Try next" button names. */
+  onTry?: (target: OnboardingTryTarget) => void;
   /** Opens the step that fixes a failed or unchecked row (the Model step). */
   onFix?: (step: NonNullable<SetupCheck["fixStep"]>) => void;
   result: OnboardingResult;
@@ -64,16 +68,24 @@ export function DoneStep({
         result.habits.followups ? t("onboarding.habits.followups") : null,
       ].filter((x): x is string => x !== null)
     : null;
+  // A model row that is not fine means chat will not answer yet: say so instead of "ready".
+  const modelRow = Array.isArray(checks) ? checks.find((c) => c.id === "model") : undefined;
+  const notReady =
+    modelRow !== undefined && (modelRow.state === "warn" || modelRow.state === "fail");
   return (
     <div className="flex flex-col items-start gap-6">
       <div className="flex items-center gap-4">
         <Avatar name={p.name} creature={p.creatureId} size={64} />
         <div>
           <p className="text-title-3 text-label-primary">
-            {t("onboarding.done.ready", { name: p.name })}
+            {notReady
+              ? t("onboarding.done.notReady", { name: p.name })
+              : t("onboarding.done.ready", { name: p.name })}
           </p>
           <p className="text-reading text-label-secondary">
-            {t("onboarding.done.opens", { name: p.name })}
+            {notReady
+              ? t("onboarding.done.notReadyBody")
+              : t("onboarding.done.opens", { name: p.name })}
           </p>
           {helperConnected ? (
             <p className="text-reading text-label-secondary" data-testid="onboarding-voice-hint">
@@ -117,7 +129,7 @@ export function DoneStep({
             ) : (
               <span className="flex flex-wrap items-center gap-2">
                 <code className="font-mono text-callout">{result.model.modelRef}</code>
-                <ToolCheckBadge status={result.model.toolCheck} />
+                <ModelTestBadge status={result.model.toolCheck} />
               </span>
             ),
           },
@@ -180,10 +192,26 @@ export function DoneStep({
         <h2 id={tryId} className="text-headline text-label-primary">
           {t("onboarding.done.try")}
         </h2>
-        <ul className="flex flex-col gap-1.5 text-reading text-label-secondary">
-          <li>{t("onboarding.done.try.search")}</li>
-          <li>{t("onboarding.done.try.home")}</li>
-          <li>{t("onboarding.done.try.canDo")}</li>
+        <ul className="flex flex-wrap gap-2">
+          {(
+            [
+              ["search", t("onboarding.done.try.search")],
+              ["home", t("onboarding.done.try.home")],
+              ["chat", t("onboarding.done.try.chat")],
+            ] as const
+          ).map(([target, label]) => (
+            <li key={target}>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={onTry === undefined}
+                onClick={() => onTry?.(target)}
+              >
+                {label}
+              </Button>
+            </li>
+          ))}
         </ul>
       </section>
     </div>

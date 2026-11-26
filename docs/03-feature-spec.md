@@ -2,7 +2,7 @@
 
 Status: draft v0.1 (2026-10-18). Terms are defined in [02-architecture.md](02-architecture.md). Screens are specified in [06-ui-design.md](06-ui-design.md); security rules in [05-security-and-permissions.md](05-security-and-permissions.md); storage in [04-data-model.md](04-data-model.md); sequencing in [08-roadmap.md](08-roadmap.md).
 
-Priorities: **P0** = required for the first usable alpha (the "walking skeleton": chat, memory files, browser, approvals, one connector, one channel); **P1** = required for v1.0; **P2** = after v1.0. Every item has a "Done when" so it can become an issue.
+Priorities: **P0** = required for the first usable alpha (the "walking skeleton": chat, memory files, browser, approvals, one connector); **P1** = required for v1.0; **P2** = after v1.0. Every item has a "Done when" so it can become an issue.
 
 Where a row says "(Muse)", "(Claude)", "(OpenClaw)" or "(OpenMuse)" it names the product whose behavior the item copies; the research notes hold the evidence.
 
@@ -123,7 +123,7 @@ Build notes: follow the Claude desktop split (thin Electron shell, downloaded/up
 | G4 | **Placeholders**: `{{cred:<slug>}}` / `{{cred:<slug>.totp}}`; the model sees only placeholders; resolution happens in executors | P0 | Grep of all model-visible text in tests finds no secret |
 | G5 | **Fill protocol**: browser (CDP `Input.insertText` into a focused field, only if current origin matches a bound origin), connector HTTP headers, sandbox environment variables, SSH | P0 | A fill on a non-matching origin is refused and logged |
 | G6 | **Masking and clearing**: typed values scrubbed from screenshots, page text and transcripts; fields cleared on failure; screenshots suppressed while a password field is focused (`secureField`) (Claude, Skyvern) | P0 | Visual test: no secret pixels in stored frames |
-| G7 | **Fill approvals**: every fill is an ApprovalRequest showing item, site, task, agent; default scope once; opt-in per-site standing grant; desktop notification with `authenticationRequired` (1Password pattern) | P0 | Phone approval of a fill works over Telegram |
+| G7 | **Fill approvals**: every fill is an ApprovalRequest showing item, site, task, agent; default scope once; opt-in per-site standing grant; desktop notification with `authenticationRequired` (1Password pattern) | P0 | Approving a fill on the paired iPhone works |
 | G8 | **"I'll type it myself" first**: Take control is offered before "fill from vault"; system AutoFill in the embedded browser is allowed when the user types | P0 | Login flows work without ever storing the password in Psyche |
 | G9 | **System keychain mode**: store items Psyche creates in the user's keychain instead of the vault (never reads Safari/Passwords items) | P1 | Items appear in Keychain Access under Psyche |
 | G10 | **1Password bridge**: service-account SDK for headless fills (server), and "real Chrome" browser mode where 1Password's extension and Agentic Mode handle approval and fill | P1 | A 1Password item fills a login without the secret touching Psyche |
@@ -185,7 +185,7 @@ Build notes: follow the Claude desktop split (thin Electron shell, downloaded/up
 | J6 | **Apple app adapters** as typed tools: Mail (read/search/draft/send via scripting), Calendar and Reminders (EventKit), Notes (scripting; HTML bodies), Contacts, Finder/files, Safari read-only (tabs/URLs/text) | P1 | Each adapter has an action matrix in Permissions |
 | J7 | **Messages**: read `chat.db` (typedstream decoding, attachments), send text/media via Messages.app scripting, voice bubbles as CAF, handle macOS 26+ chat GUID changes; Full Disk Access + Automation prompts | P1 | Read the last 20 messages with a contact and send a reply with approval |
 | J8 | **Teach mode**: record a user demonstration (screens + AX events) into a reusable skill draft (Claude "teach") | P2 | A recorded flow replays on the same app. Browser phase built: [teach-by-showing-2026](design/teach-by-showing-2026.md) |
-| J9 | **Dictation into any app**: system-wide hotkey, transcribe, insert via AX/CGEvent (Muse "hold fn to dictate") | P1 | Works in TextEdit and Slack |
+| J9 | **Dictation into any app**: system-wide hotkey, transcribe, insert via AX/CGEvent (Muse "hold fn to dictate") | P1 | Works in TextEdit and any other app |
 
 ---
 
@@ -236,21 +236,12 @@ Build notes: follow the Claude desktop split (thin Electron shell, downloaded/up
 
 ---
 
-## N. Channels, designated person, server mode
+## N. Server mode (chat channels removed 2026-11-25)
+
+N1 to N11 (channel framework, pairing and allowlists, WebChat, Telegram, iMessage bridge, WhatsApp, Signal, Slack, Discord, email, SMS, designated person mode, voice notes across channels) were removed on 2026-11-25: the iPhone app is the mobile surface. Reading Messages, Mail and Contacts, the mail connector and the send-a-message tool stay. The IDs below keep their numbers.
 
 | ID | Feature | Pri | Done when |
 | --- | --- | --- | --- |
-| N1 | **Channel framework**: adapters register capabilities (text, media, voice notes, buttons, polls, reactions, typing); inbound routing to sessions by `dmScope`; outbound formatting; attachment handling (OpenClaw) | P0 | A new adapter needs only the interface plus tests |
-| N2 | **Authorization**: `dmPolicy` pairing (default) / allowlist / open / disabled; pairing codes (1 h expiry, 3 pending per channel); owner via `ownerAllowFrom`; `identityLinks`; group allowlist + `requireMention`; context visibility rules (OpenClaw) | P0 | An unknown sender gets a code and nothing else; the owner approves it in the UI |
-| N3 | **WebChat** channel (web UI as a channel for the owner on other devices) | P0 | Works through the web client |
-| N4 | **Telegram** (grammY): text, media, voice notes (OGG/Opus), inline-button approvals, `/approve`, typing indicators | P0 | The owner approves a purchase from Telegram |
-| N5 | **iMessage** via the Mac node (J7): inbound via `chat.db` watch, outbound via Messages.app, approvals via polls (26+) or 👍/👎 tapbacks, voice bubbles as CAF | P1 | Owner on iPhone chats with the agent through iMessage |
-| N6 | **WhatsApp**: Baileys on a personal number (clearly labeled unofficial, ban risk, separate number recommended) and Meta Cloud API (business number, 24-hour window, template costs) | P2 | QR pairing works; voice notes as OGG/Opus |
-| N7 | **Signal** via signal-cli (separate number recommended), 👍/👎 approvals | P2 | Connects to the owner's linked signal-cli daemon; Psyche never registers, verifies or links |
-| N8 | **Slack** (Socket Mode) and **Discord** bots with button approvals | P2 | Owner-only DM policy works |
-| N9 | **Email channel** (reply-by-email through the mail connector) and **SMS** (Twilio) | P2 | A reply to the agent's email continues the thread |
-| N10 | **Designated person mode**: per-sender delegated persona (own `SOUL` overlay), restricted tool set, no `MEMORY.md` injection, per-peer session, approvals still routed to the owner, per-sender grant matrix (for example "may schedule on my calendar") | P1 | A family member on Telegram can ask the agent to add an event; the owner approves |
-| N11 | **Voice notes across channels**: synthesize once (PCM) and transcode per channel (OGG/Opus 48 kHz mono; CAF for iMessage; MP3 for Slack/Discord/email); transcribe inbound voice notes | P1 | Round trip works on Telegram and iMessage |
 | N12 | **Server mode**: Docker Compose, loopback bind, trusted-header auth behind Tailscale Serve / Cloudflare Access, passkeys for the web UI, TLS pinning for mobile clients, backups, `doctor` | P1 | The acceptance scenario in the vision doc passes |
 | N13 | **Mac app as paired node to a remote Gateway**: local vs remote mode switch, node capabilities (iMessage, notifications, computer use, keychain-held credentials, Apple apps) offered to the server Gateway, exec approvals shown on the Mac (OpenClaw) | P1 | A server task sends an iMessage through the Mac after approval |
 | N14 | **Multi-client consistency**: desktop, web and phone see the same threads, tasks, approvals and notifications; `stateVersion` refresh after gaps | P0 | Approving on one device dismisses the card everywhere |
@@ -261,7 +252,7 @@ Build notes: follow the Claude desktop split (thin Electron shell, downloaded/up
 
 | ID | Feature | Pri | Done when |
 | --- | --- | --- | --- |
-| O1 | **Automations**: cron and interval schedules, session targets `main | isolated | named`, delivery targets, unattended contract, catch-up after sleep with coalescing, per-job scratch, pause/run now/history (OpenClaw, Claude) | P0 | "Every weekday at 7, send me my brief on Telegram" works after a laptop sleep |
+| O1 | **Automations**: cron and interval schedules, session targets `main | isolated | named`, delivery targets, unattended contract, catch-up after sleep with coalescing, per-job scratch, pause/run now/history (OpenClaw, Claude) | P0 | "Every weekday at 7, show me my brief" works after a laptop sleep |
 | O2 | **Heartbeat**: light-context check-in on a 30–60 min cadence within active hours, at most one notification per run, `NO_REPLY` default | P1 | Heartbeat costs under 5k tokens per run |
 | O3 | **Watches**: page change / text availability / price threshold checks with dedupe and backoff (OpenMuse) | P1 | A price drop produces one alert |
 | O4 | **Upcoming** view: automations, reminders, watches, scheduled briefings; edit in place (Muse) | P0 | Everything that will run is visible with its next time |
@@ -270,7 +261,7 @@ Build notes: follow the Claude desktop split (thin Electron shell, downloaded/up
 | O7 | **Ideas pipeline**: nightly mining of repeated tool sequences (skill drafts verified by replay), goal/memory-derived suggestions, connector signals; evidence, effort, acceptance-probability gating learned from accept/dismiss; batched delivery windows | P1 | Ideas have ≥30 % acceptance in dogfooding; dismissed patterns stop reappearing |
 | O8 | **Ideas UI**: cards with evidence, Let's do it / Edit / Dismiss, recurring toggle; accepted ideas become tasks or automations (Muse, OpenMuse) | P1 | Accepting an idea creates a task card in chat |
 | O9 | **Goals**: explicit creation in chat; inferred candidates with one-tap confirm; categories; milestones; plan; linked tasks; check-in cadence; watches; progress; archive (Muse) | P1 | A goal page shows milestones and the tasks that advanced it |
-| O10 | **Notifications**: typed inbox (approval, input needed, task done/failed, proactive, briefing, reminder), OS notifications with actions and interruption levels through the helper, channel delivery, dedupe per task, restart reconciliation, quiet hours | P0 | Approving from a macOS notification works with Touch ID when required |
+| O10 | **Notifications**: typed inbox (approval, input needed, task done/failed, proactive, briefing, reminder), OS notifications with actions and interruption levels through the helper, delivery to the paired iPhone, dedupe per task, restart reconciliation, quiet hours | P0 | Approving from a macOS notification works with Touch ID when required |
 
 ---
 
@@ -297,7 +288,7 @@ Build notes: follow the Claude desktop split (thin Electron shell, downloaded/up
 | Q1 | **Dictation in the composer**: push-to-talk and toggle, live partials, engine selection (SpeechAnalyzer on macOS 26+, FluidAudio Parakeet or WhisperKit on 14–15, whisper.cpp on the server, Web Speech in the web client as last resort), custom vocabulary (agent name, contacts) | P0 | Latency under 500 ms to first partial on Apple Silicon |
 | Q2 | **System-wide dictation hotkey** into any app (see J9) | P1 | — |
 | Q3 | **Text-to-speech**: Kokoro-82M locally (Core ML/MLX), `AVSpeechSynthesizer` (incl. Personal Voice opt-in, non-commercial caveat), ElevenLabs/OpenAI optional; read-aloud for any message; voice selection per persona | P1 | A message can be played and saved as a file |
-| Q4 | **Voice memos**: the agent sends voice notes (N11) and transcribes received ones; user records voice memos in the composer that are transcribed and attached | P1 | Round trip on Telegram |
+| Q4 | **Voice memos**: user records voice memos in the composer that are transcribed and attached | P1 | A recorded memo is transcribed and attached |
 | Q5 | **Voice mode** (continuous spoken conversation with barge-in) | P2 | Hands-free conversation on the Mac |
 
 ---
@@ -309,7 +300,7 @@ Build notes: follow the Claude desktop split (thin Electron shell, downloaded/up
 | R1 | **Onboarding**: sign-in-free setup; choose model/provider (or local); name the agent (suggestions or keep "Psyche"); describe the creature and vibe/tagline in plain language → `IDENTITY.md`; permissions walkthrough (Notifications, Accessibility, Screen Recording — all skippable); first connector; optional VM mode (Muse) | P0 | First chat happens within 3 minutes of install |
 | R2 | **Avatar system**: generated from the description by an image model (configured provider) or picked from a bundled set of original creatures; size variants; states idle / working (typing loop) / needs you / error; cream default creature (original art, not Meta's) (Muse) | P0 (bundled) / P1 (generated) | The avatar animates while a task runs |
 | R3 | **Appearance**: user-picked accent seed → 12-step OKLCH accent and gray scales (Radix-style generator with contrast gate), light/dark/auto, density, font choice, reduced motion | P0 | Any seed color yields accessible UI in both themes |
-| R4 | **Persona files**: `SOUL.md` tone/boundaries, `IDENTITY.md` name/creature/vibe/emoji; "edit by asking" (H9) and direct editing (H7) | P0 | Changing the name updates the header, notifications and channel display names |
+| R4 | **Persona files**: `SOUL.md` tone/boundaries, `IDENTITY.md` name/creature/vibe/emoji; "edit by asking" (H9) and direct editing (H7) | P0 | Changing the name updates the header and notifications |
 
 ---
 
@@ -329,7 +320,7 @@ Build notes: follow the Claude desktop split (thin Electron shell, downloaded/up
 | T1 | **Skills**: `SKILL.md` discovery (workspace → managed → bundled), gating (bins/env/os), compact prompt index with a char budget, `skills_search` / `skills_read`, `$skill` references, user-invocable commands (OpenClaw, Claude) | P0 | Bundled skills load and are listed in Settings |
 | T2 | **Install and trust**: show full text, static scan for secrets/exec patterns, optional VirusTotal, explicit approval, pinned version + lockfile, update with diff review (ClawHavoc lesson) | P1 | Installing a skill with a curl-pipe-bash prerequisite warns loudly |
 | T3 | **Agent-proposed skills** from Ideas, verified by replay before acceptance (OpenClaw Skill Workshop, Devin dreaming) | P2 | A repeated 5-step workflow becomes a one-line skill |
-| T4 | **Plugins**: code plugins with permission manifests and the hook surface; bundle plugins (skills + MCP servers + config); enable/disable; sandboxed where possible | P2 | A community channel adapter installs as a plugin |
+| T4 | **Plugins**: code plugins with permission manifests and the hook surface; bundle plugins (skills + MCP servers + config); enable/disable; sandboxed where possible | P2 | A community connector installs as a plugin |
 | T5 | **Bundled skills**: browsing, research with citations, inbox triage, reply drafting, calendar planning, shopping and price comparison, travel booking hand-off, document filling, spreadsheet analysis, memory hygiene, weekly review, subscription audit | P0 (5) / P1 (rest) | Each has an acceptance script |
 
 ---
@@ -338,10 +329,10 @@ Build notes: follow the Claude desktop split (thin Electron shell, downloaded/up
 
 | ID | Feature | Pri | Done when |
 | --- | --- | --- | --- |
-| U1 | **Settings** sections: Model & providers, Persona, Connectors, Permissions (modes, matrices, tiers, site grants, folder grants, grant ledger), Computer use, File access, Devices & nodes (pairing, VM), Channels (pairing requests, allowlists, designated people), Credentials, Appearance, Voice & dictation, Data controls, Server & remote access, Usage, About | P0 | Every setting is reachable in ≤2 clicks and has a CLI twin |
+| U1 | **Settings** sections: Model & providers, Persona, Connectors, Permissions (modes, matrices, tiers, site grants, folder grants, grant ledger), Computer use, File access, Devices & nodes (pairing, VM), Credentials, Appearance, Voice & dictation, Data controls, Server & remote access, Usage, About | P0 | Every setting is reachable in ≤2 clicks and has a CLI twin |
 | U2 | **Data controls**: export everything, delete threads (with "also forget" option that stages retraction), reset agent (irreversible, typed confirmation), retention periods, incognito default, telemetry (off, explicit opt-in only, no bodies) (Muse "Download your data", "Reset Muse") | P0 | Deleting + forgetting removes the memory claims and rebuilds the index |
-| U3 | **Audit log and receipts**: hash-chained JSONL, viewer with filters, export; `psyche security audit` (binds, auth mode, open policies, sandbox off, unverified skills); `psyche doctor` | P0 | Audit chain verifies; audit flags an `open` dmPolicy |
-| U4 | **Backups**: scheduled local backups of state, workspace, vault, Library and channel sessions; restore flow | P1 | Restore on a new Mac reproduces the agent |
+| U3 | **Audit log and receipts**: hash-chained JSONL, viewer with filters, export; `psyche security audit` (binds, auth mode, open policies, sandbox off, unverified skills); `psyche doctor` | P0 | Audit chain verifies |
+| U4 | **Backups**: scheduled local backups of state, workspace, vault, Library; restore flow | P1 | Restore on a new Mac reproduces the agent |
 | U5 | **Logs and traces**: per-subsystem structured logs without bodies, optional OpenTelemetry export, in-app log viewer | P1 | A failed tool call can be diagnosed from the log viewer |
 
 ---

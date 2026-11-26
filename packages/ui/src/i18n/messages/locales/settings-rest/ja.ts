@@ -17,14 +17,12 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.key.daily.brief.enabled": "朝の概要",
   "settings.key.daily.wrapup.enabled": "夕方のまとめ",
   "settings.key.daily.notify": "通知する",
-  "settings.key.daily.messages": "メッセージでも送信",
   "settings.key.daily.followups.enabled": "フォローアップを追跡",
   "settings.key.daily.brief.time": "朝の概要の時刻",
   "settings.key.daily.wrapup.time": "夕方のまとめの時刻",
   "settings.key.daily.followups.sensitivity": "追跡する範囲",
   "settings.daily.time": "時刻",
   "settings.daily.notify.hint": "カードとともに通知します。おやすみ時間中は終了まで保留されます。",
-  "settings.daily.messages.hint": "メッセージチャンネルが必要です。あなたにだけ送信されます。",
   "settings.daily.sensitivity": "追跡する範囲",
   "settings.daily.sensitivity.low": "日付のある明確な約束のみ",
   "settings.daily.sensitivity.normal": "約束と依頼（推奨）",
@@ -36,31 +34,11 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.key.nudges.sensitivity": "ナッジの頻度",
   "settings.key.nudges.phrasing": "ナッジの提案を言い換える",
   "settings.shared.advanced": "詳細設定",
-  "settings.nav.inPage": "{page}内",
   "settings.nav.essentials": "基本",
   "settings.nav.learning": "基礎",
   "settings.search.count": "{count, plural, other {#件の結果}}",
   "settings.search.result.page": "ページ",
   "settings.page.essentials": "基本",
-  "settings.page.essentials.description":
-    "多くの人が選ぶ、いくつかの項目です。それぞれ安全な初期値があり、残りは以下のページにあります。",
-  "settings.page.general.description":
-    "{persona}の見た目、人柄、割り込んでよい時間帯、話しかけ方を設定します。",
-  "settings.page.model.description":
-    "{persona}が考えるときに使うモデル、そのキー、料金を設定します。",
-  "settings.page.connectors.description":
-    "{persona}が使えるアプリやアカウントと、検索対象にするものを設定します。",
-  "settings.page.memory.description":
-    "{persona}が覚えていること、学習元、その管理方法を設定します。",
-  "settings.page.daily.description":
-    "朝の概要と夕方のまとめ、オートメーション、スキル、{persona}が呼び出せるスペシャリストを設定します。",
-  "settings.page.permissions.description":
-    "{persona}がこのMacで確認なしにできること、必ず確認を求める場面を設定します。",
-  "settings.page.data.description":
-    "このMacに残るデータ、保存期間、書き出し、バックアップ、初期化を管理します。",
-  "settings.page.devices.description":
-    "ほかのデバイス、Gatewayサーバ、外出先から{persona}に接続する方法を設定します。",
-  "settings.page.about.description": "バージョン、ヘルスチェック、ログ。",
   "settings.essentials.title": "基本",
   "settings.essentials.description":
     "多くの人が選ぶ、いくつかの項目です。それぞれ安全な初期値があります。ほかに必要なことがあれば{persona}が尋ねます。",
@@ -198,12 +176,8 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.doctor.memory": "メモリ",
   "settings.doctor.memoryPaused": "メモリは一時停止中です。新たに記憶されることはありません。",
   "settings.doctor.memoryOk": "メモリに{files, plural, other {#個のファイル}}があります。",
-  "settings.appearance.description": "ペアリング済みのすべてのデバイスに適用されます。",
   "settings.appearance.colors": "カラー",
-  "settings.appearance.colorsHint": "ライトまたはダーク、およびアクセントカラー。",
   "settings.appearance.comfort": "快適さ",
-  "settings.appearance.comfortHint": "目や動きへの負担を軽くします。",
-  "settings.appearance.backgroundHint": "ウインドウを閉じてもPsycheを動かし続けるかどうか。",
   "settings.appearance.advancedHint":
     "グレーの色調、カスタムカラー、文字の方向、コントラストチェック",
   "settings.appearance.fineTune": "色を細かく調整",
@@ -791,7 +765,6 @@ export const settingsRest: Partial<Catalogue> = {
     "{name} が再び移動されたか、再接続できません。リストを更新しました。",
   "settings.access.reconnectBlocked":
     "{name} は移動されましたが、安全に再接続できません。ルール、または中のフォルダが古い場所を指しています。共有を取り消して、もう一度共有してください。",
-  "settings.model.advancedHint": "コンテキストの上限、ローカルモデル",
   "settings.permissions.subject.prepNotes": "「Prep:」で始まるタイトルのメモ（会議の準備）",
   "settings.permissions.specificConnectors":
     "特定のコネクタの権限は、コネクタ内のそのコネクタのページで設定します。",
@@ -1442,15 +1415,9 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.mcp.fail.failed": "以下のサーバ出力を確認してから、もう一度お試しください。",
   "settings.mcp.fail.exitCode": "終了コード{code}。",
   "settings.mcp.fail.output": "サーバの出力",
-  "settings.connectors.page.description":
-    "{persona}が使えるアプリとツールです。それぞれ、特に指定しない限り、実行前に確認します。",
   "settings.connectors.page.needsYou": "対応が必要",
   "settings.connectors.page.connected": "接続済み",
   "settings.connectors.page.onThisMac": "このMac上",
-  "settings.connectors.page.addMore": "さらに追加",
-  "settings.connectors.page.addMore.hint":
-    "メール、カレンダー、メモ、すぐに使えるツール。それぞれ実行前に確認します。",
-  "settings.connectors.page.addMore.browse": "すべて見る",
   "settings.connectors.page.status.paused": "一時停止中",
   "settings.connectors.page.status.notWorking": "動作していません",
   "settings.connectors.page.status.signInExpired": "サインインの期限切れ",
@@ -1525,15 +1492,12 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.key.memory.surfaces.tiers.work.home": "ホームの仕事",
   "settings.key.memory.surfaces.tiers.work.brief": "デイリーの概要の仕事",
   "settings.key.memory.surfaces.tiers.work.notification": "通知の仕事",
-  "settings.key.memory.surfaces.tiers.work.channel": "チャンネルに送る概要の仕事",
   "settings.key.memory.surfaces.tiers.workMail.home": "ホームの仕事関連のメール",
   "settings.key.memory.surfaces.tiers.workMail.brief": "デイリーの概要の仕事関連のメール",
   "settings.key.memory.surfaces.tiers.workMail.notification": "通知の仕事関連のメール",
-  "settings.key.memory.surfaces.tiers.workMail.channel": "チャンネルに送る概要の仕事関連のメール",
   "settings.key.memory.surfaces.tiers.people.home": "ホームの人物",
   "settings.key.memory.surfaces.tiers.people.brief": "デイリーの概要の人物",
   "settings.key.memory.surfaces.tiers.people.notification": "通知の人物",
-  "settings.key.memory.surfaces.tiers.people.channel": "チャンネルに送る概要の人物",
   "settings.key.memory.surfaces.birthdays": "概要とホームに誕生日と記念日を表示",
   "settings.key.memory.surfaces.hideSources": "ホーム、概要、通知に表示しない情報源",
   "settings.key.memory.surfaces.kinds.project": "プロジェクトをメモリ以外にも表示",

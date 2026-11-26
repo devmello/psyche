@@ -73,7 +73,7 @@ test.beforeAll(async () => {
     env: {},
     logger: { log: () => {} },
     retentionIntervalMs: 0,
-    config: { home, port: 0, dbPath: join(home, "psyche.db"), webRoot: null },
+    config: { home, port: 0, dbPath: join(home, "psyche.db") },
     model: { provider: model, model: MAIN, utilityModel: UTILITY },
     policy: { folders: [{ path: granted, mode: "rw" }] },
     taskPollMs: 50,

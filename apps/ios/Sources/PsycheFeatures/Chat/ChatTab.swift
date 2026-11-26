@@ -92,7 +92,7 @@ struct ThreadListView: View {
                     let selected = sideBySide && selection == thread.id
                     Button { selection = thread.id; column = .detail } label: { ThreadRow(thread: thread) }
                         .buttonStyle(.plain)
-                        .badge(thread.statusKind == .needsYou ? Text("Needs you", bundle: .module) : nil)
+                        .alignmentGuide(.listRowSeparatorLeading) { $0[.leading] }
                         .accessibilityAddTraits(selected ? .isSelected : [])
                         .listRowBackground(selected ? PsycheColor.fill : nil)
                         .contextMenu {
@@ -139,6 +139,7 @@ struct ThreadListView: View {
                         ForEach(archived) { thread in
                             Button { selection = thread.id; column = .detail } label: { ThreadRow(thread: thread) }
                                 .buttonStyle(.plain)
+                                .alignmentGuide(.listRowSeparatorLeading) { $0[.leading] }
                                 .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                                     Button { Task { await model.restore(thread) } } label: {
                                         Label(String(localized: "Restore", bundle: .module), systemImage: "arrow.uturn.backward")
@@ -178,6 +179,7 @@ struct ThreadListView: View {
             if !spaces.spaces.isEmpty { SpaceTargetItems(model: spaces) }
         }
         .searchable(text: $query, prompt: String(localized: "Search chats", bundle: .module))
+        .psycheSettingsButton()
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Button { Task { selection = await newChat() ?? selection } } label: {
@@ -292,7 +294,7 @@ private struct ThreadRow: View {
             if thread.isMain { MothAvatar(size: 28) }
             VStack(alignment: .leading, spacing: 3) {
                 Text(thread.title).font(.psycheRow.weight(.medium)).foregroundStyle(PsycheColor.text)
-                StatusDot(thread.statusKind.dot, thread.status, textColor: PsycheColor.muted, font: .caption)
+                ThreadStatusLine(kind: thread.statusKind, text: thread.status)
             }
             Spacer(minLength: 0)
             if thread.isPinned, !thread.isMain {
@@ -304,6 +306,23 @@ private struct ThreadRow: View {
         // The whole row is the button: without a shape only the title and status text took taps.
         .frame(maxWidth: .infinity, alignment: .leading)
         .contentShape(Rectangle())
+    }
+}
+
+/// The status under a chat's title. Only "needs you" gets a dot, because that is the one status that means
+/// something on its own; "Running" and the last-activity time are plain words.
+struct ThreadStatusLine: View {
+    let kind: ChatThreadSummary.Status
+    let text: String
+
+    var body: some View {
+        if text.isEmpty {
+            EmptyView()
+        } else if kind == .needsYou {
+            StatusDot(.needsYou, text, font: .caption)
+        } else {
+            Text(text).font(.caption).foregroundStyle(PsycheColor.muted)
+        }
     }
 }
 
