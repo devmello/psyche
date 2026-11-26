@@ -12,7 +12,6 @@
   --duration-long-exit: 224ms;
   --duration-route: 180ms;
   --duration-route-reduced: 120ms;
-  /* The outgoing page under reduced motion: gone at once, but long enough to fire animationend. */
   --duration-route-old-reduced: 1ms;
   --duration-splash-delay: 300ms;
   --duration-pulse: 1200ms;
