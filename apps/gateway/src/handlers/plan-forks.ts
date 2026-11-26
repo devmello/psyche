@@ -72,7 +72,15 @@ export interface PlanForkDeps {
   service: ForkService;
   /** The Night shift apply module (W5); absent: Take refuses. */
   applier?: Pick<NightShiftApply, "applyFork"> | undefined;
-  broker: { get(id: string): Promise<ApprovalRequest | undefined> };
+  broker: {
+    get(id: string): Promise<ApprovalRequest | undefined>;
+    /** The broker's normal withdraw path: closes a pending card (never deletes rows). */
+    invalidatePendingOfKind(
+      kind: ApprovalRequest["kind"],
+      reason: string,
+      match?: (a: ApprovalRequest) => boolean,
+    ): Promise<ApprovalRequest[]>;
+  };
   tasks: {
     get(id: string): Promise<{ status: string } | undefined>;
     cancel(id: string, reason: string): Promise<unknown>;
@@ -722,11 +730,27 @@ export function createPlanForkHandlers(deps: PlanForkDeps) {
         release();
         return { refused };
       }
-      db.sqlite
+      const recorded = db.sqlite
         .prepare(
           "UPDATE plan_forks SET take_approval_id = ?, updated_at = ? WHERE id = ? AND take_approval_id = ?",
         )
         .run(r.issued.approval.id, nowIso(), fork.id, claim);
+      if (recorded.changes === 0) {
+        // The claim went stale while issuing and another Take claimed the fork: this card must
+        // not stay approvable. The broker's own withdraw closes it; its settle hook unbinds the
+        // items (and finds no fork pointing at it, so nothing else moves).
+        const issuedId = r.issued.approval.id;
+        try {
+          await deps.broker.invalidatePendingOfKind(
+            "staged_apply",
+            "take_conflict",
+            (a) => a.id === issuedId,
+          );
+        } catch (err) {
+          warn("could not withdraw a take that lost its claim", err);
+        }
+        throw busyTake();
+      }
       pendingTakes.set(r.issued.approval.id, opts);
       const token = r.issued.answerTokens[deps.surfaceOf(call.identity.deviceId)];
       publishFork(fork.id);
