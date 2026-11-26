@@ -131,24 +131,6 @@ PSYCHE_GATEWAY_MODE=external pnpm --filter @psyche/desktop start
 
 `PSYCHE_GATEWAY_MODE=external` tells the app to use the Gateway you started and never start one of its own. Without it, the app attaches to a Gateway that is already running, or starts one from `apps/gateway`. A Gateway the app starts gets only `PATH`, `HOME` and `PSYCHE_HOME` from it, so it has no model.
 
-### Or use the web client
-
-The Gateway also serves a web version of the app at `http://127.0.0.1:7979` once it is built:
-
-```bash
-pnpm --filter @psyche/web build
-```
-
-A browser is never paired automatically. It shows "Approve this device from a paired device to continue" and a pairing code. Approve it on the Mac:
-
-```bash
-pnpm --filter @psyche/gateway start devices approve <CODE>
-```
-
-Without a list of scopes after the code, this grants every scope, including admin.
-
-The web client keeps its device key in memory, so every reload of the page is a new device that needs approving again. The desktop app keeps its key on disk.
-
 ## 4. First run and onboarding
 
 The app pairs with the Gateway on its own, because both run on the same Mac. It gets the read, write and approvals scopes. It does not get the admin scope (see step 5).
@@ -203,8 +185,6 @@ The agent reads and writes files only inside folders you share. Anything outside
 3. To let the agent save changes there, switch the folder from "Read only" to "Read and write" in the list.
 4. To stop sharing a folder, click Remove next to it.
 
-On the web client there is no folder chooser. Type the folder's full path, starting with `/`, and press Return.
-
 Changes apply at once; you do not need to restart anything.
 
 Good to know:
@@ -226,7 +206,7 @@ The CLI pairs as its own device. The first time, it prints a pairing code; appro
 
 Open Settings from the Menu button at the bottom of the rail (Menu → Settings), or press ⌘K and choose Settings. The sections are: Model & providers, Persona, Connectors, Permissions, Computer use, File access, Devices & nodes, Credentials, Appearance, Voice & dictation, Data controls, Server & remote access, Usage and About.
 
-Settings are stored in the Gateway, in `~/.psyche/state/psyche.sqlite`, so every paired device sees the same values. The Gateway's own connection settings (`gateway.host`, `gateway.port`, `gateway.allowedOrigins`, `gateway.publicOrigin`, `gateway.trustedProxy`) live in `~/.psyche/config.json` instead. Change those with `node apps/cli/src/main.ts config set <key> <value>` and restart the Gateway. Environment variables override `config.json`.
+Settings are stored in the Gateway, in `~/.psyche/state/psyche.sqlite`, so every paired device sees the same values. The Gateway's own connection settings (`gateway.host`, `gateway.port`, `gateway.publicOrigin`, `gateway.trustedProxy`) live in `~/.psyche/config.json` instead. Change those with `node apps/cli/src/main.ts config set <key> <value>` and restart the Gateway. Environment variables override `config.json`.
 
 On main, many sections save values that the Gateway does not act on yet. This is what takes effect today:
 

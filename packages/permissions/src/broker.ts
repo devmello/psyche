@@ -24,6 +24,7 @@ import {
   isPrepNoteCall,
   type JsonObject,
   machineNameOk,
+  type NeedsMacReason,
   type Notifier,
   type PermissionBroker,
   PREP_NOTE_TITLE_PREFIX,
@@ -168,7 +169,14 @@ import type {
   StagedApplyRefusalReason,
 } from "./types.ts";
 
+/** Kinds a phone never answers, whatever the caller offered: they stay on the Mac (§3.7). */
+const PHONE_NEVER_KINDS: readonly ApprovalKind[] = ["credential_fill", "pairing", "policy_change"];
+/** A card whose details run longer than this does not show in full on a phone. */
+const PHONE_DETAILS_MAX_CHARS = 16_000;
 const HOUR = 3_600_000;
+/** "You've allowed this N times": how many of the owner's approvals within how many days. */
+const GRANT_HINT_MIN = 3;
+const GRANT_HINT_DAYS = 7;
 const DAY = 24 * HOUR;
 
 /** Who may answer (security §3.7): paired devices with `operator.approvals`, owner-identity senders. */
@@ -305,6 +313,12 @@ export interface PermissionBrokerOptions {
    * surface, never a chat surface.
    */
   deviceSurfaces?: () => readonly Surface[];
+  /**
+   * Whether a thread still exists and is a normal one (not incognito). A `session` ("for this
+   * chat") grant survives a Gateway restart only while its thread does; absent, none survives
+   * (fail closed, the earlier behaviour).
+   */
+  sessionThreadAlive?: (threadId: string) => boolean;
   ttlMs?: number;
   armDelayMs?: number;
   /**
@@ -517,6 +531,7 @@ export class PsychePermissionBroker implements PermissionBroker {
   readonly #presence: PresenceVerifier | undefined;
   readonly #presenceFor: "authentication" | "device_only";
   readonly #deviceSurfaces: (() => readonly Surface[]) | undefined;
+  readonly #sessionThreadAlive: ((threadId: string) => boolean) | undefined;
   readonly #armDelayMs: number;
   readonly #ttlMs: number | undefined;
   readonly #deferredApproval: PermissionBrokerOptions["deferredApproval"];
@@ -594,6 +609,7 @@ export class PsychePermissionBroker implements PermissionBroker {
     this.#presence = options.presence;
     this.#presenceFor = options.presenceFor ?? "authentication";
     this.#deviceSurfaces = options.deviceSurfaces;
+    this.#sessionThreadAlive = options.sessionThreadAlive;
     this.#armDelayMs = options.armDelayMs ?? APPROVAL_ARM_DELAY_MS;
     this.#ttlMs = options.ttlMs;
     this.#deferredApproval = options.deferredApproval;
@@ -1563,7 +1579,7 @@ export class PsychePermissionBroker implements PermissionBroker {
       return undefined;
     const out: HostProgramGrant = { executable, sha256, folder, argv: argv as string[] | null };
     return rec.grant.kind === "exec_host" &&
-      rec.grant.scope === "always" &&
+      (rec.grant.scope === "always" || rec.grant.scope === "session") &&
       rec.grant.grantKey === grantKeyHash("host_program", out)
       ? out
       : undefined;
@@ -1703,6 +1719,15 @@ export class PsychePermissionBroker implements PermissionBroker {
       if ((rec.meta.requesterId ?? null) !== null) continue;
       const h = PsychePermissionBroker.hostProgramOf(rec);
       if (h === undefined || !hostProgramGrantCovers(h, f)) continue;
+      // "For this chat": this boot's grant, and only in the chat that gave it.
+      if (
+        rec.grant.scope === "session" &&
+        (rec.meta.sessionId !== this.#bootId ||
+          rec.meta.threadId == null ||
+          rec.meta.threadId !== ctx.threadId)
+      ) {
+        continue;
+      }
       // Granted folders can be revoked: the grant's own folder must still be shared.
       if (this.engine.folderFor(h.folder, ctx.threadId, ctx.runId) === undefined) continue;
       if (refuseFolder(h.folder, this.#refuseEnv()) !== undefined) continue;
@@ -1746,13 +1771,72 @@ export class PsychePermissionBroker implements PermissionBroker {
     };
   }
 
+  /** The same program (binary and folder) was approved on an exec_host card in this chat before. */
+  #programApprovedInChat(threadId: string, offer: HostProgramGrant): boolean {
+    for (const r of this.#store.listApprovals({ status: "approved" })) {
+      const a = r.approval;
+      if (a.kind !== "exec_host" || a.requestedBy.threadId !== threadId) continue;
+      const o = (a.details as { hostProgram?: Record<string, unknown> }).hostProgram;
+      if (
+        o?.executable === offer.executable &&
+        o?.sha256 === offer.sha256 &&
+        o?.folder === offer.folder
+      )
+        return true;
+    }
+    return false;
+  }
+
+  /**
+   * The "you've allowed this N times" hint (audit improvement #13): the owner approved this very
+   * grant key at least {@link GRANT_HINT_MIN} times in the last 7 days, so the lasting choice
+   * (the second choice on the card) is pre-selected. Counted from the broker's own approvals,
+   * never a caller's say-so. Never on a payment, a tainted turn, a send to someone new, a card
+   * with a typed confirmation or one with no lasting choice, and only for the owner's own turns.
+   */
+  #grantHint(
+    input: PolicyApprovalInput,
+    recent: { call: PolicyCall; ctx: PolicyContext } | undefined,
+    se: SideEffect,
+    scopesOffered: readonly GrantScope[],
+    requiresAuthentication: boolean,
+  ): { count: number; days: number; scope: GrantScope } | undefined {
+    if (requiresAuthentication || se === "financial" || input.kind === "purchase") return undefined;
+    if (input.taint || input.context?.taint === true || recent?.ctx.taint === true)
+      return undefined;
+    if (input.typedConfirmation !== undefined || input.kind === "batch") return undefined;
+    // A send reaches other people: only to recipients the owner has already answered for, and
+    // never on the ask a new target (a new recipient) raised.
+    if (floorClass(input.kind, se) === "send") {
+      if (recent?.ctx.newTarget === true) return undefined;
+    }
+    const requester = input.context?.requester;
+    if (requester !== undefined && requester.role !== "owner") return undefined;
+    const scope = (["always", "site", "session", "task"] as const).find((s) =>
+      scopesOffered.includes(s),
+    );
+    if (scope === undefined) return undefined;
+    const since = this.clock.now() - GRANT_HINT_DAYS * DAY;
+    let count = 0;
+    for (const r of this.#store.listApprovals({ status: "approved" })) {
+      const a = r.approval;
+      if (a.grantKey !== input.grantKey || a.kind !== input.kind || a.taint) continue;
+      if (a.decidedAt == null || Date.parse(a.decidedAt) < since) continue;
+      if (requesterKey(r.input.context?.requester) !== null) continue;
+      count += 1;
+    }
+    return count >= GRANT_HINT_MIN ? { count, days: GRANT_HINT_DAYS, scope } : undefined;
+  }
+
   #newHostProgramGrant(
     rec: StoredApproval,
     offer: HostProgramGrant,
     by: DecidedBy,
     now: number,
+    scope: "always" | "session" = "always",
   ): StoredGrant {
     const a = rec.approval;
+    const ttl = this.#ttl();
     const key: HostProgramGrant = {
       executable: offer.executable,
       sha256: offer.sha256,
@@ -1764,7 +1848,7 @@ export class PsychePermissionBroker implements PermissionBroker {
       grant: {
         id: this.#newId("grt"),
         kind: "exec_host",
-        scope: "always",
+        scope,
         grantKey,
         subject: {
           grantKey,
@@ -1773,8 +1857,11 @@ export class PsychePermissionBroker implements PermissionBroker {
           sideEffect: "destructive",
         },
         binding: null,
-        // 30 days, like every other host-command grant.
-        expiresAt: new Date(now + this.#ttl().execHostAlways).toISOString(),
+        // 30 days, like every other host-command grant; "for this chat" ends with the chat's limits.
+        expiresAt: new Date(
+          now +
+            (scope === "session" ? Math.min(ttl.sessionIdle, ttl.sessionMax) : ttl.execHostAlways),
+        ).toISOString(),
         useCount: 0,
         lastUsedAt: null,
         createdFromApprovalId: a.id,
@@ -1784,8 +1871,8 @@ export class PsychePermissionBroker implements PermissionBroker {
       },
       meta: {
         sideEffect: "destructive",
-        sessionId: null,
-        threadId: null,
+        sessionId: scope === "session" ? this.#bootId : null,
+        threadId: scope === "session" ? (a.requestedBy.threadId ?? null) : null,
         origin: null,
         createdByDeviceId: "deviceId" in by ? by.deviceId : null,
         maxUses: null,
@@ -2363,7 +2450,12 @@ export class PsychePermissionBroker implements PermissionBroker {
     // enrolling a verifier) stays on the Mac surfaces. A phone paired after the card was raised
     // gets no token for it.
     const offMac = input.offMac ?? input.surfaces.some((s) => s === "notification" || s === "web");
-    if (!requiresAuthentication && this.#deviceSurfaces !== undefined && offMac) {
+    // The same limits as a token on request (`#needsMacReason`): never a saved login, pairing or
+    // a policy change, and not a card too long to show in full on a phone.
+    const phoneOk =
+      !PHONE_NEVER_KINDS.includes(input.kind) &&
+      JSON.stringify(input.details ?? {}).length <= PHONE_DETAILS_MAX_CHARS;
+    if (!requiresAuthentication && this.#deviceSurfaces !== undefined && offMac && phoneOk) {
       surfaces = [
         ...new Set([
           ...surfaces,
@@ -2437,7 +2529,32 @@ export class PsychePermissionBroker implements PermissionBroker {
         folder: programOffer.folder,
         argv: programOffer.argv,
       };
+      // "For this chat" on a host command is the program grant only: the broker adds it here, on
+      // a card that offers one, in a chat (never from the engine's decision). On the second card
+      // for the same program in this chat it comes first.
+      const chat = input.requestedBy.threadId;
+      if (chat != null && !scopesOffered.includes("session") && scopesOffered.includes("always")) {
+        scopesOffered = [
+          ...scopesOffered.filter((s) => s !== "always"),
+          "session" as const,
+          "always" as const,
+        ];
+      }
+      if (chat != null && this.#programApprovedInChat(chat, programOffer)) {
+        (details.hostProgram as JsonObject).sessionFirst = true;
+      }
     }
+    // Never a chat choice on a host command that offers no program grant (or has no chat).
+    if (
+      input.kind === "exec_host" &&
+      (programOffer === undefined || input.requestedBy.threadId == null)
+    ) {
+      scopesOffered = scopesOffered.filter((s) => s !== "session");
+      if (scopesOffered.length === 0) scopesOffered = ["once"];
+    }
+    // "You've allowed this N times": only the Gateway's own count of the owner's earlier answers.
+    delete details.grantHint;
+    const hint = this.#grantHint(input, recent, se, scopesOffered, requiresAuthentication);
     // "Allow in this Space" (spaces-2026 §5.3): only the Gateway offers it, on an untainted
     // folder card whose run works in a Space, beside Allow once (SR2). A caller's own is dropped.
     delete details.space;
@@ -2533,6 +2650,12 @@ export class PsychePermissionBroker implements PermissionBroker {
     if (approval.machine !== undefined) card.cardMachine = { ...approval.machine };
     else delete card.cardMachine;
     card.cardRiskClass = approval.riskClass;
+    // A top-level field, not a `details` entry: the phone reads nested details as "review in the
+    // app" and the desktop prints unknown keys.
+    if (hint !== undefined) {
+      approval.grantHint = { ...hint };
+      card.cardGrantHint = { ...hint };
+    } else delete card.cardGrantHint;
     if (approval.setAside === true) card.cardSetAside = true;
     else delete card.cardSetAside;
     if (input.targetKind !== undefined) approval.targetKind = input.targetKind;
@@ -2704,6 +2827,85 @@ export class PsychePermissionBroker implements PermissionBroker {
       { reason, status: rec?.approval.status ?? "unknown" },
     );
     return fail(code, message, details);
+  }
+
+  /**
+   * A paired operator device asks for a token on a card that was raised before it paired, or that
+   * it never got one for (security §3.7; owner's decision 2026-11-09: a plain tap from any paired
+   * device). The token is bound to this device's own surface and works like the ones issued with
+   * the card: single use, armed, checked against the device's `operator.approvals` at answer time.
+   *
+   * Never minted for a card that needs the Mac: a payment (presence), the kinds the broker pins
+   * to the Mac (a saved login, pairing, a policy change), a card its caller kept on the Mac
+   * (`offMac` false: capability, skill install, MCP add) or one too long to show in full on a phone.
+   * Those come back with the reason (`needsMac`), which the phone shows. A caller that is not a
+   * paired approver is refused. A device that already holds a token gets nothing new (the Gateway
+   * still has the plaintext of that one).
+   */
+  async mintAnswerToken(input: {
+    approvalId: string;
+    decidedBy: { deviceId: string; surface: Surface };
+    /** False: only say what a token would do (`paired_after` when one could be minted). */
+    mint?: boolean;
+  }): Promise<{ token?: string; needsMac?: NeedsMacReason }> {
+    this.#sweep();
+    const by = input.decidedBy;
+    const id = input.approvalId;
+    const device = await this.#approvers.device(by.deviceId);
+    if (
+      device === undefined ||
+      device.revoked === true ||
+      device.role === "node" ||
+      !device.scopes.includes("operator.approvals") ||
+      by.surface !== `device:${by.deviceId}`
+    ) {
+      // A plain read (no token asked for) never counts against anyone's answer cap, and writes no
+      // rejected-answer audit row: it just has nothing to say.
+      if (input.mint === false) return {};
+      return this.#reject(
+        undefined,
+        id,
+        by,
+        "not_approver",
+        "forbidden",
+        "only a paired device that approves can ask for an answer token",
+      );
+    }
+    const rec = this.#store.getApproval(id);
+    if (rec === undefined) {
+      if (input.mint === false) return {};
+      return this.#reject(undefined, id, by, "not_found", "not_found", `approval ${id} not found`);
+    }
+    const a = rec.approval;
+    if (a.status !== "pending" || rec.bootId !== this.#bootId) return {};
+    if (rec.tokens.some((t) => t.surface === by.surface)) return {};
+    const needsMac = this.#needsMacReason(rec);
+    if (needsMac !== undefined) return { needsMac };
+    if (input.mint === false) return { needsMac: "paired_after" };
+    const token = `at_${randomBytes(24).toString("base64url")}`;
+    rec.tokens.push({ surface: by.surface, hash: sha256(token), usedAt: null });
+    this.#store.updateApproval(rec);
+    await this.#log(
+      "approval.token_minted",
+      actorOf(by),
+      { approvalId: id },
+      { surface: by.surface, kind: a.kind },
+    );
+    return { token };
+  }
+
+  /** Why a pending card cannot be answered from a phone, or `undefined` when it can. */
+  #needsMacReason(rec: StoredApproval): NeedsMacReason | undefined {
+    const a = rec.approval;
+    if (a.requiresAuthentication || a.sideEffect === "financial" || a.kind === "purchase") {
+      return "payment";
+    }
+    if (PHONE_NEVER_KINDS.includes(a.kind)) return "mac_only";
+    const input = rec.input;
+    const offMac = input.offMac ?? input.surfaces.some((s) => s === "notification" || s === "web");
+    if (!offMac) return "mac_only";
+    if (JSON.stringify(a.details).length > PHONE_DETAILS_MAX_CHARS) return "too_long";
+    return undefined;
   }
 
   /**
@@ -3033,10 +3235,27 @@ export class PsychePermissionBroker implements PermissionBroker {
     // "Always allow <program> in <folder>": a device answers it, on a card that offered it, with
     // scope `once`; the program and folder are the Gateway's own, from the card (security §5.4).
     let programChoice = false;
+    // "For this chat" on a host command is only ever the program grant: never an exact-command
+    // grant, and never without a chat to hold it.
+    if (
+      input.decision === "approve" &&
+      a.kind === "exec_host" &&
+      scope === "session" &&
+      (input.hostProgram !== true || a.requestedBy.threadId == null)
+    ) {
+      return this.#reject(
+        rec,
+        id,
+        by,
+        "program_not_offered",
+        "invalid_params",
+        "this card does not offer to allow the program",
+      );
+    }
     if (input.hostProgram === true && input.decision === "approve") {
       const offer = (a.details as { hostProgram?: { executable?: unknown } }).hostProgram;
       if (
-        scope !== "once" ||
+        (scope !== "once" && scope !== "session") ||
         a.taint ||
         a.kind !== "exec_host" ||
         input.unsandboxed !== undefined ||
@@ -3218,10 +3437,6 @@ export class PsychePermissionBroker implements PermissionBroker {
             this.#store.insertGrant(grant);
             fa.grantId = grant.grant.id;
           }
-        } else if (scope !== "once") {
-          grant = this.#newGrant(fresh, scope, by, now);
-          this.#store.insertGrant(grant);
-          fa.grantId = grant.grant.id;
         } else if (programChoice) {
           const o = (fa.details as { hostProgram?: Record<string, unknown> }).hostProgram;
           if (
@@ -3240,10 +3455,17 @@ export class PsychePermissionBroker implements PermissionBroker {
               },
               by,
               now,
+              scope === "session" ? "session" : "always",
             );
             this.#store.insertGrant(grant);
             fa.grantId = grant.grant.id;
           }
+          // The approval itself is for this one command (consumed once); the grant is the rest.
+          fa.scopeGranted = "once";
+        } else if (scope !== "once") {
+          grant = this.#newGrant(fresh, scope, by, now);
+          this.#store.insertGrant(grant);
+          fa.grantId = grant.grant.id;
         } else if (trustChoice !== undefined) {
           const offered = (fa.details as { trustSite?: { origin?: string } }).trustSite;
           if (offered?.origin !== undefined) {
@@ -4107,10 +4329,16 @@ export class PsychePermissionBroker implements PermissionBroker {
 
   /**
    * Gateway boot (security §3.7 "Restart", design-09, design-28): invalidate every pending request,
-   * revoke `session` grants of earlier boots, re-evaluate each parked call with its persisted
+   * carry `session` grants of earlier boots over while their thread lives and their idle and
+   * absolute limits hold (revoke the rest), re-evaluate each parked call with its persisted
    * context (taint included) and issue a fresh request. A re-issued request never auto-allows.
+   *
+   * `stopRuns`: chat runs the Gateway has just stopped (`gateway_restart`), because the loop that
+   * waited on their card died with the process. Their pending cards are invalidated and not
+   * re-issued: a new card would have nobody waiting on it. Only an owner chat card that nothing
+   * set aside counts (a set-aside or task card keeps the re-issue its resume needs).
    */
-  async reissue(): Promise<IssuedApproval[]> {
+  async reissue(opts: { stopRuns?: ReadonlySet<string> } = {}): Promise<IssuedApproval[]> {
     this.#sweep();
     this.#bootId = this.#newId("boot");
     const pending = this.#store.listApprovals({ status: "pending" });
@@ -4164,15 +4392,33 @@ export class PsychePermissionBroker implements PermissionBroker {
     }
     for (const g of this.#store.listGrants()) {
       if (
-        g.grant.scope === "session" &&
-        g.grant.revokedAt == null &&
-        g.meta.sessionId !== this.#bootId
+        g.grant.scope !== "session" ||
+        g.grant.revokedAt != null ||
+        g.meta.sessionId === this.#bootId
       ) {
-        await this.#revoke(g, "gateway_restart");
+        continue;
       }
+      const refusal = await this.#sessionSurvivalRefusal(g);
+      if (refusal !== undefined) {
+        await this.#revoke(g, refusal);
+        continue;
+      }
+      // Carried over: it belongs to this boot now, and the thread-and-boot match keeps working.
+      g.meta.sessionId = this.#bootId;
+      this.#store.updateGrant(g);
     }
     const issued: IssuedApproval[] = [];
     for (const rec of pending) {
+      const runId = rec.approval.requestedBy.runId;
+      if (
+        opts.stopRuns !== undefined &&
+        runId != null &&
+        opts.stopRuns.has(runId) &&
+        rec.approval.setAside !== true &&
+        rec.approval.requestedBy.taskId == null
+      ) {
+        continue;
+      }
       const input = structuredClone(rec.input);
       input.taint = input.taint || rec.approval.taint;
       // A row stored without the flag (before it existed, or from a caller the relay wrapper never saw) holds the
@@ -4203,6 +4449,26 @@ export class PsychePermissionBroker implements PermissionBroker {
       issued.push(next);
     }
     return issued;
+  }
+
+  /**
+   * Why a `session` grant of an earlier boot does not carry over (the reason it is revoked with),
+   * or `undefined` when it does. It needs a live, non-incognito thread (asked through the
+   * Gateway; unknown means no), both limits (idle expiry and the absolute cap from creation) and
+   * a creating device that is still paired.
+   */
+  async #sessionSurvivalRefusal(g: StoredGrant): Promise<string | undefined> {
+    const now = this.clock.now();
+    const threadId = g.meta.threadId;
+    if (threadId == null || this.#sessionThreadAlive?.(threadId) !== true) return "gateway_restart";
+    if (g.grant.expiresAt != null && Date.parse(g.grant.expiresAt) <= now) return "gateway_restart";
+    if (Date.parse(g.grant.createdAt) + this.#ttl().sessionMax <= now) return "gateway_restart";
+    const deviceId = g.meta.createdByDeviceId;
+    if (deviceId != null) {
+      const device = await this.#approvers.device(deviceId);
+      if (device === undefined || device.revoked === true) return "device_revoked";
+    }
+    return undefined;
   }
 
   async #invalidate(rec: StoredApproval, reason: string): Promise<void> {

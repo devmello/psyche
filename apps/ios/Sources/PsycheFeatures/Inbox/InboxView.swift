@@ -44,7 +44,7 @@ struct InboxView: View {
         }
         .psycheGroupedList()
         .psycheScreen()
-        .navigationTitle(String(localized: "Inbox", bundle: .module))
+        .navigationTitle(String(localized: "Notifications", bundle: .module))
         .psycheInlineTitle()
         .psycheShowsNavigationBar()
         .task {

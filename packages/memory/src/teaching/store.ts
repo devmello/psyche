@@ -493,6 +493,26 @@ export class TeachingStore {
     ).fingerprint;
   }
 
+  /**
+   * Forget by phrase (memory wave 3A): a tombstone keeps its id, kind and fingerprint (a hash),
+   * and nothing else that could name the phrase: the scope (a recipient's address) and the
+   * destination key go, and the destination too when `destination` is set.
+   */
+  scrubTombstone(id: string, options: { destination: boolean }): void {
+    this.#db
+      .prepare(
+        `UPDATE lessons SET scope = '{}', destination_key = ?,
+           destination = CASE WHEN ? THEN ? ELSE destination END
+         WHERE id = ? AND status = 'forgotten'`,
+      )
+      .run(
+        `forgotten:${id}`,
+        options.destination ? 1 : 0,
+        JSON.stringify({ type: "file", path: "AGENTS.md", section: "", lineId: "" }),
+        id,
+      );
+  }
+
   /** A lesson whose write was refused at its destination: nothing was learned. */
   deleteLesson(id: string): void {
     this.#db.prepare("DELETE FROM lessons WHERE id = ?").run(id);

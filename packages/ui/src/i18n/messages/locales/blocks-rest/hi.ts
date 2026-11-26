@@ -112,6 +112,8 @@ export const blocksRest: Partial<Catalogue> = {
   "blocks.approval.whyMode": "{mode} मोड तब पहले पूछता है जब कार्रवाई {effect}।",
   "blocks.details.params": "विवरण",
   "blocks.details.reason": "कारण",
+  "blocks.details.when": "कब",
+  "blocks.details.whatItWillDo": "यह क्या करेगा",
   "blocks.approval.answerOnHost":
     "{host} पर जवाब दें, या सेटिंग्ज़ → डिवाइस में इस कंप्यूटर पर स्वीकृतियों के लिए Touch ID सेट अप करें।",
   "blocks.approval.rateLimited": "एक मिनट में बहुत ज़्यादा कोशिशें। {seconds} सेकंड में फिर कोशिश करें।",

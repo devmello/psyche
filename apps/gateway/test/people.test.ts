@@ -39,7 +39,7 @@ async function compose(replies: ModelEvent[][] = []): Promise<ComposedGateway> {
     background: false,
     timeZone: "UTC",
     clock: new FakeClock(Date.parse(WORLD.now)),
-    config: { home, port: 0, dbPath: join(home, "psyche.db"), webRoot: null },
+    config: { home, port: 0, dbPath: join(home, "psyche.db") },
     model: { provider: FakeModelProvider.script(replies), model: "fake/model" },
   });
   return composed;
@@ -359,7 +359,7 @@ describe("people and projects graph in the Gateway (#651)", () => {
         background: false,
         timeZone: "UTC",
         clock: new FakeClock(Date.parse(WORLD.now)),
-        config: { home, port: 0, dbPath: join(home, "psyche.db"), webRoot: null },
+        config: { home, port: 0, dbPath: join(home, "psyche.db") },
         model: { provider: model, model: "fake/model" },
       });
       const c = composed;

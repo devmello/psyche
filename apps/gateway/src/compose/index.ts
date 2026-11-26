@@ -5,6 +5,7 @@ import {
   AgentToolRegistry,
   automationIntentProvider,
   type CompactionPolicy,
+  clockContextProvider,
   createAgentLoop,
   defangFence,
   type ForkReportHost,
@@ -21,6 +22,7 @@ import type { ConnectorRegistry } from "@psyche/connectors";
 import {
   countActivePasskeys,
   getDevice,
+  getDeviceFamily,
   getSetting,
   getThread,
   listDevices,
@@ -187,13 +189,19 @@ import { DeferredDigest } from "./deferred-digest.ts";
 import { DeferredResume } from "./deferred-resume.ts";
 import { composeDeviceNotifications, DeviceNotifications } from "./device-notify.ts";
 import { composeDictation } from "./dictation.ts";
-import { composeEverything, type Everything, everythingSettings } from "./everything.ts";
+import {
+  composeEverything,
+  type Everything,
+  everythingSettings,
+  indexedSources,
+} from "./everything.ts";
 import { readSystemState } from "./everything-probe.ts";
 import { type ExecHostDeps, execHostTool } from "./exec-host.ts";
 import { feedContextResolver } from "./feed-context.ts";
 import { filesHandlers } from "./files.ts";
 import { migrateFilesConnector } from "./files-migration.ts";
 import { repointFolders, withFolder, withRecordedReal, withRecordedRef } from "./folder-access.ts";
+import { composeForgetCascade, composeGraphReset } from "./forget-cascade.ts";
 import { forkEventHidden, memoryWritesOff, withForkTaskScrub } from "./fork-hidden.ts";
 import { composeForks, FORK_POOL_CLAIM, threadModelPrice } from "./forks.ts";
 import { usesSandboxPc } from "./guest-sandbox.ts";
@@ -221,7 +229,7 @@ import {
 import { machineChangeHook } from "./machine-notices.ts";
 import { composeMailFollowups } from "./mail-followups.ts";
 import type { ComposedMcp } from "./mcp.ts";
-import { mountMemoryHandlers } from "./memory-chunks.ts";
+import { gateMemoryEntities, mountMemoryHandlers } from "./memory-chunks.ts";
 import { memoryStoreStatus, resolveMemoryStore, setMemoryEncrypted } from "./memory-db.ts";
 import { withMemoryEntityContext } from "./memory-item-context.ts";
 import {
@@ -260,6 +268,8 @@ import { phoneLocationTool } from "./phone-location.ts";
 import { composePlugins } from "./plugins.ts";
 import { composePoints, type PointsOptions } from "./points.ts";
 import { type ComposedProactive, composeProactive, connectorToolLookup } from "./proactive.ts";
+import { collectDoneEvidence } from "./promise-evidence.ts";
+import { composePromises, type Promises } from "./promises.ts";
 import {
   folderAccessEnv,
   launchConfigLinks,
@@ -289,6 +299,7 @@ import { researchTools } from "./research.ts";
 import { withRunSnapshot } from "./run-snapshot.ts";
 import type { ComposedSandbox } from "./sandbox.ts";
 import { scrubSavedRecall } from "./saved-recall.ts";
+import { withScheduleCard } from "./schedule-card.ts";
 import {
   createScheduledHandlers,
   pausedRoutines,
@@ -346,12 +357,13 @@ import {
   teachingSettings,
 } from "./teaching.ts";
 import { createThreadClear } from "./thread-clear.ts";
-import { endSessionQuietly } from "./thread-end.ts";
+import { endSessionQuietly, threadKeepsSessionGrants } from "./thread-end.ts";
 import { SqliteThreadStateStore } from "./thread-state.ts";
 import { CROSS_THREAD_SETTING, crossThreadToggle, threadTools } from "./thread-tools.ts";
 import { modelPinsFor, restoreModelPins, threadSettingsHandlers } from "./threads.ts";
 import { SystemZone } from "./time-zone.ts";
 import { uninstallHandlers } from "./uninstall.ts";
+import { withRunnableUpcoming } from "./upcoming-filter.ts";
 import { updateHandlers } from "./update.ts";
 import { usageSummaryHandlers } from "./usage-summary.ts";
 import { cheapLearnerModel, createUserProfile } from "./user-profile.ts";
@@ -473,6 +485,8 @@ export interface ComposedGateway {
   readonly people: People;
   /** Everything memory: review, quarantine and the nightly pass (#1010). */
   readonly everything: Everything;
+  /** The promise ledger service (`compose/promises.ts`): scan, sweep and the brief lines. */
+  readonly promises: Promises;
   /** Unified search (S1): the main index, its indexer and `search.query`. */
   readonly search: ComposedSearch;
   readonly broker: PsychePermissionBroker;
@@ -601,7 +615,11 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   // "Today", daily notes and automations follow the owner's timezone (USER.md's `Timezone`,
   // also filled from what they told Psyche); no zone there leaves the defaults as they were.
   // `let`: it is read again on wake and every hour, so a trip changes it without a restart.
-  let timeZone = timeZoneOption ?? ownerTimeZoneAt(join(config.home, "workspace", "USER.md"));
+  // An explicit zone (the option, then USER.md) wins; with none, the Mac's own zone is the default,
+  // never UTC: "9 am" and the 7:00 brief mean the owner's local time.
+  const systemZone = new SystemZone();
+  let timeZone: string =
+    timeZoneOption ?? ownerTimeZoneAt(join(config.home, "workspace", "USER.md")) ?? systemZone.zone;
   // One redactor for the vault, payments and logs: a value the vault handed out is masked
   // wherever it would be written.
   const redactor = new SecretRedactor();
@@ -935,6 +953,9 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
         })
         .map((d) => surfaceOf(db, d.id));
     },
+    // "For this chat" grants outlive a restart only in a chat that still exists and is not
+    // incognito (a deleted thread has no row; Clear chat and delete end their grants as well).
+    sessionThreadAlive: (threadId) => threadKeepsSessionGrants(db, threadId),
     store: sealedPermissionStore(new SqlitePermissionStore(db.sqlite), seal),
     audit,
     notifier,
@@ -974,11 +995,12 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       },
     },
     localProject: { check: (url) => localProject.check(url) },
-    // The agent never acts on Psyche's own UI (prohibitions `gateway_origin`): every origin it is served on.
+    // The agent never acts on the Gateway itself (prohibitions `gateway_origin`): every address it
+    // answers on, the public one included.
     gatewayOrigins: [
       `http://127.0.0.1:${config.port}`,
       `http://localhost:${config.port}`,
-      ...config.allowedOrigins.filter((o) => /^https?:\/\//.test(o)),
+      ...(config.publicOrigin !== null ? [config.publicOrigin] : []),
     ],
     policy: hostPolicy((policy ?? storedPolicy) as PolicyConfig | undefined, db),
     // Auto mode's exec reviewer (owner's decision 2026-11-23: Haiku on the owner's own key, via
@@ -1015,7 +1037,15 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   // announces those (requestedBy.taskId set); chat turns keep the controller's announcement.
   // A specialist's approvals also carry its parent run and role (specialists §4.4).
   const loopBroker = announcing(
-    withSpecialistContext(broker, (id) => tasks.get(id)),
+    withScheduleCard(
+      withSpecialistContext(broker, (id) => tasks.get(id)),
+      {
+        zone: () => timeZone,
+        now: () => clock.now(),
+        language: () => getSetting(db, "ui.language")?.value,
+        systemLocale: () => Intl.DateTimeFormat().resolvedOptions().locale,
+      },
+    ),
     publish,
     (a) => a.requestedBy.taskId != null,
   );
@@ -1461,6 +1491,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     // tokens it leaves, for the people it did not read about (the graph's own nightly step then
     // skips its model pass).
     graphModelPass: (left, covered) => people.modelPass(left, covered),
+    promiseRetention: () => promises.retention(),
     announce: (card) => void proactive.feed.postNotice({ ...card, reason: "memory learned" }),
     ...(gwOptions.logger === undefined ? {} : { logger: gwOptions.logger }),
   });
@@ -1473,6 +1504,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     em: everything.store,
     model: () => everything.answerModel(),
     timeZone: () => timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone,
+    // The ledger warns about the owner's promises itself: Keep in touch drops its promise lines.
+    ledgerOn: () => getSetting(db, "promises.enabled")?.value === true,
     post: (card) =>
       void proactive.feed.postNotice({
         title: card.title,
@@ -1921,7 +1954,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     scheduler: withoutAgentRecordingSchedules(scheduler, skills.recorded),
     registry,
     clock,
-    ...(timeZone === undefined ? {} : { timeZone }),
+    timeZone: () => timeZone,
     approvalSurfaces: ["desktop", "web"],
     resumeApproval: (q) => deferredResume.claim(q),
     skills: skills.loader,
@@ -1935,6 +1968,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       memoryRecall.recall,
       artifactContextProvider(db),
       automationIntentProvider(),
+      clockContextProvider({ now: () => clock.now(), timeZone: () => timeZone }),
     ],
     contextLimits: context.contextLimits,
     onContextUsage: context.onContextUsage,
@@ -2130,6 +2164,55 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   // The Space trackers are composed last; the mail poll, calendar watch and folder watcher ask
   // them through this ref whether anything listens (spaces-2026 §6.2).
   const spaceTrackers: SpaceTrackersRef = {};
+  // The promise ledger (docs/design/promise-ledger-2026.md): scan and sweep jobs, the handlers
+  // behind the remote-viewer scrub, the warning notifier and the brief lines.
+  const promisesTools = () => connectorToolLookup(registry);
+  const promisesConnectors = async () =>
+    connectorsPart === undefined ? [] : await connectorsPart.registry.list();
+  const promises = composePromises({
+    db,
+    clock,
+    graph: people.graph,
+    sqlite: memoryLate === undefined ? db.sqlite : memoryDb.sqlite,
+    em: everything.store,
+    loopVisibility: people.loopVisibility,
+    publish: (event, payload) => publish(event as never, payload as never),
+    notifier,
+    timeZone: () => timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone,
+    redact: (text) => redactor.redact(text),
+    ownerNames: () => {
+      const owner = people.graph.ownerEntity();
+      return owner === undefined ? [] : [owner.name, ...owner.aliases];
+    },
+    model: () => everything.answerModel(),
+    // Search's switches and the owner's opt-out bind the ledger too (design 7.3).
+    searchAllows: (source) =>
+      everythingSettings(getSetting(db, EVERYTHING_MEMORY_SETTING_KEY)?.value, indexedSources(db))
+        .sources[source] === true,
+    mail: {
+      tools: promisesTools,
+      connectors: promisesConnectors,
+      resolve: (address) => people.graph.resolveIdentifier("email", address) ?? null,
+      isTwoWay: (id) => people.graph.isTwoWay(id),
+      ...(gwOptions.logger === undefined ? {} : { logger: gwOptions.logger }),
+    },
+    evidence: (q) =>
+      collectDoneEvidence(
+        {
+          clock,
+          tools: promisesTools,
+          connectors: promisesConnectors,
+          helper: () => gatewayRef?.context.nodes.hostHelper()?.client,
+          resolve: (contact) =>
+            people.graph.resolveIdentifier("email", contact) ??
+            people.graph.resolveIdentifier("phone", contact) ??
+            null,
+          ...(gwOptions.logger === undefined ? {} : { logger: gwOptions.logger }),
+        },
+        q,
+      ),
+    ...(gwOptions.logger === undefined ? {} : { logger: gwOptions.logger }),
+  });
   const proactive = composeProactive({
     db,
     clock,
@@ -2156,6 +2239,13 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     },
     quietThreads: () => mailFollowups.briefLines(),
     nightShift: () => nightShiftRef?.briefLine(),
+    promises: {
+      briefLines: (surface) => promises.briefLines(surface),
+      ledgerOn: () => promises.ledgerOn(),
+      meetingTarget: () => promises.meetingTarget(),
+      jobs: () => promises.jobs(),
+      ensureSchedules: (scheduler, zone) => promises.ensureSchedules(scheduler, zone),
+    },
     // Catching up and `memory.catchup.*` (MW4): the graph, and what the agent may read of it.
     catchup: { graph: people.graph, em: everything.store, access: people.agentAccess },
     // Ideas proposes folding a skill's lessons into it once it has three (teaching loop §6).
@@ -2697,11 +2787,26 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   );
   // app.uninstall.authorize: the presence gate in front of the uninstall sheet's "Delete my data".
   parts.push({ handlers: uninstallHandlers(services) });
+  // Forget everywhere (memory wave 3A): the graph, lessons and search index, previewed by every
+  // dry run and cleaned by every forget (the RPC and the agent's tool both go through the store).
+  const forgetDeps = {
+    memory,
+    db,
+    graphSqlite: () => (memoryLate === undefined ? db.sqlite : memoryDb.sqlite),
+    graph: () => people?.graph,
+    cards: () => people?.cards,
+    teaching: () => ({ store: teaching.service.store, service: teaching.service }),
+    searchIndex: () => search.index,
+  };
+  memory.setForgetCascade(composeForgetCascade(forgetDeps));
   const handlers: Record<string, HandlerDef> = {
     ...mountPermissions(db, createPermissionHandlers(rawBroker, audit), tokens),
     // memory.search and memory.explain return chunk text: held to the connection's viewer.
     ...mountMemoryHandlers(
-      createMemoryHandlers(memory, { teaching: teaching.service.store }),
+      createMemoryHandlers(memory, {
+        teaching: teaching.service.store,
+        graphReset: composeGraphReset(forgetDeps),
+      }),
       memory,
     ),
     // memory.status also says how recall works (`memory.recall.mode`).
@@ -2763,7 +2868,17 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
         slots: specialistSlots,
       }) as never,
     ),
-    ...mountParamsOnly(createAutomationHandlers(scheduler) as never),
+    ...mountParamsOnly(
+      withRunnableUpcoming(createAutomationHandlers(scheduler), {
+        list: () => scheduler.list(),
+        systemIds: () => scheduler.systemIds(),
+        kv: scheduledKv,
+        setting: (key) => getSetting(db, key)?.value,
+        mailConnected: proactive.mailConnected,
+        mailListening: () => proactive.mailWatch.listening(),
+        ideaSources: proactive.ideaSources,
+      }) as never,
+    ),
     // "Run it every week" for a skill made from a recording: the desktop shell only.
     ...createRecordingScheduleHandlers({
       skills: skills.recorded,
@@ -2791,7 +2906,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       mountParamsOnly(createNotificationHandlers(notifier) as never),
       () => people?.loopVisibility,
     ),
-    ...proactive.handlers,
+    ...promises.withShims(proactive.handlers),
+    ...promises.handlers,
     ...(nightShiftRef?.defs ?? {}),
     ...(planForksRef?.defs ?? {}),
     ...capabilities.handlers,
@@ -2858,6 +2974,18 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     }),
   };
   for (const part of parts) Object.assign(handlers, part.handlers ?? {});
+  // People and projects are Memory: every memory.entities.* method is the desktop app, the Host CLI
+  // and the owner's paired write-scope devices; never the web shell or a read-only device.
+  gateMemoryEntities(handlers, (id) => {
+    const d = getDevice(db, id);
+    if (d === undefined) return undefined;
+    return {
+      platform: d.platform,
+      family: getDeviceFamily(db, id),
+      paired: d.pairedAt != null,
+      revoked: d.revokedAt != null,
+    };
+  });
   // "Erase all memory" and "forget everything learned" also erase the safety copies of the data
   // that sit in backups/pre-update: they hold what the owner just asked to be gone.
   for (const name of PURGES_SNAPSHOTS) {
@@ -3111,6 +3239,9 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   gateway.context.chatFiles.attached = (threadId) => rawBroker.attachedFiles(threadId);
   // Clear chat and delete end the conversation: its "Allow once" folders and attached files go.
   gateway.context.threadEnded.add(endSessionQuietly(rawBroker, gwOptions.logger));
+  // Chat feeds the promise lane at thread end, before the messages are deleted (design 3.2).
+  gateway.context.threadEnding.add(promises.chat.ending);
+  gateway.context.threadEnded.add(promises.chat.ended);
   // Clear chat and delete cancel the chat's plan forks and remove their hidden threads (§8).
   gateway.context.threadEnding.add((threadId) => planForksRef?.onThreadEnding(threadId));
   gateway.context.messageScrub.scrub = (message, who) => everything.lifeChat.scrub(message, who);
@@ -3119,15 +3250,17 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   await proactive.start();
   await nightShiftRef?.start();
   await forksRef?.start();
-  const systemZone = new SystemZone();
-  const effectiveZone = () => timeZone ?? systemZone.zone;
+  const effectiveZone = () => timeZone;
   await ensureWeeklyCardAutomation(scheduler, { timezone: effectiveZone() });
   // The owner may have travelled (Mac asleep, or hours since the last look): re-read the zone, and
   // when it moved re-sync what is zone-dependent. Automations the owner made keep their own zone.
   async function refreshTimeZone(): Promise<void> {
     const before = effectiveZone();
     systemZone.refresh();
-    timeZone = timeZoneOption ?? ownerTimeZoneAt(join(config.home, "workspace", "USER.md"));
+    timeZone =
+      timeZoneOption ??
+      ownerTimeZoneAt(join(config.home, "workspace", "USER.md")) ??
+      systemZone.zone;
     const now = effectiveZone();
     if (now === before) return;
     gwOptions.logger?.log("info", "time zone changed", { from: before, to: now });
@@ -3192,6 +3325,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     otherChats,
     people,
     everything,
+    promises,
     search,
     broker,
     audit,
@@ -3394,8 +3528,8 @@ function withRelay<B extends PermissionBroker>(
         };
       }
       if (prop === "reissue") {
-        return async () => {
-          const issued = await target.reissue();
+        return async (...args: Parameters<B["reissue"]>) => {
+          const issued = await target.reissue(...args);
           for (const i of issued) deliver(i);
           return issued;
         };

@@ -103,7 +103,7 @@ final class SettingsUITests: PsycheUITestCase {
 final class InboxUITests: PsycheUITestCase {
     func testTappingAnItemMarksItRead() {
         launch()
-        let inbox = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Inbox")).firstMatch
+        let inbox = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Notifications")).firstMatch
         waitFor(inbox)
         scrollTo(inbox)
         inbox.tap()

@@ -159,7 +159,7 @@ export const memoryB: Partial<Catalogue> = {
   "settings.learnMore": "Saiba mais",
   "settings.learnLess": "Mostrar menos",
   "memory.page.title": "Memória",
-  "memory.page.soul": "Alma",
+  "memory.page.soul": "Personalidade",
   "memory.page.kinds": "O que mostrar",
   "memory.page.kind.everything": "Tudo",
   "memory.page.kind.people": "Pessoas",

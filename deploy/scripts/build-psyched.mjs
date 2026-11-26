@@ -1,6 +1,6 @@
 // Builds the self-contained Gateway bundle for Psyche.app (docs/archive/status/s22.md "Packaging layout").
 //
-//   node deploy/scripts/build-psyched.mjs [--arch arm64|x64] [--out <dir>] [--skip-web-build] [--smoke]
+//   node deploy/scripts/build-psyched.mjs [--arch arm64|x64] [--out <dir>] [--smoke]
 //        (on Linux: the bundle the psyche-server package ships, deploy/linux-server/build.mjs)
 //   node deploy/scripts/build-psyched.mjs --smoke-only [--out <dir>]     smoke an already built bundle
 //
@@ -14,8 +14,7 @@
 //                              SHA-256 checked against nodejs.org's SHASUMS256.txt
 //   app/                       the Gateway and the CLI bundled by esbuild (apps/gateway/dist/main.mjs,
 //                              extract-worker.mjs, apps/cli/dist/main.mjs; bundle-gateway.mjs), the
-//                              files that sit next to the code (migrations, templates, skills, the
-//                              web client; found through @psyche/assets) and node_modules with only
+//                              files that sit next to the code (migrations, templates, skills; found through @psyche/assets) and node_modules with only
 //                              the packages that cannot be bundled (native addons, pdf.js, playwright)
 //   com.psyche.gateway.plist.template   LaunchAgent with {{PSYCHED}} and {{PSYCHE_HOME}}
 //   build-info.json            {version, build, commit, node, arch, builtAt, bytes}
@@ -28,7 +27,7 @@
 // script checks every .node file's architecture and refuses a mismatch. The build fails when the
 // bundled skills folder (app/skills) is missing or a skill has no SKILL.md (#506). --smoke starts
 // the built psyched with only PSYCHE_HOME set and waits for /healthz, runs `psyched --bundle-check`
-// (migrations on a fresh database, templates, skills, the web client, a PDF through the extraction
+// (migrations on a fresh database, templates, skills, a PDF through the extraction
 // worker) and loads the external packages, all with the bundle's own runtime.
 import { execFileSync, spawn } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -363,11 +362,6 @@ export function pruneToServerSubset(
   const { all, closure } = workspaceClosure(appDir, subsets);
   const stats = { workspaces: 0, packages: 0, files: 0 };
   for (const [name, pkg] of all) {
-    // The web client ships as its built dist only (served at /).
-    if (name === "@psyche/web") {
-      rmSync(join(appDir, pkg.dir, "node_modules"), { recursive: true, force: true });
-      continue;
-    }
     if (closure.has(name)) continue;
     rmSync(join(appDir, pkg.dir), { recursive: true, force: true });
     stats.workspaces++;
@@ -518,7 +512,7 @@ export function checkShippedSkills(appDir) {
 /**
  * Runs `psyched --bundle-check` (apps/gateway/src/bundle-check.ts) with the bundle's own runtime and a
  * fresh home: migrations on a new database, the templates, the skills (all of those shipped must
- * load), the web client, the sandbox image context, the MCP bridge, and a PDF through the
+ * load), the sandbox image context, the MCP bridge, and a PDF through the
  * extraction worker, each found through @psyche/assets from where the bundle sits.
  */
 /** How to start psyched from the bundle: the sh launcher, or node.exe directly on Windows. */
@@ -777,17 +771,6 @@ async function main(argv) {
     process.stdout.write(`rebuilt ${n} compiled addon(s) for ${arch}
 `);
   }
-
-  // 3. The web client the Gateway serves at /.
-  if (!argv.includes("--skip-web-build")) pnpm(["--filter", "@psyche/web", "build"], { cwd: ROOT });
-  const web = join(ROOT, "apps/web/dist");
-  if (!existsSync(join(web, "index.html")))
-    throw new Error("apps/web/dist is missing; build the web client");
-  cpSync(web, join(app, "apps/web/dist"), { recursive: true });
-  // Sourcemaps stay in apps/web/dist for debugging; the shipped copy drops them (≈ 60 MB).
-  walk(join(app, "apps/web/dist"), (p) => {
-    if (p.endsWith(".map")) rmSync(p);
-  });
 
   // 4. Drop what the runtime never reads.
   for (const p of PRUNE) rmSync(join(app, p), { recursive: true, force: true });

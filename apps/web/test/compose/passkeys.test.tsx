@@ -55,7 +55,7 @@ async function setup(publicOrigin: string | null = ORIGIN) {
     logger: { log() {} },
     retentionIntervalMs: 0,
     background: false,
-    config: { home, port: 0, dbPath: join(home, "psyche.db"), webRoot: null, publicOrigin },
+    config: { home, port: 0, dbPath: join(home, "psyche.db"), publicOrigin },
     model: { provider: new FakeModelProvider(), model: "fake/model" },
   });
   const owner = await adminClient(composed.gateway);
@@ -219,11 +219,11 @@ describe("a security setting approved with a passkey (issue #79)", () => {
     render(
       <GatewayProvider client={kitClient(port, host)}>
         <UiSlotsProvider value={{ persona: { name: "Wren", creature: "moth" } }}>
-          {settingsRoute("/settings/devices", () => undefined, platform)}
+          <PasskeysPanel host={host} />
         </UiSlotsProvider>
       </GatewayProvider>,
     );
-    // Register this browser's passkey from Settings → Devices & nodes.
+    // Register a passkey with the panel (a remote Mac's passkey host does the same).
     fireEvent.click(await screen.findByRole("button", { name: "Add a passkey" }));
     expect(await screen.findByText(/^Added Passkey\./)).toBeTruthy();
     cleanup();

@@ -2,15 +2,6 @@ import type { Catalogue } from "../../index.ts";
 
 /** settings-a strings (pt); merged into `../pt.ts`. */
 export const settingsA: Partial<Catalogue> = {
-  "settings.page.daily.description":
-    "Seu resumo e fechamento do dia, automações, habilidades e os especialistas que {persona} pode chamar.",
-  "settings.page.permissions.description":
-    "O que {persona} pode fazer neste Mac sem perguntar, e onde sempre para para perguntar a você.",
-  "settings.page.data.description":
-    "O que fica neste Mac, por quanto tempo é guardado, exportações, backups e recomeçar do zero.",
-  "settings.page.devices.description":
-    "Seus outros dispositivos, o servidor Gateway e como falar com {persona} quando você está fora.",
-  "settings.page.about.description": "Versões, verificações de integridade e logs.",
   "settings.essentials.title": "Essenciais",
   "settings.essentials.description":
     "As poucas escolhas que a maioria das pessoas faz, cada uma com um padrão seguro. {persona} pergunta quando precisa de mais.",
@@ -151,13 +142,8 @@ export const settingsA: Partial<Catalogue> = {
   "settings.doctor.memory": "Memória",
   "settings.doctor.memoryPaused": "A memória está pausada: nada novo é lembrado.",
   "settings.doctor.memoryOk": "{files, plural, one {# arquivo} other {# arquivos}} na memória.",
-  "settings.appearance.description": "Vale para todos os dispositivos que você emparelhou.",
   "settings.appearance.colors": "Cores",
-  "settings.appearance.colorsHint": "Claro ou escuro, e sua cor de destaque.",
   "settings.appearance.comfort": "Conforto",
-  "settings.appearance.comfortHint": "Mais suave para os olhos e com menos movimento.",
-  "settings.appearance.backgroundHint":
-    "Se o Psyche continua em execução quando você fecha a janela.",
   "settings.appearance.advancedHint":
     "Tom de cinza, cor personalizada, direção do texto, verificação de contraste",
   "settings.appearance.fineTune": "Ajuste fino das cores",

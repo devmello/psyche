@@ -66,7 +66,7 @@ async function compose(env: Record<string, string> = {}): Promise<ComposedGatewa
     logger: silentLogger,
     retentionIntervalMs: 0,
     background: false,
-    config: { home, port: 0, dbPath: join(home, "psyche.db"), webRoot: null },
+    config: { home, port: 0, dbPath: join(home, "psyche.db") },
     model: { ...vaultModelSetup({}), fetch: fakeAnthropic },
     vault: { keyFile, argon2: { memory: 64, passes: 1, parallelism: 1 } },
   });

@@ -152,6 +152,17 @@ export const TaintSource = Type.Object(
 );
 export type TaintSource = Static<typeof TaintSource>;
 
+/**
+ * Why a phone cannot answer a card (`approvals.get` with `wantToken`): `payment` is approved on
+ * the Mac with Touch ID or a password, `paired_after` is a card the phone can ask a token for
+ * (it was raised before this phone paired), `too_long` shows only in part on a phone, and
+ * `mac_only` stays on the Mac (a saved login, pairing, a policy change, a capability or a skill).
+ */
+export const NeedsMacReason = StringEnum(["payment", "paired_after", "too_long", "mac_only"], {
+  $id: "NeedsMacReason",
+});
+export type NeedsMacReason = Static<typeof NeedsMacReason>;
+
 export const RiskClass = StringEnum(["routine", "sensitive"], { $id: "RiskClass" });
 export type RiskClass = Static<typeof RiskClass>;
 
@@ -200,6 +211,18 @@ export const ApprovalRequest = Type.Object(
      * the identical call (same binding); otherwise nothing runs and the owner is told.
      */
     setAside: Type.Optional(Type.Boolean()),
+    /**
+     * The owner approved this same action at least `count` times in the last `days` days: the card
+     * says so and pre-selects the lasting choice `scope`. Never on a payment, a tainted card or a
+     * send to someone new. Display only: it grants nothing.
+     */
+    grantHint: Type.Optional(
+      Type.Object({
+        count: Type.Integer({ minimum: 1 }),
+        days: Type.Integer({ minimum: 1 }),
+        scope: GrantScope,
+      }),
+    ),
     /** Where the taint came from (security §3.6, §3.11 `taint.sources`); present only when tainted. */
     taintSources: Type.Optional(Type.Array(TaintSource)),
     status: ApprovalStatus,

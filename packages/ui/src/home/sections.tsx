@@ -10,8 +10,9 @@ import { Button } from "../components/ui/button.tsx";
 import { Skeleton } from "../components/ui/skeleton.tsx";
 import {
   useCall,
+  useFeed,
   useGatewayQuery,
-  useNotifications,
+  useIdeas,
   useThread,
   useThreads,
 } from "../data/index.ts";
@@ -28,7 +29,7 @@ import { AddGoalDialog } from "../screens/goals/AddGoalDialog.tsx";
 import { CandidateGoalCard, GoalRow, useGoalDecisions } from "../screens/goals/GoalsScreen.tsx";
 import { IdeaCard } from "../screens/ideas/IdeaCard.tsx";
 import { useIdeaActions } from "../screens/ideas/use-idea-actions.ts";
-import { NeedsYouList, needsYou } from "../screens/inbox/InboxScreen.tsx";
+import { NeedsYouList } from "../screens/inbox/InboxScreen.tsx";
 import { usePersona, useSlots } from "../slots.tsx";
 import { PastDueAsks } from "./PastDueAsks.tsx";
 import {
@@ -37,6 +38,7 @@ import {
   useSpaceSuggestions,
 } from "./SpaceSuggestionCards.tsx";
 import { useCatchUp } from "./use-catch-up.ts";
+import { useNeedsYou } from "./use-needs-you.ts";
 
 /** A raised list of rows (the grouped-list surface), for the side column's sections. */
 function RowList({ label, children }: { label: string; children: ReactNode }): ReactElement {
@@ -88,10 +90,8 @@ export function NeedsYouSection({
   now?: number;
 }): ReactElement | null {
   const now = useNow(30_000, fixedNow);
-  const notifications = needsYou(useNotifications().unresolved, now).length;
-  const { asks, busy, act } = useCatchUp();
-  const waiting = notifications + asks.length;
-  if (waiting === 0) return null;
+  const { asks, busy, act, count } = useNeedsYou(now);
+  if (count === 0) return null;
   return (
     <ScreenSection id="needs-you" title={t("home.needsYou")} large needsYou>
       <PastDueAsks items={asks} busy={busy} onAct={act} onOpen={onNavigate} />
@@ -490,6 +490,31 @@ function readOpen(): boolean {
 }
 
 /**
+ * One calm sentence when Home has nothing to show: nothing waits on the owner, the brief is
+ * empty and no idea is proposed. It says what will turn up here instead of leaving a bare page.
+ * Drawn only once everything has loaded without an error, so it never flashes during loading.
+ */
+export function HomeQuietLine(): ReactElement | null {
+  const { count } = useNeedsYou();
+  const feed = useFeed();
+  const ideas = useIdeas();
+  const catchUp = useCatchUp();
+  const settled = !feed.loading && !ideas.loading && feed.error === null && ideas.error === null;
+  const empty =
+    count === 0 &&
+    feed.posts.length === 0 &&
+    ideas.proposed.length === 0 &&
+    catchUp.lines.length === 0 &&
+    catchUp.pendingCount === 0;
+  if (!settled || !empty) return null;
+  return (
+    <p data-testid="home-quiet" className="max-w-prose text-body text-label-secondary">
+      {t("home.quiet")}
+    </p>
+  );
+}
+
+/**
  * Everything quieter, one disclosure at the foot of Home, closed until the owner opens it (and
  * remembered): the trackers (Spaces, Coming up, Goals, Quiet threads, Keep in touch), then the
  * deeper pages as plain links. Nothing here has a sidebar row (consolidation-2026 §7).
@@ -548,19 +573,24 @@ export function MoreSection({
       {open ? (
         <div id={panelId} className="flex flex-col gap-10 pt-6">
           {children}
-          <nav aria-label={t("home.more.pages")} className="flex flex-wrap gap-x-1 gap-y-1">
-            {links.map((r) => (
-              <Button
-                key={r.route}
-                type="button"
-                size="sm"
-                variant="ghost"
-                className="text-label-secondary"
-                onClick={() => onNavigate(r.route)}
-              >
-                {r.label}
-              </Button>
-            ))}
+          <nav aria-label={t("home.more.pages")}>
+            <ul className="grid grid-cols-1 overflow-hidden rounded-lg bg-surface-raised shadow-elevation-1 @md/home:grid-cols-2">
+              {links.map((r) => (
+                <li key={r.route}>
+                  <button
+                    type="button"
+                    onClick={() => onNavigate(r.route)}
+                    className="flex min-h-11 w-full items-center justify-between gap-2 px-3 py-2 text-start text-body text-label-primary outline-none transition-colors hover:bg-fill-quaternary focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring reduced:transition-none"
+                  >
+                    <span className="truncate">{r.label}</span>
+                    <ChevronRight
+                      aria-hidden="true"
+                      className="size-4 shrink-0 text-label-tertiary rtl:rotate-180"
+                    />
+                  </button>
+                </li>
+              ))}
+            </ul>
           </nav>
         </div>
       ) : null}

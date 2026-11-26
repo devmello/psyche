@@ -13,7 +13,7 @@ import { useNow } from "../../lib/use-now.ts";
 import { usePersona, useSlots } from "../../slots.tsx";
 import { type ActionRule, liftedFloorsOf, withMatrixOverrides } from "./ActionMatrix.tsx";
 import { AvailableConnectors } from "./CapabilityAvailable.tsx";
-import { ConnectForm, galleryEntries } from "./ConnectForm.tsx";
+import { ConnectForm } from "./ConnectForm.tsx";
 import {
   ConnectorBundleImport,
   ConnectorBundleStatus,
@@ -21,7 +21,6 @@ import {
   useConnectorBundles,
 } from "./ConnectorBundles.tsx";
 import { ConnectorDetail, lastUsed, trustTier } from "./ConnectorDetail.tsx";
-import { AddMore } from "./ConnectorGallery.tsx";
 import { ConnectorIcon } from "./ConnectorIcon.tsx";
 import { ConnectorRow, DetailFrame } from "./ConnectorRow.tsx";
 import { ConnectProgress, permissionOf, useConnectorConnect } from "./connect-flow.tsx";
@@ -42,8 +41,10 @@ import {
   mcpStatus,
   mcpSubtitle,
 } from "./McpServerDetail.tsx";
+import { DrillRow } from "./PaneRows.tsx";
 import {
   Advanced,
+  CARD,
   ErrorNotice,
   Group,
   LoadGate,
@@ -354,12 +355,6 @@ export function ConnectorsPanel({
       ));
   const has = (group: RowData["group"]) => rows.some((r) => r.group === group);
 
-  const addButton = onConnect ? (
-    <Button type="button" size="sm" onClick={() => setView({ kind: "add" })}>
-      <Plug aria-hidden="true" /> {t("settings.connectors.connect")}
-    </Button>
-  ) : null;
-
   // What the detail view is about: a connector, a tool server or one of the two Mac rows.
   const detailId = view.kind === "detail" ? view.id : null;
   const editing = view.kind === "edit" ? servers.find((s) => s.id === view.id) : undefined;
@@ -579,15 +574,12 @@ export function ConnectorsPanel({
             </Group>
           ) : null}
           {onConnect && total > 0 ? (
-            <AddMore
-              entries={galleryEntries({
-                implemented,
-                connectedTypes,
-                mcp: mcp !== undefined,
-                pick: (type) => setView({ kind: "add", type }),
-              })}
-              onBrowse={() => setView({ kind: "add" })}
-            />
+            <div className={CARD}>
+              <DrillRow
+                label={t("settings.connectors.connect")}
+                onOpen={() => setView({ kind: "add" })}
+              />
+            </div>
           ) : null}
           {onConnect && mcp ? (
             <div ref={advancedRef}>
@@ -623,14 +615,7 @@ export function ConnectorsPanel({
       {body}
     </DetailFrame>
   ) : (
-    <SectionFrame
-      title={t("settings.connectors.title")}
-      description={t("settings.connectors.page.description", { persona })}
-      // One primary action: the header's button, or the empty state's when nothing is connected.
-      actions={total > 0 || loading || error ? addButton : null}
-    >
-      {body}
-    </SectionFrame>
+    <SectionFrame title={t("settings.connectors.title")}>{body}</SectionFrame>
   );
 }
 

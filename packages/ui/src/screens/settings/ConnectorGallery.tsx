@@ -1,6 +1,5 @@
 import { Search } from "lucide-react";
 import { type ReactElement, useId, useState } from "react";
-import { Button } from "../../components/ui/button.tsx";
 import { t } from "../../i18n/core.ts";
 import type { MessageId } from "../../i18n/messages/index.ts";
 import { ConnectorIcon } from "./ConnectorIcon.tsx";
@@ -126,51 +125,5 @@ export function GalleryTile({ entry: e }: { entry: GalleryEntry }): ReactElement
         <span className="line-clamp-2 text-callout text-label-secondary">{e.description}</span>
       </span>
     </button>
-  );
-}
-
-/** How many suggestions "Add more" shows before "Browse all". */
-const SUGGESTED = 4;
-
-/**
- * "Add more" on the page's list: a few things worth connecting next (built-in ones first, then the
- * popular ready-made tools) and a way into the whole gallery. Nothing here is connected yet.
- */
-export function AddMore({
-  entries,
-  onBrowse,
-}: {
-  entries: readonly GalleryEntry[];
-  onBrowse: () => void;
-}): ReactElement | null {
-  const id = useId();
-  const Heading = useSubheading();
-  const open = entries.filter((e) => e.taken !== true && e.group !== "custom");
-  const suggested = [
-    ...open.filter((e) => e.badge === "builtIn"),
-    ...open.filter((e) => e.group === "popular"),
-  ].slice(0, SUGGESTED);
-  if (suggested.length === 0) return null;
-  return (
-    <section aria-labelledby={id} className="flex flex-col gap-2">
-      <div className="flex flex-wrap items-end gap-2 px-1">
-        <Heading id={id} className="min-w-0 flex-1 text-title-3 text-label-primary">
-          {t("settings.connectors.page.addMore")}
-        </Heading>
-        <Button type="button" variant="ghost" size="sm" onClick={onBrowse}>
-          {t("settings.connectors.page.addMore.browse")}
-        </Button>
-      </div>
-      <ul className="grid grid-cols-[repeat(auto-fill,minmax(15rem,1fr))] gap-2">
-        {suggested.map((e) => (
-          <li key={e.key} className="flex">
-            <GalleryTile entry={e} />
-          </li>
-        ))}
-      </ul>
-      <p className="px-1 text-callout text-label-secondary">
-        {t("settings.connectors.page.addMore.hint")}
-      </p>
-    </section>
   );
 }

@@ -162,7 +162,7 @@ async function boot(): Promise<{ admin: TestClient; seeded: Seeded }> {
     logger: silentLogger,
     retentionIntervalMs: 0,
     background: false,
-    config: { home, port: 0, dbPath, webRoot: null },
+    config: { home, port: 0, dbPath },
     model: { provider: new FakeModelProvider(), model: "fake/model" },
     vault: { keyFile, argon2: { memory: 64, passes: 1, parallelism: 1 } },
   });

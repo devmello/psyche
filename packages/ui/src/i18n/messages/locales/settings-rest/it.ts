@@ -35,30 +35,11 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.key.nudges.sensitivity": "Con che frequenza ricordare",
   "settings.key.nudges.phrasing": "Riformula i suggerimenti dei promemoria",
   "settings.shared.advanced": "Avanzate",
-  "settings.nav.inPage": "In {page}",
   "settings.nav.essentials": "Essenziali",
   "settings.nav.learning": "Nozioni di base",
   "settings.search.count": "{count, plural, one {# risultato} other {# risultati}}",
   "settings.search.result.page": "Pagina",
   "settings.page.essentials": "Essenziali",
-  "settings.page.essentials.description":
-    "Le poche scelte che fa la maggior parte delle persone. Ognuna ha un’impostazione predefinita sicura, e le pagine qui sotto contengono il resto.",
-  "settings.page.general.description":
-    "Come appare {persona}, chi è, quando può interromperti e come ci parli.",
-  "settings.page.model.description":
-    "I modelli con cui ragiona {persona}, le chiavi che usano e quanto costano.",
-  "settings.page.connectors.description":
-    "Le app e gli account che {persona} può raggiungere, e quali di essi cerca.",
-  "settings.page.memory.description": "Cosa ricorda {persona}, da dove impara e come lo controlli.",
-  "settings.page.daily.description":
-    "Il tuo riepilogo del mattino e della sera, le automazioni, le skill e gli specialisti che {persona} può chiamare.",
-  "settings.page.permissions.description":
-    "Cosa {persona} può fare su questo Mac senza chiedere, e dove si ferma sempre a chiederti.",
-  "settings.page.data.description":
-    "Cosa resta su questo Mac, per quanto tempo viene conservato, esportazioni, backup e ripartire da zero.",
-  "settings.page.devices.description":
-    "I tuoi altri dispositivi, il server Gateway e come raggiungere {persona} quando sei fuori.",
-  "settings.page.about.description": "Versioni, controlli di integrità e log.",
   "settings.essentials.title": "Essenziali",
   "settings.essentials.description":
     "Le poche scelte che fa la maggior parte delle persone, ciascuna con un’impostazione predefinita sicura. {persona} chiede quando gli serve altro.",
@@ -198,13 +179,8 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.doctor.memory": "Memoria",
   "settings.doctor.memoryPaused": "La memoria è in pausa: non viene ricordato nulla di nuovo.",
   "settings.doctor.memoryOk": "{files, plural, one {# file} other {# file}} in memoria.",
-  "settings.appearance.description": "Si applica a ogni dispositivo che hai abbinato.",
   "settings.appearance.colors": "Colori",
-  "settings.appearance.colorsHint": "Chiaro o scuro, e il tuo colore di evidenziazione.",
   "settings.appearance.comfort": "Comfort",
-  "settings.appearance.comfortHint": "Più riposante per gli occhi e per il movimento.",
-  "settings.appearance.backgroundHint":
-    "Se Psyche continua a funzionare quando chiudi la finestra.",
   "settings.appearance.advancedHint":
     "Tonalità di grigio, colore personalizzato, direzione del testo, verifica del contrasto",
   "settings.appearance.fineTune": "Regola i colori nel dettaglio",
@@ -805,7 +781,6 @@ export const settingsRest: Partial<Catalogue> = {
     "{name} è stato spostato di nuovo o non si può ricollegare. L'elenco è stato aggiornato.",
   "settings.access.reconnectBlocked":
     "{name} è stato spostato, ma non si può ricollegare in sicurezza: una regola o una cartella al suo interno punta ancora al vecchio posto. Revocalo e condividilo di nuovo.",
-  "settings.model.advancedHint": "Limiti di contesto, modelli locali",
   "settings.permissions.subject.prepNotes": "Note intitolate “Prep:” (preparazione riunioni)",
   "settings.permissions.specificConnectors":
     "I permessi per un connettore specifico si impostano nella sua pagina in Connettori.",
@@ -1462,15 +1437,9 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.mcp.fail.failed": "Controlla l’output del server qui sotto, poi riprova.",
   "settings.mcp.fail.exitCode": "Codice di uscita {code}.",
   "settings.mcp.fail.output": "Output del server",
-  "settings.connectors.page.description":
-    "Le app e gli strumenti che {persona} può usare. Ognuno chiede prima di agire, a meno che tu non dica diversamente.",
   "settings.connectors.page.needsYou": "Serve te",
   "settings.connectors.page.connected": "Collegati",
   "settings.connectors.page.onThisMac": "Su questo Mac",
-  "settings.connectors.page.addMore": "Aggiungine altri",
-  "settings.connectors.page.addMore.hint":
-    "Mail, calendario, note e strumenti già pronti. Ognuno chiede prima di agire.",
-  "settings.connectors.page.addMore.browse": "Sfoglia tutti",
   "settings.connectors.page.status.paused": "In pausa",
   "settings.connectors.page.status.notWorking": "Non funziona",
   "settings.connectors.page.status.signInExpired": "Accesso scaduto",

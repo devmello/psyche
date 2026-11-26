@@ -89,8 +89,7 @@ psyche config set permissions.policy '{"folders":[{"path":"/Users/you/Notes","mo
 | --- | --- | --- | --- |
 | `gateway.host` | Address to listen on. Anything but loopback is refused unless `PSYCHE_BIND=container`. | `127.0.0.1` | [config.ts](https://github.com/devmello/psyche/blob/main/apps/gateway/src/config.ts) |
 | `gateway.port` | Port for WebSocket and HTTP | `7979` | [config.ts](https://github.com/devmello/psyche/blob/main/apps/gateway/src/config.ts) |
-| `gateway.allowedOrigins` | Extra WebSocket `Origin` values to accept | none (plus `publicOrigin`) | [config.ts](https://github.com/devmello/psyche/blob/main/apps/gateway/src/config.ts) |
-| `gateway.publicOrigin` | The HTTPS origin the web client is served from behind a proxy. Passkeys use its host. Must be `https://` without a path. | none | [config.ts](https://github.com/devmello/psyche/blob/main/apps/gateway/src/config.ts) |
+| `gateway.publicOrigin` | The HTTPS origin the Gateway is reached at through a proxy (Tailscale Serve, for example). iPhone pairing links use it, and its host is the passkey relying party for a remote Mac. Must be `https://` without a path. Psyche has no browser client, so browser connections are refused. | none | [config.ts](https://github.com/devmello/psyche/blob/main/apps/gateway/src/config.ts) |
 | `gateway.trustedProxy.enabled` | Trusted-proxy mode for Tailscale Serve or Cloudflare Access. Needs `trustedProxies`. | `false` | [config.ts](https://github.com/devmello/psyche/blob/main/apps/gateway/src/config.ts) |
 | `gateway.trustedProxy.trustedProxies` | CIDRs of proxies allowed to forward connections | none | [config.ts](https://github.com/devmello/psyche/blob/main/apps/gateway/src/config.ts) |
 | `gateway.trustedProxy.tailscaleProxies` | CIDRs of Tailscale Serve peers whose `Tailscale-User-Login` header is trusted | none | [config.ts](https://github.com/devmello/psyche/blob/main/apps/gateway/src/config.ts) |
@@ -111,8 +110,8 @@ Read by the Gateway (`psyched`):
 | `PSYCHE_HOST`, `PSYCHE_PORT` | Override `gateway.host` and `gateway.port` | [config.ts](https://github.com/devmello/psyche/blob/main/apps/gateway/src/config.ts) |
 | `PSYCHE_BIND` | `loopback` (default) or `container`, which listens on the container interface | [config.ts](https://github.com/devmello/psyche/blob/main/apps/gateway/src/config.ts) |
 | `PSYCHE_GATEWAY_TOKEN_FILE` | Transport token file, required with `PSYCHE_BIND=container` | [config.ts](https://github.com/devmello/psyche/blob/main/apps/gateway/src/config.ts) |
-| `PSYCHE_PUBLIC_ORIGIN`, `PSYCHE_ALLOWED_ORIGINS` | Override `gateway.publicOrigin` and `gateway.allowedOrigins` (comma-separated) | [config.ts](https://github.com/devmello/psyche/blob/main/apps/gateway/src/config.ts) |
-| `PSYCHE_DB`, `PSYCHE_NODE_SOCKET`, `PSYCHE_BROWSER_BRIDGE_SOCKET`, `PSYCHE_WEB_ROOT` | Database file, local node socket, browser bridge socket (the desktop shell reads it too), built web UI directory | [config.ts](https://github.com/devmello/psyche/blob/main/apps/gateway/src/config.ts) |
+| `PSYCHE_PUBLIC_ORIGIN` | Override `gateway.publicOrigin` | [config.ts](https://github.com/devmello/psyche/blob/main/apps/gateway/src/config.ts) |
+| `PSYCHE_DB`, `PSYCHE_NODE_SOCKET`, `PSYCHE_BROWSER_BRIDGE_SOCKET` | Database file, local node socket, browser bridge socket (the desktop shell reads it too) | [config.ts](https://github.com/devmello/psyche/blob/main/apps/gateway/src/config.ts) |
 | `PSYCHE_LOG_LEVEL` | Minimum log level (default `info`) | [log.ts](https://github.com/devmello/psyche/blob/main/apps/gateway/src/log.ts) |
 | `PSYCHE_MODEL`, `PSYCHE_UTILITY_MODEL` | Primary and utility model, until set in Settings | [compose/models.ts](https://github.com/devmello/psyche/blob/main/apps/gateway/src/compose/models.ts) |
 | `PSYCHE_OLLAMA_URL`, `PSYCHE_LLAMACPP_URL`, `PSYCHE_LMSTUDIO_URL` | Address of a local model server | [compose/models.ts](https://github.com/devmello/psyche/blob/main/apps/gateway/src/compose/models.ts) |

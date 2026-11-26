@@ -51,10 +51,6 @@ export const linux: Partial<Record<MessageId, string>> = {
   "blocks.approval.touchId.keyUnavailable":
     "This build of the Linux helper can't keep an approval key, so cards that need your password can't be approved on this computer.",
   "shell.shortcut.pushToTalkKeys": "Hold Right Ctrl",
-  "settings.page.permissions.description":
-    "What {persona} may do on this computer without asking, and where it always stops to ask you.",
-  "settings.page.data.description":
-    "What stays on this computer, how long it is kept, exports, backups and starting over.",
   "settings.essentials.model.noneHint":
     "{persona} needs a model before it can answer. Add a key, or use a model on this computer.",
   "settings.essentials.read.hint":
@@ -154,7 +150,6 @@ export const linux: Partial<Record<MessageId, string>> = {
     "This computer has {gb, number} GB. Local models need at least {min, number} GB; use a cloud provider instead.",
   "settings.model.ram.fits": "This computer has {gb, number} GB, so {fits} fit.",
   "settings.model.ram.thisMac": " (this computer)",
-  "settings.model.localHint": "Run models on this computer with Ollama or LM Studio.",
   "settings.permissions.never.browserPasswords":
     "Read passwords saved in your browsers or the system keyring",
   "settings.server.bindHint":
@@ -301,8 +296,6 @@ export const linux: Partial<Record<MessageId, string>> = {
   "onboarding.safety.asks":
     "If you let {name} run commands on this computer, ones that only read, like ls or cat, run without a card. Anything else asks you first.",
   "onboarding.done.touchId": "Your password",
-  "onboarding.done.try.search":
-    "Ask a question in Search (Ctrl+K). The answer shows where in your life it came from.",
   "screens.search.source.revealFile": "Show in Files",
   "everything.model.localHint":
     "A model on this computer reads everything. Nothing leaves the computer. Fewer, noisier facts.",

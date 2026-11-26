@@ -87,8 +87,7 @@ describe("the connect is bound to the Gateway key the device verified (v2 payloa
 describe("a desktop app connecting over the network must bind its connect", () => {
   const publicOrigin = "https://studio-mac.tail1234.ts.net";
   const forwarded = { "x-forwarded-for": "100.64.0.9" };
-  const start = () =>
-    startTestGateway({ config: { publicOrigin, allowedOrigins: [publicOrigin] } });
+  const start = () => startTestGateway({ config: { publicOrigin } });
 
   it("refuses the unbound v1 connect from a desktop over a proxy, and accepts the v2 one", async () => {
     const g = await start();

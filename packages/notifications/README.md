@@ -2,7 +2,7 @@
 
 **Owner:** S15 (`docs/archive/prompts/s15-proactive-notifications.md`). Feature id: O10 in [docs/03-feature-spec.md](../../docs/03-feature-spec.md).
 
-The durable notification inbox and its delivery routing: in-app (desktop and web clients through Gateway events), and the OS (the mac helper's `notify.show` node capability). Chat channels were removed 2026-11-25; notifications reach only the Mac app and the paired iPhone. It handles de-duplication per task, quiet hours, retries, restart reconciliation, and the `notifications.*` method handlers.
+The durable notification inbox and its delivery routing: in-app (the desktop app and the paired iPhone through Gateway events), and the OS (the mac helper's `notify.show` node capability). Chat channels were removed 2026-11-25; notifications reach only the Mac app and the paired iPhone. It handles de-duplication per task, quiet hours, retries, restart reconciliation, and the `notifications.*` method handlers.
 
 ```
 notify(input)

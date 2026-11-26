@@ -99,7 +99,7 @@ async function start(
 describe("who may call it", () => {
   it("is refused to a paired remote admin, and to an admin without the handshake secret", async () => {
     const publicOrigin = "https://studio-mac.tail1234.ts.net";
-    const s = await start({ config: { publicOrigin, allowedOrigins: [publicOrigin] } });
+    const s = await start({ config: { publicOrigin } });
     // Paired once as the desktop, granted admin, then back without the secret: not the shell.
     const key = newDeviceKey();
     const deviceId = "admin-no-secret";
@@ -355,7 +355,7 @@ describe("composed Gateway", () => {
       logger: silentLogger,
       retentionIntervalMs: 0,
       background: false,
-      config: { ...resolveConfig({ PSYCHE_HOME: home }), port: 0, webRoot: null },
+      config: { ...resolveConfig({ PSYCHE_HOME: home }), port: 0 },
       model: { provider: new FakeModelProvider(), model: "fake/model" },
     });
     const owner = track(await adminClient(composed.gateway));

@@ -83,6 +83,7 @@ import {
   type LibraryFilters,
   type LibrarySection,
   NO_FILTERS,
+  offeredSections,
   sectionOf,
   workspacePath,
 } from "./library-items.ts";
@@ -600,6 +601,14 @@ export function LibraryView({
   const ids = { show: useId(), type: useId(), task: useId(), date: useId() };
   const showSkeleton = useDelayedFlag(loading, loadingDelayMs);
   const [selected, setSelected] = useState<string | null>(null);
+  // The tab pill follows the click at once; the route (which owns `section`) catches up after its
+  // transition, and the pill resyncs whenever the route changes.
+  const [tab, setTab] = useState(section);
+  const [syncedSection, setSyncedSection] = useState(section);
+  if (syncedSection !== section) {
+    setSyncedSection(section);
+    setTab(section);
+  }
   const inSection = items.filter((i) => sectionOf(i) === section);
   const shown = applyFilters(inSection, filters, now);
   const types = [...new Set(inSection.map(fileType))].sort();
@@ -812,11 +821,13 @@ export function LibraryView({
                 }
               }}
             >
-              {LIBRARY_SECTIONS.map((x) => (
-                <option key={x.id} value={x.id}>
-                  {x.label}
-                </option>
-              ))}
+              {LIBRARY_SECTIONS.filter((x) => offeredSections(items, section).includes(x.id)).map(
+                (x) => (
+                  <option key={x.id} value={x.id}>
+                    {x.label}
+                  </option>
+                ),
+              )}
             </NativeSelect>,
           )}
           {labelled(
@@ -894,10 +905,11 @@ export function LibraryView({
   // keeps working when the shell's toolbar slot renders it away from the content below.
   const sections = (
     <Tabs
-      value={section}
+      value={tab}
       onValueChange={(v) => {
         const next = LIBRARY_SECTIONS.find((s) => s.id === v);
         if (next) {
+          setTab(next.id);
           setSelected(null);
           onSectionChange?.(next.id);
         }
@@ -945,7 +957,7 @@ export function LibraryView({
           </>
         }
       />
-      <ScreenColumn width="wide">{body}</ScreenColumn>
+      <ScreenColumn width="full">{body}</ScreenColumn>
     </section>
   );
 }

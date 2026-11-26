@@ -183,6 +183,7 @@ const NAMESPACES = [
   "editor",
   "exec",
   "feed",
+  "forks",
   "gateway",
   "general",
   "harness",

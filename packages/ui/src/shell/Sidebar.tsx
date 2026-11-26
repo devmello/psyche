@@ -25,8 +25,7 @@ import {
   DropdownMenuTrigger,
 } from "../components/ui/dropdown-menu.tsx";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../components/ui/tooltip.tsx";
-import { useNotifications } from "../data/index.ts";
-import { useCatchUp } from "../home/use-catch-up.ts";
+import { useNeedsYou } from "../home/use-needs-you.ts";
 import { activeI18n, t } from "../i18n/core.ts";
 import { keysLabel } from "../lib/keys.ts";
 import { cn } from "../lib/utils.ts";
@@ -693,21 +692,13 @@ export function SidebarToggle({
   );
 }
 
-/** Notifications that wait on the owner: the amber count beside Home. */
-function needsYouKind(kind: string): boolean {
-  return kind === "approval" || kind === "input_needed";
-}
-
 /**
- * What needs the owner (approvals, questions and past-due "Did you finish ...?" asks), shown
- * beside Home. The asks are the ones Needs you draws, so the count matches what Home lists.
+ * What needs the owner, shown beside Home: the same count Home's "Needs you" section lists
+ * (`useNeedsYou`), so the badge cannot outlive the cards.
  */
 export function useSidebarCounts(): Partial<Record<RailItem, number>> {
-  const notifications = useNotifications();
-  const { asks } = useCatchUp();
-  const needsYou =
-    notifications.unresolved.filter((n) => needsYouKind(n.kind)).length + asks.length;
-  return useMemo(() => ({ home: needsYou }), [needsYou]);
+  const { count } = useNeedsYou();
+  return useMemo(() => ({ home: count }), [count]);
 }
 
 /** The sidebar with its counts and usage from the Gateway. */

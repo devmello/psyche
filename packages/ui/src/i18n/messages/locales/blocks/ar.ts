@@ -113,6 +113,8 @@ export const blocks: Partial<Catalogue> = {
   "blocks.approval.whyMode": "يسأل وضع {mode} قبل أي إجراء {effect}.",
   "blocks.details.params": "التفاصيل",
   "blocks.details.reason": "السبب",
+  "blocks.details.when": "متى",
+  "blocks.details.whatItWillDo": "ما الذي سيفعله",
   "blocks.approval.answerOnHost":
     "أجب على {host}، أو أعدّ Touch ID للموافقات على هذا الكمبيوتر في الإعدادات ← الأجهزة.",
   "blocks.approval.rateLimited": "محاولات كثيرة جدًا في دقيقة. حاول مجددًا بعد {seconds} ث.",

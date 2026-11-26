@@ -15,7 +15,7 @@ import { type Staging, stagedApplyMatchesSelection } from "@psyche/protocol";
 import { toolCallBindingHash } from "@psyche/protocol/binding";
 import { SqliteTaskEngine } from "@psyche/tasks";
 import { FakeClock } from "@psyche/testing";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   CTX,
   DEVICE,
@@ -618,5 +618,234 @@ describe("planForks R1 fixes", () => {
     expect(listStagedActionsForBranch(r.db, f.b.id)[0]?.status).toBe("dismissed");
     // A take after the plan is taken is refused as before.
     await expect(takeOf(f.b.id, f.itemB)).rejects.toMatchObject({ code: "conflict" });
+  });
+
+  it("a Take whose claim went stale while issuing loses the final compare-and-set: its card is withdrawn and its items unbound", async () => {
+    const r = await rig();
+    const f = await readyFork(r);
+    const takeOf = (branchId: string, item: { id: string; bindingHash: string }, key?: string) =>
+      r.run(
+        "planForks.take",
+        {
+          forkId: f.forkId,
+          branchId,
+          items: [{ itemId: item.id, bindingHash: item.bindingHash }],
+          sends: [],
+          continue: false,
+        },
+        key,
+      ) as Promise<{ approval?: { id: string }; answerToken?: string }>;
+    // Issuing the first Take is slow: it waits on a gate we open later.
+    const applier = r.ns.applier as NonNullable<typeof r.ns.applier>;
+    const real = applier.applyFork.bind(applier);
+    let open: () => void = () => {};
+    const gate = new Promise<void>((res) => {
+      open = res;
+    });
+    let calls = 0;
+    const spy = vi.spyOn(applier, "applyFork").mockImplementation(async (...args) => {
+      calls += 1;
+      if (calls === 1) await gate;
+      return real(...args);
+    });
+    const firstSettled = takeOf(f.a.id, f.itemA, "k-slow").then(
+      (v) => ({ ok: true as const, v }),
+      (e: unknown) => ({ ok: false as const, e }),
+    );
+    await tick(r);
+    // Past the stale limit: a second Take claims the same fork and wins.
+    r.clock.advance(61_000);
+    const second = await takeOf(f.b.id, f.itemB);
+    expect(second.approval?.id).toBeDefined();
+    open();
+    const lost = await firstSettled;
+    expect(lost.ok).toBe(false);
+    expect((lost as { e: unknown }).e).toMatchObject({ code: "conflict" });
+    spy.mockRestore();
+
+    // The loser's card is closed, its item unbound, and the fork points at the winner.
+    const itemA = listStagedActionsForBranch(r.db, f.a.id)[0];
+    expect(itemA?.status).toBe("ready");
+    expect(itemA?.approvalId ?? null).toBeNull();
+    expect(getPlanFork(r.db, f.forkId)?.takeApprovalId).toBe(second.approval?.id);
+    const pending = (await r.h.broker.list({ status: "pending" })).map((a) => a.id);
+    expect(pending).toEqual([second.approval?.id]);
+    const closed = (await r.h.broker.list({})).filter((a) => a.id !== second.approval?.id);
+    expect(closed.map((a) => a.status)).toEqual(["invalidated"]);
+    // Approving the revoked card does nothing.
+    r.clock.advance(500);
+    await r.h.broker
+      .answer({
+        approvalId: closed[0]?.id ?? "",
+        answerToken: "x",
+        decision: "approve",
+        scope: "once",
+        decidedBy: DEVICE,
+      })
+      .catch(() => undefined);
+    await tick(r);
+    expect(r.ran).toEqual([]);
+    expect(getPlanFork(r.db, f.forkId)?.status).toBe("ready");
+    // The winner is untouched and still applies.
+    await r.h.broker.answer({
+      approvalId: second.approval?.id ?? "",
+      answerToken: second.answerToken ?? "",
+      decision: "approve",
+      scope: "once",
+      decidedBy: DEVICE,
+    });
+    for (let i = 0; i < 10 && getPlanFork(r.db, f.forkId)?.status !== "taken"; i++) await tick(r);
+    expect(r.ran).toEqual([{ tool: "reminders_create", callId: f.itemB.id }]);
+  });
+});
+
+describe("planForks.staged", () => {
+  type Items = {
+    id: string;
+    summary: string;
+    bindingHash: string;
+    status: string;
+    withheld?: string;
+    taintSources: unknown[];
+    result: unknown;
+    params: unknown;
+    preview: unknown;
+    why: unknown;
+    target: unknown;
+    send: unknown;
+  }[];
+  const staged = async (r: Rig, forkId: string, branchId: string, call?: Call) =>
+    ((await r.run("planForks.staged", { forkId, branchId }, undefined, call)) as { items: Items })
+      .items;
+
+  it("gives the owner's desktop the full items, even of an owner-only branch", async () => {
+    const r = await rig();
+    const f = await readyFork(r);
+    read(r, f.forkId, f.a.id, "mcp__apple__messages_search");
+    expect(getPlanForkBranch(r.db, f.a.id)?.readOwnerOnly).toBe(true);
+    const items = await staged(r, f.forkId, f.a.id);
+    expect(items.map((i) => i.id)).toEqual([f.itemA.id]);
+    expect(items[0]?.summary).toBe(f.itemA.summary);
+    expect(items[0]?.params).not.toBeNull();
+    expect(items[0]?.withheld).toBeUndefined();
+  });
+
+  it("withholds every item of an owner-only branch from a phone, keeping id, status and hash", async () => {
+    const r = await rig();
+    const f = await readyFork(r);
+    // The real path: the branch read Messages through a tool. Its items carry no taint of it.
+    read(r, f.forkId, f.a.id, "mcp__apple__messages_search");
+    const [item] = await staged(r, f.forkId, f.a.id, phone);
+    expect(item?.id).toBe(f.itemA.id);
+    expect(item?.bindingHash).toBe(f.itemA.bindingHash);
+    expect(item?.status).toBe(f.itemA.status);
+    expect(item?.withheld).toBe("messages");
+    expect(item?.summary).not.toBe(f.itemA.summary);
+    for (const k of ["params", "preview", "why", "target", "send"] as const) {
+      expect(item?.[k], k).toBeNull();
+    }
+    expect(JSON.stringify(item)).not.toContain("Call movers");
+    expect(item?.taintSources).toEqual([]);
+    expect(item?.result).toBeNull();
+  });
+
+  it("withholds the items of a branch that is still running from a phone", async () => {
+    const r = await rig();
+    const f = await readyFork(r);
+    updatePlanForkBranch(r.db, f.b.id, { status: "running" });
+    const [item] = await staged(r, f.forkId, f.b.id, phone);
+    expect(item?.withheld).toBe("messages");
+    expect(item?.params).toBeNull();
+    // The desktop still sees it whole.
+    const [mac] = await staged(r, f.forkId, f.b.id);
+    expect(mac?.params).not.toBeNull();
+  });
+
+  it("shows a phone the full items of a reported branch that read nothing owner-only", async () => {
+    const r = await rig();
+    const f = await readyFork(r);
+    read(r, f.forkId, f.a.id, "mcp__apple__messages_search");
+    expect(getPlanForkBranch(r.db, f.b.id)?.readOwnerOnly).toBe(false);
+    const [item] = await staged(r, f.forkId, f.b.id, phone);
+    expect(item?.withheld).toBeUndefined();
+    expect(item?.summary).toBe(f.itemB.summary);
+    expect(item?.params).not.toBeNull();
+  });
+
+  it("refuses an unknown fork, an unknown branch and a branch of another fork", async () => {
+    const r = await rig();
+    const f = await readyFork(r);
+    await expect(
+      r.run("planForks.staged", { forkId: "nope", branchId: f.a.id }),
+    ).rejects.toMatchObject({ code: "not_found" });
+    await expect(
+      r.run("planForks.staged", { forkId: f.forkId, branchId: "nope" }),
+    ).rejects.toMatchObject({ code: "not_found" });
+    const second = (await r.run("planForks.create", {
+      threadId: r.main.id,
+      messageId: r.msg.id,
+      branches: [
+        { label: "Rent", premise: "Assume we rent" },
+        { label: "Buy", premise: "Assume we buy" },
+      ],
+    })) as { fork: { id: string } };
+    await expect(
+      r.run("planForks.staged", { forkId: second.fork.id, branchId: f.a.id }),
+    ).rejects.toMatchObject({ code: "not_found" });
+    // The control: the right pair answers.
+    await expect(
+      r.run("planForks.staged", { forkId: f.forkId, branchId: f.a.id }),
+    ).resolves.toBeDefined();
+  });
+});
+
+describe("planForks.take withholds a restricted branch's items", () => {
+  type Taken = {
+    approval?: { details: { items: { itemId: string; summary: string; withheld?: string }[] } };
+    refused: { itemId: string; reason: string }[];
+  };
+  const takeOf = (f: Awaited<ReturnType<typeof readyFork>>, branch: "a" | "b") => {
+    const item = branch === "a" ? f.itemA : f.itemB;
+    return {
+      forkId: f.forkId,
+      branchId: (branch === "a" ? f.a : f.b).id,
+      items: [{ itemId: item.id, bindingHash: item.bindingHash }],
+      sends: [],
+      continue: false,
+    };
+  };
+
+  it("refuses a phone's take on an owner-only branch and issues no card", async () => {
+    const r = await rig();
+    const f = await readyFork(r);
+    read(r, f.forkId, f.a.id, "mcp__apple__messages_search");
+    expect(getPlanForkBranch(r.db, f.a.id)?.readOwnerOnly).toBe(true);
+    const out = (await r.run("planForks.take", takeOf(f, "a"), undefined, phone)) as Taken;
+    expect(out.approval).toBeUndefined();
+    expect(out.refused.map((x) => x.itemId)).toEqual([f.itemA.id]);
+  });
+
+  it("lets the desktop take it, with the generic line on the card instead of the text", async () => {
+    const r = await rig();
+    const f = await readyFork(r);
+    read(r, f.forkId, f.a.id, "mcp__apple__messages_search");
+    const out = (await r.run("planForks.take", takeOf(f, "a"))) as Taken;
+    expect(out.refused).toEqual([]);
+    const [child] = out.approval?.details.items ?? [];
+    expect(child?.itemId).toBe(f.itemA.id);
+    expect(child?.withheld).toBe("messages");
+    expect(child?.summary).not.toBe(f.itemA.summary);
+    expect(JSON.stringify(out.approval?.details)).not.toContain("Call movers");
+  });
+
+  it("keeps the full summary on the card for a desktop take of an unrestricted branch", async () => {
+    const r = await rig();
+    const f = await readyFork(r);
+    read(r, f.forkId, f.a.id, "mcp__apple__messages_search");
+    const out = (await r.run("planForks.take", takeOf(f, "b"))) as Taken;
+    expect(out.refused).toEqual([]);
+    const [child] = out.approval?.details.items ?? [];
+    expect(child?.withheld).toBeUndefined();
+    expect(child?.summary).toBe(f.itemB.summary);
   });
 });

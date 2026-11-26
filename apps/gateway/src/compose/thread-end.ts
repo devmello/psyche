@@ -27,6 +27,15 @@ export function endSessionQuietly(
   };
 }
 
+/**
+ * Whether a "for this chat" grant may outlive a Gateway restart: its chat still exists and is a
+ * normal one. A deleted chat has no row, and an incognito chat keeps nothing past its session.
+ */
+export function threadKeepsSessionGrants(db: PsycheDb, threadId: string): boolean {
+  const thread = getThread(db, threadId);
+  return thread !== undefined && thread.kind !== "incognito";
+}
+
 /** One of the owner's own typed turns in a finished conversation. */
 const MAX_CHAT_TURNS = 30;
 const MAX_SNAPSHOT_PAGES = 5;
