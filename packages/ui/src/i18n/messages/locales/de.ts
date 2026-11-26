@@ -1,6 +1,7 @@
 import type { Catalogue } from "../index.ts";
 import { actionErrors } from "./action-errors/de.ts";
 import { agentRest } from "./agent-rest/de.ts";
+import { appleE1 } from "./apple-e1/de.ts";
 import { appleE2 } from "./apple-e2/de.ts";
 import { approvalsW3 } from "./approvals-w3/de.ts";
 import { auditRest } from "./audit-rest/de.ts";
@@ -4004,12 +4005,12 @@ export const de: Partial<Catalogue> = {
   "web.toast.permissionModeUnsupported":
     "Das Ändern des Berechtigungsmodus braucht eine neuere Version von Psyche.",
   "web.toast.modelUnsupported": "Das Wählen eines Modells braucht eine neuere Version von Psyche.",
-  "web.palette.newSideChat": "Neuer Nebenchat",
-  "web.palette.newIncognito": "Neuer Inkognito-Chat (nur im Gedächtnis, 24 Std.)",
-  "web.palette.openBrowser": "Browserbereich öffnen",
-  "web.palette.openTerminal": "Terminalbereich öffnen",
-  "web.palette.openTasks": "Aufgabenbereich öffnen",
-  "web.palette.openFiles": "Dateibereich öffnen",
+  "web.palette.newSideChat": "Neuer Chat",
+  "web.palette.newIncognito": "Neuer privater Chat",
+  "web.palette.openBrowser": "Browser öffnen",
+  "web.palette.openTerminal": "Terminal öffnen",
+  "web.palette.openTasks": "Aufgaben anzeigen",
+  "web.palette.openFiles": "Dateien anzeigen",
   "web.palette.switchMode": "Berechtigungsmodus wechseln",
   "web.threads.sideChat": "Nebenchat",
   "web.shell.skipToContent": "Zum Inhalt springen",
@@ -4171,6 +4172,7 @@ export const de: Partial<Catalogue> = {
   // Fork a plan (docs/design/fork-a-plan-2026.md §9)
   ...planFork,
   ...desktopSimple,
+  ...appleE1,
   // Gateway-authored notices (inbox notifications, security alerts)
   ...notices,
   // Settings > Computer use > Separate desktop (Linux)

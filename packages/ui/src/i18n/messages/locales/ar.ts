@@ -2,6 +2,7 @@ import type { Catalogue } from "../index.ts";
 import { actionErrors } from "./action-errors/ar.ts";
 import { agent } from "./agent/ar.ts";
 import { agentNotes } from "./agent-notes/ar.ts";
+import { appleE1 } from "./apple-e1/ar.ts";
 import { appleE2 } from "./apple-e2/ar.ts";
 import { approvalsW3 } from "./approvals-w3/ar.ts";
 import { audit } from "./audit/ar.ts";
@@ -3910,12 +3911,12 @@ export const ar: Partial<Catalogue> = {
   "web.toast.sideChatFailed": "تعذّر على Psyche إنشاء دردشة جانبية.",
   "web.toast.permissionModeUnsupported": "يحتاج تغيير وضع الأذونات إلى إصدار أحدث من Psyche.",
   "web.toast.modelUnsupported": "يحتاج اختيار نموذج إلى إصدار أحدث من Psyche.",
-  "web.palette.newSideChat": "دردشة جانبية جديدة",
-  "web.palette.newIncognito": "دردشة متخفية جديدة (في الذاكرة فقط، 24 ساعة)",
-  "web.palette.openBrowser": "فتح لوحة المتصفح",
-  "web.palette.openTerminal": "فتح لوحة الطرفية",
-  "web.palette.openTasks": "فتح لوحة المهام",
-  "web.palette.openFiles": "فتح لوحة الملفات",
+  "web.palette.newSideChat": "محادثة جديدة",
+  "web.palette.newIncognito": "محادثة خاصة جديدة",
+  "web.palette.openBrowser": "فتح المتصفح",
+  "web.palette.openTerminal": "فتح الطرفية",
+  "web.palette.openTasks": "عرض المهام",
+  "web.palette.openFiles": "عرض الملفات",
   "web.palette.switchMode": "تبديل وضع الأذونات",
   "web.threads.sideChat": "دردشة جانبية",
   "web.shell.skipToContent": "الانتقال إلى المحتوى",
@@ -4070,6 +4071,7 @@ export const ar: Partial<Catalogue> = {
   // Fork a plan (docs/design/fork-a-plan-2026.md §9)
   ...planFork,
   ...desktopSimple,
+  ...appleE1,
   // Gateway-authored notices (inbox notifications, security alerts)
   ...notices,
   // Settings > Computer use > Separate desktop (Linux)
