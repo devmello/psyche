@@ -84,15 +84,23 @@
 }
 
 /*
-  Route crossfade between destinations (motion.md §4.5): React's <ViewTransition> tags the content
-  column `psy-route`; 180 ms crossfade, the incoming page rising 4 px. Reduced motion: opacity only,
-  120 ms (React does not do this for us).
+  Route swap between destinations (motion.md §4.5): React's <ViewTransition> tags the content
+  column `psy-route`. A clean swap, never a stacked crossfade: the old page leaves in 80 ms, and
+  only then the new page fades in over 120 ms, rising 4 px (the new snapshot waits out the old
+  one's exit, so both are never visible together). While it runs the snapshots cover the page,
+  so nothing underneath is clickable. Reduced motion: the old page is gone at once and the new
+  one fades in over 120 ms with no movement (React does not do this for us).
+  The new page's delay must stay >= the old page's duration
+  (apps/web/test/shell/route-transition-css.test.ts).
 */
 ::view-transition-old(.psy-route) {
-  animation: psy-route-out var(--duration-route, 180ms) var(--ease-exit, ease-in) both;
+  mix-blend-mode: normal;
+  animation: psy-route-out var(--duration-route-out, 80ms) var(--ease-exit, ease-in) both;
 }
 ::view-transition-new(.psy-route) {
-  animation: psy-route-in var(--duration-route, 180ms) var(--ease-enter, ease-out) both;
+  mix-blend-mode: normal;
+  animation: psy-route-in var(--duration-route-in, 120ms) var(--ease-enter, ease-out)
+    var(--duration-route-out, 80ms) both;
 }
 @keyframes psy-route-out {
   to {
@@ -111,20 +119,22 @@
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  :root:not([data-reduce-motion="false"])::view-transition-old(.psy-route),
-  :root:not([data-reduce-motion="false"])::view-transition-new(.psy-route) {
-    animation-duration: var(--duration-route-reduced, 120ms);
+  :root:not([data-reduce-motion="false"])::view-transition-old(.psy-route) {
+    animation-duration: 1ms;
   }
   :root:not([data-reduce-motion="false"])::view-transition-new(.psy-route) {
     animation-name: psy-route-fade;
+    animation-duration: var(--duration-route-reduced, 120ms);
+    animation-delay: 1ms;
   }
 }
-:root[data-reduce-motion="true"]::view-transition-old(.psy-route),
-:root[data-reduce-motion="true"]::view-transition-new(.psy-route) {
-  animation-duration: var(--duration-route-reduced, 120ms);
+:root[data-reduce-motion="true"]::view-transition-old(.psy-route) {
+  animation-duration: 1ms;
 }
 :root[data-reduce-motion="true"]::view-transition-new(.psy-route) {
   animation-name: psy-route-fade;
+  animation-duration: var(--duration-route-reduced, 120ms);
+  animation-delay: 1ms;
 }
 
 /* The side chat's "forked from" glyph before the toolbar title (redesign §5.4). */

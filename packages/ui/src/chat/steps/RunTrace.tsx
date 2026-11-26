@@ -11,7 +11,14 @@ import { useNow } from "../../lib/use-now.ts";
 import { cn } from "../../lib/utils.ts";
 import { fade, motionSpring, Presence, spring } from "../../motion/index.ts";
 import { usePersona, useSlots } from "../../slots.tsx";
-import { activeStep, lastEventAt, STALL_MS, summarizeRun, timelineRoute } from "./model.ts";
+import {
+  activeStep,
+  isTrivialRun,
+  lastEventAt,
+  STALL_MS,
+  summarizeRun,
+  timelineRoute,
+} from "./model.ts";
 import { StepAnnouncer, StepList } from "./StepList.tsx";
 
 /**
@@ -128,6 +135,8 @@ export function RunTrace({
     linked.filter((r): r is NonNullable<typeof r> => r !== undefined),
     { incognito },
   );
+  // A quick answer with no tool calls has nothing to summarise.
+  if (!incognito && summary.tone === "done" && isTrivialRun(run, top)) return null;
   // A failed run is never folded: it opens on its rows.
   const expanded = open || summary.tone === "failed";
   return (
