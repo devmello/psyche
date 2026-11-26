@@ -1,6 +1,7 @@
 import type { Catalogue } from "../index.ts";
 import { actionErrors } from "./action-errors/ja.ts";
 import { agentRest } from "./agent-rest/ja.ts";
+import { appleE1 } from "./apple-e1/ja.ts";
 import { approvalsW3 } from "./approvals-w3/ja.ts";
 import { auditRest } from "./audit-rest/ja.ts";
 import { automationChatRest } from "./automationChat-rest/ja.ts";
@@ -3868,12 +3869,12 @@ export const ja: Partial<Catalogue> = {
   "web.toast.sideChatFailed": "Psycheはサイドチャットを作成できませんでした。",
   "web.toast.permissionModeUnsupported": "権限モードの変更には新しいバージョンのPsycheが必要です。",
   "web.toast.modelUnsupported": "モデルの選択には新しいバージョンのPsycheが必要です。",
-  "web.palette.newSideChat": "新しいサイドチャット",
-  "web.palette.newIncognito": "新しいシークレットチャット（メモリのみ、24時間）",
-  "web.palette.openBrowser": "ブラウザパネルを開く",
-  "web.palette.openTerminal": "ターミナルパネルを開く",
-  "web.palette.openTasks": "タスクパネルを開く",
-  "web.palette.openFiles": "ファイルパネルを開く",
+  "web.palette.newSideChat": "新しいチャット",
+  "web.palette.newIncognito": "新しいプライベートチャット",
+  "web.palette.openBrowser": "ブラウザを開く",
+  "web.palette.openTerminal": "ターミナルを開く",
+  "web.palette.openTasks": "タスクを表示",
+  "web.palette.openFiles": "ファイルを表示",
   "web.palette.switchMode": "権限モードを切り替え",
   "web.threads.sideChat": "サイドチャット",
   "web.shell.skipToContent": "コンテンツへスキップ",
@@ -4029,6 +4030,7 @@ export const ja: Partial<Catalogue> = {
   // Approvals wave W3 (card choices, Allowed list)
   ...approvalsW3,
   ...desktopSimple,
+  ...appleE1,
   // Gateway-authored notices (inbox notifications, security alerts)
   ...notices,
   // Settings > Computer use > Separate desktop (Linux)

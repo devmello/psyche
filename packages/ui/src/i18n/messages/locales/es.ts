@@ -1,6 +1,7 @@
 import type { Catalogue } from "../index.ts";
 import { actionErrors } from "./action-errors/es.ts";
 import { agentA } from "./agent-a/es.ts";
+import { appleE1 } from "./apple-e1/es.ts";
 import { approvalsW3 } from "./approvals-w3/es.ts";
 import { blocksA } from "./blocks-a/es.ts";
 import { canvas } from "./canvas/es.ts";
@@ -3948,12 +3949,12 @@ export const es: Partial<Catalogue> = {
   "web.toast.permissionModeUnsupported":
     "Cambiar el modo de permisos necesita una versión más reciente de Psyche.",
   "web.toast.modelUnsupported": "Elegir un modelo necesita una versión más reciente de Psyche.",
-  "web.palette.newSideChat": "Nueva conversación paralela",
-  "web.palette.newIncognito": "Nueva conversación de incógnito (solo en memoria, 24 h)",
-  "web.palette.openBrowser": "Abrir el panel del navegador",
-  "web.palette.openTerminal": "Abrir el panel del terminal",
-  "web.palette.openTasks": "Abrir el panel de tareas",
-  "web.palette.openFiles": "Abrir el panel de archivos",
+  "web.palette.newSideChat": "Nuevo chat",
+  "web.palette.newIncognito": "Nuevo chat privado",
+  "web.palette.openBrowser": "Abrir el navegador",
+  "web.palette.openTerminal": "Abrir el terminal",
+  "web.palette.openTasks": "Mostrar tareas",
+  "web.palette.openFiles": "Mostrar archivos",
   "web.palette.switchMode": "Cambiar el modo de permisos",
   "web.threads.sideChat": "Conversación paralela",
   "web.shell.skipToContent": "Saltar al contenido",
@@ -4109,6 +4110,7 @@ export const es: Partial<Catalogue> = {
   // Approvals wave W3 (card choices, Allowed list)
   ...approvalsW3,
   ...desktopSimple,
+  ...appleE1,
   // Gateway-authored notices (inbox notifications, security alerts)
   ...notices,
   // Settings > Computer use > Separate desktop (Linux)

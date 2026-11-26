@@ -1,6 +1,7 @@
 import type { Catalogue } from "../index.ts";
 import { actionErrors } from "./action-errors/fr.ts";
 import { agentRest } from "./agent-rest/fr.ts";
+import { appleE1 } from "./apple-e1/fr.ts";
 import { approvalsW3 } from "./approvals-w3/fr.ts";
 import { auditRest } from "./audit-rest/fr.ts";
 import { blocksRest } from "./blocks-rest/fr.ts";
@@ -3917,12 +3918,12 @@ export const fr: Partial<Catalogue> = {
   "web.toast.permissionModeUnsupported":
     "Changer le mode d’autorisation nécessite une version plus récente de Psyche.",
   "web.toast.modelUnsupported": "Choisir un modèle nécessite une version plus récente de Psyche.",
-  "web.palette.newSideChat": "Nouvelle discussion annexe",
-  "web.palette.newIncognito": "Nouvelle discussion incognito (en mémoire seulement, 24 h)",
-  "web.palette.openBrowser": "Ouvrir le panneau Navigateur",
-  "web.palette.openTerminal": "Ouvrir le panneau Terminal",
-  "web.palette.openTasks": "Ouvrir le panneau Tâches",
-  "web.palette.openFiles": "Ouvrir le panneau Fichiers",
+  "web.palette.newSideChat": "Nouvelle discussion",
+  "web.palette.newIncognito": "Nouvelle discussion privée",
+  "web.palette.openBrowser": "Ouvrir le navigateur",
+  "web.palette.openTerminal": "Ouvrir le terminal",
+  "web.palette.openTasks": "Afficher les tâches",
+  "web.palette.openFiles": "Afficher les fichiers",
   "web.palette.switchMode": "Changer de mode d’autorisation",
   "web.threads.sideChat": "Discussion annexe",
   "web.shell.skipToContent": "Aller au contenu",
@@ -4081,6 +4082,7 @@ export const fr: Partial<Catalogue> = {
   // Approvals wave W3 (card choices, Allowed list)
   ...approvalsW3,
   ...desktopSimple,
+  ...appleE1,
   // Gateway-authored notices (inbox notifications, security alerts)
   ...notices,
   // Settings > Computer use > Separate desktop (Linux)

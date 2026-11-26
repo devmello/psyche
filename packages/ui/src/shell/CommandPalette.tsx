@@ -1,6 +1,7 @@
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 import type { SearchHit } from "@psyche/protocol";
-import { type ReactElement, useEffect } from "react";
+import type { LucideIcon } from "lucide-react";
+import { type ReactElement, useEffect, useMemo, useRef } from "react";
 import { useOpenInSideChat } from "../chat/ask-about.ts";
 import { requestClearChat, selectChatBusy } from "../chat/ClearChatDialog.tsx";
 import { usePrefillComposer } from "../chat/prefill.ts";
@@ -11,6 +12,7 @@ import { memoryHref } from "../memory-page/kinds.ts";
 import { ConnectedEntityCard } from "../people/ConnectedEntityCard.tsx";
 import { usePoints } from "../points/PointsContext.tsx";
 import { LIBRARY_SECTIONS } from "../screens/library/library-items.ts";
+import { recentHits } from "../screens/search/recent-hits.ts";
 import { SearchSurface, useMinWidth, useSearchSurface } from "../screens/search/SearchSurface.tsx";
 import { SETTINGS_SECTIONS } from "../screens/settings/SettingsScreen.tsx";
 import { usePersona } from "../slots.tsx";
@@ -28,6 +30,8 @@ export interface PaletteAction {
   /** Extra words the search matches; never shown. */
   keywords?: string;
   shortcut?: string;
+  /** The row's glyph; unset, `paletteIcon(id)` picks one by the action's kind. */
+  icon?: LucideIcon;
   /** Why the action cannot run right now; it stays listed, dimmed, with this beside it. */
   disabledReason?: string;
   run?: () => void;
@@ -277,6 +281,56 @@ export interface CommandPaletteProps {
   initialQuery?: string;
 }
 
+const PLACE_IDS: ReadonlySet<string> = new Set(RAIL_ITEMS.map((i) => `go-${i.id}`));
+const RECENT_SHOWN = 3;
+
+type ThreadDict = Parameters<Parameters<typeof useStoreState>[0]>[0]["threads"];
+
+/**
+ * The palette's Recent rows: results opened before whose chat still exists (a deleted or private
+ * one is dropped), then the latest plain chats, so the list is real from the first open.
+ */
+export function recentItems(threads: ThreadDict): SearchHit[] {
+  const live = (id: string | null) => {
+    if (id === null) return true;
+    const th = threads[id]?.thread;
+    return th !== undefined && th.archivedAt === null && th.kind !== "incognito";
+  };
+  const opened = recentHits().filter(
+    (h) => (h.scope !== "threads" && h.scope !== "messages") || live(h.threadId ?? h.id),
+  );
+  const latest = Object.values(threads)
+    .map((e) => e.thread)
+    .filter(
+      (th) =>
+        th.title.trim() !== "" &&
+        th.archivedAt === null &&
+        th.imported === undefined &&
+        (th.kind === "main" || th.kind === "side"),
+    )
+    .sort((a, b) => (b.lastMessageAt ?? b.updatedAt).localeCompare(a.lastMessageAt ?? a.updatedAt))
+    .map(
+      (th): SearchHit => ({
+        scope: "threads",
+        id: th.id,
+        title: th.title,
+        snippet: "",
+        score: 0,
+        threadId: th.id,
+        route: `/chat/${th.id}`,
+      }),
+    );
+  const seen = new Set<string>();
+  return [...opened, ...latest]
+    .filter((h) => {
+      const k = h.route ?? `${h.scope}:${h.id}`;
+      if (seen.has(k)) return false;
+      seen.add(k);
+      return true;
+    })
+    .slice(0, RECENT_SHOWN);
+}
+
 /** The shortcut shown beside an action: its own, else the keyboard map's. */
 function withShortcut(a: PaletteAction): PaletteAction {
   const keys = a.shortcut ?? SHORTCUTS.find((s) => s.id === a.id)?.keys;
@@ -298,6 +352,15 @@ export function CommandPalette({
   initialQuery = "",
 }: CommandPaletteProps): ReactElement {
   const search = useSearchSurface(initialQuery, 150, open);
+  // Esc, or a pick, hands focus back to what had it before ⌘K (the composer, a list row ...).
+  // Read while rendering the open palette, before it moves focus into itself.
+  const returnFocus = useRef<HTMLElement | null>(null);
+  const wasOpen = useRef(false);
+  if (open && !wasOpen.current) {
+    const el = document.activeElement;
+    returnFocus.current = el instanceof HTMLElement && el !== document.body ? el : null;
+  }
+  wasOpen.current = open;
   const wide = useMinWidth(1080);
   const openInSideChat = useOpenInSideChat();
   const { setQuery } = search;
@@ -363,7 +426,15 @@ export function CommandPalette({
   const builtIn = builtInActions
     ? [...kitActions, ...DEFAULT_ACTIONS].filter((d) => !actions.some((a) => a.id === d.id))
     : [];
-  const all = [...actions, ...builtIn].map(withShortcut);
+  // The four places and "New chat" open the list: where to go comes before every other command.
+  const first = (a: PaletteAction) => (PLACE_IDS.has(a.id) ? 0 : a.id === "new" ? 1 : 2);
+  const all = [...actions, ...builtIn]
+    .map((a, i) => ({ a, i }))
+    .sort((x, y) => first(x.a) - first(y.a) || x.i - y.i)
+    .map((x) => withShortcut(x.a));
+  // Recent: what the owner opened before, kept only where it still exists, else the latest chats.
+  const threads = useStoreState((s) => s.threads);
+  const recents = useMemo(() => (open ? recentItems(threads) : []), [open, threads]);
   const sideChat = onOpenInSideChat ?? openInSideChat;
   return (
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
@@ -375,6 +446,10 @@ export function CommandPalette({
         <DialogPrimitive.Popup
           data-slot="dialog-content"
           data-testid="palette"
+          finalFocus={() => {
+            const el = returnFocus.current;
+            return el?.isConnected ? el : true;
+          }}
           className="psy-popup fixed top-[20%] left-1/2 z-50 flex w-[min(640px,calc(100vw-2rem))] -translate-x-1/2 flex-col overflow-hidden rounded-xl material-glass text-label-primary outline-none"
           style={{ ["--transform-origin" as string]: "top center" }}
         >
@@ -397,6 +472,7 @@ export function CommandPalette({
             error={search.error}
             onRetry={search.reload}
             actions={all}
+            recents={recents}
             preview={wide}
             autoFocus
             onOpen={(hit) => {

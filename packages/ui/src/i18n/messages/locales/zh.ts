@@ -2,6 +2,7 @@ import type { Catalogue } from "../index.ts";
 import { actionErrors } from "./action-errors/zh.ts";
 import { agent } from "./agent/zh.ts";
 import { agentNotes } from "./agent-notes/zh.ts";
+import { appleE1 } from "./apple-e1/zh.ts";
 import { approvalsW3 } from "./approvals-w3/zh.ts";
 import { audit } from "./audit/zh.ts";
 import { automationChat } from "./automation-chat/zh.ts";
@@ -3769,12 +3770,12 @@ export const zh: Partial<Catalogue> = {
   "web.toast.sideChatFailed": "Psyche 无法创建支线聊天。",
   "web.toast.permissionModeUnsupported": "更改权限模式需要更新版本的 Psyche。",
   "web.toast.modelUnsupported": "选择模型需要更新版本的 Psyche。",
-  "web.palette.newSideChat": "新建支线聊天",
-  "web.palette.newIncognito": "新建无痕聊天（仅存于内存，24 小时）",
-  "web.palette.openBrowser": "打开浏览器面板",
-  "web.palette.openTerminal": "打开终端面板",
-  "web.palette.openTasks": "打开任务面板",
-  "web.palette.openFiles": "打开文件面板",
+  "web.palette.newSideChat": "新对话",
+  "web.palette.newIncognito": "新的私密对话",
+  "web.palette.openBrowser": "打开浏览器",
+  "web.palette.openTerminal": "打开终端",
+  "web.palette.openTasks": "显示任务",
+  "web.palette.openFiles": "显示文件",
   "web.palette.switchMode": "切换权限模式",
   "web.threads.sideChat": "支线聊天",
   "web.shell.skipToContent": "跳到内容",
@@ -3924,6 +3925,7 @@ export const zh: Partial<Catalogue> = {
   // Approvals wave W3 (card choices, Allowed list)
   ...approvalsW3,
   ...desktopSimple,
+  ...appleE1,
   // Gateway-authored notices (inbox notifications, security alerts)
   ...notices,
   // Settings > Computer use > Separate desktop (Linux)
