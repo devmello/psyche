@@ -28,8 +28,8 @@ describe("web handshake", () => {
         deviceId: key.deviceId,
         publicKey: key.publicKey,
         role: "client",
-        platform: "web",
-        deviceFamily: "web",
+        platform: "macos",
+        deviceFamily: "desktop",
         name: "Psyche Web",
       },
       (p) => key.sign(p),
@@ -60,8 +60,8 @@ describe("web handshake", () => {
     );
     const payload = connectSigningPayload({
       nonce,
-      platform: "web",
-      deviceFamily: "web",
+      platform: "macos",
+      deviceFamily: "desktop",
       protocolVersion: 1,
       serverOrigin: "http://127.0.0.1:7979",
     });

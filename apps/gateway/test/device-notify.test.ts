@@ -34,7 +34,7 @@ async function setup(): Promise<ComposedGateway> {
     retentionIntervalMs: 0,
     background: false,
     clock,
-    config: { home, port: 0, dbPath: join(home, "psyche.db"), webRoot: null },
+    config: { home, port: 0, dbPath: join(home, "psyche.db") },
     model: { provider: new FakeModelProvider(), model: "fake/model" },
   });
   return composed;

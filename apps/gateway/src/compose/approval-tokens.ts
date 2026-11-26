@@ -19,6 +19,13 @@ export class ApprovalTokens {
     this.#tokens.set(issued.approval.id, { ...issued.answerTokens });
   }
 
+  /** A token minted for one surface after the card was issued (a device that asked for it). */
+  add(approvalId: string, surface: Surface, token: string): void {
+    const own = this.#tokens.get(approvalId);
+    if (own !== undefined) own[surface] = token;
+    else this.#tokens.set(approvalId, { [surface]: token });
+  }
+
   forget(approvalId: string): void {
     if (!this.#tokens.delete(approvalId)) {
       this.#settled.add(approvalId);
@@ -62,8 +69,8 @@ export class ApprovalTokens {
           };
         }
         if (key === "reissue") {
-          return async () => {
-            const issued = await target.reissue();
+          return async (...args: Parameters<PsychePermissionBroker["reissue"]>) => {
+            const issued = await target.reissue(...args);
             for (const i of issued) this.remember(i);
             this.#reissued = issued;
             return issued;

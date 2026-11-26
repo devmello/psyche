@@ -112,7 +112,6 @@ export function bootGeneration(o: BootOptions): Generation {
   const real = createPermissionBroker({
     approvers: {
       device: async () => ({ scopes: ["operator.read", "operator.approvals"] }),
-      isOwnerSender: async () => false,
     },
     clock,
     store: new SqlitePermissionStore(gen.db.sqlite),

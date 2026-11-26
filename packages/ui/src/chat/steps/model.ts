@@ -161,6 +161,28 @@ export interface RunSummary {
   text: string;
 }
 
+/** A reply quicker than this, with no tool calls, gets no "Worked for" line. */
+export const TRIVIAL_RUN_MS = 3000;
+
+const WORK_KINDS: readonly RunStep["kind"][] = ["tool", "subagent", "approval", "question"];
+
+/**
+ * A finished run that was just a quick answer: it ended well under `TRIVIAL_RUN_MS` and made no
+ * tool call (nor asked a helper, an approval or a question). Its summary line ("Worked for 1 s ·
+ * 3 steps") says nothing, so the trace shows none. Failed, cancelled and incognito runs always
+ * keep theirs.
+ */
+export function isTrivialRun(
+  run: Pick<Run, "status" | "startedAt" | "endedAt">,
+  steps: readonly RunStep[],
+): boolean {
+  if (run.status === "failed" || run.status === "cancelled") return false;
+  if (!run.endedAt) return false;
+  const ms = Date.parse(run.endedAt) - Date.parse(run.startedAt);
+  if (!Number.isFinite(ms) || ms >= TRIVIAL_RUN_MS) return false;
+  return !steps.some((s) => WORK_KINDS.includes(s.kind));
+}
+
 /**
  * The one line a finished run condenses into (§3.2): "Worked for 1 min 12 s · sent 1 email ·
  * added 1 event · 9 steps", or the failed / cancelled / incognito form.

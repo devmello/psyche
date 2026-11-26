@@ -35,7 +35,7 @@ class HangingLoop implements AgentLoop {
 
 const home = process.env.PSYCHE_HOME as string;
 const gateway = await startGateway({
-  config: { home, port: 0, dbPath: join(home, "state", "psyche.sqlite"), webRoot: null },
+  config: { home, port: 0, dbPath: join(home, "state", "psyche.sqlite") },
   env: {},
   logger: silentLogger,
   agent: new HangingLoop(),

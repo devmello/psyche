@@ -166,12 +166,20 @@ enum LibraryFixtureFiles {
 }
 
 extension FixtureData {
+    /// A fixture time in the phone's own 12 or 24-hour style, like the real rows (never a fixed "16:52").
+    private static func clock(_ hour: Int, _ minute: Int) -> Date {
+        Calendar.current.date(from: DateComponents(year: 2026, month: 11, day: 23, hour: hour, minute: minute)) ?? .now
+    }
+
+    private static func monday(_ hour: Int, _ minute: Int, _ width: Date.FormatStyle.Symbol.Weekday) -> String {
+        clock(hour, minute).formatted(.dateTime.weekday(width).hour().minute())
+    }
 
     public static let libraryItems: [LibraryItem] = [
-        LibraryItem(id: "lib_8f2a", title: "Q3-review-v4.key", section: .documents, fileType: "key", detail: "Monday 10:14 · 18 slides", threadID: "thr_q3", evidence: ["Made for", "Q3 review", "Mon 10:14"], threadTitle: "Q3 review"),
-        LibraryItem(id: "lib_91c0", title: "Q3-review-final.pdf", section: .documents, fileType: "pdf", detail: "Monday 16:52 · 21 pages", threadID: "thr_q3", evidence: ["Exported from", "Q3-review-v4.key", "Mon 16:52"], threadTitle: "Q3 review"),
+        LibraryItem(id: "lib_8f2a", title: "Q3-review-v4.key", section: .documents, fileType: "key", detail: "\(monday(10, 14, .wide)) · 18 slides", threadID: "thr_q3", evidence: ["Made for", "Q3 review", monday(10, 14, .abbreviated)], threadTitle: "Q3 review"),
+        LibraryItem(id: "lib_91c0", title: "Q3-review-final.pdf", section: .documents, fileType: "pdf", detail: "\(monday(16, 52, .wide)) · 21 pages", threadID: "thr_q3", evidence: ["Exported from", "Q3-review-v4.key", monday(16, 52, .abbreviated)], threadTitle: "Q3 review"),
         LibraryItem(id: "lib_lease", title: "lease-2026.pdf", section: .documents, fileType: "pdf", detail: "Oct 28 · 9 pages", threadID: "thr_lease", evidence: ["Read for", "Lease renewal questions", "Oct 28"], threadTitle: "Lease renewal questions"),
-        LibraryItem(id: "lib_77c1", title: "PG&E statement, October", section: .documents, fileType: "pdf", detail: "Today 08:58 · 2 pages", evidence: ["Because", "mail", "Today 08:58"]),
+        LibraryItem(id: "lib_77c1", title: "PG&E statement, October", section: .documents, fileType: "pdf", detail: "\(clock(8, 58).formatted(date: .omitted, time: .shortened)) · 2 pages", evidence: ["Because", "mail", clock(8, 58).formatted(date: .omitted, time: .shortened)]),
         LibraryItem(id: "lib_memo1", title: "Voice memo · dentist", section: .recordings, fileType: "wav", detail: "Oct 31 · 0:12", evidence: ["Recorded on", "this phone", "Oct 31"]),
         LibraryItem(id: "lib_meet1", title: "Q3 review meeting.m4a", section: .recordings, fileType: "m4a", detail: "Oct 29 · 42 min", threadID: "thr_q3", evidence: ["Recorded for", "Q3 review", "Oct 29"], threadTitle: "Q3 review"),
         LibraryItem(id: "lib_img1", title: "Quartz sample.jpg", section: .images, fileType: "jpg", detail: "Oct 30", evidence: ["Uploaded", "this phone", "Oct 30"]),

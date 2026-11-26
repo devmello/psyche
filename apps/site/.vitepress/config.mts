@@ -84,7 +84,6 @@ export default defineConfig({
           page("Documents and Files", "/using/documents-and-files"),
           page("The agent browser", "/using/browser"),
           page("Connectors", "/using/connectors"),
-          page("Channels", "/using/channels"),
           page("Computer use", "/using/computer-use"),
           page("Dictation", "/using/dictation"),
           page("Psyche points", "/using/points"),

@@ -376,7 +376,6 @@ export async function prepareInt2(cases: readonly InjectionCase[]): Promise<Int2
         device: async (deviceId) =>
           deviceId === "dev_owner" ? { scopes: ["operator.approvals"] } : undefined,
         // No channel identity is the owner's: forged chat answers must be refused.
-        isOwnerSender: async () => false,
       },
       store: new SqlitePermissionStore(db.sqlite),
       audit,

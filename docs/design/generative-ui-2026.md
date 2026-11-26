@@ -1,5 +1,8 @@
 # Generative UI (agent-built widgets in chat)
 
+> **Update 2026-11-25: chat channels removed.** Telegram, Slack-as-chat, Discord, WhatsApp, Signal, SMS, email-as-chat, the iMessage chat bridge and WebChat no longer exist (owner decision: the iPhone app is the mobile surface). Mentions of channels, channel delivery, channel senders and `dmPolicy` below are historical. Approvals and briefs go only to the Mac app and the paired iPhone. Reading Messages and Mail and the send-a-message tool stay. See security section 9 in docs/05-security-and-permissions.md.
+
+
 Owner request, 2026-10-29: "generative UI where the agent can generate UI to make the progress, the tasks, widgets, in the chat live so that we don't need to create it before."
 
 Status: **built** (phases P1–P8, 2026-11). Owner decisions are collected in §11, each with the owner's answer. P9: progressive drafts are built (2026-11); MCP Apps and map tiles (D4: place lists instead) remain later. The security rules for widget actions are in docs/05 §3.14.

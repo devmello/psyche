@@ -32,8 +32,6 @@ Every page assumes two things. The agent asks before anything that matters, on a
 
 **[Connectors](/using/connectors).** MCP servers, which you can add today, and Google, other mail and shopping, which you cannot connect yet.
 
-**[Channels](/using/channels).** Talk to the agent from Telegram or iMessage: pairing, the owner identity and groups. Both channels are built, but cannot be created from the app yet.
-
 **[Credentials and payments](/using/credentials-and-payments).** The vault, placeholders the model sees instead of secrets, credential fills, 1Password, and how far Stripe Link payments and travel holds go today.
 
 ## Your Mac and your code

@@ -41,7 +41,6 @@ beforeEach(() => {
     armDelayMs: 0,
     approvers: {
       device: async () => ({ scopes: ["operator.read", "operator.approvals"] }),
-      isOwnerSender: async () => false,
     },
     folderAccess: {
       env: () => ({ home, psycheHome: join(home, ".psyche") }),
@@ -435,7 +434,6 @@ describe("Allow in this Space: what the tool tells the agent (spaces-2026 §5.3)
       armDelayMs: 0,
       approvers: {
         device: async () => ({ scopes: ["operator.read", "operator.approvals"] }),
-        isOwnerSender: async () => false,
       },
       folderAccess: {
         env: () => ({ home, psycheHome: join(home, ".psyche") }),

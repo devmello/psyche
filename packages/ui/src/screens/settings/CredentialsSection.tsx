@@ -693,7 +693,7 @@ type ManagedKind = NonNullable<CredentialMeta["managedBy"]>["kind"];
 
 /**
  * A Gateway-owned item the vault can't remove (#511): a connector's token, a model provider's
- * key, a channel's token. `managedBy` says so; older Gateways only set `ownerConnectorId`.
+ * key. `managedBy` says so; older Gateways only set `ownerConnectorId`.
  */
 export function managedOf(
   c: CredentialMeta,
@@ -867,7 +867,7 @@ export function vaultChangeError(
   }
   const details = (err as { details?: { reason?: unknown; setting?: unknown } }).details;
   if (hasCode(err, "forbidden") && details?.reason === "gateway_owned") {
-    const setting = (["connectors", "models", "channels", "credentials"] as const).find(
+    const setting = (["connectors", "models", "credentials"] as const).find(
       (s) => s === details.setting,
     );
     return t("settings.credentials.err.gatewayOwned", {

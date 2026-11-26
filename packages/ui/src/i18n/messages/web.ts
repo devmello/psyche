@@ -94,7 +94,7 @@ export const web = {
   "web.passkeys.unavailable":
     "Passkeys need the server's https address. Set gateway.publicOrigin (or PSYCHE_PUBLIC_ORIGIN) to the https:// address you open Psyche at, restart the Gateway, then add one here.",
   "web.passkeys.insecure":
-    "Passkeys work only when Psyche is open at its https:// address, in a browser that supports them. Open it there to add one.",
+    "Passkeys can't be added here. Add one in the Psyche app on another computer that connects to this Gateway at its https:// address.",
   "web.passkeys.firstApproval":
     "Approve “Add a passkey” with Touch ID on your Mac or with a passkey on another device, then press Add again.",
   "web.passkeys.loadError": "Psyche couldn't load your passkeys ({error}).",
@@ -157,8 +157,11 @@ export const web = {
   "web.setup.modelRefused": "{ref}: the provider refused the key ({error}). The key was not kept.",
   "web.setup.modelNotChecked":
     "{ref}: the key is saved, but the provider could not be reached to check it.",
+  "web.setup.modelEnvKey": "Using a key from your environment ({ref}).",
+  "web.setup.modelEnvNotChecked":
+    "Using a key from your environment ({ref}), but the provider could not be reached to check it.",
   "web.setup.modelSkipped":
-    "{ref}: no key added, so chat will not answer yet. Add one in Settings → Models.",
+    "Add a key: {ref} has no key yet, so chat will not answer. Add one in Settings → Models.",
   "web.gate.loading": "Starting Psyche",
   "web.gate.error": "Psyche could not check whether setup is finished.",
   "web.gate.retry": "Try again",
@@ -436,12 +439,12 @@ export const web = {
     "Auto works only on the listed models. Pick one in the model picker first.",
   "web.toast.switchModel": "Switch model",
   "web.toast.modelUnsupported": "Picking a model needs a newer version of Psyche.",
-  "web.palette.newSideChat": "New side chat",
-  "web.palette.newIncognito": "New incognito chat (memory-only, 24 h)",
-  "web.palette.openBrowser": "Open browser pane",
-  "web.palette.openTerminal": "Open terminal pane",
-  "web.palette.openTasks": "Open tasks pane",
-  "web.palette.openFiles": "Open files pane",
+  "web.palette.newSideChat": "New chat",
+  "web.palette.newIncognito": "New private chat",
+  "web.palette.openBrowser": "Open browser",
+  "web.palette.openTerminal": "Open terminal",
+  "web.palette.openTasks": "Show tasks",
+  "web.palette.openFiles": "Show files",
   "web.palette.switchMode": "Switch permission mode",
   "web.threads.sideChat": "Side chat",
   "web.shell.skipToContent": "Skip to content",

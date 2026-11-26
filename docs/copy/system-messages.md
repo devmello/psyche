@@ -11,7 +11,7 @@ Placeholders: `{agent}`, `{owner}`, `{task}`, `{site}` (bare domain), `{url}` (f
 | Element | Text |
 | --- | --- |
 | Header | **Approval needed** · "expires in {countdown}" (danger color under 60 s) |
-| Requested by | "{agent} · task "{task}" ({from chat \| from automation "{name}" \| from {channel} \| from an Idea})" |
+| Requested by | "{agent} · task "{task}" ({from chat \| from automation "{name}" \| from an Idea})" |
 | Why asked | One line built from the Broker's reason, joined with "; ": "balanced mode" · "manual mode" · "first time on {site}" · "sends outside your account" · "irreversible" · "spends money" · "this turn read content from {sources}" · "sensitive site" · "outside your standing grants" |
 | Taint notice (when tainted) | "{agent} read content from {sources} in this task. Check the details came from you, not from that content." |
 | Binding line | "Binding {hash-prefix}… · any change above voids this card" |
@@ -67,18 +67,6 @@ Scopes offered follow the Broker: `destructive` kinds show only **Allow once** a
 - Title: "Let {agent} act on {site}?"
 - Body: "{agent} wants to click and type on {site} for "{task}"."
 - Buttons: **Deny** · **Allow once** · **Always allow**
-
-### Chat-channel approval messages
-
-Sent only for kinds a chat surface may answer (never device-only kinds).
-
-- Text: "Approval needed: {summary}. Task: {task}. Expires {time}. Reply in Psyche for full details."
-- Telegram buttons: **Allow once** · **Deny**
-- iMessage / Signal: "Reply 👍 to allow once or 👎 to deny." (iMessage poll where supported: options "Allow once", "Deny")
-- Fallback: "Or reply /approve {id} once, or /approve {id} deny."
-- After answer: "Allowed once. {agent} is continuing." / "Denied. {agent} won't do it."
-- Late: "That approval already expired or was answered."
-- Device-only attempt (never sent; shown in Activity): "Waiting for your approval on your Mac or the web app."
 
 ## 2. Question cards (`ask_user`)
 
@@ -196,7 +184,6 @@ One status vocabulary everywhere: **Queued**, **Working**, **Needs you**, **Done
 | Credentials | "The vault is empty. {agent} uses your sign-ins in its browser first, and asks you to type passwords yourself." | **Add item** |
 | Daily notes | "No notes yet today." | — |
 | Grants ledger | "No standing approvals." | — |
-| Channels | "{agent} only talks to you in this app." | **Add a channel** |
 
 ## 7. Errors
 

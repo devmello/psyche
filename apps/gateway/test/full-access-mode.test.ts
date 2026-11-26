@@ -74,7 +74,7 @@ describe("threads.update permissionMode full: who and where", () => {
   });
 
   it.each([
-    ["a channel thread (Telegram)", { kind: "channel" as const, sessionKey: "telegram:peer:42" }],
+    ["an old chat channel thread", { kind: "channel" as const, sessionKey: "oldchat:peer:42" }],
     ["an automation thread", { kind: "automation" as const, sessionKey: "automation:a1:r1" }],
     ["a Night shift thread", { kind: "automation" as const, sessionKey: "night-shift:n1" }],
     ["a specialist's job thread", { kind: "subagent" as const, sessionKey: "specialist:r:1" }],

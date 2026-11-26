@@ -122,7 +122,7 @@ export function readWorkSettings(get: (key: string) => unknown): WorkSettings {
   };
 }
 
-const SWITCH_KEYS = ["home", "brief", "notification", "channel"] as const;
+const SWITCH_KEYS = ["home", "brief", "notification"] as const;
 const SURFACE_PATHS = [
   ...["work", "workMail", "people"].flatMap((t) => SWITCH_KEYS.map((k) => `tiers.${t}.${k}`)),
   "birthdays",
@@ -231,8 +231,8 @@ export function composeCatchup(deps: CatchupDeps): Catchup {
     gatherCandidates(graph, state, { now: clock.now(), timeZone: deps.timeZone() });
   const tz = () => deps.timeZone();
   const day = (now: number) => new Date(startOfDay(now, tz())).toISOString().slice(0, 10);
-  /** Home and the brief carry a link; the channel copy has the same text without the mail. */
-  const ranked = (surface: "home" | "brief" | "channel", limit?: number, withSources = false) =>
+  /** Home and the brief carry a link. */
+  const ranked = (surface: "home" | "brief", limit?: number, withSources = false) =>
     rankCatchUp(candidates(), {
       ...(withSources ? { docOf } : {}),
       now: clock.now(),
@@ -241,7 +241,7 @@ export function composeCatchup(deps: CatchupDeps): Catchup {
       settings: surfaces(),
       ...(limit === undefined ? {} : { limit }),
     });
-  const pending = (surface: "home" | "brief" | "channel") => {
+  const pending = (surface: "home" | "brief") => {
     if (surfaceFilter([{ tier: "work" as const }], surface, surfaces()).length === 0)
       return undefined;
     const c = pendingCounts(graph);
@@ -440,22 +440,19 @@ export function composeCatchup(deps: CatchupDeps): Catchup {
     return { tier: "people" as const, entityId: e.id };
   };
 
-  const channelOrBrief = (s: BriefSurface | undefined) => (s === "channel" ? "channel" : "brief");
-
   const comingUp: Catchup["comingUp"] = (base) =>
     base === undefined
       ? undefined
-      : (surface) => {
+      : () => {
           const lines = base().map((l) => ({ line: l, ...tierOfLine(l.link) }));
-          return surfaceFilter(lines, channelOrBrief(surface), surfaces()).map((x) => x.line);
+          return surfaceFilter(lines, "brief", surfaces()).map((x) => x.line);
         };
 
   const keepInTouch: Catchup["keepInTouch"] = (base) =>
     base === undefined
       ? undefined
-      : (surface) =>
-          surfaceFilter([{ tier: "people" as const }], channelOrBrief(surface), surfaces())
-            .length === 0
+      : () =>
+          surfaceFilter([{ tier: "people" as const }], "brief", surfaces()).length === 0
             ? []
             : base();
 

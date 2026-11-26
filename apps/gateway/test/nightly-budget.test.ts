@@ -72,7 +72,7 @@ async function compose(perCall: number) {
     background: false,
     timeZone: "UTC",
     clock: new FakeClock(NOW),
-    config: { home, port: 0, dbPath: join(home, "psyche.db"), webRoot: null },
+    config: { home, port: 0, dbPath: join(home, "psyche.db") },
     model: { provider, model: "fake/model" },
   });
   const c = composed;

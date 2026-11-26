@@ -120,7 +120,6 @@ export const shell = {
   "shell.sidebar.resize": "Resize the sidebar",
   "shell.sidebar.settingsMenu": "Settings and help",
   "shell.sidebar.openOverview": "Open Overview",
-  "shell.sidebar.channel": "Channel",
   "shell.sidebar.automation": "Automation",
   "shell.sidebar.subagent": "Subagent",
   "shell.sidebar.untitled": "Untitled chat",

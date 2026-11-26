@@ -244,7 +244,7 @@ describe("Upcoming reminders", () => {
     );
     const row = (await screen.findByText("Reminder: call Sam")).closest("li");
     if (row === null) throw new Error("reminder row not found");
-    expect(within(row).getByText(/Delivers to .* and Telegram/)).toBeTruthy();
+    expect(within(row).getByText("Delivers to the main chat")).toBeTruthy();
     await userEvent.click(within(row).getByRole("button", { name: "Snooze" }));
     await waitFor(() => {
       const call = ref.gateway?.calls.find((c) => c.method === "automations.update");

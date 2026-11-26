@@ -3,6 +3,8 @@ import { actionErrors } from "./action-errors/ar.ts";
 import { agent } from "./agent/ar.ts";
 import { agentNotes } from "./agent-notes/ar.ts";
 import { appleA } from "./apple-a/ar.ts";
+import { appleE1 } from "./apple-e1/ar.ts";
+import { appleE2 } from "./apple-e2/ar.ts";
 import { approvalsW3 } from "./approvals-w3/ar.ts";
 import { audit } from "./audit/ar.ts";
 import { automationChat } from "./automation-chat/ar.ts";
@@ -55,6 +57,7 @@ import { securityState } from "./security-state/ar.ts";
 import { selfConnectors } from "./self-connectors/ar.ts";
 import { separateDesktop } from "./separate-desktop/ar.ts";
 import { settings } from "./settings/ar.ts";
+import { settingsDrill } from "./settings-drill/ar.ts";
 import { settingsLanguage } from "./settings-language/ar.ts";
 import { settingsSections } from "./settings-sections/ar.ts";
 import { shell } from "./shell/ar.ts";
@@ -522,6 +525,7 @@ export const ar: Partial<Catalogue> = {
   "blocks.approval.scope.hostProgram": "السماح دائمًا بـ {program} في {folder}",
   "blocks.approval.scope.hostProgramExact":
     "السماح دائمًا بـ {program} بهذه الوسائط بالضبط في {folder}",
+  "blocks.approval.scope.hostProgramSession": "السماح بـ {program} في {folder} لهذه المحادثة",
   "blocks.approval.scope.site": "السماح لهذا الموقع",
   "blocks.approval.scope.session": "السماح لهذه الجلسة",
   "blocks.approval.scope.always": "السماح دائمًا",
@@ -873,11 +877,9 @@ export const ar: Partial<Catalogue> = {
   "agent.upcoming.inNamed": "في {name}",
   "agent.upcoming.inOwnSession": "في جلسة خاصة بها",
   "agent.upcoming.inMainSession": "في الجلسة الرئيسية",
-  "agent.upcoming.email": "البريد الإلكتروني",
   "agent.upcoming.quiet": "تبقى صامتة ما لم يحتج شيء إليك",
   "agent.upcoming.theMainChat": "الدردشة الرئيسية",
   "agent.upcoming.aChat": "دردشة",
-  "agent.upcoming.aChannel": "قناة",
   "agent.upcoming.nowhere": "لا تُسلَّم إلى أي مكان بعد",
   "agent.upcoming.deliversTo": "تُسلَّم إلى {to}",
   "agent.upcoming.last": "الأخيرة: {status}",
@@ -1084,7 +1086,6 @@ export const ar: Partial<Catalogue> = {
   "shell.sidebar.destinations": "الوجهات",
   "shell.sidebar.resize": "تغيير حجم الشريط الجانبي",
   "shell.sidebar.settingsMenu": "الإعدادات والمساعدة",
-  "shell.sidebar.channel": "قناة",
   "shell.sidebar.automation": "أتمتة",
   "shell.sidebar.subagent": "وكيل فرعي",
   "shell.sidebar.untitled": "دردشة بلا عنوان",
@@ -1159,7 +1160,6 @@ export const ar: Partial<Catalogue> = {
   "settings.nav.files": "الوصول إلى الملفات",
   "settings.nav.vm": "وضع VM",
   "settings.nav.devices": "الأجهزة والعُقد",
-  "settings.nav.channels": "القنوات",
   "settings.nav.credentials": "بيانات الاعتماد",
   "settings.nav.appearance": "المظهر",
   "settings.nav.voice": "الصوت والإملاء",
@@ -1298,11 +1298,10 @@ export const ar: Partial<Catalogue> = {
     "يقرأ Psyche هذه البطاقات من Stripe Link؛ أزل أيًا منها في حساب Link الخاص بك. إزالة مفتاح Link أعلاه توقف دفع Psyche بأي منها.",
   "settings.credentials.managed.connector": "يديره موصّله",
   "settings.credentials.managed.model_provider": "مفتاح مزوّد نماذج",
-  "settings.credentials.managed.channel": "رمز قناة",
+  "settings.credentials.managed.channel": "سر قناة دردشة قديمة",
   "settings.credentials.managed.external_manager": "مرتبط من مدير كلمات السر لديك",
   "settings.credentials.setting.connectors": "الموصّلات",
   "settings.credentials.setting.models": "النموذج والمزوّدون",
-  "settings.credentials.setting.channels": "القنوات",
   "settings.credentials.setting.credentials": "بيانات الاعتماد",
   "settings.credentials.err.gatewayOwned": "{name} يخص Gateway؛ أزله في الإعدادات ← {setting}.",
   "settings.credentials.deleteDescription":
@@ -1737,121 +1736,9 @@ export const ar: Partial<Catalogue> = {
   "settings.browser.createKey": "إنشاء مفتاح",
   "settings.browser.keyStillSigns": "لا يزال المفتاح الحالي، إن وُجد، يوقّع.",
 
-  "settings.channels.type.email": "البريد الإلكتروني",
-  "settings.channels.type.sms": "الرسائل القصيرة",
-  "settings.channels.status.active": "متصلة",
-  "settings.channels.status.paused": "متوقفة مؤقتًا",
-  "settings.channels.status.error": "خطأ",
-  "settings.channels.status.disconnected": "غير متصلة",
-  "settings.channels.policy.pairing": "الاقتران",
-  "settings.channels.policy.pairingHint": "يحصل المرسلون الجدد على رمز؛ وتوافق عليهم هنا.",
-  "settings.channels.policy.allowlist": "قائمة السماح",
-  "settings.channels.policy.allowlistHint": "الأشخاص في القائمة أدناه فقط.",
-  "settings.channels.policy.open": "مفتوحة",
-  "settings.channels.policy.openHint": "يمكن لأي شخص مراسلة {persona}.",
-  "settings.channels.policy.disabled": "معطّلة",
-  "settings.channels.policy.disabledHint": "تُتجاهل الرسائل المباشرة.",
-  "settings.channels.title": "القنوات",
-  "settings.channels.description": "أين يمكن للناس الوصول إلى {persona}، ومن المسموح له بذلك.",
-  "settings.channels.loadLabel": "القنوات",
-  "settings.channels.empty":
-    "لا قنوات بعد. اربط Telegram أو iMessage أو Slack للوصول إلى {persona} بعيدًا عن هذا الـ Mac.",
-  "settings.channels.add.button": "إضافة قناة",
-  "settings.channels.add.title": "إضافة قناة",
-  "settings.channels.add.description":
-    "اختر المكان الذي يمكن التواصل مع {persona} عبره. تذهب الرموز مباشرة إلى الخزنة ولا تُعرض مرة أخرى.",
-  "settings.channels.add.type": "القناة",
-  "settings.channels.add.account.slack": "اسم مساحة العمل",
-  "settings.channels.add.account.discord": "معرّف التطبيق",
-  "settings.channels.add.secret.bot_token": "رمز البوت",
-  "settings.channels.add.secret.app_token": "رمز التطبيق",
-  "settings.channels.add.secret.auth_token": "رمز المصادقة",
-  "settings.channels.add.secret.access_token": "رمز الوصول",
-  "settings.channels.add.secret.app_secret": "سر التطبيق",
-  "settings.channels.add.secret.verify_token": "رمز التحقق",
-  "settings.channels.add.submit": "اتصال",
-  "settings.channels.add.connecting": "جارٍ الاتصال",
-  "settings.channels.add.missing": "املأ جميع الحقول للاتصال.",
-  "settings.channels.add.failed": "تعذّر على Psyche إضافة القناة ({reason}). لم يتم تشغيلها.",
-  "settings.channels.add.account.sms": "رقم الإرسال (+15551234567)",
-  "settings.channels.add.account.whatsapp": "رقم واتساب (+15551234567)",
-  "settings.channels.add.badNumber": "أدخل الرقم بالصيغة الدولية، مثل +15551234567.",
-  "settings.channels.add.exists": "توجد قناة {type} للحساب {account} بالفعل، لذا لم يتغير شيء.",
-  "settings.channels.add.approvalLabel": "إضافة قناة",
-  "settings.channels.add.envNote":
-    "يجب أيضًا تشغيل Gateway مع ضبط {env} على هذا الحساب. يتم إعداد Telegram وiMessage وSignal والبريد الإلكتروني حيث يعمل Gateway؛ راجع وثائق القنوات.",
-  "settings.channels.add.addedInactive":
-    "تمت إضافة القناة لكنها لا تعمل بعد. اضبط {env} على هذا الحساب حيث يعمل Gateway ثم أعد تشغيله.",
-  "settings.channels.add.added":
-    "تمت إضافة القناة. تبدأ عندما يكون {env} في Gateway مضبوطًا على هذا الحساب. ثم راسل {persona} منها للحصول على رمز اقتران ووافق عليه هنا.",
-  "settings.channels.add.storedNote":
-    "محفوظ بالفعل لهذا الحساب: {names}. تُستخدم كما هي ما لم تستبدلها.",
-  "settings.channels.add.replace": "استبدال الرموز المحفوظة",
-  "settings.channels.add.statusFailed":
-    "تعذّر على Psyche التحقق من الرموز المحفوظة ({reason}). لم يتغير شيء.",
-  "settings.channels.add.storedTyped":
-    "توجد رموز محفوظة بالفعل لهذا الحساب. حدّد استبدال الرموز المحفوظة لاستخدام ما كتبته، أو امسح تلك الحقول. لم يتغير شيء.",
-  "settings.channels.identities": "روابط الهوية",
-  "settings.channels.identitiesDescription":
-    "شخص واحد عبر القنوات. لا تتغيّر الروابط إلا من جهاز مقترن.",
-  "settings.channels.identitiesFailed": "تعذّر على Psyche تحميل روابط الهوية ({reason}).",
-  "settings.channels.noIdentities": "لا روابط هوية. يُعامل كل مرسل كشخص مستقل.",
-  "settings.channels.designated": "الأشخاص المعيّنون",
-  "settings.channels.designatedDescription":
-    "يجيبهم {persona} بشخصية مفوَّضة ومجموعة أدوات أصغر. وتأتي موافقاتهم إليك.",
-  "settings.channels.noDesignated": "لم يُعيَّن أحد.",
-  "settings.channels.delegated": "مفوَّض: {persona}",
-  "settings.channels.tools": "الأدوات: {tools}",
-  "settings.channels.cardTitle": "{name} {account}",
-  "settings.channels.directMessages": "الرسائل المباشرة",
-  "settings.channels.openWarning":
-    "تتيح «مفتوحة» لأي شخص يجد {account} مراسلة {persona}، ويمكن لرسائله أن تحاول توجيهه. الاقتران أكثر أمانًا.",
-  "settings.channels.openAnyway": "فتحها على أي حال",
-  "settings.channels.keepPolicy":
-    "الإبقاء على {policy, select, allowlist {قائمة السماح} pairing {الاقتران} disabled {التعطيل} other {{policy}}}",
-  "settings.channels.pending": "قيد الانتظار ({n, number} من {max, number})",
-  "settings.channels.pairingFailed": "تعذّر على Psyche تحميل طلبات الاقتران ({reason}).",
-  "settings.channels.noPending": "لا أحد ينتظر. تنتهي صلاحية الرموز بعد ساعة واحدة.",
-  "settings.channels.code": "الرمز",
-  "settings.channels.expires": "تنتهي {when}",
-  "settings.channels.approveSender": "الموافقة على {name}",
-  "settings.channels.approve": "موافقة",
-  "settings.channels.ignoreSender": "تجاهل {name}",
-  "settings.channels.ignore": "تجاهل",
-  "settings.channels.allow.remove": "إزالة",
-  "settings.channels.allow.removeNamed": "إزالة {name}",
-  "settings.channels.allow.senderLabel": "المرسل المراد السماح له",
-  "settings.channels.allow.groupLabel": "إضافة مرسل (محادثات المجموعات)",
-  "settings.channels.allow.addSender": "إضافة مرسل",
-  "settings.channels.allow.addGroup": "إضافة مرسل",
-  "settings.channels.allow.senderApproval": "السماح لمرسل دردشة",
-  "settings.channels.allow.groupApproval": "تغيير من يمكنه تشغيلي في المجموعات",
-  "settings.channels.allow.groupEmptied":
-    "إزالة {name} تترك القائمة فارغة. عندها يمكن لكل من هو مسموح له في الرسائل المباشرة أن يشغّل Psyche في المجموعات.",
-  "settings.channels.allow.forbidden":
-    "تغيير من يمكنه المراسلة يحتاج إلى جهاز مشرف. استخدم جهازًا مقترنًا كمشرف.",
-  "settings.channels.allow.failed":
-    "تعذّر على Psyche تغيير من يمكنه المراسلة ({reason}). لم يتغير شيء.",
-  "settings.channels.identity.name": "اسم الشخص",
-  "settings.channels.identity.senders": "معرّفات المرسلين، مفصولة بفواصل",
-  "settings.channels.identity.link": "ربط الهوية",
-  "settings.channels.identity.unlink": "فك الربط",
-  "settings.channels.identity.unlinkNamed": "فك ربط {name}",
-  "settings.channels.identity.approval": "ربط هوية دردشة",
-  "settings.channels.identity.forbidden":
-    "تغيير روابط الهوية يحتاج إلى جهاز مشرف. استخدم جهازًا مقترنًا كمشرف.",
-  "settings.channels.identity.failed":
-    "تعذّر على Psyche تغيير رابط الهوية ({reason}). لم يتغير شيء.",
-  "settings.channels.noOneYet": "لا أحد بعد.",
-  "settings.channels.owner": " · المالك",
-  "settings.channels.groups": "من يمكنه تشغيلي في المجموعات",
-  "settings.channels.noGroups":
-    "يمكن لكل من هو مسموح له في الرسائل المباشرة أن يشغّلني في المجموعات.",
-  "settings.channels.requireMention": "الإجابة في المجموعات عند الإشارة فقط",
-  "settings.channels.err.forbidden":
-    "{action, select, policy {تغيير من يمكنه المراسلة} mention {تغيير إشارات المجموعات} approve {الموافقة على المرسل} other {تجاهل المرسل}} يحتاج إلى موافقة على هذا الجهاز. استخدم جهازًا مقترنًا كمسؤول.",
-  "settings.channels.err.failed":
-    "تعذّر على Psyche {action, select, policy {تغيير من يمكنه المراسلة} mention {تغيير إشارات المجموعات} approve {الموافقة على المرسل} other {تجاهل المرسل}} ({reason}).",
+  "settings.devices.pairingFailed": "تعذّر على Psyche تحميل طلبات الاقتران ({reason}).",
+  "settings.devices.approveNamed": "الموافقة على {name}",
+  "settings.devices.approve": "موافقة",
 
   "settings.computerUse.tier.ask": "سؤال",
   "settings.computerUse.tier.off": "إيقاف",
@@ -1922,10 +1809,6 @@ export const ar: Partial<Catalogue> = {
   "settings.connectors.catalog.appleCalendar": "تقويم Apple",
   "settings.connectors.catalog.appleMail": "بريد Apple",
   "settings.connectors.catalog.mcp": "خادم MCP",
-  "settings.connectors.catalog.slack": "Slack",
-  "settings.connectors.slackExplain":
-    "Slack قناة: تدردش مع Psyche هناك. أعدّه في الإعدادات ← القنوات.",
-  "settings.connectors.openChannels": "فتح القنوات",
   "settings.connectors.status.connected": "متصل",
   "settings.connectors.status.disconnected": "غير متصل",
   "settings.connectors.status.error": "خطأ",
@@ -2321,8 +2204,6 @@ export const ar: Partial<Catalogue> = {
   "settings.model.role.imageHint": "تغييرات الصورة الرمزية؛ «لا شيء» يعني المخلوقات المضمّنة",
   "settings.model.addProvider": "إضافة مزوّد",
   "settings.model.title": "النموذج والمزوّدون",
-  "settings.model.description":
-    "يُستخدم النموذج الذي تختاره كما اخترته. إذا فشل، يخبرك Psyche بذلك بدلًا من اللجوء إلى بديل.",
   "settings.model.loadLabel": "مزوّدو النماذج",
   "settings.model.providers": "المزوّدون",
   "settings.model.listFailed": "تعذّر على Psyche سرد النماذج ({reason}).",
@@ -2354,13 +2235,10 @@ export const ar: Partial<Catalogue> = {
   "settings.model.runCheckOn": "تشغيل فحص استدعاء الأدوات على {name}",
   "settings.model.runCheck": "تشغيل الفحص",
   "settings.model.roles": "أدوار النماذج",
-  "settings.model.rolesHint":
-    "يستخدم كل دور نموذجًا واحدًا. النماذج التي تفشل في فحص استدعاء الأدوات تكون للدردشة فقط.",
   "settings.model.none": "لا شيء",
   "settings.model.choose": "اختر نموذجًا",
   "settings.model.chatOnlyOption": "{name} (دردشة فقط)",
   "settings.model.local": "النماذج المحلية",
-  "settings.model.localHint": "شغّل النماذج على هذا الـ Mac باستخدام Ollama أو LM Studio.",
   "settings.model.err.use": "تعذّر على Psyche استخدام {name} ({reason}).",
   "settings.model.err.probe": "تعذّر على Psyche فحص نقطة النهاية ({reason}).",
   "settings.model.err.check": "تعذّر على Psyche تشغيل الفحص ({reason}).",
@@ -2413,8 +2291,6 @@ export const ar: Partial<Catalogue> = {
   "settings.permissions.subject.emailFrom": "إلى {recipients} من {account}",
   "settings.permissions.subject.calendarNamed": "التقويم {id}",
   "settings.permissions.subject.calendar": "التقويم",
-  "settings.permissions.title": "الأذونات",
-  "settings.permissions.description": "ما يعمل من تلقاء نفسه، وما يسأل أولًا، وما لا يحدث أبدًا.",
   "settings.permissions.loadLabel": "الأذونات",
   "settings.permissions.defaultModeTitle": "الوضع الافتراضي للمحادثات الجديدة",
   "settings.permissions.execReview":
@@ -2487,7 +2363,7 @@ export const ar: Partial<Catalogue> = {
   "settings.persona.describedAs": "الوصف: {description}",
   "settings.persona.identity": "الهوية",
   "settings.persona.taglinePlaceholder": "أجنحة هادئة، وأيدٍ حريصة.",
-  "settings.persona.emojiHint": "يُعرض على القنوات التي لا تستطيع عرض الصورة الرمزية.",
+  "settings.persona.emojiHint": "يُعرض حيث لا يمكن عرض الصورة الرمزية.",
   "settings.persona.avatar": "الصورة الرمزية",
   "settings.persona.describeChange": "صف تغييرًا",
   "settings.persona.describeHint": "بكلماتك، مثل «أعطِ العثّة وشاحًا صغيرًا».",
@@ -2906,8 +2782,8 @@ export const ar: Partial<Catalogue> = {
   "onboarding.keyRefused": "رفض المزوّد هذا المفتاح ({reason}). الصق المفتاح مرة أخرى.",
   "onboarding.setupCheck": "فحص الإعداد",
   "onboarding.progress": "تقدّم الإعداد الأولي",
+  "onboarding.steps": "الخطوات",
   "onboarding.doneMark": " (تم)",
-  "onboarding.stepOf": "الخطوة {n, number} من {total, number}:",
   "onboarding.back": "رجوع",
   "onboarding.skipForNow": "تخطٍّ الآن",
   "onboarding.openChat": "فتح الدردشة الرئيسية",
@@ -2959,7 +2835,7 @@ export const ar: Partial<Catalogue> = {
   "onboarding.permission.asking": "جارٍ الطلب…",
   "onboarding.permission.allow": "سماح",
   "onboarding.connectors.intro":
-    "قرّر الآن أي الحسابات تريد ربطها، واحدًا تلو الآخر. لا يرى {name} إلا ما تربطه، ويمكنك إضافة المزيد لاحقًا في الإعدادات.",
+    "اختر ما يمكن لـ {name} مساعدتك فيه. يطلب كل تطبيق إذنًا عند ربطه، ويمكنك إضافة المزيد لاحقًا في الإعدادات.",
   "onboarding.connectors.connected": "المتصلة ({n, number})",
   "onboarding.connectors.connectedList": "حساباتك",
   "onboarding.connectors.needsPermission": "يحتاج إلى إذن",
@@ -3005,12 +2881,20 @@ export const ar: Partial<Catalogue> = {
     "أنشأ Psyche خزنتك للتو. احفظ هذا المفتاح في مدير كلمات سر أو على ورقة: فهو يُعرض الآن فقط وهو السبيل الوحيد للعودة إلى الخزنة بعد استعادة أو فقدان خانة مفتاح.",
   "onboarding.model.subscriptionNote":
     "يستخدم Psyche تطبيق Claude Code أو Codex المسجّل الدخول بالفعل على هذا الـ Mac، لذا لا يحتاج إلى مفتاح API ولا يخزّن أيًا منه. سجّل الدخول هناك أولًا إن لم تفعل.",
-  "onboarding.model.toolCheck": "فحص استدعاء الأدوات",
-  "onboarding.model.runCheck": "تشغيل الفحص",
-  "onboarding.model.checkAgain": "فحص مرة أخرى",
+  "onboarding.model.toolCheck": "اختبار الاتصال",
+  "onboarding.model.otherWays": "طرق أخرى",
+  "onboarding.model.test.passed": "يعمل",
+  "onboarding.model.test.failed": "محادثة فقط",
+  "onboarding.model.test.running": "جارٍ الاختبار…",
+  "onboarding.model.test.untested": "لم يُختبر بعد",
+  "onboarding.model.runCheck": "جرّبه",
+  "onboarding.model.checkAgain": "اختبر مرة أخرى",
   "onboarding.model.toolCheckFailed":
-    "يمكن لهذا النموذج الدردشة لكنه لا يستطيع استخدام الأدوات بشكل موثوق، لذا لن يتصرّف نيابةً عنك. اختر نموذجًا آخر أو تابع في وضع الدردشة فقط.",
+    "يمكن لهذا النموذج المحادثة لكنه قد لا ينفّذ المهام نيابةً عنك. اختر نموذجًا آخر أو تابع في وضع المحادثة فقط.",
   "onboarding.done.ready": "{name} جاهز.",
+  "onboarding.done.notReady": "{name} ليس جاهزًا للرد بعد.",
+  "onboarding.done.notReadyBody":
+    "أصلح صف النموذج أدناه، أو افعل ذلك لاحقًا في الإعدادات ← النماذج.",
   "onboarding.done.opens": "تُفتح الدردشة الرئيسية بأول رسالة من {name}.",
   "onboarding.done.noneYet": "لا شيء بعد",
   "onboarding.done.accounts": "الحسابات",
@@ -3288,7 +3172,7 @@ export const ar: Partial<Catalogue> = {
   "screens.files.shareInSettings": "شارك مجلدًا في الإعدادات ← الوصول إلى الملفات.",
   "screens.files.previewOf": "معاينة {name}",
   "screens.files.preview": "معاينة",
-  "screens.files.needsApp": "تحتاج المعاينات إلى تطبيق سطح المكتب أو تطبيق الويب.",
+  "screens.files.needsApp": "تحتاج المعاينات إلى تطبيق سطح المكتب.",
   "screens.files.pick": "اختر ملفًا لمعاينته هنا.",
   "screens.files.editReadOnly": "للقراءة فقط: هذا المجلد مشارَك دون إمكانية التعديل.",
   "screens.files.editOpening": "جارٍ فتح {name} للتعديل",
@@ -3612,7 +3496,7 @@ export const ar: Partial<Catalogue> = {
   "web.passkeys.unavailable":
     "تحتاج مفاتيح المرور إلى عنوان https للخادم. اضبط gateway.publicOrigin (أو PSYCHE_PUBLIC_ORIGIN) على عنوان https:// الذي تفتح Psyche عليه، وأعد تشغيل Gateway، ثم أضف مفتاحًا هنا.",
   "web.passkeys.insecure":
-    "تعمل مفاتيح المرور فقط عندما يكون Psyche مفتوحًا على عنوان https:// الخاص به، في متصفح يدعمها. افتحه هناك لإضافة مفتاح.",
+    "لا يمكن إضافة مفاتيح مرور هنا. أضف مفتاحًا في تطبيق Psyche على كمبيوتر آخر يتصل بهذا الـ Gateway عبر عنوان https:// الخاص به.",
   "web.passkeys.firstApproval":
     "وافق على «إضافة مفتاح مرور» عبر Touch ID على الـ Mac الخاص بك أو بمفتاح مرور على جهاز آخر، ثم اضغط «إضافة» مرة أخرى.",
   "web.passkeys.loadError": "تعذّر على Psyche تحميل مفاتيح المرور لديك ({error}).",
@@ -3658,8 +3542,11 @@ export const ar: Partial<Catalogue> = {
   "web.setup.model": "النموذج",
   "web.setup.modelRefused": "{ref}: رفض المزوّد المفتاح ({error}). لم يُحتفظ بالمفتاح.",
   "web.setup.modelNotChecked": "{ref}: المفتاح محفوظ، لكن تعذّر الوصول إلى المزوّد لفحصه.",
+  "web.setup.modelEnvKey": "يُستخدم مفتاح من بيئتك ({ref}).",
+  "web.setup.modelEnvNotChecked":
+    "يُستخدم مفتاح من بيئتك ({ref})، لكن تعذّر الوصول إلى المزوّد للتحقق منه.",
   "web.setup.modelSkipped":
-    "{ref}: لم يُضف أي مفتاح، لذا لن ترد المحادثة بعد. أضف واحدًا في الإعدادات ← النماذج.",
+    "أضف مفتاحًا: ليس لدى {ref} مفتاح بعد، لذا لن ترد المحادثة. أضف واحدًا في الإعدادات ← النماذج.",
   "web.gate.loading": "جارٍ تشغيل Psyche",
   "web.gate.error": "تعذّر على Psyche التحقق من اكتمال الإعداد.",
   "web.gate.retry": "حاول مرة أخرى",
@@ -3897,12 +3784,12 @@ export const ar: Partial<Catalogue> = {
   "web.toast.sideChatFailed": "تعذّر على Psyche إنشاء دردشة جانبية.",
   "web.toast.permissionModeUnsupported": "يحتاج تغيير وضع الأذونات إلى إصدار أحدث من Psyche.",
   "web.toast.modelUnsupported": "يحتاج اختيار نموذج إلى إصدار أحدث من Psyche.",
-  "web.palette.newSideChat": "دردشة جانبية جديدة",
-  "web.palette.newIncognito": "دردشة متخفية جديدة (في الذاكرة فقط، 24 ساعة)",
-  "web.palette.openBrowser": "فتح لوحة المتصفح",
-  "web.palette.openTerminal": "فتح لوحة الطرفية",
-  "web.palette.openTasks": "فتح لوحة المهام",
-  "web.palette.openFiles": "فتح لوحة الملفات",
+  "web.palette.newSideChat": "محادثة جديدة",
+  "web.palette.newIncognito": "محادثة خاصة جديدة",
+  "web.palette.openBrowser": "فتح المتصفح",
+  "web.palette.openTerminal": "فتح الطرفية",
+  "web.palette.openTasks": "عرض المهام",
+  "web.palette.openFiles": "عرض الملفات",
   "web.palette.switchMode": "تبديل وضع الأذونات",
   "web.threads.sideChat": "دردشة جانبية",
   "web.shell.skipToContent": "الانتقال إلى المحتوى",
@@ -4053,15 +3940,18 @@ export const ar: Partial<Catalogue> = {
   ...points,
   // Approvals wave W3 (card choices, Allowed list)
   ...approvalsW3,
+  ...settingsDrill,
   // Fork a plan (docs/design/fork-a-plan-2026.md §9)
   ...planFork,
   ...desktopSimple,
+  ...appleE1,
   // Gateway-authored notices (inbox notifications, security alerts)
   ...notices,
   // Settings > Computer use > Separate desktop (Linux)
   ...separateDesktop,
   // Windows variants of the sandbox PC, voice keys and platform terms
   ...windowsPlatform202611,
+  ...appleE2,
   ...mailFollowups,
   ...nightShift,
   ...keepAwake,

@@ -1,6 +1,6 @@
 # Voice and copy style guide
 
-Status: v0.1 (2026-10-19). Owner: S20. Applies to every string in the desktop app, the web UI, OS notifications, channel messages that Psyche (not the agent) sends, the CLI's human-readable output, and the workspace templates. Source rules: `docs/06-ui-design.md` §4.12–4.13 and §3.0.
+Status: v0.1 (2026-10-19). Owner: S20. Applies to every string in the desktop app, the web UI, OS notifications, the CLI's human-readable output, and the workspace templates. Source rules: `docs/06-ui-design.md` §4.12–4.13 and §3.0.
 
 ## Two voices
 
@@ -49,7 +49,6 @@ When the agent has no name yet, use "your agent" in Psyche copy until onboarding
 | take control / hand back control | pause, override | Browser and VM takeover |
 | vault | password store, keychain (unless it is the system keychain) | Psyche's credential store |
 | connector | integration, plugin | Gmail, Calendar, Slack, MCP servers |
-| channel | integration, bot | Telegram, iMessage, WhatsApp… |
 | side chat | thread, conversation | Non-main threads |
 | sandbox | container, VM | Where commands run |
 | Mac inside Psyche / VM mode | virtual machine (in onboarding) | VM mode |

@@ -76,7 +76,7 @@ To work on this documentation site, run `pnpm docs:dev`. Some pages are generate
 | `apps/mac-helper` | Psyche Helper, the Swift app for Accessibility, screenshots, Keychain, notifications, speech and VMs |
 | `apps/node` | `psyche-node`, for VM guests and remote machines |
 | `packages/protocol` | Schemas, the method and event registry, and the interfaces every package implements |
-| `packages/*` | One library per subsystem: `agent-core`, `model-router`, `permissions`, `audit`, `vault`, `memory`, `browser`, `sandbox`, `mcp-host`, `connectors`, `channels`, `tasks`, `scheduler`, `ui`, `viewers` and others |
+| `packages/*` | One library per subsystem: `agent-core`, `model-router`, `permissions`, `audit`, `vault`, `memory`, `browser`, `sandbox`, `mcp-host`, `connectors`, `tasks`, `scheduler`, `ui`, `viewers` and others |
 | `packages/testing` | In-memory fakes for every interface, fixtures, the secret-leak checker, the scenario and injection runners |
 | `skills/`, `templates/` | Bundled skills, and the default persona files |
 | `deploy/` | Dockerfiles, Compose, launchd and systemd files, release scripts |

@@ -56,7 +56,7 @@ async function gateway(
     logger: createLogger((line) => logs.push(line), "debug"),
     retentionIntervalMs: 0,
     background: false,
-    config: { home, port: 0, dbPath: join(home, "psyche.db"), webRoot: null },
+    config: { home, port: 0, dbPath: join(home, "psyche.db") },
     model: { provider: model, model: "fake/model" },
     vault: { keyFile, argon2: { memory: 64, passes: 1, parallelism: 1 } },
     presence: { verify: async (a, challenge) => a.signature === `ok:${challenge}` },

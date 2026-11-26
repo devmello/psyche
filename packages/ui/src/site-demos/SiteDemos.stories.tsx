@@ -167,7 +167,7 @@ export const MemoryFiles: Story = {
         const md = w.memoryFiles["MEMORY.md"];
         if (md !== undefined)
           w.memoryFiles["MEMORY.md"] = md.replace(
-            /^- Sam: prefers Telegram;.*$/m,
+            /^- Sam: prefers iMessage;.*$/m,
             "- Sam Lee (Acme): settles decisions on mail, not on calls. [2026-10-16]",
           );
       }}

@@ -837,6 +837,13 @@ export class GatewayStore {
         if (a.status !== "pending") {
           const { [a.id]: _t, ...tokens } = next.answerTokens;
           next = { ...next, answerTokens: tokens };
+          // An answered, expired or invalidated approval no longer waits on the owner, even
+          // before the Gateway's own `notification.resolved` arrives.
+          const resolvedAt = a.decidedAt ?? new Date().toISOString();
+          for (const n of Object.values(next.notifications)) {
+            if (n.approvalId === a.id && n.resolvedAt == null)
+              next = put(next, "notifications", { ...n, resolvedAt });
+          }
         }
         return next;
       }
@@ -899,6 +906,10 @@ export class GatewayStore {
         return { ...s, widgets: rest };
       }
       case "notification.created":
+      // Read, re-delivered or resolved elsewhere (another device, the Gateway): without these the
+      // "waiting on you" count kept a card the owner had already answered.
+      case "notification.updated":
+      case "notification.resolved":
         return touch(
           put(s, "notifications", e.payload.notification),
           `notifications:${e.payload.notification.id}`,
@@ -1042,14 +1053,11 @@ export class GatewayStore {
       case "device.updated":
         return invalidate(s, ["devices."]);
       case "pairing.requested":
-        // The pairing request also lists in Settings → Channels (messaging pairing).
-        return invalidate(s, ["devices.", "channels."]);
+        return invalidate(s, ["devices."]);
       case "nightShift.updated":
       case "nightShift.item.updated":
         // Home's "Prepared overnight" and the review sheet read nightShift.status and review.get.
         return invalidate(s, ["nightShift."]);
-      case "channels.updated":
-        return invalidate(s, ["channels."]);
       case "persona.updated":
         return invalidate(s, ["memory.persona."]);
       case "vault.locked":

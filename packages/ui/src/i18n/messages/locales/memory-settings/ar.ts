@@ -15,16 +15,12 @@ export const memorySettings: Partial<Catalogue> = {
   "settings.key.memory.surfaces.tiers.work.home": "العمل في الرئيسية",
   "settings.key.memory.surfaces.tiers.work.brief": "العمل في الموجز اليومي",
   "settings.key.memory.surfaces.tiers.work.notification": "العمل في الإشعارات",
-  "settings.key.memory.surfaces.tiers.work.channel": "العمل في الموجز المرسل إلى قناة",
   "settings.key.memory.surfaces.tiers.workMail.home": "البريد المتعلق بالعمل في الرئيسية",
   "settings.key.memory.surfaces.tiers.workMail.brief": "البريد المتعلق بالعمل في الموجز اليومي",
   "settings.key.memory.surfaces.tiers.workMail.notification": "البريد المتعلق بالعمل في الإشعارات",
-  "settings.key.memory.surfaces.tiers.workMail.channel":
-    "البريد المتعلق بالعمل في الموجز المرسل إلى قناة",
   "settings.key.memory.surfaces.tiers.people.home": "الأشخاص في الرئيسية",
   "settings.key.memory.surfaces.tiers.people.brief": "الأشخاص في الموجز اليومي",
   "settings.key.memory.surfaces.tiers.people.notification": "الأشخاص في الإشعارات",
-  "settings.key.memory.surfaces.tiers.people.channel": "الأشخاص في الموجز المرسل إلى قناة",
   "settings.key.memory.surfaces.birthdays":
     "أعياد الميلاد والذكريات السنوية في الموجز وفي الرئيسية",
   "settings.key.memory.surfaces.hideSources": "إبعاد مصدر عن الرئيسية والموجزات والإشعارات",
@@ -93,12 +89,11 @@ export const memorySettings: Partial<Catalogue> = {
   "memoryWork.remind.turnOnBrief": "تفعيل الموجز",
   "memorySurfaces.title": "أين تظهر الذاكرة",
   "memorySurfaces.description":
-    "ما يجوز لـ {persona} وضعه في الرئيسية وفي الموجز اليومي وفي الإشعارات وفي موجز يُرسل إلى Telegram أو قناة أخرى. تعرض صفحة الذاكرة دائمًا كل ما لم تستبعده.",
+    "ما يجوز لـ {persona} وضعه في الرئيسية وفي الموجز اليومي وفي الإشعارات. تعرض صفحة الذاكرة دائمًا كل ما لم تستبعده.",
   "memorySurfaces.loadLabel": "أين تظهر الذاكرة",
   "memorySurfaces.surface.home": "الرئيسية",
   "memorySurfaces.surface.brief": "الموجز اليومي",
   "memorySurfaces.surface.notification": "الإشعارات",
-  "memorySurfaces.surface.channel": "الموجز المرسل إلى قناة",
   "memorySurfaces.tier.work.title": "العمل والمهام",
   "memorySurfaces.tier.work.description":
     "المشاريع والمقررات والمهام وكيف تسير ومواعيدها النهائية وأحداث من تقاويمك الخاصة.",
@@ -110,7 +105,7 @@ export const memorySettings: Partial<Catalogue> = {
   "memorySurfaces.tier.people.title": "حقائق عن الأشخاص",
   "memorySurfaces.tier.people.description":
     "حقائق عن أشخاص آخرين، وكيف تعرفهم، وما تحدثتم عنه، و«ابقَ على تواصل».",
-  "memorySurfaces.people.warning": "يمكن لأي شخص يرى شاشتك أو Telegram الخاص بك أن يرى الموجزات.",
+  "memorySurfaces.people.warning": "يمكن لأي شخص يرى شاشتك أن يرى الموجزات.",
   "memorySurfaces.birthdays.title": "أعياد الميلاد والذكريات السنوية",
   "memorySurfaces.birthdays.label": "إظهار أعياد الميلاد والذكريات السنوية",
   "memorySurfaces.birthdays.hint":

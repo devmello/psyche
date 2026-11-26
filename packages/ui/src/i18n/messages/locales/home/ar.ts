@@ -45,6 +45,7 @@ export const home: Partial<Catalogue> = {
   "home.more.pages": "الصفحات",
   "home.more.brief": "إعدادات الموجز",
   "home.more.memoryReview": "مراجعة الذاكرة",
+  "home.quiet": "لا شيء يحتاج إليك الآن. ستظهر هنا الموافقات وموجزك اليومي والأفكار الجديدة.",
   "home.loadFailed": "تعذّر تحميل {what}.",
   "people.page.title": "الأشخاص",
   "people.page.count":

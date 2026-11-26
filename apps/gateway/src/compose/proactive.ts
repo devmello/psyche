@@ -170,8 +170,6 @@ export interface ProactiveSetup {
   };
   /** The audit log: the evening wrap-up counts the day's recorded changes. */
   audit?: Pick<HashChainAuditLog, "query">;
-  /** The owner's chat surfaces (`imessage:<peer>`); the brief goes there when `daily.messages` is on. */
-  channelSurfaces?: () => string[];
   /** Everything memory's "Learned yesterday" line for the morning brief (counts only). */
   learned?: () => { text: string; link?: string } | undefined;
   /** Everything memory's "Coming up" lines for the morning brief. */
@@ -217,6 +215,10 @@ export interface ComposedProactive {
   readonly ideas: IdeasService;
   /** The new-mail poller (mail and meeting workflows §4.7); it reads mail only for listeners. */
   readonly mailWatch: MailWatcher;
+  /** A mail connector is connected (a `mail_search` tool is registered). */
+  readonly mailConnected: () => boolean;
+  /** Ideas mining has something to read: a connector is connected or a goal is active. */
+  readonly ideaSources: () => Promise<boolean>;
   /** The daily inbox digest (§4.1), off until the owner turns it on (`mail.digest.enabled`). */
   readonly digest: DigestService | undefined;
   /** Batch proposals, when the composition gave a broker and a registry. */
@@ -336,6 +338,8 @@ export function composeProactive(setup: ProactiveSetup): ComposedProactive {
     model,
     fetch: publicFetch(),
     sources: feedSourcesFrom(getSetting(db, "feed.sources")?.value),
+    // The 07:00 Today brief follows Settings → Routines → Daily "Morning brief" (off by default).
+    dailyBriefOn: () => getSetting(db, "daily.brief.enabled")?.value === true,
     ...(timeZone === undefined ? {} : { timezone: timeZone }),
     onEvent: (e) => publish(e.event, e.payload as never),
     // The brief's catch-up lines answer to the owner's agent access when the agent reads Feed.
@@ -642,7 +646,6 @@ export function composeProactive(setup: ProactiveSetup): ComposedProactive {
     // Every memory line in the brief goes through `surfaceFilter` (birthdays, life events, people).
     ...briefLines(setup, catchup),
     ...(catchup === undefined ? {} : { catchUp: catchup.daily }),
-    ...(setup.channelSurfaces === undefined ? {} : { channelSurfaces: setup.channelSurfaces }),
     prepLink: (e) => meetingPrep?.prepLinkFor(e),
     activity: {
       openTasks: async () =>
@@ -792,6 +795,10 @@ export function composeProactive(setup: ProactiveSetup): ComposedProactive {
     feed,
     ideas,
     mailWatch,
+    mailConnected: () => (lookup?.names?.("mail_search") ?? []).length > 0,
+    ideaSources: async () =>
+      (registry?.list().some((s) => s.name.startsWith("mcp__")) ?? false) ||
+      (await goals.list({ status: ["active"] })).length > 0,
     digest,
     proposals,
     meetingPrep,

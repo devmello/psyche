@@ -76,7 +76,7 @@ describe("turn context providers (E12)", () => {
     const quiet: TurnContextInput[] = [];
     const h2 = harness({ script: [say("ok")], loop: { contextProviders: [provider(quiet)] } });
     await runTurn(h2, "hello", {
-      requester: { role: "designated", identityId: "id_sam", channel: "telegram", senderId: "42" },
+      requester: { role: "designated", identityId: "id_sam", channel: "oldchat", senderId: "42" },
     });
     expect(quiet).toEqual([]);
   });

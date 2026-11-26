@@ -903,8 +903,6 @@ process.stdout.write(JSON.stringify({ greet: greet("x"), native: native(), pure:
     put("packages/files/src/extract/worker.ts", `console.log("worker");`);
     put("skills/a/SKILL.md", "---\nname: a\n---");
     put("templates/T.md");
-    put("apps/web/dist/index.html", "<html>");
-    put("apps/web/src/main.tsx");
     put("deploy/sandbox-image/Dockerfile", "FROM scratch");
     put("deploy/other/x.sh");
     put("packages/model-router/src/cli/mcp-stdio-bridge.mjs");
@@ -1004,7 +1002,6 @@ process.stdout.write(JSON.stringify({ greet: greet("x"), native: native(), pure:
       expect(r.external).toEqual(["native-thing"]);
       expect(all(app).sort()).toEqual([
         "apps/gateway/dist/main.mjs",
-        "apps/web/dist/index.html",
         "deploy/sandbox-image/Dockerfile",
         "node_modules/.pnpm/native-dep@1.0.0/node_modules/native-dep/index.js",
         "node_modules/.pnpm/native-thing@1.0.0/node_modules/native-dep", // pnpm's link to its dependency
@@ -1122,8 +1119,6 @@ describe("deploy/scripts/build-psyched.mjs server subset", () => {
       'import { WebSocket } from "ws";\nimport type { X } from "react";\nimport { mimeFromName } from "@psyche/viewers/core/detect";\nconst p = () => import("pdfjs");\n',
     );
     pkg("apps/cli", "@psyche/cli");
-    pkg("apps/web", "@psyche/web");
-    file("apps/web/dist/index.html", "<!doctype html>");
     pkg("packages/viewers", "@psyche/viewers", { "@psyche/protocol": "workspace:*", react: "1" });
     for (const f of ["convert", "detect", "registry"]) file(`packages/viewers/src/core/${f}.ts`);
     file("packages/viewers/src/react/Sheet.tsx", 'import React from "react";\n');
@@ -1161,7 +1156,6 @@ describe("deploy/scripts/build-psyched.mjs server subset", () => {
       "../../../node_modules/.pnpm/react@1/node_modules/react",
       "packages/ui/node_modules/react",
     );
-    link("../../../node_modules/.pnpm/react@1/node_modules/react", "apps/web/node_modules/react");
     return app;
   }
 
@@ -1182,12 +1176,10 @@ describe("deploy/scripts/build-psyched.mjs server subset", () => {
       expect(existsSync(join(store, "ws@1/node_modules/ws/index.js.map"))).toBe(false);
       expect(existsSync(join(store, "ws@1/node_modules/ws/index.d.ts"))).toBe(false);
       expect(existsSync(join(app, "packages/ui"))).toBe(false);
-      expect(existsSync(join(app, "apps/web/dist/index.html"))).toBe(true);
       expect(existsSync(join(app, "packages/viewers/src/core/detect.ts"))).toBe(true);
       expect(existsSync(join(app, "packages/viewers/src/react/Sheet.tsx"))).toBe(false);
       expect(existsSync(join(app, "packages/viewers/node_modules/react"))).toBe(false);
       expect(stats).toMatchObject({ workspaces: 1, packages: 2, files: 2 });
-      expect(existsSync(join(app, "apps/web/node_modules"))).toBe(false);
       // `import type` needs nothing at runtime; the lazy import("pdfjs") does.
       expect(checkImports(app)).toEqual([]);
       rmSync(join(app, "apps/gateway/node_modules/pdfjs"));

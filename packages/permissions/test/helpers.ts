@@ -18,7 +18,7 @@ import {
 } from "../src/index.ts";
 
 export const DEVICE = { deviceId: "dev_mac" };
-export const OWNER = { channel: "telegram", senderId: "owner-1" };
+export const OWNER = { channel: "oldchat", senderId: "owner-1" };
 
 /** Paired devices and owner identities for tests. */
 export function approvers(
@@ -29,11 +29,9 @@ export function approvers(
     dev_reader: { scopes: ["operator.read"] },
     dev_node: { scopes: ["node", "operator.approvals"], role: "node" },
   },
-  owners: string[] = ["telegram:owner-1"],
 ): ApproverDirectory {
   return {
     device: async (id) => devices[id],
-    isOwnerSender: async (channel, sender) => owners.includes(`${channel}:${sender}`),
   };
 }
 

@@ -230,7 +230,6 @@ beforeEach(() => {
     armDelayMs: 0,
     approvers: {
       device: async () => ({ scopes: ["operator.read", "operator.approvals"] }),
-      isOwnerSender: async () => false,
     },
   });
   // The Host's own folders hold nothing of the machine's: the machine grant is what counts.

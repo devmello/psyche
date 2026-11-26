@@ -21,6 +21,8 @@ import { AllowedList } from "./AllowedList.tsx";
 import { appleApp } from "./ConnectorCapabilities.tsx";
 import { SCOPE_MODE_LABEL } from "./ConnectorsSection.tsx";
 import { execReviewInAuto, policyWithExecReview } from "./FileAccessSection.tsx";
+import { PaneRows } from "./PaneRows.tsx";
+import type { SettingsPaneId } from "./settings-pages.ts";
 import {
   Advanced,
   bool,
@@ -196,6 +198,8 @@ export interface PermissionsPanelProps extends SettingsFormProps, LoadProps {
   onRuleChange?: (connector: Connector, action: string, rule: ActionRule) => void;
   /** Opens Settings → Connectors, where a specific connector's permissions are set. */
   onOpenConnectors?: () => void;
+  /** Opens a pane one level deeper (the Access rows and Credentials); no rows without it. */
+  onOpenPane?: (pane: SettingsPaneId) => void;
   /** Grant ids being revoked, for disabled buttons. */
   revoking?: ReadonlySet<string>;
   revokeError?: string | null;
@@ -211,6 +215,7 @@ export function PermissionsPanel({
   onRevoke,
   onRuleChange,
   onOpenConnectors,
+  onOpenPane,
   revoking,
   revokeError = null,
   loading,
@@ -231,18 +236,17 @@ export function PermissionsPanel({
   const rows = connectors.filter((c) => appleApp(c.type) === null);
 
   return (
-    <SectionFrame
-      needsApproval={needsApproval}
-      title={t("settings.permissions.title")}
-      description={t("settings.permissions.description")}
-    >
+    <SectionFrame needsApproval={needsApproval} title={t("settings.page.permissions")}>
       <LoadGate
         label={t("settings.permissions.loadLabel")}
         loading={loading ?? false}
         error={error ?? null}
         {...(onRetry ? { onRetry } : {})}
       >
-        <Group title={t("settings.permissions.defaultModeTitle")}>
+        <Group
+          title={t("settings.drill.asking")}
+          description={t("settings.permissions.defaultModeTitle")}
+        >
           <RadioField
             label={t("settings.key.permissions.mode")}
             hideLabel
@@ -259,6 +263,21 @@ export function PermissionsPanel({
             onChange={(on) => onChange("permissions.policy", policyWithExecReview(values, on))}
           />
         </Group>
+
+        {/* Where the agent may reach: each row opens its pane one level deeper. */}
+        {onOpenPane ? (
+          <>
+            <Group title={t("settings.drill.access")}>
+              <PaneRows
+                bare
+                panes={["files", "browser", "computer-use", "vm"]}
+                onOpen={onOpenPane}
+                labels={{ files: t("settings.drill.access.files") }}
+              />
+            </Group>
+            <PaneRows panes={["credentials"]} onOpen={onOpenPane} />
+          </>
+        ) : null}
 
         {/* One list of everything allowed for good; the older per-kind lists are under Details. */}
         <AllowedList
@@ -585,7 +604,13 @@ export function PermissionsPanel({
 
 export { withMatrixOverrides } from "./ActionMatrix.tsx";
 
-export function PermissionsSection({ now }: { now?: number }): ReactElement {
+export function PermissionsSection({
+  now,
+  onOpenPane,
+}: {
+  now?: number;
+  onOpenPane?: (pane: SettingsPaneId) => void;
+}): ReactElement {
   const form = useSettingsForm();
   const call = useCall();
   const { navigate } = useSlots();
@@ -640,6 +665,7 @@ export function PermissionsSection({ now }: { now?: number }): ReactElement {
           form.onChange(`permissions.connectors.${c.id}`, { ...c.actionMatrix, [action]: rule })
         }
         onOpenConnectors={() => navigate?.("/settings/connectors")}
+        {...(onOpenPane ? { onOpenPane } : {})}
         revoking={revoking}
         revokeError={revokeError}
         loading={loading}

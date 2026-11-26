@@ -14,6 +14,7 @@ export type AllowScope =
   | "trust"
   | "trustSubdomains"
   | "program"
+  | "programSession"
   | "space";
 
 export interface Choice {
@@ -313,6 +314,19 @@ export function buildChoices(
           },
         ]
       : []),
+    // "Allow <program> in <folder> for this chat": the host-command grant of one chat. The
+    // generic chat choice never stands in for it on a host command, so the words match the reach.
+    ...(program !== null && !unsandboxed && !program.exact && offered.includes("session")
+      ? [
+          {
+            value: "programSession" as const,
+            label: t("blocks.approval.scope.hostProgramSession", {
+              program: program.program,
+              folder: program.folder,
+            }),
+          },
+        ]
+      : []),
     ...(space !== null
       ? [
           {
@@ -325,7 +339,7 @@ export function buildChoices(
           },
         ]
       : []),
-    ...(offered.includes("session") && !unsandboxed
+    ...(offered.includes("session") && !unsandboxed && approval.kind !== "exec_host"
       ? [lastingChoice("session", approval, opts.site)]
       : []),
     // A separate-desktop share is once only: its labels never stand in for an "always".
@@ -387,11 +401,28 @@ export function cardChoices(
   opts: ChoiceOptions,
 ): { allow: Choice | null; second: Choice | null; more: Choice[] } {
   const choices = buildChoices(approval, cardOffered(approval), opts);
-  return splitChoices(
+  const parts = splitChoices(
     choices,
     defaultAllow(approval),
     isPaymentCard(approval) || opts.onceOnly === true,
   );
+  // The second card for the same program in one chat: the Gateway says so, and the chat choice
+  // comes first.
+  const first = (approval.details as { hostProgram?: { sessionFirst?: unknown } }).hostProgram;
+  const chat = choices.find((c) => c.value === "programSession");
+  if (
+    first?.sessionFirst === true &&
+    chat !== undefined &&
+    parts.second !== null &&
+    parts.second !== chat
+  ) {
+    return {
+      allow: parts.allow,
+      second: chat,
+      more: [parts.second, ...parts.more.filter((c) => c !== chat)],
+    };
+  }
+  return parts;
 }
 
 /**
@@ -415,7 +446,8 @@ export function inlineChoices(approval: ApprovalRequest): {
   const onceOnly =
     floorClassOf(approval.kind, approval.sideEffect) !== null || isPaymentCard(approval);
   const parts = cardChoices(approval, { site, onceOnly });
-  const drop = (c: Choice) => c.value !== "space" && c.value !== "program";
+  const drop = (c: Choice) =>
+    c.value !== "space" && c.value !== "program" && c.value !== "programSession";
   const second = parts.second !== null && drop(parts.second) ? parts.second : null;
   const more = parts.more.filter(drop);
   return { allow: parts.allow, second, more, all: [...(second ? [second] : []), ...more] };
@@ -433,6 +465,8 @@ export function answerFor(value: AllowScope): {
       return { scope: "once", extras: { trustSite: "subdomains" } };
     case "program":
       return { scope: "once", extras: { hostProgram: true } };
+    case "programSession":
+      return { scope: "session", extras: { hostProgram: true } };
     case "space":
       return { scope: "once" };
     default:

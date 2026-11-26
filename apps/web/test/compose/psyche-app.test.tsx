@@ -400,7 +400,7 @@ describe("the composed app on the web host (A8)", () => {
     // The web can't ask macOS: no Permissions step (#554).
     // The flow loads on demand.
     // Progress is a quiet "N of M" label that opens the step menu (#1040).
-    const trigger = await screen.findByRole("button", { name: /^Onboarding progress/ });
+    const trigger = await screen.findByRole("button", { name: "Steps" });
     fireEvent.click(trigger);
     const menu = await screen.findByRole("menu");
     expect(menu.textContent).not.toContain("Permissions");

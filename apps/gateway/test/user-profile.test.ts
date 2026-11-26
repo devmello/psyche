@@ -140,7 +140,7 @@ describe("learning about the owner (Gateway)", () => {
       logger: silentLogger,
       retentionIntervalMs: 0,
       background: false,
-      config: { home, port: 0, dbPath: join(home, "psyche.db"), webRoot: null },
+      config: { home, port: 0, dbPath: join(home, "psyche.db") },
       model: { provider: model, model: "scripted/main", utilityModel: "scripted/utility" },
     });
     const gw = composed;
@@ -218,7 +218,7 @@ describe("learning about the owner (Gateway)", () => {
       logger: silentLogger,
       retentionIntervalMs: 0,
       background: false,
-      config: { home, port: 0, dbPath: join(home, "psyche.db"), webRoot: null },
+      config: { home, port: 0, dbPath: join(home, "psyche.db") },
       model: { provider: model, model: "scripted/main", utilityModel: "scripted/utility" },
     });
     const gw = composed;
@@ -308,7 +308,7 @@ describe("learning about the owner (Gateway)", () => {
       logger: silentLogger,
       retentionIntervalMs: 0,
       background: false,
-      config: { home, port: 0, dbPath: join(home, "psyche.db"), webRoot: null },
+      config: { home, port: 0, dbPath: join(home, "psyche.db") },
       model: { provider: scripted(), model: "scripted/main", utilityModel: "scripted/utility" },
     });
     expect(composed.memory.timeZone).toBe("Asia/Tokyo");

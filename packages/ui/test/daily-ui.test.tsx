@@ -166,9 +166,6 @@ describe("Settings → Daily", () => {
     expect(screen.getByRole("switch", { name: "Notify me" }).getAttribute("aria-checked")).toBe(
       "true",
     );
-    expect(
-      screen.getByRole("switch", { name: "Also send over Messages" }).getAttribute("aria-checked"),
-    ).toBe("false");
     await userEvent.click(brief);
     expect(onChange).toHaveBeenCalledWith("daily.brief.enabled", true);
   });

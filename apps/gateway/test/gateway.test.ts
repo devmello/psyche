@@ -54,8 +54,42 @@ describe("WebSocket origin validation", () => {
     await expect(TestClient.open(`ws://127.0.0.1:${t.gateway.port}/other`)).rejects.toThrow("403");
   });
 
-  it("accepts the Gateway's own origin", async () => {
-    const c = await TestClient.open(wsUrl, { origin: t.gateway.origin });
+  // Browser access was dropped (owner decision 2026-11-25): no browser page may dial the
+  // Gateway, not even one served from the Gateway's own address or its public origin.
+  it("refuses every browser Origin, the Gateway's own included", async () => {
+    for (const origin of [
+      t.gateway.origin,
+      `http://localhost:${t.gateway.port}`,
+      "app://psyche",
+      "file://",
+      "null",
+    ]) {
+      await expect(TestClient.open(wsUrl, { origin })).rejects.toThrow("403");
+    }
+  });
+
+  it("refuses the configured public origin, which browsers were once allowed on", async () => {
+    const publicOrigin = "https://studio-mac.tail1234.ts.net";
+    const g = await startTestGateway({ config: { publicOrigin } });
+    const gUrl = `ws://127.0.0.1:${g.gateway.port}/ws`;
+    try {
+      await expect(TestClient.open(gUrl, { origin: publicOrigin })).rejects.toThrow("403");
+      // Positive control: the same Gateway takes a client that sends no Origin (desktop, iPhone).
+      const c = await TestClient.open(gUrl);
+      const { verifyRes } = await handshake(c, g.gateway.origin, {});
+      expect(verifyRes).toMatchObject({ ok: true });
+      c.close();
+    } finally {
+      await g.cleanup();
+    }
+  });
+
+  it("accepts a client that sends no Origin (the desktop app's main process, the iPhone)", async () => {
+    const c = await TestClient.open(wsUrl);
+    const { verifyRes } = await handshake(c, t.gateway.origin, {
+      handshakeSecret: t.gateway.handshakeSecret,
+    });
+    expect(verifyRes).toMatchObject({ ok: true, payload: { phase: "paired" } });
     c.close();
   });
 });
@@ -82,15 +116,6 @@ describe("pairing", () => {
     expect(verifyRes).toMatchObject({ ok: true, payload: { phase: "pending" } });
     const res = await c.request("settings.get", {});
     expect(res).toMatchObject({ ok: false, error: { code: "pairing_pending" } });
-    c.close();
-  });
-
-  it("never auto-pairs a connection that carries a browser Origin", async () => {
-    const c = await TestClient.open(wsUrl, { origin: t.gateway.origin });
-    const { verifyRes } = await handshake(c, t.gateway.origin, {
-      handshakeSecret: t.gateway.handshakeSecret,
-    });
-    expect(verifyRes).toMatchObject({ ok: true, payload: { phase: "pending" } });
     c.close();
   });
 
@@ -283,7 +308,7 @@ describe("startup", () => {
     const { silentLogger } = await import("../src/log.ts");
     await expect(
       startGateway({
-        config: { home: t.home, port: 0, dbPath: ":memory:", webRoot: null },
+        config: { home: t.home, port: 0, dbPath: ":memory:" },
         env: {},
         logger: silentLogger,
       }),

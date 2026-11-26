@@ -161,7 +161,7 @@ afterEach(async () => {
 async function pairedDevice(
   gw: ComposedGateway["gateway"],
   family: string,
-  platform: "ios" | "web",
+  platform: "ios" | "macos",
 ): Promise<TestClient> {
   const key = newDeviceKey();
   const deviceId = `${family}-${Math.random().toString(36).slice(2)}`;
@@ -182,17 +182,18 @@ async function pairedDevice(
 }
 
 describe("memory.entities.* through the composed Gateway", () => {
-  it("the phone creates and reads a person; the web shell is refused", async () => {
+  it("the phone creates and reads a person; a web-family device is refused", async () => {
     home = mkdtempSync(join(tmpdir(), "psyche-entviewer-"));
     composed = await composeGateway({
       logger: silentLogger,
       retentionIntervalMs: 0,
       background: false,
-      config: { home, port: 0, dbPath: join(home, "psyche.db"), webRoot: null },
+      config: { home, port: 0, dbPath: join(home, "psyche.db") },
       model: { provider: new FakeModelProvider(), model: "fake/model" },
     });
     const phone = await pairedDevice(composed.gateway, "ios", "ios");
-    const web = await pairedDevice(composed.gateway, "web", "web");
+    // The `web` platform can no longer connect, so the browser shell is a web-family Mac row.
+    const web = await pairedDevice(composed.gateway, "web", "macos");
     clients.push(phone, web);
     const made = await phone.request(
       "memory.entities.create",

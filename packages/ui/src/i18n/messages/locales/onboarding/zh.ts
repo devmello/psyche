@@ -8,6 +8,7 @@ export const onboarding: Partial<Catalogue> = {
   "onboarding.connectors.connectApps": "{n, plural, =0 {连接 App} other {连接 # 个 App}}",
   "onboarding.connectors.connecting": "正在连接{name}",
   "onboarding.connectors.accounts": "账户",
+  "onboarding.connectors.moreAccounts": "添加 Google、Microsoft 或电子邮件账户",
   "onboarding.step.memory": "记忆与日常习惯",
   "onboarding.about.lead":
     "一些基本信息，让 Psyche 一开始就认识你。这里的一切都是可选的，保存在 USER.md 中，你随时可以编辑。",
@@ -50,7 +51,7 @@ export const onboarding: Partial<Catalogue> = {
   "onboarding.rerun.description": "再走一遍首次运行的设置。已经完成的步骤会跳过。",
   "onboarding.rerun.button": "重新运行设置向导",
   "onboarding.step.you": "你和你的代理",
-  "onboarding.step.stuff": "你的资料",
+  "onboarding.step.stuff": "需要我帮什么忙？",
   "onboarding.step.safety": "安全",
   "onboarding.step.folders": "文件夹",
   "onboarding.folders.lead":
@@ -113,7 +114,7 @@ export const onboarding: Partial<Catalogue> = {
   "onboarding.done.touchIdNot": "尚未注册",
   "onboarding.done.modelKept": "未更改",
   "onboarding.done.try": "接下来试试",
-  "onboarding.done.try.search": "在“搜索”（⌘K）中提个问题。答案会显示它来自你生活中的哪里。",
-  "onboarding.done.try.home": "打开主页。“跟进”会列出你可能搁置的事。",
-  "onboarding.done.try.canDo": "在齿轮菜单中打开“你能做什么？”，使用现成的任务。",
+  "onboarding.done.try.search": "在搜索中提问",
+  "onboarding.done.try.home": "在主页中跟进进展",
+  "onboarding.done.try.chat": "开始新聊天",
 };

@@ -52,22 +52,15 @@ class PsycheUITestCase: XCTestCase {
         XCTAssertEqual(XCTWaiter().wait(for: [ok], timeout: timeout), .completed, "expected \(element) to be enabled", file: file, line: line)
     }
 
-    /// Opens Settings: a tap on the moth avatar opens the agent sheet, whose header has a Settings button. The
-    /// avatar's long-press menu also has Settings, but a long press on the Liquid Glass toolbar button never
-    /// opens it on GitHub's macOS runner, so the tests use the taps.
+    /// Opens Settings with the gear at the leading edge of the navigation bar, present on every tab's root.
     func openSettings(file: StaticString = #filePath, line: UInt = #line) {
-        let avatar = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Open Psyche's activity")).firstMatch
-        waitFor(avatar, file: file, line: line)
-        // After a sheet closes the page can be left scrolled, with the avatar off screen: bring it back.
-        for _ in 0..<4 where !app.frame.contains(avatar.frame) { app.swipeDown(velocity: .fast) }
-        let settings = app.buttons["Settings"].firstMatch
+        let gear = app.buttons["settings.open"].firstMatch
+        waitFor(gear, file: file, line: line)
         // A sheet still dismissing can swallow the first tap.
-        for _ in 0..<3 where !settings.exists {
-            avatar.tap()
-            if settings.waitForExistence(timeout: 5) { break }
+        for _ in 0..<3 where !app.navigationBars["Settings"].exists {
+            gear.tap()
+            if app.navigationBars["Settings"].waitForExistence(timeout: 5) { break }
         }
-        waitFor(settings, 5, file: file, line: line)
-        settings.tap()
         waitFor(app.navigationBars["Settings"], 5, file: file, line: line)
     }
 

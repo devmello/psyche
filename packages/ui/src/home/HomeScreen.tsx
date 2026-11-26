@@ -16,6 +16,7 @@ import {
   AskSection,
   ComingUpSection,
   GoalsSection,
+  HomeQuietLine,
   KeepInTouchSection,
   MORE_ANCHORS,
   MoreSection,
@@ -108,6 +109,7 @@ export function HomeScreen({
           {...clock}
         />
         <SuggestionsSection accent={!waiting} limit={2} onNavigate={navigate} />
+        <HomeQuietLine />
         <MoreSection
           onNavigate={navigate}
           open={anchor !== undefined && MORE_ANCHORS.includes(anchor)}

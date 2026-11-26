@@ -1,11 +1,16 @@
-import type { AudioFormat, ChannelType } from "@psyche/protocol";
+import type { AudioFormat } from "@psyche/protocol";
 import { FakeSpeechEngine } from "@psyche/testing";
 import { describe, expect, it } from "vitest";
 import { float32ToS16le, PCM_16K_MONO, PCM_24K_MONO, pcmToFloat32, rms } from "../src/audio.ts";
 import type { ProcessRunner } from "../src/process.ts";
 import { oggOpusToCaf, opusPacketSamples, parseOggOpus } from "../src/transcode/caf.ts";
 import { transcribeVoiceNote, VoiceNoteTranscoder } from "../src/transcode/ffmpeg.ts";
-import { inboundFormat, VOICE_NOTE_PROFILES } from "../src/transcode/formats.ts";
+import {
+  inboundFormat,
+  LIBRARY_AUDIO_PROFILE,
+  VOICE_NOTE_PROFILES,
+  type VoiceNoteContainer,
+} from "../src/transcode/formats.ts";
 import { ffmpegAvailable } from "./helpers.ts";
 
 function sine(ms: number, format: AudioFormat, hz = 440): Uint8Array {
@@ -20,18 +25,18 @@ function sine(ms: number, format: AudioFormat, hz = 440): Uint8Array {
   return float32ToS16le(s);
 }
 
-describe("voice-note formats per channel (N11)", () => {
-  it("maps channels to containers and caps", () => {
-    const pick = (c: ChannelType) => [
-      VOICE_NOTE_PROFILES[c].container,
+describe("voice-note formats per container (N11)", () => {
+  it("maps containers to MIME types and caps", () => {
+    const pick = (c: VoiceNoteContainer) => [
+      VOICE_NOTE_PROFILES[c].mime,
       VOICE_NOTE_PROFILES[c].maxBytes,
     ];
-    expect(pick("telegram")).toEqual(["ogg_opus", 50 * 1024 * 1024]);
-    expect(pick("whatsapp")).toEqual(["ogg_opus", 16 * 1024 * 1024]);
-    expect(pick("imessage")[0]).toBe("caf_opus");
-    expect(VOICE_NOTE_PROFILES.imessage.fileName).toBe("Audio Message.caf");
-    for (const c of ["slack", "discord", "email"] as const) expect(pick(c)[0]).toBe("mp3");
-    for (const p of Object.values(VOICE_NOTE_PROFILES)) {
+    expect(pick("ogg_opus")).toEqual(["audio/ogg", 50 * 1024 * 1024]);
+    expect(pick("caf_opus")[0]).toBe("audio/x-caf");
+    expect(VOICE_NOTE_PROFILES.caf_opus.fileName).toBe("Audio Message.caf");
+    expect(LIBRARY_AUDIO_PROFILE.container).toBe("mp3");
+    for (const [c, p] of Object.entries(VOICE_NOTE_PROFILES)) {
+      expect(p.container).toBe(c);
       expect(p.channels).toBe(1);
       expect([...p.bitratesKbps].sort((a, b) => b - a)).toEqual([...p.bitratesKbps]);
     }
@@ -57,7 +62,7 @@ describe("encoder bitrate ladder (no ffmpeg needed)", () => {
       },
     };
     const t = new VoiceNoteTranscoder({ runner });
-    const profile = { ...VOICE_NOTE_PROFILES.slack, maxBytes: 4_000 };
+    const profile = { ...VOICE_NOTE_PROFILES.mp3, maxBytes: 4_000 };
     const pcm = sine(100, PCM_24K_MONO);
     const out = await t.encode(pcm, PCM_24K_MONO, profile);
     expect(out.bitrateKbps).toBe(32);
@@ -77,7 +82,7 @@ describe("encoder bitrate ladder (no ffmpeg needed)", () => {
       },
     });
     await expect(
-      t.encode(new Uint8Array(4), { encoding: "mp3", sampleRate: 44_100, channels: 1 }, "telegram"),
+      t.encode(new Uint8Array(4), { encoding: "mp3", sampleRate: 44_100, channels: 1 }, "ogg_opus"),
     ).rejects.toMatchObject({ code: "invalid_params" });
   });
 
@@ -104,14 +109,14 @@ describe.skipIf(!ffmpeg)("transcoding matrix verified with ffprobe (live ffmpeg)
     caf_opus: { formatName: "caf", codec: "opus", sampleRate: 48_000 },
     mp3: { formatName: "mp3", codec: "mp3", sampleRate: 44_100 },
   };
-  const channels: ChannelType[] = ["telegram", "whatsapp", "imessage", "slack", "discord", "email"];
+  const containers: VoiceNoteContainer[] = ["ogg_opus", "caf_opus", "mp3"];
 
   for (const input of inputs) {
-    for (const channel of channels) {
-      it(`${input.encoding} ${input.sampleRate} Hz ×${input.channels} → ${channel}`, async () => {
+    for (const container of containers) {
+      it(`${input.encoding} ${input.sampleRate} Hz ×${input.channels} → ${container}`, async () => {
         const pcm = sine(1500, input);
-        const note = await t.encode(pcm, input, channel);
-        const profile = VOICE_NOTE_PROFILES[channel];
+        const note = await t.encode(pcm, input, container);
+        const profile = VOICE_NOTE_PROFILES[container];
         expect(note.mime).toBe(profile.mime);
         expect(note.data.byteLength).toBeLessThanOrEqual(profile.maxBytes);
         const probe = await t.probe(note.data);
@@ -126,7 +131,7 @@ describe.skipIf(!ffmpeg)("transcoding matrix verified with ffprobe (live ffmpeg)
   }
 
   it("remuxes Ogg/Opus into CAF without re-encoding", async () => {
-    const ogg = await t.encode(sine(2000, PCM_24K_MONO), PCM_24K_MONO, "telegram");
+    const ogg = await t.encode(sine(2000, PCM_24K_MONO), PCM_24K_MONO, "ogg_opus");
     const stream = parseOggOpus(ogg.data);
     const caf = oggOpusToCaf(ogg.data);
     expect(new TextDecoder().decode(caf.subarray(0, 4))).toBe("caff");
@@ -138,7 +143,7 @@ describe.skipIf(!ffmpeg)("transcoding matrix verified with ffprobe (live ffmpeg)
   });
 
   it("transcribes an inbound voice note through the decoder", async () => {
-    const ogg = await t.encode(sine(1000, PCM_24K_MONO), PCM_24K_MONO, "whatsapp");
+    const ogg = await t.encode(sine(1000, PCM_24K_MONO), PCM_24K_MONO, "ogg_opus");
     const engine = new FakeSpeechEngine().transcript("on my way");
     const transcript = await transcribeVoiceNote(engine, t, ogg.data);
     expect(transcript.text).toBe("on my way");

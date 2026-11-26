@@ -444,7 +444,7 @@ describe("with the people tier off, no person fact, gist or relation appears on 
 
   function everySurface(w: World) {
     const out: Record<string, unknown> = {};
-    for (const surface of ["brief", "channel"] as const) {
+    for (const surface of ["brief"] as const) {
       out[`morning:${surface}`] = w.catchup.daily.morning(surface);
       out[`evening:${surface}`] = w.catchup.daily.evening(surface);
       out[`coming:${surface}`] = w.catchup.comingUp(() => [
@@ -473,9 +473,7 @@ describe("with the people tier off, no person fact, gist or relation appears on 
     // The one people-tier thing allowed by default is the birthday date (W1), in the brief only.
     const coming = everySurface(w);
     expect(JSON.stringify(coming["coming:brief"])).toContain("Ava turns 7");
-    expect(coming["coming:channel"]).toEqual([]);
     expect(coming["keep:brief"]).toEqual([]);
-    expect(coming["keep:channel"]).toEqual([]);
   });
 
   it("the brief post itself carries none of it", async () => {
@@ -497,8 +495,17 @@ describe("with the people tier off, no person fact, gist or relation appears on 
     const s = everySurface(w);
     expect(JSON.stringify(s["coming:brief"])).toContain("surprise party");
     expect(JSON.stringify(s["keep:brief"])).toContain("haven't replied");
-    expect(s["coming:channel"]).toEqual([]);
-    expect(s["keep:channel"]).toEqual([]);
+  });
+
+  it("an old stored channel switch (chat channels were removed) opens nothing", async () => {
+    const w = setup();
+    w.on();
+    setSetting(w.db, "memory.surfaces", {
+      tiers: { people: { channel: true }, workMail: { channel: true } },
+    });
+    const text = JSON.stringify({ brief: await list(w, "brief"), ...everySurface(w) });
+    for (const word of FORBIDDEN) expect(text).not.toContain(word);
+    expect(everySurface(w)["keep:brief"]).toEqual([]);
   });
 
   it("turning birthdays off removes them", () => {
@@ -517,7 +524,6 @@ describe("pending suggestions never surface", () => {
       home: await list(w, "home"),
       brief: await list(w, "brief"),
       morning: w.catchup.daily.morning("brief").lines,
-      channel: w.catchup.daily.morning("channel").lines,
       evening: w.catchup.daily.evening("brief"),
       notice: w.catchup.daily.notice("wrapup"),
     });
@@ -707,7 +713,7 @@ describe("composition", () => {
       retentionIntervalMs: 0,
       background: false,
       timeZone: "UTC",
-      config: { home, port: 0, dbPath: join(home, "psyche.db"), webRoot: null },
+      config: { home, port: 0, dbPath: join(home, "psyche.db") },
       model: { provider: new FakeModelProvider(), model: "fake/model" },
     });
     const names = Object.keys(composed.proactive.handlers);

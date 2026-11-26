@@ -338,7 +338,7 @@ describe("who may use a Space folder (table)", () => {
 
   it("a channel contact in the Space's chat gets no Space and no Space folders (SR11)", async () => {
     const peer = start("thr_kitchen", {
-      requester: { role: "allowed", channel: "telegram", senderId: "42" },
+      requester: { role: "allowed", channel: "oldchat", senderId: "42" },
     });
     expect((await read(join(kitchen, "a.txt"), peer)).decision).toBe("deny");
     expect(h.broker.runSpace("thr_kitchen", peer.runId)).toBeUndefined();
@@ -750,7 +750,7 @@ describe('the "Allow in this Space" card', () => {
       "a channel contact in the Space's chat",
       () =>
         start("thr_kitchen", {
-          requester: { role: "allowed", channel: "telegram", senderId: "42" },
+          requester: { role: "allowed", channel: "oldchat", senderId: "42" },
         }),
     ],
     ["a run on the Space's chat that was never bound", () => ctx("thr_kitchen")],

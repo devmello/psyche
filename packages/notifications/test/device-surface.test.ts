@@ -5,7 +5,6 @@ import {
   createNotifier,
   type DeviceToast,
   MemoryNotificationStore,
-  parseChannelSurface,
   parseDeviceSurface,
   resolveSurfaces,
   surfaceClass,
@@ -41,12 +40,11 @@ function setup(options: { quiet?: boolean; connected?: Set<string> } = {}) {
 }
 
 describe("device surface names", () => {
-  it("is its own class, never a chat channel", () => {
+  it("is its own class", () => {
     expect(surfaceClass("device:dev_a")).toBe("device");
     expect(parseDeviceSurface("device:dev_a")).toBe("dev_a");
     expect(parseDeviceSurface("device:")).toBeUndefined();
-    expect(parseDeviceSurface("telegram:12")).toBeUndefined();
-    expect(parseChannelSurface("device:dev_a")).toBeUndefined();
+    expect(parseDeviceSurface("oldchat:12")).toBeUndefined();
   });
 
   it("is added next to the OS surface only", () => {

@@ -4,12 +4,11 @@ import type { Catalogue } from "../../index.ts";
 export const memorySurfacesRest: Partial<Catalogue> = {
   "memorySurfaces.title": "मेमोरी कहाँ दिखती है",
   "memorySurfaces.description":
-    "{persona} होम पर, दैनिक ब्रीफ़ में, नोटिफ़िकेशन में और Telegram या किसी और चैनल पर भेजी ब्रीफ़ में क्या दिखा सकता है। मेमोरी पेज हमेशा वह सब दिखाता है जिसे आपने बाहर नहीं रखा।",
+    "{persona} होम पर, दैनिक ब्रीफ़ में और नोटिफ़िकेशन में क्या दिखा सकता है। मेमोरी पेज हमेशा वह सब दिखाता है जिसे आपने बाहर नहीं रखा।",
   "memorySurfaces.loadLabel": "मेमोरी कहाँ दिखती है",
   "memorySurfaces.surface.home": "होम",
   "memorySurfaces.surface.brief": "दैनिक ब्रीफ़",
   "memorySurfaces.surface.notification": "नोटिफ़िकेशन",
-  "memorySurfaces.surface.channel": "चैनल पर भेजी गई ब्रीफ़",
   "memorySurfaces.tier.work.title": "काम और टू-डू",
   "memorySurfaces.tier.work.description":
     "प्रोजेक्ट, कोर्स, टू-डू, वे कैसे चल रहे हैं, देय तिथियाँ, और आपके अपने कैलेंडर के इवेंट।",
@@ -21,8 +20,7 @@ export const memorySurfacesRest: Partial<Catalogue> = {
   "memorySurfaces.tier.people.title": "लोगों के बारे में तथ्य",
   "memorySurfaces.tier.people.description":
     "दूसरे लोगों के बारे में तथ्य, आप उन्हें कैसे जानते हैं, क्या बात हुई, और संपर्क में रहें।",
-  "memorySurfaces.people.warning":
-    "ब्रीफ़ वह कोई भी देख सकता है जो आपकी स्क्रीन या आपका Telegram देखता है।",
+  "memorySurfaces.people.warning": "ब्रीफ़ वह कोई भी देख सकता है जो आपकी स्क्रीन देखता है।",
   "memorySurfaces.birthdays.title": "जन्मदिन और वर्षगाँठ",
   "memorySurfaces.birthdays.label": "जन्मदिन और वर्षगाँठ दिखाएँ",
   "memorySurfaces.birthdays.hint":

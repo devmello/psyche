@@ -120,7 +120,7 @@ struct NightShiftReviewView: View {
         Image(systemName: on ? "checkmark.circle.fill" : "circle")
             .font(.title2)
             .foregroundStyle(on ? PsycheColor.inkText : PsycheColor.muted.opacity(enabled ? 0.8 : 0.35))
-            .frame(width: 32, height: 32)
+            .frame(width: 44, height: 44)
             .contentShape(Rectangle())
     }
 
