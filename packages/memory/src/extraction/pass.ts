@@ -13,6 +13,7 @@ import { normalizeName } from "../graph/normalize.ts";
 import type { GraphStore } from "../graph/store.ts";
 import { applyWorkUpdates, openWorkForPrompt } from "../graph/work-learn.ts";
 import { workNames } from "../graph/work-signals.ts";
+import type { PromiseRetention } from "../promises/store.ts";
 import { cleanItemText } from "./clean.ts";
 import { callExtractor } from "./extractor.ts";
 import { checkGates, type GateReason, type SystemState } from "./gates.ts";
@@ -96,6 +97,8 @@ export interface PassDeps {
    * graph pass leaves those alone: one model call per entity per night); returns what it used,
    * which must not exceed `tokensLeft`. Skipped when the model setting is `none`.
    */
+  /** The promise ledger's retention (`promises.retentionDays`), or undefined while it is off. */
+  promiseRetention?: () => PromiseRetention | undefined;
   graphModelPass?: (
     tokensLeft: number,
     covered: ReadonlySet<string>,
@@ -351,11 +354,13 @@ export async function runEverythingPass(deps: PassDeps): Promise<PassReport> {
         report.tokensOut += used.tokens;
       }
     }
+    const promiseRetention = deps.promiseRetention?.();
     em.runRetention({
       pendingDays: settings.retention.pendingDays,
       untrustedAcceptedMonths: settings.retention.untrustedAcceptedMonths,
       quarantineDays: settings.retention.quarantineDays,
       runLogDays: settings.retention.runLogDays,
+      ...(promiseRetention === undefined ? {} : { promises: promiseRetention }),
     });
   } catch (err) {
     report.error = err instanceof Error ? err.message.slice(0, 300) : "failed";

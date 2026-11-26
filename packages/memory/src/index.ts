@@ -28,7 +28,7 @@ export * from "./graph/life-answer.ts";
 export * from "./graph/model-pass.ts";
 export * from "./graph/normalize.ts";
 export * from "./graph/nudges.ts";
-export { ownWords } from "./graph/own-words.ts";
+export { HEADER as MAIL_HEADER, MAIL_HEADER_EXTRA, ownWords } from "./graph/own-words.ts";
 export * from "./graph/poll.ts";
 export * from "./graph/projects.ts";
 export * from "./graph/starters.ts";
@@ -50,6 +50,13 @@ export * from "./profile-fields.ts";
 export * from "./profile-sections.ts";
 export * from "./promises/cues.ts";
 export * from "./promises/dedupe.ts";
+export {
+  hasConfidentDue as hasConfidentPromiseDue,
+  localDay as promiseLocalDay,
+  localTime as promiseLocalTime,
+  startOfDay as promiseStartOfDay,
+  warnAt as promiseWarnAt,
+} from "./promises/due.ts";
 export * from "./promises/due-text.ts";
 export * from "./promises/lane.ts";
 export * from "./promises/lifecycle.ts";

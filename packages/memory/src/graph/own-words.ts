@@ -28,8 +28,16 @@ export const MAX_OWN_PARAGRAPH_CHARS = 400;
 export const MAX_OWN_PARAGRAPH_LINES = 4;
 
 const FENCE = /```[\s\S]*?(?:```|$)/g;
-const HEADER =
+export const HEADER =
   /^\s*(?:from|to|cc|bcc|subject|date|sent|reply-to|de|para|asunto|von|an|betreff)\s*:/i;
+/**
+ * More header keys of a forwarded or quoted mail, in the other UI languages (German, French,
+ * Spanish, Portuguese, Italian, Japanese, Korean, Chinese, Arabic, Hindi). Used with {@link HEADER}
+ * to find where a forward begins; a colon may be full-width or follow a space ("De :").
+ */
+export const MAIL_HEADER_EXTRA =
+  /^\s*(?:gesendet|datum|envoy[ée]|[àa]|objet|enviado|fecha|assunto|data|da|inviato|oggetto|a|cc|差出人|送信日時|送信日|宛先|件名|日付|보낸 ?사람|보낸 ?날짜|받는 ?사람|제목|날짜|发件人|发送时间|发送日期|收件人|主题|日期|寄件者|寄件日期|收件者|主旨|من|إلى|الموضوع|التاريخ|أرسلت|प्रेषक|प्रति|विषय|दिनांक|भेजा गया)\s*[:：]/i;
+
 /** Names of places text comes from: "Canvas: HW7 due Nov 12" is the site talking, not the owner. */
 const SOURCE_LINE =
   /^\s*(?:canvas|gradescope|piazza|classroom|google classroom|blackboard|moodle|brightspace|slack|discord|teams|email|e-mail|mail|gmail|outlook|message|text|sms|imessage|whatsapp|signal|telegram|chat|prof|professor|ta|teacher|instructor|notification|announcement|reminder|jira|linear|github|reddit|twitter|forwarded|fwd|fw|re|quote|source|from)\b[^:\n]{0,30}:/i;

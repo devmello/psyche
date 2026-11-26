@@ -189,7 +189,12 @@ import { DeferredDigest } from "./deferred-digest.ts";
 import { DeferredResume } from "./deferred-resume.ts";
 import { composeDeviceNotifications, DeviceNotifications } from "./device-notify.ts";
 import { composeDictation } from "./dictation.ts";
-import { composeEverything, type Everything, everythingSettings } from "./everything.ts";
+import {
+  composeEverything,
+  type Everything,
+  everythingSettings,
+  indexedSources,
+} from "./everything.ts";
 import { readSystemState } from "./everything-probe.ts";
 import { type ExecHostDeps, execHostTool } from "./exec-host.ts";
 import { feedContextResolver } from "./feed-context.ts";
@@ -262,6 +267,8 @@ import { phoneLocationTool } from "./phone-location.ts";
 import { composePlugins } from "./plugins.ts";
 import { composePoints, type PointsOptions } from "./points.ts";
 import { type ComposedProactive, composeProactive, connectorToolLookup } from "./proactive.ts";
+import { collectDoneEvidence } from "./promise-evidence.ts";
+import { composePromises, type Promises } from "./promises.ts";
 import {
   folderAccessEnv,
   launchConfigLinks,
@@ -475,6 +482,8 @@ export interface ComposedGateway {
   readonly people: People;
   /** Everything memory: review, quarantine and the nightly pass (#1010). */
   readonly everything: Everything;
+  /** The promise ledger service (`compose/promises.ts`): scan, sweep and the brief lines. */
+  readonly promises: Promises;
   /** Unified search (S1): the main index, its indexer and `search.query`. */
   readonly search: ComposedSearch;
   readonly broker: PsychePermissionBroker;
@@ -1473,6 +1482,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     // tokens it leaves, for the people it did not read about (the graph's own nightly step then
     // skips its model pass).
     graphModelPass: (left, covered) => people.modelPass(left, covered),
+    promiseRetention: () => promises.retention(),
     announce: (card) => void proactive.feed.postNotice({ ...card, reason: "memory learned" }),
     ...(gwOptions.logger === undefined ? {} : { logger: gwOptions.logger }),
   });
@@ -1485,6 +1495,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     em: everything.store,
     model: () => everything.answerModel(),
     timeZone: () => timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone,
+    // The ledger warns about the owner's promises itself: Keep in touch drops its promise lines.
+    ledgerOn: () => getSetting(db, "promises.enabled")?.value === true,
     post: (card) =>
       void proactive.feed.postNotice({
         title: card.title,
@@ -2144,6 +2156,55 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   // The Space trackers are composed last; the mail poll, calendar watch and folder watcher ask
   // them through this ref whether anything listens (spaces-2026 §6.2).
   const spaceTrackers: SpaceTrackersRef = {};
+  // The promise ledger (docs/design/promise-ledger-2026.md): scan and sweep jobs, the handlers
+  // behind the remote-viewer scrub, the warning notifier and the brief lines.
+  const promisesTools = () => connectorToolLookup(registry);
+  const promisesConnectors = async () =>
+    connectorsPart === undefined ? [] : await connectorsPart.registry.list();
+  const promises = composePromises({
+    db,
+    clock,
+    graph: people.graph,
+    sqlite: memoryLate === undefined ? db.sqlite : memoryDb.sqlite,
+    em: everything.store,
+    loopVisibility: people.loopVisibility,
+    publish: (event, payload) => publish(event as never, payload as never),
+    notifier,
+    timeZone: () => timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone,
+    redact: (text) => redactor.redact(text),
+    ownerNames: () => {
+      const owner = people.graph.ownerEntity();
+      return owner === undefined ? [] : [owner.name, ...owner.aliases];
+    },
+    model: () => everything.answerModel(),
+    // Search's switches and the owner's opt-out bind the ledger too (design 7.3).
+    searchAllows: (source) =>
+      everythingSettings(getSetting(db, EVERYTHING_MEMORY_SETTING_KEY)?.value, indexedSources(db))
+        .sources[source] === true,
+    mail: {
+      tools: promisesTools,
+      connectors: promisesConnectors,
+      resolve: (address) => people.graph.resolveIdentifier("email", address) ?? null,
+      isTwoWay: (id) => people.graph.isTwoWay(id),
+      ...(gwOptions.logger === undefined ? {} : { logger: gwOptions.logger }),
+    },
+    evidence: (q) =>
+      collectDoneEvidence(
+        {
+          clock,
+          tools: promisesTools,
+          connectors: promisesConnectors,
+          helper: () => gatewayRef?.context.nodes.hostHelper()?.client,
+          resolve: (contact) =>
+            people.graph.resolveIdentifier("email", contact) ??
+            people.graph.resolveIdentifier("phone", contact) ??
+            null,
+          ...(gwOptions.logger === undefined ? {} : { logger: gwOptions.logger }),
+        },
+        q,
+      ),
+    ...(gwOptions.logger === undefined ? {} : { logger: gwOptions.logger }),
+  });
   const proactive = composeProactive({
     db,
     clock,
@@ -2172,6 +2233,13 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     },
     quietThreads: () => mailFollowups.briefLines(),
     nightShift: () => nightShiftRef?.briefLine(),
+    promises: {
+      briefLines: (surface) => promises.briefLines(surface),
+      ledgerOn: () => promises.ledgerOn(),
+      meetingTarget: () => promises.meetingTarget(),
+      jobs: () => promises.jobs(),
+      ensureSchedules: (scheduler, zone) => promises.ensureSchedules(scheduler, zone),
+    },
     // Catching up and `memory.catchup.*` (MW4): the graph, and what the agent may read of it.
     catchup: { graph: people.graph, em: everything.store, access: people.agentAccess },
     // Ideas proposes folding a skill's lessons into it once it has three (teaching loop §6).
@@ -2807,7 +2875,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       mountParamsOnly(createNotificationHandlers(notifier) as never),
       () => people?.loopVisibility,
     ),
-    ...proactive.handlers,
+    ...promises.withShims(proactive.handlers),
+    ...promises.handlers,
     ...(nightShiftRef?.defs ?? {}),
     ...(planForksRef?.defs ?? {}),
     ...capabilities.handlers,
@@ -3127,6 +3196,9 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   gateway.context.chatFiles.attached = (threadId) => rawBroker.attachedFiles(threadId);
   // Clear chat and delete end the conversation: its "Allow once" folders and attached files go.
   gateway.context.threadEnded.add(endSessionQuietly(rawBroker, gwOptions.logger));
+  // Chat feeds the promise lane at thread end, before the messages are deleted (design 3.2).
+  gateway.context.threadEnding.add(promises.chat.ending);
+  gateway.context.threadEnded.add(promises.chat.ended);
   // Clear chat and delete cancel the chat's plan forks and remove their hidden threads (§8).
   gateway.context.threadEnding.add((threadId) => planForksRef?.onThreadEnding(threadId));
   gateway.context.messageScrub.scrub = (message, who) => everything.lifeChat.scrub(message, who);
@@ -3208,6 +3280,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     otherChats,
     people,
     everything,
+    promises,
     search,
     broker,
     audit,
