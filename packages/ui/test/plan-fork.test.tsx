@@ -22,7 +22,7 @@ import {
 } from "../src/plan-fork/model.ts";
 import { PlansView } from "../src/plan-fork/PlansView.tsx";
 import { PlanForkStartSheet } from "../src/plan-fork/StartSheet.tsx";
-import { initialTicks, selectionOf } from "../src/plan-fork/TakeSheet.tsx";
+import { initialTicks, mergeTicks, selectionOf } from "../src/plan-fork/TakeSheet.tsx";
 import { StoryWorld } from "../src/stories/harness.tsx";
 
 const card = (items: unknown, kind = "staged_apply"): Pick<ApprovalRequest, "kind" | "details"> =>
@@ -305,6 +305,39 @@ describe("Take this plan", () => {
     expect(card.items.map((i) => i.itemId)).toEqual(ids);
   });
 
+  it("keeps an unticked item unticked when the items are read again, and Take sends only the ticked", async () => {
+    const { ref, sheet } = await open();
+    const g = ref.gateway as MockGateway;
+    const stagedCalls = () => g.calls.filter((c) => c.method === "planForks.staged").length;
+    await userEvent.click(within(sheet).getByRole("checkbox", { name: "Block the move days" }));
+    const before = stagedCalls();
+    // An unrelated update of this fork: the store reads its queries again.
+    g.emit("planFork.updated", {
+      forkId: "fork_1",
+      threadId: IDS.threads.main,
+      status: "ready",
+      branches: [],
+      spentUsd: 0.4,
+    });
+    await waitFor(() => expect(stagedCalls()).toBeGreaterThan(before));
+    await waitFor(() =>
+      expect(
+        within(sheet)
+          .getByRole("checkbox", { name: "Block the move days" })
+          .getAttribute("aria-checked"),
+      ).toBe("false"),
+    );
+    await userEvent.click(within(sheet).getByRole("button", { name: "Take this plan" }));
+    await waitFor(() => expect(answers(g)).toHaveLength(1));
+    const take = g.calls.find((c) => c.method === "planForks.take");
+    const ids = (take?.params as { items: { itemId: string }[] } | undefined)?.items.map(
+      (i) => i.itemId,
+    );
+    expect(ids).toEqual(["stg_austin_mail", "stg_austin_rem"]);
+    const card = g.world.approvals.at(-1)?.details as { items: { itemId: string }[] };
+    expect(card.items.map((i) => i.itemId)).toEqual(ids);
+  });
+
   it("refuses to answer when the approval lists an extra, a missing or a changed item", async () => {
     const tampers: [string, (rows: Record<string, unknown>[]) => Record<string, unknown>[]][] = [
       ["extra", (rows) => [...rows, { ...(rows[0] as object), itemId: "stg_other" }]],
@@ -502,5 +535,43 @@ describe("Continue after a plan was taken while the chat was busy", () => {
     );
     await screen.findByTestId("plan-taken");
     expect(screen.queryByRole("button", { name: "Continue" })).toBeNull();
+  });
+});
+
+describe("mergeTicks keeps what the owner chose across a re-read", () => {
+  const items = austinStaged();
+  const start = initialTicks(items);
+  const owner = {
+    items: { ...start.items, stg_austin_cal: false },
+    sends: { stg_austin_mail: true },
+  };
+  it("keeps item and send ticks for the same items", () => {
+    const out = mergeTicks(owner, items, structuredClone(items));
+    expect(out.items.stg_austin_cal).toBe(false);
+    expect(out.items.stg_austin_mail).toBe(true);
+    expect(out.sends.stg_austin_mail).toBe(true);
+  });
+  it("unticks an item whose binding hash changed, and one that is no longer fresh", () => {
+    const changed = items.map((i) =>
+      i.id === "stg_austin_mail"
+        ? { ...i, bindingHash: "sha256:other" }
+        : i.id === "stg_austin_rem"
+          ? { ...i, status: "stale" as const }
+          : i,
+    );
+    const out = mergeTicks(owner, items, changed);
+    expect(out.items.stg_austin_mail).toBe(false);
+    expect(out.sends.stg_austin_mail).toBe(false);
+    expect(out.items.stg_austin_rem).toBe(false);
+  });
+  it("applies the initial ticks only to a new item", () => {
+    const first = items.slice(0, 2);
+    const out = mergeTicks(
+      { items: { [first[0]?.id ?? ""]: false, [first[1]?.id ?? ""]: false }, sends: {} },
+      first,
+      items,
+    );
+    expect(out.items[first[0]?.id ?? ""]).toBe(false);
+    expect(out.items[items[2]?.id ?? ""]).toBe(true);
   });
 });

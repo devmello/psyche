@@ -509,7 +509,7 @@ export function planForkHandlers(ctx: PlanForkCtx): Handlers {
         .forks.filter((f) => f.threadId === p.threadId)
         .map(view),
     }),
-    "planForks.staged": (p) => ({ items: ctx.world().staged[p.branchId] ?? [] }),
+    "planForks.staged": (p) => ({ items: structuredClone(ctx.world().staged[p.branchId] ?? []) }),
     "planForks.cancel": (p) => {
       const f = findFork(p.forkId);
       const w = ctx.world();

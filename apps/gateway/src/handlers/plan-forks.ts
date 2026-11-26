@@ -44,11 +44,12 @@ import {
   type PlanFork,
   type PlanForkBranch,
   PsycheError,
+  type StagedAction,
   type Surface,
   type TaintSource,
 } from "@psyche/protocol";
-import { isDesktopViewer } from "../compose/fork-hidden.ts";
-import { forRemote } from "../compose/night-shift.ts";
+import { forkThreadRestricted, isDesktopViewer } from "../compose/fork-hidden.ts";
+import { forRemote, MESSAGES_ITEM_LINE } from "../compose/night-shift.ts";
 import type { Call, HandlerDef } from "../context.ts";
 
 /**
@@ -135,6 +136,29 @@ declare function paramsOf(
     | "planForks.staged"
     | "planForks.dismiss",
 ): void;
+
+/**
+ * A staged item for a viewer that may not read its text: the id, status, binding hash and counts
+ * stay (the Take sheet lists the row), every field that quotes the owner's data is cleared.
+ */
+function withholdItem(i: StagedAction): StagedAction {
+  const result = i.result == null ? i.result : { ...i.result };
+  if (result != null) delete result.error;
+  return {
+    ...i,
+    result,
+    withheld: "messages",
+    summary: MESSAGES_ITEM_LINE,
+    why: null,
+    params: null,
+    target: null,
+    targetKey: "",
+    precondition: null,
+    inverse: null,
+    send: null,
+    preview: null,
+  };
+}
 
 function settingNumber(db: PsycheDb, key: string, fallback: number, min: number, max: number) {
   const v = getSetting(db, key)?.value;
@@ -528,12 +552,17 @@ export function createPlanForkHandlers(deps: PlanForkDeps) {
       const branch = getPlanForkBranch(db, p.branchId);
       if (branch === null || branch.forkId !== fork.id)
         throw new PsycheError("not_found", "no such branch");
-      // Items made from the owner's Messages reach only the desktop shell on this Mac in full.
-      const desktop = isDesktopViewer(call);
+      const items = listStagedActionsForBranch(db, branch.id).slice(0, 50);
+      if (isDesktopViewer(call)) return { items };
+      // Off the desktop shell: a branch that is still running, or that read owner-only sources
+      // (Memory, Contacts, Messages leave no taint on its items), shows no item text at all. The
+      // rule is `forkThreadRestricted`'s, the one the router applies to the branch's thread.
+      const restricted =
+        branch.readOwnerOnly ||
+        branch.status !== "reported" ||
+        forkThreadRestricted(db, branch.threadId);
       return {
-        items: listStagedActionsForBranch(db, branch.id)
-          .slice(0, 50)
-          .map((i) => (desktop ? i : forRemote(i))),
+        items: items.map((i) => forRemote(restricted ? withholdItem(i) : i)),
       };
     },
 

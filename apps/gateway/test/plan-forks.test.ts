@@ -622,47 +622,72 @@ describe("planForks R1 fixes", () => {
 });
 
 describe("planForks.staged", () => {
-  type Items = { id: string; summary: string; withheld?: string; params: unknown }[];
-  const fromMessages = (r: Rig, itemId: string) =>
-    r.db.sqlite
-      .prepare("UPDATE staged_actions SET taint_sources = ? WHERE id = ?")
-      .run(JSON.stringify([{ sourceKind: "message", origin: "imessage" }]), itemId);
+  type Items = {
+    id: string;
+    summary: string;
+    bindingHash: string;
+    status: string;
+    withheld?: string;
+    params: unknown;
+    preview: unknown;
+    why: unknown;
+    target: unknown;
+    send: unknown;
+  }[];
+  const staged = async (r: Rig, forkId: string, branchId: string, call?: Call) =>
+    ((await r.run("planForks.staged", { forkId, branchId }, undefined, call)) as { items: Items })
+      .items;
 
-  it("gives the owner's desktop the full items of the branch", async () => {
+  it("gives the owner's desktop the full items, even of an owner-only branch", async () => {
     const r = await rig();
     const f = await readyFork(r);
-    fromMessages(r, f.itemA.id);
-    const out = (await r.run("planForks.staged", { forkId: f.forkId, branchId: f.a.id })) as {
-      items: Items;
-    };
-    expect(out.items.map((i) => i.id)).toEqual([f.itemA.id]);
-    expect(out.items[0]?.summary).toBe(f.itemA.summary);
-    expect(out.items[0]?.params).not.toBeNull();
-    expect(out.items[0]?.withheld).toBeUndefined();
+    read(r, f.forkId, f.a.id, "mcp__apple__messages_search");
+    expect(getPlanForkBranch(r.db, f.a.id)?.readOwnerOnly).toBe(true);
+    const items = await staged(r, f.forkId, f.a.id);
+    expect(items.map((i) => i.id)).toEqual([f.itemA.id]);
+    expect(items[0]?.summary).toBe(f.itemA.summary);
+    expect(items[0]?.params).not.toBeNull();
+    expect(items[0]?.withheld).toBeUndefined();
   });
 
-  it("maps the items through forRemote for a phone, and leaves items from other sources whole", async () => {
+  it("withholds every item of an owner-only branch from a phone, keeping id, status and hash", async () => {
     const r = await rig();
     const f = await readyFork(r);
-    fromMessages(r, f.itemA.id);
-    const phoneOut = (await r.run(
-      "planForks.staged",
-      { forkId: f.forkId, branchId: f.a.id },
-      undefined,
-      phone,
-    )) as { items: Items };
-    expect(phoneOut.items[0]?.withheld).toBe("messages");
-    expect(phoneOut.items[0]?.params).toBeNull();
-    expect(phoneOut.items[0]?.summary).not.toBe(f.itemA.summary);
-    // The control: a branch whose item did not come from Messages is the same on the phone.
-    const other = (await r.run(
-      "planForks.staged",
-      { forkId: f.forkId, branchId: f.b.id },
-      undefined,
-      phone,
-    )) as { items: Items };
-    expect(other.items[0]?.withheld).toBeUndefined();
-    expect(other.items[0]?.summary).toBe(f.itemB.summary);
+    // The real path: the branch read Messages through a tool. Its items carry no taint of it.
+    read(r, f.forkId, f.a.id, "mcp__apple__messages_search");
+    const [item] = await staged(r, f.forkId, f.a.id, phone);
+    expect(item?.id).toBe(f.itemA.id);
+    expect(item?.bindingHash).toBe(f.itemA.bindingHash);
+    expect(item?.status).toBe(f.itemA.status);
+    expect(item?.withheld).toBe("messages");
+    expect(item?.summary).not.toBe(f.itemA.summary);
+    for (const k of ["params", "preview", "why", "target", "send"] as const) {
+      expect(item?.[k], k).toBeNull();
+    }
+    expect(JSON.stringify(item)).not.toContain("Call movers");
+  });
+
+  it("withholds the items of a branch that is still running from a phone", async () => {
+    const r = await rig();
+    const f = await readyFork(r);
+    updatePlanForkBranch(r.db, f.b.id, { status: "running" });
+    const [item] = await staged(r, f.forkId, f.b.id, phone);
+    expect(item?.withheld).toBe("messages");
+    expect(item?.params).toBeNull();
+    // The desktop still sees it whole.
+    const [mac] = await staged(r, f.forkId, f.b.id);
+    expect(mac?.params).not.toBeNull();
+  });
+
+  it("shows a phone the full items of a reported branch that read nothing owner-only", async () => {
+    const r = await rig();
+    const f = await readyFork(r);
+    read(r, f.forkId, f.a.id, "mcp__apple__messages_search");
+    expect(getPlanForkBranch(r.db, f.b.id)?.readOwnerOnly).toBe(false);
+    const [item] = await staged(r, f.forkId, f.b.id, phone);
+    expect(item?.withheld).toBeUndefined();
+    expect(item?.summary).toBe(f.itemB.summary);
+    expect(item?.params).not.toBeNull();
   });
 
   it("refuses an unknown fork, an unknown branch and a branch of another fork", async () => {

@@ -1,5 +1,5 @@
 import type { PlanFork, PlanForkBranch, StagedAction } from "@psyche/protocol";
-import { type ReactElement, useEffect, useId, useMemo, useState } from "react";
+import { type ReactElement, useEffect, useId, useMemo, useRef, useState } from "react";
 import { Button } from "../components/ui/button.tsx";
 import { Checkbox } from "../components/ui/checkbox.tsx";
 import {
@@ -30,6 +30,40 @@ export function initialTicks(items: readonly StagedAction[]): {
     ),
     sends: Object.fromEntries(items.filter((i) => i.send != null).map((i) => [i.id, false])),
   };
+}
+
+type Ticks = ReturnType<typeof initialTicks>;
+
+/**
+ * The ticks after the items were read again (a fork emits `planFork.updated` all the time): the
+ * owner's item and send ticks stay for every id still listed with the same binding hash and a
+ * fresh status. An id whose hash changed, or that is no longer fresh, is unticked (never
+ * re-ticked, so Take cannot approve what the owner left out or what is no longer what they saw).
+ * Only ids that were not listed before get the initial ticks.
+ */
+export function mergeTicks(
+  current: Ticks,
+  before: readonly StagedAction[],
+  after: readonly StagedAction[],
+): Ticks {
+  const was = new Map(before.map((i) => [i.id, i]));
+  const fresh = initialTicks(after);
+  const out: Ticks = { items: {}, sends: {} };
+  for (const i of after) {
+    const old = was.get(i.id);
+    if (old === undefined) {
+      out.items[i.id] = fresh.items[i.id] === true;
+      if (i.id in fresh.sends) out.sends[i.id] = false;
+      continue;
+    }
+    const same = old.bindingHash === i.bindingHash && i.status === "ready";
+    out.items[i.id] = same && current.items[i.id] === true;
+    if (i.send != null) {
+      const sameSend = same && old.send?.contentHash === i.send.contentHash;
+      out.sends[i.id] = sameSend && current.sends[i.id] === true;
+    }
+  }
+  return out;
 }
 
 /** What `planForks.take` is asked for, from the ticks. A send counts only on a ticked item. */
@@ -101,7 +135,19 @@ export function TakeSheet({
   const [carryOn, setCarryOn] = useState(true);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
-  useEffect(() => setTicks(initialTicks(items)), [items]);
+  // Initial ticks once per open and branch; a re-read keeps the owner's choices (`mergeTicks`).
+  const seen = useRef<{ scope: string; items: readonly StagedAction[] }>({ scope: "", items: [] });
+  useEffect(() => {
+    const scope = `${open}:${branch.id}`;
+    if (seen.current.scope !== scope) {
+      seen.current = { scope, items };
+      setTicks(initialTicks(items));
+      return;
+    }
+    const before = seen.current.items;
+    seen.current = { scope, items };
+    setTicks((cur) => mergeTicks(cur, before, items));
+  }, [items, open, branch.id]);
   const steps = branch.report?.steps ?? [];
   const stagedIds = useMemo(() => new Set(items.map((i) => i.id)), [items]);
   const loose = steps.filter((s) => s.stagedId === undefined || !stagedIds.has(s.stagedId));
