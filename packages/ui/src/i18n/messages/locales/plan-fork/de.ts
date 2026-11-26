@@ -22,7 +22,7 @@ export const planFork: Partial<Catalogue> = {
   "planFork.sheet.estimateTokens": "Bis zu etwa {count, number} Tokens",
   "planFork.sheet.reads":
     "Liest dein Gedächtnis, deinen Kalender, deine Mails und das Web. Ändert nichts, bis du einen Plan übernimmst.",
-  "planFork.sheet.incognito": "In Inkognito-Chats sind Verzweigungen nicht verfügbar.",
+  "planFork.sheet.incognito": "Verzweigungen sind in privaten Chats nicht verfügbar.",
   "planFork.sheet.start": "Starten",
   "planFork.sheet.starting": "Wird gestartet…",
   "planFork.cancel": "Abbrechen",

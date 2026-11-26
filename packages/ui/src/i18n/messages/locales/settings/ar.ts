@@ -8,15 +8,16 @@ export const settings: Partial<Catalogue> = {
   "settings.search.count":
     "{count, plural, zero {لا نتائج} one {نتيجة واحدة} two {نتيجتان} few {# نتائج} many {# نتيجة} other {# نتيجة}}",
   "settings.search.result.page": "صفحة",
-  "settings.essentials.title": "الأساسيات",
+  "settings.essentials.fullAccessNote":
+    "يُفعَّل الوصول الكامل لكل دردشة على حدة، من قائمة الوضع في الدردشة.",
   "settings.essentials.description":
     "الخيارات القليلة التي يتخذها معظم الناس، ولكل منها إعداد افتراضي آمن. يسألك {persona} عندما يحتاج إلى المزيد.",
-  "settings.essentials.more": "المزيد",
+  "settings.essentials.openPlace": "{place}…",
   "settings.essentials.moreIn": "المزيد في {place}",
   "settings.essentials.model.title": "النموذج",
   "settings.essentials.model.thinksWith": "يفكر {persona} بـ",
   "settings.essentials.model.ready": "جاهز",
-  "settings.essentials.model.noKey": "يحتاج إلى مفتاح",
+  "settings.essentials.model.addKey": "إضافة مفتاح API…",
   "settings.essentials.model.none": "لا نموذج بعد",
   "settings.essentials.model.noneHint":
     "يحتاج {persona} إلى نموذج قبل أن يستطيع الإجابة. أضف مفتاحًا، أو استخدم نموذجًا على هذا الـ Mac.",
@@ -615,7 +616,7 @@ export const settings: Partial<Catalogue> = {
   "settings.learning.forgetAll": "نسيان كل ما تعلّمه {persona}",
   "settings.learning.forgetAllTitle": "نسيان كل ما تعلّمه {persona} منك؟",
   "settings.learning.forgetAllBody":
-    "تعود ملاحظاته وSoul ومهاراته إلى ما كتبته أنت. اكتب «{phrase}» للتأكيد.",
+    "تعود ملاحظاته والشخصية ومهاراته إلى ما كتبته أنت. اكتب «{phrase}» للتأكيد.",
   "settings.learning.forgetPhrase": "نسيان",
   "settings.learning.forgetAllGo": "نسيان كل شيء",
   "settings.learning.forgotAll":
@@ -743,7 +744,7 @@ export const settings: Partial<Catalogue> = {
   "settings.gateways.addressPlaceholder": "studio-mac.your-tailnet.ts.net",
   "settings.gateways.nameLabel": "الاسم (اختياري)",
   "settings.gateways.addHint":
-    "الصق رابط الإقران من جهاز Mac الذي يشغّل Psyche (الإعدادات ← الخادم والوصول عن بُعد ← إقران كمبيوتر آخر). وبدون رابط، اكتب عنوان Tailscale الخاص به https://<host>.<tailnet>.ts.net؛ عندها يطلب هذا الكمبيوتر الإقران ويوافق عليه المالك هناك.",
+    "الصق رابط الإقران من جهاز Mac الذي يشغّل Psyche (الإعدادات ← الأجهزة والخادم ← إقران كمبيوتر آخر). وبدون رابط، اكتب عنوان Tailscale الخاص به https://<host>.<tailnet>.ts.net؛ عندها يطلب هذا الكمبيوتر الإقران ويوافق عليه المالك هناك.",
   "settings.gateways.newLink": "وصل رابط إقران جديد. استخدامه؟",
   "settings.gateways.useNewLink": "استخدامه",
   "settings.gateways.ignoreNewLink": "تجاهل",

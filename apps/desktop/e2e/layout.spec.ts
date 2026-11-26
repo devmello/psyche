@@ -512,7 +512,7 @@ test("rail screens, inbox and agent sheet at 1440x900: kit chrome, no sideways s
   // The Threads group: its header with the filter and new-side-chat buttons.
   const group = page.getByTestId("thread-group");
   await expect(group.getByRole("heading", { name: "Threads" })).toBeVisible();
-  await expect(group.getByRole("button", { name: "New side chat" })).toBeVisible();
+  await expect(group.getByRole("button", { name: "New chat" })).toBeVisible();
   for (const [label, id] of [
     ["Home", "home"],
     ["Library", "library"],
@@ -541,7 +541,7 @@ test("rail screens, inbox and agent sheet at 1440x900: kit chrome, no sideways s
   await page.getByRole("button", { name: /approvals and memory/ }).click();
   for (const [tab, id] of [
     ["Approvals", "approvals"],
-    ["Soul", "soul"],
+    ["Personality", "soul"],
   ] as const) {
     await page.getByRole("tab", { name: new RegExp(`^${tab}`) }).click();
     await page.waitForTimeout(400);

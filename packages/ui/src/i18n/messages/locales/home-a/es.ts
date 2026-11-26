@@ -22,7 +22,7 @@ export const homeA: Partial<Catalogue> = {
   "home.loadFailed": "No se pudo cargar {what}.",
   "people.page.title": "Personas",
   "people.page.count": "{n, plural, one {# persona} other {# personas}}",
-  "people.page.memory": "Alma y memoria",
+  "people.page.memory": "Personalidad y memoria",
   "people.page.openPeople": "Personas y proyectos",
   "people.page.openPeopleHint": "Se movió a su propia página",
   "settings.key.capabilities.onlineSearch": "Buscar en el registro MCP en línea",

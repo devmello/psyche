@@ -22,7 +22,7 @@ export const onboarding: Partial<Catalogue> = {
   "onboarding.about.cityHint": "你通常所在的地方",
   "onboarding.memory.lead":
     "已经在 ChatGPT 或 Claude 里有档案了吗？粘贴它的记忆导出内容，或者“你对我了解多少？”的回答。保存之前，所有内容都会请你审阅。",
-  "onboarding.memory.unavailable": "此窗口不支持导入。你可以稍后在 Soul 中进行。",
+  "onboarding.memory.unavailable": "此窗口不支持导入。你可以稍后在个性中进行。",
   "onboarding.memory.format": "来自哪里",
   "onboarding.memory.format.chatgpt": "ChatGPT",
   "onboarding.memory.format.claude": "Claude",

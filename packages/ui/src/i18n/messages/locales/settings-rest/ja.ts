@@ -38,15 +38,16 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.nav.learning": "基礎",
   "settings.search.count": "{count, plural, other {#件の結果}}",
   "settings.search.result.page": "ページ",
-  "settings.essentials.title": "基本",
+  "settings.essentials.fullAccessNote":
+    "フルアクセスはチャットごとに、チャットのモードメニューから有効にします。",
   "settings.essentials.description":
     "多くの人が選ぶ、いくつかの項目です。それぞれ安全な初期値があります。ほかに必要なことがあれば{persona}が尋ねます。",
-  "settings.essentials.more": "その他",
+  "settings.essentials.openPlace": "{place}…",
   "settings.essentials.moreIn": "{place}のその他の設定",
   "settings.essentials.model.title": "モデル",
   "settings.essentials.model.thinksWith": "{persona}が考えるときに使うもの",
   "settings.essentials.model.ready": "準備完了",
-  "settings.essentials.model.noKey": "キーが必要",
+  "settings.essentials.model.addKey": "APIキーを追加…",
   "settings.essentials.model.none": "モデルがありません",
   "settings.essentials.model.noneHint":
     "{persona}が答えるにはモデルが必要です。キーを追加するか、このMacのモデルを使ってください。",
@@ -660,7 +661,7 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.learning.forgetAll": "{persona}が学んだことをすべて忘れさせる",
   "settings.learning.forgetAllTitle": "{persona}があなたから学んだことをすべて忘れさせますか？",
   "settings.learning.forgetAllBody":
-    "ノート、Soul、スキルが、あなたが書いた状態に戻ります。確認のため「{phrase}」と入力してください。",
+    "ノート、パーソナリティ、スキルが、あなたが書いた状態に戻ります。確認のため「{phrase}」と入力してください。",
   "settings.learning.forgetPhrase": "忘れる",
   "settings.learning.forgetAllGo": "すべて忘れさせる",
   "settings.learning.forgotAll":
@@ -793,7 +794,7 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.gateways.addressPlaceholder": "studio-mac.your-tailnet.ts.net",
   "settings.gateways.nameLabel": "名前（任意）",
   "settings.gateways.addHint":
-    "Psycheを実行しているMacのペアリングリンクを貼り付けてください（設定 → サーバとリモートアクセス → 別のコンピュータをペアリング）。リンクがない場合は、そのTailscaleアドレス（https://<host>.<tailnet>.ts.net）を入力します。このコンピュータがペアリングを要求し、所有者がそちらで承認します。",
+    "Psycheを実行しているMacのペアリングリンクを貼り付けてください（設定 → デバイスとサーバ → 別のコンピュータをペアリング）。リンクがない場合は、そのTailscaleアドレス（https://<host>.<tailnet>.ts.net）を入力します。このコンピュータがペアリングを要求し、所有者がそちらで承認します。",
   "settings.gateways.newLink": "新しいペアリングリンクが届きました。使用しますか？",
   "settings.gateways.useNewLink": "使用する",
   "settings.gateways.ignoreNewLink": "無視",

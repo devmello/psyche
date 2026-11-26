@@ -52,7 +52,7 @@ export function appMenuTemplate(
       {
         label: "File",
         submenu: [
-          { label: "New side chat", accelerator: "Ctrl+N", click: a.newSideChat },
+          { label: "New Chat", accelerator: "Ctrl+N", click: a.newSideChat },
           { label: "Settings…", accelerator: "Ctrl+,", click: a.settings },
           { type: "separator" },
           { label: "Close", accelerator: "Ctrl+W", click: a.closeThreadView },
@@ -92,7 +92,7 @@ export function appMenuTemplate(
     {
       label: "File",
       submenu: [
-        { label: "New side chat", accelerator: "CmdOrCtrl+N", click: a.newSideChat },
+        { label: "New Chat", accelerator: "CmdOrCtrl+N", click: a.newSideChat },
         { label: "Close", accelerator: "CmdOrCtrl+W", click: a.closeThreadView },
       ],
     },

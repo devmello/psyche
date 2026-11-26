@@ -63,7 +63,7 @@ export const settingsC: Partial<Catalogue> = {
   "settings.learning.forgetAll": "Olvidar todo lo que aprendió {persona}",
   "settings.learning.forgetAllTitle": "¿Olvidar todo lo que {persona} aprendió de ti?",
   "settings.learning.forgetAllBody":
-    "Sus notas, Alma y habilidades vuelven a lo que tú escribiste. Escribe «{phrase}» para confirmar.",
+    "Sus notas, personalidad y habilidades vuelven a lo que tú escribiste. Escribe «{phrase}» para confirmar.",
   "settings.learning.forgetPhrase": "olvidar",
   "settings.learning.forgetAllGo": "Olvidar todo",
   "settings.learning.forgotAll":
@@ -195,7 +195,7 @@ export const settingsC: Partial<Catalogue> = {
   "settings.gateways.addressPlaceholder": "studio-mac.your-tailnet.ts.net",
   "settings.gateways.nameLabel": "Nombre (opcional)",
   "settings.gateways.addHint":
-    "Pega el enlace de vinculación del Mac que ejecuta Psyche (Ajustes, Servidor y acceso remoto, Vincular otro ordenador). Sin enlace, escribe su dirección de Tailscale, https://<host>.<tailnet>.ts.net; este ordenador pedirá vincularse y el propietario lo aprueba allí.",
+    "Pega el enlace de vinculación del Mac que ejecuta Psyche (Ajustes, Dispositivos y servidor, Vincular otro ordenador). Sin enlace, escribe su dirección de Tailscale, https://<host>.<tailnet>.ts.net; este ordenador pedirá vincularse y el propietario lo aprueba allí.",
   "settings.gateways.newLink": "Ha llegado un nuevo enlace de vinculación. ¿Usarlo?",
   "settings.gateways.useNewLink": "Usarlo",
   "settings.gateways.ignoreNewLink": "Ignorar",

@@ -223,7 +223,7 @@ export const peopleRest: Partial<Catalogue> = {
   "people.errorDid": "Rien n’a été modifié.",
   "people.page.title": "Personnes",
   "people.page.count": "{n, plural, one {# personne} other {# personnes}}",
-  "people.page.memory": "Âme et mémoire",
+  "people.page.memory": "Personnalité et mémoire",
   "people.page.openPeople": "Personnes et projets",
   "people.page.openPeopleHint": "Déplacé vers sa propre page",
 };

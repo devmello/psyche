@@ -127,7 +127,7 @@ export const galleryA: Partial<Catalogue> = {
   "onboarding.memory.lead":
     "¿Ya tienes un perfil en ChatGPT o Claude? Pega su exportación de memoria o la respuesta a «¿Qué sabes de mí?». Revisas todo antes de guardarlo.",
   "onboarding.memory.unavailable":
-    "Importar no está disponible en esta ventana. Puedes hacerlo más tarde en Alma.",
+    "Importar no está disponible en esta ventana. Puedes hacerlo más tarde en Personalidad.",
   "onboarding.memory.format": "De dónde viene",
   "onboarding.memory.format.chatgpt": "ChatGPT",
   "onboarding.memory.format.claude": "Claude",

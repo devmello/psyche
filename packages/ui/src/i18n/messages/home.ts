@@ -46,7 +46,7 @@ export const home = {
   "home.loadFailed": "Couldn't load {what}.",
   "people.page.title": "People",
   "people.page.count": "{n, plural, one {# person} other {# people}}",
-  "people.page.memory": "Soul & memory",
+  "people.page.memory": "Personality & memory",
   "people.page.openPeople": "People & projects",
   "people.page.openPeopleHint": "Moved to its own page",
 } as const;

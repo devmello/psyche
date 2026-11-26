@@ -411,7 +411,7 @@ describe("the start sheet and the fork card", () => {
         />
       </StoryWorld>,
     );
-    expect(await screen.findByText("Forks aren't available in incognito chats.")).toBeTruthy();
+    expect(await screen.findByText("Forks aren’t available in private chats.")).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Start" })).toBeNull();
     rerender(<div />);
     cleanup();

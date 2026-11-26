@@ -7,15 +7,15 @@ export const settings: Partial<Catalogue> = {
   "settings.nav.learning": "基础",
   "settings.search.count": "{count, plural, other {# 个结果}}",
   "settings.search.result.page": "页面",
-  "settings.essentials.title": "基本设置",
+  "settings.essentials.fullAccessNote": "完全访问需在每个聊天中，通过聊天的模式菜单开启。",
   "settings.essentials.description":
     "大多数人都会做的几个选择，每项都有安全的默认值。需要更多信息时，{persona}会来问你。",
-  "settings.essentials.more": "更多",
+  "settings.essentials.openPlace": "{place}…",
   "settings.essentials.moreIn": "在{place}中查看更多",
   "settings.essentials.model.title": "模型",
   "settings.essentials.model.thinksWith": "{persona}用来思考的模型",
   "settings.essentials.model.ready": "就绪",
-  "settings.essentials.model.noKey": "需要密钥",
+  "settings.essentials.model.addKey": "添加 API 密钥…",
   "settings.essentials.model.none": "还没有模型",
   "settings.essentials.model.noneHint":
     "{persona}需要有模型才能回答。请添加密钥，或使用这台 Mac 上的模型。",
@@ -582,7 +582,7 @@ export const settings: Partial<Catalogue> = {
   "settings.learning.forgetAll": "忘掉{persona}学到的一切",
   "settings.learning.forgetAllTitle": "忘掉{persona}从你这里学到的一切？",
   "settings.learning.forgetAllBody":
-    "它的笔记、Soul 和技能会恢复为你所写的内容。输入“{phrase}”以确认。",
+    "它的笔记、个性和技能会恢复为你所写的内容。输入“{phrase}”以确认。",
   "settings.learning.forgetPhrase": "忘记",
   "settings.learning.forgetAllGo": "忘掉一切",
   "settings.learning.forgotAll":
@@ -703,7 +703,7 @@ export const settings: Partial<Catalogue> = {
   "settings.gateways.addressPlaceholder": "studio-mac.your-tailnet.ts.net",
   "settings.gateways.nameLabel": "名称（可选）",
   "settings.gateways.addHint":
-    "粘贴运行 Psyche 的 Mac 上的配对链接（设置 → 服务器与远程访问 → 配对另一台电脑）。没有链接时，请输入它的 Tailscale 地址 https://<host>.<tailnet>.ts.net；这台电脑随后会请求配对，由所有者在那边批准。",
+    "粘贴运行 Psyche 的 Mac 上的配对链接（设置 → 设备与服务器 → 配对另一台电脑）。没有链接时，请输入它的 Tailscale 地址 https://<host>.<tailnet>.ts.net；这台电脑随后会请求配对，由所有者在那边批准。",
   "settings.gateways.newLink": "收到了新的配对链接。要使用吗？",
   "settings.gateways.useNewLink": "使用",
   "settings.gateways.ignoreNewLink": "忽略",

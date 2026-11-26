@@ -20,7 +20,7 @@ export const planFork: Partial<Catalogue> = {
   "planFork.sheet.estimate": "最多约 {amount}",
   "planFork.sheet.estimateTokens": "最多约 {count, number} 个 token",
   "planFork.sheet.reads": "会读取你的记忆、日历、邮件和网页。在你采用方案前不会改动任何东西。",
-  "planFork.sheet.incognito": "隐身对话中无法分叉。",
+  "planFork.sheet.incognito": "私密聊天中不能分叉。",
   "planFork.sheet.start": "开始",
   "planFork.sheet.starting": "正在开始…",
   "planFork.cancel": "取消",

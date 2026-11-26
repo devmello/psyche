@@ -219,9 +219,7 @@ describe("narrow windows, cloud connectors and side chats", () => {
       const hit = sourceHit(id);
       const view = mount(surface([hit], { preview: true, side }), [hit]);
       const preview = screen.getByTestId("search-preview");
-      expect(!!within(preview).queryByRole("button", { name: "Open in a side chat" }), id).toBe(
-        offered,
-      );
+      expect(!!within(preview).queryByRole("button", { name: "Open in a chat" }), id).toBe(offered);
       view.unmount();
     }
   });

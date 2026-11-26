@@ -221,7 +221,7 @@ export const peopleRest: Partial<Catalogue> = {
   "people.errorDid": "변경된 내용은 없습니다.",
   "people.page.title": "사람",
   "people.page.count": "{n, plural, other {#명}}",
-  "people.page.memory": "Soul 및 메모리",
+  "people.page.memory": "개성 및 메모리",
   "people.page.openPeople": "사람 및 프로젝트",
   "people.page.openPeopleHint": "전용 페이지로 이동했습니다",
 };

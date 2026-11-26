@@ -4,7 +4,7 @@ import { userEvent } from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import type { MockGateway } from "../src/data/mock-gateway.ts";
 import { AccessListView } from "../src/screens/settings/AccessList.tsx";
-import { EssentialsPanel } from "../src/screens/settings/EssentialsSection.tsx";
+import { EssentialsPanel, readableModelName } from "../src/screens/settings/EssentialsSection.tsx";
 import { SearchModelGroup } from "../src/screens/settings/SearchSection.tsx";
 import { SettingsScreen } from "../src/screens/settings/SettingsScreen.tsx";
 import { UiSlotsProvider } from "../src/slots.tsx";
@@ -85,6 +85,38 @@ describe("Settings → Essentials", () => {
         )?.params,
       ).toMatchObject({ value: "manual" }),
     );
+  });
+});
+
+describe("Settings → Essentials copy", () => {
+  it("names the model in plain words, never as its raw ref", () => {
+    expect(readableModelName("anthropic/claude-sonnet-5-5")).toBe("Claude Sonnet 5 5");
+    panel({ model: { ref: "anthropic/claude-sonnet-5-5", label: null, ready: true } });
+    expect(screen.getByText("Claude Sonnet 5 5")).toBeTruthy();
+    expect(screen.queryByText("anthropic/claude-sonnet-5-5")).toBeNull();
+  });
+
+  it("offers Add API Key… when the model has no key, and opens the model pane", async () => {
+    const user = userEvent.setup();
+    const { onOpen } = panel({
+      model: { ref: "anthropic/claude-sonnet-5-5", label: null, ready: false },
+    });
+    expect(screen.queryByText("Needs a key")).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Add API Key…" }));
+    expect(onOpen).toHaveBeenCalledWith("model");
+  });
+
+  it("lists the modes Manual, Balanced, Auto, then says where Full access is turned on", () => {
+    panel();
+    const manual = screen.getByRole("radio", { name: /Manual/ });
+    const balanced = screen.getByRole("radio", { name: /Balanced/ });
+    const auto = screen.getByRole("radio", { name: /Auto/ });
+    const follows = Node.DOCUMENT_POSITION_FOLLOWING;
+    expect(manual.compareDocumentPosition(balanced) & follows).toBeTruthy();
+    expect(balanced.compareDocumentPosition(auto) & follows).toBeTruthy();
+    expect(
+      screen.getByText("Full access is turned on per chat, from the chat’s mode menu."),
+    ).toBeTruthy();
   });
 });
 

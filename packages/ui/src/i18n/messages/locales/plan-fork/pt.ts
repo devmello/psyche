@@ -22,7 +22,7 @@ export const planFork: Partial<Catalogue> = {
   "planFork.sheet.estimateTokens": "Até cerca de {count, number} tokens",
   "planFork.sheet.reads":
     "Lê sua memória, agenda, e-mail e a web. Não muda nada até você adotar um plano.",
-  "planFork.sheet.incognito": "Bifurcações não estão disponíveis em conversas anônimas.",
+  "planFork.sheet.incognito": "Bifurcações não estão disponíveis em chats privados.",
   "planFork.sheet.start": "Iniciar",
   "planFork.sheet.starting": "Iniciando…",
   "planFork.cancel": "Cancelar",

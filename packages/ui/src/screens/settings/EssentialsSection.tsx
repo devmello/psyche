@@ -68,9 +68,22 @@ function More({
       aria-label={t("settings.essentials.moreIn", { place: label })}
       onClick={() => onOpen(pane)}
     >
-      {t("settings.essentials.more")}
+      {t("settings.essentials.openPlace", { place: label })}
     </Button>
   );
+}
+
+/**
+ * A readable name for a model ref the provider gives no label for:
+ * "anthropic/claude-sonnet-5-5" reads as "Claude Sonnet 5 5".
+ */
+export function readableModelName(ref: string): string {
+  return ref
+    .slice(ref.indexOf("/") + 1)
+    .split(/[-_]/)
+    .filter((word) => word.length > 0)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
 }
 
 export function EssentialsPanel({
@@ -124,14 +137,16 @@ export function EssentialsPanel({
               <span className="text-body text-label-primary">
                 {t("settings.essentials.model.thinksWith", { persona })}
               </span>
-              <code className="min-w-0 truncate font-mono text-callout text-label-primary">
-                {model.label ?? model.ref}
-              </code>
+              <span className="min-w-0 truncate text-body text-label-primary">
+                {model.label ?? readableModelName(model.ref ?? "")}
+              </span>
               {model.ready ? (
                 <StatusChip tone="success">{t("settings.essentials.model.ready")}</StatusChip>
-              ) : (
-                <StatusChip tone="approval">{t("settings.essentials.model.noKey")}</StatusChip>
-              )}
+              ) : onOpen ? (
+                <Button type="button" size="sm" onClick={() => onOpen("model")}>
+                  {t("settings.essentials.model.addKey")}
+                </Button>
+              ) : null}
             </div>
           )}
         </Group>
@@ -150,6 +165,9 @@ export function EssentialsPanel({
             settingKey="permissions.mode"
             onChange={(v) => onChange("permissions.mode", v)}
           />
+          <p className="pt-2 text-callout text-label-secondary">
+            {t("settings.essentials.fullAccessNote")}
+          </p>
         </Group>
 
         <Group

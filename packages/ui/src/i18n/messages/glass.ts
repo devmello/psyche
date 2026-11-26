@@ -22,7 +22,7 @@ export const glass = {
   "glass.demo.composer": "Message Wren…",
   "glass.demo.send": "Send",
   "glass.demo.dictate": "Dictate",
-  "glass.demo.newChat": "New side chat",
+  "glass.demo.newChat": "New chat",
   "glass.demo.backdropPhoto": "over a photo",
   "glass.demo.backdropText": "over text",
   "glass.demo.paragraph":

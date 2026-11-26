@@ -47,7 +47,7 @@ export const screensRest: Partial<Catalogue> = {
   "screens.search.life.unconfirmed": "確認待ち",
   "screens.search.scope.people": "人物",
   "screens.search.scope.projects": "プロジェクト",
-  "screens.search.sideChatFailed": "サイドチャットを開けませんでした: {reason}",
+  "screens.search.sideChatFailed": "チャットを開けませんでした: {reason}",
   "screens.search.indexing":
     "履歴をインデックス化中: これまでに{n, plural, other {#件}}。進行に合わせて結果が増えていきます。",
   "screens.search.indexFailed": "インデックス化が停止しました: {reason}",

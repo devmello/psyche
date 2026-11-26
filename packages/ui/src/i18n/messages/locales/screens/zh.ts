@@ -4,7 +4,7 @@ import type { Catalogue } from "../../index.ts";
 export const screens: Partial<Catalogue> = {
   "screens.search.scope.people": "人物",
   "screens.search.scope.projects": "项目",
-  "screens.search.sideChatFailed": "无法打开支线聊天：{reason}",
+  "screens.search.sideChatFailed": "无法打开聊天：{reason}",
   "screens.search.indexing":
     "正在为你的历史记录建立索引：目前 {n, plural, other {# 项}}。结果会随进度逐步补全。",
   "screens.search.indexFailed": "索引已停止：{reason}",

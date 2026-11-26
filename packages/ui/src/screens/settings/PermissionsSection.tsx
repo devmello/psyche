@@ -56,7 +56,8 @@ const modeOption = <V extends PermissionMode>(value: V) => ({
   },
 });
 
-export const MODE_OPTIONS = [modeOption("balanced"), modeOption("manual"), modeOption("auto")];
+// Manual · Balanced · Auto, the order the chat header's mode menu uses.
+export const MODE_OPTIONS = [modeOption("manual"), modeOption("balanced"), modeOption("auto")];
 
 /** Security §3.9 / architecture §4.6: not configurable, shown read-only. */
 export const HARD_PROHIBITION_IDS = [

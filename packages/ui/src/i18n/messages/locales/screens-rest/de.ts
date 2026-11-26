@@ -47,7 +47,7 @@ export const screensRest: Partial<Catalogue> = {
   "screens.search.life.unconfirmed": "Wartet auf deine Prüfung",
   "screens.search.scope.people": "Personen",
   "screens.search.scope.projects": "Projekte",
-  "screens.search.sideChatFailed": "Ein Nebenchat konnte nicht geöffnet werden: {reason}",
+  "screens.search.sideChatFailed": "Ein Chat konnte nicht geöffnet werden: {reason}",
   "screens.search.indexing":
     "Dein Verlauf wird indexiert: bisher {n, plural, one {# Element} other {# Elemente}}. Die Ergebnisse füllen sich nach und nach.",
   "screens.search.indexFailed": "Die Indexierung wurde angehalten: {reason}",

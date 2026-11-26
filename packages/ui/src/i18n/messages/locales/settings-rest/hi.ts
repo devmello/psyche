@@ -38,15 +38,15 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.nav.learning": "बुनियादी बातें",
   "settings.search.count": "{count, plural, one {# नतीजा} other {# नतीजे}}",
   "settings.search.result.page": "पेज",
-  "settings.essentials.title": "ज़रूरी बातें",
+  "settings.essentials.fullAccessNote": "पूर्ण पहुँच हर चैट के लिए चालू होती है, चैट के मोड मेनू से।",
   "settings.essentials.description":
     "वे कुछ चुनाव जो ज़्यादातर लोग करते हैं, हर एक सुरक्षित डिफ़ॉल्ट के साथ। ज़्यादा की ज़रूरत होने पर {persona} पूछता है।",
-  "settings.essentials.more": "और",
+  "settings.essentials.openPlace": "{place}…",
   "settings.essentials.moreIn": "{place} में और",
   "settings.essentials.model.title": "मॉडल",
   "settings.essentials.model.thinksWith": "{persona} इससे सोचता है",
   "settings.essentials.model.ready": "तैयार",
-  "settings.essentials.model.noKey": "कुंजी चाहिए",
+  "settings.essentials.model.addKey": "API कुंजी जोड़ें…",
   "settings.essentials.model.none": "अभी कोई मॉडल नहीं",
   "settings.essentials.model.noneHint":
     "जवाब देने से पहले {persona} को एक मॉडल चाहिए। कुंजी जोड़ें, या इस Mac पर कोई मॉडल उपयोग करें।",
@@ -640,7 +640,7 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.learning.forgetAll": "{persona} ने जो भी सीखा सब भूल जाएँ",
   "settings.learning.forgetAllTitle": "{persona} ने आपसे जो भी सीखा सब भूल जाएँ?",
   "settings.learning.forgetAllBody":
-    "इसके नोट्स, सोल और स्किल वापस वैसे हो जाते हैं जैसे आपने लिखे थे। पुष्टि के लिए “{phrase}” टाइप करें।",
+    "इसके नोट्स, व्यक्तित्व और स्किल वापस वैसे हो जाते हैं जैसे आपने लिखे थे। पुष्टि के लिए “{phrase}” टाइप करें।",
   "settings.learning.forgetPhrase": "forget",
   "settings.learning.forgetAllGo": "सब कुछ भूल जाएँ",
   "settings.learning.forgotAll":

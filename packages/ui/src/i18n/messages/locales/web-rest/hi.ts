@@ -19,9 +19,9 @@ export const webRest: Partial<Catalogue> = {
     "Touch ID के लिए {host} का Gateway https:// पते पर होना चाहिए (gateway.publicOrigin)। तब तक उन कार्डों का जवाब {host} पर दें।",
   "web.touchId.helperDidNotStart":
     "Psyche Helper कनेक्ट नहीं हुआ। कारण जानने के लिए सेटिंग्ज़ → डिवाइस खोलें, फिर दोबारा कोशिश करें।",
-  "web.panes.title.sidechat": "साइड चैट",
-  "web.sideChat.about": "{parent} के बारे में साइड चैट",
-  "web.sideChat.aside": "साइड चैट",
+  "web.panes.title.sidechat": "चैट",
+  "web.sideChat.about": "{parent} के बारे में चैट",
+  "web.sideChat.aside": "चैट",
   "web.sideChat.expand": "बड़ा करें",
   "web.sideChat.expandTitle": "इस चैट को फ़ुल स्क्रीन में खोलें",
   "web.terminal.ended": "सत्र समाप्त",

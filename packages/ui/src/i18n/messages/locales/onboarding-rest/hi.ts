@@ -23,7 +23,7 @@ export const onboardingRest: Partial<Catalogue> = {
   "onboarding.about.cityHint": "आप आमतौर पर कहाँ रहते हैं",
   "onboarding.memory.lead":
     "ChatGPT या Claude में पहले से प्रोफ़ाइल है? उसकी मेमोरी का एक्सपोर्ट या “आप मेरे बारे में क्या जानते हैं?” का जवाब पेस्ट करें। सेव होने से पहले आप सब कुछ देख सकते हैं।",
-  "onboarding.memory.unavailable": "इस विंडो में इम्पोर्ट उपलब्ध नहीं है। आप इसे बाद में सोल में कर सकते हैं।",
+  "onboarding.memory.unavailable": "इस विंडो में इम्पोर्ट उपलब्ध नहीं है। आप इसे बाद में व्यक्तित्व में कर सकते हैं।",
   "onboarding.memory.format": "यह कहाँ से आया",
   "onboarding.memory.format.chatgpt": "ChatGPT",
   "onboarding.memory.format.claude": "Claude",

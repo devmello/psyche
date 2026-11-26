@@ -6,7 +6,7 @@ import { quoteWindowsArg } from "./supervisor-windows.ts";
 /**
  * Windows taskbar counterparts of the macOS Dock menu and accessory mode:
  *
- * - **Jump list** (right-click on the taskbar button or the Start entry): "New side chat" and
+ * - **Jump list** (right-click on the taskbar button or the Start entry): "New Chat" and
  *   "Ask about my screen", like the Dock menu. Each starts Psyche with `--psyche-task=<task>`;
  *   the running copy gets it as a second instance (`taskFromArgv`).
  * - **Closing to the tray**: with every window closed Psyche keeps running in the notification
@@ -52,7 +52,7 @@ export function jumpListTasks(
     };
   };
   return [
-    task("new-side-chat", "New side chat", "Start a side chat in Psyche"),
+    task("new-side-chat", "New Chat", "Start a chat in Psyche"),
     ...(o.askScreen
       ? [task("ask-screen", "Ask about my screen", "Ask Psyche about what is on your screen")]
       : []),

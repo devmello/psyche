@@ -46,7 +46,7 @@ export const screensRest: Partial<Catalogue> = {
   "screens.search.life.unconfirmed": "आपकी समीक्षा की प्रतीक्षा में",
   "screens.search.scope.people": "लोग",
   "screens.search.scope.projects": "प्रोजेक्ट",
-  "screens.search.sideChatFailed": "साइड चैट खोली नहीं जा सकी: {reason}",
+  "screens.search.sideChatFailed": "चैट खोली नहीं जा सकी: {reason}",
   "screens.search.indexing":
     "आपके इतिहास का इंडेक्सिंग हो रहा है: अब तक {n, plural, one {# आइटम} other {# आइटम}}। नतीजे साथ-साथ भरते जाते हैं।",
   "screens.search.indexFailed": "इंडेक्सिंग रुक गई: {reason}",

@@ -107,7 +107,7 @@ export function trayTemplate(m: TrayModel, a: TrayActions): MenuItemConstructorO
       : { label: "Nothing needs you", enabled: false },
     { type: "separator" },
     { label: "Open Psyche", click: a.open },
-    { label: "New side chat", click: a.newSideChat },
+    { label: "New Chat", click: a.newSideChat },
     { label: "Quick entry", ...accel(keys.quickEntry), click: a.quickEntry },
     ...(a.askScreen
       ? [{ label: "Ask about screen", ...accel(keys.askScreen), click: a.askScreen }]

@@ -230,7 +230,7 @@ describe("New incognito chat", () => {
     render(<ShellApp platform={platform} />);
     await screen.findByTestId("shell");
 
-    const incognito = await screen.findByRole("button", { name: "+ Incognito" });
+    const incognito = await screen.findByRole("button", { name: "+ Private" });
     act(() => {
       incognito.click();
     });
@@ -239,7 +239,7 @@ describe("New incognito chat", () => {
 
     // Positive control: a normal new chat is a side chat, never incognito.
     act(() => {
-      screen.getByRole("button", { name: "+ Side chat" }).click();
+      screen.getByRole("button", { name: "+ Chat" }).click();
     });
     await waitFor(() => expect(named("threads.newChat")).toHaveLength(2));
     expect(named("threads.newChat")[1]?.params).toMatchObject({ kind: "side" });
