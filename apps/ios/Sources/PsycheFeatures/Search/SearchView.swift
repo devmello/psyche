@@ -312,32 +312,64 @@ struct SearchView: View {
 
     // MARK: States
 
-    @ViewBuilder
+    /// Questions any owner can ask: wording only, no data. A tap fills the field.
+    private var suggestions: [String] {
+        [
+            String(localized: "What did I promise this week?", bundle: .module),
+            String(localized: "What is on my plate today?", bundle: .module),
+            String(localized: "Who did I talk to recently?", bundle: .module),
+        ]
+    }
+
+    /// Plain text on paper, not a `ContentUnavailableView`: it grows with Dynamic Type and scrolls with the page.
     private var idle: some View {
-        if model.recents.isEmpty {
-            ContentUnavailableView {
-                Label(String(localized: "Search", bundle: .module), systemImage: "magnifyingglass")
-            } description: {
-                Text("Search your chats, files, people and to-dos, or ask about your life.", bundle: .module)
-            }
-        } else {
-            VStack(alignment: .leading, spacing: 8) {
-                HStack {
-                    SectionHeader(String(localized: "Recent searches", bundle: .module))
-                    Spacer()
-                    Button(String(localized: "Clear", bundle: .module)) { model.clearRecents() }
-                        .font(.footnote.weight(.semibold))
-                        .foregroundStyle(PsycheColor.inkText)
+        VStack(alignment: .leading, spacing: 20) {
+            Text("Search your chats, files, people and to-dos, or ask about your life.", bundle: .module)
+                .font(.subheadline).foregroundStyle(PsycheColor.muted)
+                .fixedSize(horizontal: false, vertical: true)
+            if !model.recents.isEmpty {
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        SectionHeader(String(localized: "Recent searches", bundle: .module))
+                        Spacer()
+                        Button(String(localized: "Clear", bundle: .module)) { model.clearRecents() }
+                            .font(.footnote.weight(.semibold))
+                            .foregroundStyle(PsycheColor.inkText)
+                    }
+                    PaperStack {
+                        ForEach(Array(model.recents.enumerated()), id: \.element) { index, recent in
+                            if index > 0 { HairlineDivider() }
+                            recentRow(recent)
+                        }
+                    }
+                    Text("Kept on this phone only.", bundle: .module).font(.footnote).foregroundStyle(PsycheColor.muted)
                 }
+            }
+            VStack(alignment: .leading, spacing: 8) {
+                SectionHeader(String(localized: "Try asking", bundle: .module))
                 PaperStack {
-                    ForEach(Array(model.recents.enumerated()), id: \.element) { index, recent in
+                    ForEach(Array(suggestions.enumerated()), id: \.offset) { index, suggestion in
                         if index > 0 { HairlineDivider() }
-                        recentRow(recent)
+                        suggestionRow(suggestion)
                     }
                 }
             }
-            Text("Kept on this phone only.", bundle: .module).font(.footnote).foregroundStyle(PsycheColor.muted)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func suggestionRow(_ text: String) -> some View {
+        Button { model.query = text } label: {
+            HStack(spacing: 12) {
+                Image(systemName: "sparkle.magnifyingglass").font(.footnote).foregroundStyle(PsycheColor.muted)
+                    .frame(width: 32, height: 32)
+                Text(text).font(.psycheRow).foregroundStyle(PsycheColor.text).multilineTextAlignment(.leading)
+                Spacer(minLength: 0)
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .padding(PsycheMetrics.rowPadding)
     }
 
     private func recentRow(_ recent: String) -> some View {
