@@ -137,6 +137,27 @@ export function removeLearned(
   return lines.join("\n");
 }
 
+/**
+ * A pattern for `oldStr` that also matches the lines of `USER.md` it was copied from when the
+ * hidden machine tags are missing: the ` <!--lf_… -->` tag after a profile bullet and the
+ * `[lf_… thread:… kind]` tag after a Learned line's date. The model sees USER.md without them
+ * (`compactUserView`), so an exact `str_replace` on what it saw finds 0 matches.
+ */
+export function tagTolerantPattern(oldStr: string): RegExp {
+  const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const tail = "(?:[ \\t]*<!--lf_[a-z0-9]{6,32} [^>\\n]*-->)?";
+  const lines = oldStr.split("\n").map((line) => {
+    const m = /^(- \d{4}-\d{2}-\d{2} )(.*)$/.exec(line);
+    const head =
+      m === null
+        ? esc(line)
+        : `${esc(m[1] as string)}(?:\\[lf_[^\\]\\n]*\\] )?${esc(m[2] as string)}`;
+    // A tag sits at the end of a line; an empty last piece (old_str ends with "\n") adds none.
+    return line === "" ? head : `${head}${tail}`;
+  });
+  return new RegExp(lines.join("\n"), "g");
+}
+
 /** The raw line of a learned fact, or `undefined`. */
 export function learnedLine(content: string, factId: string): string | undefined {
   return content.split("\n").find((l) => factIdOf(l) === factId);

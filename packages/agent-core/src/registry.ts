@@ -265,6 +265,7 @@ export const SUBAGENT_WITHHELD = new Set([
   "wrap_up",
   "subagent.spawn",
   "task.start",
+  "memory_forget",
   "schedule",
   "notify",
   "specialist.spawn",
@@ -303,6 +304,7 @@ export const SPECIALIST_WITHHELD = new Set([
   "schedule",
   "wrap_up",
   "task.start",
+  "memory_forget",
 ]);
 /** Tools only a specialist run sees. */
 export const SPECIALIST_ONLY = new Set(["specialist.report"]);
