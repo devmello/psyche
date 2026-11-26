@@ -1,7 +1,9 @@
 import type { Catalogue } from "../index.ts";
 import { actionErrors } from "./action-errors/it.ts";
 import { agentRest } from "./agent-rest/it.ts";
+import { appleA } from "./apple-a/it.ts";
 import { appleB } from "./apple-b/it.ts";
+import { appleD } from "./apple-d/it.ts";
 import { appleE1 } from "./apple-e1/it.ts";
 import { appleE2 } from "./apple-e2/it.ts";
 import { approvalsW3 } from "./approvals-w3/it.ts";
@@ -282,15 +284,15 @@ export const it: Partial<Catalogue> = {
   "chat.queue.sendQueuedLabel": 'Invia il messaggio in coda "{content}"',
   "chat.commands.model.hint": "fornitore/modello",
   "chat.commands.model.description": "Scegli il modello di questo thread",
-  "chat.commands.new.description": "Avvia una nuova chat secondaria",
+  "chat.commands.new.description": "Avvia una nuova chat",
   "chat.commands.btw.hint": "domanda",
-  "chat.commands.btw.description": "Fai una domanda a parte in una chat secondaria",
+  "chat.commands.btw.description": "Chiedi in una nuova chat",
   "chat.commands.fork.hint": "messaggio",
   "chat.commands.fork.description": "Dirama questo thread da qui",
   "chat.commands.schedule.hint": "quando e cosa",
   "chat.commands.schedule.description": "Crea un’automazione",
   "chat.commands.incognito.hint": "messaggio",
-  "chat.commands.incognito.description": "Avvia una chat che non viene ricordata",
+  "chat.commands.incognito.description": "Avvia una chat privata, eliminata dopo 24 ore",
   "chat.commands.forget.hint": "argomento",
   "chat.commands.forget.description": "Ritira ciò che è stato ricordato su qualcosa",
   "chat.commands.remember.hint": "fatto",
@@ -326,13 +328,13 @@ export const it: Partial<Catalogue> = {
   "chat.message.jumpToQuote": "Vai al messaggio citato",
   "chat.message.actions": "Azioni del messaggio",
   "chat.message.reply": "Rispondi",
-  "chat.message.fork": "Continua in una chat secondaria",
+  "chat.message.fork": "Continua in una nuova chat",
   "chat.message.editResend": "Modifica e invia di nuovo",
   "chat.message.userLabel": "Tu, {time}",
   "chat.message.agentLabel": "{name}, {time}",
   "chat.message.editHint":
-    "Le modifiche vengono inviate in una chat secondaria diramata da qui; questa chat conserva l’originale.",
-  "chat.message.resendAsSideChat": "Invia di nuovo come chat secondaria",
+    "Le modifiche vengono inviate in una nuova chat derivata da qui; questa chat mantiene l’originale.",
+  "chat.message.resendAsSideChat": "Reinvia in una nuova chat",
   "chat.message.fromTask": "Dall’attività: {title}",
   "chat.approvals.announce":
     "Approvazione necessaria: {summary}. {count, plural, one {# approvazione richiede la tua attenzione} other {# approvazioni richiedono la tua attenzione}}.",
@@ -381,8 +383,9 @@ export const it: Partial<Catalogue> = {
   "chat.runFailed.openModels": "Apri Impostazioni → Modelli",
   "chat.runFailed.details": "Dettagli",
   "chat.toolbar.label": "Barra degli strumenti della chat",
-  "chat.toolbar.incognito": "Incognito",
-  "chat.incognito.notice": "Non usata per memoria, ricerca o attività. Scade dopo 24 ore.",
+  "chat.toolbar.incognito": "Privata",
+  "chat.incognito.notice":
+    "Chat privata: non salvata in memoria né nella ricerca, ed eliminata dopo 24 ore.",
   "chat.toolbar.view": "Vista trascrizione",
   "chat.toolbar.view.status": "Solo stato",
   "chat.toolbar.view.actions": "Azioni",
@@ -699,12 +702,7 @@ export const it: Partial<Catalogue> = {
   "agent.mode.balanced": "Bilanciata",
   "agent.mode.auto": "Automatica",
   "agent.mode.full": "Accesso completo",
-  "chat.commands.full.hint": "on | off",
-  "chat.commands.full.description": "Attiva o disattiva l'accesso completo in questa chat",
-  "chat.commands.usageFull": "Uso: /full [on | off]",
   "chat.args.mode.full": "Agisce senza chiedere, tranne invii e pagamenti",
-  "chat.args.full.on": "Agire senza chiedere, tranne invii e pagamenti",
-  "chat.args.full.off": "Torna a Bilanciato",
   "chat.thread.fullAccessOn":
     "L'accesso completo è attivo in questa chat. Gli invii ad altre persone e i pagamenti chiedono ancora.",
   "chat.thread.fullAccessOff": "L'accesso completo è disattivato. Questa chat torna a Bilanciato.",
@@ -717,7 +715,7 @@ export const it: Partial<Catalogue> = {
   "agent.state.needsYou": "richiede la tua attenzione",
   "agent.state.error": "errore",
   "agent.state.paused": "in pausa",
-  "agent.state.incognito": "incognito",
+  "agent.state.incognito": "privata",
   "agent.state.offline": "offline",
   "agent.avatar.label": "{name}, {state}{delegated, select, true {, delegato} other {}}",
   "agent.status.offline": "Impossibile raggiungere Psyche",
@@ -739,7 +737,7 @@ export const it: Partial<Catalogue> = {
   "agent.header.exportHtml": "Esporta come HTML",
   "agent.sheet.tabs": "Agente",
   "agent.sheet.approvals": "Approvazioni",
-  "agent.sheet.soul": "Anima e memoria",
+  "agent.sheet.soul": "Personalità",
   "agent.sheet.now.working": "Lavora su {title} · {elapsed}",
   "agent.sheet.now.waiting":
     "In attesa di te · {approvals, plural, =0 {} one {# approvazione} other {# approvazioni}}{both, select, true { · } other {}}{questions, plural, =0 {} one {# domanda} other {# domande}}",
@@ -870,7 +868,7 @@ export const it: Partial<Catalogue> = {
   "agent.memory.controls": "Controlli della memoria",
   "agent.memory.memory": "Memoria",
   "agent.memory.paused": "In pausa",
-  "agent.memory.incognito": "Chat secondaria in incognito",
+  "agent.memory.incognito": "Chat privata",
   "agent.memory.importExport": "Importa, esporta e ripristina",
   "agent.memory.import": "Importa memoria",
   "agent.memory.importConv.title": "Importa da claude.ai o ChatGPT",
@@ -2896,7 +2894,7 @@ export const it: Partial<Catalogue> = {
   "screens.search.scope.tasks": "Attività",
   "screens.search.scope.memory": "Memoria",
   "screens.search.scope.library": "Libreria",
-  "screens.search.scope.feed": "Feed",
+  "screens.search.scope.feed": "Home",
   "screens.search.scope.ideas": "Idee",
   "screens.search.scope.goals": "Obiettivi",
   "screens.search.scope.connectors": "Connettori",
@@ -2908,7 +2906,7 @@ export const it: Partial<Catalogue> = {
   "screens.search.example": "dentista",
   "screens.search.tryExample": "Prova “{example}”",
   "screens.search.intro":
-    "Cerca tra thread, attività, memoria, Libreria e Feed. Restringi con in:feed, type:pdf o from:nome.",
+    "Cerca in thread, attività, memoria, Libreria e Home. Restringi con type:pdf o from:name.",
   "screens.search.addWord": "Aggiungi una parola da cercare.",
   "screens.search.searching": "Ricerca",
   "screens.search.failed": "Ricerca non riuscita",
@@ -2967,7 +2965,7 @@ export const it: Partial<Catalogue> = {
   "screens.ideas.repeats":
     "Si ripete con la pianificazione proposta; puoi cambiarla più tardi in In programma.",
   "screens.ideas.viewSkill": "Mostra SKILL.md",
-  "screens.ideas.accept": "Facciamolo",
+  "screens.ideas.accept": "Avvia attività",
   "screens.ideas.added": '"{title}" aggiunta a In programma.',
   "screens.ideas.started": '{name} ha avviato "{title}".',
   "screens.ideas.open": "Apri",
@@ -3134,7 +3132,7 @@ export const it: Partial<Catalogue> = {
   "screens.inbox.saveFailed": "Psyche non è riuscito a salvare",
   "screens.inbox.retryFailed": 'Psyche non è riuscito a riprovare "{title}"',
   "screens.inbox.kind.approval": "Approvazione",
-  "screens.inbox.kind.input_needed": "Risposta",
+  "screens.inbox.kind.input_needed": "Domanda per te",
   "screens.inbox.kind.task_done": "Completata",
   "screens.inbox.kind.task_failed": "Non riuscita",
   "screens.inbox.kind.proactive": "Idea",
@@ -3269,7 +3267,7 @@ export const it: Partial<Catalogue> = {
   "screens.library.meetingNotes.action": "Crea note della riunione",
   "screens.library.meetingNotes.running":
     "Creazione delle note in corso. Una registrazione lunga può richiedere tempo, fino a quattro ore di audio.",
-  "screens.library.meetingNotes.done": "Le note sono pronte nel tuo Feed.",
+  "screens.library.meetingNotes.done": "Le note sono pronte in Home.",
   "screens.library.meetingNotes.open": "Apri note",
   "screens.library.meetingNotes.failed": "Psyche non è riuscito a creare le note ({reason}).",
   "screens.library.trust": "Considera attendibile questo file",
@@ -3771,8 +3769,6 @@ export const it: Partial<Catalogue> = {
   "web.chat.send": "Invia",
   "web.chat.label": "Chat",
   "web.chat.permissionModeTitle": "Modalità permessi (⌘⇧M)",
-  "web.chat.permissionMode":
-    "{mode, select, manual {manuale} balanced {bilanciata} auto {automatica} plan {piano} other {{mode}}}",
   "web.chat.modelTitle": "Modello (⌘⇧I)",
   "web.chat.defaultModel": "modello di default",
   "web.chat.conversation": "Conversazione",
@@ -3969,4 +3965,6 @@ export const it: Partial<Catalogue> = {
   ...spaces,
   ...machines,
   ...actionErrors,
+  ...appleA,
+  ...appleD,
 };

@@ -7,7 +7,7 @@ export const agentRest: Partial<Catalogue> = {
   "agent.timeline.back": "활동으로 돌아가기",
   "agent.timeline.loading": "타임라인을 불러오는 중",
   "agent.timeline.loadFailed": "Psyche가 이 타임라인을 불러오지 못했습니다 ({reason}).",
-  "agent.timeline.incognito": "보관 안 됨 · 시크릿 모드",
+  "agent.timeline.incognito": "저장되지 않음 · 비공개 채팅",
   "agent.timeline.notVerified":
     "검증 안 됨: 실행은 끝났지만 모든 단계가 수행되었다는 증거가 없습니다. {reason} 기록된 내용:",
   "agent.timeline.state.partial": "문제와 함께 완료됨",

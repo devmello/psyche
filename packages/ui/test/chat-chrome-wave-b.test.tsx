@@ -14,8 +14,6 @@ function Header() {
     <AgentHeader
       onOpenSheet={() => {}}
       onOpenApprovals={() => {}}
-      mode="balanced"
-      onModeChange={() => {}}
       model="anthropic/claude-sonnet-5-5"
       onOpenModelPicker={() => {}}
       disclosure={1}
@@ -51,22 +49,56 @@ describe("chat header (desktop simplicity, wave B)", () => {
     expect(within(toolbar).queryByTestId("toolbar-pills")).toBeNull();
   });
 
-  it("keeps mode (with the Auto explainer), model and the shortcuts in the ⋯ menu", async () => {
+  it("keeps the ⋯ menu short: model, approvals and memory, Export chat, Advanced, Clear chat", async () => {
     render(
       <StoryWorld>
         <Header />
       </StoryWorld>,
     );
     await userEvent.click(await screen.findByRole("button", { name: "More" }));
-    const modeMenu = await screen.findByTestId("mode-menu");
-    for (const name of [/manual/i, /balanced/i, /auto/i])
-      expect(within(modeMenu).getByRole("menuitemradio", { name })).toBeTruthy();
-    expect(within(modeMenu).getByTestId("mode-menu-auto-explainer").textContent).toMatch(
-      /Auto runs routine actions/,
-    );
-    expect(modeMenu.textContent).toMatch(/⇧|Shift/);
-    const model = screen.getByRole("menuitem", { name: /Model: Sonnet 5.5/ });
+    // The mode is not here any more: it is the picker in the composer bar.
+    expect(screen.queryByTestId("mode-menu")).toBeNull();
+    expect(screen.queryByRole("menuitemradio", { name: /balanced/i })).toBeNull();
+    const model = await screen.findByRole("menuitem", { name: /Model: Sonnet 5.5/ });
     expect(model.getAttribute("aria-keyshortcuts")).toBe("Meta+Shift+I");
+    const items = screen.getAllByRole("menuitem").map((i) => i.textContent?.trim());
+    expect(items).toHaveLength(5);
+    expect(items[1]).toMatch(/Approvals and memory/);
+    expect(items[2]).toMatch(/Export chat/);
+    expect(items[3]).toMatch(/Advanced/);
+    expect(items[4]).toMatch(/Clear chat/);
+    // The developer tools sit behind Advanced, not in the first menu.
+    expect(screen.queryByText("Raw tool I/O")).toBeNull();
+    expect(screen.queryByText("Compact now")).toBeNull();
+    expect(screen.queryByText("Export as Markdown")).toBeNull();
+  });
+
+  it("puts transcript view, context limits and compact under Advanced, and the formats under Export chat", async () => {
+    const onExport = vi.fn();
+    const onCompact = vi.fn();
+    render(
+      <StoryWorld>
+        <AgentHeader
+          onOpenSheet={() => {}}
+          disclosure={1}
+          onDisclosureChange={() => {}}
+          onExport={onExport}
+          onCompact={onCompact}
+          onContextLimits={() => {}}
+        />
+      </StoryWorld>,
+    );
+    await userEvent.click(await screen.findByRole("button", { name: "More" }));
+    await userEvent.click(await screen.findByTestId("advanced-submenu"));
+    expect(await screen.findByRole("menuitemradio", { name: "Raw tool I/O" })).toBeTruthy();
+    expect(screen.getByRole("menuitem", { name: "Compact now" })).toBeTruthy();
+    expect(screen.getByRole("menuitem", { name: /Context limits/ })).toBeTruthy();
+    await userEvent.click(screen.getByRole("menuitem", { name: "Compact now" }));
+    expect(onCompact).toHaveBeenCalledTimes(1);
+    await userEvent.click(await screen.findByRole("button", { name: "More" }));
+    await userEvent.click(await screen.findByTestId("export-submenu"));
+    await userEvent.click(await screen.findByRole("menuitem", { name: "Export as JSON" }));
+    expect(onExport).toHaveBeenCalledWith("json");
   });
 
   it("still answers ⌘⇧M (mode) and ⌘⇧I (model)", async () => {
@@ -104,6 +136,9 @@ describe("chat header (desktop simplicity, wave B)", () => {
     );
     await screen.findByTestId("approval-dock");
     expect(screen.queryByTestId("mode-switch")).toBeNull();
-    expect(screen.queryByRole("radiogroup", { name: "Permission mode" })).toBeNull();
+    expect(screen.queryByRole("radiogroup", { name: "Permissions" })).toBeNull();
+    // The one mode control is a pop-up button in the composer bar, always showing the mode.
+    const picker = await screen.findByTestId("mode-picker");
+    expect(picker.textContent).toMatch(/Manual|Balanced|Auto|Full access|Plan/);
   });
 });

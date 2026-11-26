@@ -10,13 +10,13 @@ export const chatRest: Partial<Catalogue> = {
   "chat.outbox.sendNow": "Invia ora",
   "chat.outbox.remove": "Non inviare “{content}”",
   "chat.commands.mode.hint": "manuale | bilanciata | auto | piano",
-  "chat.commands.mode.description": "Imposta la modalità di permessi di questo thread",
+  "chat.commands.mode.description": "Imposta i permessi di questa chat",
   "chat.commands.teach.hint": "cosa fare invece",
   "chat.commands.teach.description": "Correggi l’ultima risposta e fanne tesoro",
   "chat.commands.research.hint": "domanda",
   "chat.commands.research.description":
     "Approfondisci una domanda con un rapporto corredato di fonti",
-  "chat.commands.usageMode": "Uso: /mode [manual | balanced | auto | plan]",
+  "chat.commands.usageMode": "Uso: /mode [manual | balanced | auto | full]",
   "chat.args.label": "Valori per /{command}",
   "chat.args.loading": "Caricamento…",
   "chat.args.count": "{count, plural, one {# valore} other {# valori}}",
@@ -33,7 +33,6 @@ export const chatRest: Partial<Catalogue> = {
   "chat.args.mode.balanced": "Chiede solo per le azioni rischiose",
   "chat.args.mode.auto": "Agisce da solo; serve un modello adatto ad Auto",
   "chat.args.mode.autoNeedsModel": "Serve un modello adatto ad Auto: sceglilo con /model",
-  "chat.args.mode.plan": "Sola lettura: pianifica senza agire",
   "chat.composer.placeholderArticle": "Chiedi di questo articolo",
   "chat.composer.placeholderResult": "Chiedi di questo risultato",
   "chat.composer.placeholderMemory": "Chiedi di questo elemento",
@@ -118,8 +117,8 @@ export const chatRest: Partial<Catalogue> = {
   "chat.thread.loading": "Caricamento della conversazione",
   "chat.thread.sendFailed": "Impossibile inviare il messaggio ({reason}).",
   "chat.thread.retrySend": "Riprova",
-  "chat.thread.modeCurrent": "Modalità permessi: {mode}.",
-  "chat.thread.modeSet": "La modalità permessi ora è {mode}.",
+  "chat.thread.modeCurrent": "Permessi: {mode}.",
+  "chat.thread.modeSet": "Permessi impostati su {mode}.",
   "chat.thread.researchPrompt":
     "/research {question}\n\nApprofondisci questo argomento con il tuo strumento research_plan. Mostrami il piano e la stima dei token, e aspetta il mio via libera prima di chiamare research_run. Usa solo fonti web.",
   "chat.thread.researchPromptLocal":
@@ -186,7 +185,7 @@ export const chatRest: Partial<Catalogue> = {
   "chat.steps.summary.failed": "Interrotto · non riuscito dopo {duration}",
   "chat.steps.summary.cancelled":
     "Interrotto da te dopo {duration} · {n, plural, one {# passaggio} other {# passaggi}}",
-  "chat.steps.summary.incognito": "Non conservato · incognito",
+  "chat.steps.summary.incognito": "Non conservata · chat privata",
   "chat.steps.effect.sentEmails":
     "{n, plural, one {ha inviato # email} other {ha inviato # email}}",
   "chat.steps.effect.addedEvents":
@@ -214,10 +213,9 @@ export const chatRest: Partial<Catalogue> = {
   "chat.clear.clearing": "Cancellazione…",
   "chat.clear.done": "Chat cancellata",
   "chat.clear.failed": "Impossibile cancellare la chat: {reason}",
-  "chat.clear.mainOnly":
-    "Cancella funziona nella chat principale. Usa /new per una nuova chat secondaria.",
+  "chat.clear.mainOnly": "Cancella funziona nella chat principale. Usa /new per una nuova chat.",
   "chat.commands.clear.description": "Cancella la chat principale",
-  "chat.modeSwitch.label": "Modalità permessi",
+  "chat.modeSwitch.label": "Permessi",
   "chat.modeSwitch.autoExplainer":
     "Auto esegue le azioni di routine entro i tuoi permessi e chiede prima di qualsiasi cosa delicata. I pagamenti chiedono sempre; il tuo elenco dei divieti viene sempre rifiutato.",
   "chat.modeSwitch.gotIt": "Ho capito",

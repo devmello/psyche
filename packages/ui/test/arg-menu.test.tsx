@@ -147,16 +147,17 @@ describe("argument popup (other commands)", () => {
     await userEvent.type(await box(), "/mode ");
     const list = await popup("mode");
     const rows = within(list).getAllByRole("option");
-    expect(rows).toHaveLength(5);
-    for (const [i, mode] of ["manual", "balanced", "auto", "full", "plan"].entries()) {
+    // One vocabulary, one order: the same four as the composer's picker (Plan is /plan, not a mode here).
+    expect(rows).toHaveLength(4);
+    for (const [i, mode] of ["manual", "balanced", "auto", "full"].entries()) {
       expect(rows[i]?.textContent?.startsWith(mode)).toBe(true);
     }
     expect(within(list).getByRole("option", { name: /balanced/ }).textContent).toContain(
       "Asks only for risky actions",
     );
-    await userEvent.keyboard("pl{Tab}");
-    expect(await screen.findByText("Permission mode is now plan.")).toBeTruthy();
-    expect(updates(gateway)).toEqual([{ threadId: IDS.threads.main, permissionMode: "plan" }]);
+    await userEvent.keyboard("ba{Tab}");
+    expect(await screen.findByText("Permissions set to Balanced.")).toBeTruthy();
+    expect(updates(gateway)).toEqual([{ threadId: IDS.threads.main, permissionMode: "balanced" }]);
   });
 
   it("/export offers its formats", async () => {

@@ -1,7 +1,9 @@
 import type { Catalogue } from "../index.ts";
 import { actionErrors } from "./action-errors/de.ts";
 import { agentRest } from "./agent-rest/de.ts";
+import { appleA } from "./apple-a/de.ts";
 import { appleB } from "./apple-b/de.ts";
+import { appleD } from "./apple-d/de.ts";
 import { appleE1 } from "./apple-e1/de.ts";
 import { appleE2 } from "./apple-e2/de.ts";
 import { approvalsW3 } from "./approvals-w3/de.ts";
@@ -278,15 +280,15 @@ export const de: Partial<Catalogue> = {
 
   "chat.commands.model.hint": "anbieter/modell",
   "chat.commands.model.description": "Modell für diesen Thread wählen",
-  "chat.commands.new.description": "Neuen Nebenchat beginnen",
+  "chat.commands.new.description": "Neuen Chat beginnen",
   "chat.commands.btw.hint": "frage",
-  "chat.commands.btw.description": "Nebenbei in einem Nebenchat fragen",
+  "chat.commands.btw.description": "In einem neuen Chat fragen",
   "chat.commands.fork.hint": "nachricht",
   "chat.commands.fork.description": "Diesen Thread ab hier abzweigen",
   "chat.commands.schedule.hint": "wann und was",
   "chat.commands.schedule.description": "Automation erstellen",
   "chat.commands.incognito.hint": "nachricht",
-  "chat.commands.incognito.description": "Chat beginnen, der nicht gemerkt wird",
+  "chat.commands.incognito.description": "Privaten Chat beginnen, nach 24 Stunden gelöscht",
   "chat.commands.forget.hint": "thema",
   "chat.commands.forget.description": "Gemerktes zu einem Thema zurücknehmen",
   "chat.commands.remember.hint": "fakt",
@@ -324,13 +326,13 @@ export const de: Partial<Catalogue> = {
   "chat.message.jumpToQuote": "Zur zitierten Nachricht springen",
   "chat.message.actions": "Nachrichtenaktionen",
   "chat.message.reply": "Antworten",
-  "chat.message.fork": "In einem Nebenchat fortsetzen",
+  "chat.message.fork": "In neuem Chat fortsetzen",
   "chat.message.editResend": "Bearbeiten und erneut senden",
   "chat.message.userLabel": "Du, {time}",
   "chat.message.agentLabel": "{name}, {time}",
   "chat.message.editHint":
-    "Änderungen werden in einem hier abgezweigten Nebenchat gesendet; dieser Chat behält das Original.",
-  "chat.message.resendAsSideChat": "Als Nebenchat erneut senden",
+    "Änderungen werden in einem neuen, von hier abgezweigten Chat gesendet; dieser Chat behält das Original.",
+  "chat.message.resendAsSideChat": "In neuem Chat erneut senden",
   "chat.message.fromTask": "Aus Aufgabe: {title}",
 
   "chat.approvals.announce":
@@ -379,9 +381,9 @@ export const de: Partial<Catalogue> = {
   "chat.runFailed.details": "Details",
 
   "chat.toolbar.label": "Chat-Symbolleiste",
-  "chat.toolbar.incognito": "Inkognito",
+  "chat.toolbar.incognito": "Privat",
   "chat.incognito.notice":
-    "Wird nicht für Erinnerungen, Suche oder Aktivität verwendet. Läuft nach 24 Std. ab.",
+    "Privater Chat: nicht in Gedächtnis oder Suche gespeichert und nach 24 Stunden gelöscht.",
   "chat.toolbar.view": "Transkriptansicht",
   "chat.toolbar.view.status": "Nur Status",
   "chat.toolbar.view.actions": "Aktionen",
@@ -722,12 +724,7 @@ export const de: Partial<Catalogue> = {
   "agent.mode.balanced": "Ausgewogen",
   "agent.mode.auto": "Automatisch",
   "agent.mode.full": "Vollzugriff",
-  "chat.commands.full.hint": "on | off",
-  "chat.commands.full.description": "Vollzugriff in diesem Chat ein- oder ausschalten",
-  "chat.commands.usageFull": "Verwendung: /full [on | off]",
   "chat.args.mode.full": "Handelt ohne Rückfrage, außer bei Nachrichten und Zahlungen",
-  "chat.args.full.on": "Ohne Rückfrage handeln, außer bei Nachrichten und Zahlungen",
-  "chat.args.full.off": "Zurück zu Ausgewogen",
   "chat.thread.fullAccessOn":
     "Vollzugriff ist in diesem Chat an. Nachrichten an andere und Zahlungen fragen weiterhin nach.",
   "chat.thread.fullAccessOff": "Vollzugriff ist aus. Dieser Chat ist wieder ausgewogen.",
@@ -741,7 +738,7 @@ export const de: Partial<Catalogue> = {
   "agent.state.needsYou": "braucht dich",
   "agent.state.error": "Fehler",
   "agent.state.paused": "pausiert",
-  "agent.state.incognito": "inkognito",
+  "agent.state.incognito": "privat",
   "agent.state.offline": "offline",
   "agent.avatar.label": "{name}, {state}{delegated, select, true {, delegiert} other {}}",
 
@@ -764,7 +761,7 @@ export const de: Partial<Catalogue> = {
 
   "agent.sheet.tabs": "Agent",
   "agent.sheet.approvals": "Genehmigungen",
-  "agent.sheet.soul": "Seele & Gedächtnis",
+  "agent.sheet.soul": "Persönlichkeit",
   "agent.sheet.now.working": "Arbeitet an {title} · {elapsed}",
   "agent.sheet.now.waiting":
     "Wartet auf dich · {approvals, plural, =0 {} one {# Genehmigung} other {# Genehmigungen}}{both, select, true { · } other {}}{questions, plural, =0 {} one {# Frage} other {# Fragen}}",
@@ -895,7 +892,7 @@ export const de: Partial<Catalogue> = {
   "agent.memory.controls": "Gedächtnissteuerung",
   "agent.memory.memory": "Gedächtnis",
   "agent.memory.paused": "Pausiert",
-  "agent.memory.incognito": "Inkognito-Nebenchat",
+  "agent.memory.incognito": "Privater Chat",
   "agent.memory.importExport": "Importieren, exportieren und zurücksetzen",
   "agent.memory.import": "Gedächtnis importieren",
   "agent.memory.importConv.title": "Aus claude.ai oder ChatGPT importieren",
@@ -2957,7 +2954,7 @@ export const de: Partial<Catalogue> = {
   "screens.search.scope.tasks": "Aufgaben",
   "screens.search.scope.memory": "Gedächtnis",
   "screens.search.scope.library": "Mediathek",
-  "screens.search.scope.feed": "Feed",
+  "screens.search.scope.feed": "Home",
   "screens.search.scope.ideas": "Ideen",
   "screens.search.scope.goals": "Ziele",
   "screens.search.scope.connectors": "Verbindungen",
@@ -2969,7 +2966,7 @@ export const de: Partial<Catalogue> = {
   "screens.search.example": "Zahnarzt",
   "screens.search.tryExample": "Versuch „{example}“",
   "screens.search.intro":
-    "Durchsuche Threads, Aufgaben, Gedächtnis, Mediathek und Feed. Grenze mit in:feed, type:pdf oder from:name ein.",
+    "Durchsuche Threads, Aufgaben, Gedächtnis, Mediathek und Home. Grenze mit type:pdf oder from:name ein.",
   "screens.search.addWord": "Gib ein Wort ein, nach dem gesucht werden soll.",
   "screens.search.searching": "Wird gesucht",
   "screens.search.failed": "Suche fehlgeschlagen",
@@ -3028,7 +3025,7 @@ export const de: Partial<Catalogue> = {
   "screens.ideas.repeats":
     "Wiederholt sich nach dem vorgeschlagenen Zeitplan; ändere ihn später unter „Anstehend“.",
   "screens.ideas.viewSkill": "SKILL.md ansehen",
-  "screens.ideas.accept": "Los geht’s",
+  "screens.ideas.accept": "Aufgabe starten",
   "screens.ideas.added": "„{title}“ zu „Anstehend“ hinzugefügt.",
   "screens.ideas.started": "{name} hat „{title}“ gestartet.",
   "screens.ideas.open": "Öffnen",
@@ -3197,7 +3194,7 @@ export const de: Partial<Catalogue> = {
   "screens.inbox.saveFailed": "Psyche konnte das nicht sichern",
   "screens.inbox.retryFailed": "Psyche konnte „{title}“ nicht erneut versuchen",
   "screens.inbox.kind.approval": "Genehmigung",
-  "screens.inbox.kind.input_needed": "Eingabe",
+  "screens.inbox.kind.input_needed": "Frage an dich",
   "screens.inbox.kind.task_done": "Fertig",
   "screens.inbox.kind.task_failed": "Fehlgeschlagen",
   "screens.inbox.kind.proactive": "Idee",
@@ -3332,7 +3329,7 @@ export const de: Partial<Catalogue> = {
   "screens.library.meetingNotes.action": "Besprechungsnotizen erstellen",
   "screens.library.meetingNotes.running":
     "Notizen werden erstellt. Lange Aufnahmen können dauern, bis zu vier Stunden Audio.",
-  "screens.library.meetingNotes.done": "Die Notizen sind in Ihrem Feed bereit.",
+  "screens.library.meetingNotes.done": "Die Notizen sind in Home bereit.",
   "screens.library.meetingNotes.open": "Notizen öffnen",
   "screens.library.meetingNotes.failed": "Psyche konnte die Notizen nicht erstellen ({reason}).",
   "screens.library.trust": "Dieser Datei vertrauen",
@@ -3850,8 +3847,6 @@ export const de: Partial<Catalogue> = {
   "web.chat.send": "Senden",
   "web.chat.label": "Chat",
   "web.chat.permissionModeTitle": "Berechtigungsmodus (⌘⇧M)",
-  "web.chat.permissionMode":
-    "{mode, select, manual {manuell} balanced {ausgewogen} auto {automatisch} plan {planen} other {{mode}}}",
   "web.chat.modelTitle": "Modell (⌘⇧I)",
   "web.chat.defaultModel": "Standardmodell",
   "web.chat.conversation": "Unterhaltung",
@@ -4054,4 +4049,6 @@ export const de: Partial<Catalogue> = {
   ...spaces,
   ...machines,
   ...actionErrors,
+  ...appleA,
+  ...appleD,
 };

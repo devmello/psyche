@@ -300,7 +300,7 @@ struct ChatTurnActivityTests {
         // The settings change reaches the center through the backend's event stream, which subscribes
         // asynchronously: send the change until the center has seen one.
         let off = PhoneSettings(
-            notifications: true, liveActivities: false, taskTitlesOnLockScreen: false, faceIDForApprovals: true)
+            notifications: true, liveActivities: false, taskTitlesOnLockScreen: false)
         for _ in 0..<3000 where !rig.chat.live.isEmpty {
             try? await rig.backend.updateSettings(off)
             try? await Task.sleep(for: .milliseconds(10))

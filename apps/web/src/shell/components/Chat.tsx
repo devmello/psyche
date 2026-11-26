@@ -33,7 +33,24 @@ import {
   webSpeechDictation,
 } from "../voice.ts";
 
-export const PERMISSION_MODES: readonly PermissionMode[] = ["manual", "balanced", "auto", "plan"];
+/** The modes ⌘⇧M cycles: the same Manual, Balanced, Auto as the switch. Plan and Full access are picked, never cycled into. */
+export const PERMISSION_MODES: readonly PermissionMode[] = ["manual", "balanced", "auto"];
+
+/** The one name for each mode, as the switch above the composer shows it. */
+function modeName(mode: PermissionMode): string {
+  switch (mode) {
+    case "manual":
+      return t("agent.mode.manual");
+    case "auto":
+      return t("agent.mode.auto");
+    case "plan":
+      return t("agent.mode.plan");
+    case "full":
+      return t("agent.mode.full");
+    default:
+      return t("agent.mode.balanced");
+  }
+}
 
 /**
  * The composer's slash commands (docs/06 §3.2). No Gateway method lists more, so the composer
@@ -732,7 +749,7 @@ export function ChatView(props: {
           }
           data-testid="mode-pill"
         >
-          {t("web.chat.permissionMode", { mode: props.thread?.permissionMode ?? "balanced" })}
+          {modeName(props.thread?.permissionMode ?? "balanced")}
         </button>
         <button
           type="button"

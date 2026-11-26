@@ -51,13 +51,17 @@ beforeEach(() => {
   window.localStorage.clear();
 });
 
+function Probe() {
+  return <output data-testid="tab">{useDefaultAgentTab()}</output>;
+}
+
 describe("the two segments", () => {
-  it("are Approvals (with the needs-you badge) and Soul, and nothing else", async () => {
+  it("are Approvals (with the needs-you badge) and Personality, and nothing else", async () => {
     sheet();
     const tabs = await screen.findAllByRole("tab");
     expect(tabs.map((x) => x.textContent?.replace(/\d+$/, "").trim())).toEqual([
       "Approvals",
-      "Soul",
+      "Personality",
     ]);
     await waitFor(() => expect(tabs[0]?.textContent).toMatch(/\d+$/));
   });
@@ -74,9 +78,6 @@ describe("the two segments", () => {
   });
 
   it("defaults to Approvals when something needs you, else the last used segment", async () => {
-    function Probe() {
-      return <output data-testid="tab">{useDefaultAgentTab()}</output>;
-    }
     rememberAgentTab("soul");
     const waiting = render(
       <StoryWorld>
@@ -99,7 +100,7 @@ describe("the two segments", () => {
         <AgentSheetBody tab="approvals" onTabChange={() => {}} now={STORY_NOW} />
       </StoryWorld>,
     );
-    await userEvent.click(screen.getByRole("tab", { name: /^Soul/ }));
+    await userEvent.click(screen.getByRole("tab", { name: /^Personality/ }));
     expect(lastAgentTab()).toBe("soul");
   });
 });
@@ -221,7 +222,7 @@ describe("old links and ⌘K", () => {
     });
   });
 
-  it("offers Approvals, Soul and the Overview, not Activity or Upcoming", () => {
+  it("offers Approvals, Personality and the Overview, not Activity or Upcoming", () => {
     const routes = DEFAULT_ACTIONS.map((a) => a.route);
     expect(routes).toContain("/agent/approvals");
     expect(routes).toContain("/agent/soul");

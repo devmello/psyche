@@ -33,6 +33,8 @@ import {
 } from "../../components/ui/dropdown-menu.tsx";
 import { Skeleton } from "../../components/ui/skeleton.tsx";
 import { useApproval, useCall, useNotifications, useTask } from "../../data/hooks.ts";
+import { useStoreState } from "../../data/provider.tsx";
+import { approvalWaits } from "../../data/waiting.ts";
 import { isMessageId, t } from "../../i18n/core.ts";
 import { describeError } from "../../i18n/errors.ts";
 import { noticeText } from "../../i18n/notice.ts";
@@ -777,9 +779,20 @@ function useOpenNotification(onOpen?: (n: Notification) => void): (n: Notificati
   );
 }
 
-/** Unresolved approvals and questions, newest first: what Home's "Needs you" lists. */
-export function needsYou(notifications: readonly Notification[], now: number): Notification[] {
-  return notifications.filter((n) => groupOf(n, now) === "needs");
+/**
+ * Unresolved approvals and questions, newest first: what Home's "Needs you" lists. Given the
+ * store's approvals, a card whose approval expired or was answered is history and leaves.
+ */
+export function needsYou(
+  notifications: readonly Notification[],
+  now: number,
+  approvals?: Readonly<Record<string, Pick<ApprovalRequest, "status" | "expiresAt">>>,
+): Notification[] {
+  return notifications.filter((n) => {
+    if (groupOf(n, now) !== "needs") return false;
+    const approval = n.approvalId == null ? undefined : approvals?.[n.approvalId];
+    return approval === undefined || approvalWaits(approval, now);
+  });
 }
 
 export interface NeedsYouListProps {
@@ -801,7 +814,8 @@ export function NeedsYouList({
   const now = useNow(1000, fixedNow);
   const inbox = useNotifications();
   const open = useOpenNotification(onOpen);
-  const rows = needsYou(inbox.unresolved, now).slice(0, limit);
+  const approvals = useStoreState((s) => s.approvals);
+  const rows = needsYou(inbox.unresolved, now, approvals).slice(0, limit);
   if (rows.length === 0) return null;
   const primaryId = rows.find((n) => n.kind === "approval")?.id ?? null;
   return (

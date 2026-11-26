@@ -15,8 +15,6 @@ export const Header: Story = {
   render: () => (
     <AgentHeader
       onOpenSheet={() => {}}
-      mode="balanced"
-      onModeChange={() => {}}
       model="anthropic/claude-sonnet-5-5"
       onOpenModelPicker={() => {}}
     />
@@ -33,7 +31,7 @@ export const HeaderIdle: Story = {
       },
     }),
   ],
-  render: () => <AgentHeader onOpenSheet={() => {}} mode="balanced" />,
+  render: () => <AgentHeader onOpenSheet={() => {}} />,
 };
 
 export const HeaderOffline: Story = {

@@ -95,11 +95,11 @@ describe("Home", () => {
     const suggestions = await section("suggestions");
     await waitFor(() =>
       expect(
-        within(suggestions).queryAllByRole("button", { name: "Do it" }).length,
+        within(suggestions).queryAllByRole("button", { name: "Start Task" }).length,
       ).toBeGreaterThan(0),
     );
     const row = within(suggestions)
-      .getAllByRole("button", { name: "Do it" })[0]
+      .getAllByRole("button", { name: "Start Task" })[0]
       ?.closest("article");
     expect(row).toBeTruthy();
     const inRow = within(row as HTMLElement);
@@ -115,7 +115,7 @@ describe("Home", () => {
     const suggestions = await section("suggestions");
     await waitFor(() =>
       expect(
-        within(suggestions).queryAllByRole("button", { name: "Do it" }).length,
+        within(suggestions).queryAllByRole("button", { name: "Start Task" }).length,
       ).toBeGreaterThan(0),
     );
     expect(suggestions.querySelector("[data-prominent]")).toBeNull();
@@ -429,7 +429,7 @@ describe("Home's one way in (consolidation-2026 §7)", () => {
     const more = await openMore(user);
     await user.click(within(more).getByRole("button", { name: /^Scheduled/ }));
     expect(navigate).toHaveBeenLastCalledWith("/scheduled");
-    for (const name of [/^Wren & you/, /^Inbox/, /^Soul/, /^Memory review/])
+    for (const name of [/^Wren & you/, /^Inbox/, /^Personality/, /^Memory review/])
       expect(within(more).getByRole("button", { name })).toBeTruthy();
   });
 });

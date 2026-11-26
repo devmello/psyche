@@ -141,7 +141,6 @@ struct MemorySearchSettingsTests {
         var settings = try await store.settings()
         #expect(settings.taskTitlesOnLockScreen == false)  // off by default
         settings.taskTitlesOnLockScreen = true
-        settings.faceIDForApprovals = false
         try await store.updateSettings(settings)
         #expect(try await store.settings() == settings)
         var iterator = events.makeAsyncIterator()

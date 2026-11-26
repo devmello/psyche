@@ -10,8 +10,6 @@ import {
   sheetTab,
 } from "../agent/AgentSheet.tsx";
 import { useClearChatHeader } from "../chat/ClearChatDialog.tsx";
-import { ModeFeedback, useThreadModeChoice } from "../chat/ModeSwitch.tsx";
-import { isSwitchMode } from "../chat/mode-switch.ts";
 import { ChatThread } from "../chat/Thread.tsx";
 import { useThread, useThreads } from "../data/index.ts";
 import { forkFromRoute } from "../plan-fork/data.ts";
@@ -177,21 +175,12 @@ export function AppShell({
   });
 
   const clearChat = useClearChatHeader(threadId, thread.thread?.thread.kind);
-  const modeChoice = useThreadModeChoice({
-    id: threadId,
-    kind: thread.thread?.thread.kind,
-    modelRef: thread.thread?.thread.modelRef ?? null,
-  });
   const header = (
     <AgentHeader
       onOpenSheet={() => setSheet((s) => ({ ...s, open: true }))}
       onOpenTask={() => onNavigate("/overview#now")}
-      {...(thread.thread ? { mode: thread.thread.thread.permissionMode } : {})}
       {...(thread.thread?.thread.modelRef ? { model: thread.thread.thread.modelRef } : {})}
       onOpenApprovals={() => setSheet({ open: true, tab: "approvals" })}
-      onModeChange={(next) => {
-        if (isSwitchMode(next)) void modeChoice.choose(next);
-      }}
       incognito={thread.thread?.thread.kind === "incognito"}
       spaceSwitcher={<SpaceSwitcher threadId={threadId} onNavigate={onNavigate} />}
       {...clearChat}
@@ -272,7 +261,6 @@ export function AppShell({
                 </div>
               )
             ) : null}
-            {chatMatch && !compact ? <ModeFeedback choice={modeChoice} /> : null}
             <div className="flex min-h-0 flex-1">
               <div className="min-w-0 flex-1 overflow-y-auto">
                 <RouteTransition>{content}</RouteTransition>

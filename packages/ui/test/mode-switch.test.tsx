@@ -1,15 +1,13 @@
 import { render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
-import { AgentHeader } from "../src/agent/AgentHeader.tsx";
-import { ModeFeedback, useModeChoice } from "../src/chat/ModeSwitch.tsx";
+import { ModeFeedback, ModePicker, useModeChoice } from "../src/chat/ModeSwitch.tsx";
 import {
   applyModeChoice,
   autoModeBlockedBy,
   autoModeSuggestion,
   type DefaultSaved,
   isAutoModelRefusal,
-  isSwitchMode,
   type ListedModels,
   type SwitchMode,
 } from "../src/chat/mode-switch.ts";
@@ -173,7 +171,7 @@ describe("applyModeChoice", () => {
   });
 });
 
-/** The one mode control: the header's ⋯ menu, with what the choice has to say under the header. */
+/** The one mode control: the composer's picker, with what the choice has to say above the composer. */
 function Harness(props: {
   mode: string;
   modelRef: string | null;
@@ -187,25 +185,37 @@ function Harness(props: {
   });
   return (
     <StoryWorld>
-      <AgentHeader
-        onOpenSheet={() => {}}
-        mode={props.mode as "balanced"}
-        onModeChange={(m) => {
-          if (isSwitchMode(m)) void choice.choose(m);
-        }}
-      />
+      <ModePicker mode={props.mode as "balanced"} choice={choice} />
       <ModeFeedback choice={choice} />
     </StoryWorld>
   );
 }
 
 async function openMode(name: RegExp) {
-  await userEvent.click(screen.getByRole("button", { name: "More" }));
+  await userEvent.click(screen.getByTestId("mode-picker"));
   return userEvent.click(await screen.findByRole("menuitemradio", { name }));
 }
 
-describe("mode control in the header menu", () => {
-  it("switches mode in one choice on an allowed model, and the menu itself explains Auto", async () => {
+describe("mode picker in the composer bar", () => {
+  it("shows the current mode on the button and lists the four modes in one order, each explained", async () => {
+    render(<Harness mode="balanced" modelRef={null} listed={undefined} onSelect={vi.fn()} />);
+    const button = screen.getByTestId("mode-picker");
+    expect(button.textContent).toBe("Balanced");
+    expect(button.getAttribute("aria-label")).toBe("Permissions: Balanced");
+    await userEvent.click(button);
+    const items = await screen.findAllByRole("menuitemradio");
+    expect(items.map((i) => i.textContent?.split(/(?=[A-Z][a-z]+ )/)[0]?.trim())).toEqual([
+      "Manual",
+      "Balanced",
+      "Auto",
+      "Full access",
+    ]);
+    expect(screen.getByRole("menuitemradio", { name: /^manual/i }).textContent).toMatch(
+      /asks before every action/i,
+    );
+  });
+
+  it("switches mode in one choice on an allowed model", async () => {
     const onSelect = vi.fn().mockResolvedValue("saved");
     render(
       <Harness
@@ -215,22 +225,19 @@ describe("mode control in the header menu", () => {
         onSelect={onSelect}
       />,
     );
-    await userEvent.click(screen.getByRole("button", { name: "More" }));
-    expect((await screen.findByTestId("mode-menu-auto-explainer")).textContent).toMatch(
-      /asks before anything sensitive/,
-    );
-    await userEvent.click(await screen.findByRole("menuitemradio", { name: /^auto$/i }));
+    await userEvent.click(screen.getByTestId("mode-picker"));
+    await userEvent.click(await screen.findByRole("menuitemradio", { name: /^auto/i }));
     expect(onSelect).toHaveBeenCalledWith("auto", undefined);
   });
 
   it("marks the current mode and sets manual without any prompt", async () => {
     const onSelect = vi.fn().mockResolvedValue("saved");
     render(<Harness mode="auto" modelRef={null} listed={undefined} onSelect={onSelect} />);
-    await userEvent.click(screen.getByRole("button", { name: "More" }));
+    await userEvent.click(screen.getByTestId("mode-picker"));
     expect(
-      (await screen.findByRole("menuitemradio", { name: /^auto$/i })).getAttribute("aria-checked"),
+      (await screen.findByRole("menuitemradio", { name: /^auto/i })).getAttribute("aria-checked"),
     ).toBe("true");
-    await userEvent.click(screen.getByRole("menuitemradio", { name: /^manual$/i }));
+    await userEvent.click(screen.getByRole("menuitemradio", { name: /^manual/i }));
     expect(onSelect).toHaveBeenCalledWith("manual", undefined);
   });
 
@@ -239,7 +246,7 @@ describe("mode control in the header menu", () => {
     render(
       <Harness mode="balanced" modelRef="lmstudio/tiny-7b" listed={listed} onSelect={onSelect} />,
     );
-    await openMode(/^auto$/i);
+    await openMode(/^auto/i);
     expect(onSelect).not.toHaveBeenCalled();
     await userEvent.click(await screen.findByTestId("mode-switch-take-offer"));
     expect(onSelect).toHaveBeenCalledWith("auto", "anthropic/claude-sonnet-5-5");
@@ -253,7 +260,7 @@ describe("mode control in the header menu", () => {
     render(
       <Harness mode="balanced" modelRef="mystery/model" listed={listed} onSelect={onSelect} />,
     );
-    await openMode(/^auto$/i);
+    await openMode(/^auto/i);
     expect(await screen.findByTestId("mode-switch-take-offer")).toBeTruthy();
   });
 
@@ -266,7 +273,7 @@ describe("mode control in the header menu", () => {
         onSelect={vi.fn()}
       />,
     );
-    await openMode(/^auto$/i);
+    await openMode(/^auto/i);
     expect(await screen.findByTestId("mode-switch-offer")).toBeTruthy();
     expect(screen.queryByTestId("mode-switch-take-offer")).toBeNull();
   });
@@ -280,7 +287,7 @@ describe("mode control in the header menu", () => {
         onSelect={vi.fn().mockResolvedValue("failed")}
       />,
     );
-    await openMode(/^manual$/i);
+    await openMode(/^manual/i);
     expect(await screen.findByText(/could not be saved as the default/i)).toBeTruthy();
   });
 
@@ -292,7 +299,7 @@ describe("mode control in the header menu", () => {
     render(
       <Harness mode="balanced" modelRef="mystery/model" listed={undefined} onSelect={onSelect} />,
     );
-    await openMode(/^auto$/i);
+    await openMode(/^auto/i);
     const offer = await screen.findByTestId("mode-switch-offer");
     expect(offer.textContent).not.toMatch(/key/i);
   });

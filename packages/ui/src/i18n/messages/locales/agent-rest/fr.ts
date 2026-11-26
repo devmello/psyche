@@ -7,7 +7,7 @@ export const agentRest: Partial<Catalogue> = {
   "agent.timeline.back": "Retour à Activité",
   "agent.timeline.loading": "Chargement de la chronologie",
   "agent.timeline.loadFailed": "Psyche n’a pas pu charger cette chronologie ({reason}).",
-  "agent.timeline.incognito": "Non conservé · incognito",
+  "agent.timeline.incognito": "Non conservé · discussion privée",
   "agent.timeline.notVerified":
     "Non vérifié : l’exécution est terminée, mais la preuve que chaque étape a eu lieu manque. {reason} Ce qui a été enregistré :",
   "agent.timeline.state.partial": "Terminé avec des problèmes",

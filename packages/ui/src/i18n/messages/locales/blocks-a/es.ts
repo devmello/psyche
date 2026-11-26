@@ -3,7 +3,7 @@ import type { Catalogue } from "../../index.ts";
 /** blocks-a strings (es); merged into `../es.ts`. */
 export const blocksA: Partial<Catalogue> = {
   "chat.clear.mainOnly":
-    "Borrar solo funciona en el chat principal. Usa /new para un chat paralelo nuevo.",
+    "Borrar solo funciona en el chat principal. Usa /new para una conversación nueva.",
   "chat.commands.clear.description": "Borra el chat principal",
   "blocks.lifeAnswer.label": "Respuesta basada en tu correo, mensajes y archivos",
   "blocks.message.receipt":
@@ -242,7 +242,7 @@ export const blocksA: Partial<Catalogue> = {
   "agent.timeline.back": "Volver a Actividad",
   "agent.timeline.loading": "Cargando la cronología",
   "agent.timeline.loadFailed": "Psyche no pudo cargar esta cronología ({reason}).",
-  "agent.timeline.incognito": "No se conserva · incógnito",
+  "agent.timeline.incognito": "No se conserva · conversación privada",
   "agent.timeline.notVerified":
     "Sin verificar: la ejecución terminó, pero faltan las pruebas de que cada paso ocurrió. {reason} Lo que se registró:",
   "agent.timeline.state.partial": "Terminado con problemas",

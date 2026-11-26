@@ -8,7 +8,7 @@ import { SHORTCUTS } from "../src/shell/shortcuts.ts";
 import { UiSlotsProvider } from "../src/slots.tsx";
 
 const NOW = Date.parse(FIXTURE_NOW);
-const NOTICE = "Not used for memory, search or activity. Expires after 24 h.";
+const NOTICE = "Private chat: not kept in memory or search, and deleted after 24 hours.";
 
 function renderThread(threadId: string) {
   const gateway = new MockGateway(createFixtureWorld(), { now: () => FIXTURE_NOW });

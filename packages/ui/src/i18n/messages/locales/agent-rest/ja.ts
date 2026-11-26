@@ -7,7 +7,7 @@ export const agentRest: Partial<Catalogue> = {
   "agent.timeline.back": "アクティビティに戻る",
   "agent.timeline.loading": "タイムラインを読み込み中",
   "agent.timeline.loadFailed": "Psycheはこのタイムラインを読み込めませんでした（{reason}）。",
-  "agent.timeline.incognito": "保存されません · シークレットモード",
+  "agent.timeline.incognito": "保存されません · プライベートチャット",
   "agent.timeline.notVerified":
     "未検証: 実行は終了しましたが、すべてのステップが行われたことを示す証拠がありません。{reason} 記録された内容:",
   "agent.timeline.state.partial": "問題ありで完了",

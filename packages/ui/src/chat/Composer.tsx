@@ -23,6 +23,7 @@ import {
   Fragment,
   type KeyboardEvent,
   type ReactElement,
+  type ReactNode,
   useEffect,
   useId,
   useRef,
@@ -153,6 +154,8 @@ export interface ComposerProps {
   onStop?: () => void;
   /** What the argument popup lists after `/model `, `/mode `: the thread's data. */
   argContext?: ArgContext;
+  /** The permission mode pop-up button, in the bar before the mic and Send (always visible). */
+  modePicker?: ReactNode;
 }
 
 /**
@@ -175,6 +178,7 @@ export function Composer({
   voice,
   onStop,
   argContext,
+  modePicker,
 }: ComposerProps): ReactElement {
   const menu = useCommandMenu();
   const holdKey = useDictationKeyLabel();
@@ -521,6 +525,7 @@ export function Composer({
                     ? t("chat.composer.hintSteer", { persona })
                     : t("chat.composer.hintInterrupt", { persona })}
             </span>
+            {modePicker}
             {voice ? (
               <ComposerVoiceButtons voice={voice} disabled={disabled} className={round} />
             ) : null}

@@ -1,5 +1,5 @@
 import { ArrowRight, Fingerprint, ShieldCheck, X } from "lucide-react";
-import { type ReactElement, type ReactNode, useEffect, useState } from "react";
+import { type ReactElement, type ReactNode, useEffect, useRef, useState } from "react";
 import { Avatar } from "../avatar/Avatar.tsx";
 import { Badge } from "../components/ui/badge.tsx";
 import { Button } from "../components/ui/button.tsx";
@@ -11,12 +11,13 @@ import {
   SheetTitle,
 } from "../components/ui/sheet.tsx";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs.tsx";
-import { useQuestions } from "../data/index.ts";
+import { useApprovals, useQuestions, useStoreState } from "../data/index.ts";
+import { countWaiting } from "../data/waiting.ts";
 import { t } from "../i18n/core.ts";
 import { cn } from "../lib/utils.ts";
 import { routeLink } from "../overview/overviewLinks.ts";
 import { usePersona, useSlots } from "../slots.tsx";
-import { ApprovalsPanel, useApprovalQueue } from "./ApprovalsPanel.tsx";
+import { ApprovalsPanel } from "./ApprovalsPanel.tsx";
 import { NowNextLine } from "./NowNextLine.tsx";
 import { SoulMemoryPanel } from "./SoulMemoryPanel.tsx";
 import { useAgentStatus } from "./useAgentState.ts";
@@ -52,9 +53,13 @@ export function rememberAgentTab(tab: AgentTab): void {
 
 /** What approvals and questions are waiting: the Approvals badge and the default segment. */
 export function useNeedsYouCount(): number {
-  const { needsYou } = useApprovalQueue();
-  const questions = useQuestions();
-  return needsYou + questions.open.length;
+  // The same count as the chat header and Home: waiting approvals (an expired one is history)
+  // plus open questions, from one rule (`countWaiting`).
+  useApprovals();
+  useQuestions();
+  const approvals = useStoreState((s) => s.approvals);
+  const questions = useStoreState((s) => s.inputRequests);
+  return countWaiting(approvals, questions);
 }
 
 /** Approvals when something needs you, otherwise the segment used last (else Approvals). */
@@ -346,8 +351,25 @@ export interface AgentSheetPanelProps
  * the identity and the ×. The shell keeps the modal `AgentSheet` for windows too narrow for both.
  */
 export function AgentSheetPanel({ onClose, ...body }: AgentSheetPanelProps): ReactElement {
+  const panel = useRef<HTMLElement>(null);
+  // Opening the inspector (the "8 need you" badge, a link) moves focus into it, so Escape closes
+  // it at once; closing puts focus back on what opened it. Typing in a field is never interrupted.
+  useEffect(() => {
+    const opener = document.activeElement;
+    const typing =
+      opener instanceof HTMLElement &&
+      (opener.isContentEditable || /^(input|textarea|select)$/i.test(opener.tagName));
+    if (!typing && panel.current && !panel.current.contains(opener)) {
+      panel.current.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]')?.focus();
+    }
+    return () => {
+      if (opener instanceof HTMLElement && opener !== document.body && opener.isConnected)
+        opener.focus();
+    };
+  }, []);
   return (
     <aside
+      ref={panel}
       aria-label={t("agent.sheet.label")}
       data-testid="agent-sheet"
       data-presentation="inline"
