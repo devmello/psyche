@@ -2,6 +2,7 @@ import type { Catalogue } from "../index.ts";
 import { actionErrors } from "./action-errors/zh.ts";
 import { agent } from "./agent/zh.ts";
 import { agentNotes } from "./agent-notes/zh.ts";
+import { appleE2 } from "./apple-e2/zh.ts";
 import { approvalsW3 } from "./approvals-w3/zh.ts";
 import { audit } from "./audit/zh.ts";
 import { automationChat } from "./automation-chat/zh.ts";
@@ -3944,6 +3945,7 @@ export const zh: Partial<Catalogue> = {
   ...separateDesktop,
   // Windows variants of the sandbox PC, voice keys and platform terms
   ...windowsPlatform202611,
+  ...appleE2,
   ...mailFollowups,
   ...nightShift,
   ...keepAwake,

@@ -99,7 +99,7 @@ describe("People & projects", () => {
     expect(nodes).toHaveLength(top.length);
     expect(nodes.map((n) => n.getAttribute("data-rank"))).toEqual(nodes.map((_, i) => String(i)));
     expect(screen.getByTestId("people-counts").textContent).toBe(
-      "14 people · 6 projects · 5 open loops",
+      "14 people · 6 projects · 5 to follow up",
     );
     expect(screen.getByTestId("people-ranked").textContent).toContain(`${top[0]?.name} `);
     // Exactly one tab stop, and edges only run from "you" (no entity-entity lines).
@@ -111,7 +111,7 @@ describe("People & projects", () => {
     renderBoth({});
     const first = (await screen.findAllByTestId("people-node"))[0] as HTMLElement;
     expect(first.getAttribute("aria-label")).toMatch(/interaction/);
-    expect(first.getAttribute("aria-label")).toMatch(/open loop/);
+    expect(first.getAttribute("aria-label")).toMatch(/to follow up/);
   });
 
   it("moves between nodes with the arrow keys and shows the focused node's detail", async () => {

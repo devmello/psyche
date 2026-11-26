@@ -3,7 +3,7 @@ import type { Catalogue } from "../../index.ts";
 /** memory strings not covered elsewhere (ja); merged into `../ja.ts`. */
 export const memoryRest: Partial<Catalogue> = {
   "memory.page.title": "メモリ",
-  "memory.page.soul": "Soul",
+  "memory.page.soul": "パーソナリティ",
   "memory.page.kinds": "表示する内容",
   "memory.page.kind.everything": "すべて",
   "memory.page.kind.people": "人物",

@@ -1,6 +1,7 @@
 import type { Catalogue } from "../index.ts";
 import { actionErrors } from "./action-errors/pt.ts";
 import { agentA } from "./agent-a/pt.ts";
+import { appleE2 } from "./apple-e2/pt.ts";
 import { approvalsW3 } from "./approvals-w3/pt.ts";
 import { blocksA } from "./blocks-a/pt.ts";
 import { canvas } from "./canvas/pt.ts";
@@ -4031,6 +4032,7 @@ export const pt: Partial<Catalogue> = {
   ...separateDesktop,
   // Windows variants of the sandbox PC, voice keys and platform terms
   ...windowsPlatform202611,
+  ...appleE2,
   ...mailFollowups,
   ...nightShift,
   ...keepAwake,
