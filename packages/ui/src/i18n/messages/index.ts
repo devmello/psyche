@@ -45,6 +45,7 @@ import { overview } from "./overview.ts";
 import { overviewGrowth } from "./overview-growth.ts";
 import { passwordPresence } from "./password-presence.ts";
 import { people } from "./people.ts";
+import { planFork } from "./plan-fork.ts";
 import { platform } from "./platform.ts";
 import { points } from "./points.ts";
 import { research } from "./research.ts";
@@ -145,6 +146,7 @@ export const en = {
   ...computerWatch,
   ...points,
   ...approvals,
+  ...planFork,
   ...desktopSimple,
   ...notices,
   ...separateDesktop,

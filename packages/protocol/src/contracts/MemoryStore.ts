@@ -73,6 +73,11 @@ export interface ForgetResult {
   removedChunkIds: string[];
   /** Workspace files whose lines were removed (or would be, on a dry run). */
   files?: string[];
+  /**
+   * Rows removed per store: this store's own, plus the graph, lessons and search index when the
+   * Gateway wired them in (memory wave 3A). Absent on a store that reports no counts.
+   */
+  counts?: Record<string, number>;
 }
 
 export interface MemoryFlushOptions extends CallOptions {

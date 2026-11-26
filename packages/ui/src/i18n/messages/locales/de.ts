@@ -1,6 +1,7 @@
 import type { Catalogue } from "../index.ts";
 import { actionErrors } from "./action-errors/de.ts";
 import { agentRest } from "./agent-rest/de.ts";
+import { appleE2 } from "./apple-e2/de.ts";
 import { approvalsW3 } from "./approvals-w3/de.ts";
 import { auditRest } from "./audit-rest/de.ts";
 import { blocksRest } from "./blocks-rest/de.ts";
@@ -41,6 +42,7 @@ import { overviewGrowth } from "./overview-growth/de.ts";
 import { overviewShared } from "./overview-shared/de.ts";
 import { passwordPresence } from "./password-presence/de.ts";
 import { peopleRest } from "./people-rest/de.ts";
+import { planFork } from "./plan-fork/de.ts";
 import { points } from "./points/de.ts";
 import { researchRest } from "./research-rest/de.ts";
 import { scheduledForm } from "./scheduled-form/de.ts";
@@ -48,6 +50,7 @@ import { scheduledRest } from "./scheduled-rest/de.ts";
 import { screensRest } from "./screens-rest/de.ts";
 import { securityState } from "./security-state/de.ts";
 import { separateDesktop } from "./separate-desktop/de.ts";
+import { settingsDrill } from "./settings-drill/de.ts";
 import { settingsRest } from "./settings-rest/de.ts";
 import { shellRest } from "./shell-rest/de.ts";
 import { spaces } from "./spaces/de.ts";
@@ -355,6 +358,8 @@ export const de: Partial<Catalogue> = {
   "chat.thread.forgetNothing": "Nichts Gemerktes passt zu „{subject}“.",
   "chat.thread.forgetPreview":
     "„{subject}“ zu vergessen nimmt {claims, plural, one {# Aussage} other {# Aussagen}} und {chunks, plural, one {# indizierte Notiz} other {# indizierte Notizen}} zurück{hasFiles, select, true { und bearbeitet {files}} other {}}.",
+  "chat.thread.forgetCounts":
+    "Außerdem werden {graph, plural, one {# Eintrag} other {# Einträge}} aus deinem Personengraphen, {review, plural, one {# Eintrag} other {# Einträge}} in der Prüfung, {lessons, plural, one {# Lektion oder Lektionszeile} other {# Lektionen oder Lektionszeilen}} und {search, plural, one {# Sucheintrag} other {# Sucheinträge}} gelöscht, und die Wörter werden aus gespeicherten Chats und Laufprotokollen entfernt. Das ist endgültig.",
   "chat.thread.forgetConfirm": "Vergessen",
   "chat.thread.forgot": "„{subject}“ vergessen.",
   "chat.thread.forgetFailed": "Vergessen hat nicht funktioniert ({reason}). Nichts wurde geändert.",
@@ -364,6 +369,7 @@ export const de: Partial<Catalogue> = {
   "chat.thread.exported": "Dieser Thread wurde als {format} exportiert.",
   "chat.thread.nothingRunning": "In diesem Chat läuft nichts.",
   "chat.thread.stopped": "Gestoppt.",
+  "chat.stopped.label": "Gestoppt",
   "chat.runFailed.credential":
     "Psyche konnte nicht antworten: Der API-Schlüssel deines Modells fehlt oder wurde abgelehnt. Füge ihn unter „Einstellungen“ → „Modelle“ hinzu oder korrigiere ihn.",
   "chat.runFailed.generic": "Psyche konnte diese Antwort nicht fertigstellen.",
@@ -478,6 +484,7 @@ export const de: Partial<Catalogue> = {
   "blocks.approval.scope.hostProgram": "{program} in {folder} immer erlauben",
   "blocks.approval.scope.hostProgramExact":
     "{program} mit genau diesen Argumenten in {folder} immer erlauben",
+  "blocks.approval.scope.hostProgramSession": "{program} in {folder} für diesen Chat erlauben",
   "blocks.approval.scope.site": "Für diese Website erlauben",
   "blocks.approval.scope.session": "Für diese Sitzung erlauben",
   "blocks.approval.scope.always": "Immer erlauben",
@@ -495,6 +502,7 @@ export const de: Partial<Catalogue> = {
   "blocks.approval.status.denied": "Abgelehnt{hasWhen, select, true { · {when}} other {}}",
   "blocks.approval.status.declinedInChat": "Abgelehnt – du hast im Chat geantwortet",
   "blocks.approval.status.expired": "Abgelaufen. Nichts wurde getan.",
+  "blocks.approval.expiredLine": "Abgelaufen · nichts wurde ausgeführt",
   "blocks.approval.status.voidedBecause": "Ungültig: {reason}",
   "blocks.approval.status.voided": "Ungültig. Die Argumente haben sich geändert.",
   "blocks.approval.taint": "dieser Zug hat nicht vertrauenswürdige Inhalte gelesen",
@@ -2339,8 +2347,6 @@ export const de: Partial<Catalogue> = {
   "settings.model.role.imageHint": "Avatar-Änderungen; „Keines“ bedeutet die mitgelieferten Wesen",
   "settings.model.addProvider": "Anbieter hinzufügen",
   "settings.model.title": "Modell & Anbieter",
-  "settings.model.description":
-    "Ein von dir gewähltes Modell wird so verwendet. Wenn es fehlschlägt, sagt Psyche das, statt auf ein anderes auszuweichen.",
   "settings.model.loadLabel": "Modellanbieter",
   "settings.model.providers": "Anbieter",
   "settings.model.listFailed": "Psyche konnte die Modelle nicht auflisten ({reason}).",
@@ -2375,13 +2381,10 @@ export const de: Partial<Catalogue> = {
   "settings.model.runCheckOn": "Werkzeugaufruf-Prüfung für {name} ausführen",
   "settings.model.runCheck": "Prüfung ausführen",
   "settings.model.roles": "Modellrollen",
-  "settings.model.rolesHint":
-    "Jede Rolle verwendet ein Modell. Modelle, die die Werkzeugaufruf-Prüfung nicht bestehen, sind nur für Chat.",
   "settings.model.none": "Keines",
   "settings.model.choose": "Modell wählen",
   "settings.model.chatOnlyOption": "{name} (nur Chat)",
   "settings.model.local": "Lokale Modelle",
-  "settings.model.localHint": "Führe Modelle auf diesem Mac mit Ollama oder LM Studio aus.",
   "settings.model.err.use": "Psyche konnte {name} nicht verwenden ({reason}).",
   "settings.model.err.probe": "Psyche konnte den Endpunkt nicht prüfen ({reason}).",
   "settings.model.err.check": "Psyche konnte die Prüfung nicht ausführen ({reason}).",
@@ -2438,9 +2441,6 @@ export const de: Partial<Catalogue> = {
   "settings.permissions.subject.emailFrom": "an {recipients} von {account}",
   "settings.permissions.subject.calendarNamed": "Kalender {id}",
   "settings.permissions.subject.calendar": "Kalender",
-  "settings.permissions.title": "Berechtigungen",
-  "settings.permissions.description":
-    "Was von selbst läuft, was zuerst fragt und was nie passiert.",
   "settings.permissions.loadLabel": "Berechtigungen",
   "settings.permissions.defaultModeTitle": "Standardmodus für neue Threads",
   "settings.permissions.execReview":
@@ -2954,8 +2954,8 @@ export const de: Partial<Catalogue> = {
     "Der Anbieter hat diesen Schlüssel abgelehnt ({reason}). Füge ihn erneut ein.",
   "onboarding.setupCheck": "Einrichtungsprüfung",
   "onboarding.progress": "Einrichtungsfortschritt",
+  "onboarding.steps": "Schritte",
   "onboarding.doneMark": " (fertig)",
-  "onboarding.stepOf": "Schritt {n, number} von {total, number}:",
   "onboarding.back": "Zurück",
   "onboarding.skipForNow": "Vorerst überspringen",
   "onboarding.openChat": "Hauptchat öffnen",
@@ -3010,7 +3010,7 @@ export const de: Partial<Catalogue> = {
   "onboarding.permission.asking": "Wird angefragt …",
   "onboarding.permission.allow": "Erlauben",
   "onboarding.connectors.intro":
-    "Entscheide jetzt, welche Accounts du verbindest, einen nach dem anderen. {name} sieht nur, was du verbindest, und du kannst später in den Einstellungen weitere hinzufügen.",
+    "Wähle, wobei {name} helfen soll. Jede App fragt beim Verbinden um Erlaubnis, und du kannst später in den Einstellungen mehr hinzufügen.",
   "onboarding.connectors.connected": "Verbunden ({n, number})",
   "onboarding.connectors.connectedList": "Deine Accounts",
   "onboarding.connectors.needsPermission": "Braucht Berechtigung",
@@ -3057,12 +3057,20 @@ export const de: Partial<Catalogue> = {
     "Psyche hat gerade deinen Tresor erstellt. Sichere diesen Schlüssel in einem Passwortmanager oder auf Papier: Er wird nur jetzt angezeigt und ist nach einer Wiederherstellung oder einem verlorenen Schlüsselplatz der einzige Weg zurück in den Tresor.",
   "onboarding.model.subscriptionNote":
     "Psyche verwendet die auf diesem Mac bereits angemeldete Claude-Code- oder Codex-App, braucht also keinen API-Schlüssel und speichert keinen. Melde dich zuerst dort an, falls noch nicht geschehen.",
-  "onboarding.model.toolCheck": "Werkzeugaufruf-Prüfung",
-  "onboarding.model.runCheck": "Prüfung ausführen",
-  "onboarding.model.checkAgain": "Erneut prüfen",
+  "onboarding.model.toolCheck": "Verbindungstest",
+  "onboarding.model.otherWays": "Andere Möglichkeiten",
+  "onboarding.model.test.passed": "Funktioniert",
+  "onboarding.model.test.failed": "Nur Chat",
+  "onboarding.model.test.running": "Wird getestet …",
+  "onboarding.model.test.untested": "Noch nicht getestet",
+  "onboarding.model.runCheck": "Testen",
+  "onboarding.model.checkAgain": "Erneut testen",
   "onboarding.model.toolCheckFailed":
-    "Dieses Modell kann chatten, aber Werkzeuge nicht zuverlässig verwenden, also handelt es nicht für dich. Wähle ein anderes oder fahre im Nur-Chat-Modus fort.",
+    "Dieses Modell kann chatten, erledigt aber womöglich keine Aufgaben für dich. Wähle ein anderes oder fahre im reinen Chat-Modus fort.",
   "onboarding.done.ready": "{name} ist bereit.",
+  "onboarding.done.notReady": "{name} kann noch nicht antworten.",
+  "onboarding.done.notReadyBody":
+    "Behebe die Zeile „Modell“ unten oder erledige es später unter Einstellungen → Modelle.",
   "onboarding.done.opens": "Der Hauptchat öffnet sich mit der ersten Nachricht von {name}.",
   "onboarding.done.noneYet": "Noch keine",
   "onboarding.done.accounts": "Accounts",
@@ -3745,8 +3753,11 @@ export const de: Partial<Catalogue> = {
     "{ref}: Der Anbieter hat den Schlüssel abgelehnt ({error}). Der Schlüssel wurde nicht behalten.",
   "web.setup.modelNotChecked":
     "{ref}: Der Schlüssel ist gespeichert, aber der Anbieter war zur Prüfung nicht erreichbar.",
+  "web.setup.modelEnvKey": "Es wird ein Schlüssel aus deiner Umgebung verwendet ({ref}).",
+  "web.setup.modelEnvNotChecked":
+    "Es wird ein Schlüssel aus deiner Umgebung verwendet ({ref}), aber der Anbieter war zur Prüfung nicht erreichbar.",
   "web.setup.modelSkipped":
-    "{ref}: Kein Schlüssel hinzugefügt, der Chat antwortet noch nicht. Füge einen unter Einstellungen → Modelle hinzu.",
+    "Schlüssel hinzufügen: {ref} hat noch keinen Schlüssel, der Chat antwortet daher nicht. Füge einen unter Einstellungen → Modelle hinzu.",
   "web.gate.loading": "Psyche startet",
   "web.gate.error": "Psyche konnte nicht prüfen, ob die Einrichtung abgeschlossen ist.",
   "web.gate.retry": "Erneut versuchen",
@@ -4156,6 +4167,9 @@ export const de: Partial<Catalogue> = {
   ...points,
   // Approvals wave W3 (card choices, Allowed list)
   ...approvalsW3,
+  ...settingsDrill,
+  // Fork a plan (docs/design/fork-a-plan-2026.md §9)
+  ...planFork,
   ...desktopSimple,
   // Gateway-authored notices (inbox notifications, security alerts)
   ...notices,
@@ -4163,6 +4177,7 @@ export const de: Partial<Catalogue> = {
   ...separateDesktop,
   // Windows variants of the sandbox PC, voice keys and platform terms
   ...windowsPlatform202611,
+  ...appleE2,
   ...mailFollowups,
   ...nightShift,
   ...keepAwake,

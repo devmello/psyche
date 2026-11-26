@@ -271,4 +271,28 @@ describe("truthful status", () => {
     expect(again.steps.map((s) => s.status)).toEqual(steps.map((s) => s.status));
     void owner;
   });
+
+  it("an approval still waiting stays waiting when the asking model call reports its usage", async () => {
+    const { agent, gw, turn, get } = await setup();
+    agent.script([
+      {
+        type: "do",
+        fn: () => {
+          const turnInput = agent.turns.at(-1);
+          const run = turnInput?.runId as string;
+          const thread = turnInput?.threadId as string;
+          for (const e of [
+            { type: "approval_requested", approval: { ...SAMPLE_APPROVAL_REQUEST, id: "ap_wait" } },
+            { type: "usage", usage },
+          ])
+            gw.context.runTrace.apply(run, thread, { ...e, runId: run } as never);
+        },
+      },
+      { type: "end", outcome: "awaiting_approval" },
+    ]);
+    const { steps } = await get(await turn());
+    const approval = steps.find((s) => s.kind === "approval");
+    expect(approval?.status).toBe("waiting");
+    expect(approval?.endedAt).toBeNull();
+  });
 });

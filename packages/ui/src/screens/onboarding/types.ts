@@ -11,13 +11,25 @@ export type OnboardingStepId = "you" | "stuff" | "model" | "memory" | "folders" 
 /** Docs: docs/design/onboarding-2026.md §2. */
 export const ONBOARDING_STEP_IDS: readonly OnboardingStepId[] = [
   "you",
-  "stuff",
   "model",
+  "stuff",
   "memory",
   "folders",
   "safety",
   "done",
 ];
+
+/**
+ * The steps first run walks through: your name, the model, what to help with, and Done. The
+ * others (memory, folders, safety) keep their defaults and live in Settings; they open only when
+ * a route or saved progress asks for one by name.
+ */
+export const DEFAULT_FLOW_STEPS: ReadonlySet<OnboardingStepId> = new Set([
+  "you",
+  "model",
+  "stuff",
+  "done",
+]);
 
 /** `unavailable`: this shell can't ask (the web build, or not macOS). */
 export type PermissionAnswer = "pending" | "granted" | "denied" | "skipped" | "unavailable";
@@ -191,9 +203,14 @@ export interface OnboardingResult {
   sharedFolders?: { id: StarterFolderId; path: string }[];
   /** Open Settings → File access once onboarding ends (the folders needed a card to be shared). */
   openFileAccess?: boolean;
+  /** Where the chat opens after setup: a "Try next" button on Done picked it. */
+  openAfter?: OnboardingTryTarget;
   /** The helper's Touch ID key was registered during setup (informational). */
   touchIdRegistered?: boolean;
 }
+
+/** The places Done's "Try next" buttons open. */
+export type OnboardingTryTarget = "search" | "home" | "chat";
 
 export interface OnboardingShellProps extends OnboardingExtrasProps {
   /** Installed RAM for local-model guidance. */

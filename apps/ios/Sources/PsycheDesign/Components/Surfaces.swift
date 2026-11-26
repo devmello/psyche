@@ -95,10 +95,13 @@ extension PageHeader where Trailing == EmptyView {
 public struct InitialsAvatar: View {
     private let initials: String
     private let size: CGFloat
+    /// The circle grows with Dynamic Type so the initials always fit it (capped, so a row does not balloon).
+    @ScaledMetric private var diameter: CGFloat
 
     public init(_ initials: String, size: CGFloat = 32) {
         self.initials = initials
         self.size = size
+        _diameter = ScaledMetric(wrappedValue: size, relativeTo: .body)
     }
 
     public var body: some View {
@@ -106,7 +109,7 @@ public struct InitialsAvatar: View {
             .font(size >= 40 ? .callout.weight(.semibold) : .caption2.weight(.semibold))
             .lineLimit(1).minimumScaleFactor(0.5)
             .foregroundStyle(PsycheColor.muted)
-            .frame(width: size, height: size)
+            .frame(width: min(diameter, size * 2), height: min(diameter, size * 2))
             .background(PsycheColor.fill, in: Circle())
             .accessibilityHidden(true)
     }

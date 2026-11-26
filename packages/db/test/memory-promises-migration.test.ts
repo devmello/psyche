@@ -427,12 +427,13 @@ describe("202611241000 memory promises", () => {
     });
     expect(result.applied).toContain("202611241000_memory_promises");
     expect(count(sqlite, "graph_loops")).toBe(8);
-    expect(warnings).toEqual([
-      [
+    // Every later table rebuild also finds the same dangling fact and logs it: one line each.
+    expect(warnings.length).toBeGreaterThanOrEqual(1);
+    for (const w of warnings)
+      expect(w).toEqual([
         "db.migration.foreign_key_violations_elsewhere",
         { count: expect.any(Number), tables: expect.arrayContaining(["graph_facts"]) },
-      ],
-    ]);
+      ]);
   });
 });
 

@@ -115,6 +115,8 @@ export const blocksRest: Partial<Catalogue> = {
   "blocks.approval.whyMode": "{mode} 모드에서는 {effect} 전에 확인합니다.",
   "blocks.details.params": "세부 정보",
   "blocks.details.reason": "이유",
+  "blocks.details.when": "시기",
+  "blocks.details.whatItWillDo": "실행 내용",
   "blocks.approval.answerOnHost":
     "{host}에서 답하거나 설정 → 기기에서 이 컴퓨터의 승인용 Touch ID를 설정하십시오.",
   "blocks.approval.rateLimited":

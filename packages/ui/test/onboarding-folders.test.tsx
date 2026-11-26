@@ -34,11 +34,10 @@ function run(offered: typeof OFFERED, onShareFolders?: OnboardingFlowProps["onSh
   return onComplete;
 }
 
-/** From the Folders step, through Safety and Done, to the end. */
+/** From the Folders step, through Done, to the end (Safety is no longer a step on the way). */
 async function toTheEnd(user: ReturnType<typeof userEvent.setup>, first: RegExp) {
   await user.click(screen.getByRole("button", { name: first }));
-  await user.click(await screen.findByRole("button", { name: /^next/i }));
-  await user.click(await screen.findByRole("button", { name: /chat/i }));
+  await user.click(await screen.findByRole("button", { name: /open the main chat/i }));
 }
 
 describe("onboarding folders step", () => {
@@ -79,7 +78,7 @@ describe("onboarding folders step", () => {
 
   it("is left out entirely when nothing is offered", async () => {
     run([]);
-    await screen.findByTestId("onboarding-safety");
+    await screen.findByTestId("onboarding-try");
     expect(screen.queryByTestId("onboarding-folders")).toBeNull();
   });
 

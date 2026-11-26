@@ -4,6 +4,7 @@ import {
   NightShiftApplyItem,
   NightShiftApplySend,
   NightShiftRefused,
+  StagedAction,
 } from "../schemas/night-shift.ts";
 import { ApprovalRequest } from "../schemas/permissions.ts";
 import { PlanFork, PlanForkBranch, PlanForkOption } from "../schemas/plan-forks.ts";
@@ -54,6 +55,13 @@ export const PlanForksMethods = {
     scope: "operator.read",
     description:
       "One fork with its branches and the comparison. For a caller that is not the desktop shell, items that cite owner-only sources, totals that include them and model-written text are withheld (each branch's scrub says how much).",
+  }),
+  "planForks.staged": defineMethod({
+    params: Type.Object({ forkId: Id, branchId: Id }),
+    result: Type.Object({ items: Type.Array(StagedAction, { maxItems: 50 }) }),
+    scope: "operator.read",
+    description:
+      "The prepared items of one branch (previews, binding hashes, send hashes) for the Take sheet. Scrubbed like planForks.get for a caller that is not the desktop shell: withheld items carry no summary, preview or params.",
   }),
   "planForks.list": defineMethod({
     params: Type.Object({ threadId: Id }),

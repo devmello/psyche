@@ -66,6 +66,15 @@
     var(--surface-overlay) var(--glass-tint-clear),
     transparent
   );
+  /*
+    Menus and popovers (finding 13): a near-opaque material with a heavy blur, like macOS menus, so
+    the content behind is never legible. Independent of the Translucency tint, which stays for
+    chrome that wants to show the backdrop. Reduced transparency makes it opaque (blocks below).
+  */
+  --material-menu: color-mix(in oklch, var(--surface-overlay) 94%, transparent);
+  --material-menu-blur: blur(30px) saturate(var(--glass-saturate));
+  --material-menu-shadow:
+    0 0 0 0.5px oklch(0 0 0 / 14%), 0 2px 6px oklch(0 0 0 / 10%), 0 12px 32px oklch(0 0 0 / 18%);
   /* Liquid Glass optics (research/liquid-glass.md §1.3): a top inner highlight and a soft lower edge. */
   --material-glass-highlight: inset 0 1px 0 oklch(1 0 0 / 55%), inset 0 -0.5px 0 oklch(0 0 0 / 6%);
   --material-blur: blur(var(--glass-blur)) saturate(var(--glass-saturate));
@@ -135,6 +144,8 @@
   /* Dark mode steps surfaces up instead of deepening shadows. */
   --elevation-1: 0 0 0 0.5px oklch(1 0 0 / 8%);
   --elevation-2: 0 0 0 0.5px oklch(1 0 0 / 12%), 0 8px 24px oklch(0 0 0 / 40%);
+  --material-menu-shadow:
+    0 0 0 0.5px oklch(1 0 0 / 16%), 0 2px 6px oklch(0 0 0 / 30%), 0 12px 32px oklch(0 0 0 / 50%);
   --elevation-3: 0 0 0 0.5px oklch(1 0 0 / 12%), 0 24px 64px oklch(0 0 0 / 50%);
 }
 
@@ -147,6 +158,8 @@
   --material-glass: var(--surface-overlay);
   --material-glass-refraction: var(--surface-overlay);
   --material-glass-clear: var(--surface-overlay);
+  --material-menu: var(--surface-overlay);
+  --material-menu-blur: none;
   --material-blur: none;
   --material-blur-refraction: none;
   --material-blur-clear: none;
@@ -161,6 +174,8 @@
   --material-glass: var(--surface-overlay);
   --material-glass-refraction: var(--surface-overlay);
   --material-glass-clear: var(--surface-overlay);
+  --material-menu: var(--surface-overlay);
+  --material-menu-blur: none;
   --material-blur: none;
   --material-blur-refraction: none;
   --material-blur-clear: none;
@@ -174,6 +189,8 @@
     --material-glass: var(--surface-overlay);
     --material-glass-refraction: var(--surface-overlay);
     --material-glass-clear: var(--surface-overlay);
+    --material-menu: var(--surface-overlay);
+    --material-menu-blur: none;
     --material-blur: none;
     --material-blur-refraction: none;
     --material-blur-clear: none;
@@ -186,6 +203,8 @@
   --material-glass: var(--surface-overlay);
   --material-glass-refraction: var(--surface-overlay);
   --material-glass-clear: var(--surface-overlay);
+  --material-menu: var(--surface-overlay);
+  --material-menu-blur: none;
   --material-blur: none;
   --material-blur-refraction: none;
   --material-blur-clear: none;
@@ -195,6 +214,8 @@
     --material-glass: var(--surface-overlay);
     --material-glass-refraction: var(--surface-overlay);
     --material-glass-clear: var(--surface-overlay);
+    --material-menu: var(--surface-overlay);
+    --material-menu-blur: none;
     --material-blur: none;
     --material-blur-refraction: none;
     --material-blur-clear: none;
@@ -304,6 +325,12 @@
     overflow-wrap: break-word;
   }
   /* Chrome glass (§3.4): composer, popovers, menus, palette, sheets. Never stacked. */
+  .material-menu {
+    background-color: var(--material-menu);
+    -webkit-backdrop-filter: var(--material-menu-blur);
+    backdrop-filter: var(--material-menu-blur);
+    box-shadow: var(--material-menu-shadow);
+  }
   .material-glass {
     background-color: var(--material-glass);
     -webkit-backdrop-filter: var(--material-blur);

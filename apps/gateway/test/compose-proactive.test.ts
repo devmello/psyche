@@ -68,6 +68,7 @@ describe("composition root: proactive surfaces (S15)", () => {
     const system = (await scheduler.list()).map((a) => a.title).sort();
     expect(system).toEqual([
       "Check for new mail",
+      "Check promises",
       "Check the recordings folder",
       "Daily brief",
       "Everything memory",
@@ -75,6 +76,7 @@ describe("composition root: proactive surfaces (S15)", () => {
       "Ideas: nightly mining",
       "Inbox digest",
       "Learn my writing style",
+      "Look for promises",
       "Meeting prep",
       "Memory dreaming",
       "Offer focus time",
@@ -204,5 +206,38 @@ describe("composition root: proactive surfaces (S15)", () => {
     await proposals?.idle();
     expect(ran).toHaveLength(2);
     expect(proposals?.get(p?.id ?? "").status).toBe("done");
+  });
+});
+
+describe("routine zones", () => {
+  it("a fresh home with no owner zone seeds the built-in routines in the Mac's zone, not UTC", async () => {
+    const saved = process.env.TZ;
+    process.env.TZ = "America/Los_Angeles";
+    try {
+      home = mkdtempSync(join(tmpdir(), "psyche-routine-zone-"));
+      composed = await composeGateway({
+        env: {},
+        logger: silentLogger,
+        retentionIntervalMs: 0,
+        background: false,
+        config: { home, port: 0, dbPath: join(home, "psyche.db"), webRoot: null },
+        model: { provider: new FakeModelProvider(), model: "fake/model" },
+      });
+      const all = await composed.scheduler.list();
+      for (const title of ["Daily brief", "Ideas: nightly mining", "Check for new mail"]) {
+        expect(all.find((a) => a.title === title)?.timezone, title).toBe("America/Los_Angeles");
+      }
+      const next = all.find((a) => a.title === "Daily brief")?.nextRunAt;
+      expect(next).toBeTruthy();
+      const hour = new Intl.DateTimeFormat("en-US", {
+        timeZone: "America/Los_Angeles",
+        hour: "numeric",
+        hourCycle: "h23",
+      }).format(new Date(next as string));
+      expect(Number(hour)).toBe(7);
+    } finally {
+      if (saved === undefined) Reflect.deleteProperty(process.env, "TZ");
+      else process.env.TZ = saved;
+    }
   });
 });

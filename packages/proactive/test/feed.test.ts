@@ -70,6 +70,7 @@ function rig(
     /** `feed/INSTRUCTIONS.md`, the owner's free text (#614). */
     instructions?: string;
     overrides?: Record<string, { status: number; text: string }>;
+    dailyBriefOn?: () => boolean;
   } = {},
 ) {
   const clock = new FakeClock(T0);
@@ -111,6 +112,7 @@ function rig(
   });
   const provider = options.provider;
   feed = new FeedService({
+    ...(options.dailyBriefOn === undefined ? {} : { dailyBriefOn: options.dailyBriefOn }),
     db: db.sqlite,
     clock,
     scheduler,
@@ -195,6 +197,41 @@ describe("the daily brief (O5)", () => {
     expect((await feed.list()).posts).toHaveLength(posts.length);
     expect(scheduler.runs(brief.id).runs[0]?.status).toBe("no_reply");
     expect((await notifier.list()).map((n) => n.kind)).toEqual(["briefing"]);
+  });
+
+  it("the scheduled 07:00 brief skips while the Morning brief switch is off, and runs when on", async () => {
+    let on = false;
+    const { feed, scheduler } = rig({ dailyBriefOn: () => on });
+    const brief = await feed.ensureDailyBrief({ timezone: "UTC" });
+    await scheduler.trigger(brief.id);
+    await scheduler.idle();
+    expect(scheduler.runs(brief.id).runs[0]).toMatchObject({
+      status: "no_reply",
+      summary: "Daily brief is off",
+    });
+    expect((await feed.list()).posts).toHaveLength(0);
+    on = true;
+    await scheduler.trigger(brief.id);
+    await scheduler.idle();
+    expect((await feed.list()).posts.length).toBeGreaterThan(0);
+  });
+
+  it("a restart keeps the owner's brief time and off switch", async () => {
+    const { feed, scheduler } = rig();
+    const brief = await feed.ensureDailyBrief({ timezone: "UTC" });
+    expect(brief).toMatchObject({ schedule: "0 7 * * *", enabled: true });
+    // The owner moves the brief and switches it off.
+    await scheduler.update(brief.id, { schedule: "30 6 * * *", enabled: false });
+    // The Gateway starts again: it asks for the brief with no options.
+    const again = await feed.ensureDailyBrief();
+    expect(again.id).toBe(brief.id);
+    expect(again).toMatchObject({ schedule: "30 6 * * *", enabled: false });
+    expect((await scheduler.get(brief.id))?.enabled).toBe(false);
+    // Asking for a time or a switch explicitly still changes it.
+    expect(await feed.ensureDailyBrief({ schedule: "0 8 * * *", enabled: true })).toMatchObject({
+      schedule: "0 8 * * *",
+      enabled: true,
+    });
   });
 
   it("works without a model: templated posts still carry citations", async () => {
