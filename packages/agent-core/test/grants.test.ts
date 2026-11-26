@@ -86,7 +86,7 @@ const lena: Requester = {
   role: "designated",
   identityId: "id_lena",
   display: "Lena",
-  channel: "telegram",
+  channel: "oldchat",
   senderId: "555",
   chatId: "555",
 };
@@ -227,12 +227,12 @@ describe("requester identity (security §9; S05 per-sender matrices)", () => {
     expect(decided?.ctx.taint).toBe(true);
     expect(decided?.ctx.taintSources).toContainEqual({
       sourceKind: "channel_message",
-      sender: "telegram:555",
+      sender: "oldchat:555",
     });
   });
 
   it("the owner's allowances and grants never cover a designated person; their chat never sees the card", async () => {
-    const h = harness({ policy, loop: { approvalSurfaces: ["desktop", "telegram:555"] } });
+    const h = harness({ policy, loop: { approvalSurfaces: ["desktop", "oldchat:555"] } });
     const mail = mailTool();
     h.loop.registry.register(mail.registration);
     // The owner grants `always` for alice.
@@ -300,14 +300,14 @@ describe("requester identity (security §9; S05 per-sender matrices)", () => {
     const owner = requesterFromRoute({
       role: "owner",
       identityId: "owner",
-      channelType: "telegram",
+      channelType: "oldchat",
       senderId: "1",
       chatId: "1",
     });
     expect(owner).toEqual({
       role: "owner",
       identityId: "owner",
-      channel: "telegram",
+      channel: "oldchat",
       senderId: "1",
       chatId: "1",
     });

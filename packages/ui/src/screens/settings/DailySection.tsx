@@ -31,7 +31,7 @@ import {
 /**
  * Settings → Daily. The keys, which the onboarding "Turn on habits" step also writes with
  * `settings.set`: `daily.brief.enabled`, `daily.brief.time` ("08:00"), `daily.wrapup.enabled`,
- * `daily.wrapup.time` ("18:00"), `daily.notify`, `daily.messages`, `daily.followups.enabled`
+ * `daily.wrapup.time` ("18:00"), `daily.notify`, `daily.followups.enabled`
  * and `daily.followups.sensitivity` ("low" | "normal" | "high"). Jobs read them per run.
  */
 export const DAILY_DEFAULTS = {
@@ -40,7 +40,6 @@ export const DAILY_DEFAULTS = {
   "daily.wrapup.enabled": false,
   "daily.wrapup.time": "18:00",
   "daily.notify": true,
-  "daily.messages": false,
   "daily.followups.enabled": true,
   "daily.followups.sensitivity": "normal",
 } as const;
@@ -599,13 +598,6 @@ export function DailyPanel({
             settingKey="daily.notify"
             checked={flag(values, "daily.notify")}
             onChange={(v) => onChange("daily.notify", v)}
-          />
-          <SwitchField
-            label={t("settings.key.daily.messages")}
-            description={t("settings.daily.messages.hint")}
-            settingKey="daily.messages"
-            checked={flag(values, "daily.messages")}
-            onChange={(v) => onChange("daily.messages", v)}
           />
         </Group>
         <Group title={t("settings.daily.group.keepAwake")}>

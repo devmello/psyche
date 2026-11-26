@@ -1,5 +1,8 @@
 # Night shift: prepare overnight, apply in the morning (2026)
 
+> **Update 2026-11-25: chat channels removed.** Telegram, Slack-as-chat, Discord, WhatsApp, Signal, SMS, email-as-chat, the iMessage chat bridge and WebChat no longer exist (owner decision: the iPhone app is the mobile surface). Mentions of channels, channel delivery, channel senders and `dmPolicy` below are historical. Approvals and briefs go only to the Mac app and the paired iPhone. Reading Messages and Mail and the send-a-message tool stay. See security section 9 in docs/05-security-and-permissions.md.
+
+
 Status: design, 2026-11-24. Owner request: "Overnight, Psyche prepares everything instead of acting
 on it: reply drafts, calendar fixes, filed documents, follow-ups. You wake up to one review screen
 with a checkbox per change and an 'Apply selected' button."

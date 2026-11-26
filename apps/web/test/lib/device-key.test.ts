@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import { lazyDeviceKey } from "../../src/gateway.ts";
 import { type DeviceKeyStore, indexedDbKeyStore, loadDeviceKey } from "../../src/lib/device-key.ts";
 
 /** IndexedDB's contract for one key: `add` refuses when a pair is already there. */
@@ -123,16 +122,5 @@ describe("browser device key (#554)", () => {
     };
     const fallback = await loadDeviceKey(broken);
     expect(fallback.deviceId).toMatch(/^dev_/);
-  });
-
-  it("the page loads the key once for the connection and passkeys", async () => {
-    let loads = 0;
-    const key = lazyDeviceKey(() => {
-      loads++;
-      return loadDeviceKey(undefined);
-    });
-    const [a, b] = await Promise.all([key(), key()]);
-    expect(a).toBe(b);
-    expect(loads).toBe(1);
   });
 });

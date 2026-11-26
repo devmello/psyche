@@ -1,8 +1,8 @@
-import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync } from "node:fs";
+import { existsSync, mkdtempSync, readdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { assetDir, assetPath, assetsRoot } from "@psyche/assets";
+import { assetDir, assetsRoot } from "@psyche/assets";
 import { connectorsMigrationSql } from "@psyche/connectors";
 import { openDb } from "@psyche/db";
 import { documentFormatOf, extractDocument } from "@psyche/files";
@@ -72,8 +72,6 @@ export async function bundleCheck(): Promise<Record<string, unknown>> {
     const bad = skills.filter((s) => ["invalid", "blocked", "hash_mismatch"].includes(s.status));
     need(bad.length === 0, `skills that do not load: ${bad.map((s) => s.name).join(", ")}`);
 
-    const web = assetPath("apps/web/dist/index.html");
-    need(statSync(web).isFile() && readFileSync(web, "utf8").includes("<"), "web client missing");
     need(existsSync(join(IMAGE_CONTEXT_DIR, "Dockerfile")), "sandbox image context missing");
     need(existsSync(BRIDGE_SCRIPT), "MCP stdio bridge missing");
 

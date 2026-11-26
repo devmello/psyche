@@ -10,9 +10,9 @@ const GRANDMA: Requester = {
   role: "designated",
   identityId: "idn_grandma",
   display: "Grandma",
-  channel: "telegram",
+  channel: "oldchat",
   senderId: "555",
-  links: ["telegram:555", "imessage:+15550001"],
+  links: ["oldchat:555", "imessage:+15550001"],
   toolAllow: ["calendar.*", "reminders.*", "notes.*", "email.draft", "email.send"],
 };
 const as = (requester: Requester): PolicyContext => ({ ...CTX, requester });
@@ -81,7 +81,7 @@ describe("designated persons", () => {
       grantKey: d.grantKey ?? "",
       requestedBy: { runId: CTX.runId, taskId: CTX.taskId ?? null, threadId: CTX.threadId },
       sideEffect: "destructive",
-      surfaces: ["desktop", "telegram:555", "telegram:owner-1"],
+      surfaces: ["desktop", "oldchat:555", "oldchat:owner-1"],
       taint: false,
     });
     expect(issued.approval.surfaces).toEqual(["desktop"]);
@@ -100,10 +100,10 @@ describe("designated persons", () => {
       grantKey: d.grantKey ?? "",
       requestedBy: { runId: CTX.runId, taskId: CTX.taskId ?? null, threadId: CTX.threadId },
       sideEffect: "write",
-      surfaces: ["desktop", "imessage:+15550001", "telegram:555", "telegram:owner-1"],
+      surfaces: ["desktop", "imessage:+15550001", "oldchat:555", "oldchat:owner-1"],
       taint: false,
     });
-    expect(issued.approval.surfaces).toEqual(["desktop", "telegram:owner-1"]);
+    expect(issued.approval.surfaces).toEqual(["desktop", "oldchat:owner-1"]);
   });
 
   it("grants never cross requesters", async () => {
@@ -142,7 +142,7 @@ describe("designated persons", () => {
 
   it("allowlisted senders get no writes and no reads of the owner's sources (#293)", async () => {
     const h = makeBroker({ policy: { allow: ["*"] } });
-    const friend: Requester = { role: "allowed", channel: "telegram", senderId: "777" };
+    const friend: Requester = { role: "allowed", channel: "oldchat", senderId: "777" };
     expect((await h.broker.decide(call("calendar.create", "write"), as(friend))).rule).toBe(
       "requester:not_owner",
     );
@@ -179,8 +179,8 @@ describe("designated persons", () => {
     expect(requesterKey(undefined)).toBeNull();
     expect(requesterKey({ role: "owner" })).toBeNull();
     expect(requesterKey(GRANDMA)).toBe("identity:idn_grandma");
-    expect(requesterKey({ role: "allowed", channel: "telegram", senderId: "7" })).toBe(
-      "sender:telegram:7",
+    expect(requesterKey({ role: "allowed", channel: "oldchat", senderId: "7" })).toBe(
+      "sender:oldchat:7",
     );
   });
 });

@@ -47,7 +47,7 @@ describe("code.* tools (V10)", () => {
   });
 
   it("renders the push card with the remote, URL, branch and commit first", () => {
-    const card = renderForSurface("telegram:1", {
+    const card = renderForSurface("oldchat:1", {
       id: "apr_1",
       kind: "git_push",
       summary: "Push main (0123456789ab) to origin",

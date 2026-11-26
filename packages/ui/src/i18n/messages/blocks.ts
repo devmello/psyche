@@ -167,6 +167,7 @@ export const blocks = {
   "blocks.approval.scope.hostProgram": "Always allow {program} in {folder}",
   "blocks.approval.scope.hostProgramExact":
     "Always allow {program} with exactly these arguments in {folder}",
+  "blocks.approval.scope.hostProgramSession": "Allow {program} in {folder} for this chat",
   "blocks.approval.scope.site": "Allow for this site",
   "blocks.approval.scope.session": "Allow for this session",
   "blocks.approval.scope.always": "Always allow",

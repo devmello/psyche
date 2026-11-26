@@ -57,7 +57,6 @@ Besides the model provider, Psyche connects out only for things you set up or as
 
 - connectors you add (Google, Microsoft, IMAP or JMAP, 1Password, Stripe Link) and MCP servers you install;
 - web search and fetch, and the agent browser, when a task needs them;
-- chat channels you configure, such as Telegram;
 - the Feed, which by default reads Hacker News and arXiv for posts. Turn either off, or add RSS feeds, with the `feed.sources` setting.
 
 Sandbox containers have no network unless a task asks for the egress proxy and you approve the domains.

@@ -33,7 +33,7 @@ const FAST = { kind: "passphrase" as const, passphrase: PASS, scryptLogN: 10 };
 
 const INCLUDED: Record<string, string | Buffer> = {
   "state/psyche.sqlite": Buffer.from([0x53, 0x51, 0x4c, 0x00, 0xff, 0x01, 0x02]),
-  "state/channels/whatsapp/session.json": '{"session":"abc"}',
+  "state/channels/oldchat/session.json": '{"session":"abc"}',
   "workspace/MEMORY.md": "# Memory\n- likes tea\n",
   "vault/vault.db": Buffer.from("vault-bytes"),
   "library/a.txt": "library file",
@@ -79,14 +79,7 @@ function expectRestored(home: string): void {
     expect(readFileSync(join(home, rel)), rel).toEqual(Buffer.from(content));
     expectPrivate(join(home, rel), 0o600, rel);
   }
-  for (const dir of [
-    "state",
-    "state/channels/whatsapp",
-    "workspace",
-    "vault",
-    "library",
-    "audit",
-  ]) {
+  for (const dir of ["state", "state/channels/oldchat", "workspace", "vault", "library", "audit"]) {
     expectPrivate(join(home, dir), 0o700, dir);
   }
   for (const rel of Object.keys(EXCLUDED)) expect(existsSync(join(home, rel)), rel).toBe(false);

@@ -6,7 +6,7 @@ A Psyche backup is one encrypted file, `psyche-<time>.tar.gz.age`. You can make 
 
 | Included | Not included |
 | --- | --- |
-| `state/`: the database (threads, tasks, approvals, grants, receipts) and channel sessions in `state/channels/` | `cli/`: the CLI's device key (each machine pairs again) |
+| `state/`: the database (threads, tasks, approvals, grants, receipts) | `cli/`: the CLI's device key (each machine pairs again) |
 | `workspace/`: your agent's Markdown files | `run/`: sockets |
 | `vault/`: the encrypted vault database | Logs |
 | `library/`: files and recordings | Browser profiles |

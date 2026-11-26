@@ -21,6 +21,8 @@ export const duration = {
   /** Route crossfade between rail screens (motion.md §4.5) and its reduced-motion form. */
   route: 180,
   routeReduced: 120,
+  /** The outgoing page under reduced motion: gone at once, yet long enough to fire animationend. */
+  routeOldReduced: 1,
   /** The startup splash's body waits this long for pairing, then fades in (redesign §5.9). */
   splashDelay: 300,
   /** One ink stroke of the splash moth drawing itself, and the gap between strokes. */

@@ -61,10 +61,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "blocks.approval.touchId.keyUnavailable":
         "لا يستطيع هذا الإصدار من مساعد Linux حفظ مفتاح موافقة، لذا لا يمكن الموافقة على البطاقات التي تحتاج إلى كلمة المرور على هذا الكمبيوتر.",
       "shell.shortcut.pushToTalkKeys": "اضغط مطوّلًا على Ctrl الأيمن",
-      "settings.page.permissions.description":
-        "ما يجوز لـ {persona} فعله على هذا الكمبيوتر دون سؤال، وأين يتوقف دائمًا ليسألك.",
-      "settings.page.data.description":
-        "ما يبقى على هذا الكمبيوتر ومدة بقائه والتصدير والنسخ الاحتياطية والبدء من جديد.",
       "settings.essentials.model.noneHint":
         "يحتاج {persona} إلى نموذج قبل أن يستطيع الإجابة. أضف مفتاحًا، أو استخدم نموذجًا على هذا الكمبيوتر.",
       "settings.essentials.read.hint":
@@ -118,8 +114,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "settings.browser.detailsText":
         "أثناء استخدام مهمة له، يشغّل Psyche متصفح Google Chrome بهذا الملف التعريفي ومنفذ DevTools على عنوان الاسترجاع (127.0.0.1) لهذا الكمبيوتر، ويغلقه عند انتهاء المهمة. لا يكون {persona} متصلًا به أثناء فتحك الملف التعريفي بنفسك.",
       "settings.browser.openFromMac": "افتحه من تطبيق Psyche على الكمبيوتر الذي يشغّل Gateway.",
-      "settings.channels.empty":
-        "لا قنوات بعد. اربط Telegram أو Slack للوصول إلى {persona} بعيدًا عن هذا الكمبيوتر.",
       "settings.computerUse.description":
         "يمكن لـ {persona} استخدام التطبيقات على هذا الكمبيوتر حيث تسمح له فقط.",
       "settings.computerUse.macPermissions": "أذونات سطح المكتب",
@@ -164,7 +158,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "يملك هذا الكمبيوتر {gb, number} ج.ب. تحتاج النماذج المحلية إلى {min, number} ج.ب على الأقل؛ استخدم مزوّدًا سحابيًا بدلًا من ذلك.",
       "settings.model.ram.fits": "يملك هذا الكمبيوتر {gb, number} ج.ب، لذا تناسبه {fits}.",
       "settings.model.ram.thisMac": " (هذا الكمبيوتر)",
-      "settings.model.localHint": "شغّل النماذج على هذا الكمبيوتر باستخدام Ollama أو LM Studio.",
       "settings.permissions.never.browserPasswords":
         "قراءة كلمات المرور المحفوظة في متصفحاتك أو في سلسلة مفاتيح النظام",
       "settings.server.bindHint":
@@ -307,8 +300,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "onboarding.safety.asks":
         "إذا سمحت لـ {name} بتشغيل الأوامر على هذا الكمبيوتر، فالأوامر التي تقرأ فقط مثل ls أو cat تعمل دون بطاقة. أما أي شيء آخر فيسألك أولًا.",
       "onboarding.done.touchId": "كلمة المرور",
-      "onboarding.done.try.search":
-        "اطرح سؤالًا في البحث (Ctrl+K). تُظهر الإجابة من أين في حياتك جاءت.",
       "screens.search.source.revealFile": "إظهار في الملفات",
       "everything.model.localHint":
         "يقرأ نموذج على هذا الكمبيوتر كل شيء. لا شيء يغادر الكمبيوتر. حقائق أقل وأكثر تشويشًا.",
@@ -468,10 +459,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "blocks.approval.touchId.keyUnavailable":
         "Dieser Build des Linux-Helfers kann keinen Genehmigungsschlüssel speichern, daher lassen sich Karten, die dein Passwort brauchen, auf diesem Computer nicht genehmigen.",
       "shell.shortcut.pushToTalkKeys": "Ctrl rechts halten",
-      "settings.page.permissions.description":
-        "Was {persona} auf diesem Computer ohne Nachfragen tun darf und wo es immer bei dir nachfragt.",
-      "settings.page.data.description":
-        "Was auf diesem Computer bleibt, wie lange es aufbewahrt wird, Exporte, Backups und Neuanfang.",
       "settings.essentials.model.noneHint":
         "{persona} braucht ein Modell, bevor es antworten kann. Füge einen Schlüssel hinzu oder nutze ein Modell auf diesem Computer.",
       "settings.essentials.read.hint":
@@ -528,8 +515,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "Während eine Aufgabe es verwendet, führt Psyche Google Chrome mit diesem Profil und einem DevTools-Port auf dem Loopback dieses Computers (127.0.0.1) aus und schließt es, wenn die Aufgabe fertig ist. {persona} ist nicht verbunden, solange du das Profil selbst geöffnet hast.",
       "settings.browser.openFromMac":
         "Öffne es aus der Psyche-App auf dem Computer, auf dem das Gateway läuft.",
-      "settings.channels.empty":
-        "Noch keine Kanäle. Verbinde Telegram oder Slack, um {persona} auch fern von diesem Computer zu erreichen.",
       "settings.computerUse.description":
         "{persona} kann Apps auf diesem Computer nur dort verwenden, wo du es erlaubst.",
       "settings.computerUse.macPermissions": "Desktop-Berechtigungen",
@@ -575,8 +560,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "Dieser Computer hat {gb, number} GB. Lokale Modelle brauchen mindestens {min, number} GB; verwende stattdessen einen Cloud-Anbieter.",
       "settings.model.ram.fits": "Dieser Computer hat {gb, number} GB, also passen {fits}.",
       "settings.model.ram.thisMac": " (dieser Computer)",
-      "settings.model.localHint":
-        "Führe Modelle auf diesem Computer mit Ollama oder LM Studio aus.",
       "settings.permissions.never.browserPasswords":
         "In Browsern oder im Systemschlüsselbund gespeicherte Passwörter lesen",
       "settings.server.bindHint":
@@ -729,8 +712,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "onboarding.safety.asks":
         "Erlaubst du {name}, Befehle auf diesem Computer auszuführen, laufen solche, die nur lesen, wie ls oder cat, ohne Karte. Alles andere fragt dich zuerst.",
       "onboarding.done.touchId": "Dein Passwort",
-      "onboarding.done.try.search":
-        "Stelle in der Suche (Ctrl+K) eine Frage. Die Antwort zeigt, woher in deinem Leben sie stammt.",
       "screens.search.source.revealFile": "In Dateien zeigen",
       "everything.model.localHint":
         "Ein Modell auf diesem Computer liest alles. Nichts verlässt den Computer. Weniger, unschärfere Fakten.",
@@ -895,10 +876,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "blocks.approval.touchId.keyUnavailable":
         "Esta versión del asistente de Linux no puede guardar una clave de aprobación, así que las tarjetas que necesitan tu contraseña no se pueden aprobar en este ordenador.",
       "shell.shortcut.pushToTalkKeys": "Mantén pulsada Ctrl derecha",
-      "settings.page.permissions.description":
-        "Lo que {persona} puede hacer en este ordenador sin preguntar, y dónde se detiene siempre a preguntarte.",
-      "settings.page.data.description":
-        "Lo que se queda en este ordenador, cuánto tiempo se conserva, exportaciones, copias de seguridad y empezar de cero.",
       "settings.essentials.model.noneHint":
         "{persona} necesita un modelo para poder responder. Añade una clave o usa un modelo de este ordenador.",
       "settings.essentials.read.hint":
@@ -956,8 +933,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "Mientras una tarea lo usa, Psyche ejecuta Google Chrome con este perfil y un puerto de DevTools en el loopback de este ordenador (127.0.0.1), y lo cierra cuando la tarea termina. {persona} no está conectado mientras tengas el perfil abierto tú.",
       "settings.browser.openFromMac":
         "Ábrelo desde la app Psyche en el ordenador que ejecuta el Gateway.",
-      "settings.channels.empty":
-        "Aún no hay canales. Conecta Telegram o Slack para contactar con {persona} lejos de este ordenador.",
       "settings.computerUse.description":
         "{persona} solo puede usar las apps de este ordenador donde tú lo permitas.",
       "settings.computerUse.macPermissions": "Permisos del escritorio",
@@ -1003,7 +978,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "Este ordenador tiene {gb, number} GB. Los modelos locales necesitan al menos {min, number} GB; usa un proveedor en la nube.",
       "settings.model.ram.fits": "Este ordenador tiene {gb, number} GB, así que caben {fits}.",
       "settings.model.ram.thisMac": " (este ordenador)",
-      "settings.model.localHint": "Ejecuta modelos en este ordenador con Ollama o LM Studio.",
       "settings.permissions.never.browserPasswords":
         "Leer las contraseñas guardadas en tus navegadores o en el llavero del sistema",
       "settings.server.bindHint":
@@ -1157,8 +1131,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "onboarding.safety.asks":
         "Si dejas que {name} ejecute comandos en este ordenador, los que solo leen, como ls o cat, se ejecutan sin tarjeta. Todo lo demás te pregunta antes.",
       "onboarding.done.touchId": "Tu contraseña",
-      "onboarding.done.try.search":
-        "Haz una pregunta en Buscar (Ctrl+K). La respuesta muestra de dónde en tu vida viene.",
       "screens.search.source.revealFile": "Mostrar en Archivos",
       "everything.model.localHint":
         "Un modelo de este ordenador lo lee todo. Nada sale del ordenador. Menos datos y más ruido.",
@@ -1326,10 +1298,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "blocks.approval.touchId.keyUnavailable":
         "Cette version de l’assistant Linux ne peut pas conserver de clé d’approbation, les cartes qui exigent votre mot de passe ne peuvent donc pas être approuvées sur cet ordinateur.",
       "shell.shortcut.pushToTalkKeys": "Maintenir Ctrl droite",
-      "settings.page.permissions.description":
-        "Ce que {persona} peut faire sur cet ordinateur sans demander, et les cas où il vous demande toujours.",
-      "settings.page.data.description":
-        "Ce qui reste sur cet ordinateur, combien de temps c’est conservé, les exports, les sauvegardes et la réinitialisation.",
       "settings.essentials.model.noneHint":
         "{persona} a besoin d’un modèle avant de pouvoir répondre. Ajoutez une clé ou utilisez un modèle sur cet ordinateur.",
       "settings.essentials.read.hint":
@@ -1386,8 +1354,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "Pendant qu’une tâche l’utilise, Psyche lance Google Chrome avec ce profil et un port DevTools sur l’adresse de bouclage de cet ordinateur (127.0.0.1), puis le ferme à la fin de la tâche. {persona} n’y est pas attaché tant que vous avez vous-même le profil ouvert.",
       "settings.browser.openFromMac":
         "Ouvrez-le depuis l’app Psyche sur l’ordinateur qui exécute la Gateway.",
-      "settings.channels.empty":
-        "Aucun canal pour l’instant. Connectez Telegram ou Slack pour joindre {persona} loin de cet ordinateur.",
       "settings.computerUse.description":
         "{persona} ne peut utiliser les apps de cet ordinateur que là où vous l’autorisez.",
       "settings.computerUse.macPermissions": "Autorisations du bureau",
@@ -1434,8 +1400,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "Cet ordinateur a {gb, number} Go. Les modèles locaux ont besoin d’au moins {min, number} Go ; utilisez plutôt un fournisseur cloud.",
       "settings.model.ram.fits": "Cet ordinateur a {gb, number} Go, donc {fits} conviennent.",
       "settings.model.ram.thisMac": " (cet ordinateur)",
-      "settings.model.localHint":
-        "Exécutez des modèles sur cet ordinateur avec Ollama ou LM Studio.",
       "settings.permissions.never.browserPasswords":
         "Lire les mots de passe enregistrés dans vos navigateurs ou dans le trousseau de clés système",
       "settings.server.bindHint":
@@ -1588,8 +1552,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "onboarding.safety.asks":
         "Si vous autorisez {name} à exécuter des commandes sur cet ordinateur, celles qui ne font que lire, comme ls ou cat, s’exécutent sans carte. Tout le reste vous demande d’abord.",
       "onboarding.done.touchId": "Votre mot de passe",
-      "onboarding.done.try.search":
-        "Posez une question dans Recherche (Ctrl+K). La réponse indique d’où dans votre vie elle provient.",
       "screens.search.source.revealFile": "Afficher dans Fichiers",
       "everything.model.localHint":
         "Un modèle sur cet ordinateur lit tout. Rien ne quitte l’ordinateur. Moins de faits, plus bruités.",
@@ -1751,10 +1713,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "blocks.approval.touchId.keyUnavailable":
         "Linux हेल्पर का यह बिल्ड स्वीकृति कुंजी नहीं रख सकता, इसलिए जिन कार्डों को आपका पासवर्ड चाहिए उन्हें इस कंप्यूटर पर स्वीकृत नहीं किया जा सकता।",
       "shell.shortcut.pushToTalkKeys": "दायाँ Ctrl दबाए रखें",
-      "settings.page.permissions.description":
-        "इस कंप्यूटर पर {persona} बिना पूछे क्या कर सकता है, और कहाँ वह हमेशा रुककर आपसे पूछता है।",
-      "settings.page.data.description":
-        "इस कंप्यूटर पर क्या रहता है, कितने समय रखा जाता है, एक्सपोर्ट, बैकअप और नए सिरे से शुरू करना।",
       "settings.essentials.model.noneHint":
         "जवाब देने से पहले {persona} को एक मॉडल चाहिए। कुंजी जोड़ें, या इस कंप्यूटर पर कोई मॉडल उपयोग करें।",
       "settings.essentials.read.hint":
@@ -1807,8 +1765,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "settings.browser.detailsText":
         "जब कोई टास्क इसका उपयोग करता है, तो Psyche इस प्रोफ़ाइल और इस कंप्यूटर के लूपबैक (127.0.0.1) पर DevTools पोर्ट के साथ Google Chrome चलाता है, और टास्क पूरा होने पर इसे बंद कर देता है। जब आप स्वयं प्रोफ़ाइल खोले हुए हों, तब {persona} जुड़ा नहीं होता।",
       "settings.browser.openFromMac": "इसे उस कंप्यूटर पर Psyche ऐप से खोलें जो Gateway चलाता है।",
-      "settings.channels.empty":
-        "अभी कोई चैनल नहीं। इस कंप्यूटर से दूर रहते हुए {persona} तक पहुँचने के लिए Telegram या Slack कनेक्ट करें।",
       "settings.computerUse.description":
         "{persona} इस कंप्यूटर पर ऐप केवल वहीं उपयोग कर सकता है जहाँ आप अनुमति दें।",
       "settings.computerUse.macPermissions": "डेस्कटॉप अनुमतियाँ",
@@ -1852,7 +1808,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "इस कंप्यूटर में {gb, number} GB है। लोकल मॉडल को कम से कम {min, number} GB चाहिए; इसके बजाय क्लाउड प्रदाता उपयोग करें।",
       "settings.model.ram.fits": "इस कंप्यूटर में {gb, number} GB है, इसलिए {fits} फ़िट होते हैं।",
       "settings.model.ram.thisMac": " (यह कंप्यूटर)",
-      "settings.model.localHint": "Ollama या LM Studio से इस कंप्यूटर पर मॉडल चलाएँ।",
       "settings.permissions.never.browserPasswords": "ब्राउज़र या सिस्टम कीरिंग में सहेजे पासवर्ड पढ़ना",
       "settings.server.bindHint":
         "127.0.0.1 इसे इसी कंप्यूटर पर रखता है। हर इंटरफ़ेस से बाइंड करने के बजाय नीचे दिया गया रिमोट ऐक्सेस उपयोग करें।",
@@ -1994,8 +1949,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "onboarding.safety.asks":
         "अगर आप {name} को इस कंप्यूटर पर कमांड चलाने देते हैं, तो जो सिर्फ़ पढ़ते हैं, जैसे ls या cat, वे बिना कार्ड के चलते हैं। बाकी सब पहले आपसे पूछता है।",
       "onboarding.done.touchId": "आपका पासवर्ड",
-      "onboarding.done.try.search":
-        "खोज (Ctrl+K) में कोई सवाल पूछें। जवाब दिखाता है कि वह आपके जीवन के किस हिस्से से आया।",
       "screens.search.source.revealFile": "फ़ाइलें में दिखाएँ",
       "everything.model.localHint":
         "इस कंप्यूटर पर एक मॉडल सब कुछ पढ़ता है। कंप्यूटर से कुछ बाहर नहीं जाता। कम और ज़्यादा अस्पष्ट तथ्य।",
@@ -2153,10 +2106,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "blocks.approval.touchId.keyUnavailable":
         "Questa build dell’helper per Linux non può conservare una chiave di approvazione, quindi le schede che richiedono la tua password non possono essere approvate su questo computer.",
       "shell.shortcut.pushToTalkKeys": "Tieni premuto Ctrl destro",
-      "settings.page.permissions.description":
-        "Cosa {persona} può fare su questo computer senza chiedere, e dove si ferma sempre a chiederti.",
-      "settings.page.data.description":
-        "Cosa resta su questo computer, per quanto tempo viene conservato, esportazioni, backup e ripartire da zero.",
       "settings.essentials.model.noneHint":
         "{persona} ha bisogno di un modello per poter rispondere. Aggiungi una chiave, oppure usa un modello su questo computer.",
       "settings.essentials.read.hint":
@@ -2213,8 +2162,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "settings.browser.detailsText":
         "Mentre un’attività lo usa, Psyche esegue Google Chrome con questo profilo e una porta DevTools sul loopback di questo computer (127.0.0.1), e lo chiude al termine dell’attività. {persona} non è collegato mentre tieni aperto tu il profilo.",
       "settings.browser.openFromMac": "Aprilo dall’app Psyche sul computer che esegue il Gateway.",
-      "settings.channels.empty":
-        "Ancora nessun canale. Collega Telegram o Slack per contattare {persona} lontano da questo computer.",
       "settings.computerUse.description":
         "{persona} può usare le app su questo computer solo dove lo consenti.",
       "settings.computerUse.macPermissions": "Permessi del desktop",
@@ -2259,7 +2206,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "Questo computer ha {gb, number} GB. I modelli locali richiedono almeno {min, number} GB; usa invece un fornitore cloud.",
       "settings.model.ram.fits": "Questo computer ha {gb, number} GB, quindi ci stanno {fits}.",
       "settings.model.ram.thisMac": " (questo computer)",
-      "settings.model.localHint": "Esegui i modelli su questo computer con Ollama o LM Studio.",
       "settings.permissions.never.browserPasswords":
         "Leggere le password salvate nei browser o nel portachiavi di sistema",
       "settings.server.bindHint":
@@ -2414,8 +2360,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "onboarding.safety.asks":
         "Se lasci che {name} esegua comandi su questo computer, quelli che si limitano a leggere, come ls o cat, vengono eseguiti senza scheda. Tutto il resto chiede prima a te.",
       "onboarding.done.touchId": "La tua password",
-      "onboarding.done.try.search":
-        "Fai una domanda in Cerca (Ctrl+K). La risposta mostra da quale parte della tua vita proviene.",
       "screens.search.source.revealFile": "Mostra in File",
       "everything.model.localHint":
         "Un modello su questo computer legge tutto. Nulla esce dal computer. Fatti meno numerosi e più confusi.",
@@ -2579,10 +2523,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "blocks.approval.touchId.keyUnavailable":
         "このビルドのLinuxヘルパーは承認キーを保持できないため、このコンピュータではパスワードが必要なカードを承認できません。",
       "shell.shortcut.pushToTalkKeys": "右Ctrlを長押し",
-      "settings.page.permissions.description":
-        "{persona}がこのコンピュータで確認なしにできること、必ず確認を求める場面を設定します。",
-      "settings.page.data.description":
-        "このコンピュータに残るデータ、保存期間、書き出し、バックアップ、初期化を管理します。",
       "settings.essentials.model.noneHint":
         "{persona}が答えるにはモデルが必要です。キーを追加するか、このコンピュータのモデルを使ってください。",
       "settings.essentials.read.hint":
@@ -2638,8 +2578,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "タスクが使用している間、PsycheはこのプロファイルでGoogle Chromeを起動し、このコンピュータのループバック（127.0.0.1）でDevToolsポートを開き、タスクが終わると閉じます。あなた自身がプロファイルを開いている間、{persona}は接続されません。",
       "settings.browser.openFromMac":
         "Gatewayを実行しているコンピュータのPsycheアプリから開いてください。",
-      "settings.channels.empty":
-        "チャンネルはまだありません。TelegramまたはSlackを接続すると、このコンピュータから離れていても{persona}に連絡できます。",
       "settings.computerUse.description":
         "{persona}は、あなたが許可した範囲でのみこのコンピュータのアプリを使用できます。",
       "settings.computerUse.macPermissions": "デスクトップの権限",
@@ -2687,8 +2625,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "settings.model.ram.fits":
         "このコンピュータのメモリは{gb, number} GBなので、{fits}が動作します。",
       "settings.model.ram.thisMac": "（このコンピュータ）",
-      "settings.model.localHint":
-        "OllamaまたはLM Studioで、このコンピュータ上でモデルを実行します。",
       "settings.permissions.never.browserPasswords":
         "ブラウザやシステムのキーリングに保存されたパスワードを読み取る",
       "settings.server.bindHint":
@@ -2842,8 +2778,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "onboarding.safety.asks":
         "{name}にこのコンピュータでのコマンド実行を許可した場合、lsやcatのように読み取るだけのものはカードなしで実行されます。それ以外は先に確認します。",
       "onboarding.done.touchId": "パスワード",
-      "onboarding.done.try.search":
-        "検索（Ctrl+K）で質問してみましょう。回答には、生活のどこから得た情報かが表示されます。",
       "screens.search.source.revealFile": "ファイルで表示",
       "everything.model.localHint":
         "このコンピュータ上のモデルがすべてを読み取ります。コンピュータの外には何も出ません。事実は少なく、ノイズも増えます。",
@@ -3001,10 +2935,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "blocks.approval.touchId.keyUnavailable":
         "이 빌드의 Linux 도우미는 승인 키를 보관할 수 없어 이 컴퓨터에서는 암호가 필요한 카드를 승인할 수 없습니다.",
       "shell.shortcut.pushToTalkKeys": "오른쪽 Ctrl 길게 누르기",
-      "settings.page.permissions.description":
-        "{persona}가 이 컴퓨터에서 묻지 않고 할 수 있는 일과 항상 먼저 확인하는 경우를 설정합니다.",
-      "settings.page.data.description":
-        "이 컴퓨터에 남는 데이터, 보관 기간, 내보내기, 백업, 초기화를 관리합니다.",
       "settings.essentials.model.noneHint":
         "{persona}가 답하려면 모델이 필요합니다. 키를 추가하거나 이 컴퓨터의 모델을 사용하십시오.",
       "settings.essentials.read.hint":
@@ -3058,8 +2988,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "settings.browser.detailsText":
         "작업이 사용하는 동안 Psyche는 이 프로파일과 이 컴퓨터의 루프백(127.0.0.1) DevTools 포트로 Google Chrome을 실행하고, 작업이 끝나면 닫습니다. 사용자가 직접 프로파일을 열어 둔 동안에는 {persona}이(가) 연결되지 않습니다.",
       "settings.browser.openFromMac": "Gateway가 실행되는 컴퓨터의 Psyche 앱에서 여십시오.",
-      "settings.channels.empty":
-        "아직 채널이 없습니다. Telegram 또는 Slack을 연결하면 이 컴퓨터를 떠나서도 {persona}에게 연락할 수 있습니다.",
       "settings.computerUse.description":
         "{persona}은(는) 사용자가 허용한 범위에서만 이 컴퓨터의 앱을 사용할 수 있습니다.",
       "settings.computerUse.macPermissions": "데스크톱 권한",
@@ -3105,7 +3033,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "이 컴퓨터의 메모리는 {gb, number}GB입니다. 로컬 모델에는 최소 {min, number}GB가 필요하니 클라우드 제공업체를 사용하십시오.",
       "settings.model.ram.fits": "이 컴퓨터의 메모리는 {gb, number}GB입니다. 실행 가능: {fits}.",
       "settings.model.ram.thisMac": " (이 컴퓨터)",
-      "settings.model.localHint": "Ollama 또는 LM Studio로 이 컴퓨터에서 모델을 실행합니다.",
       "settings.permissions.never.browserPasswords": "브라우저 또는 시스템 키링에 저장된 암호 읽기",
       "settings.server.bindHint":
         "127.0.0.1은 이 컴퓨터 안에만 유지합니다. 모든 인터페이스에 바인딩하는 대신 아래의 원격 접근을 사용하십시오.",
@@ -3251,8 +3178,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "onboarding.safety.asks":
         "{name}이(가) 이 컴퓨터에서 명령을 실행하도록 허용하면 ls나 cat처럼 읽기만 하는 명령은 카드 없이 실행됩니다. 그 밖의 명령은 먼저 확인합니다.",
       "onboarding.done.touchId": "사용자 암호",
-      "onboarding.done.try.search":
-        "검색(Ctrl+K)에서 질문해 보십시오. 답변에는 생활 속 어디에서 온 정보인지 표시됩니다.",
       "screens.search.source.revealFile": "파일에서 보기",
       "everything.model.localHint":
         "이 컴퓨터의 모델이 모든 것을 읽습니다. 이 컴퓨터 밖으로 아무것도 나가지 않습니다. 사실은 더 적고 잡음은 더 많아집니다.",
@@ -3409,10 +3334,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "blocks.approval.touchId.keyUnavailable":
         "Esta versão do assistente do Linux não consegue guardar uma chave de aprovação, então os cartões que exigem a sua senha não podem ser aprovados neste computador.",
       "shell.shortcut.pushToTalkKeys": "Segure Ctrl direito",
-      "settings.page.permissions.description":
-        "O que {persona} pode fazer neste computador sem perguntar, e onde sempre para para perguntar a você.",
-      "settings.page.data.description":
-        "O que fica neste computador, por quanto tempo é guardado, exportações, backups e recomeçar do zero.",
       "settings.essentials.model.noneHint":
         "{persona} precisa de um modelo para poder responder. Adicione uma chave ou use um modelo neste computador.",
       "settings.essentials.read.hint":
@@ -3468,8 +3389,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "settings.browser.detailsText":
         "Enquanto uma tarefa o usa, o Psyche executa o Google Chrome com este perfil e uma porta DevTools no loopback deste computador (127.0.0.1), e o fecha quando a tarefa termina. {persona} não fica conectado enquanto você mesmo estiver com o perfil aberto.",
       "settings.browser.openFromMac": "Abra-o pelo app Psyche no computador que executa o Gateway.",
-      "settings.channels.empty":
-        "Nenhum canal ainda. Conecte o Telegram ou o Slack para falar com {persona} longe deste computador.",
       "settings.computerUse.description":
         "{persona} pode usar apps neste computador somente onde você permitir.",
       "settings.computerUse.macPermissions": "Permissões da área de trabalho",
@@ -3514,7 +3433,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "Este computador tem {gb, number} GB. Modelos locais precisam de pelo menos {min, number} GB; use um provedor na nuvem.",
       "settings.model.ram.fits": "Este computador tem {gb, number} GB, então {fits} cabem.",
       "settings.model.ram.thisMac": " (este computador)",
-      "settings.model.localHint": "Execute modelos neste computador com o Ollama ou o LM Studio.",
       "settings.permissions.never.browserPasswords":
         "Ler senhas salvas nos seus navegadores ou no chaveiro do sistema",
       "settings.server.bindHint":
@@ -3666,8 +3584,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "onboarding.safety.asks":
         "Se você deixar {name} executar comandos neste computador, os que só leem, como ls ou cat, rodam sem cartão. Todo o resto pergunta antes.",
       "onboarding.done.touchId": "Sua senha",
-      "onboarding.done.try.search":
-        "Faça uma pergunta em Pesquisar (Ctrl+K). A resposta mostra de onde na sua vida ela veio.",
       "screens.search.source.revealFile": "Mostrar em Arquivos",
       "everything.model.localHint":
         "Um modelo neste computador lê tudo. Nada sai do computador. Menos fatos e mais ruído.",
@@ -3823,10 +3739,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "blocks.approval.touchId.keyUnavailable":
         "此版本的 Linux 助手无法保存批准密钥，因此需要密码的卡片无法在这台电脑上批准。",
       "shell.shortcut.pushToTalkKeys": "按住右 Ctrl",
-      "settings.page.permissions.description":
-        "{persona}在这台电脑上无需询问就可执行的操作，以及它一定会停下来问你的地方。",
-      "settings.page.data.description":
-        "哪些内容保留在这台电脑上、保留多久、导出、备份以及重新开始。",
       "settings.essentials.model.noneHint":
         "{persona}需要有模型才能回答。请添加密钥，或使用这台电脑上的模型。",
       "settings.essentials.read.hint":
@@ -3875,8 +3787,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "settings.browser.detailsText":
         "任务使用它时，Psyche 会以此描述文件运行 Google Chrome，并在这台电脑的回环地址（127.0.0.1）上开启 DevTools 端口，任务完成后关闭。你自己打开该描述文件时，{persona} 不会连接。",
       "settings.browser.openFromMac": "请在运行 Gateway 的电脑上的 Psyche App 中打开。",
-      "settings.channels.empty":
-        "还没有渠道。连接 Telegram 或 Slack，即可在离开这台电脑时联系 {persona}。",
       "settings.computerUse.description": "{persona} 只能在你允许的范围内使用这台电脑上的 App。",
       "settings.computerUse.macPermissions": "桌面权限",
       "settings.computerUse.openSystemSettings": "打开设置",
@@ -3916,7 +3826,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "这台电脑有 {gb, number} GB。本地模型至少需要 {min, number} GB；请改用云端提供商。",
       "settings.model.ram.fits": "这台电脑有 {gb, number} GB，可运行{fits}。",
       "settings.model.ram.thisMac": "（这台电脑）",
-      "settings.model.localHint": "通过 Ollama 或 LM Studio 在这台电脑上运行模型。",
       "settings.permissions.never.browserPasswords": "读取浏览器或系统密钥环中保存的密码",
       "settings.server.bindHint":
         "127.0.0.1 使其仅限这台电脑。请使用下方的远程访问，而不是绑定到所有网络接口。",
@@ -4049,8 +3958,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "onboarding.safety.asks":
         "如果你让{name}在这台电脑上运行命令，只读取内容的命令（如 ls 或 cat）无需卡片即可运行。其他任何命令都会先询问你。",
       "onboarding.done.touchId": "你的密码",
-      "onboarding.done.try.search":
-        "在“搜索”（Ctrl+K）中提个问题。答案会显示它来自你生活中的哪里。",
       "screens.search.source.revealFile": "在“文件”中显示",
       "everything.model.localHint":
         "由这台电脑上的模型读取一切。没有任何内容离开电脑。事实更少，也更杂乱。",

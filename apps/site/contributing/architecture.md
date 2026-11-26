@@ -10,7 +10,7 @@ Psyche is one long-running Gateway that owns all state and makes every decision,
 
 | Process | Built with | Runs on | Owns |
 | --- | --- | --- | --- |
-| Gateway, `psyched` | TypeScript on Node 24 | A Mac (LaunchAgent) or a Linux server (systemd or Docker) | All state, the agent loop, the brokers, tasks, memory, channels, the scheduler. The only process that talks to model providers. Serves the web UI. |
+| Gateway, `psyched` | TypeScript on Node 24 | A Mac (LaunchAgent) or a Linux server (systemd or Docker) | All state, the agent loop, the brokers, tasks, memory, the scheduler. The only process that talks to model providers. Serves the web UI. |
 | Desktop app | Electron 44, React 19 | Mac | Rendering, the embedded agent browser, terminal panes, file viewers. Holds no secrets and no model keys. |
 | Web UI | The same React app | Any browser, served by the Gateway | Rendering. |
 | CLI, `psyche` | TypeScript | Mac or Linux | Install, service control, doctor, security audit, pairing, backups, export. A paired device like any client. |
@@ -18,7 +18,7 @@ Psyche is one long-running Gateway that owns all state and makes every decision,
 | `psyche-node` | TypeScript, the Gateway's code with another entry point | Inside the VM, on remote machines | Exec, files and the browser, offered as node capabilities. |
 
 ::: info Screenshot placeholder
-A diagram: clients (desktop, web, CLI, chat channels) on the left connect to the Gateway in the middle; executors (browser, sandbox, helper, VM guest, remote nodes) on the right.
+A diagram: clients (desktop, web, CLI, iPhone) on the left connect to the Gateway in the middle; executors (browser, sandbox, helper, VM guest, remote nodes) on the right.
 :::
 
 ## Inside the Gateway
@@ -32,7 +32,7 @@ The Gateway is a composition root in [apps/gateway](https://github.com/devmello/
 - **Credential Broker** (`vault`): the encrypted vault, placeholders, fills at the executor.
 - **Audit** (`audit`): the hash-chained log and receipts.
 - **Memory** (`memory`): workspace files, the search index, the nightly consolidation.
-- **MCP host, connectors, channels** (`mcp-host`, `connectors`, `channels`): external tools, Google and other accounts, Telegram and iMessage.
+- **MCP host, connectors** (`mcp-host`, `connectors`): external tools, Google and other accounts.
 - **Feed, Ideas, Goals, search, notifications, skills, speech.**
 
 Each package implements an interface from [packages/protocol/src/contracts](https://github.com/devmello/psyche/tree/main/packages/protocol/src/contracts) and is tested against the fakes in `packages/testing`.

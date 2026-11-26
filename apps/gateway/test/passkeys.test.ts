@@ -36,7 +36,7 @@ async function setup(
     logger: silentLogger,
     retentionIntervalMs: 0,
     background: false,
-    config: { home, port: 0, dbPath: join(home, "psyche.db"), webRoot: null, publicOrigin },
+    config: { home, port: 0, dbPath: join(home, "psyche.db"), publicOrigin },
     model: { provider: new FakeModelProvider(), model: "fake/model" },
   });
   const owner = await adminClient(composed.gateway);

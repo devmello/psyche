@@ -34,7 +34,6 @@ import { ulid } from "ulid";
 import type { Call, HandlerDef } from "../context.ts";
 import type { Gateway } from "../server.ts";
 import { assertWritableThread } from "../session/imported-threads.ts";
-import { surfaceOf } from "./handlers.ts";
 import { indexSavedAudio } from "./library.ts";
 import type { ComposedPart, ComposeServices } from "./services.ts";
 
@@ -365,8 +364,8 @@ export function composeSpeech(setup: SpeechSetup = {}) {
     const transcripts = libraryTranscripts(db, services.home);
     const fns = createSpeechHandlers({ voice, memos });
 
-    const caller = (call: Call): SpeechCaller =>
-      surfaceOf(db, call.identity.deviceId) === "web" ? "web" : "desktop";
+    // No browser client any more (2026-11-25), so no caller can use a client-side engine.
+    const caller = (_call: Call): SpeechCaller => "desktop";
     const handlers: Record<string, HandlerDef> = {};
     for (const method of SPEECH_METHODS) {
       const fn = fns[method] as (

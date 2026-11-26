@@ -206,7 +206,7 @@ describe("injection runner (reference stack)", () => {
         followUps: [
           {
             type: "approval_answer",
-            channel: "telegram",
+            channel: "oldchat",
             senderId: "group-member",
             decision: "approve",
           },

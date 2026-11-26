@@ -88,7 +88,7 @@ async function setup(
   composed = await composeGateway({
     retentionIntervalMs: 0,
     background: false,
-    config: { home, port: 0, dbPath: join(home, "psyche.db"), webRoot: null },
+    config: { home, port: 0, dbPath: join(home, "psyche.db") },
     model: { provider: new FakeModelProvider(), model: "fake/model" },
     parts: [
       (s) => {
@@ -223,7 +223,7 @@ describe("run_script (build and run in the same turn)", () => {
       const { card, result } = await sum(env, "approve", ctx().c);
       expect(card).toMatchObject({
         kind: "skill_install",
-        surfaces: ["desktop"],
+        surfaces: ["desktop", "notification"],
         scopesOffered: ["once"],
         taint: false,
         details: { kind: "script_run", language: "node", network: [] },
@@ -357,7 +357,7 @@ describe("run_script on Windows (in the sandbox PC, never on this PC)", () => {
     const { card, result } = await sum(env, "approve", ctx().c);
     expect(card).toMatchObject({
       kind: "skill_install",
-      surfaces: ["desktop"],
+      surfaces: ["desktop", "notification"],
       scopesOffered: ["once"],
       details: { kind: "script_run", language: "node", interpreter: "node", sandbox: "sandbox-pc" },
     });

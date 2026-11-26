@@ -27,7 +27,7 @@ export type ProtocolVersionRange = Static<typeof ProtocolVersionRange>;
 /** Device family string; also part of the signed payload, so no newlines (pattern). */
 export const DeviceFamily = Type.String({
   pattern: "^[a-z0-9][a-z0-9._-]{0,63}$",
-  description: '"desktop" | "web" | "mac-helper" | "cli" | …',
+  description: '"desktop" | "mac-helper" | "cli" | …',
   $id: "DeviceFamily",
 });
 

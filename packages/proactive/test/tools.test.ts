@@ -112,7 +112,6 @@ async function rig() {
     clock,
     approvers: {
       device: async (id) => (id === "dev_owner" ? { scopes: ["operator.approvals"] } : undefined),
-      isOwnerSender: async () => false,
     },
   });
   const request = broker.requestApproval.bind(broker);
@@ -387,7 +386,7 @@ describe("proactive agent tools on the real loop", () => {
     const designated: Requester = {
       role: "designated",
       identityId: "idn_alice",
-      channel: "telegram",
+      channel: "oldchat",
       senderId: "42",
     };
     const { cards } = await r.turn([call("c1", "goals.list", {}), say("Sorry.")], {

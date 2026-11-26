@@ -5,8 +5,8 @@ import PsycheStore
 import SwiftUI
 
 /// Home at a glance: an inset-grouped list under a native large title with three sections (Needs you, Running,
-/// Today) and one More row. Everything else (inbox, to-dos, nudges, pinned widgets, follow-ups, Spaces, Feed, Ideas,
-/// Goals) is behind More and the toolbar menu. Chat and Search own asking, so Home has no Ask field.
+/// Today) and one More row. Everything else (notifications, tasks, to-dos, nudges, pinned widgets, follow-ups, Spaces,
+/// Feed, Ideas, Goals) is behind More. Settings is the gear in the navigation bar. Chat and Search own asking, so Home has no Ask field.
 struct HomeView: View {
     @State private var model: HomeModel
     @State private var proactive: ProactiveHomeModel
@@ -45,8 +45,8 @@ struct HomeView: View {
             ToolbarItem(placement: .primaryAction) {
                 AgentButton(needsYou: !(model.phase.value?.needsYou.isEmpty ?? true))
             }
-            ToolbarItem(placement: .secondaryAction) { shortcuts }
         }
+        .psycheSettingsButton()
         .overlay(alignment: .bottom) { notice }
         .psycheAnimation(.smooth, value: model.notice)
         // Rows that appear or go (an approval answered elsewhere, a task finishing) animate on the smooth spring.
@@ -104,27 +104,6 @@ struct HomeView: View {
                 }
             }
             .accessibilityIdentifier("home.more")
-        }
-    }
-
-    /// Inbox, Scheduled and Overview, and Settings, one tap from the toolbar.
-    private var shortcuts: some View {
-        Menu {
-            Button { router.homePath.append(.inbox) } label: {
-                Label(String(localized: "Inbox", bundle: .module), systemImage: "tray")
-            }
-            Button { router.homePath.append(.scheduled) } label: {
-                Label(String(localized: "Scheduled", bundle: .module), systemImage: "clock")
-            }
-            Button { router.homePath.append(.overview) } label: {
-                Label(String(localized: "Overview", bundle: .module), systemImage: "square.grid.2x2")
-            }
-            Divider()
-            Button { router.sheet = .settings } label: {
-                Label(String(localized: "Settings", bundle: .module), systemImage: "gearshape")
-            }
-        } label: {
-            Label(String(localized: "More options", bundle: .module), systemImage: "ellipsis")
         }
     }
 

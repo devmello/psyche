@@ -21,7 +21,7 @@ export interface NotifierOptions {
   store?: NotificationStore;
   clock?: Clock;
   newId?: () => string;
-  /** A function so live settings changes (quiet hours, channel targets) apply to the next notify. */
+  /** A function so live settings changes (quiet hours) apply to the next notify. */
   routing?: RoutingConfig | (() => RoutingConfig);
   adapters?: SurfaceAdapter[];
   /** External delivery retries: attempts in total and the first backoff (doubles each time). */
@@ -92,7 +92,7 @@ function notFound(id: string): never {
 /**
  * The Psyche `Notifier` (architecture §4.12, O10). Writes the durable inbox row first, then fans
  * out: in-app surfaces through `subscribe` events (the Gateway turns them into
- * `notification.*` WS events), OS and channels through `SurfaceAdapter`s, deferred past quiet
+ * `notification.*` WS events), the OS and devices through `SurfaceAdapter`s, deferred past quiet
  * hours and retried with backoff. De-duplicates per `dedupeKey`: default `approval:<approvalId>` for approvals,
  * `<kind>:<taskId>` for other task notifications.
  */
@@ -520,14 +520,19 @@ export class PsycheNotifier implements Notifier {
     const row = this.#store.get(d.notificationId);
     if (row === undefined) return;
     const attempt = d.attempts + 1;
-    const adapter = this.#adapters.find((a) => a.handles(d.surface));
+    // An old chat channel's surface (`telegram:1`) left in a pending delivery: channels were
+    // removed (2026-11-25), so it is suppressed for good, before any adapter is asked.
+    const unknown = surfaceClass(d.surface) === "unknown";
+    const adapter = unknown ? undefined : this.#adapters.find((a) => a.handles(d.surface));
     const ctx: DeliveryContext = {
       surface: d.surface,
       interruption: interruptionFor(this.#routing(), row.notification.kind),
       attempt,
     };
     let result: DeliveryOutcome;
-    if (adapter === undefined) {
+    if (unknown) {
+      result = { status: "suppressed", reason: `surface ${d.surface} no longer exists` };
+    } else if (adapter === undefined) {
       result = { status: "failed", error: `no adapter for surface ${d.surface}`, retryable: false };
     } else {
       try {

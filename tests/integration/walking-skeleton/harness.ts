@@ -143,7 +143,7 @@ export async function startSkeleton(
     env: {},
     logger: silent,
     retentionIntervalMs: 0,
-    config: { home, port: 0, dbPath: join(home, "psyche.db"), webRoot: null },
+    config: { home, port: 0, dbPath: join(home, "psyche.db") },
     policy: { folders: [{ path: granted, mode: "rw" }] },
   });
   const { gateway } = composed;

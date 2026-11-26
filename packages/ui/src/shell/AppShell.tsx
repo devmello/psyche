@@ -14,6 +14,7 @@ import { ModeFeedback, useThreadModeChoice } from "../chat/ModeSwitch.tsx";
 import { isSwitchMode } from "../chat/mode-switch.ts";
 import { ChatThread } from "../chat/Thread.tsx";
 import { useThread, useThreads } from "../data/index.ts";
+import { forkFromRoute } from "../plan-fork/data.ts";
 import { SpaceSwitcher } from "../spaces/SpaceSwitcher.tsx";
 import { CommandPalette, type PaletteAction } from "./CommandPalette.tsx";
 import { CompactTopBar } from "./CompactTopBar.tsx";
@@ -214,7 +215,11 @@ export function AppShell({
   const docked = !compact && contentWidth - AGENT_PANEL_WIDTH >= AGENT_PANEL_MIN_CONTENT;
   const content =
     chatMatch && threadId ? (
-      <ChatThread threadId={threadId} {...(now === undefined ? {} : { now })} />
+      <ChatThread
+        threadId={threadId}
+        {...(now === undefined ? {} : { now })}
+        {...(forkFromRoute(route) === null ? {} : { forkId: forkFromRoute(route) as string })}
+      />
     ) : (
       children
     );

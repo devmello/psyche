@@ -60,8 +60,8 @@ const THREAD_KINDS = ["main", "side"] as const;
 
 /**
  * Tool calls of the owner's own runs since `sinceIso`, grouped per run in call order. Incognito,
- * channel, automation and subagent threads are left out (privacy; automations are already
- * automated; channel turns may be someone else's).
+ * automation and subagent threads, and old chat channel threads, are left out (privacy;
+ * automations are already automated; a channel turn may have been someone else's).
  */
 export function loadToolRuns(db: SqliteDatabase, sinceIso: string): ToolRun[] {
   const rows = db

@@ -24,6 +24,7 @@ import {
   type MemoryStore,
   type PermissionBroker,
   PsycheError,
+  type RunStep,
 } from "@psyche/protocol";
 import { isNamedPipePath } from "@psyche/protocol/platform";
 import { type WebSocket, WebSocketServer } from "ws";
@@ -74,7 +75,7 @@ import { openGatewayDb, releaseGatewayLock } from "./pre-update.ts";
 import { presenceStateFor } from "./presence-gate.ts";
 import { normalizePeerAddress, resolvePeer, trustedProxyList } from "./proxy.ts";
 import { RateLimiter } from "./rate-limit.ts";
-import { type RecoveryReport, recoverAfterRestart } from "./recovery.ts";
+import { type RecoveryReport, recoverAfterRestart, stopRunsWaitingOnApproval } from "./recovery.ts";
 import {
   RETENTION_INTERVAL_MS,
   reasoningRetentionDays,
@@ -83,6 +84,7 @@ import {
   runRetention,
 } from "./retention.ts";
 import { RunTraceSink } from "./run-trace/sink.ts";
+import { personalizeRunStep, storeClassifier } from "./run-trace/viewer-scrub.ts";
 import { SecurityRecoveries } from "./security/recoveries.ts";
 import { StateSeal } from "./security/state-seal.ts";
 import { SessionController } from "./session/controller.ts";
@@ -467,6 +469,11 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
     },
   });
   Object.assign(ctx, { securityRecoveries: recoveries });
+  // The run trace as a viewer other than the desktop shell may see it (`run-trace/viewer-scrub.ts`).
+  const stepClassifier = storeClassifier(db, (id) => ctx.runTrace.toolOf(id));
+  bus.setCoreScrub("run.step", (payload, reader) =>
+    personalizeRunStep(payload as { runId: string; step: RunStep }, reader, stepClassifier),
+  );
   const securityChanged = () =>
     bus.publish("security.state.changed", {
       status: seal.status().status,
@@ -502,7 +509,15 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
 
   // Security §3.7: a restart invalidates pending approvals; the broker re-issues them.
   try {
-    await broker.reissue();
+    // A chat turn that waited on a card has no loop left to wake: stop it with a note and a
+    // "Try again" and invalidate its card, instead of re-issuing a card nobody waits on.
+    const stopRuns = stopRunsWaitingOnApproval(
+      db,
+      await broker.list({ status: "pending" }),
+      recovery.failedRuns,
+      log,
+    );
+    await broker.reissue({ stopRuns });
   } catch (err) {
     log.log("warn", "approval reissue failed", { code: PsycheError.from(err).code });
   }
@@ -512,14 +527,12 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
   const http: Server = createServer((req, res) => {
     const serve = () =>
       handleHttp(req, res, {
-        webRoot: config.webRoot,
-        webAsar: config.webAsar,
         version: GATEWAY_VERSION,
         mapOrigins: () => allowedMapOrigins((key) => getSetting(db, key)?.value),
       });
     // The container bind gates every route but the bare health check (Compose healthcheck).
     const path = new URL(req.url ?? "/", "http://gateway.invalid").pathname;
-    // POST by default; GET only on a route that declares it (WhatsApp's subscription handshake).
+    // POST by default; GET only on a route that declares it (a subscription handshake).
     const route = Object.hasOwn(webhooks, path) ? webhooks[path] : undefined;
     const webhook =
       route !== undefined && webhookMethods(route).some((m) => m === req.method)
@@ -555,13 +568,11 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
   ) => {
     const url = new URL(req.url ?? "/", "http://gateway.invalid");
     const requestOrigin = req.headers.origin ?? null;
-    // A browser on the LAN names the origin it loaded the page from: only the LAN's own.
-    const allowed =
-      lanContext === null
-        ? new Set([origin, ...config.allowedOrigins])
-        : new Set([lanContext.origin, lan.originFor(req.headers.host)]);
-    if (url.pathname !== WS_PATH || (requestOrigin !== null && !allowed.has(requestOrigin))) {
-      // Security §10: reject any Origin outside the allowlist with 403, before the upgrade.
+    // Psyche does not open in a browser (owner decision 2026-11-25). Only a browser page sends an
+    // `Origin`: the desktop app's main process, the iPhone app, the Mac helper and the CLI dial
+    // without one. So any upgrade that carries one is refused with 403 before the upgrade, on the
+    // loopback, proxied and LAN listeners alike (security §10, cross-site WebSocket hijacking).
+    if (url.pathname !== WS_PATH || requestOrigin !== null) {
       log.log("warn", "websocket upgrade rejected", {
         path: url.pathname,
         hasOrigin: requestOrigin !== null,

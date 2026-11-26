@@ -33,7 +33,7 @@ async function gatewayIn(dir: string, onePassword?: OnePasswordSource) {
     logger: silentLogger,
     retentionIntervalMs: 0,
     background: false,
-    config: { home: dir, port: 0, dbPath: join(dir, "psyche.db"), webRoot: null },
+    config: { home: dir, port: 0, dbPath: join(dir, "psyche.db") },
     model: { provider: new FakeModelProvider(), model: "fake/model" },
     vault: {
       keyFile,

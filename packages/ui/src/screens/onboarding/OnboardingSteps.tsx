@@ -16,16 +16,19 @@ import {
   SCOPE_MODE_LABEL,
   type ScopeMode,
 } from "../settings/ConnectorsSection.tsx";
-import { RamGuidance, ToolCheckBadge } from "../settings/ModelSection.tsx";
+import { RamGuidance } from "../settings/ModelSection.tsx";
 import { ErrorNotice, RadioField, StatusChip } from "../settings/shared.tsx";
-import type { ProviderKind } from "../settings/types.ts";
+import type { ProviderKind, ToolCheck } from "../settings/types.ts";
 import type { ConnectedAccount, ModelChoice } from "./types.ts";
 
 /** The onboarding steps that are large enough to live apart from the flow (UI design §3.19). */
 
 // --- 3 Connectors ----------------------------------------------------------------------------------
 
-/** First run on a Mac: these apps start selected (docs/connectors/apple-apps-2026.md §7.2). */
+/**
+ * The Mac apps listed first, in this order. None starts ticked: each one asks macOS for
+ * permission when it connects, so ticking four would fire four prompts in a row. The owner picks.
+ */
 export const DEFAULT_MAC_APPS = [
   "apple:calendar",
   "apple:reminders",
@@ -76,7 +79,7 @@ export function ConnectorsStep({
   onResume?: (account: ConnectedAccount) => void;
 }): ReactElement {
   const id = useId();
-  // Only real connectors here: MCP servers and Slack are added later in Settings (#529).
+  // Only real connectors here: MCP servers are added later in Settings (#529).
   const offered = offeredCatalog(implemented, { navigation: false }).filter(
     (c) => !connected.some((x) => x.type === c.type) && !needsSetup(c.type),
   );
@@ -93,13 +96,12 @@ export function ConnectorsStep({
   const [type, setType] = useState<string>(available[0]?.type ?? "");
   const [mode, setMode] = useState<ScopeMode>("read");
   const current = available.some((c) => c.type === type) ? type : (available[0]?.type ?? "");
-  // A first run starts with Calendar, Reminders, Mail and Notes selected; derived until the owner
-  // changes a box, since the account list may still be loading on the first render.
-  const [picked, setPicked] = useState<ReadonlySet<string> | null>(null);
-  const selected: ReadonlySet<string> =
-    picked ?? new Set(connected.length === 0 ? (DEFAULT_MAC_APPS as readonly string[]) : []);
-  const setSelected = (fn: (s: ReadonlySet<string>) => ReadonlySet<string>) =>
-    setPicked(fn(selected));
+  // Nothing starts ticked (see DEFAULT_MAC_APPS): the owner chooses what to connect.
+  const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
+  // Accounts that sign in online (Google, Microsoft, email) stay folded until asked for.
+  const [askedAccounts, setAskedAccounts] = useState(false);
+  // Where no Mac apps are offered (Windows), accounts are the only way in, so they show at once.
+  const accountsOpen = askedAccounts || macApps.length === 0;
   const chosen = macApps.filter((c) => selected.has(c.type)).map((c) => c.type);
   const queue = useMacQueue({ connected, busy, error, onConnect, mode });
   return (
@@ -172,7 +174,7 @@ export function ConnectorsStep({
       {error ? (
         <ErrorNotice what={error} did={t("onboarding.connectors.nothingConnected")} />
       ) : null}
-      {offered.length > 0 ? (
+      {offered.length > 0 && (chosen.length > 0 || accountsOpen) ? (
         <ConnectAccessChoice
           label={t("onboarding.connectors.what", { name: persona })}
           value={mode}
@@ -226,8 +228,6 @@ export function ConnectorsStep({
               size="sm"
               disabled={busy || queue.running || chosen.length === 0}
               onClick={() => {
-                // Keep the choice as made: the defaults no longer apply once one connects.
-                setPicked(new Set(chosen));
                 queue.start(chosen);
               }}
             >
@@ -243,6 +243,19 @@ export function ConnectorsStep({
         macApps.length === 0 ? (
           <p className="text-sm">{t("onboarding.connectors.all")}</p>
         ) : null
+      ) : !accountsOpen && connected.length === 0 ? (
+        <div>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="text-label-secondary"
+            aria-expanded={false}
+            onClick={() => setAskedAccounts(true)}
+          >
+            {t("onboarding.connectors.moreAccounts")}
+          </Button>
+        </div>
       ) : (
         <section aria-labelledby={`${id}-accounts`} className="flex flex-col gap-2">
           <h2 id={`${id}-accounts`} className="px-1 text-caption text-label-secondary">
@@ -555,6 +568,25 @@ export const PROVIDERS: Record<
 
 const OTHER_MODEL = "__other__";
 
+/** The connection test's result in plain words (Settings keeps the "tool calling" wording). */
+export function ModelTestBadge({ status }: { status: ToolCheck }): ReactElement {
+  switch (status) {
+    case "passed":
+      return <StatusChip tone="success">{t("onboarding.model.test.passed")}</StatusChip>;
+    case "failed":
+      return <StatusChip tone="approval">{t("onboarding.model.test.failed")}</StatusChip>;
+    case "running":
+      return (
+        <StatusChip tone="info">
+          <Loader className="size-3 motion-safe:animate-spin" aria-hidden="true" />
+          {t("onboarding.model.test.running")}
+        </StatusChip>
+      );
+    case "untested":
+      return <StatusChip tone="neutral">{t("onboarding.model.test.untested")}</StatusChip>;
+  }
+}
+
 export function defaultModelChoice(kind: ProviderKind): ModelChoice {
   const first = PROVIDERS[kind][0];
   return {
@@ -638,39 +670,65 @@ export function ModelStep({
   const known = models.some((m) => m.ref === value.modelRef);
   const picked = other || !known ? OTHER_MODEL : value.modelRef;
   const needsKey = value.kind === "cloud" || value.kind === "openrouter";
+  // Lead with the common choice (an API key); the other ways open on request, and stay open when
+  // a re-run already uses one.
+  const [otherWays, setOtherWays] = useState(value.kind !== "cloud");
   return (
     <div className="flex flex-col gap-4">
-      <RadioField
-        grouped
-        label={t("onboarding.model.how")}
-        value={value.kind}
-        onChange={(kind) => {
-          setOther(false);
-          onChange(defaultModelChoice(kind));
-        }}
-        options={[
-          {
-            value: "cloud",
-            label: t("onboarding.model.kind.cloud"),
-            hint: t("onboarding.model.kind.cloudHint"),
-          },
-          {
-            value: "subscription",
-            label: t("onboarding.model.kind.subscription"),
-            hint: t("onboarding.model.kind.subscriptionHint"),
-          },
-          {
-            value: "openrouter",
-            label: "OpenRouter", // i18n-ignore: a brand name
-            hint: t("onboarding.model.kind.openrouterHint"),
-          },
-          {
-            value: "local",
-            label: t("onboarding.model.kind.local"),
-            hint: t("onboarding.model.kind.localHint"),
-          },
-        ]}
-      />
+      {otherWays ? (
+        <RadioField
+          grouped
+          label={t("onboarding.model.how")}
+          value={value.kind}
+          onChange={(kind) => {
+            setOther(false);
+            onChange(defaultModelChoice(kind));
+          }}
+          options={[
+            {
+              value: "cloud",
+              label: t("onboarding.model.kind.cloud"),
+              hint: t("onboarding.model.kind.cloudHint"),
+            },
+            {
+              value: "subscription",
+              label: t("onboarding.model.kind.subscription"),
+              hint: t("onboarding.model.kind.subscriptionHint"),
+            },
+            {
+              value: "openrouter",
+              label: "OpenRouter", // i18n-ignore: a brand name
+              hint: t("onboarding.model.kind.openrouterHint"),
+            },
+            {
+              value: "local",
+              label: t("onboarding.model.kind.local"),
+              hint: t("onboarding.model.kind.localHint"),
+            },
+          ]}
+        />
+      ) : (
+        <div className="flex flex-col gap-1">
+          <p className="text-headline text-label-primary">{t("onboarding.model.how")}</p>
+          <p className="text-reading text-label-secondary">
+            <span className="text-label-primary">{t("onboarding.model.kind.cloud")}</span>
+            {" · "}
+            {t("onboarding.model.kind.cloudHint")}
+          </p>
+          <div>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="-ms-2.5 text-label-secondary"
+              aria-expanded={false}
+              onClick={() => setOtherWays(true)}
+            >
+              {t("onboarding.model.otherWays")}
+            </Button>
+          </div>
+        </div>
+      )}
       {providers.length > 1 ? (
         <div className="flex flex-col gap-1">
           <Label htmlFor={`${id}-provider`}>{t("onboarding.model.provider")}</Label>
@@ -805,7 +863,7 @@ export function ModelStep({
 
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-headline text-label-primary">{t("onboarding.model.toolCheck")}</span>
-        <ToolCheckBadge status={value.toolCheck} />
+        <ModelTestBadge status={value.toolCheck} />
         {onCheck && value.toolCheck !== "running" ? (
           <Button
             type="button"

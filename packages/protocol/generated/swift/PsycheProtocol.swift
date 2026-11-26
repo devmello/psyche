@@ -291,37 +291,7 @@
 //   let catchUpStatus = try? JSONDecoder().decode(CatchUpStatus.self, from: jsonData)
 //   let catchUpSurface = try? JSONDecoder().decode(CatchUpSurface.self, from: jsonData)
 //   let catchUpUrgency = try? JSONDecoder().decode(CatchUpUrgency.self, from: jsonData)
-//   let channel = try? JSONDecoder().decode(Channel.self, from: jsonData)
-//   let channelIdentity = try? JSONDecoder().decode(ChannelIdentity.self, from: jsonData)
 //   let channelRef = try? JSONDecoder().decode(ChannelRef.self, from: jsonData)
-//   let channelSecretName = try? JSONDecoder().decode(ChannelSecretName.self, from: jsonData)
-//   let channelType = try? JSONDecoder().decode(ChannelType.self, from: jsonData)
-//   let channelsAllowlistUpdateParams = try? JSONDecoder().decode(ChannelsAllowlistUpdateParams.self, from: jsonData)
-//   let channelsAllowlistUpdateResult = try? JSONDecoder().decode(ChannelsAllowlistUpdateResult.self, from: jsonData)
-//   let channelsConfigureParams = try? JSONDecoder().decode(ChannelsConfigureParams.self, from: jsonData)
-//   let channelsConfigureResult = try? JSONDecoder().decode(ChannelsConfigureResult.self, from: jsonData)
-//   let channelsGetParams = try? JSONDecoder().decode(ChannelsGetParams.self, from: jsonData)
-//   let channelsGetResult = try? JSONDecoder().decode(ChannelsGetResult.self, from: jsonData)
-//   let channelsIdentitiesDeleteParams = try? JSONDecoder().decode(ChannelsIdentitiesDeleteParams.self, from: jsonData)
-//   let channelsIdentitiesListParams = try? JSONDecoder().decode(ChannelsIdentitiesListParams.self, from: jsonData)
-//   let channelsIdentitiesListResult = try? JSONDecoder().decode(ChannelsIdentitiesListResult.self, from: jsonData)
-//   let channelsIdentitiesUpsertParams = try? JSONDecoder().decode(ChannelsIdentitiesUpsertParams.self, from: jsonData)
-//   let channelsIdentitiesUpsertResult = try? JSONDecoder().decode(ChannelsIdentitiesUpsertResult.self, from: jsonData)
-//   let channelsListParams = try? JSONDecoder().decode(ChannelsListParams.self, from: jsonData)
-//   let channelsListResult = try? JSONDecoder().decode(ChannelsListResult.self, from: jsonData)
-//   let channelsPairingApproveParams = try? JSONDecoder().decode(ChannelsPairingApproveParams.self, from: jsonData)
-//   let channelsPairingApproveResult = try? JSONDecoder().decode(ChannelsPairingApproveResult.self, from: jsonData)
-//   let channelsPairingDenyParams = try? JSONDecoder().decode(ChannelsPairingDenyParams.self, from: jsonData)
-//   let channelsPairingDenyResult = try? JSONDecoder().decode(ChannelsPairingDenyResult.self, from: jsonData)
-//   let channelsPairingListParams = try? JSONDecoder().decode(ChannelsPairingListParams.self, from: jsonData)
-//   let channelsPairingListResult = try? JSONDecoder().decode(ChannelsPairingListResult.self, from: jsonData)
-//   let channelsSecretsClearParams = try? JSONDecoder().decode(ChannelsSecretsClearParams.self, from: jsonData)
-//   let channelsSecretsClearResult = try? JSONDecoder().decode(ChannelsSecretsClearResult.self, from: jsonData)
-//   let channelsSecretsSetParams = try? JSONDecoder().decode(ChannelsSecretsSetParams.self, from: jsonData)
-//   let channelsSecretsSetResult = try? JSONDecoder().decode(ChannelsSecretsSetResult.self, from: jsonData)
-//   let channelsSecretsStatusParams = try? JSONDecoder().decode(ChannelsSecretsStatusParams.self, from: jsonData)
-//   let channelsSecretsStatusResult = try? JSONDecoder().decode(ChannelsSecretsStatusResult.self, from: jsonData)
-//   let channelsUpdatedPayload = try? JSONDecoder().decode(ChannelsUpdatedPayload.self, from: jsonData)
 //   let chatAttachFilesParams = try? JSONDecoder().decode(ChatAttachFilesParams.self, from: jsonData)
 //   let chatAttachFilesResult = try? JSONDecoder().decode(ChatAttachFilesResult.self, from: jsonData)
 //   let chatAttachedFile = try? JSONDecoder().decode(ChatAttachedFile.self, from: jsonData)
@@ -528,7 +498,6 @@
 //   let digestGroup = try? JSONDecoder().decode(DigestGroup.self, from: jsonData)
 //   let digestItem = try? JSONDecoder().decode(DigestItem.self, from: jsonData)
 //   let digestLoop = try? JSONDecoder().decode(DigestLoop.self, from: jsonData)
-//   let dmPolicy = try? JSONDecoder().decode(DmPolicy.self, from: jsonData)
 //   let documentsConvertParams = try? JSONDecoder().decode(DocumentsConvertParams.self, from: jsonData)
 //   let documentsConvertResult = try? JSONDecoder().decode(DocumentsConvertResult.self, from: jsonData)
 //   let effectiveContextLimits = try? JSONDecoder().decode(EffectiveContextLimits.self, from: jsonData)
@@ -1100,6 +1069,7 @@
 //   let modelsSetKeyResult = try? JSONDecoder().decode(ModelsSetKeyResult.self, from: jsonData)
 //   let modelsSetRoleParams = try? JSONDecoder().decode(ModelsSetRoleParams.self, from: jsonData)
 //   let modelsSetRoleResult = try? JSONDecoder().decode(ModelsSetRoleResult.self, from: jsonData)
+//   let needsMACReason = try? JSONDecoder().decode(NeedsMACReason.self, from: jsonData)
 //   let nightShiftApplyItem = try? JSONDecoder().decode(NightShiftApplyItem.self, from: jsonData)
 //   let nightShiftApplyParams = try? JSONDecoder().decode(NightShiftApplyParams.self, from: jsonData)
 //   let nightShiftApplyResult = try? JSONDecoder().decode(NightShiftApplyResult.self, from: jsonData)
@@ -1233,6 +1203,8 @@
 //   let planForksListResult = try? JSONDecoder().decode(PlanForksListResult.self, from: jsonData)
 //   let planForksRetryBranchParams = try? JSONDecoder().decode(PlanForksRetryBranchParams.self, from: jsonData)
 //   let planForksRetryBranchResult = try? JSONDecoder().decode(PlanForksRetryBranchResult.self, from: jsonData)
+//   let planForksStagedParams = try? JSONDecoder().decode(PlanForksStagedParams.self, from: jsonData)
+//   let planForksStagedResult = try? JSONDecoder().decode(PlanForksStagedResult.self, from: jsonData)
 //   let planForksSuggestParams = try? JSONDecoder().decode(PlanForksSuggestParams.self, from: jsonData)
 //   let planForksSuggestResult = try? JSONDecoder().decode(PlanForksSuggestResult.self, from: jsonData)
 //   let planForksTakeParams = try? JSONDecoder().decode(PlanForksTakeParams.self, from: jsonData)
@@ -4616,6 +4588,7 @@ public struct ApprovalRequest: Codable, Sendable {
     public let deviceOnly: Bool
     public let expiresAt: String
     public let fromLesson: FromLesson?
+    public let grantHint: GrantHint?
     public let grantID: String?
     public let grantKey: String
     public let id: String
@@ -4646,6 +4619,7 @@ public struct ApprovalRequest: Codable, Sendable {
         case deviceOnly = "deviceOnly"
         case expiresAt = "expiresAt"
         case fromLesson = "fromLesson"
+        case grantHint = "grantHint"
         case grantID = "grantId"
         case grantKey = "grantKey"
         case id = "id"
@@ -4669,7 +4643,7 @@ public struct ApprovalRequest: Codable, Sendable {
         case targetKind = "targetKind"
     }
 
-    public init(bindingHash: String, decidedAt: String? = nil, decidedBy: DecidedByClass? = nil, details: [String: JSONAny], deviceOnly: Bool, expiresAt: String, fromLesson: FromLesson? = nil, grantID: String? = nil, grantKey: String, id: String, invalidatedReason: String? = nil, kind: ApprovalKind, machine: ComputerMachineRef? = nil, requestedAt: String, requestedBy: RequestedBy, requiresAuthentication: Bool, riskClass: RiskClass? = nil, scopeGranted: GrantScope? = nil, scopesOffered: [GrantScope], setAside: Bool? = nil, sideEffect: SideEffect? = nil, status: ApprovalStatus, summary: String, surfaces: [String], taint: Bool, taintSources: [TaintSource]? = nil, target: Target? = nil, targetKind: TargetKind? = nil) {
+    public init(bindingHash: String, decidedAt: String? = nil, decidedBy: DecidedByClass? = nil, details: [String: JSONAny], deviceOnly: Bool, expiresAt: String, fromLesson: FromLesson? = nil, grantHint: GrantHint? = nil, grantID: String? = nil, grantKey: String, id: String, invalidatedReason: String? = nil, kind: ApprovalKind, machine: ComputerMachineRef? = nil, requestedAt: String, requestedBy: RequestedBy, requiresAuthentication: Bool, riskClass: RiskClass? = nil, scopeGranted: GrantScope? = nil, scopesOffered: [GrantScope], setAside: Bool? = nil, sideEffect: SideEffect? = nil, status: ApprovalStatus, summary: String, surfaces: [String], taint: Bool, taintSources: [TaintSource]? = nil, target: Target? = nil, targetKind: TargetKind? = nil) {
         self.bindingHash = bindingHash
         self.decidedAt = decidedAt
         self.decidedBy = decidedBy
@@ -4677,6 +4651,7 @@ public struct ApprovalRequest: Codable, Sendable {
         self.deviceOnly = deviceOnly
         self.expiresAt = expiresAt
         self.fromLesson = fromLesson
+        self.grantHint = grantHint
         self.grantID = grantID
         self.grantKey = grantKey
         self.id = id
@@ -4704,7 +4679,7 @@ public struct ApprovalRequest: Codable, Sendable {
 // MARK: - DecidedByClass
 public struct DecidedByClass: Codable, Sendable {
     public let deviceID: String?
-    /// "desktop" | "notification" | "web" | "<channel>:<peerId>"
+    /// "desktop" | "notification" | "web" | "device:<deviceId>"
     public let surface: String?
     public let channel: String?
     public let senderID: String?
@@ -4741,6 +4716,25 @@ public struct FromLesson: Codable, Sendable {
         self.because = because
         self.feedbackID = feedbackID
         self.lessonID = lessonID
+    }
+}
+
+// MARK: - GrantHint
+public struct GrantHint: Codable, Sendable {
+    public let count: Int
+    public let days: Int
+    public let scope: GrantScope
+
+    public enum CodingKeys: String, CodingKey {
+        case count = "count"
+        case days = "days"
+        case scope = "scope"
+    }
+
+    public init(count: Int, days: Int, scope: GrantScope) {
+        self.count = count
+        self.days = days
+        self.scope = scope
     }
 }
 
@@ -4870,16 +4864,26 @@ public enum TargetKind: String, Codable, Sendable {
 public struct ApprovalResult: Codable, Sendable {
     public let answerToken: String?
     public let approval: ApprovalRequest
+    public let needsMAC: NeedsMACReason?
 
     public enum CodingKeys: String, CodingKey {
         case answerToken = "answerToken"
         case approval = "approval"
+        case needsMAC = "needsMac"
     }
 
-    public init(answerToken: String? = nil, approval: ApprovalRequest) {
+    public init(answerToken: String? = nil, approval: ApprovalRequest, needsMAC: NeedsMACReason? = nil) {
         self.answerToken = answerToken
         self.approval = approval
+        self.needsMAC = needsMAC
     }
+}
+
+public enum NeedsMACReason: String, Codable, Sendable {
+    case macOnly = "mac_only"
+    case pairedAfter = "paired_after"
+    case payment = "payment"
+    case tooLong = "too_long"
 }
 
 // MARK: - ApprovalUpdatedPayload
@@ -5037,13 +5041,16 @@ public struct ApprovalsApproveWithTouchIDResult: Codable, Sendable {
 // MARK: - ApprovalsGetParams
 public struct ApprovalsGetParams: Codable, Sendable {
     public let approvalID: String
+    public let wantToken: Bool?
 
     public enum CodingKeys: String, CodingKey {
         case approvalID = "approvalId"
+        case wantToken = "wantToken"
     }
 
-    public init(approvalID: String) {
+    public init(approvalID: String, wantToken: Bool? = nil) {
         self.approvalID = approvalID
+        self.wantToken = wantToken
     }
 }
 
@@ -6883,7 +6890,7 @@ public struct AuditActor: Codable, Sendable {
     public let deviceID: String?
     public let runID: String?
     public let scope: String?
-    /// "desktop" | "notification" | "web" | "<channel>:<peerId>"
+    /// "desktop" | "notification" | "web" | "device:<deviceId>"
     public let surface: String?
     public let type: AuditActorType
 
@@ -9342,645 +9349,7 @@ public enum DevicePlatform: String, Codable, Sendable {
     case ios = "ios"
     case linux = "linux"
     case macos = "macos"
-    case web = "web"
     case windows = "windows"
-}
-
-// MARK: - ChannelsAllowlistUpdateParams
-public struct ChannelsAllowlistUpdateParams: Codable, Sendable {
-    public let add: [String]?
-    public let approvalID: String?
-    public let channelID: String
-    public let list: ChannelsAllowlistUpdateParamsList
-    public let remove: [String]?
-
-    public enum CodingKeys: String, CodingKey {
-        case add = "add"
-        case approvalID = "approvalId"
-        case channelID = "channelId"
-        case list = "list"
-        case remove = "remove"
-    }
-
-    public init(add: [String]? = nil, approvalID: String? = nil, channelID: String, list: ChannelsAllowlistUpdateParamsList, remove: [String]? = nil) {
-        self.add = add
-        self.approvalID = approvalID
-        self.channelID = channelID
-        self.list = list
-        self.remove = remove
-    }
-}
-
-public enum ChannelsAllowlistUpdateParamsList: String, Codable, Sendable {
-    case allowFrom = "allowFrom"
-    case groupAllowFrom = "groupAllowFrom"
-    case ownerIDS = "ownerIds"
-}
-
-// MARK: - ChannelsAllowlistUpdateResult
-public struct ChannelsAllowlistUpdateResult: Codable, Sendable {
-    public let channel: Channel
-
-    public enum CodingKeys: String, CodingKey {
-        case channel = "channel"
-    }
-
-    public init(channel: Channel) {
-        self.channel = channel
-    }
-}
-
-// MARK: - Channel
-public struct Channel: Codable, Sendable {
-    public let account: String
-    public let allowFrom: [String]
-    public let config: [String: JSONAny]
-    public let createdAt: String
-    public let dmPolicy: DmPolicy
-    public let dmScope: DmScope
-    public let groupAllowFrom: [String]
-    public let id: String
-    public let nodeID: String?
-    public let ownerIDS: [String]
-    public let requireMention: Bool
-    public let status: ChannelStatus
-    public let type: ChannelType
-    public let updatedAt: String
-
-    public enum CodingKeys: String, CodingKey {
-        case account = "account"
-        case allowFrom = "allowFrom"
-        case config = "config"
-        case createdAt = "createdAt"
-        case dmPolicy = "dmPolicy"
-        case dmScope = "dmScope"
-        case groupAllowFrom = "groupAllowFrom"
-        case id = "id"
-        case nodeID = "nodeId"
-        case ownerIDS = "ownerIds"
-        case requireMention = "requireMention"
-        case status = "status"
-        case type = "type"
-        case updatedAt = "updatedAt"
-    }
-
-    public init(account: String, allowFrom: [String], config: [String: JSONAny], createdAt: String, dmPolicy: DmPolicy, dmScope: DmScope, groupAllowFrom: [String], id: String, nodeID: String? = nil, ownerIDS: [String], requireMention: Bool, status: ChannelStatus, type: ChannelType, updatedAt: String) {
-        self.account = account
-        self.allowFrom = allowFrom
-        self.config = config
-        self.createdAt = createdAt
-        self.dmPolicy = dmPolicy
-        self.dmScope = dmScope
-        self.groupAllowFrom = groupAllowFrom
-        self.id = id
-        self.nodeID = nodeID
-        self.ownerIDS = ownerIDS
-        self.requireMention = requireMention
-        self.status = status
-        self.type = type
-        self.updatedAt = updatedAt
-    }
-}
-
-public enum DmPolicy: String, Codable, Sendable {
-    case allowlist = "allowlist"
-    case disabled = "disabled"
-    case dmPolicyOpen = "open"
-    case pairing = "pairing"
-}
-
-public enum DmScope: String, Codable, Sendable {
-    case main = "main"
-    case perChannelPeer = "per-channel-peer"
-    case perPeer = "per-peer"
-}
-
-public enum ChannelStatus: String, Codable, Sendable {
-    case active = "active"
-    case disconnected = "disconnected"
-    case error = "error"
-    case paused = "paused"
-}
-
-public enum ChannelType: String, Codable, Sendable {
-    case discord = "discord"
-    case email = "email"
-    case imessage = "imessage"
-    case signal = "signal"
-    case slack = "slack"
-    case sms = "sms"
-    case telegram = "telegram"
-    case webchat = "webchat"
-    case whatsapp = "whatsapp"
-}
-
-// MARK: - ChannelsConfigureParams
-public struct ChannelsConfigureParams: Codable, Sendable {
-    public let account: String?
-    public let allowFrom: [String]?
-    public let approvalID: String?
-    public let channelID: String?
-    public let config: [String: JSONAny]?
-    public let dmPolicy: DmPolicy?
-    public let dmScope: DmScope?
-    public let groupAllowFrom: [String]?
-    public let nodeID: String?
-    public let ownerIDS: [String]?
-    public let requireMention: Bool?
-    public let status: ChannelsConfigureParamsStatus?
-    public let type: ChannelType?
-
-    public enum CodingKeys: String, CodingKey {
-        case account = "account"
-        case allowFrom = "allowFrom"
-        case approvalID = "approvalId"
-        case channelID = "channelId"
-        case config = "config"
-        case dmPolicy = "dmPolicy"
-        case dmScope = "dmScope"
-        case groupAllowFrom = "groupAllowFrom"
-        case nodeID = "nodeId"
-        case ownerIDS = "ownerIds"
-        case requireMention = "requireMention"
-        case status = "status"
-        case type = "type"
-    }
-
-    public init(account: String? = nil, allowFrom: [String]? = nil, approvalID: String? = nil, channelID: String? = nil, config: [String: JSONAny]? = nil, dmPolicy: DmPolicy? = nil, dmScope: DmScope? = nil, groupAllowFrom: [String]? = nil, nodeID: String? = nil, ownerIDS: [String]? = nil, requireMention: Bool? = nil, status: ChannelsConfigureParamsStatus? = nil, type: ChannelType? = nil) {
-        self.account = account
-        self.allowFrom = allowFrom
-        self.approvalID = approvalID
-        self.channelID = channelID
-        self.config = config
-        self.dmPolicy = dmPolicy
-        self.dmScope = dmScope
-        self.groupAllowFrom = groupAllowFrom
-        self.nodeID = nodeID
-        self.ownerIDS = ownerIDS
-        self.requireMention = requireMention
-        self.status = status
-        self.type = type
-    }
-}
-
-public enum ChannelsConfigureParamsStatus: String, Codable, Sendable {
-    case active = "active"
-    case paused = "paused"
-}
-
-// MARK: - ChannelsConfigureResult
-public struct ChannelsConfigureResult: Codable, Sendable {
-    public let channel: Channel
-
-    public enum CodingKeys: String, CodingKey {
-        case channel = "channel"
-    }
-
-    public init(channel: Channel) {
-        self.channel = channel
-    }
-}
-
-// MARK: - ChannelsGetParams
-public struct ChannelsGetParams: Codable, Sendable {
-    public let channelID: String
-
-    public enum CodingKeys: String, CodingKey {
-        case channelID = "channelId"
-    }
-
-    public init(channelID: String) {
-        self.channelID = channelID
-    }
-}
-
-// MARK: - ChannelsGetResult
-public struct ChannelsGetResult: Codable, Sendable {
-    public let channel: Channel
-
-    public enum CodingKeys: String, CodingKey {
-        case channel = "channel"
-    }
-
-    public init(channel: Channel) {
-        self.channel = channel
-    }
-}
-
-// MARK: - ChannelsIdentitiesDeleteParams
-public struct ChannelsIdentitiesDeleteParams: Codable, Sendable {
-    public let identityID: String
-
-    public enum CodingKeys: String, CodingKey {
-        case identityID = "identityId"
-    }
-
-    public init(identityID: String) {
-        self.identityID = identityID
-    }
-}
-
-// MARK: - ChannelsIdentitiesListResult
-public struct ChannelsIdentitiesListResult: Codable, Sendable {
-    public let identities: [ChannelIdentity]
-
-    public enum CodingKeys: String, CodingKey {
-        case identities = "identities"
-    }
-
-    public init(identities: [ChannelIdentity]) {
-        self.identities = identities
-    }
-}
-
-// MARK: - ChannelIdentity
-public struct ChannelIdentity: Codable, Sendable {
-    public let createdAt: String
-    public let delegatedPersona: String?
-    public let display: String
-    public let id: String
-    /// Sender ids merged into this identity
-    public let links: [String]
-    public let toolAllow: [String]?
-    public let updatedAt: String
-
-    public enum CodingKeys: String, CodingKey {
-        case createdAt = "createdAt"
-        case delegatedPersona = "delegatedPersona"
-        case display = "display"
-        case id = "id"
-        case links = "links"
-        case toolAllow = "toolAllow"
-        case updatedAt = "updatedAt"
-    }
-
-    public init(createdAt: String, delegatedPersona: String? = nil, display: String, id: String, links: [String], toolAllow: [String]? = nil, updatedAt: String) {
-        self.createdAt = createdAt
-        self.delegatedPersona = delegatedPersona
-        self.display = display
-        self.id = id
-        self.links = links
-        self.toolAllow = toolAllow
-        self.updatedAt = updatedAt
-    }
-}
-
-// MARK: - ChannelsIdentitiesUpsertParams
-public struct ChannelsIdentitiesUpsertParams: Codable, Sendable {
-    public let approvalID: String?
-    public let delegatedPersona: String?
-    public let display: String
-    public let identityID: String?
-    public let links: [String]
-    public let toolAllow: [String]?
-
-    public enum CodingKeys: String, CodingKey {
-        case approvalID = "approvalId"
-        case delegatedPersona = "delegatedPersona"
-        case display = "display"
-        case identityID = "identityId"
-        case links = "links"
-        case toolAllow = "toolAllow"
-    }
-
-    public init(approvalID: String? = nil, delegatedPersona: String? = nil, display: String, identityID: String? = nil, links: [String], toolAllow: [String]? = nil) {
-        self.approvalID = approvalID
-        self.delegatedPersona = delegatedPersona
-        self.display = display
-        self.identityID = identityID
-        self.links = links
-        self.toolAllow = toolAllow
-    }
-}
-
-// MARK: - ChannelsIdentitiesUpsertResult
-public struct ChannelsIdentitiesUpsertResult: Codable, Sendable {
-    public let identity: ChannelIdentity
-
-    public enum CodingKeys: String, CodingKey {
-        case identity = "identity"
-    }
-
-    public init(identity: ChannelIdentity) {
-        self.identity = identity
-    }
-}
-
-// MARK: - ChannelsListResult
-public struct ChannelsListResult: Codable, Sendable {
-    public let channels: [Channel]
-
-    public enum CodingKeys: String, CodingKey {
-        case channels = "channels"
-    }
-
-    public init(channels: [Channel]) {
-        self.channels = channels
-    }
-}
-
-// MARK: - ChannelsPairingApproveParams
-public struct ChannelsPairingApproveParams: Codable, Sendable {
-    public let approvalID: String?
-    public let channelID: String?
-    public let code: String?
-    public let requestID: String?
-
-    public enum CodingKeys: String, CodingKey {
-        case approvalID = "approvalId"
-        case channelID = "channelId"
-        case code = "code"
-        case requestID = "requestId"
-    }
-
-    public init(approvalID: String? = nil, channelID: String? = nil, code: String? = nil, requestID: String? = nil) {
-        self.approvalID = approvalID
-        self.channelID = channelID
-        self.code = code
-        self.requestID = requestID
-    }
-}
-
-// MARK: - ChannelsPairingApproveResult
-public struct ChannelsPairingApproveResult: Codable, Sendable {
-    public let pairingRequest: PairingRequest
-
-    public enum CodingKeys: String, CodingKey {
-        case pairingRequest = "pairingRequest"
-    }
-
-    public init(pairingRequest: PairingRequest) {
-        self.pairingRequest = pairingRequest
-    }
-}
-
-// MARK: - PairingRequest
-public struct PairingRequest: Codable, Sendable {
-    public let channelID: String?
-    public let code: String
-    public let createdAt: String
-    public let decidedAt: String?
-    public let decidedByDeviceID: String?
-    public let deviceID: String?
-    public let display: String
-    public let expiresAt: String
-    public let id: String
-    public let kind: PairingRequestKind
-    /// Device requests: "sha256:" + hex SHA-256 of the raw Ed25519 public key the owner approves
-    public let publicKeyFingerprint: String?
-    public let purpose: SetupTokenPurpose?
-    /// Device requests: peer address as the Gateway saw it
-    public let remoteAddress: String?
-    public let senderID: String?
-    public let status: PairingStatus
-    /// Device requests: how the device connected
-    public let transport: PairingRequestTransport?
-
-    public enum CodingKeys: String, CodingKey {
-        case channelID = "channelId"
-        case code = "code"
-        case createdAt = "createdAt"
-        case decidedAt = "decidedAt"
-        case decidedByDeviceID = "decidedByDeviceId"
-        case deviceID = "deviceId"
-        case display = "display"
-        case expiresAt = "expiresAt"
-        case id = "id"
-        case kind = "kind"
-        case publicKeyFingerprint = "publicKeyFingerprint"
-        case purpose = "purpose"
-        case remoteAddress = "remoteAddress"
-        case senderID = "senderId"
-        case status = "status"
-        case transport = "transport"
-    }
-
-    public init(channelID: String? = nil, code: String, createdAt: String, decidedAt: String? = nil, decidedByDeviceID: String? = nil, deviceID: String? = nil, display: String, expiresAt: String, id: String, kind: PairingRequestKind, publicKeyFingerprint: String? = nil, purpose: SetupTokenPurpose? = nil, remoteAddress: String? = nil, senderID: String? = nil, status: PairingStatus, transport: PairingRequestTransport? = nil) {
-        self.channelID = channelID
-        self.code = code
-        self.createdAt = createdAt
-        self.decidedAt = decidedAt
-        self.decidedByDeviceID = decidedByDeviceID
-        self.deviceID = deviceID
-        self.display = display
-        self.expiresAt = expiresAt
-        self.id = id
-        self.kind = kind
-        self.publicKeyFingerprint = publicKeyFingerprint
-        self.purpose = purpose
-        self.remoteAddress = remoteAddress
-        self.senderID = senderID
-        self.status = status
-        self.transport = transport
-    }
-}
-
-public enum PairingRequestKind: String, Codable, Sendable {
-    case channelSender = "channel-sender"
-    case device = "device"
-}
-
-public enum SetupTokenPurpose: String, Codable, Sendable {
-    case device = "device"
-    case machine = "machine"
-}
-
-public enum PairingStatus: String, Codable, Sendable {
-    case approved = "approved"
-    case denied = "denied"
-    case expired = "expired"
-    case pending = "pending"
-}
-
-/// Device requests: how the device connected
-public enum PairingRequestTransport: String, Codable, Sendable {
-    case unix = "unix"
-    case ws = "ws"
-}
-
-// MARK: - ChannelsPairingDenyParams
-public struct ChannelsPairingDenyParams: Codable, Sendable {
-    public let channelID: String?
-    public let code: String?
-    public let requestID: String?
-
-    public enum CodingKeys: String, CodingKey {
-        case channelID = "channelId"
-        case code = "code"
-        case requestID = "requestId"
-    }
-
-    public init(channelID: String? = nil, code: String? = nil, requestID: String? = nil) {
-        self.channelID = channelID
-        self.code = code
-        self.requestID = requestID
-    }
-}
-
-// MARK: - ChannelsPairingDenyResult
-public struct ChannelsPairingDenyResult: Codable, Sendable {
-    public let pairingRequest: PairingRequest
-
-    public enum CodingKeys: String, CodingKey {
-        case pairingRequest = "pairingRequest"
-    }
-
-    public init(pairingRequest: PairingRequest) {
-        self.pairingRequest = pairingRequest
-    }
-}
-
-// MARK: - ChannelsPairingListParams
-public struct ChannelsPairingListParams: Codable, Sendable {
-    public let channelID: String?
-    public let status: PairingStatus?
-
-    public enum CodingKeys: String, CodingKey {
-        case channelID = "channelId"
-        case status = "status"
-    }
-
-    public init(channelID: String? = nil, status: PairingStatus? = nil) {
-        self.channelID = channelID
-        self.status = status
-    }
-}
-
-// MARK: - ChannelsPairingListResult
-public struct ChannelsPairingListResult: Codable, Sendable {
-    public let requests: [PairingRequest]
-
-    public enum CodingKeys: String, CodingKey {
-        case requests = "requests"
-    }
-
-    public init(requests: [PairingRequest]) {
-        self.requests = requests
-    }
-}
-
-// MARK: - ChannelsSecretsClearParams
-public struct ChannelsSecretsClearParams: Codable, Sendable {
-    public let account: String
-    public let name: ChannelSecretName
-    public let type: ChannelType
-
-    public enum CodingKeys: String, CodingKey {
-        case account = "account"
-        case name = "name"
-        case type = "type"
-    }
-
-    public init(account: String, name: ChannelSecretName, type: ChannelType) {
-        self.account = account
-        self.name = name
-        self.type = type
-    }
-}
-
-public enum ChannelSecretName: String, Codable, Sendable {
-    case accessToken = "access_token"
-    case appSecret = "app_secret"
-    case appToken = "app_token"
-    case authToken = "auth_token"
-    case botToken = "bot_token"
-    case verifyToken = "verify_token"
-}
-
-// MARK: - ChannelsSecretsClearResult
-public struct ChannelsSecretsClearResult: Codable, Sendable {
-    public let channelsSecretsClearResultSet: [ChannelSecretName]
-
-    public enum CodingKeys: String, CodingKey {
-        case channelsSecretsClearResultSet = "set"
-    }
-
-    public init(channelsSecretsClearResultSet: [ChannelSecretName]) {
-        self.channelsSecretsClearResultSet = channelsSecretsClearResultSet
-    }
-}
-
-// MARK: - ChannelsSecretsSetParams
-public struct ChannelsSecretsSetParams: Codable, Sendable {
-    public let account: String
-    public let name: ChannelSecretName
-    public let type: ChannelType
-    public let value: String
-
-    public enum CodingKeys: String, CodingKey {
-        case account = "account"
-        case name = "name"
-        case type = "type"
-        case value = "value"
-    }
-
-    public init(account: String, name: ChannelSecretName, type: ChannelType, value: String) {
-        self.account = account
-        self.name = name
-        self.type = type
-        self.value = value
-    }
-}
-
-// MARK: - ChannelsSecretsSetResult
-public struct ChannelsSecretsSetResult: Codable, Sendable {
-    public let channelsSecretsSetResultSet: [ChannelSecretName]
-
-    public enum CodingKeys: String, CodingKey {
-        case channelsSecretsSetResultSet = "set"
-    }
-
-    public init(channelsSecretsSetResultSet: [ChannelSecretName]) {
-        self.channelsSecretsSetResultSet = channelsSecretsSetResultSet
-    }
-}
-
-// MARK: - ChannelsSecretsStatusParams
-public struct ChannelsSecretsStatusParams: Codable, Sendable {
-    public let account: String
-    public let type: ChannelType
-
-    public enum CodingKeys: String, CodingKey {
-        case account = "account"
-        case type = "type"
-    }
-
-    public init(account: String, type: ChannelType) {
-        self.account = account
-        self.type = type
-    }
-}
-
-// MARK: - ChannelsSecretsStatusResult
-public struct ChannelsSecretsStatusResult: Codable, Sendable {
-    public let channelsSecretsStatusResultRequired: [ChannelSecretName]
-    public let channelsSecretsStatusResultSet: [ChannelSecretName]
-
-    public enum CodingKeys: String, CodingKey {
-        case channelsSecretsStatusResultRequired = "required"
-        case channelsSecretsStatusResultSet = "set"
-    }
-
-    public init(channelsSecretsStatusResultRequired: [ChannelSecretName], channelsSecretsStatusResultSet: [ChannelSecretName]) {
-        self.channelsSecretsStatusResultRequired = channelsSecretsStatusResultRequired
-        self.channelsSecretsStatusResultSet = channelsSecretsStatusResultSet
-    }
-}
-
-// MARK: - ChannelsUpdatedPayload
-public struct ChannelsUpdatedPayload: Codable, Sendable {
-    public let channel: Channel
-    public let detail: String?
-
-    public enum CodingKeys: String, CodingKey {
-        case channel = "channel"
-        case detail = "detail"
-    }
-
-    public init(channel: Channel, detail: String? = nil) {
-        self.channel = channel
-        self.detail = detail
-    }
 }
 
 // MARK: - ChatAttachFilesParams
@@ -10082,6 +9451,7 @@ public struct ChatBlockPayload: Codable, Sendable {
 // MARK: - Block
 public struct Block: Codable, Sendable {
     public let md: String?
+    public let noteAction: NoteAction?
     public let noteKey: String?
     public let type: BlockType
     /// One-line status shown in the transcript
@@ -10137,6 +9507,7 @@ public struct Block: Codable, Sendable {
 
     public enum CodingKeys: String, CodingKey {
         case md = "md"
+        case noteAction = "noteAction"
         case noteKey = "noteKey"
         case type = "type"
         case level1 = "level1"
@@ -10188,8 +9559,9 @@ public struct Block: Codable, Sendable {
         case branchID = "branchId"
     }
 
-    public init(md: String? = nil, noteKey: String? = nil, type: BlockType, level1: String? = nil, status: ToolCallStatus? = nil, tool: String? = nil, toolCallID: String? = nil, planID: String? = nil, items: [ItemElement]? = nil, approvalID: String? = nil, inputRequestID: String? = nil, artifactID: String? = nil, preview: String? = nil, libraryItemID: String? = nil, id: String? = nil, kind: BlockKind? = nil, source: String? = nil, title: String? = nil, url: String? = nil, receiptID: String? = nil, taskID: String? = nil, actions: [WrapUpAction]? = nil, ask: String? = nil, recap: String? = nil, cited: [String]? = nil, answer: String? = nil, factIDS: [String]? = nil, facts: [LifeFactHit]? = nil, model: ModelEnum? = nil, passageIDS: [String]? = nil, passages: [LifeAnswerPassage]? = nil, question: String? = nil, compactionID: String? = nil, droppedPins: [String]? = nil, keptPins: [String]? = nil, replaced: Replaced? = nil, summary: CompactionSummary? = nil, tokensAfter: Int? = nil, tokensBefore: Int? = nil, trigger: BlockTrigger? = nil, feedbackID: String? = nil, lessonID: String? = nil, messageID: String? = nil, statement: String? = nil, proposal: DailyWorkflowProposal? = nil, route: String? = nil, goal: String? = nil, widgetID: String? = nil, forkID: String? = nil, branchID: String? = nil) {
+    public init(md: String? = nil, noteAction: NoteAction? = nil, noteKey: String? = nil, type: BlockType, level1: String? = nil, status: ToolCallStatus? = nil, tool: String? = nil, toolCallID: String? = nil, planID: String? = nil, items: [ItemElement]? = nil, approvalID: String? = nil, inputRequestID: String? = nil, artifactID: String? = nil, preview: String? = nil, libraryItemID: String? = nil, id: String? = nil, kind: BlockKind? = nil, source: String? = nil, title: String? = nil, url: String? = nil, receiptID: String? = nil, taskID: String? = nil, actions: [WrapUpAction]? = nil, ask: String? = nil, recap: String? = nil, cited: [String]? = nil, answer: String? = nil, factIDS: [String]? = nil, facts: [LifeFactHit]? = nil, model: ModelEnum? = nil, passageIDS: [String]? = nil, passages: [LifeAnswerPassage]? = nil, question: String? = nil, compactionID: String? = nil, droppedPins: [String]? = nil, keptPins: [String]? = nil, replaced: Replaced? = nil, summary: CompactionSummary? = nil, tokensAfter: Int? = nil, tokensBefore: Int? = nil, trigger: BlockTrigger? = nil, feedbackID: String? = nil, lessonID: String? = nil, messageID: String? = nil, statement: String? = nil, proposal: DailyWorkflowProposal? = nil, route: String? = nil, goal: String? = nil, widgetID: String? = nil, forkID: String? = nil, branchID: String? = nil) {
         self.md = md
+        self.noteAction = noteAction
         self.noteKey = noteKey
         self.type = type
         self.level1 = level1
@@ -10545,6 +9917,26 @@ public enum BlockKind: String, Codable, Sendable {
 public enum ModelEnum: String, Codable, Sendable {
     case cloud = "cloud"
     case local = "local"
+}
+
+// MARK: - NoteAction
+public struct NoteAction: Codable, Sendable {
+    public let kind: NoteActionKind
+    public let messageID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case kind = "kind"
+        case messageID = "messageId"
+    }
+
+    public init(kind: NoteActionKind, messageID: String) {
+        self.kind = kind
+        self.messageID = messageID
+    }
+}
+
+public enum NoteActionKind: String, Codable, Sendable {
+    case retryLastMessage = "retry_last_message"
 }
 
 // MARK: - LifeAnswerPassage
@@ -13729,7 +13121,6 @@ public enum ManagedByKind: String, Codable, Sendable {
 }
 
 public enum Setting: String, Codable, Sendable {
-    case channels = "channels"
     case connectors = "connectors"
     case credentials = "credentials"
     case models = "models"
@@ -14104,7 +13495,7 @@ public struct DailyWorkflowsConfirmResult: Codable, Sendable {
 // MARK: - DecidedBy
 public struct DecidedBy: Codable, Sendable {
     public let deviceID: String?
-    /// "desktop" | "notification" | "web" | "<channel>:<peerId>"
+    /// "desktop" | "notification" | "web" | "device:<deviceId>"
     public let surface: String?
     public let channel: String?
     public let senderID: String?
@@ -14258,6 +13649,90 @@ public struct DevicesDenyResult: Codable, Sendable {
     public init(pairingRequest: PairingRequest) {
         self.pairingRequest = pairingRequest
     }
+}
+
+// MARK: - PairingRequest
+public struct PairingRequest: Codable, Sendable {
+    public let channelID: String?
+    public let code: String
+    public let createdAt: String
+    public let decidedAt: String?
+    public let decidedByDeviceID: String?
+    public let deviceID: String?
+    public let display: String
+    public let expiresAt: String
+    public let id: String
+    public let kind: PairingRequestKind
+    /// Device requests: "sha256:" + hex SHA-256 of the raw Ed25519 public key the owner approves
+    public let publicKeyFingerprint: String?
+    public let purpose: SetupTokenPurpose?
+    /// Device requests: peer address as the Gateway saw it
+    public let remoteAddress: String?
+    public let senderID: String?
+    public let status: PairingStatus
+    /// Device requests: how the device connected
+    public let transport: PairingRequestTransport?
+
+    public enum CodingKeys: String, CodingKey {
+        case channelID = "channelId"
+        case code = "code"
+        case createdAt = "createdAt"
+        case decidedAt = "decidedAt"
+        case decidedByDeviceID = "decidedByDeviceId"
+        case deviceID = "deviceId"
+        case display = "display"
+        case expiresAt = "expiresAt"
+        case id = "id"
+        case kind = "kind"
+        case publicKeyFingerprint = "publicKeyFingerprint"
+        case purpose = "purpose"
+        case remoteAddress = "remoteAddress"
+        case senderID = "senderId"
+        case status = "status"
+        case transport = "transport"
+    }
+
+    public init(channelID: String? = nil, code: String, createdAt: String, decidedAt: String? = nil, decidedByDeviceID: String? = nil, deviceID: String? = nil, display: String, expiresAt: String, id: String, kind: PairingRequestKind, publicKeyFingerprint: String? = nil, purpose: SetupTokenPurpose? = nil, remoteAddress: String? = nil, senderID: String? = nil, status: PairingStatus, transport: PairingRequestTransport? = nil) {
+        self.channelID = channelID
+        self.code = code
+        self.createdAt = createdAt
+        self.decidedAt = decidedAt
+        self.decidedByDeviceID = decidedByDeviceID
+        self.deviceID = deviceID
+        self.display = display
+        self.expiresAt = expiresAt
+        self.id = id
+        self.kind = kind
+        self.publicKeyFingerprint = publicKeyFingerprint
+        self.purpose = purpose
+        self.remoteAddress = remoteAddress
+        self.senderID = senderID
+        self.status = status
+        self.transport = transport
+    }
+}
+
+public enum PairingRequestKind: String, Codable, Sendable {
+    case channelSender = "channel-sender"
+    case device = "device"
+}
+
+public enum SetupTokenPurpose: String, Codable, Sendable {
+    case device = "device"
+    case machine = "machine"
+}
+
+public enum PairingStatus: String, Codable, Sendable {
+    case approved = "approved"
+    case denied = "denied"
+    case expired = "expired"
+    case pending = "pending"
+}
+
+/// Device requests: how the device connected
+public enum PairingRequestTransport: String, Codable, Sendable {
+    case unix = "unix"
+    case ws = "ws"
 }
 
 // MARK: - DevicesListParams
@@ -25313,7 +24788,6 @@ public struct MemorySuggestionCreatedPayload: Codable, Sendable {
 
 public enum MemorySurface: String, Codable, Sendable {
     case brief = "brief"
-    case channel = "channel"
     case home = "home"
     case notification = "notification"
 }
@@ -25390,8 +24864,6 @@ public struct MemorySurfaceTiers: Codable, Sendable {
 // MARK: - MemorySurfaceSwitches
 public struct MemorySurfaceSwitches: Codable, Sendable {
     public let brief: Bool
-    /// The brief delivered to Telegram and other channels
-    public let channel: Bool
     public let home: Bool
     /// Work tier: titles only for owner-provenance items, otherwise a count ("1 assignment due
     /// tomorrow")
@@ -25399,14 +24871,12 @@ public struct MemorySurfaceSwitches: Codable, Sendable {
 
     public enum CodingKeys: String, CodingKey {
         case brief = "brief"
-        case channel = "channel"
         case home = "home"
         case notification = "notification"
     }
 
-    public init(brief: Bool, channel: Bool, home: Bool, notification: Bool) {
+    public init(brief: Bool, home: Bool, notification: Bool) {
         self.brief = brief
-        self.channel = channel
         self.home = home
         self.notification = notification
     }
@@ -27978,7 +27448,7 @@ public struct NudgesListResult: Codable, Sendable {
 
 // MARK: - NudgeItem
 public struct NudgeItem: Codable, Sendable {
-    public let channel: ChannelEnum?
+    public let channel: Channel?
     public let date: String?
     public let daysAgo: Int?
     public let entityID: String
@@ -28004,7 +27474,7 @@ public struct NudgeItem: Codable, Sendable {
         case text = "text"
     }
 
-    public init(channel: ChannelEnum? = nil, date: String? = nil, daysAgo: Int? = nil, entityID: String, id: String, kind: NudgeKind, name: String, overdue: Bool, starters: [NudgeStarter]? = nil, text: String) {
+    public init(channel: Channel? = nil, date: String? = nil, daysAgo: Int? = nil, entityID: String, id: String, kind: NudgeKind, name: String, overdue: Bool, starters: [NudgeStarter]? = nil, text: String) {
         self.channel = channel
         self.date = date
         self.daysAgo = daysAgo
@@ -28018,7 +27488,7 @@ public struct NudgeItem: Codable, Sendable {
     }
 }
 
-public enum ChannelEnum: String, Codable, Sendable {
+public enum Channel: String, Codable, Sendable {
     case mail = "mail"
     case messages = "messages"
 }
@@ -29528,6 +28998,35 @@ public struct PlanForksRetryBranchResult: Codable, Sendable {
 
     public init(branch: PlanForkBranch) {
         self.branch = branch
+    }
+}
+
+// MARK: - PlanForksStagedParams
+public struct PlanForksStagedParams: Codable, Sendable {
+    public let branchID: String
+    public let forkID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case branchID = "branchId"
+        case forkID = "forkId"
+    }
+
+    public init(branchID: String, forkID: String) {
+        self.branchID = branchID
+        self.forkID = forkID
+    }
+}
+
+// MARK: - PlanForksStagedResult
+public struct PlanForksStagedResult: Codable, Sendable {
+    public let items: [StagedAction]
+
+    public enum CodingKeys: String, CodingKey {
+        case items = "items"
+    }
+
+    public init(items: [StagedAction]) {
+        self.items = items
     }
 }
 
@@ -40916,17 +40415,20 @@ public struct TerminalSessionWriteParams: Codable, Sendable {
 // MARK: - TextBlock
 public struct TextBlock: Codable, Sendable {
     public let md: String
+    public let noteAction: NoteAction?
     public let noteKey: String?
     public let type: TextBlockType
 
     public enum CodingKeys: String, CodingKey {
         case md = "md"
+        case noteAction = "noteAction"
         case noteKey = "noteKey"
         case type = "type"
     }
 
-    public init(md: String, noteKey: String? = nil, type: TextBlockType) {
+    public init(md: String, noteAction: NoteAction? = nil, noteKey: String? = nil, type: TextBlockType) {
         self.md = md
+        self.noteAction = noteAction
         self.noteKey = noteKey
         self.type = type
     }
@@ -41000,7 +40502,7 @@ public enum ThingsCompleteParamsStatus: String, Codable, Sendable {
 // MARK: - ThingsListParams
 public struct ThingsListParams: Codable, Sendable {
     public let limit: Int?
-    public let list: ThingsListParamsList
+    public let list: List
     /// The project, area or tag (with those lists)
     public let name: String?
     /// Text in the title or notes
@@ -41013,7 +40515,7 @@ public struct ThingsListParams: Codable, Sendable {
         case query = "query"
     }
 
-    public init(limit: Int? = nil, list: ThingsListParamsList, name: String? = nil, query: String? = nil) {
+    public init(limit: Int? = nil, list: List, name: String? = nil, query: String? = nil) {
         self.limit = limit
         self.list = list
         self.name = name
@@ -41021,7 +40523,7 @@ public struct ThingsListParams: Codable, Sendable {
     }
 }
 
-public enum ThingsListParamsList: String, Codable, Sendable {
+public enum List: String, Codable, Sendable {
     case anytime = "anytime"
     case area = "area"
     case inbox = "inbox"
@@ -41328,7 +40830,7 @@ public struct Thread: Codable, Sendable {
     public let permissionMode: PermissionMode
     public let personaOverlay: String?
     public let pinned: Bool
-    /// e.g. "owner:main", "telegram:peer:12345"
+    /// e.g. "owner:main", "import:chatgpt:…"
     public let sessionKey: String
     public let spaceID: String?
     public let title: String
@@ -45170,8 +44672,6 @@ public typealias BrowserBotAuthRotateParams = [String: JSONAny]
 public typealias BrowserBotAuthStatusParams = [String: JSONAny]
 public typealias BrowserRealChromeStatusParams = [String: JSONAny]
 public typealias BrowserSettingsGetParams = [String: JSONAny]
-public typealias ChannelsIdentitiesListParams = [String: JSONAny]
-public typealias ChannelsListParams = [String: JSONAny]
 public typealias ConnectorsCatalogueParams = [String: JSONAny]
 public typealias ConnectorsGoogleClientParams = [String: JSONAny]
 public typealias ConnectorsListParams = [String: JSONAny]

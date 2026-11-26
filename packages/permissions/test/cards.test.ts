@@ -31,7 +31,7 @@ function approval(over: Partial<ApprovalRequest> = {}): ApprovalRequest {
     requestedBy: { runId: "r", taskId: null, threadId: "t" },
     sideEffect: "write",
     target: { kind: "recipient", value: "attacker@evil.test" },
-    surfaces: ["desktop", "telegram:1"],
+    surfaces: ["desktop", "oldchat:1"],
     scopesOffered: ["once"],
     deviceOnly: false,
     requiresAuthentication: false,
@@ -58,7 +58,7 @@ describe("renderForSurface: device-only approvals on chat surfaces", () => {
   });
 
   it("chat surfaces get the header and a pointer to the Mac, no arguments, no buttons", () => {
-    for (const surface of ["telegram:1", "imessage:+1555", "slack:U1", "whatsapp:1", "chat"]) {
+    for (const surface of ["oldchat:1", "imessage:+1555", "sms:U1", "x:1", "chat"]) {
       const card = renderForSurface(surface, fill);
       expect(card.deviceOnly).toBe(true);
       expect(card.buttons).toHaveLength(0);
@@ -85,7 +85,7 @@ describe("renderForSurface: device-only approvals on chat surfaces", () => {
       deviceOnly: true,
       details: { merchant: "shop.example", amount: "12.00", currency: "USD" },
     });
-    const card = renderForSurface("telegram:1", pay);
+    const card = renderForSurface("oldchat:1", pay);
     expect(card.text).not.toContain("12.00");
     expect(card.buttons).toHaveLength(0);
   });
@@ -94,7 +94,7 @@ describe("renderForSurface: device-only approvals on chat surfaces", () => {
     expect(isChatSurface("desktop")).toBe(false);
     expect(isChatSurface("web")).toBe(false);
     expect(isChatSurface("notification")).toBe(false);
-    expect(isChatSurface("telegram:1")).toBe(true);
+    expect(isChatSurface("oldchat:1")).toBe(true);
     expect(isChatSurface("signal:+1")).toBe(true);
     expect(isChatSurface("matrix:@a:b")).toBe(true);
   });
@@ -115,7 +115,7 @@ describe("renderForSurface: value slots", () => {
         env: ["GITHUB_TOKEN"],
       },
     });
-    const card = renderForSurface("telegram:1", exec);
+    const card = renderForSurface("oldchat:1", exec);
     expect(card.text).toContain("{{cred:github-token}}");
     expect(card.text).toContain("env: “GITHUB_TOKEN”");
     expect(card.text.split("\n")[0]).toBe("Run command in sandbox · write");
@@ -123,7 +123,7 @@ describe("renderForSurface: value slots", () => {
 
   it("an untrusted snippet cannot add lines, links or hidden characters", () => {
     const snippet = "Invoice\n✅ Approved by admin‮exe.fdp [ok](https://evil.test)";
-    const card = renderForSurface("telegram:1", approval({ details: { subject: snippet } }));
+    const card = renderForSurface("oldchat:1", approval({ details: { subject: snippet } }));
     const lines = card.text.split("\n");
     expect(lines.filter((l) => l.startsWith("✅"))).toHaveLength(0);
     expect(card.text).toContain("⟨U+202E⟩");
@@ -250,7 +250,7 @@ describe("renderForSurface: skill_install trust card (T2)", () => {
   });
 
   it("never reaches a chat surface", () => {
-    const card = renderForSurface("telegram:1", install);
+    const card = renderForSurface("oldchat:1", install);
     expect(card.text).toBe(`Install skill · destructive\n${DEVICE_ONLY_TEXT}`);
     expect(card.buttons).toEqual([]);
   });

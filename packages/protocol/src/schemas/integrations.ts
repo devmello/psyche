@@ -41,13 +41,13 @@ export const CredentialMeta = Type.Object(
     /**
      * Gateway-owned items (#511): who manages the item and where in Settings it is removed.
      * `removable` says whether `vault.delete` takes it; when false, remove it through `setting`
-     * (a provider key in Models, a channel token in Channels, a connector's token by
-     * disconnecting it). Absent for items the owner created in the vault.
+     * (a provider key in Models, a connector's token by disconnecting it). `channel` marks a
+     * transport secret of the removed chat channels (2026-11-25), removable here. Absent for items the owner created in the vault.
      */
     managedBy: Type.Optional(
       Type.Object({
         kind: StringEnum(["connector", "model_provider", "channel", "external_manager"]),
-        setting: StringEnum(["connectors", "models", "channels", "credentials"]),
+        setting: StringEnum(["connectors", "models", "credentials"]),
         removable: Type.Boolean(),
       }),
     ),
@@ -376,55 +376,6 @@ export const Connector = Type.Object(
   { $id: "Connector" },
 );
 export type Connector = Static<typeof Connector>;
-
-export const ChannelType = StringEnum(
-  ["webchat", "telegram", "imessage", "whatsapp", "signal", "slack", "discord", "email", "sms"],
-  { $id: "ChannelType" },
-);
-export type ChannelType = Static<typeof ChannelType>;
-
-export const DmPolicy = StringEnum(["pairing", "allowlist", "open", "disabled"], {
-  $id: "DmPolicy",
-});
-export type DmPolicy = Static<typeof DmPolicy>;
-
-export const Channel = Type.Object(
-  {
-    id: Id,
-    type: ChannelType,
-    account: Type.String(),
-    dmPolicy: DmPolicy,
-    allowFrom: Type.Array(Type.String()),
-    groupAllowFrom: Type.Array(Type.String()),
-    requireMention: Type.Boolean(),
-    ownerIds: Type.Array(Type.String()),
-    dmScope: StringEnum(["main", "per-peer", "per-channel-peer"]),
-    nodeId: Nullable(Id),
-    status: StringEnum(["active", "paused", "error", "disconnected"]),
-    config: JsonObject,
-    createdAt: IsoDateTime,
-    updatedAt: IsoDateTime,
-  },
-  { $id: "Channel" },
-);
-export type Channel = Static<typeof Channel>;
-
-/** Data model §8 `identities`: one person across channels (`identityLinks`, designated persons). */
-export const ChannelIdentity = Type.Object(
-  {
-    id: Id,
-    display: Type.String(),
-    links: Type.Array(Type.String({ description: '"<channel>:<senderId>"' }), {
-      description: "Sender ids merged into this identity",
-    }),
-    delegatedPersona: Nullable(Type.String({ description: "Persona overlay name (feature N10)" })),
-    toolAllow: Nullable(Type.Array(Type.String(), { description: "Tool name globs" })),
-    createdAt: IsoDateTime,
-    updatedAt: IsoDateTime,
-  },
-  { $id: "ChannelIdentity" },
-);
-export type ChannelIdentity = Static<typeof ChannelIdentity>;
 
 export const AutomationKind = StringEnum(
   ["cron", "interval", "watch", "heartbeat", "briefing", "reminder", "event"],

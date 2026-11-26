@@ -200,7 +200,7 @@ describe("permission scoping", () => {
     await index.index(
       doc({ id: "p1", text: "sushi with partner", scopeKey: "imessage:peer:partner" }),
     );
-    await index.index(doc({ id: "g1", text: "sushi for the group", scopeKey: "telegram:group:9" }));
+    await index.index(doc({ id: "g1", text: "sushi for the group", scopeKey: "oldchat:group:9" }));
     const owner = await index.search({ q: "sushi" });
     expect(owner.hits.map((h) => h.id).sort()).toEqual(
       ["g1", "own", "p1", expect.stringMatching(/.+/)].sort(),

@@ -98,13 +98,11 @@ Status: draft v0.1 (2026-10-18). Each record states the decision, the alternativ
 
 **Consequences.** Per-tool allow/ask/deny keyed by `mcp__<server>__<tool>` with `tools/list` hashing; Google connector ships with "publish your consent screen to production" onboarding; Slack/Notion/Linear/GitHub use their first-party remote servers.
 
-## ADR-011 — Channels follow OpenClaw's authorization semantics; iMessage only through a Mac node
+## ADR-011 — Chat channels (superseded 2026-11-25: removed)
 
-**Decision.** `dmPolicy` (pairing default), pairing codes, owner allowlist, identity links, group mention gating, per-peer session scopes. iMessage requires a signed-in Mac with Full Disk Access and Automation; WhatsApp personal-number support is unofficial and labeled as such.
+**Decision (2026-11-25).** Psyche has no chat channels. The owner decided to "remove communication channels because there is now dedicated mobile apps". Approvals and briefs go only to the Mac app and the paired iPhone. Reading Messages, Mail and Contacts, the mail connector and the send-a-message tool stay.
 
-**Evidence.** OpenClaw access-control docs and the macOS 26 chat-GUID change that broke BlueBubbles; Meta Cloud API pricing and 24-hour window; Telegram Bot API 10.3 voice formats; Signal via signal-cli.
-
-**Consequences.** Telegram is the P0 channel (fully supported API, buttons for approvals); WhatsApp/Signal/Slack/Discord are P2.
+**Original decision (kept for history).** Channels followed OpenClaw's authorization semantics (`dmPolicy`, pairing codes, owner allowlist, identity links, mention gating); iMessage only through a Mac node; Telegram was the P0 channel. See the git history and `docs/archive/`.
 
 ## ADR-012 — Proactivity is bounded, batched and confirmable
 

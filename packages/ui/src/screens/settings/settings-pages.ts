@@ -17,7 +17,6 @@ import {
   ListChecks,
   type LucideIcon,
   Mail,
-  MessagesSquare,
   Mic,
   MonitorCog,
   MonitorSmartphone,
@@ -66,7 +65,6 @@ export type SettingsPaneId =
   | "connectors"
   | "search"
   | "mail"
-  | "channels"
   | "memory"
   | "learning"
   | "everything"
@@ -108,23 +106,30 @@ const entry = (id: SettingsPaneId, icon: LucideIcon): SettingsEntry<SettingsPane
 });
 
 export interface SettingsPage extends SettingsEntry<SettingsPageId> {
-  /** One line under the page title, with the persona's name. */
-  description: (persona: string) => string;
   panes: readonly SettingsPaneId[];
+  /**
+   * The pane that shares the page's id: it is the page's body, shown in place. The other panes
+   * are rows that open one level deeper (the way System Settings drills in).
+   */
+  main?: SettingsPaneId;
+  /** The body lists the other panes itself (Permissions' Access rows), so no row list follows. */
+  listsOwnRows?: boolean;
 }
 
 const page = (
   id: SettingsPageId,
   icon: LucideIcon,
   panes: readonly SettingsPaneId[],
+  options: { listsOwnRows?: boolean } = {},
 ): SettingsPage => ({
   id,
   icon,
   panes,
+  ...(panes.length > 1 && panes.some((p) => p === id) ? { main: id as SettingsPaneId } : {}),
+  ...(options.listsOwnRows === true ? { listsOwnRows: true } : {}),
   get label() {
     return t(`settings.page.${id}`);
   },
-  description: (persona) => t(`settings.page.${id}.description`, { persona }),
 });
 
 export const SETTINGS_PANES: readonly SettingsEntry<SettingsPaneId>[] = [
@@ -138,7 +143,6 @@ export const SETTINGS_PANES: readonly SettingsEntry<SettingsPaneId>[] = [
   entry("connectors", Plug),
   entry("search", Search),
   entry("mail", Mail),
-  entry("channels", MessagesSquare),
   entry("memory", BrainCircuit),
   entry("learning", GraduationCap),
   entry("everything", Brain),
@@ -168,17 +172,15 @@ export const SETTINGS_PAGES: readonly SettingsPage[] = [
   page("essentials", ListChecks, ["essentials"]),
   page("general", SlidersHorizontal, ["appearance", "persona", "notifications", "voice"]),
   page("model", Cpu, ["model", "usage"]),
-  page("connectors", Plug, ["connectors", "search", "mail", "channels"]),
+  page("connectors", Plug, ["connectors", "search", "mail"]),
   page("memory", Brain, ["learning", "memory", "everything", "work", "surfaces", "people"]),
   page("daily", CalendarClock, ["daily", "skills", "specialists"]),
-  page("permissions", ShieldCheck, [
+  page(
     "permissions",
-    "computer-use",
-    "browser",
-    "files",
-    "credentials",
-    "vm",
-  ]),
+    ShieldCheck,
+    ["permissions", "computer-use", "browser", "files", "credentials", "vm"],
+    { listsOwnRows: true },
+  ),
   page("data", Database, ["data"]),
   page("devices", MonitorSmartphone, ["devices", "server"]),
   page("about", Info, ["about"]),
@@ -255,6 +257,7 @@ export function paneForKey(key: string): SettingsPaneId | null {
     models: "model",
     context: "model",
     exec: "connectors",
+    forks: "model",
     teaching: "learning",
     tools: "model",
     notifications: "notifications",
@@ -274,7 +277,6 @@ export function paneForKey(key: string): SettingsPaneId | null {
     nightShift: "daily",
     scheduled: "daily",
     vault: "credentials",
-    channels: "channels",
     mcp: "connectors",
     connectors: "connectors",
     skills: "skills",

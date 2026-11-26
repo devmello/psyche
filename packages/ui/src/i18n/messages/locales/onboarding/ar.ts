@@ -9,6 +9,7 @@ export const onboarding: Partial<Catalogue> = {
     "{n, plural, zero {ربط التطبيقات} one {ربط تطبيق واحد} two {ربط تطبيقين} few {ربط # تطبيقات} many {ربط # تطبيقًا} other {ربط # تطبيق}}",
   "onboarding.connectors.connecting": "جارٍ ربط {name}",
   "onboarding.connectors.accounts": "الحسابات",
+  "onboarding.connectors.moreAccounts": "أضف حساب Google أو Microsoft أو بريد إلكتروني",
   "onboarding.step.memory": "الذاكرة والعادات اليومية",
   "onboarding.about.lead":
     "بعض المعلومات ليبدأ Psyche وهو يعرفك. كل ما هنا اختياري ويُحفظ في USER.md، ويمكنك تعديله في أي وقت.",
@@ -51,7 +52,7 @@ export const onboarding: Partial<Catalogue> = {
   "onboarding.rerun.description": "مرّ على إعداد التشغيل الأول مرة أخرى. تُتخطى الخطوات المنجزة.",
   "onboarding.rerun.button": "تشغيل الإعداد مجددًا",
   "onboarding.step.you": "أنت ووكيلك",
-  "onboarding.step.stuff": "أغراضك",
+  "onboarding.step.stuff": "بماذا أساعدك؟",
   "onboarding.step.safety": "الأمان",
   "onboarding.step.folders": "المجلدات",
   "onboarding.folders.lead":
@@ -118,7 +119,7 @@ export const onboarding: Partial<Catalogue> = {
   "onboarding.done.touchIdNot": "لم يُسجَّل بعد",
   "onboarding.done.modelKept": "دون تغيير",
   "onboarding.done.try": "جرّب بعد ذلك",
-  "onboarding.done.try.search": "اطرح سؤالًا في البحث (⌘K). تُظهر الإجابة من أين في حياتك جاءت.",
-  "onboarding.done.try.home": "افتح الرئيسية. يسرد «اللحاق بالمستجدات» ما قد تكون أهملته.",
-  "onboarding.done.try.canDo": "افتح «ماذا يمكنك أن تفعل؟» في قائمة الترس للاطلاع على مهام جاهزة.",
+  "onboarding.done.try.search": "اطرح سؤالًا في البحث",
+  "onboarding.done.try.home": "تابع ما فاتك في الرئيسية",
+  "onboarding.done.try.chat": "ابدأ محادثة جديدة",
 };

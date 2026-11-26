@@ -16,7 +16,7 @@ struct OverviewView: View {
     }
 
     var body: some View {
-        MorePage(title: String(localized: "Overview", bundle: .module), model: model) { activity in
+        MorePage(title: String(localized: "Task history", bundle: .module), model: model) { activity in
             if !activity.now.isEmpty {
                 VStack(alignment: .leading, spacing: 8) {
                     SectionHeader(String(localized: "Running", bundle: .module))

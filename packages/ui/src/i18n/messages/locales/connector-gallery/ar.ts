@@ -31,7 +31,6 @@ export const connectorGallery: Partial<Catalogue> = {
   "gallery.builtin.appleMail": "اقرأ البريد في Apple Mail وصغ مسودات.",
   "gallery.builtin.appleShortcuts": "شغّل الاختصارات التي تختارها.",
   "gallery.builtin.obsidian": "ابحث في خزنة Obsidian واقرأها.",
-  "gallery.builtin.slack": "تحدّث مع Psyche من Slack. يُعدّ في القنوات.",
   "gallery.preset.github.desc": "تصفّح المستودعات والمشكلات وطلبات الدمج.",
   "gallery.preset.github.example": "ما طلبات الدمج التي تنتظر مراجعتي؟",
   "gallery.preset.github.field.token.label": "رمز وصول شخصي",

@@ -27,7 +27,6 @@
     "@psyche/audit": "workspace:*",
     "@psyche/backup": "workspace:*",
     "@psyche/browser": "workspace:*",
-    "@psyche/channels": "workspace:*",
     "@psyche/connectors": "workspace:*",
     "@psyche/db": "workspace:*",
     "@psyche/files": "workspace:*",

@@ -51,13 +51,13 @@ export function setup(options: Partial<NotifierOptions> & { store?: Notification
   const clock = new FakeClock();
   const store = options.store ?? memoryStore();
   const os = new RecordingAdapter("os", (s) => s === "notification");
-  const chat = new RecordingAdapter("chat", (s) => s.includes(":"));
+  const device = new RecordingAdapter("device", (s) => s.startsWith("device:"));
   let n = 0;
   const make = () =>
     createNotifier({
       clock,
       newId: () => `ntf_${String(++n).padStart(3, "0")}`,
-      adapters: [os, chat],
+      adapters: [os, device],
       delivery: "await",
       ...options,
       store,
@@ -68,7 +68,7 @@ export function setup(options: Partial<NotifierOptions> & { store?: Notification
     clock.advance(60_000);
     return make();
   };
-  return { clock, os, chat, notifier, store, restart };
+  return { clock, os, device, notifier, store, restart };
 }
 
 export function helperNode(): FakeNodeClient {

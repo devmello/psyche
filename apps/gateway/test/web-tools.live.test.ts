@@ -78,7 +78,7 @@ describe.skipIf(!LIVE)("live: web.search with Haiku (#557)", () => {
       retentionIntervalMs: 0,
       background: false,
       timeZone: "UTC",
-      config: { home, port: 0, dbPath: join(home, "psyche.db"), webRoot: null },
+      config: { home, port: 0, dbPath: join(home, "psyche.db") },
       model,
     });
     const owner = await adminClient(composed.gateway);

@@ -1,5 +1,8 @@
 # Cross-platform readiness audit (macOS, Windows, Linux)
 
+> **Update 2026-11-25: chat channels removed.** Telegram, Slack-as-chat, Discord, WhatsApp, Signal, SMS, email-as-chat, the iMessage chat bridge and WebChat no longer exist (owner decision: the iPhone app is the mobile surface). Mentions of channels, channel delivery, channel senders and `dmPolicy` below are historical. Approvals and briefs go only to the Mac app and the paired iPhone. Reading Messages and Mail and the send-a-message tool stay. See security section 9 in docs/05-security-and-permissions.md.
+
+
 Status: proposal (docs only), 2026-10-26, revised after the owner's decision; scope revised again 2026-11-05. Nothing here changes code.
 
 Update 2026-11-05 (windows-app branch), built: Windows packaging, install and update (§2.2, §3 Auto-update and Packaging, §6 decision 5). `pnpm app:build` on Windows (`deploy/windows/build-local.ps1`) makes a Squirrel.Windows installer and a portable zip with the Gateway (`psyched`, its own Node 24 `node.exe`), the Rust helper and the web UI; Authenticode signing is env-gated (PFX or Azure Trusted Signing); `src/main/squirrel-events.ts` creates the shortcuts with AUMIDs `com.psyche.desktop` / `com.psyche.helper` and the helper's toast activator; the update manifest has a per-platform map (`darwin-arm64`, `darwin-x64`, `win32-x64`) with an unchanged verification path and a Squirrel.Windows apply step; the CLI supervises the Gateway with a per-user Task Scheduler task (`\Psyche\Gateway-<SID>`; `\Psyche\Gateway` before, migrated); `windows-latest` CI jobs exist in `ci.yml` and `desktop.yml`. Install layout and identity: `apps/desktop/docs/signing.md` "Windows". The rest of this document is unchanged.

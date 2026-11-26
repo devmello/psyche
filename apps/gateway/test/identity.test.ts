@@ -139,7 +139,7 @@ describe("the challenge names and signs the Gateway's identity", () => {
 
   it("tells a proxied connection the public origin and a direct one the loopback origin", async () => {
     const publicOrigin = "https://studio-mac.tail1234.ts.net";
-    const g = await startTestGateway({ config: { publicOrigin, allowedOrigins: [publicOrigin] } });
+    const g = await startTestGateway({ config: { publicOrigin } });
     gateways.push(g);
     const direct = await challengeFor(g, {}, newDeviceKey().publicKey);
     expect(direct.serverOrigin).toBe(g.gateway.origin);
@@ -165,7 +165,7 @@ describe("the challenge names and signs the Gateway's identity", () => {
 
   it("gateway.info gives the fingerprint and the Host's reachability to a paired reader only", async () => {
     const publicOrigin = "https://studio-mac.tail1234.ts.net";
-    const g = await startTestGateway({ config: { publicOrigin, allowedOrigins: [publicOrigin] } });
+    const g = await startTestGateway({ config: { publicOrigin } });
     gateways.push(g);
     const unpaired = await TestClient.open(wsUrlOf(g.gateway));
     expect((await unpaired.request("gateway.info", {})).ok).toBe(false);

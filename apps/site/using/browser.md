@@ -10,7 +10,7 @@ The agent has its own browser. In the desktop app it opens in the Browser pane b
 
 There is nothing to turn on. Ask the agent to look something up, fill a form or compare prices, and it uses its browser. To watch, open the Browser pane with ⌘⇧B, or press ⌘K and choose "Open browser pane".
 
-The Browser pane is in the desktop app only. The web client says the browser lives in the desktop app.
+The Browser pane is in the desktop app only.
 
 ::: info Screenshot placeholder
 The Browser pane beside the chat: a tab strip, the status pill reading "Typing in 'Preferred date'", the live page with the field outlined, and the Take control and Stop the task buttons.
@@ -66,12 +66,12 @@ Pages are untrusted content. Text on a page never becomes an instruction, and af
 
 ## Limits today
 
-- The Browser pane is in the desktop app only. A Gateway on a server has no live browser view in the web client yet.
+- The Browser pane is in the desktop app only. A Gateway on a server has no live browser view yet.
 - Choosing logged-in or logged-out browsing per site is done with Gateway environment variables, not in Settings.
 - Recordings of browsing are made only when the Gateway runs with `PSYCHE_BROWSER_RECORD=1`. They are listed in the Library, but there is no replay view in Activity yet, and the "Keep task replays for" setting in Data controls sets how long they are kept.
 - There is no web search tool. The agent looks things up by opening pages in its browser.
 - Loopback and private-network addresses are refused, except for an approved dev preview.
-- Real Chrome mode's per-task card is a device-only card that you approve with a tap on a paired device. Only payments ask for Touch ID (on the Mac, through Psyche Helper, which needs no key to be registered) or a passkey in the web client over https.
+- Real Chrome mode's per-task card is a device-only card that you approve with a tap on a paired device. Only payments ask for Touch ID (on the Mac, through Psyche Helper, which needs no key to be registered) or a passkey added from the desktop app on a remote Mac, over https.
 
 ## Learn more
 

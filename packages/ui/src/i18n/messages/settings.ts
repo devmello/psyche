@@ -17,7 +17,6 @@ export const settings = {
   "settings.nav.label": "Settings sections",
   "settings.nav.find": "Search settings",
   "settings.nav.noMatch": "No settings match.",
-  "settings.nav.inPage": "In {page}",
   "settings.nav.essentials": "Essentials",
   "settings.nav.general": "General",
   "settings.nav.search": "Search",
@@ -27,34 +26,15 @@ export const settings = {
 
   // The nine pages of the Settings window (settings-pages.ts, docs/design/settings-2026.md).
   "settings.page.essentials": "Essentials",
-  "settings.page.essentials.description":
-    "The few choices most people make. Each has a safe default, and the pages below hold the rest.",
   "settings.page.general": "General",
-  "settings.page.general.description":
-    "How {persona} looks, who it is, when it may interrupt you and how you talk to it.",
   "settings.page.model": "Models",
-  "settings.page.model.description":
-    "The models {persona} thinks with, the keys they use and what they cost.",
   "settings.page.connectors": "Connectors & sources",
-  "settings.page.connectors.description":
-    "The apps and accounts {persona} can reach, and which of them it searches.",
   "settings.page.memory": "Memory",
-  "settings.page.memory.description":
-    "What {persona} remembers, where it learns from, and how you control it.",
   "settings.page.daily": "Routines & skills",
-  "settings.page.daily.description":
-    "Your morning brief and wrap-up, automations, skills and the specialists {persona} can call.",
   "settings.page.permissions": "Permissions",
-  "settings.page.permissions.description":
-    "What {persona} may do on this Mac without asking, and where it always stops to ask you.",
   "settings.page.data": "Privacy & data",
-  "settings.page.data.description":
-    "What stays on this Mac, how long it is kept, exports, backups and starting over.",
   "settings.page.devices": "Devices",
-  "settings.page.devices.description":
-    "Your other devices, the Gateway server and reaching {persona} when you are away.",
   "settings.page.about": "About",
-  "settings.page.about.description": "Versions, health checks and logs.",
 
   // Settings → Essentials (EssentialsSection.tsx, settings-2026 §7).
   "settings.essentials.title": "Essentials",
@@ -126,7 +106,6 @@ export const settings = {
   "settings.nav.files": "Access",
   "settings.nav.vm": "VM mode",
   "settings.nav.devices": "Devices & nodes",
-  "settings.nav.channels": "Channels",
   "settings.nav.credentials": "Credentials",
   "settings.nav.appearance": "Appearance",
   "settings.nav.notifications": "Notifications",
@@ -338,11 +317,10 @@ export const settings = {
     "Psyche reads these cards from Stripe Link; remove one in your Link account. Removing the Link key above stops Psyche paying with any of them.",
   "settings.credentials.managed.connector": "Managed by its connector",
   "settings.credentials.managed.model_provider": "A model provider's key",
-  "settings.credentials.managed.channel": "A channel's token",
+  "settings.credentials.managed.channel": "An old chat channel's secret",
   "settings.credentials.managed.external_manager": "Linked from your password manager",
   "settings.credentials.setting.connectors": "Connectors",
   "settings.credentials.setting.models": "Model & providers",
-  "settings.credentials.setting.channels": "Channels",
   "settings.credentials.setting.credentials": "Credentials",
   "settings.credentials.err.gatewayOwned":
     "{name} belongs to the Gateway; remove it in Settings → {setting}.",
@@ -800,16 +778,12 @@ export const settings = {
   "settings.appearance.seedHelp":
     "Any CSS color. It lands on step 9; Psyche adjusts it if the text would be hard to read.",
   "settings.appearance.title": "Appearance",
-  "settings.appearance.description": "Applies to every device you've paired.",
   "settings.appearance.loadLabel": "appearance",
   "settings.appearance.theme.auto": "Auto",
   "settings.appearance.theme.autoHint": "Follows the system",
   "settings.appearance.followSystem": "Follow the system",
   "settings.appearance.colors": "Colors",
-  "settings.appearance.colorsHint": "Light or dark, and your accent color.",
   "settings.appearance.comfort": "Comfort",
-  "settings.appearance.comfortHint": "Easier on the eyes and on motion.",
-  "settings.appearance.backgroundHint": "Whether Psyche keeps running when you close the window.",
   "settings.appearance.advancedHint": "Gray tone, custom color, text direction, contrast check",
   "settings.appearance.fineTune": "Fine-tune colors",
   "settings.appearance.fineTuneHint": "For people who want an exact look.",
@@ -985,124 +959,10 @@ export const settings = {
   "settings.browser.createKey": "Create key",
   "settings.browser.keyStillSigns": "The current key, if any, still signs.",
 
-  // Settings → Channels (ChannelsSection.tsx).
-  "settings.channels.type.email": "Email",
-  "settings.channels.type.sms": "SMS",
-  "settings.channels.status.active": "Connected",
-  "settings.channels.status.paused": "Paused",
-  "settings.channels.status.error": "Error",
-  "settings.channels.status.disconnected": "Disconnected",
-  "settings.channels.policy.pairing": "Pairing",
-  "settings.channels.policy.pairingHint": "New senders get a code; you approve them here.",
-  "settings.channels.policy.allowlist": "Allowlist",
-  "settings.channels.policy.allowlistHint": "Only people on the list below.",
-  "settings.channels.policy.open": "Open",
-  "settings.channels.policy.openHint": "Anyone can message {persona}.",
-  "settings.channels.policy.disabled": "Disabled",
-  "settings.channels.policy.disabledHint": "Direct messages are ignored.",
-  "settings.channels.title": "Channels",
-  "settings.channels.description": "Where people can reach {persona}, and who is allowed to.",
-  "settings.channels.loadLabel": "channels",
-  "settings.channels.empty":
-    "No channels yet. Connect Telegram, iMessage or Slack to reach {persona} away from this Mac.",
-  "settings.channels.add.button": "Add a channel",
-  "settings.channels.add.title": "Add a channel",
-  "settings.channels.add.description":
-    "Choose where {persona} can be reached. Tokens go straight to the vault and are never shown again.",
-  "settings.channels.add.type": "Channel",
-  "settings.channels.add.account.slack": "Workspace name",
-  "settings.channels.add.account.discord": "Application ID",
-  "settings.channels.add.secret.bot_token": "Bot token",
-  "settings.channels.add.secret.app_token": "App token",
-  "settings.channels.add.secret.auth_token": "Auth token",
-  "settings.channels.add.secret.access_token": "Access token",
-  "settings.channels.add.secret.app_secret": "App secret",
-  "settings.channels.add.secret.verify_token": "Verify token",
-  "settings.channels.add.submit": "Connect",
-  "settings.channels.add.connecting": "Connecting",
-  "settings.channels.add.missing": "Fill in every field to connect.",
-  "settings.channels.add.failed":
-    "Psyche couldn't add the channel ({reason}). It is not turned on.",
-  "settings.channels.add.account.sms": "Sending number (+15551234567)",
-  "settings.channels.add.account.whatsapp": "WhatsApp number (+15551234567)",
-  "settings.channels.add.badNumber": "Enter the number in international format, like +15551234567.",
-  "settings.channels.add.exists":
-    "A {type} channel for {account} already exists, so nothing was changed.",
-  "settings.channels.add.approvalLabel": "Adding a channel",
-  "settings.channels.add.envNote":
-    "The Gateway must also be started with {env} set to this account. Telegram, iMessage, Signal and email are set up where the Gateway runs; see the channel docs.",
-  "settings.channels.add.addedInactive":
-    "Channel added, but it is not running yet. Set {env} to this account where the Gateway runs, then restart it.",
-  "settings.channels.add.added":
-    "Channel added. It starts once the Gateway has {env} set to this account. Then message {persona} from it to get a pairing code, and approve it here.",
-  "settings.channels.add.storedNote":
-    "Already stored for this account: {names}. They are used as they are unless you replace them.",
-  "settings.channels.add.replace": "Replace stored tokens",
-  "settings.channels.add.statusFailed":
-    "Psyche couldn't check which tokens are already stored ({reason}). Nothing was changed.",
-  "settings.channels.add.storedTyped":
-    "Tokens are already stored for this account. Tick Replace stored tokens to use the ones you typed, or clear those fields. Nothing was changed.",
-  "settings.channels.identities": "Identity links",
-  "settings.channels.identitiesDescription":
-    "One person across channels. Links change only from a paired device.",
-  "settings.channels.identitiesFailed": "Psyche couldn't load identity links ({reason}).",
-  "settings.channels.noIdentities":
-    "No identity links. Each sender is treated as a separate person.",
-  "settings.channels.designated": "Designated people",
-  "settings.channels.designatedDescription":
-    "{persona} answers them with a delegated persona and a smaller tool set. Their approvals come to you.",
-  "settings.channels.noDesignated": "No one designated.",
-  "settings.channels.delegated": "delegated: {persona}",
-  "settings.channels.tools": "tools: {tools}",
-  "settings.channels.cardTitle": "{name} {account}",
-  "settings.channels.directMessages": "Direct messages",
-  "settings.channels.openWarning":
-    "Open lets anyone who finds {account} message {persona}, and their messages can try to steer it. Pairing is safer.",
-  "settings.channels.openAnyway": "Open it anyway",
-  "settings.channels.keepPolicy":
-    "Keep {policy, select, allowlist {the allowlist} pairing {pairing} disabled {disabled} other {{policy}}}",
-  "settings.channels.pending": "Pending ({n, number} of {max, number})",
-  "settings.channels.pairingFailed": "Psyche couldn't load pairing requests ({reason}).",
-  "settings.channels.noPending": "No one is waiting. Codes expire after 1 hour.",
-  "settings.channels.code": "code",
-  "settings.channels.expires": "expires {when}",
-  "settings.channels.approveSender": "Approve {name}",
-  "settings.channels.approve": "Approve",
-  "settings.channels.ignoreSender": "Ignore {name}",
-  "settings.channels.ignore": "Ignore",
-  "settings.channels.allow.remove": "Remove",
-  "settings.channels.allow.removeNamed": "Remove {name}",
-  "settings.channels.allow.senderLabel": "Sender to allow",
-  "settings.channels.allow.groupLabel": "Add a sender (group chats)",
-  "settings.channels.allow.addSender": "Add sender",
-  "settings.channels.allow.addGroup": "Add sender",
-  "settings.channels.allow.senderApproval": "Allowing a chat sender",
-  "settings.channels.allow.groupApproval": "Changing who can trigger me in groups",
-  "settings.channels.allow.groupEmptied":
-    "Removing {name} leaves nobody on this list. Then everyone allowed in direct messages can trigger Psyche in groups.",
-  "settings.channels.allow.forbidden":
-    "Changing who can message needs an admin device. Use a device paired as admin.",
-  "settings.channels.allow.failed":
-    "Psyche couldn't change who can message ({reason}). Nothing changed.",
-  "settings.channels.identity.name": "Person's name",
-  "settings.channels.identity.senders": "Sender IDs, separated by commas",
-  "settings.channels.identity.link": "Link identity",
-  "settings.channels.identity.unlink": "Unlink",
-  "settings.channels.identity.unlinkNamed": "Unlink {name}",
-  "settings.channels.identity.approval": "Linking a chat identity",
-  "settings.channels.identity.forbidden":
-    "Changing identity links needs an admin device. Use a device paired as admin.",
-  "settings.channels.identity.failed":
-    "Psyche couldn't change the identity link ({reason}). Nothing changed.",
-  "settings.channels.noOneYet": "No one yet.",
-  "settings.channels.owner": " · owner",
-  "settings.channels.groups": "Who can trigger me in groups",
-  "settings.channels.noGroups": "Everyone allowed in direct messages can trigger me in groups.",
-  "settings.channels.requireMention": "Only answer in groups when mentioned",
-  "settings.channels.err.forbidden":
-    "{action, select, policy {Change who can message} mention {Change group mentions} approve {Approve the sender} other {Ignore the sender}} needs approval on this device. Use a device paired as admin.",
-  "settings.channels.err.failed":
-    "Psyche couldn't {action, select, policy {change who can message} mention {change group mentions} approve {approve the sender} other {ignore the sender}} ({reason}).",
+  // Device pairing requests (DevicesSection.tsx).
+  "settings.devices.pairingFailed": "Psyche couldn't load pairing requests ({reason}).",
+  "settings.devices.approveNamed": "Approve {name}",
+  "settings.devices.approve": "Approve",
 
   // Settings → Computer use (ComputerUseSection.tsx).
   "settings.computerUse.tier.ask": "Ask",
@@ -1178,10 +1038,6 @@ export const settings = {
   "settings.connectors.catalog.appleShortcuts": "Shortcuts",
   "settings.connectors.catalog.obsidian": "Obsidian",
   "settings.connectors.catalog.mcp": "Custom MCP server",
-  "settings.connectors.catalog.slack": "Slack",
-  "settings.connectors.slackExplain":
-    "Slack is a channel: you chat with Psyche there. Set it up in Settings → Connectors & sources → Channels.",
-  "settings.connectors.openChannels": "Open Channels",
   "settings.connectors.status.connected": "Connected",
   "settings.connectors.status.disconnected": "Disconnected",
   "settings.connectors.status.error": "Error",
@@ -2059,8 +1915,6 @@ export const settings = {
   "settings.model.role.imageHint": "Avatar changes; none means the bundled creatures",
   "settings.model.addProvider": "Add a provider",
   "settings.model.title": "Model & providers",
-  "settings.model.description":
-    "A model you pick is used as chosen. If it fails, Psyche says so instead of falling back.",
   "settings.model.loadLabel": "model providers",
   "settings.model.providers": "Providers",
   "settings.model.listFailed": "Psyche couldn't list the models ({reason}).",
@@ -2093,14 +1947,10 @@ export const settings = {
   "settings.model.runCheckOn": "Run the tool-calling check on {name}",
   "settings.model.runCheck": "Run check",
   "settings.model.roles": "Model roles",
-  "settings.model.rolesHint":
-    "Each role uses one model. Models that fail the tool-calling check are chat only.",
   "settings.model.none": "None",
   "settings.model.choose": "Choose a model",
   "settings.model.chatOnlyOption": "{name} (chat only)",
-  "settings.model.advancedHint": "Context limits, local models",
   "settings.model.local": "Local models",
-  "settings.model.localHint": "Run models on this Mac with Ollama or LM Studio.",
   "settings.model.err.use": "Psyche couldn't use {name} ({reason}).",
   "settings.model.err.probe": "Psyche couldn't check the endpoint ({reason}).",
   "settings.model.err.check": "Psyche couldn't run the check ({reason}).",
@@ -2153,9 +2003,6 @@ export const settings = {
   "settings.permissions.subject.calendarNamed": "calendar {id}",
   "settings.permissions.subject.calendar": "calendar",
   "settings.permissions.subject.prepNotes": 'Notes titled "Prep:" (meeting prep)',
-  "settings.permissions.title": "Approval rules",
-  "settings.permissions.description":
-    "What runs on its own, what asks first and what never happens.",
   "settings.permissions.loadLabel": "permissions",
   "settings.permissions.defaultModeTitle": "Default mode for new threads",
   "settings.permissions.execReview": "Let a reviewer approve safe terminal commands in Auto mode",
@@ -2232,7 +2079,7 @@ export const settings = {
   "settings.persona.describedAs": "Described as: {description}",
   "settings.persona.identity": "Identity",
   "settings.persona.taglinePlaceholder": "Quiet wings, careful hands",
-  "settings.persona.emojiHint": "Shown on channels that can't show the avatar.",
+  "settings.persona.emojiHint": "Shown where the avatar can't be shown.",
   "settings.persona.avatar": "Avatar",
   "settings.persona.whileWorking": "While working",
   "settings.persona.showReasoningHint": "Shows {persona}'s reasoning as it works. Never saved.",
@@ -3204,4 +3051,11 @@ export const settings = {
   "settings.specialists.mode.auto": "Auto",
   "settings.specialists.installed": "From {skill}",
   "settings.specialists.empty": "No skill defines a specialist yet.",
+  // Settings drill-in rows (wave C).
+  "settings.drill.keySet": "Set",
+  "settings.drill.keyHelp": "About API keys",
+  "settings.drill.asking": "Asking",
+  "settings.drill.access": "Access",
+  "settings.drill.access.files": "Files and folders",
+  "settings.drill.accessibility": "Accessibility",
 } as const;

@@ -17,6 +17,7 @@ import {
   compactWithToast,
   describeError,
   destinationFor,
+  forkFromRoute,
   GatewayProvider,
   GoalsScreen,
   HOME_POST_PARAM,
@@ -118,6 +119,8 @@ function KitChat({ threadId, ctx }: { threadId: string; ctx: ChatSlotContext }):
   const store = useStore();
   const [level, setLevel] = useTranscriptMode();
   const exportThread = useThreadExport(threadId);
+  // `/chat/<id>?fork=<forkId>` opens that fork's Plans view.
+  const forkId = forkFromRoute(ctx.route);
   const clearChat = useClearChatHeader(threadId, current?.kind);
   // The one mode control is the header's ⋯ menu: it applies the choice to this chat (and, in
   // the main chat, to new ones) and says so under the header when Auto needs another model.
@@ -190,7 +193,12 @@ function KitChat({ threadId, ctx }: { threadId: string; ctx: ChatSlotContext }):
         />
         <ModeFeedback choice={modeChoice} />
         <ThreadContextDialog threadId={threadId} open={limitsOpen} onOpenChange={setLimitsOpen} />
-        <ChatThread threadId={threadId} disclosure={level} onDisclosureChange={setLevel} />
+        <ChatThread
+          threadId={threadId}
+          disclosure={level}
+          onDisclosureChange={setLevel}
+          {...(forkId === null ? {} : { forkId })}
+        />
       </div>
     </UiSlotsProvider>
   );
@@ -845,6 +853,14 @@ export function PsycheApp({ platform }: { platform: ShellPlatform }): ReactEleme
                   if (result.openFileAccess) {
                     try {
                       globalThis.history?.pushState(null, "", "/settings/files");
+                    } catch {
+                      // The shell then opens on the main chat.
+                    }
+                  }
+                  // A "Try next" button on Done picked where to land (the default is the chat).
+                  if (result.openAfter === "search" || result.openAfter === "home") {
+                    try {
+                      globalThis.history?.pushState(null, "", `/${result.openAfter}`);
                     } catch {
                       // The shell then opens on the main chat.
                     }

@@ -19,7 +19,6 @@ import {
 } from "../src/fixtures/index.ts";
 import { actionLabel } from "../src/screens/settings/ActionMatrix.tsx";
 import { AppearancePanel } from "../src/screens/settings/AppearanceSection.tsx";
-import { ChannelsPanel } from "../src/screens/settings/ChannelsSection.tsx";
 import { ConnectorsSection } from "../src/screens/settings/ConnectorsSection.tsx";
 import {
   cardRefusal,
@@ -106,25 +105,29 @@ describe("SettingsScreen", () => {
       "Devices",
       "About",
     ]);
-    // An old section id opens its page; the page's panes list under it.
+    // An old pane id opens that pane one level inside its page, with a way back to the page.
     expect(within(nav).getByRole("button", { name: "General" }).getAttribute("aria-current")).toBe(
       "page",
     );
-    const panes = within(nav).getByRole("list", { name: "In General" });
-    expect(
-      within(panes)
-        .getAllByRole("button")
-        .map((b) => b.textContent),
-    ).toEqual(["Appearance", "Persona", "Notifications", "Voice & dictation"]);
-    expect(screen.getByRole("heading", { level: 2, name: "General" })).toBeTruthy();
-    expect(await screen.findByRole("heading", { level: 3, name: "Appearance" })).toBeTruthy();
+    expect(await screen.findByRole("heading", { level: 2, name: "Appearance" })).toBeTruthy();
+    const back = screen.getAllByRole("button", { name: "General" }).find((b) => !nav.contains(b));
+    expect(back).toBeTruthy();
+    await userEvent.click(back as HTMLElement);
+    expect(navigate).toHaveBeenCalledWith("/settings/general");
+    // The page is a list of rows, one per pane, and a row opens its pane.
+    expect(await screen.findByRole("heading", { level: 2, name: "General" })).toBeTruthy();
+    for (const name of ["Appearance", "Persona", "Notifications", "Voice & dictation"]) {
+      expect(screen.getByRole("button", { name })).toBeTruthy();
+    }
+    await userEvent.click(screen.getByRole("button", { name: "Persona" }));
+    expect(navigate).toHaveBeenCalledWith("/settings/persona");
     await userEvent.click(within(nav).getByRole("button", { name: "Permissions" }));
     expect(await screen.findByRole("heading", { level: 2, name: "Permissions" })).toBeTruthy();
     expect(
       within(nav).getByRole("button", { name: "Permissions" }).getAttribute("aria-current"),
     ).toBe("page");
     expect(navigate).toHaveBeenCalledWith("/settings/permissions");
-    await userEvent.click(within(nav).getByRole("button", { name: "Access" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Files and folders" }));
     expect(navigate).toHaveBeenCalledWith("/settings/files");
   });
 
@@ -133,7 +136,7 @@ describe("SettingsScreen", () => {
     const nav = screen.getByRole("navigation", { name: "Settings sections" });
     within(nav).getByRole("button", { name: "Models" }).focus();
     await userEvent.keyboard("{ArrowDown}");
-    expect(document.activeElement?.textContent).toBe("Model & providers");
+    expect(document.activeElement?.textContent).toBe("Connectors & sources");
     await userEvent.keyboard("{End}");
     expect(document.activeElement?.textContent).toBe("About");
     await userEvent.keyboard("{ArrowDown}");
@@ -493,40 +496,6 @@ describe("Computer use", () => {
   });
 });
 
-describe("Channels", () => {
-  it("warns before choosing open and approves pending senders", async () => {
-    const world = createFixtureWorld();
-    const onPolicyChange = vi.fn();
-    const onApprove = vi.fn();
-    const onIgnore = vi.fn();
-    render(
-      <ChannelsPanel
-        channels={world.channels}
-        pairing={world.pairingRequests}
-        identities={[]}
-        persona={PERSONA.name}
-        now={NOW}
-        onPolicyChange={onPolicyChange}
-        onApprove={onApprove}
-        onIgnore={onIgnore}
-      />,
-    );
-    expect(screen.getByText("Pending (2 of 3)")).toBeTruthy();
-    expect(screen.getByText("48-21")).toBeTruthy();
-    await userEvent.click(screen.getByRole("radio", { name: /^Open/ }));
-    expect(screen.getByRole("alert").textContent).toMatch(/Pairing is safer/);
-    expect(onPolicyChange).not.toHaveBeenCalled();
-    await userEvent.click(screen.getByRole("button", { name: "Open it anyway" }));
-    expect(onPolicyChange).toHaveBeenCalledWith(expect.anything(), "open");
-    await userEvent.click(screen.getByRole("button", { name: "Approve @sam_k" }));
-    expect(onApprove).toHaveBeenCalledWith(expect.objectContaining({ id: IDS.pairing.samK }));
-    await userEvent.click(screen.getByRole("button", { name: "Ignore @marta_lx" }));
-    expect(onIgnore).toHaveBeenCalledWith(
-      expect.objectContaining({ id: IDS.pairing.channelSecond }),
-    );
-  });
-});
-
 describe("Credentials", () => {
   it("lists metadata only and explains that card numbers are refused", async () => {
     const { gateway } = setup({ defaultSection: "credentials" });
@@ -835,11 +804,11 @@ describe("Credentials", () => {
     );
     const owned = new GatewayRequestError("vault.delete", "forbidden", "gateway-owned", {
       reason: "gateway_owned",
-      kind: "channel",
-      setting: "channels",
+      kind: "connector",
+      setting: "connectors",
     });
     expect(vaultChangeError(owned, c, "delete")).toBe(
-      "GitHub belongs to the Gateway; remove it in Settings → Channels.",
+      "GitHub belongs to the Gateway; remove it in Settings → Connectors.",
     );
   });
 });
@@ -875,7 +844,7 @@ describe("VM mode", () => {
 
   it("shows the defaults and writes each VM setting", async () => {
     const { gateway } = setup({ defaultSection: "vm" }, { edit: guestWorld });
-    expect(await screen.findByRole("heading", { level: 3, name: "VM mode" })).toBeTruthy();
+    expect(await screen.findByRole("heading", { level: 2, name: "VM mode" })).toBeTruthy();
     const toggle = screen.getByRole("switch", { name: "Use a sandbox Mac for tasks" });
     expect(toggle.getAttribute("aria-checked")).toBe("false");
     expect(
@@ -1142,6 +1111,8 @@ describe("File access (folder grants live in permissions.policy)", () => {
       { defaultSection: "permissions" },
       { edit: (w) => Object.assign(w.settings, { "permissions.policy": policy }) },
     );
+    // Folders are one row away: Files and folders opens the pane that lists them.
+    await userEvent.click(await screen.findByRole("button", { name: "Files and folders" }));
     const list = await screen.findByRole("list", { name: /can reach/ });
     expect(within(list).getByText("/Users/me/Notes")).toBeTruthy();
     expect(screen.getAllByText("/Users/me/Notes")).toHaveLength(1);
@@ -1164,12 +1135,6 @@ describe("Settings polish (UI design §3.18, §4.12)", () => {
         .map((r) => r.getAttribute("aria-label")),
     ).toEqual(["read threads: Allow", "read threads: Ask", "read threads: Deny"]);
     expect(within(list).queryByText("gmail.read")).toBeNull();
-  });
-
-  it("shows no config keys in Channels labels", async () => {
-    setup({ defaultSection: "channels" });
-    expect(await screen.findByRole("radiogroup", { name: "Direct messages" })).toBeTruthy();
-    expect(screen.queryByText(/dmPolicy|requireMention/)).toBeNull();
   });
 
   it("gives the empty Connectors screen one primary action", async () => {

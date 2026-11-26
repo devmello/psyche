@@ -1,5 +1,8 @@
 # People and projects: a local memory graph (2026)
 
+> **Update 2026-11-25: chat channels removed.** Telegram, Slack-as-chat, Discord, WhatsApp, Signal, SMS, email-as-chat, the iMessage chat bridge and WebChat no longer exist (owner decision: the iPhone app is the mobile surface). Mentions of channels, channel delivery, channel senders and `dmPolicy` below are historical. Approvals and briefs go only to the Mac app and the paired iPhone. Reading Messages and Mail and the send-a-message tool stay. See security section 9 in docs/05-security-and-permissions.md.
+
+
 **Owner:** S07 (memory). **Status:** spec, 2026-10-25. **Issues:** epic #649; PG0 #650, PG1 #651, PG2 #652, PG3 #653. **Asked by:** the owner ("build a people and project memory graph").
 
 Research behind this plan, with sources:

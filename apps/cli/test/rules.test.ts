@@ -40,19 +40,6 @@ function baseSnapshot(): Snapshot {
     service: { kind: "systemd", installed: true, running: true, pid: 42 },
     connection: { paired: true, scopes: ["operator.read", "operator.admin"] },
     settings: { ok: true, value: { "sandbox.enabled": true, "telemetry.enabled": false } },
-    channels: {
-      ok: true,
-      value: [
-        {
-          id: "tg",
-          type: "telegram",
-          dmPolicy: "pairing",
-          ownerIds: ["1"],
-          groupAllowFrom: ["g1"],
-          requireMention: true,
-        },
-      ],
-    },
     grants: {
       ok: true,
       value: [
@@ -551,13 +538,6 @@ describe("audit rule version.mismatch (CLI vs Gateway)", () => {
 describe("audit rules", () => {
   const withSettings = (value: Record<string, unknown>) =>
     snap({ settings: { ok: true, value: { "sandbox.enabled": true, ...value } } });
-  const channel = (c: Record<string, unknown>) =>
-    snap({
-      channels: {
-        ok: true,
-        value: [{ id: "wa", type: "whatsapp", dmPolicy: "pairing", ...c }],
-      },
-    });
 
   it("bind.non_loopback_without_auth (critical), not when an auth mode is set", () => {
     const config = { exists: true, config: { gateway: { host: "0.0.0.0" } }, problems: [] };
@@ -621,33 +601,6 @@ describe("audit rules", () => {
       finding(
         withSettings({ "gateway.allowPublicIngress": true, "auth.passkeys.enabled": true }),
         "proxy.public_ingress_without_passkeys",
-      ),
-    ).toEqual([]);
-  });
-
-  it("channels.dm_open: critical without an owner, high with one", () => {
-    expect(finding(channel({ dmPolicy: "open" }), "channels.dm_open")).toMatchObject([
-      { severity: "critical" },
-    ]);
-    expect(finding(channel({ dmPolicy: "open", ownerIds: [] }), "channels.dm_open")).toMatchObject([
-      { severity: "critical" },
-    ]);
-    expect(
-      finding(channel({ dmPolicy: "open", ownerIds: ["me"] }), "channels.dm_open"),
-    ).toMatchObject([{ severity: "high" }]);
-  });
-
-  it("channels.group_without_mention", () => {
-    expect(
-      finding(
-        channel({ groupAllowFrom: ["g"], requireMention: false }),
-        "channels.group_without_mention",
-      ),
-    ).toMatchObject([{ severity: "medium" }]);
-    expect(
-      finding(
-        channel({ groupAllowFrom: [], requireMention: false }),
-        "channels.group_without_mention",
       ),
     ).toEqual([]);
   });
@@ -903,7 +856,6 @@ describe("audit rules", () => {
     const r = auditRules(
       snap({
         settings: unavailable,
-        channels: unavailable,
         grants: unavailable,
         devices: unavailable,
         sandbox: unavailable,
@@ -922,7 +874,6 @@ describe("audit rules", () => {
         "chat surfaces for device-only kinds",
         "tls pins (mobile clients)",
         "vm shares",
-        "channels",
         "devices",
         "grants",
         "sandbox",
@@ -944,7 +895,6 @@ describe("audit rules", () => {
         homeMode: "755",
         chromeDebugPort: true,
         settings: { ok: true, value: { "telemetry.enabled": true } },
-        channels: { ok: true, value: [{ id: "c", type: "slack", dmPolicy: "open" }] },
         devices: { ok: true, value: [{ id: "d", name: "D", scopes: ["operator.admin"] }] },
       }),
       NOW,
@@ -952,7 +902,7 @@ describe("audit rules", () => {
     const rank = { critical: 4, high: 3, medium: 2, low: 1, info: 0 };
     const ranks = r.findings.map((f) => rank[f.severity]);
     expect(ranks).toEqual([...ranks].sort((a, b) => b - a));
-    expect(r.findings[0]?.id).toBe("channels.dm_open");
+    expect(r.findings[0]?.id).toBe("files.home_mode");
     expect(r.findings.at(-1)?.id).toBe("devices.stale_admin");
   });
 

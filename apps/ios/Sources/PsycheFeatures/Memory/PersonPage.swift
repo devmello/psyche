@@ -196,7 +196,7 @@ struct PersonPage: View {
 
     @ViewBuilder
     private func content(_ detail: PersonDetail) -> some View {
-        HStack(spacing: 14) {
+        HStack(alignment: .top, spacing: 14) {
             InitialsAvatar(detail.person.initials, size: 56)
             VStack(alignment: .leading, spacing: 3) {
                 Text(detail.person.name).psycheTitle(.title).foregroundStyle(PsycheColor.text)
@@ -204,7 +204,7 @@ struct PersonPage: View {
                     Text(String(localized: "Also: \(aliases.joined(separator: ", "))", bundle: .module))
                         .font(.subheadline).foregroundStyle(PsycheColor.muted)
                 }
-                EvidenceLine([detail.person.detail])
+                EvidenceLine([MemoryText.localizingTimes(detail.person.detail)])
             }
         }
         .accessibilityElement(children: .combine)
@@ -230,8 +230,8 @@ struct PersonPage: View {
                     ForEach(Array(detail.recent.enumerated()), id: \.element.id) { index, fact in
                         if index > 0 { HairlineDivider() }
                         VStack(alignment: .leading, spacing: 3) {
-                            Text(fact.text).font(.psycheRow).foregroundStyle(PsycheColor.text)
-                            EvidenceLine(fact.evidence)
+                            Text(MemoryText.localizingTimes(fact.text)).font(.psycheRow).foregroundStyle(PsycheColor.text)
+                            sourceLine(fact.evidence)
                         }
                         .padding(PsycheMetrics.rowPadding)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -241,13 +241,21 @@ struct PersonPage: View {
         }
     }
 
+    /// Where a fact came from, as a sentence ("From your calendar, confirmed") in the system caption style.
+    private func sourceLine(_ evidence: [String], confirmed: Bool = false) -> some View {
+        Text(MemoryText.evidence(evidence, confirmed: confirmed))
+            .font(.caption).foregroundStyle(PsycheColor.muted)
+            .fixedSize(horizontal: false, vertical: true)
+    }
+
     private func factRow(_ fact: MemoryFact) -> some View {
         HStack(alignment: .top, spacing: 8) {
             VStack(alignment: .leading, spacing: 3) {
-                Text(fact.text).font(.psycheRow).foregroundStyle(PsycheColor.text)
+                Text(MemoryText.localizingTimes(fact.text)).font(.psycheRow).foregroundStyle(PsycheColor.text)
                     .multilineTextAlignment(.leading)
-                EvidenceLine(fact.confirmed ? fact.evidence + ["confirmed"] : fact.evidence)
+                sourceLine(fact.evidence, confirmed: fact.confirmed)
             }
+            .padding(.vertical, 10)
             Spacer(minLength: 0)
             Menu {
                 if !fact.confirmed {
@@ -269,13 +277,12 @@ struct PersonPage: View {
                 Image(systemName: "ellipsis")
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(PsycheColor.muted)
-                    .frame(width: 36, height: 36)
+                    .frame(minWidth: 44, minHeight: 44)
                     .contentShape(Rectangle())
             }
             .accessibilityLabel(String(localized: "Actions for this fact", bundle: .module))
         }
         .padding(.leading, 14)
         .padding(.trailing, 6)
-        .padding(.vertical, 8)
     }
 }
