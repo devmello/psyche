@@ -382,6 +382,8 @@ export const zh: Partial<Catalogue> = {
   "chat.thread.forgetNothing": "没有与“{subject}”匹配的记忆。",
   "chat.thread.forgetPreview":
     "遗忘“{subject}”将撤回 {claims, plural, other {# 条断言}}和 {chunks, plural, other {# 条已索引的笔记}}{hasFiles, select, true {，并编辑 {files}} other {}}。",
+  "chat.thread.forgetCounts":
+    "同时会从人物图谱中删除 {graph, plural, other {# 项}}，删除等待审核的 {review, plural, other {# 项}}、{lessons, plural, other {# 条经验或经验行}}和 {search, plural, other {# 条搜索条目}}，并从已保存的聊天和运行记录中去掉这些词。此操作无法撤销。",
   "chat.thread.forgetConfirm": "遗忘",
   "chat.thread.forgot": "已遗忘“{subject}”。",
   "chat.thread.forgetFailed": "遗忘失败（{reason}）。未做任何更改。",
@@ -391,6 +393,7 @@ export const zh: Partial<Catalogue> = {
   "chat.thread.exported": "已将此会话导出为 {format}。",
   "chat.thread.nothingRunning": "本聊天中没有正在运行的内容。",
   "chat.thread.stopped": "已停止。",
+  "chat.stopped.label": "已停止",
   "chat.runFailed.credential":
     "Psyche 无法回复：你的模型 API 密钥缺失或被拒绝。请在“设置 → 模型”中添加或修正。",
   "chat.runFailed.generic": "Psyche 无法完成此回复。",
@@ -518,6 +521,7 @@ export const zh: Partial<Catalogue> = {
   "blocks.approval.status.denied": "已拒绝{hasWhen, select, true { · {when}} other {}}",
   "blocks.approval.status.declinedInChat": "已拒绝 — 你在聊天中回复了",
   "blocks.approval.status.expired": "已过期。未执行任何操作。",
+  "blocks.approval.expiredLine": "已过期 · 未执行任何操作",
   "blocks.approval.status.voidedBecause": "已作废：{reason}",
   "blocks.approval.status.voided": "已作废。参数已更改。",
   "blocks.approval.taint": "本轮读取了不可信内容",

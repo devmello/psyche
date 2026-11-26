@@ -321,6 +321,8 @@ export const pt: Partial<Catalogue> = {
   "chat.thread.forgetNothing": "Nada lembrado corresponde a “{subject}”.",
   "chat.thread.forgetPreview":
     "Esquecer “{subject}” retira {claims, plural, one {# afirmação} other {# afirmações}} e {chunks, plural, one {# nota indexada} other {# notas indexadas}}{hasFiles, select, true {, editando {files}} other {}}.",
+  "chat.thread.forgetCounts":
+    "Também exclui {graph, plural, one {# item} other {# itens}} do seu grafo de pessoas, {review, plural, one {# item} other {# itens}} aguardando revisão, {lessons, plural, one {# lição ou linha de lição} other {# lições ou linhas de lição}} e {search, plural, one {# entrada de busca} other {# entradas de busca}}, e remove as palavras das conversas salvas e dos registros de execução. É permanente.",
   "chat.thread.forgetConfirm": "Esquecer",
   "chat.thread.forgot": "“{subject}” foi esquecido.",
   "chat.thread.forgetFailed": "Não foi possível esquecer ({reason}). Nada foi alterado.",
@@ -330,6 +332,7 @@ export const pt: Partial<Catalogue> = {
   "chat.thread.exported": "Esta conversa foi exportada como {format}.",
   "chat.thread.nothingRunning": "Nada está em execução nesta conversa.",
   "chat.thread.stopped": "Parado.",
+  "chat.stopped.label": "Interrompido",
   "chat.runFailed.credential":
     "O Psyche não conseguiu responder: a chave de API do seu modelo está ausente ou foi recusada. Adicione ou corrija em Ajustes → Modelos.",
   "chat.runFailed.generic": "O Psyche não conseguiu concluir esta resposta.",
@@ -454,6 +457,7 @@ export const pt: Partial<Catalogue> = {
   "blocks.approval.status.denied": "Negada{hasWhen, select, true { · {when}} other {}}",
   "blocks.approval.status.declinedInChat": "Recusado — você respondeu no chat",
   "blocks.approval.status.expired": "Expirada. Nada foi feito.",
+  "blocks.approval.expiredLine": "Expirou · nada foi feito",
   "blocks.approval.status.voidedBecause": "Anulada: {reason}",
   "blocks.approval.status.voided": "Anulada. Os argumentos mudaram.",
   "blocks.approval.taint": "este turno leu conteúdo não confiável",

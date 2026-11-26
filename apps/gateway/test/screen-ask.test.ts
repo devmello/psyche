@@ -305,8 +305,12 @@ describe("screen ask (Gateway)", () => {
       ik(),
     );
     await c.gateway.context.sessions.idle();
-    const text = (userParts(model.requests[0]).find((p) => p.type === "text") as { text: string })
-      .text;
+    // The turn's context comes in several text parts (the local clock leads); the screen's text
+    // context is one of them.
+    const text = userParts(model.requests[0])
+      .filter((p) => p.type === "text")
+      .map((p) => (p as { text: string }).text)
+      .join("\n");
     expect(text).toContain("App: Safari");
     expect(text).not.toContain(SCREEN_LOOK_TOOL);
     expect(item(c, cap.libraryItemId)).toBeUndefined();

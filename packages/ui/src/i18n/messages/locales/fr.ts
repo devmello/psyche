@@ -343,6 +343,8 @@ export const fr: Partial<Catalogue> = {
   "chat.thread.forgetNothing": "Rien de mémorisé ne correspond à « {subject} ».",
   "chat.thread.forgetPreview":
     "Oublier « {subject} » retire {claims, plural, one {# affirmation} other {# affirmations}} et {chunks, plural, one {# note indexée} other {# notes indexées}}{hasFiles, select, true {, en modifiant {files}} other {}}.",
+  "chat.thread.forgetCounts":
+    "Cela supprime aussi {graph, plural, one {# élément} other {# éléments}} de votre graphe de personnes, {review, plural, one {# élément} other {# éléments}} en attente de relecture, {lessons, plural, one {# leçon ou ligne de leçon} other {# leçons ou lignes de leçon}} et {search, plural, one {# entrée de recherche} other {# entrées de recherche}}, et retire les mots des discussions enregistrées et des traces d’exécution. C’est définitif.",
   "chat.thread.forgetConfirm": "Oublier",
   "chat.thread.forgot": "« {subject} » a été oublié.",
   "chat.thread.forgetFailed": "L’oubli n’a pas fonctionné ({reason}). Rien n’a été modifié.",
@@ -352,6 +354,7 @@ export const fr: Partial<Catalogue> = {
   "chat.thread.exported": "Discussion exportée en {format}.",
   "chat.thread.nothingRunning": "Rien n’est en cours dans cette discussion.",
   "chat.thread.stopped": "Arrêté.",
+  "chat.stopped.label": "Arrêté",
   "chat.runFailed.credential":
     "Psyche n’a pas pu répondre : la clé API de votre modèle est manquante ou a été refusée. Ajoutez-la ou corrigez-la dans Réglages → Modèles.",
   "chat.runFailed.generic": "Psyche n’a pas pu terminer cette réponse.",
@@ -478,6 +481,7 @@ export const fr: Partial<Catalogue> = {
   "blocks.approval.status.denied": "Refusé{hasWhen, select, true { · {when}} other {}}",
   "blocks.approval.status.declinedInChat": "Refusé : vous avez répondu dans le chat",
   "blocks.approval.status.expired": "Expiré. Rien n’a été fait.",
+  "blocks.approval.expiredLine": "Expirée · rien n'a été fait",
   "blocks.approval.status.voidedBecause": "Annulé : {reason}",
   "blocks.approval.status.voided": "Annulé. Les arguments ont changé.",
   "blocks.approval.taint": "ce tour a lu un contenu non fiable",

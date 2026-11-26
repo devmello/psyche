@@ -49,12 +49,13 @@ import {
   useChatFocusRequest,
 } from "./focus-request.ts";
 import { useGreetEmptyMainChat } from "./greet.ts";
-import { MessageView } from "./MessageView.tsx";
+import { isEmptyAgentMessage, MessageView } from "./MessageView.tsx";
 import { OfflineBanner } from "./OfflineBanner.tsx";
 import { OutboxQueue } from "./OutboxQueue.tsx";
 import { ComposerPrefill } from "./prefill.ts";
 import { failureAnchors, RunFailure } from "./RunFailure.tsx";
 import { RunStepLog, useRunSteps } from "./RunStepLog.tsx";
+import { RunStopped, stoppedAnchors } from "./RunStopped.tsx";
 import { RunTrace } from "./steps/RunTrace.tsx";
 import {
   ComposerSuggestions,
@@ -663,19 +664,40 @@ export function ChatThread({
         const preview = await call("memory.forget", { subject: arg, dryRun: true });
         const claims = preview.retractedClaimIds.length;
         const chunks = preview.removedChunkIds.length;
-        if (claims === 0 && chunks === 0 && preview.files.length === 0) {
+        // What the forget also reaches beyond the Markdown files (a Gateway before wave 3A sends none).
+        const c = preview.counts;
+        const graph = c
+          ? c.graphEntities +
+            c.graphFacts +
+            c.graphEdges +
+            c.graphLoops +
+            c.graphInteractions +
+            c.graphCitations +
+            c.graphOther +
+            c.quarantine
+          : 0;
+        const review = c?.reviewItems ?? 0;
+        const lessons = c ? c.lessons + c.lessonLines + c.feedback : 0;
+        const search = c?.searchDocs ?? 0;
+        const also = graph + review + lessons + search;
+        if (claims === 0 && chunks === 0 && preview.files.length === 0 && also === 0) {
           setNotice({ kind: "info", text: t("chat.thread.forgetNothing", { subject: arg }) });
           return;
         }
+        const summary = t("chat.thread.forgetPreview", {
+          subject: arg,
+          claims,
+          chunks,
+          hasFiles: preview.files.length > 0,
+          files: preview.files.join(", "),
+        });
         setNotice({
           kind: "info",
-          text: t("chat.thread.forgetPreview", {
-            subject: arg,
-            claims,
-            chunks,
-            hasFiles: preview.files.length > 0,
-            files: preview.files.join(", "),
-          }),
+          // Two whole sentences, each its own translated message.
+          text:
+            also === 0
+              ? summary
+              : `${summary}\n${t("chat.thread.forgetCounts", { graph, review, lessons, search })}`,
           confirm: {
             label: t("chat.thread.forgetConfirm"),
             run: async () => {
@@ -818,6 +840,21 @@ export function ChatThread({
     () => failureAnchors(view.messages, view.failedRuns),
     [view.messages, view.failedRuns],
   );
+  const stops = useMemo(
+    () => stoppedAnchors(view.messages, view.stoppedRuns),
+    [view.messages, view.stoppedRuns],
+  );
+  // Agent messages with nothing to show (their calls and approvals sit in the trace and the
+  // dock) draw no header, and the next message takes the header instead.
+  const emptyIds = useMemo(
+    () =>
+      new Set(
+        display.flatMap((d) =>
+          isEmptyAgentMessage(d.message, d.streamingText, blockIndex) ? [d.message.id] : [],
+        ),
+      ),
+    [display, blockIndex],
+  );
 
   /**
    * Edit and resend (E5): a side chat forked just before the edited message (or a fresh side
@@ -925,7 +962,10 @@ export function ChatThread({
                       const [d] = getExternalStoreMessages<DisplayMessage>(message);
                       if (d === undefined) return null;
                       const m = d.message;
-                      const prev = display[display.indexOf(d) - 1]?.message;
+                      const at = display.indexOf(d);
+                      let prev = display[at - 1]?.message;
+                      for (let i = at - 1; prev && emptyIds.has(prev.id); i--)
+                        prev = display[i - 1]?.message;
                       const next = display[display.indexOf(d) + 1]?.message;
                       // The run's specialists follow its last message.
                       const spawns =
@@ -987,6 +1027,15 @@ export function ChatThread({
                           />
                           {failed.map((run) => (
                             <RunFailure key={run.id} run={run} />
+                          ))}
+                          {(stops.get(m.id) ?? []).map(({ run, retryText }) => (
+                            <RunStopped
+                              key={run.id}
+                              run={run}
+                              retryText={retryText}
+                              busy={view.running}
+                              onRetry={(text) => void view.send(text)}
+                            />
                           ))}
                           {spawns ? (
                             <SpecialistSpawns jobs={spawns} roles={specialistRoles} />

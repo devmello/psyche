@@ -42,12 +42,21 @@ const PREVIEW_SCAN = 20;
 
 /** Markdown reduced to one line of plain text for the sidebar. */
 export function previewText(md: string): string {
-  return md
-    .replace(/```[\s\S]*?```/g, " ")
-    .replace(/!?\[([^\]]*)\]\([^)]*\)/g, "$1")
-    .replace(/[`*_~>#|]/g, "")
-    .replace(/\s+/g, " ")
-    .trim();
+  return (
+    md
+      .replace(/```[\s\S]*?```/g, " ")
+      .replace(/!?\[([^\]]*)\]\([^)]*\)/g, "$1")
+      .replace(/`/g, "")
+      // Emphasis pairs only: a lone `*` or a snake_case name is the owner's text, not markup.
+      .replace(/(\*{1,3}|~~)(?=\S)([^\n]*?\S)\1/g, "$2")
+      .replace(/(?<![\w])(_{1,3})(?=\S)([^\n_]*?\S)\1(?![\w])/g, "$2")
+      // Block markers at a line start (quote, heading) and the pipes of a table row.
+      .replace(/^[ \t]*(?:>[ \t]?)+/gm, "")
+      .replace(/^[ \t]*#{1,6}[ \t]+/gm, "")
+      .replace(/^[ \t]*\|(.*)$/gm, (_, row: string) => row.replace(/\|/g, " "))
+      .replace(/\s+/g, " ")
+      .trim()
+  );
 }
 
 /** The newest user or agent text of a thread (UI design §2.2: the row's last line). */

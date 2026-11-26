@@ -67,6 +67,8 @@ export interface NudgesDeps {
   /** Exclusions (§10.1) are read from here. */
   em: EverythingStore;
   timeZone: () => string;
+  /** `promises.enabled`: while it is on, the relationship-nudge `promise` kind is retired. */
+  ledgerOn?: () => boolean;
   /**
    * The model the owner chose for everything memory (none, or an unconfirmed local one: undefined).
    * Used only to reword starters, and only while `nudges.phrasing` is on.
@@ -137,6 +139,7 @@ export function composeNudges(deps: NudgesDeps): Nudges {
       timeZone: deps.timeZone(),
       sensitivity: settings().sensitivity,
       isExcluded: (id) => deps.em.isEntityExcluded(id),
+      retirePromises: deps.ledgerOn?.() === true,
     });
   /** Reworded starters by nudge and template text; in memory only (they restate third-party facts). */
   const phrased = new Map<string, string[]>();

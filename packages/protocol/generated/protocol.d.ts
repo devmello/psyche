@@ -7705,7 +7705,44 @@ export interface MemoryForgetParams {
     subject: string;
 }
 
+export interface MemoryForgetPreviewParams {
+    subject: string;
+}
+
+export interface MemoryForgetPreviewResult {
+    counts:    MemoryForgetCounts;
+    files:     string[];
+    total:     number;
+    uncounted: string[];
+}
+
+/**
+ * Per store: Markdown files and lines, claims, chunks, graph entities, facts, relations,
+ * loops, interactions and citations, other graph text, review items, quarantine rows,
+ * lessons and their lines, feedback events and search documents.
+ */
+export interface MemoryForgetCounts {
+    chunks:            number;
+    claims:            number;
+    feedback:          number;
+    graphCitations:    number;
+    graphEdges:        number;
+    graphEntities:     number;
+    graphFacts:        number;
+    graphInteractions: number;
+    graphLoops:        number;
+    graphOther:        number;
+    lessonLines:       number;
+    lessons:           number;
+    markdownFiles:     number;
+    markdownLines:     number;
+    quarantine:        number;
+    reviewItems:       number;
+    searchDocs:        number;
+}
+
 export interface MemoryForgetResult {
+    counts?:           MemoryForgetCounts;
     files:             string[];
     removedChunkIds:   string[];
     retractedClaimIds: string[];
@@ -8237,6 +8274,17 @@ export interface MemoryResetResult {
     claims: number;
     dryRun: boolean;
     files:  string[];
+    graph?: Graph;
+}
+
+export interface Graph {
+    citations:    number;
+    edges:        number;
+    entities:     number;
+    facts:        number;
+    interactions: number;
+    loops:        number;
+    quarantine:   number;
 }
 
 export interface MemoryReviewDecideParams {

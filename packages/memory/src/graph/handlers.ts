@@ -69,7 +69,8 @@ export type GraphMethod =
   | "memory.graph.blocklist.remove";
 
 /**
- * `viewer` is read by `memory.loops.*` and `memory.entities.get` (its open loops): a caller that
+ * `viewer` is read by `memory.loops.*`, `memory.entities.get` (its open loops) and
+ * `memory.entities.timeline` (its loop rows): a caller that
  * is not the desktop shell passes `{ full: false }` and gets the remote scrub of the promise
  * ledger (docs/design/promise-ledger-2026.md section 7.2). Left out, the call is an in-process one
  * and sees everything; the Gateway always passes it for a connection.
@@ -289,11 +290,23 @@ export function createGraphHandlers(
       return graph.history(graph.resolveMerged(p.entityId), p.attribute);
     },
 
-    async "memory.entities.timeline"(p) {
-      return graph.timeline(p.entityId, {
+    async "memory.entities.timeline"(p, viewer) {
+      const res = graph.timeline(p.entityId, {
         ...(p.before === undefined ? {} : { before: p.before }),
         ...(p.limit === undefined ? {} : { limit: p.limit }),
       });
+      if (viewer === undefined || viewer.full) return res;
+      // A remote viewer sees a loop row only when the loop itself is visible to it (never a
+      // Messages loop, never a hidden one); without a visibility reader no loop row is shown.
+      const loopIds = res.rows.filter((r) => r.kind === "loop").map((r) => r.id);
+      const visible =
+        loopIds.length === 0 || options.loopVisibility === undefined
+          ? new Set<string>()
+          : options.loopVisibility.remoteVisible(loopIds);
+      return {
+        ...res,
+        rows: res.rows.filter((r) => r.kind !== "loop" || visible.has(r.id)),
+      };
     },
 
     async "memory.anchors.list"(p) {
@@ -366,7 +379,8 @@ export function createGraphHandlers(
         // Mentions of the person in notes go too (the UI showed the dry-run counts first).
         const name = result.names[0];
         if (options.memory !== undefined && name !== undefined && name.trim().length >= 3) {
-          await options.memory.forget(name).catch(() => undefined);
+          // This person only: the same-name cascade (graph, lessons, search) is `/forget`'s.
+          await options.memory.forget(name, { cascade: false }).catch(() => undefined);
         }
       }
       return { removed: result.removed, cardPath: result.cardPath, dryRun };
