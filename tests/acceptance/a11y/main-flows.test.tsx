@@ -334,8 +334,8 @@ describe("onboarding", () => {
     const progress = screen.getByRole("progressbar", { name: "Onboarding progress" });
     expect(progress.getAttribute("aria-valuenow")).toBe("1");
     const user = userEvent.setup();
-    // The quiet "1 of N" label opens the step menu, which marks the current step.
-    await user.click(screen.getByRole("button", { name: /^Onboarding progress: 1 of/ }));
+    // The quiet "1 of N" count opens the step menu, which marks the current step.
+    await user.click(screen.getByRole("button", { name: "Steps" }));
     const steps = await screen.findAllByRole("menuitem");
     expect(steps[0]?.getAttribute("aria-current")).toBe("step");
     await user.keyboard("{Escape}");

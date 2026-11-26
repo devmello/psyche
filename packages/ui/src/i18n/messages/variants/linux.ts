@@ -298,8 +298,6 @@ export const linux: Partial<Record<MessageId, string>> = {
   "onboarding.safety.asks":
     "If you let {name} run commands on this computer, ones that only read, like ls or cat, run without a card. Anything else asks you first.",
   "onboarding.done.touchId": "Your password",
-  "onboarding.done.try.search":
-    "Ask a question in Search (Ctrl+K). The answer shows where in your life it came from.",
   "screens.search.source.revealFile": "Show in Files",
   "everything.model.localHint":
     "A model on this computer reads everything. Nothing leaves the computer. Fewer, noisier facts.",

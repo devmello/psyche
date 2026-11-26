@@ -302,8 +302,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "onboarding.safety.asks":
         "إذا سمحت لـ {name} بتشغيل الأوامر على هذا الكمبيوتر، فالأوامر التي تقرأ فقط مثل ls أو cat تعمل دون بطاقة. أما أي شيء آخر فيسألك أولًا.",
       "onboarding.done.touchId": "كلمة المرور",
-      "onboarding.done.try.search":
-        "اطرح سؤالًا في البحث (Ctrl+K). تُظهر الإجابة من أين في حياتك جاءت.",
       "screens.search.source.revealFile": "إظهار في الملفات",
       "everything.model.localHint":
         "يقرأ نموذج على هذا الكمبيوتر كل شيء. لا شيء يغادر الكمبيوتر. حقائق أقل وأكثر تشويشًا.",
@@ -718,8 +716,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "onboarding.safety.asks":
         "Erlaubst du {name}, Befehle auf diesem Computer auszuführen, laufen solche, die nur lesen, wie ls oder cat, ohne Karte. Alles andere fragt dich zuerst.",
       "onboarding.done.touchId": "Dein Passwort",
-      "onboarding.done.try.search":
-        "Stelle in der Suche (Ctrl+K) eine Frage. Die Antwort zeigt, woher in deinem Leben sie stammt.",
       "screens.search.source.revealFile": "In Dateien zeigen",
       "everything.model.localHint":
         "Ein Modell auf diesem Computer liest alles. Nichts verlässt den Computer. Weniger, unschärfere Fakten.",
@@ -1141,8 +1137,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "onboarding.safety.asks":
         "Si dejas que {name} ejecute comandos en este ordenador, los que solo leen, como ls o cat, se ejecutan sin tarjeta. Todo lo demás te pregunta antes.",
       "onboarding.done.touchId": "Tu contraseña",
-      "onboarding.done.try.search":
-        "Haz una pregunta en Buscar (Ctrl+K). La respuesta muestra de dónde en tu vida viene.",
       "screens.search.source.revealFile": "Mostrar en Archivos",
       "everything.model.localHint":
         "Un modelo de este ordenador lo lee todo. Nada sale del ordenador. Menos datos y más ruido.",
@@ -1566,8 +1560,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "onboarding.safety.asks":
         "Si vous autorisez {name} à exécuter des commandes sur cet ordinateur, celles qui ne font que lire, comme ls ou cat, s’exécutent sans carte. Tout le reste vous demande d’abord.",
       "onboarding.done.touchId": "Votre mot de passe",
-      "onboarding.done.try.search":
-        "Posez une question dans Recherche (Ctrl+K). La réponse indique d’où dans votre vie elle provient.",
       "screens.search.source.revealFile": "Afficher dans Fichiers",
       "everything.model.localHint":
         "Un modèle sur cet ordinateur lit tout. Rien ne quitte l’ordinateur. Moins de faits, plus bruités.",
@@ -1967,8 +1959,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "onboarding.safety.asks":
         "अगर आप {name} को इस कंप्यूटर पर कमांड चलाने देते हैं, तो जो सिर्फ़ पढ़ते हैं, जैसे ls या cat, वे बिना कार्ड के चलते हैं। बाकी सब पहले आपसे पूछता है।",
       "onboarding.done.touchId": "आपका पासवर्ड",
-      "onboarding.done.try.search":
-        "खोज (Ctrl+K) में कोई सवाल पूछें। जवाब दिखाता है कि वह आपके जीवन के किस हिस्से से आया।",
       "screens.search.source.revealFile": "फ़ाइलें में दिखाएँ",
       "everything.model.localHint":
         "इस कंप्यूटर पर एक मॉडल सब कुछ पढ़ता है। कंप्यूटर से कुछ बाहर नहीं जाता। कम और ज़्यादा अस्पष्ट तथ्य।",
@@ -2382,8 +2372,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "onboarding.safety.asks":
         "Se lasci che {name} esegua comandi su questo computer, quelli che si limitano a leggere, come ls o cat, vengono eseguiti senza scheda. Tutto il resto chiede prima a te.",
       "onboarding.done.touchId": "La tua password",
-      "onboarding.done.try.search":
-        "Fai una domanda in Cerca (Ctrl+K). La risposta mostra da quale parte della tua vita proviene.",
       "screens.search.source.revealFile": "Mostra in File",
       "everything.model.localHint":
         "Un modello su questo computer legge tutto. Nulla esce dal computer. Fatti meno numerosi e più confusi.",
@@ -2804,8 +2792,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "onboarding.safety.asks":
         "{name}にこのコンピュータでのコマンド実行を許可した場合、lsやcatのように読み取るだけのものはカードなしで実行されます。それ以外は先に確認します。",
       "onboarding.done.touchId": "パスワード",
-      "onboarding.done.try.search":
-        "検索（Ctrl+K）で質問してみましょう。回答には、生活のどこから得た情報かが表示されます。",
       "screens.search.source.revealFile": "ファイルで表示",
       "everything.model.localHint":
         "このコンピュータ上のモデルがすべてを読み取ります。コンピュータの外には何も出ません。事実は少なく、ノイズも増えます。",
@@ -3208,8 +3194,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "onboarding.safety.asks":
         "{name}이(가) 이 컴퓨터에서 명령을 실행하도록 허용하면 ls나 cat처럼 읽기만 하는 명령은 카드 없이 실행됩니다. 그 밖의 명령은 먼저 확인합니다.",
       "onboarding.done.touchId": "사용자 암호",
-      "onboarding.done.try.search":
-        "검색(Ctrl+K)에서 질문해 보십시오. 답변에는 생활 속 어디에서 온 정보인지 표시됩니다.",
       "screens.search.source.revealFile": "파일에서 보기",
       "everything.model.localHint":
         "이 컴퓨터의 모델이 모든 것을 읽습니다. 이 컴퓨터 밖으로 아무것도 나가지 않습니다. 사실은 더 적고 잡음은 더 많아집니다.",
@@ -3618,8 +3602,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "onboarding.safety.asks":
         "Se você deixar {name} executar comandos neste computador, os que só leem, como ls ou cat, rodam sem cartão. Todo o resto pergunta antes.",
       "onboarding.done.touchId": "Sua senha",
-      "onboarding.done.try.search":
-        "Faça uma pergunta em Pesquisar (Ctrl+K). A resposta mostra de onde na sua vida ela veio.",
       "screens.search.source.revealFile": "Mostrar em Arquivos",
       "everything.model.localHint":
         "Um modelo neste computador lê tudo. Nada sai do computador. Menos fatos e mais ruído.",
@@ -3996,8 +3978,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "onboarding.safety.asks":
         "如果你让{name}在这台电脑上运行命令，只读取内容的命令（如 ls 或 cat）无需卡片即可运行。其他任何命令都会先询问你。",
       "onboarding.done.touchId": "你的密码",
-      "onboarding.done.try.search":
-        "在“搜索”（Ctrl+K）中提个问题。答案会显示它来自你生活中的哪里。",
       "screens.search.source.revealFile": "在“文件”中显示",
       "everything.model.localHint":
         "由这台电脑上的模型读取一切。没有任何内容离开电脑。事实更少，也更杂乱。",

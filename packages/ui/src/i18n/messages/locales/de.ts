@@ -2953,8 +2953,8 @@ export const de: Partial<Catalogue> = {
     "Der Anbieter hat diesen Schlüssel abgelehnt ({reason}). Füge ihn erneut ein.",
   "onboarding.setupCheck": "Einrichtungsprüfung",
   "onboarding.progress": "Einrichtungsfortschritt",
+  "onboarding.steps": "Schritte",
   "onboarding.doneMark": " (fertig)",
-  "onboarding.stepOf": "Schritt {n, number} von {total, number}:",
   "onboarding.back": "Zurück",
   "onboarding.skipForNow": "Vorerst überspringen",
   "onboarding.openChat": "Hauptchat öffnen",
@@ -3009,7 +3009,7 @@ export const de: Partial<Catalogue> = {
   "onboarding.permission.asking": "Wird angefragt …",
   "onboarding.permission.allow": "Erlauben",
   "onboarding.connectors.intro":
-    "Entscheide jetzt, welche Accounts du verbindest, einen nach dem anderen. {name} sieht nur, was du verbindest, und du kannst später in den Einstellungen weitere hinzufügen.",
+    "Wähle, wobei {name} helfen soll. Jede App fragt beim Verbinden um Erlaubnis, und du kannst später in den Einstellungen mehr hinzufügen.",
   "onboarding.connectors.connected": "Verbunden ({n, number})",
   "onboarding.connectors.connectedList": "Deine Accounts",
   "onboarding.connectors.needsPermission": "Braucht Berechtigung",
@@ -3056,12 +3056,20 @@ export const de: Partial<Catalogue> = {
     "Psyche hat gerade deinen Tresor erstellt. Sichere diesen Schlüssel in einem Passwortmanager oder auf Papier: Er wird nur jetzt angezeigt und ist nach einer Wiederherstellung oder einem verlorenen Schlüsselplatz der einzige Weg zurück in den Tresor.",
   "onboarding.model.subscriptionNote":
     "Psyche verwendet die auf diesem Mac bereits angemeldete Claude-Code- oder Codex-App, braucht also keinen API-Schlüssel und speichert keinen. Melde dich zuerst dort an, falls noch nicht geschehen.",
-  "onboarding.model.toolCheck": "Werkzeugaufruf-Prüfung",
-  "onboarding.model.runCheck": "Prüfung ausführen",
-  "onboarding.model.checkAgain": "Erneut prüfen",
+  "onboarding.model.toolCheck": "Verbindungstest",
+  "onboarding.model.otherWays": "Andere Möglichkeiten",
+  "onboarding.model.test.passed": "Funktioniert",
+  "onboarding.model.test.failed": "Nur Chat",
+  "onboarding.model.test.running": "Wird getestet …",
+  "onboarding.model.test.untested": "Noch nicht getestet",
+  "onboarding.model.runCheck": "Testen",
+  "onboarding.model.checkAgain": "Erneut testen",
   "onboarding.model.toolCheckFailed":
-    "Dieses Modell kann chatten, aber Werkzeuge nicht zuverlässig verwenden, also handelt es nicht für dich. Wähle ein anderes oder fahre im Nur-Chat-Modus fort.",
+    "Dieses Modell kann chatten, erledigt aber womöglich keine Aufgaben für dich. Wähle ein anderes oder fahre im reinen Chat-Modus fort.",
   "onboarding.done.ready": "{name} ist bereit.",
+  "onboarding.done.notReady": "{name} kann noch nicht antworten.",
+  "onboarding.done.notReadyBody":
+    "Behebe die Zeile „Modell“ unten oder erledige es später unter Einstellungen → Modelle.",
   "onboarding.done.opens": "Der Hauptchat öffnet sich mit der ersten Nachricht von {name}.",
   "onboarding.done.noneYet": "Noch keine",
   "onboarding.done.accounts": "Accounts",
@@ -3744,8 +3752,11 @@ export const de: Partial<Catalogue> = {
     "{ref}: Der Anbieter hat den Schlüssel abgelehnt ({error}). Der Schlüssel wurde nicht behalten.",
   "web.setup.modelNotChecked":
     "{ref}: Der Schlüssel ist gespeichert, aber der Anbieter war zur Prüfung nicht erreichbar.",
+  "web.setup.modelEnvKey": "Es wird ein Schlüssel aus deiner Umgebung verwendet ({ref}).",
+  "web.setup.modelEnvNotChecked":
+    "Es wird ein Schlüssel aus deiner Umgebung verwendet ({ref}), aber der Anbieter war zur Prüfung nicht erreichbar.",
   "web.setup.modelSkipped":
-    "{ref}: Kein Schlüssel hinzugefügt, der Chat antwortet noch nicht. Füge einen unter Einstellungen → Modelle hinzu.",
+    "Schlüssel hinzufügen: {ref} hat noch keinen Schlüssel, der Chat antwortet daher nicht. Füge einen unter Einstellungen → Modelle hinzu.",
   "web.gate.loading": "Psyche startet",
   "web.gate.error": "Psyche konnte nicht prüfen, ob die Einrichtung abgeschlossen ist.",
   "web.gate.retry": "Erneut versuchen",

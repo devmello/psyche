@@ -2894,8 +2894,8 @@ export const it: Partial<Catalogue> = {
     "Il fornitore ha rifiutato questa chiave ({reason}). Incolla di nuovo la chiave.",
   "onboarding.setupCheck": "Verifica della configurazione",
   "onboarding.progress": "Avanzamento della configurazione",
+  "onboarding.steps": "Passaggi",
   "onboarding.doneMark": " (fatto)",
-  "onboarding.stepOf": "Passo {n, number} di {total, number}:",
   "onboarding.back": "Indietro",
   "onboarding.skipForNow": "Salta per ora",
   "onboarding.openChat": "Apri la chat principale",
@@ -2949,7 +2949,7 @@ export const it: Partial<Catalogue> = {
   "onboarding.permission.asking": "Richiesta in corso…",
   "onboarding.permission.allow": "Consenti",
   "onboarding.connectors.intro":
-    "Decidi ora quali account collegare, uno alla volta. {name} vede solo ciò che colleghi, e puoi aggiungerne altri più tardi nelle Impostazioni.",
+    "Scegli con cosa può aiutarti {name}. Ogni app chiede il permesso quando la colleghi, e puoi aggiungerne altre più tardi in Impostazioni.",
   "onboarding.connectors.connected": "Collegati ({n, number})",
   "onboarding.connectors.connectedList": "Account collegati",
   "onboarding.connectors.needsPermission": "Richiede un permesso",
@@ -2997,12 +2997,20 @@ export const it: Partial<Catalogue> = {
     "Psyche ha appena creato la tua cassaforte. Salva questa chiave in un gestore di password o su carta: viene mostrata solo adesso ed è l’unico modo per rientrare nella cassaforte dopo un ripristino o la perdita di uno slot di chiave.",
   "onboarding.model.subscriptionNote":
     "Psyche usa l’app Claude Code o Codex a cui hai già eseguito l’accesso su questo Mac, quindi non richiede né memorizza alcuna chiave API. Se non l’hai ancora fatto, accedi prima lì.",
-  "onboarding.model.toolCheck": "Controllo della chiamata degli strumenti",
-  "onboarding.model.runCheck": "Esegui controllo",
-  "onboarding.model.checkAgain": "Controlla di nuovo",
+  "onboarding.model.toolCheck": "Test di connessione",
+  "onboarding.model.otherWays": "Altre opzioni",
+  "onboarding.model.test.passed": "Funziona",
+  "onboarding.model.test.failed": "Solo chat",
+  "onboarding.model.test.running": "Test in corso…",
+  "onboarding.model.test.untested": "Non ancora provato",
+  "onboarding.model.runCheck": "Prova",
+  "onboarding.model.checkAgain": "Riprova",
   "onboarding.model.toolCheckFailed":
-    "Questo modello può chattare ma non usa gli strumenti in modo affidabile, quindi non agirà per te. Scegline un altro oppure continua in modalità solo chat.",
+    "Questo modello sa chattare ma potrebbe non svolgere compiti per te. Sceglinene un altro o continua in modalità solo chat.",
   "onboarding.done.ready": "{name} è pronto.",
+  "onboarding.done.notReady": "{name} non è ancora pronto a rispondere.",
+  "onboarding.done.notReadyBody":
+    "Sistema la riga Modello qui sotto, oppure fallo più tardi in Impostazioni → Modelli.",
   "onboarding.done.opens": "La chat principale si apre con il primo messaggio di {name}.",
   "onboarding.done.noneYet": "Ancora nessuno",
   "onboarding.done.accounts": "Account",
@@ -3671,8 +3679,11 @@ export const it: Partial<Catalogue> = {
     "{ref}: il provider ha rifiutato la chiave ({error}). La chiave non è stata conservata.",
   "web.setup.modelNotChecked":
     "{ref}: la chiave è salvata, ma il provider non era raggiungibile per verificarla.",
+  "web.setup.modelEnvKey": "Usa una chiave del tuo ambiente ({ref}).",
+  "web.setup.modelEnvNotChecked":
+    "Usa una chiave del tuo ambiente ({ref}), ma il provider non era raggiungibile per verificarla.",
   "web.setup.modelSkipped":
-    "{ref}: nessuna chiave aggiunta, quindi la chat non risponderà ancora. Aggiungine una in Impostazioni → Modelli.",
+    "Aggiungi una chiave: {ref} non ha ancora una chiave, quindi la chat non risponderà. Aggiungine una in Impostazioni → Modelli.",
   "web.gate.loading": "Avvio di Psyche",
   "web.gate.error": "Psyche non è riuscito a verificare se la configurazione è completata.",
   "web.gate.retry": "Riprova",

@@ -2893,8 +2893,8 @@ export const fr: Partial<Catalogue> = {
   "onboarding.keyRefused": "Le fournisseur a refusé cette clé ({reason}). Collez-la de nouveau.",
   "onboarding.setupCheck": "Vérification de la configuration",
   "onboarding.progress": "Progression de la configuration",
+  "onboarding.steps": "Étapes",
   "onboarding.doneMark": " (terminé)",
-  "onboarding.stepOf": "Étape {n, number} sur {total, number} :",
   "onboarding.back": "Retour",
   "onboarding.skipForNow": "Passer pour l’instant",
   "onboarding.openChat": "Ouvrir la discussion principale",
@@ -2950,7 +2950,7 @@ export const fr: Partial<Catalogue> = {
   "onboarding.permission.asking": "Demande en cours…",
   "onboarding.permission.allow": "Autoriser",
   "onboarding.connectors.intro":
-    "Décidez maintenant quels comptes connecter, un par un. {name} ne voit que ce que vous connectez, et vous pourrez en ajouter plus tard dans Réglages.",
+    "Choisissez ce pour quoi {name} peut aider. Chaque app demande l’autorisation à la connexion, et vous pourrez en ajouter plus tard dans Réglages.",
   "onboarding.connectors.connected": "Connectés ({n, number})",
   "onboarding.connectors.connectedList": "Vos comptes",
   "onboarding.connectors.needsPermission": "Autorisation nécessaire",
@@ -2997,12 +2997,20 @@ export const fr: Partial<Catalogue> = {
     "Psyche vient de créer votre coffre. Conservez cette clé dans un gestionnaire de mots de passe ou sur papier : elle n’est affichée que maintenant et c’est le seul moyen de rouvrir le coffre après une restauration ou la perte d’un emplacement de clé.",
   "onboarding.model.subscriptionNote":
     "Psyche utilise l’app Claude Code ou Codex déjà connectée sur ce Mac ; il n’a donc besoin d’aucune clé API et n’en enregistre aucune. Connectez-vous d’abord là-bas si ce n’est pas fait.",
-  "onboarding.model.toolCheck": "Test d’appel d’outils",
-  "onboarding.model.runCheck": "Lancer le test",
-  "onboarding.model.checkAgain": "Tester de nouveau",
+  "onboarding.model.toolCheck": "Test de connexion",
+  "onboarding.model.otherWays": "Autres options",
+  "onboarding.model.test.passed": "Fonctionne",
+  "onboarding.model.test.failed": "Chat seul",
+  "onboarding.model.test.running": "Test en cours…",
+  "onboarding.model.test.untested": "Pas encore testé",
+  "onboarding.model.runCheck": "Tester",
+  "onboarding.model.checkAgain": "Tester à nouveau",
   "onboarding.model.toolCheckFailed":
-    "Ce modèle peut discuter mais ne sait pas utiliser les outils de façon fiable ; il n’agira donc pas pour vous. Choisissez-en un autre ou continuez en mode discussion seule.",
+    "Ce modèle peut discuter, mais pourrait ne pas effectuer de tâches pour vous. Choisissez-en un autre ou continuez en mode chat seul.",
   "onboarding.done.ready": "{name} est prêt.",
+  "onboarding.done.notReady": "{name} ne peut pas encore répondre.",
+  "onboarding.done.notReadyBody":
+    "Corrigez la ligne Modèle ci-dessous, ou faites-le plus tard dans Réglages → Modèles.",
   "onboarding.done.opens": "La discussion principale s’ouvre sur le premier message de {name}.",
   "onboarding.done.noneYet": "Aucune pour l’instant",
   "onboarding.done.accounts": "Comptes",
@@ -3677,8 +3685,11 @@ export const fr: Partial<Catalogue> = {
     "{ref} : le fournisseur a refusé la clé ({error}). La clé n'a pas été conservée.",
   "web.setup.modelNotChecked":
     "{ref} : la clé est enregistrée, mais le fournisseur n'a pas pu être joint pour la vérifier.",
+  "web.setup.modelEnvKey": "Utilisation d’une clé de votre environnement ({ref}).",
+  "web.setup.modelEnvNotChecked":
+    "Utilisation d’une clé de votre environnement ({ref}), mais le fournisseur n’a pas pu être joint pour la vérifier.",
   "web.setup.modelSkipped":
-    "{ref} : aucune clé ajoutée, le chat ne répondra donc pas encore. Ajoutez-en une dans Réglages → Modèles.",
+    "Ajoutez une clé : {ref} n’a pas encore de clé, le chat ne répondra donc pas. Ajoutez-en une dans Réglages → Modèles.",
   "web.gate.loading": "Démarrage de Psyche",
   "web.gate.error": "Psyche n'a pas pu vérifier si la configuration est terminée.",
   "web.gate.retry": "Réessayer",
