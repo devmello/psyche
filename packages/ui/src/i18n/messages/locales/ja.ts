@@ -49,6 +49,7 @@ import { overviewShared } from "./overview-shared/ja.ts";
 import { passwordPresence } from "./password-presence/ja.ts";
 import { peopleRest } from "./people-rest/ja.ts";
 import { personDataRest } from "./personData-rest/ja.ts";
+import { planFork } from "./plan-fork/ja.ts";
 import { points } from "./points/ja.ts";
 import { researchRest } from "./research-rest/ja.ts";
 import { scheduledForm } from "./scheduled-form/ja.ts";
@@ -361,6 +362,8 @@ export const ja: Partial<Catalogue> = {
   "chat.thread.forgetNothing": "「{subject}」に一致する記憶はありません。",
   "chat.thread.forgetPreview":
     "「{subject}」を忘れると、{claims, plural, other {#件の事実}}と{chunks, plural, other {#件のインデックス済みメモ}}が取り消されます{hasFiles, select, true {（{files}を編集）} other {}}。",
+  "chat.thread.forgetCounts":
+    "人物グラフの{graph, plural, other {#件}}、レビュー待ちの{review, plural, other {#件}}、{lessons, plural, other {#件のレッスンまたはレッスン行}}、{search, plural, other {#件の検索エントリ}}も削除し、保存済みのチャットと実行トレースからもその語を取り除きます。元に戻せません。",
   "chat.thread.forgetConfirm": "忘れる",
   "chat.thread.forgot": "「{subject}」を忘れました。",
   "chat.thread.forgetFailed":
@@ -371,6 +374,7 @@ export const ja: Partial<Catalogue> = {
   "chat.thread.exported": "このスレッドを{format}として書き出しました。",
   "chat.thread.nothingRunning": "このチャットでは何も実行されていません。",
   "chat.thread.stopped": "停止しました。",
+  "chat.stopped.label": "停止しました",
   "chat.runFailed.credential":
     "Psycheは返信できませんでした。モデルのAPIキーがないか、拒否されました。設定 → モデルで追加または修正してください。",
   "chat.runFailed.generic": "Psycheはこの返信を完了できませんでした。",
@@ -495,6 +499,7 @@ export const ja: Partial<Catalogue> = {
   "blocks.approval.status.denied": "拒否済み{hasWhen, select, true { · {when}} other {}}",
   "blocks.approval.status.declinedInChat": "辞退 — チャットで返信しました",
   "blocks.approval.status.expired": "期限切れ。何も実行されませんでした。",
+  "blocks.approval.expiredLine": "期限切れ · 何も実行されていません",
   "blocks.approval.status.voidedBecause": "無効：{reason}",
   "blocks.approval.status.voided": "無効。引数が変更されました。",
   "blocks.approval.taint": "このターンは信頼されていないコンテンツを読み込みました",
@@ -4022,6 +4027,8 @@ export const ja: Partial<Catalogue> = {
   // Approvals wave W3 (card choices, Allowed list)
   ...approvalsW3,
   ...settingsDrill,
+  // Fork a plan (docs/design/fork-a-plan-2026.md §9)
+  ...planFork,
   ...desktopSimple,
   // Gateway-authored notices (inbox notifications, security alerts)
   ...notices,

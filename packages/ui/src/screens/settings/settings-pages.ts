@@ -260,6 +260,7 @@ export function paneForKey(key: string): SettingsPaneId | null {
     models: "model",
     context: "model",
     exec: "connectors",
+    forks: "model",
     teaching: "learning",
     tools: "model",
     notifications: "notifications",

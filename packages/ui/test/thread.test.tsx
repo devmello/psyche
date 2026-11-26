@@ -251,6 +251,57 @@ describe("slash commands (C9)", () => {
     expect(await screen.findByText(`Forgot "${subject}".`)).toBeTruthy();
   });
 
+  it("/forget also says what else goes: the people graph, review, lessons and search entries", async () => {
+    const { gateway } = renderMain();
+    const real = gateway.request.bind(gateway);
+    const zero = {
+      markdownFiles: 0,
+      markdownLines: 0,
+      claims: 0,
+      chunks: 0,
+      graphEntities: 1,
+      graphFacts: 2,
+      graphEdges: 0,
+      graphLoops: 0,
+      graphInteractions: 0,
+      graphCitations: 0,
+      graphOther: 0,
+      reviewItems: 3,
+      quarantine: 0,
+      lessons: 1,
+      lessonLines: 1,
+      feedback: 0,
+      searchDocs: 2,
+    };
+    vi.spyOn(gateway, "request").mockImplementation((async (
+      method: string,
+      params: unknown,
+      options: unknown,
+    ) => {
+      const res = await (real as (m: string, p: unknown, o: unknown) => Promise<object>)(
+        method,
+        params,
+        options,
+      );
+      return method === "memory.forget" ? { ...res, counts: zero } : res;
+    }) as never);
+    await userEvent.type(await box(), "/forget Jordan{Enter}");
+    const notice = await screen.findByTestId("command-notice");
+    // 1 entity + 2 facts = 3 graph items; 3 review items; 1 lesson + 1 line; 2 search entries.
+    await waitFor(() => expect(notice.textContent).toContain("3 items from your people graph"));
+    expect(notice.textContent).toContain("3 items waiting for review");
+    expect(notice.textContent).toContain("2 lessons or lesson lines");
+    expect(notice.textContent).toContain("2 search entries");
+    expect(notice.textContent).toContain("permanent");
+    expect(within(notice).getByRole("button", { name: "Forget" })).toBeTruthy();
+  });
+
+  it("/forget with nothing in any store says nothing matches (control)", async () => {
+    renderMain();
+    await userEvent.type(await box(), "/forget zzzzqqqq{Enter}");
+    expect(await screen.findByText('Nothing remembered matches "zzzzqqqq".')).toBeTruthy();
+  });
+
   it("/model and /plan update the thread; /status reports it", async () => {
     const { gateway } = renderMain();
     await userEvent.type(await box(), "/model anthropic/claude-sonnet-5-5{Enter}");

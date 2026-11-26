@@ -44,6 +44,7 @@ import { overviewGrowth } from "./overview-growth/ar.ts";
 import { overviewShared } from "./overview-shared/ar.ts";
 import { passwordPresence } from "./password-presence/ar.ts";
 import { people } from "./people/ar.ts";
+import { planFork } from "./plan-fork/ar.ts";
 import { points } from "./points/ar.ts";
 import { research } from "./research/ar.ts";
 import { scheduled } from "./scheduled/ar.ts";
@@ -397,6 +398,8 @@ export const ar: Partial<Catalogue> = {
   "chat.thread.forgetNothing": "لا شيء في الذاكرة يطابق «{subject}».",
   "chat.thread.forgetPreview":
     "نسيان «{subject}» يسحب {claims, plural, zero {لا ادعاءات} one {ادعاءً واحدًا} two {ادعاءين} few {# ادعاءات} many {# ادعاءً} other {# ادعاء}} و{chunks, plural, zero {لا ملاحظات مفهرسة} one {ملاحظة مفهرسة واحدة} two {ملاحظتين مفهرستين} few {# ملاحظات مفهرسة} many {# ملاحظة مفهرسة} other {# ملاحظة مفهرسة}}{hasFiles, select, true {، مع تحرير {files}} other {}}.",
+  "chat.thread.forgetCounts":
+    "كما يحذف {graph, plural, zero {لا عناصر} one {عنصرًا واحدًا} two {عنصرين} few {# عناصر} many {# عنصرًا} other {# عنصر}} من رسمك البياني للأشخاص، و{review, plural, zero {لا عناصر} one {عنصرًا واحدًا} two {عنصرين} few {# عناصر} many {# عنصرًا} other {# عنصر}} بانتظار المراجعة، و{lessons, plural, zero {لا دروس} one {درسًا أو سطر درس واحدًا} two {درسين أو سطري درس} few {# دروس أو أسطر دروس} many {# درسًا أو سطر درس} other {# درس أو سطر درس}}، و{search, plural, zero {لا مدخلات بحث} one {مدخل بحث واحدًا} two {مدخلي بحث} few {# مدخلات بحث} many {# مدخل بحث} other {# مدخل بحث}}، ويقص الكلمات من المحادثات المحفوظة وسجلات التشغيل. هذا نهائي.",
   "chat.thread.forgetConfirm": "نسيان",
   "chat.thread.forgot": "تم نسيان «{subject}».",
   "chat.thread.forgetFailed": "لم ينجح النسيان ({reason}). لم يتغيّر شيء.",
@@ -406,6 +409,7 @@ export const ar: Partial<Catalogue> = {
   "chat.thread.exported": "تم تصدير هذه المحادثة بصيغة {format}.",
   "chat.thread.nothingRunning": "لا شيء يعمل في هذه الدردشة.",
   "chat.thread.stopped": "تم الإيقاف.",
+  "chat.stopped.label": "تم الإيقاف",
   "chat.runFailed.credential":
     "تعذّر على Psyche الرد: مفتاح API الخاص بنموذجك مفقود أو مرفوض. أضفه أو صحّحه في الإعدادات ← النماذج.",
   "chat.runFailed.generic": "تعذّر على Psyche إكمال هذا الرد.",
@@ -535,6 +539,7 @@ export const ar: Partial<Catalogue> = {
   "blocks.approval.status.denied": "مرفوض{hasWhen, select, true { · {when}} other {}}",
   "blocks.approval.status.declinedInChat": "مرفوض — ردّيت في الدردشة",
   "blocks.approval.status.expired": "انتهت الصلاحية. لم يتم فعل شيء.",
+  "blocks.approval.expiredLine": "انتهت المهلة · لم يتم شيء",
   "blocks.approval.status.voidedBecause": "ملغى: {reason}",
   "blocks.approval.status.voided": "ملغى. تغيّرت الوسيطات.",
   "blocks.approval.taint": "قرأ هذا الدور محتوى غير موثوق",
@@ -4049,6 +4054,8 @@ export const ar: Partial<Catalogue> = {
   // Approvals wave W3 (card choices, Allowed list)
   ...approvalsW3,
   ...settingsDrill,
+  // Fork a plan (docs/design/fork-a-plan-2026.md §9)
+  ...planFork,
   ...desktopSimple,
   // Gateway-authored notices (inbox notifications, security alerts)
   ...notices,

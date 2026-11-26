@@ -214,23 +214,28 @@ export class MailWatcher {
   }
 
   /**
-   * Polls every source since its cursor and publishes the events. Outside active hours it
-   * polls at most hourly (the last-poll time is a cursor too). Returns the events published.
+   * Whether anything listens for new mail: an enabled `mail.received` event automation, or a
+   * Space with a mail tracker (spaces-2026 section 6.2). With neither, a poll reads nothing, so
+   * the schedule is not worth listing as something that will run.
    */
-  async poll(
-    signal: AbortSignal = new AbortController().signal,
-  ): Promise<{ published: number; skipped?: string }> {
+  async listening(): Promise<boolean> {
     const wanted =
       this.#o.wanted ??
       (async () =>
         (await this.#o.scheduler.list()).some(
           (a) => a.kind === "event" && a.enabled && a.trigger?.source === "mail.received",
         ));
-    // A Space with a mail tracker listens too (spaces-2026 section 6.2): the poll runs, still with
-    // no model call. With no listener of either kind it stops, as before.
-    const listened = async () => (await this.#o.listeners?.()) === true;
-    if (!(await wanted()) && !(await listened()))
-      return { published: 0, skipped: "nothing listens for new mail" };
+    return (await wanted()) || (await this.#o.listeners?.()) === true;
+  }
+
+  /**
+   * Polls every source since its cursor and publishes the events. Outside active hours it
+   * polls at most hourly (the last-poll time is a cursor too). Returns the events published.
+   */
+  async poll(
+    signal: AbortSignal = new AbortController().signal,
+  ): Promise<{ published: number; skipped?: string }> {
+    if (!(await this.listening())) return { published: 0, skipped: "nothing listens for new mail" };
     const now = this.#o.clock.now();
     const tz = this.#o.timezone ?? "UTC";
     const { start, end } = this.#o.activeHours ?? { start: 8, end: 22 };

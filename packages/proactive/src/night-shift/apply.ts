@@ -150,6 +150,12 @@ export interface ApplyAnswer {
 /** Who asks: `local` is the desktop shell on this Mac's loopback, set by the Gateway only. */
 export interface ApplyCaller {
   local: boolean;
+  /**
+   * Every item of the request is withheld, as an item made from Messages is: a remote caller is
+   * refused, and the card child carries the generic line for every device (a fork branch that
+   * read owner-only sources, set by the Gateway only).
+   */
+  withholdAll?: boolean;
 }
 
 type Op = "apply" | "undo";
@@ -514,7 +520,7 @@ export class NightShiftApply {
         refuse("the item is already being applied");
         continue;
       }
-      const withheld = fromMessages(item);
+      const withheld = fromMessages(item) || caller.withholdAll === true;
       // A remote device saw only the generic line: it can't approve what it never saw.
       if (withheld && !caller.local) {
         refuse(MESSAGES_ONLY_HERE);

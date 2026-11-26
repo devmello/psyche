@@ -49,6 +49,7 @@ import { overviewShared } from "./overview-shared/hi.ts";
 import { passwordPresence } from "./password-presence/hi.ts";
 import { peopleRest } from "./people-rest/hi.ts";
 import { personDataRest } from "./person-data-rest/hi.ts";
+import { planFork } from "./plan-fork/hi.ts";
 import { points } from "./points/hi.ts";
 import { researchRest } from "./research-rest/hi.ts";
 import { scheduledForm } from "./scheduled-form/hi.ts";
@@ -357,6 +358,8 @@ export const hi: Partial<Catalogue> = {
   "chat.thread.forgetNothing": "याद की गई कोई चीज़ “{subject}” से मेल नहीं खाती।",
   "chat.thread.forgetPreview":
     "“{subject}” को भुलाने से {claims, plural, one {# दावा} other {# दावे}} और {chunks, plural, one {# इंडेक्स किया गया नोट} other {# इंडेक्स किए गए नोट}} वापस लिए जाएँगे{hasFiles, select, true {, और {files} संपादित होंगी} other {}}।",
+  "chat.thread.forgetCounts":
+    "यह आपके लोगों के ग्राफ़ से {graph, plural, one {# आइटम} other {# आइटम}}, समीक्षा के इंतज़ार में {review, plural, one {# आइटम} other {# आइटम}}, {lessons, plural, one {# सबक या सबक की पंक्ति} other {# सबक या सबक की पंक्तियाँ}} और {search, plural, one {# खोज प्रविष्टि} other {# खोज प्रविष्टियाँ}} भी हटाता है, और सहेजी गई चैट तथा रन ट्रेस से ये शब्द काट देता है। यह स्थायी है।",
   "chat.thread.forgetConfirm": "भूल जाएँ",
   "chat.thread.forgot": "“{subject}” भुला दिया गया।",
   "chat.thread.forgetFailed": "भुलाना काम नहीं कर सका ({reason})। कुछ नहीं बदला गया।",
@@ -366,6 +369,7 @@ export const hi: Partial<Catalogue> = {
   "chat.thread.exported": "इस थ्रेड को {format} के रूप में एक्सपोर्ट किया गया।",
   "chat.thread.nothingRunning": "इस चैट में कुछ नहीं चल रहा।",
   "chat.thread.stopped": "रोक दिया गया।",
+  "chat.stopped.label": "रोका गया",
   "chat.runFailed.credential":
     "Psyche जवाब नहीं दे सका: आपके मॉडल की API कुंजी मौजूद नहीं है या अस्वीकार कर दी गई। इसे सेटिंग्ज़ → मॉडल में जोड़ें या ठीक करें।",
   "chat.runFailed.generic": "Psyche यह जवाब पूरा नहीं कर सका।",
@@ -493,6 +497,7 @@ export const hi: Partial<Catalogue> = {
   "blocks.approval.status.denied": "अस्वीकृत{hasWhen, select, true { · {when}} other {}}",
   "blocks.approval.status.declinedInChat": "अस्वीकृत — आपने चैट में जवाब दिया",
   "blocks.approval.status.expired": "समय-सीमा समाप्त। कुछ नहीं किया गया।",
+  "blocks.approval.expiredLine": "समय समाप्त · कुछ नहीं किया गया",
   "blocks.approval.status.voidedBecause": "निरस्त: {reason}",
   "blocks.approval.status.voided": "निरस्त। आर्ग्युमेंट बदल गए।",
   "blocks.approval.taint": "इस टर्न में अविश्वसनीय सामग्री पढ़ी गई",
@@ -3994,6 +3999,8 @@ export const hi: Partial<Catalogue> = {
   // Approvals wave W3 (card choices, Allowed list)
   ...approvalsW3,
   ...settingsDrill,
+  // Fork a plan (docs/design/fork-a-plan-2026.md §9)
+  ...planFork,
   ...desktopSimple,
   // Gateway-authored notices (inbox notifications, security alerts)
   ...notices,

@@ -41,6 +41,7 @@ import { overviewGrowth } from "./overview-growth/de.ts";
 import { overviewShared } from "./overview-shared/de.ts";
 import { passwordPresence } from "./password-presence/de.ts";
 import { peopleRest } from "./people-rest/de.ts";
+import { planFork } from "./plan-fork/de.ts";
 import { points } from "./points/de.ts";
 import { researchRest } from "./research-rest/de.ts";
 import { scheduledForm } from "./scheduled-form/de.ts";
@@ -356,6 +357,8 @@ export const de: Partial<Catalogue> = {
   "chat.thread.forgetNothing": "Nichts Gemerktes passt zu „{subject}“.",
   "chat.thread.forgetPreview":
     "„{subject}“ zu vergessen nimmt {claims, plural, one {# Aussage} other {# Aussagen}} und {chunks, plural, one {# indizierte Notiz} other {# indizierte Notizen}} zurück{hasFiles, select, true { und bearbeitet {files}} other {}}.",
+  "chat.thread.forgetCounts":
+    "Außerdem werden {graph, plural, one {# Eintrag} other {# Einträge}} aus deinem Personengraphen, {review, plural, one {# Eintrag} other {# Einträge}} in der Prüfung, {lessons, plural, one {# Lektion oder Lektionszeile} other {# Lektionen oder Lektionszeilen}} und {search, plural, one {# Sucheintrag} other {# Sucheinträge}} gelöscht, und die Wörter werden aus gespeicherten Chats und Laufprotokollen entfernt. Das ist endgültig.",
   "chat.thread.forgetConfirm": "Vergessen",
   "chat.thread.forgot": "„{subject}“ vergessen.",
   "chat.thread.forgetFailed": "Vergessen hat nicht funktioniert ({reason}). Nichts wurde geändert.",
@@ -365,6 +368,7 @@ export const de: Partial<Catalogue> = {
   "chat.thread.exported": "Dieser Thread wurde als {format} exportiert.",
   "chat.thread.nothingRunning": "In diesem Chat läuft nichts.",
   "chat.thread.stopped": "Gestoppt.",
+  "chat.stopped.label": "Gestoppt",
   "chat.runFailed.credential":
     "Psyche konnte nicht antworten: Der API-Schlüssel deines Modells fehlt oder wurde abgelehnt. Füge ihn unter „Einstellungen“ → „Modelle“ hinzu oder korrigiere ihn.",
   "chat.runFailed.generic": "Psyche konnte diese Antwort nicht fertigstellen.",
@@ -496,6 +500,7 @@ export const de: Partial<Catalogue> = {
   "blocks.approval.status.denied": "Abgelehnt{hasWhen, select, true { · {when}} other {}}",
   "blocks.approval.status.declinedInChat": "Abgelehnt – du hast im Chat geantwortet",
   "blocks.approval.status.expired": "Abgelaufen. Nichts wurde getan.",
+  "blocks.approval.expiredLine": "Abgelaufen · nichts wurde ausgeführt",
   "blocks.approval.status.voidedBecause": "Ungültig: {reason}",
   "blocks.approval.status.voided": "Ungültig. Die Argumente haben sich geändert.",
   "blocks.approval.taint": "dieser Zug hat nicht vertrauenswürdige Inhalte gelesen",
@@ -4150,6 +4155,8 @@ export const de: Partial<Catalogue> = {
   // Approvals wave W3 (card choices, Allowed list)
   ...approvalsW3,
   ...settingsDrill,
+  // Fork a plan (docs/design/fork-a-plan-2026.md §9)
+  ...planFork,
   ...desktopSimple,
   // Gateway-authored notices (inbox notifications, security alerts)
   ...notices,

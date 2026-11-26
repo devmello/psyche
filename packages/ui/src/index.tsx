@@ -328,6 +328,8 @@ export {
 export { MemoryScreen, type MemoryScreenProps } from "./memory-page/MemoryScreen.tsx";
 export { FPS_PROBE_KEY, medianFps, startFpsProbe } from "./motion/fps-probe.ts";
 export * from "./overview/index.ts";
+// Fork a plan (docs/design/fork-a-plan-2026.md): fork card, Plans view, Take sheet, settings.
+export * from "./plan-fork/index.ts";
 // Psyche points (docs/design/psyche-points-2026.md): the start sheet, the offer card, the provider.
 export * from "./points/index.ts";
 // Deep research: progress view and cited report.

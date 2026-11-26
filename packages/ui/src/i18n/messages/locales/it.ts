@@ -49,6 +49,7 @@ import { overviewShared } from "./overview-shared/it.ts";
 import { passwordPresence } from "./password-presence/it.ts";
 import { peopleRest } from "./people-rest/it.ts";
 import { personDataRest } from "./person-data-rest/it.ts";
+import { planFork } from "./plan-fork/it.ts";
 import { points } from "./points/it.ts";
 import { researchRest } from "./research-rest/it.ts";
 import { scheduledForm } from "./scheduled-form/it.ts";
@@ -358,6 +359,8 @@ export const it: Partial<Catalogue> = {
   "chat.thread.forgetNothing": 'Nessun ricordo corrisponde a "{subject}".',
   "chat.thread.forgetPreview":
     'Dimenticare "{subject}" ritira {claims, plural, one {# affermazione} other {# affermazioni}} e {chunks, plural, one {# nota indicizzata} other {# note indicizzate}}{hasFiles, select, true {, modificando {files}} other {}}.',
+  "chat.thread.forgetCounts":
+    "Elimina anche {graph, plural, one {# elemento} other {# elementi}} dal tuo grafo delle persone, {review, plural, one {# elemento} other {# elementi}} in attesa di revisione, {lessons, plural, one {# lezione o riga di lezione} other {# lezioni o righe di lezione}} e {search, plural, one {# voce di ricerca} other {# voci di ricerca}}, e toglie le parole dalle chat salvate e dalle tracce di esecuzione. È permanente.",
   "chat.thread.forgetConfirm": "Dimentica",
   "chat.thread.forgot": 'Dimenticato "{subject}".',
   "chat.thread.forgetFailed":
@@ -368,6 +371,7 @@ export const it: Partial<Catalogue> = {
   "chat.thread.exported": "Thread esportato come {format}.",
   "chat.thread.nothingRunning": "Niente è in esecuzione in questa chat.",
   "chat.thread.stopped": "Interrotto.",
+  "chat.stopped.label": "Interrotto",
   "chat.runFailed.credential":
     "Psyche non è riuscito a rispondere: la chiave API del modello manca o è stata rifiutata. Aggiungila o correggila in Impostazioni → Modelli.",
   "chat.runFailed.generic": "Psyche non è riuscito a completare questa risposta.",
@@ -491,6 +495,7 @@ export const it: Partial<Catalogue> = {
   "blocks.approval.status.denied": "Negato{hasWhen, select, true { · {when}} other {}}",
   "blocks.approval.status.declinedInChat": "Rifiutato: hai risposto in chat",
   "blocks.approval.status.expired": "Scaduto. Non è stato fatto nulla.",
+  "blocks.approval.expiredLine": "Scaduta · non è stato fatto nulla",
   "blocks.approval.status.voidedBecause": "Annullato: {reason}",
   "blocks.approval.status.voided": "Annullato. Gli argomenti sono cambiati.",
   "blocks.approval.taint": "questo turno ha letto contenuti non attendibili",
@@ -4065,6 +4070,8 @@ export const it: Partial<Catalogue> = {
   // Approvals wave W3 (card choices, Allowed list)
   ...approvalsW3,
   ...settingsDrill,
+  // Fork a plan (docs/design/fork-a-plan-2026.md §9)
+  ...planFork,
   ...desktopSimple,
   // Gateway-authored notices (inbox notifications, security alerts)
   ...notices,

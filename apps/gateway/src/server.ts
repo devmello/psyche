@@ -24,6 +24,7 @@ import {
   type MemoryStore,
   type PermissionBroker,
   PsycheError,
+  type RunStep,
 } from "@psyche/protocol";
 import { isNamedPipePath } from "@psyche/protocol/platform";
 import { type WebSocket, WebSocketServer } from "ws";
@@ -83,6 +84,7 @@ import {
   runRetention,
 } from "./retention.ts";
 import { RunTraceSink } from "./run-trace/sink.ts";
+import { personalizeRunStep, storeClassifier } from "./run-trace/viewer-scrub.ts";
 import { SecurityRecoveries } from "./security/recoveries.ts";
 import { StateSeal } from "./security/state-seal.ts";
 import { SessionController } from "./session/controller.ts";
@@ -467,6 +469,11 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
     },
   });
   Object.assign(ctx, { securityRecoveries: recoveries });
+  // The run trace as a viewer other than the desktop shell may see it (`run-trace/viewer-scrub.ts`).
+  const stepClassifier = storeClassifier(db, (id) => ctx.runTrace.toolOf(id));
+  bus.setCoreScrub("run.step", (payload, reader) =>
+    personalizeRunStep(payload as { runId: string; step: RunStep }, reader, stepClassifier),
+  );
   const securityChanged = () =>
     bus.publish("security.state.changed", {
       status: seal.status().status,

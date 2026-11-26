@@ -49,6 +49,7 @@ import { overviewShared } from "./overview-shared/ko.ts";
 import { passwordPresence } from "./password-presence/ko.ts";
 import { peopleRest } from "./people-rest/ko.ts";
 import { personDataRest } from "./personData-rest/ko.ts";
+import { planFork } from "./plan-fork/ko.ts";
 import { points } from "./points/ko.ts";
 import { researchRest } from "./research-rest/ko.ts";
 import { scheduledForm } from "./scheduled-form/ko.ts";
@@ -359,6 +360,8 @@ export const ko: Partial<Catalogue> = {
   "chat.thread.forgetNothing": "“{subject}”와(과) 일치하는 기억이 없습니다.",
   "chat.thread.forgetPreview":
     "“{subject}”을(를) 잊으면 {claims, plural, other {#개의 주장}}과 {chunks, plural, other {#개의 색인된 메모}}가 철회됩니다{hasFiles, select, true { (편집되는 파일: {files})} other {}}.",
+  "chat.thread.forgetCounts":
+    "사람 그래프에서 {graph, plural, other {#개 항목}}, 검토 대기 중인 {review, plural, other {#개 항목}}, {lessons, plural, other {#개의 학습 내용 또는 학습 줄}}, {search, plural, other {#개의 검색 항목}}도 삭제하고, 저장된 채팅과 실행 기록에서도 해당 단어를 제거합니다. 되돌릴 수 없습니다.",
   "chat.thread.forgetConfirm": "잊기",
   "chat.thread.forgot": "“{subject}”을(를) 잊었습니다.",
   "chat.thread.forgetFailed": "잊기에 실패했습니다({reason}). 변경된 것은 없습니다.",
@@ -368,6 +371,7 @@ export const ko: Partial<Catalogue> = {
   "chat.thread.exported": "이 스레드를 {format}(으)로 내보냈습니다.",
   "chat.thread.nothingRunning": "이 채팅에서 실행 중인 것이 없습니다.",
   "chat.thread.stopped": "중지되었습니다.",
+  "chat.stopped.label": "중지됨",
   "chat.runFailed.credential":
     "Psyche가 답할 수 없습니다. 모델의 API 키가 없거나 거부되었습니다. 설정 → 모델에서 추가하거나 수정하십시오.",
   "chat.runFailed.generic": "Psyche가 이 답변을 완료하지 못했습니다.",
@@ -491,6 +495,7 @@ export const ko: Partial<Catalogue> = {
   "blocks.approval.status.denied": "거부됨{hasWhen, select, true { · {when}} other {}}",
   "blocks.approval.status.declinedInChat": "거절됨 — 채팅에서 답장했습니다",
   "blocks.approval.status.expired": "만료되었습니다. 아무것도 실행되지 않았습니다.",
+  "blocks.approval.expiredLine": "만료됨 · 아무것도 실행되지 않았습니다",
   "blocks.approval.status.voidedBecause": "무효화됨: {reason}",
   "blocks.approval.status.voided": "무효화되었습니다. 인수가 변경되었습니다.",
   "blocks.approval.taint": "이 턴에서 신뢰할 수 없는 콘텐츠를 읽음",
@@ -3993,6 +3998,8 @@ export const ko: Partial<Catalogue> = {
   // Approvals wave W3 (card choices, Allowed list)
   ...approvalsW3,
   ...settingsDrill,
+  // Fork a plan (docs/design/fork-a-plan-2026.md §9)
+  ...planFork,
   ...desktopSimple,
   // Gateway-authored notices (inbox notifications, security alerts)
   ...notices,
