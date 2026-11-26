@@ -48,7 +48,7 @@ describe("Settings → Essentials", () => {
     const { onChange, onOpen } = panel();
     await user.click(screen.getByRole("radio", { name: /Manual/ }));
     expect(onChange).toHaveBeenCalledWith("permissions.mode", "manual");
-    await user.click(screen.getByRole("button", { name: "More in Model & providers" }));
+    await user.click(screen.getByRole("button", { name: "More in Models" }));
     expect(onOpen).toHaveBeenCalledWith("model");
     // The groups that only repeated another pane (sources, quiet hours, brief) are gone.
     expect(screen.queryByRole("switch", { name: "Quiet hours" })).toBeNull();
@@ -90,9 +90,9 @@ describe("Settings → Essentials", () => {
 
 describe("Settings → Essentials copy", () => {
   it("names the model in plain words, never as its raw ref", () => {
-    expect(readableModelName("anthropic/claude-sonnet-5-5")).toBe("Claude Sonnet 5 5");
+    expect(readableModelName("anthropic/claude-sonnet-5-5")).toBe("Claude Sonnet 5.5");
     panel({ model: { ref: "anthropic/claude-sonnet-5-5", label: null, ready: true } });
-    expect(screen.getByText("Claude Sonnet 5 5")).toBeTruthy();
+    expect(screen.getByText("Claude Sonnet 5.5")).toBeTruthy();
     expect(screen.queryByText("anthropic/claude-sonnet-5-5")).toBeNull();
   });
 

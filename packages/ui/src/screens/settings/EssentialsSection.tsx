@@ -5,7 +5,7 @@ import { t } from "../../i18n/core.ts";
 import { usePersona, useSlots } from "../../slots.tsx";
 import { modelLabel, providerInfoFromSummary, providersFromSettings } from "./ModelSection.tsx";
 import { MODE_OPTIONS } from "./PermissionsSection.tsx";
-import type { SettingsPaneId } from "./settings-pages.ts";
+import { pageOfPane, type SettingsPaneId } from "./settings-pages.ts";
 import {
   ErrorNotice,
   Group,
@@ -75,15 +75,24 @@ function More({
 
 /**
  * A readable name for a model ref the provider gives no label for:
- * "anthropic/claude-sonnet-5-5" reads as "Claude Sonnet 5 5".
+ * "anthropic/claude-sonnet-5-5" reads as "Claude Sonnet 5.5".
  */
 export function readableModelName(ref: string): string {
-  return ref
+  const words = ref
     .slice(ref.indexOf("/") + 1)
     .split(/[-_]/)
-    .filter((word) => word.length > 0)
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(" ");
+    .filter((word) => word.length > 0);
+  // Version digits rejoin with a dot: "5-5" is 5.5, not "5 5".
+  const parts: string[] = [];
+  for (const word of words) {
+    const last = parts[parts.length - 1];
+    if (/^\d+$/.test(word) && last !== undefined && /^\d+(\.\d+)*$/.test(last)) {
+      parts[parts.length - 1] = `${last}.${word}`;
+    } else {
+      parts.push(word.charAt(0).toUpperCase() + word.slice(1));
+    }
+  }
+  return parts.join(" ");
 }
 
 export function EssentialsPanel({
@@ -114,7 +123,7 @@ export function EssentialsPanel({
       >
         <Group
           title={t("settings.essentials.model.title")}
-          actions={<More pane="model" label={t("settings.nav.model")} onOpen={onOpen} />}
+          actions={<More pane="model" label={pageOfPane("model").label} onOpen={onOpen} />}
         >
           {model.ref === null ? (
             // The one thing that needs the owner before anything works: amber, and the one
@@ -154,7 +163,7 @@ export function EssentialsPanel({
         <Group
           title={t("settings.essentials.asks.title", { persona })}
           actions={
-            <More pane="permissions" label={t("settings.nav.permissions")} onOpen={onOpen} />
+            <More pane="permissions" label={pageOfPane("permissions").label} onOpen={onOpen} />
           }
         >
           <RadioField
@@ -172,7 +181,7 @@ export function EssentialsPanel({
 
         <Group
           title={t("settings.essentials.memory.title")}
-          actions={<More pane="learning" label={t("settings.nav.learning")} onOpen={onOpen} />}
+          actions={<More pane="learning" label={pageOfPane("learning").label} onOpen={onOpen} />}
         >
           <SwitchField
             label={t("settings.essentials.memory.remember", { persona })}
