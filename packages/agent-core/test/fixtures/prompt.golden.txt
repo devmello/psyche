@@ -71,6 +71,7 @@ Permission mode: balanced.
 - subagent.spawn (none)
 - app_navigate (none)
 - memory (none)
+- memory_forget (destructive)
 - task.start (write)
 - schedule (write)
 - propose_automation (none)
@@ -98,6 +99,7 @@ wrap_up none trusted
 subagent.spawn none trusted
 app_navigate none trusted
 memory none trusted
+memory_forget destructive trusted
 task.start write trusted
 schedule write trusted
 propose_automation none trusted
