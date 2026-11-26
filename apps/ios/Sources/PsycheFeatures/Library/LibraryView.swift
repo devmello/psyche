@@ -44,7 +44,6 @@ private struct LibraryContent: View {
             if proxy.size.width >= 560 { gridBody } else { listBody }
         }
         .navigationTitle(String(localized: "Library", bundle: .module))
-        .navigationSubtitle(model.section.pickerTitle)
         .navigationBarTitleDisplayMode(.large)
         .searchable(text: $query, prompt: String(localized: "Search Library", bundle: .module))
         .toolbar {
@@ -118,7 +117,8 @@ private struct LibraryContent: View {
                 } else if rows.isEmpty && searching {
                     ContentUnavailableView.search(text: query).listRowBackground(Color.clear)
                 } else {
-                    Section {
+                    // The section's name is a real header, not a subtitle pressed against the large title.
+                    Section(model.section.pickerTitle) {
                         ForEach(rows) { item in
                             LibraryListRow(item: item, delete: { deleting = item })
                         }
@@ -157,7 +157,8 @@ private struct LibraryContent: View {
                     } else if rows.isEmpty && searching {
                         ContentUnavailableView.search(text: query)
                     } else {
-                        LibraryGrid(items: rows, delete: { deleting = $0 })
+                        Text(model.section.pickerTitle).font(.headline).accessibilityAddTraits(.isHeader)
+                    LibraryGrid(items: rows, delete: { deleting = $0 })
                         PagedRowsEnd(
                             moreFailed: model.moreFailed, nextCursor: model.nextCursor, loadingMore: model.loadingMore,
                             label: String(localized: "Loading more files", bundle: .module),
@@ -321,9 +322,9 @@ private struct UploadRow: View {
             Text(job.name).font(.body).lineLimit(1)
             if let failure = job.failure {
                 Text(failure).font(.footnote).foregroundStyle(.secondary)
-                HStack(spacing: 16) {
-                    Button(String(localized: "Try again", bundle: .module), action: retry)
-                    Button(String(localized: "Dismiss", bundle: .module), role: .cancel, action: dismiss)
+                HStack(spacing: 8) {
+                    Button(action: retry) { Text("Try again", bundle: .module).frame(minHeight: 44) }
+                    Button(role: .cancel, action: dismiss) { Text("Dismiss", bundle: .module).frame(minHeight: 44) }
                 }
                 .buttonStyle(.borderless)
                 .font(.footnote.weight(.semibold))
@@ -333,7 +334,7 @@ private struct UploadRow: View {
         }
         .padding(.vertical, 2)
         .accessibilityElement(children: .combine)
-        .accessibilityValue(job.failure ?? "\(Int(job.progress * 100)) percent")
+        .accessibilityValue(job.failure ?? job.progress.formatted(.percent.precision(.fractionLength(0))))
     }
 }
 

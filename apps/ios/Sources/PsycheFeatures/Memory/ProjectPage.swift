@@ -296,7 +296,7 @@ struct ProjectPage: View {
                 Image(systemName: "ellipsis")
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(PsycheColor.muted)
-                    .frame(width: 36, height: 36)
+                    .frame(width: 44, height: 44)
                     .contentShape(Rectangle())
             }
             .accessibilityLabel(String(localized: "Actions for this fact", bundle: .module))
@@ -312,7 +312,9 @@ struct ProjectPage: View {
             Button { model.toggle(todo) } label: { CircleCheck(done: done).frame(width: 44, height: 44).contentShape(Rectangle()) }
                 .buttonStyle(.plain)
                 .padding(.leading, -10)
-                .accessibilityLabel(done ? "Mark \(todo.title) not done" : "Mark \(todo.title) done")
+                .accessibilityLabel(done
+                    ? String(localized: "Mark \(todo.title) not done", bundle: .module)
+                    : String(localized: "Mark \(todo.title) done", bundle: .module))
             VStack(alignment: .leading, spacing: 2) {
                 Text(todo.title)
                     .font(.psycheRow)
@@ -321,7 +323,7 @@ struct ProjectPage: View {
                 EvidenceLine([MemoryModel.displayMeta(todo, done: done)])
             }
             Spacer(minLength: 0)
-            if todo.needsYou && !done { NeedsYouDot() }
+            if todo.needsYou && !done { StatusDot(.needsYou, String(localized: "Needs you", bundle: .module), font: .caption) }
         }
         .padding(.vertical, 4)
         .padding(.horizontal, PsycheMetrics.rowPadding.leading)

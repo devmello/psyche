@@ -615,7 +615,7 @@ private struct GoalSheet: View {
                 Image(systemName: milestone.done ? "checkmark.circle.fill" : "circle")
                     .font(.title3)
                     .foregroundStyle(milestone.done ? PsycheColor.green : PsycheColor.muted)
-                    .frame(width: 36, height: 36)
+                    .frame(width: 44, height: 44)
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
@@ -635,7 +635,7 @@ private struct GoalSheet: View {
                 } label: {
                     Image(systemName: "minus.circle")
                         .foregroundStyle(PsycheColor.muted)
-                        .frame(width: 36, height: 36)
+                        .frame(width: 44, height: 44)
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
