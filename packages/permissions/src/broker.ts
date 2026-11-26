@@ -140,6 +140,7 @@ import {
   stagedSendBindingHash,
 } from "./staged-apply.ts";
 import {
+  armedAtFor,
   MemoryPermissionStore,
   type PermissionStore,
   type StoredApproval,
@@ -2598,6 +2599,7 @@ export class PsychePermissionBroker implements PermissionBroker {
       scopeGranted: null,
       decidedBy: null,
       requestedAt: new Date(now).toISOString(),
+      armedAt: armedAtFor(new Date(now).toISOString(), this.#armDelayMs),
       expiresAt: new Date(now + this.#cardTtl(input)).toISOString(),
       decidedAt: null,
       grantId: null,
@@ -4160,11 +4162,28 @@ export class PsychePermissionBroker implements PermissionBroker {
     if (nid !== undefined) {
       this.#notifications.delete(a.id);
       this.#notifier?.resolve(nid).catch(() => undefined);
+    } else if (this.#notifier !== undefined) {
+      // A card of an earlier boot: this process never held its notification id. Look it up, or the
+      // inbox keeps counting a card that is over as needing the owner.
+      void this.#resolveNotificationsOf(a.id);
     }
     const set = this.#waiters.get(a.id);
     if (set === undefined) return;
     this.#waiters.delete(a.id);
     for (const w of set) w(structuredClone(a));
+  }
+
+  async #resolveNotificationsOf(approvalId: string): Promise<void> {
+    const notifier = this.#notifier;
+    if (notifier === undefined) return;
+    try {
+      const open = await notifier.list({ unresolvedOnly: true, kind: "approval" });
+      for (const n of open) {
+        if (n.approvalId === approvalId) await notifier.resolve(n.id);
+      }
+    } catch {
+      // The card is settled either way; a notice that stays open is cosmetic.
+    }
   }
 
   awaitDecision(approvalId: string, signal?: AbortSignal): Promise<ApprovalRequest> {

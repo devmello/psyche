@@ -13,7 +13,7 @@ export const approvals = {
   "approvals.effect.write": "Changes something",
   "approvals.effect.read": "Reads information",
   "approvals.effect.none": "Only looks",
-  "approvals.effect.untrusted": "After reading untrusted content",
+  "approvals.effect.untrusted": "Psyche read something from outside first",
 
   "approvals.expired": "Expired. Nothing was done. Ask again if you still want it.",
   "approvals.void.changed":
@@ -84,4 +84,19 @@ export const approvals = {
   "approvals.effect.publishes": "Publishes your commits",
   "approvals.effect.unknown": "Needs your OK",
   "approvals.inbox.approveWith": "Approve, {label}: {summary}",
+  "approvals.plain.run":
+    "{who} wants to run `{command}`{hasFolder, select, true { in {folder}} other {}}.",
+  "approvals.plain.save":
+    "{who} wants to {mode, select, create {save} other {change}} {file}{hasFolder, select, true { in {folder}} other {}}.",
+  "approvals.plainWhy.commands": "You asked to approve commands before they run.",
+  "approvals.plainWhy.yourRule": "You set a rule to ask first.",
+  "approvals.plainWhy.noSandbox": "The safe sandbox isn’t set up yet.",
+  "approvals.plainWhy.protectedFiles": "These files are protected, so Psyche always asks.",
+  "approvals.plainWhy.push": "Publishing your work always needs your OK.",
+  "approvals.plainWhy.machineFiles": "Changing files on another computer always needs your OK.",
+  "approvals.plainWhy.unknownTool": "This tool comes from a connector you haven’t approved yet.",
+  "approvals.plainWhy.connector": "This connector asks before it acts.",
+  "approvals.plainWhy.outsideNew": "Psyche read something from outside, and this is new to it.",
+  "approvals.plainWhy.outsideCommand":
+    "Psyche read something from outside, and this command could reach beyond its folder.",
 } as const;

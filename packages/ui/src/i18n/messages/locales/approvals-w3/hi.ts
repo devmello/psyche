@@ -10,7 +10,7 @@ export const approvalsW3: Partial<Catalogue> = {
   "approvals.effect.write": "कुछ बदलता है",
   "approvals.effect.read": "जानकारी पढ़ता है",
   "approvals.effect.none": "सिर्फ़ देखता है",
-  "approvals.effect.untrusted": "अविश्वसनीय सामग्री पढ़ने के बाद",
+  "approvals.effect.untrusted": "Psyche ने पहले बाहर से कुछ पढ़ा",
   "approvals.expired": "समय सीमा खत्म हो गई। कुछ नहीं किया गया। अगर अब भी चाहिए तो दोबारा कहें।",
   "approvals.void.changed": "आपके जवाब देने से पहले यह बदल गया, इसलिए अलग रख दिया गया। कुछ नहीं किया गया।",
   "approvals.void.runCancelled": "कार्य रुक गया, इसलिए रद्द किया गया। कुछ नहीं किया गया।",

@@ -10,7 +10,7 @@ export const approvalsW3: Partial<Catalogue> = {
   "approvals.effect.write": "무언가를 변경해요",
   "approvals.effect.read": "정보를 읽어요",
   "approvals.effect.none": "보기만 해요",
-  "approvals.effect.untrusted": "신뢰할 수 없는 내용을 읽은 뒤",
+  "approvals.effect.untrusted": "먼저 외부 내용을 읽었어요",
   "approvals.expired": "만료되었어요. 아무것도 실행되지 않았어요. 아직 필요하면 다시 요청하세요.",
   "approvals.void.changed": "답하기 전에 내용이 바뀌어 보류되었어요. 아무것도 실행되지 않았어요.",
   "approvals.void.runCancelled": "작업이 멈춰서 취소되었어요. 아무것도 실행되지 않았어요.",
