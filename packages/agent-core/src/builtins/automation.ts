@@ -61,17 +61,20 @@ export const ProposeAutomationInput = Type.Object(
   { additionalProperties: false },
 );
 
-/** The turn's sources, deduped; tainted with none recorded still carries one. */
-function dedupeTaint(sources: readonly TaintSource[] | undefined): TaintSource[] {
-  const out: TaintSource[] = [];
-  const seen = new Set<string>();
+/**
+ * The turn's taint as the proposal block carries it: kinds only (no origin, no sender: the block
+ * reaches every client), deduped, at most 32 entries to fit the schema; tainted with none
+ * recorded still carries one. The run's own sources stay on the Gateway.
+ */
+export function proposalTaint(sources: readonly TaintSource[] | undefined): TaintSource[] {
+  const kinds: string[] = [];
   for (const s of sources ?? []) {
-    const key = `${s.sourceKind}:${s.sender ?? ""}:${s.origin ?? ""}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    out.push({ ...s });
+    const kind = s.sourceKind.slice(0, 80);
+    if (!kinds.includes(kind)) kinds.push(kind);
   }
-  return out.length > 0 ? out : [{ sourceKind: "turn" }];
+  if (kinds.length === 0) return [{ sourceKind: "turn" }];
+  const out = kinds.slice(0, 31).map((sourceKind) => ({ sourceKind }));
+  return kinds.length > 31 ? [...out, { sourceKind: "more" }] : out;
 }
 
 function slug(title: string, salt: string): string {
@@ -126,7 +129,7 @@ export function proposeAutomationTool(options: {
         ...(ctx.taint
           ? {
               tainted: true,
-              taintSources: dedupeTaint(ctx.taintSources),
+              taintSources: proposalTaint(ctx.taintSources),
             }
           : {}),
       };

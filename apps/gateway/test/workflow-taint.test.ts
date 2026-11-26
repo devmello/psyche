@@ -1,6 +1,7 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { proposeAutomationTool } from "@psyche/agent-core";
 import type { Automation, DailyWorkflowProposal, Task } from "@psyche/protocol";
 import { FakeModelProvider } from "@psyche/testing";
 import { afterEach, describe, expect, it } from "vitest";
@@ -99,5 +100,61 @@ describe("daily.workflows.confirm taint, end to end", () => {
     expect(byGoal("news-dirty-01")[0]?.taintSources).toEqual([
       { sourceKind: "web.fetch", origin: "https://example.com/a" },
     ]);
+  }, 60_000);
+
+  it("a proposal the real tool made from a long-origin, many-source turn confirms and runs tainted", async () => {
+    home = mkdtempSync(join(tmpdir(), "psyche-workflow-taint-"));
+    composed = await composeGateway({
+      logger: silentLogger,
+      retentionIntervalMs: 0,
+      background: false,
+      config: { home, port: 0, dbPath: join(home, "psyche.db"), webRoot: null },
+      model: { provider: new FakeModelProvider(), model: "fake/model" },
+    });
+    const owner = await adminClient(composed.gateway);
+    clients.push(owner);
+    const blocks: { proposal: DailyWorkflowProposal }[] = [];
+    const tool = proposeAutomationTool({ timeZone: "UTC", newId: () => "long01" });
+    const sources = [
+      { sourceKind: "web.fetch", origin: `https://example.com/${"a".repeat(400)}` },
+      ...Array.from({ length: 40 }, (_, i) => ({ sourceKind: `read_file${i}`, origin: `/f/${i}` })),
+    ];
+    await tool.run?.(
+      {
+        title: "News",
+        notify: "notification",
+        obstacles: [],
+        runs: [
+          {
+            name: "Morning",
+            kind: "cron",
+            schedule: "0 9 * * *",
+            humanSchedule: "Every day at 9:00 AM",
+            prompt: "Summarise",
+            steps: ["Read"],
+            approvals: [],
+          },
+        ],
+      } as never,
+      {
+        threadId: "t1",
+        taint: true,
+        taintSources: sources,
+        turn: { emitBlock: (b: { proposal: DailyWorkflowProposal }) => blocks.push(b) },
+      } as never,
+    );
+    const proposal = blocks[0]?.proposal as DailyWorkflowProposal;
+    expect(JSON.stringify(proposal)).not.toContain("example.com");
+    const { automations } = await owner.call<{ automations: Automation[] }>(
+      "daily.workflows.confirm",
+      { proposal },
+      ik(),
+    );
+    expect(automations).toHaveLength(1);
+    expect(automations[0]?.taintSources?.length).toBe(32);
+    await owner.call("automations.run", { automationId: automations[0]?.id }, ik());
+    const { tasks } = await owner.call<{ tasks: Task[] }>("tasks.list", {});
+    const task = tasks.find((t) => t.goal.includes("long01"));
+    expect(task?.taint).toBe(true);
   }, 60_000);
 });

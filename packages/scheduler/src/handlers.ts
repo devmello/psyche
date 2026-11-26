@@ -40,7 +40,7 @@ export function createAutomationHandlers(
       automations: await scheduler.list(p.kind === undefined ? {} : { kind: p.kind }),
     }),
     "automations.create": async (p) => {
-      if (/^\s*\[psyche\b/i.test(p.prompt)) {
+      if (/^\s*(\[psyche|@psyche\/)/i.test(p.prompt)) {
         throw new PsycheError(
           "invalid_params",
           "that prompt is reserved for Psyche's own routines",

@@ -1,4 +1,6 @@
+import { validateParams } from "@psyche/protocol";
 import { describe, expect, it } from "vitest";
+import { proposalTaint } from "../src/builtins/automation.ts";
 import { proposeAutomationTool, scheduleTool } from "../src/index.ts";
 
 /** propose_automation from a tainted turn carries the turn's sources on the block. */
@@ -35,7 +37,10 @@ describe("propose_automation taint", () => {
     const s = { sourceKind: "web.fetch", origin: "https://example.com/a" };
     const { blocks, run } = propose({ taint: true, taintSources: [s, { ...s }] });
     await run();
-    expect(blocks[0]?.proposal).toMatchObject({ tainted: true, taintSources: [s] });
+    expect(blocks[0]?.proposal).toMatchObject({
+      tainted: true,
+      taintSources: [{ sourceKind: "web.fetch" }],
+    });
   });
 
   it("tainted with no recorded source still carries one", async () => {
@@ -49,6 +54,34 @@ describe("propose_automation taint", () => {
     await run();
     expect(blocks[0]?.proposal).not.toHaveProperty("tainted");
     expect(blocks[0]?.proposal).not.toHaveProperty("taintSources");
+  });
+});
+
+describe("proposal taint fits the confirm schema and leaks no address", () => {
+  it("a 400-char origin and 40 distinct sources: kinds only, capped, and the confirm params validate", async () => {
+    const sources = [
+      {
+        sourceKind: "web.fetch",
+        origin: `https://example.com/${"a".repeat(400)}`,
+        sender: "x@y.z",
+      },
+      ...Array.from({ length: 40 }, (_, i) => ({ sourceKind: `k${i}`, origin: `/p/${i}` })),
+      { sourceKind: "z".repeat(200) },
+    ];
+    const { blocks, run } = propose({ taint: true, taintSources: sources });
+    await run();
+    const proposal = blocks[0]?.proposal as { taintSources: Record<string, unknown>[] };
+    expect(proposal.taintSources).toHaveLength(32);
+    expect(proposal.taintSources.at(-1)).toEqual({ sourceKind: "more" });
+    for (const s of proposal.taintSources) expect(Object.keys(s)).toEqual(["sourceKind"]);
+    expect(JSON.stringify(proposal)).not.toContain("example.com");
+    expect(JSON.stringify(proposal)).not.toContain("x@y.z");
+    expect(() => validateParams("daily.workflows.confirm", { proposal })).not.toThrow();
+  });
+
+  it("kinds are cut to 80 characters and deduped", () => {
+    const out = proposalTaint([{ sourceKind: "z".repeat(200) }, { sourceKind: "z".repeat(90) }]);
+    expect(out).toEqual([{ sourceKind: "z".repeat(80) }]);
   });
 });
 
@@ -70,16 +103,19 @@ describe("schedule tool and reserved markers", () => {
     prompt,
   });
 
-  it.each(["[psyche:feed-brief daily]\nmore", "  [PSYCHE:goal-checkin g]", "[psyche]"])(
-    "refuses %j",
-    async (prompt) => {
-      const made: unknown[] = [];
-      await expect(
-        tool(made).run?.(params(prompt) as never, { threadId: "t", taint: true } as never),
-      ).rejects.toMatchObject({ code: "invalid_params" });
-      expect(made).toHaveLength(0);
-    },
-  );
+  it.each([
+    "[psyche:feed-brief daily]\nmore",
+    "  [PSYCHE:goal-checkin g]",
+    "[psyche]",
+    "@psyche/memory:dreaming",
+    " @Psyche/teaching:weekly",
+  ])("refuses %j", async (prompt) => {
+    const made: unknown[] = [];
+    await expect(
+      tool(made).run?.(params(prompt) as never, { threadId: "t", taint: true } as never),
+    ).rejects.toMatchObject({ code: "invalid_params" });
+    expect(made).toHaveLength(0);
+  });
 
   it("accepts an ordinary prompt, and one that only mentions the word", async () => {
     const made: unknown[] = [];

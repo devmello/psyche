@@ -135,12 +135,14 @@ describe("automations.create and reserved job markers", () => {
       prompt,
     } as never);
   };
-  it.each(["[psyche:feed-brief daily]\nanything", "  [PSYCHE:goal-checkin g1]"])(
-    "refuses %j",
-    async (prompt) => {
-      await expect(make(prompt)).rejects.toMatchObject({ code: "invalid_params" });
-    },
-  );
+  it.each([
+    "[psyche:feed-brief daily]\nanything",
+    "  [PSYCHE:goal-checkin g1]",
+    "@psyche/memory:dreaming",
+    "@psyche/teaching:weekly",
+  ])("refuses %j", async (prompt) => {
+    await expect(make(prompt)).rejects.toMatchObject({ code: "invalid_params" });
+  });
   it("accepts the same text when it is not the first thing in the prompt", async () => {
     await expect(make("Remind me about [psyche:x y] later")).resolves.toBeDefined();
   });
