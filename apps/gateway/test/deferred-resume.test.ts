@@ -72,7 +72,6 @@ function setup(
       clock,
       approvers: {
         device: async () => ({ scopes: ["operator.read", "operator.approvals"] }),
-        isOwnerSender: async () => false,
       },
       // On the Gateway database, so a second broker on it is a restart.
       store: new SqlitePermissionStore(db.sqlite),

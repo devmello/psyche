@@ -54,14 +54,6 @@ import {
   sanitizeDetails,
   sanitizeDisplay,
 } from "./cards.ts";
-import {
-  CHANNEL_PAIRING_WINDOW_MS,
-  CHANNEL_REPLIES_PER_MINUTE,
-  CHANNEL_REPLY_TTL_MS,
-  CHANNEL_REPLY_WINDOW_MS,
-  type ChannelConversationLookup,
-  type ChannelReplyInput,
-} from "./channel-reply.ts";
 import { type ActionClassifier, RulesClassifier } from "./classifier.ts";
 import { floorClass } from "./connector-matrix.ts";
 import {
@@ -243,8 +235,6 @@ export interface ApproverDirectory {
   device(
     deviceId: string,
   ): Promise<{ scopes: readonly DeviceScope[]; revoked?: boolean; role?: string } | undefined>;
-  /** True only for `commands.ownerAllowFrom` identities, never for merely allowlisted senders. */
-  isOwnerSender(channel: string, senderId: string): Promise<boolean>;
 }
 
 /** Verifies a WebAuthn / helper Touch ID assertion over `presenceChallenge(...)` (design-04). */
@@ -348,8 +338,6 @@ export interface PermissionBrokerOptions {
   newId?: (prefix: string) => string;
   /** Records grant revocations outside the backup scope (design-26). */
   revocations?: RevocationLedger;
-  /** The channel layer's view of its conversations; without it no reply authority is issued. */
-  channelConversations?: ChannelConversationLookup;
   /**
    * Folder access the agent asks for (`folder_access`, security §3.5). `env` names the sensitive
    * roots a pick is refused under; `persist` stores an `always` grant (Settings → File access).
@@ -555,7 +543,6 @@ export class PsychePermissionBroker implements PermissionBroker {
   readonly #failureTimes = new Map<string, number[]>();
   /** The `decidedBy` objects of calls the Gateway vouched for as the owner's own Host app. */
   readonly #localBy = new WeakSet<object>();
-  readonly #channelConversations: ChannelConversationLookup | undefined;
   readonly #replyTimes = new Map<string, number[]>();
   readonly #folderAccess: PermissionBrokerOptions["folderAccess"];
   /** The last place found for a vanished Settings folder (`folderReconnectOffer`). */
@@ -617,7 +604,6 @@ export class PsychePermissionBroker implements PermissionBroker {
     this.#sameAutomation = options.sameAutomation;
     this.#onEvent = options.onEvent;
     this.#revocations = options.revocations;
-    this.#channelConversations = options.channelConversations;
     this.#folderAccess = options.folderAccess;
     this.#spaces = options.spaces;
     this.#hostProgram = options.hostProgram ?? {};
@@ -2884,74 +2870,53 @@ export class PsychePermissionBroker implements PermissionBroker {
       );
     }
 
-    // The answerer must match the token's surface and be an approver (security §3.7, design-20).
-    const chat = isChat(token.surface);
-    if (chat) {
-      if (!("channel" in by) || token.surface.split(":")[0] !== by.channel) {
-        return this.#reject(
-          rec,
-          id,
-          by,
-          "surface_mismatch",
-          "forbidden",
-          "a chat token is answered from that chat",
-        );
-      }
-      if (a.deviceOnly)
-        return this.#reject(
-          rec,
-          id,
-          by,
-          "device_only",
-          "forbidden",
-          "device-only approvals cannot be answered from chat",
-        );
-      if (!(await this.#approvers.isOwnerSender(by.channel, by.senderId))) {
-        return this.#reject(
-          rec,
-          id,
-          by,
-          "not_owner",
-          "forbidden",
-          "only the owner's identity answers approvals",
-        );
-      }
-    } else {
-      if (!("deviceId" in by))
-        return this.#reject(
-          rec,
-          id,
-          by,
-          "surface_mismatch",
-          "forbidden",
-          "a device token is answered by a device",
-        );
-      if (by.surface !== undefined && by.surface !== token.surface) {
-        return this.#reject(
-          rec,
-          id,
-          by,
-          "surface_mismatch",
-          "forbidden",
-          "the answer came from another surface",
-        );
-      }
-      const device = await this.#approvers.device(by.deviceId);
-      if (
-        device === undefined ||
-        device.revoked === true ||
-        device.role === "node" ||
-        !device.scopes.includes("operator.approvals")
-      ) {
-        return this.#reject(
-          rec,
-          id,
-          by,
-          "not_approver",
-          "forbidden",
-          "the device lacks operator.approvals",
-        );
-      }
+    // The answerer must be a paired device on the token's surface (security §3.7, design-20).
+    // Chat channels were removed (2026-11-25): a token issued to a chat surface by an older
+    // Gateway is answered nowhere, and an answer that is not a device's is refused.
+    if (isChat(token.surface)) {
+      return this.#reject(
+        rec,
+        id,
+        by,
+        "surface_mismatch",
+        "forbidden",
+        "a chat token can no longer be answered",
+      );
+    }
+    if (!("deviceId" in by))
+      return this.#reject(
+        rec,
+        id,
+        by,
+        "surface_mismatch",
+        "forbidden",
+        "a device token is answered by a device",
+      );
+    if (by.surface !== undefined && by.surface !== token.surface) {
+      return this.#reject(
+        rec,
+        id,
+        by,
+        "surface_mismatch",
+        "forbidden",
+        "the answer came from another surface",
+      );
+    }
+    const device = await this.#approvers.device(by.deviceId);
+    if (
+      device === undefined ||
+      device.revoked === true ||
+      device.role === "node" ||
+      !device.scopes.includes("operator.approvals")
+    ) {
+      return this.#reject(
+        rec,
+        id,
+        by,
+        "not_approver",
+        "forbidden",
+        "the device lacks operator.approvals",
+      );
     }
 
     const scope: GrantScope = input.scope ?? "once";
@@ -2965,17 +2930,6 @@ export class PsychePermissionBroker implements PermissionBroker {
           "invalid_params",
           `scope ${scope} not offered`,
         );
-      const chatScopes = this.#policy.config.approvals?.chatScopes ?? ["once"];
-      if (chat && !chatScopes.includes(scope)) {
-        return this.#reject(
-          rec,
-          id,
-          by,
-          "chat_scope",
-          "invalid_params",
-          `chat answers ${chatScopes.join(" / ")} only`,
-        );
-      }
       // "Approve all routine ones" is checked here, not in a client filter: a bulk answer lands
       // only on a card the broker itself classed routine (no payment, no device-only card).
       if (
@@ -3061,7 +3015,6 @@ export class PsychePermissionBroker implements PermissionBroker {
       const offer = (a.details as { trustSite?: { origin?: unknown; subdomains?: unknown } })
         .trustSite;
       if (
-        chat ||
         scope !== "once" ||
         offer === undefined ||
         typeof offer.origin !== "string" ||
@@ -3085,7 +3038,6 @@ export class PsychePermissionBroker implements PermissionBroker {
     if (input.hostProgram === true && input.decision === "approve") {
       const offer = (a.details as { hostProgram?: { executable?: unknown } }).hostProgram;
       if (
-        chat ||
         scope !== "once" ||
         a.taint ||
         a.kind !== "exec_host" ||
@@ -3111,7 +3063,6 @@ export class PsychePermissionBroker implements PermissionBroker {
     if (input.inSpace === true && input.decision === "approve") {
       const offer = (a.details as { space?: { id?: unknown; name?: unknown } }).space;
       if (
-        chat ||
         scope !== "once" ||
         a.taint ||
         a.kind !== "folder_access" ||
@@ -3359,7 +3310,7 @@ export class PsychePermissionBroker implements PermissionBroker {
     }
     await this.#log(
       "approval.decided",
-      { ...actorOf(by, token.surface), ...(chat ? {} : { scope: "operator.approvals" }) },
+      { ...actorOf(by, token.surface), scope: "operator.approvals" },
       {
         approvalId: fa.id,
         ...(fa.requestedBy.taskId == null ? {} : { taskId: fa.requestedBy.taskId }),
@@ -4283,176 +4234,6 @@ export class PsychePermissionBroker implements PermissionBroker {
       );
       this.#settled(a, "approval.expired");
     }
-  }
-
-  /**
-   * A system-decided `message_send` approval (scope `once`, `decidedBy {channel, senderId}`) for
-   * one channel send into a conversation the channel's policy lets Psyche answer: a reply to the
-   * routed sender who just wrote there, a pairing code to an unknown sender who just wrote, or an
-   * approval card into the owner's own direct conversation. Refuses (`forbidden`) otherwise.
-   * Never shown as a card; every issue and refusal is audited.
-   */
-  async authorizeChannelReply(input: ChannelReplyInput): Promise<ApprovalRequest> {
-    this.#sweep();
-    const { turn } = input;
-    const subject = {
-      channel: input.channel,
-      account: input.account,
-      ...(turn === undefined ? {} : { runId: turn.context.runId, threadId: turn.context.threadId }),
-    };
-    const refuse = async (reason: string, message: string, rule?: string): Promise<never> => {
-      await this.#log("approval.channel_reply_refused", { type: "system" }, subject, {
-        reason,
-        purpose: input.purpose,
-        ...(rule === undefined ? {} : { rule }),
-        ...(turn === undefined ? {} : { taint: turn.context.taint }),
-      });
-      return fail("forbidden", message, { reason, ...(rule === undefined ? {} : { rule }) });
-    };
-    const lookup = this.#channelConversations;
-    if (lookup === undefined) {
-      return refuse("no_channel_policy", "no channel conversations are known to the broker");
-    }
-    const conv = await lookup({
-      channel: input.channel,
-      account: input.account,
-      conversation: input.recipient,
-    });
-    if (conv === undefined) {
-      return refuse("unknown_conversation", "nobody wrote in that conversation");
-    }
-    const now = this.clock.now();
-    const age = now - conv.lastInboundAt;
-    switch (input.purpose) {
-      case "reply":
-        if (conv.allows !== "reply") {
-          return refuse("sender_not_allowed", "the channel's policy does not answer that sender");
-        }
-        if (age > CHANNEL_REPLY_WINDOW_MS) {
-          return refuse("stale_conversation", "the last message there is too old to answer");
-        }
-        if (turn !== undefined) {
-          // Only the conversation the request came from is not a new target (security §3.6);
-          // the agent writing anywhere else goes through `decide` and asks.
-          if (turn.requestRecipient !== input.recipient) {
-            return turn.context.taint
-              ? refuse("taint_new_target", "a tainted turn cannot send to a new conversation")
-              : refuse("not_requesting_conversation", "replies go only to the requesting chat");
-          }
-          const { decision } = await this.engine.evaluate(
-            {
-              tool: "channel.reply",
-              kind: "message_send",
-              sideEffect: "destructive",
-              targetKind: "recipient",
-              target: { kind: "recipient", value: input.recipient },
-              params: { channel: input.channel, recipient: input.recipient },
-              paramsHash: input.bodySha256,
-              binding: {
-                channel: input.channel,
-                account: input.account,
-                recipient: input.recipient,
-                bodySha256: input.bodySha256,
-              },
-            },
-            { ...turn.context, newTarget: false },
-          );
-          // Hard prohibitions, deny rules, plan mode and requester limits refuse; the
-          // destructive default `ask` is what this authority answers.
-          if (decision.decision === "deny") {
-            return refuse("policy_denied", decision.reason ?? "denied by policy", decision.rule);
-          }
-          if (decision.rule.startsWith("taint:")) {
-            return refuse("taint_new_target", decision.reason ?? "tainted", decision.rule);
-          }
-        }
-        break;
-      case "pairing_code":
-        if (turn !== undefined)
-          return refuse("unexpected_turn", "pairing codes are not agent text");
-        if (conv.allows !== "pairing_code" || age > CHANNEL_PAIRING_WINDOW_MS) {
-          return refuse("not_pairing", "no fresh pairing request in that conversation");
-        }
-        break;
-      case "approval_card":
-        if (turn !== undefined)
-          return refuse("unexpected_turn", "approval cards are not agent text");
-        if (!conv.owner || conv.isGroup) {
-          return refuse("not_owner_conversation", "approval cards go only to the owner's own chat");
-        }
-        break;
-      default:
-        return refuse("unknown_purpose", "unknown channel send purpose");
-    }
-    const key = `${input.channel}|${input.account}|${input.recipient}`;
-    const times = (this.#replyTimes.get(key) ?? []).filter((t) => t > now - 60_000);
-    if (times.length >= CHANNEL_REPLIES_PER_MINUTE) {
-      await this.#log("approval.channel_reply_refused", { type: "system" }, subject, {
-        reason: "rate_limited",
-        purpose: input.purpose,
-      });
-      return fail("rate_limited", "too many sends to that conversation");
-    }
-    times.push(now);
-    this.#replyTimes.set(key, times);
-    const binding = bindingFor("message_send", {
-      channel: input.channel,
-      account: input.account,
-      recipient: input.recipient,
-      bodySha256: input.bodySha256,
-    });
-    if (input.bindingHash !== undefined && input.bindingHash !== binding.bindingHash) {
-      return refuse("binding_mismatch", "the binding does not match the send");
-    }
-    const issued = this.#issue({
-      kind: "message_send",
-      summary: `Reply on ${input.channel}`,
-      details: { channel: input.channel, account: input.account, purpose: input.purpose },
-      bindingHash: binding.bindingHash,
-      grantKey: binding.grantKey,
-      requestedBy: {
-        runId: turn?.context.runId ?? null,
-        taskId: turn?.context.taskId ?? null,
-        threadId: turn?.context.threadId ?? null,
-        agent: `channel:${input.channel}`,
-      },
-      sideEffect: "write",
-      surfaces: ["desktop"],
-      scopesOffered: ["once"],
-      taint: turn?.context.taint === true,
-      ttlMs: CHANNEL_REPLY_TTL_MS,
-    });
-    const id = issued.approval.id;
-    const at = new Date(now).toISOString();
-    const decided = this.#store.transaction(() => {
-      const rec = this.#store.getApproval(id) as StoredApproval;
-      rec.approval.status = "approved";
-      rec.approval.scopeGranted = "once";
-      rec.approval.decidedBy = { channel: input.channel, senderId: conv.senderId };
-      rec.approval.decidedAt = at;
-      // Nobody answers a system-decided approval: its tokens are spent at birth.
-      for (const t of rec.tokens) t.usedAt = at;
-      this.#store.updateApproval(rec);
-      return rec.approval;
-    });
-    this.#timers.get(id)?.();
-    this.#timers.delete(id);
-    await this.#log(
-      "approval.channel_reply",
-      { type: "channel" },
-      { approvalId: id },
-      {
-        ...subject,
-        purpose: input.purpose,
-        senderId: conv.senderId,
-        bindingHash: binding.bindingHash,
-        ...(turn === undefined
-          ? {}
-          : { taint: turn.context.taint, mode: turn.context.permissionMode }),
-        expiresAt: decided.expiresAt,
-      },
-    );
-    return structuredClone(decided);
   }
 
   /**

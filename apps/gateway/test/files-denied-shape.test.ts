@@ -39,7 +39,6 @@ it("a denied read_file is stored as blocked + folder:not_granted + the path targ
     armDelayMs: 0,
     approvers: {
       device: async () => ({ scopes: ["operator.read", "operator.approvals"] }),
-      isOwnerSender: async () => false,
     },
   });
   const provider = new FakeModelProvider();

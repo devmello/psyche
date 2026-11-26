@@ -24,7 +24,6 @@ function rig() {
     clock,
     approvers: {
       device: async (id) => (id === "dev_mac" ? { scopes: ["operator.approvals"] } : undefined),
-      isOwnerSender: async () => false,
     },
   });
   const ran: Ran[] = [];

@@ -109,7 +109,6 @@ beforeEach(() => {
     armDelayMs: 0,
     approvers: {
       device: async () => ({ scopes: ["operator.read", "operator.approvals"] }),
-      isOwnerSender: async () => false,
     },
     folderAccess: {
       env: () => ({ home, psycheHome: join(home, ".psyche") }),

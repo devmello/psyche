@@ -292,7 +292,6 @@ export class Stack {
     this.broker = createPermissionBroker({
       approvers: {
         device: async (id) => devices.find((d) => d.id === id),
-        isOwnerSender: async () => false,
       },
       store,
       audit: this.audit,

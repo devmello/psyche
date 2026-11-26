@@ -112,7 +112,6 @@ async function rig() {
     clock,
     approvers: {
       device: async (id) => (id === "dev_owner" ? { scopes: ["operator.approvals"] } : undefined),
-      isOwnerSender: async () => false,
     },
   });
   const request = broker.requestApproval.bind(broker);

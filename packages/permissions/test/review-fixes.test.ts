@@ -247,7 +247,6 @@ describe("review fixes", () => {
           await slow;
           return { scopes: ["operator.approvals"] };
         },
-        isOwnerSender: async () => false,
       },
     });
     const d = await h.broker.decide(call("calendar.create", "write"), CTX);

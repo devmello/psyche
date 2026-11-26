@@ -177,8 +177,6 @@ import {
   settingChange,
   toolEffectChange,
 } from "./changes.ts";
-import { ChannelConversations } from "./channel-conversations.ts";
-import { channelCapabilityProvider } from "./channels.ts";
 import { type ComposedComputer, composeComputer } from "./computer.ts";
 import { CONNECTOR_MATRIX_PREFIX } from "./connector-matrix.ts";
 import { macHelper } from "./connectors.ts";
@@ -409,7 +407,7 @@ export interface ComposeOptions
   /** Compaction policy for the loop (tests lower the threshold to exercise the memory flush). */
   compaction?: Partial<CompactionPolicy>;
   /**
-   * Subsystems mounted on the composed services (INT-2: browser, connectors, channels). Each
+   * Subsystems mounted on the composed services (INT-2: browser, connectors). Each
    * returns handlers, tools (registered through `services.tools`) and start / stop hooks; a
    * part with a `relay` delivers approvals beyond the in-app surfaces (chat, the Mac helper).
    */
@@ -803,8 +801,6 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   // The localhost rule (security §3.10) needs OS probes a part supplies (the browser's dev
   // preview); until one does, no loopback origin is the owner's project.
   let localProject: LocalProjectVerifier = DENY_ALL_LOOPBACK;
-  // Inbound channel decisions (filled by the channels part) back the broker's reply authority.
-  const channelConversations = new ChannelConversations();
   const attention = new OwnerAttention(() => clock.now());
   // `Always allow` on a folder request lands in Settings → File access (permissions.policy.folders).
   const persistFolder = async (entry: FolderGrantEntry) => {
@@ -905,7 +901,6 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       recordRef: recordFolderRef,
       repoint: repointFolder,
     },
-    channelConversations: (ref) => channelConversations.get(ref),
     // Spaces S2: "Allow in this Space" and the Space folders a run in a Space may use.
     spaces: spaceFolderSource(db, (spaceId) =>
       publish("space.updated", { spaceId, changed: ["folders"] }),
@@ -924,13 +919,6 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
           scopes: viaPart && authz.ok ? [...scopes, "operator.approvals" as const] : scopes,
           ...(d.revokedAt || !authz.ok ? { revoked: true } : {}),
         };
-      },
-      // Channel owners (S10) come from the channels part, when one is mounted.
-      async isOwnerSender(channel, senderId) {
-        for (const r of relays) {
-          if ((await r.isOwnerSender(channel, senderId)) === true) return true;
-        }
-        return false;
       },
     },
     // A phone or tablet taps a device-only card on its own `device:<deviceId>` surface (a plain tap,
@@ -1526,7 +1514,6 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     broker: executorBroker,
     rawBroker,
     notificationActions,
-    channelConversations,
     attention,
     audit,
     notifier,
@@ -1947,7 +1934,6 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       ...(people === undefined ? [] : [people.recall]),
       memoryRecall.recall,
       artifactContextProvider(db),
-      channelCapabilityProvider(db),
       automationIntentProvider(),
     ],
     contextLimits: context.contextLimits,
@@ -2161,8 +2147,6 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     audit,
     // Calendar changes from the Host's helper (`calendar.watch`) for calendar.changed automations.
     calendarHelper: macHelper(() => gatewayRef ?? undefined),
-    channelSurfaces: () =>
-      relays.flatMap((r) => r.surfaces()).filter((x) => x.startsWith("imessage:")),
     learned: () => everything.learnedYesterday(),
     comingUp: () => everything.comingUp(),
     // The brief also posts any new nudge cards, so the Feed and the brief agree.
@@ -3265,15 +3249,6 @@ export {
   composeBrowser,
 } from "./browser.ts";
 export { CallContexts } from "./call-context.ts";
-export {
-  type ChannelsSetup,
-  type ComposedChannels,
-  channelCapabilityProvider,
-  channelsSetupFromEnv,
-  composeChannels,
-  type TelegramSetup,
-  turnText,
-} from "./channels.ts";
 export { composeCoding, hostGit } from "./coding.ts";
 export { type ComputerDeps, type ComputerUse, createComputerUse } from "./computer.ts";
 export {
@@ -3291,7 +3266,6 @@ export {
 } from "./helper.ts";
 export {
   IndexedQuarantineWriter,
-  indexedChannelLibrary,
   kindOfMime,
   type LibrarySetup,
   libraryHandlers,
@@ -3384,10 +3358,9 @@ function announcing<B extends PermissionBroker>(
 }
 
 /**
- * Approvals also go to the owner's chat surfaces (S10 `ownerSurfaces`, `deliverApproval`) and
- * to the Mac helper's notifications. The broker drops chat surfaces from device-only kinds
- * itself (security §3.7), and the channel service refuses ineligible kinds, so delivery is
- * best-effort and never blocks the request.
+ * Approvals also go to the Mac helper's notifications (a part's relay). Delivery is best-effort
+ * and never blocks the request. Chat channels are gone (owner, 2026-11-25): approvals reach only
+ * the owner's own devices.
  */
 function withRelay<B extends PermissionBroker>(
   broker: B,

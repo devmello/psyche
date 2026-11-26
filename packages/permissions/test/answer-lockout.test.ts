@@ -331,7 +331,7 @@ describe("answer lockout counts guessing only", () => {
   });
 
   it("a chat sender cannot claim to be local either", async () => {
-    const h = makeBroker({ approvers: approvers({ ...devices }, ["telegram:owner-1"]) });
+    const h = makeBroker({ approvers: approvers({ ...devices }) });
     const issued = await request(h, write());
     h.clock.advance(500);
     const chat = { channel: "telegram", senderId: "owner-1" } as never;

@@ -29,11 +29,9 @@ export function approvers(
     dev_reader: { scopes: ["operator.read"] },
     dev_node: { scopes: ["node", "operator.approvals"], role: "node" },
   },
-  owners: string[] = ["telegram:owner-1"],
 ): ApproverDirectory {
   return {
     device: async (id) => devices[id],
-    isOwnerSender: async (channel, sender) => owners.includes(`${channel}:${sender}`),
   };
 }
 

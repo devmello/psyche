@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { defineTool, type TurnToolContext } from "@psyche/agent-core";
-import { getSetting, getThread, listAllMessages } from "@psyche/db";
+import { appendMessage, getSetting, getThread, listAllMessages } from "@psyche/db";
 import { parseLearned, readHeader } from "@psyche/memory";
 import { appCap } from "@psyche/permissions";
 import {
@@ -42,7 +42,6 @@ import { type Static, Type } from "@sinclair/typebox";
 import { Value } from "@sinclair/typebox/value";
 import type { Call, HandlerDef } from "../context.ts";
 import type { Gateway } from "../server.ts";
-import { noteHeldMessage } from "./channels.ts";
 import { COMPUTER_USE_APPS } from "./computer-settings.ts";
 import {
   POINTS_PLAN_MAX_OUTPUT_TOKENS,

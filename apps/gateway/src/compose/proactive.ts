@@ -164,8 +164,6 @@ export interface ProactiveSetup {
   };
   /** The audit log: the evening wrap-up counts the day's recorded changes. */
   audit?: Pick<HashChainAuditLog, "query">;
-  /** The owner's chat surfaces (`imessage:<peer>`); the brief goes there when `daily.messages` is on. */
-  channelSurfaces?: () => string[];
   /** Everything memory's "Learned yesterday" line for the morning brief (counts only). */
   learned?: () => { text: string; link?: string } | undefined;
   /** Everything memory's "Coming up" lines for the morning brief. */
@@ -622,7 +620,6 @@ export function composeProactive(setup: ProactiveSetup): ComposedProactive {
     // Every memory line in the brief goes through `surfaceFilter` (birthdays, life events, people).
     ...briefLines(setup, catchup),
     ...(catchup === undefined ? {} : { catchUp: catchup.daily }),
-    ...(setup.channelSurfaces === undefined ? {} : { channelSurfaces: setup.channelSurfaces }),
     prepLink: (e) => meetingPrep?.prepLinkFor(e),
     activity: {
       openTasks: async () =>

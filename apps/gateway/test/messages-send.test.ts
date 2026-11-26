@@ -75,7 +75,6 @@ function setup(contacts: Contact[], chats: MessagesChat[] = [], maxPerTurn?: num
   const broker: PsychePermissionBroker = createPermissionBroker({
     approvers: {
       device: async () => ({ scopes: ["operator.read", "operator.approvals"] }),
-      isOwnerSender: async () => false,
     },
     clock,
     audit: createAuditLog({ clock }),

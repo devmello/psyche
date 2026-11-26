@@ -128,7 +128,7 @@ function rig() {
   const memory = new FakeMemoryStore({ clock });
   const broker = createPermissionBroker({
     clock,
-    approvers: { device: async () => undefined, isOwnerSender: async () => false },
+    approvers: { device: async () => undefined },
   });
   const proposals = new ProposalService({
     db: db.sqlite,
