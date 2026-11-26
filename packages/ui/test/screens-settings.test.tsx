@@ -106,25 +106,29 @@ describe("SettingsScreen", () => {
       "Devices",
       "About",
     ]);
-    // An old section id opens its page; the page's panes list under it.
+    // An old pane id opens that pane one level inside its page, with a way back to the page.
     expect(within(nav).getByRole("button", { name: "General" }).getAttribute("aria-current")).toBe(
       "page",
     );
-    const panes = within(nav).getByRole("list", { name: "In General" });
-    expect(
-      within(panes)
-        .getAllByRole("button")
-        .map((b) => b.textContent),
-    ).toEqual(["Appearance", "Persona", "Notifications", "Voice & dictation"]);
-    expect(screen.getByRole("heading", { level: 2, name: "General" })).toBeTruthy();
-    expect(await screen.findByRole("heading", { level: 3, name: "Appearance" })).toBeTruthy();
+    expect(await screen.findByRole("heading", { level: 2, name: "Appearance" })).toBeTruthy();
+    const back = screen.getAllByRole("button", { name: "General" }).find((b) => !nav.contains(b));
+    expect(back).toBeTruthy();
+    await userEvent.click(back as HTMLElement);
+    expect(navigate).toHaveBeenCalledWith("/settings/general");
+    // The page is a list of rows, one per pane, and a row opens its pane.
+    expect(await screen.findByRole("heading", { level: 2, name: "General" })).toBeTruthy();
+    for (const name of ["Appearance", "Persona", "Notifications", "Voice & dictation"]) {
+      expect(screen.getByRole("button", { name })).toBeTruthy();
+    }
+    await userEvent.click(screen.getByRole("button", { name: "Persona" }));
+    expect(navigate).toHaveBeenCalledWith("/settings/persona");
     await userEvent.click(within(nav).getByRole("button", { name: "Permissions" }));
     expect(await screen.findByRole("heading", { level: 2, name: "Permissions" })).toBeTruthy();
     expect(
       within(nav).getByRole("button", { name: "Permissions" }).getAttribute("aria-current"),
     ).toBe("page");
     expect(navigate).toHaveBeenCalledWith("/settings/permissions");
-    await userEvent.click(within(nav).getByRole("button", { name: "Access" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Files and folders" }));
     expect(navigate).toHaveBeenCalledWith("/settings/files");
   });
 
@@ -133,7 +137,7 @@ describe("SettingsScreen", () => {
     const nav = screen.getByRole("navigation", { name: "Settings sections" });
     within(nav).getByRole("button", { name: "Models" }).focus();
     await userEvent.keyboard("{ArrowDown}");
-    expect(document.activeElement?.textContent).toBe("Model & providers");
+    expect(document.activeElement?.textContent).toBe("Connectors & sources");
     await userEvent.keyboard("{End}");
     expect(document.activeElement?.textContent).toBe("About");
     await userEvent.keyboard("{ArrowDown}");
@@ -875,7 +879,7 @@ describe("VM mode", () => {
 
   it("shows the defaults and writes each VM setting", async () => {
     const { gateway } = setup({ defaultSection: "vm" }, { edit: guestWorld });
-    expect(await screen.findByRole("heading", { level: 3, name: "VM mode" })).toBeTruthy();
+    expect(await screen.findByRole("heading", { level: 2, name: "VM mode" })).toBeTruthy();
     const toggle = screen.getByRole("switch", { name: "Use a sandbox Mac for tasks" });
     expect(toggle.getAttribute("aria-checked")).toBe("false");
     expect(
@@ -1142,6 +1146,8 @@ describe("File access (folder grants live in permissions.policy)", () => {
       { defaultSection: "permissions" },
       { edit: (w) => Object.assign(w.settings, { "permissions.policy": policy }) },
     );
+    // Folders are one row away: Files and folders opens the pane that lists them.
+    await userEvent.click(await screen.findByRole("button", { name: "Files and folders" }));
     const list = await screen.findByRole("list", { name: /can reach/ });
     expect(within(list).getByText("/Users/me/Notes")).toBeTruthy();
     expect(screen.getAllByText("/Users/me/Notes")).toHaveLength(1);

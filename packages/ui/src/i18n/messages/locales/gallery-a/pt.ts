@@ -42,15 +42,9 @@ export const galleryA: Partial<Catalogue> = {
   "gallery.preset.stripe.field.key.label": "Chave restrita",
   "gallery.preset.stripe.field.key.help":
     "Crie uma chave restrita (começa com rk_) só com permissão de leitura. Outras chaves são recusadas aqui.",
-  "settings.connectors.page.description":
-    "Os apps e ferramentas que {persona} pode usar. Cada um pergunta antes de agir, a menos que você diga o contrário.",
   "settings.connectors.page.needsYou": "Precisa de você",
   "settings.connectors.page.connected": "Conectado",
   "settings.connectors.page.onThisMac": "Neste Mac",
-  "settings.connectors.page.addMore": "Adicionar mais",
-  "settings.connectors.page.addMore.hint":
-    "E-mail, calendário, notas e ferramentas prontas. Cada uma pergunta antes de agir.",
-  "settings.connectors.page.addMore.browse": "Ver todos",
   "settings.connectors.page.status.paused": "Pausado",
   "settings.connectors.page.status.notWorking": "Não funciona",
   "settings.connectors.page.status.signInExpired": "Sessão expirada",

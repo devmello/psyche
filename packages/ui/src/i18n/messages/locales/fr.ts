@@ -49,6 +49,7 @@ import { scheduledRest } from "./scheduled-rest/fr.ts";
 import { screensRest } from "./screens-rest/fr.ts";
 import { securityState } from "./security-state/fr.ts";
 import { separateDesktop } from "./separate-desktop/fr.ts";
+import { settingsDrill } from "./settings-drill/fr.ts";
 import { settingsRest } from "./settings-rest/fr.ts";
 import { shellRest } from "./shell-rest/fr.ts";
 import { spaces } from "./spaces/fr.ts";
@@ -2297,8 +2298,6 @@ export const fr: Partial<Catalogue> = {
     "Changements d’avatar ; « Aucun » signifie les créatures intégrées",
   "settings.model.addProvider": "Ajouter un fournisseur",
   "settings.model.title": "Modèle et fournisseurs",
-  "settings.model.description":
-    "Un modèle que vous choisissez est utilisé tel quel. S’il échoue, Psyche le dit au lieu de se rabattre sur un autre.",
   "settings.model.loadLabel": "les fournisseurs de modèles",
   "settings.model.providers": "Fournisseurs",
   "settings.model.listFailed": "Psyche n’a pas pu lister les modèles ({reason}).",
@@ -2332,13 +2331,10 @@ export const fr: Partial<Catalogue> = {
   "settings.model.runCheckOn": "Lancer le test d’appel d’outils sur {name}",
   "settings.model.runCheck": "Lancer le test",
   "settings.model.roles": "Rôles des modèles",
-  "settings.model.rolesHint":
-    "Chaque rôle utilise un modèle. Les modèles qui échouent au test d’appel d’outils servent seulement à discuter.",
   "settings.model.none": "Aucun",
   "settings.model.choose": "Choisir un modèle",
   "settings.model.chatOnlyOption": "{name} (discussion seulement)",
   "settings.model.local": "Modèles locaux",
-  "settings.model.localHint": "Exécutez des modèles sur ce Mac avec Ollama ou LM Studio.",
   "settings.model.err.use": "Psyche n’a pas pu utiliser {name} ({reason}).",
   "settings.model.err.probe": "Psyche n’a pas pu vérifier le point d’accès ({reason}).",
   "settings.model.err.check": "Psyche n’a pas pu lancer le test ({reason}).",
@@ -2394,9 +2390,6 @@ export const fr: Partial<Catalogue> = {
   "settings.permissions.subject.emailFrom": "à {recipients} depuis {account}",
   "settings.permissions.subject.calendarNamed": "calendrier {id}",
   "settings.permissions.subject.calendar": "calendrier",
-  "settings.permissions.title": "Autorisations",
-  "settings.permissions.description":
-    "Ce qui s’exécute tout seul, ce qui demande d’abord et ce qui n’arrive jamais.",
   "settings.permissions.loadLabel": "les autorisations",
   "settings.permissions.defaultModeTitle": "Mode par défaut des nouvelles discussions",
   "settings.permissions.execReview":
@@ -4087,6 +4080,7 @@ export const fr: Partial<Catalogue> = {
   ...points,
   // Approvals wave W3 (card choices, Allowed list)
   ...approvalsW3,
+  ...settingsDrill,
   // Fork a plan (docs/design/fork-a-plan-2026.md §9)
   ...planFork,
   ...desktopSimple,

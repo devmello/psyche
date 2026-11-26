@@ -3,31 +3,12 @@ import type { Catalogue } from "../../index.ts";
 /** settings strings (ar); merged into `../ar.ts`. */
 export const settings: Partial<Catalogue> = {
   "settings.shared.advanced": "متقدم",
-  "settings.nav.inPage": "في {page}",
   "settings.nav.essentials": "الأساسيات",
   "settings.nav.learning": "الأساسيات",
   "settings.search.count":
     "{count, plural, zero {لا نتائج} one {نتيجة واحدة} two {نتيجتان} few {# نتائج} many {# نتيجة} other {# نتيجة}}",
   "settings.search.result.page": "صفحة",
   "settings.page.essentials": "الأساسيات",
-  "settings.page.essentials.description":
-    "الخيارات القليلة التي يتخذها معظم الناس. لكل منها إعداد افتراضي آمن، وتضم الصفحات أدناه الباقي.",
-  "settings.page.general.description":
-    "مظهر {persona} وهويته ومتى يجوز له مقاطعتك وكيف تتحدث إليه.",
-  "settings.page.model.description":
-    "النماذج التي يفكر بها {persona} والمفاتيح التي تستخدمها وتكلفتها.",
-  "settings.page.connectors.description":
-    "التطبيقات والحسابات التي يصل إليها {persona}، وأيها يبحث فيها.",
-  "settings.page.memory.description": "ما يتذكره {persona} ومن أين يتعلم وكيف تتحكم في ذلك.",
-  "settings.page.daily.description":
-    "موجز الصباح والخلاصة والأتمتة والمهارات والمختصون الذين يستدعيهم {persona}.",
-  "settings.page.permissions.description":
-    "ما يجوز لـ {persona} فعله على هذا الـ Mac دون سؤال، وأين يتوقف دائمًا ليسألك.",
-  "settings.page.data.description":
-    "ما يبقى على هذا الـ Mac ومدة بقائه والتصدير والنسخ الاحتياطية والبدء من جديد.",
-  "settings.page.devices.description":
-    "أجهزتك الأخرى وخادم Gateway والوصول إلى {persona} وأنت بعيد.",
-  "settings.page.about.description": "الإصدارات وفحوصات السلامة والسجلات.",
   "settings.essentials.title": "الأساسيات",
   "settings.essentials.description":
     "الخيارات القليلة التي يتخذها معظم الناس، ولكل منها إعداد افتراضي آمن. يسألك {persona} عندما يحتاج إلى المزيد.",
@@ -162,12 +143,8 @@ export const settings: Partial<Catalogue> = {
   "settings.doctor.memoryPaused": "الذاكرة متوقفة مؤقتًا: لا يُتذكَّر أي جديد.",
   "settings.doctor.memoryOk":
     "{files, plural, zero {لا ملفات} one {ملف واحد} two {ملفان} few {# ملفات} many {# ملفًا} other {# ملف}} في الذاكرة.",
-  "settings.appearance.description": "يسري على كل جهاز اقترنت به.",
   "settings.appearance.colors": "الألوان",
-  "settings.appearance.colorsHint": "فاتح أو داكن، ولون التمييز لديك.",
   "settings.appearance.comfort": "الراحة",
-  "settings.appearance.comfortHint": "أريح للعين وللحركة.",
-  "settings.appearance.backgroundHint": "هل يستمر Psyche في العمل عند إغلاق النافذة.",
   "settings.appearance.advancedHint": "درجة الرمادي، لون مخصص، اتجاه النص، فحص التباين",
   "settings.appearance.fineTune": "ضبط الألوان بدقة",
   "settings.appearance.fineTuneHint": "لمن يريد مظهرًا دقيقًا.",
@@ -741,7 +718,6 @@ export const settings: Partial<Catalogue> = {
     "تم نقل {name} مرة أخرى أو لا يمكن إعادة ربطه. جرى تحديث القائمة.",
   "settings.access.reconnectBlocked":
     "تم نقل {name}، لكن لا يمكن إعادة ربطه بأمان: توجد قاعدة أو مجلد بداخله يشير إلى المكان القديم. ألغِ المشاركة وشاركه من جديد.",
-  "settings.model.advancedHint": "حدود السياق، النماذج المحلية",
   "settings.permissions.subject.prepNotes": "ملاحظات عنوانها «Prep:» (التحضير للاجتماعات)",
   "settings.permissions.specificConnectors": "تُضبط أذونات موصّل محدد في صفحته ضمن الموصّلات.",
   "settings.permissions.openConnectors": "فتح الموصّلات",

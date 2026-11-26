@@ -40,6 +40,7 @@ import { settingsA } from "./settings-a/es.ts";
 import { settingsB } from "./settings-b/es.ts";
 import { settingsC } from "./settings-c/es.ts";
 import { settingsD } from "./settings-d/es.ts";
+import { settingsDrill } from "./settings-drill/es.ts";
 import { settingsE } from "./settings-e/es.ts";
 import { spaces } from "./spaces/es.ts";
 import { specialistsA } from "./specialists-a/es.ts";
@@ -2314,8 +2315,6 @@ export const es: Partial<Catalogue> = {
   "settings.model.role.imageHint": "Cambios de avatar; ninguno significa las criaturas incluidas",
   "settings.model.addProvider": "Añadir un proveedor",
   "settings.model.title": "Modelo y proveedores",
-  "settings.model.description":
-    "El modelo que eliges se usa tal cual. Si falla, Psyche lo dice en vez de recurrir a otro.",
   "settings.model.loadLabel": "los proveedores de modelos",
   "settings.model.providers": "Proveedores",
   "settings.model.listFailed": "Psyche no pudo enumerar los modelos ({reason}).",
@@ -2349,13 +2348,10 @@ export const es: Partial<Catalogue> = {
   "settings.model.runCheckOn": "Ejecutar la comprobación de llamadas a herramientas en {name}",
   "settings.model.runCheck": "Ejecutar comprobación",
   "settings.model.roles": "Funciones de los modelos",
-  "settings.model.rolesHint":
-    "Cada función usa un modelo. Los modelos que no superan la comprobación de llamadas a herramientas son solo de chat.",
   "settings.model.none": "Ninguno",
   "settings.model.choose": "Elige un modelo",
   "settings.model.chatOnlyOption": "{name} (solo chat)",
   "settings.model.local": "Modelos locales",
-  "settings.model.localHint": "Ejecuta modelos en este Mac con Ollama o LM Studio.",
   "settings.model.err.use": "Psyche no pudo usar {name} ({reason}).",
   "settings.model.err.probe": "Psyche no pudo comprobar el endpoint ({reason}).",
   "settings.model.err.check": "Psyche no pudo ejecutar la comprobación ({reason}).",
@@ -2412,9 +2408,6 @@ export const es: Partial<Catalogue> = {
   "settings.permissions.subject.emailFrom": "a {recipients} desde {account}",
   "settings.permissions.subject.calendarNamed": "calendario {id}",
   "settings.permissions.subject.calendar": "calendario",
-  "settings.permissions.title": "Permisos",
-  "settings.permissions.description":
-    "Qué se ejecuta por sí solo, qué pregunta primero y qué no ocurre nunca.",
   "settings.permissions.loadLabel": "los permisos",
   "settings.permissions.defaultModeTitle": "Modo por omisión para las conversaciones nuevas",
   "settings.permissions.execReview":
@@ -4114,6 +4107,7 @@ export const es: Partial<Catalogue> = {
   ...points,
   // Approvals wave W3 (card choices, Allowed list)
   ...approvalsW3,
+  ...settingsDrill,
   // Fork a plan (docs/design/fork-a-plan-2026.md §9)
   ...planFork,
   ...desktopSimple,

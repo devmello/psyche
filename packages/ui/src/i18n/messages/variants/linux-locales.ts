@@ -61,10 +61,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "blocks.approval.touchId.keyUnavailable":
         "لا يستطيع هذا الإصدار من مساعد Linux حفظ مفتاح موافقة، لذا لا يمكن الموافقة على البطاقات التي تحتاج إلى كلمة المرور على هذا الكمبيوتر.",
       "shell.shortcut.pushToTalkKeys": "اضغط مطوّلًا على Ctrl الأيمن",
-      "settings.page.permissions.description":
-        "ما يجوز لـ {persona} فعله على هذا الكمبيوتر دون سؤال، وأين يتوقف دائمًا ليسألك.",
-      "settings.page.data.description":
-        "ما يبقى على هذا الكمبيوتر ومدة بقائه والتصدير والنسخ الاحتياطية والبدء من جديد.",
       "settings.essentials.model.noneHint":
         "يحتاج {persona} إلى نموذج قبل أن يستطيع الإجابة. أضف مفتاحًا، أو استخدم نموذجًا على هذا الكمبيوتر.",
       "settings.essentials.read.hint":
@@ -164,7 +160,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "يملك هذا الكمبيوتر {gb, number} ج.ب. تحتاج النماذج المحلية إلى {min, number} ج.ب على الأقل؛ استخدم مزوّدًا سحابيًا بدلًا من ذلك.",
       "settings.model.ram.fits": "يملك هذا الكمبيوتر {gb, number} ج.ب، لذا تناسبه {fits}.",
       "settings.model.ram.thisMac": " (هذا الكمبيوتر)",
-      "settings.model.localHint": "شغّل النماذج على هذا الكمبيوتر باستخدام Ollama أو LM Studio.",
       "settings.permissions.never.browserPasswords":
         "قراءة كلمات المرور المحفوظة في متصفحاتك أو في سلسلة مفاتيح النظام",
       "settings.server.bindHint":
@@ -468,10 +463,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "blocks.approval.touchId.keyUnavailable":
         "Dieser Build des Linux-Helfers kann keinen Genehmigungsschlüssel speichern, daher lassen sich Karten, die dein Passwort brauchen, auf diesem Computer nicht genehmigen.",
       "shell.shortcut.pushToTalkKeys": "Ctrl rechts halten",
-      "settings.page.permissions.description":
-        "Was {persona} auf diesem Computer ohne Nachfragen tun darf und wo es immer bei dir nachfragt.",
-      "settings.page.data.description":
-        "Was auf diesem Computer bleibt, wie lange es aufbewahrt wird, Exporte, Backups und Neuanfang.",
       "settings.essentials.model.noneHint":
         "{persona} braucht ein Modell, bevor es antworten kann. Füge einen Schlüssel hinzu oder nutze ein Modell auf diesem Computer.",
       "settings.essentials.read.hint":
@@ -575,8 +566,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "Dieser Computer hat {gb, number} GB. Lokale Modelle brauchen mindestens {min, number} GB; verwende stattdessen einen Cloud-Anbieter.",
       "settings.model.ram.fits": "Dieser Computer hat {gb, number} GB, also passen {fits}.",
       "settings.model.ram.thisMac": " (dieser Computer)",
-      "settings.model.localHint":
-        "Führe Modelle auf diesem Computer mit Ollama oder LM Studio aus.",
       "settings.permissions.never.browserPasswords":
         "In Browsern oder im Systemschlüsselbund gespeicherte Passwörter lesen",
       "settings.server.bindHint":
@@ -895,10 +884,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "blocks.approval.touchId.keyUnavailable":
         "Esta versión del asistente de Linux no puede guardar una clave de aprobación, así que las tarjetas que necesitan tu contraseña no se pueden aprobar en este ordenador.",
       "shell.shortcut.pushToTalkKeys": "Mantén pulsada Ctrl derecha",
-      "settings.page.permissions.description":
-        "Lo que {persona} puede hacer en este ordenador sin preguntar, y dónde se detiene siempre a preguntarte.",
-      "settings.page.data.description":
-        "Lo que se queda en este ordenador, cuánto tiempo se conserva, exportaciones, copias de seguridad y empezar de cero.",
       "settings.essentials.model.noneHint":
         "{persona} necesita un modelo para poder responder. Añade una clave o usa un modelo de este ordenador.",
       "settings.essentials.read.hint":
@@ -1003,7 +988,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "Este ordenador tiene {gb, number} GB. Los modelos locales necesitan al menos {min, number} GB; usa un proveedor en la nube.",
       "settings.model.ram.fits": "Este ordenador tiene {gb, number} GB, así que caben {fits}.",
       "settings.model.ram.thisMac": " (este ordenador)",
-      "settings.model.localHint": "Ejecuta modelos en este ordenador con Ollama o LM Studio.",
       "settings.permissions.never.browserPasswords":
         "Leer las contraseñas guardadas en tus navegadores o en el llavero del sistema",
       "settings.server.bindHint":
@@ -1326,10 +1310,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "blocks.approval.touchId.keyUnavailable":
         "Cette version de l’assistant Linux ne peut pas conserver de clé d’approbation, les cartes qui exigent votre mot de passe ne peuvent donc pas être approuvées sur cet ordinateur.",
       "shell.shortcut.pushToTalkKeys": "Maintenir Ctrl droite",
-      "settings.page.permissions.description":
-        "Ce que {persona} peut faire sur cet ordinateur sans demander, et les cas où il vous demande toujours.",
-      "settings.page.data.description":
-        "Ce qui reste sur cet ordinateur, combien de temps c’est conservé, les exports, les sauvegardes et la réinitialisation.",
       "settings.essentials.model.noneHint":
         "{persona} a besoin d’un modèle avant de pouvoir répondre. Ajoutez une clé ou utilisez un modèle sur cet ordinateur.",
       "settings.essentials.read.hint":
@@ -1434,8 +1414,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "Cet ordinateur a {gb, number} Go. Les modèles locaux ont besoin d’au moins {min, number} Go ; utilisez plutôt un fournisseur cloud.",
       "settings.model.ram.fits": "Cet ordinateur a {gb, number} Go, donc {fits} conviennent.",
       "settings.model.ram.thisMac": " (cet ordinateur)",
-      "settings.model.localHint":
-        "Exécutez des modèles sur cet ordinateur avec Ollama ou LM Studio.",
       "settings.permissions.never.browserPasswords":
         "Lire les mots de passe enregistrés dans vos navigateurs ou dans le trousseau de clés système",
       "settings.server.bindHint":
@@ -1751,10 +1729,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "blocks.approval.touchId.keyUnavailable":
         "Linux हेल्पर का यह बिल्ड स्वीकृति कुंजी नहीं रख सकता, इसलिए जिन कार्डों को आपका पासवर्ड चाहिए उन्हें इस कंप्यूटर पर स्वीकृत नहीं किया जा सकता।",
       "shell.shortcut.pushToTalkKeys": "दायाँ Ctrl दबाए रखें",
-      "settings.page.permissions.description":
-        "इस कंप्यूटर पर {persona} बिना पूछे क्या कर सकता है, और कहाँ वह हमेशा रुककर आपसे पूछता है।",
-      "settings.page.data.description":
-        "इस कंप्यूटर पर क्या रहता है, कितने समय रखा जाता है, एक्सपोर्ट, बैकअप और नए सिरे से शुरू करना।",
       "settings.essentials.model.noneHint":
         "जवाब देने से पहले {persona} को एक मॉडल चाहिए। कुंजी जोड़ें, या इस कंप्यूटर पर कोई मॉडल उपयोग करें।",
       "settings.essentials.read.hint":
@@ -1852,7 +1826,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "इस कंप्यूटर में {gb, number} GB है। लोकल मॉडल को कम से कम {min, number} GB चाहिए; इसके बजाय क्लाउड प्रदाता उपयोग करें।",
       "settings.model.ram.fits": "इस कंप्यूटर में {gb, number} GB है, इसलिए {fits} फ़िट होते हैं।",
       "settings.model.ram.thisMac": " (यह कंप्यूटर)",
-      "settings.model.localHint": "Ollama या LM Studio से इस कंप्यूटर पर मॉडल चलाएँ।",
       "settings.permissions.never.browserPasswords": "ब्राउज़र या सिस्टम कीरिंग में सहेजे पासवर्ड पढ़ना",
       "settings.server.bindHint":
         "127.0.0.1 इसे इसी कंप्यूटर पर रखता है। हर इंटरफ़ेस से बाइंड करने के बजाय नीचे दिया गया रिमोट ऐक्सेस उपयोग करें।",
@@ -2153,10 +2126,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "blocks.approval.touchId.keyUnavailable":
         "Questa build dell’helper per Linux non può conservare una chiave di approvazione, quindi le schede che richiedono la tua password non possono essere approvate su questo computer.",
       "shell.shortcut.pushToTalkKeys": "Tieni premuto Ctrl destro",
-      "settings.page.permissions.description":
-        "Cosa {persona} può fare su questo computer senza chiedere, e dove si ferma sempre a chiederti.",
-      "settings.page.data.description":
-        "Cosa resta su questo computer, per quanto tempo viene conservato, esportazioni, backup e ripartire da zero.",
       "settings.essentials.model.noneHint":
         "{persona} ha bisogno di un modello per poter rispondere. Aggiungi una chiave, oppure usa un modello su questo computer.",
       "settings.essentials.read.hint":
@@ -2259,7 +2228,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "Questo computer ha {gb, number} GB. I modelli locali richiedono almeno {min, number} GB; usa invece un fornitore cloud.",
       "settings.model.ram.fits": "Questo computer ha {gb, number} GB, quindi ci stanno {fits}.",
       "settings.model.ram.thisMac": " (questo computer)",
-      "settings.model.localHint": "Esegui i modelli su questo computer con Ollama o LM Studio.",
       "settings.permissions.never.browserPasswords":
         "Leggere le password salvate nei browser o nel portachiavi di sistema",
       "settings.server.bindHint":
@@ -2579,10 +2547,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "blocks.approval.touchId.keyUnavailable":
         "このビルドのLinuxヘルパーは承認キーを保持できないため、このコンピュータではパスワードが必要なカードを承認できません。",
       "shell.shortcut.pushToTalkKeys": "右Ctrlを長押し",
-      "settings.page.permissions.description":
-        "{persona}がこのコンピュータで確認なしにできること、必ず確認を求める場面を設定します。",
-      "settings.page.data.description":
-        "このコンピュータに残るデータ、保存期間、書き出し、バックアップ、初期化を管理します。",
       "settings.essentials.model.noneHint":
         "{persona}が答えるにはモデルが必要です。キーを追加するか、このコンピュータのモデルを使ってください。",
       "settings.essentials.read.hint":
@@ -2687,8 +2651,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "settings.model.ram.fits":
         "このコンピュータのメモリは{gb, number} GBなので、{fits}が動作します。",
       "settings.model.ram.thisMac": "（このコンピュータ）",
-      "settings.model.localHint":
-        "OllamaまたはLM Studioで、このコンピュータ上でモデルを実行します。",
       "settings.permissions.never.browserPasswords":
         "ブラウザやシステムのキーリングに保存されたパスワードを読み取る",
       "settings.server.bindHint":
@@ -3001,10 +2963,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "blocks.approval.touchId.keyUnavailable":
         "이 빌드의 Linux 도우미는 승인 키를 보관할 수 없어 이 컴퓨터에서는 암호가 필요한 카드를 승인할 수 없습니다.",
       "shell.shortcut.pushToTalkKeys": "오른쪽 Ctrl 길게 누르기",
-      "settings.page.permissions.description":
-        "{persona}가 이 컴퓨터에서 묻지 않고 할 수 있는 일과 항상 먼저 확인하는 경우를 설정합니다.",
-      "settings.page.data.description":
-        "이 컴퓨터에 남는 데이터, 보관 기간, 내보내기, 백업, 초기화를 관리합니다.",
       "settings.essentials.model.noneHint":
         "{persona}가 답하려면 모델이 필요합니다. 키를 추가하거나 이 컴퓨터의 모델을 사용하십시오.",
       "settings.essentials.read.hint":
@@ -3105,7 +3063,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "이 컴퓨터의 메모리는 {gb, number}GB입니다. 로컬 모델에는 최소 {min, number}GB가 필요하니 클라우드 제공업체를 사용하십시오.",
       "settings.model.ram.fits": "이 컴퓨터의 메모리는 {gb, number}GB입니다. 실행 가능: {fits}.",
       "settings.model.ram.thisMac": " (이 컴퓨터)",
-      "settings.model.localHint": "Ollama 또는 LM Studio로 이 컴퓨터에서 모델을 실행합니다.",
       "settings.permissions.never.browserPasswords": "브라우저 또는 시스템 키링에 저장된 암호 읽기",
       "settings.server.bindHint":
         "127.0.0.1은 이 컴퓨터 안에만 유지합니다. 모든 인터페이스에 바인딩하는 대신 아래의 원격 접근을 사용하십시오.",
@@ -3409,10 +3366,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "blocks.approval.touchId.keyUnavailable":
         "Esta versão do assistente do Linux não consegue guardar uma chave de aprovação, então os cartões que exigem a sua senha não podem ser aprovados neste computador.",
       "shell.shortcut.pushToTalkKeys": "Segure Ctrl direito",
-      "settings.page.permissions.description":
-        "O que {persona} pode fazer neste computador sem perguntar, e onde sempre para para perguntar a você.",
-      "settings.page.data.description":
-        "O que fica neste computador, por quanto tempo é guardado, exportações, backups e recomeçar do zero.",
       "settings.essentials.model.noneHint":
         "{persona} precisa de um modelo para poder responder. Adicione uma chave ou use um modelo neste computador.",
       "settings.essentials.read.hint":
@@ -3514,7 +3467,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "Este computador tem {gb, number} GB. Modelos locais precisam de pelo menos {min, number} GB; use um provedor na nuvem.",
       "settings.model.ram.fits": "Este computador tem {gb, number} GB, então {fits} cabem.",
       "settings.model.ram.thisMac": " (este computador)",
-      "settings.model.localHint": "Execute modelos neste computador com o Ollama ou o LM Studio.",
       "settings.permissions.never.browserPasswords":
         "Ler senhas salvas nos seus navegadores ou no chaveiro do sistema",
       "settings.server.bindHint":
@@ -3823,10 +3775,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "blocks.approval.touchId.keyUnavailable":
         "此版本的 Linux 助手无法保存批准密钥，因此需要密码的卡片无法在这台电脑上批准。",
       "shell.shortcut.pushToTalkKeys": "按住右 Ctrl",
-      "settings.page.permissions.description":
-        "{persona}在这台电脑上无需询问就可执行的操作，以及它一定会停下来问你的地方。",
-      "settings.page.data.description":
-        "哪些内容保留在这台电脑上、保留多久、导出、备份以及重新开始。",
       "settings.essentials.model.noneHint":
         "{persona}需要有模型才能回答。请添加密钥，或使用这台电脑上的模型。",
       "settings.essentials.read.hint":
@@ -3916,7 +3864,6 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "这台电脑有 {gb, number} GB。本地模型至少需要 {min, number} GB；请改用云端提供商。",
       "settings.model.ram.fits": "这台电脑有 {gb, number} GB，可运行{fits}。",
       "settings.model.ram.thisMac": "（这台电脑）",
-      "settings.model.localHint": "通过 Ollama 或 LM Studio 在这台电脑上运行模型。",
       "settings.permissions.never.browserPasswords": "读取浏览器或系统密钥环中保存的密码",
       "settings.server.bindHint":
         "127.0.0.1 使其仅限这台电脑。请使用下方的远程访问，而不是绑定到所有网络接口。",

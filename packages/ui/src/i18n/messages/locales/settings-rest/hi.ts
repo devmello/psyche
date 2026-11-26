@@ -36,30 +36,11 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.key.nudges.sensitivity": "कितनी बार याद दिलाएँ",
   "settings.key.nudges.phrasing": "रिमाइंडर के सुझाव दोबारा लिखें",
   "settings.shared.advanced": "उन्नत",
-  "settings.nav.inPage": "{page} में",
   "settings.nav.essentials": "ज़रूरी बातें",
   "settings.nav.learning": "बुनियादी बातें",
   "settings.search.count": "{count, plural, one {# नतीजा} other {# नतीजे}}",
   "settings.search.result.page": "पेज",
   "settings.page.essentials": "ज़रूरी बातें",
-  "settings.page.essentials.description":
-    "वे कुछ चुनाव जो ज़्यादातर लोग करते हैं। हर एक का एक सुरक्षित डिफ़ॉल्ट है, और नीचे के पेज बाकी सब रखते हैं।",
-  "settings.page.general.description":
-    "{persona} कैसा दिखता है, वह कौन है, कब आपको टोक सकता है और आप उससे कैसे बात करते हैं।",
-  "settings.page.model.description": "वे मॉडल जिनसे {persona} सोचता है, उनकी कुंजियाँ और उनकी लागत।",
-  "settings.page.connectors.description":
-    "वे ऐप्स और खाते जिन तक {persona} पहुँच सकता है, और उनमें से कौन-से वह खोजता है।",
-  "settings.page.memory.description":
-    "{persona} क्या याद रखता है, कहाँ से सीखता है और आप इसे कैसे नियंत्रित करते हैं।",
-  "settings.page.daily.description":
-    "आपकी सुबह की ब्रीफ़ और शाम का सारांश, ऑटोमेशन, स्किल और वे स्पेशलिस्ट जिन्हें {persona} बुला सकता है।",
-  "settings.page.permissions.description":
-    "इस Mac पर {persona} बिना पूछे क्या कर सकता है, और कहाँ वह हमेशा रुककर आपसे पूछता है।",
-  "settings.page.data.description":
-    "इस Mac पर क्या रहता है, कितने समय रखा जाता है, एक्सपोर्ट, बैकअप और नए सिरे से शुरू करना।",
-  "settings.page.devices.description":
-    "आपके अन्य डिवाइस, Gateway सर्वर और दूर रहने पर {persona} तक कैसे पहुँचें।",
-  "settings.page.about.description": "संस्करण, हेल्थ चेक और लॉग।",
   "settings.essentials.title": "ज़रूरी बातें",
   "settings.essentials.description":
     "वे कुछ चुनाव जो ज़्यादातर लोग करते हैं, हर एक सुरक्षित डिफ़ॉल्ट के साथ। ज़्यादा की ज़रूरत होने पर {persona} पूछता है।",
@@ -193,12 +174,8 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.doctor.memory": "मेमोरी",
   "settings.doctor.memoryPaused": "मेमोरी रुकी हुई है: कुछ नया याद नहीं रखा जा रहा।",
   "settings.doctor.memoryOk": "मेमोरी में {files, plural, one {# फ़ाइल} other {# फ़ाइलें}}।",
-  "settings.appearance.description": "आपके हर पेयर किए डिवाइस पर लागू होता है।",
   "settings.appearance.colors": "रंग",
-  "settings.appearance.colorsHint": "हल्का या गहरा, और आपका एक्सेंट रंग।",
   "settings.appearance.comfort": "आराम",
-  "settings.appearance.comfortHint": "आँखों और गति के लिए ज़्यादा आरामदायक।",
-  "settings.appearance.backgroundHint": "खिड़की बंद करने पर Psyche चलता रहे या नहीं।",
   "settings.appearance.advancedHint": "ग्रे टोन, कस्टम रंग, टेक्स्ट की दिशा, कंट्रास्ट जाँच",
   "settings.appearance.fineTune": "रंग बारीकी से ट्यून करें",
   "settings.appearance.fineTuneHint": "उनके लिए जो सटीक रूप चाहते हैं।",
@@ -768,7 +745,6 @@ export const settingsRest: Partial<Catalogue> = {
     "{name} फिर से हटा दिया गया या दोबारा नहीं जोड़ा जा सकता। सूची ताज़ा की गई।",
   "settings.access.reconnectBlocked":
     "{name} को हटाया गया है, लेकिन उसे सुरक्षित रूप से फिर से नहीं जोड़ा जा सकता: कोई नियम या उसके अंदर का फ़ोल्डर पुरानी जगह की ओर इशारा करता है। उसे रद्द करें और फिर से साझा करें।",
-  "settings.model.advancedHint": "संदर्भ की सीमाएँ, लोकल मॉडल",
   "settings.permissions.subject.prepNotes": "“Prep:” शीर्षक वाले नोट्स (मीटिंग की तैयारी)",
   "settings.permissions.specificConnectors":
     "किसी खास कनेक्टर की अनुमतियाँ कनेक्टर में उसके पेज पर सेट होती हैं।",
@@ -1390,14 +1366,9 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.mcp.fail.failed": "नीचे सर्वर का आउटपुट देखें, फिर दोबारा कोशिश करें।",
   "settings.mcp.fail.exitCode": "एग्ज़िट कोड {code}।",
   "settings.mcp.fail.output": "सर्वर आउटपुट",
-  "settings.connectors.page.description":
-    "वे ऐप्स और टूल जिन्हें {persona} उपयोग कर सकता है। हर एक कार्रवाई से पहले पूछता है, जब तक आप कुछ और न कहें।",
   "settings.connectors.page.needsYou": "आपकी ज़रूरत है",
   "settings.connectors.page.connected": "जुड़े हुए",
   "settings.connectors.page.onThisMac": "इस Mac पर",
-  "settings.connectors.page.addMore": "और जोड़ें",
-  "settings.connectors.page.addMore.hint": "मेल, कैलेंडर, नोट्स और तैयार टूल। हर एक कार्रवाई से पहले पूछता है।",
-  "settings.connectors.page.addMore.browse": "सभी देखें",
   "settings.connectors.page.status.paused": "रुका हुआ",
   "settings.connectors.page.status.notWorking": "काम नहीं कर रहा",
   "settings.connectors.page.status.signInExpired": "साइन-इन की अवधि समाप्त",

@@ -57,6 +57,7 @@ import { scheduledRest } from "./scheduled-rest/it.ts";
 import { screensRest } from "./screens-rest/it.ts";
 import { securityState } from "./security-state/it.ts";
 import { separateDesktop } from "./separate-desktop/it.ts";
+import { settingsDrill } from "./settings-drill/it.ts";
 import { settingsRest } from "./settings-rest/it.ts";
 import { shellRest } from "./shell-rest/it.ts";
 import { spaces } from "./spaces/it.ts";
@@ -2296,8 +2297,6 @@ export const it: Partial<Catalogue> = {
   "settings.model.role.imageHint": "Modifiche all’avatar; con Nessuno si usano le creature incluse",
   "settings.model.addProvider": "Aggiungi un fornitore",
   "settings.model.title": "Modello e fornitori",
-  "settings.model.description":
-    "Il modello che scegli viene usato così com’è. Se non funziona, Psyche te lo dice invece di ripiegare su un altro.",
   "settings.model.loadLabel": "i fornitori di modelli",
   "settings.model.providers": "Fornitori",
   "settings.model.listFailed": "Psyche non è riuscito a elencare i modelli ({reason}).",
@@ -2332,13 +2331,10 @@ export const it: Partial<Catalogue> = {
   "settings.model.runCheckOn": "Esegui il controllo della chiamata degli strumenti su {name}",
   "settings.model.runCheck": "Esegui controllo",
   "settings.model.roles": "Ruoli dei modelli",
-  "settings.model.rolesHint":
-    "Ogni ruolo usa un modello. I modelli che non superano il controllo della chiamata degli strumenti sono solo chat.",
   "settings.model.none": "Nessuno",
   "settings.model.choose": "Scegli un modello",
   "settings.model.chatOnlyOption": "{name} (solo chat)",
   "settings.model.local": "Modelli locali",
-  "settings.model.localHint": "Esegui i modelli su questo Mac con Ollama o LM Studio.",
   "settings.model.err.use": "Psyche non è riuscito a usare {name} ({reason}).",
   "settings.model.err.probe": "Psyche non è riuscito a controllare l’endpoint ({reason}).",
   "settings.model.err.check": "Psyche non è riuscito a eseguire il controllo ({reason}).",
@@ -2392,9 +2388,6 @@ export const it: Partial<Catalogue> = {
   "settings.permissions.subject.emailFrom": "a {recipients} da {account}",
   "settings.permissions.subject.calendarNamed": "calendario {id}",
   "settings.permissions.subject.calendar": "calendario",
-  "settings.permissions.title": "Permessi",
-  "settings.permissions.description":
-    "Che cosa viene eseguito da solo, che cosa chiede prima e che cosa non accade mai.",
   "settings.permissions.loadLabel": "i permessi",
   "settings.permissions.defaultModeTitle": "Modalità di default per i nuovi thread",
   "settings.permissions.execReview":
@@ -4077,6 +4070,7 @@ export const it: Partial<Catalogue> = {
   ...points,
   // Approvals wave W3 (card choices, Allowed list)
   ...approvalsW3,
+  ...settingsDrill,
   // Fork a plan (docs/design/fork-a-plan-2026.md §9)
   ...planFork,
   ...desktopSimple,

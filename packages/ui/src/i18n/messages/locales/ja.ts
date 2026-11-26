@@ -57,6 +57,7 @@ import { scheduledRest } from "./scheduled-rest/ja.ts";
 import { screensRest } from "./screens-rest/ja.ts";
 import { securityState } from "./security-state/ja.ts";
 import { separateDesktop } from "./separate-desktop/ja.ts";
+import { settingsDrill } from "./settings-drill/ja.ts";
 import { settingsRest } from "./settings-rest/ja.ts";
 import { shellRest } from "./shell-rest/ja.ts";
 import { spaces } from "./spaces/ja.ts";
@@ -2273,8 +2274,6 @@ export const ja: Partial<Catalogue> = {
   "settings.model.role.imageHint": "アバターの変更。なしの場合は同梱の生き物を使います",
   "settings.model.addProvider": "プロバイダを追加",
   "settings.model.title": "モデルとプロバイダ",
-  "settings.model.description":
-    "選んだモデルがそのまま使われます。失敗した場合、Psycheは別のモデルに切り替えず、そのことを伝えます。",
   "settings.model.loadLabel": "モデルプロバイダ",
   "settings.model.providers": "プロバイダ",
   "settings.model.listFailed": "Psycheはモデルを一覧できませんでした（{reason}）。",
@@ -2308,13 +2307,10 @@ export const ja: Partial<Catalogue> = {
   "settings.model.runCheckOn": "{name}でツール呼び出しの確認を実行",
   "settings.model.runCheck": "確認を実行",
   "settings.model.roles": "モデルの役割",
-  "settings.model.rolesHint":
-    "各役割は1つのモデルを使います。ツール呼び出しの確認に不合格のモデルはチャットのみです。",
   "settings.model.none": "なし",
   "settings.model.choose": "モデルを選択",
   "settings.model.chatOnlyOption": "{name}（チャットのみ）",
   "settings.model.local": "ローカルモデル",
-  "settings.model.localHint": "OllamaまたはLM Studioで、このMac上でモデルを実行します。",
   "settings.model.err.use": "Psycheは{name}を使用できませんでした（{reason}）。",
   "settings.model.err.probe": "Psycheはエンドポイントを確認できませんでした（{reason}）。",
   "settings.model.err.check": "Psycheは確認を実行できませんでした（{reason}）。",
@@ -2367,9 +2363,6 @@ export const ja: Partial<Catalogue> = {
   "settings.permissions.subject.emailFrom": "{recipients} へ（{account}から）",
   "settings.permissions.subject.calendarNamed": "カレンダー{id}",
   "settings.permissions.subject.calendar": "カレンダー",
-  "settings.permissions.title": "権限",
-  "settings.permissions.description":
-    "自動で実行されるもの、先に確認するもの、決して行わないもの。",
   "settings.permissions.loadLabel": "権限",
   "settings.permissions.defaultModeTitle": "新しいスレッドのデフォルトモード",
   "settings.permissions.execReview": "自動モードで安全なターミナルコマンドをレビュアーに承認させる",
@@ -4034,6 +4027,7 @@ export const ja: Partial<Catalogue> = {
   ...points,
   // Approvals wave W3 (card choices, Allowed list)
   ...approvalsW3,
+  ...settingsDrill,
   // Fork a plan (docs/design/fork-a-plan-2026.md §9)
   ...planFork,
   ...desktopSimple,

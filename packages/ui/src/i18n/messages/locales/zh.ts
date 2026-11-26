@@ -54,6 +54,7 @@ import { securityState } from "./security-state/zh.ts";
 import { selfConnectors } from "./self-connectors/zh.ts";
 import { separateDesktop } from "./separate-desktop/zh.ts";
 import { settings } from "./settings/zh.ts";
+import { settingsDrill } from "./settings-drill/zh.ts";
 import { settingsLanguage } from "./settings-language/zh.ts";
 import { settingsSections } from "./settings-sections/zh.ts";
 import { shell } from "./shell/zh.ts";
@@ -2242,8 +2243,6 @@ export const zh: Partial<Catalogue> = {
   "settings.model.role.imageHint": "头像更改；“无”表示使用自带的生物",
   "settings.model.addProvider": "添加提供商",
   "settings.model.title": "模型与提供商",
-  "settings.model.description":
-    "你选择的模型会按原样使用。如果它失败，Psyche 会告诉你，而不是回退到其他模型。",
   "settings.model.loadLabel": "模型提供商",
   "settings.model.providers": "提供商",
   "settings.model.listFailed": "Psyche 无法列出模型（{reason}）。",
@@ -2274,12 +2273,10 @@ export const zh: Partial<Catalogue> = {
   "settings.model.runCheckOn": "对 {name} 运行工具调用检查",
   "settings.model.runCheck": "运行检查",
   "settings.model.roles": "模型角色",
-  "settings.model.rolesHint": "每个角色使用一个模型。未通过工具调用检查的模型仅可聊天。",
   "settings.model.none": "无",
   "settings.model.choose": "选择模型",
   "settings.model.chatOnlyOption": "{name}（仅聊天）",
   "settings.model.local": "本地模型",
-  "settings.model.localHint": "通过 Ollama 或 LM Studio 在这台 Mac 上运行模型。",
   "settings.model.err.use": "Psyche 无法使用 {name}（{reason}）。",
   "settings.model.err.probe": "Psyche 无法检查端点（{reason}）。",
   "settings.model.err.check": "Psyche 无法运行检查（{reason}）。",
@@ -2328,8 +2325,6 @@ export const zh: Partial<Catalogue> = {
   "settings.permissions.subject.emailFrom": "发送给 {recipients}，账户 {account}",
   "settings.permissions.subject.calendarNamed": "日历 {id}",
   "settings.permissions.subject.calendar": "日历",
-  "settings.permissions.title": "权限",
-  "settings.permissions.description": "哪些操作自动运行，哪些先询问，哪些永远不会发生。",
   "settings.permissions.loadLabel": "权限",
   "settings.permissions.defaultModeTitle": "新会话的默认模式",
   "settings.permissions.execReview": "在自动模式下让审核者批准安全的终端命令",
@@ -3929,6 +3924,7 @@ export const zh: Partial<Catalogue> = {
   ...points,
   // Approvals wave W3 (card choices, Allowed list)
   ...approvalsW3,
+  ...settingsDrill,
   // Fork a plan (docs/design/fork-a-plan-2026.md §9)
   ...planFork,
   ...desktopSimple,

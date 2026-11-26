@@ -451,11 +451,7 @@ export function ModelProvidersPanel({
     </Button>
   ) : null;
   return (
-    <SectionFrame
-      needsApproval={needsApproval}
-      title={t("settings.model.title")}
-      description={t("settings.model.description")}
-    >
+    <SectionFrame needsApproval={needsApproval} title={t("settings.model.title")}>
       <LoadGate
         label={t("settings.model.loadLabel")}
         loading={loading ?? false}
@@ -598,7 +594,7 @@ export function ModelProvidersPanel({
           />
         ) : null}
 
-        <Group title={t("settings.model.roles")} description={t("settings.model.rolesHint")}>
+        <Group title={t("settings.model.roles")}>
           {MODEL_ROLES.map((role) => {
             const current = str(values, role.key, "");
             const options = models.some((m) => m.ref === current)
@@ -637,14 +633,14 @@ export function ModelProvidersPanel({
           })}
         </Group>
 
-        <Advanced description={t("settings.model.advancedHint")}>
+        <Advanced>
           <ContextSettingsGroup
             values={values}
             onChange={onChange}
             {...(primaryContext === undefined ? {} : { modelContextLength: primaryContext })}
           />
           <ForkSettingsGroup values={values} onChange={onChange} />
-          <Group title={t("settings.model.local")} description={t("settings.model.localHint")}>
+          <Group title={t("settings.model.local")}>
             <RamGuidance {...(ramGb === undefined ? {} : { ramGb })} />
           </Group>
         </Advanced>
