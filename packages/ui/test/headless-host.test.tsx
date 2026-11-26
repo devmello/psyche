@@ -61,7 +61,7 @@ describe("computer use from a Client of a Linux Host", () => {
       );
       await new Promise((r) => setTimeout(r, 20));
       expect(screen.getByTestId("computer-use-remote").textContent).toBe(
-        "Computer use works at studio-mac. Ask from there, or use the browser.",
+        "Computer use works at studio-mac. Ask from there.",
       );
     },
   );
