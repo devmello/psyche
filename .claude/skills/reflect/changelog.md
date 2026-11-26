@@ -2,6 +2,13 @@
 
 Newest first. The `reflect` skill reads the top entry to know where the last pass stopped.
 
+## 2026-11-26: reflect pass over #1631-#1748 (Dependabot skipped)
+Last pass: #1630. Evidence: the orchestrator's gate history (`gate-results.txt`: ~70 gated runs, 23 bare/conflicting, FAIL counts `vitest:packages/ui` 12, `vitest:apps/gateway` 6, `biome` 5, `typecheck:@psyche/gateway` 3), merged PR bodies, and the orchestrator's by-hand fixes.
+- **`psyche-builder` section 2:** two bullets. Stale tests after a removal or rename on main (#1740, #1743, #1744, #1747, #1741: 5 PRs); regenerate generated files (#1741 policy schema, golden prompt; script names and paths checked on origin/main).
+- **`psyche-builder/learnings.md`:** Biome 2.6.8 `noComponentHookFactories` (#1742, #1686, #1706); conflict-marker regex and bare-conflict rate (#1739).
+- **`orchestrate`:** learning line: brief open builders after a removal lands; gate on the merged head.
+- Not changed: `verify.sh` (no check can know which names a sibling PR removed; `--related` already runs importers). `.claude/CLAUDE.md` and the i18n xcstrings recipe (already the three-way union) untouched.
+
 ## 2026-11-24 (d): reflect pass over #1620, #1621, #1623-#1626, #1630 (#1614, #1616, #1618, #1619 were in the last entry)
 Last pass: #1622. Evidence: PR Learnings and the orchestrator's review catches for the wave. `failures.tsv` unchanged.
 - **`psyche-apple`:** eager `VStack` inside `LazyVStack` loads every page (#1624); scripted edits split Swift signatures (#1630); `xcodegen generate` in a fresh worktree (#1630).
