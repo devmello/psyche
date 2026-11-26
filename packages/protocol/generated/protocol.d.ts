@@ -1876,6 +1876,7 @@ export interface Automation {
     sessionTarget: string;
     spaceId?:      null | string;
     specialist?:   AutomationSpecialist;
+    taintSources?: TaintSource[];
     timezone:      string;
     title:         string;
     trigger?:      AutomationTrigger;
@@ -2034,14 +2035,15 @@ export interface AutomationWorkflowBlock {
 }
 
 export interface DailyWorkflowProposal {
-    groupId:     string;
-    notify:      Notify;
-    obstacles:   string[];
-    offerSkill?: boolean;
-    runs:        DailyWorkflowRun[];
-    tainted?:    boolean;
-    timezone:    string;
-    title:       string;
+    groupId:       string;
+    notify:        Notify;
+    obstacles:     string[];
+    offerSkill?:   boolean;
+    runs:          DailyWorkflowRun[];
+    tainted?:      boolean;
+    taintSources?: TaintSourceElement[];
+    timezone:      string;
+    title:         string;
 }
 
 export type Notify = "notification" | "messages" | "both";
@@ -2057,6 +2059,12 @@ export interface DailyWorkflowRun {
 }
 
 export type DailyWorkflowRunKind = "cron" | "interval";
+
+export interface TaintSourceElement {
+    origin?:    string;
+    sender?:    string;
+    sourceKind: string;
+}
 
 export type AutomationWorkflowBlockType = "automation_workflow";
 

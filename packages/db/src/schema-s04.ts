@@ -108,6 +108,8 @@ export const automations = sqliteTable("automations", {
   recordedSkill: text("recorded_skill"),
   // 202611201000_gateway_spaces: the Space this automation belongs to; NULL for none.
   spaceId: text("space_id"),
+  // 202611251200_scheduler_taint-sources: the taint of the turn that created it (JSON array).
+  taintSources: text("taint_sources"),
 });
 
 export const automationRuns = sqliteTable("automation_runs", {

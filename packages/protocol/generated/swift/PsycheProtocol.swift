@@ -7010,6 +7010,7 @@ public struct Automation: Codable, Sendable {
     public let sessionTarget: String
     public let spaceID: String?
     public let specialist: AutomationSpecialist?
+    public let taintSources: [TaintSource]?
     public let timezone: String
     public let title: String
     public let trigger: AutomationTrigger?
@@ -7033,6 +7034,7 @@ public struct Automation: Codable, Sendable {
         case sessionTarget = "sessionTarget"
         case spaceID = "spaceId"
         case specialist = "specialist"
+        case taintSources = "taintSources"
         case timezone = "timezone"
         case title = "title"
         case trigger = "trigger"
@@ -7040,7 +7042,7 @@ public struct Automation: Codable, Sendable {
         case watch = "watch"
     }
 
-    public init(createdAt: String, delivery: Delivery, enabled: Bool, id: String, kind: AutomationKind, lastRunAt: String? = nil, lastStatus: String? = nil, lightContext: Bool? = nil, nextRunAt: String? = nil, prompt: String, recordedSkill: RecordedSkill? = nil, schedule: String, scratch: String? = nil, sessionTarget: String, spaceID: String? = nil, specialist: AutomationSpecialist? = nil, timezone: String, title: String, trigger: AutomationTrigger? = nil, updatedAt: String, watch: WatchConfig? = nil) {
+    public init(createdAt: String, delivery: Delivery, enabled: Bool, id: String, kind: AutomationKind, lastRunAt: String? = nil, lastStatus: String? = nil, lightContext: Bool? = nil, nextRunAt: String? = nil, prompt: String, recordedSkill: RecordedSkill? = nil, schedule: String, scratch: String? = nil, sessionTarget: String, spaceID: String? = nil, specialist: AutomationSpecialist? = nil, taintSources: [TaintSource]? = nil, timezone: String, title: String, trigger: AutomationTrigger? = nil, updatedAt: String, watch: WatchConfig? = nil) {
         self.createdAt = createdAt
         self.delivery = delivery
         self.enabled = enabled
@@ -7057,6 +7059,7 @@ public struct Automation: Codable, Sendable {
         self.sessionTarget = sessionTarget
         self.spaceID = spaceID
         self.specialist = specialist
+        self.taintSources = taintSources
         self.timezone = timezone
         self.title = title
         self.trigger = trigger
@@ -7469,6 +7472,7 @@ public struct DailyWorkflowProposal: Codable, Sendable {
     public let offerSkill: Bool?
     public let runs: [DailyWorkflowRun]
     public let tainted: Bool?
+    public let taintSources: [TaintSourceElement]?
     public let timezone: String
     public let title: String
 
@@ -7479,17 +7483,19 @@ public struct DailyWorkflowProposal: Codable, Sendable {
         case offerSkill = "offerSkill"
         case runs = "runs"
         case tainted = "tainted"
+        case taintSources = "taintSources"
         case timezone = "timezone"
         case title = "title"
     }
 
-    public init(groupID: String, notify: Notify, obstacles: [String], offerSkill: Bool? = nil, runs: [DailyWorkflowRun], tainted: Bool? = nil, timezone: String, title: String) {
+    public init(groupID: String, notify: Notify, obstacles: [String], offerSkill: Bool? = nil, runs: [DailyWorkflowRun], tainted: Bool? = nil, taintSources: [TaintSourceElement]? = nil, timezone: String, title: String) {
         self.groupID = groupID
         self.notify = notify
         self.obstacles = obstacles
         self.offerSkill = offerSkill
         self.runs = runs
         self.tainted = tainted
+        self.taintSources = taintSources
         self.timezone = timezone
         self.title = title
     }
@@ -7535,6 +7541,25 @@ public struct DailyWorkflowRun: Codable, Sendable {
 public enum DailyWorkflowRunKind: String, Codable, Sendable {
     case cron = "cron"
     case interval = "interval"
+}
+
+// MARK: - TaintSourceElement
+public struct TaintSourceElement: Codable, Sendable {
+    public let origin: String?
+    public let sender: String?
+    public let sourceKind: String
+
+    public enum CodingKeys: String, CodingKey {
+        case origin = "origin"
+        case sender = "sender"
+        case sourceKind = "sourceKind"
+    }
+
+    public init(origin: String? = nil, sender: String? = nil, sourceKind: String) {
+        self.origin = origin
+        self.sender = sender
+        self.sourceKind = sourceKind
+    }
 }
 
 public enum AutomationWorkflowBlockType: String, Codable, Sendable {
