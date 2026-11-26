@@ -224,7 +224,18 @@ export class FeedService {
       scratch: null,
     };
     const existing = await this.#briefAutomation();
-    if (existing !== undefined) return this.#o.scheduler.update(existing.id, fields);
+    if (existing !== undefined) {
+      // The owner may have moved the time or turned the brief off: a start-up call with no
+      // options creates only when missing. Only what the caller names is applied.
+      const patch = {
+        ...(options.schedule === undefined ? {} : { schedule: options.schedule }),
+        ...(options.timezone === undefined ? {} : { timezone: options.timezone }),
+        ...(options.enabled === undefined ? {} : { enabled: options.enabled }),
+      };
+      return Object.keys(patch).length === 0
+        ? existing
+        : this.#o.scheduler.update(existing.id, patch);
+    }
     return this.#o.scheduler.create({ kind: "briefing", system: true, ...fields });
   }
 

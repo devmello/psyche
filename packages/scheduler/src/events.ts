@@ -81,6 +81,22 @@ export function taintOf(events: readonly WorkflowEvent[]): TaintSource[] {
   return out;
 }
 
+/** The taint a run starts with: what its automation was created under, then its events'. */
+export function mergeTaint(
+  stored: readonly TaintSource[] | undefined,
+  fromEvents: readonly TaintSource[],
+): TaintSource[] {
+  const out: TaintSource[] = [];
+  const seen = new Set<string>();
+  for (const s of [...(stored ?? []), ...fromEvents]) {
+    const key = `${s.sourceKind}:${s.sender ?? ""}:${s.origin ?? ""}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push({ ...s });
+  }
+  return out;
+}
+
 const FENCE = "<<<untrusted-data>>>";
 const FENCE_END = "<<<end-untrusted-data>>>";
 

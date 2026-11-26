@@ -1864,6 +1864,7 @@ export interface Automation {
     sessionTarget: string;
     spaceId?:      null | string;
     specialist?:   AutomationSpecialist;
+    taintSources?: TaintSource[];
     timezone:      string;
     title:         string;
     trigger?:      AutomationTrigger;

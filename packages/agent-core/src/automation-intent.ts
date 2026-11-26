@@ -42,7 +42,7 @@ export function classifyAutomationIntent(text: string): AutomationIntent {
 
 /** Added to an owner turn that reads as a workflow. Trusted: it is our own text. */
 export const AUTOMATION_HINT =
-  "This request looks like a repeatable workflow, not a one-off. Follow the automation steps: plan it with update_plan, trial-run it with the owner, then offer to schedule it with propose_automation. If the owner only wants it done once, just do it.";
+  "This request looks like a repeatable workflow, not a one-off. Follow the automation steps: plan it with update_plan, then offer to schedule it with propose_automation. Do not fetch or read anything just to set it up, and a denied side read does not cancel the schedule. If the owner only wants it done once, just do it.";
 
 /** The turn-context provider for the hint; owner turns in attended runs only. */
 export function automationIntentProvider(): TurnContextProvider {

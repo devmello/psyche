@@ -6997,6 +6997,7 @@ public struct Automation: Codable, Sendable {
     public let sessionTarget: String
     public let spaceID: String?
     public let specialist: AutomationSpecialist?
+    public let taintSources: [TaintSource]?
     public let timezone: String
     public let title: String
     public let trigger: AutomationTrigger?
@@ -7020,6 +7021,7 @@ public struct Automation: Codable, Sendable {
         case sessionTarget = "sessionTarget"
         case spaceID = "spaceId"
         case specialist = "specialist"
+        case taintSources = "taintSources"
         case timezone = "timezone"
         case title = "title"
         case trigger = "trigger"
@@ -7027,7 +7029,7 @@ public struct Automation: Codable, Sendable {
         case watch = "watch"
     }
 
-    public init(createdAt: String, delivery: Delivery, enabled: Bool, id: String, kind: AutomationKind, lastRunAt: String? = nil, lastStatus: String? = nil, lightContext: Bool? = nil, nextRunAt: String? = nil, prompt: String, recordedSkill: RecordedSkill? = nil, schedule: String, scratch: String? = nil, sessionTarget: String, spaceID: String? = nil, specialist: AutomationSpecialist? = nil, timezone: String, title: String, trigger: AutomationTrigger? = nil, updatedAt: String, watch: WatchConfig? = nil) {
+    public init(createdAt: String, delivery: Delivery, enabled: Bool, id: String, kind: AutomationKind, lastRunAt: String? = nil, lastStatus: String? = nil, lightContext: Bool? = nil, nextRunAt: String? = nil, prompt: String, recordedSkill: RecordedSkill? = nil, schedule: String, scratch: String? = nil, sessionTarget: String, spaceID: String? = nil, specialist: AutomationSpecialist? = nil, taintSources: [TaintSource]? = nil, timezone: String, title: String, trigger: AutomationTrigger? = nil, updatedAt: String, watch: WatchConfig? = nil) {
         self.createdAt = createdAt
         self.delivery = delivery
         self.enabled = enabled
@@ -7044,6 +7046,7 @@ public struct Automation: Codable, Sendable {
         self.sessionTarget = sessionTarget
         self.spaceID = spaceID
         self.specialist = specialist
+        self.taintSources = taintSources
         self.timezone = timezone
         self.title = title
         self.trigger = trigger

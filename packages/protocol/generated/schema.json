@@ -11541,6 +11541,12 @@
             "skill"
           ],
           "type": "object"
+        },
+        "taintSources": {
+          "items": {
+            "$ref": "#/$defs/TaintSource"
+          },
+          "type": "array"
         }
       },
       "required": [

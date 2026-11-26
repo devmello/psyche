@@ -454,3 +454,25 @@ describe("Psyche's own notices", () => {
     expect(live.widget).toBeUndefined();
   });
 });
+
+describe("ensureDailyBrief keeps the owner's choice", () => {
+  it("creates only when missing: a start-up call does not reset the time or re-enable it", async () => {
+    const { feed, scheduler } = rig();
+    const first = await feed.ensureDailyBrief();
+    expect(first).toMatchObject({ schedule: "0 7 * * *", enabled: true });
+    await scheduler.update(first.id, { schedule: "30 18 * * *", enabled: false });
+    const again = await feed.ensureDailyBrief();
+    expect(again).toMatchObject({ id: first.id, schedule: "30 18 * * *", enabled: false });
+    expect(await scheduler.get(first.id)).toMatchObject({
+      schedule: "30 18 * * *",
+      enabled: false,
+    });
+  });
+
+  it("positive control: a caller that names a schedule still applies it", async () => {
+    const { feed, scheduler } = rig();
+    const first = await feed.ensureDailyBrief();
+    await feed.ensureDailyBrief({ schedule: "0 9 * * *" });
+    expect(await scheduler.get(first.id)).toMatchObject({ schedule: "0 9 * * *", enabled: true });
+  });
+});

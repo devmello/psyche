@@ -1,5 +1,6 @@
 import { type Static, Type } from "@sinclair/typebox";
 import { Id, IsoDateTime, JsonObject, Nullable, StringEnum, Usage } from "../common.ts";
+import { TaintSource } from "./permissions.ts";
 import { SpecialistBudgetSetting } from "./specialists.ts";
 import { AutomationTrigger, WorkflowEvent } from "./workflows.ts";
 
@@ -520,6 +521,12 @@ export const Automation = Type.Object(
         lessons: Type.Optional(Type.String({ maxLength: 128 })),
       }),
     ),
+    /**
+     * The taint the automation was created under (the agent's `schedule` tool, from a turn that
+     * read untrusted content). Every run starts tainted with these sources, so risky tools ask or
+     * refuse as for any tainted unattended turn. Set only at creation; no update path clears it.
+     */
+    taintSources: Type.Optional(Type.Array(TaintSource)),
   },
   { $id: "Automation" },
 );

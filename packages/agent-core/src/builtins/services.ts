@@ -121,7 +121,7 @@ export function memoryTool(store: MemoryStore, options: MemoryToolOptions): Agen
   return defineTool({
     name: "memory",
     description:
-      "Your workspace memory (memory_20250818 commands: view, create, str_replace, insert, delete, rename). Daily notes live in memory/YYYY-MM-DD.md and are append-only. Your own durable notes go in memory/agent/<topic>.md (the owner can see and delete them). SOUL.md, IDENTITY.md, USER.md, AGENTS.md and MEMORY.md change only with the owner's approval. What the owner tells you about themselves (name, timezone, work, education, skills, people, preferences, a resume they attach) is saved to USER.md automatically after the turn and the chat shows what was saved; do not ask to edit USER.md for that.",
+      'Your workspace memory (view, create, str_replace, insert, delete, rename). Daily notes (memory/YYYY-MM-DD.md) are append-only; your own notes go in memory/agent/<topic>.md. SOUL.md, IDENTITY.md, USER.md, AGENTS.md and MEMORY.md change only with the owner\'s approval. What the owner tells you about themselves is picked up for USER.md by a separate pass after the turn, which may skip it (a daily limit), so it is not saved yet: say "I\'ll remember that", never "saved" or "noted", unless a memory call in this turn wrote it. Do not ask to edit USER.md for that.',
     input: MemoryInput,
     sideEffect: "none",
     targetKind: "path",
@@ -387,6 +387,16 @@ export function scheduleTool(
         prompt: p.prompt,
         scratch: null,
         enabled: true,
+        // A schedule made in a turn that read untrusted content keeps the taint: every run
+        // starts tainted with these sources (security §3.6). Tainted with no source still counts.
+        ...(ctx.taint
+          ? {
+              taintSources:
+                ctx.taintSources !== undefined && ctx.taintSources.length > 0
+                  ? (structuredClone(ctx.taintSources) as TaintSource[])
+                  : [{ sourceKind: "turn" }],
+            }
+          : {}),
       });
       return {
         output: { automationId: automation.id, nextRunAt: automation.nextRunAt ?? null },
