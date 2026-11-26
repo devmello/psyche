@@ -13,7 +13,7 @@ export const people = {
   "people.group.count": "{group} ({n, number})",
 
   "people.row.lastTalked": "last talked {when}",
-  "people.row.loops": "{n, plural, one {# open loop} other {# open loops}}",
+  "people.row.loops": "{n, plural, one {# to follow up} other {# to follow up}}",
   "people.row.label": "{name}, {detail}",
 
   "people.summary.asOf": "Summary by Psyche · {date}",
@@ -24,7 +24,7 @@ export const people = {
   "people.unpin": "Unpin",
 
   "people.section.facts": "Facts",
-  "people.section.loops": "Open loops",
+  "people.section.loops": "To follow up",
   "people.section.projects": "Projects",
   "people.section.members": "Members",
   "people.section.recent": "Recent",
@@ -181,7 +181,7 @@ export const people = {
   "people.suggestion.notSame": "Not the same",
   "people.suggestion.notProject": "Not a project",
   "people.suggestion.later": "Later",
-  "people.suggestion.because": "Because:",
+  "people.suggestion.because": "Why this suggestion",
 
   "people.sheet.title": "People & projects",
   "people.sheet.search": "Search people and projects",
@@ -197,7 +197,7 @@ export const people = {
   "people.forget.title": "Forget {name}?",
   "people.forget.counting": "Checking what Psyche knows…",
   "people.forget.counts":
-    "Psyche deletes the card, {facts, plural, one {# fact} other {# facts}}, {loops, plural, one {# open loop} other {# open loops}}, {interactions, plural, one {# interaction} other {# interactions}} and {edges, plural, one {# relation} other {# relations}}.",
+    "Psyche deletes the card, {facts, plural, one {# fact} other {# facts}}, {loops, plural, one {# thing to follow up} other {# things to follow up}}, {interactions, plural, one {# interaction} other {# interactions}} and {edges, plural, one {# relation} other {# relations}}.",
   "people.forget.after":
     "Their addresses are blocked, so Psyche won't learn about them again. Your mail and calendar stay as they are.",
   "people.forget.previewFailed": "Psyche couldn't count what it would delete ({reason}).",

@@ -3,7 +3,7 @@ import type { Catalogue } from "../../index.ts";
 /** `memory.*` strings (hi); merged into `../hi.ts`. */
 export const memoryRest: Partial<Catalogue> = {
   "memory.page.title": "मेमोरी",
-  "memory.page.soul": "सोल",
+  "memory.page.soul": "व्यक्तित्व",
   "memory.page.kinds": "क्या दिखाएँ",
   "memory.page.kind.everything": "सब कुछ",
   "memory.page.kind.people": "लोग",
