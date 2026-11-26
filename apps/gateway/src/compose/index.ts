@@ -203,6 +203,7 @@ import { feedContextResolver } from "./feed-context.ts";
 import { filesHandlers } from "./files.ts";
 import { migrateFilesConnector } from "./files-migration.ts";
 import { repointFolders, withFolder, withRecordedReal, withRecordedRef } from "./folder-access.ts";
+import { composeForgetCascade, composeGraphReset } from "./forget-cascade.ts";
 import { forkEventHidden, memoryWritesOff, withForkTaskScrub } from "./fork-hidden.ts";
 import { composeForks, FORK_POOL_CLAIM, threadModelPrice } from "./forks.ts";
 import { usesSandboxPc } from "./guest-sandbox.ts";
@@ -2797,11 +2798,26 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   );
   // app.uninstall.authorize: the presence gate in front of the uninstall sheet's "Delete my data".
   parts.push({ handlers: uninstallHandlers(services) });
+  // Forget everywhere (memory wave 3A): the graph, lessons and search index, previewed by every
+  // dry run and cleaned by every forget (the RPC and the agent's tool both go through the store).
+  const forgetDeps = {
+    memory,
+    db,
+    graphSqlite: () => (memoryLate === undefined ? db.sqlite : memoryDb.sqlite),
+    graph: () => people?.graph,
+    cards: () => people?.cards,
+    teaching: () => ({ store: teaching.service.store, service: teaching.service }),
+    searchIndex: () => search.index,
+  };
+  memory.setForgetCascade(composeForgetCascade(forgetDeps));
   const handlers: Record<string, HandlerDef> = {
     ...mountPermissions(db, createPermissionHandlers(rawBroker, audit), tokens),
     // memory.search and memory.explain return chunk text: held to the connection's viewer.
     ...mountMemoryHandlers(
-      createMemoryHandlers(memory, { teaching: teaching.service.store }),
+      createMemoryHandlers(memory, {
+        teaching: teaching.service.store,
+        graphReset: composeGraphReset(forgetDeps),
+      }),
       memory,
     ),
     // memory.status also says how recall works (`memory.recall.mode`).

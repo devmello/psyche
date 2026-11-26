@@ -343,6 +343,8 @@ export const fr: Partial<Catalogue> = {
   "chat.thread.forgetNothing": "Rien de mémorisé ne correspond à « {subject} ».",
   "chat.thread.forgetPreview":
     "Oublier « {subject} » retire {claims, plural, one {# affirmation} other {# affirmations}} et {chunks, plural, one {# note indexée} other {# notes indexées}}{hasFiles, select, true {, en modifiant {files}} other {}}.",
+  "chat.thread.forgetCounts":
+    "Cela supprime aussi {graph, plural, one {# élément} other {# éléments}} de votre graphe de personnes, {review, plural, one {# élément} other {# éléments}} en attente de relecture, {lessons, plural, one {# leçon ou ligne de leçon} other {# leçons ou lignes de leçon}} et {search, plural, one {# entrée de recherche} other {# entrées de recherche}}, et retire les mots des discussions enregistrées et des traces d’exécution. C’est définitif.",
   "chat.thread.forgetConfirm": "Oublier",
   "chat.thread.forgot": "« {subject} » a été oublié.",
   "chat.thread.forgetFailed": "L’oubli n’a pas fonctionné ({reason}). Rien n’a été modifié.",

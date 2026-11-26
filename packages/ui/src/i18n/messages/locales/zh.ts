@@ -382,6 +382,8 @@ export const zh: Partial<Catalogue> = {
   "chat.thread.forgetNothing": "没有与“{subject}”匹配的记忆。",
   "chat.thread.forgetPreview":
     "遗忘“{subject}”将撤回 {claims, plural, other {# 条断言}}和 {chunks, plural, other {# 条已索引的笔记}}{hasFiles, select, true {，并编辑 {files}} other {}}。",
+  "chat.thread.forgetCounts":
+    "同时会从人物图谱中删除 {graph, plural, other {# 项}}，删除等待审核的 {review, plural, other {# 项}}、{lessons, plural, other {# 条经验或经验行}}和 {search, plural, other {# 条搜索条目}}，并从已保存的聊天和运行记录中去掉这些词。此操作无法撤销。",
   "chat.thread.forgetConfirm": "遗忘",
   "chat.thread.forgot": "已遗忘“{subject}”。",
   "chat.thread.forgetFailed": "遗忘失败（{reason}）。未做任何更改。",

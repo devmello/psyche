@@ -664,19 +664,40 @@ export function ChatThread({
         const preview = await call("memory.forget", { subject: arg, dryRun: true });
         const claims = preview.retractedClaimIds.length;
         const chunks = preview.removedChunkIds.length;
-        if (claims === 0 && chunks === 0 && preview.files.length === 0) {
+        // What the forget also reaches beyond the Markdown files (a Gateway before wave 3A sends none).
+        const c = preview.counts;
+        const graph = c
+          ? c.graphEntities +
+            c.graphFacts +
+            c.graphEdges +
+            c.graphLoops +
+            c.graphInteractions +
+            c.graphCitations +
+            c.graphOther +
+            c.quarantine
+          : 0;
+        const review = c?.reviewItems ?? 0;
+        const lessons = c ? c.lessons + c.lessonLines + c.feedback : 0;
+        const search = c?.searchDocs ?? 0;
+        const also = graph + review + lessons + search;
+        if (claims === 0 && chunks === 0 && preview.files.length === 0 && also === 0) {
           setNotice({ kind: "info", text: t("chat.thread.forgetNothing", { subject: arg }) });
           return;
         }
+        const summary = t("chat.thread.forgetPreview", {
+          subject: arg,
+          claims,
+          chunks,
+          hasFiles: preview.files.length > 0,
+          files: preview.files.join(", "),
+        });
         setNotice({
           kind: "info",
-          text: t("chat.thread.forgetPreview", {
-            subject: arg,
-            claims,
-            chunks,
-            hasFiles: preview.files.length > 0,
-            files: preview.files.join(", "),
-          }),
+          // Two whole sentences, each its own translated message.
+          text:
+            also === 0
+              ? summary
+              : `${summary}\n${t("chat.thread.forgetCounts", { graph, review, lessons, search })}`,
           confirm: {
             label: t("chat.thread.forgetConfirm"),
             run: async () => {

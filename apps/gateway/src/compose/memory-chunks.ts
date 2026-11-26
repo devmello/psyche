@@ -163,6 +163,16 @@ export function mountMemoryHandlers(
       return handlers["memory.forget"](params);
     },
   };
+  // The preview is the same oracle without the delete: counts per store for any word.
+  out["memory.forget.preview"] = {
+    run: async (call: Call, params: never) => {
+      if (!mayReadMemoryChunks(memoryViewerOf(call)))
+        throw new PsycheError("forbidden", "Memory forgets from the Psyche app on the Host only", {
+          details: { reason: "not_desktop" },
+        });
+      return handlers["memory.forget.preview"](params);
+    },
+  };
   out["memory.files.list"] = {
     run: async (call: Call, params: never) => {
       const res = await handlers["memory.files.list"](params);
