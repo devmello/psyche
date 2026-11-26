@@ -167,6 +167,7 @@ export const blocks = {
   "blocks.approval.scope.hostProgram": "Always allow {program} in {folder}",
   "blocks.approval.scope.hostProgramExact":
     "Always allow {program} with exactly these arguments in {folder}",
+  "blocks.approval.scope.hostProgramSession": "Allow {program} in {folder} for this chat",
   "blocks.approval.scope.site": "Allow for this site",
   "blocks.approval.scope.session": "Allow for this session",
   "blocks.approval.scope.always": "Always allow",
@@ -217,6 +218,8 @@ export const blocks = {
   "blocks.approval.whyMode": "You asked to approve this in {mode} mode, since it {effect}.",
   "blocks.details.params": "Details",
   "blocks.details.reason": "Reason",
+  "blocks.details.when": "When",
+  "blocks.details.whatItWillDo": "What it will do",
   "blocks.approval.titlePending": "Approval needed",
   "blocks.approval.title": "Approval",
   "blocks.approval.expiresIn": "expires in {countdown}",

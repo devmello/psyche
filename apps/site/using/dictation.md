@@ -34,7 +34,7 @@ Settings → Voice & dictation with the Dictation group (Push-to-talk key, Mode)
 - Text dictated into another app goes from the recognizer straight to that app. It is not sent to the agent, saved to a thread, written to memory or put in a log. The receipt records only the app and the number of characters.
 - It refuses password and other secure fields. Over one, the HUD shows a short message and nothing is typed.
 - It never presses Return. Line breaks and other control characters are collapsed, so dictation cannot submit a form.
-- Only the desktop app on the Mac that runs the Gateway can use system-wide dictation. The web client, the CLI, other devices and the agent's tools cannot reach it.
+- Only the desktop app on the Mac that runs the Gateway can use system-wide dictation. The CLI, other devices and the agent's tools cannot reach it.
 
 ## Limits today
 

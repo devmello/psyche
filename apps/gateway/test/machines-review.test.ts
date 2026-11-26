@@ -59,7 +59,6 @@ async function boot(): Promise<TestGateway> {
     }),
     config: {
       dbPath: join(home, "state", "psyche.sqlite"),
-      allowedOrigins: [publicOrigin],
       publicOrigin,
     },
     now: () => new Date(Date.now() + offsetMs),

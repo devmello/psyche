@@ -66,7 +66,7 @@ async function setup(script: ModelEvent[][] = [say("ok")]) {
     logger: silentLogger,
     retentionIntervalMs: 0,
     background: false,
-    config: { home, port: 0, dbPath: join(home, "psyche.db"), webRoot: null },
+    config: { home, port: 0, dbPath: join(home, "psyche.db") },
     model: { provider: model, model: "fake/model" },
   });
   const c = composed;
@@ -305,8 +305,12 @@ describe("screen ask (Gateway)", () => {
       ik(),
     );
     await c.gateway.context.sessions.idle();
-    const text = (userParts(model.requests[0]).find((p) => p.type === "text") as { text: string })
-      .text;
+    // The turn's context comes in several text parts (the local clock leads); the screen's text
+    // context is one of them.
+    const text = userParts(model.requests[0])
+      .filter((p) => p.type === "text")
+      .map((p) => (p as { text: string }).text)
+      .join("\n");
     expect(text).toContain("App: Safari");
     expect(text).not.toContain(SCREEN_LOOK_TOOL);
     expect(item(c, cap.libraryItemId)).toBeUndefined();
@@ -364,7 +368,7 @@ describe("screen ask (Gateway)", () => {
       logger: silentLogger,
       retentionIntervalMs: 0,
       background: false,
-      config: { home, port: 0, dbPath: join(home, "psyche.db"), webRoot: null },
+      config: { home, port: 0, dbPath: join(home, "psyche.db") },
       model: { provider: FakeModelProvider.script([say("ok")]), model: "fake/model" },
       screenAsk: { capturer: () => capturer },
     });

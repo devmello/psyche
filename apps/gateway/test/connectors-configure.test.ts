@@ -41,7 +41,7 @@ describe("connectors.configure (#727)", () => {
     composed = await composeGateway({
       retentionIntervalMs: 0,
       background: false,
-      config: { home, port: 0, dbPath: join(home, "psyche.db"), webRoot: null },
+      config: { home, port: 0, dbPath: join(home, "psyche.db") },
       model: { provider: new FakeModelProvider(), model: "fake/model" },
       parts: [(s) => composeConnectors(s, { store, appleHelper: () => helper, syncIntervalMs: 0 })],
     });
@@ -106,7 +106,7 @@ describe("trusted sources (security §3.6)", () => {
     composed = await composeGateway({
       retentionIntervalMs: 0,
       background: false,
-      config: { home, port: 0, dbPath: join(home, "psyche.db"), webRoot: null },
+      config: { home, port: 0, dbPath: join(home, "psyche.db") },
       model: { provider: new FakeModelProvider(), model: "fake/model" },
       parts: [
         (s) =>

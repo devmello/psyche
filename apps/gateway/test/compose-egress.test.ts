@@ -64,7 +64,7 @@ describe("sandbox egress in the Gateway (#217)", () => {
       logger: createLogger((line) => logs.push(line), "debug"),
       retentionIntervalMs: 0,
       background: false,
-      config: { home, port: 0, dbPath: join(home, "psyche.db"), webRoot: null },
+      config: { home, port: 0, dbPath: join(home, "psyche.db") },
       model: { provider: new FakeModelProvider(), model: "fake/model" },
       parts: [
         (s) => {

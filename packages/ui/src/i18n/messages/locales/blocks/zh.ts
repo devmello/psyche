@@ -107,6 +107,8 @@ export const blocks: Partial<Catalogue> = {
   "blocks.approval.whyMode": "在“{mode}”模式下，由于该操作{effect}，需要先经你批准。",
   "blocks.details.params": "详情",
   "blocks.details.reason": "理由",
+  "blocks.details.when": "时间",
+  "blocks.details.whatItWillDo": "将执行的内容",
   "blocks.approval.answerOnHost":
     "请在 {host} 上回答，或在“设置 → 设备”中为这台电脑设置 Touch ID 批准。",
   "blocks.approval.rateLimited": "一分钟内尝试次数过多，请 {seconds} 秒后再试。",

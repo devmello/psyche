@@ -1,6 +1,7 @@
 import { actionErrors } from "./action-errors.ts";
 import { agent } from "./agent.ts";
 import { agentNotes } from "./agent-notes.ts";
+import { appleE1 } from "./apple-e1.ts";
 import { approvals } from "./approvals.ts";
 import { audit } from "./audit.ts";
 import { automationChat } from "./automation-chat.ts";
@@ -45,6 +46,7 @@ import { overview } from "./overview.ts";
 import { overviewGrowth } from "./overview-growth.ts";
 import { passwordPresence } from "./password-presence.ts";
 import { people } from "./people.ts";
+import { planFork } from "./plan-fork.ts";
 import { platform } from "./platform.ts";
 import { points } from "./points.ts";
 import { research } from "./research.ts";
@@ -145,7 +147,9 @@ export const en = {
   ...computerWatch,
   ...points,
   ...approvals,
+  ...planFork,
   ...desktopSimple,
+  ...appleE1,
   ...notices,
   ...separateDesktop,
   ...keepAwake,

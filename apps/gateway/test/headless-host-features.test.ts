@@ -192,7 +192,7 @@ async function composeServer(setup: Parameters<typeof composeBrowser>[1]) {
     logger: silentLogger,
     retentionIntervalMs: 0,
     background: false,
-    config: { home, port: 0, dbPath: join(home, "psyche.db"), webRoot: null },
+    config: { home, port: 0, dbPath: join(home, "psyche.db") },
     model: { provider: new FakeModelProvider(), model: "fake/model" },
     vault: { keyFile, argon2: { memory: 64, passes: 1, parallelism: 1 } },
     parts: [
@@ -737,7 +737,7 @@ describe("passkey-only payments through the composed broker", () => {
       logger: silentLogger,
       retentionIntervalMs: 0,
       background: false,
-      config: { home, port: 0, dbPath: join(home, "psyche.db"), webRoot: null },
+      config: { home, port: 0, dbPath: join(home, "psyche.db") },
       model: { provider: new FakeModelProvider(), model: "fake/model" },
       // A caller-supplied verifier takes the passkey role (compose/index.ts).
       ...(opts.passkey ? { presence: { verify: async () => true } } : {}),

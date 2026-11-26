@@ -46,7 +46,7 @@ async function compose(): Promise<ComposedGateway> {
     logger: silentLogger,
     retentionIntervalMs: 0,
     background: false,
-    config: { home, port: 0, dbPath: join(home, "psyche.db"), webRoot: null },
+    config: { home, port: 0, dbPath: join(home, "psyche.db") },
     model: { provider: new FakeModelProvider(), model: "fake/model" },
   });
   // The Gateway's own worker resumes its (empty) queue on its first tick; let that tick pass so it

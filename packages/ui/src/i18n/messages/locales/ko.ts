@@ -2,6 +2,8 @@ import type { Catalogue } from "../index.ts";
 import { actionErrors } from "./action-errors/ko.ts";
 import { agentRest } from "./agent-rest/ko.ts";
 import { appleB } from "./apple-b/ko.ts";
+import { appleE1 } from "./apple-e1/ko.ts";
+import { appleE2 } from "./apple-e2/ko.ts";
 import { approvalsW3 } from "./approvals-w3/ko.ts";
 import { auditRest } from "./audit-rest/ko.ts";
 import { automationChatRest } from "./automationChat-rest/ko.ts";
@@ -50,6 +52,7 @@ import { overviewShared } from "./overview-shared/ko.ts";
 import { passwordPresence } from "./password-presence/ko.ts";
 import { peopleRest } from "./people-rest/ko.ts";
 import { personDataRest } from "./personData-rest/ko.ts";
+import { planFork } from "./plan-fork/ko.ts";
 import { points } from "./points/ko.ts";
 import { researchRest } from "./research-rest/ko.ts";
 import { scheduledForm } from "./scheduled-form/ko.ts";
@@ -57,6 +60,7 @@ import { scheduledRest } from "./scheduled-rest/ko.ts";
 import { screensRest } from "./screens-rest/ko.ts";
 import { securityState } from "./security-state/ko.ts";
 import { separateDesktop } from "./separate-desktop/ko.ts";
+import { settingsDrill } from "./settings-drill/ko.ts";
 import { settingsRest } from "./settings-rest/ko.ts";
 import { shellRest } from "./shell-rest/ko.ts";
 import { spaces } from "./spaces/ko.ts";
@@ -359,6 +363,8 @@ export const ko: Partial<Catalogue> = {
   "chat.thread.forgetNothing": "“{subject}”와(과) 일치하는 기억이 없습니다.",
   "chat.thread.forgetPreview":
     "“{subject}”을(를) 잊으면 {claims, plural, other {#개의 주장}}과 {chunks, plural, other {#개의 색인된 메모}}가 철회됩니다{hasFiles, select, true { (편집되는 파일: {files})} other {}}.",
+  "chat.thread.forgetCounts":
+    "사람 그래프에서 {graph, plural, other {#개 항목}}, 검토 대기 중인 {review, plural, other {#개 항목}}, {lessons, plural, other {#개의 학습 내용 또는 학습 줄}}, {search, plural, other {#개의 검색 항목}}도 삭제하고, 저장된 채팅과 실행 기록에서도 해당 단어를 제거합니다. 되돌릴 수 없습니다.",
   "chat.thread.forgetConfirm": "잊기",
   "chat.thread.forgot": "“{subject}”을(를) 잊었습니다.",
   "chat.thread.forgetFailed": "잊기에 실패했습니다({reason}). 변경된 것은 없습니다.",
@@ -475,6 +481,7 @@ export const ko: Partial<Catalogue> = {
   "blocks.approval.scope.trustSiteSubdomains": "이 사이트와 하위 도메인은 항상 허용 ({site})",
   "blocks.approval.scope.hostProgram": "{folder}에서 {program} 항상 허용",
   "blocks.approval.scope.hostProgramExact": "{folder}에서 정확히 이 인수로 {program} 항상 허용",
+  "blocks.approval.scope.hostProgramSession": "이 채팅에서 {folder}의 {program} 허용",
   "blocks.approval.scope.site": "이 사이트에 허용",
   "blocks.approval.scope.session": "이 세션에 허용",
   "blocks.approval.scope.always": "항상 허용",
@@ -2261,8 +2268,6 @@ export const ko: Partial<Catalogue> = {
   "settings.model.role.imageHint": "아바타 변경, 없으면 내장 크리처 사용",
   "settings.model.addProvider": "제공업체 추가",
   "settings.model.title": "모델 및 제공업체",
-  "settings.model.description":
-    "선택한 모델이 그대로 사용됩니다. 실패하면 Psyche는 다른 모델로 대체하지 않고 실패를 알립니다.",
   "settings.model.loadLabel": "모델 제공업체",
   "settings.model.providers": "제공업체",
   "settings.model.listFailed": "Psyche가 모델 목록을 가져올 수 없습니다({reason}).",
@@ -2295,13 +2300,10 @@ export const ko: Partial<Catalogue> = {
   "settings.model.runCheckOn": "{name}에서 도구 호출 점검 실행",
   "settings.model.runCheck": "점검 실행",
   "settings.model.roles": "모델 역할",
-  "settings.model.rolesHint":
-    "각 역할은 모델 하나를 사용합니다. 도구 호출 점검에 실패한 모델은 채팅 전용입니다.",
   "settings.model.none": "없음",
   "settings.model.choose": "모델 선택",
   "settings.model.chatOnlyOption": "{name} (채팅 전용)",
   "settings.model.local": "로컬 모델",
-  "settings.model.localHint": "Ollama 또는 LM Studio로 이 Mac에서 모델을 실행합니다.",
   "settings.model.err.use": "Psyche가 {name}을(를) 사용할 수 없습니다({reason}).",
   "settings.model.err.probe": "Psyche가 엔드포인트를 점검할 수 없습니다({reason}).",
   "settings.model.err.check": "Psyche가 점검을 실행할 수 없습니다({reason}).",
@@ -2351,8 +2353,6 @@ export const ko: Partial<Catalogue> = {
   "settings.permissions.subject.emailFrom": "{recipients}에게, 계정 {account}",
   "settings.permissions.subject.calendarNamed": "캘린더 {id}",
   "settings.permissions.subject.calendar": "캘린더",
-  "settings.permissions.title": "권한",
-  "settings.permissions.description": "자동으로 실행되는 것, 먼저 묻는 것, 절대 하지 않는 것.",
   "settings.permissions.loadLabel": "권한",
   "settings.permissions.defaultModeTitle": "새 스레드의 기본 모드",
   "settings.permissions.execReview": "자동 모드에서 안전한 터미널 명령을 검토자가 승인하도록 허용",
@@ -2841,8 +2841,8 @@ export const ko: Partial<Catalogue> = {
   "onboarding.keyRefused": "제공업체가 이 키를 거부했습니다({reason}). 키를 다시 붙여넣으십시오.",
   "onboarding.setupCheck": "설정 점검",
   "onboarding.progress": "초기 설정 진행 상황",
+  "onboarding.steps": "단계",
   "onboarding.doneMark": " (완료)",
-  "onboarding.stepOf": "{total, number}단계 중 {n, number}단계:",
   "onboarding.back": "뒤로",
   "onboarding.skipForNow": "지금은 건너뛰기",
   "onboarding.openChat": "메인 채팅 열기",
@@ -2895,7 +2895,7 @@ export const ko: Partial<Catalogue> = {
   "onboarding.permission.asking": "요청 중…",
   "onboarding.permission.allow": "허용",
   "onboarding.connectors.intro":
-    "연결할 계정을 하나씩 결정하십시오. {name}은(는) 사용자가 연결한 것만 볼 수 있으며, 나중에 설정에서 더 추가할 수 있습니다.",
+    "{name}이(가) 도울 일을 고르세요. 각 앱은 연결할 때 권한을 요청하며, 나중에 설정에서 더 추가할 수 있습니다.",
   "onboarding.connectors.connected": "연결됨 ({n, number})",
   "onboarding.connectors.connectedList": "연결된 계정",
   "onboarding.connectors.needsPermission": "권한 필요",
@@ -2941,12 +2941,19 @@ export const ko: Partial<Catalogue> = {
     "Psyche가 방금 금고를 만들었습니다. 이 키를 암호 관리자나 종이에 보관하십시오. 지금만 표시되며, 복원하거나 키 슬롯을 잃은 뒤 금고에 다시 들어갈 수 있는 유일한 방법입니다.",
   "onboarding.model.subscriptionNote":
     "Psyche는 이 Mac에 이미 로그인된 Claude Code 또는 Codex 앱을 사용하므로 API 키가 필요 없고 저장하지도 않습니다. 아직 로그인하지 않았다면 먼저 그곳에서 로그인하십시오.",
-  "onboarding.model.toolCheck": "도구 호출 점검",
-  "onboarding.model.runCheck": "점검 실행",
-  "onboarding.model.checkAgain": "다시 확인",
+  "onboarding.model.toolCheck": "연결 테스트",
+  "onboarding.model.otherWays": "다른 방법",
+  "onboarding.model.test.passed": "정상 작동",
+  "onboarding.model.test.failed": "채팅 전용",
+  "onboarding.model.test.running": "테스트 중…",
+  "onboarding.model.test.untested": "아직 테스트 안 함",
+  "onboarding.model.runCheck": "테스트",
+  "onboarding.model.checkAgain": "다시 테스트",
   "onboarding.model.toolCheckFailed":
-    "이 모델은 채팅은 가능하지만 도구를 안정적으로 사용할 수 없어 사용자를 대신해 동작하지 못합니다. 다른 모델을 선택하거나 채팅 전용 모드로 계속하십시오.",
+    "이 모델은 채팅은 가능하지만 작업을 대신 처리하지 못할 수 있습니다. 다른 모델을 고르거나 채팅 전용으로 계속하세요.",
   "onboarding.done.ready": "{name}이(가) 준비되었습니다.",
+  "onboarding.done.notReady": "{name}이(가) 아직 응답할 수 없습니다.",
+  "onboarding.done.notReadyBody": "아래 모델 항목을 해결하거나, 나중에 설정 → 모델에서 하세요.",
   "onboarding.done.opens": "메인 채팅이 {name}의 첫 메시지와 함께 열립니다.",
   "onboarding.done.noneYet": "아직 없음",
   "onboarding.done.accounts": "계정",
@@ -3230,7 +3237,7 @@ export const ko: Partial<Catalogue> = {
   "screens.files.shareInSettings": "설정 → 파일 접근에서 공유하십시오.",
   "screens.files.previewOf": "{name} 미리보기",
   "screens.files.preview": "미리보기",
-  "screens.files.needsApp": "미리보기는 데스크탑 또는 웹 앱에서만 볼 수 있습니다.",
+  "screens.files.needsApp": "미리보기는 데스크탑 앱에서만 볼 수 있습니다.",
   "screens.files.pick": "여기서 미리 볼 파일을 선택하십시오.",
   "screens.files.editReadOnly": "읽기 전용: 이 폴더는 편집 없이 공유되어 있습니다.",
   "screens.files.editOpening": "편집하려고 {name} 여는 중",
@@ -3559,7 +3566,7 @@ export const ko: Partial<Catalogue> = {
   "web.passkeys.unavailable":
     "패스키에는 서버의 https 주소가 필요합니다. gateway.publicOrigin(또는 PSYCHE_PUBLIC_ORIGIN)을 Psyche를 여는 https:// 주소로 설정하고 Gateway를 재시동한 다음 여기서 추가하십시오.",
   "web.passkeys.insecure":
-    "패스키는 Psyche를 https:// 주소에서, 패스키를 지원하는 브라우저로 열었을 때만 작동합니다. 추가하려면 그곳에서 여십시오.",
+    "여기서는 패스키를 추가할 수 없습니다. 이 Gateway의 https:// 주소로 연결하는 다른 컴퓨터의 Psyche 앱에서 추가하십시오.",
   "web.passkeys.firstApproval":
     "Mac의 Touch ID 또는 다른 기기의 패스키로 “패스키 추가”를 승인한 다음 추가를 다시 누르십시오.",
   "web.passkeys.loadError": "Psyche가 패스키를 로드할 수 없습니다({error}).",
@@ -3606,8 +3613,11 @@ export const ko: Partial<Catalogue> = {
   "web.setup.modelRefused": "{ref}: 공급자가 키를 거부했습니다({error}). 키는 보관되지 않았습니다.",
   "web.setup.modelNotChecked":
     "{ref}: 키는 저장되었지만 확인을 위해 공급자에 연결할 수 없었습니다.",
+  "web.setup.modelEnvKey": "환경에 있는 키를 사용합니다({ref}).",
+  "web.setup.modelEnvNotChecked":
+    "환경에 있는 키를 사용하지만({ref}) 확인을 위해 제공업체에 연결하지 못했습니다.",
   "web.setup.modelSkipped":
-    "{ref}: 추가된 키가 없어 채팅이 아직 응답하지 않습니다. 설정 → 모델에서 추가하세요.",
+    "키를 추가하세요: {ref}에 아직 키가 없어 채팅이 응답하지 않습니다. 설정 → 모델에서 추가하세요.",
   "web.gate.loading": "Psyche 시작 중",
   "web.gate.error": "설정이 끝났는지 확인하지 못했습니다.",
   "web.gate.retry": "다시 시도",
@@ -3842,12 +3852,12 @@ export const ko: Partial<Catalogue> = {
   "web.toast.permissionModeUnsupported":
     "권한 모드를 변경하려면 더 새로운 버전의 Psyche가 필요합니다.",
   "web.toast.modelUnsupported": "모델을 선택하려면 더 새로운 버전의 Psyche가 필요합니다.",
-  "web.palette.newSideChat": "새 사이드 채팅",
-  "web.palette.newIncognito": "새 시크릿 채팅 (메모리에만 보관, 24시간)",
-  "web.palette.openBrowser": "브라우저 패널 열기",
-  "web.palette.openTerminal": "터미널 패널 열기",
-  "web.palette.openTasks": "작업 패널 열기",
-  "web.palette.openFiles": "파일 패널 열기",
+  "web.palette.newSideChat": "새 채팅",
+  "web.palette.newIncognito": "새 비공개 채팅",
+  "web.palette.openBrowser": "브라우저 열기",
+  "web.palette.openTerminal": "터미널 열기",
+  "web.palette.openTasks": "작업 보기",
+  "web.palette.openFiles": "파일 보기",
   "web.palette.switchMode": "권한 모드 전환",
   "web.threads.sideChat": "사이드 채팅",
   "web.shell.skipToContent": "콘텐츠로 건너뛰기",
@@ -4001,14 +4011,19 @@ export const ko: Partial<Catalogue> = {
   ...points,
   // Approvals wave W3 (card choices, Allowed list)
   ...approvalsW3,
+  ...settingsDrill,
+  // Fork a plan (docs/design/fork-a-plan-2026.md §9)
+  ...planFork,
   ...desktopSimple,
   ...appleB,
+  ...appleE1,
   // Gateway-authored notices (inbox notifications, security alerts)
   ...notices,
   // Settings > Computer use > Separate desktop (Linux)
   ...separateDesktop,
   // Windows variants of the sandbox PC, voice keys and platform terms
   ...windowsPlatform202611,
+  ...appleE2,
   ...mailFollowups,
   ...nightShift,
   ...keepAwake,

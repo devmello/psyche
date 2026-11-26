@@ -27,7 +27,7 @@ Psyche has three zones.
 | Executors | The agent browser, the sandbox container, host helpers under `srt`, remote nodes, the VM guest | Content can compromise them. They get only what one action needs. |
 | The Gateway (`psyched`) | The agent loop, Permission Broker, Credential Broker, audit log | The trusted core. It is the only process that talks to model providers, holds the vault key in memory, and decides allow, ask or deny. |
 
-Clients (the desktop app, the web UI, the CLI) hold no secrets and decide nothing. They render approval cards and send back your answers. The Mac helper (Psyche Helper) holds the macOS permissions and the Keychain, and connects to the Gateway as a node. Chat channels such as Telegram are the weakest surface: they can answer only low-risk approvals.
+Clients (the desktop app, the iPhone app, the CLI) hold no secrets and decide nothing. They render approval cards and send back your answers. The Mac helper (Psyche Helper) holds the macOS permissions and the Keychain, and connects to the Gateway as a node. Chat channels such as Telegram are the weakest surface: they can answer only low-risk approvals.
 
 ::: info Screenshot placeholder
 A diagram of the three zones: untrusted content on top, executors in the middle, the Gateway at the bottom, with clients and the Mac helper connecting to the Gateway.

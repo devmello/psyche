@@ -134,11 +134,12 @@ describe("Connectors page", () => {
     expect(onOpenSection).toHaveBeenCalledWith("files");
   });
 
-  it("offers a few things to add, and the whole gallery separately", async () => {
+  it("keeps the list short: one Add connector row opens the whole gallery", async () => {
     renderPage();
-    const more = within(group("Add more"));
-    expect(more.getAllByRole("button").length).toBeGreaterThan(1);
-    await userEvent.click(more.getByRole("button", { name: "Browse all" }));
+    // No suggestion tiles on the page itself.
+    expect(screen.queryByRole("region", { name: "Add more" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Browse all" })).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: "Add connector" }));
     expect(screen.getByRole("searchbox", { name: "Search connectors" })).toBeTruthy();
     // The gallery replaces the list.
     expect(screen.queryByRole("region", { name: "Needs you" })).toBeNull();

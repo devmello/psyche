@@ -86,7 +86,7 @@ describe("psyche migrate --check", () => {
   it("is up to date on a database the real Gateway created (same checksum rule as @psyche/db)", async () => {
     const home = temp();
     const gw = await startGateway({
-      config: { home, port: 0, webRoot: null },
+      config: { home, port: 0 },
       env: {},
       logger: { log() {} } as never,
       retentionIntervalMs: 0,

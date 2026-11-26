@@ -8,6 +8,7 @@ export const onboardingRest: Partial<Catalogue> = {
   "onboarding.connectors.connectApps": "{n, plural, =0 {앱 연결} other {앱 #개 연결}}",
   "onboarding.connectors.connecting": "{name} 연결 중",
   "onboarding.connectors.accounts": "계정",
+  "onboarding.connectors.moreAccounts": "Google, Microsoft 또는 이메일 계정 추가",
   "onboarding.step.memory": "메모리와 일상 습관",
   "onboarding.about.lead":
     "Psyche가 처음부터 사용자를 알 수 있도록 몇 가지 정보를 입력합니다. 모두 선택 사항이며 USER.md에 저장되고 언제든 편집할 수 있습니다.",
@@ -51,7 +52,7 @@ export const onboardingRest: Partial<Catalogue> = {
   "onboarding.rerun.description": "첫 실행 설정을 다시 진행합니다. 이미 끝난 단계는 건너뜁니다.",
   "onboarding.rerun.button": "설정 다시 실행",
   "onboarding.step.you": "사용자와 에이전트",
-  "onboarding.step.stuff": "내 데이터",
+  "onboarding.step.stuff": "무엇을 도와드릴까요?",
   "onboarding.step.safety": "안전",
   "onboarding.step.folders": "폴더",
   "onboarding.folders.lead":
@@ -119,9 +120,7 @@ export const onboardingRest: Partial<Catalogue> = {
   "onboarding.done.touchIdNot": "아직 등록되지 않음",
   "onboarding.done.modelKept": "변경 없음",
   "onboarding.done.try": "다음으로 해 보기",
-  "onboarding.done.try.search":
-    "검색(⌘K)에서 질문해 보십시오. 답변에는 생활 속 어디에서 온 정보인지 표시됩니다.",
-  "onboarding.done.try.home": "홈을 열어 보십시오. 따라잡기에는 미뤄 두었을 만한 일이 나열됩니다.",
-  "onboarding.done.try.canDo":
-    '톱니바퀴 메뉴의 "무엇을 할 수 있나요?"를 열면 바로 쓸 수 있는 작업을 찾을 수 있습니다.',
+  "onboarding.done.try.search": "검색에서 질문하기",
+  "onboarding.done.try.home": "홈에서 놓친 것 확인하기",
+  "onboarding.done.try.chat": "새 채팅 시작하기",
 };

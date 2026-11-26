@@ -28,7 +28,6 @@ import { useAboutInfo } from "./about.ts";
 import { BackupsPanel } from "./backups.tsx";
 import { DesktopDevicesSettings, useThisDeviceId } from "./helper.tsx";
 import { LogViewer } from "./logs.tsx";
-import { PasskeysPanel } from "./passkeys.tsx";
 import { ComputerUseSettings, NotificationsSettings } from "./permissions.tsx";
 import { RemotePresencePanel } from "./remote-presence.tsx";
 import { ZoomSetting } from "./ZoomSetting.tsx";
@@ -164,17 +163,6 @@ export function FileAccessSettings({ platform }: { platform: ShellPlatform }): R
 }
 
 /** `/settings/:section`, falling back to the first section for unknown or missing ids. */
-/** Settings → Devices on the web: the Gateway's devices with this browser marked, and its passkeys. */
-export function WebDevicesSettings({ platform }: { platform: ShellPlatform }): ReactElement {
-  const deviceId = useThisDeviceId(platform);
-  return (
-    <div className="flex flex-col gap-4">
-      <DevicesSection {...(deviceId === undefined ? {} : { thisDeviceId: deviceId })} />
-      <PasskeysPanel host={platform.passkeys} />
-    </div>
-  );
-}
-
 /**
  * Settings → Devices in a window of another computer's Gateway: its devices, and Touch ID for
  * approvals on this computer (a passkey for the Host's site, R2).
@@ -309,15 +297,11 @@ export function settingsRoute(
           ...(platform.dictation
             ? { voice: <SystemVoiceSettings dictation={platform.dictation} /> }
             : {}),
-          ...(platform.kind === "web"
-            ? {
-                devices: <WebDevicesSettings platform={platform} />,
-              }
-            : platform.helper
-              ? { devices: <DesktopDevicesSettings platform={platform} /> }
-              : platform.chrome?.remote && platform.passkeys
-                ? { devices: <RemoteDevicesSettings platform={platform} /> }
-                : {}),
+          ...(platform.helper
+            ? { devices: <DesktopDevicesSettings platform={platform} /> }
+            : platform.chrome?.remote && platform.passkeys
+              ? { devices: <RemoteDevicesSettings platform={platform} /> }
+              : {}),
           appearance: (
             <div className="flex flex-col gap-4">
               <AppearanceSection />

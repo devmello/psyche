@@ -31,7 +31,7 @@ describe("the weekly What I learned post (#681)", () => {
       background: false,
       timeZone: "UTC",
       clock,
-      config: { home, port: 0, dbPath: join(home, "psyche.db"), webRoot: null },
+      config: { home, port: 0, dbPath: join(home, "psyche.db") },
       model: { provider: new FakeModelProvider(), model: "fake/model" },
     });
     const c = composed;

@@ -127,6 +127,35 @@ export const WorkspacePath = Type.String({
   $id: "WorkspacePath",
 });
 
+/** Rows removed per store by a forget (or that a preview says it would remove). */
+const Count = Type.Integer({ minimum: 0 });
+const MemoryForgetCounts = Type.Object(
+  {
+    markdownFiles: Count,
+    markdownLines: Count,
+    claims: Count,
+    chunks: Count,
+    graphEntities: Count,
+    graphFacts: Count,
+    graphEdges: Count,
+    graphLoops: Count,
+    graphInteractions: Count,
+    graphCitations: Count,
+    graphOther: Count,
+    reviewItems: Count,
+    quarantine: Count,
+    lessons: Count,
+    lessonLines: Count,
+    feedback: Count,
+    searchDocs: Count,
+  },
+  {
+    $id: "MemoryForgetCounts",
+    description:
+      "Per store: Markdown files and lines, claims, chunks, graph entities, facts, relations, loops, interactions and citations, other graph text, review items, quarantine rows, lessons and their lines, feedback events and search documents.",
+  },
+);
+
 export const MemoryMethods = {
   "memory.search": defineMethod({
     params: Type.Object({
@@ -231,11 +260,29 @@ export const MemoryMethods = {
       removedChunkIds: Type.Array(Id),
       /** Workspace files whose lines were removed (or would be, on a dry run). */
       files: Type.Array(WorkspacePath),
+      /** What was removed from every store; absent from a Gateway that predates wave 3A. */
+      counts: Type.Optional(MemoryForgetCounts),
     }),
     scope: "operator.write",
     sideEffecting: true,
     description:
-      "Retracts matching claims, removes linked daily-note lines and chunks and rebuilds the index; dryRun reports without changing. Side-effecting.",
+      "Forgets a word or phrase everywhere: Markdown lines, claims, chunks (persona files' too), graph facts, relations and people that match, review and quarantine rows, lessons, and the search index; run traces and saved chats are cut in the background. Permanent. The Psyche app on the Host only. dryRun reports without changing. Side-effecting.",
+  }),
+  "memory.forget.preview": defineMethod({
+    params: Type.Object({
+      subject: Type.String({ minLength: 1, maxLength: 500 }),
+    }),
+    result: Type.Object({
+      counts: MemoryForgetCounts,
+      total: Type.Integer({ minimum: 0 }),
+      /** Workspace files whose lines would be removed. */
+      files: Type.Array(WorkspacePath),
+      /** Stores the forget cleans but cannot count (run traces, saved chats). */
+      uncounted: Type.Array(Type.String()),
+    }),
+    scope: "operator.read",
+    description:
+      "Counts per store what `memory.forget` would delete for this subject, without deleting anything. The Psyche app on the Host only (it is a word search over private memory).",
   }),
   "memory.forgetLearned": defineMethod({
     params: Type.Object({ factId: Type.String({ pattern: "^lf_[a-z0-9]{6,32}$" }) }),
@@ -302,12 +349,24 @@ export const MemoryMethods = {
       files: Type.Array(WorkspacePath),
       chunks: Type.Integer({ minimum: 0 }),
       claims: Type.Integer({ minimum: 0 }),
+      /** The people graph and extraction tables (entities, facts, relations...); absent when memory graph is off. */
+      graph: Type.Optional(
+        Type.Object({
+          entities: Type.Integer({ minimum: 0 }),
+          facts: Type.Integer({ minimum: 0 }),
+          edges: Type.Integer({ minimum: 0 }),
+          interactions: Type.Integer({ minimum: 0 }),
+          loops: Type.Integer({ minimum: 0 }),
+          citations: Type.Integer({ minimum: 0 }),
+          quarantine: Type.Integer({ minimum: 0 }),
+        }),
+      ),
       dryRun: Type.Boolean(),
     }),
     scope: "operator.admin",
     sideEffecting: true,
     description:
-      "Deletes every workspace file, chunk and claim and re-creates the templates; the UI asks for a typed confirmation first. Side-effecting.",
+      "Deletes every workspace file, chunk and claim, the people graph and its review and quarantine rows, and re-creates the templates; the UI asks for a typed confirmation first. Side-effecting.",
   }),
   "memory.status": defineMethod({
     params: Type.Object({}),

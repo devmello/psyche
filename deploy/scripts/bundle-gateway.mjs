@@ -8,7 +8,7 @@
 //   apps/gateway/dist/extract-worker.mjs  the document-extraction worker thread (@psyche/files)
 //   apps/cli/dist/main.mjs                the psyche CLI
 //
-// Files that live next to the code (migrations, templates, skills, the web client, …) stay at the
+// Files that live next to the code (migrations, templates, skills, …) stay at the
 // same paths below the app dir; @psyche/assets finds them from the bundle's location.
 
 import {
@@ -58,7 +58,6 @@ export const ASSET_PATHS = [
   "skills",
   "templates",
   "deploy/sandbox-image",
-  "apps/web/dist",
   "packages/db/migrations",
   "packages/connectors/migrations",
   "packages/notifications/migrations",

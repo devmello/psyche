@@ -144,10 +144,10 @@ describe("the onboarding mail step", () => {
       </StoryWorld>,
     );
     expect(screen.queryByTestId("onboarding-mail")).toBeNull();
-    // It was a step of its own once; the step menu lists six steps and none is mail.
-    await userEvent.setup().click(screen.getByRole("button", { name: /Onboarding progress/ }));
+    // It was a step of its own once; the step menu lists four steps and none is mail.
+    await userEvent.setup().click(screen.getByRole("button", { name: "Steps" }));
     const menu = await screen.findByRole("menu");
-    expect(within(menu).getAllByRole("menuitem")).toHaveLength(6);
+    expect(within(menu).getAllByRole("menuitem")).toHaveLength(4);
     expect(within(menu).queryByText("Mail and meetings")).toBeNull();
   });
 
@@ -166,7 +166,7 @@ describe("the onboarding mail step", () => {
       </StoryWorld>,
     );
     // The switches sit under the accounts, on the same step.
-    expect(screen.getByRole("heading", { level: 1, name: /Your stuff/ })).toBeTruthy();
+    expect(screen.getByRole("heading", { level: 1, name: /What should I help with/ })).toBeTruthy();
     expect(
       screen.getByRole("heading", { level: 2, name: /can catch you up on mail and meetings/ }),
     ).toBeTruthy();
@@ -178,9 +178,8 @@ describe("the onboarding mail step", () => {
     const voice = screen.getByRole("switch", { name: "Learn my writing style from sent mail" });
     expect(voice.getAttribute("aria-checked")).toBe("false");
     await user.click(screen.getByRole("switch", { name: "Track replies you’re waiting on" }));
-    // Model, Memory and daily habits, Safety, Done
-    for (let i = 0; i < 4; i++)
-      await user.click(await screen.findByRole("button", { name: /Next/ }));
+    // What to help with is the last step before Done.
+    await user.click(await screen.findByRole("button", { name: /Next/ }));
     await user.click(await screen.findByRole("button", { name: /Open chat|Open/ }));
     expect(onComplete).toHaveBeenCalledWith(
       expect.objectContaining({ mail: { ...MAIL_DEFAULTS, followups: false } }),

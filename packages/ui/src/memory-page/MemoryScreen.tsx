@@ -1,6 +1,6 @@
 import { MEMORY_REVIEW_ROUTE } from "@psyche/protocol";
 import { MoreHorizontal, Search } from "lucide-react";
-import { type ReactElement, useId, useState } from "react";
+import { type ReactElement, useCallback, useEffect, useId, useState } from "react";
 import { Button } from "../components/ui/button.tsx";
 import {
   DropdownMenu,
@@ -36,14 +36,38 @@ export interface MemoryScreenProps {
   now?: number;
 }
 
+/** From this window width the People list gets a detail pane beside it; below it a row pushes the page. */
+const SPLIT_QUERY = "(min-width: 1100px)";
+
+function useSplit(): boolean {
+  const read = () =>
+    typeof window !== "undefined" &&
+    typeof window.matchMedia === "function" &&
+    window.matchMedia(SPLIT_QUERY).matches;
+  const [split, setSplit] = useState(read);
+  useEffect(() => {
+    if (typeof window.matchMedia !== "function") return;
+    const mql = window.matchMedia(SPLIT_QUERY);
+    const on = () => setSplit(mql.matches);
+    on();
+    mql.addEventListener("change", on);
+    return () => mql.removeEventListener("change", on);
+  }, []);
+  return split;
+}
+
 /** The kinds with a segment; the rest (Events, More, Everything) are in the "…" menu. */
+/** The identity file behind "Personality", shown only as a secondary detail. */
+const SOUL_FILE = "SOUL.md";
+
 const SEGMENT_KINDS = ["people", "projects", "due"] as const;
 
 /**
  * Memory (docs/design/memory-everything-2026.md §6): everything Psyche remembers, by kind. The
- * toolbar is the title, a People | Projects | Work control, search and a "…" menu that holds Map,
- * Soul, Review (with its count), Events, More and Everything. People is the default; Keep in
- * touch lives on Home.
+ * toolbar is the title, a People | Projects | Work control (the only segmented control), search
+ * and a "…" menu that holds Map, Personality (the Soul file), Review (with its count), Events, More and Everything. People is the default; Keep in
+ * touch lives on Home. At 1100 px and wider People is a split view, the list on the left and the
+ * selected person on the right, as in Contacts; narrower, a row pushes the person's page.
  */
 export function MemoryScreen({
   kind = "people",
@@ -62,6 +86,20 @@ export function MemoryScreen({
   const searchId = useId();
   const [query, setQuery] = useState("");
   const q = query.trim().toLowerCase();
+  const split = useSplit();
+  const [selected, setSelected] = useState<string | null>(null);
+  const splitting = split && kind === "people" && !entity && !reviewing && !mapping;
+  // In the split view a link to another person selects them; leaving the list (the person was
+  // forgotten) clears the pane; anything else navigates as usual.
+  const paneNavigate = useCallback(
+    (to: string) => {
+      if (to === memoryHref("people")) return setSelected(null);
+      const id = new URLSearchParams(to.split("?")[1] ?? "").get("entity");
+      if (to.startsWith("/memory?") && id) return setSelected(id);
+      navigate(to);
+    },
+    [navigate],
+  );
 
   return (
     <section aria-label={t("memory.page.title")} data-testid="memory">
@@ -110,8 +148,14 @@ export function MemoryScreen({
                 <DropdownMenuItem onClick={() => navigate(MEMORY_MAP_ROUTE)}>
                   {t("memory.page.view.map")}
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => navigate("/agent/soul")}>
+                <DropdownMenuItem
+                  onClick={() => navigate("/agent/soul")}
+                  className="justify-between gap-3"
+                >
                   {t("memory.page.soul")}
+                  <span aria-hidden="true" className="text-footnote text-label-tertiary">
+                    {SOUL_FILE}
+                  </span>
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => navigate(MEMORY_REVIEW_ROUTE)}>
                   {pending > 0
@@ -132,13 +176,44 @@ export function MemoryScreen({
           </>
         }
       />
-      <ScreenColumn width="wide" className="gap-6">
+      <ScreenColumn width={splitting ? "full" : "wide"} className="gap-6">
         {entity ? (
           <EntityPage id={entity} now={now} onNavigate={navigate} />
         ) : mapping ? (
           <MemoryMapView onOpen={(id) => navigate(entityHref(id))} />
         ) : reviewing ? (
           <ReviewTab now={now} onPendingChange={queue.reload} />
+        ) : splitting ? (
+          <div
+            className="grid min-h-0 grid-cols-[minmax(280px,360px)_1fr] items-start gap-6"
+            data-testid="memory-split"
+          >
+            <PeopleSheetSection
+              page
+              query={query}
+              now={now}
+              selectedId={selected}
+              onOpenEntity={setSelected}
+            />
+            <div
+              data-testid="memory-detail"
+              className="min-w-0 rounded-lg bg-surface-raised p-4 shadow-elevation-1"
+            >
+              {selected ? (
+                <EntityPage
+                  key={selected}
+                  id={selected}
+                  now={now}
+                  onNavigate={paneNavigate}
+                  embedded
+                />
+              ) : (
+                <p className="py-16 text-center text-body text-label-secondary">
+                  {t("memory.page.detail.empty")}
+                </p>
+              )}
+            </div>
+          </div>
         ) : kind === "people" ? (
           <PeopleSheetSection
             page

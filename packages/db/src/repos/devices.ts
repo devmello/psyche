@@ -1,5 +1,5 @@
 import type { Device, DevicePlatform, DeviceRole, DeviceScope } from "@psyche/protocol";
-import { and, asc, eq, isNull } from "drizzle-orm";
+import { and, asc, eq, isNull, ne } from "drizzle-orm";
 import { deviceFromRow } from "../mappers.ts";
 import type { PsycheDb } from "../open.ts";
 import { readGuardOf } from "../read-guard.ts";
@@ -53,12 +53,21 @@ export function getDevice(db: PsycheDb, id: string): Device | undefined {
   return row === undefined ? undefined : deviceFromRow(row);
 }
 
+/**
+ * A browser paired before browser access was dropped (2026-11-25). `DevicePlatform` has no `web`
+ * any more and the iPhone app decodes it strictly, so such a row is never listed.
+ */
+const LEGACY_WEB_PLATFORM = "web";
+
 export function listDevices(db: PsycheDb, opts: { includeRevoked?: boolean } = {}): Device[] {
   readGuardOf(db)?.check();
   const query = db.drizzle.select().from(devices);
   const rows = opts.includeRevoked
-    ? query.orderBy(asc(devices.createdAt)).all()
-    : query.where(isNull(devices.revokedAt)).orderBy(asc(devices.createdAt)).all();
+    ? query.where(ne(devices.platform, LEGACY_WEB_PLATFORM)).orderBy(asc(devices.createdAt)).all()
+    : query
+        .where(and(isNull(devices.revokedAt), ne(devices.platform, LEGACY_WEB_PLATFORM)))
+        .orderBy(asc(devices.createdAt))
+        .all();
   return rows.map(deviceFromRow);
 }
 

@@ -44,5 +44,7 @@ export const homeRest: Partial<Catalogue> = {
   "home.more.pages": "Pagine",
   "home.more.brief": "Impostazioni del riepilogo",
   "home.more.memoryReview": "Revisione della memoria",
+  "home.quiet":
+    "Per ora nulla ha bisogno di te. Le approvazioni, il tuo riepilogo giornaliero e le nuove idee compariranno qui.",
   "home.loadFailed": "Impossibile caricare {what}.",
 };

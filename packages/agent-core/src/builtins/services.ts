@@ -114,7 +114,7 @@ function numbered(content: string, range?: number[]): string {
 
 export interface MemoryToolOptions {
   clock: Clock;
-  timeZone: string;
+  timeZone: string | (() => string);
 }
 
 export function memoryTool(store: MemoryStore, options: MemoryToolOptions): AgentToolRegistration {
@@ -152,7 +152,10 @@ export function memoryTool(store: MemoryStore, options: MemoryToolOptions): Agen
           ...(etag === undefined ? {} : { etag }),
           ...(ctx.approvalId === undefined ? {} : { approvalId: ctx.approvalId }),
         });
-      const today = localDate(options.clock.now(), options.timeZone);
+      const today = localDate(
+        options.clock.now(),
+        typeof options.timeZone === "function" ? options.timeZone() : options.timeZone,
+      );
       switch (p.command) {
         case "view": {
           const path = workspacePath(p.path);
@@ -283,16 +286,70 @@ export function taskStartTool(tasks: TaskEngine): AgentToolRegistration {
   });
 }
 
-export function scheduleTool(scheduler: Scheduler, defaultTimeZone: string): AgentToolRegistration {
+/** UTC offset (minutes) of `timeZone` at the instant `ms`. */
+function zoneOffsetMinutes(ms: number, timeZone: string): number {
+  const f = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    hourCycle: "h23",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
+  const get = (type: string) => Number(f.formatToParts(ms).find((x) => x.type === type)?.value);
+  const asUtc = Date.UTC(
+    get("year"),
+    get("month") - 1,
+    get("day"),
+    get("hour"),
+    get("minute"),
+    get("second"),
+  );
+  return Math.round((asUtc - Math.floor(ms / 1000) * 1000) / 60_000);
+}
+
+/**
+ * The instant (epoch ms) of an ISO-8601 time. One with `Z` or an offset is exact; a bare local
+ * time ("2026-11-25T15:42") is read in `timeZone`. Undefined when it is not a time.
+ */
+export function parseAtInstant(text: string, timeZone: string): number | undefined {
+  const t = text.trim();
+  const m =
+    /^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::(\d{2}))?(\.\d+)?(Z|[+-]\d{2}:?\d{2})?$/i.exec(
+      t,
+    );
+  if (m === null) return undefined;
+  if (m[8] !== undefined) {
+    const ms = Date.parse(t.replace(" ", "T"));
+    return Number.isNaN(ms) ? undefined : ms;
+  }
+  const wall = Date.UTC(+m[1]!, +m[2]! - 1, +m[3]!, +m[4]!, +m[5]!, +(m[6] ?? 0));
+  try {
+    // Two passes settle the offset across a DST change.
+    let guess = wall - zoneOffsetMinutes(wall, timeZone) * 60_000;
+    guess = wall - zoneOffsetMinutes(guess, timeZone) * 60_000;
+    return guess;
+  } catch {
+    return undefined;
+  }
+}
+
+export function scheduleTool(
+  scheduler: Scheduler,
+  defaultTimeZone: string | (() => string),
+): AgentToolRegistration {
   return defineTool({
     name: "schedule",
     description:
-      "Create an automation that runs a prompt on a schedule (cron expression, or an ISO-8601 interval such as PT1H). Automations run unattended.",
+      'Create an automation that runs a prompt later, unattended. For something once (a reminder, "in 2 minutes", "tomorrow at 9") pass `at`, an ISO-8601 time (with an offset, or local to the owner\'s time zone); it fires once and is done. For something repeated pass `kind` and `schedule` (a cron expression, or an ISO-8601 interval such as PT1H). Never ask the owner for their time zone: the current local date, time and zone are in your context, and a time without an offset is read in that zone.',
     input: Type.Object(
       {
         title: Type.String({ minLength: 1, maxLength: 120 }),
-        kind: Type.Union([Type.Literal("cron"), Type.Literal("interval")]),
-        schedule: Type.String({ minLength: 1, maxLength: 120 }),
+        at: Type.Optional(Type.String({ minLength: 1, maxLength: 64 })),
+        kind: Type.Optional(Type.Union([Type.Literal("cron"), Type.Literal("interval")])),
+        schedule: Type.Optional(Type.String({ minLength: 1, maxLength: 120 })),
         prompt: Type.String({ minLength: 1, maxLength: 8_000 }),
         timezone: Type.Optional(Type.String({ minLength: 1 })),
       },
@@ -300,13 +357,31 @@ export function scheduleTool(scheduler: Scheduler, defaultTimeZone: string): Age
     ),
     // A standing automation is persistent configuration: never silent.
     sideEffect: "write",
-    describeCall: (p) => ({ summary: `Schedule "${p.title}" (${p.schedule})` }),
+    describeCall: (p) => ({
+      summary: `Schedule "${p.title}" (${p.at ?? p.schedule ?? "no time given"})`,
+    }),
     run: async (p, ctx) => {
+      const timezone =
+        p.timezone ?? (typeof defaultTimeZone === "function" ? defaultTimeZone() : defaultTimeZone);
+      let fields: { kind: "cron" | "interval" | "reminder"; schedule: string };
+      if (p.at !== undefined) {
+        const ms = parseAtInstant(p.at, timezone);
+        if (ms === undefined) {
+          throw new PsycheError("invalid_params", `"${p.at}" is not an ISO-8601 time`);
+        }
+        fields = { kind: "reminder", schedule: new Date(ms).toISOString() };
+      } else if (p.kind !== undefined && p.schedule !== undefined) {
+        fields = { kind: p.kind, schedule: p.schedule };
+      } else {
+        throw new PsycheError(
+          "invalid_params",
+          "pass `at` for a one-time run, or `kind` and `schedule`",
+        );
+      }
       const automation = await scheduler.create({
-        kind: p.kind,
+        ...fields,
         title: p.title,
-        schedule: p.schedule,
-        timezone: p.timezone ?? defaultTimeZone,
+        timezone,
         sessionTarget: "isolated",
         delivery: { thread: ctx.threadId },
         prompt: p.prompt,

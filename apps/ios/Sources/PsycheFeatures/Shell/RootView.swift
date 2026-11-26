@@ -102,21 +102,21 @@ struct MainTabs: View {
             }
             Tab(value: AppTab.library) {
                 NavigationStack(path: $router.libraryPath) {
-                    LibraryView().routeDestinations()
+                    LibraryView().routeDestinations().psycheSettingsButton()
                 }
             } label: {
                 tabLabel(String(localized: "Library", bundle: .module), symbol: "books.vertical", tab: .library)
             }
             Tab(value: AppTab.memory) {
                 NavigationStack(path: $router.memoryPath) {
-                    MemoryView(store: store).routeDestinations()
+                    MemoryView(store: store).routeDestinations().psycheSettingsButton()
                 }
             } label: {
                 tabLabel(String(localized: "Memory", bundle: .module), symbol: "bookmark", tab: .memory)
             }
             Tab(value: AppTab.search, role: .search) {
                 NavigationStack(path: $router.searchPath) {
-                    SearchView(store: store).routeDestinations()
+                    SearchView(store: store).routeDestinations().psycheSettingsButton()
                 }
             }
         }

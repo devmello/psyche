@@ -121,6 +121,8 @@ export const blocksRest: Partial<Catalogue> = {
   "blocks.approval.whyMode": "Du wolltest das im Modus „{mode}“ bestätigen, weil es {effect}.",
   "blocks.details.params": "Details",
   "blocks.details.reason": "Grund",
+  "blocks.details.when": "Wann",
+  "blocks.details.whatItWillDo": "Was passiert",
   "blocks.approval.answerOnHost":
     "Antworte auf {host} oder richte unter Einstellungen → Geräte Touch ID für Genehmigungen auf diesem Computer ein.",
   "blocks.approval.rateLimited":

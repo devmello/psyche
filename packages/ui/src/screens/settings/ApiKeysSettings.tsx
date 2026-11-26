@@ -1,3 +1,4 @@
+import { ChevronRight, CircleHelp } from "lucide-react";
 import { type ReactElement, useId, useState } from "react";
 import {
   AlertDialog,
@@ -9,10 +10,21 @@ import {
   AlertDialogTitle,
 } from "../../components/ui/alert-dialog.tsx";
 import { Button } from "../../components/ui/button.tsx";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "../../components/ui/dialog.tsx";
+import { Popover, PopoverContent, PopoverTrigger } from "../../components/ui/popover.tsx";
 import { useCall } from "../../data/hooks.ts";
 import { t } from "../../i18n/core.ts";
 import { describeError } from "../../i18n/errors.ts";
 import { Group } from "./shared.tsx";
+
+const ROW =
+  "flex min-h-11 w-full cursor-default items-center gap-3 px-4 py-2 text-start text-body text-label-primary outline-none hover:bg-fill-quaternary focus-visible:ring-2 focus-visible:ring-ring";
 
 /**
  * Settings → Model & providers → API keys (setup without a terminal): one row per hosted model
@@ -64,6 +76,7 @@ function KeyRow({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
+  const [open, setOpen] = useState(false);
 
   const save = async () => {
     const problem = checkApiKeyDraft(draft);
@@ -105,84 +118,116 @@ function KeyRow({
   };
 
   return (
-    <div className="flex flex-col gap-1.5" data-testid={`api-key-${status.id}`}>
-      <label htmlFor={`${id}-key`} className="font-medium text-foreground">
-        {t("settings.apiKeys.field", { name })}
-      </label>
-      <div className="flex flex-wrap items-center gap-2">
-        <input
-          id={`${id}-key`}
-          type="password"
-          // Not a login: password managers must not offer to fill or save it.
-          autoComplete="new-password"
-          data-1p-ignore
-          data-lpignore="true"
-          data-bwignore
-          spellCheck={false}
-          aria-describedby={`${id}-status`}
-          className="h-8 min-w-72 rounded-md border border-input bg-transparent px-2 text-sm"
-          value={draft}
-          onChange={(e) => {
-            setDraft(e.target.value);
+    <>
+      <button
+        type="button"
+        className={ROW}
+        data-testid={`api-key-row-${status.id}`}
+        onClick={() => setOpen(true)}
+      >
+        <span className="min-w-0 flex-1 truncate">{name}</span>
+        <span className="text-callout text-label-secondary">
+          {status.configured ? t("settings.drill.keySet") : t("settings.apiKeys.none")}
+        </span>
+        <ChevronRight className="size-4 text-label-tertiary" aria-hidden="true" />
+      </button>
+      <Dialog
+        open={open}
+        onOpenChange={(next) => {
+          setOpen(next);
+          // The draft is a secret in the page: closing the sheet drops it.
+          if (!next) {
+            setDraft("");
             setError(null);
-          }}
-          disabled={busy}
-        />
-        <Button
-          type="button"
-          size="sm"
-          variant="outline"
-          disabled={busy || draft.trim() === ""}
-          onClick={() => void save()}
-        >
-          {busy ? t("settings.apiKeys.saving") : t("settings.apiKeys.save")}
-        </Button>
-        <Button
-          type="button"
-          size="sm"
-          variant="ghost"
-          disabled={busy || !status.inVault}
-          onClick={() => setConfirming(true)}
-        >
-          {t("settings.apiKeys.clear")}
-        </Button>
-      </div>
-      <AlertDialog open={confirming} onOpenChange={setConfirming}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              {t("settings.apiKeys.clearConfirm.title", { name })}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {isPrimary
-                ? t("settings.apiKeys.clearConfirm.bodyPrimary", { name })
-                : t("settings.apiKeys.clearConfirm.body", { name })}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
-            <Button
-              type="button"
-              variant="destructive"
-              onClick={() => {
-                setConfirming(false);
-                void clear();
-              }}
-            >
-              {t("settings.apiKeys.clearConfirm.confirm")}
-            </Button>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-      <p id={`${id}-status`} className="text-callout text-muted-foreground">
-        {statusLine(status)}
-      </p>
-      {error !== null ? (
-        <p role="alert" className="text-callout text-danger-text">
-          {error}
-        </p>
-      ) : null}
-    </div>
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{name}</DialogTitle>
+            <DialogDescription className="sr-only">{t("settings.apiKeys.title")}</DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-1.5" data-testid={`api-key-${status.id}`}>
+            <label htmlFor={`${id}-key`} className="font-medium text-foreground">
+              {t("settings.apiKeys.field", { name })}
+            </label>
+            <div className="flex flex-wrap items-center gap-2">
+              <input
+                id={`${id}-key`}
+                type="password"
+                // Not a login: password managers must not offer to fill or save it.
+                autoComplete="new-password"
+                data-1p-ignore
+                data-lpignore="true"
+                data-bwignore
+                spellCheck={false}
+                aria-describedby={`${id}-status`}
+                className="h-8 min-w-72 rounded-md border border-input bg-transparent px-2 text-sm"
+                value={draft}
+                onChange={(e) => {
+                  setDraft(e.target.value);
+                  setError(null);
+                }}
+                disabled={busy}
+              />
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={busy || draft.trim() === ""}
+                onClick={() => void save()}
+              >
+                {busy ? t("settings.apiKeys.saving") : t("settings.apiKeys.save")}
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                disabled={busy || !status.inVault}
+                onClick={() => setConfirming(true)}
+              >
+                {t("settings.apiKeys.clear")}
+              </Button>
+            </div>
+            <AlertDialog open={confirming} onOpenChange={setConfirming}>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>
+                    {t("settings.apiKeys.clearConfirm.title", { name })}
+                  </AlertDialogTitle>
+                  <AlertDialogDescription>
+                    {isPrimary
+                      ? t("settings.apiKeys.clearConfirm.bodyPrimary", { name })
+                      : t("settings.apiKeys.clearConfirm.body", { name })}
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    onClick={() => {
+                      setConfirming(false);
+                      void clear();
+                    }}
+                  >
+                    {t("settings.apiKeys.clearConfirm.confirm")}
+                  </Button>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+            <p id={`${id}-status`} className="text-callout text-muted-foreground">
+              {statusLine(status)}
+            </p>
+            {error !== null ? (
+              <p role="alert" className="text-callout text-danger-text">
+                {error}
+              </p>
+            ) : null}
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 
@@ -197,7 +242,28 @@ export function ApiKeysGroup({
   primaryProvider?: string;
 }): ReactElement {
   return (
-    <Group title={t("settings.apiKeys.title")} description={t("settings.apiKeys.description")}>
+    <Group
+      title={t("settings.apiKeys.title")}
+      actions={
+        <Popover>
+          <PopoverTrigger
+            render={
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                aria-label={t("settings.drill.keyHelp")}
+              />
+            }
+          >
+            <CircleHelp aria-hidden="true" />
+          </PopoverTrigger>
+          <PopoverContent align="end" className="w-80 text-callout text-label-secondary">
+            {t("settings.apiKeys.description")}
+          </PopoverContent>
+        </Popover>
+      }
+    >
       {API_KEY_IDS.map((id) => {
         const status = keys.find((k) => k.id === id) ?? {
           id,

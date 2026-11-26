@@ -9,7 +9,8 @@ import {
  * Payment presence on a headless Linux Host (linux-helper-only design §7.4, R2; B3). The Mac's
  * Touch ID and a Linux desktop's polkit password both need someone at the Host: with no local
  * graphical session polkit refuses (`presence_unavailable_here`). On such a Host a **passkey** is
- * the only verifier for payments, registered from a browser at `gateway.publicOrigin`. Without one
+ * the only verifier for payments, registered from the Psyche app on a remote Mac that dials
+ * `gateway.publicOrigin`. Without one
  * a payment never raises a card nobody could answer: the call fails `presence_required`
  * (`details.reason: "passkey_required"`) and says how to set one up. Every other approval stays a
  * plain tap (owner decision 2026-11-09); this rule only looks at payments.
@@ -33,7 +34,7 @@ export function passkeyPresenceForced(serviceEnv: NodeJS.ProcessEnv): boolean {
 export function passkeyRequiredError(): PsycheError {
   return new PsycheError(
     "presence_required",
-    "Set up a passkey to approve payments on this Psyche: open Psyche in a browser at its https address, then Settings → Devices → Add a passkey. Payments can't be approved here without one, so nothing was paid.",
+    "Set up a passkey to approve payments on this Psyche: in the Psyche app on another computer that connects to it at its https address, open Settings → Devices → Add a passkey. Payments can't be approved here without one, so nothing was paid.",
     { details: { reason: "passkey_required" } },
   );
 }

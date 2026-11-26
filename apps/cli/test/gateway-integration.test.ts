@@ -46,7 +46,7 @@ async function cli(...argv: string[]) {
 beforeAll(async () => {
   home = mkdtempSync(join(tmpdir(), "psy-cli-"));
   gateway = await startGateway({
-    config: { home, port: 0, webRoot: null },
+    config: { home, port: 0 },
     env: {},
     logger: quiet as never,
     retentionIntervalMs: 0,

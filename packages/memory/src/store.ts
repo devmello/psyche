@@ -47,6 +47,21 @@ import { chunkId, chunkText, estimateTokens, stripComments } from "./chunker.ts"
 import { applyDailyWrite, formatEntry, newDailyNote, oneLine, parseDailyNote } from "./daily.ts";
 import { blockingKinds } from "./filters.ts";
 import { type FlushConfig, flushFacts, flushMemory } from "./flush.ts";
+import {
+  addForgetCounts,
+  emptyForgetCounts,
+  type ForgetCascade,
+  type ForgetCounts,
+  forgetMatcher,
+  forgetTotal,
+  isStopword,
+  isSuppressed,
+  MAX_SUPPRESSIONS,
+  mentions as mentionsPhrase,
+  minForgetChars,
+  type Suppression,
+  suppressionFor,
+} from "./forget-cascade.ts";
 import { readRegularFile, realDirUnder, writeFileReplacing } from "./hidden-fs.ts";
 import { type ChunkInput, MemoryIndex } from "./index-db.ts";
 import {
@@ -113,8 +128,10 @@ export const DEFAULT_TEMPLATES_DIR = assetDir("templates");
 
 const DIR_MODE = 0o700;
 const FILE_MODE = 0o600;
+/** The agent's own forget: more rows than this, or a short phrase, needs the owner's approval. */
+const AGENT_FORGET_MAX_ROWS = 20;
+const AGENT_FORGET_MIN_CHARS = 4;
 const MAX_ENTRY_CHARS = 2_000;
-const MIN_FORGET_CHARS = 3;
 /** Files `forget` never edits: instructions and persona, not remembered facts. */
 const FORGET_SKIPS = new Set(["SOUL.md", "IDENTITY.md", "AGENTS.md", "BOOTSTRAP.md"]);
 
@@ -149,6 +166,11 @@ export interface SqliteMemoryStoreOptions {
    * The Gateway cuts the same words out of stored run-trace payloads.
    */
   onForget?: (forgotten: ForgottenPhrase) => void;
+  /**
+   * The stores outside this one (graph, lessons, search index): previewed by every dry run and
+   * cleaned by every forget. Can also be set later (`setForgetCascade`), once they exist.
+   */
+  cascade?: ForgetCascade;
 }
 
 /** A forgotten phrase: `pattern` matches it (case-insensitive, whole words, no `g` flag). */
@@ -269,6 +291,8 @@ export class SqliteMemoryStore implements MemoryStore {
   readonly #onChange: ((change: MemoryFileChange) => void) | undefined;
   readonly #flush: FlushConfig | undefined;
   readonly #onForget: ((forgotten: ForgottenPhrase) => void) | undefined;
+  #cascade: ForgetCascade | undefined;
+  #warnedNoKey = false;
   #embedQueue: Promise<unknown> = Promise.resolve();
   #watcher: FSWatcher | undefined;
   #syncTimer: ReturnType<typeof setTimeout> | undefined;
@@ -291,6 +315,7 @@ export class SqliteMemoryStore implements MemoryStore {
     this.#onChange = options.onChange;
     this.#flush = options.flush;
     this.#onForget = options.onForget;
+    this.#cascade = options.cascade;
     ensureDir(options.workspaceDir);
     this.root = options.workspaceDir;
     this.#sqliteVec = options.sqliteVec !== false;
@@ -446,7 +471,67 @@ export class SqliteMemoryStore implements MemoryStore {
     if (!isIndexed(path)) return [];
     // Credentials typed into a file outside Psyche never reach search results.
     const clean = (c: ChunkInput) => blockingKinds(c.text, true).length === 0;
-    return this.#rawChunks(path, content, provenance).filter(clean);
+    const chunks = this.#rawChunks(path, content, provenance).filter(clean);
+    // Files forget never edits (persona, instructions, skills) keep their text; what the owner
+    // forgot stays out of their chunks when they are indexed again.
+    if (!FORGET_SKIPS.has(canonicalCase(path)) && !isSkillFile(path)) return chunks;
+    const suppressed = this.#suppressions();
+    if (suppressed.length === 0) return chunks;
+    const key = this.#forgetKey(false);
+    if (key === undefined) {
+      // The list is there but its key is gone (deleted, or never synced to this machine): the
+      // hashes cannot be checked, so these files index nothing rather than a forgotten phrase.
+      if (!this.#warnedNoKey) {
+        this.#warnedNoKey = true;
+        process.emitWarning(
+          "memory: .psyche/forget.key is missing; persona and skill files are not indexed until memory is reset",
+        );
+      }
+      return [];
+    }
+    return chunks.filter((c) => !isSuppressed(c.text, suppressed, key));
+  }
+
+  /**
+   * This install's secret for keying the hashes of forgotten phrases: 32 random bytes in
+   * `.psyche/forget.key` (0600, removed by `reset`). It stays on this machine: the git backup
+   * lists it in `.gitignore` and never commits it. Not the keychain: nothing here may prompt.
+   * A missing or malformed key is minted only when `create` is set, and the caller sets it only
+   * while the suppression list is empty (a new key would orphan the list's hashes).
+   */
+  #forgetKey(create: boolean): string | undefined {
+    const dir = realDirUnder(this.root, [PSYCHE_DIR], { create, mode: DIR_MODE });
+    if (dir === undefined) return undefined;
+    const have = readRegularFile(dir, FORGET_KEY_FILE, 128)?.trim();
+    if (have !== undefined && /^[0-9a-f]{64}$/.test(have)) return have;
+    if (!create) return undefined;
+    const fresh = randomBytes(32).toString("hex");
+    writeFileReplacing(dir, FORGET_KEY_FILE, `${fresh}\n`, FILE_MODE);
+    return fresh;
+  }
+
+  /** Hashes of forgotten phrases (never the words): see `forgetCascade.isSuppressed`. */
+  #suppressions(): Suppression[] {
+    const v = this.#state("forget.suppress");
+    return Array.isArray(v) ? (v as Suppression[]) : [];
+  }
+
+  #suppress(phrase: string): void {
+    // Mint a key only for the first entry; with entries and no key, the files stay unindexed.
+    const key = this.#forgetKey(this.#suppressions().length === 0);
+    if (key === undefined) return;
+    const entry = suppressionFor(phrase, key);
+    if (entry === undefined) return;
+    const list = this.#suppressions().filter(
+      (x) => !(x.k === entry.k && x.h === entry.h && x.c === entry.c),
+    );
+    list.push(entry);
+    this.#setState("forget.suppress", list.slice(-MAX_SUPPRESSIONS));
+  }
+
+  /** Sets (or clears) the stores `forget` reaches beyond this one. */
+  setForgetCascade(cascade: ForgetCascade | undefined): void {
+    this.#cascade = cascade;
   }
 
   #rawChunks(path: string, content: string, provenance: Provenance): ChunkInput[] {
@@ -1420,55 +1505,120 @@ export class SqliteMemoryStore implements MemoryStore {
    */
   async forget(
     subject: string,
-    options: { dryRun?: boolean; actor?: WriteActor; approvalId?: string; link?: WriteLink } = {},
+    options: {
+      dryRun?: boolean;
+      actor?: WriteActor;
+      approvalId?: string;
+      link?: WriteLink;
+      /**
+       * Reach the graph, lessons and search index too (default true). The People screen's
+       * "Forget person" passes false: it forgets that one person, not every mention of the name.
+       */
+      cascade?: boolean;
+    } = {},
   ): Promise<ForgetResult> {
-    const phrase = oneLine(subject);
-    if (phrase.length < MIN_FORGET_CHARS) {
-      fail("invalid_params", `forget needs at least ${MIN_FORGET_CHARS} characters`);
+    const matcher = forgetMatcher(subject);
+    const { phrase, pattern } = matcher;
+    const min = minForgetChars(phrase);
+    if ([...phrase].length < min) {
+      fail("invalid_params", `forget needs at least ${min} characters`);
     }
-    const escaped = phrase.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/ /g, "\\s+");
-    const pattern = new RegExp(`(?<![\\p{L}\\p{N}])${escaped}(?![\\p{L}\\p{N}])`, "iu");
-    const mentions = (text: string) => pattern.test(text);
+    if (isStopword(phrase)) {
+      fail(
+        "invalid_params",
+        `"${phrase}" is too common a word to forget on its own; add more of the phrase`,
+      );
+    }
+    const mentions = (text: string) => mentionsPhrase(matcher, text);
+    const cascade = options.cascade === false ? undefined : this.#cascade;
 
-    const claims = (await this.listClaims()).filter((c) => mentions(c.text));
-    const claimIds = new Set(claims.map((c) => c.id));
-    const linked = (c: MemoryChunk) => typeof c.claimId === "string" && claimIds.has(c.claimId);
-    const chunks = this.#index.allChunks().filter((c) => mentions(c.text) || linked(c));
+    /** What this store would remove right now. */
+    const compute = async () => {
+      const claims = (await this.listClaims()).filter((c) => mentions(c.text));
+      const claimIds = new Set(claims.map((c) => c.id));
+      const linked = (c: MemoryChunk) => typeof c.claimId === "string" && claimIds.has(c.claimId);
+      const chunks = this.#index.allChunks().filter((c) => mentions(c.text) || linked(c));
 
-    // Lines to drop per file.
-    const edits = new Map<string, string>();
-    for (const path of this.#walk()) {
-      if (FORGET_SKIPS.has(canonicalCase(path)) || isSkillFile(path) || !path.endsWith(".md"))
-        continue;
-      const content = this.#readDisk(path);
-      if (content === undefined) continue;
-      const lines = content.split("\n");
-      const drop = new Set<number>();
-      if (dailyNoteDate(path) !== undefined) {
-        const starts = new Set(
-          chunks.filter((c) => c.source === path && linked(c)).map((c) => c.lineStart),
-        );
-        for (const e of parseDailyNote(content)) {
-          if (mentions(e.text) || starts.has(e.lineStart)) {
-            for (let n = e.lineStart; n <= e.lineEnd; n++) drop.add(n);
+      // Lines to drop per file.
+      const edits = new Map<string, string>();
+      let droppedLines = 0;
+      for (const path of this.#walk()) {
+        if (FORGET_SKIPS.has(canonicalCase(path)) || isSkillFile(path) || !path.endsWith(".md"))
+          continue;
+        const content = this.#readDisk(path);
+        if (content === undefined) continue;
+        const lines = content.split("\n");
+        const drop = new Set<number>();
+        if (dailyNoteDate(path) !== undefined) {
+          const starts = new Set(
+            chunks.filter((c) => c.source === path && linked(c)).map((c) => c.lineStart),
+          );
+          for (const e of parseDailyNote(content)) {
+            if (mentions(e.text) || starts.has(e.lineStart)) {
+              for (let n = e.lineStart; n <= e.lineEnd; n++) drop.add(n);
+            }
           }
+        } else {
+          lines.forEach((l, i) => {
+            if (mentions(l)) drop.add(i + 1);
+          });
         }
-      } else {
-        lines.forEach((l, i) => {
-          if (mentions(l)) drop.add(i + 1);
-        });
+        if (drop.size > 0) {
+          edits.set(path, lines.filter((_, i) => !drop.has(i + 1)).join("\n"));
+          droppedLines += drop.size;
+        }
       }
-      if (drop.size > 0) edits.set(path, lines.filter((_, i) => !drop.has(i + 1)).join("\n"));
-    }
-    const result: ForgetResult = {
-      retractedClaimIds: claims.map((c) => c.id),
-      removedChunkIds: chunks.map((c) => c.id),
-      files: [...edits.keys()],
+      return { claims, chunks, edits, droppedLines };
     };
-    if (options.dryRun === true) return result;
+
+    const first = await compute();
+    const own: ForgetCounts = {
+      ...emptyForgetCounts(),
+      markdownFiles: first.edits.size,
+      markdownLines: first.droppedLines,
+      claims: first.claims.length,
+      chunks: first.chunks.length,
+    };
+    const result: ForgetResult = {
+      retractedClaimIds: first.claims.map((c) => c.id),
+      removedChunkIds: first.chunks.map((c) => c.id),
+      files: [...first.edits.keys()],
+      counts: own,
+    };
+    const previewed =
+      cascade === undefined ? own : addForgetCounts(own, await cascade.preview(matcher));
+    if (options.dryRun === true) {
+      result.counts = previewed;
+      return result;
+    }
 
     if (options.actor === "agent") {
-      const touched = [...edits.keys()].filter(isProtected);
+      // The agent forgets a small, plain thing on its own; anything wider is the owner's call.
+      const wide =
+        forgetTotal(previewed) > AGENT_FORGET_MAX_ROWS ||
+        (previewed.graphEntities ?? 0) > 0 ||
+        (previewed.lessons ?? 0) > 0 ||
+        [...phrase].length < AGENT_FORGET_MIN_CHARS;
+      if (wide) {
+        const id = options.approvalId;
+        if (
+          id === undefined ||
+          id.length === 0 ||
+          this.#usedApprovals.has(id) ||
+          !(await this.#approvals(id, {
+            path: "forget:everywhere",
+            operation: "write",
+            contentSha256: sha256Hex(phrase),
+          }))
+        ) {
+          fail(
+            "approval_required",
+            "forgetting this reaches people, lessons or many entries; ask the owner to do it in Psyche",
+          );
+        }
+        this.#usedApprovals.add(id);
+      }
+      const touched = [...first.edits.keys()].filter(isProtected);
       if (touched.length > 1) {
         fail(
           "approval_required",
@@ -1479,10 +1629,26 @@ export class SqliteMemoryStore implements MemoryStore {
         await this.#checkProtected(path, "agent", "agent", options.approvalId, {
           path,
           operation: "write",
-          contentSha256: sha256Hex(edits.get(path) ?? ""),
+          contentSha256: sha256Hex(first.edits.get(path) ?? ""),
         });
       }
     }
+
+    // The rest of memory goes first: graph, then search documents and lessons (the cascade's own
+    // order). A crash after this point cannot leave a graph card to write the phrase back into
+    // the Markdown. A failure here is the owner's to see (the phrase may still be somewhere),
+    // but the rest of the forget and the run-trace pass still run.
+    let cascadeError: unknown;
+    if (cascade !== undefined) {
+      try {
+        result.counts = addForgetCounts(own, await cascade.apply(matcher));
+      } catch (err) {
+        cascadeError = err;
+      }
+    }
+    // What is left of this store (the cascade can delete card files and lesson lines).
+    const { claims, chunks, edits } = await compute();
+
     // Freed pages (overflow of long notes, merged full-text segments) are zeroed while the forget
     // deletes, so the text is not left in the database file; the WAL is cut at the end.
     const restoreSecureDelete = holdSecureDelete(this.#db);
@@ -1506,10 +1672,16 @@ export class SqliteMemoryStore implements MemoryStore {
         );
         for (const c of claims) retract.run(now, now, c.id);
       })();
-      // Chunks of files forget does not edit (persona files) leave the index until they change.
+      // Chunks of files forget does not edit (persona files) leave the index. When one of them
+      // was among them, a keyed hash of the phrase (never the phrase) keeps it out when the file
+      // is indexed again; nothing is written when no such chunk matched.
       this.#index.deleteChunks(
         chunks.map((c) => c.id).filter((id) => this.#index.getChunk(id) !== undefined),
       );
+      const guarded = [...first.chunks, ...chunks].some(
+        (c) => FORGET_SKIPS.has(canonicalCase(c.source)) || isSkillFile(c.source),
+      );
+      if (cascade !== undefined && guarded) this.#suppress(phrase);
       if (claims.length + chunks.length + edits.size > 0) {
         await this.appendDailyNote({
           text: `Retracted ${claims.length} claim(s) and removed ${chunks.length} memory chunk(s) from ${edits.size} file(s) at the owner's request.`,
@@ -1540,6 +1712,7 @@ export class SqliteMemoryStore implements MemoryStore {
     } catch {
       // The hook logs its own failures.
     }
+    if (cascadeError !== undefined) throw cascadeError;
     return result;
   }
 
@@ -1713,7 +1886,11 @@ export class SqliteMemoryStore implements MemoryStore {
       this.#db.transaction(() => {
         this.#index.clear();
         this.#db.exec("UPDATE memory_claims SET superseded_by = NULL; DELETE FROM memory_claims;");
-        this.#db.prepare("DELETE FROM memory_state WHERE key = 'workspace.initialized'").run();
+        this.#db
+          .prepare(
+            "DELETE FROM memory_state WHERE key IN ('workspace.initialized', 'forget.suppress')",
+          )
+          .run();
       })();
       for (const f of files) {
         this.#emit({
@@ -1733,6 +1910,8 @@ export const PSYCHE_DIR = ".psyche";
 export const PROVENANCE_DIR = "provenance";
 /** This workspace's machine id (local only). */
 export const MACHINE_ID_FILE = "machine.id";
+/** The install secret that keys the hashes of forgotten phrases (inside `PSYCHE_DIR`). */
+export const FORGET_KEY_FILE = "forget.key";
 /**
  * Sidecar format. Version 2 entries are `{ provenance, sha256 }`; version 1's bare class strings
  * cannot be matched to content and are ignored.

@@ -27,6 +27,15 @@ import {
 import { zipSync } from "fflate";
 import type { Call, HandlerDef } from "../context.ts";
 import { removeFrameFile, runRecordingsDir } from "../retention.ts";
+import {
+  fullViewOfCall,
+  runSource,
+  type StepClassifier,
+  scrubPayloads,
+  scrubStep,
+  stepSource,
+  storeClassifier,
+} from "../run-trace/viewer-scrub.ts";
 
 /**
  * `runs.*` (docs/design/run-trace-2026.md §4.4): the run trace's reads, its export and "Delete
@@ -34,6 +43,28 @@ import { removeFrameFile, runRecordingsDir } from "../retention.ts";
  */
 
 const STEPS_PAGE = 500;
+
+/**
+ * The remote-viewer classifier for this call, or `null` for the desktop shell on this Mac, whose
+ * view is unchanged (`run-trace/viewer-scrub.ts`).
+ */
+function scrubberOf(call: Call): StepClassifier | null {
+  if (fullViewOfCall(call)) return null;
+  return storeClassifier(call.ctx.db, (id) => call.ctx.runTrace.toolOf(id));
+}
+
+/**
+ * Whether a remote viewer's thinking text of this run is withheld: the run made an owner-only call,
+ * or one that cannot be classified (the model restates what it read in its thinking).
+ */
+const thinkingHiddenOf = (cls: StepClassifier, runId: string): boolean =>
+  runSource(runId, cls) !== null;
+
+function stepsFor(cls: StepClassifier | null, runId: string, steps: RunStep[]): RunStep[] {
+  if (cls === null) return steps;
+  const thinking = steps.some((s) => s.kind === "thinking") && thinkingHiddenOf(cls, runId);
+  return steps.map((s) => scrubStep(s, stepSource(s, cls), thinking));
+}
 /** Exports larger than this go to the Library instead of inline (§4.4). */
 export const EXPORT_INLINE_BYTES = 8 * 1024 * 1024;
 const ACTIVITY_BUCKETS = 12;
@@ -111,7 +142,7 @@ function summarize(call: Call, run: Run): RunSummary {
 }
 
 /** Everything a run's export needs: steps with kept thinking, tool names and payloads. */
-function traceInput(db: PsycheDb, run: Run): TraceRunInput {
+function traceInput(db: PsycheDb, run: Run, cls: StepClassifier | null): TraceRunInput {
   const steps: RunStep[] = [];
   for (let afterSeq = 0; ; ) {
     const page = listRunSteps(db, run.id, { afterSeq, limit: STEPS_PAGE });
@@ -125,17 +156,30 @@ function traceInput(db: PsycheDb, run: Run): TraceRunInput {
   }
   const payloads: Record<string, { input?: unknown; output?: unknown }> = {};
   const thinking: Record<string, string> = {};
+  const hideThinking = cls !== null && thinkingHiddenOf(cls, run.id);
   for (const s of steps) {
     if (s.payloadRef !== undefined) {
       const { truncated: _t, ...p } = stepPayloads(db, s.id);
-      payloads[s.id] = p;
+      payloads[s.id] = cls === null ? p : scrubPayloads(s, stepSource(s, cls, p), p);
     }
-    if (s.kind === "thinking") {
+    if (s.kind === "thinking" && !hideThinking) {
       const full = getRunStep(db, run.id, s.id)?.text?.full;
       if (full !== undefined) thinking[s.id] = full;
     }
   }
+  if (cls !== null) {
+    const shown = steps.map((s) =>
+      scrubStep(s, stepSource(s, cls, payloadsOf(db, s)), hideThinking),
+    );
+    return { run, steps: shown, tools, payloads, thinking };
+  }
   return { run, steps, tools, payloads, thinking };
+}
+
+function payloadsOf(db: PsycheDb, s: RunStep): { input?: unknown; output?: unknown } | undefined {
+  if (s.payloadRef === undefined) return undefined;
+  const { truncated: _t, ...p } = stepPayloads(db, s.id);
+  return p;
 }
 
 function isIncognito(call: Call, run: Run): boolean {
@@ -150,6 +194,7 @@ function exportRun(call: Call, params: MethodParams<"runs.export">): MethodResul
   const run = requireRun(db, params.runId);
   const sink = call.ctx.runTrace;
   const children = listRuns(db, { parentRunId: run.id, limit: 100 });
+  const cls = scrubberOf(call);
   const frames =
     params.includeFrames === true &&
     params.format === "psyche-trace+json" &&
@@ -158,9 +203,9 @@ function exportRun(call: Call, params: MethodParams<"runs.export">): MethodResul
       : [];
   const trace = sink.redactDeep(
     buildPsycheTrace({
-      ...traceInput(db, run),
+      ...traceInput(db, run, cls),
       exportedAt: call.ctx.now().toISOString(),
-      children: children.map((c) => traceInput(db, c)),
+      children: children.map((c) => traceInput(db, c, cls)),
       frames,
     }),
   );
@@ -222,7 +267,7 @@ export const runsHandlers: Record<string, HandlerDef> = {
       const run = requireRun(db, params.runId);
       return {
         run,
-        steps: listRunSteps(db, run.id, { limit: STEPS_PAGE }),
+        steps: stepsFor(scrubberOf(call), run.id, listRunSteps(db, run.id, { limit: STEPS_PAGE })),
         children: listRuns(db, { parentRunId: run.id, limit: 100 }).reverse(),
       };
     },
@@ -236,7 +281,10 @@ export const runsHandlers: Record<string, HandlerDef> = {
         ...(params.afterSeq === undefined ? {} : { afterSeq: params.afterSeq }),
         limit,
       });
-      return { steps, nextSeq: steps.length === limit ? (steps.at(-1)?.seq ?? null) : null };
+      return {
+        steps: stepsFor(scrubberOf(call), params.runId, steps),
+        nextSeq: steps.length === limit ? (steps.at(-1)?.seq ?? null) : null,
+      };
     },
   },
   "runs.list": {
@@ -289,7 +337,18 @@ export const runsHandlers: Record<string, HandlerDef> = {
       if (step === undefined) throw new PsycheError("not_found", `step ${params.stepId} not found`);
       const { truncated, ...payloads } =
         step.payloadRef === undefined ? { truncated: false } : stepPayloads(db, step.id);
-      return { step, ...payloads, truncated };
+      const cls = scrubberOf(call);
+      if (cls === null) return { step, ...payloads, truncated };
+      const source = stepSource(step, cls, payloads);
+      return {
+        step: scrubStep(
+          step,
+          source,
+          step.kind === "thinking" && thinkingHiddenOf(cls, params.runId),
+        ),
+        ...scrubPayloads(step, source, payloads),
+        truncated,
+      };
     },
   },
   "runs.frames": {
