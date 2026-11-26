@@ -46,8 +46,9 @@ describe("setting labels (docs/ui-audit.md decision 1)", () => {
   it("has a label for every key the kit and the app read or write", () => {
     const keys = keysInSource();
     expect(keys.size).toBeGreaterThan(20);
-    // `psyche.agentSheet.tab` is a browser localStorage key (AgentSheet), not a Gateway setting.
-    const local = new Set(["psyche.agentSheet.tab"]);
+    // Browser localStorage keys, not Gateway settings: `psyche.agentSheet.tab` (AgentSheet) and
+    // `psyche.palette.recent` (the palette's last-run commands, per viewer).
+    const local = new Set(["psyche.agentSheet.tab", "psyche.palette.recent"]);
     const missing = [...keys].filter((k) => !local.has(k) && settingLabel(k) === "this setting");
     expect(missing).toEqual([]);
   });

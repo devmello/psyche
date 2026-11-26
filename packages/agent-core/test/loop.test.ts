@@ -567,7 +567,9 @@ describe("cancellation", () => {
     expect(exec.seen).toHaveLength(0);
     // The transcript stays valid: the dangling call has a result.
     const state = await h.loop.threadState("thr_1");
-    expect(state.messages.at(-1)?.parts[0]).toMatchObject({ type: "tool_result", callId: "c1" });
+    expect(state.messages.at(-2)?.parts[0]).toMatchObject({ type: "tool_result", callId: "c1" });
+    // ...and the stop is explicit for the next turn.
+    expect(state.messages.at(-1)).toMatchObject({ role: "assistant" });
   });
 
   it("an aborted signal cancels the model stream", async () => {
@@ -589,6 +591,73 @@ describe("cancellation", () => {
     controller.abort();
     const events = await turn.done;
     expect(endOf(events).outcome).toBe("cancelled");
+  });
+});
+
+describe("a stopped turn in the next turn's history", () => {
+  const marker = "(stopped by the owner)";
+
+  it("closes a stopped request that got no reply, so the next turn answers only the new message", async () => {
+    const h = harness({
+      script: [call("c1", "ask_user", questionInput()), say("OK")],
+    });
+    const first = start(h, "write a long essay");
+    await until(() => h.loop.openQuestions().length === 1, "question");
+    await h.loop.cancel(first.runId);
+    await first.done;
+    await runTurn(h, "Just say OK.");
+    const sent = h.provider.requests[1]?.messages ?? [];
+    const essay = sent.findIndex((m) =>
+      m.parts.some((p) => p.type === "text" && p.text === "write a long essay"),
+    );
+    const stop = sent.findIndex(
+      (m) => m.role === "assistant" && m.parts.some((p) => p.type === "text" && p.text === marker),
+    );
+    expect(essay).toBeGreaterThanOrEqual(0);
+    expect(stop).toBeGreaterThan(essay);
+    expect(sent.at(-1)).toEqual({
+      role: "user",
+      parts: [{ type: "text", text: "Just say OK.", author: "owner" }],
+    });
+  });
+
+  it("puts the marker after the partial reply the owner saw", async () => {
+    const controller = new AbortController();
+    const slow: ModelEvent[] = Array.from({ length: 50 }, () => ({
+      type: "text_delta",
+      text: ".",
+    }));
+    const h = harness({ script: [slow, say("OK")] });
+    const original = h.provider.stream.bind(h.provider);
+    let slowed = true;
+    h.provider.stream = async function* (request, options) {
+      for await (const e of original(request, options)) {
+        if (slowed) await new Promise((r) => setTimeout(r, 1));
+        yield e;
+      }
+    };
+    const first = start(h, "talk", { signal: controller.signal });
+    await until(() => first.events.some((e) => e.type === "chat.delta"), "delta");
+    controller.abort();
+    await first.done;
+    slowed = false;
+    await runTurn(h, "Just say OK.");
+    const sent = h.provider.requests[1]?.messages ?? [];
+    expect(sent.map((m) => m.role)).toEqual(["user", "assistant", "user"]);
+    const parts = sent[1]?.parts ?? [];
+    expect(parts.at(-1)).toMatchObject({ type: "text", text: expect.stringContaining(marker) });
+  });
+
+  it("adds no marker to a turn that ended normally, or one stopped before its request was recorded", async () => {
+    const h = harness({ script: [say("one"), say("two")] });
+    await runTurn(h, "first");
+    const controller = new AbortController();
+    controller.abort();
+    await runTurn(h, "never read", { signal: controller.signal });
+    await runTurn(h, "second");
+    const sent = JSON.stringify(h.provider.requests.at(-1)?.messages);
+    expect(sent).not.toContain(marker);
+    expect(sent).not.toContain("never read");
   });
 });
 

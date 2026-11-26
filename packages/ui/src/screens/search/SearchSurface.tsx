@@ -26,7 +26,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "../../components/ui/dropdown-menu.tsx";
-import { Kbd } from "../../components/ui/kbd.tsx";
 import { useGatewayQuery, useSearch } from "../../data/hooks.ts";
 import { t } from "../../i18n/core.ts";
 import { cn } from "../../lib/utils.ts";
@@ -99,6 +98,57 @@ const isSourceHit = (hit: SearchHit): boolean =>
 /** Messages, Contacts and Memory stay out of the agent: no side chat about them (the Gateway refuses too). */
 const sideChatBlocked = (hit: SearchHit): boolean =>
   hit.scope === "connectors" && ["messages", "contacts", "memory"].includes(sourceOf(hit));
+
+/** The id of the "Show all commands" row that closes the short default list. */
+const SHOW_ALL_ID = "palette:show-all";
+const SHORT_LIST = 5;
+const RECENT_KEY = "psyche.palette.recent";
+
+/** Ids of the actions the owner ran last, newest first. Storage may be missing or blocked. */
+function recentActionIds(): string[] {
+  try {
+    const raw = JSON.parse(globalThis.localStorage?.getItem(RECENT_KEY) ?? "[]") as unknown;
+    return Array.isArray(raw) ? raw.filter((x): x is string => typeof x === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+function rememberAction(id: string): void {
+  try {
+    const next = [id, ...recentActionIds().filter((x) => x !== id)].slice(0, SHORT_LIST);
+    globalThis.localStorage?.setItem(RECENT_KEY, JSON.stringify(next));
+  } catch {
+    // Remembering is a convenience.
+  }
+}
+
+/**
+ * The palette's opening list: the actions run last, then the host's own order, five in all, and a
+ * "Show all commands" row. Typing searches every action, so nothing is out of reach.
+ */
+export function shortActions(
+  actions: readonly PaletteAction[],
+  onShowAll: () => void,
+): PaletteAction[] {
+  if (actions.length <= SHORT_LIST) return [...actions];
+  const recent = recentActionIds();
+  const rank = (a: PaletteAction) => {
+    const i = recent.indexOf(a.id);
+    return i === -1 ? recent.length : i;
+  };
+  const head = [...actions]
+    .map((a, i) => ({ a, i }))
+    .sort((x, y) => rank(x.a) - rank(y.a) || x.i - y.i)
+    .slice(0, SHORT_LIST)
+    .map((x) => x.a);
+  return [...head, { id: SHOW_ALL_ID, label: t("shell.palette.showAll"), run: onShowAll }];
+}
+
+/** Commands have nothing to preview beyond their name, so the pane is left out for them. */
+function hasPreview(item: SurfaceItem): boolean {
+  return item.kind !== "action";
+}
 
 export function surfaceGroups(
   hits: readonly SearchHit[],
@@ -281,18 +331,24 @@ export function SearchSurface({
   const showSkeleton = useDelayedFlag(loading, loadingDelayMs);
   const blank = query.trim() === "";
   const palette = variant === "palette";
+  // Spotlight-style: the palette opens as one field and a short list. The scope chips and the
+  // `type:` / `from:` helpers appear once the owner types, or presses Tab.
+  const [chipsOpen, setChipsOpen] = useState(false);
+  const [showAll, setShowAll] = useState(false);
+  const showChips = !palette || !blank || chipsOpen;
+  const shortList = palette && blank && !showAll;
   const searching =
     !blank && !(parsed.queryText === "" && parsed.types.length === 0 && parsed.from.length === 0);
   const groups = useMemo(
     () =>
       surfaceGroups(
         searching ? hits : [],
-        palette ? actions : [],
+        palette ? (shortList ? shortActions(actions, () => setShowAll(true)) : actions) : [],
         parsed.text,
         searching ? entities : [],
         searching ? lifeFacts : [],
       ),
-    [searching, hits, palette, actions, parsed.text, entities, lifeFacts],
+    [searching, hits, palette, shortList, actions, parsed.text, entities, lifeFacts],
   );
   const flat = useMemo(() => groups.flatMap((g) => g.items), [groups]);
   // Each keystroke (or a new result set) puts the selection back on the first row, which is the
@@ -336,7 +392,11 @@ export function SearchSurface({
   const choose = (item: SurfaceItem | undefined, sideChat = false) => {
     if (!item) return;
     if (item.kind === "action") {
-      if (item.action.disabledReason === undefined) onRunAction?.(item.action);
+      if (item.action.id === SHOW_ALL_ID) setShowAll(true);
+      else if (item.action.disabledReason === undefined) {
+        rememberAction(item.action.id);
+        onRunAction?.(item.action);
+      }
     } else if (item.kind === "entity") onOpenEntity?.(item.entity);
     else if (item.kind === "fact") onOpenEntity?.(item.fact.entity);
     else if (sideChat && onOpenInSideChat) {
@@ -362,6 +422,10 @@ export function SearchSurface({
       if (!onOpenInSideChat || current?.kind !== "hit" || sideChatBlocked(current.hit)) return;
       e.preventDefault();
       choose(current, true);
+    } else if (e.key === "Tab" && !e.shiftKey && palette && !showChips) {
+      // Tab brings the filters in; the next Tab walks into them.
+      e.preventDefault();
+      setChipsOpen(true);
     } else if (e.key === "Escape" && !palette && query !== "") {
       e.preventDefault();
       onQueryChange("");
@@ -481,7 +545,22 @@ export function SearchSurface({
                     )}
                     data-testid="search-option"
                   >
-                    <SurfaceRow item={item} terms={terms} now={now} />
+                    <SurfaceRow
+                      item={item}
+                      terms={terms}
+                      now={now}
+                      {...(selected &&
+                      palette &&
+                      onOpenInSideChat &&
+                      item.kind === "hit" &&
+                      !sideChatBlocked(item.hit)
+                        ? {
+                            sideChatKey: isMac()
+                              ? t("shell.search.keyCmdL")
+                              : t("shell.search.keyCtrlL"),
+                          }
+                        : {})}
+                    />
                   </div>
                 );
               })}
@@ -599,89 +678,91 @@ export function SearchSurface({
         />
       </div>
 
-      <div
-        role="toolbar"
-        aria-label={t("screens.search.filters")}
-        className={cn(
-          "flex flex-wrap items-center gap-1",
-          palette && "border-b border-separator px-3 py-1.5",
-        )}
-      >
-        <button
-          type="button"
-          aria-pressed={activeScopes.size === 0}
-          onClick={() => onQueryChange(withoutScopes(activeScopes))}
+      {showChips ? (
+        <div
+          role="toolbar"
+          aria-label={t("screens.search.filters")}
           className={cn(
-            chipClass,
-            activeScopes.size === 0
-              ? "bg-accent-a3 text-accent-11"
-              : "text-label-secondary hover:bg-fill-quaternary",
+            "flex flex-wrap items-center gap-1",
+            palette && "border-b border-separator px-3 py-1.5",
           )}
         >
-          {t("screens.search.all")}
-        </button>
-        {SCOPE_ORDER.map((scope) => {
-          const Icon = SCOPE_ICON[scope];
-          const on = activeScopes.has(scope);
-          return (
-            <button
-              key={scope}
-              type="button"
-              aria-pressed={on}
-              aria-label={t("screens.search.filter", { key: "in", value: SCOPE_LABEL[scope] })}
-              onClick={() => toggleScope(scope)}
-              className={cn(
-                chipClass,
-                on
-                  ? "bg-accent-a3 text-accent-11"
-                  : "text-label-secondary hover:bg-fill-quaternary",
-              )}
-            >
-              <Icon className="size-3.5" aria-hidden="true" strokeWidth={1.75} />
-              {SCOPE_LABEL[scope]}
-            </button>
-          );
-        })}
-        <span aria-hidden="true" className="mx-1 h-4 w-px bg-separator" />
-        <DropdownMenu>
-          <DropdownMenuTrigger
-            render={
+          <button
+            type="button"
+            aria-pressed={activeScopes.size === 0}
+            onClick={() => onQueryChange(withoutScopes(activeScopes))}
+            className={cn(
+              chipClass,
+              activeScopes.size === 0
+                ? "bg-accent-a3 text-accent-11"
+                : "text-label-secondary hover:bg-fill-quaternary",
+            )}
+          >
+            {t("screens.search.all")}
+          </button>
+          {SCOPE_ORDER.map((scope) => {
+            const Icon = SCOPE_ICON[scope];
+            const on = activeScopes.has(scope);
+            return (
               <button
+                key={scope}
                 type="button"
-                className={cn(chipClass, "text-label-secondary hover:bg-fill-quaternary")}
-              />
-            }
+                aria-pressed={on}
+                aria-label={t("screens.search.filter", { key: "in", value: SCOPE_LABEL[scope] })}
+                onClick={() => toggleScope(scope)}
+                className={cn(
+                  chipClass,
+                  on
+                    ? "bg-accent-a3 text-accent-11"
+                    : "text-label-secondary hover:bg-fill-quaternary",
+                )}
+              >
+                <Icon className="size-3.5" aria-hidden="true" strokeWidth={1.75} />
+                {SCOPE_LABEL[scope]}
+              </button>
+            );
+          })}
+          <span aria-hidden="true" className="mx-1 h-4 w-px bg-separator" />
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={
+                <button
+                  type="button"
+                  className={cn(chipClass, "text-label-secondary hover:bg-fill-quaternary")}
+                />
+              }
+            >
+              {/* i18n-ignore: query syntax */}
+              type:
+              <ChevronDown className="size-3.5" aria-hidden="true" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-44">
+              {TYPE_CHOICES.map((choice) => (
+                <DropdownMenuItem
+                  key={choice.value}
+                  onClick={() => {
+                    append(`type:${choice.value}`);
+                    focusField();
+                  }}
+                >
+                  {choice.label()}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <button
+            type="button"
+            onClick={() => {
+              append("from:");
+              focusField();
+            }}
+            className={cn(chipClass, "text-label-secondary hover:bg-fill-quaternary")}
           >
             {/* i18n-ignore: query syntax */}
-            type:
-            <ChevronDown className="size-3.5" aria-hidden="true" />
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="w-44">
-            {TYPE_CHOICES.map((choice) => (
-              <DropdownMenuItem
-                key={choice.value}
-                onClick={() => {
-                  append(`type:${choice.value}`);
-                  focusField();
-                }}
-              >
-                {choice.label()}
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
-        <button
-          type="button"
-          onClick={() => {
-            append("from:");
-            focusField();
-          }}
-          className={cn(chipClass, "text-label-secondary hover:bg-fill-quaternary")}
-        >
-          {/* i18n-ignore: query syntax */}
-          from:
-        </button>
-      </div>
+            from:
+          </button>
+        </div>
+      ) : null}
 
       <div className={cn("flex min-h-0 flex-1", palette && "overflow-hidden")}>
         <div className={cn("min-w-0 flex-1", palette && "overflow-y-auto p-1.5")}>
@@ -703,7 +784,7 @@ export function SearchSurface({
           ) : null}
           {results}
         </div>
-        {preview && current ? (
+        {preview && current && hasPreview(current) ? (
           <aside
             aria-label={t("shell.search.preview")}
             className={cn(
@@ -728,26 +809,6 @@ export function SearchSurface({
           </aside>
         ) : null}
       </div>
-
-      {palette ? (
-        <div
-          className="flex h-8 shrink-0 items-center gap-4 border-t border-separator px-3 text-subheadline text-label-tertiary"
-          data-testid="search-hints"
-        >
-          <span className="inline-flex items-center gap-1">
-            <Kbd>↵</Kbd> {t("shell.search.hintOpen")}
-          </span>
-          {onOpenInSideChat ? (
-            <span className="inline-flex items-center gap-1">
-              <Kbd>{isMac() ? t("shell.search.keyCmdL") : t("shell.search.keyCtrlL")}</Kbd>{" "}
-              {t("shell.search.hintSideChat")}
-            </span>
-          ) : null}
-          <span className="inline-flex items-center gap-1">
-            <Kbd>{t("shell.search.keyTab")}</Kbd> {t("shell.search.hintFilter")}
-          </span>
-        </div>
-      ) : null}
     </div>
   );
 }
@@ -756,10 +817,13 @@ function SurfaceRow({
   item,
   terms,
   now,
+  sideChatKey,
 }: {
   item: SurfaceItem;
   terms: readonly string[];
   now: number;
+  /** The key that opens this result in a side chat, shown at the right of the highlighted row. */
+  sideChatKey?: string;
 }): ReactElement {
   if (item.kind === "fact") {
     const f = item.fact;
@@ -868,6 +932,14 @@ function SurfaceRow({
           {t("screens.search.provenanceUnknown")}
         </Badge>
       ) : null}
+      {sideChatKey ? (
+        <span
+          className="shrink-0 text-subheadline text-label-tertiary"
+          title={t("shell.search.hintSideChat")}
+        >
+          {sideChatKey}
+        </span>
+      ) : null}
     </>
   );
 }
@@ -886,7 +958,7 @@ function SurfacePreview({
   onOpen: () => void;
   onSideChat?: () => void;
   renderEntityPreview?: (entity: EntitySummary) => ReactNode;
-}): ReactElement {
+}): ReactElement | null {
   if (item.kind === "fact") {
     return (
       <>
@@ -934,21 +1006,8 @@ function SurfacePreview({
       </>
     );
   }
-  if (item.kind === "action") {
-    return (
-      <>
-        <p className="text-title-3 text-label-primary">{item.action.label}</p>
-        <p className="text-callout text-label-secondary">
-          {item.action.disabledReason ?? t("shell.search.actionHint")}
-        </p>
-        <div>
-          <Button size="sm" onClick={onOpen} disabled={item.action.disabledReason !== undefined}>
-            {t("shell.search.run")}
-          </Button>
-        </div>
-      </>
-    );
-  }
+  // Commands have no preview (`hasPreview`); this narrows the type for the hit below.
+  if (item.kind === "action") return null;
   const { hit } = item;
   const Icon = SCOPE_ICON[hit.scope];
   const sourceOnly = isSourceHit(hit);

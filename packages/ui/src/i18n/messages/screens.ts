@@ -533,9 +533,6 @@ export const screens = {
   "screens.library.noMatch": "No files match these filters.",
   "screens.library.askToMake": "Ask {name} to make one",
   "screens.library.title": "Library",
-  "screens.library.meta.count": "{section} · {n, plural, one {# file} other {# files}}",
-  "screens.library.description":
-    "Files {name} made or received, each linked to the task that produced it.",
   "screens.library.layout": "Layout",
   "screens.library.grid": "Grid",
   "screens.library.list": "List",
@@ -551,8 +548,6 @@ export const screens = {
   "screens.library.col.actions": "Actions",
   "screens.library.typeFilter": "Type",
   "screens.library.allTypes": "All types",
-  "screens.library.sourceTask": "Source task",
-  "screens.library.anyTask": "Any task",
   "screens.library.dateFilter": "Date",
   "screens.library.reset": "Reset",
   "screens.library.trusted": "Trusted {name}.",
