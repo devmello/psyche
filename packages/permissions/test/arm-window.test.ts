@@ -2,7 +2,7 @@ import { APPROVAL_ARM_DELAY_MS, PsycheError } from "@psyche/protocol";
 import { FakeClock } from "@psyche/testing";
 import { describe, expect, it } from "vitest";
 import { createPermissionHandlers } from "../src/handlers.ts";
-import { CTX, call, makeBroker, memoryDb, sqliteBroker } from "./helpers.ts";
+import { approvers, CTX, call, makeBroker, memoryDb, sqliteBroker } from "./helpers.ts";
 
 /**
  * Item 5 of the approval QA: the 400 ms arming window never surfaces as an error. The card says
@@ -16,7 +16,10 @@ const CALLER = {
   surface: "desktop" as const,
 };
 
-async function raise(broker: ReturnType<typeof makeBroker>["broker"]) {
+async function raise(
+  broker: ReturnType<typeof makeBroker>["broker"],
+  surfaces: ("desktop" | "web")[] = ["desktop"],
+) {
   const c = WRITE();
   const d = await broker.decide(c, CTX);
   if (d.approvalKind === undefined || d.bindingHash === undefined || d.grantKey === undefined)
@@ -30,7 +33,7 @@ async function raise(broker: ReturnType<typeof makeBroker>["broker"]) {
     requestedBy: { runId: CTX.runId, taskId: null, threadId: CTX.threadId },
     sideEffect: c.sideEffect,
     ...(c.target === undefined ? {} : { target: c.target }),
-    surfaces: ["desktop"],
+    surfaces,
     taint: false,
   });
 }
@@ -133,5 +136,83 @@ describe("the arming window", () => {
       ),
     ).rejects.toBeInstanceOf(PsycheError);
     expect(slept).toBe(0);
+  });
+});
+
+describe("state changes while a fast tap waits", () => {
+  const answerInput = (issued: Awaited<ReturnType<typeof raise>>) => ({
+    approvalId: issued.approval.id,
+    answerToken: issued.answerTokens.desktop,
+    decision: "approve",
+    scope: "once",
+  });
+
+  it("a card denied on another surface meanwhile fails with answer_late", async () => {
+    const h = makeBroker();
+    const issued = await raise(h.broker, ["desktop", "web"]);
+    const handlers = createPermissionHandlers(h.broker, undefined, {
+      sleep: async (ms) => {
+        h.clock.advance(ms);
+        await h.broker.answer({
+          approvalId: issued.approval.id,
+          answerToken: issued.answerTokens.web ?? "",
+          decision: "deny",
+          decidedBy: { deviceId: "dev_web", surface: "web" },
+        });
+      },
+    });
+    h.clock.advance(100);
+    await expect(handlers["approvals.answer"](answerInput(issued), CALLER)).rejects.toMatchObject({
+      code: "answer_late",
+    });
+  });
+
+  it("a device revoked meanwhile fails with forbidden", async () => {
+    const devices = {
+      dev_mac: { scopes: ["operator.read", "operator.approvals"] as never, revoked: false },
+    };
+    const h = makeBroker({ approvers: approvers(devices) });
+    const issued = await raise(h.broker);
+    const handlers = createPermissionHandlers(h.broker, undefined, {
+      sleep: async (ms) => {
+        h.clock.advance(ms);
+        devices.dev_mac.revoked = true;
+      },
+    });
+    h.clock.advance(100);
+    await expect(handlers["approvals.answer"](answerInput(issued), CALLER)).rejects.toMatchObject({
+      code: "forbidden",
+    });
+  });
+
+  it("a card invalidated meanwhile fails with approval_invalidated", async () => {
+    const h = makeBroker();
+    const issued = await raise(h.broker);
+    const handlers = createPermissionHandlers(h.broker, undefined, {
+      sleep: async (ms) => {
+        h.clock.advance(ms);
+        await h.broker.reissue();
+      },
+    });
+    h.clock.advance(100);
+    await expect(handlers["approvals.answer"](answerInput(issued), CALLER)).rejects.toMatchObject({
+      code: "approval_invalidated",
+    });
+  });
+
+  it("a broker delay longer than the window still ends in approval_not_armed after exactly one sleep", async () => {
+    const h = makeBroker({ armDelayMs: 5_000 });
+    const issued = await raise(h.broker);
+    let sleeps = 0;
+    const handlers = createPermissionHandlers(h.broker, undefined, {
+      sleep: async (ms) => {
+        sleeps += 1;
+        h.clock.advance(ms);
+      },
+    });
+    await expect(handlers["approvals.answer"](answerInput(issued), CALLER)).rejects.toMatchObject({
+      code: "approval_not_armed",
+    });
+    expect(sleeps).toBe(1);
   });
 });

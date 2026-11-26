@@ -149,6 +149,7 @@ import {
   stagedSendBindingHash,
 } from "./staged-apply.ts";
 import {
+  armedAtFor,
   MemoryPermissionStore,
   type PermissionStore,
   type StoredApproval,
@@ -2614,7 +2615,7 @@ export class PsychePermissionBroker implements PermissionBroker {
       scopeGranted: null,
       decidedBy: null,
       requestedAt: new Date(now).toISOString(),
-      armedAt: new Date(now + this.#armDelayMs).toISOString(),
+      armedAt: armedAtFor(new Date(now).toISOString(), this.#armDelayMs),
       expiresAt: new Date(now + this.#cardTtl(input)).toISOString(),
       decidedAt: null,
       grantId: null,

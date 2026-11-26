@@ -193,6 +193,15 @@ const json = (v: unknown) => JSON.stringify(v);
 const parse = <T>(s: string): T => JSON.parse(s) as T;
 
 /** `approvals` and `grants` tables (migration `202610200900_permissions_init.sql`). */
+/**
+ * When a card asked at `requestedAt` arms. The one place the delay is applied to a stored card:
+ * the broker stamps new cards with it (its `armDelayMs` option is a test-only override and a
+ * restart invalidates every pending card, so a stored card never outlives a custom delay).
+ */
+export function armedAtFor(requestedAt: string, delayMs: number = APPROVAL_ARM_DELAY_MS): string {
+  return new Date(Date.parse(requestedAt) + delayMs).toISOString();
+}
+
 export class SqlitePermissionStore implements PermissionStore {
   readonly #db: SqliteDb;
   #depth = 0;
@@ -418,9 +427,8 @@ function approvalFromRow(r: ApprovalRow): StoredApproval {
     scopeGranted: r.scope_granted as ApprovalRequest["scopeGranted"],
     decidedBy: r.decided_by === null ? null : parse<ApprovalRequest["decidedBy"]>(r.decided_by),
     requestedAt: r.requested_at,
-    // Not a column: a card is armed a fixed delay after it was asked (a restart invalidates the
-    // pending ones, so the broker's own `armDelayMs` option never outlives its process).
-    armedAt: new Date(Date.parse(r.requested_at) + APPROVAL_ARM_DELAY_MS).toISOString(),
+    // Not a column: derived the same way the broker stamps it at issue (`armedAtFor`).
+    armedAt: armedAtFor(r.requested_at),
     expiresAt: r.expires_at,
     decidedAt: r.decided_at,
     grantId: r.grant_id,

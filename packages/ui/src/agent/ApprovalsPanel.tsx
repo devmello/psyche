@@ -124,7 +124,27 @@ export function DeferredList({
   const [busy, setBusy] = useState<ReadonlySet<string>>(() => new Set());
   const [error, setError] = useState<string | null>(null);
   const [resuming, setResuming] = useState<readonly string[]>([]);
-  const routine = routineDeferred(items);
+  // Buttons arm when the card does (`armedAt`); a card without it arms 400 ms after its row first
+  // shows, like the Inbox. An unarmed card is out of "Approve all routine" and its count.
+  const firstSeen = useRef(new Map<string, number>());
+  const [clock, setClock] = useState(() => Date.now());
+  const armedAtOf = (v: ApprovalView): number => {
+    const parsed = v.approval.armedAt === undefined ? Number.NaN : Date.parse(v.approval.armedAt);
+    if (Number.isFinite(parsed)) return parsed;
+    const id = v.approval.id;
+    if (!firstSeen.current.has(id)) firstSeen.current.set(id, Date.now());
+    return (firstSeen.current.get(id) as number) + 400;
+  };
+  const isArmed = (v: ApprovalView) => clock >= armedAtOf(v);
+  const nextArm = Math.min(
+    ...items.filter((v) => v.approval.status === "pending" && !isArmed(v)).map(armedAtOf),
+  );
+  useEffect(() => {
+    if (!Number.isFinite(nextArm)) return;
+    const timer = setTimeout(() => setClock(Date.now()), Math.max(0, nextArm - Date.now()) + 5);
+    return () => clearTimeout(timer);
+  }, [nextArm]);
+  const routine = routineDeferred(items).filter(isArmed);
   const titleOf = (v: ApprovalView) =>
     tasks[v.approval.requestedBy.taskId ?? ""]?.title ?? t("agent.approvals.anAutomation");
   const decide = async (views: ApprovalView[], decision: "approve" | "deny", bulk = false) => {
@@ -204,7 +224,7 @@ export function DeferredList({
                   <Button
                     size="xs"
                     variant="ghost"
-                    disabled={rowBusy}
+                    disabled={rowBusy || !isArmed(v)}
                     onClick={() => void decide([v], "deny")}
                   >
                     {t("agent.approvals.decline")}
@@ -212,7 +232,7 @@ export function DeferredList({
                   <Button
                     size="xs"
                     variant="default"
-                    disabled={rowBusy}
+                    disabled={rowBusy || !isArmed(v)}
                     onClick={() => void decide([v], "approve")}
                   >
                     {t("agent.approvals.approve")}
