@@ -2,6 +2,7 @@ import type { Catalogue } from "../index.ts";
 import { actionErrors } from "./action-errors/zh.ts";
 import { agent } from "./agent/zh.ts";
 import { agentNotes } from "./agent-notes/zh.ts";
+import { appleB } from "./apple-b/zh.ts";
 import { appleE1 } from "./apple-e1/zh.ts";
 import { appleE2 } from "./apple-e2/zh.ts";
 import { approvalsW3 } from "./approvals-w3/zh.ts";
@@ -3825,6 +3826,7 @@ export const zh: Partial<Catalogue> = {
   // Fork a plan (docs/design/fork-a-plan-2026.md §9)
   ...planFork,
   ...desktopSimple,
+  ...appleB,
   ...appleE1,
   // Gateway-authored notices (inbox notifications, security alerts)
   ...notices,

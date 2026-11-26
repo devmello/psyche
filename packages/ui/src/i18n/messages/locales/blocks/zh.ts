@@ -104,7 +104,7 @@ export const blocks: Partial<Catalogue> = {
   "blocks.approval.sideEffect.write": "更改内容",
   "blocks.approval.sideEffect.destructive": "更改可能难以撤销的设置或数据",
   "blocks.approval.sideEffect.financial": "涉及金钱",
-  "blocks.approval.whyMode": "“{mode}”模式会在{effect}之前询问。",
+  "blocks.approval.whyMode": "在“{mode}”模式下，由于该操作{effect}，需要先经你批准。",
   "blocks.details.params": "详情",
   "blocks.details.reason": "理由",
   "blocks.details.when": "时间",

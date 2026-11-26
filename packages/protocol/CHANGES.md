@@ -12,6 +12,10 @@
 
 CI fails when the generated files are stale (`pnpm protocol:check`).
 
+## Approvals: `armedAt`
+
+- `ApprovalRequest` gains optional `armedAt` (ISO time): `requestedAt` plus the arming delay (`APPROVAL_ARM_DELAY_MS`, 400 ms). An answer before it is refused with `approval_not_armed`; clients keep their buttons disabled until then. `approvals.answer` itself now waits out the rest of the window instead of failing. Absent on cards from older Gateways: fall back to 400 ms after the card appears.
+
 ## Fork a plan (F1: loop and registry)
 
 - `TaskOrigin` gains `fork` (a plan-fork branch's task); `tasks.created_from` is rebuilt to allow it. The loop's `staging` origin union already carried `{kind:"fork", forkId, branchId}`; it is set by the server only, and a `fork` task must carry it.

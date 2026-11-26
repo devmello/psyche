@@ -10,7 +10,7 @@ export const approvalsW3: Partial<Catalogue> = {
   "approvals.effect.write": "何かを変更します",
   "approvals.effect.read": "情報を読み取ります",
   "approvals.effect.none": "見るだけです",
-  "approvals.effect.untrusted": "信頼できない内容を読んだあと",
+  "approvals.effect.untrusted": "先に外部の内容を読み込んでいます",
   "approvals.expired":
     "期限切れです。何も実行されていません。まだ必要なら、もう一度依頼してください。",
   "approvals.void.changed":

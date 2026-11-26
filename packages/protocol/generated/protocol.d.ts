@@ -1096,6 +1096,7 @@ export interface ApprovalCreatedPayload {
 }
 
 export interface ApprovalRequest {
+    armedAt?:               string;
     bindingHash:            string;
     decidedAt?:             null | string;
     decidedBy?:             DecidedByClass | null;

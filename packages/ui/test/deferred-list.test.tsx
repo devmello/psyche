@@ -1,5 +1,5 @@
 import type { ApprovalRequest } from "@psyche/protocol";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { DeferredList } from "../src/agent/ApprovalsPanel.tsx";
@@ -22,6 +22,7 @@ function view(id: string, extra: Partial<ApprovalRequest> = {}, canAnswer = true
       target: { kind: "path", value: `/Users/owner/Notes/deep/${id}.md` },
       requestedBy: { runId: "run_1", taskId: "task_auto", threadId: null },
       requestedAt: "2026-11-18T10:00:00Z",
+      armedAt: "2026-11-18T10:00:00.400Z",
       expiresAt: "2026-11-18T10:30:00Z",
       ...extra,
     } as ApprovalRequest,
@@ -105,5 +106,72 @@ describe("DeferredList", () => {
     await userEvent.click(within(rowOf("a1")).getByRole("button", { name: "Approve" }));
     expect((await screen.findByRole("alert")).textContent).toMatch(/can't run again/);
     expect(screen.queryByTestId("deferred-resuming")).toBeNull();
+  });
+
+  describe("arming (QA item 5)", () => {
+    const fresh = (id: string) => view(id, { armedAt: new Date(Date.now() + 400).toISOString() });
+
+    it("a card created just now is out of Approve all routine and its buttons are disabled; after 400 ms both come back", async () => {
+      vi.useFakeTimers();
+      try {
+        const answer = vi.fn(async () => ({}) as never);
+        render(
+          <DeferredList
+            items={[view("old"), fresh("new")]}
+            tasks={TASKS}
+            now={NOW}
+            answer={answer}
+          />,
+        );
+        // Only the armed card counts.
+        expect(screen.getByRole("button", { name: /Approve all routine ones \(1\)/ })).toBeTruthy();
+        expect(
+          (within(rowOf("new")).getByRole("button", { name: "Approve" }) as HTMLButtonElement)
+            .disabled,
+        ).toBe(true);
+        expect(
+          (within(rowOf("new")).getByRole("button", { name: "Decline" }) as HTMLButtonElement)
+            .disabled,
+        ).toBe(true);
+        expect(
+          (within(rowOf("old")).getByRole("button", { name: "Approve" }) as HTMLButtonElement)
+            .disabled,
+        ).toBe(false);
+        await act(async () => {
+          await vi.advanceTimersByTimeAsync(450);
+        });
+        expect(screen.getByRole("button", { name: /Approve all routine ones \(2\)/ })).toBeTruthy();
+        expect(
+          (within(rowOf("new")).getByRole("button", { name: "Approve" }) as HTMLButtonElement)
+            .disabled,
+        ).toBe(false);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it("without armedAt a row arms 400 ms after it first shows", async () => {
+      vi.useFakeTimers();
+      try {
+        const { armedAt: _drop, ...rest } = view("legacy").approval;
+        render(
+          <DeferredList
+            items={[{ ...view("legacy"), approval: rest as ApprovalRequest }]}
+            tasks={TASKS}
+            now={NOW}
+            answer={vi.fn()}
+          />,
+        );
+        const approve = () =>
+          within(rowOf("legacy")).getByRole("button", { name: "Approve" }) as HTMLButtonElement;
+        expect(approve().disabled).toBe(true);
+        await act(async () => {
+          await vi.advanceTimersByTimeAsync(450);
+        });
+        expect(approve().disabled).toBe(false);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
   });
 });

@@ -263,7 +263,7 @@ export function taskStartTool(tasks: TaskEngine): AgentToolRegistration {
     // Delegation persists instructions that run later, maybe unattended (design-08): `write`,
     // matching the broker's floor, with its own approval kind.
     sideEffect: "write",
-    describeCall: (p) => ({ kind: "task_start", summary: `Started task "${p.title}"` }),
+    describeCall: (p) => ({ kind: "task_start", summary: `Start a background task: ${p.title}` }),
     run: async (p, ctx) => {
       const task = await tasks.create({
         threadId: ctx.threadId,

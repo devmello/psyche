@@ -1,6 +1,7 @@
 import type { AuditQuery, DetailedVerification, HashChainAuditLog } from "@psyche/audit";
 import {
   type AccessEntry,
+  APPROVAL_ARM_DELAY_MS,
   type ApprovalRequest,
   type AuditEntry,
   type DeviceScope,
@@ -84,10 +85,33 @@ export interface PermissionHandlers {
   "audit.friction"(p: unknown, c: Caller): Promise<FrictionReport>;
 }
 
+export interface PermissionHandlerOptions {
+  /** Waits `ms`; tests inject one that advances their fake clock. */
+  sleep?: (ms: number) => Promise<void>;
+}
+
 export function createPermissionHandlers(
   broker: PsychePermissionBroker,
   audit: HashChainAuditLog | undefined,
+  options: PermissionHandlerOptions = {},
 ): PermissionHandlers {
+  const sleep = options.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
+  // A tap that lands before the card is armed waits out the rest of the arming window and goes
+  // through, so the owner never sees `approval_not_armed` (the anti-accidental-tap window stays;
+  // an answer is still never taken earlier). The refusal changes nothing and is not guessing, so
+  // one retry is safe.
+  const answerWhenArmed: PsychePermissionBroker["answer"] = async (input, opts) => {
+    try {
+      return await broker.answer(input, opts);
+    } catch (err) {
+      if (!(err instanceof PsycheError) || err.code !== "approval_not_armed") throw err;
+      const card = await broker.get(input.approvalId);
+      const armedAt = card?.armedAt === undefined ? Number.NaN : Date.parse(card.armedAt);
+      const left = Number.isFinite(armedAt) ? armedAt - broker.clock.now() : APPROVAL_ARM_DELAY_MS;
+      await sleep(Math.min(APPROVAL_ARM_DELAY_MS, Math.max(0, left)) + 5);
+      return broker.answer(input, opts);
+    }
+  };
   const needAudit = () => {
     if (audit === undefined) throw new PsycheError("unavailable", "audit log not configured");
     return audit;
@@ -155,7 +179,7 @@ export function createPermissionHandlers(
           details: { reason: "presence_invalid" },
         });
       }
-      const approval = await broker.answer(
+      const approval = await answerWhenArmed(
         {
           ...params,
           decidedBy: { deviceId: c.deviceId, surface: c.surface },
