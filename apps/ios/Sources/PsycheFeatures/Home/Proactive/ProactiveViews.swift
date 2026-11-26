@@ -732,7 +732,7 @@ struct ScheduledView: View {
 
     var body: some View {
         ProactivePage(
-            title: String(localized: "Scheduled", bundle: .module), phase: model.phase, skeleton: .skeleton,
+            title: String(localized: "Scheduled tasks", bundle: .module), phase: model.phase, skeleton: .skeleton,
             load: model.load, observe: model.observe
         ) { overview in
             if overview.items.isEmpty && overview.runs.isEmpty {
