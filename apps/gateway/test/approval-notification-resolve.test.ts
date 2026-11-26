@@ -1,11 +1,12 @@
 import { openDb } from "@psyche/db";
-import { type NotifierEvent, PsycheNotifier, SqliteNotificationStore } from "@psyche/notifications";
+import { PsycheNotifier, SqliteNotificationStore } from "@psyche/notifications";
 import {
   createPermissionBroker,
   type PolicyCall,
   type PsychePermissionBroker,
   SqlitePermissionStore,
 } from "@psyche/permissions";
+import type { NotifierEvent } from "@psyche/protocol";
 import { FakeClock, sha256 } from "@psyche/testing";
 import { describe, expect, it } from "vitest";
 
